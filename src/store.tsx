@@ -3,6 +3,7 @@ import type { Data, Issue, IssueTypeId, PriorityId, Toast, Transition, User, Vie
 import { ISSUE_TYPES, PRIORITIES } from "./types";
 import { DEFAULT_WORKFLOW, freshData } from "./seed";
 import { can as canDo, denialReason, roleMeta, type PermId } from "./permissions";
+import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
 
 const LS_KEY = "taskira.v1";
 
@@ -97,8 +98,18 @@ function load(): Data {
 }
 
 let toastSeq = 1;
-let idSeq = 1000;
-const nid = (p: string) => `${p}${Date.now().toString(36)}${(idSeq++).toString(36)}`;
+
+/* Идентификаторы — RFC 4122 UUID (Этап 1): формат совпадает с серверными PK в PostgreSQL.
+   Fallback — для несекьюрного контекста (http вне localhost), где crypto.randomUUID недоступен. */
+const uuid = (): string =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+        (+c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))).toString(16),
+      );
+
+/* Временный алиас: точки вызова перейдут на uuid() напрямую при переносе store на API (Этап 4) */
+const nid = (_prefix: string): string => uuid();
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<Data>(load);
@@ -139,6 +150,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const createIssue = useCallback(
     (input: CreateInput) => {
       if (!requirePerm("create")) return;
+      /* Валидация ввода (Этап 1). Сервер повторяет эти проверки zod-схемами. */
+      const t = validateTitle(input.title);
+      if (!t.ok) return toast("error", t.error);
+      const d = validateDescription(input.description);
+      if (!d.ok) return toast("error", d.error);
+      const l = validateLabels(input.labels);
+      if (!l.ok) return toast("error", l.error);
+      const p = validatePoints(input.points);
+      if (!p.ok) return toast("error", p.error);
+      input = { ...input, title: t.value, description: d.value, labels: l.value, points: p.value };
       const d0 = dataRef.current;
       const num = d0.seq;
       const id = nid("i");
@@ -146,8 +167,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const issue: Issue = {
         id,
         key: `${d0.project.key}-${num}`,
-        title: input.title.trim(),
-        description: input.description.trim(),
+        title: input.title,
+        description: input.description,
         typeId: input.typeId,
         statusId: input.statusId ?? "todo",
         priorityId: input.priorityId,
@@ -174,6 +195,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const iss = dataRef.current.issues.find((i) => i.id === id);
       if (!iss) return;
       if (!requirePerm("edit", iss)) return;
+      /* Нормализация входных значений (зеркалится сервером, Этап 3) */
+      if (patch.title !== undefined) {
+        const r = validateTitle(patch.title);
+        if (!r.ok) return toast("error", r.error);
+        patch = { ...patch, title: r.value };
+      }
+      if (patch.description !== undefined) patch = { ...patch, description: sanitizeText(patch.description, LIMITS.description.max) };
+      if (patch.labels !== undefined) {
+        const r = validateLabels(patch.labels);
+        if (!r.ok) return toast("error", r.error);
+        patch = { ...patch, labels: r.value };
+      }
+      if (patch.points !== undefined) {
+        const r = validatePoints(patch.points);
+        if (!r.ok) return toast("error", r.error);
+        patch = { ...patch, points: r.value };
+      }
       setData((prev) => {
         const cur = prev.issues.find((i) => i.id === id)!;
         const logs: string[] = [];
@@ -199,7 +237,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, issues: prev.issues.map((i) => (i.id === id ? next : i)) };
       });
     },
-    [requirePerm],
+    [requirePerm, toast],
   );
 
   const moveStatus = useCallback(
@@ -266,8 +304,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const addComment = useCallback(
     (issueId: string, body: string) => {
       if (!requirePerm("comment")) return;
-      const b = body.trim();
-      if (!b) return;
+      const r = validateComment(body);
+      if (!r.ok) {
+        toast("error", r.error);
+        return;
+      }
+      const b = r.value;
       setData((prev) => ({
         ...prev,
         issues: prev.issues.map((i) =>

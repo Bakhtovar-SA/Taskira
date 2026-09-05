@@ -5,6 +5,7 @@ import { ISSUE_TYPES, PRIORITY_ORDER, PRIORITIES, TYPE_ORDER } from "../types";
 import { IcChevD, IcX, TypeIcon } from "../icons";
 import { Avatar, Dropdown, Modal, Chip } from "../ui";
 import { IcCheck, PriorityIcon } from "../icons";
+import { LIMITS } from "../validation";
 
 const inputCls = "w-full rounded-md border border-line bg-white px-3 py-2 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
 
@@ -100,6 +101,7 @@ export default function CreateIssueModal() {
             }}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="Например: Экран восстановления пароля"
+            maxLength={LIMITS.title.max}
             className={`${inputCls} ${error ? "border-danger ring-2 ring-danger/15" : ""}`}
           />
           {error && <p className="mt-1 text-[11.5px] font-semibold text-danger">{error}</p>}
@@ -107,7 +109,17 @@ export default function CreateIssueModal() {
 
         <div>
           <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Описание</p>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Что нужно сделать и критерии готовности…" className={`${inputCls} resize-y`} />
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            maxLength={LIMITS.description.max}
+            placeholder="Что нужно сделать и критерии готовности…"
+            className={`${inputCls} resize-y`}
+          />
+          {description.length > LIMITS.description.max * 0.8 && (
+            <p className="mt-1 text-right font-mono text-[10.5px] text-faint">{description.length} / {LIMITS.description.max}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
