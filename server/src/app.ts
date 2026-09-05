@@ -1,0 +1,66 @@
+/** Сборка Fastify: плагины, обработчики ошибок, маршруты. */
+import Fastify, { type FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
+import jwt from "@fastify/jwt";
+import websocket from "@fastify/websocket";
+import { loadConfig } from "./config.js";
+import { ApiHttpError } from "./middleware.js";
+import { authRoutes } from "./routes/auth.js";
+import { q } from "./db.js";
+import { ZodError } from "zod";
+import { formatZod } from "./middleware.js";
+
+export function buildApp(): FastifyInstance {
+  const cfg = loadConfig();
+
+  const app = Fastify({ logger: { level: "info" } });
+
+  app.register(cors, {
+    origin: cfg.corsOrigin === "*" ? true : cfg.corsOrigin,
+    credentials: false,
+  });
+  app.register(jwt, { secret: cfg.jwtSecret });
+  app.register(websocket); // realtime-маршруты — Этап 3c
+
+  /* Единый формат ошибок: { error: { code, reason } } */
+  app.setErrorHandler((err, req, reply) => {
+    if (err instanceof ApiHttpError) {
+      reply.code(err.statusCode).send({ error: { code: err.code, reason: err.message } });
+      return;
+    }
+    if (err instanceof ZodError) {
+      reply.code(400).send({ error: { code: "VALIDATION", reason: formatZod(err) } });
+      return;
+    }
+    if (err.validation) {
+      reply.code(400).send({ error: { code: "VALIDATION", reason: err.message } });
+      return;
+    }
+    req.log.error(err);
+    reply.code(500).send({ error: { code: "INTERNAL", reason: "Внутренняя ошибка сервера" } });
+  });
+
+  app.setNotFoundHandler((_req, reply) => {
+    reply.code(404).send({ error: { code: "NOT_FOUND", reason: "Эндпоинт не найден" } });
+  });
+
+  /* Служебное: готовность + связь с БД */
+  app.get("/api/health", async () => {
+    let db = false;
+    try {
+      await q(`SELECT 1`);
+      db = true;
+    } catch {
+      db = false;
+    }
+    return { ok: db, db, ts: new Date().toISOString() };
+  });
+
+  app.register(async (api) => {
+    await api.register(authRoutes, { prefix: "/auth" });
+    // Этап 3b: issues, sprints, workflow, users
+    // Этап 3c: /ws
+  }, { prefix: "/api" });
+
+  return app;
+}
