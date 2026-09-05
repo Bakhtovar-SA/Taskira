@@ -71,7 +71,7 @@ workflow:changed | presence`, каждое сообщение содержит `
 |---|---|---|
 | 1 | `chore(security): client hardening` — UUID, валидация/санитизация, аудит requirePerm | ✅ |
 | 2 | `feat(db): migration 001 + API contract (zod) + design doc` | ✅ |
-| 3a | `feat(server): skeleton` — Fastify, env-конфиг, PG-пул, JWT+bcrypt, middleware прав, перенос permissions | ⏳ |
+| 3a | `feat(server): skeleton` — Fastify, env-конфиг, PG-пул, JWT+bcrypt, middleware прав, перенос permissions | ✅ |
 | 3b | `feat(server): routes` — issues/sprints/workflow/comments/users + audit_log | ⏳ |
 | 3c | `feat(server): ws` — realtime-рассылка | ⏳ |
 | 4 | `feat(web): api-client` — store поверх API, 403→reason, loading/offline, WS-синхронизация | ⏳ |
