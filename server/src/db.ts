@@ -32,26 +32,35 @@ export async function exec(text: string): Promise<void> {
   await getPool().query(text);
 }
 
-/** Применяет миграции из server/migrations по имени, отмечая выполненые в schema_migrations. */
+/**
+ * Применяет миграции из server/migrations по имени, отмечая выполненные в schema_migrations.
+ * Каждая миграция проходит ЦЕЛИКОМ на одном соединении внутри явной транзакции:
+ * при ошибке — ROLLBACK, соединение всегда возвращается в пул (fix 3a).
+ */
 export async function migrate(): Promise<void> {
+  const p = getPool();
   const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
   const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 
-  await exec(`CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
+  await p.query(`CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
 
   for (const file of files) {
-    const applied = await one<{ name: string }>(`SELECT name FROM schema_migrations WHERE name = $1`, [file]);
-    if (applied) continue;
+    const applied = await p.query(`SELECT 1 FROM schema_migrations WHERE name = $1`, [file]);
+    if (applied.rows.length > 0) continue;
+
     const sql = readFileSync(join(dir, file), "utf8");
-    await exec(`BEGIN`);
+    const client = await p.connect();
     try {
-      await exec(sql);
-      await exec(`INSERT INTO schema_migrations (name) VALUES ('${file.replace(/'/g, "''")}')`);
-      await exec(`COMMIT`);
+      await client.query("BEGIN");
+      await client.query(sql); // все операторы файла — внутри одной транзакции
+      await client.query(`INSERT INTO schema_migrations (name) VALUES ($1)`, [file]);
+      await client.query("COMMIT");
       console.log(`[db] применена миграция ${file}`);
     } catch (e) {
-      await exec(`ROLLBACK`);
+      await client.query("ROLLBACK").catch(() => undefined);
       throw e;
+    } finally {
+      client.release();
     }
   }
 }

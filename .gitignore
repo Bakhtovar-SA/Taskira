@@ -3,3 +3,11 @@ node_modules/
 dist/
 build/
 *.log
+
+# Секреты — никогда в репозитории
+.env
+server/.env
+
+# Серверные артефакты
+server/node_modules/
+server/dist/

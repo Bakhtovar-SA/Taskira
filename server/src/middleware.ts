@@ -6,7 +6,7 @@ import type { FastifyReply, FastifyRequest, preHandlerHookHandler, preValidation
 import { ZodError, type ZodType } from "zod";
 import { audit } from "./audit.js";
 import { one } from "./db.js";
-import { can, denialReason, roleHas, type IssueRef, type PermId, type ServerUser } from "./permissions.js";
+import { can, denialReason, roleHas, type AccessRole, type IssueRef, type PermId, type ServerUser } from "./permissions.js";
 
 /* -------- типы JWT и расширений запроса -------- */
 export interface JwtPayload {
@@ -60,13 +60,40 @@ export function zbody<T extends ZodType>(schema: T): preValidationHookHandler {
   };
 }
 
-/* -------- аутентификация -------- */
+/* -------- аутентификация --------
+   JWT подтверждает личность, но роль и активность берём из БД (fix 3a):
+   смена роли админом или деактивация аккаунта действуют без ожидания
+   истечения токена (12h). Лёгкий кэш на 30 секунд бережёт БД на внутренней сети. */
+const FRESH_TTL_MS = 30_000;
+const freshUsers = new Map<string, { role: AccessRole; active: boolean; at: number }>();
+
+/** Сбрасывает кэш пользователя — вызывать при смене роли/активности админом. */
+export function invalidateUserCache(userId: string): void {
+  freshUsers.delete(userId);
+}
+
 export const requireAuth: preHandlerHookHandler = async (req) => {
   try {
     await req.jwtVerify();
   } catch {
     throw unauthorized();
   }
+
+  const id = req.user.sub;
+  let fresh = freshUsers.get(id);
+  if (!fresh || Date.now() - fresh.at > FRESH_TTL_MS) {
+    const row = await one<{ access_role: AccessRole; is_active: boolean }>(
+      `SELECT access_role, is_active FROM users WHERE id = $1`,
+      [id],
+    );
+    if (!row) throw unauthorized("Пользователь больше не существует");
+    fresh = { role: row.access_role, active: row.is_active, at: Date.now() };
+    freshUsers.set(id, fresh);
+  }
+  if (!fresh.active) throw unauthorized("Аккаунт деактивирован администратором");
+
+  // Роль из БД новее роли в токене — перезаписываем для всех последующих проверок
+  req.user = { ...req.user, role: fresh.role };
 };
 
 const serverUser = (req: FastifyRequest): ServerUser => ({ id: req.user.sub, accessRole: req.user.role });

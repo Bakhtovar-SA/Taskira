@@ -44,16 +44,15 @@ export function buildApp(): FastifyInstance {
     reply.code(404).send({ error: { code: "NOT_FOUND", reason: "Эндпоинт не найден" } });
   });
 
-  /* Служебное: готовность + связь с БД */
-  app.get("/api/health", async () => {
-    let db = false;
+  /* Служебное: готовность + связь с БД. Нет БД — 503 для балансировщика/мониторинга. */
+  app.get("/api/health", async (_req, reply) => {
+    let db = true;
     try {
       await q(`SELECT 1`);
-      db = true;
     } catch {
       db = false;
     }
-    return { ok: db, db, ts: new Date().toISOString() };
+    reply.code(db ? 200 : 503).send({ ok: db, db, ts: new Date().toISOString() });
   });
 
   app.register(async (api) => {
