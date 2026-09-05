@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useStore } from "../store";
 import type { Transition } from "../types";
-import { IcChevR, IcFlow, IcPlus, IcTrash, IcUndo } from "../icons";
+import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo } from "../icons";
 import { Lozenge, catColor } from "../ui";
 
 const POS: Record<string, { x: number; y: number; w: number; h: number }> = {
@@ -36,7 +36,8 @@ function edgePath(t: Transition) {
 }
 
 export default function WorkflowView() {
-  const { data, addTransition, removeTransition, resetWorkflow, toast } = useStore();
+  const { data, addTransition, removeTransition, resetWorkflow, toast, can } = useStore();
+  const canEditWf = can("editWorkflow");
   const [from, setFrom] = useState("todo");
   const [to, setTo] = useState("review");
   const [formErr, setFormErr] = useState("");
@@ -64,9 +65,11 @@ export default function WorkflowView() {
               Схема переходов проекта {data.project.key} — доска и карточки подчиняются этим правилам · {data.workflow.transitions.length} переходов
             </p>
           </div>
-          <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-md border border-line bg-white px-3 text-[12.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent">
-            <IcUndo size={13} /> Сбросить схему
-          </button>
+          {canEditWf && (
+            <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-md border border-line bg-white px-3 text-[12.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent">
+              <IcUndo size={13} /> Сбросить схему
+            </button>
+          )}
         </div>
 
         {/* граф */}
@@ -140,19 +143,31 @@ export default function WorkflowView() {
                   <IcChevR size={13} className={hover === t.id ? "text-accent" : "text-faint"} />
                   <Lozenge status={b} size="sm" />
                   <span className="ml-auto font-mono text-[10.5px] text-faint">{countBy(t.from)} → {countBy(t.to)}</span>
-                  <button
-                    onClick={() => removeTransition(t.id)}
-                    className="flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
-                    aria-label="Удалить переход"
-                  >
-                    <IcTrash size={13} />
-                  </button>
+                  {canEditWf && (
+                    <button
+                      onClick={() => removeTransition(t.id)}
+                      className="flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
+                      aria-label="Удалить переход"
+                    >
+                      <IcTrash size={13} />
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
 
           <div className="h-fit rounded-xl border border-line bg-panel p-4">
+            {!canEditWf ? (
+              <div className="flex flex-col items-center gap-2 py-4 text-center">
+                <IcLock size={22} className="text-faint" />
+                <p className="text-[13px] font-bold text-sub">Схема только для чтения</p>
+                <p className="text-[11.5px] leading-relaxed text-faint">
+                  Изменять переходы может только <b className="text-[#B42318]">Администратор</b>. Переключите пользователя в меню сверху, чтобы редактировать схему.
+                </p>
+              </div>
+            ) : (
+            <>
             <p className="text-[12px] font-bold uppercase tracking-wider text-sub">Новый переход</p>
             <p className="mt-1 text-[11.5px] leading-relaxed text-faint">Правило сразу начнёт действовать: карточки на доске нельзя будет перетащить против схемы.</p>
             <div className="mt-3 space-y-2.5">
@@ -186,6 +201,8 @@ export default function WorkflowView() {
                 Как это работает?
               </button>
             </div>
+            </>
+            )}
           </div>
         </div>
       </div>

@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { fmtDate, useStore } from "../store";
 import type { Issue, Sprint } from "../types";
-import { IcBolt, IcCalendar, IcChevD, IcDots, IcFlag, IcInbox, IcTrash, PriorityIcon, TypeIcon } from "../icons";
+import { IcBolt, IcCalendar, IcChevD, IcDots, IcFlag, IcInbox, IcLock, IcTrash, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, Empty, MenuItem } from "../ui";
 
-function Row({ issue, onDragStart, onDragEnd }: { issue: Issue; onDragStart: () => void; onDragEnd: () => void }) {
-  const { data, openIssue, setSprint, deleteIssue } = useStore();
+function Row({ issue, onDragStart, onDragEnd, draggable }: { issue: Issue; onDragStart: () => void; onDragEnd: () => void; draggable: boolean }) {
+  const { data, openIssue, setSprint, deleteIssue, can } = useStore();
   const assignee = data.users.find((u) => u.id === issue.assigneeId);
   const epic = data.issues.find((i) => i.id === issue.epicId);
   const active = data.sprints.find((s) => s.status === "active");
@@ -13,7 +13,7 @@ function Row({ issue, onDragStart, onDragEnd }: { issue: Issue; onDragStart: () 
 
   return (
     <div
-      draggable
+      draggable={draggable}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", issue.id);
         onDragStart();
@@ -64,10 +64,14 @@ function Row({ issue, onDragStart, onDragEnd }: { issue: Issue; onDragStart: () 
               {issue.sprintId !== null && (
                 <MenuItem onClick={() => { setSprint(issue.id, null); close(); }}>Вернуть в бэклог</MenuItem>
               )}
-              <div className="my-1 border-t border-linesoft" />
-              <MenuItem danger onClick={() => { deleteIssue(issue.id); close(); }}>
-                <IcTrash size={13} /> Удалить
-              </MenuItem>
+              {can("delete") && (
+                <>
+                  <div className="my-1 border-t border-linesoft" />
+                  <MenuItem danger onClick={() => { deleteIssue(issue.id); close(); }}>
+                    <IcTrash size={13} /> Удалить
+                  </MenuItem>
+                </>
+              )}
             </>
           )}
         </Dropdown>
@@ -77,7 +81,8 @@ function Row({ issue, onDragStart, onDragEnd }: { issue: Issue; onDragStart: () 
 }
 
 function Section({ title, sprint, issues, zone, accent, right, defaultOpen = true }: { title: string; sprint?: Sprint; issues: Issue[]; zone: string; accent?: boolean; right?: React.ReactNode; defaultOpen?: boolean }) {
-  const { setSprint, ui } = useStore();
+  const { setSprint, ui, can } = useStore();
+  const canManage = can("manageSprints");
   const [open, setOpen] = useState(defaultOpen);
   const [over, setOver] = useState(false);
   const pts = issues.reduce((a, i) => a + (i.points ?? 0), 0);
@@ -137,7 +142,7 @@ function Section({ title, sprint, issues, zone, accent, right, defaultOpen = tru
       {open && (
         <div className={`transition-all ${over ? "ring-2 ring-inset ring-accent/50" : ""}`}>
           {issues.map((i) => (
-            <Row key={i.id} issue={i} onDragStart={() => ui.lastEvent} onDragEnd={() => undefined} />
+            <Row key={i.id} issue={i} draggable={canManage} onDragStart={() => ui.lastEvent} onDragEnd={() => undefined} />
           ))}
           {issues.length === 0 && (
             <div className="p-3">
@@ -151,7 +156,8 @@ function Section({ title, sprint, issues, zone, accent, right, defaultOpen = tru
 }
 
 export default function Backlog() {
-  const { data, completeSprint, startSprint } = useStore();
+  const { data, completeSprint, startSprint, can } = useStore();
+  const canManage = can("manageSprints");
   const active = data.sprints.find((s) => s.status === "active");
   const future = data.sprints.find((s) => s.status === "future");
   const issues = useMemo(() => data.issues.filter((i) => i.typeId !== "epic"), [data.issues]);
@@ -165,17 +171,24 @@ export default function Backlog() {
             <p className="mt-0.5 text-[11.5px] text-faint">Планируйте спринты перетаскиванием задач между секциями</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            {!canManage && (
+              <span className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-canvas px-3 text-[12px] font-medium text-faint">
+                <IcLock size={12} /> спринты управляет менеджер
+              </span>
+            )}
             {active ? (
               <button
                 onClick={completeSprint}
-                className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-white px-3 text-[12.5px] font-semibold text-sub transition-colors hover:border-ok hover:text-ok"
+                disabled={!canManage}
+                className={`flex h-8 items-center gap-1.5 rounded-md border border-line bg-white px-3 text-[12.5px] font-semibold transition-colors ${canManage ? "text-sub hover:border-ok hover:text-ok" : "cursor-not-allowed text-faint"}`}
               >
                 <IcBolt size={13} /> Завершить {active.name.toLowerCase()}
               </button>
             ) : (
               <button
                 onClick={startSprint}
-                className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-3.5 text-[12.5px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.97]"
+                disabled={!canManage}
+                className={`flex h-8 items-center gap-1.5 rounded-md px-3.5 text-[12.5px] font-semibold transition-all ${canManage ? "bg-accent text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] hover:bg-accentdeep active:scale-[0.97]" : "cursor-not-allowed bg-canvas text-faint"}`}
               >
                 <IcBolt size={13} /> Начать спринт
               </button>

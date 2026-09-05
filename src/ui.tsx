@@ -127,6 +127,58 @@ export const Kbd = ({ children }: { children: React.ReactNode }) => (
   <kbd className="rounded border border-[#2c415f] bg-sidebar2 px-1.5 py-px font-mono text-[10px] font-medium text-[#8fa3c2]">{children}</kbd>
 );
 
+/* Тултип при наведении */
+export const Tip = ({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) => (
+  <span className={`group/tip relative inline-flex ${className}`}>
+    {children}
+    <span className="pointer-events-none absolute bottom-full left-1/2 z-[60] mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-sidebar px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_6px_20px_rgba(12,22,38,0.35)] transition-opacity duration-150 group-hover/tip:opacity-100">
+      {label}
+    </span>
+  </span>
+);
+
+/* Палитра ролей доступа (используется в бейджах и на странице прав) */
+export const roleBadgeColors: Record<import("./types").AccessRole, string> = {
+  admin: "#B42318",
+  manager: "#0B5FD9",
+  developer: "#1C8A5C",
+  viewer: "#64748B",
+};
+
+/* Бейдж роли доступа */
+export const RoleBadge = ({ role, size = "md" }: { role: import("./types").AccessRole; size?: "sm" | "md" }) => {
+  const meta = {
+    admin: { name: "Администратор", color: "#B42318", bg: "#fdeae8" },
+    manager: { name: "Менеджер", color: "#0B5FD9", bg: "#e8f0fd" },
+    developer: { name: "Разработчик", color: "#1C8A5C", bg: "#ddf3e7" },
+    viewer: { name: "Наблюдатель", color: "#64748B", bg: "#e8edf4" },
+  }[role];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded font-semibold ${size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]"}`}
+      style={{ background: meta.bg, color: meta.color }}
+    >
+      <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M8 1.5l5.5 2v4.2c0 3.7-2.3 6-5.5 7-3.2-1-5.5-3.3-5.5-7V3.5L8 1.5z" />
+      </svg>
+      {meta.name}
+    </span>
+  );
+};
+
+/* Плашка «нет прав» для заблокированных полей */
+export const LockedField = ({ children, reason }: { children: React.ReactNode; reason: string }) => (
+  <Tip label={reason} className="w-full">
+    <div className="flex w-full cursor-not-allowed items-center gap-2 rounded-md border border-linesoft bg-canvas/70 px-2.5 py-1.5 text-[13px] text-faint opacity-80">
+      <span className="min-w-0 flex-1 truncate text-left">{children}</span>
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+        <rect x="3.5" y="7" width="9" height="6.5" rx="1.5" />
+        <path d="M5.5 7V5.3a2.5 2.5 0 015 0V7" />
+      </svg>
+    </div>
+  </Tip>
+);
+
 export function Toasts() {
   const { toasts } = useStore();
   const meta = {

@@ -139,3 +139,15 @@ export const IcFlag = (p: P) => <S {...p}><path d="M4 14V2.5" /><path d="M4 3h8.
 export const IcInbox = (p: P) => (
   <S {...p}><path d="M2.5 9.5L4.5 3h7l2 6.5" /><path d="M2.5 9.5h3.4l1 2h2.2l1-2h3.4V12a1.5 1.5 0 01-1.5 1.5H4A1.5 1.5 0 012.5 12V9.5z" /></S>
 );
+export const IcShield = (p: P) => (
+  <S {...p}><path d="M8 1.8l5.2 1.9v4.1c0 3.5-2.2 5.7-5.2 6.6-3-.9-5.2-3.1-5.2-6.6V3.7L8 1.8z" /><path d="M5.8 8l1.6 1.6 2.9-3.2" /></S>
+);
+export const IcBook = (p: P) => (
+  <S {...p}><path d="M3 2.5h7.2A1.8 1.8 0 0112 4.3v9.2H4.8A1.8 1.8 0 013 11.7V2.5z" /><path d="M3 11.7A1.8 1.8 0 014.8 10H12v3.5H4.8A1.8 1.8 0 013 11.7zM6 5.5h3.5M6 8h2.5" /></S>
+);
+export const IcUsers = (p: P) => (
+  <S {...p}><circle cx="6" cy="5.5" r="2.3" /><path d="M1.8 13.5c.5-2.6 2.1-4 4.2-4s3.7 1.4 4.2 4" /><circle cx="11.3" cy="6" r="1.7" /><path d="M11 9.6c1.8.2 3 1.4 3.4 3.4" /></S>
+);
+export const IcEye = (p: P) => (
+  <S {...p}><path d="M1.8 8S4 4.2 8 4.2 14.2 8 14.2 8 12 11.8 8 11.8 1.8 8 1.8 8z" /><circle cx="8" cy="8" r="1.8" /></S>
+);

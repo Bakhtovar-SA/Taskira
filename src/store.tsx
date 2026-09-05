@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { Data, Issue, IssueTypeId, PriorityId, Toast, Transition, ViewId, Workflow } from "./types";
+import type { Data, Issue, IssueTypeId, PriorityId, Toast, Transition, User, ViewId, Workflow } from "./types";
 import { ISSUE_TYPES, PRIORITIES } from "./types";
 import { DEFAULT_WORKFLOW, freshData } from "./seed";
+import { can as canDo, denialReason, roleMeta, type PermId } from "./permissions";
 
 const LS_KEY = "taskira.v1";
 
@@ -50,12 +51,16 @@ export interface CreateInput {
 
 interface Api {
   data: Data;
+  me: User;
   ui: UIState;
   toasts: Toast[];
+  /** Единая точка проверки прав в компонентах: can("edit", issue) */
+  can: (perm: PermId, issue?: Issue) => boolean;
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
   setCreateOpen: (v: boolean) => void;
   toast: (kind: Toast["kind"], text: string) => void;
+  switchUser: (id: string) => void;
   createIssue: (input: CreateInput) => void;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
@@ -72,20 +77,23 @@ interface Api {
 
 const Ctx = createContext<Api | null>(null);
 
+/* Загрузка с миграцией: пользователи и их роли всегда из сида (источник истины),
+   задачи/спринты/схема/счётчик — из localStorage. Старые данные без accessRole
+   автоматически получают роль из сида. */
 function load(): Data {
+  const base = freshData();
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.issues) && parsed.workflow && Array.isArray(parsed.sprints)) {
-        const base = freshData();
-        return { ...base, ...parsed };
+        return { ...base, issues: parsed.issues, sprints: parsed.sprints, workflow: parsed.workflow, seq: parsed.seq ?? base.seq };
       }
     }
   } catch {
     /* повреждённые данные — начинаем заново */
   }
-  return freshData();
+  return base;
 }
 
 let toastSeq = 1;
@@ -112,19 +120,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
   }, []);
 
-  const me = () => dataRef.current.currentUserId;
+  const me = () => dataRef.current.users.find((u) => u.id === dataRef.current.currentUserId) ?? dataRef.current.users[0];
   const wf = () => dataRef.current.workflow;
   const sName = (id: string) => statusById(wf(), id)?.name ?? id;
 
-  const logIssue = (iss: Issue, text: string): Issue => ({
-    ...iss,
-    updatedAt: Date.now(),
-    activity: [...iss.activity, { id: nid("a"), authorId: me(), issueId: iss.id, ts: Date.now(), text }],
-  });
+  /* Страж мутаций: проверяет право текущего пользователя и показывает тост-отказ */
+  const requirePerm = useCallback(
+    (perm: PermId, issue?: Issue): boolean => {
+      const u = me();
+      if (canDo(u, perm, issue)) return true;
+      toast("error", denialReason(u, perm, issue));
+      return false;
+    },
+    [toast],
+  );
 
-  /* ------- действия ------- */
+  /* ------- действия (каждое защищено проверкой прав) ------- */
   const createIssue = useCallback(
     (input: CreateInput) => {
+      if (!requirePerm("create")) return;
       const d0 = dataRef.current;
       const num = d0.seq;
       const id = nid("i");
@@ -152,38 +166,45 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setUi((u) => ({ ...u, lastEvent: { issueId: id, ts: now } }));
       toast("success", `${issue.key} «${issue.title.slice(0, 38)}${issue.title.length > 38 ? "…" : ""}» создана`);
     },
-    [toast],
+    [toast, requirePerm],
   );
 
-  const updateIssue = useCallback((id: string, patch: Partial<Issue>) => {
-    setData((prev) => {
-      const iss = prev.issues.find((i) => i.id === id);
-      if (!iss) return prev;
-      const logs: string[] = [];
-      if (patch.assigneeId !== undefined && patch.assigneeId !== iss.assigneeId) {
-        const u = prev.users.find((x) => x.id === patch.assigneeId);
-        logs.push(u ? `назначил(а) исполнителем ${u.name}` : "снял(а) исполнителя");
-      }
-      if (patch.priorityId && patch.priorityId !== iss.priorityId)
-        logs.push(`изменил(а) приоритет: ${PRIORITIES[iss.priorityId].name} → ${PRIORITIES[patch.priorityId].name}`);
-      if (patch.points !== undefined && patch.points !== iss.points)
-        logs.push(`изменил(а) оценку: ${iss.points ?? "—"} → ${patch.points ?? "—"}`);
-      if (patch.labels && JSON.stringify(patch.labels) !== JSON.stringify(iss.labels)) logs.push("обновил(а) метки");
-      if (patch.epicId !== undefined && patch.epicId !== iss.epicId) logs.push("изменил(а) эпик");
-      if (patch.sprintId !== undefined && patch.sprintId !== iss.sprintId) {
-        const sp = prev.sprints.find((s) => s.id === patch.sprintId);
-        logs.push(sp ? `переместил(а) в ${sp.name}` : "вернул(а) в бэклог");
-      }
-      if (patch.description !== undefined && patch.description !== iss.description) logs.push("обновил(а) описание");
-      let next = { ...iss, ...patch, updatedAt: Date.now() };
-      for (const t of logs)
-        next = { ...next, activity: [...next.activity, { id: nid("a"), authorId: prev.currentUserId, issueId: id, ts: Date.now(), text: t }] };
-      return { ...prev, issues: prev.issues.map((i) => (i.id === id ? next : i)) };
-    });
-  }, []);
+  const updateIssue = useCallback(
+    (id: string, patch: Partial<Issue>) => {
+      const iss = dataRef.current.issues.find((i) => i.id === id);
+      if (!iss) return;
+      if (!requirePerm("edit", iss)) return;
+      setData((prev) => {
+        const cur = prev.issues.find((i) => i.id === id)!;
+        const logs: string[] = [];
+        if (patch.assigneeId !== undefined && patch.assigneeId !== cur.assigneeId) {
+          const u = prev.users.find((x) => x.id === patch.assigneeId);
+          logs.push(u ? `назначил(а) исполнителем ${u.name}` : "снял(а) исполнителя");
+        }
+        if (patch.priorityId && patch.priorityId !== cur.priorityId)
+          logs.push(`изменил(а) приоритет: ${PRIORITIES[cur.priorityId].name} → ${PRIORITIES[patch.priorityId].name}`);
+        if (patch.points !== undefined && patch.points !== cur.points)
+          logs.push(`изменил(а) оценку: ${cur.points ?? "—"} → ${patch.points ?? "—"}`);
+        if (patch.labels && JSON.stringify(patch.labels) !== JSON.stringify(cur.labels)) logs.push("обновил(а) метки");
+        if (patch.epicId !== undefined && patch.epicId !== cur.epicId) logs.push("изменил(а) эпик");
+        if (patch.sprintId !== undefined && patch.sprintId !== cur.sprintId) {
+          const sp = prev.sprints.find((s) => s.id === patch.sprintId);
+          logs.push(sp ? `переместил(а) в ${sp.name}` : "вернул(а) в бэклог");
+        }
+        if (patch.description !== undefined && patch.description !== cur.description) logs.push("обновил(а) описание");
+        if (patch.title !== undefined && patch.title !== cur.title) logs.push("переименовал(а) задачу");
+        let next = { ...cur, ...patch, updatedAt: Date.now() };
+        for (const t of logs)
+          next = { ...next, activity: [...next.activity, { id: nid("a"), authorId: prev.currentUserId, issueId: id, ts: Date.now(), text: t }] };
+        return { ...prev, issues: prev.issues.map((i) => (i.id === id ? next : i)) };
+      });
+    },
+    [requirePerm],
+  );
 
   const moveStatus = useCallback(
     (issueId: string, toStatus: string, beforeId?: string | null) => {
+      if (!requirePerm("transition")) return;
       const d0 = dataRef.current;
       const iss = d0.issues.find((i) => i.id === issueId);
       if (!iss) return;
@@ -218,28 +239,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       });
       setUi((u) => ({ ...u, lastEvent: { issueId, ts: now } }));
     },
-    [toast],
+    [toast, requirePerm],
   );
 
-  const setSprint = useCallback((issueId: string, sprintId: string | null) => {
-    setData((prev) => {
-      const iss = prev.issues.find((i) => i.id === issueId);
-      if (!iss || iss.sprintId === sprintId) return prev;
-      const sp = prev.sprints.find((s) => s.id === sprintId);
-      const text = sp ? `переместил(а) в ${sp.name}` : "вернул(а) в бэклог";
-      return {
-        ...prev,
-        issues: prev.issues.map((i) =>
-          i.id === issueId
-            ? { ...i, sprintId, updatedAt: Date.now(), activity: [...i.activity, { id: nid("a"), authorId: prev.currentUserId, issueId, ts: Date.now(), text }] }
-            : i,
-        ),
-      };
-    });
-  }, []);
+  const setSprint = useCallback(
+    (issueId: string, sprintId: string | null) => {
+      if (!requirePerm("manageSprints")) return;
+      setData((prev) => {
+        const iss = prev.issues.find((i) => i.id === issueId);
+        if (!iss || iss.sprintId === sprintId) return prev;
+        const sp = prev.sprints.find((s) => s.id === sprintId);
+        const text = sp ? `переместил(а) в ${sp.name}` : "вернул(а) в бэклог";
+        return {
+          ...prev,
+          issues: prev.issues.map((i) =>
+            i.id === issueId
+              ? { ...i, sprintId, updatedAt: Date.now(), activity: [...i.activity, { id: nid("a"), authorId: prev.currentUserId, issueId, ts: Date.now(), text }] }
+              : i,
+          ),
+        };
+      });
+    },
+    [requirePerm],
+  );
 
   const addComment = useCallback(
     (issueId: string, body: string) => {
+      if (!requirePerm("comment")) return;
       const b = body.trim();
       if (!b) return;
       setData((prev) => ({
@@ -252,11 +278,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
       toast("success", "Комментарий добавлен");
     },
-    [toast],
+    [toast, requirePerm],
   );
 
   const deleteIssue = useCallback(
     (issueId: string) => {
+      if (!requirePerm("delete")) return;
       const iss = dataRef.current.issues.find((i) => i.id === issueId);
       setData((prev) => ({
         ...prev,
@@ -265,11 +292,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
       if (iss) toast("info", `${iss.key} удалена`);
     },
-    [toast],
+    [toast, requirePerm],
   );
 
   const addTransition = useCallback(
     (from: string, to: string): string | null => {
+      const u = me();
+      if (!canDo(u, "editWorkflow")) {
+        const msg = denialReason(u, "editWorkflow");
+        toast("error", msg);
+        return msg;
+      }
       if (from === to) return "Статусы «из» и «в» совпадают";
       const d0 = dataRef.current;
       if (d0.workflow.transitions.some((t) => t.from === from && t.to === to)) return "Такой переход уже есть в схеме";
@@ -283,18 +316,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const removeTransition = useCallback(
     (id: string) => {
+      if (!requirePerm("editWorkflow")) return;
       setData((prev) => ({ ...prev, workflow: { ...prev.workflow, transitions: prev.workflow.transitions.filter((t) => t.id !== id) } }));
       toast("info", "Переход удалён из схемы");
     },
-    [toast],
+    [toast, requirePerm],
   );
 
   const resetWorkflow = useCallback(() => {
+    if (!requirePerm("editWorkflow")) return;
     setData((prev) => ({ ...prev, workflow: structuredClone(DEFAULT_WORKFLOW) }));
     toast("info", "Схема рабочего процесса восстановлена");
-  }, [toast]);
+  }, [toast, requirePerm]);
 
   const startSprint = useCallback(() => {
+    if (!requirePerm("manageSprints")) return;
     setData((prev) => {
       const future = prev.sprints.find((s) => s.status === "future");
       if (future) {
@@ -318,9 +354,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return { ...prev, sprints: [...prev.sprints, sp] };
     });
     toast("success", "Спринт начат — задачи на доске");
-  }, [toast]);
+  }, [toast, requirePerm]);
 
   const completeSprint = useCallback(() => {
+    if (!requirePerm("manageSprints")) return;
     const d0 = dataRef.current;
     const active = d0.sprints.find((s) => s.status === "active");
     if (!active) return;
@@ -345,7 +382,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
     });
     toast("success", `${active.name} завершён${unfinished ? ` — ${unfinished} недозакрытых задач вернулись в бэклог` : ", все задачи закрыты"}`);
-  }, [toast]);
+  }, [toast, requirePerm]);
+
+  const switchUser = useCallback(
+    (id: string) => {
+      const u = dataRef.current.users.find((x) => x.id === id);
+      if (!u || id === dataRef.current.currentUserId) return;
+      setData((prev) => ({ ...prev, currentUserId: id }));
+      toast("info", `Вы вошли как ${u.name} — роль «${roleMeta(u.accessRole).name}»`);
+    },
+    [toast],
+  );
 
   const resetDemo = useCallback(() => {
     localStorage.removeItem(LS_KEY);
@@ -354,15 +401,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toast("info", "Демо-данные сброшены к исходным");
   }, [toast]);
 
+  const meUser = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
+
   const api = useMemo<Api>(
     () => ({
       data,
+      me: meUser,
       ui,
       toasts,
+      can: (perm, issue) => canDo(meUser, perm, issue),
       setView: (v) => setUi((u) => ({ ...u, view: v })),
       openIssue: (id) => setUi((u) => ({ ...u, selectedIssueId: id })),
       setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v })),
       toast,
+      switchUser,
       createIssue,
       updateIssue,
       moveStatus,
@@ -376,7 +428,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       completeSprint,
       resetDemo,
     }),
-    [data, ui, toasts, toast, createIssue, updateIssue, moveStatus, setSprint, addComment, deleteIssue, addTransition, removeTransition, resetWorkflow, startSprint, completeSprint, resetDemo],
+    [data, meUser, ui, toasts, toast, switchUser, createIssue, updateIssue, moveStatus, setSprint, addComment, deleteIssue, addTransition, removeTransition, resetWorkflow, startSprint, completeSprint, resetDemo],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

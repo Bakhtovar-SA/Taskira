@@ -26,12 +26,14 @@ export const DEFAULT_WORKFLOW: Workflow = {
   ],
 };
 
-const USERS = [
-  { id: "u1", name: "Анна Соколова", initials: "АС", color: "#0B5FD9", role: "тимлид" },
-  { id: "u2", name: "Дмитрий Орлов", initials: "ДО", color: "#147A6C", role: "бэкенд" },
-  { id: "u3", name: "Мария Ким", initials: "МК", color: "#B0508F", role: "фронтенд" },
-  { id: "u4", name: "Иван Петров", initials: "ИП", color: "#C05A12", role: "дизайн" },
-  { id: "u5", name: "Елена Волкова", initials: "ЕВ", color: "#5B5FC7", role: "QA" },
+import type { AccessRole } from "./types";
+
+const USERS: { id: string; name: string; initials: string; color: string; role: string; accessRole: AccessRole }[] = [
+  { id: "u1", name: "Анна Соколова", initials: "АС", color: "#0B5FD9", role: "тимлид", accessRole: "admin" },
+  { id: "u2", name: "Дмитрий Орлов", initials: "ДО", color: "#147A6C", role: "бэкенд", accessRole: "manager" },
+  { id: "u3", name: "Мария Ким", initials: "МК", color: "#B0508F", role: "фронтенд", accessRole: "developer" },
+  { id: "u4", name: "Иван Петров", initials: "ИП", color: "#C05A12", role: "дизайн", accessRole: "developer" },
+  { id: "u5", name: "Елена Волкова", initials: "ЕВ", color: "#5B5FC7", role: "QA", accessRole: "viewer" },
 ];
 
 const SPRINTS: Sprint[] = [

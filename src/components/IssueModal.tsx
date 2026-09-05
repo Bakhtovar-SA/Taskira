@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { canTransition, relTime, useStore } from "../store";
+import { denialReason } from "../permissions";
 import type { Issue, PriorityId } from "../types";
 import { PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
-import { IcCheck, IcChevD, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, Chip, Dropdown, Lozenge, MenuItem, Modal } from "../ui";
+import { IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal } from "../ui";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -17,7 +18,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const selectCls = "flex w-full items-center gap-2 rounded-md border border-line bg-white px-2.5 py-1.5 text-[13px] font-medium text-ink transition-colors hover:border-accent";
 
 export default function IssueModal() {
-  const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast } = useStore();
+  const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
   const issue = data.issues.find((i) => i.id === ui.selectedIssueId);
   const [tab, setTab] = useState<"comments" | "activity">("comments");
   const [comment, setComment] = useState("");
@@ -43,6 +44,12 @@ export default function IssueModal() {
   const reporter = data.users.find((u) => u.id === issue.reporterId);
   const status = data.workflow.statuses.find((s) => s.id === issue.statusId)!;
   const epics = data.issues.filter((i) => i.typeId === "epic");
+
+  /* права доступа: что можно делать с этой задачей */
+  const editOk = can("edit", issue);
+  const canDelete = can("delete");
+  const canComment = can("comment");
+  const denyMsg = denialReason(me, "edit", issue);
 
   const submitComment = () => {
     if (!comment.trim()) return;
@@ -81,20 +88,26 @@ export default function IssueModal() {
         <span className="font-mono text-[12.5px] font-bold text-ink">{issue.key}</span>
         <span className="rounded bg-[#e8edf4] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sub">{ISSUE_TYPES[issue.typeId].name}</span>
         <div className="ml-auto flex items-center gap-1">
+          {!editOk && (
+            <span className="mr-1 flex items-center gap-1.5 rounded bg-warnsoft px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-warn" title={denyMsg}>
+              <IcEye size={11} /> Только чтение
+            </span>
+          )}
           <button onClick={copyLink} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-canvas hover:text-ink" title="Скопировать ссылку">
             <IcLink size={15} />
           </button>
-          {!confirmDel ? (
-            <button onClick={() => setConfirmDel(true)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-dangersoft hover:text-danger" title="Удалить">
-              <IcTrash size={15} />
-            </button>
-          ) : (
-            <span className="flex items-center gap-1.5 rounded-md bg-dangersoft px-2 py-1">
-              <span className="text-[11.5px] font-semibold text-danger">Удалить?</span>
-              <button onClick={() => deleteIssue(issue.id)} className="rounded bg-danger px-1.5 py-0.5 text-[11px] font-bold text-white hover:opacity-90">Да</button>
-              <button onClick={() => setConfirmDel(false)} className="text-[11px] font-semibold text-sub hover:text-ink">Нет</button>
-            </span>
-          )}
+          {canDelete &&
+            (!confirmDel ? (
+              <button onClick={() => setConfirmDel(true)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-dangersoft hover:text-danger" title="Удалить">
+                <IcTrash size={15} />
+              </button>
+            ) : (
+              <span className="flex items-center gap-1.5 rounded-md bg-dangersoft px-2 py-1">
+                <span className="text-[11.5px] font-semibold text-danger">Удалить?</span>
+                <button onClick={() => deleteIssue(issue.id)} className="rounded bg-danger px-1.5 py-0.5 text-[11px] font-bold text-white hover:opacity-90">Да</button>
+                <button onClick={() => setConfirmDel(false)} className="text-[11px] font-semibold text-sub hover:text-ink">Нет</button>
+              </span>
+            ))}
           <button onClick={() => openIssue(null)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-canvas hover:text-ink" aria-label="Закрыть">
             <IcX size={15} />
           </button>
@@ -104,13 +117,13 @@ export default function IssueModal() {
       <div className="grid grid-cols-[1fr_248px] gap-0">
         {/* основная колонка */}
         <div className="min-w-0 px-5 py-4">
-          <EditableTitle issue={issue} />
+          <EditableTitle issue={issue} readOnly={!editOk} />
 
           {/* описание */}
           <div className="mt-4">
             <div className="mb-1.5 flex items-center gap-2">
               <p className="text-[10.5px] font-bold uppercase tracking-wider text-faint">Описание</p>
-              {!editingDesc && (
+              {!editingDesc && editOk && (
                 <button onClick={() => { setDescDraft(issue.description); setEditingDesc(true); }} className="flex items-center gap-1 text-[11px] font-semibold text-accent hover:underline">
                   <IcPencil size={11} /> Редактировать
                 </button>
@@ -133,10 +146,12 @@ export default function IssueModal() {
               </div>
             ) : issue.description ? (
               <p className="whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub">{issue.description}</p>
-            ) : (
+            ) : editOk ? (
               <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-[#c3ccda] px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accent">
                 + Добавить описание
               </button>
+            ) : (
+              <p className="rounded-md border border-dashed border-[#c3ccda] px-3 py-3 text-[12.5px] text-faint">Описание не заполнено</p>
             )}
           </div>
 
@@ -156,6 +171,7 @@ export default function IssueModal() {
 
           {tab === "comments" ? (
             <div className="mt-3.5 space-y-4">
+              {canComment ? (
               <div className="flex gap-2.5">
                 <Avatar user={me} size={28} />
                 <div className="flex-1">
@@ -180,6 +196,11 @@ export default function IssueModal() {
                   </div>
                 </div>
               </div>
+              ) : (
+                <p className="flex items-center gap-2 rounded-md border border-dashed border-[#c3ccda] bg-canvas/50 px-3 py-2.5 text-[12px] text-faint">
+                  <IcLock size={13} /> Ваша роль не позволяет оставлять комментарии
+                </p>
+              )}
               {[...issue.comments].reverse().map((c) => {
                 const u = data.users.find((x) => x.id === c.authorId);
                 return (
@@ -219,7 +240,14 @@ export default function IssueModal() {
 
         {/* правая панель */}
         <aside className="space-y-4 border-l border-line bg-canvas/50 px-4 py-4">
+          {!editOk && (
+            <div className="flex items-start gap-2 rounded-md border border-line bg-warnsoft/50 px-2.5 py-2 text-[11.5px] leading-snug text-warn">
+              <IcLock size={13} className="mt-0.5 shrink-0" />
+              <span>{denyMsg}</span>
+            </div>
+          )}
           <Field label="Статус">
+            {editOk ? (
             <Dropdown
               width={220}
               button={(open) => (
@@ -253,9 +281,13 @@ export default function IssueModal() {
                 </>
               )}
             </Dropdown>
+            ) : (
+              <LockedField reason={denyMsg}><Lozenge status={status} size="sm" /></LockedField>
+            )}
           </Field>
 
           <Field label="Исполнитель">
+            {editOk ? (
             <Dropdown
               width={220}
               button={(open) => (
@@ -279,9 +311,15 @@ export default function IssueModal() {
                 </>
               )}
             </Dropdown>
+            ) : (
+              <LockedField reason={denyMsg}>
+                <span className="flex items-center gap-2"><Avatar user={assignee ?? null} size={20} /> {assignee?.name ?? "Не назначен"}</span>
+              </LockedField>
+            )}
           </Field>
 
           <Field label="Приоритет">
+            {editOk ? (
             <Dropdown
               width={220}
               button={(open) => (
@@ -301,10 +339,16 @@ export default function IssueModal() {
                 </>
               )}
             </Dropdown>
+            ) : (
+              <LockedField reason={denyMsg}>
+                <span className="flex items-center gap-2"><PriorityIcon p={issue.priorityId} size={14} /> {PRIORITIES[issue.priorityId].name}</span>
+              </LockedField>
+            )}
           </Field>
 
           {issue.typeId !== "epic" && (
             <Field label="Эпик">
+              {editOk ? (
               <Dropdown
                 width={220}
                 button={(open) => (
@@ -333,10 +377,23 @@ export default function IssueModal() {
                   </>
                 )}
               </Dropdown>
+              ) : (
+                <LockedField reason={denyMsg}>
+                  {epic ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: epic.color }} />
+                      {epic.title}
+                    </span>
+                  ) : (
+                    <span className="text-faint">Без эпика</span>
+                  )}
+                </LockedField>
+              )}
             </Field>
           )}
 
           <Field label="Спринт">
+            {editOk ? (
             <Dropdown
               width={220}
               button={(open) => (
@@ -357,9 +414,15 @@ export default function IssueModal() {
                 </>
               )}
             </Dropdown>
+            ) : (
+              <LockedField reason={denyMsg}>
+                <span className={issue.sprintId ? "" : "text-faint"}>{data.sprints.find((s) => s.id === issue.sprintId)?.name ?? "Бэклог"}</span>
+              </LockedField>
+            )}
           </Field>
 
           <Field label="Оценка (очки)">
+            {editOk ? (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -380,25 +443,33 @@ export default function IssueModal() {
               />
               <button type="submit" className="rounded-md border border-line bg-white px-2.5 text-[12px] font-semibold text-sub hover:border-accent hover:text-accent">OK</button>
             </form>
+            ) : (
+              <LockedField reason={denyMsg}>
+                <span className="font-mono font-bold">{issue.points != null ? `${issue.points} очков` : "—"}</span>
+              </LockedField>
+            )}
           </Field>
 
           <Field label="Метки">
             <div className="flex flex-wrap gap-1.5">
               {issue.labels.map((l) => (
-                <Chip key={l} text={l} onRemove={() => updateIssue(issue.id, { labels: issue.labels.filter((x) => x !== l) })} />
+                <Chip key={l} text={l} onRemove={editOk ? () => updateIssue(issue.id, { labels: issue.labels.filter((x) => x !== l) }) : undefined} />
               ))}
-              <input
-                value={labelInput}
-                onChange={(e) => setLabelInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addLabel();
-                  }
-                }}
-                placeholder="+ метка"
-                className="w-20 rounded border border-dashed border-[#c3ccda] bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent"
-              />
+              {editOk && (
+                <input
+                  value={labelInput}
+                  onChange={(e) => setLabelInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addLabel();
+                    }
+                  }}
+                  placeholder="+ метка"
+                  className="w-20 rounded border border-dashed border-[#c3ccda] bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent"
+                />
+              )}
+              {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}
             </div>
           </Field>
 
@@ -413,11 +484,13 @@ export default function IssueModal() {
   );
 }
 
-function EditableTitle({ issue }: { issue: Issue }) {
+function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: boolean }) {
   const { updateIssue } = useStore();
   const [draft, setDraft] = useState(issue.title);
   const [editing, setEditing] = useState(false);
   useEffect(() => setDraft(issue.title), [issue.title, issue.id]);
+
+  if (readOnly) return <h2 className="px-0 py-1 text-[17px] font-bold leading-snug text-ink">{issue.title}</h2>;
 
   if (editing)
     return (

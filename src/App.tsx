@@ -6,13 +6,15 @@ import Board from "./components/Board";
 import Backlog from "./components/Backlog";
 import TimelineView from "./components/TimelineView";
 import WorkflowView from "./components/WorkflowView";
+import PermissionsView from "./components/PermissionsView";
+import DocsView from "./components/DocsView";
 import IssueModal from "./components/IssueModal";
 import CreateIssueModal from "./components/CreateIssueModal";
 import { Toasts } from "./ui";
 import type { ViewId } from "./types";
 
 function Shell() {
-  const { ui, setView, setCreateOpen, openIssue } = useStore();
+  const { ui, setView, setCreateOpen, openIssue, can, toast } = useStore();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -28,14 +30,16 @@ function Shell() {
       if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") {
         e.preventDefault();
-        setCreateOpen(true);
+        if (can("create")) setCreateOpen(true);
+        else toast("error", "Ваша роль не позволяет создавать задачи");
+        return;
       }
-      const map: Record<string, ViewId> = { "1": "board", "2": "backlog", "3": "timeline", "4": "workflow" };
+      const map: Record<string, ViewId> = { "1": "board", "2": "backlog", "3": "timeline", "4": "workflow", "5": "access", "6": "docs" };
       if (map[e.key]) setView(map[e.key]);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [setView, setCreateOpen, openIssue]);
+  }, [setView, setCreateOpen, openIssue, can, toast]);
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -48,6 +52,8 @@ function Shell() {
             {ui.view === "backlog" && <Backlog />}
             {ui.view === "timeline" && <TimelineView />}
             {ui.view === "workflow" && <WorkflowView />}
+            {ui.view === "access" && <PermissionsView />}
+            {ui.view === "docs" && <DocsView />}
           </div>
         </main>
       </div>

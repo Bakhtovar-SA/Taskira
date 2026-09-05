@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
-import { IcBell, IcChevR, IcPlus, IcSearch } from "../icons";
-import { Avatar, Dropdown } from "../ui";
-import { PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, PriorityIcon, TypeIcon } from "../icons";
+import { Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
 
 function SearchBox() {
   const { data, openIssue } = useStore();
@@ -131,10 +130,72 @@ function Bell() {
   );
 }
 
+/* Меню пользователя: профиль + демо-переключение ролей */
+function UserMenu() {
+  const { data, me, switchUser } = useStore();
+  return (
+    <Dropdown
+      width={300}
+      align="right"
+      button={(open) => (
+        <button className={`flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${open ? "border-accent bg-accentsoft" : "border-line bg-white hover:border-[#b9c6da]"}`} aria-label="Меню пользователя">
+          <Avatar user={me} size={26} />
+          <span className="hidden max-w-[120px] truncate text-left md:block">
+            <span className="block truncate text-[12.5px] font-semibold leading-tight text-ink">{me.name.split(" ")[0]}</span>
+            <span className="block text-[10px] leading-tight text-faint">{me.role}</span>
+          </span>
+          <IcChevD size={11} className="text-faint" />
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          <div className="border-b border-linesoft px-3.5 py-3">
+            <div className="flex items-center gap-2.5">
+              <Avatar user={me} size={34} />
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-bold text-ink">{me.name}</p>
+                <p className="text-[11px] text-faint">{me.role} · {data.project.name}</p>
+              </div>
+            </div>
+            <div className="mt-2">
+              <RoleBadge role={me.accessRole} size="sm" />
+            </div>
+          </div>
+          <p className="px-3.5 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-wider text-faint">Войти как (демо прав доступа)</p>
+          {data.users.map((u) => (
+            <MenuItem
+              key={u.id}
+              onClick={() => {
+                switchUser(u.id);
+                close();
+              }}
+            >
+              <Avatar user={u} size={24} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12.5px] font-semibold">{u.name}</span>
+              </span>
+              <RoleBadge role={u.accessRole} size="sm" />
+              {u.id === data.currentUserId && <IcCheck size={12} className="text-accent" />}
+            </MenuItem>
+          ))}
+        </>
+      )}
+    </Dropdown>
+  );
+}
+
 export default function Topbar() {
-  const { data, ui, setCreateOpen } = useStore();
-  const me = data.users.find((u) => u.id === data.currentUserId);
-  const viewTitle = { board: "Доска", backlog: "Бэклог", timeline: "Таймлайн", workflow: "Рабочий процесс" }[ui.view];
+  const { data, ui, setCreateOpen, can } = useStore();
+  const viewTitle = {
+    board: "Доска",
+    backlog: "Бэклог",
+    timeline: "Таймлайн",
+    workflow: "Рабочий процесс",
+    access: "Права доступа",
+    docs: "Документация",
+  }[ui.view];
+  const canCreate = can("create");
 
   return (
     <header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-line bg-panel px-5">
@@ -149,14 +210,22 @@ export default function Topbar() {
       <div className="ml-auto flex items-center gap-2.5">
         <SearchBox />
         <Bell />
-        <button
-          onClick={() => setCreateOpen(true)}
-          className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-3.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.35)] transition-all hover:bg-accentdeep hover:shadow-[0_4px_14px_rgba(11,95,217,0.4)] active:scale-[0.97]"
-        >
-          <IcPlus size={14} /> Создать
-        </button>
+        {canCreate ? (
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-3.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.35)] transition-all hover:bg-accentdeep hover:shadow-[0_4px_14px_rgba(11,95,217,0.4)] active:scale-[0.97]"
+          >
+            <IcPlus size={14} /> Создать
+          </button>
+        ) : (
+          <Tip label="Ваша роль не позволяет создавать задачи">
+            <button className="flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md border border-line bg-canvas px-3.5 text-[13px] font-semibold text-faint">
+              <IcLock size={13} /> Создать
+            </button>
+          </Tip>
+        )}
         <div className="ml-1 border-l border-line pl-3">
-          <Avatar user={me} size={30} />
+          <UserMenu />
         </div>
       </div>
     </header>

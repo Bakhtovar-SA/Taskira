@@ -1,17 +1,17 @@
 import { useMemo, useRef, useState } from "react";
 import { canTransition, fmtDate, useStore } from "../store";
 import type { Issue, Status } from "../types";
-import { IcCheck, IcInbox, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { IcCheck, IcEye, IcInbox, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, catColor } from "../ui";
 
-function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash }: { issue: Issue; onDragStart: () => void; onDragEnd: () => void; onDropOn: (e: React.DragEvent) => void; onOver: () => void; flash: boolean }) {
+function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggable }: { issue: Issue; onDragStart: () => void; onDragEnd: () => void; onDropOn: (e: React.DragEvent) => void; onOver: () => void; flash: boolean; draggable: boolean }) {
   const { data, openIssue } = useStore();
   const assignee = data.users.find((u) => u.id === issue.assigneeId);
   const epic = data.issues.find((i) => i.id === issue.epicId);
 
   return (
     <article
-      draggable
+      draggable={draggable}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", issue.id);
         e.dataTransfer.effectAllowed = "move";
@@ -104,7 +104,9 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
 }
 
 export default function Board() {
-  const { data, ui, moveStatus } = useStore();
+  const { data, ui, moveStatus, can } = useStore();
+  const canMove = can("transition");
+  const canCreate = can("create");
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
   const [filterUser, setFilterUser] = useState<string | null | "none">(null);
@@ -191,6 +193,15 @@ export default function Board() {
         </div>
       </div>
 
+      {!canMove && (
+        <div className="flex items-center gap-2 border-b border-line bg-warnsoft/60 px-6 py-1.5 text-[12px] font-medium text-warn">
+          <IcEye size={14} className="shrink-0" />
+          <span className="truncate">
+            Режим «только чтение»: ваша роль не позволяет перемещать задачи и создавать новые. Переключите пользователя в меню справа, чтобы увидеть другие уровни доступа.
+          </span>
+        </div>
+      )}
+
       {/* колонки */}
       <div className="dotgrid flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex h-full items-start gap-3.5 px-6 py-4" style={{ minWidth: "max-content" }}>
@@ -226,13 +237,15 @@ export default function Board() {
                   <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{st.name}</h3>
                   <span className="rounded-full bg-[#e3e9f1] px-1.5 font-mono text-[10.5px] font-bold text-sub">{items.length}</span>
                   {totalPts > 0 && <span className="font-mono text-[10px] text-faint">{totalPts} оч.</span>}
-                  <button
-                    onClick={() => setQuickFor(st.id)}
-                    className="ml-auto flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-[#e3e9f1] hover:text-ink"
-                    aria-label={`Добавить в «${st.name}»`}
-                  >
-                    <IcPlus size={14} />
-                  </button>
+                  {canCreate && (
+                    <button
+                      onClick={() => setQuickFor(st.id)}
+                      className="ml-auto flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-[#e3e9f1] hover:text-ink"
+                      aria-label={`Добавить в «${st.name}»`}
+                    >
+                      <IcPlus size={14} />
+                    </button>
+                  )}
                 </header>
 
                 <div
@@ -264,6 +277,7 @@ export default function Board() {
                         if (id && id !== i.id) moveStatus(id, st.id, i.id);
                       }}
                       onOver={() => setOverCol(st.id)}
+                      draggable={canMove}
                     />
                   ))}
                   {items.length === 0 && quickFor !== st.id && (

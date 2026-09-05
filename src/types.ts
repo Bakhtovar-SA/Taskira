@@ -1,6 +1,7 @@
 export type IssueTypeId = "story" | "task" | "bug" | "epic";
 export type PriorityId = "highest" | "high" | "medium" | "low" | "lowest";
 export type StatusCategory = "todo" | "inprogress" | "done";
+export type AccessRole = "admin" | "manager" | "developer" | "viewer";
 
 export interface User {
   id: string;
@@ -8,6 +9,7 @@ export interface User {
   initials: string;
   color: string;
   role: string;
+  accessRole: AccessRole;
 }
 
 export interface Status {
@@ -96,7 +98,7 @@ export interface Data {
   seq: number;
 }
 
-export type ViewId = "board" | "backlog" | "timeline" | "workflow";
+export type ViewId = "board" | "backlog" | "timeline" | "workflow" | "access" | "docs";
 
 export const ISSUE_TYPES: Record<IssueTypeId, { name: string }> = {
   story: { name: "История" },
