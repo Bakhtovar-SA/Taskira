@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { canTransition, relTime, useStore } from "../store";
 import { denialReason } from "../permissions";
+import { LIMITS } from "../validation";
 import type { Issue, PriorityId } from "../types";
 import { PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
 import { IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
@@ -182,6 +183,7 @@ export default function IssueModal() {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitComment();
                     }}
                     rows={2}
+                    maxLength={LIMITS.comment.max}
                     placeholder="Добавить комментарий… (Ctrl+Enter — отправить)"
                     className="w-full resize-y rounded-md border border-line bg-white p-2.5 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15"
                   />
