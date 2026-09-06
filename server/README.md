@@ -1,96 +1,121 @@
-# Taskira Server — дизайн и план (Этапы 2–5)
+# Taskira Server — дизайн, статус и запуск
 
 Внутренний корпоративный task-tracker. Клиент — React SPA (корень репозитория),
 сервер — Node.js + Fastify + TypeScript, база — PostgreSQL.
 
-## Архитектура
+**Принцип: права проверяются только на сервере.** Клиентский `src/permissions.ts` —
+только UX. Любая мутация без JWT и права → `403 { error: { code, reason } }`
+с причиной на русском.
 
-```
-Браузер (nginx, dist/)
-   │  REST JSON, Authorization: Bearer <JWT>
-   ▼
-Fastify (server/)                 ┌──────────────┐
-   ├─ @fastify/jwt   (auth)       │  PostgreSQL  │
-   ├─ zod (валидация contract.ts) │  (docker)    │
-   ├─ requireAuth / requirePerm   │              │
-   ├─ routes + audit_log          └──────────────┘
-   └─ @fastify/websocket → пуш изменений всем клиентам
-```
+## Роли и матрица прав (зафиксировано миграцией 002)
 
-**Принцип: права проверяются только на сервере.** Клиентский `src/permissions.ts`
-остаётся исключительно для UX (скрыть/заблокировать кнопки). Любая мутация без
-валидного JWT и соответствующего права возвращает `403 { error: { code, reason } }`
-с человекочитаемой причиной на русском — клиент показывает её тостом.
+| Разрешение | admin | manager | employee | viewer |
+|---|:-:|:-:|:-:|:-:|
+| browse — просмотр проекта | ✓ | ✓ | ✓ | ✓ |
+| create — создание задач | ✓ | ✓ | ✓ | — |
+| edit — редактирование задач | ✓ | ✓ | ✓* | — |
+| transition — смена статуса | ✓ | ✓ | ✓ | — |
+| comment — комментарии | ✓ | ✓ | ✓ | — |
+| delete — удаление задач | ✓ | ✓ | — | — |
+| manageSprints — спринты | ✓ | ✓ | — | — |
+| editWorkflow — схема переходов | ✓ | — | — | — |
+| manageAccess — пользователи и роли | ✓ | — | — | — |
 
-### Перенос логики прав на сервер (Этап 3)
+\* **employee — только свои задачи** (исполнитель или автор). Правило — в `can()`/`canEditIssue()`.
 
-`src/permissions.ts` переезжает в `server/src/permissions.ts` без изменений модели:
+Дополнительно: `users.is_active` — деактивированный аккаунт не входит (403 при логине),
+его токены отклоняются `requireAuth` (401 «Аккаунт деактивирован администратором»).
 
-```ts
-// server/src/middleware.ts (схема)
-const requireAuth = async (req) => { req.user = await req.jwtVerify(); };
-const requirePerm = (perm: PermId) => async (req, reply) => {
-  const ok = can(req.user, perm, req.issue /* для edit */);
-  if (!ok) {
-    await audit(req.user.id, "access.denied", perm, {});
-    reply.code(403).send({ error: { code: "FORBIDDEN", reason: denialReason(req.user, perm, req.issue) } });
-  }
-};
-```
-
-Правило уровня задачи (developer редактирует только свои) живёт в `can()` —
-та же функция, что сейчас на клиенте. Дополнительно — запись в `audit_log`
-на каждый отказ и на админ-действия.
-
-## Схема БД
-
-Полный DDL: [`migrations/001_init.sql`](./migrations/001_init.sql).
-
-`users` · `projects` · `workflow_statuses` · `workflow_transitions` · `sprints` ·
-`issues` (с `rank float8` для порядка в колонке) · `comments` · `activity` · `audit_log`.
-
-Ключевые ограничения: `UNIQUE(project_id, num)`, `UNIQUE(project_id, from, to)` для
-переходов, `CHECK(from <> to)`, длины полей (250/5000/2000/200) — те же лимиты,
-что в `src/validation.ts` и `server/src/contract.ts`.
-
-## API
-
-Карта эндпоинтов с телами запросов и требуемыми правами — в шапке
-[`src/contract.ts`](./src/contract.ts). Единый формат ошибки:
-
-```json
-{ "error": { "code": "FORBIDDEN", "reason": "Роль «Наблюдатель» — только чтение…" } }
-```
-
-Realtime: `WS /api/ws?token=<JWT>` → `issue:upsert | issue:delete | sprint:changed |
-workflow:changed | presence`, каждое сообщение содержит `actorId` (клиент гасит своё эхо).
-
-## План коммитов
+## Статус этапов
 
 | # | Коммит | Статус |
 |---|---|---|
-| 1 | `chore(security): client hardening` — UUID, валидация/санитизация, аудит requirePerm | ✅ |
-| 2 | `feat(db): migration 001 + API contract (zod) + design doc` | ✅ |
-| 3a | `feat(server): skeleton` — Fastify, env-конфиг, PG-пул, JWT+bcrypt, middleware прав, перенос permissions | ✅ |
-| 3b | `feat(server): routes` — issues/sprints/workflow/comments/users + audit_log | ⏳ |
-| 3c | `feat(server): ws` — realtime-рассылка | ⏳ |
-| 4 | `feat(web): api-client` — store поверх API, 403→reason, loading/offline, WS-синхронизация | ⏳ |
-| 5 | `infra: docker-compose` — nginx + backend + postgres, `.env.example`, seed первого админа | ⏳ |
-| 5b | `docs: runbook` — развёртывание в корпоративной сети, бэкап | ⏳ |
-| 6+ | Фичи: связи задач, чек-листы, burndown, WIP-лимиты, swimlanes, тёмная тема | ⏳ |
+| 1 | Харденинг клиента: UUID, валидация/санитизация | ✅ |
+| 2 | `001_init.sql` + zod-контракт API | ✅ |
+| 3a | Скелет сервера (Fastify, JWT, middleware, auth, seed) | ✅ |
+| 3a-fix | Транзакции в migrate(), кэш конфига, refresh роли из БД, rate-limit логина, /health 503, .gitignore | ✅ |
+| 3b-model | `002_corporate.sql`: employee, task/bug/request, due_date, issue_watchers | ✅ |
+| 3b-routes | CRUD issues/sprints/workflow/comments/users | ⏳ следующий |
+| 3c | WebSocket-рассылка | ⏳ |
+| 4 | Фронтенд поверх API + синхронизация ролей клиента (employee) | ⏳ |
+| 5 | docker-compose + runbook + бэкап | ⏳ |
 
-## Зависимости (Этап 3)
+## Breaking changes (002)
 
-Сервер — отдельный npm-пакет (`server/package.json` появится в 3a):
+1. **Роль `developer` упразднена → `employee`.** Все существующие пользователи
+   перенесены `UPDATE`. JWT со старой ролью в payload безопасны: `requireAuth`
+   берёт актуальную роль из БД (кэш 30 с).
+2. **Типы задач: только `task | bug | request`.** `story → task` (история — задача),
+   `epic → task` (эпик упразднён как тип; группировка осталась в `issues.epic_id`,
+   таймлайн-поля `t_start/t_span` сохранены). Решение необратимо и задокументировано
+   в шапке `002_corporate.sql`.
+3. **Клиентская демо-модель пока со старыми ролями/типами** (developer, story, epic) —
+   это сознательно: клиент синхронизируется с контрактом в Этапе 4. Серверный контракт
+   (`contract.ts`) — уже источник правды.
+4. `GET /api/issues` возвращает `{ items, total }` (пагинация limit/offset ≤ 200).
+5. `ChangeRoleBody` / `CreateUserBody` принимают опциональный `isActive`.
+
+## Как прогнать локально
+
+```bash
+cd server
+npm i
+cp .env.example .env
+# Заполните: DATABASE_URL, JWT_SECRET (>=32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
+# JWT_SECRET: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+
+npm run dev        # tsx watch: миграции 001+002 → seed админа → listen :8080
+```
+
+Миграции и seed по отдельности:
+
+```bash
+npm run seed                     # прогоняет migrate() + создание первого админа
+psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001, 002
+```
+
+Health, логин, me:
+
+```bash
+curl -s localhost:8080/api/health
+# {"ok":true,"db":true,…}          (503 + ok:false, если БД легла)
+
+curl -s -X POST localhost:8080/api/auth/login \
+  -H 'content-type: application/json' \
+  -d '{"username":"admin","password":"…из .env…"}'
+# {"token":"…","user":{"username":"admin","accessRole":"admin","isActive":true,…}}
+
+TOKEN=…; curl -s localhost:8080/api/auth/me -H "authorization: Bearer $TOKEN"
+```
+
+Rate-limit логина (in-memory, 10 попыток / IP / 5 минут):
+
+```bash
+for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
+  -X POST localhost:8080/api/auth/login -H 'content-type: application/json' \
+  -d '{"username":"admin","password":"bad"}'; done
+# 401 ×10, затем 429
+```
+
+## Чеклист ручной проверки
+
+- [ ] `npm run typecheck` — без ошибок; `npm run dev` стартует, миграции 001+002 в `schema_migrations`
+- [ ] Остановка PostgreSQL → `/api/health` отвечает **503** `{ok:false,db:false}`; восстановление → 200
+- [ ] Логин: неверный пароль — 401 с единым reason; 11-я попытка за 5 минут — **429 RATE_LIMITED**
+- [ ] `is_active=false` в БД → логин 403 «Аккаунт деактивирован…», `/me` с живым токеном — 401 (в пределах 30 с)
+- [ ] Смена `access_role` в БД админом → `/me` и проверки прав видят новую роль **без** перевыпуска токена (≤30 с)
+- [ ] В `users` нет роли `developer`; в `issues` нет типов `story`/`epic`
+  (`select distinct access_role from users; select distinct type_id from issues;`)
+- [ ] `select conname from pg_constraint where conname in ('users_access_role_check','issues_type_id_check')` — обе на месте
+- [ ] `git check-ignore server/.env server/dist .env` — всё игнорируется
+
+## Зависимости
 
 ```
-fastify @fastify/jwt @fastify/cors @fastify/websocket pg zod bcrypt
+fastify @fastify/jwt @fastify/cors @fastify/websocket pg zod bcryptjs
 ```
 
-### Чистка корневого package.json
-
-В корневом `package.json` накопились неиспользуемые пакеты (DnD реализован на
-нативном HTML5, графики и роутер не используются). Удалить вручную:
+### Чистка корневого package.json (сделать вручную)
 
 ```bash
 npm uninstall @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities \
@@ -98,24 +123,7 @@ npm uninstall @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities \
   framer-motion lucide-react react-router-dom recharts uuid @types/uuid
 ```
 
-## Развёртывание (появится в Этапе 5)
-
-```yaml
-# docker-compose.yml (план)
-services:
-  db:       postgres:16-alpine, volume pgdata, секреты из .env
-  backend:  build ./server, env: DATABASE_URL, JWT_SECRET, ADMIN_USERNAME, ADMIN_PASSWORD
-  web:      nginx:alpine, dist/ + проксирование /api и /api/ws на backend
-```
-
-Первый админ создаётся seed-скриптом из `ADMIN_USERNAME/ADMIN_PASSWORD` при старте,
-если таблица `users` пуста. Регистрация закрыта — пользователей создаёт админ
-(`POST /api/admin/users`).
-
-Бэкап: `pg_dump "$DATABASE_URL" -Fc > backup-$(date +%F).dump` по cron +
-восстановление `pg_restore`. Подробная инструкция — в runbook (Этап 5b).
-
 ## Секреты
 
-Только через env: `JWT_SECRET` (≥ 32 байт), `DATABASE_URL`, `ADMIN_PASSWORD`.
-Никаких секретов в коде и в репозитории; `.env` — в `.gitignore`.
+Только через env: `JWT_SECRET` (≥ 32 символов), `DATABASE_URL`, `ADMIN_PASSWORD`.
+`.env`, `server/.env`, `server/dist`, `server/node_modules` — в `.gitignore`.

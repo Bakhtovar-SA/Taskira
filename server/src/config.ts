@@ -15,14 +15,28 @@ function fail(msg: string): never {
   process.exit(1);
 }
 
+let cached: Config | null = null;
+
+/** Загружает конфиг ЕДИНОЖДЫ при старте процесса (index.ts) и кэширует. */
+export function initConfig(): Config {
+  cached = buildConfig();
+  return cached;
+}
+
+/** Возвращает кэшированный конфиг; при отсутствии кэша (тесты, seed) — собирает. */
 export function loadConfig(): Config {
+  return cached ?? (cached = buildConfig());
+}
+
+function buildConfig(): Config {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) fail("Не задан DATABASE_URL (например postgresql://user:pass@db:5432/taskira)");
 
   const jwtSecret = process.env.JWT_SECRET ?? "";
   if (jwtSecret.length < 32) fail("JWT_SECRET должен быть не короче 32 символов — см. .env.example");
 
-  const corsRaw = (process.env.CORS_ORIGIN ?? "*").trim();
+  // По умолчанию — только локальный фронтенд. Явное «*» поддерживается, но не подразумевается.
+  const corsRaw = (process.env.CORS_ORIGIN ?? "http://localhost:5173").trim();
 
   const adminUser = process.env.ADMIN_USERNAME?.trim();
   const adminPass = process.env.ADMIN_PASSWORD;

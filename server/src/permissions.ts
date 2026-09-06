@@ -1,10 +1,15 @@
 /**
  * СИСТЕМА ПРАВ ДОСТУПА — СЕРВЕРНАЯ КОПИЯ (источник истины).
- * Клиентский src/permissions.ts используется только для UX.
- * Модель identical: роль-уровень (MATRIX) + задача-уровень (developer → только свои).
+ * Клиентский src/permissions.ts используется только для UX-подсказок.
+ *
+ * Модель (корпоративная, миграция 002):
+ *   1) Роль-уровень: у каждой роли фиксированный набор разрешений (MATRIX).
+ *      Роли: admin | manager | employee | viewer.
+ *   2) Задача-уровень: разрешение «edit» для роли employee сужается —
+ *      редактировать можно только задачи, где сотрудник исполнитель или автор.
  */
 
-export type AccessRole = "admin" | "manager" | "developer" | "viewer";
+export type AccessRole = "admin" | "manager" | "employee" | "viewer";
 
 export type PermId =
   | "browse"
@@ -17,13 +22,13 @@ export type PermId =
   | "editWorkflow"
   | "manageAccess";
 
-/** Минимальный контекст пользователя из JWT */
+/** Минимальный контекст пользователя (из JWT + свежая роль из БД) */
 export interface ServerUser {
   id: string;
   accessRole: AccessRole;
 }
 
-/** Минимальный контекст задачи для проверка уровня задачи */
+/** Минимальный контекст задачи для проверки уровня задачи */
 export interface IssueRef {
   id: string;
   assigneeId: string | null;
@@ -33,7 +38,7 @@ export interface IssueRef {
 export const ROLE_NAMES: Record<AccessRole, string> = {
   admin: "Администратор",
   manager: "Менеджер проекта",
-  developer: "Разработчик",
+  employee: "Сотрудник",
   viewer: "Наблюдатель",
 };
 
@@ -49,14 +54,14 @@ const PERM_NAMES: Record<PermId, string> = {
   manageAccess: "Управление доступом",
 };
 
-/* -------- матрица: разрешение → роли -------- */
+/* -------- матрица: разрешение → роли, которым оно доступно -------- */
 const MATRIX: Record<PermId, AccessRole[]> = {
-  browse: ["admin", "manager", "developer", "viewer"],
-  create: ["admin", "manager", "developer"],
-  edit: ["admin", "manager", "developer"],
+  browse: ["admin", "manager", "employee", "viewer"],
+  create: ["admin", "manager", "employee"],
+  edit: ["admin", "manager", "employee"],
   delete: ["admin", "manager"],
-  transition: ["admin", "manager", "developer"],
-  comment: ["admin", "manager", "developer"],
+  transition: ["admin", "manager", "employee"],
+  comment: ["admin", "manager", "employee"],
   manageSprints: ["admin", "manager"],
   editWorkflow: ["admin"],
   manageAccess: ["admin"],
@@ -64,13 +69,14 @@ const MATRIX: Record<PermId, AccessRole[]> = {
 
 export const roleHas = (role: AccessRole, perm: PermId): boolean => MATRIX[perm].includes(role);
 
+/** «Своя» задача для сотрудника: он исполнитель или автор */
 export const isOwnIssue = (user: ServerUser, issue: IssueRef): boolean =>
   issue.assigneeId === user.id || issue.reporterId === user.id;
 
 export const canEditIssue = (user: ServerUser, issue: IssueRef): boolean => {
   if (!roleHas(user.accessRole, "edit")) return false;
   if (user.accessRole === "admin" || user.accessRole === "manager") return true;
-  return isOwnIssue(user, issue);
+  return isOwnIssue(user, issue); // employee — только свои
 };
 
 /** Единая точка проверки прав на сервере */

@@ -1,11 +1,11 @@
 /** Точка входа: конфиг → миграции → seed → старт HTTP/WS. */
-import { loadConfig } from "./config.js";
+import { initConfig } from "./config.js";
 import { closePool, initPool, migrate } from "./db.js";
 import { seedAdmin } from "./seed.js";
 import { buildApp } from "./app.js";
 
 async function main(): Promise<void> {
-  const cfg = loadConfig();
+  const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
   initPool(cfg.databaseUrl);
   await migrate();
   await seedAdmin();
