@@ -20,9 +20,13 @@ export async function seedAdmin(): Promise<void> {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("") || "АД";
+  // global_role='admin' (миграция 004) — доступ ко всем проектам через глобальную
+  // роль; строку в project_members первому админу НЕ создаём (правило
+  // ROLE_MIGRATION.md §3.3). access_role='admin' пока оставлен для параллельного
+  // прогона со старой моделью — убрать вместе с колонкой в миграции 006.
   await q(
-    `INSERT INTO users (username, password_hash, name, initials, color, job_role, access_role)
-     VALUES ($1, $2, $3, $4, $5, $6, 'admin')`,
+    `INSERT INTO users (username, password_hash, name, initials, color, job_role, access_role, global_role)
+     VALUES ($1, $2, $3, $4, $5, $6, 'admin', 'admin')`,
     [cfg.admin.username, hash, cfg.admin.name, initials, "#B42318", "администратор"],
   );
   console.log(`[seed] создан первый администратор: ${cfg.admin.username}`);

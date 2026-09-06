@@ -1,6 +1,6 @@
 # ROLE_MIGRATION — переход ролевой модели с глобальной на привязанную к проекту
 
-Статус: план, к реализации не приступали.
+Статус: решения раздела 3 приняты; Фаза 1 (схема БД) — в работе, остальные фазы не начаты.
 Контекст: пункт 2 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md); ролевой раздел [SCOPE.md](SCOPE.md).
 Связанные документы: [server/README.md](server/README.md) — актуальный контракт API и модель данных.
 
@@ -41,68 +41,67 @@
 
 ---
 
-## 3. Ключевые проектные решения (принять до кода)
+## 3. Ключевые проектные решения (РЕШЕНО)
 
-### 3.1. `admin` не помещается в проектную модель — нужна двухуровневость
+### 3.1. Двухуровневая модель: один глобальный admin + руководитель на проект
 
-По [SCOPE.md](SCOPE.md) администратор управляет **отделами и проектами** — это
-уровень над проектом. Значит:
+Решение:
 
-- **Глобальная роль**: `users.global_role IN ('admin', 'member')`.
-  `admin` — платформенный администратор: департаменты, проекты, пользователи,
-  кросс-проектные операции. Неявно имеет полные права в любом проекте.
-- **Проектная роль**: `project_members.role IN ('manager', 'employee', 'viewer')`.
-  `manager` — администратор *своего* проекта: состав участников, схема workflow,
-  удаление задач, спринты.
+- **Глобальная роль** — `users.global_role IN ('admin', 'member')`.
+  `admin` — **один на весь ресурс**. Он создаёт департаменты, проекты и
+  пользователей и неявно имеет полные права в любом проекте. (Колонка технически
+  допускает несколько `admin`, но продуктовая модель — один; гард «последний
+  активный admin» из `server/src/routes/users.ts` сохраняется.)
+- **Проектная роль** — `project_members.role IN ('manager', 'employee', 'viewer')`.
+  У каждого департамента (= проекта в текущей однопроектной модели) свой
+  **руководитель** — `manager`, который ставит, редактирует, удаляет задачи и
+  ведёт спринты в **своём** проекте.
 
 Эффективная роль для матрицы прав:
 
 ```
 resolveRole(user, membership) =
   user.globalRole === 'admin'  ? 'admin'
-  : membership?.role ?? null            // null — нет доступа к проекту → 403
+  : membership?.role ?? null            // null — нет членства в проекте → 403
 ```
 
-Матрица `MATRIX` остаётся на четырёх ключах. `manager` в ней уже покрывает
-`editWorkflow`? — **нет** (`editWorkflow: ['admin']`). См. 3.2.
+`MATRIX` остаётся на четырёх ключах и **не меняется** — меняется только источник
+роли: вместо `user.accessRole` подаётся `resolveRole(...)`.
 
-### 3.2. Распределение проектных полномочий
+### 3.2. Распределение полномочий — `MATRIX` без изменений
 
-| Разрешение | Сейчас | Предложение (проектная модель) |
+| Разрешение | Роли (без изменений) | Пояснение в проектной модели |
 |---|---|---|
-| `browse`, `create`, `transition`, `comment` | по роли | без изменений, по проектной роли |
-| `edit` (+ сужение «только свои» для `employee`) | по роли | без изменений |
-| `delete` | `admin`, `manager` | `admin` (глоб.), `manager` (проекта) |
-| `manageSprints` | `admin`, `manager` | `admin` (глоб.), `manager` (проекта) |
-| `manageAccess` — **состав проекта** | `admin` | `admin` (глоб.) **+ `manager` проекта** (SCOPE: «управление составом» — менеджер) |
-| `editWorkflow` — статусы/переходы | `admin` | **решить**: только `admin` (глоб.) — по букве SCOPE — или тоже `manager` проекта |
+| `browse`, `create`, `edit`, `transition`, `comment` | `admin`, `manager`, `employee` (`browse` ещё и `viewer`) | по проектной роли; `edit` для `employee` по-прежнему сужается до своих задач |
+| `delete` | `admin`, `manager` | `manager` — только в своём проекте (роль резолвится по членству) |
+| `manageSprints` | `admin`, `manager` | то же |
+| `manageAccess` — состав участников проекта | **`admin`** | **только глобальный `admin`.** `manager` проекта состав **не** правит |
+| `editWorkflow` — статусы и переходы | **`admin`** | **только глобальный `admin`.** Схема статусов единообразна между проектами отдела; `manager` её не трогает |
 
-Если `manager` получает `manageAccess`/`editWorkflow` в своём проекте, это уже не
-чистая матрица «роль → права», а «роль → права в контексте проекта». Тогда
-`MATRIX` для `manager` расширяется этими двумя правами, а глобальный `admin`
-остаётся superset. Рекомендация senior: **дать `manager` `manageAccess`
-(состав — его работа), `editWorkflow` оставить за глоб. `admin`** — схема
-статусов влияет на отчётность и должна быть единообразной между проектами
-отдела. Зафиксировать в этом разделе перед Фазой 2.
+Следствие: `MATRIX` в обоих `permissions.ts` не редактируется вообще. Проектная
+модель — это исключительно смена источника роли (`resolveRole`) + новый слой
+membership. Никакого «роль расширяет матрицу в контексте проекта».
 
-### 3.3. Бэкфилл существующих данных
+Эндпоинты управления составом (`PUT`/`DELETE /api/project/members/:userId`) идут
+под `requirePerm('manageAccess')` — то есть доступны только глобальному `admin`.
 
-Сейчас доступ к единственному проекту есть у всех активных пользователей.
-Миграция должна:
+### 3.3. Бэкфилл существующих данных (миграция 004)
 
-- `global_role = 'admin'` для тех, у кого `access_role = 'admin'`, иначе `'member'`.
-- Создать `project_members` для **всех активных** пользователей в текущем
-  единственном проекте с ролью по маппингу:
+| Текущий `users.access_role` | Результат |
+|---|---|
+| `admin` | `global_role = 'admin'`; **строки в `project_members` нет** — доступ через глобальную роль |
+| `manager` | `project_members.role = 'manager'` в существующем проекте |
+| `employee` *(бывш. `developer`, см. миграцию 002)* | `project_members.role = 'employee'` |
+| `viewer` | `project_members.role = 'viewer'` |
 
-  | `access_role` | `project_members.role` |
-  |---|---|
-  | `admin` | `manager` *(плюс `global_role='admin'` даёт полный доступ)* |
-  | `manager` | `manager` |
-  | `employee` | `employee` |
-  | `viewer` | `viewer` |
-
-- Деактивированные (`is_active = false`) — членство **не** создаём (при
-  реактивации админ добавит явно).
+- `global_role = 'member'` для всех, кроме `admin`.
+- Членство создаётся только для **активных** (`is_active = true`) пользователей;
+  деактивированным — не создаём (при реактивации `admin` добавит явно).
+- Сид (`server/src/seed.ts`): первый администратор на чистой БД получает
+  `global_role = 'admin'` и `access_role = 'admin'`, **без** записи в
+  `project_members` — согласовано с правилом бэкфилла для `admin`. Автосозданный
+  проект (`seedProject.ts`) остаётся без участников до тех пор, пока `admin` не
+  назначит руководителя; сам `admin` управляет проектом через глобальную роль.
 
 ### 3.4. Откладываем
 
@@ -112,13 +111,19 @@ resolveRole(user, membership) =
   membership на текущий единственный проект; multi-project становится аддитивным
   (см. Фазу 7).
 
-### 3.5. Совместимость токенов
+### 3.5. Совместимость токенов — переходный код не нужен
 
-Смена payload JWT (`role` → `globalRole`) инвалидирует смысл выданных токенов.
-Вариант senior: **переходный релиз читает оба поля** (`req.user.globalRole ??
-(req.user.role === 'admin' ? 'admin' : 'member')`), через один цикл выпуска —
-убрать чтение `role`. Форс-релогин всех — запасной вариант, если переходный код
-не оправдан на внутренней системе.
+Поле `role` в payload JWT для авторизации **не используется**: `requireAuth`
+(`server/src/middleware.ts`) на каждом запросе перечитывает роль/активность из БД
+(`freshUsers`, TTL 30 с) и перезаписывает `req.user`. Клиент токен сам не
+декодирует — профиль приходит через `authApi.me()`. Значит:
+
+- Payload можно переименовать `role` → `globalRole` **без fallback-шимов**:
+  выданные токены остаются валидными, потому что значим только `sub`, а
+  `requireAuth` кладёт в `req.user` уже свежий `globalRole` из БД.
+- Единственное требование — `requireAuth` при промахе кэша выбирает
+  `global_role` (не `access_role`), см. Фазу 2.
+- Форс-релогин не требуется.
 
 ---
 
@@ -127,46 +132,55 @@ resolveRole(user, membership) =
 Порядок: Фазы 1–6 доводятся и мёржатся **на текущем единственном проекте**,
 без работы по Департаментам. Каждая фаза оставляет систему рабочей.
 
-### Фаза 1 — Схема БД
+### Фаза 1 — Схема БД  *(в работе)*
 
-Новая миграция `server/migrations/004_project_roles.sql` (одна транзакция, как
-все остальные):
+**Готово:**
+- `server/migrations/004_project_roles.sql` — колонка `users.global_role`,
+  таблица `project_members`, индекс, бэкфилл по правилу 3.3 (одна транзакция,
+  как все остальные миграции).
+- `server/src/seed.ts` `seedAdmin()` — первый администратор получает
+  `global_role = 'admin'` (плюс прежний `access_role = 'admin'`), **без** записи
+  в `project_members`.
+
+Итоговый SQL миграции 004:
 
 ```sql
 -- 1) Глобальная роль (тонкая): admin | member
-ALTER TABLE users ADD COLUMN global_role text NOT NULL DEFAULT 'member'
+ALTER TABLE users ADD COLUMN IF NOT EXISTS global_role text NOT NULL DEFAULT 'member'
   CHECK (global_role IN ('admin', 'member'));
 UPDATE users SET global_role = 'admin' WHERE access_role = 'admin';
 
 -- 2) Членство в проекте + проектная роль
-CREATE TABLE project_members (
+CREATE TABLE IF NOT EXISTS project_members (
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   user_id    uuid NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
   role       text NOT NULL CHECK (role IN ('manager', 'employee', 'viewer')),
   added_at   timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (project_id, user_id)
 );
-CREATE INDEX idx_project_members_user ON project_members (user_id);
+CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members (user_id);
 
--- 3) Бэкфилл: активные пользователи → участники текущего единственного проекта
+-- 3) Бэкфилл: активные пользователи, КРОМЕ admin, → участники текущего
+--    единственного проекта. admin доступ получает через global_role и
+--    в состав проекта не входит (правило 3.3).
 INSERT INTO project_members (project_id, user_id, role)
 SELECT p.id, u.id,
        CASE u.access_role
-         WHEN 'admin'   THEN 'manager'
          WHEN 'manager' THEN 'manager'
          WHEN 'viewer'  THEN 'viewer'
          ELSE 'employee'
        END
 FROM users u
 CROSS JOIN (SELECT id FROM projects ORDER BY created_at LIMIT 1) p
-WHERE u.is_active;
+WHERE u.is_active
+  AND u.access_role <> 'admin'
+ON CONFLICT (project_id, user_id) DO NOTHING;
 
 -- users.access_role НЕ удаляем — параллельный прогон, дроп в 006.
 ```
 
-`server/src/seedProject.ts` / `seed.ts` — при создании админ-пользователя и
-проекта на чистой БД сразу писать `global_role='admin'` и строку
-`project_members(role='manager')`.
+На чистой БД `migrate()` идёт до сида: users/projects пусты → шаги 2–3 создают
+только структуру, бэкфилл ничего не вставляет; далее `seedAdmin()` + `seedProject()`.
 
 ### Фаза 2 — Ядро прав (сервер)
 
@@ -177,12 +191,13 @@ WHERE u.is_active;
 - `can(user, membership, perm, issue?)`, `denialReason(user, membership, perm, issue?)` —
   сигнатуры получают `membership`; внутри `resolveRole`, дальше прежняя логика.
   `null` → `false` / «Нет доступа к проекту».
-- `MATRIX`: если по 3.2 `manager` получает `manageAccess` — добавить его в этот
-  ключ (и синхронно в клиентскую копию).
+- `MATRIX` **не трогаем** (решение 3.2): `manageAccess` и `editWorkflow`
+  остаются `['admin']`.
 
 `server/src/middleware.ts`:
 - `requireAuth` — без изменений по сути; `freshUsers` кэширует
-  `{ is_active, globalRole }`. Payload читаем совместимо (3.5).
+  `{ is_active, globalRole }` (при промахе кэша читаем `global_role`, не
+  `access_role` — см. 3.5).
 - Новый preHandler `loadProjectContext`:
   - определяет проект: пока `currentProject()`; в Фазе 7 — из `:projectId`.
   - грузит `project_members` для `req.user.sub` в этом проекте → `req.membership`.
@@ -204,11 +219,16 @@ WHERE u.is_active;
   - `GET /users` (глоб. `admin`) — все пользователи, в DTO `globalRole`.
   - `PATCH /users/:id` — только `globalRole` + `is_active`. Гард «последний
     активный глобальный admin» (перенести с `access_role` на `global_role`).
-  - Новые:
-    - `PUT /api/project/members/:userId` `{ role }` — добавить/сменить роль
-      участника. Право: глоб. `admin` или `manager` проекта (`manageAccess`).
-    - `DELETE /api/project/members/:userId` — убрать из проекта. Гард «последний
-      `manager` проекта».
+  - Новые (право `manageAccess` → **только глобальный `admin`**, решение 3.2):
+    - `PUT /api/project/members/:userId` `{ role }` — добавить участника или
+      сменить его роль.
+    - `DELETE /api/project/members/:userId` — убрать из проекта.
+    - **Гард «последний `manager` проекта» — на обоих путях** (по образцу
+      `server/src/routes/users.ts:65` для глобального admin, где гард
+      покрывает и понижение роли, и деактивацию): `DELETE` не должен убрать
+      последнего активного `manager`, а `PUT` — понизить его до
+      `employee`/`viewer`, если он в проекте единственный `manager`. Иначе
+      проект остаётся без руководителя.
     - оба зовут `invalidateMembership`.
   - `POST /admin/users` (`CreateUserBody`): `accessRole` → `globalRole`; членство
     назначается отдельным вызовом.
@@ -282,11 +302,16 @@ WHERE u.is_active;
       проектами в БД до Фазы 7) → создаёт задачу в P1, получает `403` в P2;
 - [ ] `employee` редактирует только свои задачи (правило уровня задачи не
       сломалось);
-- [ ] гард «последний `manager` проекта» при `DELETE` членства;
+- [ ] `manager` проекта получает `403` на `editWorkflow` и на
+      `PUT/DELETE /api/project/members/:userId` (эти права — только у
+      глобального `admin`, решение 3.2);
+- [ ] гард «последний `manager` проекта` срабатывает **и на `DELETE` членства,
+      и на `PUT` с понижением роли последнего менеджера;
 - [ ] гард «последний активный глобальный `admin`» при `PATCH /users/:id`;
 - [ ] смена проектной роли применяется в пределах TTL кэша (30 с) без релогина;
 - [ ] удаление из проекта отзывает доступ в пределах TTL;
-- [ ] старый токen (payload с `role`) продолжает работать переходный релиз (3.5);
+- [ ] токен, выданный до миграции (payload с `role`), продолжает работать без
+      релогина — роль берётся из БД в `requireAuth` (3.5);
 - [ ] `audit_log` содержит `projectId` в `access.denied`.
 
 ### Фаза 7 — Зачистка и multi-project (follow-up)
@@ -305,8 +330,9 @@ WHERE u.is_active;
 
 ## 5. Риски и внимание
 
-- **Два зеркальных `permissions.ts`** — любое изменение матрицы/сигнатур
-  синхронно на клиенте и сервере (CLAUDE.md).
+- **Два зеркальных `permissions.ts`** — `MATRIX` не меняется (решение 3.2), но
+  сигнатуры `can()`/`denialReason()` и `resolveRole` правятся синхронно на
+  клиенте и сервере (CLAUDE.md).
 - **`me.role` vs роль доступа** на клиенте — `role` это должность; не
   переименовывать вслепую.
 - **Кэши**: добавляется `membershipCache` рядом с `freshUsers` и кэшом

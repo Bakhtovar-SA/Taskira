@@ -35,6 +35,7 @@
 | 3a | Скелет сервера (Fastify, JWT, middleware, auth, seed) | ✅ |
 | 3a-fix | Транзакции в migrate(), кэш конфига, refresh роли из БД, rate-limit логина, /health 503, .gitignore | ✅ |
 | 3b-model | `002_corporate.sql`: employee, task/bug/request, due_date, issue_watchers | ✅ |
+| roles-1 | `004_project_roles.sql`: `users.global_role` + `project_members` (схема, бэкфилл; поведение прав пока прежнее) — план в [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md) | ✅ схема |
 | 3b-routes | CRUD issues/sprints/workflow/comments/users | ⏳ следующий |
 | 3c | WebSocket-рассылка | ⏳ |
 | 4 | Фронтенд поверх API + синхронизация ролей клиента (employee) | ⏳ |
@@ -139,7 +140,7 @@ npm run dev        # tsx watch: миграции 001+002 → seed админа �
 
 ```bash
 npm run seed                     # прогоняет migrate() + создание первого админа
-psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001, 002
+psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001, 002, 003, 004
 ```
 
 Health, логин, me:
@@ -176,6 +177,14 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
   (`select distinct access_role from users; select distinct type_id from issues;`)
 - [ ] `select conname from pg_constraint where conname in ('users_access_role_check','issues_type_id_check')` — обе на месте
 - [ ] `git check-ignore server/.env server/dist .env` — всё игнорируется
+
+### Миграция 004 (схема project-scoped ролей)
+
+- [ ] `04` в `schema_migrations`; `\d project_members` показывает PK `(project_id, user_id)`, CHECK на `role`, индекс `idx_project_members_user`
+- [ ] `select distinct global_role from users` → `admin` и/или `member`; у бывших `access_role='admin'` теперь `global_role='admin'`
+- [ ] На БД с данными: `select count(*) from project_members` = число активных не-admin пользователей; строк для admin нет
+- [ ] На чистой БД: `migrate()` до сида не падает (users/projects пусты), затем `seedAdmin` пишет `global_role='admin'` без строки в `project_members`
+- [ ] Поведение прав API **не изменилось** — проверки всё ещё по `access_role` до Фазы 2 (см. `../ROLE_MIGRATION.md`)
 
 ### Этап 3b
 
