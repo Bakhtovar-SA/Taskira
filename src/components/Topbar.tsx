@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
 
 function SearchBox() {
@@ -103,6 +103,7 @@ function Bell() {
         <div onMouseEnter={() => setSeen(Date.now() + 1000)}>
           <p className="border-b border-linesoft px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">Лента активности</p>
           <div className="max-h-[330px] overflow-y-auto">
+            {feed.length === 0 && <p className="px-3.5 py-6 text-center text-[12.5px] text-faint">Пока нет событий</p>}
             {feed.map((f) => {
               const u = data.users.find((x) => x.id === f.authorId);
               return (
@@ -130,12 +131,11 @@ function Bell() {
   );
 }
 
-/* Меню пользователя: профиль + демо-переключение ролей */
-function UserMenu() {
-  const { data, me, switchUser } = useStore();
+function UserMenu({ onLogout }: { onLogout: () => void }) {
+  const { data, me } = useStore();
   return (
     <Dropdown
-      width={300}
+      width={280}
       align="right"
       button={(open) => (
         <button className={`flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${open ? "border-accent bg-accentsoft" : "border-line bg-white hover:border-[#b9c6da]"}`} aria-label="Меню пользователя">
@@ -162,31 +162,23 @@ function UserMenu() {
               <RoleBadge role={me.accessRole} size="sm" />
             </div>
           </div>
-          <p className="px-3.5 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-wider text-faint">Войти как (демо прав доступа)</p>
-          {data.users.map((u) => (
-            <MenuItem
-              key={u.id}
-              onClick={() => {
-                switchUser(u.id);
-                close();
-              }}
-            >
-              <Avatar user={u} size={24} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12.5px] font-semibold">{u.name}</span>
-              </span>
-              <RoleBadge role={u.accessRole} size="sm" />
-              {u.id === data.currentUserId && <IcCheck size={12} className="text-accent" />}
-            </MenuItem>
-          ))}
+          <MenuItem
+            onClick={() => {
+              onLogout();
+              close();
+            }}
+          >
+            Выйти
+          </MenuItem>
         </>
       )}
     </Dropdown>
   );
 }
 
-export default function Topbar() {
-  const { data, ui, setCreateOpen, can } = useStore();
+export default function Topbar({ onLogout }: { onLogout?: () => void }) {
+  const { data, ui, setCreateOpen, can, logout } = useStore();
+  const doLogout = onLogout ?? logout;
   const viewTitle = {
     board: "Доска",
     backlog: "Бэклог",
@@ -225,7 +217,7 @@ export default function Topbar() {
           </Tip>
         )}
         <div className="ml-1 border-l border-line pl-3">
-          <UserMenu />
+          <UserMenu onLogout={doLogout} />
         </div>
       </div>
     </header>
