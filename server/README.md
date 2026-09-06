@@ -43,6 +43,7 @@
 | roles-4 | Клиент: `store`/`api`/`permissions` на `globalRole` + `members`; `me` считает эффективную роль; экшены `setMemberRole`/`removeMember`; мёртвый `src/seed.ts` вырезан | ✅ |
 | roles-5 | Клиент UI: `PermissionsView` — управление составом (роль/добавить/убрать) для админа ресурса; `DocsView` тексты; CORS-фикс (`app.ts` methods) | ✅ |
 | roles-7 | `006_drop_access_role.sql`: `DROP COLUMN users.access_role` + constraint; чистка `UserRow`/`SafeUser`/`safeUser`/`seedAdmin`, `SafeUser` на клиенте | ✅ |
+| dept-1 | `007_departments.sql`: таблица `departments` (+ `ldap_group_dn`), `projects.department_id`/`is_shared`, бэкфилл «Общий отдел» — план в [`../DEPT_MIGRATION.md`](../DEPT_MIGRATION.md) | ✅ схема |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
 
@@ -180,7 +181,7 @@ npm run dev        # tsx watch: миграции → seed админа → liste
 
 ```bash
 npm run seed                     # прогоняет migrate() + создание первого админа
-psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001..004, 006
+psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001..004, 006, 007
 ```
 
 Health, логин, me:
@@ -243,6 +244,14 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
 - [ ] `DELETE /api/project/members/:userId` — 204; повторно / не участник — 404
 - [ ] Гард последнего менеджера: `DELETE` или `PUT`-понижение единственного активного `manager` — **409**; после назначения второго — операция проходит
 - [ ] После `PUT`/`DELETE` состава роль в правах пользователя меняется без релогина (`invalidateMembership`)
+
+### Миграция 007 (департаменты, dept-1)
+
+- [ ] `007_departments.sql` в `schema_migrations`; `\d departments` — `name UNIQUE`, `ldap_group_dn` nullable
+- [ ] `projects.department_id` — `NOT NULL`, FK → `departments`; `projects.is_shared` — `NOT NULL DEFAULT false`
+- [ ] На БД с данными: существующие проекты привязаны к «Общий отдел» и помечены `is_shared = true`; `ldap_group_dn` пуст
+- [ ] На чистой БД: `migrate()` создаёт «Общий отдел» (пустой), `seedProject` его переиспользует и вешает проект туда; `is_shared` фреш-проекта = `false`
+- [ ] `npm run seed` дважды — департамент и проект не дублируются
 
 ### Этап 3b
 
