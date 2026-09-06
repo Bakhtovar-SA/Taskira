@@ -35,7 +35,8 @@
 | 3a | Скелет сервера (Fastify, JWT, middleware, auth, seed) | ✅ |
 | 3a-fix | Транзакции в migrate(), кэш конфига, refresh роли из БД, rate-limit логина, /health 503, .gitignore | ✅ |
 | 3b-model | `002_corporate.sql`: employee, task/bug/request, due_date, issue_watchers | ✅ |
-| roles-1 | `004_project_roles.sql`: `users.global_role` + `project_members` (схема, бэкфилл; поведение прав пока прежнее) — план в [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md) | ✅ схема |
+| roles-1 | `004_project_roles.sql`: `users.global_role` + `project_members` (схема, бэкфилл) — план в [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md) | ✅ схема |
+| roles-2 | Ядро прав переведено на project-scoped: `resolveRole()`, `req.projectRole`/`req.membership`, `requirePerm`/`requireIssuePerm` резолвят роль по `project_members`; JWT несёт `globalRole` | ✅ сервер |
 | 3b-routes | CRUD issues/sprints/workflow/comments/users | ⏳ следующий |
 | 3c | WebSocket-рассылка | ⏳ |
 | 4 | Фронтенд поверх API + синхронизация ролей клиента (employee) | ⏳ |
@@ -184,7 +185,16 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
 - [ ] `select distinct global_role from users` → `admin` и/или `member`; у бывших `access_role='admin'` теперь `global_role='admin'`
 - [ ] На БД с данными: `select count(*) from project_members` = число активных не-admin пользователей; строк для admin нет
 - [ ] На чистой БД: `migrate()` до сида не падает (users/projects пусты), затем `seedAdmin` пишет `global_role='admin'` без строки в `project_members`
-- [ ] Поведение прав API **не изменилось** — проверки всё ещё по `access_role` до Фазы 2 (см. `../ROLE_MIGRATION.md`)
+
+### Ядро прав project-scoped (roles-2)
+
+- [ ] Логин: JWT-payload несёт `globalRole` (не `role`); `/api/auth/me` — 200
+- [ ] Токен, выданный до перехода (payload с `role`), продолжает работать — роль берётся из БД в `requireAuth`
+- [ ] Глоб. `admin` без строки в `project_members` — полный доступ ко всем роутам проекта
+- [ ] `global_role='member'` без членства → любой роут проекта отдаёт **403** «Нет доступа к проекту»
+- [ ] `member` + `project_members.role='viewer'` → `GET /api/project`, `GET /api/issues` — 200; `POST /api/issues` — 403 «Создание задач»; `GET /api/users` — 403 «Управление доступом»; `POST /api/workflow/transitions` — 403 «Изменение workflow»
+- [ ] Вставка/удаление строки `project_members` вступает в силу ≤ 30 с (TTL кэша) или после рестарта
+- [ ] `PATCH /api/issues/:id` со сменой `sprintId` от роли без `manageSprints` → 403
 
 ### Этап 3b
 

@@ -1,6 +1,6 @@
 # ROLE_MIGRATION — переход ролевой модели с глобальной на привязанную к проекту
 
-Статус: решения раздела 3 приняты; Фаза 1 (схема БД) — в работе, остальные фазы не начаты.
+Статус: решения раздела 3 приняты; Фаза 1 (схема БД) и Фаза 2 (ядро прав, сервер) — сделаны; Фаза 3 (роуты + контракт) — следующая.
 Контекст: пункт 2 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md); ролевой раздел [SCOPE.md](SCOPE.md).
 Связанные документы: [server/README.md](server/README.md) — актуальный контракт API и модель данных.
 
@@ -182,32 +182,61 @@ ON CONFLICT (project_id, user_id) DO NOTHING;
 На чистой БД `migrate()` идёт до сида: users/projects пусты → шаги 2–3 создают
 только структуру, бэкфилл ничего не вставляет; далее `seedAdmin()` + `seedProject()`.
 
-### Фаза 2 — Ядро прав (сервер)
+### Фаза 2 — Ядро прав (сервер)  *(сделано)*
+
+**Реализовано:**
+
+`server/src/errors.ts` *(новый файл, не было в плане)* — класс `ApiHttpError`
+вынесен из `middleware.ts`. Причина: Фаза 2 добавляет стрелку
+`middleware → services/project` (для `currentProject()`), а `services/project.ts`
+импортировал `notFound` из `middleware.ts` — получался цикл. Теперь
+`services/project.ts` бросает `new ApiHttpError(...)` из `errors.js`;
+`middleware.ts` ре-экспортирует `ApiHttpError` для обратной совместимости
+существующих импортов.
 
 `server/src/permissions.ts`:
-- `ServerUser` → `{ id, globalRole: 'admin' | 'member' }`.
-- Новый тип `Membership = { projectId: string; role: ProjectRole } | null`.
-- `resolveRole(user, membership): AccessRole | null` (см. 3.1).
-- `can(user, membership, perm, issue?)`, `denialReason(user, membership, perm, issue?)` —
-  сигнатуры получают `membership`; внутри `resolveRole`, дальше прежняя логика.
-  `null` → `false` / «Нет доступа к проекту».
-- `MATRIX` **не трогаем** (решение 3.2): `manageAccess` и `editWorkflow`
-  остаются `['admin']`.
+- `ServerUser` → `{ id, globalRole: GlobalRole }`; типы `GlobalRole`,
+  `ProjectRole`, `Membership = { projectId; role: ProjectRole } | null`.
+- `resolveRole(user, membership): AccessRole | null` (§3.1).
+- `roleCan(role, perm, ctx?)` / `roleDenialReason(role, perm, ownViolation?)` —
+  примитивы по уже вычисленной роли (нужны роутам, где роль уже в `req.projectRole`).
+- `can(user, membership, perm, issue?)` / `denialReason(...)` — обёртки:
+  `resolveRole` → примитив. `null` → `false` / «Нет доступа к проекту».
+- `MATRIX` **не тронут** (решение 3.2). `isOwnIssue` принимает `userId: string`.
 
 `server/src/middleware.ts`:
-- `requireAuth` — без изменений по сути; `freshUsers` кэширует
-  `{ is_active, globalRole }` (при промахе кэша читаем `global_role`, не
-  `access_role` — см. 3.5).
-- Новый preHandler `loadProjectContext`:
-  - определяет проект: пока `currentProject()`; в Фазе 7 — из `:projectId`.
-  - грузит `project_members` для `req.user.sub` в этом проекте → `req.membership`.
-  - кэш `membershipCache: Map<`user:project`, { role, at }>`, TTL 30 с,
-    `invalidateMembership(userId, projectId)`.
-- `requirePerm(perm)` → `loadProjectContext` в цепочке, проверка
-  `can(serverUser(req), req.membership, perm)`; 403 если `resolveRole` вернул
-  `null`. Аудит `access.denied` с `projectId` в details.
-- `requireIssuePerm(perm)` → в `SELECT` добавить `project_id`; membership
-  резолвится для проекта **задачи**, не для «текущего».
+- `requireAuth` — `freshUsers` кэширует `{ globalRole, active }`; при промахе
+  `SELECT global_role, is_active`. Payload токена (`role`/`globalRole`) для
+  авторизации не используется (§3.5), старые токены работают без релогина.
+- `JwtPayload.role` → `JwtPayload.globalRole`; `signToken` пишет `global_role`.
+- Membership прямо в `middleware.ts` (рядом с `freshUsers`, отдельный файл
+  `loadProjectContext` не понадобился): `membershipCache` `Map<'user::project', …>`,
+  TTL 30 с, `loadProjectMembership()`, экспорт `invalidateMembership(userId, projectId)`.
+- `req.membership` / `req.projectRole` объявлены в аугментации `FastifyRequest`.
+- `requirePerm(perm)` — резолвит проект (`currentProject()`) + membership, ставит
+  `req.membership`/`req.projectRole`, `can(u, membership, perm)`; 403 с `projectId`
+  в аудите, если нет доступа.
+- `requireIssuePerm(perm)` — в `SELECT` добавлен `project_id`; membership
+  резолвится для проекта **задачи**.
+
+`server/src/routes/issues.ts` — инлайновая проверка `manageSprints` в
+`PATCH /issues/:id` переведена с `user.role` на `req.projectRole` +
+`roleDenialReason(...)`.
+
+`server/src/auth.ts` — `UserRow.global_role`; `SafeUser` пока без изменений
+(поле `globalRole` в DTO — Фаза 3).
+
+**Проверено вживую** (сборка + отдельный инстанс на :8091, БД восстановлена):
+глоб. admin без строки в `project_members` — полный доступ; `member` без
+членства — 403 «Нет доступа к проекту»; `member` + `project_members.role='viewer'`
+— `browse` да, `create`/`manageAccess`/`editWorkflow` — 403 с точной причиной;
+смена членства подхватывается после TTL/рестарта; JWT-payload несёт `globalRole`.
+
+**Расхождение клиента (осознанное, до Фазы 4):** `src/permissions.ts` (клиент)
+временно расходится с серверной копией — правило «менять обе синхронно»
+(CLAUDE.md) снимается на время миграции и восстанавливается в Фазе 4, когда
+клиент получит `globalRole` + `members` из bootstrap. До этого клиент работает
+на прежнем `accessRole`, который сервер продолжает отдавать в `SafeUser`.
 
 ### Фаза 3 — Роуты (сервер)
 
