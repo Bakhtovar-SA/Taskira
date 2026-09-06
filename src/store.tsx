@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import type { AccessRole, Data, Issue, IssueTypeId, PriorityId, ProjectRole, Toast, User, ViewId, Workflow } from "./types";
-import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
+import { can as canDo, denialReason, resolveRole, roleMeta, type PermId } from "./permissions";
 import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
 import {
   ApiError,
@@ -680,9 +680,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
-  const switchUser = useCallback(() => {
-    toast("info", "Демо-переключение ролей отключено — используйте вход под другим пользователем");
-  }, [toast]);
+  // Демо-переключение роли: только на localhost и только для превью UX прав.
+  // Меняет локально «кто такой me» — кнопки/бейджи/тултипы и клиентский requirePerm
+  // пересчитываются по эффективной роли выбранного пользователя. ВАЖНО: JWT остаётся
+  // вашим, поэтому мутации, если проскочат мимо UI-гейта, сервер выполнит под вашим
+  // входом. Для настоящей проверки серверных прав — реальный логин (пароль тестовых
+  // пользователей задавали при их создании).
+  const switchUser = useCallback(
+    (id: string) => {
+      const onLocalhost =
+        typeof location !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+      if (!onLocalhost) {
+        toast("info", "Демо-переключение ролей отключено — используйте вход под другим пользователем");
+        return;
+      }
+      const u = dataRef.current.users.find((x) => x.id === id);
+      if (!u) return;
+      setData((prev) => ({ ...prev, currentUserId: id }));
+      const eff = resolveRole(u.globalRole, dataRef.current.members[u.id]);
+      toast(
+        "info",
+        `UI от лица «${u.name}» — ${eff ? roleMeta(eff).name : "нет доступа к проекту"}. Запросы к API идут под вашим входом.`,
+      );
+    },
+    [toast],
+  );
 
   const resetDemo = useCallback(() => {
     toast("info", "Сброс демо недоступен в режиме API");
