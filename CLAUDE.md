@@ -138,8 +138,9 @@ Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counter
   db creds `taskira`/`taskira`), so don't paste its contents anywhere shared.
 - `CORS_ORIGIN` in `server/.env` must match the client's actual origin (client dev server is
   `:3000`, but `.env.example` says `:5173`).
-- Client `switchUser` / `resetDemo` are intentionally disabled stubs — user switching is now
-  real login/logout only.
+- User switching is real login/logout only. The old `switchUser` / `resetDemo` client stubs
+  and the "Войти как" role-preview UI were removed (dept branch) — they only re-skinned the
+  UI locally and never changed which JWT the API saw.
 - Root `package.json` still lists many unused deps (`@dnd-kit`, `@supabase/supabase-js`,
   `framer-motion`, `recharts`, `canvas-confetti`, `uuid`, …); `server/README.md` has the
   removal command. Don't assume a dependency is wired in just because it's installed.
