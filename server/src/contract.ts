@@ -34,6 +34,8 @@ export const LIMITS = {
   points: { min: 0, max: 100 },
   goal: { max: 200 },
   username: { min: 3, max: 32 },
+  department: { name: { min: 1, max: 80 } },
+  project: { key: { min: 2, max: 10 }, name: { min: 1, max: 120 }, description: { max: 2000 } },
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -112,22 +114,22 @@ export const DepartmentParams = z.object({ id: uuid });
 
 /** POST/PATCH /api/departments[/:id] [global admin] */
 export const DepartmentBody = z.object({
-  name: oneLine(80, 1, "Название отдела не может быть пустым"),
+  name: oneLine(LIMITS.department.name.max, LIMITS.department.name.min, "Название отдела не может быть пустым"),
 });
 
 /** Ключ проекта: заглавная латиница/цифры, начинается с буквы (CORP, SEC, IT2). */
 const projectKey = z
   .string()
   .trim()
-  .min(2)
-  .max(10)
+  .min(LIMITS.project.key.min)
+  .max(LIMITS.project.key.max)
   .regex(/^[A-Z][A-Z0-9]+$/, "Ключ: заглавные латинские буквы и цифры, начинается с буквы");
 
 /** POST /api/projects [global admin] — создаёт проект + дефолтный workflow. */
 export const ProjectCreateBody = z.object({
   key: projectKey,
-  name: oneLine(120, 1, "Название проекта не может быть пустым"),
-  description: multiLine(2000).default(""),
+  name: oneLine(LIMITS.project.name.max, LIMITS.project.name.min, "Название проекта не может быть пустым"),
+  description: multiLine(LIMITS.project.description.max).default(""),
   departmentId: uuid,
   isShared: z.boolean().default(false),
 });
@@ -135,8 +137,8 @@ export const ProjectCreateBody = z.object({
 /** PATCH /api/projects/:projectId [global admin] */
 export const ProjectPatchBody = z
   .object({
-    name: oneLine(120, 1),
-    description: multiLine(2000),
+    name: oneLine(LIMITS.project.name.max, LIMITS.project.name.min),
+    description: multiLine(LIMITS.project.description.max),
     departmentId: uuid,
     isShared: z.boolean(),
   })

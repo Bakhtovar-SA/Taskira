@@ -13,7 +13,7 @@ import type {
   ViewId,
   Workflow,
 } from "./types";
-import { can as canDo, denialReason, resolveRole, roleMeta, type PermId } from "./permissions";
+import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
 import {
   ApiError,
@@ -175,7 +175,6 @@ interface Api {
   openIssue: (id: string | null) => void;
   setCreateOpen: (v: boolean) => void;
   toast: (kind: Toast["kind"], text: string) => void;
-  switchUser: (id: string) => void;
   createIssue: (input: CreateInput) => void;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
@@ -198,7 +197,6 @@ interface Api {
     patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean },
   ) => void;
   deleteProject: (id: string) => void;
-  resetDemo: () => void;
 }
 
 const Ctx = createContext<Api | null>(null);
@@ -338,9 +336,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         isShared: p.isShared,
       }));
       if (projects.length === 0) {
-        setData({ ...emptyData(), currentUserId: user.id, departments: deps });
+        // users: [me] — иначе me-memo не найдёт currentUserId и свалится на
+        // синтетического 'member'/'viewer' (глоб. admin потерял бы доступ к
+        // AdminView, откуда только и можно создать первый проект).
+        setData({ ...emptyData(), currentUserId: user.id, departments: deps, users: [mapUser(user, {})] });
+        if (user.globalRole === "admin") {
+          setUi((u) => ({ ...u, view: "admin" }));
+          toast("info", "Проектов пока нет — создайте первый в разделе «Департаменты»");
+        } else {
+          toast("info", "Вам пока не открыт ни один проект — обратитесь к администратору");
+        }
         setBootStatus("ready");
-        toast("info", "Вам пока не открыт ни один проект — обратитесь к администратору");
         return;
       }
       const wanted = readLastProject();
@@ -359,18 +365,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [handleApiError, buildProjectData, toast]);
 
+  const switchSeqRef = useRef(0);
   const switchProject = useCallback(
     (projectId: string) => {
       const cur = dataRef.current;
       if (projectId === cur.currentProjectId || !cur.projects.some((p) => p.id === projectId)) return;
+      const seq = ++switchSeqRef.current;
       setBootStatus("loading");
       void (async () => {
         try {
-          setData(await buildProjectData(projectId, cur.currentUserId, cur.projects, cur.departments));
+          const next = await buildProjectData(projectId, cur.currentUserId, cur.projects, cur.departments);
+          if (seq !== switchSeqRef.current) return; // пришёл более поздний клик
+          setData(next);
           writeLastProject(projectId);
           setUi((u) => ({ ...u, selectedIssueId: null }));
           setBootStatus("ready");
         } catch (err) {
+          if (seq !== switchSeqRef.current) return;
           handleApiError(err, "Не удалось открыть проект");
           setBootStatus("ready");
         }
@@ -857,8 +868,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           await projectsApi.patch(id, patch);
           await refreshOrg();
-          if (id === dataRef.current.currentProjectId && patch.name !== undefined) {
-            setData((prev) => ({ ...prev, project: { ...prev.project, name: patch.name! } }));
+          // открытый проект: патчим все переданные поля (name/description/isShared/…),
+          // иначе шапка/бейдж покажут устаревшее до следующего switchProject/bootstrap
+          if (id === dataRef.current.currentProjectId) {
+            setData((prev) => ({ ...prev, project: { ...prev.project, ...patch } }));
           }
         } catch (err) {
           handleApiError(err, "Не удалось изменить проект");
@@ -890,35 +903,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError, refreshOrg, bootstrap],
   );
 
-  // Демо-переключение роли: только на localhost и только для превью UX прав.
-  // Меняет локально «кто такой me» — кнопки/бейджи/тултипы и клиентский requirePerm
-  // пересчитываются по эффективной роли выбранного пользователя. ВАЖНО: JWT остаётся
-  // вашим, поэтому мутации, если проскочат мимо UI-гейта, сервер выполнит под вашим
-  // входом. Для настоящей проверки серверных прав — реальный логин (пароль тестовых
-  // пользователей задавали при их создании).
-  const switchUser = useCallback(
-    (id: string) => {
-      const onLocalhost =
-        typeof location !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
-      if (!onLocalhost) {
-        toast("info", "Демо-переключение ролей отключено — используйте вход под другим пользователем");
-        return;
-      }
-      const u = dataRef.current.users.find((x) => x.id === id);
-      if (!u) return;
-      setData((prev) => ({ ...prev, currentUserId: id }));
-      const eff = resolveRole(u.globalRole, dataRef.current.members[u.id]);
-      toast(
-        "info",
-        `UI от лица «${u.name}» — ${eff ? roleMeta(eff).name : "нет доступа к проекту"}. Запросы к API идут под вашим входом.`,
-      );
-    },
-    [toast],
-  );
-
-  const resetDemo = useCallback(() => {
-    toast("info", "Сброс демо недоступен в режиме API");
-  }, [toast]);
 
   const api: Api = {
     data,
@@ -934,7 +918,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     openIssue,
     setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v })),
     toast,
-    switchUser,
     createIssue,
     updateIssue,
     moveStatus,
@@ -954,7 +937,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createProject,
     patchProject,
     deleteProject,
-    resetDemo,
   };
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

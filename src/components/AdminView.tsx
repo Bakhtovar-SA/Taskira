@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import type { ProjectSummary } from "../types";
+import { LIMITS } from "../validation";
 import { IcInbox, IcLock, IcPlus, IcTrash } from "../icons";
 
+const KEY_RE = /^[A-Z][A-Z0-9]{1,9}$/;
+
 /** Инлайн-переименование: input выглядит как текст, сохраняет по blur/Enter. */
-function EditableName({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+function EditableName({ value, onSave, maxLength }: { value: string; onSave: (v: string) => void; maxLength: number }) {
   return (
     <input
       key={value}
       defaultValue={value}
+      maxLength={maxLength}
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         if (e.key === "Escape") {
@@ -80,6 +84,7 @@ export default function AdminView() {
             onChange={(e) => setNewDept(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && newDept.trim() && (createDepartment(newDept.trim()), setNewDept(""))}
             placeholder="Название нового отдела"
+            maxLength={LIMITS.department.name.max}
             className="min-w-0 flex-1 rounded-md border border-line bg-white px-2.5 py-1.5 text-[12.5px] focus:border-accent focus:outline-none"
           />
           <button
@@ -103,7 +108,7 @@ export default function AdminView() {
               <section key={d.id} className="rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
                 <header className="flex items-center gap-2 border-b border-linesoft bg-canvas/50 px-3 py-2">
                   <IcInbox size={15} className="shrink-0 text-accent" />
-                  <EditableName value={d.name} onSave={(v) => renameDepartment(d.id, v)} />
+                  <EditableName value={d.name} onSave={(v) => renameDepartment(d.id, v)} maxLength={LIMITS.department.name.max} />
                   <span className="shrink-0 text-[11px] text-faint">{projs.length} проект(ов)</span>
                   <button
                     onClick={() =>
@@ -125,7 +130,7 @@ export default function AdminView() {
                       <span className="w-16 shrink-0 rounded bg-[#e8edf4] px-1.5 py-0.5 text-center font-mono text-[10.5px] font-bold text-sub">
                         {p.key}
                       </span>
-                      <EditableName value={p.name} onSave={(v) => patchProject(p.id, { name: v })} />
+                      <EditableName value={p.name} onSave={(v) => patchProject(p.id, { name: v })} maxLength={LIMITS.project.name.max} />
                       <label className="flex shrink-0 items-center gap-1 text-[11px] text-sub">
                         <input
                           type="checkbox"
@@ -166,15 +171,16 @@ export default function AdminView() {
                       value={f.name}
                       onChange={(e) => setForm(d.id, { name: e.target.value })}
                       placeholder="Название проекта"
+                      maxLength={LIMITS.project.name.max}
                       className="min-w-0 flex-1 rounded-md border border-line bg-white px-2 py-1 text-[11.5px] focus:border-accent focus:outline-none"
                     />
                     <button
                       onClick={() => {
-                        if (f.key.length < 2 || !f.name.trim()) return;
+                        if (!KEY_RE.test(f.key) || !f.name.trim()) return;
                         createProject({ key: f.key, name: f.name.trim(), departmentId: d.id });
                         setForm(d.id, { key: "", name: "" });
                       }}
-                      disabled={f.key.length < 2 || !f.name.trim()}
+                      disabled={!KEY_RE.test(f.key) || !f.name.trim()}
                       className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                     >
                       <IcPlus size={12} /> Проект
