@@ -23,6 +23,10 @@ export function buildApp(): FastifyInstance {
 
   app.register(cors, {
     origin: cfg.corsOrigin === "*" ? true : cfg.corsOrigin,
+    // По умолчанию @fastify/cors разрешает только GET/HEAD/POST — браузерный
+    // preflight для PATCH/PUT/DELETE тогда падает («Нет связи с сервером» на клиенте).
+    methods: ["GET", "HEAD", "POST", "PATCH", "PUT", "DELETE"],
+    allowedHeaders: ["Authorization", "Content-Type"],
     credentials: false,
   });
   app.register(jwt, { secret: cfg.jwtSecret });
