@@ -1,11 +1,8 @@
 import type { AccessRole, Issue, User } from "./types";
 
 /* ============================================================
-   СИСТЕМА ПРАВ ДОСТУПА
-   Двухуровневая модель, как в Jira Permission Schemes:
-   1) Роль-уровень: у каждой роли есть набор разрешений (матрица MATRIX).
-   2) Задача-уровень: разрешение «edit» для разработчика сужается —
-      редактировать можно только задачи, где он исполнитель или автор.
+   СИСТЕМА ПРАВ ДОСТУПА (клиент — только UX; сервер — источник истины)
+   Роли: admin | manager | employee | viewer
    ============================================================ */
 
 export type PermId =
@@ -33,43 +30,42 @@ export const ACCESS_ROLES: RoleMeta[] = [
     name: "Администратор",
     short: "admin",
     color: "#B42318",
-    desc: "Полный контроль проекта: схема рабочего процесса, права доступа, удаление задач, спринты и любые поля.",
+    desc: "Полный контроль проекта: схема workflow, права доступа, удаление задач, спринты.",
   },
   {
     id: "manager",
     name: "Менеджер проекта",
     short: "pm",
     color: "#0B5FD9",
-    desc: "Управляет спринтами и содержанием: создание, редактирование и удаление любых задач. Не меняет схему workflow и роли.",
+    desc: "Управляет спринтами и задачами: создание, редактирование и удаление. Не меняет workflow и роли.",
   },
   {
-    id: "developer",
-    name: "Разработчик",
-    short: "dev",
+    id: "employee",
+    name: "Сотрудник",
+    short: "emp",
     color: "#1C8A5C",
-    desc: "Создаёт задачи, двигает их по workflow и комментирует. Редактирует поля только своих задач (исполнитель или автор).",
+    desc: "Создаёт задачи, двигает по workflow, комментирует. Редактирует только свои (исполнитель или автор).",
   },
   {
     id: "viewer",
     name: "Наблюдатель",
     short: "read",
     color: "#64748B",
-    desc: "Режим «только чтение»: видит доску, бэклог, таймлайн и карточки, но не может ничего изменять.",
+    desc: "Только просмотр: доска, бэклог, карточки — без изменений.",
   },
 ];
 
-export const ROLE_ORDER: AccessRole[] = ["admin", "manager", "developer", "viewer"];
+export const ROLE_ORDER: AccessRole[] = ["admin", "manager", "employee", "viewer"];
 
 export const roleMeta = (id: AccessRole): RoleMeta => ACCESS_ROLES.find((r) => r.id === id) ?? ACCESS_ROLES[3];
 
-/* -------- матрица: разрешение → роли, которым оно доступно -------- */
 const MATRIX: Record<PermId, AccessRole[]> = {
-  browse: ["admin", "manager", "developer", "viewer"],
-  create: ["admin", "manager", "developer"],
-  edit: ["admin", "manager", "developer"],
+  browse: ["admin", "manager", "employee", "viewer"],
+  create: ["admin", "manager", "employee"],
+  edit: ["admin", "manager", "employee"],
   delete: ["admin", "manager"],
-  transition: ["admin", "manager", "developer"],
-  comment: ["admin", "manager", "developer"],
+  transition: ["admin", "manager", "employee"],
+  comment: ["admin", "manager", "employee"],
   manageSprints: ["admin", "manager"],
   editWorkflow: ["admin"],
   manageAccess: ["admin"],
@@ -83,22 +79,21 @@ export interface PermMeta {
 }
 
 export const PERMISSIONS: PermMeta[] = [
-  { id: "browse", name: "Просмотр проекта", desc: "Доска, бэклог, таймлайн, карточки задач, история и комментарии.", scope: "Проект" },
-  { id: "create", name: "Создание задач", desc: "Кнопка «Создать», быстрое создание в колонках доски, создание эпиков.", scope: "Задача" },
-  { id: "edit", name: "Редактирование задач", desc: "Название, описание, приоритет, исполнитель, эпик, метки, оценка. Для разработчика — только свои задачи.", scope: "Задача" },
-  { id: "transition", name: "Смена статуса", desc: "Перетаскивание карточек по доске и смена статуса в карточке — в пределах схемы workflow.", scope: "Задача" },
-  { id: "delete", name: "Удаление задач", desc: "Удаление задач и эпиков с отвязкой дочерних задач.", scope: "Задача" },
-  { id: "comment", name: "Комментарии", desc: "Добавление комментариев в карточку задачи.", scope: "Задача" },
-  { id: "manageSprints", name: "Управление спринтами", desc: "Старт и завершение спринта, перенос задач между спринтами и бэклогом.", scope: "Спринт" },
-  { id: "editWorkflow", name: "Изменение workflow", desc: "Добавление и удаление переходов между статусами, сброс схемы.", scope: "Схема" },
-  { id: "manageAccess", name: "Управление доступом", desc: "Просмотр матрицы разрешений и смена текущего пользователя (демо-переключение ролей).", scope: "Пользователи" },
+  { id: "browse", name: "Просмотр проекта", desc: "Доска, бэклог, карточки, история и комментарии.", scope: "Проект" },
+  { id: "create", name: "Создание задач", desc: "Кнопка «Создать», создание задач.", scope: "Задача" },
+  { id: "edit", name: "Редактирование задач", desc: "Поля задачи. Для сотрудника — только свои.", scope: "Задача" },
+  { id: "transition", name: "Смена статуса", desc: "Перетаскивание и смена статуса в пределах workflow.", scope: "Задача" },
+  { id: "delete", name: "Удаление задач", desc: "Удаление задач.", scope: "Задача" },
+  { id: "comment", name: "Комментарии", desc: "Добавление комментариев.", scope: "Задача" },
+  { id: "manageSprints", name: "Управление спринтами", desc: "Старт/завершение спринта, перенос задач.", scope: "Спринт" },
+  { id: "editWorkflow", name: "Изменение workflow", desc: "Переходы и сброс схемы.", scope: "Схема" },
+  { id: "manageAccess", name: "Управление доступом", desc: "Пользователи и роли (на сервере).", scope: "Пользователи" },
 ];
 
 export const permMeta = (id: PermId): PermMeta => PERMISSIONS.find((p) => p.id === id)!;
 
 export const roleHas = (role: AccessRole, perm: PermId): boolean => MATRIX[perm].includes(role);
 
-/* -------- задача-уровень: «своя» задача для разработчика -------- */
 export const isOwnIssue = (user: User, issue: Issue): boolean =>
   issue.assigneeId === user.id || issue.reporterId === user.id;
 
@@ -108,14 +103,12 @@ export const canEditIssue = (user: User, issue: Issue): boolean => {
   return isOwnIssue(user, issue);
 };
 
-/* -------- единая точка проверки -------- */
 export function can(user: User, perm: PermId, issue?: Issue): boolean {
   if (!roleHas(user.accessRole, perm)) return false;
   if (perm === "edit" && issue) return canEditIssue(user, issue);
   return true;
 }
 
-/* -------- человекочитаемая причина отказа (для тостов и подсказок) -------- */
 export function denialReason(user: User, perm: PermId, issue?: Issue): string {
   const role = roleMeta(user.accessRole).name;
   if (perm === "edit" && issue && roleHas(user.accessRole, "edit") && !canEditIssue(user, issue))
@@ -123,7 +116,6 @@ export function denialReason(user: User, perm: PermId, issue?: Issue): string {
   return `Недоступно для роли «${role}» — требуется разрешение «${permMeta(perm).name}»`;
 }
 
-/* Итоговая сводка возможностей пользователя — используется в UI и в документации */
 export interface CapabilitySummary {
   role: AccessRole;
   can: (perm: PermId, issue?: Issue) => boolean;

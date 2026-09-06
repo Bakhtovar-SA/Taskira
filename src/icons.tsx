@@ -19,7 +19,6 @@ const S = ({ size = 16, className, children, viewBox = "0 0 16 16", filled = fal
   </svg>
 );
 
-/* ---------- бренд ---------- */
 export const Logo = ({ size = 26 }: P) => (
   <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
     <rect width="32" height="32" rx="7" fill="#0F1B2D" />
@@ -29,22 +28,7 @@ export const Logo = ({ size = 26 }: P) => (
   </svg>
 );
 
-/* ---------- типы задач (как в Jira) ---------- */
-export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId; size?: number }) => {
-  if (type === "story")
-    return (
-      <svg width={size} height={size} viewBox="0 0 16 16" aria-label="История">
-        <circle cx="8" cy="8" r="7.2" fill="#22A06B" />
-        <path d="M4.6 8.3l2.3 2.3 4.5-4.8" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  if (type === "task")
-    return (
-      <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Задача">
-        <rect x="1" y="1" width="14" height="14" rx="3" fill="#3D7FE0" />
-        <path d="M4.6 8.3l2.3 2.3 4.5-4.8" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
+export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId | string; size?: number }) => {
   if (type === "bug")
     return (
       <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Баг">
@@ -54,15 +38,23 @@ export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId; size?: number
         <path d="M6.7 4.2L5.4 3M9.3 4.2l1.3-1.2M5.3 8H3.2M12.8 8h-2.1M5.6 11.4l-1.7 1.2M10.4 11.4l1.7 1.2" stroke="#fff" strokeWidth="1.1" strokeLinecap="round" />
       </svg>
     );
+  if (type === "request")
+    return (
+      <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Запрос">
+        <rect x="1" y="1" width="14" height="14" rx="3" fill="#7A5CC6" />
+        <path d="M5 6.5h6M5 9.5h4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="11" cy="11" r="1.4" fill="#fff" />
+      </svg>
+    );
+  /* task (и legacy story/epic → как задача) */
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Эпик">
-      <rect x="1" y="1" width="14" height="14" rx="3" fill="#7A5CC6" />
-      <path d="M8.8 2.8L4.8 9h2.7l-.8 4.2L11.2 7H8.4l.4-4.2z" fill="#fff" />
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Задача">
+      <rect x="1" y="1" width="14" height="14" rx="3" fill="#3D7FE0" />
+      <path d="M4.6 8.3l2.3 2.3 4.5-4.8" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 };
 
-/* ---------- приоритеты (стрелки как в Jira) ---------- */
 export const PriorityIcon = ({ p, size = 15 }: { p: PriorityId; size?: number }) => {
   const c = { highest: "#D23A2E", high: "#E8772E", medium: "#C79A0A", low: "#3D7FE0", lowest: "#8B95A7" }[p];
   if (p === "medium")
@@ -89,7 +81,6 @@ export const PriorityIcon = ({ p, size = 15 }: { p: PriorityId; size?: number })
   );
 };
 
-/* ---------- интерфейсные ---------- */
 export const IcSearch = (p: P) => (
   <S {...p}><circle cx="7" cy="7" r="4.6" /><path d="M10.6 10.6L14 14" /></S>
 );
