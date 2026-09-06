@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { StoreProvider, useStore } from "./store";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
@@ -13,16 +13,18 @@ import CreateIssueModal from "./components/CreateIssueModal";
 import LoginForm from "./components/LoginForm";
 import { Toasts } from "./ui";
 import type { ViewId } from "./types";
-import { clearToken, getToken } from "./api";
 
 function Shell() {
   const { ui, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout } = useStore();
 
+  /* При старте: есть токен → bootstrap; нет → unauthenticated (форма входа).
+     Раньше при отсутствии токена bootStatus оставался idle → вечная «Загрузка». */
   useEffect(() => {
-    if (getToken() && bootStatus === "idle") void bootstrap();
+    if (bootStatus === "idle") void bootstrap();
   }, [bootStatus, bootstrap]);
 
   useEffect(() => {
+    if (bootStatus !== "ready") return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       const typing = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable;
@@ -45,7 +47,7 @@ function Shell() {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [setView, setCreateOpen, openIssue, can, toast]);
+  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast]);
 
   if (bootStatus === "loading" || bootStatus === "idle") {
     return (
@@ -96,6 +98,3 @@ export default function App() {
     </StoreProvider>
   );
 }
-
-// re-export for accidental imports
-void clearToken;
