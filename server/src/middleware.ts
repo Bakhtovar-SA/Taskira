@@ -2,7 +2,7 @@
  * Стражи запросов: JWT-аутентификация, права, валидация тел.
  * Любой отказ — единый формат { error: { code, reason } } (см. contract.ts).
  */
-import type { FastifyReply, FastifyRequest, preHandlerHookHandler, preValidationHookHandler } from "fastify";
+import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler, preValidationHookHandler } from "fastify";
 import { ZodError, type ZodType } from "zod";
 import { audit } from "./audit.js";
 import { one } from "./db.js";
@@ -81,7 +81,7 @@ export function invalidateUserCache(userId: string): void {
   freshUsers.delete(userId);
 }
 
-export const requireAuth: preHandlerHookHandler = async (req) => {
+export const requireAuth: preHandlerAsyncHookHandler = async (req) => {
   try {
     await req.jwtVerify();
   } catch {
@@ -107,9 +107,14 @@ export const requireAuth: preHandlerHookHandler = async (req) => {
 
 const serverUser = (req: FastifyRequest): ServerUser => ({ id: req.user.sub, accessRole: req.user.role });
 
-/* -------- проверка права (общие, без контекста задачи) -------- */
-export function requirePerm(perm: PermId): preHandlerHookHandler {
+/* -------- проверка права (общие, без контекста задачи) --------
+   Сама гарантирует аутентификацию (requireAuth) перед проверкой права —
+   роуту достаточно указать только requirePerm/requireIssuePerm в preHandler,
+   без риска забыть requireAuth первым элементом цепочки (баг fix 3b-hotfix:
+   req.user был null на всех роутах, кроме /auth/me, где requireAuth стоял явно). */
+export function requirePerm(perm: PermId): preHandlerAsyncHookHandler {
   return async (req, reply: FastifyReply) => {
+    await requireAuth.call(req.server, req, reply);
     const u = serverUser(req);
     if (roleHas(u.accessRole, perm)) return;
     await audit(u.id, "access.denied", perm, null, { path: req.url, method: req.method });
@@ -118,9 +123,11 @@ export function requirePerm(perm: PermId): preHandlerHookHandler {
 }
 
 /* -------- проверка права с контекстом задачи (edit/transition/delete/comment) --------
+   Тоже гарантирует аутентификацию сама (см. комментарий выше у requirePerm).
    Загружает минимальную задачу в req.issueRef и проверяет can() с учётом уровня задачи. */
-export function requireIssuePerm(perm: PermId): preHandlerHookHandler {
-  return async (req) => {
+export function requireIssuePerm(perm: PermId): preHandlerAsyncHookHandler {
+  return async (req, reply: FastifyReply) => {
+    await requireAuth.call(req.server, req, reply);
     const u = serverUser(req);
     const id = (req.params as { id?: string }).id;
     if (!id) throw notFound("Задача не указана");
