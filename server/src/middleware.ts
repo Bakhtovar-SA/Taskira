@@ -60,6 +60,15 @@ export function zbody<T extends ZodType>(schema: T): preValidationHookHandler {
   };
 }
 
+/* -------- валидация query-параметров (GET-фильтры, пагинация) -------- */
+export function zquery<T extends ZodType>(schema: T): preValidationHookHandler {
+  return async (req) => {
+    const parsed = schema.safeParse(req.query);
+    if (!parsed.success) throw badRequest(formatZod(parsed.error));
+    req.query = parsed.data as typeof req.query;
+  };
+}
+
 /* -------- аутентификация --------
    JWT подтверждает личность, но роль и активность берём из БД (fix 3a):
    смена роли админом или деактивация аккаунта действуют без ожидания
