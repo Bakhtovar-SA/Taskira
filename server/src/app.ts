@@ -21,7 +21,7 @@ import { formatZod } from "./middleware.js";
 export function buildApp(): FastifyInstance {
   const cfg = loadConfig();
 
-  const app = Fastify({ logger: { level: "info" } });
+  const app = Fastify({ logger: process.env.NODE_ENV === "test" ? false : { level: "info" } });
 
   app.register(cors, {
     origin: cfg.corsOrigin === "*" ? true : cfg.corsOrigin,

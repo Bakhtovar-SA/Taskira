@@ -47,6 +47,7 @@
 | dept-2 | Сервер multi-project: ресурсы под `/api/projects/:projectId/...`; `GET`/`POST /api/projects`, `/api/departments` CRUD; `requireGlobalAdmin`; assignee ∈ `project_members`; видимость §3.5 | ✅ сервер |
 | dept-3 | Клиент: `src/api/` + `store.tsx` на `:projectId`; `bootstrap` = `GET /api/projects` → выбор (`localStorage`) → `GET /api/projects/:id`; экшен `switchProject`; `projectsApi`/`departmentsApi` | ✅ клиент |
 | ops-backup | `server/scripts/backup.sh` + `backup.ps1` (pg_dump `-Fc` + проверка `pg_restore --list` + ротация); runbook [`BACKUP.md`](BACKUP.md) — часть Этапа 5 | ✅ |
+| ops-tests | vitest + `app.inject()`; схема `taskira_test`; `test/helpers.ts` + `access.roles.test.ts` + `access.multiproject.test.ts` — права/гарды/IDOR из чек-листов | ✅ |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
 
@@ -218,9 +219,32 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
 # 401 ×10, затем 429
 ```
 
+## Тесты
+
+Интеграционные тесты прав доступа (vitest + `app.inject()`):
+
+```bash
+npm test            # vitest run
+npm run test:watch
+```
+
+Прогоняются по **схеме `taskira_test`** внутри dev-БД
+(`options=-csearch_path=taskira_test,public`) — отдельная БД и права CREATEDB не
+нужны, dev-схема `public` не затрагивается. `test/global-setup.ts` пересоздаёт
+схему и гоняет миграции один раз; `test/helpers.ts` — `getApp` / `seedFixture`
+(admin + 2 проекта в 2 отделах + участники всех ролей + outsider) / `login`.
+
+Покрыто (`test/access.roles.test.ts`, `test/access.multiproject.test.ts`):
+глоб. admin без членства — полный доступ; `member` без членства — 403 + пустой
+`/api/projects`; матрица ролей (viewer/employee); employee правит только свои;
+гард последнего admin и последнего менеджера проекта; `requireGlobalAdmin`;
+видимость проектов (`is_shared`); **IDOR — задача из чужого проекта → 404**;
+assignee не из проекта → 400; `DELETE` отдела с проектами → 409; независимая
+нумерация задач по проектам.
+
 ## Чеклист ручной проверки
 
-- [ ] `npm run typecheck` — без ошибок; `npm run dev` стартует, все миграции в `schema_migrations`
+- [ ] `npm run typecheck` — без ошибок; `npm test` — зелёный; `npm run dev` стартует, все миграции в `schema_migrations`
 - [ ] Остановка PostgreSQL → `/api/health` отвечает **503** `{ok:false,db:false}`; восстановление → 200
 - [ ] Логин: неверный пароль — 401 с единым reason; 11-я попытка за 5 минут — **429 RATE_LIMITED**
 - [ ] `is_active=false` в БД → логин 403 «Аккаунт деактивирован…», `/me` с живым токеном — 401 (в пределах 30 с)
