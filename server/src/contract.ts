@@ -11,7 +11,6 @@
  *  - у задач есть due_date; points/sprint/epic — опциональные модули.
  *
  * Лимиты зеркалят src/validation.ts фронтенда — меняются в двух местах синхронно.
- * Зависимости сервера ставятся отдельно (Этап 3): npm i zod fastify @fastify/jwt @fastify/cors @fastify/websocket pg bcrypt
  */
 import { z } from "zod";
 
@@ -37,10 +36,22 @@ export const SPRINT_STATUSES = ["future", "active", "completed"] as const;
 const uuid = z.string().uuid("Ожидается UUID");
 /** Дата без времени, ГГГГ-ММ-ДД (для due_date и фильтров dueFrom/dueTo) */
 const isoDate = (msg = "Ожидается дата в формате ГГГГ-ММ-ДД") => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, msg);
-const oneLine = (max: number) =>
-  z.string().max(max).transform((s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim());
-const multiLine = (max: number) =>
-  z.string().max(max).transform((s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\r\n?/g, "\n").trim());
+
+/** Строка в одну линию. min/max — ДО transform (иначе ZodEffects без .min). */
+const oneLine = (max: number, min = 0, minMsg?: string) =>
+  z
+    .string()
+    .min(min, minMsg)
+    .max(max)
+    .transform((s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim());
+
+const multiLine = (max: number, min = 0, minMsg?: string) =>
+  z
+    .string()
+    .min(min, minMsg)
+    .max(max)
+    .transform((s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\r\n?/g, "\n").trim());
+
 const label = () =>
   z.string().max(LIMITS.label).transform((s) => s.replace(/\s+/g, " ").trim().toLowerCase());
 
@@ -58,7 +69,7 @@ export const CreateUserBody = z.object({
   color: z.string().regex(/^#[0-9a-f]{6}$/i),
   jobRole: oneLine(40),
   accessRole: z.enum(ACCESS_ROLES),
-  isActive: z.boolean().optional(), // по умолчанию true
+  isActive: z.boolean().optional(),
 });
 
 /** PATCH /api/users/:id [admin] — смена роли и/или деактивация аккаунта */
@@ -69,29 +80,29 @@ export const ChangeRoleBody = z.object({
 
 /* ---------------- Issues ---------------- */
 export const IssueCreateBody = z.object({
-  title: oneLine(LIMITS.title.max).min(LIMITS.title.min, "Название не может быть пустым"),
+  title: oneLine(LIMITS.title.max, LIMITS.title.min, "Название не может быть пустым"),
   description: multiLine(LIMITS.description.max).default(""),
   typeId: z.enum(ISSUE_TYPES),
   priorityId: z.enum(PRIORITIES),
   assigneeId: uuid.nullable(),
-  epicId: uuid.nullable(), // опциональная группировка, не развивается
+  epicId: uuid.nullable(),
   labels: z.array(label()).max(LIMITS.labelsPerIssue).default([]),
   points: z.number().int().min(LIMITS.points.min).max(LIMITS.points.max).nullable(),
   sprintId: uuid.nullable(),
   dueDate: isoDate().nullable().optional(),
-  statusId: uuid.optional(), // по умолчанию — первый статус категории todo
+  statusId: uuid.optional(),
 });
 
 export const IssuePatchBody = z
   .object({
-    title: oneLine(LIMITS.title.max).min(LIMITS.title.min),
+    title: oneLine(LIMITS.title.max, LIMITS.title.min),
     description: multiLine(LIMITS.description.max),
     priorityId: z.enum(PRIORITIES),
     assigneeId: uuid.nullable(),
     epicId: uuid.nullable(),
     labels: z.array(label()).max(LIMITS.labelsPerIssue),
     points: z.number().int().min(LIMITS.points.min).max(LIMITS.points.max).nullable(),
-    sprintId: uuid.nullable(), // требует права manageSprints — проверяется в роуте
+    sprintId: uuid.nullable(),
     dueDate: isoDate().nullable(),
     tStart: z.number().int().min(0).max(52).nullable(),
     tSpan: z.number().int().min(1).max(52).nullable(),
@@ -103,11 +114,11 @@ export const IssuePatchBody = z
 /** Смена статуса: сервер сверяет переход с workflow_transitions и право transition. */
 export const TransitionBody = z.object({
   to: uuid,
-  beforeId: uuid.nullable().optional(), // для пересчёта rank внутри колонки
+  beforeId: uuid.nullable().optional(),
 });
 
 export const CommentBody = z.object({
-  body: multiLine(LIMITS.comment.max).min(LIMITS.comment.min, "Комментарий не может быть пустым"),
+  body: multiLine(LIMITS.comment.max, LIMITS.comment.min, "Комментарий не может быть пустым"),
 });
 
 /* ---------------- Sprints / Workflow / Users ---------------- */
@@ -124,44 +135,17 @@ export const IssueQuery = z.object({
   q: z.string().max(120).optional(),
   dueFrom: isoDate().optional(),
   dueTo: isoDate().optional(),
-  overdue: z.enum(["1", "true"]).optional(), // due_date < сегодня и статус не done
+  overdue: z.enum(["1", "true"]).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
   offset: z.coerce.number().int().min(0).default(0),
 });
 
 /* ---------------- Ошибки и WebSocket ---------------- */
-/** Единый формат ошибки.
-    code: UNAUTHORIZED | FORBIDDEN | VALIDATION | NOT_FOUND | CONFLICT | RATE_LIMITED | INTERNAL */
 export type ApiError = { error: { code: string; reason: string } };
 
-/** Сообщения realtime-канала. actorId нужен клиенту для подавления собственного эха. */
 export type WsMessage =
   | { type: "issue:upsert"; actorId: string; issue: unknown; ts: number }
   | { type: "issue:delete"; actorId: string; issueId: string; ts: number }
   | { type: "sprint:changed"; actorId: string; ts: number }
   | { type: "workflow:changed"; actorId: string; ts: number }
   | { type: "presence"; online: string[]; ts: number };
-
-/* ---------------- Карта эндпоинтов (справка, роуты — в Этапе 3) ----------------
-POST   /api/auth/login                    LoginBody            → { token, user }
-GET    /api/auth/me                                            → User
-GET    /api/project                                            → { project, users, workflow, sprints }
-GET    /api/issues                          IssueQuery         → { items, total }  (фильтры: status, sprint,
-                                                                assignee, type, q, dueFrom, dueTo, overdue, limit, offset)
-POST   /api/issues                          IssueCreateBody    → Issue        [create]
-PATCH  /api/issues/:id                      IssuePatchBody     → Issue        [edit; employee — только свои]
-DELETE /api/issues/:id                                                            [delete]
-POST   /api/issues/:id/transition           TransitionBody     → Issue        [transition + схема workflow]
-POST   /api/issues/:id/comments             CommentBody        → Comment      [comment]
-PATCH  /api/issues/:id/sprint               MoveToSprintBody   → Issue        [manageSprints]
-POST   /api/sprints/start                                        → Sprint      [manageSprints]
-POST   /api/sprints/:id/complete                                → Sprint[]    [manageSprints]
-GET    /api/workflow                                             → Workflow
-POST   /api/workflow/transitions            TransitionCreateBody                [admin]
-DELETE /api/workflow/transitions/:id                                             [admin]
-POST   /api/workflow/reset                                                         [admin]
-GET    /api/users                                                                    [admin]
-POST   /api/admin/users                     CreateUserBody                          [admin]
-PATCH  /api/users/:id                       ChangeRoleBody                          [admin]
-WS     /api/ws?token=…                                          → WsMessage
------------------------------------------------------------------------------ */
