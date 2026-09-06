@@ -15,7 +15,7 @@ import {
   zquery,
   type JwtPayload,
 } from "../middleware.js";
-import { denialReason, roleHas } from "../permissions.js";
+import { roleDenialReason, roleHas } from "../permissions.js";
 import { audit } from "../audit.js";
 import { currentProject } from "../services/project.js";
 import { assertTransition, statusName } from "../services/workflow.js";
@@ -175,11 +175,16 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as z.infer<typeof IssuePatchBody>;
       const iss = await loadIssue(project.id, id);
 
-      // Перенос по спринтам — отдельное право manageSprints
+      // Перенос по спринтам — отдельное право manageSprints.
+      // req.projectRole выставлен requireIssuePerm("edit") для проекта этой задачи.
       if (body.sprintId !== undefined && body.sprintId !== iss.sprint_id) {
-        if (!roleHas(user.role, "manageSprints")) {
-          await audit(user.sub, "access.denied", "manageSprints", iss.id, { path: req.url, method: req.method });
-          throw forbidden(denialReason({ id: user.sub, accessRole: user.role }, "manageSprints"));
+        if (!req.projectRole || !roleHas(req.projectRole, "manageSprints")) {
+          await audit(user.sub, "access.denied", "manageSprints", iss.id, {
+            path: req.url,
+            method: req.method,
+            projectId: project.id,
+          });
+          throw forbidden(roleDenialReason(req.projectRole ?? null, "manageSprints"));
         }
         if (body.sprintId !== null) {
           const s = await one<{ id: string }>(`SELECT id FROM sprints WHERE id = $1 AND project_id = $2`, [body.sprintId, project.id]);

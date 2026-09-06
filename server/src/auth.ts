@@ -2,7 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { loadConfig } from "./config.js";
 import type { JwtPayload } from "./middleware.js";
-import type { AccessRole } from "./permissions.js";
+import type { GlobalRole } from "./permissions.js";
 
 export interface UserRow {
   id: string;
@@ -11,7 +11,7 @@ export interface UserRow {
   initials: string;
   color: string;
   job_role: string;
-  access_role: AccessRole; // admin | manager | employee | viewer (миграция 002)
+  global_role: GlobalRole; // admin | member (миграция 004) — источник прав
   is_active: boolean;
   password_hash: string;
 }
@@ -23,7 +23,9 @@ export interface SafeUser {
   initials: string;
   color: string;
   jobRole: string;
-  accessRole: AccessRole;
+  /** Глобальная роль ресурса (users.global_role) — источник прав.
+   *  Проектная роль — в bootstrap `members`, не здесь. */
+  globalRole: GlobalRole;
   isActive: boolean;
 }
 
@@ -35,13 +37,13 @@ export function safeUser(row: UserRow): SafeUser {
     initials: row.initials,
     color: row.color,
     jobRole: row.job_role,
-    accessRole: row.access_role,
+    globalRole: row.global_role,
     isActive: row.is_active,
   };
 }
 
 export function signToken(app: FastifyInstance, row: UserRow): string {
   // loadConfig() — кэшированный конфиг (fix 3a), env не читается на каждый токен
-  const payload: JwtPayload = { sub: row.id, role: row.access_role, name: row.name };
+  const payload: JwtPayload = { sub: row.id, globalRole: row.global_role, name: row.name };
   return app.jwt.sign(payload, { expiresIn: loadConfig().jwtExpires });
 }

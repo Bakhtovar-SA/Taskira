@@ -35,6 +35,12 @@
 | 3a | Скелет сервера (Fastify, JWT, middleware, auth, seed) | ✅ |
 | 3a-fix | Транзакции в migrate(), кэш конфига, refresh роли из БД, rate-limit логина, /health 503, .gitignore | ✅ |
 | 3b-model | `002_corporate.sql`: employee, task/bug/request, due_date, issue_watchers | ✅ |
+| roles-1 | `004_project_roles.sql`: `users.global_role` + `project_members` (схема, бэкфилл) — план в [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md) | ✅ схема |
+| roles-2 | Ядро прав переведено на project-scoped: `resolveRole()`, `req.projectRole`/`req.membership`, `requirePerm`/`requireIssuePerm` резолвят роль по `project_members`; JWT несёт `globalRole` | ✅ сервер |
+| roles-3 | Роуты + контракт: bootstrap отдаёт `members`; `PUT`/`DELETE /api/project/members/:userId`; `CreateUserBody`/`ChangeRoleBody` на `globalRole`; `SafeUser.globalRole` | ✅ сервер |
+| roles-4 | Клиент: `store`/`api`/`permissions` на `globalRole` + `members`; `me` считает эффективную роль; экшены `setMemberRole`/`removeMember`; мёртвый `src/seed.ts` вырезан | ✅ клиент |
+| roles-5 | Клиент UI: `PermissionsView` — управление составом (роль/добавить/убрать) для админа ресурса, счётчики по `data.members`; `DocsView` тексты; CORS-фикс (`app.ts` methods) | ✅ клиент |
+| roles-7 | `006_drop_access_role.sql`: `DROP COLUMN users.access_role` + constraint; чистка `UserRow`/`SafeUser`/`safeUser`/`seedAdmin` и `SafeUser` на клиенте | ✅ |
 | 3b-routes | CRUD issues/sprints/workflow/comments/users | ⏳ следующий |
 | 3c | WebSocket-рассылка | ⏳ |
 | 4 | Фронтенд поверх API + синхронизация ролей клиента (employee) | ⏳ |
@@ -55,13 +61,38 @@
 4. `GET /api/issues` возвращает `{ items, total }` (пагинация limit/offset ≤ 200).
 5. `ChangeRoleBody` / `CreateUserBody` принимают опциональный `isActive`.
 
+## Breaking changes (роли project-scoped, миграция 004 + roles-2/3)
+
+Подробности и порядок — [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md).
+
+6. **`CreateUserBody` / `ChangeRoleBody` принимают `globalRole`** (`admin | member`),
+   а не `accessRole`. Тело со старым полем — `400`.
+7. **`GET /api/project`** дополнен полем `members: [{ userId, role }]`; в `users[]`
+   и `GET /api/users` каждый DTO — с `globalRole`. Поля `accessRole` в DTO больше
+   нет (миграция 006 удалила и колонку `users.access_role`).
+8. **Права проверяются по `project_members`**, не по `users.access_role`.
+   Пользователь без членства (и не глобальный `admin`) получает `403` на любом
+   роуте проекта. Глобальный `admin` доступ имеет всегда, строки в
+   `project_members` для него нет.
+9. Новые роуты состава: `PUT` / `DELETE /api/project/members/:userId`
+   (право `manageAccess` — только глобальный `admin`).
+10. JWT-payload: поле `role` → `globalRole`. Старые токены рабочие — payload для
+    авторизации не используется, роль берётся из БД в `requireAuth`.
+11. **Понижение админа ресурса (`PATCH /api/users/:id` → `globalRole: "member"`)
+    отбирает доступ к проекту.** Админ не имеет строки в `project_members`
+    (§3.3), поэтому после понижения `resolveRole` возвращает `null` и бывший
+    админ получает `403` на всех роутах проекта, пока другой админ явно не
+    добавит его через `PUT /api/project/members/:userId`. Это отличие от старой
+    модели, где понижение `access_role` оставляло реальный доступ на новой роли.
+    Гард «последнего активного админа» при этом не даёт понизить единственного.
+
 ## Этап 3b — роуты API
 
 Все мутации проверяют JWT и право **на сервере**; отказы — `403 {error:{code:"FORBIDDEN",reason}}` на русском.
 
 | Метод и путь | Тело / query | Права | Назначение |
 | --- | --- | --- | --- |
-| `GET /api/project` | — | browse | bootstrap: проект, **активные** пользователи (без `password_hash`), workflow, спринты |
+| `GET /api/project` | — | browse | bootstrap: проект, **активные** пользователи (с `globalRole`, без `password_hash`), `members: [{userId, role}]`, workflow, спринты |
 | `GET /api/issues` | `IssueQuery`: status, sprint, assignee, type, q, dueFrom, dueTo, overdue, limit(≤200), offset | browse | `{items, total}`, сортировка по rank |
 | `POST /api/issues` | `IssueCreateBody` | create | num — атомарный счётчик (миграция 003); статус по умолчанию — первый `todo`; rank — в конец колонки |
 | `GET /api/issues/:id` | — | browse | задача |
@@ -78,9 +109,11 @@
 | `POST /api/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
 | `DELETE /api/workflow/transitions/:id` | — | **admin** | удалить переход |
 | `POST /api/workflow/reset` | — | **admin** | дефолтные 8 переходов; статусы не удаляются никогда |
-| `GET /api/users` | — | **admin** | все, включая деактивированных |
-| `POST /api/admin/users` | `CreateUserBody` (bcrypt) | **admin**; занятый username — `409` | создать пользователя |
-| `PATCH /api/users/:id` | `{accessRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена роли; `invalidateUserCache` — действует сразу |
+| `GET /api/users` | — | **admin** | все, включая деактивированных; DTO с `globalRole` |
+| `POST /api/admin/users` | `CreateUserBody` (bcrypt, `globalRole`) | **admin**; занятый username — `409` | создать пользователя; членство в проекте — отдельно |
+| `PATCH /api/users/:id` | `{globalRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена **глобальной** роли; `invalidateUserCache` — действует сразу |
+| `PUT /api/project/members/:userId` | `SetMemberBody` `{role}` | **admin** (`manageAccess`) | добавить участника / сменить проектную роль; upsert; `invalidateMembership` |
+| `DELETE /api/project/members/:userId` | — | **admin** (`manageAccess`) | убрать из проекта; `404` если не участник; `409` — последний активный менеджер |
 
 **Seed проекта** (`seedProject`, идемпотентно): при пустой `projects` создаёт `CORP «Корпоративные задачи»`
 (или `PROJECT_KEY/PROJECT_NAME` из env), статусы `todo / inprogress / review / done`
@@ -132,14 +165,14 @@ cp .env.example .env
 # Заполните: DATABASE_URL, JWT_SECRET (>=32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
 # JWT_SECRET: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
-npm run dev        # tsx watch: миграции 001+002 → seed админа → listen :8080
+npm run dev        # tsx watch: миграции → seed админа → listen :8080
 ```
 
 Миграции и seed по отдельности:
 
 ```bash
 npm run seed                     # прогоняет migrate() + создание первого админа
-psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001, 002
+psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001..004, 006
 ```
 
 Health, логин, me:
@@ -167,15 +200,41 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
 
 ## Чеклист ручной проверки
 
-- [ ] `npm run typecheck` — без ошибок; `npm run dev` стартует, миграции 001+002 в `schema_migrations`
+- [ ] `npm run typecheck` — без ошибок; `npm run dev` стартует, все миграции в `schema_migrations`
 - [ ] Остановка PostgreSQL → `/api/health` отвечает **503** `{ok:false,db:false}`; восстановление → 200
 - [ ] Логин: неверный пароль — 401 с единым reason; 11-я попытка за 5 минут — **429 RATE_LIMITED**
 - [ ] `is_active=false` в БД → логин 403 «Аккаунт деактивирован…», `/me` с живым токеном — 401 (в пределах 30 с)
-- [ ] Смена `access_role` в БД админом → `/me` и проверки прав видят новую роль **без** перевыпуска токена (≤30 с)
-- [ ] В `users` нет роли `developer`; в `issues` нет типов `story`/`epic`
-  (`select distinct access_role from users; select distinct type_id from issues;`)
-- [ ] `select conname from pg_constraint where conname in ('users_access_role_check','issues_type_id_check')` — обе на месте
+- [ ] Смена `global_role` в БД админом → `/me` и проверки прав видят новую роль **без** перевыпуска токена (≤30 с)
+- [ ] В `issues` нет типов `story`/`epic` (`select distinct type_id from issues;`)
+- [ ] `access_role` в `users` больше нет (миграция 006): `select column_name from information_schema.columns where table_name='users' and column_name='access_role'` — пусто; `users_global_role_check` и `issues_type_id_check` — на месте
 - [ ] `git check-ignore server/.env server/dist .env` — всё игнорируется
+
+### Миграция 004 (схема project-scoped ролей)
+
+- [ ] `04` в `schema_migrations`; `\d project_members` показывает PK `(project_id, user_id)`, CHECK на `role`, индекс `idx_project_members_user`
+- [ ] `select distinct global_role from users` → `admin` и/или `member`; у бывших `access_role='admin'` теперь `global_role='admin'`
+- [ ] На БД с данными: `select count(*) from project_members` = число активных не-admin пользователей; строк для admin нет
+- [ ] На чистой БД: `migrate()` до сида не падает (users/projects пусты), затем `seedAdmin` пишет `global_role='admin'` без строки в `project_members`
+
+### Ядро прав project-scoped (roles-2)
+
+- [ ] Логин: JWT-payload несёт `globalRole` (не `role`); `/api/auth/me` — 200
+- [ ] Токен, выданный до перехода (payload с `role`), продолжает работать — роль берётся из БД в `requireAuth`
+- [ ] Глоб. `admin` без строки в `project_members` — полный доступ ко всем роутам проекта
+- [ ] `global_role='member'` без членства → любой роут проекта отдаёт **403** «Нет доступа к проекту»
+- [ ] `member` + `project_members.role='viewer'` → `GET /api/project`, `GET /api/issues` — 200; `POST /api/issues` — 403 «Создание задач»; `GET /api/users` — 403 «Управление доступом»; `POST /api/workflow/transitions` — 403 «Изменение workflow»
+- [ ] Вставка/удаление строки `project_members` вступает в силу ≤ 30 с (TTL кэша) или после рестарта
+- [ ] `PATCH /api/issues/:id` со сменой `sprintId` от роли без `manageSprints` → 403
+
+### Роуты + контракт (roles-3)
+
+- [ ] `GET /api/project` — есть `members: [{userId, role}]`; каждый `users[i]` и `GET /api/users` — с `globalRole`
+- [ ] `POST /api/admin/users` с `{globalRole}` (без `accessRole`) — 201; старое тело с `accessRole` — 400
+- [ ] `PATCH /api/users/:id {globalRole:'admin'}` — повышение действует сразу (`invalidateUserCache`); `{globalRole:'member'}` на единственном активном админе — 409
+- [ ] `PUT /api/project/members/:userId {role}` от глоб. `admin` — 200 (upsert: и добавление, и смена роли); от `manager` проекта — 403 «Управление доступом»
+- [ ] `DELETE /api/project/members/:userId` — 204; повторно / не участник — 404
+- [ ] Гард последнего менеджера: `DELETE` или `PUT`-понижение единственного активного `manager` — **409**; после назначения второго — операция проходит
+- [ ] После `PUT`/`DELETE` состава роль в правах пользователя меняется без релогина (`invalidateMembership`)
 
 ### Этап 3b
 

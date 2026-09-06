@@ -231,7 +231,8 @@ export default function DocsView() {
                 <tbody className="align-top">
                   {[
                     ["Project", "key, name, description", "корневая сущность"],
-                    ["User", "id, name, role (должность), accessRole (права)", "исполнитель/автор задач"],
+                    ["User", "id, name, role (должность), globalRole (admin | member)", "исполнитель/автор задач"],
+                    ["ProjectMember", "projectId, userId, role (manager | employee | viewer)", "роль пользователя в конкретном проекте"],
                     ["Issue", "key (ATL-N), type, status, priority, points, labels, comments[], activity[]", "→ User, → Epic, → Sprint, → Status"],
                     ["Epic", "Issue с typeId=epic, color, tStart/tSpan", "родитель для задач, элемент таймлайна"],
                     ["Sprint", "name, goal, status, startDate, endDate", "← Issue.sprintId"],
@@ -247,17 +248,19 @@ export default function DocsView() {
               </table>
               <P>
                 Политика доступа вынесена в <Code>src/permissions.ts</Code>: матрица <Code>MATRIX</Code> (разрешение → роли),
-                функция <Code>can(user, perm, issue?)</Code> и генератор причин отказа <Code>denialReason()</Code>.
-                Store (<Code>src/store.tsx</Code>) оборачивает каждую мутацию в <Code>requirePerm()</Code>.
+                <Code>resolveRole(globalRole, projectRole)</Code> — эффективная роль (глобальный админ → <Code>admin</Code>,
+                иначе роль участника проекта), функции <Code>can()</Code> / <Code>denialReason()</Code>.
+                Store (<Code>src/store.tsx</Code>) оборачивает каждую мутацию в <Code>requirePerm()</Code>; сервер проверяет повторно.
               </P>
             </section>
 
             <section id="doc-storage" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "160ms" }}>
               <H>8 · Хранение и сброс</H>
               <P>
-                Состояние сохраняется в <Code>localStorage</Code> под ключом <Code>taskira.v1</Code>: задачи, спринты, схема workflow и счётчик номеров.
-                Пользователи и их роли — константа сида (<Code>src/seed.ts</Code>), при загрузке выполняется миграция: устаревшие данные без поля{" "}
-                <Code>accessRole</Code> автоматически получают роли из сида.
+                Данные приходят с API (<Code>src/api/</Code>): bootstrap <Code>GET /api/project</Code> отдаёт проект, участников,
+                состав (<Code>members</Code>) и workflow; задачи — <Code>GET /api/issues</Code>. В <Code>localStorage</Code> хранится
+                только JWT (<Code>taskira.token</Code>). Роль текущего пользователя store считает из <Code>globalRole</Code> и{" "}
+                <Code>members</Code>.
               </P>
               <P>
                 Кнопка «Сбросить демо-данные» в сайдбаре очищает ключ и возвращает исходный проект: 22 задачи, 2 активных спринта, 3 эпика и полную

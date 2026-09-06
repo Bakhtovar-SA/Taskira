@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import type { Data, Issue, IssueTypeId, PriorityId, Toast, User, ViewId, Workflow } from "./types";
-import { can as canDo, denialReason, type PermId } from "./permissions";
+import type { AccessRole, Data, Issue, IssueTypeId, PriorityId, ProjectRole, Toast, User, ViewId, Workflow } from "./types";
+import { can as canDo, denialReason, resolveRole, roleMeta, type PermId } from "./permissions";
 import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
 import {
   ApiError,
@@ -9,6 +9,7 @@ import {
   commentsApi,
   getToken,
   issuesApi,
+  membersApi,
   projectApi,
   sprintsApi,
   type ServerIssue,
@@ -63,6 +64,7 @@ export interface CreateInput {
 const emptyData = (): Data => ({
   project: { key: "…", name: "…", description: "" },
   users: [],
+  members: {},
   currentUserId: "",
   issues: [],
   sprints: [],
@@ -70,14 +72,18 @@ const emptyData = (): Data => ({
   seq: 1,
 });
 
-function mapUser(u: SafeUser): User {
+function mapUser(u: SafeUser, members: Record<string, ProjectRole>): User {
   return {
     id: u.id,
     name: u.name,
     initials: u.initials,
     color: u.color,
     role: u.jobRole,
-    accessRole: u.accessRole,
+    globalRole: u.globalRole,
+    // Реальная эффективная роль в текущем проекте (globalRole + членство).
+    // Не-участник и не admin ресурса → роли нет: фолбэк 'viewer' (минимум прав).
+    // Для `me` store дополнительно пересчитывает её в memo при изменении data.members.
+    accessRole: resolveRole(u.globalRole, members[u.id]) ?? "viewer",
     username: u.username,
   };
 }
@@ -147,6 +153,8 @@ interface Api {
   resetWorkflow: () => void;
   startSprint: () => void;
   completeSprint: () => void;
+  setMemberRole: (userId: string, role: ProjectRole) => void;
+  removeMember: (userId: string) => void;
   resetDemo: () => void;
 }
 
@@ -189,8 +197,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [toast],
   );
 
-  const me = useMemo(() => {
-    return (
+  const me = useMemo<User>(() => {
+    const base =
       data.users.find((u) => u.id === data.currentUserId) ??
       data.users[0] ?? {
         id: "",
@@ -198,10 +206,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         initials: "?",
         color: "#64748B",
         role: "",
+        globalRole: "member" as const,
         accessRole: "viewer" as const,
-      }
-    );
-  }, [data.users, data.currentUserId]);
+      };
+    // Эффективная роль текущего пользователя: admin (глобально) или роль в проекте.
+    // Успешный bootstrap гарантирует членство либо globalRole='admin', так что
+    // null тут на практике не возникает; 'viewer' — безопасный фолбэк для типа.
+    const effective: AccessRole =
+      resolveRole(base.globalRole, data.members[base.id]) ?? "viewer";
+    return { ...base, accessRole: effective };
+  }, [data.users, data.currentUserId, data.members]);
 
   const canFn = useCallback((perm: PermId, issue?: Issue) => canDo(me, perm, issue), [me]);
 
@@ -224,7 +238,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const user = await authApi.me();
       const boot = await projectApi.bootstrap();
       const issuesRes = await issuesApi.list({ limit: 200 });
-      const users = boot.users.map(mapUser);
+      const members: Record<string, ProjectRole> = {};
+      for (const m of boot.members) members[m.userId] = m.role;
+      const users = boot.users.map((u) => mapUser(u, members));
       setData({
         project: {
           id: boot.project.id,
@@ -233,6 +249,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           description: boot.project.description ?? "",
         },
         users,
+        members,
         currentUserId: user.id,
         issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
         sprints: boot.sprints.map((s) => ({
@@ -629,9 +646,67 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [requirePerm, toast, handleApiError, refreshIssues]);
 
-  const switchUser = useCallback(() => {
-    toast("info", "Демо-переключение ролей отключено — используйте вход под другим пользователем");
-  }, [toast]);
+  const setMemberRole = useCallback(
+    (userId: string, role: ProjectRole) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          const res = await membersApi.set(userId, role);
+          setData((prev) => ({ ...prev, members: { ...prev.members, [res.userId]: res.role } }));
+          toast("success", "Роль участника обновлена");
+        } catch (err) {
+          handleApiError(err, "Не удалось изменить роль участника");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeMember = useCallback(
+    (userId: string) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await membersApi.remove(userId);
+          setData((prev) => {
+            const members = { ...prev.members };
+            delete members[userId];
+            return { ...prev, members };
+          });
+          toast("info", "Участник удалён из проекта");
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить участника");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  // Демо-переключение роли: только на localhost и только для превью UX прав.
+  // Меняет локально «кто такой me» — кнопки/бейджи/тултипы и клиентский requirePerm
+  // пересчитываются по эффективной роли выбранного пользователя. ВАЖНО: JWT остаётся
+  // вашим, поэтому мутации, если проскочат мимо UI-гейта, сервер выполнит под вашим
+  // входом. Для настоящей проверки серверных прав — реальный логин (пароль тестовых
+  // пользователей задавали при их создании).
+  const switchUser = useCallback(
+    (id: string) => {
+      const onLocalhost =
+        typeof location !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+      if (!onLocalhost) {
+        toast("info", "Демо-переключение ролей отключено — используйте вход под другим пользователем");
+        return;
+      }
+      const u = dataRef.current.users.find((x) => x.id === id);
+      if (!u) return;
+      setData((prev) => ({ ...prev, currentUserId: id }));
+      const eff = resolveRole(u.globalRole, dataRef.current.members[u.id]);
+      toast(
+        "info",
+        `UI от лица «${u.name}» — ${eff ? roleMeta(eff).name : "нет доступа к проекту"}. Запросы к API идут под вашим входом.`,
+      );
+    },
+    [toast],
+  );
 
   const resetDemo = useCallback(() => {
     toast("info", "Сброс демо недоступен в режиме API");
@@ -662,6 +737,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     resetWorkflow,
     startSprint,
     completeSprint,
+    setMemberRole,
+    removeMember,
     resetDemo,
   };
 

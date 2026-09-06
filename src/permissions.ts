@@ -1,9 +1,21 @@
-import type { AccessRole, Issue, User } from "./types";
+import type { AccessRole, GlobalRole, Issue, ProjectRole, User } from "./types";
 
 /* ============================================================
    СИСТЕМА ПРАВ ДОСТУПА (клиент — только UX; сервер — источник истины)
    Роли: admin | manager | employee | viewer
+
+   Модель project-scoped (миграция 004): эффективная роль пользователя =
+   resolveRole(globalRole, projectRole). Ниже `user.accessRole` — это уже
+   ВЫЧИСЛЕННАЯ эффективная роль (store подставляет её в `me`).
+   MATRIX и can()/denialReason() зеркалят server/src/permissions.ts.
    ============================================================ */
+
+/** Эффективная роль в проекте — зеркалит server/src/permissions.ts `resolveRole()`.
+ *  globalRole='admin' → 'admin'; иначе проектная роль; иначе null (не участник). */
+export const resolveRole = (
+  globalRole: GlobalRole,
+  projectRole: ProjectRole | undefined,
+): AccessRole | null => (globalRole === "admin" ? "admin" : projectRole ?? null);
 
 export type PermId =
   | "browse"

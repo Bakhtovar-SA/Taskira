@@ -1,15 +1,24 @@
 export type IssueTypeId = "task" | "bug" | "request";
 export type PriorityId = "highest" | "high" | "medium" | "low" | "lowest";
 export type StatusCategory = "todo" | "inprogress" | "done";
+/** Эффективная роль для матрицы прав (см. permissions.ts). */
 export type AccessRole = "admin" | "manager" | "employee" | "viewer";
+/** Глобальная роль ресурса (users.global_role). */
+export type GlobalRole = "admin" | "member";
+/** Роль участника проекта (project_members.role). */
+export type ProjectRole = "manager" | "employee" | "viewer";
 
 export interface User {
   id: string;
   name: string;
   initials: string;
   color: string;
-  /** Должность / job role */
+  /** Должность / job role — НЕ роль доступа. */
   role: string;
+  /** Глобальная роль ресурса. */
+  globalRole: GlobalRole;
+  /** Эффективная роль в текущем проекте: 'admin' если globalRole='admin',
+   *  иначе проектная роль. Для `me` вычисляется в store из globalRole + members. */
   accessRole: AccessRole;
   username?: string;
 }
@@ -96,6 +105,8 @@ export interface Toast {
 export interface Data {
   project: Project;
   users: User[];
+  /** Состав текущего проекта: userId → проектная роль (manager|employee|viewer). */
+  members: Record<string, ProjectRole>;
   currentUserId: string;
   issues: Issue[];
   sprints: Sprint[];

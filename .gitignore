@@ -11,3 +11,7 @@ server/.env
 # Серверные артефакты
 server/node_modules/
 server/dist/
+
+# Локальные дампы БД — не коммитим (содержат хэши паролей)
+backup*.sql
+*.dump
