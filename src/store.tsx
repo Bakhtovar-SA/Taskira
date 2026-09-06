@@ -1,13 +1,22 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import type { Data, Issue, IssueTypeId, PriorityId, Toast, Transition, User, ViewId, Workflow } from "./types";
-import { ISSUE_TYPES, PRIORITIES } from "./types";
-import { DEFAULT_WORKFLOW, freshData } from "./seed";
-import { can as canDo, denialReason, roleMeta, type PermId } from "./permissions";
+import { PRIORITIES } from "./types";
+import { can as canDo, denialReason, type PermId } from "./permissions";
 import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
+import {
+  ApiError,
+  authApi,
+  clearToken,
+  commentsApi,
+  getToken,
+  issuesApi,
+  projectApi,
+  sprintsApi,
+  type ServerIssue,
+  type SafeUser,
+  workflowApi,
+} from "./api";
 
-const LS_KEY = "taskira.v1";
-
-/* ---------------- утилиты ---------------- */
 export const canTransition = (wf: Workflow, from: string, to: string) =>
   from === to || wf.transitions.some((t) => t.from === from && t.to === to);
 
@@ -29,7 +38,8 @@ export const relTime = (ts: number) => {
 export const fmtDate = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 
-/* ---------------- состояние ---------------- */
+export type BootStatus = "idle" | "loading" | "ready" | "unauthenticated" | "error";
+
 export interface UIState {
   view: ViewId;
   selectedIssueId: string | null;
@@ -48,6 +58,69 @@ export interface CreateInput {
   points: number | null;
   sprintId: string | null;
   statusId?: string;
+  dueDate?: string | null;
+}
+
+const emptyData = (): Data => ({
+  project: { key: "…", name: "…", description: "" },
+  users: [],
+  currentUserId: "",
+  issues: [],
+  sprints: [],
+  workflow: { statuses: [], transitions: [] },
+  seq: 1,
+});
+
+function mapUser(u: SafeUser): User {
+  return {
+    id: u.id,
+    name: u.name,
+    initials: u.initials,
+    color: u.color,
+    role: u.jobRole,
+    accessRole: u.accessRole,
+    username: u.username,
+  };
+}
+
+function normalizeType(t: string): IssueTypeId {
+  if (t === "bug" || t === "request" || t === "task") return t;
+  return "task";
+}
+
+function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
+  return {
+    id: dto.id,
+    key: dto.key,
+    title: dto.title,
+    description: dto.description ?? "",
+    typeId: normalizeType(dto.typeId),
+    statusId: dto.statusId,
+    priorityId: (dto.priorityId as PriorityId) || "medium",
+    assigneeId: dto.assigneeId,
+    reporterId: dto.reporterId,
+    epicId: dto.epicId,
+    labels: dto.labels ?? [],
+    points: dto.points,
+    sprintId: dto.sprintId,
+    dueDate: dto.dueDate,
+    rank: dto.rank,
+    color: dto.color ?? undefined,
+    tStart: dto.tStart ?? undefined,
+    tSpan: dto.tSpan ?? undefined,
+    comments: prev?.comments ?? [],
+    activity: prev?.activity ?? [],
+    createdAt: Date.parse(dto.createdAt) || Date.now(),
+    updatedAt: Date.parse(dto.updatedAt) || Date.now(),
+  };
+}
+
+function upsertIssue(list: Issue[], issue: Issue): Issue[] {
+  const i = list.findIndex((x) => x.id === issue.id);
+  if (i < 0) return [...list, issue];
+  const next = list.slice();
+  next[i] = { ...issue, comments: list[i].comments, activity: list[i].activity };
+  return next;
 }
 
 interface Api {
@@ -55,12 +128,15 @@ interface Api {
   me: User;
   ui: UIState;
   toasts: Toast[];
-  /** Единая точка проверки прав в компонентах: can("edit", issue) */
+  bootStatus: BootStatus;
   can: (perm: PermId, issue?: Issue) => boolean;
+  bootstrap: () => Promise<void>;
+  logout: () => void;
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
   setCreateOpen: (v: boolean) => void;
   toast: (kind: Toast["kind"], text: string) => void;
+  /** @deprecated демо-переключение ролей отключено */
   switchUser: (id: string) => void;
   createIssue: (input: CreateInput) => void;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
@@ -78,52 +154,20 @@ interface Api {
 
 const Ctx = createContext<Api | null>(null);
 
-/* Загрузка с миграцией: пользователи и их роли всегда из сида (источник истины),
-   задачи/спринты/схема/счётчик — из localStorage. Старые данные без accessRole
-   автоматически получают роль из сида. */
-function load(): Data {
-  const base = freshData();
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.issues) && parsed.workflow && Array.isArray(parsed.sprints)) {
-        return { ...base, issues: parsed.issues, sprints: parsed.sprints, workflow: parsed.workflow, seq: parsed.seq ?? base.seq };
-      }
-    }
-  } catch {
-    /* повреждённые данные — начинаем заново */
-  }
-  return base;
-}
-
 let toastSeq = 1;
 
-/* Идентификаторы — RFC 4122 UUID (Этап 1): формат совпадает с серверными PK в PostgreSQL.
-   Fallback — для несекьюрного контекста (http вне localhost), где crypto.randomUUID недоступен. */
-const uuid = (): string =>
-  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
-        (+c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))).toString(16),
-      );
-
-/* Временный алиас: точки вызова перейдут на uuid() напрямую при переносе store на API (Этап 4) */
-const nid = (_prefix: string): string => uuid();
-
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<Data>(load);
-  const [ui, setUi] = useState<UIState>({ view: "board", selectedIssueId: null, createOpen: false, lastEvent: null });
+  const [data, setData] = useState<Data>(emptyData);
+  const [bootStatus, setBootStatus] = useState<BootStatus>("idle");
+  const [ui, setUi] = useState<UIState>({
+    view: "board",
+    selectedIssueId: null,
+    createOpen: false,
+    lastEvent: null,
+  });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const dataRef = useRef(data);
   dataRef.current = data;
-
-  useEffect(() => {
-    localStorage.setItem(
-      LS_KEY,
-      JSON.stringify({ issues: data.issues, sprints: data.sprints, workflow: data.workflow, seq: data.seq }),
-    );
-  }, [data]);
 
   const toast = useCallback((kind: Toast["kind"], text: string) => {
     const id = toastSeq++;
@@ -131,26 +175,154 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
   }, []);
 
-  const me = () => dataRef.current.users.find((u) => u.id === dataRef.current.currentUserId) ?? dataRef.current.users[0];
-  const wf = () => dataRef.current.workflow;
-  const sName = (id: string) => statusById(wf(), id)?.name ?? id;
-
-  /* Страж мутаций: проверяет право текущего пользователя и показывает тост-отказ */
-  const requirePerm = useCallback(
-    (perm: PermId, issue?: Issue): boolean => {
-      const u = me();
-      if (canDo(u, perm, issue)) return true;
-      toast("error", denialReason(u, perm, issue));
-      return false;
+  const handleApiError = useCallback(
+    (err: unknown, fallback = "Ошибка запроса") => {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          clearToken();
+          setBootStatus("unauthenticated");
+          setData(emptyData());
+        }
+        toast("error", err.message || fallback);
+        return;
+      }
+      toast("error", fallback);
     },
     [toast],
   );
 
-  /* ------- действия (каждое защищено проверкой прав) ------- */
+  const me = useMemo(() => {
+    return data.users.find((u) => u.id === data.currentUserId) ?? data.users[0] ?? {
+      id: "",
+      name: "…",
+      initials: "?",
+      color: "#64748B",
+      role: "",
+      accessRole: "viewer" as const,
+    };
+  }, [data.users, data.currentUserId]);
+
+  const canFn = useCallback(
+    (perm: PermId, issue?: Issue) => canDo(me, perm, issue),
+    [me],
+  );
+
+  const requirePerm = useCallback(
+    (perm: PermId, issue?: Issue): boolean => {
+      if (canDo(me, perm, issue)) return true;
+      toast("error", denialReason(me, perm, issue));
+      return false;
+    },
+    [me, toast],
+  );
+
+  const bootstrap = useCallback(async () => {
+    if (!getToken()) {
+      setBootStatus("unauthenticated");
+      return;
+    }
+    setBootStatus("loading");
+    try {
+      const user = await authApi.me();
+      const boot = await projectApi.bootstrap();
+      const issuesRes = await issuesApi.list({ limit: 200 });
+      const users = boot.users.map(mapUser);
+      setData({
+        project: {
+          id: boot.project.id,
+          key: boot.project.key,
+          name: boot.project.name,
+          description: boot.project.description ?? "",
+        },
+        users,
+        currentUserId: user.id,
+        issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
+        sprints: boot.sprints.map((s) => ({
+          id: s.id,
+          name: s.name,
+          goal: s.goal ?? "",
+          status: s.status,
+          startDate: s.startDate ?? "",
+          endDate: s.endDate ?? "",
+        })),
+        workflow: {
+          statuses: boot.workflow.statuses.map((s) => ({
+            id: s.id,
+            name: s.name,
+            category: s.category,
+          })),
+          transitions: boot.workflow.transitions.map((t) => ({
+            id: t.id,
+            from: t.from,
+            to: t.to,
+          })),
+        },
+        seq: issuesRes.total + 1,
+      });
+      setBootStatus("ready");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearToken();
+        setBootStatus("unauthenticated");
+        return;
+      }
+      handleApiError(err, "Не удалось загрузить данные");
+      setBootStatus("error");
+    }
+  }, [handleApiError]);
+
+  const logout = useCallback(() => {
+    clearToken();
+    setData(emptyData());
+    setUi({ view: "board", selectedIssueId: null, createOpen: false, lastEvent: null });
+    setBootStatus("unauthenticated");
+  }, []);
+
+  const refreshIssues = useCallback(async () => {
+    try {
+      const issuesRes = await issuesApi.list({ limit: 200 });
+      setData((prev) => ({
+        ...prev,
+        issues: issuesRes.items.map((dto) => {
+          const old = prev.issues.find((x) => x.id === dto.id);
+          return mapIssue(dto, old);
+        }),
+      }));
+    } catch (err) {
+      handleApiError(err);
+    }
+  }, [handleApiError]);
+
+  const openIssue = useCallback(
+    (id: string | null) => {
+      setUi((u) => ({ ...u, selectedIssueId: id }));
+      if (!id) return;
+      void (async () => {
+        try {
+          const [dto, comments] = await Promise.all([issuesApi.get(id), commentsApi.list(id).catch(() => [])]);
+          setData((prev) => {
+            const mapped = mapIssue(dto, prev.issues.find((x) => x.id === id));
+            mapped.comments = (comments as { id: string; authorId: string; body: string; createdAt: string }[]).map(
+              (c) => ({
+                id: c.id,
+                authorId: c.authorId,
+                body: c.body,
+                ts: Date.parse(c.createdAt) || Date.now(),
+              }),
+            );
+            return { ...prev, issues: upsertIssue(prev.issues, mapped) };
+          });
+        } catch (err) {
+          handleApiError(err, "Не удалось открыть задачу");
+        }
+      })();
+    },
+    [handleApiError],
+  );
+
   const createIssue = useCallback(
     (input: CreateInput) => {
       if (!requirePerm("create")) return;
-      /* Валидация ввода (Этап 1). Сервер повторяет эти проверки zod-схемами. */
       const t = validateTitle(input.title);
       if (!t.ok) return toast("error", t.error);
       const d = validateDescription(input.description);
@@ -159,35 +331,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!l.ok) return toast("error", l.error);
       const p = validatePoints(input.points);
       if (!p.ok) return toast("error", p.error);
-      input = { ...input, title: t.value, description: d.value, labels: l.value, points: p.value };
-      const d0 = dataRef.current;
-      const num = d0.seq;
-      const id = nid("i");
-      const now = Date.now();
-      const issue: Issue = {
-        id,
-        key: `${d0.project.key}-${num}`,
-        title: input.title,
-        description: input.description,
-        typeId: input.typeId,
-        statusId: input.statusId ?? "todo",
-        priorityId: input.priorityId,
-        assigneeId: input.assigneeId,
-        reporterId: d0.currentUserId,
-        epicId: input.epicId,
-        labels: input.labels,
-        points: input.points,
-        sprintId: input.sprintId,
-        comments: [],
-        activity: [{ id: nid("a"), authorId: d0.currentUserId, issueId: id, ts: now, text: "создал(а) задачу" }],
-        createdAt: now,
-        updatedAt: now,
-      };
-      setData((prev) => ({ ...prev, seq: prev.seq + 1, issues: [...prev.issues, issue] }));
-      setUi((u) => ({ ...u, lastEvent: { issueId: id, ts: now } }));
-      toast("success", `${issue.key} «${issue.title.slice(0, 38)}${issue.title.length > 38 ? "…" : ""}» создана`);
+
+      void (async () => {
+        try {
+          const dto = await issuesApi.create({
+            title: t.value,
+            description: d.value,
+            typeId: input.typeId,
+            priorityId: input.priorityId,
+            assigneeId: input.assigneeId,
+            epicId: input.epicId,
+            labels: l.value,
+            points: p.value,
+            sprintId: input.sprintId,
+            statusId: input.statusId,
+            dueDate: input.dueDate ?? null,
+          });
+          const issue = mapIssue(dto);
+          setData((prev) => ({ ...prev, issues: [...prev.issues, issue] }));
+          setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() }, createOpen: false }));
+          toast("success", `${issue.key} создана`);
+        } catch (err) {
+          handleApiError(err, "Не удалось создать задачу");
+        }
+      })();
     },
-    [toast, requirePerm],
+    [requirePerm, toast, handleApiError],
   );
 
   const updateIssue = useCallback(
@@ -195,291 +364,310 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const iss = dataRef.current.issues.find((i) => i.id === id);
       if (!iss) return;
       if (!requirePerm("edit", iss)) return;
-      /* Нормализация входных значений (зеркалится сервером, Этап 3) */
+
+      const body: Record<string, unknown> = {};
       if (patch.title !== undefined) {
         const r = validateTitle(patch.title);
         if (!r.ok) return toast("error", r.error);
-        patch = { ...patch, title: r.value };
+        body.title = r.value;
       }
-      if (patch.description !== undefined) patch = { ...patch, description: sanitizeText(patch.description, LIMITS.description.max) };
+      if (patch.description !== undefined) body.description = sanitizeText(patch.description, LIMITS.description.max);
       if (patch.labels !== undefined) {
         const r = validateLabels(patch.labels);
         if (!r.ok) return toast("error", r.error);
-        patch = { ...patch, labels: r.value };
+        body.labels = r.value;
       }
       if (patch.points !== undefined) {
         const r = validatePoints(patch.points);
         if (!r.ok) return toast("error", r.error);
-        patch = { ...patch, points: r.value };
+        body.points = r.value;
       }
-      setData((prev) => {
-        const cur = prev.issues.find((i) => i.id === id)!;
-        const logs: string[] = [];
-        if (patch.assigneeId !== undefined && patch.assigneeId !== cur.assigneeId) {
-          const u = prev.users.find((x) => x.id === patch.assigneeId);
-          logs.push(u ? `назначил(а) исполнителем ${u.name}` : "снял(а) исполнителя");
+      if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
+      if (patch.assigneeId !== undefined) body.assigneeId = patch.assigneeId;
+      if (patch.epicId !== undefined) body.epicId = patch.epicId;
+      if (patch.sprintId !== undefined) body.sprintId = patch.sprintId;
+      if (patch.dueDate !== undefined) body.dueDate = patch.dueDate;
+      if (patch.tStart !== undefined) body.tStart = patch.tStart;
+      if (patch.tSpan !== undefined) body.tSpan = patch.tSpan;
+      if (patch.color !== undefined) body.color = patch.color;
+
+      if (Object.keys(body).length === 0) return;
+
+      void (async () => {
+        try {
+          const dto = await issuesApi.patch(id, body);
+          setData((prev) => ({
+            ...prev,
+            issues: prev.issues.map((i) => (i.id === id ? mapIssue(dto, i) : i)),
+          }));
+        } catch (err) {
+          handleApiError(err, "Не удалось сохранить задачу");
         }
-        if (patch.priorityId && patch.priorityId !== cur.priorityId)
-          logs.push(`изменил(а) приоритет: ${PRIORITIES[cur.priorityId].name} → ${PRIORITIES[patch.priorityId].name}`);
-        if (patch.points !== undefined && patch.points !== cur.points)
-          logs.push(`изменил(а) оценку: ${cur.points ?? "—"} → ${patch.points ?? "—"}`);
-        if (patch.labels && JSON.stringify(patch.labels) !== JSON.stringify(cur.labels)) logs.push("обновил(а) метки");
-        if (patch.epicId !== undefined && patch.epicId !== cur.epicId) logs.push("изменил(а) эпик");
-        if (patch.sprintId !== undefined && patch.sprintId !== cur.sprintId) {
-          const sp = prev.sprints.find((s) => s.id === patch.sprintId);
-          logs.push(sp ? `переместил(а) в ${sp.name}` : "вернул(а) в бэклог");
-        }
-        if (patch.description !== undefined && patch.description !== cur.description) logs.push("обновил(а) описание");
-        if (patch.title !== undefined && patch.title !== cur.title) logs.push("переименовал(а) задачу");
-        let next = { ...cur, ...patch, updatedAt: Date.now() };
-        for (const t of logs)
-          next = { ...next, activity: [...next.activity, { id: nid("a"), authorId: prev.currentUserId, issueId: id, ts: Date.now(), text: t }] };
-        return { ...prev, issues: prev.issues.map((i) => (i.id === id ? next : i)) };
-      });
+      })();
     },
-    [requirePerm, toast],
+    [requirePerm, toast, handleApiError],
   );
 
   const moveStatus = useCallback(
     (issueId: string, toStatus: string, beforeId?: string | null) => {
       if (!requirePerm("transition")) return;
-      const d0 = dataRef.current;
-      const iss = d0.issues.find((i) => i.id === issueId);
+      const iss = dataRef.current.issues.find((i) => i.id === issueId);
       if (!iss) return;
-      if (iss.statusId !== toStatus && !canTransition(d0.workflow, iss.statusId, toStatus)) {
-        toast("error", `Переход «${sName(iss.statusId)} → ${sName(toStatus)}» запрещён рабочим процессом`);
+      const wf = dataRef.current.workflow;
+      if (iss.statusId !== toStatus && !canTransition(wf, iss.statusId, toStatus)) {
+        const fromN = statusById(wf, iss.statusId)?.name ?? iss.statusId;
+        const toN = statusById(wf, toStatus)?.name ?? toStatus;
+        toast("error", `Переход «${fromN} → ${toN}» запрещён рабочим процессом`);
         return;
       }
-      const now = Date.now();
-      setData((prev) => {
-        const cur = prev.issues.find((i) => i.id === issueId)!;
-        const changed = cur.statusId !== toStatus;
-        let updated: Issue = { ...cur, statusId: toStatus, updatedAt: now };
-        if (changed)
-          updated = {
-            ...updated,
-            activity: [
-              ...updated.activity,
-              { id: nid("a"), authorId: prev.currentUserId, issueId, ts: now, text: `переместил(а) из «${sName(cur.statusId)}» в «${sName(toStatus)}»` },
-            ],
-          };
-        const rest = prev.issues.filter((i) => i.id !== issueId);
-        let idx = rest.length;
-        if (beforeId) {
-          const b = rest.findIndex((i) => i.id === beforeId);
-          if (b >= 0) idx = b;
-        } else {
-          const last = rest.map((i, k) => [i, k] as const).filter(([i]) => i.statusId === toStatus).pop();
-          if (last) idx = last[1] + 1;
+      void (async () => {
+        try {
+          const dto = await issuesApi.transition(issueId, toStatus, beforeId);
+          setData((prev) => ({
+            ...prev,
+            issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
+          }));
+          setUi((u) => ({ ...u, lastEvent: { issueId, ts: Date.now() } }));
+        } catch (err) {
+          handleApiError(err, "Не удалось сменить статус");
+          void refreshIssues();
         }
-        rest.splice(idx, 0, updated);
-        return { ...prev, issues: rest };
-      });
-      setUi((u) => ({ ...u, lastEvent: { issueId, ts: now } }));
+      })();
     },
-    [toast, requirePerm],
+    [requirePerm, toast, handleApiError, refreshIssues],
   );
 
   const setSprint = useCallback(
     (issueId: string, sprintId: string | null) => {
       if (!requirePerm("manageSprints")) return;
-      setData((prev) => {
-        const iss = prev.issues.find((i) => i.id === issueId);
-        if (!iss || iss.sprintId === sprintId) return prev;
-        const sp = prev.sprints.find((s) => s.id === sprintId);
-        const text = sp ? `переместил(а) в ${sp.name}` : "вернул(а) в бэклог";
-        return {
-          ...prev,
-          issues: prev.issues.map((i) =>
-            i.id === issueId
-              ? { ...i, sprintId, updatedAt: Date.now(), activity: [...i.activity, { id: nid("a"), authorId: prev.currentUserId, issueId, ts: Date.now(), text }] }
-              : i,
-          ),
-        };
-      });
+      void (async () => {
+        try {
+          const dto = await issuesApi.setSprint(issueId, sprintId);
+          setData((prev) => ({
+            ...prev,
+            issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
+          }));
+        } catch (err) {
+          handleApiError(err);
+        }
+      })();
     },
-    [requirePerm],
+    [requirePerm, handleApiError],
   );
 
   const addComment = useCallback(
     (issueId: string, body: string) => {
       if (!requirePerm("comment")) return;
       const r = validateComment(body);
-      if (!r.ok) {
-        toast("error", r.error);
-        return;
-      }
-      const b = r.value;
-      setData((prev) => ({
-        ...prev,
-        issues: prev.issues.map((i) =>
-          i.id === issueId
-            ? { ...i, updatedAt: Date.now(), comments: [...i.comments, { id: nid("c"), authorId: prev.currentUserId, body: b, ts: Date.now() }] }
-            : i,
-        ),
-      }));
-      toast("success", "Комментарий добавлен");
+      if (!r.ok) return toast("error", r.error);
+      void (async () => {
+        try {
+          const c = await commentsApi.create(issueId, r.value);
+          setData((prev) => ({
+            ...prev,
+            issues: prev.issues.map((i) =>
+              i.id === issueId
+                ? {
+                    ...i,
+                    comments: [
+                      ...i.comments,
+                      {
+                        id: c.id,
+                        authorId: c.authorId,
+                        body: c.body,
+                        ts: Date.parse(c.createdAt) || Date.now(),
+                      },
+                    ],
+                  }
+                : i,
+            ),
+          }));
+          toast("success", "Комментарий добавлен");
+        } catch (err) {
+          handleApiError(err);
+        }
+      })();
     },
-    [toast, requirePerm],
+    [requirePerm, toast, handleApiError],
   );
 
   const deleteIssue = useCallback(
     (issueId: string) => {
       if (!requirePerm("delete")) return;
       const iss = dataRef.current.issues.find((i) => i.id === issueId);
-      setData((prev) => ({
-        ...prev,
-        issues: prev.issues.map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i)).filter((i) => i.id !== issueId),
-      }));
-      setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
-      if (iss) toast("info", `${iss.key} удалена`);
+      void (async () => {
+        try {
+          await issuesApi.remove(issueId);
+          setData((prev) => ({
+            ...prev,
+            issues: prev.issues.filter((i) => i.id !== issueId).map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i)),
+          }));
+          setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
+          if (iss) toast("info", `${iss.key} удалена`);
+        } catch (err) {
+          handleApiError(err);
+        }
+      })();
     },
-    [toast, requirePerm],
+    [requirePerm, toast, handleApiError],
   );
 
   const addTransition = useCallback(
     (from: string, to: string): string | null => {
-      const u = me();
-      if (!canDo(u, "editWorkflow")) {
-        const msg = denialReason(u, "editWorkflow");
-        toast("error", msg);
-        return msg;
-      }
+      if (!requirePerm("editWorkflow")) return "Нет прав";
       if (from === to) return "Статусы «из» и «в» совпадают";
-      const d0 = dataRef.current;
-      if (d0.workflow.transitions.some((t) => t.from === from && t.to === to)) return "Такой переход уже есть в схеме";
-      const tr: Transition = { id: nid("t"), from, to };
-      setData((prev) => ({ ...prev, workflow: { ...prev.workflow, transitions: [...prev.workflow.transitions, tr] } }));
-      toast("success", `Переход «${sName(from)} → ${sName(to)}» добавлен`);
+      void (async () => {
+        try {
+          const tr = await workflowApi.addTransition(from, to);
+          setData((prev) => ({
+            ...prev,
+            workflow: { ...prev.workflow, transitions: [...prev.workflow.transitions, { id: tr.id, from: tr.from, to: tr.to }] },
+          }));
+          toast("success", "Переход добавлен");
+        } catch (err) {
+          handleApiError(err);
+        }
+      })();
       return null;
     },
-    [toast],
+    [requirePerm, toast, handleApiError],
   );
 
   const removeTransition = useCallback(
     (id: string) => {
       if (!requirePerm("editWorkflow")) return;
-      setData((prev) => ({ ...prev, workflow: { ...prev.workflow, transitions: prev.workflow.transitions.filter((t) => t.id !== id) } }));
-      toast("info", "Переход удалён из схемы");
+      void (async () => {
+        try {
+          await workflowApi.removeTransition(id);
+          setData((prev) => ({
+            ...prev,
+            workflow: { ...prev.workflow, transitions: prev.workflow.transitions.filter((t) => t.id !== id) },
+          }));
+          toast("info", "Переход удалён");
+        } catch (err) {
+          handleApiError(err);
+        }
+      })();
     },
-    [toast, requirePerm],
+    [requirePerm, toast, handleApiError],
   );
 
   const resetWorkflow = useCallback(() => {
     if (!requirePerm("editWorkflow")) return;
-    setData((prev) => ({ ...prev, workflow: structuredClone(DEFAULT_WORKFLOW) }));
-    toast("info", "Схема рабочего процесса восстановлена");
-  }, [toast, requirePerm]);
+    void (async () => {
+      try {
+        await workflowApi.reset();
+        const boot = await projectApi.bootstrap();
+        setData((prev) => ({
+          ...prev,
+          workflow: {
+            statuses: boot.workflow.statuses.map((s) => ({ id: s.id, name: s.name, category: s.category })),
+            transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
+          },
+        }));
+        toast("info", "Схема восстановлена");
+      } catch (err) {
+        handleApiError(err);
+      }
+    })();
+  }, [requirePerm, toast, handleApiError]);
 
   const startSprint = useCallback(() => {
     if (!requirePerm("manageSprints")) return;
-    setData((prev) => {
-      const future = prev.sprints.find((s) => s.status === "future");
-      if (future) {
-        const today = new Date();
-        const end = new Date(Date.now() + 14 * 864e5);
-        const iso = (dt: Date) => dt.toISOString().slice(0, 10);
-        return {
+    void (async () => {
+      try {
+        await sprintsApi.start();
+        const boot = await projectApi.bootstrap();
+        setData((prev) => ({
           ...prev,
-          sprints: prev.sprints.map((s) => (s.id === future.id ? { ...s, status: "active" as const, startDate: iso(today), endDate: iso(end) } : s)),
-        };
+          sprints: boot.sprints.map((s) => ({
+            id: s.id,
+            name: s.name,
+            goal: s.goal ?? "",
+            status: s.status,
+            startDate: s.startDate ?? "",
+            endDate: s.endDate ?? "",
+          })),
+        }));
+        toast("success", "Спринт начат");
+      } catch (err) {
+        handleApiError(err);
       }
-      const num = prev.sprints.length + 6;
-      const sp = {
-        id: nid("s"),
-        name: `Спринт ${num}`,
-        goal: "",
-        status: "active" as const,
-        startDate: new Date().toISOString().slice(0, 10),
-        endDate: new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10),
-      };
-      return { ...prev, sprints: [...prev.sprints, sp] };
-    });
-    toast("success", "Спринт начат — задачи на доске");
-  }, [toast, requirePerm]);
+    })();
+  }, [requirePerm, toast, handleApiError]);
 
   const completeSprint = useCallback(() => {
     if (!requirePerm("manageSprints")) return;
-    const d0 = dataRef.current;
-    const active = d0.sprints.find((s) => s.status === "active");
+    const active = dataRef.current.sprints.find((s) => s.status === "active");
     if (!active) return;
-    const doneId = d0.workflow.statuses.find((s) => s.category === "done")?.id;
-    const unfinished = d0.issues.filter((i) => i.sprintId === active.id && i.statusId !== doneId && i.typeId !== "epic").length;
-    setData((prev) => {
-      const num = prev.sprints.length + 6;
-      return {
-        ...prev,
-        issues: prev.issues.map((i) => (i.sprintId === active.id && i.statusId !== doneId ? { ...i, sprintId: null } : i)),
-        sprints: [
-          ...prev.sprints.map((s) => (s.id === active.id ? { ...s, status: "completed" as const } : s)),
-          {
-            id: nid("s"),
-            name: `Спринт ${num}`,
-            goal: "",
-            status: "future" as const,
-            startDate: new Date(Date.now() + 864e5).toISOString().slice(0, 10),
-            endDate: new Date(Date.now() + 15 * 864e5).toISOString().slice(0, 10),
-          },
-        ],
-      };
-    });
-    toast("success", `${active.name} завершён${unfinished ? ` — ${unfinished} недозакрытых задач вернулись в бэклог` : ", все задачи закрыты"}`);
-  }, [toast, requirePerm]);
+    void (async () => {
+      try {
+        await sprintsApi.complete(active.id);
+        await refreshIssues();
+        const boot = await projectApi.bootstrap();
+        setData((prev) => ({
+          ...prev,
+          sprints: boot.sprints.map((s) => ({
+            id: s.id,
+            name: s.name,
+            goal: s.goal ?? "",
+            status: s.status,
+            startDate: s.startDate ?? "",
+            endDate: s.endDate ?? "",
+          })),
+        }));
+        toast("success", `${active.name} завершён`);
+      } catch (err) {
+        handleApiError(err);
+      }
+    })();
+  }, [requirePerm, toast, handleApiError, refreshIssues]);
 
-  const switchUser = useCallback(
-    (id: string) => {
-      const u = dataRef.current.users.find((x) => x.id === id);
-      if (!u || id === dataRef.current.currentUserId) return;
-      setData((prev) => ({ ...prev, currentUserId: id }));
-      toast("info", `Вы вошли как ${u.name} — роль «${roleMeta(u.accessRole).name}»`);
-    },
-    [toast],
-  );
-
-  const resetDemo = useCallback(() => {
-    localStorage.removeItem(LS_KEY);
-    setData(freshData());
-    setUi({ view: "board", selectedIssueId: null, createOpen: false, lastEvent: null });
-    toast("info", "Демо-данные сброшены к исходным");
+  const switchUser = useCallback(() => {
+    toast("info", "Демо-переключение ролей отключено — используйте вход под другим пользователем");
   }, [toast]);
 
-  const meUser = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
+  const resetDemo = useCallback(() => {
+    toast("info", "Сброс демо недоступен в режиме API");
+  }, [toast]);
 
-  const api = useMemo<Api>(
-    () => ({
-      data,
-      me: meUser,
-      ui,
-      toasts,
-      can: (perm, issue) => canDo(meUser, perm, issue),
-      setView: (v) => setUi((u) => ({ ...u, view: v })),
-      openIssue: (id) => setUi((u) => ({ ...u, selectedIssueId: id })),
-      setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v })),
-      toast,
-      switchUser,
-      createIssue,
-      updateIssue,
-      moveStatus,
-      setSprint,
-      addComment,
-      deleteIssue,
-      addTransition,
-      removeTransition,
-      resetWorkflow,
-      startSprint,
-      completeSprint,
-      resetDemo,
-    }),
-    [data, meUser, ui, toasts, toast, switchUser, createIssue, updateIssue, moveStatus, setSprint, addComment, deleteIssue, addTransition, removeTransition, resetWorkflow, startSprint, completeSprint, resetDemo],
-  );
+  const api: Api = {
+    data,
+    me,
+    ui,
+    toasts,
+    bootStatus,
+    can: canFn,
+    bootstrap,
+    logout,
+    setView: (v) => setUi((u) => ({ ...u, view: v })),
+    openIssue,
+    setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v })),
+    toast,
+    switchUser,
+    createIssue,
+    updateIssue,
+    moveStatus,
+    setSprint,
+    addComment,
+    deleteIssue,
+    addTransition,
+    removeTransition,
+    resetWorkflow,
+    startSprint,
+    completeSprint,
+    resetDemo,
+  };
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 
-export function useStore() {
+export function useStore(): Api {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useStore вне провайдера");
+  if (!ctx) throw new Error("useStore вне StoreProvider");
   return ctx;
 }
 
-export const typeName = (t: IssueTypeId) => ISSUE_TYPES[t].name;
+// silence unused
+void PRIORITIES;
+void Transition;
