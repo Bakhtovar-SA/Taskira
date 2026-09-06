@@ -40,6 +40,13 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
 
   /* -------- состав проекта (только глобальный admin: manageAccess = ['admin']) -------- */
 
+  /* Гард «последний активный менеджер проекта» встроен прямо в WHERE записи —
+     проверка и запись в одном стейтменте, одном снапшоте, без отдельного SELECT
+     (устраняет TOCTOU-окно между round-trip'ами). Условие: писать/удалять можно,
+     если это НЕ понижение/удаление последнего активного менеджера. */
+  const LAST_MANAGER_MSG =
+    "Нельзя убрать или понизить последнего активного менеджера проекта — сначала назначьте другого";
+
   app.put(
     "/project/members/:userId",
     { preHandler: requirePerm("manageAccess"), preValidation: [zparams(MemberParams), zbody(SetMemberBody)] },
@@ -56,34 +63,38 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       if (!target) throw notFound("Пользователь не найден");
       if (!target.is_active) throw badRequest("Пользователь деактивирован — сначала активируйте аккаунт");
 
-      const current = await one<{ role: ProjectRole }>(
+      // from-роль нужна только для аудита; на гард не влияет (он в SQL ниже).
+      const before = await one<{ role: ProjectRole }>(
         `SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2`,
         [project.id, userId],
       );
 
-      // Нельзя понизить последнего активного менеджера проекта (аналог гарда
-      // «последний активный admin» в routes/users.ts — покрывает и понижение, и удаление).
-      if (current?.role === "manager" && role !== "manager") {
-        await assertNotLastManager(project.id, userId);
-      }
-
-      const row = (
-        await q<MemberRow>(
-          `INSERT INTO project_members (project_id, user_id, role)
-             VALUES ($1, $2, $3)
-           ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role
-           RETURNING user_id, role`,
-          [project.id, userId, role],
-        )
-      )[0];
+      const rows = await q<MemberRow>(
+        `INSERT INTO project_members (project_id, user_id, role)
+           VALUES ($1, $2, $3)
+         ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role
+         WHERE project_members.role <> 'manager'
+            OR EXCLUDED.role = 'manager'
+            OR EXISTS (
+                 SELECT 1 FROM project_members pm
+                   JOIN users u ON u.id = pm.user_id
+                  WHERE pm.project_id = $1 AND pm.role = 'manager'
+                    AND u.is_active AND pm.user_id <> $2
+               )
+         RETURNING user_id, role`,
+        [project.id, userId, role],
+      );
+      // 0 строк = был конфликт (участник есть), но WHERE запретил апдейт →
+      // это понижение последнего активного менеджера.
+      if (rows.length === 0) throw conflict(LAST_MANAGER_MSG);
 
       invalidateMembership(userId, project.id);
-      await audit(actor.sub, current ? "member.role.change" : "member.add", "user", userId, {
+      await audit(actor.sub, before ? "member.role.change" : "member.add", "user", userId, {
         projectId: project.id,
-        from: current?.role ?? null,
-        to: role,
+        from: before?.role ?? null,
+        to: rows[0].role,
       });
-      return { userId: row.user_id, role: row.role };
+      return { userId: rows[0].user_id, role: rows[0].role };
     },
   );
 
@@ -95,30 +106,35 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       const { userId } = req.params as z.infer<typeof MemberParams>;
       const project = await currentProject();
 
-      const current = await one<{ role: ProjectRole }>(
-        `SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2`,
+      const deleted = await q<{ role: ProjectRole }>(
+        `DELETE FROM project_members
+          WHERE project_id = $1 AND user_id = $2
+            AND (
+              role <> 'manager'
+              OR EXISTS (
+                   SELECT 1 FROM project_members pm
+                     JOIN users u ON u.id = pm.user_id
+                    WHERE pm.project_id = $1 AND pm.role = 'manager'
+                      AND u.is_active AND pm.user_id <> $2
+                 )
+            )
+          RETURNING role`,
         [project.id, userId],
       );
-      if (!current) throw notFound("Пользователь не состоит в проекте");
-      if (current.role === "manager") await assertNotLastManager(project.id, userId);
 
-      await q(`DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`, [project.id, userId]);
+      if (deleted.length === 0) {
+        // Либо не участник (404), либо последний активный менеджер (409) — различаем.
+        const still = await one<{ role: ProjectRole }>(
+          `SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2`,
+          [project.id, userId],
+        );
+        if (!still) throw notFound("Пользователь не состоит в проекте");
+        throw conflict(LAST_MANAGER_MSG);
+      }
+
       invalidateMembership(userId, project.id);
-      await audit(actor.sub, "member.remove", "user", userId, { projectId: project.id, was: current.role });
+      await audit(actor.sub, "member.remove", "user", userId, { projectId: project.id, was: deleted[0].role });
       reply.code(204).send();
     },
   );
-}
-
-/** 409, если userId — единственный активный менеджер проекта. */
-async function assertNotLastManager(projectId: string, userId: string): Promise<void> {
-  const row = (await one<{ n: string }>(
-    `SELECT count(*)::text AS n
-       FROM project_members pm
-       JOIN users u ON u.id = pm.user_id
-      WHERE pm.project_id = $1 AND pm.role = 'manager' AND u.is_active AND pm.user_id <> $2`,
-    [projectId, userId],
-  ))!;
-  if (Number(row.n) === 0)
-    throw conflict("Нельзя убрать или понизить последнего активного менеджера проекта — сначала назначьте другого");
 }

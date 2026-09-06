@@ -57,23 +57,32 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       const user = await one<UserRow>(`SELECT * FROM users WHERE id = $1`, [id]);
       if (!user) throw notFound("Пользователь не найден");
 
-      const removesAdmin =
-        user.global_role === "admin" && user.is_active && (body.globalRole !== "admin" || body.isActive === false);
-      if (removesAdmin) {
-        const admins = (
-          await one<{ n: string }>(`SELECT count(*)::text AS n FROM users WHERE global_role = 'admin' AND is_active`)
-        )!;
-        if (Number(admins.n) <= 1)
-          throw conflict("Нельзя понизить или деактивировать последнего активного администратора");
-      }
-
-      const row = (
-        await q<UserRow>(
-          `UPDATE users SET global_role = $1, is_active = COALESCE($2, is_active)
-            WHERE id = $3 RETURNING *`,
-          [body.globalRole, body.isActive ?? null, user.id],
-        )
-      )[0];
+      // Гард «последний активный админ» встроен в WHERE — проверка и запись в
+      // одном стейтменте (без отдельного SELECT count → нет TOCTOU-окна).
+      // Апдейт разрешён, если он НЕ снимает статус последнего активного админа:
+      //   - строка сейчас не активный админ, ИЛИ
+      //   - после апдейта остаётся активным админом
+      //     ($1='admin' и isActive не выставлен в false), ИЛИ
+      //   - есть другой активный админ.
+      const rows = await q<UserRow>(
+        `UPDATE users
+            SET global_role = $1, is_active = COALESCE($2, is_active)
+          WHERE id = $3
+            AND (
+              global_role <> 'admin' OR NOT is_active
+              OR ($1 = 'admin' AND $2 IS DISTINCT FROM false)
+              OR EXISTS (
+                   SELECT 1 FROM users a
+                    WHERE a.global_role = 'admin' AND a.is_active AND a.id <> $3
+                 )
+            )
+          RETURNING *`,
+        [body.globalRole, body.isActive ?? null, user.id],
+      );
+      // Пользователь точно существует (SELECT выше) → 0 строк = сработал гард.
+      if (rows.length === 0)
+        throw conflict("Нельзя понизить или деактивировать последнего активного администратора");
+      const row = rows[0];
 
       // Смена действует немедленно: кэш роли в requireAuth инвалидируется
       invalidateUserCache(user.id);

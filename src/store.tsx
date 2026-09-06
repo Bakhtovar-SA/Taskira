@@ -72,7 +72,7 @@ const emptyData = (): Data => ({
   seq: 1,
 });
 
-function mapUser(u: SafeUser): User {
+function mapUser(u: SafeUser, members: Record<string, ProjectRole>): User {
   return {
     id: u.id,
     name: u.name,
@@ -80,10 +80,10 @@ function mapUser(u: SafeUser): User {
     color: u.color,
     role: u.jobRole,
     globalRole: u.globalRole,
-    // Заглушка на уровне профиля (admin ресурса → 'admin', иначе 'viewer').
-    // Эффективную роль в проекте для `me` store пересчитывает в memo из
-    // globalRole + data.members; для остальных её берут из data.members напрямую.
-    accessRole: resolveRole(u.globalRole, undefined) ?? "viewer",
+    // Реальная эффективная роль в текущем проекте (globalRole + членство).
+    // Не-участник и не admin ресурса → роли нет: фолбэк 'viewer' (минимум прав).
+    // Для `me` store дополнительно пересчитывает её в memo при изменении data.members.
+    accessRole: resolveRole(u.globalRole, members[u.id]) ?? "viewer",
     username: u.username,
   };
 }
@@ -238,9 +238,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const user = await authApi.me();
       const boot = await projectApi.bootstrap();
       const issuesRes = await issuesApi.list({ limit: 200 });
-      const users = boot.users.map(mapUser);
       const members: Record<string, ProjectRole> = {};
       for (const m of boot.members) members[m.userId] = m.role;
+      const users = boot.users.map((u) => mapUser(u, members));
       setData({
         project: {
           id: boot.project.id,

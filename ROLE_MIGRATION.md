@@ -461,3 +461,21 @@ constraint'а больше нет; login / `/me` / `/project` DTO без `access
 
 Критический путь: 1 → 2 → 3 → 4 → 5 → 6. Фаза 7 не блокирует релиз проектных
 ролей на текущем единственном проекте.
+
+---
+
+## 7. Правки по авто-ревью (PR #10)
+
+1. **`src/store.tsx` `mapUser`** — принимает `members` и резолвит **реальную**
+   эффективную роль каждого пользователя (`resolveRole(globalRole, members[id])`),
+   а не заглушку `undefined → 'viewer'`. `data.users[i].accessRole` теперь верна
+   на момент bootstrap для всех, не только для `me`.
+2. **`server/README.md` breaking-changes п. 11** — понижение админа ресурса
+   отбирает доступ к проекту (у него нет строки в `project_members`) до ручного
+   `PUT /api/project/members/:userId`.
+3. **Гарды «последний менеджер» и «последний админ» — атомарные.** Вместо
+   `SELECT count` + отдельный `UPDATE`/`DELETE` условие встроено в `WHERE`
+   самого стейтмента (`routes/project.ts` PUT/DELETE, `routes/users.ts` PATCH):
+   0 затронутых строк при существующей записи = гард сработал → 409. Убран
+   общий хелпер `assertNotLastManager`. Проверка и запись — в одном снапшоте,
+   без TOCTOU-окна между round-trip'ами.
