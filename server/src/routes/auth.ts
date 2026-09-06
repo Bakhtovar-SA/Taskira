@@ -14,6 +14,9 @@ const RL_MAX_ATTEMPTS = 10;
 const attemptsByIp = new Map<string, number[]>();
 
 function rateLimited(ip: string): boolean {
+  // В тестах логинов много (по фикстуре на каждый it) и все с одного ip —
+  // общий бюджет в 10 попыток исчерпался бы к середине прогона.
+  if (process.env.NODE_ENV === "test") return false;
   const now = Date.now();
   const recent = (attemptsByIp.get(ip) ?? []).filter((t) => now - t < RL_WINDOW_MS);
   if (recent.length >= RL_MAX_ATTEMPTS) {

@@ -188,8 +188,14 @@ cp .env.example .env
 # Заполните: DATABASE_URL, JWT_SECRET (>=32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
 # JWT_SECRET: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
-npm run dev        # tsx watch: миграции → seed админа → listen :8080
+npm run dev        # tsx watch (chokidar polling): миграции → seed админа → listen :8080
 ```
+
+`npm run dev` форсит поллинг chokidar (`CHOKIDAR_USEPOLLING=1`, интервал 250 мс) —
+на Windows рекурсивный `fs.watch` пропускает правки от атомарного сохранения
+редактора и от инструментов, и сервер не перезапускается. Поллинг это чинит ценой
+небольшого CPU. Нативные события: `npm run dev:native`. Если после крупной
+многофайловой правки перезапуск всё же выглядит подвисшим — перезапустите dev.
 
 Миграции и seed по отдельности:
 

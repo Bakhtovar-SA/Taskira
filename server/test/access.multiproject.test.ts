@@ -102,3 +102,31 @@ describe("департаменты и проекты (global admin)", () => {
     expect(b.key).toBe("SEC-2");
   });
 });
+
+describe("резолв «текущего пользователя» при смене активного проекта (regression)", () => {
+  // Клиентский баг (починен удалением дев-свитчера + этим инвариантом):
+  // switchProject → buildProjectData перезаполняет data.users составом НОВОГО
+  // проекта. Если действующий пользователь — глобальный admin без строки в
+  // project_members — не попадал в этот список, me-memo не находил currentUserId
+  // и молча падал на data.users[0], показывая чужую роль ("viewer" → "employee"
+  // сам собой при смене проекта). Серверный инвариант, который держит фикс:
+  // bootstrap ЛЮБОГО проекта всегда возвращает действующего пользователя в .users.
+
+  test("глобальный admin есть в .users каждого проекта, даже без членства", async () => {
+    const adm = await login(app, "admin");
+    for (const pid of [fx.projects.p1, fx.projects.p2]) {
+      const res = await g(`/api/projects/${pid}`, adm);
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.users.map((u: { id: string }) => u.id)).toContain(fx.users.admin);
+      // при этом admin не участник — записи в .members нет (резолв роли, не подмена)
+      expect(body.members.map((m: { userId: string }) => m.userId)).not.toContain(fx.users.admin);
+    }
+  });
+
+  test("рядовой участник находит себя в .users своего проекта", async () => {
+    const m1 = await login(app, "mgr1");
+    const body = JSON.parse((await g(`/api/projects/${fx.projects.p1}`, m1)).body);
+    expect(body.users.map((u: { id: string }) => u.id)).toContain(fx.users.mgr1);
+  });
+});
