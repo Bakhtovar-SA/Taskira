@@ -35,16 +35,24 @@
 | 3a | Скелет сервера (Fastify, JWT, middleware, auth, seed) | ✅ |
 | 3a-fix | Транзакции в migrate(), кэш конфига, refresh роли из БД, rate-limit логина, /health 503, .gitignore | ✅ |
 | 3b-model | `002_corporate.sql`: employee, task/bug/request, due_date, issue_watchers | ✅ |
-| roles-1 | `004_project_roles.sql`: `users.global_role` + `project_members` (схема, бэкфилл) — план в [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md) | ✅ схема |
-| roles-2 | Ядро прав переведено на project-scoped: `resolveRole()`, `req.projectRole`/`req.membership`, `requirePerm`/`requireIssuePerm` резолвят роль по `project_members`; JWT несёт `globalRole` | ✅ сервер |
-| roles-3 | Роуты + контракт: bootstrap отдаёт `members`; `PUT`/`DELETE /api/project/members/:userId`; `CreateUserBody`/`ChangeRoleBody` на `globalRole`; `SafeUser.globalRole` | ✅ сервер |
-| roles-4 | Клиент: `store`/`api`/`permissions` на `globalRole` + `members`; `me` считает эффективную роль; экшены `setMemberRole`/`removeMember`; мёртвый `src/seed.ts` вырезан | ✅ клиент |
-| roles-5 | Клиент UI: `PermissionsView` — управление составом (роль/добавить/убрать) для админа ресурса, счётчики по `data.members`; `DocsView` тексты; CORS-фикс (`app.ts` methods) | ✅ клиент |
-| roles-7 | `006_drop_access_role.sql`: `DROP COLUMN users.access_role` + constraint; чистка `UserRow`/`SafeUser`/`safeUser`/`seedAdmin` и `SafeUser` на клиенте | ✅ |
-| 3b-routes | CRUD issues/sprints/workflow/comments/users | ⏳ следующий |
-| 3c | WebSocket-рассылка | ⏳ |
-| 4 | Фронтенд поверх API + синхронизация ролей клиента (employee) | ⏳ |
+| 3b-routes | CRUD issues/sprints/workflow/comments/users — все роуты реализованы, права на сервере | ✅ |
+| 4 | Фронтенд поверх API (localStorage → `src/api/` + `store.tsx`); клиент тянет всё через `bootstrap()` | ✅ |
+| roles-1 | `004_project_roles.sql`: `users.global_role` + `project_members` (схема, бэкфилл) | ✅ |
+| roles-2 | Ядро прав project-scoped: `resolveRole()`, `req.projectRole`/`req.membership`; `requirePerm`/`requireIssuePerm` резолвят роль по `project_members`; JWT несёт `globalRole` | ✅ |
+| roles-3 | Роуты + контракт: bootstrap отдаёт `members`; `PUT`/`DELETE /api/project/members/:userId`; `CreateUserBody`/`ChangeRoleBody` на `globalRole` | ✅ |
+| roles-4 | Клиент: `store`/`api`/`permissions` на `globalRole` + `members`; `me` считает эффективную роль; экшены `setMemberRole`/`removeMember`; мёртвый `src/seed.ts` вырезан | ✅ |
+| roles-5 | Клиент UI: `PermissionsView` — управление составом (роль/добавить/убрать) для админа ресурса; `DocsView` тексты; CORS-фикс (`app.ts` methods) | ✅ |
+| roles-7 | `006_drop_access_role.sql`: `DROP COLUMN users.access_role` + constraint; чистка `UserRow`/`SafeUser`/`safeUser`/`seedAdmin`, `SafeUser` на клиенте | ✅ |
+| 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
+
+**roles-1…7** — ролевая миграция (project-scoped) влита в `main` одним PR (#10);
+детальный план и порядок фаз — [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md).
+
+Дальше по дорожной карте (`../ARCHITECTURE.md`, «Порядок разработки») — **не начато**:
+LDAP/AD-аутентификация и sync групп, сущность «департамент» над проектами
+(и multi-project), файловое хранилище вложений, уведомления + фоновый воркер,
+нейтральная терминология в UI (Бэклог/Таймлайн/спринты/story points/эпики).
 
 ## Breaking changes (002)
 
