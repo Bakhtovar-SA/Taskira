@@ -14,8 +14,11 @@
  *  - глобальная роль users.global_role: admin | member (GLOBAL_ROLES);
  *  - проектная роль project_members.role: manager | employee | viewer (PROJECT_ROLES);
  *  - эффективная роль (ACCESS_ROLES) = admin для global admin, иначе проектная;
- *  - CreateUserBody / ChangeRoleBody принимают globalRole (не accessRole);
- *  - состав проекта: PUT/DELETE /api/project/members/:userId (SetMemberBody).
+ *  - CreateUserBody / ChangeRoleBody принимают globalRole (не accessRole).
+ *
+ * Multi-project (миграция 007, breaking — см. DEPT_MIGRATION.md):
+ *  - департаменты; ресурсы проекта под /api/projects/:projectId/...;
+ *  - состав проекта: PUT/DELETE /api/projects/:projectId/members/:userId (SetMemberBody).
  *
  * Лимиты зеркалят src/validation.ts фронтенда — меняются в двух местах синхронно.
  */
@@ -93,13 +96,52 @@ export const ChangeRoleBody = z.object({
   isActive: z.boolean().optional(),
 });
 
-/** PUT /api/project/members/:userId [global admin] — добавить участника / сменить роль */
+/** PUT /api/projects/:projectId/members/:userId [global admin] — добавить участника / сменить роль */
 export const SetMemberBody = z.object({
   role: z.enum(PROJECT_ROLES),
 });
 
 /** :userId в путях управления составом проекта */
 export const MemberParams = z.object({ userId: uuid });
+
+/* ---------------- Departments / Projects (миграция 007) ---------------- */
+/** :projectId в путях ресурсов проекта */
+export const ProjectParams = z.object({ projectId: uuid });
+/** :id в путях департамента */
+export const DepartmentParams = z.object({ id: uuid });
+
+/** POST/PATCH /api/departments[/:id] [global admin] */
+export const DepartmentBody = z.object({
+  name: oneLine(80, 1, "Название отдела не может быть пустым"),
+});
+
+/** Ключ проекта: заглавная латиница/цифры, начинается с буквы (CORP, SEC, IT2). */
+const projectKey = z
+  .string()
+  .trim()
+  .min(2)
+  .max(10)
+  .regex(/^[A-Z][A-Z0-9]+$/, "Ключ: заглавные латинские буквы и цифры, начинается с буквы");
+
+/** POST /api/projects [global admin] — создаёт проект + дефолтный workflow. */
+export const ProjectCreateBody = z.object({
+  key: projectKey,
+  name: oneLine(120, 1, "Название проекта не может быть пустым"),
+  description: multiLine(2000).default(""),
+  departmentId: uuid,
+  isShared: z.boolean().default(false),
+});
+
+/** PATCH /api/projects/:projectId [global admin] */
+export const ProjectPatchBody = z
+  .object({
+    name: oneLine(120, 1),
+    description: multiLine(2000),
+    departmentId: uuid,
+    isShared: z.boolean(),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
 
 /* ---------------- Issues ---------------- */
 export const IssueCreateBody = z.object({

@@ -1,6 +1,6 @@
 # DEPT_MIGRATION — департаменты + multi-project
 
-Статус: решения раздела 3 приняты; Фаза 1 (схема БД) — в работе, остальные фазы не начаты.
+Статус: решения раздела 3 приняты; Фазы 1–2 (схема БД + сервер) сделаны; Фаза 3 (клиент) — следующая, мёржится вместе с Фазой 2.
 Контекст: пункт 1 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md) (часть Department),
 иерархия доступа в [SCOPE.md](SCOPE.md). Предыдущая миграция — [ROLE_MIGRATION.md](ROLE_MIGRATION.md).
 
@@ -173,44 +173,61 @@ CREATE INDEX IF NOT EXISTS idx_projects_department ON projects (department_id);
 На чистой БД `migrate()` идёт до сида: `projects` пуст → `UPDATE` не трогает строк,
 создаётся только «Общий отдел»; далее `seedProject()` переиспользует его.
 
-### Фаза 2 — Сервер: резолв проекта + роутинг
+### Фаза 2 — Сервер: резолв проекта + роутинг  *(сделано)*
 
-`services/project.ts`:
-- `currentProject()` → `projectById(id)` (Map-кэш, `invalidateProjectCache(id?)`).
-- `defaultProject()` — «первый проект» для seed и переходных мест.
+**`services/project.ts`** — `currentProject()` удалён; `projectById(id)` (Map-кэш),
+`firstProject()` / `requireFirstProject()` для seed/служебных мест,
+`invalidateProjectCache(id?)`. `ProjectRow` получил `departmentId`, `isShared`.
 
-`services/departments.ts` *(новый)*: `listDepartments()`, `getDepartment(id)`, DTO.
+**`services/departments.ts`** *(новый)* — `listDepartments()` (с `projectCount`),
+`getDepartment(id)`.
 
-`services/projects.ts` *(новый)*: `listVisibleProjects(user)` (`project_members`
-∪ `is_shared` ∪ глоб. admin), `projectDto`, проверка уникальности `projects.key`.
+**`services/projects.ts`** *(новый)* — `listVisibleProjects(userId, isGlobalAdmin)`
+(§3.5: `project_members` ∪ `is_shared` ∪ глоб. admin), `projectRowToDto`.
 
-`middleware.ts`:
-- `requirePerm` / `requireIssuePerm` берут `projectId` из `req.params.projectId`
-  (не `currentProject()`).
-- `requireIssuePerm` дополнительно: `issues.project_id === :projectId`, иначе
-  `404` (защита от `/api/projects/A/issues/<из B>`).
-- Новый `requireGlobalAdmin` — project-less (для CRUD департаментов/проектов).
-- Новый `loadProject` preHandler: `:projectId` существует + виден юзеру (§3.5)
-  → `req.project`; иначе 404/403.
+**`services/workflow.ts`** — `seedProjectWorkflow(projectId)` вынесен из `seedProject`
+(4 статуса + 8 переходов); зовётся из seed и из `POST /api/projects`.
 
-`app.ts` — резурс-роуты под `/api/projects/:projectId`:
-- `issuesRoutes` → `/api/projects/:projectId/issues`
-- `commentRoutes` → `…/issues/:id/comments`
-- `sprintRoutes` → `…/sprints`
-- `workflowRoutes` → `…/workflow`
-- bootstrap `GET /api/project` → `GET /api/projects/:projectId`
-- **новые:** `GET /api/projects` (видимые), `POST /api/projects` (глоб. admin),
-  `PATCH` / `DELETE /api/projects/:projectId` (глоб. admin)
-- **новые:** `GET /api/departments` (любой аутентиф.),
-  `POST` / `PATCH` / `DELETE /api/departments[/:id]` (глоб. admin);
-  `DELETE` департамента с проектами → `409`.
+**`middleware.ts`:**
+- `requirePerm` / `requireIssuePerm` берут `projectId` из `req.params.projectId`,
+  грузят проект (`projectById`) в `req.project`, резолвят членство. `paramProjectId`
+  сам валидирует формат uuid → `404` (на вложенных ресурсах его нет в zod-схеме).
+- `requireIssuePerm`: `issues.project_id === :projectId`, иначе `404`
+  (защита от `/api/projects/A/issues/<из B>`).
+- Новый `requireGlobalAdmin` — project-less (CRUD департаментов/проектов, `/users`).
+- `zparams` теперь **мержит** разобранное поверх `req.params` (не заменяет) — иначе
+  вложенный `:projectId` терялся при валидации `:userId`/`:id`.
 
-`routes/issues.ts` — проверка `assigneeId` через `project_members` (§3.6);
-`epicId`/`sprintId` уже валидируются в рамках проекта.
+**`app.ts`** — дерево регистрации:
+```
+/api/auth/*                      authRoutes
+/api/users, /api/admin/users     userRoutes            (requireGlobalAdmin)
+/api/departments[/:id]           departmentRoutes      (GET — любой; CUD — global admin)
+/api/projects                    projectsRoutes        GET (видимые) / POST (admin)
+/api/projects/:projectId         projectsRoutes        GET bootstrap / PATCH / DELETE (admin)
+/api/projects/:projectId/members/:userId               memberRoutes  (manageAccess)
+/api/projects/:projectId/{issues,sprints,workflow}     ресурсы проекта
+```
+`routes/project.ts` удалён (bootstrap → `projectsRoutes`, состав → `memberRoutes`).
 
-`contract.ts`: `DepartmentBody`, `ProjectCreateBody` / `ProjectPatchBody`,
-`ProjectParams { projectId: uuid }`, DTO-типы. `nextIssueNum` / `getWorkflow` /
-`assertTransition` — без изменений.
+**`routes/issues.ts`** — `assigneeId` проверяется через `project_members` проекта
+(либо `global_role='admin'`) — §3.6.
+
+**`routes/users.ts`** — `requirePerm('manageAccess')` → `requireGlobalAdmin`.
+
+**`contract.ts`** — `ProjectParams`, `DepartmentParams`, `DepartmentBody`,
+`ProjectCreateBody` (ключ 2–10, `^[A-Z][A-Z0-9]+$`), `ProjectPatchBody`.
+
+**Проверено вживую** (`:8091`, БД восстановлена — 1 департамент, CORP `is_shared`,
+4 юзера/3 членства): `GET /api/departments`, `GET /api/projects` (admin — все,
+`t.viewer` — только CORP), bootstrap `GET /api/projects/:id`, `POST` департамента
+и проекта (+ авто-workflow), удаление проекта (каскад) и департамента (409 с
+проектами / 204 пустого), path-confusion `/projects/SEC/issues/<из CORP>` → 404,
+assignee не из проекта → 400, `requireGlobalAdmin` (не-admin → 403), member-роуты
+под `:projectId` (admin 200 / manager 403). `typecheck` — 0.
+
+**Клиент после этой фазы сломан** (все пути API изменились) — чинится Фазой 3,
+мёржатся вместе.
 
 ### Фаза 3 — Клиент (минимальный, без свитчера)
 

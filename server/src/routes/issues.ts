@@ -17,7 +17,6 @@ import {
 } from "../middleware.js";
 import { roleDenialReason, roleHas } from "../permissions.js";
 import { audit } from "../audit.js";
-import { currentProject } from "../services/project.js";
 import { assertTransition, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
 import { getIssueDto, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
@@ -47,7 +46,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [requirePerm("browse"), zquery(IssueQuery)] },
     async (req, reply) => {
-      const project = await currentProject();
+      const project = req.project!;
       const f = req.query as z.infer<typeof IssueQuery>;
 
       const clauses: string[] = ["i.project_id = $1"];
@@ -96,7 +95,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: requirePerm("create"), preValidation: zbody(IssueCreateBody) },
     async (req, reply) => {
-      const project = await currentProject();
+      const project = req.project!;
       const body = req.body as z.infer<typeof IssueCreateBody>;
       const user = me(req);
 
@@ -120,8 +119,14 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       }
 
       if (body.assigneeId) {
-        const u = await one<{ id: string }>(`SELECT id FROM users WHERE id = $1 AND is_active`, [body.assigneeId]);
-        if (!u) throw badRequest("Исполнитель не найден");
+        const u = await one<{ id: string }>(
+          `SELECT u.id FROM users u
+            WHERE u.id = $1 AND u.is_active
+              AND (u.global_role = 'admin'
+                   OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id))`,
+          [body.assigneeId, project.id],
+        );
+        if (!u) throw badRequest("Исполнитель не входит в проект");
       }
       if (body.epicId) {
         const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
@@ -159,7 +164,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
   /* ---------------------------------------------------------- чтение одной */
   app.get("/:id", { preHandler: requirePerm("browse") }, async (req) => {
-    const project = await currentProject();
+    const project = req.project!;
     const { id } = req.params as { id: string };
     return getIssueDto(project.id, id);
   });
@@ -169,7 +174,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     "/:id",
     { preHandler: requireIssuePerm("edit"), preValidation: zbody(IssuePatchBody) },
     async (req) => {
-      const project = await currentProject();
+      const project = req.project!;
       const { id } = req.params as { id: string };
       const user = me(req);
       const body = req.body as z.infer<typeof IssuePatchBody>;
@@ -192,8 +197,14 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         }
       }
       if (body.assigneeId !== undefined && body.assigneeId !== null) {
-        const u = await one<{ id: string }>(`SELECT id FROM users WHERE id = $1 AND is_active`, [body.assigneeId]);
-        if (!u) throw badRequest("Исполнитель не найден");
+        const u = await one<{ id: string }>(
+          `SELECT u.id FROM users u
+            WHERE u.id = $1 AND u.is_active
+              AND (u.global_role = 'admin'
+                   OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id))`,
+          [body.assigneeId, project.id],
+        );
+        if (!u) throw badRequest("Исполнитель не входит в проект");
       }
       if (body.epicId !== undefined && body.epicId !== null) {
         const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
@@ -279,7 +290,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     "/:id",
     { preHandler: requireIssuePerm("delete") },
     async (req, reply) => {
-      const project = await currentProject();
+      const project = req.project!;
       const { id } = req.params as { id: string };
       const user = me(req);
       const iss = await loadIssue(project.id, id);
@@ -295,7 +306,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     "/:id/transition",
     { preHandler: requireIssuePerm("transition"), preValidation: zbody(TransitionBody) },
     async (req) => {
-      const project = await currentProject();
+      const project = req.project!;
       const { id } = req.params as { id: string };
       const user = me(req);
       const body = req.body as z.infer<typeof TransitionBody>;
@@ -333,7 +344,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     "/:id/sprint",
     { preHandler: requirePerm("manageSprints"), preValidation: zbody(MoveToSprintBody) },
     async (req) => {
-      const project = await currentProject();
+      const project = req.project!;
       const { id } = req.params as { id: string };
       const user = me(req);
       const body = req.body as z.infer<typeof MoveToSprintBody>;
@@ -357,7 +368,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
   /* ---------------------------------------------------------- подписка на задачу */
   app.post("/:id/watchers/me", { preHandler: requirePerm("browse") }, async (req) => {
-    const project = await currentProject();
+    const project = req.project!;
     const { id } = req.params as { id: string };
     const user = me(req);
     const iss = await loadIssue(project.id, id);
@@ -368,7 +379,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.delete("/:id/watchers/me", { preHandler: requirePerm("browse") }, async (req) => {
-    const project = await currentProject();
+    const project = req.project!;
     const { id } = req.params as { id: string };
     const user = me(req);
     const iss = await loadIssue(project.id, id);

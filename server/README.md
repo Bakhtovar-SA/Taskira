@@ -44,6 +44,7 @@
 | roles-5 | Клиент UI: `PermissionsView` — управление составом (роль/добавить/убрать) для админа ресурса; `DocsView` тексты; CORS-фикс (`app.ts` methods) | ✅ |
 | roles-7 | `006_drop_access_role.sql`: `DROP COLUMN users.access_role` + constraint; чистка `UserRow`/`SafeUser`/`safeUser`/`seedAdmin`, `SafeUser` на клиенте | ✅ |
 | dept-1 | `007_departments.sql`: таблица `departments` (+ `ldap_group_dn`), `projects.department_id`/`is_shared`, бэкфилл «Общий отдел» — план в [`../DEPT_MIGRATION.md`](../DEPT_MIGRATION.md) | ✅ схема |
+| dept-2 | Сервер multi-project: ресурсы под `/api/projects/:projectId/...`; `GET`/`POST /api/projects`, `/api/departments` CRUD; `requireGlobalAdmin`; assignee ∈ `project_members`; видимость §3.5 | ✅ сервер |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
 
@@ -96,6 +97,14 @@ LDAP/AD-аутентификация и sync групп, сущность «де
     Гард «последнего активного админа» при этом не даёт понизить единственного.
 
 ## Этап 3b — роуты API
+
+> **dept-2 (multi-project):** ресурсы проекта переехали под `/api/projects/:projectId/...`
+> — таблица ниже с путями вида `/api/issues` **устарела**, читайте как
+> `/api/projects/:projectId/issues` и т.д. Bootstrap `GET /api/project` →
+> `GET /api/projects/:projectId`. Добавлены `GET`/`POST /api/projects`,
+> `PATCH`/`DELETE /api/projects/:projectId`, `GET`/`POST`/`PATCH`/`DELETE /api/departments[/:id]`,
+> `PUT`/`DELETE /api/projects/:projectId/members/:userId`. Актуальный список —
+> в [`../DEPT_MIGRATION.md`](../DEPT_MIGRATION.md) §Фаза 2.
 
 Все мутации проверяют JWT и право **на сервере**; отказы — `403 {error:{code:"FORBIDDEN",reason}}` на русском.
 
@@ -252,6 +261,17 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
 - [ ] На БД с данными: существующие проекты привязаны к «Общий отдел» и помечены `is_shared = true`; `ldap_group_dn` пуст
 - [ ] На чистой БД: `migrate()` создаёт «Общий отдел» (пустой), `seedProject` его переиспользует и вешает проект туда; `is_shared` фреш-проекта = `false`
 - [ ] `npm run seed` дважды — департамент и проект не дублируются
+
+### Сервер multi-project (dept-2)
+
+- [ ] `GET /api/departments` — список с `projectCount`; `POST`/`PATCH`/`DELETE` от не-admin → 403; `DELETE` отдела с проектами → 409, пустого → 204
+- [ ] `GET /api/projects` — глоб. admin видит все; обычный юзер — только где он в `project_members` или `is_shared`
+- [ ] `POST /api/projects` (admin) — создаёт проект + дефолтный workflow (4 статуса, 8 переходов); дублирующий ключ → 409; `POST` от не-admin → 403
+- [ ] `GET /api/projects/:projectId` — bootstrap `{project, users, members, workflow, sprints}`; не-участник не-shared проекта → 403; несуществующий / кривой uuid → 404
+- [ ] `GET /api/projects/:A/issues/<issue-из-B>` → 404 (path-confusion)
+- [ ] `POST`/`PATCH` задачи с `assigneeId` не из `project_members` проекта → 400 «Исполнитель не входит в проект» (глоб. admin как исполнитель — можно)
+- [ ] `PUT`/`DELETE /api/projects/:projectId/members/:userId` — только глоб. admin (manager проекта → 403); гард последнего менеджера как в roles-3
+- [ ] `DELETE /api/projects/:projectId` — каскад issues/members/workflow/sprints; `key` `CORP-1` и `SEC-1` независимы
 
 ### Этап 3b
 

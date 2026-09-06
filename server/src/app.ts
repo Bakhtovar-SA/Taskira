@@ -6,7 +6,9 @@ import websocket from "@fastify/websocket";
 import { loadConfig } from "./config.js";
 import { ApiHttpError } from "./middleware.js";
 import { authRoutes } from "./routes/auth.js";
-import { projectRoutes } from "./routes/project.js";
+import { departmentRoutes } from "./routes/departments.js";
+import { projectsRoutes } from "./routes/projects.js";
+import { memberRoutes } from "./routes/members.js";
 import { issuesRoutes } from "./routes/issues.js";
 import { commentRoutes } from "./routes/comments.js";
 import { sprintRoutes } from "./routes/sprints.js";
@@ -68,12 +70,21 @@ export function buildApp(): FastifyInstance {
   app.register(
     async (api) => {
       await api.register(authRoutes, { prefix: "/auth" });
-      await api.register(projectRoutes); // GET  /project (bootstrap)
-      await api.register(issuesRoutes, { prefix: "/issues" }); // CRUD + transition + sprint + watchers
-      await api.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
-      await api.register(sprintRoutes, { prefix: "/sprints" });
-      await api.register(workflowRoutes, { prefix: "/workflow" });
-      await api.register(userRoutes); // /users, /admin/users
+      await api.register(userRoutes); // /users, /admin/users (global admin)
+      await api.register(departmentRoutes, { prefix: "/departments" });
+      await api.register(projectsRoutes); // /projects (список, CRUD, bootstrap /projects/:projectId)
+
+      // Ресурсы конкретного проекта — под параметрическим префиксом.
+      await api.register(
+        async (proj) => {
+          await proj.register(memberRoutes, { prefix: "/members" }); // /:userId
+          await proj.register(issuesRoutes, { prefix: "/issues" }); // CRUD + transition + sprint + watchers
+          await proj.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
+          await proj.register(sprintRoutes, { prefix: "/sprints" });
+          await proj.register(workflowRoutes, { prefix: "/workflow" });
+        },
+        { prefix: "/projects/:projectId" },
+      );
       // Этап 3c: /ws
     },
     { prefix: "/api" },

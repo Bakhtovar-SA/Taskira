@@ -4,19 +4,18 @@ import { one, q } from "../db.js";
 import { notFound, requirePerm } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
 import { audit } from "../audit.js";
-import { currentProject } from "../services/project.js";
 import { mapSprint, type SprintRow } from "../services/sprints.js";
 
 export async function sprintRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/", { preHandler: requirePerm("browse") }, async () => {
-    const project = await currentProject();
+  app.get("/", { preHandler: requirePerm("browse") }, async (req) => {
+    const project = req.project!;
     const rows = await q<SprintRow>(`SELECT * FROM sprints WHERE project_id = $1 ORDER BY created_at`, [project.id]);
     return rows.map(mapSprint);
   });
 
   /** Активировать ближайший будущий спринт; если будущего нет — создать активный. */
   app.post("/start", { preHandler: requirePerm("manageSprints") }, async (req, reply) => {
-    const project = await currentProject();
+    const project = req.project!;
     const user = req.user;
 
     const future = await one<SprintRow>(
@@ -51,7 +50,7 @@ export async function sprintRoutes(app: FastifyInstance): Promise<void> {
 
   /** Завершить активный спринт: недозакрытые задачи → sprint_id = NULL, создаётся следующий будущий. */
   app.post("/:id/complete", { preHandler: requirePerm("manageSprints") }, async (req) => {
-    const project = await currentProject();
+    const project = req.project!;
     const user = req.user;
     const { id } = req.params as { id: string };
 
