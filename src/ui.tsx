@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Status, User } from "./types";
+import type { AccessRole, Status, User } from "./types";
 import { useStore } from "./store";
 import { IcX } from "./icons";
 
@@ -55,7 +55,6 @@ export const Chip = ({ text, color, onRemove }: { text: string; color?: string; 
   </span>
 );
 
-/* Дропдаун: кнопка + панель, закрытие по клику вне и Esc */
 export function Dropdown({ button, children, align = "left", width = 240 }: { button: (open: boolean) => React.ReactNode; children: React.ReactNode | ((close: () => void) => React.ReactNode); align?: "left" | "right"; width?: number }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -127,7 +126,6 @@ export const Kbd = ({ children }: { children: React.ReactNode }) => (
   <kbd className="rounded border border-[#2c415f] bg-sidebar2 px-1.5 py-px font-mono text-[10px] font-medium text-[#8fa3c2]">{children}</kbd>
 );
 
-/* Тултип при наведении */
 export const Tip = ({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) => (
   <span className={`group/tip relative inline-flex ${className}`}>
     {children}
@@ -137,20 +135,18 @@ export const Tip = ({ label, children, className = "" }: { label: string; childr
   </span>
 );
 
-/* Палитра ролей доступа (используется в бейджах и на странице прав) */
-export const roleBadgeColors: Record<import("./types").AccessRole, string> = {
+export const roleBadgeColors: Record<AccessRole, string> = {
   admin: "#B42318",
   manager: "#0B5FD9",
-  developer: "#1C8A5C",
+  employee: "#1C8A5C",
   viewer: "#64748B",
 };
 
-/* Бейдж роли доступа */
-export const RoleBadge = ({ role, size = "md" }: { role: import("./types").AccessRole; size?: "sm" | "md" }) => {
+export const RoleBadge = ({ role, size = "md" }: { role: AccessRole; size?: "sm" | "md" }) => {
   const meta = {
     admin: { name: "Администратор", color: "#B42318", bg: "#fdeae8" },
     manager: { name: "Менеджер", color: "#0B5FD9", bg: "#e8f0fd" },
-    developer: { name: "Разработчик", color: "#1C8A5C", bg: "#ddf3e7" },
+    employee: { name: "Сотрудник", color: "#1C8A5C", bg: "#ddf3e7" },
     viewer: { name: "Наблюдатель", color: "#64748B", bg: "#e8edf4" },
   }[role];
   return (
@@ -166,7 +162,6 @@ export const RoleBadge = ({ role, size = "md" }: { role: import("./types").Acces
   );
 };
 
-/* Плашка «нет прав» для заблокированных полей */
 export const LockedField = ({ children, reason }: { children: React.ReactNode; reason: string }) => (
   <Tip label={reason} className="w-full">
     <div className="flex w-full cursor-not-allowed items-center gap-2 rounded-md border border-linesoft bg-canvas/70 px-2.5 py-1.5 text-[13px] text-faint opacity-80">
