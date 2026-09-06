@@ -222,6 +222,20 @@ export const departmentsApi = {
   remove: (id: string) => api<void>(`/api/departments/${id}`, { method: "DELETE" }),
 };
 
+/** Пользователи ресурса — только для глобального admin. */
+export const usersApi = {
+  list: () => api<SafeUser[]>("/api/users"),
+  create: (body: {
+    username: string;
+    password: string;
+    name: string;
+    initials: string;
+    color: string;
+    jobRole: string;
+    globalRole?: GlobalRole;
+  }) => api<SafeUser>("/api/admin/users", { method: "POST", body }),
+};
+
 export const membersApi = {
   /** Добавить участника / сменить его проектную роль (PUT — upsert на сервере). */
   set: (projectId: string, userId: string, role: ProjectRole) =>

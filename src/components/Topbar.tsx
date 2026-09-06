@@ -185,6 +185,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
     timeline: "Таймлайн",
     workflow: "Рабочий процесс",
     access: "Права доступа",
+    admin: "Департаменты",
     docs: "Документация",
   }[ui.view];
   const canCreate = can("create");

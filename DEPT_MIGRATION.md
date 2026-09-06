@@ -1,6 +1,6 @@
 # DEPT_MIGRATION — департаменты + multi-project
 
-Статус: решения раздела 3 приняты; Фазы 1–3 (схема БД, сервер, клиент) сделаны — multi-project рабочий без UI-переключателя; Фазы 4 (админ-UI департаментов/проектов) и 5 (переключатель) — аддитивны.
+Статус: Фазы 1–4 сделаны (схема, сервер, клиент, админ-UI департаментов/проектов). Осталась Фаза 5 — переключатель проектов в Topbar (аддитивна).
 Контекст: пункт 1 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md) (часть Department),
 иерархия доступа в [SCOPE.md](SCOPE.md). Предыдущая миграция — [ROLE_MIGRATION.md](ROLE_MIGRATION.md).
 
@@ -262,11 +262,36 @@ assignee не из проекта → 400, `requireGlobalAdmin` (не-admin → 
 **Проверено:** `npm run typecheck` — новых ошибок нет (10 пред-существующих);
 `npm run build` (Vite) — успешно.
 
-### Фаза 4 — UI администрирования
+### Фаза 4 — UI администрирования  *(сделано)*
 
-`PermissionsView` / новый `AdminView`: департаменты (создать / переименовать /
-удалить), проекты в департаменте (создать, тумблер `is_shared`). `ViewId` +=
-`admin` (или в `access`).
+**`src/components/AdminView.tsx`** *(новый)* — вид «Департаменты и проекты»
+(только для глоб. admin, иначе заглушка): создать / переименовать (инлайн) /
+удалить отдел (удаление заблокировано, если есть проекты); в каждом отделе —
+проекты (инлайн-название, тумблер `is_shared`, «Открыть» = `switchProject`,
+удалить с `confirm`), форма «новый проект» (ключ + название).
+
+**`src/api/index.ts`** — `usersApi` (`list` / `create`).
+
+**`src/types.ts`** — `Data.departments: Department[]`; `ViewId` += `admin`.
+
+**`src/store.tsx`:**
+- `bootstrap` / `buildProjectData` подтягивают `departmentsApi.list()` в
+  `data.departments`.
+- `refreshOrg()` — рефетч `projectsApi.list()` + `departmentsApi.list()`.
+- Экшены `createDepartment` / `renameDepartment` / `deleteDepartment` /
+  `createProject` / `patchProject` / `deleteProject` — все под
+  `requirePerm('manageAccess')` (= глоб. admin), после мутации `refreshOrg`.
+  `deleteProject` текущего проекта → `bootstrap()` заново.
+
+**`App.tsx` / `Sidebar.tsx` / `Topbar.tsx`** — вид `admin`: пункт «Департаменты»
+в сайдбаре (только `globalRole==='admin'`), шорткат `6` (docs → `7`), заголовок.
+
+**`PermissionsView`** — «добавить участника»: список не-участников теперь из
+`usersApi.list()` (ленивая загрузка при `canManage`), а не из bootstrap `users`.
+
+**Проверено:** `npm run typecheck` — новых ошибок нет (10 пред-существующих);
+`npm run build` (Vite) — успешно. Серверные эндпоинты покрыты
+`access.multiproject.test.ts`.
 
 ### Фаза 5 — Переключатель проектов
 

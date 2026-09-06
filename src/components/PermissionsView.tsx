@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
+import { ApiError, usersApi } from "../api";
 import { PERMISSIONS, ROLE_ORDER, resolveRole, roleHas, roleMeta } from "../permissions";
 import type { AccessRole, ProjectRole } from "../types";
 import { IcCheck, IcEye, IcShield, IcUsers, IcX } from "../icons";
@@ -33,9 +34,28 @@ export default function PermissionsView() {
     [data.users],
   );
 
+  // Полный список пользователей ресурса (для «добавить участника») — только у
+  // админа ресурса; в bootstrap приходят лишь участники проекта.
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; globalRole: string }[]>([]);
+  useEffect(() => {
+    if (!canManage) return;
+    let cancelled = false;
+    usersApi
+      .list()
+      .then((us) => {
+        if (!cancelled) setAllUsers(us.filter((u) => u.isActive).map((u) => ({ id: u.id, name: u.name, globalRole: u.globalRole })));
+      })
+      .catch((e) => {
+        if (!(e instanceof ApiError)) throw e;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canManage]);
+
   const nonMembers = useMemo(
-    () => data.users.filter((u) => u.globalRole !== "admin" && !(u.id in data.members)),
-    [data.users, data.members],
+    () => allUsers.filter((u) => u.globalRole !== "admin" && !(u.id in data.members)),
+    [allUsers, data.members],
   );
 
   const counts = useMemo(() => {

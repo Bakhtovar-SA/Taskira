@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import type {
   AccessRole,
   Data,
+  Department,
   Issue,
   IssueTypeId,
   PriorityId,
@@ -19,6 +20,7 @@ import {
   authApi,
   clearToken,
   commentsApi,
+  departmentsApi,
   getToken,
   issuesApi,
   membersApi,
@@ -92,6 +94,7 @@ const writeLastProject = (id: string): void => {
 const emptyData = (): Data => ({
   project: { key: "…", name: "…", description: "" },
   projects: [],
+  departments: [],
   currentProjectId: "",
   users: [],
   members: {},
@@ -186,6 +189,15 @@ interface Api {
   completeSprint: () => void;
   setMemberRole: (userId: string, role: ProjectRole) => void;
   removeMember: (userId: string) => void;
+  createDepartment: (name: string) => void;
+  renameDepartment: (id: string, name: string) => void;
+  deleteDepartment: (id: string) => void;
+  createProject: (input: { key: string; name: string; departmentId: string; isShared?: boolean }) => void;
+  patchProject: (
+    id: string,
+    patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean },
+  ) => void;
+  deleteProject: (id: string) => void;
   resetDemo: () => void;
 }
 
@@ -264,7 +276,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   /** Грузит данные одного проекта (bootstrap + задачи) в объект Data. */
   const buildProjectData = useCallback(
-    async (projectId: string, currentUserId: string, projects: ProjectSummary[]): Promise<Data> => {
+    async (
+      projectId: string,
+      currentUserId: string,
+      projects: ProjectSummary[],
+      departments: Department[],
+    ): Promise<Data> => {
       const boot = await projectsApi.get(projectId);
       const issuesRes = await issuesApi.list(projectId, { limit: 200 });
       const members: Record<string, ProjectRole> = {};
@@ -280,6 +297,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           isShared: boot.project.isShared,
         },
         projects,
+        departments,
         currentProjectId: projectId,
         users,
         members,
@@ -311,7 +329,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setBootStatus("loading");
     try {
       const user = await authApi.me();
-      const list = await projectsApi.list();
+      const [list, deps] = await Promise.all([projectsApi.list(), departmentsApi.list().catch(() => [])]);
       const projects: ProjectSummary[] = list.map((p) => ({
         id: p.id,
         key: p.key,
@@ -320,14 +338,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         isShared: p.isShared,
       }));
       if (projects.length === 0) {
-        setData({ ...emptyData(), currentUserId: user.id });
+        setData({ ...emptyData(), currentUserId: user.id, departments: deps });
         setBootStatus("ready");
         toast("info", "Вам пока не открыт ни один проект — обратитесь к администратору");
         return;
       }
       const wanted = readLastProject();
       const chosen = projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
-      setData(await buildProjectData(chosen, user.id, projects));
+      setData(await buildProjectData(chosen, user.id, projects, deps));
       writeLastProject(chosen);
       setBootStatus("ready");
     } catch (err) {
@@ -348,7 +366,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setBootStatus("loading");
       void (async () => {
         try {
-          setData(await buildProjectData(projectId, cur.currentUserId, cur.projects));
+          setData(await buildProjectData(projectId, cur.currentUserId, cur.projects, cur.departments));
           writeLastProject(projectId);
           setUi((u) => ({ ...u, selectedIssueId: null }));
           setBootStatus("ready");
@@ -757,6 +775,121 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
+  /* -------- админ: департаменты и проекты (manageAccess = глобальный admin) -------- */
+
+  /** Перезагрузка списков проектов и департаментов после мутаций оргструктуры. */
+  const refreshOrg = useCallback(async () => {
+    const [list, deps] = await Promise.all([projectsApi.list(), departmentsApi.list().catch(() => [])]);
+    setData((prev) => ({
+      ...prev,
+      projects: list.map((p) => ({ id: p.id, key: p.key, name: p.name, departmentId: p.departmentId, isShared: p.isShared })),
+      departments: deps,
+    }));
+  }, []);
+
+  const createDepartment = useCallback(
+    (name: string) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await departmentsApi.create(name);
+          await refreshOrg();
+          toast("success", `Отдел «${name}» создан`);
+        } catch (err) {
+          handleApiError(err, "Не удалось создать отдел");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError, refreshOrg],
+  );
+
+  const renameDepartment = useCallback(
+    (id: string, name: string) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await departmentsApi.patch(id, name);
+          await refreshOrg();
+        } catch (err) {
+          handleApiError(err, "Не удалось переименовать отдел");
+        }
+      })();
+    },
+    [requirePerm, handleApiError, refreshOrg],
+  );
+
+  const deleteDepartment = useCallback(
+    (id: string) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await departmentsApi.remove(id);
+          await refreshOrg();
+          toast("info", "Отдел удалён");
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить отдел");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError, refreshOrg],
+  );
+
+  const createProject = useCallback(
+    (input: { key: string; name: string; departmentId: string; isShared?: boolean }) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          const p = await projectsApi.create(input);
+          await refreshOrg();
+          toast("success", `Проект ${p.key} создан`);
+        } catch (err) {
+          handleApiError(err, "Не удалось создать проект");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError, refreshOrg],
+  );
+
+  const patchProject = useCallback(
+    (id: string, patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean }) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await projectsApi.patch(id, patch);
+          await refreshOrg();
+          if (id === dataRef.current.currentProjectId && patch.name !== undefined) {
+            setData((prev) => ({ ...prev, project: { ...prev.project, name: patch.name! } }));
+          }
+        } catch (err) {
+          handleApiError(err, "Не удалось изменить проект");
+        }
+      })();
+    },
+    [requirePerm, handleApiError, refreshOrg],
+  );
+
+  const deleteProject = useCallback(
+    (id: string) => {
+      if (!requirePerm("manageAccess")) return;
+      const wasCurrent = id === dataRef.current.currentProjectId;
+      void (async () => {
+        try {
+          await projectsApi.remove(id);
+          toast("info", "Проект удалён");
+          if (wasCurrent) {
+            if (readLastProject() === id) writeLastProject("");
+            await bootstrap();
+          } else {
+            await refreshOrg();
+          }
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить проект");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError, refreshOrg, bootstrap],
+  );
+
   // Демо-переключение роли: только на localhost и только для превью UX прав.
   // Меняет локально «кто такой me» — кнопки/бейджи/тултипы и клиентский requirePerm
   // пересчитываются по эффективной роли выбранного пользователя. ВАЖНО: JWT остаётся
@@ -815,6 +948,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     completeSprint,
     setMemberRole,
     removeMember,
+    createDepartment,
+    renameDepartment,
+    deleteDepartment,
+    createProject,
+    patchProject,
+    deleteProject,
     resetDemo,
   };
 

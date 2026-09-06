@@ -46,6 +46,7 @@
 | dept-1 | `007_departments.sql`: таблица `departments` (+ `ldap_group_dn`), `projects.department_id`/`is_shared`, бэкфилл «Общий отдел» — план в [`../DEPT_MIGRATION.md`](../DEPT_MIGRATION.md) | ✅ схема |
 | dept-2 | Сервер multi-project: ресурсы под `/api/projects/:projectId/...`; `GET`/`POST /api/projects`, `/api/departments` CRUD; `requireGlobalAdmin`; assignee ∈ `project_members`; видимость §3.5 | ✅ сервер |
 | dept-3 | Клиент: `src/api/` + `store.tsx` на `:projectId`; `bootstrap` = `GET /api/projects` → выбор (`localStorage`) → `GET /api/projects/:id`; экшен `switchProject`; `projectsApi`/`departmentsApi` | ✅ клиент |
+| dept-4 | Клиент UI: `AdminView` — CRUD департаментов/проектов + тумблер `is_shared` (глоб. admin); экшены в store; `PermissionsView` add-member через `GET /api/users` | ✅ клиент |
 | ops-backup | `server/scripts/backup.sh` + `backup.ps1` (pg_dump `-Fc` + проверка `pg_restore --list` + ротация); runbook [`BACKUP.md`](BACKUP.md) — часть Этапа 5 | ✅ |
 | ops-tests | vitest + `app.inject()`; схема `taskira_test`; `test/helpers.ts` + `access.roles.test.ts` + `access.multiproject.test.ts` — права/гарды/IDOR из чек-листов | ✅ |
 | ops-ci | `.github/workflows/test.yml` — сервис `postgres:16`, `npm ci` → `typecheck` → `npm test` (on push main + PR) | ✅ |

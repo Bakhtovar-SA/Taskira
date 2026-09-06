@@ -7,6 +7,7 @@ import Backlog from "./components/Backlog";
 import TimelineView from "./components/TimelineView";
 import WorkflowView from "./components/WorkflowView";
 import PermissionsView from "./components/PermissionsView";
+import AdminView from "./components/AdminView";
 import DocsView from "./components/DocsView";
 import IssueModal from "./components/IssueModal";
 import CreateIssueModal from "./components/CreateIssueModal";
@@ -42,7 +43,15 @@ function Shell() {
         else toast("error", "Ваша роль не позволяет создавать задачи");
         return;
       }
-      const map: Record<string, ViewId> = { "1": "board", "2": "backlog", "3": "timeline", "4": "workflow", "5": "access", "6": "docs" };
+      const map: Record<string, ViewId> = {
+        "1": "board",
+        "2": "backlog",
+        "3": "timeline",
+        "4": "workflow",
+        "5": "access",
+        "6": "admin",
+        "7": "docs",
+      };
       if (map[e.key]) setView(map[e.key]);
     };
     document.addEventListener("keydown", onKey);
@@ -79,6 +88,7 @@ function Shell() {
             {ui.view === "timeline" && <TimelineView />}
             {ui.view === "workflow" && <WorkflowView />}
             {ui.view === "access" && <PermissionsView />}
+            {ui.view === "admin" && <AdminView />}
             {ui.view === "docs" && <DocsView />}
           </div>
         </main>

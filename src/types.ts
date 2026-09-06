@@ -125,6 +125,8 @@ export interface Data {
   project: Project;
   /** Все видимые пользователю проекты (для переключателя/списка). */
   projects: ProjectSummary[];
+  /** Департаменты организации (для админ-вида). */
+  departments: Department[];
   /** id текущего проекта; "" пока не выбран. */
   currentProjectId: string;
   users: User[];
@@ -137,7 +139,7 @@ export interface Data {
   seq: number;
 }
 
-export type ViewId = "board" | "backlog" | "timeline" | "workflow" | "access" | "docs";
+export type ViewId = "board" | "backlog" | "timeline" | "workflow" | "access" | "admin" | "docs";
 
 export const ISSUE_TYPES: Record<IssueTypeId, { name: string }> = {
   task: { name: "Задача" },
