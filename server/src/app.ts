@@ -29,7 +29,7 @@ export function buildApp(): FastifyInstance {
   app.register(websocket); // realtime-маршруты — Этап 3c
 
   /* Единый формат ошибок: { error: { code, reason } } */
-  app.setErrorHandler((err, req, reply) => {
+   app.setErrorHandler((err, req, reply) => {
     if (err instanceof ApiHttpError) {
       reply.code(err.statusCode).send({ error: { code: err.code, reason: err.message } });
       return;
@@ -45,7 +45,7 @@ export function buildApp(): FastifyInstance {
     req.log.error(err);
     reply.code(500).send({ error: { code: "INTERNAL", reason: "Внутренняя ошибка сервера" } });
   });
-
+  
   app.setNotFoundHandler((_req, reply) => {
     reply.code(404).send({ error: { code: "NOT_FOUND", reason: "Эндпоинт не найден" } });
   });
