@@ -38,6 +38,7 @@
 | roles-1 | `004_project_roles.sql`: `users.global_role` + `project_members` (схема, бэкфилл) — план в [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md) | ✅ схема |
 | roles-2 | Ядро прав переведено на project-scoped: `resolveRole()`, `req.projectRole`/`req.membership`, `requirePerm`/`requireIssuePerm` резолвят роль по `project_members`; JWT несёт `globalRole` | ✅ сервер |
 | roles-3 | Роуты + контракт: bootstrap отдаёт `members`; `PUT`/`DELETE /api/project/members/:userId`; `CreateUserBody`/`ChangeRoleBody` на `globalRole`; `SafeUser.globalRole` | ✅ сервер |
+| roles-4 | Клиент: `store`/`api`/`permissions` на `globalRole` + `members`; `me` считает эффективную роль; экшены `setMemberRole`/`removeMember`; мёртвый `src/seed.ts` вырезан | ✅ клиент |
 | 3b-routes | CRUD issues/sprints/workflow/comments/users | ⏳ следующий |
 | 3c | WebSocket-рассылка | ⏳ |
 | 4 | Фронтенд поверх API + синхронизация ролей клиента (employee) | ⏳ |

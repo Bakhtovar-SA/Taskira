@@ -96,6 +96,9 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
 
 /* -------- типизированные вызовы -------- */
 
+export type GlobalRole = "admin" | "member";
+export type ProjectRole = "manager" | "employee" | "viewer";
+
 export type SafeUser = {
   id: string;
   username: string;
@@ -103,6 +106,9 @@ export type SafeUser = {
   initials: string;
   color: string;
   jobRole: string;
+  /** Глобальная роль ресурса (users.global_role) — источник прав. */
+  globalRole: GlobalRole;
+  /** Легаси-роль (users.access_role). Для прав не используется, до Фазы 7. */
   accessRole: "admin" | "manager" | "employee" | "viewer";
   isActive: boolean;
 };
@@ -151,6 +157,8 @@ export type ServerActivity = {
 export type ProjectBootstrap = {
   project: { id: string; key: string; name: string; description?: string };
   users: SafeUser[];
+  /** Состав проекта: userId → проектная роль. Права me считаются из globalRole + этого. */
+  members: { userId: string; role: ProjectRole }[];
   workflow: {
     statuses: { id: string; name: string; category: "todo" | "inprogress" | "done"; position?: number }[];
     transitions: { id: string; from: string; to: string }[];
@@ -177,6 +185,16 @@ export const authApi = {
 
 export const projectApi = {
   bootstrap: () => api<ProjectBootstrap>("/api/project"),
+};
+
+export const membersApi = {
+  /** Добавить участника / сменить его проектную роль (PUT — upsert на сервере). */
+  set: (userId: string, role: ProjectRole) =>
+    api<{ userId: string; role: ProjectRole }>(`/api/project/members/${userId}`, {
+      method: "PUT",
+      body: { role },
+    }),
+  remove: (userId: string) => api<void>(`/api/project/members/${userId}`, { method: "DELETE" }),
 };
 
 export const issuesApi = {

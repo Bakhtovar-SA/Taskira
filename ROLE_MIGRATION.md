@@ -1,6 +1,6 @@
 # ROLE_MIGRATION — переход ролевой модели с глобальной на привязанную к проекту
 
-Статус: решения раздела 3 приняты; Фазы 1–3 (схема БД, ядро прав, роуты + контракт — всё серверное) сделаны; Фаза 4 (клиент) — следующая.
+Статус: решения раздела 3 приняты; Фазы 1–4 сделаны (сервер: схема, ядро прав, роуты, контракт; клиент: store/api/permissions на `globalRole` + `members`); Фаза 5 (UI: PermissionsView, чистка `User.accessRole`, тексты) — следующая.
 Контекст: пункт 2 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md); ролевой раздел [SCOPE.md](SCOPE.md).
 Связанные документы: [server/README.md](server/README.md) — актуальный контракт API и модель данных.
 
@@ -290,32 +290,50 @@ bootstrap отдаёт `members` + `globalRole`; `PUT`/`DELETE` состава �
 гард последнего admin даёт 409; старое тело `{ accessRole }` → 400 (контракт).
 Дев-сервер `:8080` подхватил изменения (`tsx watch`).
 
-### Фаза 4 — Клиент: права и store
+### Фаза 4 — Клиент: права и store  *(сделано)*
 
-`src/permissions.ts` (держать в лок-степе с сервером — правило CLAUDE.md):
-- `can()` / `denialReason()` — та же логика; ввести хелпер эффективной роли,
-  все вызовы идут через него. Клиент по-прежнему только UX.
+**Реализовано:**
+
+`src/api/index.ts`:
+- `SafeUser` получил `globalRole: GlobalRole`; `accessRole` оставлен (легаси, до Фазы 7).
+- Типы `GlobalRole` / `ProjectRole` экспортируются отсюда.
+- `ProjectBootstrap` получил `members: { userId; role: ProjectRole }[]`.
+- `membersApi.set(userId, role)` (`PUT`), `membersApi.remove(userId)` (`DELETE`).
 
 `src/types.ts`:
-- `User` → `globalRole: GlobalRole`, `accessRole` убрать. **Не путать с `role`**
-  (это должность, `/** Должность / job role */`).
-- `Data` → `members: Record<string /* userId */, AccessRole>` для текущего
-  проекта; `Data.myRole: AccessRole` (эффективная, посчитанная сервером в
-  bootstrap — или считать на клиенте из `globalRole` + `members[me.id]`).
+- Типы `GlobalRole`, `ProjectRole`.
+- `User` получил `globalRole`. `accessRole` **оставлен**, но его смысл — уже
+  *эффективная роль в текущем проекте* (для `me` вычисляется в store).
+  Полное удаление поля перенесено в Фазу 5 (иначе ломается 4 UI-компонента —
+  правило «зеркалить оба `permissions.ts`» это не нарушает: `MATRIX` не менялся).
+- `Data` получил `members: Record<string, ProjectRole>` (состав текущего проекта).
+
+`src/permissions.ts` (клиент):
+- Добавлен `resolveRole(globalRole, projectRole)` — зеркалит серверный
+  `resolveRole()`. `MATRIX` / `can()` / `denialReason()` — без изменений
+  (`user.accessRole` теперь = эффективная роль, семантически == серверный `roleCan`).
 
 `src/store.tsx`:
 - `mapUser` — читает `globalRole`.
-- `me` — эффективная роль: `me.globalRole === 'admin' ? 'admin' :
-  data.members[me.id] ?? 'viewer'`.
-- `canFn` / `requirePerm` — сигнатуры те же, внутри эффективная роль.
+- `me` (useMemo) — эффективная роль:
+  `resolveRole(base.globalRole, data.members[base.id]) ?? 'viewer'`.
+- `bootstrap()` заполняет `data.members` из `boot.members`; `emptyData()` — `{}`.
 - Новые экшены `setMemberRole(userId, role)` / `removeMember(userId)` —
-  вызовы новых эндпоинтов, оптимистичный патч `data.members`, тост причины при
-  403.
+  `requirePerm('manageAccess')` → вызов `membersApi` → оптимистичный патч
+  `data.members`, тост/`handleApiError` при отказе.
 
-`src/api/index.ts`:
-- `SafeUser.accessRole` → `globalRole`.
-- `ProjectBootstrap` → `members: { userId: string; role: AccessRole }[]`.
-- `membersApi.set(userId, role)`, `membersApi.remove(userId)`.
+`src/seed.ts` — вырезаны мёртвые демо-данные (`freshData`/`USERS`/`SPRINTS`/
+`issues` никто не импортировал; типы разошлись с моделью). Оставлен только
+`DEFAULT_WORKFLOW` (его тянет `DocsView.tsx`). Убрало 11 ошибок `typecheck`.
+
+**Проверено:** `npm run build` (Vite) — успешно; `npm run typecheck` — новых
+ошибок нет. Осталось 10 пред-существующих (не связаны с ролями, есть и на
+`main`): `import.meta.env` в `api/index.ts` (нет `vite/client` в типах) и
+сравнения `typeId === 'epic'` в 7 компонентах (тип упразднён миграцией 002) —
+чинятся отдельно / в Фазе 5.
+
+**Синхронность зеркал восстановлена частично:** `MATRIX` и логика проверок
+идентичны серверу; полное удаление `User.accessRole` и чистка UI — Фаза 5.
 
 ### Фаза 5 — Клиент: UI
 

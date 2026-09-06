@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import type { Data, Issue, IssueTypeId, PriorityId, Toast, User, ViewId, Workflow } from "./types";
-import { can as canDo, denialReason, type PermId } from "./permissions";
+import type { AccessRole, Data, Issue, IssueTypeId, PriorityId, ProjectRole, Toast, User, ViewId, Workflow } from "./types";
+import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
 import {
   ApiError,
@@ -9,6 +9,7 @@ import {
   commentsApi,
   getToken,
   issuesApi,
+  membersApi,
   projectApi,
   sprintsApi,
   type ServerIssue,
@@ -63,6 +64,7 @@ export interface CreateInput {
 const emptyData = (): Data => ({
   project: { key: "…", name: "…", description: "" },
   users: [],
+  members: {},
   currentUserId: "",
   issues: [],
   sprints: [],
@@ -77,6 +79,8 @@ function mapUser(u: SafeUser): User {
     initials: u.initials,
     color: u.color,
     role: u.jobRole,
+    globalRole: u.globalRole,
+    // легаси-значение с сервера; для `me` store подставляет эффективную роль (см. memo)
     accessRole: u.accessRole,
     username: u.username,
   };
@@ -147,6 +151,8 @@ interface Api {
   resetWorkflow: () => void;
   startSprint: () => void;
   completeSprint: () => void;
+  setMemberRole: (userId: string, role: ProjectRole) => void;
+  removeMember: (userId: string) => void;
   resetDemo: () => void;
 }
 
@@ -189,8 +195,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [toast],
   );
 
-  const me = useMemo(() => {
-    return (
+  const me = useMemo<User>(() => {
+    const base =
       data.users.find((u) => u.id === data.currentUserId) ??
       data.users[0] ?? {
         id: "",
@@ -198,10 +204,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         initials: "?",
         color: "#64748B",
         role: "",
+        globalRole: "member" as const,
         accessRole: "viewer" as const,
-      }
-    );
-  }, [data.users, data.currentUserId]);
+      };
+    // Эффективная роль текущего пользователя: admin (глобально) или роль в проекте.
+    // Успешный bootstrap гарантирует членство либо globalRole='admin', так что
+    // null тут на практике не возникает; 'viewer' — безопасный фолбэк для типа.
+    const effective: AccessRole =
+      resolveRole(base.globalRole, data.members[base.id]) ?? "viewer";
+    return { ...base, accessRole: effective };
+  }, [data.users, data.currentUserId, data.members]);
 
   const canFn = useCallback((perm: PermId, issue?: Issue) => canDo(me, perm, issue), [me]);
 
@@ -225,6 +237,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const boot = await projectApi.bootstrap();
       const issuesRes = await issuesApi.list({ limit: 200 });
       const users = boot.users.map(mapUser);
+      const members: Record<string, ProjectRole> = {};
+      for (const m of boot.members) members[m.userId] = m.role;
       setData({
         project: {
           id: boot.project.id,
@@ -233,6 +247,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           description: boot.project.description ?? "",
         },
         users,
+        members,
         currentUserId: user.id,
         issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
         sprints: boot.sprints.map((s) => ({
@@ -629,6 +644,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [requirePerm, toast, handleApiError, refreshIssues]);
 
+  const setMemberRole = useCallback(
+    (userId: string, role: ProjectRole) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          const res = await membersApi.set(userId, role);
+          setData((prev) => ({ ...prev, members: { ...prev.members, [res.userId]: res.role } }));
+          toast("success", "Роль участника обновлена");
+        } catch (err) {
+          handleApiError(err, "Не удалось изменить роль участника");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeMember = useCallback(
+    (userId: string) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await membersApi.remove(userId);
+          setData((prev) => {
+            const members = { ...prev.members };
+            delete members[userId];
+            return { ...prev, members };
+          });
+          toast("info", "Участник удалён из проекта");
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить участника");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
   const switchUser = useCallback(() => {
     toast("info", "Демо-переключение ролей отключено — используйте вход под другим пользователем");
   }, [toast]);
@@ -662,6 +713,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     resetWorkflow,
     startSprint,
     completeSprint,
+    setMemberRole,
+    removeMember,
     resetDemo,
   };
 
