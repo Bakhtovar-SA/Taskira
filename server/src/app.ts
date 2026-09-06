@@ -29,7 +29,7 @@ export function buildApp(): FastifyInstance {
   app.register(websocket); // realtime-маршруты — Этап 3c
 
   /* Единый формат ошибок: { error: { code, reason } } */
-   app.setErrorHandler((err, req, reply) => {
+    app.setErrorHandler((err: unknown, req, reply) => {
     if (err instanceof ApiHttpError) {
       reply.code(err.statusCode).send({ error: { code: err.code, reason: err.message } });
       return;
@@ -38,7 +38,7 @@ export function buildApp(): FastifyInstance {
       reply.code(400).send({ error: { code: "VALIDATION", reason: formatZod(err) } });
       return;
     }
-    if (err.validation) {
+    if (err instanceof Error && "validation" in err && err.validation) {
       reply.code(400).send({ error: { code: "VALIDATION", reason: err.message } });
       return;
     }
