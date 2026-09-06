@@ -1,15 +1,17 @@
-export type IssueTypeId = "story" | "task" | "bug" | "epic";
+export type IssueTypeId = "task" | "bug" | "request";
 export type PriorityId = "highest" | "high" | "medium" | "low" | "lowest";
 export type StatusCategory = "todo" | "inprogress" | "done";
-export type AccessRole = "admin" | "manager" | "developer" | "viewer";
+export type AccessRole = "admin" | "manager" | "employee" | "viewer";
 
 export interface User {
   id: string;
   name: string;
   initials: string;
   color: string;
+  /** Должность / job role */
   role: string;
   accessRole: AccessRole;
+  username?: string;
 }
 
 export interface Status {
@@ -58,6 +60,8 @@ export interface Issue {
   labels: string[];
   points: number | null;
   sprintId: string | null;
+  dueDate?: string | null;
+  rank?: number;
   color?: string;
   tStart?: number;
   tSpan?: number;
@@ -77,6 +81,7 @@ export interface Sprint {
 }
 
 export interface Project {
+  id?: string;
   key: string;
   name: string;
   description: string;
@@ -101,10 +106,9 @@ export interface Data {
 export type ViewId = "board" | "backlog" | "timeline" | "workflow" | "access" | "docs";
 
 export const ISSUE_TYPES: Record<IssueTypeId, { name: string }> = {
-  story: { name: "История" },
   task: { name: "Задача" },
   bug: { name: "Баг" },
-  epic: { name: "Эпик" },
+  request: { name: "Запрос" },
 };
 
 export const PRIORITIES: Record<PriorityId, { name: string }> = {
@@ -116,4 +120,4 @@ export const PRIORITIES: Record<PriorityId, { name: string }> = {
 };
 
 export const PRIORITY_ORDER: PriorityId[] = ["highest", "high", "medium", "low", "lowest"];
-export const TYPE_ORDER: IssueTypeId[] = ["story", "task", "bug", "epic"];
+export const TYPE_ORDER: IssueTypeId[] = ["task", "bug", "request"];
