@@ -106,10 +106,9 @@ export type SafeUser = {
   initials: string;
   color: string;
   jobRole: string;
-  /** Глобальная роль ресурса (users.global_role) — источник прав. */
+  /** Глобальная роль ресурса (users.global_role) — источник прав.
+   *  Проектная роль приходит в ProjectBootstrap.members. */
   globalRole: GlobalRole;
-  /** Легаси-роль (users.access_role). Для прав не используется, до Фазы 7. */
-  accessRole: "admin" | "manager" | "employee" | "viewer";
   isActive: boolean;
 };
 

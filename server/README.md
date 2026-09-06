@@ -40,6 +40,7 @@
 | roles-3 | Роуты + контракт: bootstrap отдаёт `members`; `PUT`/`DELETE /api/project/members/:userId`; `CreateUserBody`/`ChangeRoleBody` на `globalRole`; `SafeUser.globalRole` | ✅ сервер |
 | roles-4 | Клиент: `store`/`api`/`permissions` на `globalRole` + `members`; `me` считает эффективную роль; экшены `setMemberRole`/`removeMember`; мёртвый `src/seed.ts` вырезан | ✅ клиент |
 | roles-5 | Клиент UI: `PermissionsView` — управление составом (роль/добавить/убрать) для админа ресурса, счётчики по `data.members`; `DocsView` тексты; CORS-фикс (`app.ts` methods) | ✅ клиент |
+| roles-7 | `006_drop_access_role.sql`: `DROP COLUMN users.access_role` + constraint; чистка `UserRow`/`SafeUser`/`safeUser`/`seedAdmin` и `SafeUser` на клиенте | ✅ |
 | 3b-routes | CRUD issues/sprints/workflow/comments/users | ⏳ следующий |
 | 3c | WebSocket-рассылка | ⏳ |
 | 4 | Фронтенд поверх API + синхронизация ролей клиента (employee) | ⏳ |
@@ -67,8 +68,8 @@
 6. **`CreateUserBody` / `ChangeRoleBody` принимают `globalRole`** (`admin | member`),
    а не `accessRole`. Тело со старым полем — `400`.
 7. **`GET /api/project`** дополнен полем `members: [{ userId, role }]`; в `users[]`
-   и `GET /api/users` каждый DTO получил `globalRole`. `accessRole` пока
-   остаётся (легаси, для не-мигрированного клиента; дроп — миграция 006).
+   и `GET /api/users` каждый DTO — с `globalRole`. Поля `accessRole` в DTO больше
+   нет (миграция 006 удалила и колонку `users.access_role`).
 8. **Права проверяются по `project_members`**, не по `users.access_role`.
    Пользователь без членства (и не глобальный `admin`) получает `403` на любом
    роуте проекта. Глобальный `admin` доступ имеет всегда, строки в
@@ -157,14 +158,14 @@ cp .env.example .env
 # Заполните: DATABASE_URL, JWT_SECRET (>=32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
 # JWT_SECRET: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
-npm run dev        # tsx watch: миграции 001+002 → seed админа → listen :8080
+npm run dev        # tsx watch: миграции → seed админа → listen :8080
 ```
 
 Миграции и seed по отдельности:
 
 ```bash
 npm run seed                     # прогоняет migrate() + создание первого админа
-psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001, 002, 003, 004
+psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001..004, 006
 ```
 
 Health, логин, me:
@@ -192,14 +193,13 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
 
 ## Чеклист ручной проверки
 
-- [ ] `npm run typecheck` — без ошибок; `npm run dev` стартует, миграции 001+002 в `schema_migrations`
+- [ ] `npm run typecheck` — без ошибок; `npm run dev` стартует, все миграции в `schema_migrations`
 - [ ] Остановка PostgreSQL → `/api/health` отвечает **503** `{ok:false,db:false}`; восстановление → 200
 - [ ] Логин: неверный пароль — 401 с единым reason; 11-я попытка за 5 минут — **429 RATE_LIMITED**
 - [ ] `is_active=false` в БД → логин 403 «Аккаунт деактивирован…», `/me` с живым токеном — 401 (в пределах 30 с)
-- [ ] Смена `access_role` в БД админом → `/me` и проверки прав видят новую роль **без** перевыпуска токена (≤30 с)
-- [ ] В `users` нет роли `developer`; в `issues` нет типов `story`/`epic`
-  (`select distinct access_role from users; select distinct type_id from issues;`)
-- [ ] `select conname from pg_constraint where conname in ('users_access_role_check','issues_type_id_check')` — обе на месте
+- [ ] Смена `global_role` в БД админом → `/me` и проверки прав видят новую роль **без** перевыпуска токена (≤30 с)
+- [ ] В `issues` нет типов `story`/`epic` (`select distinct type_id from issues;`)
+- [ ] `access_role` в `users` больше нет (миграция 006): `select column_name from information_schema.columns where table_name='users' and column_name='access_role'` — пусто; `users_global_role_check` и `issues_type_id_check` — на месте
 - [ ] `git check-ignore server/.env server/dist .env` — всё игнорируется
 
 ### Миграция 004 (схема project-scoped ролей)

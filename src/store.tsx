@@ -80,8 +80,10 @@ function mapUser(u: SafeUser): User {
     color: u.color,
     role: u.jobRole,
     globalRole: u.globalRole,
-    // легаси-значение с сервера; для `me` store подставляет эффективную роль (см. memo)
-    accessRole: u.accessRole,
+    // Заглушка на уровне профиля (admin ресурса → 'admin', иначе 'viewer').
+    // Эффективную роль в проекте для `me` store пересчитывает в memo из
+    // globalRole + data.members; для остальных её берут из data.members напрямую.
+    accessRole: resolveRole(u.globalRole, undefined) ?? "viewer",
     username: u.username,
   };
 }

@@ -1,6 +1,6 @@
 # ROLE_MIGRATION — переход ролевой модели с глобальной на привязанную к проекту
 
-Статус: решения раздела 3 приняты; Фазы 1–5 сделаны (сервер + клиент, включая UI управления составом). Осталось: Фаза 6 (сверка чек-листа) и Фаза 7 (дроп `access_role` миграцией 006 + multi-project — отдельный трек).
+Статус: миграция завершена. Фазы 1–7 сделаны (сервер + клиент; `access_role` удалён миграцией 006). Multi-project — отдельный трек, эту миграцию не блокирует.
 Контекст: пункт 2 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md); ролевой раздел [SCOPE.md](SCOPE.md).
 Связанные документы: [server/README.md](server/README.md) — актуальный контракт API и модель данных.
 
@@ -396,17 +396,33 @@ store-memo на изменение `data.members`. Полное удаление
       релогина — роль берётся из БД в `requireAuth` (3.5);
 - [ ] `audit_log` содержит `projectId` в `access.denied`.
 
-### Фаза 7 — Зачистка и multi-project (follow-up)
+### Фаза 7 — Зачистка `access_role`  *(сделано)*
 
-- `005_*.sql` — не требуется, если 004 самодостаточна.
-- `006_drop_access_role.sql` — после подтверждённого параллельного прогона:
-  `ALTER TABLE users DROP COLUMN access_role;` + удалить старый constraint.
-  Вычистить `access_role` из `UserRow`, `safeUser`, `JwtPayload`, `signToken`,
-  `requireAuth`.
-- Multi-project (отдельный план): `projects.department_id`, роут
-  `/api/projects/:projectId/...`, `loadProjectContext` берёт проект из параметра,
-  переключатель проектов в `Sidebar`, `currentProject()` заменяется на явный
-  выбор. Ролевой механизм из Фаз 1–6 при этом не трогается.
+- `005_*.sql` не потребовалась (004 самодостаточна).
+- **`server/migrations/006_drop_access_role.sql`** — `DROP CONSTRAINT
+  users_access_role_check` + `DROP COLUMN access_role` (обе `IF EXISTS`, одна
+  транзакция). Применена; в `schema_migrations` — `001, 002, 003, 004, 006`.
+  Перед применением снят дамп `backup_before_006.sql` (в `.gitignore`).
+- Сервер: `access_role` убран из `UserRow`, `SafeUser`, `safeUser()`;
+  из `INSERT` в `seedAdmin()` и `POST /api/admin/users`. `JwtPayload` /
+  `signToken` / `requireAuth` были очищены ещё в Фазе 2.
+- Клиент: `accessRole` убран из `SafeUser` (`src/api/index.ts`). `mapUser`
+  ставит `User.accessRole` заглушкой уровня профиля
+  (`resolveRole(globalRole, undefined) ?? 'viewer'`); эффективную роль `me`
+  по-прежнему считает store-memo из `globalRole` + `data.members`.
+- `User.accessRole` в `src/types.ts` намеренно оставлено (см. Фазу 5) — это
+  теперь чисто клиентское вычисляемое поле, не из контракта.
+
+**Проверено:** миграция в `schema_migrations`; колонки `access_role` и
+constraint'а больше нет; login / `/me` / `/project` DTO без `accessRole`,
+с `globalRole`; `POST /api/admin/users` (INSERT без колонки) → 201;
+`typecheck` (сервер и клиент) — новых ошибок нет; `npm run build` — успешно.
+
+### Multi-project — отдельный трек (не входит в эту миграцию)
+
+`projects.department_id`, роут `/api/projects/:projectId/...`, резолв проекта из
+параметра вместо `currentProject()`, переключатель проектов в `Sidebar`.
+Ролевой механизм из Фаз 1–7 при этом не трогается — только источник `projectId`.
 
 ---
 

@@ -30,7 +30,6 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       try {
         row = (
           await q<UserRow>(
-            // access_role не задаём — колонка легаси (дефолт 'employee'), для прав не используется.
             `INSERT INTO users (username, password_hash, name, initials, color, job_role, global_role, is_active)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`,

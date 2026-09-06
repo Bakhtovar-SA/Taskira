@@ -2,7 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { loadConfig } from "./config.js";
 import type { JwtPayload } from "./middleware.js";
-import type { AccessRole, GlobalRole } from "./permissions.js";
+import type { GlobalRole } from "./permissions.js";
 
 export interface UserRow {
   id: string;
@@ -11,8 +11,7 @@ export interface UserRow {
   initials: string;
   color: string;
   job_role: string;
-  access_role: AccessRole; // admin | manager | employee | viewer (миграция 002) — легаси, дроп в 006
-  global_role: GlobalRole; // admin | member (миграция 004) — источник прав с Фазы 2
+  global_role: GlobalRole; // admin | member (миграция 004) — источник прав
   is_active: boolean;
   password_hash: string;
 }
@@ -24,11 +23,9 @@ export interface SafeUser {
   initials: string;
   color: string;
   jobRole: string;
-  /** Глобальная роль ресурса (users.global_role) — источник прав с Фазы 2. */
+  /** Глобальная роль ресурса (users.global_role) — источник прав.
+   *  Проектная роль — в bootstrap `members`, не здесь. */
   globalRole: GlobalRole;
-  /** Легаси-роль (users.access_role). Для авторизации НЕ используется,
-   *  оставлена до Фазы 4 (клиент) / дропа колонки в 006. */
-  accessRole: AccessRole;
   isActive: boolean;
 }
 
@@ -41,7 +38,6 @@ export function safeUser(row: UserRow): SafeUser {
     color: row.color,
     jobRole: row.job_role,
     globalRole: row.global_role,
-    accessRole: row.access_role,
     isActive: row.is_active,
   };
 }
