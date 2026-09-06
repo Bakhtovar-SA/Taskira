@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import type { Data, Issue, IssueTypeId, PriorityId, Toast, Transition, User, ViewId, Workflow } from "./types";
-import { PRIORITIES } from "./types";
+import type { Data, Issue, IssueTypeId, PriorityId, Toast, User, ViewId, Workflow } from "./types";
 import { can as canDo, denialReason, type PermId } from "./permissions";
 import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
 import {
@@ -136,7 +135,6 @@ interface Api {
   openIssue: (id: string | null) => void;
   setCreateOpen: (v: boolean) => void;
   toast: (kind: Toast["kind"], text: string) => void;
-  /** @deprecated демо-переключение ролей отключено */
   switchUser: (id: string) => void;
   createIssue: (input: CreateInput) => void;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
@@ -192,20 +190,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const me = useMemo(() => {
-    return data.users.find((u) => u.id === data.currentUserId) ?? data.users[0] ?? {
-      id: "",
-      name: "…",
-      initials: "?",
-      color: "#64748B",
-      role: "",
-      accessRole: "viewer" as const,
-    };
+    return (
+      data.users.find((u) => u.id === data.currentUserId) ??
+      data.users[0] ?? {
+        id: "",
+        name: "…",
+        initials: "?",
+        color: "#64748B",
+        role: "",
+        accessRole: "viewer" as const,
+      }
+    );
   }, [data.users, data.currentUserId]);
 
-  const canFn = useCallback(
-    (perm: PermId, issue?: Issue) => canDo(me, perm, issue),
-    [me],
-  );
+  const canFn = useCallback((perm: PermId, issue?: Issue) => canDo(me, perm, issue), [me]);
 
   const requirePerm = useCallback(
     (perm: PermId, issue?: Issue): boolean => {
@@ -500,7 +498,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           await issuesApi.remove(issueId);
           setData((prev) => ({
             ...prev,
-            issues: prev.issues.filter((i) => i.id !== issueId).map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i)),
+            issues: prev.issues
+              .filter((i) => i.id !== issueId)
+              .map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i)),
           }));
           setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
           if (iss) toast("info", `${iss.key} удалена`);
@@ -521,7 +521,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const tr = await workflowApi.addTransition(from, to);
           setData((prev) => ({
             ...prev,
-            workflow: { ...prev.workflow, transitions: [...prev.workflow.transitions, { id: tr.id, from: tr.from, to: tr.to }] },
+            workflow: {
+              ...prev.workflow,
+              transitions: [...prev.workflow.transitions, { id: tr.id, from: tr.from, to: tr.to }],
+            },
           }));
           toast("success", "Переход добавлен");
         } catch (err) {
@@ -541,7 +544,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           await workflowApi.removeTransition(id);
           setData((prev) => ({
             ...prev,
-            workflow: { ...prev.workflow, transitions: prev.workflow.transitions.filter((t) => t.id !== id) },
+            workflow: {
+              ...prev.workflow,
+              transitions: prev.workflow.transitions.filter((t) => t.id !== id),
+            },
           }));
           toast("info", "Переход удалён");
         } catch (err) {
@@ -667,7 +673,3 @@ export function useStore(): Api {
   if (!ctx) throw new Error("useStore вне StoreProvider");
   return ctx;
 }
-
-// silence unused
-void PRIORITIES;
-void Transition;
