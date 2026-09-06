@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StoreProvider, useStore } from "./store";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
@@ -10,11 +10,17 @@ import PermissionsView from "./components/PermissionsView";
 import DocsView from "./components/DocsView";
 import IssueModal from "./components/IssueModal";
 import CreateIssueModal from "./components/CreateIssueModal";
+import LoginForm from "./components/LoginForm";
 import { Toasts } from "./ui";
 import type { ViewId } from "./types";
+import { clearToken, getToken } from "./api";
 
 function Shell() {
-  const { ui, setView, setCreateOpen, openIssue, can, toast } = useStore();
+  const { ui, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout } = useStore();
+
+  useEffect(() => {
+    if (getToken() && bootStatus === "idle") void bootstrap();
+  }, [bootStatus, bootstrap]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -41,11 +47,29 @@ function Shell() {
     return () => document.removeEventListener("keydown", onKey);
   }, [setView, setCreateOpen, openIssue, can, toast]);
 
+  if (bootStatus === "loading" || bootStatus === "idle") {
+    return (
+      <div className="flex h-full min-h-screen items-center justify-center bg-canvas text-[14px] text-faint">
+        Загрузка Taskira…
+      </div>
+    );
+  }
+
+  if (bootStatus === "unauthenticated" || bootStatus === "error") {
+    return (
+      <LoginForm
+        onSuccess={() => {
+          void bootstrap();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex h-full overflow-hidden">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
+        <Topbar onLogout={logout} />
         <main className="min-h-0 flex-1 bg-canvas">
           <div key={ui.view} className="anim-fadeup h-full">
             {ui.view === "board" && <Board />}
@@ -72,3 +96,6 @@ export default function App() {
     </StoreProvider>
   );
 }
+
+// re-export for accidental imports
+void clearToken;
