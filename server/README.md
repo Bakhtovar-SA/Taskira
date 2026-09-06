@@ -55,6 +55,74 @@
 4. `GET /api/issues` возвращает `{ items, total }` (пагинация limit/offset ≤ 200).
 5. `ChangeRoleBody` / `CreateUserBody` принимают опциональный `isActive`.
 
+## Этап 3b — роуты API
+
+Все мутации проверяют JWT и право **на сервере**; отказы — `403 {error:{code:"FORBIDDEN",reason}}` на русском.
+
+| Метод и путь | Тело / query | Права | Назначение |
+| --- | --- | --- | --- |
+| `GET /api/project` | — | browse | bootstrap: проект, **активные** пользователи (без `password_hash`), workflow, спринты |
+| `GET /api/issues` | `IssueQuery`: status, sprint, assignee, type, q, dueFrom, dueTo, overdue, limit(≤200), offset | browse | `{items, total}`, сортировка по rank |
+| `POST /api/issues` | `IssueCreateBody` | create | num — атомарный счётчик (миграция 003); статус по умолчанию — первый `todo`; rank — в конец колонки |
+| `GET /api/issues/:id` | — | browse | задача |
+| `PATCH /api/issues/:id` | `IssuePatchBody` | edit (employee — **только свои**); смена `sprintId` дополнительно требует **manageSprints** | правка полей + activity |
+| `DELETE /api/issues/:id` | — | delete | каскады: комментарии/activity/watchers; `epic_id` дочерних обнуляется FK |
+| `POST /api/issues/:id/transition` | `{to, beforeId?}` | transition + **схема workflow** (нарушение — `409 CONFLICT`) | смена статуса + rank |
+| `PATCH /api/issues/:id/sprint` | `{sprintId}` | manageSprints | перенос спринт ⇄ бэклог |
+| `POST/DELETE /api/issues/:id/watchers/me` | — | browse | подписка/отписка; ответ `{watching, watchers}` |
+| `GET /api/issues/:id/comments` · `POST …/comments` | `{body ≤2000}` | browse · comment | комментарии с профилем автора |
+| `GET /api/sprints` | — | browse | все спринты проекта |
+| `POST /api/sprints/start` | — | manageSprints | активировать future (даты сегодня/ +14) или создать active |
+| `POST /api/sprints/:id/complete` | — | manageSprints | `completed`; недозакрытые → бэклог; создаётся следующий future |
+| `GET /api/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
+| `POST /api/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
+| `DELETE /api/workflow/transitions/:id` | — | **admin** | удалить переход |
+| `POST /api/workflow/reset` | — | **admin** | дефолтные 8 переходов; статусы не удаляются никогда |
+| `GET /api/users` | — | **admin** | все, включая деактивированных |
+| `POST /api/admin/users` | `CreateUserBody` (bcrypt) | **admin**; занятый username — `409` | создать пользователя |
+| `PATCH /api/users/:id` | `{accessRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена роли; `invalidateUserCache` — действует сразу |
+
+**Seed проекта** (`seedProject`, идемпотентно): при пустой `projects` создаёт `CORP «Корпоративные задачи»`
+(или `PROJECT_KEY/PROJECT_NAME` из env), статусы `todo / inprogress / review / done`
+(категории `todo | inprogress | inprogress | done`), 8 переходов дефолтного графа
+(`todo→inprogress, todo→done, inprogress→{todo,review,done}, review→{inprogress,done}, done→inprogress`)
+и один future-спринт. Повторный запуск ничего не дублирует.
+
+### Примеры curl
+
+```bash
+BASE=http://localhost:8080/api
+TOKEN=$(curl -s -X POST $BASE/auth/login -H 'content-type: application/json' \
+  -d '{"username":"admin","password":"…"}' | jq -r .token)
+AUTH="authorization: Bearer $TOKEN"
+
+# bootstrap: статусы и их uuid
+curl -s $BASE/project -H "$AUTH" | jq '.workflow.statuses[] | {sid, name, id}'
+TODO_ID=…; INPROG_ID=…; REVIEW_ID=…
+
+# создать задачу (num и key выдаст сервер: CORP-1)
+ID=$(curl -s -X POST $BASE/issues -H "$AUTH" -H 'content-type: application/json' -d '{
+  "title":"Настроить ночные бэкапы БД","typeId":"task","priorityId":"high",
+  "assigneeId":null,"epicId":null,"labels":["инфра"],"points":3,
+  "sprintId":null,"dueDate":"2026-03-01"
+}' | jq -r .id)
+
+# переход по схеме (todo→inprogress); вне схемы (todo→review) вернёт 409
+curl -s -X POST $BASE/issues/$ID/transition -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"to\":\"$INPROG_ID\"}"
+
+# комментарий
+curl -s -X POST $BASE/issues/$ID/comments -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"body":"Взял в работу"}'
+
+# подписаться на задачу
+curl -s -X POST $BASE/issues/$ID/watchers/me -H "$AUTH"
+
+# смена роли пользователя (admin); сработает без перевыпуска его токена
+curl -s -X PATCH $BASE/users/$USER_ID -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"accessRole":"employee"}'
+```
+
 ## Как прогнать локально
 
 ```bash
@@ -108,6 +176,21 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
   (`select distinct access_role from users; select distinct type_id from issues;`)
 - [ ] `select conname from pg_constraint where conname in ('users_access_role_check','issues_type_id_check')` — обе на месте
 - [ ] `git check-ignore server/.env server/dist .env` — всё игнорируется
+
+### Этап 3b
+
+- [ ] `npm run seed` дважды — проект и workflow не дублируются (`select count(*) from projects` → 1, переходов → 8)
+- [ ] `POST /api/issues` → 201 с `key=CORP-1`, следующий — `CORP-2`; 10 параллельных POST дают уникальные номера
+- [ ] Переход `todo→inprogress` — 200; `todo→review` — **409 CONFLICT** с русским reason
+- [ ] Ранги: вторая задача в колонку с `beforeId` первой встаёт **перед** ней; 60 вставок «между» подряд — без дубликатов rank
+- [ ] employee: `PATCH` чужой задачи — 403 «…только задачи, где вы исполнитель или автор»; своей — 200
+- [ ] viewer: `GET /api/issues` — 200; `POST /api/issues` и transition — 403
+- [ ] employee меняет `sprintId` через PATCH — 403 (manageSprints); manager — 200
+- [ ] `POST /api/workflow/transitions` не-админом — 403; админом — 201; дубликат — 409; `reset` возвращает 8 переходов
+- [ ] `PATCH /api/users/:id` с понижением последнего активного админа — 409; при двух админах — 200, права меняются ≤30 с без перевыпуска токена
+- [ ] Спринты: `start` → active; `complete` → недозакрытые получают `sprint_id NULL`, создаётся следующий future
+- [ ] Watchers: POST → `{watching:true,watchers:1}`, DELETE → `{watching:false,watchers:0}`
+- [ ] `audit_log` содержит `issue.create`, `issue.transition`, `access.denied`, `user.role.change`
 
 ## Зависимости
 

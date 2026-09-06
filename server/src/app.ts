@@ -6,6 +6,12 @@ import websocket from "@fastify/websocket";
 import { loadConfig } from "./config.js";
 import { ApiHttpError } from "./middleware.js";
 import { authRoutes } from "./routes/auth.js";
+import { projectRoutes } from "./routes/project.js";
+import { issuesRoutes } from "./routes/issues.js";
+import { commentRoutes } from "./routes/comments.js";
+import { sprintRoutes } from "./routes/sprints.js";
+import { workflowRoutes } from "./routes/workflow.js";
+import { userRoutes } from "./routes/users.js";
 import { q } from "./db.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
@@ -55,11 +61,19 @@ export function buildApp(): FastifyInstance {
     reply.code(db ? 200 : 503).send({ ok: db, db, ts: new Date().toISOString() });
   });
 
-  app.register(async (api) => {
-    await api.register(authRoutes, { prefix: "/auth" });
-    // Этап 3b: issues, sprints, workflow, users
-    // Этап 3c: /ws
-  }, { prefix: "/api" });
+  app.register(
+    async (api) => {
+      await api.register(authRoutes, { prefix: "/auth" });
+      await api.register(projectRoutes); // GET  /project (bootstrap)
+      await api.register(issuesRoutes, { prefix: "/issues" }); // CRUD + transition + sprint + watchers
+      await api.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
+      await api.register(sprintRoutes, { prefix: "/sprints" });
+      await api.register(workflowRoutes, { prefix: "/workflow" });
+      await api.register(userRoutes); // /users, /admin/users
+      // Этап 3c: /ws
+    },
+    { prefix: "/api" },
+  );
 
   return app;
 }

@@ -2,6 +2,7 @@
 import { initConfig } from "./config.js";
 import { closePool, initPool, migrate } from "./db.js";
 import { seedAdmin } from "./seed.js";
+import { seedProject } from "./seedProject.js";
 import { buildApp } from "./app.js";
 
 async function main(): Promise<void> {
@@ -9,6 +10,7 @@ async function main(): Promise<void> {
   initPool(cfg.databaseUrl);
   await migrate();
   await seedAdmin();
+  await seedProject(); // проект CORP + дефолтный workflow (идемпотентно)
 
   const app = buildApp();
   await app.listen({ port: cfg.port, host: cfg.host });

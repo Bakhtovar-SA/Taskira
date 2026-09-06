@@ -32,6 +32,16 @@ export async function exec(text: string): Promise<void> {
   await getPool().query(text);
 }
 
+/** Операция на выделенном клиенте — для read-then-write без гонок (rank, счётчики). */
+export async function withClient<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}
+
 /**
  * Применяет миграции из server/migrations по имени, отмечая выполненные в schema_migrations.
  * Каждая миграция проходит ЦЕЛИКОМ на одном соединении внутри явной транзакции:
