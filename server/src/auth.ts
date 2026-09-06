@@ -24,6 +24,10 @@ export interface SafeUser {
   initials: string;
   color: string;
   jobRole: string;
+  /** Глобальная роль ресурса (users.global_role) — источник прав с Фазы 2. */
+  globalRole: GlobalRole;
+  /** Легаси-роль (users.access_role). Для авторизации НЕ используется,
+   *  оставлена до Фазы 4 (клиент) / дропа колонки в 006. */
   accessRole: AccessRole;
   isActive: boolean;
 }
@@ -36,6 +40,7 @@ export function safeUser(row: UserRow): SafeUser {
     initials: row.initials,
     color: row.color,
     jobRole: row.job_role,
+    globalRole: row.global_role,
     accessRole: row.access_role,
     isActive: row.is_active,
   };

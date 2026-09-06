@@ -1,14 +1,21 @@
 /**
- * Taskira. Единый контракт API (Этап 2, обновлён корпоративной моделью 002).
+ * Taskira. Единый контракт API (Этап 2, обновлён корпоративной моделью 002
+ * и project-scoped ролями — миграция 004 + Фаза 3, см. ROLE_MIGRATION.md).
  *
  * Этот файл — единственный источник правды о форматах запросов/ответов:
  *  - сервер валидирует входящие тела этими zod-схемами;
  *  - клиент (Этап 4) переиспользует типы ответов.
  *
  * Корпоративная модель (миграция 002, breaking — см. server/README.md):
- *  - роли: admin | manager | employee | viewer (developer упразднена);
  *  - типы задач: task | bug | request (story и epic слиты в task);
  *  - у задач есть due_date; points/sprint/epic — опциональные модули.
+ *
+ * Ролевая модель (миграция 004 + Фаза 3, breaking):
+ *  - глобальная роль users.global_role: admin | member (GLOBAL_ROLES);
+ *  - проектная роль project_members.role: manager | employee | viewer (PROJECT_ROLES);
+ *  - эффективная роль (ACCESS_ROLES) = admin для global admin, иначе проектная;
+ *  - CreateUserBody / ChangeRoleBody принимают globalRole (не accessRole);
+ *  - состав проекта: PUT/DELETE /api/project/members/:userId (SetMemberBody).
  *
  * Лимиты зеркалят src/validation.ts фронтенда — меняются в двух местах синхронно.
  */
@@ -27,7 +34,12 @@ export const LIMITS = {
 } as const;
 
 /* ---------------- справочники ---------------- */
+/** Эффективная роль для матрицы прав (resolveRole). В ответах API. */
 export const ACCESS_ROLES = ["admin", "manager", "employee", "viewer"] as const;
+/** Глобальная роль ресурса (users.global_role). */
+export const GLOBAL_ROLES = ["admin", "member"] as const;
+/** Роль участника проекта (project_members.role). */
+export const PROJECT_ROLES = ["manager", "employee", "viewer"] as const;
 export const ISSUE_TYPES = ["task", "bug", "request"] as const;
 export const PRIORITIES = ["highest", "high", "medium", "low", "lowest"] as const;
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
@@ -61,6 +73,9 @@ export const LoginBody = z.object({
   password: z.string().min(1).max(128),
 });
 
+/** POST /api/admin/users [global admin] — создать пользователя.
+ *  globalRole задаёт лишь глобальную роль; членство в проекте назначается
+ *  отдельно через PUT /api/project/members/:userId. */
 export const CreateUserBody = z.object({
   username: z.string().min(LIMITS.username.min).max(LIMITS.username.max).regex(/^[a-z0-9._-]+$/i, "Латиница, цифры, точки и дефисы"),
   password: z.string().min(8).max(128),
@@ -68,15 +83,23 @@ export const CreateUserBody = z.object({
   initials: oneLine(4),
   color: z.string().regex(/^#[0-9a-f]{6}$/i),
   jobRole: oneLine(40),
-  accessRole: z.enum(ACCESS_ROLES),
+  globalRole: z.enum(GLOBAL_ROLES).default("member"),
   isActive: z.boolean().optional(),
 });
 
-/** PATCH /api/users/:id [admin] — смена роли и/или деактивация аккаунта */
+/** PATCH /api/users/:id [global admin] — смена глобальной роли и/или деактивация */
 export const ChangeRoleBody = z.object({
-  accessRole: z.enum(ACCESS_ROLES),
+  globalRole: z.enum(GLOBAL_ROLES),
   isActive: z.boolean().optional(),
 });
+
+/** PUT /api/project/members/:userId [global admin] — добавить участника / сменить роль */
+export const SetMemberBody = z.object({
+  role: z.enum(PROJECT_ROLES),
+});
+
+/** :userId в путях управления составом проекта */
+export const MemberParams = z.object({ userId: uuid });
 
 /* ---------------- Issues ---------------- */
 export const IssueCreateBody = z.object({

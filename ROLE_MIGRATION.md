@@ -1,6 +1,6 @@
 # ROLE_MIGRATION — переход ролевой модели с глобальной на привязанную к проекту
 
-Статус: решения раздела 3 приняты; Фаза 1 (схема БД) и Фаза 2 (ядро прав, сервер) — сделаны; Фаза 3 (роуты + контракт) — следующая.
+Статус: решения раздела 3 приняты; Фазы 1–3 (схема БД, ядро прав, роуты + контракт — всё серверное) сделаны; Фаза 4 (клиент) — следующая.
 Контекст: пункт 2 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md); ролевой раздел [SCOPE.md](SCOPE.md).
 Связанные документы: [server/README.md](server/README.md) — актуальный контракт API и модель данных.
 
@@ -238,42 +238,57 @@ ON CONFLICT (project_id, user_id) DO NOTHING;
 клиент получит `globalRole` + `members` из bootstrap. До этого клиент работает
 на прежнем `accessRole`, который сервер продолжает отдавать в `SafeUser`.
 
-### Фаза 3 — Роуты (сервер)
+### Фаза 3 — Роуты + контракт (сервер)  *(сделано)*
 
-- `routes/project.ts` `GET /api/project`: `users` → участники проекта
-  (`JOIN project_members`), в DTO каждого добавить `projectRole`. Либо отдельное
-  поле `members: [{ userId, role }]` — предпочтительно, чтобы не смешивать
-  «профиль» и «роль в проекте».
-- `routes/users.ts`:
-  - `GET /users` (глоб. `admin`) — все пользователи, в DTO `globalRole`.
-  - `PATCH /users/:id` — только `globalRole` + `is_active`. Гард «последний
-    активный глобальный admin» (перенести с `access_role` на `global_role`).
-  - Новые (право `manageAccess` → **только глобальный `admin`**, решение 3.2):
-    - `PUT /api/project/members/:userId` `{ role }` — добавить участника или
-      сменить его роль.
-    - `DELETE /api/project/members/:userId` — убрать из проекта.
-    - **Гард «последний `manager` проекта» — на обоих путях** (по образцу
-      `server/src/routes/users.ts:65` для глобального admin, где гард
-      покрывает и понижение роли, и деактивацию): `DELETE` не должен убрать
-      последнего активного `manager`, а `PUT` — понизить его до
-      `employee`/`viewer`, если он в проекте единственный `manager`. Иначе
-      проект остаётся без руководителя.
-    - оба зовут `invalidateMembership`.
-  - `POST /admin/users` (`CreateUserBody`): `accessRole` → `globalRole`; членство
-    назначается отдельным вызовом.
-- `routes/issues.ts`: инлайн-проверка `manageSprints` в `PATCH /issues/:id` —
-  с `user.role` на `req.membership` через `can(...)`.
-- `routes/workflow.ts`, `sprints.ts`, `comments.ts` — прозрачно, `req.membership`
-  выставлен в preHandler.
-- `audit.ts` — `projectId` в details для событий доступа.
+**Реализовано:**
 
 `server/src/contract.ts`:
-- `GLOBAL_ROLES = ['admin', 'member'] as const`, `PROJECT_ROLES = ['manager',
-  'employee', 'viewer'] as const`.
-- `SetMemberBody = z.object({ role: z.enum(PROJECT_ROLES) })`.
-- `CreateUserBody.accessRole` → `globalRole: z.enum(GLOBAL_ROLES)`.
-- `ChangeRoleBody` → `{ globalRole: z.enum(GLOBAL_ROLES), isActive: z.boolean().optional() }`.
-- Обновить шапку-док файла (breaking, как для миграции 002).
+- `GLOBAL_ROLES = ['admin','member']`, `PROJECT_ROLES = ['manager','employee','viewer']`
+  (`ACCESS_ROLES` оставлен — это enum эффективной роли в ответах).
+- `CreateUserBody`: `accessRole` → `globalRole: z.enum(GLOBAL_ROLES).default('member')`.
+- `ChangeRoleBody`: `accessRole` → `globalRole: z.enum(GLOBAL_ROLES)`.
+- `SetMemberBody = z.object({ role: z.enum(PROJECT_ROLES) })`, `MemberParams = { userId: uuid }`.
+- Шапка-док обновлена (breaking).
+
+`server/src/middleware.ts` — добавлен `zparams(schema)` (валидация path-параметров,
+как `zbody`/`zquery`).
+
+`server/src/auth.ts` — `SafeUser`/`safeUser` получили `globalRole`. `accessRole`
+оставлен до Фазы 4 (клиент) / дропа колонки в 006.
+
+`server/src/routes/project.ts`:
+- `GET /api/project` → ответ получил поле `members: [{ userId, role }]`
+  (`SELECT user_id, role FROM project_members WHERE project_id = …`). `users`
+  остался списком всех активных профилей (assignee-пикеры и т.п.) — теперь с
+  `globalRole` в каждом DTO. Профиль и проектная роль не смешаны.
+- `PUT /api/project/members/:userId` `{ role }` — upsert участника
+  (`INSERT … ON CONFLICT DO UPDATE`). `preHandler: requirePerm('manageAccess')`
+  → только глобальный `admin`. Проверяет, что пользователь существует и активен.
+- `DELETE /api/project/members/:userId` — 404 если не участник, иначе удаляет.
+- **Гард `assertNotLastManager()` на обоих путях**: 409, если цель —
+  единственный активный `manager` проекта (`DELETE` целиком или `PUT` с
+  понижением роли). Аналог гарда «последний активный admin».
+- Оба зовут `invalidateMembership(userId, projectId)` и пишут аудит
+  (`member.add` / `member.role.change` / `member.remove`, с `projectId`).
+
+`server/src/routes/users.ts`:
+- `GET /users` — DTO теперь с `globalRole` (через `safeUser`).
+- `POST /admin/users` — пишет `global_role` из `body.globalRole`; `access_role`
+  не задаётся (дефолт `'employee'`, легаси).
+- `PATCH /users/:id` — обновляет `global_role` + `is_active`; гард «последний
+  активный admin» переведён на `global_role = 'admin'`.
+
+`routes/issues.ts` — инлайн `manageSprints` уже переведён в Фазе 2.
+`routes/workflow.ts` / `sprints.ts` / `comments.ts` — без изменений (роль
+резолвится в `requirePerm`/`requireIssuePerm`).
+
+**Проверено вживую** (`:8091`, БД восстановлена — 4 юзера, 3 членства, 0 задач):
+bootstrap отдаёт `members` + `globalRole`; `PUT`/`DELETE` состава — только
+глоб. admin (менеджер проекта → 403 `manageAccess`); гард последнего менеджера
+срабатывает и на `DELETE`, и на `PUT`-понижение; смена членства применяется
+сразу (`invalidateMembership`); `PATCH /users/:id` с `globalRole` работает,
+гард последнего admin даёт 409; старое тело `{ accessRole }` → 400 (контракт).
+Дев-сервер `:8080` подхватил изменения (`tsx watch`).
 
 ### Фаза 4 — Клиент: права и store
 

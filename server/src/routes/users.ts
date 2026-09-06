@@ -1,4 +1,6 @@
-/** Управление пользователями (manageAccess = admin): список, создание, смена роли/активности. */
+/** Управление пользователями (manageAccess = только глобальный admin):
+ *  список, создание, смена ГЛОБАЛЬНОЙ роли (global_role) / активности.
+ *  Проектная роль (project_members) назначается отдельно — см. routes/project.ts. */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -28,10 +30,11 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       try {
         row = (
           await q<UserRow>(
-            `INSERT INTO users (username, password_hash, name, initials, color, job_role, access_role, is_active)
+            // access_role не задаём — колонка легаси (дефолт 'employee'), для прав не используется.
+            `INSERT INTO users (username, password_hash, name, initials, color, job_role, global_role, is_active)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`,
-            [body.username, hash, body.name, body.initials, body.color, body.jobRole, body.accessRole, body.isActive ?? true],
+            [body.username, hash, body.name, body.initials, body.color, body.jobRole, body.globalRole, body.isActive ?? true],
           )
         )[0];
       } catch (e) {
@@ -39,7 +42,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         throw e;
       }
 
-      await audit(actor.sub, "user.create", "user", row.id, { username: row.username, accessRole: row.access_role });
+      await audit(actor.sub, "user.create", "user", row.id, { username: row.username, globalRole: row.global_role });
       reply.code(201).send(safeUser(row));
     },
   );
@@ -56,10 +59,10 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       if (!user) throw notFound("Пользователь не найден");
 
       const removesAdmin =
-        user.access_role === "admin" && user.is_active && (body.accessRole !== "admin" || body.isActive === false);
+        user.global_role === "admin" && user.is_active && (body.globalRole !== "admin" || body.isActive === false);
       if (removesAdmin) {
         const admins = (
-          await one<{ n: string }>(`SELECT count(*)::text AS n FROM users WHERE access_role = 'admin' AND is_active`)
+          await one<{ n: string }>(`SELECT count(*)::text AS n FROM users WHERE global_role = 'admin' AND is_active`)
         )!;
         if (Number(admins.n) <= 1)
           throw conflict("Нельзя понизить или деактивировать последнего активного администратора");
@@ -67,9 +70,9 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
 
       const row = (
         await q<UserRow>(
-          `UPDATE users SET access_role = $1, is_active = COALESCE($2, is_active)
+          `UPDATE users SET global_role = $1, is_active = COALESCE($2, is_active)
             WHERE id = $3 RETURNING *`,
-          [body.accessRole, body.isActive ?? null, user.id],
+          [body.globalRole, body.isActive ?? null, user.id],
         )
       )[0];
 
@@ -77,8 +80,8 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       invalidateUserCache(user.id);
       await audit(actor.sub, "user.role.change", "user", user.id, {
         username: user.username,
-        from: user.access_role,
-        to: row.access_role,
+        from: user.global_role,
+        to: row.global_role,
         isActive: row.is_active,
       });
       return safeUser(row);
