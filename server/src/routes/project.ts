@@ -42,8 +42,9 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
 
   /* Гард «последний активный менеджер проекта» встроен прямо в WHERE записи —
      проверка и запись в одном стейтменте, одном снапшоте, без отдельного SELECT
-     (устраняет TOCTOU-окно между round-trip'ами). Условие: писать/удалять можно,
-     если это НЕ понижение/удаление последнего активного менеджера. */
+     (устраняет TOCTOU-окно между round-trip'ами). Блокируем, только если target
+     сам — активный менеджер И другого активного менеджера в проекте нет; убрать
+     мёртвую строку `manager` деактивированного пользователя всегда можно. */
   const LAST_MANAGER_MSG =
     "Нельзя убрать или понизить последнего активного менеджера проекта — сначала назначьте другого";
 
@@ -75,6 +76,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
          ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role
          WHERE project_members.role <> 'manager'
             OR EXCLUDED.role = 'manager'
+            OR NOT (SELECT is_active FROM users WHERE id = $2)
             OR EXISTS (
                  SELECT 1 FROM project_members pm
                    JOIN users u ON u.id = pm.user_id
@@ -111,6 +113,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
           WHERE project_id = $1 AND user_id = $2
             AND (
               role <> 'manager'
+              OR NOT (SELECT is_active FROM users WHERE id = $2)
               OR EXISTS (
                    SELECT 1 FROM project_members pm
                      JOIN users u ON u.id = pm.user_id
