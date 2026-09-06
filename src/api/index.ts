@@ -153,8 +153,26 @@ export type ServerActivity = {
   createdAt: string;
 };
 
+/** Проект (список / карточка / ответ POST·PATCH). */
+export type Project = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  departmentId: string;
+  isShared: boolean;
+};
+
+export type Department = {
+  id: string;
+  name: string;
+  ldapGroupDn: string | null;
+  projectCount: number;
+};
+
+/** Ответ GET /api/projects/:projectId — данные одного проекта. */
 export type ProjectBootstrap = {
-  project: { id: string; key: string; name: string; description?: string };
+  project: Project;
   users: SafeUser[];
   /** Состав проекта: userId → проектная роль. Права me считаются из globalRole + этого. */
   members: { userId: string; role: ProjectRole }[];
@@ -172,6 +190,9 @@ export type ProjectBootstrap = {
   }[];
 };
 
+/** Префикс ресурсов проекта. */
+const P = (projectId: string) => `/api/projects/${projectId}`;
+
 export const authApi = {
   login: (username: string, password: string) =>
     api<{ token: string; user: SafeUser }>("/api/auth/login", {
@@ -182,54 +203,74 @@ export const authApi = {
   me: () => api<SafeUser>("/api/auth/me"),
 };
 
-export const projectApi = {
-  bootstrap: () => api<ProjectBootstrap>("/api/project"),
+export const projectsApi = {
+  /** Проекты, видимые пользователю (member ∪ is_shared ∪ глоб. admin). */
+  list: () => api<Project[]>("/api/projects"),
+  /** Данные одного проекта (bootstrap: users/members/workflow/sprints). */
+  get: (projectId: string) => api<ProjectBootstrap>(P(projectId)),
+  create: (body: { key: string; name: string; description?: string; departmentId: string; isShared?: boolean }) =>
+    api<Project>("/api/projects", { method: "POST", body }),
+  patch: (projectId: string, body: Partial<{ name: string; description: string; departmentId: string; isShared: boolean }>) =>
+    api<Project>(P(projectId), { method: "PATCH", body }),
+  remove: (projectId: string) => api<void>(P(projectId), { method: "DELETE" }),
+};
+
+export const departmentsApi = {
+  list: () => api<Department[]>("/api/departments"),
+  create: (name: string) => api<Department>("/api/departments", { method: "POST", body: { name } }),
+  patch: (id: string, name: string) => api<Department>(`/api/departments/${id}`, { method: "PATCH", body: { name } }),
+  remove: (id: string) => api<void>(`/api/departments/${id}`, { method: "DELETE" }),
 };
 
 export const membersApi = {
   /** Добавить участника / сменить его проектную роль (PUT — upsert на сервере). */
-  set: (userId: string, role: ProjectRole) =>
-    api<{ userId: string; role: ProjectRole }>(`/api/project/members/${userId}`, {
+  set: (projectId: string, userId: string, role: ProjectRole) =>
+    api<{ userId: string; role: ProjectRole }>(`${P(projectId)}/members/${userId}`, {
       method: "PUT",
       body: { role },
     }),
-  remove: (userId: string) => api<void>(`/api/project/members/${userId}`, { method: "DELETE" }),
+  remove: (projectId: string, userId: string) =>
+    api<void>(`${P(projectId)}/members/${userId}`, { method: "DELETE" }),
 };
 
 export const issuesApi = {
-  list: (query?: Record<string, string | number | undefined>) =>
-    api<{ items: ServerIssue[]; total: number }>("/api/issues", { query }),
-  get: (id: string) => api<ServerIssue>(`/api/issues/${id}`),
-  create: (body: Record<string, unknown>) => api<ServerIssue>("/api/issues", { method: "POST", body }),
-  patch: (id: string, body: Record<string, unknown>) =>
-    api<ServerIssue>(`/api/issues/${id}`, { method: "PATCH", body }),
-  remove: (id: string) => api<void>(`/api/issues/${id}`, { method: "DELETE" }),
-  transition: (id: string, to: string, beforeId?: string | null) =>
-    api<ServerIssue>(`/api/issues/${id}/transition`, {
+  list: (projectId: string, query?: Record<string, string | number | undefined>) =>
+    api<{ items: ServerIssue[]; total: number }>(`${P(projectId)}/issues`, { query }),
+  get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
+  create: (projectId: string, body: Record<string, unknown>) =>
+    api<ServerIssue>(`${P(projectId)}/issues`, { method: "POST", body }),
+  patch: (projectId: string, id: string, body: Record<string, unknown>) =>
+    api<ServerIssue>(`${P(projectId)}/issues/${id}`, { method: "PATCH", body }),
+  remove: (projectId: string, id: string) => api<void>(`${P(projectId)}/issues/${id}`, { method: "DELETE" }),
+  transition: (projectId: string, id: string, to: string, beforeId?: string | null) =>
+    api<ServerIssue>(`${P(projectId)}/issues/${id}/transition`, {
       method: "POST",
       body: { to, beforeId: beforeId ?? null },
     }),
-  setSprint: (id: string, sprintId: string | null) =>
-    api<ServerIssue>(`/api/issues/${id}/sprint`, { method: "PATCH", body: { sprintId } }),
+  setSprint: (projectId: string, id: string, sprintId: string | null) =>
+    api<ServerIssue>(`${P(projectId)}/issues/${id}/sprint`, { method: "PATCH", body: { sprintId } }),
 };
 
 export const commentsApi = {
-  list: (issueId: string) => api<ServerComment[]>(`/api/issues/${issueId}/comments`),
-  create: (issueId: string, body: string) =>
-    api<ServerComment>(`/api/issues/${issueId}/comments`, { method: "POST", body: { body } }),
+  list: (projectId: string, issueId: string) =>
+    api<ServerComment[]>(`${P(projectId)}/issues/${issueId}/comments`),
+  create: (projectId: string, issueId: string, body: string) =>
+    api<ServerComment>(`${P(projectId)}/issues/${issueId}/comments`, { method: "POST", body: { body } }),
 };
 
 export const sprintsApi = {
-  start: () => api<unknown>("/api/sprints/start", { method: "POST" }),
-  complete: (id: string) => api<unknown>(`/api/sprints/${id}/complete`, { method: "POST" }),
+  start: (projectId: string) => api<unknown>(`${P(projectId)}/sprints/start`, { method: "POST" }),
+  complete: (projectId: string, id: string) =>
+    api<unknown>(`${P(projectId)}/sprints/${id}/complete`, { method: "POST" }),
 };
 
 export const workflowApi = {
-  addTransition: (from: string, to: string) =>
-    api<{ id: string; from: string; to: string }>("/api/workflow/transitions", {
+  addTransition: (projectId: string, from: string, to: string) =>
+    api<{ id: string; from: string; to: string }>(`${P(projectId)}/workflow/transitions`, {
       method: "POST",
       body: { from, to },
     }),
-  removeTransition: (id: string) => api<void>(`/api/workflow/transitions/${id}`, { method: "DELETE" }),
-  reset: () => api<unknown>("/api/workflow/reset", { method: "POST" }),
+  removeTransition: (projectId: string, id: string) =>
+    api<void>(`${P(projectId)}/workflow/transitions/${id}`, { method: "DELETE" }),
+  reset: (projectId: string) => api<unknown>(`${P(projectId)}/workflow/reset`, { method: "POST" }),
 };

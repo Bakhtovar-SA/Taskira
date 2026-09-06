@@ -94,6 +94,24 @@ export interface Project {
   key: string;
   name: string;
   description: string;
+  departmentId?: string;
+  isShared?: boolean;
+}
+
+/** Краткая карточка проекта для списка/переключателя. */
+export interface ProjectSummary {
+  id: string;
+  key: string;
+  name: string;
+  departmentId: string;
+  isShared: boolean;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  ldapGroupDn: string | null;
+  projectCount: number;
 }
 
 export interface Toast {
@@ -103,7 +121,12 @@ export interface Toast {
 }
 
 export interface Data {
+  /** Данные текущего проекта (по currentProjectId). */
   project: Project;
+  /** Все видимые пользователю проекты (для переключателя/списка). */
+  projects: ProjectSummary[];
+  /** id текущего проекта; "" пока не выбран. */
+  currentProjectId: string;
   users: User[];
   /** Состав текущего проекта: userId → проектная роль (manager|employee|viewer). */
   members: Record<string, ProjectRole>;

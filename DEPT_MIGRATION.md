@@ -1,6 +1,6 @@
 # DEPT_MIGRATION — департаменты + multi-project
 
-Статус: решения раздела 3 приняты; Фазы 1–2 (схема БД + сервер) сделаны; Фаза 3 (клиент) — следующая, мёржится вместе с Фазой 2.
+Статус: решения раздела 3 приняты; Фазы 1–3 (схема БД, сервер, клиент) сделаны — multi-project рабочий без UI-переключателя; Фазы 4 (админ-UI департаментов/проектов) и 5 (переключатель) — аддитивны.
 Контекст: пункт 1 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md) (часть Department),
 иерархия доступа в [SCOPE.md](SCOPE.md). Предыдущая миграция — [ROLE_MIGRATION.md](ROLE_MIGRATION.md).
 
@@ -229,17 +229,38 @@ assignee не из проекта → 400, `requireGlobalAdmin` (не-admin → 
 **Клиент после этой фазы сломан** (все пути API изменились) — чинится Фазой 3,
 мёржатся вместе.
 
-### Фаза 3 — Клиент (минимальный, без свитчера)
+### Фаза 3 — Клиент (минимальный, без свитчера)  *(сделано)*
 
-`src/api/index.ts`: резурс-вызовы принимают `projectId`; `projectsApi.list/get/
-create/patch/remove`; `departmentsApi`.
+**`src/api/index.ts`** — резурс-вызовы принимают `projectId` первым аргументом и
+бьют в `/api/projects/${projectId}/...` (хелпер `P()`). `projectApi` (был только
+`bootstrap`) удалён → **`projectsApi`** `list` / `get` (= bootstrap одного
+проекта) / `create` / `patch` / `remove`; **`departmentsApi`**
+`list` / `create` / `patch` / `remove`. Типы `Project`, `Department`,
+`ProjectBootstrap.project` — полная форма (`departmentId`, `isShared`).
 
-`src/store.tsx`: `Data` + `currentProjectId`, `projects: ProjectSummary[]`.
-`bootstrap()` = `me()` → `projectsApi.list()` → выбрать
-(`localStorage['taskira.project']` или первый) → `projectsApi.get(id)` +
-`issuesApi.list(id)`. Все экшены прокидывают `data.currentProjectId`.
+**`src/types.ts`** — `Project` + `departmentId?`/`isShared?`; новые
+`ProjectSummary`, `Department`. `Data` + `projects: ProjectSummary[]`,
+`currentProjectId: string`.
 
-`localStorage` — запоминать последний выбранный проект (`taskira.project`).
+**`src/store.tsx`:**
+- `buildProjectData(projectId, userId, projects)` — грузит `projectsApi.get` +
+  `issuesApi.list` в объект `Data`.
+- `bootstrap()` = `authApi.me()` → `projectsApi.list()` → выбрать
+  (`localStorage['taskira.project']` ∪ первый) → `buildProjectData`. Нет проектов
+  → пустая оболочка + тост «обратитесь к администратору», без ошибки.
+- `switchProject(id)` — новый экшен: `buildProjectData` для другого проекта +
+  `localStorage`. UI-переключатель — Фаза 5.
+- Все экшены прокидывают `pid()` (= `dataRef.current.currentProjectId`) в вызовы
+  `issuesApi` / `commentsApi` / `sprintsApi` / `workflowApi` / `membersApi`;
+  `resetWorkflow` / `startSprint` / `completeSprint` рефетчат через
+  `projectsApi.get(pid())`.
+
+**Компоненты не тронуты** — все ходят через store; `data.project.key`/`.name`
+остались. `PermissionsView` add-member picker покажет пусто, пока в bootstrap
+`users` только участники+админы (полный список — `GET /api/users`, Фаза 4).
+
+**Проверено:** `npm run typecheck` — новых ошибок нет (10 пред-существующих);
+`npm run build` (Vite) — успешно.
 
 ### Фаза 4 — UI администрирования
 
