@@ -1,8 +1,9 @@
 # COLLAB_MIGRATION — участники задачи (issue collaborators) + управление составом из AdminView
 
-Статус: **решения §3 подтверждены (D1–D8, см. «РЕШЕНО»). Фаза 4 (Feature A) — сделана,
-отдельная ветка `feat/project-members-adminview`. Feature B (Фазы 1–3, 5–6) — не начата.**
-Порядок: Feature A (Фаза 4) — отдельным PR первым; затем Feature B (Фазы 1–3, 5–6) одной веткой.
+Статус: **решения §3 подтверждены (D1–D8, см. «РЕШЕНО»). Фаза 4 (Feature A) — влита в
+`main` (PR #12). Feature B: Фаза 1 — сделана (ветка `feat/issue-collaborators`); Фазы
+2–3, 5–6 — не начаты.**
+Порядок: Feature A (Фаза 4) — отдельным PR первым; затем Feature B (Фазы 1 → 2 → 3 → 6 → 5) одной веткой.
 Контекст: [SCOPE.md](SCOPE.md) — кросс-департаментные проекты и «участие нескольких отделов»;
 [ARCHITECTURE.md](ARCHITECTURE.md) — модель `Issue`. Предыдущие миграции —
 [ROLE_MIGRATION.md](ROLE_MIGRATION.md), [DEPT_MIGRATION.md](DEPT_MIGRATION.md).
@@ -191,24 +192,27 @@ admin-only. Значит:
 Порядок: **Фаза 4 (Feature A) — отдельным PR первой.** Затем Feature B одной веткой:
 **1 → 2 → 3 → 6 → 5** (5 — верификация всего, после одиночного просмотра).
 
-### Фаза 1 — Схема БД (миграция 008)  *(план)*
+### Фаза 1 — Схема БД (миграция 008)  *(сделано)*
+
+**`server/migrations/008_issue_collaborators.sql`:**
 
 ```sql
--- server/migrations/008_issue_collaborators.sql
--- Приглашённый участник ОДНОЙ задачи: просмотр задачи + комментарии, без
--- членства в проекте и без доступа к остальным задачам (COLLAB_MIGRATION.md D1).
 CREATE TABLE issue_collaborators (
   issue_id  uuid NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
   user_id   uuid NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
-  added_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+  added_by  uuid REFERENCES users(id) ON DELETE SET NULL,  -- кто подключил
   added_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (issue_id, user_id)
 );
 CREATE INDEX idx_issue_collaborators_user ON issue_collaborators (user_id);
 ```
 
-Бэкфилла нет — новая возможность. Каскады: удаление задачи или проекта (через
-`issues`) сносит строки `issue_collaborators`.
+Бэкфилла нет — новая возможность. Каскады: удаление задачи (или проекта → `issues`)
+снимает строки. Обратима (`DROP TABLE issue_collaborators`) — дамп перед применением
+не требовался (ср. `006`).
+
+Применена на dev-БД (`schema_migrations`: 001–004, 006–008) и в тестовой схеме
+(`test/global-setup.ts` → `migrate()`); `npm test` — 20/20 без изменений поведения.
 
 ### Фаза 2 — Сервер: enforcement + роуты коллабораторов  *(план)*
 
