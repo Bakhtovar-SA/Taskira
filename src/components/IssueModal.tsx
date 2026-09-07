@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { canTransition, relTime, useStore } from "../store";
 import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
@@ -104,6 +104,82 @@ function CollaboratorField({ issue }: { issue: Issue }) {
           </div>
           <p className="mt-1 text-[10px] leading-snug text-faint">
             Видит только эту задачу и её комментарии. В проект и в исполнители не добавляется.
+          </p>
+        </>
+      )}
+    </Field>
+  );
+}
+
+const fmtBytes = (n: number): string => {
+  if (n < 1024) return `${n} Б`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} КБ`;
+  return `${(n / 1024 / 1024).toFixed(1)} МБ`;
+};
+
+/** Вложения задачи (attachments, миграция 010). Список + скачивание видят все, кто
+ *  открыл карточку; прикрепляет — право comment; «×» — свой файл или право delete. */
+function AttachmentField({ issue }: { issue: Issue }) {
+  const { data, can, uploadAttachment, removeAttachment, downloadAttachment } = useStore();
+  const canUpload = can("comment", issue);
+  const canDeleteAny = can("delete", issue);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const atts = issue.attachments;
+  if (!canUpload && atts.length === 0) return null;
+
+  return (
+    <Field label="Вложения">
+      <div className="space-y-1">
+        {atts.map((a) => {
+          const mine = a.uploadedById != null && a.uploadedById === data.currentUserId;
+          return (
+            <div
+              key={a.id}
+              className="flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-[11.5px]"
+            >
+              <IcLink size={11} className="shrink-0 text-faint" />
+              <button
+                onClick={() => downloadAttachment(issue.id, a)}
+                className="min-w-0 flex-1 truncate text-left text-ink transition-colors hover:text-accent"
+                title={`Скачать «${a.filename}»`}
+              >
+                {a.filename}
+              </button>
+              <span className="shrink-0 text-faint">{fmtBytes(a.byteSize)}</span>
+              {(canDeleteAny || mine) && (
+                <button
+                  onClick={() => removeAttachment(issue.id, a.id)}
+                  className="shrink-0 text-faint transition-colors hover:text-[#B42318]"
+                  title="Удалить вложение"
+                >
+                  <IcX size={10} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+        {atts.length === 0 && <span className="text-[12px] text-faint">файлов нет</span>}
+      </div>
+      {canUpload && (
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) uploadAttachment(issue.id, f);
+              e.target.value = "";
+            }}
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="mt-1.5 rounded-md border border-dashed border-[#c3ccda] px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
+          >
+            + прикрепить файл
+          </button>
+          <p className="mt-1 text-[10px] leading-snug text-faint">
+            До {Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} МБ. Исполняемые файлы и скрипты запрещены.
           </p>
         </>
       )}
@@ -572,6 +648,8 @@ export default function IssueModal() {
           </Field>
 
           <CollaboratorField issue={issue} />
+
+          <AttachmentField issue={issue} />
 
           <div className="space-y-1.5 border-t border-line pt-3.5 text-[11.5px] text-faint">
             <p className="flex justify-between gap-2"><span>Автор</span><span className="font-semibold text-sub">{reporter?.name}</span></p>

@@ -94,6 +94,66 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
   return data as T;
 }
 
+/** Загрузка файла: multipart/form-data, НЕ через api() (тот всегда JSON).
+ *  Content-Type не ставим — браузер сам добавит boundary. */
+export async function apiUpload<T = unknown>(path: string, file: File, fieldName = "file"): Promise<T> {
+  const fd = new FormData();
+  fd.append(fieldName, file, file.name);
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(path), { method: "POST", headers, body: fd });
+  } catch {
+    throw new ApiError(0, "NETWORK", "Нет связи с сервером — проверьте, что API запущен");
+  }
+  const text = await res.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+  }
+  if (!res.ok) {
+    const err = data as ApiErrorBody | null;
+    const code = err?.error?.code ?? (res.status === 401 ? "UNAUTHORIZED" : "HTTP");
+    const reason = err?.error?.reason ?? `Ошибка загрузки файла (${res.status})`;
+    if (res.status === 401) clearToken();
+    throw new ApiError(res.status, code, reason);
+  }
+  return data as T;
+}
+
+/** Скачивание вложения: авторизованный fetch -> blob -> клик по скрытой ссылке. */
+export async function downloadBlob(path: string, filename: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(path), { headers });
+  } catch {
+    throw new ApiError(0, "NETWORK", "Нет связи с сервером");
+  }
+  if (!res.ok) {
+    if (res.status === 401) clearToken();
+    throw new ApiError(res.status, "HTTP", `Не удалось скачать файл (${res.status})`);
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /* -------- типизированные вызовы -------- */
 
 export type GlobalRole = "admin" | "member";
@@ -128,6 +188,18 @@ export type ServerCollaborator = {
 /** Мини-профиль участника (reporter/assignee/автор коммента/приглашённый) —
  *  для отрисовки карточки без bootstrap проекта. Детальный ответ GET /issues/:id. */
 export type ServerParticipant = { id: string; name: string; initials: string; color: string; jobRole: string };
+
+/** Вложение задачи (attachments, миграция 010). Детальный ответ GET /issues/:id. */
+export type ServerAttachment = {
+  id: string;
+  issueId: string;
+  filename: string;
+  contentType: string;
+  byteSize: number;
+  sha256: string;
+  uploadedById: string | null;
+  createdAt: string;
+};
 
 /** Элемент «Моих подключений» (GET /api/issues/collaborating). */
 export type CollaboratingItem = {
@@ -166,6 +238,7 @@ export type ServerIssue = {
   /** Только в детальном ответе GET /issues/:id. */
   collaborators?: ServerCollaborator[];
   participants?: ServerParticipant[];
+  attachments?: ServerAttachment[];
   createdAt: string;
   updatedAt: string;
 };
@@ -333,6 +406,17 @@ export const collaboratorsApi = {
     api<ServerCollaborator>(`${P(projectId)}/issues/${issueId}/collaborators/${userId}`, { method: "PUT" }),
   remove: (projectId: string, issueId: string, userId: string) =>
     api<void>(`${P(projectId)}/issues/${issueId}/collaborators/${userId}`, { method: "DELETE" }),
+};
+
+export const attachmentsApi = {
+  list: (projectId: string, issueId: string) =>
+    api<ServerAttachment[]>(`${P(projectId)}/issues/${issueId}/attachments`),
+  upload: (projectId: string, issueId: string, file: File) =>
+    apiUpload<ServerAttachment>(`${P(projectId)}/issues/${issueId}/attachments`, file),
+  remove: (projectId: string, issueId: string, attId: string) =>
+    api<void>(`${P(projectId)}/issues/${issueId}/attachments/${attId}`, { method: "DELETE" }),
+  download: (projectId: string, issueId: string, attId: string, filename: string) =>
+    downloadBlob(`${P(projectId)}/issues/${issueId}/attachments/${attId}`, filename),
 };
 
 export const sprintsApi = {

@@ -8,6 +8,10 @@ import type { AccessRole, GlobalRole, Issue, ProjectRole, User } from "./types";
    resolveRole(globalRole, projectRole). Ниже `user.accessRole` — это уже
    ВЫЧИСЛЕННАЯ эффективная роль (store подставляет её в `me`).
    MATRIX и can()/denialReason() зеркалят server/src/permissions.ts.
+
+   Вложения к задачам (миграция 010, FILES_MIGRATION.md D2) отдельного права
+   не имеют: загрузка/удаление своего = `comment`; удаление чужого = `delete`.
+   Новых ключей в MATRIX нет.
    ============================================================ */
 
 /** Эффективная роль в проекте — зеркалит server/src/permissions.ts `resolveRole()`.

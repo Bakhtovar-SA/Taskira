@@ -1,9 +1,11 @@
 # FILES_MIGRATION — вложения к задачам (файлы)
 
-Статус: **решения §3 подтверждены (D1–D6). Фазы 1–2 сделаны (сервер: миграция 010,
+Статус: **решения §3 подтверждены (D1–D6). Фазы 1–3 сделаны (сервер: миграция 010,
 конфиг, абстракция хранилища + локальный драйвер, `@fastify/multipart`, guard по
-magic-байтам, 4 роута; `npm test` 54 зелёных; живой прогон пройден). Дальше — Фаза 3
-(клиент).**
+magic-байтам, 4 роута, `npm test` 54 зелёных, живой прогон; клиент:
+`attachmentsApi`/`apiUpload`/`downloadBlob`, экшены store, `<AttachmentField>` в
+`IssueModal`, вложения в `SoloIssueCard`, `tsc`/`build` 0). Дальше — Фаза 4
+(драйвер S3/MinIO + CI-job + STORAGE_SETUP.md).**
 Ветка `feat/attachments`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 4 — драйвер S3/MinIO; при затыке с инфраструктурой отделяется в follow-up PR,
 т.к. локальный драйвер к тому моменту уже оттестирован). Фаза 6 — вне захода.
@@ -463,33 +465,46 @@ export function makeStorage(cfg: Config): Promise<Storage>;     // local | s3; �
 - Удаление задачи A → строки `attachments` сняты каскадом, объект в хранилище
   удалён. Удаление **проекта** оставило объект-сироту — ожидаемо, сборщик — Фаза 6.
 
-### Фаза 3 — Клиент: вложения на карточке задачи
+### Фаза 3 — Клиент: вложения на карточке задачи  *(сделано)*
 
-- **`src/api/index.ts`** — `attachmentsApi.list/upload/remove(projectId, issueId
-  [, attId | File])`. `upload` — **не через `api()`** (тот всегда JSON): отдельный
-  `apiUpload()` — сырой `fetch` с `FormData`, `Authorization`, без ручного
-  `Content-Type` (браузер сам ставит boundary), нормализация ошибок как в `api()`.
-  `download` — `fetch` с токеном → `blob()` → `URL.createObjectURL` → клик по
-  скрытой ссылке → revoke. Типы `ServerAttachment`, `ServerIssue.attachments?`.
-- **`src/types.ts`** — `Attachment`; `Issue.attachments: Attachment[]` (required,
-  `mapIssue` заполняет из `dto.attachments`, иначе `[]`; `upsertIssue` не трогает —
-  свежий список из `openIssue` переживает upsert, как `collaborators`).
-- **`src/store.tsx`** — экшены `uploadAttachment(issueId, file)` /
-  `removeAttachment(issueId, attId)` под `requirePerm("comment"/"delete", issue)`
-  (UX-гейт) → `attachmentsApi` → патч `issue.attachments` в `data.issues`, тост /
-  `handleApiError`. Клиентская проверка размера/расширения до отправки (зеркало
-  `LIMITS.attachment` + список из D3) — быстрый отказ без раунд-трипа.
+`npx tsc --noEmit` 0, `npm run build` ок. Браузерная проверка — за пользователем.
+
+- **`src/api/index.ts`** — `attachmentsApi.{ list, upload, remove, download }`.
+  `upload` — **не через `api()`** (тот всегда JSON): новый `apiUpload()` — сырой
+  `fetch` с `FormData` + `Authorization`, `Content-Type` не ставим (браузер сам
+  добавит boundary), ошибки нормализуются в `ApiError` как в `api()` (401 → сброс
+  токена). `download` — новый `downloadBlob()`: авторизованный `fetch` → `blob()` →
+  `createObjectURL` → клик по скрытой `<a download>` → `revokeObjectURL`. Типы
+  `ServerAttachment`, `ServerIssue.attachments?`.
+- **`src/types.ts`** — `Attachment { id, filename, contentType, byteSize,
+  uploadedById, createdAt }`; `Issue.attachments: Attachment[]` (required).
+  `mapIssue` заполняет из `dto.attachments ?? prev?.attachments ?? []` — как
+  `collaborators`; `upsertIssue` не трогает (свежий список из `openIssue`
+  переживает upsert).
+- **`src/store.tsx`** — `mapAttachment(dto)`; экшены `uploadAttachment(issueId,
+  file)` (гейт `requirePerm("comment", issue)` + UX-проверки: размер >
+  `LIMITS.attachment.maxBytes`, явно исполняемое расширение → тост, без
+  раунд-трипа), `removeAttachment(issueId, attId)` (без гейта — правило D2 на
+  сервере; компонент прячет «×»), `downloadAttachment(issueId, att)`. Патч
+  `issue.attachments` в `data.issues` через `patchIssueAttachments`.
+- **`src/validation.ts`** ↔ **`server/src/contract.ts`** — `LIMITS.attachment`
+  (`maxBytes` 25 MiB, `maxPerIssue` 50, `maxFilename` 200) уже добавлен в Фазе 2,
+  зеркальный.
 - **`src/components/IssueModal.tsx`** — `<AttachmentField>` после
-  `<CollaboratorField>`: список (иконка типа · имя · размер · кто/когда · «Скачать»
-  · «×» по правилу D2), для `comment`-роли — зона выбора файла (кнопка +
-  drag&drop). Прогресс/ошибка → тост.
-- **`src/components/SoloView.tsx` / `CollaboratingView`** (`SoloIssueCard`) —
-  read-only список вложений со «Скачать» (приглашённый может и загрузить —
-  `comment` есть; зону выбора показываем и здесь).
-- **`src/permissions.ts`** (клиент) — правок нет (нет новых ключей MATRIX);
-  комментарий в шапке про «загрузка вложений = comment, удаление чужого = delete».
-- Проверка: `typecheck` (клиент), `npm run build`. Браузерная проверка — за
-  пользователем.
+  `<CollaboratorField>`: строки «🔗 имя (кнопка-скачать) · размер · ×», «×» видно
+  при `can("delete", issue)` **или** `att.uploadedById === me`; при
+  `can("comment", issue)` — скрытый `<input type=file>` + кнопка «＋ прикрепить
+  файл» + подпись про лимит/запрет исполняемых. Скрыт целиком, если нельзя
+  грузить и вложений нет. `fmtBytes` — Б/КБ/МБ.
+- **`src/components/SoloView.tsx`** (`SoloIssueCard`, он же в `CollaboratingView`)
+  — блок «Вложения · N» после «Приглашены к задаче»: список со «Скачать» +
+  `<input type=file>` (приглашённый имеет `comment`). Компонент api-центричен
+  (как и было): грузит через `attachmentsApi.upload`, дописывает в локальный
+  `issue.attachments` (`setIssue`), ошибки → `toast`.
+- **`src/permissions.ts`** (клиент) — MATRIX не тронут; комментарий в шапке:
+  «загрузка/удаление своего = `comment`; удаление чужого = `delete`».
+- **Не сделано (осознанно):** drag&drop файла, индикатор прогресса загрузки,
+  вставка скриншота из буфера — Фаза 6.
 
 ### Фаза 4 — Драйвер S3/MinIO + верификация против настоящего MinIO
 

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
-import { commentsApi, issuesApi, type ServerComment, type ServerIssue, type ServerParticipant } from "../api";
+import { attachmentsApi, commentsApi, issuesApi, type ServerComment, type ServerIssue, type ServerParticipant } from "../api";
 import { LIMITS, validateComment } from "../validation";
 import { PRIORITIES } from "../types";
 import type { IssueTypeId, PriorityId } from "../types";
@@ -52,6 +52,7 @@ export function SoloIssueCard({
   const [comments, setComments] = useState<ServerComment[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const attRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let off = false;
@@ -88,6 +89,16 @@ export function SoloIssueCard({
   const authorOf = (id: string) => pById.get(id) ?? (id === currentUser.id ? meFallback : undefined);
   const assignee = issue.assigneeId ? pById.get(issue.assigneeId) : undefined;
   const reporter = pById.get(issue.reporterId);
+
+  const fmtBytes = (n: number): string =>
+    n < 1024 ? `${n} Б` : n < 1024 * 1024 ? `${Math.round(n / 1024)} КБ` : `${(n / 1024 / 1024).toFixed(1)} МБ`;
+
+  const uploadFile = (f: File) => {
+    attachmentsApi
+      .upload(projectId, issueId, f)
+      .then((a) => setIssue((prev) => (prev ? { ...prev, attachments: [...(prev.attachments ?? []), a] } : prev)))
+      .catch((e: { reason?: string }) => toast("error", e?.reason ?? "Не удалось загрузить файл"));
+  };
 
   const send = () => {
     const r = validateComment(draft);
@@ -148,6 +159,47 @@ export function SoloIssueCard({
       {(issue.collaborators?.length ?? 0) > 0 && (
         <p className="mt-3 text-[11.5px] text-faint">Приглашены к задаче: {issue.collaborators!.map((c) => c.name).join(", ")}</p>
       )}
+
+      <div className="mt-5">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-faint">
+          Вложения · {issue.attachments?.length ?? 0}
+        </p>
+        <div className="space-y-1">
+          {(issue.attachments ?? []).map((a) => (
+            <div key={a.id} className="flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-[11.5px]">
+              <button
+                onClick={() =>
+                  attachmentsApi
+                    .download(projectId, issueId, a.id, a.filename)
+                    .catch(() => toast("error", "Не удалось скачать файл"))
+                }
+                className="min-w-0 flex-1 truncate text-left text-ink transition-colors hover:text-accent"
+                title={`Скачать «${a.filename}»`}
+              >
+                {a.filename}
+              </button>
+              <span className="shrink-0 text-faint">{fmtBytes(a.byteSize)}</span>
+            </div>
+          ))}
+          {(issue.attachments?.length ?? 0) === 0 && <span className="text-[12px] text-faint">файлов нет</span>}
+        </div>
+        <input
+          ref={attRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) uploadFile(f);
+            e.target.value = "";
+          }}
+        />
+        <button
+          onClick={() => attRef.current?.click()}
+          className="mt-1.5 rounded-md border border-dashed border-[#c3ccda] px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
+        >
+          + прикрепить файл
+        </button>
+      </div>
 
       <div className="mt-6">
         <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-faint">Комментарии · {comments.length}</p>

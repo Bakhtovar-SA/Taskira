@@ -68,6 +68,17 @@ export interface Collaborator {
   jobRole: string;
 }
 
+/** Вложение к задаче (attachments, миграция 010). Заполняется при открытии
+ *  карточки (детальный GET /issues/:id). Файл качается отдельным запросом. */
+export interface Attachment {
+  id: string;
+  filename: string;
+  contentType: string;
+  byteSize: number;
+  uploadedById: string | null;
+  createdAt: number;
+}
+
 export interface Issue {
   id: string;
   key: string;
@@ -91,6 +102,8 @@ export interface Issue {
   activity: Activity[];
   /** Приглашённые участники — заполняется при открытии карточки (GET /issues/:id). */
   collaborators: Collaborator[];
+  /** Вложения — заполняется при открытии карточки (GET /issues/:id). */
+  attachments: Attachment[];
   createdAt: number;
   updatedAt: number;
 }
