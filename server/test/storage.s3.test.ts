@@ -52,6 +52,7 @@ d("S3-хранилище против настоящего MinIO (STORAGE_DRIVER
     expect(st!.size).toBe(body.length);
     expect(unquote(st!.etag)).toMatch(/^[0-9a-f]{32}$/); // ровно MD5, без суффикса
     expect(unquote(st!.etag)).toBe(md5hex(body)); // и это ИМЕННО MD5 тела
+    console.log(`[s3] однокусочный PUT (${body.length} Б): ETag=${st!.etag}  == md5(body)=${md5hex(body)}`);
   });
 
   test("большой объект (>5 MiB) идёт настоящим multipart-upload → ETag вида <md5>-<N>", async () => {
@@ -64,13 +65,18 @@ d("S3-хранилище против настоящего MinIO (STORAGE_DRIVER
     const etag = unquote(st!.etag);
     // именно этого заглушка/мок не покажет: реальный CompleteMultipartUpload
     expect(etag).toMatch(/^[0-9a-f]{32}-[0-9]+$/);
-    expect(Number(etag.split("-")[1])).toBeGreaterThanOrEqual(2);
+    const parts = Number(etag.split("-")[1]);
+    expect(parts).toBeGreaterThanOrEqual(2);
     expect(etag).not.toBe(md5hex(body)); // НЕ простой MD5 всего тела
     expect(st!.size).toBe(size);
 
     // round-trip: то, что положили, то и читаем
     const back = await buffer(await s.get(k));
     expect(sha256(back)).toBe(sha256(body));
+    console.log(
+      `[s3] multipart-upload (${size} Б): ETag=${st!.etag} → ${parts} части; ` +
+        `md5(всего тела)=${md5hex(body)} (ЭТО ДРУГОЕ — значит был CompleteMultipartUpload, не PutObject)`,
+    );
   });
 
   test("Content-Type переживает round-trip в метаданных объекта (диск так не умеет)", async () => {
@@ -90,6 +96,7 @@ d("S3-хранилище против настоящего MinIO (STORAGE_DRIVER
     }
     expect(err).toBeTruthy();
     expect((err as { name?: string }).name).toBe("NoSuchKey");
+    console.log(`[s3] GET отсутствующего ключа → ошибка name=${(err as { name?: string }).name} (не ENOENT)`);
   });
 
   test("stat отсутствующего → null; delete отсутствующего → без ошибки (идемпотентно)", async () => {
