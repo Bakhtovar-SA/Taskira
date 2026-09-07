@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
-import { IcBell, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
 
 function SearchBox() {
@@ -176,6 +176,50 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
   );
 }
 
+function ProjectSwitcher() {
+  const { data, switchProject } = useStore();
+  if (data.projects.length <= 1) return <span className="font-semibold text-sub">{data.project.name}</span>;
+  const sorted = [...data.projects].sort((a, b) => a.key.localeCompare(b.key));
+  return (
+    <Dropdown
+      width={264}
+      button={(open) => (
+        <button
+          className={`flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold transition-colors ${
+            open ? "bg-accentsoft text-accent" : "text-sub hover:bg-canvas"
+          }`}
+        >
+          <span className="max-w-[180px] truncate">{data.project.name}</span>
+          <IcChevD size={11} className="opacity-70" />
+        </button>
+      )}
+    >
+      {(close) => (
+        <div className="max-h-[60vh] overflow-y-auto py-1">
+          {sorted.map((p) => (
+            <MenuItem
+              key={p.id}
+              onClick={() => {
+                switchProject(p.id);
+                close();
+              }}
+            >
+              <span className="flex w-full items-center gap-2">
+                <span className="w-12 shrink-0 rounded bg-[#e8edf4] px-1 text-center font-mono text-[10px] font-bold text-sub">
+                  {p.key}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                {p.isShared && <span className="shrink-0 text-[9.5px] uppercase text-faint">общий</span>}
+                {p.id === data.currentProjectId && <IcCheck size={12} className="shrink-0 text-accent" />}
+              </span>
+            </MenuItem>
+          ))}
+        </div>
+      )}
+    </Dropdown>
+  );
+}
+
 export default function Topbar({ onLogout }: { onLogout?: () => void }) {
   const { data, ui, setCreateOpen, can, logout } = useStore();
   const doLogout = onLogout ?? logout;
@@ -185,6 +229,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
     timeline: "Таймлайн",
     workflow: "Рабочий процесс",
     access: "Права доступа",
+    admin: "Департаменты",
     docs: "Документация",
   }[ui.view];
   const canCreate = can("create");
@@ -194,7 +239,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
       <nav className="flex min-w-0 items-center gap-1 text-[13px] text-faint">
         <span className="font-semibold text-sub">Проекты</span>
         <IcChevR size={12} />
-        <span className="font-semibold text-sub">{data.project.name}</span>
+        <ProjectSwitcher />
         <IcChevR size={12} />
         <span className="font-bold text-ink">{viewTitle}</span>
       </nav>

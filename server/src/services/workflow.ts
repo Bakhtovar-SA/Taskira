@@ -44,6 +44,27 @@ export const DEFAULT_STATUSES: Array<{ sid: string; name: string; category: Stat
 
 export const conflict = (reason: string) => new ApiHttpError(409, "CONFLICT", reason);
 
+/** Создаёт для нового проекта дефолтные 4 статуса + 8 переходов.
+    Используется в seedProject() и в POST /api/projects. */
+export async function seedProjectWorkflow(projectId: string): Promise<void> {
+  const sidToId = new Map<string, string>();
+  for (const s of DEFAULT_STATUSES) {
+    const row = await one<{ id: string }>(
+      `INSERT INTO workflow_statuses (project_id, sid, name, category, position)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [projectId, s.sid, s.name, s.category, s.position],
+    );
+    if (!row) throw new Error(`Не удалось создать статус ${s.sid}`);
+    sidToId.set(s.sid, row.id);
+  }
+  for (const [fromSid, toSid] of DEFAULT_TRANSITIONS) {
+    await q(
+      `INSERT INTO workflow_transitions (project_id, from_status_id, to_status_id) VALUES ($1, $2, $3)`,
+      [projectId, sidToId.get(fromSid)!, sidToId.get(toSid)!],
+    );
+  }
+}
+
 /** Загружает статусы проекта (по position). */
 export async function getStatuses(projectId: string): Promise<StatusRow[]> {
   return q<StatusRow>(

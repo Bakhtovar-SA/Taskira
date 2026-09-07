@@ -33,7 +33,8 @@ Server (run from `server/`):
 cd server
 npm install
 cp .env.example .env   # then fill DATABASE_URL, JWT_SECRET (>=32 chars), ADMIN_USERNAME/ADMIN_PASSWORD
-npm run dev            # tsx watch: runs migrations -> seeds admin+project -> listens on :8080
+npm run dev            # tsx watch (chokidar polling) -> migrations -> seed admin+project -> :8080
+npm run dev:native     # same, native fs events (no polling)
 npm run build          # tsc -p tsconfig.json -> dist/
 npm run start          # node dist/index.js
 npm run seed           # run migrate() + seedAdmin() + seedProject() standalone
@@ -132,14 +133,20 @@ Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counter
 
 - **Server imports use `.js` extensions** on relative paths (NodeNext module resolution) even
   though the files are `.ts`. The client uses `allowImportingTsExtensions` and imports `.tsx`/`.ts`.
+- **`npm run dev` forces chokidar polling** (`cross-env CHOKIDAR_USEPOLLING=1 CHOKIDAR_INTERVAL=250`).
+  Windows' recursive `fs.watch` (tsx's default) silently drops change events from atomic-save
+  editors and from tooling that writes via temp-file + rename, so the server keeps running stale
+  code. Polling costs a little CPU and is reliable. `npm run dev:native` opts back out. After a
+  large multi-file change, still worth restarting dev to be sure.
 - `server/.env` is untracked (git-ignored via `.gitignore`) and never entered git history —
   only `.env.example` files are committed, with empty secret values. The working-tree
   `server/.env` does hold real local-dev values (`JWT_SECRET`, `ADMIN_PASSWORD=qwerty!@#123`,
   db creds `taskira`/`taskira`), so don't paste its contents anywhere shared.
 - `CORS_ORIGIN` in `server/.env` must match the client's actual origin (client dev server is
   `:3000`, but `.env.example` says `:5173`).
-- Client `switchUser` / `resetDemo` are intentionally disabled stubs — user switching is now
-  real login/logout only.
+- User switching is real login/logout only. The old `switchUser` / `resetDemo` client stubs
+  and the "Войти как" role-preview UI were removed (dept branch) — they only re-skinned the
+  UI locally and never changed which JWT the API saw.
 - Root `package.json` still lists many unused deps (`@dnd-kit`, `@supabase/supabase-js`,
   `framer-motion`, `recharts`, `canvas-confetti`, `uuid`, …); `server/README.md` has the
   removal command. Don't assume a dependency is wired in just because it's installed.

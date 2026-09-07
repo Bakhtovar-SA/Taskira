@@ -4,13 +4,12 @@ import type { z } from "zod";
 import { one, q } from "../db.js";
 import { badRequest, notFound, requirePerm, zbody, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
-import { currentProject } from "../services/project.js";
 import { conflict, DEFAULT_TRANSITIONS, getWorkflow, statusName } from "../services/workflow.js";
 import { TransitionCreateBody } from "../contract.js";
 
 export async function workflowRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/", { preHandler: requirePerm("browse") }, async () => {
-    const project = await currentProject();
+  app.get("/", { preHandler: requirePerm("browse") }, async (req) => {
+    const project = req.project!;
     const wf = await getWorkflow(project.id);
     const counts = await q<{ status_id: string; n: string }>(
       `SELECT status_id, count(*)::text AS n FROM issues WHERE project_id = $1 GROUP BY status_id`,
@@ -25,7 +24,7 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
     "/transitions",
     { preHandler: requirePerm("editWorkflow"), preValidation: zbody(TransitionCreateBody) },
     async (req, reply) => {
-      const project = await currentProject();
+      const project = req.project!;
       const user: JwtPayload = req.user;
       const body = req.body as z.infer<typeof TransitionCreateBody>;
 
@@ -56,7 +55,7 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.delete("/transitions/:id", { preHandler: requirePerm("editWorkflow") }, async (req, reply) => {
-    const project = await currentProject();
+    const project = req.project!;
     const user: JwtPayload = req.user;
     const { id } = req.params as { id: string };
 
@@ -75,7 +74,7 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
   /** Сброс переходов к дефолтному графу. Статусы не трогаются никогда —
       на них могут ссылаться существующие задачи; сбрасываются только рёбра. */
   app.post("/reset", { preHandler: requirePerm("editWorkflow") }, async (req) => {
-    const project = await currentProject();
+    const project = req.project!;
     const user: JwtPayload = req.user;
 
     const statuses = await q<{ id: string; sid: string }>(

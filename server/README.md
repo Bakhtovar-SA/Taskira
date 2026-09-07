@@ -43,6 +43,13 @@
 | roles-4 | Клиент: `store`/`api`/`permissions` на `globalRole` + `members`; `me` считает эффективную роль; экшены `setMemberRole`/`removeMember`; мёртвый `src/seed.ts` вырезан | ✅ |
 | roles-5 | Клиент UI: `PermissionsView` — управление составом (роль/добавить/убрать) для админа ресурса; `DocsView` тексты; CORS-фикс (`app.ts` methods) | ✅ |
 | roles-7 | `006_drop_access_role.sql`: `DROP COLUMN users.access_role` + constraint; чистка `UserRow`/`SafeUser`/`safeUser`/`seedAdmin`, `SafeUser` на клиенте | ✅ |
+| dept-1 | `007_departments.sql`: таблица `departments` (+ `ldap_group_dn`), `projects.department_id`/`is_shared`, бэкфилл «Общий отдел» — план в [`../DEPT_MIGRATION.md`](../DEPT_MIGRATION.md) | ✅ схема |
+| dept-2 | Сервер multi-project: ресурсы под `/api/projects/:projectId/...`; `GET`/`POST /api/projects`, `/api/departments` CRUD; `requireGlobalAdmin`; assignee ∈ `project_members`; видимость §3.5 | ✅ сервер |
+| dept-3 | Клиент: `src/api/` + `store.tsx` на `:projectId`; `bootstrap` = `GET /api/projects` → выбор (`localStorage`) → `GET /api/projects/:id`; экшен `switchProject`; `projectsApi`/`departmentsApi` | ✅ клиент |
+| dept-4 | Клиент UI: `AdminView` — CRUD департаментов/проектов + тумблер `is_shared` (глоб. admin); экшены в store; `PermissionsView` add-member через `GET /api/users` | ✅ клиент |
+| ops-backup | `server/scripts/backup.sh` + `backup.ps1` (pg_dump `-Fc` + проверка `pg_restore --list` + ротация); runbook [`BACKUP.md`](BACKUP.md) — часть Этапа 5 | ✅ |
+| ops-tests | vitest + `app.inject()`; схема `taskira_test`; `test/helpers.ts` + `access.roles.test.ts` + `access.multiproject.test.ts` — права/гарды/IDOR из чек-листов | ✅ |
+| ops-ci | `.github/workflows/test.yml` — сервис `postgres:16`, `npm ci` → `typecheck` → `npm test` (on push main + PR) | ✅ |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
 
@@ -95,6 +102,14 @@ LDAP/AD-аутентификация и sync групп, сущность «де
     Гард «последнего активного админа» при этом не даёт понизить единственного.
 
 ## Этап 3b — роуты API
+
+> **dept-2 (multi-project):** ресурсы проекта переехали под `/api/projects/:projectId/...`
+> — таблица ниже с путями вида `/api/issues` **устарела**, читайте как
+> `/api/projects/:projectId/issues` и т.д. Bootstrap `GET /api/project` →
+> `GET /api/projects/:projectId`. Добавлены `GET`/`POST /api/projects`,
+> `PATCH`/`DELETE /api/projects/:projectId`, `GET`/`POST`/`PATCH`/`DELETE /api/departments[/:id]`,
+> `PUT`/`DELETE /api/projects/:projectId/members/:userId`. Актуальный список —
+> в [`../DEPT_MIGRATION.md`](../DEPT_MIGRATION.md) §Фаза 2.
 
 Все мутации проверяют JWT и право **на сервере**; отказы — `403 {error:{code:"FORBIDDEN",reason}}` на русском.
 
@@ -173,14 +188,20 @@ cp .env.example .env
 # Заполните: DATABASE_URL, JWT_SECRET (>=32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
 # JWT_SECRET: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
-npm run dev        # tsx watch: миграции → seed админа → listen :8080
+npm run dev        # tsx watch (chokidar polling): миграции → seed админа → listen :8080
 ```
+
+`npm run dev` форсит поллинг chokidar (`CHOKIDAR_USEPOLLING=1`, интервал 250 мс) —
+на Windows рекурсивный `fs.watch` пропускает правки от атомарного сохранения
+редактора и от инструментов, и сервер не перезапускается. Поллинг это чинит ценой
+небольшого CPU. Нативные события: `npm run dev:native`. Если после крупной
+многофайловой правки перезапуск всё же выглядит подвисшим — перезапустите dev.
 
 Миграции и seed по отдельности:
 
 ```bash
 npm run seed                     # прогоняет migrate() + создание первого админа
-psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001..004, 006
+psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001..004, 006, 007
 ```
 
 Health, логин, me:
@@ -206,9 +227,32 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
 # 401 ×10, затем 429
 ```
 
+## Тесты
+
+Интеграционные тесты прав доступа (vitest + `app.inject()`):
+
+```bash
+npm test            # vitest run
+npm run test:watch
+```
+
+Прогоняются по **схеме `taskira_test`** внутри dev-БД
+(`options=-csearch_path=taskira_test,public`) — отдельная БД и права CREATEDB не
+нужны, dev-схема `public` не затрагивается. `test/global-setup.ts` пересоздаёт
+схему и гоняет миграции один раз; `test/helpers.ts` — `getApp` / `seedFixture`
+(admin + 2 проекта в 2 отделах + участники всех ролей + outsider) / `login`.
+
+Покрыто (`test/access.roles.test.ts`, `test/access.multiproject.test.ts`):
+глоб. admin без членства — полный доступ; `member` без членства — 403 + пустой
+`/api/projects`; матрица ролей (viewer/employee); employee правит только свои;
+гард последнего admin и последнего менеджера проекта; `requireGlobalAdmin`;
+видимость проектов (`is_shared`); **IDOR — задача из чужого проекта → 404**;
+assignee не из проекта → 400; `DELETE` отдела с проектами → 409; независимая
+нумерация задач по проектам.
+
 ## Чеклист ручной проверки
 
-- [ ] `npm run typecheck` — без ошибок; `npm run dev` стартует, все миграции в `schema_migrations`
+- [ ] `npm run typecheck` — без ошибок; `npm test` — зелёный; `npm run dev` стартует, все миграции в `schema_migrations`
 - [ ] Остановка PostgreSQL → `/api/health` отвечает **503** `{ok:false,db:false}`; восстановление → 200
 - [ ] Логин: неверный пароль — 401 с единым reason; 11-я попытка за 5 минут — **429 RATE_LIMITED**
 - [ ] `is_active=false` в БД → логин 403 «Аккаунт деактивирован…», `/me` с живым токеном — 401 (в пределах 30 с)
@@ -243,6 +287,25 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
 - [ ] `DELETE /api/project/members/:userId` — 204; повторно / не участник — 404
 - [ ] Гард последнего менеджера: `DELETE` или `PUT`-понижение единственного активного `manager` — **409**; после назначения второго — операция проходит
 - [ ] После `PUT`/`DELETE` состава роль в правах пользователя меняется без релогина (`invalidateMembership`)
+
+### Миграция 007 (департаменты, dept-1)
+
+- [ ] `007_departments.sql` в `schema_migrations`; `\d departments` — `name UNIQUE`, `ldap_group_dn` nullable
+- [ ] `projects.department_id` — `NOT NULL`, FK → `departments`; `projects.is_shared` — `NOT NULL DEFAULT false`
+- [ ] На БД с данными: существующие проекты привязаны к «Общий отдел» и помечены `is_shared = true`; `ldap_group_dn` пуст
+- [ ] На чистой БД: `migrate()` создаёт «Общий отдел» (пустой), `seedProject` его переиспользует и вешает проект туда; `is_shared` фреш-проекта = `false`
+- [ ] `npm run seed` дважды — департамент и проект не дублируются
+
+### Сервер multi-project (dept-2)
+
+- [ ] `GET /api/departments` — список с `projectCount`; `POST`/`PATCH`/`DELETE` от не-admin → 403; `DELETE` отдела с проектами → 409, пустого → 204
+- [ ] `GET /api/projects` — глоб. admin видит все; обычный юзер — только где он в `project_members` или `is_shared`
+- [ ] `POST /api/projects` (admin) — создаёт проект + дефолтный workflow (4 статуса, 8 переходов); дублирующий ключ → 409; `POST` от не-admin → 403
+- [ ] `GET /api/projects/:projectId` — bootstrap `{project, users, members, workflow, sprints}`; не-участник не-shared проекта → 403; несуществующий / кривой uuid → 404
+- [ ] `GET /api/projects/:A/issues/<issue-из-B>` → 404 (path-confusion)
+- [ ] `POST`/`PATCH` задачи с `assigneeId` не из `project_members` проекта → 400 «Исполнитель не входит в проект» (глоб. admin как исполнитель — можно)
+- [ ] `PUT`/`DELETE /api/projects/:projectId/members/:userId` — только глоб. admin (manager проекта → 403); гард последнего менеджера как в roles-3
+- [ ] `DELETE /api/projects/:projectId` — каскад issues/members/workflow/sprints; `key` `CORP-1` и `SEC-1` независимы
 
 ### Этап 3b
 

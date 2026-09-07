@@ -4,7 +4,6 @@ import type { z } from "zod";
 import { q } from "../db.js";
 import { requireIssuePerm, requirePerm, zbody, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
-import { currentProject } from "../services/project.js";
 import { loadIssue } from "../services/issues.js";
 import { CommentBody } from "../contract.js";
 
@@ -39,7 +38,7 @@ const mapComment = (r: CommentRow): CommentDto => ({
 
 export async function commentRoutes(app: FastifyInstance): Promise<void> {
   app.get("/:id/comments", { preHandler: requirePerm("browse") }, async (req) => {
-    const project = await currentProject();
+    const project = req.project!;
     const { id } = req.params as { id: string };
     const iss = await loadIssue(project.id, id);
     const rows = await q<CommentRow>(
@@ -58,7 +57,7 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
     "/:id/comments",
     { preHandler: requireIssuePerm("comment"), preValidation: zbody(CommentBody) },
     async (req, reply) => {
-      const project = await currentProject();
+      const project = req.project!;
       const { id } = req.params as { id: string };
       const user: JwtPayload = req.user;
       const body = req.body as z.infer<typeof CommentBody>;

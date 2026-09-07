@@ -1,16 +1,30 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import type { AccessRole, Data, Issue, IssueTypeId, PriorityId, ProjectRole, Toast, User, ViewId, Workflow } from "./types";
-import { can as canDo, denialReason, resolveRole, roleMeta, type PermId } from "./permissions";
+import type {
+  AccessRole,
+  Data,
+  Department,
+  Issue,
+  IssueTypeId,
+  PriorityId,
+  ProjectRole,
+  ProjectSummary,
+  Toast,
+  User,
+  ViewId,
+  Workflow,
+} from "./types";
+import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
 import {
   ApiError,
   authApi,
   clearToken,
   commentsApi,
+  departmentsApi,
   getToken,
   issuesApi,
   membersApi,
-  projectApi,
+  projectsApi,
   sprintsApi,
   type ServerIssue,
   type SafeUser,
@@ -61,8 +75,27 @@ export interface CreateInput {
   dueDate?: string | null;
 }
 
+const PROJECT_KEY = "taskira.project";
+const readLastProject = (): string => {
+  try {
+    return localStorage.getItem(PROJECT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+};
+const writeLastProject = (id: string): void => {
+  try {
+    localStorage.setItem(PROJECT_KEY, id);
+  } catch {
+    /* noop */
+  }
+};
+
 const emptyData = (): Data => ({
   project: { key: "…", name: "…", description: "" },
+  projects: [],
+  departments: [],
+  currentProjectId: "",
   users: [],
   members: {},
   currentUserId: "",
@@ -136,12 +169,12 @@ interface Api {
   bootStatus: BootStatus;
   can: (perm: PermId, issue?: Issue) => boolean;
   bootstrap: () => Promise<void>;
+  switchProject: (projectId: string) => void;
   logout: () => void;
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
   setCreateOpen: (v: boolean) => void;
   toast: (kind: Toast["kind"], text: string) => void;
-  switchUser: (id: string) => void;
   createIssue: (input: CreateInput) => void;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
@@ -155,7 +188,15 @@ interface Api {
   completeSprint: () => void;
   setMemberRole: (userId: string, role: ProjectRole) => void;
   removeMember: (userId: string) => void;
-  resetDemo: () => void;
+  createDepartment: (name: string) => void;
+  renameDepartment: (id: string, name: string) => void;
+  deleteDepartment: (id: string) => void;
+  createProject: (input: { key: string; name: string; departmentId: string; isShared?: boolean }) => void;
+  patchProject: (
+    id: string,
+    patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean },
+  ) => void;
+  deleteProject: (id: string) => void;
 }
 
 const Ctx = createContext<Api | null>(null);
@@ -174,6 +215,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const dataRef = useRef(data);
   dataRef.current = data;
+
+  /** id текущего проекта — для вызовов /api/projects/:projectId/... */
+  const pid = () => dataRef.current.currentProjectId;
 
   const toast = useCallback((kind: Toast["kind"], text: string) => {
     const id = toastSeq++;
@@ -228,29 +272,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [me, toast],
   );
 
-  const bootstrap = useCallback(async () => {
-    if (!getToken()) {
-      setBootStatus("unauthenticated");
-      return;
-    }
-    setBootStatus("loading");
-    try {
-      const user = await authApi.me();
-      const boot = await projectApi.bootstrap();
-      const issuesRes = await issuesApi.list({ limit: 200 });
+  /** Грузит данные одного проекта (bootstrap + задачи) в объект Data. */
+  const buildProjectData = useCallback(
+    async (
+      projectId: string,
+      currentUserId: string,
+      projects: ProjectSummary[],
+      departments: Department[],
+    ): Promise<Data> => {
+      const boot = await projectsApi.get(projectId);
+      const issuesRes = await issuesApi.list(projectId, { limit: 200 });
       const members: Record<string, ProjectRole> = {};
       for (const m of boot.members) members[m.userId] = m.role;
       const users = boot.users.map((u) => mapUser(u, members));
-      setData({
+      return {
         project: {
           id: boot.project.id,
           key: boot.project.key,
           name: boot.project.name,
           description: boot.project.description ?? "",
+          departmentId: boot.project.departmentId,
+          isShared: boot.project.isShared,
         },
+        projects,
+        departments,
+        currentProjectId: projectId,
         users,
         members,
-        currentUserId: user.id,
+        currentUserId,
         issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
         sprints: boot.sprints.map((s) => ({
           id: s.id,
@@ -261,19 +310,49 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           endDate: s.endDate ?? "",
         })),
         workflow: {
-          statuses: boot.workflow.statuses.map((s) => ({
-            id: s.id,
-            name: s.name,
-            category: s.category,
-          })),
-          transitions: boot.workflow.transitions.map((t) => ({
-            id: t.id,
-            from: t.from,
-            to: t.to,
-          })),
+          statuses: boot.workflow.statuses.map((s) => ({ id: s.id, name: s.name, category: s.category })),
+          transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
         },
         seq: issuesRes.total + 1,
-      });
+      };
+    },
+    [],
+  );
+
+  const bootstrap = useCallback(async () => {
+    if (!getToken()) {
+      setBootStatus("unauthenticated");
+      return;
+    }
+    setBootStatus("loading");
+    try {
+      const user = await authApi.me();
+      const [list, deps] = await Promise.all([projectsApi.list(), departmentsApi.list().catch(() => [])]);
+      const projects: ProjectSummary[] = list.map((p) => ({
+        id: p.id,
+        key: p.key,
+        name: p.name,
+        departmentId: p.departmentId,
+        isShared: p.isShared,
+      }));
+      if (projects.length === 0) {
+        // users: [me] — иначе me-memo не найдёт currentUserId и свалится на
+        // синтетического 'member'/'viewer' (глоб. admin потерял бы доступ к
+        // AdminView, откуда только и можно создать первый проект).
+        setData({ ...emptyData(), currentUserId: user.id, departments: deps, users: [mapUser(user, {})] });
+        if (user.globalRole === "admin") {
+          setUi((u) => ({ ...u, view: "admin" }));
+          toast("info", "Проектов пока нет — создайте первый в разделе «Департаменты»");
+        } else {
+          toast("info", "Вам пока не открыт ни один проект — обратитесь к администратору");
+        }
+        setBootStatus("ready");
+        return;
+      }
+      const wanted = readLastProject();
+      const chosen = projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
+      setData(await buildProjectData(chosen, user.id, projects, deps));
+      writeLastProject(chosen);
       setBootStatus("ready");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -284,7 +363,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       handleApiError(err, "Не удалось загрузить данные");
       setBootStatus("error");
     }
-  }, [handleApiError]);
+  }, [handleApiError, buildProjectData, toast]);
+
+  const switchSeqRef = useRef(0);
+  const switchProject = useCallback(
+    (projectId: string) => {
+      const cur = dataRef.current;
+      if (projectId === cur.currentProjectId || !cur.projects.some((p) => p.id === projectId)) return;
+      const seq = ++switchSeqRef.current;
+      setBootStatus("loading");
+      void (async () => {
+        try {
+          const next = await buildProjectData(projectId, cur.currentUserId, cur.projects, cur.departments);
+          if (seq !== switchSeqRef.current) return; // пришёл более поздний клик
+          setData(next);
+          writeLastProject(projectId);
+          setUi((u) => ({ ...u, selectedIssueId: null }));
+          setBootStatus("ready");
+        } catch (err) {
+          if (seq !== switchSeqRef.current) return;
+          handleApiError(err, "Не удалось открыть проект");
+          setBootStatus("ready");
+        }
+      })();
+    },
+    [buildProjectData, handleApiError],
+  );
 
   const logout = useCallback(() => {
     clearToken();
@@ -295,7 +399,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const refreshIssues = useCallback(async () => {
     try {
-      const issuesRes = await issuesApi.list({ limit: 200 });
+      const issuesRes = await issuesApi.list(pid(), { limit: 200 });
       setData((prev) => ({
         ...prev,
         issues: issuesRes.items.map((dto) => {
@@ -314,7 +418,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!id) return;
       void (async () => {
         try {
-          const [dto, comments] = await Promise.all([issuesApi.get(id), commentsApi.list(id).catch(() => [])]);
+          const [dto, comments] = await Promise.all([issuesApi.get(pid(), id), commentsApi.list(pid(), id).catch(() => [])]);
           setData((prev) => {
             const mapped = mapIssue(dto, prev.issues.find((x) => x.id === id));
             mapped.comments = (comments as { id: string; authorId: string; body: string; createdAt: string }[]).map(
@@ -349,7 +453,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       void (async () => {
         try {
-          const dto = await issuesApi.create({
+          const dto = await issuesApi.create(pid(), {
             title: t.value,
             description: d.value,
             typeId: input.typeId,
@@ -410,7 +514,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       void (async () => {
         try {
-          const dto = await issuesApi.patch(id, body);
+          const dto = await issuesApi.patch(pid(), id, body);
           setData((prev) => ({
             ...prev,
             issues: prev.issues.map((i) => (i.id === id ? mapIssue(dto, i) : i)),
@@ -437,7 +541,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       void (async () => {
         try {
-          const dto = await issuesApi.transition(issueId, toStatus, beforeId);
+          const dto = await issuesApi.transition(pid(), issueId, toStatus, beforeId);
           setData((prev) => ({
             ...prev,
             issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
@@ -457,7 +561,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!requirePerm("manageSprints")) return;
       void (async () => {
         try {
-          const dto = await issuesApi.setSprint(issueId, sprintId);
+          const dto = await issuesApi.setSprint(pid(), issueId, sprintId);
           setData((prev) => ({
             ...prev,
             issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
@@ -477,7 +581,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!r.ok) return toast("error", r.error);
       void (async () => {
         try {
-          const c = await commentsApi.create(issueId, r.value);
+          const c = await commentsApi.create(pid(), issueId, r.value);
           setData((prev) => ({
             ...prev,
             issues: prev.issues.map((i) =>
@@ -512,7 +616,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const iss = dataRef.current.issues.find((i) => i.id === issueId);
       void (async () => {
         try {
-          await issuesApi.remove(issueId);
+          await issuesApi.remove(pid(), issueId);
           setData((prev) => ({
             ...prev,
             issues: prev.issues
@@ -535,7 +639,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (from === to) return "Статусы «из» и «в» совпадают";
       void (async () => {
         try {
-          const tr = await workflowApi.addTransition(from, to);
+          const tr = await workflowApi.addTransition(pid(), from, to);
           setData((prev) => ({
             ...prev,
             workflow: {
@@ -558,7 +662,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!requirePerm("editWorkflow")) return;
       void (async () => {
         try {
-          await workflowApi.removeTransition(id);
+          await workflowApi.removeTransition(pid(), id);
           setData((prev) => ({
             ...prev,
             workflow: {
@@ -579,8 +683,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!requirePerm("editWorkflow")) return;
     void (async () => {
       try {
-        await workflowApi.reset();
-        const boot = await projectApi.bootstrap();
+        await workflowApi.reset(pid());
+        const boot = await projectsApi.get(pid());
         setData((prev) => ({
           ...prev,
           workflow: {
@@ -599,8 +703,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!requirePerm("manageSprints")) return;
     void (async () => {
       try {
-        await sprintsApi.start();
-        const boot = await projectApi.bootstrap();
+        await sprintsApi.start(pid());
+        const boot = await projectsApi.get(pid());
         setData((prev) => ({
           ...prev,
           sprints: boot.sprints.map((s) => ({
@@ -625,9 +729,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!active) return;
     void (async () => {
       try {
-        await sprintsApi.complete(active.id);
+        await sprintsApi.complete(pid(), active.id);
         await refreshIssues();
-        const boot = await projectApi.bootstrap();
+        const boot = await projectsApi.get(pid());
         setData((prev) => ({
           ...prev,
           sprints: boot.sprints.map((s) => ({
@@ -651,7 +755,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!requirePerm("manageAccess")) return;
       void (async () => {
         try {
-          const res = await membersApi.set(userId, role);
+          const res = await membersApi.set(pid(), userId, role);
           setData((prev) => ({ ...prev, members: { ...prev.members, [res.userId]: res.role } }));
           toast("success", "Роль участника обновлена");
         } catch (err) {
@@ -667,7 +771,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!requirePerm("manageAccess")) return;
       void (async () => {
         try {
-          await membersApi.remove(userId);
+          await membersApi.remove(pid(), userId);
           setData((prev) => {
             const members = { ...prev.members };
             delete members[userId];
@@ -682,35 +786,123 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
-  // Демо-переключение роли: только на localhost и только для превью UX прав.
-  // Меняет локально «кто такой me» — кнопки/бейджи/тултипы и клиентский requirePerm
-  // пересчитываются по эффективной роли выбранного пользователя. ВАЖНО: JWT остаётся
-  // вашим, поэтому мутации, если проскочат мимо UI-гейта, сервер выполнит под вашим
-  // входом. Для настоящей проверки серверных прав — реальный логин (пароль тестовых
-  // пользователей задавали при их создании).
-  const switchUser = useCallback(
-    (id: string) => {
-      const onLocalhost =
-        typeof location !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
-      if (!onLocalhost) {
-        toast("info", "Демо-переключение ролей отключено — используйте вход под другим пользователем");
-        return;
-      }
-      const u = dataRef.current.users.find((x) => x.id === id);
-      if (!u) return;
-      setData((prev) => ({ ...prev, currentUserId: id }));
-      const eff = resolveRole(u.globalRole, dataRef.current.members[u.id]);
-      toast(
-        "info",
-        `UI от лица «${u.name}» — ${eff ? roleMeta(eff).name : "нет доступа к проекту"}. Запросы к API идут под вашим входом.`,
-      );
+  /* -------- админ: департаменты и проекты (manageAccess = глобальный admin) -------- */
+
+  /** Перезагрузка списков проектов и департаментов после мутаций оргструктуры. */
+  const refreshOrg = useCallback(async () => {
+    const [list, deps] = await Promise.all([projectsApi.list(), departmentsApi.list().catch(() => [])]);
+    setData((prev) => ({
+      ...prev,
+      projects: list.map((p) => ({ id: p.id, key: p.key, name: p.name, departmentId: p.departmentId, isShared: p.isShared })),
+      departments: deps,
+    }));
+  }, []);
+
+  const createDepartment = useCallback(
+    (name: string) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await departmentsApi.create(name);
+          await refreshOrg();
+          toast("success", `Отдел «${name}» создан`);
+        } catch (err) {
+          handleApiError(err, "Не удалось создать отдел");
+        }
+      })();
     },
-    [toast],
+    [requirePerm, toast, handleApiError, refreshOrg],
   );
 
-  const resetDemo = useCallback(() => {
-    toast("info", "Сброс демо недоступен в режиме API");
-  }, [toast]);
+  const renameDepartment = useCallback(
+    (id: string, name: string) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await departmentsApi.patch(id, name);
+          await refreshOrg();
+        } catch (err) {
+          handleApiError(err, "Не удалось переименовать отдел");
+        }
+      })();
+    },
+    [requirePerm, handleApiError, refreshOrg],
+  );
+
+  const deleteDepartment = useCallback(
+    (id: string) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await departmentsApi.remove(id);
+          await refreshOrg();
+          toast("info", "Отдел удалён");
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить отдел");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError, refreshOrg],
+  );
+
+  const createProject = useCallback(
+    (input: { key: string; name: string; departmentId: string; isShared?: boolean }) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          const p = await projectsApi.create(input);
+          await refreshOrg();
+          toast("success", `Проект ${p.key} создан`);
+        } catch (err) {
+          handleApiError(err, "Не удалось создать проект");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError, refreshOrg],
+  );
+
+  const patchProject = useCallback(
+    (id: string, patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean }) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await projectsApi.patch(id, patch);
+          await refreshOrg();
+          // открытый проект: патчим все переданные поля (name/description/isShared/…),
+          // иначе шапка/бейдж покажут устаревшее до следующего switchProject/bootstrap
+          if (id === dataRef.current.currentProjectId) {
+            setData((prev) => ({ ...prev, project: { ...prev.project, ...patch } }));
+          }
+        } catch (err) {
+          handleApiError(err, "Не удалось изменить проект");
+        }
+      })();
+    },
+    [requirePerm, handleApiError, refreshOrg],
+  );
+
+  const deleteProject = useCallback(
+    (id: string) => {
+      if (!requirePerm("manageAccess")) return;
+      const wasCurrent = id === dataRef.current.currentProjectId;
+      void (async () => {
+        try {
+          await projectsApi.remove(id);
+          toast("info", "Проект удалён");
+          if (wasCurrent) {
+            if (readLastProject() === id) writeLastProject("");
+            await bootstrap();
+          } else {
+            await refreshOrg();
+          }
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить проект");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError, refreshOrg, bootstrap],
+  );
+
 
   const api: Api = {
     data,
@@ -720,12 +912,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     bootStatus,
     can: canFn,
     bootstrap,
+    switchProject,
     logout,
     setView: (v) => setUi((u) => ({ ...u, view: v })),
     openIssue,
     setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v })),
     toast,
-    switchUser,
     createIssue,
     updateIssue,
     moveStatus,
@@ -739,7 +931,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     completeSprint,
     setMemberRole,
     removeMember,
-    resetDemo,
+    createDepartment,
+    renameDepartment,
+    deleteDepartment,
+    createProject,
+    patchProject,
+    deleteProject,
   };
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

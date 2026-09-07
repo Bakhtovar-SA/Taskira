@@ -1,9 +1,12 @@
 import { useStore } from "../store";
 import type { ViewId } from "../types";
-import { IcBacklog, IcBoard, IcBook, IcFlow, IcShield, IcTimeline, IcUndo, Logo } from "../icons";
+import { IcBacklog, IcBoard, IcBook, IcFlow, IcInbox, IcShield, IcTimeline, Logo } from "../icons";
 import { Avatar, Kbd, RoleBadge } from "../ui";
 
-const GROUPS: { label: string; items: { id: ViewId; label: string; icon: (p: { size?: number }) => React.ReactNode; kbd: string }[] }[] = [
+const GROUPS: {
+  label: string;
+  items: { id: ViewId; label: string; icon: (p: { size?: number }) => React.ReactNode; kbd: string; adminOnly?: boolean }[];
+}[] = [
   {
     label: "Планирование",
     items: [
@@ -17,13 +20,14 @@ const GROUPS: { label: string; items: { id: ViewId; label: string; icon: (p: { s
     items: [
       { id: "workflow", label: "Рабочий процесс", icon: (p) => <IcFlow {...p} />, kbd: "4" },
       { id: "access", label: "Права доступа", icon: (p) => <IcShield {...p} />, kbd: "5" },
-      { id: "docs", label: "Документация", icon: (p) => <IcBook {...p} />, kbd: "6" },
+      { id: "admin", label: "Департаменты", icon: (p) => <IcInbox {...p} />, kbd: "6", adminOnly: true },
+      { id: "docs", label: "Документация", icon: (p) => <IcBook {...p} />, kbd: "7" },
     ],
   },
 ];
 
 export default function Sidebar() {
-  const { data, ui, setView, resetDemo, me } = useStore();
+  const { data, ui, setView, me } = useStore();
   const openCount = data.issues.filter((i) => i.typeId !== "epic" && data.workflow.statuses.find((s) => s.id === i.statusId)?.category !== "done").length;
 
   return (
@@ -49,7 +53,9 @@ export default function Sidebar() {
           <div key={g.label} className="mb-4">
             <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f7396]">{g.label}</p>
             <nav className="flex flex-col gap-0.5 px-3">
-              {g.items.map((item) => {
+              {g.items
+                .filter((item) => !item.adminOnly || me.globalRole === "admin")
+                .map((item) => {
                 const active = ui.view === item.id;
                 return (
                   <button
@@ -88,12 +94,6 @@ export default function Sidebar() {
       </div>
 
       <div className="px-3 pb-4 pt-3">
-        <button
-          onClick={resetDemo}
-          className="mb-3 flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[12.5px] font-medium text-[#7b8fb2] transition-colors hover:bg-white/[0.05] hover:text-white"
-        >
-          <IcUndo size={15} /> Сбросить демо-данные
-        </button>
         <div className="rounded-lg border border-[#24385a] bg-sidebar2/70 p-2.5">
           <div className="flex items-center gap-2.5">
             <Avatar user={me} size={30} />
@@ -106,7 +106,7 @@ export default function Sidebar() {
           <div className="mt-2 flex items-center justify-between border-t border-[#24385a] pt-2">
             <RoleBadge role={me.accessRole} size="sm" />
             <span className="text-[9.5px] text-[#5f7396]">
-              <Kbd>/</Kbd> <Kbd>C</Kbd> <Kbd>1–6</Kbd>
+              <Kbd>/</Kbd> <Kbd>C</Kbd> <Kbd>1–7</Kbd>
             </span>
           </div>
         </div>

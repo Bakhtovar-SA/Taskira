@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import bcrypt from "bcryptjs";
 import { one, q } from "../db.js";
-import { invalidateUserCache, notFound, requirePerm, zbody, type JwtPayload } from "../middleware.js";
+import { invalidateUserCache, notFound, requireGlobalAdmin, zbody, type JwtPayload } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
@@ -13,14 +13,14 @@ import { ChangeRoleBody, CreateUserBody } from "../contract.js";
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
   /** Все пользователи, включая деактивированных (админ-панель). */
-  app.get("/users", { preHandler: requirePerm("manageAccess") }, async () => {
+  app.get("/users", { preHandler: requireGlobalAdmin }, async () => {
     const rows = await q<UserRow>(`SELECT * FROM users ORDER BY name`);
     return rows.map(safeUser);
   });
 
   app.post(
     "/admin/users",
-    { preHandler: requirePerm("manageAccess"), preValidation: zbody(CreateUserBody) },
+    { preHandler: requireGlobalAdmin, preValidation: zbody(CreateUserBody) },
     async (req, reply) => {
       const actor: JwtPayload = req.user;
       const body = req.body as z.infer<typeof CreateUserBody>;
@@ -48,7 +48,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
 
   app.patch(
     "/users/:id",
-    { preHandler: requirePerm("manageAccess"), preValidation: zbody(ChangeRoleBody) },
+    { preHandler: requireGlobalAdmin, preValidation: zbody(ChangeRoleBody) },
     async (req) => {
       const actor: JwtPayload = req.user;
       const { id } = req.params as { id: string };

@@ -7,7 +7,7 @@ import { ZodError, type ZodType } from "zod";
 import { audit } from "./audit.js";
 import { one } from "./db.js";
 import { ApiHttpError } from "./errors.js";
-import { currentProject } from "./services/project.js";
+import { projectById, type ProjectRow } from "./services/project.js";
 import {
   can,
   denialReason,
@@ -44,7 +44,9 @@ declare module "@fastify/jwt" {
 declare module "fastify" {
   interface FastifyRequest {
     issueRef?: IssueRef;
-    /** Членство текущего пользователя в проекте запроса (Фаза 2). */
+    /** Проект запроса (из :projectId), загружен requirePerm/requireIssuePerm. */
+    project?: ProjectRow;
+    /** Членство текущего пользователя в проекте запроса. */
     membership?: Membership;
     /** Эффективная роль в проекте запроса: resolveRole(user, membership). */
     projectRole?: AccessRole | null;
@@ -81,12 +83,14 @@ export function zquery<T extends ZodType>(schema: T): preValidationHookHandler {
   };
 }
 
-/* -------- валидация path-параметров (:id, :userId) -------- */
+/* -------- валидация path-параметров (:id, :userId, …) --------
+   Мержит разобранное поверх req.params — прочие параметры роута (напр. :projectId
+   у вложенных ресурсов) не теряются, даже если их нет в схеме. */
 export function zparams<T extends ZodType>(schema: T): preValidationHookHandler {
   return async (req) => {
     const parsed = schema.safeParse(req.params);
     if (!parsed.success) throw badRequest(formatZod(parsed.error));
-    req.params = parsed.data as typeof req.params;
+    req.params = { ...(req.params as Record<string, unknown>), ...(parsed.data as Record<string, unknown>) } as typeof req.params;
   };
 }
 
@@ -157,51 +161,73 @@ async function loadProjectMembership(userId: string, projectId: string): Promise
   return role ? { projectId, role } : null;
 }
 
-/* -------- проверка права (общие, без контекста задачи) --------
-   Сама гарантирует аутентификацию (requireAuth) перед проверкой права —
-   роуту достаточно указать только requirePerm/requireIssuePerm в preHandler,
-   без риска забыть requireAuth первым элементом цепочки (баг fix 3b-hotfix:
-   req.user был null на всех роутах, кроме /auth/me, где requireAuth стоял явно). */
+/* -------- глобальный admin (без контекста проекта) --------
+   Для CRUD департаментов/проектов и управления пользователями. */
+export const requireGlobalAdmin: preHandlerAsyncHookHandler = async (req, reply: FastifyReply) => {
+  await requireAuth.call(req.server, req, reply);
+  if (req.user.globalRole === "admin") return;
+  await audit(req.user.sub, "access.denied", "globalAdmin", null, { path: req.url, method: req.method });
+  throw forbidden("Действие доступно только администратору ресурса");
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** projectId из :projectId роута (валидируем формат сами — на вложенных ресурсах
+    его нет в zod-схеме параметров). */
+function paramProjectId(req: FastifyRequest): string {
+  const id = (req.params as { projectId?: string }).projectId;
+  if (!id) throw new ApiHttpError(500, "INTERNAL", "requirePerm вне scope /projects/:projectId");
+  if (!UUID_RE.test(id)) throw notFound("Проект не найден");
+  return id;
+}
+
+/* -------- проверка права в контексте проекта запроса --------
+   Сама гарантирует аутентификацию (requireAuth), резолвит проект из :projectId
+   и членство пользователя в нём, кладёт req.project / req.membership / req.projectRole.
+   Роуту достаточно указать только requirePerm/requireIssuePerm в preHandler. */
 export function requirePerm(perm: PermId): preHandlerAsyncHookHandler {
   return async (req, reply: FastifyReply) => {
     await requireAuth.call(req.server, req, reply);
     const u = serverUser(req);
-    const project = await currentProject();
-    const membership = await loadProjectMembership(u.id, project.id);
+    const projectId = paramProjectId(req);
+    const project = await projectById(projectId);
+    if (!project) throw notFound("Проект не найден");
+    const membership = await loadProjectMembership(u.id, projectId);
+    req.project = project;
     req.membership = membership;
     req.projectRole = resolveRole(u, membership);
     if (can(u, membership, perm)) return;
-    await audit(u.id, "access.denied", perm, null, { path: req.url, method: req.method, projectId: project.id });
+    await audit(u.id, "access.denied", perm, null, { path: req.url, method: req.method, projectId });
     throw forbidden(denialReason(u, membership, perm));
   };
 }
 
 /* -------- проверка права с контекстом задачи (edit/transition/delete/comment) --------
-   Тоже гарантирует аутентификацию сама (см. комментарий выше у requirePerm).
-   Загружает минимальную задачу в req.issueRef, резолвит членство для проекта
-   ЭТОЙ задачи и проверяет can() с учётом уровня задачи. */
+   Тоже гарантирует аутентификацию сама. Загружает задачу в req.issueRef, сверяет
+   её project_id с :projectId (иначе 404 — защита от /projects/A/issues/<из B>),
+   резолвит членство и проверяет can() с учётом уровня задачи. */
 export function requireIssuePerm(perm: PermId): preHandlerAsyncHookHandler {
   return async (req, reply: FastifyReply) => {
     await requireAuth.call(req.server, req, reply);
     const u = serverUser(req);
+    const projectId = paramProjectId(req);
+    const project = await projectById(projectId);
+    if (!project) throw notFound("Проект не найден");
     const id = (req.params as { id?: string }).id;
     if (!id) throw notFound("Задача не указана");
     const row = await one<{ id: string; project_id: string; assignee_id: string | null; reporter_id: string }>(
       `SELECT id, project_id, assignee_id, reporter_id FROM issues WHERE id = $1`,
       [id],
     );
-    if (!row) throw notFound("Задача не найдена или удалена");
+    if (!row || row.project_id !== projectId) throw notFound("Задача не найдена в этом проекте");
     const issueRef: IssueRef = { id: row.id, assigneeId: row.assignee_id, reporterId: row.reporter_id };
+    req.project = project;
     req.issueRef = issueRef;
-    const membership = await loadProjectMembership(u.id, row.project_id);
+    const membership = await loadProjectMembership(u.id, projectId);
     req.membership = membership;
     req.projectRole = resolveRole(u, membership);
     if (!can(u, membership, perm, issueRef)) {
-      await audit(u.id, "access.denied", perm, issueRef.id, {
-        path: req.url,
-        method: req.method,
-        projectId: row.project_id,
-      });
+      await audit(u.id, "access.denied", perm, issueRef.id, { path: req.url, method: req.method, projectId });
       throw forbidden(denialReason(u, membership, perm, issueRef));
     }
   };

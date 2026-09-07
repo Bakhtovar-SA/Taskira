@@ -15,3 +15,8 @@ server/dist/
 # Локальные дампы БД — не коммитим (содержат хэши паролей)
 backup*.sql
 *.dump
+backups/
+server/scripts/backup.env
+
+# Тесты
+server/coverage/

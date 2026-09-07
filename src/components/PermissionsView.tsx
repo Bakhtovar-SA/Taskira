@@ -1,22 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
-import { PERMISSIONS, ROLE_ORDER, resolveRole, roleHas, roleMeta } from "../permissions";
+import { ApiError, usersApi } from "../api";
+import { PERMISSIONS, ROLE_ORDER, roleHas, roleMeta } from "../permissions";
 import type { AccessRole, ProjectRole } from "../types";
-import { IcCheck, IcEye, IcShield, IcUsers, IcX } from "../icons";
+import { IcCheck, IcEye, IcShield, IcX } from "../icons";
 import { Avatar, RoleBadge, roleBadgeColors } from "../ui";
 
 const PROJECT_ROLES: ProjectRole[] = ["manager", "employee", "viewer"];
 
 export default function PermissionsView() {
-  const { data, me, can, switchUser, setMemberRole, removeMember } = useStore();
+  const { data, me, can, setMemberRole, removeMember } = useStore();
   const meta = roleMeta(me.accessRole);
   const canManage = can("manageAccess");
-
-  /** Эффективная роль пользователя в проекте (или null — не участник и не админ). */
-  const effRole = (userId: string): AccessRole | null => {
-    const u = data.users.find((x) => x.id === userId);
-    return u ? resolveRole(u.globalRole, data.members[userId]) : (data.members[userId] ?? null);
-  };
 
   const memberIds = useMemo(
     () =>
@@ -33,9 +28,28 @@ export default function PermissionsView() {
     [data.users],
   );
 
+  // Полный список пользователей ресурса (для «добавить участника») — только у
+  // админа ресурса; в bootstrap приходят лишь участники проекта.
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; globalRole: string }[]>([]);
+  useEffect(() => {
+    if (!canManage) return;
+    let cancelled = false;
+    usersApi
+      .list()
+      .then((us) => {
+        if (!cancelled) setAllUsers(us.filter((u) => u.isActive).map((u) => ({ id: u.id, name: u.name, globalRole: u.globalRole })));
+      })
+      .catch((e) => {
+        if (!(e instanceof ApiError)) throw e;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canManage]);
+
   const nonMembers = useMemo(
-    () => data.users.filter((u) => u.globalRole !== "admin" && !(u.id in data.members)),
-    [data.users, data.members],
+    () => allUsers.filter((u) => u.globalRole !== "admin" && !(u.id in data.members)),
+    [allUsers, data.members],
   );
 
   const counts = useMemo(() => {
@@ -78,30 +92,6 @@ export default function PermissionsView() {
               </div>
             </div>
             <p className="mt-3 rounded-md bg-canvas/80 p-2.5 text-[11.5px] leading-relaxed text-sub">{meta.desc}</p>
-            <p className="mt-3 flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">
-              <IcUsers size={12} /> Просмотр интерфейса от лица другой роли
-            </p>
-            <div className="mt-2 space-y-1.5">
-              {data.users.filter((u) => u.id !== me.id).map((u) => {
-                const r = effRole(u.id);
-                return (
-                  <button
-                    key={u.id}
-                    onClick={() => switchUser(u.id)}
-                    className="flex w-full items-center gap-2.5 rounded-md border border-linesoft bg-white px-2.5 py-1.5 text-left transition-all hover:border-accent hover:shadow-[0_2px_10px_rgba(11,95,217,0.12)]"
-                  >
-                    <Avatar user={u} size={24} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-semibold text-ink">{u.name}</span>
-                    </span>
-                    {r ? <RoleBadge role={r} size="sm" /> : <span className="text-[10px] text-faint">не в проекте</span>}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-2.5 text-[10.5px] leading-relaxed text-faint">
-              Дев-инструмент (только localhost): подменяет роль в интерфейсе. Запросы к API идут под вашим входом — для настоящей проверки серверных прав входите под нужным пользователем.
-            </p>
           </div>
 
           {/* состав проекта */}
