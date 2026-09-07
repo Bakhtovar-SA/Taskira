@@ -13,7 +13,10 @@ export interface UserRow {
   job_role: string;
   global_role: GlobalRole; // admin | member (миграция 004) — источник прав
   is_active: boolean;
-  password_hash: string;
+  password_hash: string | null; // NULL у LDAP-пользователей (миграция 009)
+  auth_source: "local" | "ldap"; // миграция 009
+  ldap_dn: string | null;
+  email: string | null;
 }
 
 export interface SafeUser {

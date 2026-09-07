@@ -1,6 +1,7 @@
 # LDAP_MIGRATION — аутентификация через LDAP/AD + членство в департаменте
 
-Статус: **решения §3 подтверждены (D1–D8, см. «РЕШЕНО»). Фаза 1 — в работе.**
+Статус: **решения §3 подтверждены (D1–D8). Фазы 1–2 сделаны (живой прогон против
+тестового LDAP пройден), Фазы 3, 5, 6 — впереди.**
 Ветка `feat/ldap-auth`. Порядок: фазы 1 → 2 → 3 → 5 → 6 (Фаза 4 аддитивна, Фаза 7 — вне захода).
 Контекст: пункт 1 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md) («авторизация через LDAP»);
 [SCOPE.md](SCOPE.md) — иерархия доступа и **открытый вопрос**: «Как именно мапить группы
@@ -311,9 +312,35 @@ CREATE UNIQUE INDEX departments_ldap_group_dn_uk
 
 Ни один роут/middleware не тронут. Деплой-безопасно.
 
-### Фаза 2 — LDAP-клиент + аутентификация  *(план)*
+### Фаза 2 — LDAP-клиент + аутентификация  *(сделано)*
 
-- **`ldapts`** в `server/package.json`.
+Реализовано ниже как в плане. Дополнительно: `mkClient` передаёт `tlsOptions` только
+для `ldaps://`/StartTLS (иначе `ldapts` рвёт обычное `ldap://`-соединение TLS-хендшейком);
+`localPasswordCheck(username, pw, onlyBreakGlass)` — в `ldap`-режиме локально пускает
+**только** `config.admin.username` (D2/D4); `provisionFromLdap` не усыновляет строку
+break-glass админа (`409`). `mock-ldap.mjs` (`ldapjs`, devDep) — in-process тестовый
+LDAP на случай отсутствия Docker.
+
+**Живой прогон** (тестовый LDAP + инстанс `AUTH_MODE=ldap` на :8090, dev-БД):
+
+- `POST /login t.manager/testpass123` → `{ token, user }`; JWT payload
+  `{ sub: <локальный uuid>, globalRole: "member", name, iat, exp }`.
+- `t.viewer` → `member`; `t.admin` (не было в БД) → **JIT-создан**, `global_role='admin'`
+  (в группе `cn=taskira-admins`).
+- `users`: `t.manager`/`t.viewer` (были `local`) **усыновлены** — `auth_source='ldap'`,
+  `ldap_dn` заполнен, `id`/`global_role`/`job_role`/`project_members` сохранены.
+- `department_members`: `t.manager` → «Департамент безопаности» (`cn=dept-infosec`),
+  `t.viewer` → «Общий отдел» (`cn=dept-it`), `source='ldap'` — правильные группы.
+- `POST /api/ldap/ping` → `{ authMode:"ldap", url, bind:"service-account", ok:true, baseDn }`;
+  при погашенном LDAP → `{ ok:false, error:"connect ECONNREFUSED …" }`.
+- неверный пароль → `401`.
+- **break-glass**: локальный `admin` входит и когда LDAP работает, и когда LDAP погашен;
+  обычный `t.manager` при погашенном LDAP → `401` (не break-glass).
+- `AUTH_MODE=local`: 35 серверных тестов зелёные, `typecheck` 0 — путь не тронут.
+
+**Файлы:**
+
+- **`ldapts`** + **`ldapjs`** (dev) в `server/package.json`.
 - **`services/ldap.ts`** — `ldapAuthenticate(username, password): Promise<LdapPrincipal | null>`,
   `LdapPrincipal = { dn, login, name, email: string | null, groupDns: string[] }`.
   Сервис-bind → поиск → чтение атрибутов + групп (`memberOf` или обратный поиск) →
