@@ -1,12 +1,12 @@
 /** Хранилище объектов для вложений к задачам (FILES_MIGRATION.md D1).
  *
  *  Абстракция над физическим бэкендом: остальной код (services/attachments,
- *  routes/attachments — Фаза 2) работает только с интерфейсом `Storage` и не
- *  знает, диск это или S3.
+ *  routes/attachments) работает только с интерфейсом `Storage` и не знает,
+ *  диск это или S3.
  *
  *    STORAGE_DRIVER=local (деф.) — LocalDiskStorage: файлы в config.storage.dir.
  *    STORAGE_DRIVER=s3           — S3Storage поверх S3-совместимого API
- *                                  (MinIO / on-prem). Реализация — Фаза 4.
+ *                                  (MinIO / on-prem, @aws-sdk/client-s3).
  */
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, rename, rm, stat, access } from "node:fs/promises";
@@ -15,11 +15,24 @@ import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
 import { dirname, join, sep } from "node:path";
 import type { Readable } from "node:stream";
-import type { Config } from "../config.js";
+import {
+  S3Client,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
+import type { Config, S3Config } from "../config.js";
 
 export interface StoredObject {
-  /** Размер объекта в байтах. content_type хранит строка attachments, не бэкенд. */
+  /** Размер объекта в байтах. */
   size: number;
+  /** S3: `ETag` из `HeadObject`. Для однокусочного PUT — hex-MD5 тела; для
+   *  multipart-загрузки — вида `"<md5>-<число частей>"`. Драйвер `local` — undefined. */
+  etag?: string;
+  /** S3: `Content-Type`, сохранённый при PUT (round-trip метаданных). Драйвер
+   *  `local` — undefined (тип отдаётся из строки `attachments`). */
+  contentType?: string;
 }
 
 export interface Storage {
@@ -98,29 +111,61 @@ class LocalDiskStorage implements Storage {
   }
 }
 
-/** Заглушка до Фазы 4 — S3Storage поверх @aws-sdk/client-s3. */
-class S3StorageStub implements Storage {
-  private fail(): never {
-    throw new Error("S3Storage ещё не реализован (FILES_MIGRATION.md Фаза 4) — используйте STORAGE_DRIVER=local");
+/** S3-совместимое хранилище (MinIO / on-prem). Загрузка идёт через
+ *  `@aws-sdk/lib-storage` `Upload` — сам решает PutObject vs multipart по
+ *  размеру потока (порог `partSize`, деф. 5 MiB). */
+class S3Storage implements Storage {
+  private readonly client: S3Client;
+  private readonly bucket: string;
+
+  constructor(s3: S3Config) {
+    this.bucket = s3.bucket;
+    this.client = new S3Client({
+      endpoint: s3.endpoint,
+      region: s3.region,
+      forcePathStyle: s3.forcePathStyle,
+      credentials: { accessKeyId: s3.accessKey, secretAccessKey: s3.secretKey },
+    });
   }
-  put(): Promise<void> {
-    this.fail();
+
+  async put(key: string, data: Readable, meta: { contentType: string; size: number }): Promise<void> {
+    const up = new Upload({
+      client: this.client,
+      params: { Bucket: this.bucket, Key: key, Body: data, ContentType: meta.contentType },
+    });
+    await up.done();
   }
-  get(): Promise<Readable> {
-    this.fail();
+
+  async get(key: string): Promise<Readable> {
+    const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    if (!res.Body) throw new Error(`s3: пустое тело для ${key}`);
+    return res.Body as unknown as Readable;
   }
-  delete(): Promise<void> {
-    this.fail();
+
+  async delete(key: string): Promise<void> {
+    // DeleteObject в S3 идемпотентен — отсутствующий ключ не ошибка.
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
-  stat(): Promise<StoredObject | null> {
-    this.fail();
+
+  async stat(key: string): Promise<StoredObject | null> {
+    try {
+      const h = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      return { size: h.ContentLength ?? 0, etag: h.ETag, contentType: h.ContentType };
+    } catch (e) {
+      const err = e as { name?: string; $metadata?: { httpStatusCode?: number } };
+      if (err.name === "NotFound" || err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) return null;
+      throw e;
+    }
   }
 }
 
 /** Фабрика: собирает драйвер по config.storage. Для local — гарантирует, что
  *  каталог готов (mkdir + проверка записи). */
 export async function makeStorage(cfg: Config): Promise<Storage> {
-  if (cfg.storage.driver === "s3") return new S3StorageStub();
+  if (cfg.storage.driver === "s3") {
+    if (!cfg.storage.s3) throw new Error("STORAGE_DRIVER=s3, но параметры S3 не заданы");
+    return new S3Storage(cfg.storage.s3);
+  }
   const local = new LocalDiskStorage(cfg.storage.dir);
   await local.ensureReady();
   return local;

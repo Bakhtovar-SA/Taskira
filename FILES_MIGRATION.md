@@ -1,11 +1,12 @@
 # FILES_MIGRATION — вложения к задачам (файлы)
 
-Статус: **решения §3 подтверждены (D1–D6). Фазы 1–3 сделаны (сервер: миграция 010,
-конфиг, абстракция хранилища + локальный драйвер, `@fastify/multipart`, guard по
-magic-байтам, 4 роута, `npm test` 54 зелёных, живой прогон; клиент:
+Статус: **решения §3 подтверждены (D1–D6). Фазы 1–4 сделаны. Сервер: миграция
+010, конфиг, абстракция хранилища + драйверы `local` и `s3` (`@aws-sdk`,
+multipart), `@fastify/multipart`, guard по magic-байтам, 4 роута. Клиент:
 `attachmentsApi`/`apiUpload`/`downloadBlob`, экшены store, `<AttachmentField>` в
-`IssueModal`, вложения в `SoloIssueCard`, `tsc`/`build` 0). Дальше — Фаза 4
-(драйвер S3/MinIO + CI-job + STORAGE_SETUP.md).**
+`IssueModal` + `SoloIssueCard`. `npm test` (local) 54 зелёных; CI-job `storage-s3`
+против настоящего MinIO; `STORAGE_SETUP.md` написан; `tsc`/`build` 0. Осталась
+Фаза 5 (ручной чек-лист в `server/README.md` + `ARCHITECTURE.md`).**
 Ветка `feat/attachments`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 4 — драйвер S3/MinIO; при затыке с инфраструктурой отделяется в follow-up PR,
 т.к. локальный драйвер к тому моменту уже оттестирован). Фаза 6 — вне захода.
@@ -506,36 +507,51 @@ export function makeStorage(cfg: Config): Promise<Storage>;     // local | s3; �
 - **Не сделано (осознанно):** drag&drop файла, индикатор прогресса загрузки,
   вставка скриншота из буфера — Фаза 6.
 
-### Фаза 4 — Драйвер S3/MinIO + верификация против настоящего MinIO
+### Фаза 4 — Драйвер S3/MinIO + верификация против настоящего MinIO  *(сделано)*
 
-- **Зависимость** — `@aws-sdk/client-s3` (S3-совместимый клиент; MinIO, Ceph RGW,
-  любой on-prem S3). Альтернатива `minio` npm-клиент — отклонена: `@aws-sdk`
-  покрывает больше бэкендов и уже стандарт.
-- **`server/src/services/storage.ts`** — `S3Storage`: `put` (multipart upload для
-  больших файлов), `get` (`GetObjectCommand` → `Readable`), `delete`, `stat`
-  (`HeadObjectCommand`). `forcePathStyle` из конфига.
-- **`server/test/access.attachments.test.ts`** — тот же файл гоняется и при
-  `STORAGE_DRIVER=s3` + `STORAGE_S3_*` (иначе — против `local`, как сейчас).
-  `npm run test:storage`.
+`npx tsc --noEmit` 0, `npm test` (local) 54 зелёных + 5 s3-тестов `describe.skip`.
+S3-путь проверяется CI-job `storage-s3` против настоящего MinIO — лог см. в PR.
+
+- **Зависимости** — `@aws-sdk/client-s3` + `@aws-sdk/lib-storage` (`^3`). MinIO,
+  Ceph RGW, AWS — любой S3 API. `minio` npm-клиент отклонён: `@aws-sdk` шире и
+  стандарт. `~9 МБ` в `node_modules` — приемлемо, S3 иначе не сделать.
+- **`server/src/services/storage.ts`** — `S3Storage`: `put` через
+  `@aws-sdk/lib-storage` `Upload` (сам выбирает `PutObject` vs multipart по
+  размеру потока, порог `partSize` 5 MiB), `get` (`GetObjectCommand` → `Readable`;
+  `NoSuchKey` пробрасывается), `delete` (`DeleteObjectCommand`, идемпотентно),
+  `stat` (`HeadObjectCommand` → `{ size, etag, contentType }`; 404/`NotFound`/
+  `NoSuchKey` → `null`). `StoredObject += etag?, contentType?` (S3 round-trip;
+  `local` — undefined). Фабрика `makeStorage` — `S3Storage` при `driver='s3'`.
+- **`server/src/config.ts`** — `S3Config` (экспортируется), `buildStorageConfig`
+  fail-fast на `STORAGE_S3_*` при `driver='s3'` (уже в Фазе 1).
+- **`server/test/storage.s3.test.ts`** *(новый)* — `describe.skip`, пока не задан
+  `STORAGE_DRIVER=s3` + `STORAGE_S3_ENDPOINT`. Работает с `makeStorage()`
+  напрямую (мимо роутов/лимитов). Проверяет **то, чего заглушка/мок не дадут**:
+  - однокусочный `PUT` → `ETag == hex-MD5 тела` (гарантия протокола S3);
+  - объект > 5 MiB → **настоящий multipart-upload** → `ETag` вида `<md5>-<N>`
+    (`N ≥ 2`), и это **не** MD5 всего тела; round-trip `sha256` совпадает;
+  - `Content-Type` переживает round-trip в метаданных объекта;
+  - `GET` отсутствующего ключа → ошибка `NoSuchKey` (не `ENOENT` диска);
+  - `stat` отсутствующего → `null`, `delete` отсутствующего → без ошибки.
+- **`server/package.json`** — `npm run test:storage` =
+  `vitest run test/access.attachments.test.ts test/storage.s3.test.ts`.
+- **`server/docker-compose.storage.yml`** — `minio/minio` + одноразовый
+  `createbucket` (`minio/mc`) со своим retry-loop (надёжнее healthcheck на образе
+  без curl); `docker compose wait createbucket` — точка синхронизации для CI.
 - **`.github/workflows/test.yml`** — новый job `storage-s3`: `postgres:16` +
-  `docker compose -f docker-compose.storage.yml up -d` (MinIO) + создание бакета
-  (`mc`) + `STORAGE_DRIVER=s3` env + `npm run test:storage` + дамп логов MinIO
-  (`if: always()`). Основной job `server` остаётся на `local`.
+  `docker compose -f docker-compose.storage.yml up -d` + `wait createbucket` +
+  `STORAGE_DRIVER=s3` env + `npm run test:storage` + дамп логов MinIO
+  (`if: always()`). Основной job `server` — на `local` (54 зелёных).
 - **`STORAGE_SETUP.md`** *(новый, корень репо)* — по образцу
-  [LDAP_SETUP.md](LDAP_SETUP.md):
-  - таблица всех `STORAGE_*` / `ATTACH_*` с примерами MinIO и «большого» S3;
-  - создание бакета и сервис-ключа с минимальными правами (`s3:GetObject`,
-    `PutObject`, `DeleteObject`, `ListBucket` на один бакет);
-  - политика бакета: **приватный**, без public-read; шифрование на покое
-    (SSE-S3 / SSE-KMS) — рекомендация;
-  - выбор «прокси через API» vs «короткий presigned» (по умолчанию — прокси);
-  - перенос существующих файлов `local → s3` (скрипт-однодневка: читать
-    `attachments` где `storage_driver='local'`, `PutObject`, обновить строку) —
-    описание процедуры, без самого скрипта в MVP;
-  - бэкап бакета (в один ряд с [BACKUP.md](server/BACKUP.md));
-  - траблшутинг: `SignatureDoesNotMatch` (часы/регион), `PathStyle` для MinIO,
-    CORS бакета (если позже presigned-upload), TLS/приватный CA
-    (`NODE_EXTRA_CA_CERTS`).
+  [LDAP_SETUP.md](LDAP_SETUP.md): §1 что делает сервер при `s3`; §2 env-таблица
+  (MinIO **и** «большой» S3); §3 приватный бакет + сервис-ключ с минимальными
+  правами (`Get/Put/Delete/ListBucket` + `AbortMultipartUpload`), SSE, lifecycle
+  на неполные multipart; §4 проверка (curl + CI-job); §5 прокси-стрим vs
+  presigned (по умолчанию прокси); §6 перенос `local → s3` (процедура, без
+  скрипта); §7 бэкап бакета (в ряд с [BACKUP.md](server/BACKUP.md)); §8
+  траблшутинг (`SignatureDoesNotMatch` часы/регион, `forcePathStyle` для MinIO,
+  приватный CA `NODE_EXTRA_CA_CERTS`, `AbortMultipartUpload`, SSE-KMS ⇒ ETag ≠
+  MD5); §9 сводка `local` ≠ `s3`.
 
 ### Фаза 5 — Верификация
 

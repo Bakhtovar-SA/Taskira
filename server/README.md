@@ -407,8 +407,14 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 ## Зависимости
 
 ```
-fastify @fastify/jwt @fastify/cors @fastify/websocket pg zod bcryptjs
+fastify @fastify/jwt @fastify/cors @fastify/websocket @fastify/multipart
+pg zod bcryptjs ldapts
+@aws-sdk/client-s3 @aws-sdk/lib-storage   # только для STORAGE_DRIVER=s3
 ```
+
+`@fastify/multipart` — приём вложений; `@aws-sdk/*` — драйвер S3-хранилища
+(при `STORAGE_DRIVER=local` не используется, но ставится). См.
+[`../FILES_MIGRATION.md`](../FILES_MIGRATION.md), [`../STORAGE_SETUP.md`](../STORAGE_SETUP.md).
 
 ### Чистка корневого package.json (сделать вручную)
 

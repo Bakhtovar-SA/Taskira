@@ -3,17 +3,15 @@
 # и этот compose не нужен — он для проверки S3-пути.
 #
 #   docker compose -f docker-compose.storage.yml up -d
-#   # createbucket поднимется сам после healthcheck minio и заведёт бакет.
-#   # проверить:
-#   docker compose -f docker-compose.storage.yml exec minio \
-#     mc alias set local http://localhost:9000 taskira taskira-minio-dev
+#   docker compose -f docker-compose.storage.yml wait createbucket   # дождаться бакета
+#   docker compose -f docker-compose.storage.yml exec minio mc alias set local http://localhost:9000 taskira taskira-minio-dev
 #   docker compose -f docker-compose.storage.yml exec minio mc ls local/
 #   docker compose -f docker-compose.storage.yml down -v
 #
 # Консоль MinIO: http://localhost:9001  (taskira / taskira-minio-dev)
 # S3 API:        http://localhost:9000
 #
-# Env для сервера (полный набор и реальный on-prem — STORAGE_SETUP.md, Фаза 4):
+# Env для сервера (полный набор и реальный on-prem — STORAGE_SETUP.md):
 #   STORAGE_DRIVER=s3
 #   STORAGE_S3_ENDPOINT=http://localhost:9000
 #   STORAGE_S3_BUCKET=taskira-attachments
@@ -34,28 +32,27 @@ services:
       - "9001:9001"
     volumes:
       - taskira-minio-data:/data
-    healthcheck:
-      # mc бандлится в образе minio/minio; alias создаём на лету из root-кредов.
-      test: ["CMD-SHELL", "mc alias set hc http://localhost:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\" >/dev/null 2>&1 && mc ready hc"]
-      interval: 5s
-      timeout: 5s
-      retries: 40
-      start_period: 10s
 
-  # Одноразовый шаг: завести приватный бакет для вложений.
+  # Одноразовый шаг: дождаться MinIO (свой retry-loop — надёжнее healthcheck на
+  # образе без curl) и завести приватный бакет для вложений.
+  # `docker compose wait createbucket` в CI блокируется до его выхода с кодом 0.
   createbucket:
     image: minio/mc:RELEASE.2024-01-16T16-06-34Z
     container_name: taskira-minio-mc
     depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 taskira taskira-minio-dev &&
-      mc mb --ignore-existing local/taskira-attachments &&
-      mc anonymous set none local/taskira-attachments &&
-      echo 'bucket taskira-attachments готов (приватный)'
-      "
+      - minio
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        until mc alias set local http://minio:9000 taskira taskira-minio-dev >/dev/null 2>&1; do
+          echo 'ждём MinIO...'; sleep 1;
+        done;
+        mc mb --ignore-existing local/taskira-attachments;
+        mc anonymous set none local/taskira-attachments;
+        mc ls local/;
+        echo 'бакет taskira-attachments готов (приватный)';
 
 volumes:
   taskira-minio-data:
