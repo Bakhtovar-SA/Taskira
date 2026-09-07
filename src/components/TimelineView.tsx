@@ -21,7 +21,10 @@ export default function TimelineView() {
     });
   }, []);
 
-  const epics = data.issues.filter((i) => i.typeId === "epic");
+  // Тип "epic" упразднён (миграция 002): «эпик» — задача, на которую ссылаются
+  // другие через epicId.
+  const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
+  const epics = data.issues.filter((i) => epicIds.has(i.id));
   const children = (epicId: string) => data.issues.filter((i) => i.epicId === epicId);
   const dayOfWeek = (new Date().getDay() + 6) % 7;
   const todayPct = ((0 + (dayOfWeek + 0.5) / 7) / WEEKS) * 100;
@@ -36,7 +39,7 @@ export default function TimelineView() {
 
         {epics.length === 0 ? (
           <div className="mt-6">
-            <Empty icon={<IcTimeline size={24} />} title="Эпиков пока нет" sub="Создайте задачу типа «Эпик», и она появится на таймлайне" />
+            <Empty icon={<IcTimeline size={24} />} title="Эпиков пока нет" sub="Укажите родительский эпик в карточке задачи — родитель появится на таймлайне" />
           </div>
         ) : (
           <div className="anim-fadeup mt-4 overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]" style={{ animationDelay: "60ms" }}>

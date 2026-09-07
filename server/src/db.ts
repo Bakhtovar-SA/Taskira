@@ -6,6 +6,13 @@ import pg from "pg";
 
 const { Pool } = pg;
 
+// PG-тип `date` (OID 1082) — отдаём как есть, строкой "ГГГГ-ММ-ДД".
+// Без этого node-postgres парсит его в JS Date → JSON.stringify даёт полный
+// ISO-таймстемп, и клиентский `new Date(iso + "T00:00:00")` ломается («Invalid Date»
+// в шапке спринта, taskira-review §1.2). Типы в коде (`due_date: string | null`,
+// `start_date: string | null`) с самого начала рассчитаны на строку.
+pg.types.setTypeParser(1082, (v) => v);
+
 let pool: pg.Pool | null = null;
 
 export function initPool(databaseUrl: string): pg.Pool {

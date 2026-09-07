@@ -131,6 +131,50 @@ describe("резолв «текущего пользователя» при см
   });
 });
 
+describe("сериализация DTO (taskira-review §1.1, §1.2)", () => {
+  test("workflow: переходы в camelCase { from, to } с реальными id статусов", async () => {
+    const adm = await login(app, "admin");
+    const wf = JSON.parse((await g(`/api/projects/${fx.projects.p1}/workflow`, adm)).body);
+    expect(wf.transitions.length).toBe(8);
+    const t0 = wf.transitions[0];
+    expect(t0).toHaveProperty("from");
+    expect(t0).toHaveProperty("to");
+    expect(t0).not.toHaveProperty("from_status_id");
+    // ребро todo → inprogress из дефолтного графа — по настоящим uuid статусов
+    expect(wf.transitions).toContainEqual(
+      expect.objectContaining({ from: fx.p1status.todo, to: fx.p1status.inprogress }),
+    );
+  });
+
+  test("workflow: POST /transitions возвращает { id, from, to }", async () => {
+    const adm = await login(app, "admin");
+    // сначала удалим todo→inprogress, потом создадим заново — получим свежий row
+    const wf = JSON.parse((await g(`/api/projects/${fx.projects.p1}/workflow`, adm)).body);
+    const edge = wf.transitions.find(
+      (t: { from: string; to: string }) => t.from === fx.p1status.todo && t.to === fx.p1status.inprogress,
+    );
+    expect((await del(`/api/projects/${fx.projects.p1}/workflow/transitions/${edge.id}`, adm)).statusCode).toBe(204);
+    const created = JSON.parse(
+      (await post(`/api/projects/${fx.projects.p1}/workflow/transitions`, adm, {
+        from: fx.p1status.todo,
+        to: fx.p1status.inprogress,
+      })).body,
+    );
+    expect(created).toMatchObject({ from: fx.p1status.todo, to: fx.p1status.inprogress });
+    expect(created).not.toHaveProperty("from_status_id");
+  });
+
+  test("date-поля приходят строкой ГГГГ-ММ-ДД, не ISO-таймстемпом", async () => {
+    const adm = await login(app, "admin");
+    const created = JSON.parse(
+      (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ dueDate: "2026-03-15" }))).body,
+    );
+    expect(created.dueDate).toBe("2026-03-15");
+    const fetched = JSON.parse((await g(`/api/projects/${fx.projects.p1}/issues/${created.id}`, adm)).body);
+    expect(fetched.dueDate).toBe("2026-03-15");
+  });
+});
+
 describe("состав проекта — global admin правит любой проект (AdminView / Feature A)", () => {
   // COLLAB_MIGRATION.md D8: добавление людей в проект из экрана отдела опирается
   // на то, что global admin может PUT/DELETE участника ЛЮБОГО проекта, не будучи

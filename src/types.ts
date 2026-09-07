@@ -25,6 +25,9 @@ export interface User {
 
 export interface Status {
   id: string;
+  /** Стабильный ключ статуса (todo|inprogress|review|done) — не uuid.
+   *  Нужен визуализации в WorkflowView (POS/PATHS по sid). */
+  sid: string;
   name: string;
   category: StatusCategory;
 }

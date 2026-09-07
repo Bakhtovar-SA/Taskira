@@ -137,7 +137,10 @@ export default function IssueModal() {
   const assignee = data.users.find((u) => u.id === issue.assigneeId);
   const reporter = data.users.find((u) => u.id === issue.reporterId);
   const status = data.workflow.statuses.find((s) => s.id === issue.statusId)!;
-  const epics = data.issues.filter((i) => i.typeId === "epic");
+  // Тип "epic" упразднён (миграция 002): «эпик» — задача, на которую ссылаются
+  // другие через epicId.
+  const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
+  const epics = data.issues.filter((i) => epicIds.has(i.id));
 
   /* права доступа: что можно делать с этой задачей */
   const editOk = can("edit", issue);
@@ -442,7 +445,7 @@ export default function IssueModal() {
             )}
           </Field>
 
-          {issue.typeId !== "epic" && (
+          {!epicIds.has(issue.id) && (
             <Field label="Эпик">
               {editOk ? (
               <Dropdown

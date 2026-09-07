@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AccessRole,
   Collaboration,
@@ -360,7 +360,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           endDate: s.endDate ?? "",
         })),
         workflow: {
-          statuses: boot.workflow.statuses.map((s) => ({ id: s.id, name: s.name, category: s.category })),
+          statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
           transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
         },
         seq: issuesRes.total + 1,
@@ -518,6 +518,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     [handleApiError],
   );
+
+  /** Прямая ссылка #/issue/<projectId>/<issueId> в обычном интерфейсе: если задача
+   *  в видимом проекте — открыть её (при необходимости переключив проект). Ссылки
+   *  на приглашённые задачи ведёт CollaboratingView/SoloView (taskira-review §1.5). */
+  useEffect(() => {
+    if (bootStatus !== "ready") return;
+    const h = readIssueHash();
+    if (!h) return;
+    const cur = dataRef.current;
+    if (cur.collaborations.some((c) => c.issueId === h.issueId)) return; // раздел «Мои подключения»
+    const clearHash = () => history.replaceState(null, "", location.pathname + location.search);
+    if (h.projectId === cur.currentProjectId) {
+      if (cur.issues.some((i) => i.id === h.issueId)) openIssue(h.issueId);
+      clearHash();
+    } else if (cur.projects.some((p) => p.id === h.projectId)) {
+      switchProject(h.projectId); // после переключения эффект повторится и откроет задачу
+    } else {
+      clearHash(); // проект недоступен — молча снимаем хэш
+    }
+  }, [bootStatus, openIssue, switchProject]);
 
   const createIssue = useCallback(
     (input: CreateInput) => {
@@ -813,7 +833,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setData((prev) => ({
           ...prev,
           workflow: {
-            statuses: boot.workflow.statuses.map((s) => ({ id: s.id, name: s.name, category: s.category })),
+            statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
             transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
           },
         }));

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { fmtDate, useStore } from "../store";
 import type { Issue, Sprint } from "../types";
 import { IcBolt, IcCalendar, IcChevD, IcDots, IcFlag, IcInbox, IcLock, IcTrash, PriorityIcon, TypeIcon } from "../icons";
@@ -160,7 +160,7 @@ export default function Backlog() {
   const canManage = can("manageSprints");
   const active = data.sprints.find((s) => s.status === "active");
   const future = data.sprints.find((s) => s.status === "future");
-  const issues = useMemo(() => data.issues.filter((i) => i.typeId !== "epic"), [data.issues]);
+  const issues = data.issues; // тип "epic" упразднён миграцией 002 — фильтровать нечего
 
   return (
     <div className="h-full overflow-y-auto">

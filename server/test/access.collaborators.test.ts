@@ -160,6 +160,18 @@ describe("одиночный режим — /issues/collaborating + participants
     expect(ids).toContain(fx.users.outsider); // приглашённый
     expect(detail.participants[0]).toHaveProperty("initials");
   });
+
+  test("collaborating не дублирует задачу, которую видно через членство/admin (C1)", async () => {
+    const adm = await login(app, "admin");
+    // emp1 — участник P1, при этом его же зовём collaborator'ом той же задачи
+    expect((await put(collabUrl(iss(), fx.users.emp1), adm, {})).statusCode).toBe(200);
+    const emp = await login(app, "emp1");
+    expect(JSON.parse((await g("/api/issues/collaborating", emp)).body)).toEqual([]);
+
+    // и сам admin (видит всё обычным путём) — тоже не через «Мои подключения»
+    expect((await put(collabUrl(iss(), fx.users.admin), adm, {})).statusCode).toBe(200);
+    expect(JSON.parse((await g("/api/issues/collaborating", adm)).body)).toEqual([]);
+  });
 });
 
 describe("GET /api/users/pickable (D7)", () => {

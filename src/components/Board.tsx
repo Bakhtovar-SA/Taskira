@@ -118,7 +118,7 @@ export default function Board() {
   const doneStatusId = data.workflow.statuses.find((s) => s.category === "done")?.id;
 
   const pool = useMemo(
-    () => data.issues.filter((i) => i.typeId !== "epic" && (activeSprint ? i.sprintId === activeSprint.id : true)),
+    () => data.issues.filter((i) => (activeSprint ? i.sprintId === activeSprint.id : true)),
     [data.issues, activeSprint],
   );
 
