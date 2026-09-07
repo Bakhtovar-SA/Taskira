@@ -1,8 +1,8 @@
 # COLLAB_MIGRATION — участники задачи (issue collaborators) + управление составом из AdminView
 
 Статус: **решения §3 подтверждены (D1–D8, см. «РЕШЕНО»). Фаза 4 (Feature A) — влита в
-`main` (PR #12). Feature B: Фазы 1–3 — сделаны (ветка `feat/issue-collaborators`,
-29 серверных тестов); Фазы 6 (одиночный просмотр) и 5 (верификация) — не начаты.**
+`main` (PR #12). Feature B: Фазы 1–3 и 6 — сделаны (ветка `feat/issue-collaborators`,
+31 серверный тест); Фаза 5 (верификация + чек-лист) — осталась.**
 Порядок: Feature A (Фаза 4) — отдельным PR первым; затем Feature B (Фазы 1 → 2 → 3 → 6 → 5) одной веткой.
 Контекст: [SCOPE.md](SCOPE.md) — кросс-департаментные проекты и «участие нескольких отделов»;
 [ARCHITECTURE.md](ARCHITECTURE.md) — модель `Issue`. Предыдущие миграции —
@@ -336,27 +336,35 @@ CREATE INDEX idx_issue_collaborators_user ON issue_collaborators (user_id);
   прочие мутации скрыты; пользователь без collaborator-строк и без проектов →
   пустой экран «нет доступных задач», не ошибка.
 
-### Фаза 6 — Клиент: одиночный просмотр задачи для внешнего collaborator  *(план, в этом заходе — D4)*
+### Фаза 6 — Клиент: одиночный просмотр задачи для внешнего collaborator  *(сделано)*
 
-- **`server`**:
-  - `GET /api/issues/collaborating` — задачи, где текущий пользователь collaborator
-    (кросс-проектно): `[{ issueId, projectId, key, title, statusId, projectName }]`,
-    `preHandler: requireAuth` (без проектного контекста).
-  - `getIssueDto` — поле `participants: [{ id, name, initials, color }]` (reporter +
-    assignee + авторы комментариев + collaborators) — чтобы карточка рендерила имена
-    без bootstrap проекта.
-- **`src/api/index.ts`** — `issuesApi.collaborating()`; `issuesApi.get` уже
-  issue-scoped (D5).
-- **`src/store.tsx`** — режим «одиночная задача»: если `bootstrap()` не смог
-  открыть ни одного проекта (нет видимых) ИЛИ пользователь пришёл по прямой ссылке
-  `#/issue/<projectId>/<id>` — грузим `getIssueDto` + `/comments` + `collaborating`
-  в урезанный `Data` (без `workflow`/`sprints`/`board`), `bootStatus = "ready"`.
-- **`src/App.tsx` / `IssueModal` / новый `SoloIssueView`** — карточка задачи во весь
-  экран: заголовок, поля (read-only), тред комментариев + форма (если
-  `req.isCollaborator` → `comment` разрешён), список «Мои подключения» для навигации
-  между такими задачами. Без сайдбара проекта, доски, переключателя.
-- **`Sidebar` / `Topbar`** — прячутся или сводятся к «Мои подключения», если у
-  пользователя нет ни одного видимого проекта.
+- **`server/src/routes/collaborating.ts`** *(новый)* — `GET /api/issues/collaborating`
+  (`requireAuth`, project-less, зарегистрирован на уровне `/api`): задачи, где
+  пользователь — collaborator, кросс-проектно; `{ issueId, projectId, key, title,
+  statusId, statusName, statusCategory, projectKey, projectName }`.
+- **`server/src/services/issues.ts`** — `getIssueDto` доклеивает
+  `participants: ParticipantDto[]` (reporter ∪ assignee ∪ авторы комментариев ∪
+  приглашённые) — карточка рендерит имена без bootstrap проекта.
+- **`src/api/index.ts`** — `issuesApi.collaborating()`; типы `CollaboratingItem`,
+  `ServerParticipant`; `ServerIssue.participants?`.
+- **`src/store.tsx`** — `BootStatus += "solo"`, состояние `SoloState`
+  (`userId/userName/items/openTarget`). В `bootstrap()`: если `projectsApi.list()`
+  пуст, но `issuesApi.collaborating()` непуст → `setSolo(...)` + `bootStatus="solo"`.
+  Прямая ссылка `#/issue/<projectId>/<issueId>` (обе uuid) — `readIssueHash()`, если
+  задача есть в списке — предвыбор. `logout` чистит `solo`.
+- **`src/components/SoloView.tsx`** *(новый)* — урезанная оболочка: слева «Мои
+  подключения» (ключ · проект · заголовок · статус), справа `<SoloIssueCard>` —
+  read-only поля (тип/ключ/приоритет/исполнитель/автор/метки/описание/приглашённые)
+  + тред комментариев + форма (Ctrl+Enter). Сам грузит `issuesApi.get` +
+  `commentsApi.list`, имена берёт из `participants`. Без сайдбара проекта, доски,
+  переключателя. `App.tsx`: `bootStatus === "solo" → <SoloView>`.
+- **`src/components/IssueModal.tsx`** — `copyLink` теперь даёт
+  `#/issue/<projectId>/<issueId>` (uuid-форма, её понимает `SoloView`).
+- **Тесты** — `access.collaborators.test.ts` +2: `/issues/collaborating` отдаёт
+  только свои подключения с данными проекта; `getIssueDto.participants` содержит
+  автора и приглашённого. **Всего 31 тест зелёный.**
+- Проверка: `typecheck` (сервер 0; клиент — 10 пред-существующих, новых нет),
+  `npm run build` — успешно. **Браузерная проверка не делалась.**
 
 **Отложено за пределы захода (отдельные follow-ups):**
 

@@ -126,6 +126,42 @@ describe("управление приглашёнными — manager + admin (D
   });
 });
 
+describe("одиночный режим — /issues/collaborating + participants (Фаза 6)", () => {
+  test("GET /api/issues/collaborating — только свои подключения, с данными проекта", async () => {
+    const adm = await login(app, "admin");
+    const out = await login(app, "outsider");
+    const mg2 = await login(app, "mgr2");
+
+    expect(JSON.parse((await g("/api/issues/collaborating", out)).body)).toEqual([]);
+
+    expect((await put(collabUrl(), adm, {})).statusCode).toBe(200);
+
+    const mine = JSON.parse((await g("/api/issues/collaborating", out)).body);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({
+      issueId: iss(),
+      projectId: p1(),
+      projectKey: "CORP",
+      key: "CORP-1",
+    });
+    expect(mine[0].statusName).toBeTruthy();
+
+    // чужие подключения не видны
+    expect(JSON.parse((await g("/api/issues/collaborating", mg2)).body)).toEqual([]);
+  });
+
+  test("getIssueDto.participants содержит автора задачи и приглашённого", async () => {
+    const adm = await login(app, "admin");
+    expect((await put(collabUrl(), adm, {})).statusCode).toBe(200);
+
+    const detail = JSON.parse((await g(`/api/projects/${p1()}/issues/${iss()}`, adm)).body);
+    const ids = detail.participants.map((p: { id: string }) => p.id);
+    expect(ids).toContain(fx.users.emp1); // reporter+assignee задачи в фикстуре
+    expect(ids).toContain(fx.users.outsider); // приглашённый
+    expect(detail.participants[0]).toHaveProperty("initials");
+  });
+});
+
 describe("GET /api/users/pickable (D7)", () => {
   test("любой аутентифицированный; только активные; без globalRole/username", async () => {
     const viw = await login(app, "viw1");

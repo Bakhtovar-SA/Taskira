@@ -123,6 +123,23 @@ export type ServerCollaborator = {
   addedAt: string;
 };
 
+/** Мини-профиль участника (reporter/assignee/автор коммента/приглашённый) —
+ *  для отрисовки карточки без bootstrap проекта. Детальный ответ GET /issues/:id. */
+export type ServerParticipant = { id: string; name: string; initials: string; color: string; jobRole: string };
+
+/** Элемент «Моих подключений» (GET /api/issues/collaborating). */
+export type CollaboratingItem = {
+  issueId: string;
+  projectId: string;
+  key: string;
+  title: string;
+  statusId: string;
+  statusName: string;
+  statusCategory: string;
+  projectKey: string;
+  projectName: string;
+};
+
 export type ServerIssue = {
   id: string;
   projectId: string;
@@ -146,6 +163,7 @@ export type ServerIssue = {
   rank: number;
   /** Только в детальном ответе GET /issues/:id. */
   collaborators?: ServerCollaborator[];
+  participants?: ServerParticipant[];
   createdAt: string;
   updatedAt: string;
 };
@@ -269,6 +287,8 @@ export const issuesApi = {
   list: (projectId: string, query?: Record<string, string | number | undefined>) =>
     api<{ items: ServerIssue[]; total: number }>(`${P(projectId)}/issues`, { query }),
   get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
+  /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
+  collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),
   create: (projectId: string, body: Record<string, unknown>) =>
     api<ServerIssue>(`${P(projectId)}/issues`, { method: "POST", body }),
   patch: (projectId: string, id: string, body: Record<string, unknown>) =>

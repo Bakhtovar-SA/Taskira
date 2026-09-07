@@ -28,6 +28,7 @@ import {
   membersApi,
   projectsApi,
   sprintsApi,
+  type CollaboratingItem,
   type ServerIssue,
   type SafeUser,
   workflowApi,
@@ -54,7 +55,18 @@ export const relTime = (ts: number) => {
 export const fmtDate = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 
-export type BootStatus = "idle" | "loading" | "ready" | "unauthenticated" | "error";
+export type BootStatus = "idle" | "loading" | "ready" | "unauthenticated" | "error" | "solo";
+
+/** Режим одиночного просмотра: пользователь без единого видимого проекта, но
+ *  приглашённый к каким-то задачам (issue collaborators). Урезанная оболочка —
+ *  только «Мои подключения» + карточка задачи. См. COLLAB_MIGRATION.md Фаза 6. */
+export interface SoloState {
+  userId: string;
+  userName: string;
+  items: CollaboratingItem[];
+  /** Задача из прямой ссылки #/issue/<projectId>/<issueId>, если была. */
+  openTarget: { projectId: string; issueId: string } | null;
+}
 
 export interface UIState {
   view: ViewId;
@@ -90,6 +102,17 @@ const writeLastProject = (id: string): void => {
     localStorage.setItem(PROJECT_KEY, id);
   } catch {
     /* noop */
+  }
+};
+
+/** Прямая ссылка на задачу: #/issue/<projectId>/<issueId> (обе — uuid). */
+const HASH_ISSUE_RE = /^#\/issue\/([0-9a-fA-F-]{36})\/([0-9a-fA-F-]{36})$/;
+const readIssueHash = (): { projectId: string; issueId: string } | null => {
+  try {
+    const m = location.hash.match(HASH_ISSUE_RE);
+    return m ? { projectId: m[1], issueId: m[2] } : null;
+  } catch {
+    return null;
   }
 };
 
@@ -181,6 +204,8 @@ interface Api {
   ui: UIState;
   toasts: Toast[];
   bootStatus: BootStatus;
+  /** Заполнено только при bootStatus === "solo" (одиночный просмотр приглашённого). */
+  solo: SoloState | null;
   can: (perm: PermId, issue?: Issue) => boolean;
   bootstrap: () => Promise<void>;
   switchProject: (projectId: string) => void;
@@ -225,6 +250,7 @@ let toastSeq = 1;
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<Data>(emptyData);
   const [bootStatus, setBootStatus] = useState<BootStatus>("idle");
+  const [solo, setSolo] = useState<SoloState | null>(null);
   const [ui, setUi] = useState<UIState>({
     view: "board",
     selectedIssueId: null,
@@ -355,6 +381,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         isShared: p.isShared,
       }));
       if (projects.length === 0) {
+        // Ни одного видимого проекта, но, возможно, приглашён к отдельным задачам
+        // (issue collaborators) — тогда одиночный режим (COLLAB_MIGRATION.md Фаза 6).
+        const collabs = await issuesApi.collaborating().catch(() => [] as CollaboratingItem[]);
+        if (collabs.length > 0) {
+          const hash = readIssueHash();
+          const openTarget = hash && collabs.some((c) => c.issueId === hash.issueId) ? hash : null;
+          setSolo({ userId: user.id, userName: user.name, items: collabs, openTarget });
+          setBootStatus("solo");
+          return;
+        }
         // users: [me] — иначе me-memo не найдёт currentUserId и свалится на
         // синтетического 'member'/'viewer' (глоб. admin потерял бы доступ к
         // AdminView, откуда только и можно создать первый проект).
@@ -412,6 +448,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     clearToken();
     setData(emptyData());
+    setSolo(null);
     setUi({ view: "board", selectedIssueId: null, createOpen: false, lastEvent: null });
     setBootStatus("unauthenticated");
   }, []);
@@ -1023,6 +1060,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     ui,
     toasts,
     bootStatus,
+    solo,
     can: canFn,
     bootstrap,
     switchProject,

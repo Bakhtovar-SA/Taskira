@@ -165,7 +165,8 @@ export default function IssueModal() {
   };
 
   const copyLink = async () => {
-    const url = `${location.origin}/#/issue/${issue.key}`;
+    // uuid-форма — её понимает одиночный режим (SoloView) для приглашённых.
+    const url = `${location.origin}/#/issue/${data.currentProjectId}/${issue.id}`;
     try {
       await navigator.clipboard.writeText(url);
       toast("success", `Ссылка на ${issue.key} скопирована`);
