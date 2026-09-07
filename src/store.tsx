@@ -789,24 +789,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
+  /** Пересобрать состав + профили ОТКРЫТОГО проекта из bootstrap. Оптимистичного
+   *  патча data.members мало: только что добавленный участник отсутствует в
+   *  data.users (bootstrap-состав = «участники ∪ глоб. админы»), из-за чего в
+   *  PermissionsView он рендерится сырым UUID, а в пикере исполнителя его нет. */
+  const syncCurrentMembers = useCallback(async (projectId: string) => {
+    const boot = await projectsApi.get(projectId);
+    const members: Record<string, ProjectRole> = {};
+    for (const m of boot.members) members[m.userId] = m.role;
+    setData((prev) =>
+      prev.currentProjectId === projectId
+        ? { ...prev, members, users: boot.users.map((u) => mapUser(u, members)) }
+        : prev,
+    );
+  }, []);
+
   /** Изменить/добавить участника ЛЮБОГО проекта (не только текущего) — из AdminView.
    *  Сервер разрешает это глобальному admin для любого проекта. Если правится
-   *  текущий проект — патчим data.members, чтобы me/PermissionsView не отстали. */
+   *  открытый проект — ресинк data.members + data.users, чтобы me/PermissionsView/
+   *  пикер исполнителя не отстали. */
   const setProjectMember = useCallback(
     async (projectId: string, userId: string, role: ProjectRole): Promise<void> => {
       if (!requirePerm("manageAccess")) return;
       try {
-        const res = await membersApi.set(projectId, userId, role);
-        if (projectId === dataRef.current.currentProjectId) {
-          setData((prev) => ({ ...prev, members: { ...prev.members, [res.userId]: res.role } }));
-        }
+        await membersApi.set(projectId, userId, role);
+        if (projectId === dataRef.current.currentProjectId) await syncCurrentMembers(projectId);
         toast("success", "Роль участника обновлена");
       } catch (err) {
         handleApiError(err, "Не удалось изменить участника проекта");
         throw err;
       }
     },
-    [requirePerm, toast, handleApiError],
+    [requirePerm, toast, handleApiError, syncCurrentMembers],
   );
 
   const removeProjectMember = useCallback(
@@ -814,20 +828,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!requirePerm("manageAccess")) return;
       try {
         await membersApi.remove(projectId, userId);
-        if (projectId === dataRef.current.currentProjectId) {
-          setData((prev) => {
-            const members = { ...prev.members };
-            delete members[userId];
-            return { ...prev, members };
-          });
-        }
+        if (projectId === dataRef.current.currentProjectId) await syncCurrentMembers(projectId);
         toast("info", "Участник удалён из проекта");
       } catch (err) {
         handleApiError(err, "Не удалось удалить участника проекта");
         throw err;
       }
     },
-    [requirePerm, toast, handleApiError],
+    [requirePerm, toast, handleApiError, syncCurrentMembers],
   );
 
   /* -------- админ: департаменты и проекты (manageAccess = глобальный admin) -------- */

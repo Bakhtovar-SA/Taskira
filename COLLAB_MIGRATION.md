@@ -262,8 +262,10 @@ CREATE INDEX idx_issue_collaborators_user ON issue_collaborators (user_id);
 - **`src/store.tsx`** — `setProjectMember(projectId, userId, role)` /
   `removeProjectMember(projectId, userId)` (`Promise<void>`, гейт
   `requirePerm("manageAccess")`, `handleApiError` + rethrow). Если
-  `projectId === currentProjectId` — патчат `data.members` (и `me` пересчитывается
-  сам), иначе `data` не трогают.
+  `projectId === currentProjectId` — `syncCurrentMembers()`: ресинк `data.members`
+  **и** `data.users` из свежего bootstrap (оптимистичного патча только `data.members`
+  мало — новый участник иначе отсутствует в `data.users`: сырой UUID в
+  `PermissionsView`, нет в пикере исполнителя — правка по ревью PR #12).
 - **`src/components/AdminView.tsx`** — на каждый проект кнопка «Состав» (chevron)
   разворачивает `<ProjectMembers>`: ленивый `projectsApi.get(projectId)` при
   раскрытии (без нового эндпоинта), участники с дропдаунами ролей и «Убрать»,
