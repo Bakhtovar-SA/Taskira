@@ -1,2 +1,4 @@
 # Shell-скрипты всегда с LF — иначе не запустятся на Linux-сервере.
 *.sh text eol=lf
+# LDIF монтируется в Linux-контейнер OpenLDAP; CR в значениях ломает парсер.
+*.ldif text eol=lf
