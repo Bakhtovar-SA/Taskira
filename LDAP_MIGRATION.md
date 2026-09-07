@@ -1,7 +1,7 @@
 # LDAP_MIGRATION — аутентификация через LDAP/AD + членство в департаменте
 
-Статус: **план, код не начат.** Требует подтверждения решений §3 (D1–D8).
-Порядок: одна ветка `feat/ldap-auth`, фазы 1 → 2 → 3 → 5 → 6 (Фаза 4 аддитивна, Фаза 7 — вне захода).
+Статус: **решения §3 подтверждены (D1–D8, см. «РЕШЕНО»). Фаза 1 — в работе.**
+Ветка `feat/ldap-auth`. Порядок: фазы 1 → 2 → 3 → 5 → 6 (Фаза 4 аддитивна, Фаза 7 — вне захода).
 Контекст: пункт 1 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md) («авторизация через LDAP»);
 [SCOPE.md](SCOPE.md) — иерархия доступа и **открытый вопрос**: «Как именно мапить группы
 LDAP/AD на департаменты (по OU, по группе безопасности?)». Колонка `departments.ldap_group_dn`
@@ -56,7 +56,22 @@ LDAP/AD на департаменты (по OU, по группе безопас
 
 ---
 
-## 3. Ключевые решения — ПРЕДЛОЖЕНО (нужно подтверждение)
+## 3. Ключевые решения (РЕШЕНО)
+
+Подтверждено целиком, как предложено:
+
+| # | Решение |
+|---|---|
+| **D1** (Q1) | Bind: сервис-аккаунт + поиск + re-bind (основной); прямой bind по `LDAP_USER_DN_TEMPLATE` — fallback без сервис-аккаунта. |
+| **D2** (Q2) | Env `AUTH_MODE` = `local` (деф.) \| `ldap`. В `ldap` — один break-glass локальный admin (`auth_source='local'`, вход по паролю при недоступном LDAP); остальные — только LDAP. |
+| **D3** (Q3) | Sync членства — JIT на каждом успешном LDAP-логине (`global_role` из `LDAP_ADMIN_GROUP_DN` + `department_members` по `ldap_group_dn`) + ручной `POST /api/ldap/resync`. Фоновый воркер — Фаза 7. |
+| **D4** (Q4) | Миграция добавляет `users.auth_source`/`ldap_dn`/`email`, `password_hash` → nullable + CHECK. В `ldap`-режиме первый LDAP-логин «усыновляет» локальную строку по `username == <логин-атрибут>` (сохраняет `id`, `global_role`, `project_members`, авторство). `local`-режим — без изменений. |
+| **D5** (SCOPE — открытый вопрос) | Маппинг групп на департаменты — явный, через `departments.ldap_group_dn` (одна группа на департамент, MVP), задаётся админом в AdminView. **Не** «по OU». Глобальный `admin` — из отдельной env-группы `LDAP_ADMIN_GROUP_DN`. `UNIQUE` (partial, регистронезависимо) на `ldap_group_dn` вводится сейчас. |
+| **D6** | Библиотека — `ldapts`. Отклонены `ldapjs` (callback), `passport-ldapauth` (Passport), `activedirectory2` (только AD). |
+| **D7** | Тестовый LDAP — `osixia/openldap` в Docker + `bootstrap.ldif` (`dc=taskira,dc=test`, `ou=people` `inetOrgPerson`, `ou=groups` `groupOfNames`; членство — обратным поиском). Compose-сервис + CI. |
+| **D8** | **Вариант A.** Членство в департаменте проекта **и** `projects.is_shared` дают **неявную эффективную роль `viewer`** (browse без мутаций) на проектах этого департамента; явная `project_members.role` всегда перекрывает и может давать больше. Закрывает временное правило [DEPT_MIGRATION.md §3.5](DEPT_MIGRATION.md), реализует SCOPE «проект по умолчанию виден участникам своего департамента». |
+
+Ниже — обоснования и отклонённые альтернативы по каждому пункту.
 
 ### D1 (Q1). Bind-стратегия — сервис-аккаунт + поиск + re-bind (основная), прямой bind (fallback)
 
@@ -206,25 +221,34 @@ member: uid=t.viewer,ou=people,dc=taskira,dc=test
 (`(&(objectClass=groupOfNames)(member={userDN}))`) — оверлей `memberof` в osixia по
 умолчанию не включён. Для AD — `LDAP_GROUP_MEMBERSHIP=memberOf` (операционный атрибут).
 
-### D8 (новое — нужно решение). Членство в департаменте → неявная роль `viewer`
+### D8. Членство в департаменте → неявная роль `viewer` — вариант A (подтверждён)
 
-**Рекомендация.** Членство в департаменте проекта (`department_members`) **и** флаг
-`projects.is_shared` дают **неявную эффективную роль `viewer`** на не-shared проектах
-этого департамента: `browse` есть, мутаций нет. Явная строка `project_members` всегда
-перекрывает. Это закрывает временное правило [DEPT §3.5](DEPT_MIGRATION.md) и реализует
-SCOPE «проект по умолчанию виден участникам своего департамента».
+**Решение.** Членство в департаменте проекта (`department_members`) **и** флаг
+`projects.is_shared` дают **неявную эффективную роль `viewer`** на проектах этого
+департамента: `browse` есть, мутаций нет. Явная строка `project_members` всегда
+перекрывает и может давать больше (`employee`/`manager`). Это закрывает временное
+правило [DEPT §3.5](DEPT_MIGRATION.md) и реализует SCOPE «проект по умолчанию виден
+участникам своего департамента».
 
-**Почему нужно подтверждение.** Слегка расширяет круг тех, кто может открыть проект
-(сейчас `is_shared` даёт только видимость в списке, но не bootstrap). Альтернатива —
-оставить `is_shared` как есть (list-only) и давать неявный `viewer` **только** членам
-департамента; тогда доступ к shared-проектам без явной роли остаётся battle-tested
-COLLAB-поведением. Скажи, какой вариант.
+**Следствие.** `is_shared` теперь даёт не только видимость в списке, но и bootstrap
+(как `viewer`) — раньше не-участник shared-проекта получал `403` на
+`GET /api/projects/:id`. Реализация: `middleware` при отсутствии явного
+`project_members` и не-admin проверяет `department_members` **или** `req.project.isShared`
+→ ставит `req.projectRole = 'viewer'`, `req.impliedViewer = true`; `can()` пускает
+только `browse`.
+
+**Отклонено.** Оставить `is_shared` list-only и давать неявный `viewer` лишь членам
+департамента — менее консистентно (shared-проект видно в списке, но не открыть).
 
 ---
 
 ## 4. План по фазам
 
-### Фаза 1 — Схема + конфиг + тестовый OpenLDAP (поведение не меняется)  *(план)*
+### Фаза 1 — Схема + конфиг + тестовый OpenLDAP (поведение не меняется)  *(сделано)*
+
+Ветка `feat/ldap-auth`. `AUTH_MODE=local` по умолчанию — логин не изменился,
+35 серверных тестов зелёные, `typecheck` 0. Миграция 009 применена на dev-БД
+(`schema_migrations`: 001–004, 006–009) и в тестовой схеме.
 
 **`server/migrations/009_ldap.sql`** (005 пропущена; после 008):
 
@@ -272,11 +296,20 @@ CREATE UNIQUE INDEX departments_ldap_group_dn_uk
 | `LDAP_ATTR_LOGIN` / `_NAME` / `_MAIL` | `uid`/`sAMAccountName`, `cn`/`displayName`, `mail` |
 | `LDAP_STARTTLS`, `LDAP_TLS_CA_FILE`, `LDAP_TLS_REJECT_UNAUTHORIZED`, `LDAP_TIMEOUT_MS` | TLS/таймаут |
 
-**`server/docker-compose.ldap.yml`** + **`server/test/ldap/bootstrap.ldif`** +
-**`server/test/ldap/README.md`** (как поднять, дефолтные креды).
+Реализовано: `envBool()` + `buildLdapConfig()` (fail-fast на каждом обязательном ключе,
+проверка `{username}` в фильтре/шаблоне, `search` ⇒ нужен `LDAP_GROUP_BASE_DN`,
+`bindDn` ⇒ нужен `bindPassword`). `Config.ldap` = `null` при `local`.
+
+**`server/docker-compose.ldap.yml`** — `osixia/openldap:1.5.0`, монтирует
+`bootstrap.ldif`, порт 389, healthcheck.
+**`server/test/ldap/bootstrap.ldif`** — `dc=taskira,dc=test`: `ou=people`
+(`t.admin`/`t.manager`/`t.employee`/`t.viewer`/`t.outsider`, пароль `testpass123`),
+`ou=groups` (`taskira-admins` → t.admin; `dept-infosec` → t.manager+t.employee;
+`dept-it` → t.viewer).
+**`server/test/ldap/README.md`** — запуск, состав, ручные `ldapsearch`, env-набор.
 **`.env.example`** — `AUTH_MODE=local` + закомментированный блок `LDAP_*`.
 
-Ни один роут/middleware не трогается. Деплой-безопасно.
+Ни один роут/middleware не тронут. Деплой-безопасно.
 
 ### Фаза 2 — LDAP-клиент + аутентификация  *(план)*
 
@@ -393,10 +426,10 @@ CREATE UNIQUE INDEX departments_ldap_group_dn_uk
   указывать на одну группу; задокументировать.
 - **Секреты.** `LDAP_BIND_PASSWORD` только в env; не логировать; debug `ldapts` выключен
   в prod. `server/.env` уже в `.gitignore`.
-- **Правка `requirePerm`** (неявный `viewer`) — горячий путь; доп. запрос только когда
-  явного членства нет; кэшировать рядом с `membershipCache`.
-- **D8 расширяет видимость** — подтвердить вариант (неявный `viewer` для `is_shared` или
-  только для членов департамента).
+- **Правка `requirePerm`** (неявный `viewer`, D8) — горячий путь; доп. запрос только
+  когда явного `project_members` нет; кэшировать рядом с `membershipCache`. `is_shared`
+  теперь открывает bootstrap не-участнику (как `viewer`) — обновить сценарии в
+  `access.multiproject.test.ts`, где ожидался `403`.
 
 ---
 

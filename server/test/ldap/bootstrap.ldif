@@ -1,0 +1,74 @@
+# Тестовое дерево для локального OpenLDAP (LDAP_MIGRATION.md D7).
+# База dc=taskira,dc=test создаётся образом osixia из LDAP_DOMAIN.
+# Пароли — открытым текстом (тестовый контейнер), простой bind их принимает.
+#
+# Пользователи:  t.admin t.manager t.employee t.viewer t.outsider   (пароль testpass123)
+# Группы (groupOfNames, атрибут member):
+#   cn=taskira-admins  — t.admin                     → global_role='admin'
+#   cn=dept-infosec     — t.manager, t.employee       → департамент D1
+#   cn=dept-it          — t.viewer                    → департамент D2
+#   t.outsider — ни в одной группе
+
+dn: ou=people,dc=taskira,dc=test
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=taskira,dc=test
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=t.admin,ou=people,dc=taskira,dc=test
+objectClass: inetOrgPerson
+uid: t.admin
+cn: Тест Админ
+sn: Админ
+mail: t.admin@taskira.test
+userPassword: testpass123
+
+dn: uid=t.manager,ou=people,dc=taskira,dc=test
+objectClass: inetOrgPerson
+uid: t.manager
+cn: Тест Менеджер
+sn: Менеджер
+mail: t.manager@taskira.test
+userPassword: testpass123
+
+dn: uid=t.employee,ou=people,dc=taskira,dc=test
+objectClass: inetOrgPerson
+uid: t.employee
+cn: Тест Сотрудник
+sn: Сотрудник
+mail: t.employee@taskira.test
+userPassword: testpass123
+
+dn: uid=t.viewer,ou=people,dc=taskira,dc=test
+objectClass: inetOrgPerson
+uid: t.viewer
+cn: Тест Наблюдатель
+sn: Наблюдатель
+mail: t.viewer@taskira.test
+userPassword: testpass123
+
+dn: uid=t.outsider,ou=people,dc=taskira,dc=test
+objectClass: inetOrgPerson
+uid: t.outsider
+cn: Тест Посторонний
+sn: Посторонний
+mail: t.outsider@taskira.test
+userPassword: testpass123
+
+dn: cn=taskira-admins,ou=groups,dc=taskira,dc=test
+objectClass: groupOfNames
+cn: taskira-admins
+member: uid=t.admin,ou=people,dc=taskira,dc=test
+
+dn: cn=dept-infosec,ou=groups,dc=taskira,dc=test
+objectClass: groupOfNames
+cn: dept-infosec
+member: uid=t.manager,ou=people,dc=taskira,dc=test
+member: uid=t.employee,ou=people,dc=taskira,dc=test
+
+dn: cn=dept-it,ou=groups,dc=taskira,dc=test
+objectClass: groupOfNames
+cn: dept-it
+member: uid=t.viewer,ou=people,dc=taskira,dc=test
