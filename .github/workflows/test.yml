@@ -110,9 +110,10 @@ jobs:
       - name: Wait for slapd
         run: |
           for i in $(seq 1 50); do
+            # RootDSE читается анонимно — значит slapd слушает и отвечает
             if docker compose -f docker-compose.ldap.yml exec -T openldap \
-                 ldapsearch -x -H ldap://localhost:389 -b dc=taskira,dc=test -s base dn >/dev/null 2>&1; then
-              echo "slapd готов (${i} попыток)"; exit 0
+                 ldapsearch -x -LLL -H ldap://localhost:389 -b "" -s base namingContexts >/dev/null 2>&1; then
+              echo "slapd отвечает (${i} попыток)"; exit 0
             fi
             sleep 3
           done
