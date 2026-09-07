@@ -32,7 +32,8 @@ export type PermId =
   | "comment"
   | "manageSprints"
   | "editWorkflow"
-  | "manageAccess";
+  | "manageAccess"
+  | "manageCollaborators";
 
 /** Пользователь: id + глобальная роль (из JWT, освежается из БД в requireAuth). */
 export interface ServerUser {
@@ -67,9 +68,13 @@ const PERM_NAMES: Record<PermId, string> = {
   manageSprints: "Управление спринтами",
   editWorkflow: "Изменение workflow",
   manageAccess: "Управление доступом",
+  manageCollaborators: "Подключение к задаче",
 };
 
-/* -------- матрица: разрешение → роли, которым оно доступно (без изменений) -------- */
+/* -------- матрица: разрешение → роли, которым оно доступно --------
+   Изменения от project-scoped модели: НЕ вносились. manageCollaborators —
+   аддитивный ключ (COLLAB_MIGRATION.md D2): подключать приглашённого к задаче
+   могут admin и manager проекта; наборы прочих прав не тронуты. */
 const MATRIX: Record<PermId, AccessRole[]> = {
   browse: ["admin", "manager", "employee", "viewer"],
   create: ["admin", "manager", "employee"],
@@ -80,6 +85,7 @@ const MATRIX: Record<PermId, AccessRole[]> = {
   manageSprints: ["admin", "manager"],
   editWorkflow: ["admin"],
   manageAccess: ["admin"],
+  manageCollaborators: ["admin", "manager"],
 };
 
 export const roleHas = (role: AccessRole, perm: PermId): boolean => MATRIX[perm].includes(role);

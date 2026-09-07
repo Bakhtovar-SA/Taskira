@@ -1,11 +1,19 @@
 import { useStore } from "../store";
 import type { ViewId } from "../types";
-import { IcBacklog, IcBoard, IcBook, IcFlow, IcInbox, IcShield, IcTimeline, Logo } from "../icons";
+import { IcBacklog, IcBoard, IcBook, IcFlow, IcInbox, IcLink, IcShield, IcTimeline, Logo } from "../icons";
 import { Avatar, Kbd, RoleBadge } from "../ui";
 
 const GROUPS: {
   label: string;
-  items: { id: ViewId; label: string; icon: (p: { size?: number }) => React.ReactNode; kbd: string; adminOnly?: boolean }[];
+  items: {
+    id: ViewId;
+    label: string;
+    icon: (p: { size?: number }) => React.ReactNode;
+    kbd: string;
+    adminOnly?: boolean;
+    /** Показывать только если есть активные приглашения (data.collaborations). */
+    collabOnly?: boolean;
+  }[];
 }[] = [
   {
     label: "Планирование",
@@ -22,6 +30,7 @@ const GROUPS: {
       { id: "access", label: "Права доступа", icon: (p) => <IcShield {...p} />, kbd: "5" },
       { id: "admin", label: "Департаменты", icon: (p) => <IcInbox {...p} />, kbd: "6", adminOnly: true },
       { id: "docs", label: "Документация", icon: (p) => <IcBook {...p} />, kbd: "7" },
+      { id: "collaborating", label: "Мои подключения", icon: (p) => <IcLink {...p} />, kbd: "8", collabOnly: true },
     ],
   },
 ];
@@ -54,9 +63,14 @@ export default function Sidebar() {
             <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f7396]">{g.label}</p>
             <nav className="flex flex-col gap-0.5 px-3">
               {g.items
-                .filter((item) => !item.adminOnly || me.globalRole === "admin")
+                .filter(
+                  (item) =>
+                    (!item.adminOnly || me.globalRole === "admin") &&
+                    (!item.collabOnly || data.collaborations.length > 0),
+                )
                 .map((item) => {
                 const active = ui.view === item.id;
+                const badge = item.id === "collaborating" ? data.collaborations.length : 0;
                 return (
                   <button
                     key={item.id}
@@ -68,9 +82,14 @@ export default function Sidebar() {
                     {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-accent" />}
                     <span className={active ? "text-[#7ab3ff]" : "text-[#647ba1] group-hover:text-[#9db0cd]"}>{item.icon({ size: 16 })}</span>
                     <span className="flex-1">{item.label}</span>
-                    <span className="opacity-0 transition-opacity group-hover:opacity-100">
-                      <Kbd>{item.kbd}</Kbd>
-                    </span>
+                    {badge > 0 && (
+                      <span className="rounded-full bg-accent px-1.5 py-px text-[10px] font-bold text-white">{badge}</span>
+                    )}
+                    {badge === 0 && (
+                      <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                        <Kbd>{item.kbd}</Kbd>
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -106,7 +125,7 @@ export default function Sidebar() {
           <div className="mt-2 flex items-center justify-between border-t border-[#24385a] pt-2">
             <RoleBadge role={me.accessRole} size="sm" />
             <span className="text-[9.5px] text-[#5f7396]">
-              <Kbd>/</Kbd> <Kbd>C</Kbd> <Kbd>1–7</Kbd>
+              <Kbd>/</Kbd> <Kbd>C</Kbd> <Kbd>1–8</Kbd>
             </span>
           </div>
         </div>

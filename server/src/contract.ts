@@ -106,6 +106,10 @@ export const SetMemberBody = z.object({
 /** :userId в путях управления составом проекта */
 export const MemberParams = z.object({ userId: uuid });
 
+/** :userId в путях приглашённых участников задачи (issue_collaborators, миграция 008).
+ *  :id (задача) валидирует requireIssuePerm. Тела у PUT нет. */
+export const CollaboratorParams = z.object({ userId: uuid });
+
 /* ---------------- Departments / Projects (миграция 007) ---------------- */
 /** :projectId в путях ресурсов проекта */
 export const ProjectParams = z.object({ projectId: uuid });

@@ -8,6 +8,7 @@ import { audit } from "./audit.js";
 import { one } from "./db.js";
 import { ApiHttpError } from "./errors.js";
 import { projectById, type ProjectRow } from "./services/project.js";
+import { isIssueCollaborator } from "./services/collaborators.js";
 import {
   can,
   denialReason,
@@ -50,6 +51,9 @@ declare module "fastify" {
     membership?: Membership;
     /** Эффективная роль в проекте запроса: resolveRole(user, membership). */
     projectRole?: AccessRole | null;
+    /** true — доступ к задаче дан не ролью, а строкой issue_collaborators
+     *  (приглашённый: только browse/comment по ЭТОЙ задаче). */
+    isCollaborator?: boolean;
   }
 }
 
@@ -205,7 +209,14 @@ export function requirePerm(perm: PermId): preHandlerAsyncHookHandler {
 /* -------- проверка права с контекстом задачи (edit/transition/delete/comment) --------
    Тоже гарантирует аутентификацию сама. Загружает задачу в req.issueRef, сверяет
    её project_id с :projectId (иначе 404 — защита от /projects/A/issues/<из B>),
-   резолвит членство и проверяет can() с учётом уровня задачи. */
+   резолвит членство и проверяет can() с учётом уровня задачи.
+
+   Fallback приглашённого (COLLAB_MIGRATION.md D1): если ролевой can() не прошёл,
+   но perm ∈ {browse, comment} и есть строка issue_collaborators(issue, user) —
+   доступ разрешён, req.isCollaborator = true. Строго issue-scoped: список задач и
+   bootstrap проекта идут через requirePerm (без issueRef) и остаются 403. */
+const COLLABORATOR_PERMS = new Set<PermId>(["browse", "comment"]);
+
 export function requireIssuePerm(perm: PermId): preHandlerAsyncHookHandler {
   return async (req, reply: FastifyReply) => {
     await requireAuth.call(req.server, req, reply);
@@ -214,7 +225,7 @@ export function requireIssuePerm(perm: PermId): preHandlerAsyncHookHandler {
     const project = await projectById(projectId);
     if (!project) throw notFound("Проект не найден");
     const id = (req.params as { id?: string }).id;
-    if (!id) throw notFound("Задача не указана");
+    if (!id || !UUID_RE.test(id)) throw notFound("Задача не найдена в этом проекте");
     const row = await one<{ id: string; project_id: string; assignee_id: string | null; reporter_id: string }>(
       `SELECT id, project_id, assignee_id, reporter_id FROM issues WHERE id = $1`,
       [id],
@@ -226,9 +237,13 @@ export function requireIssuePerm(perm: PermId): preHandlerAsyncHookHandler {
     const membership = await loadProjectMembership(u.id, projectId);
     req.membership = membership;
     req.projectRole = resolveRole(u, membership);
-    if (!can(u, membership, perm, issueRef)) {
-      await audit(u.id, "access.denied", perm, issueRef.id, { path: req.url, method: req.method, projectId });
-      throw forbidden(denialReason(u, membership, perm, issueRef));
+    if (can(u, membership, perm, issueRef)) return;
+
+    if (COLLABORATOR_PERMS.has(perm) && (await isIssueCollaborator(u.id, issueRef.id))) {
+      req.isCollaborator = true;
+      return;
     }
+    await audit(u.id, "access.denied", perm, issueRef.id, { path: req.url, method: req.method, projectId });
+    throw forbidden(denialReason(u, membership, perm, issueRef));
   };
 }

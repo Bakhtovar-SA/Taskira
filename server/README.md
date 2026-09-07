@@ -48,10 +48,10 @@
 | dept-3 | Клиент: `src/api/` + `store.tsx` на `:projectId`; `bootstrap` = `GET /api/projects` → выбор (`localStorage`) → `GET /api/projects/:id`; экшен `switchProject`; `projectsApi`/`departmentsApi` | ✅ клиент |
 | dept-4 | Клиент UI: `AdminView` — CRUD департаментов/проектов + тумблер `is_shared` (глоб. admin); экшены в store; `PermissionsView` add-member через `GET /api/users` | ✅ клиент |
 | ops-backup | `server/scripts/backup.sh` + `backup.ps1` (pg_dump `-Fc` + проверка `pg_restore --list` + ротация); runbook [`BACKUP.md`](BACKUP.md) — часть Этапа 5 | ✅ |
-| ops-tests | vitest + `app.inject()`; схема `taskira_test`; `test/helpers.ts` + `access.roles.test.ts` + `access.multiproject.test.ts` — права/гарды/IDOR из чек-листов | ✅ |
+| ops-tests | vitest + `app.inject()`; схема `taskira_test`; `test/helpers.ts` + `access.roles.test.ts` + `access.multiproject.test.ts` + `access.collaborators.test.ts` — права/гарды/IDOR/collaborators (31 тест) | ✅ |
 | ops-ci | `.github/workflows/test.yml` — сервис `postgres:16`, `npm ci` → `typecheck` → `npm test` (on push main + PR) | ✅ |
 | collab-A | `AdminView`: состав любого проекта из экрана отдела (ленивый `projectsApi.get`, роли/добавить/убрать); store `setProjectMember`/`removeProjectMember` — план в [`../COLLAB_MIGRATION.md`](../COLLAB_MIGRATION.md) D8. Сервер без изменений (global admin уже правит состав любого проекта) | ✅ клиент |
-| collab-B | Issue collaborators: `008_issue_collaborators.sql`, `manageCollaborators`, fallback в `requireIssuePerm`, одиночный просмотр задачи — [`../COLLAB_MIGRATION.md`](../COLLAB_MIGRATION.md) Фазы 1–3, 5–6 | ⏳ |
+| collab-B | Issue collaborators — [`../COLLAB_MIGRATION.md`](../COLLAB_MIGRATION.md). Ф1: `008_issue_collaborators.sql` ✅. Ф2: `manageCollaborators` (MATRIX ×2), fallback приглашённого в `requireIssuePerm` (browse/comment), `routes/collaborators.ts`, `getIssueDto.collaborators`, `GET /api/users/pickable` ✅. Ф3: клиент — `collaboratorsApi`, экшены store, секция «Участники задачи» в `IssueModal` ✅. Ф6: `GET /api/issues/collaborating`, `getIssueDto.participants`, одиночный режим `SoloView` (`bootStatus="solo"`) + раздел «Мои подключения» в обычном интерфейсе, ссылка `#/issue/<pid>/<id>` ✅. Ф5: `access.collaborators.test.ts` (11) + живой прогон + ручной чек-лист ниже ✅ | ✅ |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
 
@@ -308,6 +308,36 @@ assignee не из проекта → 400; `DELETE` отдела с проект
 - [ ] `POST`/`PATCH` задачи с `assigneeId` не из `project_members` проекта → 400 «Исполнитель не входит в проект» (глоб. admin как исполнитель — можно)
 - [ ] `PUT`/`DELETE /api/projects/:projectId/members/:userId` — только глоб. admin (manager проекта → 403); гард последнего менеджера как в roles-3
 - [ ] `DELETE /api/projects/:projectId` — каскад issues/members/workflow/sprints; `key` `CORP-1` и `SEC-1` независимы
+
+### Issue collaborators (collab-B) — [`../COLLAB_MIGRATION.md`](../COLLAB_MIGRATION.md)
+
+Автотесты: `test/access.collaborators.test.ts` (11) — `npm test` даёт 31 зелёный.
+
+**Сервер:**
+
+- [ ] `008_issue_collaborators.sql` в `schema_migrations`; `\d issue_collaborators` — PK `(issue_id, user_id)`, FK `issue_id`/`user_id` `ON DELETE CASCADE`, `added_by` `ON DELETE SET NULL`, индекс `idx_issue_collaborators_user`
+- [ ] `MATRIX.manageCollaborators = ['admin','manager']` в **обеих** копиях `permissions.ts`; в матрице `PermissionsView` появилась строка «Подключение к задаче»
+- [ ] `PUT /api/projects/:projectId/issues/:id/collaborators/:userId` от manager/admin проекта → 200; от employee/viewer → 403; неизвестный юзер → 404; деактивированный → 400
+- [ ] `DELETE .../collaborators/:userId` — 204; повторно → 404
+- [ ] Приглашённый (не участник проекта): `GET .../issues/:id`, `GET/POST .../issues/:id/comments`, `POST/DELETE .../issues/:id/watchers/me` → 200/201; `GET .../issues` (список), `GET /api/projects/:id` (bootstrap), `PATCH`/`DELETE`/`transition` задачи → **403**
+- [ ] Grant привязан к ОДНОЙ задаче — другая задача того же проекта приглашённому → 403; приглашённый не появляется в `GET /api/projects` и в переключателе
+- [ ] Приглашённый в `assigneeId` при create/patch → 400 (проверка не ослаблена)
+- [ ] `GET /api/projects/:A/issues/<из B>/collaborators` → 404 (path-confusion через `requireIssuePerm`); кривой uuid `:id` → 404 (не 500)
+- [ ] `GET .../issues/:id` содержит `collaborators[]` и `participants[]` (reporter ∪ assignee ∪ авторы комментариев ∪ приглашённые)
+- [ ] `GET /api/users/pickable` — любой аутентифицированный; только активные; без `globalRole`/`username`
+- [ ] `GET /api/issues/collaborating` — только свои подключения, с `projectName`/`statusName`; чужие не видны
+- [ ] Удаление задачи / проекта каскадит `issue_collaborators`
+- [ ] `audit_log`: `issue.collaborator.add` / `issue.collaborator.remove` с `{userId, projectId}`
+
+**Клиент:**
+
+- [ ] `IssueModal` → секция «Участники задачи»: manager/admin видят пикер (`/users/pickable` минус участники проекта, админы ресурса, уже приглашённые, себя) + «×» на чипе; employee/viewer без приглашённых секцию не видят
+- [ ] Пригласил → чип появился; отключил → исчез; ошибка/`409` сервера → тост
+- [ ] Пользователь с 0 видимых проектов + ≥1 приглашение → `bootStatus="solo"`, `SoloView`: список «Мои подключения», карточка read-only + форма комментария (Ctrl+Enter), имена из `participants`
+- [ ] Пользователь БЕЗ проектов и БЕЗ приглашений → прежний пустой экран «обратитесь к администратору» (не solo)
+- [ ] Пользователь С проектами + приглашение в чужой проект → в сайдбаре пункт «Мои подключения» (kbd 8) с бейджем-счётчиком; открывает `CollaboratingView` (та же карточка)
+- [ ] Прямая ссылка `#/issue/<projectId>/<issueId>`: без проектов → solo с этой задачей; с проектами → раздел «Мои подключения» с предвыбором; `copyLink` в `IssueModal` даёт uuid-форму
+- [ ] Приглашение отозвано, пока раздел открыт → после `refreshCollaborations` (на маунте) пункт/бейдж исчезают, карточка показывает «доступ отозван»
 
 ### Этап 3b
 

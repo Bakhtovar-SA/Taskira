@@ -162,8 +162,10 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  /* ---------------------------------------------------------- чтение одной */
-  app.get("/:id", { preHandler: requirePerm("browse") }, async (req) => {
+  /* ---------------------------------------------------------- чтение одной
+     requireIssuePerm (не requirePerm): открывает fallback приглашённого
+     (browse по этой задаче) и строже сверяет issue.project_id с путём. */
+  app.get("/:id", { preHandler: requireIssuePerm("browse") }, async (req) => {
     const project = req.project!;
     const { id } = req.params as { id: string };
     return getIssueDto(project.id, id);
@@ -366,8 +368,9 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  /* ---------------------------------------------------------- подписка на задачу */
-  app.post("/:id/watchers/me", { preHandler: requirePerm("browse") }, async (req) => {
+  /* ---------------------------------------------------------- подписка на задачу
+     requireIssuePerm — приглашённый тоже может следить за своей задачей. */
+  app.post("/:id/watchers/me", { preHandler: requireIssuePerm("browse") }, async (req) => {
     const project = req.project!;
     const { id } = req.params as { id: string };
     const user = me(req);
@@ -378,7 +381,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     return { watching: true, watchers: Number(n.n) };
   });
 
-  app.delete("/:id/watchers/me", { preHandler: requirePerm("browse") }, async (req) => {
+  app.delete("/:id/watchers/me", { preHandler: requireIssuePerm("browse") }, async (req) => {
     const project = req.project!;
     const { id } = req.params as { id: string };
     const user = me(req);

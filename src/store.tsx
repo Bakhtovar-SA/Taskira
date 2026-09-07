@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import type {
   AccessRole,
+  Collaboration,
+  Collaborator,
   Data,
   Department,
   Issue,
@@ -19,6 +21,7 @@ import {
   ApiError,
   authApi,
   clearToken,
+  collaboratorsApi,
   commentsApi,
   departmentsApi,
   getToken,
@@ -26,6 +29,7 @@ import {
   membersApi,
   projectsApi,
   sprintsApi,
+  type CollaboratingItem,
   type ServerIssue,
   type SafeUser,
   workflowApi,
@@ -52,7 +56,18 @@ export const relTime = (ts: number) => {
 export const fmtDate = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 
-export type BootStatus = "idle" | "loading" | "ready" | "unauthenticated" | "error";
+export type BootStatus = "idle" | "loading" | "ready" | "unauthenticated" | "error" | "solo";
+
+/** Режим одиночного просмотра: пользователь без единого видимого проекта, но
+ *  приглашённый к каким-то задачам (issue collaborators). Урезанная оболочка —
+ *  только «Мои подключения» + карточка задачи. См. COLLAB_MIGRATION.md Фаза 6. */
+export interface SoloState {
+  userId: string;
+  userName: string;
+  items: CollaboratingItem[];
+  /** Задача из прямой ссылки #/issue/<projectId>/<issueId>, если была. */
+  openTarget: { projectId: string; issueId: string } | null;
+}
 
 export interface UIState {
   view: ViewId;
@@ -91,6 +106,17 @@ const writeLastProject = (id: string): void => {
   }
 };
 
+/** Прямая ссылка на задачу: #/issue/<projectId>/<issueId> (обе — uuid). */
+const HASH_ISSUE_RE = /^#\/issue\/([0-9a-fA-F-]{36})\/([0-9a-fA-F-]{36})$/;
+const readIssueHash = (): { projectId: string; issueId: string } | null => {
+  try {
+    const m = location.hash.match(HASH_ISSUE_RE);
+    return m ? { projectId: m[1], issueId: m[2] } : null;
+  } catch {
+    return null;
+  }
+};
+
 const emptyData = (): Data => ({
   project: { key: "…", name: "…", description: "" },
   projects: [],
@@ -102,6 +128,7 @@ const emptyData = (): Data => ({
   issues: [],
   sprints: [],
   workflow: { statuses: [], transitions: [] },
+  collaborations: [],
   seq: 1,
 });
 
@@ -148,6 +175,18 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     tSpan: dto.tSpan ?? undefined,
     comments: prev?.comments ?? [],
     activity: prev?.activity ?? [],
+    // collaborators есть только в детальном ответе GET /issues/:id; в списке —
+    // держим прежнее значение (upsertIssue их не трогает).
+    collaborators:
+      dto.collaborators?.map((c) => ({
+        userId: c.userId,
+        name: c.name,
+        initials: c.initials,
+        color: c.color,
+        jobRole: c.jobRole,
+      })) ??
+      prev?.collaborators ??
+      [],
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
   };
@@ -167,9 +206,12 @@ interface Api {
   ui: UIState;
   toasts: Toast[];
   bootStatus: BootStatus;
+  /** Заполнено только при bootStatus === "solo" (одиночный просмотр приглашённого). */
+  solo: SoloState | null;
   can: (perm: PermId, issue?: Issue) => boolean;
   bootstrap: () => Promise<void>;
   switchProject: (projectId: string) => void;
+  refreshCollaborations: () => Promise<void>;
   logout: () => void;
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
@@ -180,6 +222,8 @@ interface Api {
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
   setSprint: (issueId: string, sprintId: string | null) => void;
   addComment: (issueId: string, body: string) => void;
+  addCollaborator: (issueId: string, userId: string) => void;
+  removeCollaborator: (issueId: string, userId: string) => void;
   deleteIssue: (issueId: string) => void;
   addTransition: (from: string, to: string) => string | null;
   removeTransition: (id: string) => void;
@@ -209,6 +253,7 @@ let toastSeq = 1;
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<Data>(emptyData);
   const [bootStatus, setBootStatus] = useState<BootStatus>("idle");
+  const [solo, setSolo] = useState<SoloState | null>(null);
   const [ui, setUi] = useState<UIState>({
     view: "board",
     selectedIssueId: null,
@@ -282,6 +327,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       currentUserId: string,
       projects: ProjectSummary[],
       departments: Department[],
+      collaborations: Collaboration[],
     ): Promise<Data> => {
       const boot = await projectsApi.get(projectId);
       const issuesRes = await issuesApi.list(projectId, { limit: 200 });
@@ -304,6 +350,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         members,
         currentUserId,
         issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
+        collaborations,
         sprints: boot.sprints.map((s) => ({
           id: s.id,
           name: s.name,
@@ -330,7 +377,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setBootStatus("loading");
     try {
       const user = await authApi.me();
-      const [list, deps] = await Promise.all([projectsApi.list(), departmentsApi.list().catch(() => [])]);
+      const [list, deps, collabs] = await Promise.all([
+        projectsApi.list(),
+        departmentsApi.list().catch(() => []),
+        issuesApi.collaborating().catch(() => [] as CollaboratingItem[]),
+      ]);
       const projects: ProjectSummary[] = list.map((p) => ({
         id: p.id,
         key: p.key,
@@ -339,6 +390,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         isShared: p.isShared,
       }));
       if (projects.length === 0) {
+        // Ни одного видимого проекта, но, возможно, приглашён к отдельным задачам
+        // (issue collaborators) — тогда одиночный режим (COLLAB_MIGRATION.md Фаза 6).
+        if (collabs.length > 0) {
+          const hash = readIssueHash();
+          const openTarget = hash && collabs.some((c) => c.issueId === hash.issueId) ? hash : null;
+          setSolo({ userId: user.id, userName: user.name, items: collabs, openTarget });
+          setBootStatus("solo");
+          return;
+        }
         // users: [me] — иначе me-memo не найдёт currentUserId и свалится на
         // синтетического 'member'/'viewer' (глоб. admin потерял бы доступ к
         // AdminView, откуда только и можно создать первый проект).
@@ -354,8 +414,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       const wanted = readLastProject();
       const chosen = projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
-      setData(await buildProjectData(chosen, user.id, projects, deps));
+      setData(await buildProjectData(chosen, user.id, projects, deps, collabs));
       writeLastProject(chosen);
+      // Прямая ссылка на приглашённую задачу (в проекте, который не открыт) —
+      // сразу в раздел «Мои подключения» (Фаза 6 для пользователей с проектами).
+      const hash = readIssueHash();
+      if (hash && collabs.some((c) => c.issueId === hash.issueId)) {
+        setUi((u) => ({ ...u, view: "collaborating" }));
+      }
       setBootStatus("ready");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -377,7 +443,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setBootStatus("loading");
       void (async () => {
         try {
-          const next = await buildProjectData(projectId, cur.currentUserId, cur.projects, cur.departments);
+          const next = await buildProjectData(projectId, cur.currentUserId, cur.projects, cur.departments, cur.collaborations);
           if (seq !== switchSeqRef.current) return; // пришёл более поздний клик
           setData(next);
           writeLastProject(projectId);
@@ -396,6 +462,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     clearToken();
     setData(emptyData());
+    setSolo(null);
     setUi({ view: "board", selectedIssueId: null, createOpen: false, lastEvent: null });
     setBootStatus("unauthenticated");
   }, []);
@@ -414,6 +481,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       handleApiError(err);
     }
   }, [handleApiError]);
+
+  /** Перечитать «Мои подключения» (приглашения к задачам чужих проектов). */
+  const refreshCollaborations = useCallback(async () => {
+    try {
+      const items = await issuesApi.collaborating();
+      setData((prev) => ({ ...prev, collaborations: items }));
+    } catch {
+      /* тихо — раздел просто не обновится */
+    }
+  }, []);
 
   const openIssue = useCallback(
     (id: string | null) => {
@@ -607,6 +684,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           toast("success", "Комментарий добавлен");
         } catch (err) {
           handleApiError(err);
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  /* -------- приглашённые участники задачи (issue collaborators) -------- */
+
+  const patchIssueCollaborators = (issueId: string, fn: (list: Collaborator[]) => Collaborator[]) =>
+    setData((prev) => ({
+      ...prev,
+      issues: prev.issues.map((i) => (i.id === issueId ? { ...i, collaborators: fn(i.collaborators) } : i)),
+    }));
+
+  const addCollaborator = useCallback(
+    (issueId: string, userId: string) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("manageCollaborators", issue)) return;
+      void (async () => {
+        try {
+          const c = await collaboratorsApi.add(pid(), issueId, userId);
+          patchIssueCollaborators(issueId, (list) => [
+            ...list.filter((x) => x.userId !== c.userId),
+            { userId: c.userId, name: c.name, initials: c.initials, color: c.color, jobRole: c.jobRole },
+          ]);
+          toast("success", `${c.name} — приглашён(а) к задаче`);
+        } catch (err) {
+          handleApiError(err, "Не удалось пригласить участника");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeCollaborator = useCallback(
+    (issueId: string, userId: string) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("manageCollaborators", issue)) return;
+      void (async () => {
+        try {
+          await collaboratorsApi.remove(pid(), issueId, userId);
+          patchIssueCollaborators(issueId, (list) => list.filter((x) => x.userId !== userId));
+          toast("info", "Участник отключён от задачи");
+        } catch (err) {
+          handleApiError(err, "Не удалось отключить участника");
         }
       })();
     },
@@ -962,9 +1084,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     ui,
     toasts,
     bootStatus,
+    solo,
     can: canFn,
     bootstrap,
     switchProject,
+    refreshCollaborations,
     logout,
     setView: (v) => setUi((u) => ({ ...u, view: v })),
     openIssue,
@@ -975,6 +1099,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     moveStatus,
     setSprint,
     addComment,
+    addCollaborator,
+    removeCollaborator,
     deleteIssue,
     addTransition,
     removeTransition,

@@ -1,8 +1,9 @@
 # COLLAB_MIGRATION — участники задачи (issue collaborators) + управление составом из AdminView
 
-Статус: **решения §3 подтверждены (D1–D8, см. «РЕШЕНО»). Фаза 4 (Feature A) — сделана,
-отдельная ветка `feat/project-members-adminview`. Feature B (Фазы 1–3, 5–6) — не начата.**
-Порядок: Feature A (Фаза 4) — отдельным PR первым; затем Feature B (Фазы 1–3, 5–6) одной веткой.
+Статус: **всё сделано.** Feature A (Фаза 4) — влита в `main` (PR #12). Feature B
+(Фазы 1 → 2 → 3 → 6 → 5) — готова на ветке `feat/issue-collaborators` (31 серверный
+тест, живой прогон), ждёт PR. Браузерная проверка UI — за пользователем.
+Порядок был: Feature A отдельным PR первым; Feature B одной веткой.
 Контекст: [SCOPE.md](SCOPE.md) — кросс-департаментные проекты и «участие нескольких отделов»;
 [ARCHITECTURE.md](ARCHITECTURE.md) — модель `Issue`. Предыдущие миграции —
 [ROLE_MIGRATION.md](ROLE_MIGRATION.md), [DEPT_MIGRATION.md](DEPT_MIGRATION.md).
@@ -191,67 +192,96 @@ admin-only. Значит:
 Порядок: **Фаза 4 (Feature A) — отдельным PR первой.** Затем Feature B одной веткой:
 **1 → 2 → 3 → 6 → 5** (5 — верификация всего, после одиночного просмотра).
 
-### Фаза 1 — Схема БД (миграция 008)  *(план)*
+### Фаза 1 — Схема БД (миграция 008)  *(сделано)*
+
+**`server/migrations/008_issue_collaborators.sql`:**
 
 ```sql
--- server/migrations/008_issue_collaborators.sql
--- Приглашённый участник ОДНОЙ задачи: просмотр задачи + комментарии, без
--- членства в проекте и без доступа к остальным задачам (COLLAB_MIGRATION.md D1).
 CREATE TABLE issue_collaborators (
   issue_id  uuid NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
   user_id   uuid NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
-  added_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+  added_by  uuid REFERENCES users(id) ON DELETE SET NULL,  -- кто подключил
   added_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (issue_id, user_id)
 );
 CREATE INDEX idx_issue_collaborators_user ON issue_collaborators (user_id);
 ```
 
-Бэкфилла нет — новая возможность. Каскады: удаление задачи или проекта (через
-`issues`) сносит строки `issue_collaborators`.
+Бэкфилла нет — новая возможность. Каскады: удаление задачи (или проекта → `issues`)
+снимает строки. Обратима (`DROP TABLE issue_collaborators`) — дамп перед применением
+не требовался (ср. `006`).
 
-### Фаза 2 — Сервер: enforcement + роуты коллабораторов  *(план)*
+Применена на dev-БД (`schema_migrations`: 001–004, 006–008) и в тестовой схеме
+(`test/global-setup.ts` → `migrate()`); `npm test` — 20/20 без изменений поведения.
 
-- **`permissions.ts` ×2** — `PermId` += `manageCollaborators`; `MATRIX.manageCollaborators = ["admin", "manager"]`; `PERM_NAMES` += запись. Меняется в **обеих** копиях одним коммитом (CLAUDE.md).
-- **`middleware.ts` `requireIssuePerm`** — после провала `can()`: если
-  `perm ∈ {browse, comment}` и `await isIssueCollaborator(u.id, issueId)` → пропустить,
-  `req.isCollaborator = true`. Хелпер `isIssueCollaborator(userId, issueId)`
-  (`SELECT 1 FROM issue_collaborators …`); при нагрузке — короткий TTL-кэш
-  `user::issue` рядом с `membershipCache` + `invalidateIssueCollaborator()`.
-- **`routes/issues.ts` `GET /:id`** и **`routes/comments.ts` `GET /:id/comments`** →
-  `requireIssuePerm("browse")` (было `requirePerm("browse")`), D5.
-- **`services/collaborators.ts`** *(новый)* — `listCollaborators(issueId)` (с мини-профилем),
-  `isIssueCollaborator(userId, issueId)`, `addCollaborator(issueId, userId, byId)`,
-  `removeCollaborator(issueId, userId)`.
-- **`routes/collaborators.ts`** *(новый)*, под `/api/projects/:projectId/issues/:id/collaborators`:
-  - `GET` — `requireIssuePerm("browse")` (видят и участники, и сам collaborator);
-  - `PUT /:userId` — `requireIssuePerm("manageCollaborators")`; цель — **любой
-    активный пользователь** (в этом смысл кросс-департаментности); `409`, если уже
-    участник проекта задачи (не нужно — пусть работает как участник) — опционально,
-    можно молча no-op;
-  - `DELETE /:userId` — `requireIssuePerm("manageCollaborators")`.
-  - Аудит `issue.collaborator.add` / `issue.collaborator.remove` (`{ userId }`).
-- **`app.ts`** — регистрация `collaboratorRoutes` в под-дереве `/projects/:projectId`
-  с `prefix: "/issues"` (рядом с `commentRoutes`).
-- **`services/issues.ts` `getIssueDto`** — добавить `collaborators: [{ userId, name, initials, color }]`
-  (для Фазы 6 — ещё `participants`: reporter + assignee + авторы комментариев).
-- **`contract.ts`** — `CollaboratorParams = z.object({ userId: uuid })`; тела у `PUT` нет.
+### Фаза 2 — Сервер: enforcement + роуты коллабораторов  *(сделано)*
 
-### Фаза 3 — Клиент: добавление/показ в IssueModal  *(план)*
+- **`permissions.ts` ×2** — `PermId` += `manageCollaborators`;
+  `MATRIX.manageCollaborators = ["admin", "manager"]` (аддитивный ключ, прочие права
+  ролей не тронуты); серверный `PERM_NAMES` += «Подключение к задаче»; клиентский
+  `PERMISSIONS` += запись (scope «Задача») — чтобы `permMeta()` оставался тотальным
+  и право было видно в матрице `PermissionsView`.
+- **`middleware.ts` `requireIssuePerm`** — после провала `can()`:
+  `COLLABORATOR_PERMS = {browse, comment}` и `await isIssueCollaborator(u.id, issueRef.id)`
+  → `req.isCollaborator = true`, доступ. Кэша пока нет (запрос идёт только когда
+  ролевой `can()` уже не прошёл — участники/админы его не задевают). Плюс `:id`
+  задачи теперь проверяется на UUID (`!UUID_RE.test(id)` → `404` вместо PG-500).
+- **`routes/issues.ts`** — `GET /:id` и `POST/DELETE /:id/watchers/me` → `requireIssuePerm("browse")`
+  (было `requirePerm`); список `GET /` и `POST /` (create) — без изменений
+  (`requirePerm` без контекста задачи — изоляция бэклога).
+- **`routes/comments.ts`** — `GET /:id/comments` → `requireIssuePerm("browse")`;
+  `requirePerm` из импорта убран (больше не нужен).
+- **`services/collaborators.ts`** *(новый)* — `isIssueCollaborator`,
+  `listCollaborators` (мини-профиль), `addCollaborator` (идемпотентный upsert),
+  `removeCollaborator` (→ bool). Импортит только `db.js` — цикла с `middleware` нет.
+- **`routes/collaborators.ts`** *(новый)*, под `/api/projects/:projectId/issues`
+  (`prefix: "/issues"`):
+  - `GET /:id/collaborators` — `requireIssuePerm("browse")`;
+  - `PUT /:id/collaborators/:userId` — `requireIssuePerm("manageCollaborators")`;
+    цель — любой активный пользователь; неизвестный → `404`, деактивированный →
+    `400`; идемпотентно, возвращает DTO (`200`);
+  - `DELETE /:id/collaborators/:userId` — `requireIssuePerm("manageCollaborators")`;
+    не подключён → `404`, иначе `204`.
+  - Аудит `issue.collaborator.add` / `.remove` (`{ userId, projectId }`).
+- **`app.ts`** — `collaboratorRoutes` зарегистрирован рядом с `commentRoutes`.
+- **`services/issues.ts`** — `IssueDetailDto = IssueDto & { collaborators: CollaboratorDto[] }`;
+  `getIssueDto` доклеивает `collaborators` (только детальный `GET /:id`, не список).
+- **`contract.ts`** — `CollaboratorParams = z.object({ userId: uuid })`.
+- **`routes/users.ts`** — `GET /api/users/pickable` (`requireAuth`): активные,
+  `{ id, name, initials, color, jobRole }`, без `globalRole`/`username` (D7).
+- **Тесты** — `test/access.collaborators.test.ts` (9): grant issue-scoped
+  (задача+комментарии да; список/bootstrap/PATCH/DELETE/transition — 403; CORP не
+  появляется в `/api/projects`; другая задача проекта — 403; в assignee не годится);
+  manager подключает, employee/viewer — 403; `DELETE` 204→404, employee 403;
+  неизвестный юзер → 404; `GET /collaborators` и `getIssueDto.collaborators`
+  отражают состав; `/users/pickable` — любой аутентифицированный, без
+  `globalRole`/`username`. **Всего 29 тестов зелёные.**
+- Проверка: `typecheck` (сервер 0, клиент — 10 пред-существующих, новых нет),
+  `npm run build` — успешно.
 
-- **`src/api/index.ts`** — `collaboratorsApi.list(projectId, issueId)` /
-  `.add(projectId, issueId, userId)` / `.remove(projectId, issueId, userId)`;
-  `usersApi.pickable()` (D7).
-- **`src/store.tsx`** — деталь задачи несёт `collaborators`; экшены
-  `addCollaborator(issueId, userId)` / `removeCollaborator(issueId, userId)` под
-  `requirePerm("manageCollaborators", issue)`, оптимистичный патч + `handleApiError`.
-  `openIssue` дотягивает `collaborators` из `getIssueDto`.
-- **`src/components/IssueModal.tsx`** — секция **«Участники задачи»** (отдельно от
-  «Наблюдателей» и от исполнителя): чипы с аватарами + (для manager/admin) пикер из
-  `usersApi.pickable()` + «убрать». Подпись: «видит эту задачу и комментарии, не
-  входит в проект». Для остальных ролей — read-only чипы.
-- **`src/permissions.ts`** (клиент) — `manageCollaborators` в `MATRIX` уже добавлен
-  в Фазе 2 (зеркало).
+### Фаза 3 — Клиент: добавление/показ в IssueModal  *(сделано)*
+
+- **`src/api/index.ts`** — `collaboratorsApi.list/add/remove(projectId, issueId[, userId])`;
+  `usersApi.pickable()` (D7); типы `ServerCollaborator`, `PickableUser`;
+  `ServerIssue.collaborators?` (только детальный ответ).
+- **`src/types.ts`** — тип `Collaborator`; `Issue.collaborators: Collaborator[]`
+  (required — единственный конструктор `mapIssue` его заполняет).
+- **`src/store.tsx`** — `mapIssue` берёт `collaborators` из `dto.collaborators`
+  (детальный `GET /:id`), иначе держит прежнее; `upsertIssue` их не трогает, так
+  что свежий список из `openIssue` переживает upsert. Экшены `addCollaborator` /
+  `removeCollaborator` под `requirePerm("manageCollaborators", issue)` →
+  `collaboratorsApi` → патч `issue.collaborators` в `data.issues`, тост /
+  `handleApiError`.
+- **`src/components/IssueModal.tsx`** — компонент `<CollaboratorField>` после
+  «Меток»: чипы приглашённых (аватар-инициалы + имя); для manager/admin — `×` на
+  чипе и строка «пригласить: пользователь + кнопка» (`usersApi.pickable()` минус
+  уже приглашённые, участники проекта, админы ресурса, ты сам). Зрителю без
+  приглашённых секция не показывается. Подпись «видит только эту задачу и
+  комментарии, в проект и в исполнители не добавляется».
+- **`src/permissions.ts`** (клиент) — `manageCollaborators` в `PermId` + `MATRIX` +
+  `PERMISSIONS` (Фаза 2, зеркало сервера).
+- Проверка: `typecheck` (клиент — 10 пред-существующих, новых нет), `npm run build`
+  — успешно. Сервер не тронут (29 тестов). **Браузерная проверка не делалась.**
 
 ### Фаза 4 — Клиент: состав проекта из AdminView (Feature A)  *(сделано)*
 
@@ -282,51 +312,73 @@ CREATE INDEX idx_issue_collaborators_user ON issue_collaborators (user_id);
   ещё не делалась.**
 - Без авто-доступа: добавление — всегда явный выбор проекта + роли (§1(A), D8).
 
-### Фаза 5 — Верификация  *(план)*
+### Фаза 5 — Верификация  *(сделано)*
 
-Тест-раннер — Vitest (`server/test/`), новый `access.collaborators.test.ts` +
-ручной чек-лист в `server/README.md`:
+**Автотесты** — `server/test/access.collaborators.test.ts` (11). `npm test` → **31
+зелёный** (3 файла). Покрыто: grant issue-scoped (задача + комментарии да; список /
+bootstrap / PATCH / DELETE / transition — 403); привязка к одной задаче; не виден в
+`/api/projects`; в assignee не годится; manager добавляет, employee/viewer — 403;
+`DELETE` 204 → 404; неизвестный юзер — 404; `collaborators` + `participants` в DTO;
+`/users/pickable` (форма, без `globalRole`/`username`); `/issues/collaborating`
+(только свои, с данными проекта).
 
-- collaborator: `GET issue` → `200`; `GET/POST /comments` → `200`;
-- collaborator: `GET /api/projects/:id/issues` (список) → `403`; bootstrap
-  `GET /api/projects/:id` → `403`; `PATCH`/`DELETE`/`transition` задачи → `403`;
-- collaborator **не появляется** в `GET /api/projects` и в переключателе проектов;
-- участник проекта: доступ к задаче и комментариям не изменился (регресс D5);
-- IDOR: `GET /api/projects/A/issues/<из B>` и `…/comments` → `404`;
-- assignee: collaborator в `assigneeId` при create/patch → `400`;
-- `manager` добавил и убрал collaborator; `employee`/`viewer` на `PUT/DELETE
-  …/collaborators/:userId` → `403`;
-- удаление задачи и удаление проекта каскадят `issue_collaborators`;
-- AdminView: global admin из экрана отдела добавил человека в проект **другого**
-  отдела, роль применилась; `409` при понижении последнего менеджера;
-- **одиночный просмотр (Фаза 6):** чисто внешний collaborator (0 видимых
-  проектов) логинится → видит «Мои подключения» и открывает задачу по прямой
-  ссылке; `GET /api/issues/collaborating` отдаёт только его задачи; карточка
-  рендерит имена участников без bootstrap проекта; форма комментария работает,
-  прочие мутации скрыты; пользователь без collaborator-строк и без проектов →
-  пустой экран «нет доступных задач», не ошибка.
+**Ручной чек-лист** — добавлен в `server/README.md`, раздел «Issue collaborators
+(collab-B)»: сервер (миграция, MATRIX ×2, роуты, каскады, аудит, IDOR/uuid-guard) +
+клиент (`IssueModal` пикер, solo-режим, раздел «Мои подключения» в обычной оболочке,
+прямая ссылка, отзыв приглашения на лету).
 
-### Фаза 6 — Клиент: одиночный просмотр задачи для внешнего collaborator  *(план, в этом заходе — D4)*
+**Живой прогон** (dev :8080, юзеры `admin` / `test.external`):
+`test.external` (0 проектов) — `GET issue` 403 → admin `PUT collaborators` 200 →
+`test.external`: `GET issue` 200, `GET/POST comments` 200/201,
+`GET /issues` 403, `GET /api/projects/:id` (bootstrap) 403, `PATCH issue` 403,
+`GET /api/projects` `[]`, `/issues/collaborating` отдаёт задачу; DTO несёт
+`collaborators:['Test Ext']` + `participants` (3); admin `DELETE` 204 → повтор 404 →
+`test.external` `GET issue` снова 403. Всё как ожидалось.
 
-- **`server`**:
-  - `GET /api/issues/collaborating` — задачи, где текущий пользователь collaborator
-    (кросс-проектно): `[{ issueId, projectId, key, title, statusId, projectName }]`,
-    `preHandler: requireAuth` (без проектного контекста).
-  - `getIssueDto` — поле `participants: [{ id, name, initials, color }]` (reporter +
-    assignee + авторы комментариев + collaborators) — чтобы карточка рендерила имена
-    без bootstrap проекта.
-- **`src/api/index.ts`** — `issuesApi.collaborating()`; `issuesApi.get` уже
-  issue-scoped (D5).
-- **`src/store.tsx`** — режим «одиночная задача»: если `bootstrap()` не смог
-  открыть ни одного проекта (нет видимых) ИЛИ пользователь пришёл по прямой ссылке
-  `#/issue/<projectId>/<id>` — грузим `getIssueDto` + `/comments` + `collaborating`
-  в урезанный `Data` (без `workflow`/`sprints`/`board`), `bootStatus = "ready"`.
-- **`src/App.tsx` / `IssueModal` / новый `SoloIssueView`** — карточка задачи во весь
-  экран: заголовок, поля (read-only), тред комментариев + форма (если
-  `req.isCollaborator` → `comment` разрешён), список «Мои подключения» для навигации
-  между такими задачами. Без сайдбара проекта, доски, переключателя.
-- **`Sidebar` / `Topbar`** — прячутся или сводятся к «Мои подключения», если у
-  пользователя нет ни одного видимого проекта.
+**Типы/сборка:** `npm run typecheck` — сервер 0; клиент 10 пред-существующих (не по
+теме), новых нет. `npm run build` — успешно.
+
+**Не проверено:** браузерный рендер `SoloView` / `CollaboratingView` /
+`IssueModal`-секции (typecheck + build + серверные тесты покрывают контракт).
+
+### Фаза 6 — Клиент: одиночный просмотр задачи для внешнего collaborator  *(сделано)*
+
+- **`server/src/routes/collaborating.ts`** *(новый)* — `GET /api/issues/collaborating`
+  (`requireAuth`, project-less, зарегистрирован на уровне `/api`): задачи, где
+  пользователь — collaborator, кросс-проектно; `{ issueId, projectId, key, title,
+  statusId, statusName, statusCategory, projectKey, projectName }`.
+- **`server/src/services/issues.ts`** — `getIssueDto` доклеивает
+  `participants: ParticipantDto[]` (reporter ∪ assignee ∪ авторы комментариев ∪
+  приглашённые) — карточка рендерит имена без bootstrap проекта.
+- **`src/api/index.ts`** — `issuesApi.collaborating()`; типы `CollaboratingItem`,
+  `ServerParticipant`; `ServerIssue.participants?`.
+- **`src/store.tsx`** — `BootStatus += "solo"`, состояние `SoloState`
+  (`userId/userName/items/openTarget`). В `bootstrap()`: если `projectsApi.list()`
+  пуст, но `issuesApi.collaborating()` непуст → `setSolo(...)` + `bootStatus="solo"`.
+  Прямая ссылка `#/issue/<projectId>/<issueId>` (обе uuid) — `readIssueHash()`, если
+  задача есть в списке — предвыбор. `logout` чистит `solo`.
+- **`src/components/SoloView.tsx`** *(новый)* — урезанная оболочка: слева «Мои
+  подключения» (ключ · проект · заголовок · статус), справа `<SoloIssueCard>` —
+  read-only поля (тип/ключ/приоритет/исполнитель/автор/метки/описание/приглашённые)
+  + тред комментариев + форма (Ctrl+Enter). Сам грузит `issuesApi.get` +
+  `commentsApi.list`, имена берёт из `participants`. Без сайдбара проекта, доски,
+  переключателя. `App.tsx`: `bootStatus === "solo" → <SoloView>`.
+- **`src/components/IssueModal.tsx`** — `copyLink` теперь даёт
+  `#/issue/<projectId>/<issueId>` (uuid-форма, её понимает `SoloView`).
+- **«Мои подключения» в обычном интерфейсе** (для пользователей, у кого ЕСТЬ свои
+  проекты, но их также пригласили в чужой): `bootstrap()` теперь всегда тянет
+  `issuesApi.collaborating()` → `data.collaborations` (+ `refreshCollaborations()`
+  экшен). `Sidebar` — пункт «Мои подключения» (kbd 8) с бейджем-счётчиком,
+  показывается только если `data.collaborations.length > 0`. `ViewId += "collaborating"`,
+  `App.tsx` рендерит `<CollaboratingView>` — двухпанельный список + та же
+  `SoloIssueCard` (вынесена из `SoloView` и параметризована `currentUser`).
+  Прямая ссылка `#/issue/<pid>/<id>` в проект, который не открыт, теперь у таких
+  пользователей ведёт в этот раздел с предвыбором задачи.
+- **Тесты** — `access.collaborators.test.ts` +2: `/issues/collaborating` отдаёт
+  только свои подключения с данными проекта; `getIssueDto.participants` содержит
+  автора и приглашённого. **Всего 31 тест зелёный.**
+- Проверка: `typecheck` (сервер 0; клиент — 10 пред-существующих, новых нет),
+  `npm run build` — успешно. **Браузерная проверка не делалась.**
 
 **Отложено за пределы захода (отдельные follow-ups):**
 

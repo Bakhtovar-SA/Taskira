@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { canTransition, relTime, useStore } from "../store";
 import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
+import { usersApi, type PickableUser } from "../api";
 import type { Issue, PriorityId } from "../types";
 import { PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
 import { IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
@@ -17,6 +18,98 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const selectCls = "flex w-full items-center gap-2 rounded-md border border-line bg-white px-2.5 py-1.5 text-[13px] font-medium text-ink transition-colors hover:border-accent";
+
+/** Приглашённые участники задачи (issue collaborators). Видны всем, кто открыл
+ *  карточку; добавляет/убирает — manageCollaborators (admin/manager проекта). */
+function CollaboratorField({ issue }: { issue: Issue }) {
+  const { data, can, addCollaborator, removeCollaborator } = useStore();
+  const canManage = can("manageCollaborators", issue);
+  const [pickable, setPickable] = useState<PickableUser[]>([]);
+  const [pick, setPick] = useState("");
+
+  useEffect(() => {
+    if (!canManage) return;
+    let off = false;
+    usersApi.pickable().then((u) => !off && setPickable(u)).catch(() => {});
+    return () => {
+      off = true;
+    };
+  }, [canManage]);
+
+  const collabs = issue.collaborators;
+  if (!canManage && collabs.length === 0) return null;
+
+  const taken = new Set(collabs.map((c) => c.userId));
+  const isResourceAdmin = (id: string) => data.users.some((u) => u.id === id && u.globalRole === "admin");
+  // Кандидаты: активные, ещё не приглашены, не участники проекта (и так видят),
+  // не админы ресурса, не ты сам.
+  const candidates = pickable.filter(
+    (u) => !taken.has(u.id) && !(u.id in data.members) && !isResourceAdmin(u.id) && u.id !== data.currentUserId,
+  );
+
+  return (
+    <Field label="Участники задачи">
+      <div className="flex flex-wrap gap-1.5">
+        {collabs.map((c) => (
+          <span
+            key={c.userId}
+            className="flex items-center gap-1.5 rounded-full bg-[#eef1f6] py-0.5 pl-1 pr-2 text-[11.5px] text-ink"
+          >
+            <span
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[7.5px] font-bold text-white"
+              style={{ background: c.color }}
+            >
+              {c.initials}
+            </span>
+            {c.name}
+            {canManage && (
+              <button
+                onClick={() => removeCollaborator(issue.id, c.userId)}
+                className="ml-0.5 text-faint transition-colors hover:text-[#B42318]"
+                title="Отключить от задачи"
+              >
+                <IcX size={10} />
+              </button>
+            )}
+          </span>
+        ))}
+        {collabs.length === 0 && <span className="text-[12px] text-faint">никого не приглашали</span>}
+      </div>
+      {canManage && (
+        <>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <select
+              value={pick}
+              onChange={(e) => setPick(e.target.value)}
+              disabled={candidates.length === 0}
+              className="min-w-0 flex-1 rounded-md border border-line bg-white px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
+            >
+              <option value="">{candidates.length ? "— пригласить человека —" : "нет кандидатов"}</option>
+              {candidates.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.jobRole ? `${u.name} · ${u.jobRole}` : u.name}
+                </option>
+              ))}
+            </select>
+            <button
+              disabled={!pick}
+              onClick={() => {
+                addCollaborator(issue.id, pick);
+                setPick("");
+              }}
+              className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              Пригласить
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] leading-snug text-faint">
+            Видит только эту задачу и её комментарии. В проект и в исполнители не добавляется.
+          </p>
+        </>
+      )}
+    </Field>
+  );
+}
 
 export default function IssueModal() {
   const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
@@ -72,7 +165,8 @@ export default function IssueModal() {
   };
 
   const copyLink = async () => {
-    const url = `${location.origin}/#/issue/${issue.key}`;
+    // uuid-форма — её понимает одиночный режим (SoloView) для приглашённых.
+    const url = `${location.origin}/#/issue/${data.currentProjectId}/${issue.id}`;
     try {
       await navigator.clipboard.writeText(url);
       toast("success", `Ссылка на ${issue.key} скопирована`);
@@ -474,6 +568,8 @@ export default function IssueModal() {
               {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}
             </div>
           </Field>
+
+          <CollaboratorField issue={issue} />
 
           <div className="space-y-1.5 border-t border-line pt-3.5 text-[11.5px] text-faint">
             <p className="flex justify-between gap-2"><span>Автор</span><span className="font-semibold text-sub">{reporter?.name}</span></p>

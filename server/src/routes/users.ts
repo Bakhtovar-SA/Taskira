@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import bcrypt from "bcryptjs";
 import { one, q } from "../db.js";
-import { invalidateUserCache, notFound, requireGlobalAdmin, zbody, type JwtPayload } from "../middleware.js";
+import { invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, zbody, type JwtPayload } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
@@ -16,6 +16,17 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   app.get("/users", { preHandler: requireGlobalAdmin }, async () => {
     const rows = await q<UserRow>(`SELECT * FROM users ORDER BY name`);
     return rows.map(safeUser);
+  });
+
+  /** Тонкий справочник для пикеров (подключение к задаче и т.п.) — любой
+   *  аутентифицированный, только активные, без globalRole/username
+   *  (COLLAB_MIGRATION.md D7). */
+  app.get("/users/pickable", { preHandler: requireAuth }, async () => {
+    return q<{ id: string; name: string; initials: string; color: string; job_role: string }>(
+      `SELECT id, name, initials, color, job_role FROM users WHERE is_active ORDER BY name`,
+    ).then((rows) =>
+      rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role })),
+    );
   });
 
   app.post(

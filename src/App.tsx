@@ -9,9 +9,11 @@ import WorkflowView from "./components/WorkflowView";
 import PermissionsView from "./components/PermissionsView";
 import AdminView from "./components/AdminView";
 import DocsView from "./components/DocsView";
+import CollaboratingView from "./components/CollaboratingView";
 import IssueModal from "./components/IssueModal";
 import CreateIssueModal from "./components/CreateIssueModal";
 import LoginForm from "./components/LoginForm";
+import SoloView from "./components/SoloView";
 import { Toasts } from "./ui";
 import type { ViewId } from "./types";
 
@@ -51,6 +53,7 @@ function Shell() {
         "5": "access",
         "6": "admin",
         "7": "docs",
+        "8": "collaborating",
       };
       if (map[e.key]) setView(map[e.key]);
     };
@@ -76,6 +79,9 @@ function Shell() {
     );
   }
 
+  // Приглашённый без единого видимого проекта — одиночный режим (COLLAB_MIGRATION.md Фаза 6).
+  if (bootStatus === "solo") return <SoloView onLogout={logout} />;
+
   return (
     <div className="flex h-full overflow-hidden">
       <Sidebar />
@@ -90,6 +96,7 @@ function Shell() {
             {ui.view === "access" && <PermissionsView />}
             {ui.view === "admin" && <AdminView />}
             {ui.view === "docs" && <DocsView />}
+            {ui.view === "collaborating" && <CollaboratingView />}
           </div>
         </main>
       </div>

@@ -1,6 +1,7 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
 import { one, q } from "../db.js";
 import { notFound } from "../middleware.js";
+import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
 
 /* -------- строка БД → camelCase DTO (единый формат ответа API) -------- */
 export interface IssueRow {
@@ -87,8 +88,40 @@ export async function loadIssue(projectId: string, issueId: string): Promise<Iss
   return row;
 }
 
-export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDto> {
-  return mapIssue(await loadIssue(projectId, issueId));
+/** Мини-профиль участника задачи — чтобы карточку можно было отрисовать без
+ *  bootstrap проекта (одиночный просмотр приглашённого, COLLAB_MIGRATION.md Фаза 6). */
+export interface ParticipantDto {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  jobRole: string;
+}
+
+async function listParticipants(issueId: string): Promise<ParticipantDto[]> {
+  const rows = await q<{ id: string; name: string; initials: string; color: string; job_role: string }>(
+    `SELECT u.id, u.name, u.initials, u.color, u.job_role
+       FROM users u
+      WHERE u.id IN (
+        SELECT reporter_id FROM issues WHERE id = $1
+        UNION SELECT assignee_id FROM issues WHERE id = $1
+        UNION SELECT author_id FROM comments WHERE issue_id = $1
+        UNION SELECT user_id FROM issue_collaborators WHERE issue_id = $1
+      )`,
+    [issueId],
+  );
+  return rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role }));
+}
+
+/** Карточка задачи: DTO + приглашённые участники (issue_collaborators, миграция 008)
+ *  + участники (reporter/assignee/авторы комментариев/приглашённые) для рендера
+ *  карточки без bootstrap. Всё это — только в детальном ответе GET /:id, не в списке. */
+export type IssueDetailDto = IssueDto & { collaborators: CollaboratorDto[]; participants: ParticipantDto[] };
+
+export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
+  const row = await loadIssue(projectId, issueId);
+  const [collaborators, participants] = await Promise.all([listCollaborators(row.id), listParticipants(row.id)]);
+  return { ...mapIssue(row), collaborators, participants };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).
