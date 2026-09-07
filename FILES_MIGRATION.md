@@ -280,9 +280,20 @@ MVP (внутренняя сеть, объёмы небольшие).
 STORAGE_SETUP.md) при затыке инфраструктуры отделяется в follow-up PR — локальный
 драйвер к тому моменту уже покрыт тестами. Фаза 6 — вне захода.
 
-### Фаза 1 — Схема + конфиг + абстракция хранилища + локальный драйвер  *(поведение не меняется)*
+### Фаза 1 — Схема + конфиг + абстракция хранилища + локальный драйвер  *(сделано)*
 
-Ветка `feat/attachments`. Ни одного роута/`middleware` не трогаем — деплой-безопасно.
+Ветка `feat/attachments`. Ни одного роута/`middleware` не тронуто — деплой-безопасно.
+`STORAGE_DRIVER=local` по умолчанию, `npm run typecheck` 0, `npm test` — 38 зелёных
+(поведение входа/задач не изменилось). Миграция 010 применяется в тестовой схеме
+(`schema_migrations`: 001–004, 006–010).
+
+**Отличие от плана:** каталог `STORAGE_DIR` для драйвера `local` **не** обязателен и
+**не** проверяется в `config.ts` — иначе каждый тест без `STORAGE_DIR` падал бы на
+старте. Дефолт — `server/var/attachments` (git-ignored); `mkdir -p` + проверка
+записи вынесены в `makeStorage()` (зовётся из Фазы 2, не на каждом `loadConfig`).
+Fail-fast в `config.ts` остаётся только для ключей `STORAGE_S3_*` при
+`STORAGE_DRIVER=s3` и для нечисловых `ATTACH_*` (как `LDAP_TIMEOUT_MS` после ревью
+LDAP).
 
 **`server/migrations/010_attachments.sql`** (после 009):
 
@@ -314,7 +325,7 @@ follow-up «сборщик сирот».
 | Переменная | Назначение |
 |---|---|
 | `STORAGE_DRIVER` | `local` (деф.) \| `s3` |
-| `STORAGE_DIR` | драйвер `local`: каталог вне репо (git-ignored), fail-fast если не задан/не пишется |
+| `STORAGE_DIR` | драйвер `local`: каталог вне репо (git-ignored); необязателен, деф. `server/var/attachments`; `mkdir -p` + проверка записи в `makeStorage()` |
 | `STORAGE_S3_ENDPOINT` | `https://minio.corp:9000` |
 | `STORAGE_S3_BUCKET` / `_REGION` | бакет / регион (`us-east-1` по умолчанию для MinIO) |
 | `STORAGE_S3_ACCESS_KEY` / `_SECRET_KEY` | ключи; только env, не логировать |
@@ -325,26 +336,28 @@ follow-up «сборщик сирот».
 | `ATTACH_BLOCK_EXT` | CSV; деф. — список из D3 |
 
 Валидация в стиле `buildLdapConfig()`: `STORAGE_DRIVER=s3` ⇒ обязательны
-`ENDPOINT`/`BUCKET`/`ACCESS_KEY`/`SECRET_KEY`; `local` ⇒ обязателен `STORAGE_DIR`,
-и он должен существовать и быть доступен на запись; числа — `Number.isFinite` +
-`fail` (как `LDAP_TIMEOUT_MS` после ревью LDAP).
+`ENDPOINT`/`BUCKET`/`ACCESS_KEY`/`SECRET_KEY`; числа (`ATTACH_*`) — целое > 0 либо
+`fail` (`envPosInt`, как `LDAP_TIMEOUT_MS` после ревью LDAP). Каталог `local` —
+см. «Отличие от плана» выше.
 
 **`server/src/services/storage.ts`** *(новый)* — интерфейс + фабрика:
 
 ```ts
-export interface StoredObject { size: number; contentType: string; }
+export interface StoredObject { size: number; }        // content_type держит строка attachments
 export interface Storage {
   put(key: string, data: Readable, meta: { contentType: string; size: number }): Promise<void>;
   get(key: string): Promise<Readable>;
-  delete(key: string): Promise<void>;
+  delete(key: string): Promise<void>;                  // идемпотентно
   stat(key: string): Promise<StoredObject | null>;
 }
-export function makeStorage(cfg: Config): Storage; // local | s3 по STORAGE_DRIVER
+export function newStorageKey(issueId: string): string;        // `${issueId}/${randomUUID()}`
+export function makeStorage(cfg: Config): Promise<Storage>;     // local | s3; для local — ensureReady()
 ```
 
-В Фазе 1 реализуется только `LocalDiskStorage` (запись/чтение/удаление по
-`join(STORAGE_DIR, key)`, `mkdir -p` на префикс, потоковая запись во временный
-файл + атомарный `rename`). `S3Storage` — заглушка `throw` до Фазы 4.
+Реализован `LocalDiskStorage` (запись/чтение/удаление в `config.storage.dir`,
+`keyToRelPath` c защитой от обхода каталога, потоковая запись во временный файл
+`<dest>.<uuid>.tmp` + атомарный `rename`). `S3StorageStub` — все методы `throw`
+до Фазы 4.
 
 **`server/docker-compose.storage.yml`** *(новый)* — `minio/minio`, порт 9000/9001,
 том, healthcheck, дефолтный бакет через `mc` (по образцу `docker-compose.ldap.yml`).

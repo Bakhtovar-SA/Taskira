@@ -32,6 +32,36 @@ export interface LdapConfig {
   timeoutMs: number;
 }
 
+/** Параметры S3-совместимого хранилища — заполнены только при driver === "s3".
+ *  Подробности и примеры (MinIO / «большой» S3) — STORAGE_SETUP.md (Фаза 4). */
+export interface S3Config {
+  endpoint: string;
+  bucket: string;
+  region: string;
+  accessKey: string;
+  secretKey: string;
+  /** true для MinIO (path-style вместо virtual-hosted). */
+  forcePathStyle: boolean;
+}
+
+/** Хранилище вложений к задачам (FILES_MIGRATION.md D1/D3). */
+export interface StorageConfig {
+  driver: "local" | "s3";
+  /** driver=local: абсолютный каталог для объектов (вне репозитория, git-ignored).
+   *  Для s3 не используется, но всегда вычислен (дефолт). */
+  dir: string;
+  /** driver=s3: параметры S3; null при local. */
+  s3: S3Config | null;
+  /** Максимальный размер одного файла, байт (D3). */
+  maxBytes: number;
+  /** Потолок числа вложений на задачу (D3). */
+  maxPerIssue: number;
+  /** Максимальная длина имени файла после санитизации (D3). */
+  maxFilename: number;
+  /** Заблокированные расширения — нижний регистр, без ведущей точки (D3). */
+  blockExt: string[];
+}
+
 export interface Config {
   port: number;
   host: string;
@@ -43,6 +73,7 @@ export interface Config {
   /** local — только пароль (как раньше); ldap — LDAP + break-glass локальный admin. */
   authMode: "local" | "ldap";
   ldap: LdapConfig | null;
+  storage: StorageConfig;
 }
 
 function fail(msg: string): never {
@@ -105,6 +136,67 @@ function buildLdapConfig(): LdapConfig {
     tlsCaFile: process.env.LDAP_TLS_CA_FILE?.trim() || null,
     tlsRejectUnauthorized: envBool(process.env.LDAP_TLS_REJECT_UNAUTHORIZED, true),
     timeoutMs,
+  };
+}
+
+/** Положительное целое из env, иначе дефолт; мусор (не число) — fail-fast. */
+function envPosInt(key: string, def: number): number {
+  const raw = process.env[key]?.trim();
+  if (!raw) return def;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n)) fail(`${key} должен быть положительным целым числом`);
+  return n;
+}
+
+/** Расширения по умолчанию под запрет — исполняемое и скриптовое (FILES_MIGRATION.md D3).
+ *  Проверка идёт и по расширению, и по magic-байтам (services/fileGuard, Фаза 2). */
+const DEFAULT_BLOCK_EXT =
+  "exe dll scr com pif bat cmd ps1 psm1 vbs vbe js jse wsf wsh hta msi msp cpl reg lnk " +
+  "sh bash zsh ksh run bin jar apk app dmg pkg deb rpm elf so dylib gadget inf";
+
+/** Корень пакета server/ (config.ts лежит в server/src/). */
+const SERVER_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Собирает StorageConfig из env. Для driver=s3 — fail-fast на обязательных
+ *  ключах (как buildLdapConfig). Для driver=local каталог не проверяется здесь
+ *  (его создаёт/валидирует makeStorage в Фазе 2) — иначе тесты без STORAGE_DIR
+ *  падали бы на старте. */
+function buildStorageConfig(): StorageConfig {
+  const driver = (process.env.STORAGE_DRIVER ?? "local").trim();
+  if (driver !== "local" && driver !== "s3") fail("STORAGE_DRIVER должен быть 'local' или 's3'");
+
+  const dir = process.env.STORAGE_DIR?.trim() || join(SERVER_ROOT, "var", "attachments");
+
+  let s3: S3Config | null = null;
+  if (driver === "s3") {
+    const req = (k: string): string => {
+      const v = process.env[k]?.trim();
+      if (!v) fail(`STORAGE_DRIVER=s3: не задан ${k} (см. STORAGE_SETUP.md)`);
+      return v;
+    };
+    s3 = {
+      endpoint: req("STORAGE_S3_ENDPOINT"),
+      bucket: req("STORAGE_S3_BUCKET"),
+      region: process.env.STORAGE_S3_REGION?.trim() || "us-east-1",
+      accessKey: req("STORAGE_S3_ACCESS_KEY"),
+      secretKey: req("STORAGE_S3_SECRET_KEY"),
+      forcePathStyle: envBool(process.env.STORAGE_S3_FORCE_PATH_STYLE, true),
+    };
+  }
+
+  const blockExt = (process.env.ATTACH_BLOCK_EXT?.trim() || DEFAULT_BLOCK_EXT)
+    .split(/[,\s]+/)
+    .map((e) => e.trim().toLowerCase().replace(/^\.+/, ""))
+    .filter(Boolean);
+
+  return {
+    driver,
+    dir,
+    s3,
+    maxBytes: envPosInt("ATTACH_MAX_BYTES", 25 * 1024 * 1024),
+    maxPerIssue: envPosInt("ATTACH_MAX_PER_ISSUE", 50),
+    maxFilename: envPosInt("ATTACH_MAX_FILENAME", 200),
+    blockExt,
   };
 }
 
@@ -188,5 +280,6 @@ function buildConfig(): Config {
         : null,
     authMode,
     ldap: authMode === "ldap" ? buildLdapConfig() : null,
+    storage: buildStorageConfig(),
   };
 }
