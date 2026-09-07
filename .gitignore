@@ -23,3 +23,7 @@ server/scripts/backup.env
 
 # Тесты
 server/coverage/
+
+# Скриншоты самопроверки (Playwright, scripts/shot.mjs) — не коммитим по умолчанию
+/shots/
+/screenshots/
