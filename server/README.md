@@ -379,6 +379,8 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 - [ ] `PATCH /api/users/:id` со сменой `global_role` для `auth_source='ldap'` → `409`; `{isActive}` → `200`
 - [ ] JIT не снимает роль у **последнего** активного админа (группа потеряна в LDAP → роль остаётся `admin`, вход не падает)
 - [ ] `PATCH /api/departments/:id {ldapGroupDn}` — сохраняется; та же группа (в любом регистре) на другом отделе → `409`; `null` — очищает
+- [ ] `GET /api/departments` — `ldapGroupDn` виден только глоб. admin; у обычного юзера в DTO `null` (не раскрываем DN AD-групп)
+- [ ] `LDAP_TIMEOUT_MS` с нечисловым значением → сервер падает на старте (`fail`), не тихий `NaN`
 - [ ] `POST /api/ldap/resync` (глоб. admin, нужен `LDAP_BIND_DN`) → `{total, synced, notFound[], errors[]}`; `department_members` пересобраны; `audit_log.ldap.resync`
 - [ ] Гонка: два параллельных первых логина одного `username` → одна строка `users` (23505 → повторное чтение → adopt/update), не `500`
 

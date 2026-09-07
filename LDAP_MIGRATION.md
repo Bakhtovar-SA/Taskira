@@ -493,7 +493,26 @@ typecheck (сервер 0 / клиент 0), `npm run build` — успешно.
   активных (тот же неявный `viewer`, что даёт `effectiveRole`), чтобы текущий юзер
   резолвился в клиентском me-memo.
 
-`typecheck` 0, `npm test` (local) 38 зелёных, 9 ldap-тестов в CI зелёные.
+Второй проход ревью PR #16:
+
+- **`services/ldap.ts`** — `.replaceAll("{username}", …)` вместо `.replace` во всех
+  трёх местах: фильтр `LDAP_USER_FILTER` с двумя `{username}` (AD:
+  `(|(sAMAccountName={username})(userPrincipalName={username}))`, как советует
+  [LDAP_SETUP.md](LDAP_SETUP.md)) иначе оставлял второй плейсхолдер литералом —
+  и весь вход уходил в break-glass.
+- **`services/departments.ts`** — `ldapGroupDn` (DN корпоративной AD-группы) в
+  `GET /api/departments` отдаётся только глоб. admin; остальным — `null`
+  (как `SafeUser` не отдаёт `ldap_dn`).
+- **`routes/departments.ts`** — аудит `department.create`/`update` пишет сами
+  значения (в т.ч. DN), не только имена полей.
+- **`config.ts`** — `LDAP_TIMEOUT_MS` валидируется (`Number.isFinite` + `fail`),
+  как остальные `LDAP_*`, а не тихо становится `NaN`.
+- **`contract.ts`/`validation.ts`/`AdminView.tsx`** — `ldapGroupDn max(1024)` из
+  зеркального `LIMITS.department.ldapGroupDn`, не литерал.
+- **`middleware.ts`** — удалена недостижимая ветка `globalRole === "admin"` в
+  `effectiveRole` (`resolveRole` её уже покрывает).
+
+`typecheck` 0 (сервер + клиент), `npm test` (local) 38 зелёных, 9 ldap-тестов в CI зелёные.
 
 ### Фаза 7 — Follow-ups (не в этой миграции)
 

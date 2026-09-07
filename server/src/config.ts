@@ -85,6 +85,9 @@ function buildLdapConfig(): LdapConfig {
   const groupBaseDn = process.env.LDAP_GROUP_BASE_DN?.trim() || null;
   if (gm === "search" && !groupBaseDn) fail("LDAP_GROUP_MEMBERSHIP=search требует LDAP_GROUP_BASE_DN");
 
+  const timeoutMs = Number(process.env.LDAP_TIMEOUT_MS ?? 5000);
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) fail("LDAP_TIMEOUT_MS должен быть положительным числом");
+
   return {
     url: req("LDAP_URL"),
     bindDn,
@@ -101,7 +104,7 @@ function buildLdapConfig(): LdapConfig {
     startTls: envBool(process.env.LDAP_STARTTLS, false),
     tlsCaFile: process.env.LDAP_TLS_CA_FILE?.trim() || null,
     tlsRejectUnauthorized: envBool(process.env.LDAP_TLS_REJECT_UNAUTHORIZED, true),
-    timeoutMs: Number(process.env.LDAP_TIMEOUT_MS ?? 5000),
+    timeoutMs,
   };
 }
 

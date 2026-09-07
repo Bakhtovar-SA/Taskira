@@ -26,7 +26,7 @@ function deptConflict(e: unknown): never {
 }
 
 export async function departmentRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/", { preHandler: requireAuth }, async () => listDepartments());
+  app.get("/", { preHandler: requireAuth }, async (req) => listDepartments(req.user.globalRole === "admin"));
 
   app.post(
     "/",
