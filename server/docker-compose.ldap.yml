@@ -2,31 +2,49 @@
 # Реального корпоративного AD у нас нет — весь LDAP-путь проверяется здесь.
 #
 #   docker compose -f docker-compose.ldap.yml up -d
-#   # проверить:  ldapsearch -x -H ldap://localhost:389 -b dc=taskira,dc=test \
-#   #               -D cn=admin,dc=taskira,dc=test -w admin "(objectClass=*)"
+#   # проверить:
+#   docker compose -f docker-compose.ldap.yml exec openldap \
+#     ldapsearch -x -H ldap://localhost:1389 -b dc=taskira,dc=test \
+#     -D cn=admin,dc=taskira,dc=test -w admin dn
 #   docker compose -f docker-compose.ldap.yml down -v   # -v — сбросить данные
 #
-# Кастомный bootstrap.ldif грузится ТОЛЬКО при первом старте на пустом томе.
-# Меняли схему → `down -v` и заново. Детали — test/ldap/README.md.
+# Образ bitnami/openldap слушает 1389 (LDAP) / 1636 (LDAPS) внутри контейнера
+# (non-root), наружу мапим 389. Кастомный LDIF из test/ldap/*.ldif грузится
+# ПОСЛЕ создания суффикса dc=taskira,dc=test (LDAP_SKIP_DEFAULT_TREE=yes).
 
 services:
   openldap:
-    image: osixia/openldap:1.5.0
+    image: bitnami/openldap:2.6
     container_name: taskira-openldap
-    command: ["--copy-service"] # нужно, когда монтируем свои assets
     environment:
-      LDAP_ORGANISATION: "Taskira Test"
-      LDAP_DOMAIN: "taskira.test"            # ⇒ база dc=taskira,dc=test
-      LDAP_ADMIN_PASSWORD: "admin"           # cn=admin,dc=taskira,dc=test
-      LDAP_CONFIG_PASSWORD: "config"
-      LDAP_RFC2307BIS_SCHEMA: "false"
-      LDAP_TLS: "false"                       # тесту TLS не нужен; для AD см. LDAP_SETUP.md
+      LDAP_ROOT: "dc=taskira,dc=test"
+      LDAP_ADMIN_USERNAME: "admin"          # ⇒ cn=admin,dc=taskira,dc=test
+      LDAP_ADMIN_PASSWORD: "admin"
+      LDAP_CONFIG_ADMIN_ENABLED: "no"
+      LDAP_SKIP_DEFAULT_TREE: "yes"         # не создавать демо ou=users/ou=groups
+      LDAP_CUSTOM_LDIF_DIR: "/ldifs"        # грузим test/ldap/*.ldif
+      LDAP_ALLOW_ANON_BINDING: "no"
     volumes:
-      - ./test/ldap/bootstrap.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/50-taskira.ldif:ro
+      - ./test/ldap:/ldifs:ro
     ports:
-      - "389:389"
+      - "389:1389"
     healthcheck:
-      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost:389", "-b", "dc=taskira,dc=test", "-s", "base"]
+      test:
+        - CMD
+        - ldapsearch
+        - "-x"
+        - "-H"
+        - "ldap://localhost:1389"
+        - "-D"
+        - "cn=admin,dc=taskira,dc=test"
+        - "-w"
+        - "admin"
+        - "-b"
+        - "dc=taskira,dc=test"
+        - "-s"
+        - "base"
+        - "dn"
       interval: 5s
       timeout: 5s
-      retries: 12
+      retries: 30
+      start_period: 30s

@@ -18,14 +18,16 @@ node test/ldap/mock-ldap.mjs        # ldap://127.0.0.1:1389, MOCK_LDAP_PORT дл
 
 ## Запуск (Docker)
 
+`bitnami/openldap` — внутри контейнера слушает **1389**, наружу мапится **389**.
+
 ```bash
 cd server
 docker compose -f docker-compose.ldap.yml up -d      # поднять
 docker compose -f docker-compose.ldap.yml down -v     # погасить + сбросить данные
 ```
 
-`bootstrap.ldif` загружается образом **только при первом старте на пустом томе**.
-Поменяли `bootstrap.ldif` → `down -v` и заново.
+`bootstrap.ldif` (и любые `test/ldap/*.ldif`) грузятся образом при первом старте
+после создания суффикса `dc=taskira,dc=test`. Поменяли LDIF → `down -v` и заново.
 
 ## Что внутри
 
@@ -42,13 +44,16 @@ docker compose -f docker-compose.ldap.yml down -v     # погасить + сб�
 
 ## Проверка вручную
 
+С хоста `ldapsearch` бьёт на проброшенный порт 389; внутри контейнера — 1389.
+
 ```bash
-# связь + поиск
+# связь + поиск (с хоста)
 ldapsearch -x -H ldap://localhost:389 -b dc=taskira,dc=test \
   -D cn=admin,dc=taskira,dc=test -w admin "(uid=t.manager)"
 
-# членство в группах (обратный поиск — так же делает сервер при LDAP_GROUP_MEMBERSHIP=search)
-ldapsearch -x -H ldap://localhost:389 -b ou=groups,dc=taskira,dc=test \
+# то же внутри контейнера
+docker compose -f docker-compose.ldap.yml exec openldap \
+  ldapsearch -x -H ldap://localhost:1389 -b ou=groups,dc=taskira,dc=test \
   -D cn=admin,dc=taskira,dc=test -w admin \
   "(&(objectClass=groupOfNames)(member=uid=t.manager,ou=people,dc=taskira,dc=test))"
 ```

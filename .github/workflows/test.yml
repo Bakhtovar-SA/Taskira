@@ -104,14 +104,28 @@ jobs:
       - run: npm ci
       - run: npm rebuild esbuild
 
-      - name: Start OpenLDAP (osixia/openldap + bootstrap.ldif)
-        run: docker compose -f docker-compose.ldap.yml up -d --wait
+      - name: Start OpenLDAP (bitnami/openldap + bootstrap.ldif)
+        run: docker compose -f docker-compose.ldap.yml up -d
+
+      - name: Wait for OpenLDAP + bootstrap LDIF
+        run: |
+          for i in $(seq 1 40); do
+            if docker compose -f docker-compose.ldap.yml exec -T openldap \
+                 ldapsearch -x -H ldap://localhost:1389 -D cn=admin,dc=taskira,dc=test -w admin \
+                 -b uid=t.manager,ou=people,dc=taskira,dc=test -s base dn >/dev/null 2>&1; then
+              echo "LDAP + LDIF ready after ${i} tr."; exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::OpenLDAP не поднялся / LDIF не загрузился"
+          docker compose -f docker-compose.ldap.yml logs openldap
+          exit 1
 
       - name: Show LDAP tree (sanity)
         run: |
           docker compose -f docker-compose.ldap.yml exec -T openldap \
-            ldapsearch -x -H ldap://localhost:389 -b dc=taskira,dc=test \
-            -D cn=admin,dc=taskira,dc=test -w admin "(objectClass=*)" dn
+            ldapsearch -x -H ldap://localhost:1389 -b dc=taskira,dc=test \
+            -D cn=admin,dc=taskira,dc=test -w admin dn
 
       - run: npm run test:ldap
 
