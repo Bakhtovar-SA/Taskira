@@ -1,8 +1,10 @@
 # LDAP_MIGRATION — аутентификация через LDAP/AD + членство в департаменте
 
-Статус: **решения §3 подтверждены (D1–D8). Фазы 1–5 сделаны (живые прогоны пройдены,
-38 серверных тестов в local + 9 тестов против настоящего OpenLDAP в CI зелёные).
-Осталось: Фаза 6 (LDAP_SETUP.md + верификация).**
+Статус: **решения §3 подтверждены (D1–D8). Фазы 1–6 сделаны — миграция завершена.
+Живые прогоны пройдены, 38 серверных тестов в local + 9 тестов против настоящего
+OpenLDAP в CI зелёные; [LDAP_SETUP.md](LDAP_SETUP.md) написан, чек-лист в
+[server/README.md](server/README.md), ARCHITECTURE.md обновлён. Осталось только
+влить ветку. Фаза 7 — отдельный заход.**
 Ветка `feat/ldap-auth`. Порядок: фазы 1 → 2 → 3 → 5 → 6 (Фаза 4 аддитивна, Фаза 7 — вне захода).
 Контекст: пункт 1 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md) («авторизация через LDAP»);
 [SCOPE.md](SCOPE.md) — иерархия доступа и **открытый вопрос**: «Как именно мапить группы
@@ -451,21 +453,47 @@ typecheck (сервер 0 / клиент 0), `npm run build` — успешно.
   (`if: always()`). Основной job `server` остаётся в `AUTH_MODE=local`
   (38 серверных тестов зелёные).
 
-### Фаза 6 — Верификация + LDAP_SETUP.md  *(план)*
+### Фаза 6 — Верификация + LDAP_SETUP.md  *(сделано)*
 
-- **`LDAP_SETUP.md`** — инструкция для реального AD:
-  - таблица всех env-переменных с примерами для AD;
-  - шпаргалка AD ↔ OpenLDAP: `sAMAccountName`/`userPrincipalName` vs `uid`; формат DN
-    (`CN=Ivan Ivanov,OU=Users,OU=Corp,DC=corp,DC=example,DC=com`);
-  - как взять DN группы в AD (`dsquery group`, «Пользователи и компьютеры» → «Редактор
-    атрибутов» → `distinguishedName`) и вставить в поле департамента в AdminView;
-  - `LDAP_ADMIN_GROUP_DN`;
-  - LDAPS/StartTLS + приватный CA (`LDAP_TLS_CA_FILE` / `NODE_EXTRA_CA_CERTS`);
-  - проверка связи: `POST /api/ldap/ping` (или `npm run ldap:check`);
-  - траблшутинг: bind error 49, referrals в AD, paged search при группе > 1000,
-    вложенные группы (ограничение MVP), рассинхрон часов.
-- **`server/README.md`** — блок ручного чек-листа «LDAP (ldap-auth)».
-- **`ARCHITECTURE.md`** — «Текущее состояние» + «Порядок разработки» п. 1 → сделано.
+- **[`LDAP_SETUP.md`](LDAP_SETUP.md)** *(новый, корень репо)* — эксплуатационная
+  инструкция: §1 что делает сервер при `AUTH_MODE=ldap`; §2 таблица всех `LDAP_*`
+  с примерами OpenLDAP **и** AD; §3 маппинг групп на департаменты (+ как взять DN
+  группы в AD: `dsquery group` / «Редактор атрибутов» / `Get-ADGroup`); §4
+  break-glass admin; §5 `POST /api/ldap/ping` + `POST /api/ldap/resync` +
+  ограничения ldap-режима; §6 пошаговый перевод действующего сервера (сверка
+  `username`, откат); §7 LDAPS/StartTLS + приватный CA; §8 траблшутинг (bind
+  error 49 `data 52e/525/533`, referrals, range retrieval при группе > 1000,
+  вложенные группы, рассинхрон часов); §9 сводка OpenLDAP ≠ AD.
+- **[`server/README.md`](server/README.md)** — строка `ldap-auth` в «Статусе
+  этапов» + блок ручного чек-листа «LDAP-аутентификация (ldap-auth)» (схема 009,
+  регрессия `local`, вход, гарды/админ-операции, клиент).
+- **[`ARCHITECTURE.md`](ARCHITECTURE.md)** — «Текущее состояние»: департаменты
+  (007) и LDAP (009) перенесены из «чего ещё нет» в «реализовано»; «Целевая
+  архитектура» п. 3 и «Порядок разработки» п. 1 → ✅; фоновый ресинк остаётся в п. 5.
+
+### Фаза 5.1 — Харденинг по итогам ревью  *(сделано, поверх Фазы 5)*
+
+Точечные правки безопасности/устойчивости, не меняющие контракт:
+
+- **`services/userProvisioning.ts`** — `KEEP_LAST_ADMIN` SQL-`CASE` в обоих
+  `UPDATE`: JIT-синк не снимает `global_role='admin'` у **последнего** активного
+  админа (тот же инвариант, что WHERE-гард в `PATCH /users/:id`) — LDAP-выпадение
+  из `LDAP_ADMIN_GROUP_DN` не запирает систему. Гонка двух первых логинов одного
+  `username` → `23505` на `users_username_key` ловится, один повторный проход
+  уходит в ветку adopt/update.
+- **`services/ldap.ts`** — `escFilter` чинит класс символов (`^@` → реальный `\0`);
+  новый `escDn()` (RFC 4514) для подстановки `{username}` в `LDAP_USER_DN_TEMPLATE`
+  при прямом bind (раньше значение из тела запроса шло в DN без экранирования).
+- **`routes/auth.ts`** — `ApiHttpError 409` из `provisionFromLdap` (login == имя
+  break-glass) больше не утекает клиенту отдельным статусом: уходим в обычную
+  локальную проверку (`401`, либо вход, если это правда break-glass). Аудит
+  `auth.login.denied` восстанавливает `actor_id` по `username` (джойн неудачных
+  попыток к `users.id` для мониторинга).
+- **`routes/projects.ts`** — bootstrap `users` для `is_shared`-проекта включает всех
+  активных (тот же неявный `viewer`, что даёт `effectiveRole`), чтобы текущий юзер
+  резолвился в клиентском me-memo.
+
+`typecheck` 0, `npm test` (local) 38 зелёных, 9 ldap-тестов в CI зелёные.
 
 ### Фаза 7 — Follow-ups (не в этой миграции)
 

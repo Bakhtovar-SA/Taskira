@@ -27,12 +27,19 @@ workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`
   `src/seed.ts` оставлен только как `DEFAULT_WORKFLOW` для `DocsView.tsx`.
 - Карточка задачи: поля, история изменений (`activity`), комментарии, подписка
   (`issue_watchers`).
-- Один проект (`currentProject()`, захардкожен), **департаментов нет**.
+- **Департаменты** (миграция 007, `DEPT_MIGRATION.md`): таблица `departments`
+  (+ `ldap_group_dn`), `projects.department_id`/`is_shared`, ресурсы под
+  `/api/projects/:projectId/...`, multi-project с выбором проекта на клиенте.
+- **LDAP/AD-аутентификация** (миграция 009, `LDAP_MIGRATION.md` / `LDAP_SETUP.md`):
+  `AUTH_MODE=ldap` — вход против LDAP/AD (`ldapts`, сервис-bind + поиск + re-bind),
+  JIT-provisioning (`users.auth_source`/`ldap_dn`/`email`), break-glass локальный
+  admin, `global_role` из `LDAP_ADMIN_GROUP_DN`, членство в департаменте
+  (`department_members`) по `departments.ldap_group_dn` → неявный `viewer` на
+  проектах департамента. Sync — JIT при логине + `POST /api/ldap/resync`.
 
 Чего ещё нет (детальнее — раздел «Порядок разработки»):
-- **LDAP/AD** — аутентификация пока по локальному паролю, синхронизации групп нет.
-- **Департаменты** — ни таблицы, ни `projects.department_id`; проект один,
-  поэтому membership тоже пока в рамках одного проекта.
+- **Фоновый ресинк LDAP-членства по расписанию** — пока только JIT при логине и
+  ручной `resync`; воркер — вместе с воркером уведомлений.
 - **Вложения** — файлового хранилища (S3/MinIO, multipart) нет.
 - **Уведомления и фоновый воркер** — нет; WebSocket-рассылка объявлена типом
   (`WsMessage` в `contract.ts`), но не реализована.
@@ -46,8 +53,8 @@ workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`
    (Fastify + PostgreSQL + JWT, `server/`).
 2. ✅ Роли с глобальных на **привязанные к проекту** — **сделано**
    (`global_role` + `project_members`, см. `ROLE_MIGRATION.md`).
-3. ⬜ Сущность «департамент» над проектами, с LDAP-синхронизацией членства —
-   **не начато**.
+3. ✅ Сущность «департамент» над проектами, с LDAP-синхронизацией членства —
+   **сделано** (миграции 007/009, `DEPT_MIGRATION.md` + `LDAP_MIGRATION.md`).
 
 ### Компоненты
 
@@ -95,14 +102,16 @@ Workflow    { projectId, statuses[], transitions[] } -- одна схема на
 
 ## Порядок разработки
 
-1. 🟡 Backend: авторизация через LDAP + базовая модель (Department → Project → Issue)
-   — backend и модель Project → Issue готовы; **LDAP и Department не начаты**
-   (аутентификация по локальному паролю, один захардкоженный проект).
+1. ✅ Backend: авторизация через LDAP + базовая модель (Department → Project → Issue)
+   — сделано: модель Department → Project → Issue (миграция 007), multi-project,
+   LDAP/AD-аутентификация с JIT-provisioning и sync членства (миграция 009,
+   `LDAP_MIGRATION.md` / `LDAP_SETUP.md`). Фоновый ресинк по расписанию — в п. 5.
 2. ✅ Миграция ролевой модели с глобальной на привязанную к проекту
    — сделано (миграции 004/006, `ROLE_MIGRATION.md`).
 3. ✅ Перевод фронтенда с localStorage на реальный API — сделано.
 4. ⬜ Файловое хранилище для вложений — не начато.
-5. ⬜ Уведомления + фоновый воркер — не начато (есть только `issue_watchers`).
+5. ⬜ Уведомления + фоновый воркер — не начато (есть только `issue_watchers`);
+   сюда же — ресинк LDAP-членства по расписанию (сейчас только JIT + ручной `resync`).
 6. 🟡 Переименование сущностей в UI под нейтральную терминологию (см. SCOPE.md)
    — «Доска»/«Задача»/«Рабочий процесс» уже нейтральны; «Бэклог», «Таймлайн»,
    спринты, story points, «Направление» вместо `epicId` — ещё нет.
