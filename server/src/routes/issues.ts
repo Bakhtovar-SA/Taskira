@@ -377,7 +377,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     const iss = await loadIssue(project.id, id);
     await q(`INSERT INTO issue_watchers (issue_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [iss.id, user.sub]);
     const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM issue_watchers WHERE issue_id = $1`, [iss.id]))!;
-    await audit(user.sub, "watcher.add", "issue", iss.id, { key: iss.key });
+    await audit(user.sub, "watcher.add", "issue", iss.id, { key: iss.key, viaCollaborator: req.isCollaborator || undefined });
     return { watching: true, watchers: Number(n.n) };
   });
 
@@ -388,7 +388,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     const iss = await loadIssue(project.id, id);
     await q(`DELETE FROM issue_watchers WHERE issue_id = $1 AND user_id = $2`, [iss.id, user.sub]);
     const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM issue_watchers WHERE issue_id = $1`, [iss.id]))!;
-    await audit(user.sub, "watcher.remove", "issue", iss.id, { key: iss.key });
+    await audit(user.sub, "watcher.remove", "issue", iss.id, { key: iss.key, viaCollaborator: req.isCollaborator || undefined });
     return { watching: false, watchers: Number(n.n) };
   });
 }

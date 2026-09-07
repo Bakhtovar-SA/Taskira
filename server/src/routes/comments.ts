@@ -77,7 +77,12 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
         )
       )[0];
 
-      await audit(user.sub, "comment.create", "issue", iss.id, { key: iss.key });
+      // viaCollaborator — комментарий оставил приглашённый (не участник проекта),
+      // чтобы это было видно в аудите (auto-review PR #13 C2).
+      await audit(user.sub, "comment.create", "issue", iss.id, {
+        key: iss.key,
+        viaCollaborator: req.isCollaborator || undefined,
+      });
       reply.code(201).send(mapComment(row));
     },
   );
