@@ -11,7 +11,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
-import { Client, SizeLimitExceededError } from "ldapts";
+import { Client } from "ldapts";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { auth, getApp, q, resetDb, stopApp } from "./helpers.js";
 
@@ -175,19 +175,30 @@ d("Специфика LDAP-протокола, которой нет в моке
     expect(n).not.toBe(N); // мок вернул бы ровно N — он sizelimit не воспроизводит
   });
 
-  test("client-side sizeLimit → сервер отвечает SizeLimitExceeded (мок это игнорирует)", async () => {
+  test("client-side sizeLimit=25 → сервер отдаёт ровно 25 (мок вернул бы все 600)", async () => {
     const c = await userClient("t.employee");
     try {
-      await expect(
-        c.search(BULK, { scope: "sub", filter: "(objectClass=inetOrgPerson)", sizeLimit: 25, attributes: ["uid"] }),
-      ).rejects.toBeInstanceOf(SizeLimitExceededError);
+      // ldapts не считает достигнутый КЛИЕНТСКИЙ лимит ошибкой — резолвит частичный
+      // результат. Важно, что настоящий slapd обрезал выдачу до запрошенных 25;
+      // мок sizeLimit не понимает и вернул бы все N.
+      const { searchEntries } = await c.search(BULK, {
+        scope: "sub",
+        filter: "(objectClass=inetOrgPerson)",
+        sizeLimit: 25,
+        attributes: ["uid"],
+      });
+      console.log(`[ldap] client sizeLimit=25 → сервер вернул ${searchEntries.length}`);
+      expect(searchEntries.length).toBe(25);
     } finally {
       await c.unbind();
     }
   });
 
   test(`paged search (pageSize=100) листает и возвращает все ${N} записей`, async () => {
-    const c = await userClient("t.employee");
+    // t.outsider в acl.ldif получил size.pr/prtotal=unlimited — только так
+    // обычная (не rootdn) учётка может пройти paged-выдачу больше серверного
+    // лимита 500. t.employee на том же поиске упал бы в SizeLimitExceeded.
+    const c = await userClient("t.outsider");
     try {
       const { searchEntries } = await c.search(BULK, {
         scope: "sub",
