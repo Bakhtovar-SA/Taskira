@@ -1,8 +1,8 @@
 # COLLAB_MIGRATION — участники задачи (issue collaborators) + управление составом из AdminView
 
 Статус: **решения §3 подтверждены (D1–D8, см. «РЕШЕНО»). Фаза 4 (Feature A) — влита в
-`main` (PR #12). Feature B: Фаза 1 — сделана (ветка `feat/issue-collaborators`); Фазы
-2–3, 5–6 — не начаты.**
+`main` (PR #12). Feature B: Фазы 1–2 — сделаны (ветка `feat/issue-collaborators`,
+29 серверных тестов); Фазы 3, 5–6 — не начаты.**
 Порядок: Feature A (Фаза 4) — отдельным PR первым; затем Feature B (Фазы 1 → 2 → 3 → 6 → 5) одной веткой.
 Контекст: [SCOPE.md](SCOPE.md) — кросс-департаментные проекты и «участие нескольких отделов»;
 [ARCHITECTURE.md](ARCHITECTURE.md) — модель `Issue`. Предыдущие миграции —
@@ -214,32 +214,50 @@ CREATE INDEX idx_issue_collaborators_user ON issue_collaborators (user_id);
 Применена на dev-БД (`schema_migrations`: 001–004, 006–008) и в тестовой схеме
 (`test/global-setup.ts` → `migrate()`); `npm test` — 20/20 без изменений поведения.
 
-### Фаза 2 — Сервер: enforcement + роуты коллабораторов  *(план)*
+### Фаза 2 — Сервер: enforcement + роуты коллабораторов  *(сделано)*
 
-- **`permissions.ts` ×2** — `PermId` += `manageCollaborators`; `MATRIX.manageCollaborators = ["admin", "manager"]`; `PERM_NAMES` += запись. Меняется в **обеих** копиях одним коммитом (CLAUDE.md).
-- **`middleware.ts` `requireIssuePerm`** — после провала `can()`: если
-  `perm ∈ {browse, comment}` и `await isIssueCollaborator(u.id, issueId)` → пропустить,
-  `req.isCollaborator = true`. Хелпер `isIssueCollaborator(userId, issueId)`
-  (`SELECT 1 FROM issue_collaborators …`); при нагрузке — короткий TTL-кэш
-  `user::issue` рядом с `membershipCache` + `invalidateIssueCollaborator()`.
-- **`routes/issues.ts` `GET /:id`** и **`routes/comments.ts` `GET /:id/comments`** →
-  `requireIssuePerm("browse")` (было `requirePerm("browse")`), D5.
-- **`services/collaborators.ts`** *(новый)* — `listCollaborators(issueId)` (с мини-профилем),
-  `isIssueCollaborator(userId, issueId)`, `addCollaborator(issueId, userId, byId)`,
-  `removeCollaborator(issueId, userId)`.
-- **`routes/collaborators.ts`** *(новый)*, под `/api/projects/:projectId/issues/:id/collaborators`:
-  - `GET` — `requireIssuePerm("browse")` (видят и участники, и сам collaborator);
-  - `PUT /:userId` — `requireIssuePerm("manageCollaborators")`; цель — **любой
-    активный пользователь** (в этом смысл кросс-департаментности); `409`, если уже
-    участник проекта задачи (не нужно — пусть работает как участник) — опционально,
-    можно молча no-op;
-  - `DELETE /:userId` — `requireIssuePerm("manageCollaborators")`.
-  - Аудит `issue.collaborator.add` / `issue.collaborator.remove` (`{ userId }`).
-- **`app.ts`** — регистрация `collaboratorRoutes` в под-дереве `/projects/:projectId`
-  с `prefix: "/issues"` (рядом с `commentRoutes`).
-- **`services/issues.ts` `getIssueDto`** — добавить `collaborators: [{ userId, name, initials, color }]`
-  (для Фазы 6 — ещё `participants`: reporter + assignee + авторы комментариев).
-- **`contract.ts`** — `CollaboratorParams = z.object({ userId: uuid })`; тела у `PUT` нет.
+- **`permissions.ts` ×2** — `PermId` += `manageCollaborators`;
+  `MATRIX.manageCollaborators = ["admin", "manager"]` (аддитивный ключ, прочие права
+  ролей не тронуты); серверный `PERM_NAMES` += «Подключение к задаче»; клиентский
+  `PERMISSIONS` += запись (scope «Задача») — чтобы `permMeta()` оставался тотальным
+  и право было видно в матрице `PermissionsView`.
+- **`middleware.ts` `requireIssuePerm`** — после провала `can()`:
+  `COLLABORATOR_PERMS = {browse, comment}` и `await isIssueCollaborator(u.id, issueRef.id)`
+  → `req.isCollaborator = true`, доступ. Кэша пока нет (запрос идёт только когда
+  ролевой `can()` уже не прошёл — участники/админы его не задевают). Плюс `:id`
+  задачи теперь проверяется на UUID (`!UUID_RE.test(id)` → `404` вместо PG-500).
+- **`routes/issues.ts`** — `GET /:id` и `POST/DELETE /:id/watchers/me` → `requireIssuePerm("browse")`
+  (было `requirePerm`); список `GET /` и `POST /` (create) — без изменений
+  (`requirePerm` без контекста задачи — изоляция бэклога).
+- **`routes/comments.ts`** — `GET /:id/comments` → `requireIssuePerm("browse")`;
+  `requirePerm` из импорта убран (больше не нужен).
+- **`services/collaborators.ts`** *(новый)* — `isIssueCollaborator`,
+  `listCollaborators` (мини-профиль), `addCollaborator` (идемпотентный upsert),
+  `removeCollaborator` (→ bool). Импортит только `db.js` — цикла с `middleware` нет.
+- **`routes/collaborators.ts`** *(новый)*, под `/api/projects/:projectId/issues`
+  (`prefix: "/issues"`):
+  - `GET /:id/collaborators` — `requireIssuePerm("browse")`;
+  - `PUT /:id/collaborators/:userId` — `requireIssuePerm("manageCollaborators")`;
+    цель — любой активный пользователь; неизвестный → `404`, деактивированный →
+    `400`; идемпотентно, возвращает DTO (`200`);
+  - `DELETE /:id/collaborators/:userId` — `requireIssuePerm("manageCollaborators")`;
+    не подключён → `404`, иначе `204`.
+  - Аудит `issue.collaborator.add` / `.remove` (`{ userId, projectId }`).
+- **`app.ts`** — `collaboratorRoutes` зарегистрирован рядом с `commentRoutes`.
+- **`services/issues.ts`** — `IssueDetailDto = IssueDto & { collaborators: CollaboratorDto[] }`;
+  `getIssueDto` доклеивает `collaborators` (только детальный `GET /:id`, не список).
+- **`contract.ts`** — `CollaboratorParams = z.object({ userId: uuid })`.
+- **`routes/users.ts`** — `GET /api/users/pickable` (`requireAuth`): активные,
+  `{ id, name, initials, color, jobRole }`, без `globalRole`/`username` (D7).
+- **Тесты** — `test/access.collaborators.test.ts` (9): grant issue-scoped
+  (задача+комментарии да; список/bootstrap/PATCH/DELETE/transition — 403; CORP не
+  появляется в `/api/projects`; другая задача проекта — 403; в assignee не годится);
+  manager подключает, employee/viewer — 403; `DELETE` 204→404, employee 403;
+  неизвестный юзер → 404; `GET /collaborators` и `getIssueDto.collaborators`
+  отражают состав; `/users/pickable` — любой аутентифицированный, без
+  `globalRole`/`username`. **Всего 29 тестов зелёные.**
+- Проверка: `typecheck` (сервер 0, клиент — 10 пред-существующих, новых нет),
+  `npm run build` — успешно.
 
 ### Фаза 3 — Клиент: добавление/показ в IssueModal  *(план)*
 

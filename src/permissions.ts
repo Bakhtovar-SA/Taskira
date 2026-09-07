@@ -26,7 +26,8 @@ export type PermId =
   | "comment"
   | "manageSprints"
   | "editWorkflow"
-  | "manageAccess";
+  | "manageAccess"
+  | "manageCollaborators";
 
 export interface RoleMeta {
   id: AccessRole;
@@ -81,6 +82,7 @@ const MATRIX: Record<PermId, AccessRole[]> = {
   manageSprints: ["admin", "manager"],
   editWorkflow: ["admin"],
   manageAccess: ["admin"],
+  manageCollaborators: ["admin", "manager"],
 };
 
 export interface PermMeta {
@@ -100,6 +102,12 @@ export const PERMISSIONS: PermMeta[] = [
   { id: "manageSprints", name: "Управление спринтами", desc: "Старт/завершение спринта, перенос задач.", scope: "Спринт" },
   { id: "editWorkflow", name: "Изменение workflow", desc: "Переходы и сброс схемы.", scope: "Схема" },
   { id: "manageAccess", name: "Управление доступом", desc: "Пользователи и роли (на сервере).", scope: "Пользователи" },
+  {
+    id: "manageCollaborators",
+    name: "Подключение к задаче",
+    desc: "Пригласить человека к отдельной задаче (просмотр + комментарии), не добавляя в проект.",
+    scope: "Задача",
+  },
 ];
 
 export const permMeta = (id: PermId): PermMeta => PERMISSIONS.find((p) => p.id === id)!;

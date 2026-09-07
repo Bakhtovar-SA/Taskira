@@ -11,6 +11,7 @@ import { projectsRoutes } from "./routes/projects.js";
 import { memberRoutes } from "./routes/members.js";
 import { issuesRoutes } from "./routes/issues.js";
 import { commentRoutes } from "./routes/comments.js";
+import { collaboratorRoutes } from "./routes/collaborators.js";
 import { sprintRoutes } from "./routes/sprints.js";
 import { workflowRoutes } from "./routes/workflow.js";
 import { userRoutes } from "./routes/users.js";
@@ -80,6 +81,7 @@ export function buildApp(): FastifyInstance {
           await proj.register(memberRoutes, { prefix: "/members" }); // /:userId
           await proj.register(issuesRoutes, { prefix: "/issues" }); // CRUD + transition + sprint + watchers
           await proj.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
+          await proj.register(collaboratorRoutes, { prefix: "/issues" }); // /:id/collaborators[/:userId]
           await proj.register(sprintRoutes, { prefix: "/sprints" });
           await proj.register(workflowRoutes, { prefix: "/workflow" });
         },

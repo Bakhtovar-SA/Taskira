@@ -2,7 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { q } from "../db.js";
-import { requireIssuePerm, requirePerm, zbody, type JwtPayload } from "../middleware.js";
+import { requireIssuePerm, zbody, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
 import { loadIssue } from "../services/issues.js";
 import { CommentBody } from "../contract.js";
@@ -37,7 +37,9 @@ const mapComment = (r: CommentRow): CommentDto => ({
 });
 
 export async function commentRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/:id/comments", { preHandler: requirePerm("browse") }, async (req) => {
+  // requireIssuePerm (не requirePerm): приглашённый участник задачи (collaborator)
+  // видит её обсуждение целиком (COLLAB_MIGRATION.md D3).
+  app.get("/:id/comments", { preHandler: requireIssuePerm("browse") }, async (req) => {
     const project = req.project!;
     const { id } = req.params as { id: string };
     const iss = await loadIssue(project.id, id);

@@ -1,6 +1,7 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
 import { one, q } from "../db.js";
 import { notFound } from "../middleware.js";
+import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
 
 /* -------- строка БД → camelCase DTO (единый формат ответа API) -------- */
 export interface IssueRow {
@@ -87,8 +88,14 @@ export async function loadIssue(projectId: string, issueId: string): Promise<Iss
   return row;
 }
 
-export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDto> {
-  return mapIssue(await loadIssue(projectId, issueId));
+/** Карточка задачи: DTO + приглашённые участники (issue_collaborators, миграция 008).
+ *  collaborators кладём только в детальный ответ GET /:id — в списке они не нужны
+ *  и не должны стоить по запросу на строку. */
+export type IssueDetailDto = IssueDto & { collaborators: CollaboratorDto[] };
+
+export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
+  const row = await loadIssue(projectId, issueId);
+  return { ...mapIssue(row), collaborators: await listCollaborators(row.id) };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).
