@@ -18,7 +18,7 @@ export const LIMITS = {
   points: { min: 0, max: 100 },
   goal: { max: 200 },
   username: { min: 3, max: 32 },
-  department: { name: { min: 1, max: 80 } },
+  department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },
   project: { key: { min: 2, max: 10 }, name: { min: 1, max: 120 }, description: { max: 2000 } },
 } as const;
 

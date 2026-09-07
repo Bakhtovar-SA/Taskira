@@ -300,7 +300,7 @@ export default function AdminView() {
                       key={d.ldapGroupDn ?? ""}
                       defaultValue={d.ldapGroupDn ?? ""}
                       placeholder="DN группы AD, напр. cn=dept-ib,ou=groups,dc=corp,dc=example,dc=com"
-                      maxLength={1024}
+                      maxLength={LIMITS.department.ldapGroupDn.max}
                       onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
                       onBlur={(e) => {
                         const v = e.target.value.trim();

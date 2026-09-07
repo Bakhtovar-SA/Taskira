@@ -94,13 +94,15 @@ export async function ldapAuthenticate(username: string, password: string): Prom
       } catch (e) {
         throw new LdapUnavailableError("bind сервис-аккаунтом не удался", e);
       }
-      const filter = c.userFilter.replace("{username}", escFilter(username));
+      // replaceAll: фильтр может ссылаться на {username} несколько раз
+      // (AD: (|(sAMAccountName={username})(userPrincipalName={username})), см. LDAP_SETUP.md)
+      const filter = c.userFilter.replaceAll("{username}", escFilter(username));
       const { searchEntries } = await client.search(c.userBaseDn, { scope: "sub", filter, attributes: attrs });
       if (searchEntries.length !== 1) return null; // не найден или неоднозначно
       entry = searchEntries[0] as unknown as Record<string, unknown>;
       userDn = String(entry.dn);
     } else {
-      userDn = c.userDnTemplate!.replace("{username}", escDn(username));
+      userDn = c.userDnTemplate!.replaceAll("{username}", escDn(username));
     }
 
     /* 2) проверка пароля пользователя (re-bind) */
@@ -163,7 +165,7 @@ export async function ldapUserGroups(login: string): Promise<string[] | null> {
     if (c.startTls) await client.startTLS(tlsOptions(c));
     await client.bind(c.bindDn, c.bindPassword ?? "");
 
-    const filter = c.userFilter.replace("{username}", escFilter(login));
+    const filter = c.userFilter.replaceAll("{username}", escFilter(login));
     const { searchEntries } = await client.search(c.userBaseDn, {
       scope: "sub",
       filter,

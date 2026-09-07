@@ -45,7 +45,7 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
       } catch (e) {
         deptConflict(e);
       }
-      await audit(actor.sub, "department.create", "department", id, { name });
+      await audit(actor.sub, "department.create", "department", id, { name, ldapGroupDn });
       reply.code(201).send(await getDepartment(id));
     },
   );
@@ -71,7 +71,9 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
         deptConflict(e);
       }
       if (rows.length === 0) throw notFound("Отдел не найден");
-      await audit(actor.sub, "department.update", "department", id, { fields: Object.keys(body) });
+      // логируем сами значения (не только имена полей) — чтобы по аудиту можно было
+      // восстановить, кто и когда привязал отдел к какой LDAP-группе.
+      await audit(actor.sub, "department.update", "department", id, { fields: body });
       return getDepartment(id);
     },
   );

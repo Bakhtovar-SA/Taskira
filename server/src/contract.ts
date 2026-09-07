@@ -34,7 +34,7 @@ export const LIMITS = {
   points: { min: 0, max: 100 },
   goal: { max: 200 },
   username: { min: 3, max: 32 },
-  department: { name: { min: 1, max: 80 } },
+  department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },
   project: { key: { min: 2, max: 10 }, name: { min: 1, max: 120 }, description: { max: 2000 } },
 } as const;
 
@@ -117,7 +117,7 @@ export const ProjectParams = z.object({ projectId: uuid });
 export const DepartmentParams = z.object({ id: uuid });
 
 /** DN группы LDAP/AD (LDAP_MIGRATION.md D5). null — очистить привязку. */
-const ldapGroupDn = z.string().trim().min(1).max(1024).nullable();
+const ldapGroupDn = z.string().trim().min(1).max(LIMITS.department.ldapGroupDn.max).nullable();
 
 /** POST /api/departments [global admin] */
 export const DepartmentBody = z.object({

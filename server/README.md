@@ -371,6 +371,7 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 - [ ] LDAP недоступен → обычный пользователь `401`; **break-glass** `ADMIN_USERNAME` входит по локальному паролю и при живом, и при погашенном LDAP
 - [ ] `LDAP_GROUP_MEMBERSHIP=search`: обратный поиск групп выполняется сервис-аккаунтом (re-bind), не забиндленным пользователем
 - [ ] `{username}` с метасимволами (`*`, `(`, `\`, для прямого bind — `,`/`+`/`"`) не ломает фильтр/DN и не даёт инъекции — `401`, не `500`
+- [ ] `LDAP_USER_FILTER` с двумя `{username}` (AD: `(|(sAMAccountName={username})(userPrincipalName={username}))`) — подставляются **оба** вхождения (`replaceAll`), вход проходит
 
 **`AUTH_MODE=ldap` — гарды и админ-операции:**
 

@@ -194,9 +194,8 @@ async function isDeptMember(userId: string, departmentId: string): Promise<boole
 /** Эффективная роль в проекте: явная (resolveRole) либо неявный viewer —
  *  участник департамента проекта или is_shared (D8). null → нет доступа. */
 async function effectiveRole(u: ServerUser, membership: Membership, project: ProjectRow): Promise<AccessRole | null> {
-  const explicit = resolveRole(u, membership);
+  const explicit = resolveRole(u, membership); // вернёт "admin" для глоб. админа
   if (explicit) return explicit;
-  if (u.globalRole === "admin") return "admin"; // на всякий — resolveRole это уже покрыл
   if (project.isShared || (await isDeptMember(u.id, project.departmentId))) return "viewer";
   return null;
 }

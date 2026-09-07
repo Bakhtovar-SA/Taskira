@@ -13,7 +13,7 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { Client } from "ldapts";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { auth, getApp, q, resetDb, stopApp } from "./helpers.js";
+import { getApp, q, resetDb, stopApp } from "./helpers.js";
 
 const RUN = process.env.AUTH_MODE === "ldap" && !!process.env.LDAP_URL;
 const d = RUN ? describe : describe.skip;
