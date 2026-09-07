@@ -1,9 +1,9 @@
 # COLLAB_MIGRATION — участники задачи (issue collaborators) + управление составом из AdminView
 
-Статус: **решения §3 подтверждены (D1–D8, см. «РЕШЕНО»). Фаза 4 (Feature A) — влита в
-`main` (PR #12). Feature B: Фазы 1–3 и 6 — сделаны (ветка `feat/issue-collaborators`,
-31 серверный тест); Фаза 5 (верификация + чек-лист) — осталась.**
-Порядок: Feature A (Фаза 4) — отдельным PR первым; затем Feature B (Фазы 1 → 2 → 3 → 6 → 5) одной веткой.
+Статус: **всё сделано.** Feature A (Фаза 4) — влита в `main` (PR #12). Feature B
+(Фазы 1 → 2 → 3 → 6 → 5) — готова на ветке `feat/issue-collaborators` (31 серверный
+тест, живой прогон), ждёт PR. Браузерная проверка UI — за пользователем.
+Порядок был: Feature A отдельным PR первым; Feature B одной веткой.
 Контекст: [SCOPE.md](SCOPE.md) — кросс-департаментные проекты и «участие нескольких отделов»;
 [ARCHITECTURE.md](ARCHITECTURE.md) — модель `Issue`. Предыдущие миграции —
 [ROLE_MIGRATION.md](ROLE_MIGRATION.md), [DEPT_MIGRATION.md](DEPT_MIGRATION.md).
@@ -312,29 +312,34 @@ CREATE INDEX idx_issue_collaborators_user ON issue_collaborators (user_id);
   ещё не делалась.**
 - Без авто-доступа: добавление — всегда явный выбор проекта + роли (§1(A), D8).
 
-### Фаза 5 — Верификация  *(план)*
+### Фаза 5 — Верификация  *(сделано)*
 
-Тест-раннер — Vitest (`server/test/`), новый `access.collaborators.test.ts` +
-ручной чек-лист в `server/README.md`:
+**Автотесты** — `server/test/access.collaborators.test.ts` (11). `npm test` → **31
+зелёный** (3 файла). Покрыто: grant issue-scoped (задача + комментарии да; список /
+bootstrap / PATCH / DELETE / transition — 403); привязка к одной задаче; не виден в
+`/api/projects`; в assignee не годится; manager добавляет, employee/viewer — 403;
+`DELETE` 204 → 404; неизвестный юзер — 404; `collaborators` + `participants` в DTO;
+`/users/pickable` (форма, без `globalRole`/`username`); `/issues/collaborating`
+(только свои, с данными проекта).
 
-- collaborator: `GET issue` → `200`; `GET/POST /comments` → `200`;
-- collaborator: `GET /api/projects/:id/issues` (список) → `403`; bootstrap
-  `GET /api/projects/:id` → `403`; `PATCH`/`DELETE`/`transition` задачи → `403`;
-- collaborator **не появляется** в `GET /api/projects` и в переключателе проектов;
-- участник проекта: доступ к задаче и комментариям не изменился (регресс D5);
-- IDOR: `GET /api/projects/A/issues/<из B>` и `…/comments` → `404`;
-- assignee: collaborator в `assigneeId` при create/patch → `400`;
-- `manager` добавил и убрал collaborator; `employee`/`viewer` на `PUT/DELETE
-  …/collaborators/:userId` → `403`;
-- удаление задачи и удаление проекта каскадят `issue_collaborators`;
-- AdminView: global admin из экрана отдела добавил человека в проект **другого**
-  отдела, роль применилась; `409` при понижении последнего менеджера;
-- **одиночный просмотр (Фаза 6):** чисто внешний collaborator (0 видимых
-  проектов) логинится → видит «Мои подключения» и открывает задачу по прямой
-  ссылке; `GET /api/issues/collaborating` отдаёт только его задачи; карточка
-  рендерит имена участников без bootstrap проекта; форма комментария работает,
-  прочие мутации скрыты; пользователь без collaborator-строк и без проектов →
-  пустой экран «нет доступных задач», не ошибка.
+**Ручной чек-лист** — добавлен в `server/README.md`, раздел «Issue collaborators
+(collab-B)»: сервер (миграция, MATRIX ×2, роуты, каскады, аудит, IDOR/uuid-guard) +
+клиент (`IssueModal` пикер, solo-режим, раздел «Мои подключения» в обычной оболочке,
+прямая ссылка, отзыв приглашения на лету).
+
+**Живой прогон** (dev :8080, юзеры `admin` / `test.external`):
+`test.external` (0 проектов) — `GET issue` 403 → admin `PUT collaborators` 200 →
+`test.external`: `GET issue` 200, `GET/POST comments` 200/201,
+`GET /issues` 403, `GET /api/projects/:id` (bootstrap) 403, `PATCH issue` 403,
+`GET /api/projects` `[]`, `/issues/collaborating` отдаёт задачу; DTO несёт
+`collaborators:['Test Ext']` + `participants` (3); admin `DELETE` 204 → повтор 404 →
+`test.external` `GET issue` снова 403. Всё как ожидалось.
+
+**Типы/сборка:** `npm run typecheck` — сервер 0; клиент 10 пред-существующих (не по
+теме), новых нет. `npm run build` — успешно.
+
+**Не проверено:** браузерный рендер `SoloView` / `CollaboratingView` /
+`IssueModal`-секции (typecheck + build + серверные тесты покрывают контракт).
 
 ### Фаза 6 — Клиент: одиночный просмотр задачи для внешнего collaborator  *(сделано)*
 
