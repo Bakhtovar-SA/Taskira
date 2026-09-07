@@ -126,6 +126,14 @@ jobs:
           docker compose -f docker-compose.ldap.yml exec -T openldap \
             ldapadd -x -c -H ldap://localhost:389 -D cn=admin,dc=taskira,dc=test -w admin -f /ldifs/bootstrap.ldif
 
+      # Дефолтный ACL osixia ("by self read by * none") не даёт обычному
+      # пользователю искать по ou=groups / ou=bulk — тесты sizelimit/paged тогда
+      # падают с noSuchObject. Разрешаем "by users read" (см. test/ldap/acl.ldif).
+      - name: Relax ACL (authenticated users can read the tree)
+        run: |
+          docker compose -f docker-compose.ldap.yml exec -T openldap \
+            ldapmodify -x -H ldap://localhost:389 -D cn=admin,cn=config -w config -f /ldifs/acl.ldif
+
       - name: Show LDAP tree (sanity)
         run: |
           docker compose -f docker-compose.ldap.yml exec -T openldap \

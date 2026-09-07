@@ -1,0 +1,16 @@
+# Ослабляем дефолтный ACL osixia/openldap для теста: любой аутентифицированный
+# пользователь может читать всё дерево ("by users read"). Дефолт ("by self read
+# by * none") не даёт обычному пользователю искать по ou=groups / ou=bulk —
+# slapd тогда возвращает noSuchObject (err=32), а не sizeLimit/paged.
+#
+# Применяется отдельным шагом CI:
+#   ldapmodify -x -H ldap://localhost:389 -D cn=admin,cn=config -w config -f /ldifs/acl.ldif
+#
+# Реальному AD такой шаг не нужен — там служебная учётка обычно и так читает
+# группы, а тесты sizelimit/paged в проде не выполняются.
+dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+replace: olcAccess
+olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth manage by * break
+olcAccess: {1}to attrs=userPassword,shadowLastChange by self write by dn.exact="cn=admin,dc=taskira,dc=test" write by anonymous auth by * none
+olcAccess: {2}to * by self write by dn.exact="cn=admin,dc=taskira,dc=test" write by users read by * none
