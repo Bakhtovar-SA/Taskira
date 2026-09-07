@@ -20,6 +20,9 @@ export const LIMITS = {
   username: { min: 3, max: 32 },
   department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },
   project: { key: { min: 2, max: 10 }, name: { min: 1, max: 120 }, description: { max: 2000 } },
+  // Вложения — зеркало server/src/contract.ts (FILES_MIGRATION.md D3). UX-подсказка;
+  // сервер может отдавать свои значения через GET /api/... в будущем.
+  attachment: { maxBytes: 25 * 1024 * 1024, maxPerIssue: 50, maxFilename: 200 },
 } as const;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };

@@ -1,6 +1,9 @@
 # FILES_MIGRATION — вложения к задачам (файлы)
 
-Статус: **решения §3 подтверждены целиком (D1–D6, как предложено). Приступаем к Фазе 1.**
+Статус: **решения §3 подтверждены (D1–D6). Фазы 1–2 сделаны (сервер: миграция 010,
+конфиг, абстракция хранилища + локальный драйвер, `@fastify/multipart`, guard по
+magic-байтам, 4 роута; `npm test` 54 зелёных; живой прогон пройден). Дальше — Фаза 3
+(клиент).**
 Ветка `feat/attachments`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 4 — драйвер S3/MinIO; при затыке с инфраструктурой отделяется в follow-up PR,
 т.к. локальный драйвер к тому моменту уже оттестирован). Фаза 6 — вне захода.
@@ -368,21 +371,34 @@ export function makeStorage(cfg: Config): Promise<Storage>;     // local | s3; �
 `npm run typecheck` 0, `npm test` без изменений (38 зелёных) — код не подключён к
 `app.ts`.
 
-### Фаза 2 — Сервер: multipart + роуты вложений + валидация  *(локальный драйвер)*
+### Фаза 2 — Сервер: multipart + роуты вложений + валидация  *(сделано)*
 
-- **`@fastify/multipart`** (v9, Fastify 5) в `server/package.json`; регистрируется
-  в `app.ts` с `limits: { fileSize: ATTACH_MAX_BYTES, files: 1 }`.
-- **`server/src/services/fileGuard.ts`** *(новый)* — `sanitizeFilename()`,
-  `sniffType(head: Buffer)` → `{ kind: 'executable'|'image'|'pdf'|'zip'|'office'|'text'|'unknown', mime }`,
-  `checkUpload({ filename, head, declaredMime })` → нормализованный `contentType`
-  либо `ApiHttpError(400, …)` (запрещённое расширение / исполняемая сигнатура /
-  несовпадение расширения и сигнатуры). Таблица сигнатур инлайн, без зависимостей.
-- **`server/src/services/attachments.ts`** *(новый)* — `listAttachments(issueId)`
-  (DTO), `createAttachment(issueId, userId, part)` (стрим → `sha256` на лету →
-  первые 512 Б в буфер для `fileGuard` → `Storage.put` → INSERT; при отказе guard
-  объект в хранилище не создаётся), `deleteAttachment(att, actor, role)` (правило
-  D2 → DELETE строки → `Storage.delete` best-effort), `countForIssue`.
-  Импортит только `db.js` + `storage.js` + `fileGuard.js` — цикла с `middleware` нет.
+Ветка `feat/attachments`. `npm run typecheck` 0 (сервер + клиент), `npm test` —
+**54 зелёных** (38 прежних + 16 новых в `access.attachments.test.ts`),
+`npm run build` ок. Живой прогон (`.exe`→`.jpg` по magic-байтам, IDOR-скачивание)
+пройден — см. конец §4.
+
+- **`@fastify/multipart`** (`^9.4.0`, Fastify 5) в `server/package.json`;
+  `app.register(multipart, { throwFileSizeLimit: true, limits: { fileSize:
+  cfg.storage.maxBytes, files: 1, fields: 10, fieldSize: 1024 } })`.
+- **`server/src/services/fileGuard.ts`** *(новый)* — `HEAD_BYTES=512`,
+  `sanitizeFilename(raw, maxLen)`, `extOf(name)`, `sniff(head): SigId | undefined`
+  (инлайн-таблица: `pe`/`elf`/`macho`/`script` + `png`/`jpeg`/`gif`/`pdf`/`zip`/
+  `rar`/`7z`/`gzip`/`svg`/`xml`), `checkUpload({ filename, head, maxFilename,
+  blockExt })` → `{ filename, contentType, sniffed }` либо
+  `ApiHttpError(400, "ATTACHMENT_REJECTED", …)` — чёрный список расширений,
+  исполняемая сигнатура, несовпадение расширение↔сигнатура. Без зависимостей.
+  Клиентский `declaredMime` не используется (нормализуем сами: `EXT_MIME` →
+  `SIG_MIME` → `application/octet-stream`).
+- **`server/src/services/attachments.ts`** *(новый)* — `listAttachments`,
+  `countForIssue`, `getAttachmentInIssue(issueId, attId)` (IDOR-сверка),
+  `createAttachment({ issueId, userId, part })` (`readHead` без разрушения потока
+  → `checkUpload` **до** записи → `Readable.from` с `sha256`/размером на лету →
+  `Storage.put` → INSERT; `part.file.truncated` / `FST_REQ_FILE_TOO_LARGE` →
+  `Storage.delete` + `413`), `openAttachment`, `canDeleteAttachment(row, userId,
+  role)` (D2), `deleteAttachment`, `storageKeysForIssue` + `deleteStorageObjects`
+  (уборка при удалении задачи). Хранилище — одна ленивая `makeStorage()` на процесс.
+  Импортит `db` / `config` / `storage` / `fileGuard` / `permissions` — цикла нет.
 - **`server/src/routes/attachments.ts`** *(новый)*, под
   `/api/projects/:projectId/issues` (`prefix: "/issues"`, рядом с `commentRoutes`):
   - `GET /:id/attachments` — `requireIssuePerm("browse")` → `AttachmentDto[]`;
@@ -396,26 +412,56 @@ export function makeStorage(cfg: Config): Promise<Storage>;     // local | s3; �
     `204`; повтор → `404`.
   - Аудит `attachment.add` / `attachment.remove` (`{ issueId, projectId, attId,
     filename, byteSize, viaCollaborator? }`).
-- **`app.ts`** — `attachmentRoutes` зарегистрирован рядом с `commentRoutes` под
-  `/api/projects/:projectId`; `multipart` — на уровне `buildApp`.
+- **`routes/issues.ts` DELETE `/:id`** — `storageKeysForIssue` **до** `DELETE FROM
+  issues`, затем `deleteStorageObjects` (best-effort). Удаление **проекта**
+  объекты пока не чистит — подтверждено живым прогоном (осталась одна сирота) →
+  сборщик сирот, Фаза 6 (§5).
+- **`app.ts`** — `multipart` в `buildApp`; `attachmentRoutes` под
+  `/api/projects/:projectId` рядом с `commentRoutes`.
 - **`services/issues.ts`** — `IssueDetailDto += attachments: AttachmentDto[]`;
-  `getIssueDto` доклеивает (только детальный `GET /:id`, не список).
+  `getIssueDto` доклеивает (только детальный `GET /:id`).
 - **`contract.ts`** — `AttachmentParams = z.object({ attId: uuid })`;
-  `LIMITS.attachment = { maxBytes, maxPerIssue, maxFilename }` (зеркалит клиент).
-  Тела у upload нет (multipart), поэтому zod только на params.
+  `LIMITS.attachment = { maxBytes, maxPerIssue, maxFilename }`. Роут проверяет
+  `attId` инлайн-`UUID_RE` (как `:id` в middleware) → `404`, не 500 на кривом uuid.
 - **`src/validation.ts`** (клиент) — те же `LIMITS.attachment` (зеркало).
-- **Тесты** — `server/test/access.attachments.test.ts`:
-  - видимость: участник/collaborator качают; не-участник не-shared → `404` на всех
-    4 эндпоинтах; `/projects/A/issues/<из B>/attachments` → `404`;
-  - права: `viewer` upload → `403`; `employee` upload → `201`; collaborator
-    upload → `201`; `employee` удаляет свой → `204`, чужой → `403`; `manager`
-    удаляет любой → `204`;
-  - лимиты: файл > `ATTACH_MAX_BYTES` → `413`; `.exe` → `400`; `.jpg` с
-    сигнатурой `MZ` → `400`; 51-й файл → `409`;
-  - `getIssueDto.attachments` отражает список; удаление задачи/проекта каскадит
-    строки; заголовки скачивания (`Content-Disposition: attachment`, `nosniff`);
-    `.svg` отдаётся как `application/octet-stream`.
-- Проверка: `typecheck` 0, `npm test` — прежние 38 + новые зелёные, `npm run build`.
+- **`test/env.ts`** — `STORAGE_DIR` = os-temp, `ATTACH_MAX_BYTES=4096`,
+  `ATTACH_MAX_PER_ISSUE=5` (тесты не гоняют мегабайты); `global-setup.ts` чистит
+  каталог; `helpers.ts` `resetDb` += `attachments` в `TRUNCATE`.
+- **Тесты** — `server/test/access.attachments.test.ts` (16), `npm test` → 54:
+  - guard: `.exe` → `400` (расширение); `.jpg` с байтами `MZ` → `400` (сигнатура
+    `pe`, **не** расширение); `.png` с байтами `%PDF-` → `400` (несовпадение);
+    настоящий PNG → `201`, `contentType='image/png'`, `sha256` заполнен;
+  - права: `viewer` upload → `403`; `employee` → `201`; collaborator → `201`;
+    `employee` сносит свой → `204`, чужой → `403`; `manager` — любой → `204`,
+    повтор → `404`;
+  - видимость/IDOR: не-участник не-shared → `403` (список и upload);
+    id вложения из чужой задачи через свой путь → `404`;
+    `/projects/SEC/issues/<CORP-issue>/…` → `404`; участник (в т.ч. viewer)
+    качает → `200` и получает те же байты;
+  - D5: `Content-Disposition: attachment` + `X-Content-Type-Options: nosniff`;
+    `.svg` (в БД `image/svg+xml`) отдаётся как `application/octet-stream`;
+  - лимиты: файл > 4096 → `413`; 6-й файл → `409`;
+  - `getIssueDto.attachments` отражает список; удаление задачи каскадит строки.
+- Проверка: `typecheck` 0 (сервер + клиент), `npm test` 54 зелёных, `npm run build` ок.
+
+**Живой прогон** (dev :8080, `STORAGE_DRIVER=local`, вход `admin`):
+
+- *Сценарий 1 — `.exe` под видом `.jpg`.* Файл с байтами `4D 5A …` («MZ»),
+  `filename=quarterly-report.jpg`, `Content-Type: image/jpeg` →
+  **`400 ATTACHMENT_REJECTED`** «Файл распознан как исполняемый или скрипт
+  (сигнатура pe) — загрузка запрещена». Контроль: тот же `.jpg` с настоящими
+  байтами `FF D8 FF` → **`201`** (расширение `.jpg` не в чёрном списке — отказ
+  был именно по magic-байтам). Контроль: те же `MZ`-байты как `payload.exe` →
+  `400` «Файлы с расширением .exe загружать нельзя» (другой барьер).
+- *Сценарий 2 — IDOR при скачивании.* Вложение загружено в задачу A. Запрос
+  `GET /api/projects/<proj>/issues/<B-issue>/attachments/<A-attId>` →
+  **`404`** «Вложение не найдено» (`attachment.issue_id ≠ :id`). Кросс-проектный
+  вариант (id вложения из другого проекта в пути проекта CORP) → **`404`**.
+  `/projects/<proj>/issues/<чужая задача>/…` → `404` «Задача не найдена в этом
+  проекте» (сверка в `requireIssuePerm` до обращения к вложению). Легитимное
+  скачивание по родному пути → `200` + заголовки D5.
+- Удаление задачи A → строки `attachments` сняты каскадом, объект в хранилище
+  удалён. Удаление **проекта** оставило объект-сироту — ожидаемо, сборщик — Фаза 6.
 
 ### Фаза 3 — Клиент: вложения на карточке задачи
 

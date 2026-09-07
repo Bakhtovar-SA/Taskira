@@ -23,3 +23,14 @@ if (!/taskira_test/.test(TEST_DB_URL)) {
 process.env.DATABASE_URL = TEST_DB_URL;
 process.env.JWT_SECRET = TEST_JWT_SECRET;
 process.env.NODE_ENV = "test";
+
+// Вложения (миграция 010): драйвер local во временный каталог, чтобы прогон
+// тестов не писал в server/var/. global-setup.ts чистит его перед прогоном.
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+export const TEST_STORAGE_DIR = process.env.STORAGE_DIR || join(tmpdir(), "taskira-test-attachments");
+process.env.STORAGE_DIR = TEST_STORAGE_DIR;
+// Маленькие лимиты — чтобы тесты «слишком большой файл» / «слишком много вложений»
+// не гоняли мегабайты и десятки запросов.
+process.env.ATTACH_MAX_BYTES = process.env.ATTACH_MAX_BYTES || "4096";
+process.env.ATTACH_MAX_PER_ISSUE = process.env.ATTACH_MAX_PER_ISSUE || "5";

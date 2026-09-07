@@ -36,6 +36,8 @@ export const LIMITS = {
   username: { min: 3, max: 32 },
   department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },
   project: { key: { min: 2, max: 10 }, name: { min: 1, max: 120 }, description: { max: 2000 } },
+  // Вложения (FILES_MIGRATION.md D3). Дефолты; сервер переопределяет из ATTACH_* env.
+  attachment: { maxBytes: 25 * 1024 * 1024, maxPerIssue: 50, maxFilename: 200 },
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -109,6 +111,10 @@ export const MemberParams = z.object({ userId: uuid });
 /** :userId в путях приглашённых участников задачи (issue_collaborators, миграция 008).
  *  :id (задача) валидирует requireIssuePerm. Тела у PUT нет. */
 export const CollaboratorParams = z.object({ userId: uuid });
+
+/** :attId в путях вложений (attachments, миграция 010). :id (задача) валидирует
+ *  requireIssuePerm; у загрузки тело — multipart, не JSON. */
+export const AttachmentParams = z.object({ attId: uuid });
 
 /* ---------------- Departments / Projects (миграция 007) ---------------- */
 /** :projectId в путях ресурсов проекта */

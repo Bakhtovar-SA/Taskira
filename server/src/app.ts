@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import websocket from "@fastify/websocket";
+import multipart from "@fastify/multipart";
 import { loadConfig } from "./config.js";
 import { ApiHttpError } from "./middleware.js";
 import { authRoutes } from "./routes/auth.js";
@@ -11,6 +12,7 @@ import { projectsRoutes } from "./routes/projects.js";
 import { memberRoutes } from "./routes/members.js";
 import { issuesRoutes } from "./routes/issues.js";
 import { commentRoutes } from "./routes/comments.js";
+import { attachmentRoutes } from "./routes/attachments.js";
 import { collaboratorRoutes } from "./routes/collaborators.js";
 import { collaboratingRoutes } from "./routes/collaborating.js";
 import { sprintRoutes } from "./routes/sprints.js";
@@ -36,6 +38,12 @@ export function buildApp(): FastifyInstance {
   });
   app.register(jwt, { secret: cfg.jwtSecret });
   app.register(websocket); // realtime-маршруты — Этап 3c
+  // Вложения к задачам: потоковый multipart, один файл за запрос, лимит из конфига
+  // (FILES_MIGRATION.md D3). throwFileSizeLimit — стрим падает ошибкой при превышении.
+  app.register(multipart, {
+    throwFileSizeLimit: true,
+    limits: { fileSize: cfg.storage.maxBytes, files: 1, fields: 10, fieldSize: 1024 },
+  });
 
   /* Единый формат ошибок: { error: { code, reason } } */
     app.setErrorHandler((err: unknown, req, reply) => {
@@ -85,6 +93,7 @@ export function buildApp(): FastifyInstance {
           await proj.register(memberRoutes, { prefix: "/members" }); // /:userId
           await proj.register(issuesRoutes, { prefix: "/issues" }); // CRUD + transition + sprint + watchers
           await proj.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
+          await proj.register(attachmentRoutes, { prefix: "/issues" }); // /:id/attachments[/:attId]
           await proj.register(collaboratorRoutes, { prefix: "/issues" }); // /:id/collaborators[/:userId]
           await proj.register(sprintRoutes, { prefix: "/sprints" });
           await proj.register(workflowRoutes, { prefix: "/workflow" });

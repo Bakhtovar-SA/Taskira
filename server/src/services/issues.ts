@@ -2,6 +2,7 @@
 import { one, q } from "../db.js";
 import { notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
+import { listAttachments, type AttachmentDto } from "./attachments.js";
 
 /* -------- строка БД → camelCase DTO (единый формат ответа API) -------- */
 export interface IssueRow {
@@ -116,12 +117,20 @@ async function listParticipants(issueId: string): Promise<ParticipantDto[]> {
 /** Карточка задачи: DTO + приглашённые участники (issue_collaborators, миграция 008)
  *  + участники (reporter/assignee/авторы комментариев/приглашённые) для рендера
  *  карточки без bootstrap. Всё это — только в детальном ответе GET /:id, не в списке. */
-export type IssueDetailDto = IssueDto & { collaborators: CollaboratorDto[]; participants: ParticipantDto[] };
+export type IssueDetailDto = IssueDto & {
+  collaborators: CollaboratorDto[];
+  participants: ParticipantDto[];
+  attachments: AttachmentDto[];
+};
 
 export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
-  const [collaborators, participants] = await Promise.all([listCollaborators(row.id), listParticipants(row.id)]);
-  return { ...mapIssue(row), collaborators, participants };
+  const [collaborators, participants, attachments] = await Promise.all([
+    listCollaborators(row.id),
+    listParticipants(row.id),
+    listAttachments(row.id),
+  ]);
+  return { ...mapIssue(row), collaborators, participants, attachments };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).

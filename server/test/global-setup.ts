@@ -6,11 +6,14 @@
  *     (dev-схема `public` не трогается, отдельная БД/CREATEDB не нужны);
  *   - в CI отдельная БД `taskira_test` без options → схема `public`.
  */
+import { rm } from "node:fs/promises";
 import pg from "pg";
-import { TEST_DB_URL } from "./env.js";
+import { TEST_DB_URL, TEST_STORAGE_DIR } from "./env.js";
 import { initPool, migrate, closePool } from "../src/db.js";
 
 export async function setup(): Promise<void> {
+  await rm(TEST_STORAGE_DIR, { recursive: true, force: true }); // чистое хранилище вложений
+
   const client = new pg.Client({ connectionString: TEST_DB_URL });
   await client.connect();
   const searchPath = (await client.query("SHOW search_path")).rows[0].search_path as string;
