@@ -145,3 +145,65 @@ jobs:
       - name: OpenLDAP logs
         if: always()
         run: docker compose -f docker-compose.ldap.yml logs openldap
+
+  # Отдельный job: драйвер вложений STORAGE_DRIVER=s3 против НАСТОЯЩЕГО MinIO
+  # (не заглушки). Основной `server` job идёт в STORAGE_DRIVER=local.
+  storage-s3:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: taskira
+          POSTGRES_PASSWORD: taskira
+          POSTGRES_DB: taskira_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    defaults:
+      run:
+        working-directory: server
+
+    env:
+      DATABASE_URL_TEST: postgresql://taskira:taskira@localhost:5432/taskira_test
+      JWT_SECRET: ci-storage-job-jwt-secret-0000000000000000
+      STORAGE_DRIVER: s3
+      STORAGE_S3_ENDPOINT: http://localhost:9000
+      STORAGE_S3_BUCKET: taskira-attachments
+      STORAGE_S3_REGION: us-east-1
+      STORAGE_S3_ACCESS_KEY: taskira
+      STORAGE_S3_SECRET_KEY: taskira-minio-dev
+      STORAGE_S3_FORCE_PATH_STYLE: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+      - run: npm rebuild esbuild
+
+      - name: Start MinIO + create bucket
+        run: docker compose -f docker-compose.storage.yml up -d
+
+      - name: Wait for bucket (createbucket exits 0)
+        run: docker compose -f docker-compose.storage.yml wait createbucket
+
+      - name: Bucket sanity
+        run: docker compose -f docker-compose.storage.yml logs createbucket
+
+      - run: npm run test:storage
+
+      - name: MinIO logs
+        if: always()
+        run: docker compose -f docker-compose.storage.yml logs minio

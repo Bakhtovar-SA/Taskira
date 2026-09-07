@@ -12,6 +12,9 @@ server/.env
 server/node_modules/
 server/dist/
 
+# Локальное хранилище вложений (STORAGE_DRIVER=local; FILES_MIGRATION.md)
+server/var/
+
 # Локальные дампы БД — не коммитим (содержат хэши паролей)
 backup*.sql
 *.dump

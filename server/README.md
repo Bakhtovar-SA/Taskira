@@ -53,6 +53,7 @@
 | collab-A | `AdminView`: состав любого проекта из экрана отдела (ленивый `projectsApi.get`, роли/добавить/убрать); store `setProjectMember`/`removeProjectMember` — план в [`../COLLAB_MIGRATION.md`](../COLLAB_MIGRATION.md) D8. Сервер без изменений (global admin уже правит состав любого проекта) | ✅ клиент |
 | collab-B | Issue collaborators — [`../COLLAB_MIGRATION.md`](../COLLAB_MIGRATION.md). Ф1: `008_issue_collaborators.sql` ✅. Ф2: `manageCollaborators` (MATRIX ×2), fallback приглашённого в `requireIssuePerm` (browse/comment), `routes/collaborators.ts`, `getIssueDto.collaborators`, `GET /api/users/pickable` ✅. Ф3: клиент — `collaboratorsApi`, экшены store, секция «Участники задачи» в `IssueModal` ✅. Ф6: `GET /api/issues/collaborating`, `getIssueDto.participants`, одиночный режим `SoloView` (`bootStatus="solo"`) + раздел «Мои подключения» в обычном интерфейсе, ссылка `#/issue/<pid>/<id>` ✅. Ф5: `access.collaborators.test.ts` (11) + живой прогон + ручной чек-лист ниже ✅ | ✅ |
 | ldap-auth | LDAP/AD-аутентификация — [`../LDAP_MIGRATION.md`](../LDAP_MIGRATION.md) + [`../LDAP_SETUP.md`](../LDAP_SETUP.md). Ф1: `009_ldap.sql` (`users.auth_source`/`ldap_dn`/`email`, `department_members`, `ldap_group_dn UNIQUE`), `config.ts` `LDAP_*`, тестовый OpenLDAP (compose/LDIF) ✅. Ф2: `services/ldap.ts` (`ldapts`), `userProvisioning.ts`, `departmentSync.ts`, `POST /login` ldap-путь + break-glass, `routes/ldap.ts` `ping` ✅. Ф3: видимость проекта по департаменту → неявный `viewer` в `middleware.ts` (закрыт DEPT §3.5) ✅. Ф4: AdminView `ldap_group_dn`, `POST /api/ldap/resync`, ldap-режим гарды ✅. Ф5: `access.ldap.test.ts` (9) vs реальный slapd + CI job `ldap` ✅. Ф6: `LDAP_SETUP.md` + чек-лист ниже ✅. Харденинг: last-admin гард в JIT, гонка первого логина (23505), RFC 4514 escDn, break-glass 409 не течёт в ответ | ✅ |
+| attachments | Вложения к задачам — [`../FILES_MIGRATION.md`](../FILES_MIGRATION.md) + [`../STORAGE_SETUP.md`](../STORAGE_SETUP.md). Ф1: `010_attachments.sql`, `config.storage` (`STORAGE_DRIVER` local\|s3, `ATTACH_*`), `services/storage.ts` (`Storage` + `LocalDiskStorage`), `docker-compose.storage.yml` ✅. Ф2: `@fastify/multipart`, `services/fileGuard.ts` (magic-байты), `services/attachments.ts` (стрим + `sha256` + guard до записи), `routes/attachments.ts` (4 эндпоинта, всё через `requireIssuePerm`), `getIssueDto.attachments` ✅. Ф3: клиент — `attachmentsApi`/`apiUpload`/`downloadBlob`, экшены store, `<AttachmentField>` в `IssueModal` + `SoloIssueCard` ✅. Ф4: `S3Storage` (`@aws-sdk`), `storage.s3.test.ts` (специфика S3: multipart-ETag, `NoSuchKey`) + CI job `storage-s3` vs MinIO, `STORAGE_SETUP.md` ✅. Ф5: `access.attachments.test.ts` (17) + чек-лист ниже + живой прогон ✅ | ✅ |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
 
@@ -389,6 +390,71 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 - [ ] AdminView: на каждом департаменте строка «LDAP-группа» (инлайн-DN, `blur`→PATCH); кнопка «Пересинхронизировать LDAP» в шапке; тост на `409`
 - [ ] `LoginForm` — обычный вход по логину/паролю (тот же), просто JWT теперь от LDAP-пути
 
+### Вложения к задачам (attachments) — [`../FILES_MIGRATION.md`](../FILES_MIGRATION.md) / [`../STORAGE_SETUP.md`](../STORAGE_SETUP.md)
+
+Автотесты: `test/access.attachments.test.ts` (17, `npm test` → **55 зелёных**);
+`test/storage.s3.test.ts` (5) — только при `STORAGE_DRIVER=s3` + `STORAGE_S3_*`
+(`npm run test:storage`), в CI это job `storage-s3` против настоящего MinIO.
+
+**Схема / конфиг (миграция 010):**
+
+- [ ] `010_attachments.sql` в `schema_migrations`; `\d attachments` — FK `issue_id`
+  `ON DELETE CASCADE`, `uploaded_by` `ON DELETE SET NULL`, `CHECK (byte_size > 0)`,
+  `UNIQUE (storage_driver, storage_key)`, индекс `idx_attachments_issue`
+- [ ] `STORAGE_DRIVER` не задан → `local`, каталог `server/var/attachments` (git-ignored);
+  `STORAGE_DRIVER=s3` без `STORAGE_S3_ENDPOINT/BUCKET/ACCESS_KEY/SECRET_KEY` → сервер
+  падает на старте (`[config]`); нечисловой `ATTACH_MAX_BYTES` → тоже `fail`
+
+**Загрузка / guard (D3):**
+
+- [ ] `POST …/issues/:id/attachments` (multipart, поле `file`) — `viewer` → `403`;
+  `employee`/`manager`/`admin` и приглашённый collaborator → `201` + DTO
+  (`filename` санитизирован, `contentType` нормализован, `sha256` заполнен)
+- [ ] `.exe` (или другое из `ATTACH_BLOCK_EXT`) → `400` «расширение … нельзя»
+- [ ] Файл с байтами `MZ`/`\x7fELF`/`#!` под именем `*.jpg` → `400` «распознан как
+  исполняемый» (по сигнатуре, **не** по расширению — настоящий JPEG `*.jpg` проходит)
+- [ ] `*.png` с содержимым PDF/ZIP → `400` «не соответствует расширению»
+- [ ] Файл > `ATTACH_MAX_BYTES` → `413`; 0 байт → `400 ATTACHMENT_EMPTY`;
+  сверх `ATTACH_MAX_PER_ISSUE` → `409`. Во всех трёх объект в хранилище не остаётся
+- [ ] `.svg`/`.html` загрузить можно, но при скачивании отдаётся как
+  `application/octet-stream` + `Content-Disposition: attachment` + `X-Content-Type-Options: nosniff`
+
+**Видимость / IDOR (D4/D5):**
+
+- [ ] Не-участник не-shared проекта → `403` на списке и загрузке
+- [ ] `GET …/attachments/:attId`, где вложение принадлежит другой задаче → `404`;
+  `/projects/A/issues/<задача из B>/attachments` → `404`
+- [ ] Участник (в т.ч. `viewer`) скачивает → `200`, байты совпадают
+- [ ] Удаление вложения: свой файл — автор всегда; чужой — только `manager`/`admin`
+  (`employee` → `403`); повтор → `404`
+- [ ] Удаление задачи каскадит строки `attachments` и чистит объекты в хранилище
+  (`deleteStorageObjects`); удаление **проекта** объекты пока НЕ чистит (сироты —
+  Фаза 6, сборщик)
+- [ ] `GET /api/departments`-стиль не при чём; `getIssueDto` (детальный `GET
+  /issues/:id`) содержит `attachments[]`, список задач — нет
+- [ ] `audit_log`: `attachment.add` / `attachment.remove` с `{projectId, attId,
+  filename, byteSize, viaCollaborator?}`
+
+**Драйвер S3 (`STORAGE_DRIVER=s3`, job `storage-s3`):**
+
+- [ ] `docker compose -f docker-compose.storage.yml up -d` + `wait createbucket` →
+  бакет `taskira-attachments` (приватный)
+- [ ] `npm run test:storage` зелёный: `access.attachments.test.ts` против MinIO +
+  `storage.s3.test.ts` — ETag однокусочного PUT = hex-MD5 тела; объект > 5 MiB →
+  multipart, ETag `<md5>-<N>`; `Content-Type` round-trip; `GET` отсутствующего →
+  `NoSuchKey`
+- [ ] `mc ls --recursive local/taskira-attachments` — объекты под ключами `<issueId>/<uuid>`
+
+**Клиент:**
+
+- [ ] `IssueModal` → «Вложения»: список со «Скачать», «×» видно если свой файл или
+  роль `delete`; при роли `comment` — кнопка «＋ прикрепить файл»; секция скрыта,
+  если грузить нельзя и вложений нет
+- [ ] `SoloView`/`CollaboratingView` (`SoloIssueCard`) — блок «Вложения» со скачиванием
+  и загрузкой (приглашённый имеет `comment`)
+- [ ] Загрузка `.exe` / файла больше лимита → тост без раунд-трипа (сервер бы всё
+  равно отверг); удачная загрузка → чип/строка появляется сразу
+
 ### Этап 3b
 
 - [ ] `npm run seed` дважды — проект и workflow не дублируются (`select count(*) from projects` → 1, переходов → 8)
@@ -407,8 +473,14 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 ## Зависимости
 
 ```
-fastify @fastify/jwt @fastify/cors @fastify/websocket pg zod bcryptjs
+fastify @fastify/jwt @fastify/cors @fastify/websocket @fastify/multipart
+pg zod bcryptjs ldapts
+@aws-sdk/client-s3 @aws-sdk/lib-storage   # только для STORAGE_DRIVER=s3
 ```
+
+`@fastify/multipart` — приём вложений; `@aws-sdk/*` — драйвер S3-хранилища
+(при `STORAGE_DRIVER=local` не используется, но ставится). См.
+[`../FILES_MIGRATION.md`](../FILES_MIGRATION.md), [`../STORAGE_SETUP.md`](../STORAGE_SETUP.md).
 
 ### Чистка корневого package.json (сделать вручную)
 

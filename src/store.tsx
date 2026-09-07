@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AccessRole,
+  Attachment,
   Collaboration,
   Collaborator,
   Data,
@@ -19,6 +20,7 @@ import { can as canDo, denialReason, resolveRole, type PermId } from "./permissi
 import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
 import {
   ApiError,
+  attachmentsApi,
   authApi,
   clearToken,
   collaboratorsApi,
@@ -31,6 +33,7 @@ import {
   projectsApi,
   sprintsApi,
   type CollaboratingItem,
+  type ServerAttachment,
   type ServerIssue,
   type SafeUser,
   workflowApi,
@@ -154,6 +157,15 @@ function normalizeType(t: string): IssueTypeId {
   return "task";
 }
 
+const mapAttachment = (a: ServerAttachment): Attachment => ({
+  id: a.id,
+  filename: a.filename,
+  contentType: a.contentType,
+  byteSize: a.byteSize,
+  uploadedById: a.uploadedById,
+  createdAt: Date.parse(a.createdAt) || Date.now(),
+});
+
 function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
   return {
     id: dto.id,
@@ -188,6 +200,8 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
       })) ??
       prev?.collaborators ??
       [],
+    // attachments — тоже только в детальном ответе; в списке держим прежнее.
+    attachments: dto.attachments?.map(mapAttachment) ?? prev?.attachments ?? [],
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
   };
@@ -225,6 +239,9 @@ interface Api {
   addComment: (issueId: string, body: string) => void;
   addCollaborator: (issueId: string, userId: string) => void;
   removeCollaborator: (issueId: string, userId: string) => void;
+  uploadAttachment: (issueId: string, file: File) => void;
+  removeAttachment: (issueId: string, attId: string) => void;
+  downloadAttachment: (issueId: string, att: { id: string; filename: string }) => void;
   deleteIssue: (issueId: string) => void;
   addTransition: (from: string, to: string) => string | null;
   removeTransition: (id: string) => void;
@@ -763,6 +780,70 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
+  /* -------- вложения (attachments, миграция 010) -------- */
+
+  const patchIssueAttachments = (issueId: string, fn: (list: Attachment[]) => Attachment[]) =>
+    setData((prev) => ({
+      ...prev,
+      issues: prev.issues.map((i) => (i.id === issueId ? { ...i, attachments: fn(i.attachments) } : i)),
+    }));
+
+  const uploadAttachment = useCallback(
+    (issueId: string, file: File) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("comment", issue)) return; // сервер перепроверит
+      // UX-подсказки, чтобы не гонять заведомо плохой файл на сервер. Сервер —
+      // источник правды (config.blockExt + magic-байты); этот список НЕ
+      // исчерпывающий, держим примерно в ногу с DEFAULT_BLOCK_EXT.
+      if (file.size > LIMITS.attachment.maxBytes) {
+        return toast("error", `Файл больше ${Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} МБ`);
+      }
+      if (
+        /\.(exe|dll|scr|com|pif|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|msi|msp|cpl|reg|lnk|sh|bash|zsh|ksh|run|bin|jar|apk|app|dmg|pkg|deb|rpm|elf|so|dylib|gadget|inf)$/i.test(
+          file.name,
+        )
+      ) {
+        return toast("error", "Такой тип файла загружать нельзя (исполняемый/скрипт)");
+      }
+      void (async () => {
+        try {
+          const a = await attachmentsApi.upload(pid(), issueId, file);
+          patchIssueAttachments(issueId, (list) => [...list.filter((x) => x.id !== a.id), mapAttachment(a)]);
+          toast("success", `${a.filename} — прикреплён`);
+        } catch (err) {
+          handleApiError(err, "Не удалось загрузить файл");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeAttachment = useCallback(
+    (issueId: string, attId: string) => {
+      // Правило D2 (свой файл всегда / чужой — по delete) проверяет сервер;
+      // компонент прячет «×», когда нельзя.
+      void (async () => {
+        try {
+          await attachmentsApi.remove(pid(), issueId, attId);
+          patchIssueAttachments(issueId, (list) => list.filter((a) => a.id !== attId));
+          toast("info", "Вложение удалено");
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить вложение");
+        }
+      })();
+    },
+    [toast, handleApiError],
+  );
+
+  const downloadAttachment = useCallback(
+    (issueId: string, att: { id: string; filename: string }) => {
+      void attachmentsApi
+        .download(pid(), issueId, att.id, att.filename)
+        .catch((err) => handleApiError(err, "Не удалось скачать файл"));
+    },
+    [handleApiError],
+  );
+
   const deleteIssue = useCallback(
     (issueId: string) => {
       if (!requirePerm("delete")) return;
@@ -1162,6 +1243,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addComment,
     addCollaborator,
     removeCollaborator,
+    uploadAttachment,
+    removeAttachment,
+    downloadAttachment,
     deleteIssue,
     addTransition,
     removeTransition,

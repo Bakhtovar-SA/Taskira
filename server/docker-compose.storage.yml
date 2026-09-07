@@ -1,0 +1,58 @@
+# Локальный S3-совместимый MinIO для разработки и CI драйвера STORAGE_DRIVER=s3
+# (FILES_MIGRATION.md D1, Фаза 4). Разработка по умолчанию идёт на STORAGE_DRIVER=local
+# и этот compose не нужен — он для проверки S3-пути.
+#
+#   docker compose -f docker-compose.storage.yml up -d
+#   docker compose -f docker-compose.storage.yml wait createbucket   # дождаться бакета
+#   docker compose -f docker-compose.storage.yml exec minio mc alias set local http://localhost:9000 taskira taskira-minio-dev
+#   docker compose -f docker-compose.storage.yml exec minio mc ls local/
+#   docker compose -f docker-compose.storage.yml down -v
+#
+# Консоль MinIO: http://localhost:9001  (taskira / taskira-minio-dev)
+# S3 API:        http://localhost:9000
+#
+# Env для сервера (полный набор и реальный on-prem — STORAGE_SETUP.md):
+#   STORAGE_DRIVER=s3
+#   STORAGE_S3_ENDPOINT=http://localhost:9000
+#   STORAGE_S3_BUCKET=taskira-attachments
+#   STORAGE_S3_ACCESS_KEY=taskira
+#   STORAGE_S3_SECRET_KEY=taskira-minio-dev
+#   STORAGE_S3_FORCE_PATH_STYLE=true
+
+services:
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: taskira-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: "taskira"
+      MINIO_ROOT_PASSWORD: "taskira-minio-dev"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - taskira-minio-data:/data
+
+  # Одноразовый шаг: дождаться MinIO (свой retry-loop — надёжнее healthcheck на
+  # образе без curl) и завести приватный бакет для вложений.
+  # `docker compose wait createbucket` в CI блокируется до его выхода с кодом 0.
+  createbucket:
+    image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+    container_name: taskira-minio-mc
+    depends_on:
+      - minio
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        until mc alias set local http://minio:9000 taskira taskira-minio-dev >/dev/null 2>&1; do
+          echo 'ждём MinIO...'; sleep 1;
+        done;
+        mc mb --ignore-existing local/taskira-attachments;
+        mc anonymous set none local/taskira-attachments;
+        mc ls local/;
+        echo 'бакет taskira-attachments готов (приватный)';
+
+volumes:
+  taskira-minio-data:

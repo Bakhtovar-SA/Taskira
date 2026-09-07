@@ -20,6 +20,7 @@ import { audit } from "../audit.js";
 import { assertTransition, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
 import { getIssueDto, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
+import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
 import {
   IssueCreateBody,
   IssuePatchBody,
@@ -296,8 +297,11 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const { id } = req.params as { id: string };
       const user = me(req);
       const iss = await loadIssue(project.id, id);
-      // Каскады: комментарии/activity/watchers; epic_id дочерних обнулится FK
+      // Ключи вложений собираем ДО удаления — каскад FK снесёт строки, но не файлы.
+      const attachKeys = await storageKeysForIssue(iss.id);
+      // Каскады: комментарии/activity/watchers/attachments; epic_id дочерних обнулится FK
       await q(`DELETE FROM issues WHERE id = $1`, [iss.id]);
+      await deleteStorageObjects(attachKeys); // best-effort уборка хранилища (FILES_MIGRATION.md §5)
       await audit(user.sub, "issue.delete", "issue", iss.id, { key: iss.key });
       reply.code(204).send();
     },
