@@ -3,6 +3,8 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { initConfig, loadConfig } from "../src/config.js";
 import { initPool, closePool, q } from "../src/db.js";
+
+export { q };
 import { buildApp } from "../src/app.js";
 import { seedProjectWorkflow } from "../src/services/workflow.js";
 
@@ -31,10 +33,24 @@ export async function stopApp(): Promise<void> {
 /** Чистит все таблицы. Вызывать в beforeEach перед seedFixture(). */
 export async function resetDb(): Promise<void> {
   await q(
-    `TRUNCATE departments, projects, users, project_members, workflow_statuses,
-      workflow_transitions, sprints, issues, comments, activity, issue_watchers,
-      project_counters, audit_log RESTART IDENTITY CASCADE`,
+    `TRUNCATE departments, projects, users, project_members, department_members,
+      workflow_statuses, workflow_transitions, sprints, issues, comments, activity,
+      issue_watchers, issue_collaborators, project_counters, audit_log RESTART IDENTITY CASCADE`,
   );
+}
+
+/** Членство пользователя в департаменте (source='manual' — как назначил бы админ). */
+export async function addDeptMember(departmentId: string, userId: string): Promise<void> {
+  await q(
+    `INSERT INTO department_members (department_id, user_id, source) VALUES ($1, $2, 'manual')
+     ON CONFLICT (department_id, user_id) DO NOTHING`,
+    [departmentId, userId],
+  );
+}
+
+/** Проставить departments.ldap_group_dn (для тестов LDAP-синка). */
+export async function setDeptLdapGroup(departmentId: string, dn: string): Promise<void> {
+  await q(`UPDATE departments SET ldap_group_dn = $2 WHERE id = $1`, [departmentId, dn]);
 }
 
 export interface Fixture {

@@ -49,3 +49,99 @@ jobs:
       - run: npm run typecheck
 
       - run: npm test
+
+  # Отдельный job: LDAP-путь против НАСТОЯЩЕГО OpenLDAP (не мока).
+  # AUTH_MODE=ldap здесь только для этого job — основной `server` job идёт в local.
+  ldap:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: taskira
+          POSTGRES_PASSWORD: taskira
+          POSTGRES_DB: taskira_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    defaults:
+      run:
+        working-directory: server
+
+    env:
+      DATABASE_URL_TEST: postgresql://taskira:taskira@localhost:5432/taskira_test
+      JWT_SECRET: ci-ldap-job-jwt-secret-0000000000000000
+      AUTH_MODE: ldap
+      LDAP_URL: ldap://localhost:389
+      LDAP_BIND_DN: cn=admin,dc=taskira,dc=test
+      LDAP_BIND_PASSWORD: admin
+      LDAP_USER_BASE_DN: ou=people,dc=taskira,dc=test
+      LDAP_USER_FILTER: (uid={username})
+      LDAP_GROUP_MEMBERSHIP: search
+      LDAP_GROUP_BASE_DN: ou=groups,dc=taskira,dc=test
+      LDAP_ADMIN_GROUP_DN: cn=taskira-admins,ou=groups,dc=taskira,dc=test
+      LDAP_ATTR_LOGIN: uid
+      LDAP_ATTR_NAME: cn
+      LDAP_ATTR_MAIL: mail
+      ADMIN_USERNAME: breakglass
+      ADMIN_PASSWORD: breakglass-ci-pw-000000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+      - run: npm rebuild esbuild
+
+      - name: Start OpenLDAP (osixia/openldap:1.5.0)
+        run: docker compose -f docker-compose.ldap.yml up -d
+
+      - name: Wait for slapd
+        run: |
+          for i in $(seq 1 50); do
+            # RootDSE читается анонимно — значит slapd слушает и отвечает
+            if docker compose -f docker-compose.ldap.yml exec -T openldap \
+                 ldapsearch -x -LLL -H ldap://localhost:389 -b "" -s base namingContexts >/dev/null 2>&1; then
+              echo "slapd отвечает (${i} попыток)"; exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::slapd не поднялся"
+          docker compose -f docker-compose.ldap.yml logs openldap
+          exit 1
+
+      - name: Load bootstrap.ldif
+        run: |
+          docker compose -f docker-compose.ldap.yml exec -T openldap \
+            ldapadd -x -c -H ldap://localhost:389 -D cn=admin,dc=taskira,dc=test -w admin -f /ldifs/bootstrap.ldif
+
+      # Дефолтный ACL osixia ("by self read by * none") не даёт обычному
+      # пользователю искать по ou=groups / ou=bulk — тесты sizelimit/paged тогда
+      # падают с noSuchObject. Разрешаем "by users read" (см. test/ldap/acl.ldif).
+      - name: Relax ACL (authenticated users can read the tree)
+        run: |
+          docker compose -f docker-compose.ldap.yml exec -T openldap \
+            ldapmodify -x -H ldap://localhost:389 -D cn=admin,cn=config -w config -f /ldifs/acl.ldif
+
+      - name: Show LDAP tree (sanity)
+        run: |
+          docker compose -f docker-compose.ldap.yml exec -T openldap \
+            ldapsearch -x -H ldap://localhost:389 -b dc=taskira,dc=test \
+            -D cn=admin,dc=taskira,dc=test -w admin dn
+
+      - run: npm run test:ldap
+
+      - name: OpenLDAP logs
+        if: always()
+        run: docker compose -f docker-compose.ldap.yml logs openldap

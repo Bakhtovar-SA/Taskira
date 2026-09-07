@@ -34,7 +34,7 @@ export const LIMITS = {
   points: { min: 0, max: 100 },
   goal: { max: 200 },
   username: { min: 3, max: 32 },
-  department: { name: { min: 1, max: 80 } },
+  department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },
   project: { key: { min: 2, max: 10 }, name: { min: 1, max: 120 }, description: { max: 2000 } },
 } as const;
 
@@ -116,10 +116,23 @@ export const ProjectParams = z.object({ projectId: uuid });
 /** :id в путях департамента */
 export const DepartmentParams = z.object({ id: uuid });
 
-/** POST/PATCH /api/departments[/:id] [global admin] */
+/** DN группы LDAP/AD (LDAP_MIGRATION.md D5). null — очистить привязку. */
+const ldapGroupDn = z.string().trim().min(1).max(LIMITS.department.ldapGroupDn.max).nullable();
+
+/** POST /api/departments [global admin] */
 export const DepartmentBody = z.object({
   name: oneLine(LIMITS.department.name.max, LIMITS.department.name.min, "Название отдела не может быть пустым"),
+  ldapGroupDn: ldapGroupDn.optional(),
 });
+
+/** PATCH /api/departments/:id [global admin] */
+export const DepartmentPatchBody = z
+  .object({
+    name: oneLine(LIMITS.department.name.max, LIMITS.department.name.min),
+    ldapGroupDn,
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
 
 /** Ключ проекта: заглавная латиница/цифры, начинается с буквы (CORP, SEC, IT2). */
 const projectKey = z

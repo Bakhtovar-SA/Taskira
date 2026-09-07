@@ -1,0 +1,24 @@
+# Правки cn=config тестового osixia/openldap для access.ldap.test.ts.
+# Применяется отдельным шагом CI:
+#   ldapmodify -x -H ldap://localhost:389 -D cn=admin,cn=config -w config -f /ldifs/acl.ldif
+# Реальному AD ничего этого не нужно — там служебная учётка и так читает дерево,
+# а тесты sizelimit/paged в проде не гоняются.
+
+# 1) Ослабляем дефолтный ACL ("by self read by * none") — иначе обычный
+#    пользователь не может искать по ou=groups / ou=bulk и slapd отдаёт
+#    noSuchObject (err=32) вместо sizeLimit/paged. Даём "by users read".
+dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+replace: olcAccess
+olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth manage by * break
+olcAccess: {1}to attrs=userPassword,shadowLastChange by self write by dn.exact="cn=admin,dc=taskira,dc=test" write by anonymous auth by * none
+olcAccess: {2}to * by self write by dn.exact="cn=admin,dc=taskira,dc=test" write by users read by * none
+
+# 2) Снимаем серверный sizelimit ТОЛЬКО для uid=t.outsider — этой учёткой
+#    тест проверяет успешный обход paged results на все 600 записей.
+#    Остальные (t.employee) остаются под дефолтным лимитом 500 — на них
+#    держится проверка "сервер обрезал выдачу".
+dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+add: olcLimits
+olcLimits: dn.exact="uid=t.outsider,ou=people,dc=taskira,dc=test" size.soft=unlimited size.hard=unlimited size.pr=unlimited size.prtotal=unlimited

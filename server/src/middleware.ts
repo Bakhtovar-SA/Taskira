@@ -10,9 +10,10 @@ import { ApiHttpError } from "./errors.js";
 import { projectById, type ProjectRow } from "./services/project.js";
 import { isIssueCollaborator } from "./services/collaborators.js";
 import {
-  can,
-  denialReason,
   resolveRole,
+  roleCan,
+  roleDenialReason,
+  roleHas,
   type AccessRole,
   type GlobalRole,
   type IssueRef,
@@ -54,6 +55,9 @@ declare module "fastify" {
     /** true — доступ к задаче дан не ролью, а строкой issue_collaborators
      *  (приглашённый: только browse/comment по ЭТОЙ задаче). */
     isCollaborator?: boolean;
+    /** true — роли в project_members нет, но browse дан по членству в
+     *  департаменте проекта или is_shared (LDAP_MIGRATION.md D8). */
+    impliedViewer?: boolean;
   }
 }
 
@@ -165,6 +169,37 @@ async function loadProjectMembership(userId: string, projectId: string): Promise
   return role ? { projectId, role } : null;
 }
 
+/* -------- членство в департаменте (LDAP_MIGRATION.md D8) --------
+   Такой же 30-секундный кэш; спрашивается только для пользователей без явной
+   роли в проекте (участники/админы сюда не попадают). */
+const deptMemberCache = new Map<string, { member: boolean; at: number }>();
+
+export function invalidateDeptMembership(userId: string, departmentId: string): void {
+  deptMemberCache.delete(mkey(userId, departmentId));
+}
+
+async function isDeptMember(userId: string, departmentId: string): Promise<boolean> {
+  const key = mkey(userId, departmentId);
+  const cached = deptMemberCache.get(key);
+  if (cached && Date.now() - cached.at <= MEMBERSHIP_TTL_MS) return cached.member;
+  const row = await one<{ one: number }>(
+    `SELECT 1 AS one FROM department_members WHERE user_id = $1 AND department_id = $2`,
+    [userId, departmentId],
+  );
+  const member = !!row;
+  deptMemberCache.set(key, { member, at: Date.now() });
+  return member;
+}
+
+/** Эффективная роль в проекте: явная (resolveRole) либо неявный viewer —
+ *  участник департамента проекта или is_shared (D8). null → нет доступа. */
+async function effectiveRole(u: ServerUser, membership: Membership, project: ProjectRow): Promise<AccessRole | null> {
+  const explicit = resolveRole(u, membership); // вернёт "admin" для глоб. админа
+  if (explicit) return explicit;
+  if (project.isShared || (await isDeptMember(u.id, project.departmentId))) return "viewer";
+  return null;
+}
+
 /* -------- глобальный admin (без контекста проекта) --------
    Для CRUD департаментов/проектов и управления пользователями. */
 export const requireGlobalAdmin: preHandlerAsyncHookHandler = async (req, reply: FastifyReply) => {
@@ -197,12 +232,14 @@ export function requirePerm(perm: PermId): preHandlerAsyncHookHandler {
     const project = await projectById(projectId);
     if (!project) throw notFound("Проект не найден");
     const membership = await loadProjectMembership(u.id, projectId);
+    const role = await effectiveRole(u, membership, project);
     req.project = project;
     req.membership = membership;
-    req.projectRole = resolveRole(u, membership);
-    if (can(u, membership, perm)) return;
+    req.projectRole = role;
+    req.impliedViewer = !membership && role === "viewer";
+    if (roleCan(role, perm)) return;
     await audit(u.id, "access.denied", perm, null, { path: req.url, method: req.method, projectId });
-    throw forbidden(denialReason(u, membership, perm));
+    throw forbidden(roleDenialReason(role, perm));
   };
 }
 
@@ -235,15 +272,19 @@ export function requireIssuePerm(perm: PermId): preHandlerAsyncHookHandler {
     req.project = project;
     req.issueRef = issueRef;
     const membership = await loadProjectMembership(u.id, projectId);
+    const role = await effectiveRole(u, membership, project);
     req.membership = membership;
-    req.projectRole = resolveRole(u, membership);
-    if (can(u, membership, perm, issueRef)) return;
+    req.projectRole = role;
+    req.impliedViewer = !membership && role === "viewer";
+    if (roleCan(role, perm, { userId: u.id, issue: issueRef })) return;
 
     if (COLLABORATOR_PERMS.has(perm) && (await isIssueCollaborator(u.id, issueRef.id))) {
       req.isCollaborator = true;
       return;
     }
     await audit(u.id, "access.denied", perm, issueRef.id, { path: req.url, method: req.method, projectId });
-    throw forbidden(denialReason(u, membership, perm, issueRef));
+    const ownViolation =
+      perm === "edit" && !!role && roleHas(role, "edit") && !roleCan(role, "edit", { userId: u.id, issue: issueRef });
+    throw forbidden(roleDenialReason(role, perm, ownViolation));
   };
 }

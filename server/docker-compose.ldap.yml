@@ -1,0 +1,35 @@
+# Локальный тестовый LDAP для разработки и CI (LDAP_MIGRATION.md D7).
+# Реального корпоративного AD у нас нет — весь LDAP-путь проверяется здесь.
+#
+#   docker compose -f docker-compose.ldap.yml up -d
+#   # дождаться slapd и залить дерево (осознанно, отдельным шагом — так видно ошибки LDIF):
+#   docker compose -f docker-compose.ldap.yml exec openldap \
+#     ldapadd -x -H ldap://localhost:389 -D cn=admin,dc=taskira,dc=test -w admin -f /ldifs/bootstrap.ldif
+#   # проверить:
+#   docker compose -f docker-compose.ldap.yml exec openldap \
+#     ldapsearch -x -H ldap://localhost:389 -b dc=taskira,dc=test -D cn=admin,dc=taskira,dc=test -w admin dn
+#   docker compose -f docker-compose.ldap.yml down -v
+#
+# Образ создаёт только пустой суффикс dc=taskira,dc=test из LDAP_DOMAIN;
+# люди/группы льём сами из test/ldap/bootstrap.ldif (смонтирован в /ldifs).
+
+services:
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: taskira-openldap
+    environment:
+      LDAP_ORGANISATION: "Taskira Test"
+      LDAP_DOMAIN: "taskira.test"            # ⇒ суффикс dc=taskira,dc=test
+      LDAP_ADMIN_PASSWORD: "admin"           # ⇒ cn=admin,dc=taskira,dc=test
+      LDAP_CONFIG_PASSWORD: "config"
+      LDAP_TLS: "false"                       # тесту TLS не нужен; для AD см. LDAP_SETUP.md
+    volumes:
+      - ./test/ldap:/ldifs:ro
+    ports:
+      - "389:389"
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost:389", "-b", "dc=taskira,dc=test", "-s", "base", "dn"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 45s

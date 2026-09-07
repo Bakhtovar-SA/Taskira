@@ -1,7 +1,7 @@
 /** Multi-project — сценарии из DEPT_MIGRATION.md (видимость, IDOR, cross-project, департаменты). */
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { auth, getApp, login, newIssue, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import { addDeptMember, auth, getApp, login, newIssue, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
 let app: FastifyInstance;
 let fx: Fixture;
@@ -44,6 +44,48 @@ describe("видимость проектов", () => {
   test("участник P1 не имеет доступа к P2", async () => {
     const emp = await login(app, "emp1");
     expect((await g(`/api/projects/${fx.projects.p2}`, emp)).statusCode).toBe(403);
+  });
+});
+
+describe("неявный viewer по департаменту / is_shared (LDAP_MIGRATION.md D8, закрывает DEPT §3.5)", () => {
+  test("член департамента проекта видит проект и задачи как viewer, мутации — 403", async () => {
+    const adm = await login(app, "admin");
+    await addDeptMember(fx.depts.d2, fx.users.outsider); // outsider ↦ департамент проекта P2
+
+    const out = await login(app, "outsider");
+    expect(keys((await g("/api/projects", out)).body)).toEqual(["SEC"]); // появился в списке
+
+    const boot = await g(`/api/projects/${fx.projects.p2}`, out);
+    expect(boot.statusCode).toBe(200);
+    const body = JSON.parse(boot.body);
+    // виден в .users (для резолва me на клиенте), но НЕ участник (.members)
+    expect(body.users.map((u: { id: string }) => u.id)).toContain(fx.users.outsider);
+    expect(body.members.map((m: { userId: string }) => m.userId)).not.toContain(fx.users.outsider);
+
+    expect((await g(`/api/projects/${fx.projects.p2}/issues`, out)).statusCode).toBe(200);
+    expect((await post(`/api/projects/${fx.projects.p2}/issues`, out, newIssue())).statusCode).toBe(403);
+    expect((await patch(`/api/projects/${fx.projects.p2}/issues/${fx.issues.p2issue}`, out, { title: "x" })).statusCode).toBe(403);
+    expect((await del(`/api/projects/${fx.projects.p2}/issues/${fx.issues.p2issue}`, out)).statusCode).toBe(403);
+
+    // не член департамента P1 — туда по-прежнему 403
+    expect((await g(`/api/projects/${fx.projects.p1}`, out)).statusCode).toBe(403);
+  });
+
+  test("is_shared открывает bootstrap не-участнику как viewer (раньше был 403)", async () => {
+    const adm = await login(app, "admin");
+    expect((await patch(`/api/projects/${fx.projects.p2}`, adm, { isShared: true })).statusCode).toBe(200);
+
+    const out = await login(app, "outsider"); // ни участник, ни член департамента P2
+    expect((await g(`/api/projects/${fx.projects.p2}`, out)).statusCode).toBe(200);
+    expect((await g(`/api/projects/${fx.projects.p2}/issues`, out)).statusCode).toBe(200);
+    expect((await post(`/api/projects/${fx.projects.p2}/issues`, out, newIssue())).statusCode).toBe(403);
+  });
+
+  test("явная роль project_members перекрывает неявный viewer", async () => {
+    await addDeptMember(fx.depts.d1, fx.users.emp1); // emp1 — и участник P1 (employee), и член департамента
+    const emp = await login(app, "emp1");
+    // employee, а не viewer — создание задачи проходит
+    expect((await post(`/api/projects/${fx.projects.p1}/issues`, emp, newIssue())).statusCode).toBe(201);
   });
 });
 

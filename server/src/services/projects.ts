@@ -41,9 +41,10 @@ export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
 const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared`;
 
 /**
- * Видимость (временно, до LDAP — DEPT_MIGRATION.md §3.5):
+ * Видимость (LDAP_MIGRATION.md D8 — закрывает DEPT_MIGRATION.md §3.5):
  *   глобальный admin — все проекты;
- *   иначе — где есть строка в project_members ИЛИ проект is_shared.
+ *   иначе — строка в project_members, ИЛИ членство в департаменте проекта
+ *   (department_members), ИЛИ проект is_shared.
  */
 export async function listVisibleProjects(userId: string, isGlobalAdmin: boolean): Promise<ProjectDto[]> {
   if (isGlobalAdmin) {
@@ -53,8 +54,9 @@ export async function listVisibleProjects(userId: string, isGlobalAdmin: boolean
     await q<ProjectDbRow>(
       `SELECT DISTINCT ${COLS}
          FROM projects p
-         LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1
-        WHERE pm.user_id IS NOT NULL OR p.is_shared
+         LEFT JOIN project_members    pm ON pm.project_id    = p.id            AND pm.user_id = $1
+         LEFT JOIN department_members dm ON dm.department_id  = p.department_id AND dm.user_id = $1
+        WHERE pm.user_id IS NOT NULL OR dm.user_id IS NOT NULL OR p.is_shared
         ORDER BY p.key`,
       [userId],
     )

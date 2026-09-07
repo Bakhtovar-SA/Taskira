@@ -16,10 +16,12 @@ interface DepartmentDbRow {
   project_count: string;
 }
 
-const toDto = (r: DepartmentDbRow): DepartmentDto => ({
+/** ldapGroupDn — это DN корпоративной AD-группы: показываем только глобальному
+ *  admin (для остальных — null), как SafeUser не отдаёт ldap_dn/email. */
+const toDto = (r: DepartmentDbRow, withLdapGroup: boolean): DepartmentDto => ({
   id: r.id,
   name: r.name,
-  ldapGroupDn: r.ldap_group_dn,
+  ldapGroupDn: withLdapGroup ? r.ldap_group_dn : null,
   projectCount: Number(r.project_count),
 });
 
@@ -28,11 +30,12 @@ const SELECT = `
          (SELECT count(*) FROM projects p WHERE p.department_id = d.id)::text AS project_count
     FROM departments d`;
 
-export async function listDepartments(): Promise<DepartmentDto[]> {
-  return (await q<DepartmentDbRow>(`${SELECT} ORDER BY d.name`)).map(toDto);
+export async function listDepartments(withLdapGroup: boolean): Promise<DepartmentDto[]> {
+  return (await q<DepartmentDbRow>(`${SELECT} ORDER BY d.name`)).map((r) => toDto(r, withLdapGroup));
 }
 
+/** Оба вызова — из admin-only роутов (POST/PATCH), поэтому DN отдаётся. */
 export async function getDepartment(id: string): Promise<DepartmentDto | null> {
   const row = await one<DepartmentDbRow>(`${SELECT} WHERE d.id = $1`, [id]);
-  return row ? toDto(row) : null;
+  return row ? toDto(row, true) : null;
 }

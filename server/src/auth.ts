@@ -13,7 +13,10 @@ export interface UserRow {
   job_role: string;
   global_role: GlobalRole; // admin | member (миграция 004) — источник прав
   is_active: boolean;
-  password_hash: string;
+  password_hash: string | null; // NULL у LDAP-пользователей (миграция 009)
+  auth_source: "local" | "ldap"; // миграция 009
+  ldap_dn: string | null;
+  email: string | null;
 }
 
 export interface SafeUser {
@@ -27,6 +30,8 @@ export interface SafeUser {
    *  Проектная роль — в bootstrap `members`, не здесь. */
   globalRole: GlobalRole;
   isActive: boolean;
+  /** local | ldap (миграция 009) — для UI: у ldap-юзеров роль/профиль из директории. */
+  authSource: "local" | "ldap";
 }
 
 export function safeUser(row: UserRow): SafeUser {
@@ -39,6 +44,7 @@ export function safeUser(row: UserRow): SafeUser {
     jobRole: row.job_role,
     globalRole: row.global_role,
     isActive: row.is_active,
+    authSource: row.auth_source,
   };
 }
 

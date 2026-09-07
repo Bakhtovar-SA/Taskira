@@ -90,15 +90,20 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [requirePerm("browse")], preValidation: zparams(ProjectParams) },
     async (req) => {
       const project = req.project!;
-      // Участники проекта + активные глобальные админы (могут быть исполнителями).
+      // Активные: участники проекта + глобальные админы + участники департамента
+      // проекта; а если проект is_shared — вообще все активные (тот же неявный
+      // viewer, что даёт effectiveRole в middleware, LDAP_MIGRATION.md D8).
+      // Нужно, чтобы текущий юзер резолвился в клиентском me-memo.
       const users = (
         await q<UserRow>(
           `SELECT u.* FROM users u
             WHERE u.is_active
-              AND (u.global_role = 'admin'
-                   OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $1 AND pm.user_id = u.id))
+              AND ($3
+                   OR u.global_role = 'admin'
+                   OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $1 AND pm.user_id = u.id)
+                   OR EXISTS (SELECT 1 FROM department_members dm WHERE dm.department_id = $2 AND dm.user_id = u.id))
             ORDER BY u.name`,
-          [project.id],
+          [project.id, project.departmentId, project.isShared],
         )
       ).map(safeUser);
       const members = (

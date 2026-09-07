@@ -5,6 +5,33 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+/** Настройки LDAP/AD — заполнены только при authMode === "ldap".
+ *  Подробности и примеры для реального AD — LDAP_SETUP.md (Фаза 6). */
+export interface LdapConfig {
+  url: string;
+  /** Сервис-аккаунт для поиска. null ⇒ режим прямого bind по userDnTemplate. */
+  bindDn: string | null;
+  bindPassword: string | null;
+  userBaseDn: string;
+  /** Фильтр поиска пользователя; обязан содержать плейсхолдер {username}. */
+  userFilter: string;
+  /** Шаблон DN для прямого bind (когда bindDn не задан), напр. uid={username},ou=people,dc=… */
+  userDnTemplate: string | null;
+  /** Как получать группы: memberOf (операционный атрибут AD) | search (обратный поиск). */
+  groupMembership: "memberOf" | "search";
+  /** База поиска групп — обязательна при groupMembership === "search". */
+  groupBaseDn: string | null;
+  /** Членство в этой группе ⇒ global_role='admin'. */
+  adminGroupDn: string | null;
+  attrLogin: string;
+  attrName: string;
+  attrMail: string;
+  startTls: boolean;
+  tlsCaFile: string | null;
+  tlsRejectUnauthorized: boolean;
+  timeoutMs: number;
+}
+
 export interface Config {
   port: number;
   host: string;
@@ -13,11 +40,72 @@ export interface Config {
   jwtExpires: string;
   corsOrigin: string[] | "*";
   admin: { username: string; password: string; name: string } | null;
+  /** local — только пароль (как раньше); ldap — LDAP + break-glass локальный admin. */
+  authMode: "local" | "ldap";
+  ldap: LdapConfig | null;
 }
 
 function fail(msg: string): never {
   console.error(`[config] ${msg}`);
   process.exit(1);
+}
+
+/** "1"/"true"/"yes"/"on" → true; "0"/"false"/"no"/"off"/пусто → false; иначе — дефолт. */
+function envBool(raw: string | undefined, def: boolean): boolean {
+  const v = raw?.trim().toLowerCase();
+  if (v === undefined || v === "") return def;
+  if (["1", "true", "yes", "on"].includes(v)) return true;
+  if (["0", "false", "no", "off"].includes(v)) return false;
+  return def;
+}
+
+/** Собирает LdapConfig из env; fail-fast на каждом отсутствующем обязательном ключе.
+ *  Вызывается только при AUTH_MODE=ldap. */
+function buildLdapConfig(): LdapConfig {
+  const req = (k: string): string => {
+    const v = process.env[k]?.trim();
+    if (!v) fail(`AUTH_MODE=ldap: не задан ${k} (см. LDAP_SETUP.md)`);
+    return v;
+  };
+
+  const userFilter = req("LDAP_USER_FILTER");
+  if (!userFilter.includes("{username}")) fail("LDAP_USER_FILTER должен содержать плейсхолдер {username}");
+
+  const bindDn = process.env.LDAP_BIND_DN?.trim() || null;
+  const userDnTemplate = process.env.LDAP_USER_DN_TEMPLATE?.trim() || null;
+  if (!bindDn && !userDnTemplate)
+    fail("AUTH_MODE=ldap: задайте LDAP_BIND_DN (+ LDAP_BIND_PASSWORD) либо LDAP_USER_DN_TEMPLATE для прямого bind");
+  if (bindDn && !process.env.LDAP_BIND_PASSWORD)
+    fail("AUTH_MODE=ldap: LDAP_BIND_DN задан без LDAP_BIND_PASSWORD");
+  if (userDnTemplate && !userDnTemplate.includes("{username}"))
+    fail("LDAP_USER_DN_TEMPLATE должен содержать плейсхолдер {username}");
+
+  const gm = (process.env.LDAP_GROUP_MEMBERSHIP ?? "memberOf").trim();
+  if (gm !== "memberOf" && gm !== "search") fail("LDAP_GROUP_MEMBERSHIP: 'memberOf' или 'search'");
+  const groupBaseDn = process.env.LDAP_GROUP_BASE_DN?.trim() || null;
+  if (gm === "search" && !groupBaseDn) fail("LDAP_GROUP_MEMBERSHIP=search требует LDAP_GROUP_BASE_DN");
+
+  const timeoutMs = Number(process.env.LDAP_TIMEOUT_MS ?? 5000);
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) fail("LDAP_TIMEOUT_MS должен быть положительным числом");
+
+  return {
+    url: req("LDAP_URL"),
+    bindDn,
+    bindPassword: process.env.LDAP_BIND_PASSWORD ?? null,
+    userBaseDn: req("LDAP_USER_BASE_DN"),
+    userFilter,
+    userDnTemplate,
+    groupMembership: gm,
+    groupBaseDn,
+    adminGroupDn: process.env.LDAP_ADMIN_GROUP_DN?.trim() || null,
+    attrLogin: process.env.LDAP_ATTR_LOGIN?.trim() || "sAMAccountName",
+    attrName: process.env.LDAP_ATTR_NAME?.trim() || "displayName",
+    attrMail: process.env.LDAP_ATTR_MAIL?.trim() || "mail",
+    startTls: envBool(process.env.LDAP_STARTTLS, false),
+    tlsCaFile: process.env.LDAP_TLS_CA_FILE?.trim() || null,
+    tlsRejectUnauthorized: envBool(process.env.LDAP_TLS_REJECT_UNAUTHORIZED, true),
+    timeoutMs,
+  };
 }
 
 /** Простой парсер KEY=VALUE (без внешних зависимостей). Не перезаписывает уже заданные env. */
@@ -80,6 +168,9 @@ function buildConfig(): Config {
   const adminUser = process.env.ADMIN_USERNAME?.trim();
   const adminPass = process.env.ADMIN_PASSWORD;
 
+  const authMode = (process.env.AUTH_MODE ?? "local").trim();
+  if (authMode !== "local" && authMode !== "ldap") fail("AUTH_MODE должен быть 'local' или 'ldap'");
+
   return {
     port: Number(process.env.PORT ?? 8080),
     host: process.env.HOST ?? "0.0.0.0",
@@ -95,5 +186,7 @@ function buildConfig(): Config {
             name: process.env.ADMIN_NAME?.trim() || "Администратор",
           }
         : null,
+    authMode,
+    ldap: authMode === "ldap" ? buildLdapConfig() : null,
   };
 }

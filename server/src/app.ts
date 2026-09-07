@@ -16,6 +16,7 @@ import { collaboratingRoutes } from "./routes/collaborating.js";
 import { sprintRoutes } from "./routes/sprints.js";
 import { workflowRoutes } from "./routes/workflow.js";
 import { userRoutes } from "./routes/users.js";
+import { ldapRoutes } from "./routes/ldap.js";
 import { q } from "./db.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
@@ -73,6 +74,7 @@ export function buildApp(): FastifyInstance {
     async (api) => {
       await api.register(authRoutes, { prefix: "/auth" });
       await api.register(userRoutes); // /users, /admin/users (global admin) + /users/pickable
+      await api.register(ldapRoutes, { prefix: "/ldap" }); // /ldap/ping (global admin)
       await api.register(collaboratingRoutes); // /issues/collaborating (project-less)
       await api.register(departmentRoutes, { prefix: "/departments" });
       await api.register(projectsRoutes); // /projects (список, CRUD, bootstrap /projects/:projectId)

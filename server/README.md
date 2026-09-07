@@ -52,6 +52,7 @@
 | ops-ci | `.github/workflows/test.yml` — сервис `postgres:16`, `npm ci` → `typecheck` → `npm test` (on push main + PR) | ✅ |
 | collab-A | `AdminView`: состав любого проекта из экрана отдела (ленивый `projectsApi.get`, роли/добавить/убрать); store `setProjectMember`/`removeProjectMember` — план в [`../COLLAB_MIGRATION.md`](../COLLAB_MIGRATION.md) D8. Сервер без изменений (global admin уже правит состав любого проекта) | ✅ клиент |
 | collab-B | Issue collaborators — [`../COLLAB_MIGRATION.md`](../COLLAB_MIGRATION.md). Ф1: `008_issue_collaborators.sql` ✅. Ф2: `manageCollaborators` (MATRIX ×2), fallback приглашённого в `requireIssuePerm` (browse/comment), `routes/collaborators.ts`, `getIssueDto.collaborators`, `GET /api/users/pickable` ✅. Ф3: клиент — `collaboratorsApi`, экшены store, секция «Участники задачи» в `IssueModal` ✅. Ф6: `GET /api/issues/collaborating`, `getIssueDto.participants`, одиночный режим `SoloView` (`bootStatus="solo"`) + раздел «Мои подключения» в обычном интерфейсе, ссылка `#/issue/<pid>/<id>` ✅. Ф5: `access.collaborators.test.ts` (11) + живой прогон + ручной чек-лист ниже ✅ | ✅ |
+| ldap-auth | LDAP/AD-аутентификация — [`../LDAP_MIGRATION.md`](../LDAP_MIGRATION.md) + [`../LDAP_SETUP.md`](../LDAP_SETUP.md). Ф1: `009_ldap.sql` (`users.auth_source`/`ldap_dn`/`email`, `department_members`, `ldap_group_dn UNIQUE`), `config.ts` `LDAP_*`, тестовый OpenLDAP (compose/LDIF) ✅. Ф2: `services/ldap.ts` (`ldapts`), `userProvisioning.ts`, `departmentSync.ts`, `POST /login` ldap-путь + break-glass, `routes/ldap.ts` `ping` ✅. Ф3: видимость проекта по департаменту → неявный `viewer` в `middleware.ts` (закрыт DEPT §3.5) ✅. Ф4: AdminView `ldap_group_dn`, `POST /api/ldap/resync`, ldap-режим гарды ✅. Ф5: `access.ldap.test.ts` (9) vs реальный slapd + CI job `ldap` ✅. Ф6: `LDAP_SETUP.md` + чек-лист ниже ✅. Харденинг: last-admin гард в JIT, гонка первого логина (23505), RFC 4514 escDn, break-glass 409 не течёт в ответ | ✅ |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
 
@@ -59,9 +60,9 @@
 детальный план и порядок фаз — [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md).
 
 Дальше по дорожной карте (`../ARCHITECTURE.md`, «Порядок разработки») — **не начато**:
-LDAP/AD-аутентификация и sync групп, сущность «департамент» над проектами
-(и multi-project), файловое хранилище вложений, уведомления + фоновый воркер,
-нейтральная терминология в UI (Бэклог/Таймлайн/спринты/story points/эпики).
+файловое хранилище вложений, уведомления + фоновый воркер (в т.ч. ресинк
+LDAP-членства по расписанию), нейтральная терминология в UI
+(Бэклог/Таймлайн/спринты/story points/эпики).
 
 ## Breaking changes (002)
 
@@ -338,6 +339,55 @@ assignee не из проекта → 400; `DELETE` отдела с проект
 - [ ] Пользователь С проектами + приглашение в чужой проект → в сайдбаре пункт «Мои подключения» (kbd 8) с бейджем-счётчиком; открывает `CollaboratingView` (та же карточка)
 - [ ] Прямая ссылка `#/issue/<projectId>/<issueId>`: без проектов → solo с этой задачей; с проектами → раздел «Мои подключения» с предвыбором; `copyLink` в `IssueModal` даёт uuid-форму
 - [ ] Приглашение отозвано, пока раздел открыт → после `refreshCollaborations` (на маунте) пункт/бейдж исчезают, карточка показывает «доступ отозван»
+
+### LDAP-аутентификация (ldap-auth) — [`../LDAP_MIGRATION.md`](../LDAP_MIGRATION.md) / [`../LDAP_SETUP.md`](../LDAP_SETUP.md)
+
+Автотесты: `test/access.ldap.test.ts` (9) — гоняются только при `AUTH_MODE=ldap` +
+`LDAP_URL` (`npm run test:ldap`), в CI это job `ldap` против настоящего `slapd`.
+Основной `npm test` в `AUTH_MODE=local` даёт 38 зелёных (путь входа не меняется).
+Живой прогон — поднять `server/test/ldap` (Docker или `mock-ldap.mjs`) и инстанс с
+env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
+
+**Схема (миграция 009):**
+
+- [ ] `009_ldap.sql` в `schema_migrations`; `\d users` — `auth_source` (`NOT NULL DEFAULT 'local'`, CHECK `local|ldap`), `ldap_dn`, `email` (оба nullable), `password_hash` **nullable**
+- [ ] CHECK `users_local_has_password` (`auth_source<>'local' OR password_hash IS NOT NULL`); индексы `users_ldap_dn_uk` (`lower(ldap_dn)`, partial) и `departments_ldap_group_dn_uk` (`lower(ldap_group_dn)`, partial)
+- [ ] `\d department_members` — PK `(department_id, user_id)`, FK обе `ON DELETE CASCADE`, `source` CHECK `ldap|manual`, индекс `idx_department_members_user`
+- [ ] На БД с данными: все строки `auth_source='local'`, `password_hash` на месте; обратима
+
+**`AUTH_MODE=local` (регрессия):**
+
+- [ ] Вход/`/me`/права — как раньше; `GET /api/auth/config` → `{authMode:"local"}`; `SafeUser` несёт `authSource`
+- [ ] `POST /api/ldap/ping` (глоб. admin) → `{authMode:"local", ok:false, error:"AUTH_MODE != ldap …"}`
+
+**`AUTH_MODE=ldap` — вход:**
+
+- [ ] `POST /api/ldap/ping` → `{authMode:"ldap", url, bind:"service-account"|"direct", ok:true, baseDn}`; при погашенном LDAP → `ok:false` + `error`
+- [ ] Логин реального LDAP-пользователя → `200` `{token, user}`; JWT payload `{sub:<локальный uuid>, globalRole, name}`
+- [ ] Новый пользователь → JIT-создан (`auth_source='ldap'`, `ldap_dn` заполнен); был `local` с тем же `username` → **усыновлён** (`id`, `global_role`, `project_members`, авторство сохранены; `password_hash=NULL`)
+- [ ] Член `LDAP_ADMIN_GROUP_DN` → `global_role='admin'`; вне группы → `member`; повторный вход не сбрасывает `is_active`, выставленный админом
+- [ ] `department_members` (`source='ldap'`) собраны по группам ↔ `departments.ldap_group_dn`; строки `source='manual'` не тронуты; неявный `viewer` на проектах департамента (browse — 200, мутации — 403)
+- [ ] Неверный пароль → `401` (единый reason, LDAP result 49); `audit_log.auth.login.denied` c `actor_id` = `users.id` (если такой username есть)
+- [ ] LDAP недоступен → обычный пользователь `401`; **break-glass** `ADMIN_USERNAME` входит по локальному паролю и при живом, и при погашенном LDAP
+- [ ] `LDAP_GROUP_MEMBERSHIP=search`: обратный поиск групп выполняется сервис-аккаунтом (re-bind), не забиндленным пользователем
+- [ ] `{username}` с метасимволами (`*`, `(`, `\`, для прямого bind — `,`/`+`/`"`) не ломает фильтр/DN и не даёт инъекции — `401`, не `500`
+- [ ] `LDAP_USER_FILTER` с двумя `{username}` (AD: `(|(sAMAccountName={username})(userPrincipalName={username}))`) — подставляются **оба** вхождения (`replaceAll`), вход проходит
+
+**`AUTH_MODE=ldap` — гарды и админ-операции:**
+
+- [ ] `POST /api/admin/users` → `409` «заводятся автоматически при первом входе»
+- [ ] `PATCH /api/users/:id` со сменой `global_role` для `auth_source='ldap'` → `409`; `{isActive}` → `200`
+- [ ] JIT не снимает роль у **последнего** активного админа (группа потеряна в LDAP → роль остаётся `admin`, вход не падает)
+- [ ] `PATCH /api/departments/:id {ldapGroupDn}` — сохраняется; та же группа (в любом регистре) на другом отделе → `409`; `null` — очищает
+- [ ] `GET /api/departments` — `ldapGroupDn` виден только глоб. admin; у обычного юзера в DTO `null` (не раскрываем DN AD-групп)
+- [ ] `LDAP_TIMEOUT_MS` с нечисловым значением → сервер падает на старте (`fail`), не тихий `NaN`
+- [ ] `POST /api/ldap/resync` (глоб. admin, нужен `LDAP_BIND_DN`) → `{total, synced, notFound[], errors[]}`; `department_members` пересобраны; `audit_log.ldap.resync`
+- [ ] Гонка: два параллельных первых логина одного `username` → одна строка `users` (23505 → повторное чтение → adopt/update), не `500`
+
+**Клиент (`authMode==='ldap'`, из `bootstrap`):**
+
+- [ ] AdminView: на каждом департаменте строка «LDAP-группа» (инлайн-DN, `blur`→PATCH); кнопка «Пересинхронизировать LDAP» в шапке; тост на `409`
+- [ ] `LoginForm` — обычный вход по логину/паролю (тот же), просто JWT теперь от LDAP-пути
 
 ### Этап 3b
 
