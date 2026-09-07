@@ -3,6 +3,8 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { initConfig, loadConfig } from "../src/config.js";
 import { initPool, closePool, q } from "../src/db.js";
+
+export { q };
 import { buildApp } from "../src/app.js";
 import { seedProjectWorkflow } from "../src/services/workflow.js";
 

@@ -12,7 +12,8 @@
     "seed": "tsx src/seed.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:ldap": "vitest run test/access.ldap.test.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",
