@@ -4,6 +4,10 @@ import type { Transition } from "../types";
 import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo } from "../icons";
 import { Lozenge, catColor } from "../ui";
 
+/* POS/PATHS рассчитаны ТОЛЬКО на 4 дефолтных статуса (ключи — стабильные sid,
+   не uuid). Статус сверх стандартных четырёх просто не отрисуется — если появится
+   возможность добавлять свои статусы, эту визуализацию нужно доработать
+   (taskira-review §1.4). */
 const POS: Record<string, { x: number; y: number; w: number; h: number }> = {
   todo: { x: 40, y: 140, w: 190, h: 76 },
   inprogress: { x: 390, y: 32, w: 190, h: 76 },
@@ -23,11 +27,15 @@ const PATHS: Record<string, string> = {
   "done>inprogress": "M845,138 C845,8 545,4 490,26",
 };
 
-function edgePath(t: Transition) {
-  const key = `${t.from}>${t.to}`;
+/** t.from/t.to — реальные uuid статусов; POS/PATHS ключуются по sid, поэтому
+ *  нужен резолвер uuid→sid. */
+function edgePath(t: Transition, sidOf: (id: string) => string) {
+  const fromSid = sidOf(t.from);
+  const toSid = sidOf(t.to);
+  const key = `${fromSid}>${toSid}`;
   if (PATHS[key]) return PATHS[key];
-  const a = POS[t.from] ?? POS.todo;
-  const b = POS[t.to] ?? POS.done;
+  const a = POS[fromSid] ?? POS.todo;
+  const b = POS[toSid] ?? POS.done;
   const ax = a.x + a.w / 2;
   const ay = a.y + a.h / 2;
   const bx = b.x + b.w / 2;
@@ -38,20 +46,25 @@ function edgePath(t: Transition) {
 export default function WorkflowView() {
   const { data, addTransition, removeTransition, resetWorkflow, toast, can } = useStore();
   const canEditWf = can("editWorkflow");
-  const [from, setFrom] = useState("todo");
-  const [to, setTo] = useState("review");
+  const statuses = data.workflow.statuses;
+  const bySid = (sid: string) => statuses.find((s) => s.sid === sid)?.id;
+  // from/to хранят реальные uuid статусов (значения <option>), не sid.
+  const [from, setFrom] = useState(() => bySid("todo") ?? statuses[0]?.id ?? "");
+  const [to, setTo] = useState(() => bySid("review") ?? statuses[1]?.id ?? statuses[0]?.id ?? "");
   const [formErr, setFormErr] = useState("");
   const [hover, setHover] = useState<string | null>(null);
 
-  const countBy = (sid: string) => data.issues.filter((i) => i.typeId !== "epic" && i.statusId === sid).length;
-  const stName = (id: string) => data.workflow.statuses.find((s) => s.id === id);
+  const sidById = new Map(statuses.map((s) => [s.id, s.sid]));
+  const sidOf = (id: string) => sidById.get(id) ?? "";
+  const countBy = (statusId: string) => data.issues.filter((i) => i.statusId === statusId).length;
+  const stName = (id: string) => statuses.find((s) => s.id === id);
 
   const submit = () => {
     const err = addTransition(from, to);
     if (err) setFormErr(err);
     else {
       setFormErr("");
-      setTo(data.workflow.statuses.find((s) => s.id !== from)?.id ?? "done");
+      setTo(statuses.find((s) => s.id !== from)?.id ?? from);
     }
   };
 
@@ -94,7 +107,7 @@ export default function WorkflowView() {
                 return (
                   <path
                     key={t.id}
-                    d={edgePath(t)}
+                    d={edgePath(t, sidOf)}
                     fill="none"
                     stroke={active ? "#0b5fd9" : "#aebbd0"}
                     strokeWidth={active ? 2.6 : 1.6}
@@ -106,7 +119,7 @@ export default function WorkflowView() {
               })}
             </g>
             {data.workflow.statuses.map((s) => {
-              const p = POS[s.id];
+              const p = POS[s.sid]; // POS ключуется по sid, не uuid (§1.4)
               if (!p) return null;
               const c = catColor(s.category);
               return (

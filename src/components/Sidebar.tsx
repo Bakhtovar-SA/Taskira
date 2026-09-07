@@ -37,7 +37,7 @@ const GROUPS: {
 
 export default function Sidebar() {
   const { data, ui, setView, me } = useStore();
-  const openCount = data.issues.filter((i) => i.typeId !== "epic" && data.workflow.statuses.find((s) => s.id === i.statusId)?.category !== "done").length;
+  const openCount = data.issues.filter((i) => data.workflow.statuses.find((s) => s.id === i.statusId)?.category !== "done").length;
 
   return (
     <aside className="flex w-[232px] shrink-0 flex-col bg-sidebar text-[#c6d2e4]">
@@ -106,7 +106,7 @@ export default function Sidebar() {
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#24385a]">
           <div
             className="h-full rounded-full bg-gradient-to-r from-accent to-[#22a06b] transition-all duration-700"
-            style={{ width: `${Math.round((1 - openCount / Math.max(1, data.issues.filter((i) => i.typeId !== "epic").length)) * 100)}%` }}
+            style={{ width: `${Math.round((1 - openCount / Math.max(1, data.issues.length)) * 100)}%` }}
           />
         </div>
         <p className="mt-1.5 text-[10px] text-[#5f7396]">доля закрытых по проекту</p>

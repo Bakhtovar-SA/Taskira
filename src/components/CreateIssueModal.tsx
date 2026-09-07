@@ -24,7 +24,10 @@ export default function CreateIssueModal() {
   const [labelDraft, setLabelDraft] = useState("");
   const [again, setAgain] = useState(false);
 
-  const epics = data.issues.filter((i) => i.typeId === "epic");
+  // Тип "epic" упразднён (миграция 002): «эпик» — обычная задача, на которую
+  // ссылаются через epicId. Список «эпиков» = задачи, у которых есть дети.
+  const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
+  const epics = data.issues.filter((i) => epicIds.has(i.id));
   const assignee = data.users.find((u) => u.id === assigneeId);
 
   const addLabel = () => {

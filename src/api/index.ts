@@ -208,7 +208,7 @@ export type ProjectBootstrap = {
   /** Состав проекта: userId → проектная роль. Права me считаются из globalRole + этого. */
   members: { userId: string; role: ProjectRole }[];
   workflow: {
-    statuses: { id: string; name: string; category: "todo" | "inprogress" | "done"; position?: number }[];
+    statuses: { id: string; sid: string; name: string; category: "todo" | "inprogress" | "done"; position?: number }[];
     transitions: { id: string; from: string; to: string }[];
   };
   sprints: {

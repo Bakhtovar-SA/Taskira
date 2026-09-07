@@ -8,10 +8,10 @@ import type { Workflow } from "./types";
  */
 export const DEFAULT_WORKFLOW: Workflow = {
   statuses: [
-    { id: "todo", name: "К выполнению", category: "todo" },
-    { id: "inprogress", name: "В работе", category: "inprogress" },
-    { id: "review", name: "На ревью", category: "inprogress" },
-    { id: "done", name: "Готово", category: "done" },
+    { id: "todo", sid: "todo", name: "К выполнению", category: "todo" },
+    { id: "inprogress", sid: "inprogress", name: "В работе", category: "inprogress" },
+    { id: "review", sid: "review", name: "На ревью", category: "inprogress" },
+    { id: "done", sid: "done", name: "Готово", category: "done" },
   ],
   transitions: [
     { id: "t1", from: "todo", to: "inprogress" },
