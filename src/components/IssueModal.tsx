@@ -491,8 +491,11 @@ export default function IssueModal() {
             </Field>
           )}
 
+          {/* Смена спринта требует manageSprints на сервере (PATCH /issues/:id).
+              Роли без этого права поле не видят — иначе рабочий на вид дропдаун
+              отдавал бы 403 (taskira-review §3.1). */}
+          {can("manageSprints") && (
           <Field label="Спринт">
-            {editOk ? (
             <Dropdown
               width={220}
               button={(open) => (
@@ -513,12 +516,8 @@ export default function IssueModal() {
                 </>
               )}
             </Dropdown>
-            ) : (
-              <LockedField reason={denyMsg}>
-                <span className={issue.sprintId ? "" : "text-faint"}>{data.sprints.find((s) => s.id === issue.sprintId)?.name ?? "Бэклог"}</span>
-              </LockedField>
-            )}
           </Field>
+          )}
 
           <Field label="Оценка (очки)">
             {editOk ? (
