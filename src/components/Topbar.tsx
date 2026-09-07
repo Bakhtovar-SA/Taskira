@@ -231,6 +231,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
     access: "Права доступа",
     admin: "Департаменты",
     docs: "Документация",
+    collaborating: "Мои подключения",
   }[ui.view];
   const canCreate = can("create");
 

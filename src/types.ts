@@ -148,10 +148,26 @@ export interface Data {
   issues: Issue[];
   sprints: Sprint[];
   workflow: Workflow;
+  /** Приглашения текущего пользователя к задачам в проектах, которые ему не открыты. */
+  collaborations: Collaboration[];
   seq: number;
 }
 
-export type ViewId = "board" | "backlog" | "timeline" | "workflow" | "access" | "admin" | "docs";
+export type ViewId = "board" | "backlog" | "timeline" | "workflow" | "access" | "admin" | "docs" | "collaborating";
+
+/** Задача, к которой пользователя пригласили как collaborator'а (в чужом проекте).
+ *  GET /api/issues/collaborating. Показывается в разделе «Мои подключения». */
+export interface Collaboration {
+  issueId: string;
+  projectId: string;
+  key: string;
+  title: string;
+  statusId: string;
+  statusName: string;
+  statusCategory: string;
+  projectKey: string;
+  projectName: string;
+}
 
 export const ISSUE_TYPES: Record<IssueTypeId, { name: string }> = {
   task: { name: "Задача" },

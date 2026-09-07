@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import type {
   AccessRole,
+  Collaboration,
   Collaborator,
   Data,
   Department,
@@ -127,6 +128,7 @@ const emptyData = (): Data => ({
   issues: [],
   sprints: [],
   workflow: { statuses: [], transitions: [] },
+  collaborations: [],
   seq: 1,
 });
 
@@ -209,6 +211,7 @@ interface Api {
   can: (perm: PermId, issue?: Issue) => boolean;
   bootstrap: () => Promise<void>;
   switchProject: (projectId: string) => void;
+  refreshCollaborations: () => Promise<void>;
   logout: () => void;
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
@@ -324,6 +327,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       currentUserId: string,
       projects: ProjectSummary[],
       departments: Department[],
+      collaborations: Collaboration[],
     ): Promise<Data> => {
       const boot = await projectsApi.get(projectId);
       const issuesRes = await issuesApi.list(projectId, { limit: 200 });
@@ -346,6 +350,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         members,
         currentUserId,
         issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
+        collaborations,
         sprints: boot.sprints.map((s) => ({
           id: s.id,
           name: s.name,
@@ -372,7 +377,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setBootStatus("loading");
     try {
       const user = await authApi.me();
-      const [list, deps] = await Promise.all([projectsApi.list(), departmentsApi.list().catch(() => [])]);
+      const [list, deps, collabs] = await Promise.all([
+        projectsApi.list(),
+        departmentsApi.list().catch(() => []),
+        issuesApi.collaborating().catch(() => [] as CollaboratingItem[]),
+      ]);
       const projects: ProjectSummary[] = list.map((p) => ({
         id: p.id,
         key: p.key,
@@ -383,7 +392,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (projects.length === 0) {
         // Ни одного видимого проекта, но, возможно, приглашён к отдельным задачам
         // (issue collaborators) — тогда одиночный режим (COLLAB_MIGRATION.md Фаза 6).
-        const collabs = await issuesApi.collaborating().catch(() => [] as CollaboratingItem[]);
         if (collabs.length > 0) {
           const hash = readIssueHash();
           const openTarget = hash && collabs.some((c) => c.issueId === hash.issueId) ? hash : null;
@@ -406,8 +414,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       const wanted = readLastProject();
       const chosen = projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
-      setData(await buildProjectData(chosen, user.id, projects, deps));
+      setData(await buildProjectData(chosen, user.id, projects, deps, collabs));
       writeLastProject(chosen);
+      // Прямая ссылка на приглашённую задачу (в проекте, который не открыт) —
+      // сразу в раздел «Мои подключения» (Фаза 6 для пользователей с проектами).
+      const hash = readIssueHash();
+      if (hash && collabs.some((c) => c.issueId === hash.issueId)) {
+        setUi((u) => ({ ...u, view: "collaborating" }));
+      }
       setBootStatus("ready");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -429,7 +443,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setBootStatus("loading");
       void (async () => {
         try {
-          const next = await buildProjectData(projectId, cur.currentUserId, cur.projects, cur.departments);
+          const next = await buildProjectData(projectId, cur.currentUserId, cur.projects, cur.departments, cur.collaborations);
           if (seq !== switchSeqRef.current) return; // пришёл более поздний клик
           setData(next);
           writeLastProject(projectId);
@@ -467,6 +481,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       handleApiError(err);
     }
   }, [handleApiError]);
+
+  /** Перечитать «Мои подключения» (приглашения к задачам чужих проектов). */
+  const refreshCollaborations = useCallback(async () => {
+    try {
+      const items = await issuesApi.collaborating();
+      setData((prev) => ({ ...prev, collaborations: items }));
+    } catch {
+      /* тихо — раздел просто не обновится */
+    }
+  }, []);
 
   const openIssue = useCallback(
     (id: string | null) => {
@@ -1064,6 +1088,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     can: canFn,
     bootstrap,
     switchProject,
+    refreshCollaborations,
     logout,
     setView: (v) => setUi((u) => ({ ...u, view: v })),
     openIssue,

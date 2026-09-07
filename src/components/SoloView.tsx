@@ -32,8 +32,21 @@ function Ava({ p, size = 24 }: { p: { name: string; initials: string; color: str
   );
 }
 
-function SoloIssueCard({ projectId, issueId, statusHint }: { projectId: string; issueId: string; statusHint?: string }) {
-  const { solo, toast } = useStore();
+/** Карточка приглашённой задачи: сама грузит задачу + комментарии, поля read-only,
+ *  форма комментария. Переиспользуется в SoloView и в разделе «Мои подключения»
+ *  обычного интерфейса — отсюда `currentUser` пропом, а не из solo-состояния. */
+export function SoloIssueCard({
+  projectId,
+  issueId,
+  statusHint,
+  currentUser,
+}: {
+  projectId: string;
+  issueId: string;
+  statusHint?: string;
+  currentUser: { id: string; name: string };
+}) {
+  const { toast } = useStore();
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [issue, setIssue] = useState<ServerIssue | null>(null);
   const [comments, setComments] = useState<ServerComment[]>([]);
@@ -71,8 +84,8 @@ function SoloIssueCard({ projectId, issueId, statusHint }: { projectId: string; 
       </div>
     );
 
-  const meFallback = solo ? { name: solo.userName, initials: solo.userName.slice(0, 2).toUpperCase(), color: "#0B5FD9" } : undefined;
-  const authorOf = (id: string) => pById.get(id) ?? (id === solo?.userId ? meFallback : undefined);
+  const meFallback = { name: currentUser.name, initials: currentUser.name.slice(0, 2).toUpperCase(), color: "#0B5FD9" };
+  const authorOf = (id: string) => pById.get(id) ?? (id === currentUser.id ? meFallback : undefined);
   const assignee = issue.assigneeId ? pById.get(issue.assigneeId) : undefined;
   const reporter = pById.get(issue.reporterId);
 
@@ -233,7 +246,13 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
       </aside>
       <main className="min-h-0 flex-1 overflow-y-auto bg-canvas">
         {current ? (
-          <SoloIssueCard key={current.issueId} projectId={current.projectId} issueId={current.issueId} statusHint={current.statusName} />
+          <SoloIssueCard
+            key={current.issueId}
+            projectId={current.projectId}
+            issueId={current.issueId}
+            statusHint={current.statusName}
+            currentUser={{ id: solo.userId, name: solo.userName }}
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-[13px] text-faint">Выберите задачу слева.</div>
         )}

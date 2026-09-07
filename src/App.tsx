@@ -9,6 +9,7 @@ import WorkflowView from "./components/WorkflowView";
 import PermissionsView from "./components/PermissionsView";
 import AdminView from "./components/AdminView";
 import DocsView from "./components/DocsView";
+import CollaboratingView from "./components/CollaboratingView";
 import IssueModal from "./components/IssueModal";
 import CreateIssueModal from "./components/CreateIssueModal";
 import LoginForm from "./components/LoginForm";
@@ -52,6 +53,7 @@ function Shell() {
         "5": "access",
         "6": "admin",
         "7": "docs",
+        "8": "collaborating",
       };
       if (map[e.key]) setView(map[e.key]);
     };
@@ -94,6 +96,7 @@ function Shell() {
             {ui.view === "access" && <PermissionsView />}
             {ui.view === "admin" && <AdminView />}
             {ui.view === "docs" && <DocsView />}
+            {ui.view === "collaborating" && <CollaboratingView />}
           </div>
         </main>
       </div>

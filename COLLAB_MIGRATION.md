@@ -360,6 +360,15 @@ CREATE INDEX idx_issue_collaborators_user ON issue_collaborators (user_id);
   переключателя. `App.tsx`: `bootStatus === "solo" → <SoloView>`.
 - **`src/components/IssueModal.tsx`** — `copyLink` теперь даёт
   `#/issue/<projectId>/<issueId>` (uuid-форма, её понимает `SoloView`).
+- **«Мои подключения» в обычном интерфейсе** (для пользователей, у кого ЕСТЬ свои
+  проекты, но их также пригласили в чужой): `bootstrap()` теперь всегда тянет
+  `issuesApi.collaborating()` → `data.collaborations` (+ `refreshCollaborations()`
+  экшен). `Sidebar` — пункт «Мои подключения» (kbd 8) с бейджем-счётчиком,
+  показывается только если `data.collaborations.length > 0`. `ViewId += "collaborating"`,
+  `App.tsx` рендерит `<CollaboratingView>` — двухпанельный список + та же
+  `SoloIssueCard` (вынесена из `SoloView` и параметризована `currentUser`).
+  Прямая ссылка `#/issue/<pid>/<id>` в проект, который не открыт, теперь у таких
+  пользователей ведёт в этот раздел с предвыбором задачи.
 - **Тесты** — `access.collaborators.test.ts` +2: `/issues/collaborating` отдаёт
   только свои подключения с данными проекта; `getIssueDto.participants` содержит
   автора и приглашённого. **Всего 31 тест зелёный.**
