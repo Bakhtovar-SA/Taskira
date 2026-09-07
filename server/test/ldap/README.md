@@ -18,16 +18,18 @@ node test/ldap/mock-ldap.mjs        # ldap://127.0.0.1:1389, MOCK_LDAP_PORT дл
 
 ## Запуск (Docker)
 
-`bitnami/openldap` — внутри контейнера слушает **1389**, наружу мапится **389**.
+`osixia/openldap:1.5.0`. Образ создаёт только пустой суффикс `dc=taskira,dc=test`;
+дерево (люди/группы) заливаем сами — так видно ошибки LDIF.
 
 ```bash
 cd server
-docker compose -f docker-compose.ldap.yml up -d      # поднять
+docker compose -f docker-compose.ldap.yml up -d
+# дождаться healthcheck (docker compose ps), затем:
+docker compose -f docker-compose.ldap.yml exec openldap \
+  ldapadd -x -H ldap://localhost:389 -D cn=admin,dc=taskira,dc=test -w admin -f /ldifs/bootstrap.ldif
+
 docker compose -f docker-compose.ldap.yml down -v     # погасить + сбросить данные
 ```
-
-`bootstrap.ldif` (и любые `test/ldap/*.ldif`) грузятся образом при первом старте
-после создания суффикса `dc=taskira,dc=test`. Поменяли LDIF → `down -v` и заново.
 
 ## Что внутри
 
@@ -44,16 +46,13 @@ docker compose -f docker-compose.ldap.yml down -v     # погасить + сб�
 
 ## Проверка вручную
 
-С хоста `ldapsearch` бьёт на проброшенный порт 389; внутри контейнера — 1389.
-
 ```bash
-# связь + поиск (с хоста)
+# связь + поиск
 ldapsearch -x -H ldap://localhost:389 -b dc=taskira,dc=test \
   -D cn=admin,dc=taskira,dc=test -w admin "(uid=t.manager)"
 
-# то же внутри контейнера
-docker compose -f docker-compose.ldap.yml exec openldap \
-  ldapsearch -x -H ldap://localhost:1389 -b ou=groups,dc=taskira,dc=test \
+# членство в группах (обратный поиск — так же делает сервер при LDAP_GROUP_MEMBERSHIP=search)
+ldapsearch -x -H ldap://localhost:389 -b ou=groups,dc=taskira,dc=test \
   -D cn=admin,dc=taskira,dc=test -w admin \
   "(&(objectClass=groupOfNames)(member=uid=t.manager,ou=people,dc=taskira,dc=test))"
 ```

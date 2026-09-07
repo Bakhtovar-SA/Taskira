@@ -104,27 +104,31 @@ jobs:
       - run: npm ci
       - run: npm rebuild esbuild
 
-      - name: Start OpenLDAP (bitnami/openldap + bootstrap.ldif)
+      - name: Start OpenLDAP (osixia/openldap:1.5.0)
         run: docker compose -f docker-compose.ldap.yml up -d
 
-      - name: Wait for OpenLDAP + bootstrap LDIF
+      - name: Wait for slapd
         run: |
-          for i in $(seq 1 40); do
+          for i in $(seq 1 50); do
             if docker compose -f docker-compose.ldap.yml exec -T openldap \
-                 ldapsearch -x -H ldap://localhost:1389 -D cn=admin,dc=taskira,dc=test -w admin \
-                 -b uid=t.manager,ou=people,dc=taskira,dc=test -s base dn >/dev/null 2>&1; then
-              echo "LDAP + LDIF ready after ${i} tr."; exit 0
+                 ldapsearch -x -H ldap://localhost:389 -b dc=taskira,dc=test -s base dn >/dev/null 2>&1; then
+              echo "slapd готов (${i} попыток)"; exit 0
             fi
             sleep 3
           done
-          echo "::error::OpenLDAP не поднялся / LDIF не загрузился"
+          echo "::error::slapd не поднялся"
           docker compose -f docker-compose.ldap.yml logs openldap
           exit 1
+
+      - name: Load bootstrap.ldif
+        run: |
+          docker compose -f docker-compose.ldap.yml exec -T openldap \
+            ldapadd -x -c -H ldap://localhost:389 -D cn=admin,dc=taskira,dc=test -w admin -f /ldifs/bootstrap.ldif
 
       - name: Show LDAP tree (sanity)
         run: |
           docker compose -f docker-compose.ldap.yml exec -T openldap \
-            ldapsearch -x -H ldap://localhost:1389 -b dc=taskira,dc=test \
+            ldapsearch -x -H ldap://localhost:389 -b dc=taskira,dc=test \
             -D cn=admin,dc=taskira,dc=test -w admin dn
 
       - run: npm run test:ldap
