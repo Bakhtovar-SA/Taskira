@@ -17,9 +17,23 @@ export interface TransitionRow {
   to_status_id: string;
 }
 
+/** DTO ребра схемы в camelCase — контракт с клиентом (taskira-review §1.1).
+ *  Клиент/`contract`-типы ожидают `{ id, from, to }`; SQL-строка — snake_case. */
+export interface TransitionDto {
+  id: string;
+  from: string;
+  to: string;
+}
+
+export const mapTransition = (row: TransitionRow): TransitionDto => ({
+  id: row.id,
+  from: row.from_status_id,
+  to: row.to_status_id,
+});
+
 export interface WorkflowDto {
   statuses: StatusRow[];
-  transitions: TransitionRow[];
+  transitions: TransitionDto[];
 }
 
 /** Дефолтный граф переходов (используется в seed и в POST /workflow/reset).
@@ -100,15 +114,15 @@ export async function assertTransition(projectId: string, fromStatusId: string, 
   }
 }
 
-/** DTO схемы для GET /workflow и bootstrap. */
+/** DTO схемы для GET /workflow и bootstrap. Переходы — в camelCase (§1.1). */
 export async function getWorkflow(projectId: string): Promise<WorkflowDto> {
   const statuses = await getStatuses(projectId);
-  const transitions = await q<TransitionRow>(
+  const rows = await q<TransitionRow>(
     `SELECT id, from_status_id, to_status_id
        FROM workflow_transitions
       WHERE project_id = $1
       ORDER BY from_status_id, to_status_id`,
     [projectId],
   );
-  return { statuses, transitions };
+  return { statuses, transitions: rows.map(mapTransition) };
 }

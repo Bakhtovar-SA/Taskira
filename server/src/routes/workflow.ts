@@ -4,7 +4,7 @@ import type { z } from "zod";
 import { one, q } from "../db.js";
 import { badRequest, notFound, requirePerm, zbody, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
-import { conflict, DEFAULT_TRANSITIONS, getWorkflow, statusName } from "../services/workflow.js";
+import { conflict, DEFAULT_TRANSITIONS, getWorkflow, mapTransition, statusName } from "../services/workflow.js";
 import { TransitionCreateBody } from "../contract.js";
 
 export async function workflowRoutes(app: FastifyInstance): Promise<void> {
@@ -50,7 +50,7 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
 
       const [from, to] = [await statusName(body.from), await statusName(body.to)];
       await audit(user.sub, "workflow.transition.add", "workflow", row.id, { from, to });
-      reply.code(201).send(row);
+      reply.code(201).send(mapTransition(row));
     },
   );
 
