@@ -148,6 +148,9 @@ export async function createAttachment(args: { issueId: string; userId: string; 
   const cfg = loadConfig().storage;
   const { issueId, userId, part } = args;
 
+  // Мягкий лимит: count-then-insert не атомарен, две параллельные загрузки у
+  // самого потолка могут дать maxPerIssue+1. Это не граница безопасности —
+  // жёсткая гарантия (advisory lock) не нужна.
   if ((await countForIssue(issueId)) >= cfg.maxPerIssue) {
     throw new ApiHttpError(409, "ATTACHMENT_LIMIT", `У задачи уже максимум вложений (${cfg.maxPerIssue})`);
   }
@@ -196,16 +199,30 @@ export async function createAttachment(args: { issueId: string; userId: string; 
     await store.delete(key).catch(() => undefined);
     tooLarge(cfg.maxBytes);
   }
+  // Пустой файл: CHECK (byte_size > 0) в схеме иначе уронил бы INSERT в 500,
+  // а объект остался бы сиротой. Отсекаем явно и чистим хранилище.
+  if (size === 0) {
+    await store.delete(key).catch(() => undefined);
+    throw new ApiHttpError(400, "ATTACHMENT_EMPTY", "Пустой файл (0 байт) — нечего прикреплять");
+  }
 
-  const row = (
-    await q<AttachmentRow>(
-      `INSERT INTO attachments
-         (issue_id, uploaded_by, filename, content_type, byte_size, sha256, storage_driver, storage_key)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, issue_id, uploaded_by, filename, content_type, byte_size, sha256, storage_driver, storage_key, created_at`,
-      [issueId, userId, guard.filename, guard.contentType, size, hash.digest("hex"), cfg.driver, key],
-    )
-  )[0];
+  let row: AttachmentRow;
+  try {
+    row = (
+      await q<AttachmentRow>(
+        `INSERT INTO attachments
+           (issue_id, uploaded_by, filename, content_type, byte_size, sha256, storage_driver, storage_key)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id, issue_id, uploaded_by, filename, content_type, byte_size, sha256, storage_driver, storage_key, created_at`,
+        [issueId, userId, guard.filename, guard.contentType, size, hash.digest("hex"), cfg.driver, key],
+      )
+    )[0];
+  } catch (e) {
+    // INSERT упал (гонка, транзиентная ошибка БД, нарушение CHECK) — объект в
+    // хранилище уже записан, снимаем его, чтобы не плодить сирот.
+    await store.delete(key).catch(() => undefined);
+    throw e;
+  }
   return toDto(row);
 }
 

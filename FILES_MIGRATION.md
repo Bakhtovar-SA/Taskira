@@ -1,12 +1,13 @@
 # FILES_MIGRATION — вложения к задачам (файлы)
 
-Статус: **решения §3 подтверждены (D1–D6). Фазы 1–4 сделаны. Сервер: миграция
-010, конфиг, абстракция хранилища + драйверы `local` и `s3` (`@aws-sdk`,
-multipart), `@fastify/multipart`, guard по magic-байтам, 4 роута. Клиент:
-`attachmentsApi`/`apiUpload`/`downloadBlob`, экшены store, `<AttachmentField>` в
-`IssueModal` + `SoloIssueCard`. `npm test` (local) 54 зелёных; CI-job `storage-s3`
-против настоящего MinIO; `STORAGE_SETUP.md` написан; `tsc`/`build` 0. Осталась
-Фаза 5 (ручной чек-лист в `server/README.md` + `ARCHITECTURE.md`).**
+Статус: **решения §3 подтверждены (D1–D6). Фазы 1–5 сделаны — миграция завершена.
+Сервер: миграция 010, конфиг, абстракция `Storage` + драйверы `local` и `s3`
+(`@aws-sdk`, multipart), guard по magic-байтам, 4 роута. Клиент: `attachmentsApi`,
+`<AttachmentField>` в `IssueModal` + `SoloIssueCard`. `npm test` (local) 55
+зелёных; CI-job `storage-s3` против настоящего MinIO зелёный (лог multipart-ETag
+в PR); чек-лист в `server/README.md`, `ARCHITECTURE.md` обновлён; правки по ревью
+PR #17 сложены. Фаза 6 (сборщик сирот, ClamAV, вложения к комментариям, …) — вне
+захода.**
 Ветка `feat/attachments`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 4 — драйвер S3/MinIO; при затыке с инфраструктурой отделяется в follow-up PR,
 т.к. локальный драйвер к тому моменту уже оттестирован). Фаза 6 — вне захода.
@@ -553,20 +554,40 @@ S3-путь проверяется CI-job `storage-s3` против настоя
   приватный CA `NODE_EXTRA_CA_CERTS`, `AbortMultipartUpload`, SSE-KMS ⇒ ETag ≠
   MD5); §9 сводка `local` ≠ `s3`.
 
-### Фаза 5 — Верификация
+### Фаза 5 — Верификация  *(сделано)*
 
-- **Автотесты** — `access.attachments.test.ts` зелёный и на `local`, и на `s3`
-  (job `storage-s3`). Итог `npm test` — прежние 38 + новые.
-- **Ручной чек-лист** — блок «Вложения (attachments)» в
-  [`server/README.md`](server/README.md): схема 010, лимиты, чёрный список +
-  magic-байты, права D2, видимость D4, заголовки скачивания D5, каскады,
-  `local` и `s3` драйверы, аудит.
-- **Живой прогон** (dev :8080) — по образцу LDAP/COLLAB: upload/download/delete
-  под разными ролями и приглашённым; отказ на `.exe`, на переименованном `MZ`,
-  на превышении размера; `/projects/A/issues/<из B>/attachments` → `404`.
-- **`ARCHITECTURE.md`** — «Текущее состояние»: файловое хранилище → «реализовано»;
-  «Порядок разработки» п. 4 → ✅ (с пометкой про S3-драйвер и CI).
+- **Автотесты** — `access.attachments.test.ts` (**17**): guard типа (расширение
+  vs magic-байты vs несовпадение), права D2, видимость/IDOR D4, заголовки D5,
+  лимиты (размер / 0 байт / число на задачу), DTO, каскад. `npm test` (local) —
+  **55 зелёных**. `storage.s3.test.ts` (5) против MinIO в job `storage-s3` —
+  специфика протокола S3 (multipart-ETag `<md5>-<N>`, `NoSuchKey`, round-trip
+  `Content-Type`); лог в PR.
+- **Ручной чек-лист** — блок «Вложения к задачам (attachments)» в
+  [`server/README.md`](server/README.md) (схема/конфиг, guard, видимость/IDOR,
+  драйвер S3, клиент) + строка `attachments` в «Статусе этапов».
+- **Живой прогон** (dev :8080) — Фаза 2: `.exe`→`.jpg` отклонён по сигнатуре `pe`
+  (не по расширению — настоящий JPEG `.jpg` проходит); IDOR-скачивание вложения
+  чужой задачи → `404`; удаление задачи чистит объект, удаление проекта — нет
+  (сирота, Фаза 6). CI job `storage-s3` — реальный multipart-ETag `…-2` в логе.
+- **`ARCHITECTURE.md`** — «Текущее состояние»: вложения → «реализовано» (+ пункт
+  про сборщик сирот в «чего ещё нет»); «Порядок разработки» п. 4 → ✅.
+- **`server/README.md`** «Зависимости» — `@fastify/multipart`, `@aws-sdk/*`.
 - **`SCOPE.md`** — правок не требует (вложения уже в списке MVP).
+
+**Правки по ревью PR #17** (сложены в этот же заход):
+
+- **`services/attachments.ts`** — пустой файл (0 байт) отсекается явно
+  (`400 ATTACHMENT_EMPTY` + удаление объекта), иначе `CHECK (byte_size > 0)`
+  уронил бы `INSERT` в `500` и оставил сироту. `INSERT` обёрнут в try/catch со
+  снятием объекта на любой ошибке (гонка / транзиент). Комментарий, что
+  `ATTACH_MAX_PER_ISSUE` — мягкий лимит (count-then-insert не атомарен).
+- **`contract.ts`** — неиспользуемая `AttachmentParams` удалена; в
+  `routes/attachments.ts` комментарий, что `:attId` проверяется инлайн-`UUID_RE`
+  ради `404` (паритет с `:id`), а не `zparams`→`400`.
+- **`src/store.tsx`** — UX-регэксп исполняемых расширений дополнен
+  (`msp`/`ksh`/`elf`/`gadget`/`inf`) + пометка «не исчерпывающий, сервер
+  авторитетен».
+- **`access.attachments.test.ts`** — тест на 0-байтовый файл.
 
 ### Фаза 6 — Follow-ups (не в этой миграции)
 

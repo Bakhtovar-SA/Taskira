@@ -17,6 +17,7 @@ import {
   canDeleteAttachment,
 } from "../services/attachments.js";
 
+// :attId проверяем инлайн (а не zparams) → 404, как requireIssuePerm делает с :id.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Потенциально исполняемые в браузере типы — отдаём как загрузку, не inline (D5). */

@@ -206,6 +206,18 @@ describe("Вложения: лимиты (D3)", () => {
     expect(res.statusCode).toBe(413);
   });
 
+  test("пустой файл (0 байт) -> 400 ATTACHMENT_EMPTY, объект-сирота не остаётся", async () => {
+    const tok = await login(app, "emp1");
+    const res = await upload(fx.projects.p1, fx.issues.p1issue, tok, { filename: "empty.txt", data: Buffer.alloc(0) });
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error.code).toBe("ATTACHMENT_EMPTY");
+    // в задаче ничего не появилось
+    const list = JSON.parse(
+      (await app.inject({ method: "GET", url: A(fx.projects.p1, fx.issues.p1issue), headers: auth(tok) })).body,
+    );
+    expect(list).toHaveLength(0);
+  });
+
   test("больше ATTACH_MAX_PER_ISSUE (5) -> 409 на 6-м", async () => {
     const tok = await login(app, "emp1");
     for (let i = 0; i < 5; i++) {

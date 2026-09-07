@@ -112,9 +112,9 @@ export const MemberParams = z.object({ userId: uuid });
  *  :id (задача) валидирует requireIssuePerm. Тела у PUT нет. */
 export const CollaboratorParams = z.object({ userId: uuid });
 
-/** :attId в путях вложений (attachments, миграция 010). :id (задача) валидирует
- *  requireIssuePerm; у загрузки тело — multipart, не JSON. */
-export const AttachmentParams = z.object({ attId: uuid });
+// Вложения (миграция 010): у загрузки тело multipart (не JSON), а `:attId`
+// роут проверяет инлайн-`UUID_RE` → 404 (паритет с `:id` в requireIssuePerm),
+// а не zod → 400. Отдельной *Params-схемы здесь намеренно нет.
 
 /* ---------------- Departments / Projects (миграция 007) ---------------- */
 /** :projectId в путях ресурсов проекта */

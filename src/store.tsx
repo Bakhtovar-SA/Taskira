@@ -792,11 +792,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (issueId: string, file: File) => {
       const issue = dataRef.current.issues.find((i) => i.id === issueId);
       if (!requirePerm("comment", issue)) return; // сервер перепроверит
-      // UX-подсказки (сервер — источник правды): размер и явно исполняемые расширения
+      // UX-подсказки, чтобы не гонять заведомо плохой файл на сервер. Сервер —
+      // источник правды (config.blockExt + magic-байты); этот список НЕ
+      // исчерпывающий, держим примерно в ногу с DEFAULT_BLOCK_EXT.
       if (file.size > LIMITS.attachment.maxBytes) {
         return toast("error", `Файл больше ${Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} МБ`);
       }
-      if (/\.(exe|dll|scr|com|pif|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|msi|cpl|reg|lnk|sh|bash|zsh|run|bin|jar|apk|app|dmg|pkg|deb|rpm|so|dylib)$/i.test(file.name)) {
+      if (
+        /\.(exe|dll|scr|com|pif|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|msi|msp|cpl|reg|lnk|sh|bash|zsh|ksh|run|bin|jar|apk|app|dmg|pkg|deb|rpm|elf|so|dylib|gadget|inf)$/i.test(
+          file.name,
+        )
+      ) {
         return toast("error", "Такой тип файла загружать нельзя (исполняемый/скрипт)");
       }
       void (async () => {
