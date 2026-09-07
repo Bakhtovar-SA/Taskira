@@ -1,7 +1,7 @@
 # LDAP_MIGRATION — аутентификация через LDAP/AD + членство в департаменте
 
-Статус: **решения §3 подтверждены (D1–D8). Фазы 1–2 сделаны (живой прогон против
-тестового LDAP пройден), Фазы 3, 5, 6 — впереди.**
+Статус: **решения §3 подтверждены (D1–D8). Фазы 1–3 сделаны (живые прогоны пройдены,
+38 серверных тестов), Фазы 5–6 — впереди; Фаза 4 аддитивна.**
 Ветка `feat/ldap-auth`. Порядок: фазы 1 → 2 → 3 → 5 → 6 (Фаза 4 аддитивна, Фаза 7 — вне захода).
 Контекст: пункт 1 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md) («авторизация через LDAP»);
 [SCOPE.md](SCOPE.md) — иерархия доступа и **открытый вопрос**: «Как именно мапить группы
@@ -364,19 +364,31 @@ LDAP на случай отсутствия Docker.
   записал). `sub` в JWT — локальный `users.id`; для новых LDAP-юзеров он появляется при
   provisioning. Шимов совместимости токенов не нужно (как ROLE §3.5).
 
-### Фаза 3 — Видимость проекта по департаменту (закрывает DEPT §3.5)  *(план)*
+### Фаза 3 — Видимость проекта по департаменту (закрывает DEPT §3.5)  *(сделано)*
 
-- **`services/projects.ts` `listVisibleProjects`** — `+ OR EXISTS (SELECT 1 FROM
-  department_members dm WHERE dm.user_id = $1 AND dm.department_id = p.department_id)`.
-- **`middleware.ts` `requirePerm`/`requireIssuePerm`** — если явного `project_members`
-  нет и не admin, но пользователь в департаменте проекта (`department_members`) **или**
-  `req.project.isShared` (см. D8) → эффективная роль `viewer` (`req.projectRole='viewer'`,
-  `req.impliedViewer = true`). `can()` тогда пускает `browse` и только его. Доп. запрос
-  кэшировать рядом с `membershipCache` (ключ `user::dept`).
-- Bootstrap `GET /api/projects/:projectId` и `GET /issues` начинают работать для членов
-  департамента (как `viewer`).
-- **`access.multiproject.test.ts`** — обновить сценарии видимости.
-- Снять пометку «временно» в DEPT_MIGRATION.md §3.5.
+- **`services/projects.ts` `listVisibleProjects`** — добавлен `LEFT JOIN
+  department_members` → проект виден при `project_members` **ИЛИ** `department_members`
+  **ИЛИ** `is_shared` **ИЛИ** глоб. admin.
+- **`middleware.ts`** — `effectiveRole(u, membership, project)`: явная роль
+  (`resolveRole`), иначе — если `project.isShared` **или** `isDeptMember(u, project.departmentId)`
+  → `viewer`. `requirePerm`/`requireIssuePerm` считают доступ через `roleCan(role, …)` /
+  `roleDenialReason(role, …)`, ставят `req.projectRole` и `req.impliedViewer`.
+  `deptMemberCache` (ключ `user::dept`, TTL 30 с) + `invalidateDeptMembership`
+  (зовётся из `departmentSync`). `can()`/`denialReason` в middleware больше не нужны.
+- **`routes/projects.ts` bootstrap** — `users` теперь включает и участников департамента
+  проекта (чтобы неявный viewer резолвился в клиентском me-memo); в `.members` их нет.
+- **`departmentSync.ts`** — после синка сбрасывает `deptMemberCache` по всем
+  сопоставленным департаментам пользователя.
+- **`test/helpers.ts`** — `addDeptMember` / `setDeptLdapGroup`; `resetDb` чистит
+  `department_members` и `issue_collaborators` явно.
+- **`access.multiproject.test.ts`** +3: член департамента видит проект/задачи как viewer,
+  мутации 403, в `.users` но не в `.members`; `is_shared` открывает bootstrap не-участнику
+  (раньше 403); явная роль перекрывает неявный viewer. **38 тестов зелёные.**
+- **Живой прогон** (dev :8080): `t.viewer` (не участник A21) — `/api/projects` без A21,
+  bootstrap A21 → 403; после `INSERT department_members` — `/api/projects` с A21,
+  bootstrap → 200 (в `.users`, не в `.members`), `GET .../issues` → 200,
+  `POST .../issues` → 403.
+- **DEPT_MIGRATION.md §3.5** — помечен как закрытый.
 
 ### Фаза 4 — Админ-UI + ресинк + ограничения ldap-режима  *(план, аддитивно)*
 

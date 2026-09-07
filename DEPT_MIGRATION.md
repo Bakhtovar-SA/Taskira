@@ -96,7 +96,14 @@
 интеграции; матчит целевую модель `Department { id, name, ldapGroupDn }` из
 `ARCHITECTURE.md`; экономит тривиальную `ALTER TABLE` + ревью + деплой позже.
 
-### 3.5. Видимость проекта без LDAP (Q5) — временное решение
+### 3.5. Видимость проекта без LDAP (Q5) — ~~временное решение~~ ЗАКРЫТО в LDAP-этапе
+
+> **Обновление ([LDAP_MIGRATION.md](LDAP_MIGRATION.md) Фаза 3, D8 вариант A).**
+> Появилась таблица `department_members` и правило: **членство в департаменте
+> проекта ИЛИ `is_shared` даёт неявную роль `viewer`** (browse без мутаций),
+> явная `project_members.role` перекрывает. `listVisibleProjects` и
+> `requirePerm`/`requireIssuePerm` учитывают `department_members`. Абзацы ниже —
+> исходная формулировка временного решения, оставлена для истории.
 
 `GET /api/projects` (и доступ к `/api/projects/:projectId/...`) отдаёт проект,
 если: **пользователь есть в `project_members` этого проекта, ИЛИ проект

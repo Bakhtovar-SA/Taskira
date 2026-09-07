@@ -3,10 +3,13 @@
  *  source='ldap' пересобирается целиком; source='manual' не трогаем. */
 import { q } from "../db.js";
 import { audit } from "../audit.js";
+import { invalidateDeptMembership } from "../middleware.js";
 
 export async function syncDepartmentMembership(userId: string, groupDns: string[]): Promise<void> {
   const lower = groupDns.map((g) => g.toLowerCase());
 
+  // все департаменты с маппингом — чтобы сбросить кэш и по добавленным, и по убранным
+  const mapped = await q<{ id: string }>(`SELECT id FROM departments WHERE ldap_group_dn IS NOT NULL`);
   const wanted = await q<{ id: string }>(
     `SELECT id FROM departments
       WHERE ldap_group_dn IS NOT NULL AND lower(ldap_group_dn) = ANY($1::text[])`,
@@ -31,6 +34,8 @@ export async function syncDepartmentMembership(userId: string, groupDns: string[
       [depId, userId],
     );
   }
+
+  for (const d of mapped) invalidateDeptMembership(userId, d.id);
 
   await audit(userId, "ldap.dept.sync", "user", userId, {
     groups: groupDns.length,
