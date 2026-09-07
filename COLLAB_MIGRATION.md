@@ -1,8 +1,8 @@
 # COLLAB_MIGRATION — участники задачи (issue collaborators) + управление составом из AdminView
 
 Статус: **решения §3 подтверждены (D1–D8, см. «РЕШЕНО»). Фаза 4 (Feature A) — влита в
-`main` (PR #12). Feature B: Фазы 1–2 — сделаны (ветка `feat/issue-collaborators`,
-29 серверных тестов); Фазы 3, 5–6 — не начаты.**
+`main` (PR #12). Feature B: Фазы 1–3 — сделаны (ветка `feat/issue-collaborators`,
+29 серверных тестов); Фазы 6 (одиночный просмотр) и 5 (верификация) — не начаты.**
 Порядок: Feature A (Фаза 4) — отдельным PR первым; затем Feature B (Фазы 1 → 2 → 3 → 6 → 5) одной веткой.
 Контекст: [SCOPE.md](SCOPE.md) — кросс-департаментные проекты и «участие нескольких отделов»;
 [ARCHITECTURE.md](ARCHITECTURE.md) — модель `Issue`. Предыдущие миграции —
@@ -259,21 +259,29 @@ CREATE INDEX idx_issue_collaborators_user ON issue_collaborators (user_id);
 - Проверка: `typecheck` (сервер 0, клиент — 10 пред-существующих, новых нет),
   `npm run build` — успешно.
 
-### Фаза 3 — Клиент: добавление/показ в IssueModal  *(план)*
+### Фаза 3 — Клиент: добавление/показ в IssueModal  *(сделано)*
 
-- **`src/api/index.ts`** — `collaboratorsApi.list(projectId, issueId)` /
-  `.add(projectId, issueId, userId)` / `.remove(projectId, issueId, userId)`;
-  `usersApi.pickable()` (D7).
-- **`src/store.tsx`** — деталь задачи несёт `collaborators`; экшены
-  `addCollaborator(issueId, userId)` / `removeCollaborator(issueId, userId)` под
-  `requirePerm("manageCollaborators", issue)`, оптимистичный патч + `handleApiError`.
-  `openIssue` дотягивает `collaborators` из `getIssueDto`.
-- **`src/components/IssueModal.tsx`** — секция **«Участники задачи»** (отдельно от
-  «Наблюдателей» и от исполнителя): чипы с аватарами + (для manager/admin) пикер из
-  `usersApi.pickable()` + «убрать». Подпись: «видит эту задачу и комментарии, не
-  входит в проект». Для остальных ролей — read-only чипы.
-- **`src/permissions.ts`** (клиент) — `manageCollaborators` в `MATRIX` уже добавлен
-  в Фазе 2 (зеркало).
+- **`src/api/index.ts`** — `collaboratorsApi.list/add/remove(projectId, issueId[, userId])`;
+  `usersApi.pickable()` (D7); типы `ServerCollaborator`, `PickableUser`;
+  `ServerIssue.collaborators?` (только детальный ответ).
+- **`src/types.ts`** — тип `Collaborator`; `Issue.collaborators: Collaborator[]`
+  (required — единственный конструктор `mapIssue` его заполняет).
+- **`src/store.tsx`** — `mapIssue` берёт `collaborators` из `dto.collaborators`
+  (детальный `GET /:id`), иначе держит прежнее; `upsertIssue` их не трогает, так
+  что свежий список из `openIssue` переживает upsert. Экшены `addCollaborator` /
+  `removeCollaborator` под `requirePerm("manageCollaborators", issue)` →
+  `collaboratorsApi` → патч `issue.collaborators` в `data.issues`, тост /
+  `handleApiError`.
+- **`src/components/IssueModal.tsx`** — компонент `<CollaboratorField>` после
+  «Меток»: чипы приглашённых (аватар-инициалы + имя); для manager/admin — `×` на
+  чипе и строка «пригласить: пользователь + кнопка» (`usersApi.pickable()` минус
+  уже приглашённые, участники проекта, админы ресурса, ты сам). Зрителю без
+  приглашённых секция не показывается. Подпись «видит только эту задачу и
+  комментарии, в проект и в исполнители не добавляется».
+- **`src/permissions.ts`** (клиент) — `manageCollaborators` в `PermId` + `MATRIX` +
+  `PERMISSIONS` (Фаза 2, зеркало сервера).
+- Проверка: `typecheck` (клиент — 10 пред-существующих, новых нет), `npm run build`
+  — успешно. Сервер не тронут (29 тестов). **Браузерная проверка не делалась.**
 
 ### Фаза 4 — Клиент: состав проекта из AdminView (Feature A)  *(сделано)*
 

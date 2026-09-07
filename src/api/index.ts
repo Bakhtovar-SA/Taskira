@@ -112,6 +112,17 @@ export type SafeUser = {
   isActive: boolean;
 };
 
+/** Приглашённый участник задачи (issue_collaborators). Приходит в детальном
+ *  ответе GET /issues/:id (не в списке). */
+export type ServerCollaborator = {
+  userId: string;
+  name: string;
+  initials: string;
+  color: string;
+  jobRole: string;
+  addedAt: string;
+};
+
 export type ServerIssue = {
   id: string;
   projectId: string;
@@ -133,6 +144,8 @@ export type ServerIssue = {
   labels: string[];
   dueDate: string | null;
   rank: number;
+  /** Только в детальном ответе GET /issues/:id. */
+  collaborators?: ServerCollaborator[];
   createdAt: string;
   updatedAt: string;
 };
@@ -222,9 +235,14 @@ export const departmentsApi = {
   remove: (id: string) => api<void>(`/api/departments/${id}`, { method: "DELETE" }),
 };
 
-/** Пользователи ресурса — только для глобального admin. */
+/** Тонкий профиль для пикеров (подключение к задаче и т.п.). */
+export type PickableUser = { id: string; name: string; initials: string; color: string; jobRole: string };
+
+/** Пользователи ресурса — `list`/`create` только для глобального admin;
+ *  `pickable` — любой аутентифицированный (см. COLLAB_MIGRATION.md D7). */
 export const usersApi = {
   list: () => api<SafeUser[]>("/api/users"),
+  pickable: () => api<PickableUser[]>("/api/users/pickable"),
   create: (body: {
     username: string;
     password: string;
@@ -270,6 +288,16 @@ export const commentsApi = {
     api<ServerComment[]>(`${P(projectId)}/issues/${issueId}/comments`),
   create: (projectId: string, issueId: string, body: string) =>
     api<ServerComment>(`${P(projectId)}/issues/${issueId}/comments`, { method: "POST", body: { body } }),
+};
+
+/** Приглашённые участники задачи. `add`/`remove` — manageCollaborators (admin/manager). */
+export const collaboratorsApi = {
+  list: (projectId: string, issueId: string) =>
+    api<ServerCollaborator[]>(`${P(projectId)}/issues/${issueId}/collaborators`),
+  add: (projectId: string, issueId: string, userId: string) =>
+    api<ServerCollaborator>(`${P(projectId)}/issues/${issueId}/collaborators/${userId}`, { method: "PUT" }),
+  remove: (projectId: string, issueId: string, userId: string) =>
+    api<void>(`${P(projectId)}/issues/${issueId}/collaborators/${userId}`, { method: "DELETE" }),
 };
 
 export const sprintsApi = {

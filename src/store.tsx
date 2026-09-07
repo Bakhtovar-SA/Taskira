@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import type {
   AccessRole,
+  Collaborator,
   Data,
   Department,
   Issue,
@@ -19,6 +20,7 @@ import {
   ApiError,
   authApi,
   clearToken,
+  collaboratorsApi,
   commentsApi,
   departmentsApi,
   getToken,
@@ -148,6 +150,18 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     tSpan: dto.tSpan ?? undefined,
     comments: prev?.comments ?? [],
     activity: prev?.activity ?? [],
+    // collaborators есть только в детальном ответе GET /issues/:id; в списке —
+    // держим прежнее значение (upsertIssue их не трогает).
+    collaborators:
+      dto.collaborators?.map((c) => ({
+        userId: c.userId,
+        name: c.name,
+        initials: c.initials,
+        color: c.color,
+        jobRole: c.jobRole,
+      })) ??
+      prev?.collaborators ??
+      [],
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
   };
@@ -180,6 +194,8 @@ interface Api {
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
   setSprint: (issueId: string, sprintId: string | null) => void;
   addComment: (issueId: string, body: string) => void;
+  addCollaborator: (issueId: string, userId: string) => void;
+  removeCollaborator: (issueId: string, userId: string) => void;
   deleteIssue: (issueId: string) => void;
   addTransition: (from: string, to: string) => string | null;
   removeTransition: (id: string) => void;
@@ -613,6 +629,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
+  /* -------- приглашённые участники задачи (issue collaborators) -------- */
+
+  const patchIssueCollaborators = (issueId: string, fn: (list: Collaborator[]) => Collaborator[]) =>
+    setData((prev) => ({
+      ...prev,
+      issues: prev.issues.map((i) => (i.id === issueId ? { ...i, collaborators: fn(i.collaborators) } : i)),
+    }));
+
+  const addCollaborator = useCallback(
+    (issueId: string, userId: string) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("manageCollaborators", issue)) return;
+      void (async () => {
+        try {
+          const c = await collaboratorsApi.add(pid(), issueId, userId);
+          patchIssueCollaborators(issueId, (list) => [
+            ...list.filter((x) => x.userId !== c.userId),
+            { userId: c.userId, name: c.name, initials: c.initials, color: c.color, jobRole: c.jobRole },
+          ]);
+          toast("success", `${c.name} — приглашён(а) к задаче`);
+        } catch (err) {
+          handleApiError(err, "Не удалось пригласить участника");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeCollaborator = useCallback(
+    (issueId: string, userId: string) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("manageCollaborators", issue)) return;
+      void (async () => {
+        try {
+          await collaboratorsApi.remove(pid(), issueId, userId);
+          patchIssueCollaborators(issueId, (list) => list.filter((x) => x.userId !== userId));
+          toast("info", "Участник отключён от задачи");
+        } catch (err) {
+          handleApiError(err, "Не удалось отключить участника");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
   const deleteIssue = useCallback(
     (issueId: string) => {
       if (!requirePerm("delete")) return;
@@ -975,6 +1036,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     moveStatus,
     setSprint,
     addComment,
+    addCollaborator,
+    removeCollaborator,
     deleteIssue,
     addTransition,
     removeTransition,

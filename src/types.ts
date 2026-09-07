@@ -55,6 +55,16 @@ export interface Activity {
   text: string;
 }
 
+/** Приглашённый к задаче (issue_collaborators, миграция 008): видит эту задачу и
+ *  её комментарии, не входит в проект. Приходит в детальном ответе GET /issues/:id. */
+export interface Collaborator {
+  userId: string;
+  name: string;
+  initials: string;
+  color: string;
+  jobRole: string;
+}
+
 export interface Issue {
   id: string;
   key: string;
@@ -76,6 +86,8 @@ export interface Issue {
   tSpan?: number;
   comments: CommentT[];
   activity: Activity[];
+  /** Приглашённые участники — заполняется при открытии карточки (GET /issues/:id). */
+  collaborators: Collaborator[];
   createdAt: number;
   updatedAt: number;
 }
