@@ -197,7 +197,7 @@ export default function Board() {
         <div className="flex items-center gap-2 border-b border-line bg-warnsoft/60 px-6 py-1.5 text-[12px] font-medium text-warn">
           <IcEye size={14} className="shrink-0" />
           <span className="truncate">
-            Режим «только чтение»: ваша роль не позволяет перемещать задачи и создавать новые. Переключите пользователя в меню справа, чтобы увидеть другие уровни доступа.
+            Режим «только чтение»: ваша роль не позволяет перемещать задачи и создавать новые. Обратитесь к администратору проекта, если нужны дополнительные права.
           </span>
         </div>
       )}
