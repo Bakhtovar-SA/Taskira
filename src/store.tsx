@@ -22,6 +22,7 @@ import {
   authApi,
   clearToken,
   collaboratorsApi,
+  ldapApi,
   commentsApi,
   departmentsApi,
   getToken,
@@ -237,6 +238,10 @@ interface Api {
   removeProjectMember: (projectId: string, userId: string) => Promise<void>;
   createDepartment: (name: string) => void;
   renameDepartment: (id: string, name: string) => void;
+  /** Режим аутентификации ресурса (для AdminView: LDAP-поля/ресинк). */
+  authMode: "local" | "ldap";
+  setDepartmentLdapGroup: (id: string, ldapGroupDn: string | null) => void;
+  resyncLdap: () => void;
   deleteDepartment: (id: string) => void;
   createProject: (input: { key: string; name: string; departmentId: string; isShared?: boolean }) => void;
   patchProject: (
@@ -254,6 +259,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<Data>(emptyData);
   const [bootStatus, setBootStatus] = useState<BootStatus>("idle");
   const [solo, setSolo] = useState<SoloState | null>(null);
+  const [authMode, setAuthMode] = useState<"local" | "ldap">("local");
   const [ui, setUi] = useState<UIState>({
     view: "board",
     selectedIssueId: null,
@@ -377,11 +383,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setBootStatus("loading");
     try {
       const user = await authApi.me();
-      const [list, deps, collabs] = await Promise.all([
+      const [list, deps, collabs, cfg] = await Promise.all([
         projectsApi.list(),
         departmentsApi.list().catch(() => []),
         issuesApi.collaborating().catch(() => [] as CollaboratingItem[]),
+        authApi.config().catch(() => ({ authMode: "local" as const })),
       ]);
+      setAuthMode(cfg.authMode);
       const projects: ProjectSummary[] = list.map((p) => ({
         id: p.id,
         key: p.key,
@@ -1013,7 +1021,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!requirePerm("manageAccess")) return;
       void (async () => {
         try {
-          await departmentsApi.patch(id, name);
+          await departmentsApi.patch(id, { name });
           await refreshOrg();
         } catch (err) {
           handleApiError(err, "Не удалось переименовать отдел");
@@ -1022,6 +1030,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     [requirePerm, handleApiError, refreshOrg],
   );
+
+  /** Привязать/очистить LDAP-группу отдела (только AUTH_MODE=ldap). */
+  const setDepartmentLdapGroup = useCallback(
+    (id: string, ldapGroupDn: string | null) => {
+      if (!requirePerm("manageAccess")) return;
+      void (async () => {
+        try {
+          await departmentsApi.patch(id, { ldapGroupDn });
+          await refreshOrg();
+          toast("success", ldapGroupDn ? "LDAP-группа привязана" : "Привязка LDAP-группы снята");
+        } catch (err) {
+          handleApiError(err, "Не удалось сохранить LDAP-группу");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError, refreshOrg],
+  );
+
+  /** Ручной ресинк членства в департаментах из LDAP (до фонового воркера). */
+  const resyncLdap = useCallback(() => {
+    if (!requirePerm("manageAccess")) return;
+    void (async () => {
+      try {
+        const r = await ldapApi.resync();
+        const tail =
+          (r.notFound.length ? ` · не найдено в LDAP: ${r.notFound.length}` : "") +
+          (r.errors.length ? ` · ошибок: ${r.errors.length}` : "");
+        toast(r.errors.length ? "error" : "success", `Ресинк: ${r.synced}/${r.total}${tail}`);
+      } catch (err) {
+        handleApiError(err, "Ресинк LDAP не удался");
+      }
+    })();
+  }, [requirePerm, toast, handleApiError]);
 
   const deleteDepartment = useCallback(
     (id: string) => {
@@ -1133,6 +1174,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     removeProjectMember,
     createDepartment,
     renameDepartment,
+    authMode,
+    setDepartmentLdapGroup,
+    resyncLdap,
     deleteDepartment,
     createProject,
     patchProject,

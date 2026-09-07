@@ -111,4 +111,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       reply.send(safeUser(row));
     },
   );
+
+  /** Режим аутентификации ресурса — клиент по нему показывает/прячет LDAP-поля
+   *  и правку глобальной роли в AdminView (LDAP_MIGRATION.md Фаза 4). */
+  app.get("/config", { preHandler: requireAuth }, async () => ({ authMode: loadConfig().authMode }));
 }

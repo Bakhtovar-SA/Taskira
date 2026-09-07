@@ -187,8 +187,12 @@ export default function AdminView() {
     patchProject,
     deleteProject,
     switchProject,
+    authMode,
+    setDepartmentLdapGroup,
+    resyncLdap,
   } = useStore();
   const canManage = can("manageAccess");
+  const ldap = authMode === "ldap";
 
   const byDept = useMemo(() => {
     const m: Record<string, ProjectSummary[]> = {};
@@ -223,11 +227,23 @@ export default function AdminView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[900px] px-6 py-5">
-        <div className="anim-fadeup">
-          <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Департаменты и проекты</h1>
-          <p className="mt-0.5 text-[11.5px] text-faint">
-            Отдел = группа проектов. Проект по умолчанию виден только своим участникам; «общий» — видят все.
-          </p>
+        <div className="anim-fadeup flex items-start justify-between gap-3">
+          <div>
+            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Департаменты и проекты</h1>
+            <p className="mt-0.5 text-[11.5px] text-faint">
+              Отдел = группа проектов. Проект по умолчанию виден участникам своего отдела; «общий» — видят все.
+              {ldap && " В режиме LDAP членство в отделе приходит из группы AD."}
+            </p>
+          </div>
+          {ldap && (
+            <button
+              onClick={resyncLdap}
+              title="Пересобрать членство в отделах из групп LDAP для всех LDAP-пользователей"
+              className="shrink-0 rounded-md border border-line bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
+            >
+              Пересинхронизировать LDAP
+            </button>
+          )}
         </div>
 
         {/* новый отдел */}
@@ -276,6 +292,24 @@ export default function AdminView() {
                     <IcTrash size={13} />
                   </button>
                 </header>
+
+                {ldap && (
+                  <div className="flex items-center gap-2 border-b border-linesoft bg-canvas/30 px-3 py-1.5">
+                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-faint">LDAP-группа</span>
+                    <input
+                      key={d.ldapGroupDn ?? ""}
+                      defaultValue={d.ldapGroupDn ?? ""}
+                      placeholder="DN группы AD, напр. cn=dept-ib,ou=groups,dc=corp,dc=example,dc=com"
+                      maxLength={1024}
+                      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== (d.ldapGroupDn ?? "")) setDepartmentLdapGroup(d.id, v || null);
+                      }}
+                      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 font-mono text-[11px] text-sub hover:border-linesoft focus:border-accent focus:bg-white focus:outline-none"
+                    />
+                  </div>
+                )}
 
                 <div className="divide-y divide-linesoft">
                   {projs.map((p) => (

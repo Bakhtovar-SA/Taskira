@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import bcrypt from "bcryptjs";
 import { one, q } from "../db.js";
+import { loadConfig } from "../config.js";
 import { invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, zbody, type JwtPayload } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
 import { audit } from "../audit.js";
@@ -35,6 +36,9 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const actor: JwtPayload = req.user;
       const body = req.body as z.infer<typeof CreateUserBody>;
+
+      if (loadConfig().authMode === "ldap")
+        throw conflict("В режиме LDAP пользователи заводятся автоматически при первом входе");
 
       const hash = await bcrypt.hash(body.password, 10);
       let row: UserRow;
@@ -67,6 +71,17 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
 
       const user = await one<UserRow>(`SELECT * FROM users WHERE id = $1`, [id]);
       if (!user) throw notFound("Пользователь не найден");
+
+      // В режиме LDAP глобальная роль LDAP-пользователя приходит из группы
+      // (LDAP_ADMIN_GROUP_DN) и пересчитывается на каждом входе — ручная смена
+      // была бы затёрта. is_active менять можно (деактивация переживает вход).
+      if (
+        loadConfig().authMode === "ldap" &&
+        user.auth_source === "ldap" &&
+        body.globalRole !== user.global_role
+      ) {
+        throw conflict("Роль LDAP-пользователя управляется группой в директории (LDAP_ADMIN_GROUP_DN)");
+      }
 
       // Гард «последний активный админ» встроен в WHERE — проверка и запись в
       // одном стейтменте (без отдельного SELECT count → нет TOCTOU-окна).

@@ -1,7 +1,7 @@
 # LDAP_MIGRATION — аутентификация через LDAP/AD + членство в департаменте
 
-Статус: **решения §3 подтверждены (D1–D8). Фазы 1–3 сделаны (живые прогоны пройдены,
-38 серверных тестов), Фазы 5–6 — впереди; Фаза 4 аддитивна.**
+Статус: **решения §3 подтверждены (D1–D8). Фазы 1–4 сделаны (живые прогоны пройдены,
+38 серверных тестов). Осталось: Фаза 5 (тесты против OpenLDAP + CI), Фаза 6 (LDAP_SETUP.md + верификация).**
 Ветка `feat/ldap-auth`. Порядок: фазы 1 → 2 → 3 → 5 → 6 (Фаза 4 аддитивна, Фаза 7 — вне захода).
 Контекст: пункт 1 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md) («авторизация через LDAP»);
 [SCOPE.md](SCOPE.md) — иерархия доступа и **открытый вопрос**: «Как именно мапить группы
@@ -390,20 +390,35 @@ LDAP на случай отсутствия Docker.
   `POST .../issues` → 403.
 - **DEPT_MIGRATION.md §3.5** — помечен как закрытый.
 
-### Фаза 4 — Админ-UI + ресинк + ограничения ldap-режима  *(план, аддитивно)*
+### Фаза 4 — Админ-UI + ресинк + ограничения ldap-режима  *(сделано)*
 
-- **`AdminView`** — на департаменте поле «LDAP-группа (DN)» → `PATCH /api/departments/:id
-  { ldapGroupDn }`. Показывать/редактировать только при `AUTH_MODE=ldap` (флаг через
-  `GET /api/auth/config` или мету bootstrap).
-- **`POST /api/ldap/resync`** (глоб. admin) — прогнать `syncDepartmentMembership` по всем
-  `auth_source='ldap'` (свежий групповой lookup сервис-аккаунтом на юзера). До воркера.
-- **`contract.ts`** — `DepartmentBody`/новый `DepartmentPatchBody` + опц. `ldapGroupDn`
-  (nullable, строка DN, лимит длины).
-- **В `ldap`-режиме**: `POST /api/admin/users` и `PATCH /api/users/:id` (смена
-  `global_role`) для `auth_source='ldap'` → 409 «роль управляется LDAP-группой».
-  `project_members` назначаются вручную как и раньше (это модель Taskira, не LDAP).
-- **`SafeUser`** += `authSource`; `DocsView`/`PermissionsView` — тексты: глобальная роль
-  и членство в департаменте приходят из LDAP, правятся в директории.
+- **`contract.ts`** — `DepartmentBody` += опц. `ldapGroupDn`; новый `DepartmentPatchBody`
+  (`{ name?, ldapGroupDn? }`, nullable DN до 1024). `routes/departments.ts` PATCH —
+  динамический SET; конфликт `departments_ldap_group_dn_uk` → `409` «эта LDAP-группа уже
+  привязана к другому отделу».
+- **`GET /api/auth/config`** (`requireAuth`) → `{ authMode }`; **`SafeUser`** += `authSource`.
+- **`services/ldap.ts` `ldapUserGroups(login)`** — DN групп по логину без пароля (сервис-bind).
+  **`POST /api/ldap/resync`** (глоб. admin, только `ldap`, нужен `LDAP_BIND_DN`) — прогон
+  `syncDepartmentMembership` по всем `auth_source='ldap'`; ответ `{ total, synced, notFound, errors }`;
+  аудит `ldap.resync`.
+- **`ldap`-режим**: `POST /api/admin/users` → `409` «пользователи заводятся автоматически
+  при первом входе»; `PATCH /api/users/:id` со сменой `global_role` для `auth_source='ldap'`
+  → `409` «роль управляется группой (LDAP_ADMIN_GROUP_DN)»; `is_active` менять можно.
+  `provisionFromLdap` больше **не** форсит `is_active=true` на повторном входе — деактивация
+  админом переживает вход.
+- **Клиент**: `authApi.config` + `ldapApi.{ping,resync}`; `departmentsApi.patch(id, body)`;
+  store `authMode` (из `bootstrap`), экшены `setDepartmentLdapGroup` / `resyncLdap`.
+  `AdminView` — при `authMode==='ldap'`: строка «LDAP-группа» на каждом департаменте
+  (инлайн-DN, blur→PATCH) + кнопка «Пересинхронизировать LDAP» в шапке.
+- **Не сделано (косметика, отдельно):** тексты в `DocsView`/`PermissionsView` про
+  LDAP-источник роли.
+
+**Живой прогон** (:8090 `AUTH_MODE=ldap` + мок LDAP): `GET /auth/config` → `{authMode:"ldap"}`;
+`PATCH department.ldapGroupDn` сохраняется, та же группа на другом отделе → `409`;
+`POST /api/admin/users` → `409`; `PATCH /users/:id {globalRole}` на ldap-юзере → `409`,
+`{isActive}` → `200`; `POST /api/ldap/resync` → `{"total":3,"synced":3,"notFound":[],"errors":[]}`,
+`department_members` пересобрана по группам. `AUTH_MODE=local`: 38 тестов зелёные,
+typecheck (сервер 0 / клиент 0), `npm run build` — успешно.
 
 ### Фаза 5 — Тесты против тестового OpenLDAP  *(план)*
 

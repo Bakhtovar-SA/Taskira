@@ -39,13 +39,13 @@ export async function provisionFromLdap(principal: LdapPrincipal): Promise<UserR
       // защита break-glass: не трогаем его локальный пароль
       throw new ApiHttpError(409, "CONFLICT", "Это имя занято локальным администратором — войдите локально");
     }
-    // усыновление: сохраняем id / project_members / авторство, флипаем на ldap
+    // усыновление: сохраняем id / project_members / авторство, флипаем на ldap.
+    // is_active НЕ форсим — деактивация админом остаётся в силе (D4/Фаза 4).
     const row = (
       await q<UserRow>(
         `UPDATE users
             SET auth_source = 'ldap', password_hash = NULL,
-                ldap_dn = $2, email = $3, name = $4, initials = $5,
-                global_role = $6, is_active = true
+                ldap_dn = $2, email = $3, name = $4, initials = $5, global_role = $6
           WHERE id = $1
         RETURNING *`,
         [existing.id, principal.dn, principal.email, principal.name, initialsOf(principal.name), globalRole],
@@ -56,11 +56,11 @@ export async function provisionFromLdap(principal: LdapPrincipal): Promise<UserR
   }
 
   if (existing) {
-    // уже ldap — обновляем профиль + роль на каждом логине (D3)
+    // уже ldap — обновляем профиль + роль на каждом логине (D3); is_active не трогаем
     const row = (
       await q<UserRow>(
         `UPDATE users
-            SET ldap_dn = $2, email = $3, name = $4, initials = $5, global_role = $6, is_active = true
+            SET ldap_dn = $2, email = $3, name = $4, initials = $5, global_role = $6
           WHERE id = $1
         RETURNING *`,
         [existing.id, principal.dn, principal.email, principal.name, initialsOf(principal.name), globalRole],

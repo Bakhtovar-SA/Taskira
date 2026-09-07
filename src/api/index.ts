@@ -110,6 +110,8 @@ export type SafeUser = {
    *  Проектная роль приходит в ProjectBootstrap.members. */
   globalRole: GlobalRole;
   isActive: boolean;
+  /** local | ldap — у ldap-юзеров роль/профиль приходят из директории. */
+  authSource: "local" | "ldap";
 };
 
 /** Приглашённый участник задачи (issue_collaborators). Приходит в детальном
@@ -232,6 +234,18 @@ export const authApi = {
       auth: false,
     }),
   me: () => api<SafeUser>("/api/auth/me"),
+  /** Режим аутентификации ресурса (local | ldap). */
+  config: () => api<{ authMode: "local" | "ldap" }>("/api/auth/config"),
+};
+
+/** LDAP: диагностика и ручной ресинк членства (глобальный admin). */
+export const ldapApi = {
+  ping: () =>
+    api<{ authMode: string; url?: string; bind?: string; ok: boolean; baseDn?: string; error?: string }>("/api/ldap/ping", {
+      method: "POST",
+    }),
+  resync: () =>
+    api<{ total: number; synced: number; notFound: string[]; errors: string[] }>("/api/ldap/resync", { method: "POST" }),
 };
 
 export const projectsApi = {
@@ -249,7 +263,8 @@ export const projectsApi = {
 export const departmentsApi = {
   list: () => api<Department[]>("/api/departments"),
   create: (name: string) => api<Department>("/api/departments", { method: "POST", body: { name } }),
-  patch: (id: string, name: string) => api<Department>(`/api/departments/${id}`, { method: "PATCH", body: { name } }),
+  patch: (id: string, body: Partial<{ name: string; ldapGroupDn: string | null }>) =>
+    api<Department>(`/api/departments/${id}`, { method: "PATCH", body }),
   remove: (id: string) => api<void>(`/api/departments/${id}`, { method: "DELETE" }),
 };
 
