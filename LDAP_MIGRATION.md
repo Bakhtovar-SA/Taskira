@@ -1,7 +1,8 @@
 # LDAP_MIGRATION — аутентификация через LDAP/AD + членство в департаменте
 
-Статус: **решения §3 подтверждены (D1–D8). Фазы 1–4 сделаны (живые прогоны пройдены,
-38 серверных тестов). Осталось: Фаза 5 (тесты против OpenLDAP + CI), Фаза 6 (LDAP_SETUP.md + верификация).**
+Статус: **решения §3 подтверждены (D1–D8). Фазы 1–5 сделаны (живые прогоны пройдены,
+38 серверных тестов в local + 9 тестов против настоящего OpenLDAP в CI зелёные).
+Осталось: Фаза 6 (LDAP_SETUP.md + верификация).**
 Ветка `feat/ldap-auth`. Порядок: фазы 1 → 2 → 3 → 5 → 6 (Фаза 4 аддитивна, Фаза 7 — вне захода).
 Контекст: пункт 1 «Порядка разработки» в [ARCHITECTURE.md](ARCHITECTURE.md) («авторизация через LDAP»);
 [SCOPE.md](SCOPE.md) — иерархия доступа и **открытый вопрос**: «Как именно мапить группы
@@ -420,19 +421,35 @@ LDAP на случай отсутствия Docker.
 `department_members` пересобрана по группам. `AUTH_MODE=local`: 38 тестов зелёные,
 typecheck (сервер 0 / клиент 0), `npm run build` — успешно.
 
-### Фаза 5 — Тесты против тестового OpenLDAP  *(план)*
+### Фаза 5 — Тесты против тестового OpenLDAP  *(сделано)*
 
-- **`server/test/ldap/`** — compose-сервис + `bootstrap.ldif` (D7).
-- **`test/helpers.ts`** — `LDAP_TEST_*` env; фикстура связывает департаменты D1/D2 с
-  `cn=dept-infosec,…` / `cn=dept-it,…`.
-- **`access.ldap.test.ts`**: валидный/невалидный bind; JIT-создание новой строки;
-  усыновление предсуществующего `t.manager` (сохранены `global_role` + `project_members`);
-  `LDAP_ADMIN_GROUP_DN` → `global_role='admin'`; sync групп → `department_members`;
-  член департамента видит проекты своего департамента (`viewer`), но не чужого не-shared;
-  удаление из группы → доступ снят на следующем логине; break-glass локальный admin
-  входит при `LDAP_URL` на мёртвый порт; `AUTH_MODE=local` — прежние 35 тестов зелёные.
-- **`.github/workflows/test.yml`** — сервис `osixia/openldap` (или шаг
-  `docker compose -f server/test/ldap/... up -d`) + env `AUTH_MODE`/`LDAP_*`.
+- **`server/test/ldap/`** — `docker-compose.ldap.yml` (`osixia/openldap:1.5.0`),
+  `bootstrap.ldif` (люди/группы), `acl.ldif` (правки cn=config для теста),
+  `mock-ldap.mjs` (ldapjs, fallback без Docker) (D7).
+- **`server/test/access.ldap.test.ts`** — гоняется только при `AUTH_MODE=ldap` +
+  `LDAP_URL` (иначе `describe.skip`); `npm run test:ldap`. **9 тестов против
+  настоящего slapd, все зелёные в CI:**
+  - `LDAP-вход против настоящего OpenLDAP` (6): `t.manager` → 200 + JWT + JIT
+    (`auth_source=ldap`, `ldap_dn`) + `department_members=['ИБ']`; `t.admin`
+    (в `cn=taskira-admins`) → `global_role='admin'`; `t.viewer` → `department_members=['IT']`;
+    неверный пароль → 401 (реальный `InvalidCredentials`, result code 49);
+    break-glass локальный admin входит, хотя `uid=<admin>` в LDAP нет; reverse
+    group search находит настоящее `groupOfNames`-членство.
+  - `Специфика LDAP-протокола, которой нет в моке` (3): обычный search обычным
+    пользователем → `SizeLimitExceededError` (серверный `sizelimit=500`);
+    клиентский `sizeLimit=25` → сервер вернул ровно 25 (мок отдал бы все 600);
+    **paged results (RFC 2696), `pageSize=100` → 600 записей за 6 страниц**
+    (для `uid=t.outsider` снят лимит через `olcLimits size.pr/prtotal=unlimited`;
+    `t.employee` на том же поиске упирается в 500 — это и проверяет предыдущий тест).
+- **`ldapAuthenticate`** — reverse group search выполняется сервис-аккаунтом
+  (re-bind после проверки пароля): дефолтный ACL OpenLDAP не даёт обычному
+  пользователю искать по `member=` и отдаёт `noSuchObject`; для реального AD это
+  тоже правильнее.
+- **`.github/workflows/test.yml`** — отдельный job `ldap`: `postgres:16` +
+  `docker compose … up -d` (osixia), ожидание RootDSE, `ldapadd` bootstrap.ldif,
+  `ldapmodify` acl.ldif (cn=config), `npm run test:ldap`, дамп логов slapd
+  (`if: always()`). Основной job `server` остаётся в `AUTH_MODE=local`
+  (38 серверных тестов зелёные).
 
 ### Фаза 6 — Верификация + LDAP_SETUP.md  *(план)*
 
