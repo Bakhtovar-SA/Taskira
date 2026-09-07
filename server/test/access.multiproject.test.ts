@@ -130,3 +130,39 @@ describe("резолв «текущего пользователя» при см
     expect(body.users.map((u: { id: string }) => u.id)).toContain(fx.users.mgr1);
   });
 });
+
+describe("состав проекта — global admin правит любой проект (AdminView / Feature A)", () => {
+  // COLLAB_MIGRATION.md D8: добавление людей в проект из экрана отдела опирается
+  // на то, что global admin может PUT/DELETE участника ЛЮБОГО проекта, не будучи
+  // в нём. Клиент фичи чисто UI — этот контракт держит её.
+  const put = (url: string, token: string, payload: unknown) =>
+    app.inject({ method: "PUT", url, headers: auth(token), payload });
+
+  test("admin добавляет и убирает участника проекта, где сам не состоит", async () => {
+    const adm = await login(app, "admin");
+    const url = `/api/projects/${fx.projects.p2}/members/${fx.users.outsider}`;
+
+    const added = await put(url, adm, { role: "employee" });
+    expect(added.statusCode).toBe(200);
+    expect(JSON.parse(added.body)).toMatchObject({ userId: fx.users.outsider, role: "employee" });
+
+    let boot = JSON.parse((await g(`/api/projects/${fx.projects.p2}`, adm)).body);
+    expect(boot.members.map((m: { userId: string }) => m.userId)).toContain(fx.users.outsider);
+
+    expect((await del(url, adm)).statusCode).toBe(204);
+    boot = JSON.parse((await g(`/api/projects/${fx.projects.p2}`, adm)).body);
+    expect(boot.members.map((m: { userId: string }) => m.userId)).not.toContain(fx.users.outsider);
+  });
+
+  test("менеджер другого проекта не правит чужой состав — 403", async () => {
+    const m1 = await login(app, "mgr1"); // manager P1, к P2 непричастен
+    const r = await put(`/api/projects/${fx.projects.p2}/members/${fx.users.outsider}`, m1, { role: "viewer" });
+    expect(r.statusCode).toBe(403);
+  });
+
+  test("гард последнего менеджера: понизить единственного менеджера P2 нельзя — 409", async () => {
+    const adm = await login(app, "admin");
+    const r = await put(`/api/projects/${fx.projects.p2}/members/${fx.users.mgr2}`, adm, { role: "viewer" });
+    expect(r.statusCode).toBe(409);
+  });
+});

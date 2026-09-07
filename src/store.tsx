@@ -188,6 +188,9 @@ interface Api {
   completeSprint: () => void;
   setMemberRole: (userId: string, role: ProjectRole) => void;
   removeMember: (userId: string) => void;
+  /** Состав произвольного проекта (для AdminView) — глобальный admin, любой проект. */
+  setProjectMember: (projectId: string, userId: string, role: ProjectRole) => Promise<void>;
+  removeProjectMember: (projectId: string, userId: string) => Promise<void>;
   createDepartment: (name: string) => void;
   renameDepartment: (id: string, name: string) => void;
   deleteDepartment: (id: string) => void;
@@ -786,6 +789,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
+  /** Изменить/добавить участника ЛЮБОГО проекта (не только текущего) — из AdminView.
+   *  Сервер разрешает это глобальному admin для любого проекта. Если правится
+   *  текущий проект — патчим data.members, чтобы me/PermissionsView не отстали. */
+  const setProjectMember = useCallback(
+    async (projectId: string, userId: string, role: ProjectRole): Promise<void> => {
+      if (!requirePerm("manageAccess")) return;
+      try {
+        const res = await membersApi.set(projectId, userId, role);
+        if (projectId === dataRef.current.currentProjectId) {
+          setData((prev) => ({ ...prev, members: { ...prev.members, [res.userId]: res.role } }));
+        }
+        toast("success", "Роль участника обновлена");
+      } catch (err) {
+        handleApiError(err, "Не удалось изменить участника проекта");
+        throw err;
+      }
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeProjectMember = useCallback(
+    async (projectId: string, userId: string): Promise<void> => {
+      if (!requirePerm("manageAccess")) return;
+      try {
+        await membersApi.remove(projectId, userId);
+        if (projectId === dataRef.current.currentProjectId) {
+          setData((prev) => {
+            const members = { ...prev.members };
+            delete members[userId];
+            return { ...prev, members };
+          });
+        }
+        toast("info", "Участник удалён из проекта");
+      } catch (err) {
+        handleApiError(err, "Не удалось удалить участника проекта");
+        throw err;
+      }
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
   /* -------- админ: департаменты и проекты (manageAccess = глобальный admin) -------- */
 
   /** Перезагрузка списков проектов и департаментов после мутаций оргструктуры. */
@@ -931,6 +975,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     completeSprint,
     setMemberRole,
     removeMember,
+    setProjectMember,
+    removeProjectMember,
     createDepartment,
     renameDepartment,
     deleteDepartment,
