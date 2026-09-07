@@ -27,10 +27,28 @@ function roleFromGroups(groupDns: string[]): "admin" | "member" {
   return groupDns.some((g) => g.toLowerCase() === want) ? "admin" : "member";
 }
 
-export async function provisionFromLdap(principal: LdapPrincipal): Promise<UserRow> {
+/** SQL-выражение нового global_role, которое НЕ снимает статус последнего
+ *  активного админа (тот же инвариант, что WHERE-гард в PATCH /users/:id).
+ *  Если JIT-синк хочет понизить единственного активного админа — роль остаётся
+ *  'admin', вход не падает; поправить членство в LDAP_ADMIN_GROUP_DN придётся руками.
+ *  $N — желаемая роль, id строки подставляется как users.id в вызывающем UPDATE. */
+const KEEP_LAST_ADMIN = (roleParam: string, idParam: string) => `
+  CASE
+    WHEN ${roleParam} <> 'admin'
+     AND users.global_role = 'admin' AND users.is_active
+     AND NOT EXISTS (
+           SELECT 1 FROM users a
+            WHERE a.global_role = 'admin' AND a.is_active AND a.id <> ${idParam}
+         )
+    THEN 'admin'
+    ELSE ${roleParam}
+  END`;
+
+export async function provisionFromLdap(principal: LdapPrincipal, _retry = false): Promise<UserRow> {
   const cfg = loadConfig();
   const login = principal.login;
   const globalRole = roleFromGroups(principal.groupDns);
+  const params = [principal.dn, principal.email, principal.name, initialsOf(principal.name), globalRole] as const;
 
   const existing = await one<UserRow>(`SELECT * FROM users WHERE username = $1`, [login]);
 
@@ -45,10 +63,11 @@ export async function provisionFromLdap(principal: LdapPrincipal): Promise<UserR
       await q<UserRow>(
         `UPDATE users
             SET auth_source = 'ldap', password_hash = NULL,
-                ldap_dn = $2, email = $3, name = $4, initials = $5, global_role = $6
+                ldap_dn = $2, email = $3, name = $4, initials = $5,
+                global_role = ${KEEP_LAST_ADMIN("$6", "$1")}
           WHERE id = $1
         RETURNING *`,
-        [existing.id, principal.dn, principal.email, principal.name, initialsOf(principal.name), globalRole],
+        [existing.id, ...params],
       )
     )[0];
     invalidateUserCache(row.id);
@@ -60,24 +79,30 @@ export async function provisionFromLdap(principal: LdapPrincipal): Promise<UserR
     const row = (
       await q<UserRow>(
         `UPDATE users
-            SET ldap_dn = $2, email = $3, name = $4, initials = $5, global_role = $6
+            SET ldap_dn = $2, email = $3, name = $4, initials = $5,
+                global_role = ${KEEP_LAST_ADMIN("$6", "$1")}
           WHERE id = $1
         RETURNING *`,
-        [existing.id, principal.dn, principal.email, principal.name, initialsOf(principal.name), globalRole],
+        [existing.id, ...params],
       )
     )[0];
     invalidateUserCache(row.id);
     return row;
   }
 
-  // новая учётка
-  const row = (
-    await q<UserRow>(
-      `INSERT INTO users (username, name, initials, color, job_role, global_role, is_active, auth_source, ldap_dn, email)
-       VALUES ($1, $2, $3, '#0B5FD9', '', $4, true, 'ldap', $5, $6)
-     RETURNING *`,
-      [login, principal.name, initialsOf(principal.name), globalRole, principal.dn, principal.email],
-    )
-  )[0];
-  return row;
+  // новая учётка. Гонка двух первых логинов одного username → 23505 на UNIQUE:
+  // один раз перечитываем и уходим в ветку adopt/update выше.
+  try {
+    return (
+      await q<UserRow>(
+        `INSERT INTO users (username, name, initials, color, job_role, global_role, is_active, auth_source, ldap_dn, email)
+         VALUES ($1, $4, $5, '#0B5FD9', '', $6, true, 'ldap', $2, $3)
+       RETURNING *`,
+        [login, ...params],
+      )
+    )[0];
+  } catch (e) {
+    if (!_retry && (e as { code?: string }).code === "23505") return provisionFromLdap(principal, true);
+    throw e;
+  }
 }

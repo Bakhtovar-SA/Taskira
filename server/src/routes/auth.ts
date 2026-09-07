@@ -77,8 +77,13 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
             req.log.warn({ err: e }, "LDAP недоступен — пробуем break-glass локальный вход");
             await audit(null, "auth.ldap.unavailable", "auth", null, { username });
             row = await localPasswordCheck(username, password, true);
+          } else if (e instanceof ApiHttpError && e.statusCode === 409) {
+            // login совпал с именем break-glass админа: не раскрываем это
+            // отдельным 409 — уходим в обычную локальную проверку (даст 401,
+            // либо вход, если это правда break-glass с его паролем).
+            row = await localPasswordCheck(username, password, true);
           } else {
-            throw e; // ApiHttpError (напр. конфликт с break-glass именем) отдаём как есть
+            throw e;
           }
         }
       } else {
@@ -87,7 +92,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
       // Сообщение намеренно не раскрывает, что именно неверно — логин или пароль
       if (!row) {
-        await audit(null, "auth.login.denied", "user", null, { username });
+        // actorId для аудита восстанавливаем по username (если такой юзер есть) —
+        // чтобы неудачные попытки можно было джойнить к users.id для мониторинга.
+        const known = await one<{ id: string }>(`SELECT id FROM users WHERE username = $1`, [username]);
+        await audit(known?.id ?? null, "auth.login.denied", "user", known?.id ?? null, { username });
         throw unauthorized("Неверный логин или пароль");
       }
 
