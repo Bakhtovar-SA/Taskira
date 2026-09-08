@@ -787,6 +787,12 @@ export default function IssueModal() {
                         <span className="truncate">{e.title}</span>
                       </MenuItem>
                     ))}
+                    {epics.length === 0 && (
+                      <p className="px-3 py-2.5 text-[11.5px] leading-snug text-faint">
+                        Направлений пока нет. Любая задача становится направлением, как только другая
+                        задача выберет её здесь как родителя — отдельно «создавать направление» не нужно.
+                      </p>
+                    )}
                   </>
                 )}
               </Dropdown>
