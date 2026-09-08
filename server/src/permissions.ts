@@ -30,7 +30,6 @@ export type PermId =
   | "delete"
   | "transition"
   | "comment"
-  | "manageSprints"
   | "editWorkflow"
   | "manageAccess"
   | "manageCollaborators";
@@ -65,7 +64,6 @@ const PERM_NAMES: Record<PermId, string> = {
   delete: "Удаление задач",
   transition: "Смена статуса",
   comment: "Комментарии",
-  manageSprints: "Управление спринтами",
   editWorkflow: "Изменение workflow",
   manageAccess: "Управление доступом",
   manageCollaborators: "Подключение к задаче",
@@ -82,7 +80,6 @@ const MATRIX: Record<PermId, AccessRole[]> = {
   delete: ["admin", "manager"],
   transition: ["admin", "manager", "employee"],
   comment: ["admin", "manager", "employee"],
-  manageSprints: ["admin", "manager"],
   editWorkflow: ["admin"],
   manageAccess: ["admin"],
   manageCollaborators: ["admin", "manager"],

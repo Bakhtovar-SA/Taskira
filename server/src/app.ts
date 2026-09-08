@@ -15,7 +15,6 @@ import { commentRoutes } from "./routes/comments.js";
 import { attachmentRoutes } from "./routes/attachments.js";
 import { collaboratorRoutes } from "./routes/collaborators.js";
 import { collaboratingRoutes } from "./routes/collaborating.js";
-import { sprintRoutes } from "./routes/sprints.js";
 import { workflowRoutes } from "./routes/workflow.js";
 import { userRoutes } from "./routes/users.js";
 import { ldapRoutes } from "./routes/ldap.js";
@@ -93,11 +92,10 @@ export function buildApp(): FastifyInstance {
       await api.register(
         async (proj) => {
           await proj.register(memberRoutes, { prefix: "/members" }); // /:userId
-          await proj.register(issuesRoutes, { prefix: "/issues" }); // CRUD + transition + sprint + watchers
+          await proj.register(issuesRoutes, { prefix: "/issues" }); // CRUD + transition + watchers
           await proj.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
           await proj.register(attachmentRoutes, { prefix: "/issues" }); // /:id/attachments[/:attId]
           await proj.register(collaboratorRoutes, { prefix: "/issues" }); // /:id/collaborators[/:userId]
-          await proj.register(sprintRoutes, { prefix: "/sprints" });
           await proj.register(workflowRoutes, { prefix: "/workflow" });
         },
         { prefix: "/projects/:projectId" },

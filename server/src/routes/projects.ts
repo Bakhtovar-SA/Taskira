@@ -2,9 +2,9 @@
  *
  *  GET    /api/projects                — проекты, видимые пользователю
  *  POST   /api/projects                — создать проект + дефолтный workflow   [global admin]
- *  GET    /api/projects/:projectId     — bootstrap: проект, участники, состав, workflow, спринты
+ *  GET    /api/projects/:projectId     — bootstrap: проект, участники, состав, workflow
  *  PATCH  /api/projects/:projectId     — правка (name/description/departmentId/isShared)   [global admin]
- *  DELETE /api/projects/:projectId     — удалить (каскад issues/members/workflow/sprints)  [global admin]
+ *  DELETE /api/projects/:projectId     — удалить (каскад issues/members/workflow)  [global admin]
  */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
@@ -24,7 +24,6 @@ import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
 import { invalidateProjectCache } from "../services/project.js";
 import { listVisibleProjects, projectRowToDto, type ProjectDto } from "../services/projects.js";
-import { mapSprint, type SprintRow } from "../services/sprints.js";
 import { ProjectCreateBody, ProjectParams, ProjectPatchBody } from "../contract.js";
 import type { ProjectRole } from "../permissions.js";
 
@@ -110,10 +109,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
         await q<MemberRow>(`SELECT user_id, role FROM project_members WHERE project_id = $1`, [project.id])
       ).map((m) => ({ userId: m.user_id, role: m.role }));
       const workflow = await getWorkflow(project.id);
-      const sprints = (
-        await q<SprintRow>(`SELECT * FROM sprints WHERE project_id = $1 ORDER BY created_at`, [project.id])
-      ).map(mapSprint);
-      return { project: projectRowToDto(project), users, members, workflow, sprints };
+      return { project: projectRowToDto(project), users, members, workflow };
     },
   );
 
@@ -161,7 +157,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       const { projectId } = req.params as z.infer<typeof ProjectParams>;
       const proj = await one<{ key: string }>(`SELECT key FROM projects WHERE id = $1`, [projectId]);
       if (!proj) throw notFound("Проект не найден");
-      // Каскады по FK: issues / project_members / workflow_* / sprints / project_counters.
+      // Каскады по FK: issues / project_members / workflow_* / project_counters.
       await q(`DELETE FROM projects WHERE id = $1`, [projectId]);
       invalidateProjectCache(projectId);
       await audit(actor.sub, "project.delete", "project", projectId, { key: proj.key });

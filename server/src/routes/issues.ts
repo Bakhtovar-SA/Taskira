@@ -1,5 +1,5 @@
 /**
- * Задачи: CRUD, смена статуса по workflow, перенос по спринтам, подписка (watchers).
+ * Задачи: CRUD, смена статуса по workflow, подписка (watchers).
  * Все мутации защищены правами на сервере; ранги и переходы — только после проверок.
  */
 import type { FastifyInstance } from "fastify";
@@ -7,7 +7,6 @@ import type { z } from "zod";
 import { one, q } from "../db.js";
 import {
   badRequest,
-  forbidden,
   notFound,
   requireIssuePerm,
   requirePerm,
@@ -15,7 +14,6 @@ import {
   zquery,
   type JwtPayload,
 } from "../middleware.js";
-import { roleDenialReason, roleHas } from "../permissions.js";
 import { audit } from "../audit.js";
 import { assertTransition, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
@@ -27,7 +25,6 @@ import {
   IssueCreateBody,
   IssuePatchBody,
   IssueQuery,
-  MoveToSprintBody,
   TransitionBody,
 } from "../contract.js";
 
@@ -63,7 +60,6 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       };
 
       if (f.status) add("i.status_id = ?", f.status);
-      if (f.sprint) add("i.sprint_id = ?", f.sprint);
       if (f.assignee) add("i.assignee_id = ?", f.assignee);
       if (f.type) add("i.type_id = ?", f.type);
       if (f.q) add("(i.title ILIKE ? OR i.key ILIKE ?)", `%${escLike(f.q)}%`, `%${escLike(f.q)}%`);
@@ -135,10 +131,6 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
         if (!e) throw notFound("Задача-группа (epicId) не найдена в проекте");
       }
-      if (body.sprintId) {
-        const s = await one<{ id: string }>(`SELECT id FROM sprints WHERE id = $1 AND project_id = $2`, [body.sprintId, project.id]);
-        if (!s) throw badRequest("Спринт не найден в проекте");
-      }
 
       const rank = await computeRank(statusId, null);
       const num = await nextIssueNum(project.id);
@@ -148,12 +140,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         await q<IssueRow>(
           `INSERT INTO issues
              (project_id, num, key, title, description, type_id, status_id, priority_id,
-              assignee_id, reporter_id, epic_id, labels, points, sprint_id, due_date, rank)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+              assignee_id, reporter_id, epic_id, labels, points, due_date, rank)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
            RETURNING *`,
           [
             project.id, num, key, body.title, body.description, body.typeId, statusId, body.priorityId,
-            body.assigneeId, user.sub, body.epicId, body.labels, body.points, body.sprintId,
+            body.assigneeId, user.sub, body.epicId, body.labels, body.points,
             body.dueDate ?? null, rank,
           ],
         )
@@ -185,22 +177,6 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as z.infer<typeof IssuePatchBody>;
       const iss = await loadIssue(project.id, id);
 
-      // Перенос по спринтам — отдельное право manageSprints.
-      // req.projectRole выставлен requireIssuePerm("edit") для проекта этой задачи.
-      if (body.sprintId !== undefined && body.sprintId !== iss.sprint_id) {
-        if (!req.projectRole || !roleHas(req.projectRole, "manageSprints")) {
-          await audit(user.sub, "access.denied", "manageSprints", iss.id, {
-            path: req.url,
-            method: req.method,
-            projectId: project.id,
-          });
-          throw forbidden(roleDenialReason(req.projectRole ?? null, "manageSprints"));
-        }
-        if (body.sprintId !== null) {
-          const s = await one<{ id: string }>(`SELECT id FROM sprints WHERE id = $1 AND project_id = $2`, [body.sprintId, project.id]);
-          if (!s) throw badRequest("Спринт не найден в проекте");
-        }
-      }
       if (body.assigneeId !== undefined && body.assigneeId !== null) {
         const u = await one<{ id: string }>(
           `SELECT u.id FROM users u
@@ -256,15 +232,6 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (body.points !== undefined && body.points !== iss.points) {
         push("points", body.points);
         log.push(`изменил(а) оценку: ${iss.points ?? "—"} → ${body.points ?? "—"}`);
-      }
-      if (body.sprintId !== undefined && body.sprintId !== iss.sprint_id) {
-        push("sprint_id", body.sprintId);
-        if (body.sprintId) {
-          const s = await one<{ name: string }>(`SELECT name FROM sprints WHERE id = $1`, [body.sprintId]);
-          log.push(`переместил(а) в ${s?.name ?? "?"}`);
-        } else {
-          log.push("вернул(а) в бэклог");
-        }
       }
       if (body.dueDate !== undefined && body.dueDate !== iss.due_date) {
         push("due_date", body.dueDate);
@@ -380,33 +347,6 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         });
       }
       await audit(user.sub, "issue.transition", "issue", iss.id, { key: iss.key, from: iss.status_id, to: body.to });
-      return mapIssue(row);
-    },
-  );
-
-  /* ---------------------------------------------------------- перенос между спринтом и бэклогом */
-  app.patch(
-    "/:id/sprint",
-    { preHandler: requirePerm("manageSprints"), preValidation: zbody(MoveToSprintBody) },
-    async (req) => {
-      const project = req.project!;
-      const { id } = req.params as { id: string };
-      const user = me(req);
-      const body = req.body as z.infer<typeof MoveToSprintBody>;
-      const iss = await loadIssue(project.id, id);
-
-      if (body.sprintId !== null) {
-        const s = await one<{ id: string }>(`SELECT id FROM sprints WHERE id = $1 AND project_id = $2`, [body.sprintId, project.id]);
-        if (!s) throw badRequest("Спринт не найден в проекте");
-      }
-      if (body.sprintId === iss.sprint_id) return mapIssue(iss);
-
-      const row = (
-        await q<IssueRow>(`UPDATE issues SET sprint_id = $1, updated_at = now() WHERE id = $2 RETURNING *`, [body.sprintId, iss.id])
-      )[0];
-      const sName = body.sprintId ? (await one<{ name: string }>(`SELECT name FROM sprints WHERE id = $1`, [body.sprintId]))?.name : null;
-      await logActivity(iss.id, user.sub, sName ? `переместил(а) в ${sName}` : "вернул(а) в бэклог");
-      await audit(user.sub, "issue.sprint.move", "issue", iss.id, { key: iss.key, sprintId: body.sprintId });
       return mapIssue(row);
     },
   );
