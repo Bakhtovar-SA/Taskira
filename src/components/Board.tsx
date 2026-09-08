@@ -3,7 +3,7 @@ import { canTransition, fmtDate, useStore } from "../store";
 import type { Issue, PriorityId, Status } from "../types";
 import { PRIORITIES } from "../types";
 import { IcCalendar, IcCheck, IcEye, IcInbox, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, Chip, catColor } from "../ui";
+import { Avatar, BOARD_COLUMN_SHELL, Chip, catColor } from "../ui";
 
 // цвет подписи приоритета — тон в тон с PriorityIcon
 const PRIO_COLOR: Record<PriorityId, string> = {
@@ -297,7 +297,7 @@ export default function Board() {
             return (
               <section
                 key={st.id}
-                className="anim-fadeup flex h-full max-h-full w-[286px] shrink-0 flex-col rounded-xl border border-line bg-panel p-2 shadow-[0_1px_3px_rgba(20,35,64,0.05)] min-[1536px]:w-[300px] min-[1920px]:w-[324px]"
+                className={`anim-fadeup ${BOARD_COLUMN_SHELL}`}
                 style={{ animationDelay: `${ci * 60}ms` }}
                 onDragOver={(e) => {
                   e.preventDefault();

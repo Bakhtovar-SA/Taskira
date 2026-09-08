@@ -35,11 +35,13 @@ function BootSkeleton() {
           <div className="skeleton h-5 w-40" />
           <div className="skeleton ml-auto h-8 w-32" />
         </div>
-        <div className="dotgrid flex flex-1 items-start gap-3.5 overflow-hidden px-6 py-4">
-          <SkeletonColumn cards={3} />
-          <SkeletonColumn cards={2} />
-          <SkeletonColumn cards={4} />
-          <SkeletonColumn cards={1} />
+        <div className="dotgrid flex-1 overflow-hidden">
+          <div className="mx-auto flex h-full w-max items-start gap-4 px-6 py-4">
+            <SkeletonColumn cards={3} />
+            <SkeletonColumn cards={2} />
+            <SkeletonColumn cards={4} />
+            <SkeletonColumn cards={1} />
+          </div>
         </div>
       </div>
     </div>

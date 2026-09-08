@@ -97,8 +97,13 @@ try {
     .filter(Boolean)
     .map((s) => {
       const i = s.indexOf("=");
+      if (i < 0) {
+        console.warn(`--ls: пропущено «${s}» — нет "=" (ожидается key=value)`);
+        return null;
+      }
       return [s.slice(0, i), s.slice(i + 1)];
-    });
+    })
+    .filter(Boolean);
   if (lsPairs.length) {
     await ctx.addInitScript((pairs) => {
       for (const [k, v] of pairs) localStorage.setItem(k, v);

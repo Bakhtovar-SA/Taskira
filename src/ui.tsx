@@ -156,6 +156,13 @@ export const Empty = ({ icon, title, sub, action }: { icon: React.ReactNode; tit
 
 /* ─── Скелет-заглушки на время bootstrap (round4 §1) ───────────────────── */
 
+/** Классы «плашки» колонки доски. Один источник для настоящей колонки
+ *  (`Board.tsx`) и для скелета (`SkeletonColumn`), чтобы во время bootstrap
+ *  заглушка выглядела как готовая колонка, а не «прыгала» в неё после загрузки
+ *  (ticket-board-columns-theme-fix). */
+export const BOARD_COLUMN_SHELL =
+  "flex h-full max-h-full w-[286px] shrink-0 flex-col rounded-xl border border-line bg-panel p-2 shadow-[0_1px_3px_rgba(20,35,64,0.05)] min-[1536px]:w-[300px] min-[1920px]:w-[324px]";
+
 export const SkeletonRow = () => (
   <div className="flex items-center gap-3 border-b border-linesoft px-3.5 py-3 last:border-0">
     <div className="skeleton h-3.5 w-3.5 shrink-0 rounded" />
@@ -182,14 +189,16 @@ export const SkeletonCard = () => (
 );
 
 export const SkeletonColumn = ({ cards = 3 }: { cards?: number }) => (
-  <div className="flex w-[286px] shrink-0 flex-col gap-2">
-    <div className="mb-1 flex items-center gap-2 px-1">
+  <div className={BOARD_COLUMN_SHELL}>
+    <div className="mb-1.5 flex items-center gap-2 px-1.5 pt-1">
       <div className="skeleton h-2 w-2 rounded-sm" />
       <div className="skeleton h-3 w-24" />
     </div>
-    {Array.from({ length: cards }).map((_, i) => (
-      <SkeletonCard key={i} />
-    ))}
+    <div className="flex-1 space-y-2 rounded-lg bg-canvas p-1.5">
+      {Array.from({ length: cards }).map((_, i) => (
+        <SkeletonCard key={i} />
+      ))}
+    </div>
   </div>
 );
 
