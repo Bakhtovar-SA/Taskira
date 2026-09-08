@@ -62,6 +62,38 @@ export interface StorageConfig {
   blockExt: string[];
 }
 
+/** Параметры SMTP — заполнены только при notify.emailEnabled.
+ *  Примеры для реального корп. релея — NOTIFICATIONS_SETUP.md (Фаза 5). */
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  /** null — анонимный релей в контуре. */
+  user: string | null;
+  pass: string | null;
+  /** true — implicit TLS (порт 465); false — plain / STARTTLS. */
+  secure: boolean;
+  /** From: заголовок, напр. "Taskira <noreply@corp.example>". */
+  from: string;
+}
+
+/** Уведомления (NOTIFICATIONS_MIGRATION.md). In-app работает всегда, независимо
+ *  от этих настроек; они управляют только email-каналом и фоновым воркером. */
+export interface NotifyConfig {
+  /** true — воркер шлёт email; false — только in-app (SMTP не трогается). */
+  emailEnabled: boolean;
+  /** true (деф.) — стартовать фоновый луп в ЭТОМ процессе (D4; под будущее
+   *  вынесение в отдельный `npm run worker` + лидер-лок). */
+  workerEnabled: boolean;
+  workerIntervalMs: number;
+  emailMaxTries: number;
+  /** Окно группировки в дайджест (notify_prefs.email='daily'), мс. */
+  digestWindowMs: number;
+  /** База для ссылок в письмах, напр. "https://taskira.corp". Обязателен при
+   *  emailEnabled — письмо без ссылки бессмысленно (D7/D9). */
+  appBaseUrl: string | null;
+  smtp: SmtpConfig | null;
+}
+
 export interface Config {
   port: number;
   host: string;
@@ -74,6 +106,7 @@ export interface Config {
   authMode: "local" | "ldap";
   ldap: LdapConfig | null;
   storage: StorageConfig;
+  notify: NotifyConfig;
 }
 
 function fail(msg: string): never {
@@ -200,6 +233,43 @@ function buildStorageConfig(): StorageConfig {
   };
 }
 
+/** Собирает NotifyConfig из env. При NOTIFY_EMAIL_ENABLED=true — fail-fast на
+ *  обязательных SMTP-ключах и APP_BASE_URL (D7: письмо без ссылки не имеет смысла). */
+function buildNotifyConfig(): NotifyConfig {
+  const emailEnabled = envBool(process.env.NOTIFY_EMAIL_ENABLED, false);
+  const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/+$/, "") || null;
+
+  let smtp: SmtpConfig | null = null;
+  if (emailEnabled) {
+    const req = (k: string): string => {
+      const v = process.env[k]?.trim();
+      if (!v) fail(`NOTIFY_EMAIL_ENABLED=true: не задан ${k} (см. NOTIFICATIONS_SETUP.md)`);
+      return v;
+    };
+    if (!appBaseUrl) fail("NOTIFY_EMAIL_ENABLED=true: не задан APP_BASE_URL — ссылка в письме обязательна");
+    const port = Number(req("SMTP_PORT"));
+    if (!Number.isInteger(port) || port <= 0) fail("SMTP_PORT должен быть положительным целым");
+    smtp = {
+      host: req("SMTP_HOST"),
+      port,
+      user: process.env.SMTP_USER?.trim() || null,
+      pass: process.env.SMTP_PASS ?? null,
+      secure: envBool(process.env.SMTP_SECURE, false),
+      from: req("SMTP_FROM"),
+    };
+  }
+
+  return {
+    emailEnabled,
+    workerEnabled: envBool(process.env.NOTIFY_WORKER_ENABLED, true),
+    workerIntervalMs: envPosInt("NOTIFY_WORKER_INTERVAL_MS", 15_000),
+    emailMaxTries: envPosInt("NOTIFY_EMAIL_MAX_TRIES", 4),
+    digestWindowMs: envPosInt("NOTIFY_DIGEST_WINDOW_MS", 60 * 60_000),
+    appBaseUrl,
+    smtp,
+  };
+}
+
 /** Простой парсер KEY=VALUE (без внешних зависимостей). Не перезаписывает уже заданные env. */
 function loadDotEnv(): void {
   const candidates = [
@@ -281,5 +351,6 @@ function buildConfig(): Config {
     authMode,
     ldap: authMode === "ldap" ? buildLdapConfig() : null,
     storage: buildStorageConfig(),
+    notify: buildNotifyConfig(),
   };
 }

@@ -1,7 +1,9 @@
 # NOTIFICATIONS_MIGRATION — уведомления (in-app + email) + фоновый воркер
 
-Статус: **решения §3 подтверждены целиком (D1–D9, как предложено; D9 — письмо
-БЕЗ содержимого задач/комментариев). Приступаем к Фазе 1.**
+Статус: **решения §3 подтверждены (D1–D9; D9 — письмо БЕЗ содержимого
+задач/комментариев). Фаза 1 сделана (миграция 011, `config.notify`, Mailpit
+compose, `.env.example`; `npm test` 55 зелёных). Дальше — Фаза 2 (событийный
+слой + in-app API).**
 Ветка `feat/notifications`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 3 — email-воркер; при затыке с SMTP-инфраструктурой отделяется в follow-up
 PR, in-app к тому моменту уже работает). Фаза 6 — вне захода.
@@ -299,14 +301,20 @@ Mailpit: ключ и ссылка — есть; заголовок задачи 
 отделяется в follow-up PR — in-app к тому моменту работает и покрыт тестами.
 Фаза 6 — вне захода.
 
-### Фаза 1 — Схема + конфиг + тестовый SMTP  *(поведение не меняется)*
+### Фаза 1 — Схема + конфиг + тестовый SMTP  *(сделано)*
 
 Ветка `feat/notifications`. Ни один роут/`index.ts` не тронут — деплой-безопасно.
+`npm run typecheck` 0, `npm test` — **55 зелёных** (поведение не изменилось);
+миграция 011 применяется в тестовой схеме (`schema_migrations`: 001–004, 006–011).
 
-- **`server/migrations/011_notifications.sql`** — таблица `notifications` (D3),
-  индексы; `users.notify_prefs jsonb NOT NULL DEFAULT '{}'` (D6). Бэкфилла нет.
-  Обратима (`DROP TABLE notifications`, `ALTER TABLE users DROP COLUMN notify_prefs`).
-- **`config.ts`** — `Config.notify`:
+- **`server/migrations/011_notifications.sql`** — таблица `notifications` (D3;
+  `type` с `CHECK` на 6 значений, `payload jsonb` — только для in-app,
+  `email_state`/`email_tries`), три индекса (лента, непрочитанные, очередь
+  воркера — partial `WHERE email_state='pending'`); FK-каскады от `users` /
+  `projects` / `issues`. `users.notify_prefs jsonb NOT NULL DEFAULT '{}'` (D6).
+  Бэкфилла нет. Обратима.
+- **`config.ts`** — `Config.notify` (`NotifyConfig` + `SmtpConfig`),
+  `buildNotifyConfig()`:
 
   | Переменная | Назначение |
   |---|---|
@@ -322,13 +330,13 @@ Mailpit: ключ и ссылка — есть; заголовок задачи 
   | `APP_BASE_URL` | напр. `https://taskira.corp` — для ссылок в письмах |
 
   Валидация в стиле `buildLdapConfig`/`buildStorageConfig`: при
-  `NOTIFY_EMAIL_ENABLED=true` — fail-fast на `SMTP_HOST/PORT/FROM`; числа —
-  `envPosInt`.
-- **`server/docker-compose.mail.yml`** — `axllent/mailpit` (SMTP :1025, UI :8025),
-  по образцу `docker-compose.ldap.yml` / `docker-compose.storage.yml`.
-- **`.env.example`** — блок `NOTIFY_*` / `SMTP_*` (закомментирован, `NOTIFY_EMAIL_ENABLED=false`).
-
-`npm run typecheck` 0, `npm test` без изменений — код не подключён.
+  `NOTIFY_EMAIL_ENABLED=true` — fail-fast на `SMTP_HOST` / `SMTP_PORT` (целое > 0) /
+  `SMTP_FROM` **и `APP_BASE_URL`** (письмо без ссылки бессмысленно, D7/D9);
+  числа — `envPosInt`. При `false` — `smtp = null`, сервер как раньше.
+- **`server/docker-compose.mail.yml`** — `axllent/mailpit:v1.20.0` (SMTP :1025,
+  веб-UI + REST API `/api/v1/messages` :8025), `healthcheck` `mailpit readyz`.
+- **`.env.example`** — блок `NOTIFY_*` / `SMTP_*` / `APP_BASE_URL` (закомментирован,
+  `NOTIFY_EMAIL_ENABLED=false`).
 
 ### Фаза 2 — Сервер: событийный слой + in-app API
 

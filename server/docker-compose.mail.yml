@@ -1,0 +1,32 @@
+# Локальный SMTP-catcher (Mailpit) для разработки и CI email-уведомлений
+# (NOTIFICATIONS_MIGRATION.md D1, Фаза 3/5). Разработка по умолчанию идёт с
+# NOTIFY_EMAIL_ENABLED=false и этот compose не нужен — он для проверки email-пути.
+#
+#   docker compose -f docker-compose.mail.yml up -d
+#   # SMTP:  localhost:1025   |   веб-UI + REST API: http://localhost:8025
+#   curl -s http://localhost:8025/api/v1/messages | jq   # что «поймал» Mailpit
+#   docker compose -f docker-compose.mail.yml down -v
+#
+# Env для сервера (полный набор и реальный корп. SMTP — NOTIFICATIONS_SETUP.md):
+#   NOTIFY_EMAIL_ENABLED=true
+#   SMTP_HOST=localhost
+#   SMTP_PORT=1025
+#   SMTP_FROM=Taskira <noreply@taskira.test>
+#   APP_BASE_URL=http://localhost:3000
+
+services:
+  mailpit:
+    image: axllent/mailpit:v1.20.0
+    container_name: taskira-mailpit
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"       # принимать любой AUTH (или без него)
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"   # без TLS — тесту не нужен
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # веб-UI + REST API (/api/v1/messages)
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 3s
