@@ -20,6 +20,7 @@
  *     --w <px> --h <px> вьюпорт (деф. 1440x900)
  *     --wait <ms>       пауза перед снимком, после всех действий (деф. 1200)
  *     --dark            prefers-color-scheme: dark
+ *     --ls <k=v;k=v>    доп. записи в localStorage до загрузки (напр. --ls "taskira.theme=dark;taskira.bg=mint")
  *
  * Примеры:
  *   node scripts/shot.mjs shots/board.png
@@ -87,6 +88,21 @@ try {
     // addInitScript — токен кладётся ДО загрузки страницы на каждой навигации,
     // включая переход по hash-URL (#/issue/...), где обычный goto не перезагружает.
     await ctx.addInitScript(([k, t]) => localStorage.setItem(k, t), [TOKEN_KEY, token]);
+  }
+
+  // --ls: произвольные записи в localStorage до загрузки (тема/пресет фона и т.п.)
+  const lsPairs = (arg("ls", "") || "")
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      const i = s.indexOf("=");
+      return [s.slice(0, i), s.slice(i + 1)];
+    });
+  if (lsPairs.length) {
+    await ctx.addInitScript((pairs) => {
+      for (const [k, v] of pairs) localStorage.setItem(k, v);
+    }, lsPairs);
   }
 
   await page.goto(`${CLIENT}/${arg("path", "").replace(/^\//, "")}`, { waitUntil: "networkidle" }).catch(() => {});

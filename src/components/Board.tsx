@@ -284,9 +284,11 @@ export default function Board() {
         </div>
       )}
 
-      {/* колонки */}
+      {/* колонки. w-max + mx-auto: на широком экране группа колонок
+          центрируется, а когда не влезает — просто прокручивается от левого края
+          (ticket-board-columns-theme-fix §3). */}
       <div className="dotgrid flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="flex h-full items-start gap-3.5 px-6 py-4" style={{ minWidth: "max-content" }}>
+        <div className="mx-auto flex h-full w-max items-start gap-4 px-6 py-4">
           {data.workflow.statuses.map((st, ci) => {
             const items = byStatus(st.id);
             const c = catColor(st.category);
@@ -295,7 +297,7 @@ export default function Board() {
             return (
               <section
                 key={st.id}
-                className="anim-fadeup flex h-full max-h-full w-[286px] shrink-0 flex-col"
+                className="anim-fadeup flex h-full max-h-full w-[286px] shrink-0 flex-col rounded-xl border border-line bg-panel p-2 shadow-[0_1px_3px_rgba(20,35,64,0.05)] min-[1536px]:w-[300px] min-[1920px]:w-[324px]"
                 style={{ animationDelay: `${ci * 60}ms` }}
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -313,7 +315,7 @@ export default function Board() {
                   if (id) moveStatus(id, st.id, null);
                 }}
               >
-                <header className="mb-2 flex items-center gap-2 px-1">
+                <header className="mb-1.5 flex items-center gap-2 px-1.5 pt-1">
                   <span className="h-2 w-2 rounded-sm" style={{ background: c.dot }} />
                   <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{st.name}</h3>
                   <span className="rounded-full bg-todosoft px-1.5 font-mono text-[10.5px] font-bold text-sub">{items.length}</span>
@@ -329,8 +331,8 @@ export default function Board() {
                 </header>
 
                 <div
-                  className={`flex-1 space-y-2 overflow-y-auto rounded-xl border-2 border-dashed p-2 transition-all duration-150 ${
-                    isOver ? (ok ? "border-accent bg-accentsoft/70" : "border-danger bg-dangersoft/70") : "border-transparent bg-linesoft/60"
+                  className={`flex-1 space-y-2 overflow-y-auto rounded-lg border border-dashed p-1.5 transition-all duration-150 ${
+                    isOver ? (ok ? "border-accent bg-accentsoft" : "border-danger bg-dangersoft") : "border-transparent bg-canvas"
                   }`}
                 >
                   {quickFor === st.id && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
