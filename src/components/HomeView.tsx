@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import type { AssignedIssue, ProjectSummary } from "../types";
-import { PRIORITIES } from "../types";
+import { ISSUE_TYPES, PRIORITIES } from "../types";
 import { IcChevR, IcInbox, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, catColor } from "../ui";
 import { Bell } from "./Topbar";
@@ -49,7 +49,7 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
       onClick={onOpen}
       className="group flex w-full items-center gap-2.5 border-b border-linesoft bg-panel px-3.5 py-2.5 text-left transition-colors last:border-0 hover:bg-accentsoft/50"
     >
-      <span className="shrink-0" title={issue.typeId}>
+      <span className="shrink-0" title={ISSUE_TYPES[issue.typeId]?.name}>
         <TypeIcon type={issue.typeId} size={14} />
       </span>
       <span className="w-14 shrink-0 font-mono text-[10.5px] font-semibold text-faint">{issue.key}</span>
