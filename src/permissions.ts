@@ -28,7 +28,6 @@ export type PermId =
   | "delete"
   | "transition"
   | "comment"
-  | "manageSprints"
   | "editWorkflow"
   | "manageAccess"
   | "manageCollaborators";
@@ -47,14 +46,14 @@ export const ACCESS_ROLES: RoleMeta[] = [
     name: "Администратор",
     short: "admin",
     color: "#B42318",
-    desc: "Полный контроль проекта: схема workflow, права доступа, удаление задач, спринты.",
+    desc: "Полный контроль проекта: схема workflow, права доступа, удаление задач.",
   },
   {
     id: "manager",
     name: "Менеджер проекта",
     short: "pm",
     color: "#0B5FD9",
-    desc: "Управляет спринтами и задачами: создание, редактирование и удаление. Не меняет workflow и роли.",
+    desc: "Управляет задачами: создание, редактирование и удаление. Не меняет workflow и роли.",
   },
   {
     id: "employee",
@@ -68,7 +67,7 @@ export const ACCESS_ROLES: RoleMeta[] = [
     name: "Наблюдатель",
     short: "read",
     color: "#64748B",
-    desc: "Только просмотр: доска, бэклог, карточки — без изменений.",
+    desc: "Только просмотр: доска, список задач, карточки — без изменений.",
   },
 ];
 
@@ -83,7 +82,6 @@ const MATRIX: Record<PermId, AccessRole[]> = {
   delete: ["admin", "manager"],
   transition: ["admin", "manager", "employee"],
   comment: ["admin", "manager", "employee"],
-  manageSprints: ["admin", "manager"],
   editWorkflow: ["admin"],
   manageAccess: ["admin"],
   manageCollaborators: ["admin", "manager"],
@@ -93,17 +91,16 @@ export interface PermMeta {
   id: PermId;
   name: string;
   desc: string;
-  scope: "Проект" | "Задача" | "Спринт" | "Схема" | "Пользователи";
+  scope: "Проект" | "Задача" | "Схема" | "Пользователи";
 }
 
 export const PERMISSIONS: PermMeta[] = [
-  { id: "browse", name: "Просмотр проекта", desc: "Доска, бэклог, карточки, история и комментарии.", scope: "Проект" },
+  { id: "browse", name: "Просмотр проекта", desc: "Доска, список задач, карточки, история и комментарии.", scope: "Проект" },
   { id: "create", name: "Создание задач", desc: "Кнопка «Создать», создание задач.", scope: "Задача" },
   { id: "edit", name: "Редактирование задач", desc: "Поля задачи. Для сотрудника — только свои.", scope: "Задача" },
   { id: "transition", name: "Смена статуса", desc: "Перетаскивание и смена статуса в пределах workflow.", scope: "Задача" },
   { id: "delete", name: "Удаление задач", desc: "Удаление задач.", scope: "Задача" },
   { id: "comment", name: "Комментарии", desc: "Добавление комментариев.", scope: "Задача" },
-  { id: "manageSprints", name: "Управление спринтами", desc: "Старт/завершение спринта, перенос задач.", scope: "Спринт" },
   { id: "editWorkflow", name: "Изменение workflow", desc: "Переходы и сброс схемы.", scope: "Схема" },
   { id: "manageAccess", name: "Управление доступом", desc: "Пользователи и роли (на сервере).", scope: "Пользователи" },
   {

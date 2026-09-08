@@ -540,7 +540,7 @@ export default function IssueModal() {
           </Field>
 
           {!epicIds.has(issue.id) && (
-            <Field label="Эпик">
+            <Field label="Направление">
               {editOk ? (
               <Dropdown
                 width={220}
@@ -552,7 +552,7 @@ export default function IssueModal() {
                         <span className="truncate">{epic.title}</span>
                       </>
                     ) : (
-                      <span className="text-faint">Без эпика</span>
+                      <span className="text-faint">Без направления</span>
                     )}
                     <IcChevD size={12} className="ml-auto shrink-0 text-faint" />
                   </button>
@@ -560,7 +560,7 @@ export default function IssueModal() {
               >
                 {(close) => (
                   <>
-                    <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>Без эпика</MenuItem>
+                    <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>Без направления</MenuItem>
                     {epics.map((e) => (
                       <MenuItem key={e.id} onClick={() => { updateIssue(issue.id, { epicId: e.id }); close(); }}>
                         <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: e.color }} />
@@ -578,39 +578,11 @@ export default function IssueModal() {
                       {epic.title}
                     </span>
                   ) : (
-                    <span className="text-faint">Без эпика</span>
+                    <span className="text-faint">Без направления</span>
                   )}
                 </LockedField>
               )}
             </Field>
-          )}
-
-          {/* Смена спринта требует manageSprints на сервере (PATCH /issues/:id).
-              Роли без этого права поле не видят — иначе рабочий на вид дропдаун
-              отдавал бы 403 (taskira-review §3.1). */}
-          {can("manageSprints") && (
-          <Field label="Спринт">
-            <Dropdown
-              width={220}
-              button={(open) => (
-                <button className={`${selectCls} ${open ? "border-accent" : ""}`}>
-                  <span className={issue.sprintId ? "" : "text-faint"}>{data.sprints.find((s) => s.id === issue.sprintId)?.name ?? "Бэклог"}</span>
-                  <IcChevD size={12} className="ml-auto text-faint" />
-                </button>
-              )}
-            >
-              {(close) => (
-                <>
-                  <MenuItem onClick={() => { updateIssue(issue.id, { sprintId: null }); close(); }}>Бэклог</MenuItem>
-                  {data.sprints.filter((s) => s.status !== "completed").map((s) => (
-                    <MenuItem key={s.id} onClick={() => { updateIssue(issue.id, { sprintId: s.id }); close(); }}>
-                      {s.name} <span className="ml-auto text-[10.5px] text-faint">{s.status === "active" ? "идёт" : "далее"}</span>
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-            </Dropdown>
-          </Field>
           )}
 
           <Field label="Оценка (очки)">

@@ -10,7 +10,7 @@ const SECTIONS = [
   { id: "roles", label: "Роли и права" },
   { id: "workflow", label: "Workflow" },
   { id: "issues", label: "Типы и приоритеты" },
-  { id: "sprints", label: "Спринты и бэклог" },
+  { id: "list", label: "Список задач" },
   { id: "hotkeys", label: "Горячие клавиши" },
   { id: "model", label: "Модель данных" },
   { id: "storage", label: "Хранение и сброс" },
@@ -63,14 +63,13 @@ export default function DocsView() {
               <H>1 · Обзор системы</H>
               <P>
                 <b className="text-ink">Taskira</b> — трекер задач в духе Jira: проект <Code>ATL «Атлас»</Code>, канбан-доска, бэклог со спринтами,
-                таймлайн эпиков, настраиваемый workflow и ролевая модель доступа. Всё состояние живёт в браузере (localStorage),
-                сервер не требуется.
+                таймлайн направлений, настраиваемый workflow и ролевая модель доступа.
               </P>
               <P>Разделы приложения:</P>
               <ul className="mt-2 space-y-1.5 text-[13px] text-sub">
                 <li>• <b className="text-ink">Доска</b> — колонки по статусам workflow, drag&drop с проверкой переходов и прав, быстрое создание, фильтры.</li>
-                <li>• <b className="text-ink">Бэклог</b> — планирование спринтов: активный, будущий и вне спринтов; перенос задач перетаскиванием.</li>
-                <li>• <b className="text-ink">Таймлайн</b> — дорожная карта эпиков с прогрессом и линией «сегодня».</li>
+                <li>• <b className="text-ink">Список задач</b> — плоский перечень всех задач проекта с фильтрами и сортировкой.</li>
+                <li>• <b className="text-ink">Таймлайн</b> — дорожная карта направлений с прогрессом и линией «сегодня».</li>
                 <li>• <b className="text-ink">Рабочий процесс</b> — граф статусов и переходов; редактируется администратором.</li>
                 <li>• <b className="text-ink">Права доступа</b> — матрица разрешений и смена пользователя для проверки ролей.</li>
                 <li>• <b className="text-ink">Документация</b> — этот раздел.</li>
@@ -169,8 +168,8 @@ export default function DocsView() {
                 ))}
               </div>
               <P>
-                <b className="text-ink">Эпик</b> — крупная инициатива: группирует дочерние задачи (поле «Эпик» в карточке), отображается на таймлайне
-                с цветом и прогрессом. История, задача и бак — рабочие элементы, попадают на доску и в спринты.
+                <b className="text-ink">Направление</b> — крупная инициатива: группирует дочерние задачи (поле «Направление» в карточке),
+                отображается на таймлайне с цветом и прогрессом.
               </P>
               <div className="mt-3 flex flex-wrap gap-2">
                 {PRIORITY_ORDER.map((p) => (
@@ -180,20 +179,20 @@ export default function DocsView() {
                 ))}
               </div>
               <P>
-                Карточка задачи хранит: название, описание, статус, приоритет, исполнителя, автора, эпик, метки, оценку в story points,
-                привязку к спринту, комментарии и полную историю изменений (кто и что сделал, с временными метками).
+                Карточка задачи хранит: название, описание, статус, приоритет, исполнителя, автора, направление, метки, оценку,
+                срок, комментарии и полную историю изменений (кто и что сделал, с временными метками).
               </P>
             </section>
 
-            <section id="doc-sprints" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "100ms" }}>
-              <H>5 · Спринты и бэклог</H>
+            <section id="doc-list" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "100ms" }}>
+              <H>5 · Список задач</H>
               <P>
-                Жизненный цикл спринта: <b className="text-ink">future → active → completed</b>. Задачи планируются перетаскиванием между секциями
-                в «Бэклоге» (право «Управление спринтами»). Старт активирует будущий спринт — его задачи появляются на доске.
+                <b className="text-ink">Список задач</b> — плоский перечень всех задач проекта без секций и планирования. Фильтры (статус,
+                исполнитель, тип, текст, «просроченные») и сортировка (по приоритету, сроку, обновлению, ключу; по возрастанию/убыванию)
+                применяются на клиенте.
               </P>
               <P>
-                При завершении спринта все недозакрытые задачи автоматически возвращаются в бэклог (вне спринтов), а система создаёт следующий
-                будущий спринт. У активного спринта есть цель, даты и прогресс «закрыто/всего».
+                Спринтов и scrum-церемоний в системе нет — поток задач ведётся через доску и этот список.
               </P>
             </section>
 
@@ -233,9 +232,8 @@ export default function DocsView() {
                     ["Project", "key, name, description", "корневая сущность"],
                     ["User", "id, name, role (должность), globalRole (admin | member)", "исполнитель/автор задач"],
                     ["ProjectMember", "projectId, userId, role (manager | employee | viewer)", "роль пользователя в конкретном проекте"],
-                    ["Issue", "key (ATL-N), type, status, priority, points, labels, comments[], activity[]", "→ User, → Epic, → Sprint, → Status"],
-                    ["Epic", "Issue с typeId=epic, color, tStart/tSpan", "родитель для задач, элемент таймлайна"],
-                    ["Sprint", "name, goal, status, startDate, endDate", "← Issue.sprintId"],
+                    ["Issue", "key (CORP-N), type, status, priority, points, labels, comments[], activity[]", "→ User, → Направление (epicId), → Status"],
+                    ["Направление", "Issue, на которую ссылаются через epicId; color, tStart/tSpan", "родитель для задач, элемент таймлайна"],
                     ["Workflow", "statuses[], transitions[]", "Status: id, name, category; Transition: from → to"],
                   ].map(([e, f, r]) => (
                     <tr key={e} className="border-b border-linesoft last:border-0">
@@ -263,8 +261,7 @@ export default function DocsView() {
                 <Code>members</Code>.
               </P>
               <P>
-                Кнопка «Сбросить демо-данные» в сайдбаре очищает ключ и возвращает исходный проект: 22 задачи, 2 активных спринта, 3 эпика и полную
-                историю активности. Сброс доступен любой роли — это инструмент демо-среды, а не рабочая мутация.
+                Выход из аккаунта очищает <Code>taskira.token</Code>. Других данных в браузере не хранится — всё состояние приходит с сервера.
               </P>
             </section>
           </div>

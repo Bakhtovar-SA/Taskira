@@ -8,7 +8,7 @@
  *
  * Корпоративная модель (миграция 002, breaking — см. server/README.md):
  *  - типы задач: task | bug | request (story и epic слиты в task);
- *  - у задач есть due_date; points/sprint/epic — опциональные модули.
+ *  - у задач есть due_date; points/epic — опциональные модули.
  *
  * Ролевая модель (миграция 004 + Фаза 3, breaking):
  *  - глобальная роль users.global_role: admin | member (GLOBAL_ROLES);
@@ -50,7 +50,6 @@ export const PROJECT_ROLES = ["manager", "employee", "viewer"] as const;
 export const ISSUE_TYPES = ["task", "bug", "request"] as const;
 export const PRIORITIES = ["highest", "high", "medium", "low", "lowest"] as const;
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
-export const SPRINT_STATUSES = ["future", "active", "completed"] as const;
 
 const uuid = z.string().uuid("Ожидается UUID");
 /** Дата без времени, ГГГГ-ММ-ДД (для due_date и фильтров dueFrom/dueTo) */
@@ -183,7 +182,6 @@ export const IssueCreateBody = z.object({
   epicId: uuid.nullable(),
   labels: z.array(label()).max(LIMITS.labelsPerIssue).default([]),
   points: z.number().int().min(LIMITS.points.min).max(LIMITS.points.max).nullable(),
-  sprintId: uuid.nullable(),
   dueDate: isoDate().nullable().optional(),
   statusId: uuid.optional(),
 });
@@ -197,7 +195,6 @@ export const IssuePatchBody = z
     epicId: uuid.nullable(),
     labels: z.array(label()).max(LIMITS.labelsPerIssue),
     points: z.number().int().min(LIMITS.points.min).max(LIMITS.points.max).nullable(),
-    sprintId: uuid.nullable(),
     dueDate: isoDate().nullable(),
     tStart: z.number().int().min(0).max(52).nullable(),
     tSpan: z.number().int().min(1).max(52).nullable(),
@@ -249,15 +246,12 @@ export const NotificationsQuery = z.object({
 /** POST /api/notifications/read — тело опционально; пусто = отметить все. */
 export const MarkReadBody = z.object({ ids: z.array(uuid).max(500).optional() });
 
-/* ---------------- Sprints / Workflow / Users ---------------- */
-export const MoveToSprintBody = z.object({ sprintId: uuid.nullable() });
-
+/* ---------------- Workflow / Users ---------------- */
 export const TransitionCreateBody = z.object({ from: uuid, to: uuid });
 
 /** GET /api/issues — query-параметры приходят строками; числа приводятся z.coerce. */
 export const IssueQuery = z.object({
   status: uuid.optional(),
-  sprint: uuid.optional(),
   assignee: uuid.optional(),
   type: z.enum(ISSUE_TYPES).optional(),
   q: z.string().max(120).optional(),
@@ -274,6 +268,5 @@ export type ApiError = { error: { code: string; reason: string } };
 export type WsMessage =
   | { type: "issue:upsert"; actorId: string; issue: unknown; ts: number }
   | { type: "issue:delete"; actorId: string; issueId: string; ts: number }
-  | { type: "sprint:changed"; actorId: string; ts: number }
   | { type: "workflow:changed"; actorId: string; ts: number }
   | { type: "presence"; online: string[]; ts: number };

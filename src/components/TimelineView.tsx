@@ -34,18 +34,18 @@ export default function TimelineView() {
       <div className="mx-auto max-w-[1120px] px-6 py-5">
         <div className="anim-fadeup">
           <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Таймлайн</h1>
-          <p className="mt-0.5 text-[11.5px] text-faint">Дорожная карта эпиков на ближайшие {WEEKS} недель</p>
+          <p className="mt-0.5 text-[11.5px] text-faint">Дорожная карта направлений на ближайшие {WEEKS} недель</p>
         </div>
 
         {epics.length === 0 ? (
           <div className="mt-6">
-            <Empty icon={<IcTimeline size={24} />} title="Эпиков пока нет" sub="Укажите родительский эпик в карточке задачи — родитель появится на таймлайне" />
+            <Empty icon={<IcTimeline size={24} />} title="Направлений пока нет" sub="Укажите родительское направление в карточке задачи — родитель появится на таймлайне" />
           </div>
         ) : (
           <div className="anim-fadeup mt-4 overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]" style={{ animationDelay: "60ms" }}>
             {/* шапка недель */}
             <div className="grid border-b border-line bg-canvas/60" style={{ gridTemplateColumns: `260px repeat(${WEEKS}, 1fr)` }}>
-              <div className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">Эпик</div>
+              <div className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">Направление</div>
               {weeks.map((w, i) => (
                 <div key={i} className={`border-l border-linesoft px-2 py-2.5 text-center ${i === 0 ? "bg-accentsoft/60" : ""}`}>
                   <p className="font-mono text-[11px] font-bold text-sub">{w.toLocaleDateString("ru-RU", { day: "numeric" })}</p>
@@ -92,7 +92,7 @@ export default function TimelineView() {
                   </div>
                   {expanded && (
                     <div className="anim-fadeup border-t border-dashed border-linesoft bg-canvas/40">
-                      {kids.length === 0 && <p className="px-10 py-2.5 text-[12px] text-faint">В эпике пока нет задач.</p>}
+                      {kids.length === 0 && <p className="px-10 py-2.5 text-[12px] text-faint">В направлении пока нет задач.</p>}
                       {kids.map((k) => {
                         const st = data.workflow.statuses.find((s) => s.id === k.statusId)!;
                         return (
@@ -113,7 +113,7 @@ export default function TimelineView() {
         )}
 
         <p className="anim-fadeup mt-3 flex items-center gap-2 text-[11px] text-faint" style={{ animationDelay: "120ms" }}>
-          <span className="inline-block h-3 w-px bg-danger/70" /> сегодня · тёмная часть полосы — доля закрытых задач эпика
+          <span className="inline-block h-3 w-px bg-danger/70" /> сегодня · тёмная часть полосы — доля закрытых задач направления
         </p>
       </div>
     </div>

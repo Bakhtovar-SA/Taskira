@@ -5,14 +5,13 @@
  *  - находит/создаёт департамент «Общий отдел» (или DEFAULT_DEPARTMENT из env);
  *  - если нет ни одного проекта — создаёт CORP «Корпоративные задачи»
  *    (или PROJECT_KEY/PROJECT_NAME из env) в этом департаменте, 4 статуса
- *    (todo / inprogress / review / done), дефолтный граф из 8 переходов и один
- *    будущий спринт;
+ *    (todo / inprogress / review / done) и дефолтный граф из 8 переходов;
  *  - повторный запуск ничего не дублирует — ветка проекта/workflow пропускается,
  *    если проект уже есть. is_shared у фреш-проекта не выставляется — дефолт
  *    false (см. DEPT_MIGRATION.md §3.1; бэкфилл миграции 007 ставит true только
  *    существовавшему до департаментов проекту).
  */
-import { one, q } from "./db.js";
+import { one } from "./db.js";
 import { seedProjectWorkflow } from "./services/workflow.js";
 
 export async function seedProject(): Promise<void> {
@@ -44,14 +43,7 @@ export async function seedProject(): Promise<void> {
 
   await seedProjectWorkflow(project.id); // 4 статуса + 8 переходов
 
-  // Один будущий спринт (опциональный модуль, но API сразу рабочее)
-  await q(
-    `INSERT INTO sprints (project_id, name, goal, status, start_date, end_date)
-     VALUES ($1, 'Спринт 1', '', 'future', CURRENT_DATE + 1, CURRENT_DATE + 14)`,
-    [project.id],
-  );
-
   console.log(
-    `[seed] департамент «${deptName}»; создан проект ${projectKey} «${projectName}»: 4 статуса, 8 переходов, будущий спринт`,
+    `[seed] департамент «${deptName}»; создан проект ${projectKey} «${projectName}»: 4 статуса, 8 переходов`,
   );
 }

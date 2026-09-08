@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AccessRole,
+  AssignedIssue,
   Attachment,
   Collaboration,
   Collaborator,
@@ -34,7 +35,6 @@ import {
   membersApi,
   notificationsApi,
   projectsApi,
-  sprintsApi,
   type CollaboratingItem,
   type NotifyPrefs,
   type ServerAttachment,
@@ -65,7 +65,21 @@ export const relTime = (ts: number) => {
 export const fmtDate = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 
-export type BootStatus = "idle" | "loading" | "ready" | "unauthenticated" | "error" | "solo";
+export type BootStatus = "idle" | "loading" | "ready" | "unauthenticated" | "error" | "solo" | "home";
+
+/** Одноразовое пояснение к главному экрану — показывается, когда пользователь
+ *  впервые видит `<HomeView>` (стало ≥ 2 проектов). Флаг только в localStorage
+ *  (UI_RESTRUCTURE.md D4-transition), на сервере не хранится. */
+const HOME_INTRO_KEY = "taskira.homeIntro";
+const takeHomeIntro = (): boolean => {
+  try {
+    if (localStorage.getItem(HOME_INTRO_KEY)) return false;
+    localStorage.setItem(HOME_INTRO_KEY, "1");
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 /** Режим одиночного просмотра: пользователь без единого видимого проекта, но
  *  приглашённый к каким-то задачам (issue collaborators). Урезанная оболочка —
@@ -94,7 +108,6 @@ export interface CreateInput {
   epicId: string | null;
   labels: string[];
   points: number | null;
-  sprintId: string | null;
   statusId?: string;
   dueDate?: string | null;
 }
@@ -135,8 +148,8 @@ const emptyData = (): Data => ({
   members: {},
   currentUserId: "",
   issues: [],
-  sprints: [],
   workflow: { statuses: [], transitions: [] },
+  assignedToMe: [],
   collaborations: [],
   notifications: [],
   unreadCount: 0,
@@ -201,7 +214,6 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     epicId: dto.epicId,
     labels: dto.labels ?? [],
     points: dto.points,
-    sprintId: dto.sprintId,
     dueDate: dto.dueDate,
     rank: dto.rank,
     color: dto.color ?? undefined,
@@ -247,6 +259,10 @@ interface Api {
   can: (perm: PermId, issue?: Issue) => boolean;
   bootstrap: () => Promise<void>;
   switchProject: (projectId: string) => void;
+  /** Показать главный экран (`<HomeView>`), не выгружая текущий проект. */
+  goHome: () => void;
+  /** Войти в проект с главного экрана (переключить, если это другой проект). */
+  enterProject: (projectId: string) => void;
   refreshCollaborations: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   markNotificationsRead: (ids?: string[]) => void;
@@ -259,7 +275,6 @@ interface Api {
   createIssue: (input: CreateInput) => void;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
-  setSprint: (issueId: string, sprintId: string | null) => void;
   addComment: (issueId: string, body: string) => void;
   addCollaborator: (issueId: string, userId: string) => void;
   removeCollaborator: (issueId: string, userId: string) => void;
@@ -270,8 +285,6 @@ interface Api {
   addTransition: (from: string, to: string) => string | null;
   removeTransition: (id: string) => void;
   resetWorkflow: () => void;
-  startSprint: () => void;
-  completeSprint: () => void;
   setMemberRole: (userId: string, role: ProjectRole) => void;
   removeMember: (userId: string) => void;
   /** Состав произвольного проекта (для AdminView) — глобальный admin, любой проект. */
@@ -397,18 +410,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         members,
         currentUserId,
         issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
+        assignedToMe: [],
         collaborations,
         notifications: [],
         unreadCount: 0,
         notifyPrefs: {},
-        sprints: boot.sprints.map((s) => ({
-          id: s.id,
-          name: s.name,
-          goal: s.goal ?? "",
-          status: s.status,
-          startDate: s.startDate ?? "",
-          endDate: s.endDate ?? "",
-        })),
         workflow: {
           statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
           transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
@@ -518,16 +524,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setBootStatus("ready");
         return;
       }
+      const hash = readIssueHash();
+      const hashProjectVisible = !!hash && projects.some((p) => p.id === hash.projectId);
+      // Прямая ссылка на приглашённую задачу (проект пользователю не открыт) —
+      // ведёт в «Мои подключения», а не на главный экран (ниже по ветке ready).
+      const hashIsCollab = !!hash && collabs.some((c) => c.issueId === hash.issueId);
+
+      // ≥ 2 проектов и это НЕ переход по прямой ссылке на задачу → главный экран
+      // (UI_RESTRUCTURE.md D4): список проектов и задач, в проект не входим.
+      // При 1 проекте главный экран бессмыслен — сразу внутрь (ветка ниже).
+      if (projects.length >= 2 && !hashProjectVisible && !hashIsCollab) {
+        const assigned = await issuesApi.assignedToMe().catch(() => [] as AssignedIssue[]);
+        setData({
+          ...emptyData(),
+          currentUserId: user.id,
+          users: [mapUser(user, {})],
+          departments: deps,
+          projects,
+          collaborations: collabs,
+          assignedToMe: assigned as AssignedIssue[],
+          notifyPrefs: user.notifyPrefs ?? {},
+        });
+        void refreshNotifications();
+        if (takeHomeIntro()) {
+          toast(
+            "info",
+            "Теперь при входе — список ваших проектов и задач. Открыть проект напрямую можно здесь.",
+          );
+        }
+        setBootStatus("home");
+        return;
+      }
+
       const wanted = readLastProject();
-      const chosen = projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
+      const chosen = hashProjectVisible ? hash!.projectId : projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
       const next = await buildProjectData(chosen, user.id, projects, deps, collabs);
       setData({ ...next, notifyPrefs: user.notifyPrefs ?? {} });
       void refreshNotifications();
       writeLastProject(chosen);
       // Прямая ссылка на приглашённую задачу (в проекте, который не открыт) —
       // сразу в раздел «Мои подключения» (Фаза 6 для пользователей с проектами).
-      const hash = readIssueHash();
-      if (hash && collabs.some((c) => c.issueId === hash.issueId)) {
+      if (hashIsCollab) {
         setUi((u) => ({ ...u, view: "collaborating" }));
       }
       setBootStatus("ready");
@@ -565,6 +602,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })();
     },
     [buildProjectData, handleApiError],
+  );
+
+  const refreshAssignedToMe = useCallback(async () => {
+    try {
+      const items = await issuesApi.assignedToMe();
+      setData((prev) => ({ ...prev, assignedToMe: items as AssignedIssue[] }));
+    } catch {
+      /* тихо — блок «Мои задачи» просто не обновится */
+    }
+  }, []);
+
+  /** Вернуться на главный экран из проекта (UI_RESTRUCTURE.md D4). Проект не
+   *  выгружаем — `<HomeView>` показывается поверх; данные «Моих задач» освежаем. */
+  const goHome = useCallback(() => {
+    setUi((u) => ({ ...u, selectedIssueId: null, createOpen: false }));
+    setBootStatus("home");
+    void refreshAssignedToMe();
+    void refreshNotifications();
+  }, [refreshAssignedToMe, refreshNotifications]);
+
+  /** Войти в проект с главного экрана. Тот же проект (уже загружен) — просто
+   *  уходим с `<HomeView>`; другой — полноценное переключение. */
+  const enterProject = useCallback(
+    (projectId: string) => {
+      const cur = dataRef.current;
+      if (!cur.projects.some((p) => p.id === projectId)) return;
+      if (projectId === cur.currentProjectId) {
+        setBootStatus("ready");
+      } else {
+        switchProject(projectId);
+      }
+    },
+    [switchProject],
   );
 
   const logout = useCallback(() => {
@@ -687,7 +757,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             epicId: input.epicId,
             labels: l.value,
             points: p.value,
-            sprintId: input.sprintId,
             statusId: input.statusId,
             dueDate: input.dueDate ?? null,
           });
@@ -729,7 +798,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
       if (patch.assigneeId !== undefined) body.assigneeId = patch.assigneeId;
       if (patch.epicId !== undefined) body.epicId = patch.epicId;
-      if (patch.sprintId !== undefined) body.sprintId = patch.sprintId;
       if (patch.dueDate !== undefined) body.dueDate = patch.dueDate;
       if (patch.tStart !== undefined) body.tStart = patch.tStart;
       if (patch.tSpan !== undefined) body.tSpan = patch.tSpan;
@@ -779,24 +847,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })();
     },
     [requirePerm, toast, handleApiError, refreshIssues],
-  );
-
-  const setSprint = useCallback(
-    (issueId: string, sprintId: string | null) => {
-      if (!requirePerm("manageSprints")) return;
-      void (async () => {
-        try {
-          const dto = await issuesApi.setSprint(pid(), issueId, sprintId);
-          setData((prev) => ({
-            ...prev,
-            issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
-          }));
-        } catch (err) {
-          handleApiError(err);
-        }
-      })();
-    },
-    [requirePerm, handleApiError],
   );
 
   const addComment = useCallback(
@@ -1032,57 +1082,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, [requirePerm, toast, handleApiError]);
-
-  const startSprint = useCallback(() => {
-    if (!requirePerm("manageSprints")) return;
-    void (async () => {
-      try {
-        await sprintsApi.start(pid());
-        const boot = await projectsApi.get(pid());
-        setData((prev) => ({
-          ...prev,
-          sprints: boot.sprints.map((s) => ({
-            id: s.id,
-            name: s.name,
-            goal: s.goal ?? "",
-            status: s.status,
-            startDate: s.startDate ?? "",
-            endDate: s.endDate ?? "",
-          })),
-        }));
-        toast("success", "Спринт начат");
-      } catch (err) {
-        handleApiError(err);
-      }
-    })();
-  }, [requirePerm, toast, handleApiError]);
-
-  const completeSprint = useCallback(() => {
-    if (!requirePerm("manageSprints")) return;
-    const active = dataRef.current.sprints.find((s) => s.status === "active");
-    if (!active) return;
-    void (async () => {
-      try {
-        await sprintsApi.complete(pid(), active.id);
-        await refreshIssues();
-        const boot = await projectsApi.get(pid());
-        setData((prev) => ({
-          ...prev,
-          sprints: boot.sprints.map((s) => ({
-            id: s.id,
-            name: s.name,
-            goal: s.goal ?? "",
-            status: s.status,
-            startDate: s.startDate ?? "",
-            endDate: s.endDate ?? "",
-          })),
-        }));
-        toast("success", `${active.name} завершён`);
-      } catch (err) {
-        handleApiError(err);
-      }
-    })();
-  }, [requirePerm, toast, handleApiError, refreshIssues]);
 
   const setMemberRole = useCallback(
     (userId: string, role: ProjectRole) => {
@@ -1330,6 +1329,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     can: canFn,
     bootstrap,
     switchProject,
+    goHome,
+    enterProject,
     refreshCollaborations,
     refreshNotifications,
     markNotificationsRead,
@@ -1342,7 +1343,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createIssue,
     updateIssue,
     moveStatus,
-    setSprint,
     addComment,
     addCollaborator,
     removeCollaborator,
@@ -1353,8 +1353,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addTransition,
     removeTransition,
     resetWorkflow,
-    startSprint,
-    completeSprint,
     setMemberRole,
     removeMember,
     setProjectMember,

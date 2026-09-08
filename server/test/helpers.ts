@@ -34,7 +34,7 @@ export async function stopApp(): Promise<void> {
 export async function resetDb(): Promise<void> {
   await q(
     `TRUNCATE departments, projects, users, project_members, department_members,
-      workflow_statuses, workflow_transitions, sprints, issues, comments, activity,
+      workflow_statuses, workflow_transitions, issues, comments, activity,
       issue_watchers, issue_collaborators, attachments, project_counters, audit_log RESTART IDENTITY CASCADE`,
   );
 }
@@ -158,6 +158,5 @@ export const newIssue = (over: Record<string, unknown> = {}) => ({
   assigneeId: null,
   epicId: null,
   points: null,
-  sprintId: null,
   ...over,
 });
