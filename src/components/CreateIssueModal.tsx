@@ -181,6 +181,12 @@ export default function CreateIssueModal() {
                 <option key={e.id} value={e.id}>{e.title}</option>
               ))}
             </select>
+            {epics.length === 0 && (
+              <p className="mt-1 text-[10.5px] leading-snug text-faint">
+                Направлений пока нет — любая задача становится направлением, как только другая
+                сошлётся на неё здесь.
+              </p>
+            )}
           </div>
         </div>
 

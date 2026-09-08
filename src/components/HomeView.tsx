@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { useStore } from "../store";
-import type { AssignedIssue, ProjectSummary } from "../types";
+import { relTime, useStore } from "../store";
+import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
 import { ISSUE_TYPES, PRIORITIES } from "../types";
-import { IcChevR, IcInbox, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, catColor } from "../ui";
-import { Bell } from "./Topbar";
+import { Bell, NOTIF_VERB } from "./Topbar";
 
 const PROJECT_KEY = "taskira.project";
 const readLastProject = (): string => {
@@ -72,10 +72,19 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
 }
 
 export default function HomeView({ onLogout }: { onLogout: () => void }) {
-  const { data, enterProject } = useStore();
+  const { data, enterProject, setCreateOpen } = useStore();
   const me = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
   const last = readLastProject();
   const [q, setQ] = useState("");
+
+  // «+ Создать задачу» с главного экрана: заходим в проект (последний открытый
+  // или первый) и оставляем модалку создания открытой — она смонтируется в Shell.
+  const createTarget = data.projects.find((p) => p.id === last)?.id ?? data.projects[0]?.id;
+  const startCreate = () => {
+    if (!createTarget) return;
+    setCreateOpen(true);
+    enterProject(createTarget);
+  };
 
   const overdueCount = useMemo(() => data.assignedToMe.filter(isOverdue).length, [data.assignedToMe]);
 
@@ -213,11 +222,22 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                   icon={<IcInbox size={22} />}
                   title={q ? "Ничего не найдено" : "Открытых задач на вас нет"}
                   sub={q ? "Измените запрос" : "Задачи, где вы исполнитель, появятся здесь"}
+                  action={
+                    !q && createTarget ? (
+                      <button
+                        onClick={startCreate}
+                        className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-accentdeep"
+                      >
+                        <IcPlus size={13} /> Создать задачу
+                      </button>
+                    ) : undefined
+                  }
                 />
               )}
             </section>
 
-            {/* Проекты */}
+            {/* правая колонка: проекты + недавняя активность */}
+            <div className="space-y-6">
             <section>
               <h2 className="mb-2 text-[13px] font-bold text-ink">Проекты</h2>
               <div className="space-y-4">
@@ -252,10 +272,67 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                 ))}
               </div>
             </section>
+
+            <RecentActivity notifications={data.notifications} onOpen={openTask} />
+            </div>
           </div>
         </div>
       </div>
       <Toasts />
     </div>
+  );
+}
+
+function RecentActivity({
+  notifications,
+  onOpen,
+}: {
+  notifications: NotificationT[];
+  onOpen: (t: AssignedIssue) => void;
+}) {
+  const items = notifications.slice(0, 5);
+  return (
+    <section>
+      <h2 className="mb-2 flex items-center gap-1.5 text-[13px] font-bold text-ink">
+        <IcBell size={13} className="text-faint" /> Недавняя активность
+      </h2>
+      {items.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-line2 px-3 py-6 text-center text-[11.5px] text-faint">
+          Пока нет событий — уведомления о задачах появятся здесь
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-line bg-panel">
+          {items.map((n) => {
+            const clickable = !!n.issueId && !!n.projectId;
+            return (
+              <button
+                key={n.id}
+                disabled={!clickable}
+                onClick={() =>
+                  clickable &&
+                  onOpen({ projectId: n.projectId!, issueId: n.issueId! } as AssignedIssue)
+                }
+                className="flex w-full items-start gap-2.5 border-b border-linesoft px-3.5 py-2.5 text-left transition-colors last:border-0 enabled:hover:bg-accentsoft/50 disabled:cursor-default"
+              >
+                <span className="mt-0.5 shrink-0">
+                  <Avatar user={n.actor} size={22} />
+                </span>
+                <span className="min-w-0 flex-1 text-[12px] leading-snug text-ink">
+                  <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? "Кто-то"}</b>{" "}
+                  {NOTIF_VERB[n.type]}{" "}
+                  {n.payload.key && (
+                    <span className="font-mono text-[11px] font-semibold text-accent">{n.payload.key}</span>
+                  )}
+                  {n.type === "issue.status" && n.payload.from && (
+                    <span className="text-faint"> · {n.payload.from} → {n.payload.to}</span>
+                  )}
+                  <span className="mt-0.5 block text-[10.5px] text-faint">{relTime(n.createdAt)}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }

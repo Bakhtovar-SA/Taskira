@@ -145,11 +145,51 @@ export function Modal({ onClose, children, w = 860 }: { onClose: () => void; chi
   );
 }
 
-export const Empty = ({ icon, title, sub }: { icon: React.ReactNode; title: string; sub?: string }) => (
+export const Empty = ({ icon, title, sub, action }: { icon: React.ReactNode; title: string; sub?: string; action?: React.ReactNode }) => (
   <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line2 px-4 py-7 text-center">
     <span className="text-faint">{icon}</span>
     <p className="text-[13px] font-semibold text-sub">{title}</p>
     {sub && <p className="max-w-[240px] text-xs text-faint">{sub}</p>}
+    {action && <div className="mt-2">{action}</div>}
+  </div>
+);
+
+/* ─── Скелет-заглушки на время bootstrap (round4 §1) ───────────────────── */
+
+export const SkeletonRow = () => (
+  <div className="flex items-center gap-3 border-b border-linesoft px-3.5 py-3 last:border-0">
+    <div className="skeleton h-3.5 w-3.5 shrink-0 rounded" />
+    <div className="skeleton h-3 w-14 shrink-0" />
+    <div className="skeleton h-3 min-w-0 flex-1" style={{ maxWidth: 320 }} />
+    <div className="skeleton hidden h-4 w-16 shrink-0 sm:block" />
+    <div className="skeleton h-4 w-4 shrink-0 rounded-full" />
+  </div>
+);
+
+export const SkeletonCard = () => (
+  <div className="rounded-lg border border-line bg-panel p-2.5">
+    <div className="mb-2 flex items-center gap-1.5">
+      <div className="skeleton h-3.5 w-3.5 rounded" />
+      <div className="skeleton h-2.5 w-12" />
+    </div>
+    <div className="skeleton h-3 w-full" />
+    <div className="skeleton mt-1.5 h-3 w-2/3" />
+    <div className="mt-3 flex items-center gap-2">
+      <div className="skeleton h-3 w-16" />
+      <div className="skeleton ml-auto h-5 w-5 rounded-full" />
+    </div>
+  </div>
+);
+
+export const SkeletonColumn = ({ cards = 3 }: { cards?: number }) => (
+  <div className="flex w-[286px] shrink-0 flex-col gap-2">
+    <div className="mb-1 flex items-center gap-2 px-1">
+      <div className="skeleton h-2 w-2 rounded-sm" />
+      <div className="skeleton h-3 w-24" />
+    </div>
+    {Array.from({ length: cards }).map((_, i) => (
+      <SkeletonCard key={i} />
+    ))}
   </div>
 );
 
