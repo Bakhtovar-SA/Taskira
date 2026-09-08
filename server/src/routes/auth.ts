@@ -116,7 +116,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const row = await one<UserRow>(`SELECT * FROM users WHERE id = $1`, [req.user.sub]);
       if (!row) throw unauthorized("Пользователь больше не существует");
-      reply.send(safeUser(row));
+      // notifyPrefs — только для себя, не в общем safeUser (не светим чужие настройки).
+      reply.send({ ...safeUser(row), notifyPrefs: row.notify_prefs ?? {} });
     },
   );
 

@@ -1,9 +1,10 @@
 # NOTIFICATIONS_MIGRATION — уведомления (in-app + email) + фоновый воркер
 
 Статус: **решения §3 подтверждены (D1–D9; D9 — письмо БЕЗ содержимого
-задач/комментариев). Фаза 1 сделана (миграция 011, `config.notify`, Mailpit
-compose, `.env.example`; `npm test` 55 зелёных). Дальше — Фаза 2 (событийный
-слой + in-app API).**
+задач/комментариев). Фазы 1–2 сделаны (миграция 011; событийный слой
+`services/notify.ts` + `emit()` в 5 роутах; `services/mentions.ts`;
+`routes/notifications.ts` — лента / счётчик / read / prefs; `npm test` 67 зелёных;
+живой прогон 3 сценариев пройден). Дальше — Фаза 3 (email-воркер против Mailpit).**
 Ветка `feat/notifications`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 3 — email-воркер; при затыке с SMTP-инфраструктурой отделяется в follow-up
 PR, in-app к тому моменту уже работает). Фаза 6 — вне захода.
@@ -338,40 +339,61 @@ Mailpit: ключ и ссылка — есть; заголовок задачи 
 - **`.env.example`** — блок `NOTIFY_*` / `SMTP_*` / `APP_BASE_URL` (закомментирован,
   `NOTIFY_EMAIL_ENABLED=false`).
 
-### Фаза 2 — Сервер: событийный слой + in-app API
+### Фаза 2 — Сервер: событийный слой + in-app API  *(сделано)*
 
-- **`server/src/services/notify.ts`** *(новый)* — `emit(kind, ctx)`:
-  вычисляет получателей (D2), фильтрует актора/деактивированных, пишет строки
-  `notifications` (одним `INSERT ... SELECT` где можно); проставляет
-  `email_state='skipped'` там, где email не полагается (D6/D8). Вызовы `emit(...)`
-  добавляются в:
-  - `routes/issues.ts` — `PATCH /:id` (смена `assigneeId` → `issue.assigned`;
-    другие поля не триггерят), `POST /:id/transition` (`issue.status`);
-  - `routes/comments.ts` — `POST /:id/comments` (`issue.comment` + разбор `@` →
-    `issue.mention`);
-  - `routes/collaborators.ts` — `PUT /:id/collaborators/:userId` (`issue.collaborator`);
-  - `routes/members.ts` / `routes/projects.ts` — `PUT .../members/:userId` (`project.member`).
-  `emit` — как `audit()`: не роняет запрос (ошибку логирует, не бросает).
-- **`server/src/services/mentions.ts`** *(новый)* — `parseMentions(text)`,
-  `resolveVisibleMentions(issueId, logins)` (D5).
-- **`server/src/routes/notifications.ts`** *(новый, на уровне `/api`, project-less)*:
-  - `GET /api/notifications` — `requireAuth`; лента получателя, курсорная пагинация,
-    `{ items, nextCursor, unread }`; каждый элемент — с денормализованным
-    `payload` (заголовок задачи, отрывок, актор) плюс `projectId`/`issueId` для перехода;
-  - `GET /api/notifications/unread-count` — `{ count }`;
-  - `POST /api/notifications/read` — `{ ids?: string[] }` (пусто → все); `204`;
-  - `PATCH /api/notifications/prefs` — `{ email?, selfWatch? }` (D6) → обновляет
-    `users.notify_prefs`; `SafeUser` += `notifyPrefs`.
+`typecheck` 0, `npm test` — **67 зелёных** (55 + 12 новых). Живой прогон
+(dev :8080) — 3 сценария ниже.
+
+- **`server/src/services/notify.ts`** *(новый)* — `emit(ev)`: вычисляет
+  получателей (для `issue.comment`/`issue.status` — `SELECT ... UNION` по
+  watchers ∪ assignee ∪ reporter (∪ collaborators для comment); для остальных —
+  явный `recipientIds`), `[...new Set()]` + отброс `actorId`, отсев
+  `is_active=false` (D8), `INSERT ... SELECT FROM unnest($ids, $states)`.
+  `email_state='pending'` только если `NOTIFY_EMAIL_ENABLED` **и** есть
+  `users.email` **и** `notify_prefs.email != 'off'`, иначе `'skipped'`. Как
+  `audit()` — `try/catch`, никогда не бросает. Плюс `autoWatch(issueId, userId)`
+  — `INSERT ... ON CONFLICT DO NOTHING`, если `notify_prefs.selfWatch != false`.
+- **`server/src/services/mentions.ts`** *(новый)* — `parseMentions(text)`
+  (`/(?:^|[^\w@])@([a-z0-9._-]{3,32})/gi` — не ловит e-mail),
+  `resolveVisibleMentions(projectId, issueId, logins)` → активные и видящие
+  задачу (участник проекта ∪ collaborator ∪ глоб. admin; неявный viewer в MVP
+  не упоминаем — D5).
+- **Вызовы `emit`:**
+  - `routes/comments.ts` `POST /:id/comments` — `autoWatch(автор)` →
+    `emit(issue.comment)` → `emit(issue.mention)` по разобранным `@`;
+  - `routes/issues.ts` `PATCH /:id` — при смене `assigneeId` на непустой →
+    `emit(issue.assigned)` новому исполнителю; при смене `description` — `@` в
+    описании → `emit(issue.mention)`;
+  - `routes/issues.ts` `POST /:id/transition` — при реальной смене статуса →
+    `autoWatch(актор)` + `emit(issue.status)` (payload `from`/`to` — имена
+    статусов, для in-app; email их не читает, D9);
+  - `routes/collaborators.ts` `PUT /:id/collaborators/:userId` →
+    `emit(issue.collaborator)` подключённому;
+  - `routes/members.ts` `PUT /:userId` → `emit(project.member)` (`issue_id=null`).
+- **`server/src/routes/notifications.ts`** *(новый, `/api`, project-less,
+  `requireAuth`)*:
+  - `GET /api/notifications?cursor=&limit=` — лента получателя, курсор по
+    `created_at`, `{ items, nextCursor, unread }`; элемент — `type`, `actor`
+    (мини-профиль), `projectId`/`issueId`, `payload` (для in-app), `read`;
+  - `GET /api/notifications/unread-count` → `{ count }` (partial-индекс);
+  - `POST /api/notifications/read` — `{ ids? }` или пустое тело = все; `204`;
+  - `PATCH /api/notifications/prefs` — `{ email?, selfWatch? }` мерж в
+    `users.notify_prefs` (`|| $::jsonb`) → `{ notifyPrefs }`.
+- **`contract.ts`** — `NOTIFY_TYPES`, `NotifyType`, `NotifyPrefs`,
+  `NotifyPrefsBody` / `NotificationsQuery` / `MarkReadBody`.
+- **`auth.ts` / `routes/auth.ts`** — `UserRow.notify_prefs`; `GET /api/auth/me`
+  возвращает `notifyPrefs` (**только себе**, не в общем `safeUser` — чужие
+  настройки не светим).
 - **`app.ts`** — `notificationRoutes` рядом с `userRoutes`.
-- **`services/issues.ts` / watchers** — при `POST /:id/comments` и
-  `POST /:id/transition` автор добавляется в `issue_watchers` (если
-  `notify_prefs.selfWatch`, D6) — «自подписка».
-- **Тесты** — `server/test/notifications.test.ts`: назначение → строка у нового
-  исполнителя, не у актора; комментарий → у watchers/assignee/reporter/collab, не
-  у автора; `@login` видимого юзера → mention-строка, `@` невидимого →
-  игнор; смена статуса → у watchers; `GET /notifications` пагинация + `unread`;
-  `POST /read` (выборочно / все); деактивированный не получает; `prefs` PATCH.
-- Проверка: `typecheck` 0, `npm test` — прежние + новые зелёные.
+- **Тесты** — `server/test/notifications.test.ts` (12): актор не уведомляет себя
+  (комментарий / самоназначение); деактивированный watcher не получает; комментарий
+  → ровно `{assignee/reporter (1 строка), watcher, collaborator}` без актора /
+  посторонних / деактивированных; смена статуса — без collaborators; `@` видимого
+  → `issue.mention`, `@` невидимого / несуществующего / e-mail → игнор; `@`
+  collaborator’а (не участник проекта) → приходит; назначение / подключение /
+  добавление в проект; лента + `unread-count` + `read` (выборочно/все) + `prefs`;
+  чужая лента пуста; `selfWatch=false` → нет авто-подписки.
+- Проверка: `typecheck` 0, `npm test` 67 зелёных.
 
 ### Фаза 3 — Фоновый воркер + email
 

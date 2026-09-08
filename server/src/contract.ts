@@ -211,6 +211,39 @@ export const CommentBody = z.object({
   body: multiLine(LIMITS.comment.max, LIMITS.comment.min, "Комментарий не может быть пустым"),
 });
 
+/* ---------------- Notifications (миграция 011) ---------------- */
+export const NOTIFY_TYPES = [
+  "issue.assigned",
+  "issue.comment",
+  "issue.mention",
+  "issue.status",
+  "issue.collaborator",
+  "project.member",
+] as const;
+export type NotifyType = (typeof NOTIFY_TYPES)[number];
+
+/** users.notify_prefs (D6). Хранится как jsonb; поля опциональны, дефолты — в коде
+ *  (email 'instant' если у юзера есть email, иначе 'off'; selfWatch true). */
+export type NotifyPrefs = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
+
+/** PATCH /api/notifications/prefs — частичное обновление (мержится в jsonb). */
+export const NotifyPrefsBody = z
+  .object({
+    email: z.enum(["instant", "daily", "off"]),
+    selfWatch: z.boolean(),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+
+/** GET /api/notifications — query. */
+export const NotificationsQuery = z.object({
+  cursor: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+
+/** POST /api/notifications/read — тело опционально; пусто = отметить все. */
+export const MarkReadBody = z.object({ ids: z.array(uuid).max(500).optional() });
+
 /* ---------------- Sprints / Workflow / Users ---------------- */
 export const MoveToSprintBody = z.object({ sprintId: uuid.nullable() });
 
