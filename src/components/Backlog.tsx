@@ -69,7 +69,7 @@ function Row({ issue }: { issue: Issue }) {
           width={190}
           button={() => (
             <button
-              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-[#e3e9f1] hover:text-ink group-hover:opacity-100"
+              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink group-hover:opacity-100"
               aria-label="Действия"
             >
               <IcDots size={14} />

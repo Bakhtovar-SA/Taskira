@@ -82,7 +82,7 @@ function ProjectMembers({ projectId, allUsers }: { projectId: string; allUsers: 
     return <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-faint">Загрузка состава…</p>;
   if (state.status === "error")
     return (
-      <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-[#B42318]">
+      <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-danger">
         Не удалось загрузить состав.{" "}
         <button className="underline" onClick={load}>
           повторить
@@ -122,7 +122,7 @@ function ProjectMembers({ projectId, allUsers }: { projectId: string; allUsers: 
             <button
               disabled={busy}
               onClick={() => run(removeProjectMember(projectId, m.userId))}
-              className="rounded-md border border-line bg-white px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:border-[#B42318] hover:text-[#B42318] disabled:opacity-40"
+              className="rounded-md border border-line bg-white px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-40"
             >
               Убрать
             </button>
@@ -287,7 +287,7 @@ export default function AdminView() {
                     }
                     disabled={projs.length > 0}
                     title={projs.length > 0 ? "Сначала удалите или перенесите проекты" : "Удалить отдел"}
-                    className="shrink-0 rounded-md border border-line bg-white p-1.5 text-sub transition-colors hover:border-[#B42318] hover:text-[#B42318] disabled:opacity-30 disabled:hover:border-line disabled:hover:text-sub"
+                    className="shrink-0 rounded-md border border-line bg-white p-1.5 text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-30 disabled:hover:border-line disabled:hover:text-sub"
                   >
                     <IcTrash size={13} />
                   </button>
@@ -315,7 +315,7 @@ export default function AdminView() {
                   {projs.map((p) => (
                     <div key={p.id}>
                       <div className="flex items-center gap-2 px-3 py-2">
-                        <span className="w-16 shrink-0 rounded bg-[#e8edf4] px-1.5 py-0.5 text-center font-mono text-[10.5px] font-bold text-sub">
+                        <span className="w-16 shrink-0 rounded bg-linesoft px-1.5 py-0.5 text-center font-mono text-[10.5px] font-bold text-sub">
                           {p.key}
                         </span>
                         <EditableName value={p.name} onSave={(v) => patchProject(p.id, { name: v })} maxLength={LIMITS.project.name.max} />
@@ -346,7 +346,7 @@ export default function AdminView() {
                             window.confirm(`Удалить проект ${p.key} со всеми задачами? Действие необратимо.`) &&
                             deleteProject(p.id)
                           }
-                          className="shrink-0 rounded-md border border-line bg-white p-1.5 text-sub transition-colors hover:border-[#B42318] hover:text-[#B42318]"
+                          className="shrink-0 rounded-md border border-line bg-white p-1.5 text-sub transition-colors hover:border-danger hover:text-danger"
                         >
                           <IcTrash size={13} />
                         </button>

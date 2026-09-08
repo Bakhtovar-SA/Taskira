@@ -66,7 +66,7 @@ export default function CreateIssueModal() {
     <Modal onClose={() => setCreateOpen(false)} w={620}>
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
         <span className="font-disp text-[14px] font-bold text-ink">Новая задача</span>
-        <span className="rounded bg-[#e8edf4] px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-sub">{data.project.key}-{data.seq}</span>
+        <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-sub">{data.project.key}-{data.seq}</span>
         <button onClick={() => setCreateOpen(false)} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-canvas hover:text-ink" aria-label="Закрыть">
           <IcX size={15} />
         </button>
@@ -82,7 +82,7 @@ export default function CreateIssueModal() {
                 key={t}
                 onClick={() => setTypeId(t)}
                 className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-2 py-2 text-[12.5px] font-semibold transition-all ${
-                  typeId === t ? "border-accent bg-accentsoft text-accent shadow-[0_0_0_2px_rgba(11,95,217,0.15)]" : "border-line bg-white text-sub hover:border-[#b9c6da]"
+                  typeId === t ? "border-accent bg-accentsoft text-accent shadow-[0_0_0_2px_rgba(11,95,217,0.15)]" : "border-line bg-white text-sub hover:border-line2"
                 }`}
               >
                 <TypeIcon type={t} size={14} /> {ISSUE_TYPES[t].name}
@@ -221,7 +221,7 @@ export default function CreateIssueModal() {
           Отмена
         </button>
         <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12px] text-sub">
-          <input type="checkbox" checked={again} onChange={(e) => setAgain(e.target.checked)} className="h-3.5 w-3.5 accent-[#0b5fd9]" />
+          <input type="checkbox" checked={again} onChange={(e) => setAgain(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
           создать ещё одну следом
         </label>
       </div>

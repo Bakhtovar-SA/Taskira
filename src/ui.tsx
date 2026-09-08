@@ -10,7 +10,7 @@ export const Avatar = ({ user, size = 26, ring = false }: { user: AvatarUser | n
   if (!user)
     return (
       <span
-        className="inline-flex items-center justify-center rounded-full border border-dashed border-[#aeb9cb] bg-[#eef1f6] text-[#8b95a7]"
+        className="inline-flex items-center justify-center rounded-full border border-dashed border-line2 bg-linesoft text-faint"
         style={{ width: size, height: size, fontSize: size * 0.42 }}
         title="Не назначен"
       >
@@ -29,7 +29,11 @@ export const Avatar = ({ user, size = 26, ring = false }: { user: AvatarUser | n
 };
 
 export const catColor = (cat: Status["category"]) =>
-  cat === "done" ? { dot: "#22a06b", bg: "#ddf3e7", fg: "#116e46" } : cat === "inprogress" ? { dot: "#e2b203", bg: "#fdf0cf", fg: "#7a5c00" } : { dot: "#6b7a94", bg: "#e3e9f1", fg: "#44546f" };
+  cat === "done"
+    ? { dot: "var(--c-ok)", bg: "var(--c-oksoft)", fg: "var(--c-ok-fg)" }
+    : cat === "inprogress"
+      ? { dot: "var(--c-warndot)", bg: "var(--c-warnsoft)", fg: "var(--c-warn-fg)" }
+      : { dot: "var(--c-todo)", bg: "var(--c-todosoft)", fg: "var(--c-todo-fg)" };
 
 export const Lozenge = ({ status, size = "md" }: { status: Status; size?: "sm" | "md" }) => {
   const c = catColor(status.category);
@@ -47,7 +51,7 @@ export const Lozenge = ({ status, size = "md" }: { status: Status; size?: "sm" |
 export const Chip = ({ text, color, onRemove }: { text: string; color?: string; onRemove?: () => void }) => (
   <span
     className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
-    style={color ? { background: `${color}1c`, color } : { background: "#e8edf4", color: "#44546f" }}
+    style={color ? { background: `${color}1c`, color } : { background: "var(--c-linesoft)", color: "var(--c-sub)" }}
   >
     {text}
     {onRemove && (
@@ -118,8 +122,8 @@ export function Modal({ onClose, children, w = 860 }: { onClose: () => void; chi
 }
 
 export const Empty = ({ icon, title, sub }: { icon: React.ReactNode; title: string; sub?: string }) => (
-  <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#c3ccda] px-4 py-7 text-center">
-    <span className="text-[#a4b0c2]">{icon}</span>
+  <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line2 px-4 py-7 text-center">
+    <span className="text-faint">{icon}</span>
     <p className="text-[13px] font-semibold text-sub">{title}</p>
     {sub && <p className="max-w-[240px] text-xs text-faint">{sub}</p>}
   </div>
@@ -139,18 +143,18 @@ export const Tip = ({ label, children, className = "" }: { label: string; childr
 );
 
 export const roleBadgeColors: Record<AccessRole, string> = {
-  admin: "#B42318",
-  manager: "#0B5FD9",
-  employee: "#1C8A5C",
-  viewer: "#64748B",
+  admin: "var(--c-danger)",
+  manager: "var(--c-accent)",
+  employee: "var(--c-ok)",
+  viewer: "var(--c-faint)",
 };
 
 export const RoleBadge = ({ role, size = "md" }: { role: AccessRole; size?: "sm" | "md" }) => {
   const meta = {
-    admin: { name: "Администратор", color: "#B42318", bg: "#fdeae8" },
-    manager: { name: "Менеджер", color: "#0B5FD9", bg: "#e8f0fd" },
-    employee: { name: "Сотрудник", color: "#1C8A5C", bg: "#ddf3e7" },
-    viewer: { name: "Наблюдатель", color: "#64748B", bg: "#e8edf4" },
+    admin: { name: "Администратор", color: "var(--c-danger)", bg: "var(--c-dangersoft)" },
+    manager: { name: "Менеджер", color: "var(--c-accent)", bg: "var(--c-accentsoft)" },
+    employee: { name: "Сотрудник", color: "var(--c-ok)", bg: "var(--c-oksoft)" },
+    viewer: { name: "Наблюдатель", color: "var(--c-sub)", bg: "var(--c-linesoft)" },
   }[role];
   return (
     <span
@@ -180,9 +184,9 @@ export const LockedField = ({ children, reason }: { children: React.ReactNode; r
 export function Toasts() {
   const { toasts } = useStore();
   const meta = {
-    success: { border: "#22a06b", fg: "#116e46", bg: "#ddf3e7", label: "Готово" },
-    error: { border: "#d23a2e", fg: "#a02a21", bg: "#fdeae8", label: "Ошибка" },
-    info: { border: "#0b5fd9", fg: "#0a4cb0", bg: "#e8f0fd", label: "Инфо" },
+    success: { border: "var(--c-ok)", fg: "var(--c-ok-fg)", bg: "var(--c-oksoft)", label: "Готово" },
+    error: { border: "var(--c-danger)", fg: "var(--c-danger)", bg: "var(--c-dangersoft)", label: "Ошибка" },
+    info: { border: "var(--c-accent)", fg: "var(--c-accentdeep)", bg: "var(--c-accentsoft)", label: "Инфо" },
   };
   return (
     <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[340px] flex-col gap-2">

@@ -112,7 +112,7 @@ export default function PermissionsView() {
                       <p className="flex items-center gap-2 text-[13px] font-semibold text-ink">
                         {u?.name ?? id}
                         {mine && <span className="rounded bg-accent px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-white">вы</span>}
-                        {u?.globalRole === "admin" && <span className="rounded bg-[#B42318] px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-white">админ ресурса</span>}
+                        {u?.globalRole === "admin" && <span className="rounded bg-danger px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-white">админ ресурса</span>}
                       </p>
                       {u?.role && <p className="text-[11px] text-faint">{u.role}</p>}
                     </div>
@@ -132,7 +132,7 @@ export default function PermissionsView() {
                     {canManage && (
                       <button
                         onClick={() => removeMember(id)}
-                        className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-[#B42318] hover:text-[#B42318]"
+                        className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger"
                       >
                         Убрать
                       </button>
@@ -226,7 +226,7 @@ export default function PermissionsView() {
                       <p className="mt-0.5 max-w-[440px] text-[11px] leading-snug text-faint">{p.desc}</p>
                     </td>
                     <td className="px-2 py-2.5">
-                      <span className="rounded bg-[#e8edf4] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sub">{p.scope}</span>
+                      <span className="rounded bg-linesoft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sub">{p.scope}</span>
                     </td>
                     {ROLE_ORDER.map((r) => {
                       const ok = roleHas(r, p.id);
@@ -236,7 +236,7 @@ export default function PermissionsView() {
                           {ok ? (
                             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-oksoft text-ok"><IcCheck size={11} /></span>
                           ) : (
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#eef1f6] text-[#a4b0c2]"><IcX size={10} /></span>
+                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-linesoft text-faint"><IcX size={10} /></span>
                           )}
                         </td>
                       );

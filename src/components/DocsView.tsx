@@ -21,7 +21,7 @@ const H = ({ children }: { children: React.ReactNode }) => (
 );
 const P = ({ children }: { children: React.ReactNode }) => <p className="mt-2 text-[13px] leading-relaxed text-sub">{children}</p>;
 const Code = ({ children }: { children: React.ReactNode }) => (
-  <code className="rounded bg-[#e8edf4] px-1.5 py-0.5 font-mono text-[11.5px] font-semibold text-[#0a4cb0]">{children}</code>
+  <code className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[11.5px] font-semibold text-accentdeep">{children}</code>
 );
 
 export default function DocsView() {
@@ -111,7 +111,7 @@ export default function DocsView() {
                       <td className="px-2 py-1.5 font-medium text-ink">{p.name}</td>
                       {ROLE_ORDER.map((r) => (
                         <td key={r} className="px-2 py-1.5 text-center">
-                          {roleHas(r, p.id) ? <span className="font-bold text-ok">✓</span> : <span className="text-[#c3ccda]">—</span>}
+                          {roleHas(r, p.id) ? <span className="font-bold text-ok">✓</span> : <span className="text-line2">—</span>}
                         </td>
                       ))}
                     </tr>

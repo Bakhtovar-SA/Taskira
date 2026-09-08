@@ -61,7 +61,7 @@ export default function LoginForm({ onSuccess }: Props) {
           </label>
 
           {error && (
-            <div className="rounded-md border border-[#f5c2c0] bg-[#fdeae8] px-3 py-2 text-[13px] text-[#a02a21]">{error}</div>
+            <div className="rounded-md border border-dangersoft bg-dangersoft px-3 py-2 text-[13px] text-danger">{error}</div>
           )}
 
           <button

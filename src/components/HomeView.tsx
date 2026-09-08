@@ -35,7 +35,7 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
       <span className="shrink-0" title={PRIORITIES[issue.priorityId]?.name}>
         <PriorityIcon p={issue.priorityId} size={14} />
       </span>
-      <IcChevR size={13} className="shrink-0 text-[#c3ccda] group-hover:text-faint" />
+      <IcChevR size={13} className="shrink-0 text-line2 group-hover:text-faint" />
     </button>
   );
 }
@@ -101,7 +101,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
           <section className="mt-7">
             <div className="mb-2 flex items-baseline gap-2">
               <h2 className="text-[14px] font-bold text-ink">Мои задачи</h2>
-              <span className="rounded-full bg-[#e3e9f1] px-2 py-0.5 font-mono text-[10.5px] font-bold text-sub">
+              <span className="rounded-full bg-todosoft px-2 py-0.5 font-mono text-[10.5px] font-bold text-sub">
                 {data.assignedToMe.length}
               </span>
             </div>
@@ -139,7 +139,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                             {p.id === last ? "продолжить" : p.isShared ? "общий проект" : "проект команды"}
                           </span>
                         </span>
-                        <IcChevR size={14} className="shrink-0 text-[#c3ccda] group-hover:text-accent" />
+                        <IcChevR size={14} className="shrink-0 text-line2 group-hover:text-accent" />
                       </button>
                     ))}
                   </div>

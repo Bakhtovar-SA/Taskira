@@ -85,7 +85,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
         {collabs.map((c) => (
           <span
             key={c.userId}
-            className="flex items-center gap-1.5 rounded-full bg-[#eef1f6] py-0.5 pl-1 pr-2 text-[11.5px] text-ink"
+            className="flex items-center gap-1.5 rounded-full bg-linesoft py-0.5 pl-1 pr-2 text-[11.5px] text-ink"
           >
             <span
               className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[7.5px] font-bold text-white"
@@ -97,7 +97,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
             {canManage && (
               <button
                 onClick={() => removeCollaborator(issue.id, c.userId)}
-                className="ml-0.5 text-faint transition-colors hover:text-[#B42318]"
+                className="ml-0.5 text-faint transition-colors hover:text-danger"
                 title="Отключить от задачи"
               >
                 <IcX size={10} />
@@ -209,7 +209,7 @@ function AttachmentField({ issue }: { issue: Issue }) {
               {(canDeleteAny || mine) && (
                 <button
                   onClick={() => removeAttachment(issue.id, a.id)}
-                  className="shrink-0 text-faint transition-colors hover:text-[#B42318]"
+                  className="shrink-0 text-faint transition-colors hover:text-danger"
                   title="Удалить вложение"
                 >
                   <IcX size={10} />
@@ -224,7 +224,7 @@ function AttachmentField({ issue }: { issue: Issue }) {
           {hiddenInput}
           <button
             onClick={() => fileRef.current?.click()}
-            className="mt-1.5 rounded-md border border-dashed border-[#c3ccda] px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
+            className="mt-1.5 rounded-md border border-dashed border-line2 px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
           >
             + прикрепить файл
           </button>
@@ -393,11 +393,11 @@ export default function IssueModal() {
                 <p className="whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub"><MentionText text={issue.description} /></p>
               )
             ) : editOk ? (
-              <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-[#c3ccda] px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accent">
+              <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accent">
                 + Добавить описание
               </button>
             ) : (
-              <p className="rounded-md border border-dashed border-[#c3ccda] px-3 py-3 text-[12.5px] text-faint">Описание не заполнено</p>
+              <p className="rounded-md border border-dashed border-line2 px-3 py-3 text-[12.5px] text-faint">Описание не заполнено</p>
             )}
           </div>
 
@@ -444,7 +444,7 @@ export default function IssueModal() {
                 </div>
               </div>
               ) : (
-                <p className="flex items-center gap-2 rounded-md border border-dashed border-[#c3ccda] bg-canvas/50 px-3 py-2.5 text-[12px] text-faint">
+                <p className="flex items-center gap-2 rounded-md border border-dashed border-line2 bg-canvas/50 px-3 py-2.5 text-[12px] text-faint">
                   <IcLock size={13} /> Ваша роль не позволяет оставлять комментарии
                 </p>
               )}
@@ -703,7 +703,7 @@ export default function IssueModal() {
                       }
                     }}
                     placeholder="+ метка"
-                    className="w-20 rounded border border-dashed border-[#c3ccda] bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent"
+                    className="w-20 rounded border border-dashed border-line2 bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent"
                   />
                 )}
                 {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}

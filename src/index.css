@@ -1,35 +1,121 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Палитра. Значения живут в обычных custom properties ВНЕ @theme
+   (@theme компилируется статически при сборке — переопределить его
+   переменные в рантайме нельзя). @theme лишь ссылается на них, поэтому
+   сгенерированные классы (bg-canvas, text-ink, …) продолжают работать,
+   а реальный цвет резолвится браузером из --c-* и переключается по
+   data-theme на <html>. См. ticket-theme-background-home-logo.md §3.
+   ============================================================ */
+:root {
+  /* поверхности */
+  --c-canvas: #f1f3f7;
+  --c-panel: #fdfdfe;
+  --c-line: #dde3ec;
+  --c-linesoft: #e8edf4;
+  --c-line2: #c3ccda; /* пунктирные рамки / disabled — на тон темнее line */
+
+  /* текст */
+  --c-ink: #17233b;
+  --c-sub: #57606f;
+  --c-faint: #8b95a7;
+
+  /* сайдбар (тёмный в обеих темах) */
+  --c-sidebar: #0f1b2d;
+  --c-sidebar2: #182a44;
+
+  /* акцент */
+  --c-accent: #0b5fd9;
+  --c-accentdeep: #0a4cb0;
+  --c-accentsoft: #e8f0fd;
+
+  /* статусные */
+  --c-ok: #1c8a5c;
+  --c-oksoft: #ddf3e7;
+  --c-warn: #b45f06;
+  --c-warnsoft: #fdf0cf;
+  --c-warndot: #e2b203;
+  --c-danger: #d23a2e;
+  --c-dangersoft: #fdeae8;
+  --c-todo: #44546f;
+  --c-todosoft: #e3e9f1;
+
+  /* насыщенный текст на *soft-подложках (лозенги статусов, catColor) */
+  --c-ok-fg: #116e46;
+  --c-warn-fg: #7a5c00;
+  --c-todo-fg: #44546f;
+
+  /* фон рабочей области — пресет поверх темы (ticket §4).
+     По умолчанию совпадает с canvas; переключатель «Оформление» ставит
+     на <html> style="--bg-preset: …". */
+  --bg-preset: var(--c-canvas);
+}
+
+:root[data-theme="dark"] {
+  --c-canvas: #161a20;
+  --c-panel: #1e232c;
+  --c-line: #333c48;
+  --c-linesoft: #29313b;
+  --c-line2: #3c4552;
+
+  --c-ink: #e9edf4;
+  --c-sub: #a9b3c1;
+  --c-faint: #6e7887;
+
+  --c-sidebar: #10141a;
+  --c-sidebar2: #191f27;
+
+  --c-accent: #4f8ef0;
+  --c-accentdeep: #6ba0f4;
+  --c-accentsoft: #1f3350;
+
+  --c-ok: #34b37a;
+  --c-oksoft: #16362a;
+  --c-warn: #d98b3a;
+  --c-warnsoft: #3a2e17;
+  --c-warndot: #e2b203;
+  --c-danger: #e5594d;
+  --c-dangersoft: #3a201e;
+  --c-todo: #9aa8bd;
+  --c-todosoft: #2b323d;
+
+  --c-ok-fg: #5cc99a;
+  --c-warn-fg: #e0a94a;
+  --c-todo-fg: #aeb9c9;
+}
+
 @theme {
   --font-disp: "Unbounded", "Golos Text", sans-serif;
   --font-body: "Golos Text", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --color-canvas: #f1f3f7;
-  --color-panel: #fdfdfe;
-  --color-line: #dde3ec;
-  --color-linesoft: #e8edf4;
+  --color-canvas: var(--c-canvas);
+  --color-panel: var(--c-panel);
+  --color-line: var(--c-line);
+  --color-linesoft: var(--c-linesoft);
+  --color-line2: var(--c-line2);
 
-  --color-ink: #17233b;
-  --color-sub: #57606f;
-  --color-faint: #8b95a7;
+  --color-ink: var(--c-ink);
+  --color-sub: var(--c-sub);
+  --color-faint: var(--c-faint);
 
-  --color-sidebar: #0f1b2d;
-  --color-sidebar2: #182a44;
+  --color-sidebar: var(--c-sidebar);
+  --color-sidebar2: var(--c-sidebar2);
 
-  --color-accent: #0b5fd9;
-  --color-accentdeep: #0a4cb0;
-  --color-accentsoft: #e8f0fd;
+  --color-accent: var(--c-accent);
+  --color-accentdeep: var(--c-accentdeep);
+  --color-accentsoft: var(--c-accentsoft);
 
-  --color-ok: #1c8a5c;
-  --color-oksoft: #ddf3e7;
-  --color-warn: #b45f06;
-  --color-warnsoft: #fdf0cf;
-  --color-warndot: #e2b203;
-  --color-danger: #d23a2e;
-  --color-dangersoft: #fdeae8;
-  --color-todo: #44546f;
-  --color-todosoft: #e3e9f1;
+  --color-ok: var(--c-ok);
+  --color-oksoft: var(--c-oksoft);
+  --color-warn: var(--c-warn);
+  --color-warnsoft: var(--c-warnsoft);
+  --color-warndot: var(--c-warndot);
+  --color-danger: var(--c-danger);
+  --color-dangersoft: var(--c-dangersoft);
+  --color-todo: var(--c-todo);
+  --color-todosoft: var(--c-todosoft);
 }
 
 html,
@@ -40,14 +126,14 @@ body,
 
 body {
   font-family: var(--font-body);
-  background: var(--color-canvas);
+  background: var(--bg-preset);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
 }
 
 ::selection {
-  background: #b9d4f9;
+  background: color-mix(in srgb, var(--c-accent) 32%, transparent);
 }
 
 *::-webkit-scrollbar {
@@ -58,19 +144,19 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: #c3ccda;
+  background: var(--c-line2);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #a7b3c6;
+  background: var(--c-faint);
   background-clip: content-box;
   border: 2px solid transparent;
 }
 
 .dotgrid {
-  background-image: radial-gradient(#cdd6e3 1px, transparent 1.1px);
+  background-image: radial-gradient(color-mix(in srgb, var(--c-faint) 55%, transparent) 1px, transparent 1.1px);
   background-size: 22px 22px;
 }
 
@@ -106,8 +192,8 @@ body {
 }
 @keyframes cardFlash {
   0% {
-    box-shadow: 0 0 0 2px #0b5fd9;
-    background: #e8f0fd;
+    box-shadow: 0 0 0 2px var(--c-accent);
+    background: var(--c-accentsoft);
   }
   100% {
     box-shadow: 0 0 0 0 transparent;
