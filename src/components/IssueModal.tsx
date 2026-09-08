@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { canTransition, relTime, useStore } from "../store";
+import { canTransition, fmtDate, relTime, useStore } from "../store";
 import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import { usersApi, type PickableUser } from "../api";
@@ -105,6 +105,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
             )}
           </span>
         ))}
+        {/* достижимо при canManage && expand (пустой развёрнутый инвайт) */}
         {collabs.length === 0 && <span className="text-[12px] text-faint">никого не приглашали</span>}
       </div>
       {canManage && (
@@ -307,10 +308,11 @@ export default function IssueModal() {
   return (
     <Modal onClose={() => openIssue(null)} w={940}>
       {/* шапка */}
-      <div className="flex items-center gap-2.5 border-b border-line px-5 py-3">
-        <TypeIcon type={issue.typeId} size={16} />
+      <div className="flex items-center gap-2 border-b border-line px-5 py-3">
+        <span title={ISSUE_TYPES[issue.typeId].name} className="flex items-center">
+          <TypeIcon type={issue.typeId} size={16} />
+        </span>
         <span className="font-mono text-[12.5px] font-bold text-ink">{issue.key}</span>
-        <span className="rounded bg-[#e8edf4] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sub">{ISSUE_TYPES[issue.typeId].name}</span>
         <div className="ml-auto flex items-center gap-1">
           {!editOk && (
             <span className="mr-1 flex items-center gap-1.5 rounded bg-warnsoft px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-warn" title={denyMsg}>
@@ -343,16 +345,10 @@ export default function IssueModal() {
         <div className="min-w-0 px-5 py-4">
           <EditableTitle issue={issue} readOnly={!editOk} />
 
-          {/* описание */}
+          {/* описание — сам блок кликабелен для входа в редактирование (отдельной
+              кнопки «Редактировать» нет, как у EditableTitle) */}
           <div className="mt-4">
-            <div className="mb-1.5 flex items-center gap-2">
-              <p className="text-[10.5px] font-bold uppercase tracking-wider text-faint">Описание</p>
-              {!editingDesc && editOk && (
-                <button onClick={() => { setDescDraft(issue.description); setEditingDesc(true); }} className="flex items-center gap-1 text-[11px] font-semibold text-accent hover:underline">
-                  <IcPencil size={11} /> Редактировать
-                </button>
-              )}
-            </div>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Описание</p>
             {editingDesc ? (
               <div className="anim-fadeup">
                 <textarea
@@ -369,7 +365,33 @@ export default function IssueModal() {
                 </div>
               </div>
             ) : issue.description ? (
-              <p className="whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub"><MentionText text={issue.description} /></p>
+              editOk ? (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  // Клик в режим правки — но не мешать выделению текста мышью для копирования:
+                  // если пользователь что-то выделил, click после mouseup режим не переключает.
+                  onClick={() => {
+                    if (window.getSelection()?.toString()) return;
+                    setDescDraft(issue.description);
+                    setEditingDesc(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setDescDraft(issue.description);
+                      setEditingDesc(true);
+                    }
+                  }}
+                  title="Нажмите, чтобы редактировать"
+                  className="group cursor-text whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub transition-colors hover:bg-canvas focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                >
+                  <MentionText text={issue.description} />
+                  <IcPencil size={12} className="ml-1.5 inline align-text-bottom text-faint opacity-0 transition-opacity group-hover:opacity-100" />
+                </div>
+              ) : (
+                <p className="whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub"><MentionText text={issue.description} /></p>
+              )
             ) : editOk ? (
               <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-[#c3ccda] px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accent">
                 + Добавить описание
@@ -563,19 +585,18 @@ export default function IssueModal() {
             )}
           </Field>
 
-          <div className="flex gap-2.5">
-            <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap gap-2.5">
+            <div className="min-w-[104px] flex-1">
               <Field label="Приоритет">
                 {editOk ? (
                 <Dropdown
                   width={220}
                   button={(open) => (
                     <button
-                      className={`flex w-full items-center gap-1 rounded-md border bg-white px-1.5 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
+                      className={`flex w-full items-center gap-1.5 rounded-md border bg-white px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
                     >
                       <PriorityIcon p={issue.priorityId} size={13} />
                       <span className="min-w-0 flex-1 truncate text-left">{PRIORITIES[issue.priorityId].name}</span>
-                      <IcChevD size={11} className="shrink-0 text-faint" />
                     </button>
                   )}
                 >
@@ -596,7 +617,7 @@ export default function IssueModal() {
                 )}
               </Field>
             </div>
-            <div className="w-[122px] shrink-0">
+            <div className="min-w-[116px] flex-1">
               <Field label="Срок">
                 {editOk ? (
                   <input
@@ -611,7 +632,7 @@ export default function IssueModal() {
                   <LockedField reason={denyMsg}>
                     <span className={`flex items-center gap-1.5 ${overdue ? "font-semibold text-danger" : ""}`}>
                       <IcCalendar size={12} />
-                      {issue.dueDate ? issue.dueDate : "—"}
+                      {issue.dueDate ? fmtDate(issue.dueDate) : "—"}
                     </span>
                   </LockedField>
                 )}

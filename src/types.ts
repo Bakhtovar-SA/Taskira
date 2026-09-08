@@ -1,5 +1,5 @@
 export type IssueTypeId = "task" | "bug" | "request";
-export type PriorityId = "highest" | "high" | "medium" | "low" | "lowest";
+export type PriorityId = "low" | "medium" | "high" | "critical";
 export type StatusCategory = "todo" | "inprogress" | "done";
 /** Эффективная роль для матрицы прав (см. permissions.ts). */
 export type AccessRole = "admin" | "manager" | "employee" | "viewer";
@@ -232,12 +232,11 @@ export const ISSUE_TYPES: Record<IssueTypeId, { name: string }> = {
 };
 
 export const PRIORITIES: Record<PriorityId, { name: string }> = {
-  highest: { name: "Высший" },
+  critical: { name: "Критичный" },
   high: { name: "Высокий" },
   medium: { name: "Средний" },
   low: { name: "Низкий" },
-  lowest: { name: "Низший" },
 };
 
-export const PRIORITY_ORDER: PriorityId[] = ["highest", "high", "medium", "low", "lowest"];
+export const PRIORITY_ORDER: PriorityId[] = ["critical", "high", "medium", "low"];
 export const TYPE_ORDER: IssueTypeId[] = ["task", "bug", "request"];

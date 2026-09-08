@@ -56,7 +56,7 @@ export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId | string; size
 };
 
 export const PriorityIcon = ({ p, size = 15 }: { p: PriorityId; size?: number }) => {
-  const c = { highest: "#D23A2E", high: "#E8772E", medium: "#C79A0A", low: "#3D7FE0", lowest: "#8B95A7" }[p];
+  const c = { critical: "#D23A2E", high: "#E8772E", medium: "#C79A0A", low: "#3D7FE0" }[p];
   if (p === "medium")
     return (
       <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Средний приоритет">
@@ -64,17 +64,14 @@ export const PriorityIcon = ({ p, size = 15 }: { p: PriorityId; size?: number })
         <rect x="2.5" y="9" width="11" height="2.4" rx="1.2" fill={c} />
       </svg>
     );
-  const down = p === "low" || p === "lowest";
+  const down = p === "low";
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Приоритет" style={{ transform: down ? "rotate(180deg)" : undefined }}>
-      {p === "lowest" ? (
-        <>
-          <path d="M8 2.2l4.4 4.6H9.5v2.6H6.5V6.8H3.6L8 2.2z" fill={c} />
-          <path d="M4.2 11.4h7.6v2.2H4.2z" fill={c} />
-        </>
-      ) : p === "highest" ? (
+      {p === "critical" ? (
+        // двойная стрелка вверх — «Критичный»
         <path d="M8 1.4l5.2 5.4h-2.8v3.2H5.6V6.8H2.8L8 1.4zM4.4 12h7.2v2.4H4.4z" fill={c} />
       ) : (
+        // одинарная стрелка (для «Низкий» перевёрнута вниз через rotate)
         <path d="M8 2.4l4.8 5H9.7v5.2H6.3V7.4H3.2L8 2.4z" fill={c} />
       )}
     </svg>

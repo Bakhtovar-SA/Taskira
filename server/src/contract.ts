@@ -48,7 +48,7 @@ export const GLOBAL_ROLES = ["admin", "member"] as const;
 /** Роль участника проекта (project_members.role). */
 export const PROJECT_ROLES = ["manager", "employee", "viewer"] as const;
 export const ISSUE_TYPES = ["task", "bug", "request"] as const;
-export const PRIORITIES = ["highest", "high", "medium", "low", "lowest"] as const;
+export const PRIORITIES = ["low", "medium", "high", "critical"] as const;
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
 
 const uuid = z.string().uuid("Ожидается UUID");
