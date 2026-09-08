@@ -119,7 +119,10 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
       .sort((a, b) => a.deptName.localeCompare(b.deptName));
   }, [data.projects, data.departments, last]);
 
-  const openTask = (t: AssignedIssue) => {
+  // Принимаем только то, что реально нужно навигации — и TaskRow (полный
+  // AssignedIssue), и «Недавняя активность» (у уведомления лишь project/issue id)
+  // остаются честными перед типизацией, без приведения через весь AssignedIssue.
+  const openTask = (t: Pick<AssignedIssue, "projectId" | "issueId">) => {
     try {
       location.hash = `#/issue/${t.projectId}/${t.issueId}`;
     } catch {
@@ -288,7 +291,7 @@ function RecentActivity({
   onOpen,
 }: {
   notifications: NotificationT[];
-  onOpen: (t: AssignedIssue) => void;
+  onOpen: (t: Pick<AssignedIssue, "projectId" | "issueId">) => void;
 }) {
   const items = notifications.slice(0, 5);
   return (
@@ -308,10 +311,7 @@ function RecentActivity({
               <button
                 key={n.id}
                 disabled={!clickable}
-                onClick={() =>
-                  clickable &&
-                  onOpen({ projectId: n.projectId!, issueId: n.issueId! } as AssignedIssue)
-                }
+                onClick={() => clickable && onOpen({ projectId: n.projectId!, issueId: n.issueId! })}
                 className="flex w-full items-start gap-2.5 border-b border-linesoft px-3.5 py-2.5 text-left transition-colors last:border-0 enabled:hover:bg-accentsoft/50 disabled:cursor-default"
               >
                 <span className="mt-0.5 shrink-0">
