@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { loadConfig } from "./config.js";
 import type { JwtPayload } from "./middleware.js";
 import type { GlobalRole } from "./permissions.js";
+import type { NotifyPrefs } from "./contract.js";
 
 export interface UserRow {
   id: string;
@@ -17,6 +18,7 @@ export interface UserRow {
   auth_source: "local" | "ldap"; // миграция 009
   ldap_dn: string | null;
   email: string | null;
+  notify_prefs: NotifyPrefs | null; // миграция 011 (jsonb; node-postgres отдаёт объектом)
 }
 
 export interface SafeUser {

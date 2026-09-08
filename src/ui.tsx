@@ -3,7 +3,10 @@ import type { AccessRole, Status, User } from "./types";
 import { useStore } from "./store";
 import { IcX } from "./icons";
 
-export const Avatar = ({ user, size = 26, ring = false }: { user: User | null | undefined; size?: number; ring?: boolean }) => {
+/** Аватару достаточно имени/инициалов/цвета — принимаем любой такой объект
+ *  (не только полный User: напр. `actor` в уведомлениях). */
+type AvatarUser = Pick<User, "name" | "initials" | "color">;
+export const Avatar = ({ user, size = 26, ring = false }: { user: AvatarUser | null | undefined; size?: number; ring?: boolean }) => {
   if (!user)
     return (
       <span

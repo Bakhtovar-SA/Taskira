@@ -4,6 +4,7 @@ import { closePool, initPool, migrate } from "./db.js";
 import { seedAdmin } from "./seed.js";
 import { seedProject } from "./seedProject.js";
 import { buildApp } from "./app.js";
+import { startNotifier, stopNotifier } from "./services/notifier.js";
 
 async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
@@ -16,8 +17,13 @@ async function main(): Promise<void> {
   await app.listen({ port: cfg.port, host: cfg.host });
   console.log(`[taskira] API слушает http://${cfg.host}:${cfg.port}`);
 
+  // Фоновый воркер email-уведомлений — только если email включён и воркер разрешён
+  // в этом процессе (NOTIFICATIONS_MIGRATION.md D4). In-app работает без него.
+  if (cfg.notify.emailEnabled && cfg.notify.workerEnabled) startNotifier();
+
   const shutdown = async (sig: string) => {
     console.log(`[taskira] получен ${sig}, останавливаемся…`);
+    stopNotifier();
     await app.close();
     await closePool();
     process.exit(0);

@@ -107,7 +107,7 @@ export default function PermissionsView() {
                 const mine = id === me.id;
                 return (
                   <div key={id} className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${mine ? "bg-accentsoft/50" : "hover:bg-canvas/50"}`}>
-                    <Avatar user={u ?? { id, name: "?", initials: "?", color: "#94a3b8", role: "", globalRole: "member", accessRole: "viewer" }} size={30} />
+                    <Avatar user={u ?? { name: "?", initials: "?", color: "#94a3b8" }} size={30} />
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-2 text-[13px] font-semibold text-ink">
                         {u?.name ?? id}

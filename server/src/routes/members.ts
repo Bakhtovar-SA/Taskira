@@ -13,6 +13,7 @@ import { one, q } from "../db.js";
 import { invalidateMembership, notFound, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
 import { audit } from "../audit.js";
+import { emit } from "../services/notify.js";
 import { MemberParams, SetMemberBody } from "../contract.js";
 import type { ProjectRole } from "../permissions.js";
 
@@ -66,6 +67,14 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
         projectId: project.id,
         from: before?.role ?? null,
         to: rows[0].role,
+      });
+      await emit({
+        type: "project.member",
+        actorId: actor.sub,
+        projectId: project.id,
+        issueId: null,
+        recipientIds: [userId],
+        payload: { projectName: project.name, role: rows[0].role, added: !before },
       });
       return { userId: rows[0].user_id, role: rows[0].role };
     },

@@ -8,6 +8,24 @@ import { PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
 import { IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal } from "../ui";
 
+/** Текст комментария/описания с подсветкой @-упоминаний (NOTIFICATIONS_MIGRATION.md D5). */
+export function MentionText({ text }: { text: string }) {
+  const parts = text.split(/(@[a-z0-9._-]{3,32})/gi);
+  return (
+    <>
+      {parts.map((p, i) =>
+        /^@[a-z0-9._-]{3,32}$/i.test(p) ? (
+          <span key={i} className="rounded bg-accentsoft px-1 font-semibold text-accent">
+            {p}
+          </span>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -319,7 +337,7 @@ export default function IssueModal() {
                 </div>
               </div>
             ) : issue.description ? (
-              <p className="whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub">{issue.description}</p>
+              <p className="whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub"><MentionText text={issue.description} /></p>
             ) : editOk ? (
               <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-[#c3ccda] px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accent">
                 + Добавить описание
@@ -385,7 +403,7 @@ export default function IssueModal() {
                       <p className="text-[12px]">
                         <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(c.ts)}</span>
                       </p>
-                      <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-sub">{c.body}</p>
+                      <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-sub"><MentionText text={c.body} /></p>
                     </div>
                   </div>
                 );

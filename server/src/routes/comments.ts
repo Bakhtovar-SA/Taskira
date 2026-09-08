@@ -5,6 +5,8 @@ import { q } from "../db.js";
 import { requireIssuePerm, zbody, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
 import { loadIssue } from "../services/issues.js";
+import { emit, autoWatch } from "../services/notify.js";
+import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import { CommentBody } from "../contract.js";
 
 interface CommentRow {
@@ -83,6 +85,29 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
         key: iss.key,
         viaCollaborator: req.isCollaborator || undefined,
       });
+
+      // Уведомления (NOTIFICATIONS_MIGRATION.md D2): автор → watcher (selfWatch),
+      // затем событие комментария подписчикам и отдельно — упомянутым.
+      await autoWatch(iss.id, user.sub);
+      await emit({
+        type: "issue.comment",
+        actorId: user.sub,
+        projectId: project.id,
+        issueId: iss.id,
+        payload: { key: iss.key, title: iss.title },
+      });
+      const mentionIds = await resolveVisibleMentions(project.id, iss.id, parseMentions(body.body));
+      if (mentionIds.length > 0) {
+        await emit({
+          type: "issue.mention",
+          actorId: user.sub,
+          projectId: project.id,
+          issueId: iss.id,
+          recipientIds: mentionIds,
+          payload: { key: iss.key, title: iss.title, in: "comment" },
+        });
+      }
+
       reply.code(201).send(mapComment(row));
     },
   );

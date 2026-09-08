@@ -15,6 +15,7 @@ import { one } from "../db.js";
 import { badRequest, notFound, requireIssuePerm, zparams, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
 import { addCollaborator, listCollaborators, removeCollaborator } from "../services/collaborators.js";
+import { emit } from "../services/notify.js";
 import { CollaboratorParams } from "../contract.js";
 
 export async function collaboratorRoutes(app: FastifyInstance): Promise<void> {
@@ -40,6 +41,16 @@ export async function collaboratorRoutes(app: FastifyInstance): Promise<void> {
 
       const dto = await addCollaborator(id, userId, actor.sub);
       await audit(actor.sub, "issue.collaborator.add", "issue", id, { userId, projectId: req.project!.id });
+
+      const meta = await one<{ key: string; title: string }>(`SELECT key, title FROM issues WHERE id = $1`, [id]);
+      await emit({
+        type: "issue.collaborator",
+        actorId: actor.sub,
+        projectId: req.project!.id,
+        issueId: id,
+        recipientIds: [userId],
+        payload: { key: meta?.key, title: meta?.title },
+      });
       return dto;
     },
   );

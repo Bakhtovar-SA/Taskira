@@ -21,6 +21,8 @@ import { assertTransition, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
 import { getIssueDto, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
 import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
+import { emit, autoWatch } from "../services/notify.js";
+import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import {
   IssueCreateBody,
   IssuePatchBody,
@@ -284,6 +286,35 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
       for (const text of log) await logActivity(iss.id, user.sub, text);
       await audit(user.sub, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body) });
+
+      // Уведомления (NOTIFICATIONS_MIGRATION.md D2)
+      if (body.assigneeId !== undefined && body.assigneeId && body.assigneeId !== iss.assignee_id) {
+        await emit({
+          type: "issue.assigned",
+          actorId: user.sub,
+          projectId: project.id,
+          issueId: iss.id,
+          recipientIds: [body.assigneeId],
+          payload: { key: iss.key, title: row.title },
+        });
+      }
+      if (body.description !== undefined && body.description !== iss.description) {
+        // Уведомляем только НОВЫЕ упоминания — правка описания (фикс опечатки)
+        // не должна повторно пинговать уже упомянутых (review PR #19).
+        const was = new Set(parseMentions(iss.description));
+        const added = parseMentions(body.description).filter((l) => !was.has(l));
+        const mentionIds = await resolveVisibleMentions(project.id, iss.id, added);
+        if (mentionIds.length > 0) {
+          await emit({
+            type: "issue.mention",
+            actorId: user.sub,
+            projectId: project.id,
+            issueId: iss.id,
+            recipientIds: mentionIds,
+            payload: { key: iss.key, title: row.title, in: "description" },
+          });
+        }
+      }
       return mapIssue(row);
     },
   );
@@ -339,6 +370,14 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (changed) {
         const [from, to] = [await statusName(iss.status_id), await statusName(body.to)];
         await logActivity(iss.id, user.sub, `переместил(а) из «${from}» в «${to}»`);
+        await autoWatch(iss.id, user.sub);
+        await emit({
+          type: "issue.status",
+          actorId: user.sub,
+          projectId: project.id,
+          issueId: iss.id,
+          payload: { key: iss.key, title: iss.title, from, to },
+        });
       }
       await audit(user.sub, "issue.transition", "issue", iss.id, { key: iss.key, from: iss.status_id, to: body.to });
       return mapIssue(row);

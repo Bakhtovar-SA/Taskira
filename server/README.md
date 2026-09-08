@@ -54,6 +54,7 @@
 | collab-B | Issue collaborators — [`../COLLAB_MIGRATION.md`](../COLLAB_MIGRATION.md). Ф1: `008_issue_collaborators.sql` ✅. Ф2: `manageCollaborators` (MATRIX ×2), fallback приглашённого в `requireIssuePerm` (browse/comment), `routes/collaborators.ts`, `getIssueDto.collaborators`, `GET /api/users/pickable` ✅. Ф3: клиент — `collaboratorsApi`, экшены store, секция «Участники задачи» в `IssueModal` ✅. Ф6: `GET /api/issues/collaborating`, `getIssueDto.participants`, одиночный режим `SoloView` (`bootStatus="solo"`) + раздел «Мои подключения» в обычном интерфейсе, ссылка `#/issue/<pid>/<id>` ✅. Ф5: `access.collaborators.test.ts` (11) + живой прогон + ручной чек-лист ниже ✅ | ✅ |
 | ldap-auth | LDAP/AD-аутентификация — [`../LDAP_MIGRATION.md`](../LDAP_MIGRATION.md) + [`../LDAP_SETUP.md`](../LDAP_SETUP.md). Ф1: `009_ldap.sql` (`users.auth_source`/`ldap_dn`/`email`, `department_members`, `ldap_group_dn UNIQUE`), `config.ts` `LDAP_*`, тестовый OpenLDAP (compose/LDIF) ✅. Ф2: `services/ldap.ts` (`ldapts`), `userProvisioning.ts`, `departmentSync.ts`, `POST /login` ldap-путь + break-glass, `routes/ldap.ts` `ping` ✅. Ф3: видимость проекта по департаменту → неявный `viewer` в `middleware.ts` (закрыт DEPT §3.5) ✅. Ф4: AdminView `ldap_group_dn`, `POST /api/ldap/resync`, ldap-режим гарды ✅. Ф5: `access.ldap.test.ts` (9) vs реальный slapd + CI job `ldap` ✅. Ф6: `LDAP_SETUP.md` + чек-лист ниже ✅. Харденинг: last-admin гард в JIT, гонка первого логина (23505), RFC 4514 escDn, break-glass 409 не течёт в ответ | ✅ |
 | attachments | Вложения к задачам — [`../FILES_MIGRATION.md`](../FILES_MIGRATION.md) + [`../STORAGE_SETUP.md`](../STORAGE_SETUP.md). Ф1: `010_attachments.sql`, `config.storage` (`STORAGE_DRIVER` local\|s3, `ATTACH_*`), `services/storage.ts` (`Storage` + `LocalDiskStorage`), `docker-compose.storage.yml` ✅. Ф2: `@fastify/multipart`, `services/fileGuard.ts` (magic-байты), `services/attachments.ts` (стрим + `sha256` + guard до записи), `routes/attachments.ts` (4 эндпоинта, всё через `requireIssuePerm`), `getIssueDto.attachments` ✅. Ф3: клиент — `attachmentsApi`/`apiUpload`/`downloadBlob`, экшены store, `<AttachmentField>` в `IssueModal` + `SoloIssueCard` ✅. Ф4: `S3Storage` (`@aws-sdk`), `storage.s3.test.ts` (специфика S3: multipart-ETag, `NoSuchKey`) + CI job `storage-s3` vs MinIO, `STORAGE_SETUP.md` ✅. Ф5: `access.attachments.test.ts` (17) + чек-лист ниже + живой прогон ✅ | ✅ |
+| notifications | Уведомления (in-app + email) + фоновый воркер — [`../NOTIFICATIONS_MIGRATION.md`](../NOTIFICATIONS_MIGRATION.md) + [`../NOTIFICATIONS_SETUP.md`](../NOTIFICATIONS_SETUP.md). Ф1: `011_notifications.sql` (`notifications` + `users.notify_prefs`), `config.notify` (`NOTIFY_*`/`SMTP_*`), Mailpit compose ✅. Ф2: `services/notify.ts` `emit()` в 5 роутах, `services/mentions.ts`, `routes/notifications.ts` (лента/счётчик/read/prefs) ✅. Ф3: `services/notifier.ts` (воркер, дайджест, ретрай) + `emailTemplates.ts` (D9 — письмо только со ссылкой), `nodemailer`, CI job `mail` vs Mailpit ✅. Ф4: клиент — `notificationsApi`, `Bell()` переписан, polling, `<NotifySettings>`, `<MentionText>` ✅. Ф5: `notifications.test.ts` (12) + `notifier.test.ts` (6) + чек-лист ниже + живые прогоны ✅ | ✅ |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
 
@@ -454,6 +455,74 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
   и загрузкой (приглашённый имеет `comment`)
 - [ ] Загрузка `.exe` / файла больше лимита → тост без раунд-трипа (сервер бы всё
   равно отверг); удачная загрузка → чип/строка появляется сразу
+
+### Уведомления (notifications) — [`../NOTIFICATIONS_MIGRATION.md`](../NOTIFICATIONS_MIGRATION.md) / [`../NOTIFICATIONS_SETUP.md`](../NOTIFICATIONS_SETUP.md)
+
+Автотесты: `test/notifications.test.ts` (13) — `npm test` даёт **68 зелёных**;
+`test/notifier.test.ts` (6) — только при `NOTIFY_EMAIL_ENABLED=true` + `SMTP_HOST`
+(`npm run test:mail`), в CI это job `mail` против Mailpit.
+
+**Схема / конфиг (миграция 011):**
+
+- [ ] `011_notifications.sql` в `schema_migrations`; `\d notifications` — FK
+  `user_id` `ON DELETE CASCADE`, `actor_id` `ON DELETE SET NULL`, `project_id`/
+  `issue_id` `ON DELETE CASCADE`, `type` CHECK на 6 значений, `email_state` CHECK
+  `pending|sent|skipped|failed`, partial-индекс `WHERE email_state='pending'`
+- [ ] `users.notify_prefs jsonb NOT NULL DEFAULT '{}'`
+- [ ] `NOTIFY_EMAIL_ENABLED` не задан → сервер стартует без воркера, in-app
+  работает; `=true` без `SMTP_HOST`/`SMTP_PORT`/`SMTP_FROM`/`APP_BASE_URL` →
+  падение на старте (`[config]`)
+
+**In-app (событийный слой, D2/D8):**
+
+- [ ] Назначение исполнителя → строка `issue.assigned` **новому** исполнителю, не актору
+- [ ] Комментарий → строки `issue.comment` для watchers ∪ assignee ∪ reporter ∪
+  collaborators; автору — нет; assignee=reporter → одна строка (дедуп)
+- [ ] Смена статуса → `issue.status` для watchers ∪ assignee ∪ reporter (collaborators
+  **не** включаются); payload несёт `from`/`to` (имена статусов) — для in-app
+- [ ] `@login` в комментарии/описании → `issue.mention` только тем, кто видит
+  задачу (участник проекта ∪ collaborator ∪ глоб. admin); `@` постороннего /
+  несуществующего / `user@host` — игнор
+- [ ] Подключение collaborator → `issue.collaborator`; добавление в проект →
+  `project.member` (`issue_id=null`)
+- [ ] **Деактивированный** получатель (`is_active=false`) → строка не создаётся
+- [ ] Автор комментария/смены статуса → авто-watcher, если `notify_prefs.selfWatch != false`
+- [ ] `email_state`: `pending` только при `NOTIFY_EMAIL_ENABLED` + есть `users.email`
+  + `notify_prefs.email != 'off'`; иначе `skipped`
+
+**In-app API:**
+
+- [ ] `GET /api/notifications` — своя лента, курсор по `created_at`, `{ items,
+  nextCursor, unread }`; чужие не видны
+- [ ] `GET /api/notifications/unread-count` → `{ count }`
+- [ ] `POST /api/notifications/read` — `{ ids }` или пустое тело = все; `204`;
+  `GET /me` возвращает `notifyPrefs` (только себе)
+- [ ] `PATCH /api/notifications/prefs` `{ email?, selfWatch? }` → мерж в `notify_prefs`
+
+**Email-воркер (`NOTIFY_EMAIL_ENABLED=true`, job `mail`):**
+
+- [ ] `docker compose -f docker-compose.mail.yml up -d` → Mailpit (SMTP :1025, UI :8025)
+- [ ] `npm run test:mail` зелёный: **D9** — заголовок задачи и текст комментария
+  из фикстуры **отсутствуют** в письме (subject/text/html/raw); есть ключ и ссылка
+  `APP_BASE_URL/#/issue/<pid>/<iid>`; `email='off'` / нет email → `skipped`,
+  письма нет; дайджест (`daily`) — до окна `deferred`, после — одно письмо-сводка
+  без контента; SMTP недоступен → `email_tries++`, после `NOTIFY_EMAIL_MAX_TRIES`
+  → `failed`
+- [ ] Тема письма: `Taskira · <тип события> · <ключ>`; тело — тип + ссылка + строка
+  «письмо не содержит текста задачи»
+
+**Клиент:**
+
+- [ ] Колокол в топбаре: бейдж = число непрочитанных (`99+` при переполнении);
+  открытие → подтягивает свежую ленту
+- [ ] Строка: аватар актора + «Кто-то <глагол по типу> <ключ>»; непрочитанные —
+  синий фон + точка; «Прочитать всё» → бейдж и подсветка сняты
+- [ ] Клик по строке → отметка прочитанной + открытие задачи (тот же проект) или
+  `#/issue/<pid>/<iid>` (чужой)
+- [ ] Polling `unread-count`: раз в 30 c + на `focus`/`visibilitychange`
+- [ ] Меню пользователя → «Уведомления по почте»: Сразу / Дайджест / Выкл +
+  «Подписывать меня на мои задачи» → `PATCH prefs` + тост
+- [ ] `@login` в описании и комментариях рендерится чипом (`<MentionText>`)
 
 ### Этап 3b
 
