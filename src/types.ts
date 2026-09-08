@@ -92,7 +92,6 @@ export interface Issue {
   epicId: string | null;
   labels: string[];
   points: number | null;
-  sprintId: string | null;
   dueDate?: string | null;
   rank?: number;
   color?: string;
@@ -106,15 +105,6 @@ export interface Issue {
   attachments: Attachment[];
   createdAt: number;
   updatedAt: number;
-}
-
-export interface Sprint {
-  id: string;
-  name: string;
-  goal: string;
-  status: "active" | "future" | "completed";
-  startDate: string;
-  endDate: string;
 }
 
 export interface Project {
@@ -162,7 +152,6 @@ export interface Data {
   members: Record<string, ProjectRole>;
   currentUserId: string;
   issues: Issue[];
-  sprints: Sprint[];
   workflow: Workflow;
   /** Приглашения текущего пользователя к задачам в проектах, которые ему не открыты. */
   collaborations: Collaboration[];

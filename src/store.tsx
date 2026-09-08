@@ -34,7 +34,6 @@ import {
   membersApi,
   notificationsApi,
   projectsApi,
-  sprintsApi,
   type CollaboratingItem,
   type NotifyPrefs,
   type ServerAttachment,
@@ -94,7 +93,6 @@ export interface CreateInput {
   epicId: string | null;
   labels: string[];
   points: number | null;
-  sprintId: string | null;
   statusId?: string;
   dueDate?: string | null;
 }
@@ -135,7 +133,6 @@ const emptyData = (): Data => ({
   members: {},
   currentUserId: "",
   issues: [],
-  sprints: [],
   workflow: { statuses: [], transitions: [] },
   collaborations: [],
   notifications: [],
@@ -201,7 +198,6 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     epicId: dto.epicId,
     labels: dto.labels ?? [],
     points: dto.points,
-    sprintId: dto.sprintId,
     dueDate: dto.dueDate,
     rank: dto.rank,
     color: dto.color ?? undefined,
@@ -259,7 +255,6 @@ interface Api {
   createIssue: (input: CreateInput) => void;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
-  setSprint: (issueId: string, sprintId: string | null) => void;
   addComment: (issueId: string, body: string) => void;
   addCollaborator: (issueId: string, userId: string) => void;
   removeCollaborator: (issueId: string, userId: string) => void;
@@ -270,8 +265,6 @@ interface Api {
   addTransition: (from: string, to: string) => string | null;
   removeTransition: (id: string) => void;
   resetWorkflow: () => void;
-  startSprint: () => void;
-  completeSprint: () => void;
   setMemberRole: (userId: string, role: ProjectRole) => void;
   removeMember: (userId: string) => void;
   /** Состав произвольного проекта (для AdminView) — глобальный admin, любой проект. */
@@ -401,14 +394,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         notifications: [],
         unreadCount: 0,
         notifyPrefs: {},
-        sprints: boot.sprints.map((s) => ({
-          id: s.id,
-          name: s.name,
-          goal: s.goal ?? "",
-          status: s.status,
-          startDate: s.startDate ?? "",
-          endDate: s.endDate ?? "",
-        })),
         workflow: {
           statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
           transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
@@ -687,7 +672,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             epicId: input.epicId,
             labels: l.value,
             points: p.value,
-            sprintId: input.sprintId,
             statusId: input.statusId,
             dueDate: input.dueDate ?? null,
           });
@@ -729,7 +713,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
       if (patch.assigneeId !== undefined) body.assigneeId = patch.assigneeId;
       if (patch.epicId !== undefined) body.epicId = patch.epicId;
-      if (patch.sprintId !== undefined) body.sprintId = patch.sprintId;
       if (patch.dueDate !== undefined) body.dueDate = patch.dueDate;
       if (patch.tStart !== undefined) body.tStart = patch.tStart;
       if (patch.tSpan !== undefined) body.tSpan = patch.tSpan;
@@ -779,24 +762,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })();
     },
     [requirePerm, toast, handleApiError, refreshIssues],
-  );
-
-  const setSprint = useCallback(
-    (issueId: string, sprintId: string | null) => {
-      if (!requirePerm("manageSprints")) return;
-      void (async () => {
-        try {
-          const dto = await issuesApi.setSprint(pid(), issueId, sprintId);
-          setData((prev) => ({
-            ...prev,
-            issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
-          }));
-        } catch (err) {
-          handleApiError(err);
-        }
-      })();
-    },
-    [requirePerm, handleApiError],
   );
 
   const addComment = useCallback(
@@ -1032,57 +997,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, [requirePerm, toast, handleApiError]);
-
-  const startSprint = useCallback(() => {
-    if (!requirePerm("manageSprints")) return;
-    void (async () => {
-      try {
-        await sprintsApi.start(pid());
-        const boot = await projectsApi.get(pid());
-        setData((prev) => ({
-          ...prev,
-          sprints: boot.sprints.map((s) => ({
-            id: s.id,
-            name: s.name,
-            goal: s.goal ?? "",
-            status: s.status,
-            startDate: s.startDate ?? "",
-            endDate: s.endDate ?? "",
-          })),
-        }));
-        toast("success", "Спринт начат");
-      } catch (err) {
-        handleApiError(err);
-      }
-    })();
-  }, [requirePerm, toast, handleApiError]);
-
-  const completeSprint = useCallback(() => {
-    if (!requirePerm("manageSprints")) return;
-    const active = dataRef.current.sprints.find((s) => s.status === "active");
-    if (!active) return;
-    void (async () => {
-      try {
-        await sprintsApi.complete(pid(), active.id);
-        await refreshIssues();
-        const boot = await projectsApi.get(pid());
-        setData((prev) => ({
-          ...prev,
-          sprints: boot.sprints.map((s) => ({
-            id: s.id,
-            name: s.name,
-            goal: s.goal ?? "",
-            status: s.status,
-            startDate: s.startDate ?? "",
-            endDate: s.endDate ?? "",
-          })),
-        }));
-        toast("success", `${active.name} завершён`);
-      } catch (err) {
-        handleApiError(err);
-      }
-    })();
-  }, [requirePerm, toast, handleApiError, refreshIssues]);
 
   const setMemberRole = useCallback(
     (userId: string, role: ProjectRole) => {
@@ -1342,7 +1256,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createIssue,
     updateIssue,
     moveStatus,
-    setSprint,
     addComment,
     addCollaborator,
     removeCollaborator,
@@ -1353,8 +1266,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addTransition,
     removeTransition,
     resetWorkflow,
-    startSprint,
-    completeSprint,
     setMemberRole,
     removeMember,
     setProjectMember,

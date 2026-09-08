@@ -19,7 +19,7 @@ const GROUPS: {
     label: "Планирование",
     items: [
       { id: "board", label: "Доска", icon: (p) => <IcBoard {...p} />, kbd: "1" },
-      { id: "backlog", label: "Бэклог", icon: (p) => <IcBacklog {...p} />, kbd: "2" },
+      { id: "backlog", label: "Список задач", icon: (p) => <IcBacklog {...p} />, kbd: "2" },
       { id: "timeline", label: "Таймлайн", icon: (p) => <IcTimeline {...p} />, kbd: "3" },
     ],
   },

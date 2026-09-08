@@ -18,7 +18,6 @@ export default function CreateIssueModal() {
   const [priorityId, setPriorityId] = useState<PriorityId>("medium");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [epicId, setEpicId] = useState<string | null>(null);
-  const [sprintId, setSprintId] = useState<string | null>(data.sprints.find((s) => s.status === "active")?.id ?? null);
   const [points, setPoints] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [labelDraft, setLabelDraft] = useState("");
@@ -50,7 +49,6 @@ export default function CreateIssueModal() {
       epicId,
       labels,
       points: points.trim() === "" ? null : Math.max(0, Number(points) || 0),
-      sprintId,
     });
     if (again) {
       setTitle("");
@@ -180,15 +178,6 @@ export default function CreateIssueModal() {
               <option value="">Без эпика</option>
               {epics.map((e) => (
                 <option key={e.id} value={e.id}>{e.title}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Спринт</p>
-            <select value={sprintId ?? ""} onChange={(e) => setSprintId(e.target.value || null)} className={`${inputCls} cursor-pointer`}>
-              <option value="">Бэклог</option>
-              {data.sprints.filter((s) => s.status !== "completed").map((s) => (
-                <option key={s.id} value={s.id}>{s.name}{s.status === "active" ? " (активный)" : ""}</option>
               ))}
             </select>
           </div>

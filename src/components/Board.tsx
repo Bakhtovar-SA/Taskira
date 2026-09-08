@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { canTransition, fmtDate, useStore } from "../store";
+import { canTransition, useStore } from "../store";
 import type { Issue, Status } from "../types";
 import { IcCheck, IcEye, IcInbox, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, catColor } from "../ui";
@@ -55,9 +55,8 @@ function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggabl
 }
 
 function QuickCreate({ status, onDone }: { status: Status; onDone: () => void }) {
-  const { data, createIssue } = useStore();
+  const { createIssue } = useStore();
   const [text, setText] = useState("");
-  const active = data.sprints.find((s) => s.status === "active");
   const submit = () => {
     if (!text.trim()) return onDone();
     createIssue({
@@ -69,7 +68,6 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
       epicId: null,
       labels: [],
       points: null,
-      sprintId: active?.id ?? null,
       statusId: status.id,
     });
     setText("");
@@ -114,13 +112,9 @@ export default function Board() {
   const [quickFor, setQuickFor] = useState<string | null>(null);
   const dragRef = useRef<string | null>(null);
 
-  const activeSprint = data.sprints.find((s) => s.status === "active");
   const doneStatusId = data.workflow.statuses.find((s) => s.category === "done")?.id;
 
-  const pool = useMemo(
-    () => data.issues.filter((i) => (activeSprint ? i.sprintId === activeSprint.id : true)),
-    [data.issues, activeSprint],
-  );
+  const pool = data.issues;
 
   const visible = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -140,8 +134,6 @@ export default function Board() {
   const dragged = dragId ? data.issues.find((i) => i.id === dragId) : null;
   const canDropTo = (sid: string) => !dragged || dragged.statusId === sid || canTransition(data.workflow, dragged.statusId, sid);
 
-  const sprintDays = activeSprint ? Math.max(0, Math.ceil((new Date(activeSprint.endDate + "T23:59:59").getTime() - Date.now()) / 864e5)) : null;
-
   return (
     <div className="flex h-full flex-col">
       {/* шапка */}
@@ -149,15 +141,9 @@ export default function Board() {
         <div className="mr-2">
           <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Доска</h1>
           <p className="mt-0.5 flex items-center gap-2 text-[11.5px] text-faint">
-            {activeSprint ? (
-              <>
-                <span className="h-1.5 w-1.5 rounded-full bg-ok pulse-dot" />
-                <b className="text-sub">{activeSprint.name}</b> · {fmtDate(activeSprint.startDate)} — {fmtDate(activeSprint.endDate)}
-                <span className="rounded bg-warnsoft px-1.5 py-0.5 font-mono text-[10px] font-bold text-warn">осталось {sprintDays} дн</span>
-              </>
-            ) : (
-              <span>спринт не активен — показаны все задачи</span>
-            )}
+            <span>{data.project.name}</span>
+            <span>·</span>
+            <span>{pool.length} задач</span>
           </p>
         </div>
 
@@ -294,7 +280,7 @@ export default function Board() {
 
                 {st.id === doneStatusId && items.length > 0 && (
                   <p className="mt-1.5 flex items-center gap-1.5 px-1 text-[11px] text-ok">
-                    <IcInbox size={13} /> Закрыто в этом спринте: {items.length}
+                    <IcInbox size={13} /> Закрыто: {items.length}
                   </p>
                 )}
               </section>

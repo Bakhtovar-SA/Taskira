@@ -317,7 +317,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
   const doLogout = onLogout ?? logout;
   const viewTitle = {
     board: "Доска",
-    backlog: "Бэклог",
+    backlog: "Список задач",
     timeline: "Таймлайн",
     workflow: "Рабочий процесс",
     access: "Права доступа",

@@ -247,7 +247,6 @@ export type ServerIssue = {
   tStart: number | null;
   tSpan: number | null;
   points: number | null;
-  sprintId: string | null;
   labels: string[];
   dueDate: string | null;
   rank: number;
@@ -302,14 +301,6 @@ export type ProjectBootstrap = {
     statuses: { id: string; sid: string; name: string; category: "todo" | "inprogress" | "done"; position?: number }[];
     transitions: { id: string; from: string; to: string }[];
   };
-  sprints: {
-    id: string;
-    name: string;
-    goal: string;
-    status: "active" | "future" | "completed";
-    startDate: string | null;
-    endDate: string | null;
-  }[];
 };
 
 /** Префикс ресурсов проекта. */
@@ -353,7 +344,7 @@ export const ldapApi = {
 export const projectsApi = {
   /** Проекты, видимые пользователю (member ∪ is_shared ∪ глоб. admin). */
   list: () => api<Project[]>("/api/projects"),
-  /** Данные одного проекта (bootstrap: users/members/workflow/sprints). */
+  /** Данные одного проекта (bootstrap: users/members/workflow). */
   get: (projectId: string) => api<ProjectBootstrap>(P(projectId)),
   create: (body: { key: string; name: string; description?: string; departmentId: string; isShared?: boolean }) =>
     api<Project>("/api/projects", { method: "POST", body }),
@@ -416,8 +407,6 @@ export const issuesApi = {
       method: "POST",
       body: { to, beforeId: beforeId ?? null },
     }),
-  setSprint: (projectId: string, id: string, sprintId: string | null) =>
-    api<ServerIssue>(`${P(projectId)}/issues/${id}/sprint`, { method: "PATCH", body: { sprintId } }),
 };
 
 export const commentsApi = {
@@ -446,12 +435,6 @@ export const attachmentsApi = {
     api<void>(`${P(projectId)}/issues/${issueId}/attachments/${attId}`, { method: "DELETE" }),
   download: (projectId: string, issueId: string, attId: string, filename: string) =>
     downloadBlob(`${P(projectId)}/issues/${issueId}/attachments/${attId}`, filename),
-};
-
-export const sprintsApi = {
-  start: (projectId: string) => api<unknown>(`${P(projectId)}/sprints/start`, { method: "POST" }),
-  complete: (projectId: string, id: string) =>
-    api<unknown>(`${P(projectId)}/sprints/${id}/complete`, { method: "POST" }),
 };
 
 export const workflowApi = {
