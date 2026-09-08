@@ -13,7 +13,7 @@ const SECTIONS = [
   { id: "list", label: "Список задач" },
   { id: "hotkeys", label: "Горячие клавиши" },
   { id: "model", label: "Модель данных" },
-  { id: "storage", label: "Хранение и сброс" },
+  { id: "storage", label: "Хранение и сессия" },
 ];
 
 const H = ({ children }: { children: React.ReactNode }) => (
@@ -62,8 +62,9 @@ export default function DocsView() {
             <section id="doc-overview" className="anim-fadeup rounded-xl border border-line bg-panel p-5 shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
               <H>1 · Обзор системы</H>
               <P>
-                <b className="text-ink">Taskira</b> — трекер задач в духе Jira: проект <Code>ATL «Атлас»</Code>, канбан-доска, бэклог со спринтами,
-                таймлайн направлений, настраиваемый workflow и ролевая модель доступа.
+                <b className="text-ink">Taskira</b> — корпоративный трекер задач: канбан-доска, список задач, таймлайн направлений,
+                настраиваемый workflow, вложения, уведомления и ролевая модель доступа. Вход по паролю или через LDAP/AD;
+                данные хранятся в PostgreSQL на сервере, в браузере — только токен сессии.
               </P>
               <P>Разделы приложения:</P>
               <ul className="mt-2 space-y-1.5 text-[13px] text-sub">
@@ -85,8 +86,9 @@ export default function DocsView() {
               <H>2 · Роли и права доступа</H>
               <P>
                 Двухуровневая модель: <b className="text-ink">ролевой уровень</b> (матрица «разрешение × роль») и{" "}
-                <b className="text-ink">уровень задачи</b> (разработчик редактирует только свои задачи — где он исполнитель или автор).
-                Проверки выполняются в двух местах: UI блокирует недоступные элементы, а store отклоняет запрещённые мутации с тостом-пояснением.
+                <b className="text-ink">уровень задачи</b> (сотрудник редактирует только свои задачи — где он исполнитель или автор).
+                Проверки выполняются в двух местах: UI блокирует недоступные элементы, а сервер отклоняет запрещённые запросы —
+                клиентская проверка нужна лишь для мгновенной обратной связи.
               </P>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {ACCESS_ROLES.map((r) => (
@@ -119,9 +121,10 @@ export default function DocsView() {
                 </tbody>
               </table>
               <P>
-                Пример сценария: войдите как <b className="text-ink">Елена Волкова (Наблюдатель)</b> через меню пользователя — доска перейдёт в режим
-                «только чтение», кнопка «Создать» заблокируется. Затем войдите как <b className="text-ink">Мария Ким (Разработчик)</b> и откройте чужую
-                задачу — поля будут заблокированы, а свою (где она исполнитель) удастся отредактировать.
+                Роль назначается <b className="text-ink">в рамках проекта</b>: один человек может быть менеджером в своём проекте
+                и наблюдателем в чужом. У наблюдателя доска работает в режиме «только чтение», кнопка «Создать» заблокирована;
+                сотрудник видит все задачи проекта, но редактирует лишь те, где он исполнитель или автор — заблокированные поля
+                в карточке помечены замком с пояснением.
               </P>
             </section>
 
@@ -168,8 +171,13 @@ export default function DocsView() {
                 ))}
               </div>
               <P>
-                <b className="text-ink">Направление</b> — крупная инициатива: группирует дочерние задачи (поле «Направление» в карточке),
-                отображается на таймлайне с цветом и прогрессом.
+                <b className="text-ink">Направление</b> — не отдельная сущность, а обычная задача, на которую ссылаются другие
+                (поле «Направление» в карточке). Как только на задачу сослались, она появляется в выпадающем списке направлений
+                и на таймлайне — с цветом и прогрессом по дочерним задачам.
+              </P>
+              <P>
+                <b className="text-ink">Связанные задачи</b> — в карточке можно отметить связь с другой задачей проекта:
+                «связана с» (симметрично), «блокирует» / «заблокирована» (направленно).
               </P>
               <div className="mt-3 flex flex-wrap gap-2">
                 {PRIORITY_ORDER.map((p) => (
@@ -179,8 +187,8 @@ export default function DocsView() {
                 ))}
               </div>
               <P>
-                Карточка задачи хранит: название, описание, статус, приоритет, исполнителя, автора, направление, метки, оценку,
-                срок, комментарии и полную историю изменений (кто и что сделал, с временными метками).
+                Карточка задачи хранит: название, описание, статус, приоритет, исполнителя, автора, направление, метки, срок,
+                связанные задачи, вложения, комментарии и полную историю изменений (кто и что сделал, с временными метками).
               </P>
             </section>
 
@@ -203,7 +211,7 @@ export default function DocsView() {
                   {[
                     ["Поиск по задачам", "/"],
                     ["Создать задачу", "C"],
-                    ["Разделы: доска…документация", "1 – 6"],
+                    ["Разделы: доска…мои подключения", "1 – 8"],
                     ["Закрыть окно / отмена", "Esc"],
                     ["Отправить комментарий", "Ctrl + Enter"],
                   ].map(([k, v]) => (
@@ -232,7 +240,8 @@ export default function DocsView() {
                     ["Project", "key, name, description", "корневая сущность"],
                     ["User", "id, name, role (должность), globalRole (admin | member)", "исполнитель/автор задач"],
                     ["ProjectMember", "projectId, userId, role (manager | employee | viewer)", "роль пользователя в конкретном проекте"],
-                    ["Issue", "key (CORP-N), type, status, priority, points, labels, comments[], activity[]", "→ User, → Направление (epicId), → Status"],
+                    ["Issue", "key (CORP-N), type, status, priority, assignee, reporter, dueDate, labels, links[], comments[], activity[]", "→ User, → Направление (epicId), → Status"],
+                    ["IssueLink", "issueId, linkedIssueId, type (relates | blocks)", "связь между двумя задачами проекта"],
                     ["Направление", "Issue, на которую ссылаются через epicId; color, tStart/tSpan", "родитель для задач, элемент таймлайна"],
                     ["Workflow", "statuses[], transitions[]", "Status: id, name, category; Transition: from → to"],
                   ].map(([e, f, r]) => (
@@ -253,15 +262,15 @@ export default function DocsView() {
             </section>
 
             <section id="doc-storage" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "160ms" }}>
-              <H>8 · Хранение и сброс</H>
+              <H>8 · Хранение и сессия</H>
               <P>
-                Данные приходят с API (<Code>src/api/</Code>): bootstrap <Code>GET /api/project</Code> отдаёт проект, участников,
-                состав (<Code>members</Code>) и workflow; задачи — <Code>GET /api/issues</Code>. В <Code>localStorage</Code> хранится
-                только JWT (<Code>taskira.token</Code>). Роль текущего пользователя store считает из <Code>globalRole</Code> и{" "}
-                <Code>members</Code>.
+                Данные приходят с API (<Code>src/api/</Code>): bootstrap <Code>GET /api/projects/:id</Code> отдаёт проект, участников,
+                состав (<Code>members</Code>) и workflow; задачи — <Code>GET /api/projects/:id/issues</Code>. Роль текущего пользователя
+                store считает из <Code>globalRole</Code> и <Code>members</Code>; сервер проверяет её повторно на каждом запросе.
               </P>
               <P>
-                Выход из аккаунта очищает <Code>taskira.token</Code>. Других данных в браузере не хранится — всё состояние приходит с сервера.
+                В <Code>localStorage</Code> — только токен сессии (<Code>taskira.token</Code>) и оформление (тема и фон,{" "}
+                <Code>taskira.theme</Code> / <Code>taskira.bg</Code>). Выход из аккаунта очищает токен; остальное состояние всегда приходит с сервера.
               </P>
             </section>
           </div>

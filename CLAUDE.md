@@ -11,10 +11,13 @@ with a role-based permission system. Two independent npm packages:
 - **`server/`** — Fastify 5 + PostgreSQL + JWT API (`server/src/`). **The permission system's source of truth.**
 
 The client was originally a localStorage-only app; it now talks to the API exclusively
-(`src/api/`, `src/store.tsx`). The root `README.md` still largely describes the old
-localStorage design and pre-migration roles/types — treat **`server/README.md`** as the
-authoritative API contract and current data model. `src/seed.ts` is dead demo data except
-for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still imports.
+(`src/api/`, `src/store.tsx`). `README.md` (root) and `ARCHITECTURE.md` track the current
+design; **`server/README.md`** is the authoritative API contract and data model. `src/seed.ts`
+is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still imports. The
+`*_MIGRATION.md` files are historical records of completed schema/feature migrations, in order:
+roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
+notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
+links (014).
 
 ## Commands
 
@@ -39,21 +42,28 @@ npm run build          # tsc -p tsconfig.json -> dist/
 npm run start          # node dist/index.js
 npm run seed           # run migrate() + seedAdmin() + seedProject() standalone
 npm run typecheck      # tsc --noEmit
+npm test               # vitest run — access/contract/home/notifications suites (~90 tests)
 ```
 
-There is **no test runner and no linter** in either package. Verification is `typecheck` plus the
-manual checklists at the bottom of `server/README.md`. A local PostgreSQL reachable via
-`DATABASE_URL` is required to run the server at all (`initPool` → `migrate` happen before `listen`).
+The server has a **vitest** suite (`server/test/`, `npm test`); it needs a local PostgreSQL
+(`vitest.config.ts` / `test/global-setup.ts` spin up a scratch DB). LDAP / S3 / mail suites are
+`describe.skip` unless their env vars are set (CI sets them via docker-compose — see
+`.github/workflows/test.yml`). The **client has no test runner**; verification there is
+`npm run typecheck` + `npm run build`. **No linter** in either package. A local PostgreSQL
+reachable via `DATABASE_URL` is required to run the server at all (`initPool` → `migrate`
+happen before `listen`).
 
 ## Architecture
 
 ### Permission model is defined twice and must stay in sync
 
-`src/permissions.ts` (client) and `server/src/permissions.ts` (server) are near-identical copies:
-the same `MATRIX`, `PermId` union, `can()`, `canEditIssue()`, `denialReason()`, and roles
-`admin | manager | employee | viewer`. The client copy exists **only for instant UX feedback**
-(hiding buttons, showing lock tooltips). The server re-checks every mutation and is authoritative.
-Change one → change the other identically.
+`src/permissions.ts` (client) and `server/src/permissions.ts` (server) carry the **same `MATRIX`
+and `PermId` union** and the same own-issue rule (`isOwnIssue`), plus `roleHas()` / `denialReason()`.
+Each side then adds its own surface: the client has role metadata for the UI (`ACCESS_ROLES`,
+`roleMeta`, `canEditIssue(user, issue)`); the server has `ServerUser` / `Membership` / `IssueRef`
+and `can(user, membership, perm, issue?)`. Roles: `admin | manager | employee | viewer`. The
+client copy exists **only for instant UX feedback** (hiding buttons, lock tooltips); the server
+re-checks every mutation and is authoritative. Change the shared parts on both sides identically.
 
 Enforcement points:
 - **Client**: `store.tsx` → `requirePerm()` gates every mutating action before the API call and
@@ -75,12 +85,14 @@ via `zbody()` / `zquery()` preValidation hooks. Client validation is UX-only; th
 
 `src/store.tsx` is a single React Context (`StoreProvider` / `useStore`) — no reducer library.
 Boot sequence in `App.tsx` → `store.bootstrap()`: if no token in `localStorage` (`taskira.token`),
-show `LoginForm`; otherwise call `authApi.me()` + `projectApi.bootstrap()` + `issuesApi.list()`
+show `LoginForm`; otherwise call `authApi.me()` + `projectsApi.bootstrap(id)` + `issuesApi.list()`
 and populate one flat `Data` object. `bootStatus` drives the shell:
-`idle | loading | ready | unauthenticated | error`.
+`idle | loading | ready | unauthenticated | error | solo | home` (`solo` = invited to individual
+issues but member of no project; `home` = ≥2 visible projects, none entered yet → `HomeView`).
 
 `src/api/index.ts` is the whole HTTP layer: a generic `api()` wrapper plus typed
-`authApi` / `projectApi` / `issuesApi` / `commentsApi` / `workflowApi` objects.
+`authApi` / `projectsApi` / `issuesApi` / `commentsApi` / `collaboratorsApi` / `attachmentsApi` /
+`notificationsApi` / `membersApi` / `departmentsApi` / `workflowApi` / `ldapApi` objects.
 Errors are normalized to `ApiError { status, code, reason }`; a 401 clears the token.
 `API_BASE` comes from `VITE_API_URL` (root `.env`), default `http://localhost:8080`.
 
@@ -95,7 +107,7 @@ are switched by `ui.view` in `App.tsx` — no router. `backlog` is internal id f
 migration 012). `bootStatus` also has a `"home"` state: with ≥2 visible projects, login
 lands on `HomeView.tsx` (Мои задачи + Недавние проекты) before any project is entered.
 Deep links to a task use a hash (`#/issue/<pid>/<iid>`) parsed by hand in `App.tsx`.
-Keyboard shortcuts (`/`, `C`, `1`–`6`, `Esc`) are wired in `App.tsx`.
+Keyboard shortcuts (`/`, `C`, `1`–`8` for the eight views, `Esc`) are wired in `App.tsx`.
 
 ### Server structure
 
@@ -115,22 +127,29 @@ Keyboard shortcuts (`/`, `C`, `1`–`6`, `Esc`) are wired in `App.tsx`.
   each file in one transaction, tracked in `schema_migrations`.
 - `config.ts` — env only (no secrets in code), loaded once and cached. Parses `server/.env`
   itself (no dotenv dep). Fails fast if `DATABASE_URL` missing or `JWT_SECRET` < 32 chars.
-- `middleware.ts` — `requireAuth` verifies JWT but re-reads `access_role` / `is_active` from
+- `middleware.ts` — `requireAuth` verifies JWT but re-reads `global_role` / `is_active` from
   the DB (30s in-memory cache, `invalidateUserCache()` on admin role change) so role changes
-  and deactivation take effect without waiting for token expiry.
+  and deactivation take effect without waiting for token expiry. Project resources live under
+  `/api/projects/:projectId/...` (issues, comments, attachments, collaborators, members,
+  workflow); `requirePerm` resolves the caller's membership for that `:projectId`.
 - `audit.ts` — fire-and-forget `audit_log` inserts; never throws into the request.
 
 ### Data model notes
 
 Workflow is a DB-backed directed graph: `workflow_statuses` (with stable `sid`:
 `todo`/`inprogress`/`review`/`done`) + `workflow_transitions` (edges). Every status change
-(`POST /issues/:id/transition`) is checked against the transitions table — even an admin
-cannot move an issue against the schema. `admin` edits the graph via `POST/DELETE
-/api/workflow/transitions` and `POST /api/workflow/reset` (statuses are never deleted).
+(`POST /api/projects/:projectId/issues/:id/transition`) is checked against the transitions
+table — even an admin cannot move an issue against the schema. `admin` edits the graph via
+`POST/DELETE /api/projects/:projectId/workflow/transitions` and `.../workflow/reset` (statuses
+are never deleted).
 
 Issue types: `task | bug | request` only (migration 002 collapsed `story`/`epic` → `task`;
 grouping survives via nullable `issues.epic_id`, timeline fields `t_start`/`t_span` kept).
 Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counters` upsert.
+Priorities: `low | medium | high | critical` (migration 013 collapsed the old 5 levels).
+Issue links (`issue_links`, migration 014): `relates` (symmetric) or `blocks` (directed);
+`blocked_by` is `blocks` seen from the other end, not a stored row. `points` still exists in
+the schema and contract but the "оценка" field was dropped from the card UI.
 
 ## Gotchas
 
@@ -145,8 +164,8 @@ Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counter
   only `.env.example` files are committed, with empty secret values. The working-tree
   `server/.env` does hold real local-dev values (`JWT_SECRET`, `ADMIN_PASSWORD=qwerty!@#123`,
   db creds `taskira`/`taskira`), so don't paste its contents anywhere shared.
-- `CORS_ORIGIN` in `server/.env` must match the client's actual origin (client dev server is
-  `:3000`, but `.env.example` says `:5173`).
+- `CORS_ORIGIN` in `server/.env` must match the client's actual origin — the Vite dev server
+  is `:3000` (`strictPort`), which is what `.env.example` now ships.
 - User switching is real login/logout only. The old `switchUser` / `resetDemo` client stubs
   and the "Войти как" role-preview UI were removed (dept branch) — they only re-skinned the
   UI locally and never changed which JWT the API saw.
