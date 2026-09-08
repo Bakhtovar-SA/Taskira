@@ -182,7 +182,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
 
       {/* тело */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1160px] px-7 py-7">
+        <div className="mx-auto max-w-[1160px] min-[1536px]:max-w-[1440px] min-[1920px]:max-w-[1760px] px-7 py-7">
           <h1 className="font-disp text-[20px] font-bold tracking-tight text-ink">Здравствуйте, {me?.name?.split(" ")[0] ?? ""}</h1>
           <p className="mt-0.5 text-[12.5px] text-faint">Вот что у вас в работе прямо сейчас.</p>
 

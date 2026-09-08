@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { AccessRole, Status, User } from "./types";
 import { useStore } from "./store";
 import { IcX } from "./icons";
@@ -63,9 +63,25 @@ export const Chip = ({ text, color, onRemove }: { text: string; color?: string; 
   </span>
 );
 
+/** Событие «открылся какой-то дропдаун» — чтобы одновременно был открыт только
+ *  один (ticket-scaling §2): каждый инстанс шлёт его при открытии со своим id,
+ *  услышав чужой id — закрывается. */
+const DROPDOWN_OPEN_EVT = "taskira:dropdown-open";
+
 export function Dropdown({ button, children, align = "left", width = 240 }: { button: (open: boolean) => React.ReactNode; children: React.ReactNode | ((close: () => void) => React.ReactNode); align?: "left" | "right"; width?: number }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const myId = useId();
+
+  // Открытие другого дропдауна закрывает этот.
+  useEffect(() => {
+    const onOther = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== myId) setOpen(false);
+    };
+    window.addEventListener(DROPDOWN_OPEN_EVT, onOther);
+    return () => window.removeEventListener(DROPDOWN_OPEN_EVT, onOther);
+  }, [myId]);
+
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
@@ -79,9 +95,16 @@ export function Dropdown({ button, children, align = "left", width = 240 }: { bu
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next) window.dispatchEvent(new CustomEvent(DROPDOWN_OPEN_EVT, { detail: myId }));
+  };
+
   return (
     <div className="relative" ref={ref}>
-      <div onClick={() => setOpen((o) => !o)}>{button(open)}</div>
+      <div onClick={toggle}>{button(open)}</div>
       {open && (
         <div
           className="anim-pop absolute z-40 mt-1.5 overflow-hidden rounded-lg border border-line bg-panel shadow-[0_10px_34px_rgba(20,35,64,0.16)]"

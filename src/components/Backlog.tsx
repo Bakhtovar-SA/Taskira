@@ -240,7 +240,7 @@ export default function Backlog() {
 
       {/* список */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1060px] px-6 py-5">
+        <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
           {rows.length > 0 ? (
             <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
               {rows.map((i) => (
