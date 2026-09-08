@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import type { AssignedIssue, ProjectSummary } from "../types";
-import { PRIORITIES } from "../types";
+import { ISSUE_TYPES, PRIORITIES } from "../types";
 import { IcChevR, IcInbox, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, catColor } from "../ui";
 import { Bell } from "./Topbar";
@@ -49,7 +49,7 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
       onClick={onOpen}
       className="group flex w-full items-center gap-2.5 border-b border-linesoft bg-panel px-3.5 py-2.5 text-left transition-colors last:border-0 hover:bg-accentsoft/50"
     >
-      <span className="shrink-0" title={issue.typeId}>
+      <span className="shrink-0" title={ISSUE_TYPES[issue.typeId]?.name}>
         <TypeIcon type={issue.typeId} size={14} />
       </span>
       <span className="w-14 shrink-0 font-mono text-[10.5px] font-semibold text-faint">{issue.key}</span>
@@ -182,7 +182,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
 
       {/* тело */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1160px] px-7 py-7">
+        <div className="mx-auto max-w-[1160px] min-[1536px]:max-w-[1440px] min-[1920px]:max-w-[1760px] px-7 py-7">
           <h1 className="font-disp text-[20px] font-bold tracking-tight text-ink">Здравствуйте, {me?.name?.split(" ")[0] ?? ""}</h1>
           <p className="mt-0.5 text-[12.5px] text-faint">Вот что у вас в работе прямо сейчас.</p>
 

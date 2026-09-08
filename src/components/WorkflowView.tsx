@@ -74,7 +74,7 @@ export default function WorkflowView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-[1060px] px-6 py-5">
+      <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
         <div className="anim-fadeup flex items-end gap-3">
           <div>
             <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Рабочий процесс</h1>
