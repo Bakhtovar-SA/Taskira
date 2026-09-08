@@ -33,7 +33,7 @@ export default function DocsView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-[1060px] px-6 py-5">
+      <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
         <div className="anim-fadeup flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-white"><IcBook size={18} /></span>
           <div>

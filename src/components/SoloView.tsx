@@ -116,7 +116,7 @@ export function SoloIssueCard({
   };
 
   return (
-    <div className="mx-auto max-w-[760px] px-6 py-6">
+    <div className="mx-auto max-w-[760px] min-[1536px]:max-w-[920px] min-[1920px]:max-w-[1080px] px-6 py-6">
       <div className="flex items-center gap-2 font-mono text-[12px] font-bold text-sub">
         <TypeIcon type={issue.typeId as IssueTypeId} size={15} /> {issue.key}
         {statusHint && <span className="rounded bg-linesoft px-1.5 py-0.5 font-sans text-[10.5px] font-semibold text-sub">{statusHint}</span>}

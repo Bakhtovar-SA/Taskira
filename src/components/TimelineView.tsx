@@ -31,7 +31,7 @@ export default function TimelineView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-[1120px] px-6 py-5">
+      <div className="mx-auto max-w-[1120px] min-[1536px]:max-w-[1380px] min-[1920px]:max-w-[1680px] px-6 py-5">
         <div className="anim-fadeup">
           <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Таймлайн</h1>
           <p className="mt-0.5 text-[11.5px] text-faint">Дорожная карта направлений на ближайшие {WEEKS} недель</p>

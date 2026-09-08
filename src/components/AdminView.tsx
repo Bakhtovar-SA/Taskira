@@ -226,7 +226,7 @@ export default function AdminView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-[900px] px-6 py-5">
+      <div className="mx-auto max-w-[900px] min-[1536px]:max-w-[1120px] min-[1920px]:max-w-[1360px] px-6 py-5">
         <div className="anim-fadeup flex items-start justify-between gap-3">
           <div>
             <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Департаменты и проекты</h1>
