@@ -524,6 +524,7 @@ export default function IssueModal() {
                   >
                     <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
                     <span className="min-w-0 truncate">{status.name}</span>
+                    <IcLock size={11} className="ml-auto shrink-0 opacity-70" />
                   </span>
                 );
               })()
@@ -570,11 +571,11 @@ export default function IssueModal() {
                   width={220}
                   button={(open) => (
                     <button
-                      className={`flex w-full items-center gap-1.5 rounded-md border bg-white px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
+                      className={`flex w-full items-center gap-1 rounded-md border bg-white px-1.5 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
                     >
                       <PriorityIcon p={issue.priorityId} size={13} />
-                      <span className="min-w-0 truncate">{PRIORITIES[issue.priorityId].name}</span>
-                      <IcChevD size={11} className="ml-auto shrink-0 text-faint" />
+                      <span className="min-w-0 flex-1 truncate text-left">{PRIORITIES[issue.priorityId].name}</span>
+                      <IcChevD size={11} className="shrink-0 text-faint" />
                     </button>
                   )}
                 >
@@ -595,7 +596,7 @@ export default function IssueModal() {
                 )}
               </Field>
             </div>
-            <div className="w-[112px] shrink-0">
+            <div className="w-[122px] shrink-0">
               <Field label="Срок">
                 {editOk ? (
                   <input
