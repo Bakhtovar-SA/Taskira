@@ -69,6 +69,28 @@ describe("issue links", () => {
     expect(db.links[0].dir).toBe("blocked_by");
   });
 
+  test("blocked_by с открытой задачи: сервер разворачивает, ответ — связи :id", async () => {
+    const mgr = await login(app, "mgr1");
+    const a = fx.issues.p1issue;
+    const b = await secondP1Issue();
+
+    // «a заблокирована задачей b» — POST идёт на /issues/a/links
+    const r = await post(links(a), mgr, { linkedIssueId: b, type: "blocked_by" });
+    expect(r.statusCode).toBe(200);
+    const body = JSON.parse(r.body);
+    expect(body.links).toHaveLength(1);
+    expect(body.links[0].dir).toBe("blocked_by"); // ответ — со стороны a
+    expect(body.links[0].issue.id).toBe(b);
+
+    // со стороны b — это blocks
+    const db = JSON.parse((await g(`/api/projects/${p1()}/issues/${b}`, mgr)).body);
+    expect(db.links[0].dir).toBe("blocks");
+
+    // дубль в обратную сторону (b blocks a) — 400
+    expect((await post(links(a), mgr, { linkedIssueId: b, type: "blocks" })).statusCode).toBe(400);
+    expect((await post(links(b), mgr, { linkedIssueId: a, type: "blocks" })).statusCode).toBe(400);
+  });
+
   test("employee линкует свою задачу; viewer — 403", async () => {
     const emp = await login(app, "emp1"); // reporter+assignee p1issue
     const viw = await login(app, "viw1");

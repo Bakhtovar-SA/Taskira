@@ -296,7 +296,7 @@ interface Api {
   addComment: (issueId: string, body: string) => void;
   addCollaborator: (issueId: string, userId: string) => void;
   removeCollaborator: (issueId: string, userId: string) => void;
-  addIssueLink: (issueId: string, linkedIssueId: string, type: "relates" | "blocks") => void;
+  addIssueLink: (issueId: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") => void;
   removeIssueLink: (issueId: string, linkId: string) => void;
   uploadAttachment: (issueId: string, file: File) => void;
   removeAttachment: (issueId: string, attId: string) => void;
@@ -959,11 +959,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }));
 
   const addIssueLink = useCallback(
-    (issueId: string, linkedIssueId: string, type: "relates" | "blocks") => {
+    (issueId: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") => {
       const issue = dataRef.current.issues.find((i) => i.id === issueId);
       if (!requirePerm("edit", issue)) return;
       void (async () => {
         try {
+          // Запрос всегда на issueId (открытая карточка); 'blocked_by' сервер
+          // разворачивает сам и возвращает связи именно issueId.
           const res = await issuesApi.addLink(pid(), issueId, linkedIssueId, type);
           setIssueLinks(issueId, res.links);
           toast("success", "Связь добавлена");

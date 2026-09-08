@@ -260,13 +260,10 @@ function LinksField({ issue }: { issue: Issue }) {
 
   const submit = () => {
     if (!target) return;
-    // 'blocked_by' — это 'blocks' с обратным направлением: их роль симметрична,
-    // но храним всегда как 'blocks' от блокирующей задачи к блокируемой.
-    if (type === "blocked_by") {
-      addIssueLink(target, issue.id, "blocks");
-    } else {
-      addIssueLink(issue.id, target, type);
-    }
+    // Всегда линкуем «от открытой задачи»: сервер сам разворачивает 'blocked_by'
+    // в строку 'blocks' наоборот и возвращает связи именно этой задачи, так что
+    // модалка обновляется независимо от направления.
+    addIssueLink(issue.id, target, type);
     setTarget("");
     setExpand(false);
   };

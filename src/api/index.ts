@@ -440,7 +440,7 @@ export const issuesApi = {
       method: "POST",
       body: { to, beforeId: beforeId ?? null },
     }),
-  addLink: (projectId: string, id: string, linkedIssueId: string, type: "relates" | "blocks") =>
+  addLink: (projectId: string, id: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") =>
     api<{ id: string; links: ServerIssueLink[] }>(`${P(projectId)}/issues/${id}/links`, {
       method: "POST",
       body: { linkedIssueId, type },

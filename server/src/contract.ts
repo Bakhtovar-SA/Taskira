@@ -224,10 +224,13 @@ export type IssueLinkType = (typeof ISSUE_LINK_TYPES)[number];
 export const ISSUE_LINK_DIRS = ["relates", "blocks", "blocked_by"] as const;
 export type IssueLinkDir = (typeof ISSUE_LINK_DIRS)[number];
 
-/** POST /api/projects/:projectId/issues/:id/links */
+/** POST /api/projects/:projectId/issues/:id/links
+ *  `type` — направление СО СТОРОНЫ :id (открытой задачи). 'blocked_by' сервер
+ *  разворачивает в строку 'blocks' от блокирующей задачи к :id, поэтому запрос
+ *  всегда идёт на /issues/:id/links и право проверяется на :id (ticket §3.2). */
 export const IssueLinkCreateBody = z.object({
   linkedIssueId: uuid,
-  type: z.enum(ISSUE_LINK_TYPES),
+  type: z.enum(ISSUE_LINK_DIRS),
 });
 
 export const IssueLinkParams = z.object({ linkId: uuid });

@@ -380,8 +380,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
   /* ---------------------------------------------------------- связи между задачами
      (issue_links, миграция 014, ticket §3.2). Линковать может тот, у кого есть
-     `edit` на исходную задачу; обе задачи должны быть в проекте (single-project),
-     иначе 404 — не раскрываем существование чужих задач. */
+     `edit` на ЭТУ задачу (:id); обе задачи должны быть в проекте (single-project),
+     иначе 404 — не раскрываем существование чужих задач.
+     `type` в теле — направление со стороны :id. 'blocked_by' раскладывается в
+     строку 'blocks' от блокирующей задачи к :id, но запрос всё равно идёт на
+     /issues/:id/links и ответ — связи :id, чтобы клиент обновлял открытую
+     карточку независимо от направления (см. review PR #27). */
   app.post(
     "/:id/links",
     { preHandler: requireIssuePerm("edit"), preValidation: zbody(IssueLinkCreateBody) },
@@ -399,13 +403,21 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       );
       if (!other) throw notFound("Связываемая задача не найдена в проекте");
 
-      if (await linkExists(iss.id, other.id, body.type)) throw badRequest("Такая связь уже есть");
+      // Хранимый тип и направление вставки. 'blocked_by' → 'blocks' наоборот.
+      const stored = body.type === "relates" ? "relates" : "blocks";
+      const [fromId, toId] = body.type === "blocked_by" ? [other.id, iss.id] : [iss.id, other.id];
 
-      const linkId = await insertIssueLink(iss.id, other.id, body.type, user.sub);
+      if (await linkExists(iss.id, other.id, stored)) throw badRequest("Такая связь уже есть");
+
+      const linkId = await insertIssueLink(fromId, toId, stored, user.sub);
       await logActivity(
         iss.id,
         user.sub,
-        body.type === "blocks" ? `отметил(а), что задача блокирует ${other.key}` : `связал(а) с ${other.key}`,
+        body.type === "blocks"
+          ? `отметил(а), что задача блокирует ${other.key}`
+          : body.type === "blocked_by"
+            ? `отметил(а), что задача заблокирована ${other.key}`
+            : `связал(а) с ${other.key}`,
       );
       await audit(user.sub, "issue.link.add", "issue", iss.id, { key: iss.key, to: other.key, type: body.type });
       return { id: linkId, links: await listIssueLinks(iss.id) };
