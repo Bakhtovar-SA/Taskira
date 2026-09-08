@@ -526,11 +526,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       const hash = readIssueHash();
       const hashProjectVisible = !!hash && projects.some((p) => p.id === hash.projectId);
+      // Прямая ссылка на приглашённую задачу (проект пользователю не открыт) —
+      // ведёт в «Мои подключения», а не на главный экран (ниже по ветке ready).
+      const hashIsCollab = !!hash && collabs.some((c) => c.issueId === hash.issueId);
 
       // ≥ 2 проектов и это НЕ переход по прямой ссылке на задачу → главный экран
       // (UI_RESTRUCTURE.md D4): список проектов и задач, в проект не входим.
       // При 1 проекте главный экран бессмыслен — сразу внутрь (ветка ниже).
-      if (projects.length >= 2 && !hashProjectVisible) {
+      if (projects.length >= 2 && !hashProjectVisible && !hashIsCollab) {
         const assigned = await issuesApi.assignedToMe().catch(() => [] as AssignedIssue[]);
         setData({
           ...emptyData(),
@@ -561,7 +564,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       writeLastProject(chosen);
       // Прямая ссылка на приглашённую задачу (в проекте, который не открыт) —
       // сразу в раздел «Мои подключения» (Фаза 6 для пользователей с проектами).
-      if (hash && collabs.some((c) => c.issueId === hash.issueId)) {
+      if (hashIsCollab) {
         setUi((u) => ({ ...u, view: "collaborating" }));
       }
       setBootStatus("ready");
