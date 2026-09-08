@@ -9,6 +9,8 @@
    data-theme на <html>. См. ticket-theme-background-home-logo.md §3.
    ============================================================ */
 :root {
+  color-scheme: light;
+
   /* поверхности */
   --c-canvas: #f1f3f7;
   --c-panel: #fdfdfe;
@@ -53,6 +55,8 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
+
   --c-canvas: #161a20;
   --c-panel: #1e232c;
   --c-line: #333c48;

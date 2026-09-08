@@ -156,3 +156,12 @@ Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counter
   the client has no router and no drag lib wired in; hash routing is hand-rolled in `App.tsx`.
 - CI (`.github/workflows/test.yml`) now has a `client` job (root `npm run typecheck` +
   `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
+- **Theming** (`src/theme.ts` + `src/index.css`): the palette lives in plain custom
+  properties on `:root` / `:root[data-theme="dark"]` (`--c-canvas`, …); `@theme` only
+  aliases them (`--color-canvas: var(--c-canvas)`) so `bg-canvas` / `text-ink` / etc.
+  resolve live per theme. **Don't add raw `#hex` to components** — use a token class or
+  `var(--c-*)` in inline styles, otherwise it won't dark-theme. `catColor()` in `ui.tsx`
+  returns `var(--c-*)`. Theme mode (`system|light|dark`) and one of 6 background presets
+  are in `localStorage` only (`taskira.theme` / `taskira.bg`), applied to `<html>` by
+  `applyTheme()`; the profile-menu "Оформление" popup (`AppearanceSettings` in `ui.tsx`)
+  is the UI. Sidebar-internal colors stay hardcoded (the rail is dark in both themes).
