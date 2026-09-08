@@ -28,7 +28,7 @@ function EditableName({ value, onSave, maxLength }: { value: string; onSave: (v:
         if (v && v !== value) onSave(v);
         else e.target.value = value;
       }}
-      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-[13px] font-semibold text-ink hover:border-linesoft focus:border-accent focus:bg-white focus:outline-none"
+      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-[13px] font-semibold text-ink hover:border-linesoft focus:border-accent focus:bg-panel focus:outline-none"
     />
   );
 }
@@ -82,7 +82,7 @@ function ProjectMembers({ projectId, allUsers }: { projectId: string; allUsers: 
     return <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-faint">Загрузка состава…</p>;
   if (state.status === "error")
     return (
-      <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-[#B42318]">
+      <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-danger">
         Не удалось загрузить состав.{" "}
         <button className="underline" onClick={load}>
           повторить
@@ -111,7 +111,7 @@ function ProjectMembers({ projectId, allUsers }: { projectId: string; allUsers: 
               value={roleByUser.get(m.userId)}
               disabled={busy}
               onChange={(e) => run(setProjectMember(projectId, m.userId, e.target.value as ProjectRole))}
-              className="rounded-md border border-line bg-white px-1.5 py-0.5 text-[11px] font-semibold text-sub focus:border-accent focus:outline-none disabled:opacity-50"
+              className="rounded-md border border-line bg-panel px-1.5 py-0.5 text-[11px] font-semibold text-sub focus:border-accent focus:outline-none disabled:opacity-50"
             >
               {PROJECT_ROLES.map((r) => (
                 <option key={r} value={r}>
@@ -122,7 +122,7 @@ function ProjectMembers({ projectId, allUsers }: { projectId: string; allUsers: 
             <button
               disabled={busy}
               onClick={() => run(removeProjectMember(projectId, m.userId))}
-              className="rounded-md border border-line bg-white px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:border-[#B42318] hover:text-[#B42318] disabled:opacity-40"
+              className="rounded-md border border-line bg-panel px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-40"
             >
               Убрать
             </button>
@@ -136,7 +136,7 @@ function ProjectMembers({ projectId, allUsers }: { projectId: string; allUsers: 
           value={addUser}
           onChange={(e) => setAddUser(e.target.value)}
           disabled={busy || candidates.length === 0}
-          className="rounded-md border border-line bg-white px-2 py-1 text-[11px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
+          className="rounded-md border border-line bg-panel px-2 py-1 text-[11px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
         >
           <option value="">{candidates.length ? "— добавить человека —" : "нет кандидатов"}</option>
           {candidates.map((u) => (
@@ -149,7 +149,7 @@ function ProjectMembers({ projectId, allUsers }: { projectId: string; allUsers: 
           value={addRole}
           onChange={(e) => setAddRole(e.target.value as ProjectRole)}
           disabled={busy}
-          className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold text-sub focus:border-accent focus:outline-none disabled:opacity-50"
+          className="rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub focus:border-accent focus:outline-none disabled:opacity-50"
         >
           {PROJECT_ROLES.map((r) => (
             <option key={r} value={r}>
@@ -239,7 +239,7 @@ export default function AdminView() {
             <button
               onClick={resyncLdap}
               title="Пересобрать членство в отделах из групп LDAP для всех LDAP-пользователей"
-              className="shrink-0 rounded-md border border-line bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
+              className="shrink-0 rounded-md border border-line bg-panel px-2.5 py-1.5 text-[11.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
             >
               Пересинхронизировать LDAP
             </button>
@@ -254,7 +254,7 @@ export default function AdminView() {
             onKeyDown={(e) => e.key === "Enter" && newDept.trim() && (createDepartment(newDept.trim()), setNewDept(""))}
             placeholder="Название нового отдела"
             maxLength={LIMITS.department.name.max}
-            className="min-w-0 flex-1 rounded-md border border-line bg-white px-2.5 py-1.5 text-[12.5px] focus:border-accent focus:outline-none"
+            className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2.5 py-1.5 text-[12.5px] focus:border-accent focus:outline-none"
           />
           <button
             onClick={() => {
@@ -287,7 +287,7 @@ export default function AdminView() {
                     }
                     disabled={projs.length > 0}
                     title={projs.length > 0 ? "Сначала удалите или перенесите проекты" : "Удалить отдел"}
-                    className="shrink-0 rounded-md border border-line bg-white p-1.5 text-sub transition-colors hover:border-[#B42318] hover:text-[#B42318] disabled:opacity-30 disabled:hover:border-line disabled:hover:text-sub"
+                    className="shrink-0 rounded-md border border-line bg-panel p-1.5 text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-30 disabled:hover:border-line disabled:hover:text-sub"
                   >
                     <IcTrash size={13} />
                   </button>
@@ -306,7 +306,7 @@ export default function AdminView() {
                         const v = e.target.value.trim();
                         if (v !== (d.ldapGroupDn ?? "")) setDepartmentLdapGroup(d.id, v || null);
                       }}
-                      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 font-mono text-[11px] text-sub hover:border-linesoft focus:border-accent focus:bg-white focus:outline-none"
+                      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 font-mono text-[11px] text-sub hover:border-linesoft focus:border-accent focus:bg-panel focus:outline-none"
                     />
                   </div>
                 )}
@@ -315,7 +315,7 @@ export default function AdminView() {
                   {projs.map((p) => (
                     <div key={p.id}>
                       <div className="flex items-center gap-2 px-3 py-2">
-                        <span className="w-16 shrink-0 rounded bg-[#e8edf4] px-1.5 py-0.5 text-center font-mono text-[10.5px] font-bold text-sub">
+                        <span className="w-16 shrink-0 rounded bg-linesoft px-1.5 py-0.5 text-center font-mono text-[10.5px] font-bold text-sub">
                           {p.key}
                         </span>
                         <EditableName value={p.name} onSave={(v) => patchProject(p.id, { name: v })} maxLength={LIMITS.project.name.max} />
@@ -329,7 +329,7 @@ export default function AdminView() {
                         </label>
                         <button
                           onClick={() => setOpenMembers((s) => ({ ...s, [p.id]: !s[p.id] }))}
-                          className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
+                          className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
                         >
                           {openMembers[p.id] ? <IcChevD size={12} /> : <IcChevR size={12} />}
                           <IcUsers size={12} /> Состав
@@ -337,7 +337,7 @@ export default function AdminView() {
                         <button
                           onClick={() => switchProject(p.id)}
                           disabled={p.id === data.currentProjectId}
-                          className="shrink-0 rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
+                          className="shrink-0 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
                         >
                           {p.id === data.currentProjectId ? "открыт" : "Открыть"}
                         </button>
@@ -346,7 +346,7 @@ export default function AdminView() {
                             window.confirm(`Удалить проект ${p.key} со всеми задачами? Действие необратимо.`) &&
                             deleteProject(p.id)
                           }
-                          className="shrink-0 rounded-md border border-line bg-white p-1.5 text-sub transition-colors hover:border-[#B42318] hover:text-[#B42318]"
+                          className="shrink-0 rounded-md border border-line bg-panel p-1.5 text-sub transition-colors hover:border-danger hover:text-danger"
                         >
                           <IcTrash size={13} />
                         </button>
@@ -362,14 +362,14 @@ export default function AdminView() {
                       onChange={(e) => setForm(d.id, { key: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })}
                       placeholder="КЛЮЧ"
                       maxLength={10}
-                      className="w-20 rounded-md border border-line bg-white px-2 py-1 font-mono text-[11px] uppercase focus:border-accent focus:outline-none"
+                      className="w-20 rounded-md border border-line bg-panel px-2 py-1 font-mono text-[11px] uppercase focus:border-accent focus:outline-none"
                     />
                     <input
                       value={f.name}
                       onChange={(e) => setForm(d.id, { name: e.target.value })}
                       placeholder="Название проекта"
                       maxLength={LIMITS.project.name.max}
-                      className="min-w-0 flex-1 rounded-md border border-line bg-white px-2 py-1 text-[11.5px] focus:border-accent focus:outline-none"
+                      className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] focus:border-accent focus:outline-none"
                     />
                     <button
                       onClick={() => {

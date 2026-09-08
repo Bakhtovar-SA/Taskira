@@ -236,10 +236,12 @@ export type AssignedIssue = {
   projectId: string;
   key: string;
   title: string;
+  typeId: string;
   priorityId: string;
   statusId: string;
   statusName: string;
   statusCategory: string;
+  dueDate: string | null;
   projectKey: string;
   projectName: string;
 };

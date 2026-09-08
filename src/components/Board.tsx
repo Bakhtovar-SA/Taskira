@@ -1,13 +1,24 @@
 import { useMemo, useRef, useState } from "react";
-import { canTransition, useStore } from "../store";
-import type { Issue, Status } from "../types";
-import { IcCheck, IcEye, IcInbox, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { canTransition, fmtDate, useStore } from "../store";
+import type { Issue, PriorityId, Status } from "../types";
+import { PRIORITIES } from "../types";
+import { IcCalendar, IcCheck, IcEye, IcInbox, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, catColor } from "../ui";
+
+// цвет подписи приоритета — тон в тон с PriorityIcon
+const PRIO_COLOR: Record<PriorityId, string> = {
+  critical: "#D23A2E",
+  high: "#E8772E",
+  medium: "#C79A0A",
+  low: "var(--c-faint)",
+};
 
 function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggable }: { issue: Issue; onDragStart: () => void; onDragEnd: () => void; onDropOn: (e: React.DragEvent) => void; onOver: () => void; flash: boolean; draggable: boolean }) {
   const { data, openIssue } = useStore();
   const assignee = data.users.find((u) => u.id === issue.assigneeId);
   const epic = data.issues.find((i) => i.id === issue.epicId);
+  const doneCat = data.workflow.statuses.find((s) => s.id === issue.statusId)?.category === "done";
+  const overdue = !!issue.dueDate && !doneCat && issue.dueDate < new Date().toISOString().slice(0, 10);
 
   return (
     <article
@@ -25,27 +36,47 @@ function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggabl
       }}
       onDrop={onDropOn}
       onClick={() => openIssue(issue.id)}
-      className={`group cursor-pointer rounded-lg border border-line bg-panel p-2.5 shadow-[0_1px_2px_rgba(20,35,64,0.06)] transition-all duration-150 hover:-translate-y-px hover:border-[#b9c6da] hover:shadow-[0_6px_18px_rgba(20,35,64,0.12)] active:scale-[0.99] ${flash ? "anim-flash" : ""}`}
+      className={`group cursor-pointer rounded-lg border border-line bg-panel p-2.5 shadow-[0_1px_2px_rgba(20,35,64,0.06)] transition-all duration-150 hover:-translate-y-px hover:border-line2 hover:shadow-[0_6px_18px_rgba(20,35,64,0.12)] active:scale-[0.99] ${flash ? "anim-flash" : ""}`}
     >
+      {/* тип + ключ */}
       <div className="mb-1.5 flex items-center gap-1.5">
         <TypeIcon type={issue.typeId} size={14} />
         <span className="font-mono text-[11px] font-semibold tracking-tight text-faint">{issue.key}</span>
-        {issue.labels.slice(0, 2).map((l) => (
-          <Chip key={l} text={l} />
-        ))}
-        <span className="ml-auto" title="Приоритет">
-          <PriorityIcon p={issue.priorityId} size={14} />
-        </span>
       </div>
+
       <h4 className="text-[13.5px] font-medium leading-snug text-ink">{issue.title}</h4>
+
+      {/* направление + метки */}
+      {(epic || issue.labels.length > 0) && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {epic && (
+            <span
+              className="inline-flex max-w-[130px] items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold"
+              style={{ background: `${epic.color}1f`, color: epic.color }}
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ background: epic.color }} />
+              <span className="truncate">{epic.title}</span>
+            </span>
+          )}
+          {issue.labels.slice(0, 3).map((l) => (
+            <Chip key={l} text={l} />
+          ))}
+        </div>
+      )}
+
+      {/* приоритет с подписью · срок · исполнитель */}
       <div className="mt-2.5 flex items-center gap-2">
-        {epic && (
-          <span className="inline-flex max-w-[120px] items-center gap-1.5 truncate rounded px-1.5 py-0.5 text-[10.5px] font-semibold" style={{ background: `${epic.color}1a`, color: epic.color }}>
-            <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ background: epic.color }} />
-            <span className="truncate">{epic.title}</span>
-          </span>
-        )}
+        <span className="flex items-center gap-1 text-[10.5px] font-bold" style={{ color: PRIO_COLOR[issue.priorityId] }}>
+          <PriorityIcon p={issue.priorityId} size={12} />
+          {PRIORITIES[issue.priorityId].name}
+        </span>
         <span className="ml-auto flex items-center gap-2">
+          {issue.dueDate && (
+            <span className={`flex items-center gap-0.5 text-[10px] font-semibold ${overdue ? "text-danger" : "text-faint"}`}>
+              <IcCalendar size={11} />
+              {fmtDate(issue.dueDate)}
+            </span>
+          )}
           <Avatar user={assignee ?? null} size={22} />
         </span>
       </div>
@@ -72,7 +103,7 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
     setText("");
   };
   return (
-    <div className="anim-fadeup rounded-lg border border-accent bg-white p-2 shadow-[0_0_0_3px_rgba(11,95,217,0.1)]">
+    <div className="anim-fadeup rounded-lg border border-accent bg-panel p-2 shadow-[0_0_0_3px_rgba(11,95,217,0.1)]">
       <textarea
         autoFocus
         value={text}
@@ -169,7 +200,7 @@ export default function Board() {
               <Avatar user={null} size={26} ring />
             </button>
           </div>
-          <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-white px-2.5">
+          <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-panel px-2.5">
             <IcSearch size={13} className="text-faint" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Фильтр по доске" className="w-32 bg-transparent text-[12.5px] outline-none placeholder:text-faint" />
             {q && (
@@ -222,11 +253,11 @@ export default function Board() {
                 <header className="mb-2 flex items-center gap-2 px-1">
                   <span className="h-2 w-2 rounded-sm" style={{ background: c.dot }} />
                   <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{st.name}</h3>
-                  <span className="rounded-full bg-[#e3e9f1] px-1.5 font-mono text-[10.5px] font-bold text-sub">{items.length}</span>
+                  <span className="rounded-full bg-todosoft px-1.5 font-mono text-[10.5px] font-bold text-sub">{items.length}</span>
                   {canCreate && st.id === firstTodoId && (
                     <button
                       onClick={() => setQuickFor(st.id)}
-                      className="ml-auto flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-[#e3e9f1] hover:text-ink"
+                      className="ml-auto flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-todosoft hover:text-ink"
                       aria-label={`Добавить в «${st.name}»`}
                     >
                       <IcPlus size={14} />
@@ -236,7 +267,7 @@ export default function Board() {
 
                 <div
                   className={`flex-1 space-y-2 overflow-y-auto rounded-xl border-2 border-dashed p-2 transition-all duration-150 ${
-                    isOver ? (ok ? "border-accent bg-accentsoft/70" : "border-danger bg-dangersoft/70") : "border-transparent bg-[#e9edf3]/60"
+                    isOver ? (ok ? "border-accent bg-accentsoft/70" : "border-danger bg-dangersoft/70") : "border-transparent bg-linesoft/60"
                   }`}
                 >
                   {quickFor === st.id && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
@@ -267,7 +298,7 @@ export default function Board() {
                     />
                   ))}
                   {items.length === 0 && quickFor !== st.id && (
-                    <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[11.5px] transition-colors ${isOver ? "border-accent text-accent" : "border-[#c3ccda] text-faint"}`}>
+                    <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[11.5px] transition-colors ${isOver ? "border-accent text-accent" : "border-line2 text-faint"}`}>
                       {isOver ? (ok ? "Отпустите, чтобы переместить" : "Переход запрещён workflow") : "Перетащите задачи сюда"}
                     </div>
                   )}

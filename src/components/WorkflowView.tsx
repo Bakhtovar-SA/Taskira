@@ -24,9 +24,11 @@ const PATHS: Record<string, string> = {
   "review>inprogress": "M471,248 C447,206 447,148 471,114",
   "review>done": "M580,286 C662,286 682,206 744,196",
   "inprogress>done": "M580,56 C660,42 690,124 744,152",
-  // Дуга «Готово → В работе» огибает схему сверху; управляющие точки y≈24,
-  // чтобы верх дуги и стрелка не обрезались краем viewBox / overflow-hidden.
-  "done>inprogress": "M840,136 C840,26 540,22 486,30",
+  // «Готово → В работе» — единственная длинная обратная дуга. Идёт над схемой
+  // с запасом (у svg viewBox добавлено 62px сверху, чтобы дуга не жалась к
+  // краю и не «терялась») и входит СТРОГО вертикально в верх «В работе»
+  // (cp2.x = конечная x) — наконечник садится на кромку блока.
+  "done>inprogress": "M814,138 C884,-42 486,-48 486,32",
 };
 
 /** t.from/t.to — реальные uuid статусов; POS/PATHS ключуются по sid, поэтому
@@ -81,7 +83,7 @@ export default function WorkflowView() {
             </p>
           </div>
           {canEditWf && (
-            <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-md border border-line bg-white px-3 text-[12.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent">
+            <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-[12.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent">
               <IcUndo size={13} /> Сбросить схему
             </button>
           )}
@@ -94,13 +96,13 @@ export default function WorkflowView() {
             <span className="text-[12px] font-bold uppercase tracking-wider text-sub">Карта статусов</span>
             <span className="ml-auto text-[11px] text-faint">наведите на переход в списке — подсветится стрелка</span>
           </div>
-          <svg viewBox="0 0 980 360" className="block w-full">
+          <svg viewBox="0 -62 980 422" className="block w-full">
             <defs>
               <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0L10,5L0,10z" fill="#8fa3bf" />
+                <path d="M0,0L10,5L0,10z" fill="var(--c-faint)" />
               </marker>
               <marker id="arrA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0L10,5L0,10z" fill="#0b5fd9" />
+                <path d="M0,0L10,5L0,10z" fill="var(--c-accent)" />
               </marker>
             </defs>
             <g className="pointer-events-none">
@@ -111,7 +113,7 @@ export default function WorkflowView() {
                     key={t.id}
                     d={edgePath(t, sidOf)}
                     fill="none"
-                    stroke={active ? "#0b5fd9" : "#aebbd0"}
+                    stroke={active ? "var(--c-accent)" : "var(--c-line2)"}
                     strokeWidth={active ? 2.6 : 1.6}
                     markerEnd={`url(#${active ? "arrA" : "arr"})`}
                     className="edge-draw transition-all duration-200"
@@ -126,10 +128,10 @@ export default function WorkflowView() {
               const c = catColor(s.category);
               return (
                 <g key={s.id}>
-                  <rect x={p.x} y={p.y} width={p.w} height={p.h} rx="12" fill="#fdfdfe" stroke={active2(hover, data.workflow.transitions, s.id) ? "#0b5fd9" : "#d5dde9"} strokeWidth={active2(hover, data.workflow.transitions, s.id) ? 2 : 1.2} className="transition-all" />
+                  <rect x={p.x} y={p.y} width={p.w} height={p.h} rx="12" fill="var(--c-panel)" stroke={active2(hover, data.workflow.transitions, s.id) ? "var(--c-accent)" : "var(--c-line)"} strokeWidth={active2(hover, data.workflow.transitions, s.id) ? 2 : 1.2} className="transition-all" />
                   <rect x={p.x} y={p.y} width="6" height={p.h} rx="3" fill={c.dot} />
-                  <text x={p.x + 22} y={p.y + 32} fontSize="14.5" fontWeight="700" fill="#17233b" fontFamily="Golos Text, sans-serif">{s.name}</text>
-                  <text x={p.x + 22} y={p.y + 54} fontSize="11.5" fill="#8b95a7" fontFamily="JetBrains Mono, monospace">{countBy(s.id)} задач</text>
+                  <text x={p.x + 22} y={p.y + 32} fontSize="14.5" fontWeight="700" fill="var(--c-ink)" fontFamily="Golos Text, sans-serif">{s.name}</text>
+                  <text x={p.x + 22} y={p.y + 54} fontSize="11.5" fill="var(--c-faint)" fontFamily="JetBrains Mono, monospace">{countBy(s.id)} задач</text>
                 </g>
               );
             })}
@@ -178,7 +180,7 @@ export default function WorkflowView() {
                 <IcLock size={22} className="text-faint" />
                 <p className="text-[13px] font-bold text-sub">Схема только для чтения</p>
                 <p className="text-[11.5px] leading-relaxed text-faint">
-                  Изменять переходы может только <b className="text-[#B42318]">Администратор</b>. Переключите пользователя в меню сверху, чтобы редактировать схему.
+                  Изменять переходы может только <b className="text-danger">Администратор</b>. Переключите пользователя в меню сверху, чтобы редактировать схему.
                 </p>
               </div>
             ) : (
@@ -188,7 +190,7 @@ export default function WorkflowView() {
             <div className="mt-3 space-y-2.5">
               <label className="block">
                 <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Из статуса</span>
-                <select value={from} onChange={(e) => setFrom(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-white px-2.5 py-2 text-[13px] outline-none focus:border-accent">
+                <select value={from} onChange={(e) => setFrom(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent">
                   {data.workflow.statuses.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
@@ -196,7 +198,7 @@ export default function WorkflowView() {
               </label>
               <label className="block">
                 <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">В статус</span>
-                <select value={to} onChange={(e) => setTo(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-white px-2.5 py-2 text-[13px] outline-none focus:border-accent">
+                <select value={to} onChange={(e) => setTo(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent">
                   {data.workflow.statuses.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}

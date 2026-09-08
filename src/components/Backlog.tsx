@@ -23,7 +23,7 @@ const isOverdue = (i: Issue, doneIds: Set<string>) =>
   !!i.dueDate && !doneIds.has(i.statusId) && i.dueDate < today();
 
 const selectCls =
-  "h-8 rounded-md border border-line bg-white px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
+  "h-8 rounded-md border border-line bg-panel px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 function Row({ issue }: { issue: Issue }) {
   const { data, openIssue, deleteIssue, can } = useStore();
@@ -69,7 +69,7 @@ function Row({ issue }: { issue: Issue }) {
           width={190}
           button={() => (
             <button
-              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-[#e3e9f1] hover:text-ink group-hover:opacity-100"
+              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink group-hover:opacity-100"
               aria-label="Действия"
             >
               <IcDots size={14} />
@@ -157,7 +157,7 @@ export default function Backlog() {
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-white px-2.5">
+            <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-panel px-2.5">
               <IcSearch size={13} className="text-faint" />
               <input
                 value={q}
@@ -177,7 +177,7 @@ export default function Backlog() {
               align="right"
               width={180}
               button={(open) => (
-                <button className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-white text-sub`}>
+                <button className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
                   <IcFilter size={12} className="text-faint" />
                   {SORT_LABEL[sortKey]}
                   <IcChevD size={11} className="text-faint" />
@@ -197,7 +197,7 @@ export default function Backlog() {
             <button
               onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
               title={sortDir === "asc" ? "По возрастанию" : "По убыванию"}
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-line bg-white text-sub hover:text-ink"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-sub hover:text-ink"
               aria-label="Направление сортировки"
             >
               <IcChevD size={13} className={sortDir === "asc" ? "rotate-180" : ""} />
@@ -226,7 +226,7 @@ export default function Backlog() {
               <option key={t} value={t}>{ISSUE_TYPES[t].name}</option>
             ))}
           </select>
-          <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[12.5px] font-medium text-sub">
+          <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
             <input type="checkbox" checked={fOverdue} onChange={(e) => setFOverdue(e.target.checked)} />
             Просроченные
           </label>

@@ -16,7 +16,7 @@ function Ava({ p, size = 24 }: { p: { name: string; initials: string; color: str
   if (!p)
     return (
       <span
-        className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#eef1f6] text-[#8b95a7]"
+        className="inline-flex shrink-0 items-center justify-center rounded-full bg-linesoft text-faint"
         style={{ width: size, height: size, fontSize: size * 0.4 }}
       >
         –
@@ -119,7 +119,7 @@ export function SoloIssueCard({
     <div className="mx-auto max-w-[760px] px-6 py-6">
       <div className="flex items-center gap-2 font-mono text-[12px] font-bold text-sub">
         <TypeIcon type={issue.typeId as IssueTypeId} size={15} /> {issue.key}
-        {statusHint && <span className="rounded bg-[#e8edf4] px-1.5 py-0.5 font-sans text-[10.5px] font-semibold text-sub">{statusHint}</span>}
+        {statusHint && <span className="rounded bg-linesoft px-1.5 py-0.5 font-sans text-[10.5px] font-semibold text-sub">{statusHint}</span>}
       </div>
       <h1 className="mt-1.5 text-[19px] font-bold leading-snug text-ink">{issue.title}</h1>
 
@@ -144,7 +144,7 @@ export function SoloIssueCard({
       {issue.labels.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {issue.labels.map((l) => (
-            <span key={l} className="rounded-full bg-[#eef1f6] px-2 py-0.5 text-[11px] text-sub">
+            <span key={l} className="rounded-full bg-linesoft px-2 py-0.5 text-[11px] text-sub">
               {l}
             </span>
           ))}
@@ -167,7 +167,7 @@ export function SoloIssueCard({
         </p>
         <div className="space-y-1">
           {(issue.attachments ?? []).map((a) => (
-            <div key={a.id} className="flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-[11.5px]">
+            <div key={a.id} className="flex items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px]">
               <button
                 onClick={() =>
                   attachmentsApi
@@ -196,7 +196,7 @@ export function SoloIssueCard({
         />
         <button
           onClick={() => attRef.current?.click()}
-          className="mt-1.5 rounded-md border border-dashed border-[#c3ccda] px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
+          className="mt-1.5 rounded-md border border-dashed border-line2 px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
         >
           + прикрепить файл
         </button>
@@ -235,7 +235,7 @@ export function SoloIssueCard({
             maxLength={LIMITS.comment.max}
             rows={2}
             placeholder="Комментарий…  (Ctrl+Enter)"
-            className="min-w-0 flex-1 resize-y rounded-md border border-line bg-white px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+            className="min-w-0 flex-1 resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
           />
           <button
             onClick={send}
