@@ -7,6 +7,8 @@ import type {
   Data,
   Department,
   Issue,
+  NotificationT,
+  NotifyPrefsT,
   IssueTypeId,
   PriorityId,
   ProjectRole,
@@ -30,10 +32,13 @@ import {
   getToken,
   issuesApi,
   membersApi,
+  notificationsApi,
   projectsApi,
   sprintsApi,
   type CollaboratingItem,
+  type NotifyPrefs,
   type ServerAttachment,
+  type ServerNotification,
   type ServerIssue,
   type SafeUser,
   workflowApi,
@@ -133,8 +138,24 @@ const emptyData = (): Data => ({
   sprints: [],
   workflow: { statuses: [], transitions: [] },
   collaborations: [],
+  notifications: [],
+  unreadCount: 0,
+  notifyPrefs: {},
   seq: 1,
 });
+
+function mapNotification(dto: ServerNotification): NotificationT {
+  return {
+    id: dto.id,
+    type: dto.type as NotificationT["type"],
+    actor: dto.actor,
+    projectId: dto.projectId,
+    issueId: dto.issueId,
+    payload: (dto.payload ?? {}) as NotificationT["payload"],
+    createdAt: Date.parse(dto.createdAt) || Date.now(),
+    read: !!dto.read,
+  };
+}
 
 function mapUser(u: SafeUser, members: Record<string, ProjectRole>): User {
   return {
@@ -227,6 +248,9 @@ interface Api {
   bootstrap: () => Promise<void>;
   switchProject: (projectId: string) => void;
   refreshCollaborations: () => Promise<void>;
+  refreshNotifications: () => Promise<void>;
+  markNotificationsRead: (ids?: string[]) => void;
+  setNotifyPrefs: (patch: NotifyPrefsT) => void;
   logout: () => void;
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
@@ -374,6 +398,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         currentUserId,
         issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
         collaborations,
+        notifications: [],
+        unreadCount: 0,
+        notifyPrefs: {},
         sprints: boot.sprints.map((s) => ({
           id: s.id,
           name: s.name,
@@ -390,6 +417,57 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
     },
     [],
+  );
+
+  /* -------- уведомления (миграция 011) -------- */
+
+  const refreshNotifications = useCallback(async () => {
+    try {
+      const res = await notificationsApi.list();
+      setData((prev) => ({ ...prev, notifications: res.items.map(mapNotification), unreadCount: res.unread }));
+    } catch {
+      /* тихо — колокол не критичен */
+    }
+  }, []);
+
+  const refreshUnreadCount = useCallback(async () => {
+    try {
+      const { count } = await notificationsApi.unreadCount();
+      setData((prev) => (prev.unreadCount === count ? prev : { ...prev, unreadCount: count }));
+    } catch {
+      /* тихо */
+    }
+  }, []);
+
+  const markNotificationsRead = useCallback((ids?: string[]) => {
+    void (async () => {
+      try {
+        await notificationsApi.markRead(ids);
+        setData((prev) => {
+          const set = ids && ids.length ? new Set(ids) : null;
+          const notifications = prev.notifications.map((n) => (!set || set.has(n.id) ? { ...n, read: true } : n));
+          const unreadCount = set ? Math.max(0, prev.unreadCount - ids!.length) : 0;
+          return { ...prev, notifications, unreadCount };
+        });
+      } catch (err) {
+        handleApiError(err);
+      }
+    })();
+  }, [handleApiError]);
+
+  const setNotifyPrefs = useCallback(
+    (patch: NotifyPrefs) => {
+      void (async () => {
+        try {
+          const { notifyPrefs } = await notificationsApi.setPrefs(patch);
+          setData((prev) => ({ ...prev, notifyPrefs: notifyPrefs as NotifyPrefsT }));
+          toast("success", "Настройки уведомлений сохранены");
+        } catch (err) {
+          handleApiError(err, "Не удалось сохранить настройки");
+        }
+      })();
+    },
+    [toast, handleApiError],
   );
 
   const bootstrap = useCallback(async () => {
@@ -439,7 +517,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       const wanted = readLastProject();
       const chosen = projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
-      setData(await buildProjectData(chosen, user.id, projects, deps, collabs));
+      const next = await buildProjectData(chosen, user.id, projects, deps, collabs);
+      setData({ ...next, notifyPrefs: user.notifyPrefs ?? {} });
+      void refreshNotifications();
       writeLastProject(chosen);
       // Прямая ссылка на приглашённую задачу (в проекте, который не открыт) —
       // сразу в раздел «Мои подключения» (Фаза 6 для пользователей с проектами).
@@ -457,7 +537,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       handleApiError(err, "Не удалось загрузить данные");
       setBootStatus("error");
     }
-  }, [handleApiError, buildProjectData, toast]);
+  }, [handleApiError, buildProjectData, toast, refreshNotifications]);
 
   const switchSeqRef = useRef(0);
   const switchProject = useCallback(
@@ -563,6 +643,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       clearHash(); // проект недоступен — молча снимаем хэш
     }
   }, [bootStatus, openIssue, switchProject]);
+
+  /* Polling счётчика непрочитанных: раз в 30 c + при возврате фокуса на вкладку.
+   *  Полная лента подтягивается при открытии колокола (Bell). */
+  useEffect(() => {
+    if (bootStatus !== "ready") return;
+    const tick = () => {
+      if (document.visibilityState === "visible") void refreshUnreadCount();
+    };
+    const id = window.setInterval(tick, 30_000);
+    window.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
+    };
+  }, [bootStatus, refreshUnreadCount]);
 
   const createIssue = useCallback(
     (input: CreateInput) => {
@@ -1231,6 +1328,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     bootstrap,
     switchProject,
     refreshCollaborations,
+    refreshNotifications,
+    markNotificationsRead,
+    setNotifyPrefs,
     logout,
     setView: (v) => setUi((u) => ({ ...u, view: v })),
     openIssue,

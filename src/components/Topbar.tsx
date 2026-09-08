@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
+import type { NotificationT, User } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
 
@@ -77,57 +78,147 @@ function SearchBox() {
   );
 }
 
-function Bell() {
-  const { data, openIssue } = useStore();
-  const [seen, setSeen] = useState<number>(Date.now());
+const NOTIF_VERB: Record<NotificationT["type"], string> = {
+  "issue.assigned": "назначил(а) вас исполнителем",
+  "issue.comment": "прокомментировал(а)",
+  "issue.mention": "упомянул(а) вас в",
+  "issue.status": "сменил(а) статус",
+  "issue.collaborator": "подключил(а) вас к задаче",
+  "project.member": "добавил(а) вас в проект",
+};
 
-  const feed = useMemo(() => {
-    const all = data.issues.flatMap((i) => i.activity.map((a) => ({ ...a, key: i.key, issueId: i.id })));
-    return all.sort((a, b) => b.ts - a.ts).slice(0, 9);
-  }, [data.issues]);
+/** Содержимое дропдауна колокола. Отдельный компонент — чтобы `useEffect` на
+ *  маунте (подтянуть свежую ленту) срабатывал при открытии. */
+function BellPanel({ close }: { close: () => void }) {
+  const { data, openIssue, refreshNotifications, markNotificationsRead } = useStore();
+  useEffect(() => {
+    void refreshNotifications();
+  }, [refreshNotifications]);
 
-  const unread = feed.filter((f) => f.ts > seen && f.authorId !== data.currentUserId).length;
+  const list = data.notifications;
+  const anyUnread = data.unreadCount > 0 || list.some((n) => !n.read);
+
+  const go = (n: NotificationT) => {
+    if (!n.read) markNotificationsRead([n.id]);
+    if (n.issueId && n.projectId === data.currentProjectId) openIssue(n.issueId);
+    else if (n.issueId) window.location.hash = `#/issue/${n.projectId}/${n.issueId}`;
+    close();
+  };
 
   return (
+    <div className="flex max-h-[70vh] flex-col">
+      <div className="flex items-center justify-between border-b border-linesoft px-3.5 py-2.5">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-faint">Уведомления</p>
+        {anyUnread && (
+          <button onClick={() => markNotificationsRead()} className="text-[11px] font-semibold text-accent hover:underline">
+            Прочитать всё
+          </button>
+        )}
+      </div>
+      <div className="overflow-y-auto">
+        {list.length === 0 && (
+          <p className="px-3.5 py-8 text-center text-[12.5px] text-faint">Пока нет уведомлений</p>
+        )}
+        {list.map((n) => (
+          <button
+            key={n.id}
+            onClick={() => go(n)}
+            className={`flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-accentsoft ${
+              n.read ? "" : "bg-[#eef4ff]"
+            }`}
+          >
+            <span className="relative mt-0.5 shrink-0">
+              <Avatar user={(n.actor as unknown as User) ?? null} size={26} />
+              {!n.read && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent ring-2 ring-panel" />
+              )}
+            </span>
+            <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
+              <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? "Кто-то"}</b> {NOTIF_VERB[n.type]}{" "}
+              {n.payload.key && (
+                <span className="font-mono text-[11px] font-semibold text-accent">{n.payload.key}</span>
+              )}
+              {n.type === "issue.status" && n.payload.from && (
+                <span className="text-faint">
+                  {" "}
+                  · {n.payload.from} → {n.payload.to}
+                </span>
+              )}
+              {n.type === "project.member" && n.payload.projectName && (
+                <span className="text-faint"> «{n.payload.projectName}»</span>
+              )}
+              <span className="mt-0.5 block text-[11px] text-faint">{relTime(n.createdAt)}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Bell() {
+  const { data } = useStore();
+  const unread = data.unreadCount;
+  return (
     <Dropdown
-      width={330}
+      width={360}
       align="right"
       button={(open) => (
-        <button className={`relative flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${open ? "border-accent bg-accentsoft text-accent" : "border-line bg-white text-sub hover:text-ink"}`} aria-label="Уведомления">
+        <button
+          className={`relative flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${open ? "border-accent bg-accentsoft text-accent" : "border-line bg-white text-sub hover:text-ink"}`}
+          aria-label="Уведомления"
+        >
           <IcBell size={15} />
-          {unread > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">{unread}</span>}
+          {unread > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          )}
         </button>
       )}
     >
-      {(close) => (
-        <div onMouseEnter={() => setSeen(Date.now() + 1000)}>
-          <p className="border-b border-linesoft px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">Лента активности</p>
-          <div className="max-h-[330px] overflow-y-auto">
-            {feed.length === 0 && <p className="px-3.5 py-6 text-center text-[12.5px] text-faint">Пока нет событий</p>}
-            {feed.map((f) => {
-              const u = data.users.find((x) => x.id === f.authorId);
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => {
-                    openIssue(f.issueId);
-                    close();
-                  }}
-                  className="flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-accentsoft"
-                >
-                  <Avatar user={u ?? null} size={24} />
-                  <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
-                    <b className="font-semibold">{u?.name.split(" ")[0]}</b> {f.text} ·{" "}
-                    <span className="font-mono text-[11px] font-semibold text-accent">{f.key}</span>
-                    <span className="mt-0.5 block text-[11px] text-faint">{relTime(f.ts)}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {(close) => <BellPanel close={close} />}
     </Dropdown>
+  );
+}
+
+/** Настройки уведомлений — компактный блок в меню пользователя (D6). */
+function NotifySettings() {
+  const { data, setNotifyPrefs } = useStore();
+  const mode = data.notifyPrefs.email ?? "instant";
+  const selfWatch = data.notifyPrefs.selfWatch !== false;
+  return (
+    <div className="border-b border-linesoft px-3.5 py-3">
+      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Уведомления по почте</p>
+      <div className="flex gap-1">
+        {(
+          [
+            ["instant", "Сразу"],
+            ["daily", "Дайджест"],
+            ["off", "Выкл"],
+          ] as const
+        ).map(([v, label]) => (
+          <button
+            key={v}
+            onClick={() => setNotifyPrefs({ email: v })}
+            className={`flex-1 rounded border px-1.5 py-1 text-[11px] font-semibold transition-colors ${
+              mode === v ? "border-accent bg-accentsoft text-accent" : "border-line text-sub hover:border-[#b9c6da]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11.5px] text-sub">
+        <input
+          type="checkbox"
+          checked={selfWatch}
+          onChange={(e) => setNotifyPrefs({ selfWatch: e.target.checked })}
+          className="h-3.5 w-3.5 accent-[#0B5FD9]"
+        />
+        Подписывать меня на мои задачи
+      </label>
+    </div>
   );
 }
 
@@ -162,6 +253,7 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
               <RoleBadge role={me.accessRole} size="sm" />
             </div>
           </div>
+          <NotifySettings />
           <MenuItem
             onClick={() => {
               onLogout();

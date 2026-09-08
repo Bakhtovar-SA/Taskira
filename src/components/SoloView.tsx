@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
 import { attachmentsApi, commentsApi, issuesApi, type ServerComment, type ServerIssue, type ServerParticipant } from "../api";
+import { MentionText } from "./IssueModal";
 import { LIMITS, validateComment } from "../validation";
 import { PRIORITIES } from "../types";
 import type { IssueTypeId, PriorityId } from "../types";
@@ -213,7 +214,7 @@ export function SoloIssueCard({
                   <p className="text-[11.5px] text-faint">
                     <span className="font-semibold text-sub">{a?.name ?? "—"}</span> · {relTime(Date.parse(c.createdAt) || Date.now())}
                   </p>
-                  <p className="mt-0.5 whitespace-pre-wrap text-[13px] text-ink">{c.body}</p>
+                  <p className="mt-0.5 whitespace-pre-wrap text-[13px] text-ink"><MentionText text={c.body} /></p>
                 </div>
               </div>
             );

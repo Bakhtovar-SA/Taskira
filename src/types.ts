@@ -166,8 +166,42 @@ export interface Data {
   workflow: Workflow;
   /** Приглашения текущего пользователя к задачам в проектах, которые ему не открыты. */
   collaborations: Collaboration[];
+  /** Лента уведомлений текущего пользователя (первая страница) + счётчик непрочитанных. */
+  notifications: NotificationT[];
+  unreadCount: number;
+  /** Настройки уведомлений текущего пользователя (из /api/auth/me). */
+  notifyPrefs: NotifyPrefsT;
   seq: number;
 }
+
+/** Уведомление в ленте (миграция 011, NOTIFICATIONS_MIGRATION.md). */
+export interface NotificationT {
+  id: string;
+  type:
+    | "issue.assigned"
+    | "issue.comment"
+    | "issue.mention"
+    | "issue.status"
+    | "issue.collaborator"
+    | "project.member";
+  actor: { id: string; name: string; initials: string; color: string } | null;
+  projectId: string | null;
+  issueId: string | null;
+  /** Денормализованные поля для показа (ключ/заголовок задачи, статусы…). */
+  payload: {
+    key?: string;
+    title?: string;
+    from?: string;
+    to?: string;
+    in?: string;
+    projectName?: string;
+    role?: string;
+  };
+  createdAt: number;
+  read: boolean;
+}
+
+export type NotifyPrefsT = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
 
 export type ViewId = "board" | "backlog" | "timeline" | "workflow" | "access" | "admin" | "docs" | "collaborating";
 

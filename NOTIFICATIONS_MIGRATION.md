@@ -5,8 +5,9 @@
 `services/notify.ts` + `emit()` в 5 роутах; `services/mentions.ts`;
 `routes/notifications.ts`; email-воркер `services/notifier.ts` + `emailTemplates.ts`
 (D9 — гарантия конструкцией); `npm test` 67 зелёных, `test:mail` 6 (против SMTP);
-живые прогоны (3 сценария in-app + сырое письмо). Дальше — Фаза 4 (клиент: колокол
-+ настройки).**
+живые прогоны (3 сценария in-app + сырое письмо). Фаза 4 (клиент: колокол,
+polling, настройки, `@`-чипы) — сделана, `tsc`/`build` 0, скриншоты пройдены.
+Осталась Фаза 5 (CI-job `mail` + `NOTIFICATIONS_SETUP.md` + чек-лист + ARCHITECTURE).**
 Ветка `feat/notifications`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 3 — email-воркер; при затыке с SMTP-инфраструктурой отделяется в follow-up
 PR, in-app к тому моменту уже работает). Фаза 6 — вне захода.
@@ -445,28 +446,39 @@ Mailpit: ключ и ссылка — есть; заголовок задачи 
 - **`server/test/mail/README.md`** — запуск (CI Mailpit / локальный sink), что
   проверяется.
 
-### Фаза 4 — Клиент: колокол + настройки
+### Фаза 4 — Клиент: колокол + настройки  *(сделано)*
+
+`npx tsc --noEmit` 0, `npm run build` ок. Скриншоты `scripts/shot.mjs`:
+колокол с бейджем `3` + открытый список; блок настроек в меню пользователя;
+после «Прочитать всё» — бейдж и подсветка непрочитанного сняты.
 
 - **`src/api/index.ts`** — `notificationsApi.{ list, unreadCount, markRead, setPrefs }`;
-  типы `ServerNotification`, `NotifyPrefs`; `SafeUser.notifyPrefs`.
-- **`src/store.tsx`** — `data.notifications` + `data.unreadCount`; `bootstrap()`
-  тянет первую страницу + счётчик; экшены `markNotificationsRead(ids?)`,
-  `refreshNotifications()`, `setNotifyPrefs(p)`; лёгкий polling: `unreadCount` по
-  `setInterval(~30с)` + на `visibilitychange`/`focus`.
-- **`src/components/Topbar.tsx`** — `Bell()` переписан: реальный список из
-  `data.notifications` (иконка типа, актор, отрывок, время), бейдж =
-  `data.unreadCount`; открытие дропдауна → `refreshNotifications()` + `markRead`
-  видимых; клик по элементу → переход к задаче (`openIssue` или
-  `#/issue/<pid>/<id>` при чужом проекте, как в `CollaboratingView`). Заглушечная
-  «Лента активности» из `issue.activity` удаляется.
-- **Упоминания** — в `IssueModal`/`SoloIssueCard` рендер `@login` → чип с именем
-  (резолв по `data.users`/`participants`); ввод `@`-автокомплита — Фаза 6.
-- **Настройки** — простой блок «Уведомления» (email: сразу/дайджест/выкл;
-  автоподписка на свои задачи) в профиле (меню пользователя в топбаре) или в
-  `AdminView`/отдельном экране — уточнить при реализации.
-- Проверка: `typecheck`, `npm run build`; **скриншоты** ключевых состояний
-  (`scripts/shot.mjs`): колокол пустой / со списком / с бейджем, панель настроек.
-  Браузерная проверка — за пользователем.
+  типы `ServerNotification`, `NotifyPrefs`; `SafeUser.notifyPrefs?` (приходит
+  только в `GET /me`).
+- **`src/types.ts`** — `NotificationT`, `NotifyPrefsT`; `Data +=
+  notifications, unreadCount, notifyPrefs`.
+- **`src/store.tsx`** — `mapNotification`; экшены `refreshNotifications`,
+  `refreshUnreadCount`, `markNotificationsRead(ids?)` (оптимистично помечает +
+  корректирует `unreadCount`), `setNotifyPrefs(patch)` (мерж, тост). `bootstrap`
+  ставит `notifyPrefs` из `/me` и зовёт `refreshNotifications()`. Polling:
+  `useEffect` при `bootStatus==='ready'` — `setInterval(30 c)` +
+  `visibilitychange`/`focus` → `refreshUnreadCount` (только при `visible`).
+- **`src/components/Topbar.tsx`** — `Bell()` переписан: бейдж = `data.unreadCount`
+  (`99+` при переполнении); `<BellPanel>` на маунте (открытие дропдауна) зовёт
+  `refreshNotifications()`; строки — аватар актора + «Кто-то <глагол по типу>
+  <ключ>», для `issue.status` — `from → to`, для `project.member` — имя проекта,
+  время `relTime`; непрочитанные — синий фон + точка; «Прочитать всё» →
+  `markNotificationsRead()`; клик по строке → `markNotificationsRead([id])` +
+  `openIssue` (тот же проект) либо `#/issue/<pid>/<iid>` (чужой). Заглушечная
+  «Лента активности» из `issue.activity` удалена.
+- **`src/components/Topbar.tsx` `<NotifySettings>`** — блок «Уведомления по почте»
+  в меню пользователя: сегменты Сразу / Дайджест / Выкл (`notify_prefs.email`) +
+  чекбокс «Подписывать меня на мои задачи» (`selfWatch`) → `setNotifyPrefs`.
+- **`src/components/IssueModal.tsx` `<MentionText>`** — рендер `@login` чипом
+  (`bg-accentsoft text-accent`) в описании и комментариях; переиспользован в
+  `SoloView`. Автокомплит по `@` — Фаза 6.
+- **Не сделано (Фаза 6):** кросс-проектный переход по клику без reload (сейчас
+  через hash), `@`-автокомплит, WebSocket вместо polling.
 
 ### Фаза 5 — CI против Mailpit + NOTIFICATIONS_SETUP.md + верификация
 

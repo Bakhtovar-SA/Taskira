@@ -172,6 +172,22 @@ export type SafeUser = {
   isActive: boolean;
   /** local | ldap — у ldap-юзеров роль/профиль приходят из директории. */
   authSource: "local" | "ldap";
+  /** Настройки уведомлений — приходят только в GET /api/auth/me (не в общем списке). */
+  notifyPrefs?: NotifyPrefs;
+};
+
+export type NotifyPrefs = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
+
+export type ServerNotification = {
+  id: string;
+  type: string;
+  actorId: string | null;
+  actor: { id: string; name: string; initials: string; color: string } | null;
+  projectId: string | null;
+  issueId: string | null;
+  payload: Record<string, string | boolean | undefined>;
+  createdAt: string;
+  read: boolean;
 };
 
 /** Приглашённый участник задачи (issue_collaborators). Приходит в детальном
@@ -309,6 +325,19 @@ export const authApi = {
   me: () => api<SafeUser>("/api/auth/me"),
   /** Режим аутентификации ресурса (local | ldap). */
   config: () => api<{ authMode: "local" | "ldap" }>("/api/auth/config"),
+};
+
+/** Уведомления (миграция 011). Доставка in-app — polling. */
+export const notificationsApi = {
+  list: (cursor?: string) =>
+    api<{ items: ServerNotification[]; nextCursor: string | null; unread: number }>("/api/notifications", {
+      query: { cursor, limit: 20 },
+    }),
+  unreadCount: () => api<{ count: number }>("/api/notifications/unread-count"),
+  markRead: (ids?: string[]) =>
+    api<void>("/api/notifications/read", { method: "POST", body: ids && ids.length ? { ids } : {} }),
+  setPrefs: (prefs: NotifyPrefs) =>
+    api<{ notifyPrefs: NotifyPrefs }>("/api/notifications/prefs", { method: "PATCH", body: prefs }),
 };
 
 /** LDAP: диагностика и ручной ресинк членства (глобальный admin). */
