@@ -551,13 +551,13 @@ pg zod bcryptjs ldapts
 (при `STORAGE_DRIVER=local` не используется, но ставится). См.
 [`../FILES_MIGRATION.md`](../FILES_MIGRATION.md), [`../STORAGE_SETUP.md`](../STORAGE_SETUP.md).
 
-### Чистка корневого package.json (сделать вручную)
+### Чистка корневого package.json
 
-```bash
-npm uninstall @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities \
-  @supabase/supabase-js canvas-confetti @types/canvas-confetti date-fns \
-  framer-motion lucide-react react-router-dom recharts uuid @types/uuid
-```
+Сделано (PR chore/client-ci-hygiene): из корня удалены неиспользуемые
+`@dnd-kit/*`, `@supabase/supabase-js`, `canvas-confetti`, `date-fns`,
+`framer-motion`, `lucide-react`, `react-router-dom`, `recharts`, `uuid` и их
+`@types/*`. Остались только `react` / `react-dom` (+ dev-тулинг: vite, tailwind,
+typescript, playwright). Корневой `package.json` теперь `"name": "taskira"`.
 
 ## Секреты
 
