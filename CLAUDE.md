@@ -166,6 +166,9 @@ the schema and contract but the "оценка" field was dropped from the card U
   db creds `taskira`/`taskira`), so don't paste its contents anywhere shared.
 - `CORS_ORIGIN` in `server/.env` must match the client's actual origin — the Vite dev server
   is `:3000` (`strictPort`), which is what `.env.example` now ships.
+- Behind nginx/an LB, set `TRUST_PROXY` (`true` or an IP/CIDR list) — it feeds Fastify's
+  `trustProxy` (`app.ts`). Without it `req.ip` is the proxy address, which breaks the
+  per-IP login rate-limit (`routes/auth.ts`) and the `ip` field in `audit_log`.
 - User switching is real login/logout only. The old `switchUser` / `resetDemo` client stubs
   and the "Войти как" role-preview UI were removed (dept branch) — they only re-skinned the
   UI locally and never changed which JWT the API saw.

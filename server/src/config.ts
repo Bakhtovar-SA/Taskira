@@ -100,6 +100,9 @@ export interface Config {
   databaseUrl: string;
   jwtSecret: string;
   jwtExpires: string;
+  /** Значение опции Fastify `trustProxy`. За reverse-proxy (nginx) без него
+   *  `req.ip` = адрес прокси — ломает rate-limit логина по IP и IP в audit-логе. */
+  trustProxy: boolean | string;
   corsOrigin: string[] | "*";
   admin: { username: string; password: string; name: string } | null;
   /** local — только пароль (как раньше); ldap — LDAP + break-glass локальный admin. */
@@ -121,6 +124,22 @@ function envBool(raw: string | undefined, def: boolean): boolean {
   if (["1", "true", "yes", "on"].includes(v)) return true;
   if (["0", "false", "no", "off"].includes(v)) return false;
   return def;
+}
+
+/** TRUST_PROXY → значение опции Fastify `trustProxy`:
+ *   пусто / false / off  → false  (прямой доступ, X-Forwarded-* игнорируются);
+ *   true / yes / on / 1   → true   (единственный доверенный прокси в приватной сети);
+ *   иначе                 → строка «как есть»: один IP, CIDR или список через запятую
+ *                           (напр. `127.0.0.1,10.0.0.0/8`) — доверять только этим адресам.
+ *  Число хопов Fastify принимает лишь как `number`, а тип опции его не допускает,
+ *  поэтому здесь не поддерживаем — используйте CIDR. */
+export function parseTrustProxy(raw: string | undefined): boolean | string {
+  const v = raw?.trim();
+  if (!v) return false;
+  const low = v.toLowerCase();
+  if (["1", "true", "yes", "on"].includes(low)) return true;
+  if (["0", "false", "no", "off"].includes(low)) return false;
+  return v;
 }
 
 /** Собирает LdapConfig из env; fail-fast на каждом отсутствующем обязательном ключе.
@@ -325,7 +344,7 @@ function buildConfig(): Config {
   const jwtSecret = process.env.JWT_SECRET ?? "";
   if (jwtSecret.length < 32) fail("JWT_SECRET должен быть не короче 32 символов — см. .env.example");
 
-  const corsRaw = (process.env.CORS_ORIGIN ?? "http://localhost:5173").trim();
+  const corsRaw = (process.env.CORS_ORIGIN ?? "http://localhost:3000").trim();
 
   const adminUser = process.env.ADMIN_USERNAME?.trim();
   const adminPass = process.env.ADMIN_PASSWORD;
@@ -339,6 +358,7 @@ function buildConfig(): Config {
     databaseUrl,
     jwtSecret,
     jwtExpires: process.env.JWT_EXPIRES ?? "12h",
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
     corsOrigin: corsRaw === "*" ? "*" : corsRaw.split(",").map((s) => s.trim()).filter(Boolean),
     admin:
       adminUser && adminPass

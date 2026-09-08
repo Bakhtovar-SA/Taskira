@@ -213,6 +213,12 @@ cp .env.example .env
 npm run dev        # tsx watch (chokidar polling): миграции → seed админа → listen :8080
 ```
 
+**За reverse-proxy (nginx/LB)** обязательно задайте `TRUST_PROXY` (`true` — если до
+приложения дотягивается только прокси; либо список IP/CIDR). Иначе `req.ip` = адрес
+прокси: rate-limit логина (`routes/auth.ts`, 10 попыток/IP/5 мин) считает всех
+пользователей как один IP, и в `audit_log` пишется адрес прокси, а не клиента.
+Значение прокидывается в опцию Fastify `trustProxy` (`app.ts`).
+
 `npm run dev` форсит поллинг chokidar (`CHOKIDAR_USEPOLLING=1`, интервал 250 мс) —
 на Windows рекурсивный `fs.watch` пропускает правки от атомарного сохранения
 редактора и от инструментов, и сервер не перезапускается. Поллинг это чинит ценой
@@ -277,6 +283,7 @@ assignee не из проекта → 400; `DELETE` отдела с проект
 - [ ] `npm run typecheck` — без ошибок; `npm test` — зелёный; `npm run dev` стартует, все миграции в `schema_migrations`
 - [ ] Остановка PostgreSQL → `/api/health` отвечает **503** `{ok:false,db:false}`; восстановление → 200
 - [ ] Логин: неверный пароль — 401 с единым reason; 11-я попытка за 5 минут — **429 RATE_LIMITED**
+- [ ] За прокси: с `TRUST_PROXY` (`true`/CIDR) `req.ip` берётся из `X-Forwarded-For` — два разных клиентских IP считаются rate-limit'ом раздельно; без `TRUST_PROXY` заголовок игнорируется
 - [ ] `is_active=false` в БД → логин 403 «Аккаунт деактивирован…», `/me` с живым токеном — 401 (в пределах 30 с)
 - [ ] Смена `global_role` в БД админом → `/me` и проверки прав видят новую роль **без** перевыпуска токена (≤30 с)
 - [ ] В `issues` нет типов `story`/`epic` (`select distinct type_id from issues;`)
