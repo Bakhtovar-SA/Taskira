@@ -1,10 +1,12 @@
 # NOTIFICATIONS_MIGRATION — уведомления (in-app + email) + фоновый воркер
 
 Статус: **решения §3 подтверждены (D1–D9; D9 — письмо БЕЗ содержимого
-задач/комментариев). Фазы 1–2 сделаны (миграция 011; событийный слой
+задач/комментариев). Фазы 1–3 сделаны: миграция 011; событийный слой
 `services/notify.ts` + `emit()` в 5 роутах; `services/mentions.ts`;
-`routes/notifications.ts` — лента / счётчик / read / prefs; `npm test` 67 зелёных;
-живой прогон 3 сценариев пройден). Дальше — Фаза 3 (email-воркер против Mailpit).**
+`routes/notifications.ts`; email-воркер `services/notifier.ts` + `emailTemplates.ts`
+(D9 — гарантия конструкцией); `npm test` 67 зелёных, `test:mail` 6 (против SMTP);
+живые прогоны (3 сценария in-app + сырое письмо). Дальше — Фаза 4 (клиент: колокол
++ настройки).**
 Ветка `feat/notifications`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 3 — email-воркер; при затыке с SMTP-инфраструктурой отделяется в follow-up
 PR, in-app к тому моменту уже работает). Фаза 6 — вне захода.
@@ -395,30 +397,53 @@ Mailpit: ключ и ссылка — есть; заголовок задачи 
   чужая лента пуста; `selfWatch=false` → нет авто-подписки.
 - Проверка: `typecheck` 0, `npm test` 67 зелёных.
 
-### Фаза 3 — Фоновый воркер + email
+### Фаза 3 — Фоновый воркер + email  *(сделано)*
 
-- **Зависимость** — `nodemailer` (+ `@types/nodemailer` dev).
-- **`server/src/services/notifier.ts`** *(новый)* — `startNotifier()` /
-  `stopNotifier()`: `setInterval`, пачка `email_state='pending'`, группировка по
-  `user_id` в дайджест (D4/D6), `nodemailer` transport из `config.notify`,
-  результат → `email_state`/`email_tries`. Идемпотентность: `UPDATE ... WHERE
-  email_state='pending'` перед отправкой (мягкий лок), при нескольких воркерах —
-  `pg_advisory_xact_lock` (заложить, MVP — один процесс).
-- **`server/src/services/emailTemplates.ts`** *(новый)* — RU plain-text + лёгкий
-  HTML на каждый `type`; ссылка `APP_BASE_URL/#/issue/<pid>/<id>`; дайджест —
-  список.
-- **`server/src/index.ts`** — после `listen`: `if (cfg.notify.workerEnabled &&
-  cfg.notify.emailEnabled && NODE_ENV!=='test') startNotifier()`.
-- **Тесты** — `server/test/notifier.test.ts` (job `mail`, только при
-  `SMTP_HOST` + Mailpit): создать уведомления → прогнать один тик воркера вручную
-  (`runNotifierOnce()`) → проверить письма через Mailpit API (`GET
-  /api/v1/messages`): адрес получателя, тема с ключом `CORP-N`, ссылка
-  `APP_BASE_URL/#/issue/…`; **тело НЕ содержит** заголовка задачи и текста
-  комментария из фикстуры (D9); ретрай при недоступном SMTP (`email_tries++`,
-  потом `failed`); дайджест — одно письмо на N событий; `email='off'` →
-  `skipped`, письма нет; локальный юзер без `email` → `skipped`.
-- Проверка: `typecheck` 0; `npm test` (без SMTP) — воркер не стартует, прежние
-  зелёные.
+`typecheck` 0; `npm test` (без SMTP) — воркер не стартует, **67 зелёных**,
+`notifier.test.ts` в `describe.skip`. Живой прогон — сырое письмо ниже.
+
+- **Зависимости** — `nodemailer` + `@types/nodemailer` (dev). Для локальной
+  проверки без Docker — `smtp-server` + `mailparser` (dev), как `ldapjs` для
+  LDAP-мока.
+- **`server/src/services/emailTemplates.ts`** *(новый)* — `renderOne` /
+  `renderDigest`. **D9 — гарантия конструкцией:** на вход `MailItem` подаётся
+  только `type`, `issueKey`, `projectId`/`issueId` — задачного контента в
+  сигнатуре нет. Тема `Taskira · <тип> · <ключ>`; тело — одна строка про тип +
+  ссылка `APP_BASE_URL/#/issue/<pid>/<id>` + футер «письмо не содержит текста
+  задачи». Дайджест — список ссылок по типам событий.
+- **`server/src/services/notifier.ts`** *(новый)* — `runNotifierOnce()`
+  (экспортируется для тестов/ручного прогона) + `startNotifier()`/`stopNotifier()`.
+  Пачка `email_state='pending'` (JOIN `users` + `issues` для email/prefs/ключа),
+  группировка по `user_id`; `mode='off'`/нет email → `skipped`; `mode='daily'` и
+  окно ещё не вышло → `deferred` (ждём); иначе `renderOne`/`renderDigest` →
+  `nodemailer.sendMail` → `sent`, ошибка → `email_tries++`, при
+  `>= NOTIFY_EMAIL_MAX_TRIES` → `failed`. `startNotifier` — `setInterval` c
+  re-entrancy guard (`running`) — тики не перекрываются (мягкий лок одного
+  процесса); несколько процессов — `NOTIFY_WORKER_ENABLED=false` кроме одного
+  (лидер-лок — Фаза 6). `_resetTransport()` для тестов.
+- **`server/src/index.ts`** — после `listen`: `if (cfg.notify.emailEnabled &&
+  cfg.notify.workerEnabled) startNotifier()`; `stopNotifier()` в `shutdown`.
+- **`server/test/mail/sink.mjs`** *(новый)* — SMTP-catcher (`smtp-server` +
+  `mailparser`) + HTTP (`GET /` → письма JSON, `DELETE /` — очистить). Локальный
+  fallback без Docker; `notifier.test.ts` форкает его сам при `MAIL_KIND != mailpit`.
+- **`server/test/notifier.test.ts`** *(новый, `describe.skip` без
+  `NOTIFY_EMAIL_ENABLED=true` + `SMTP_HOST`)* — `npm run test:mail`. **6 тестов:**
+  - **D9-регрессия:** секретный заголовок задачи и секретный текст комментария
+    из фикстуры **отсутствуют** в письме (subject / text / html / raw); есть
+    ключ `CORP-1` и ссылка `#/issue/<pid>/<iid>`; строка → `email_state='sent'`;
+  - `notify_prefs.email='off'` → `skipped` на emit, письма нет;
+  - prefs сменились на `'off'` после emit → воркер защитно `skipped`, не шлёт;
+  - нет `users.email` → `skipped` на emit;
+  - дайджест (`'daily'`): окно не вышло → `deferred`, письма нет; «состарить»
+    строки → одно письмо-сводка, `sent=2`, тоже без контента (D9);
+  - SMTP недоступен → `email_tries` растёт, после лимита → `failed`, письма нет.
+- **`.github/workflows/test.yml`** — job `mail`: `postgres:16` + `docker compose
+  -f docker-compose.mail.yml up -d` (Mailpit) + ожидание `/api/v1/messages` +
+  `NOTIFY_EMAIL_ENABLED=true` / `MAIL_KIND=mailpit` env + `npm run test:mail` +
+  дамп логов Mailpit. Основной `server` job — без `NOTIFY_EMAIL_ENABLED`.
+- **`server/package.json`** — `test:mail` = `vitest run test/notifier.test.ts`.
+- **`server/test/mail/README.md`** — запуск (CI Mailpit / локальный sink), что
+  проверяется.
 
 ### Фаза 4 — Клиент: колокол + настройки
 

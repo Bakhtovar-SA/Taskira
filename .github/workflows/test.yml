@@ -207,3 +207,69 @@ jobs:
       - name: MinIO logs
         if: always()
         run: docker compose -f docker-compose.storage.yml logs minio
+
+  # Отдельный job: email-воркер уведомлений против НАСТОЯЩЕГО SMTP (Mailpit).
+  # Основной `server` job идёт с NOTIFY_EMAIL_ENABLED unset — воркер не стартует.
+  mail:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: taskira
+          POSTGRES_PASSWORD: taskira
+          POSTGRES_DB: taskira_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    defaults:
+      run:
+        working-directory: server
+
+    env:
+      DATABASE_URL_TEST: postgresql://taskira:taskira@localhost:5432/taskira_test
+      JWT_SECRET: ci-mail-job-jwt-secret-00000000000000000
+      NOTIFY_EMAIL_ENABLED: "true"
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      SMTP_FROM: Taskira <noreply@taskira.test>
+      APP_BASE_URL: https://taskira.ci
+      MAIL_KIND: mailpit
+      MAIL_API: http://localhost:8025
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+      - run: npm rebuild esbuild
+
+      - name: Start Mailpit
+        run: docker compose -f docker-compose.mail.yml up -d
+
+      - name: Wait for Mailpit API
+        run: |
+          for i in $(seq 1 40); do
+            curl -sf http://localhost:8025/api/v1/messages >/dev/null 2>&1 && { echo "mailpit up ($i)"; exit 0; }
+            sleep 2
+          done
+          echo "::error::Mailpit не поднялся"
+          docker compose -f docker-compose.mail.yml logs mailpit
+          exit 1
+
+      - run: npm run test:mail
+
+      - name: Mailpit logs
+        if: always()
+        run: docker compose -f docker-compose.mail.yml logs mailpit

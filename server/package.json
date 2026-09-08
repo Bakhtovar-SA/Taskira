@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ldap": "vitest run test/access.ldap.test.ts",
-    "test:storage": "vitest run test/access.attachments.test.ts test/storage.s3.test.ts"
+    "test:storage": "vitest run test/access.attachments.test.ts test/storage.s3.test.ts",
+    "test:mail": "vitest run test/notifier.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1127.0",
@@ -26,15 +27,19 @@
     "bcryptjs": "^2.4.3",
     "fastify": "^5.2.0",
     "ldapts": "^9.0.0",
+    "nodemailer": "^6.10.1",
     "pg": "^8.13.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.0",
+    "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.11.10",
     "cross-env": "^10.1.0",
     "ldapjs": "^3.0.7",
+    "mailparser": "^3.9.23",
+    "smtp-server": "^3.19.9",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^5.0.0"
