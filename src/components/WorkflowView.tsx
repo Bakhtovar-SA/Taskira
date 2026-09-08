@@ -24,10 +24,11 @@ const PATHS: Record<string, string> = {
   "review>inprogress": "M471,248 C447,206 447,148 471,114",
   "review>done": "M580,286 C662,286 682,206 744,196",
   "inprogress>done": "M580,56 C660,42 690,124 744,152",
-  // Дуга «Готово → В работе» огибает схему сверху и входит СТРОГО вертикально
-  // в верхнюю кромку «В работе» (cp2.x = конечная x): наконечник садится на
-  // край блока, а не висит над ним под углом.
-  "done>inprogress": "M812,138 C812,26 486,14 486,34",
+  // «Готово → В работе» — единственная длинная обратная дуга. Идёт над схемой
+  // с запасом (у svg viewBox добавлено 62px сверху, чтобы дуга не жалась к
+  // краю и не «терялась») и входит СТРОГО вертикально в верх «В работе»
+  // (cp2.x = конечная x) — наконечник садится на кромку блока.
+  "done>inprogress": "M814,138 C884,-42 486,-48 486,32",
 };
 
 /** t.from/t.to — реальные uuid статусов; POS/PATHS ключуются по sid, поэтому
@@ -95,7 +96,7 @@ export default function WorkflowView() {
             <span className="text-[12px] font-bold uppercase tracking-wider text-sub">Карта статусов</span>
             <span className="ml-auto text-[11px] text-faint">наведите на переход в списке — подсветится стрелка</span>
           </div>
-          <svg viewBox="0 0 980 360" className="block w-full">
+          <svg viewBox="0 -62 980 422" className="block w-full">
             <defs>
               <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path d="M0,0L10,5L0,10z" fill="var(--c-faint)" />

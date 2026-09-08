@@ -12,11 +12,11 @@ const BG_KEY = "taskira.bg";
  *  в тон остальной палитры, без кислотных цветов. */
 export const BG_PRESETS: { id: string; name: string; light: string; dark: string }[] = [
   { id: "default", name: "Стандартный", light: "#f1f3f7", dark: "#161a20" },
-  { id: "cool", name: "Прохладный", light: "#edf2f9", dark: "#141922" },
-  { id: "mint", name: "Мятный", light: "#eef5f0", dark: "#141d18" },
-  { id: "sand", name: "Песочный", light: "#f5f2ec", dark: "#1b1a15" },
-  { id: "slate", name: "Графит", light: "#eceef2", dark: "#191b21" },
-  { id: "lavender", name: "Лавандовый", light: "#f1f0f8", dark: "#181722" },
+  { id: "cool", name: "Прохладный", light: "#e7edf7", dark: "#131926" },
+  { id: "mint", name: "Мятный", light: "#e6f1ea", dark: "#111d17" },
+  { id: "sand", name: "Песочный", light: "#f4efe3", dark: "#1c1a12" },
+  { id: "rose", name: "Розовый", light: "#f6eaed", dark: "#211419" },
+  { id: "lavender", name: "Лавандовый", light: "#eeeaf8", dark: "#181423" },
 ];
 
 export function readTheme(): ThemeMode {
@@ -50,13 +50,17 @@ export function effectiveTheme(mode: ThemeMode = readTheme()): "light" | "dark" 
   return mode === "system" ? (prefersDark() ? "dark" : "light") : mode;
 }
 
-/** Ставит data-theme и --bg-preset на <html>. Дёргается на старте и при смене. */
+/** Ставит data-theme на <html> и переопределяет --c-canvas выбранным пресетом
+ *  фона (у пресета своё значение для светлой и тёмной темы). Инлайн-стиль на
+ *  <html> перебивает значение из таблицы стилей, поэтому все bg-canvas
+ *  подхватывают пресет. Пресет "default" совпадает с темой — то есть no-op.
+ *  Дёргается на старте и при каждом переключении темы/фона. */
 export function applyTheme(mode: ThemeMode = readTheme(), bgId: string = readBgId()): void {
   const eff = effectiveTheme(mode);
   const root = document.documentElement;
   root.setAttribute("data-theme", eff);
   const preset = BG_PRESETS.find((p) => p.id === bgId) ?? BG_PRESETS[0];
-  root.style.setProperty("--bg-preset", eff === "dark" ? preset.dark : preset.light);
+  root.style.setProperty("--c-canvas", eff === "dark" ? preset.dark : preset.light);
 }
 
 export function setThemeMode(mode: ThemeMode): void {

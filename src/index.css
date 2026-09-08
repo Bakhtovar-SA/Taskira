@@ -48,10 +48,6 @@
   --c-warn-fg: #7a5c00;
   --c-todo-fg: #44546f;
 
-  /* фон рабочей области — пресет поверх темы (ticket §4).
-     По умолчанию совпадает с canvas; переключатель «Оформление» ставит
-     на <html> style="--bg-preset: …". */
-  --bg-preset: var(--c-canvas);
 }
 
 :root[data-theme="dark"] {
@@ -130,7 +126,7 @@ body,
 
 body {
   font-family: var(--font-body);
-  background: var(--bg-preset);
+  background: var(--color-canvas);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   font-size: 14px;

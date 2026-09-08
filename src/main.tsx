@@ -5,7 +5,7 @@ import App from "./App.tsx";
 import { applyTheme, watchSystemTheme } from "./theme";
 
 // Тему ставим до первого рендера (data-theme из index.html уже применён без
-// мигания; здесь ещё и --bg-preset), затем следим за системной темой.
+// мигания; здесь ещё и пресет фона --c-canvas), затем следим за системной темой.
 applyTheme();
 watchSystemTheme();
 
