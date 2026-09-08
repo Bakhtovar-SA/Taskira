@@ -167,7 +167,7 @@ export function SoloIssueCard({
         </p>
         <div className="space-y-1">
           {(issue.attachments ?? []).map((a) => (
-            <div key={a.id} className="flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-[11.5px]">
+            <div key={a.id} className="flex items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px]">
               <button
                 onClick={() =>
                   attachmentsApi
@@ -235,7 +235,7 @@ export function SoloIssueCard({
             maxLength={LIMITS.comment.max}
             rows={2}
             placeholder="Комментарий…  (Ctrl+Enter)"
-            className="min-w-0 flex-1 resize-y rounded-md border border-line bg-white px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+            className="min-w-0 flex-1 resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
           />
           <button
             onClick={send}

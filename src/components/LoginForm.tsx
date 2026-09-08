@@ -45,7 +45,7 @@ export default function LoginForm({ onSuccess }: Props) {
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
               required
-              className="h-10 w-full rounded-md border border-line bg-white px-3 text-[14px] outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(11,95,217,0.12)]"
+              className="h-10 w-full rounded-md border border-line bg-panel px-3 text-[14px] outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(11,95,217,0.12)]"
             />
           </label>
           <label className="block">
@@ -56,7 +56,7 @@ export default function LoginForm({ onSuccess }: Props) {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
-              className="h-10 w-full rounded-md border border-line bg-white px-3 text-[14px] outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(11,95,217,0.12)]"
+              className="h-10 w-full rounded-md border border-line bg-panel px-3 text-[14px] outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(11,95,217,0.12)]"
             />
           </label>
 

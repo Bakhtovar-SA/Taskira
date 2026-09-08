@@ -7,7 +7,7 @@ import { Avatar, Dropdown, Modal, Chip } from "../ui";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
 
-const inputCls = "w-full rounded-md border border-line bg-white px-3 py-2 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
+const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 export default function CreateIssueModal() {
   const { data, setCreateOpen, createIssue } = useStore();
@@ -82,7 +82,7 @@ export default function CreateIssueModal() {
                 key={t}
                 onClick={() => setTypeId(t)}
                 className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-2 py-2 text-[12.5px] font-semibold transition-all ${
-                  typeId === t ? "border-accent bg-accentsoft text-accent shadow-[0_0_0_2px_rgba(11,95,217,0.15)]" : "border-line bg-white text-sub hover:border-line2"
+                  typeId === t ? "border-accent bg-accentsoft text-accent shadow-[0_0_0_2px_rgba(11,95,217,0.15)]" : "border-line bg-panel text-sub hover:border-line2"
                 }`}
               >
                 <TypeIcon type={t} size={14} /> {ISSUE_TYPES[t].name}
@@ -130,7 +130,7 @@ export default function CreateIssueModal() {
             <Dropdown
               width={220}
               button={(open) => (
-                <button className={`flex w-full items-center gap-2 rounded-md border bg-white px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
+                <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
                   <PriorityIcon p={priorityId} size={14} /> {PRIORITIES[priorityId].name}
                   <IcChevD size={12} className="ml-auto text-faint" />
                 </button>
@@ -152,7 +152,7 @@ export default function CreateIssueModal() {
             <Dropdown
               width={220}
               button={(open) => (
-                <button className={`flex w-full items-center gap-2 rounded-md border bg-white px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
+                <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
                   <Avatar user={assignee ?? null} size={18} />
                   <span className={assignee ? "" : "text-faint"}>{assignee?.name ?? "Не назначен"}</span>
                   <IcChevD size={12} className="ml-auto text-faint" />
@@ -191,7 +191,7 @@ export default function CreateIssueModal() {
           </div>
           <div>
             <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Метки</p>
-            <div className={`flex flex-wrap items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1.5 ${labelDraft ? "" : ""}`}>
+            <div className={`flex flex-wrap items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1.5 ${labelDraft ? "" : ""}`}>
               {labels.map((l) => (
                 <Chip key={l} text={l} onRemove={() => setLabels((p) => p.filter((x) => x !== l))} />
               ))}

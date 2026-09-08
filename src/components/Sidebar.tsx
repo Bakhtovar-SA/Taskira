@@ -36,18 +36,26 @@ const GROUPS: {
 ];
 
 export default function Sidebar() {
-  const { data, ui, setView, me } = useStore();
+  const { data, ui, setView, me, goHome } = useStore();
   const openCount = data.issues.filter((i) => data.workflow.statuses.find((s) => s.id === i.statusId)?.category !== "done").length;
+  // Лого ведёт на главный экран — как крошка «Проекты» в топбаре; кликабельно
+  // только когда главный экран вообще есть (≥ 2 доступных проекта).
+  const homeAvailable = data.projects.length >= 2;
 
   return (
     <aside className="flex w-[232px] shrink-0 flex-col bg-sidebar text-[#c6d2e4]">
-      <div className="flex items-center gap-2.5 px-4 pb-5 pt-5">
+      <button
+        type="button"
+        onClick={homeAvailable ? goHome : undefined}
+        aria-label={homeAvailable ? "На главный экран" : "Taskira"}
+        className={`flex items-center gap-2.5 px-4 pb-5 pt-5 text-left ${homeAvailable ? "cursor-pointer" : "cursor-default"}`}
+      >
         <Logo size={30} />
         <div className="leading-none">
-          <p className="font-disp text-[15px] font-bold tracking-tight text-white">Taskira</p>
+          <p className={`font-disp text-[15px] font-bold tracking-tight text-white ${homeAvailable ? "transition-opacity hover:opacity-80" : ""}`}>Taskira</p>
           <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#5f7396]">issue tracking</p>
         </div>
-      </div>
+      </button>
 
       <div className="mx-3 mb-4 flex items-center gap-2.5 rounded-lg border border-[#24385a] bg-sidebar2/70 p-2.5">
         <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent font-disp text-[13px] font-bold text-white">{data.project.key[0]}</span>

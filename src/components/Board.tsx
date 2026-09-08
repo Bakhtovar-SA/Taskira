@@ -72,7 +72,7 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
     setText("");
   };
   return (
-    <div className="anim-fadeup rounded-lg border border-accent bg-white p-2 shadow-[0_0_0_3px_rgba(11,95,217,0.1)]">
+    <div className="anim-fadeup rounded-lg border border-accent bg-panel p-2 shadow-[0_0_0_3px_rgba(11,95,217,0.1)]">
       <textarea
         autoFocus
         value={text}
@@ -169,7 +169,7 @@ export default function Board() {
               <Avatar user={null} size={26} ring />
             </button>
           </div>
-          <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-white px-2.5">
+          <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-panel px-2.5">
             <IcSearch size={13} className="text-faint" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Фильтр по доске" className="w-32 bg-transparent text-[12.5px] outline-none placeholder:text-faint" />
             {q && (

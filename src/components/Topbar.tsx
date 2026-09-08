@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
 import type { NotificationT } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
+import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
 
 function SearchBox() {
   const { data, openIssue } = useStore();
@@ -33,7 +33,7 @@ function SearchBox() {
 
   return (
     <div className="relative">
-      <div className={`flex items-center gap-2 rounded-md border bg-white px-2.5 transition-all duration-200 ${focus ? "w-[340px] border-accent shadow-[0_0_0_3px_rgba(11,95,217,0.12)]" : "w-[228px] border-line"}`}>
+      <div className={`flex items-center gap-2 rounded-md border bg-panel px-2.5 transition-all duration-200 ${focus ? "w-[340px] border-accent shadow-[0_0_0_3px_rgba(11,95,217,0.12)]" : "w-[228px] border-line"}`}>
         <IcSearch size={14} className="shrink-0 text-faint" />
         <input
           id="global-search"
@@ -165,7 +165,7 @@ export function Bell() {
       align="right"
       button={(open) => (
         <button
-          className={`relative flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${open ? "border-accent bg-accentsoft text-accent" : "border-line bg-white text-sub hover:text-ink"}`}
+          className={`relative flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${open ? "border-accent bg-accentsoft text-accent" : "border-line bg-panel text-sub hover:text-ink"}`}
           aria-label="Уведомления"
         >
           <IcBell size={15} />
@@ -229,7 +229,7 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
       width={280}
       align="right"
       button={(open) => (
-        <button className={`flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${open ? "border-accent bg-accentsoft" : "border-line bg-white hover:border-line2"}`} aria-label="Меню пользователя">
+        <button className={`flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${open ? "border-accent bg-accentsoft" : "border-line bg-panel hover:border-line2"}`} aria-label="Меню пользователя">
           <Avatar user={me} size={26} />
           <span className="hidden max-w-[120px] truncate text-left md:block">
             <span className="block truncate text-[12.5px] font-semibold leading-tight text-ink">{me.name.split(" ")[0]}</span>
@@ -253,6 +253,7 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
               <RoleBadge role={me.accessRole} size="sm" />
             </div>
           </div>
+          <AppearanceSettings />
           <NotifySettings />
           <MenuItem
             onClick={() => {

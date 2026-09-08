@@ -217,10 +217,12 @@ export interface AssignedIssue {
   projectId: string;
   key: string;
   title: string;
+  typeId: IssueTypeId;
   priorityId: PriorityId;
   statusId: string;
   statusName: string;
   statusCategory: string;
+  dueDate: string | null;
   projectKey: string;
   projectName: string;
 }

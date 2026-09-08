@@ -120,7 +120,7 @@ export default function PermissionsView() {
                       <select
                         value={role}
                         onChange={(e) => setMemberRole(id, e.target.value as ProjectRole)}
-                        className="rounded-md border border-line bg-white px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:outline-none"
+                        className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:outline-none"
                       >
                         {PROJECT_ROLES.map((r) => (
                           <option key={r} value={r}>{roleMeta(r).name}</option>
@@ -132,7 +132,7 @@ export default function PermissionsView() {
                     {canManage && (
                       <button
                         onClick={() => removeMember(id)}
-                        className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger"
+                        className="rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger"
                       >
                         Убрать
                       </button>
@@ -151,7 +151,7 @@ export default function PermissionsView() {
                 <select
                   value={addUser}
                   onChange={(e) => setAddUser(e.target.value)}
-                  className="rounded-md border border-line bg-white px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none"
+                  className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none"
                 >
                   <option value="">— выберите —</option>
                   {nonMembers.map((u) => (
@@ -161,7 +161,7 @@ export default function PermissionsView() {
                 <select
                   value={addRole}
                   onChange={(e) => setAddRole(e.target.value as ProjectRole)}
-                  className="rounded-md border border-line bg-white px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:outline-none"
+                  className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:outline-none"
                 >
                   {PROJECT_ROLES.map((r) => (
                     <option key={r} value={r}>{roleMeta(r).name}</option>

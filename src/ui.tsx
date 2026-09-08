@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AccessRole, Status, User } from "./types";
 import { useStore } from "./store";
 import { IcX } from "./icons";
+import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
 
 /** Аватару достаточно имени/инициалов/цвета — принимаем любой такой объект
  *  (не только полный User: напр. `actor` в уведомлениях). */
@@ -180,6 +181,59 @@ export const LockedField = ({ children, reason }: { children: React.ReactNode; r
     </div>
   </Tip>
 );
+
+/** Попап «Оформление» — тема (3 варианта) + пресеты фона рабочей области.
+ *  Живёт в меню профиля (Topbar) и в шапке HomeView. Хранение — localStorage
+ *  (theme.ts), без сервера. */
+export function AppearanceSettings() {
+  const [mode, setMode] = useState<ThemeMode>(() => readTheme());
+  const [bg, setBgState] = useState<string>(() => readBgId());
+  const eff = effectiveTheme(mode);
+  return (
+    <div className="border-b border-linesoft px-3.5 py-3">
+      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Оформление</p>
+      <div className="flex gap-1">
+        {(
+          [
+            ["system", "Системная"],
+            ["light", "Светлая"],
+            ["dark", "Тёмная"],
+          ] as const
+        ).map(([v, label]) => (
+          <button
+            key={v}
+            onClick={() => {
+              setThemeMode(v);
+              setMode(v);
+            }}
+            className={`flex-1 rounded border px-1.5 py-1 text-[11px] font-semibold transition-colors ${
+              mode === v ? "border-accent bg-accentsoft text-accent" : "border-line text-sub hover:border-line2"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {BG_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            title={p.name}
+            aria-label={`Фон: ${p.name}`}
+            onClick={() => {
+              setBg(p.id);
+              setBgState(p.id);
+            }}
+            className={`h-6 w-6 rounded-md border-2 transition-transform hover:scale-110 ${
+              bg === p.id ? "border-accent" : "border-line"
+            }`}
+            style={{ background: eff === "dark" ? p.dark : p.light }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function Toasts() {
   const { toasts } = useStore();

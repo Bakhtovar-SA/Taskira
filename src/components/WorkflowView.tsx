@@ -82,7 +82,7 @@ export default function WorkflowView() {
             </p>
           </div>
           {canEditWf && (
-            <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-md border border-line bg-white px-3 text-[12.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent">
+            <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-[12.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent">
               <IcUndo size={13} /> Сбросить схему
             </button>
           )}
@@ -189,7 +189,7 @@ export default function WorkflowView() {
             <div className="mt-3 space-y-2.5">
               <label className="block">
                 <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Из статуса</span>
-                <select value={from} onChange={(e) => setFrom(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-white px-2.5 py-2 text-[13px] outline-none focus:border-accent">
+                <select value={from} onChange={(e) => setFrom(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent">
                   {data.workflow.statuses.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
@@ -197,7 +197,7 @@ export default function WorkflowView() {
               </label>
               <label className="block">
                 <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">В статус</span>
-                <select value={to} onChange={(e) => setTo(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-white px-2.5 py-2 text-[13px] outline-none focus:border-accent">
+                <select value={to} onChange={(e) => setTo(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent">
                   {data.workflow.statuses.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}

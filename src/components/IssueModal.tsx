@@ -35,7 +35,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const selectCls = "flex w-full items-center gap-2 rounded-md border border-line bg-white px-2.5 py-1.5 text-[13px] font-medium text-ink transition-colors hover:border-accent";
+const selectCls = "flex w-full items-center gap-2 rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] font-medium text-ink transition-colors hover:border-accent";
 
 /** Приглашённые участники задачи (issue collaborators). Видны всем, кто открыл
  *  карточку; добавляет/убирает — manageCollaborators (admin/manager проекта). */
@@ -115,7 +115,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
               value={pick}
               onChange={(e) => setPick(e.target.value)}
               disabled={candidates.length === 0}
-              className="min-w-0 flex-1 rounded-md border border-line bg-white px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
+              className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
             >
               <option value="">{candidates.length ? "— пригласить человека —" : "нет кандидатов"}</option>
               {candidates.map((u) => (
@@ -195,7 +195,7 @@ function AttachmentField({ issue }: { issue: Issue }) {
           return (
             <div
               key={a.id}
-              className="flex items-center gap-1.5 rounded-md border border-line bg-white px-2 py-1 text-[11.5px]"
+              className="flex items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px]"
             >
               <IcLink size={11} className="shrink-0 text-faint" />
               <button
@@ -357,7 +357,7 @@ export default function IssueModal() {
                   onChange={(e) => setDescDraft(e.target.value)}
                   rows={5}
                   placeholder="Добавьте описание…"
-                  className="w-full resize-y rounded-md border border-accent bg-white p-2.5 text-[13px] leading-relaxed outline-none ring-2 ring-accent/15"
+                  className="w-full resize-y rounded-md border border-accent bg-panel p-2.5 text-[13px] leading-relaxed outline-none ring-2 ring-accent/15"
                 />
                 <div className="mt-1.5 flex gap-1.5">
                   <button onClick={saveDesc} className="rounded bg-accent px-3 py-1 text-[12px] font-semibold text-white hover:bg-accentdeep">Сохранить</button>
@@ -430,7 +430,7 @@ export default function IssueModal() {
                     rows={2}
                     maxLength={LIMITS.comment.max}
                     placeholder="Добавить комментарий… (Ctrl+Enter — отправить)"
-                    className="w-full resize-y rounded-md border border-line bg-white p-2.5 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15"
+                    className="w-full resize-y rounded-md border border-line bg-panel p-2.5 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15"
                   />
                   <div className="mt-1.5 flex justify-end">
                     <button
@@ -471,7 +471,7 @@ export default function IssueModal() {
                 return (
                   <div key={a.id} className="relative flex gap-3 pb-4">
                     {idx < arr.length - 1 && <span className="absolute left-[11px] top-6 h-full w-px bg-line" />}
-                    <span className="relative z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line bg-white">
+                    <span className="relative z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line bg-panel">
                       <Avatar user={u ?? null} size={18} />
                     </span>
                     <p className="pt-0.5 text-[12.5px] leading-snug text-sub">
@@ -593,7 +593,7 @@ export default function IssueModal() {
                   width={220}
                   button={(open) => (
                     <button
-                      className={`flex w-full items-center gap-1.5 rounded-md border bg-white px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
+                      className={`flex w-full items-center gap-1.5 rounded-md border bg-panel px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
                     >
                       <PriorityIcon p={issue.priorityId} size={13} />
                       <span className="min-w-0 flex-1 truncate text-left">{PRIORITIES[issue.priorityId].name}</span>
@@ -624,7 +624,7 @@ export default function IssueModal() {
                     type="date"
                     value={issue.dueDate ?? ""}
                     onChange={(e) => updateIssue(issue.id, { dueDate: e.target.value || null })}
-                    className={`w-full rounded-md border bg-white px-1.5 py-1.5 text-[12px] font-medium outline-none transition-colors focus:border-accent ${
+                    className={`w-full rounded-md border bg-panel px-1.5 py-1.5 text-[12px] font-medium outline-none transition-colors focus:border-accent ${
                       overdue ? "border-danger text-danger" : "border-line text-ink"
                     }`}
                   />
@@ -752,7 +752,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
             setEditing(false);
           }
         }}
-        className="w-full resize-none rounded-md border border-accent bg-white p-2 text-[17px] font-bold leading-snug text-ink outline-none ring-2 ring-accent/15"
+        className="w-full resize-none rounded-md border border-accent bg-panel p-2 text-[17px] font-bold leading-snug text-ink outline-none ring-2 ring-accent/15"
       />
     );
   return (

@@ -14,6 +14,8 @@ interface Row {
   status_id: string;
   status_name: string;
   status_category: string;
+  due_date: string | null;
+  type_id: string;
   project_key: string;
   project_name: string;
 }
@@ -31,6 +33,7 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
     const rows = await q<Row>(
       `SELECT i.id AS issue_id, i.project_id, i.key, i.title, i.priority_id, i.status_id,
               ws.name AS status_name, ws.category AS status_category,
+              i.due_date, i.type_id,
               p.key AS project_key, p.name AS project_name
          FROM issues i
          JOIN projects p ON p.id = i.project_id
@@ -53,10 +56,12 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
       projectId: r.project_id,
       key: r.key,
       title: r.title,
+      typeId: r.type_id,
       priorityId: r.priority_id,
       statusId: r.status_id,
       statusName: r.status_name,
       statusCategory: r.status_category,
+      dueDate: r.due_date,
       projectKey: r.project_key,
       projectName: r.project_name,
     }));
