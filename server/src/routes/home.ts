@@ -43,7 +43,7 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
                OR EXISTS (SELECT 1 FROM department_members dm
                            WHERE dm.department_id = p.department_id AND dm.user_id = $1)
                OR p.is_shared)
-        ORDER BY array_position(ARRAY['highest','high','medium','low','lowest']::text[], i.priority_id),
+        ORDER BY array_position(ARRAY['critical','high','medium','low']::text[], i.priority_id),
                  i.updated_at DESC`,
       [user.sub, isGlobalAdmin],
     );

@@ -68,17 +68,17 @@ describe("GET /api/issues/assigned-to-me", () => {
     expect(mine((await g("/api/issues/assigned-to-me", adm)).body)).toEqual(["SEC-1"]);
   });
 
-  test("сортировка: highest раньше low, затем по updated_at", async () => {
+  test("сортировка: critical раньше low, затем по updated_at", async () => {
     const adm = await login(app, "admin");
     const emp = await login(app, "emp1");
     const a = JSON.parse(
       (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeId: fx.users.emp1, priorityId: "low" }))).body,
     );
     const b = JSON.parse(
-      (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeId: fx.users.emp1, priorityId: "highest" }))).body,
+      (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeId: fx.users.emp1, priorityId: "critical" }))).body,
     );
     const order = JSON.parse((await g("/api/issues/assigned-to-me", emp)).body).map((r: { key: string }) => r.key);
-    // CORP-1 (medium, fixture) между highest и low
+    // CORP-1 (medium, fixture) между critical и low
     expect(order.indexOf(b.key)).toBeLessThan(order.indexOf("CORP-1"));
     expect(order.indexOf("CORP-1")).toBeLessThan(order.indexOf(a.key));
   });

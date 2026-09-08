@@ -29,11 +29,10 @@ import {
 } from "../contract.js";
 
 const PRIORITY_NAMES: Record<string, string> = {
-  highest: "Высший",
+  critical: "Критичный",
   high: "Высокий",
   medium: "Средний",
   low: "Низкий",
-  lowest: "Низший",
 };
 
 const escLike = (s: string) => s.replace(/[%_\\]/g, "\\$&");
