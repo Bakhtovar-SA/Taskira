@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Taskira — an internal corporate task tracker (Jira-style board / backlog / timeline / workflow editor)
+Taskira — an internal corporate task tracker (board / task list / timeline / workflow editor)
 with a role-based permission system. Two independent npm packages:
 
 - **root** — React 18 + TypeScript + Vite SPA (`src/`). UI language and all copy is Russian.
@@ -63,8 +63,7 @@ Enforcement points:
   `req.issueRef`, applies the "employee can only edit own issues" rule). Both call `requireAuth`
   themselves, so a route lists only the permission hook.
 - Task-level rule: `employee` may `edit` an issue only if `assigneeId === me || reporterId === me`.
-  `admin`/`manager` edit anything. Changing `sprintId` via `PATCH /issues/:id` additionally
-  requires `manageSprints` (checked inline in the route, not just the hook).
+  `admin`/`manager` edit anything.
 
 ### Validation limits are also mirrored
 
@@ -81,7 +80,7 @@ and populate one flat `Data` object. `bootStatus` drives the shell:
 `idle | loading | ready | unauthenticated | error`.
 
 `src/api/index.ts` is the whole HTTP layer: a generic `api()` wrapper plus typed
-`authApi` / `projectApi` / `issuesApi` / `commentsApi` / `sprintsApi` / `workflowApi` objects.
+`authApi` / `projectApi` / `issuesApi` / `commentsApi` / `workflowApi` objects.
 Errors are normalized to `ApiError { status, code, reason }`; a 401 clears the token.
 `API_BASE` comes from `VITE_API_URL` (root `.env`), default `http://localhost:8080`.
 
@@ -91,8 +90,11 @@ Mutations are optimistic-ish: call API, then patch `data` from the returned DTO;
 re-fetches issues on failure to undo local drift.
 
 Views (`ViewId`: `board | backlog | timeline | workflow | access | admin | docs | collaborating`)
-are switched by `ui.view` in `App.tsx` — no router. Deep links to a task use a hash
-(`#/issue/<pid>/<iid>`) parsed by hand in `App.tsx`.
+are switched by `ui.view` in `App.tsx` — no router. `backlog` is internal id for the
+"Список задач" view (`Backlog.tsx`, a flat filtered/sorted list — sprints removed in
+migration 012). `bootStatus` also has a `"home"` state: with ≥2 visible projects, login
+lands on `HomeView.tsx` (Мои задачи + Недавние проекты) before any project is entered.
+Deep links to a task use a hash (`#/issue/<pid>/<iid>`) parsed by hand in `App.tsx`.
 Keyboard shortcuts (`/`, `C`, `1`–`6`, `Esc`) are wired in `App.tsx`.
 
 ### Server structure
@@ -107,7 +109,7 @@ Keyboard shortcuts (`/`, `C`, `1`–`6`, `Esc`) are wired in `App.tsx`.
   `workflow.ts` (`DEFAULT_STATUSES`/`DEFAULT_TRANSITIONS`, `assertTransition` → 409 on
   illegal move), `rank.ts` (fractional `issues.rank` float8; midpoint insert, column
   rebalance when gap `< 1e-9`), `project.ts` (`currentProject()`, cached — **single project,
-  no multi-tenant**), `sprints.ts`.
+  no multi-tenant**).
 - `db.ts` — thin `pg` wrapper: `q` / `one` / `exec` / `withClient` (dedicated client for
   race-free read-then-write). `migrate()` applies `server/migrations/*.sql` in filename order,
   each file in one transaction, tracked in `schema_migrations`.

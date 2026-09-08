@@ -55,6 +55,7 @@
 | ldap-auth | LDAP/AD-аутентификация — [`../LDAP_MIGRATION.md`](../LDAP_MIGRATION.md) + [`../LDAP_SETUP.md`](../LDAP_SETUP.md). Ф1: `009_ldap.sql` (`users.auth_source`/`ldap_dn`/`email`, `department_members`, `ldap_group_dn UNIQUE`), `config.ts` `LDAP_*`, тестовый OpenLDAP (compose/LDIF) ✅. Ф2: `services/ldap.ts` (`ldapts`), `userProvisioning.ts`, `departmentSync.ts`, `POST /login` ldap-путь + break-glass, `routes/ldap.ts` `ping` ✅. Ф3: видимость проекта по департаменту → неявный `viewer` в `middleware.ts` (закрыт DEPT §3.5) ✅. Ф4: AdminView `ldap_group_dn`, `POST /api/ldap/resync`, ldap-режим гарды ✅. Ф5: `access.ldap.test.ts` (9) vs реальный slapd + CI job `ldap` ✅. Ф6: `LDAP_SETUP.md` + чек-лист ниже ✅. Харденинг: last-admin гард в JIT, гонка первого логина (23505), RFC 4514 escDn, break-glass 409 не течёт в ответ | ✅ |
 | attachments | Вложения к задачам — [`../FILES_MIGRATION.md`](../FILES_MIGRATION.md) + [`../STORAGE_SETUP.md`](../STORAGE_SETUP.md). Ф1: `010_attachments.sql`, `config.storage` (`STORAGE_DRIVER` local\|s3, `ATTACH_*`), `services/storage.ts` (`Storage` + `LocalDiskStorage`), `docker-compose.storage.yml` ✅. Ф2: `@fastify/multipart`, `services/fileGuard.ts` (magic-байты), `services/attachments.ts` (стрим + `sha256` + guard до записи), `routes/attachments.ts` (4 эндпоинта, всё через `requireIssuePerm`), `getIssueDto.attachments` ✅. Ф3: клиент — `attachmentsApi`/`apiUpload`/`downloadBlob`, экшены store, `<AttachmentField>` в `IssueModal` + `SoloIssueCard` ✅. Ф4: `S3Storage` (`@aws-sdk`), `storage.s3.test.ts` (специфика S3: multipart-ETag, `NoSuchKey`) + CI job `storage-s3` vs MinIO, `STORAGE_SETUP.md` ✅. Ф5: `access.attachments.test.ts` (17) + чек-лист ниже + живой прогон ✅ | ✅ |
 | notifications | Уведомления (in-app + email) + фоновый воркер — [`../NOTIFICATIONS_MIGRATION.md`](../NOTIFICATIONS_MIGRATION.md) + [`../NOTIFICATIONS_SETUP.md`](../NOTIFICATIONS_SETUP.md). Ф1: `011_notifications.sql` (`notifications` + `users.notify_prefs`), `config.notify` (`NOTIFY_*`/`SMTP_*`), Mailpit compose ✅. Ф2: `services/notify.ts` `emit()` в 5 роутах, `services/mentions.ts`, `routes/notifications.ts` (лента/счётчик/read/prefs) ✅. Ф3: `services/notifier.ts` (воркер, дайджест, ретрай) + `emailTemplates.ts` (D9 — письмо только со ссылкой), `nodemailer`, CI job `mail` vs Mailpit ✅. Ф4: клиент — `notificationsApi`, `Bell()` переписан, polling, `<NotifySettings>`, `<MentionText>` ✅. Ф5: `notifications.test.ts` (12) + `notifier.test.ts` (6) + чек-лист ниже + живые прогоны ✅ | ✅ |
+| ui-restructure | Функциональная реструктуризация UI — [`../UI_RESTRUCTURE.md`](../UI_RESTRUCTURE.md). Ф0: клиентский CI-job + `label().min(1)` + чистка корневых зависимостей (PR #20) ✅. Ф1: миграция `012_drop_sprints.sql` (`DROP TABLE sprints`, `issues.sprint_id`), удалены `routes/sprints.ts`/`services/sprints.ts`, право `manageSprints` из `MATRIX` ×2, `SPRINT_STATUSES`/`MoveToSprintBody`/`IssueQuery.sprint`/`WsMessage.sprint:changed` из контракта; клиент — `Sprint`/`sprintsApi`/`setSprint`, поле «Спринт», фильтр доски по спринту ✅. Ф5: `Backlog.tsx` → «Список задач» (плоский список + фильтры + сортировка) ✅. Ф2: «Эпик» → «Направление» (только UI-термин, `epicId` в API не тронут) ✅. Ф3: «+» на доске только у первого `todo`-столбца ✅. Ф4: `GET /api/issues/assigned-to-me` + `test/home.test.ts` (6); `<HomeView>` («Мои задачи» + «Недавние проекты») при ≥ 2 проектах, `bootStatus="home"` ✅. Ф6: чек-лист ниже + `ARCHITECTURE`/`SCOPE` ✅ | ✅ |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
 | 5 | docker-compose + runbook + бэкап | ⏳ |
 
@@ -458,7 +459,8 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 
 ### Уведомления (notifications) — [`../NOTIFICATIONS_MIGRATION.md`](../NOTIFICATIONS_MIGRATION.md) / [`../NOTIFICATIONS_SETUP.md`](../NOTIFICATIONS_SETUP.md)
 
-Автотесты: `test/notifications.test.ts` (13) — `npm test` даёт **68 зелёных**;
+Автотесты: `test/notifications.test.ts` (13); `npm test` даёт **78 зелёных**
+(вместе с `contract.labels.test.ts` и `home.test.ts` из ui-restructure);
 `test/notifier.test.ts` (6) — только при `NOTIFY_EMAIL_ENABLED=true` + `SMTP_HOST`
 (`npm run test:mail`), в CI это job `mail` против Mailpit.
 
@@ -523,6 +525,67 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 - [ ] Меню пользователя → «Уведомления по почте»: Сразу / Дайджест / Выкл +
   «Подписывать меня на мои задачи» → `PATCH prefs` + тост
 - [ ] `@login` в описании и комментариях рендерится чипом (`<MentionText>`)
+
+### UI-реструктуризация (ui-restructure) — [`../UI_RESTRUCTURE.md`](../UI_RESTRUCTURE.md)
+
+Автотесты: `test/home.test.ts` (6) + `test/contract.labels.test.ts` (4) —
+входят в **78 зелёных** `npm test`.
+
+**Спринты убраны (Ф1, D1):**
+
+- [ ] `012_drop_sprints.sql` в `schema_migrations`; `\d issues` — колонки
+  `sprint_id` нет, индекса `idx_issues_sprint` нет; `\dt sprints` — таблицы нет
+- [ ] На инсталляции с реальным планированием в спринтах — `pg_dump -t sprints`
+  снят **до** применения 012 (миграция необратима); на dev — только seed-спринт,
+  дамп не нужен
+- [ ] `GET/POST /api/projects/:id/sprints*` → 404 (роут не зарегистрирован)
+- [ ] `PATCH /api/projects/:id/issues/:id` с телом `{ "sprintId": ... }` → 400
+  (`sprintId` не в контракте), а не тихо игнорируется
+- [ ] `GET /api/projects/:id` (bootstrap) не содержит поля `sprints`
+- [ ] Матрица прав (`PermissionsView` / `server/src/permissions.ts` `MATRIX`) —
+  строки/ключа `manageSprints` нет; таблица рендерится
+- [ ] Новый проект (`npm run seed`) создаётся без будущего спринта
+- [ ] `audit_log` — исторические строки `entity='sprint'` на месте (не чистим)
+
+**«Список задач» (Ф5, D5):**
+
+- [ ] Сайдбар и хлебная крошка — «Список задач» (не «Бэклог»); `kbd` 2 работает
+- [ ] Плоский список всех задач проекта, без секций спринтов и drag&drop
+- [ ] Фильтры (статус / исполнитель / тип / текст / просроченные) и сортировка
+  (приоритет — по умолчанию / срок / обновление / ключ, тумблер asc-desc) —
+  клиентские, применяются к уже загруженным задачам (лимит 200)
+- [ ] Меню строки: «Открыть задачу», «Удалить» (при праве `delete`); пунктов про
+  спринт нет
+
+**«Направление» (Ф2, D2):**
+
+- [ ] «Эпик» → «Направление» в карточке задачи, окне создания, `TimelineView`,
+  `DocsView`; поле `epicId`/`epic_id` в API и типах **не** переименовано
+
+**Создание задачи (Ф3, D3):**
+
+- [ ] На доске кнопка «+» (быстрое создание) только у первого столбца категории
+  `todo` по позиции; у остальных столбцов её нет; «+ Создать» в шапке — на месте
+
+**Главный экран (Ф4, D4):**
+
+- [ ] `GET /api/issues/assigned-to-me` (без `:projectId`, `requireAuth`): открытые
+  (`ws.category <> 'done'`) задачи, где `assignee_id = me`, по всем видимым
+  проектам (участник ∪ департамент ∪ `is_shared` ∪ глоб. admin — как
+  `listVisibleProjects`); сортировка приоритет → `updated_at`
+- [ ] Задача, назначенная мне в проекте, который мне не виден, в выдачу **не**
+  попадает; закрытая — не попадает
+- [ ] Вход при **≥ 2** доступных проектах → `<HomeView>` («Мои задачи» +
+  «Недавние проекты» по департаментам), в проект не входим
+- [ ] Вход при **1** проекте → сразу в проект (как раньше); при **0** →
+  solo / пустой экран
+- [ ] Прямая ссылка `#/issue/<pid>/<iid>` при входе → в нужный проект + открытая
+  задача, **минуя** `<HomeView>`, при любом числе проектов
+- [ ] Первый в жизни показ `<HomeView>` → одноразовый тост-пояснение; повторно
+  не показывается (флаг `localStorage taskira.homeIntro`)
+- [ ] Клик по задаче в «Мои задачи» → вход в её проект + открытие карточки; клик
+  по проекту → вход в проект; хлебная крошка «Проекты» → назад на `<HomeView>`
+  (проект не выгружается)
 
 ### Этап 3b
 
