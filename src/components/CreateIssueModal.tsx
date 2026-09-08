@@ -173,9 +173,9 @@ export default function CreateIssueModal() {
             </Dropdown>
           </div>
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Эпик</p>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Направление</p>
             <select value={epicId ?? ""} onChange={(e) => setEpicId(e.target.value || null)} className={`${inputCls} cursor-pointer`}>
-              <option value="">Без эпика</option>
+              <option value="">Без направления</option>
               {epics.map((e) => (
                 <option key={e.id} value={e.id}>{e.title}</option>
               ))}

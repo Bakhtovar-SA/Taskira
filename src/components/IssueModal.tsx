@@ -540,7 +540,7 @@ export default function IssueModal() {
           </Field>
 
           {!epicIds.has(issue.id) && (
-            <Field label="Эпик">
+            <Field label="Направление">
               {editOk ? (
               <Dropdown
                 width={220}
@@ -552,7 +552,7 @@ export default function IssueModal() {
                         <span className="truncate">{epic.title}</span>
                       </>
                     ) : (
-                      <span className="text-faint">Без эпика</span>
+                      <span className="text-faint">Без направления</span>
                     )}
                     <IcChevD size={12} className="ml-auto shrink-0 text-faint" />
                   </button>
@@ -560,7 +560,7 @@ export default function IssueModal() {
               >
                 {(close) => (
                   <>
-                    <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>Без эпика</MenuItem>
+                    <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>Без направления</MenuItem>
                     {epics.map((e) => (
                       <MenuItem key={e.id} onClick={() => { updateIssue(issue.id, { epicId: e.id }); close(); }}>
                         <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: e.color }} />
@@ -578,7 +578,7 @@ export default function IssueModal() {
                       {epic.title}
                     </span>
                   ) : (
-                    <span className="text-faint">Без эпика</span>
+                    <span className="text-faint">Без направления</span>
                   )}
                 </LockedField>
               )}

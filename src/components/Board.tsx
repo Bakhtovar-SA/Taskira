@@ -113,6 +113,9 @@ export default function Board() {
   const dragRef = useRef<string | null>(null);
 
   const doneStatusId = data.workflow.statuses.find((s) => s.category === "done")?.id;
+  // Быстрое создание («+») — только у первого столбца категории «todo» (по позиции):
+  // накидывать задачи имеет смысл в начало потока, не в «В работе»/«Готово» (D3).
+  const firstTodoId = data.workflow.statuses.find((s) => s.category === "todo")?.id;
 
   const pool = data.issues;
 
@@ -223,7 +226,7 @@ export default function Board() {
                   <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{st.name}</h3>
                   <span className="rounded-full bg-[#e3e9f1] px-1.5 font-mono text-[10.5px] font-bold text-sub">{items.length}</span>
                   {totalPts > 0 && <span className="font-mono text-[10px] text-faint">{totalPts} оч.</span>}
-                  {canCreate && (
+                  {canCreate && st.id === firstTodoId && (
                     <button
                       onClick={() => setQuickFor(st.id)}
                       className="ml-auto flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-[#e3e9f1] hover:text-ink"
