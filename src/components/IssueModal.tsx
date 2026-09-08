@@ -105,6 +105,8 @@ function CollaboratorField({ issue }: { issue: Issue }) {
             )}
           </span>
         ))}
+        {/* достижимо при canManage && expand (пустой развёрнутый инвайт) */}
+        {collabs.length === 0 && <span className="text-[12px] text-faint">никого не приглашали</span>}
       </div>
       {canManage && (
         <>
@@ -365,9 +367,24 @@ export default function IssueModal() {
             ) : issue.description ? (
               editOk ? (
                 <div
-                  onClick={() => { setDescDraft(issue.description); setEditingDesc(true); }}
+                  role="button"
+                  tabIndex={0}
+                  // Клик в режим правки — но не мешать выделению текста мышью для копирования:
+                  // если пользователь что-то выделил, click после mouseup режим не переключает.
+                  onClick={() => {
+                    if (window.getSelection()?.toString()) return;
+                    setDescDraft(issue.description);
+                    setEditingDesc(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setDescDraft(issue.description);
+                      setEditingDesc(true);
+                    }
+                  }}
                   title="Нажмите, чтобы редактировать"
-                  className="group cursor-text whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub transition-colors hover:bg-canvas"
+                  className="group cursor-text whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub transition-colors hover:bg-canvas focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   <MentionText text={issue.description} />
                   <IcPencil size={12} className="ml-1.5 inline align-text-bottom text-faint opacity-0 transition-opacity group-hover:opacity-100" />
