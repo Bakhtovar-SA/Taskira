@@ -78,7 +78,7 @@ function SearchBox() {
   );
 }
 
-const NOTIF_VERB: Record<NotificationT["type"], string> = {
+export const NOTIF_VERB: Record<NotificationT["type"], string> = {
   "issue.assigned": "назначил(а) вас исполнителем",
   "issue.comment": "прокомментировал(а)",
   "issue.mention": "упомянул(а) вас в",

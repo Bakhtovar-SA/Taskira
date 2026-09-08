@@ -39,7 +39,11 @@ export default function TimelineView() {
 
         {epics.length === 0 ? (
           <div className="mt-6">
-            <Empty icon={<IcTimeline size={24} />} title="Направлений пока нет" sub="Укажите родительское направление в карточке задачи — родитель появится на таймлайне" />
+            <Empty
+              icon={<IcTimeline size={24} />}
+              title="Направлений пока нет"
+              sub="Направление — это обычная задача, на которую ссылаются другие. Откройте любую задачу, в поле «Направление» выберите родителя — он появится здесь как дорожка с датами t-start / t-span."
+            />
           </div>
         ) : (
           <div className="anim-fadeup mt-4 overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]" style={{ animationDelay: "60ms" }}>

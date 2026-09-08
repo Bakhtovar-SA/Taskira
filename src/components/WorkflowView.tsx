@@ -112,6 +112,7 @@ export default function WorkflowView() {
                   <path
                     key={t.id}
                     d={edgePath(t, sidOf)}
+                    pathLength={1}
                     fill="none"
                     stroke={active ? "var(--c-accent)" : "var(--c-line2)"}
                     strokeWidth={active ? 2.6 : 1.6}

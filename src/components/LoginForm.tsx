@@ -7,7 +7,7 @@ type Props = {
 };
 
 export default function LoginForm({ onSuccess }: Props) {
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,10 +72,6 @@ export default function LoginForm({ onSuccess }: Props) {
             {busy ? "Вход…" : "Войти"}
           </button>
         </form>
-
-        <p className="mt-5 text-center text-[11px] text-faint">
-          API: задайте <code className="rounded bg-canvas px-1">VITE_API_URL</code> (по умолчанию localhost:8080)
-        </p>
       </div>
     </div>
   );

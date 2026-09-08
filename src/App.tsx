@@ -15,8 +15,36 @@ import CreateIssueModal from "./components/CreateIssueModal";
 import LoginForm from "./components/LoginForm";
 import SoloView from "./components/SoloView";
 import HomeView from "./components/HomeView";
-import { Toasts } from "./ui";
+import { SkeletonColumn, Toasts } from "./ui";
 import type { ViewId } from "./types";
+
+/** Скелет оболочки на время bootstrap — вместо голого «Загрузка…» (round4 §1). */
+function BootSkeleton() {
+  return (
+    <div className="flex h-full overflow-hidden">
+      <div className="hidden w-[240px] shrink-0 flex-col gap-3 bg-sidebar p-4 md:flex">
+        <div className="skeleton h-8 w-32 opacity-40" />
+        <div className="mt-4 space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton h-6 w-full opacity-30" />
+          ))}
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-3 border-b border-line bg-panel px-6 py-4">
+          <div className="skeleton h-5 w-40" />
+          <div className="skeleton ml-auto h-8 w-32" />
+        </div>
+        <div className="dotgrid flex flex-1 items-start gap-3.5 overflow-hidden px-6 py-4">
+          <SkeletonColumn cards={3} />
+          <SkeletonColumn cards={2} />
+          <SkeletonColumn cards={4} />
+          <SkeletonColumn cards={1} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Shell() {
   const { ui, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout } = useStore();
@@ -63,11 +91,7 @@ function Shell() {
   }, [bootStatus, setView, setCreateOpen, openIssue, can, toast]);
 
   if (bootStatus === "loading" || bootStatus === "idle") {
-    return (
-      <div className="flex h-full min-h-screen items-center justify-center bg-canvas text-[14px] text-faint">
-        Загрузка Taskira…
-      </div>
-    );
+    return <BootSkeleton />;
   }
 
   if (bootStatus === "unauthenticated" || bootStatus === "error") {

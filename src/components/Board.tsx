@@ -13,6 +13,17 @@ const PRIO_COLOR: Record<PriorityId, string> = {
   low: "var(--c-faint)",
 };
 
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+// Быстрые фильтры-чипы над доской (round4 §3.3) — клиентская фильтрация
+// поверх уже загруженных задач, комбинируется с текстовым фильтром.
+type QuickChip = "mine" | "overdue" | "unassigned";
+const QUICK_CHIPS: { id: QuickChip; label: string }[] = [
+  { id: "mine", label: "Мои задачи" },
+  { id: "overdue", label: "Просрочено" },
+  { id: "unassigned", label: "Без исполнителя" },
+];
+
 function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggable }: { issue: Issue; onDragStart: () => void; onDragEnd: () => void; onDropOn: (e: React.DragEvent) => void; onOver: () => void; flash: boolean; draggable: boolean }) {
   const { data, openIssue } = useStore();
   const assignee = data.users.find((u) => u.id === issue.assigneeId);
@@ -36,8 +47,15 @@ function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggabl
       }}
       onDrop={onDropOn}
       onClick={() => openIssue(issue.id)}
-      className={`group cursor-pointer rounded-lg border border-line bg-panel p-2.5 shadow-[0_1px_2px_rgba(20,35,64,0.06)] transition-all duration-150 hover:-translate-y-px hover:border-line2 hover:shadow-[0_6px_18px_rgba(20,35,64,0.12)] active:scale-[0.99] ${flash ? "anim-flash" : ""}`}
+      className={`group relative cursor-pointer overflow-hidden rounded-lg border border-line bg-panel p-2.5 pt-3 shadow-[0_1px_2px_rgba(20,35,64,0.06)] transition-all duration-150 hover:-translate-y-px hover:border-line2 hover:shadow-[0_6px_18px_rgba(20,35,64,0.12)] active:scale-[0.99] ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
+      {/* цветной якорь сверху: цвет направления, иначе — приоритета (round4 §3.1) */}
+      <span
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ background: epic?.color ?? PRIO_COLOR[issue.priorityId] }}
+      />
+
       {/* тип + ключ */}
       <div className="mb-1.5 flex items-center gap-1.5">
         <TypeIcon type={issue.typeId} size={14} />
@@ -139,10 +157,22 @@ export default function Board() {
   const [overCol, setOverCol] = useState<string | null>(null);
   const [filterUser, setFilterUser] = useState<string | null | "none">(null);
   const [q, setQ] = useState("");
+  const [chips, setChips] = useState<Set<QuickChip>>(new Set());
   const [quickFor, setQuickFor] = useState<string | null>(null);
   const dragRef = useRef<string | null>(null);
 
+  const toggleChip = (id: QuickChip) =>
+    setChips((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
   const doneStatusId = data.workflow.statuses.find((s) => s.category === "done")?.id;
+  const doneIds = useMemo(
+    () => new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id)),
+    [data.workflow.statuses],
+  );
   // Быстрое создание («+») — только у первого столбца категории «todo» (по позиции):
   // накидывать задачи имеет смысл в начало потока, не в «В работе»/«Готово» (D3).
   const firstTodoId = data.workflow.statuses.find((s) => s.category === "todo")?.id;
@@ -151,12 +181,16 @@ export default function Board() {
 
   const visible = useMemo(() => {
     const s = q.trim().toLowerCase();
+    const td = todayStr();
     return pool.filter((i) => {
       if (filterUser === "none" ? i.assigneeId !== null : filterUser ? i.assigneeId !== filterUser : false) return false;
       if (s && !i.title.toLowerCase().includes(s) && !i.key.toLowerCase().includes(s)) return false;
+      if (chips.has("mine") && i.assigneeId !== data.currentUserId) return false;
+      if (chips.has("unassigned") && i.assigneeId !== null) return false;
+      if (chips.has("overdue") && !(i.dueDate && !doneIds.has(i.statusId) && i.dueDate < td)) return false;
       return true;
     });
-  }, [pool, filterUser, q]);
+  }, [pool, filterUser, q, chips, data.currentUserId, doneIds]);
 
   const byStatus = (sid: string) => visible.filter((i) => i.statusId === sid);
   const assignees = useMemo(() => {
@@ -170,7 +204,8 @@ export default function Board() {
   return (
     <div className="flex h-full flex-col">
       {/* шапка */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-line bg-panel/70 px-6 py-3.5">
+      <div className="border-b border-line bg-panel/70 px-6 py-3.5">
+       <div className="flex flex-wrap items-center gap-3">
         <div className="mr-2">
           <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Доска</h1>
           <p className="mt-0.5 flex items-center gap-2 text-[11.5px] text-faint">
@@ -210,6 +245,34 @@ export default function Board() {
             )}
           </div>
         </div>
+       </div>
+
+       {/* быстрые фильтры-чипы (round4 §3.3) */}
+       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+         {QUICK_CHIPS.map((c) => {
+           const on = chips.has(c.id);
+           return (
+             <button
+               key={c.id}
+               onClick={() => toggleChip(c.id)}
+               className={`flex h-7 items-center rounded-full border px-2.5 text-[12px] font-medium transition-colors ${
+                 on ? "border-accent bg-accentsoft text-accent" : "border-line bg-panel text-sub hover:border-line2"
+               }`}
+             >
+               {c.label}
+             </button>
+           );
+         })}
+         {chips.size > 0 && (
+           <button
+             onClick={() => setChips(new Set())}
+             className="flex h-7 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-faint hover:text-ink"
+           >
+             <IcX size={11} /> Сбросить
+           </button>
+         )}
+         <span className="ml-auto text-[11.5px] text-faint">{visible.length} из {pool.length}</span>
+       </div>
       </div>
 
       {!canMove && (
