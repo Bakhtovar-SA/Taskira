@@ -27,3 +27,7 @@ server/coverage/
 # Скриншоты самопроверки (Playwright, scripts/shot.mjs) — не коммитим по умолчанию
 /shots/
 /screenshots/
+
+# Claude Code local config (plugin toggles etc.)
+.claude/settings.json
+.claude/settings.local.json

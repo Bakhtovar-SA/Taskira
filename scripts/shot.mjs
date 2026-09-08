@@ -9,15 +9,16 @@
  * Использование:
  *   node scripts/shot.mjs <out.png> [опции]
  *     --path <p>        путь/хэш после origin (деф. "/")             напр. --path "#/issue/<pid>/<iid>"
- *     --press <keys>    нажать клавиши после загрузки, через запятую  напр. --press 2  (Список задач)
- *     --click <css>     кликнуть по селектору после загрузки
+ *     --settle <ms>     пауза после загрузки ДО click/press (деф. 800) — дать буту доехать
+ *     --click <css>     кликнуть по селектору (после --settle, до --press); несколько — через " >> "
+ *     --press <keys>    нажать клавиши через запятую (после --click)  напр. --press "Escape,4"
  *     --sel <css>       снять только этот элемент (иначе — вьюпорт; с --full — вся страница)
  *     --full            fullPage
  *     --no-auth         не логиниться (экран входа)
  *     --user <name>     логин (деф. из server/.env ADMIN_USERNAME или "admin")
  *     --pass <pw>       пароль (деф. из server/.env ADMIN_PASSWORD)
  *     --w <px> --h <px> вьюпорт (деф. 1440x900)
- *     --wait <ms>       пауза перед снимком (деф. 1200)
+ *     --wait <ms>       пауза перед снимком, после всех действий (деф. 1200)
  *     --dark            prefers-color-scheme: dark
  *
  * Примеры:
@@ -83,15 +84,27 @@ const page = await ctx.newPage();
 try {
   if (!has("no-auth")) {
     const token = await login();
-    await page.goto(`${CLIENT}/`, { waitUntil: "domcontentloaded" });
-    await page.evaluate(([k, t]) => localStorage.setItem(k, t), [TOKEN_KEY, token]);
+    // addInitScript — токен кладётся ДО загрузки страницы на каждой навигации,
+    // включая переход по hash-URL (#/issue/...), где обычный goto не перезагружает.
+    await ctx.addInitScript(([k, t]) => localStorage.setItem(k, t), [TOKEN_KEY, token]);
   }
 
   await page.goto(`${CLIENT}/${arg("path", "").replace(/^\//, "")}`, { waitUntil: "networkidle" }).catch(() => {});
 
-  for (const k of (arg("press", "") || "").split(",").filter(Boolean)) await page.keyboard.press(k.trim());
-  const click = arg("click", "");
-  if (click) await page.click(click, { timeout: 3000 }).catch(() => console.warn(`--click "${click}" не сработал`));
+  // Дать SPA доехать (bootstrap → ready) прежде чем кликать/жать — иначе действия теряются.
+  await page.waitForTimeout(Number(arg("settle", 800)));
+
+  // --click принимает несколько селекторов через " >> " — кликает по очереди
+  // (напр. карточка проекта на главном экране, затем пункт сайдбара).
+  for (const sel of (arg("click", "") || "").split(" >> ").map((s) => s.trim()).filter(Boolean)) {
+    await page.click(sel, { timeout: 3000 }).catch(() => console.warn(`--click "${sel}" не сработал`));
+    await page.waitForTimeout(600);
+  }
+
+  for (const k of (arg("press", "") || "").split(",").filter(Boolean)) {
+    await page.keyboard.press(k.trim());
+    await page.waitForTimeout(120);
+  }
 
   await page.waitForTimeout(waitMs);
 
