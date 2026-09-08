@@ -46,7 +46,6 @@ function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggabl
           </span>
         )}
         <span className="ml-auto flex items-center gap-2">
-          {issue.points != null && <span className="rounded-full bg-[#e8edf4] px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-sub">{issue.points}</span>}
           <Avatar user={assignee ?? null} size={22} />
         </span>
       </div>
@@ -199,7 +198,6 @@ export default function Board() {
             const c = catColor(st.category);
             const isOver = overCol === st.id;
             const ok = canDropTo(st.id);
-            const totalPts = items.reduce((a, i) => a + (i.points ?? 0), 0);
             return (
               <section
                 key={st.id}
@@ -225,7 +223,6 @@ export default function Board() {
                   <span className="h-2 w-2 rounded-sm" style={{ background: c.dot }} />
                   <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{st.name}</h3>
                   <span className="rounded-full bg-[#e3e9f1] px-1.5 font-mono text-[10.5px] font-bold text-sub">{items.length}</span>
-                  {totalPts > 0 && <span className="font-mono text-[10px] text-faint">{totalPts} оч.</span>}
                   {canCreate && st.id === firstTodoId && (
                     <button
                       onClick={() => setQuickFor(st.id)}

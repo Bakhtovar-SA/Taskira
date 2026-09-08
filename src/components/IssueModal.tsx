@@ -5,8 +5,8 @@ import { LIMITS } from "../validation";
 import { usersApi, type PickableUser } from "../api";
 import type { Issue, PriorityId } from "../types";
 import { PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
-import { IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal } from "../ui";
+import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, catColor } from "../ui";
 
 /** Текст комментария/описания с подсветкой @-упоминаний (NOTIFICATIONS_MIGRATION.md D5). */
 export function MentionText({ text }: { text: string }) {
@@ -44,6 +44,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
   const canManage = can("manageCollaborators", issue);
   const [pickable, setPickable] = useState<PickableUser[]>([]);
   const [pick, setPick] = useState("");
+  const [expand, setExpand] = useState(false);
 
   useEffect(() => {
     if (!canManage) return;
@@ -56,6 +57,19 @@ function CollaboratorField({ issue }: { issue: Issue }) {
 
   const collabs = issue.collaborators;
   if (!canManage && collabs.length === 0) return null;
+
+  // Пустое состояние при праве управлять — одна компактная строка, без секции
+  // во всю высоту (ticket-issuemodal-density §4).
+  if (collabs.length === 0 && canManage && !expand) {
+    return (
+      <Field label="Участники задачи">
+        <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
+          <span>Никого не приглашали</span>
+          <button onClick={() => setExpand(true)} className="font-bold text-accent hover:underline">+ пригласить</button>
+        </div>
+      </Field>
+    );
+  }
 
   const taken = new Set(collabs.map((c) => c.userId));
   const isResourceAdmin = (id: string) => data.users.some((u) => u.id === id && u.globalRole === "admin");
@@ -145,6 +159,33 @@ function AttachmentField({ issue }: { issue: Issue }) {
   const atts = issue.attachments;
   if (!canUpload && atts.length === 0) return null;
 
+  const hiddenInput = (
+    <input
+      ref={fileRef}
+      type="file"
+      className="hidden"
+      onChange={(e) => {
+        const f = e.target.files?.[0];
+        if (f) uploadAttachment(issue.id, f);
+        e.target.value = "";
+      }}
+    />
+  );
+
+  // Пустое состояние при праве загружать — одна компактная строка; «+ файл»
+  // сразу открывает системный диалог (ticket-issuemodal-density §4).
+  if (atts.length === 0 && canUpload) {
+    return (
+      <Field label="Вложения">
+        {hiddenInput}
+        <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
+          <span>Файлов нет</span>
+          <button onClick={() => fileRef.current?.click()} className="font-bold text-accent hover:underline">+ файл</button>
+        </div>
+      </Field>
+    );
+  }
+
   return (
     <Field label="Вложения">
       <div className="space-y-1">
@@ -176,20 +217,10 @@ function AttachmentField({ issue }: { issue: Issue }) {
             </div>
           );
         })}
-        {atts.length === 0 && <span className="text-[12px] text-faint">файлов нет</span>}
       </div>
       {canUpload && (
         <>
-          <input
-            ref={fileRef}
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) uploadAttachment(issue.id, f);
-              e.target.value = "";
-            }}
-          />
+          {hiddenInput}
           <button
             onClick={() => fileRef.current?.click()}
             className="mt-1.5 rounded-md border border-dashed border-[#c3ccda] px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
@@ -214,7 +245,6 @@ export default function IssueModal() {
   const [descDraft, setDescDraft] = useState("");
   const [labelInput, setLabelInput] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
-  const [ptsDraft, setPtsDraft] = useState("");
 
   useEffect(() => {
     setTab("comments");
@@ -231,6 +261,8 @@ export default function IssueModal() {
   const assignee = data.users.find((u) => u.id === issue.assigneeId);
   const reporter = data.users.find((u) => u.id === issue.reporterId);
   const status = data.workflow.statuses.find((s) => s.id === issue.statusId)!;
+  // Срок горит: дата в прошлом и задача не в финальной категории статуса.
+  const overdue = !!issue.dueDate && status.category !== "done" && issue.dueDate < new Date().toISOString().slice(0, 10);
   // Тип "epic" упразднён (миграция 002): «эпик» — задача, на которую ссылаются
   // другие через epicId.
   const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
@@ -273,7 +305,7 @@ export default function IssueModal() {
   };
 
   return (
-    <Modal onClose={() => openIssue(null)} w={920}>
+    <Modal onClose={() => openIssue(null)} w={940}>
       {/* шапка */}
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3">
         <TypeIcon type={issue.typeId} size={16} />
@@ -306,7 +338,7 @@ export default function IssueModal() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_248px] gap-0">
+      <div className="grid grid-cols-[1fr_264px] gap-0">
         {/* основная колонка */}
         <div className="min-w-0 px-5 py-4">
           <EditableTitle issue={issue} readOnly={!editOk} />
@@ -432,7 +464,7 @@ export default function IssueModal() {
         </div>
 
         {/* правая панель */}
-        <aside className="space-y-4 border-l border-line bg-canvas/50 px-4 py-4">
+        <aside className="space-y-2.5 border-l border-line bg-canvas/50 px-4 py-4">
           {!editOk && (
             <div className="flex items-start gap-2 rounded-md border border-line bg-warnsoft/50 px-2.5 py-2 text-[11.5px] leading-snug text-warn">
               <IcLock size={13} className="mt-0.5 shrink-0" />
@@ -443,12 +475,19 @@ export default function IssueModal() {
             {editOk ? (
             <Dropdown
               width={220}
-              button={(open) => (
-                <button className={`${selectCls} justify-between ${open ? "border-accent" : ""}`}>
-                  <Lozenge status={status} size="sm" />
-                  <IcChevD size={12} className="text-faint" />
-                </button>
-              )}
+              button={(open) => {
+                const c = catColor(status.category);
+                return (
+                  <button
+                    className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-bold uppercase tracking-wide transition-opacity hover:opacity-90 ${open ? "ring-2 ring-accent/40" : ""}`}
+                    style={{ background: c.bg, color: c.fg }}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
+                    <span className="min-w-0 truncate">{status.name}</span>
+                    <IcChevD size={12} className="ml-auto shrink-0" />
+                  </button>
+                );
+              }}
             >
               {(close) => (
                 <>
@@ -475,7 +514,19 @@ export default function IssueModal() {
               )}
             </Dropdown>
             ) : (
-              <LockedField reason={denyMsg}><Lozenge status={status} size="sm" /></LockedField>
+              (() => {
+                const c = catColor(status.category);
+                return (
+                  <span
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-bold uppercase tracking-wide"
+                    style={{ background: c.bg, color: c.fg }}
+                    title={denyMsg}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
+                    <span className="min-w-0 truncate">{status.name}</span>
+                  </span>
+                );
+              })()
             )}
           </Field>
 
@@ -511,33 +562,61 @@ export default function IssueModal() {
             )}
           </Field>
 
-          <Field label="Приоритет">
-            {editOk ? (
-            <Dropdown
-              width={220}
-              button={(open) => (
-                <button className={`${selectCls} ${open ? "border-accent" : ""}`}>
-                  <PriorityIcon p={issue.priorityId} size={14} /> {PRIORITIES[issue.priorityId].name}
-                  <IcChevD size={12} className="ml-auto text-faint" />
-                </button>
-              )}
-            >
-              {(close) => (
-                <>
-                  {PRIORITY_ORDER.map((p: PriorityId) => (
-                    <MenuItem key={p} onClick={() => { updateIssue(issue.id, { priorityId: p }); close(); }}>
-                      <PriorityIcon p={p} size={14} /> {PRIORITIES[p].name} {issue.priorityId === p && <IcCheck size={12} className="ml-auto text-accent" />}
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-            </Dropdown>
-            ) : (
-              <LockedField reason={denyMsg}>
-                <span className="flex items-center gap-2"><PriorityIcon p={issue.priorityId} size={14} /> {PRIORITIES[issue.priorityId].name}</span>
-              </LockedField>
-            )}
-          </Field>
+          <div className="flex gap-2.5">
+            <div className="min-w-0 flex-1">
+              <Field label="Приоритет">
+                {editOk ? (
+                <Dropdown
+                  width={220}
+                  button={(open) => (
+                    <button
+                      className={`flex w-full items-center gap-1.5 rounded-md border bg-white px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
+                    >
+                      <PriorityIcon p={issue.priorityId} size={13} />
+                      <span className="min-w-0 truncate">{PRIORITIES[issue.priorityId].name}</span>
+                      <IcChevD size={11} className="ml-auto shrink-0 text-faint" />
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <>
+                      {PRIORITY_ORDER.map((p: PriorityId) => (
+                        <MenuItem key={p} onClick={() => { updateIssue(issue.id, { priorityId: p }); close(); }}>
+                          <PriorityIcon p={p} size={14} /> {PRIORITIES[p].name} {issue.priorityId === p && <IcCheck size={12} className="ml-auto text-accent" />}
+                        </MenuItem>
+                      ))}
+                    </>
+                  )}
+                </Dropdown>
+                ) : (
+                  <LockedField reason={denyMsg}>
+                    <span className="flex items-center gap-2"><PriorityIcon p={issue.priorityId} size={14} /> {PRIORITIES[issue.priorityId].name}</span>
+                  </LockedField>
+                )}
+              </Field>
+            </div>
+            <div className="w-[112px] shrink-0">
+              <Field label="Срок">
+                {editOk ? (
+                  <input
+                    type="date"
+                    value={issue.dueDate ?? ""}
+                    onChange={(e) => updateIssue(issue.id, { dueDate: e.target.value || null })}
+                    className={`w-full rounded-md border bg-white px-1.5 py-1.5 text-[12px] font-medium outline-none transition-colors focus:border-accent ${
+                      overdue ? "border-danger text-danger" : "border-line text-ink"
+                    }`}
+                  />
+                ) : (
+                  <LockedField reason={denyMsg}>
+                    <span className={`flex items-center gap-1.5 ${overdue ? "font-semibold text-danger" : ""}`}>
+                      <IcCalendar size={12} />
+                      {issue.dueDate ? issue.dueDate : "—"}
+                    </span>
+                  </LockedField>
+                )}
+              </Field>
+            </div>
+          </div>
 
           {!epicIds.has(issue.id) && (
             <Field label="Направление">
@@ -585,61 +664,34 @@ export default function IssueModal() {
             </Field>
           )}
 
-          <Field label="Оценка (очки)">
-            {editOk ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (ptsDraft.trim() === "") return;
-                const v = Math.max(0, Number(ptsDraft));
-                if (Number.isNaN(v)) return;
-                updateIssue(issue.id, { points: v });
-                setPtsDraft("");
-              }}
-              className="flex gap-1.5"
-            >
-              <input
-                value={ptsDraft === "" ? (issue.points ?? "") : ptsDraft}
-                onChange={(e) => setPtsDraft(e.target.value)}
-                placeholder={issue.points != null ? String(issue.points) : "—"}
-                inputMode="numeric"
-                className="w-16 rounded-md border border-line bg-white px-2.5 py-1.5 font-mono text-[13px] outline-none focus:border-accent"
-              />
-              <button type="submit" className="rounded-md border border-line bg-white px-2.5 text-[12px] font-semibold text-sub hover:border-accent hover:text-accent">OK</button>
-            </form>
-            ) : (
-              <LockedField reason={denyMsg}>
-                <span className="font-mono font-bold">{issue.points != null ? `${issue.points} очков` : "—"}</span>
-              </LockedField>
-            )}
-          </Field>
+          <div className="space-y-2.5 border-t border-line pt-3.5">
+            <Field label="Метки">
+              <div className="flex flex-wrap gap-1.5">
+                {issue.labels.map((l) => (
+                  <Chip key={l} text={l} onRemove={editOk ? () => updateIssue(issue.id, { labels: issue.labels.filter((x) => x !== l) }) : undefined} />
+                ))}
+                {editOk && (
+                  <input
+                    value={labelInput}
+                    onChange={(e) => setLabelInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addLabel();
+                      }
+                    }}
+                    placeholder="+ метка"
+                    className="w-20 rounded border border-dashed border-[#c3ccda] bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent"
+                  />
+                )}
+                {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}
+              </div>
+            </Field>
 
-          <Field label="Метки">
-            <div className="flex flex-wrap gap-1.5">
-              {issue.labels.map((l) => (
-                <Chip key={l} text={l} onRemove={editOk ? () => updateIssue(issue.id, { labels: issue.labels.filter((x) => x !== l) }) : undefined} />
-              ))}
-              {editOk && (
-                <input
-                  value={labelInput}
-                  onChange={(e) => setLabelInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addLabel();
-                    }
-                  }}
-                  placeholder="+ метка"
-                  className="w-20 rounded border border-dashed border-[#c3ccda] bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent"
-                />
-              )}
-              {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}
-            </div>
-          </Field>
+            <CollaboratorField issue={issue} />
 
-          <CollaboratorField issue={issue} />
-
-          <AttachmentField issue={issue} />
+            <AttachmentField issue={issue} />
+          </div>
 
           <div className="space-y-1.5 border-t border-line pt-3.5 text-[11.5px] text-faint">
             <p className="flex justify-between gap-2"><span>Автор</span><span className="font-semibold text-sub">{reporter?.name}</span></p>

@@ -18,7 +18,7 @@ export default function CreateIssueModal() {
   const [priorityId, setPriorityId] = useState<PriorityId>("medium");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [epicId, setEpicId] = useState<string | null>(null);
-  const [points, setPoints] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [labelDraft, setLabelDraft] = useState("");
   const [again, setAgain] = useState(false);
@@ -48,13 +48,14 @@ export default function CreateIssueModal() {
       assigneeId,
       epicId,
       labels,
-      points: points.trim() === "" ? null : Math.max(0, Number(points) || 0),
+      points: null,
+      dueDate: dueDate || null,
     });
     if (again) {
       setTitle("");
       setDescription("");
       setError("");
-      setPoints("");
+      setDueDate("");
       setLabels([]);
     } else {
       setCreateOpen(false);
@@ -185,8 +186,8 @@ export default function CreateIssueModal() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Оценка, очки</p>
-            <input value={points} onChange={(e) => setPoints(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" placeholder="Например: 3" className={inputCls} />
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Срок</p>
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${inputCls} cursor-pointer`} />
           </div>
           <div>
             <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Метки</p>

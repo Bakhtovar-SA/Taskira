@@ -24,7 +24,9 @@ const PATHS: Record<string, string> = {
   "review>inprogress": "M471,248 C447,206 447,148 471,114",
   "review>done": "M580,286 C662,286 682,206 744,196",
   "inprogress>done": "M580,56 C660,42 690,124 744,152",
-  "done>inprogress": "M845,138 C845,8 545,4 490,26",
+  // Дуга «Готово → В работе» огибает схему сверху; управляющие точки y≈24,
+  // чтобы верх дуги и стрелка не обрезались краем viewBox / overflow-hidden.
+  "done>inprogress": "M840,136 C840,26 540,22 486,30",
 };
 
 /** t.from/t.to — реальные uuid статусов; POS/PATHS ключуются по sid, поэтому
