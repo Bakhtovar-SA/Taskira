@@ -270,8 +270,23 @@ export type ServerIssue = {
   collaborators?: ServerCollaborator[];
   participants?: ServerParticipant[];
   attachments?: ServerAttachment[];
+  links?: ServerIssueLink[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type ServerIssueLink = {
+  id: string;
+  dir: "relates" | "blocks" | "blocked_by";
+  issue: {
+    id: string;
+    key: string;
+    title: string;
+    typeId: string;
+    statusId: string;
+    statusCategory: string;
+  };
+  createdAt: string;
 };
 
 export type ServerComment = {
@@ -425,6 +440,13 @@ export const issuesApi = {
       method: "POST",
       body: { to, beforeId: beforeId ?? null },
     }),
+  addLink: (projectId: string, id: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") =>
+    api<{ id: string; links: ServerIssueLink[] }>(`${P(projectId)}/issues/${id}/links`, {
+      method: "POST",
+      body: { linkedIssueId, type },
+    }),
+  removeLink: (projectId: string, id: string, linkId: string) =>
+    api<{ links: ServerIssueLink[] }>(`${P(projectId)}/issues/${id}/links/${linkId}`, { method: "DELETE" }),
 };
 
 export const commentsApi = {

@@ -213,6 +213,28 @@ export const CommentBody = z.object({
   body: multiLine(LIMITS.comment.max, LIMITS.comment.min, "Комментарий не может быть пустым"),
 });
 
+/* ---------------- Issue links (миграция 014) ---------------- */
+/** Хранимый тип связи. 'relates' симметрична, 'blocks' направлена
+ *  (issue_id блокирует linked_issue_id). См. ticket §3.2. */
+export const ISSUE_LINK_TYPES = ["relates", "blocks"] as const;
+export type IssueLinkType = (typeof ISSUE_LINK_TYPES)[number];
+
+/** Эффективный тип связи «со стороны запрошенной задачи» — в ответе API.
+ *  'blocked_by' — та же строка 'blocks', видимая с обратной стороны. */
+export const ISSUE_LINK_DIRS = ["relates", "blocks", "blocked_by"] as const;
+export type IssueLinkDir = (typeof ISSUE_LINK_DIRS)[number];
+
+/** POST /api/projects/:projectId/issues/:id/links
+ *  `type` — направление СО СТОРОНЫ :id (открытой задачи). 'blocked_by' сервер
+ *  разворачивает в строку 'blocks' от блокирующей задачи к :id, поэтому запрос
+ *  всегда идёт на /issues/:id/links и право проверяется на :id (ticket §3.2). */
+export const IssueLinkCreateBody = z.object({
+  linkedIssueId: uuid,
+  type: z.enum(ISSUE_LINK_DIRS),
+});
+
+export const IssueLinkParams = z.object({ linkId: uuid });
+
 /* ---------------- Notifications (миграция 011) ---------------- */
 export const NOTIFY_TYPES = [
   "issue.assigned",

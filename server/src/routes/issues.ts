@@ -11,6 +11,7 @@ import {
   requireIssuePerm,
   requirePerm,
   zbody,
+  zparams,
   zquery,
   type JwtPayload,
 } from "../middleware.js";
@@ -18,11 +19,14 @@ import { audit } from "../audit.js";
 import { assertTransition, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
 import { getIssueDto, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
+import { insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
 import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import {
   IssueCreateBody,
+  IssueLinkCreateBody,
+  IssueLinkParams,
   IssuePatchBody,
   IssueQuery,
   TransitionBody,
@@ -373,6 +377,73 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     await audit(user.sub, "watcher.remove", "issue", iss.id, { key: iss.key, viaCollaborator: req.isCollaborator || undefined });
     return { watching: false, watchers: Number(n.n) };
   });
+
+  /* ---------------------------------------------------------- связи между задачами
+     (issue_links, миграция 014, ticket §3.2). Линковать может тот, у кого есть
+     `edit` на ЭТУ задачу (:id); обе задачи должны быть в проекте (single-project),
+     иначе 404 — не раскрываем существование чужих задач.
+     `type` в теле — направление со стороны :id. 'blocked_by' раскладывается в
+     строку 'blocks' от блокирующей задачи к :id, но запрос всё равно идёт на
+     /issues/:id/links и ответ — связи :id, чтобы клиент обновлял открытую
+     карточку независимо от направления (см. review PR #27). */
+  app.post(
+    "/:id/links",
+    { preHandler: requireIssuePerm("edit"), preValidation: zbody(IssueLinkCreateBody) },
+    async (req) => {
+      const project = req.project!;
+      const { id } = req.params as { id: string };
+      const user = me(req);
+      const body = req.body as z.infer<typeof IssueLinkCreateBody>;
+
+      const iss = await loadIssue(project.id, id);
+      if (body.linkedIssueId === iss.id) throw badRequest("Нельзя связать задачу с самой собой");
+      const other = await one<{ id: string; key: string }>(
+        `SELECT id, key FROM issues WHERE id = $1 AND project_id = $2`,
+        [body.linkedIssueId, project.id],
+      );
+      if (!other) throw notFound("Связываемая задача не найдена в проекте");
+
+      // Хранимый тип и направление вставки. 'blocked_by' → 'blocks' наоборот.
+      const stored = body.type === "relates" ? "relates" : "blocks";
+      const [fromId, toId] = body.type === "blocked_by" ? [other.id, iss.id] : [iss.id, other.id];
+
+      if (await linkExists(iss.id, other.id, stored)) throw badRequest("Такая связь уже есть");
+
+      const linkId = await insertIssueLink(fromId, toId, stored, user.sub);
+      await logActivity(
+        iss.id,
+        user.sub,
+        body.type === "blocks"
+          ? `отметил(а), что задача блокирует ${other.key}`
+          : body.type === "blocked_by"
+            ? `отметил(а), что задача заблокирована ${other.key}`
+            : `связал(а) с ${other.key}`,
+      );
+      await audit(user.sub, "issue.link.add", "issue", iss.id, { key: iss.key, to: other.key, type: body.type });
+      return { id: linkId, links: await listIssueLinks(iss.id) };
+    },
+  );
+
+  app.delete(
+    "/:id/links/:linkId",
+    { preHandler: requireIssuePerm("edit"), preValidation: zparams(IssueLinkParams) },
+    async (req) => {
+      const project = req.project!;
+      const { id, linkId } = req.params as { id: string; linkId: string };
+      const user = me(req);
+      const iss = await loadIssue(project.id, id);
+      // Удалять можно с любого конца связи, но только если этот конец — наша задача.
+      const del = await one<{ id: string }>(
+        `DELETE FROM issue_links
+          WHERE id = $1 AND (issue_id = $2 OR linked_issue_id = $2)
+          RETURNING id`,
+        [linkId, iss.id],
+      );
+      if (!del) throw notFound("Связь не найдена");
+      await audit(user.sub, "issue.link.remove", "issue", iss.id, { key: iss.key, linkId });
+      return { links: await listIssueLinks(iss.id) };
+    },
+  );
 }
 
 

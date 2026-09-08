@@ -237,6 +237,122 @@ function AttachmentField({ issue }: { issue: Issue }) {
   );
 }
 
+const LINK_DIR_LABEL: Record<Issue["links"][number]["dir"], string> = {
+  blocks: "блокирует",
+  blocked_by: "заблокирована",
+  relates: "связана с",
+};
+
+/** Связанные задачи (issue_links, миграция 014, §3.2). Список видят все, кто
+ *  открыл карточку; добавляет/убирает — право `edit` на эту задачу. */
+function LinksField({ issue }: { issue: Issue }) {
+  const { data, can, addIssueLink, removeIssueLink, openIssue } = useStore();
+  const canEdit = can("edit", issue);
+  const [expand, setExpand] = useState(false);
+  const [type, setType] = useState<"relates" | "blocks" | "blocked_by">("relates");
+  const [target, setTarget] = useState("");
+
+  const links = issue.links;
+  if (!canEdit && links.length === 0) return null;
+
+  const linkedIds = new Set(links.map((l) => l.issue.id));
+  const candidates = data.issues.filter((i) => i.id !== issue.id && !linkedIds.has(i.id));
+
+  const submit = () => {
+    if (!target) return;
+    // Всегда линкуем «от открытой задачи»: сервер сам разворачивает 'blocked_by'
+    // в строку 'blocks' наоборот и возвращает связи именно этой задачи, так что
+    // модалка обновляется независимо от направления.
+    addIssueLink(issue.id, target, type);
+    setTarget("");
+    setExpand(false);
+  };
+
+  if (links.length === 0 && canEdit && !expand) {
+    return (
+      <Field label="Связи">
+        <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
+          <span>Связанных задач нет</span>
+          <button onClick={() => setExpand(true)} className="font-bold text-accent hover:underline">
+            + связать
+          </button>
+        </div>
+      </Field>
+    );
+  }
+
+  return (
+    <Field label="Связи">
+      <div className="space-y-1">
+        {links.map((l) => {
+          const c = catColor(l.issue.statusCategory);
+          return (
+            <div
+              key={l.id}
+              className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
+            >
+              <span className="w-[76px] shrink-0 text-[10px] font-bold uppercase tracking-wide text-faint">
+                {LINK_DIR_LABEL[l.dir]}
+              </span>
+              <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: c.dot }} title={l.issue.statusCategory} />
+              <button
+                onClick={() => openIssue(l.issue.id)}
+                className="shrink-0 font-mono text-[11px] font-semibold text-accent hover:underline"
+              >
+                {l.issue.key}
+              </button>
+              <span className="min-w-0 flex-1 truncate text-[12px] text-ink">{l.issue.title}</span>
+              {canEdit && (
+                <button
+                  onClick={() => removeIssueLink(issue.id, l.id)}
+                  className="shrink-0 text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                  title="Убрать связь"
+                >
+                  <IcX size={11} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {canEdit && (
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as typeof type)}
+            className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none"
+          >
+            <option value="relates">связана с</option>
+            <option value="blocks">блокирует</option>
+            <option value="blocked_by">заблокирована</option>
+          </select>
+          <select
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            disabled={candidates.length === 0}
+            className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
+          >
+            <option value="">{candidates.length ? "— выберите задачу —" : "нет задач"}</option>
+            {candidates.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.key} · {i.title}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={!target}
+            onClick={submit}
+            className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            Связать
+          </button>
+        </div>
+      )}
+    </Field>
+  );
+}
+
 export default function IssueModal() {
   const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
   const issue = data.issues.find((i) => i.id === ui.selectedIssueId);
@@ -715,6 +831,8 @@ export default function IssueModal() {
                 {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}
               </div>
             </Field>
+
+            <LinksField issue={issue} />
 
             <CollaboratorField issue={issue} />
 
