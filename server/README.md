@@ -196,9 +196,11 @@ curl -s -X POST $BASE/issues/$ID/comments -H "$AUTH" -H 'content-type: applicati
 # подписаться на задачу
 curl -s -X POST $BASE/issues/$ID/watchers/me -H "$AUTH"
 
-# смена роли пользователя (admin); сработает без перевыпуска его токена
+# смена ГЛОБАЛЬНОЙ роли пользователя (admin); действует ≤30 с без перевыпуска токена.
+# Тело — {globalRole: admin|member, isActive?}; проектная роль правится через
+# PUT /api/projects/:projectId/members/:userId. Старое поле accessRole → 400.
 curl -s -X PATCH $BASE/users/$USER_ID -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"accessRole":"employee"}'
+  -d '{"globalRole":"member"}'
 ```
 
 ## Как прогнать локально
