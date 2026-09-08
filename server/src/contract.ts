@@ -72,7 +72,12 @@ const multiLine = (max: number, min = 0, minMsg?: string) =>
     .transform((s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\r\n?/g, "\n").trim());
 
 const label = () =>
-  z.string().max(LIMITS.label.max).transform((s) => s.replace(/\s+/g, " ").trim().toLowerCase());
+  z
+    .string()
+    .min(1, "Метка не может быть пустой")
+    .max(LIMITS.label.max)
+    .transform((s) => s.replace(/\s+/g, " ").trim().toLowerCase())
+    .refine((s) => s.length > 0, "Метка не может быть пустой"); // пробельная строка → пусто после trim
 
 /* ---------------- Auth ---------------- */
 export const LoginBody = z.object({

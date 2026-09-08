@@ -1,4 +1,4 @@
-name: server tests
+name: tests
 
 on:
   push:
@@ -49,6 +49,27 @@ jobs:
       - run: npm run typecheck
 
       - run: npm test
+
+  # Клиент (корневой пакет): typecheck + прод-сборка. БД не нужна.
+  # В CI клиент раньше не проверялся вообще — единственный барьер против
+  # красной сборки перед тяжёлой работой над UI.
+  client:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run build
 
   # Отдельный job: LDAP-путь против НАСТОЯЩЕГО OpenLDAP (не мока).
   # AUTH_MODE=ldap здесь только для этого job — основной `server` job идёт в local.

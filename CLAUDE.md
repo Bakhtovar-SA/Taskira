@@ -90,8 +90,9 @@ carries `comments`/`activity` separately (fetched on demand when an issue modal 
 Mutations are optimistic-ish: call API, then patch `data` from the returned DTO; `moveStatus`
 re-fetches issues on failure to undo local drift.
 
-Views (`ViewId`: `board | backlog | timeline | workflow | access | docs`) are switched by
-`ui.view` in `App.tsx` — no router despite `react-router-dom` being a dependency.
+Views (`ViewId`: `board | backlog | timeline | workflow | access | admin | docs | collaborating`)
+are switched by `ui.view` in `App.tsx` — no router. Deep links to a task use a hash
+(`#/issue/<pid>/<iid>`) parsed by hand in `App.tsx`.
 Keyboard shortcuts (`/`, `C`, `1`–`6`, `Esc`) are wired in `App.tsx`.
 
 ### Server structure
@@ -147,6 +148,9 @@ Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counter
 - User switching is real login/logout only. The old `switchUser` / `resetDemo` client stubs
   and the "Войти как" role-preview UI were removed (dept branch) — they only re-skinned the
   UI locally and never changed which JWT the API saw.
-- Root `package.json` still lists many unused deps (`@dnd-kit`, `@supabase/supabase-js`,
-  `framer-motion`, `recharts`, `canvas-confetti`, `uuid`, …); `server/README.md` has the
-  removal command. Don't assume a dependency is wired in just because it's installed.
+- Root `package.json` was trimmed to `react` / `react-dom` + dev tooling (Vite, Tailwind,
+  TypeScript, Playwright). The old unused deps (`@dnd-kit`, `@supabase/supabase-js`,
+  `framer-motion`, `recharts`, `canvas-confetti`, `react-router-dom`, `uuid`, …) are gone —
+  the client has no router and no drag lib wired in; hash routing is hand-rolled in `App.tsx`.
+- CI (`.github/workflows/test.yml`) now has a `client` job (root `npm run typecheck` +
+  `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
