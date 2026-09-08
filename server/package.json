@@ -18,8 +18,8 @@
     "test:mail": "vitest run test/notifier.test.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1127.0",
-    "@aws-sdk/lib-storage": "^3.1127.0",
+    "@aws-sdk/client-s3": "^3.1128.0",
+    "@aws-sdk/lib-storage": "^3.1128.0",
     "@fastify/cors": "^11.0.0",
     "@fastify/jwt": "^10.2.2",
     "@fastify/multipart": "^9.4.0",
@@ -27,7 +27,7 @@
     "bcryptjs": "^2.4.3",
     "fastify": "^5.2.0",
     "ldapts": "^9.0.0",
-    "nodemailer": "^6.10.1",
+    "nodemailer": "^10.0.1",
     "pg": "^8.13.1",
     "zod": "^3.24.1"
   },

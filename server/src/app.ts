@@ -27,7 +27,12 @@ import { formatZod } from "./middleware.js";
 export function buildApp(): FastifyInstance {
   const cfg = loadConfig();
 
-  const app = Fastify({ logger: process.env.NODE_ENV === "test" ? false : { level: "info" } });
+  const app = Fastify({
+    logger: process.env.NODE_ENV === "test" ? false : { level: "info" },
+    // За nginx/LB: без этого `req.ip` = адрес прокси — ломает rate-limit логина
+    // по IP и IP в audit-логе. Значение из TRUST_PROXY (см. .env.example).
+    trustProxy: cfg.trustProxy,
+  });
 
   app.register(cors, {
     origin: cfg.corsOrigin === "*" ? true : cfg.corsOrigin,

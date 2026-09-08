@@ -9,8 +9,9 @@ workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`
 
 Уже реализовано и работает:
 - **Backend** (`server/`): Fastify, миграции PostgreSQL (`server/migrations/`,
-  001–006), JWT-аутентификация по паролю (bcrypt), проверка прав на каждой
-  мутации (`middleware.ts` `requirePerm`/`requireIssuePerm`), аудит-лог.
+  001–014), JWT-аутентификация по паролю (bcrypt) или через LDAP/AD, проверка
+  прав на каждом запросе (`middleware.ts` `requirePerm`/`requireIssuePerm`),
+  аудит-лог, интеграционные тесты (vitest, `server/test/`).
 - **Ролевая модель, привязанная к проекту** (миграции 004/006, см.
   `ROLE_MIGRATION.md`): глобальная роль `users.global_role` (`admin | member`)
   + `project_members.role` (`manager | employee | viewer`); эффективная роль =
@@ -29,7 +30,12 @@ workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`
   (`workflow_statuses` / `workflow_transitions`), редактор `WorkflowView.tsx`.
   `src/seed.ts` оставлен только как `DEFAULT_WORKFLOW` для `DocsView.tsx`.
 - Карточка задачи: поля, история изменений (`activity`), комментарии, подписка
-  (`issue_watchers`).
+  (`issue_watchers`), связанные задачи (`issue_links`, миграция 014 —
+  `relates` / `blocks`, `POST`/`DELETE …/issues/:id/links`).
+- **4 уровня приоритета** (миграция 013): `low | medium | high | critical`
+  (было 5). Поле `points` осталось в схеме и контракте, но из карточки убрано.
+- **Оформление**: светлая/тёмная/системная тема + 6 фоновых пресетов
+  (`src/theme.ts`, токены `--c-*` на `:root`, выбор в `localStorage`).
 - **Департаменты** (миграция 007, `DEPT_MIGRATION.md`): таблица `departments`
   (+ `ldap_group_dn`), `projects.department_id`/`is_shared`, ресурсы под
   `/api/projects/:projectId/...`, multi-project с выбором проекта на клиенте.
@@ -62,10 +68,11 @@ workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`
   `attachments`, но не файлы; джоб для воркера уведомлений.
 - **WebSocket-пуш уведомлений** — сейчас polling; `WsMessage` объявлен типом,
   `/ws` не смонтирован (Этап 3c).
-- **Нейтральная терминология в UI** доведена частично ([UI_RESTRUCTURE.md](UI_RESTRUCTURE.md)):
-  спринты убраны, «Бэклог» → «Список задач», «Эпик» → «Направление» (в подписях;
-  поле `epicId` в контракте оставлено). Остаются «Таймлайн», story points, а также
-  внутренние идентификаторы (`epicId`, `ViewId` `backlog`).
+- **Нейтральная терминология в UI** доведена почти полностью
+  ([UI_RESTRUCTURE.md](UI_RESTRUCTURE.md)): спринты убраны, «Бэклог» → «Список
+  задач», «Эпик» → «Направление» (в подписях), поле «Оценка (очки)» убрано из
+  карточки. Остаются термин «Таймлайн» и внутренние идентификаторы (`epicId`,
+  `ViewId` `backlog`, колонка `issues.points`).
 
 ## Целевая архитектура
 
@@ -118,9 +125,10 @@ Workflow    { projectId, statuses[], transitions[] } -- одна схема на
 - ✅ `Backlog.tsx` со спринтами — заменён на плоский «Список задач» с фильтрами и
   сортировкой, без понятий "активный/будущий спринт" (миграция 012,
   [UI_RESTRUCTURE.md](UI_RESTRUCTURE.md))
-- Story points (числовая оценка) — заменяется на поле "сложность" с 3 значениями
-  (follow-up, не в ui-restructure)
-- `TimelineView.tsx` (таймлайн направлений на 8-недельной шкале) — либо убирается,
+- Story points — поле «Оценка (очки)» убрано из карточки (round4). Колонка
+  `issues.points` и `IssueCreateBody.points` пока в схеме/контракте; замена на
+  поле «сложность» с 3 значениями — follow-up.
+- `TimelineView.tsx` (таймлайн направлений на недельной шкале) — либо убирается,
   либо упрощается до списка направлений без привязки к датам (follow-up; в
   ui-restructure — только переименование «эпик» → «направление»)
 

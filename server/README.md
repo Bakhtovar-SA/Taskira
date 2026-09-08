@@ -7,7 +7,11 @@
 только UX. Любая мутация без JWT и права → `403 { error: { code, reason } }`
 с причиной на русском.
 
-## Роли и матрица прав (зафиксировано миграцией 002)
+## Роли и матрица прав
+
+Эффективная роль: `resolveRole(globalRole, projectRole)` — глобальный `admin` → `admin`,
+иначе роль участника проекта (`project_members.role`), иначе нет доступа. `MATRIX` —
+источник в `src/permissions.ts` (сервер) ↔ `../src/permissions.ts` (клиент, только для UX).
 
 | Разрешение | admin | manager | employee | viewer |
 |---|:-:|:-:|:-:|:-:|
@@ -17,11 +21,16 @@
 | transition — смена статуса | ✓ | ✓ | ✓ | — |
 | comment — комментарии | ✓ | ✓ | ✓ | — |
 | delete — удаление задач | ✓ | ✓ | — | — |
-| manageSprints — спринты | ✓ | ✓ | — | — |
+| manageCollaborators — приглашённые к задаче | ✓ | ✓ | — | — |
 | editWorkflow — схема переходов | ✓ | — | — | — |
 | manageAccess — пользователи и роли | ✓ | — | — | — |
 
-\* **employee — только свои задачи** (исполнитель или автор). Правило — в `can()`/`canEditIssue()`.
+\* **employee — только свои задачи** (исполнитель или автор). Правило — `isOwnIssue()` в
+`roleCan()` (сервер) / `canEditIssue()` (клиент).
+
+Право `manageSprints` удалено вместе со спринтами (миграция 012). Отдельного права на
+вложения и на связи задач нет: вложение своё = `comment`, чужое = `delete`; связать
+задачи может тот, у кого `edit` на исходную.
 
 Дополнительно: `users.is_active` — деактивированный аккаунт не входит (403 при логине),
 его токены отклоняются `requireAuth` (401 «Аккаунт деактивирован администратором»).
@@ -56,16 +65,20 @@
 | attachments | Вложения к задачам — [`../FILES_MIGRATION.md`](../FILES_MIGRATION.md) + [`../STORAGE_SETUP.md`](../STORAGE_SETUP.md). Ф1: `010_attachments.sql`, `config.storage` (`STORAGE_DRIVER` local\|s3, `ATTACH_*`), `services/storage.ts` (`Storage` + `LocalDiskStorage`), `docker-compose.storage.yml` ✅. Ф2: `@fastify/multipart`, `services/fileGuard.ts` (magic-байты), `services/attachments.ts` (стрим + `sha256` + guard до записи), `routes/attachments.ts` (4 эндпоинта, всё через `requireIssuePerm`), `getIssueDto.attachments` ✅. Ф3: клиент — `attachmentsApi`/`apiUpload`/`downloadBlob`, экшены store, `<AttachmentField>` в `IssueModal` + `SoloIssueCard` ✅. Ф4: `S3Storage` (`@aws-sdk`), `storage.s3.test.ts` (специфика S3: multipart-ETag, `NoSuchKey`) + CI job `storage-s3` vs MinIO, `STORAGE_SETUP.md` ✅. Ф5: `access.attachments.test.ts` (17) + чек-лист ниже + живой прогон ✅ | ✅ |
 | notifications | Уведомления (in-app + email) + фоновый воркер — [`../NOTIFICATIONS_MIGRATION.md`](../NOTIFICATIONS_MIGRATION.md) + [`../NOTIFICATIONS_SETUP.md`](../NOTIFICATIONS_SETUP.md). Ф1: `011_notifications.sql` (`notifications` + `users.notify_prefs`), `config.notify` (`NOTIFY_*`/`SMTP_*`), Mailpit compose ✅. Ф2: `services/notify.ts` `emit()` в 5 роутах, `services/mentions.ts`, `routes/notifications.ts` (лента/счётчик/read/prefs) ✅. Ф3: `services/notifier.ts` (воркер, дайджест, ретрай) + `emailTemplates.ts` (D9 — письмо только со ссылкой), `nodemailer`, CI job `mail` vs Mailpit ✅. Ф4: клиент — `notificationsApi`, `Bell()` переписан, polling, `<NotifySettings>`, `<MentionText>` ✅. Ф5: `notifications.test.ts` (12) + `notifier.test.ts` (6) + чек-лист ниже + живые прогоны ✅ | ✅ |
 | ui-restructure | Функциональная реструктуризация UI — [`../UI_RESTRUCTURE.md`](../UI_RESTRUCTURE.md). Ф0: клиентский CI-job + `label().min(1)` + чистка корневых зависимостей (PR #20) ✅. Ф1: миграция `012_drop_sprints.sql` (`DROP TABLE sprints`, `issues.sprint_id`), удалены `routes/sprints.ts`/`services/sprints.ts`, право `manageSprints` из `MATRIX` ×2, `SPRINT_STATUSES`/`MoveToSprintBody`/`IssueQuery.sprint`/`WsMessage.sprint:changed` из контракта; клиент — `Sprint`/`sprintsApi`/`setSprint`, поле «Спринт», фильтр доски по спринту ✅. Ф5: `Backlog.tsx` → «Список задач» (плоский список + фильтры + сортировка) ✅. Ф2: «Эпик» → «Направление» (только UI-термин, `epicId` в API не тронут) ✅. Ф3: «+» на доске только у первого `todo`-столбца ✅. Ф4: `GET /api/issues/assigned-to-me` + `test/home.test.ts` (6); `<HomeView>` («Мои задачи» + «Недавние проекты») при ≥ 2 проектах, `bootStatus="home"` ✅. Ф6: чек-лист ниже + `ARCHITECTURE`/`SCOPE` ✅ | ✅ |
+| priorities-4 | `013_priority_four_levels.sql`: 5 уровней приоритета → 4 (`low`/`medium`/`high`/`critical`), `highest`→`critical`, `lowest`→`low`, обновлён CHECK; контракт `PRIORITIES` ×2, `PriorityIcon`, `PRIORITY_ORDER` | ✅ |
+| issue-links | Связи между задачами — [`../ticket-features-polish-round4.md`](../ticket-features-polish-round4.md) §3.2. `014_issue_links.sql` (`issue_links`: `issue_id`/`linked_issue_id`/`link_type` `relates`\|`blocks`, CASCADE, UNIQUE); `services/issueLinks.ts`, `POST`/`DELETE /api/projects/:id/issues/:id/links` (`requireIssuePerm("edit")` на исходной, обе задачи в проекте иначе 404, `blocked_by` разворачивается в `blocks` сервером), `getIssueDto.links`; клиент — `issuesApi.addLink`/`removeLink`, секция «Связи» в `IssueModal`; `test/issue-links.test.ts` (9) | ✅ |
 | 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
-| 5 | docker-compose + runbook + бэкап | ⏳ |
+| 5 | docker-compose (полный стек) + runbook — бэкап уже есть ([`BACKUP.md`](BACKUP.md)) | 🟡 |
 
 **roles-1…7** — ролевая миграция (project-scoped) влита в `main` одним PR (#10);
 детальный план и порядок фаз — [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md).
 
-Дальше по дорожной карте (`../ARCHITECTURE.md`, «Порядок разработки») — **не начато**:
-файловое хранилище вложений, уведомления + фоновый воркер (в т.ч. ресинк
-LDAP-членства по расписанию), нейтральная терминология в UI
-(Бэклог/Таймлайн/спринты/story points/эпики).
+Дорожная карта (`../ARCHITECTURE.md`, «Порядок разработки») пройдена: backend + БД,
+project-scoped роли, департаменты, LDAP/AD, вложения, уведомления + email-воркер,
+UI-реструктуризация (спринты убраны, «Список задач», «Направление», главный экран).
+Остаётся: WebSocket-пуш вместо polling, фоновый ресинк LDAP-членства по расписанию,
+сборщик осиротевших файлов хранилища, `story points` → «сложность» (поле `points`
+пока в схеме, но из карточки убрано).
 
 ## Breaking changes (002)
 
@@ -119,25 +132,28 @@ LDAP-членства по расписанию), нейтральная тер�
 
 Все мутации проверяют JWT и право **на сервере**; отказы — `403 {error:{code:"FORBIDDEN",reason}}` на русском.
 
+> Спринты удалены целиком (миграция 012). Роуты `/api/sprints*`, `PATCH …/issues/:id/sprint`,
+> query-параметр `IssueQuery.sprint` и право `manageSprints` больше не существуют.
+> Актуальные роуты вложений / приглашённых к задаче / уведомлений / связей задач —
+> в соответствующих `../*_MIGRATION.md` и разделах ниже.
+
 | Метод и путь | Тело / query | Права | Назначение |
 | --- | --- | --- | --- |
-| `GET /api/project` | — | browse | bootstrap: проект, **активные** пользователи (с `globalRole`, без `password_hash`), `members: [{userId, role}]`, workflow, спринты |
-| `GET /api/issues` | `IssueQuery`: status, sprint, assignee, type, q, dueFrom, dueTo, overdue, limit(≤200), offset | browse | `{items, total}`, сортировка по rank |
-| `POST /api/issues` | `IssueCreateBody` | create | num — атомарный счётчик (миграция 003); статус по умолчанию — первый `todo`; rank — в конец колонки |
-| `GET /api/issues/:id` | — | browse | задача |
-| `PATCH /api/issues/:id` | `IssuePatchBody` | edit (employee — **только свои**); смена `sprintId` дополнительно требует **manageSprints** | правка полей + activity |
-| `DELETE /api/issues/:id` | — | delete | каскады: комментарии/activity/watchers; `epic_id` дочерних обнуляется FK |
-| `POST /api/issues/:id/transition` | `{to, beforeId?}` | transition + **схема workflow** (нарушение — `409 CONFLICT`) | смена статуса + rank |
-| `PATCH /api/issues/:id/sprint` | `{sprintId}` | manageSprints | перенос спринт ⇄ бэклог |
-| `POST/DELETE /api/issues/:id/watchers/me` | — | browse | подписка/отписка; ответ `{watching, watchers}` |
-| `GET /api/issues/:id/comments` · `POST …/comments` | `{body ≤2000}` | browse · comment | комментарии с профилем автора |
-| `GET /api/sprints` | — | browse | все спринты проекта |
-| `POST /api/sprints/start` | — | manageSprints | активировать future (даты сегодня/ +14) или создать active |
-| `POST /api/sprints/:id/complete` | — | manageSprints | `completed`; недозакрытые → бэклог; создаётся следующий future |
-| `GET /api/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
-| `POST /api/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
-| `DELETE /api/workflow/transitions/:id` | — | **admin** | удалить переход |
-| `POST /api/workflow/reset` | — | **admin** | дефолтные 8 переходов; статусы не удаляются никогда |
+| `GET /api/projects/:projectId` | — | browse | bootstrap: проект, **активные** пользователи (с `globalRole`, без `password_hash`), `members: [{userId, role}]`, workflow |
+| `GET …/issues` | `IssueQuery`: status, assignee, type, q, dueFrom, dueTo, overdue, limit(≤200), offset | browse | `{items, total}`, сортировка по rank |
+| `POST …/issues` | `IssueCreateBody` | create | num — атомарный счётчик (миграция 003); статус по умолчанию — первый `todo`; rank — в конец колонки |
+| `GET …/issues/:id` | — | browse | задача + `comments`/`participants`/`collaborators`/`attachments`/`links` |
+| `PATCH …/issues/:id` | `IssuePatchBody` | edit (employee — **только свои**) | правка полей + activity |
+| `DELETE …/issues/:id` | — | delete | каскады: комментарии/activity/watchers/attachments/links; `epic_id` дочерних обнуляется FK |
+| `POST …/issues/:id/transition` | `{to, beforeId?}` | transition + **схема workflow** (нарушение — `409 CONFLICT`) | смена статуса + rank |
+| `POST`/`DELETE …/issues/:id/links[/:linkId]` | `{linkedIssueId, type}` (`relates`\|`blocks`\|`blocked_by`) | edit (на исходной) | связать/разорвать связь; обе задачи в проекте иначе `404`; ответ — обновлённый список связей |
+| `POST/DELETE …/issues/:id/watchers/me` | — | browse | подписка/отписка; ответ `{watching, watchers}` |
+| `GET …/issues/:id/comments` · `POST …/comments` | `{body ≤2000}` | browse · comment | комментарии с профилем автора |
+| `GET /api/issues/assigned-to-me` | — | requireAuth | открытые задачи на мне по всем видимым проектам (главный экран) |
+| `GET …/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
+| `POST …/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
+| `DELETE …/workflow/transitions/:id` | — | **admin** | удалить переход |
+| `POST …/workflow/reset` | — | **admin** | дефолтные 8 переходов; статусы не удаляются никогда |
 | `GET /api/users` | — | **admin** | все, включая деактивированных; DTO с `globalRole` |
 | `POST /api/admin/users` | `CreateUserBody` (bcrypt, `globalRole`) | **admin**; занятый username — `409` | создать пользователя; членство в проекте — отдельно |
 | `PATCH /api/users/:id` | `{globalRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена **глобальной** роли; `invalidateUserCache` — действует сразу |
@@ -145,10 +161,10 @@ LDAP-членства по расписанию), нейтральная тер�
 | `DELETE /api/project/members/:userId` | — | **admin** (`manageAccess`) | убрать из проекта; `404` если не участник; `409` — последний активный менеджер |
 
 **Seed проекта** (`seedProject`, идемпотентно): при пустой `projects` создаёт `CORP «Корпоративные задачи»`
-(или `PROJECT_KEY/PROJECT_NAME` из env), статусы `todo / inprogress / review / done`
-(категории `todo | inprogress | inprogress | done`), 8 переходов дефолтного графа
-(`todo→inprogress, todo→done, inprogress→{todo,review,done}, review→{inprogress,done}, done→inprogress`)
-и один future-спринт. Повторный запуск ничего не дублирует.
+(или `PROJECT_KEY/PROJECT_NAME` из env) в отделе `DEFAULT_DEPARTMENT`, статусы `todo / inprogress / review / done`
+(категории `todo | inprogress | inprogress | done`) и 8 переходов дефолтного графа
+(`todo→inprogress, todo→done, inprogress→{todo,review,done}, review→{inprogress,done}, done→inprogress`).
+Повторный запуск ничего не дублирует.
 
 ### Примеры curl
 
@@ -165,8 +181,8 @@ TODO_ID=…; INPROG_ID=…; REVIEW_ID=…
 # создать задачу (num и key выдаст сервер: CORP-1)
 ID=$(curl -s -X POST $BASE/issues -H "$AUTH" -H 'content-type: application/json' -d '{
   "title":"Настроить ночные бэкапы БД","typeId":"task","priorityId":"high",
-  "assigneeId":null,"epicId":null,"labels":["инфра"],"points":3,
-  "sprintId":null,"dueDate":"2026-03-01"
+  "assigneeId":null,"epicId":null,"labels":["инфра"],"points":null,
+  "dueDate":"2026-03-01"
 }' | jq -r .id)
 
 # переход по схеме (todo→inprogress); вне схемы (todo→review) вернёт 409
@@ -180,9 +196,11 @@ curl -s -X POST $BASE/issues/$ID/comments -H "$AUTH" -H 'content-type: applicati
 # подписаться на задачу
 curl -s -X POST $BASE/issues/$ID/watchers/me -H "$AUTH"
 
-# смена роли пользователя (admin); сработает без перевыпуска его токена
+# смена ГЛОБАЛЬНОЙ роли пользователя (admin); действует ≤30 с без перевыпуска токена.
+# Тело — {globalRole: admin|member, isActive?}; проектная роль правится через
+# PUT /api/projects/:projectId/members/:userId. Старое поле accessRole → 400.
 curl -s -X PATCH $BASE/users/$USER_ID -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"accessRole":"employee"}'
+  -d '{"globalRole":"member"}'
 ```
 
 ## Как прогнать локально
@@ -197,6 +215,12 @@ cp .env.example .env
 npm run dev        # tsx watch (chokidar polling): миграции → seed админа → listen :8080
 ```
 
+**За reverse-proxy (nginx/LB)** обязательно задайте `TRUST_PROXY` (`true` — если до
+приложения дотягивается только прокси; либо список IP/CIDR). Иначе `req.ip` = адрес
+прокси: rate-limit логина (`routes/auth.ts`, 10 попыток/IP/5 мин) считает всех
+пользователей как один IP, и в `audit_log` пишется адрес прокси, а не клиента.
+Значение прокидывается в опцию Fastify `trustProxy` (`app.ts`).
+
 `npm run dev` форсит поллинг chokidar (`CHOKIDAR_USEPOLLING=1`, интервал 250 мс) —
 на Windows рекурсивный `fs.watch` пропускает правки от атомарного сохранения
 редактора и от инструментов, и сервер не перезапускается. Поллинг это чинит ценой
@@ -207,7 +231,7 @@ npm run dev        # tsx watch (chokidar polling): миграции → seed а�
 
 ```bash
 npm run seed                     # прогоняет migrate() + создание первого админа
-psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001..004, 006, 007
+psql "$DATABASE_URL" -c "select name from schema_migrations"   # 001..004, 006..014
 ```
 
 Health, логин, me:
@@ -219,7 +243,7 @@ curl -s localhost:8080/api/health
 curl -s -X POST localhost:8080/api/auth/login \
   -H 'content-type: application/json' \
   -d '{"username":"admin","password":"…из .env…"}'
-# {"token":"…","user":{"username":"admin","accessRole":"admin","isActive":true,…}}
+# {"token":"…","user":{"username":"admin","globalRole":"admin","isActive":true,"authSource":"local",…}}
 
 TOKEN=…; curl -s localhost:8080/api/auth/me -H "authorization: Bearer $TOKEN"
 ```
@@ -261,6 +285,7 @@ assignee не из проекта → 400; `DELETE` отдела с проект
 - [ ] `npm run typecheck` — без ошибок; `npm test` — зелёный; `npm run dev` стартует, все миграции в `schema_migrations`
 - [ ] Остановка PostgreSQL → `/api/health` отвечает **503** `{ok:false,db:false}`; восстановление → 200
 - [ ] Логин: неверный пароль — 401 с единым reason; 11-я попытка за 5 минут — **429 RATE_LIMITED**
+- [ ] За прокси: с `TRUST_PROXY` (`true`/CIDR) `req.ip` берётся из `X-Forwarded-For` — два разных клиентских IP считаются rate-limit'ом раздельно; без `TRUST_PROXY` заголовок игнорируется
 - [ ] `is_active=false` в БД → логин 403 «Аккаунт деактивирован…», `/me` с живым токеном — 401 (в пределах 30 с)
 - [ ] Смена `global_role` в БД админом → `/me` и проверки прав видят новую роль **без** перевыпуска токена (≤30 с)
 - [ ] В `issues` нет типов `story`/`epic` (`select distinct type_id from issues;`)
@@ -596,11 +621,10 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 - [ ] Переход `todo→inprogress` — 200; `todo→review` — **409 CONFLICT** с русским reason
 - [ ] Ранги: вторая задача в колонку с `beforeId` первой встаёт **перед** ней; 60 вставок «между» подряд — без дубликатов rank
 - [ ] employee: `PATCH` чужой задачи — 403 «…только задачи, где вы исполнитель или автор»; своей — 200
-- [ ] viewer: `GET /api/issues` — 200; `POST /api/issues` и transition — 403
-- [ ] employee меняет `sprintId` через PATCH — 403 (manageSprints); manager — 200
-- [ ] `POST /api/workflow/transitions` не-админом — 403; админом — 201; дубликат — 409; `reset` возвращает 8 переходов
+- [ ] viewer: `GET …/issues` — 200; `POST …/issues` и transition — 403
+- [ ] `POST …/workflow/transitions` не-админом — 403; админом — 201; дубликат — 409; `reset` возвращает 8 переходов
 - [ ] `PATCH /api/users/:id` с понижением последнего активного админа — 409; при двух админах — 200, права меняются ≤30 с без перевыпуска токена
-- [ ] Спринты: `start` → active; `complete` → недозакрытые получают `sprint_id NULL`, создаётся следующий future
+- [ ] Связи: `POST …/issues/:id/links` с задачей из другого проекта — 404; `blocked_by` → у исходной `dir:"blocked_by"`, у второй `dir:"blocks"`; дубль (в любую сторону для `relates`) — 400
 - [ ] Watchers: POST → `{watching:true,watchers:1}`, DELETE → `{watching:false,watchers:0}`
 - [ ] `audit_log` содержит `issue.create`, `issue.transition`, `access.denied`, `user.role.change`
 
@@ -608,12 +632,13 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 
 ```
 fastify @fastify/jwt @fastify/cors @fastify/websocket @fastify/multipart
-pg zod bcryptjs ldapts
+pg zod bcryptjs ldapts nodemailer
 @aws-sdk/client-s3 @aws-sdk/lib-storage   # только для STORAGE_DRIVER=s3
 ```
 
-`@fastify/multipart` — приём вложений; `@aws-sdk/*` — драйвер S3-хранилища
-(при `STORAGE_DRIVER=local` не используется, но ставится). См.
+`@fastify/multipart` — приём вложений; `nodemailer` — отправка email-уведомлений
+(воркер `services/notifier.ts`, только при `NOTIFY_EMAIL_ENABLED=true`); `@aws-sdk/*` —
+драйвер S3-хранилища (при `STORAGE_DRIVER=local` не используется, но ставится). См.
 [`../FILES_MIGRATION.md`](../FILES_MIGRATION.md), [`../STORAGE_SETUP.md`](../STORAGE_SETUP.md).
 
 ### Чистка корневого package.json
