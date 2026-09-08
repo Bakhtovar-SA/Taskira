@@ -299,7 +299,11 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         });
       }
       if (body.description !== undefined && body.description !== iss.description) {
-        const mentionIds = await resolveVisibleMentions(project.id, iss.id, parseMentions(body.description));
+        // Уведомляем только НОВЫЕ упоминания — правка описания (фикс опечатки)
+        // не должна повторно пинговать уже упомянутых (review PR #19).
+        const was = new Set(parseMentions(iss.description));
+        const added = parseMentions(body.description).filter((l) => !was.has(l));
+        const mentionIds = await resolveVisibleMentions(project.id, iss.id, added);
         if (mentionIds.length > 0) {
           await emit({
             type: "issue.mention",

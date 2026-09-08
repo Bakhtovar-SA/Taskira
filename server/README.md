@@ -458,7 +458,7 @@ env из [`../LDAP_SETUP.md`](../LDAP_SETUP.md) §2.
 
 ### Уведомления (notifications) — [`../NOTIFICATIONS_MIGRATION.md`](../NOTIFICATIONS_MIGRATION.md) / [`../NOTIFICATIONS_SETUP.md`](../NOTIFICATIONS_SETUP.md)
 
-Автотесты: `test/notifications.test.ts` (12) — `npm test` даёт **67 зелёных**;
+Автотесты: `test/notifications.test.ts` (13) — `npm test` даёт **68 зелёных**;
 `test/notifier.test.ts` (6) — только при `NOTIFY_EMAIL_ENABLED=true` + `SMTP_HOST`
 (`npm run test:mail`), в CI это job `mail` против Mailpit.
 

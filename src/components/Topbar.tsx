@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
-import type { NotificationT, User } from "../types";
+import type { NotificationT } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
 
@@ -128,7 +128,7 @@ function BellPanel({ close }: { close: () => void }) {
             }`}
           >
             <span className="relative mt-0.5 shrink-0">
-              <Avatar user={(n.actor as unknown as User) ?? null} size={26} />
+              <Avatar user={n.actor} size={26} />
               {!n.read && (
                 <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent ring-2 ring-panel" />
               )}

@@ -446,7 +446,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setData((prev) => {
           const set = ids && ids.length ? new Set(ids) : null;
           const notifications = prev.notifications.map((n) => (!set || set.has(n.id) ? { ...n, read: true } : n));
-          const unreadCount = set ? Math.max(0, prev.unreadCount - ids!.length) : 0;
+          // Уменьшаем на число реально непрочитанных из списка, а не на ids.length
+          // (устойчиво к вызову с уже прочитанными id — review PR #19).
+          const cleared = set ? prev.notifications.filter((n) => set.has(n.id) && !n.read).length : prev.unreadCount;
+          const unreadCount = Math.max(0, prev.unreadCount - cleared);
           return { ...prev, notifications, unreadCount };
         });
       } catch (err) {

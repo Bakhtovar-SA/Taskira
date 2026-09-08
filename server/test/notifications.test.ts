@@ -147,6 +147,29 @@ describe("Упоминания (D5)", () => {
     const mentions = (await notifsFor(fx.issues.p1issue)).filter((x) => x.type === "issue.mention");
     expect(mentions.map((x) => x.user)).toContain(fx.users.outsider);
   });
+
+  test("правка описания уведомляет только НОВЫЕ @-упоминания (не повторяет старые)", async () => {
+    const tok = await login(app, "emp1"); // автор/исполнитель p1issue — может править
+    const patch = (description: string) =>
+      app.inject({
+        method: "PATCH",
+        url: `/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}`,
+        headers: auth(tok),
+        payload: { description },
+      });
+
+    await patch("нужно мнение @viw1");
+    let m = (await notifsFor(fx.issues.p1issue)).filter((x) => x.type === "issue.mention");
+    expect(m.map((x) => x.user)).toEqual([fx.users.viw1]);
+
+    await patch("нужно мнение @viw1 — уточняю формулировку"); // тот же @viw1
+    m = (await notifsFor(fx.issues.p1issue)).filter((x) => x.type === "issue.mention");
+    expect(m).toHaveLength(1); // повторного пинга нет
+
+    await patch("нужно мнение @viw1 и @mgr1"); // @mgr1 — новый
+    m = (await notifsFor(fx.issues.p1issue)).filter((x) => x.type === "issue.mention");
+    expect(m.map((x) => x.user).sort()).toEqual([fx.users.viw1, fx.users.mgr1].sort());
+  });
 });
 
 describe("Прочие триггеры", () => {

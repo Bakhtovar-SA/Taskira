@@ -1,15 +1,14 @@
 # NOTIFICATIONS_MIGRATION — уведомления (in-app + email) + фоновый воркер
 
 Статус: **решения §3 подтверждены (D1–D9; D9 — письмо БЕЗ содержимого
-задач/комментариев). Фазы 1–3 сделаны: миграция 011; событийный слой
-`services/notify.ts` + `emit()` в 5 роутах; `services/mentions.ts`;
+задач/комментариев). Фазы 1–5 сделаны — миграция завершена. Миграция 011;
+событийный слой `services/notify.ts` + `emit()` в 5 роутах; `services/mentions.ts`;
 `routes/notifications.ts`; email-воркер `services/notifier.ts` + `emailTemplates.ts`
-(D9 — гарантия конструкцией); `npm test` 67 зелёных, `test:mail` 6 (против SMTP);
-живые прогоны (3 сценария in-app + сырое письмо + скриншоты колокола). Фазы 1–5
-сделаны — миграция завершена: `NOTIFICATIONS_SETUP.md`, CI-job `mail` vs Mailpit,
-чек-лист в `server/README.md`, ARCHITECTURE.md п.5 → ✅, открытый вопрос SCOPE.md
-снят. `npm test` 67 + `test:mail` 6 зелёных. Осталось влить ветку. Фаза 6 —
-отдельный заход.**
+(D9 — гарантия конструкцией); клиент — `Bell()`, polling, `<NotifySettings>`,
+`<MentionText>`; `NOTIFICATIONS_SETUP.md`; CI-job `mail` vs Mailpit; чек-лист в
+`server/README.md`; `ARCHITECTURE.md` п.5 → ✅; открытый вопрос `SCOPE.md` снят.
+`npm test` 68 + `test:mail` 6 зелёных; правки по ревью PR #19 сложены. Осталось
+влить ветку. Фаза 6 — отдельный заход.**
 Ветка `feat/notifications`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 3 — email-воркер; при затыке с SMTP-инфраструктурой отделяется в follow-up
 PR, in-app к тому моменту уже работает). Фаза 6 — вне захода.
@@ -505,7 +504,7 @@ Mailpit: ключ и ссылка — есть; заголовок задачи 
   storage-sweeper как джобы этого воркера, WebSocket-пуш.
 - **`SCOPE.md`** — открытый вопрос «только in-app или обязательно SMTP» снят
   (решено D1/D9).
-- Проверка: `typecheck` 0 (сервер + клиент), `npm test` **67 зелёных**,
+- Проверка: `typecheck` 0 (сервер + клиент), `npm test` **68 зелёных**,
   `npm run test:mail` **6** (против SMTP), `npm run build` ок. Живые прогоны —
   3 in-app-сценария (Фаза 2) + сырое письмо (Фаза 3) + скриншоты колокола (Фаза 4).
 
