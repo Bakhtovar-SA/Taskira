@@ -230,6 +230,20 @@ export type CollaboratingItem = {
   projectName: string;
 };
 
+/** Задача, назначенная мне (GET /api/issues/assigned-to-me) — главный экран. */
+export type AssignedIssue = {
+  issueId: string;
+  projectId: string;
+  key: string;
+  title: string;
+  priorityId: string;
+  statusId: string;
+  statusName: string;
+  statusCategory: string;
+  projectKey: string;
+  projectName: string;
+};
+
 export type ServerIssue = {
   id: string;
   projectId: string;
@@ -397,6 +411,8 @@ export const issuesApi = {
   get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),
+  /** Открытые задачи, назначенные мне, по всем видимым проектам (главный экран). */
+  assignedToMe: () => api<AssignedIssue[]>("/api/issues/assigned-to-me"),
   create: (projectId: string, body: Record<string, unknown>) =>
     api<ServerIssue>(`${P(projectId)}/issues`, { method: "POST", body }),
   patch: (projectId: string, id: string, body: Record<string, unknown>) =>

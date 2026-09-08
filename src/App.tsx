@@ -14,6 +14,7 @@ import IssueModal from "./components/IssueModal";
 import CreateIssueModal from "./components/CreateIssueModal";
 import LoginForm from "./components/LoginForm";
 import SoloView from "./components/SoloView";
+import HomeView from "./components/HomeView";
 import { Toasts } from "./ui";
 import type { ViewId } from "./types";
 
@@ -81,6 +82,9 @@ function Shell() {
 
   // Приглашённый без единого видимого проекта — одиночный режим (COLLAB_MIGRATION.md Фаза 6).
   if (bootStatus === "solo") return <SoloView onLogout={logout} />;
+
+  // ≥ 2 доступных проектов, до выбора проекта — главный экран (UI_RESTRUCTURE.md D4).
+  if (bootStatus === "home") return <HomeView onLogout={logout} />;
 
   return (
     <div className="flex h-full overflow-hidden">

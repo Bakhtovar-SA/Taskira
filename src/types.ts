@@ -153,6 +153,8 @@ export interface Data {
   currentUserId: string;
   issues: Issue[];
   workflow: Workflow;
+  /** Открытые задачи, назначенные мне по всем видимым проектам (главный экран). */
+  assignedToMe: AssignedIssue[];
   /** Приглашения текущего пользователя к задачам в проектах, которые ему не открыты. */
   collaborations: Collaboration[];
   /** Лента уведомлений текущего пользователя (первая страница) + счётчик непрочитанных. */
@@ -201,6 +203,21 @@ export interface Collaboration {
   projectId: string;
   key: string;
   title: string;
+  statusId: string;
+  statusName: string;
+  statusCategory: string;
+  projectKey: string;
+  projectName: string;
+}
+
+/** Задача, назначенная мне (GET /api/issues/assigned-to-me). Показывается на
+ *  главном экране в блоке «Мои задачи» (UI_RESTRUCTURE.md D4). */
+export interface AssignedIssue {
+  issueId: string;
+  projectId: string;
+  key: string;
+  title: string;
+  priorityId: PriorityId;
   statusId: string;
   statusName: string;
   statusCategory: string;

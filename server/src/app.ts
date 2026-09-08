@@ -15,6 +15,7 @@ import { commentRoutes } from "./routes/comments.js";
 import { attachmentRoutes } from "./routes/attachments.js";
 import { collaboratorRoutes } from "./routes/collaborators.js";
 import { collaboratingRoutes } from "./routes/collaborating.js";
+import { homeRoutes } from "./routes/home.js";
 import { workflowRoutes } from "./routes/workflow.js";
 import { userRoutes } from "./routes/users.js";
 import { ldapRoutes } from "./routes/ldap.js";
@@ -85,6 +86,7 @@ export function buildApp(): FastifyInstance {
       await api.register(ldapRoutes, { prefix: "/ldap" }); // /ldap/ping (global admin)
       await api.register(notificationRoutes); // /notifications* (project-less, requireAuth)
       await api.register(collaboratingRoutes); // /issues/collaborating (project-less)
+      await api.register(homeRoutes); // /issues/assigned-to-me (project-less, главный экран)
       await api.register(departmentRoutes, { prefix: "/departments" });
       await api.register(projectsRoutes); // /projects (список, CRUD, bootstrap /projects/:projectId)
 

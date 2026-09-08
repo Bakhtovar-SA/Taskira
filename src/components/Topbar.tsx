@@ -156,7 +156,7 @@ function BellPanel({ close }: { close: () => void }) {
   );
 }
 
-function Bell() {
+export function Bell() {
   const { data } = useStore();
   const unread = data.unreadCount;
   return (
@@ -313,8 +313,11 @@ function ProjectSwitcher() {
 }
 
 export default function Topbar({ onLogout }: { onLogout?: () => void }) {
-  const { data, ui, setCreateOpen, can, logout } = useStore();
+  const { data, ui, setCreateOpen, can, logout, goHome } = useStore();
   const doLogout = onLogout ?? logout;
+  // «Проекты» — назад на главный экран; кликабельно только когда он вообще есть
+  // (≥ 2 доступных проектов), иначе это просто метка (UI_RESTRUCTURE.md D4).
+  const homeAvailable = data.projects.length >= 2;
   const viewTitle = {
     board: "Доска",
     backlog: "Список задач",
@@ -330,7 +333,13 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
   return (
     <header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-line bg-panel px-5">
       <nav className="flex min-w-0 items-center gap-1 text-[13px] text-faint">
-        <span className="font-semibold text-sub">Проекты</span>
+        {homeAvailable ? (
+          <button onClick={goHome} className="font-semibold text-sub transition-colors hover:text-accent" title="На главный экран">
+            Проекты
+          </button>
+        ) : (
+          <span className="font-semibold text-sub">Проекты</span>
+        )}
         <IcChevR size={12} />
         <ProjectSwitcher />
         <IcChevR size={12} />
