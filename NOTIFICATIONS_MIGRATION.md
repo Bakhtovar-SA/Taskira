@@ -5,9 +5,11 @@
 `services/notify.ts` + `emit()` в 5 роутах; `services/mentions.ts`;
 `routes/notifications.ts`; email-воркер `services/notifier.ts` + `emailTemplates.ts`
 (D9 — гарантия конструкцией); `npm test` 67 зелёных, `test:mail` 6 (против SMTP);
-живые прогоны (3 сценария in-app + сырое письмо). Фаза 4 (клиент: колокол,
-polling, настройки, `@`-чипы) — сделана, `tsc`/`build` 0, скриншоты пройдены.
-Осталась Фаза 5 (CI-job `mail` + `NOTIFICATIONS_SETUP.md` + чек-лист + ARCHITECTURE).**
+живые прогоны (3 сценария in-app + сырое письмо + скриншоты колокола). Фазы 1–5
+сделаны — миграция завершена: `NOTIFICATIONS_SETUP.md`, CI-job `mail` vs Mailpit,
+чек-лист в `server/README.md`, ARCHITECTURE.md п.5 → ✅, открытый вопрос SCOPE.md
+снят. `npm test` 67 + `test:mail` 6 зелёных. Осталось влить ветку. Фаза 6 —
+отдельный заход.**
 Ветка `feat/notifications`. Порядок фаз: 1 → 2 → 3 → 4 → 5
 (Фаза 3 — email-воркер; при затыке с SMTP-инфраструктурой отделяется в follow-up
 PR, in-app к тому моменту уже работает). Фаза 6 — вне захода.
@@ -480,34 +482,32 @@ Mailpit: ключ и ссылка — есть; заголовок задачи 
 - **Не сделано (Фаза 6):** кросс-проектный переход по клику без reload (сейчас
   через hash), `@`-автокомплит, WebSocket вместо polling.
 
-### Фаза 5 — CI против Mailpit + NOTIFICATIONS_SETUP.md + верификация
+### Фаза 5 — CI против Mailpit + NOTIFICATIONS_SETUP.md + верификация  *(сделано)*
 
-- **`.github/workflows/test.yml`** — job `mail`: `postgres:16` + `docker compose
-  -f docker-compose.mail.yml up -d` (Mailpit) + `NOTIFY_EMAIL_ENABLED=true` +
-  `SMTP_HOST=localhost SMTP_PORT=1025` + `npm run test:mail` + дамп логов Mailpit
-  (`if: always()`). Основной job `server` — без email (воркер не стартует).
+- **`.github/workflows/test.yml`** — job `mail` (добавлен в Фазе 3): `postgres:16`
+  + `docker compose -f docker-compose.mail.yml up -d` (Mailpit) + ожидание
+  `/api/v1/messages` + `NOTIFY_EMAIL_ENABLED=true` / `MAIL_KIND=mailpit` +
+  `npm run test:mail` + дамп логов Mailpit (`if: always()`). Основной `server`
+  job — без `NOTIFY_EMAIL_ENABLED` (воркер не стартует).
 - **`NOTIFICATIONS_SETUP.md`** *(новый, корень репо)* — по образцу
-  [LDAP_SETUP.md](LDAP_SETUP.md) / [STORAGE_SETUP.md](STORAGE_SETUP.md):
-  - таблица `NOTIFY_*` / `SMTP_*` / `APP_BASE_URL` с примерами (корп. релей без
-    аутентификации; внешний SMTP с TLS+логином);
-  - `SMTP_SECURE` (465) vs STARTTLS (587), приватный CA (`NODE_EXTRA_CA_CERTS`);
-  - `SMTP_FROM` и SPF/DKIM/DMARC для домена отправителя (чтобы письма не в спам);
-  - **что уходит в письме (D9):** только тип события + ключ задачи + ссылка;
-    никакого текста задач/комментариев — можно показать ИБ как гарантию;
-  - что делать с локальными учётками без `email` (ручной ввод в профиле —
-    Фаза 6; пока in-app only);
-  - масштабирование: `NOTIFY_WORKER_ENABLED=false` на всех, кроме одного узла,
-    либо отдельный `npm run worker` (заложено, не в MVP);
-  - проверка связи: тестовое письмо (`POST /api/notifications/test` для глоб.
-    admin? — решить) или `npm run mail:check`;
-  - траблшутинг: письма не уходят (`email_state='failed'`, лог воркера), в спам
-    (SPF/DKIM), дубликаты (мягкий лок), часовые пояса в дайджесте.
-- **`server/README.md`** — блок ручного чек-листа «Уведомления (notifications)».
+  [LDAP_SETUP.md](LDAP_SETUP.md) / [STORAGE_SETUP.md](STORAGE_SETUP.md): §1 что
+  делает сервер при `NOTIFY_EMAIL_ENABLED` + **D9-гарантия для ИБ** («письмо
+  только со ссылкой»); §2 env-таблица (корп. релей / внешний SMTP), приватный CA;
+  §3 SPF/DKIM/DMARC; §4 проверка + CI-job; §5 масштабирование
+  (`NOTIFY_WORKER_ENABLED=false` кроме одного узла / `npm run worker` — Фаза 6);
+  §6 учётки без `email`; §7 настройки пользователя; §8 траблшутинг; §9 сводка
+  in-app vs email.
+- **`server/README.md`** — строка `notifications` в «Статусе этапов» + блок
+  ручного чек-листа «Уведомления (notifications)» (схема 011, событийный слой,
+  in-app API, email-воркер + D9, клиент).
 - **`ARCHITECTURE.md`** — «Текущее состояние»: уведомления + фоновый воркер →
-  «реализовано»; «Порядок разработки» п. 5 → ✅ (с пометкой, что LDAP-resync и
-  storage-sweeper теперь могут сесть на этот воркер).
-- **`SCOPE.md`** — снять открытый вопрос «только in-app или обязательно SMTP»
-  (решено D1: in-app всегда, email опционально).
+  «реализовано»; «Порядок разработки» п. 5 → ✅; в «чего ещё нет» — LDAP-resync и
+  storage-sweeper как джобы этого воркера, WebSocket-пуш.
+- **`SCOPE.md`** — открытый вопрос «только in-app или обязательно SMTP» снят
+  (решено D1/D9).
+- Проверка: `typecheck` 0 (сервер + клиент), `npm test` **67 зелёных**,
+  `npm run test:mail` **6** (против SMTP), `npm run build` ок. Живые прогоны —
+  3 in-app-сценария (Фаза 2) + сырое письмо (Фаза 3) + скриншоты колокола (Фаза 4).
 
 ### Фаза 6 — Follow-ups (не в этой миграции)
 
