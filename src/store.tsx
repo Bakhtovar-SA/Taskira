@@ -8,6 +8,7 @@ import type {
   Data,
   Department,
   Issue,
+  IssueLink,
   NotificationT,
   NotifyPrefsT,
   IssueTypeId,
@@ -38,6 +39,7 @@ import {
   type CollaboratingItem,
   type NotifyPrefs,
   type ServerAttachment,
+  type ServerIssueLink,
   type ServerNotification,
   type ServerIssue,
   type SafeUser,
@@ -200,6 +202,20 @@ const mapAttachment = (a: ServerAttachment): Attachment => ({
   createdAt: Date.parse(a.createdAt) || Date.now(),
 });
 
+const mapIssueLink = (l: ServerIssueLink): IssueLink => ({
+  id: l.id,
+  dir: l.dir,
+  issue: {
+    id: l.issue.id,
+    key: l.issue.key,
+    title: l.issue.title,
+    typeId: normalizeType(l.issue.typeId),
+    statusId: l.issue.statusId,
+    statusCategory: (l.issue.statusCategory as "todo" | "inprogress" | "done") || "todo",
+  },
+  createdAt: Date.parse(l.createdAt) || Date.now(),
+});
+
 function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
   return {
     id: dto.id,
@@ -235,6 +251,8 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
       [],
     // attachments — тоже только в детальном ответе; в списке держим прежнее.
     attachments: dto.attachments?.map(mapAttachment) ?? prev?.attachments ?? [],
+    // links (связанные задачи) — только в детальном ответе GET /issues/:id.
+    links: dto.links?.map(mapIssueLink) ?? prev?.links ?? [],
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
   };
@@ -278,6 +296,8 @@ interface Api {
   addComment: (issueId: string, body: string) => void;
   addCollaborator: (issueId: string, userId: string) => void;
   removeCollaborator: (issueId: string, userId: string) => void;
+  addIssueLink: (issueId: string, linkedIssueId: string, type: "relates" | "blocks") => void;
+  removeIssueLink: (issueId: string, linkId: string) => void;
   uploadAttachment: (issueId: string, file: File) => void;
   removeAttachment: (issueId: string, attId: string) => void;
   downloadAttachment: (issueId: string, att: { id: string; filename: string }) => void;
@@ -930,6 +950,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
+  /* -------- связанные задачи (issue_links, миграция 014, §3.2) -------- */
+
+  const setIssueLinks = (issueId: string, links: ServerIssueLink[]) =>
+    setData((prev) => ({
+      ...prev,
+      issues: prev.issues.map((i) => (i.id === issueId ? { ...i, links: links.map(mapIssueLink) } : i)),
+    }));
+
+  const addIssueLink = useCallback(
+    (issueId: string, linkedIssueId: string, type: "relates" | "blocks") => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("edit", issue)) return;
+      void (async () => {
+        try {
+          const res = await issuesApi.addLink(pid(), issueId, linkedIssueId, type);
+          setIssueLinks(issueId, res.links);
+          toast("success", "Связь добавлена");
+        } catch (err) {
+          handleApiError(err, "Не удалось связать задачи");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeIssueLink = useCallback(
+    (issueId: string, linkId: string) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("edit", issue)) return;
+      void (async () => {
+        try {
+          const res = await issuesApi.removeLink(pid(), issueId, linkId);
+          setIssueLinks(issueId, res.links);
+          toast("info", "Связь удалена");
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить связь");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
   /* -------- вложения (attachments, миграция 010) -------- */
 
   const patchIssueAttachments = (issueId: string, fn: (list: Attachment[]) => Attachment[]) =>
@@ -1346,6 +1408,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addComment,
     addCollaborator,
     removeCollaborator,
+    addIssueLink,
+    removeIssueLink,
     uploadAttachment,
     removeAttachment,
     downloadAttachment,

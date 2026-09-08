@@ -79,6 +79,25 @@ export interface Attachment {
   createdAt: number;
 }
 
+/** Тип связи со стороны открытой задачи (issue_links, миграция 014, §3.2).
+ *  `blocks` — эта задача блокирует другую; `blocked_by` — наоборот. */
+export type IssueLinkDir = "relates" | "blocks" | "blocked_by";
+
+/** Связь с другой задачей. Заполняется при открытии карточки (GET /issues/:id). */
+export interface IssueLink {
+  id: string;
+  dir: IssueLinkDir;
+  issue: {
+    id: string;
+    key: string;
+    title: string;
+    typeId: IssueTypeId;
+    statusId: string;
+    statusCategory: "todo" | "inprogress" | "done";
+  };
+  createdAt: number;
+}
+
 export interface Issue {
   id: string;
   key: string;
@@ -103,6 +122,8 @@ export interface Issue {
   collaborators: Collaborator[];
   /** Вложения — заполняется при открытии карточки (GET /issues/:id). */
   attachments: Attachment[];
+  /** Связанные задачи — заполняется при открытии карточки (GET /issues/:id). */
+  links: IssueLink[];
   createdAt: number;
   updatedAt: number;
 }
