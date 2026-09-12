@@ -358,6 +358,8 @@ export const notificationsApi = {
   unreadCount: () => api<{ count: number }>("/api/notifications/unread-count"),
   markRead: (ids?: string[]) =>
     api<void>("/api/notifications/read", { method: "POST", body: ids && ids.length ? { ids } : {} }),
+  dismiss: (ids?: string[]) =>
+    api<void>("/api/notifications/dismiss", { method: "POST", body: ids && ids.length ? { ids } : {} }),
   setPrefs: (prefs: NotifyPrefs) =>
     api<{ notifyPrefs: NotifyPrefs }>("/api/notifications/prefs", { method: "PATCH", body: prefs }),
 };

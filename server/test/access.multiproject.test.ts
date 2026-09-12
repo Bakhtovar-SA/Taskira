@@ -115,6 +115,18 @@ describe("исполнитель — только участник проект�
     const ok = await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeId: fx.users.emp1 }));
     expect(ok.statusCode).toBe(201);
   });
+
+  test("глобальный admin без членства не проходит мимо проверки — 400 на POST и PATCH", async () => {
+    const adm = await login(app, "admin");
+    // fx.users.admin — global admin, не состоящий в P1; раньше `OR u.global_role = 'admin'`
+    // пускал его в assignee без членства (см. helpers.ts). Регрессия должна падать здесь.
+    const created = await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeId: fx.users.admin }));
+    expect(created.statusCode).toBe(400);
+
+    const existing = JSON.parse((await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue())).body);
+    const patched = await patch(`/api/projects/${fx.projects.p1}/issues/${existing.id}`, adm, { assigneeId: fx.users.admin });
+    expect(patched.statusCode).toBe(400);
+  });
 });
 
 describe("департаменты и проекты (global admin)", () => {

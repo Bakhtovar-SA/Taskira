@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
 import type { NotificationT } from "../types";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
 
 function SearchBox() {
@@ -90,7 +90,7 @@ export const NOTIF_VERB: Record<NotificationT["type"], string> = {
 /** Содержимое дропдауна колокола. Отдельный компонент — чтобы `useEffect` на
  *  маунте (подтянуть свежую ленту) срабатывал при открытии. */
 function BellPanel({ close }: { close: () => void }) {
-  const { data, openIssue, refreshNotifications, markNotificationsRead } = useStore();
+  const { data, openIssue, refreshNotifications, markNotificationsRead, dismissNotifications } = useStore();
   useEffect(() => {
     void refreshNotifications();
   }, [refreshNotifications]);
@@ -109,47 +109,69 @@ function BellPanel({ close }: { close: () => void }) {
     <div className="flex max-h-[70vh] flex-col">
       <div className="flex items-center justify-between border-b border-linesoft px-3.5 py-2.5">
         <p className="text-[11px] font-bold uppercase tracking-wider text-faint">Уведомления</p>
-        {anyUnread && (
-          <button onClick={() => markNotificationsRead()} className="text-[11px] font-semibold text-accent hover:underline">
-            Прочитать всё
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {anyUnread && (
+            <button onClick={() => markNotificationsRead()} className="text-[11px] font-semibold text-accent hover:underline">
+              Прочитать всё
+            </button>
+          )}
+          {list.length > 0 && (
+            <button
+              onClick={() => dismissNotifications()}
+              title="Очистить список — только у себя, остальным видно как раньше"
+              className="text-[11px] font-semibold text-faint hover:text-danger hover:underline"
+            >
+              Очистить
+            </button>
+          )}
+        </div>
       </div>
       <div className="overflow-y-auto">
         {list.length === 0 && (
           <p className="px-3.5 py-8 text-center text-[12.5px] text-faint">Пока нет уведомлений</p>
         )}
         {list.map((n) => (
-          <button
+          <div
             key={n.id}
-            onClick={() => go(n)}
-            className={`flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-accentsoft ${
+            className={`group relative flex w-full items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-accentsoft ${
               n.read ? "" : "bg-accentsoft"
             }`}
           >
-            <span className="relative mt-0.5 shrink-0">
-              <Avatar user={n.actor} size={26} />
-              {!n.read && (
-                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent ring-2 ring-panel" />
-              )}
-            </span>
-            <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
-              <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? "Кто-то"}</b> {NOTIF_VERB[n.type]}{" "}
-              {n.payload.key && (
-                <span className="font-mono text-[11px] font-semibold text-accent">{n.payload.key}</span>
-              )}
-              {n.type === "issue.status" && n.payload.from && (
-                <span className="text-faint">
-                  {" "}
-                  · {n.payload.from} → {n.payload.to}
-                </span>
-              )}
-              {n.type === "project.member" && n.payload.projectName && (
-                <span className="text-faint"> «{n.payload.projectName}»</span>
-              )}
-              <span className="mt-0.5 block text-[11px] text-faint">{relTime(n.createdAt)}</span>
-            </span>
-          </button>
+            <button onClick={() => go(n)} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
+              <span className="relative mt-0.5 shrink-0">
+                <Avatar user={n.actor} size={26} />
+                {!n.read && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent ring-2 ring-panel" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
+                <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? "Кто-то"}</b> {NOTIF_VERB[n.type]}{" "}
+                {n.payload.key && (
+                  <span className="font-mono text-[11px] font-semibold text-accent">{n.payload.key}</span>
+                )}
+                {n.type === "issue.status" && n.payload.from && (
+                  <span className="text-faint">
+                    {" "}
+                    · {n.payload.from} → {n.payload.to}
+                  </span>
+                )}
+                {n.type === "project.member" && n.payload.projectName && (
+                  <span className="text-faint"> «{n.payload.projectName}»</span>
+                )}
+                <span className="mt-0.5 block text-[11px] text-faint">{relTime(n.createdAt)}</span>
+              </span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                dismissNotifications([n.id]);
+              }}
+              title="Скрыть это уведомление — только у себя"
+              className="mt-0.5 shrink-0 rounded p-0.5 text-faint opacity-0 transition-opacity hover:bg-linesoft hover:text-danger group-hover:opacity-100"
+            >
+              <IcX size={11} />
+            </button>
+          </div>
         ))}
       </div>
     </div>

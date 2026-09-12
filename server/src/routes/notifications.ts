@@ -7,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { one, q } from "../db.js";
 import { badRequest, formatZod, requireAuth, zbody, zquery, type JwtPayload } from "../middleware.js";
-import { MarkReadBody, NotificationsQuery, NotifyPrefsBody } from "../contract.js";
+import { MarkReadBody, NotificationsQuery, NotifyPrefsBody, DismissNotificationsBody } from "../contract.js";
 
 interface NRow {
   id: string;
@@ -37,7 +37,7 @@ const mapN = (r: NRow) => ({
 
 const unreadOf = async (uid: string): Promise<number> => {
   const r = await one<{ n: string }>(
-    `SELECT count(*)::text AS n FROM notifications WHERE user_id = $1 AND read_at IS NULL`,
+    `SELECT count(*)::text AS n FROM notifications WHERE user_id = $1 AND read_at IS NULL AND dismissed_at IS NULL`,
     [uid],
   );
   return Number(r?.n ?? 0);
@@ -51,7 +51,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     const limit = f.limit ?? 20;
 
     const params: unknown[] = [uid];
-    let where = "n.user_id = $1";
+    let where = "n.user_id = $1 AND n.dismissed_at IS NULL";
     if (f.cursor) {
       params.push(f.cursor);
       where += ` AND n.created_at < $${params.length}`;
@@ -91,6 +91,22 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
       await q(`UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL AND id = ANY($2)`, [uid, ids]);
     } else {
       await q(`UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL`, [uid]);
+    }
+    reply.code(204).send();
+  });
+
+  /* скрыть из своей ленты: { ids } или пустое тело = все свои. Мягкое скрытие
+   *  (dismissed_at), не удаление строки — аудит/email_state не трогаются, на
+   *  чужие уведомления не влияет (WHERE user_id = $1). */
+  app.post("/notifications/dismiss", { preHandler: requireAuth }, async (req, reply) => {
+    const uid = (req.user as JwtPayload).sub;
+    const parsed = DismissNotificationsBody.safeParse(req.body ?? {}); // тело может быть пустым
+    if (!parsed.success) throw badRequest(formatZod(parsed.error));
+    const { ids } = parsed.data;
+    if (ids && ids.length > 0) {
+      await q(`UPDATE notifications SET dismissed_at = now() WHERE user_id = $1 AND dismissed_at IS NULL AND id = ANY($2)`, [uid, ids]);
+    } else {
+      await q(`UPDATE notifications SET dismissed_at = now() WHERE user_id = $1 AND dismissed_at IS NULL`, [uid]);
     }
     reply.code(204).send();
   });

@@ -284,6 +284,7 @@ interface Api {
   refreshCollaborations: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   markNotificationsRead: (ids?: string[]) => void;
+  dismissNotifications: (ids?: string[]) => void;
   setNotifyPrefs: (patch: NotifyPrefsT) => void;
   logout: () => void;
   setView: (v: ViewId) => void;
@@ -474,6 +475,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const notifications = prev.notifications.map((n) => (!set || set.has(n.id) ? { ...n, read: true } : n));
           // Уменьшаем на число реально непрочитанных из списка, а не на ids.length
           // (устойчиво к вызову с уже прочитанными id — review PR #19).
+          const cleared = set ? prev.notifications.filter((n) => set.has(n.id) && !n.read).length : prev.unreadCount;
+          const unreadCount = Math.max(0, prev.unreadCount - cleared);
+          return { ...prev, notifications, unreadCount };
+        });
+      } catch (err) {
+        handleApiError(err);
+      }
+    })();
+  }, [handleApiError]);
+
+  /** Скрыть уведомления из СВОЕЙ ленты (мягко, dismissed_at на сервере) — не
+   *  затрагивает чужие уведомления и аудит-след. Без ids — скрыть все свои. */
+  const dismissNotifications = useCallback((ids?: string[]) => {
+    void (async () => {
+      try {
+        await notificationsApi.dismiss(ids);
+        setData((prev) => {
+          const set = ids && ids.length ? new Set(ids) : null;
+          const notifications = set ? prev.notifications.filter((n) => !set.has(n.id)) : [];
+          // Без ids сервер скрывает ВСЕ уведомления пользователя, не только загруженную
+          // страницу (лента не пагинирует дальше limit=20) — поэтому берём prev.unreadCount
+          // напрямую, а не считаем по (неполному) списку в памяти (review PR #30).
           const cleared = set ? prev.notifications.filter((n) => set.has(n.id) && !n.read).length : prev.unreadCount;
           const unreadCount = Math.max(0, prev.unreadCount - cleared);
           return { ...prev, notifications, unreadCount };
@@ -1398,6 +1421,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     refreshCollaborations,
     refreshNotifications,
     markNotificationsRead,
+    dismissNotifications,
     setNotifyPrefs,
     logout,
     setView: (v) => setUi((u) => ({ ...u, view: v })),
