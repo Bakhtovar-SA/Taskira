@@ -430,7 +430,7 @@ export default function IssueModal() {
   };
 
   return (
-    <Modal onClose={() => openIssue(null)} w={940}>
+    <Modal onClose={() => openIssue(null)} w={940} viewTransitionName={`card-${issue.id}`}>
       {/* шапка */}
       <div className="flex items-center gap-2 border-b border-line px-5 py-3">
         <span title={ISSUE_TYPES[issue.typeId].name} className="flex items-center">
