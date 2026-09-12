@@ -8,6 +8,10 @@ import { PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
 import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, catColor } from "../ui";
 
+/** Палитра направлений (issues.color) — те же тона, что уже использует бренд
+ *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
+const DIRECTION_COLORS = ["#0B5FD9", "#22A06B", "#E2B203", "#D23A2E", "#E8772E", "#7A5CC6"];
+
 /** Текст комментария/описания с подсветкой @-упоминаний (NOTIFICATIONS_MIGRATION.md D5). */
 export function MentionText({ text }: { text: string }) {
   const parts = text.split(/(@[a-z0-9._-]{3,32})/gi);
@@ -810,6 +814,69 @@ export default function IssueModal() {
                 </LockedField>
               )}
             </Field>
+          )}
+
+          {epicIds.has(issue.id) && (
+            <div className="space-y-2.5 rounded-md border border-dashed border-line p-2.5">
+              <Field label="Цвет направления">
+                {editOk ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {DIRECTION_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => updateIssue(issue.id, { color: c })}
+                        aria-label={`Выбрать цвет ${c}`}
+                        className="h-6 w-6 shrink-0 rounded-md transition-transform hover:scale-110"
+                        style={{
+                          background: c,
+                          boxShadow: issue.color === c ? `0 0 0 2px var(--c-panel), 0 0 0 4px ${c}` : undefined,
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm" style={{ background: issue.color ?? "var(--c-faint)" }} />
+                    {issue.color ?? "не задан"}
+                  </span>
+                )}
+              </Field>
+              <div className="flex gap-2.5">
+                <div className="flex-1">
+                  <Field label="Старт (нед.)">
+                    {editOk ? (
+                      <input
+                        type="number"
+                        min={0}
+                        max={52}
+                        value={issue.tStart ?? 0}
+                        onChange={(e) => updateIssue(issue.id, { tStart: Math.max(0, Math.min(52, Number(e.target.value))) })}
+                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-ink outline-none transition-colors focus:border-accent"
+                      />
+                    ) : (
+                      <span>{issue.tStart ?? 0}</span>
+                    )}
+                  </Field>
+                </div>
+                <div className="flex-1">
+                  <Field label="Длительность (нед.)">
+                    {editOk ? (
+                      <input
+                        type="number"
+                        min={1}
+                        max={52}
+                        value={issue.tSpan ?? 3}
+                        onChange={(e) => updateIssue(issue.id, { tSpan: Math.max(1, Math.min(52, Number(e.target.value))) })}
+                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-ink outline-none transition-colors focus:border-accent"
+                      />
+                    ) : (
+                      <span>{issue.tSpan ?? 3}</span>
+                    )}
+                  </Field>
+                </div>
+              </div>
+              <p className="text-[10.5px] leading-snug text-faint">Определяет положение полосы на «Таймлайне» (окно — ближайшие 8 недель).</p>
+            </div>
           )}
 
           <div className="space-y-2.5 border-t border-line pt-3.5">
