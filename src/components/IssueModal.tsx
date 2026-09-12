@@ -686,11 +686,21 @@ export default function IssueModal() {
                   <MenuItem onClick={() => { updateIssue(issue.id, { assigneeId: null }); close(); }}>
                     <Avatar user={null} size={20} /> Не назначен {issue.assigneeId === null && <IcCheck size={12} className="ml-auto text-accent" />}
                   </MenuItem>
-                  {data.users.map((u) => (
-                    <MenuItem key={u.id} onClick={() => { updateIssue(issue.id, { assigneeId: u.id }); close(); }}>
-                      <Avatar user={u} size={20} /> {u.name} {issue.assigneeId === u.id && <IcCheck size={12} className="ml-auto text-accent" />}
-                    </MenuItem>
-                  ))}
+                  {/* Исполнителем можно назначить только реального участника проекта —
+                      глобальный admin, который сюда не входит, в списке не показывается
+                      (data.users включает всех активных admin'ов для резолва me-memo,
+                      но это не значит, что их можно назначать исполнителем; сервер это
+                      теперь тоже отклоняет — см. POST/PATCH /issues). Текущий assignee,
+                      если он был назначен раньше по старой логике, всё ещё отображается
+                      как есть (issue.assigneeId ищется в assignee выше), просто новый
+                      выбор из списка недоступен. */}
+                  {data.users
+                    .filter((u) => u.id in data.members || u.id === issue.assigneeId)
+                    .map((u) => (
+                      <MenuItem key={u.id} onClick={() => { updateIssue(issue.id, { assigneeId: u.id }); close(); }}>
+                        <Avatar user={u} size={20} /> {u.name} {issue.assigneeId === u.id && <IcCheck size={12} className="ml-auto text-accent" />}
+                      </MenuItem>
+                    ))}
                 </>
               )}
             </Dropdown>

@@ -268,6 +268,9 @@ export const NotificationsQuery = z.object({
 /** POST /api/notifications/read — тело опционально; пусто = отметить все. */
 export const MarkReadBody = z.object({ ids: z.array(uuid).max(500).optional() });
 
+/** POST /api/notifications/dismiss — тело опционально; пусто = скрыть все свои. */
+export const DismissNotificationsBody = z.object({ ids: z.array(uuid).max(500).optional() });
+
 /* ---------------- Workflow / Users ---------------- */
 export const TransitionCreateBody = z.object({ from: uuid, to: uuid });
 

@@ -121,11 +121,13 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       }
 
       if (body.assigneeId) {
+        // Исполнитель должен быть реальным участником проекта — глобальный admin
+        // больше не проходит "мимо" этой проверки (было: назначать можно было любого
+        // admin'а даже без членства в проекте; см. ROLE_MIGRATION.md/аудит деплоя).
         const u = await one<{ id: string }>(
           `SELECT u.id FROM users u
             WHERE u.id = $1 AND u.is_active
-              AND (u.global_role = 'admin'
-                   OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id))`,
+              AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id)`,
           [body.assigneeId, project.id],
         );
         if (!u) throw badRequest("Исполнитель не входит в проект");
@@ -181,11 +183,13 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const iss = await loadIssue(project.id, id);
 
       if (body.assigneeId !== undefined && body.assigneeId !== null) {
+        // Исполнитель должен быть реальным участником проекта — глобальный admin
+        // больше не проходит "мимо" этой проверки (см. аналогичный комментарий
+        // в POST /issues выше).
         const u = await one<{ id: string }>(
           `SELECT u.id FROM users u
             WHERE u.id = $1 AND u.is_active
-              AND (u.global_role = 'admin'
-                   OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id))`,
+              AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id)`,
           [body.assigneeId, project.id],
         );
         if (!u) throw badRequest("Исполнитель не входит в проект");
