@@ -55,8 +55,18 @@ export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId | string; size
   );
 };
 
+/** Цвет приоритета — единственный источник (токены темы var(--c-prio-*) в
+ *  index.css), используется и здесь, и в Board-карточке (PRIO_COLOR раньше
+ *  дублировал этот список отдельно и расходился с ним для "low"). */
+export const PRIORITY_COLOR: Record<PriorityId, string> = {
+  critical: "var(--c-prio-critical)",
+  high: "var(--c-prio-high)",
+  medium: "var(--c-prio-medium)",
+  low: "var(--c-prio-low)",
+};
+
 export const PriorityIcon = ({ p, size = 15 }: { p: PriorityId; size?: number }) => {
-  const c = { critical: "#D23A2E", high: "#E8772E", medium: "#C79A0A", low: "#3D7FE0" }[p];
+  const c = PRIORITY_COLOR[p];
   if (p === "medium")
     return (
       <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Средний приоритет">

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/ui.tsx"
+        ],
+        "createdAt": "2026-09-12T13:35:06.320Z",
+        "reason": "Agent: single Toasts() component, borderLeft color encodes success/error/info status on a transient toast (only occurrence of borderLeft in src), not the repeated decorative-card side-tab pattern the rule targets"
+      }
+    ]
+  }
+}
