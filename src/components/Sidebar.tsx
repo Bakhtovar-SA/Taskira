@@ -48,12 +48,12 @@ export default function Sidebar() {
         type="button"
         onClick={homeAvailable ? goHome : undefined}
         aria-label={homeAvailable ? "На главный экран" : "Taskira"}
-        className={`flex items-center gap-2.5 px-4 pb-5 pt-5 text-left ${homeAvailable ? "cursor-pointer" : "cursor-default"}`}
+        className={`flex items-center gap-3 px-4 pb-6 pt-6 text-left ${homeAvailable ? "cursor-pointer" : "cursor-default"}`}
       >
-        <Logo size={30} />
+        <Logo size={36} />
         <div className="leading-none">
-          <p className={`font-disp text-[15px] font-bold tracking-tight text-white ${homeAvailable ? "transition-opacity hover:opacity-80" : ""}`}>Taskira</p>
-          <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#5f7396]">issue tracking</p>
+          <p className={`font-disp text-[20px] font-bold tracking-tight text-white ${homeAvailable ? "transition-opacity hover:opacity-80" : ""}`}>Taskira</p>
+          <p className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#5f7396]">issue tracking</p>
         </div>
       </button>
 
