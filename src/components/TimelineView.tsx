@@ -32,7 +32,9 @@ export default function TimelineView() {
     resizeObsRef.current = null;
     if (node) {
       setViewportW(node.getBoundingClientRect().width); // сразу, не ждём первый колбэк observer'а
-      const ro = new ResizeObserver((entries) => setViewportW(entries[0].contentRect.width));
+      // getBoundingClientRect (border-box), а не entries[0].contentRect (content-box) —
+      // иначе первый колбэк RO расходится с начальным значением на ширину border (1-2px).
+      const ro = new ResizeObserver(() => setViewportW(node.getBoundingClientRect().width));
       ro.observe(node);
       resizeObsRef.current = ro;
     }
@@ -129,9 +131,13 @@ export default function TimelineView() {
                       <div className="relative h-[46px]">
                         {/* линия сегодня */}
                         <span className="absolute bottom-0 top-0 z-10 w-px bg-danger/70" style={{ left: todayPx }} title="Сегодня" />
-                        {weeks.map((_, i) => (
-                          <span key={i} className="absolute bottom-1 top-1 border-l border-linesoft" style={{ left: i * WEEK_PX }} />
-                        ))}
+                        {/* Разделители недель — один фоновый repeating-gradient вместо
+                            52 отдельных <span> на строку (аудит: 6.5x рост DOM после
+                            расширения WEEKS 8→52), как .dotgrid уже делает для канвы. */}
+                        <div
+                          className="pointer-events-none absolute inset-x-0 bottom-1 top-1"
+                          style={{ backgroundImage: `repeating-linear-gradient(to right, var(--c-linesoft) 0 1px, transparent 1px ${WEEK_PX}px)` }}
+                        />
                         <button
                           onClick={() => openIssue(epic.id)}
                           title={`${epic.title} · ${done}/${kids.length} готово`}
