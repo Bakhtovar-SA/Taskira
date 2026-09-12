@@ -1,17 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { canTransition, fmtDate, useStore } from "../store";
-import type { Issue, PriorityId, Status } from "../types";
+import type { Issue, Status } from "../types";
 import { PRIORITIES } from "../types";
-import { IcCalendar, IcCheck, IcEye, IcInbox, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { IcCalendar, IcCheck, IcEye, IcInbox, IcPlus, IcSearch, IcX, PRIORITY_COLOR, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, BOARD_COLUMN_SHELL, Chip, catColor } from "../ui";
-
-// цвет подписи приоритета — тон в тон с PriorityIcon
-const PRIO_COLOR: Record<PriorityId, string> = {
-  critical: "#D23A2E",
-  high: "#E8772E",
-  medium: "#C79A0A",
-  low: "var(--c-faint)",
-};
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -53,7 +45,7 @@ function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggabl
       <span
         aria-hidden
         className="absolute inset-x-0 top-0 h-[3px]"
-        style={{ background: epic?.color ?? PRIO_COLOR[issue.priorityId] }}
+        style={{ background: epic?.color ?? PRIORITY_COLOR[issue.priorityId] }}
       />
 
       {/* тип + ключ */}
@@ -84,7 +76,7 @@ function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggabl
 
       {/* приоритет с подписью · срок · исполнитель */}
       <div className="mt-2.5 flex items-center gap-2">
-        <span className="flex items-center gap-1 text-[10.5px] font-bold" style={{ color: PRIO_COLOR[issue.priorityId] }}>
+        <span className="flex items-center gap-1 text-[10.5px] font-bold" style={{ color: PRIORITY_COLOR[issue.priorityId] }}>
           <PriorityIcon p={issue.priorityId} size={12} />
           {PRIORITIES[issue.priorityId].name}
         </span>
