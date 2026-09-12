@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { IcChevR, IcTimeline } from "../icons";
 import { Lozenge, Empty } from "../ui";
@@ -14,7 +14,29 @@ const GRID_COLS = `${LABEL_PX}px repeat(${WEEKS}, ${WEEK_PX}px)`;
 export default function TimelineView() {
   const { data, openIssue } = useStore();
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollElRef = useRef<HTMLDivElement | null>(null);
+  const resizeObsRef = useRef<ResizeObserver | null>(null);
+  // Ширина видимой части скроллящейся панели (без учёта того, что реально
+  // прокручено вбок) — нужна раскрытому списку задач направления, который
+  // должен оставаться на месте при горизонтальном скролле недель (см. ниже,
+  // sticky left-0). "100%" внутри него равнялось бы полной прокручиваемой
+  // ширине (260px + 52 недели), а 100vw — ширине всего окна, а не панели.
+  const [viewportW, setViewportW] = useState(0);
+  // callback-ref, а не useEffect с [] — сам скроллящийся div рендерится только
+  // когда epics.length > 0 (изначально при загрузке данных его в DOM ещё нет),
+  // эффект «один раз при монтировании» просто ничего бы не нашёл и не
+  // переподключился бы позже, когда div появится.
+  const scrollRef = useCallback((node: HTMLDivElement | null) => {
+    scrollElRef.current = node;
+    resizeObsRef.current?.disconnect();
+    resizeObsRef.current = null;
+    if (node) {
+      setViewportW(node.getBoundingClientRect().width); // сразу, не ждём первый колбэк observer'а
+      const ro = new ResizeObserver((entries) => setViewportW(entries[0].contentRect.width));
+      ro.observe(node);
+      resizeObsRef.current = ro;
+    }
+  }, []);
 
   const weeks = useMemo(() => {
     const now = new Date();
@@ -35,7 +57,7 @@ export default function TimelineView() {
   const dayOfWeek = (new Date().getDay() + 6) % 7;
   const todayPx = ((dayOfWeek + 0.5) / 7) * WEEK_PX;
 
-  const scrollToToday = () => scrollRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+  const scrollToToday = () => scrollElRef.current?.scrollTo({ left: 0, behavior: "smooth" });
 
   return (
     <div className="h-full overflow-y-auto">
@@ -120,7 +142,7 @@ export default function TimelineView() {
                     </div>
                   </div>
                   {expanded && (
-                    <div className="anim-fadeup sticky left-0 border-t border-dashed border-linesoft bg-canvas/40" style={{ width: `min(100%, calc(100vw - 2px))` }}>
+                    <div className="anim-fadeup sticky left-0 border-t border-dashed border-linesoft bg-canvas/40" style={{ width: viewportW || "100%" }}>
                       {kids.length === 0 && <p className="px-10 py-2.5 text-[12px] text-faint">В направлении пока нет задач.</p>}
                       {kids.map((k) => {
                         const st = data.workflow.statuses.find((s) => s.id === k.statusId)!;

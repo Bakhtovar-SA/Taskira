@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { canTransition, fmtDate, useStore } from "../store";
 import type { Issue, Status } from "../types";
 import { PRIORITIES } from "../types";
@@ -478,30 +479,39 @@ export default function Board() {
       </div>
 
       {/* «призрак» карточки под курсором — реальная карточка спрятана
-          (visibility:hidden), эта плавающая копия следит за курсором */}
+          (visibility:hidden), эта плавающая копия следит за курсором.
+          Портал прямо в body: App.tsx рендерит текущий вид внутри
+          `.anim-fadeup` (fadeUp-анимация с `both` держит transform:
+          translateY(0) вечно после окончания), а ЛЮБОЙ предок с transform
+          (даже единичным) создаёт новый containing block для position:fixed
+          — без портала «призрак» позиционировался бы от угла контента
+          страницы (после сайдбара/топбара), а не от viewport. */}
       {draggingId &&
         dragged &&
-        (() => {
-          const rect = pointerMeta.current?.rect;
-          return (
-            <div
-              ref={ghostRef}
-              style={{
-                position: "fixed",
-                left: rect?.left ?? 0,
-                top: rect?.top ?? 0,
-                width: rect?.width,
-                zIndex: 100,
-                pointerEvents: "none",
-                willChange: "transform",
-                borderRadius: 8,
-                boxShadow: "0 22px 44px rgba(20,35,64,0.32), 0 8px 16px rgba(20,35,64,0.18)",
-              }}
-            >
-              <Card issue={dragged} flash={false} draggable={false} onOpen={() => {}} />
-            </div>
-          );
-        })()}
+        createPortal(
+          (() => {
+            const rect = pointerMeta.current?.rect;
+            return (
+              <div
+                ref={ghostRef}
+                style={{
+                  position: "fixed",
+                  left: rect?.left ?? 0,
+                  top: rect?.top ?? 0,
+                  width: rect?.width,
+                  zIndex: 100,
+                  pointerEvents: "none",
+                  willChange: "transform",
+                  borderRadius: 8,
+                  boxShadow: "0 22px 44px rgba(20,35,64,0.32), 0 8px 16px rgba(20,35,64,0.18)",
+                }}
+              >
+                <Card issue={dragged} flash={false} draggable={false} onOpen={() => {}} />
+              </div>
+            );
+          })(),
+          document.body,
+        )}
     </div>
   );
 }
