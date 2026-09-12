@@ -493,9 +493,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         await notificationsApi.dismiss(ids);
         setData((prev) => {
           const set = ids && ids.length ? new Set(ids) : null;
-          const removed = set ? prev.notifications.filter((n) => set.has(n.id)) : prev.notifications;
           const notifications = set ? prev.notifications.filter((n) => !set.has(n.id)) : [];
-          const cleared = removed.filter((n) => !n.read).length;
+          // Без ids сервер скрывает ВСЕ уведомления пользователя, не только загруженную
+          // страницу (лента не пагинирует дальше limit=20) — поэтому берём prev.unreadCount
+          // напрямую, а не считаем по (неполному) списку в памяти (review PR #30).
+          const cleared = set ? prev.notifications.filter((n) => set.has(n.id) && !n.read).length : prev.unreadCount;
           const unreadCount = Math.max(0, prev.unreadCount - cleared);
           return { ...prev, notifications, unreadCount };
         });
