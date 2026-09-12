@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type {
   AccessRole,
   AssignedIssue,
@@ -50,6 +51,32 @@ export const canTransition = (wf: Workflow, from: string, to: string) =>
   from === to || wf.transitions.some((t) => t.from === from && t.to === to);
 
 export const statusById = (wf: Workflow, id: string) => wf.statuses.find((s) => s.id === id);
+
+/** Оборачивает синхронное обновление состояния в View Transition (карточка на
+ *  доске морфит в панель модалки — оба несут один view-transition-name, см.
+ *  Board.tsx Card / ui.tsx Modal). Без поддержки в браузере и при
+ *  prefers-reduced-motion — обычное обновление без обёртки. Возвращает промис,
+ *  который разрешается, когда анимация домоталась (или сразу, если её не
+ *  было) — любая мутация DOM ДО этого момента прерывает саму анимацию
+ *  (InvalidStateError), так что последующий фетч данных нужно отложить. */
+const runViewTransition = (update: () => void): Promise<void> => {
+  const supported = typeof document !== "undefined" && "startViewTransition" in document;
+  const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (!supported || reduced) {
+    update();
+    return Promise.resolve();
+  }
+  try {
+    return document.startViewTransition(() => flushSync(update)).finished.catch(() => {});
+  } catch {
+    // Браузер может отклонить startViewTransition как «invalid state», если
+    // предыдущий переход ещё не устаканился (например, две открытые задачи
+    // подряд без паузы) — само состояние применяем как обычно, просто без
+    // анимации на этот раз.
+    update();
+    return Promise.resolve();
+  }
+};
 
 /** Кого можно назначить исполнителем: участники проекта, плюс — для уже
  *  созданной задачи — текущий assignee, даже если его с тех пор вывели из
@@ -724,11 +751,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const openIssue = useCallback(
     (id: string | null) => {
-      setUi((u) => ({ ...u, selectedIssueId: id }));
+      const settled = runViewTransition(() => setUi((u) => ({ ...u, selectedIssueId: id })));
       if (!id) return;
       void (async () => {
         try {
-          const [dto, comments] = await Promise.all([issuesApi.get(pid(), id), commentsApi.list(pid(), id).catch(() => [])]);
+          // Ждём и данные, и завершение анимации: setData ниже мутирует DOM,
+          // а любая мутация во время самой View Transition прерывает её
+          // (InvalidStateError) — фетч при этом идёт параллельно, не позже.
+          const [[dto, comments]] = await Promise.all([
+            Promise.all([issuesApi.get(pid(), id), commentsApi.list(pid(), id).catch(() => [])]),
+            settled,
+          ]);
           setData((prev) => {
             const mapped = mapIssue(dto, prev.issues.find((x) => x.id === id));
             mapped.comments = (comments as { id: string; authorId: string; body: string; createdAt: string }[]).map(
