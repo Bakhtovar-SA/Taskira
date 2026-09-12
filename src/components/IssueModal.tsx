@@ -859,7 +859,7 @@ export default function IssueModal() {
                   </Field>
                 </div>
                 <div className="flex-1">
-                  <Field label="Длительность (нед.)">
+                  <Field label="Длит. (нед.)">
                     {editOk ? (
                       <input
                         type="number"
