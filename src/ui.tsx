@@ -4,10 +4,6 @@ import { useStore } from "./store";
 import { IcX } from "./icons";
 import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
 
-/** Поддержка View Transitions API (Chrome/Edge/Safari; без Firefox) — проверяем
- *  один раз. Без неё модалка просто использует обычный anim-pop (см. Modal). */
-export const supportsViewTransitions = typeof document !== "undefined" && "startViewTransition" in document;
-
 /** Аватару достаточно имени/инициалов/цвета — принимаем любой такой объект
  *  (не только полный User: напр. `actor` в уведомлениях). */
 type AvatarUser = Pick<User, "name" | "initials" | "color">;
@@ -134,19 +130,7 @@ export const MenuItem = ({ onClick, children, danger, disabled, title }: { onCli
   </button>
 );
 
-export function Modal({
-  onClose,
-  children,
-  w = 860,
-  viewTransitionName,
-}: {
-  onClose: () => void;
-  children: React.ReactNode;
-  w?: number;
-  /** Тот же view-transition-name, что и у карточки на доске (Board.tsx) —
-   *  карточка морфит в панель модалки вместо появления с нуля. */
-  viewTransitionName?: string;
-}) {
+export function Modal({ onClose, children, w = 860 }: { onClose: () => void; children: React.ReactNode; w?: number }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
@@ -154,13 +138,7 @@ export function Modal({
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0c1626]/55 px-4 py-10 backdrop-blur-[2px]" onMouseDown={onClose}>
-      <div
-        className={`w-full rounded-xl border border-line bg-panel shadow-[0_24px_70px_rgba(12,22,38,0.4)] ${
-          viewTransitionName && supportsViewTransitions ? "" : "anim-pop"
-        }`}
-        style={{ maxWidth: w, viewTransitionName }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="anim-pop w-full rounded-xl border border-line bg-panel shadow-[0_24px_70px_rgba(12,22,38,0.4)]" style={{ maxWidth: w }} onMouseDown={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>

@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useRef, useState } from "react";
 import { canTransition, fmtDate, useStore } from "../store";
 import type { Issue, Status } from "../types";
 import { PRIORITIES } from "../types";
@@ -17,49 +16,30 @@ const QUICK_CHIPS: { id: QuickChip; label: string }[] = [
   { id: "unassigned", label: "Без исполнителя" },
 ];
 
-/** Плавность отпускания карточки — тот же экспоненциальный ease-out, что и
- *  dropLand/View Transitions, без переброса (overdrive: физика без отскока). */
-const SETTLE = "cubic-bezier(0.16, 1, 0.3, 1)";
-const SETTLE_MS = 180;
-
-function Card({
-  issue,
-  flash,
-  draggable,
-  hidden,
-  onGrabStart,
-  onGrabMove,
-  onGrabEnd,
-  onOpen,
-}: {
-  issue: Issue;
-  flash: boolean;
-  draggable: boolean;
-  hidden?: boolean;
-  onGrabStart?: (e: React.PointerEvent, issue: Issue) => void;
-  onGrabMove?: (e: React.PointerEvent) => void;
-  onGrabEnd?: (e: React.PointerEvent) => void;
-  onOpen: () => void;
-}) {
-  const { data, ui } = useStore();
+function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggable }: { issue: Issue; onDragStart: () => void; onDragEnd: () => void; onDropOn: (e: React.DragEvent) => void; onOver: () => void; flash: boolean; draggable: boolean }) {
+  const { data, openIssue } = useStore();
   const assignee = data.users.find((u) => u.id === issue.assigneeId);
   const epic = data.issues.find((i) => i.id === issue.epicId);
   const doneCat = data.workflow.statuses.find((s) => s.id === issue.statusId)?.category === "done";
   const overdue = !!issue.dueDate && !doneCat && issue.dueDate < new Date().toISOString().slice(0, 10);
-  // Пока карточка открыта в модалке, имя переходит панели модалки (Modal
-  // viewTransitionName) — у обеих не может быть одно имя одновременно.
-  const viewTransitionName = ui.selectedIssueId === issue.id ? undefined : `card-${issue.id}`;
 
   return (
     <article
-      data-card-id={issue.id}
-      onPointerDown={draggable ? (e) => onGrabStart?.(e, issue) : undefined}
-      onPointerMove={draggable ? onGrabMove : undefined}
-      onPointerUp={draggable ? onGrabEnd : undefined}
-      onPointerCancel={draggable ? onGrabEnd : undefined}
-      onClick={onOpen}
-      style={{ viewTransitionName, visibility: hidden ? "hidden" : undefined, touchAction: draggable ? "none" : undefined }}
-      className={`group relative cursor-grab overflow-hidden rounded-lg border border-line bg-panel p-2.5 pt-3 shadow-[0_1px_2px_rgba(20,35,64,0.06)] transition-all duration-150 hover:-translate-y-px hover:border-line2 hover:shadow-[0_6px_18px_rgba(20,35,64,0.12)] active:cursor-grabbing ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
+      draggable={draggable}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", issue.id);
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onOver();
+      }}
+      onDrop={onDropOn}
+      onClick={() => openIssue(issue.id)}
+      className={`group relative cursor-pointer overflow-hidden rounded-lg border border-line bg-panel p-2.5 pt-3 shadow-[0_1px_2px_rgba(20,35,64,0.06)] transition-all duration-150 hover:-translate-y-px hover:border-line2 hover:shadow-[0_6px_18px_rgba(20,35,64,0.12)] active:scale-[0.99] ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
       {/* цветной якорь сверху: цвет направления, иначе — приоритета (round4 §3.1) */}
       <span
@@ -162,33 +142,16 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
 }
 
 export default function Board() {
-  const { data, ui, moveStatus, openIssue, can } = useStore();
+  const { data, ui, moveStatus, can } = useStore();
   const canMove = can("transition");
   const canCreate = can("create");
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overCol, setOverCol] = useState<string | null>(null);
   const [filterUser, setFilterUser] = useState<string | null | "none">(null);
   const [q, setQ] = useState("");
   const [chips, setChips] = useState<Set<QuickChip>>(new Set());
   const [quickFor, setQuickFor] = useState<string | null>(null);
-
-  // ── Drag-and-drop поверх Pointer Events (overdrive) ───────────────────
-  // Карточка физически следует за курсором (без рывков нативного HTML5 DnD),
-  // с наклоном по скорости и растущей тенью при подъёме; отпускание —
-  // экспоненциальное затухание без отскока (см. SETTLE), затем карточка
-  // обычным образом переливается в новую позицию (flash/anim-drop).
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [overTarget, setOverTarget] = useState<{ statusId: string; beforeId: string | null } | null>(null);
-  // Источник истины для решения при отпускании — стейт живёт только для
-  // подсветки колонки/места вставки. Нативные pointerup может прийти раньше,
-  // чем React успеет закоммитить последний setOverTarget из pointermove
-  // (оба события — часть одного и того же жеста, без паузы на кадр между
-  // ними), и тогда grabEnd прочитал бы ещё старое значение из замыкания.
-  const overTargetRef = useRef<{ statusId: string; beforeId: string | null } | null>(null);
-  const pointerMeta = useRef<{ id: string; startX: number; startY: number; rect: DOMRect } | null>(null);
-  const activeRef = useRef(false);
-  const suppressClickRef = useRef(false);
-  const lastMoveRef = useRef({ x: 0, t: 0 });
-  const ghostRef = useRef<HTMLDivElement | null>(null);
-  const settleTimer = useRef<number | undefined>(undefined);
+  const dragRef = useRef<string | null>(null);
 
   const toggleChip = (id: QuickChip) =>
     setChips((prev) => {
@@ -227,103 +190,8 @@ export default function Board() {
     return data.users.filter((u) => ids.includes(u.id));
   }, [pool, data.users]);
 
-  const dragged = draggingId ? data.issues.find((i) => i.id === draggingId) : null;
+  const dragged = dragId ? data.issues.find((i) => i.id === dragId) : null;
   const canDropTo = (sid: string) => !dragged || dragged.statusId === sid || canTransition(data.workflow, dragged.statusId, sid);
-
-  const onCardClick = useCallback(
-    (issueId: string) => {
-      if (suppressClickRef.current) {
-        suppressClickRef.current = false;
-        return;
-      }
-      openIssue(issueId);
-    },
-    [openIssue],
-  );
-
-  const grabStart = useCallback((e: React.PointerEvent, issue: Issue) => {
-    if (e.button !== 0) return;
-    const el = e.currentTarget as HTMLElement;
-    const rect = el.getBoundingClientRect();
-    el.setPointerCapture(e.pointerId);
-    pointerMeta.current = { id: issue.id, startX: e.clientX, startY: e.clientY, rect };
-    activeRef.current = false;
-    lastMoveRef.current = { x: e.clientX, t: performance.now() };
-  }, []);
-
-  const grabMove = useCallback((e: React.PointerEvent) => {
-    const m = pointerMeta.current;
-    if (!m) return;
-    const dx = e.clientX - m.startX;
-    const dy = e.clientY - m.startY;
-    if (!activeRef.current) {
-      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-      activeRef.current = true;
-      setDraggingId(m.id);
-    }
-    const now = performance.now();
-    const dt = Math.max(1, now - lastMoveRef.current.t);
-    const vx = (e.clientX - lastMoveRef.current.x) / dt;
-    lastMoveRef.current = { x: e.clientX, t: now };
-    const tilt = Math.max(-8, Math.min(8, vx * 40));
-    if (ghostRef.current) {
-      ghostRef.current.style.transition = "";
-      ghostRef.current.style.transform = `translate(${dx}px, ${dy}px) rotate(${tilt}deg) scale(1.03)`;
-    }
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const colEl = el?.closest<HTMLElement>("[data-col-id]");
-    const cardEl = el?.closest<HTMLElement>("[data-card-id]");
-    const statusId = colEl?.dataset.colId;
-    if (statusId) {
-      const beforeId = cardEl && cardEl.dataset.cardId !== m.id ? cardEl.dataset.cardId! : null;
-      const next = { statusId, beforeId };
-      overTargetRef.current = next;
-      setOverTarget((prev) => (prev && prev.statusId === statusId && prev.beforeId === beforeId ? prev : next));
-    }
-  }, []);
-
-  const grabEnd = useCallback(
-    (e: React.PointerEvent) => {
-      const m = pointerMeta.current;
-      if (!m) return;
-      const wasDragging = activeRef.current;
-      activeRef.current = false;
-      if (!wasDragging) {
-        pointerMeta.current = null;
-        return; // обычный клик — сработает onClick
-      }
-
-      suppressClickRef.current = true;
-      // canDropTo не перепроверяем здесь: moveStatus (store.tsx) сам читает
-      // актуальный workflow и статус задачи из dataRef и покажет тост при
-      // запрещённом переходе — дублировать проверку в замыкании grabEnd
-      // незачем (и рискованно: useCallback не пересоздавался бы при каждом
-      // изменении draggingId, замыкание тут же протухло бы, как overTarget
-      // выше).
-      const target = overTargetRef.current;
-      if (target) moveStatus(m.id, target.statusId, target.beforeId);
-
-      // rect остаётся в pointerMeta до конца settle — иначе призрак прыгнет
-      // в (0,0) на следующем ре-рендере (draggingId ещё не сброшен).
-      const dx = e.clientX - m.startX;
-      const dy = e.clientY - m.startY;
-      const g = ghostRef.current;
-      if (g) {
-        requestAnimationFrame(() => {
-          g.style.transition = `transform ${SETTLE_MS}ms ${SETTLE}`;
-          g.style.transform = `translate(${dx}px, ${dy}px) rotate(0deg) scale(1)`;
-        });
-      }
-      window.clearTimeout(settleTimer.current);
-      settleTimer.current = window.setTimeout(() => {
-        pointerMeta.current = null;
-        overTargetRef.current = null;
-        setDraggingId(null);
-        setOverTarget(null);
-      }, SETTLE_MS);
-    },
-    [moveStatus],
-  );
 
   return (
     <div className="flex h-full flex-col">
@@ -416,10 +284,29 @@ export default function Board() {
           {data.workflow.statuses.map((st, ci) => {
             const items = byStatus(st.id);
             const c = catColor(st.category);
-            const isOver = overTarget?.statusId === st.id;
+            const isOver = overCol === st.id;
             const ok = canDropTo(st.id);
             return (
-              <section key={st.id} data-col-id={st.id} className={`anim-fadeup ${BOARD_COLUMN_SHELL}`} style={{ animationDelay: `${ci * 60}ms` }}>
+              <section
+                key={st.id}
+                className={`anim-fadeup ${BOARD_COLUMN_SHELL}`}
+                style={{ animationDelay: `${ci * 60}ms` }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOverCol(st.id);
+                }}
+                onDragLeave={(e) => {
+                  if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setOverCol(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const id = e.dataTransfer.getData("text/plain");
+                  setOverCol(null);
+                  setDragId(null);
+                  dragRef.current = null;
+                  if (id) moveStatus(id, st.id, null);
+                }}
+              >
                 <header className="mb-1.5 flex items-center gap-2 px-1.5 pt-1">
                   <span className="h-2 w-2 rounded-sm" style={{ background: c.dot }} />
                   <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{st.name}</h3>
@@ -442,18 +329,30 @@ export default function Board() {
                 >
                   {quickFor === st.id && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
                   {items.map((i) => (
-                    <div key={i.id} className={isOver && overTarget?.beforeId === i.id ? "-mt-2 border-t-2 border-accent pt-2" : ""}>
-                      <Card
-                        issue={i}
-                        flash={ui.lastEvent?.issueId === i.id && Date.now() - ui.lastEvent.ts < 1500}
-                        hidden={draggingId === i.id}
-                        onGrabStart={grabStart}
-                        onGrabMove={grabMove}
-                        onGrabEnd={grabEnd}
-                        onOpen={() => onCardClick(i.id)}
-                        draggable={canMove}
-                      />
-                    </div>
+                    <Card
+                      key={i.id}
+                      issue={i}
+                      flash={ui.lastEvent?.issueId === i.id && Date.now() - ui.lastEvent.ts < 1500}
+                      onDragStart={() => {
+                        setDragId(i.id);
+                        dragRef.current = i.id;
+                      }}
+                      onDragEnd={() => {
+                        setDragId(null);
+                        setOverCol(null);
+                        dragRef.current = null;
+                      }}
+                      onDropOn={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const id = e.dataTransfer.getData("text/plain");
+                        setOverCol(null);
+                        setDragId(null);
+                        if (id && id !== i.id) moveStatus(id, st.id, i.id);
+                      }}
+                      onOver={() => setOverCol(st.id)}
+                      draggable={canMove}
+                    />
                   ))}
                   {items.length === 0 && quickFor !== st.id && (
                     <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[11.5px] transition-colors ${isOver ? "border-accent text-accent" : "border-line2 text-faint"}`}>
@@ -477,41 +376,6 @@ export default function Board() {
           })}
         </div>
       </div>
-
-      {/* «призрак» карточки под курсором — реальная карточка спрятана
-          (visibility:hidden), эта плавающая копия следит за курсором.
-          Портал прямо в body: App.tsx рендерит текущий вид внутри
-          `.anim-fadeup` (fadeUp-анимация с `both` держит transform:
-          translateY(0) вечно после окончания), а ЛЮБОЙ предок с transform
-          (даже единичным) создаёт новый containing block для position:fixed
-          — без портала «призрак» позиционировался бы от угла контента
-          страницы (после сайдбара/топбара), а не от viewport. */}
-      {draggingId &&
-        dragged &&
-        createPortal(
-          (() => {
-            const rect = pointerMeta.current?.rect;
-            return (
-              <div
-                ref={ghostRef}
-                style={{
-                  position: "fixed",
-                  left: rect?.left ?? 0,
-                  top: rect?.top ?? 0,
-                  width: rect?.width,
-                  zIndex: 100,
-                  pointerEvents: "none",
-                  willChange: "transform",
-                  borderRadius: 8,
-                  boxShadow: "0 22px 44px rgba(20,35,64,0.32), 0 8px 16px rgba(20,35,64,0.18)",
-                }}
-              >
-                <Card issue={dragged} flash={false} draggable={false} onOpen={() => {}} />
-              </div>
-            );
-          })(),
-          document.body,
-        )}
     </div>
   );
 }

@@ -88,7 +88,10 @@ export default function TimelineView() {
         ) : (
           <div
             ref={scrollRef}
-            className="anim-fadeup mt-4 overflow-x-auto overflow-y-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]"
+            tabIndex={0}
+            role="group"
+            aria-label="Дорожная карта — прокручивается по неделям стрелками или колёсиком"
+            className="focusable anim-fadeup mt-4 overflow-x-auto overflow-y-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]"
             style={{ animationDelay: "60ms" }}
           >
             {/* шапка недель */}
