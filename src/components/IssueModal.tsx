@@ -380,10 +380,14 @@ export default function IssueModal() {
   const status = data.workflow.statuses.find((s) => s.id === issue.statusId)!;
   // Срок горит: дата в прошлом и задача не в финальной категории статуса.
   const overdue = !!issue.dueDate && status.category !== "done" && issue.dueDate < new Date().toISOString().slice(0, 10);
-  // Тип "epic" упразднён (миграция 002): «эпик» — задача, на которую ссылаются
-  // другие через epicId.
+  // Тип "epic" упразднён (миграция 002): «направление» — задача, на которую
+  // ссылаются другие через epicId. epicIds — те, у кого уже есть дети (нужно,
+  // чтобы скрыть само поле «Направление» у такой задачи — направление не может
+  // выбрать себе направление). Кандидаты в самом пикере — любая другая задача
+  // проекта, а не только уже выбранные: иначе выбрать первое направление было
+  // бы невозможно — список кандидатов вечно оставался бы пуст.
   const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
-  const epics = data.issues.filter((i) => epicIds.has(i.id));
+  const directionOptions = data.issues.filter((i) => i.id !== issue.id);
 
   /* права доступа: что можно делать с этой задачей */
   const editOk = can("edit", issue);
@@ -778,13 +782,13 @@ export default function IssueModal() {
                 {(close) => (
                   <>
                     <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>Без направления</MenuItem>
-                    {epics.map((e) => (
+                    {directionOptions.map((e) => (
                       <MenuItem key={e.id} onClick={() => { updateIssue(issue.id, { epicId: e.id }); close(); }}>
                         <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: e.color }} />
                         <span className="truncate">{e.title}</span>
                       </MenuItem>
                     ))}
-                    {epics.length === 0 && (
+                    {directionOptions.length === 0 && (
                       <p className="px-3 py-2.5 text-[11.5px] leading-snug text-faint">
                         Направлений пока нет. Любая задача становится направлением, как только другая
                         задача выберет её здесь как родителя — отдельно «создавать направление» не нужно.
