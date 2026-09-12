@@ -23,10 +23,11 @@ export default function CreateIssueModal() {
   const [labelDraft, setLabelDraft] = useState("");
   const [again, setAgain] = useState(false);
 
-  // Тип "epic" упразднён (миграция 002): «эпик» — обычная задача, на которую
-  // ссылаются через epicId. Список «эпиков» = задачи, у которых есть дети.
-  const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
-  const epics = data.issues.filter((i) => epicIds.has(i.id));
+  // Тип "epic" упразднён (миграция 002): «направление» — обычная задача, на
+  // которую ссылаются через epicId. Кандидат — любая задача проекта, а не
+  // только уже кем-то выбранная — иначе список кандидатов никогда бы не
+  // наполнился (выбрать было бы не из чего, чтобы появилось первое направление).
+  const directionOptions = data.issues;
   const assignee = data.users.find((u) => u.id === assigneeId);
 
   const addLabel = () => {
@@ -177,11 +178,11 @@ export default function CreateIssueModal() {
             <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Направление</p>
             <select value={epicId ?? ""} onChange={(e) => setEpicId(e.target.value || null)} className={`${inputCls} cursor-pointer`}>
               <option value="">Без направления</option>
-              {epics.map((e) => (
+              {directionOptions.map((e) => (
                 <option key={e.id} value={e.id}>{e.title}</option>
               ))}
             </select>
-            {epics.length === 0 && (
+            {directionOptions.length === 0 && (
               <p className="mt-1 text-[10.5px] leading-snug text-faint">
                 Направлений пока нет — любая задача становится направлением, как только другая
                 сошлётся на неё здесь.
