@@ -308,11 +308,17 @@ body {
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Полоса направления на Таймлайне: left/width меняются напрямую через inline
-   style при правке «Старт»/«Длительность» — transition делает это плавным
-   вместо мгновенного скачка (overdrive). */
+/* Полоса направления на Таймлайне: позиция — через transform (--bar-x задаёт
+   inline style), а не left, чтобы не гонять layout на каждый кадр перехода;
+   ширина меняется редко (правка «Старт»/«Длительность» вручную, не скролл/
+   drag) и содержит текст + вложенный прогресс-бар, поэтому transform:scaleX
+   исказил бы их — здесь это осознанное исключение, не рефлекс. */
 .timeline-bar {
-  transition: left 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1), transform 150ms ease-out;
+  transform: translateX(var(--bar-x, 0)) translateY(-50%);
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.timeline-bar:hover {
+  transform: translateX(var(--bar-x, 0)) translateY(-50%) scaleY(1.1);
 }
 .timeline-bar-fill {
   transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1);

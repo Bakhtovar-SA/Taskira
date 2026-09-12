@@ -110,8 +110,8 @@ export default function TimelineView() {
                         <button
                           onClick={() => openIssue(epic.id)}
                           title={`${epic.title} · ${done}/${kids.length} готово`}
-                          className="timeline-bar group absolute top-1/2 flex h-6 -translate-y-1/2 items-center overflow-hidden rounded-full text-white shadow-sm hover:scale-y-110"
-                          style={{ left: start * WEEK_PX, width: span * WEEK_PX, background: epic.color }}
+                          className="timeline-bar group absolute top-1/2 flex h-6 items-center overflow-hidden rounded-full text-white shadow-sm"
+                          style={{ "--bar-x": `${start * WEEK_PX}px`, width: span * WEEK_PX, background: epic.color } as React.CSSProperties}
                         >
                           <span className="timeline-bar-fill absolute inset-y-0 left-0 bg-black/25" style={{ width: `${kids.length ? (done / kids.length) * 100 : 0}%` }} />
                           <span className="relative z-10 truncate px-2.5 text-[10.5px] font-bold">{epic.key}</span>
