@@ -43,6 +43,16 @@ const unreadOf = async (uid: string): Promise<number> => {
   return Number(r?.n ?? 0);
 };
 
+/** Общая ручка read/dismiss: { ids } или пустое тело = все свои. `column` —
+ *  read_at или dismissed_at, ставится только там, где ещё не проставлена. */
+const markNotifications = async (uid: string, ids: string[] | undefined, column: "read_at" | "dismissed_at") => {
+  if (ids && ids.length > 0) {
+    await q(`UPDATE notifications SET ${column} = now() WHERE user_id = $1 AND ${column} IS NULL AND id = ANY($2)`, [uid, ids]);
+  } else {
+    await q(`UPDATE notifications SET ${column} = now() WHERE user_id = $1 AND ${column} IS NULL`, [uid]);
+  }
+};
+
 export async function notificationRoutes(app: FastifyInstance): Promise<void> {
   /* лента получателя, курсорная пагинация по created_at */
   app.get("/notifications", { preHandler: requireAuth, preValidation: zquery(NotificationsQuery) }, async (req) => {
@@ -86,12 +96,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     const uid = (req.user as JwtPayload).sub;
     const parsed = MarkReadBody.safeParse(req.body ?? {}); // тело может быть пустым
     if (!parsed.success) throw badRequest(formatZod(parsed.error));
-    const { ids } = parsed.data;
-    if (ids && ids.length > 0) {
-      await q(`UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL AND id = ANY($2)`, [uid, ids]);
-    } else {
-      await q(`UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL`, [uid]);
-    }
+    await markNotifications(uid, parsed.data.ids, "read_at");
     reply.code(204).send();
   });
 
@@ -102,12 +107,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     const uid = (req.user as JwtPayload).sub;
     const parsed = DismissNotificationsBody.safeParse(req.body ?? {}); // тело может быть пустым
     if (!parsed.success) throw badRequest(formatZod(parsed.error));
-    const { ids } = parsed.data;
-    if (ids && ids.length > 0) {
-      await q(`UPDATE notifications SET dismissed_at = now() WHERE user_id = $1 AND dismissed_at IS NULL AND id = ANY($2)`, [uid, ids]);
-    } else {
-      await q(`UPDATE notifications SET dismissed_at = now() WHERE user_id = $1 AND dismissed_at IS NULL`, [uid]);
-    }
+    await markNotifications(uid, parsed.data.ids, "dismissed_at");
     reply.code(204).send();
   });
 
