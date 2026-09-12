@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-09-12T13:35:06.320Z",
         "reason": "Agent: single Toasts() component, borderLeft color encodes success/error/info status on a transient toast (only occurrence of borderLeft in src), not the repeated decorative-card side-tab pattern the rule targets"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "src/index.css"
+        ],
+        "createdAt": "2026-09-12T17:41:45.230Z",
+        "reason": "Agent: .timeline-bar/.timeline-bar-fill width transition kept intentionally after fixing left->transform; width holds truncated text + a nested absolute-positioned fill child, so scaleX would distort them, and the trigger is a manual Start/Duration edit (infrequent, not scroll/drag), not a hot path"
       }
     ]
   }
