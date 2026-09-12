@@ -164,11 +164,13 @@ export default function CreateIssueModal() {
                   <button onClick={() => { setAssigneeId(null); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
                     <Avatar user={null} size={18} /> Не назначен {!assigneeId && <IcCheck size={12} className="ml-auto text-accent" />}
                   </button>
-                  {data.users.map((u) => (
-                    <button key={u.id} onClick={() => { setAssigneeId(u.id); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                      <Avatar user={u} size={18} /> {u.name} {assigneeId === u.id && <IcCheck size={12} className="ml-auto text-accent" />}
-                    </button>
-                  ))}
+                  {data.users
+                    .filter((u) => u.id in data.members)
+                    .map((u) => (
+                      <button key={u.id} onClick={() => { setAssigneeId(u.id); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
+                        <Avatar user={u} size={18} /> {u.name} {assigneeId === u.id && <IcCheck size={12} className="ml-auto text-accent" />}
+                      </button>
+                    ))}
                 </>
               )}
             </Dropdown>
