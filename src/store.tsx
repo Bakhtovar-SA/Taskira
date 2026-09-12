@@ -51,6 +51,13 @@ export const canTransition = (wf: Workflow, from: string, to: string) =>
 
 export const statusById = (wf: Workflow, id: string) => wf.statuses.find((s) => s.id === id);
 
+/** Кого можно назначить исполнителем: участники проекта, плюс — для уже
+ *  созданной задачи — текущий assignee, даже если его с тех пор вывели из
+ *  проекта (иначе он пропал бы из списка молча). Сервер применяет то же
+ *  правило членства при создании/патче issue. */
+export const assignableUsers = (data: Pick<Data, "users" | "members">, currentAssigneeId?: string | null) =>
+  data.users.filter((u) => u.id in data.members || u.id === currentAssigneeId);
+
 export const relTime = (ts: number) => {
   const diff = Date.now() - ts;
   const m = Math.floor(diff / 6e4);
@@ -66,6 +73,25 @@ export const relTime = (ts: number) => {
 
 export const fmtDate = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+
+/** Общая логика markNotificationsRead/dismissNotifications: без `ids` действие
+ *  применяется ко ВСЕМ уведомлениям пользователя на сервере (не только к
+ *  загруженной странице, лента не пагинирует дальше limit=20) — поэтому
+ *  непрочитанных в этом случае считаем как prev.unreadCount целиком, а не по
+ *  (неполному) списку в памяти. С `ids` — считаем реально непрочитанные среди
+ *  них, устойчиво к вызову с уже прочитанными id (review PR #19, PR #30). */
+const applyNotificationAction = (prev: Data, ids: string[] | undefined, mode: "read" | "dismiss"): Data => {
+  const set = ids && ids.length ? new Set(ids) : null;
+  let cleared = 0;
+  const notifications = prev.notifications.reduce<NotificationT[]>((acc, n) => {
+    if (set && !set.has(n.id)) { acc.push(n); return acc; }
+    if (!n.read) cleared++;
+    if (mode === "read") acc.push({ ...n, read: true });
+    return acc;
+  }, []);
+  const unreadCount = Math.max(0, prev.unreadCount - (set ? cleared : prev.unreadCount));
+  return { ...prev, notifications, unreadCount };
+};
 
 export type BootStatus = "idle" | "loading" | "ready" | "unauthenticated" | "error" | "solo" | "home";
 
@@ -470,15 +496,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     void (async () => {
       try {
         await notificationsApi.markRead(ids);
-        setData((prev) => {
-          const set = ids && ids.length ? new Set(ids) : null;
-          const notifications = prev.notifications.map((n) => (!set || set.has(n.id) ? { ...n, read: true } : n));
-          // Уменьшаем на число реально непрочитанных из списка, а не на ids.length
-          // (устойчиво к вызову с уже прочитанными id — review PR #19).
-          const cleared = set ? prev.notifications.filter((n) => set.has(n.id) && !n.read).length : prev.unreadCount;
-          const unreadCount = Math.max(0, prev.unreadCount - cleared);
-          return { ...prev, notifications, unreadCount };
-        });
+        setData((prev) => applyNotificationAction(prev, ids, "read"));
       } catch (err) {
         handleApiError(err);
       }
@@ -491,16 +509,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     void (async () => {
       try {
         await notificationsApi.dismiss(ids);
-        setData((prev) => {
-          const set = ids && ids.length ? new Set(ids) : null;
-          const notifications = set ? prev.notifications.filter((n) => !set.has(n.id)) : [];
-          // Без ids сервер скрывает ВСЕ уведомления пользователя, не только загруженную
-          // страницу (лента не пагинирует дальше limit=20) — поэтому берём prev.unreadCount
-          // напрямую, а не считаем по (неполному) списку в памяти (review PR #30).
-          const cleared = set ? prev.notifications.filter((n) => set.has(n.id) && !n.read).length : prev.unreadCount;
-          const unreadCount = Math.max(0, prev.unreadCount - cleared);
-          return { ...prev, notifications, unreadCount };
-        });
+        setData((prev) => applyNotificationAction(prev, ids, "dismiss"));
       } catch (err) {
         handleApiError(err);
       }

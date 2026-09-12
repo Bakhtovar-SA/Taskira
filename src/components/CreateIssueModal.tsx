@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "../store";
+import { assignableUsers, useStore } from "../store";
 import type { IssueTypeId, PriorityId } from "../types";
 import { ISSUE_TYPES, PRIORITY_ORDER, PRIORITIES, TYPE_ORDER } from "../types";
 import { IcChevD, IcX, TypeIcon } from "../icons";
@@ -164,9 +164,7 @@ export default function CreateIssueModal() {
                   <button onClick={() => { setAssigneeId(null); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
                     <Avatar user={null} size={18} /> Не назначен {!assigneeId && <IcCheck size={12} className="ml-auto text-accent" />}
                   </button>
-                  {data.users
-                    .filter((u) => u.id in data.members)
-                    .map((u) => (
+                  {assignableUsers(data).map((u) => (
                       <button key={u.id} onClick={() => { setAssigneeId(u.id); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
                         <Avatar user={u} size={18} /> {u.name} {assigneeId === u.id && <IcCheck size={12} className="ml-auto text-accent" />}
                       </button>
