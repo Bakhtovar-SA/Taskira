@@ -216,7 +216,7 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
       assigneeId: null,
       epicId: null,
       labels: [],
-      points: null,
+      complexity: null,
       statusId: status.id,
     });
     setText("");

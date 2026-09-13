@@ -77,8 +77,8 @@
 project-scoped роли, департаменты, LDAP/AD, вложения, уведомления + email-воркер,
 UI-реструктуризация (спринты убраны, «Список задач», «Направление», главный экран).
 Остаётся: WebSocket-пуш вместо polling, фоновый ресинк LDAP-членства по расписанию,
-сборщик осиротевших файлов хранилища, `story points` → «сложность» (поле `points`
-пока в схеме, но из карточки убрано).
+сборщик осиротевших файлов хранилища. `story points` → «сложность» сделано
+(миграция 018, поле `complexity`).
 
 ## Breaking changes (002)
 
@@ -225,7 +225,7 @@ TODO_ID=…; INPROG_ID=…; REVIEW_ID=…
 # создать задачу (num и key выдаст сервер: CORP-1)
 ID=$(curl -s -X POST $BASE/issues -H "$AUTH" -H 'content-type: application/json' -d '{
   "title":"Настроить ночные бэкапы БД","typeId":"task","priorityId":"high",
-  "assigneeId":null,"epicId":null,"labels":["инфра"],"points":null,
+  "assigneeId":null,"epicId":null,"labels":["инфра"],"complexity":null,
   "dueDate":"2026-03-01"
 }' | jq -r .id)
 

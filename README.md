@@ -160,15 +160,15 @@ JWT re-валидируется на сервере: `requireAuth` каждые 
 - **Project** `{key, name, description, departmentId, isShared}` — под отделом.
 - **Department** `{id, name, ldapGroupDn}` — соответствует группе LDAP/AD.
 - **User** `{id, name, jobRole, globalRole: admin | member}` + `ProjectMember {projectId, userId, role: manager | employee | viewer}`.
-- **Issue** `{key: "CORP-N", typeId: task | bug | request, statusId, priorityId: low | medium | high | critical, assigneeId, reporterId, epicId, dueDate, doneAt, archivedAt, labels[], links[], comments[], activity[]}`.
+- **Issue** `{key: "CORP-N", typeId: task | bug | request, statusId, priorityId: low | medium | high | critical, complexity: simple | medium | hard | null, assigneeId, reporterId, epicId, dueDate, doneAt, archivedAt, labels[], links[], comments[], activity[]}`.
 - **IssueLink** `{issueId, linkedIssueId, type: relates | blocks}`.
 - **Направление** — не отдельная сущность: обычная задача, на которую ссылаются
   другие через `epicId`; несёт `color`, `tStart`/`tSpan` для таймлайна.
 - **Workflow** `{statuses: [{id, sid, name, category}], transitions: [{from, to}]}`.
 
 Типы `story`/`epic` слиты в `task` (миграция 002); приоритетов было 5, стало 4
-(миграция 013); спринты удалены целиком (миграция 012). Поле `points` осталось в
-схеме, но из карточки убрано.
+(миграция 013); спринты удалены целиком (миграция 012). Числовая «Оценка (очки)»
+(`points`) заменена на «Сложность» — три значения без Scrum-сленга (миграция 018).
 
 ## Оформление
 

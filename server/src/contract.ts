@@ -8,7 +8,7 @@
  *
  * Корпоративная модель (миграция 002, breaking — см. server/README.md):
  *  - типы задач: task | bug | request (story и epic слиты в task);
- *  - у задач есть due_date; points/epic — опциональные модули.
+ *  - у задач есть due_date; complexity/epic — опциональные модули.
  *
  * Ролевая модель (миграция 004 + Фаза 3, breaking):
  *  - глобальная роль users.global_role: admin | member (GLOBAL_ROLES);
@@ -31,7 +31,6 @@ export const LIMITS = {
   comment: { min: 1, max: 2000 },
   label: { max: 30 },
   labelsPerIssue: 10,
-  points: { min: 0, max: 100 },
   goal: { max: 200 },
   username: { min: 3, max: 32 },
   department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },
@@ -49,6 +48,7 @@ export const GLOBAL_ROLES = ["admin", "member"] as const;
 export const PROJECT_ROLES = ["manager", "employee", "viewer"] as const;
 export const ISSUE_TYPES = ["task", "bug", "request"] as const;
 export const PRIORITIES = ["low", "medium", "high", "critical"] as const;
+export const COMPLEXITIES = ["simple", "medium", "hard"] as const;
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
 
 const uuid = z.string().uuid("Ожидается UUID");
@@ -181,7 +181,7 @@ export const IssueCreateBody = z.object({
   assigneeId: uuid.nullable(),
   epicId: uuid.nullable(),
   labels: z.array(label()).max(LIMITS.labelsPerIssue).default([]),
-  points: z.number().int().min(LIMITS.points.min).max(LIMITS.points.max).nullable(),
+  complexity: z.enum(COMPLEXITIES).nullable(),
   dueDate: isoDate().nullable().optional(),
   statusId: uuid.optional(),
 });
@@ -194,7 +194,7 @@ export const IssuePatchBody = z
     assigneeId: uuid.nullable(),
     epicId: uuid.nullable(),
     labels: z.array(label()).max(LIMITS.labelsPerIssue),
-    points: z.number().int().min(LIMITS.points.min).max(LIMITS.points.max).nullable(),
+    complexity: z.enum(COMPLEXITIES).nullable(),
     dueDate: isoDate().nullable(),
     tStart: z.number().int().min(0).max(52).nullable(),
     tSpan: z.number().int().min(1).max(52).nullable(),

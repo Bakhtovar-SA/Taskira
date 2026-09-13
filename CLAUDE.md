@@ -18,7 +18,7 @@ is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still impo
 roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
-token revocation (017).
+token revocation (017), points → complexity (018).
 
 ## Commands
 
@@ -172,8 +172,12 @@ grouping survives via nullable `issues.epic_id`, timeline fields `t_start`/`t_sp
 Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counters` upsert.
 Priorities: `low | medium | high | critical` (migration 013 collapsed the old 5 levels).
 Issue links (`issue_links`, migration 014): `relates` (symmetric) or `blocks` (directed);
-`blocked_by` is `blocks` seen from the other end, not a stored row. `points` still exists in
-the schema and contract but the "оценка" field was dropped from the card UI.
+`blocked_by` is `blocks` seen from the other end, not a stored row. The old numeric
+`points` (Scrum story points, dropped from the card UI in round4 but left dangling in the
+schema/contract) was replaced outright by `complexity` — a plain three-value scale
+(`simple | medium | hard`, `COMPLEXITIES`/`COMPLEXITY_ORDER` in `types.ts` ↔ `COMPLEXITIES`
+in `contract.ts`) — migration 018. It has no dedicated client validator, same as
+`priorityId`: the type system and a fixed dropdown are enough, no numeric range to check.
 
 ## Issue lifecycle (migration 016)
 

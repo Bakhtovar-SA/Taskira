@@ -1,5 +1,6 @@
 export type IssueTypeId = "task" | "bug" | "request";
 export type PriorityId = "low" | "medium" | "high" | "critical";
+export type ComplexityId = "simple" | "medium" | "hard";
 export type StatusCategory = "todo" | "inprogress" | "done";
 /** Эффективная роль для матрицы прав (см. permissions.ts). */
 export type AccessRole = "admin" | "manager" | "employee" | "viewer";
@@ -111,7 +112,7 @@ export interface Issue {
   reporterId: string;
   epicId: string | null;
   labels: string[];
-  points: number | null;
+  complexity: ComplexityId | null;
   dueDate?: string | null;
   rank?: number;
   color?: string;
@@ -275,3 +276,11 @@ export const PRIORITIES: Record<PriorityId, { name: string }> = {
 
 export const PRIORITY_ORDER: PriorityId[] = ["critical", "high", "medium", "low"];
 export const TYPE_ORDER: IssueTypeId[] = ["task", "bug", "request"];
+
+export const COMPLEXITIES: Record<ComplexityId, { name: string }> = {
+  simple: { name: "Простая" },
+  medium: { name: "Средняя" },
+  hard: { name: "Сложная" },
+};
+
+export const COMPLEXITY_ORDER: ComplexityId[] = ["simple", "medium", "hard"];

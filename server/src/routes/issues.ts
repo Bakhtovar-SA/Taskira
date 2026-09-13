@@ -39,6 +39,12 @@ const PRIORITY_NAMES: Record<string, string> = {
   low: "Низкий",
 };
 
+const COMPLEXITY_NAMES: Record<string, string> = {
+  simple: "Простая",
+  medium: "Средняя",
+  hard: "Сложная",
+};
+
 const escLike = (s: string) => s.replace(/[%_\\]/g, "\\$&");
 
 const me = (req: { user: JwtPayload }) => req.user;
@@ -160,12 +166,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         await q<IssueRow>(
           `INSERT INTO issues
              (project_id, num, key, title, description, type_id, status_id, priority_id,
-              assignee_id, reporter_id, epic_id, labels, points, due_date, rank)
+              assignee_id, reporter_id, epic_id, labels, complexity, due_date, rank)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
            RETURNING *`,
           [
             project.id, num, key, body.title, body.description, body.typeId, statusId, body.priorityId,
-            body.assigneeId, user.sub, body.epicId, body.labels, body.points,
+            body.assigneeId, user.sub, body.epicId, body.labels, body.complexity,
             body.dueDate ?? null, rank,
           ],
         )
@@ -257,9 +263,11 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         push("labels", body.labels);
         log.push("обновил(а) метки");
       }
-      if (body.points !== undefined && body.points !== iss.points) {
-        push("points", body.points);
-        log.push(`изменил(а) оценку: ${iss.points ?? "—"} → ${body.points ?? "—"}`);
+      if (body.complexity !== undefined && body.complexity !== iss.complexity) {
+        push("complexity", body.complexity);
+        log.push(
+          `изменил(а) сложность: ${COMPLEXITY_NAMES[iss.complexity ?? ""] ?? "—"} → ${COMPLEXITY_NAMES[body.complexity ?? ""] ?? "—"}`,
+        );
       }
       if (body.dueDate !== undefined && body.dueDate !== iss.due_date) {
         push("due_date", body.dueDate);

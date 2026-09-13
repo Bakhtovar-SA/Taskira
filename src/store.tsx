@@ -5,6 +5,7 @@ import type {
   Attachment,
   Collaboration,
   Collaborator,
+  ComplexityId,
   Data,
   Department,
   Issue,
@@ -22,7 +23,7 @@ import type {
   Workflow,
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
-import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
+import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validateTitle } from "./validation";
 import {
   ApiError,
   attachmentsApi,
@@ -136,7 +137,7 @@ export interface CreateInput {
   assigneeId: string | null;
   epicId: string | null;
   labels: string[];
-  points: number | null;
+  complexity: ComplexityId | null;
   statusId?: string;
   dueDate?: string | null;
 }
@@ -263,7 +264,7 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     reporterId: dto.reporterId,
     epicId: dto.epicId,
     labels: dto.labels ?? [],
-    points: dto.points,
+    complexity: (dto.complexity as ComplexityId | null) ?? null,
     dueDate: dto.dueDate,
     rank: dto.rank,
     color: dto.color ?? undefined,
@@ -864,8 +865,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!d.ok) return toast("error", d.error);
       const l = validateLabels(input.labels);
       if (!l.ok) return toast("error", l.error);
-      const p = validatePoints(input.points);
-      if (!p.ok) return toast("error", p.error);
 
       void (async () => {
         try {
@@ -877,7 +876,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             assigneeId: input.assigneeId,
             epicId: input.epicId,
             labels: l.value,
-            points: p.value,
+            complexity: input.complexity,
             statusId: input.statusId,
             dueDate: input.dueDate ?? null,
           });
@@ -911,11 +910,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!r.ok) return toast("error", r.error);
         body.labels = r.value;
       }
-      if (patch.points !== undefined) {
-        const r = validatePoints(patch.points);
-        if (!r.ok) return toast("error", r.error);
-        body.points = r.value;
-      }
+      if (patch.complexity !== undefined) body.complexity = patch.complexity;
       if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
       if (patch.assigneeId !== undefined) body.assigneeId = patch.assigneeId;
       if (patch.epicId !== undefined) body.epicId = patch.epicId;

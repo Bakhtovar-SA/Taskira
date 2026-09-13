@@ -157,6 +157,6 @@ export const newIssue = (over: Record<string, unknown> = {}) => ({
   priorityId: "medium",
   assigneeId: null,
   epicId: null,
-  points: null,
+  complexity: null,
   ...over,
 });

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { assignableUsers, useStore } from "../store";
-import type { IssueTypeId, PriorityId } from "../types";
-import { ISSUE_TYPES, PRIORITY_ORDER, PRIORITIES, TYPE_ORDER } from "../types";
+import type { ComplexityId, IssueTypeId, PriorityId } from "../types";
+import { COMPLEXITY_ORDER, COMPLEXITIES, ISSUE_TYPES, PRIORITY_ORDER, PRIORITIES, TYPE_ORDER } from "../types";
 import { IcChevD, IcX, TypeIcon } from "../icons";
 import { Avatar, Dropdown, Modal, Chip } from "../ui";
 import { IcCheck, PriorityIcon } from "../icons";
@@ -16,6 +16,7 @@ export default function CreateIssueModal() {
   const [error, setError] = useState("");
   const [description, setDescription] = useState("");
   const [priorityId, setPriorityId] = useState<PriorityId>("medium");
+  const [complexity, setComplexity] = useState<ComplexityId | null>(null);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [epicId, setEpicId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState("");
@@ -49,7 +50,7 @@ export default function CreateIssueModal() {
       assigneeId,
       epicId,
       labels,
-      points: null,
+      complexity,
       dueDate: dueDate || null,
     });
     if (again) {
@@ -188,6 +189,19 @@ export default function CreateIssueModal() {
                 сошлётся на неё здесь.
               </p>
             )}
+          </div>
+          <div>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Сложность</p>
+            <select
+              value={complexity ?? ""}
+              onChange={(e) => setComplexity((e.target.value || null) as ComplexityId | null)}
+              className={`${inputCls} cursor-pointer`}
+            >
+              <option value="">Без оценки</option>
+              {COMPLEXITY_ORDER.map((c) => (
+                <option key={c} value={c}>{COMPLEXITIES[c].name}</option>
+              ))}
+            </select>
           </div>
         </div>
 

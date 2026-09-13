@@ -34,7 +34,7 @@ const issue = (over: Partial<Issue> = {}): Issue => ({
   reporterId: "someone-else",
   epicId: null,
   labels: [],
-  points: null,
+  complexity: null,
   doneAt: null,
   archivedAt: null,
   comments: [],
