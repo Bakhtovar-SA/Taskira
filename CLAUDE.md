@@ -18,7 +18,8 @@ is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still impo
 roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
-token revocation (017), points → complexity (018).
+token revocation (017), points → complexity (018), custom fields (020 — 019 is
+reserved by a parallel branch not yet merged at the time this was written).
 
 ## Commands
 
@@ -243,6 +244,17 @@ schema/contract) was replaced outright by `complexity` — a plain three-value s
 (`simple | medium | hard`, `COMPLEXITIES`/`COMPLEXITY_ORDER` in `types.ts` ↔ `COMPLEXITIES`
 in `contract.ts`) — migration 018. It has no dedicated client validator, same as
 `priorityId`: the type system and a fixed dropdown are enough, no numeric range to check.
+
+Custom fields (`custom_fields`/`custom_field_values`, migration 020, `services/customFields.ts`):
+project-level definitions (`text | number | select | checkbox | date`), one value row per
+(field, issue) — NULL/absent row means unset, everything stored as `text` regardless of type
+since parsing depends on which field it is (`validateValueForField` in the service, not a
+static zod schema). Defining fields (`POST/PATCH/DELETE /custom-fields`) reuses the `editWorkflow`
+permission rather than a new `PermId` — it's the same "structural project schema" capability as
+workflow transitions, and adding a dedicated permission would mean touching the shared MATRIX
+(both `permissions.ts` copies + `permissions-sync.test.ts`) for one narrow feature. Setting a
+*value* on a specific issue uses plain `edit`, same as priority/complexity/labels. Managed in
+`WorkflowView.tsx` (schema-editing screen) alongside the workflow graph, not a separate view.
 
 ## Issue lifecycle (migration 016)
 
