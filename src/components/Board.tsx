@@ -1,9 +1,9 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { canTransition, fmtDate, useStore } from "../store";
 import type { Issue, Status, User } from "../types";
 import { PRIORITIES } from "../types";
 import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PRIORITY_COLOR, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, BOARD_COLUMN_SHELL, Chip, catColor } from "../ui";
+import { Avatar, BOARD_COLUMN_SHELL, Chip, catColor, DROPDOWN_OPEN_EVT } from "../ui";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -68,7 +68,38 @@ const Card = memo(function Card({
 }) {
   const { openIssue } = useStore();
   const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
   const overdue = !!issue.dueDate && !doneCat && issue.dueDate < new Date().toISOString().slice(0, 10);
+
+  // Своё меню, не <Dropdown> (открывается ещё и с клавиатуры, см. onKeyDown
+  // ниже) — но без этих двух эффектов оно вело себя как БАГ, а не как
+  // дропдаун: не закрывалось по клику мимо и не закрывало другие такие же
+  // меню на соседних карточках — на доске можно было открыть сразу несколько
+  // одновременно, и они просто зависали открытыми до explicit-выбора пункта.
+  useEffect(() => {
+    if (!menu) return;
+    const onOtherOpen = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== menuId) setMenu(false);
+    };
+    const onOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false);
+    };
+    window.addEventListener(DROPDOWN_OPEN_EVT, onOtherOpen);
+    document.addEventListener("mousedown", onOutside);
+    return () => {
+      window.removeEventListener(DROPDOWN_OPEN_EVT, onOtherOpen);
+      document.removeEventListener("mousedown", onOutside);
+    };
+  }, [menu, menuId]);
+
+  const toggleMenu = () => {
+    setMenu((v) => {
+      const next = !v;
+      if (next) window.dispatchEvent(new CustomEvent(DROPDOWN_OPEN_EVT, { detail: menuId }));
+      return next;
+    });
+  };
 
   return (
     <article
@@ -84,7 +115,7 @@ const Card = memo(function Card({
         // мышью было единственным способом сменить статус на доске (UX-02).
         if (draggable && (e.key.toLowerCase() === "m" || e.key === "ь")) {
           e.preventDefault();
-          setMenu((v) => !v);
+          toggleMenu();
         }
         if (e.key === "Escape" && menu) {
           e.preventDefault();
@@ -159,11 +190,11 @@ const Card = memo(function Card({
       {/* Перемещение без мыши. Кнопка видна при наведении и при фокусе с
           клавиатуры, список — только разрешённые схемой переходы. */}
       {draggable && (
-        <div className="absolute right-1 top-1">
+        <div className="absolute right-1 top-1" ref={menuRef}>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setMenu((v) => !v);
+              toggleMenu();
             }}
             aria-haspopup="menu"
             aria-expanded={menu}

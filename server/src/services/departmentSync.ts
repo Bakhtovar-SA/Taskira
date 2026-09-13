@@ -63,8 +63,9 @@ export interface LdapResyncResult {
 
 /** Пересобрать department_members для ВСЕХ ldap-пользователей из их текущих
  *  групп. Общая реализация для ручного POST /api/ldap/resync (routes/ldap.ts,
- *  actorId — вызвавший admin) и фонового джоба (services/ldapResync.ts,
- *  actorId — null, «система»). Требует сервис-аккаунт (LDAP_BIND_DN) — вызывающий
+ *  actorId — вызвавший admin) и фонового джоба (services/maintenance.ts
+ *  startJob("ldap-resync", ...), actorId — null, «система»). Требует
+ *  сервис-аккаунт (LDAP_BIND_DN) — вызывающий
  *  сам проверяет это до вызова, чтобы отличать «не настроено» от «пусто прошло». */
 /** Сколько пользователей ресинкать параллельно. LDAP-справочники обычно
  *  терпимее к нескольким одновременным поисковым bind'ам, чем к сотням

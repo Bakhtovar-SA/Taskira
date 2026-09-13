@@ -213,3 +213,17 @@ export async function makeStorage(cfg: Config): Promise<Storage> {
   await local.ensureReady();
   return local;
 }
+
+/** Одна ленивая инициализация драйвера на процесс — общая для всех вызывающих
+ *  (attachments.ts, maintenance.ts): второй S3Client или второй mkdir/access
+ *  для local не нужен, драйвер один и тот же независимо от того, кто спросил
+ *  первым. */
+let cached: Promise<Storage> | null = null;
+export function getStorage(cfg: Config): Promise<Storage> {
+  if (!cached) cached = makeStorage(cfg);
+  return cached;
+}
+/** Только для тестов — сбросить закешированный драйвер (напр. смена STORAGE_DIR). */
+export function _resetStorage(): void {
+  cached = null;
+}

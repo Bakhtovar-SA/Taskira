@@ -325,3 +325,16 @@ since any edit touches it. The board shows the last 14 days in its done column
   and visibility rules (admin-only "Департаменты", collab-only "Мои подключения"), and view
   side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
   don't assume mobile parity for anything not explicitly listed here.
+- **`<Dropdown>` (`ui.tsx`) is the only correct way to build a popup menu** — it closes on
+  outside click, on Escape, and on any *other* dropdown opening (`DROPDOWN_OPEN_EVT`, a
+  `window` `CustomEvent` broadcast — exported specifically so hand-rolled popups outside
+  `ui.tsx` can subscribe to it). A real bug shipped from skipping it: the board card's move
+  menu (`Board.tsx`, the small arrow icon — opens on click *and* on `m`/`ь` for
+  keyboard-only status changes, which `<Dropdown>` doesn't support, hence the hand-rolled
+  state instead of reusing the component outright) had its own local `useState` with none of
+  that — it never closed on outside click, and two different cards' menus could be open at
+  the same time, looking exactly like a UI freeze. Fixed by giving it the same two
+  `useEffect`s `<Dropdown>` has (listen for `DROPDOWN_OPEN_EVT` from others, listen for
+  outside `mousedown`) instead of switching it to `<Dropdown>` outright. If you add another
+  bespoke open/close popup anywhere, wire it into `DROPDOWN_OPEN_EVT` the same way — plain
+  local boolean state is not enough by itself.

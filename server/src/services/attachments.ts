@@ -9,20 +9,12 @@ import { Readable } from "node:stream";
 import { one, q } from "../db.js";
 import { loadConfig } from "../config.js";
 import { ApiHttpError } from "../errors.js";
-import { makeStorage, newStorageKey, type Storage } from "./storage.js";
+import { getStorage, newStorageKey } from "./storage.js";
 import { checkUpload, HEAD_BYTES } from "./fileGuard.js";
 import { roleCan, type AccessRole } from "../permissions.js";
 
-/* -------- хранилище: одна ленивая инициализация на процесс -------- */
-let storagePromise: Promise<Storage> | null = null;
-function storage(): Promise<Storage> {
-  if (!storagePromise) storagePromise = makeStorage(loadConfig());
-  return storagePromise;
-}
-/** Только для тестов — сбросить закешированный драйвер (напр. смена STORAGE_DIR). */
-export function _resetStorage(): void {
-  storagePromise = null;
-}
+// Кэш драйвера — общий с maintenance.ts (storageSweeper.ts), см. getStorage() в storage.ts.
+const storage = () => getStorage(loadConfig());
 
 /* -------- DTO -------- */
 interface AttachmentRow {

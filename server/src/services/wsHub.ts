@@ -47,12 +47,16 @@ export function pushToUser(userId: string, message: WsMessage): void {
 
 /**
  * Закрыть все открытые сокеты пользователя — вызывать при отзыве сессии
- * (logout, деактивация, смена роли), т.е. из invalidateUserCache()
- * (middleware.ts). assertFreshUser сверяет активность/отзыв только один раз,
- * на хендшейке (routes/ws.ts) — без этого разлогиненный или деактивированный
- * пользователь с открытой вкладкой продолжал бы получать push до закрытия
- * вкладки самим человеком. Запись из byUser удалять здесь не нужно — 'close'
- * долетит до routes/ws.ts и unregisterSocket() отработает штатно.
+ * (logout, деактивация, смена роли), т.е. из revokeUserSessions()
+ * (middleware.ts) — НЕ из invalidateUserCache(), та теперь чистая
+ * инвалидация кэша без побочных эффектов (иначе LDAP-релогин или
+ * пересохранение формы без изменений рвали бы чужую живую вкладку без
+ * всякого реального отзыва). assertFreshUser сверяет активность/отзыв
+ * только один раз, на хендшейке (routes/ws.ts) — без этого разлогиненный
+ * или деактивированный пользователь с открытой вкладкой продолжал бы
+ * получать push до закрытия вкладки самим человеком. Запись из byUser
+ * удалять здесь не нужно — 'close' долетит до routes/ws.ts и
+ * unregisterSocket() отработает штатно.
  */
 export function closeUserSockets(userId: string, reason: string): void {
   revokedAt.set(userId, Date.now());

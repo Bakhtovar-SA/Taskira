@@ -34,7 +34,7 @@
  */
 import { q } from "../db.js";
 import { loadConfig } from "../config.js";
-import { makeStorage } from "./storage.js";
+import { getStorage } from "./storage.js";
 import { runStorageSweepOnce } from "./storageSweeper.js";
 import { resyncAllLdapUsers } from "./departmentSync.js";
 
@@ -130,7 +130,7 @@ export function startMaintenance(): void {
   if (cfg.storageSweepEnabled) {
     jobs.push(
       startJob("storage-sweep", cfg.storageSweepIntervalMs, 15_000, async () => {
-        const storage = await makeStorage(full);
+        const storage = await getStorage(full);
         await runStorageSweepOnce(storage, full.storage.driver, cfg.storageSweepGraceMs);
       }),
     );
