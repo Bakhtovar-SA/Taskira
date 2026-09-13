@@ -1,6 +1,6 @@
 /** Фоновое обслуживание (аудит LIFE-03 / PERF-05).
  *
- *  Три независимых лупа:
+ *  Три независимых джоба на общем таймер-хелпере (startJob ниже):
  *   1) архив + audit_log, каждый intervalMs (по умолчанию раз в час):
  *      - автоархив — задачам с done_at старше config.maintenance.archiveAfterDays
  *        проставляется archived_at. Это НЕ удаление: строка остаётся, задача
@@ -21,7 +21,11 @@
  *
  *  Каждый — отдельный таймер, а не дополнительная ветка в одном тике: разная
  *  стоимость и каданс, и ни один не должен запускаться на каждый прогон
- *  runMaintenanceOnce() в тестах архивации.
+ *  runMaintenanceOnce() в тестах архивации. Первый прогон каждого — сразу на
+ *  старте (не ждать полный интервал), но со сдвигом друг относительно друга
+ *  (startDelayMs), чтобы деплой/рестарт не запускал листинг всего Storage,
+ *  полный обход LDAP-каталога и архивный проход одним залпом в одну и ту же
+ *  секунду.
  *
  *  Все три стартуют вместе, но независимо, а не второй проход в notifier:
  *  тот стартует только при включённом email (NOTIFY_EMAIL_ENABLED), а архив
@@ -68,86 +72,84 @@ export async function runMaintenanceOnce(): Promise<MaintenanceStats> {
   return { archived: archivedRows.length, auditPurged };
 }
 
-let timer: NodeJS.Timeout | null = null;
-let sweepTimer: NodeJS.Timeout | null = null;
-let ldapTimer: NodeJS.Timeout | null = null;
-let running = false;
-let sweeping = false;
-let ldapResyncing = false;
+/**
+ * Один периодический джоб: реентрантность (тики не перекрываются), setInterval
+ * + unref (не держит процесс живым сам по себе), первый прогон сразу (со
+ * сдвигом startDelayMs), лог только исключений — успех джоб логирует сам
+ * через `run()`, если хочет. stop() гарантированно снимает флаг "выполняется"
+ * — без этого второй start() после stop() посреди прогона молча блокировался
+ * бы своим же guard'ом навсегда, ни разу не выполнившись.
+ */
+function startJob(name: string, intervalMs: number, startDelayMs: number, run: () => Promise<void>) {
+  let running = false;
+  let timer: NodeJS.Timeout | null = null;
+  let startTimer: NodeJS.Timeout | null = null;
+
+  const tick = (): void => {
+    if (running) return;
+    running = true;
+    void run()
+      .catch((e) => console.error(`[${name}] проход не удался`, e))
+      .finally(() => {
+        running = false;
+      });
+  };
+
+  timer = setInterval(tick, intervalMs);
+  if (typeof timer.unref === "function") timer.unref();
+  startTimer = setTimeout(tick, startDelayMs);
+  if (typeof startTimer.unref === "function") startTimer.unref();
+
+  return {
+    stop(): void {
+      if (timer) clearInterval(timer);
+      if (startTimer) clearTimeout(startTimer);
+      timer = null;
+      startTimer = null;
+      running = false; // иначе следующий start() бессрочно блокируется собственным guard'ом
+    },
+  };
+}
+
+let jobs: { stop(): void }[] = [];
 
 export function startMaintenance(): void {
+  if (jobs.length > 0) return; // уже запущено
   const full = loadConfig();
   const cfg = full.maintenance;
   if (!cfg.enabled) return;
 
-  if (!timer) {
-    const tick = (): void => {
-      if (running) return; // тики не перекрываются
-      running = true;
-      void runMaintenanceOnce()
-        .then((s) => {
-          if (s.archived > 0 || s.auditPurged > 0)
-            console.log(`[maintenance] архивировано задач: ${s.archived}, удалено записей аудита: ${s.auditPurged}`);
-        })
-        .catch((e) => console.error("[maintenance] проход не удался", e))
-        .finally(() => {
-          running = false;
-        });
-    };
+  jobs.push(
+    startJob("maintenance", cfg.intervalMs, 0, async () => {
+      const s = await runMaintenanceOnce();
+      if (s.archived > 0 || s.auditPurged > 0)
+        console.log(`[maintenance] архивировано задач: ${s.archived}, удалено записей аудита: ${s.auditPurged}`);
+    }),
+  );
 
-    timer = setInterval(tick, cfg.intervalMs);
-    if (typeof timer.unref === "function") timer.unref();
-    tick(); // первый проход сразу на старте, не через час
+  if (cfg.storageSweepEnabled) {
+    jobs.push(
+      startJob("storage-sweep", cfg.storageSweepIntervalMs, 15_000, async () => {
+        const storage = await makeStorage(full);
+        await runStorageSweepOnce(storage, full.storage.driver, cfg.storageSweepGraceMs);
+      }),
+    );
   }
 
-  if (!sweepTimer && cfg.storageSweepEnabled) {
-    const sweepTick = (): void => {
-      if (sweeping) return;
-      sweeping = true;
-      void makeStorage(full)
-        .then((storage) => runStorageSweepOnce(storage, full.storage.driver, cfg.storageSweepGraceMs))
-        .catch((e) => {
-          console.error("[storage-sweep] проход не удался", e);
-          return null;
-        })
-        .finally(() => {
-          sweeping = false;
-        });
-    };
-
-    sweepTimer = setInterval(sweepTick, cfg.storageSweepIntervalMs);
-    if (typeof sweepTimer.unref === "function") sweepTimer.unref();
-    sweepTick(); // первый проход сразу на старте, не через сутки
-  }
-
-  if (!ldapTimer && full.authMode === "ldap" && full.ldap?.resyncEnabled && full.ldap.bindDn) {
-    const ldapTick = (): void => {
-      if (ldapResyncing) return;
-      ldapResyncing = true;
-      void resyncAllLdapUsers(null)
-        .then((r) => {
-          if (r.synced > 0 || r.notFound.length > 0 || r.errors.length > 0)
-            console.log(
-              `[ldap-resync] обработано: ${r.total}, синхронизировано: ${r.synced}, не найдено: ${r.notFound.length}, ошибок: ${r.errors.length}`,
-            );
-        })
-        .catch((e) => console.error("[ldap-resync] проход не удался", e))
-        .finally(() => {
-          ldapResyncing = false;
-        });
-    };
-
-    ldapTimer = setInterval(ldapTick, full.ldap.resyncIntervalMs);
-    if (typeof ldapTimer.unref === "function") ldapTimer.unref();
-    ldapTick(); // первый проход сразу на старте, не через 6 часов
+  if (full.authMode === "ldap" && full.ldap?.resyncEnabled && full.ldap.bindDn) {
+    jobs.push(
+      startJob("ldap-resync", full.ldap.resyncIntervalMs, 30_000, async () => {
+        const r = await resyncAllLdapUsers(null);
+        if (r.synced > 0 || r.notFound.length > 0 || r.errors.length > 0)
+          console.log(
+            `[ldap-resync] обработано: ${r.total}, синхронизировано: ${r.synced}, не найдено: ${r.notFound.length}, ошибок: ${r.errors.length}`,
+          );
+      }),
+    );
   }
 }
 
 export function stopMaintenance(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
-  if (sweepTimer) clearInterval(sweepTimer);
-  sweepTimer = null;
-  if (ldapTimer) clearInterval(ldapTimer);
-  ldapTimer = null;
+  for (const job of jobs) job.stop();
+  jobs = [];
 }

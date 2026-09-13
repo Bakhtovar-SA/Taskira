@@ -59,12 +59,14 @@ describe("WS /api/ws", () => {
     await closed;
   });
 
-  test("валидный токен → auth проходит, сокет остаётся открытым", async () => {
+  test("валидный токен → сервер отвечает auth_ok, сокет остаётся открытым", async () => {
+    // auth_ok — не формальность: именно на него, а не на факт открытия
+    // соединения, клиент (store.tsx) сбрасывает бэкофф переподключения.
     const token = await login(app, "emp1");
     const ws = await app.injectWS("/api/ws");
+    const ok = nextMessage(ws);
     ws.send(JSON.stringify({ type: "auth", token }));
-    // Даём хендшейку время (assertFreshUser — асинхронный запрос к БД).
-    await new Promise((r) => setTimeout(r, 100));
+    expect(await ok).toMatchObject({ type: "auth_ok" });
     expect(ws.readyState).toBe(ws.OPEN);
     ws.close();
   });
@@ -110,7 +112,9 @@ describe("WS /api/ws", () => {
     });
     await new Promise((r) => setTimeout(r, 300)); // дать шанс ошибочному push прилететь
 
-    expect(received).toEqual([]);
+    // auth_ok от самого хендшейка — ожидаемое сообщение, не push; здесь важно
+    // отсутствие именно "notify".
+    expect(received.filter((m) => (m as { type?: string }).type === "notify")).toEqual([]);
     ws.close();
   });
 

@@ -192,16 +192,28 @@ export default function CreateIssueModal() {
           </div>
           <div>
             <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Сложность</p>
-            <select
-              value={complexity ?? ""}
-              onChange={(e) => setComplexity((e.target.value || null) as ComplexityId | null)}
-              className={`${inputCls} cursor-pointer`}
+            <Dropdown
+              width={220}
+              button={(open) => (
+                <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
+                  <span className="min-w-0 flex-1 truncate text-left">{complexity ? COMPLEXITIES[complexity].name : "Без оценки"}</span>
+                  <IcChevD size={12} className="ml-auto text-faint" />
+                </button>
+              )}
             >
-              <option value="">Без оценки</option>
-              {COMPLEXITY_ORDER.map((c) => (
-                <option key={c} value={c}>{COMPLEXITIES[c].name}</option>
-              ))}
-            </select>
+              {(close) => (
+                <>
+                  <button onClick={() => { setComplexity(null); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
+                    Без оценки {complexity === null && <IcCheck size={12} className="ml-auto text-accent" />}
+                  </button>
+                  {COMPLEXITY_ORDER.map((c) => (
+                    <button key={c} onClick={() => { setComplexity(c); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
+                      {COMPLEXITIES[c].name} {c === complexity && <IcCheck size={12} className="ml-auto text-accent" />}
+                    </button>
+                  ))}
+                </>
+              )}
+            </Dropdown>
           </div>
         </div>
 

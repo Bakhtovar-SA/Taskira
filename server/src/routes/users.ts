@@ -6,7 +6,7 @@ import type { z } from "zod";
 import bcrypt from "bcryptjs";
 import { one, q } from "../db.js";
 import { loadConfig } from "../config.js";
-import { invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, zbody, type JwtPayload } from "../middleware.js";
+import { invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, revokeUserSessions, zbody, type JwtPayload } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
@@ -125,8 +125,15 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         throw conflict("Нельзя понизить или деактивировать последнего активного администратора");
       const row = rows[0];
 
-      // Смена действует немедленно: кэш роли в requireAuth инвалидируется
-      invalidateUserCache(user.id);
+      // Смена действует немедленно: кэш роли в requireAuth инвалидируется.
+      // WS-сессии рвём, только если реально что-то отозвали (деактивация или
+      // смена роли) — иначе admin, пересохранивший форму без изменений,
+      // без причины отключал бы чужую живую вкладку с уведомлениями (Этап 3c).
+      if (row.global_role !== user.global_role || row.is_active !== user.is_active) {
+        revokeUserSessions(user.id, "role or activity changed");
+      } else {
+        invalidateUserCache(user.id);
+      }
       await audit(actor.sub, "user.role.change", "user", user.id, {
         username: user.username,
         from: user.global_role,

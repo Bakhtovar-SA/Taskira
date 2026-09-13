@@ -6,7 +6,17 @@ import { audit } from "../audit.js";
 import { invalidateDeptMembership } from "../middleware.js";
 import { ldapUserGroups } from "./ldap.js";
 
-export async function syncDepartmentMembership(userId: string, groupDns: string[]): Promise<void> {
+/** actorId по умолчанию — сам пользователь (JIT-синк при его собственном
+ *  логине, routes/auth.ts). Явно передаётся из resyncAllLdapUsers(), чтобы
+ *  строки audit_log от ФОНОВОГО или ручного admin-ресинка не выглядели так,
+ *  будто их вызвал логин затронутого пользователя — до этого фикса так и
+ *  было, и лог вводил в заблуждение (проверка «кто вызвал 3am-синк» указывала
+ *  на самого пользователя, хотя тот не логинился). */
+export async function syncDepartmentMembership(
+  userId: string,
+  groupDns: string[],
+  actorId: string | null = userId,
+): Promise<void> {
   const lower = groupDns.map((g) => g.toLowerCase());
 
   // все департаменты с маппингом — чтобы сбросить кэш и по добавленным, и по убранным
@@ -38,7 +48,7 @@ export async function syncDepartmentMembership(userId: string, groupDns: string[
 
   for (const d of mapped) invalidateDeptMembership(userId, d.id);
 
-  await audit(userId, "ldap.dept.sync", "user", userId, {
+  await audit(actorId, "ldap.dept.sync", "user", userId, {
     groups: groupDns.length,
     departments: wantedIds.length,
   });
@@ -56,6 +66,12 @@ export interface LdapResyncResult {
  *  actorId — вызвавший admin) и фонового джоба (services/ldapResync.ts,
  *  actorId — null, «система»). Требует сервис-аккаунт (LDAP_BIND_DN) — вызывающий
  *  сам проверяет это до вызова, чтобы отличать «не настроено» от «пусто прошло». */
+/** Сколько пользователей ресинкать параллельно. LDAP-справочники обычно
+ *  терпимее к нескольким одновременным поисковым bind'ам, чем к сотням
+ *  последовательных round-trip'ов один за другим (особенно теперь, когда
+ *  этот проход не только по клику admin'а, а ещё и по расписанию — maintenance.ts). */
+const RESYNC_CONCURRENCY = 8;
+
 export async function resyncAllLdapUsers(actorId: string | null): Promise<LdapResyncResult> {
   const users = await q<{ id: string; username: string }>(
     `SELECT id, username FROM users WHERE auth_source = 'ldap' ORDER BY username`,
@@ -63,19 +79,25 @@ export async function resyncAllLdapUsers(actorId: string | null): Promise<LdapRe
   let synced = 0;
   const notFound: string[] = [];
   const errors: string[] = [];
-  for (const u of users) {
+
+  const resyncOne = async (u: { id: string; username: string }): Promise<void> => {
     try {
       const groups = await ldapUserGroups(u.username);
       if (groups === null) {
         notFound.push(u.username);
-        continue;
+        return;
       }
-      await syncDepartmentMembership(u.id, groups);
+      await syncDepartmentMembership(u.id, groups, actorId);
       synced += 1;
     } catch (e) {
       errors.push(`${u.username}: ${(e as Error).message}`);
     }
+  };
+
+  for (let i = 0; i < users.length; i += RESYNC_CONCURRENCY) {
+    await Promise.all(users.slice(i, i + RESYNC_CONCURRENCY).map(resyncOne));
   }
+
   await audit(actorId, "ldap.resync", "ldap", null, {
     total: users.length,
     synced,

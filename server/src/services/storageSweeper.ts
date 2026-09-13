@@ -21,6 +21,14 @@ export interface SweepStats {
   orphaned: number;
 }
 
+/** Сколько объектов удалять параллельно. Storage.delete() — сетевой вызов у
+ *  S3-драйвера; тысячи сирот после массового удаления проекта последовательно,
+ *  по одному, растянулись бы на N round-trip'ов подряд. Батч-API S3
+ *  (DeleteObjectsCommand, до 1000 ключей за раз) потребовал бы расширять
+ *  интерфейс Storage под конкретный драйвер — ограниченный параллелизм даёт
+ *  почти тот же выигрыш без этого. */
+const DELETE_CONCURRENCY = 10;
+
 export async function runStorageSweepOnce(storage: Storage, driver: "local" | "s3", graceMs: number): Promise<SweepStats> {
   const objects = await storage.list();
   if (objects.length === 0) return { scanned: 0, orphaned: 0 };
@@ -30,9 +38,13 @@ export async function runStorageSweepOnce(storage: Storage, driver: "local" | "s
   const cutoff = Date.now() - graceMs;
 
   const orphans = objects.filter((o) => !knownKeys.has(o.key) && o.mtimeMs < cutoff);
-  for (const o of orphans) {
-    await storage.delete(o.key);
-    console.log(`[storage-sweep] удалён осиротевший объект (${driver}): ${o.key}`);
+  for (let i = 0; i < orphans.length; i += DELETE_CONCURRENCY) {
+    await Promise.all(
+      orphans.slice(i, i + DELETE_CONCURRENCY).map(async (o) => {
+        await storage.delete(o.key);
+        console.log(`[storage-sweep] удалён осиротевший объект (${driver}): ${o.key}`);
+      }),
+    );
   }
   if (orphans.length > 0) {
     await audit(null, "storage.sweep", "storage", null, { driver, deleted: orphans.length });

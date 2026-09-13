@@ -876,13 +876,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const wsUrl = `${API_BASE.replace(/^http/, "ws")}/api/ws`;
       socket = new WebSocket(wsUrl);
       socket.onopen = () => {
-        retryDelay = 1000; // успешное соединение — сброс бэкоффа
+        // НЕ сбрасывать retryDelay здесь: открытие TCP/WS ничего не говорит о
+        // том, примет ли сервер токен — auth ещё впереди. Сброс — только по
+        // ответному auth_ok ниже, иначе с истёкшим/отозванным токеном бэкофф
+        // никогда бы не накапливался (сервер закрывает сокет почти сразу же
+        // после того же onopen, который его якобы сбросил) и свёрнутая вкладка
+        // долбила бы /api/ws примерно раз в секунду бесконечно.
         socket?.send(JSON.stringify({ type: "auth", token }));
       };
       socket.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data as string);
-          if (msg?.type === "notify") void refreshUnreadCount();
+          if (msg?.type === "auth_ok") retryDelay = 1000;
+          else if (msg?.type === "notify") void refreshUnreadCount();
         } catch {
           /* не наш формат сообщения — игнор */
         }

@@ -71,9 +71,17 @@ export async function emit(ev: NotifyEvent): Promise<void> {
 
     // Push вместо ожидания следующего polling-тика (Этап 3c) — только сигнал
     // «сходи перечитай», без payload; получатель и так уже фильтрован выше
-    // (активен, не сам актор).
-    const ts = Date.now();
-    for (const id of ids) pushToUser(id, { type: "notify", ts });
+    // (активен, не сам актор). СВОЙ try/catch: строки notifications уже
+    // закоммичены выше, и если у кого-то socket.send() бросит (сокет закрылся
+    // между readyState-проверкой в wsHub.ts и самой отправкой) — это не
+    // провал создания уведомления, не должно попадать в тот же лог с тем же
+    // текстом (иначе дежурный решит, что уведомление вообще не создалось).
+    try {
+      const ts = Date.now();
+      for (const id of ids) pushToUser(id, { type: "notify", ts });
+    } catch (e) {
+      console.error("[notify] push не удался (уведомления уже созданы)", e);
+    }
   } catch (e) {
     console.error("[notify] emit не удалось", e);
   }

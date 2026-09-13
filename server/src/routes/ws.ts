@@ -12,8 +12,8 @@
 import type { FastifyInstance } from "fastify";
 import type { JwtPayload } from "../middleware.js";
 import { assertFreshUser } from "../middleware.js";
-import type { WsAuthMessage } from "../contract.js";
-import { registerSocket, unregisterSocket } from "../services/wsHub.js";
+import type { WsAuthMessage, WsMessage } from "../contract.js";
+import { registerSocket, revokedSince, unregisterSocket } from "../services/wsHub.js";
 
 const AUTH_TIMEOUT_MS = 5_000;
 
@@ -27,6 +27,7 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
 
     socket.on("message", (raw: Buffer) => {
       if (userId) return; // после аутентификации сообщений от клиента не ждём
+      const handshakeStartedAt = Date.now(); // до await — см. revokedSince() ниже
       void (async () => {
         let msg: unknown;
         try {
@@ -51,6 +52,21 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
           userId = payload.sub;
           clearTimeout(authTimer);
           registerSocket(userId, socket);
+          // Без await с предыдущей строки — атомарно относительно любого
+          // revokeUserSessions() из другого запроса (logout/деактивация/смена
+          // роли), случившегося, пока мы ждали assertFreshUser(): если он
+          // пришёлся на это окно, closeUserSockets() тогда ничего не нашёл
+          // (сокет ещё не был зарегистрирован) — ловим это здесь и закрываем сами.
+          if (revokedSince(userId, handshakeStartedAt)) {
+            unregisterSocket(userId, socket);
+            socket.close(1008, "revoked during handshake");
+            return;
+          }
+          // Клиент (store.tsx) ждёт именно это, а не сам факт открытия
+          // соединения, чтобы сбросить экспоненциальный бэкофф переподключения —
+          // открытие TCP/WS ничего не говорит о том, принят ли токен.
+          const ok: WsMessage = { type: "auth_ok", ts: Date.now() };
+          socket.send(JSON.stringify(ok));
         } catch {
           socket.close(1008, "auth failed");
         }

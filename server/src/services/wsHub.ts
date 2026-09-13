@@ -7,6 +7,17 @@ import type { WsMessage } from "../contract.js";
 
 const byUser = new Map<string, Set<WebSocket>>();
 
+/**
+ * Момент последнего отзыва сессии пользователя (мс, Date.now()). Закрывает
+ * TOCTOU-окно хендшейка (routes/ws.ts): assertFreshUser — это поход в БД, и
+ * revokeUserSessions() может выполниться ПОСЛЕ него, но ДО registerSocket().
+ * closeUserSockets() тогда ничего не находит (сокет ещё не зарегистрирован) и
+ * ничего не закрывает; без этой метки такой сокет остался бы жить бессрочно.
+ * routes/ws.ts сверяет её сразу после registerSocket() — без await между
+ * ними, так что сравнение атомарно относительно любого другого revoke().
+ */
+const revokedAt = new Map<string, number>();
+
 export function registerSocket(userId: string, socket: WebSocket): void {
   let set = byUser.get(userId);
   if (!set) {
@@ -44,6 +55,7 @@ export function pushToUser(userId: string, message: WsMessage): void {
  * долетит до routes/ws.ts и unregisterSocket() отработает штатно.
  */
 export function closeUserSockets(userId: string, reason: string): void {
+  revokedAt.set(userId, Date.now());
   const set = byUser.get(userId);
   if (!set) return;
   for (const socket of set) {
@@ -51,7 +63,16 @@ export function closeUserSockets(userId: string, reason: string): void {
   }
 }
 
+/** true — пользователя отзывали в момент времени `sinceMs` или позже. Вызывать
+ *  из routes/ws.ts сразу после registerSocket() с меткой, снятой ДО похода в
+ *  БД (assertFreshUser) — закрывает гонку, описанную у closeUserSockets(). */
+export function revokedSince(userId: string, sinceMs: number): boolean {
+  const t = revokedAt.get(userId);
+  return t !== undefined && t >= sinceMs;
+}
+
 /** Только для тестов — не течёт между тестами, если кто-то забыл закрыть сокет. */
 export function _resetWsHub(): void {
   byUser.clear();
+  revokedAt.clear();
 }
