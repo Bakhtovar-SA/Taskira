@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
-import type { NotificationT } from "../types";
+import type { NotificationT, ViewId } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
 
@@ -33,7 +33,7 @@ function SearchBox() {
 
   return (
     <div className="relative">
-      <div className={`flex items-center gap-2 rounded-md border bg-panel px-2.5 transition-all duration-200 ${focus ? "w-[340px] border-accent shadow-[0_0_0_3px_rgba(11,95,217,0.12)]" : "w-[228px] border-line"}`}>
+      <div className={`flex items-center gap-2 rounded-md border bg-panel px-2.5 transition-all duration-200 ${focus ? "w-[190px] border-accent shadow-[0_0_0_3px_rgba(11,95,217,0.12)] sm:w-[340px]" : "w-[130px] border-line sm:w-[228px]"}`}>
         <IcSearch size={14} className="shrink-0 text-faint" />
         <input
           id="global-search"
@@ -335,6 +335,41 @@ function ProjectSwitcher() {
   );
 }
 
+/** Переключатель разделов для узких экранов — нативный select, чтобы на
+ *  телефоне открывался системный список, а не самодельная выпадашка. Набор
+ *  пунктов повторяет сайдбар, включая те же правила видимости. */
+function MobileViewSwitcher() {
+  const { data, ui, setView, me } = useStore();
+  const isAdmin = me.globalRole === "admin";
+  const items: { id: ViewId; label: string }[] = [
+    { id: "board", label: "Доска" },
+    { id: "backlog", label: "Список задач" },
+    { id: "timeline", label: "Таймлайн" },
+    { id: "reports", label: "Отчёты" },
+    { id: "workflow", label: "Рабочий процесс" },
+    { id: "access", label: "Права доступа" },
+    ...(isAdmin ? [{ id: "admin" as ViewId, label: "Департаменты" }] : []),
+    { id: "docs", label: "Документация" },
+    ...(data.collaborations.length > 0 ? [{ id: "collaborating" as ViewId, label: "Мои подключения" }] : []),
+  ];
+
+  return (
+    <select
+      id="mobile-view"
+      value={ui.view}
+      onChange={(e) => setView(e.target.value as ViewId)}
+      aria-label="Раздел"
+      className="h-8 max-w-[160px] rounded-md border border-line bg-panel px-2 text-[13px] font-semibold text-ink focus:border-accent focus:outline-none md:hidden"
+    >
+      {items.map((i) => (
+        <option key={i.id} value={i.id}>
+          {i.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export default function Topbar({ onLogout }: { onLogout?: () => void }) {
   const { data, ui, setCreateOpen, can, logout, goHome } = useStore();
   const doLogout = onLogout ?? logout;
@@ -355,8 +390,13 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
   const canCreate = can("create");
 
   return (
-    <header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-line bg-panel px-5">
-      <nav className="flex min-w-0 items-center gap-1 text-[13px] text-faint">
+    <header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-line bg-panel px-3 sm:px-5">
+      {/* Навигация по разделам на узком экране: сайдбар там скрыт, и без этого
+          переключателя на телефоне не осталось бы вообще никакой навигации
+          (аудит UX-03). На широком экране роль навигации играет сайдбар. */}
+      <MobileViewSwitcher />
+
+      <nav className="hidden min-w-0 items-center gap-1 text-[13px] text-faint md:flex">
         {homeAvailable ? (
           <button onClick={goHome} className="font-semibold text-sub transition-colors hover:text-accent" title="На главный экран">
             Проекты
@@ -370,15 +410,16 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
         <span className="font-bold text-ink">{viewTitle}</span>
       </nav>
 
-      <div className="ml-auto flex items-center gap-2.5">
+      <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
         <SearchBox />
         <Bell />
         {canCreate ? (
           <button
             onClick={() => setCreateOpen(true)}
-            className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-3.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.35)] transition-all hover:bg-accentdeep hover:shadow-[0_4px_14px_rgba(11,95,217,0.4)] active:scale-[0.97]"
+            className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-2.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.35)] transition-all hover:bg-accentdeep hover:shadow-[0_4px_14px_rgba(11,95,217,0.4)] active:scale-[0.97] sm:px-3.5"
+            aria-label="Создать задачу"
           >
-            <IcPlus size={14} /> Создать
+            <IcPlus size={14} /> <span className="hidden sm:inline">Создать</span>
           </button>
         ) : (
           <Tip label="Ваша роль не позволяет создавать задачи">

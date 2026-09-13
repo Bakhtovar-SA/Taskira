@@ -350,7 +350,7 @@ export default function Board() {
   return (
     <div className="flex h-full flex-col">
       {/* шапка */}
-      <div className="border-b border-line bg-panel/70 px-6 py-3.5">
+      <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
        <div className="flex flex-wrap items-center gap-3">
         <div className="mr-2">
           <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Доска</h1>
@@ -460,7 +460,7 @@ export default function Board() {
           центрируется, а когда не влезает — просто прокручивается от левого края
           (ticket-board-columns-theme-fix §3). */}
       <div className="dotgrid flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="mx-auto flex h-full w-max items-start gap-4 px-6 py-4">
+        <div className="mx-auto flex h-full w-max items-start gap-4 px-4 py-4 sm:px-6">
           {data.workflow.statuses.map((st, ci) => {
             const items = byStatus(st.id);
             const c = catColor(st.category);

@@ -531,7 +531,9 @@ export default function IssueModal() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_264px] gap-0">
+      {/* Ниже ~720px карточка складывается в одну колонку: именно её открывают
+          по ссылке из письма, в том числе с телефона (аудит UX-03). */}
+      <div className="grid grid-cols-1 gap-0 md:grid-cols-[1fr_264px]">
         {/* основная колонка */}
         <div className="min-w-0 px-5 py-4">
           <EditableTitle issue={issue} readOnly={!editOk} />
@@ -682,7 +684,7 @@ export default function IssueModal() {
         </div>
 
         {/* правая панель */}
-        <aside className="space-y-2.5 border-l border-line bg-canvas/50 px-4 py-4">
+        <aside className="space-y-2.5 border-t border-line bg-canvas/50 px-4 py-4 md:border-l md:border-t-0">
           {!editOk && (
             <div className="flex items-start gap-2 rounded-md border border-line bg-warnsoft/50 px-2.5 py-2 text-[11.5px] leading-snug text-warn">
               <IcLock size={13} className="mt-0.5 shrink-0" />
