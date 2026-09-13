@@ -281,6 +281,78 @@ const LINK_DIR_LABEL: Record<Issue["links"][number]["dir"], string> = {
 
 /** Связанные задачи (issue_links, миграция 014, §3.2). Список видят все, кто
  *  открыл карточку; добавляет/убирает — право `edit` на эту задачу. */
+/** Чек-лист задачи (checklist_items, миграция 019). По образцу LinksField —
+ *  без reorder в v1 (см. комментарий в самой миграции), просто добавление в
+ *  конец, чек/анчек, удаление. */
+function ChecklistField({ issue }: { issue: Issue }) {
+  const { can, addChecklistItem, toggleChecklistItem, removeChecklistItem } = useStore();
+  const canEdit = can("edit", issue);
+  const [draft, setDraft] = useState("");
+
+  const items = issue.checklist;
+  if (!canEdit && items.length === 0) return null;
+
+  const done = items.filter((i) => i.done).length;
+
+  const submit = () => {
+    if (!draft.trim()) return;
+    addChecklistItem(issue.id, draft);
+    setDraft("");
+  };
+
+  return (
+    <Field label={items.length > 0 ? `Чек-лист · ${done}/${items.length}` : "Чек-лист"}>
+      {items.length > 0 && (
+        <div className="space-y-1">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
+            >
+              <input
+                type="checkbox"
+                checked={item.done}
+                disabled={!canEdit}
+                onChange={(e) => toggleChecklistItem(issue.id, item.id, e.target.checked)}
+                className="h-3.5 w-3.5 shrink-0 accent-accent disabled:opacity-50"
+              />
+              <span className={`min-w-0 flex-1 truncate text-[12.5px] ${item.done ? "text-faint line-through" : "text-ink"}`}>
+                {item.text}
+              </span>
+              {canEdit && (
+                <button
+                  onClick={() => removeChecklistItem(issue.id, item.id)}
+                  className="shrink-0 text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                  title="Удалить пункт"
+                >
+                  <IcX size={11} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {canEdit && (
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          onBlur={submit}
+          placeholder="+ добавить пункт"
+          maxLength={LIMITS.checklistItem.text.max}
+          className={`w-full rounded-md border border-dashed border-line2 bg-transparent px-2 py-1.5 text-[12.5px] outline-none placeholder:text-faint focus:border-accent ${items.length > 0 ? "mt-1.5" : ""}`}
+        />
+      )}
+    </Field>
+  );
+}
+
 function LinksField({ issue }: { issue: Issue }) {
   const { data, can, addIssueLink, removeIssueLink, openIssue } = useStore();
   const canEdit = can("edit", issue);
@@ -1027,6 +1099,8 @@ export default function IssueModal() {
                 {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}
               </div>
             </Field>
+
+            <ChecklistField issue={issue} />
 
             <LinksField issue={issue} />
 

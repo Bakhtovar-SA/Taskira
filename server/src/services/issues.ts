@@ -4,6 +4,7 @@ import { notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
 import { listAttachments, type AttachmentDto } from "./attachments.js";
 import { listIssueLinks, type IssueLinkDto } from "./issueLinks.js";
+import { listChecklistItems, type ChecklistItemDto } from "./checklist.js";
 
 /* -------- строка БД → camelCase DTO (единый формат ответа API) -------- */
 export interface IssueRow {
@@ -128,17 +129,19 @@ export type IssueDetailDto = IssueDto & {
   participants: ParticipantDto[];
   attachments: AttachmentDto[];
   links: IssueLinkDto[];
+  checklist: ChecklistItemDto[];
 };
 
 export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
-  const [collaborators, participants, attachments, links] = await Promise.all([
+  const [collaborators, participants, attachments, links, checklist] = await Promise.all([
     listCollaborators(row.id),
     listParticipants(row.id),
     listAttachments(row.id),
     listIssueLinks(row.id),
+    listChecklistItems(row.id),
   ]);
-  return { ...mapIssue(row), collaborators, participants, attachments, links };
+  return { ...mapIssue(row), collaborators, participants, attachments, links, checklist };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).

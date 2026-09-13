@@ -3,6 +3,7 @@ import type {
   AccessRole,
   AssignedIssue,
   Attachment,
+  ChecklistItem,
   Collaboration,
   Collaborator,
   ComplexityId,
@@ -23,7 +24,15 @@ import type {
   Workflow,
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
-import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validateTitle } from "./validation";
+import {
+  LIMITS,
+  sanitizeText,
+  validateChecklistItemText,
+  validateComment,
+  validateDescription,
+  validateLabels,
+  validateTitle,
+} from "./validation";
 import {
   ApiError,
   API_BASE,
@@ -42,6 +51,7 @@ import {
   type CollaboratingItem,
   type NotifyPrefs,
   type ServerAttachment,
+  type ServerChecklistItem,
   type ServerIssueLink,
   type ServerNotification,
   type ServerIssue,
@@ -238,6 +248,14 @@ const mapAttachment = (a: ServerAttachment): Attachment => ({
   createdAt: Date.parse(a.createdAt) || Date.now(),
 });
 
+const mapChecklistItem = (c: ServerChecklistItem): ChecklistItem => ({
+  id: c.id,
+  text: c.text,
+  done: c.done,
+  position: c.position,
+  createdAt: Date.parse(c.createdAt) || Date.now(),
+});
+
 const mapIssueLink = (l: ServerIssueLink): IssueLink => ({
   id: l.id,
   dir: l.dir,
@@ -289,6 +307,8 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     attachments: dto.attachments?.map(mapAttachment) ?? prev?.attachments ?? [],
     // links (связанные задачи) — только в детальном ответе GET /issues/:id.
     links: dto.links?.map(mapIssueLink) ?? prev?.links ?? [],
+    // checklist — тоже только в детальном ответе GET /issues/:id.
+    checklist: dto.checklist?.map(mapChecklistItem) ?? prev?.checklist ?? [],
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
     doneAt: dto.doneAt ? Date.parse(dto.doneAt) || null : null,
@@ -350,6 +370,9 @@ interface Api {
   removeCollaborator: (issueId: string, userId: string) => void;
   addIssueLink: (issueId: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") => void;
   removeIssueLink: (issueId: string, linkId: string) => void;
+  addChecklistItem: (issueId: string, text: string) => void;
+  toggleChecklistItem: (issueId: string, itemId: string, done: boolean) => void;
+  removeChecklistItem: (issueId: string, itemId: string) => void;
   uploadAttachment: (issueId: string, file: File) => void;
   removeAttachment: (issueId: string, attId: string) => void;
   downloadAttachment: (issueId: string, att: { id: string; filename: string }) => void;
@@ -1142,6 +1165,64 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
+  /* -------- чек-лист (checklist_items, миграция 019) -------- */
+
+  const setChecklist = (issueId: string, checklist: ServerChecklistItem[]) =>
+    setData((prev) => ({
+      ...prev,
+      issues: prev.issues.map((i) => (i.id === issueId ? { ...i, checklist: checklist.map(mapChecklistItem) } : i)),
+    }));
+
+  const addChecklistItem = useCallback(
+    (issueId: string, text: string) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("edit", issue)) return;
+      const r = validateChecklistItemText(text);
+      if (!r.ok) return toast("error", r.error);
+      void (async () => {
+        try {
+          const res = await issuesApi.addChecklistItem(pid(), issueId, r.value);
+          setChecklist(issueId, res.checklist);
+        } catch (err) {
+          handleApiError(err, "Не удалось добавить пункт чек-листа");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const toggleChecklistItem = useCallback(
+    (issueId: string, itemId: string, done: boolean) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("edit", issue)) return;
+      void (async () => {
+        try {
+          const res = await issuesApi.patchChecklistItem(pid(), issueId, itemId, { done });
+          setChecklist(issueId, res.checklist);
+        } catch (err) {
+          handleApiError(err, "Не удалось обновить пункт чек-листа");
+        }
+      })();
+    },
+    [requirePerm, handleApiError],
+  );
+
+  const removeChecklistItem = useCallback(
+    (issueId: string, itemId: string) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("edit", issue)) return;
+      void (async () => {
+        try {
+          const res = await issuesApi.removeChecklistItem(pid(), issueId, itemId);
+          setChecklist(issueId, res.checklist);
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить пункт чек-листа");
+        }
+      })();
+    },
+    [requirePerm, handleApiError],
+  );
+
   /* -------- вложения (attachments, миграция 010) -------- */
 
   const patchIssueAttachments = (issueId: string, fn: (list: Attachment[]) => Attachment[]) =>
@@ -1572,6 +1653,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     removeCollaborator,
     addIssueLink,
     removeIssueLink,
+    addChecklistItem,
+    toggleChecklistItem,
+    removeChecklistItem,
     uploadAttachment,
     removeAttachment,
     downloadAttachment,
