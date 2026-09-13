@@ -25,6 +25,16 @@ const PRIORITY_NAMES: Record<string, string> = {
   medium: "Средний",
   low: "Низкий",
 };
+/** Человекочитаемая часть имени файла. Только латиница: это значение уходит
+ *  в ASCII-параметр filename= заголовка Content-Disposition, а туда кириллица
+ *  не проходит вовсе (Node роняет ответ с ERR_INVALID_CHAR). Русское имя
+ *  передаём отдельно, в filename*=UTF-8'' — его понимают все современные
+ *  браузеры, ASCII-вариант остаётся запасным. */
+const SCOPE_SLUG: Record<string, string> = {
+  closed: "closed",
+  created: "created",
+  open: "open",
+};
 const SCOPE_NAMES: Record<string, string> = {
   closed: "закрытые",
   created: "созданные",
@@ -114,10 +124,11 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         rows: rows.length,
       });
 
-      const filename = `taskira-${SCOPE_NAMES[f.scope] ?? f.scope}-${f.from}_${f.to}.csv`;
+      const asciiName = `taskira-${SCOPE_SLUG[f.scope] ?? "report"}-${f.from}_${f.to}.csv`;
+      const humanName = `taskira-${SCOPE_NAMES[f.scope] ?? f.scope}-${f.from}_${f.to}.csv`;
       reply
         .header("Content-Type", "text/csv; charset=utf-8")
-        .header("Content-Disposition", `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`)
+        .header("Content-Disposition", `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(humanName)}`)
         .header("X-Content-Type-Options", "nosniff")
         .header("Cache-Control", "private, no-store");
       return reply.send(csv);

@@ -218,6 +218,9 @@ export async function exportRows(
   if (projectIds.length === 0) return [];
   const [lo, hi] = bounds(from, to);
 
+  // Параметры собираются ПОД СРЕЗ, а не одним общим списком: у scope=open
+  // границы периода в запросе не упоминаются, а Postgres не умеет вывести тип
+  // параметра, на который нет ни одной ссылки, и падает с 42P18.
   const WHERE: Record<string, string> = {
     closed: `i.done_at >= $2 AND i.done_at < $3::timestamptz + interval '1 day'`,
     created: `i.created_at >= $2 AND i.created_at < $3::timestamptz + interval '1 day'`,
@@ -228,6 +231,8 @@ export async function exportRows(
     created: "i.created_at DESC",
     open: "i.due_date NULLS LAST, i.created_at",
   };
+  const params: unknown[] = scope === "open" ? [projectIds, limit] : [projectIds, lo, hi, limit];
+  const limitParam = `$${params.length}`;
 
   return q<ExportRow>(
     `SELECT i.key, i.title, pr.name AS project, i.type_id AS type, i.priority_id AS priority,
@@ -241,7 +246,7 @@ export async function exportRows(
        JOIN users ur ON ur.id = i.reporter_id
       WHERE i.project_id = ANY($1) AND ${WHERE[scope]}
       ORDER BY ${ORDER[scope]}
-      LIMIT $4`,
-    [projectIds, lo, hi, limit],
+      LIMIT ${limitParam}`,
+    params,
   );
 }
