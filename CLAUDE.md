@@ -240,6 +240,15 @@ since any edit touches it. The board shows the last 14 days in its done column
 - Behind nginx/an LB, set `TRUST_PROXY` (`true` or an IP/CIDR list) — it feeds Fastify's
   `trustProxy` (`app.ts`). Without it `req.ip` is the proxy address, which breaks the
   per-IP login rate-limit (`routes/auth.ts`) and the `ip` field in `audit_log`.
+- **`docker-compose.yml` (root)** deploys the whole stack (postgres + server + client)
+  — see `DOCKER_SETUP.md`. It's a separate config surface from `server/.env`: the
+  container reads config from `environment:` in the compose file (`config.ts`'s `.env`
+  parser is a no-op fallback when the file doesn't exist, real `process.env` wins either
+  way). `VITE_API_URL` for the client is baked in at `docker build` time (`ARG`/`ENV` in
+  the root `Dockerfile`) — changing it after the image is built means rebuilding, not just
+  restarting. Not built/run locally (no Docker on this dev machine) — verified by re-reading
+  the Dockerfiles/compose against the actual `package.json` scripts and `src/index.ts` boot
+  sequence, not by executing them.
 - User switching is real login/logout only. The old `switchUser` / `resetDemo` client stubs
   and the "Войти как" role-preview UI were removed (dept branch) — they only re-skinned the
   UI locally and never changed which JWT the API saw.

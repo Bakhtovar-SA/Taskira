@@ -196,7 +196,8 @@ JWT re-валидируется на сервере: `requireAuth` каждые 
 - [`CLAUDE.md`](CLAUDE.md) — памятка для агента: команды, инварианты, подводные камни.
 - `*_MIGRATION.md` — исторические записи о завершённых миграциях (роли, отделы,
   LDAP, вложения, уведомления, реструктуризация UI, приоритеты, связи).
-- `*_SETUP.md`, [`server/BACKUP.md`](server/BACKUP.md) — эксплуатационные инструкции.
+- `*_SETUP.md` (включая [`DOCKER_SETUP.md`](DOCKER_SETUP.md) — деплой всего стека
+  через `docker-compose.yml`), [`server/BACKUP.md`](server/BACKUP.md) — эксплуатационные инструкции.
 
 ## Стек
 
