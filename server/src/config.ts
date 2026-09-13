@@ -94,6 +94,19 @@ export interface NotifyConfig {
   smtp: SmtpConfig | null;
 }
 
+/** Фоновое обслуживание: автоархив закрытых задач и уборка audit_log
+ *  (аудит LIFE-03 / PERF-05). Работает независимо от email-воркера. */
+export interface MaintenanceConfig {
+  /** true (деф.) — стартовать луп обслуживания в ЭТОМ процессе. При нескольких
+   *  инстансах включать ровно на одном, как и notify.workerEnabled. */
+  enabled: boolean;
+  intervalMs: number;
+  /** Закрытая задача уходит в архив через столько дней после done_at. */
+  archiveAfterDays: number;
+  /** Строки audit_log старше стольких дней удаляются. 0 — не удалять никогда. */
+  auditRetentionDays: number;
+}
+
 export interface Config {
   port: number;
   host: string;
@@ -110,6 +123,11 @@ export interface Config {
   ldap: LdapConfig | null;
   storage: StorageConfig;
   notify: NotifyConfig;
+  maintenance: MaintenanceConfig;
+  /** Размер пула соединений к Postgres (аудит PERF-07: было зашито в код). */
+  pgPoolMax: number;
+  /** Глобальный лимит запросов на пользователя/IP (аудит SEC-03). */
+  rateLimit: { enabled: boolean; max: number; windowMs: number; loginMax: number; loginWindowMs: number };
 }
 
 function fail(msg: string): never {
@@ -372,5 +390,21 @@ function buildConfig(): Config {
     ldap: authMode === "ldap" ? buildLdapConfig() : null,
     storage: buildStorageConfig(),
     notify: buildNotifyConfig(),
+    maintenance: {
+      enabled: envBool(process.env.MAINTENANCE_ENABLED, true),
+      intervalMs: envPosInt("MAINTENANCE_INTERVAL_MS", 60 * 60_000), // раз в час
+      archiveAfterDays: envPosInt("ARCHIVE_AFTER_DAYS", 30),
+      auditRetentionDays: Number(process.env.AUDIT_RETENTION_DAYS ?? 365),
+    },
+    pgPoolMax: envPosInt("PG_POOL_MAX", 10),
+    rateLimit: {
+      // Выключать только осознанно (тесты выставляют явно) — прод-код больше не
+      // смотрит на NODE_ENV сам (аудит DEBT-03).
+      enabled: envBool(process.env.RATE_LIMIT_ENABLED, true),
+      max: envPosInt("RATE_LIMIT_MAX", 600),
+      windowMs: envPosInt("RATE_LIMIT_WINDOW_MS", 60_000),
+      loginMax: envPosInt("RATE_LIMIT_LOGIN_MAX", 10),
+      loginWindowMs: envPosInt("RATE_LIMIT_LOGIN_WINDOW_MS", 5 * 60_000),
+    },
   };
 }

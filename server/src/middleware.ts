@@ -30,6 +30,10 @@ export { ApiHttpError } from "./errors.js";
 /* -------- типы JWT и расширений запроса -------- */
 export interface JwtPayload {
   sub: string;
+  /** Момент выдачи, мс (см. auth.ts). Нужен для отзыва токенов: стандартного
+   *  iat в целых секундах для этого недостаточно. Может отсутствовать
+   *  у токенов, выданных до миграции 017. */
+  iatMs?: number;
   /** Глобальная роль (users.global_role). В токене может быть устаревшей —
    *  requireAuth всегда перезаписывает свежим значением из БД. */
   globalRole: GlobalRole;
@@ -107,7 +111,10 @@ export function zparams<T extends ZodType>(schema: T): preValidationHookHandler 
    смена роли админом или деактивация аккаунта действуют без ожидания
    истечения токена (12h). Лёгкий кэш на 30 секунд бережёт БД на внутренней сети. */
 const FRESH_TTL_MS = 30_000;
-const freshUsers = new Map<string, { globalRole: GlobalRole; active: boolean; at: number }>();
+const freshUsers = new Map<
+  string,
+  { globalRole: GlobalRole; active: boolean; tokensValidFrom: number | null; at: number }
+>();
 
 /** Сбрасывает кэш пользователя — вызывать при смене global_role/активности админом. */
 export function invalidateUserCache(userId: string): void {
@@ -124,15 +131,34 @@ export const requireAuth: preHandlerAsyncHookHandler = async (req) => {
   const id = req.user.sub;
   let fresh = freshUsers.get(id);
   if (!fresh || Date.now() - fresh.at > FRESH_TTL_MS) {
-    const row = await one<{ global_role: GlobalRole; is_active: boolean }>(
-      `SELECT global_role, is_active FROM users WHERE id = $1`,
+    const row = await one<{ global_role: GlobalRole; is_active: boolean; tokens_valid_from: Date | null }>(
+      `SELECT global_role, is_active, tokens_valid_from FROM users WHERE id = $1`,
       [id],
     );
     if (!row) throw unauthorized("Пользователь больше не существует");
-    fresh = { globalRole: row.global_role, active: row.is_active, at: Date.now() };
+    fresh = {
+      globalRole: row.global_role,
+      active: row.is_active,
+      tokensValidFrom: row.tokens_valid_from ? new Date(row.tokens_valid_from).getTime() : null,
+      at: Date.now(),
+    };
     freshUsers.set(id, fresh);
   }
   if (!fresh.active) throw unauthorized("Аккаунт деактивирован администратором");
+
+  // Отзыв токенов (миграция 017): всё, что выдано до tokens_valid_from,
+  // недействительно. Так «Выйти» действительно завершает сессию, а не только
+  // стирает токен в браузере. iat в секундах — сравниваем в них же, с запасом
+  // в секунду на округление при подписи.
+  if (fresh.tokensValidFrom !== null) {
+    // Токен без iatMs выдан до миграции 017 — считаем недействительным:
+    // раз по этому пользователю отзыв вообще случался, безопаснее попросить
+    // войти заново, чем пропустить старый токен.
+    const issuedAt = req.user.iatMs;
+    if (issuedAt === undefined || issuedAt < fresh.tokensValidFrom) {
+      throw unauthorized("Сессия завершена — войдите заново");
+    }
+  }
 
   // Глобальная роль из БД новее токена — перезаписываем для всех последующих проверок.
   // Payload токена (может быть без globalRole у старых токенов) для авторизации не используется.

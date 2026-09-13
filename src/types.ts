@@ -52,8 +52,9 @@ export interface CommentT {
 
 export interface Activity {
   id: string;
-  authorId: string;
-  issueId: string;
+  authorId: string | null;
+  /** Денормализованный профиль автора: история переживает удаление пользователя. */
+  author: { id: string; name: string; initials: string; color: string } | null;
   ts: number;
   text: string;
 }
@@ -116,6 +117,11 @@ export interface Issue {
   color?: string;
   tStart?: number;
   tSpan?: number;
+  /** Момент закрытия задачи, мс; null — не закрыта (миграция 016).
+   *  На нём стоят фильтр «Готово», архив и вся отчётность. */
+  doneAt: number | null;
+  /** Момент ухода в архив, мс; null — задача в активном наборе. */
+  archivedAt: number | null;
   comments: CommentT[];
   activity: Activity[];
   /** Приглашённые участники — заполняется при открытии карточки (GET /issues/:id). */
@@ -176,6 +182,12 @@ export interface Data {
   workflow: Workflow;
   /** Открытые задачи, назначенные мне по всем видимым проектам (главный экран). */
   assignedToMe: AssignedIssue[];
+  /** true — сервер урезал список «Моих задач» своим потолком; надо сказать человеку. */
+  assignedTruncated: boolean;
+  /** true — в проекте больше задач, чем клиент успел загрузить (см. issuesTotal). */
+  issuesTruncated: boolean;
+  /** Сколько задач в проекте всего по данным сервера (для честного счётчика). */
+  issuesTotal: number;
   /** Приглашения текущего пользователя к задачам в проектах, которые ему не открыты. */
   collaborations: Collaboration[];
   /** Лента уведомлений текущего пользователя (первая страница) + счётчик непрочитанных. */
@@ -215,7 +227,7 @@ export interface NotificationT {
 
 export type NotifyPrefsT = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
 
-export type ViewId = "board" | "backlog" | "timeline" | "workflow" | "access" | "admin" | "docs" | "collaborating";
+export type ViewId = "board" | "backlog" | "timeline" | "reports" | "workflow" | "access" | "admin" | "docs" | "collaborating";
 
 /** Задача, к которой пользователя пригласили как collaborator'а (в чужом проекте).
  *  GET /api/issues/collaborating. Показывается в разделе «Мои подключения». */

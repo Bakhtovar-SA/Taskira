@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
+import type { Issue } from "../types";
 import { IcChevR, IcTimeline } from "../icons";
 import { Lozenge, Empty } from "../ui";
 import { TypeIcon } from "../icons";
@@ -12,7 +13,7 @@ const LABEL_PX = 260;
 const GRID_COLS = `${LABEL_PX}px repeat(${WEEKS}, ${WEEK_PX}px)`;
 
 export default function TimelineView() {
-  const { data, openIssue } = useStore();
+  const { data, idx, openIssue } = useStore();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const scrollElRef = useRef<HTMLDivElement | null>(null);
   const resizeObsRef = useRef<ResizeObserver | null>(null);
@@ -53,9 +54,22 @@ export default function TimelineView() {
 
   // Тип "epic" упразднён (миграция 002): «эпик» — задача, на которую ссылаются
   // другие через epicId.
-  const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
-  const epics = data.issues.filter((i) => epicIds.has(i.id));
-  const children = (epicId: string) => data.issues.filter((i) => i.epicId === epicId);
+  const epicIds = useMemo(() => new Set(data.issues.map((i) => i.epicId).filter(Boolean)), [data.issues]);
+  const epics = useMemo(() => data.issues.filter((i) => epicIds.has(i.id)), [data.issues, epicIds]);
+
+  // Дети группируются ОДИН раз, а не пересчитываются фильтром по всему списку
+  // задач для каждого направления (аудит PERF-02).
+  const childrenByEpic = useMemo(() => {
+    const m = new Map<string, Issue[]>();
+    for (const i of data.issues) {
+      if (!i.epicId) continue;
+      const list = m.get(i.epicId);
+      if (list) list.push(i);
+      else m.set(i.epicId, [i]);
+    }
+    return m;
+  }, [data.issues]);
+  const children = (epicId: string) => childrenByEpic.get(epicId) ?? [];
   const dayOfWeek = (new Date().getDay() + 6) % 7;
   const todayPx = ((dayOfWeek + 0.5) / 7) * WEEK_PX;
 
@@ -109,7 +123,7 @@ export default function TimelineView() {
 
             {epics.map((epic) => {
               const kids = children(epic.id);
-              const done = kids.filter((k) => data.workflow.statuses.find((s) => s.id === k.statusId)?.category === "done").length;
+              const done = kids.filter((k) => idx.doneStatusIds.has(k.statusId)).length;
               const start = Math.max(0, Math.min(epic.tStart ?? 0, WEEKS - 1));
               const span = Math.max(1, Math.min(epic.tSpan ?? 3, WEEKS - start));
               const expanded = open[epic.id];
@@ -154,7 +168,8 @@ export default function TimelineView() {
                     <div className="anim-fadeup sticky left-0 border-t border-dashed border-linesoft bg-canvas/40" style={{ width: viewportW || "100%" }}>
                       {kids.length === 0 && <p className="px-10 py-2.5 text-[12px] text-faint">В направлении пока нет задач.</p>}
                       {kids.map((k) => {
-                        const st = data.workflow.statuses.find((s) => s.id === k.statusId)!;
+                        const st = idx.statuses.get(k.statusId);
+                        if (!st) return null;
                         return (
                           <button key={k.id} onClick={() => openIssue(k.id)} className="flex w-full items-center gap-2.5 px-10 py-2 text-left transition-colors hover:bg-accentsoft/60">
                             <TypeIcon type={k.typeId} size={13} />

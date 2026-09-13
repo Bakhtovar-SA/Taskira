@@ -38,6 +38,10 @@ const mapComment = (r: CommentRow): CommentDto => ({
   createdAt: new Date(r.created_at).toISOString(),
 });
 
+/** Потолок выдачи комментариев: раньше тред отдавался целиком при каждом
+ *  открытии карточки. Форма ответа (массив) сохранена — меняется только объём. */
+const COMMENTS_LIMIT = 200;
+
 export async function commentRoutes(app: FastifyInstance): Promise<void> {
   // requireIssuePerm (не requirePerm): приглашённый участник задачи (collaborator)
   // видит её обсуждение целиком (COLLAB_MIGRATION.md D3).
@@ -51,10 +55,13 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
          FROM comments c
          JOIN users u ON u.id = c.author_id
         WHERE c.issue_id = $1
-        ORDER BY c.created_at`,
-      [iss.id],
+        ORDER BY c.created_at DESC, c.id DESC
+        LIMIT $2`,
+      [iss.id, COMMENTS_LIMIT],
     );
-    return rows.map(mapComment);
+    // Берём СВЕЖИЕ (DESC + LIMIT), наружу отдаём по возрастанию времени: у
+    // долгоживущей задачи важны последние, а не первые сто (аудит PERF-04).
+    return rows.reverse().map(mapComment);
   });
 
   app.post(

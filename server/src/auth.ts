@@ -52,6 +52,15 @@ export function safeUser(row: UserRow): SafeUser {
 
 export function signToken(app: FastifyInstance, row: UserRow): string {
   // loadConfig() — кэшированный конфиг (fix 3a), env не читается на каждый токен
-  const payload: JwtPayload = { sub: row.id, globalRole: row.global_role, name: row.name };
+  // iatMs — момент выдачи с точностью до миллисекунд. Стандартный iat в JWT
+  // хранится в ЦЕЛЫХ СЕКУНДАХ, и этой точности не хватает для отзыва: выход
+  // через доли секунды после входа попадал бы в ту же секунду, и старый токен
+  // оказывался бы «выданным не раньше» отметки отзыва (миграция 017).
+  const payload: JwtPayload = {
+    sub: row.id,
+    globalRole: row.global_role,
+    name: row.name,
+    iatMs: Date.now(),
+  };
   return app.jwt.sign(payload, { expiresIn: loadConfig().jwtExpires });
 }

@@ -24,7 +24,9 @@ const post = (url: string, token: string, payload: unknown) =>
   app.inject({ method: "POST", url, headers: auth(token), payload });
 const patch = (url: string, token: string, payload: unknown) =>
   app.inject({ method: "PATCH", url, headers: auth(token), payload });
-const mine = (body: string) => JSON.parse(body).map((r: { key: string }) => r.key).sort();
+// Ответ — объект { items, truncated, limit }, а не голый массив: клиент должен
+// знать, что список урезан потолком в 100 задач (аудит PERF-04).
+const mine = (body: string) => JSON.parse(body).items.map((r: { key: string }) => r.key).sort();
 
 const doneStatus = async (projectId: string) =>
   (await q<{ id: string }>(`SELECT id FROM workflow_statuses WHERE project_id = $1 AND category = 'done'`, [projectId]))[0].id;
@@ -68,6 +70,13 @@ describe("GET /api/issues/assigned-to-me", () => {
     expect(mine((await g("/api/issues/assigned-to-me", adm)).body)).toEqual(["SEC-1"]);
   });
 
+  test("ответ несёт флаг truncated и лимит", async () => {
+    const emp = await login(app, "emp1");
+    const body = JSON.parse((await g("/api/issues/assigned-to-me", emp)).body);
+    expect(body.truncated).toBe(false);
+    expect(body.limit).toBe(100);
+  });
+
   test("сортировка: critical раньше low, затем по updated_at", async () => {
     const adm = await login(app, "admin");
     const emp = await login(app, "emp1");
@@ -77,7 +86,7 @@ describe("GET /api/issues/assigned-to-me", () => {
     const b = JSON.parse(
       (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeId: fx.users.emp1, priorityId: "critical" }))).body,
     );
-    const order = JSON.parse((await g("/api/issues/assigned-to-me", emp)).body).map((r: { key: string }) => r.key);
+    const order = JSON.parse((await g("/api/issues/assigned-to-me", emp)).body).items.map((r: { key: string }) => r.key);
     // CORP-1 (medium, fixture) между critical и low
     expect(order.indexOf(b.key)).toBeLessThan(order.indexOf("CORP-1"));
     expect(order.indexOf("CORP-1")).toBeLessThan(order.indexOf(a.key));

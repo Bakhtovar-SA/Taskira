@@ -5,6 +5,7 @@ import Topbar from "./components/Topbar";
 import Board from "./components/Board";
 import Backlog from "./components/Backlog";
 import TimelineView from "./components/TimelineView";
+import ReportsView from "./components/ReportsView";
 import WorkflowView from "./components/WorkflowView";
 import PermissionsView from "./components/PermissionsView";
 import AdminView from "./components/AdminView";
@@ -13,6 +14,7 @@ import CollaboratingView from "./components/CollaboratingView";
 import IssueModal from "./components/IssueModal";
 import CreateIssueModal from "./components/CreateIssueModal";
 import LoginForm from "./components/LoginForm";
+import ErrorBoundary from "./components/ErrorBoundary";
 import SoloView from "./components/SoloView";
 import HomeView from "./components/HomeView";
 import { SkeletonColumn, Toasts } from "./ui";
@@ -57,6 +59,8 @@ function Shell() {
     if (bootStatus === "idle") void bootstrap();
   }, [bootStatus, bootstrap]);
 
+  const modalOpen = !!ui.selectedIssueId || ui.createOpen;
+
   useEffect(() => {
     if (bootStatus !== "ready") return;
     const onKey = (e: KeyboardEvent) => {
@@ -69,6 +73,9 @@ function Shell() {
         }
         return;
       }
+      // При открытой модалке цифры и «C» не должны переключать вид под ней:
+      // человек закрывал карточку и оказывался не там, где был (аудит BUG-04).
+      if (modalOpen) return;
       if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") {
         e.preventDefault();
@@ -80,17 +87,18 @@ function Shell() {
         "1": "board",
         "2": "backlog",
         "3": "timeline",
-        "4": "workflow",
-        "5": "access",
-        "6": "admin",
-        "7": "docs",
-        "8": "collaborating",
+        "4": "reports",
+        "5": "workflow",
+        "6": "access",
+        "7": "admin",
+        "8": "docs",
+        "9": "collaborating",
       };
       if (map[e.key]) setView(map[e.key]);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast]);
+  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen]);
 
   if (bootStatus === "loading" || bootStatus === "idle") {
     return <BootSkeleton />;
@@ -118,16 +126,21 @@ function Shell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onLogout={logout} />
         <main className="min-h-0 flex-1 bg-canvas">
+          {/* Граница вокруг контента, а не всего приложения: сайдбар и шапка
+              переживают падение раздела, и из него можно уйти. */}
+          <ErrorBoundary resetKey={ui.view}>
           <div key={ui.view} className="anim-fadeup h-full">
             {ui.view === "board" && <Board />}
             {ui.view === "backlog" && <Backlog />}
             {ui.view === "timeline" && <TimelineView />}
+            {ui.view === "reports" && <ReportsView />}
             {ui.view === "workflow" && <WorkflowView />}
             {ui.view === "access" && <PermissionsView />}
             {ui.view === "admin" && <AdminView />}
             {ui.view === "docs" && <DocsView />}
             {ui.view === "collaborating" && <CollaboratingView />}
           </div>
+          </ErrorBoundary>
         </main>
       </div>
 

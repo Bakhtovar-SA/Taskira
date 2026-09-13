@@ -130,15 +130,102 @@ export const MenuItem = ({ onClick, children, danger, disabled, title }: { onCli
   </button>
 );
 
-export function Modal({ onClose, children, w = 860 }: { onClose: () => void; children: React.ReactNode; w?: number }) {
+/** Что считается фокусируемым внутри диалога (для ловушки фокуса по Tab). */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Модальное окно. Один компонент на все диалоги приложения, поэтому всё, что
+ * касается доступности, чинится здесь один раз (аудит UX-01).
+ *
+ * Раньше это был просто div с обработчиком Esc: скринридер не знал, что открыт
+ * диалог, и продолжал читать страницу под ним; Tab уводил фокус за оверлей;
+ * после закрытия фокус терялся; фон продолжал прокручиваться.
+ *
+ * `title` — доступное имя диалога (aria-labelledby на скрытый заголовок).
+ */
+export function Modal({
+  onClose,
+  children,
+  w = 860,
+  title = "Диалог",
+}: {
+  onClose: () => void;
+  children: React.ReactNode;
+  w?: number;
+  title?: string;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    // Куда вернуть фокус после закрытия — обычно это кнопка/карточка,
+    // с которой диалог открыли.
+    const opener = document.activeElement as HTMLElement | null;
+
+    // Фон не должен прокручиваться под открытым диалогом.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    // Фокус внутрь: первый осмысленный элемент, иначе сам контейнер.
+    const box = boxRef.current;
+    const first = box?.querySelector<HTMLElement>(FOCUSABLE);
+    (first ?? box)?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !box) return;
+      // Ловушка фокуса: Tab с последнего элемента уводит на первый и наоборот,
+      // чтобы фокус не ушёл на страницу под оверлеем.
+      const items = [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+        (el) => el.offsetParent !== null || el === document.activeElement,
+      );
+      if (items.length === 0) {
+        e.preventDefault();
+        box.focus();
+        return;
+      }
+      const firstEl = items[0];
+      const lastEl = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!e.shiftKey && active === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      } else if (e.shiftKey && (active === firstEl || active === box)) {
+        e.preventDefault();
+        lastEl.focus();
+      }
+    };
+
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      opener?.focus?.();
+    };
   }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0c1626]/55 px-4 py-10 backdrop-blur-[2px]" onMouseDown={onClose}>
-      <div className="anim-pop w-full rounded-xl border border-line bg-panel shadow-[0_24px_70px_rgba(12,22,38,0.4)]" style={{ maxWidth: w }} onMouseDown={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0c1626]/55 px-4 py-10 backdrop-blur-[2px]"
+      onMouseDown={onClose}
+    >
+      <div
+        ref={boxRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="anim-pop w-full rounded-xl border border-line bg-panel shadow-[0_24px_70px_rgba(12,22,38,0.4)] outline-none"
+        style={{ maxWidth: w }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <h2 id={titleId} className="sr-only">
+          {title}
+        </h2>
         {children}
       </div>
     </div>

@@ -64,7 +64,7 @@ export default function CreateIssueModal() {
   };
 
   return (
-    <Modal onClose={() => setCreateOpen(false)} w={620}>
+    <Modal onClose={() => setCreateOpen(false)} w={620} title="Создание задачи">
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
         <span className="font-disp text-[14px] font-bold text-ink">Новая задача</span>
         <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-sub">{data.project.key}-{data.seq}</span>

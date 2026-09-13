@@ -5,10 +5,11 @@ import { seedAdmin } from "./seed.js";
 import { seedProject } from "./seedProject.js";
 import { buildApp } from "./app.js";
 import { startNotifier, stopNotifier } from "./services/notifier.js";
+import { startMaintenance, stopMaintenance } from "./services/maintenance.js";
 
 async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
-  initPool(cfg.databaseUrl);
+  initPool(cfg.databaseUrl, cfg.pgPoolMax);
   await migrate();
   await seedAdmin();
   await seedProject(); // проект CORP + дефолтный workflow (идемпотентно)
@@ -21,9 +22,13 @@ async function main(): Promise<void> {
   // в этом процессе (NOTIFICATIONS_MIGRATION.md D4). In-app работает без него.
   if (cfg.notify.emailEnabled && cfg.notify.workerEnabled) startNotifier();
 
+  // Обслуживание (автоархив закрытых задач, уборка аудита) — независимо от email.
+  startMaintenance();
+
   const shutdown = async (sig: string) => {
     console.log(`[taskira] получен ${sig}, останавливаемся…`);
     stopNotifier();
+    stopMaintenance();
     await app.close();
     await closePool();
     process.exit(0);

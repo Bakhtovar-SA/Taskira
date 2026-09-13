@@ -15,8 +15,8 @@ pg.types.setTypeParser(1082, (v) => v);
 
 let pool: pg.Pool | null = null;
 
-export function initPool(databaseUrl: string): pg.Pool {
-  pool = new Pool({ connectionString: databaseUrl, max: 10 });
+export function initPool(databaseUrl: string, max = 10): pg.Pool {
+  pool = new Pool({ connectionString: databaseUrl, max });
   return pool;
 }
 

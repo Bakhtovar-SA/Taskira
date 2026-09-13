@@ -266,6 +266,10 @@ export type ServerIssue = {
   labels: string[];
   dueDate: string | null;
   rank: number;
+  /** Момент закрытия (миграция 016); null — задача не закрыта. */
+  doneAt: string | null;
+  /** Момент ухода в архив; null — задача в активном наборе проекта. */
+  archivedAt: string | null;
   /** Только в детальном ответе GET /issues/:id. */
   collaborators?: ServerCollaborator[];
   participants?: ServerParticipant[];
@@ -299,8 +303,8 @@ export type ServerComment = {
 
 export type ServerActivity = {
   id: string;
-  issueId: string;
-  actorId: string;
+  actorId: string | null;
+  actor: { id: string; name: string; initials: string; color: string } | null;
   text: string;
   createdAt: string;
 };
@@ -338,6 +342,10 @@ export type ProjectBootstrap = {
 const P = (projectId: string) => `/api/projects/${projectId}`;
 
 export const authApi = {
+  /** Завершить сессию на сервере: все ранее выданные токены становятся
+   *  недействительными. Без этого «Выйти» стирало токен только в браузере,
+   *  а сам JWT продолжал работать до истечения срока. */
+  logout: () => api<void>("/api/auth/logout", { method: "POST" }),
   login: (username: string, password: string) =>
     api<{ token: string; user: SafeUser }>("/api/auth/login", {
       method: "POST",
@@ -401,7 +409,9 @@ export type PickableUser = { id: string; name: string; initials: string; color: 
  *  `pickable` — любой аутентифицированный (см. COLLAB_MIGRATION.md D7). */
 export const usersApi = {
   list: () => api<SafeUser[]>("/api/users"),
-  pickable: () => api<PickableUser[]>("/api/users/pickable"),
+  /** Поиск сотрудников для пикеров. Сервер требует минимум 2 символа и отдаёт
+   *  до 20 совпадений — справочник больше не выгружается целиком. */
+  pickable: (search: string) => api<PickableUser[]>("/api/users/pickable", { query: { q: search } }),
   create: (body: {
     username: string;
     password: string;
@@ -430,8 +440,11 @@ export const issuesApi = {
   get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),
-  /** Открытые задачи, назначенные мне, по всем видимым проектам (главный экран). */
-  assignedToMe: () => api<AssignedIssue[]>("/api/issues/assigned-to-me"),
+  /** Открытые задачи, назначенные мне, по всем видимым проектам (главный экран).
+   *  Ответ — объект: сервер ограничивает выдачу и честно сообщает об усечении. */
+  assignedToMe: () => api<{ items: AssignedIssue[]; truncated: boolean; limit: number }>("/api/issues/assigned-to-me"),
+  /** История задачи («кто, что, когда»). */
+  activity: (projectId: string, id: string) => api<ServerActivity[]>(`${P(projectId)}/issues/${id}/activity`),
   create: (projectId: string, body: Record<string, unknown>) =>
     api<ServerIssue>(`${P(projectId)}/issues`, { method: "POST", body }),
   patch: (projectId: string, id: string, body: Record<string, unknown>) =>
@@ -450,6 +463,85 @@ export const issuesApi = {
   removeLink: (projectId: string, id: string, linkId: string) =>
     api<{ links: ServerIssueLink[] }>(`${P(projectId)}/issues/${id}/links/${linkId}`, { method: "DELETE" }),
 };
+
+/* ---------------- Отчёты ---------------- */
+
+export type ReportTotals = {
+  closed: number;
+  created: number;
+  open: number;
+  overdue: number;
+  avgLeadDays: number | null;
+  medianLeadDays: number | null;
+};
+
+export type ReportRow = {
+  key: string;
+  label: string;
+  closed: number;
+  created: number;
+  open: number;
+  avgLeadDays: number | null;
+};
+
+export type ReportSummary = {
+  from: string;
+  to: string;
+  groupBy: ReportGroup;
+  projectCount: number;
+  totals: ReportTotals;
+  rows: ReportRow[];
+  trend: { week: string; closed: number }[];
+};
+
+export type ReportGroup = "project" | "assignee" | "type" | "priority";
+export type ReportScope = "closed" | "created" | "open";
+
+export type ReportFilter = {
+  from: string;
+  to: string;
+  projectId?: string;
+  departmentId?: string;
+};
+
+export const reportsApi = {
+  summary: (f: ReportFilter & { groupBy: ReportGroup }) =>
+    api<ReportSummary>("/api/reports/summary", { query: { ...f } }),
+  /** URL выгрузки. Скачиваем через fetch с Authorization, а не ссылкой:
+   *  токен в заголовке, а <a href> его передать не может. */
+  exportUrl: (f: ReportFilter & { scope: ReportScope }) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(f)) if (v) qs.set(k, String(v));
+    return `${API_BASE}/api/reports/issues.csv?${qs.toString()}`;
+  },
+};
+
+/** Скачать CSV-выгрузку: тянем с токеном, отдаём пользователю как файл. */
+export async function downloadReportCsv(f: ReportFilter & { scope: ReportScope }): Promise<void> {
+  const token = getToken();
+  const res = await fetch(reportsApi.exportUrl(f), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let reason = "Не удалось сформировать выгрузку";
+    try {
+      const body = (await res.json()) as ApiErrorBody;
+      reason = body?.error?.reason ?? reason;
+    } catch {
+      /* тело не json — оставляем общее сообщение */
+    }
+    throw new ApiError(res.status, "EXPORT", reason);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `taskira-${f.scope}-${f.from}_${f.to}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 export const commentsApi = {
   list: (projectId: string, issueId: string) =>

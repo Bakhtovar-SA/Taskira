@@ -93,6 +93,13 @@ export async function statusName(statusId: string): Promise<string> {
   return row?.name ?? statusId;
 }
 
+/** Категория статуса ('todo' | 'inprogress' | 'done') — нужна, чтобы понять,
+ *  закрывает ли переход задачу (миграция 016, done_at). */
+export async function statusCategory(statusId: string): Promise<string | null> {
+  const row = await one<{ category: string }>(`SELECT category FROM workflow_statuses WHERE id = $1`, [statusId]);
+  return row?.category ?? null;
+}
+
 /** Проверка перехода по схеме. from === to — всегда разрешён (no-op/переупорядочивание).
     Статусы должны принадлежать проекту; отсутствие ребра — 409. */
 export async function assertTransition(projectId: string, fromStatusId: string, toStatusId: string): Promise<void> {

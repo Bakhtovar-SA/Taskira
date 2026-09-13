@@ -1,6 +1,6 @@
 import { useStore } from "../store";
 import type { ViewId } from "../types";
-import { IcBacklog, IcBoard, IcBook, IcFlow, IcInbox, IcLink, IcShield, IcTimeline, Logo } from "../icons";
+import { IcBacklog, IcBoard, IcBook, IcFlow, IcInbox, IcLink, IcReport, IcShield, IcTimeline, Logo } from "../icons";
 import { Avatar, Kbd, RoleBadge } from "../ui";
 
 const GROUPS: {
@@ -21,23 +21,25 @@ const GROUPS: {
       { id: "board", label: "Доска", icon: (p) => <IcBoard {...p} />, kbd: "1" },
       { id: "backlog", label: "Список задач", icon: (p) => <IcBacklog {...p} />, kbd: "2" },
       { id: "timeline", label: "Таймлайн", icon: (p) => <IcTimeline {...p} />, kbd: "3" },
+      { id: "reports", label: "Отчёты", icon: (p) => <IcReport {...p} />, kbd: "4" },
     ],
   },
   {
     label: "Проект",
     items: [
-      { id: "workflow", label: "Рабочий процесс", icon: (p) => <IcFlow {...p} />, kbd: "4" },
-      { id: "access", label: "Права доступа", icon: (p) => <IcShield {...p} />, kbd: "5" },
-      { id: "admin", label: "Департаменты", icon: (p) => <IcInbox {...p} />, kbd: "6", adminOnly: true },
-      { id: "docs", label: "Документация", icon: (p) => <IcBook {...p} />, kbd: "7" },
-      { id: "collaborating", label: "Мои подключения", icon: (p) => <IcLink {...p} />, kbd: "8", collabOnly: true },
+      { id: "workflow", label: "Рабочий процесс", icon: (p) => <IcFlow {...p} />, kbd: "5" },
+      { id: "access", label: "Права доступа", icon: (p) => <IcShield {...p} />, kbd: "6" },
+      { id: "admin", label: "Департаменты", icon: (p) => <IcInbox {...p} />, kbd: "7", adminOnly: true },
+      { id: "docs", label: "Документация", icon: (p) => <IcBook {...p} />, kbd: "8" },
+      { id: "collaborating", label: "Мои подключения", icon: (p) => <IcLink {...p} />, kbd: "9", collabOnly: true },
     ],
   },
 ];
 
 export default function Sidebar() {
   const { data, ui, setView, me, goHome } = useStore();
-  const openCount = data.issues.filter((i) => data.workflow.statuses.find((s) => s.id === i.statusId)?.category !== "done").length;
+  const doneIds = new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id));
+  const openCount = data.issues.filter((i) => !doneIds.has(i.statusId)).length;
   // Лого ведёт на главный экран — как крошка «Проекты» в топбаре; кликабельно
   // только когда главный экран вообще есть (≥ 2 доступных проекта).
   const homeAvailable = data.projects.length >= 2;

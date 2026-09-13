@@ -28,6 +28,10 @@ export interface IssueRow {
   rank: number;
   created_at: Date;
   updated_at: Date;
+  /** Момент перехода в статус категории 'done'; NULL — задача не закрыта (миграция 016). */
+  done_at: Date | null;
+  /** Момент ухода из активного набора проекта; NULL — задача активна (миграция 016). */
+  archived_at: Date | null;
 }
 
 export interface IssueDto {
@@ -52,6 +56,8 @@ export interface IssueDto {
   rank: number;
   createdAt: string;
   updatedAt: string;
+  doneAt: string | null;
+  archivedAt: string | null;
 }
 
 export function mapIssue(row: IssueRow): IssueDto {
@@ -77,6 +83,8 @@ export function mapIssue(row: IssueRow): IssueDto {
     rank: row.rank,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
+    doneAt: row.done_at ? new Date(row.done_at).toISOString() : null,
+    archivedAt: row.archived_at ? new Date(row.archived_at).toISOString() : null,
   };
 }
 
@@ -147,6 +155,49 @@ export async function nextIssueNum(projectId: string): Promise<number> {
   );
   if (!row) throw new Error("Счётчик задач не вернул номер");
   return row.num;
+}
+
+export interface ActivityDto {
+  id: string;
+  actorId: string | null;
+  actor: { id: string; name: string; initials: string; color: string } | null;
+  text: string;
+  createdAt: string;
+}
+
+/** История задачи, последние `limit` записей в хронологическом порядке.
+ *
+ *  До этого таблица `activity` была write-only: logActivity() исправно писала
+ *  строки, но НИ ОДИН роут их не отдавал, и вкладка «История» в карточке задачи
+ *  всегда оставалась пустой (аудит). Лимит — чтобы у долгоживущей задачи
+ *  история не грузилась целиком (PERF-04). */
+export async function listActivity(issueId: string, limit = 100): Promise<ActivityDto[]> {
+  const rows = await q<{
+    id: string;
+    actor_id: string | null;
+    text: string;
+    created_at: Date;
+    name: string | null;
+    initials: string | null;
+    color: string | null;
+  }>(
+    `SELECT a.id, a.actor_id, a.text, a.created_at, u.name, u.initials, u.color
+       FROM activity a
+       LEFT JOIN users u ON u.id = a.actor_id
+      WHERE a.issue_id = $1
+      ORDER BY a.created_at DESC, a.id DESC
+      LIMIT $2`,
+    [issueId, limit],
+  );
+  return rows
+    .map((r) => ({
+      id: r.id,
+      actorId: r.actor_id,
+      actor: r.actor_id && r.name ? { id: r.actor_id, name: r.name, initials: r.initials ?? "", color: r.color ?? "#888" } : null,
+      text: r.text,
+      createdAt: new Date(r.created_at).toISOString(),
+    }))
+    .reverse(); // в БД брали свежие сверху, наружу отдаём по возрастанию времени
 }
 
 /** Запись в историю задачи («кто, что, когда»). */

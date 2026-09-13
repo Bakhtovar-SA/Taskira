@@ -177,7 +177,7 @@ describe("одиночный режим — /issues/collaborating + participants
 describe("GET /api/users/pickable (D7)", () => {
   test("любой аутентифицированный; только активные; без globalRole/username", async () => {
     const viw = await login(app, "viw1");
-    const res = await g("/api/users/pickable", viw);
+    const res = await g("/api/users/pickable?q=Manager", viw);
     expect(res.statusCode).toBe(200);
     const rows = JSON.parse(res.body);
     expect(Array.isArray(rows)).toBe(true);
@@ -190,5 +190,18 @@ describe("GET /api/users/pickable (D7)", () => {
       expect(r).not.toHaveProperty("globalRole");
       expect(r).not.toHaveProperty("username");
     }
+  });
+
+  // Справочник больше не выгружается целиком (аудит SEC-04): без запроса — пусто.
+  test("без ?q возвращает пустой список, а не весь справочник", async () => {
+    const viw = await login(app, "viw1");
+    expect(JSON.parse((await g("/api/users/pickable", viw)).body)).toEqual([]);
+    expect(JSON.parse((await g("/api/users/pickable?q=M", viw)).body)).toEqual([]); // < 2 символов
+  });
+
+  test("поиск фильтрует по имени", async () => {
+    const viw = await login(app, "viw1");
+    const rows = JSON.parse((await g("/api/users/pickable?q=Employee", viw)).body);
+    expect(rows.map((r: { name: string }) => r.name)).toEqual(["Employee One"]);
   });
 });

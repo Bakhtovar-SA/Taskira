@@ -148,13 +148,18 @@ UI-реструктуризация (спринты убраны, «Список
 | `POST …/issues/:id/transition` | `{to, beforeId?}` | transition + **схема workflow** (нарушение — `409 CONFLICT`) | смена статуса + rank |
 | `POST`/`DELETE …/issues/:id/links[/:linkId]` | `{linkedIssueId, type}` (`relates`\|`blocks`\|`blocked_by`) | edit (на исходной) | связать/разорвать связь; обе задачи в проекте иначе `404`; ответ — обновлённый список связей |
 | `POST/DELETE …/issues/:id/watchers/me` | — | browse | подписка/отписка; ответ `{watching, watchers}` |
-| `GET …/issues/:id/comments` · `POST …/comments` | `{body ≤2000}` | browse · comment | комментарии с профилем автора |
-| `GET /api/issues/assigned-to-me` | — | requireAuth | открытые задачи на мне по всем видимым проектам (главный экран) |
+| `GET …/issues/:id/comments` · `POST …/comments` | `{body ≤2000}` | browse · comment | комментарии с профилем автора; выдача — последние 200 |
+| `GET …/issues/:id/activity` | — | browse | история задачи («кто, что, когда»), последние 100, с профилем автора |
+| `GET /api/issues/assigned-to-me` | — | requireAuth | открытые задачи на мне по всем видимым проектам; ответ `{items, truncated, limit}` — выдача ограничена 100 |
+| `GET /api/reports/summary` | query `ReportQuery` | requireAuth; scope = **видимые проекты** | закрыто/создано/открыто/просрочено за период, ср. и медианное время в работе, разбивка (`groupBy`), недельный тренд |
+| `GET /api/reports/issues.csv` | query `ReportExportQuery` | requireAuth; scope = **видимые проекты** | построчная выгрузка (`scope`: `closed`\|`created`\|`open`); CSV с `;` и BOM для русского Excel; пишется в `audit_log` |
 | `GET …/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
 | `POST …/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
 | `DELETE …/workflow/transitions/:id` | — | **admin** | удалить переход |
 | `POST …/workflow/reset` | — | **admin** | дефолтные 8 переходов; статусы не удаляются никогда |
+| `POST /api/auth/logout` | — | requireAuth | завершает сессию: `users.tokens_valid_from = now()`, все ранее выданные токены становятся недействительными (миграция 017) |
 | `GET /api/users` | — | **admin** | все, включая деактивированных; DTO с `globalRole` |
+| `GET /api/users/pickable?q=` | — | requireAuth | **поиск** по имени/должности: минимум 2 символа, до 20 совпадений. Справочник целиком не отдаётся |
 | `POST /api/admin/users` | `CreateUserBody` (bcrypt, `globalRole`) | **admin**; занятый username — `409` | создать пользователя; членство в проекте — отдельно |
 | `PATCH /api/users/:id` | `{globalRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена **глобальной** роли; `invalidateUserCache` — действует сразу |
 | `PUT /api/project/members/:userId` | `SetMemberBody` `{role}` | **admin** (`manageAccess`) | добавить участника / сменить проектную роль; upsert; `invalidateMembership` |
@@ -165,6 +170,45 @@ UI-реструктуризация (спринты убраны, «Список
 (категории `todo | inprogress | inprogress | done`) и 8 переходов дефолтного графа
 (`todo→inprogress, todo→done, inprogress→{todo,review,done}, review→{inprogress,done}, done→inprogress`).
 Повторный запуск ничего не дублирует.
+
+### Жизненный цикл задачи (миграция 016)
+
+У задачи две даты сверх `created_at`/`updated_at`:
+
+- **`done_at`** — момент перехода в статус категории `done`. Ставится в
+  `POST …/issues/:id/transition`, **снимается** при возврате в работу (переоткрытая
+  и снова закрытая задача получает новую дату). Перенос между двумя закрывающими
+  статусами дату не трогает — задача не «перезакрылась».
+- **`archived_at`** — момент ухода из активного набора проекта. Ставит фоновый
+  воркер (`services/maintenance.ts`) задачам с `done_at` старше `ARCHIVE_AFTER_DAYS`
+  (по умолчанию 30).
+
+**Архив — не удаление.** Строка остаётся в БД, задача открывается по прямой ссылке,
+входит в отчёты и находится через `?archived=`. Она лишь перестаёт грузиться вместе
+с активным набором, чтобы доска и «Список задач» не росли бесконечно. Возврат
+задачи в работу выводит её из архива автоматически.
+
+`GET …/issues` по умолчанию отдаёт **только активные**; `?archived=1` — только
+архивные, `?archived=all` — вместе.
+
+Воркер обслуживания живёт отдельно от email-воркера (тот стартует только при
+`NOTIFY_EMAIL_ENABLED`, а архив нужен всегда) и вторым проходом чистит `audit_log`
+старше `AUDIT_RETENTION_DAYS`. При нескольких инстансах включать ровно на одном
+(`MAINTENANCE_ENABLED=false` на остальных).
+
+### Отчёты
+
+`GET /api/reports/summary` и `GET /api/reports/issues.csv` — сводка и выгрузка
+за период. Видимость: ручки **не** используют `requirePerm`, вместо этого
+`resolveReportScope()` резолвит список видимых проектов тем же
+`listVisibleProjects()`, что и остальной интерфейс, и все запросы ограничены
+`project_id = ANY($ids)`. Расхождение предикатов невозможно by design; запрос
+чужого `projectId` даёт пустой отчёт, а не `403` (существование проекта
+не подтверждаем).
+
+CSV — разделитель `;` и UTF-8 BOM: с запятой русский Excel складывает строку
+в одну ячейку, без BOM читает файл как cp1251. Значения, начинающиеся с
+`= + - @`, префиксуются апострофом (защита от инъекции формул).
 
 ### Примеры curl
 

@@ -12,6 +12,10 @@ import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
 import { ChangeRoleBody, CreateUserBody } from "../contract.js";
 
+/** Пикер сотрудников: минимум символов для поиска и потолок выдачи. */
+const PICKABLE_MIN_QUERY = 2;
+const PICKABLE_LIMIT = 20;
+
 export async function userRoutes(app: FastifyInstance): Promise<void> {
   /** Все пользователи, включая деактивированных (админ-панель). */
   app.get("/users", { preHandler: requireGlobalAdmin }, async () => {
@@ -22,12 +26,23 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   /** Тонкий справочник для пикеров (подключение к задаче и т.п.) — любой
    *  аутентифицированный, только активные, без globalRole/username
    *  (COLLAB_MIGRATION.md D7). */
-  app.get("/users/pickable", { preHandler: requireAuth }, async () => {
-    return q<{ id: string; name: string; initials: string; color: string; job_role: string }>(
-      `SELECT id, name, initials, color, job_role FROM users WHERE is_active ORDER BY name`,
-    ).then((rows) =>
-      rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role })),
+  app.get("/users/pickable", { preHandler: requireAuth }, async (req) => {
+    // Поиск, а не выгрузка всего справочника (аудит SEC-04): раньше любой
+    // залогиненный одним запросом получал всю оргструктуру — на 1000 сотрудников
+    // это и утечка данных, и мегабайт трафика на каждое открытие пикера.
+    const { q: search } = (req.query ?? {}) as { q?: string };
+    const term = typeof search === "string" ? search.trim() : "";
+    if (term.length < PICKABLE_MIN_QUERY) return [];
+    const esc = term.replace(/[%_\\]/g, "\\$&");
+    const rows = await q<{ id: string; name: string; initials: string; color: string; job_role: string }>(
+      `SELECT id, name, initials, color, job_role
+         FROM users
+        WHERE is_active AND (name ILIKE $1 OR job_role ILIKE $1)
+        ORDER BY name
+        LIMIT $2`,
+      [`%${esc}%`, PICKABLE_LIMIT],
     );
+    return rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role }));
   });
 
   app.post(

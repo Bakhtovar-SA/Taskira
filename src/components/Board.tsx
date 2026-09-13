@@ -1,11 +1,26 @@
-import { useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { canTransition, fmtDate, useStore } from "../store";
-import type { Issue, Status } from "../types";
+import type { Issue, Status, User } from "../types";
 import { PRIORITIES } from "../types";
-import { IcCalendar, IcCheck, IcEye, IcInbox, IcPlus, IcSearch, IcX, PRIORITY_COLOR, PriorityIcon, TypeIcon } from "../icons";
+import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PRIORITY_COLOR, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, BOARD_COLUMN_SHELL, Chip, catColor } from "../ui";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
+
+/** Сколько дней закрытая задача остаётся видимой в колонке «Готово».
+ *  Дальше она прячется за строку «Ранее закрыто», а через ARCHIVE_AFTER_DAYS
+ *  (настройка сервера) уходит в архив и перестаёт грузиться вовсе. */
+const DONE_WINDOW_DAYS = 14;
+
+/** Русское склонение после числительного: 1 задачу, 2 задачи, 5 задач. */
+const plural = (n: number, one: string, few: string, many: string): string => {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m100 >= 11 && m100 <= 14) return many;
+  if (m10 === 1) return one;
+  if (m10 >= 2 && m10 <= 4) return few;
+  return many;
+};
 
 // Быстрые фильтры-чипы над доской (round4 §3.3) — клиентская фильтрация
 // поверх уже загруженных задач, комбинируется с текстовым фильтром.
@@ -16,16 +31,66 @@ const QUICK_CHIPS: { id: QuickChip; label: string }[] = [
   { id: "unassigned", label: "Без исполнителя" },
 ];
 
-function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggable }: { issue: Issue; onDragStart: () => void; onDragEnd: () => void; onDropOn: (e: React.DragEvent) => void; onOver: () => void; flash: boolean; draggable: boolean }) {
-  const { data, openIssue } = useStore();
-  const assignee = data.users.find((u) => u.id === issue.assigneeId);
-  const epic = data.issues.find((i) => i.id === issue.epicId);
-  const doneCat = data.workflow.statuses.find((s) => s.id === issue.statusId)?.category === "done";
+/** Карточка доски.
+ *
+ *  Ассоциированные сущности приходят СВЕРХУ уже найденными, а не ищутся здесь
+ *  через data.users.find / data.issues.find: раньше каждая карточка линейно
+ *  проходила оба массива, что давало квадратичную сложность на весь экран
+ *  (аудит PERF-02). Плюс memo — чтобы тик счётчика уведомлений в общем контексте
+ *  не перерисовывал все карточки разом (PERF-01).
+ */
+const Card = memo(function Card({
+  issue,
+  assignee,
+  epic,
+  doneCat,
+  onDragStart,
+  onDragEnd,
+  onDropOn,
+  onOver,
+  onMove,
+  flash,
+  draggable,
+  moveTargets,
+}: {
+  issue: Issue;
+  assignee: User | undefined;
+  epic: Issue | undefined;
+  doneCat: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDropOn: (e: React.DragEvent) => void;
+  onOver: () => void;
+  onMove: (issueId: string, statusId: string) => void;
+  flash: boolean;
+  draggable: boolean;
+  moveTargets: Status[];
+}) {
+  const { openIssue } = useStore();
+  const [menu, setMenu] = useState(false);
   const overdue = !!issue.dueDate && !doneCat && issue.dueDate < new Date().toISOString().slice(0, 10);
 
   return (
     <article
       draggable={draggable}
+      tabIndex={0}
+      aria-label={`${issue.key}: ${issue.title}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openIssue(issue.id);
+        }
+        // «m» / «ь» — открыть список переходов с клавиатуры: перетаскивание
+        // мышью было единственным способом сменить статус на доске (UX-02).
+        if (draggable && (e.key.toLowerCase() === "m" || e.key === "ь")) {
+          e.preventDefault();
+          setMenu((v) => !v);
+        }
+        if (e.key === "Escape" && menu) {
+          e.preventDefault();
+          setMenu(false);
+        }
+      }}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", issue.id);
         e.dataTransfer.effectAllowed = "move";
@@ -90,9 +155,53 @@ function Card({ issue, onDragStart, onDragEnd, onDropOn, onOver, flash, draggabl
           <Avatar user={assignee ?? null} size={22} />
         </span>
       </div>
+
+      {/* Перемещение без мыши. Кнопка видна при наведении и при фокусе с
+          клавиатуры, список — только разрешённые схемой переходы. */}
+      {draggable && (
+        <div className="absolute right-1 top-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenu((v) => !v);
+            }}
+            aria-haspopup="menu"
+            aria-expanded={menu}
+            aria-label={`Переместить ${issue.key}`}
+            className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-canvas hover:text-ink focus:opacity-100 focus-visible:ring-2 focus-visible:ring-accent group-hover:opacity-100"
+          >
+            <IcMove size={12} />
+          </button>
+          {menu && (
+            <div
+              role="menu"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 top-6 z-20 min-w-[168px] rounded-lg border border-line bg-panel p-1 shadow-[0_8px_24px_rgba(12,22,38,0.18)]"
+            >
+              {moveTargets.length === 0 && (
+                <p className="px-2 py-1.5 text-[11.5px] text-faint">Нет разрешённых переходов</p>
+              )}
+              {moveTargets.map((t) => (
+                <button
+                  key={t.id}
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(false);
+                    onMove(issue.id, t.id);
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12.5px] text-ink hover:bg-canvas"
+                >
+                  <span className="h-1.5 w-1.5 rounded-sm" style={{ background: catColor(t.category).dot }} />
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </article>
   );
-}
+});
 
 function QuickCreate({ status, onDone }: { status: Status; onDone: () => void }) {
   const { createIssue } = useStore();
@@ -160,10 +269,27 @@ export default function Board() {
       return next;
     });
 
+  // Показывать ли в «Готово» всё закрытое или только свежее (см. DONE_WINDOW_DAYS).
+  const [showAllDone, setShowAllDone] = useState(false);
+
   const doneStatusId = data.workflow.statuses.find((s) => s.category === "done")?.id;
   const doneIds = useMemo(
     () => new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id)),
     [data.workflow.statuses],
+  );
+
+  // Индексы вместо линейного поиска в каждой карточке (аудит PERF-02).
+  const usersById = useMemo(() => new Map(data.users.map((u) => [u.id, u])), [data.users]);
+  const issuesById = useMemo(() => new Map(data.issues.map((i) => [i.id, i])), [data.issues]);
+  const statusById = useMemo(
+    () => new Map(data.workflow.statuses.map((st) => [st.id, st])),
+    [data.workflow.statuses],
+  );
+
+  // Куда эту задачу разрешено двигать по схеме workflow (для меню на карточке).
+  const targetsFor = useCallback(
+    (statusId: string) => data.workflow.statuses.filter((st) => st.id !== statusId && canTransition(data.workflow, statusId, st.id)),
+    [data.workflow],
   );
   // Быстрое создание («+») — только у первого столбца категории «todo» (по позиции):
   // накидывать задачи имеет смысл в начало потока, не в «В работе»/«Готово» (D3).
@@ -184,13 +310,41 @@ export default function Board() {
     });
   }, [pool, filterUser, q, chips, data.currentUserId, doneIds]);
 
-  const byStatus = (sid: string) => visible.filter((i) => i.statusId === sid);
+  /** Задачи колонки.
+   *
+   *  Колонка «Готово» по умолчанию показывает только закрытое за последние
+   *  DONE_WINDOW_DAYS дней (аудит LIFE-02). Раньше закрытые копились там вечно,
+   *  и через год колонка превращалась в место, куда никто не смотрит. Это не
+   *  сокрытие данных: остальное — в один клик по строке «Ранее закрыто».
+   *  Задачи без doneAt (закрытые до миграции 016) считаем свежими, чтобы
+   *  они не пропали из виду молча. */
+  const doneCutoff = Date.now() - DONE_WINDOW_DAYS * 86_400_000;
+  const isRecentDone = (i: Issue) => i.doneAt === null || i.doneAt >= doneCutoff;
+
+  const byStatus = (sid: string) => {
+    const all = visible.filter((i) => i.statusId === sid);
+    if (!doneIds.has(sid) || showAllDone) return all;
+    return all.filter(isRecentDone);
+  };
+  /** Сколько закрытого в колонке спрятано окном (для строки «Ранее закрыто»). */
+  const hiddenDone = (sid: string) =>
+    doneIds.has(sid) && !showAllDone ? visible.filter((i) => i.statusId === sid && !isRecentDone(i)).length : 0;
   const assignees = useMemo(() => {
-    const ids = [...new Set(pool.map((i) => i.assigneeId).filter(Boolean))] as string[];
-    return data.users.filter((u) => ids.includes(u.id));
+    const ids = new Set(pool.map((i) => i.assigneeId).filter(Boolean) as string[]);
+    return data.users.filter((u) => ids.has(u.id));
   }, [pool, data.users]);
 
-  const dragged = dragId ? data.issues.find((i) => i.id === dragId) : null;
+  const dragged = dragId ? (issuesById.get(dragId) ?? null) : null;
+
+  /** Проект, где не осталось ни одной незакрытой задачи (аудит LIFE-04).
+   *  Для отдела, работающего волнами, это нормальное и частое состояние, а не
+   *  крайний случай, — и показывать его надо как достижение, а не как пустой
+   *  экран с надписью «перетащите задачи сюда». */
+  const openCount = pool.filter((i) => !doneIds.has(i.statusId)).length;
+  const closedRecently = pool.filter(
+    (i) => doneIds.has(i.statusId) && i.doneAt !== null && i.doneAt >= Date.now() - 30 * 86_400_000,
+  ).length;
+  const allClear = pool.length > 0 && openCount === 0;
   const canDropTo = (sid: string) => !dragged || dragged.statusId === sid || canTransition(data.workflow, dragged.statusId, sid);
 
   return (
@@ -276,6 +430,32 @@ export default function Board() {
         </div>
       )}
 
+      {/* Честная плашка об усечении: сервер вернул total больше, чем влезло
+          в одну страницу. Раньше клиент молча показывал первые N задач, и экран
+          выглядел непротиворечиво, но был неверным (аудит BLOCK-01). */}
+      {data.issuesTruncated && (
+        <div className="flex items-center gap-2 border-b border-line bg-warnsoft/60 px-6 py-1.5 text-[12px] font-medium text-warn">
+          <IcEye size={14} className="shrink-0" />
+          <span className="truncate">
+            Показаны {pool.length} задач из {data.issuesTotal}. Уточните фильтр, чтобы увидеть остальные.
+          </span>
+        </div>
+      )}
+
+      {allClear && (
+        <div className="border-b border-line bg-oksoft/50 px-6 py-3">
+          <p className="flex items-center gap-2 text-[13px] font-semibold text-ok">
+            <IcCheck size={15} /> Все задачи закрыты
+          </p>
+          <p className="mt-0.5 text-[11.5px] text-sub">
+            {closedRecently > 0
+              ? `За последние 30 дней команда закрыла ${closedRecently} ${plural(closedRecently, "задачу", "задачи", "задач")}.`
+              : "Открытых задач нет."}
+            {canCreate && " Можно браться за новое."}
+          </p>
+        </div>
+      )}
+
       {/* колонки. w-max + mx-auto: на широком экране группа колонок
           центрируется, а когда не влезает — просто прокручивается от левого края
           (ticket-board-columns-theme-fix §3). */}
@@ -332,6 +512,11 @@ export default function Board() {
                     <Card
                       key={i.id}
                       issue={i}
+                      assignee={i.assigneeId ? usersById.get(i.assigneeId) : undefined}
+                      epic={i.epicId ? issuesById.get(i.epicId) : undefined}
+                      doneCat={statusById.get(i.statusId)?.category === "done"}
+                      moveTargets={targetsFor(i.statusId)}
+                      onMove={(id, to) => moveStatus(id, to, null)}
                       flash={ui.lastEvent?.issueId === i.id && Date.now() - ui.lastEvent.ts < 1500}
                       onDragStart={() => {
                         setDragId(i.id);
@@ -354,7 +539,25 @@ export default function Board() {
                       draggable={canMove}
                     />
                   ))}
-                  {items.length === 0 && quickFor !== st.id && (
+                  {/* Свёрнутый «хвост» закрытого: данные на месте, в один клик. */}
+                  {hiddenDone(st.id) > 0 && (
+                    <button
+                      onClick={() => setShowAllDone(true)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line2 px-3 py-2 text-[11.5px] font-medium text-faint transition-colors hover:border-accent hover:text-accent"
+                    >
+                      <IcArchive size={12} />
+                      Ранее закрыто: {hiddenDone(st.id)}
+                    </button>
+                  )}
+                  {showAllDone && doneIds.has(st.id) && (
+                    <button
+                      onClick={() => setShowAllDone(false)}
+                      className="w-full rounded-lg px-3 py-1.5 text-[11px] font-medium text-faint transition-colors hover:text-ink"
+                    >
+                      Свернуть до последних {DONE_WINDOW_DAYS} дней
+                    </button>
+                  )}
+                  {items.length === 0 && quickFor !== st.id && hiddenDone(st.id) === 0 && (
                     <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[11.5px] transition-colors ${isOver ? "border-accent text-accent" : "border-line2 text-faint"}`}>
                       {isOver ? (ok ? "Отпустите, чтобы переместить" : "Переход запрещён workflow") : "Перетащите задачи сюда"}
                     </div>

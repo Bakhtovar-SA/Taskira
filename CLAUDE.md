@@ -17,7 +17,7 @@ is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still impo
 `*_MIGRATION.md` files are historical records of completed schema/feature migrations, in order:
 roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
-links (014).
+links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016).
 
 ## Commands
 
@@ -49,7 +49,9 @@ The server has a **vitest** suite (`server/test/`, `npm test`); it needs a local
 (`vitest.config.ts` / `test/global-setup.ts` spin up a scratch DB). LDAP / S3 / mail suites are
 `describe.skip` unless their env vars are set (CI sets them via docker-compose — see
 `.github/workflows/test.yml`). The **client has no test runner**; verification there is
-`npm run typecheck` + `npm run build`. **No linter** in either package. A local PostgreSQL
+`npm run typecheck` + `npm run build`. One cross-package check does exist:
+`server/test/permissions-sync.test.ts` reads `src/permissions.ts` and `src/validation.ts` from
+disk and fails if the duplicated `MATRIX` or `LIMITS` drift from the server copies. **No linter** in either package. A local PostgreSQL
 reachable via `DATABASE_URL` is required to run the server at all (`initPool` → `migrate`
 happen before `listen`).
 
@@ -101,13 +103,19 @@ carries `comments`/`activity` separately (fetched on demand when an issue modal 
 Mutations are optimistic-ish: call API, then patch `data` from the returned DTO; `moveStatus`
 re-fetches issues on failure to undo local drift.
 
-Views (`ViewId`: `board | backlog | timeline | workflow | access | admin | docs | collaborating`)
+Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating`)
 are switched by `ui.view` in `App.tsx` — no router. `backlog` is internal id for the
 "Список задач" view (`Backlog.tsx`, a flat filtered/sorted list — sprints removed in
 migration 012). `bootStatus` also has a `"home"` state: with ≥2 visible projects, login
 lands on `HomeView.tsx` (Мои задачи + Недавние проекты) before any project is entered.
 Deep links to a task use a hash (`#/issue/<pid>/<iid>`) parsed by hand in `App.tsx`.
-Keyboard shortcuts (`/`, `C`, `1`–`8` for the eight views, `Esc`) are wired in `App.tsx`.
+Keyboard shortcuts (`/`, `C`, `1`–`9` for the nine views, `Esc`) are wired in `App.tsx`;
+they are suppressed while a modal is open. `reports` (`ReportsView.tsx`) is project-less —
+it reads `/api/reports/*`, which scope themselves to the user's visible projects.
+
+The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `issues`,
+`statuses`) and a `doneStatusIds` `Set`. Use them instead of `data.users.find(...)` inside
+list/card renders — the linear scans were quadratic across a board.
 
 ### Server structure
 
@@ -117,6 +125,13 @@ Keyboard shortcuts (`/`, `C`, `1`–`8` for the eight views, `Esc`) are wired in
 
 - `routes/` — thin HTTP handlers, one file per resource. Permission hook + zod schema in the
   route options, business logic inline or delegated to `services/`.
+- `services/maintenance.ts` — background loop: auto-archives issues closed longer ago than
+  `ARCHIVE_AFTER_DAYS` (default 30) and prunes `audit_log`. Separate from `notifier.ts`, which
+  only starts when `NOTIFY_EMAIL_ENABLED`; archiving must run regardless. With several
+  instances, set `MAINTENANCE_ENABLED=false` on all but one.
+- `services/reports.ts` / `routes/reports.ts` — reporting. Visibility is resolved through
+  `listVisibleProjects()` and passed into queries as `project_id = ANY($ids)`, so the
+  visibility predicate is **not** duplicated a fourth time here.
 - `services/` — domain helpers: `issues.ts` (DTO map, `nextIssueNum` atomic counter),
   `workflow.ts` (`DEFAULT_STATUSES`/`DEFAULT_TRANSITIONS`, `assertTransition` → 409 on
   illegal move), `rank.ts` (fractional `issues.rank` float8; midpoint insert, column
@@ -150,6 +165,21 @@ Priorities: `low | medium | high | critical` (migration 013 collapsed the old 5 
 Issue links (`issue_links`, migration 014): `relates` (symmetric) or `blocks` (directed);
 `blocked_by` is `blocks` seen from the other end, not a stored row. `points` still exists in
 the schema and contract but the "оценка" field was dropped from the card UI.
+
+## Issue lifecycle (migration 016)
+
+`issues.done_at` is set when an issue enters a `done`-category status and **cleared** when it
+returns to work; moving between two closing statuses leaves it alone. `issues.archived_at` is
+set by the maintenance worker for issues closed longer ago than `ARCHIVE_AFTER_DAYS`.
+
+**Archiving is not deletion** — the row stays, the issue opens by direct link, is searchable
+(`?archived=all`) and still counts in reports. It only leaves the project's active working set,
+which is what keeps the board and task list from growing without bound. `GET …/issues` returns
+active issues by default; `?archived=1` for archived only, `?archived=all` for both.
+
+Anything reporting on "what got done" keys off `done_at` — `updated_at` is not a substitute,
+since any edit touches it. The board shows the last 14 days in its done column
+(`DONE_WINDOW_DAYS` in `Board.tsx`) and collapses the rest behind "Ранее закрыто".
 
 ## Gotchas
 

@@ -86,6 +86,19 @@ export async function storageKeysForIssue(issueId: string): Promise<string[]> {
   return rows.map((r) => r.storage_key);
 }
 
+/** Ключи ВСЕХ вложений проекта — нужны перед удалением проекта: каскад FK
+ *  сносит строки attachments, но файлы в хранилище остаются без единой ссылки,
+ *  и найти их потом уже нечем (аудит BUG-01). */
+export async function storageKeysForProject(projectId: string): Promise<string[]> {
+  const rows = await q<{ storage_key: string }>(
+    `SELECT a.storage_key FROM attachments a
+       JOIN issues i ON i.id = a.issue_id
+      WHERE i.project_id = $1`,
+    [projectId],
+  );
+  return rows.map((r) => r.storage_key);
+}
+
 /** Best-effort снести объекты по ключам (после каскадного удаления строк). */
 export async function deleteStorageObjects(keys: string[]): Promise<void> {
   if (keys.length === 0) return;

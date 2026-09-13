@@ -345,6 +345,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
     board: "Доска",
     backlog: "Список задач",
     timeline: "Таймлайн",
+    reports: "Отчёты",
     workflow: "Рабочий процесс",
     access: "Права доступа",
     admin: "Департаменты",
