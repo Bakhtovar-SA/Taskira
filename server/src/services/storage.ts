@@ -9,7 +9,7 @@
  *                                  (MinIO / on-prem, @aws-sdk/client-s3).
  */
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, rename, rm, stat, access } from "node:fs/promises";
+import { mkdir, readdir, rename, rm, stat, access } from "node:fs/promises";
 import { constants as FS } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
@@ -20,6 +20,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import type { Config, S3Config } from "../config.js";
@@ -44,6 +45,10 @@ export interface Storage {
   delete(key: string): Promise<void>;
   /** Метаданные объекта, либо null — объекта нет. */
   stat(key: string): Promise<StoredObject | null>;
+  /** Все объекты хранилища с временем последнего изменения — источник для
+   *  сборщика осиротевших объектов (storageSweeper.ts). Дорогая операция
+   *  (полный листинг), вызывать только из фонового обслуживания. */
+  list(): Promise<{ key: string; mtimeMs: number }[]>;
 }
 
 /** Ключ объекта: <issueId>/<uuid>. Из имени файла НЕ строится (D3). */
@@ -109,6 +114,29 @@ class LocalDiskStorage implements Storage {
       return null;
     }
   }
+
+  async list(): Promise<{ key: string; mtimeMs: number }[]> {
+    const out: { key: string; mtimeMs: number }[] = [];
+    const walk = async (dir: string, prefix: string): Promise<void> => {
+      let entries;
+      try {
+        entries = await readdir(dir, { withFileTypes: true });
+      } catch {
+        return; // каталог мог исчезнуть между листингом уровня выше и этим — не критично
+      }
+      for (const e of entries) {
+        const rel = prefix ? `${prefix}/${e.name}` : e.name;
+        if (e.isDirectory()) {
+          await walk(join(dir, e.name), rel);
+        } else if (e.isFile()) {
+          const s = await stat(join(dir, e.name)).catch(() => null);
+          if (s) out.push({ key: rel, mtimeMs: s.mtimeMs });
+        }
+      }
+    };
+    await walk(this.root, "");
+    return out;
+  }
 }
 
 /** S3-совместимое хранилище (MinIO / on-prem). Загрузка идёт через
@@ -156,6 +184,21 @@ class S3Storage implements Storage {
       if (err.name === "NotFound" || err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) return null;
       throw e;
     }
+  }
+
+  async list(): Promise<{ key: string; mtimeMs: number }[]> {
+    const out: { key: string; mtimeMs: number }[] = [];
+    let token: string | undefined;
+    do {
+      const res = await this.client.send(
+        new ListObjectsV2Command({ Bucket: this.bucket, ContinuationToken: token }),
+      );
+      for (const obj of res.Contents ?? []) {
+        if (obj.Key) out.push({ key: obj.Key, mtimeMs: obj.LastModified?.getTime() ?? Date.now() });
+      }
+      token = res.IsTruncated ? res.NextContinuationToken : undefined;
+    } while (token);
+    return out;
   }
 }
 

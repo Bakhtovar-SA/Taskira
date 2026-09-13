@@ -105,6 +105,14 @@ export interface MaintenanceConfig {
   archiveAfterDays: number;
   /** Строки audit_log старше стольких дней удаляются. 0 — не удалять никогда. */
   auditRetentionDays: number;
+  /** Сборщик осиротевших объектов Storage (ARCHITECTURE.md follow-up). Реже,
+   *  чем сам тик обслуживания — полный листинг S3-бакета/каталога дороже
+   *  архивного UPDATE, гонять его каждый час незачем. */
+  storageSweepEnabled: boolean;
+  storageSweepIntervalMs: number;
+  /** Объект моложе этого возраста сборщик не трогает — защита от гонки с
+   *  загрузкой (storage.put() пишет объект раньше INSERT INTO attachments). */
+  storageSweepGraceMs: number;
 }
 
 export interface Config {
@@ -395,6 +403,9 @@ function buildConfig(): Config {
       intervalMs: envPosInt("MAINTENANCE_INTERVAL_MS", 60 * 60_000), // раз в час
       archiveAfterDays: envPosInt("ARCHIVE_AFTER_DAYS", 30),
       auditRetentionDays: Number(process.env.AUDIT_RETENTION_DAYS ?? 365),
+      storageSweepEnabled: envBool(process.env.STORAGE_SWEEP_ENABLED, true),
+      storageSweepIntervalMs: envPosInt("STORAGE_SWEEP_INTERVAL_MS", 24 * 60 * 60_000), // раз в сутки
+      storageSweepGraceMs: envPosInt("STORAGE_SWEEP_GRACE_MS", 24 * 60 * 60_000), // 24 часа
     },
     pgPoolMax: envPosInt("PG_POOL_MAX", 10),
     rateLimit: {

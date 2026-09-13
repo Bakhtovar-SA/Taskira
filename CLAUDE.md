@@ -150,6 +150,16 @@ list/card renders — the linear scans were quadratic across a board.
   rebalance when gap `< 1e-9`, whole calculation under `pg_advisory_xact_lock` keyed by
   status column so concurrent drags into the same slot don't race to the same rank),
   `project.ts` (`currentProject()`, cached — **single project, no multi-tenant**).
+  `maintenance.ts` runs two independent background timers (not one — different
+  cost and cadence): archive + `audit_log` purge every `intervalMs` (default
+  1h), and `storageSweeper.ts` every `storageSweepIntervalMs` (default 24h,
+  deliberately less often — a full `Storage.list()` is pricier than one
+  `UPDATE`). The sweeper diffs `Storage.list()` against `attachments.storage_key`
+  and deletes objects with no matching row, but skips anything younger than
+  `storageSweepGraceMs` (default 24h) — `routes/attachments.ts` writes the
+  object via `storage.put()` *before* the `INSERT INTO attachments`, so a
+  just-uploaded object is briefly visible to `list()` without a DB row yet;
+  the grace period is the guard against sweeping it mid-upload.
 - `db.ts` — thin `pg` wrapper: `q` / `one` / `exec` / `withClient` (dedicated client for
   race-free read-then-write). `migrate()` applies `server/migrations/*.sql` in filename order,
   each file in one transaction, tracked in `schema_migrations`.
