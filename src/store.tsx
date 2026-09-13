@@ -127,6 +127,11 @@ export interface UIState {
   view: ViewId;
   selectedIssueId: string | null;
   createOpen: boolean;
+  /** Родитель для «+ добавить подзадачу» (миграция 021) — CreateIssueModal
+   *  предзаполняет им поле и делает его нередактируемым. null — обычное
+   *  создание. Сбрасывается setCreateOpen(true); ставится только
+   *  openCreateSubtask(). */
+  createParentId: string | null;
   lastEvent: { issueId: string; ts: number } | null;
 }
 
@@ -137,6 +142,8 @@ export interface CreateInput {
   priorityId: PriorityId;
   assigneeId: string | null;
   epicId: string | null;
+  /** Родитель-подзадачи (миграция 021) — задаётся кнопкой «+ подзадача». */
+  parentId?: string | null;
   labels: string[];
   complexity: ComplexityId | null;
   statusId?: string;
@@ -264,6 +271,7 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     assigneeId: dto.assigneeId,
     reporterId: dto.reporterId,
     epicId: dto.epicId,
+    parentId: dto.parentId,
     labels: dto.labels ?? [],
     complexity: (dto.complexity as ComplexityId | null) ?? null,
     dueDate: dto.dueDate,
@@ -341,6 +349,7 @@ interface Api {
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
   setCreateOpen: (v: boolean) => void;
+  openCreateSubtask: (parentId: string) => void;
   toast: (kind: Toast["kind"], text: string) => void;
   createIssue: (input: CreateInput) => void;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
@@ -390,6 +399,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     view: "board",
     selectedIssueId: null,
     createOpen: false,
+    createParentId: null,
     lastEvent: null,
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -748,7 +758,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     clearToken();
     setData(emptyData());
     setSolo(null);
-    setUi({ view: "board", selectedIssueId: null, createOpen: false, lastEvent: null });
+    setUi({ view: "board", selectedIssueId: null, createOpen: false, createParentId: null, lastEvent: null });
     setBootStatus("unauthenticated");
   }, []);
 
@@ -927,6 +937,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             priorityId: input.priorityId,
             assigneeId: input.assigneeId,
             epicId: input.epicId,
+            parentId: input.parentId ?? null,
             labels: l.value,
             complexity: input.complexity,
             statusId: input.statusId,
@@ -1562,7 +1573,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     logout,
     setView: (v) => setUi((u) => ({ ...u, view: v })),
     openIssue,
-    setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v })),
+    setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v, createParentId: null })),
+    openCreateSubtask: (parentId: string) => setUi((u) => ({ ...u, createOpen: true, createParentId: parentId })),
     toast,
     createIssue,
     updateIssue,

@@ -111,6 +111,9 @@ export interface Issue {
   assigneeId: string | null;
   reporterId: string;
   epicId: string | null;
+  /** Родитель-подзадачи (миграция 021) — независимо от epicId («направление»);
+   *  ровно два уровня, сервер не даёт сделать подзадачу подзадачей. */
+  parentId: string | null;
   labels: string[];
   complexity: ComplexityId | null;
   dueDate?: string | null;

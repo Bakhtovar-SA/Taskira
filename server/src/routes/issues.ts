@@ -18,7 +18,7 @@ import {
 import { audit } from "../audit.js";
 import { assertTransition, statusCategory, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
-import { getIssueDto, listActivity, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
+import { getIssueDto, listActivity, loadIssue, logActivity, mapIssue, nextIssueNum, validateParentAssignment, type IssueRow } from "../services/issues.js";
 import { insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
 import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
@@ -147,6 +147,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
         if (!e) throw notFound("Задача-группа (epicId) не найдена в проекте");
       }
+      if (body.parentId) await validateParentAssignment(project.id, body.parentId, null);
 
       // Новая задача встаёт В НАЧАЛО колонки, а не в конец (аудит LIFE-05):
       // кнопка быстрого создания и поле ввода — вверху колонки, и задача,
@@ -166,12 +167,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         await q<IssueRow>(
           `INSERT INTO issues
              (project_id, num, key, title, description, type_id, status_id, priority_id,
-              assignee_id, reporter_id, epic_id, labels, complexity, due_date, rank)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+              assignee_id, reporter_id, epic_id, parent_id, labels, complexity, due_date, rank)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
            RETURNING *`,
           [
             project.id, num, key, body.title, body.description, body.typeId, statusId, body.priorityId,
-            body.assigneeId, user.sub, body.epicId, body.labels, body.complexity,
+            body.assigneeId, user.sub, body.epicId, body.parentId ?? null, body.labels, body.complexity,
             body.dueDate ?? null, rank,
           ],
         )
@@ -225,6 +226,9 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
         if (!e) throw notFound("Задача-группа (epicId) не найдена в проекте");
       }
+      if (body.parentId !== undefined && body.parentId !== null) {
+        await validateParentAssignment(project.id, body.parentId, iss.id);
+      }
 
       const sets: string[] = [];
       const vals: unknown[] = [];
@@ -258,6 +262,10 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (body.epicId !== undefined && body.epicId !== iss.epic_id) {
         push("epic_id", body.epicId);
         log.push("изменил(а) группу (эпик)");
+      }
+      if (body.parentId !== undefined && body.parentId !== iss.parent_id) {
+        push("parent_id", body.parentId);
+        log.push(body.parentId ? "сделал(а) подзадачей другой задачи" : "убрал(а) из подзадач");
       }
       if (body.labels !== undefined && JSON.stringify(body.labels) !== JSON.stringify(iss.labels)) {
         push("labels", body.labels);

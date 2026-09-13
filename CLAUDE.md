@@ -18,7 +18,8 @@ is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still impo
 roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
-token revocation (017), points → complexity (018).
+token revocation (017), points → complexity (018), subtasks (021 — 019/020 are
+reserved by parallel branches not yet merged at the time this was written).
 
 ## Commands
 
@@ -243,6 +244,24 @@ schema/contract) was replaced outright by `complexity` — a plain three-value s
 (`simple | medium | hard`, `COMPLEXITIES`/`COMPLEXITY_ORDER` in `types.ts` ↔ `COMPLEXITIES`
 in `contract.ts`) — migration 018. It has no dedicated client validator, same as
 `priorityId`: the type system and a fixed dropdown are enough, no numeric range to check.
+
+Subtasks (`issues.parent_id`, migration 021): exactly two levels, no arbitrary nesting —
+`validateParentAssignment()` (`services/issues.ts`) refuses to set `parentId` to an issue that
+already has a parent itself (no "subtask of a subtask"), and refuses to give an issue a parent
+if it already has children of its own (no turning an existing parent into someone's child, which
+would silently make its own children three generations deep). This is deliberately independent
+of `epicId` ("direction" — a free-form grouping with no depth limit and no link back to
+completion status); an issue can be both in a direction and someone's subtask at once. There is
+**no dedicated subtasks endpoint** — the client already loads the project's full active issue
+list into `data.issues` and filters by `parentId` locally (`IssueModal.tsx`'s subtasks section),
+the same way `TimelineView` already groups by `epicId` client-side; adding a server list endpoint
+for something the client can already derive for free would just be a second source of truth to
+keep in sync. `+ добавить подзадачу` opens `CreateIssueModal` with `ui.createParentId` pre-set
+(`store.tsx`'s `openCreateSubtask()`, separate from the plain `setCreateOpen()` so a normal
+"Создать" doesn't inherit a stale parent from a previous subtask flow) — the parent is fixed for
+that create, not user-editable in the form, since the whole point of the button is "a child of
+*this* issue." Deleting a parent does not delete its subtasks (`ON DELETE SET NULL`, same as
+`epicId`) — the child becomes an ordinary standalone issue rather than disappearing silently.
 
 ## Issue lifecycle (migration 016)
 

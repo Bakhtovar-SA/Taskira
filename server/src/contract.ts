@@ -180,6 +180,9 @@ export const IssueCreateBody = z.object({
   priorityId: z.enum(PRIORITIES),
   assigneeId: uuid.nullable(),
   epicId: uuid.nullable(),
+  // Подзадача (миграция 021) — необязательно, задаётся кнопкой «+ подзадача»
+  // на карточке родителя. Независимо от epicId («направление»).
+  parentId: uuid.nullable().optional(),
   labels: z.array(label()).max(LIMITS.labelsPerIssue).default([]),
   complexity: z.enum(COMPLEXITIES).nullable(),
   dueDate: isoDate().nullable().optional(),
@@ -193,6 +196,7 @@ export const IssuePatchBody = z
     priorityId: z.enum(PRIORITIES),
     assigneeId: uuid.nullable(),
     epicId: uuid.nullable(),
+    parentId: uuid.nullable(),
     labels: z.array(label()).max(LIMITS.labelsPerIssue),
     complexity: z.enum(COMPLEXITIES).nullable(),
     dueDate: isoDate().nullable(),

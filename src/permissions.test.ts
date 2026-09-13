@@ -33,6 +33,7 @@ const issue = (over: Partial<Issue> = {}): Issue => ({
   assigneeId: null,
   reporterId: "someone-else",
   epicId: null,
+  parentId: null,
   labels: [],
   complexity: null,
   doneAt: null,

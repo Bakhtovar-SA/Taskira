@@ -259,6 +259,8 @@ export type ServerIssue = {
   assigneeId: string | null;
   reporterId: string;
   epicId: string | null;
+  /** Родитель-подзадачи (миграция 021); независимо от epicId. */
+  parentId: string | null;
   color: string | null;
   tStart: number | null;
   tSpan: number | null;

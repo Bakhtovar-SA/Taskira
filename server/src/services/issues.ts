@@ -1,6 +1,6 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
 import { one, q } from "../db.js";
-import { notFound } from "../middleware.js";
+import { badRequest, notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
 import { listAttachments, type AttachmentDto } from "./attachments.js";
 import { listIssueLinks, type IssueLinkDto } from "./issueLinks.js";
@@ -19,6 +19,8 @@ export interface IssueRow {
   assignee_id: string | null;
   reporter_id: string;
   epic_id: string | null;
+  /** Родитель-подзадачи (миграция 021); NULL — обычная задача/сама родитель. */
+  parent_id: string | null;
   color: string | null;
   t_start: number | null;
   t_span: number | null;
@@ -47,6 +49,7 @@ export interface IssueDto {
   assigneeId: string | null;
   reporterId: string;
   epicId: string | null;
+  parentId: string | null;
   color: string | null;
   tStart: number | null;
   tSpan: number | null;
@@ -74,6 +77,7 @@ export function mapIssue(row: IssueRow): IssueDto {
     assigneeId: row.assignee_id,
     reporterId: row.reporter_id,
     epicId: row.epic_id,
+    parentId: row.parent_id,
     color: row.color,
     tStart: row.t_start,
     tSpan: row.t_span,
@@ -93,6 +97,29 @@ export async function loadIssue(projectId: string, issueId: string): Promise<Iss
   const row = await one<IssueRow>(`SELECT * FROM issues WHERE id = $1 AND project_id = $2`, [issueId, projectId]);
   if (!row) throw notFound("Задача не найдена или удалена");
   return row;
+}
+
+/** Подзадачи (миграция 021) — строго два уровня, без вложенности.
+ *  issueId=null — вызов из POST /issues (создаваемая задача ещё не имеет id,
+ *  поэтому проверка «у неё уже есть подзадачи» не нужна). */
+export async function validateParentAssignment(
+  projectId: string,
+  parentId: string,
+  issueId: string | null,
+): Promise<void> {
+  if (issueId && parentId === issueId) throw badRequest("Задача не может быть подзадачей самой себя");
+  const parent = await one<{ id: string; parent_id: string | null }>(
+    `SELECT id, parent_id FROM issues WHERE id = $1 AND project_id = $2`,
+    [parentId, projectId],
+  );
+  if (!parent) throw notFound("Родительская задача не найдена в проекте");
+  if (parent.parent_id !== null) {
+    throw badRequest("Нельзя сделать задачу подзадачей подзадачи — поддерживается только один уровень вложенности");
+  }
+  if (issueId) {
+    const child = await one<{ id: string }>(`SELECT id FROM issues WHERE parent_id = $1 LIMIT 1`, [issueId]);
+    if (child) throw badRequest("У задачи уже есть свои подзадачи — сначала уберите их, прежде чем делать её чьей-то подзадачей");
+  }
 }
 
 /** Мини-профиль участника задачи — чтобы карточку можно было отрисовать без

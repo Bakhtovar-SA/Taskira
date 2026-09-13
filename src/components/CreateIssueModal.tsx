@@ -10,7 +10,8 @@ import { LIMITS } from "../validation";
 const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 export default function CreateIssueModal() {
-  const { data, setCreateOpen, createIssue } = useStore();
+  const { data, ui, setCreateOpen, createIssue } = useStore();
+  const parent = ui.createParentId ? data.issues.find((i) => i.id === ui.createParentId) : undefined;
   const [typeId, setTypeId] = useState<IssueTypeId>("task");
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
@@ -49,6 +50,7 @@ export default function CreateIssueModal() {
       priorityId,
       assigneeId,
       epicId,
+      parentId: ui.createParentId ?? null,
       labels,
       complexity,
       dueDate: dueDate || null,
@@ -67,8 +69,13 @@ export default function CreateIssueModal() {
   return (
     <Modal onClose={() => setCreateOpen(false)} w={620} title="Создание задачи">
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-        <span className="font-disp text-[14px] font-bold text-ink">Новая задача</span>
+        <span className="font-disp text-[14px] font-bold text-ink">{parent ? "Новая подзадача" : "Новая задача"}</span>
         <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-sub">{data.project.key}-{data.seq}</span>
+        {parent && (
+          <span className="rounded bg-accentsoft px-1.5 py-0.5 text-[10.5px] font-semibold text-accent">
+            подзадача {parent.key}
+          </span>
+        )}
         <button onClick={() => setCreateOpen(false)} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-canvas hover:text-ink" aria-label="Закрыть">
           <IcX size={15} />
         </button>
