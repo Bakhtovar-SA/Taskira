@@ -7,9 +7,9 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { LoginBody } from "../contract.js";
 import { audit } from "../audit.js";
-import { one } from "../db.js";
+import { one, q } from "../db.js";
 import { loadConfig } from "../config.js";
-import { ApiHttpError, requireAuth, unauthorized, forbidden, zbody } from "../middleware.js";
+import { ApiHttpError, invalidateUserCache, requireAuth, unauthorized, forbidden, zbody } from "../middleware.js";
 import { safeUser, signToken, type UserRow } from "../auth.js";
 import { ldapAuthenticate, LdapUnavailableError } from "../services/ldap.js";
 import { provisionFromLdap } from "../services/userProvisioning.js";
@@ -133,6 +133,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       reply.send({ ...safeUser(row), notifyPrefs: row.notify_prefs ?? {} });
     },
   );
+
+  /** Выход: помечаем все ранее выданные токены недействительными.
+   *  Без этого «Выйти» стирало токен только в браузере, а сам JWT оставался
+   *  рабочим ещё до 12 часов (аудит SEC-01). */
+  app.post("/logout", { preHandler: requireAuth }, async (req, reply) => {
+    await q(`UPDATE users SET tokens_valid_from = now() WHERE id = $1`, [req.user.sub]);
+    invalidateUserCache(req.user.sub); // иначе отзыв ждал бы до 30 секунд
+    await audit(req.user.sub, "auth.logout", "user", req.user.sub, {});
+    reply.code(204).send();
+  });
 
   /** Режим аутентификации ресурса — клиент по нему показывает/прячет LDAP-поля
    *  и правку глобальной роли в AdminView (LDAP_MIGRATION.md Фаза 4). */

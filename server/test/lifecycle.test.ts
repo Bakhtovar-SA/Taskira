@@ -163,3 +163,31 @@ describe("история задачи", () => {
     expect(res.statusCode).toBe(403);
   });
 });
+
+describe("отзыв токена при выходе (SEC-01)", () => {
+  test("после выхода прежний токен перестаёт работать", async () => {
+    const t = await login(app, "emp1");
+    const url = `/api/projects/${fx.projects.p1}/issues`;
+    expect((await g(url, t)).statusCode).toBe(200);
+
+    expect((await post("/api/auth/logout", t)).statusCode).toBe(204);
+
+    const after = await g(url, t);
+    expect(after.statusCode).toBe(401);
+    expect(JSON.parse(after.body).error.reason).toContain("Сессия завершена");
+  });
+
+  test("повторный вход выдаёт рабочий токен", async () => {
+    const first = await login(app, "emp1");
+    await post("/api/auth/logout", first);
+    const second = await login(app, "emp1");
+    expect((await g(`/api/projects/${fx.projects.p1}/issues`, second)).statusCode).toBe(200);
+  });
+
+  test("выход одного пользователя не трогает сессии других", async () => {
+    const emp = await login(app, "emp1");
+    const adm = await login(app, "admin");
+    await post("/api/auth/logout", emp);
+    expect((await g(`/api/projects/${fx.projects.p1}/issues`, adm)).statusCode).toBe(200);
+  });
+});

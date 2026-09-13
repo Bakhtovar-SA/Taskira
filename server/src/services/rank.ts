@@ -7,7 +7,14 @@
  *  - если соседние ранги сблизились до |a-b| < 1e-9 — колонка перенумеровывается
  *    (1000, 2000, 3000…) и вычисление повторяется.
  *
- * Всё на выделенном клиенте: SELECT → (rebalance) → RETURN rank — без гонок.
+ * Всё внутри ОДНОЙ транзакции на выделенном клиенте, под advisory-локом колонки.
+ *
+ * Раньше здесь было сказано «без гонок», но стоял только withClient(): выделенное
+ * соединение защищает от чередования запросов внутри одной операции и никак —
+ * от второго пользователя (аудит BUG-02). Два одновременных перетаскивания в одну
+ * позицию вычисляли одинаковый средний ранг, и порядок карточек начинал зависеть
+ * от id, то есть «прыгал» при обновлении. Лок берётся на статус-колонку: разные
+ * колонки по-прежнему обрабатываются параллельно.
  */
 import type { PoolClient } from "pg";
 import { withClient } from "../db.js";
@@ -47,6 +54,28 @@ async function listRanks(client: PoolClient, statusId: string, excludeId?: strin
 /** Возвращает rank для вставки в колонку statusId перед beforeId (null = в конец). */
 export async function computeRank(statusId: string, beforeId: string | null, excludeId?: string): Promise<number> {
   return withClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      const rank = await computeInTx(client, statusId, beforeId, excludeId);
+      await client.query("COMMIT");
+      return rank;
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw e;
+    }
+  });
+}
+
+async function computeInTx(
+  client: PoolClient,
+  statusId: string,
+  beforeId: string | null,
+  excludeId?: string,
+): Promise<number> {
+  {
+    // Лок на время транзакции, ключ — статус-колонка. Второй параллельный расчёт
+    // по той же колонке ждёт здесь и увидит уже записанные соседями ранги.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [statusId]);
     const pick = (rows: RankRow[]): number => {
       if (!beforeId) {
         const last = rows[rows.length - 1];
@@ -87,5 +116,5 @@ export async function computeRank(statusId: string, beforeId: string | null, exc
       rank = pick(rows);
     }
     return rank;
-  });
+  }
 }

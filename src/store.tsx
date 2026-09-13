@@ -736,6 +736,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    // Сначала сообщаем серверу — он пометит выданные токены недействительными.
+    // Ответа не ждём: локальный выход должен произойти в любом случае, даже
+    // если сеть отвалилась. Ошибку глушим — токен всё равно уже стёрт.
+    void authApi.logout().catch(() => undefined);
     clearToken();
     setData(emptyData());
     setSolo(null);

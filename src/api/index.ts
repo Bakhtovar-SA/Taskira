@@ -342,6 +342,10 @@ export type ProjectBootstrap = {
 const P = (projectId: string) => `/api/projects/${projectId}`;
 
 export const authApi = {
+  /** Завершить сессию на сервере: все ранее выданные токены становятся
+   *  недействительными. Без этого «Выйти» стирало токен только в браузере,
+   *  а сам JWT продолжал работать до истечения срока. */
+  logout: () => api<void>("/api/auth/logout", { method: "POST" }),
   login: (username: string, password: string) =>
     api<{ token: string; user: SafeUser }>("/api/auth/login", {
       method: "POST",
