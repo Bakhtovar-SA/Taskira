@@ -113,4 +113,22 @@ describe("WS /api/ws", () => {
     expect(received).toEqual([]);
     ws.close();
   });
+
+  test("логаут закрывает открытый сокет — не ждёт закрытия вкладки человеком", async () => {
+    const token = await login(app, "emp1");
+    const ws = await app.injectWS("/api/ws");
+    ws.send(JSON.stringify({ type: "auth", token }));
+    await new Promise((r) => setTimeout(r, 100)); // дождаться регистрации в wsHub
+    expect(ws.readyState).toBe(ws.OPEN);
+
+    const closed = waitClosed(ws);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/logout",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(204);
+
+    await closed; // invalidateUserCache() → closeUserSockets(), без этого сокет остался бы жить
+  });
 });

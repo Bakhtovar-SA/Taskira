@@ -188,6 +188,15 @@ list/card renders — the linear scans were quadratic across a board.
   `pushToUser(id, {type:"notify"})` for every recipient right after the `INSERT INTO
   notifications` — no notification payload over the socket, just a "go refetch" signal,
   so the client reuses the already-authorized REST path instead of a second serialization.
+  Two things worth knowing before touching this: (1) the handshake checks `socket.readyState
+  === socket.OPEN` right after the `assertFreshUser` DB round-trip, before registering —
+  without it, a slow DB call racing the 5s auth timeout registers an already-closed socket
+  that `unregisterSocket()` (fired from `close`) never runs for again, leaking the map entry
+  forever; (2) `invalidateUserCache()` (middleware.ts) also calls `closeUserSockets()` —
+  `assertFreshUser` only runs once at handshake, so without this a logged-out or
+  admin-deactivated user with an open tab would keep getting pushes until they closed it
+  themselves, which would have quietly broken the invariant migration 017 built (`POST
+  /api/auth/logout` is supposed to end the session everywhere, not just on new requests).
 
 ### Data model notes
 
@@ -261,7 +270,12 @@ since any edit touches it. The board shows the last 14 days in its done column
   the root `Dockerfile`) — changing it after the image is built means rebuilding, not just
   restarting. Not built/run locally (no Docker on this dev machine) — verified by re-reading
   the Dockerfiles/compose against the actual `package.json` scripts and `src/index.ts` boot
-  sequence, not by executing them.
+  sequence, not by executing them. `docker-compose.yml`'s `DATABASE_URL` interpolates
+  `POSTGRES_PASSWORD` into a `postgresql://user:pass@host/db` string with no URL-encoding —
+  a password containing `@ / : # %` (plausible from `openssl rand -base64`) mis-parses the
+  connection string with no obvious error pointing at the cause. `.env.example` recommends
+  `openssl rand -hex 24` (URL-safe alphabet) specifically for this variable — don't "fix" a
+  broken deploy by switching it back to `-base64`.
 - User switching is real login/logout only. The old `switchUser` / `resetDemo` client stubs
   and the "Войти как" role-preview UI were removed (dept branch) — they only re-skinned the
   UI locally and never changed which JWT the API saw.

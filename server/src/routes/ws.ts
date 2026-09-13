@@ -43,6 +43,11 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
         try {
           const payload = app.jwt.verify<JwtPayload>(auth.token);
           await assertFreshUser(payload.sub, payload.iatMs);
+          // assertFreshUser — поход в БД; пока ждали, authTimer мог уже закрыть
+          // сокет по таймауту. Регистрировать закрытый сокет — оставить его
+          // висеть в byUser навсегда: 'close' по нему уже отгремел, второй раз
+          // не придёт, и unregisterSocket() для этой записи не вызовется никогда.
+          if (socket.readyState !== socket.OPEN) return;
           userId = payload.sub;
           clearTimeout(authTimer);
           registerSocket(userId, socket);

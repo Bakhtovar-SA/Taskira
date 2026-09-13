@@ -9,6 +9,7 @@ import { one } from "./db.js";
 import { ApiHttpError } from "./errors.js";
 import { projectById, type ProjectRow } from "./services/project.js";
 import { isIssueCollaborator } from "./services/collaborators.js";
+import { closeUserSockets } from "./services/wsHub.js";
 import {
   resolveRole,
   roleCan,
@@ -116,9 +117,14 @@ const freshUsers = new Map<
   { globalRole: GlobalRole; active: boolean; tokensValidFrom: number | null; at: number }
 >();
 
-/** Сбрасывает кэш пользователя — вызывать при смене global_role/активности админом. */
+/** Сбрасывает кэш пользователя — вызывать при смене global_role/активности админом,
+ *  логауте или отзыве токена. Заодно рвёт открытые WS-соединения (Этап 3c) —
+ *  assertFreshUser сверяет активность/отзыв один раз, на хендшейке, поэтому без
+ *  этого разлогиненный или деактивированный пользователь с открытой вкладкой
+ *  продолжал бы получать push до её закрытия. */
 export function invalidateUserCache(userId: string): void {
   freshUsers.delete(userId);
+  closeUserSockets(userId, "session invalidated");
 }
 
 /**

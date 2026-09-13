@@ -37,6 +37,11 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # Собрано подстановкой без URL-экранирования: если POSTGRES_PASSWORD
+      # содержит @ / : # % — строка подключения разберётся неверно, и server
+      # не подключится к postgres при первом же старте без явной причины в
+      # логе. .env.example рекомендует генератор с безопасным алфавитом —
+      # держитесь его, а не openssl rand -base64 (даёт +/=).
       DATABASE_URL: postgresql://${POSTGRES_USER:-taskira}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-taskira}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET не задан (нужно ≥32 символа) — см. .env.example}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}

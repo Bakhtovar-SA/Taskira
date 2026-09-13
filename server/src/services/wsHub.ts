@@ -34,6 +34,23 @@ export function pushToUser(userId: string, message: WsMessage): void {
   }
 }
 
+/**
+ * Закрыть все открытые сокеты пользователя — вызывать при отзыве сессии
+ * (logout, деактивация, смена роли), т.е. из invalidateUserCache()
+ * (middleware.ts). assertFreshUser сверяет активность/отзыв только один раз,
+ * на хендшейке (routes/ws.ts) — без этого разлогиненный или деактивированный
+ * пользователь с открытой вкладкой продолжал бы получать push до закрытия
+ * вкладки самим человеком. Запись из byUser удалять здесь не нужно — 'close'
+ * долетит до routes/ws.ts и unregisterSocket() отработает штатно.
+ */
+export function closeUserSockets(userId: string, reason: string): void {
+  const set = byUser.get(userId);
+  if (!set) return;
+  for (const socket of set) {
+    if (socket.readyState === socket.OPEN) socket.close(1008, reason);
+  }
+}
+
 /** Только для тестов — не течёт между тестами, если кто-то забыл закрыть сокет. */
 export function _resetWsHub(): void {
   byUser.clear();

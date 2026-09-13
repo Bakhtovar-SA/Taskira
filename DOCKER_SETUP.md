@@ -29,8 +29,10 @@
 
 ```bash
 cp .env.example .env
-# заполнить POSTGRES_PASSWORD, JWT_SECRET (≥32 симв., напр. openssl rand -base64 32),
-# ADMIN_PASSWORD — без них server не поднимется (fail-fast, как и в server/.env.example)
+# заполнить POSTGRES_PASSWORD (openssl rand -hex 24 — НЕ -base64: тот даёт +/=,
+# а пароль подставляется в DATABASE_URL без URL-экранирования, см. .env.example),
+# JWT_SECRET (≥32 симв., напр. openssl rand -base64 32), ADMIN_PASSWORD —
+# без них server не поднимется (fail-fast, как и в server/.env.example)
 docker compose up -d --build
 ```
 
