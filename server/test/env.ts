@@ -23,6 +23,8 @@ if (!/taskira_test/.test(TEST_DB_URL)) {
 process.env.DATABASE_URL = TEST_DB_URL;
 process.env.JWT_SECRET = TEST_JWT_SECRET;
 process.env.NODE_ENV = "test";
+// Лимиты запросов выключаются ЯВНО (боевой код больше не смотрит на NODE_ENV сам).
+process.env.RATE_LIMIT_ENABLED = "false";
 
 // Вложения (миграция 010): драйвер local во временный каталог, чтобы прогон
 // тестов не писал в server/var/. global-setup.ts чистит его перед прогоном.

@@ -24,6 +24,7 @@ import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
 import { invalidateProjectCache } from "../services/project.js";
 import { listVisibleProjects, projectRowToDto, type ProjectDto } from "../services/projects.js";
+import { storageKeysForProject, deleteStorageObjects } from "../services/attachments.js";
 import { ProjectCreateBody, ProjectParams, ProjectPatchBody } from "../contract.js";
 import type { ProjectRole } from "../permissions.js";
 
@@ -157,8 +158,13 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       const { projectId } = req.params as z.infer<typeof ProjectParams>;
       const proj = await one<{ key: string }>(`SELECT key FROM projects WHERE id = $1`, [projectId]);
       if (!proj) throw notFound("Проект не найден");
+      // Ключи вложений собираем ДО удаления — ровно как в DELETE /issues/:id.
+      // Каскад FK снесёт строки attachments, но не файлы в хранилище, и после
+      // удаления проекта найти их будет уже нечем (аудит BUG-01).
+      const attachKeys = await storageKeysForProject(projectId);
       // Каскады по FK: issues / project_members / workflow_* / project_counters.
       await q(`DELETE FROM projects WHERE id = $1`, [projectId]);
+      await deleteStorageObjects(attachKeys); // best-effort уборка хранилища
       invalidateProjectCache(projectId);
       await audit(actor.sub, "project.delete", "project", projectId, { key: proj.key });
       reply.code(204).send();

@@ -1,6 +1,8 @@
 /** Сборка Fastify: плагины, обработчики ошибок, маршруты. */
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import jwt from "@fastify/jwt";
 import websocket from "@fastify/websocket";
 import multipart from "@fastify/multipart";
@@ -20,6 +22,7 @@ import { workflowRoutes } from "./routes/workflow.js";
 import { userRoutes } from "./routes/users.js";
 import { ldapRoutes } from "./routes/ldap.js";
 import { notificationRoutes } from "./routes/notifications.js";
+import { reportRoutes } from "./routes/reports.js";
 import { q } from "./db.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
@@ -33,6 +36,42 @@ export function buildApp(): FastifyInstance {
     // по IP и IP в audit-логе. Значение из TRUST_PROXY (см. .env.example).
     trustProxy: cfg.trustProxy,
   });
+
+  // Security-заголовки (аудит SEC-02). API отдаёт только JSON и файлы вложений,
+  // поэтому CSP здесь предельно узкая: ничего загружать со страницы API нельзя.
+  // Заголовки для самого клиента (SPA) выставляет отдающий его nginx.
+  app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"], // кликджекинг: API нельзя встроить в чужую страницу
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: "same-site" },
+    // HSTS имеет смысл только поверх HTTPS; за nginx его обычно ставит он сам.
+    hsts: { maxAge: 15_552_000, includeSubDomains: true },
+    referrerPolicy: { policy: "no-referrer" },
+  });
+
+  // Глобальный лимит запросов (аудит SEC-03): раньше он был только на логине,
+  // и один аутентифицированный пользователь мог безнаказанно долбить любую ручку.
+  // Ключ — id пользователя (а не IP): за корпоративным NAT у всех один адрес.
+  if (cfg.rateLimit.enabled) {
+    app.register(rateLimit, {
+      global: true,
+      max: cfg.rateLimit.max,
+      timeWindow: cfg.rateLimit.windowMs,
+      keyGenerator: (req) => {
+        const sub = (req.user as { sub?: string } | undefined)?.sub;
+        return sub ?? req.ip;
+      },
+      errorResponseBuilder: () => ({
+        error: { code: "RATE_LIMITED", reason: "Слишком много запросов — подождите немного" },
+      }),
+    });
+  }
 
   app.register(cors, {
     origin: cfg.corsOrigin === "*" ? true : cfg.corsOrigin,
@@ -90,6 +129,7 @@ export function buildApp(): FastifyInstance {
       await api.register(userRoutes); // /users, /admin/users (global admin) + /users/pickable
       await api.register(ldapRoutes, { prefix: "/ldap" }); // /ldap/ping (global admin)
       await api.register(notificationRoutes); // /notifications* (project-less, requireAuth)
+      await api.register(reportRoutes); // /reports/* (project-less, scope = видимые проекты)
       await api.register(collaboratingRoutes); // /issues/collaborating (project-less)
       await api.register(homeRoutes); // /issues/assigned-to-me (project-less, главный экран)
       await api.register(departmentRoutes, { prefix: "/departments" });

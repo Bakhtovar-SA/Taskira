@@ -20,6 +20,11 @@ interface Row {
   project_name: string;
 }
 
+/** Потолок выдачи (аудит PERF-04): раньше ручка отдавала всё без ограничения,
+ *  и у руководителя с сотнями назначенных задач главный экран тяжелел заметно.
+ *  Берём на одну больше, чтобы честно сказать клиенту, что список урезан. */
+const HOME_LIMIT = 100;
+
 export async function homeRoutes(app: FastifyInstance): Promise<void> {
   app.get("/issues/assigned-to-me", { preHandler: requireAuth }, async (req) => {
     const user: JwtPayload = req.user;
@@ -47,11 +52,16 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
                            WHERE dm.department_id = p.department_id AND dm.user_id = $1)
                OR p.is_shared)
         ORDER BY array_position(ARRAY['critical','high','medium','low']::text[], i.priority_id),
-                 i.updated_at DESC`,
-      [user.sub, isGlobalAdmin],
+                 i.updated_at DESC
+        LIMIT $3`,
+      [user.sub, isGlobalAdmin, HOME_LIMIT + 1],
     );
 
-    return rows.map((r) => ({
+    // Форма ответа — объект, а не голый массив: клиент должен ЗНАТЬ, что список
+    // урезан, и сказать об этом человеку. Молчаливое усечение — тот самый баг,
+    // который не выглядит как баг.
+    const truncated = rows.length > HOME_LIMIT;
+    const items = (truncated ? rows.slice(0, HOME_LIMIT) : rows).map((r) => ({
       issueId: r.issue_id,
       projectId: r.project_id,
       key: r.key,
@@ -65,5 +75,6 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
       projectKey: r.project_key,
       projectName: r.project_name,
     }));
+    return { items, truncated, limit: HOME_LIMIT };
   });
 }

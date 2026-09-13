@@ -17,17 +17,30 @@ import { syncDepartmentMembership } from "../services/departmentSync.js";
 
 /* -------- простой in-memory rate limit: 10 попыток входа с IP за 5 минут (fix 3a).
    Счётчик сбрасывается перезапуском процесса — для внутренней сети достаточно. -------- */
-const RL_WINDOW_MS = 5 * 60_000;
-const RL_MAX_ATTEMPTS = 10;
 const attemptsByIp = new Map<string, number[]>();
+let lastSweep = 0;
+
+/** Периодическая уборка Map: раньше ключи-IP не удалялись никогда и таблица
+ *  росла без ограничений (аудит SEC-06). Подметаем не чаще раза в минуту. */
+function sweep(now: number, windowMs: number): void {
+  if (now - lastSweep < 60_000) return;
+  lastSweep = now;
+  for (const [ip, times] of attemptsByIp) {
+    const live = times.filter((t) => now - t < windowMs);
+    if (live.length === 0) attemptsByIp.delete(ip);
+    else attemptsByIp.set(ip, live);
+  }
+}
 
 function rateLimited(ip: string): boolean {
-  // В тестах логинов много (по фикстуре на каждый it) и все с одного ip —
-  // общий бюджет в 10 попыток исчерпался бы к середине прогона.
-  if (process.env.NODE_ENV === "test") return false;
+  // Флаг берётся из конфига, а не из NODE_ENV: раньше боевой код сам проверял
+  // окружение, и кривой NODE_ENV отключал защиту в проде (аудит DEBT-03).
+  const rl = loadConfig().rateLimit;
+  if (!rl.enabled) return false;
   const now = Date.now();
-  const recent = (attemptsByIp.get(ip) ?? []).filter((t) => now - t < RL_WINDOW_MS);
-  if (recent.length >= RL_MAX_ATTEMPTS) {
+  sweep(now, rl.loginWindowMs);
+  const recent = (attemptsByIp.get(ip) ?? []).filter((t) => now - t < rl.loginWindowMs);
+  if (recent.length >= rl.loginMax) {
     attemptsByIp.set(ip, recent);
     return true;
   }
@@ -53,7 +66,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       const ip = req.ip;
       if (rateLimited(ip)) {
         await audit(null, "auth.login.rate_limited", "auth", null, { ip });
-        throw new ApiHttpError(429, "RATE_LIMITED", "Слишком много попыток входа — подождите 5 минут");
+        throw new ApiHttpError(429, "RATE_LIMITED", "Слишком много попыток входа — подождите несколько минут");
       }
 
       const { username, password } = req.body as ReturnType<typeof LoginBody.parse>;

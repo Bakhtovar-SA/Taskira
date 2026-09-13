@@ -34,16 +34,28 @@ const toRow = (r: ProjectDbRow): ProjectRow => ({
   isShared: r.is_shared,
 });
 
-/* Кэш по id — проекты меняются редко (создание/правка админом → invalidate). */
-const cache = new Map<string, ProjectRow>();
+/* Кэш по id — проекты меняются редко (создание/правка админом → invalidate).
+ *
+ * TTL обязателен, хотя invalidate есть (аудит BLOCK-03): invalidate чистит Map
+ * ТОЛЬКО в том процессе, который обработал запись. При нескольких инстансах за
+ * балансировщиком остальные о правке не узнают, а в строке лежит is_shared —
+ * граница доступа: по нему effectiveRole() выдаёт неявного viewer. Без TTL
+ * снятая галка «общий проект» не доезжала бы до других инстансов до перезапуска,
+ * то есть посторонние продолжали бы попадать в проект. TTL тот же, что у кэшей
+ * ролей и членства в middleware.ts, — рассинхрон ограничен 30 секундами. */
+const CACHE_TTL_MS = 30_000;
+const cache = new Map<string, { row: ProjectRow; at: number }>();
 
 export async function projectById(id: string): Promise<ProjectRow | null> {
   const hit = cache.get(id);
-  if (hit) return hit;
+  if (hit && Date.now() - hit.at <= CACHE_TTL_MS) return hit.row;
   const row = await one<ProjectDbRow>(`SELECT ${SELECT_COLS} FROM projects WHERE id = $1`, [id]);
-  if (!row) return null;
+  if (!row) {
+    cache.delete(id);
+    return null;
+  }
   const p = toRow(row);
-  cache.set(id, p);
+  cache.set(id, { row: p, at: Date.now() });
   return p;
 }
 

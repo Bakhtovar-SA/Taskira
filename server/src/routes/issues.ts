@@ -18,7 +18,7 @@ import {
 import { audit } from "../audit.js";
 import { assertTransition, statusCategory, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
-import { getIssueDto, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
+import { getIssueDto, listActivity, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
 import { insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
 import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
@@ -184,6 +184,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     const project = req.project!;
     const { id } = req.params as { id: string };
     return getIssueDto(project.id, id);
+  });
+
+  /* ---------------------------------------------------------- история задачи
+     Та же видимость, что у самой задачи (включая приглашённого). */
+  app.get("/:id/activity", { preHandler: requireIssuePerm("browse") }, async (req) => {
+    return listActivity(req.issueRef!.id);
   });
 
   /* ---------------------------------------------------------- правка полей */
