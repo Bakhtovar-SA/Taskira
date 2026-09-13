@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { relTime, useStore } from "../store";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
-import { ISSUE_TYPES, PRIORITIES } from "../types";
 import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, catColor } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
+import { useT } from "../i18n";
 
 const PROJECT_KEY = "taskira.project";
 const readLastProject = (): string => {
@@ -17,15 +17,6 @@ const readLastProject = (): string => {
 
 const today = () => new Date().toISOString().slice(0, 10);
 const isOverdue = (i: AssignedIssue) => !!i.dueDate && i.statusCategory !== "done" && i.dueDate < today();
-
-const plural = (n: number, forms: [string, string, string]) => {
-  const a = Math.abs(n) % 100;
-  const b = a % 10;
-  if (a > 10 && a < 20) return forms[2];
-  if (b > 1 && b < 5) return forms[1];
-  if (b === 1) return forms[0];
-  return forms[2];
-};
 
 function StatCard({ num, label, tone }: { num: number; label: string; tone?: "accent" | "danger" }) {
   return (
@@ -42,6 +33,7 @@ function StatCard({ num, label, tone }: { num: number; label: string; tone?: "ac
 }
 
 function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }) {
+  const { t } = useT();
   const c = catColor(issue.statusCategory as "todo" | "inprogress" | "done");
   const overdue = isOverdue(issue);
   return (
@@ -49,7 +41,7 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
       onClick={onOpen}
       className="group flex w-full items-center gap-2.5 border-b border-linesoft bg-panel px-3.5 py-2.5 text-left transition-colors last:border-0 hover:bg-accentsoft/50"
     >
-      <span className="shrink-0" title={ISSUE_TYPES[issue.typeId]?.name}>
+      <span className="shrink-0" title={t(`issueType.${issue.typeId}`)}>
         <TypeIcon type={issue.typeId} size={14} />
       </span>
       <span className="w-14 shrink-0 font-mono text-[10.5px] font-semibold text-faint">{issue.key}</span>
@@ -64,7 +56,7 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
       >
         {issue.statusName}
       </span>
-      <span className="shrink-0" title={PRIORITIES[issue.priorityId]?.name}>
+      <span className="shrink-0" title={t(`priority.${issue.priorityId}`)}>
         <PriorityIcon p={issue.priorityId} size={13} />
       </span>
     </button>
@@ -72,6 +64,7 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
 }
 
 export default function HomeView({ onLogout }: { onLogout: () => void }) {
+  const { t, tn } = useT();
   const { data, enterProject, setCreateOpen } = useStore();
   const me = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
   const last = readLastProject();
@@ -109,7 +102,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
       arr.push(p);
       byDept.set(p.departmentId, arr);
     }
-    const deptName = (id: string) => data.departments.find((d) => d.id === id)?.name ?? "Без отдела";
+    const deptName = (id: string) => data.departments.find((d) => d.id === id)?.name ?? t("home.noDepartment");
     return [...byDept.entries()]
       .map(([deptId, projects]) => ({
         deptId,
@@ -117,7 +110,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
         projects: [...projects].sort((a, b) => (a.id === last ? -1 : b.id === last ? 1 : a.name.localeCompare(b.name))),
       }))
       .sort((a, b) => a.deptName.localeCompare(b.deptName));
-  }, [data.projects, data.departments, last]);
+  }, [data.projects, data.departments, last, t]);
 
   // Принимаем только то, что реально нужно навигации — и TaskRow (полный
   // AssignedIssue), и «Недавняя активность» (у уведомления лишь project/issue id)
@@ -145,7 +138,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Поиск задач и проектов…"
+            placeholder={t("home.searchPlaceholder")}
             className="min-w-0 flex-1 bg-transparent text-[12.5px] outline-none placeholder:text-faint"
           />
         </label>
@@ -183,7 +176,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                       close();
                     }}
                   >
-                    Выйти
+                    {t("topbar.logout")}
                   </MenuItem>
                 </>
               )}
@@ -195,15 +188,15 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
       {/* тело */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[1160px] min-[1536px]:max-w-[1440px] min-[1920px]:max-w-[1760px] px-7 py-7">
-          <h1 className="font-disp text-[20px] font-bold tracking-tight text-ink">Здравствуйте, {me?.name?.split(" ")[0] ?? ""}</h1>
-          <p className="mt-0.5 text-[12.5px] text-faint">Вот что у вас в работе прямо сейчас.</p>
+          <h1 className="font-disp text-[20px] font-bold tracking-tight text-ink">{t("home.greeting", { name: me?.name?.split(" ")[0] ?? "" })}</h1>
+          <p className="mt-0.5 text-[12.5px] text-faint">{t("home.subtitle")}</p>
 
           {/* плашки-счётчики */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard num={data.assignedToMe.length} label="Мои задачи" tone="accent" />
-            <StatCard num={overdueCount} label="Просрочено" tone="danger" />
-            <StatCard num={data.projects.length} label={plural(data.projects.length, ["Проект", "Проекта", "Проектов"])} />
-            <StatCard num={data.departments.length} label={plural(data.departments.length, ["Отдел", "Отдела", "Отделов"])} />
+            <StatCard num={data.assignedToMe.length} label={t("home.myTasks")} tone="accent" />
+            <StatCard num={overdueCount} label={t("home.overdue")} tone="danger" />
+            <StatCard num={data.projects.length} label={tn(data.projects.length, "noun.project.one", "noun.project.few", "noun.project.many")} />
+            <StatCard num={data.departments.length} label={tn(data.departments.length, "noun.department.one", "noun.department.few", "noun.department.many")} />
           </div>
 
           {/* две колонки */}
@@ -211,34 +204,34 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
             {/* Мои задачи */}
             <section>
               <div className="mb-2 flex items-baseline gap-2">
-                <h2 className="text-[13px] font-bold text-ink">Мои задачи</h2>
+                <h2 className="text-[13px] font-bold text-ink">{t("home.myTasks")}</h2>
                 <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10px] font-bold text-sub">{tasks.length}</span>
               </div>
               {tasks.length > 0 ? (
                 <div className="overflow-hidden rounded-xl border border-line bg-panel">
-                  {tasks.map((t) => (
-                    <TaskRow key={t.issueId} issue={t} onOpen={() => openTask(t)} />
+                  {tasks.map((item) => (
+                    <TaskRow key={item.issueId} issue={item} onOpen={() => openTask(item)} />
                   ))}
                   {/* Сервер ограничивает выдачу — говорим об этом прямо, а не
                       показываем часть списка как будто это всё. */}
                   {data.assignedTruncated && (
                     <p className="border-t border-line bg-warnsoft/40 px-3 py-2 text-[11.5px] font-medium text-warn">
-                      Показаны первые {data.assignedToMe.length} задач. Остальные — в списке задач проекта.
+                      {t("home.assignedTruncated", { n: data.assignedToMe.length })}
                     </p>
                   )}
                 </div>
               ) : (
                 <Empty
                   icon={<IcInbox size={22} />}
-                  title={q ? "Ничего не найдено" : "Открытых задач на вас нет"}
-                  sub={q ? "Измените запрос" : "Задачи, где вы исполнитель, появятся здесь"}
+                  title={q ? t("home.searchEmptyTitle") : t("home.noAssignedTitle")}
+                  sub={q ? t("home.searchEmptySub") : t("home.noAssignedSub")}
                   action={
                     !q && createTarget ? (
                       <button
                         onClick={startCreate}
                         className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-accentdeep"
                       >
-                        <IcPlus size={13} /> Создать задачу
+                        <IcPlus size={13} /> {t("home.createIssue")}
                       </button>
                     ) : undefined
                   }
@@ -249,7 +242,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
             {/* правая колонка: проекты + недавняя активность */}
             <div className="space-y-6">
             <section>
-              <h2 className="mb-2 text-[13px] font-bold text-ink">Проекты</h2>
+              <h2 className="mb-2 text-[13px] font-bold text-ink">{t("home.projects")}</h2>
               <div className="space-y-4">
                 {groups.map((g) => (
                   <div key={g.deptId}>
@@ -269,8 +262,8 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-[12.5px] font-semibold text-ink">{p.name}</span>
                               <span className="block text-[10.5px] text-faint">
-                                {p.id === last ? "продолжить" : p.isShared ? "общий проект" : "проект команды"}
-                                {n > 0 && ` · ${n} ${plural(n, ["задача", "задачи", "задач"])}`}
+                                {p.id === last ? t("home.continueProject") : p.isShared ? t("home.sharedProject") : t("home.teamProject")}
+                                {n > 0 && ` · ${n} ${tn(n, "noun.issue.one", "noun.issue.few", "noun.issue.many")}`}
                               </span>
                             </span>
                             <IcChevR size={13} className="shrink-0 text-line2 group-hover:text-accent" />
@@ -300,15 +293,16 @@ function RecentActivity({
   notifications: NotificationT[];
   onOpen: (t: Pick<AssignedIssue, "projectId" | "issueId">) => void;
 }) {
+  const { t } = useT();
   const items = notifications.slice(0, 5);
   return (
     <section>
       <h2 className="mb-2 flex items-center gap-1.5 text-[13px] font-bold text-ink">
-        <IcBell size={13} className="text-faint" /> Недавняя активность
+        <IcBell size={13} className="text-faint" /> {t("home.recentActivity")}
       </h2>
       {items.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line2 px-3 py-6 text-center text-[11.5px] text-faint">
-          Пока нет событий — уведомления о задачах появятся здесь
+          {t("home.noActivity")}
         </p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-panel">
@@ -325,8 +319,8 @@ function RecentActivity({
                   <Avatar user={n.actor} size={22} />
                 </span>
                 <span className="min-w-0 flex-1 text-[12px] leading-snug text-ink">
-                  <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? "Кто-то"}</b>{" "}
-                  {NOTIF_VERB[n.type]}{" "}
+                  <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b>{" "}
+                  {t(NOTIF_VERB[n.type])}{" "}
                   {n.payload.key && (
                     <span className="font-mono text-[11px] font-semibold text-accent">{n.payload.key}</span>
                   )}

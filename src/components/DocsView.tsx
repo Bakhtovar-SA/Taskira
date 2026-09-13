@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { DEFAULT_WORKFLOW } from "../seed";
 import { ACCESS_ROLES, PERMISSIONS, ROLE_ORDER, roleHas, roleMeta } from "../permissions";
-import { ISSUE_TYPES, PRIORITIES, PRIORITY_ORDER, TYPE_ORDER } from "../types";
+import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcBook, PriorityIcon, TypeIcon } from "../icons";
 import { Kbd, RoleBadge, catColor } from "../ui";
+import { useT } from "../i18n";
 
 const SECTIONS = [
   { id: "overview", label: "Обзор системы" },
@@ -25,6 +26,7 @@ const Code = ({ children }: { children: React.ReactNode }) => (
 );
 
 export default function DocsView() {
+  const { t } = useT();
   const [active, setActive] = useState("overview");
   const go = (id: string) => {
     setActive(id);
@@ -162,11 +164,11 @@ export default function DocsView() {
             <section id="doc-issues" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "80ms" }}>
               <H>4 · Типы задач и приоритеты</H>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {TYPE_ORDER.map((t) => (
-                  <div key={t} className="flex items-center gap-2.5 rounded-lg border border-linesoft bg-canvas/50 px-3 py-2">
-                    <TypeIcon type={t} size={16} />
-                    <span className="text-[13px] font-semibold text-ink">{ISSUE_TYPES[t].name}</span>
-                    <span className="ml-auto font-mono text-[10px] text-faint">{t}</span>
+                {TYPE_ORDER.map((ty) => (
+                  <div key={ty} className="flex items-center gap-2.5 rounded-lg border border-linesoft bg-canvas/50 px-3 py-2">
+                    <TypeIcon type={ty} size={16} />
+                    <span className="text-[13px] font-semibold text-ink">{t(`issueType.${ty}`)}</span>
+                    <span className="ml-auto font-mono text-[10px] text-faint">{ty}</span>
                   </div>
                 ))}
               </div>
@@ -182,7 +184,7 @@ export default function DocsView() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {PRIORITY_ORDER.map((p) => (
                   <span key={p} className="flex items-center gap-2 rounded-lg border border-linesoft bg-canvas/50 px-3 py-1.5 text-[12.5px] font-medium text-ink">
-                    <PriorityIcon p={p} size={14} /> {PRIORITIES[p].name}
+                    <PriorityIcon p={p} size={14} /> {t(`priority.${p}`)}
                   </span>
                 ))}
               </div>

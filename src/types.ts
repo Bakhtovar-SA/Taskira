@@ -261,26 +261,10 @@ export interface AssignedIssue {
   projectName: string;
 }
 
-export const ISSUE_TYPES: Record<IssueTypeId, { name: string }> = {
-  task: { name: "Задача" },
-  bug: { name: "Баг" },
-  request: { name: "Запрос" },
-};
-
-export const PRIORITIES: Record<PriorityId, { name: string }> = {
-  critical: { name: "Критичный" },
-  high: { name: "Высокий" },
-  medium: { name: "Средний" },
-  low: { name: "Низкий" },
-};
-
+// Display names for these three id sets live in src/i18n/ (issueType.*,
+// priority.*, complexity.* keys) — call sites do t(`priority.${id}`) etc.
+// instead of reading a .name field here, so the label follows the current
+// language. These arrays are only the id sets/ordering.
 export const PRIORITY_ORDER: PriorityId[] = ["critical", "high", "medium", "low"];
 export const TYPE_ORDER: IssueTypeId[] = ["task", "bug", "request"];
-
-export const COMPLEXITIES: Record<ComplexityId, { name: string }> = {
-  simple: { name: "Простая" },
-  medium: { name: "Средняя" },
-  hard: { name: "Сложная" },
-};
-
 export const COMPLEXITY_ORDER: ComplexityId[] = ["simple", "medium", "hard"];

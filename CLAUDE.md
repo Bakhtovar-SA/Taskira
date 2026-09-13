@@ -7,7 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Taskira — an internal corporate task tracker (board / task list / timeline / workflow editor)
 with a role-based permission system. Two independent npm packages:
 
-- **root** — React 18 + TypeScript + Vite SPA (`src/`). UI language and all copy is Russian.
+- **root** — React 18 + TypeScript + Vite SPA (`src/`). Was Russian-only; `src/i18n/` (added in
+  the i18n-foundation branch) now covers the app shell and issue-creation/board flows in RU+EN —
+  see the i18n section below for exactly what is and isn't covered yet.
 - **`server/`** — Fastify 5 + PostgreSQL + JWT API (`server/src/`). **The permission system's source of truth.**
 
 The client was originally a localStorage-only app; it now talks to the API exclusively
@@ -128,6 +130,50 @@ it reads `/api/reports/*`, which scope themselves to the user's visible projects
 The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `issues`,
 `statuses`) and a `doneStatusIds` `Set`. Use them instead of `data.users.find(...)` inside
 list/card renders — the linear scans were quadratic across a board.
+
+### Client i18n (RU/EN) — foundation, not full coverage
+
+`src/i18n/` — `ru.ts` (the source-of-truth dictionary, flat `"domain.key"` strings, `as const`),
+`en.ts` (typed `Record<keyof Dict, string>` — TS refuses to compile if a key is missing *or*
+if an extra one is added that `ru.ts` doesn't have, so the two can't silently drift), and
+`index.tsx` (`I18nProvider` + `useT()` → `{ lang, setLang, t, tn }`). `t(key, params?)` does
+`{param}` interpolation; `tn(n, oneKey, fewKey, manyKey)` picks the grammatically correct
+dictionary key for a count (Russian 1/2-4/5+ with the 11-14 exception, English singular/plural)
+— use it instead of a local `plural()` helper (two near-identical copies of one existed in
+Board.tsx and HomeView.tsx before this existed; both are gone now). Language is `localStorage`
+only (`taskira.lang`, default `"ru"`), switched from the same "Оформление" popup as the theme
+picker (`AppearanceSettings` in `ui.tsx`) — no server involvement, same pattern as `theme.ts`.
+
+**What's actually covered**: the app shell (`LoginForm`, `Sidebar`, `Topbar`, `HomeView`,
+`Toasts`, `AppearanceSettings`), the `Board` view, and `CreateIssueModal` — plus the shared
+`issueType.*` / `priority.*` / `complexity.*` labels, which is why those three read from the
+dictionary instead of a `.name` field on `ISSUE_TYPES` / `PRIORITIES` / `COMPLEXITIES` in
+`types.ts` now (those constants keep only `id` + ordering; call sites do
+`t(\`priority.${p}\`)`, which TS checks against the dictionary's key union because
+`PriorityId`/`IssueTypeId`/`ComplexityId` are string-literal unions — a template literal type
+substituting one of those into `t()`'s `TKey` parameter only compiles if the dictionary
+actually declares every resulting key). **What's still Russian-only, deliberately deferred
+rather than half-translated**: the rest of `IssueModal` (only its Priority/Due-date/Complexity
+fields were converted; Status/Assignee/Direction/Labels/Links/Collaborators/Attachments and the
+comments/activity tabs weren't), `Backlog`/`SoloView`/`DocsView` beyond their `ISSUE_TYPES`-type
+filter dropdown or reference tables, `AdminView`, `PermissionsView`, `WorkflowView`,
+`ReportsView`, `CollaboratingView`, `ErrorBoundary`, and every `toast(...)` call in `store.tsx`/
+`App.tsx`. Extend file-by-file the same way rather than assuming the dictionary is exhaustive.
+
+**Server-originated text is a separate, harder problem, not yet started**: `ApiError.message`
+(shown directly in toasts, e.g. login failures, validation rejections) is the server's `reason`
+string, which is Russian regardless of the client's language — the server has no locale
+awareness at all. Localizing that means either giving the server an `Accept-Language`-driven
+reason catalog keyed by `ApiError.code` (the code is already machine-readable; the human
+`reason` isn't), or having the client map `code` → a dictionary key and ignore `reason` for
+known codes, falling back to the raw (Russian) string only for the unmapped remainder. Don't
+add English strings to server route handlers directly — that just swaps which single language
+is hardcoded.
+
+User-authored or admin-configured content is **out of scope for `t()` by design, not an
+oversight**: workflow status names, project/department names, issue titles/descriptions,
+comments, and job-role text all come from the database and stay whatever language the person
+who typed them used — there is no dictionary key for someone's actual data.
 
 ### Server structure
 
