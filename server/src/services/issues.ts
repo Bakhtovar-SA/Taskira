@@ -28,6 +28,10 @@ export interface IssueRow {
   rank: number;
   created_at: Date;
   updated_at: Date;
+  /** Момент перехода в статус категории 'done'; NULL — задача не закрыта (миграция 016). */
+  done_at: Date | null;
+  /** Момент ухода из активного набора проекта; NULL — задача активна (миграция 016). */
+  archived_at: Date | null;
 }
 
 export interface IssueDto {
@@ -52,6 +56,8 @@ export interface IssueDto {
   rank: number;
   createdAt: string;
   updatedAt: string;
+  doneAt: string | null;
+  archivedAt: string | null;
 }
 
 export function mapIssue(row: IssueRow): IssueDto {
@@ -77,6 +83,8 @@ export function mapIssue(row: IssueRow): IssueDto {
     rank: row.rank,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
+    doneAt: row.done_at ? new Date(row.done_at).toISOString() : null,
+    archivedAt: row.archived_at ? new Date(row.archived_at).toISOString() : null,
   };
 }
 

@@ -16,7 +16,7 @@ import {
   type JwtPayload,
 } from "../middleware.js";
 import { audit } from "../audit.js";
-import { assertTransition, statusName } from "../services/workflow.js";
+import { assertTransition, statusCategory, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
 import { getIssueDto, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
 import { insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
@@ -52,7 +52,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const project = req.project!;
       const f = req.query as z.infer<typeof IssueQuery>;
 
+      // Архив (миграция 016) из активного набора исключён по умолчанию: доска и
+      // «Список задач» показывают живые задачи. ?archived=1 — только архивные,
+      // ?archived=all — всё вместе (для отчётов и сквозного поиска).
       const clauses: string[] = ["i.project_id = $1"];
+      if (f.archived === "1") clauses.push("i.archived_at IS NOT NULL");
+      else if (f.archived !== "all") clauses.push("i.archived_at IS NULL");
       const params: unknown[] = [project.id];
       const add = (clause: string, ...vals: unknown[]) => {
         for (const v of vals) {
@@ -137,7 +142,17 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         if (!e) throw notFound("Задача-группа (epicId) не найдена в проекте");
       }
 
-      const rank = await computeRank(statusId, null);
+      // Новая задача встаёт В НАЧАЛО колонки, а не в конец (аудит LIFE-05):
+      // кнопка быстрого создания и поле ввода — вверху колонки, и задача,
+      // упавшая вниз за экран, читается как «не создалась». beforeId = первая
+      // живая задача колонки; её нет — computeRank сам вернёт стартовый ранг.
+      const firstInColumn = await one<{ id: string }>(
+        `SELECT id FROM issues
+          WHERE status_id = $1 AND project_id = $2 AND archived_at IS NULL
+          ORDER BY rank, id LIMIT 1`,
+        [statusId, project.id],
+      );
+      const rank = await computeRank(statusId, firstInColumn?.id ?? null);
       const num = await nextIssueNum(project.id);
       const key = `${project.key}-${num}`;
 
@@ -334,9 +349,24 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
       const rank = await computeRank(body.to, body.beforeId ?? null, iss.id);
       const changed = iss.status_id !== body.to;
+
+      // done_at (миграция 016): ставим при входе в категорию 'done', снимаем при
+      // возврате в работу — переоткрытая и снова закрытая задача получает новую
+      // дату закрытия, а не первую. Внутри самой категории 'done' (перенос между
+      // двумя закрывающими статусами) дату НЕ трогаем — задача не «перезакрылась».
+      const toCategory = await statusCategory(body.to);
+      const wasDone = iss.done_at !== null;
+      const nowDone = toCategory === "done";
+      const doneSql = nowDone ? (wasDone ? "done_at" : "now()") : "NULL";
+      // Из архива задача выходит автоматически, как только снова становится живой.
+      const archivedSql = nowDone ? "archived_at" : "NULL";
+
       const row = (
         await q<IssueRow>(
-          `UPDATE issues SET status_id = $1, rank = $2, updated_at = now() WHERE id = $3 RETURNING *`,
+          `UPDATE issues
+              SET status_id = $1, rank = $2, updated_at = now(),
+                  done_at = ${doneSql}, archived_at = ${archivedSql}
+            WHERE id = $3 RETURNING *`,
           [body.to, rank, iss.id],
         )
       )[0];

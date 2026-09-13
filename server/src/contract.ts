@@ -283,8 +283,34 @@ export const IssueQuery = z.object({
   dueFrom: isoDate().optional(),
   dueTo: isoDate().optional(),
   overdue: z.enum(["1", "true"]).optional(),
+  /** Архив (миграция 016): по умолчанию архивные скрыты; "1" — только архивные,
+   *  "all" — вместе с активными (сквозной поиск и отчёты). */
+  archived: z.enum(["1", "all"]).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
   offset: z.coerce.number().int().min(0).default(0),
+});
+
+/* ---------------- Отчёты (аудит: отчётность по отделам) ---------------- */
+/** Группировка сводки: по проектам, по исполнителям или по типам задач. */
+export const REPORT_GROUPS = ["project", "assignee", "type", "priority"] as const;
+export type ReportGroup = (typeof REPORT_GROUPS)[number];
+
+/** GET /api/reports/summary — агрегаты «что закрыто за период».
+ *  Без projectId — свод по всем видимым пользователю проектам. */
+export const ReportQuery = z.object({
+  from: isoDate("Ожидается дата начала периода в формате ГГГГ-ММ-ДД"),
+  to: isoDate("Ожидается дата конца периода в формате ГГГГ-ММ-ДД"),
+  projectId: uuid.optional(),
+  departmentId: uuid.optional(),
+  groupBy: z.enum(REPORT_GROUPS).default("project"),
+});
+
+/** GET /api/reports/issues.csv — выгрузка построчного среза за период.
+ *  `scope`: closed — закрытые за период (по done_at); created — созданные;
+ *  open — активные на текущий момент (period игнорируется для фильтра). */
+export const ReportExportQuery = ReportQuery.omit({ groupBy: true }).extend({
+  scope: z.enum(["closed", "created", "open"]).default("closed"),
+  limit: z.coerce.number().int().min(1).max(10000).default(5000),
 });
 
 /* ---------------- Ошибки и WebSocket ---------------- */
