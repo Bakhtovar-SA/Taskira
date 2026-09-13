@@ -69,6 +69,8 @@ jobs:
 
       - run: npm run typecheck
 
+      - run: npm test
+
       - run: npm run build
 
   # Отдельный job: LDAP-путь против НАСТОЯЩЕГО OpenLDAP (не мока).

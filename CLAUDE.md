@@ -27,7 +27,8 @@ Client (run from repo root):
 npm install
 npm run dev         # Vite dev server on http://localhost:3000 (strictPort — fails if taken)
 npm run build       # production build to dist/
-npm run typecheck   # tsc --noEmit — the only client-side check
+npm run typecheck   # tsc --noEmit
+npm test            # vitest run — permissions / validation / store helpers
 ```
 
 Server (run from `server/`):
@@ -48,10 +49,12 @@ npm test               # vitest run — access/contract/home/notifications suite
 The server has a **vitest** suite (`server/test/`, `npm test`); it needs a local PostgreSQL
 (`vitest.config.ts` / `test/global-setup.ts` spin up a scratch DB). LDAP / S3 / mail suites are
 `describe.skip` unless their env vars are set (CI sets them via docker-compose — see
-`.github/workflows/test.yml`). The **client has no test runner**; verification there is
-`npm run typecheck` + `npm run build`. One cross-package check does exist:
-`server/test/permissions-sync.test.ts` reads `src/permissions.ts` and `src/validation.ts` from
-disk and fails if the duplicated `MATRIX` or `LIMITS` drift from the server copies. **No linter** in either package. A local PostgreSQL
+`.github/workflows/test.yml`). The client now has **vitest** too (root `npm test`, `vitest.config.ts`, jsdom + Testing Library
+available): `src/*.test.ts` covers the pure logic — permissions, validation, store helpers.
+Full client verification is `npm run typecheck` + `npm test` + `npm run build`, and CI runs all
+three. A cross-package check also exists: `server/test/permissions-sync.test.ts` reads
+`src/permissions.ts` and `src/validation.ts` from disk and fails if the duplicated `MATRIX` or
+`LIMITS` drift from the server copies. **No linter** in either package. A local PostgreSQL
 reachable via `DATABASE_URL` is required to run the server at all (`initPool` → `migrate`
 happen before `listen`).
 

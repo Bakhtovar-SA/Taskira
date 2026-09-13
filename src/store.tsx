@@ -81,7 +81,7 @@ export const fmtDate = (iso: string) =>
  *  непрочитанных в этом случае считаем как prev.unreadCount целиком, а не по
  *  (неполному) списку в памяти. С `ids` — считаем реально непрочитанные среди
  *  них, устойчиво к вызову с уже прочитанными id (review PR #19, PR #30). */
-const applyNotificationAction = (prev: Data, ids: string[] | undefined, mode: "read" | "dismiss"): Data => {
+export const applyNotificationAction = (prev: Data, ids: string[] | undefined, mode: "read" | "dismiss"): Data => {
   const set = ids && ids.length ? new Set(ids) : null;
   let cleared = 0;
   const notifications = prev.notifications.reduce<NotificationT[]>((acc, n) => {
