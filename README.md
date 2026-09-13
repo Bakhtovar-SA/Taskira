@@ -32,7 +32,7 @@ cd server
 npm install
 cp .env.example .env      # заполнить DATABASE_URL, JWT_SECRET (≥32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
 npm run dev               # tsx watch → миграции → seed админа и проекта → :8080
-npm test                  # vitest — интеграционные тесты прав/контракта (~90)
+npm test                  # vitest — интеграционные тесты прав/контракта (~140, часть — только с LDAP/S3/mail env)
 ```
 
 Нужен доступный локально PostgreSQL (`DATABASE_URL`): миграции и seed выполняются
@@ -160,15 +160,15 @@ JWT re-валидируется на сервере: `requireAuth` каждые 
 - **Project** `{key, name, description, departmentId, isShared}` — под отделом.
 - **Department** `{id, name, ldapGroupDn}` — соответствует группе LDAP/AD.
 - **User** `{id, name, jobRole, globalRole: admin | member}` + `ProjectMember {projectId, userId, role: manager | employee | viewer}`.
-- **Issue** `{key: "CORP-N", typeId: task | bug | request, statusId, priorityId: low | medium | high | critical, assigneeId, reporterId, epicId, dueDate, doneAt, archivedAt, labels[], links[], comments[], activity[]}`.
+- **Issue** `{key: "CORP-N", typeId: task | bug | request, statusId, priorityId: low | medium | high | critical, complexity: simple | medium | hard | null, assigneeId, reporterId, epicId, dueDate, doneAt, archivedAt, labels[], links[], comments[], activity[]}`.
 - **IssueLink** `{issueId, linkedIssueId, type: relates | blocks}`.
 - **Направление** — не отдельная сущность: обычная задача, на которую ссылаются
   другие через `epicId`; несёт `color`, `tStart`/`tSpan` для таймлайна.
 - **Workflow** `{statuses: [{id, sid, name, category}], transitions: [{from, to}]}`.
 
 Типы `story`/`epic` слиты в `task` (миграция 002); приоритетов было 5, стало 4
-(миграция 013); спринты удалены целиком (миграция 012). Поле `points` осталось в
-схеме, но из карточки убрано.
+(миграция 013); спринты удалены целиком (миграция 012). Числовая «Оценка (очки)»
+(`points`) заменена на «Сложность» — три значения без Scrum-сленга (миграция 018).
 
 ## Оформление
 
@@ -196,7 +196,8 @@ JWT re-валидируется на сервере: `requireAuth` каждые 
 - [`CLAUDE.md`](CLAUDE.md) — памятка для агента: команды, инварианты, подводные камни.
 - `*_MIGRATION.md` — исторические записи о завершённых миграциях (роли, отделы,
   LDAP, вложения, уведомления, реструктуризация UI, приоритеты, связи).
-- `*_SETUP.md`, [`server/BACKUP.md`](server/BACKUP.md) — эксплуатационные инструкции.
+- `*_SETUP.md` (включая [`DOCKER_SETUP.md`](DOCKER_SETUP.md) — деплой всего стека
+  через `docker-compose.yml`), [`server/BACKUP.md`](server/BACKUP.md) — эксплуатационные инструкции.
 
 ## Стек
 

@@ -23,6 +23,7 @@ import { userRoutes } from "./routes/users.js";
 import { ldapRoutes } from "./routes/ldap.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { reportRoutes } from "./routes/reports.js";
+import { wsRoutes } from "./routes/ws.js";
 import { q } from "./db.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
@@ -147,7 +148,7 @@ export function buildApp(): FastifyInstance {
         },
         { prefix: "/projects/:projectId" },
       );
-      // Этап 3c: /ws
+      await api.register(wsRoutes); // /ws — push уведомлений (Этап 3c)
     },
     { prefix: "/api" },
   );

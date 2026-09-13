@@ -3,8 +3,8 @@ import { assignableUsers, canTransition, fmtDate, relTime, useStore } from "../s
 import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import { usersApi, type PickableUser } from "../api";
-import type { Issue, PriorityId } from "../types";
-import { PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
+import type { ComplexityId, Issue, PriorityId } from "../types";
+import { COMPLEXITY_ORDER, COMPLEXITIES, PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
 import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, catColor } from "../ui";
 
@@ -832,6 +832,42 @@ export default function IssueModal() {
                       <IcCalendar size={12} />
                       {issue.dueDate ? fmtDate(issue.dueDate) : "—"}
                     </span>
+                  </LockedField>
+                )}
+              </Field>
+            </div>
+            <div className="min-w-[104px] flex-1">
+              <Field label="Сложность">
+                {editOk ? (
+                <Dropdown
+                  width={180}
+                  button={(open) => (
+                    <button
+                      className={`flex w-full items-center gap-1.5 rounded-md border bg-panel px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-left">
+                        {issue.complexity ? COMPLEXITIES[issue.complexity].name : "Без оценки"}
+                      </span>
+                      <IcChevD size={12} className="shrink-0 text-faint" />
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <>
+                      <MenuItem onClick={() => { updateIssue(issue.id, { complexity: null }); close(); }}>
+                        Без оценки {issue.complexity === null && <IcCheck size={12} className="ml-auto text-accent" />}
+                      </MenuItem>
+                      {COMPLEXITY_ORDER.map((c: ComplexityId) => (
+                        <MenuItem key={c} onClick={() => { updateIssue(issue.id, { complexity: c }); close(); }}>
+                          {COMPLEXITIES[c].name} {issue.complexity === c && <IcCheck size={12} className="ml-auto text-accent" />}
+                        </MenuItem>
+                      ))}
+                    </>
+                  )}
+                </Dropdown>
+                ) : (
+                  <LockedField reason={denyMsg}>
+                    <span>{issue.complexity ? COMPLEXITIES[issue.complexity].name : "Без оценки"}</span>
                   </LockedField>
                 )}
               </Field>

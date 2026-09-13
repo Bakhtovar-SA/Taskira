@@ -5,6 +5,7 @@ import type {
   Attachment,
   Collaboration,
   Collaborator,
+  ComplexityId,
   Data,
   Department,
   Issue,
@@ -22,9 +23,10 @@ import type {
   Workflow,
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
-import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validatePoints, validateTitle } from "./validation";
+import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validateTitle } from "./validation";
 import {
   ApiError,
+  API_BASE,
   attachmentsApi,
   authApi,
   clearToken,
@@ -136,7 +138,7 @@ export interface CreateInput {
   assigneeId: string | null;
   epicId: string | null;
   labels: string[];
-  points: number | null;
+  complexity: ComplexityId | null;
   statusId?: string;
   dueDate?: string | null;
 }
@@ -263,7 +265,7 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     reporterId: dto.reporterId,
     epicId: dto.epicId,
     labels: dto.labels ?? [],
-    points: dto.points,
+    complexity: (dto.complexity as ComplexityId | null) ?? null,
     dueDate: dto.dueDate,
     rank: dto.rank,
     color: dto.color ?? undefined,
@@ -855,6 +857,57 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, [bootStatus, refreshUnreadCount]);
 
+  /* WS push уведомлений (Этап 3c) — ДОПОЛНЕНИЕ к polling выше, не замена: если
+   * сокет недоступен (корпоративный прокси режет upgrade, временный сбой сети),
+   * 30-секундный опрос остаётся страховкой и без него всё продолжит работать.
+   * Аутентификация — не через Authorization (браузерный WebSocket не умеет
+   * слать свои заголовки при хендшейке): токен первым сообщением после
+   * открытия, см. server/src/routes/ws.ts. */
+  useEffect(() => {
+    if (bootStatus !== "ready") return;
+    let socket: WebSocket | null = null;
+    let stopped = false;
+    let retryDelay = 1000;
+    let retryTimer: number | undefined;
+
+    const connect = () => {
+      const token = getToken();
+      if (!token || stopped) return;
+      const wsUrl = `${API_BASE.replace(/^http/, "ws")}/api/ws`;
+      socket = new WebSocket(wsUrl);
+      socket.onopen = () => {
+        // НЕ сбрасывать retryDelay здесь: открытие TCP/WS ничего не говорит о
+        // том, примет ли сервер токен — auth ещё впереди. Сброс — только по
+        // ответному auth_ok ниже, иначе с истёкшим/отозванным токеном бэкофф
+        // никогда бы не накапливался (сервер закрывает сокет почти сразу же
+        // после того же onopen, который его якобы сбросил) и свёрнутая вкладка
+        // долбила бы /api/ws примерно раз в секунду бесконечно.
+        socket?.send(JSON.stringify({ type: "auth", token }));
+      };
+      socket.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data as string);
+          if (msg?.type === "auth_ok") retryDelay = 1000;
+          else if (msg?.type === "notify") void refreshUnreadCount();
+        } catch {
+          /* не наш формат сообщения — игнор */
+        }
+      };
+      socket.onclose = () => {
+        if (stopped) return;
+        retryTimer = window.setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30_000); // экспоненциальный бэкофф, потолок 30 с
+      };
+    };
+    connect();
+
+    return () => {
+      stopped = true;
+      window.clearTimeout(retryTimer);
+      socket?.close();
+    };
+  }, [bootStatus, refreshUnreadCount]);
+
   const createIssue = useCallback(
     (input: CreateInput) => {
       if (!requirePerm("create")) return;
@@ -864,8 +917,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!d.ok) return toast("error", d.error);
       const l = validateLabels(input.labels);
       if (!l.ok) return toast("error", l.error);
-      const p = validatePoints(input.points);
-      if (!p.ok) return toast("error", p.error);
 
       void (async () => {
         try {
@@ -877,7 +928,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             assigneeId: input.assigneeId,
             epicId: input.epicId,
             labels: l.value,
-            points: p.value,
+            complexity: input.complexity,
             statusId: input.statusId,
             dueDate: input.dueDate ?? null,
           });
@@ -911,11 +962,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!r.ok) return toast("error", r.error);
         body.labels = r.value;
       }
-      if (patch.points !== undefined) {
-        const r = validatePoints(patch.points);
-        if (!r.ok) return toast("error", r.error);
-        body.points = r.value;
-      }
+      if (patch.complexity !== undefined) body.complexity = patch.complexity;
       if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
       if (patch.assigneeId !== undefined) body.assigneeId = patch.assigneeId;
       if (patch.epicId !== undefined) body.epicId = patch.epicId;

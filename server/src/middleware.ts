@@ -9,6 +9,7 @@ import { one } from "./db.js";
 import { ApiHttpError } from "./errors.js";
 import { projectById, type ProjectRow } from "./services/project.js";
 import { isIssueCollaborator } from "./services/collaborators.js";
+import { closeUserSockets } from "./services/wsHub.js";
 import {
   resolveRole,
   roleCan,
@@ -116,24 +117,44 @@ const freshUsers = new Map<
   { globalRole: GlobalRole; active: boolean; tokensValidFrom: number | null; at: number }
 >();
 
-/** Сбрасывает кэш пользователя — вызывать при смене global_role/активности админом. */
+/** Сбрасывает 30-секундный кэш свежести — безопасно вызывать при ЛЮБОЙ записи
+ *  в строку users, даже если по факту ничего не поменялось (JIT-логин при
+ *  каждом входе в userProvisioning.ts, «сохранить» без изменений в PATCH
+ *  /users/:id): следующий requireAuth/WS-хендшейк просто перечитает из БД
+ *  на 30 секунд раньше срока — дёшево. НЕ рвёт WS-соединения — для этого
+ *  revokeUserSessions() ниже, вызывать только при настоящем отзыве доступа. */
 export function invalidateUserCache(userId: string): void {
   freshUsers.delete(userId);
 }
 
-export const requireAuth: preHandlerAsyncHookHandler = async (req) => {
-  try {
-    await req.jwtVerify();
-  } catch {
-    throw unauthorized();
-  }
+/** Настоящий отзыв: логаут, деактивация, смена роли, отзыв токена. В отличие
+ *  от invalidateUserCache() — рвёт открытые WS-соединения (Этап 3c), а не
+ *  только сбрасывает кэш. assertFreshUser сверяет активность/отзыв один раз,
+ *  на хендшейке, поэтому без этого разлогиненный/деактивированный пользователь
+ *  с открытой вкладкой продолжал бы получать push до её закрытия.
+ *
+ *  Не вызывать на каждую запись в users «на всякий случай» — обычный
+ *  JIT-релогин или ре-сохранение без изменений НЕ должны разрывать чужую
+ *  живую вкладку с тем же аккаунтом (было багом в предыдущей версии фикса:
+ *  invalidateUserCache сама рвала сокеты и вызывалась в т.ч. из мест, где
+ *  ничего не отзывалось). */
+export function revokeUserSessions(userId: string, reason: string): void {
+  freshUsers.delete(userId);
+  closeUserSockets(userId, reason);
+}
 
-  const id = req.user.sub;
-  let fresh = freshUsers.get(id);
+/**
+ * Общая часть requireAuth и WS-хендшейка (routes/ws.ts): JWT уже разобран
+ * (payload на руках), осталось сверить «свежесть» — активность и отзыв
+ * токенов — по БД. Бросает unauthorized(), иначе отдаёт актуальную
+ * global_role (из БД, не из токена — тот мог устареть).
+ */
+export async function assertFreshUser(userId: string, iatMs: number | undefined): Promise<GlobalRole> {
+  let fresh = freshUsers.get(userId);
   if (!fresh || Date.now() - fresh.at > FRESH_TTL_MS) {
     const row = await one<{ global_role: GlobalRole; is_active: boolean; tokens_valid_from: Date | null }>(
       `SELECT global_role, is_active, tokens_valid_from FROM users WHERE id = $1`,
-      [id],
+      [userId],
     );
     if (!row) throw unauthorized("Пользователь больше не существует");
     fresh = {
@@ -142,7 +163,7 @@ export const requireAuth: preHandlerAsyncHookHandler = async (req) => {
       tokensValidFrom: row.tokens_valid_from ? new Date(row.tokens_valid_from).getTime() : null,
       at: Date.now(),
     };
-    freshUsers.set(id, fresh);
+    freshUsers.set(userId, fresh);
   }
   if (!fresh.active) throw unauthorized("Аккаунт деактивирован администратором");
 
@@ -154,15 +175,25 @@ export const requireAuth: preHandlerAsyncHookHandler = async (req) => {
     // Токен без iatMs выдан до миграции 017 — считаем недействительным:
     // раз по этому пользователю отзыв вообще случался, безопаснее попросить
     // войти заново, чем пропустить старый токен.
-    const issuedAt = req.user.iatMs;
-    if (issuedAt === undefined || issuedAt < fresh.tokensValidFrom) {
+    if (iatMs === undefined || iatMs < fresh.tokensValidFrom) {
       throw unauthorized("Сессия завершена — войдите заново");
     }
   }
 
+  return fresh.globalRole;
+}
+
+export const requireAuth: preHandlerAsyncHookHandler = async (req) => {
+  try {
+    await req.jwtVerify();
+  } catch {
+    throw unauthorized();
+  }
+
   // Глобальная роль из БД новее токена — перезаписываем для всех последующих проверок.
   // Payload токена (может быть без globalRole у старых токенов) для авторизации не используется.
-  req.user = { ...req.user, globalRole: fresh.globalRole };
+  const globalRole = await assertFreshUser(req.user.sub, req.user.iatMs);
+  req.user = { ...req.user, globalRole };
 };
 
 const serverUser = (req: FastifyRequest): ServerUser => ({ id: req.user.sub, globalRole: req.user.globalRole });

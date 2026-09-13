@@ -67,8 +67,8 @@
 | ui-restructure | Функциональная реструктуризация UI — [`../UI_RESTRUCTURE.md`](../UI_RESTRUCTURE.md). Ф0: клиентский CI-job + `label().min(1)` + чистка корневых зависимостей (PR #20) ✅. Ф1: миграция `012_drop_sprints.sql` (`DROP TABLE sprints`, `issues.sprint_id`), удалены `routes/sprints.ts`/`services/sprints.ts`, право `manageSprints` из `MATRIX` ×2, `SPRINT_STATUSES`/`MoveToSprintBody`/`IssueQuery.sprint`/`WsMessage.sprint:changed` из контракта; клиент — `Sprint`/`sprintsApi`/`setSprint`, поле «Спринт», фильтр доски по спринту ✅. Ф5: `Backlog.tsx` → «Список задач» (плоский список + фильтры + сортировка) ✅. Ф2: «Эпик» → «Направление» (только UI-термин, `epicId` в API не тронут) ✅. Ф3: «+» на доске только у первого `todo`-столбца ✅. Ф4: `GET /api/issues/assigned-to-me` + `test/home.test.ts` (6); `<HomeView>` («Мои задачи» + «Недавние проекты») при ≥ 2 проектах, `bootStatus="home"` ✅. Ф6: чек-лист ниже + `ARCHITECTURE`/`SCOPE` ✅ | ✅ |
 | priorities-4 | `013_priority_four_levels.sql`: 5 уровней приоритета → 4 (`low`/`medium`/`high`/`critical`), `highest`→`critical`, `lowest`→`low`, обновлён CHECK; контракт `PRIORITIES` ×2, `PriorityIcon`, `PRIORITY_ORDER` | ✅ |
 | issue-links | Связи между задачами — [`../ticket-features-polish-round4.md`](../ticket-features-polish-round4.md) §3.2. `014_issue_links.sql` (`issue_links`: `issue_id`/`linked_issue_id`/`link_type` `relates`\|`blocks`, CASCADE, UNIQUE); `services/issueLinks.ts`, `POST`/`DELETE /api/projects/:id/issues/:id/links` (`requireIssuePerm("edit")` на исходной, обе задачи в проекте иначе 404, `blocked_by` разворачивается в `blocks` сервером), `getIssueDto.links`; клиент — `issuesApi.addLink`/`removeLink`, секция «Связи» в `IssueModal`; `test/issue-links.test.ts` (9) | ✅ |
-| 3c | WebSocket-рассылка (`WsMessage` в `contract.ts` объявлен, реализации нет) | ⏳ |
-| 5 | docker-compose (полный стек) + runbook — бэкап уже есть ([`BACKUP.md`](BACKUP.md)) | 🟡 |
+| 3c | WebSocket-пуш уведомлений (не полная real-time доска — `issue:upsert`/`presence` из `WsMessage` остаются объявленными, но нереализованными). `GET /api/ws` (`@fastify/websocket`, уже был зарегистрирован плагином); аутентификация первым сообщением `{type:"auth",token}` после открытия (браузерный `WebSocket` не шлёт свои заголовки на хендшейке, а токен в query-строке утёк бы в access-логи) — переиспользует `assertFreshUser()`, вынесенную из `requireAuth`. `services/wsHub.ts` — реестр сокетов по пользователю, `pushToUser()` вызывается из единой точки создания уведомлений (`services/notify.ts` `emit()`). Клиент — доп. эффект в `store.tsx` рядом с 30-секундным polling (не замена: polling остаётся страховкой при недоступном сокете), реконнект с экспоненциальным бэкоффом. `test/ws.test.ts` (5, `app.injectWS()`) + живой прогон в браузере (реальный `WebSocket` из React-эффекта, подтверждён хендшейк) | ✅ |
+| 5 | docker-compose (полный стек) + runbook — [`../DOCKER_SETUP.md`](../DOCKER_SETUP.md), бэкап отдельно ([`BACKUP.md`](BACKUP.md)) | ✅ |
 
 **roles-1…7** — ролевая миграция (project-scoped) влита в `main` одним PR (#10);
 детальный план и порядок фаз — [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md).
@@ -76,9 +76,13 @@
 Дорожная карта (`../ARCHITECTURE.md`, «Порядок разработки») пройдена: backend + БД,
 project-scoped роли, департаменты, LDAP/AD, вложения, уведомления + email-воркер,
 UI-реструктуризация (спринты убраны, «Список задач», «Направление», главный экран).
-Остаётся: WebSocket-пуш вместо polling, фоновый ресинк LDAP-членства по расписанию,
-сборщик осиротевших файлов хранилища, `story points` → «сложность» (поле `points`
-пока в схеме, но из карточки убрано).
+`story points` → «сложность» (миграция 018, поле `complexity`), сборщик
+осиротевших объектов хранилища (`services/storageSweeper.ts`), фоновый ресинк
+LDAP-членства по расписанию (`services/departmentSync.ts` `resyncAllLdapUsers`),
+WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и деплой через
+`docker-compose.yml` ([`../DOCKER_SETUP.md`](../DOCKER_SETUP.md)) — сделаны.
+Полная real-time доска (`issue:upsert`/`presence` из `WsMessage`) остаётся
+нереализованной — отдельный, значительно больший объём работы.
 
 ## Breaking changes (002)
 
@@ -196,6 +200,23 @@ UI-реструктуризация (спринты убраны, «Список
 старше `AUDIT_RETENTION_DAYS`. При нескольких инстансах включать ровно на одном
 (`MAINTENANCE_ENABLED=false` на остальных).
 
+### Сборщик осиротевших объектов хранилища
+
+Удаление задачи (или проекта → issues) каскадом снимает строки `attachments`
+(миграция 010), но не сами файлы в `Storage` — синхронная чистка тысяч объектов
+заблокировала бы запрос. `services/storageSweeper.ts` — отдельный (более редкий,
+`STORAGE_SWEEP_INTERVAL_MS`, по умолчанию раз в сутки) луп фонового воркера:
+листит всё хранилище (`Storage.list()`), сравнивает со `storage_key` в `attachments`
+для текущего `storage_driver` и удаляет объекты без строки — БД остаётся
+источником истины.
+
+Гонка с загрузкой: `routes/attachments.ts` пишет объект в `Storage` (`put()`)
+**до** `INSERT INTO attachments`, поэтому объект младше `STORAGE_SWEEP_GRACE_MS`
+(по умолчанию 24 часа) сборщик не трогает — он мог просто ещё не долиться до
+строки в БД. Каждое удаление пишется в лог и в `audit_log` (`storage.sweep`).
+Тот же принцип «включать на одном инстансе», что и у остального воркера
+(`STORAGE_SWEEP_ENABLED=false` на остальных).
+
 ### Отчёты
 
 `GET /api/reports/summary` и `GET /api/reports/issues.csv` — сводка и выгрузка
@@ -225,7 +246,7 @@ TODO_ID=…; INPROG_ID=…; REVIEW_ID=…
 # создать задачу (num и key выдаст сервер: CORP-1)
 ID=$(curl -s -X POST $BASE/issues -H "$AUTH" -H 'content-type: application/json' -d '{
   "title":"Настроить ночные бэкапы БД","typeId":"task","priorityId":"high",
-  "assigneeId":null,"epicId":null,"labels":["инфра"],"points":null,
+  "assigneeId":null,"epicId":null,"labels":["инфра"],"complexity":null,
   "dueDate":"2026-03-01"
 }' | jq -r .id)
 

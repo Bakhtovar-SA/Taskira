@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { assignableUsers, useStore } from "../store";
-import type { IssueTypeId, PriorityId } from "../types";
-import { ISSUE_TYPES, PRIORITY_ORDER, PRIORITIES, TYPE_ORDER } from "../types";
+import type { ComplexityId, IssueTypeId, PriorityId } from "../types";
+import { COMPLEXITY_ORDER, COMPLEXITIES, ISSUE_TYPES, PRIORITY_ORDER, PRIORITIES, TYPE_ORDER } from "../types";
 import { IcChevD, IcX, TypeIcon } from "../icons";
 import { Avatar, Dropdown, Modal, Chip } from "../ui";
 import { IcCheck, PriorityIcon } from "../icons";
@@ -16,6 +16,7 @@ export default function CreateIssueModal() {
   const [error, setError] = useState("");
   const [description, setDescription] = useState("");
   const [priorityId, setPriorityId] = useState<PriorityId>("medium");
+  const [complexity, setComplexity] = useState<ComplexityId | null>(null);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [epicId, setEpicId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState("");
@@ -49,7 +50,7 @@ export default function CreateIssueModal() {
       assigneeId,
       epicId,
       labels,
-      points: null,
+      complexity,
       dueDate: dueDate || null,
     });
     if (again) {
@@ -188,6 +189,31 @@ export default function CreateIssueModal() {
                 сошлётся на неё здесь.
               </p>
             )}
+          </div>
+          <div>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Сложность</p>
+            <Dropdown
+              width={220}
+              button={(open) => (
+                <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
+                  <span className="min-w-0 flex-1 truncate text-left">{complexity ? COMPLEXITIES[complexity].name : "Без оценки"}</span>
+                  <IcChevD size={12} className="ml-auto text-faint" />
+                </button>
+              )}
+            >
+              {(close) => (
+                <>
+                  <button onClick={() => { setComplexity(null); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
+                    Без оценки {complexity === null && <IcCheck size={12} className="ml-auto text-accent" />}
+                  </button>
+                  {COMPLEXITY_ORDER.map((c) => (
+                    <button key={c} onClick={() => { setComplexity(c); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
+                      {COMPLEXITIES[c].name} {c === complexity && <IcCheck size={12} className="ml-auto text-accent" />}
+                    </button>
+                  ))}
+                </>
+              )}
+            </Dropdown>
           </div>
         </div>
 

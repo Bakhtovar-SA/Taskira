@@ -30,13 +30,34 @@ export async function stopApp(): Promise<void> {
   await closePool();
 }
 
-/** Чистит все таблицы. Вызывать в beforeEach перед seedFixture(). */
+/**
+ * Чистит все таблицы. Вызывать в beforeEach перед seedFixture().
+ *
+ * С ретраем на deadlock (Postgres 40P01): audit() (audit.ts) пишет в audit_log
+ * через `void q(...)` — специально НЕ дожидаясь вызывающим, чтобы не добавлять
+ * round-trip в горячий путь мутаций. Если предыдущий тест дёрнул мутирующий
+ * роут, этот INSERT может ещё лететь в фоне, когда стартует beforeEach
+ * следующего теста: TRUNCATE здесь берёт ACCESS EXCLUSIVE сразу на 15 таблиц,
+ * фоновый INSERT — ROW EXCLUSIVE на audit_log + проверку FK-строки в users;
+ * если TRUNCATE успел захватить users раньше, чем INSERT — audit_log, получается
+ * классический цикл ожидания друг друга, и Postgres обрывает один из них.
+ * Тестовая гонка, не продовая (запросы к API там синхронные end-to-end) — решаем
+ * ретраем здесь, а не трогаем фактически безопасный fire-and-forget в audit().
+ */
 export async function resetDb(): Promise<void> {
-  await q(
-    `TRUNCATE departments, projects, users, project_members, department_members,
-      workflow_statuses, workflow_transitions, issues, comments, activity,
-      issue_watchers, issue_collaborators, attachments, project_counters, audit_log RESTART IDENTITY CASCADE`,
-  );
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await q(
+        `TRUNCATE departments, projects, users, project_members, department_members,
+          workflow_statuses, workflow_transitions, issues, comments, activity,
+          issue_watchers, issue_collaborators, attachments, project_counters, audit_log RESTART IDENTITY CASCADE`,
+      );
+      return;
+    } catch (e) {
+      if ((e as { code?: string }).code === "40P01" && attempt < 5) continue; // deadlock_detected — ретраим
+      throw e;
+    }
+  }
 }
 
 /** Членство пользователя в департаменте (source='manual' — как назначил бы админ). */
@@ -157,6 +178,6 @@ export const newIssue = (over: Record<string, unknown> = {}) => ({
   priorityId: "medium",
   assigneeId: null,
   epicId: null,
-  points: null,
+  complexity: null,
   ...over,
 });

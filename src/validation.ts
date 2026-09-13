@@ -15,7 +15,6 @@ export const LIMITS = {
   comment: { min: 1, max: 2000 },
   label: { max: 30 },
   labelsPerIssue: 10,
-  points: { min: 0, max: 100 },
   goal: { max: 200 },
   username: { min: 3, max: 32 },
   department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },
@@ -70,15 +69,6 @@ export function validateLabels(raw: string[]): Result<string[]> {
   if (uniq.length > LIMITS.labelsPerIssue)
     return { ok: false, error: `Не больше ${LIMITS.labelsPerIssue} меток на задачу` };
   return { ok: true, value: uniq };
-}
-
-export function validatePoints(raw: number | null): Result<number | null> {
-  if (raw === null) return { ok: true, value: null };
-  if (!Number.isFinite(raw) || !Number.isInteger(raw))
-    return { ok: false, error: "Оценка должна быть целым числом" };
-  if (raw < LIMITS.points.min || raw > LIMITS.points.max)
-    return { ok: false, error: `Оценка — от ${LIMITS.points.min} до ${LIMITS.points.max} очков` };
-  return { ok: true, value: raw };
 }
 
 export function validateGoal(raw: string): Result<string> {

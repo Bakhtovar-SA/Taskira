@@ -8,7 +8,7 @@
  *
  * Корпоративная модель (миграция 002, breaking — см. server/README.md):
  *  - типы задач: task | bug | request (story и epic слиты в task);
- *  - у задач есть due_date; points/epic — опциональные модули.
+ *  - у задач есть due_date; complexity/epic — опциональные модули.
  *
  * Ролевая модель (миграция 004 + Фаза 3, breaking):
  *  - глобальная роль users.global_role: admin | member (GLOBAL_ROLES);
@@ -31,7 +31,6 @@ export const LIMITS = {
   comment: { min: 1, max: 2000 },
   label: { max: 30 },
   labelsPerIssue: 10,
-  points: { min: 0, max: 100 },
   goal: { max: 200 },
   username: { min: 3, max: 32 },
   department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },
@@ -49,6 +48,7 @@ export const GLOBAL_ROLES = ["admin", "member"] as const;
 export const PROJECT_ROLES = ["manager", "employee", "viewer"] as const;
 export const ISSUE_TYPES = ["task", "bug", "request"] as const;
 export const PRIORITIES = ["low", "medium", "high", "critical"] as const;
+export const COMPLEXITIES = ["simple", "medium", "hard"] as const;
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
 
 const uuid = z.string().uuid("Ожидается UUID");
@@ -181,7 +181,7 @@ export const IssueCreateBody = z.object({
   assigneeId: uuid.nullable(),
   epicId: uuid.nullable(),
   labels: z.array(label()).max(LIMITS.labelsPerIssue).default([]),
-  points: z.number().int().min(LIMITS.points.min).max(LIMITS.points.max).nullable(),
+  complexity: z.enum(COMPLEXITIES).nullable(),
   dueDate: isoDate().nullable().optional(),
   statusId: uuid.optional(),
 });
@@ -194,7 +194,7 @@ export const IssuePatchBody = z
     assigneeId: uuid.nullable(),
     epicId: uuid.nullable(),
     labels: z.array(label()).max(LIMITS.labelsPerIssue),
-    points: z.number().int().min(LIMITS.points.min).max(LIMITS.points.max).nullable(),
+    complexity: z.enum(COMPLEXITIES).nullable(),
     dueDate: isoDate().nullable(),
     tStart: z.number().int().min(0).max(52).nullable(),
     tSpan: z.number().int().min(1).max(52).nullable(),
@@ -320,4 +320,18 @@ export type WsMessage =
   | { type: "issue:upsert"; actorId: string; issue: unknown; ts: number }
   | { type: "issue:delete"; actorId: string; issueId: string; ts: number }
   | { type: "workflow:changed"; actorId: string; ts: number }
-  | { type: "presence"; online: string[]; ts: number };
+  | { type: "presence"; online: string[]; ts: number }
+  /** Что-то в ленте уведомлений получателя изменилось — сигнал «сходи
+   *  перечитай», без самого уведомления в payload (эндпоинт REST уже есть
+   *  и уже проверяет права; дублировать сериализацию здесь незачем). */
+  | { type: "notify"; ts: number }
+  /** Ответ на успешный auth-хендшейк (routes/ws.ts) — клиент ждёт именно его,
+   *  а не сам факт открытия соединения, чтобы сбросить экспоненциальный
+   *  бэкофф переподключения (src/store.tsx): открытие TCP/WS ничего не
+   *  говорит о том, принял ли сервер токен. */
+  | { type: "auth_ok"; ts: number };
+
+/** Клиент → сервер, единственное ожидаемое сообщение (routes/ws.ts): токен
+ *  первым сообщением после открытия — браузерный WebSocket не умеет слать
+ *  свои заголовки, поэтому Authorization для хендшейка не годится. */
+export type WsAuthMessage = { type: "auth"; token: string };

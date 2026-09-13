@@ -262,7 +262,7 @@ export type ServerIssue = {
   color: string | null;
   tStart: number | null;
   tSpan: number | null;
-  points: number | null;
+  complexity: string | null;
   labels: string[];
   dueDate: string | null;
   rank: number;

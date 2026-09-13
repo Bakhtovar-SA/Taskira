@@ -30,6 +30,11 @@ export interface LdapConfig {
   tlsCaFile: string | null;
   tlsRejectUnauthorized: boolean;
   timeoutMs: number;
+  /** Фоновый ресинк членства в департаментах из LDAP-групп (LDAP_MIGRATION.md D3).
+   *  Требует bindDn (сервис-аккаунт) — как и ручной POST /api/ldap/resync;
+   *  без него джоб молча не стартует (нечем искать группы без bind пользователя). */
+  resyncEnabled: boolean;
+  resyncIntervalMs: number;
 }
 
 /** Параметры S3-совместимого хранилища — заполнены только при driver === "s3".
@@ -105,6 +110,14 @@ export interface MaintenanceConfig {
   archiveAfterDays: number;
   /** Строки audit_log старше стольких дней удаляются. 0 — не удалять никогда. */
   auditRetentionDays: number;
+  /** Сборщик осиротевших объектов Storage (ARCHITECTURE.md follow-up). Реже,
+   *  чем сам тик обслуживания — полный листинг S3-бакета/каталога дороже
+   *  архивного UPDATE, гонять его каждый час незачем. */
+  storageSweepEnabled: boolean;
+  storageSweepIntervalMs: number;
+  /** Объект моложе этого возраста сборщик не трогает — защита от гонки с
+   *  загрузкой (storage.put() пишет объект раньше INSERT INTO attachments). */
+  storageSweepGraceMs: number;
 }
 
 export interface Config {
@@ -206,6 +219,8 @@ function buildLdapConfig(): LdapConfig {
     tlsCaFile: process.env.LDAP_TLS_CA_FILE?.trim() || null,
     tlsRejectUnauthorized: envBool(process.env.LDAP_TLS_REJECT_UNAUTHORIZED, true),
     timeoutMs,
+    resyncEnabled: envBool(process.env.LDAP_RESYNC_ENABLED, true),
+    resyncIntervalMs: envPosInt("LDAP_RESYNC_INTERVAL_MS", 6 * 60 * 60_000), // раз в 6 часов
   };
 }
 
@@ -395,6 +410,9 @@ function buildConfig(): Config {
       intervalMs: envPosInt("MAINTENANCE_INTERVAL_MS", 60 * 60_000), // раз в час
       archiveAfterDays: envPosInt("ARCHIVE_AFTER_DAYS", 30),
       auditRetentionDays: Number(process.env.AUDIT_RETENTION_DAYS ?? 365),
+      storageSweepEnabled: envBool(process.env.STORAGE_SWEEP_ENABLED, true),
+      storageSweepIntervalMs: envPosInt("STORAGE_SWEEP_INTERVAL_MS", 24 * 60 * 60_000), // раз в сутки
+      storageSweepGraceMs: envPosInt("STORAGE_SWEEP_GRACE_MS", 24 * 60 * 60_000), // 24 часа
     },
     pgPoolMax: envPosInt("PG_POOL_MAX", 10),
     rateLimit: {

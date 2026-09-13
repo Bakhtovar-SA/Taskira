@@ -22,7 +22,7 @@ export interface IssueRow {
   color: string | null;
   t_start: number | null;
   t_span: number | null;
-  points: number | null;
+  complexity: string | null;
   labels: string[];
   due_date: string | null; // PG отдаёт date как строку YYYY-MM-DD
   rank: number;
@@ -50,7 +50,7 @@ export interface IssueDto {
   color: string | null;
   tStart: number | null;
   tSpan: number | null;
-  points: number | null;
+  complexity: string | null;
   labels: string[];
   dueDate: string | null;
   rank: number;
@@ -77,7 +77,7 @@ export function mapIssue(row: IssueRow): IssueDto {
     color: row.color,
     tStart: row.t_start,
     tSpan: row.t_span,
-    points: row.points,
+    complexity: row.complexity,
     labels: row.labels ?? [],
     dueDate: row.due_date,
     rank: row.rank,

@@ -7,7 +7,6 @@ import {
   validateComment,
   validateDescription,
   validateLabels,
-  validatePoints,
   validateTitle,
 } from "./validation";
 
@@ -127,21 +126,3 @@ describe("validateLabels", () => {
   });
 });
 
-describe("validatePoints", () => {
-  test("null допустим — оценка необязательна", () => {
-    expect(validatePoints(null)).toEqual({ ok: true, value: null });
-  });
-
-  test("дробное и нечисловое отбивается", () => {
-    expect(validatePoints(1.5).ok).toBe(false);
-    expect(validatePoints(Number.NaN).ok).toBe(false);
-    expect(validatePoints(Number.POSITIVE_INFINITY).ok).toBe(false);
-  });
-
-  test("границы включительны, за ними — отказ", () => {
-    expect(validatePoints(LIMITS.points.min).ok).toBe(true);
-    expect(validatePoints(LIMITS.points.max).ok).toBe(true);
-    expect(validatePoints(LIMITS.points.min - 1).ok).toBe(false);
-    expect(validatePoints(LIMITS.points.max + 1).ok).toBe(false);
-  });
-});

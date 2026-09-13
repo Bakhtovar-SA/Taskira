@@ -65,8 +65,11 @@ export const Chip = ({ text, color, onRemove }: { text: string; color?: string; 
 
 /** Событие «открылся какой-то дропдаун» — чтобы одновременно был открыт только
  *  один (ticket-scaling §2): каждый инстанс шлёт его при открытии со своим id,
- *  услышав чужой id — закрывается. */
-const DROPDOWN_OPEN_EVT = "taskira:dropdown-open";
+ *  услышав чужой id — закрывается. Экспортирован — им же пользуется
+ *  самодельное меню переходов на карточке доски (Board.tsx), которое не может
+ *  использовать сам <Dropdown>: ему нужно открываться и с клавиатуры (m/ь), а
+ *  не только по клику на кнопку. */
+export const DROPDOWN_OPEN_EVT = "taskira:dropdown-open";
 
 export function Dropdown({ button, children, align = "left", width = 240 }: { button: (open: boolean) => React.ReactNode; children: React.ReactNode | ((close: () => void) => React.ReactNode); align?: "left" | "right"; width?: number }) {
   const [open, setOpen] = useState(false);

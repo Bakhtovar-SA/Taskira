@@ -14,6 +14,7 @@ import bcrypt from "bcryptjs";
 import { Client } from "ldapts";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { getApp, q, resetDb, stopApp } from "./helpers.js";
+import { resyncAllLdapUsers } from "../src/services/departmentSync.js";
 
 const RUN = process.env.AUTH_MODE === "ldap" && !!process.env.LDAP_URL;
 const d = RUN ? describe : describe.skip;
@@ -117,6 +118,38 @@ d("LDAP-вход против настоящего OpenLDAP", () => {
     const res = await login(admU, admP);
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).user).toMatchObject({ authSource: "local", globalRole: "admin" });
+  });
+
+  test("resyncAllLdapUsers пересобирает членство по группам и репортит notFound", async () => {
+    // JIT-провижининг + первичная (правильная) простановка department_members.
+    await login("t.manager", "testpass123");
+    await login("t.viewer", "testpass123");
+    // Пользователь, которого больше нет в каталоге — не должен рушить весь проход.
+    await q(
+      `INSERT INTO users (username, password_hash, name, global_role, auth_source, ldap_dn)
+       VALUES ('t.ghost', '', 'Призрак', 'member', 'ldap', $1)`,
+      [`uid=t.ghost,${PEOPLE}`],
+    );
+    // Симулируем «протухшее» членство: снимаем ИБ у t.manager вручную.
+    await q(
+      `DELETE FROM department_members WHERE user_id = (SELECT id FROM users WHERE username = 't.manager')`,
+    );
+
+    const result = await resyncAllLdapUsers(null);
+
+    expect(result.total).toBe(3); // manager + viewer + ghost
+    expect(result.synced).toBe(2); // manager + viewer реально есть в каталоге
+    expect(result.notFound).toEqual(["t.ghost"]);
+    expect(result.errors).toEqual([]);
+
+    // Ресинк вернул t.manager в ИБ, а не оставил протухшее пустое членство.
+    const dm = await q<{ name: string }>(
+      `SELECT d.name FROM department_members dm
+         JOIN departments d ON d.id = dm.department_id
+         JOIN users u ON u.id = dm.user_id
+        WHERE u.username = 't.manager'`,
+    );
+    expect(dm.map((r) => r.name)).toEqual(["ИБ"]);
   });
 
   test("reverse group search находит реальное groupOfNames-членство (member=<userDN>)", async () => {
