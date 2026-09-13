@@ -10,6 +10,7 @@
 import { q } from "../db.js";
 import { loadConfig } from "../config.js";
 import type { NotifyPrefs, NotifyType } from "../contract.js";
+import { pushToUser } from "./wsHub.js";
 
 export interface NotifyEvent {
   type: NotifyType;
@@ -67,6 +68,12 @@ export async function emit(ev: NotifyEvent): Promise<void> {
          FROM unnest($1::uuid[], $7::text[]) AS r(uid, est)`,
       [ids, ev.type, ev.actorId, ev.projectId, ev.issueId, JSON.stringify(ev.payload ?? {}), states],
     );
+
+    // Push вместо ожидания следующего polling-тика (Этап 3c) — только сигнал
+    // «сходи перечитай», без payload; получатель и так уже фильтрован выше
+    // (активен, не сам актор).
+    const ts = Date.now();
+    for (const id of ids) pushToUser(id, { type: "notify", ts });
   } catch (e) {
     console.error("[notify] emit не удалось", e);
   }

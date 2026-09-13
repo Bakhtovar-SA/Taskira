@@ -320,4 +320,13 @@ export type WsMessage =
   | { type: "issue:upsert"; actorId: string; issue: unknown; ts: number }
   | { type: "issue:delete"; actorId: string; issueId: string; ts: number }
   | { type: "workflow:changed"; actorId: string; ts: number }
-  | { type: "presence"; online: string[]; ts: number };
+  | { type: "presence"; online: string[]; ts: number }
+  /** Что-то в ленте уведомлений получателя изменилось — сигнал «сходи
+   *  перечитай», без самого уведомления в payload (эндпоинт REST уже есть
+   *  и уже проверяет права; дублировать сериализацию здесь незачем). */
+  | { type: "notify"; ts: number };
+
+/** Клиент → сервер, единственное ожидаемое сообщение (routes/ws.ts): токен
+ *  первым сообщением после открытия — браузерный WebSocket не умеет слать
+ *  свои заголовки, поэтому Authorization для хендшейка не годится. */
+export type WsAuthMessage = { type: "auth"; token: string };

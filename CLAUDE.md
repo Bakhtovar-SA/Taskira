@@ -174,7 +174,20 @@ list/card renders — the linear scans were quadratic across a board.
   Project resources live under
   `/api/projects/:projectId/...` (issues, comments, attachments, collaborators, members,
   workflow); `requirePerm` resolves the caller's membership for that `:projectId`.
+  `assertFreshUser(userId, iatMs)` — the DB-freshness half of `requireAuth` (active/revoked
+  check), factored out so `routes/ws.ts` can reuse it without going through
+  `req.jwtVerify()`'s header-based extraction (a browser `WebSocket` can't set an
+  `Authorization` header on the handshake).
 - `audit.ts` — fire-and-forget `audit_log` inserts; never throws into the request.
+- `routes/ws.ts` + `services/wsHub.ts` — `GET /api/ws` (Этап 3c, notification push only,
+  *not* the full real-time board `WsMessage` still declares — `issue:upsert`/`presence`
+  remain unimplemented). Auth is the connection's first message (`{type:"auth",token}`),
+  not a header or query param (the latter would land in access logs) — a 5s timer closes
+  the socket (1008) if it never arrives or fails `app.jwt.verify` + `assertFreshUser`.
+  `wsHub.ts` keeps a `Map<userId, Set<WebSocket>>`; `services/notify.ts` `emit()` calls
+  `pushToUser(id, {type:"notify"})` for every recipient right after the `INSERT INTO
+  notifications` — no notification payload over the socket, just a "go refetch" signal,
+  so the client reuses the already-authorized REST path instead of a second serialization.
 
 ### Data model notes
 

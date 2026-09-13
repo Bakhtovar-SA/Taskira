@@ -26,6 +26,7 @@ import { can as canDo, denialReason, resolveRole, type PermId } from "./permissi
 import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validateTitle } from "./validation";
 import {
   ApiError,
+  API_BASE,
   attachmentsApi,
   authApi,
   clearToken,
@@ -853,6 +854,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       window.clearInterval(id);
       window.removeEventListener("visibilitychange", tick);
       window.removeEventListener("focus", tick);
+    };
+  }, [bootStatus, refreshUnreadCount]);
+
+  /* WS push уведомлений (Этап 3c) — ДОПОЛНЕНИЕ к polling выше, не замена: если
+   * сокет недоступен (корпоративный прокси режет upgrade, временный сбой сети),
+   * 30-секундный опрос остаётся страховкой и без него всё продолжит работать.
+   * Аутентификация — не через Authorization (браузерный WebSocket не умеет
+   * слать свои заголовки при хендшейке): токен первым сообщением после
+   * открытия, см. server/src/routes/ws.ts. */
+  useEffect(() => {
+    if (bootStatus !== "ready") return;
+    let socket: WebSocket | null = null;
+    let stopped = false;
+    let retryDelay = 1000;
+    let retryTimer: number | undefined;
+
+    const connect = () => {
+      const token = getToken();
+      if (!token || stopped) return;
+      const wsUrl = `${API_BASE.replace(/^http/, "ws")}/api/ws`;
+      socket = new WebSocket(wsUrl);
+      socket.onopen = () => {
+        retryDelay = 1000; // успешное соединение — сброс бэкоффа
+        socket?.send(JSON.stringify({ type: "auth", token }));
+      };
+      socket.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data as string);
+          if (msg?.type === "notify") void refreshUnreadCount();
+        } catch {
+          /* не наш формат сообщения — игнор */
+        }
+      };
+      socket.onclose = () => {
+        if (stopped) return;
+        retryTimer = window.setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30_000); // экспоненциальный бэкофф, потолок 30 с
+      };
+    };
+    connect();
+
+    return () => {
+      stopped = true;
+      window.clearTimeout(retryTimer);
+      socket?.close();
     };
   }, [bootStatus, refreshUnreadCount]);
 
