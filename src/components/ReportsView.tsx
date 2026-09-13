@@ -145,7 +145,7 @@ export default function ReportsView() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       {/* шапка + фильтры */}
-      <div className="border-b border-line bg-panel/70 px-6 py-3.5">
+      <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="mr-2">
             <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Отчёты</h1>
@@ -255,7 +255,7 @@ export default function ReportsView() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 px-6 py-4">
+      <div className="min-h-0 flex-1 px-4 py-4 sm:px-6">
         {error && (
           <div className="mb-4 rounded-lg border border-danger/40 bg-dangersoft px-4 py-3 text-[13px] text-danger">
             {error}

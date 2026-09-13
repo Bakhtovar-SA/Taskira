@@ -45,7 +45,7 @@ export default function Sidebar() {
   const homeAvailable = data.projects.length >= 2;
 
   return (
-    <aside className="flex w-[232px] shrink-0 flex-col bg-sidebar text-[#c6d2e4]">
+    <aside className="hidden w-[232px] shrink-0 flex-col bg-sidebar text-[#c6d2e4] md:flex">
       <button
         type="button"
         onClick={homeAvailable ? goHome : undefined}
@@ -134,7 +134,7 @@ export default function Sidebar() {
           <div className="mt-2 flex items-center justify-between border-t border-[#24385a] pt-2">
             <RoleBadge role={me.accessRole} size="sm" />
             <span className="text-[9.5px] text-[#5f7396]">
-              <Kbd>/</Kbd> <Kbd>C</Kbd> <Kbd>1–8</Kbd>
+              <Kbd>/</Kbd> <Kbd>C</Kbd> <Kbd>1–9</Kbd>
             </span>
           </div>
         </div>

@@ -161,7 +161,7 @@ export default function Backlog() {
   return (
     <div className="flex h-full flex-col">
       {/* шапка */}
-      <div className="border-b border-line bg-panel/70 px-6 py-3.5">
+      <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="mr-2">
             <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Список задач</h1>
