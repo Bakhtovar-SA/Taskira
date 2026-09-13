@@ -49,15 +49,30 @@ function CollaboratorField({ issue }: { issue: Issue }) {
   const [pickable, setPickable] = useState<PickableUser[]>([]);
   const [pick, setPick] = useState("");
   const [expand, setExpand] = useState(false);
+  const [search, setSearch] = useState("");
 
+  // Справочник больше не выгружается целиком — сервер требует минимум 2 символа
+  // и отдаёт до 20 совпадений. Поэтому здесь поиск с паузой на ввод, а не
+  // единая загрузка всех сотрудников при открытии карточки.
   useEffect(() => {
     if (!canManage) return;
+    const term = search.trim();
+    if (term.length < 2) {
+      setPickable([]);
+      return;
+    }
     let off = false;
-    usersApi.pickable().then((u) => !off && setPickable(u)).catch(() => {});
+    const t = window.setTimeout(() => {
+      usersApi
+        .pickable(term)
+        .then((u) => !off && setPickable(u))
+        .catch(() => {});
+    }, 250);
     return () => {
       off = true;
+      window.clearTimeout(t);
     };
-  }, [canManage]);
+  }, [canManage, search]);
 
   const collabs = issue.collaborators;
   if (!canManage && collabs.length === 0) return null;
@@ -114,14 +129,31 @@ function CollaboratorField({ issue }: { issue: Issue }) {
       </div>
       {canManage && (
         <>
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPick("");
+            }}
+            placeholder="Найти сотрудника по имени или должности"
+            aria-label="Поиск сотрудника"
+            className="mt-1.5 w-full rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+          />
           <div className="mt-1.5 flex items-center gap-1.5">
             <select
               value={pick}
               onChange={(e) => setPick(e.target.value)}
               disabled={candidates.length === 0}
+              aria-label="Кого пригласить"
               className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
             >
-              <option value="">{candidates.length ? "— пригласить человека —" : "нет кандидатов"}</option>
+              <option value="">
+                {search.trim().length < 2
+                  ? "введите минимум 2 символа"
+                  : candidates.length
+                    ? "— пригласить человека —"
+                    : "никого не нашлось"}
+              </option>
               {candidates.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.jobRole ? `${u.name} · ${u.jobRole}` : u.name}
@@ -378,10 +410,32 @@ export default function IssueModal() {
   const epic = useMemo(() => data.issues.find((i) => i.id === issue?.epicId), [data.issues, issue?.epicId]);
   if (!issue) return null;
 
-  const me = data.users.find((u) => u.id === data.currentUserId)!;
+  // Без non-null-утверждений: раньше `!` глушил TypeScript, но при отсутствии
+  // профиля или статуса рендер падал исключением и гасил всё приложение
+  // (аудит BUG-03). Теперь — честный ранний выход с понятным текстом.
+  const me = data.users.find((u) => u.id === data.currentUserId);
   const assignee = data.users.find((u) => u.id === issue.assigneeId);
   const reporter = data.users.find((u) => u.id === issue.reporterId);
-  const status = data.workflow.statuses.find((s) => s.id === issue.statusId)!;
+  const status = data.workflow.statuses.find((s) => s.id === issue.statusId);
+  if (!me || !status) {
+    return (
+      <Modal onClose={() => openIssue(null)} w={420} title="Задача недоступна">
+        <div className="p-6 text-center">
+          <p className="text-[14px] font-semibold text-ink">Не удалось открыть задачу</p>
+          <p className="mt-1.5 text-[12.5px] text-sub">
+            Данные проекта загружены не полностью. Обновите страницу — если не поможет,
+            возможно, вас вывели из проекта.
+          </p>
+          <button
+            onClick={() => openIssue(null)}
+            className="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white"
+          >
+            Закрыть
+          </button>
+        </div>
+      </Modal>
+    );
+  }
   // Срок горит: дата в прошлом и задача не в финальной категории статуса.
   const overdue = !!issue.dueDate && status.category !== "done" && issue.dueDate < new Date().toISOString().slice(0, 10);
   // Тип "epic" упразднён (миграция 002): «направление» — задача, на которую
@@ -430,7 +484,7 @@ export default function IssueModal() {
   };
 
   return (
-    <Modal onClose={() => openIssue(null)} w={940}>
+    <Modal onClose={() => openIssue(null)} w={940} title={`Задача ${issue.key}: ${issue.title}`}>
       {/* шапка */}
       <div className="flex items-center gap-2 border-b border-line px-5 py-3">
         <span title={ISSUE_TYPES[issue.typeId].name} className="flex items-center">
@@ -591,20 +645,25 @@ export default function IssueModal() {
           ) : (
             <div className="mt-4 space-y-0">
               {[...issue.activity].reverse().map((a, idx, arr) => {
-                const u = data.users.find((x) => x.id === a.authorId);
+                // Профиль автора приходит вместе с записью: история переживает
+                // вывод человека из проекта и удаление его учётки.
+                const who = a.author;
                 return (
                   <div key={a.id} className="relative flex gap-3 pb-4">
                     {idx < arr.length - 1 && <span className="absolute left-[11px] top-6 h-full w-px bg-line" />}
                     <span className="relative z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line bg-panel">
-                      <Avatar user={u ?? null} size={18} />
+                      <Avatar user={who} size={18} />
                     </span>
                     <p className="pt-0.5 text-[12.5px] leading-snug text-sub">
-                      <b className="font-semibold text-ink">{u?.name.split(" ")[0]}</b> {a.text}
+                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : "Система"}</b> {a.text}
                       <span className="ml-1.5 text-[11px] text-faint">{relTime(a.ts)}</span>
                     </p>
                   </div>
                 );
               })}
+              {issue.activity.length === 0 && (
+                <p className="py-3 text-center text-[12px] text-faint">История пока пуста.</p>
+              )}
             </div>
           )}
         </div>

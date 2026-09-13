@@ -140,6 +140,10 @@ export interface CreateInput {
   dueDate?: string | null;
 }
 
+/** Сколько задач клиент тянет за раз. Серверный потолок — 200; держим их
+ *  в одной константе, чтобы «сколько загружено» и «сколько всего» не разъезжались. */
+const ISSUES_PAGE = 200;
+
 const PROJECT_KEY = "taskira.project";
 const readLastProject = (): string => {
   try {
@@ -178,6 +182,9 @@ const emptyData = (): Data => ({
   issues: [],
   workflow: { statuses: [], transitions: [] },
   assignedToMe: [],
+  assignedTruncated: false,
+  issuesTruncated: false,
+  issuesTotal: 0,
   collaborations: [],
   notifications: [],
   unreadCount: 0,
@@ -281,6 +288,8 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     links: dto.links?.map(mapIssueLink) ?? prev?.links ?? [],
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
+    doneAt: dto.doneAt ? Date.parse(dto.doneAt) || null : null,
+    archivedAt: dto.archivedAt ? Date.parse(dto.archivedAt) || null : null,
   };
 }
 
@@ -437,7 +446,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       collaborations: Collaboration[],
     ): Promise<Data> => {
       const boot = await projectsApi.get(projectId);
-      const issuesRes = await issuesApi.list(projectId, { limit: 200 });
+      const issuesRes = await issuesApi.list(projectId, { limit: ISSUES_PAGE });
       const members: Record<string, ProjectRole> = {};
       for (const m of boot.members) members[m.userId] = m.role;
       const users = boot.users.map((u) => mapUser(u, members));
@@ -457,7 +466,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         members,
         currentUserId,
         issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
+        // Сервер уже вернул честный total — сравниваем и запоминаем, что список
+        // урезан. Раньше total уходил в неиспользуемое поле seq, и клиент молча
+        // показывал первые N задач как будто это всё (аудит BLOCK-01).
+        issuesTruncated: issuesRes.items.length < issuesRes.total,
+        issuesTotal: issuesRes.total,
         assignedToMe: [],
+        assignedTruncated: false,
         collaborations,
         notifications: [],
         unreadCount: 0,
@@ -658,8 +673,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const refreshAssignedToMe = useCallback(async () => {
     try {
-      const items = await issuesApi.assignedToMe();
-      setData((prev) => ({ ...prev, assignedToMe: items as AssignedIssue[] }));
+      const res = await issuesApi.assignedToMe();
+      // Серверный DTO отдаёт typeId/priorityId строками — сужаем к юнионам клиента,
+      // как это делалось и раньше для голого массива.
+      setData((prev) => ({
+        ...prev,
+        assignedToMe: res.items as AssignedIssue[],
+        assignedTruncated: res.truncated,
+      }));
     } catch {
       /* тихо — блок «Мои задачи» просто не обновится */
     }
@@ -699,14 +720,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const refreshIssues = useCallback(async () => {
     try {
-      const issuesRes = await issuesApi.list(pid(), { limit: 200 });
-      setData((prev) => ({
-        ...prev,
-        issues: issuesRes.items.map((dto) => {
-          const old = prev.issues.find((x) => x.id === dto.id);
-          return mapIssue(dto, old);
-        }),
-      }));
+      const issuesRes = await issuesApi.list(pid(), { limit: ISSUES_PAGE });
+      setData((prev) => {
+        const byId = new Map(prev.issues.map((i) => [i.id, i]));
+        return {
+          ...prev,
+          issues: issuesRes.items.map((dto) => mapIssue(dto, byId.get(dto.id))),
+          issuesTruncated: issuesRes.items.length < issuesRes.total,
+          issuesTotal: issuesRes.total,
+        };
+      });
     } catch (err) {
       handleApiError(err);
     }
@@ -728,7 +751,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!id) return;
       void (async () => {
         try {
-          const [dto, comments] = await Promise.all([issuesApi.get(pid(), id), commentsApi.list(pid(), id).catch(() => [])]);
+          // История задачи грузится вместе с карточкой: до этого таблица activity
+          // писалась, но клиент её ниоткуда не получал, и вкладка «История»
+          // всегда была пуста (аудит).
+          const [dto, comments, activity] = await Promise.all([
+            issuesApi.get(pid(), id),
+            commentsApi.list(pid(), id).catch(() => []),
+            issuesApi.activity(pid(), id).catch(() => []),
+          ]);
           setData((prev) => {
             const mapped = mapIssue(dto, prev.issues.find((x) => x.id === id));
             mapped.comments = (comments as { id: string; authorId: string; body: string; createdAt: string }[]).map(
@@ -739,6 +769,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 ts: Date.parse(c.createdAt) || Date.now(),
               }),
             );
+            mapped.activity = activity.map((a) => ({
+              id: a.id,
+              authorId: a.actorId,
+              author: a.actor,
+              text: a.text,
+              ts: Date.parse(a.createdAt) || Date.now(),
+            }));
             return { ...prev, issues: upsertIssue(prev.issues, mapped) };
           });
         } catch (err) {
