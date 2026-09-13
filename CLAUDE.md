@@ -51,7 +51,15 @@ The server has a **vitest** suite (`server/test/`, `npm test`); it needs a local
 (`vitest.config.ts` / `test/global-setup.ts` spin up a scratch DB). LDAP / S3 / mail suites are
 `describe.skip` unless their env vars are set (CI sets them via docker-compose — see
 `.github/workflows/test.yml`). The client now has **vitest** too (root `npm test`, `vitest.config.ts`, jsdom + Testing Library
-available): `src/*.test.ts` covers the pure logic — permissions, validation, store helpers.
+available): `src/*.test.ts` covers the pure logic (permissions, validation, store helpers), and
+`src/store.bootstrap.test.tsx` is the first component-level test — it renders `StoreProvider`
+via a probe component and drives `bootstrap()` against mocked `./api` responses shaped exactly
+like the real endpoints. That test exists because a real regression shipped to `main` unnoticed:
+`issuesApi.assignedToMe()` returns `{items, truncated, limit}`, but the ≥2-projects boot branch
+assigned the whole object to `data.assignedToMe`, and `HomeView`'s `.filter()` on it crashed the
+whole app with no ErrorBoundary — typecheck and the pure-logic tests both missed it because the
+`as AssignedIssue[]` cast hid the shape mismatch from `tsc`. When adding a new `bootstrap()`
+branch or changing what an API method returns, extend this file rather than trusting types alone.
 Full client verification is `npm run typecheck` + `npm test` + `npm run build`, and CI runs all
 three. A cross-package check also exists: `server/test/permissions-sync.test.ts` reads
 `src/permissions.ts` and `src/validation.ts` from disk and fails if the duplicated `MATRIX` or
