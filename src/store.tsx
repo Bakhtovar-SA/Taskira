@@ -626,7 +626,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // (UI_RESTRUCTURE.md D4): список проектов и задач, в проект не входим.
       // При 1 проекте главный экран бессмыслен — сразу внутрь (ветка ниже).
       if (projects.length >= 2 && !hashProjectVisible && !hashIsCollab) {
-        const assigned = await issuesApi.assignedToMe().catch(() => [] as AssignedIssue[]);
+        const assigned = await issuesApi
+          .assignedToMe()
+          .catch(() => ({ items: [] as AssignedIssue[], truncated: false, limit: 0 }));
         setData({
           ...emptyData(),
           currentUserId: user.id,
@@ -634,7 +636,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           departments: deps,
           projects,
           collaborations: collabs,
-          assignedToMe: assigned as AssignedIssue[],
+          assignedToMe: assigned.items as AssignedIssue[],
+          assignedTruncated: assigned.truncated,
           notifyPrefs: user.notifyPrefs ?? {},
         });
         void refreshNotifications();

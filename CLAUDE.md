@@ -17,7 +17,8 @@ is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still impo
 `*_MIGRATION.md` files are historical records of completed schema/feature migrations, in order:
 roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
-links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016).
+links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
+token revocation (017).
 
 ## Commands
 
@@ -138,8 +139,9 @@ list/card renders — the linear scans were quadratic across a board.
 - `services/` — domain helpers: `issues.ts` (DTO map, `nextIssueNum` atomic counter),
   `workflow.ts` (`DEFAULT_STATUSES`/`DEFAULT_TRANSITIONS`, `assertTransition` → 409 on
   illegal move), `rank.ts` (fractional `issues.rank` float8; midpoint insert, column
-  rebalance when gap `< 1e-9`), `project.ts` (`currentProject()`, cached — **single project,
-  no multi-tenant**).
+  rebalance when gap `< 1e-9`, whole calculation under `pg_advisory_xact_lock` keyed by
+  status column so concurrent drags into the same slot don't race to the same rank),
+  `project.ts` (`currentProject()`, cached — **single project, no multi-tenant**).
 - `db.ts` — thin `pg` wrapper: `q` / `one` / `exec` / `withClient` (dedicated client for
   race-free read-then-write). `migrate()` applies `server/migrations/*.sql` in filename order,
   each file in one transaction, tracked in `schema_migrations`.
@@ -147,7 +149,11 @@ list/card renders — the linear scans were quadratic across a board.
   itself (no dotenv dep). Fails fast if `DATABASE_URL` missing or `JWT_SECRET` < 32 chars.
 - `middleware.ts` — `requireAuth` verifies JWT but re-reads `global_role` / `is_active` from
   the DB (30s in-memory cache, `invalidateUserCache()` on admin role change) so role changes
-  and deactivation take effect without waiting for token expiry. Project resources live under
+  and deactivation take effect without waiting for token expiry. The same lookup checks the
+  token's `iatMs` (milliseconds, not JWT's second-granularity `iat`) against
+  `users.tokens_valid_from`; `POST /api/auth/logout` (migration 017) bumps that column so a
+  copied/stale token stops working immediately instead of surviving to its 12h expiry.
+  Project resources live under
   `/api/projects/:projectId/...` (issues, comments, attachments, collaborators, members,
   workflow); `requirePerm` resolves the caller's membership for that `:projectId`.
 - `audit.ts` — fire-and-forget `audit_log` inserts; never throws into the request.
@@ -210,7 +216,7 @@ since any edit touches it. The board shows the last 14 days in its done column
   `framer-motion`, `recharts`, `canvas-confetti`, `react-router-dom`, `uuid`, …) are gone —
   the client has no router and no drag lib wired in; hash routing is hand-rolled in `App.tsx`.
 - CI (`.github/workflows/test.yml`) now has a `client` job (root `npm run typecheck` +
-  `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
+  `npm test` + `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
 - **Theming** (`src/theme.ts` + `src/index.css`): the palette lives in plain custom
   properties on `:root` / `:root[data-theme="dark"]` (`--c-canvas`, …); `@theme` only
   aliases them (`--color-canvas: var(--c-canvas)`) so `bg-canvas` / `text-ink` / etc.
@@ -220,3 +226,9 @@ since any edit touches it. The board shows the last 14 days in its done column
   are in `localStorage` only (`taskira.theme` / `taskira.bg`), applied to `<html>` by
   `applyTheme()`; the profile-menu "Оформление" popup (`AppearanceSettings` in `ui.tsx`)
   is the UI. Sidebar-internal colors stay hardcoded (the rail is dark in both themes).
+- **Responsive layout**: below 768px the issue modal's right-hand panel (status, assignee,
+  due date, labels) collapses under the main content instead of sitting beside it, the
+  sidebar hides in favor of a native `<select>` in `Topbar.tsx` carrying the same sections
+  and visibility rules (admin-only "Департаменты", collab-only "Мои подключения"), and view
+  side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
+  don't assume mobile parity for anything not explicitly listed here.
