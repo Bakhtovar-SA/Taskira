@@ -66,6 +66,13 @@ workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`
   листит `Storage`, сравнивает со `storage_key` в `attachments` и удаляет
   объекты без строки — с грейс-периодом против гонки с загрузкой (`put()` в
   Storage происходит раньше `INSERT INTO attachments`).
+- **Фоновый ресинк LDAP-членства по расписанию**: третий независимый таймер
+  в `services/maintenance.ts` (по умолчанию раз в 6 часов, только при
+  `AUTH_MODE=ldap` + сервис-аккаунте) переиспользует ту же логику, что и
+  ручной `POST /api/ldap/resync` (`resyncAllLdapUsers()` в
+  `services/departmentSync.ts`) — до этого членство обновлялось только JIT
+  при логине и вручную, уволенный/переведённый сотрудник держал старый
+  доступ до следующего входа.
 - **Оформление**: светлая/тёмная/системная тема + 6 фоновых пресетов
   (`src/theme.ts`, токены `--c-*` на `:root`, выбор в `localStorage`).
 - **Департаменты** (миграция 007, `DEPT_MIGRATION.md`): таблица `departments`
@@ -94,8 +101,6 @@ workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`
   воркера — общий для будущих LDAP-resync и storage-sweeper.
 
 Чего ещё нет (детальнее — раздел «Порядок разработки»):
-- **Фоновый ресинк LDAP-членства по расписанию** — пока только JIT при логине и
-  ручной `resync`; джоб для воркера обслуживания.
 - **WebSocket-пуш уведомлений** — сейчас polling; `WsMessage` объявлен типом,
   `/ws` не смонтирован (Этап 3c).
 - **Нейтральная терминология в UI** доведена почти полностью
@@ -166,7 +171,8 @@ Workflow    { projectId, statuses[], transitions[] } -- одна схема на
 1. ✅ Backend: авторизация через LDAP + базовая модель (Department → Project → Issue)
    — сделано: модель Department → Project → Issue (миграция 007), multi-project,
    LDAP/AD-аутентификация с JIT-provisioning и sync членства (миграция 009,
-   `LDAP_MIGRATION.md` / `LDAP_SETUP.md`). Фоновый ресинк по расписанию — в п. 5.
+   `LDAP_MIGRATION.md` / `LDAP_SETUP.md`). Фоновый ресинк по расписанию — сделан
+   (см. п. 5).
 2. ✅ Миграция ролевой модели с глобальной на привязанную к проекту
    — сделано (миграции 004/006, `ROLE_MIGRATION.md`).
 3. ✅ Перевод фронтенда с localStorage на реальный API — сделано.
@@ -175,8 +181,8 @@ Workflow    { projectId, statuses[], transitions[] } -- одна схема на
 5. ✅ Уведомления + фоновый воркер — сделано (миграция 011, in-app-лента +
    email-воркер `nodemailer`, `NOTIFICATIONS_MIGRATION.md` /
    `NOTIFICATIONS_SETUP.md`). Скелет воркера — общий; сборщик осиротевших
-   объектов хранилища навешен на него отдельным джобом (`storageSweeper.ts`).
-   Ресинк LDAP-членства по расписанию — остаётся follow-up.
+   объектов хранилища и фоновый ресинк LDAP-членства навешены на него
+   отдельными джобами (`storageSweeper.ts`, `departmentSync.ts` `resyncAllLdapUsers`).
 6. 🟡 Переименование сущностей в UI под нейтральную терминологию (см. SCOPE.md)
    — сделано в [UI_RESTRUCTURE.md](UI_RESTRUCTURE.md): спринты удалены целиком
    (миграция 012, право `manageSprints` из `MATRIX`), «Бэклог» → «Список задач»

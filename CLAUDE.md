@@ -44,7 +44,7 @@ npm run build          # tsc -p tsconfig.json -> dist/
 npm run start          # node dist/index.js
 npm run seed           # run migrate() + seedAdmin() + seedProject() standalone
 npm run typecheck      # tsc --noEmit
-npm test               # vitest run — access/contract/home/notifications suites (~90 tests)
+npm test               # vitest run — access/contract/home/notifications/lifecycle/reports/storage/ldap suites (~140 tests)
 ```
 
 The server has a **vitest** suite (`server/test/`, `npm test`); it needs a local PostgreSQL
@@ -214,6 +214,16 @@ since any edit touches it. The board shows the last 14 days in its done column
 
 ## Gotchas
 
+- **`server npm test` used to flake with "обнаружена взаимоблокировка" (Postgres 40P01)**
+  in `resetDb()`'s `TRUNCATE`, on a different test file each run — root-caused and fixed:
+  `audit()` (`audit.ts`) writes to `audit_log` via `void q(...)`, deliberately not awaited by
+  callers. If the previous test hit a mutating route, that INSERT can still be in flight when
+  the next test's `beforeEach` → `resetDb()` fires; `TRUNCATE` grabs ACCESS EXCLUSIVE on 15
+  tables at once (including `users` and `audit_log`) while the background INSERT holds
+  `audit_log` and needs an FK-check lock on `users` — a real wait-cycle, not a false alarm.
+  `test/helpers.ts` `resetDb()` now retries on `code === "40P01"` (up to 5 attempts); don't
+  "fix" this by awaiting `audit()` in production code — that reintroduces the hot-path
+  round-trip the fire-and-forget design deliberately avoids.
 - **Server imports use `.js` extensions** on relative paths (NodeNext module resolution) even
   though the files are `.ts`. The client uses `allowImportingTsExtensions` and imports `.tsx`/`.ts`.
 - **`npm run dev` forces chokidar polling** (`cross-env CHOKIDAR_USEPOLLING=1 CHOKIDAR_INTERVAL=250`).

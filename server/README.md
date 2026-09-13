@@ -76,9 +76,10 @@
 Дорожная карта (`../ARCHITECTURE.md`, «Порядок разработки») пройдена: backend + БД,
 project-scoped роли, департаменты, LDAP/AD, вложения, уведомления + email-воркер,
 UI-реструктуризация (спринты убраны, «Список задач», «Направление», главный экран).
-Остаётся: WebSocket-пуш вместо polling, фоновый ресинк LDAP-членства по расписанию.
-`story points` → «сложность» (миграция 018, поле `complexity`) и сборщик
-осиротевших объектов хранилища (`services/storageSweeper.ts`) — сделаны.
+Остаётся: WebSocket-пуш вместо polling. `story points` → «сложность» (миграция
+018, поле `complexity`), сборщик осиротевших объектов хранилища
+(`services/storageSweeper.ts`) и фоновый ресинк LDAP-членства по расписанию
+(`services/departmentSync.ts` `resyncAllLdapUsers`) — сделаны.
 
 ## Breaking changes (002)
 

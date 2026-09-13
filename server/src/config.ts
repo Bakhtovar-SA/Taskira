@@ -30,6 +30,11 @@ export interface LdapConfig {
   tlsCaFile: string | null;
   tlsRejectUnauthorized: boolean;
   timeoutMs: number;
+  /** Фоновый ресинк членства в департаментах из LDAP-групп (LDAP_MIGRATION.md D3).
+   *  Требует bindDn (сервис-аккаунт) — как и ручной POST /api/ldap/resync;
+   *  без него джоб молча не стартует (нечем искать группы без bind пользователя). */
+  resyncEnabled: boolean;
+  resyncIntervalMs: number;
 }
 
 /** Параметры S3-совместимого хранилища — заполнены только при driver === "s3".
@@ -214,6 +219,8 @@ function buildLdapConfig(): LdapConfig {
     tlsCaFile: process.env.LDAP_TLS_CA_FILE?.trim() || null,
     tlsRejectUnauthorized: envBool(process.env.LDAP_TLS_REJECT_UNAUTHORIZED, true),
     timeoutMs,
+    resyncEnabled: envBool(process.env.LDAP_RESYNC_ENABLED, true),
+    resyncIntervalMs: envPosInt("LDAP_RESYNC_INTERVAL_MS", 6 * 60 * 60_000), // раз в 6 часов
   };
 }
 

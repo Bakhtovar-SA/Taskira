@@ -4,6 +4,7 @@
 import { q } from "../db.js";
 import { audit } from "../audit.js";
 import { invalidateDeptMembership } from "../middleware.js";
+import { ldapUserGroups } from "./ldap.js";
 
 export async function syncDepartmentMembership(userId: string, groupDns: string[]): Promise<void> {
   const lower = groupDns.map((g) => g.toLowerCase());
@@ -41,4 +42,45 @@ export async function syncDepartmentMembership(userId: string, groupDns: string[
     groups: groupDns.length,
     departments: wantedIds.length,
   });
+}
+
+export interface LdapResyncResult {
+  total: number;
+  synced: number;
+  notFound: string[];
+  errors: string[];
+}
+
+/** Пересобрать department_members для ВСЕХ ldap-пользователей из их текущих
+ *  групп. Общая реализация для ручного POST /api/ldap/resync (routes/ldap.ts,
+ *  actorId — вызвавший admin) и фонового джоба (services/ldapResync.ts,
+ *  actorId — null, «система»). Требует сервис-аккаунт (LDAP_BIND_DN) — вызывающий
+ *  сам проверяет это до вызова, чтобы отличать «не настроено» от «пусто прошло». */
+export async function resyncAllLdapUsers(actorId: string | null): Promise<LdapResyncResult> {
+  const users = await q<{ id: string; username: string }>(
+    `SELECT id, username FROM users WHERE auth_source = 'ldap' ORDER BY username`,
+  );
+  let synced = 0;
+  const notFound: string[] = [];
+  const errors: string[] = [];
+  for (const u of users) {
+    try {
+      const groups = await ldapUserGroups(u.username);
+      if (groups === null) {
+        notFound.push(u.username);
+        continue;
+      }
+      await syncDepartmentMembership(u.id, groups);
+      synced += 1;
+    } catch (e) {
+      errors.push(`${u.username}: ${(e as Error).message}`);
+    }
+  }
+  await audit(actorId, "ldap.resync", "ldap", null, {
+    total: users.length,
+    synced,
+    notFound: notFound.length,
+    errors: errors.length,
+  });
+  return { total: users.length, synced, notFound, errors };
 }

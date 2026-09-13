@@ -32,7 +32,7 @@ cd server
 npm install
 cp .env.example .env      # заполнить DATABASE_URL, JWT_SECRET (≥32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
 npm run dev               # tsx watch → миграции → seed админа и проекта → :8080
-npm test                  # vitest — интеграционные тесты прав/контракта (~90)
+npm test                  # vitest — интеграционные тесты прав/контракта (~140, часть — только с LDAP/S3/mail env)
 ```
 
 Нужен доступный локально PostgreSQL (`DATABASE_URL`): миграции и seed выполняются
