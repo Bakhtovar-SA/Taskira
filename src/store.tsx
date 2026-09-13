@@ -15,6 +15,7 @@ import type {
   PriorityId,
   ProjectRole,
   ProjectSummary,
+  Status,
   Toast,
   User,
   ViewId,
@@ -301,8 +302,21 @@ function upsertIssue(list: Issue[], issue: Issue): Issue[] {
   return next;
 }
 
+/** Индексы по id — строятся один раз на изменение данных и раздаются через
+ *  контекст. Без них каждая карточка доски и строка списка линейно проходила
+ *  data.users / data.issues / workflow.statuses, давая квадратичную сложность
+ *  на весь экран (аудит PERF-02). */
+export interface StoreIndexes {
+  users: Map<string, User>;
+  issues: Map<string, Issue>;
+  statuses: Map<string, Status>;
+  /** id статусов категории done — самый частый вопрос во всех вью. */
+  doneStatusIds: Set<string>;
+}
+
 interface Api {
   data: Data;
+  idx: StoreIndexes;
   me: User;
   ui: UIState;
   toasts: Toast[];
@@ -377,6 +391,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     lastEvent: null,
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  /* Подсветка только что перемещённой карточки гаснет ПО ТАЙМЕРУ.
+     Раньше Board сравнивал Date.now() прямо в рендере, но ререндер сам собой не
+     случается — анимация висела до следующего постороннего обновления
+     (аудит BUG-05). */
+  useEffect(() => {
+    if (!ui.lastEvent) return;
+    const t = window.setTimeout(() => setUi((u) => (u.lastEvent ? { ...u, lastEvent: null } : u)), 1500);
+    return () => window.clearTimeout(t);
+  }, [ui.lastEvent]);
+
   const dataRef = useRef(data);
   dataRef.current = data;
 
@@ -1452,8 +1477,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
 
+  const idx = useMemo<StoreIndexes>(
+    () => ({
+      users: new Map(data.users.map((u) => [u.id, u])),
+      issues: new Map(data.issues.map((i) => [i.id, i])),
+      statuses: new Map(data.workflow.statuses.map((st) => [st.id, st])),
+      doneStatusIds: new Set(data.workflow.statuses.filter((st) => st.category === "done").map((st) => st.id)),
+    }),
+    [data.users, data.issues, data.workflow.statuses],
+  );
+
   const api: Api = {
     data,
+    idx,
     me,
     ui,
     toasts,

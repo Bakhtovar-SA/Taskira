@@ -398,6 +398,7 @@ export default function IssueModal() {
   const [descDraft, setDescDraft] = useState("");
   const [labelInput, setLabelInput] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
+  const [dirQuery, setDirQuery] = useState("");
 
   useEffect(() => {
     setTab("comments");
@@ -405,6 +406,7 @@ export default function IssueModal() {
     setComment("");
     setConfirmDel(false);
     setLabelInput("");
+    setDirQuery("");
   }, [ui.selectedIssueId]);
 
   const epic = useMemo(() => data.issues.find((i) => i.id === issue?.epicId), [data.issues, issue?.epicId]);
@@ -445,7 +447,18 @@ export default function IssueModal() {
   // проекта, а не только уже выбранные: иначе выбрать первое направление было
   // бы невозможно — список кандидатов вечно оставался бы пуст.
   const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
-  const directionOptions = data.issues.filter((i) => i.id !== issue.id);
+  // Кандидаты в «направление»: все задачи проекта, кроме самой открытой и
+  // архивных (выбирать родителем задачу, убранную из активного набора, незачем).
+  const directionOptions = data.issues.filter((i) => i.id !== issue.id && i.archivedAt === null);
+
+  const dirTerm = dirQuery.trim().toLowerCase();
+  const shownDirections = (
+    dirTerm
+      ? directionOptions.filter(
+          (i) => i.title.toLowerCase().includes(dirTerm) || i.key.toLowerCase().includes(dirTerm),
+        )
+      : directionOptions
+  ).slice(0, 50);
 
   /* права доступа: что можно делать с этой задачей */
   const editOk = can("edit", issue);
@@ -844,13 +857,28 @@ export default function IssueModal() {
               >
                 {(close) => (
                   <>
+                    {/* Список задач проекта может быть длинным — без фильтра
+                        выпадашка становится непригодной (аудит UX-05). */}
+                    {directionOptions.length > 8 && (
+                      <input
+                        autoFocus
+                        value={dirQuery}
+                        onChange={(e) => setDirQuery(e.target.value)}
+                        placeholder="Поиск по названию или ключу"
+                        aria-label="Поиск направления"
+                        className="mb-1 w-full rounded-md border border-line bg-panel px-2 py-1 text-[12px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+                      />
+                    )}
                     <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>Без направления</MenuItem>
-                    {directionOptions.map((e) => (
-                      <MenuItem key={e.id} onClick={() => { updateIssue(issue.id, { epicId: e.id }); close(); }}>
+                    {shownDirections.map((e) => (
+                      <MenuItem key={e.id} onClick={() => { updateIssue(issue.id, { epicId: e.id }); setDirQuery(""); close(); }}>
                         <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: e.color }} />
                         <span className="truncate">{e.title}</span>
                       </MenuItem>
                     ))}
+                    {directionOptions.length > 0 && shownDirections.length === 0 && (
+                      <p className="px-3 py-2.5 text-[11.5px] text-faint">Ничего не нашлось.</p>
+                    )}
                     {directionOptions.length === 0 && (
                       <p className="px-3 py-2.5 text-[11.5px] leading-snug text-faint">
                         Направлений пока нет. Любая задача становится направлением, как только другая
@@ -1009,14 +1037,27 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
         className="w-full resize-none rounded-md border border-accent bg-panel p-2 text-[17px] font-bold leading-snug text-ink outline-none ring-2 ring-accent/15"
       />
     );
+  // Заголовок редактируется по клику, но должен открываться и с клавиатуры:
+  // без tabIndex/роли переименовать задачу без мыши было нельзя (аудит UX-04).
   return (
-    <h2
-      onClick={() => setEditing(true)}
-      title="Нажмите, чтобы переименовать"
-      className="group -mx-2 cursor-text rounded-md px-2 py-1 text-[17px] font-bold leading-snug text-ink transition-colors hover:bg-canvas"
-    >
-      {issue.title}
-      <IcPencil size={13} className="ml-2 inline text-faint opacity-0 transition-opacity group-hover:opacity-100" />
+    <h2 className="-mx-2">
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={() => setEditing(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setEditing(true);
+          }
+        }}
+        title="Нажмите, чтобы переименовать"
+        aria-label={`Переименовать задачу: ${issue.title}`}
+        className="group block cursor-text rounded-md px-2 py-1 text-[17px] font-bold leading-snug text-ink transition-colors hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        {issue.title}
+        <IcPencil size={13} className="ml-2 inline text-faint opacity-0 transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100" />
+      </span>
     </h2>
   );
 }

@@ -26,10 +26,12 @@ const selectCls =
   "h-8 rounded-md border border-line bg-panel px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 function Row({ issue }: { issue: Issue }) {
-  const { data, openIssue, deleteIssue, can } = useStore();
-  const assignee = data.users.find((u) => u.id === issue.assigneeId);
-  const epic = data.issues.find((i) => i.id === issue.epicId);
-  const status = data.workflow.statuses.find((s) => s.id === issue.statusId);
+  const { idx, openIssue, deleteIssue, can } = useStore();
+  // Ассоциированные сущности ищем по индексам из контекста, а не линейным
+  // проходом по массивам в каждой строке списка (аудит PERF-02).
+  const assignee = issue.assigneeId ? idx.users.get(issue.assigneeId) : undefined;
+  const epic = issue.epicId ? idx.issues.get(issue.epicId) : undefined;
+  const status = idx.statuses.get(issue.statusId);
 
   return (
     <div
@@ -102,6 +104,9 @@ export default function Backlog() {
   const [fAssignee, setFAssignee] = useState(""); // "" | "none" | userId
   const [fType, setFType] = useState("");
   const [fOverdue, setFOverdue] = useState(false);
+  // Закрытые по умолчанию скрыты (аудит LIFE-02): раньше вью открывался со
+  // смесью живого и архивного, и счётчик считал их наравне.
+  const [showDone, setShowDone] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("priority");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -118,6 +123,9 @@ export default function Backlog() {
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();
     const filtered = data.issues.filter((i) => {
+      // Явно выбранный статус важнее общего переключателя: если человек выбрал
+      // «Готово» в фильтре, он хочет видеть именно закрытые.
+      if (!showDone && !fStatus && doneIds.has(i.statusId)) return false;
       if (fStatus && i.statusId !== fStatus) return false;
       if (fAssignee === "none" ? i.assigneeId !== null : fAssignee ? i.assigneeId !== fAssignee : false) return false;
       if (fType && i.typeId !== fType) return false;
@@ -133,15 +141,21 @@ export default function Backlog() {
     };
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => cmp[sortKey](a, b) * dir || keyNum(a.key) - keyNum(b.key));
-  }, [data.issues, q, fStatus, fAssignee, fType, fOverdue, sortKey, sortDir, doneIds]);
+  }, [data.issues, q, fStatus, fAssignee, fType, fOverdue, sortKey, sortDir, doneIds, showDone]);
 
-  const filterActive = !!(q || fStatus || fAssignee || fType || fOverdue);
+  const activeCount = useMemo(
+    () => data.issues.filter((i) => !doneIds.has(i.statusId)).length,
+    [data.issues, doneIds],
+  );
+
+  const filterActive = !!(q || fStatus || fAssignee || fType || fOverdue || showDone);
   const resetFilters = () => {
     setQ("");
     setFStatus("");
     setFAssignee("");
     setFType("");
     setFOverdue(false);
+    setShowDone(false);
   };
 
   return (
@@ -152,7 +166,9 @@ export default function Backlog() {
           <div className="mr-2">
             <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Список задач</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
-              {rows.length} из {data.issues.length} задач
+              {rows.length} из {showDone ? data.issues.length : activeCount}{" "}
+              {showDone ? "задач" : "активных задач"}
+              {data.issuesTruncated && ` · загружено ${data.issues.length} из ${data.issuesTotal}`}
             </p>
           </div>
 
@@ -227,8 +243,22 @@ export default function Backlog() {
             ))}
           </select>
           <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
-            <input type="checkbox" checked={fOverdue} onChange={(e) => setFOverdue(e.target.checked)} />
+            <input
+              id="backlog-overdue"
+              type="checkbox"
+              checked={fOverdue}
+              onChange={(e) => setFOverdue(e.target.checked)}
+            />
             Просроченные
+          </label>
+          <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
+            <input
+              id="backlog-show-done"
+              type="checkbox"
+              checked={showDone}
+              onChange={(e) => setShowDone(e.target.checked)}
+            />
+            Показывать закрытые
           </label>
           {filterActive && (
             <button onClick={resetFilters} className="flex h-8 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-faint hover:text-ink">

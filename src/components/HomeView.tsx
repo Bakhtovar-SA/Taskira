@@ -219,6 +219,13 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                   {tasks.map((t) => (
                     <TaskRow key={t.issueId} issue={t} onOpen={() => openTask(t)} />
                   ))}
+                  {/* Сервер ограничивает выдачу — говорим об этом прямо, а не
+                      показываем часть списка как будто это всё. */}
+                  {data.assignedTruncated && (
+                    <p className="border-t border-line bg-warnsoft/40 px-3 py-2 text-[11.5px] font-medium text-warn">
+                      Показаны первые {data.assignedToMe.length} задач. Остальные — в списке задач проекта.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <Empty

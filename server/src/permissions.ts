@@ -87,6 +87,13 @@ const MATRIX: Record<PermId, AccessRole[]> = {
 
 export const roleHas = (role: AccessRole, perm: PermId): boolean => MATRIX[perm].includes(role);
 
+/* Экспорт для теста синхронности с клиентской копией (test/permissions-sync.test.ts).
+   Матрица дублируется намеренно (клиенту она нужна для мгновенной реакции UI),
+   и тест следит, чтобы копии не разъехались. В рантайме этими именами
+   не пользуемся — только MATRIX и roleHas выше. */
+export const MATRIX_FOR_TESTS: Readonly<Record<PermId, readonly AccessRole[]>> = MATRIX;
+export const PERM_IDS_FOR_TESTS = Object.keys(MATRIX) as PermId[];
+
 /* ============================================================
    Резолв эффективной роли и проверки
    ============================================================ */
