@@ -22,6 +22,9 @@ export const LIMITS = {
   // Вложения — зеркало server/src/contract.ts (FILES_MIGRATION.md D3). UX-подсказка;
   // сервер может отдавать свои значения через GET /api/... в будущем.
   attachment: { maxBytes: 25 * 1024 * 1024, maxPerIssue: 50, maxFilename: 200 },
+  // Чек-лист (миграция 019) — зеркало server/src/contract.ts.
+  checklistItem: { text: { min: 1, max: 200 } },
+  checklistItemsPerIssue: 50,
   // Пользовательские поля — зеркало server/src/contract.ts (миграция 020).
   customField: { name: { min: 1, max: 60 }, optionMax: 60, optionsMax: 30 },
   customFieldsPerProject: 30,
@@ -76,5 +79,13 @@ export function validateLabels(raw: string[]): Result<string[]> {
 
 export function validateGoal(raw: string): Result<string> {
   const v = sanitizeLine(raw).slice(0, LIMITS.goal.max);
+  return { ok: true, value: v };
+}
+
+export function validateChecklistItemText(raw: string): Result<string> {
+  const v = sanitizeLine(raw).slice(0, LIMITS.checklistItem.text.max + 1);
+  if (v.length < LIMITS.checklistItem.text.min) return { ok: false, error: "Текст пункта не может быть пустым" };
+  if (v.length > LIMITS.checklistItem.text.max)
+    return { ok: false, error: `Текст пункта длиннее ${LIMITS.checklistItem.text.max} символов` };
   return { ok: true, value: v };
 }

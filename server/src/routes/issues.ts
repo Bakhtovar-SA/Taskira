@@ -21,6 +21,14 @@ import { computeRank } from "../services/rank.js";
 import { getIssueDto, listActivity, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
 import { insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
 import {
+  countChecklistItems,
+  createChecklistItem,
+  deleteChecklistItem,
+  getChecklistItemInIssue,
+  listChecklistItems,
+  updateChecklistItem,
+} from "../services/checklist.js";
+import {
   getCustomFieldInProject,
   listValuesForIssue,
   setCustomFieldValue,
@@ -30,6 +38,9 @@ import { storageKeysForIssue, deleteStorageObjects } from "../services/attachmen
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import {
+  ChecklistItemCreateBody,
+  ChecklistItemParams,
+  ChecklistItemPatchBody,
   CustomFieldParams,
   CustomFieldValueBody,
   IssueCreateBody,
@@ -37,6 +48,7 @@ import {
   IssueLinkParams,
   IssuePatchBody,
   IssueQuery,
+  LIMITS,
   TransitionBody,
 } from "../contract.js";
 
@@ -498,6 +510,62 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (!del) throw notFound("Связь не найдена");
       await audit(user.sub, "issue.link.remove", "issue", iss.id, { key: iss.key, linkId });
       return { links: await listIssueLinks(iss.id) };
+    },
+  );
+
+  /* ---------------------------------------------------------- чек-лист (checklist_items,
+     миграция 019). Тем же правом `edit` на задачу, что и links/поля — отдельной
+     модели прав нет. Activity логируем только на добавление/удаление пункта,
+     не на каждый чек/анчек — иначе лента задачи тонет в «отметил(а) галочку». */
+  app.post(
+    "/:id/checklist",
+    { preHandler: requireIssuePerm("edit"), preValidation: zbody(ChecklistItemCreateBody) },
+    async (req) => {
+      const project = req.project!;
+      const { id } = req.params as { id: string };
+      const user = me(req);
+      const body = req.body as z.infer<typeof ChecklistItemCreateBody>;
+
+      const iss = await loadIssue(project.id, id);
+      if ((await countChecklistItems(iss.id)) >= LIMITS.checklistItemsPerIssue) {
+        throw badRequest(`В чек-листе не может быть больше ${LIMITS.checklistItemsPerIssue} пунктов`);
+      }
+      const item = await createChecklistItem(iss.id, body.text);
+      await logActivity(iss.id, user.sub, `добавил(а) пункт чек-листа «${body.text}»`);
+      await audit(user.sub, "issue.checklist.add", "issue", iss.id, { key: iss.key, itemId: item.id });
+      return { item, checklist: await listChecklistItems(iss.id) };
+    },
+  );
+
+  app.patch(
+    "/:id/checklist/:itemId",
+    { preHandler: requireIssuePerm("edit"), preValidation: [zparams(ChecklistItemParams), zbody(ChecklistItemPatchBody)] },
+    async (req) => {
+      const project = req.project!;
+      const { id, itemId } = req.params as { id: string; itemId: string };
+      const body = req.body as z.infer<typeof ChecklistItemPatchBody>;
+
+      const iss = await loadIssue(project.id, id);
+      if (!(await getChecklistItemInIssue(iss.id, itemId))) throw notFound("Пункт чек-листа не найден");
+      const item = await updateChecklistItem(itemId, body);
+      return { item, checklist: await listChecklistItems(iss.id) };
+    },
+  );
+
+  app.delete(
+    "/:id/checklist/:itemId",
+    { preHandler: requireIssuePerm("edit"), preValidation: zparams(ChecklistItemParams) },
+    async (req) => {
+      const project = req.project!;
+      const { id, itemId } = req.params as { id: string; itemId: string };
+      const user = me(req);
+      const iss = await loadIssue(project.id, id);
+      const existing = await getChecklistItemInIssue(iss.id, itemId);
+      if (!existing) throw notFound("Пункт чек-листа не найден");
+      await deleteChecklistItem(itemId);
+      await logActivity(iss.id, user.sub, "удалил(а) пункт чек-листа");
+      await audit(user.sub, "issue.checklist.remove", "issue", iss.id, { key: iss.key, itemId });
+      return { checklist: await listChecklistItems(iss.id) };
     },
   );
 

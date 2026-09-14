@@ -100,6 +100,16 @@ export interface IssueLink {
   createdAt: number;
 }
 
+/** Пункт чек-листа (checklist_items, миграция 019). Заполняется при открытии
+ *  карточки (детальный GET /issues/:id), как attachments/links/collaborators. */
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  position: number;
+  createdAt: number;
+}
+
 /** Шаблон задачи проекта (issue_templates, миграция 022) — уровень проекта,
  *  как workflow/custom-fields. Применение — чистый client-side prefill формы
  *  CreateIssueModal, не связано с созданной задачей. */
@@ -167,6 +177,8 @@ export interface Issue {
   attachments: Attachment[];
   /** Связанные задачи — заполняется при открытии карточки (GET /issues/:id). */
   links: IssueLink[];
+  /** Чек-лист — заполняется при открытии карточки (GET /issues/:id). */
+  checklist: ChecklistItem[];
   /** Значения пользовательских полей — заполняется при открытии карточки (GET /issues/:id). */
   customFieldValues: CustomFieldValue[];
   createdAt: number;

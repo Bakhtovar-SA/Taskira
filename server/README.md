@@ -69,6 +69,7 @@
 | issue-links | Связи между задачами — [`../ticket-features-polish-round4.md`](../ticket-features-polish-round4.md) §3.2. `014_issue_links.sql` (`issue_links`: `issue_id`/`linked_issue_id`/`link_type` `relates`\|`blocks`, CASCADE, UNIQUE); `services/issueLinks.ts`, `POST`/`DELETE /api/projects/:id/issues/:id/links` (`requireIssuePerm("edit")` на исходной, обе задачи в проекте иначе 404, `blocked_by` разворачивается в `blocks` сервером), `getIssueDto.links`; клиент — `issuesApi.addLink`/`removeLink`, секция «Связи» в `IssueModal`; `test/issue-links.test.ts` (9) | ✅ |
 | 3c | WebSocket-пуш уведомлений (не полная real-time доска — `issue:upsert`/`presence` из `WsMessage` остаются объявленными, но нереализованными). `GET /api/ws` (`@fastify/websocket`, уже был зарегистрирован плагином); аутентификация первым сообщением `{type:"auth",token}` после открытия (браузерный `WebSocket` не шлёт свои заголовки на хендшейке, а токен в query-строке утёк бы в access-логи) — переиспользует `assertFreshUser()`, вынесенную из `requireAuth`. `services/wsHub.ts` — реестр сокетов по пользователю, `pushToUser()` вызывается из единой точки создания уведомлений (`services/notify.ts` `emit()`). Клиент — доп. эффект в `store.tsx` рядом с 30-секундным polling (не замена: polling остаётся страховкой при недоступном сокете), реконнект с экспоненциальным бэкоффом. `test/ws.test.ts` (5, `app.injectWS()`) + живой прогон в браузере (реальный `WebSocket` из React-эффекта, подтверждён хендшейк) | ✅ |
 | 5 | docker-compose (полный стек) + runbook — [`../DOCKER_SETUP.md`](../DOCKER_SETUP.md), бэкап отдельно ([`BACKUP.md`](BACKUP.md)) | ✅ |
+| checklist | Чек-лист задачи — по образцу issue-links (014). `019_checklist_items.sql` (`checklist_items`: `issue_id`/`text`/`done`/`position`, CASCADE; `position` — `COALESCE(MAX+1, 0)` при вставке, без reorder в v1); `services/checklist.ts`, `POST`/`PATCH`/`DELETE /api/projects/:id/issues/:id/checklist[/:itemId]` (`requireIssuePerm("edit")`, тот же, что у полей задачи), `getIssueDto.checklist`; клиент — `issuesApi.addChecklistItem`/`patchChecklistItem`/`removeChecklistItem`, `<ChecklistField>` в `IssueModal`; `test/checklist.test.ts` (12) | ✅ |
 
 **roles-1…7** — ролевая миграция (project-scoped) влита в `main` одним PR (#10);
 детальный план и порядок фаз — [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md).
@@ -146,11 +147,12 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `GET /api/projects/:projectId` | — | browse | bootstrap: проект, **активные** пользователи (с `globalRole`, без `password_hash`), `members: [{userId, role}]`, workflow |
 | `GET …/issues` | `IssueQuery`: status, assignee, type, q, dueFrom, dueTo, overdue, limit(≤200), offset | browse | `{items, total}`, сортировка по rank |
 | `POST …/issues` | `IssueCreateBody` | create | num — атомарный счётчик (миграция 003); статус по умолчанию — первый `todo`; rank — в конец колонки |
-| `GET …/issues/:id` | — | browse | задача + `comments`/`participants`/`collaborators`/`attachments`/`links` |
+| `GET …/issues/:id` | — | browse | задача + `comments`/`participants`/`collaborators`/`attachments`/`links`/`checklist` |
 | `PATCH …/issues/:id` | `IssuePatchBody` | edit (employee — **только свои**) | правка полей + activity |
 | `DELETE …/issues/:id` | — | delete | каскады: комментарии/activity/watchers/attachments/links; `epic_id` дочерних обнуляется FK |
 | `POST …/issues/:id/transition` | `{to, beforeId?}` | transition + **схема workflow** (нарушение — `409 CONFLICT`) | смена статуса + rank |
 | `POST`/`DELETE …/issues/:id/links[/:linkId]` | `{linkedIssueId, type}` (`relates`\|`blocks`\|`blocked_by`) | edit (на исходной) | связать/разорвать связь; обе задачи в проекте иначе `404`; ответ — обновлённый список связей |
+| `POST`/`PATCH`/`DELETE …/issues/:id/checklist[/:itemId]` | `{text}` · `{text?, done?}` | edit | добавить/обновить/удалить пункт чек-листа; ответ — `{item?, checklist}` (обновлённый список) |
 | `POST/DELETE …/issues/:id/watchers/me` | — | browse | подписка/отписка; ответ `{watching, watchers}` |
 | `GET …/issues/:id/comments` · `POST …/comments` | `{body ≤2000}` | browse · comment | комментарии с профилем автора; выдача — последние 200 |
 | `GET …/issues/:id/activity` | — | browse | история задачи («кто, что, когда»), последние 100, с профилем автора |
