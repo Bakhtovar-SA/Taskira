@@ -355,6 +355,31 @@ function upsertIssue(list: Issue[], issue: Issue): Issue[] {
   return next;
 }
 
+/** Точечно поправить subtasksSummary родителя в локальном кэше сразу при
+ *  создании/удалении подзадачи или смене её статуса — иначе бейдж "N/M" в
+ *  открытой карточке родителя виснет на значении, загруженном её последним
+ *  openIssue(), пока карточку не закрыть и не переоткрыть (ревью PR #46).
+ *  Нет-оп, если parentId не задан или карточка родителя ещё не загружалась
+ *  (subtasksSummary===null) — тогда нечего поправлять, badge и так пересчитает
+ *  себя из children при следующем openIssue(). */
+function patchParentSubtasksSummary(
+  issues: Issue[],
+  parentId: string | null | undefined,
+  delta: { total?: number; done?: number },
+): Issue[] {
+  if (!parentId) return issues;
+  return issues.map((i) => {
+    if (i.id !== parentId || !i.subtasksSummary) return i;
+    return {
+      ...i,
+      subtasksSummary: {
+        total: i.subtasksSummary.total + (delta.total ?? 0),
+        done: i.subtasksSummary.done + (delta.done ?? 0),
+      },
+    };
+  });
+}
+
 /** Индексы по id — строятся один раз на изменение данных и раздаются через
  *  контекст. Без них каждая карточка доски и строка списка линейно проходила
  *  data.users / data.issues / workflow.statuses, давая квадратичную сложность
@@ -999,7 +1024,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             dueDate: input.dueDate ?? null,
           });
           const issue = mapIssue(dto);
-          setData((prev) => ({ ...prev, issues: [...prev.issues, issue] }));
+          const isDone = statusById(dataRef.current.workflow, issue.statusId)?.category === "done";
+          setData((prev) => ({
+            ...prev,
+            issues: patchParentSubtasksSummary([...prev.issues, issue], issue.parentId, {
+              total: 1,
+              done: isDone ? 1 : 0,
+            }),
+          }));
           // Закрывать (или нет) модалку — решение вызывающего компонента, не
           // этого коллбэка: CreateIssueModal сам решает это синхронно, ДО
           // резолва этого промиса, по чекбоксу «создать ещё одну следом».
@@ -1075,9 +1107,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       void (async () => {
         try {
           const dto = await issuesApi.transition(pid(), issueId, toStatus, beforeId);
+          const wasDone = iss.doneAt != null;
+          const nowDone = dto.doneAt != null;
           setData((prev) => ({
             ...prev,
-            issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
+            issues: patchParentSubtasksSummary(
+              prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
+              iss.parentId,
+              wasDone === nowDone ? {} : { done: nowDone ? 1 : -1 },
+            ),
           }));
           setUi((u) => ({ ...u, lastEvent: { issueId, ts: Date.now() } }));
         } catch (err) {
@@ -1373,10 +1411,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             // строкой выше) задачу — до перезагрузки карточки badge рендерит
             // "подзадача ?" и «+ добавить подзадачу» остаётся скрытой, хотя
             // подзадача уже стала обычной задачей (ревью PR #46).
-            issues: prev.issues
-              .filter((i) => i.id !== issueId)
-              .map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i))
-              .map((i) => (i.parentId === issueId ? { ...i, parentId: null } : i)),
+            issues: patchParentSubtasksSummary(
+              prev.issues
+                .filter((i) => i.id !== issueId)
+                .map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i))
+                .map((i) => (i.parentId === issueId ? { ...i, parentId: null } : i)),
+              iss?.parentId,
+              { total: -1, done: iss?.doneAt ? -1 : 0 },
+            ),
           }));
           setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
           if (iss) toast("info", `${iss.key} удалена`);

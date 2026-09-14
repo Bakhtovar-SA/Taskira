@@ -3,6 +3,7 @@ import { act, render } from "@testing-library/react";
 import { StoreProvider, useStore, type CreateInput } from "./store";
 import {
   authApi,
+  commentsApi,
   departmentsApi,
   issuesApi,
   notificationsApi,
@@ -191,5 +192,78 @@ describe("deleteIssue() — зеркалит ON DELETE SET NULL для parentId,
     const remaining = store.get().data.issues;
     expect(remaining.map((i) => i.id)).toEqual(["child"]);
     expect(remaining[0].parentId).toBeNull();
+  });
+});
+
+describe("subtasksSummary родителя — обновляется локально, без ожидания переоткрытия карточки (ревью PR #46, второй раунд)", () => {
+  afterEach(() => {
+    unmountCurrent?.();
+    unmountCurrent = null;
+    localStorage.clear();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  test("createIssue() новой подзадачи увеличивает total у уже загруженного родителя", async () => {
+    const store = await bootToReady();
+    vi.spyOn(issuesApi, "create").mockResolvedValue(fakeServerIssue("parent"));
+    await act(async () => {
+      store.get().createIssue(input("Родитель"));
+      await flush();
+    });
+
+    // Симулируем, что карточка родителя уже была открыта (GET /issues/:id) —
+    // subtasksSummary у неё не null, как было бы после создания через createIssue.
+    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "get").mockResolvedValue(fakeServerIssue("parent", { subtasksSummary: { total: 0, done: 0 } }));
+    await act(async () => {
+      store.get().openIssue("parent");
+      await flush();
+    });
+    expect(store.get().data.issues.find((i) => i.id === "parent")?.subtasksSummary).toEqual({ total: 0, done: 0 });
+
+    vi.spyOn(issuesApi, "create").mockResolvedValue(fakeServerIssue("child", { parentId: "parent" }));
+    await act(async () => {
+      store.get().createIssue(input("Подзадача", { parentId: "parent" }));
+      await flush();
+    });
+
+    // Бейдж "N/M" должен вырасти сразу, не дожидаясь закрытия/переоткрытия карточки.
+    expect(store.get().data.issues.find((i) => i.id === "parent")?.subtasksSummary).toEqual({ total: 1, done: 0 });
+  });
+
+  test("deleteIssue() удалённой подзадачи уменьшает total (и done, если она была закрыта)", async () => {
+    const store = await bootToReady();
+    vi.spyOn(issuesApi, "create")
+      .mockResolvedValueOnce(fakeServerIssue("parent"))
+      .mockResolvedValueOnce(fakeServerIssue("child", { parentId: "parent", doneAt: new Date().toISOString() }));
+    await act(async () => {
+      store.get().createIssue(input("Родитель"));
+      await flush();
+    });
+    await act(async () => {
+      store.get().createIssue(input("Подзадача", { parentId: "parent" }));
+      await flush();
+    });
+
+    // Родитель "открывается" после того, как ребёнок уже создан и закрыт —
+    // сервер отдаёт актуальный агрегат {total:1, done:1} за один этот шаг.
+    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "get").mockResolvedValue(fakeServerIssue("parent", { subtasksSummary: { total: 1, done: 1 } }));
+    await act(async () => {
+      store.get().openIssue("parent");
+      await flush();
+    });
+    expect(store.get().data.issues.find((i) => i.id === "parent")?.subtasksSummary).toEqual({ total: 1, done: 1 });
+
+    vi.spyOn(issuesApi, "remove").mockResolvedValue(undefined);
+    await act(async () => {
+      store.get().deleteIssue("child");
+      await flush();
+    });
+
+    expect(store.get().data.issues.find((i) => i.id === "parent")?.subtasksSummary).toEqual({ total: 0, done: 0 });
   });
 });
