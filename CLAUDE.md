@@ -221,7 +221,20 @@ list/card renders — the linear scans were quadratic across a board.
   this: `routes/ws.ts` stamps `handshakeStartedAt` before the round-trip and checks
   `revokedSince(userId, handshakeStartedAt)` immediately after `registerSocket()` with no
   `await` in between (atomic w.r.t. any concurrent revoke — Node has no other way for code to
-  interleave there), closing the socket itself if a revocation landed mid-handshake.
+  interleave there), closing the socket itself if a revocation landed mid-handshake;
+  (4) `userId` alone isn't a strong-enough re-entrancy guard for the `message` handler — it's
+  only set *after* `assertFreshUser` resolves, so a second "auth" frame arriving before the
+  first's DB round-trip finishes would pass `if (userId) return` too and start its own
+  concurrent verification, possibly for a different user, with whichever resolves last winning
+  `userId` and the other's `registerSocket()` call leaking an entry nothing ever
+  `unregisterSocket()`s. `authStarted` is a separate boolean set synchronously *before* the
+  first `await`, so it closes over the whole handshake attempt, not just its outcome — the
+  general shape (a sync latch set before you commit to an async exclusive section, checked
+  instead of a value only assigned deep inside it) is the fix, not the specific variable.
+  `storageSweeper.ts`'s delete loop and `notify.ts`'s push loop got the same class of fix in
+  the same review: both used to wrap an entire batch/loop in one `try/catch`, so one failing
+  `Storage.delete()` or one `pushToUser()` throw aborted every later item in the same run —
+  each is now try/catch'd per-item so one failure doesn't take down the rest.
 
 ### Data model notes
 
