@@ -1,5 +1,6 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
-import { one, q } from "../db.js";
+import type { PoolClient } from "pg";
+import { one, q, withClient } from "../db.js";
 import { badRequest, notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
 import { listAttachments, type AttachmentDto } from "./attachments.js";
@@ -102,24 +103,66 @@ export async function loadIssue(projectId: string, issueId: string): Promise<Iss
 /** Подзадачи (миграция 021) — строго два уровня, без вложенности.
  *  issueId=null — вызов из POST /issues (создаваемая задача ещё не имеет id,
  *  поэтому проверка «у неё уже есть подзадачи» не нужна). */
-export async function validateParentAssignment(
+async function validateParentAssignmentTx(
+  client: PoolClient,
   projectId: string,
   parentId: string,
   issueId: string | null,
 ): Promise<void> {
   if (issueId && parentId === issueId) throw badRequest("Задача не может быть подзадачей самой себя");
-  const parent = await one<{ id: string; parent_id: string | null }>(
+  const parentRes = await client.query<{ id: string; parent_id: string | null }>(
     `SELECT id, parent_id FROM issues WHERE id = $1 AND project_id = $2`,
     [parentId, projectId],
   );
+  const parent = parentRes.rows[0];
   if (!parent) throw notFound("Родительская задача не найдена в проекте");
   if (parent.parent_id !== null) {
     throw badRequest("Нельзя сделать задачу подзадачей подзадачи — поддерживается только один уровень вложенности");
   }
   if (issueId) {
-    const child = await one<{ id: string }>(`SELECT id FROM issues WHERE parent_id = $1 LIMIT 1`, [issueId]);
-    if (child) throw badRequest("У задачи уже есть свои подзадачи — сначала уберите их, прежде чем делать её чьей-то подзадачей");
+    const childRes = await client.query<{ id: string }>(`SELECT id FROM issues WHERE parent_id = $1 LIMIT 1`, [issueId]);
+    if (childRes.rows[0]) throw badRequest("У задачи уже есть свои подзадачи — сначала уберите их, прежде чем делать её чьей-то подзадачей");
   }
+}
+
+/** Валидация + сама запись, объединённые в одну транзакцию под advisory-локом
+ *  (по образцу rank.ts: pg_advisory_xact_lock(hashtext($1)) внутри withClient).
+ *
+ *  Без этого — реальная гонка (найдена в ревью PR #46): два конкурентных
+ *  PATCH могут пройти validateParentAssignment по устаревшим данным и вместе
+ *  создать вложенность в 3 уровня — например C1 читает P как top-level
+ *  родителя и параллельно P читает P2 как top-level родителя; оба UPDATE
+ *  проходят раздельно и независимо друг от друга валидны, а вместе нарушают
+ *  инвариант «ровно два уровня». Гонка бьёт «с двух концов» одного и того же
+ *  отношения родитель/потомок, поэтому лочим ОБЕ вовлечённые задачи —
+ *  кандидата в родители и переносимую задачу (если она уже существует), — не
+ *  одну. Порядок блокировки — отсортированный список id, чтобы два вызова с
+ *  одной парой участников всегда брали advisory-локи в одном порядке
+ *  (иначе — дедлок). `write` выполняется тем же client, в той же
+ *  транзакции, что и повторная проверка — конкурентному запросу, ждущему тот
+ *  же advisory-лок, попросту нечего перехватывать в промежутке. */
+export async function assignParentLocked<T>(
+  projectId: string,
+  parentId: string,
+  issueId: string | null,
+  write: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const keys = [...new Set(issueId ? [parentId, issueId] : [parentId])].sort();
+  return withClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      for (const key of keys) {
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [key]);
+      }
+      await validateParentAssignmentTx(client, projectId, parentId, issueId);
+      const result = await write(client);
+      await client.query("COMMIT");
+      return result;
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw e;
+    }
+  });
 }
 
 /** Мини-профиль участника задачи — чтобы карточку можно было отрисовать без

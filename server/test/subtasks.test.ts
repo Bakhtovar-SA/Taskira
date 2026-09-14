@@ -93,6 +93,36 @@ describe("подзадачи", () => {
     ).toBe(404);
   });
 
+  test("гонка: два конкурентных PATCH не могут вместе создать вложенность в 3 уровня", async () => {
+    // Ревью PR #46: C1->P и параллельно P->P2 — каждый PATCH сам по себе валиден
+    // (родитель top-level на момент своей проверки), но вместе дают P2->P->C1.
+    // assignParentLocked лочит обе задачи, вовлечённые в каждый вызов (P — общая
+    // для обоих), так что один из двух обязан увидеть уже изменённое состояние
+    // второго и провалиться с 400 — Postgres сериализует их через advisory-лок,
+    // гонка тут детерминированно воспроизводима, без polling/retry.
+    const mgr = await login(app, "mgr1");
+    const p = await createIssue(mgr, { title: "P" });
+    const c1 = await createIssue(mgr, { title: "C1" });
+    const p2 = await createIssue(mgr, { title: "P2" });
+
+    const [r1, r2] = await Promise.all([
+      patch(`${issuesUrl()}/${c1.id}`, mgr, { parentId: p.id }),
+      patch(`${issuesUrl()}/${p.id}`, mgr, { parentId: p2.id }),
+    ]);
+
+    expect([r1.statusCode, r2.statusCode].sort()).toEqual([200, 400]);
+
+    const finalP = JSON.parse((await g(`${issuesUrl()}/${p.id}`, mgr)).body);
+    const finalC1 = JSON.parse((await g(`${issuesUrl()}/${c1.id}`, mgr)).body);
+    if (r1.statusCode === 200) {
+      expect(finalC1.parentId).toBe(p.id);
+      expect(finalP.parentId).toBeNull();
+    } else {
+      expect(finalP.parentId).toBe(p2.id);
+      expect(finalC1.parentId).toBeNull();
+    }
+  });
+
   test("удаление родителя не уносит подзадачу (ON DELETE SET NULL)", async () => {
     const mgr = await login(app, "mgr1");
     const admin = await login(app, "admin");
