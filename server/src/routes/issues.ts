@@ -18,7 +18,17 @@ import {
 import { audit } from "../audit.js";
 import { assertTransition, statusCategory, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
-import { assignParentLocked, getIssueDto, listActivity, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
+import {
+  assignParentLocked,
+  getIssueDto,
+  listActivity,
+  loadIssue,
+  logActivity,
+  mapIssue,
+  nextIssueNum,
+  precheckParentAssignment,
+  type IssueRow,
+} from "../services/issues.js";
 import { insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
 import {
   getCustomFieldInProject,
@@ -155,6 +165,11 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
         if (!e) throw notFound("Задача-группа (epicId) не найдена в проекте");
       }
+      // Как и epicId выше — проверяем ДО nextIssueNum(), чтобы неверный
+      // parentId не сжигал номер CORP-N понапрасну (ревью PR #46). Не заменяет
+      // повторную проверку под локом в assignParentLocked ниже — та остаётся
+      // единственным источником истины против гонки, эта — только fail-fast.
+      if (body.parentId) await precheckParentAssignment(project.id, body.parentId);
       // Новая задача встаёт В НАЧАЛО колонки, а не в конец (аудит LIFE-05):
       // кнопка быстрого создания и поле ввода — вверху колонки, и задача,
       // упавшая вниз за экран, читается как «не создалась». beforeId = первая

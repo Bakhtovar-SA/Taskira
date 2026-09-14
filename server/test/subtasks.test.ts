@@ -93,6 +93,19 @@ describe("подзадачи", () => {
     ).toBe(404);
   });
 
+  test("невалидный parentId — не сжигает номер CORP-N (проверка до nextIssueNum, ревью PR #46)", async () => {
+    const mgr = await login(app, "mgr1");
+    const before = JSON.parse((await post(issuesUrl(), mgr, newIssue({ title: "до" }))).body) as { key: string };
+    const numBefore = Number(before.key.split("-")[1]);
+
+    const bad = await post(issuesUrl(), mgr, newIssue({ title: "плохой parentId", parentId: fx.issues.p2issue }));
+    expect(bad.statusCode).toBe(404);
+
+    const after = JSON.parse((await post(issuesUrl(), mgr, newIssue({ title: "после" }))).body) as { key: string };
+    const numAfter = Number(after.key.split("-")[1]);
+    expect(numAfter).toBe(numBefore + 1);
+  });
+
   test("гонка: два конкурентных PATCH не могут вместе создать вложенность в 3 уровня", async () => {
     // Ревью PR #46: C1->P и параллельно P->P2 — каждый PATCH сам по себе валиден
     // (родитель top-level на момент своей проверки), но вместе дают P2->P->C1.

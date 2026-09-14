@@ -101,6 +101,26 @@ export async function loadIssue(projectId: string, issueId: string): Promise<Iss
   return row;
 }
 
+/** Быстрый пре-чек parentId ДО nextIssueNum() — по образцу проверки epicId
+ *  чуть выше в routes/issues.ts (POST /issues): без него неверный parentId
+ *  (404/400) всё равно проваливал бы запрос, но уже после того, как
+ *  nextIssueNum() атомарно сжигает номер CORP-N, оставляя дыру в
+ *  последовательности ключей — ровно та несогласованность с epicId-веткой,
+ *  которую нашло ревью PR #46. НЕ под локом (в отличие от validateParentAssignmentTx
+ *  внутри assignParentLocked) — это лишь fail-fast на пуле, не источник
+ *  истины: реальная защита от гонки остаётся в assignParentLocked, который
+ *  перевалидирует то же самое под advisory-локом прямо перед INSERT. */
+export async function precheckParentAssignment(projectId: string, parentId: string): Promise<void> {
+  const parent = await one<{ id: string; parent_id: string | null }>(
+    `SELECT id, parent_id FROM issues WHERE id = $1 AND project_id = $2`,
+    [parentId, projectId],
+  );
+  if (!parent) throw notFound("Родительская задача не найдена в проекте");
+  if (parent.parent_id !== null) {
+    throw badRequest("Нельзя сделать задачу подзадачей подзадачи — поддерживается только один уровень вложенности");
+  }
+}
+
 /** Подзадачи (миграция 021) — строго два уровня, без вложенности.
  *  issueId=null — вызов из POST /issues (создаваемая задача ещё не имеет id,
  *  поэтому проверка «у неё уже есть подзадачи» не нужна). */
