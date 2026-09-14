@@ -27,6 +27,7 @@ import {
   mapIssue,
   nextIssueNum,
   precheckParentAssignment,
+  withIssueParentLock,
   type IssueRow,
 } from "../services/issues.js";
 import { insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
@@ -297,11 +298,15 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         push("epic_id", body.epicId);
         log.push("изменил(а) группу (эпик)");
       }
-      // newParentId — только когда реально назначаем НОВОГО родителя (не снятие
-      // и не значение, совпадающее с текущим): именно эта транзакция нуждается
-      // в advisory-локе ниже, снятие родителя инвариант не затрагивает.
-      const newParentId = body.parentId !== undefined && body.parentId !== null && body.parentId !== iss.parent_id ? body.parentId : null;
-      if (body.parentId !== undefined && body.parentId !== iss.parent_id) {
+      // parentChanging — parentId реально меняется (не просто прислан тем же
+      // значением). newParentId — ветка назначения НОВОГО родителя (нужна
+      // повторная валидация под локом в assignParentLocked); isUnsettingParent —
+      // ветка снятия (парentId → null; инвариант глубины она не затрагивает,
+      // но собственный лок всё равно нужен — см. withIssueParentLock ниже).
+      const parentChanging = body.parentId !== undefined && body.parentId !== iss.parent_id;
+      const newParentId = parentChanging && body.parentId !== null ? body.parentId : null;
+      const isUnsettingParent = parentChanging && body.parentId === null;
+      if (parentChanging) {
         push("parent_id", body.parentId);
         log.push(body.parentId ? "сделал(а) подзадачей другой задачи" : "убрал(а) из подзадач");
       }
@@ -336,7 +341,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
             const res = await client.query<IssueRow>(updateSql, vals);
             return res.rows[0];
           })
-        : (await q<IssueRow>(updateSql, vals))[0];
+        : isUnsettingParent
+          ? await withIssueParentLock(iss.id, async (client) => {
+              const res = await client.query<IssueRow>(updateSql, vals);
+              return res.rows[0];
+            })
+          : (await q<IssueRow>(updateSql, vals))[0];
 
       for (const text of log) await logActivity(iss.id, user.sub, text);
       await audit(user.sub, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body) });

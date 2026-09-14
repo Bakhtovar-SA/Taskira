@@ -322,6 +322,8 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     checklist: dto.checklist?.map(mapChecklistItem) ?? prev?.checklist ?? [],
     // customFieldValues — тоже только в детальном ответе GET /issues/:id.
     customFieldValues: dto.customFieldValues ?? prev?.customFieldValues ?? [],
+    // subtasksSummary — тоже только в детальном ответе; null, пока не загружено.
+    subtasksSummary: dto.subtasksSummary ?? prev?.subtasksSummary ?? null,
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
     doneAt: dto.doneAt ? Date.parse(dto.doneAt) || null : null,
@@ -978,7 +980,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           });
           const issue = mapIssue(dto);
           setData((prev) => ({ ...prev, issues: [...prev.issues, issue] }));
-          setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() }, createOpen: false }));
+          // Закрывать (или нет) модалку — решение вызывающего компонента, не
+          // этого коллбэка: CreateIssueModal сам решает это синхронно, ДО
+          // резолва этого промиса, по чекбоксу «создать ещё одну следом».
+          // Раньше createOpen:false здесь стирал это решение уже ПОСЛЕ
+          // ответа сервера, так что чекбокс не мог удержать модалку открытой
+          // ни при каких обстоятельствах (ревью PR #46).
+          setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() } }));
           toast("success", `${issue.key} создана`);
         } catch (err) {
           handleApiError(err, "Не удалось создать задачу");
@@ -1339,9 +1347,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           await issuesApi.remove(pid(), issueId);
           setData((prev) => ({
             ...prev,
+            // parent_id — тот же ON DELETE SET NULL, что epic_id (миграция 021);
+            // без зеркального обнуления здесь бывшие подзадачи держат в памяти
+            // parentId, указывающий на только что удалённую (отфильтрованную
+            // строкой выше) задачу — до перезагрузки карточки badge рендерит
+            // "подзадача ?" и «+ добавить подзадачу» остаётся скрытой, хотя
+            // подзадача уже стала обычной задачей (ревью PR #46).
             issues: prev.issues
               .filter((i) => i.id !== issueId)
-              .map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i)),
+              .map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i))
+              .map((i) => (i.parentId === issueId ? { ...i, parentId: null } : i)),
           }));
           setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
           if (iss) toast("info", `${iss.key} удалена`);

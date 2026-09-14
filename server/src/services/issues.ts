@@ -163,21 +163,19 @@ async function validateParentAssignmentTx(
  *  (иначе — дедлок). `write` выполняется тем же client, в той же
  *  транзакции, что и повторная проверка — конкурентному запросу, ждущему тот
  *  же advisory-лок, попросту нечего перехватывать в промежутке. */
-export async function assignParentLocked<T>(
-  projectId: string,
-  parentId: string,
-  issueId: string | null,
-  write: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const keys = [...new Set(issueId ? [parentId, issueId] : [parentId])].sort();
+/** Общий каркас «BEGIN → advisory-локи по отсортированным ключам → write →
+ *  COMMIT/ROLLBACK», вынесенный из assignParentLocked — используется им (с
+ *  повторной валидацией внутри) и withIssueParentLock ниже (без нужды в
+ *  валидации, но с тем же самым локом на issueId — см. её комментарий). */
+async function withAdvisoryLocks<T>(keys: string[], run: (client: PoolClient) => Promise<T>): Promise<T> {
+  const sortedKeys = [...new Set(keys)].sort();
   return withClient(async (client) => {
     await client.query("BEGIN");
     try {
-      for (const key of keys) {
+      for (const key of sortedKeys) {
         await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [key]);
       }
-      await validateParentAssignmentTx(client, projectId, parentId, issueId);
-      const result = await write(client);
+      const result = await run(client);
       await client.query("COMMIT");
       return result;
     } catch (e) {
@@ -185,6 +183,34 @@ export async function assignParentLocked<T>(
       throw e;
     }
   });
+}
+
+export async function assignParentLocked<T>(
+  projectId: string,
+  parentId: string,
+  issueId: string | null,
+  write: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const keys = issueId ? [parentId, issueId] : [parentId];
+  return withAdvisoryLocks(keys, async (client) => {
+    await validateParentAssignmentTx(client, projectId, parentId, issueId);
+    return write(client);
+  });
+}
+
+/** Снятие parentId (parentId → null) не нарушает инвариант глубины сама по
+ *  себе (нет проверки — снимать можно всегда), поэтому раньше шла обычным
+ *  незалоченным UPDATE. Но тот же issueId параллельно может быть заперт
+ *  конкурентным assignParentLocked() (кто-то делает ЕГО чьей-то подзадачей
+ *  или переносит ЕГО собственного будущего родителя) — без локов здесь оба
+ *  запроса физически сериализуются на уровне строки Postgres'ом как обычно,
+ *  но RETURNING одного из них может отражать состояние, которое второй
+ *  запрос тут же перезапишет, и клиент получит на руки ответ, устаревший
+ *  ещё до того, как долетел (ревью PR #46). Лочим тот же ключ issueId, что
+ *  использовал бы assignParentLocked, — без собственной валидации, снятие
+ *  родителя корректно при любом состоянии задачи. */
+export async function withIssueParentLock<T>(issueId: string, write: (client: PoolClient) => Promise<T>): Promise<T> {
+  return withAdvisoryLocks([issueId], write);
 }
 
 /** Мини-профиль участника задачи — чтобы карточку можно было отрисовать без
@@ -212,6 +238,29 @@ async function listParticipants(issueId: string): Promise<ParticipantDto[]> {
   return rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role }));
 }
 
+export interface SubtasksSummaryDto {
+  total: number;
+  done: number;
+}
+
+/** Итог по подзадачам — total/done СЧИТАЕТСЯ по всем детям (включая
+ *  заархивированных), не по тому, что успел загрузить клиент в data.issues
+ *  (тот список — активные задачи по умолчанию). Иначе бейдж "Подзадачи · N/M"
+ *  в IssueModal.tsx регрессировал бы сам собой, когда закрытая подзадача
+ *  уходит в архив по возрасту (ARCHIVE_AFTER_DAYS) — архивирование не
+ *  удаление, оно обязано продолжать учитываться "в отчётах" (см. CLAUDE.md,
+ *  раздел Issue lifecycle), а бейдж — тот же вид отчёта (ревью PR #46).
+ *  Список САМИХ строк подзадач в UI по-прежнему активные-only — как и везде
+ *  в приложении default view прячет архив, отчёты/счётчики его учитывают. */
+async function getSubtasksSummary(issueId: string): Promise<SubtasksSummaryDto> {
+  const row = await one<{ total: string; done: string }>(
+    `SELECT count(*)::text AS total, count(*) FILTER (WHERE done_at IS NOT NULL)::text AS done
+       FROM issues WHERE parent_id = $1`,
+    [issueId],
+  );
+  return { total: Number(row?.total ?? 0), done: Number(row?.done ?? 0) };
+}
+
 /** Карточка задачи: DTO + приглашённые участники (issue_collaborators, миграция 008)
  *  + участники (reporter/assignee/авторы комментариев/приглашённые) для рендера
  *  карточки без bootstrap. Всё это — только в детальном ответе GET /:id, не в списке. */
@@ -222,19 +271,21 @@ export type IssueDetailDto = IssueDto & {
   links: IssueLinkDto[];
   checklist: ChecklistItemDto[];
   customFieldValues: CustomFieldValueDto[];
+  subtasksSummary: SubtasksSummaryDto;
 };
 
 export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
-  const [collaborators, participants, attachments, links, checklist, customFieldValues] = await Promise.all([
+  const [collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary] = await Promise.all([
     listCollaborators(row.id),
     listParticipants(row.id),
     listAttachments(row.id),
     listIssueLinks(row.id),
     listChecklistItems(row.id),
     listValuesForIssue(row.id),
+    getSubtasksSummary(row.id),
   ]);
-  return { ...mapIssue(row), collaborators, participants, attachments, links, checklist, customFieldValues };
+  return { ...mapIssue(row), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).

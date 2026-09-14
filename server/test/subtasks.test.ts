@@ -3,7 +3,7 @@
  *  эндпоинт — клиент фильтрует уже загруженный список задач по parentId. */
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { auth, getApp, login, newIssue, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import { auth, getApp, login, newIssue, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
 let app: FastifyInstance;
 let fx: Fixture;
@@ -136,6 +136,33 @@ describe("подзадачи", () => {
     }
   });
 
+  test("гонка: снятие parentId и назначение нового параллельно на ту же задачу — оба 200, финальное состояние не расходится ни с одним из ответов", async () => {
+    // Ревью PR #46: снятие (parentId: null) шло обычным незалоченным UPDATE,
+    // тогда как назначение нового родителя — через assignParentLocked (лок на
+    // [newParentId, issueId]). Строковый row lock Postgres и так сериализует
+    // два UPDATE на одну и ту же строку (corruption тут в принципе не было),
+    // но без общего лока порядок применения не был детерминирован тем же
+    // способом, что и для двух конкурентных assign (см. тест выше). После
+    // withIssueParentLock() снятие лочит тот же issueId — проверяем, что оба
+    // запроса успевают выполниться консистентно, финальное состояние
+    // совпадает с одним из двух намерений, не с чем-то третьим.
+    const mgr = await login(app, "mgr1");
+    const p = await createIssue(mgr, { title: "P" });
+    const c1 = await createIssue(mgr, { title: "C1", parentId: p.id });
+    const p2 = await createIssue(mgr, { title: "P2" });
+
+    const [rUnset, rAssign] = await Promise.all([
+      patch(`${issuesUrl()}/${c1.id}`, mgr, { parentId: null }),
+      patch(`${issuesUrl()}/${c1.id}`, mgr, { parentId: p2.id }),
+    ]);
+
+    expect(rUnset.statusCode).toBe(200);
+    expect(rAssign.statusCode).toBe(200);
+
+    const final = JSON.parse((await g(`${issuesUrl()}/${c1.id}`, mgr)).body);
+    expect([null, p2.id]).toContain(final.parentId);
+  });
+
   test("удаление родителя не уносит подзадачу (ON DELETE SET NULL)", async () => {
     const mgr = await login(app, "mgr1");
     const admin = await login(app, "admin");
@@ -147,5 +174,34 @@ describe("подзадачи", () => {
 
     const detail = JSON.parse((await g(`${issuesUrl()}/${child.id}`, mgr)).body);
     expect(detail.parentId).toBeNull();
+  });
+
+  test("subtasksSummary считает total/done по ВСЕМ детям, включая заархивированных (ревью PR #46)", async () => {
+    // data.issues (список по умолчанию) видит только активные задачи —
+    // если бейдж в IssueModal брал бы total/done из простого
+    // .filter(i => i.parentId === ...) по этому списку, он занижал бы счёт,
+    // как только закрытая подзадача уходит в архив по возрасту (архивирование
+    // не удаление, "всё ещё учитывается в отчётах" — CLAUDE.md). Не гоняем
+    // здесь реальный maintenance-воркер — выставляем archived_at напрямую,
+    // как это уже делает lifecycle.test.ts для done_at/created_at.
+    const mgr = await login(app, "mgr1");
+    const parent = await createIssue(mgr, { title: "родитель" });
+    const c1 = await createIssue(mgr, { title: "подзадача 1 (архивная)", parentId: parent.id });
+    const c2 = await createIssue(mgr, { title: "подзадача 2 (активная)", parentId: parent.id });
+    await q(
+      `UPDATE issues SET done_at = now() - interval '40 days', archived_at = now() - interval '10 days' WHERE id = $1`,
+      [c1.id],
+    );
+
+    const before = JSON.parse((await g(`${issuesUrl()}/${parent.id}`, mgr)).body);
+    expect(before.subtasksSummary).toEqual({ total: 2, done: 1 });
+
+    // Список задач по умолчанию (данные для .filter(parentId) на клиенте)
+    // видит только c2 — сама архивная c1 из него выпадает, но это ожидаемо
+    // и корректно (то же самое поведение, что у доски/списка задач); именно
+    // поэтому клиенту нужен отдельный subtasksSummary, а не производный счёт.
+    const list = JSON.parse((await g(issuesUrl(), mgr)).body);
+    expect(list.items.some((i: { id: string }) => i.id === c1.id)).toBe(false);
+    expect(list.items.some((i: { id: string }) => i.id === c2.id)).toBe(true);
   });
 });

@@ -45,6 +45,7 @@ const issue = (over: Partial<Issue> = {}): Issue => ({
   links: [],
   checklist: [],
   customFieldValues: [],
+  subtasksSummary: null,
   createdAt: 0,
   updatedAt: 0,
   ...over,

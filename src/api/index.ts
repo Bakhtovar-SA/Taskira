@@ -279,6 +279,10 @@ export type ServerIssue = {
   links?: ServerIssueLink[];
   checklist?: ServerChecklistItem[];
   customFieldValues?: ServerCustomFieldValue[];
+  /** total/done по ВСЕМ детям, включая заархивированных — не то же самое,
+   *  что фильтр data.issues.filter(i => i.parentId === ...) на клиенте
+   *  (тот видит только активные). Только в детальном ответе GET /issues/:id. */
+  subtasksSummary?: { total: number; done: number };
   createdAt: string;
   updatedAt: string;
 };

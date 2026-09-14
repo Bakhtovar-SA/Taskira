@@ -169,6 +169,10 @@ export interface Issue {
   checklist: ChecklistItem[];
   /** Значения пользовательских полей — заполняется при открытии карточки (GET /issues/:id). */
   customFieldValues: CustomFieldValue[];
+  /** total/done по ВСЕМ подзадачам, включая заархивированные (миграция 021) —
+   *  заполняется при открытии карточки (GET /issues/:id); null, пока не
+   *  загружено (список задач его не знает — см. subtasksSummary в api/index.ts). */
+  subtasksSummary: { total: number; done: number } | null;
   createdAt: number;
   updatedAt: number;
 }

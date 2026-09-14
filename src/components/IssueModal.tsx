@@ -292,11 +292,21 @@ function SubtasksField({ issue }: { issue: Issue }) {
   // но так кнопка не заводит на гарантированный отказ.
   const canCreate = can("create") && !issue.parentId;
   const children = data.issues.filter((i) => i.parentId === issue.id);
-  if (children.length === 0 && !canCreate) return null;
-  const done = children.filter((c) => idx.doneStatusIds.has(c.statusId)).length;
+  // subtasksSummary (детальный GET /issues/:id) считает total/done по ВСЕМ
+  // детям, включая заархивированных — children здесь видит только активные
+  // (data.issues — список по умолчанию), так что просто children.length
+  // занижал бы бейдж, стоило закрытой подзадаче уйти в архив по возрасту
+  // (ревью PR #46: "3/5" незаметно регрессировал бы в "2/4"). Пока summary
+  // не пришёл (карточка только что открыта из списка) — временно считаем
+  // локально, чтобы бейдж не мигал пустым.
+  const summary =
+    issue.subtasksSummary ??
+    { total: children.length, done: children.filter((c) => idx.doneStatusIds.has(c.statusId)).length };
+  if (summary.total === 0 && !canCreate) return null;
+  const archivedCount = summary.total - children.length;
 
   return (
-    <Field label={children.length > 0 ? `Подзадачи · ${done}/${children.length}` : "Подзадачи"}>
+    <Field label={summary.total > 0 ? `Подзадачи · ${summary.done}/${summary.total}` : "Подзадачи"}>
       {children.length > 0 && (
         <div className="space-y-1">
           {children.map((c) => {
@@ -317,10 +327,15 @@ function SubtasksField({ issue }: { issue: Issue }) {
           })}
         </div>
       )}
+      {archivedCount > 0 && (
+        <p className={`text-[11px] text-faint ${children.length > 0 ? "mt-1.5" : ""}`}>
+          Ещё {archivedCount} в архиве — не в списке выше, но учтены в счётчике
+        </p>
+      )}
       {canCreate && (
         <button
           onClick={() => openCreateSubtask(issue.id)}
-          className={`flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:underline ${children.length > 0 ? "mt-1.5" : ""}`}
+          className={`flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:underline ${children.length > 0 || archivedCount > 0 ? "mt-1.5" : ""}`}
         >
           + добавить подзадачу
         </button>
@@ -619,6 +634,7 @@ export default function IssueModal() {
   }, [ui.selectedIssueId]);
 
   const epic = useMemo(() => data.issues.find((i) => i.id === issue?.epicId), [data.issues, issue?.epicId]);
+  const parentIssue = useMemo(() => data.issues.find((i) => i.id === issue?.parentId), [data.issues, issue?.parentId]);
   if (!issue) return null;
 
   // Без non-null-утверждений: раньше `!` глушил TypeScript, но при отсутствии
@@ -713,13 +729,17 @@ export default function IssueModal() {
           <TypeIcon type={issue.typeId} size={16} />
         </span>
         <span className="font-mono text-[12.5px] font-bold text-ink">{issue.key}</span>
-        {issue.parentId && (
+        {/* parentIssue может отсутствовать в загруженном data.issues (родитель
+            заархивирован worker'ом после закрытия, или в проекте больше задач,
+            чем клиент подгрузил на bootstrap) — тогда бейдж скрываем целиком
+            вместо "подзадача ?", по образцу epic-бейджа выше (ревью PR #46). */}
+        {issue.parentId && parentIssue && (
           <button
             onClick={() => openIssue(issue.parentId)}
             className="flex items-center gap-1 rounded bg-linesoft px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:bg-accentsoft hover:text-accent"
             title="Открыть родительскую задачу"
           >
-            подзадача {data.issues.find((i) => i.id === issue.parentId)?.key ?? "?"}
+            подзадача {parentIssue.key}
           </button>
         )}
         <div className="ml-auto flex items-center gap-1">
