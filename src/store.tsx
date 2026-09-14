@@ -957,38 +957,57 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!requirePerm("create")) return { ok: 0, failed: inputs.length };
       let ok = 0;
       let failed = 0;
+      let abortedByAuth = false;
       for (const input of inputs) {
         const t = validateTitle(input.title);
         const d = validateDescription(input.description);
         const l = validateLabels(input.labels);
-        if (t.ok) {
+        // description/labels невалидны (например, Trello-описание длиннее лимита
+        // или слишком много объединённых меток) — раньше это молча заменялось на
+        // ""/[] и карточка всё равно засчитывалась как успешная (ok++), в отличие
+        // от проверки title прямо здесь же и от createIssue() (тот на невалидном
+        // поле вообще не шлёт запрос) — несогласованность, найденная в ревью.
+        if (t.ok && d.ok && l.ok) {
           try {
             const dto = await issuesApi.create(pid(), {
               title: t.value,
-              description: d.ok ? d.value : "",
+              description: d.value,
               typeId: input.typeId,
               priorityId: input.priorityId,
               assigneeId: input.assigneeId,
               epicId: input.epicId,
-              labels: l.ok ? l.value : [],
+              labels: l.value,
               complexity: input.complexity,
               statusId: input.statusId,
               dueDate: input.dueDate ?? null,
             });
             setData((prev) => ({ ...prev, issues: [...prev.issues, mapIssue(dto)] }));
             ok++;
-          } catch {
+          } catch (err) {
             failed++;
+            if (err instanceof ApiError && err.status === 401) {
+              // Сессия протухла/отозвана посреди импорта — остальные карточки
+              // упадут тем же 401; handleApiError уже чистит токен и переводит
+              // bootStatus в unauthenticated, дальше стучаться в API бессмысленно
+              // и только держит UI в залипшем "залогинен" виде (ревью PR #48).
+              handleApiError(err);
+              abortedByAuth = true;
+              failed += inputs.length - ok - failed;
+              onProgress?.(inputs.length, inputs.length);
+              break;
+            }
           }
         } else {
           failed++;
         }
         onProgress?.(ok + failed, inputs.length);
       }
-      toast(failed === 0 ? "success" : "info", `Импортировано ${ok} из ${inputs.length}${failed ? `, не удалось: ${failed}` : ""}`);
+      if (!abortedByAuth) {
+        toast(failed === 0 ? "success" : "info", `Импортировано ${ok} из ${inputs.length}${failed ? `, не удалось: ${failed}` : ""}`);
+      }
       return { ok, failed };
     },
-    [requirePerm, toast],
+    [requirePerm, toast, handleApiError],
   );
 
   const updateIssue = useCallback(
