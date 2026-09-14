@@ -8,6 +8,7 @@ import { useT, type TKey } from "../i18n";
 const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
   backlog: "sidebar.nav.backlog",
+  sprints: "sidebar.nav.sprints",
   timeline: "sidebar.nav.timeline",
   reports: "sidebar.nav.reports",
   workflow: "sidebar.nav.workflow",

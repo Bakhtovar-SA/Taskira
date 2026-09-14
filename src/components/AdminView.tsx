@@ -327,6 +327,17 @@ export default function AdminView() {
                           />
                           общий
                         </label>
+                        <label
+                          title="Опциональный модуль — бэклог + спринты вместо одной доски (SPRINTS_MIGRATION.md)"
+                          className="flex shrink-0 items-center gap-1 text-[11px] text-sub"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={p.sprintsEnabled}
+                            onChange={(e) => patchProject(p.id, { sprintsEnabled: e.target.checked })}
+                          />
+                          спринты
+                        </label>
                         <button
                           onClick={() => setOpenMembers((s) => ({ ...s, [p.id]: !s[p.id] }))}
                           className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"

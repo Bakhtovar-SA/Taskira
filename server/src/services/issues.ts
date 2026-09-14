@@ -24,6 +24,9 @@ export interface IssueRow {
   epic_id: string | null;
   /** Родитель-подзадачи (миграция 021); NULL — обычная задача/сама родитель. */
   parent_id: string | null;
+  /** Спринт (миграция 023, опциональный модуль); NULL — задача в бэклоге
+   *  или проект не использует спринты. */
+  sprint_id: string | null;
   color: string | null;
   t_start: number | null;
   t_span: number | null;
@@ -53,6 +56,7 @@ export interface IssueDto {
   reporterId: string;
   epicId: string | null;
   parentId: string | null;
+  sprintId: string | null;
   color: string | null;
   tStart: number | null;
   tSpan: number | null;
@@ -81,6 +85,7 @@ export function mapIssue(row: IssueRow): IssueDto {
     reporterId: row.reporter_id,
     epicId: row.epic_id,
     parentId: row.parent_id,
+    sprintId: row.sprint_id,
     color: row.color,
     tStart: row.t_start,
     tSpan: row.t_span,

@@ -30,7 +30,8 @@ export type PermId =
   | "comment"
   | "editWorkflow"
   | "manageAccess"
-  | "manageCollaborators";
+  | "manageCollaborators"
+  | "manageSprints";
 
 export interface RoleMeta {
   id: AccessRole;
@@ -85,6 +86,7 @@ const MATRIX: Record<PermId, AccessRole[]> = {
   editWorkflow: ["admin"],
   manageAccess: ["admin"],
   manageCollaborators: ["admin", "manager"],
+  manageSprints: ["admin", "manager"],
 };
 
 export interface PermMeta {
@@ -108,6 +110,12 @@ export const PERMISSIONS: PermMeta[] = [
     name: "Подключение к задаче",
     desc: "Пригласить человека к отдельной задаче (просмотр + комментарии), не добавляя в проект.",
     scope: "Задача",
+  },
+  {
+    id: "manageSprints",
+    name: "Управление спринтами",
+    desc: "Создание, старт и завершение спринтов; перенос задач между бэклогом и спринтом. Только в проектах с включённым модулем спринтов.",
+    scope: "Проект",
   },
 ];
 

@@ -21,7 +21,9 @@ roles (004/006), departments (007), issue collaborators (008), LDAP (009), attac
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
 token revocation (017), points → complexity (018), checklist items (019),
-custom fields (020), subtasks (021), issue templates (022).
+custom fields (020), subtasks (021), issue templates (022), sprints as an optional
+module (023, [SPRINTS_MIGRATION.md](SPRINTS_MIGRATION.md) — a deliberate, scoped
+exception to migration 012's removal, not a reversal of it; off by default).
 
 ## Commands
 
@@ -401,6 +403,24 @@ independently of `checklist_items`/`issues.parent_id` (separate, unmerged branch
 this was written) — a template does not (yet) carry a checklist or subtask structure to copy in;
 folding template support for those in is natural follow-up work once those branches land, not
 part of this one.
+
+Sprints (`sprints`/`issues.sprint_id`, migration 023, [SPRINTS_MIGRATION.md](SPRINTS_MIGRATION.md)):
+an **optional, off-by-default** module, not part of the base workflow — migration 012 removed
+sprints entirely (dead functionality, `SCOPE.md` scoped them out from the start) and that decision
+still holds for any project without the flag. `project.sprintsEnabled` gates it end to end: every
+`/sprints*` route and `PATCH .../issues/:id/sprint` 404 when it's off, regardless of role — not
+merely hidden in the UI. `manageSprints` (`admin`/`manager`) is a restored `PermId`, gating sprint
+CRUD *and* assigning an issue to a sprint (the latter via its own `PATCH .../issues/:id/sprint`
+sub-route, not a branch inside the general issue `PATCH` — unlike the pre-012 version, which had
+both; not worth reproducing that redundancy now that checklist/custom-field/link sub-routes
+already establish the "dedicated sub-route per concern" pattern). At most one `active` sprint per
+project is a DB-level guarantee (`uq_sprints_one_active_per_project`, a partial unique index), not
+just a route check. Completing a sprint moves its unfinished issues (`done_at IS NULL`) back to
+the backlog (`sprint_id = NULL`) in one transaction; there is no auto-carry into a next sprint.
+`project.sprintsEnabled` is a deliberately minimal capability flag — the seed of a future
+`ProjectCapabilities` model (sprints, WIP limits, estimation mode, board layout, vocabulary) that
+a later pass will generalize, not reinvent; this migration does not build that model, only the one
+flag it needs today.
 
 ## Issue lifecycle (migration 016)
 

@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import Board from "./components/Board";
 import Backlog from "./components/Backlog";
+import SprintsView from "./components/SprintsView";
 import TimelineView from "./components/TimelineView";
 import ReportsView from "./components/ReportsView";
 import WorkflowView from "./components/WorkflowView";
@@ -132,6 +133,7 @@ function Shell() {
           <div key={ui.view} className="anim-fadeup h-full">
             {ui.view === "board" && <Board />}
             {ui.view === "backlog" && <Backlog />}
+            {ui.view === "sprints" && <SprintsView />}
             {ui.view === "timeline" && <TimelineView />}
             {ui.view === "reports" && <ReportsView />}
             {ui.view === "workflow" && <WorkflowView />}

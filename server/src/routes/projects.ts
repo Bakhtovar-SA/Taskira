@@ -22,6 +22,7 @@ import {
 import { conflict, getWorkflow, seedProjectWorkflow } from "../services/workflow.js";
 import { listIssueTemplates } from "../services/issueTemplates.js";
 import { listCustomFields } from "../services/customFields.js";
+import { listSprints } from "../services/sprints.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
 import { invalidateProjectCache } from "../services/project.js";
@@ -43,9 +44,18 @@ async function projectDtoById(id: string): Promise<ProjectDto | null> {
     description: string;
     department_id: string;
     is_shared: boolean;
-  }>(`SELECT id, key, name, description, department_id, is_shared FROM projects WHERE id = $1`, [id]);
+    sprints_enabled: boolean;
+  }>(`SELECT id, key, name, description, department_id, is_shared, sprints_enabled FROM projects WHERE id = $1`, [id]);
   return r
-    ? { id: r.id, key: r.key, name: r.name, description: r.description, departmentId: r.department_id, isShared: r.is_shared }
+    ? {
+        id: r.id,
+        key: r.key,
+        name: r.name,
+        description: r.description,
+        departmentId: r.department_id,
+        isShared: r.is_shared,
+        sprintsEnabled: r.sprints_enabled,
+      }
     : null;
 }
 
@@ -70,9 +80,9 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       try {
         projectId = (
           await one<{ id: string }>(
-            `INSERT INTO projects (key, name, description, department_id, is_shared)
-             VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-            [body.key, body.name, body.description, body.departmentId, body.isShared],
+            `INSERT INTO projects (key, name, description, department_id, is_shared, sprints_enabled)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+            [body.key, body.name, body.description, body.departmentId, body.isShared, body.sprintsEnabled],
           )
         )!.id;
       } catch (e) {
@@ -98,7 +108,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       // Нужно, чтобы текущий юзер резолвился в клиентском me-memo.
       // Пять независимых чтений — параллельно, а не пять последовательных
       // round trip'ов на каждый вход в проект (ревью PR #47).
-      const [userRows, memberRows, workflow, issueTemplates, customFields] = await Promise.all([
+      const [userRows, memberRows, workflow, issueTemplates, customFields, sprints] = await Promise.all([
         q<UserRow>(
           `SELECT u.* FROM users u
             WHERE u.is_active
@@ -113,10 +123,14 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
         getWorkflow(project.id),
         listIssueTemplates(project.id),
         listCustomFields(project.id),
+        // Пустой массив для проектов без модуля — не лишний round-trip: сама
+        // таблица пуста для них всегда (нет роута, который мог бы её наполнить,
+        // см. assertSprintsEnabled в routes/sprints.ts), запрос просто вернёт [].
+        listSprints(project.id),
       ]);
       const users = userRows.map(safeUser);
       const members = memberRows.map((m) => ({ userId: m.user_id, role: m.role }));
-      return { project: projectRowToDto(project), users, members, workflow, issueTemplates, customFields };
+      return { project: projectRowToDto(project), users, members, workflow, issueTemplates, customFields, sprints };
     },
   );
 
@@ -146,6 +160,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       if (body.description !== undefined) push("description", body.description);
       if (body.departmentId !== undefined) push("department_id", body.departmentId);
       if (body.isShared !== undefined) push("is_shared", body.isShared);
+      if (body.sprintsEnabled !== undefined) push("sprints_enabled", body.sprintsEnabled);
       vals.push(projectId);
       await q(`UPDATE projects SET ${sets.join(", ")} WHERE id = $${vals.length}`, vals);
 

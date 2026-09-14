@@ -22,13 +22,17 @@
 | comment — комментарии | ✓ | ✓ | ✓ | — |
 | delete — удаление задач | ✓ | ✓ | — | — |
 | manageCollaborators — приглашённые к задаче | ✓ | ✓ | — | — |
+| manageSprints — управление спринтами и назначение задач в спринт | ✓ | ✓ | — | — |
 | editWorkflow — схема переходов | ✓ | — | — | — |
 | manageAccess — пользователи и роли | ✓ | — | — | — |
 
 \* **employee — только свои задачи** (исполнитель или автор). Правило — `isOwnIssue()` в
 `roleCan()` (сервер) / `canEditIssue()` (клиент).
 
-Право `manageSprints` удалено вместе со спринтами (миграция 012). Отдельного права на
+`manageSprints` удалялось вместе со спринтами миграцией 012 и восстановлено миграцией 023
+как право опционального модуля (см. [`../SPRINTS_MIGRATION.md`](../SPRINTS_MIGRATION.md)) —
+действует только в проектах с `sprints_enabled=true`, вне их все роуты `/sprints*` и
+`PATCH …/issues/:id/sprint` отвечают 404 независимо от роли. Отдельного права на
 вложения и на связи задач нет: вложение своё = `comment`, чужое = `delete`; связать
 задачи может тот, у кого `edit` на исходную.
 
@@ -71,6 +75,7 @@
 | 5 | docker-compose (полный стек) + runbook — [`../DOCKER_SETUP.md`](../DOCKER_SETUP.md), бэкап отдельно ([`BACKUP.md`](BACKUP.md)) | ✅ |
 | checklist | Чек-лист задачи — по образцу issue-links (014). `019_checklist_items.sql` (`checklist_items`: `issue_id`/`text`/`done`/`position`, CASCADE; `position` — `COALESCE(MAX+1, 0)` при вставке, без reorder в v1); `services/checklist.ts`, `POST`/`PATCH`/`DELETE /api/projects/:id/issues/:id/checklist[/:itemId]` (`requireIssuePerm("edit")`, тот же, что у полей задачи), `getIssueDto.checklist`; клиент — `issuesApi.addChecklistItem`/`patchChecklistItem`/`removeChecklistItem`, `<ChecklistField>` в `IssueModal`; `test/checklist.test.ts` (12) | ✅ |
 | subtasks | Подзадачи — `issues.parent_id`, независимо от `epicId`. `021_subtasks.sql` (`ALTER TABLE issues ADD COLUMN parent_id`, `ON DELETE SET NULL`, `CHECK parent_id <> id`, частичный индекс `idx_issues_parent`); строго два уровня — `assignParentLocked()`/`validateParentAssignmentTx()` в `services/issues.ts` (транзакция + `pg_advisory_xact_lock`, по образцу `rank.ts` — закрывает гонку из двух конкурентных `PATCH`, найденную в ревью) на назначение нового родителя, `withIssueParentLock()` на снятие (свой лок на тот же issueId, чтобы не разъезжаться с конкурентным назначением); `precheckParentAssignment()` — быстрый незалоченный пречек до `nextIssueNum()` в `POST /issues`, чтобы неверный `parentId` не сжигал номер `CORP-N`. Нет отдельного list-эндпоинта — клиент фильтрует уже загруженный `data.issues` по `parentId` локально (как `TimelineView` для `epicId`); но `getIssueDto.subtasksSummary` (`{total, done}`, отдельный агрегатный запрос по ВСЕМ детям, включая заархивированных) едет вместе с детальным `GET /issues/:id` — без него бейдж «Подзадачи · N/M» в `IssueModal` регрессировал бы сам собой, когда закрытая подзадача уходит в архив по возрасту (ревью PR #46). Клиент — `<SubtasksField>` в `IssueModal`, `openCreateSubtask()`/`ui.createParentId` в `store.tsx`; `test/subtasks.test.ts` (11, включая гонку из двух конкурентных `PATCH` и тест на `nextIssueNum()`) | ✅ |
+| sprints | Спринты — **опциональный, выключенный по умолчанию модуль** (не базовый workflow), см. [`../SPRINTS_MIGRATION.md`](../SPRINTS_MIGRATION.md) — точечное, осознанное исключение из миграции 012 (которая удалила спринты целиком; то решение остаётся в силе для проектов без флага). `023_sprints.sql` (`projects.sprints_enabled boolean DEFAULT false`; таблица `sprints`: `name`/`goal`/`status future\|active\|completed`/`start_date`/`end_date`; `issues.sprint_id uuid ON DELETE SET NULL`; частичный уникальный индекс `uq_sprints_one_active_per_project` — не более одного активного спринта на проект гарантирует БД, не только роут). `services/sprints.ts` (`activateSprint()` future→active; `completeSprint()` active→completed + перенос незакрытых задач спринта в бэклог, `sprint_id=NULL`, одной транзакцией). `routes/sprints.ts` (`GET`/`POST /sprints`, `POST /:id/start`, `POST /:id/complete`) и `routes/issues.ts` `PATCH /:id/sprint` (отдельный под-роут, не ветка общего `PATCH /:id`, как было до миграции 012) — все под `manageSprints`, кроме `GET` (`browse`); **все отвечают 404, если `sprints_enabled=false`**, независимо от роли. Клиент — `<SprintsView>` (бэклог + список спринтов, drag&drop той же техникой, что `Board.tsx`), вкладка в `Sidebar.tsx` видна только при `project.sprintsEnabled`, чекбокс «спринты» в `AdminView.tsx`; `test/sprints.test.ts` (15) | ✅ |
 
 **roles-1…7** — ролевая миграция (project-scoped) влита в `main` одним PR (#10);
 детальный план и порядок фаз — [`../ROLE_MIGRATION.md`](../ROLE_MIGRATION.md).
@@ -138,8 +143,12 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 
 Все мутации проверяют JWT и право **на сервере**; отказы — `403 {error:{code:"FORBIDDEN",reason}}` на русском.
 
-> Спринты удалены целиком (миграция 012). Роуты `/api/sprints*`, `PATCH …/issues/:id/sprint`,
-> query-параметр `IssueQuery.sprint` и право `manageSprints` больше не существуют.
+> Спринты были удалены целиком миграцией 012 и с тех пор вернулись как
+> **опциональный, выключенный по умолчанию модуль** (миграция 023, право
+> `manageSprints` восстановлено) — см. [`../SPRINTS_MIGRATION.md`](../SPRINTS_MIGRATION.md)
+> и строку `sprints` в таблице фич ниже. `IssueQuery.sprint` (фильтр списка
+> задач по спринту) по-прежнему не существует — клиент фильтрует уже
+> загруженный список локально по `sprintId`, тем же способом, что `parentId`/`epicId`.
 > Актуальные роуты вложений / приглашённых к задаче / уведомлений / связей задач —
 > в соответствующих `../*_MIGRATION.md` и разделах ниже.
 

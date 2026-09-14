@@ -1,6 +1,6 @@
 import { useStore } from "../store";
 import type { ViewId } from "../types";
-import { IcBacklog, IcBoard, IcBook, IcFlow, IcInbox, IcLink, IcReport, IcShield, IcTimeline, Logo } from "../icons";
+import { IcBacklog, IcBoard, IcBook, IcFlag, IcFlow, IcInbox, IcLink, IcReport, IcShield, IcTimeline, Logo } from "../icons";
 import { Avatar, Kbd, RoleBadge } from "../ui";
 import { useT, type TKey } from "../i18n";
 
@@ -10,10 +10,13 @@ const GROUPS: {
     id: ViewId;
     labelKey: TKey;
     icon: (p: { size?: number }) => React.ReactNode;
-    kbd: string;
+    kbd?: string;
     adminOnly?: boolean;
     /** Показывать только если есть активные приглашения (data.collaborations). */
     collabOnly?: boolean;
+    /** Показывать только если у проекта включён модуль спринтов
+     *  (project.sprintsEnabled, миграция 023 — опциональный модуль). */
+    sprintsOnly?: boolean;
   }[];
 }[] = [
   {
@@ -21,6 +24,7 @@ const GROUPS: {
     items: [
       { id: "board", labelKey: "sidebar.nav.board", icon: (p) => <IcBoard {...p} />, kbd: "1" },
       { id: "backlog", labelKey: "sidebar.nav.backlog", icon: (p) => <IcBacklog {...p} />, kbd: "2" },
+      { id: "sprints", labelKey: "sidebar.nav.sprints", icon: (p) => <IcFlag {...p} />, sprintsOnly: true },
       { id: "timeline", labelKey: "sidebar.nav.timeline", icon: (p) => <IcTimeline {...p} />, kbd: "3" },
       { id: "reports", labelKey: "sidebar.nav.reports", icon: (p) => <IcReport {...p} />, kbd: "4" },
     ],
@@ -78,7 +82,8 @@ export default function Sidebar() {
                 .filter(
                   (item) =>
                     (!item.adminOnly || me.globalRole === "admin") &&
-                    (!item.collabOnly || data.collaborations.length > 0),
+                    (!item.collabOnly || data.collaborations.length > 0) &&
+                    (!item.sprintsOnly || data.project.sprintsEnabled),
                 )
                 .map((item) => {
                 const active = ui.view === item.id;
@@ -97,7 +102,7 @@ export default function Sidebar() {
                     {badge > 0 && (
                       <span className="rounded-full bg-accent px-1.5 py-px text-[10px] font-bold text-white">{badge}</span>
                     )}
-                    {badge === 0 && (
+                    {badge === 0 && item.kbd && (
                       <span className="opacity-0 transition-opacity group-hover:opacity-100">
                         <Kbd>{item.kbd}</Kbd>
                       </span>

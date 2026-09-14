@@ -64,6 +64,7 @@ const en: Record<keyof Dict, string> = {
   "sidebar.group.project": "Project",
   "sidebar.nav.board": "Board",
   "sidebar.nav.backlog": "Backlog",
+  "sidebar.nav.sprints": "Sprints",
   "sidebar.nav.timeline": "Timeline",
   "sidebar.nav.reports": "Reports",
   "sidebar.nav.workflow": "Workflow",

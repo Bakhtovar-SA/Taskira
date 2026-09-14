@@ -48,6 +48,7 @@ import {
 import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
+import { getSprintInProject } from "../services/sprints.js";
 import {
   ChecklistItemCreateBody,
   ChecklistItemParams,
@@ -60,6 +61,7 @@ import {
   IssuePatchBody,
   IssueQuery,
   LIMITS,
+  MoveToSprintBody,
   TransitionBody,
 } from "../contract.js";
 
@@ -636,6 +638,39 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const value = body.value === null ? null : validateValueForField(field, body.value);
       await setCustomFieldValue(fieldId, iss.id, value);
       return { values: await listValuesForIssue(iss.id) };
+    },
+  );
+
+  /* ---------------------------------------------------------- назначение в спринт
+     (issues.sprint_id, миграция 023) — отдельным роутом, а не веткой общего
+     PATCH /:id: право manageSprints (admin/manager) — сильнее edit, которым
+     гейтится весь остальной PATCH, и общий обработчик не умеет требовать
+     разное право на разные поля одного тела. Тот же выбор, что уже сделан
+     для чек-листа/полей/связей — отдельный под-роут вместо инлайн-ветки в
+     PATCH /:id (в отличие от удалённой миграцией 012 версии, где sprintId
+     менялся и через общий PATCH тоже — не воспроизводим эту избыточность,
+     см. SPRINTS_MIGRATION.md). sprintId=null снимает задачу со спринта. */
+  app.patch(
+    "/:id/sprint",
+    { preHandler: requireIssuePerm("manageSprints"), preValidation: zbody(MoveToSprintBody) },
+    async (req) => {
+      const project = req.project!;
+      if (!project.sprintsEnabled) throw notFound("Модуль спринтов не подключён для этого проекта");
+      const { id } = req.params as { id: string };
+      const body = req.body as z.infer<typeof MoveToSprintBody>;
+      const user = me(req);
+
+      const iss = await loadIssue(project.id, id);
+      if (body.sprintId) {
+        const sprint = await getSprintInProject(project.id, body.sprintId);
+        if (!sprint) throw notFound("Спринт не найден в проекте");
+        if (sprint.status === "completed") throw badRequest("Нельзя добавить задачу в завершённый спринт");
+      }
+      const row = (
+        await q<IssueRow>(`UPDATE issues SET sprint_id = $2 WHERE id = $1 RETURNING *`, [iss.id, body.sprintId])
+      )[0];
+      await audit(user.sub, "issue.sprint.move", "issue", iss.id, { key: iss.key, sprintId: body.sprintId });
+      return mapIssue(row);
     },
   );
 }

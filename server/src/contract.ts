@@ -46,6 +46,9 @@ export const LIMITS = {
   // Пользовательские поля (миграция 020).
   customField: { name: { min: 1, max: 60 }, optionMax: 60, optionsMax: 30 },
   customFieldsPerProject: 30,
+  // Спринты (миграция 023, опциональный модуль — SPRINTS_MIGRATION.md).
+  sprint: { name: { min: 1, max: 120 }, goal: { max: 500 } },
+  sprintsPerProject: 200,
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -161,13 +164,17 @@ const projectKey = z
   .max(LIMITS.project.key.max)
   .regex(/^[A-Z][A-Z0-9]+$/, "Ключ: заглавные латинские буквы и цифры, начинается с буквы");
 
-/** POST /api/projects [global admin] — создаёт проект + дефолтный workflow. */
+/** POST /api/projects [global admin] — создаёт проект + дефолтный workflow.
+ *  sprintsEnabled по умолчанию false — включение модуля спринтов задумано
+ *  как отдельно предоставляемая возможность (см. SPRINTS_MIGRATION.md), а
+ *  не настройка, которую заводят по умолчанию каждому новому проекту. */
 export const ProjectCreateBody = z.object({
   key: projectKey,
   name: oneLine(LIMITS.project.name.max, LIMITS.project.name.min, "Название проекта не может быть пустым"),
   description: multiLine(LIMITS.project.description.max).default(""),
   departmentId: uuid,
   isShared: z.boolean().default(false),
+  sprintsEnabled: z.boolean().default(false),
 });
 
 /** PATCH /api/projects/:projectId [global admin] */
@@ -177,6 +184,7 @@ export const ProjectPatchBody = z
     description: multiLine(LIMITS.project.description.max),
     departmentId: uuid,
     isShared: z.boolean(),
+    sprintsEnabled: z.boolean(),
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
@@ -276,6 +284,25 @@ export const IssueTemplateBody = z.object({
 });
 
 export const IssueTemplateParams = z.object({ templateId: uuid });
+
+/* ---------------- Спринты (миграция 023, опциональный модуль) ----------------
+ * См. SPRINTS_MIGRATION.md — осознанное точечное исключение из
+ * UI_RESTRUCTURE.md §D1, доступно только проектам с sprints_enabled=true. */
+export const SPRINT_STATUSES = ["future", "active", "completed"] as const;
+export type SprintStatus = (typeof SPRINT_STATUSES)[number];
+
+export const SprintCreateBody = z.object({
+  name: oneLine(LIMITS.sprint.name.max, LIMITS.sprint.name.min, "Название спринта не может быть пустым"),
+  goal: multiLine(LIMITS.sprint.goal.max).default(""),
+  startDate: isoDate().nullable().optional(),
+  endDate: isoDate().nullable().optional(),
+});
+
+export const SprintParams = z.object({ sprintId: uuid });
+
+/** PATCH /api/projects/:projectId/issues/:id/sprint — sprintId=null снимает
+ *  задачу со спринта обратно в бэклог. */
+export const MoveToSprintBody = z.object({ sprintId: uuid.nullable() });
 
 /* ---------------- Custom fields (миграция 020) ---------------- */
 /** Значения всех типов хранятся как text (custom_field_values.value) —

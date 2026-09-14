@@ -261,6 +261,9 @@ export type ServerIssue = {
   epicId: string | null;
   /** Родитель-подзадачи (миграция 021); независимо от epicId. */
   parentId: string | null;
+  /** Спринт (миграция 023, опциональный модуль); не только в детальном
+   *  ответе — как parentId/epicId. */
+  sprintId: string | null;
   color: string | null;
   tStart: number | null;
   tSpan: number | null;
@@ -333,6 +336,7 @@ export type Project = {
   description: string;
   departmentId: string;
   isShared: boolean;
+  sprintsEnabled: boolean;
 };
 
 export type Department = {
@@ -354,6 +358,17 @@ export type ProjectBootstrap = {
   };
   issueTemplates: ServerIssueTemplate[];
   customFields: ServerCustomField[];
+  sprints: ServerSprint[];
+};
+
+/** Спринт проекта (sprints, миграция 023, опциональный модуль). */
+export type ServerSprint = {
+  id: string;
+  name: string;
+  goal: string;
+  status: "future" | "active" | "completed";
+  startDate: string | null;
+  endDate: string | null;
 };
 
 /** Шаблон задачи проекта (issue_templates, миграция 022). */
@@ -432,10 +447,18 @@ export const projectsApi = {
   list: () => api<Project[]>("/api/projects"),
   /** Данные одного проекта (bootstrap: users/members/workflow). */
   get: (projectId: string) => api<ProjectBootstrap>(P(projectId)),
-  create: (body: { key: string; name: string; description?: string; departmentId: string; isShared?: boolean }) =>
-    api<Project>("/api/projects", { method: "POST", body }),
-  patch: (projectId: string, body: Partial<{ name: string; description: string; departmentId: string; isShared: boolean }>) =>
-    api<Project>(P(projectId), { method: "PATCH", body }),
+  create: (body: {
+    key: string;
+    name: string;
+    description?: string;
+    departmentId: string;
+    isShared?: boolean;
+    sprintsEnabled?: boolean;
+  }) => api<Project>("/api/projects", { method: "POST", body }),
+  patch: (
+    projectId: string,
+    body: Partial<{ name: string; description: string; departmentId: string; isShared: boolean; sprintsEnabled: boolean }>,
+  ) => api<Project>(P(projectId), { method: "PATCH", body }),
   remove: (projectId: string) => api<void>(P(projectId), { method: "DELETE" }),
 };
 
@@ -495,6 +518,10 @@ export const issuesApi = {
   patch: (projectId: string, id: string, body: Record<string, unknown>) =>
     api<ServerIssue>(`${P(projectId)}/issues/${id}`, { method: "PATCH", body }),
   remove: (projectId: string, id: string) => api<void>(`${P(projectId)}/issues/${id}`, { method: "DELETE" }),
+  /** Назначение/снятие спринта (миграция 023) — отдельным роутом, право
+   *  manageSprints, не edit. sprintId=null возвращает задачу в бэклог. */
+  setSprint: (projectId: string, id: string, sprintId: string | null) =>
+    api<ServerIssue>(`${P(projectId)}/issues/${id}/sprint`, { method: "PATCH", body: { sprintId } }),
   transition: (projectId: string, id: string, to: string, beforeId?: string | null) =>
     api<ServerIssue>(`${P(projectId)}/issues/${id}/transition`, {
       method: "POST",
@@ -669,4 +696,15 @@ export const customFieldsApi = {
     api<ServerCustomField>(`${P(projectId)}/custom-fields/${fieldId}`, { method: "PATCH", body: { name } }),
   remove: (projectId: string, fieldId: string) =>
     api<void>(`${P(projectId)}/custom-fields/${fieldId}`, { method: "DELETE" }),
+};
+
+/** Спринты проекта (миграция 023, опциональный модуль) — 404, если у
+ *  проекта не включён sprintsEnabled, независимо от роли. */
+export const sprintsApi = {
+  create: (projectId: string, body: { name: string; goal: string; startDate?: string | null; endDate?: string | null }) =>
+    api<ServerSprint>(`${P(projectId)}/sprints`, { method: "POST", body }),
+  start: (projectId: string, sprintId: string) =>
+    api<ServerSprint>(`${P(projectId)}/sprints/${sprintId}/start`, { method: "POST" }),
+  complete: (projectId: string, sprintId: string) =>
+    api<{ sprint: ServerSprint; movedToBacklog: number }>(`${P(projectId)}/sprints/${sprintId}/complete`, { method: "POST" }),
 };
