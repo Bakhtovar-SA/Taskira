@@ -662,13 +662,34 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
       const iss = await loadIssue(project.id, id);
       if (body.sprintId) {
+        // Быстрый пречек вне транзакции — как и везде в этом кодовой базе
+        // (precheckParentAssignment и т.п.), это только честный fail-fast
+        // на случай несуществующего/чужого sprintId, НЕ защита от гонки:
+        // существование/принадлежность спринта проекту между этим SELECT и
+        // UPDATE ниже не меняется. А вот status спринта — меняется (completeSprint
+        // в это же окно), поэтому "не завершён" перепроверяется атомарно в
+        // самом UPDATE ниже, а не здесь (ревью PR #49, шестой раунд: без этого
+        // PATCH мог проскочить между precheck и записью, ссылаясь на спринт,
+        // который только что стал completed, — тот же класс гонки, что уже
+        // закрыт для parentId через assignParentLocked/pg_advisory_xact_lock).
         const sprint = await getSprintInProject(project.id, body.sprintId);
         if (!sprint) throw notFound("Спринт не найден в проекте");
-        if (sprint.status === "completed") throw badRequest("Нельзя добавить задачу в завершённый спринт");
       }
-      const row = (
-        await q<IssueRow>(`UPDATE issues SET sprint_id = $2 WHERE id = $1 RETURNING *`, [iss.id, body.sprintId])
-      )[0];
+      const rows = await q<IssueRow>(
+        `UPDATE issues SET sprint_id = $2
+            WHERE id = $1
+              AND ($2::uuid IS NULL OR EXISTS (
+                    SELECT 1 FROM sprints WHERE id = $2 AND project_id = $3 AND status <> 'completed'
+                  ))
+          RETURNING *`,
+        [iss.id, body.sprintId, project.id],
+      );
+      // 0 строк при sprintId≠null — спринт прошёл precheck выше, но успел стать
+      // completed до этого UPDATE (гонка); иных причин здесь не осталось —
+      // существование/проект спринта уже проверены, а сама задача только что
+      // успешно прочитана loadIssue().
+      if (rows.length === 0) throw badRequest("Нельзя добавить задачу в завершённый спринт");
+      const row = rows[0];
       await audit(user.sub, "issue.sprint.move", "issue", iss.id, { key: iss.key, sprintId: body.sprintId });
       return mapIssue(row);
     },
