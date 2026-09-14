@@ -275,6 +275,7 @@ export type ServerIssue = {
   participants?: ServerParticipant[];
   attachments?: ServerAttachment[];
   links?: ServerIssueLink[];
+  customFieldValues?: ServerCustomFieldValue[];
   createdAt: string;
   updatedAt: string;
 };
@@ -336,6 +337,22 @@ export type ProjectBootstrap = {
     statuses: { id: string; sid: string; name: string; category: "todo" | "inprogress" | "done"; position?: number }[];
     transitions: { id: string; from: string; to: string }[];
   };
+  customFields: ServerCustomField[];
+};
+
+/** Определение пользовательского поля проекта (custom_fields, миграция 020). */
+export type ServerCustomField = {
+  id: string;
+  name: string;
+  fieldType: "text" | "number" | "select" | "checkbox" | "date";
+  options: string[];
+  position: number;
+};
+
+/** Значение поля на конкретной задаче; отсутствие в массиве = не задано. */
+export type ServerCustomFieldValue = {
+  fieldId: string;
+  value: string | null;
 };
 
 /** Префикс ресурсов проекта. */
@@ -462,6 +479,11 @@ export const issuesApi = {
     }),
   removeLink: (projectId: string, id: string, linkId: string) =>
     api<{ links: ServerIssueLink[] }>(`${P(projectId)}/issues/${id}/links/${linkId}`, { method: "DELETE" }),
+  setCustomFieldValue: (projectId: string, id: string, fieldId: string, value: string | null) =>
+    api<{ values: ServerCustomFieldValue[] }>(`${P(projectId)}/issues/${id}/custom-fields/${fieldId}`, {
+      method: "PUT",
+      body: { value },
+    }),
 };
 
 /* ---------------- Отчёты ---------------- */
@@ -580,4 +602,13 @@ export const workflowApi = {
   removeTransition: (projectId: string, id: string) =>
     api<void>(`${P(projectId)}/workflow/transitions/${id}`, { method: "DELETE" }),
   reset: (projectId: string) => api<unknown>(`${P(projectId)}/workflow/reset`, { method: "POST" }),
+};
+
+export const customFieldsApi = {
+  create: (projectId: string, body: { name: string; fieldType: ServerCustomField["fieldType"]; options: string[] }) =>
+    api<ServerCustomField>(`${P(projectId)}/custom-fields`, { method: "POST", body }),
+  rename: (projectId: string, fieldId: string, name: string) =>
+    api<ServerCustomField>(`${P(projectId)}/custom-fields/${fieldId}`, { method: "PATCH", body: { name } }),
+  remove: (projectId: string, fieldId: string) =>
+    api<void>(`${P(projectId)}/custom-fields/${fieldId}`, { method: "DELETE" }),
 };

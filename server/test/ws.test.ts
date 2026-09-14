@@ -71,6 +71,37 @@ describe("WS /api/ws", () => {
     ws.close();
   });
 
+  test("вторая auth-рама на том же сокете игнорируется — сокет остаётся за первой", async () => {
+    // Проверяет исход контракта (одна auth-попытка на сокет), а не саму гонку
+    // из ревью буквально: детерминированно воспроизвести окно "вторая рама
+    // приходит, пока первая ещё ждёт assertFreshUser" синхронной отправкой
+    // не получилось — локальный Postgres в этой среде успевает ответить на
+    // первый запрос быстрее, чем стабильно воспроизводится гонка (проверено
+    // руками: временный откат authStarted-латча этот тест не заваливал).
+    // Latch сам по себе корректен по построению (синхронно выставляется до
+    // единственного await в обработчике) — полагаемся на это, а не только на тест.
+    const empToken = await login(app, "emp1");
+    const mgrToken = await login(app, "mgr1");
+    const ws = await app.injectWS("/api/ws");
+    ws.send(JSON.stringify({ type: "auth", token: empToken }));
+    ws.send(JSON.stringify({ type: "auth", token: mgrToken }));
+    await new Promise((r) => setTimeout(r, 150));
+    expect(ws.readyState).toBe(ws.OPEN); // первая auth прошла, сокет не закрыт
+
+    // Проверяем, ЧЕЙ это сокет: p1issue — assignee=emp1, reporter=emp1
+    // (seedFixture), значит комментарий mgr1 пушит именно emp1.
+    const push = nextMessage(ws, 500);
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/comments`,
+      headers: { authorization: `Bearer ${mgrToken}` },
+      payload: { body: "проверка гонки auth" },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(await push).toMatchObject({ type: "notify" }); // сокет остался за emp1
+    ws.close();
+  });
+
   test("emit() при комментарии пушит {type:'notify'} назначенному/автору задачи", async () => {
     // p1issue: assignee=emp1, reporter=emp1 (seedFixture). mgr1 (актор) комментирует →
     // emp1 — получатель (не сам оставлял комментарий), должен получить push.
