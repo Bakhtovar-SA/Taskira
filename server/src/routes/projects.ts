@@ -20,6 +20,7 @@ import {
   type JwtPayload,
 } from "../middleware.js";
 import { conflict, getWorkflow, seedProjectWorkflow } from "../services/workflow.js";
+import { listIssueTemplates } from "../services/issueTemplates.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
 import { invalidateProjectCache } from "../services/project.js";
@@ -110,7 +111,8 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
         await q<MemberRow>(`SELECT user_id, role FROM project_members WHERE project_id = $1`, [project.id])
       ).map((m) => ({ userId: m.user_id, role: m.role }));
       const workflow = await getWorkflow(project.id);
-      return { project: projectRowToDto(project), users, members, workflow };
+      const issueTemplates = await listIssueTemplates(project.id);
+      return { project: projectRowToDto(project), users, members, workflow, issueTemplates };
     },
   );
 

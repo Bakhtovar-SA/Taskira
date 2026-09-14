@@ -1,8 +1,21 @@
 import { useState } from "react";
 import { useStore } from "../store";
-import type { Transition } from "../types";
+import type { IssueTypeId, PriorityId, Transition } from "../types";
 import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo } from "../icons";
 import { Lozenge, catColor } from "../ui";
+
+const TEMPLATE_TYPE_LABEL: Record<IssueTypeId, string> = {
+  task: "Задача",
+  bug: "Баг",
+  request: "Запрос",
+};
+
+const TEMPLATE_PRIORITY_LABEL: Record<PriorityId, string> = {
+  critical: "Критичный",
+  high: "Высокий",
+  medium: "Средний",
+  low: "Низкий",
+};
 
 /* POS/PATHS рассчитаны ТОЛЬКО на 4 дефолтных статуса (ключи — стабильные sid,
    не uuid). Статус сверх стандартных четырёх просто не отрисуется — если появится
@@ -48,7 +61,7 @@ function edgePath(t: Transition, sidOf: (id: string) => string) {
 }
 
 export default function WorkflowView() {
-  const { data, addTransition, removeTransition, resetWorkflow, toast, can } = useStore();
+  const { data, addTransition, removeTransition, resetWorkflow, addIssueTemplate, removeIssueTemplate, toast, can } = useStore();
   const canEditWf = can("editWorkflow");
   const statuses = data.workflow.statuses;
   const bySid = (sid: string) => statuses.find((s) => s.sid === sid)?.id;
@@ -57,6 +70,13 @@ export default function WorkflowView() {
   const [to, setTo] = useState(() => bySid("review") ?? statuses[1]?.id ?? statuses[0]?.id ?? "");
   const [formErr, setFormErr] = useState("");
   const [hover, setHover] = useState<string | null>(null);
+
+  const [tplName, setTplName] = useState("");
+  const [tplType, setTplType] = useState<IssueTypeId>("task");
+  const [tplPriority, setTplPriority] = useState<PriorityId>("medium");
+  const [tplTitle, setTplTitle] = useState("");
+  const [tplDescription, setTplDescription] = useState("");
+  const [tplStatusId, setTplStatusId] = useState("");
 
   const sidById = new Map(statuses.map((s) => [s.id, s.sid]));
   const sidOf = (id: string) => sidById.get(id) ?? "";
@@ -70,6 +90,22 @@ export default function WorkflowView() {
       setFormErr("");
       setTo(statuses.find((s) => s.id !== from)?.id ?? from);
     }
+  };
+
+  const submitTemplate = () => {
+    if (!tplName.trim()) return;
+    addIssueTemplate({
+      name: tplName,
+      typeId: tplType,
+      priorityId: tplPriority,
+      title: tplTitle,
+      description: tplDescription,
+      statusId: tplStatusId || null,
+    });
+    setTplName("");
+    setTplTitle("");
+    setTplDescription("");
+    setTplStatusId("");
   };
 
   return (
@@ -222,6 +258,120 @@ export default function WorkflowView() {
             </>
             )}
           </div>
+        </div>
+
+        {/* шаблоны задач проекта (issue_templates, миграция 022) */}
+        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[1fr_320px]" style={{ animationDelay: "160ms" }}>
+          <div className="overflow-hidden rounded-xl border border-line bg-panel">
+            <p className="border-b border-linesoft bg-canvas/60 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wider text-sub">
+              Шаблоны задач · {data.issueTemplates.length}
+            </p>
+            {data.issueTemplates.length === 0 && (
+              <p className="px-4 py-6 text-center text-[12.5px] text-faint">Шаблонов нет — добавьте первый справа.</p>
+            )}
+            {data.issueTemplates.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 border-b border-linesoft px-4 py-2.5 last:border-0 hover:bg-canvas/60">
+                <span className="text-[13px] font-medium text-ink">{t.name}</span>
+                <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10px] font-bold text-sub">
+                  {TEMPLATE_TYPE_LABEL[t.typeId]}
+                </span>
+                <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10px] font-bold text-sub">
+                  {TEMPLATE_PRIORITY_LABEL[t.priorityId]}
+                </span>
+                {canEditWf && (
+                  <button
+                    onClick={() => removeIssueTemplate(t.id)}
+                    className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
+                    aria-label="Удалить шаблон"
+                  >
+                    <IcTrash size={13} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {canEditWf && (
+            <div className="h-fit rounded-xl border border-line bg-panel p-4">
+              <p className="text-[12px] font-bold uppercase tracking-wider text-sub">Новый шаблон</p>
+              <p className="mt-1 text-[11.5px] leading-relaxed text-faint">Появится в выпадающем списке при создании задачи.</p>
+              <div className="mt-3 space-y-2.5">
+                <label className="block">
+                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Название шаблона</span>
+                  <input
+                    value={tplName}
+                    onChange={(e) => setTplName(e.target.value)}
+                    placeholder="Например: Баг-репорт"
+                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Тип</span>
+                    <select
+                      value={tplType}
+                      onChange={(e) => setTplType(e.target.value as IssueTypeId)}
+                      className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                    >
+                      {(Object.keys(TEMPLATE_TYPE_LABEL) as IssueTypeId[]).map((v) => (
+                        <option key={v} value={v}>{TEMPLATE_TYPE_LABEL[v]}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Приоритет</span>
+                    <select
+                      value={tplPriority}
+                      onChange={(e) => setTplPriority(e.target.value as PriorityId)}
+                      className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                    >
+                      {(Object.keys(TEMPLATE_PRIORITY_LABEL) as PriorityId[]).map((v) => (
+                        <option key={v} value={v}>{TEMPLATE_PRIORITY_LABEL[v]}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Название задачи по умолчанию</span>
+                  <input
+                    value={tplTitle}
+                    onChange={(e) => setTplTitle(e.target.value)}
+                    placeholder="Например: Баг: "
+                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Описание по умолчанию</span>
+                  <textarea
+                    value={tplDescription}
+                    onChange={(e) => setTplDescription(e.target.value)}
+                    rows={3}
+                    className="w-full resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Стартовый статус (необязательно)</span>
+                  <select
+                    value={tplStatusId}
+                    onChange={(e) => setTplStatusId(e.target.value)}
+                    className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                  >
+                    <option value="">как обычно</option>
+                    {data.workflow.statuses.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  onClick={submitTemplate}
+                  disabled={!tplName.trim()}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-[12.5px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <IcPlus size={13} /> Добавить шаблон
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -37,6 +37,9 @@ export const LIMITS = {
   project: { key: { min: 2, max: 10 }, name: { min: 1, max: 120 }, description: { max: 2000 } },
   // Вложения (FILES_MIGRATION.md D3). Дефолты; сервер переопределяет из ATTACH_* env.
   attachment: { maxBytes: 25 * 1024 * 1024, maxPerIssue: 50, maxFilename: 200 },
+  // Шаблоны задач (миграция 022).
+  issueTemplate: { name: { min: 1, max: 60 } },
+  issueTemplatesPerProject: 30,
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -234,6 +237,20 @@ export const IssueLinkCreateBody = z.object({
 });
 
 export const IssueLinkParams = z.object({ linkId: uuid });
+
+/* ---------------- Issue templates (миграция 022) ---------------- */
+/** statusId — необязательная подсказка стартового статуса; отсутствует/null —
+ *  «как обычно» (сервер сам выбирает первый статус категории todo). */
+export const IssueTemplateBody = z.object({
+  name: oneLine(LIMITS.issueTemplate.name.max, LIMITS.issueTemplate.name.min, "Название шаблона не может быть пустым"),
+  typeId: z.enum(ISSUE_TYPES),
+  priorityId: z.enum(PRIORITIES),
+  title: oneLine(LIMITS.title.max),
+  description: multiLine(LIMITS.description.max).default(""),
+  statusId: uuid.nullable().optional(),
+});
+
+export const IssueTemplateParams = z.object({ templateId: uuid });
 
 /* ---------------- Notifications (миграция 011) ---------------- */
 export const NOTIFY_TYPES = [

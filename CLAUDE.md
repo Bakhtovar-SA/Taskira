@@ -18,7 +18,8 @@ is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still impo
 roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
-token revocation (017), points → complexity (018).
+token revocation (017), points → complexity (018), issue templates (022 — 019/020/021
+are reserved by parallel branches not yet merged at the time this was written).
 
 ## Commands
 
@@ -243,6 +244,20 @@ schema/contract) was replaced outright by `complexity` — a plain three-value s
 (`simple | medium | hard`, `COMPLEXITIES`/`COMPLEXITY_ORDER` in `types.ts` ↔ `COMPLEXITIES`
 in `contract.ts`) — migration 018. It has no dedicated client validator, same as
 `priorityId`: the type system and a fixed dropdown are enough, no numeric range to check.
+
+Issue templates (`issue_templates`, migration 022, `services/issueTemplates.ts`): project-level
+presets (`name`, `typeId`, `priorityId`, a default title, a default description, and an optional
+starting `statusId`) managed from `WorkflowView.tsx` under the same `editWorkflow` permission as
+the workflow graph and custom fields — a third instance of "this is project-schema configuration,
+not worth a dedicated `PermId`." Applying one is **pure client-side prefill**: `CreateIssueModal`'s
+"Шаблон" dropdown copies the template's fields into the form's local state once, on selection —
+nothing is sent to the server about which template (if any) was used, and nothing stops the user
+from editing every field afterward. There is deliberately no link between a created issue and the
+template it came from; the template is a starting point, not a stamped relationship. Scoped
+independently of `checklist_items`/`custom_fields`/`issues.parent_id` (separate, unmerged
+branches) — a template does not (yet) carry a checklist or custom-field values to copy in, since
+each of those lives on its own branch; folding template support for them in is natural
+follow-up work once those branches land, not part of this one.
 
 ## Issue lifecycle (migration 016)
 

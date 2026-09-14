@@ -100,6 +100,21 @@ export interface IssueLink {
   createdAt: number;
 }
 
+/** Шаблон задачи проекта (issue_templates, миграция 022) — уровень проекта,
+ *  как workflow/custom-fields. Применение — чистый client-side prefill формы
+ *  CreateIssueModal, не связано с созданной задачей. */
+export interface IssueTemplate {
+  id: string;
+  name: string;
+  typeId: IssueTypeId;
+  priorityId: PriorityId;
+  title: string;
+  description: string;
+  /** Необязательная подсказка стартового статуса; null — «как обычно». */
+  statusId: string | null;
+  position: number;
+}
+
 export interface Issue {
   id: string;
   key: string;
@@ -181,6 +196,8 @@ export interface Data {
   currentUserId: string;
   issues: Issue[];
   workflow: Workflow;
+  /** Шаблоны задач проекта (миграция 022). */
+  issueTemplates: IssueTemplate[];
   /** Открытые задачи, назначенные мне по всем видимым проектам (главный экран). */
   assignedToMe: AssignedIssue[];
   /** true — сервер урезал список «Моих задач» своим потолком; надо сказать человеку. */
