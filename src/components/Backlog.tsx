@@ -4,6 +4,7 @@ import type { Issue } from "../types";
 import { ISSUE_TYPES, PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, Empty, Lozenge, MenuItem } from "../ui";
+import ImportTrelloModal from "./ImportTrelloModal";
 
 type SortKey = "priority" | "due" | "updated" | "key";
 const SORT_LABEL: Record<SortKey, string> = {
@@ -98,7 +99,8 @@ function Row({ issue }: { issue: Issue }) {
 }
 
 export default function Backlog() {
-  const { data } = useStore();
+  const { data, can } = useStore();
+  const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [fAssignee, setFAssignee] = useState(""); // "" | "none" | userId
@@ -173,6 +175,14 @@ export default function Backlog() {
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {can("create") && (
+              <button
+                onClick={() => setImportOpen(true)}
+                className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:border-accent hover:text-accent"
+              >
+                <IcInbox size={13} /> Импорт из Trello
+              </button>
+            )}
             <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-panel px-2.5">
               <IcSearch size={13} className="text-faint" />
               <input
@@ -286,6 +296,8 @@ export default function Backlog() {
           )}
         </div>
       </div>
+
+      {importOpen && <ImportTrelloModal onClose={() => setImportOpen(false)} />}
     </div>
   );
 }

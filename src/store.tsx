@@ -343,6 +343,7 @@ interface Api {
   setCreateOpen: (v: boolean) => void;
   toast: (kind: Toast["kind"], text: string) => void;
   createIssue: (input: CreateInput) => void;
+  importIssues: (inputs: CreateInput[], onProgress?: (done: number, total: number) => void) => Promise<{ ok: number; failed: number }>;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
   addComment: (issueId: string, body: string) => void;
@@ -942,6 +943,52 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })();
     },
     [requirePerm, toast, handleApiError],
+  );
+
+  /** Массовое создание (импорт из Trello и т.п.) — тем же POST /issues, что
+   *  и обычное создание, по одному запросу на карточку: переиспользует все
+   *  права/валидацию сервера как есть, без отдельного bulk-эндпоинта и его
+   *  риска (untested parsing чужого формата на сервере). Один итоговый тост
+   *  вместо одного на карточку — иначе импорт полусотни карточек тонет в
+   *  собственных уведомлений об успехе. onProgress — необязательный колбэк
+   *  для UI-прогресса импорта (например, «12 / 47»). */
+  const importIssues = useCallback(
+    async (inputs: CreateInput[], onProgress?: (done: number, total: number) => void): Promise<{ ok: number; failed: number }> => {
+      if (!requirePerm("create")) return { ok: 0, failed: inputs.length };
+      let ok = 0;
+      let failed = 0;
+      for (const input of inputs) {
+        const t = validateTitle(input.title);
+        const d = validateDescription(input.description);
+        const l = validateLabels(input.labels);
+        if (t.ok) {
+          try {
+            const dto = await issuesApi.create(pid(), {
+              title: t.value,
+              description: d.ok ? d.value : "",
+              typeId: input.typeId,
+              priorityId: input.priorityId,
+              assigneeId: input.assigneeId,
+              epicId: input.epicId,
+              labels: l.ok ? l.value : [],
+              complexity: input.complexity,
+              statusId: input.statusId,
+              dueDate: input.dueDate ?? null,
+            });
+            setData((prev) => ({ ...prev, issues: [...prev.issues, mapIssue(dto)] }));
+            ok++;
+          } catch {
+            failed++;
+          }
+        } else {
+          failed++;
+        }
+        onProgress?.(ok + failed, inputs.length);
+      }
+      toast(failed === 0 ? "success" : "info", `Импортировано ${ok} из ${inputs.length}${failed ? `, не удалось: ${failed}` : ""}`);
+      return { ok, failed };
+    },
+    [requirePerm, toast],
   );
 
   const updateIssue = useCallback(
@@ -1565,6 +1612,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v })),
     toast,
     createIssue,
+    importIssues,
     updateIssue,
     moveStatus,
     addComment,

@@ -129,6 +129,32 @@ The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `is
 `statuses`) and a `doneStatusIds` `Set`. Use them instead of `data.users.find(...)` inside
 list/card renders — the linear scans were quadratic across a board.
 
+### Trello import is entirely client-side — no server changes, no new migration
+
+`src/import/trello.ts` parses a Trello board's JSON export (`parseTrelloExport`, a pure
+function with its own unit tests using a hand-written fixture — there is no live Trello account
+in this environment to pull a real export from, so the fixture is only as good as the publicly
+documented schema) into `{title, description, labels, dueDate, closed}[]`. `store.importIssues()`
+(`store.tsx`) then POSTs each one through the exact same `issuesApi.create()` (and therefore the
+exact same server-side permission check and validation) that a normal single "Создать" goes
+through — one request per card, sequentially, no new bulk endpoint. That was a deliberate
+trade-off: a server-side bulk-import endpoint would mean *untested* parsing code running with
+real database writes; keeping the parse client-side and reusing the already-tested single-issue
+path means the only new, review-worthy code is the pure parser, and it's the one piece that
+actually needed new tests. One summary toast ("Импортировано N из M") replaces per-issue
+toasts — 50 "успешно создана" toasts from one import would be noise, not signal. `ImportTrelloModal.tsx`
+(entry point: a button in `Backlog.tsx`'s header, gated by `can("create")`) reads the file with
+`FileReader`, shows the parsed count and a "include archived Trello cards" checkbox before
+committing to anything, and reports live progress during the import. Each Trello list name
+becomes a `trello:<list name>` label on the issue (so nothing about the original board structure
+is silently discarded) rather than being mapped onto a Taskira workflow status — inventing that
+mapping (which Trello list is "todo" vs "done"?) isn't something the file alone can answer
+reliably, and getting it wrong would misfile every imported card into the wrong column. Trello
+members aren't mapped to Taskira users either, for the same reason — identity across the two
+systems doesn't line up, and a wrong-assignee guess is worse than leaving it unassigned. Import
+from Jira/Asana was explicitly discussed and deferred — each has its own export shape and would
+need its own parser and its own fixture-based tests, not a shared "generic importer."
+
 ### Server structure
 
 `index.ts` (bootstrap: config → pool → migrate → seed → `buildApp` → listen) →
