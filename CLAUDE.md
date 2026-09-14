@@ -21,7 +21,7 @@ roles (004/006), departments (007), issue collaborators (008), LDAP (009), attac
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
 token revocation (017), points → complexity (018), checklist items (019),
-custom fields (020), subtasks (021).
+custom fields (020), subtasks (021), issue templates (022).
 
 ## Commands
 
@@ -350,7 +350,31 @@ already derive for free would just be a second source of truth to keep in sync. 
 inherit a stale parent from a previous subtask flow) — the parent is fixed for that create, not
 user-editable in the form, since the whole point of the button is "a child of *this* issue."
 Deleting a parent does not delete its subtasks (`ON DELETE SET NULL`, same as `epicId`) — the
-child becomes an ordinary standalone issue rather than disappearing silently.
+child becomes an ordinary standalone issue rather than disappearing silently, and `deleteIssue()`
+on the client mirrors that FK by nulling `parentId` on the affected rows already in `data.issues`
+(same as it already did for `epicId`) so the UI doesn't show a dangling reference before the next
+refetch. Snapping `parentId` to `null` (unassigning) goes through `withIssueParentLock()` — the
+same advisory-lock helper `assignParentLocked()` uses, factored out — so a concurrent assign and
+unassign on the same issue serialize on the same primitive (`services/issues.ts`). The list of
+subtask rows shown in `IssueModal.tsx` is still derived from the client's already-loaded
+`data.issues` (active issues only, like everywhere else in the app), but the *count* badge
+("Подзадачи · N/M") comes from `getIssueDto.subtasksSummary` — a small aggregate query counting
+**all** children including archived ones — because the plain client-side filter would otherwise
+make the badge silently regress when a closed subtask ages into the archive (archiving isn't
+deletion; see Issue lifecycle below).
+Issue templates (`issue_templates`, migration 022, `services/issueTemplates.ts`): project-level
+presets (`name`, `typeId`, `priorityId`, a default title, a default description, and an optional
+starting `statusId`) managed from `WorkflowView.tsx` under the same `editWorkflow` permission as
+the workflow graph and custom fields — a third instance of "this is project-schema configuration,
+not worth a dedicated `PermId`." Applying one is **pure client-side prefill**: `CreateIssueModal`'s
+"Шаблон" dropdown copies the template's fields into the form's local state once, on selection —
+nothing is sent to the server about which template (if any) was used, and nothing stops the user
+from editing every field afterward. There is deliberately no link between a created issue and the
+template it came from; the template is a starting point, not a stamped relationship. Scoped
+independently of `checklist_items`/`issues.parent_id` (separate, unmerged branches at the time
+this was written) — a template does not (yet) carry a checklist or subtask structure to copy in;
+folding template support for those in is natural follow-up work once those branches land, not
+part of this one.
 
 ## Issue lifecycle (migration 016)
 

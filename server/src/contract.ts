@@ -40,6 +40,9 @@ export const LIMITS = {
   // Чек-лист (миграция 019).
   checklistItem: { text: { min: 1, max: 200 } },
   checklistItemsPerIssue: 50,
+  // Шаблоны задач (миграция 022).
+  issueTemplate: { name: { min: 1, max: 60 } },
+  issueTemplatesPerProject: 30,
   // Пользовательские поля (миграция 020).
   customField: { name: { min: 1, max: 60 }, optionMax: 60, optionsMax: 30 },
   customFieldsPerProject: 30,
@@ -259,6 +262,20 @@ export const ChecklistItemPatchBody = z
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
 
 export const ChecklistItemParams = z.object({ itemId: uuid });
+
+/* ---------------- Issue templates (миграция 022) ---------------- */
+/** statusId — необязательная подсказка стартового статуса; отсутствует/null —
+ *  «как обычно» (сервер сам выбирает первый статус категории todo). */
+export const IssueTemplateBody = z.object({
+  name: oneLine(LIMITS.issueTemplate.name.max, LIMITS.issueTemplate.name.min, "Название шаблона не может быть пустым"),
+  typeId: z.enum(ISSUE_TYPES),
+  priorityId: z.enum(PRIORITIES),
+  title: oneLine(LIMITS.title.max),
+  description: multiLine(LIMITS.description.max).default(""),
+  statusId: uuid.nullable().optional(),
+});
+
+export const IssueTemplateParams = z.object({ templateId: uuid });
 
 /* ---------------- Custom fields (миграция 020) ---------------- */
 /** Значения всех типов хранятся как text (custom_field_values.value) —

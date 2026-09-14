@@ -12,6 +12,7 @@ import type {
   Department,
   Issue,
   IssueLink,
+  IssueTemplate,
   NotificationT,
   NotifyPrefsT,
   IssueTypeId,
@@ -41,6 +42,7 @@ import {
   authApi,
   clearToken,
   collaboratorsApi,
+  issueTemplatesApi,
   customFieldsApi,
   ldapApi,
   commentsApi,
@@ -51,10 +53,12 @@ import {
   notificationsApi,
   projectsApi,
   type CollaboratingItem,
+  type IssueTemplateInput,
   type NotifyPrefs,
   type ServerAttachment,
   type ServerChecklistItem,
   type ServerIssueLink,
+  type ServerIssueTemplate,
   type ServerNotification,
   type ServerIssue,
   type SafeUser,
@@ -203,6 +207,7 @@ const emptyData = (): Data => ({
   currentUserId: "",
   issues: [],
   workflow: { statuses: [], transitions: [] },
+  issueTemplates: [],
   customFields: [],
   assignedToMe: [],
   assignedTruncated: false,
@@ -248,6 +253,17 @@ function normalizeType(t: string): IssueTypeId {
   if (t === "bug" || t === "request" || t === "task") return t;
   return "task";
 }
+
+const mapIssueTemplate = (t: ServerIssueTemplate): IssueTemplate => ({
+  id: t.id,
+  name: t.name,
+  typeId: normalizeType(t.typeId),
+  priorityId: (t.priorityId as PriorityId) || "medium",
+  title: t.title,
+  description: t.description,
+  statusId: t.statusId,
+  position: t.position,
+});
 
 const mapAttachment = (a: ServerAttachment): Attachment => ({
   id: a.id,
@@ -397,6 +413,9 @@ interface Api {
   addTransition: (from: string, to: string) => string | null;
   removeTransition: (id: string) => void;
   resetWorkflow: () => void;
+  addIssueTemplate: (input: IssueTemplateInput) => void;
+  updateIssueTemplateAction: (templateId: string, input: IssueTemplateInput) => void;
+  removeIssueTemplate: (templateId: string) => void;
   addCustomField: (name: string, fieldType: CustomFieldType, options: string[]) => void;
   renameCustomField: (fieldId: string, name: string) => void;
   removeCustomField: (fieldId: string) => void;
@@ -552,6 +571,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
           transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
         },
+        issueTemplates: boot.issueTemplates.map(mapIssueTemplate),
         customFields: boot.customFields,
         seq: issuesRes.total + 1,
       };
@@ -1434,6 +1454,61 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [requirePerm, toast, handleApiError]);
 
+  /* -------- шаблоны задач (issue_templates, миграция 022). Тем же правом
+     editWorkflow, что и схема workflow/custom-fields — не заводили отдельный
+     PermId под ещё одну «структурную схему проекта». -------- */
+
+  const addIssueTemplate = useCallback(
+    (input: IssueTemplateInput) => {
+      if (!requirePerm("editWorkflow")) return;
+      void (async () => {
+        try {
+          const t = await issueTemplatesApi.create(pid(), input);
+          setData((prev) => ({ ...prev, issueTemplates: [...prev.issueTemplates, mapIssueTemplate(t)] }));
+          toast("success", "Шаблон добавлен");
+        } catch (err) {
+          handleApiError(err, "Не удалось добавить шаблон");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const updateIssueTemplateAction = useCallback(
+    (templateId: string, input: IssueTemplateInput) => {
+      if (!requirePerm("editWorkflow")) return;
+      void (async () => {
+        try {
+          const t = await issueTemplatesApi.update(pid(), templateId, input);
+          setData((prev) => ({
+            ...prev,
+            issueTemplates: prev.issueTemplates.map((x) => (x.id === templateId ? mapIssueTemplate(t) : x)),
+          }));
+          toast("success", "Шаблон обновлён");
+        } catch (err) {
+          handleApiError(err, "Не удалось обновить шаблон");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeIssueTemplate = useCallback(
+    (templateId: string) => {
+      if (!requirePerm("editWorkflow")) return;
+      void (async () => {
+        try {
+          await issueTemplatesApi.remove(pid(), templateId);
+          setData((prev) => ({ ...prev, issueTemplates: prev.issueTemplates.filter((x) => x.id !== templateId) }));
+          toast("info", "Шаблон удалён");
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить шаблон");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
   /* -------- определения пользовательских полей (custom_fields, миграция 020).
      Тем же правом editWorkflow, что и схема workflow (см. миграцию/комментарий
      в customFields.ts на сервере) — отдельного PermId под них не заводили. */
@@ -1788,6 +1863,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addTransition,
     removeTransition,
     resetWorkflow,
+    addIssueTemplate,
+    updateIssueTemplateAction,
+    removeIssueTemplate,
     addCustomField,
     renameCustomField,
     removeCustomField,

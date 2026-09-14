@@ -26,6 +26,25 @@ export default function CreateIssueModal() {
   const [labels, setLabels] = useState<string[]>([]);
   const [labelDraft, setLabelDraft] = useState("");
   const [again, setAgain] = useState(false);
+  // Шаблон (issue_templates, миграция 022) — чистый prefill формы: applyTemplate
+  // копирует его поля в локальный стейт один раз при выборе, дальше форма живёт
+  // как обычно (правки после применения шаблон не отслеживает и не блокирует).
+  const [templateId, setTemplateId] = useState("");
+  const [templateStatusId, setTemplateStatusId] = useState<string | null>(null);
+
+  const applyTemplate = (id: string) => {
+    setTemplateId(id);
+    const t = data.issueTemplates.find((x) => x.id === id);
+    if (!t) {
+      setTemplateStatusId(null);
+      return;
+    }
+    setTypeId(t.typeId);
+    setPriorityId(t.priorityId);
+    setTitle(t.title);
+    setDescription(t.description);
+    setTemplateStatusId(t.statusId);
+  };
 
   // Тип "epic" упразднён (миграция 002): «направление» — обычная задача, на
   // которую ссылаются через epicId. Кандидат — любая задача проекта, а не
@@ -56,6 +75,7 @@ export default function CreateIssueModal() {
       labels,
       complexity,
       dueDate: dueDate || null,
+      statusId: templateStatusId ?? undefined,
     });
     if (again) {
       setTitle("");
@@ -63,6 +83,8 @@ export default function CreateIssueModal() {
       setError("");
       setDueDate("");
       setLabels([]);
+      setTemplateId("");
+      setTemplateStatusId(null);
     } else {
       setCreateOpen(false);
     }
@@ -84,6 +106,23 @@ export default function CreateIssueModal() {
       </div>
 
       <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 py-4">
+        {/* шаблон (issue_templates, миграция 022) — только если в проекте есть хоть один */}
+        {data.issueTemplates.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Шаблон</p>
+            <select
+              value={templateId}
+              onChange={(e) => applyTemplate(e.target.value)}
+              className="w-full cursor-pointer rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none focus:border-accent"
+            >
+              <option value="">без шаблона</option>
+              {data.issueTemplates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* тип */}
         <div>
           <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.type")}</p>

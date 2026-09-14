@@ -110,6 +110,21 @@ export interface ChecklistItem {
   createdAt: number;
 }
 
+/** Шаблон задачи проекта (issue_templates, миграция 022) — уровень проекта,
+ *  как workflow/custom-fields. Применение — чистый client-side prefill формы
+ *  CreateIssueModal, не связано с созданной задачей. */
+export interface IssueTemplate {
+  id: string;
+  name: string;
+  typeId: IssueTypeId;
+  priorityId: PriorityId;
+  title: string;
+  description: string;
+  /** Необязательная подсказка стартового статуса; null — «как обычно». */
+  statusId: string | null;
+  position: number;
+}
+
 /** Пользовательское поле проекта (custom_fields, миграция 020) — определение,
  *  на уровне проекта, приходит в bootstrap (data.customFields), не в задаче. */
 export type CustomFieldType = "text" | "number" | "select" | "checkbox" | "date";
@@ -223,6 +238,8 @@ export interface Data {
   currentUserId: string;
   issues: Issue[];
   workflow: Workflow;
+  /** Шаблоны задач проекта (миграция 022). */
+  issueTemplates: IssueTemplate[];
   /** Определения пользовательских полей проекта (миграция 020). */
   customFields: CustomFieldDef[];
   /** Открытые задачи, назначенные мне по всем видимым проектам (главный экран). */
