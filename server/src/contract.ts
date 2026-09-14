@@ -37,6 +37,9 @@ export const LIMITS = {
   project: { key: { min: 2, max: 10 }, name: { min: 1, max: 120 }, description: { max: 2000 } },
   // Вложения (FILES_MIGRATION.md D3). Дефолты; сервер переопределяет из ATTACH_* env.
   attachment: { maxBytes: 25 * 1024 * 1024, maxPerIssue: 50, maxFilename: 200 },
+  // Чек-лист (миграция 019).
+  checklistItem: { text: { min: 1, max: 200 } },
+  checklistItemsPerIssue: 50,
   // Пользовательские поля (миграция 020).
   customField: { name: { min: 1, max: 60 }, optionMax: 60, optionsMax: 30 },
   customFieldsPerProject: 30,
@@ -237,6 +240,21 @@ export const IssueLinkCreateBody = z.object({
 });
 
 export const IssueLinkParams = z.object({ linkId: uuid });
+
+/* ---------------- Checklist (миграция 019) ---------------- */
+export const ChecklistItemCreateBody = z.object({
+  text: oneLine(LIMITS.checklistItem.text.max, LIMITS.checklistItem.text.min, "Текст пункта не может быть пустым"),
+});
+
+export const ChecklistItemPatchBody = z
+  .object({
+    text: oneLine(LIMITS.checklistItem.text.max, LIMITS.checklistItem.text.min),
+    done: z.boolean(),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+
+export const ChecklistItemParams = z.object({ itemId: uuid });
 
 /* ---------------- Custom fields (миграция 020) ---------------- */
 /** Значения всех типов хранятся как text (custom_field_values.value) —

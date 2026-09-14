@@ -18,8 +18,8 @@ is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still impo
 roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
-token revocation (017), points → complexity (018), custom fields (020 — 019 is
-reserved by a parallel branch not yet merged at the time this was written).
+token revocation (017), points → complexity (018), checklist items (019),
+custom fields (020).
 
 ## Commands
 
@@ -257,6 +257,20 @@ schema/contract) was replaced outright by `complexity` — a plain three-value s
 (`simple | medium | hard`, `COMPLEXITIES`/`COMPLEXITY_ORDER` in `types.ts` ↔ `COMPLEXITIES`
 in `contract.ts`) — migration 018. It has no dedicated client validator, same as
 `priorityId`: the type system and a fixed dropdown are enough, no numeric range to check.
+
+Checklist (`checklist_items`, migration 019, `services/checklist.ts`): one row per item, on
+the same `edit`-permission model as `issue_links` — no dedicated permission, whoever can edit
+the issue manages its checklist. `position` is an integer assigned once at insert time
+(`COALESCE(MAX(position)+1, 0)` in the same `INSERT`) and never rewritten — there is
+deliberately no reorder endpoint in v1 (see the comment in the migration itself: if
+drag-and-drop ordering is ever needed, move to a fractional rank like `issues.rank`
+rather than adding one preemptively for a feature that doesn't exist yet). Two concurrent
+adds can race to the same position; `listChecklistItems` breaks the tie with `created_at`
+as a secondary sort instead of taking a lock over something this low-stakes. Activity
+(`logActivity`) is only written for add/remove, not for every check/uncheck — else the
+issue's history feed would drown in checkbox toggles. `LIMITS.checklistItemsPerIssue` (50)
+and `LIMITS.checklistItem.text` mirror between `server/src/contract.ts` and
+`src/validation.ts` like every other limit.
 
 Custom fields (`custom_fields`/`custom_field_values`, migration 020, `services/customFields.ts`):
 project-level definitions (`text | number | select | checkbox | date`), one value row per
