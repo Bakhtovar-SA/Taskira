@@ -18,8 +18,8 @@ is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still impo
 roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
-token revocation (017), points → complexity (018), subtasks (021 — 019/020 are
-reserved by parallel branches not yet merged at the time this was written).
+token revocation (017), points → complexity (018), custom fields (020),
+subtasks (021).
 
 ## Commands
 
@@ -222,7 +222,20 @@ list/card renders — the linear scans were quadratic across a board.
   this: `routes/ws.ts` stamps `handshakeStartedAt` before the round-trip and checks
   `revokedSince(userId, handshakeStartedAt)` immediately after `registerSocket()` with no
   `await` in between (atomic w.r.t. any concurrent revoke — Node has no other way for code to
-  interleave there), closing the socket itself if a revocation landed mid-handshake.
+  interleave there), closing the socket itself if a revocation landed mid-handshake;
+  (4) `userId` alone isn't a strong-enough re-entrancy guard for the `message` handler — it's
+  only set *after* `assertFreshUser` resolves, so a second "auth" frame arriving before the
+  first's DB round-trip finishes would pass `if (userId) return` too and start its own
+  concurrent verification, possibly for a different user, with whichever resolves last winning
+  `userId` and the other's `registerSocket()` call leaking an entry nothing ever
+  `unregisterSocket()`s. `authStarted` is a separate boolean set synchronously *before* the
+  first `await`, so it closes over the whole handshake attempt, not just its outcome — the
+  general shape (a sync latch set before you commit to an async exclusive section, checked
+  instead of a value only assigned deep inside it) is the fix, not the specific variable.
+  `storageSweeper.ts`'s delete loop and `notify.ts`'s push loop got the same class of fix in
+  the same review: both used to wrap an entire batch/loop in one `try/catch`, so one failing
+  `Storage.delete()` or one `pushToUser()` throw aborted every later item in the same run —
+  each is now try/catch'd per-item so one failure doesn't take down the rest.
 
 ### Data model notes
 
@@ -245,23 +258,39 @@ schema/contract) was replaced outright by `complexity` — a plain three-value s
 in `contract.ts`) — migration 018. It has no dedicated client validator, same as
 `priorityId`: the type system and a fixed dropdown are enough, no numeric range to check.
 
+Custom fields (`custom_fields`/`custom_field_values`, migration 020, `services/customFields.ts`):
+project-level definitions (`text | number | select | checkbox | date`), one value row per
+(field, issue) — NULL/absent row means unset, everything stored as `text` regardless of type
+since parsing depends on which field it is (`validateValueForField` in the service, not a
+static zod schema). Defining fields (`POST/PATCH/DELETE /custom-fields`) reuses the `editWorkflow`
+permission rather than a new `PermId` — it's the same "structural project schema" capability as
+workflow transitions, and adding a dedicated permission would mean touching the shared MATRIX
+(both `permissions.ts` copies + `permissions-sync.test.ts`) for one narrow feature. Setting a
+*value* on a specific issue uses plain `edit`, same as priority/complexity/labels. Managed in
+`WorkflowView.tsx` (schema-editing screen) alongside the workflow graph, not a separate view.
+
 Subtasks (`issues.parent_id`, migration 021): exactly two levels, no arbitrary nesting —
-`validateParentAssignment()` (`services/issues.ts`) refuses to set `parentId` to an issue that
-already has a parent itself (no "subtask of a subtask"), and refuses to give an issue a parent
-if it already has children of its own (no turning an existing parent into someone's child, which
-would silently make its own children three generations deep). This is deliberately independent
-of `epicId` ("direction" — a free-form grouping with no depth limit and no link back to
-completion status); an issue can be both in a direction and someone's subtask at once. There is
-**no dedicated subtasks endpoint** — the client already loads the project's full active issue
-list into `data.issues` and filters by `parentId` locally (`IssueModal.tsx`'s subtasks section),
-the same way `TimelineView` already groups by `epicId` client-side; adding a server list endpoint
-for something the client can already derive for free would just be a second source of truth to
-keep in sync. `+ добавить подзадачу` opens `CreateIssueModal` with `ui.createParentId` pre-set
-(`store.tsx`'s `openCreateSubtask()`, separate from the plain `setCreateOpen()` so a normal
-"Создать" doesn't inherit a stale parent from a previous subtask flow) — the parent is fixed for
-that create, not user-editable in the form, since the whole point of the button is "a child of
-*this* issue." Deleting a parent does not delete its subtasks (`ON DELETE SET NULL`, same as
-`epicId`) — the child becomes an ordinary standalone issue rather than disappearing silently.
+`assignParentLocked()`/`validateParentAssignmentTx()` (`services/issues.ts`) refuse to set
+`parentId` to an issue that already has a parent itself (no "subtask of a subtask"), and refuse
+to give an issue a parent if it already has children of its own (no turning an existing parent
+into someone's child, which would silently make its own children three generations deep). The
+validation and the actual `INSERT`/`UPDATE` run inside one transaction under
+`pg_advisory_xact_lock` (same idiom as `rank.ts`), locked on both issues involved (the candidate
+parent and, when it already exists, the issue being reparented) — without this, two concurrent
+`PATCH`es could each pass validation against stale state and together build a 3-level chain
+(caught in review, PR #46). This is deliberately independent of `epicId` ("direction" — a
+free-form grouping with no depth limit and no link back to completion status); an issue can be
+both in a direction and someone's subtask at once. There is **no dedicated subtasks endpoint** —
+the client already loads the project's full active issue list into `data.issues` and filters by
+`parentId` locally (`IssueModal.tsx`'s subtasks section), the same way `TimelineView` already
+groups by `epicId` client-side; adding a server list endpoint for something the client can
+already derive for free would just be a second source of truth to keep in sync. `+ добавить
+подзадачу` opens `CreateIssueModal` with `ui.createParentId` pre-set (`store.tsx`'s
+`openCreateSubtask()`, separate from the plain `setCreateOpen()` so a normal "Создать" doesn't
+inherit a stale parent from a previous subtask flow) — the parent is fixed for that create, not
+user-editable in the form, since the whole point of the button is "a child of *this* issue."
+Deleting a parent does not delete its subtasks (`ON DELETE SET NULL`, same as `epicId`) — the
+child becomes an ordinary standalone issue rather than disappearing silently.
 
 ## Issue lifecycle (migration 016)
 

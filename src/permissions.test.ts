@@ -43,6 +43,7 @@ const issue = (over: Partial<Issue> = {}): Issue => ({
   collaborators: [],
   attachments: [],
   links: [],
+  customFieldValues: [],
   createdAt: 0,
   updatedAt: 0,
   ...over,

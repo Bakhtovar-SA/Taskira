@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { useStore } from "../store";
-import type { Transition } from "../types";
+import type { CustomFieldType, Transition } from "../types";
 import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo } from "../icons";
 import { Lozenge, catColor } from "../ui";
+
+const FIELD_TYPE_LABEL: Record<CustomFieldType, string> = {
+  text: "Текст",
+  number: "Число",
+  select: "Список",
+  checkbox: "Чекбокс",
+  date: "Дата",
+};
 
 /* POS/PATHS рассчитаны ТОЛЬКО на 4 дефолтных статуса (ключи — стабильные sid,
    не uuid). Статус сверх стандартных четырёх просто не отрисуется — если появится
@@ -48,8 +56,11 @@ function edgePath(t: Transition, sidOf: (id: string) => string) {
 }
 
 export default function WorkflowView() {
-  const { data, addTransition, removeTransition, resetWorkflow, toast, can } = useStore();
+  const { data, addTransition, removeTransition, resetWorkflow, addCustomField, removeCustomField, toast, can } = useStore();
   const canEditWf = can("editWorkflow");
+  const [fieldName, setFieldName] = useState("");
+  const [fieldType, setFieldType] = useState<CustomFieldType>("text");
+  const [fieldOptions, setFieldOptions] = useState("");
   const statuses = data.workflow.statuses;
   const bySid = (sid: string) => statuses.find((s) => s.sid === sid)?.id;
   // from/to хранят реальные uuid статусов (значения <option>), не sid.
@@ -70,6 +81,16 @@ export default function WorkflowView() {
       setFormErr("");
       setTo(statuses.find((s) => s.id !== from)?.id ?? from);
     }
+  };
+
+  const submitField = () => {
+    const options = fieldOptions
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean);
+    addCustomField(fieldName, fieldType, options);
+    setFieldName("");
+    setFieldOptions("");
   };
 
   return (
@@ -222,6 +243,86 @@ export default function WorkflowView() {
             </>
             )}
           </div>
+        </div>
+
+        {/* пользовательские поля проекта (custom_fields, миграция 020) */}
+        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[1fr_320px]" style={{ animationDelay: "160ms" }}>
+          <div className="overflow-hidden rounded-xl border border-line bg-panel">
+            <p className="border-b border-linesoft bg-canvas/60 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wider text-sub">
+              Пользовательские поля · {data.customFields.length}
+            </p>
+            {data.customFields.length === 0 && (
+              <p className="px-4 py-6 text-center text-[12.5px] text-faint">Полей нет — добавьте первое справа.</p>
+            )}
+            {data.customFields.map((f) => (
+              <div key={f.id} className="flex items-center gap-3 border-b border-linesoft px-4 py-2.5 last:border-0 hover:bg-canvas/60">
+                <span className="text-[13px] font-medium text-ink">{f.name}</span>
+                <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10px] font-bold text-sub">
+                  {FIELD_TYPE_LABEL[f.fieldType]}
+                </span>
+                {f.fieldType === "select" && f.options.length > 0 && (
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-faint">{f.options.join(", ")}</span>
+                )}
+                {canEditWf && (
+                  <button
+                    onClick={() => removeCustomField(f.id)}
+                    className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
+                    aria-label="Удалить поле"
+                  >
+                    <IcTrash size={13} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {canEditWf && (
+            <div className="h-fit rounded-xl border border-line bg-panel p-4">
+              <p className="text-[12px] font-bold uppercase tracking-wider text-sub">Новое поле</p>
+              <p className="mt-1 text-[11.5px] leading-relaxed text-faint">Появится в карточке каждой задачи проекта.</p>
+              <div className="mt-3 space-y-2.5">
+                <label className="block">
+                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Название</span>
+                  <input
+                    value={fieldName}
+                    onChange={(e) => setFieldName(e.target.value)}
+                    placeholder="Например: Клиент"
+                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Тип</span>
+                  <select
+                    value={fieldType}
+                    onChange={(e) => setFieldType(e.target.value as CustomFieldType)}
+                    className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                  >
+                    {(Object.keys(FIELD_TYPE_LABEL) as CustomFieldType[]).map((t) => (
+                      <option key={t} value={t}>{FIELD_TYPE_LABEL[t]}</option>
+                    ))}
+                  </select>
+                </label>
+                {fieldType === "select" && (
+                  <label className="block">
+                    <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">Варианты, через запятую</span>
+                    <input
+                      value={fieldOptions}
+                      onChange={(e) => setFieldOptions(e.target.value)}
+                      placeholder="РФ, СНГ, Другое"
+                      className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                    />
+                  </label>
+                )}
+                <button
+                  onClick={submitField}
+                  disabled={!fieldName.trim() || (fieldType === "select" && !fieldOptions.trim())}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-[12.5px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <IcPlus size={13} /> Добавить поле
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
