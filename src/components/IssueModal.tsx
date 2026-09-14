@@ -282,6 +282,68 @@ const LINK_DIR_LABEL: Record<Issue["links"][number]["dir"], string> = {
 
 /** Связанные задачи (issue_links, миграция 014, §3.2). Список видят все, кто
  *  открыл карточку; добавляет/убирает — право `edit` на эту задачу. */
+/** Подзадачи (issues.parent_id, миграция 021) — список НЕ отдельный запрос:
+ *  клиент уже держит весь активный список задач проекта в data.issues и
+ *  фильтрует по parentId локально, как TimelineView делает для epicId. */
+function SubtasksField({ issue }: { issue: Issue }) {
+  const { data, idx, can, openIssue, openCreateSubtask } = useStore();
+  // Разрешаем «+ подзадача» только если сама задача ещё не чья-то подзадача —
+  // сервер всё равно откажет во втором уровне вложенности (assignParentLocked),
+  // но так кнопка не заводит на гарантированный отказ.
+  const canCreate = can("create") && !issue.parentId;
+  const children = data.issues.filter((i) => i.parentId === issue.id);
+  // subtasksSummary (детальный GET /issues/:id) считает total/done по ВСЕМ
+  // детям, включая заархивированных — children здесь видит только активные
+  // (data.issues — список по умолчанию), так что просто children.length
+  // занижал бы бейдж, стоило закрытой подзадаче уйти в архив по возрасту
+  // (ревью PR #46: "3/5" незаметно регрессировал бы в "2/4"). Пока summary
+  // не пришёл (карточка только что открыта из списка) — временно считаем
+  // локально, чтобы бейдж не мигал пустым.
+  const summary =
+    issue.subtasksSummary ??
+    { total: children.length, done: children.filter((c) => idx.doneStatusIds.has(c.statusId)).length };
+  if (summary.total === 0 && !canCreate) return null;
+  const archivedCount = summary.total - children.length;
+
+  return (
+    <Field label={summary.total > 0 ? `Подзадачи · ${summary.done}/${summary.total}` : "Подзадачи"}>
+      {children.length > 0 && (
+        <div className="space-y-1">
+          {children.map((c) => {
+            const isDone = idx.doneStatusIds.has(c.statusId);
+            return (
+              <button
+                key={c.id}
+                onClick={() => openIssue(c.id)}
+                className="flex w-full items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5 text-left hover:bg-canvas"
+              >
+                <TypeIcon type={c.typeId} size={13} />
+                <span className="font-mono text-[11px] font-semibold text-faint">{c.key}</span>
+                <span className={`min-w-0 flex-1 truncate text-[12px] ${isDone ? "text-faint line-through" : "text-ink"}`}>
+                  {c.title}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {archivedCount > 0 && (
+        <p className={`text-[11px] text-faint ${children.length > 0 ? "mt-1.5" : ""}`}>
+          Ещё {archivedCount} в архиве — не в списке выше, но учтены в счётчике
+        </p>
+      )}
+      {canCreate && (
+        <button
+          onClick={() => openCreateSubtask(issue.id)}
+          className={`flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:underline ${children.length > 0 || archivedCount > 0 ? "mt-1.5" : ""}`}
+        >
+          + добавить подзадачу
+        </button>
+      )}
+    </Field>
+  );
+}
+
 /** Чек-лист задачи (checklist_items, миграция 019). По образцу LinksField —
  *  без reorder в v1 (см. комментарий в самой миграции), просто добавление в
  *  конец, чек/анчек, удаление. */
@@ -572,6 +634,7 @@ export default function IssueModal() {
   }, [ui.selectedIssueId]);
 
   const epic = useMemo(() => data.issues.find((i) => i.id === issue?.epicId), [data.issues, issue?.epicId]);
+  const parentIssue = useMemo(() => data.issues.find((i) => i.id === issue?.parentId), [data.issues, issue?.parentId]);
   if (!issue) return null;
 
   // Без non-null-утверждений: раньше `!` глушил TypeScript, но при отсутствии
@@ -666,6 +729,19 @@ export default function IssueModal() {
           <TypeIcon type={issue.typeId} size={16} />
         </span>
         <span className="font-mono text-[12.5px] font-bold text-ink">{issue.key}</span>
+        {/* parentIssue может отсутствовать в загруженном data.issues (родитель
+            заархивирован worker'ом после закрытия, или в проекте больше задач,
+            чем клиент подгрузил на bootstrap) — тогда бейдж скрываем целиком
+            вместо "подзадача ?", по образцу epic-бейджа выше (ревью PR #46). */}
+        {issue.parentId && parentIssue && (
+          <button
+            onClick={() => openIssue(issue.parentId)}
+            className="flex items-center gap-1 rounded bg-linesoft px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:bg-accentsoft hover:text-accent"
+            title="Открыть родительскую задачу"
+          >
+            подзадача {parentIssue.key}
+          </button>
+        )}
         <div className="ml-auto flex items-center gap-1">
           {!editOk && (
             <span className="mr-1 flex items-center gap-1.5 rounded bg-warnsoft px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-warn" title={denyMsg}>
@@ -1189,6 +1265,8 @@ export default function IssueModal() {
                 {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}
               </div>
             </Field>
+
+            <SubtasksField issue={issue} />
 
             <ChecklistField issue={issue} />
 

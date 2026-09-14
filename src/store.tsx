@@ -143,6 +143,11 @@ export interface UIState {
   view: ViewId;
   selectedIssueId: string | null;
   createOpen: boolean;
+  /** Родитель для «+ добавить подзадачу» (миграция 021) — CreateIssueModal
+   *  предзаполняет им поле и делает его нередактируемым. null — обычное
+   *  создание. Сбрасывается setCreateOpen(true); ставится только
+   *  openCreateSubtask(). */
+  createParentId: string | null;
   lastEvent: { issueId: string; ts: number } | null;
 }
 
@@ -153,6 +158,8 @@ export interface CreateInput {
   priorityId: PriorityId;
   assigneeId: string | null;
   epicId: string | null;
+  /** Родитель-подзадачи (миграция 021) — задаётся кнопкой «+ подзадача». */
+  parentId?: string | null;
   labels: string[];
   complexity: ComplexityId | null;
   statusId?: string;
@@ -166,6 +173,7 @@ type CreateIssuePayload = {
   priorityId: PriorityId;
   assigneeId: string | null;
   epicId: string | null;
+  parentId: string | null;
   labels: string[];
   complexity: ComplexityId | null;
   statusId?: string;
@@ -196,6 +204,7 @@ function buildCreatePayload(input: CreateInput): { ok: true; body: CreateIssuePa
       priorityId: input.priorityId,
       assigneeId: input.assigneeId,
       epicId: input.epicId,
+      parentId: input.parentId ?? null,
       labels: l.value,
       complexity: input.complexity,
       statusId: input.statusId,
@@ -346,6 +355,7 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     assigneeId: dto.assigneeId,
     reporterId: dto.reporterId,
     epicId: dto.epicId,
+    parentId: dto.parentId,
     labels: dto.labels ?? [],
     complexity: (dto.complexity as ComplexityId | null) ?? null,
     dueDate: dto.dueDate,
@@ -375,6 +385,8 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     checklist: dto.checklist?.map(mapChecklistItem) ?? prev?.checklist ?? [],
     // customFieldValues — тоже только в детальном ответе GET /issues/:id.
     customFieldValues: dto.customFieldValues ?? prev?.customFieldValues ?? [],
+    // subtasksSummary — тоже только в детальном ответе; null, пока не загружено.
+    subtasksSummary: dto.subtasksSummary ?? prev?.subtasksSummary ?? null,
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
     doneAt: dto.doneAt ? Date.parse(dto.doneAt) || null : null,
@@ -388,6 +400,31 @@ function upsertIssue(list: Issue[], issue: Issue): Issue[] {
   const next = list.slice();
   next[i] = { ...issue, comments: list[i].comments, activity: list[i].activity };
   return next;
+}
+
+/** Точечно поправить subtasksSummary родителя в локальном кэше сразу при
+ *  создании/удалении подзадачи или смене её статуса — иначе бейдж "N/M" в
+ *  открытой карточке родителя виснет на значении, загруженном её последним
+ *  openIssue(), пока карточку не закрыть и не переоткрыть (ревью PR #46).
+ *  Нет-оп, если parentId не задан или карточка родителя ещё не загружалась
+ *  (subtasksSummary===null) — тогда нечего поправлять, badge и так пересчитает
+ *  себя из children при следующем openIssue(). */
+function patchParentSubtasksSummary(
+  issues: Issue[],
+  parentId: string | null | undefined,
+  delta: { total?: number; done?: number },
+): Issue[] {
+  if (!parentId) return issues;
+  return issues.map((i) => {
+    if (i.id !== parentId || !i.subtasksSummary) return i;
+    return {
+      ...i,
+      subtasksSummary: {
+        total: i.subtasksSummary.total + (delta.total ?? 0),
+        done: i.subtasksSummary.done + (delta.done ?? 0),
+      },
+    };
+  });
 }
 
 /** Индексы по id — строятся один раз на изменение данных и раздаются через
@@ -427,6 +464,7 @@ interface Api {
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
   setCreateOpen: (v: boolean) => void;
+  openCreateSubtask: (parentId: string) => void;
   toast: (kind: Toast["kind"], text: string) => void;
   createIssue: (input: CreateInput) => void;
   importIssues: (
@@ -491,6 +529,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     view: "board",
     selectedIssueId: null,
     createOpen: false,
+    createParentId: null,
     lastEvent: null,
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -851,7 +890,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     clearToken();
     setData(emptyData());
     setSolo(null);
-    setUi({ view: "board", selectedIssueId: null, createOpen: false, lastEvent: null });
+    setUi({ view: "board", selectedIssueId: null, createOpen: false, createParentId: null, lastEvent: null });
     setBootStatus("unauthenticated");
   }, []);
 
@@ -1021,8 +1060,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const dto = await issuesApi.create(pid(), payload.body);
           const issue = mapIssue(dto);
-          setData((prev) => ({ ...prev, issues: [...prev.issues, issue] }));
-          setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() }, createOpen: false }));
+          const isDone = statusById(dataRef.current.workflow, issue.statusId)?.category === "done";
+          setData((prev) => ({
+            ...prev,
+            issues: patchParentSubtasksSummary([...prev.issues, issue], issue.parentId, {
+              total: 1,
+              done: isDone ? 1 : 0,
+            }),
+          }));
+          // Закрывать (или нет) модалку — решение вызывающего компонента, не
+          // этого коллбэка: CreateIssueModal сам решает это синхронно, ДО
+          // резолва этого промиса, по чекбоксу «создать ещё одну следом».
+          // Раньше createOpen:false здесь стирал это решение уже ПОСЛЕ
+          // ответа сервера, так что чекбокс не мог удержать модалку открытой
+          // ни при каких обстоятельствах (ревью PR #46).
+          setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() } }));
           toast("success", `${issue.key} создана`);
         } catch (err) {
           handleApiError(err, "Не удалось создать задачу");
@@ -1202,9 +1254,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       void (async () => {
         try {
           const dto = await issuesApi.transition(pid(), issueId, toStatus, beforeId);
+          const wasDone = iss.doneAt != null;
+          const nowDone = dto.doneAt != null;
           setData((prev) => ({
             ...prev,
-            issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
+            issues: patchParentSubtasksSummary(
+              prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
+              iss.parentId,
+              wasDone === nowDone ? {} : { done: nowDone ? 1 : -1 },
+            ),
           }));
           setUi((u) => ({ ...u, lastEvent: { issueId, ts: Date.now() } }));
         } catch (err) {
@@ -1494,9 +1552,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           await issuesApi.remove(pid(), issueId);
           setData((prev) => ({
             ...prev,
-            issues: prev.issues
-              .filter((i) => i.id !== issueId)
-              .map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i)),
+            // parent_id — тот же ON DELETE SET NULL, что epic_id (миграция 021);
+            // без зеркального обнуления здесь бывшие подзадачи держат в памяти
+            // parentId, указывающий на только что удалённую (отфильтрованную
+            // строкой выше) задачу — до перезагрузки карточки badge рендерит
+            // "подзадача ?" и «+ добавить подзадачу» остаётся скрытой, хотя
+            // подзадача уже стала обычной задачей (ревью PR #46).
+            issues: patchParentSubtasksSummary(
+              prev.issues
+                .filter((i) => i.id !== issueId)
+                .map((i) => (i.epicId === issueId ? { ...i, epicId: null } : i))
+                .map((i) => (i.parentId === issueId ? { ...i, parentId: null } : i)),
+              iss?.parentId,
+              { total: -1, done: iss?.doneAt ? -1 : 0 },
+            ),
           }));
           setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
           if (iss) toast("info", `${iss.key} удалена`);
@@ -1961,7 +2030,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     logout,
     setView: (v) => setUi((u) => ({ ...u, view: v })),
     openIssue,
-    setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v })),
+    setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v, createParentId: null })),
+    openCreateSubtask: (parentId: string) => setUi((u) => ({ ...u, createOpen: true, createParentId: parentId })),
     toast,
     createIssue,
     importIssues,

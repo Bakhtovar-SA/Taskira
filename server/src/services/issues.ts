@@ -1,6 +1,7 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
-import { one, q } from "../db.js";
-import { notFound } from "../middleware.js";
+import type { PoolClient } from "pg";
+import { one, q, withClient } from "../db.js";
+import { badRequest, notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
 import { listAttachments, type AttachmentDto } from "./attachments.js";
 import { listIssueLinks, type IssueLinkDto } from "./issueLinks.js";
@@ -21,6 +22,8 @@ export interface IssueRow {
   assignee_id: string | null;
   reporter_id: string;
   epic_id: string | null;
+  /** Родитель-подзадачи (миграция 021); NULL — обычная задача/сама родитель. */
+  parent_id: string | null;
   color: string | null;
   t_start: number | null;
   t_span: number | null;
@@ -49,6 +52,7 @@ export interface IssueDto {
   assigneeId: string | null;
   reporterId: string;
   epicId: string | null;
+  parentId: string | null;
   color: string | null;
   tStart: number | null;
   tSpan: number | null;
@@ -76,6 +80,7 @@ export function mapIssue(row: IssueRow): IssueDto {
     assigneeId: row.assignee_id,
     reporterId: row.reporter_id,
     epicId: row.epic_id,
+    parentId: row.parent_id,
     color: row.color,
     tStart: row.t_start,
     tSpan: row.t_span,
@@ -95,6 +100,117 @@ export async function loadIssue(projectId: string, issueId: string): Promise<Iss
   const row = await one<IssueRow>(`SELECT * FROM issues WHERE id = $1 AND project_id = $2`, [issueId, projectId]);
   if (!row) throw notFound("Задача не найдена или удалена");
   return row;
+}
+
+/** Быстрый пре-чек parentId ДО nextIssueNum() — по образцу проверки epicId
+ *  чуть выше в routes/issues.ts (POST /issues): без него неверный parentId
+ *  (404/400) всё равно проваливал бы запрос, но уже после того, как
+ *  nextIssueNum() атомарно сжигает номер CORP-N, оставляя дыру в
+ *  последовательности ключей — ровно та несогласованность с epicId-веткой,
+ *  которую нашло ревью PR #46. НЕ под локом (в отличие от validateParentAssignmentTx
+ *  внутри assignParentLocked) — это лишь fail-fast на пуле, не источник
+ *  истины: реальная защита от гонки остаётся в assignParentLocked, который
+ *  перевалидирует то же самое под advisory-локом прямо перед INSERT. */
+export async function precheckParentAssignment(projectId: string, parentId: string): Promise<void> {
+  const parent = await one<{ id: string; parent_id: string | null }>(
+    `SELECT id, parent_id FROM issues WHERE id = $1 AND project_id = $2`,
+    [parentId, projectId],
+  );
+  if (!parent) throw notFound("Родительская задача не найдена в проекте");
+  if (parent.parent_id !== null) {
+    throw badRequest("Нельзя сделать задачу подзадачей подзадачи — поддерживается только один уровень вложенности");
+  }
+}
+
+/** Подзадачи (миграция 021) — строго два уровня, без вложенности.
+ *  issueId=null — вызов из POST /issues (создаваемая задача ещё не имеет id,
+ *  поэтому проверка «у неё уже есть подзадачи» не нужна). */
+async function validateParentAssignmentTx(
+  client: PoolClient,
+  projectId: string,
+  parentId: string,
+  issueId: string | null,
+): Promise<void> {
+  if (issueId && parentId === issueId) throw badRequest("Задача не может быть подзадачей самой себя");
+  const parentRes = await client.query<{ id: string; parent_id: string | null }>(
+    `SELECT id, parent_id FROM issues WHERE id = $1 AND project_id = $2`,
+    [parentId, projectId],
+  );
+  const parent = parentRes.rows[0];
+  if (!parent) throw notFound("Родительская задача не найдена в проекте");
+  if (parent.parent_id !== null) {
+    throw badRequest("Нельзя сделать задачу подзадачей подзадачи — поддерживается только один уровень вложенности");
+  }
+  if (issueId) {
+    const childRes = await client.query<{ id: string }>(`SELECT id FROM issues WHERE parent_id = $1 LIMIT 1`, [issueId]);
+    if (childRes.rows[0]) throw badRequest("У задачи уже есть свои подзадачи — сначала уберите их, прежде чем делать её чьей-то подзадачей");
+  }
+}
+
+/** Валидация + сама запись, объединённые в одну транзакцию под advisory-локом
+ *  (по образцу rank.ts: pg_advisory_xact_lock(hashtext($1)) внутри withClient).
+ *
+ *  Без этого — реальная гонка (найдена в ревью PR #46): два конкурентных
+ *  PATCH могут пройти validateParentAssignment по устаревшим данным и вместе
+ *  создать вложенность в 3 уровня — например C1 читает P как top-level
+ *  родителя и параллельно P читает P2 как top-level родителя; оба UPDATE
+ *  проходят раздельно и независимо друг от друга валидны, а вместе нарушают
+ *  инвариант «ровно два уровня». Гонка бьёт «с двух концов» одного и того же
+ *  отношения родитель/потомок, поэтому лочим ОБЕ вовлечённые задачи —
+ *  кандидата в родители и переносимую задачу (если она уже существует), — не
+ *  одну. Порядок блокировки — отсортированный список id, чтобы два вызова с
+ *  одной парой участников всегда брали advisory-локи в одном порядке
+ *  (иначе — дедлок). `write` выполняется тем же client, в той же
+ *  транзакции, что и повторная проверка — конкурентному запросу, ждущему тот
+ *  же advisory-лок, попросту нечего перехватывать в промежутке. */
+/** Общий каркас «BEGIN → advisory-локи по отсортированным ключам → write →
+ *  COMMIT/ROLLBACK», вынесенный из assignParentLocked — используется им (с
+ *  повторной валидацией внутри) и withIssueParentLock ниже (без нужды в
+ *  валидации, но с тем же самым локом на issueId — см. её комментарий). */
+async function withAdvisoryLocks<T>(keys: string[], run: (client: PoolClient) => Promise<T>): Promise<T> {
+  const sortedKeys = [...new Set(keys)].sort();
+  return withClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      for (const key of sortedKeys) {
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [key]);
+      }
+      const result = await run(client);
+      await client.query("COMMIT");
+      return result;
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw e;
+    }
+  });
+}
+
+export async function assignParentLocked<T>(
+  projectId: string,
+  parentId: string,
+  issueId: string | null,
+  write: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const keys = issueId ? [parentId, issueId] : [parentId];
+  return withAdvisoryLocks(keys, async (client) => {
+    await validateParentAssignmentTx(client, projectId, parentId, issueId);
+    return write(client);
+  });
+}
+
+/** Снятие parentId (parentId → null) не нарушает инвариант глубины сама по
+ *  себе (нет проверки — снимать можно всегда), поэтому раньше шла обычным
+ *  незалоченным UPDATE. Но тот же issueId параллельно может быть заперт
+ *  конкурентным assignParentLocked() (кто-то делает ЕГО чьей-то подзадачей
+ *  или переносит ЕГО собственного будущего родителя) — без локов здесь оба
+ *  запроса физически сериализуются на уровне строки Postgres'ом как обычно,
+ *  но RETURNING одного из них может отражать состояние, которое второй
+ *  запрос тут же перезапишет, и клиент получит на руки ответ, устаревший
+ *  ещё до того, как долетел (ревью PR #46). Лочим тот же ключ issueId, что
+ *  использовал бы assignParentLocked, — без собственной валидации, снятие
+ *  родителя корректно при любом состоянии задачи. */
+export async function withIssueParentLock<T>(issueId: string, write: (client: PoolClient) => Promise<T>): Promise<T> {
+  return withAdvisoryLocks([issueId], write);
 }
 
 /** Мини-профиль участника задачи — чтобы карточку можно было отрисовать без
@@ -122,6 +238,29 @@ async function listParticipants(issueId: string): Promise<ParticipantDto[]> {
   return rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role }));
 }
 
+export interface SubtasksSummaryDto {
+  total: number;
+  done: number;
+}
+
+/** Итог по подзадачам — total/done СЧИТАЕТСЯ по всем детям (включая
+ *  заархивированных), не по тому, что успел загрузить клиент в data.issues
+ *  (тот список — активные задачи по умолчанию). Иначе бейдж "Подзадачи · N/M"
+ *  в IssueModal.tsx регрессировал бы сам собой, когда закрытая подзадача
+ *  уходит в архив по возрасту (ARCHIVE_AFTER_DAYS) — архивирование не
+ *  удаление, оно обязано продолжать учитываться "в отчётах" (см. CLAUDE.md,
+ *  раздел Issue lifecycle), а бейдж — тот же вид отчёта (ревью PR #46).
+ *  Список САМИХ строк подзадач в UI по-прежнему активные-only — как и везде
+ *  в приложении default view прячет архив, отчёты/счётчики его учитывают. */
+async function getSubtasksSummary(issueId: string): Promise<SubtasksSummaryDto> {
+  const row = await one<{ total: string; done: string }>(
+    `SELECT count(*)::text AS total, count(*) FILTER (WHERE done_at IS NOT NULL)::text AS done
+       FROM issues WHERE parent_id = $1`,
+    [issueId],
+  );
+  return { total: Number(row?.total ?? 0), done: Number(row?.done ?? 0) };
+}
+
 /** Карточка задачи: DTO + приглашённые участники (issue_collaborators, миграция 008)
  *  + участники (reporter/assignee/авторы комментариев/приглашённые) для рендера
  *  карточки без bootstrap. Всё это — только в детальном ответе GET /:id, не в списке. */
@@ -132,19 +271,21 @@ export type IssueDetailDto = IssueDto & {
   links: IssueLinkDto[];
   checklist: ChecklistItemDto[];
   customFieldValues: CustomFieldValueDto[];
+  subtasksSummary: SubtasksSummaryDto;
 };
 
 export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
-  const [collaborators, participants, attachments, links, checklist, customFieldValues] = await Promise.all([
+  const [collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary] = await Promise.all([
     listCollaborators(row.id),
     listParticipants(row.id),
     listAttachments(row.id),
     listIssueLinks(row.id),
     listChecklistItems(row.id),
     listValuesForIssue(row.id),
+    getSubtasksSummary(row.id),
   ]);
-  return { ...mapIssue(row), collaborators, participants, attachments, links, checklist, customFieldValues };
+  return { ...mapIssue(row), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).

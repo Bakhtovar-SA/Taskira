@@ -160,6 +160,8 @@ const ru = {
 
   "createIssue.title": "Создание задачи",
   "createIssue.newIssue": "Новая задача",
+  "createIssue.newSubtask": "Новая подзадача",
+  "createIssue.subtaskOf": "подзадача {key}",
   "createIssue.titleRequired": "Укажите название — без него задачу создать нельзя",
   "createIssue.titleField": "Название *",
   "createIssue.titlePlaceholder": "Например: Экран восстановления пароля",
