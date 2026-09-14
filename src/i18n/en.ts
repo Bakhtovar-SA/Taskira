@@ -15,6 +15,12 @@ const en: Record<keyof Dict, string> = {
   "noun.issue.one": "issue",
   "noun.issue.few": "issues",
   "noun.issue.many": "issues",
+  // English has no grammatical case, so these are identical to noun.issue.* —
+  // the key exists so RU's accusative forms have an EN counterpart under the
+  // same tn() call (see board.closedRecently).
+  "noun.issueAcc.one": "issue",
+  "noun.issueAcc.few": "issues",
+  "noun.issueAcc.many": "issues",
 
   "board.title": "Board",
   "board.filterUserAria": "Filter: {name}",

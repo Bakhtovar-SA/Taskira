@@ -469,7 +469,7 @@ export default function Board() {
           </p>
           <p className="mt-0.5 text-[11.5px] text-sub">
             {closedRecently > 0
-              ? t("board.closedRecently", { n: closedRecently, noun: tn(closedRecently, "noun.issue.one", "noun.issue.few", "noun.issue.many") })
+              ? t("board.closedRecently", { n: closedRecently, noun: tn(closedRecently, "noun.issueAcc.one", "noun.issueAcc.few", "noun.issueAcc.many") })
               : t("board.noOpenIssues")}
             {canCreate && t("board.canCreateSuffix")}
           </p>
