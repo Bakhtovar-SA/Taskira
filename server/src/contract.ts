@@ -287,9 +287,10 @@ export const IssueTemplateParams = z.object({ templateId: uuid });
 
 /* ---------------- Спринты (миграция 023, опциональный модуль) ----------------
  * См. SPRINTS_MIGRATION.md — осознанное точечное исключение из
- * UI_RESTRUCTURE.md §D1, доступно только проектам с sprints_enabled=true. */
-export const SPRINT_STATUSES = ["future", "active", "completed"] as const;
-export type SprintStatus = (typeof SPRINT_STATUSES)[number];
+ * UI_RESTRUCTURE.md §D1, доступно только проектам с sprints_enabled=true.
+ * Статус не приходит в теле ни одного запроса напрямую (переходы — отдельные
+ * роуты /start, /complete) — здесь только тип, без zod-enum'а под него. */
+export type SprintStatus = "future" | "active" | "completed";
 
 export const SprintCreateBody = z.object({
   name: oneLine(LIMITS.sprint.name.max, LIMITS.sprint.name.min, "Название спринта не может быть пустым"),

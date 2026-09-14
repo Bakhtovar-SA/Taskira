@@ -5,6 +5,7 @@ import { one, q } from "../db.js";
 import { notFound } from "../middleware.js";
 import type { ProjectRow } from "./project.js";
 import { withAdvisoryLocks } from "./issues.js";
+import type { SprintStatus } from "../contract.js";
 
 /** Общий gate для requirePerm()/requireIssuePerm() (см. их сигнатуры в
  *  middleware.ts) — используется и в routes/sprints.ts, и в routes/issues.ts
@@ -15,8 +16,6 @@ import { withAdvisoryLocks } from "./issues.js";
 export function assertSprintsEnabled(project: ProjectRow): void {
   if (!project.sprintsEnabled) throw notFound("Модуль спринтов не подключён для этого проекта");
 }
-
-export type SprintStatus = "future" | "active" | "completed";
 
 export interface SprintDto {
   id: string;
