@@ -72,4 +72,42 @@ describe("parseTrelloExport", () => {
     expect(r.boardName).toBe("Trello-доска");
     expect(r.items).toEqual([]);
   });
+
+  test("доска с пустым/пробельным именем — тоже фолбэк, не пустой заголовок «»", () => {
+    // Ревью PR #48: в отличие от boardName === undefined (тест выше), это
+    // board.name === "" / "   " — раньше проходило как есть.
+    expect(parseTrelloExport({ name: "", lists: [], cards: [] }).boardName).toBe("Trello-доска");
+    expect(parseTrelloExport({ name: "   ", lists: [], cards: [] }).boardName).toBe("Trello-доска");
+  });
+
+  test("длинные имена списков с общим началом дают РАЗНЫЕ метки, не схлопываются (ревью PR #48)", () => {
+    // sanitizeLabel() сам по себе обрезал бы "trello:" + имя целиком до 30
+    // символов — имени оставалось бы ~23 символа, и оба списка ниже давали
+    // одну и ту же метку. trelloListLabel() обрезает само имя ДО префикса.
+    const r = parseTrelloExport({
+      name: "x",
+      lists: [
+        { id: "l1", name: "Sprint 24 — Design Review Backlog" },
+        { id: "l2", name: "Sprint 24 — Design Review Done" },
+      ],
+      cards: [
+        { id: "c1", name: "A", idList: "l1" },
+        { id: "c2", name: "B", idList: "l2" },
+      ],
+    });
+    const labelA = r.items.find((i) => i.title === "A")!.labels[0];
+    const labelB = r.items.find((i) => i.title === "B")!.labels[0];
+    expect(labelA).not.toBe(labelB);
+    expect(labelA.length).toBeLessThanOrEqual(30);
+    expect(labelB.length).toBeLessThanOrEqual(30);
+  });
+
+  test("due: '' (пустая строка) — null, а не невалидная дата (ревью PR #48)", () => {
+    const r = parseTrelloExport({
+      name: "x",
+      lists: [],
+      cards: [{ id: "c1", name: "Без срока", due: "" }],
+    });
+    expect(r.items[0].dueDate).toBeNull();
+  });
 });

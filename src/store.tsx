@@ -145,6 +145,51 @@ export interface CreateInput {
   dueDate?: string | null;
 }
 
+type CreateIssuePayload = {
+  title: string;
+  description: string;
+  typeId: IssueTypeId;
+  priorityId: PriorityId;
+  assigneeId: string | null;
+  epicId: string | null;
+  labels: string[];
+  complexity: ComplexityId | null;
+  statusId?: string;
+  dueDate: string | null;
+};
+
+/** Общие для createIssue() и importIssues() валидация + сборка тела
+ *  POST /issues — раньше были независимо продублированы в обеих функциях, и
+ *  уже успели разойтись (importIssues объединил три проверки в один
+ *  if(t.ok && d.ok && l.ok) без пер-полевого тоста createIssue). Будущее
+ *  изменение формы запроса теперь применяется один раз, а не в двух местах
+ *  (тот же класс риска, что CLAUDE.md описывает для зеркала
+ *  permissions.ts/validation.ts — здесь просто в рамках одного файла;
+ *  ревью PR #48). */
+function buildCreatePayload(input: CreateInput): { ok: true; body: CreateIssuePayload } | { ok: false; error: string } {
+  const t = validateTitle(input.title);
+  if (!t.ok) return { ok: false, error: t.error };
+  const d = validateDescription(input.description);
+  if (!d.ok) return { ok: false, error: d.error };
+  const l = validateLabels(input.labels);
+  if (!l.ok) return { ok: false, error: l.error };
+  return {
+    ok: true,
+    body: {
+      title: t.value,
+      description: d.value,
+      typeId: input.typeId,
+      priorityId: input.priorityId,
+      assigneeId: input.assigneeId,
+      epicId: input.epicId,
+      labels: l.value,
+      complexity: input.complexity,
+      statusId: input.statusId,
+      dueDate: input.dueDate ?? null,
+    },
+  };
+}
+
 /** Сколько задач клиент тянет за раз. Серверный потолок — 200; держим их
  *  в одной константе, чтобы «сколько загружено» и «сколько всего» не разъезжались. */
 const ISSUES_PAGE = 200;
@@ -348,7 +393,11 @@ interface Api {
   setCreateOpen: (v: boolean) => void;
   toast: (kind: Toast["kind"], text: string) => void;
   createIssue: (input: CreateInput) => void;
-  importIssues: (inputs: CreateInput[], onProgress?: (done: number, total: number) => void) => Promise<{ ok: number; failed: number }>;
+  importIssues: (
+    inputs: CreateInput[],
+    onProgress?: (done: number, total: number) => void,
+    isCancelled?: () => boolean,
+  ) => Promise<{ ok: number; failed: number; cancelled: boolean }>;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
   addComment: (issueId: string, body: string) => void;
@@ -922,27 +971,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const createIssue = useCallback(
     (input: CreateInput) => {
       if (!requirePerm("create")) return;
-      const t = validateTitle(input.title);
-      if (!t.ok) return toast("error", t.error);
-      const d = validateDescription(input.description);
-      if (!d.ok) return toast("error", d.error);
-      const l = validateLabels(input.labels);
-      if (!l.ok) return toast("error", l.error);
+      const payload = buildCreatePayload(input);
+      if (!payload.ok) return toast("error", payload.error);
 
       void (async () => {
         try {
-          const dto = await issuesApi.create(pid(), {
-            title: t.value,
-            description: d.value,
-            typeId: input.typeId,
-            priorityId: input.priorityId,
-            assigneeId: input.assigneeId,
-            epicId: input.epicId,
-            labels: l.value,
-            complexity: input.complexity,
-            statusId: input.statusId,
-            dueDate: input.dueDate ?? null,
-          });
+          const dto = await issuesApi.create(pid(), payload.body);
           const issue = mapIssue(dto);
           setData((prev) => ({ ...prev, issues: [...prev.issues, issue] }));
           setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() }, createOpen: false }));
@@ -961,47 +995,62 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
    *  риска (untested parsing чужого формата на сервере). Один итоговый тост
    *  вместо одного на карточку — иначе импорт полусотни карточек тонет в
    *  собственных уведомлений об успехе. onProgress — необязательный колбэк
-   *  для UI-прогресса импорта (например, «12 / 47»). */
+   *  для UI-прогресса импорта (например, «12 / 47»); isCancelled — необязательный
+   *  колбэк, проверяемый перед каждой карточкой: закрытие/отмена модалки на
+   *  клиенте не тянет за собой этот цикл автоматически (он живёт в сторе, не
+   *  в компоненте), поэтому без явной проверки импорт продолжал бы тихо слать
+   *  запросы в фоне после того, как пользователь решил, что отменил его
+   *  (ревью PR #48). setData вызывается один раз после цикла, а не на каждую
+   *  успешную карточку — иначе N карточек дают N ре-рендеров стора с O(N)
+   *  копированием списка задач на каждом, то есть O(N²) суммарно (тоже
+   *  ревью PR #48). */
   const importIssues = useCallback(
-    async (inputs: CreateInput[], onProgress?: (done: number, total: number) => void): Promise<{ ok: number; failed: number }> => {
-      if (!requirePerm("create")) return { ok: 0, failed: inputs.length };
+    async (
+      inputs: CreateInput[],
+      onProgress?: (done: number, total: number) => void,
+      isCancelled?: () => boolean,
+    ): Promise<{ ok: number; failed: number; cancelled: boolean }> => {
+      if (!requirePerm("create")) return { ok: 0, failed: inputs.length, cancelled: false };
       let ok = 0;
       let failed = 0;
-      let abortedByAuth = false;
+      let stoppedByAuth = false;
+      let cancelled = false;
+      const created: Issue[] = [];
+      // Дедуп по тексту причины — иначе один и тот же серверный отказ на
+      // 40 карточках дал бы 40 одинаковых тостов подряд; при этом каждая
+      // причина попадает в консоль, а не молча тонет в агрегате "не удалось: N".
+      const toastedErrors = new Set<string>();
+
       for (const input of inputs) {
-        const t = validateTitle(input.title);
-        const d = validateDescription(input.description);
-        const l = validateLabels(input.labels);
-        // description/labels невалидны (например, Trello-описание длиннее лимита
-        // или слишком много объединённых меток) — раньше это молча заменялось на
-        // ""/[] и карточка всё равно засчитывалась как успешная (ok++), в отличие
-        // от проверки title прямо здесь же и от createIssue() (тот на невалидном
-        // поле вообще не шлёт запрос) — несогласованность, найденная в ревью.
-        if (t.ok && d.ok && l.ok) {
+        if (isCancelled?.()) {
+          cancelled = true;
+          break;
+        }
+        const payload = buildCreatePayload(input);
+        if (payload.ok) {
           try {
-            const dto = await issuesApi.create(pid(), {
-              title: t.value,
-              description: d.value,
-              typeId: input.typeId,
-              priorityId: input.priorityId,
-              assigneeId: input.assigneeId,
-              epicId: input.epicId,
-              labels: l.value,
-              complexity: input.complexity,
-              statusId: input.statusId,
-              dueDate: input.dueDate ?? null,
-            });
-            setData((prev) => ({ ...prev, issues: [...prev.issues, mapIssue(dto)] }));
+            const dto = await issuesApi.create(pid(), payload.body);
+            created.push(mapIssue(dto));
             ok++;
           } catch (err) {
             failed++;
-            if (err instanceof ApiError && err.status === 401) {
-              // Сессия протухла/отозвана посреди импорта — остальные карточки
-              // упадут тем же 401; handleApiError уже чистит токен и переводит
-              // bootStatus в unauthenticated, дальше стучаться в API бессмысленно
-              // и только держит UI в залипшем "залогинен" виде (ревью PR #48).
+            console.error("importIssues: не удалось создать карточку", err);
+            const isAuth = err instanceof ApiError && err.status === 401;
+            // 403 — та же логика остановки, что 401: если права отозвали/сменили
+            // посреди импорта (роль понижена, вывели из проекта), все оставшиеся
+            // карточки упадут тем же кодом — это отказ сессии в целом, а не
+            // "эта одна карточка плохая" (ревью PR #48).
+            const isPerm = err instanceof ApiError && err.status === 403;
+            if (isAuth) {
               handleApiError(err);
-              abortedByAuth = true;
+            } else if (err instanceof ApiError) {
+              if (!toastedErrors.has(err.message)) {
+                toastedErrors.add(err.message);
+                toast("error", err.message);
+              }
+            }
+            if (isAuth || isPerm) {
+              stoppedByAuth = true;
               failed += inputs.length - ok - failed;
               onProgress?.(inputs.length, inputs.length);
               break;
@@ -1012,10 +1061,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
         onProgress?.(ok + failed, inputs.length);
       }
-      if (!abortedByAuth) {
+
+      if (created.length > 0) {
+        setData((prev) => ({ ...prev, issues: [...prev.issues, ...created] }));
+      }
+      if (cancelled) {
+        toast("info", `Импорт остановлен: ${ok} из ${inputs.length} успели создаться`);
+      } else if (!stoppedByAuth) {
         toast(failed === 0 ? "success" : "info", `Импортировано ${ok} из ${inputs.length}${failed ? `, не удалось: ${failed}` : ""}`);
       }
-      return { ok, failed };
+      return { ok, failed, cancelled };
     },
     [requirePerm, toast, handleApiError],
   );

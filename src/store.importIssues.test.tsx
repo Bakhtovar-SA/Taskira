@@ -150,7 +150,7 @@ describe("importIssues()", () => {
     });
 
     const inputs = [input("A"), input("B"), input("C"), input("D")];
-    let result: { ok: number; failed: number } | undefined;
+    let result: { ok: number; failed: number; cancelled: boolean } | undefined;
     await act(async () => {
       result = await store.get().importIssues(inputs);
     });
@@ -158,7 +158,7 @@ describe("importIssues()", () => {
     // Первая карточка создалась, вторая упала 401'ом — третья и четвёртая
     // вообще не должны были уйти на сервер (issuesApi.create вызван дважды).
     expect(issuesApi.create).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ ok: 1, failed: 3 });
+    expect(result).toEqual({ ok: 1, failed: 3, cancelled: false });
     expect(store.get().bootStatus).toBe("unauthenticated");
   });
 
@@ -168,12 +168,56 @@ describe("importIssues()", () => {
 
     const tooLong = "x".repeat(100_000);
     const inputs = [input("Нормальная"), input("Плохая карточка", { description: tooLong })];
-    let result: { ok: number; failed: number } | undefined;
+    let result: { ok: number; failed: number; cancelled: boolean } | undefined;
     await act(async () => {
       result = await store.get().importIssues(inputs);
     });
 
-    expect(result).toEqual({ ok: 1, failed: 1 });
+    expect(result).toEqual({ ok: 1, failed: 1, cancelled: false });
     expect(created).toHaveBeenCalledTimes(1);
+  });
+
+  test("403 посреди пачки — тоже останавливает импорт (как 401), не просто failed++ на одну карточку", async () => {
+    const store = await bootToReady();
+
+    let call = 0;
+    vi.spyOn(issuesApi, "create").mockImplementation(async () => {
+      call++;
+      if (call === 1) return fakeServerIssue("i1");
+      throw new ApiError(403, "FORBIDDEN", "Недостаточно прав");
+    });
+
+    const inputs = [input("A"), input("B"), input("C")];
+    let result: { ok: number; failed: number; cancelled: boolean } | undefined;
+    await act(async () => {
+      result = await store.get().importIssues(inputs);
+    });
+
+    expect(issuesApi.create).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ok: 1, failed: 2, cancelled: false });
+  });
+
+  test("isCancelled() — цикл останавливается перед следующей карточкой, не досоздаёт остаток", async () => {
+    const store = await bootToReady();
+    const created = vi.spyOn(issuesApi, "create").mockImplementation(async () => fakeServerIssue("ok"));
+
+    let cancelAfterFirst = false;
+    const inputs = [input("A"), input("B"), input("C")];
+    let result: { ok: number; failed: number; cancelled: boolean } | undefined;
+    await act(async () => {
+      result = await store.get().importIssues(
+        inputs,
+        (done) => {
+          if (done === 1) cancelAfterFirst = true;
+        },
+        () => cancelAfterFirst,
+      );
+    });
+
+    expect(created).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: 1, failed: 0, cancelled: true });
+    // setData после цикла (не на каждую карточку) — успешно созданная всё
+    // равно долетела до data.issues одним батчем.
+    expect(store.get().data.issues).toHaveLength(1);
   });
 });
