@@ -12,26 +12,27 @@ import type { z } from "zod";
 import { badRequest, notFound, requirePerm, zbody, zparams } from "../middleware.js";
 import { audit } from "../audit.js";
 import { conflict } from "../services/workflow.js";
-import { activateSprint, completeSprint, countSprints, createSprint, getSprintInProject, listSprints } from "../services/sprints.js";
+import {
+  activateSprint,
+  assertSprintsEnabled,
+  completeSprint,
+  countSprints,
+  createSprint,
+  getSprintInProject,
+  listSprints,
+} from "../services/sprints.js";
 import { LIMITS, SprintCreateBody, SprintParams } from "../contract.js";
-import type { ProjectRow } from "../services/project.js";
-
-function assertSprintsEnabled(project: ProjectRow): void {
-  if (!project.sprintsEnabled) throw notFound("Модуль спринтов не подключён для этого проекта");
-}
 
 export async function sprintsRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/", { preHandler: requirePerm("browse") }, async (req) => {
-    assertSprintsEnabled(req.project!);
+  app.get("/", { preHandler: requirePerm("browse", assertSprintsEnabled) }, async (req) => {
     return listSprints(req.project!.id);
   });
 
   app.post(
     "/",
-    { preHandler: requirePerm("manageSprints"), preValidation: zbody(SprintCreateBody) },
+    { preHandler: requirePerm("manageSprints", assertSprintsEnabled), preValidation: zbody(SprintCreateBody) },
     async (req, reply) => {
       const project = req.project!;
-      assertSprintsEnabled(project);
       const body = req.body as z.infer<typeof SprintCreateBody>;
 
       if ((await countSprints(project.id)) >= LIMITS.sprintsPerProject) {
@@ -50,10 +51,9 @@ export async function sprintsRoutes(app: FastifyInstance): Promise<void> {
 
   app.post(
     "/:sprintId/start",
-    { preHandler: requirePerm("manageSprints"), preValidation: zparams(SprintParams) },
+    { preHandler: requirePerm("manageSprints", assertSprintsEnabled), preValidation: zparams(SprintParams) },
     async (req) => {
       const project = req.project!;
-      assertSprintsEnabled(project);
       const { sprintId } = req.params as z.infer<typeof SprintParams>;
 
       const sprint = await getSprintInProject(project.id, sprintId);
@@ -78,10 +78,9 @@ export async function sprintsRoutes(app: FastifyInstance): Promise<void> {
 
   app.post(
     "/:sprintId/complete",
-    { preHandler: requirePerm("manageSprints"), preValidation: zparams(SprintParams) },
+    { preHandler: requirePerm("manageSprints", assertSprintsEnabled), preValidation: zparams(SprintParams) },
     async (req) => {
       const project = req.project!;
-      assertSprintsEnabled(project);
       const { sprintId } = req.params as z.infer<typeof SprintParams>;
 
       const sprint = await getSprintInProject(project.id, sprintId);

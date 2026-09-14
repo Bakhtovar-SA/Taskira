@@ -2,6 +2,18 @@
  *  SPRINTS_MIGRATION.md. Определения и переходы статуса живут здесь;
  *  привязка задачи к спринту (issues.sprint_id) — services/issues.ts. */
 import { one, q, withClient } from "../db.js";
+import { notFound } from "../middleware.js";
+import type { ProjectRow } from "./project.js";
+
+/** Общий gate для requirePerm()/requireIssuePerm() (см. их сигнатуры в
+ *  middleware.ts) — используется и в routes/sprints.ts, и в routes/issues.ts
+ *  (PATCH /:id/sprint), чтобы оба места гарантировали одно и то же: 404
+ *  раньше проверки роли, а не внутри хендлера после неё (ревью PR #49 —
+ *  иначе requirePerm("manageSprints") успевал бы отдать 403 для employee/
+ *  viewer раньше, чем этот gate вообще выполнялся). */
+export function assertSprintsEnabled(project: ProjectRow): void {
+  if (!project.sprintsEnabled) throw notFound("Модуль спринтов не подключён для этого проекта");
+}
 
 export type SprintStatus = "future" | "active" | "completed";
 

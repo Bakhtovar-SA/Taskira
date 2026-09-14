@@ -123,10 +123,14 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
         getWorkflow(project.id),
         listIssueTemplates(project.id),
         listCustomFields(project.id),
-        // Пустой массив для проектов без модуля — не лишний round-trip: сама
-        // таблица пуста для них всегда (нет роута, который мог бы её наполнить,
-        // см. assertSprintsEnabled в routes/sprints.ts), запрос просто вернёт [].
-        listSprints(project.id),
+        // Гейтим флагом, а не полагаемся на "таблица пуста без него" — это
+        // было бы верно только для проекта, который НИКОГДА не включал модуль.
+        // Проект, где спринты создали, а потом sprintsEnabled выключили назад
+        // (ровно тот сценарий, который подразумевает чекбокс в AdminView),
+        // иначе продолжал бы отдавать все спринты — включая текст goal — в
+        // bootstrap любому участнику с одним лишь browse, хотя /sprints* уже
+        // 404-ят и вкладка скрыта (ревью PR #49).
+        project.sprintsEnabled ? listSprints(project.id) : Promise.resolve([]),
       ]);
       const users = userRows.map(safeUser);
       const members = memberRows.map((m) => ({ userId: m.user_id, role: m.role }));

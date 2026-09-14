@@ -56,11 +56,45 @@ describe("модуль спринтов выключен по умолчанию
     expect((await patch(`${issuesUrl()}/${issue.id}/sprint`, admin, { sprintId: null })).statusCode).toBe(404);
   });
 
+  test("404 не зависит от роли — employee (без manageSprints) тоже 404, не 403 (ревью PR #49)", async () => {
+    // Гейт (assertSprintsEnabled) обязан выполниться ДО проверки права —
+    // иначе requirePerm("manageSprints") отдал бы 403 раньше, чем модуль
+    // вообще проверился бы на существование для этого проекта.
+    const emp = await login(app, "emp1");
+    const issue = await createIssue(await login(app, "admin"));
+
+    expect((await g(sprintsUrl(), emp)).statusCode).toBe(404);
+    expect((await post(sprintsUrl(), emp, { name: "X" })).statusCode).toBe(404);
+    expect((await post(`${sprintsUrl()}/00000000-0000-0000-0000-000000000000/start`, emp)).statusCode).toBe(404);
+    expect((await post(`${sprintsUrl()}/00000000-0000-0000-0000-000000000000/complete`, emp)).statusCode).toBe(404);
+    expect((await patch(`${issuesUrl()}/${issue.id}/sprint`, emp, { sprintId: null })).statusCode).toBe(404);
+  });
+
   test("bootstrap проекта возвращает sprints:[] и project.sprintsEnabled:false", async () => {
     const admin = await login(app, "admin");
     const boot = JSON.parse((await g(`/api/projects/${p1()}`, admin)).body);
     expect(boot.sprints).toEqual([]);
     expect(boot.project.sprintsEnabled).toBe(false);
+  });
+
+  test("выключение модуля ПОСЛЕ использования не оставляет спринты в bootstrap (ревью PR #49)", async () => {
+    // Сценарий из ревью: включили → создали спринт (с текстом goal) →
+    // выключили обратно — /sprints* уже 404-ят, но bootstrap раньше отдавал
+    // их безусловно любому участнику с одним browse. Выключаем через
+    // настоящий PATCH /api/projects/:id (не raw SQL) — он же инвалидирует
+    // 30-секундный кэш projectById(), как в реальном сценарии через AdminView;
+    // raw SQL здесь дал бы ложноположительный провал теста на самом кэше,
+    // а не на проверяемой логике.
+    const admin = await login(app, "admin");
+    await enableSprints(p1());
+    const sprint = await createSprint(admin, { name: "Конфиденциальный", goal: "секретные планы" });
+    const off = await patch(`/api/projects/${p1()}`, admin, { sprintsEnabled: false });
+    expect(off.statusCode).toBe(200);
+
+    const viw = await login(app, "viw1");
+    const boot = JSON.parse((await g(`/api/projects/${p1()}`, viw)).body);
+    expect(boot.sprints).toEqual([]);
+    expect(JSON.stringify(boot)).not.toContain(sprint.id);
   });
 });
 

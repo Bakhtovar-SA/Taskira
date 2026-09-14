@@ -48,7 +48,7 @@ import {
 import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
-import { getSprintInProject } from "../services/sprints.js";
+import { assertSprintsEnabled, getSprintInProject } from "../services/sprints.js";
 import {
   ChecklistItemCreateBody,
   ChecklistItemParams,
@@ -652,10 +652,9 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
      см. SPRINTS_MIGRATION.md). sprintId=null снимает задачу со спринта. */
   app.patch(
     "/:id/sprint",
-    { preHandler: requireIssuePerm("manageSprints"), preValidation: zbody(MoveToSprintBody) },
+    { preHandler: requireIssuePerm("manageSprints", assertSprintsEnabled), preValidation: zbody(MoveToSprintBody) },
     async (req) => {
       const project = req.project!;
-      if (!project.sprintsEnabled) throw notFound("Модуль спринтов не подключён для этого проекта");
       const { id } = req.params as { id: string };
       const body = req.body as z.infer<typeof MoveToSprintBody>;
       const user = me(req);
