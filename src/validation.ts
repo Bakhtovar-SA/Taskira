@@ -28,6 +28,8 @@ export const LIMITS = {
   // Пользовательские поля — зеркало server/src/contract.ts (миграция 020).
   customField: { name: { min: 1, max: 60 }, optionMax: 60, optionsMax: 30 },
   customFieldsPerProject: 30,
+  // Спринты — зеркало server/src/contract.ts (миграция 023, опциональный модуль).
+  sprint: { name: { min: 1, max: 120 }, goal: { max: 500 } },
 } as const;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };

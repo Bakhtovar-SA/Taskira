@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import type { Issue, Sprint } from "../types";
+import { LIMITS } from "../validation";
 import { IcCheck, IcFlag, IcPlus, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Empty, Modal } from "../ui";
 
@@ -114,6 +115,7 @@ function CreateSprintModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="Спринт 12"
+            maxLength={LIMITS.sprint.name.max}
             className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:outline-none"
           />
         </div>
@@ -124,6 +126,7 @@ function CreateSprintModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setGoal(e.target.value)}
             rows={2}
             placeholder="Что должно быть готово к концу спринта"
+            maxLength={LIMITS.sprint.goal.max}
             className="w-full resize-none rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:outline-none"
           />
         </div>

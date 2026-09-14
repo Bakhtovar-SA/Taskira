@@ -100,6 +100,17 @@ export function mapIssue(row: IssueRow): IssueDto {
   };
 }
 
+/** Скрывает sprintId в ответе, если у проекта выключен модуль спринтов —
+ *  та же гарантия, что уже есть у bootstrap.sprints (routes/projects.ts):
+ *  выключенный модуль не должен быть виден НИГДЕ в API, включая старую
+ *  привязку задачи к спринту, оставшуюся с тех пор, как модуль был включён
+ *  (ревью PR #49, третий раунд). Название/цель спринта такой утечке не
+ *  подвержены — те роуты уже 404-ят; здесь маскируется только сам факт
+ *  «эта задача когда-то была в каком-то спринте». */
+export function maskSprintId<T extends { sprintId: string | null }>(dto: T, sprintsEnabled: boolean): T {
+  return sprintsEnabled ? dto : { ...dto, sprintId: null };
+}
+
 /** Задача по id внутри проекта; отсутствует — 404 на русском. */
 export async function loadIssue(projectId: string, issueId: string): Promise<IssueRow> {
   const row = await one<IssueRow>(`SELECT * FROM issues WHERE id = $1 AND project_id = $2`, [issueId, projectId]);

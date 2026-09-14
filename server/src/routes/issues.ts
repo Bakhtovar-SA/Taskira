@@ -25,6 +25,7 @@ import {
   loadIssue,
   logActivity,
   mapIssue,
+  maskSprintId,
   nextIssueNum,
   precheckParentAssignment,
   withIssueParentLock,
@@ -132,7 +133,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           LIMIT $${params.length - 1} OFFSET $${params.length}`,
         params,
       );
-      reply.send({ items: rows.map(mapIssue), total: Number(total.n) });
+      reply.send({ items: rows.map((r) => maskSprintId(mapIssue(r), project.sprintsEnabled)), total: Number(total.n) });
     },
   );
 
@@ -228,7 +229,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
       await logActivity(row.id, user.sub, "создал(а) задачу");
       await audit(user.sub, "issue.create", "issue", row.id, { key });
-      reply.code(201).send(mapIssue(row));
+      reply.code(201).send(maskSprintId(mapIssue(row), project.sprintsEnabled));
     },
   );
 
@@ -238,7 +239,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/:id", { preHandler: requireIssuePerm("browse") }, async (req) => {
     const project = req.project!;
     const { id } = req.params as { id: string };
-    return getIssueDto(project.id, id);
+    return maskSprintId(await getIssueDto(project.id, id), project.sprintsEnabled);
   });
 
   /* ---------------------------------------------------------- история задачи
@@ -337,7 +338,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (body.tSpan !== undefined) push("t_span", body.tSpan);
       if (body.color !== undefined) push("color", body.color);
 
-      if (sets.length === 0) return mapIssue(iss);
+      if (sets.length === 0) return maskSprintId(mapIssue(iss), project.sprintsEnabled);
 
       vals.push(iss.id);
       const updateSql = `UPDATE issues SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length} RETURNING *`;
@@ -388,7 +389,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           });
         }
       }
-      return mapIssue(row);
+      return maskSprintId(mapIssue(row), project.sprintsEnabled);
     },
   );
 
@@ -468,7 +469,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         });
       }
       await audit(user.sub, "issue.transition", "issue", iss.id, { key: iss.key, from: iss.status_id, to: body.to });
-      return mapIssue(row);
+      return maskSprintId(mapIssue(row), project.sprintsEnabled);
     },
   );
 

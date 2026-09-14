@@ -96,6 +96,25 @@ describe("модуль спринтов выключен по умолчанию
     expect(boot.sprints).toEqual([]);
     expect(JSON.stringify(boot)).not.toContain(sprint.id);
   });
+
+  test("выключение модуля скрывает sprintId и на самих задачах, не только в bootstrap.sprints (ревью PR #49, четвёртый раунд)", async () => {
+    // Тот же класс утечки, что и в предыдущем тесте, но на mapIssue(): имя/цель
+    // спринта такой утечке не подвержены (те роуты уже 404-ят), а вот сам факт
+    // "эта задача когда-то была в каком-то спринте" — да, если не маскировать
+    // sprintId явно при выключенном модуле.
+    const admin = await login(app, "admin");
+    await enableSprints(p1());
+    const sprint = await createSprint(admin);
+    const issue = await createIssue(admin);
+    const assigned = await patch(`${issuesUrl()}/${issue.id}/sprint`, admin, { sprintId: sprint.id });
+    expect(JSON.parse(assigned.body).sprintId).toBe(sprint.id);
+    await patch(`/api/projects/${p1()}`, admin, { sprintsEnabled: false });
+
+    const detail = JSON.parse((await g(`${issuesUrl()}/${issue.id}`, admin)).body);
+    expect(detail.sprintId).toBeNull();
+    const list = JSON.parse((await g(issuesUrl(), admin)).body);
+    expect(list.items.find((i: { id: string }) => i.id === issue.id).sprintId).toBeNull();
+  });
 });
 
 describe("права: manageSprints (admin/manager), не edit", () => {
