@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { parseTrelloExport } from "./trello";
-import { sanitizeLabel } from "../validation";
+import { LIMITS, sanitizeLabel } from "../validation";
 
 /** Фикстура собрана вручную по документированной (публичной, стабильной)
  *  схеме JSON-экспорта доски Trello — реального файла из живого аккаунта
@@ -129,6 +129,20 @@ describe("parseTrelloExport", () => {
     expect(labelA2).toBe(labelA);
     expect(labelB2).toBe(labelB);
     expect(labelA2).not.toBe(labelB2);
+  });
+
+  test("карточка с LIMITS.labelsPerIssue+ Trello-метками — метки обрезаются, карточка не теряется целиком (ревью PR #48, пятый раунд)", () => {
+    const manyLabels = Array.from({ length: LIMITS.labelsPerIssue + 5 }, (_, i) => ({ name: `label${i}` }));
+    const r = parseTrelloExport({
+      name: "x",
+      lists: [{ id: "l1", name: "To Do" }],
+      cards: [{ id: "c1", name: "Перегруженная карточка", idList: "l1", labels: manyLabels }],
+    });
+    const labels = r.items[0].labels;
+    // Метка списка не должна быть вытеснена метками самой карточки — иначе
+    // карточка "теряет" привязку к своему Trello-списку молча.
+    expect(labels).toContain("trello:to do");
+    expect(labels.length).toBeLessThanOrEqual(LIMITS.labelsPerIssue);
   });
 
   test("due: '' (пустая строка) — null, а не невалидная дата (ревью PR #48)", () => {

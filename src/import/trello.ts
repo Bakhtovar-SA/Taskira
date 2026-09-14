@@ -116,6 +116,17 @@ export function parseTrelloExport(raw: unknown): TrelloParseResult {
     const trelloLabels = Array.isArray(card.labels)
       ? card.labels.map((l) => l?.name).filter((n): n is string => isString(n) && n.trim().length > 0)
       : [];
+    // Без этой обрезки карточка с LIMITS.labelsPerIssue (10) и более
+    // Trello-метками (вполне обычное дело на досках с богатой таксономией
+    // меток — обязательная trello:<list> занимает ещё один слот) падала бы в
+    // validateLabels() (buildCreatePayload(), store.tsx) с «Не больше 10 меток
+    // на задачу» и терялась бы целиком (failed), хотя название/описание были
+    // валидны — в отличие от ручного создания, где отказ виден сразу и метку
+    // можно снять до сохранения, здесь у пользователя нет обратной связи, кроме
+    // правки JSON руками (ревью PR #48, пятый раунд). Оставляем метку списка
+    // (если есть) и первые LIMITS.labelsPerIssue-1 меток самой карточки —
+    // карточка теряет часть меток, но не саму себя.
+    const labelBudget = Math.max(0, LIMITS.labelsPerIssue - (listName ? 1 : 0));
     // Не пропускать trelloListLabel() через sanitizeLabel() здесь ещё раз не
     // спасает от коллизии, которую сама trelloListLabel() призвана
     // предотвратить (ревью PR #48, четвёртый раунд, отменяет "исправление"
@@ -127,7 +138,11 @@ export function parseTrelloExport(raw: unknown): TrelloParseResult {
     // (lower/trim/slice, не трогает "~xxxx"-суффикс) — это зафиксировано
     // тестом ниже ("...после повторного sanitizeLabel()..."), а не структурой
     // кода здесь.
-    const labels = [...new Set([...(listName ? [trelloListLabel(listName)] : []), ...trelloLabels].map(sanitizeLabel).filter(Boolean))];
+    const labels = [
+      ...new Set(
+        [...(listName ? [trelloListLabel(listName)] : []), ...trelloLabels.slice(0, labelBudget)].map(sanitizeLabel).filter(Boolean),
+      ),
+    ];
 
     // "" (пустая строка вместо null для незаданного срока — встречается у
     // некоторых экспортёров/Power-Up'ов) иначе уходит на сервер как
