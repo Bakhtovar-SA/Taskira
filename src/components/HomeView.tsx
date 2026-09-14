@@ -216,7 +216,10 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                       показываем часть списка как будто это всё. */}
                   {data.assignedTruncated && (
                     <p className="border-t border-line bg-warnsoft/40 px-3 py-2 text-[11.5px] font-medium text-warn">
-                      {t("home.assignedTruncated", { n: data.assignedToMe.length })}
+                      {t("home.assignedTruncated", {
+                        n: data.assignedToMe.length,
+                        noun: tn(data.assignedToMe.length, "noun.issue.one", "noun.issue.few", "noun.issue.many"),
+                      })}
                     </p>
                   )}
                 </div>

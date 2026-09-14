@@ -29,3 +29,19 @@ describe("noun.issueAcc — винительный падеж («команда 
     expect(resolve(en, "en", 5, ACC)).toBe("issues");
   });
 });
+
+const NOM: [string, string, string] = ["noun.issue.one", "noun.issue.few", "noun.issue.many"];
+
+describe("noun.issue — именительный/счётная форма («Показаны {n} задач»)", () => {
+  // Ревью PR #43, второй заход: board.truncatedBanner/home.assignedTruncated
+  // хардкодили "задач" независимо от числа — тот же класс бага, что и у
+  // closedRecently выше, просто в именительном/счётном падеже вместо
+  // винительного. Проверяем сам механизм выбора формы для {n} задач-фраз.
+  test("RU: 1 → задача, 2 → задачи, 5 → задач, 21 → задача, 11 → задач (исключение)", () => {
+    expect(resolve(ru, "ru", 1, NOM)).toBe("задача");
+    expect(resolve(ru, "ru", 2, NOM)).toBe("задачи");
+    expect(resolve(ru, "ru", 5, NOM)).toBe("задач");
+    expect(resolve(ru, "ru", 21, NOM)).toBe("задача");
+    expect(resolve(ru, "ru", 11, NOM)).toBe("задач");
+  });
+});

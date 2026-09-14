@@ -203,18 +203,18 @@ const Card = memo(function Card({
               {moveTargets.length === 0 && (
                 <p className="px-2 py-1.5 text-[11.5px] text-faint">{t("board.noAllowedTransitions")}</p>
               )}
-              {moveTargets.map((t) => (
+              {moveTargets.map((target) => (
                 <button
-                  key={t.id}
+                  key={target.id}
                   role="menuitem"
                   onClick={() => {
                     setMenu(false);
-                    onMove(issue.id, t.id);
+                    onMove(issue.id, target.id);
                   }}
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12.5px] text-ink hover:bg-canvas"
                 >
-                  <span className="h-1.5 w-1.5 rounded-sm" style={{ background: catColor(t.category).dot }} />
-                  {t.name}
+                  <span className="h-1.5 w-1.5 rounded-sm" style={{ background: catColor(target.category).dot }} />
+                  {target.name}
                 </button>
               ))}
             </div>
@@ -458,7 +458,13 @@ export default function Board() {
       {data.issuesTruncated && (
         <div className="flex items-center gap-2 border-b border-line bg-warnsoft/60 px-6 py-1.5 text-[12px] font-medium text-warn">
           <IcEye size={14} className="shrink-0" />
-          <span className="truncate">{t("board.truncatedBanner", { shown: pool.length, total: data.issuesTotal })}</span>
+          <span className="truncate">
+            {t("board.truncatedBanner", {
+              shown: pool.length,
+              total: data.issuesTotal,
+              noun: tn(pool.length, "noun.issue.one", "noun.issue.few", "noun.issue.many"),
+            })}
+          </span>
         </div>
       )}
 
