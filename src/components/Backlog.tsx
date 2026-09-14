@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { fmtDate, useStore } from "../store";
 import type { Issue } from "../types";
-import { ISSUE_TYPES, PRIORITY_ORDER, TYPE_ORDER } from "../types";
+import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, Empty, Lozenge, MenuItem } from "../ui";
+import { useT } from "../i18n";
 
 type SortKey = "priority" | "due" | "updated" | "key";
 const SORT_LABEL: Record<SortKey, string> = {
@@ -98,6 +99,7 @@ function Row({ issue }: { issue: Issue }) {
 }
 
 export default function Backlog() {
+  const { t } = useT();
   const { data } = useStore();
   const [q, setQ] = useState("");
   const [fStatus, setFStatus] = useState("");
@@ -237,9 +239,9 @@ export default function Backlog() {
             ))}
           </select>
           <select value={fType} onChange={(e) => setFType(e.target.value)} className={`${selectCls} cursor-pointer`}>
-            <option value="">Все типы</option>
-            {TYPE_ORDER.map((t) => (
-              <option key={t} value={t}>{ISSUE_TYPES[t].name}</option>
+            <option value="">{t("issueType.allShort")}</option>
+            {TYPE_ORDER.map((ty) => (
+              <option key={ty} value={ty}>{t(`issueType.${ty}`)}</option>
             ))}
           </select>
           <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">

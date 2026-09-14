@@ -277,6 +277,7 @@ export type ServerIssue = {
   participants?: ServerParticipant[];
   attachments?: ServerAttachment[];
   links?: ServerIssueLink[];
+  checklist?: ServerChecklistItem[];
   customFieldValues?: ServerCustomFieldValue[];
   createdAt: string;
   updatedAt: string;
@@ -293,6 +294,14 @@ export type ServerIssueLink = {
     statusId: string;
     statusCategory: string;
   };
+  createdAt: string;
+};
+
+export type ServerChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  position: number;
   createdAt: string;
 };
 
@@ -481,6 +490,18 @@ export const issuesApi = {
     }),
   removeLink: (projectId: string, id: string, linkId: string) =>
     api<{ links: ServerIssueLink[] }>(`${P(projectId)}/issues/${id}/links/${linkId}`, { method: "DELETE" }),
+  addChecklistItem: (projectId: string, id: string, text: string) =>
+    api<{ item: ServerChecklistItem; checklist: ServerChecklistItem[] }>(`${P(projectId)}/issues/${id}/checklist`, {
+      method: "POST",
+      body: { text },
+    }),
+  patchChecklistItem: (projectId: string, id: string, itemId: string, patch: { text?: string; done?: boolean }) =>
+    api<{ item: ServerChecklistItem; checklist: ServerChecklistItem[] }>(
+      `${P(projectId)}/issues/${id}/checklist/${itemId}`,
+      { method: "PATCH", body: patch },
+    ),
+  removeChecklistItem: (projectId: string, id: string, itemId: string) =>
+    api<{ checklist: ServerChecklistItem[] }>(`${P(projectId)}/issues/${id}/checklist/${itemId}`, { method: "DELETE" }),
   setCustomFieldValue: (projectId: string, id: string, fieldId: string, value: string | null) =>
     api<{ values: ServerCustomFieldValue[] }>(`${P(projectId)}/issues/${id}/custom-fields/${fieldId}`, {
       method: "PUT",

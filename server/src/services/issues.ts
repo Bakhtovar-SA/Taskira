@@ -5,6 +5,7 @@ import { badRequest, notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
 import { listAttachments, type AttachmentDto } from "./attachments.js";
 import { listIssueLinks, type IssueLinkDto } from "./issueLinks.js";
+import { listChecklistItems, type ChecklistItemDto } from "./checklist.js";
 import { listValuesForIssue, type CustomFieldValueDto } from "./customFields.js";
 
 /* -------- строка БД → camelCase DTO (единый формат ответа API) -------- */
@@ -219,19 +220,21 @@ export type IssueDetailDto = IssueDto & {
   participants: ParticipantDto[];
   attachments: AttachmentDto[];
   links: IssueLinkDto[];
+  checklist: ChecklistItemDto[];
   customFieldValues: CustomFieldValueDto[];
 };
 
 export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
-  const [collaborators, participants, attachments, links, customFieldValues] = await Promise.all([
+  const [collaborators, participants, attachments, links, checklist, customFieldValues] = await Promise.all([
     listCollaborators(row.id),
     listParticipants(row.id),
     listAttachments(row.id),
     listIssueLinks(row.id),
+    listChecklistItems(row.id),
     listValuesForIssue(row.id),
   ]);
-  return { ...mapIssue(row), collaborators, participants, attachments, links, customFieldValues };
+  return { ...mapIssue(row), collaborators, participants, attachments, links, checklist, customFieldValues };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).
