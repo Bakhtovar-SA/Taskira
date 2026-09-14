@@ -159,6 +159,8 @@ const en: Record<keyof Dict, string> = {
 
   "createIssue.title": "Create issue",
   "createIssue.newIssue": "New issue",
+  "createIssue.newSubtask": "New subtask",
+  "createIssue.subtaskOf": "subtask of {key}",
   "createIssue.titleRequired": "Enter a title — an issue can't be created without one",
   "createIssue.titleField": "Title *",
   "createIssue.titlePlaceholder": "e.g. Password reset screen",

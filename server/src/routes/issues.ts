@@ -18,7 +18,18 @@ import {
 import { audit } from "../audit.js";
 import { assertTransition, statusCategory, statusName } from "../services/workflow.js";
 import { computeRank } from "../services/rank.js";
-import { getIssueDto, listActivity, loadIssue, logActivity, mapIssue, nextIssueNum, type IssueRow } from "../services/issues.js";
+import {
+  assignParentLocked,
+  getIssueDto,
+  listActivity,
+  loadIssue,
+  logActivity,
+  mapIssue,
+  nextIssueNum,
+  precheckParentAssignment,
+  withIssueParentLock,
+  type IssueRow,
+} from "../services/issues.js";
 import { insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
 import {
   countChecklistItems,
@@ -167,7 +178,18 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
         if (!e) throw notFound("Задача-группа (epicId) не найдена в проекте");
       }
-
+      // Как и epicId выше — проверяем ДО nextIssueNum(), чтобы неверный
+      // parentId не сжигал номер CORP-N понапрасну в общем случае (ревью PR
+      // #46). Не заменяет повторную проверку под локом в assignParentLocked
+      // ниже — та остаётся единственным источником истины против гонки, эта
+      // — только fail-fast вне её окна. Внутри самого окна гонки (кандидат
+      // в родители успевает получить своего родителя/потомка между этим
+      // прочтением без лока и вставкой под локом) precheck всё ещё может
+      // пройти, а nextIssueNum() ниже уже сожжёт номер до того, как повторная
+      // проверка под локом отклонит запрос — недействительное состояние
+      // никогда не сохраняется, но номер в этом узком случае теряется
+      // (ревью PR #46, второй раунд).
+      if (body.parentId) await precheckParentAssignment(project.id, body.parentId);
       // Новая задача встаёт В НАЧАЛО колонки, а не в конец (аудит LIFE-05):
       // кнопка быстрого создания и поле ввода — вверху колонки, и задача,
       // упавшая вниз за экран, читается как «не создалась». beforeId = первая
@@ -182,20 +204,25 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const num = await nextIssueNum(project.id);
       const key = `${project.key}-${num}`;
 
-      const row = (
-        await q<IssueRow>(
-          `INSERT INTO issues
+      const insertSql = `INSERT INTO issues
              (project_id, num, key, title, description, type_id, status_id, priority_id,
-              assignee_id, reporter_id, epic_id, labels, complexity, due_date, rank)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-           RETURNING *`,
-          [
-            project.id, num, key, body.title, body.description, body.typeId, statusId, body.priorityId,
-            body.assigneeId, user.sub, body.epicId, body.labels, body.complexity,
-            body.dueDate ?? null, rank,
-          ],
-        )
-      )[0];
+              assignee_id, reporter_id, epic_id, parent_id, labels, complexity, due_date, rank)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+           RETURNING *`;
+      const insertVals = [
+        project.id, num, key, body.title, body.description, body.typeId, statusId, body.priorityId,
+        body.assigneeId, user.sub, body.epicId, body.parentId ?? null, body.labels, body.complexity,
+        body.dueDate ?? null, rank,
+      ];
+      // parentId задан — валидация и INSERT идут одной транзакцией под
+      // advisory-локом (см. assignParentLocked): иначе конкурентный запрос мог
+      // бы протиснуться между проверкой «родитель — не подзадача» и записью.
+      const row = body.parentId
+        ? await assignParentLocked(project.id, body.parentId, null, async (client) => {
+            const res = await client.query<IssueRow>(insertSql, insertVals);
+            return res.rows[0];
+          })
+        : (await q<IssueRow>(insertSql, insertVals))[0];
 
       await logActivity(row.id, user.sub, "создал(а) задачу");
       await audit(user.sub, "issue.create", "issue", row.id, { key });
@@ -245,7 +272,6 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
         if (!e) throw notFound("Задача-группа (epicId) не найдена в проекте");
       }
-
       const sets: string[] = [];
       const vals: unknown[] = [];
       const push = (col: string, val: unknown) => {
@@ -279,6 +305,18 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         push("epic_id", body.epicId);
         log.push("изменил(а) группу (эпик)");
       }
+      // parentChanging — parentId реально меняется (не просто прислан тем же
+      // значением). newParentId — ветка назначения НОВОГО родителя (нужна
+      // повторная валидация под локом в assignParentLocked); isUnsettingParent —
+      // ветка снятия (парentId → null; инвариант глубины она не затрагивает,
+      // но собственный лок всё равно нужен — см. withIssueParentLock ниже).
+      const parentChanging = body.parentId !== undefined && body.parentId !== iss.parent_id;
+      const newParentId = parentChanging && body.parentId !== null ? body.parentId : null;
+      const isUnsettingParent = parentChanging && body.parentId === null;
+      if (parentChanging) {
+        push("parent_id", body.parentId);
+        log.push(body.parentId ? "сделал(а) подзадачей другой задачи" : "убрал(а) из подзадач");
+      }
       if (body.labels !== undefined && JSON.stringify(body.labels) !== JSON.stringify(iss.labels)) {
         push("labels", body.labels);
         log.push("обновил(а) метки");
@@ -300,12 +338,22 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (sets.length === 0) return mapIssue(iss);
 
       vals.push(iss.id);
-      const row = (
-        await q<IssueRow>(
-          `UPDATE issues SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length} RETURNING *`,
-          vals,
-        )
-      )[0];
+      const updateSql = `UPDATE issues SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length} RETURNING *`;
+      // Назначение нового родителя — валидация и сам UPDATE одной транзакцией
+      // под advisory-локом (см. assignParentLocked в services/issues.ts):
+      // иначе два конкурентных PATCH могли пройти проверку по устаревшим
+      // данным и вместе создать вложенность в 3 уровня (PR #46 review).
+      const row = newParentId
+        ? await assignParentLocked(project.id, newParentId, iss.id, async (client) => {
+            const res = await client.query<IssueRow>(updateSql, vals);
+            return res.rows[0];
+          })
+        : isUnsettingParent
+          ? await withIssueParentLock(iss.id, async (client) => {
+              const res = await client.query<IssueRow>(updateSql, vals);
+              return res.rows[0];
+            })
+          : (await q<IssueRow>(updateSql, vals))[0];
 
       for (const text of log) await logActivity(iss.id, user.sub, text);
       await audit(user.sub, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body) });
