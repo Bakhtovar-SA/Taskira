@@ -21,7 +21,8 @@ roles (004/006), departments (007), issue collaborators (008), LDAP (009), attac
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
 token revocation (017), points → complexity (018), checklist items (019),
-custom fields (020).
+custom fields (020), issue templates (022 — 021 is reserved by a parallel
+branch not yet merged at the time this was written).
 
 ## Commands
 
@@ -328,6 +329,20 @@ workflow transitions, and adding a dedicated permission would mean touching the 
 (both `permissions.ts` copies + `permissions-sync.test.ts`) for one narrow feature. Setting a
 *value* on a specific issue uses plain `edit`, same as priority/complexity/labels. Managed in
 `WorkflowView.tsx` (schema-editing screen) alongside the workflow graph, not a separate view.
+
+Issue templates (`issue_templates`, migration 022, `services/issueTemplates.ts`): project-level
+presets (`name`, `typeId`, `priorityId`, a default title, a default description, and an optional
+starting `statusId`) managed from `WorkflowView.tsx` under the same `editWorkflow` permission as
+the workflow graph and custom fields — a third instance of "this is project-schema configuration,
+not worth a dedicated `PermId`." Applying one is **pure client-side prefill**: `CreateIssueModal`'s
+"Шаблон" dropdown copies the template's fields into the form's local state once, on selection —
+nothing is sent to the server about which template (if any) was used, and nothing stops the user
+from editing every field afterward. There is deliberately no link between a created issue and the
+template it came from; the template is a starting point, not a stamped relationship. Scoped
+independently of `checklist_items`/`issues.parent_id` (separate, unmerged branches at the time
+this was written) — a template does not (yet) carry a checklist or subtask structure to copy in;
+folding template support for those in is natural follow-up work once those branches land, not
+part of this one.
 
 ## Issue lifecycle (migration 016)
 

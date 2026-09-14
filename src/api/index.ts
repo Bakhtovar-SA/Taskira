@@ -346,7 +346,20 @@ export type ProjectBootstrap = {
     statuses: { id: string; sid: string; name: string; category: "todo" | "inprogress" | "done"; position?: number }[];
     transitions: { id: string; from: string; to: string }[];
   };
+  issueTemplates: ServerIssueTemplate[];
   customFields: ServerCustomField[];
+};
+
+/** Шаблон задачи проекта (issue_templates, миграция 022). */
+export type ServerIssueTemplate = {
+  id: string;
+  name: string;
+  typeId: string;
+  priorityId: string;
+  title: string;
+  description: string;
+  statusId: string | null;
+  position: number;
 };
 
 /** Определение пользовательского поля проекта (custom_fields, миграция 020). */
@@ -623,6 +636,24 @@ export const workflowApi = {
   removeTransition: (projectId: string, id: string) =>
     api<void>(`${P(projectId)}/workflow/transitions/${id}`, { method: "DELETE" }),
   reset: (projectId: string) => api<unknown>(`${P(projectId)}/workflow/reset`, { method: "POST" }),
+};
+
+export type IssueTemplateInput = {
+  name: string;
+  typeId: string;
+  priorityId: string;
+  title: string;
+  description: string;
+  statusId: string | null;
+};
+
+export const issueTemplatesApi = {
+  create: (projectId: string, body: IssueTemplateInput) =>
+    api<ServerIssueTemplate>(`${P(projectId)}/issue-templates`, { method: "POST", body }),
+  update: (projectId: string, templateId: string, body: IssueTemplateInput) =>
+    api<ServerIssueTemplate>(`${P(projectId)}/issue-templates/${templateId}`, { method: "PATCH", body }),
+  remove: (projectId: string, templateId: string) =>
+    api<void>(`${P(projectId)}/issue-templates/${templateId}`, { method: "DELETE" }),
 };
 
 export const customFieldsApi = {
