@@ -30,6 +30,7 @@ export const LIMITS = {
   customFieldsPerProject: 30,
   // Спринты — зеркало server/src/contract.ts (миграция 023, опциональный модуль).
   sprint: { name: { min: 1, max: 120 }, goal: { max: 500 } },
+  sprintsPerProject: 200,
 } as const;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
