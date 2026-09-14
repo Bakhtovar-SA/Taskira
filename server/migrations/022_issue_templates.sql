@@ -24,6 +24,13 @@
 -- КАСКАД: удаление проекта уносит его шаблоны; удаление статуса, на
 --   который ссылается шаблон, обнуляет status_id (ON DELETE SET NULL) —
 --   шаблон продолжает работать, просто без подсказки статуса.
+--
+-- УНИКАЛЬНОСТЬ ИМЕНИ — по lower(name), а не по name напрямую (по образцу
+--   users_ldap_dn_uk / departments_ldap_group_dn_uk, миграция 009): роуты
+--   проверяют дубликат регистронезависимо (toLowerCase()), обычный
+--   UNIQUE (project_id, name) регистр не учитывает и разрешил бы завести
+--   «Баг» и «баг» одновременно — рассинхрон между тем, что запрещает
+--   приложение, и тем, что реально запрещает схема (см. ревью PR #47).
 -- Обратима: DROP TABLE issue_templates.
 -- ============================================================
 
@@ -37,9 +44,8 @@ CREATE TABLE issue_templates (
   description  text NOT NULL DEFAULT '',
   status_id    uuid REFERENCES workflow_statuses(id) ON DELETE SET NULL,
   position     integer NOT NULL,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-
-  CONSTRAINT issue_templates_name_uniq UNIQUE (project_id, name)
+  created_at   timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX issue_templates_name_uk ON issue_templates (project_id, lower(name));
 CREATE INDEX idx_issue_templates_project ON issue_templates (project_id, position);

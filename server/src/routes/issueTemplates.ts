@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { badRequest, notFound, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
+import { conflict } from "../services/workflow.js";
 import {
   countIssueTemplates,
   createIssueTemplate,
@@ -15,6 +16,17 @@ import {
 } from "../services/issueTemplates.js";
 import { IssueTemplateBody, IssueTemplateParams, LIMITS } from "../contract.js";
 import { one } from "../db.js";
+
+/** Обе проверки дубля имени (POST и PATCH ниже) сами по себе TOCTOU-гонка —
+ *  SELECT-then-INSERT/UPDATE не защищён от второго конкурентного запроса с
+ *  тем же именем между проверкой и записью. issue_templates_name_uk
+ *  (миграция 022, UNIQUE по lower(name)) — реальная защита; 400 из
+ *  app-level проверки — только быстрый путь без лишнего round-trip'а на
+ *  обычный (не гоночный) дубль (ревью PR #47). */
+function templateConflict(e: unknown): never {
+  if ((e as { code?: string }).code === "23505") throw conflict("Шаблон с таким названием уже есть в проекте");
+  throw e;
+}
 
 export async function issueTemplatesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", { preHandler: requirePerm("browse") }, async (req) => {
@@ -45,7 +57,12 @@ export async function issueTemplatesRoutes(app: FastifyInstance): Promise<void> 
       }
       const statusId = await assertStatusInProject(project.id, body.statusId);
 
-      const template = await createIssueTemplate(project.id, { ...body, statusId });
+      let template;
+      try {
+        template = await createIssueTemplate(project.id, { ...body, statusId });
+      } catch (e) {
+        templateConflict(e);
+      }
       await audit(user.sub, "issueTemplate.add", "project", project.id, { templateId: template.id, name: template.name });
       reply.code(201).send(template);
     },
@@ -61,8 +78,19 @@ export async function issueTemplatesRoutes(app: FastifyInstance): Promise<void> 
 
       const existing = await getIssueTemplateInProject(project.id, templateId);
       if (!existing) throw notFound("Шаблон не найден");
+      // Дубль имени при переименовании раньше не проверялся вовсе (в отличие
+      // от POST) — PATCH на существующее в проекте имя падал неперехваченным
+      // 500 на UNIQUE-ограничении БД вместо честного 4xx (ревью PR #47).
+      const others = await listIssueTemplates(project.id);
+      if (others.some((t) => t.id !== templateId && t.name.toLowerCase() === body.name.toLowerCase())) {
+        throw badRequest("Шаблон с таким названием уже есть в проекте");
+      }
       const statusId = await assertStatusInProject(project.id, body.statusId);
-      return updateIssueTemplate(templateId, { ...body, statusId });
+      try {
+        return await updateIssueTemplate(templateId, { ...body, statusId });
+      } catch (e) {
+        templateConflict(e);
+      }
     },
   );
 

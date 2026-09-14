@@ -4,6 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { auth, getApp, login, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import { createIssueTemplate } from "../src/services/issueTemplates.js";
 
 let app: FastifyInstance;
 let fx: Fixture;
@@ -72,6 +73,39 @@ describe("шаблоны задач: определения", () => {
     const admin = await login(app, "admin");
     await createTemplate(admin, { name: "Баг-репорт" });
     expect((await post(templatesUrl(), admin, body({ name: "баг-репорт" }))).statusCode).toBe(400);
+  });
+
+  test("PATCH переименование в уже занятое в проекте имя (без учёта регистра) — 400", async () => {
+    // Раньше PATCH вообще не проверял дубль имени (в отличие от POST) — падал
+    // неперехваченным 500 на UNIQUE-ограничении БД (ревью PR #47).
+    const admin = await login(app, "admin");
+    await createTemplate(admin, { name: "Баг-репорт" });
+    const other = await createTemplate(admin, { name: "Другой шаблон" });
+    expect((await patch(`${templatesUrl()}/${other.id}`, admin, body({ name: "баг-репорт" }))).statusCode).toBe(400);
+  });
+
+  test("createIssueTemplate() — БД отклоняет дубликат имени без учёта регистра (23505), в обход app-level пре-чека", async () => {
+    // Реальная гонка (два конкурентных POST через HTTP-слой) в этом тестовом
+    // окружении не воспроизводится детерминированно: app.inject выполняется
+    // в одном процессе, и SELECT-пречек второго запроса на практике почти
+    // всегда видит уже закоммиченную INSERT первого (тот же класс ограничения,
+    // что и у гонки WS-хендшейка/checklist-TOCTOU в этой сессии — см. их
+    // тесты) — 400 из пречека маскирует настоящую гонку раньше, чем она
+    // успевает проявиться. Проверяем сам защитный слой напрямую: вызываем
+    // сервис в обход роута (там нет пречека вообще) — issue_templates_name_uk
+    // (миграция 022) обязана сама отклонить второй INSERT с тем же именем в
+    // другом регистре кодом 23505, который templateConflict() в роуте ловит
+    // и превращает в 409 (ревью PR #47, пункты b/c).
+    const project = p1();
+    const args = { typeId: "bug", priorityId: "high", title: "", description: "", statusId: null } as const;
+    await createIssueTemplate(project, { ...args, name: "Гонка" });
+    let caught: unknown;
+    try {
+      await createIssueTemplate(project, { ...args, name: "гонка" });
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as { code?: string } | undefined)?.code).toBe("23505");
   });
 
   test("PATCH правит шаблон целиком, DELETE удаляет", async () => {
