@@ -3,8 +3,8 @@ import { assignableUsers, canTransition, fmtDate, relTime, useStore } from "../s
 import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import { usersApi, type PickableUser } from "../api";
-import type { ComplexityId, Issue, PriorityId } from "../types";
-import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
+import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
+import { COMPLEXITY_ORDER, COMPLEXITIES, PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
 import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, catColor } from "../ui";
 import { useT } from "../i18n";
@@ -282,6 +282,94 @@ const LINK_DIR_LABEL: Record<Issue["links"][number]["dir"], string> = {
 
 /** Связанные задачи (issue_links, миграция 014, §3.2). Список видят все, кто
  *  открыл карточку; добавляет/убирает — право `edit` на эту задачу. */
+/** Значения пользовательских полей проекта (custom_fields, миграция 020) —
+ *  определения приходят в data.customFields (bootstrap), значения — в самой
+ *  задаче (детальный GET). Управление определениями — в WorkflowView, не здесь. */
+function CustomFieldsSection({ issue }: { issue: Issue }) {
+  const { data, can, setCustomFieldValue } = useStore();
+  const canEdit = can("edit", issue);
+  if (data.customFields.length === 0) return null;
+
+  return (
+    <>
+      {data.customFields.map((field) => (
+        <CustomFieldRow key={field.id} issue={issue} field={field} canEdit={canEdit} setValue={setCustomFieldValue} />
+      ))}
+    </>
+  );
+}
+
+function CustomFieldRow({
+  issue,
+  field,
+  canEdit,
+  setValue,
+}: {
+  issue: Issue;
+  field: CustomFieldDef;
+  canEdit: boolean;
+  setValue: (issueId: string, fieldId: string, value: string | null) => void;
+}) {
+  const current = issue.customFieldValues.find((v) => v.fieldId === field.id)?.value ?? "";
+  const [draft, setDraft] = useState(current);
+  useEffect(() => setDraft(current), [current, issue.id]);
+
+  const commit = () => {
+    if (draft === current) return;
+    setValue(issue.id, field.id, draft === "" ? null : draft);
+  };
+
+  if (!canEdit) {
+    return (
+      <Field label={field.name}>
+        <span className="text-[12.5px] text-ink">
+          {field.fieldType === "checkbox" ? (current === "true" ? "да" : "нет") : current || "—"}
+        </span>
+      </Field>
+    );
+  }
+
+  return (
+    <Field label={field.name}>
+      {field.fieldType === "select" ? (
+        <select
+          value={current}
+          onChange={(e) => setValue(issue.id, field.id, e.target.value === "" ? null : e.target.value)}
+          className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+        >
+          <option value="">—</option>
+          {field.options.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+      ) : field.fieldType === "checkbox" ? (
+        <input
+          type="checkbox"
+          checked={current === "true"}
+          onChange={(e) => setValue(issue.id, field.id, e.target.checked ? "true" : null)}
+          className="h-3.5 w-3.5 accent-accent"
+        />
+      ) : field.fieldType === "date" ? (
+        <input
+          type="date"
+          value={current}
+          onChange={(e) => setValue(issue.id, field.id, e.target.value || null)}
+          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+        />
+      ) : (
+        <input
+          type={field.fieldType === "number" ? "number" : "text"}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === "Enter" && commit()}
+          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+        />
+      )}
+    </Field>
+  );
+}
+
 function LinksField({ issue }: { issue: Issue }) {
   const { data, can, addIssueLink, removeIssueLink, openIssue } = useStore();
   const canEdit = can("edit", issue);
@@ -1029,6 +1117,8 @@ export default function IssueModal() {
                 {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}
               </div>
             </Field>
+
+            <CustomFieldsSection issue={issue} />
 
             <LinksField issue={issue} />
 

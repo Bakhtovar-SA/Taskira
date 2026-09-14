@@ -61,18 +61,18 @@ export interface LdapResyncResult {
   errors: string[];
 }
 
-/** Пересобрать department_members для ВСЕХ ldap-пользователей из их текущих
- *  групп. Общая реализация для ручного POST /api/ldap/resync (routes/ldap.ts,
- *  actorId — вызвавший admin) и фонового джоба (services/maintenance.ts
- *  startJob("ldap-resync", ...), actorId — null, «система»). Требует
- *  сервис-аккаунт (LDAP_BIND_DN) — вызывающий
- *  сам проверяет это до вызова, чтобы отличать «не настроено» от «пусто прошло». */
 /** Сколько пользователей ресинкать параллельно. LDAP-справочники обычно
  *  терпимее к нескольким одновременным поисковым bind'ам, чем к сотням
  *  последовательных round-trip'ов один за другим (особенно теперь, когда
  *  этот проход не только по клику admin'а, а ещё и по расписанию — maintenance.ts). */
 const RESYNC_CONCURRENCY = 8;
 
+/** Пересобрать department_members для ВСЕХ ldap-пользователей из их текущих
+ *  групп. Общая реализация для ручного POST /api/ldap/resync (routes/ldap.ts,
+ *  actorId — вызвавший admin) и фонового джоба (services/maintenance.ts
+ *  startJob("ldap-resync", ...), actorId — null, «система»). Требует
+ *  сервис-аккаунт (LDAP_BIND_DN) — вызывающий
+ *  сам проверяет это до вызова, чтобы отличать «не настроено» от «пусто прошло». */
 export async function resyncAllLdapUsers(actorId: string | null): Promise<LdapResyncResult> {
   const users = await q<{ id: string; username: string }>(
     `SELECT id, username FROM users WHERE auth_source = 'ldap' ORDER BY username`,

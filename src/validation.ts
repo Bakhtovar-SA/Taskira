@@ -22,6 +22,9 @@ export const LIMITS = {
   // Вложения — зеркало server/src/contract.ts (FILES_MIGRATION.md D3). UX-подсказка;
   // сервер может отдавать свои значения через GET /api/... в будущем.
   attachment: { maxBytes: 25 * 1024 * 1024, maxPerIssue: 50, maxFilename: 200 },
+  // Пользовательские поля — зеркало server/src/contract.ts (миграция 020).
+  customField: { name: { min: 1, max: 60 }, optionMax: 60, optionsMax: 30 },
+  customFieldsPerProject: 30,
 } as const;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };

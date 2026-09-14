@@ -19,6 +19,8 @@ import type { Storage } from "./storage.js";
 export interface SweepStats {
   scanned: number;
   orphaned: number;
+  deleted: number;
+  failed: number;
 }
 
 /** Сколько объектов удалять параллельно. Storage.delete() — сетевой вызов у
@@ -31,23 +33,38 @@ const DELETE_CONCURRENCY = 10;
 
 export async function runStorageSweepOnce(storage: Storage, driver: "local" | "s3", graceMs: number): Promise<SweepStats> {
   const objects = await storage.list();
-  if (objects.length === 0) return { scanned: 0, orphaned: 0 };
+  if (objects.length === 0) return { scanned: 0, orphaned: 0, deleted: 0, failed: 0 };
 
   const known = await q<{ storage_key: string }>(`SELECT storage_key FROM attachments WHERE storage_driver = $1`, [driver]);
   const knownKeys = new Set(known.map((r) => r.storage_key));
   const cutoff = Date.now() - graceMs;
 
   const orphans = objects.filter((o) => !knownKeys.has(o.key) && o.mtimeMs < cutoff);
+  let deleted = 0;
+  let failed = 0;
+  // Своя try/catch на каждый объект: одна упавшая (транзиентная сетевая
+  // ошибка у S3, EBUSY на диске) не должна обрывать Promise.all и
+  // пропускать все остальные батчи — вчера это был реальный баг здесь.
   for (let i = 0; i < orphans.length; i += DELETE_CONCURRENCY) {
     await Promise.all(
       orphans.slice(i, i + DELETE_CONCURRENCY).map(async (o) => {
-        await storage.delete(o.key);
-        console.log(`[storage-sweep] удалён осиротевший объект (${driver}): ${o.key}`);
+        try {
+          await storage.delete(o.key);
+          deleted += 1;
+          console.log(`[storage-sweep] удалён осиротевший объект (${driver}): ${o.key}`);
+        } catch (e) {
+          failed += 1;
+          console.error(`[storage-sweep] не удалось удалить ${o.key}`, e);
+        }
       }),
     );
   }
-  if (orphans.length > 0) {
-    await audit(null, "storage.sweep", "storage", null, { driver, deleted: orphans.length });
+  // deleted===0 && failed>0 — тоже пишем: полный провал батча (истёкшие
+  // креды S3, permission denied) должен остаться виден в audit_log, а не
+  // только в console.error, иначе исчезающий доступ к хранилищу молча
+  // оставался бы вообще без следа в аудите.
+  if (deleted > 0 || failed > 0) {
+    await audit(null, "storage.sweep", "storage", null, { driver, deleted, failed });
   }
-  return { scanned: objects.length, orphaned: orphans.length };
+  return { scanned: objects.length, orphaned: orphans.length, deleted, failed };
 }
