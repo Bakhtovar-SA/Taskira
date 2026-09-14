@@ -59,7 +59,11 @@ export async function runStorageSweepOnce(storage: Storage, driver: "local" | "s
       }),
     );
   }
-  if (deleted > 0) {
+  // deleted===0 && failed>0 — тоже пишем: полный провал батча (истёкшие
+  // креды S3, permission denied) должен остаться виден в audit_log, а не
+  // только в console.error, иначе исчезающий доступ к хранилищу молча
+  // оставался бы вообще без следа в аудите.
+  if (deleted > 0 || failed > 0) {
     await audit(null, "storage.sweep", "storage", null, { driver, deleted, failed });
   }
   return { scanned: objects.length, orphaned: orphans.length, deleted, failed };

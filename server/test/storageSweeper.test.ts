@@ -136,4 +136,32 @@ describe("runStorageSweepOnce", () => {
     expect(stats).toEqual({ scanned: 3, orphaned: 3, deleted: 2, failed: 1 });
     expect(storage.deleted.sort()).toEqual(["issue1/ok-1.bin", "issue1/ok-2.bin"]);
   });
+
+  test("полный провал батча (все delete упали) — audit_log всё равно получает запись", async () => {
+    // Раньше запись в audit_log была только при deleted > 0 — прогон, где
+    // ВСЕ удаления упали (истёкшие креды S3, permission denied), не оставлял
+    // в аудите ни следа, только console.error. Теперь пишем и при failed > 0.
+    const storage = new FakeStorage();
+    storage.objects.set("issue1/fails-a.bin", Date.now() - 48 * HOUR);
+    storage.objects.set("issue1/fails-b.bin", Date.now() - 48 * HOUR);
+    storage.failOn.add("issue1/fails-a.bin");
+    storage.failOn.add("issue1/fails-b.bin");
+
+    const stats = await runStorageSweepOnce(storage, "local", GRACE);
+    expect(stats).toEqual({ scanned: 2, orphaned: 2, deleted: 0, failed: 2 });
+
+    // audit() не ждёт собственной вставки (PERF-05, audit.ts) — короткий
+    // поллинг вместо гонки с фоновым INSERT, как resetDb() уже делает для
+    // того же класса гонки.
+    let row: { details: { deleted: number; failed: number } } | undefined;
+    for (let i = 0; i < 20 && !row; i++) {
+      const rows = await q<{ details: { deleted: number; failed: number } }>(
+        `SELECT details FROM audit_log WHERE action = 'storage.sweep' ORDER BY id DESC LIMIT 1`,
+      );
+      row = rows[0];
+      if (!row) await new Promise((r) => setTimeout(r, 25));
+    }
+    expect(row).toBeTruthy();
+    expect(row!.details).toMatchObject({ deleted: 0, failed: 2 });
+  });
 });
