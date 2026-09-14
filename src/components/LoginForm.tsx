@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Logo } from "../icons";
 import { ApiError, authApi, setToken } from "../api";
+import { useT } from "../i18n";
 
 type Props = {
   onSuccess: () => void;
 };
 
 export default function LoginForm({ onSuccess }: Props) {
+  const { t } = useT();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -21,7 +23,10 @@ export default function LoginForm({ onSuccess }: Props) {
       setToken(res.token);
       onSuccess();
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Не удалось войти";
+      // Сообщение сервера (err.message) приходит только по-русски — сервер
+      // пока не локализован (см. CLAUDE.md, раздел i18n). Фолбэк на "не удалось
+      // войти" переведён, сама причина отказа (неверный пароль и т.п.) — нет.
+      const msg = err instanceof ApiError ? err.message : t("login.failed");
       setError(msg);
     } finally {
       setBusy(false);
@@ -33,13 +38,13 @@ export default function LoginForm({ onSuccess }: Props) {
       <div className="w-full max-w-[400px] rounded-xl border border-line bg-panel p-8 shadow-[0_20px_60px_rgba(15,27,45,0.12)]">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <Logo size={40} />
-          <h1 className="text-[20px] font-bold text-ink">Taskira</h1>
-          <p className="text-[13px] text-faint">Корпоративный трекер задач</p>
+          <h1 className="text-[20px] font-bold text-ink">{t("login.appName")}</h1>
+          <p className="text-[13px] text-faint">{t("login.tagline")}</p>
         </div>
 
         <form onSubmit={submit} className="flex flex-col gap-3.5">
           <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-faint">Логин</span>
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-faint">{t("login.username")}</span>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -49,7 +54,7 @@ export default function LoginForm({ onSuccess }: Props) {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-faint">Пароль</span>
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-faint">{t("login.password")}</span>
             <input
               type="password"
               value={password}
@@ -69,7 +74,7 @@ export default function LoginForm({ onSuccess }: Props) {
             disabled={busy}
             className="mt-1 h-10 rounded-md bg-accent text-[14px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition hover:bg-accentdeep disabled:opacity-60"
           >
-            {busy ? "Вход…" : "Войти"}
+            {busy ? t("login.submitting") : t("login.submit")}
           </button>
         </form>
       </div>

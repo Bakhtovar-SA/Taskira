@@ -4,9 +4,10 @@ import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import { usersApi, type PickableUser } from "../api";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
-import { COMPLEXITY_ORDER, COMPLEXITIES, PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
+import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
 import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, catColor } from "../ui";
+import { useT } from "../i18n";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -550,6 +551,7 @@ function LinksField({ issue }: { issue: Issue }) {
 }
 
 export default function IssueModal() {
+  const { t } = useT();
   const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
   const issue = data.issues.find((i) => i.id === ui.selectedIssueId);
   const [tab, setTab] = useState<"comments" | "activity">("comments");
@@ -657,10 +659,10 @@ export default function IssueModal() {
   };
 
   return (
-    <Modal onClose={() => openIssue(null)} w={940} title={`Задача ${issue.key}: ${issue.title}`}>
+    <Modal onClose={() => openIssue(null)} w={940} title={t("issueModal.title", { key: issue.key, title: issue.title })}>
       {/* шапка */}
       <div className="flex items-center gap-2 border-b border-line px-5 py-3">
-        <span title={ISSUE_TYPES[issue.typeId].name} className="flex items-center">
+        <span title={t(`issueType.${issue.typeId}`)} className="flex items-center">
           <TypeIcon type={issue.typeId} size={16} />
         </span>
         <span className="font-mono text-[12.5px] font-bold text-ink">{issue.key}</span>
@@ -945,7 +947,7 @@ export default function IssueModal() {
 
           <div className="flex flex-wrap gap-2.5">
             <div className="min-w-[104px] flex-1">
-              <Field label="Приоритет">
+              <Field label={t("field.priority")}>
                 {editOk ? (
                 <Dropdown
                   width={220}
@@ -954,7 +956,7 @@ export default function IssueModal() {
                       className={`flex w-full items-center gap-1.5 rounded-md border bg-panel px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
                     >
                       <PriorityIcon p={issue.priorityId} size={13} />
-                      <span className="min-w-0 flex-1 truncate text-left">{PRIORITIES[issue.priorityId].name}</span>
+                      <span className="min-w-0 flex-1 truncate text-left">{t(`priority.${issue.priorityId}`)}</span>
                     </button>
                   )}
                 >
@@ -962,7 +964,7 @@ export default function IssueModal() {
                     <>
                       {PRIORITY_ORDER.map((p: PriorityId) => (
                         <MenuItem key={p} onClick={() => { updateIssue(issue.id, { priorityId: p }); close(); }}>
-                          <PriorityIcon p={p} size={14} /> {PRIORITIES[p].name} {issue.priorityId === p && <IcCheck size={12} className="ml-auto text-accent" />}
+                          <PriorityIcon p={p} size={14} /> {t(`priority.${p}`)} {issue.priorityId === p && <IcCheck size={12} className="ml-auto text-accent" />}
                         </MenuItem>
                       ))}
                     </>
@@ -970,13 +972,13 @@ export default function IssueModal() {
                 </Dropdown>
                 ) : (
                   <LockedField reason={denyMsg}>
-                    <span className="flex items-center gap-2"><PriorityIcon p={issue.priorityId} size={14} /> {PRIORITIES[issue.priorityId].name}</span>
+                    <span className="flex items-center gap-2"><PriorityIcon p={issue.priorityId} size={14} /> {t(`priority.${issue.priorityId}`)}</span>
                   </LockedField>
                 )}
               </Field>
             </div>
             <div className="min-w-[116px] flex-1">
-              <Field label="Срок">
+              <Field label={t("field.dueDate")}>
                 {editOk ? (
                   <input
                     type="date"
@@ -997,7 +999,7 @@ export default function IssueModal() {
               </Field>
             </div>
             <div className="min-w-[104px] flex-1">
-              <Field label="Сложность">
+              <Field label={t("field.complexity")}>
                 {editOk ? (
                 <Dropdown
                   width={180}
@@ -1006,7 +1008,7 @@ export default function IssueModal() {
                       className={`flex w-full items-center gap-1.5 rounded-md border bg-panel px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
                     >
                       <span className="min-w-0 flex-1 truncate text-left">
-                        {issue.complexity ? COMPLEXITIES[issue.complexity].name : "Без оценки"}
+                        {issue.complexity ? t(`complexity.${issue.complexity}`) : t("complexity.none")}
                       </span>
                       <IcChevD size={12} className="shrink-0 text-faint" />
                     </button>
@@ -1015,11 +1017,11 @@ export default function IssueModal() {
                   {(close) => (
                     <>
                       <MenuItem onClick={() => { updateIssue(issue.id, { complexity: null }); close(); }}>
-                        Без оценки {issue.complexity === null && <IcCheck size={12} className="ml-auto text-accent" />}
+                        {t("complexity.none")} {issue.complexity === null && <IcCheck size={12} className="ml-auto text-accent" />}
                       </MenuItem>
                       {COMPLEXITY_ORDER.map((c: ComplexityId) => (
                         <MenuItem key={c} onClick={() => { updateIssue(issue.id, { complexity: c }); close(); }}>
-                          {COMPLEXITIES[c].name} {issue.complexity === c && <IcCheck size={12} className="ml-auto text-accent" />}
+                          {t(`complexity.${c}`)} {issue.complexity === c && <IcCheck size={12} className="ml-auto text-accent" />}
                         </MenuItem>
                       ))}
                     </>
@@ -1027,7 +1029,7 @@ export default function IssueModal() {
                 </Dropdown>
                 ) : (
                   <LockedField reason={denyMsg}>
-                    <span>{issue.complexity ? COMPLEXITIES[issue.complexity].name : "Без оценки"}</span>
+                    <span>{issue.complexity ? t(`complexity.${issue.complexity}`) : t("complexity.none")}</span>
                   </LockedField>
                 )}
               </Field>

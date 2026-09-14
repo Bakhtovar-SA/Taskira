@@ -2,12 +2,13 @@ import { useStore } from "../store";
 import type { ViewId } from "../types";
 import { IcBacklog, IcBoard, IcBook, IcFlow, IcInbox, IcLink, IcReport, IcShield, IcTimeline, Logo } from "../icons";
 import { Avatar, Kbd, RoleBadge } from "../ui";
+import { useT, type TKey } from "../i18n";
 
 const GROUPS: {
-  label: string;
+  labelKey: TKey;
   items: {
     id: ViewId;
-    label: string;
+    labelKey: TKey;
     icon: (p: { size?: number }) => React.ReactNode;
     kbd: string;
     adminOnly?: boolean;
@@ -16,27 +17,28 @@ const GROUPS: {
   }[];
 }[] = [
   {
-    label: "Планирование",
+    labelKey: "sidebar.group.planning",
     items: [
-      { id: "board", label: "Доска", icon: (p) => <IcBoard {...p} />, kbd: "1" },
-      { id: "backlog", label: "Список задач", icon: (p) => <IcBacklog {...p} />, kbd: "2" },
-      { id: "timeline", label: "Таймлайн", icon: (p) => <IcTimeline {...p} />, kbd: "3" },
-      { id: "reports", label: "Отчёты", icon: (p) => <IcReport {...p} />, kbd: "4" },
+      { id: "board", labelKey: "sidebar.nav.board", icon: (p) => <IcBoard {...p} />, kbd: "1" },
+      { id: "backlog", labelKey: "sidebar.nav.backlog", icon: (p) => <IcBacklog {...p} />, kbd: "2" },
+      { id: "timeline", labelKey: "sidebar.nav.timeline", icon: (p) => <IcTimeline {...p} />, kbd: "3" },
+      { id: "reports", labelKey: "sidebar.nav.reports", icon: (p) => <IcReport {...p} />, kbd: "4" },
     ],
   },
   {
-    label: "Проект",
+    labelKey: "sidebar.group.project",
     items: [
-      { id: "workflow", label: "Рабочий процесс", icon: (p) => <IcFlow {...p} />, kbd: "5" },
-      { id: "access", label: "Права доступа", icon: (p) => <IcShield {...p} />, kbd: "6" },
-      { id: "admin", label: "Департаменты", icon: (p) => <IcInbox {...p} />, kbd: "7", adminOnly: true },
-      { id: "docs", label: "Документация", icon: (p) => <IcBook {...p} />, kbd: "8" },
-      { id: "collaborating", label: "Мои подключения", icon: (p) => <IcLink {...p} />, kbd: "9", collabOnly: true },
+      { id: "workflow", labelKey: "sidebar.nav.workflow", icon: (p) => <IcFlow {...p} />, kbd: "5" },
+      { id: "access", labelKey: "sidebar.nav.access", icon: (p) => <IcShield {...p} />, kbd: "6" },
+      { id: "admin", labelKey: "sidebar.nav.admin", icon: (p) => <IcInbox {...p} />, kbd: "7", adminOnly: true },
+      { id: "docs", labelKey: "sidebar.nav.docs", icon: (p) => <IcBook {...p} />, kbd: "8" },
+      { id: "collaborating", labelKey: "sidebar.nav.collaborating", icon: (p) => <IcLink {...p} />, kbd: "9", collabOnly: true },
     ],
   },
 ];
 
 export default function Sidebar() {
+  const { t } = useT();
   const { data, ui, setView, me, goHome } = useStore();
   const doneIds = new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id));
   const openCount = data.issues.filter((i) => !doneIds.has(i.statusId)).length;
@@ -49,13 +51,13 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={homeAvailable ? goHome : undefined}
-        aria-label={homeAvailable ? "На главный экран" : "Taskira"}
+        aria-label={homeAvailable ? t("sidebar.homeAria") : "Taskira"}
         className={`flex items-center gap-3 px-4 pb-6 pt-6 text-left ${homeAvailable ? "cursor-pointer" : "cursor-default"}`}
       >
         <Logo size={36} />
         <div className="leading-none">
           <p className={`font-disp text-[20px] font-bold tracking-tight text-white ${homeAvailable ? "transition-opacity hover:opacity-80" : ""}`}>Taskira</p>
-          <p className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#5f7396]">issue tracking</p>
+          <p className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#5f7396]">{t("sidebar.tagline")}</p>
         </div>
       </button>
 
@@ -63,14 +65,14 @@ export default function Sidebar() {
         <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent font-disp text-[13px] font-bold text-white">{data.project.key[0]}</span>
         <div className="min-w-0 leading-tight">
           <p className="truncate text-[13px] font-semibold text-white">{data.project.name}</p>
-          <p className="font-mono text-[10px] text-[#7b8fb2]">{data.project.key} · проект команды</p>
+          <p className="font-mono text-[10px] text-[#7b8fb2]">{data.project.key} · {t("sidebar.projectTeamSuffix")}</p>
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {GROUPS.map((g) => (
-          <div key={g.label} className="mb-4">
-            <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f7396]">{g.label}</p>
+          <div key={g.labelKey} className="mb-4">
+            <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f7396]">{t(g.labelKey)}</p>
             <nav className="flex flex-col gap-0.5 px-3">
               {g.items
                 .filter(
@@ -91,7 +93,7 @@ export default function Sidebar() {
                   >
                     {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-accent" />}
                     <span className={active ? "text-[#7ab3ff]" : "text-[#647ba1] group-hover:text-[#9db0cd]"}>{item.icon({ size: 16 })}</span>
-                    <span className="flex-1">{item.label}</span>
+                    <span className="flex-1">{t(item.labelKey)}</span>
                     {badge > 0 && (
                       <span className="rounded-full bg-accent px-1.5 py-px text-[10px] font-bold text-white">{badge}</span>
                     )}
@@ -110,7 +112,7 @@ export default function Sidebar() {
 
       <div className="mx-3 rounded-lg border border-[#24385a] bg-sidebar2/50 p-3">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold text-[#9db0cd]">Открытых задач</p>
+          <p className="text-[11px] font-semibold text-[#9db0cd]">{t("sidebar.openIssues")}</p>
           <span className="font-mono text-[15px] font-bold text-white">{openCount}</span>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#24385a]">
@@ -119,7 +121,7 @@ export default function Sidebar() {
             style={{ width: `${Math.round((1 - openCount / Math.max(1, data.issues.length)) * 100)}%` }}
           />
         </div>
-        <p className="mt-1.5 text-[10px] text-[#5f7396]">доля закрытых по проекту</p>
+        <p className="mt-1.5 text-[10px] text-[#5f7396]">{t("sidebar.closedShare")}</p>
       </div>
 
       <div className="px-3 pb-4 pt-3">
