@@ -3,6 +3,7 @@
  *  комментарий в самой миграции — если понадобится drag-and-drop, тогда
  *  переходить на дробный rank, а не заводить его заранее). */
 import { one, q } from "../db.js";
+import { notFound } from "../middleware.js";
 
 export interface ChecklistItemDto {
   id: string;
@@ -82,7 +83,14 @@ export async function updateChecklistItem(
       RETURNING id, text, done, position, created_at`,
     values,
   );
-  return toDto(row!);
+  // Роут проверяет существование ДО этого UPDATE (getChecklistItemInIssue) —
+  // но между той проверкой и этим запросом конкурентный DELETE того же пункта
+  // мог успеть выполниться первым. one() тогда вернёт null, и row! молча
+  // упал бы TypeError'ом на toDto(null).id — неперехваченный 500 вместо
+  // честного 404, хотя ситуация ничем не хуже обычного «удалили между
+  // проверкой и действием».
+  if (!row) throw notFound("Пункт чек-листа не найден");
+  return toDto(row);
 }
 
 export async function deleteChecklistItem(itemId: string): Promise<void> {

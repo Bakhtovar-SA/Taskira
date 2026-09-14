@@ -3,6 +3,8 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { auth, getApp, login, newIssue, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import { updateChecklistItem } from "../src/services/checklist.js";
+import { ApiHttpError } from "../src/errors.js";
 
 let app: FastifyInstance;
 let fx: Fixture;
@@ -141,5 +143,21 @@ describe("checklist", () => {
     const mgr = await login(app, "mgr1");
     const detail = JSON.parse((await g(issueUrl(fx.issues.p1issue), mgr)).body);
     expect(Array.isArray(detail.checklist)).toBe(true);
+  });
+
+  test("updateChecklistItem() на несуществующем id — чистый 404, не TypeError", async () => {
+    // Роут проверяет существование ДО UPDATE (getChecklistItemInIssue), но
+    // конкурентный DELETE между той проверкой и этим вызовом убирает страховку —
+    // тестируем сам сервис напрямую, так же как его увидел бы такой race.
+    const fakeId = "00000000-0000-0000-0000-000000000000";
+    let caught: unknown;
+    try {
+      await updateChecklistItem(fakeId, { done: true });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ApiHttpError);
+    expect((caught as ApiHttpError).statusCode).toBe(404);
+    expect((caught as ApiHttpError).code).toBe("NOT_FOUND");
   });
 });
