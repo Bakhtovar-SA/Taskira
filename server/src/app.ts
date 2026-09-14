@@ -20,6 +20,7 @@ import { collaboratingRoutes } from "./routes/collaborating.js";
 import { homeRoutes } from "./routes/home.js";
 import { workflowRoutes } from "./routes/workflow.js";
 import { issueTemplatesRoutes } from "./routes/issueTemplates.js";
+import { customFieldsRoutes } from "./routes/customFields.js";
 import { userRoutes } from "./routes/users.js";
 import { ldapRoutes } from "./routes/ldap.js";
 import { notificationRoutes } from "./routes/notifications.js";
@@ -147,6 +148,7 @@ export function buildApp(): FastifyInstance {
           await proj.register(collaboratorRoutes, { prefix: "/issues" }); // /:id/collaborators[/:userId]
           await proj.register(workflowRoutes, { prefix: "/workflow" });
           await proj.register(issueTemplatesRoutes, { prefix: "/issue-templates" });
+          await proj.register(customFieldsRoutes, { prefix: "/custom-fields" });
         },
         { prefix: "/projects/:projectId" },
       );

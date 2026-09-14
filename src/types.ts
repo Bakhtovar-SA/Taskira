@@ -115,6 +115,27 @@ export interface IssueTemplate {
   position: number;
 }
 
+/** Пользовательское поле проекта (custom_fields, миграция 020) — определение,
+ *  на уровне проекта, приходит в bootstrap (data.customFields), не в задаче. */
+export type CustomFieldType = "text" | "number" | "select" | "checkbox" | "date";
+
+export interface CustomFieldDef {
+  id: string;
+  name: string;
+  fieldType: CustomFieldType;
+  /** Только для fieldType='select'. */
+  options: string[];
+  position: number;
+}
+
+/** Значение поля на конкретной задаче (custom_field_values). Заполняется при
+ *  открытии карточки (детальный GET /issues/:id), как attachments/links/checklist.
+ *  Отсутствие записи для fieldId в массиве = значение не задано. */
+export interface CustomFieldValue {
+  fieldId: string;
+  value: string | null;
+}
+
 export interface Issue {
   id: string;
   key: string;
@@ -146,6 +167,8 @@ export interface Issue {
   attachments: Attachment[];
   /** Связанные задачи — заполняется при открытии карточки (GET /issues/:id). */
   links: IssueLink[];
+  /** Значения пользовательских полей — заполняется при открытии карточки (GET /issues/:id). */
+  customFieldValues: CustomFieldValue[];
   createdAt: number;
   updatedAt: number;
 }
@@ -198,6 +221,8 @@ export interface Data {
   workflow: Workflow;
   /** Шаблоны задач проекта (миграция 022). */
   issueTemplates: IssueTemplate[];
+  /** Определения пользовательских полей проекта (миграция 020). */
+  customFields: CustomFieldDef[];
   /** Открытые задачи, назначенные мне по всем видимым проектам (главный экран). */
   assignedToMe: AssignedIssue[];
   /** true — сервер урезал список «Моих задач» своим потолком; надо сказать человеку. */

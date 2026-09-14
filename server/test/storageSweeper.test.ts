@@ -13,6 +13,8 @@ import type { Storage, StoredObject } from "../src/services/storage.js";
 class FakeStorage implements Storage {
   objects = new Map<string, number>(); // key -> mtimeMs
   deleted: string[] = [];
+  /** Ключи, на которых delete() должен упасть — для теста устойчивости к частичным сбоям. */
+  failOn = new Set<string>();
 
   async put(): Promise<void> {
     throw new Error("не используется в этих тестах");
@@ -21,6 +23,7 @@ class FakeStorage implements Storage {
     throw new Error("не используется в этих тестах");
   }
   async delete(key: string): Promise<void> {
+    if (this.failOn.has(key)) throw new Error(`симулированный сбой удаления: ${key}`);
     this.objects.delete(key);
     this.deleted.push(key);
   }
@@ -60,7 +63,7 @@ describe("runStorageSweepOnce", () => {
   test("пустое хранилище — ничего не делает и не трогает БД", async () => {
     const storage = new FakeStorage();
     const stats = await runStorageSweepOnce(storage, "local", GRACE);
-    expect(stats).toEqual({ scanned: 0, orphaned: 0 });
+    expect(stats).toEqual({ scanned: 0, orphaned: 0, deleted: 0, failed: 0 });
   });
 
   test("старый объект без строки в attachments — удаляется", async () => {
@@ -69,7 +72,7 @@ describe("runStorageSweepOnce", () => {
 
     const stats = await runStorageSweepOnce(storage, "local", GRACE);
 
-    expect(stats).toEqual({ scanned: 1, orphaned: 1 });
+    expect(stats).toEqual({ scanned: 1, orphaned: 1, deleted: 1, failed: 0 });
     expect(storage.deleted).toEqual(["issue1/old.bin"]);
   });
 
@@ -81,7 +84,7 @@ describe("runStorageSweepOnce", () => {
 
     const stats = await runStorageSweepOnce(storage, "local", GRACE);
 
-    expect(stats).toEqual({ scanned: 1, orphaned: 0 });
+    expect(stats).toEqual({ scanned: 1, orphaned: 0, deleted: 0, failed: 0 });
     expect(storage.deleted).toEqual([]);
   });
 
@@ -92,7 +95,7 @@ describe("runStorageSweepOnce", () => {
 
     const stats = await runStorageSweepOnce(storage, "local", GRACE);
 
-    expect(stats).toEqual({ scanned: 1, orphaned: 0 });
+    expect(stats).toEqual({ scanned: 1, orphaned: 0, deleted: 0, failed: 0 });
     expect(storage.deleted).toEqual([]);
   });
 
@@ -104,7 +107,7 @@ describe("runStorageSweepOnce", () => {
     // Сканируем как будто это s3-хранилище — известные ключи 'local' не в счёт.
     const stats = await runStorageSweepOnce(storage, "s3", GRACE);
 
-    expect(stats).toEqual({ scanned: 1, orphaned: 1 });
+    expect(stats).toEqual({ scanned: 1, orphaned: 1, deleted: 1, failed: 0 });
     expect(storage.deleted).toEqual(["issue1/real.bin"]);
   });
 
@@ -117,7 +120,48 @@ describe("runStorageSweepOnce", () => {
 
     const stats = await runStorageSweepOnce(storage, "local", GRACE);
 
-    expect(stats).toEqual({ scanned: 3, orphaned: 1 });
+    expect(stats).toEqual({ scanned: 3, orphaned: 1, deleted: 1, failed: 0 });
     expect(storage.deleted).toEqual(["issue1/orphan-old.bin"]);
+  });
+
+  test("сбой удаления одного объекта не обрывает удаление остальных в том же батче", async () => {
+    const storage = new FakeStorage();
+    storage.objects.set("issue1/fails.bin", Date.now() - 48 * HOUR);
+    storage.objects.set("issue1/ok-1.bin", Date.now() - 48 * HOUR);
+    storage.objects.set("issue1/ok-2.bin", Date.now() - 48 * HOUR);
+    storage.failOn.add("issue1/fails.bin");
+
+    const stats = await runStorageSweepOnce(storage, "local", GRACE);
+
+    expect(stats).toEqual({ scanned: 3, orphaned: 3, deleted: 2, failed: 1 });
+    expect(storage.deleted.sort()).toEqual(["issue1/ok-1.bin", "issue1/ok-2.bin"]);
+  });
+
+  test("полный провал батча (все delete упали) — audit_log всё равно получает запись", async () => {
+    // Раньше запись в audit_log была только при deleted > 0 — прогон, где
+    // ВСЕ удаления упали (истёкшие креды S3, permission denied), не оставлял
+    // в аудите ни следа, только console.error. Теперь пишем и при failed > 0.
+    const storage = new FakeStorage();
+    storage.objects.set("issue1/fails-a.bin", Date.now() - 48 * HOUR);
+    storage.objects.set("issue1/fails-b.bin", Date.now() - 48 * HOUR);
+    storage.failOn.add("issue1/fails-a.bin");
+    storage.failOn.add("issue1/fails-b.bin");
+
+    const stats = await runStorageSweepOnce(storage, "local", GRACE);
+    expect(stats).toEqual({ scanned: 2, orphaned: 2, deleted: 0, failed: 2 });
+
+    // audit() не ждёт собственной вставки (PERF-05, audit.ts) — короткий
+    // поллинг вместо гонки с фоновым INSERT, как resetDb() уже делает для
+    // того же класса гонки.
+    let row: { details: { deleted: number; failed: number } } | undefined;
+    for (let i = 0; i < 20 && !row; i++) {
+      const rows = await q<{ details: { deleted: number; failed: number } }>(
+        `SELECT details FROM audit_log WHERE action = 'storage.sweep' ORDER BY id DESC LIMIT 1`,
+      );
+      row = rows[0];
+      if (!row) await new Promise((r) => setTimeout(r, 25));
+    }
+    expect(row).toBeTruthy();
+    expect(row!.details).toMatchObject({ deleted: 0, failed: 2 });
   });
 });

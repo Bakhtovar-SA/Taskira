@@ -21,6 +21,7 @@ import {
 } from "../middleware.js";
 import { conflict, getWorkflow, seedProjectWorkflow } from "../services/workflow.js";
 import { listIssueTemplates } from "../services/issueTemplates.js";
+import { listCustomFields } from "../services/customFields.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
 import { invalidateProjectCache } from "../services/project.js";
@@ -112,7 +113,8 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       ).map((m) => ({ userId: m.user_id, role: m.role }));
       const workflow = await getWorkflow(project.id);
       const issueTemplates = await listIssueTemplates(project.id);
-      return { project: projectRowToDto(project), users, members, workflow, issueTemplates };
+      const customFields = await listCustomFields(project.id);
+      return { project: projectRowToDto(project), users, members, workflow, issueTemplates, customFields };
     },
   );
 

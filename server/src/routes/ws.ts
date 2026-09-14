@@ -20,13 +20,23 @@ const AUTH_TIMEOUT_MS = 5_000;
 export async function wsRoutes(app: FastifyInstance): Promise<void> {
   app.get("/ws", { websocket: true }, (socket) => {
     let userId: string | null = null;
+    // Синхронный латч "первая auth-рама уже принята в обработку" — ОТДЕЛЬНО от
+    // userId, который выставляется только ПОСЛЕ await assertFreshUser(). Без
+    // него вторая "auth"-рама, пришедшая, пока первая ещё ждёт ответ БД,
+    // проходила бы ту же проверку (userId всё ещё null) и стартовала бы
+    // параллельную верификацию — возможно, другого токена. Оба пути тогда
+    // дошли бы до registerSocket(), а общая переменная userId запомнила бы
+    // только того, кто финишировал последним; регистрация первого в byUser
+    // (wsHub.ts) осталась бы без пары unregisterSocket() на 'close' навсегда.
+    let authStarted = false;
 
     const authTimer = setTimeout(() => {
       if (!userId) socket.close(1008, "auth timeout");
     }, AUTH_TIMEOUT_MS);
 
     socket.on("message", (raw: Buffer) => {
-      if (userId) return; // после аутентификации сообщений от клиента не ждём
+      if (authStarted) return; // вторую auth-раму на этом сокете не ждём вообще
+      authStarted = true;
       const handshakeStartedAt = Date.now(); // до await — см. revokedSince() ниже
       void (async () => {
         let msg: unknown;
