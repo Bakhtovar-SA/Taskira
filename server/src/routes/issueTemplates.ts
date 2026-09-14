@@ -7,7 +7,6 @@ import { badRequest, notFound, requirePerm, zbody, zparams, type JwtPayload } fr
 import { audit } from "../audit.js";
 import { conflict } from "../services/workflow.js";
 import {
-  countIssueTemplates,
   createIssueTemplate,
   deleteIssueTemplate,
   getIssueTemplateInProject,
@@ -48,10 +47,13 @@ export async function issueTemplatesRoutes(app: FastifyInstance): Promise<void> 
       const user: JwtPayload = req.user;
       const body = req.body as z.infer<typeof IssueTemplateBody>;
 
-      if ((await countIssueTemplates(project.id)) >= LIMITS.issueTemplatesPerProject) {
+      // Один SELECT вместо двух (count + list) — existing.length уже даёт
+      // счётчик для лимита, отдельный countIssueTemplates() был лишним
+      // round-trip'ом на каждый POST без поведенческой пользы (ревью PR #47).
+      const existing = await listIssueTemplates(project.id);
+      if (existing.length >= LIMITS.issueTemplatesPerProject) {
         throw badRequest(`В проекте не может быть больше ${LIMITS.issueTemplatesPerProject} шаблонов`);
       }
-      const existing = await listIssueTemplates(project.id);
       if (existing.some((t) => t.name.toLowerCase() === body.name.toLowerCase())) {
         throw badRequest("Шаблон с таким названием уже есть в проекте");
       }

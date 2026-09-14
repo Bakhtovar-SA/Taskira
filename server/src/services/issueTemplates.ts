@@ -45,11 +45,6 @@ export async function listIssueTemplates(projectId: string): Promise<IssueTempla
   return rows.map(toDto);
 }
 
-export async function countIssueTemplates(projectId: string): Promise<number> {
-  const row = await one<{ n: string }>(`SELECT count(*)::text AS n FROM issue_templates WHERE project_id = $1`, [projectId]);
-  return Number(row?.n ?? 0);
-}
-
 export interface IssueTemplateInput {
   name: string;
   typeId: string;
