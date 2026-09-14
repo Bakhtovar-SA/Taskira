@@ -365,6 +365,7 @@ function MobileViewSwitcher() {
   const ids: ViewId[] = [
     "board",
     "backlog",
+    ...(data.project.sprintsEnabled ? (["sprints"] as ViewId[]) : []),
     "timeline",
     "reports",
     "workflow",
