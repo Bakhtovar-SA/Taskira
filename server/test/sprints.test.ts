@@ -260,6 +260,34 @@ describe("завершение спринта", () => {
     expect(list.find((i) => i.id === done.id)!.sprintId).toBe(sprint.id);
   });
 
+  test("гонка: назначение задачи в спринт параллельно с его завершением — задача никогда не остаётся приклеенной к завершённому спринту (ревью PR #49, седьмой раунд)", async () => {
+    // completeSprint() и PATCH .../sprint делят один advisory-лок на sprintId
+    // (withAdvisoryLocks) именно чтобы не дать этой паре гонки разойтись под
+    // READ COMMITTED: без общего лока PATCH мог прочитать ещё не закоммиченный
+    // 'active' статус и записать sprint_id уже после того, как перенос
+    // незакрытых задач в completeSprint() прошёл.
+    const mgr = await login(app, "mgr1");
+    const sprint = await createSprint(mgr);
+    await post(`${sprintsUrl()}/${sprint.id}/start`, mgr);
+    const issue = await createIssue(mgr);
+
+    const [assignRes, completeRes] = await Promise.all([
+      patch(`${issuesUrl()}/${issue.id}/sprint`, mgr, { sprintId: sprint.id }),
+      post(`${sprintsUrl()}/${sprint.id}/complete`, mgr),
+    ]);
+
+    // assign либо успевает до завершения (200), либо проигрывает лок и честно
+    // получает 400 — оба исхода корректны, недопустим только третий.
+    expect([200, 400]).toContain(assignRes.statusCode);
+    expect(completeRes.statusCode).toBe(200);
+    expect(JSON.parse(completeRes.body).sprint.status).toBe("completed");
+
+    // Инвариант, который и защищает лок: чем бы ни закончился assign, задача
+    // никогда не остаётся числиться в уже завершённом спринте.
+    const finalIssue = JSON.parse((await g(`${issuesUrl()}/${issue.id}`, mgr)).body);
+    expect(finalIssue.sprintId).not.toBe(sprint.id);
+  });
+
   test("нельзя завершить спринт в статусе «будущий»", async () => {
     const mgr = await login(app, "mgr1");
     const sprint = await createSprint(mgr);

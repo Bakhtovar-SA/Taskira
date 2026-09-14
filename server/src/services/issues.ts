@@ -182,8 +182,17 @@ async function validateParentAssignmentTx(
 /** Общий каркас «BEGIN → advisory-локи по отсортированным ключам → write →
  *  COMMIT/ROLLBACK», вынесенный из assignParentLocked — используется им (с
  *  повторной валидацией внутри) и withIssueParentLock ниже (без нужды в
- *  валидации, но с тем же самым локом на issueId — см. её комментарий). */
-async function withAdvisoryLocks<T>(keys: string[], run: (client: PoolClient) => Promise<T>): Promise<T> {
+ *  валидации, но с тем же самым локом на issueId — см. её комментарий).
+ *  Экспортирован — тот же примитив нужен services/sprints.ts (completeSprint)
+ *  и routes/issues.ts (PATCH /:id/sprint): без общего лока на sprintId
+ *  completeSprint() мог закоммититься ПОСЛЕ того, как конкурентный
+ *  PATCH /:id/sprint под READ COMMITTED успел прочитать ещё не закоммиченный
+ *  (для него — всё ещё 'active') статус спринта и записать sprint_id — тот
+ *  же класс кросс-транзакционной гонки, что и с parentId, просто через
+ *  границу двух РАЗНЫХ функций, а не двух вызовов одной (ревью PR #49,
+ *  седьмой раунд: одиночная проверка в WHERE самого UPDATE закрывает гонку
+ *  внутри одной транзакции, но не между двумя независимыми). */
+export async function withAdvisoryLocks<T>(keys: string[], run: (client: PoolClient) => Promise<T>): Promise<T> {
   const sortedKeys = [...new Set(keys)].sort();
   return withClient(async (client) => {
     await client.query("BEGIN");

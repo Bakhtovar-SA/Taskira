@@ -28,6 +28,7 @@ import {
   maskSprintId,
   nextIssueNum,
   precheckParentAssignment,
+  withAdvisoryLocks,
   withIssueParentLock,
   type IssueRow,
 } from "../services/issues.js";
@@ -661,35 +662,45 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const user = me(req);
 
       const iss = await loadIssue(project.id, id);
+      let row: IssueRow;
       if (body.sprintId) {
-        // Быстрый пречек вне транзакции — как и везде в этом кодовой базе
+        // Быстрый пречек вне лока — как и везде в этом кодовой базе
         // (precheckParentAssignment и т.п.), это только честный fail-fast
         // на случай несуществующего/чужого sprintId, НЕ защита от гонки:
         // существование/принадлежность спринта проекту между этим SELECT и
-        // UPDATE ниже не меняется. А вот status спринта — меняется (completeSprint
-        // в это же окно), поэтому "не завершён" перепроверяется атомарно в
-        // самом UPDATE ниже, а не здесь (ревью PR #49, шестой раунд: без этого
-        // PATCH мог проскочить между precheck и записью, ссылаясь на спринт,
-        // который только что стал completed, — тот же класс гонки, что уже
-        // закрыт для parentId через assignParentLocked/pg_advisory_xact_lock).
-        const sprint = await getSprintInProject(project.id, body.sprintId);
+        // UPDATE ниже не меняется.
+        const sprintId = body.sprintId;
+        const sprint = await getSprintInProject(project.id, sprintId);
         if (!sprint) throw notFound("Спринт не найден в проекте");
+        // advisory-лок на sprintId — тот же ключ, что берёт completeSprint()
+        // (services/sprints.ts). Одиночная проверка status<>'completed' в
+        // WHERE UPDATE закрывает гонку только ВНУТРИ этого запроса; под READ
+        // COMMITTED конкурентный completeSprint() мог ещё не закоммититься,
+        // и без общего лока EXISTS ниже читал бы его старый ('active') снимок
+        // — задача получила бы sprint_id уже завершённого спринта (ревью PR
+        // #49, седьмой раунд). Общий ключ с completeSprint() сериализует
+        // обоих через одну и ту же транзакцию, а не гонку снимков.
+        const rows = await withAdvisoryLocks([sprintId], async (client) => {
+          const res = await client.query<IssueRow>(
+            `UPDATE issues SET sprint_id = $2
+                WHERE id = $1
+                  AND EXISTS (SELECT 1 FROM sprints WHERE id = $2 AND project_id = $3 AND status <> 'completed')
+              RETURNING *`,
+            [iss.id, sprintId, project.id],
+          );
+          return res.rows;
+        });
+        // 0 строк — спринт прошёл precheck выше, но стал completed до захвата
+        // лока (completeSprint выполнился первым и уже закоммитился); иных
+        // причин не осталось — существование/проект уже проверены, а задача
+        // только что успешно прочитана loadIssue().
+        if (rows.length === 0) throw badRequest("Нельзя добавить задачу в завершённый спринт");
+        row = rows[0];
+      } else {
+        // Снятие со спринта не завязано на его состояние — лок не нужен,
+        // как и withIssueParentLock не нужен для снятия parentId.
+        row = (await q<IssueRow>(`UPDATE issues SET sprint_id = NULL WHERE id = $1 RETURNING *`, [iss.id]))[0];
       }
-      const rows = await q<IssueRow>(
-        `UPDATE issues SET sprint_id = $2
-            WHERE id = $1
-              AND ($2::uuid IS NULL OR EXISTS (
-                    SELECT 1 FROM sprints WHERE id = $2 AND project_id = $3 AND status <> 'completed'
-                  ))
-          RETURNING *`,
-        [iss.id, body.sprintId, project.id],
-      );
-      // 0 строк при sprintId≠null — спринт прошёл precheck выше, но успел стать
-      // completed до этого UPDATE (гонка); иных причин здесь не осталось —
-      // существование/проект спринта уже проверены, а сама задача только что
-      // успешно прочитана loadIssue().
-      if (rows.length === 0) throw badRequest("Нельзя добавить задачу в завершённый спринт");
-      const row = rows[0];
       await audit(user.sub, "issue.sprint.move", "issue", iss.id, { key: iss.key, sprintId: body.sprintId });
       return mapIssue(row);
     },

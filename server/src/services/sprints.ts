@@ -1,9 +1,10 @@
 /** Спринты проекта (sprints, миграция 023) — опциональный модуль, см.
  *  SPRINTS_MIGRATION.md. Определения и переходы статуса живут здесь;
  *  привязка задачи к спринту (issues.sprint_id) — services/issues.ts. */
-import { one, q, withClient } from "../db.js";
+import { one, q } from "../db.js";
 import { notFound } from "../middleware.js";
 import type { ProjectRow } from "./project.js";
+import { withAdvisoryLocks } from "./issues.js";
 
 /** Общий gate для requirePerm()/requireIssuePerm() (см. их сигнатуры в
  *  middleware.ts) — используется и в routes/sprints.ts, и в routes/issues.ts
@@ -94,25 +95,26 @@ export async function activateSprint(sprintId: string): Promise<SprintDto | null
  *  «в следующий спринт»), см. обсуждение архитектуры перед этим ТЗ.
  *  «Незакрытая» = done_at IS NULL — тот же признак, на котором стоит вся
  *  остальная отчётность и архивация (CLAUDE.md «Issue lifecycle»), не
- *  категория статуса. */
+ *  категория статуса.
+ *
+ *  advisory-лок на sprintId (withAdvisoryLocks, тот же примитив, что
+ *  assignParentLocked) — не для сериализации ДВУХ вызовов completeSprint
+ *  (их и так сериализует UPDATE ... WHERE status='active' обычной блокировкой
+ *  строки), а против кросс-транзакционной гонки с PATCH /:id/sprint
+ *  (routes/issues.ts): без общего лока PATCH под READ COMMITTED мог прочитать
+ *  ещё не закоммиченный статус 'active' этого же спринта и записать sprint_id
+ *  уже ПОСЛЕ того, как перенос незакрытых задач ниже прошёл — задача осталась
+ *  бы приклеенной к завершённому спринту навсегда (ревью PR #49, седьмой
+ *  раунд). Один и тот же ключ здесь и в PATCH — конкурентные попытки
+ *  дожидаются друг друга, а не гонятся за незакоммиченным снимком. */
 export async function completeSprint(sprintId: string): Promise<{ sprint: SprintDto; movedToBacklog: number } | null> {
-  return withClient(async (client) => {
-    await client.query("BEGIN");
-    try {
-      const sprintRes = await client.query<Row>(
-        `UPDATE sprints SET status = 'completed' WHERE id = $1 AND status = 'active' RETURNING ${COLS}`,
-        [sprintId],
-      );
-      if (sprintRes.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return null;
-      }
-      const movedRes = await client.query(`UPDATE issues SET sprint_id = NULL WHERE sprint_id = $1 AND done_at IS NULL`, [sprintId]);
-      await client.query("COMMIT");
-      return { sprint: toDto(sprintRes.rows[0]), movedToBacklog: movedRes.rowCount ?? 0 };
-    } catch (e) {
-      await client.query("ROLLBACK").catch(() => undefined);
-      throw e;
-    }
+  return withAdvisoryLocks([sprintId], async (client) => {
+    const sprintRes = await client.query<Row>(
+      `UPDATE sprints SET status = 'completed' WHERE id = $1 AND status = 'active' RETURNING ${COLS}`,
+      [sprintId],
+    );
+    if (sprintRes.rows.length === 0) return null;
+    const movedRes = await client.query(`UPDATE issues SET sprint_id = NULL WHERE sprint_id = $1 AND done_at IS NULL`, [sprintId]);
+    return { sprint: toDto(sprintRes.rows[0]), movedToBacklog: movedRes.rowCount ?? 0 };
   });
 }

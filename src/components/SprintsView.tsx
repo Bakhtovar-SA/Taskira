@@ -19,12 +19,16 @@ const STATUS_LABEL: Record<Sprint["status"], string> = {
 };
 
 function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) {
-  const { idx, openIssue } = useStore();
+  const { idx, openIssue, can } = useStore();
   const assignee = issue.assigneeId ? idx.users.get(issue.assigneeId) : undefined;
+  // Как Board.tsx (draggable={canMove}) — иначе карточка выглядит
+  // перетаскиваемой для роли без manageSprints, а drop лишь молча отклоняется
+  // тостом об отказе (ревью PR #49, седьмой раунд).
+  const canDrag = can("manageSprints");
 
   return (
     <div
-      draggable
+      draggable={canDrag}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", issue.id);
         e.dataTransfer.effectAllowed = "move";
