@@ -41,6 +41,7 @@ const boot: ProjectBootstrap = {
     statuses: [{ id: "s1", sid: "todo", name: "К работе", category: "todo" }],
     transitions: [],
   },
+  customFields: [],
 };
 
 function fakeServerIssue(id: string): ServerIssue {
