@@ -3,6 +3,7 @@ import type { AccessRole, Status, User } from "./types";
 import { useStore } from "./store";
 import { IcX } from "./icons";
 import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
+import { useT } from "./i18n";
 
 /** Аватару достаточно имени/инициалов/цвета — принимаем любой такой объект
  *  (не только полный User: напр. `actor` в уведомлениях). */
@@ -348,18 +349,19 @@ export const LockedField = ({ children, reason }: { children: React.ReactNode; r
  *  Живёт в меню профиля (Topbar) и в шапке HomeView. Хранение — localStorage
  *  (theme.ts), без сервера. */
 export function AppearanceSettings() {
+  const { t, lang, setLang } = useT();
   const [mode, setMode] = useState<ThemeMode>(() => readTheme());
   const [bg, setBgState] = useState<string>(() => readBgId());
   const eff = effectiveTheme(mode);
   return (
     <div className="border-b border-linesoft px-3.5 py-3">
-      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Оформление</p>
+      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("appearance.title")}</p>
       <div className="flex gap-1">
         {(
           [
-            ["system", "Системная"],
-            ["light", "Светлая"],
-            ["dark", "Тёмная"],
+            ["system", t("appearance.theme.system")],
+            ["light", t("appearance.theme.light")],
+            ["dark", t("appearance.theme.dark")],
           ] as const
         ).map(([v, label]) => (
           <button
@@ -381,7 +383,7 @@ export function AppearanceSettings() {
           <button
             key={p.id}
             title={p.name}
-            aria-label={`Фон: ${p.name}`}
+            aria-label={t("appearance.bgAria", { name: p.name })}
             onClick={() => {
               setBg(p.id);
               setBgState(p.id);
@@ -393,29 +395,44 @@ export function AppearanceSettings() {
           />
         ))}
       </div>
+      <p className="mb-1.5 mt-3 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("appearance.language")}</p>
+      <div className="flex gap-1">
+        {(["ru", "en"] as const).map((l) => (
+          <button
+            key={l}
+            onClick={() => setLang(l)}
+            className={`flex-1 rounded border px-1.5 py-1 text-[11px] font-semibold transition-colors ${
+              lang === l ? "border-accent bg-accentsoft text-accent" : "border-line text-sub hover:border-line2"
+            }`}
+          >
+            {t(`lang.${l}`)}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
 export function Toasts() {
   const { toasts } = useStore();
+  const { t } = useT();
   const meta = {
-    success: { border: "var(--c-ok)", fg: "var(--c-ok-fg)", bg: "var(--c-oksoft)", label: "Готово" },
-    error: { border: "var(--c-danger)", fg: "var(--c-danger)", bg: "var(--c-dangersoft)", label: "Ошибка" },
-    info: { border: "var(--c-accent)", fg: "var(--c-accentdeep)", bg: "var(--c-accentsoft)", label: "Инфо" },
+    success: { border: "var(--c-ok)", fg: "var(--c-ok-fg)", bg: "var(--c-oksoft)", label: t("toast.success") },
+    error: { border: "var(--c-danger)", fg: "var(--c-danger)", bg: "var(--c-dangersoft)", label: t("toast.error") },
+    info: { border: "var(--c-accent)", fg: "var(--c-accentdeep)", bg: "var(--c-accentsoft)", label: t("toast.info") },
   };
   return (
     <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[340px] flex-col gap-2">
-      {toasts.map((t) => {
-        const m = meta[t.kind];
+      {toasts.map((item) => {
+        const m = meta[item.kind];
         return (
-          <div key={t.id} className="anim-toast pointer-events-auto flex items-start gap-2.5 rounded-lg border border-line bg-panel py-2.5 pl-3 pr-3 shadow-[0_12px_36px_rgba(15,27,45,0.22)]" style={{ borderLeft: `4px solid ${m.border}` }}>
+          <div key={item.id} className="anim-toast pointer-events-auto flex items-start gap-2.5 rounded-lg border border-line bg-panel py-2.5 pl-3 pr-3 shadow-[0_12px_36px_rgba(15,27,45,0.22)]" style={{ borderLeft: `4px solid ${m.border}` }}>
             <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold" style={{ background: m.bg, color: m.fg }}>
-              {t.kind === "error" ? "!" : "✓"}
+              {item.kind === "error" ? "!" : "✓"}
             </span>
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: m.fg }}>{m.label}</p>
-              <p className="text-[13px] leading-snug text-ink">{t.text}</p>
+              <p className="text-[13px] leading-snug text-ink">{item.text}</p>
             </div>
           </div>
         );

@@ -3,10 +3,11 @@ import { relTime, useStore } from "../store";
 import { attachmentsApi, commentsApi, issuesApi, type ServerComment, type ServerIssue, type ServerParticipant } from "../api";
 import { MentionText } from "./IssueModal";
 import { LIMITS, validateComment } from "../validation";
-import { PRIORITIES } from "../types";
 import type { IssueTypeId, PriorityId } from "../types";
+import { PRIORITY_ORDER } from "../types";
 import { IcSend, Logo, PriorityIcon, TypeIcon } from "../icons";
 import { Toasts } from "../ui";
+import { useT } from "../i18n";
 
 /** Одиночный режим (COLLAB_MIGRATION.md Фаза 6): пользователь без единого видимого
  *  проекта, но приглашённый (issue collaborator) к отдельным задачам. Урезанная
@@ -47,6 +48,7 @@ export function SoloIssueCard({
   statusHint?: string;
   currentUser: { id: string; name: string };
 }) {
+  const { t } = useT();
   const { toast } = useStore();
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [issue, setIssue] = useState<ServerIssue | null>(null);
@@ -126,7 +128,7 @@ export function SoloIssueCard({
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] text-sub">
         <span className="flex items-center gap-1.5">
           <PriorityIcon p={issue.priorityId as PriorityId} size={13} />
-          {PRIORITIES[issue.priorityId as PriorityId]?.name ?? issue.priorityId}
+          {PRIORITY_ORDER.includes(issue.priorityId as PriorityId) ? t(`priority.${issue.priorityId as PriorityId}`) : issue.priorityId}
         </span>
         <span className="flex items-center gap-1.5">
           Исполнитель:{" "}

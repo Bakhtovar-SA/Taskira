@@ -1,9 +1,9 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { canTransition, fmtDate, useStore } from "../store";
 import type { Issue, Status, User } from "../types";
-import { PRIORITIES } from "../types";
 import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PRIORITY_COLOR, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, BOARD_COLUMN_SHELL, Chip, catColor, DROPDOWN_OPEN_EVT } from "../ui";
+import { useT, type TKey } from "../i18n";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -12,23 +12,13 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
  *  (настройка сервера) уходит в архив и перестаёт грузиться вовсе. */
 const DONE_WINDOW_DAYS = 14;
 
-/** Русское склонение после числительного: 1 задачу, 2 задачи, 5 задач. */
-const plural = (n: number, one: string, few: string, many: string): string => {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m100 >= 11 && m100 <= 14) return many;
-  if (m10 === 1) return one;
-  if (m10 >= 2 && m10 <= 4) return few;
-  return many;
-};
-
 // Быстрые фильтры-чипы над доской (round4 §3.3) — клиентская фильтрация
 // поверх уже загруженных задач, комбинируется с текстовым фильтром.
 type QuickChip = "mine" | "overdue" | "unassigned";
-const QUICK_CHIPS: { id: QuickChip; label: string }[] = [
-  { id: "mine", label: "Мои задачи" },
-  { id: "overdue", label: "Просрочено" },
-  { id: "unassigned", label: "Без исполнителя" },
+const QUICK_CHIPS: { id: QuickChip; labelKey: TKey }[] = [
+  { id: "mine", labelKey: "board.quickChip.mine" },
+  { id: "overdue", labelKey: "board.quickChip.overdue" },
+  { id: "unassigned", labelKey: "board.quickChip.unassigned" },
 ];
 
 /** Карточка доски.
@@ -66,6 +56,7 @@ const Card = memo(function Card({
   draggable: boolean;
   moveTargets: Status[];
 }) {
+  const { t } = useT();
   const { openIssue } = useStore();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -174,7 +165,7 @@ const Card = memo(function Card({
       <div className="mt-2.5 flex items-center gap-2">
         <span className="flex items-center gap-1 text-[10.5px] font-bold" style={{ color: PRIORITY_COLOR[issue.priorityId] }}>
           <PriorityIcon p={issue.priorityId} size={12} />
-          {PRIORITIES[issue.priorityId].name}
+          {t(`priority.${issue.priorityId}`)}
         </span>
         <span className="ml-auto flex items-center gap-2">
           {issue.dueDate && (
@@ -198,7 +189,7 @@ const Card = memo(function Card({
             }}
             aria-haspopup="menu"
             aria-expanded={menu}
-            aria-label={`Переместить ${issue.key}`}
+            aria-label={t("board.moveAria", { key: issue.key })}
             className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-canvas hover:text-ink focus:opacity-100 focus-visible:ring-2 focus-visible:ring-accent group-hover:opacity-100"
           >
             <IcMove size={12} />
@@ -210,20 +201,20 @@ const Card = memo(function Card({
               className="absolute right-0 top-6 z-20 min-w-[168px] rounded-lg border border-line bg-panel p-1 shadow-[0_8px_24px_rgba(12,22,38,0.18)]"
             >
               {moveTargets.length === 0 && (
-                <p className="px-2 py-1.5 text-[11.5px] text-faint">Нет разрешённых переходов</p>
+                <p className="px-2 py-1.5 text-[11.5px] text-faint">{t("board.noAllowedTransitions")}</p>
               )}
-              {moveTargets.map((t) => (
+              {moveTargets.map((target) => (
                 <button
-                  key={t.id}
+                  key={target.id}
                   role="menuitem"
                   onClick={() => {
                     setMenu(false);
-                    onMove(issue.id, t.id);
+                    onMove(issue.id, target.id);
                   }}
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12.5px] text-ink hover:bg-canvas"
                 >
-                  <span className="h-1.5 w-1.5 rounded-sm" style={{ background: catColor(t.category).dot }} />
-                  {t.name}
+                  <span className="h-1.5 w-1.5 rounded-sm" style={{ background: catColor(target.category).dot }} />
+                  {target.name}
                 </button>
               ))}
             </div>
@@ -235,6 +226,7 @@ const Card = memo(function Card({
 });
 
 function QuickCreate({ status, onDone }: { status: Status; onDone: () => void }) {
+  const { t } = useT();
   const { createIssue } = useStore();
   const [text, setText] = useState("");
   const submit = () => {
@@ -265,15 +257,15 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
           }
           if (e.key === "Escape") onDone();
         }}
-        placeholder={`Задача в «${status.name}»…`}
+        placeholder={t("board.quickCreatePlaceholder", { status: status.name })}
         rows={2}
         className="w-full resize-none bg-transparent text-[13px] outline-none placeholder:text-faint"
       />
       <div className="flex items-center gap-1.5">
         <button onClick={submit} className="flex items-center gap-1 rounded bg-accent px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-accentdeep">
-          <IcCheck size={12} /> Добавить
+          <IcCheck size={12} /> {t("board.addButton")}
         </button>
-        <button onClick={onDone} className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-canvas hover:text-ink" aria-label="Отмена">
+        <button onClick={onDone} className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-canvas hover:text-ink" aria-label={t("common.cancel")}>
           <IcX size={13} />
         </button>
       </div>
@@ -282,6 +274,7 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
 }
 
 export default function Board() {
+  const { t, tn } = useT();
   const { data, ui, moveStatus, can } = useStore();
   const canMove = can("transition");
   const canCreate = can("create");
@@ -384,11 +377,11 @@ export default function Board() {
       <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
        <div className="flex flex-wrap items-center gap-3">
         <div className="mr-2">
-          <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Доска</h1>
+          <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("board.title")}</h1>
           <p className="mt-0.5 flex items-center gap-2 text-[11.5px] text-faint">
             <span>{data.project.name}</span>
             <span>·</span>
-            <span>{pool.length} задач</span>
+            <span>{pool.length} {tn(pool.length, "noun.issue.one", "noun.issue.few", "noun.issue.many")}</span>
           </p>
         </div>
 
@@ -398,7 +391,7 @@ export default function Board() {
               <button
                 key={u.id}
                 onClick={() => setFilterUser(filterUser === u.id ? null : u.id)}
-                title={`Фильтр: ${u.name}`}
+                title={t("board.filterUserAria", { name: u.name })}
                 className={`rounded-full transition-all ${filterUser === u.id ? "z-10 scale-110 ring-2 ring-accent" : "hover:z-10 hover:scale-105"} ${filterUser && filterUser !== u.id ? "opacity-40" : ""}`}
               >
                 <Avatar user={u} size={26} ring />
@@ -406,7 +399,7 @@ export default function Board() {
             ))}
             <button
               onClick={() => setFilterUser(filterUser === "none" ? null : "none")}
-              title="Без исполнителя"
+              title={t("board.unassignedFilter")}
               className={`rounded-full transition-all ${filterUser === "none" ? "z-10 scale-110 ring-2 ring-accent" : "hover:z-10 hover:scale-105"} ${filterUser && filterUser !== "none" ? "opacity-40" : ""}`}
             >
               <Avatar user={null} size={26} ring />
@@ -414,9 +407,9 @@ export default function Board() {
           </div>
           <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-panel px-2.5">
             <IcSearch size={13} className="text-faint" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Фильтр по доске" className="w-32 bg-transparent text-[12.5px] outline-none placeholder:text-faint" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("board.searchPlaceholder")} className="w-32 bg-transparent text-[12.5px] outline-none placeholder:text-faint" />
             {q && (
-              <button onClick={() => setQ("")} className="text-faint hover:text-ink" aria-label="Сбросить">
+              <button onClick={() => setQ("")} className="text-faint hover:text-ink" aria-label={t("common.reset")}>
                 <IcX size={12} />
               </button>
             )}
@@ -436,7 +429,7 @@ export default function Board() {
                  on ? "border-accent bg-accentsoft text-accent" : "border-line bg-panel text-sub hover:border-line2"
                }`}
              >
-               {c.label}
+               {t(c.labelKey)}
              </button>
            );
          })}
@@ -445,19 +438,17 @@ export default function Board() {
              onClick={() => setChips(new Set())}
              className="flex h-7 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-faint hover:text-ink"
            >
-             <IcX size={11} /> Сбросить
+             <IcX size={11} /> {t("common.reset")}
            </button>
          )}
-         <span className="ml-auto text-[11.5px] text-faint">{visible.length} из {pool.length}</span>
+         <span className="ml-auto text-[11.5px] text-faint">{t("board.filteredOf", { visible: visible.length, total: pool.length })}</span>
        </div>
       </div>
 
       {!canMove && (
         <div className="flex items-center gap-2 border-b border-line bg-warnsoft/60 px-6 py-1.5 text-[12px] font-medium text-warn">
           <IcEye size={14} className="shrink-0" />
-          <span className="truncate">
-            Режим «только чтение»: ваша роль не позволяет перемещать задачи и создавать новые. Обратитесь к администратору проекта, если нужны дополнительные права.
-          </span>
+          <span className="truncate">{t("board.readOnlyBanner")}</span>
         </div>
       )}
 
@@ -468,7 +459,11 @@ export default function Board() {
         <div className="flex items-center gap-2 border-b border-line bg-warnsoft/60 px-6 py-1.5 text-[12px] font-medium text-warn">
           <IcEye size={14} className="shrink-0" />
           <span className="truncate">
-            Показаны {pool.length} задач из {data.issuesTotal}. Уточните фильтр, чтобы увидеть остальные.
+            {t("board.truncatedBanner", {
+              shown: pool.length,
+              total: data.issuesTotal,
+              noun: tn(pool.length, "noun.issue.one", "noun.issue.few", "noun.issue.many"),
+            })}
           </span>
         </div>
       )}
@@ -476,13 +471,13 @@ export default function Board() {
       {allClear && (
         <div className="border-b border-line bg-oksoft/50 px-6 py-3">
           <p className="flex items-center gap-2 text-[13px] font-semibold text-ok">
-            <IcCheck size={15} /> Все задачи закрыты
+            <IcCheck size={15} /> {t("board.allClearTitle")}
           </p>
           <p className="mt-0.5 text-[11.5px] text-sub">
             {closedRecently > 0
-              ? `За последние 30 дней команда закрыла ${closedRecently} ${plural(closedRecently, "задачу", "задачи", "задач")}.`
-              : "Открытых задач нет."}
-            {canCreate && " Можно браться за новое."}
+              ? t("board.closedRecently", { n: closedRecently, noun: tn(closedRecently, "noun.issueAcc.one", "noun.issueAcc.few", "noun.issueAcc.many") })
+              : t("board.noOpenIssues")}
+            {canCreate && t("board.canCreateSuffix")}
           </p>
         </div>
       )}
@@ -526,7 +521,7 @@ export default function Board() {
                     <button
                       onClick={() => setQuickFor(st.id)}
                       className="ml-auto flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-todosoft hover:text-ink"
-                      aria-label={`Добавить в «${st.name}»`}
+                      aria-label={t("board.addToStatusAria", { name: st.name })}
                     >
                       <IcPlus size={14} />
                     </button>
@@ -577,7 +572,7 @@ export default function Board() {
                       className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line2 px-3 py-2 text-[11.5px] font-medium text-faint transition-colors hover:border-accent hover:text-accent"
                     >
                       <IcArchive size={12} />
-                      Ранее закрыто: {hiddenDone(st.id)}
+                      {t("board.hiddenDone", { n: hiddenDone(st.id) })}
                     </button>
                   )}
                   {showAllDone && doneIds.has(st.id) && (
@@ -585,24 +580,27 @@ export default function Board() {
                       onClick={() => setShowAllDone(false)}
                       className="w-full rounded-lg px-3 py-1.5 text-[11px] font-medium text-faint transition-colors hover:text-ink"
                     >
-                      Свернуть до последних {DONE_WINDOW_DAYS} дней
+                      {t("board.collapseDone", { days: DONE_WINDOW_DAYS })}
                     </button>
                   )}
                   {items.length === 0 && quickFor !== st.id && hiddenDone(st.id) === 0 && (
                     <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[11.5px] transition-colors ${isOver ? "border-accent text-accent" : "border-line2 text-faint"}`}>
-                      {isOver ? (ok ? "Отпустите, чтобы переместить" : "Переход запрещён workflow") : "Перетащите задачи сюда"}
+                      {isOver ? (ok ? t("board.dropReleaseOk") : t("board.dropForbidden")) : t("board.dropHere")}
                     </div>
                   )}
                   {isOver && !ok && (
                     <p className="rounded bg-dangersoft px-2 py-1 text-center text-[11px] font-semibold text-danger">
-                      Переход «{dragged ? data.workflow.statuses.find((s) => s.id === dragged.statusId)?.name : ""} → {st.name}» вне схемы
+                      {t("board.transitionOutOfSchema", {
+                        from: dragged ? data.workflow.statuses.find((s) => s.id === dragged.statusId)?.name ?? "" : "",
+                        to: st.name,
+                      })}
                     </p>
                   )}
                 </div>
 
                 {st.id === doneStatusId && items.length > 0 && (
                   <p className="mt-1.5 flex items-center gap-1.5 px-1 text-[11px] text-ok">
-                    <IcInbox size={13} /> Закрыто: {items.length}
+                    <IcInbox size={13} /> {t("board.closedCount", { n: items.length })}
                   </p>
                 )}
               </section>

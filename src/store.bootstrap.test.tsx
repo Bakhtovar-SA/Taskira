@@ -1,7 +1,7 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
 import { StoreProvider, useStore } from "./store";
-import { authApi, departmentsApi, issuesApi, notificationsApi, projectsApi } from "./api";
+import { authApi, departmentsApi, issuesApi, notificationsApi, projectsApi, type ProjectBootstrap } from "./api";
 import type { AssignedIssue } from "./types";
 
 /**
@@ -82,5 +82,67 @@ describe("bootstrap → главный экран (≥2 проектов)", () =
     expect(latest!.data.assignedToMe).toHaveLength(1);
     expect(latest!.data.assignedToMe[0].key).toBe("A21-1");
     expect(latest!.data.assignedTruncated).toBe(false);
+  });
+});
+
+/** bootstrap() → один проект (single-project path, buildProjectData()).
+ *  Ревью PR #47: миграция 022 добавила обязательное поле issueTemplates
+ *  в ProjectBootstrap, и store.tsx сразу делает
+ *  boot.issueTemplates.map(mapIssueTemplate) без опционального доступа —
+ *  тот же класс риска, что и assignedToMe выше (сборка/деплой
+ *  рассинхронизировали клиент и сервер, поле отсутствует/undefined на
+ *  реальном ответе → .map() на undefined крашит вход в проект целиком). */
+describe("bootstrap → один проект (single-project path)", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  class FakeWebSocket {
+    onopen: (() => void) | null = null;
+    onclose: (() => void) | null = null;
+    onmessage: ((e: { data: string }) => void) | null = null;
+    send(): void {}
+    close(): void {}
+  }
+
+  test("boot.issueTemplates корректно превращается в data.issueTemplates, не крашит вход в проект", async () => {
+    localStorage.setItem("taskira.token", "test-token");
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    vi.spyOn(authApi, "me").mockResolvedValue(baseUser as never);
+    vi.spyOn(authApi, "config").mockResolvedValue({ authMode: "local" });
+    vi.spyOn(projectsApi, "list").mockResolvedValue([projects[0]] as never);
+    vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null, unread: 0 });
+    const boot: ProjectBootstrap = {
+      project: projects[0],
+      users: [baseUser as never],
+      members: [{ userId: "u1", role: "manager" }],
+      workflow: { statuses: [{ id: "s1", sid: "todo", name: "К работе", category: "todo" }], transitions: [] },
+      issueTemplates: [
+        { id: "t1", name: "Баг-репорт", typeId: "bug", priorityId: "high", title: "Баг: ", description: "", statusId: null, position: 0 },
+      ],
+      customFields: [],
+    };
+    vi.spyOn(projectsApi, "get").mockResolvedValue(boot);
+
+    let latest: ReturnType<typeof useStore> | null = null;
+    const { unmount } = render(
+      <StoreProvider>
+        <Probe onSnapshot={(api) => { latest = api; }} />
+      </StoreProvider>,
+    );
+    await act(async () => {
+      await latest!.bootstrap();
+    });
+
+    expect(latest!.bootStatus).toBe("ready");
+    expect(Array.isArray(latest!.data.issueTemplates)).toBe(true);
+    expect(latest!.data.issueTemplates).toHaveLength(1);
+    expect(latest!.data.issueTemplates[0]).toMatchObject({ id: "t1", name: "Баг-репорт", typeId: "bug" });
+    unmount();
   });
 });

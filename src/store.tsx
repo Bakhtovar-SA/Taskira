@@ -3,6 +3,7 @@ import type {
   AccessRole,
   AssignedIssue,
   Attachment,
+  ChecklistItem,
   Collaboration,
   Collaborator,
   ComplexityId,
@@ -11,6 +12,7 @@ import type {
   Department,
   Issue,
   IssueLink,
+  IssueTemplate,
   NotificationT,
   NotifyPrefsT,
   IssueTypeId,
@@ -24,7 +26,15 @@ import type {
   Workflow,
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
-import { LIMITS, sanitizeText, validateComment, validateDescription, validateLabels, validateTitle } from "./validation";
+import {
+  LIMITS,
+  sanitizeText,
+  validateChecklistItemText,
+  validateComment,
+  validateDescription,
+  validateLabels,
+  validateTitle,
+} from "./validation";
 import {
   ApiError,
   API_BASE,
@@ -32,6 +42,7 @@ import {
   authApi,
   clearToken,
   collaboratorsApi,
+  issueTemplatesApi,
   customFieldsApi,
   ldapApi,
   commentsApi,
@@ -42,9 +53,12 @@ import {
   notificationsApi,
   projectsApi,
   type CollaboratingItem,
+  type IssueTemplateInput,
   type NotifyPrefs,
   type ServerAttachment,
+  type ServerChecklistItem,
   type ServerIssueLink,
+  type ServerIssueTemplate,
   type ServerNotification,
   type ServerIssue,
   type SafeUser,
@@ -231,6 +245,7 @@ const emptyData = (): Data => ({
   currentUserId: "",
   issues: [],
   workflow: { statuses: [], transitions: [] },
+  issueTemplates: [],
   customFields: [],
   assignedToMe: [],
   assignedTruncated: false,
@@ -277,6 +292,17 @@ function normalizeType(t: string): IssueTypeId {
   return "task";
 }
 
+const mapIssueTemplate = (t: ServerIssueTemplate): IssueTemplate => ({
+  id: t.id,
+  name: t.name,
+  typeId: normalizeType(t.typeId),
+  priorityId: (t.priorityId as PriorityId) || "medium",
+  title: t.title,
+  description: t.description,
+  statusId: t.statusId,
+  position: t.position,
+});
+
 const mapAttachment = (a: ServerAttachment): Attachment => ({
   id: a.id,
   filename: a.filename,
@@ -284,6 +310,14 @@ const mapAttachment = (a: ServerAttachment): Attachment => ({
   byteSize: a.byteSize,
   uploadedById: a.uploadedById,
   createdAt: Date.parse(a.createdAt) || Date.now(),
+});
+
+const mapChecklistItem = (c: ServerChecklistItem): ChecklistItem => ({
+  id: c.id,
+  text: c.text,
+  done: c.done,
+  position: c.position,
+  createdAt: Date.parse(c.createdAt) || Date.now(),
 });
 
 const mapIssueLink = (l: ServerIssueLink): IssueLink => ({
@@ -337,6 +371,8 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     attachments: dto.attachments?.map(mapAttachment) ?? prev?.attachments ?? [],
     // links (связанные задачи) — только в детальном ответе GET /issues/:id.
     links: dto.links?.map(mapIssueLink) ?? prev?.links ?? [],
+    // checklist — тоже только в детальном ответе GET /issues/:id.
+    checklist: dto.checklist?.map(mapChecklistItem) ?? prev?.checklist ?? [],
     // customFieldValues — тоже только в детальном ответе GET /issues/:id.
     customFieldValues: dto.customFieldValues ?? prev?.customFieldValues ?? [],
     createdAt: Date.parse(dto.createdAt) || Date.now(),
@@ -405,6 +441,9 @@ interface Api {
   removeCollaborator: (issueId: string, userId: string) => void;
   addIssueLink: (issueId: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") => void;
   removeIssueLink: (issueId: string, linkId: string) => void;
+  addChecklistItem: (issueId: string, text: string) => void;
+  toggleChecklistItem: (issueId: string, itemId: string, done: boolean) => void;
+  removeChecklistItem: (issueId: string, itemId: string) => void;
   setCustomFieldValue: (issueId: string, fieldId: string, value: string | null) => void;
   uploadAttachment: (issueId: string, file: File) => void;
   removeAttachment: (issueId: string, attId: string) => void;
@@ -413,6 +452,9 @@ interface Api {
   addTransition: (from: string, to: string) => string | null;
   removeTransition: (id: string) => void;
   resetWorkflow: () => void;
+  addIssueTemplate: (input: IssueTemplateInput) => void;
+  updateIssueTemplateAction: (templateId: string, input: IssueTemplateInput) => void;
+  removeIssueTemplate: (templateId: string) => void;
   addCustomField: (name: string, fieldType: CustomFieldType, options: string[]) => void;
   renameCustomField: (fieldId: string, name: string) => void;
   removeCustomField: (fieldId: string) => void;
@@ -567,6 +609,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
           transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
         },
+        issueTemplates: boot.issueTemplates.map(mapIssueTemplate),
         customFields: boot.customFields,
         seq: issuesRes.total + 1,
       };
@@ -1273,6 +1316,64 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError],
   );
 
+  /* -------- чек-лист (checklist_items, миграция 019) -------- */
+
+  const setChecklist = (issueId: string, checklist: ServerChecklistItem[]) =>
+    setData((prev) => ({
+      ...prev,
+      issues: prev.issues.map((i) => (i.id === issueId ? { ...i, checklist: checklist.map(mapChecklistItem) } : i)),
+    }));
+
+  const addChecklistItem = useCallback(
+    (issueId: string, text: string) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("edit", issue)) return;
+      const r = validateChecklistItemText(text);
+      if (!r.ok) return toast("error", r.error);
+      void (async () => {
+        try {
+          const res = await issuesApi.addChecklistItem(pid(), issueId, r.value);
+          setChecklist(issueId, res.checklist);
+        } catch (err) {
+          handleApiError(err, "Не удалось добавить пункт чек-листа");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const toggleChecklistItem = useCallback(
+    (issueId: string, itemId: string, done: boolean) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("edit", issue)) return;
+      void (async () => {
+        try {
+          const res = await issuesApi.patchChecklistItem(pid(), issueId, itemId, { done });
+          setChecklist(issueId, res.checklist);
+        } catch (err) {
+          handleApiError(err, "Не удалось обновить пункт чек-листа");
+        }
+      })();
+    },
+    [requirePerm, handleApiError],
+  );
+
+  const removeChecklistItem = useCallback(
+    (issueId: string, itemId: string) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("edit", issue)) return;
+      void (async () => {
+        try {
+          const res = await issuesApi.removeChecklistItem(pid(), issueId, itemId);
+          setChecklist(issueId, res.checklist);
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить пункт чек-листа");
+        }
+      })();
+    },
+    [requirePerm, handleApiError],
+  );
+
   /* -------- значения пользовательских полей (custom_field_values, миграция 020).
      Определения полей (add/rename/remove) — ниже, у остальных editWorkflow-действий. */
 
@@ -1447,6 +1548,61 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, [requirePerm, toast, handleApiError]);
+
+  /* -------- шаблоны задач (issue_templates, миграция 022). Тем же правом
+     editWorkflow, что и схема workflow/custom-fields — не заводили отдельный
+     PermId под ещё одну «структурную схему проекта». -------- */
+
+  const addIssueTemplate = useCallback(
+    (input: IssueTemplateInput) => {
+      if (!requirePerm("editWorkflow")) return;
+      void (async () => {
+        try {
+          const t = await issueTemplatesApi.create(pid(), input);
+          setData((prev) => ({ ...prev, issueTemplates: [...prev.issueTemplates, mapIssueTemplate(t)] }));
+          toast("success", "Шаблон добавлен");
+        } catch (err) {
+          handleApiError(err, "Не удалось добавить шаблон");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const updateIssueTemplateAction = useCallback(
+    (templateId: string, input: IssueTemplateInput) => {
+      if (!requirePerm("editWorkflow")) return;
+      void (async () => {
+        try {
+          const t = await issueTemplatesApi.update(pid(), templateId, input);
+          setData((prev) => ({
+            ...prev,
+            issueTemplates: prev.issueTemplates.map((x) => (x.id === templateId ? mapIssueTemplate(t) : x)),
+          }));
+          toast("success", "Шаблон обновлён");
+        } catch (err) {
+          handleApiError(err, "Не удалось обновить шаблон");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeIssueTemplate = useCallback(
+    (templateId: string) => {
+      if (!requirePerm("editWorkflow")) return;
+      void (async () => {
+        try {
+          await issueTemplatesApi.remove(pid(), templateId);
+          setData((prev) => ({ ...prev, issueTemplates: prev.issueTemplates.filter((x) => x.id !== templateId) }));
+          toast("info", "Шаблон удалён");
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить шаблон");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
 
   /* -------- определения пользовательских полей (custom_fields, миграция 020).
      Тем же правом editWorkflow, что и схема workflow (см. миграцию/комментарий
@@ -1791,6 +1947,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     removeCollaborator,
     addIssueLink,
     removeIssueLink,
+    addChecklistItem,
+    toggleChecklistItem,
+    removeChecklistItem,
     setCustomFieldValue,
     uploadAttachment,
     removeAttachment,
@@ -1799,6 +1958,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addTransition,
     removeTransition,
     resetWorkflow,
+    addIssueTemplate,
+    updateIssueTemplateAction,
+    removeIssueTemplate,
     addCustomField,
     renameCustomField,
     removeCustomField,

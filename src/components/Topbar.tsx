@@ -3,8 +3,22 @@ import { relTime, useStore } from "../store";
 import type { NotificationT, ViewId } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
+import { useT, type TKey } from "../i18n";
+
+const VIEW_LABEL: Record<ViewId, TKey> = {
+  board: "sidebar.nav.board",
+  backlog: "sidebar.nav.backlog",
+  timeline: "sidebar.nav.timeline",
+  reports: "sidebar.nav.reports",
+  workflow: "sidebar.nav.workflow",
+  access: "sidebar.nav.access",
+  admin: "sidebar.nav.admin",
+  docs: "sidebar.nav.docs",
+  collaborating: "sidebar.nav.collaborating",
+};
 
 function SearchBox() {
+  const { t } = useT();
   const { data, openIssue } = useStore();
   const [q, setQ] = useState("");
   const [focus, setFocus] = useState(false);
@@ -42,7 +56,7 @@ function SearchBox() {
           onChange={(e) => setQ(e.target.value)}
           onFocus={() => setFocus(true)}
           onBlur={() => setTimeout(() => setFocus(false), 150)}
-          placeholder="Поиск задач…"
+          placeholder={t("topbar.searchPlaceholder")}
           className="h-8 w-full bg-transparent text-[13px] outline-none placeholder:text-faint"
         />
         {!focus && (
@@ -52,9 +66,9 @@ function SearchBox() {
       {focus && q.trim() && (
         <div className="anim-pop absolute left-0 right-0 top-full z-40 mt-1.5 overflow-hidden rounded-lg border border-line bg-panel shadow-[0_12px_40px_rgba(20,35,64,0.18)]">
           <p className="border-b border-linesoft px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">
-            Результаты · {results.length}
+            {t("topbar.resultsCount", { n: results.length })}
           </p>
-          {results.length === 0 && <p className="px-3 py-5 text-center text-[12.5px] text-faint">Ничего не найдено по запросу «{q}»</p>}
+          {results.length === 0 && <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q })}</p>}
           {results.map((i) => (
             <button
               key={i.id}
@@ -78,18 +92,19 @@ function SearchBox() {
   );
 }
 
-export const NOTIF_VERB: Record<NotificationT["type"], string> = {
-  "issue.assigned": "назначил(а) вас исполнителем",
-  "issue.comment": "прокомментировал(а)",
-  "issue.mention": "упомянул(а) вас в",
-  "issue.status": "сменил(а) статус",
-  "issue.collaborator": "подключил(а) вас к задаче",
-  "project.member": "добавил(а) вас в проект",
+export const NOTIF_VERB: Record<NotificationT["type"], TKey> = {
+  "issue.assigned": "notifVerb.issueAssigned",
+  "issue.comment": "notifVerb.issueComment",
+  "issue.mention": "notifVerb.issueMention",
+  "issue.status": "notifVerb.issueStatus",
+  "issue.collaborator": "notifVerb.issueCollaborator",
+  "project.member": "notifVerb.projectMember",
 };
 
 /** Содержимое дропдауна колокола. Отдельный компонент — чтобы `useEffect` на
  *  маунте (подтянуть свежую ленту) срабатывал при открытии. */
 function BellPanel({ close }: { close: () => void }) {
+  const { t } = useT();
   const { data, openIssue, refreshNotifications, markNotificationsRead, dismissNotifications } = useStore();
   useEffect(() => {
     void refreshNotifications();
@@ -108,27 +123,27 @@ function BellPanel({ close }: { close: () => void }) {
   return (
     <div className="flex max-h-[70vh] flex-col">
       <div className="flex items-center justify-between border-b border-linesoft px-3.5 py-2.5">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-faint">Уведомления</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-faint">{t("topbar.notifications")}</p>
         <div className="flex items-center gap-3">
           {anyUnread && (
             <button onClick={() => markNotificationsRead()} className="text-[11px] font-semibold text-accent hover:underline">
-              Прочитать всё
+              {t("topbar.markAllRead")}
             </button>
           )}
           {list.length > 0 && (
             <button
               onClick={() => dismissNotifications()}
-              title="Очистить список — только у себя, остальным видно как раньше"
+              title={t("topbar.clearListTitle")}
               className="text-[11px] font-semibold text-faint hover:text-danger hover:underline"
             >
-              Очистить
+              {t("topbar.clear")}
             </button>
           )}
         </div>
       </div>
       <div className="overflow-y-auto">
         {list.length === 0 && (
-          <p className="px-3.5 py-8 text-center text-[12.5px] text-faint">Пока нет уведомлений</p>
+          <p className="px-3.5 py-8 text-center text-[12.5px] text-faint">{t("topbar.noNotifications")}</p>
         )}
         {list.map((n) => (
           <div
@@ -145,7 +160,7 @@ function BellPanel({ close }: { close: () => void }) {
                 )}
               </span>
               <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
-                <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? "Кто-то"}</b> {NOTIF_VERB[n.type]}{" "}
+                <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b> {t(NOTIF_VERB[n.type])}{" "}
                 {n.payload.key && (
                   <span className="font-mono text-[11px] font-semibold text-accent">{n.payload.key}</span>
                 )}
@@ -166,7 +181,7 @@ function BellPanel({ close }: { close: () => void }) {
                 e.stopPropagation();
                 dismissNotifications([n.id]);
               }}
-              title="Скрыть это уведомление — только у себя"
+              title={t("topbar.dismissOneTitle")}
               className="mt-0.5 shrink-0 rounded p-0.5 text-faint opacity-0 transition-opacity hover:bg-linesoft hover:text-danger group-hover:opacity-100"
             >
               <IcX size={11} />
@@ -179,6 +194,7 @@ function BellPanel({ close }: { close: () => void }) {
 }
 
 export function Bell() {
+  const { t } = useT();
   const { data } = useStore();
   const unread = data.unreadCount;
   return (
@@ -188,7 +204,7 @@ export function Bell() {
       button={(open) => (
         <button
           className={`relative flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${open ? "border-accent bg-accentsoft text-accent" : "border-line bg-panel text-sub hover:text-ink"}`}
-          aria-label="Уведомления"
+          aria-label={t("topbar.notifications")}
         >
           <IcBell size={15} />
           {unread > 0 && (
@@ -206,18 +222,19 @@ export function Bell() {
 
 /** Настройки уведомлений — компактный блок в меню пользователя (D6). */
 function NotifySettings() {
+  const { t } = useT();
   const { data, setNotifyPrefs } = useStore();
   const mode = data.notifyPrefs.email ?? "instant";
   const selfWatch = data.notifyPrefs.selfWatch !== false;
   return (
     <div className="border-b border-linesoft px-3.5 py-3">
-      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Уведомления по почте</p>
+      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("topbar.emailNotifications")}</p>
       <div className="flex gap-1">
         {(
           [
-            ["instant", "Сразу"],
-            ["daily", "Дайджест"],
-            ["off", "Выкл"],
+            ["instant", t("topbar.emailMode.instant")],
+            ["daily", t("topbar.emailMode.daily")],
+            ["off", t("topbar.emailMode.off")],
           ] as const
         ).map(([v, label]) => (
           <button
@@ -238,20 +255,21 @@ function NotifySettings() {
           onChange={(e) => setNotifyPrefs({ selfWatch: e.target.checked })}
           className="h-3.5 w-3.5 accent-accent"
         />
-        Подписывать меня на мои задачи
+        {t("topbar.selfWatch")}
       </label>
     </div>
   );
 }
 
 function UserMenu({ onLogout }: { onLogout: () => void }) {
+  const { t } = useT();
   const { data, me } = useStore();
   return (
     <Dropdown
       width={280}
       align="right"
       button={(open) => (
-        <button className={`flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${open ? "border-accent bg-accentsoft" : "border-line bg-panel hover:border-line2"}`} aria-label="Меню пользователя">
+        <button className={`flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${open ? "border-accent bg-accentsoft" : "border-line bg-panel hover:border-line2"}`} aria-label={t("topbar.userMenuAria")}>
           <Avatar user={me} size={26} />
           <span className="hidden max-w-[120px] truncate text-left md:block">
             <span className="block truncate text-[12.5px] font-semibold leading-tight text-ink">{me.name.split(" ")[0]}</span>
@@ -283,7 +301,7 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
               close();
             }}
           >
-            Выйти
+            {t("topbar.logout")}
           </MenuItem>
         </>
       )}
@@ -292,6 +310,7 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
 }
 
 function ProjectSwitcher() {
+  const { t } = useT();
   const { data, switchProject } = useStore();
   if (data.projects.length <= 1) return <span className="font-semibold text-sub">{data.project.name}</span>;
   const sorted = [...data.projects].sort((a, b) => a.key.localeCompare(b.key));
@@ -324,7 +343,7 @@ function ProjectSwitcher() {
                   {p.key}
                 </span>
                 <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                {p.isShared && <span className="shrink-0 text-[9.5px] uppercase text-faint">общий</span>}
+                {p.isShared && <span className="shrink-0 text-[9.5px] uppercase text-faint">{t("topbar.sharedBadge")}</span>}
                 {p.id === data.currentProjectId && <IcCheck size={12} className="shrink-0 text-accent" />}
               </span>
             </MenuItem>
@@ -339,18 +358,19 @@ function ProjectSwitcher() {
  *  телефоне открывался системный список, а не самодельная выпадашка. Набор
  *  пунктов повторяет сайдбар, включая те же правила видимости. */
 function MobileViewSwitcher() {
+  const { t } = useT();
   const { data, ui, setView, me } = useStore();
   const isAdmin = me.globalRole === "admin";
-  const items: { id: ViewId; label: string }[] = [
-    { id: "board", label: "Доска" },
-    { id: "backlog", label: "Список задач" },
-    { id: "timeline", label: "Таймлайн" },
-    { id: "reports", label: "Отчёты" },
-    { id: "workflow", label: "Рабочий процесс" },
-    { id: "access", label: "Права доступа" },
-    ...(isAdmin ? [{ id: "admin" as ViewId, label: "Департаменты" }] : []),
-    { id: "docs", label: "Документация" },
-    ...(data.collaborations.length > 0 ? [{ id: "collaborating" as ViewId, label: "Мои подключения" }] : []),
+  const ids: ViewId[] = [
+    "board",
+    "backlog",
+    "timeline",
+    "reports",
+    "workflow",
+    "access",
+    ...(isAdmin ? (["admin"] as ViewId[]) : []),
+    "docs",
+    ...(data.collaborations.length > 0 ? (["collaborating"] as ViewId[]) : []),
   ];
 
   return (
@@ -358,12 +378,12 @@ function MobileViewSwitcher() {
       id="mobile-view"
       value={ui.view}
       onChange={(e) => setView(e.target.value as ViewId)}
-      aria-label="Раздел"
+      aria-label={t("topbar.sectionAria")}
       className="h-8 max-w-[160px] rounded-md border border-line bg-panel px-2 text-[13px] font-semibold text-ink focus:border-accent focus:outline-none md:hidden"
     >
-      {items.map((i) => (
-        <option key={i.id} value={i.id}>
-          {i.label}
+      {ids.map((id) => (
+        <option key={id} value={id}>
+          {t(VIEW_LABEL[id])}
         </option>
       ))}
     </select>
@@ -371,22 +391,13 @@ function MobileViewSwitcher() {
 }
 
 export default function Topbar({ onLogout }: { onLogout?: () => void }) {
+  const { t } = useT();
   const { data, ui, setCreateOpen, can, logout, goHome } = useStore();
   const doLogout = onLogout ?? logout;
   // «Проекты» — назад на главный экран; кликабельно только когда он вообще есть
   // (≥ 2 доступных проектов), иначе это просто метка (UI_RESTRUCTURE.md D4).
   const homeAvailable = data.projects.length >= 2;
-  const viewTitle = {
-    board: "Доска",
-    backlog: "Список задач",
-    timeline: "Таймлайн",
-    reports: "Отчёты",
-    workflow: "Рабочий процесс",
-    access: "Права доступа",
-    admin: "Департаменты",
-    docs: "Документация",
-    collaborating: "Мои подключения",
-  }[ui.view];
+  const viewTitle = t(VIEW_LABEL[ui.view]);
   const canCreate = can("create");
 
   return (
@@ -398,11 +409,11 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
 
       <nav className="hidden min-w-0 items-center gap-1 text-[13px] text-faint md:flex">
         {homeAvailable ? (
-          <button onClick={goHome} className="font-semibold text-sub transition-colors hover:text-accent" title="На главный экран">
-            Проекты
+          <button onClick={goHome} className="font-semibold text-sub transition-colors hover:text-accent" title={t("sidebar.homeAria")}>
+            {t("topbar.projectsCrumb")}
           </button>
         ) : (
-          <span className="font-semibold text-sub">Проекты</span>
+          <span className="font-semibold text-sub">{t("topbar.projectsCrumb")}</span>
         )}
         <IcChevR size={12} />
         <ProjectSwitcher />
@@ -417,14 +428,14 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
           <button
             onClick={() => setCreateOpen(true)}
             className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-2.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.35)] transition-all hover:bg-accentdeep hover:shadow-[0_4px_14px_rgba(11,95,217,0.4)] active:scale-[0.97] sm:px-3.5"
-            aria-label="Создать задачу"
+            aria-label={t("topbar.createAria")}
           >
-            <IcPlus size={14} /> <span className="hidden sm:inline">Создать</span>
+            <IcPlus size={14} /> <span className="hidden sm:inline">{t("topbar.create")}</span>
           </button>
         ) : (
-          <Tip label="Ваша роль не позволяет создавать задачи">
+          <Tip label={t("topbar.createDeniedTip")}>
             <button className="flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md border border-line bg-canvas px-3.5 text-[13px] font-semibold text-faint">
-              <IcLock size={13} /> Создать
+              <IcLock size={13} /> {t("topbar.create")}
             </button>
           </Tip>
         )}

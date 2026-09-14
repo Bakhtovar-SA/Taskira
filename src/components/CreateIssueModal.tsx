@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { assignableUsers, useStore } from "../store";
 import type { ComplexityId, IssueTypeId, PriorityId } from "../types";
-import { COMPLEXITY_ORDER, COMPLEXITIES, ISSUE_TYPES, PRIORITY_ORDER, PRIORITIES, TYPE_ORDER } from "../types";
+import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcX, TypeIcon } from "../icons";
 import { Avatar, Dropdown, Modal, Chip } from "../ui";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
+import { useT } from "../i18n";
 
 const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 export default function CreateIssueModal() {
+  const { t } = useT();
   const { data, setCreateOpen, createIssue } = useStore();
   const [typeId, setTypeId] = useState<IssueTypeId>("task");
   const [title, setTitle] = useState("");
@@ -23,6 +25,25 @@ export default function CreateIssueModal() {
   const [labels, setLabels] = useState<string[]>([]);
   const [labelDraft, setLabelDraft] = useState("");
   const [again, setAgain] = useState(false);
+  // Шаблон (issue_templates, миграция 022) — чистый prefill формы: applyTemplate
+  // копирует его поля в локальный стейт один раз при выборе, дальше форма живёт
+  // как обычно (правки после применения шаблон не отслеживает и не блокирует).
+  const [templateId, setTemplateId] = useState("");
+  const [templateStatusId, setTemplateStatusId] = useState<string | null>(null);
+
+  const applyTemplate = (id: string) => {
+    setTemplateId(id);
+    const t = data.issueTemplates.find((x) => x.id === id);
+    if (!t) {
+      setTemplateStatusId(null);
+      return;
+    }
+    setTypeId(t.typeId);
+    setPriorityId(t.priorityId);
+    setTitle(t.title);
+    setDescription(t.description);
+    setTemplateStatusId(t.statusId);
+  };
 
   // Тип "epic" упразднён (миграция 002): «направление» — обычная задача, на
   // которую ссылаются через epicId. Кандидат — любая задача проекта, а не
@@ -39,7 +60,7 @@ export default function CreateIssueModal() {
 
   const submit = () => {
     if (!title.trim()) {
-      setError("Укажите название — без него задачу создать нельзя");
+      setError(t("createIssue.titleRequired"));
       return;
     }
     createIssue({
@@ -52,6 +73,7 @@ export default function CreateIssueModal() {
       labels,
       complexity,
       dueDate: dueDate || null,
+      statusId: templateStatusId ?? undefined,
     });
     if (again) {
       setTitle("");
@@ -59,35 +81,54 @@ export default function CreateIssueModal() {
       setError("");
       setDueDate("");
       setLabels([]);
+      setTemplateId("");
+      setTemplateStatusId(null);
     } else {
       setCreateOpen(false);
     }
   };
 
   return (
-    <Modal onClose={() => setCreateOpen(false)} w={620} title="Создание задачи">
+    <Modal onClose={() => setCreateOpen(false)} w={620} title={t("createIssue.title")}>
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-        <span className="font-disp text-[14px] font-bold text-ink">Новая задача</span>
+        <span className="font-disp text-[14px] font-bold text-ink">{t("createIssue.newIssue")}</span>
         <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-sub">{data.project.key}-{data.seq}</span>
-        <button onClick={() => setCreateOpen(false)} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-canvas hover:text-ink" aria-label="Закрыть">
+        <button onClick={() => setCreateOpen(false)} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-canvas hover:text-ink" aria-label={t("common.close")}>
           <IcX size={15} />
         </button>
       </div>
 
       <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 py-4">
+        {/* шаблон (issue_templates, миграция 022) — только если в проекте есть хоть один */}
+        {data.issueTemplates.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Шаблон</p>
+            <select
+              value={templateId}
+              onChange={(e) => applyTemplate(e.target.value)}
+              className="w-full cursor-pointer rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none focus:border-accent"
+            >
+              <option value="">без шаблона</option>
+              {data.issueTemplates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* тип */}
         <div>
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Тип задачи</p>
+          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.type")}</p>
           <div className="flex gap-1.5">
-            {TYPE_ORDER.map((t) => (
+            {TYPE_ORDER.map((ty) => (
               <button
-                key={t}
-                onClick={() => setTypeId(t)}
+                key={ty}
+                onClick={() => setTypeId(ty)}
                 className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-2 py-2 text-[12.5px] font-semibold transition-all ${
-                  typeId === t ? "border-accent bg-accentsoft text-accent shadow-[0_0_0_2px_rgba(11,95,217,0.15)]" : "border-line bg-panel text-sub hover:border-line2"
+                  typeId === ty ? "border-accent bg-accentsoft text-accent shadow-[0_0_0_2px_rgba(11,95,217,0.15)]" : "border-line bg-panel text-sub hover:border-line2"
                 }`}
               >
-                <TypeIcon type={t} size={14} /> {ISSUE_TYPES[t].name}
+                <TypeIcon type={ty} size={14} /> {t(`issueType.${ty}`)}
               </button>
             ))}
           </div>
@@ -95,7 +136,7 @@ export default function CreateIssueModal() {
 
         {/* название */}
         <div>
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Название *</p>
+          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("createIssue.titleField")}</p>
           <input
             autoFocus
             value={title}
@@ -104,7 +145,7 @@ export default function CreateIssueModal() {
               if (error) setError("");
             }}
             onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder="Например: Экран восстановления пароля"
+            placeholder={t("createIssue.titlePlaceholder")}
             maxLength={LIMITS.title.max}
             className={`${inputCls} ${error ? "border-danger ring-2 ring-danger/15" : ""}`}
           />
@@ -112,13 +153,13 @@ export default function CreateIssueModal() {
         </div>
 
         <div>
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Описание</p>
+          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("createIssue.descriptionField")}</p>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             maxLength={LIMITS.description.max}
-            placeholder="Что нужно сделать и критерии готовности…"
+            placeholder={t("createIssue.descriptionPlaceholder")}
             className={`${inputCls} resize-y`}
           />
           {description.length > LIMITS.description.max * 0.8 && (
@@ -128,12 +169,12 @@ export default function CreateIssueModal() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Приоритет</p>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.priority")}</p>
             <Dropdown
               width={220}
               button={(open) => (
                 <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
-                  <PriorityIcon p={priorityId} size={14} /> {PRIORITIES[priorityId].name}
+                  <PriorityIcon p={priorityId} size={14} /> {t(`priority.${priorityId}`)}
                   <IcChevD size={12} className="ml-auto text-faint" />
                 </button>
               )}
@@ -142,7 +183,7 @@ export default function CreateIssueModal() {
                 <>
                   {PRIORITY_ORDER.map((p) => (
                     <button key={p} onClick={() => { setPriorityId(p); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                      <PriorityIcon p={p} size={14} /> {PRIORITIES[p].name} {p === priorityId && <IcCheck size={12} className="ml-auto text-accent" />}
+                      <PriorityIcon p={p} size={14} /> {t(`priority.${p}`)} {p === priorityId && <IcCheck size={12} className="ml-auto text-accent" />}
                     </button>
                   ))}
                 </>
@@ -150,13 +191,13 @@ export default function CreateIssueModal() {
             </Dropdown>
           </div>
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Исполнитель</p>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.assignee")}</p>
             <Dropdown
               width={220}
               button={(open) => (
                 <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
                   <Avatar user={assignee ?? null} size={18} />
-                  <span className={assignee ? "" : "text-faint"}>{assignee?.name ?? "Не назначен"}</span>
+                  <span className={assignee ? "" : "text-faint"}>{assignee?.name ?? t("createIssue.unassigned")}</span>
                   <IcChevD size={12} className="ml-auto text-faint" />
                 </button>
               )}
@@ -164,7 +205,7 @@ export default function CreateIssueModal() {
               {(close) => (
                 <>
                   <button onClick={() => { setAssigneeId(null); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                    <Avatar user={null} size={18} /> Не назначен {!assigneeId && <IcCheck size={12} className="ml-auto text-accent" />}
+                    <Avatar user={null} size={18} /> {t("createIssue.unassigned")} {!assigneeId && <IcCheck size={12} className="ml-auto text-accent" />}
                   </button>
                   {assignableUsers(data).map((u) => (
                       <button key={u.id} onClick={() => { setAssigneeId(u.id); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
@@ -176,27 +217,26 @@ export default function CreateIssueModal() {
             </Dropdown>
           </div>
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Направление</p>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.direction")}</p>
             <select value={epicId ?? ""} onChange={(e) => setEpicId(e.target.value || null)} className={`${inputCls} cursor-pointer`}>
-              <option value="">Без направления</option>
+              <option value="">{t("createIssue.noDirection")}</option>
               {directionOptions.map((e) => (
                 <option key={e.id} value={e.id}>{e.title}</option>
               ))}
             </select>
             {directionOptions.length === 0 && (
               <p className="mt-1 text-[10.5px] leading-snug text-faint">
-                Направлений пока нет — любая задача становится направлением, как только другая
-                сошлётся на неё здесь.
+                {t("createIssue.noDirectionsYet")}
               </p>
             )}
           </div>
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Сложность</p>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.complexity")}</p>
             <Dropdown
               width={220}
               button={(open) => (
                 <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
-                  <span className="min-w-0 flex-1 truncate text-left">{complexity ? COMPLEXITIES[complexity].name : "Без оценки"}</span>
+                  <span className="min-w-0 flex-1 truncate text-left">{complexity ? t(`complexity.${complexity}`) : t("complexity.none")}</span>
                   <IcChevD size={12} className="ml-auto text-faint" />
                 </button>
               )}
@@ -204,11 +244,11 @@ export default function CreateIssueModal() {
               {(close) => (
                 <>
                   <button onClick={() => { setComplexity(null); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                    Без оценки {complexity === null && <IcCheck size={12} className="ml-auto text-accent" />}
+                    {t("complexity.none")} {complexity === null && <IcCheck size={12} className="ml-auto text-accent" />}
                   </button>
                   {COMPLEXITY_ORDER.map((c) => (
                     <button key={c} onClick={() => { setComplexity(c); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                      {COMPLEXITIES[c].name} {c === complexity && <IcCheck size={12} className="ml-auto text-accent" />}
+                      {t(`complexity.${c}`)} {c === complexity && <IcCheck size={12} className="ml-auto text-accent" />}
                     </button>
                   ))}
                 </>
@@ -219,11 +259,11 @@ export default function CreateIssueModal() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Срок</p>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.dueDate")}</p>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${inputCls} cursor-pointer`} />
           </div>
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Метки</p>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.labels")}</p>
             <div className={`flex flex-wrap items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1.5 ${labelDraft ? "" : ""}`}>
               {labels.map((l) => (
                 <Chip key={l} text={l} onRemove={() => setLabels((p) => p.filter((x) => x !== l))} />
@@ -238,7 +278,7 @@ export default function CreateIssueModal() {
                   }
                 }}
                 onBlur={addLabel}
-                placeholder="+ Enter"
+                placeholder={t("createIssue.labelPlaceholder")}
                 className="min-w-[70px] flex-1 bg-transparent text-[12.5px] outline-none placeholder:text-faint"
               />
             </div>
@@ -248,14 +288,14 @@ export default function CreateIssueModal() {
 
       <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
         <button onClick={submit} className="rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.97]">
-          Создать задачу
+          {t("createIssue.submit")}
         </button>
         <button onClick={() => setCreateOpen(false)} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-canvas">
-          Отмена
+          {t("common.cancel")}
         </button>
         <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12px] text-sub">
           <input type="checkbox" checked={again} onChange={(e) => setAgain(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
-          создать ещё одну следом
+          {t("createIssue.createAnother")}
         </label>
       </div>
     </Modal>

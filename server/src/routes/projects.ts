@@ -20,6 +20,7 @@ import {
   type JwtPayload,
 } from "../middleware.js";
 import { conflict, getWorkflow, seedProjectWorkflow } from "../services/workflow.js";
+import { listIssueTemplates } from "../services/issueTemplates.js";
 import { listCustomFields } from "../services/customFields.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
@@ -95,8 +96,10 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       // проекта; а если проект is_shared — вообще все активные (тот же неявный
       // viewer, что даёт effectiveRole в middleware, LDAP_MIGRATION.md D8).
       // Нужно, чтобы текущий юзер резолвился в клиентском me-memo.
-      const users = (
-        await q<UserRow>(
+      // Пять независимых чтений — параллельно, а не пять последовательных
+      // round trip'ов на каждый вход в проект (ревью PR #47).
+      const [userRows, memberRows, workflow, issueTemplates, customFields] = await Promise.all([
+        q<UserRow>(
           `SELECT u.* FROM users u
             WHERE u.is_active
               AND ($3
@@ -105,14 +108,15 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
                    OR EXISTS (SELECT 1 FROM department_members dm WHERE dm.department_id = $2 AND dm.user_id = u.id))
             ORDER BY u.name`,
           [project.id, project.departmentId, project.isShared],
-        )
-      ).map(safeUser);
-      const members = (
-        await q<MemberRow>(`SELECT user_id, role FROM project_members WHERE project_id = $1`, [project.id])
-      ).map((m) => ({ userId: m.user_id, role: m.role }));
-      const workflow = await getWorkflow(project.id);
-      const customFields = await listCustomFields(project.id);
-      return { project: projectRowToDto(project), users, members, workflow, customFields };
+        ),
+        q<MemberRow>(`SELECT user_id, role FROM project_members WHERE project_id = $1`, [project.id]),
+        getWorkflow(project.id),
+        listIssueTemplates(project.id),
+        listCustomFields(project.id),
+      ]);
+      const users = userRows.map(safeUser);
+      const members = memberRows.map((m) => ({ userId: m.user_id, role: m.role }));
+      return { project: projectRowToDto(project), users, members, workflow, issueTemplates, customFields };
     },
   );
 

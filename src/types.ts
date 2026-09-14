@@ -100,6 +100,31 @@ export interface IssueLink {
   createdAt: number;
 }
 
+/** Пункт чек-листа (checklist_items, миграция 019). Заполняется при открытии
+ *  карточки (детальный GET /issues/:id), как attachments/links/collaborators. */
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  position: number;
+  createdAt: number;
+}
+
+/** Шаблон задачи проекта (issue_templates, миграция 022) — уровень проекта,
+ *  как workflow/custom-fields. Применение — чистый client-side prefill формы
+ *  CreateIssueModal, не связано с созданной задачей. */
+export interface IssueTemplate {
+  id: string;
+  name: string;
+  typeId: IssueTypeId;
+  priorityId: PriorityId;
+  title: string;
+  description: string;
+  /** Необязательная подсказка стартового статуса; null — «как обычно». */
+  statusId: string | null;
+  position: number;
+}
+
 /** Пользовательское поле проекта (custom_fields, миграция 020) — определение,
  *  на уровне проекта, приходит в bootstrap (data.customFields), не в задаче. */
 export type CustomFieldType = "text" | "number" | "select" | "checkbox" | "date";
@@ -152,6 +177,8 @@ export interface Issue {
   attachments: Attachment[];
   /** Связанные задачи — заполняется при открытии карточки (GET /issues/:id). */
   links: IssueLink[];
+  /** Чек-лист — заполняется при открытии карточки (GET /issues/:id). */
+  checklist: ChecklistItem[];
   /** Значения пользовательских полей — заполняется при открытии карточки (GET /issues/:id). */
   customFieldValues: CustomFieldValue[];
   createdAt: number;
@@ -204,6 +231,8 @@ export interface Data {
   currentUserId: string;
   issues: Issue[];
   workflow: Workflow;
+  /** Шаблоны задач проекта (миграция 022). */
+  issueTemplates: IssueTemplate[];
   /** Определения пользовательских полей проекта (миграция 020). */
   customFields: CustomFieldDef[];
   /** Открытые задачи, назначенные мне по всем видимым проектам (главный экран). */
@@ -286,26 +315,10 @@ export interface AssignedIssue {
   projectName: string;
 }
 
-export const ISSUE_TYPES: Record<IssueTypeId, { name: string }> = {
-  task: { name: "Задача" },
-  bug: { name: "Баг" },
-  request: { name: "Запрос" },
-};
-
-export const PRIORITIES: Record<PriorityId, { name: string }> = {
-  critical: { name: "Критичный" },
-  high: { name: "Высокий" },
-  medium: { name: "Средний" },
-  low: { name: "Низкий" },
-};
-
+// Display names for these three id sets live in src/i18n/ (issueType.*,
+// priority.*, complexity.* keys) — call sites do t(`priority.${id}`) etc.
+// instead of reading a .name field here, so the label follows the current
+// language. These arrays are only the id sets/ordering.
 export const PRIORITY_ORDER: PriorityId[] = ["critical", "high", "medium", "low"];
 export const TYPE_ORDER: IssueTypeId[] = ["task", "bug", "request"];
-
-export const COMPLEXITIES: Record<ComplexityId, { name: string }> = {
-  simple: { name: "Простая" },
-  medium: { name: "Средняя" },
-  hard: { name: "Сложная" },
-};
-
 export const COMPLEXITY_ORDER: ComplexityId[] = ["simple", "medium", "hard"];
