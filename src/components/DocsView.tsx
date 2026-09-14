@@ -139,8 +139,8 @@ export default function DocsView() {
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {DEFAULT_WORKFLOW.statuses.map((s) => {
                   const c = catColor(s.category);
-                  const out = DEFAULT_WORKFLOW.transitions.filter((t) => t.from === s.id).length;
-                  const inc = DEFAULT_WORKFLOW.transitions.filter((t) => t.to === s.id).length;
+                  const out = DEFAULT_WORKFLOW.transitions.filter((tr) => tr.from === s.id).length;
+                  const inc = DEFAULT_WORKFLOW.transitions.filter((tr) => tr.to === s.id).length;
                   return (
                     <div key={s.id} className="flex items-center gap-3 rounded-lg border border-linesoft bg-canvas/50 px-3 py-2.5">
                       <span className="h-2.5 w-2.5 rounded-sm" style={{ background: c.dot }} />

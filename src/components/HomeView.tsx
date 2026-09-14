@@ -85,13 +85,13 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
     const s = q.trim().toLowerCase();
     if (!s) return data.assignedToMe;
     return data.assignedToMe.filter(
-      (t) => t.key.toLowerCase().includes(s) || t.title.toLowerCase().includes(s) || t.projectName.toLowerCase().includes(s),
+      (item) => item.key.toLowerCase().includes(s) || item.title.toLowerCase().includes(s) || item.projectName.toLowerCase().includes(s),
     );
   }, [data.assignedToMe, q]);
 
   const countInProject = useMemo(() => {
     const m = new Map<string, number>();
-    for (const t of data.assignedToMe) m.set(t.projectId, (m.get(t.projectId) ?? 0) + 1);
+    for (const item of data.assignedToMe) m.set(item.projectId, (m.get(item.projectId) ?? 0) + 1);
     return m;
   }, [data.assignedToMe]);
 
@@ -115,13 +115,13 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   // Принимаем только то, что реально нужно навигации — и TaskRow (полный
   // AssignedIssue), и «Недавняя активность» (у уведомления лишь project/issue id)
   // остаются честными перед типизацией, без приведения через весь AssignedIssue.
-  const openTask = (t: Pick<AssignedIssue, "projectId" | "issueId">) => {
+  const openTask = (item: Pick<AssignedIssue, "projectId" | "issueId">) => {
     try {
-      location.hash = `#/issue/${t.projectId}/${t.issueId}`;
+      location.hash = `#/issue/${item.projectId}/${item.issueId}`;
     } catch {
       /* noop */
     }
-    enterProject(t.projectId);
+    enterProject(item.projectId);
   };
 
   return (
