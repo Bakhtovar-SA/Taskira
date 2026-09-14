@@ -138,6 +138,20 @@ export interface CustomFieldDef {
   position: number;
 }
 
+/** Спринт проекта (sprints, миграция 023) — опциональный модуль, включается
+ *  per-project флагом project.sprintsEnabled (SPRINTS_MIGRATION.md). Приходит
+ *  в bootstrap (data.sprints), как issueTemplates/customFields. */
+export type SprintStatus = "future" | "active" | "completed";
+
+export interface Sprint {
+  id: string;
+  name: string;
+  goal: string;
+  status: SprintStatus;
+  startDate: string | null;
+  endDate: string | null;
+}
+
 /** Значение поля на конкретной задаче (custom_field_values). Заполняется при
  *  открытии карточки (детальный GET /issues/:id), как attachments/links/checklist.
  *  Отсутствие записи для fieldId в массиве = значение не задано. */
@@ -160,6 +174,10 @@ export interface Issue {
   /** Родитель-подзадачи (миграция 021) — независимо от epicId («направление»);
    *  ровно два уровня, сервер не даёт сделать подзадачу подзадачей. */
   parentId: string | null;
+  /** Спринт (миграция 023, опциональный модуль); null — бэклог или проект
+   *  не использует спринты. Приходит в списке задач, не только в детальном
+   *  ответе — как parentId/epicId. */
+  sprintId: string | null;
   labels: string[];
   complexity: ComplexityId | null;
   dueDate?: string | null;
@@ -199,6 +217,9 @@ export interface Project {
   description: string;
   departmentId?: string;
   isShared?: boolean;
+  /** Модуль спринтов (миграция 023) — опциональный, по умолчанию выключен.
+   *  Управляет видимостью вкладки «Спринты»; см. SPRINTS_MIGRATION.md. */
+  sprintsEnabled?: boolean;
 }
 
 /** Краткая карточка проекта для списка/переключателя. */
@@ -208,6 +229,7 @@ export interface ProjectSummary {
   name: string;
   departmentId: string;
   isShared: boolean;
+  sprintsEnabled: boolean;
 }
 
 export interface Department {
@@ -242,6 +264,9 @@ export interface Data {
   issueTemplates: IssueTemplate[];
   /** Определения пользовательских полей проекта (миграция 020). */
   customFields: CustomFieldDef[];
+  /** Спринты проекта (миграция 023) — пусто, если модуль выключен
+   *  (project.sprintsEnabled=false). */
+  sprints: Sprint[];
   /** Открытые задачи, назначенные мне по всем видимым проектам (главный экран). */
   assignedToMe: AssignedIssue[];
   /** true — сервер урезал список «Моих задач» своим потолком; надо сказать человеку. */
@@ -289,7 +314,17 @@ export interface NotificationT {
 
 export type NotifyPrefsT = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
 
-export type ViewId = "board" | "backlog" | "timeline" | "reports" | "workflow" | "access" | "admin" | "docs" | "collaborating";
+export type ViewId =
+  | "board"
+  | "backlog"
+  | "sprints"
+  | "timeline"
+  | "reports"
+  | "workflow"
+  | "access"
+  | "admin"
+  | "docs"
+  | "collaborating";
 
 /** Задача, к которой пользователя пригласили как collaborator'а (в чужом проекте).
  *  GET /api/issues/collaborating. Показывается в разделе «Мои подключения». */

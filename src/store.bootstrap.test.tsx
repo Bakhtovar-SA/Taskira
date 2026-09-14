@@ -24,8 +24,8 @@ const baseUser = {
 };
 
 const projects = [
-  { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false },
-  { id: "p2", key: "CORP", name: "Проект 2", description: "", departmentId: "d2", isShared: true },
+  { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false },
+  { id: "p2", key: "CORP", name: "Проект 2", description: "", departmentId: "d2", isShared: true, sprintsEnabled: false },
 ];
 
 const assignedItems: AssignedIssue[] = [
@@ -126,6 +126,7 @@ describe("bootstrap → один проект (single-project path)", () => {
         { id: "t1", name: "Баг-репорт", typeId: "bug", priorityId: "high", title: "Баг: ", description: "", statusId: null, position: 0 },
       ],
       customFields: [],
+      sprints: [],
     };
     vi.spyOn(projectsApi, "get").mockResolvedValue(boot);
 

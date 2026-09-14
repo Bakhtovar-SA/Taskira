@@ -9,6 +9,7 @@ export interface ProjectDto {
   description: string;
   departmentId: string;
   isShared: boolean;
+  sprintsEnabled: boolean;
 }
 
 interface ProjectDbRow {
@@ -18,6 +19,7 @@ interface ProjectDbRow {
   description: string;
   department_id: string;
   is_shared: boolean;
+  sprints_enabled: boolean;
 }
 
 const toDto = (r: ProjectDbRow): ProjectDto => ({
@@ -27,6 +29,7 @@ const toDto = (r: ProjectDbRow): ProjectDto => ({
   description: r.description,
   departmentId: r.department_id,
   isShared: r.is_shared,
+  sprintsEnabled: r.sprints_enabled,
 });
 
 export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
@@ -36,9 +39,10 @@ export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
   description: p.description,
   departmentId: p.departmentId,
   isShared: p.isShared,
+  sprintsEnabled: p.sprintsEnabled,
 });
 
-const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared`;
+const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared, p.sprints_enabled`;
 
 /**
  * Видимость (LDAP_MIGRATION.md D8 — закрывает DEPT_MIGRATION.md §3.5):

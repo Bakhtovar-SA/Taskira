@@ -280,14 +280,23 @@ function paramProjectId(req: FastifyRequest): string {
 /* -------- проверка права в контексте проекта запроса --------
    Сама гарантирует аутентификацию (requireAuth), резолвит проект из :projectId
    и членство пользователя в нём, кладёт req.project / req.membership / req.projectRole.
-   Роуту достаточно указать только requirePerm/requireIssuePerm в preHandler. */
-export function requirePerm(perm: PermId): preHandlerAsyncHookHandler {
+   Роуту достаточно указать только requirePerm/requireIssuePerm в preHandler.
+
+   gate — необязательная проверка ПОСЛЕ резолва проекта, но ДО проверки роли
+   (например, requireSprintsEnabled ниже) — нужна опциональным модулям, у
+   которых "роута не существует для этого проекта" (404) должно быть верно
+   независимо от роли звонящего, а не только для тех, кто прошёл бы проверку
+   права. Если поставить такую проверку внутри самого хендлера (как было
+   изначально в routes/sprints.ts), preHandler с обычным requirePerm(perm)
+   успевает отдать 403 раньше, чем хендлер вообще запустится — ревью PR #49. */
+export function requirePerm(perm: PermId, gate?: (project: ProjectRow) => void): preHandlerAsyncHookHandler {
   return async (req, reply: FastifyReply) => {
     await requireAuth.call(req.server, req, reply);
     const u = serverUser(req);
     const projectId = paramProjectId(req);
     const project = await projectById(projectId);
     if (!project) throw notFound("Проект не найден");
+    gate?.(project);
     const membership = await loadProjectMembership(u.id, projectId);
     const role = await effectiveRole(u, membership, project);
     req.project = project;
@@ -311,13 +320,16 @@ export function requirePerm(perm: PermId): preHandlerAsyncHookHandler {
    bootstrap проекта идут через requirePerm (без issueRef) и остаются 403. */
 const COLLABORATOR_PERMS = new Set<PermId>(["browse", "comment"]);
 
-export function requireIssuePerm(perm: PermId): preHandlerAsyncHookHandler {
+/** gate — см. requirePerm() выше, тот же смысл: проверка опционального
+ *  модуля ДО резолва роли/приглашённого, чтобы 404 не зависело от прав. */
+export function requireIssuePerm(perm: PermId, gate?: (project: ProjectRow) => void): preHandlerAsyncHookHandler {
   return async (req, reply: FastifyReply) => {
     await requireAuth.call(req.server, req, reply);
     const u = serverUser(req);
     const projectId = paramProjectId(req);
     const project = await projectById(projectId);
     if (!project) throw notFound("Проект не найден");
+    gate?.(project);
     const id = (req.params as { id?: string }).id;
     if (!id || !UUID_RE.test(id)) throw notFound("Задача не найдена в этом проекте");
     const row = await one<{ id: string; project_id: string; assignee_id: string | null; reporter_id: string }>(

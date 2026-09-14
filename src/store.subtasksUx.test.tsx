@@ -36,7 +36,7 @@ const baseUser = {
   authSource: "local" as const,
 };
 
-const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false };
+const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false };
 
 const boot: ProjectBootstrap = {
   project,
@@ -45,6 +45,7 @@ const boot: ProjectBootstrap = {
   workflow: { statuses: [{ id: "s1", sid: "todo", name: "К работе", category: "todo" }], transitions: [] },
   issueTemplates: [],
   customFields: [],
+  sprints: [],
 };
 
 function fakeServerIssue(id: string, over: Partial<ServerIssue> = {}): ServerIssue {

@@ -19,6 +19,7 @@ import type {
   PriorityId,
   ProjectRole,
   ProjectSummary,
+  Sprint,
   Status,
   Toast,
   User,
@@ -52,6 +53,7 @@ import {
   membersApi,
   notificationsApi,
   projectsApi,
+  sprintsApi,
   type CollaboratingItem,
   type IssueTemplateInput,
   type NotifyPrefs,
@@ -61,6 +63,7 @@ import {
   type ServerIssueTemplate,
   type ServerNotification,
   type ServerIssue,
+  type ServerSprint,
   type SafeUser,
   workflowApi,
 } from "./api";
@@ -256,6 +259,7 @@ const emptyData = (): Data => ({
   workflow: { statuses: [], transitions: [] },
   issueTemplates: [],
   customFields: [],
+  sprints: [],
   assignedToMe: [],
   assignedTruncated: false,
   issuesTruncated: false,
@@ -312,6 +316,15 @@ const mapIssueTemplate = (t: ServerIssueTemplate): IssueTemplate => ({
   position: t.position,
 });
 
+const mapSprint = (s: ServerSprint): Sprint => ({
+  id: s.id,
+  name: s.name,
+  goal: s.goal,
+  status: s.status,
+  startDate: s.startDate,
+  endDate: s.endDate,
+});
+
 const mapAttachment = (a: ServerAttachment): Attachment => ({
   id: a.id,
   filename: a.filename,
@@ -356,6 +369,7 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     reporterId: dto.reporterId,
     epicId: dto.epicId,
     parentId: dto.parentId,
+    sprintId: dto.sprintId,
     labels: dto.labels ?? [],
     complexity: (dto.complexity as ComplexityId | null) ?? null,
     dueDate: dto.dueDate,
@@ -508,12 +522,17 @@ interface Api {
   setDepartmentLdapGroup: (id: string, ldapGroupDn: string | null) => void;
   resyncLdap: () => void;
   deleteDepartment: (id: string) => void;
-  createProject: (input: { key: string; name: string; departmentId: string; isShared?: boolean }) => void;
+  createProject: (input: { key: string; name: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean }) => void;
   patchProject: (
     id: string,
-    patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean },
+    patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean; sprintsEnabled?: boolean },
   ) => void;
   deleteProject: (id: string) => void;
+  addSprint: (input: { name: string; goal: string; startDate?: string | null; endDate?: string | null }) => void;
+  startSprint: (sprintId: string) => void;
+  completeSprint: (sprintId: string) => void;
+  /** sprintId=null возвращает задачу в бэклог. */
+  setIssueSprint: (issueId: string, sprintId: string | null) => void;
 }
 
 const Ctx = createContext<Api | null>(null);
@@ -625,6 +644,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           description: boot.project.description ?? "",
           departmentId: boot.project.departmentId,
           isShared: boot.project.isShared,
+          sprintsEnabled: boot.project.sprintsEnabled,
         },
         projects,
         departments,
@@ -650,6 +670,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         },
         issueTemplates: boot.issueTemplates.map(mapIssueTemplate),
         customFields: boot.customFields,
+        sprints: boot.sprints.map(mapSprint),
         seq: issuesRes.total + 1,
       };
     },
@@ -736,6 +757,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         name: p.name,
         departmentId: p.departmentId,
         isShared: p.isShared,
+        sprintsEnabled: p.sprintsEnabled,
       }));
       if (projects.length === 0) {
         // Ни одного видимого проекта, но, возможно, приглашён к отдельным задачам
@@ -1855,7 +1877,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const [list, deps] = await Promise.all([projectsApi.list(), departmentsApi.list().catch(() => [])]);
     setData((prev) => ({
       ...prev,
-      projects: list.map((p) => ({ id: p.id, key: p.key, name: p.name, departmentId: p.departmentId, isShared: p.isShared })),
+      projects: list.map((p) => ({
+        id: p.id,
+        key: p.key,
+        name: p.name,
+        departmentId: p.departmentId,
+        isShared: p.isShared,
+        sprintsEnabled: p.sprintsEnabled,
+      })),
       departments: deps,
     }));
   }, []);
@@ -1941,7 +1970,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const createProject = useCallback(
-    (input: { key: string; name: string; departmentId: string; isShared?: boolean }) => {
+    (input: { key: string; name: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean }) => {
       if (!requirePerm("manageAccess")) return;
       void (async () => {
         try {
@@ -1957,7 +1986,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const patchProject = useCallback(
-    (id: string, patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean }) => {
+    (
+      id: string,
+      patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean; sprintsEnabled?: boolean },
+    ) => {
       if (!requirePerm("manageAccess")) return;
       void (async () => {
         try {
@@ -1998,6 +2030,82 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError, refreshOrg, bootstrap],
   );
 
+  /* -------- спринты (миграция 023, опциональный модуль — SPRINTS_MIGRATION.md) --------
+     Права manageSprints — тем же проверяет и сервер; requirePerm здесь только
+     ради мгновенной UX-реакции (скрытые кнопки и т.п.), источник истины — 403. */
+  const addSprint = useCallback(
+    (input: { name: string; goal: string; startDate?: string | null; endDate?: string | null }) => {
+      if (!requirePerm("manageSprints")) return;
+      void (async () => {
+        try {
+          const s = await sprintsApi.create(pid(), input);
+          setData((prev) => ({ ...prev, sprints: [...prev.sprints, mapSprint(s)] }));
+          toast("success", `Спринт «${s.name}» создан`);
+        } catch (err) {
+          handleApiError(err, "Не удалось создать спринт");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const startSprint = useCallback(
+    (sprintId: string) => {
+      if (!requirePerm("manageSprints")) return;
+      void (async () => {
+        try {
+          const s = await sprintsApi.start(pid(), sprintId);
+          setData((prev) => ({ ...prev, sprints: prev.sprints.map((x) => (x.id === sprintId ? mapSprint(s) : x)) }));
+          toast("success", `Спринт «${s.name}» начат`);
+        } catch (err) {
+          handleApiError(err, "Не удалось начать спринт");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const completeSprint = useCallback(
+    (sprintId: string) => {
+      if (!requirePerm("manageSprints")) return;
+      void (async () => {
+        try {
+          const { sprint, movedToBacklog } = await sprintsApi.complete(pid(), sprintId);
+          setData((prev) => ({
+            ...prev,
+            sprints: prev.sprints.map((x) => (x.id === sprintId ? mapSprint(sprint) : x)),
+            // Зеркалим перенос незакрытых задач в бэклог локально (сервер уже
+            // сделал это одной транзакцией в completeSprint()) — без этого
+            // карточки повисли бы в UI на завершённом спринте до следующего
+            // bootstrap()/openIssue(). Закрытые (doneAt≠null) сервер не трогает.
+            issues: prev.issues.map((i) => (i.sprintId === sprintId && i.doneAt == null ? { ...i, sprintId: null } : i)),
+          }));
+          toast(
+            movedToBacklog > 0 ? "info" : "success",
+            `Спринт «${sprint.name}» завершён${movedToBacklog > 0 ? `, в бэклог перенесено: ${movedToBacklog}` : ""}`,
+          );
+        } catch (err) {
+          handleApiError(err, "Не удалось завершить спринт");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const setIssueSprint = useCallback(
+    (issueId: string, sprintId: string | null) => {
+      if (!requirePerm("manageSprints")) return;
+      void (async () => {
+        try {
+          const dto = await issuesApi.setSprint(pid(), issueId, sprintId);
+          setData((prev) => ({ ...prev, issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)) }));
+        } catch (err) {
+          handleApiError(err, "Не удалось изменить спринт задачи");
+        }
+      })();
+    },
+    [requirePerm, handleApiError],
+  );
 
   const idx = useMemo<StoreIndexes>(
     () => ({
@@ -2072,6 +2180,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createProject,
     patchProject,
     deleteProject,
+    addSprint,
+    startSprint,
+    completeSprint,
+    setIssueSprint,
   };
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

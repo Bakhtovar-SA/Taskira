@@ -24,6 +24,9 @@ export interface IssueRow {
   epic_id: string | null;
   /** Родитель-подзадачи (миграция 021); NULL — обычная задача/сама родитель. */
   parent_id: string | null;
+  /** Спринт (миграция 023, опциональный модуль); NULL — задача в бэклоге
+   *  или проект не использует спринты. */
+  sprint_id: string | null;
   color: string | null;
   t_start: number | null;
   t_span: number | null;
@@ -53,6 +56,7 @@ export interface IssueDto {
   reporterId: string;
   epicId: string | null;
   parentId: string | null;
+  sprintId: string | null;
   color: string | null;
   tStart: number | null;
   tSpan: number | null;
@@ -81,6 +85,7 @@ export function mapIssue(row: IssueRow): IssueDto {
     reporterId: row.reporter_id,
     epicId: row.epic_id,
     parentId: row.parent_id,
+    sprintId: row.sprint_id,
     color: row.color,
     tStart: row.t_start,
     tSpan: row.t_span,
@@ -93,6 +98,17 @@ export function mapIssue(row: IssueRow): IssueDto {
     doneAt: row.done_at ? new Date(row.done_at).toISOString() : null,
     archivedAt: row.archived_at ? new Date(row.archived_at).toISOString() : null,
   };
+}
+
+/** Скрывает sprintId в ответе, если у проекта выключен модуль спринтов —
+ *  та же гарантия, что уже есть у bootstrap.sprints (routes/projects.ts):
+ *  выключенный модуль не должен быть виден НИГДЕ в API, включая старую
+ *  привязку задачи к спринту, оставшуюся с тех пор, как модуль был включён
+ *  (ревью PR #49, третий раунд). Название/цель спринта такой утечке не
+ *  подвержены — те роуты уже 404-ят; здесь маскируется только сам факт
+ *  «эта задача когда-то была в каком-то спринте». */
+export function maskSprintId<T extends { sprintId: string | null }>(dto: T, sprintsEnabled: boolean): T {
+  return sprintsEnabled ? dto : { ...dto, sprintId: null };
 }
 
 /** Задача по id внутри проекта; отсутствует — 404 на русском. */
@@ -166,8 +182,17 @@ async function validateParentAssignmentTx(
 /** Общий каркас «BEGIN → advisory-локи по отсортированным ключам → write →
  *  COMMIT/ROLLBACK», вынесенный из assignParentLocked — используется им (с
  *  повторной валидацией внутри) и withIssueParentLock ниже (без нужды в
- *  валидации, но с тем же самым локом на issueId — см. её комментарий). */
-async function withAdvisoryLocks<T>(keys: string[], run: (client: PoolClient) => Promise<T>): Promise<T> {
+ *  валидации, но с тем же самым локом на issueId — см. её комментарий).
+ *  Экспортирован — тот же примитив нужен services/sprints.ts (completeSprint)
+ *  и routes/issues.ts (PATCH /:id/sprint): без общего лока на sprintId
+ *  completeSprint() мог закоммититься ПОСЛЕ того, как конкурентный
+ *  PATCH /:id/sprint под READ COMMITTED успел прочитать ещё не закоммиченный
+ *  (для него — всё ещё 'active') статус спринта и записать sprint_id — тот
+ *  же класс кросс-транзакционной гонки, что и с parentId, просто через
+ *  границу двух РАЗНЫХ функций, а не двух вызовов одной (ревью PR #49,
+ *  седьмой раунд: одиночная проверка в WHERE самого UPDATE закрывает гонку
+ *  внутри одной транзакции, но не между двумя независимыми). */
+export async function withAdvisoryLocks<T>(keys: string[], run: (client: PoolClient) => Promise<T>): Promise<T> {
   const sortedKeys = [...new Set(keys)].sort();
   return withClient(async (client) => {
     await client.query("BEGIN");

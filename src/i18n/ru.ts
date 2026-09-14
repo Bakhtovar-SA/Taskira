@@ -65,6 +65,7 @@ const ru = {
   "sidebar.group.project": "Проект",
   "sidebar.nav.board": "Доска",
   "sidebar.nav.backlog": "Список задач",
+  "sidebar.nav.sprints": "Спринты",
   "sidebar.nav.timeline": "Таймлайн",
   "sidebar.nav.reports": "Отчёты",
   "sidebar.nav.workflow": "Рабочий процесс",

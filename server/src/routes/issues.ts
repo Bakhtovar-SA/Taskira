@@ -25,8 +25,10 @@ import {
   loadIssue,
   logActivity,
   mapIssue,
+  maskSprintId,
   nextIssueNum,
   precheckParentAssignment,
+  withAdvisoryLocks,
   withIssueParentLock,
   type IssueRow,
 } from "../services/issues.js";
@@ -48,6 +50,7 @@ import {
 import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
+import { assertSprintsEnabled, getSprintInProject } from "../services/sprints.js";
 import {
   ChecklistItemCreateBody,
   ChecklistItemParams,
@@ -60,6 +63,7 @@ import {
   IssuePatchBody,
   IssueQuery,
   LIMITS,
+  MoveToSprintBody,
   TransitionBody,
 } from "../contract.js";
 
@@ -130,7 +134,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           LIMIT $${params.length - 1} OFFSET $${params.length}`,
         params,
       );
-      reply.send({ items: rows.map(mapIssue), total: Number(total.n) });
+      reply.send({ items: rows.map((r) => maskSprintId(mapIssue(r), project.sprintsEnabled)), total: Number(total.n) });
     },
   );
 
@@ -226,7 +230,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
       await logActivity(row.id, user.sub, "создал(а) задачу");
       await audit(user.sub, "issue.create", "issue", row.id, { key });
-      reply.code(201).send(mapIssue(row));
+      reply.code(201).send(maskSprintId(mapIssue(row), project.sprintsEnabled));
     },
   );
 
@@ -236,7 +240,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/:id", { preHandler: requireIssuePerm("browse") }, async (req) => {
     const project = req.project!;
     const { id } = req.params as { id: string };
-    return getIssueDto(project.id, id);
+    return maskSprintId(await getIssueDto(project.id, id), project.sprintsEnabled);
   });
 
   /* ---------------------------------------------------------- история задачи
@@ -335,7 +339,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (body.tSpan !== undefined) push("t_span", body.tSpan);
       if (body.color !== undefined) push("color", body.color);
 
-      if (sets.length === 0) return mapIssue(iss);
+      if (sets.length === 0) return maskSprintId(mapIssue(iss), project.sprintsEnabled);
 
       vals.push(iss.id);
       const updateSql = `UPDATE issues SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length} RETURNING *`;
@@ -386,7 +390,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           });
         }
       }
-      return mapIssue(row);
+      return maskSprintId(mapIssue(row), project.sprintsEnabled);
     },
   );
 
@@ -466,7 +470,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         });
       }
       await audit(user.sub, "issue.transition", "issue", iss.id, { key: iss.key, from: iss.status_id, to: body.to });
-      return mapIssue(row);
+      return maskSprintId(mapIssue(row), project.sprintsEnabled);
     },
   );
 
@@ -636,6 +640,69 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const value = body.value === null ? null : validateValueForField(field, body.value);
       await setCustomFieldValue(fieldId, iss.id, value);
       return { values: await listValuesForIssue(iss.id) };
+    },
+  );
+
+  /* ---------------------------------------------------------- назначение в спринт
+     (issues.sprint_id, миграция 023) — отдельным роутом, а не веткой общего
+     PATCH /:id: право manageSprints (admin/manager) — сильнее edit, которым
+     гейтится весь остальной PATCH, и общий обработчик не умеет требовать
+     разное право на разные поля одного тела. Тот же выбор, что уже сделан
+     для чек-листа/полей/связей — отдельный под-роут вместо инлайн-ветки в
+     PATCH /:id (в отличие от удалённой миграцией 012 версии, где sprintId
+     менялся и через общий PATCH тоже — не воспроизводим эту избыточность,
+     см. SPRINTS_MIGRATION.md). sprintId=null снимает задачу со спринта. */
+  app.patch(
+    "/:id/sprint",
+    { preHandler: requireIssuePerm("manageSprints", assertSprintsEnabled), preValidation: zbody(MoveToSprintBody) },
+    async (req) => {
+      const project = req.project!;
+      const { id } = req.params as { id: string };
+      const body = req.body as z.infer<typeof MoveToSprintBody>;
+      const user = me(req);
+
+      const iss = await loadIssue(project.id, id);
+      let row: IssueRow;
+      if (body.sprintId) {
+        // Быстрый пречек вне лока — как и везде в этом кодовой базе
+        // (precheckParentAssignment и т.п.), это только честный fail-fast
+        // на случай несуществующего/чужого sprintId, НЕ защита от гонки:
+        // существование/принадлежность спринта проекту между этим SELECT и
+        // UPDATE ниже не меняется.
+        const sprintId = body.sprintId;
+        const sprint = await getSprintInProject(project.id, sprintId);
+        if (!sprint) throw notFound("Спринт не найден в проекте");
+        // advisory-лок на sprintId — тот же ключ, что берёт completeSprint()
+        // (services/sprints.ts). Одиночная проверка status<>'completed' в
+        // WHERE UPDATE закрывает гонку только ВНУТРИ этого запроса; под READ
+        // COMMITTED конкурентный completeSprint() мог ещё не закоммититься,
+        // и без общего лока EXISTS ниже читал бы его старый ('active') снимок
+        // — задача получила бы sprint_id уже завершённого спринта (ревью PR
+        // #49, седьмой раунд). Общий ключ с completeSprint() сериализует
+        // обоих через одну и ту же транзакцию, а не гонку снимков.
+        const rows = await withAdvisoryLocks([sprintId], async (client) => {
+          const res = await client.query<IssueRow>(
+            `UPDATE issues SET sprint_id = $2
+                WHERE id = $1
+                  AND EXISTS (SELECT 1 FROM sprints WHERE id = $2 AND project_id = $3 AND status <> 'completed')
+              RETURNING *`,
+            [iss.id, sprintId, project.id],
+          );
+          return res.rows;
+        });
+        // 0 строк — спринт прошёл precheck выше, но стал completed до захвата
+        // лока (completeSprint выполнился первым и уже закоммитился); иных
+        // причин не осталось — существование/проект уже проверены, а задача
+        // только что успешно прочитана loadIssue().
+        if (rows.length === 0) throw badRequest("Нельзя добавить задачу в завершённый спринт");
+        row = rows[0];
+      } else {
+        // Снятие со спринта не завязано на его состояние — лок не нужен,
+        // как и withIssueParentLock не нужен для снятия parentId.
+        row = (await q<IssueRow>(`UPDATE issues SET sprint_id = NULL WHERE id = $1 RETURNING *`, [iss.id]))[0];
+      }
+      await audit(user.sub, "issue.sprint.move", "issue", iss.id, { key: iss.key, sprintId: body.sprintId });
+      return mapIssue(row);
     },
   );
 }

@@ -12,6 +12,10 @@ export interface ProjectRow {
   description: string;
   departmentId: string;
   isShared: boolean;
+  /** Модуль спринтов (миграция 023) — опциональный, по умолчанию выключен.
+   *  См. SPRINTS_MIGRATION.md; routes/sprints.ts 404-ит все свои роуты,
+   *  если этот флаг false, независимо от роли вызывающего. */
+  sprintsEnabled: boolean;
 }
 
 interface ProjectDbRow {
@@ -21,9 +25,10 @@ interface ProjectDbRow {
   description: string;
   department_id: string;
   is_shared: boolean;
+  sprints_enabled: boolean;
 }
 
-const SELECT_COLS = `id, key, name, description, department_id, is_shared`;
+const SELECT_COLS = `id, key, name, description, department_id, is_shared, sprints_enabled`;
 
 const toRow = (r: ProjectDbRow): ProjectRow => ({
   id: r.id,
@@ -32,6 +37,7 @@ const toRow = (r: ProjectDbRow): ProjectRow => ({
   description: r.description,
   departmentId: r.department_id,
   isShared: r.is_shared,
+  sprintsEnabled: r.sprints_enabled,
 });
 
 /* Кэш по id — проекты меняются редко (создание/правка админом → invalidate).

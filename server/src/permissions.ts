@@ -32,7 +32,8 @@ export type PermId =
   | "comment"
   | "editWorkflow"
   | "manageAccess"
-  | "manageCollaborators";
+  | "manageCollaborators"
+  | "manageSprints";
 
 /** Пользователь: id + глобальная роль (из JWT, освежается из БД в requireAuth). */
 export interface ServerUser {
@@ -67,12 +68,18 @@ const PERM_NAMES: Record<PermId, string> = {
   editWorkflow: "Изменение workflow",
   manageAccess: "Управление доступом",
   manageCollaborators: "Подключение к задаче",
+  manageSprints: "Управление спринтами",
 };
 
 /* -------- матрица: разрешение → роли, которым оно доступно --------
    Изменения от project-scoped модели: НЕ вносились. manageCollaborators —
    аддитивный ключ (COLLAB_MIGRATION.md D2): подключать приглашённого к задаче
-   могут admin и manager проекта; наборы прочих прав не тронуты. */
+   могут admin и manager проекта; наборы прочих прав не тронуты.
+   manageSprints (миграция 023, SPRINTS_MIGRATION.md) — восстановлен под тем
+   же именем и тем же набором ролей, что был до удаления в миграции 012
+   (UI_RESTRUCTURE.md §D1): создание/старт/завершение спринта и назначение
+   задачи в спринт. Действует только в проектах с sprints_enabled=true —
+   вне их роуты /sprints* отвечают 404 независимо от роли (см. routes/sprints.ts). */
 const MATRIX: Record<PermId, AccessRole[]> = {
   browse: ["admin", "manager", "employee", "viewer"],
   create: ["admin", "manager", "employee"],
@@ -83,6 +90,7 @@ const MATRIX: Record<PermId, AccessRole[]> = {
   editWorkflow: ["admin"],
   manageAccess: ["admin"],
   manageCollaborators: ["admin", "manager"],
+  manageSprints: ["admin", "manager"],
 };
 
 export const roleHas = (role: AccessRole, perm: PermId): boolean => MATRIX[perm].includes(role);
