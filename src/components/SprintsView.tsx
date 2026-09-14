@@ -214,7 +214,7 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
           {manage && sprint.status === "active" && (
             <button
               onClick={() => {
-                if (confirm(`Завершить «${sprint.name}»? Незакрытые задачи вернутся в бэклог.`)) completeSprint(sprint.id);
+                if (window.confirm(`Завершить «${sprint.name}»? Незакрытые задачи вернутся в бэклог.`)) completeSprint(sprint.id);
               }}
               className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-semibold text-white transition-colors hover:bg-accentdeep"
             >

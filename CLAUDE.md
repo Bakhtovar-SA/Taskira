@@ -186,8 +186,9 @@ rather than half-translated**: the rest of `IssueModal` (only its Priority/Due-d
 fields were converted; Status/Assignee/Direction/Labels/Links/Collaborators/Attachments and the
 comments/activity tabs weren't), `Backlog`/`SoloView`/`DocsView` beyond their `ISSUE_TYPES`-type
 filter dropdown or reference tables, `AdminView`, `PermissionsView`, `WorkflowView`,
-`ReportsView`, `CollaboratingView`, `ErrorBoundary`, and every `toast(...)` call in `store.tsx`/
-`App.tsx`. Extend file-by-file the same way rather than assuming the dictionary is exhaustive.
+`ReportsView`, `CollaboratingView`, `SprintsView`, `ErrorBoundary`, and every `toast(...)` call
+in `store.tsx`/`App.tsx`. Extend file-by-file the same way rather than assuming the dictionary
+is exhaustive.
 
 **Server-originated text is a separate, harder problem, not yet started**: `ApiError.message`
 (shown directly in toasts, e.g. login failures, validation rejections) is the server's `reason`
