@@ -4,7 +4,7 @@ import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import { usersApi, type PickableUser } from "../api";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
-import { COMPLEXITY_ORDER, COMPLEXITIES, PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
+import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
 import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, catColor } from "../ui";
 import { useT } from "../i18n";
