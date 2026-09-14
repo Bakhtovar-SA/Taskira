@@ -7,6 +7,7 @@ import type {
   Collaboration,
   Collaborator,
   ComplexityId,
+  CustomFieldType,
   Data,
   Department,
   Issue,
@@ -40,6 +41,7 @@ import {
   authApi,
   clearToken,
   collaboratorsApi,
+  customFieldsApi,
   ldapApi,
   commentsApi,
   departmentsApi,
@@ -194,6 +196,7 @@ const emptyData = (): Data => ({
   currentUserId: "",
   issues: [],
   workflow: { statuses: [], transitions: [] },
+  customFields: [],
   assignedToMe: [],
   assignedTruncated: false,
   issuesTruncated: false,
@@ -309,6 +312,8 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     links: dto.links?.map(mapIssueLink) ?? prev?.links ?? [],
     // checklist — тоже только в детальном ответе GET /issues/:id.
     checklist: dto.checklist?.map(mapChecklistItem) ?? prev?.checklist ?? [],
+    // customFieldValues — тоже только в детальном ответе GET /issues/:id.
+    customFieldValues: dto.customFieldValues ?? prev?.customFieldValues ?? [],
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
     doneAt: dto.doneAt ? Date.parse(dto.doneAt) || null : null,
@@ -373,6 +378,7 @@ interface Api {
   addChecklistItem: (issueId: string, text: string) => void;
   toggleChecklistItem: (issueId: string, itemId: string, done: boolean) => void;
   removeChecklistItem: (issueId: string, itemId: string) => void;
+  setCustomFieldValue: (issueId: string, fieldId: string, value: string | null) => void;
   uploadAttachment: (issueId: string, file: File) => void;
   removeAttachment: (issueId: string, attId: string) => void;
   downloadAttachment: (issueId: string, att: { id: string; filename: string }) => void;
@@ -380,6 +386,9 @@ interface Api {
   addTransition: (from: string, to: string) => string | null;
   removeTransition: (id: string) => void;
   resetWorkflow: () => void;
+  addCustomField: (name: string, fieldType: CustomFieldType, options: string[]) => void;
+  renameCustomField: (fieldId: string, name: string) => void;
+  removeCustomField: (fieldId: string) => void;
   setMemberRole: (userId: string, role: ProjectRole) => void;
   removeMember: (userId: string) => void;
   /** Состав произвольного проекта (для AdminView) — глобальный admin, любой проект. */
@@ -531,6 +540,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
           transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
         },
+        customFields: boot.customFields,
         seq: issuesRes.total + 1,
       };
     },
@@ -1223,6 +1233,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, handleApiError],
   );
 
+  /* -------- значения пользовательских полей (custom_field_values, миграция 020).
+     Определения полей (add/rename/remove) — ниже, у остальных editWorkflow-действий. */
+
+  const setCustomFieldValue = useCallback(
+    (issueId: string, fieldId: string, value: string | null) => {
+      const issue = dataRef.current.issues.find((i) => i.id === issueId);
+      if (!requirePerm("edit", issue)) return;
+      void (async () => {
+        try {
+          const res = await issuesApi.setCustomFieldValue(pid(), issueId, fieldId, value);
+          setData((prev) => ({
+            ...prev,
+            issues: prev.issues.map((i) => (i.id === issueId ? { ...i, customFieldValues: res.values } : i)),
+          }));
+        } catch (err) {
+          handleApiError(err, "Не удалось сохранить значение поля");
+        }
+      })();
+    },
+    [requirePerm, handleApiError],
+  );
+
   /* -------- вложения (attachments, миграция 010) -------- */
 
   const patchIssueAttachments = (issueId: string, fn: (list: Attachment[]) => Attachment[]) =>
@@ -1375,6 +1407,71 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, [requirePerm, toast, handleApiError]);
+
+  /* -------- определения пользовательских полей (custom_fields, миграция 020).
+     Тем же правом editWorkflow, что и схема workflow (см. миграцию/комментарий
+     в customFields.ts на сервере) — отдельного PermId под них не заводили. */
+
+  const addCustomField = useCallback(
+    (name: string, fieldType: CustomFieldType, options: string[]) => {
+      if (!requirePerm("editWorkflow")) return;
+      const trimmed = name.trim();
+      if (!trimmed) return toast("error", "Название поля не может быть пустым");
+      void (async () => {
+        try {
+          const field = await customFieldsApi.create(pid(), { name: trimmed, fieldType, options });
+          setData((prev) => ({ ...prev, customFields: [...prev.customFields, field] }));
+          toast("success", "Поле добавлено");
+        } catch (err) {
+          handleApiError(err, "Не удалось добавить поле");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const renameCustomField = useCallback(
+    (fieldId: string, name: string) => {
+      if (!requirePerm("editWorkflow")) return;
+      const trimmed = name.trim();
+      if (!trimmed) return toast("error", "Название поля не может быть пустым");
+      void (async () => {
+        try {
+          const field = await customFieldsApi.rename(pid(), fieldId, trimmed);
+          setData((prev) => ({
+            ...prev,
+            customFields: prev.customFields.map((f) => (f.id === fieldId ? field : f)),
+          }));
+        } catch (err) {
+          handleApiError(err, "Не удалось переименовать поле");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
+
+  const removeCustomField = useCallback(
+    (fieldId: string) => {
+      if (!requirePerm("editWorkflow")) return;
+      void (async () => {
+        try {
+          await customFieldsApi.remove(pid(), fieldId);
+          setData((prev) => ({
+            ...prev,
+            customFields: prev.customFields.filter((f) => f.id !== fieldId),
+            issues: prev.issues.map((i) => ({
+              ...i,
+              customFieldValues: i.customFieldValues.filter((v) => v.fieldId !== fieldId),
+            })),
+          }));
+          toast("info", "Поле удалено");
+        } catch (err) {
+          handleApiError(err, "Не удалось удалить поле");
+        }
+      })();
+    },
+    [requirePerm, toast, handleApiError],
+  );
 
   const setMemberRole = useCallback(
     (userId: string, role: ProjectRole) => {
@@ -1656,6 +1753,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addChecklistItem,
     toggleChecklistItem,
     removeChecklistItem,
+    setCustomFieldValue,
     uploadAttachment,
     removeAttachment,
     downloadAttachment,
@@ -1663,6 +1761,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addTransition,
     removeTransition,
     resetWorkflow,
+    addCustomField,
+    renameCustomField,
+    removeCustomField,
     setMemberRole,
     removeMember,
     setProjectMember,

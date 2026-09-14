@@ -131,7 +131,9 @@ export function startMaintenance(): void {
     jobs.push(
       startJob("storage-sweep", cfg.storageSweepIntervalMs, 15_000, async () => {
         const storage = await getStorage(full);
-        await runStorageSweepOnce(storage, full.storage.driver, cfg.storageSweepGraceMs);
+        const s = await runStorageSweepOnce(storage, full.storage.driver, cfg.storageSweepGraceMs);
+        if (s.deleted > 0 || s.failed > 0)
+          console.log(`[storage-sweep] осиротевших: ${s.orphaned}, удалено: ${s.deleted}, не удалось: ${s.failed}`);
       }),
     );
   }

@@ -18,7 +18,8 @@ is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still impo
 roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
 notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
 links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
-token revocation (017), points → complexity (018), checklist items (019).
+token revocation (017), points → complexity (018), checklist items (019),
+custom fields (020).
 
 ## Commands
 
@@ -221,7 +222,20 @@ list/card renders — the linear scans were quadratic across a board.
   this: `routes/ws.ts` stamps `handshakeStartedAt` before the round-trip and checks
   `revokedSince(userId, handshakeStartedAt)` immediately after `registerSocket()` with no
   `await` in between (atomic w.r.t. any concurrent revoke — Node has no other way for code to
-  interleave there), closing the socket itself if a revocation landed mid-handshake.
+  interleave there), closing the socket itself if a revocation landed mid-handshake;
+  (4) `userId` alone isn't a strong-enough re-entrancy guard for the `message` handler — it's
+  only set *after* `assertFreshUser` resolves, so a second "auth" frame arriving before the
+  first's DB round-trip finishes would pass `if (userId) return` too and start its own
+  concurrent verification, possibly for a different user, with whichever resolves last winning
+  `userId` and the other's `registerSocket()` call leaking an entry nothing ever
+  `unregisterSocket()`s. `authStarted` is a separate boolean set synchronously *before* the
+  first `await`, so it closes over the whole handshake attempt, not just its outcome — the
+  general shape (a sync latch set before you commit to an async exclusive section, checked
+  instead of a value only assigned deep inside it) is the fix, not the specific variable.
+  `storageSweeper.ts`'s delete loop and `notify.ts`'s push loop got the same class of fix in
+  the same review: both used to wrap an entire batch/loop in one `try/catch`, so one failing
+  `Storage.delete()` or one `pushToUser()` throw aborted every later item in the same run —
+  each is now try/catch'd per-item so one failure doesn't take down the rest.
 
 ### Data model notes
 
@@ -257,6 +271,17 @@ as a secondary sort instead of taking a lock over something this low-stakes. Act
 issue's history feed would drown in checkbox toggles. `LIMITS.checklistItemsPerIssue` (50)
 and `LIMITS.checklistItem.text` mirror between `server/src/contract.ts` and
 `src/validation.ts` like every other limit.
+
+Custom fields (`custom_fields`/`custom_field_values`, migration 020, `services/customFields.ts`):
+project-level definitions (`text | number | select | checkbox | date`), one value row per
+(field, issue) — NULL/absent row means unset, everything stored as `text` regardless of type
+since parsing depends on which field it is (`validateValueForField` in the service, not a
+static zod schema). Defining fields (`POST/PATCH/DELETE /custom-fields`) reuses the `editWorkflow`
+permission rather than a new `PermId` — it's the same "structural project schema" capability as
+workflow transitions, and adding a dedicated permission would mean touching the shared MATRIX
+(both `permissions.ts` copies + `permissions-sync.test.ts`) for one narrow feature. Setting a
+*value* on a specific issue uses plain `edit`, same as priority/complexity/labels. Managed in
+`WorkflowView.tsx` (schema-editing screen) alongside the workflow graph, not a separate view.
 
 ## Issue lifecycle (migration 016)
 

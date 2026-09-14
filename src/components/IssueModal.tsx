@@ -3,7 +3,7 @@ import { assignableUsers, canTransition, fmtDate, relTime, useStore } from "../s
 import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import { usersApi, type PickableUser } from "../api";
-import type { ComplexityId, Issue, PriorityId } from "../types";
+import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, COMPLEXITIES, PRIORITY_ORDER, PRIORITIES, ISSUE_TYPES } from "../types";
 import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, catColor } from "../ui";
@@ -347,6 +347,94 @@ function ChecklistField({ issue }: { issue: Issue }) {
           placeholder="+ добавить пункт"
           maxLength={LIMITS.checklistItem.text.max}
           className={`w-full rounded-md border border-dashed border-line2 bg-transparent px-2 py-1.5 text-[12.5px] outline-none placeholder:text-faint focus:border-accent ${items.length > 0 ? "mt-1.5" : ""}`}
+        />
+      )}
+    </Field>
+  );
+}
+
+/** Значения пользовательских полей проекта (custom_fields, миграция 020) —
+ *  определения приходят в data.customFields (bootstrap), значения — в самой
+ *  задаче (детальный GET). Управление определениями — в WorkflowView, не здесь. */
+function CustomFieldsSection({ issue }: { issue: Issue }) {
+  const { data, can, setCustomFieldValue } = useStore();
+  const canEdit = can("edit", issue);
+  if (data.customFields.length === 0) return null;
+
+  return (
+    <>
+      {data.customFields.map((field) => (
+        <CustomFieldRow key={field.id} issue={issue} field={field} canEdit={canEdit} setValue={setCustomFieldValue} />
+      ))}
+    </>
+  );
+}
+
+function CustomFieldRow({
+  issue,
+  field,
+  canEdit,
+  setValue,
+}: {
+  issue: Issue;
+  field: CustomFieldDef;
+  canEdit: boolean;
+  setValue: (issueId: string, fieldId: string, value: string | null) => void;
+}) {
+  const current = issue.customFieldValues.find((v) => v.fieldId === field.id)?.value ?? "";
+  const [draft, setDraft] = useState(current);
+  useEffect(() => setDraft(current), [current, issue.id]);
+
+  const commit = () => {
+    if (draft === current) return;
+    setValue(issue.id, field.id, draft === "" ? null : draft);
+  };
+
+  if (!canEdit) {
+    return (
+      <Field label={field.name}>
+        <span className="text-[12.5px] text-ink">
+          {field.fieldType === "checkbox" ? (current === "true" ? "да" : "нет") : current || "—"}
+        </span>
+      </Field>
+    );
+  }
+
+  return (
+    <Field label={field.name}>
+      {field.fieldType === "select" ? (
+        <select
+          value={current}
+          onChange={(e) => setValue(issue.id, field.id, e.target.value === "" ? null : e.target.value)}
+          className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+        >
+          <option value="">—</option>
+          {field.options.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+      ) : field.fieldType === "checkbox" ? (
+        <input
+          type="checkbox"
+          checked={current === "true"}
+          onChange={(e) => setValue(issue.id, field.id, e.target.checked ? "true" : null)}
+          className="h-3.5 w-3.5 accent-accent"
+        />
+      ) : field.fieldType === "date" ? (
+        <input
+          type="date"
+          value={current}
+          onChange={(e) => setValue(issue.id, field.id, e.target.value || null)}
+          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+        />
+      ) : (
+        <input
+          type={field.fieldType === "number" ? "number" : "text"}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === "Enter" && commit()}
+          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
         />
       )}
     </Field>
@@ -1101,6 +1189,8 @@ export default function IssueModal() {
             </Field>
 
             <ChecklistField issue={issue} />
+
+            <CustomFieldsSection issue={issue} />
 
             <LinksField issue={issue} />
 

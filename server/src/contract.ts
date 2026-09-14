@@ -40,6 +40,9 @@ export const LIMITS = {
   // Чек-лист (миграция 019).
   checklistItem: { text: { min: 1, max: 200 } },
   checklistItemsPerIssue: 50,
+  // Пользовательские поля (миграция 020).
+  customField: { name: { min: 1, max: 60 }, optionMax: 60, optionsMax: 30 },
+  customFieldsPerProject: 30,
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -252,6 +255,32 @@ export const ChecklistItemPatchBody = z
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
 
 export const ChecklistItemParams = z.object({ itemId: uuid });
+
+/* ---------------- Custom fields (миграция 020) ---------------- */
+/** Значения всех типов хранятся как text (custom_field_values.value) —
+ *  разбор/проверка конкретного значения зависит от field_type и живёт в
+ *  services/customFields.ts (validateValueForField), не здесь: статичная
+ *  zod-схема не может знать, какое именно поле пришло в запросе. */
+export const CUSTOM_FIELD_TYPES = ["text", "number", "select", "checkbox", "date"] as const;
+export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number];
+
+export const CustomFieldCreateBody = z.object({
+  name: oneLine(LIMITS.customField.name.max, LIMITS.customField.name.min, "Название поля не может быть пустым"),
+  fieldType: z.enum(CUSTOM_FIELD_TYPES),
+  // Только для fieldType='select'; сервер игнорирует для остальных типов.
+  options: z.array(oneLine(LIMITS.customField.optionMax, 1)).max(LIMITS.customField.optionsMax).default([]),
+});
+
+export const CustomFieldPatchBody = z.object({
+  name: oneLine(LIMITS.customField.name.max, LIMITS.customField.name.min, "Название поля не может быть пустым"),
+});
+
+export const CustomFieldParams = z.object({ fieldId: uuid });
+
+/** PUT .../issues/:id/custom-fields/:fieldId — value=null очищает поле. */
+export const CustomFieldValueBody = z.object({
+  value: z.string().max(500).nullable(),
+});
 
 /* ---------------- Notifications (миграция 011) ---------------- */
 export const NOTIFY_TYPES = [

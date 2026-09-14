@@ -28,6 +28,12 @@ import {
   listChecklistItems,
   updateChecklistItem,
 } from "../services/checklist.js";
+import {
+  getCustomFieldInProject,
+  listValuesForIssue,
+  setCustomFieldValue,
+  validateValueForField,
+} from "../services/customFields.js";
 import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
@@ -35,6 +41,8 @@ import {
   ChecklistItemCreateBody,
   ChecklistItemParams,
   ChecklistItemPatchBody,
+  CustomFieldParams,
+  CustomFieldValueBody,
   IssueCreateBody,
   IssueLinkCreateBody,
   IssueLinkParams,
@@ -558,6 +566,28 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       await logActivity(iss.id, user.sub, "удалил(а) пункт чек-листа");
       await audit(user.sub, "issue.checklist.remove", "issue", iss.id, { key: iss.key, itemId });
       return { checklist: await listChecklistItems(iss.id) };
+    },
+  );
+
+  /* ---------------------------------------------------------- значения пользовательских
+     полей (custom_field_values, миграция 020). Определения полей — GET/POST/PATCH/DELETE
+     /projects/:projectId/custom-fields (routes/customFields.ts, право editWorkflow);
+     здесь — только значение НА ЭТОЙ задаче, тем же `edit`, что приоритет/сложность/метки. */
+  app.put(
+    "/:id/custom-fields/:fieldId",
+    { preHandler: requireIssuePerm("edit"), preValidation: [zparams(CustomFieldParams), zbody(CustomFieldValueBody)] },
+    async (req) => {
+      const project = req.project!;
+      const { id, fieldId } = req.params as { id: string; fieldId: string };
+      const body = req.body as z.infer<typeof CustomFieldValueBody>;
+
+      const iss = await loadIssue(project.id, id);
+      const field = await getCustomFieldInProject(project.id, fieldId);
+      if (!field) throw notFound("Поле не найдено");
+
+      const value = body.value === null ? null : validateValueForField(field, body.value);
+      await setCustomFieldValue(fieldId, iss.id, value);
+      return { values: await listValuesForIssue(iss.id) };
     },
   );
 }

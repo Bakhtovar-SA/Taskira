@@ -25,6 +25,9 @@ export const LIMITS = {
   // Чек-лист (миграция 019) — зеркало server/src/contract.ts.
   checklistItem: { text: { min: 1, max: 200 } },
   checklistItemsPerIssue: 50,
+  // Пользовательские поля — зеркало server/src/contract.ts (миграция 020).
+  customField: { name: { min: 1, max: 60 }, optionMax: 60, optionsMax: 30 },
+  customFieldsPerProject: 30,
 } as const;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
