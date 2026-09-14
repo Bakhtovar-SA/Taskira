@@ -221,4 +221,72 @@ describe("importIssues()", () => {
     // равно долетела до data.issues одним батчем.
     expect(store.get().data.issues).toHaveLength(1);
   });
+
+  test("невалидная карточка (локальная проверка) — тост и console.error с причиной, не молча в агрегат (ревью PR #48, третий раунд)", async () => {
+    const store = await bootToReady();
+    const created = vi.spyOn(issuesApi, "create").mockImplementation(async () => fakeServerIssue("ok"));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const tooLong = "x".repeat(100_000);
+    const inputs = [input("Нормальная"), input("Плохая карточка", { description: tooLong })];
+    let result: { ok: number; failed: number; cancelled: boolean } | undefined;
+    await act(async () => {
+      result = await store.get().importIssues(inputs);
+    });
+
+    expect(result).toEqual({ ok: 1, failed: 1, cancelled: false });
+    // Карточка, отклонённая локально (до issuesApi.create), всё равно должна
+    // попасть и в консоль, и в тост с человекочитаемой причиной — раньше
+    // здесь был просто failed++ без единого следа (ревью PR #48).
+    expect(errSpy).toHaveBeenCalledWith("importIssues: карточка не прошла локальную проверку", expect.any(String));
+    expect(created).toHaveBeenCalledTimes(1);
+    const toastTexts = store.get().toasts.map((t) => t.text);
+    expect(toastTexts.some((t) => t.length > 0)).toBe(true);
+  });
+
+  test("403 посреди пачки — уже созданные карточки долетают до data.issues, есть отдельный итоговый тост (ревью PR #48, третий раунд)", async () => {
+    const store = await bootToReady();
+
+    let call = 0;
+    vi.spyOn(issuesApi, "create").mockImplementation(async () => {
+      call++;
+      if (call === 1) return fakeServerIssue("i1");
+      throw new ApiError(403, "FORBIDDEN", "Недостаточно прав");
+    });
+
+    const inputs = [input("A"), input("B"), input("C")];
+    await act(async () => {
+      await store.get().importIssues(inputs);
+    });
+
+    // Сессия не сброшена 403'м (в отличие от 401) — созданная до отказа
+    // карточка должна дойти до data.issues, а не потеряться.
+    expect(store.get().data.issues.map((i) => i.id)).toEqual(["i1"]);
+    const toastTexts = store.get().toasts.map((t) => t.text);
+    // Итоговое сообщение о частичном прогрессе (симметрично isCancelled) —
+    // раньше при 403 весь финальный тост подавлялся молча.
+    expect(toastTexts.some((t) => t.includes("1 из 3"))).toBe(true);
+  });
+
+  test("401 посреди пачки — созданные до отказа карточки не сливаются в уже сброшенный data (ревью PR #48, третий раунд)", async () => {
+    const store = await bootToReady();
+
+    let call = 0;
+    vi.spyOn(issuesApi, "create").mockImplementation(async () => {
+      call++;
+      if (call === 1) return fakeServerIssue("i1");
+      throw new ApiError(401, "UNAUTHORIZED", "Токен недействителен");
+    });
+
+    const inputs = [input("A"), input("B")];
+    await act(async () => {
+      await store.get().importIssues(inputs);
+    });
+
+    // handleApiError(401) уже сбросил data в emptyData() — созданная карточка
+    // не должна воскрешать issues в форме {...emptyData(), issues:[...]},
+    // которую больше никто не производит (экран уже ушёл на LoginForm).
+    expect(store.get().bootStatus).toBe("unauthenticated");
+    expect(store.get().data.issues).toHaveLength(0);
+  });
 });

@@ -116,7 +116,17 @@ export function parseTrelloExport(raw: unknown): TrelloParseResult {
     const trelloLabels = Array.isArray(card.labels)
       ? card.labels.map((l) => l?.name).filter((n): n is string => isString(n) && n.trim().length > 0)
       : [];
-    const labels = [...new Set([...(listName ? [trelloListLabel(listName)] : []), ...trelloLabels].map(sanitizeLabel).filter(Boolean))];
+    // trelloListLabel() уже сам прогоняет имя списка через sanitizeLabel() и
+    // считает бюджет длины под свой хэш-суффикс "~xxxx" — пропускать его
+    // результат через sanitizeLabel() ещё раз рискованно: если sanitizeLabel()
+    // когда-нибудь начнёт трогать "~"/алфавит (сейчас лишь lower/trim/slice),
+    // это может стереть или обрезать уже посчитанный суффикс и молча вернуть
+    // ровно ту коллизию двух разных списков с общим длинным префиксом, ради
+    // которой этот суффикс и добавлялся (ревью PR #48, третий раунд). Метки
+    // самой карточки такой гарантии не несут — их прогоняем как раньше.
+    const labels = [
+      ...new Set([...(listName ? [trelloListLabel(listName)] : []), ...trelloLabels.map(sanitizeLabel)].filter(Boolean)),
+    ];
 
     // "" (пустая строка вместо null для незаданного срока — встречается у
     // некоторых экспортёров/Power-Up'ов) иначе уходит на сервер как

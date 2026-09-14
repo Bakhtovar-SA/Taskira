@@ -1057,12 +1057,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       let ok = 0;
       let failed = 0;
       let stoppedByAuth = false;
+      let stoppedByPermission = false;
       let cancelled = false;
       const created: Issue[] = [];
-      // Дедуп по тексту причины — иначе один и тот же серверный отказ на
-      // 40 карточках дал бы 40 одинаковых тостов подряд; при этом каждая
-      // причина попадает в консоль, а не молча тонет в агрегате "не удалось: N".
+      // Дедуп по тексту причины — иначе один и тот же отказ на 40 карточках
+      // дал бы 40 одинаковых тостов подряд; при этом каждая причина попадает
+      // в консоль, а не молча тонет в агрегате "не удалось: N" — включая
+      // локальные отказы валидации (buildCreatePayload), не только серверные
+      // (ревью PR #48, третий раунд — раньше это правило держалось только для
+      // карточек, дошедших до issuesApi.create()).
       const toastedErrors = new Set<string>();
+      const reportLocalFailure = (reason: string) => {
+        console.error("importIssues: карточка не прошла локальную проверку", reason);
+        if (!toastedErrors.has(reason)) {
+          toastedErrors.add(reason);
+          toast("error", reason);
+        }
+      };
 
       for (const input of inputs) {
         if (isCancelled?.()) {
@@ -1093,7 +1104,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               }
             }
             if (isAuth || isPerm) {
-              stoppedByAuth = true;
+              stoppedByAuth = isAuth;
+              stoppedByPermission = isPerm;
               failed += inputs.length - ok - failed;
               onProgress?.(inputs.length, inputs.length);
               break;
@@ -1101,15 +1113,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           failed++;
+          reportLocalFailure(payload.error);
         }
         onProgress?.(ok + failed, inputs.length);
       }
 
-      if (created.length > 0) {
+      // При 401 handleApiError() уже синхронно сбросил data в emptyData()
+      // (сессия истекла, экран уходит на LoginForm) — сливать created поверх
+      // этого сброса нельзя: итог был бы {...emptyData(), issues:[...created]},
+      // форма, которую больше никто не производит и никто не читает после
+      // разлогина. При 403 сессия остаётся рабочей, created применяем как
+      // обычно (ревью PR #48, третий раунд).
+      if (created.length > 0 && !stoppedByAuth) {
         setData((prev) => ({ ...prev, issues: [...prev.issues, ...created] }));
       }
       if (cancelled) {
         toast("info", `Импорт остановлен: ${ok} из ${inputs.length} успели создаться`);
+      } else if (stoppedByPermission) {
+        // Причина отказа уже показана выше (дедуп по err.message) — здесь
+        // только итог по количеству, симметрично ветке cancelled: без этого
+        // пользователь не видел, сколько карточек успело создаться до потери
+        // доступа (ревью PR #48, третий раунд).
+        toast("info", `Импорт остановлен: ${ok} из ${inputs.length} успели создаться — доступ отозван`);
       } else if (!stoppedByAuth) {
         toast(failed === 0 ? "success" : "info", `Импортировано ${ok} из ${inputs.length}${failed ? `, не удалось: ${failed}` : ""}`);
       }
