@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { parseTrelloExport } from "./trello";
+import { sanitizeLabel } from "../validation";
 
 /** Фикстура собрана вручную по документированной (публичной, стабильной)
  *  схеме JSON-экспорта доски Trello — реального файла из живого аккаунта
@@ -100,6 +101,34 @@ describe("parseTrelloExport", () => {
     expect(labelA).not.toBe(labelB);
     expect(labelA.length).toBeLessThanOrEqual(30);
     expect(labelB.length).toBeLessThanOrEqual(30);
+  });
+
+  test("метки списков переживают повторный sanitizeLabel() (как в validateLabels перед POST) без коллизии (ревью PR #48, четвёртый раунд)", () => {
+    // store.tsx: buildCreatePayload() → validateLabels() прогоняет ВЕСЬ
+    // labels ещё раз через sanitizeLabel() перед отправкой на сервер — не
+    // важно, что делает этот модуль, именно тот второй проход определяет
+    // финальные метки. Гарантия "разные списки — разные метки" держится
+    // только на том, что sanitizeLabel() идемпотентна и не трогает "~xxxx".
+    // Если это когда-нибудь перестанет быть так, тест ниже должен упасть.
+    const r = parseTrelloExport({
+      name: "x",
+      lists: [
+        { id: "l1", name: "Sprint 24 — Design Review Backlog" },
+        { id: "l2", name: "Sprint 24 — Design Review Done" },
+      ],
+      cards: [
+        { id: "c1", name: "A", idList: "l1" },
+        { id: "c2", name: "B", idList: "l2" },
+      ],
+    });
+    const labelA = r.items.find((i) => i.title === "A")!.labels[0];
+    const labelB = r.items.find((i) => i.title === "B")!.labels[0];
+
+    const labelA2 = sanitizeLabel(labelA);
+    const labelB2 = sanitizeLabel(labelB);
+    expect(labelA2).toBe(labelA);
+    expect(labelB2).toBe(labelB);
+    expect(labelA2).not.toBe(labelB2);
   });
 
   test("due: '' (пустая строка) — null, а не невалидная дата (ревью PR #48)", () => {

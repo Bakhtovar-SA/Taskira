@@ -116,17 +116,18 @@ export function parseTrelloExport(raw: unknown): TrelloParseResult {
     const trelloLabels = Array.isArray(card.labels)
       ? card.labels.map((l) => l?.name).filter((n): n is string => isString(n) && n.trim().length > 0)
       : [];
-    // trelloListLabel() уже сам прогоняет имя списка через sanitizeLabel() и
-    // считает бюджет длины под свой хэш-суффикс "~xxxx" — пропускать его
-    // результат через sanitizeLabel() ещё раз рискованно: если sanitizeLabel()
-    // когда-нибудь начнёт трогать "~"/алфавит (сейчас лишь lower/trim/slice),
-    // это может стереть или обрезать уже посчитанный суффикс и молча вернуть
-    // ровно ту коллизию двух разных списков с общим длинным префиксом, ради
-    // которой этот суффикс и добавлялся (ревью PR #48, третий раунд). Метки
-    // самой карточки такой гарантии не несут — их прогоняем как раньше.
-    const labels = [
-      ...new Set([...(listName ? [trelloListLabel(listName)] : []), ...trelloLabels.map(sanitizeLabel)].filter(Boolean)),
-    ];
+    // Не пропускать trelloListLabel() через sanitizeLabel() здесь ещё раз не
+    // спасает от коллизии, которую сама trelloListLabel() призвана
+    // предотвратить (ревью PR #48, четвёртый раунд, отменяет "исправление"
+    // третьего): buildCreatePayload() в store.tsx всё равно прогоняет ВЕСЬ
+    // labels ещё раз через validateLabels() → sanitizeLabel() перед POST —
+    // что бы ни делал этот модуль, финальный список меток, реально уходящий
+    // на сервер, определяет тот второй проход, а не этот. Гарантия против
+    // коллизии держится только на том, что sanitizeLabel() сейчас идемпотентна
+    // (lower/trim/slice, не трогает "~xxxx"-суффикс) — это зафиксировано
+    // тестом ниже ("...после повторного sanitizeLabel()..."), а не структурой
+    // кода здесь.
+    const labels = [...new Set([...(listName ? [trelloListLabel(listName)] : []), ...trelloLabels].map(sanitizeLabel).filter(Boolean))];
 
     // "" (пустая строка вместо null для незаданного срока — встречается у
     // некоторых экспортёров/Power-Up'ов) иначе уходит на сервер как

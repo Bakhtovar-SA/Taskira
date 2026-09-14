@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { parseTrelloExport, type TrelloParseResult } from "../import/trello";
 import type { CreateInput } from "../store";
@@ -23,6 +23,16 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
   // importIssues), поэтому это единственный способ реально прервать фоновые
   // запросы, а не просто спрятать прогресс-бар (ревью PR #48).
   const cancelledRef = useRef(false);
+  // cancelledRef останавливает ЦИКЛ в store.tsx (не шлёт следующие запросы);
+  // mountedRef защищает setState ЗДЕСЬ — закрытие модалки размонтирует
+  // компонент сразу (handleClose → onClose()), а уже начатый await
+  // importIssues() внутри runImport() досчитывает текущую карточку и зовёт
+  // onProgress/setRunning/setResult после этого — без проверки это setState
+  // на размонтированном компоненте (ревью PR #48, четвёртый раунд).
+  const mountedRef = useRef(true);
+  useEffect(() => () => {
+    mountedRef.current = false;
+  }, []);
 
   const onFile = (file: File) => {
     setFileError("");
@@ -67,9 +77,17 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
       complexity: null,
       dueDate: i.dueDate,
     }));
-    const r = await importIssues(inputs, (done, total) => setProgress({ done, total }), () => cancelledRef.current);
-    setRunning(false);
-    setResult(r);
+    const r = await importIssues(
+      inputs,
+      (done, total) => {
+        if (mountedRef.current) setProgress({ done, total });
+      },
+      () => cancelledRef.current,
+    );
+    if (mountedRef.current) {
+      setRunning(false);
+      setResult(r);
+    }
   };
 
   // И крестик, и «Отмена», и (через Modal) Escape/клик мимо — все ведут сюда:
