@@ -6,7 +6,7 @@
  *  проекту. */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
-import { q } from "../db.js";
+import { escLike, q } from "../db.js";
 import { requireAuth, zquery, type JwtPayload } from "../middleware.js";
 import { SearchQuery } from "../contract.js";
 
@@ -27,8 +27,6 @@ interface Row {
 /** Та же щедрость, что HOME_LIMIT в routes/home.ts — потолок на честный ответ,
  *  не на молчаливое усечение (клиент видит truncated и говорит об этом). */
 const SEARCH_LIMIT = 30;
-
-const escLike = (s: string) => s.replace(/[%_\\]/g, "\\$&");
 
 export async function searchRoutes(app: FastifyInstance): Promise<void> {
   app.get("/issues/search", { preHandler: [requireAuth, zquery(SearchQuery)] }, async (req) => {

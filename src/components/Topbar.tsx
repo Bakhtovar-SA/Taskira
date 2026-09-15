@@ -119,12 +119,12 @@ function SearchBox() {
             <span className="text-[10px] font-bold uppercase tracking-wider text-faint">
               {allProjects
                 ? searching
-                  ? "Поиск во всех проектах…"
-                  : `Во всех проектах · ${remote?.items.length ?? 0}`
+                  ? t("topbar.searchingAllProjects")
+                  : t("topbar.allProjectsCount", { n: remote?.items.length ?? 0 })
                 : t("topbar.resultsCount", { n: localResults.length })}
             </span>
             <span className="shrink-0 text-[10.5px] font-semibold text-accent">
-              {allProjects ? "Только этот проект" : "Во всех проектах"}
+              {allProjects ? t("topbar.thisProjectOnly") : t("topbar.allProjectsToggle")}
             </span>
           </button>
           {allProjects ? (
@@ -149,7 +149,7 @@ function SearchBox() {
               ))}
               {remote?.truncated && (
                 <p className="border-t border-linesoft px-3 py-1.5 text-center text-[11px] text-faint">
-                  Показаны первые результаты — уточните запрос
+                  {t("topbar.truncatedResults")}
                 </p>
               )}
             </>
@@ -422,10 +422,10 @@ function ProjectRow({ p, active, onOpen }: { p: ProjectSummary; active: boolean;
           e.stopPropagation();
           toggleFavoriteProject(p.id);
         }}
-        aria-label={isFav ? "Убрать из избранного" : "Добавить в избранное"}
-        title={isFav ? "Убрать из избранного" : "Добавить в избранное"}
+        aria-label={isFav ? t("topbar.removeFavorite") : t("topbar.addFavorite")}
+        title={isFav ? t("topbar.removeFavorite") : t("topbar.addFavorite")}
         className={`mr-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors ${
-          isFav ? "text-[#E2B203]" : "text-faint opacity-0 hover:text-[#E2B203] group-hover:opacity-100"
+          isFav ? "text-warndot" : "text-faint opacity-0 hover:text-warndot group-hover:opacity-100"
         }`}
       >
         <IcStar size={13} filled={isFav} />
@@ -435,6 +435,7 @@ function ProjectRow({ p, active, onOpen }: { p: ProjectSummary; active: boolean;
 }
 
 function ProjectSwitcher() {
+  const { t } = useT();
   const { data, switchProject } = useStore();
   const [filter, setFilter] = useState("");
   if (data.projects.length <= 1) return <span className="font-semibold text-sub">{data.project.name}</span>;
@@ -483,14 +484,14 @@ function ProjectSwitcher() {
                 autoFocus
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder="Найти проект…"
+                placeholder={t("topbar.findProjectPlaceholder")}
                 className="w-full rounded-md border border-line bg-canvas px-2.5 py-1.5 text-[12.5px] text-ink focus:border-accent focus:outline-none"
               />
             </div>
             <div className="overflow-y-auto py-1">
               {favorites.length > 0 && (
                 <div className="mb-1 border-b border-linesoft pb-1">
-                  <p className="px-3 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">Избранное</p>
+                  <p className="px-3 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">{t("topbar.favoritesSection")}</p>
                   {favorites.map((p) => (
                     <ProjectRow key={p.id} p={p} active={p.id === data.currentProjectId} onOpen={() => open(p.id)} />
                   ))}
@@ -505,7 +506,7 @@ function ProjectSwitcher() {
                 </div>
               ))}
               {favorites.length === 0 && deptGroups.length === 0 && (
-                <p className="px-3 py-6 text-center text-[12.5px] text-faint">Ничего не найдено</p>
+                <p className="px-3 py-6 text-center text-[12.5px] text-faint">{t("topbar.nothingFound")}</p>
               )}
             </div>
           </div>

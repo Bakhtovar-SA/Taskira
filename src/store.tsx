@@ -862,9 +862,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const pendingOpenIssueRef = useRef<{ projectId: string; issueId: string } | null>(null);
   const switchProject = useCallback(
     (projectId: string, openIssueId?: string) => {
+      // Любой вызов без openIssueId — обычная навигация (ProjectSwitcher, HomeView, …),
+      // которая отменяет ранее поставленное намерение "открыть задачу после переключения".
+      // Без этого сброса задача из давно отменённого/перебитого поиска могла бы
+      // неожиданно открыться при обычном возврате в тот же проект позже.
+      pendingOpenIssueRef.current = openIssueId ? { projectId, issueId: openIssueId } : null;
       const cur = dataRef.current;
       if (projectId === cur.currentProjectId || !cur.projects.some((p) => p.id === projectId)) return;
-      if (openIssueId) pendingOpenIssueRef.current = { projectId, issueId: openIssueId };
       const seq = ++switchSeqRef.current;
       setBootStatus("loading");
       void (async () => {

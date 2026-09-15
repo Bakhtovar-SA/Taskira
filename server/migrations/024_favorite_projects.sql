@@ -10,11 +10,12 @@
 -- иначе потребовал бы для той же операции.
 -- ============================================================
 
+-- Отдельный индекс на user_id не нужен: PRIMARY KEY (user_id, project_id) уже
+-- даёт btree с этим префиксом, покрывающий WHERE user_id = $1 в listFavoriteProjectIds
+-- (leftmost-prefix). Лишний индекс добавил бы только запись на каждый toggle.
 CREATE TABLE user_favorite_projects (
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, project_id)
 );
-
-CREATE INDEX idx_favorite_projects_user ON user_favorite_projects (user_id);

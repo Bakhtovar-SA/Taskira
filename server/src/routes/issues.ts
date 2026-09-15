@@ -4,7 +4,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
-import { one, q } from "../db.js";
+import { escLike, one, q } from "../db.js";
 import {
   badRequest,
   notFound,
@@ -79,8 +79,6 @@ const COMPLEXITY_NAMES: Record<string, string> = {
   medium: "Средняя",
   hard: "Сложная",
 };
-
-const escLike = (s: string) => s.replace(/[%_\\]/g, "\\$&");
 
 const me = (req: { user: JwtPayload }) => req.user;
 
