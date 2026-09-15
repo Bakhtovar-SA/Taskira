@@ -18,6 +18,7 @@ import { attachmentRoutes } from "./routes/attachments.js";
 import { collaboratorRoutes } from "./routes/collaborators.js";
 import { collaboratingRoutes } from "./routes/collaborating.js";
 import { homeRoutes } from "./routes/home.js";
+import { searchRoutes } from "./routes/search.js";
 import { workflowRoutes } from "./routes/workflow.js";
 import { issueTemplatesRoutes } from "./routes/issueTemplates.js";
 import { customFieldsRoutes } from "./routes/customFields.js";
@@ -136,6 +137,7 @@ export function buildApp(): FastifyInstance {
       await api.register(reportRoutes); // /reports/* (project-less, scope = видимые проекты)
       await api.register(collaboratingRoutes); // /issues/collaborating (project-less)
       await api.register(homeRoutes); // /issues/assigned-to-me (project-less, главный экран)
+      await api.register(searchRoutes); // /issues/search (project-less, кросс-проектный поиск)
       await api.register(departmentRoutes, { prefix: "/departments" });
       await api.register(projectsRoutes); // /projects (список, CRUD, bootstrap /projects/:projectId)
 

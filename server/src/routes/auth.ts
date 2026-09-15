@@ -14,6 +14,7 @@ import { safeUser, signToken, type UserRow } from "../auth.js";
 import { ldapAuthenticate, LdapUnavailableError } from "../services/ldap.js";
 import { provisionFromLdap } from "../services/userProvisioning.js";
 import { syncDepartmentMembership } from "../services/departmentSync.js";
+import { listFavoriteProjectIds } from "../services/favorites.js";
 
 /* -------- простой in-memory rate limit: 10 попыток входа с IP за 5 минут (fix 3a).
    Счётчик сбрасывается перезапуском процесса — для внутренней сети достаточно. -------- */
@@ -129,8 +130,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const row = await one<UserRow>(`SELECT * FROM users WHERE id = $1`, [req.user.sub]);
       if (!row) throw unauthorized("Пользователь больше не существует");
-      // notifyPrefs — только для себя, не в общем safeUser (не светим чужие настройки).
-      reply.send({ ...safeUser(row), notifyPrefs: row.notify_prefs ?? {} });
+      // notifyPrefs/favoriteProjectIds — только для себя, не в общем safeUser
+      // (не светим чужие настройки). Список избранного — project-less, как и
+      // сам /me, поэтому переключатель проектов может показать звёзды сразу
+      // при входе, ещё до захода в конкретный проект (главный экран/home).
+      const favoriteProjectIds = await listFavoriteProjectIds(row.id);
+      reply.send({ ...safeUser(row), notifyPrefs: row.notify_prefs ?? {}, favoriteProjectIds });
     },
   );
 

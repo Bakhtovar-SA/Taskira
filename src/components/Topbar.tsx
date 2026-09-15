@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
-import type { NotificationT, ViewId } from "../types";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
+import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
 import { useT, type TKey } from "../i18n";
 
@@ -20,18 +20,47 @@ const VIEW_LABEL: Record<ViewId, TKey> = {
 
 function SearchBox() {
   const { t } = useT();
-  const { data, openIssue } = useStore();
+  const { data, openIssue, switchProject, searchAllProjects } = useStore();
   const [q, setQ] = useState("");
   const [focus, setFocus] = useState(false);
+  const [allProjects, setAllProjects] = useState(false);
+  const [remote, setRemote] = useState<{ items: SearchResultItem[]; truncated: boolean } | null>(null);
+  const [searching, setSearching] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
 
-  const results = useMemo(() => {
+  const localResults = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return [];
     return data.issues
       .filter((i) => i.key.toLowerCase().includes(s) || i.title.toLowerCase().includes(s))
       .slice(0, 8);
   }, [q, data.issues]);
+
+  // Кросс-проектный поиск бьёт по серверу — дебаунс, иначе каждый символ
+  // в поле даёт отдельный запрос. Только пока включён режим "во всех проектах":
+  // обычный (локальный) поиск по уже загруженным data.issues остаётся мгновенным.
+  useEffect(() => {
+    const s = q.trim();
+    if (!allProjects || !s) {
+      setRemote(null);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      void searchAllProjects(s).then((res) => {
+        if (!cancelled) {
+          setRemote(res);
+          setSearching(false);
+        }
+      });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [allProjects, q, searchAllProjects]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,6 +74,20 @@ function SearchBox() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  const closeAfterPick = () => {
+    setQ("");
+    ref.current?.blur();
+  };
+
+  const openRemote = (item: SearchResultItem) => {
+    if (item.projectId === data.currentProjectId) {
+      openIssue(item.id);
+    } else {
+      switchProject(item.projectId, item.id);
+    }
+    closeAfterPick();
+  };
 
   return (
     <div className="relative">
@@ -66,27 +109,73 @@ function SearchBox() {
       </div>
       {focus && q.trim() && (
         <div className="anim-pop absolute left-0 right-0 top-full z-40 mt-1.5 overflow-hidden rounded-lg border border-line bg-panel shadow-[0_12px_40px_rgba(20,35,64,0.18)]">
-          <p className="border-b border-linesoft px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">
-            {t("topbar.resultsCount", { n: results.length })}
-          </p>
-          {results.length === 0 && <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q })}</p>}
-          {results.map((i) => (
-            <button
-              key={i.id}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                openIssue(i.id);
-                setQ("");
-                ref.current?.blur();
-              }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-accentsoft"
-            >
-              <TypeIcon type={i.typeId} size={14} />
-              <span className="font-mono text-[11px] font-semibold text-faint">{i.key}</span>
-              <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{i.title}</span>
-              <PriorityIcon p={i.priorityId} size={13} />
-            </button>
-          ))}
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setAllProjects((v) => !v);
+            }}
+            className="flex w-full items-center justify-between border-b border-linesoft px-3 py-1.5 text-left transition-colors hover:bg-canvas"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider text-faint">
+              {allProjects
+                ? searching
+                  ? "Поиск во всех проектах…"
+                  : `Во всех проектах · ${remote?.items.length ?? 0}`
+                : t("topbar.resultsCount", { n: localResults.length })}
+            </span>
+            <span className="shrink-0 text-[10.5px] font-semibold text-accent">
+              {allProjects ? "Только этот проект" : "Во всех проектах"}
+            </span>
+          </button>
+          {allProjects ? (
+            <>
+              {!searching && (remote?.items.length ?? 0) === 0 && (
+                <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q })}</p>
+              )}
+              {(remote?.items ?? []).map((i) => (
+                <button
+                  key={i.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    openRemote(i);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-accentsoft"
+                >
+                  <TypeIcon type={i.typeId} size={14} />
+                  <span className="font-mono text-[11px] font-semibold text-faint">{i.key}</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{i.title}</span>
+                  <span className="shrink-0 truncate text-[10.5px] text-faint">{i.projectKey}</span>
+                </button>
+              ))}
+              {remote?.truncated && (
+                <p className="border-t border-linesoft px-3 py-1.5 text-center text-[11px] text-faint">
+                  Показаны первые результаты — уточните запрос
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              {localResults.length === 0 && (
+                <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q })}</p>
+              )}
+              {localResults.map((i) => (
+                <button
+                  key={i.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    openIssue(i.id);
+                    closeAfterPick();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-accentsoft"
+                >
+                  <TypeIcon type={i.typeId} size={14} />
+                  <span className="font-mono text-[11px] font-semibold text-faint">{i.key}</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{i.title}</span>
+                  <PriorityIcon p={i.priorityId} size={13} />
+                </button>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -310,14 +399,66 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-function ProjectSwitcher() {
+/** Строка проекта в переключателе — отдельно от MenuItem: нужен второй
+ *  интерактивный элемент (звезда избранного) внутри одной строки, у MenuItem
+ *  только один onClick на всю ширину. */
+function ProjectRow({ p, active, onOpen }: { p: ProjectSummary; active: boolean; onOpen: () => void }) {
   const { t } = useT();
+  const { data, toggleFavoriteProject } = useStore();
+  const isFav = data.favoriteProjectIds.includes(p.id);
+  return (
+    <div className="group flex items-center">
+      <button
+        onClick={onOpen}
+        className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-[13px] text-ink transition-colors hover:bg-accentsoft"
+      >
+        <span className="w-12 shrink-0 rounded bg-linesoft px-1 text-center font-mono text-[10px] font-bold text-sub">{p.key}</span>
+        <span className="min-w-0 flex-1 truncate">{p.name}</span>
+        {p.isShared && <span className="shrink-0 text-[9.5px] uppercase text-faint">{t("topbar.sharedBadge")}</span>}
+        {active && <IcCheck size={12} className="shrink-0 text-accent" />}
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleFavoriteProject(p.id);
+        }}
+        aria-label={isFav ? "Убрать из избранного" : "Добавить в избранное"}
+        title={isFav ? "Убрать из избранного" : "Добавить в избранное"}
+        className={`mr-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors ${
+          isFav ? "text-[#E2B203]" : "text-faint opacity-0 hover:text-[#E2B203] group-hover:opacity-100"
+        }`}
+      >
+        <IcStar size={13} filled={isFav} />
+      </button>
+    </div>
+  );
+}
+
+function ProjectSwitcher() {
   const { data, switchProject } = useStore();
+  const [filter, setFilter] = useState("");
   if (data.projects.length <= 1) return <span className="font-semibold text-sub">{data.project.name}</span>;
-  const sorted = [...data.projects].sort((a, b) => a.key.localeCompare(b.key));
+
+  const q = filter.trim().toLowerCase();
+  const matches = (p: ProjectSummary) => !q || p.name.toLowerCase().includes(q) || p.key.toLowerCase().includes(q);
+  const byKey = (a: ProjectSummary, b: ProjectSummary) => a.key.localeCompare(b.key);
+  const favorites = data.projects.filter((p) => data.favoriteProjectIds.includes(p.id) && matches(p)).sort(byKey);
+
+  const byDept = new Map<string, ProjectSummary[]>();
+  for (const p of data.projects) {
+    if (!matches(p)) continue;
+    const bucket = byDept.get(p.departmentId);
+    if (bucket) bucket.push(p);
+    else byDept.set(p.departmentId, [p]);
+  }
+  const deptName = (id: string) => data.departments.find((d) => d.id === id)?.name ?? "—";
+  const deptGroups = [...byDept.entries()]
+    .map(([id, projs]) => [deptName(id), projs.sort(byKey)] as const)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+
   return (
     <Dropdown
-      width={264}
+      width={300}
       button={(open) => (
         <button
           className={`flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold transition-colors ${
@@ -329,28 +470,47 @@ function ProjectSwitcher() {
         </button>
       )}
     >
-      {(close) => (
-        <div className="max-h-[60vh] overflow-y-auto py-1">
-          {sorted.map((p) => (
-            <MenuItem
-              key={p.id}
-              onClick={() => {
-                switchProject(p.id);
-                close();
-              }}
-            >
-              <span className="flex w-full items-center gap-2">
-                <span className="w-12 shrink-0 rounded bg-linesoft px-1 text-center font-mono text-[10px] font-bold text-sub">
-                  {p.key}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                {p.isShared && <span className="shrink-0 text-[9.5px] uppercase text-faint">{t("topbar.sharedBadge")}</span>}
-                {p.id === data.currentProjectId && <IcCheck size={12} className="shrink-0 text-accent" />}
-              </span>
-            </MenuItem>
-          ))}
-        </div>
-      )}
+      {(close) => {
+        const open = (id: string) => {
+          switchProject(id);
+          setFilter("");
+          close();
+        };
+        return (
+          <div className="flex max-h-[70vh] flex-col">
+            <div className="shrink-0 border-b border-linesoft p-2">
+              <input
+                autoFocus
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Найти проект…"
+                className="w-full rounded-md border border-line bg-canvas px-2.5 py-1.5 text-[12.5px] text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+            <div className="overflow-y-auto py-1">
+              {favorites.length > 0 && (
+                <div className="mb-1 border-b border-linesoft pb-1">
+                  <p className="px-3 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">Избранное</p>
+                  {favorites.map((p) => (
+                    <ProjectRow key={p.id} p={p} active={p.id === data.currentProjectId} onOpen={() => open(p.id)} />
+                  ))}
+                </div>
+              )}
+              {deptGroups.map(([name, projs]) => (
+                <div key={name}>
+                  <p className="px-3 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">{name}</p>
+                  {projs.map((p) => (
+                    <ProjectRow key={p.id} p={p} active={p.id === data.currentProjectId} onOpen={() => open(p.id)} />
+                  ))}
+                </div>
+              ))}
+              {favorites.length === 0 && deptGroups.length === 0 && (
+                <p className="px-3 py-6 text-center text-[12.5px] text-faint">Ничего не найдено</p>
+              )}
+            </div>
+          </div>
+        );
+      }}
     </Dropdown>
   );
 }

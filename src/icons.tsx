@@ -127,6 +127,11 @@ export const IcCalendar = (p: P) => (
   <S {...p}><rect x="2.5" y="3.5" width="11" height="10" rx="1.5" /><path d="M2.5 6.5h11M5.5 2v2.6M10.5 2v2.6" /></S>
 );
 export const IcBolt = (p: P) => <S {...p} filled><path d="M8.8 1.8L3.6 9.4h3.2L5.9 14.2l5.5-6.8H8.2l.6-5.6z" /></S>;
+export const IcStar = (p: P & { filled?: boolean }) => (
+  <S {...p} viewBox="0 0 24 24">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </S>
+);
 export const IcSend = (p: P) => <S {...p}><path d="M13.5 2.5L7 13.2l-.7-4.5-4.5-.7L13.5 2.5z" /><path d="M13.5 2.5L6.3 8.7" /></S>;
 export const IcFilter = (p: P) => <S {...p}><path d="M2.5 4h11M4.5 8h7M6.5 12h3" /></S>;
 export const IcUndo = (p: P) => <S {...p}><path d="M3 3.5v4h4" /><path d="M3.4 7.3A5.2 5.2 0 1113 9.5" /></S>;

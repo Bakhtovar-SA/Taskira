@@ -19,6 +19,7 @@ import type {
   PriorityId,
   ProjectRole,
   ProjectSummary,
+  SearchResultItem,
   Sprint,
   Status,
   Toast,
@@ -250,6 +251,7 @@ const readIssueHash = (): { projectId: string; issueId: string } | null => {
 const emptyData = (): Data => ({
   project: { key: "…", name: "…", description: "" },
   projects: [],
+  favoriteProjectIds: [],
   departments: [],
   currentProjectId: "",
   users: [],
@@ -464,7 +466,7 @@ interface Api {
   solo: SoloState | null;
   can: (perm: PermId, issue?: Issue) => boolean;
   bootstrap: () => Promise<void>;
-  switchProject: (projectId: string) => void;
+  switchProject: (projectId: string, openIssueId?: string) => void;
   /** Показать главный экран (`<HomeView>`), не выгружая текущий проект. */
   goHome: () => void;
   /** Войти в проект с главного экрана (переключить, если это другой проект). */
@@ -533,6 +535,14 @@ interface Api {
   completeSprint: (sprintId: string) => void;
   /** sprintId=null возвращает задачу в бэклог. */
   setIssueSprint: (issueId: string, sprintId: string | null) => void;
+  /** Избранные проекты (миграция 024) — toggle, а не add/remove по отдельности:
+   *  вызывающему (звёздочка в переключателе) не нужно знать текущее состояние. */
+  toggleFavoriteProject: (projectId: string) => void;
+  /** Кросс-проектный поиск (миграция 024) — по всем видимым проектам, не
+   *  только текущему. Результат не хранится в data (эфемерный, только для
+   *  открытого выпадающего списка результатов), поэтому возвращается вызывающему,
+   *  а не кладётся в стор, как обычные мутации. */
+  searchAllProjects: (q: string) => Promise<{ items: SearchResultItem[]; truncated: boolean }>;
 }
 
 const Ctx = createContext<Api | null>(null);
@@ -630,6 +640,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       projects: ProjectSummary[],
       departments: Department[],
       collaborations: Collaboration[],
+      favoriteProjectIds: string[],
     ): Promise<Data> => {
       const boot = await projectsApi.get(projectId);
       const issuesRes = await issuesApi.list(projectId, { limit: ISSUES_PAGE });
@@ -647,6 +658,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           sprintsEnabled: boot.project.sprintsEnabled,
         },
         projects,
+        favoriteProjectIds,
         departments,
         currentProjectId: projectId,
         users,
@@ -801,6 +813,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           users: [mapUser(user, {})],
           departments: deps,
           projects,
+          favoriteProjectIds: user.favoriteProjectIds ?? [],
           collaborations: collabs,
           assignedToMe: assigned.items as AssignedIssue[],
           assignedTruncated: assigned.truncated,
@@ -819,7 +832,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       const wanted = readLastProject();
       const chosen = hashProjectVisible ? hash!.projectId : projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
-      const next = await buildProjectData(chosen, user.id, projects, deps, collabs);
+      const next = await buildProjectData(chosen, user.id, projects, deps, collabs, user.favoriteProjectIds ?? []);
       setData({ ...next, notifyPrefs: user.notifyPrefs ?? {} });
       void refreshNotifications();
       writeLastProject(chosen);
@@ -841,15 +854,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [handleApiError, buildProjectData, toast, refreshNotifications]);
 
   const switchSeqRef = useRef(0);
+  // Кросс-проектный переход "найти задачу → открыть её" (SearchBox): switchProject
+  // ставит bootStatus в "loading", а App.tsx на это время подменяет весь Sidebar/Topbar
+  // на <BootSkeleton/> — компонент поиска со своим локальным ref размонтируется и
+  // отслеживание "какую задачу открыть после переключения" терялось бы вместе с ним.
+  // Держим его здесь, в StoreProvider, которого этот размонт не касается.
+  const pendingOpenIssueRef = useRef<{ projectId: string; issueId: string } | null>(null);
   const switchProject = useCallback(
-    (projectId: string) => {
+    (projectId: string, openIssueId?: string) => {
       const cur = dataRef.current;
       if (projectId === cur.currentProjectId || !cur.projects.some((p) => p.id === projectId)) return;
+      if (openIssueId) pendingOpenIssueRef.current = { projectId, issueId: openIssueId };
       const seq = ++switchSeqRef.current;
       setBootStatus("loading");
       void (async () => {
         try {
-          const next = await buildProjectData(projectId, cur.currentUserId, cur.projects, cur.departments, cur.collaborations);
+          const next = await buildProjectData(
+            projectId,
+            cur.currentUserId,
+            cur.projects,
+            cur.departments,
+            cur.collaborations,
+            cur.favoriteProjectIds,
+          );
           if (seq !== switchSeqRef.current) return; // пришёл более поздний клик
           setData(next);
           writeLastProject(projectId);
@@ -983,6 +1010,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     [handleApiError],
   );
+
+  // Завершение кросс-проектного "открыть задачу из другого проекта" (см.
+  // pendingOpenIssueRef выше): срабатывает, когда data.currentProjectId догоняет
+  // проект задачи — то есть после того, как switchProject() выше отработал.
+  useEffect(() => {
+    const pending = pendingOpenIssueRef.current;
+    if (pending && pending.projectId === data.currentProjectId) {
+      pendingOpenIssueRef.current = null;
+      openIssue(pending.issueId);
+    }
+  }, [data.currentProjectId, openIssue]);
 
   /** Прямая ссылка #/issue/<projectId>/<issueId> в обычном интерфейсе: если задача
    *  в видимом проекте — открыть её (при необходимости переключив проект). Ссылки
@@ -2107,6 +2145,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, handleApiError],
   );
 
+  /* -------- избранные проекты (миграция 024) -------- */
+  const toggleFavoriteProject = useCallback(
+    (projectId: string) => {
+      const isFav = dataRef.current.favoriteProjectIds.includes(projectId);
+      // Оптимистично: проект уже виден в переключателе (иначе звёздочки бы не
+      // было) — round-trip на toggle не должен ощущаться заметной задержкой,
+      // в отличие от мутаций, где сервер реально может отказать по бизнес-правилу.
+      // 403 здесь реалистичен только при потере доступа между рендером списка
+      // и кликом — откатываем как обычную ошибку.
+      setData((prev) => ({
+        ...prev,
+        favoriteProjectIds: isFav
+          ? prev.favoriteProjectIds.filter((id) => id !== projectId)
+          : [...prev.favoriteProjectIds, projectId],
+      }));
+      void (async () => {
+        try {
+          if (isFav) await projectsApi.unfavorite(projectId);
+          else await projectsApi.favorite(projectId);
+        } catch (err) {
+          setData((prev) => ({
+            ...prev,
+            favoriteProjectIds: isFav
+              ? [...prev.favoriteProjectIds, projectId]
+              : prev.favoriteProjectIds.filter((id) => id !== projectId),
+          }));
+          handleApiError(err, "Не удалось изменить избранное");
+        }
+      })();
+    },
+    [handleApiError],
+  );
+
+  /* -------- кросс-проектный поиск (миграция 024) -------- */
+  const searchAllProjects = useCallback(
+    async (q: string): Promise<{ items: SearchResultItem[]; truncated: boolean }> => {
+      try {
+        const res = await issuesApi.search(q);
+        return { items: res.items as SearchResultItem[], truncated: res.truncated };
+      } catch (err) {
+        handleApiError(err, "Не удалось выполнить поиск");
+        return { items: [], truncated: false };
+      }
+    },
+    [handleApiError],
+  );
+
   const idx = useMemo<StoreIndexes>(
     () => ({
       users: new Map(data.users.map((u) => [u.id, u])),
@@ -2184,6 +2269,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     startSprint,
     completeSprint,
     setIssueSprint,
+    toggleFavoriteProject,
+    searchAllProjects,
   };
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
