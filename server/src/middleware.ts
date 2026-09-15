@@ -332,12 +332,20 @@ export function requireIssuePerm(perm: PermId, gate?: (project: ProjectRow) => v
     gate?.(project);
     const id = (req.params as { id?: string }).id;
     if (!id || !UUID_RE.test(id)) throw notFound("Задача не найдена в этом проекте");
-    const row = await one<{ id: string; project_id: string; assignee_id: string | null; reporter_id: string }>(
-      `SELECT id, project_id, assignee_id, reporter_id FROM issues WHERE id = $1`,
+    // Один round-trip: исполнители (issue_assignees, миграция 025) агрегируются
+    // тут же через array_agg, а не отдельным запросом — это горячий путь,
+    // выполняется на каждый issue-scoped запрос.
+    const row = await one<{ id: string; project_id: string; reporter_id: string; assignee_ids: string[] }>(
+      `SELECT i.id, i.project_id, i.reporter_id,
+              COALESCE(array_agg(ia.user_id) FILTER (WHERE ia.user_id IS NOT NULL), '{}') AS assignee_ids
+         FROM issues i
+         LEFT JOIN issue_assignees ia ON ia.issue_id = i.id
+        WHERE i.id = $1
+        GROUP BY i.id`,
       [id],
     );
     if (!row || row.project_id !== projectId) throw notFound("Задача не найдена в этом проекте");
-    const issueRef: IssueRef = { id: row.id, assigneeId: row.assignee_id, reporterId: row.reporter_id };
+    const issueRef: IssueRef = { id: row.id, assigneeIds: row.assignee_ids, reporterId: row.reporter_id };
     req.project = project;
     req.issueRef = issueRef;
     const membership = await loadProjectMembership(u.id, projectId);

@@ -81,7 +81,7 @@ describe("доступ приглашённого — только его зад
   test("collaborator не годится в исполнители (§3.6 не ослаблен)", async () => {
     const adm = await login(app, "admin");
     expect((await put(collabUrl(), adm, {})).statusCode).toBe(200);
-    const r = await patch(`/api/projects/${p1()}/issues/${iss()}`, adm, { assigneeId: fx.users.outsider });
+    const r = await patch(`/api/projects/${p1()}/issues/${iss()}`, adm, { assigneeIds: [fx.users.outsider] });
     expect(r.statusCode).toBe(400);
   });
 });

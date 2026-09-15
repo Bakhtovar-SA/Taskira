@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "
 import { canTransition, fmtDate, useStore } from "../store";
 import type { Issue, Status, User } from "../types";
 import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PRIORITY_COLOR, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, BOARD_COLUMN_SHELL, Chip, catColor, DROPDOWN_OPEN_EVT } from "../ui";
+import { Avatar, AvatarStack, BOARD_COLUMN_SHELL, Chip, catColor, DROPDOWN_OPEN_EVT } from "../ui";
 import { useT, type TKey } from "../i18n";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -31,7 +31,7 @@ const QUICK_CHIPS: { id: QuickChip; labelKey: TKey }[] = [
  */
 const Card = memo(function Card({
   issue,
-  assignee,
+  assignees,
   epic,
   doneCat,
   onDragStart,
@@ -44,7 +44,7 @@ const Card = memo(function Card({
   moveTargets,
 }: {
   issue: Issue;
-  assignee: User | undefined;
+  assignees: User[];
   epic: Issue | undefined;
   doneCat: boolean;
   onDragStart: () => void;
@@ -174,7 +174,7 @@ const Card = memo(function Card({
               {fmtDate(issue.dueDate)}
             </span>
           )}
-          <Avatar user={assignee ?? null} size={22} />
+          <AvatarStack users={assignees} size={22} />
         </span>
       </div>
 
@@ -236,7 +236,7 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
       description: "",
       typeId: "task",
       priorityId: "medium",
-      assigneeId: null,
+      assigneeIds: [],
       epicId: null,
       labels: [],
       complexity: null,
@@ -325,10 +325,10 @@ export default function Board() {
     const s = q.trim().toLowerCase();
     const td = todayStr();
     return pool.filter((i) => {
-      if (filterUser === "none" ? i.assigneeId !== null : filterUser ? i.assigneeId !== filterUser : false) return false;
+      if (filterUser === "none" ? i.assigneeIds.length !== 0 : filterUser ? !i.assigneeIds.includes(filterUser) : false) return false;
       if (s && !i.title.toLowerCase().includes(s) && !i.key.toLowerCase().includes(s)) return false;
-      if (chips.has("mine") && i.assigneeId !== data.currentUserId) return false;
-      if (chips.has("unassigned") && i.assigneeId !== null) return false;
+      if (chips.has("mine") && !i.assigneeIds.includes(data.currentUserId)) return false;
+      if (chips.has("unassigned") && i.assigneeIds.length !== 0) return false;
       if (chips.has("overdue") && !(i.dueDate && !doneIds.has(i.statusId) && i.dueDate < td)) return false;
       return true;
     });
@@ -354,7 +354,7 @@ export default function Board() {
   const hiddenDone = (sid: string) =>
     doneIds.has(sid) && !showAllDone ? visible.filter((i) => i.statusId === sid && !isRecentDone(i)).length : 0;
   const assignees = useMemo(() => {
-    const ids = new Set(pool.map((i) => i.assigneeId).filter(Boolean) as string[]);
+    const ids = new Set(pool.flatMap((i) => i.assigneeIds));
     return data.users.filter((u) => ids.has(u.id));
   }, [pool, data.users]);
 
@@ -538,7 +538,7 @@ export default function Board() {
                     <Card
                       key={i.id}
                       issue={i}
-                      assignee={i.assigneeId ? usersById.get(i.assigneeId) : undefined}
+                      assignees={i.assigneeIds.map((id) => usersById.get(id)).filter((u): u is User => !!u)}
                       epic={i.epicId ? issuesById.get(i.epicId) : undefined}
                       doneCat={statusById.get(i.statusId)?.category === "done"}
                       moveTargets={targetsFor(i.statusId)}

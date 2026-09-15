@@ -90,7 +90,7 @@ export function SoloIssueCard({
 
   const meFallback = { name: currentUser.name, initials: currentUser.name.slice(0, 2).toUpperCase(), color: "#0B5FD9" };
   const authorOf = (id: string) => pById.get(id) ?? (id === currentUser.id ? meFallback : undefined);
-  const assignee = issue.assigneeId ? pById.get(issue.assigneeId) : undefined;
+  const assignees = issue.assigneeIds.map((id) => pById.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
   const reporter = pById.get(issue.reporterId);
 
   const fmtBytes = (n: number): string =>
@@ -130,12 +130,14 @@ export function SoloIssueCard({
           <PriorityIcon p={issue.priorityId as PriorityId} size={13} />
           {PRIORITY_ORDER.includes(issue.priorityId as PriorityId) ? t(`priority.${issue.priorityId as PriorityId}`) : issue.priorityId}
         </span>
-        <span className="flex items-center gap-1.5">
-          Исполнитель:{" "}
-          {assignee ? (
-            <>
-              <Ava p={assignee} size={18} /> {assignee.name}
-            </>
+        <span className="flex flex-wrap items-center gap-1.5">
+          Исполнители:{" "}
+          {assignees.length > 0 ? (
+            assignees.map((a, i) => (
+              <span key={i} className="flex items-center gap-1">
+                <Ava p={a} size={18} /> {a.name}
+              </span>
+            ))
           ) : (
             <span className="text-faint">не назначен</span>
           )}

@@ -56,7 +56,7 @@ describe("Актор не уведомляет сам себя (D2)", () => {
       method: "PATCH",
       url: `/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}`,
       headers: auth(tok),
-      payload: { assigneeId: fx.users.mgr1 },
+      payload: { assigneeIds: [fx.users.mgr1] },
     });
     expect(r.statusCode).toBe(200);
     expect(await q(`SELECT 1 FROM notifications WHERE user_id = $1`, [fx.users.mgr1])).toHaveLength(0);
@@ -179,7 +179,7 @@ describe("Прочие триггеры", () => {
       method: "PATCH",
       url: `/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}`,
       headers: auth(tok),
-      payload: { assigneeId: fx.users.viw1 },
+      payload: { assigneeIds: [fx.users.viw1] },
     });
     const list = await notifsFor(fx.issues.p1issue);
     expect(list).toEqual([{ user: fx.users.viw1, type: "issue.assigned", emailState: "skipped" }]);

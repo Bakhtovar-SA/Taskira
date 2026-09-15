@@ -273,7 +273,8 @@ export type ServerIssue = {
   typeId: string;
   statusId: string;
   priorityId: string;
-  assigneeId: string | null;
+  /** Исполнители (issue_assignees, миграция 025) — плоский список. */
+  assigneeIds: string[];
   reporterId: string;
   epicId: string | null;
   /** Родитель-подзадачи (миграция 021); независимо от epicId. */
@@ -361,6 +362,17 @@ export type Department = {
   name: string;
   ldapGroupDn: string | null;
   projectCount: number;
+};
+
+/** Состав отдела: из LDAP-группы или добавлено вручную (department_members,
+ *  миграция 009 — source='manual' был в схеме с самого начала, роут появился позже). */
+export type DepartmentMember = {
+  userId: string;
+  name: string;
+  initials: string;
+  color: string;
+  jobRole: string;
+  source: "ldap" | "manual";
 };
 
 /** Ответ GET /api/projects/:projectId — данные одного проекта. */
@@ -488,6 +500,14 @@ export const departmentsApi = {
   patch: (id: string, body: Partial<{ name: string; ldapGroupDn: string | null }>) =>
     api<Department>(`/api/departments/${id}`, { method: "PATCH", body }),
   remove: (id: string) => api<void>(`/api/departments/${id}`, { method: "DELETE" }),
+  listMembers: (id: string) => api<DepartmentMember[]>(`/api/departments/${id}/members`),
+  /** Ручное добавление (source='manual') — для отделов без LDAP-группы или
+   *  пока человек не попал ни в одну группу директории. */
+  addMember: (id: string, userId: string) =>
+    api<DepartmentMember>(`/api/departments/${id}/members/${userId}`, { method: "PUT" }),
+  /** 409, если строка source='ldap' — её не убрать отсюда, только из группы AD. */
+  removeMember: (id: string, userId: string) =>
+    api<void>(`/api/departments/${id}/members/${userId}`, { method: "DELETE" }),
 };
 
 /** Тонкий профиль для пикеров (подключение к задаче и т.п.). */

@@ -51,22 +51,27 @@ describe("GET /api/issues/assigned-to-me", () => {
   test("задача, назначенная мне в НЕвидимом проекте, не показывается", async () => {
     const emp = await login(app, "emp1");
     // emp1 не участник P2 и не в его департаменте. Назначаем напрямую в БД
-    // (через API нельзя — assignee обязан быть участником проекта).
-    await q(`UPDATE issues SET assignee_id = $1 WHERE id = $2`, [fx.users.emp1, fx.issues.p2issue]);
+    // (через API нельзя — assignee обязан быть участником проекта). DELETE
+    // сначала — p2issue уже назначена на mgr2 в фикстуре, а тест хочет
+    // ровно emp1, не emp1 вдобавок к mgr2 (issue_assignees, миграция 025).
+    await q(`DELETE FROM issue_assignees WHERE issue_id = $1`, [fx.issues.p2issue]);
+    await q(`INSERT INTO issue_assignees (issue_id, user_id) VALUES ($1, $2)`, [fx.issues.p2issue, fx.users.emp1]);
     expect(mine((await g("/api/issues/assigned-to-me", emp)).body)).toEqual(["CORP-1"]);
   });
 
   test("is_shared делает проект видимым — моя задача из него появляется", async () => {
     const adm = await login(app, "admin");
     const emp = await login(app, "emp1");
-    await q(`UPDATE issues SET assignee_id = $1 WHERE id = $2`, [fx.users.emp1, fx.issues.p2issue]);
+    await q(`DELETE FROM issue_assignees WHERE issue_id = $1`, [fx.issues.p2issue]);
+    await q(`INSERT INTO issue_assignees (issue_id, user_id) VALUES ($1, $2)`, [fx.issues.p2issue, fx.users.emp1]);
     await patch(`/api/projects/${fx.projects.p2}`, adm, { isShared: true });
     expect(mine((await g("/api/issues/assigned-to-me", emp)).body)).toEqual(["CORP-1", "SEC-1"]);
   });
 
   test("глобальный admin видит назначенные ему задачи в любом проекте без членства", async () => {
     const adm = await login(app, "admin");
-    await q(`UPDATE issues SET assignee_id = $1 WHERE id = $2`, [fx.users.admin, fx.issues.p2issue]);
+    await q(`DELETE FROM issue_assignees WHERE issue_id = $1`, [fx.issues.p2issue]);
+    await q(`INSERT INTO issue_assignees (issue_id, user_id) VALUES ($1, $2)`, [fx.issues.p2issue, fx.users.admin]);
     expect(mine((await g("/api/issues/assigned-to-me", adm)).body)).toEqual(["SEC-1"]);
   });
 
@@ -81,10 +86,10 @@ describe("GET /api/issues/assigned-to-me", () => {
     const adm = await login(app, "admin");
     const emp = await login(app, "emp1");
     const a = JSON.parse(
-      (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeId: fx.users.emp1, priorityId: "low" }))).body,
+      (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeIds: [fx.users.emp1], priorityId: "low" }))).body,
     );
     const b = JSON.parse(
-      (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeId: fx.users.emp1, priorityId: "critical" }))).body,
+      (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeIds: [fx.users.emp1], priorityId: "critical" }))).body,
     );
     const order = JSON.parse((await g("/api/issues/assigned-to-me", emp)).body).items.map((r: { key: string }) => r.key);
     // CORP-1 (medium, fixture) между critical и low

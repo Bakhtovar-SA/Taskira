@@ -1,18 +1,21 @@
 /** Департаменты: список (любой аутентифицированный), CRUD — только глобальный admin.
  *
- *  GET    /api/departments        — список с числом проектов
- *  POST   /api/departments        — создать           [global admin]
- *  PATCH  /api/departments/:id     — переименовать      [global admin]
- *  DELETE /api/departments/:id     — удалить (409, если есть проекты)   [global admin]
+ *  GET    /api/departments             — список с числом проектов
+ *  POST   /api/departments             — создать                        [global admin]
+ *  PATCH  /api/departments/:id          — переименовать                   [global admin]
+ *  DELETE /api/departments/:id          — удалить (409, если есть проекты) [global admin]
+ *  GET    /api/departments/:id/members         — состав (ldap + manual)   [global admin]
+ *  PUT    /api/departments/:id/members/:userId  — добавить вручную         [global admin]
+ *  DELETE /api/departments/:id/members/:userId  — убрать (только manual)   [global admin]
  */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { one, q } from "../db.js";
-import { notFound, requireAuth, requireGlobalAdmin, zbody, zparams, type JwtPayload } from "../middleware.js";
+import { badRequest, invalidateDeptMembership, notFound, requireAuth, requireGlobalAdmin, zparams, zbody, type JwtPayload } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
 import { audit } from "../audit.js";
-import { getDepartment, listDepartments } from "../services/departments.js";
-import { DepartmentBody, DepartmentParams, DepartmentPatchBody } from "../contract.js";
+import { addDepartmentMember, getDepartment, listDepartmentMembers, listDepartments, removeDepartmentMember } from "../services/departments.js";
+import { DepartmentBody, DepartmentMemberParams, DepartmentParams, DepartmentPatchBody } from "../contract.js";
 
 /** 23505 может прилететь и от уникальности имени, и от ldap_group_dn. */
 function deptConflict(e: unknown): never {
@@ -90,6 +93,52 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
       if (Number(n.n) > 0) throw conflict("В отделе есть проекты — сначала перенесите или удалите их");
       await q(`DELETE FROM departments WHERE id = $1`, [id]);
       await audit(actor.sub, "department.delete", "department", id, {});
+      reply.code(204).send();
+    },
+  );
+
+  app.get(
+    "/:id/members",
+    { preHandler: requireGlobalAdmin, preValidation: zparams(DepartmentParams) },
+    async (req) => {
+      const { id } = req.params as z.infer<typeof DepartmentParams>;
+      if (!(await getDepartment(id))) throw notFound("Отдел не найден");
+      return listDepartmentMembers(id);
+    },
+  );
+
+  app.put(
+    "/:id/members/:userId",
+    { preHandler: requireGlobalAdmin, preValidation: zparams(DepartmentMemberParams) },
+    async (req) => {
+      const actor: JwtPayload = req.user;
+      const { id, userId } = req.params as z.infer<typeof DepartmentMemberParams>;
+      if (!(await getDepartment(id))) throw notFound("Отдел не найден");
+      const user = await one<{ id: string; is_active: boolean }>(`SELECT id, is_active FROM users WHERE id = $1`, [userId]);
+      if (!user) throw notFound("Пользователь не найден");
+      if (!user.is_active) throw badRequest("Пользователь деактивирован");
+
+      const dto = await addDepartmentMember(id, userId);
+      invalidateDeptMembership(userId, id);
+      await audit(actor.sub, "department.member.add", "department", id, { userId });
+      return dto;
+    },
+  );
+
+  app.delete(
+    "/:id/members/:userId",
+    { preHandler: requireGlobalAdmin, preValidation: zparams(DepartmentMemberParams) },
+    async (req, reply) => {
+      const actor: JwtPayload = req.user;
+      const { id, userId } = req.params as z.infer<typeof DepartmentMemberParams>;
+      if (!(await getDepartment(id))) throw notFound("Отдел не найден");
+
+      const result = await removeDepartmentMember(id, userId);
+      if (result === "not_found") throw notFound("Пользователь не состоит в отделе");
+      if (result === "ldap")
+        throw conflict("Членство пришло из LDAP-группы — уберите человека из группы в директории, а не здесь");
+      invalidateDeptMembership(userId, id);
+      await audit(actor.sub, "department.member.remove", "department", id, { userId });
       reply.code(204).send();
     },
   );
