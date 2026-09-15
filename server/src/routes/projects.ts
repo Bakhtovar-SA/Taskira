@@ -23,6 +23,7 @@ import { conflict, getWorkflow, seedProjectWorkflow } from "../services/workflow
 import { listIssueTemplates } from "../services/issueTemplates.js";
 import { listCustomFields } from "../services/customFields.js";
 import { listSprints } from "../services/sprints.js";
+import { addFavoriteProject, removeFavoriteProject } from "../services/favorites.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
 import { invalidateProjectCache } from "../services/project.js";
@@ -192,6 +193,29 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       await deleteStorageObjects(attachKeys); // best-effort уборка хранилища
       invalidateProjectCache(projectId);
       await audit(actor.sub, "project.delete", "project", projectId, { key: proj.key });
+      reply.code(204).send();
+    },
+  );
+
+  /* ---------------------------------------------------------- избранное (миграция 024)
+     requirePerm("browse"), не requireGlobalAdmin/manageAccess — своё избранное
+     помечает любой участник видимого проекта, это персональная UX-настройка,
+     не структурная схема. Идемпотентно в обе стороны (ON CONFLICT DO NOTHING /
+     DELETE без предварительного SELECT) — повторный клик не 409-ит. */
+  app.put(
+    "/projects/:projectId/favorite",
+    { preHandler: requirePerm("browse"), preValidation: zparams(ProjectParams) },
+    async (req, reply) => {
+      await addFavoriteProject(req.user.sub, req.project!.id);
+      reply.code(204).send();
+    },
+  );
+
+  app.delete(
+    "/projects/:projectId/favorite",
+    { preHandler: requirePerm("browse"), preValidation: zparams(ProjectParams) },
+    async (req, reply) => {
+      await removeFavoriteProject(req.user.sub, req.project!.id);
       reply.code(204).send();
     },
   );

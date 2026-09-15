@@ -386,6 +386,14 @@ export const IssueQuery = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
+/** GET /api/issues/search — кросс-проектный поиск (миграция 024), project-less,
+ *  по всем видимым пользователю проектам (см. routes/home.ts для того же
+ *  предиката видимости). В отличие от IssueQuery.q (фильтр внутри уже
+ *  выбранного проекта) здесь запрос обязателен — без него нечего искать. */
+export const SearchQuery = z.object({
+  q: z.string().min(1).max(120),
+});
+
 /* ---------------- Отчёты (аудит: отчётность по отделам) ---------------- */
 /** Группировка сводки: по проектам, по исполнителям или по типам задач. */
 export const REPORT_GROUPS = ["project", "assignee", "type", "priority"] as const;

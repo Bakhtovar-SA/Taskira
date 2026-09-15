@@ -51,7 +51,7 @@ export async function resetDb(): Promise<void> {
         `TRUNCATE departments, projects, users, project_members, department_members,
           workflow_statuses, workflow_transitions, issues, comments, activity,
           issue_watchers, issue_collaborators, attachments, project_counters, audit_log,
-          sprints RESTART IDENTITY CASCADE`,
+          sprints, user_favorite_projects RESTART IDENTITY CASCADE`,
       );
       return;
     } catch (e) {

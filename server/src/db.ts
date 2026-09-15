@@ -39,6 +39,10 @@ export async function exec(text: string): Promise<void> {
   await getPool().query(text);
 }
 
+/** Экранирование спецсимволов ILIKE (`%`, `_`, `\`) в пользовательском вводе —
+ *  общая для всех роутов, строящих `... ILIKE '%' || $1 || '%'`. */
+export const escLike = (s: string): string => s.replace(/[%_\\]/g, "\\$&");
+
 /** Операция на выделенном клиенте — для read-then-write без гонок (rank, счётчики). */
 export async function withClient<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
   const client = await getPool().connect();

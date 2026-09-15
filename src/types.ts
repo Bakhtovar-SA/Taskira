@@ -252,6 +252,11 @@ export interface Data {
   projects: ProjectSummary[];
   /** Департаменты организации (для админ-вида). */
   departments: Department[];
+  /** Избранные проекты текущего пользователя (миграция 024) — id из projects,
+   *  наверх списка в переключателе. Не сбрасывается при переключении проекта
+   *  (в отличие от notifyPrefs) — передаётся через buildProjectData(), как
+   *  projects/departments. */
+  favoriteProjectIds: string[];
   /** id текущего проекта; "" пока не выбран. */
   currentProjectId: string;
   users: User[];
@@ -353,6 +358,23 @@ export interface AssignedIssue {
   statusName: string;
   statusCategory: string;
   dueDate: string | null;
+  projectKey: string;
+  projectName: string;
+}
+
+/** Результат кросс-проектного поиска (GET /api/issues/search, миграция 024) —
+ *  по всем видимым проектам, не только текущему. Открытие идёт обычным
+ *  openIssue() после switchProject() на найденный projectId. */
+export interface SearchResultItem {
+  id: string;
+  projectId: string;
+  key: string;
+  title: string;
+  typeId: IssueTypeId;
+  priorityId: PriorityId;
+  statusId: string;
+  statusName: string;
+  statusCategory: string;
   projectKey: string;
   projectName: string;
 }

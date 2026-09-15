@@ -174,6 +174,8 @@ export type SafeUser = {
   authSource: "local" | "ldap";
   /** Настройки уведомлений — приходят только в GET /api/auth/me (не в общем списке). */
   notifyPrefs?: NotifyPrefs;
+  /** Избранные проекты (миграция 024) — id, тоже только в GET /api/auth/me. */
+  favoriteProjectIds?: string[];
 };
 
 export type NotifyPrefs = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
@@ -242,6 +244,21 @@ export type AssignedIssue = {
   statusName: string;
   statusCategory: string;
   dueDate: string | null;
+  projectKey: string;
+  projectName: string;
+};
+
+/** Результат кросс-проектного поиска (GET /api/issues/search, миграция 024). */
+export type SearchResultItem = {
+  id: string;
+  projectId: string;
+  key: string;
+  title: string;
+  typeId: string;
+  priorityId: string;
+  statusId: string;
+  statusName: string;
+  statusCategory: string;
   projectKey: string;
   projectName: string;
 };
@@ -460,6 +477,9 @@ export const projectsApi = {
     body: Partial<{ name: string; description: string; departmentId: string; isShared: boolean; sprintsEnabled: boolean }>,
   ) => api<Project>(P(projectId), { method: "PATCH", body }),
   remove: (projectId: string) => api<void>(P(projectId), { method: "DELETE" }),
+  /** Избранное (миграция 024) — идемпотентно в обе стороны на сервере. */
+  favorite: (projectId: string) => api<void>(`${P(projectId)}/favorite`, { method: "PUT" }),
+  unfavorite: (projectId: string) => api<void>(`${P(projectId)}/favorite`, { method: "DELETE" }),
 };
 
 export const departmentsApi = {
@@ -511,6 +531,9 @@ export const issuesApi = {
   /** Открытые задачи, назначенные мне, по всем видимым проектам (главный экран).
    *  Ответ — объект: сервер ограничивает выдачу и честно сообщает об усечении. */
   assignedToMe: () => api<{ items: AssignedIssue[]; truncated: boolean; limit: number }>("/api/issues/assigned-to-me"),
+  /** Кросс-проектный поиск (миграция 024) — по всем видимым проектам, не
+   *  только текущему. */
+  search: (q: string) => api<{ items: SearchResultItem[]; truncated: boolean }>("/api/issues/search", { query: { q } }),
   /** История задачи («кто, что, когда»). */
   activity: (projectId: string, id: string) => api<ServerActivity[]>(`${P(projectId)}/issues/${id}/activity`),
   create: (projectId: string, body: Record<string, unknown>) =>
