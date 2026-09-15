@@ -47,7 +47,7 @@ export type Membership = { projectId: string; role: ProjectRole } | null;
 /** Минимальный контекст задачи для проверки уровня задачи. */
 export interface IssueRef {
   id: string;
-  assigneeId: string | null;
+  assigneeIds: string[];
   reporterId: string;
 }
 
@@ -112,9 +112,10 @@ export function resolveRole(user: ServerUser, membership: Membership): AccessRol
   return membership?.role ?? null;
 }
 
-/** «Своя» задача: пользователь исполнитель или автор. */
+/** «Своя» задача: пользователь один из исполнителей (миграция 025 — раньше
+ *  был единственный assigneeId) или автор. */
 export const isOwnIssue = (userId: string, issue: IssueRef): boolean =>
-  issue.assigneeId === userId || issue.reporterId === userId;
+  issue.assigneeIds.includes(userId) || issue.reporterId === userId;
 
 /** Проверка права по УЖЕ вычисленной эффективной роли (null — нет доступа к проекту). */
 export function roleCan(

@@ -23,7 +23,8 @@ links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived
 token revocation (017), points → complexity (018), checklist items (019),
 custom fields (020), subtasks (021), issue templates (022), sprints as an optional
 module (023, [SPRINTS_MIGRATION.md](SPRINTS_MIGRATION.md) — a deliberate, scoped
-exception to migration 012's removal, not a reversal of it; off by default).
+exception to migration 012's removal, not a reversal of it; off by default),
+favorite projects (024), multiple assignees (025).
 
 ## Commands
 
@@ -333,6 +334,29 @@ schema/contract) was replaced outright by `complexity` — a plain three-value s
 in `contract.ts`) — migration 018. It has no dedicated client validator, same as
 `priorityId`: the type system and a fixed dropdown are enough, no numeric range to check.
 
+Multiple assignees (`issue_assignees`, migration 025, `services/issues.ts`): the old single
+nullable `issues.assignee_id` was replaced outright by a join table — a flat list, no "primary"
+assignee, same shape as `issue_collaborators` (008) but a materially different concept: a
+collaborator is invited to one issue, sees it and can comment, but is never assignable; an
+assignee is a real project member doing the work, and there can now be zero, one, or several.
+`isOwnIssue` (both `permissions.ts` copies) widened from `assigneeId === me` to
+`assigneeIds.includes(me)` — an employee can edit an issue if they're *any* of its assignees, not
+just its sole one. `mapIssue(row, assigneeIds)` takes the ids as an explicit second argument
+rather than reading them off the row, since they no longer live in `issues` — callers either
+batch-load them for a list (`listAssigneeIdsBatch`, one query for N issues, not N) or load one
+issue's at a time (`listAssigneeIds`); `requireIssuePerm`'s hot path aggregates them into
+`IssueRef` with `array_agg` in the same round-trip as the rest of the row, not a second query.
+`PATCH .../issues/:id` treats `assigneeIds` as a full-list replacement (like `labels`), diffs
+it against the previous set for activity log lines and to notify only the *newly* added
+assignees (never a no-op re-notify of someone already on the issue), and writes the join table
+only when that diff is non-empty. Reports' `groupBy=assignee` breakdown deliberately fans out an
+issue across every one of its assignees (an issue with two assignees contributes to both rows) —
+overall totals are unaffected since that join only appears in the breakdown query, not the
+totals query; the CSV export instead `string_agg`s names into one cell, since a row-per-issue
+export can't fan out. `assignableUsers()` (client `store.tsx`) takes the issue's current
+`assigneeIds` (not a single id) so someone already assigned but since removed from the project
+still shows up in the picker instead of silently vanishing.
+
 Checklist (`checklist_items`, migration 019, `services/checklist.ts`): one row per item, on
 the same `edit`-permission model as `issue_links` — no dedicated permission, whoever can edit
 the issue manages its checklist. `position` is an integer assigned once at insert time
@@ -422,6 +446,31 @@ the backlog (`sprint_id = NULL`) in one transaction; there is no auto-carry into
 `ProjectCapabilities` model (sprints, WIP limits, estimation mode, board layout, vocabulary) that
 a later pass will generalize, not reinvent; this migration does not build that model, only the one
 flag it needs today.
+
+Department membership (`department_members`, migration 009) has always had a `source` column
+(`'ldap' | 'manual'`), but only the LDAP sync path (`departmentSync.ts`) ever wrote to it until
+now — there was no route or UI for `source='manual'` despite the schema explicitly being built
+for it (see that migration's own comment). `routes/departments.ts` now has
+`GET/PUT/DELETE .../departments/:id/members(/:userId)` (global-admin only, like the rest of that
+file): `PUT` inserts `source='manual'` (idempotent, and it won't overwrite an existing
+`source='ldap'` row — `ON CONFLICT DO NOTHING`, so a manual add never fights a row the sync
+already owns); `DELETE` refuses (409) to remove a `source='ldap'` row, since the next login or
+scheduled resync would just recreate it and silently make the removal look like it worked when
+it didn't — the only real way to drop an LDAP-sourced membership is from the AD group itself.
+Both routes call `invalidateDeptMembership()` (`middleware.ts`) so the 30s project-visibility
+cache picks up the change immediately rather than on its own schedule.
+
+`UserSearchPicker` (`ui.tsx`) is a small reusable component wrapping `usersApi.pickable()`
+(debounced server-side search, ≥2 characters, ≤20 results — the same endpoint the issue
+collaborator picker already used) with a search box + select + add button. It replaced three
+independent flat, unsearchable `<select>`s that each rendered the *entire* user list as options
+(`AdminView.tsx`'s project-member add, the new department-member add, and — after refactoring —
+`IssueModal.tsx`'s collaborator picker, which had its own copy of the same debounce logic before
+this existed): on an organization with a few hundred people, scrolling a plain `<select>` to find
+one name was the actual complaint that motivated this. `AdminView.tsx` still keeps a separate,
+admin-only `usersApi.list()` fetch, but only to build a `Set` of admin user ids so they can be
+excluded from the project-member picker's candidates (admins already have implicit full access);
+that fetch no longer drives the visible candidate list itself.
 
 ## Issue lifecycle (migration 016)
 
@@ -517,3 +566,29 @@ since any edit touches it. The board shows the last 14 days in its done column
   outside `mousedown`) instead of switching it to `<Dropdown>` outright. If you add another
   bespoke open/close popup anywhere, wire it into `DROPDOWN_OPEN_EVT` the same way — plain
   local boolean state is not enough by itself.
+- **`<Modal>` (`ui.tsx`) takes `onClose` as a prop, and almost every caller passes it inline**
+  (`onClose={() => setX(false)}`) — a fresh function on every render of the caller. `Modal`'s
+  mount effect (focus-trap setup, initial focus, Esc handling) used to list `onClose` in its
+  dependency array; since typing into any field inside the modal re-renders the caller and
+  therefore creates a new `onClose`, that effect was tearing down and re-running on *every
+  keystroke* — and re-running it means re-focusing the first focusable element in the dialog,
+  which in most modals is the header's close (×) button, since it sits before the body's inputs
+  in the DOM. Symptom: type one character into a title/description/label field and focus jumps
+  to the × button or a link, every modal in the app, not just one. Fixed by holding `onClose` in
+  a `ref` (`onCloseRef`, updated every render, read from inside the Esc handler) so the mount
+  effect's deps can safely be `[]` — it now really does run once. If you add new imperative setup
+  to that effect, keep it independent of anything the caller re-creates per render, or route it
+  through a ref the same way.
+- **`upsertIssue()` (`store.tsx`) used to force `comments`/`activity` back to whatever was
+  already in `data.issues` for that id**, "to be safe." Its only caller, `openIssue()`, calls
+  `mapIssue()` (which itself already defaults to `prev?.comments`/`prev?.activity` for every
+  other caller — list refresh, `updateIssue`, `moveStatus`, …) and then deliberately *overwrites*
+  `mapped.comments`/`mapped.activity` with what it just fetched from `GET .../comments` and
+  `GET .../activity`, specifically so the card shows real data on open. `upsertIssue()`'s extra
+  "safety" clobbered exactly that overwrite back to the stale (usually empty) values already in
+  the list — so the "Комментарии"/"История" tab counts and content on a freshly opened card never
+  reflected what the server actually returned, only what happened to already be in memory. Found
+  by manual smoke-testing, unrelated to whatever else was being worked on at the time — a reminder
+  to actually click through a UI change rather than trust that green tests cover it. Fixed by
+  dropping the override; `mapIssue()`'s own default already does the right thing for every other
+  caller, since `upsertIssue()` has exactly one caller.

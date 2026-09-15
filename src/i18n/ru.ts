@@ -170,6 +170,8 @@ const ru = {
   "field.labels": "Метки",
 
   "createIssue.title": "Создание задачи",
+  "createIssue.templateLabel": "Шаблон",
+  "createIssue.noTemplate": "без шаблона",
   "createIssue.newIssue": "Новая задача",
   "createIssue.newSubtask": "Новая подзадача",
   "createIssue.subtaskOf": "подзадача {key}",
@@ -179,6 +181,7 @@ const ru = {
   "createIssue.descriptionField": "Описание",
   "createIssue.descriptionPlaceholder": "Что нужно сделать и критерии готовности…",
   "createIssue.unassigned": "Не назначен",
+  "createIssue.assigneesMore": "+{n}",
   "createIssue.noDirection": "Без направления",
   "createIssue.noDirectionsYet": "Направлений пока нет — любая задача становится направлением, как только другая сошлётся на неё здесь.",
   "createIssue.labelPlaceholder": "+ Enter",

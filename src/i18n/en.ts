@@ -169,6 +169,8 @@ const en: Record<keyof Dict, string> = {
   "field.labels": "Labels",
 
   "createIssue.title": "Create issue",
+  "createIssue.templateLabel": "Template",
+  "createIssue.noTemplate": "No template",
   "createIssue.newIssue": "New issue",
   "createIssue.newSubtask": "New subtask",
   "createIssue.subtaskOf": "subtask of {key}",
@@ -178,6 +180,7 @@ const en: Record<keyof Dict, string> = {
   "createIssue.descriptionField": "Description",
   "createIssue.descriptionPlaceholder": "What needs to be done and the acceptance criteria…",
   "createIssue.unassigned": "Unassigned",
+  "createIssue.assigneesMore": "+{n}",
   "createIssue.noDirection": "No direction",
   "createIssue.noDirectionsYet": "No directions yet — any issue becomes a direction once another issue references it here.",
   "createIssue.labelPlaceholder": "+ Enter",

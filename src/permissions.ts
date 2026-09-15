@@ -124,7 +124,7 @@ export const permMeta = (id: PermId): PermMeta => PERMISSIONS.find((p) => p.id =
 export const roleHas = (role: AccessRole, perm: PermId): boolean => MATRIX[perm].includes(role);
 
 export const isOwnIssue = (user: User, issue: Issue): boolean =>
-  issue.assigneeId === user.id || issue.reporterId === user.id;
+  issue.assigneeIds.includes(user.id) || issue.reporterId === user.id;
 
 export const canEditIssue = (user: User, issue: Issue): boolean => {
   if (!roleHas(user.accessRole, "edit")) return false;

@@ -71,7 +71,7 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
       description: i.description,
       typeId: "task",
       priorityId: "medium",
-      assigneeId: null,
+      assigneeIds: [],
       epicId: null,
       labels: i.labels,
       complexity: null,

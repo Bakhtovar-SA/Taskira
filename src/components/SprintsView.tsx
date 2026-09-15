@@ -3,7 +3,7 @@ import { useStore } from "../store";
 import type { Issue, Sprint } from "../types";
 import { LIMITS } from "../validation";
 import { IcCheck, IcFlag, IcPlus, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, Empty, Modal } from "../ui";
+import { AvatarStack, Empty, Modal } from "../ui";
 
 /** Бэклог + спринты (sprints, миграция 023) — опциональный модуль, вкладка
  *  видна только при data.project.sprintsEnabled (гейтится в Sidebar.tsx).
@@ -20,7 +20,7 @@ const STATUS_LABEL: Record<Sprint["status"], string> = {
 
 function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) {
   const { idx, openIssue, can } = useStore();
-  const assignee = issue.assigneeId ? idx.users.get(issue.assigneeId) : undefined;
+  const assignees = issue.assigneeIds.map((id) => idx.users.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
   // Как Board.tsx (draggable={canMove}) — иначе карточка выглядит
   // перетаскиваемой для роли без manageSprints, а drop лишь молча отклоняется
   // тостом об отказе (ревью PR #49, седьмой раунд).
@@ -40,7 +40,7 @@ function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) 
       <span className="w-14 shrink-0 truncate font-mono text-[10.5px] font-semibold text-faint">{issue.key}</span>
       <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">{issue.title}</span>
       <PriorityIcon p={issue.priorityId} size={13} />
-      <Avatar user={assignee ?? null} size={19} />
+      <AvatarStack users={assignees} size={19} />
       {onRemove && (
         <button
           onClick={(e) => {

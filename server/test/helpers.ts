@@ -142,11 +142,13 @@ export async function seedFixture(): Promise<Fixture> {
     const id = (
       await q<{ id: string }>(
         `INSERT INTO issues (project_id, num, key, title, description, type_id, status_id, priority_id,
-                             reporter_id, assignee_id, labels, rank)
-         VALUES ($1, 1, $2, 't', '', 'task', $3, 'medium', $4, $5, '{}', 1) RETURNING id`,
-        [pid, `${key}-1`, statusId2, reporter, assignee],
+                             reporter_id, labels, rank)
+         VALUES ($1, 1, $2, 't', '', 'task', $3, 'medium', $4, '{}', 1) RETURNING id`,
+        [pid, `${key}-1`, statusId2, reporter],
       )
     )[0].id;
+    // исполнители (issue_assignees, миграция 025) — отдельная таблица.
+    if (assignee) await q(`INSERT INTO issue_assignees (issue_id, user_id) VALUES ($1, $2)`, [id, assignee]);
     // счётчик номеров: следующая задача проекта — с num=2
     await q(`INSERT INTO project_counters (project_id, next_num) VALUES ($1, 2)`, [pid]);
     return id;
@@ -177,7 +179,7 @@ export const newIssue = (over: Record<string, unknown> = {}) => ({
   title: "test issue",
   typeId: "task",
   priorityId: "medium",
-  assigneeId: null,
+  assigneeIds: [],
   epicId: null,
   complexity: null,
   ...over,

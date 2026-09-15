@@ -2,11 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { assignableUsers, canTransition, fmtDate, relTime, useStore } from "../store";
 import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
-import { usersApi, type PickableUser } from "../api";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
 import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, catColor } from "../ui";
+import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
 import { useT } from "../i18n";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
@@ -47,33 +46,7 @@ const selectCls = "flex w-full items-center gap-2 rounded-md border border-line 
 function CollaboratorField({ issue }: { issue: Issue }) {
   const { data, can, addCollaborator, removeCollaborator } = useStore();
   const canManage = can("manageCollaborators", issue);
-  const [pickable, setPickable] = useState<PickableUser[]>([]);
-  const [pick, setPick] = useState("");
   const [expand, setExpand] = useState(false);
-  const [search, setSearch] = useState("");
-
-  // Справочник больше не выгружается целиком — сервер требует минимум 2 символа
-  // и отдаёт до 20 совпадений. Поэтому здесь поиск с паузой на ввод, а не
-  // единая загрузка всех сотрудников при открытии карточки.
-  useEffect(() => {
-    if (!canManage) return;
-    const term = search.trim();
-    if (term.length < 2) {
-      setPickable([]);
-      return;
-    }
-    let off = false;
-    const t = window.setTimeout(() => {
-      usersApi
-        .pickable(term)
-        .then((u) => !off && setPickable(u))
-        .catch(() => {});
-    }, 250);
-    return () => {
-      off = true;
-      window.clearTimeout(t);
-    };
-  }, [canManage, search]);
 
   const collabs = issue.collaborators;
   if (!canManage && collabs.length === 0) return null;
@@ -91,13 +64,14 @@ function CollaboratorField({ issue }: { issue: Issue }) {
     );
   }
 
-  const taken = new Set(collabs.map((c) => c.userId));
   const isResourceAdmin = (id: string) => data.users.some((u) => u.id === id && u.globalRole === "admin");
-  // Кандидаты: активные, ещё не приглашены, не участники проекта (и так видят),
-  // не админы ресурса, не ты сам.
-  const candidates = pickable.filter(
-    (u) => !taken.has(u.id) && !(u.id in data.members) && !isResourceAdmin(u.id) && u.id !== data.currentUserId,
-  );
+  // Исключаем из кандидатов: уже приглашённых, участников проекта (и так
+  // видят), админов ресурса и себя самого. Кросс-департаментное приглашение
+  // намеренно не ограничено — см. комментарий в routes/collaborators.ts.
+  const exclude = new Set(collabs.map((c) => c.userId));
+  for (const id of Object.keys(data.members)) exclude.add(id);
+  for (const u of data.users) if (isResourceAdmin(u.id)) exclude.add(u.id);
+  exclude.add(data.currentUserId);
 
   return (
     <Field label="Участники задачи">
@@ -130,47 +104,8 @@ function CollaboratorField({ issue }: { issue: Issue }) {
       </div>
       {canManage && (
         <>
-          <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPick("");
-            }}
-            placeholder="Найти сотрудника по имени или должности"
-            aria-label="Поиск сотрудника"
-            className="mt-1.5 w-full rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
-          />
-          <div className="mt-1.5 flex items-center gap-1.5">
-            <select
-              value={pick}
-              onChange={(e) => setPick(e.target.value)}
-              disabled={candidates.length === 0}
-              aria-label="Кого пригласить"
-              className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
-            >
-              <option value="">
-                {search.trim().length < 2
-                  ? "введите минимум 2 символа"
-                  : candidates.length
-                    ? "— пригласить человека —"
-                    : "никого не нашлось"}
-              </option>
-              {candidates.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.jobRole ? `${u.name} · ${u.jobRole}` : u.name}
-                </option>
-              ))}
-            </select>
-            <button
-              disabled={!pick}
-              onClick={() => {
-                addCollaborator(issue.id, pick);
-                setPick("");
-              }}
-              className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              Пригласить
-            </button>
+          <div className="mt-1.5">
+            <UserSearchPicker exclude={exclude} onPick={(userId) => addCollaborator(issue.id, userId)} pickLabel="Пригласить" />
           </div>
           <p className="mt-1 text-[10px] leading-snug text-faint">
             Видит только эту задачу и её комментарии. В проект и в исполнители не добавляется.
@@ -641,7 +576,7 @@ export default function IssueModal() {
   // профиля или статуса рендер падал исключением и гасил всё приложение
   // (аудит BUG-03). Теперь — честный ранний выход с понятным текстом.
   const me = data.users.find((u) => u.id === data.currentUserId);
-  const assignee = data.users.find((u) => u.id === issue.assigneeId);
+  const assignees = issue.assigneeIds.map((id) => data.users.find((u) => u.id === id)).filter((u): u is NonNullable<typeof u> => !!u);
   const reporter = data.users.find((u) => u.id === issue.reporterId);
   const status = data.workflow.statuses.find((s) => s.id === issue.statusId);
   if (!me || !status) {
@@ -989,34 +924,54 @@ export default function IssueModal() {
             )}
           </Field>
 
-          <Field label="Исполнитель">
+          <Field label="Исполнители">
             {editOk ? (
             <Dropdown
-              width={220}
+              width={240}
               button={(open) => (
                 <button className={`${selectCls} ${open ? "border-accent" : ""}`}>
-                  <Avatar user={assignee ?? null} size={20} />
-                  <span className={assignee ? "" : "text-faint"}>{assignee?.name ?? "Не назначен"}</span>
+                  <AvatarStack users={assignees} size={20} max={3} />
+                  <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
+                    {assignees.length === 0
+                      ? "Не назначен"
+                      : assignees.length === 1
+                        ? assignees[0].name
+                        : `${assignees.length} исполнителей`}
+                  </span>
                   <IcChevD size={12} className="ml-auto text-faint" />
                 </button>
               )}
             >
-              {(close) => (
-                <>
-                  <MenuItem onClick={() => { updateIssue(issue.id, { assigneeId: null }); close(); }}>
-                    <Avatar user={null} size={20} /> Не назначен {issue.assigneeId === null && <IcCheck size={12} className="ml-auto text-accent" />}
-                  </MenuItem>
-                  {assignableUsers(data, issue.assigneeId).map((u) => (
-                      <MenuItem key={u.id} onClick={() => { updateIssue(issue.id, { assigneeId: u.id }); close(); }}>
-                        <Avatar user={u} size={20} /> {u.name} {issue.assigneeId === u.id && <IcCheck size={12} className="ml-auto text-accent" />}
-                      </MenuItem>
-                    ))}
-                </>
-              )}
+              {() => {
+                const candidates = assignableUsers(data, issue.assigneeIds);
+                return (
+                  <>
+                    {candidates.map((u) => {
+                      const on = issue.assigneeIds.includes(u.id);
+                      return (
+                        <MenuItem
+                          key={u.id}
+                          onClick={() =>
+                            updateIssue(issue.id, {
+                              assigneeIds: on ? issue.assigneeIds.filter((id) => id !== u.id) : [...issue.assigneeIds, u.id],
+                            })
+                          }
+                        >
+                          <Avatar user={u} size={20} /> {u.name} {on && <IcCheck size={12} className="ml-auto text-accent" />}
+                        </MenuItem>
+                      );
+                    })}
+                    {candidates.length === 0 && <p className="px-3 py-2 text-[12px] text-faint">Нет доступных участников проекта</p>}
+                  </>
+                );
+              }}
             </Dropdown>
             ) : (
               <LockedField reason={denyMsg}>
-                <span className="flex items-center gap-2"><Avatar user={assignee ?? null} size={20} /> {assignee?.name ?? "Не назначен"}</span>
+                <span className="flex items-center gap-2">
+                  <AvatarStack users={assignees} size={20} />
+                  {assignees.length ? assignees.map((a) => a.name).join(", ") : "Не назначен"}
+                </span>
               </LockedField>
             )}
           </Field>

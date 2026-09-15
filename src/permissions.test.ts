@@ -30,7 +30,7 @@ const issue = (over: Partial<Issue> = {}): Issue => ({
   typeId: "task",
   statusId: "s1",
   priorityId: "medium",
-  assigneeId: null,
+  assigneeIds: [],
   reporterId: "someone-else",
   epicId: null,
   parentId: null,
@@ -100,14 +100,20 @@ describe("матрица ролей", () => {
 describe("правило «своей» задачи", () => {
   test("своя = я исполнитель ИЛИ я автор", () => {
     const me = user("employee");
-    expect(isOwnIssue(me, issue({ assigneeId: "u1" }))).toBe(true);
+    expect(isOwnIssue(me, issue({ assigneeIds: ["u1"] }))).toBe(true);
     expect(isOwnIssue(me, issue({ reporterId: "u1" }))).toBe(true);
     expect(isOwnIssue(me, issue())).toBe(false);
   });
 
+  test("своя = я любой ИЗ нескольких исполнителей, не только единственный", () => {
+    const me = user("employee");
+    expect(isOwnIssue(me, issue({ assigneeIds: ["other", "u1"] }))).toBe(true);
+    expect(isOwnIssue(me, issue({ assigneeIds: ["other1", "other2"] }))).toBe(false);
+  });
+
   test("employee правит только свои задачи", () => {
     const emp = user("employee");
-    expect(canEditIssue(emp, issue({ assigneeId: "u1" }))).toBe(true);
+    expect(canEditIssue(emp, issue({ assigneeIds: ["u1"] }))).toBe(true);
     expect(canEditIssue(emp, issue({ reporterId: "u1" }))).toBe(true);
     expect(canEditIssue(emp, issue())).toBe(false);
   });
@@ -118,7 +124,7 @@ describe("правило «своей» задачи", () => {
   });
 
   test("viewer не правит даже свою задачу", () => {
-    expect(canEditIssue(user("viewer"), issue({ assigneeId: "u1" }))).toBe(false);
+    expect(canEditIssue(user("viewer"), issue({ assigneeIds: ["u1"] }))).toBe(false);
   });
 });
 
@@ -131,11 +137,11 @@ describe("can()", () => {
 
   test("с задачей применяется сужение по владельцу", () => {
     expect(can(user("employee"), "edit", issue())).toBe(false);
-    expect(can(user("employee"), "edit", issue({ assigneeId: "u1" }))).toBe(true);
+    expect(can(user("employee"), "edit", issue({ assigneeIds: ["u1"] }))).toBe(true);
   });
 
   test("задача не влияет на права, не связанные с ней", () => {
-    expect(can(user("employee"), "delete", issue({ assigneeId: "u1" }))).toBe(false);
+    expect(can(user("employee"), "delete", issue({ assigneeIds: ["u1"] }))).toBe(false);
   });
 });
 

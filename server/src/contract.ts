@@ -31,6 +31,9 @@ export const LIMITS = {
   comment: { min: 1, max: 2000 },
   label: { max: 30 },
   labelsPerIssue: 10,
+  // Исполнители (миграция 025, issue_assignees) — щедрый потолок, не рабочий
+  // предел: не про то, сколько людей РЕАЛЬНО стоит вешать на задачу.
+  assigneesPerIssue: 10,
   goal: { max: 200 },
   username: { min: 3, max: 32 },
   department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },
@@ -137,6 +140,10 @@ export const CollaboratorParams = z.object({ userId: uuid });
 export const ProjectParams = z.object({ projectId: uuid });
 /** :id в путях департамента */
 export const DepartmentParams = z.object({ id: uuid });
+/** :id/:userId в путях состава департамента (ручное добавление, 009_ldap.sql
+ *  завёл department_members.source='manual' в схеме, но роут для него
+ *  появился только сейчас). */
+export const DepartmentMemberParams = z.object({ id: uuid, userId: uuid });
 
 /** DN группы LDAP/AD (LDAP_MIGRATION.md D5). null — очистить привязку. */
 const ldapGroupDn = z.string().trim().min(1).max(LIMITS.department.ldapGroupDn.max).nullable();
@@ -189,13 +196,21 @@ export const ProjectPatchBody = z
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
 
+/** Исполнители (миграция 025, issue_assignees) — плоский список без иерархии,
+ *  без дублей. Пустой массив = не назначен (эквивалент старого assigneeId: null). */
+const assigneeIds = () =>
+  z
+    .array(uuid)
+    .max(LIMITS.assigneesPerIssue, `Не больше ${LIMITS.assigneesPerIssue} исполнителей`)
+    .refine((arr) => new Set(arr).size === arr.length, "Исполнители не должны повторяться");
+
 /* ---------------- Issues ---------------- */
 export const IssueCreateBody = z.object({
   title: oneLine(LIMITS.title.max, LIMITS.title.min, "Название не может быть пустым"),
   description: multiLine(LIMITS.description.max).default(""),
   typeId: z.enum(ISSUE_TYPES),
   priorityId: z.enum(PRIORITIES),
-  assigneeId: uuid.nullable(),
+  assigneeIds: assigneeIds().default([]),
   epicId: uuid.nullable(),
   // Подзадача (миграция 021) — необязательно, задаётся кнопкой «+ подзадача»
   // на карточке родителя. Независимо от epicId («направление»).
@@ -211,7 +226,7 @@ export const IssuePatchBody = z
     title: oneLine(LIMITS.title.max, LIMITS.title.min),
     description: multiLine(LIMITS.description.max),
     priorityId: z.enum(PRIORITIES),
-    assigneeId: uuid.nullable(),
+    assigneeIds: assigneeIds(),
     epicId: uuid.nullable(),
     parentId: uuid.nullable(),
     labels: z.array(label()).max(LIMITS.labelsPerIssue),
