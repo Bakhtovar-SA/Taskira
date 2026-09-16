@@ -151,12 +151,15 @@ export async function validateAssigneesInProject(projectId: string, userIds: str
  *  единственный источник вызова. */
 export async function setAssignees(issueId: string, userIds: string[], addedBy: string): Promise<void> {
   await q(`DELETE FROM issue_assignees WHERE issue_id = $1`, [issueId]);
-  for (const uid of new Set(userIds)) {
-    await q(
-      `INSERT INTO issue_assignees (issue_id, user_id, added_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-      [issueId, uid, addedBy],
-    );
-  }
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) return;
+
+  const values = uniqueIds.map((_, i) => `($1, $${i + 2}, $${uniqueIds.length + 2})`).join(", ");
+  const params = [issueId, ...uniqueIds, addedBy];
+  await q(
+    `INSERT INTO issue_assignees (issue_id, user_id, added_by) VALUES ${values} ON CONFLICT DO NOTHING`,
+    params,
+  );
 }
 
 /** Скрывает sprintId в ответе, если у проекта выключен модуль спринтов —
