@@ -74,7 +74,7 @@ describe("матрица прав: клиент ↔ сервер", () => {
     // Клиент сравнивает с user.id, сервер — с userId; проверяем саму суть
     // правила: «своя» = я исполнитель ИЛИ я автор, обе половины на месте.
     const rule = clientSource.slice(clientSource.indexOf("isOwnIssue"));
-    expect(rule).toMatch(/assigneeId ===/);
+    expect(rule).toMatch(/assigneeIds\.includes/);
     expect(rule).toMatch(/reporterId ===/);
     expect(rule).toMatch(/\|\|/);
   });

@@ -135,10 +135,18 @@ export async function buildReport(
   // не попадает ничего пришедшего из запроса, кроме параметров.
   const GROUPS: Record<string, { key: string; label: string; join: string }> = {
     project: { key: "pr.id::text", label: "pr.name", join: "JOIN projects pr ON pr.id = i.project_id" },
+    // Миграция 025 — на задаче может быть несколько исполнителей, join
+    // намеренно фанаутит строку задачи по каждому: задача с двумя исполнителями
+    // попадает в обе их группы. Это меняет то, что означает "count(*)" В ЭТОЙ
+    // РАЗБИВКЕ (двое исполнителей на одной закрытой задаче — 2 в сумме "closed"
+    // по строкам, не 1) — totals выше это НЕ затрагивает: тот запрос отдельный,
+    // без этого join'а. Альтернатива (посчитать задачу один раз в первую же
+    // группу) тише, но прячет тот факт, что она вообще была у второго
+    // исполнителя — фанаут честнее для "кто чем занимался".
     assignee: {
       key: "COALESCE(u.id::text, 'none')",
       label: "COALESCE(u.name, 'Без исполнителя')",
-      join: "LEFT JOIN users u ON u.id = i.assignee_id",
+      join: "LEFT JOIN issue_assignees ia ON ia.issue_id = i.id LEFT JOIN users u ON u.id = ia.user_id",
     },
     type: { key: "i.type_id", label: "i.type_id", join: "" },
     priority: { key: "i.priority_id", label: "i.priority_id", join: "" },
@@ -236,13 +244,20 @@ export async function exportRows(
 
   return q<ExportRow>(
     `SELECT i.key, i.title, pr.name AS project, i.type_id AS type, i.priority_id AS priority,
-            ws.name AS status, ua.name AS assignee, ur.name AS reporter, i.labels,
+            ws.name AS status, ua.names AS assignee, ur.name AS reporter, i.labels,
             i.due_date, i.created_at, i.done_at,
             EXTRACT(EPOCH FROM (i.done_at - i.created_at)) / 86400 AS lead_days
        FROM issues i
        JOIN projects pr ON pr.id = i.project_id
        JOIN workflow_statuses ws ON ws.id = i.status_id
-       LEFT JOIN users ua ON ua.id = i.assignee_id
+       -- Несколько исполнителей (миграция 025) в одну CSV-ячейку строкой через
+       -- запятую — построчной выгрузке нужна одна строка на задачу, не фанаут
+       -- (в отличие от разбивки buildReport выше, где фанаут — то, что нужно).
+       LEFT JOIN LATERAL (
+         SELECT string_agg(u.name, ', ' ORDER BY u.name) AS names
+           FROM issue_assignees ia JOIN users u ON u.id = ia.user_id
+          WHERE ia.issue_id = i.id
+       ) ua ON true
        JOIN users ur ON ur.id = i.reporter_id
       WHERE i.project_id = ANY($1) AND ${WHERE[scope]}
       ORDER BY ${ORDER[scope]}

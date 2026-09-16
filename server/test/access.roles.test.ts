@@ -78,7 +78,7 @@ describe("матрица ролей в проекте", () => {
     // задача, где emp1 не автор и не исполнитель — создаём от admin с исполнителем mgr1
     const adm = await login(app, "admin");
     const created = JSON.parse(
-      (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeId: fx.users.mgr1 }))).body,
+      (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeIds: [fx.users.mgr1] }))).body,
     );
     expect((await patch(`/api/projects/${fx.projects.p1}/issues/${created.id}`, emp, { title: "hax" })).statusCode).toBe(403);
   });

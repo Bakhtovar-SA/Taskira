@@ -19,7 +19,6 @@ export interface IssueRow {
   type_id: string;
   status_id: string;
   priority_id: string;
-  assignee_id: string | null;
   reporter_id: string;
   epic_id: string | null;
   /** Родитель-подзадачи (миграция 021); NULL — обычная задача/сама родитель. */
@@ -52,7 +51,9 @@ export interface IssueDto {
   typeId: string;
   statusId: string;
   priorityId: string;
-  assigneeId: string | null;
+  /** Исполнители (миграция 025, issue_assignees) — не в issues-строке, передаётся
+   *  вызывающим (см. mapIssue) отдельно, обычно из batch-запроса по многим задачам сразу. */
+  assigneeIds: string[];
   reporterId: string;
   epicId: string | null;
   parentId: string | null;
@@ -70,7 +71,12 @@ export interface IssueDto {
   archivedAt: string | null;
 }
 
-export function mapIssue(row: IssueRow): IssueDto {
+/** assigneeIds передаётся явным параметром, а не читается из row — исполнители
+ *  больше не колонка issues (миграция 025), это отдельная таблица, и то, как
+ *  её выгодно грузить (одна задача vs batch по списку), зависит от вызывающего
+ *  роута. Явный параметр не даёт забыть его прокинуть — TS откажется собрать
+ *  вызов без него. */
+export function mapIssue(row: IssueRow, assigneeIds: string[]): IssueDto {
   return {
     id: row.id,
     projectId: row.project_id,
@@ -81,7 +87,7 @@ export function mapIssue(row: IssueRow): IssueDto {
     typeId: row.type_id,
     statusId: row.status_id,
     priorityId: row.priority_id,
-    assigneeId: row.assignee_id,
+    assigneeIds,
     reporterId: row.reporter_id,
     epicId: row.epic_id,
     parentId: row.parent_id,
@@ -98,6 +104,62 @@ export function mapIssue(row: IssueRow): IssueDto {
     doneAt: row.done_at ? new Date(row.done_at).toISOString() : null,
     archivedAt: row.archived_at ? new Date(row.archived_at).toISOString() : null,
   };
+}
+
+/** Исполнители одной задачи, по порядку назначения. */
+export async function listAssigneeIds(issueId: string): Promise<string[]> {
+  const rows = await q<{ user_id: string }>(
+    `SELECT user_id FROM issue_assignees WHERE issue_id = $1 ORDER BY added_at, user_id`,
+    [issueId],
+  );
+  return rows.map((r) => r.user_id);
+}
+
+/** То же самое, но пачкой по многим задачам сразу (список /issues) — один
+ *  запрос вместо N, тот же приём, что уже применяется в проекте (аудит PERF-02). */
+export async function listAssigneeIdsBatch(issueIds: string[]): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (issueIds.length === 0) return map;
+  const rows = await q<{ issue_id: string; user_id: string }>(
+    `SELECT issue_id, user_id FROM issue_assignees WHERE issue_id = ANY($1) ORDER BY added_at, user_id`,
+    [issueIds],
+  );
+  for (const r of rows) {
+    const arr = map.get(r.issue_id);
+    if (arr) arr.push(r.user_id);
+    else map.set(r.issue_id, [r.user_id]);
+  }
+  return map;
+}
+
+/** Каждый исполнитель должен реально быть участником проекта — то же правило,
+ *  что раньше применялось к единственному assigneeId (глобальный admin не
+ *  проходит мимо неё, если не состоит в проекте — см. историю в routes/issues.ts). */
+export async function validateAssigneesInProject(projectId: string, userIds: string[]): Promise<void> {
+  if (userIds.length === 0) return;
+  const rows = await q<{ id: string }>(
+    `SELECT u.id FROM users u
+      WHERE u.id = ANY($1) AND u.is_active
+        AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id)`,
+    [userIds, projectId],
+  );
+  if (rows.length !== new Set(userIds).size) throw badRequest("Все исполнители должны быть участниками проекта");
+}
+
+/** Полная замена списка исполнителей задачи (как labels — не diff, а замена
+ *  целиком). Дедуп на всякий случай — контракт уже отсекает дубли, но это не
+ *  единственный источник вызова. */
+export async function setAssignees(issueId: string, userIds: string[], addedBy: string): Promise<void> {
+  await q(`DELETE FROM issue_assignees WHERE issue_id = $1`, [issueId]);
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) return;
+
+  const values = uniqueIds.map((_, i) => `($1, $${i + 2}, $${uniqueIds.length + 2})`).join(", ");
+  const params = [issueId, ...uniqueIds, addedBy];
+  await q(
+    `INSERT INTO issue_assignees (issue_id, user_id, added_by) VALUES ${values} ON CONFLICT DO NOTHING`,
+    params,
+  );
 }
 
 /** Скрывает sprintId в ответе, если у проекта выключен модуль спринтов —
@@ -254,7 +316,7 @@ async function listParticipants(issueId: string): Promise<ParticipantDto[]> {
        FROM users u
       WHERE u.id IN (
         SELECT reporter_id FROM issues WHERE id = $1
-        UNION SELECT assignee_id FROM issues WHERE id = $1
+        UNION SELECT user_id FROM issue_assignees WHERE issue_id = $1
         UNION SELECT author_id FROM comments WHERE issue_id = $1
         UNION SELECT user_id FROM issue_collaborators WHERE issue_id = $1
       )`,
@@ -301,7 +363,8 @@ export type IssueDetailDto = IssueDto & {
 
 export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
-  const [collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary] = await Promise.all([
+  const [assigneeIds, collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary] = await Promise.all([
+    listAssigneeIds(row.id),
     listCollaborators(row.id),
     listParticipants(row.id),
     listAttachments(row.id),
@@ -310,7 +373,7 @@ export async function getIssueDto(projectId: string, issueId: string): Promise<I
     listValuesForIssue(row.id),
     getSubtasksSummary(row.id),
   ]);
-  return { ...mapIssue(row), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary };
+  return { ...mapIssue(row, assigneeIds), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).

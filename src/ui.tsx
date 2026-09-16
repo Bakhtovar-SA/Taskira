@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { AccessRole, Status, User } from "./types";
 import { useStore } from "./store";
+import { usersApi, type PickableUser } from "./api";
 import { IcX } from "./icons";
 import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
 import { useT } from "./i18n";
@@ -26,6 +27,34 @@ export const Avatar = ({ user, size = 26, ring = false }: { user: AvatarUser | n
       title={user.name}
     >
       {user.initials}
+    </span>
+  );
+};
+
+/** Несколько исполнителей на карточке/в шапке задачи (несколько исполнителей
+ *  на задаче — не путать с issue_collaborators) — внахлёст, максимум `max`
+ *  штук, остаток — кружок «+N». Пустой список — тот же «не назначен», что
+ *  одиночный Avatar(null). */
+export const AvatarStack = ({ users, size = 22, max = 3 }: { users: AvatarUser[]; size?: number; max?: number }) => {
+  if (users.length === 0) return <Avatar user={null} size={size} />;
+  const shown = users.slice(0, max);
+  const overflow = users.length - shown.length;
+  return (
+    <span className="flex shrink-0 items-center">
+      {shown.map((u, i) => (
+        <span key={i} className={i === 0 ? "" : "-ml-1.5"}>
+          <Avatar user={u} size={size} ring />
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span
+          className="-ml-1.5 inline-flex shrink-0 select-none items-center justify-center rounded-full bg-linesoft font-semibold text-faint ring-2 ring-panel"
+          style={{ width: size, height: size, fontSize: size * 0.34 }}
+          title={`ещё ${overflow}`}
+        >
+          +{overflow}
+        </span>
+      )}
     </span>
   );
 };
@@ -161,6 +190,18 @@ export function Modal({
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // onClose обычно приходит инлайн-стрелкой (`onClose={() => setX(false)}`),
+  // то есть новая ссылка на функцию при каждом рендере родителя — а рендер
+  // родителя происходит на каждое нажатие клавиши в любом поле внутри диалога
+  // (title/description/label и т.п. держат состояние выше). Если положить
+  // onClose в deps ниже, этот эффект пересоздавался бы на каждый keystroke и
+  // перехватывал фокус обратно на первый focusable-элемент диалога — обычно
+  // кнопку-крестик в шапке, которая в разметке идёт раньше полей ввода. Баг
+  // был воспроизводим и выглядел как «фокус залипает на крестике/ссылке»
+  // после первого введённого символа. Ref держит актуальный onClose без
+  // повторного запуска эффекта монтирования.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     // Куда вернуть фокус после закрытия — обычно это кнопка/карточка,
@@ -178,7 +219,7 @@ export function Modal({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab" || !box) return;
@@ -210,7 +251,7 @@ export function Modal({
       document.body.style.overflow = prevOverflow;
       opener?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div
@@ -437,6 +478,100 @@ export function Toasts() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Поиск сотрудника по имени/должности (`usersApi.pickable` — сервер требует
+ * минимум 2 символа и отдаёт до 20 совпадений, справочник больше не
+ * выгружается целиком, см. SEC-04). Общий пикер вместо плоского `<select>` со
+ * всеми пользователями сразу — на организацию в несколько сотен человек
+ * прокручивать такой список до нужного имени было бы мучением. Изначально
+ * жил только в `IssueModal.tsx`'s `CollaboratorField`; вынесен сюда, чтобы
+ * состав проекта/отдела в `AdminView.tsx` использовал тот же паттерн, а не
+ * свою копию debounce-логики.
+ */
+export function UserSearchPicker({
+  exclude,
+  onPick,
+  placeholder = "Найти сотрудника по имени или должности",
+  pickLabel = "Добавить",
+  disabled = false,
+}: {
+  exclude: Set<string>;
+  onPick: (userId: string) => void;
+  placeholder?: string;
+  pickLabel?: string;
+  disabled?: boolean;
+}) {
+  const [pickable, setPickable] = useState<PickableUser[]>([]);
+  const [pick, setPick] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const term = search.trim();
+    if (term.length < 2) {
+      setPickable([]);
+      return;
+    }
+    let off = false;
+    const t = window.setTimeout(() => {
+      usersApi
+        .pickable(term)
+        .then((u) => !off && setPickable(u))
+        .catch(() => {});
+    }, 250);
+    return () => {
+      off = true;
+      window.clearTimeout(t);
+    };
+  }, [search]);
+
+  const candidates = pickable.filter((u) => !exclude.has(u.id));
+
+  return (
+    <div>
+      <input
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPick("");
+        }}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        disabled={disabled}
+        className="w-full rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-ink placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-50"
+      />
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <select
+          value={pick}
+          onChange={(e) => setPick(e.target.value)}
+          disabled={disabled || candidates.length === 0}
+          aria-label="Кого добавить"
+          className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
+        >
+          <option value="">
+            {search.trim().length < 2 ? "введите минимум 2 символа" : candidates.length ? "— выбрать —" : "никого не нашлось"}
+          </option>
+          {candidates.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.jobRole ? `${u.name} · ${u.jobRole}` : u.name}
+            </option>
+          ))}
+        </select>
+        <button
+          disabled={disabled || !pick}
+          onClick={() => {
+            onPick(pick);
+            setPick("");
+            setSearch("");
+          }}
+          className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+        >
+          {pickLabel}
+        </button>
+      </div>
     </div>
   );
 }

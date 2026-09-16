@@ -66,11 +66,11 @@ describe("assignableUsers", () => {
   test("текущий исполнитель остаётся в списке, даже если его вывели из проекта", () => {
     // Иначе он молча исчез бы из пикера у уже созданной задачи, и было бы
     // непонятно, кто её вообще делает.
-    expect(assignableUsers(data, "c").map((u) => u.id)).toEqual(["a", "b", "c"]);
+    expect(assignableUsers(data, ["c"]).map((u) => u.id)).toEqual(["a", "b", "c"]);
   });
 
   test("не дублирует исполнителя, который и так участник", () => {
-    expect(assignableUsers(data, "a").map((u) => u.id)).toEqual(["a", "b"]);
+    expect(assignableUsers(data, ["a"]).map((u) => u.id)).toEqual(["a", "b"]);
   });
 });
 

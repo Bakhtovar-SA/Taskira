@@ -168,7 +168,9 @@ export interface Issue {
   typeId: IssueTypeId;
   statusId: string;
   priorityId: PriorityId;
-  assigneeId: string | null;
+  /** Исполнители (issue_assignees, миграция 025) — плоский список, без
+   *  иерархии; [] = не назначен (раньше был единственный assigneeId). */
+  assigneeIds: string[];
   reporterId: string;
   epicId: string | null;
   /** Родитель-подзадачи (миграция 021) — независимо от epicId («направление»);

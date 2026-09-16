@@ -33,7 +33,7 @@ async function resolveRecipients(ev: NotifyEvent): Promise<string[]> {
   const withCollab = ev.type === "issue.comment";
   const rows = await q<{ id: string }>(
     `SELECT user_id AS id FROM issue_watchers WHERE issue_id = $1
-     UNION SELECT assignee_id FROM issues WHERE id = $1 AND assignee_id IS NOT NULL
+     UNION SELECT user_id FROM issue_assignees WHERE issue_id = $1
      UNION SELECT reporter_id FROM issues WHERE id = $1
      ${withCollab ? "UNION SELECT user_id FROM issue_collaborators WHERE issue_id = $1" : ""}`,
     [ev.issueId],

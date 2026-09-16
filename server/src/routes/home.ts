@@ -43,7 +43,7 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
          FROM issues i
          JOIN projects p ON p.id = i.project_id
          JOIN workflow_statuses ws ON ws.id = i.status_id
-        WHERE i.assignee_id = $1
+        WHERE EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = $1)
           AND ws.category <> 'done'
           AND ($2
                OR EXISTS (SELECT 1 FROM project_members pm

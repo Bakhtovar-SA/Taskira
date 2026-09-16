@@ -15,6 +15,8 @@ export const LIMITS = {
   comment: { min: 1, max: 2000 },
   label: { max: 30 },
   labelsPerIssue: 10,
+  // Исполнители (миграция 025, issue_assignees) — зеркало server/src/contract.ts.
+  assigneesPerIssue: 10,
   goal: { max: 200 },
   username: { min: 3, max: 32 },
   department: { name: { min: 1, max: 80 }, ldapGroupDn: { max: 1024 } },

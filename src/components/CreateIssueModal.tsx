@@ -3,7 +3,7 @@ import { assignableUsers, useStore } from "../store";
 import type { ComplexityId, IssueTypeId, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcX, TypeIcon } from "../icons";
-import { Avatar, Dropdown, Modal, Chip } from "../ui";
+import { Avatar, AvatarStack, Dropdown, Modal, Chip } from "../ui";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
 import { useT } from "../i18n";
@@ -20,7 +20,7 @@ export default function CreateIssueModal() {
   const [description, setDescription] = useState("");
   const [priorityId, setPriorityId] = useState<PriorityId>("medium");
   const [complexity, setComplexity] = useState<ComplexityId | null>(null);
-  const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [epicId, setEpicId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
@@ -51,7 +51,7 @@ export default function CreateIssueModal() {
   // только уже кем-то выбранная — иначе список кандидатов никогда бы не
   // наполнился (выбрать было бы не из чего, чтобы появилось первое направление).
   const directionOptions = data.issues;
-  const assignee = data.users.find((u) => u.id === assigneeId);
+  const assignees = assigneeIds.map((id) => data.users.find((u) => u.id === id)).filter((u): u is NonNullable<typeof u> => !!u);
 
   const addLabel = () => {
     const l = labelDraft.trim().toLowerCase();
@@ -69,7 +69,7 @@ export default function CreateIssueModal() {
       description,
       typeId,
       priorityId,
-      assigneeId,
+      assigneeIds,
       epicId,
       parentId: ui.createParentId ?? null,
       labels,
@@ -109,13 +109,13 @@ export default function CreateIssueModal() {
         {/* шаблон (issue_templates, миграция 022) — только если в проекте есть хоть один */}
         {data.issueTemplates.length > 0 && (
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Шаблон</p>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("createIssue.templateLabel")}</p>
             <select
               value={templateId}
               onChange={(e) => applyTemplate(e.target.value)}
               className="w-full cursor-pointer rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none focus:border-accent"
             >
-              <option value="">без шаблона</option>
+              <option value="">{t("createIssue.noTemplate")}</option>
               {data.issueTemplates.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
@@ -203,22 +203,32 @@ export default function CreateIssueModal() {
               width={220}
               button={(open) => (
                 <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
-                  <Avatar user={assignee ?? null} size={18} />
-                  <span className={assignee ? "" : "text-faint"}>{assignee?.name ?? t("createIssue.unassigned")}</span>
+                  <AvatarStack users={assignees} size={18} max={2} />
+                  <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
+                    {assignees.length === 0
+                      ? t("createIssue.unassigned")
+                      : assignees.length === 1
+                        ? assignees[0].name
+                        : `${assignees[0].name} ${t("createIssue.assigneesMore", { n: assignees.length - 1 })}`}
+                  </span>
                   <IcChevD size={12} className="ml-auto text-faint" />
                 </button>
               )}
             >
-              {(close) => (
+              {() => (
                 <>
-                  <button onClick={() => { setAssigneeId(null); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                    <Avatar user={null} size={18} /> {t("createIssue.unassigned")} {!assigneeId && <IcCheck size={12} className="ml-auto text-accent" />}
-                  </button>
-                  {assignableUsers(data).map((u) => (
-                      <button key={u.id} onClick={() => { setAssigneeId(u.id); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                        <Avatar user={u} size={18} /> {u.name} {assigneeId === u.id && <IcCheck size={12} className="ml-auto text-accent" />}
+                  {assignableUsers(data).map((u) => {
+                    const on = assigneeIds.includes(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => setAssigneeIds((p) => (on ? p.filter((id) => id !== u.id) : [...p, u.id]))}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft"
+                      >
+                        <Avatar user={u} size={18} /> {u.name} {on && <IcCheck size={12} className="ml-auto text-accent" />}
                       </button>
-                    ))}
+                    );
+                  })}
                 </>
               )}
             </Dropdown>

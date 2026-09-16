@@ -75,11 +75,11 @@ export const canTransition = (wf: Workflow, from: string, to: string) =>
 export const statusById = (wf: Workflow, id: string) => wf.statuses.find((s) => s.id === id);
 
 /** Кого можно назначить исполнителем: участники проекта, плюс — для уже
- *  созданной задачи — текущий assignee, даже если его с тех пор вывели из
- *  проекта (иначе он пропал бы из списка молча). Сервер применяет то же
- *  правило членства при создании/патче issue. */
-export const assignableUsers = (data: Pick<Data, "users" | "members">, currentAssigneeId?: string | null) =>
-  data.users.filter((u) => u.id in data.members || u.id === currentAssigneeId);
+ *  созданной задачи — уже назначенные исполнители, даже если их с тех пор
+ *  вывели из проекта (иначе они пропали бы из списка молча). Сервер применяет
+ *  то же правило членства при создании/патче issue. */
+export const assignableUsers = (data: Pick<Data, "users" | "members">, currentAssigneeIds: string[] = []) =>
+  data.users.filter((u) => u.id in data.members || currentAssigneeIds.includes(u.id));
 
 export const relTime = (ts: number) => {
   const diff = Date.now() - ts;
@@ -160,7 +160,7 @@ export interface CreateInput {
   description: string;
   typeId: IssueTypeId;
   priorityId: PriorityId;
-  assigneeId: string | null;
+  assigneeIds: string[];
   epicId: string | null;
   /** Родитель-подзадачи (миграция 021) — задаётся кнопкой «+ подзадача». */
   parentId?: string | null;
@@ -175,7 +175,7 @@ type CreateIssuePayload = {
   description: string;
   typeId: IssueTypeId;
   priorityId: PriorityId;
-  assigneeId: string | null;
+  assigneeIds: string[];
   epicId: string | null;
   parentId: string | null;
   labels: string[];
@@ -206,7 +206,7 @@ function buildCreatePayload(input: CreateInput): { ok: true; body: CreateIssuePa
       description: d.value,
       typeId: input.typeId,
       priorityId: input.priorityId,
-      assigneeId: input.assigneeId,
+      assigneeIds: input.assigneeIds,
       epicId: input.epicId,
       parentId: input.parentId ?? null,
       labels: l.value,
@@ -367,7 +367,7 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     typeId: normalizeType(dto.typeId),
     statusId: dto.statusId,
     priorityId: (dto.priorityId as PriorityId) || "medium",
-    assigneeId: dto.assigneeId,
+    assigneeIds: dto.assigneeIds ?? [],
     reporterId: dto.reporterId,
     epicId: dto.epicId,
     parentId: dto.parentId,
@@ -410,11 +410,21 @@ function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
   };
 }
 
+// Единственный вызывающий — openIssue() ниже, который уже сам подставляет
+// свежие comments/activity в mapped ПОСЛЕ mapIssue() (та по умолчанию несёт
+// prev?.comments/activity — верно для любого другого будущего вызывающего).
+// Раньше эта функция принудительно возвращала их обратно к list[i] «для
+// безопасности» и тем самым гасила именно то обновление, ради которого
+// openIssue() их туда положил — вкладки «Комментарии»/«История» при
+// открытии карточки всегда показывали то, что было загружено раньше (обычно
+// пусто), а не то, что только что пришло с сервера. Найдено вручную при
+// smoke-тесте множественных исполнителей — к самой этой задаче отношения
+// не имеет, попался по пути.
 function upsertIssue(list: Issue[], issue: Issue): Issue[] {
   const i = list.findIndex((x) => x.id === issue.id);
   if (i < 0) return [...list, issue];
   const next = list.slice();
-  next[i] = { ...issue, comments: list[i].comments, activity: list[i].activity };
+  next[i] = issue;
   return next;
 }
 
@@ -1279,7 +1289,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       if (patch.complexity !== undefined) body.complexity = patch.complexity;
       if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
-      if (patch.assigneeId !== undefined) body.assigneeId = patch.assigneeId;
+      if (patch.assigneeIds !== undefined) body.assigneeIds = patch.assigneeIds;
       if (patch.epicId !== undefined) body.epicId = patch.epicId;
       if (patch.dueDate !== undefined) body.dueDate = patch.dueDate;
       if (patch.tStart !== undefined) body.tStart = patch.tStart;

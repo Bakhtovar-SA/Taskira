@@ -3,7 +3,7 @@ import { fmtDate, useStore } from "../store";
 import type { Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, Chip, Dropdown, Empty, Lozenge, MenuItem } from "../ui";
+import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem } from "../ui";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
 
@@ -31,7 +31,7 @@ function Row({ issue }: { issue: Issue }) {
   const { idx, openIssue, deleteIssue, can } = useStore();
   // Ассоциированные сущности ищем по индексам из контекста, а не линейным
   // проходом по массивам в каждой строке списка (аудит PERF-02).
-  const assignee = issue.assigneeId ? idx.users.get(issue.assigneeId) : undefined;
+  const assignees = issue.assigneeIds.map((id) => idx.users.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
   const epic = issue.epicId ? idx.issues.get(issue.epicId) : undefined;
   const status = idx.statuses.get(issue.statusId);
 
@@ -66,7 +66,7 @@ function Row({ issue }: { issue: Issue }) {
         </span>
       )}
       <PriorityIcon p={issue.priorityId} size={14} />
-      <Avatar user={assignee ?? null} size={22} />
+      <AvatarStack users={assignees} size={22} />
       <div onClick={(e) => e.stopPropagation()}>
         <Dropdown
           align="right"
@@ -131,7 +131,7 @@ export default function Backlog() {
       // «Готово» в фильтре, он хочет видеть именно закрытые.
       if (!showDone && !fStatus && doneIds.has(i.statusId)) return false;
       if (fStatus && i.statusId !== fStatus) return false;
-      if (fAssignee === "none" ? i.assigneeId !== null : fAssignee ? i.assigneeId !== fAssignee : false) return false;
+      if (fAssignee === "none" ? i.assigneeIds.length !== 0 : fAssignee ? !i.assigneeIds.includes(fAssignee) : false) return false;
       if (fType && i.typeId !== fType) return false;
       if (s && !i.title.toLowerCase().includes(s) && !i.key.toLowerCase().includes(s)) return false;
       if (fOverdue && !isOverdue(i, doneIds)) return false;
