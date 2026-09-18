@@ -79,6 +79,11 @@ export interface SmtpConfig {
   secure: boolean;
   /** From: заголовок, напр. "Taskira <noreply@corp.example>". */
   from: string;
+  /** false — не проверять сертификат TLS-сессии (самоподписанный сертификат
+   *  на внутрикорпоративном relay — типичный случай в закрытом контуре, где
+   *  доверенного CA нет и не будет). По умолчанию true — так безопаснее,
+   *  выключать сознательно через SMTP_TLS_REJECT_UNAUTHORIZED=false. */
+  tlsRejectUnauthorized: boolean;
 }
 
 /** Уведомления (NOTIFICATIONS_MIGRATION.md). In-app работает всегда, независимо
@@ -308,6 +313,7 @@ function buildNotifyConfig(): NotifyConfig {
       pass: process.env.SMTP_PASS ?? null,
       secure: envBool(process.env.SMTP_SECURE, false),
       from: req("SMTP_FROM"),
+      tlsRejectUnauthorized: envBool(process.env.SMTP_TLS_REJECT_UNAUTHORIZED, true),
     };
   }
 

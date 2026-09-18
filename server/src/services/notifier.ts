@@ -39,6 +39,7 @@ function tx(): Transporter {
     port: s.port,
     secure: s.secure,
     auth: s.user ? { user: s.user, pass: s.pass ?? "" } : undefined,
+    tls: { rejectUnauthorized: s.tlsRejectUnauthorized },
   });
   return transport;
 }
