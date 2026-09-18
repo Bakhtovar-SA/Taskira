@@ -58,12 +58,18 @@ Taskira к корпоративному SMTP-релею. In-app-уведомле
 | `NOTIFY_WORKER_INTERVAL_MS` | — | `15000` | `15000` | период прохода воркера |
 | `NOTIFY_EMAIL_MAX_TRIES` | — | `4` | `4` | попыток отправки до `failed` |
 | `NOTIFY_DIGEST_WINDOW_MS` | — | `3600000` | `3600000` | окно дайджеста (`notify_prefs.email='daily'`) |
+| `SMTP_TLS_REJECT_UNAUTHORIZED` | — | `true` (деф.) | `true` (деф.) | `false` — принять самоподписанный сертификат relay (см. ниже) |
 
 ¹ обязателен только при `NOTIFY_EMAIL_ENABLED=true`.
 
-**TLS с приватным CA** (STARTTLS/implicit): `NODE_EXTRA_CA_CERTS=/path/ca.pem`
-общесистемно. `SMTP_SECURE` управляет только implicit-TLS (465); STARTTLS на
-587/25 `nodemailer` включает сам, если сервер его предлагает.
+**TLS с приватным CA** (STARTTLS/implicit): предпочтительно
+`NODE_EXTRA_CA_CERTS=/path/ca.pem` общесистемно — доверяет внутреннему CA, не
+снижая проверку сертификата. `SMTP_SECURE` управляет только implicit-TLS (465);
+STARTTLS на 587/25 `nodemailer` включает сам, если сервер его предлагает.
+`SMTP_TLS_REJECT_UNAUTHORIZED=false` — запасной вариант на случай, когда
+поднять `NODE_EXTRA_CA_CERTS` не вариант (закрытый контур без доверенного CA):
+отключает проверку сертификата TLS-сессии целиком, а не только для одного
+внутреннего CA — используйте его только когда первый вариант недоступен.
 
 ---
 
