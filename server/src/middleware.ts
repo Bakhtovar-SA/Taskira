@@ -10,6 +10,8 @@ import { ApiHttpError } from "./errors.js";
 import { projectById, type ProjectRow } from "./services/project.js";
 import { isIssueCollaborator } from "./services/collaborators.js";
 import { closeUserSockets } from "./services/wsHub.js";
+import { loadConfig } from "./config.js";
+import { SESSION_COOKIE, sessionCookie } from "./sessionCookie.js";
 import {
   resolveRole,
   roleCan,
@@ -183,7 +185,7 @@ export async function assertFreshUser(userId: string, sessionVersion: number | u
   return fresh.globalRole;
 }
 
-export const requireAuth: preHandlerAsyncHookHandler = async (req) => {
+export const requireAuth: preHandlerAsyncHookHandler = async (req, reply) => {
   try {
     await req.jwtVerify();
   } catch {
@@ -194,6 +196,27 @@ export const requireAuth: preHandlerAsyncHookHandler = async (req) => {
   // Payload токена (может быть без globalRole у старых токенов) для авторизации не используется.
   const globalRole = await assertFreshUser(req.user.sub, req.user.sessionVersion);
   req.user = { ...req.user, globalRole };
+
+  // Sliding rotation for browser sessions. The session_version claim remains
+  // unchanged, so logout/deactivation still revokes every rotated token.
+  const rotateAfter = loadConfig().sessionRotateAfterSeconds;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (
+    req.user.iat &&
+    nowSeconds - req.user.iat >= rotateAfter &&
+    req.headers.cookie?.split(";").some((part) => part.trim().startsWith(`${SESSION_COOKIE}=`))
+  ) {
+    const token = req.server.jwt.sign(
+      {
+        sub: req.user.sub,
+        globalRole,
+        name: req.user.name,
+        sessionVersion: req.user.sessionVersion,
+      },
+      { expiresIn: loadConfig().sessionTtlSeconds },
+    );
+    reply.header("Set-Cookie", sessionCookie(token));
+  }
 };
 
 const serverUser = (req: FastifyRequest): ServerUser => ({ id: req.user.sub, globalRole: req.user.globalRole });
@@ -262,7 +285,7 @@ async function effectiveRole(u: ServerUser, membership: Membership, project: Pro
 export const requireGlobalAdmin: preHandlerAsyncHookHandler = async (req, reply: FastifyReply) => {
   await requireAuth.call(req.server, req, reply);
   if (req.user.globalRole === "admin") return;
-  await audit(req.user.sub, "access.denied", "globalAdmin", null, { path: req.url, method: req.method });
+  await audit(req.user.sub, "access.denied", "globalAdmin", null, { path: req.url, method: req.method }, "denied");
   throw forbidden("Действие доступно только администратору ресурса");
 };
 
@@ -304,7 +327,7 @@ export function requirePerm(perm: PermId, gate?: (project: ProjectRow) => void):
     req.projectRole = role;
     req.impliedViewer = !membership && role === "viewer";
     if (roleCan(role, perm)) return;
-    await audit(u.id, "access.denied", perm, null, { path: req.url, method: req.method, projectId });
+    await audit(u.id, "access.denied", perm, null, { path: req.url, method: req.method, projectId }, "denied");
     throw forbidden(roleDenialReason(role, perm));
   };
 }
@@ -359,7 +382,7 @@ export function requireIssuePerm(perm: PermId, gate?: (project: ProjectRow) => v
       req.isCollaborator = true;
       return;
     }
-    await audit(u.id, "access.denied", perm, issueRef.id, { path: req.url, method: req.method, projectId });
+    await audit(u.id, "access.denied", perm, issueRef.id, { path: req.url, method: req.method, projectId }, "denied");
     const ownViolation =
       (perm === "edit" || perm === "transition") &&
       !!role &&

@@ -23,6 +23,7 @@
  * Лимиты зеркалят src/validation.ts фронтенда — меняются в двух местах синхронно.
  */
 import { z } from "zod";
+import { passwordPolicyError } from "./passwordPolicy.js";
 
 /* ---------------- лимиты (зеркало клиента) ---------------- */
 export const LIMITS = {
@@ -108,7 +109,7 @@ export const LoginBody = z.object({
  *  отдельно через PUT /api/project/members/:userId. */
 export const CreateUserBody = z.object({
   username: z.string().min(LIMITS.username.min).max(LIMITS.username.max).regex(/^[a-z0-9._-]+$/i, "Латиница, цифры, точки и дефисы"),
-  password: z.string().min(8).max(128),
+  password: z.string().max(128),
   name: oneLine(80),
   initials: oneLine(4),
   color: z.string().regex(/^#[0-9a-f]{6}$/i),
@@ -116,6 +117,9 @@ export const CreateUserBody = z.object({
   phone: oneLine(LIMITS.phone.max).optional(),
   globalRole: z.enum(GLOBAL_ROLES).default("member"),
   isActive: z.boolean().optional(),
+}).superRefine((body, ctx) => {
+  const message = passwordPolicyError(body.password, body.username);
+  if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["password"], message });
 });
 
 /** PATCH /api/users/:id [global admin] — смена глобальной роли и/или деактивация */

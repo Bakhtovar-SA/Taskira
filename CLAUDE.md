@@ -30,6 +30,10 @@ Database changes must follow [docs/MIGRATIONS.md](docs/MIGRATIONS.md): immutable
 migrations, timestamp-prefixed new files, transactional execution, and expand/contract across
 separate releases. CI rejects unmarked destructive contract operations.
 
+Security-facing behavior and claims must stay aligned with
+[docs/SECURITY_OVERVIEW.md](docs/SECURITY_OVERVIEW.md). Vulnerability reporting is documented
+in [SECURITY.md](SECURITY.md); do not add credentials, customer data, or private reports to issues.
+
 ## Commands
 
 Client (run from repo root):

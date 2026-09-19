@@ -25,6 +25,8 @@ export interface UserRow {
   avatar_content_type: string | null;
   avatar_updated_at: Date | null;
   session_version: string | number; // bigint, миграция 029
+  failed_login_attempts: number;
+  locked_until: Date | null;
 }
 
 export interface SafeUser {
@@ -72,5 +74,5 @@ export function signToken(app: FastifyInstance, row: UserRow): string {
     name: row.name,
     sessionVersion: Number(row.session_version),
   };
-  return app.jwt.sign(payload, { expiresIn: loadConfig().jwtExpires });
+  return app.jwt.sign(payload, { expiresIn: loadConfig().sessionTtlSeconds });
 }

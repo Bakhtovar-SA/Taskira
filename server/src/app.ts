@@ -28,6 +28,7 @@ import { avatarRoutes } from "./routes/avatar.js";
 import { ldapRoutes } from "./routes/ldap.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { reportRoutes } from "./routes/reports.js";
+import { auditExportRoutes } from "./routes/auditExport.js";
 import { wsRoutes } from "./routes/ws.js";
 import { q } from "./db.js";
 import { ZodError } from "zod";
@@ -155,6 +156,7 @@ export function buildApp(): FastifyInstance {
       await api.register(ldapRoutes, { prefix: "/ldap" }); // /ldap/ping (global admin)
       await api.register(notificationRoutes); // /notifications* (project-less, requireAuth)
       await api.register(reportRoutes); // /reports/* (project-less, scope = видимые проекты)
+      await api.register(auditExportRoutes); // /admin/audit-log/export (global admin, JSONL/CSV)
       await api.register(collaboratingRoutes); // /issues/collaborating (project-less)
       await api.register(homeRoutes); // /issues/assigned-to-me (project-less, главный экран)
       await api.register(searchRoutes); // /issues/search (project-less, кросс-проектный поиск)

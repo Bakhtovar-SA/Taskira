@@ -1,0 +1,3 @@
+/* Runtime-generated, sanitized presentation rules are inserted into this
+   same-origin stylesheet. Keeping the sheet external permits style-src-attr
+   'none' without losing data-driven colours and dimensions. */

@@ -6,6 +6,67 @@ on:
   pull_request:
 
 jobs:
+  security:
+    name: dependency and image security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+      - name: Fail on high or critical npm advisories (client)
+        run: npm audit --audit-level=high
+      - name: Fail on high or critical npm advisories (server)
+        run: npm audit --audit-level=high
+        working-directory: server
+      - name: Validate vulnerability exception policy
+        run: bash scripts/check-trivy-ignore.sh
+      - name: Build images for scanning
+        run: |
+          docker build -t taskira-client:security .
+          docker build --build-arg TASKIRA_VERSION=security -t taskira-server:security server
+      - name: Server rejects default administrator credentials
+        run: |
+          if docker run --rm \
+            -e DATABASE_URL=postgresql://unused:unused@127.0.0.1:1/unused \
+            -e JWT_SECRET=ci-security-secret-000000000000000000000 \
+            -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD=admin \
+            taskira-server:security >default-credentials.log 2>&1; then
+            echo "::error::server accepted default administrator credentials"
+            exit 1
+          fi
+          grep -F "ADMIN_PASSWORD" default-credentials.log
+      - name: Verify frontend security headers
+        run: |
+          docker run -d --rm --name taskira-security-headers -p 18080:80 --add-host server:127.0.0.1 taskira-client:security
+          trap 'docker stop taskira-security-headers >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 20); do curl -sf http://127.0.0.1:18080/healthz >/dev/null && break; sleep 1; done
+          bash scripts/test-security-headers.sh
+      - name: Trivy client image (HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: taskira-client:security
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          trivyignores: .trivyignore.yaml
+      - name: Trivy server image (HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: taskira-server:security
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          trivyignores: .trivyignore.yaml
+
   snapshot-list:
     runs-on: ubuntu-latest
     outputs:
@@ -45,7 +106,7 @@ jobs:
       DATABASE_URL: postgresql://taskira:taskira@localhost:5432/taskira_upgrade
       JWT_SECRET: upgrade-snapshot-ci-secret-0000000000000000
       ADMIN_USERNAME: upgrade_admin
-      ADMIN_PASSWORD: upgrade-admin-password
+      ADMIN_PASSWORD: Snapshot-Secure-42!
       ADMIN_NAME: Upgrade Admin
       RATE_LIMIT_ENABLED: "false"
       NOTIFY_WORKER_ENABLED: "false"
@@ -177,7 +238,7 @@ jobs:
         env:
           POSTGRES_PASSWORD: compose-check
           JWT_SECRET: compose-check-12345678901234567890123456789012
-          ADMIN_PASSWORD: compose-check
+          ADMIN_PASSWORD: Compose-Check-42!Secure
           CORS_ORIGIN: http://127.0.0.1:8081
         run: |
           docker compose -f docker-compose.yml config >/dev/null
@@ -225,7 +286,7 @@ jobs:
       LDAP_ATTR_NAME: cn
       LDAP_ATTR_MAIL: mail
       ADMIN_USERNAME: breakglass
-      ADMIN_PASSWORD: breakglass-ci-pw-000000
+      ADMIN_PASSWORD: Emergency-Access-42!
 
     steps:
       - uses: actions/checkout@v4
