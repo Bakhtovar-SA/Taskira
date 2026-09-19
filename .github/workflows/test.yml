@@ -6,6 +6,73 @@ on:
   pull_request:
 
 jobs:
+  snapshot-list:
+    runs-on: ubuntu-latest
+    outputs:
+      snapshots: ${{ steps.snapshots.outputs.json }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: snapshots
+        name: Discover database snapshots
+        run: |
+          json="$(find fixtures/db-snapshots -maxdepth 1 -type f -name '*.sql' -printf '%p\n' | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')"
+          test "$json" != "[]"
+          echo "json=$json" >> "$GITHUB_OUTPUT"
+
+  upgrade-from-snapshot:
+    name: upgrade from snapshot (${{ matrix.snapshot }})
+    needs: snapshot-list
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        snapshot: ${{ fromJson(needs.snapshot-list.outputs.snapshots) }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: taskira
+          POSTGRES_PASSWORD: taskira
+          POSTGRES_DB: taskira_upgrade
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://taskira:taskira@localhost:5432/taskira_upgrade
+      JWT_SECRET: upgrade-snapshot-ci-secret-0000000000000000
+      ADMIN_USERNAME: upgrade_admin
+      ADMIN_PASSWORD: upgrade-admin-password
+      ADMIN_NAME: Upgrade Admin
+      RATE_LIMIT_ENABLED: "false"
+      NOTIFY_WORKER_ENABLED: "false"
+      MAINTENANCE_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        working-directory: server
+      - run: npm run build
+        working-directory: server
+      - name: Restore snapshot, migrate, start, and smoke-test
+        run: node scripts/upgrade-snapshot-smoke.mjs "../${{ matrix.snapshot }}"
+        working-directory: server
+
+  upgrade-procedure:
+    name: offline upgrade and rollback
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build versioned images, upgrade snapshot data, and roll back
+        run: bash scripts/test-upgrade-integration.sh
+
   migration-policy:
     runs-on: ubuntu-latest
     steps:
