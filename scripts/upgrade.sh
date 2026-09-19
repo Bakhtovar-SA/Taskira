@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export LC_ALL=C
 
 RELEASE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 INSTALL_DIR="${TASKIRA_INSTALL_DIR:-}"
@@ -74,8 +75,7 @@ require_file() {
 }
 
 env_value() {
-  key="$1"
-  sed -n "s/^${key}=//p" "$INSTALL_DIR/.env" | tail -n 1 | sed 's/\r$//'
+  env_file_value "$INSTALL_DIR/.env" "$1"
 }
 
 load_install_settings() {
@@ -86,14 +86,60 @@ load_install_settings() {
   [[ "$POSTGRES_DB" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "ERROR: unsafe POSTGRES_DB" >&2; return 1; }
 }
 
+parse_semver() {
+  version="$1"
+  prefix="$2"
+  semver_pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+  [[ "$version" =~ $semver_pattern ]] || { echo "ERROR: invalid semantic version: $version" >&2; return 1; }
+  printf -v "${prefix}_MAJOR" '%s' "${BASH_REMATCH[1]}"
+  printf -v "${prefix}_MINOR" '%s' "${BASH_REMATCH[2]}"
+  printf -v "${prefix}_PATCH" '%s' "${BASH_REMATCH[3]}"
+  printf -v "${prefix}_PRE" '%s' "${BASH_REMATCH[5]}"
+  prerelease="${BASH_REMATCH[5]}"
+  if [ -n "$prerelease" ]; then
+    IFS=. read -r -a identifiers <<< "$prerelease"
+    for identifier in "${identifiers[@]}"; do
+      if [[ "$identifier" =~ ^[0-9]+$ ]] && [ "${#identifier}" -gt 1 ] && [ "${identifier#0}" != "$identifier" ]; then
+        echo "ERROR: invalid semantic version (numeric prerelease identifier has a leading zero): $version" >&2
+        return 1
+      fi
+    done
+  fi
+}
+
+semver_is_greater() {
+  parse_semver "$1" A || return 1
+  parse_semver "$2" B || return 1
+  for part in MAJOR MINOR PATCH; do
+    eval "left=\${A_${part}}; right=\${B_${part}}"
+    ((10#$left > 10#$right)) && return 0
+    ((10#$left < 10#$right)) && return 1
+  done
+  [ -z "$A_PRE" ] && [ -n "$B_PRE" ] && return 0
+  [ -n "$A_PRE" ] && [ -z "$B_PRE" ] && return 1
+  [ -z "$A_PRE" ] && return 1
+  IFS=. read -r -a left_ids <<< "$A_PRE"
+  IFS=. read -r -a right_ids <<< "$B_PRE"
+  count="${#left_ids[@]}"; [ "${#right_ids[@]}" -gt "$count" ] && count="${#right_ids[@]}"
+  for ((i=0; i<count; i++)); do
+    [ "$i" -lt "${#left_ids[@]}" ] || return 1
+    [ "$i" -lt "${#right_ids[@]}" ] || return 0
+    left="${left_ids[$i]}"; right="${right_ids[$i]}"
+    [ "$left" = "$right" ] && continue
+    if [[ "$left" =~ ^[0-9]+$ ]] && [[ "$right" =~ ^[0-9]+$ ]]; then
+      ((10#$left > 10#$right)) && return 0 || return 1
+    fi
+    [[ "$left" =~ ^[0-9]+$ ]] && return 1
+    [[ "$right" =~ ^[0-9]+$ ]] && return 0
+    [[ "$left" > "$right" ]] && return 0 || return 1
+  done
+  return 1
+}
+
 compose() {
   (
     cd "$INSTALL_DIR"
-    if [ "$ENGINE" = "docker" ]; then
-      docker compose --env-file .env -f docker-compose.yml "$@"
-    else
-      podman compose --env-file .env -f docker-compose.yml "$@"
-    fi
+    compose_run --env-file .env -f docker-compose.yml "$@"
   )
 }
 
@@ -113,19 +159,7 @@ wait_for_database() {
 
 wait_for_health() {
   expected="$1"
-  attempt=1
-  while [ "$attempt" -le 60 ]; do
-    health="$(curl --fail --silent "http://127.0.0.1:${CLIENT_PORT}/api/health" 2>/dev/null || true)"
-    if printf '%s' "$health" | grep -Fq "\"version\":\"${expected}\""; then
-      echo "Taskira $expected is healthy: $health"
-      return 0
-    fi
-    sleep 2
-    attempt=$((attempt + 1))
-  done
-  echo "ERROR: Taskira $expected did not become healthy within 120 seconds" >&2
-  compose logs --tail=100 server >&2 || true
-  return 1
+  wait_until_healthy "$expected" "$CLIENT_PORT" "$INSTALL_DIR"
 }
 
 load_release_images() {
@@ -151,6 +185,56 @@ restore_release_files() {
   done
 }
 
+drop_database() {
+  database="$1"
+  compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+    -c "DROP DATABASE IF EXISTS \"$database\" WITH (FORCE)"
+}
+
+verify_database_dump() {
+  dump_file="$1"
+  validation_db="taskira_backup_check_$(date -u +%Y%m%d%H%M%S)_$$"
+  compose exec -T postgres createdb -U "$POSTGRES_USER" -O "$POSTGRES_USER" "$validation_db"
+  if ! compose exec -T postgres pg_restore --exit-on-error --no-owner --no-privileges \
+      -U "$POSTGRES_USER" -d "$validation_db" < "$dump_file"; then
+    drop_database "$validation_db" >/dev/null 2>&1 || true
+    echo "ERROR: backup cannot be restored completely" >&2
+    return 1
+  fi
+  drop_database "$validation_db"
+}
+
+restore_database_safely() {
+  dump_file="$1"
+  safety_db="taskira_before_rollback_$(date -u +%Y%m%d%H%M%S)_$$"
+  database_exists="$(compose exec -T postgres psql -At -U "$POSTGRES_USER" -d postgres \
+    -c "SELECT 1 FROM pg_database WHERE datname = '$POSTGRES_DB'")"
+  safety_moved=0
+  if [ "$database_exists" = "1" ]; then
+    compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+      -c "ALTER DATABASE \"$POSTGRES_DB\" WITH ALLOW_CONNECTIONS false" \
+      -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$POSTGRES_DB'" \
+      -c "ALTER DATABASE \"$POSTGRES_DB\" RENAME TO \"$safety_db\""
+    safety_moved=1
+  fi
+  if ! compose exec -T postgres createdb -U "$POSTGRES_USER" -O "$POSTGRES_USER" "$POSTGRES_DB" ||
+     ! compose exec -T postgres pg_restore --exit-on-error --no-owner --no-privileges \
+       -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$dump_file"; then
+    drop_database "$POSTGRES_DB" >/dev/null 2>&1 || true
+    if [ "$safety_moved" = "1" ]; then
+      compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+        -c "ALTER DATABASE \"$safety_db\" RENAME TO \"$POSTGRES_DB\"" \
+        -c "ALTER DATABASE \"$POSTGRES_DB\" WITH ALLOW_CONNECTIONS true" || {
+          echo "CRITICAL: automatic restoration of the pre-rollback database failed; it remains named $safety_db" >&2
+          return 1
+        }
+      echo "The pre-rollback database was restored automatically after the dump restore failed." >&2
+    fi
+    return 1
+  fi
+  [ "$safety_moved" = "0" ] || drop_database "$safety_db"
+}
+
 for command_name in sha256sum sed awk grep sort comm df du date mktemp curl; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "ERROR: $command_name is required" >&2; exit 1; }
 done
@@ -166,8 +250,10 @@ if [ "$MODE" = "rollback" ]; then
   STAGE="rollback validation"
   ROLLBACK_DIR="$(CDPATH= cd -- "$ROLLBACK_DIR" && pwd)"
   require_file "$ROLLBACK_DIR/database.dump"
+  require_file "$ROLLBACK_DIR/database.dump.sha256"
   require_file "$ROLLBACK_DIR/docker-compose.yml"
   require_file "$ROLLBACK_DIR/VERSION"
+  (cd "$ROLLBACK_DIR" && sha256sum --check --strict database.dump.sha256 >/dev/null)
   BACKUP_DIR="$ROLLBACK_DIR"
   ROLLBACK_READY=1
   old_version="$(tr -d '\r\n' < "$ROLLBACK_DIR/VERSION")"
@@ -182,13 +268,8 @@ if [ "$MODE" = "rollback" ]; then
   STAGE="starting PostgreSQL for restore"
   compose up -d postgres
   wait_for_database
-  STAGE="recreating the database"
-  compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
-    -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\" WITH (FORCE)"
-  compose exec -T postgres createdb -U "$POSTGRES_USER" -O "$POSTGRES_USER" "$POSTGRES_DB"
-  STAGE="restoring the database dump"
-  compose exec -T postgres pg_restore --exit-on-error --no-owner --no-privileges \
-    -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$ROLLBACK_DIR/database.dump"
+  STAGE="restoring the database dump with a safety database"
+  restore_database_safely "$ROLLBACK_DIR/database.dump"
   STAGE="starting previous Taskira version"
   compose up -d
   wait_for_health "$old_version"
@@ -203,7 +284,16 @@ require_file "$RELEASE_DIR/MIGRATIONS.txt"
 require_file "$RELEASE_DIR/VERSION"
 target_version="$(tr -d '\r\n' < "$RELEASE_DIR/VERSION")"
 current_version="$(tr -d '\r\n' < "$INSTALL_DIR/VERSION")"
-[ "$target_version" != "$current_version" ] || { echo "ERROR: Taskira $target_version is already installed" >&2; exit 1; }
+parse_semver "$target_version" TARGET
+parse_semver "$current_version" CURRENT
+semver_is_greater "$target_version" "$current_version" || {
+  if [ "$target_version" = "$current_version" ]; then
+    echo "ERROR: Taskira $target_version is already installed" >&2
+  else
+    echo "ERROR: refusing downgrade: target $target_version is not newer than installed $current_version" >&2
+  fi
+  exit 1
+}
 
 STAGE="current installation health check"
 wait_for_database
@@ -266,7 +356,9 @@ done
 STAGE="creating PostgreSQL backup"
 compose exec -T postgres pg_dump --format=custom --no-owner --no-privileges \
   -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$BACKUP_DIR/database.dump"
-compose exec -T postgres pg_restore --list < "$BACKUP_DIR/database.dump" >/dev/null
+STAGE="verifying PostgreSQL backup with a full test restore"
+verify_database_dump "$BACKUP_DIR/database.dump"
+(cd "$BACKUP_DIR" && sha256sum database.dump > database.dump.sha256)
 ROLLBACK_READY=1
 
 STAGE="stopping current containers"

@@ -70,6 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Build versioned images, upgrade snapshot data, and roll back
         run: bash scripts/test-upgrade-integration.sh
 
