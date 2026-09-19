@@ -6,6 +6,11 @@ cd "$ROOT_DIR"
 
 bash -n scripts/build-release.sh
 bash -n scripts/render-compose.sh
+bash -n scripts/upgrade.sh
+bash -n scripts/backup.sh
+bash -n scripts/restore.sh
+bash -n scripts/support-bundle.sh
+bash -n scripts/operations-common.sh
 bash -n scripts/release/install.sh
 
 scripts/render-compose.sh source | cmp - docker-compose.yml
@@ -65,8 +70,15 @@ RELEASE_DIR="$TMP_DIR/output/taskira-9.8.7-test"
 [ -f "$TMP_DIR/output/taskira-9.8.7-test.tar.gz.sha256" ]
 [ -f "$RELEASE_DIR/manifest.json" ]
 [ -f "$RELEASE_DIR/README_INSTALL.md" ]
+[ -f "$RELEASE_DIR/OPERATIONS.md" ]
 [ -f "$RELEASE_DIR/CHANGELOG.md" ]
 [ -f "$RELEASE_DIR/container-engine.sh" ]
+[ -x "$RELEASE_DIR/upgrade.sh" ]
+[ -x "$RELEASE_DIR/backup.sh" ]
+[ -x "$RELEASE_DIR/restore.sh" ]
+[ -x "$RELEASE_DIR/support-bundle.sh" ]
+[ -x "$RELEASE_DIR/operations-common.sh" ]
+[ -f "$RELEASE_DIR/MIGRATIONS.txt" ]
 [ "$(cat "$RELEASE_DIR/VERSION")" = "9.8.7-test" ]
 [ "$(find "$RELEASE_DIR/images" -type f -name '*.tar' | wc -l | tr -d ' ')" = "3" ]
 grep -q '"version": "9.8.7-test"' "$RELEASE_DIR/manifest.json"
