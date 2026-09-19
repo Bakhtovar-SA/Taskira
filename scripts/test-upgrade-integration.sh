@@ -103,7 +103,7 @@ fi
 grep -Fq 'ERROR: refusing downgrade' "$TMP_DIR/downgrade.log"
 dry_run_output="$("$RELEASE_DIR/upgrade.sh" --install-dir "$INSTALL_DIR" --engine docker --dry-run)"
 printf '%s\n' "$dry_run_output"
-printf '%s\n' "$dry_run_output" | grep -Fq '  - 024_sprint_enhancements.sql'
+printf '%s\n' "$dry_run_output" | grep -Fq '  - 024_favorite_projects.sql'
 ! printf '%s\n' "$dry_run_output" | grep -Fq 'Pending migrations: none'
 "$RELEASE_DIR/upgrade.sh" --install-dir "$INSTALL_DIR" --engine docker
 [ "$(cat "$INSTALL_DIR/VERSION")" = "$NEW_VERSION" ]
