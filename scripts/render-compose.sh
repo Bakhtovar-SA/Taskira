@@ -71,7 +71,9 @@ EOF
 if [ "$MODE" = "source" ]; then
   cat <<'EOF'
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+      # Debug/API access is host-local. Network users enter through client nginx,
+      # which is the trusted proxy and prevents spoofed X-Forwarded-For headers.
+      - "127.0.0.1:${SERVER_PORT:-8080}:8080"
 EOF
 fi
 cat <<'EOF'
