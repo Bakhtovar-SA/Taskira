@@ -6,6 +6,7 @@ import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcTrash, IcX, PriorityIco
 import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem } from "../ui";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 type SortKey = "priority" | "due" | "updated" | "key";
 const keyNum = (key: string) => {
@@ -240,7 +241,7 @@ export default function Backlog() {
           <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.allStatuses")}</option>
             {data.workflow.statuses.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
             ))}
           </select>
           <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className={`${selectCls} cursor-pointer`}>

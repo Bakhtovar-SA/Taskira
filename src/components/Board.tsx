@@ -4,6 +4,7 @@ import type { Issue, Status, User } from "../types";
 import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PRIORITY_COLOR, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, BOARD_COLUMN_SHELL, Chip, catColor, DROPDOWN_OPEN_EVT } from "../ui";
 import { useT, type TKey } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -257,7 +258,7 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
           }
           if (e.key === "Escape") onDone();
         }}
-        placeholder={t("board.quickCreatePlaceholder", { status: status.name })}
+        placeholder={t("board.quickCreatePlaceholder", { status: workflowStatusName(status, t) })}
         rows={2}
         className="w-full resize-none bg-transparent text-[13px] outline-none placeholder:text-faint"
       />
@@ -515,13 +516,13 @@ export default function Board() {
               >
                 <header className="mb-1.5 flex items-center gap-2 px-1.5 pt-1">
                   <span className="h-2 w-2 rounded-sm" style={{ background: c.dot }} />
-                  <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{st.name}</h3>
+                  <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{workflowStatusName(st, t)}</h3>
                   <span className="rounded-full bg-todosoft px-1.5 font-mono text-[10.5px] font-bold text-sub">{items.length}</span>
                   {canCreate && st.id === firstTodoId && (
                     <button
                       onClick={() => setQuickFor(st.id)}
                       className="ml-auto flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-todosoft hover:text-ink"
-                      aria-label={t("board.addToStatusAria", { name: st.name })}
+                      aria-label={t("board.addToStatusAria", { name: workflowStatusName(st, t) })}
                     >
                       <IcPlus size={14} />
                     </button>
@@ -591,8 +592,8 @@ export default function Board() {
                   {isOver && !ok && (
                     <p className="rounded bg-dangersoft px-2 py-1 text-center text-[11px] font-semibold text-danger">
                       {t("board.transitionOutOfSchema", {
-                        from: dragged ? data.workflow.statuses.find((s) => s.id === dragged.statusId)?.name ?? "" : "",
-                        to: st.name,
+                        from: dragged ? workflowStatusName(data.workflow.statuses.find((s) => s.id === dragged.statusId) ?? { name: "" }, t) : "",
+                        to: workflowStatusName(st, t),
                       })}
                     </p>
                   )}

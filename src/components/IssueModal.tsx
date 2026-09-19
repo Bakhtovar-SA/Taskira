@@ -7,6 +7,7 @@ import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
 import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
 import { useT } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -14,7 +15,7 @@ const DIRECTION_COLORS = ["#0B5FD9", "#22A06B", "#E2B203", "#D23A2E", "#E8772E",
 
 /** Activity rows are stored as historical Russian text for compatibility.
  * Translate only known system phrases; captured user names/issue keys stay intact. */
-function localizeActivity(text: string, lang: "ru" | "en"): string {
+function localizeActivity(text: string, lang: "ru" | "en", t: ReturnType<typeof useT>["t"]): string {
   if (lang === "ru") return text;
   const exact: Record<string, string> = {
     "создал(а) задачу": "created the issue",
@@ -33,7 +34,7 @@ function localizeActivity(text: string, lang: "ru" | "en"): string {
     [/^изменил\(а\) приоритет: (.+) → (.+)$/, (m) => `changed priority: ${translateMetric(m[1])} → ${translateMetric(m[2])}`],
     [/^изменил\(а\) сложность: (.+) → (.+)$/, (m) => `changed complexity: ${translateMetric(m[1])} → ${translateMetric(m[2])}`],
     [/^изменил\(а\) срок: (.+) → (.+)$/, (m) => `changed due date: ${m[1]} → ${m[2]}`],
-    [/^переместил\(а\) из «(.+)» в «(.+)»$/, (m) => `moved from “${m[1]}” to “${m[2]}”`],
+    [/^переместил\(а\) из «(.+)» в «(.+)»$/, (m) => `moved from “${workflowStatusName({ name: m[1] }, t)}” to “${workflowStatusName({ name: m[2] }, t)}”`],
     [/^добавил\(а\) пункт чек-листа «(.+)»$/, (m) => `added checklist item “${m[1]}”`],
     [/^отметил\(а\), что задача блокирует (.+)$/, (m) => `marked the issue as blocking ${m[1]}`],
     [/^отметил\(а\), что задача заблокирована (.+)$/, (m) => `marked the issue as blocked by ${m[1]}`],
@@ -880,7 +881,7 @@ export default function IssueModal() {
                       <Avatar user={who} size={18} interactive />
                     </span>
                     <p className="pt-0.5 text-[12.5px] leading-snug text-sub">
-                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {localizeActivity(a.text, lang)}
+                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {localizeActivity(a.text, lang, t)}
                       <span className="ml-1.5 text-[11px] text-faint">{relTime(a.ts, lang)}</span>
                     </p>
                   </div>
@@ -913,7 +914,7 @@ export default function IssueModal() {
                     style={{ background: c.bg, color: c.fg }}
                   >
                     <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
-                    <span className="min-w-0 truncate">{status.name}</span>
+                    <span className="min-w-0 truncate">{workflowStatusName(status, t)}</span>
                     <IcChevD size={12} className="ml-auto shrink-0" />
                   </button>
                 );
@@ -953,7 +954,7 @@ export default function IssueModal() {
                     title={denyMsg}
                   >
                     <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
-                    <span className="min-w-0 truncate">{status.name}</span>
+                    <span className="min-w-0 truncate">{workflowStatusName(status, t)}</span>
                     <IcLock size={11} className="ml-auto shrink-0 opacity-70" />
                   </span>
                 );
