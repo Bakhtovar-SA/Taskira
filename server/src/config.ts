@@ -161,7 +161,7 @@ function fail(msg: string): never {
 }
 
 /** "1"/"true"/"yes"/"on" → true; "0"/"false"/"no"/"off"/пусто → false; иначе — дефолт. */
-function envBool(raw: string | undefined, def: boolean): boolean {
+export function envBool(raw: string | undefined, def: boolean): boolean {
   const v = raw?.trim().toLowerCase();
   if (v === undefined || v === "") return def;
   if (["1", "true", "yes", "on"].includes(v)) return true;

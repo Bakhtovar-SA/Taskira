@@ -45,39 +45,20 @@ verify_release() {
   fi
 }
 
-detect_engine() {
-  if [ -n "$ENGINE" ]; then
-    case "$ENGINE" in docker|podman) ;; *) echo "ERROR: unsupported engine: $ENGINE" >&2; exit 2 ;; esac
-    command -v "$ENGINE" >/dev/null 2>&1 || { echo "ERROR: $ENGINE is not installed" >&2; exit 1; }
-    "$ENGINE" info >/dev/null
-    return
-  fi
-  if command -v podman >/dev/null 2>&1 && podman info >/dev/null 2>&1; then
-    ENGINE="podman"
-  elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-    ENGINE="docker"
-  else
-    echo "ERROR: neither a working Podman nor Docker installation was found" >&2
-    exit 1
-  fi
-}
-
 compose_run() {
   if [ "$ENGINE" = "docker" ]; then
     docker compose "$@"
   elif podman compose version >/dev/null 2>&1; then
     podman compose "$@"
-  elif command -v podman-compose >/dev/null 2>&1; then
-    podman-compose "$@"
   else
-    echo "ERROR: install the Podman compose provider (podman-compose or podman compose)" >&2
+    echo "ERROR: Podman must provide the 'podman compose' command" >&2
     exit 1
   fi
 }
 
 env_value() {
   key="$1"
-  sed -n "s/^${key}=//p" .env | tail -n 1
+  sed -n "s/^${key}=//p" .env | tail -n 1 | sed 's/\r$//'
 }
 
 validate_env() {
@@ -86,6 +67,10 @@ validate_env() {
     value="$(env_value "$key")"
     [ -n "$value" ] || { echo "ERROR: $key is empty in .env" >&2; exit 1; }
   done
+  [ "$(env_value CORS_ORIGIN)" != "http://192.0.2.10:8081" ] || {
+    echo "ERROR: CORS_ORIGIN still contains the example address" >&2
+    exit 1
+  }
   jwt="$(env_value JWT_SECRET)"
   [ "${#jwt}" -ge 32 ] || { echo "ERROR: JWT_SECRET must contain at least 32 characters" >&2; exit 1; }
 }
@@ -113,6 +98,7 @@ wait_until_healthy() {
 echo "[1/4] Verifying release checksums"
 verify_release
 [ "$MODE" = "verify" ] && { echo "Release integrity is valid."; exit 0; }
+. "$ROOT_DIR/container-engine.sh"
 
 echo "[2/4] Detecting container engine"
 detect_engine
@@ -137,6 +123,7 @@ fi
 if [ "$MODE" = "start" ]; then
   echo "[4/4] Starting Taskira"
   validate_env
+  compose_run --env-file .env -f docker-compose.yml config >/dev/null
   compose_run --env-file .env -f docker-compose.yml up -d
   wait_until_healthy
   compose_run --env-file .env -f docker-compose.yml ps

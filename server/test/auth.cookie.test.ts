@@ -44,6 +44,14 @@ describe("HttpOnly session cookie", () => {
       });
       expect(setCookieHeader(secure.headers["set-cookie"])).toContain("; Secure");
 
+      process.env.SESSION_COOKIE_SECURE = "yes";
+      const secureAlias = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { username: "emp1", password: "password123" },
+      });
+      expect(setCookieHeader(secureAlias.headers["set-cookie"])).toContain("; Secure");
+
       process.env.SESSION_COOKIE_SECURE = "false";
       const http = await app.inject({
         method: "POST",

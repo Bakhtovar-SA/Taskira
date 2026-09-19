@@ -27,7 +27,8 @@ cat > "$TMP_DIR/bin/podman" <<'EOF'
 #!/usr/bin/env bash
 set -eu
 case "${1:-}" in
-  info|pull|build|tag) exit 0 ;;
+  info|pull|build|tag|load) exit 0 ;;
+  compose) exit 0 ;;
   image)
     if [ "${2:-}" = "inspect" ] && [ "${3:-}" = "--format" ]; then
       case "${4:-}" in
@@ -47,6 +48,11 @@ case "${1:-}" in
 esac
 EOF
 chmod +x "$TMP_DIR/bin/podman"
+cat > "$TMP_DIR/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+printf '{"ok":true,"version":"9.8.7-test"}\n'
+EOF
+chmod +x "$TMP_DIR/bin/curl"
 
 PATH="$TMP_DIR/bin:$PATH" ALLOW_DIRTY_RELEASE=1 CONTAINER_ENGINE=podman \
   scripts/build-release.sh 9.8.7-test --output "$TMP_DIR/output" >/dev/null
@@ -57,6 +63,8 @@ RELEASE_DIR="$TMP_DIR/output/taskira-9.8.7-test"
 [ -f "$RELEASE_DIR/manifest.json" ]
 [ -f "$RELEASE_DIR/README_INSTALL.md" ]
 [ -f "$RELEASE_DIR/CHANGELOG.md" ]
+[ -f "$RELEASE_DIR/compose.common.yml" ]
+[ -f "$RELEASE_DIR/container-engine.sh" ]
 [ "$(cat "$RELEASE_DIR/VERSION")" = "9.8.7-test" ]
 [ "$(find "$RELEASE_DIR/images" -type f -name '*.tar' | wc -l | tr -d ' ')" = "3" ]
 grep -q '"version": "9.8.7-test"' "$RELEASE_DIR/manifest.json"
@@ -74,6 +82,16 @@ fi
 
 (cd "$TMP_DIR/output" && sha256sum --check taskira-9.8.7-test.tar.gz.sha256 >/dev/null)
 (cd "$RELEASE_DIR" && bash install.sh --verify-only >/dev/null)
+
+# Windows-edited CRLF env files must not append carriage returns to secrets.
+printf 'POSTGRES_PASSWORD=dbsecret\r\nJWT_SECRET=12345678901234567890123456789012\r\nADMIN_PASSWORD=adminsecret\r\nCORS_ORIGIN=http://10.20.30.40:8081\r\nCLIENT_PORT=8081\r\n' > "$RELEASE_DIR/.env"
+(cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" bash install.sh --engine podman --start >/dev/null)
+
+# A relative --output is relative to the caller, not to the repository.
+(cd "$TMP_DIR" && PATH="$TMP_DIR/bin:$PATH" ALLOW_DIRTY_RELEASE=1 CONTAINER_ENGINE=podman \
+  "$ROOT_DIR/scripts/build-release.sh" 9.8.8-test --output relative-output >/dev/null)
+[ -f "$TMP_DIR/relative-output/taskira-9.8.8-test.tar.gz" ]
+[ ! -e "$ROOT_DIR/relative-output" ]
 
 printf 'corruption\n' >> "$RELEASE_DIR/manifest.json"
 if (cd "$RELEASE_DIR" && bash install.sh --verify-only >/dev/null 2>&1); then

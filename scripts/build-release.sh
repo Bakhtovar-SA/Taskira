@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+CALLER_DIR="$(pwd -P)"
 TEMPLATE_DIR="$ROOT_DIR/scripts/release"
 OUTPUT_ROOT="${RELEASE_OUTPUT_DIR:-$ROOT_DIR/dist/releases}"
 ENGINE="${CONTAINER_ENGINE:-}"
@@ -60,25 +61,20 @@ for command_name in git tar gzip sha256sum sed awk find sort xargs date mktemp; 
   command -v "$command_name" >/dev/null 2>&1 || { echo "ERROR: $command_name is required" >&2; exit 1; }
 done
 
-detect_engine() {
-  if [ -n "$ENGINE" ]; then
-    case "$ENGINE" in docker|podman) ;; *) echo "ERROR: unsupported engine: $ENGINE" >&2; exit 2 ;; esac
-    command -v "$ENGINE" >/dev/null 2>&1 || { echo "ERROR: $ENGINE is not installed" >&2; exit 1; }
-    "$ENGINE" info >/dev/null
-    return
-  fi
-  if command -v podman >/dev/null 2>&1 && podman info >/dev/null 2>&1; then
-    ENGINE="podman"
-  elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-    ENGINE="docker"
-  else
-    echo "ERROR: neither a working Podman nor Docker installation was found" >&2
-    exit 1
-  fi
-}
+. "$TEMPLATE_DIR/container-engine.sh"
+
+case "$OUTPUT_ROOT" in
+  /*) ;;
+  *) OUTPUT_ROOT="$CALLER_DIR/$OUTPUT_ROOT" ;;
+esac
 
 cd "$ROOT_DIR"
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "ERROR: run this script from a Git checkout" >&2; exit 1; }
+if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+  echo "ERROR: a shallow Git checkout cannot produce a complete CHANGELOG.md" >&2
+  echo "Fetch complete history (for example: git fetch --unshallow --tags) and retry." >&2
+  exit 1
+fi
 if [ "${ALLOW_DIRTY_RELEASE:-0}" != "1" ] && [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
   echo "ERROR: the Git tree is dirty. Commit the release contents first." >&2
   echo "Set ALLOW_DIRTY_RELEASE=1 only for a disposable test build." >&2
@@ -156,6 +152,7 @@ POSTGRES_SUM="$(sha256sum "$WORK_DIR/$POSTGRES_TAR" | awk '{print $1}')"
 
 echo "[5/7] Writing installation files and release manifest"
 sed "s/__VERSION__/$VERSION/g" "$TEMPLATE_DIR/docker-compose.yml.in" > "$WORK_DIR/docker-compose.yml"
+cp "$ROOT_DIR/compose.common.yml" "$WORK_DIR/compose.common.yml"
 sed \
   -e "s/__VERSION__/$VERSION/g" \
   -e "s/__DATE__/$BUILD_DATE/g" \
@@ -164,6 +161,7 @@ sed \
   "$TEMPLATE_DIR/README_INSTALL.md.in" > "$WORK_DIR/README_INSTALL.md"
 cp "$TEMPLATE_DIR/.env.example" "$WORK_DIR/.env.example"
 cp "$TEMPLATE_DIR/install.sh" "$WORK_DIR/install.sh"
+cp "$TEMPLATE_DIR/container-engine.sh" "$WORK_DIR/container-engine.sh"
 chmod 0755 "$WORK_DIR/install.sh"
 printf '%s\n%s\n%s\n' "$CLIENT_IMAGE" "$SERVER_IMAGE" "$POSTGRES_IMAGE" > "$WORK_DIR/IMAGES.txt"
 printf '%s\n' "$VERSION" > "$WORK_DIR/VERSION"
@@ -185,7 +183,10 @@ cat > "$WORK_DIR/manifest.json" <<EOF
 }
 EOF
 
-PREVIOUS_TAG="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
+PREVIOUS_TAG=""
+if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+  PREVIOUS_TAG="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
+fi
 {
   printf '# Taskira %s\n\n' "$VERSION"
   printf 'Built on %s from `%s`.\n\n' "$BUILD_DATE" "$GIT_SHA"

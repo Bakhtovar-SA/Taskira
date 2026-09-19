@@ -1,91 +1,32 @@
-# Полный стек Taskira: PostgreSQL + API + клиент (nginx, статика).
-#
-#   cp .env.example .env    # заполнить POSTGRES_PASSWORD / JWT_SECRET / ADMIN_PASSWORD
-#   docker compose up -d --build
-#
-# Подробности, обновление образов и вариант с внешним reverse-proxy —
-# DOCKER_SETUP.md. Опции сверх этого файла (LDAP/AD, S3, email) добавляются
-# теми же переменными окружения, что и в server/.env.example — просто
-# перечислите их в services.server.environment ниже или через env_file.
-#
-# Это НЕ замена внешнему TLS-терминатору из ARCHITECTURE.md («Reverse proxy —
-# nginx с TLS, точка входа в корпоративной сети») — client и server публикуют
-# порты по отдельности (как в dev: :3000/:8080), внешний прокси перед ними
-# ставится отдельно; тогда обязателен TRUST_PROXY (см. корневой README).
-
+# Taskira source deployment. Runtime settings live in compose.common.yml and
+# are shared with the offline release to prevent configuration drift.
 services:
   postgres:
+    extends:
+      file: compose.common.yml
+      service: postgres
     image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-taskira}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD не задан — см. .env.example}
-      POSTGRES_DB: ${POSTGRES_DB:-taskira}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taskira} -d ${POSTGRES_DB:-taskira}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
 
   server:
+    extends:
+      file: compose.common.yml
+      service: server
     build:
       context: ./server
       args:
         TASKIRA_VERSION: ${TASKIRA_VERSION:-dev}
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      # Собрано подстановкой без URL-экранирования: если POSTGRES_PASSWORD
-      # содержит @ / : # % — строка подключения разберётся неверно, и server
-      # не подключится к postgres при первом же старте без явной причины в
-      # логе. .env.example рекомендует генератор с безопасным алфавитом —
-      # держитесь его, а не openssl rand -base64 (даёт +/=).
-      DATABASE_URL: postgresql://${POSTGRES_USER:-taskira}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-taskira}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET не задан (нужно ≥32 символа) — см. .env.example}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD не задан — см. .env.example}
-      ADMIN_NAME: ${ADMIN_NAME:-Администратор}
-      # Origin клиента, который реально увидит браузер. При пустом
-      # VITE_API_URL запросы идут сюда же и nginx проксирует /api к server.
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
-      # Для прямого HTTP-доступа в локальной/закрытой сети нужен false.
-      # За HTTPS reverse proxy обязательно выставить true.
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
-      STORAGE_DIR: /app/var/attachments
-    volumes:
-      - attachments:/app/var/attachments
     ports:
       - "${SERVER_PORT:-8080}:8080"
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 15s
 
   client:
+    extends:
+      file: compose.common.yml
+      service: client
     build:
       context: .
       args:
-        # Пусто — переносимый same-origin image; непустое значение печётся в
-        # сборку для legacy-схемы с API на отдельном origin.
         VITE_API_URL: ${VITE_API_URL:-}
         VITE_APP_VERSION: ${TASKIRA_VERSION:-dev}
-    restart: unless-stopped
-    depends_on:
-      - server
-    ports:
-      - "${CLIENT_PORT:-8081}:80"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 5s
 
 volumes:
   pgdata:

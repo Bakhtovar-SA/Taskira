@@ -1,0 +1,56 @@
+# Shared runtime definition used by source installs and generated offline
+# releases. Image, build and pull policy stay in the invoking compose file.
+services:
+  postgres:
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-taskira}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required; see .env.example}
+      POSTGRES_DB: ${POSTGRES_DB:-taskira}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taskira} -d ${POSTGRES_DB:-taskira}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  server:
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-taskira}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-taskira}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (at least 32 characters); see .env.example}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required; see .env.example}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrator}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
+      APP_BASE_URL: ${CORS_ORIGIN:-http://localhost:8081}
+      # The bundled client nginx is the only proxy hop by default.
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      STORAGE_DIR: /app/var/attachments
+    volumes:
+      - attachments:/app/var/attachments
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  client:
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "${CLIENT_PORT:-8081}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s

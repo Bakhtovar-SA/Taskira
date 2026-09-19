@@ -12,13 +12,14 @@
 | Файл | Роль |
 |---|---|
 | `docker-compose.yml` (корень) | оркестрация: `postgres` + `server` + `client` |
+| `compose.common.yml` (корень) | общие runtime-настройки обычного и offline compose |
 | `server/Dockerfile` | сборка API (`tsc` → тонкий рантайм, без devDependencies и исходников) |
 | `Dockerfile` (корень) | сборка клиента (`vite build` → статика, раздаёт `nginx`) |
 | `nginx.conf` (корень) | конфиг nginx для контейнера клиента |
 | `.env.example` (корень) | переменные для docker-compose (**не** `server/.env` — тот для `cd server && npm run dev` без Docker) |
 
 `server/.env` в контейнер не попадает и не читается — вся конфигурация идёт
-через `environment:` в `docker-compose.yml`. `config.ts` сам это поддерживает:
+через `environment:` в `compose.common.yml`. `config.ts` сам это поддерживает:
 файл `.env` — необязательный фолбэк, `process.env` (в контейнере — из
 `environment:`) имеет приоритет (см. CLAUDE.md, «Server imports» и раздел
 про парсер `.env`).
@@ -88,9 +89,9 @@ docker compose down -v
 (`:3000`/`:8080`), только вместо Vite dev-сервера клиент раздаёт `nginx` со
 статикой. Целевая архитектура (ARCHITECTURE.md, «Компоненты») предполагает
 **внешний** nginx с TLS перед обоими — этот compose его не заменяет и не
-включает. Если ставите такой прокси (443 → сюда), обязательно выставите
-`TRUST_PROXY` серверу (корневой README, раздел «Аутентификация») — иначе
-`req.ip` будет адресом прокси и сломает rate-limit логина по IP.
+включает. `TRUST_PROXY=true` уже включён для встроенного nginx; если внешний
+прокси добавляет больше одного доверенного hop, задайте более точную настройку
+согласно корневому README, раздел «Аутентификация».
 
 ---
 
@@ -99,7 +100,7 @@ docker compose down -v
 LDAP/AD, S3-хранилище, email-уведомления — те же переменные, что и в
 `server/.env.example` ([LDAP_SETUP.md](LDAP_SETUP.md), [STORAGE_SETUP.md](STORAGE_SETUP.md),
 [NOTIFICATIONS_SETUP.md](NOTIFICATIONS_SETUP.md)). Добавьте их в
-`services.server.environment` в `docker-compose.yml`, либо смонтируйте
+`services.server.environment` в `compose.common.yml`, либо смонтируйте
 готовый файл через `env_file:`. Единственное отличие для `S3`:
 `STORAGE_DIR`/том `attachments` в этом compose не нужны — можно убрать volume.
 
