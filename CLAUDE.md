@@ -26,6 +26,10 @@ module (023, [SPRINTS_MIGRATION.md](SPRINTS_MIGRATION.md) — a deliberate, scop
 exception to migration 012's removal, not a reversal of it; off by default),
 favorite projects (024), multiple assignees (025).
 
+Database changes must follow [docs/MIGRATIONS.md](docs/MIGRATIONS.md): immutable legacy
+migrations, timestamp-prefixed new files, transactional execution, and expand/contract across
+separate releases. CI rejects unmarked destructive contract operations.
+
 ## Commands
 
 Client (run from repo root):
@@ -247,7 +251,9 @@ who typed them used — there is no dictionary key for someone's actual data.
   mid-upload.
 - `db.ts` — thin `pg` wrapper: `q` / `one` / `exec` / `withClient` (dedicated client for
   race-free read-then-write). `migrate()` applies `server/migrations/*.sql` in filename order,
-  each file in one transaction, tracked in `schema_migrations`.
+  each file in one transaction, tracked in `schema_migrations`. New migration policy and naming
+  are defined in [docs/MIGRATIONS.md](docs/MIGRATIONS.md); do not allocate another sequential
+  number after the legacy `001`–`029` series.
 - `config.ts` — env only (no secrets in code), loaded once and cached. Parses `server/.env`
   itself (no dotenv dep). Fails fast if `DATABASE_URL` missing or `JWT_SECRET` < 32 chars.
 - `middleware.ts` — `requireAuth` verifies JWT but re-reads `global_role` / `is_active` from
