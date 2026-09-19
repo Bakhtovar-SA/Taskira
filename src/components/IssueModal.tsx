@@ -12,6 +12,44 @@ import { useT } from "../i18n";
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
 const DIRECTION_COLORS = ["#0B5FD9", "#22A06B", "#E2B203", "#D23A2E", "#E8772E", "#7A5CC6"];
 
+/** Activity rows are stored as historical Russian text for compatibility.
+ * Translate only known system phrases; captured user names/issue keys stay intact. */
+function localizeActivity(text: string, lang: "ru" | "en"): string {
+  if (lang === "ru") return text;
+  const exact: Record<string, string> = {
+    "создал(а) задачу": "created the issue",
+    "переименовал(а) задачу": "renamed the issue",
+    "обновил(а) описание": "updated the description",
+    "изменил(а) группу (эпик)": "changed the direction",
+    "сделал(а) подзадачей другой задачи": "made it a subtask of another issue",
+    "убрал(а) из подзадач": "removed it from subtasks",
+    "обновил(а) метки": "updated the labels",
+    "удалил(а) пункт чек-листа": "deleted a checklist item",
+  };
+  if (exact[text]) return exact[text];
+  const rules: [RegExp, (m: RegExpMatchArray) => string][] = [
+    [/^назначил\(а\) исполнителем (.+)$/, (m) => `assigned ${m[1]}`],
+    [/^снял\(а\) исполнителя (.+)$/, (m) => `unassigned ${m[1]}`],
+    [/^изменил\(а\) приоритет: (.+) → (.+)$/, (m) => `changed priority: ${translateMetric(m[1])} → ${translateMetric(m[2])}`],
+    [/^изменил\(а\) сложность: (.+) → (.+)$/, (m) => `changed complexity: ${translateMetric(m[1])} → ${translateMetric(m[2])}`],
+    [/^изменил\(а\) срок: (.+) → (.+)$/, (m) => `changed due date: ${m[1]} → ${m[2]}`],
+    [/^переместил\(а\) из «(.+)» в «(.+)»$/, (m) => `moved from “${m[1]}” to “${m[2]}”`],
+    [/^добавил\(а\) пункт чек-листа «(.+)»$/, (m) => `added checklist item “${m[1]}”`],
+    [/^отметил\(а\), что задача блокирует (.+)$/, (m) => `marked the issue as blocking ${m[1]}`],
+    [/^отметил\(а\), что задача заблокирована (.+)$/, (m) => `marked the issue as blocked by ${m[1]}`],
+    [/^связал\(а\) с (.+)$/, (m) => `linked to ${m[1]}`],
+  ];
+  for (const [re, format] of rules) {
+    const match = text.match(re);
+    if (match) return format(match);
+  }
+  return text;
+}
+
+function translateMetric(value: string): string {
+  return ({ Критичный: "Critical", Высокий: "High", Средний: "Medium", Низкий: "Low", Простая: "Simple", Сложная: "Hard" } as Record<string, string>)[value] ?? value;
+}
+
 /** Текст комментария/описания с подсветкой @-упоминаний (NOTIFICATIONS_MIGRATION.md D5). */
 export function MentionText({ text }: { text: string }) {
   const parts = text.split(/(@[a-z0-9._-]{3,32})/gi);
@@ -44,6 +82,7 @@ const selectCls = "flex w-full items-center gap-2 rounded-md border border-line 
 /** Приглашённые участники задачи (issue collaborators). Видны всем, кто открыл
  *  карточку; добавляет/убирает — manageCollaborators (admin/manager проекта). */
 function CollaboratorField({ issue }: { issue: Issue }) {
+  const { t } = useT();
   const { data, can, addCollaborator, removeCollaborator } = useStore();
   const canManage = can("manageCollaborators", issue);
   const [expand, setExpand] = useState(false);
@@ -55,10 +94,10 @@ function CollaboratorField({ issue }: { issue: Issue }) {
   // во всю высоту (ticket-issuemodal-density §4).
   if (collabs.length === 0 && canManage && !expand) {
     return (
-      <Field label="Участники задачи">
+      <Field label={t("issue.collaborators")}>
         <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
-          <span>Никого не приглашали</span>
-          <button onClick={() => setExpand(true)} className="font-bold text-accent hover:underline">+ пригласить</button>
+          <span>{t("issue.noCollaborators")}</span>
+          <button onClick={() => setExpand(true)} className="font-bold text-accent hover:underline">{t("issue.invitePlus")}</button>
         </div>
       </Field>
     );
@@ -74,7 +113,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
   exclude.add(data.currentUserId);
 
   return (
-    <Field label="Участники задачи">
+    <Field label={t("issue.collaborators")}>
       <div className="flex flex-wrap gap-1.5">
         {collabs.map((c) => (
           <span
@@ -92,7 +131,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
               <button
                 onClick={() => removeCollaborator(issue.id, c.userId)}
                 className="ml-0.5 text-faint transition-colors hover:text-danger"
-                title="Отключить от задачи"
+                title={t("issue.removeCollaborator")}
               >
                 <IcX size={10} />
               </button>
@@ -100,15 +139,15 @@ function CollaboratorField({ issue }: { issue: Issue }) {
           </span>
         ))}
         {/* достижимо при canManage && expand (пустой развёрнутый инвайт) */}
-        {collabs.length === 0 && <span className="text-[12px] text-faint">никого не приглашали</span>}
+        {collabs.length === 0 && <span className="text-[12px] text-faint">{t("issue.noCollaboratorsLower")}</span>}
       </div>
       {canManage && (
         <>
           <div className="mt-1.5">
-            <UserSearchPicker exclude={exclude} onPick={(userId) => addCollaborator(issue.id, userId)} pickLabel="Пригласить" />
+            <UserSearchPicker exclude={exclude} onPick={(userId) => addCollaborator(issue.id, userId)} pickLabel={t("issue.invite")} />
           </div>
           <p className="mt-1 text-[10px] leading-snug text-faint">
-            Видит только эту задачу и её комментарии. В проект и в исполнители не добавляется.
+            {t("issue.collaboratorHint")}
           </p>
         </>
       )}
@@ -116,15 +155,16 @@ function CollaboratorField({ issue }: { issue: Issue }) {
   );
 }
 
-const fmtBytes = (n: number): string => {
-  if (n < 1024) return `${n} Б`;
-  if (n < 1024 * 1024) return `${Math.round(n / 1024)} КБ`;
-  return `${(n / 1024 / 1024).toFixed(1)} МБ`;
+const fmtBytes = (n: number, lang: "ru" | "en"): string => {
+  if (n < 1024) return `${n} ${lang === "ru" ? "Б" : "B"}`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} ${lang === "ru" ? "КБ" : "KB"}`;
+  return `${(n / 1024 / 1024).toFixed(1)} ${lang === "ru" ? "МБ" : "MB"}`;
 };
 
 /** Вложения задачи (attachments, миграция 010). Список + скачивание видят все, кто
  *  открыл карточку; прикрепляет — право comment; «×» — свой файл или право delete. */
 function AttachmentField({ issue }: { issue: Issue }) {
+  const { t, lang } = useT();
   const { data, can, uploadAttachment, removeAttachment, downloadAttachment } = useStore();
   const canUpload = can("comment", issue);
   const canDeleteAny = can("delete", issue);
@@ -149,18 +189,18 @@ function AttachmentField({ issue }: { issue: Issue }) {
   // сразу открывает системный диалог (ticket-issuemodal-density §4).
   if (atts.length === 0 && canUpload) {
     return (
-      <Field label="Вложения">
+      <Field label={t("issue.attachments")}>
         {hiddenInput}
         <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
-          <span>Файлов нет</span>
-          <button onClick={() => fileRef.current?.click()} className="font-bold text-accent hover:underline">+ файл</button>
+          <span>{t("issue.noFiles")}</span>
+          <button onClick={() => fileRef.current?.click()} className="font-bold text-accent hover:underline">{t("issue.filePlus")}</button>
         </div>
       </Field>
     );
   }
 
   return (
-    <Field label="Вложения">
+    <Field label={t("issue.attachments")}>
       <div className="space-y-1">
         {atts.map((a) => {
           const mine = a.uploadedById != null && a.uploadedById === data.currentUserId;
@@ -173,16 +213,16 @@ function AttachmentField({ issue }: { issue: Issue }) {
               <button
                 onClick={() => downloadAttachment(issue.id, a)}
                 className="min-w-0 flex-1 truncate text-left text-ink transition-colors hover:text-accent"
-                title={`Скачать «${a.filename}»`}
+                title={t("issue.downloadFile", { filename: a.filename })}
               >
                 {a.filename}
               </button>
-              <span className="shrink-0 text-faint">{fmtBytes(a.byteSize)}</span>
+              <span className="shrink-0 text-faint">{fmtBytes(a.byteSize, lang)}</span>
               {(canDeleteAny || mine) && (
                 <button
                   onClick={() => removeAttachment(issue.id, a.id)}
                   className="shrink-0 text-faint transition-colors hover:text-danger"
-                  title="Удалить вложение"
+                  title={t("issue.deleteAttachment")}
                 >
                   <IcX size={10} />
                 </button>
@@ -198,10 +238,10 @@ function AttachmentField({ issue }: { issue: Issue }) {
             onClick={() => fileRef.current?.click()}
             className="mt-1.5 rounded-md border border-dashed border-line2 px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
           >
-            + прикрепить файл
+            {t("issue.attachFile")}
           </button>
           <p className="mt-1 text-[10px] leading-snug text-faint">
-            До {Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} МБ. Исполняемые файлы и скрипты запрещены.
+            {t("issue.attachmentHint", { size: Math.round(LIMITS.attachment.maxBytes / 1024 / 1024) })}
           </p>
         </>
       )}
@@ -209,18 +249,13 @@ function AttachmentField({ issue }: { issue: Issue }) {
   );
 }
 
-const LINK_DIR_LABEL: Record<Issue["links"][number]["dir"], string> = {
-  blocks: "блокирует",
-  blocked_by: "заблокирована",
-  relates: "связана с",
-};
-
 /** Связанные задачи (issue_links, миграция 014, §3.2). Список видят все, кто
  *  открыл карточку; добавляет/убирает — право `edit` на эту задачу. */
 /** Подзадачи (issues.parent_id, миграция 021) — список НЕ отдельный запрос:
  *  клиент уже держит весь активный список задач проекта в data.issues и
  *  фильтрует по parentId локально, как TimelineView делает для epicId. */
 function SubtasksField({ issue }: { issue: Issue }) {
+  const { t } = useT();
   const { data, idx, can, openIssue, openCreateSubtask } = useStore();
   // Разрешаем «+ подзадача» только если сама задача ещё не чья-то подзадача —
   // сервер всё равно откажет во втором уровне вложенности (assignParentLocked),
@@ -241,7 +276,7 @@ function SubtasksField({ issue }: { issue: Issue }) {
   const archivedCount = summary.total - children.length;
 
   return (
-    <Field label={summary.total > 0 ? `Подзадачи · ${summary.done}/${summary.total}` : "Подзадачи"}>
+    <Field label={summary.total > 0 ? t("issue.subtasksCount", { done: summary.done, total: summary.total }) : t("issue.subtasks")}>
       {children.length > 0 && (
         <div className="space-y-1">
           {children.map((c) => {
@@ -264,7 +299,7 @@ function SubtasksField({ issue }: { issue: Issue }) {
       )}
       {archivedCount > 0 && (
         <p className={`text-[11px] text-faint ${children.length > 0 ? "mt-1.5" : ""}`}>
-          Ещё {archivedCount} в архиве — не в списке выше, но учтены в счётчике
+          {t("issue.archivedSubtasks", { count: archivedCount })}
         </p>
       )}
       {canCreate && (
@@ -272,7 +307,7 @@ function SubtasksField({ issue }: { issue: Issue }) {
           onClick={() => openCreateSubtask(issue.id)}
           className={`flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:underline ${children.length > 0 || archivedCount > 0 ? "mt-1.5" : ""}`}
         >
-          + добавить подзадачу
+          {t("issue.addSubtask")}
         </button>
       )}
     </Field>
@@ -283,6 +318,7 @@ function SubtasksField({ issue }: { issue: Issue }) {
  *  без reorder в v1 (см. комментарий в самой миграции), просто добавление в
  *  конец, чек/анчек, удаление. */
 function ChecklistField({ issue }: { issue: Issue }) {
+  const { t } = useT();
   const { can, addChecklistItem, toggleChecklistItem, removeChecklistItem } = useStore();
   const canEdit = can("edit", issue);
   const [draft, setDraft] = useState("");
@@ -299,7 +335,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
   };
 
   return (
-    <Field label={items.length > 0 ? `Чек-лист · ${done}/${items.length}` : "Чек-лист"}>
+    <Field label={items.length > 0 ? t("issue.checklistCount", { done, total: items.length }) : t("createIssue.checklist")}>
       {items.length > 0 && (
         <div className="space-y-1">
           {items.map((item) => (
@@ -321,7 +357,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
                 <button
                   onClick={() => removeChecklistItem(issue.id, item.id)}
                   className="shrink-0 text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                  title="Удалить пункт"
+                  title={t("issue.deleteChecklistItem")}
                 >
                   <IcX size={11} />
                 </button>
@@ -342,7 +378,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
             }
           }}
           onBlur={submit}
-          placeholder="+ добавить пункт"
+          placeholder={t("issue.addChecklistItem")}
           maxLength={LIMITS.checklistItem.text.max}
           className={`w-full rounded-md border border-dashed border-line2 bg-transparent px-2 py-1.5 text-[12.5px] outline-none placeholder:text-faint focus:border-accent ${items.length > 0 ? "mt-1.5" : ""}`}
         />
@@ -379,6 +415,7 @@ function CustomFieldRow({
   canEdit: boolean;
   setValue: (issueId: string, fieldId: string, value: string | null) => void;
 }) {
+  const { t } = useT();
   const current = issue.customFieldValues.find((v) => v.fieldId === field.id)?.value ?? "";
   const [draft, setDraft] = useState(current);
   useEffect(() => setDraft(current), [current, issue.id]);
@@ -392,7 +429,7 @@ function CustomFieldRow({
     return (
       <Field label={field.name}>
         <span className="text-[12.5px] text-ink">
-          {field.fieldType === "checkbox" ? (current === "true" ? "да" : "нет") : current || "—"}
+          {field.fieldType === "checkbox" ? t(current === "true" ? "common.yes" : "common.no") : current || "—"}
         </span>
       </Field>
     );
@@ -440,6 +477,7 @@ function CustomFieldRow({
 }
 
 function LinksField({ issue }: { issue: Issue }) {
+  const { t } = useT();
   const { data, can, addIssueLink, removeIssueLink, openIssue } = useStore();
   const canEdit = can("edit", issue);
   const [expand, setExpand] = useState(false);
@@ -464,11 +502,11 @@ function LinksField({ issue }: { issue: Issue }) {
 
   if (links.length === 0 && canEdit && !expand) {
     return (
-      <Field label="Связи">
+      <Field label={t("issue.links")}>
         <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
-          <span>Связанных задач нет</span>
+          <span>{t("issue.noLinks")}</span>
           <button onClick={() => setExpand(true)} className="font-bold text-accent hover:underline">
-            + связать
+            {t("issue.linkPlus")}
           </button>
         </div>
       </Field>
@@ -476,7 +514,7 @@ function LinksField({ issue }: { issue: Issue }) {
   }
 
   return (
-    <Field label="Связи">
+    <Field label={t("issue.links")}>
       <div className="space-y-1">
         {links.map((l) => {
           const c = catColor(l.issue.statusCategory);
@@ -486,7 +524,7 @@ function LinksField({ issue }: { issue: Issue }) {
               className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
             >
               <span className="w-[76px] shrink-0 text-[10px] font-bold uppercase tracking-wide text-faint">
-                {LINK_DIR_LABEL[l.dir]}
+                {t(`issue.link.${l.dir}`)}
               </span>
               <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: c.dot }} title={l.issue.statusCategory} />
               <button
@@ -500,7 +538,7 @@ function LinksField({ issue }: { issue: Issue }) {
                 <button
                   onClick={() => removeIssueLink(issue.id, l.id)}
                   className="shrink-0 text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                  title="Убрать связь"
+                  title={t("issue.removeLink")}
                 >
                   <IcX size={11} />
                 </button>
@@ -517,9 +555,9 @@ function LinksField({ issue }: { issue: Issue }) {
             onChange={(e) => setType(e.target.value as typeof type)}
             className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none"
           >
-            <option value="relates">связана с</option>
-            <option value="blocks">блокирует</option>
-            <option value="blocked_by">заблокирована</option>
+            <option value="relates">{t("issue.link.relates")}</option>
+            <option value="blocks">{t("issue.link.blocks")}</option>
+            <option value="blocked_by">{t("issue.link.blocked_by")}</option>
           </select>
           <select
             value={target}
@@ -527,7 +565,7 @@ function LinksField({ issue }: { issue: Issue }) {
             disabled={candidates.length === 0}
             className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
           >
-            <option value="">{candidates.length ? "— выберите задачу —" : "нет задач"}</option>
+            <option value="">{t(candidates.length ? "issue.selectIssue" : "issue.noIssues")}</option>
             {candidates.map((i) => (
               <option key={i.id} value={i.id}>
                 {i.key} · {i.title}
@@ -539,7 +577,7 @@ function LinksField({ issue }: { issue: Issue }) {
             onClick={submit}
             className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            Связать
+            {t("issue.linkAction")}
           </button>
         </div>
       )}
@@ -548,7 +586,7 @@ function LinksField({ issue }: { issue: Issue }) {
 }
 
 export default function IssueModal() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
   const issue = data.issues.find((i) => i.id === ui.selectedIssueId);
   const [tab, setTab] = useState<"comments" | "activity">("comments");
@@ -581,18 +619,17 @@ export default function IssueModal() {
   const status = data.workflow.statuses.find((s) => s.id === issue.statusId);
   if (!me || !status) {
     return (
-      <Modal onClose={() => openIssue(null)} w={420} title="Задача недоступна">
+      <Modal onClose={() => openIssue(null)} w={420} title={t("issue.unavailable")}>
         <div className="p-6 text-center">
-          <p className="text-[14px] font-semibold text-ink">Не удалось открыть задачу</p>
+          <p className="text-[14px] font-semibold text-ink">{t("issue.openFailed")}</p>
           <p className="mt-1.5 text-[12.5px] text-sub">
-            Данные проекта загружены не полностью. Обновите страницу — если не поможет,
-            возможно, вас вывели из проекта.
+            {t("issue.openFailedHint")}
           </p>
           <button
             onClick={() => openIssue(null)}
             className="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white"
           >
-            Закрыть
+            {t("common.close")}
           </button>
         </div>
       </Modal>
@@ -624,7 +661,7 @@ export default function IssueModal() {
   const editOk = can("edit", issue);
   const canDelete = can("delete");
   const canComment = can("comment");
-  const denyMsg = denialReason(me, "edit", issue);
+  const denyMsg = denialReason(me, "edit", issue, lang);
 
   const submitComment = () => {
     if (!comment.trim()) return;
@@ -635,7 +672,7 @@ export default function IssueModal() {
   const saveDesc = () => {
     updateIssue(issue.id, { description: descDraft.trim() });
     setEditingDesc(false);
-    if (descDraft.trim() !== issue.description) toast("success", "Описание сохранено");
+    if (descDraft.trim() !== issue.description) toast("success", t("issue.descriptionSaved"));
   };
 
   const addLabel = () => {
@@ -650,7 +687,7 @@ export default function IssueModal() {
     const url = `${location.origin}/#/issue/${data.currentProjectId}/${issue.id}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast("success", `Ссылка на ${issue.key} скопирована`);
+      toast("success", t("issue.linkCopied", { key: issue.key }));
     } catch {
       toast("info", url);
     }
@@ -672,33 +709,33 @@ export default function IssueModal() {
           <button
             onClick={() => openIssue(issue.parentId)}
             className="flex items-center gap-1 rounded bg-linesoft px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:bg-accentsoft hover:text-accent"
-            title="Открыть родительскую задачу"
+            title={t("issue.openParent")}
           >
-            подзадача {parentIssue.key}
+            {t("issue.subtaskOf", { key: parentIssue.key })}
           </button>
         )}
         <div className="ml-auto flex items-center gap-1">
           {!editOk && (
             <span className="mr-1 flex items-center gap-1.5 rounded bg-warnsoft px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-warn" title={denyMsg}>
-              <IcEye size={11} /> Только чтение
+              <IcEye size={11} /> {t("issue.readOnly")}
             </span>
           )}
-          <button onClick={copyLink} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-canvas hover:text-ink" title="Скопировать ссылку">
+          <button onClick={copyLink} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-canvas hover:text-ink" title={t("issue.copyLink")}>
             <IcLink size={15} />
           </button>
           {canDelete &&
             (!confirmDel ? (
-              <button onClick={() => setConfirmDel(true)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-dangersoft hover:text-danger" title="Удалить">
+              <button onClick={() => setConfirmDel(true)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-dangersoft hover:text-danger" title={t("common.delete")}>
                 <IcTrash size={15} />
               </button>
             ) : (
               <span className="flex items-center gap-1.5 rounded-md bg-dangersoft px-2 py-1">
-                <span className="text-[11.5px] font-semibold text-danger">Удалить?</span>
-                <button onClick={() => deleteIssue(issue.id)} className="rounded bg-danger px-1.5 py-0.5 text-[11px] font-bold text-white hover:opacity-90">Да</button>
-                <button onClick={() => setConfirmDel(false)} className="text-[11px] font-semibold text-sub hover:text-ink">Нет</button>
+                <span className="text-[11.5px] font-semibold text-danger">{t("issue.deleteConfirm")}</span>
+                <button onClick={() => deleteIssue(issue.id)} className="rounded bg-danger px-1.5 py-0.5 text-[11px] font-bold text-white hover:opacity-90">{t("common.yes")}</button>
+                <button onClick={() => setConfirmDel(false)} className="text-[11px] font-semibold text-sub hover:text-ink">{t("common.no")}</button>
               </span>
             ))}
-          <button onClick={() => openIssue(null)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-canvas hover:text-ink" aria-label="Закрыть">
+          <button onClick={() => openIssue(null)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-canvas hover:text-ink" aria-label={t("common.close")}>
             <IcX size={15} />
           </button>
         </div>
@@ -714,7 +751,7 @@ export default function IssueModal() {
           {/* описание — сам блок кликабелен для входа в редактирование (отдельной
               кнопки «Редактировать» нет, как у EditableTitle) */}
           <div className="mt-4">
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">Описание</p>
+            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("issue.description")}</p>
             {editingDesc ? (
               <div className="anim-fadeup">
                 <textarea
@@ -722,12 +759,12 @@ export default function IssueModal() {
                   value={descDraft}
                   onChange={(e) => setDescDraft(e.target.value)}
                   rows={5}
-                  placeholder="Добавьте описание…"
+                  placeholder={t("issue.descriptionPlaceholder")}
                   className="w-full resize-y rounded-md border border-accent bg-panel p-2.5 text-[13px] leading-relaxed outline-none ring-2 ring-accent/15"
                 />
                 <div className="mt-1.5 flex gap-1.5">
-                  <button onClick={saveDesc} className="rounded bg-accent px-3 py-1 text-[12px] font-semibold text-white hover:bg-accentdeep">Сохранить</button>
-                  <button onClick={() => setEditingDesc(false)} className="rounded px-3 py-1 text-[12px] font-semibold text-sub hover:bg-canvas">Отмена</button>
+                  <button onClick={saveDesc} className="rounded bg-accent px-3 py-1 text-[12px] font-semibold text-white hover:bg-accentdeep">{t("common.save")}</button>
+                  <button onClick={() => setEditingDesc(false)} className="rounded px-3 py-1 text-[12px] font-semibold text-sub hover:bg-canvas">{t("common.cancel")}</button>
                 </div>
               </div>
             ) : issue.description ? (
@@ -749,7 +786,7 @@ export default function IssueModal() {
                       setEditingDesc(true);
                     }
                   }}
-                  title="Нажмите, чтобы редактировать"
+                  title={t("issue.clickToEdit")}
                   className="group cursor-text whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub transition-colors hover:bg-canvas focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   <MentionText text={issue.description} />
@@ -760,16 +797,16 @@ export default function IssueModal() {
               )
             ) : editOk ? (
               <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accent">
-                + Добавить описание
+                {t("issue.addDescription")}
               </button>
             ) : (
-              <p className="rounded-md border border-dashed border-line2 px-3 py-3 text-[12.5px] text-faint">Описание не заполнено</p>
+              <p className="rounded-md border border-dashed border-line2 px-3 py-3 text-[12.5px] text-faint">{t("issue.noDescription")}</p>
             )}
           </div>
 
           {/* вкладки */}
           <div className="mt-5 flex items-center gap-1 border-b border-line">
-            {([["comments", `Комментарии · ${issue.comments.length}`], ["activity", `История · ${issue.activity.length}`]] as const).map(([id, label]) => (
+            {([["comments", t("issue.commentsCount", { count: issue.comments.length })], ["activity", t("issue.activityCount", { count: issue.activity.length })]] as const).map(([id, label]) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
@@ -785,7 +822,7 @@ export default function IssueModal() {
             <div className="mt-3.5 space-y-4">
               {canComment ? (
               <div className="flex gap-2.5">
-                <Avatar user={me} size={28} />
+                <Avatar user={me} size={28} interactive />
                 <div className="flex-1">
                   <textarea
                     value={comment}
@@ -795,7 +832,7 @@ export default function IssueModal() {
                     }}
                     rows={2}
                     maxLength={LIMITS.comment.max}
-                    placeholder="Добавить комментарий… (Ctrl+Enter — отправить)"
+                    placeholder={t("issue.commentPlaceholder")}
                     className="w-full resize-y rounded-md border border-line bg-panel p-2.5 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15"
                   />
                   <div className="mt-1.5 flex justify-end">
@@ -804,31 +841,31 @@ export default function IssueModal() {
                       disabled={!comment.trim()}
                       className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition-all hover:bg-accentdeep disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <IcSend size={12} /> Отправить
+                      <IcSend size={12} /> {t("issue.send")}
                     </button>
                   </div>
                 </div>
               </div>
               ) : (
                 <p className="flex items-center gap-2 rounded-md border border-dashed border-line2 bg-canvas/50 px-3 py-2.5 text-[12px] text-faint">
-                  <IcLock size={13} /> Ваша роль не позволяет оставлять комментарии
+                  <IcLock size={13} /> {t("issue.commentDenied")}
                 </p>
               )}
               {[...issue.comments].reverse().map((c) => {
                 const u = data.users.find((x) => x.id === c.authorId);
                 return (
                   <div key={c.id} className="anim-fadeup flex gap-2.5">
-                    <Avatar user={u ?? null} size={28} />
+                    <Avatar user={u ?? null} size={28} interactive />
                     <div className="min-w-0 flex-1 rounded-lg rounded-tl-none bg-canvas/80 px-3 py-2">
                       <p className="text-[12px]">
-                        <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(c.ts)}</span>
+                        <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(c.ts, lang)}</span>
                       </p>
                       <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-sub"><MentionText text={c.body} /></p>
                     </div>
                   </div>
                 );
               })}
-              {issue.comments.length === 0 && <p className="py-3 text-center text-[12px] text-faint">Комментариев пока нет — начните обсуждение.</p>}
+              {issue.comments.length === 0 && <p className="py-3 text-center text-[12px] text-faint">{t("issue.noComments")}</p>}
             </div>
           ) : (
             <div className="mt-4 space-y-0">
@@ -840,17 +877,17 @@ export default function IssueModal() {
                   <div key={a.id} className="relative flex gap-3 pb-4">
                     {idx < arr.length - 1 && <span className="absolute left-[11px] top-6 h-full w-px bg-line" />}
                     <span className="relative z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line bg-panel">
-                      <Avatar user={who} size={18} />
+                      <Avatar user={who} size={18} interactive />
                     </span>
                     <p className="pt-0.5 text-[12.5px] leading-snug text-sub">
-                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : "Система"}</b> {a.text}
-                      <span className="ml-1.5 text-[11px] text-faint">{relTime(a.ts)}</span>
+                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {localizeActivity(a.text, lang)}
+                      <span className="ml-1.5 text-[11px] text-faint">{relTime(a.ts, lang)}</span>
                     </p>
                   </div>
                 );
               })}
               {issue.activity.length === 0 && (
-                <p className="py-3 text-center text-[12px] text-faint">История пока пуста.</p>
+                <p className="py-3 text-center text-[12px] text-faint">{t("issue.noActivity")}</p>
               )}
             </div>
           )}
@@ -864,7 +901,7 @@ export default function IssueModal() {
               <span>{denyMsg}</span>
             </div>
           )}
-          <Field label="Статус">
+          <Field label={t("issue.status")}>
             {editOk ? (
             <Dropdown
               width={220}
@@ -890,7 +927,7 @@ export default function IssueModal() {
                       <MenuItem
                         key={s.id}
                         disabled={!allowed}
-                        title={allowed ? undefined : "Запрещено схемой рабочего процесса"}
+                        title={allowed ? undefined : t("issue.transitionForbidden")}
                         onClick={() => {
                           moveStatus(issue.id, s.id, null);
                           close();
@@ -902,7 +939,7 @@ export default function IssueModal() {
                       </MenuItem>
                     );
                   })}
-                  <p className="border-t border-linesoft px-3 py-1.5 text-[10.5px] leading-snug text-faint">Переходы ограничены схемой в разделе «Рабочий процесс»</p>
+                  <p className="border-t border-linesoft px-3 py-1.5 text-[10.5px] leading-snug text-faint">{t("issue.transitionsHint")}</p>
                 </>
               )}
             </Dropdown>
@@ -924,19 +961,19 @@ export default function IssueModal() {
             )}
           </Field>
 
-          <Field label="Исполнители">
+          <Field label={t("issue.assignees")}>
             {editOk ? (
             <Dropdown
               width={240}
               button={(open) => (
                 <button className={`${selectCls} ${open ? "border-accent" : ""}`}>
-                  <AvatarStack users={assignees} size={20} max={3} />
+                  <AvatarStack users={assignees} size={20} max={3} interactive={false} />
                   <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
                     {assignees.length === 0
-                      ? "Не назначен"
+                      ? t("createIssue.unassigned")
                       : assignees.length === 1
                         ? assignees[0].name
-                        : `${assignees.length} исполнителей`}
+                        : t("issue.assigneeCount", { count: assignees.length })}
                   </span>
                   <IcChevD size={12} className="ml-auto text-faint" />
                 </button>
@@ -957,11 +994,11 @@ export default function IssueModal() {
                             })
                           }
                         >
-                          <Avatar user={u} size={20} /> {u.name} {on && <IcCheck size={12} className="ml-auto text-accent" />}
+                          <Avatar user={u} size={20} interactive={false} /> {u.name} {on && <IcCheck size={12} className="ml-auto text-accent" />}
                         </MenuItem>
                       );
                     })}
-                    {candidates.length === 0 && <p className="px-3 py-2 text-[12px] text-faint">Нет доступных участников проекта</p>}
+                    {candidates.length === 0 && <p className="px-3 py-2 text-[12px] text-faint">{t("issue.noAssignableUsers")}</p>}
                   </>
                 );
               }}
@@ -969,8 +1006,8 @@ export default function IssueModal() {
             ) : (
               <LockedField reason={denyMsg}>
                 <span className="flex items-center gap-2">
-                  <AvatarStack users={assignees} size={20} />
-                  {assignees.length ? assignees.map((a) => a.name).join(", ") : "Не назначен"}
+                  <AvatarStack users={assignees} size={20} interactive />
+                  {assignees.length ? assignees.map((a) => a.name).join(", ") : t("createIssue.unassigned")}
                 </span>
               </LockedField>
             )}
@@ -1023,7 +1060,7 @@ export default function IssueModal() {
                   <LockedField reason={denyMsg}>
                     <span className={`flex items-center gap-1.5 ${overdue ? "font-semibold text-danger" : ""}`}>
                       <IcCalendar size={12} />
-                      {issue.dueDate ? fmtDate(issue.dueDate) : "—"}
+                      {issue.dueDate ? fmtDate(issue.dueDate, lang) : "—"}
                     </span>
                   </LockedField>
                 )}
@@ -1068,7 +1105,7 @@ export default function IssueModal() {
           </div>
 
           {!epicIds.has(issue.id) && (
-            <Field label="Направление">
+            <Field label={t("field.direction")}>
               {editOk ? (
               <Dropdown
                 width={220}
@@ -1080,7 +1117,7 @@ export default function IssueModal() {
                         <span className="truncate">{epic.title}</span>
                       </>
                     ) : (
-                      <span className="text-faint">Без направления</span>
+                      <span className="text-faint">{t("createIssue.noDirection")}</span>
                     )}
                     <IcChevD size={12} className="ml-auto shrink-0 text-faint" />
                   </button>
@@ -1095,12 +1132,12 @@ export default function IssueModal() {
                         autoFocus
                         value={dirQuery}
                         onChange={(e) => setDirQuery(e.target.value)}
-                        placeholder="Поиск по названию или ключу"
-                        aria-label="Поиск направления"
+                        placeholder={t("backlog.searchPlaceholder")}
+                        aria-label={t("issue.searchDirection")}
                         className="mb-1 w-full rounded-md border border-line bg-panel px-2 py-1 text-[12px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
                       />
                     )}
-                    <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>Без направления</MenuItem>
+                    <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>{t("createIssue.noDirection")}</MenuItem>
                     {shownDirections.map((e) => (
                       <MenuItem key={e.id} onClick={() => { updateIssue(issue.id, { epicId: e.id }); setDirQuery(""); close(); }}>
                         <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: e.color }} />
@@ -1108,12 +1145,11 @@ export default function IssueModal() {
                       </MenuItem>
                     ))}
                     {directionOptions.length > 0 && shownDirections.length === 0 && (
-                      <p className="px-3 py-2.5 text-[11.5px] text-faint">Ничего не нашлось.</p>
+                      <p className="px-3 py-2.5 text-[11.5px] text-faint">{t("topbar.nothingFound")}</p>
                     )}
                     {directionOptions.length === 0 && (
                       <p className="px-3 py-2.5 text-[11.5px] leading-snug text-faint">
-                        Направлений пока нет. Любая задача становится направлением, как только другая
-                        задача выберет её здесь как родителя — отдельно «создавать направление» не нужно.
+                        {t("issue.noDirectionsHint")}
                       </p>
                     )}
                   </>
@@ -1127,7 +1163,7 @@ export default function IssueModal() {
                       {epic.title}
                     </span>
                   ) : (
-                    <span className="text-faint">Без направления</span>
+                    <span className="text-faint">{t("createIssue.noDirection")}</span>
                   )}
                 </LockedField>
               )}
@@ -1136,14 +1172,14 @@ export default function IssueModal() {
 
           {epicIds.has(issue.id) && (
             <div className="space-y-2.5 rounded-md border border-dashed border-line p-2.5">
-              <Field label="Цвет направления">
+              <Field label={t("issue.directionColor")}>
                 {editOk ? (
                   <div className="flex flex-wrap gap-1.5">
                     {DIRECTION_COLORS.map((c) => (
                       <button
                         key={c}
                         onClick={() => updateIssue(issue.id, { color: c })}
-                        aria-label={`Выбрать цвет ${c}`}
+                        aria-label={t("issue.chooseColor", { color: c })}
                         className="h-6 w-6 shrink-0 rounded-md transition-transform hover:scale-110"
                         style={{
                           background: c,
@@ -1155,13 +1191,13 @@ export default function IssueModal() {
                 ) : (
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-sm" style={{ background: issue.color ?? "var(--c-faint)" }} />
-                    {issue.color ?? "не задан"}
+                    {issue.color ?? t("issue.notSet")}
                   </span>
                 )}
               </Field>
               <div className="flex gap-2.5">
                 <div className="flex-1">
-                  <Field label="Старт (нед.)">
+                  <Field label={t("issue.startWeeks")}>
                     {editOk ? (
                       <input
                         type="number"
@@ -1177,7 +1213,7 @@ export default function IssueModal() {
                   </Field>
                 </div>
                 <div className="flex-1">
-                  <Field label="Длит. (нед.)">
+                  <Field label={t("issue.durationWeeks")}>
                     {editOk ? (
                       <input
                         type="number"
@@ -1193,12 +1229,12 @@ export default function IssueModal() {
                   </Field>
                 </div>
               </div>
-              <p className="text-[10.5px] leading-snug text-faint">Определяет положение полосы на «Таймлайне» (окно — ближайшие 8 недель).</p>
+              <p className="text-[10.5px] leading-snug text-faint">{t("issue.timelinePositionHint")}</p>
             </div>
           )}
 
           <div className="space-y-2.5 border-t border-line pt-3.5">
-            <Field label="Метки">
+            <Field label={t("field.labels")}>
               <div className="flex flex-wrap gap-1.5">
                 {issue.labels.map((l) => (
                   <Chip key={l} text={l} onRemove={editOk ? () => updateIssue(issue.id, { labels: issue.labels.filter((x) => x !== l) }) : undefined} />
@@ -1213,11 +1249,11 @@ export default function IssueModal() {
                         addLabel();
                       }
                     }}
-                    placeholder="+ метка"
+                    placeholder={t("issue.labelPlaceholder")}
                     className="w-20 rounded border border-dashed border-line2 bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent"
                   />
                 )}
-                {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">нет меток</span>}
+                {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">{t("issue.noLabels")}</span>}
               </div>
             </Field>
 
@@ -1235,9 +1271,9 @@ export default function IssueModal() {
           </div>
 
           <div className="space-y-1.5 border-t border-line pt-3.5 text-[11.5px] text-faint">
-            <p className="flex justify-between gap-2"><span>Автор</span><span className="font-semibold text-sub">{reporter?.name}</span></p>
-            <p className="flex justify-between gap-2"><span>Создана</span><span>{relTime(issue.createdAt)}</span></p>
-            <p className="flex justify-between gap-2"><span>Обновлена</span><span>{relTime(issue.updatedAt)}</span></p>
+            <p className="flex justify-between gap-2"><span>{t("issue.reporter")}</span><span className="font-semibold text-sub">{reporter?.name}</span></p>
+            <p className="flex justify-between gap-2"><span>{t("issue.created")}</span><span>{relTime(issue.createdAt, lang)}</span></p>
+            <p className="flex justify-between gap-2"><span>{t("issue.updated")}</span><span>{relTime(issue.updatedAt, lang)}</span></p>
           </div>
         </aside>
       </div>
@@ -1246,6 +1282,7 @@ export default function IssueModal() {
 }
 
 function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: boolean }) {
+  const { t } = useT();
   const { updateIssue } = useStore();
   const [draft, setDraft] = useState(issue.title);
   const [editing, setEditing] = useState(false);
@@ -1288,8 +1325,8 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
             setEditing(true);
           }
         }}
-        title="Нажмите, чтобы переименовать"
-        aria-label={`Переименовать задачу: ${issue.title}`}
+        title={t("issue.clickToRename")}
+        aria-label={t("issue.renameAria", { title: issue.title })}
         className="group block cursor-text rounded-md px-2 py-1 text-[17px] font-bold leading-snug text-ink transition-colors hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         {issue.title}

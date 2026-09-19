@@ -3,13 +3,14 @@
 ## Текущее состояние (по репозиторию на данный момент)
 
 Работает клиент-серверная связка: React 18 + TypeScript + Vite SPA (`src/`)
-общается с Fastify 5 + PostgreSQL + JWT API (`server/`). `localStorage` больше не
-хранилище данных — в нём только JWT (`taskira.token`); проект, состав, задачи и
-workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`).
+общается с Fastify 5 + PostgreSQL + JWT API (`server/`). JWT передаётся в
+`HttpOnly; SameSite=Strict` cookie и недоступен JavaScript; в `localStorage`
+остаются только настройки интерфейса. Проект, состав, задачи и workflow приходят
+через `src/api/` + `src/store.tsx` (`bootstrap()`).
 
 Уже реализовано и работает:
 - **Backend** (`server/`): Fastify, миграции PostgreSQL (`server/migrations/`,
-  001–017), JWT-аутентификация по паролю (bcrypt) или через LDAP/AD, проверка
+  001–029), JWT-аутентификация по паролю (bcrypt) или через LDAP/AD, проверка
   прав на каждом запросе (`middleware.ts` `requirePerm`/`requireIssuePerm`),
   отзыв токенов при выходе (`users.tokens_valid_from`, миграция 017),
   аудит-лог, интеграционные тесты (vitest, `server/test/`).
@@ -46,7 +47,8 @@ workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`
   (только глобальный admin), UI в `PermissionsView.tsx`.
 - Доска (канбан) с drag&drop и валидацией переходов по схеме workflow.
 - «Список задач» (`Backlog.tsx`) — плоский список с фильтрами и сортировкой;
-  спринты удалены (миграция 012, [UI_RESTRUCTURE.md](UI_RESTRUCTURE.md)).
+  спринты после удаления миграцией 012 возвращены как опциональный модуль
+  миграцией 023 ([SPRINTS_MIGRATION.md](SPRINTS_MIGRATION.md)).
 - Главный экран (`HomeView.tsx`) при входе с ≥ 2 доступными проектами:
   «Мои задачи» (`GET /api/issues/assigned-to-me`) + «Недавние проекты».
 - Настраиваемый workflow — граф статусов/переходов в БД
@@ -76,9 +78,9 @@ workflow приходят через `src/api/` + `src/store.tsx` (`bootstrap()`
 - **WebSocket-пуш уведомлений** (Этап 3c, `GET /api/ws`, `services/wsHub.ts`):
   сигнал «в ленте что-то новое» пушится тому, кому создалось уведомление
   (`services/notify.ts` `emit()`), вместо ожидания следующего 30-секундного
-  polling-тика на клиенте. Аутентификация — первым сообщением после открытия
-  соединения (`{type:"auth",token}`), а не заголовком: браузерный `WebSocket`
-  не умеет слать свои заголовки на хендшейке. Polling остаётся страховкой на
+  polling-тика на клиенте. Браузер аутентифицируется той же `HttpOnly`-cookie
+  во время handshake; сообщение (`{type:"auth",token}`) сохранено для
+  старых и CLI-клиентов. Polling остаётся страховкой на
   случай недоступного сокета (корпоративный прокси режет upgrade и т.п.), не
   заменён. Это НЕ полная real-time доска — см. «чего ещё нет» ниже.
 - **docker-compose для полного деплоя** — см. «Компоненты» выше и
@@ -157,7 +159,7 @@ Project     { id, key, name, departmentId, isShared (кросс-департам
 ProjectMember { projectId, userId, role }          -- роль теперь тут, не глобально на User
 User        { id, name, ldapDn, email }             -- accessRole убирается отсюда
 Issue       { key, projectId, typeId, statusId, priorityId, complexity,
-              assigneeId, reporterId, directionId (было epicId), labels[], comments[], activity[] }
+              assigneeIds[], reporterId, epicId, sprintId, labels[], checklist[], comments[], activity[] }
 Direction   { id, projectId, name }                  -- замена Epic, без жёсткой иерархии/сроков
 Workflow    { projectId, statuses[], transitions[] } -- одна схема на проект
 ```

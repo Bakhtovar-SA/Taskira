@@ -142,6 +142,11 @@ d("Email-воркер против настоящего SMTP", () => {
     expect(m.subject + m.text + m.html).toContain("CORP-1");
     expect(m.text + m.html).toContain(link);
 
+    // ЕСТЬ: карточная HTML-вёрстка, не голые два тега — реставилинг не должен
+    // тихо откатиться обратно к минимальному <p>/<a> (см. emailTemplates.ts).
+    expect(m.html).toContain("taskira-email-card");
+    expect(m.html).toContain("Taskira");
+
     // НЕТ (D9): заголовок задачи и текст комментария — ни в теле, ни в HTML, ни в raw
     const haystack = `${m.subject}\n${m.text}\n${m.html}\n${m.raw}`;
     expect(haystack).not.toContain(TITLE_MARK);
@@ -214,6 +219,7 @@ d("Email-воркер против настоящего SMTP", () => {
     expect(mail).toHaveLength(1);
     expect(mail[0].subject.toLowerCase()).toContain("сводка");
     expect(mail[0].text + mail[0].html).toContain("CORP-1");
+    expect(mail[0].html).toContain("taskira-email-card");
     const haystack = `${mail[0].subject}\n${mail[0].text}\n${mail[0].html}\n${mail[0].raw}`;
     expect(haystack).not.toContain(TITLE_MARK);
     expect(haystack).not.toContain(COMMENT_MARK);

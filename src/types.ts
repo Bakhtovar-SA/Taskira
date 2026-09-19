@@ -16,12 +16,16 @@ export interface User {
   color: string;
   /** Должность / job role — НЕ роль доступа. */
   role: string;
+  /** Телефон — из AD у LDAP-пользователей, вручную при создании локального. "" — не заполнен. */
+  phone: string;
   /** Глобальная роль ресурса. */
   globalRole: GlobalRole;
   /** Эффективная роль в текущем проекте: 'admin' если globalRole='admin',
    *  иначе проектная роль. Для `me` вычисляется в store из globalRole + members. */
   accessRole: AccessRole;
   username?: string;
+  /** мс эпохи последней загрузки аватарки; null — аватарки нет (миграция 027). */
+  avatarUpdatedAt: number | null;
 }
 
 export interface Status {

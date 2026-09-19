@@ -70,6 +70,12 @@ export function useT(): I18nCtx {
   return ctx;
 }
 
+/** Infrastructure providers may be rendered in isolation by tests or embeds.
+ * They can use Russian defaults when no app-level I18nProvider is present. */
+export function useOptionalT(): I18nCtx | null {
+  return useContext(Ctx);
+}
+
 /** Число → форма слова. RU: 1/2-4/5+ с исключением на 11-14 (стандартное
  *  правило); EN: единственное/множественное. Используется вместо локальных
  *  копий этой функции, ранее продублированных в Board.tsx и HomeView.tsx. */

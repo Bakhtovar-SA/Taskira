@@ -45,6 +45,22 @@ function waitClosed(ws: { on: (ev: "close", cb: () => void) => void }, ms = 1000
 }
 
 describe("WS /api/ws", () => {
+  test("браузерная HttpOnly-cookie аутентифицирует handshake без auth-сообщения", async () => {
+    const loginRes = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { username: "emp1", password: "password123" },
+    });
+    const setCookie = loginRes.headers["set-cookie"];
+    const raw = Array.isArray(setCookie) ? setCookie[0] : setCookie ?? "";
+    const cookie = raw.split(";", 1)[0];
+
+    const ws = await app.injectWS("/api/ws", { headers: { cookie } });
+    expect(await nextMessage(ws)).toMatchObject({ type: "auth_ok" });
+    expect(ws.readyState).toBe(ws.OPEN);
+    ws.close();
+  });
+
   test("невалидный токен в auth-сообщении — сокет закрывается", async () => {
     const ws = await app.injectWS("/api/ws");
     const closed = waitClosed(ws);

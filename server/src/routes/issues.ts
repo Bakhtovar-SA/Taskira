@@ -3,8 +3,9 @@
  * Все мутации защищены правами на сервере; ранги и переходы — только после проверок.
  */
 import type { FastifyInstance } from "fastify";
+import type { PoolClient } from "pg";
 import type { z } from "zod";
-import { escLike, one, q } from "../db.js";
+import { escLike, one, q, withTransaction } from "../db.js";
 import {
   badRequest,
   notFound,
@@ -220,17 +221,28 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       // parentId задан — валидация и INSERT идут одной транзакцией под
       // advisory-локом (см. assignParentLocked): иначе конкурентный запрос мог
       // бы протиснуться между проверкой «родитель — не подзадача» и записью.
+      const createInTransaction = async (client: PoolClient) => {
+        const res = await client.query<IssueRow>(insertSql, insertVals);
+        const created = res.rows[0];
+        await setAssignees(created.id, assigneeIds, user.sub, client);
+        if (body.checklistItems.length > 0) {
+          await client.query(
+            `INSERT INTO checklist_items (issue_id, text, position)
+             SELECT $1, item, ord::integer - 1
+               FROM unnest($2::text[]) WITH ORDINALITY AS input(item, ord)`,
+            [created.id, body.checklistItems],
+          );
+        }
+        await logActivity(created.id, user.sub, "создал(а) задачу", client);
+        return created;
+      };
       const row = body.parentId
-        ? await assignParentLocked(project.id, body.parentId, null, async (client) => {
-            const res = await client.query<IssueRow>(insertSql, insertVals);
-            return res.rows[0];
-          })
-        : (await q<IssueRow>(insertSql, insertVals))[0];
-      if (assigneeIds.length > 0) await setAssignees(row.id, assigneeIds, user.sub);
+        ? await assignParentLocked(project.id, body.parentId, null, createInTransaction)
+        : await withTransaction(createInTransaction);
 
-      await logActivity(row.id, user.sub, "создал(а) задачу");
       await audit(user.sub, "issue.create", "issue", row.id, { key });
-      reply.code(201).send(maskSprintId(mapIssue(row, assigneeIds), project.sprintsEnabled));
+      const checklist = body.checklistItems.length > 0 ? await listChecklistItems(row.id) : [];
+      reply.code(201).send({ ...maskSprintId(mapIssue(row, assigneeIds), project.sprintsEnabled), checklist });
     },
   );
 
@@ -348,34 +360,27 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         return maskSprintId(mapIssue(iss, beforeAssigneeIds), project.sprintsEnabled);
       }
 
-      let row: IssueRow;
+      let updateSql: string | null = null;
       if (sets.length > 0) {
         vals.push(iss.id);
-        const updateSql = `UPDATE issues SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length} RETURNING *`;
-        // Назначение нового родителя — валидация и сам UPDATE одной транзакцией
-        // под advisory-локом (см. assignParentLocked в services/issues.ts):
-        // иначе два конкурентных PATCH могли пройти проверку по устаревшим
-        // данным и вместе создать вложенность в 3 уровня (PR #46 review).
-        row = newParentId
-          ? await assignParentLocked(project.id, newParentId, iss.id, async (client) => {
-              const res = await client.query<IssueRow>(updateSql, vals);
-              return res.rows[0];
-            })
-          : isUnsettingParent
-            ? await withIssueParentLock(iss.id, async (client) => {
-                const res = await client.query<IssueRow>(updateSql, vals);
-                return res.rows[0];
-              })
-            : (await q<IssueRow>(updateSql, vals))[0];
-      } else {
-        // Ни одно поле самой issues-строки не меняется — только исполнители.
-        row = iss;
+        updateSql = `UPDATE issues SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length} RETURNING *`;
       }
-      if (newAssigneeIds !== undefined && (addedAssigneeIds.length > 0 || removedAssigneeIds.length > 0)) {
-        await setAssignees(iss.id, newAssigneeIds, user.sub);
-      }
+      const mutate = async (client: PoolClient): Promise<IssueRow> => {
+        const row = updateSql ? (await client.query<IssueRow>(updateSql, vals)).rows[0] : iss;
+        if (newAssigneeIds !== undefined && (addedAssigneeIds.length > 0 || removedAssigneeIds.length > 0)) {
+          await setAssignees(iss.id, newAssigneeIds, user.sub, client);
+        }
+        for (const text of log) await logActivity(iss.id, user.sub, text, client);
+        return row;
+      };
+      // Поля задачи, полный список исполнителей и activity фиксируются одним
+      // коммитом; parent-ветки дополнительно используют прежние advisory locks.
+      const row = newParentId
+        ? await assignParentLocked(project.id, newParentId, iss.id, mutate)
+        : isUnsettingParent
+          ? await withIssueParentLock(iss.id, mutate)
+          : await withTransaction(mutate);
 
-      for (const text of log) await logActivity(iss.id, user.sub, text);
       await audit(user.sub, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body) });
 
       // Уведомления (NOTIFICATIONS_MIGRATION.md D2) — только новым исполнителям,

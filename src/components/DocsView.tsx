@@ -31,13 +31,63 @@ const Code = ({ children }: { children: React.ReactNode }) => (
   <code className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[11.5px] font-semibold text-accentdeep">{children}</code>
 );
 
+const EN_SECTIONS = [
+  ["overview", "System overview"], ["roles", "Roles and permissions"], ["workflow", "Workflow"],
+  ["issues", "Issue details"], ["list", "Issue list"], ["sprints", "Sprints"],
+  ["notifications", "Notifications"], ["attachments", "Attachments"], ["departments", "Departments and LDAP"],
+  ["reports", "Reports"], ["home", "Home"], ["hotkeys", "Keyboard shortcuts"],
+  ["model", "Data model"], ["storage", "Storage and sessions"],
+] as const;
+
+function DocsEnglish() {
+  const [active, setActive] = useState("overview");
+  const go = (id: string) => {
+    setActive(id);
+    document.getElementById(`doc-en-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const sections: { id: string; title: string; body: React.ReactNode }[] = [
+    { id: "overview", title: "1 · System overview", body: <>Taskira is a project-scoped issue tracker. The board, backlog, timeline, reports, workflow, and access pages are views over the same server data. Everyone with project access can view every issue; mutations are enforced separately by role.</> },
+    { id: "roles", title: "2 · Roles and permissions", body: <>Resource administrators manage everything. Project managers can create, edit, move, and delete any issue. Employees can create and comment, but may edit or move only issues where they are the reporter or an assignee. Viewers have read-only access to all issues. The server is the source of truth for every permission check.</> },
+    { id: "workflow", title: "3 · Workflow", body: <>Statuses belong to a project and transitions define allowed moves. The board, issue details, and API all apply the same transition schema. Only resource administrators can edit or reset it.</> },
+    { id: "issues", title: "4 · Issue details", body: <>An issue contains a title, description, type, priority, status, due date, complexity, labels, assignees, a direction, optional parent, checklist, links, custom fields, attachments, comments, and activity. User-entered content is displayed exactly as written and is never translated.</> },
+    { id: "list", title: "5 · Issue list", body: <>The backlog lists all active issues and can optionally include closed ones. Filters cover text, status, assignee, type, and overdue state. Sorting is available by priority, due date, update time, or key. Trello JSON exports can be imported here.</> },
+    { id: "sprints", title: "6 · Sprints", body: <>Sprints are an optional project module. Managers and administrators can create, start, and complete sprints and move issues between a sprint and the backlog. Completing a sprint returns unfinished issues to the backlog.</> },
+    { id: "notifications", title: "7 · Notifications", body: <>Notifications cover assignments, comments, mentions, status changes, issue invitations, and project membership. Each user can choose instant email or a daily digest and can automatically watch issues they create.</> },
+    { id: "attachments", title: "8 · Attachments", body: <>Attachments are stored outside the database and downloaded through an authenticated API. File size and type are validated. Users who may comment can upload files; owners and users with delete permission can remove them.</> },
+    { id: "departments", title: "9 · Departments and LDAP", body: <>Departments group projects. Shared projects are visible across departments. In LDAP mode, department membership can be synchronized from configured directory groups; manually added memberships remain manageable in Taskira.</> },
+    { id: "reports", title: "10 · Reports", body: <>Reports summarize created, closed, open, and overdue issues and lead time for a selected date range. Results can be grouped by project, assignee, type, or priority and exported as CSV.</> },
+    { id: "home", title: "11 · Home", body: <>Home shows assigned and overdue work, available projects, and recent activity. Selecting a project loads its data and opens the last relevant working view.</> },
+    { id: "hotkeys", title: "12 · Keyboard shortcuts", body: <><Code>C</Code> opens issue creation, number keys switch sections, and <Code>Escape</Code> closes dialogs. In editable fields, standard typing shortcuts keep their browser behavior.</> },
+    { id: "model", title: "13 · Data model", body: <>Core entities are users, departments, projects, project members, issues, assignees, collaborators, statuses, transitions, comments, activity, checklist items, issue links, templates, custom fields, sprints, notifications, and attachments. Foreign keys and server-side permission checks protect cross-project boundaries.</> },
+    { id: "storage", title: "14 · Storage and sessions", body: <>PostgreSQL stores application data; configured object storage stores attachments and avatars. The signed session is sent in an HttpOnly, SameSite cookie and checked against a server-side session version, so logout and role changes revoke older sessions. Local storage contains interface preferences only.</> },
+  ];
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-[1060px] px-6 py-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-white"><IcBook size={18} /></span>
+          <div><h1 className="font-disp text-[17px] font-bold text-ink">Taskira documentation</h1><p className="mt-0.5 text-[11.5px] text-faint">A complete guide to the current product behavior and access model</p></div>
+        </div>
+        <div className="mt-4 grid gap-5 lg:grid-cols-[220px_1fr]">
+          <nav className="top-5 h-fit rounded-xl border border-line bg-panel p-2 lg:sticky">
+            {EN_SECTIONS.map(([id, label]) => <button key={id} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-canvas"}`}>{label}</button>)}
+          </nav>
+          <div>{sections.map((s) => <section key={s.id} id={`doc-en-${s.id}`} className="mb-4 scroll-mt-5 rounded-xl border border-line bg-panel p-5"><H>{s.title}</H><P>{s.body}</P></section>)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DocsView() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [active, setActive] = useState("overview");
   const go = (id: string) => {
     setActive(id);
     document.getElementById(`doc-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  if (lang === "en") return <DocsEnglish />;
 
   return (
     <div className="h-full overflow-y-auto">
@@ -72,7 +122,7 @@ export default function DocsView() {
               <P>
                 <b className="text-ink">Taskira</b> — корпоративный трекер задач: канбан-доска, список задач, таймлайн направлений,
                 настраиваемый workflow, вложения, уведомления и ролевая модель доступа. Вход по паролю или через LDAP/AD;
-                данные хранятся в PostgreSQL на сервере, в браузере — только токен сессии.
+                данные хранятся в PostgreSQL на сервере, а сессия передаётся защищённой HttpOnly-cookie.
               </P>
               <P>Разделы приложения:</P>
               <ul className="mt-2 space-y-1.5 text-[13px] text-sub">
@@ -394,8 +444,9 @@ export default function DocsView() {
                 store считает из <Code>globalRole</Code> и <Code>members</Code>; сервер проверяет её повторно на каждом запросе.
               </P>
               <P>
-                В <Code>localStorage</Code> — только токен сессии (<Code>taskira.token</Code>) и оформление (тема и фон,{" "}
-                <Code>taskira.theme</Code> / <Code>taskira.bg</Code>). Выход из аккаунта очищает токен; остальное состояние всегда приходит с сервера.
+                Сессия хранится в защищённой <Code>HttpOnly</Code>-cookie и недоступна JavaScript. В <Code>localStorage</Code> остаются только
+                локальные настройки интерфейса: язык, выбранный проект, тема и фон. Выход из аккаунта отзывает сессию на сервере;
+                рабочие данные всегда приходят через API.
               </P>
             </section>
           </div>

@@ -1,7 +1,7 @@
 /** Схема рабочего процесса: чтение (все), правка переходов (admin). */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
-import { one, q } from "../db.js";
+import { one, q, withTransaction } from "../db.js";
 import { badRequest, notFound, requirePerm, zbody, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
 import { conflict, DEFAULT_TRANSITIONS, getWorkflow, mapTransition, statusName } from "../services/workflow.js";
@@ -83,16 +83,18 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
     );
     const bySid = new Map(statuses.map((s) => [s.sid, s.id]));
 
-    await q(`DELETE FROM workflow_transitions WHERE project_id = $1`, [project.id]);
-    for (const [fromSid, toSid] of DEFAULT_TRANSITIONS) {
-      const fromId = bySid.get(fromSid);
-      const toId = bySid.get(toSid);
-      if (!fromId || !toId) continue; // статус удалён/переименован — ребро пропускается
-      await q(
-        `INSERT INTO workflow_transitions (project_id, from_status_id, to_status_id) VALUES ($1, $2, $3)`,
-        [project.id, fromId, toId],
-      );
-    }
+    await withTransaction(async (client) => {
+      await client.query(`DELETE FROM workflow_transitions WHERE project_id = $1`, [project.id]);
+      for (const [fromSid, toSid] of DEFAULT_TRANSITIONS) {
+        const fromId = bySid.get(fromSid);
+        const toId = bySid.get(toSid);
+        if (!fromId || !toId) continue;
+        await client.query(
+          `INSERT INTO workflow_transitions (project_id, from_status_id, to_status_id) VALUES ($1, $2, $3)`,
+          [project.id, fromId, toId],
+        );
+      }
+    });
 
     await audit(user.sub, "workflow.reset", "workflow", null, {});
     return getWorkflow(project.id);

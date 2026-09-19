@@ -1,4 +1,4 @@
-/** Журнал действий: кто, что, когда. Пишется асинхронно и никогда не роняет запрос. */
+/** Журнал действий: кто, что, когда. Ошибка журнала не роняет бизнес-запрос. */
 import { q } from "./db.js";
 
 export async function audit(
@@ -8,13 +8,14 @@ export async function audit(
   entityId: string | null = null,
   details: Record<string, unknown> = {},
 ): Promise<void> {
-  // Вставка НЕ ожидается вызывающим (аудит PERF-05): раньше каждая мутация и
-  // каждый отказ в доступе добавляли лишний round-trip к БД в горячем пути,
-  // хотя заголовок модуля обещал «пишется асинхронно». Сигнатура async
-  // сохранена — все существующие `await audit(...)` продолжают работать,
-  // просто разрешаются сразу. Ошибки гасим здесь: журнал не должен ронять запрос.
-  void q(
-    `INSERT INTO audit_log (actor_id, action, entity, entity_id, details) VALUES ($1, $2, $3, $4, $5::jsonb)`,
-    [actorId, action, entity, entityId, JSON.stringify(details)],
-  ).catch((e) => console.error("[audit] не удалось записать событие", e));
+  // Дожидаемся INSERT: запрос не завершится и пул не закроется, пока запись
+  // ещё летит в фоне. Это также устраняет гонку audit INSERT ↔ test TRUNCATE.
+  try {
+    await q(
+      `INSERT INTO audit_log (actor_id, action, entity, entity_id, details) VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [actorId, action, entity, entityId, JSON.stringify(details)],
+    );
+  } catch (e) {
+    console.error("[audit] не удалось записать событие", e);
+  }
 }

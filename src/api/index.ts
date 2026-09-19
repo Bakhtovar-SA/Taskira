@@ -1,6 +1,6 @@
-/** HTTP-клиент Taskira API. Токен в localStorage; сервер — источник правды. */
-
-const TOKEN_KEY = "taskira.token";
+/** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
+ *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
+let legacyBearerToken: string | null = null;
 
 export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:8080";
 
@@ -18,19 +18,15 @@ export class ApiError extends Error {
 }
 
 export function getToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
+  return legacyBearerToken;
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  legacyBearerToken = token;
 }
 
 export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  legacyBearerToken = null;
 }
 
 type ApiOptions = {
@@ -65,6 +61,7 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
     res = await fetch(buildUrl(path, query), {
       method,
       headers,
+      credentials: "include",
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -105,7 +102,7 @@ export async function apiUpload<T = unknown>(path: string, file: File, fieldName
 
   let res: Response;
   try {
-    res = await fetch(buildUrl(path), { method: "POST", headers, body: fd });
+    res = await fetch(buildUrl(path), { method: "POST", headers, credentials: "include", body: fd });
   } catch {
     throw new ApiError(0, "NETWORK", "Нет связи с сервером — проверьте, что API запущен");
   }
@@ -136,7 +133,7 @@ export async function downloadBlob(path: string, filename: string): Promise<void
 
   let res: Response;
   try {
-    res = await fetch(buildUrl(path), { headers });
+    res = await fetch(buildUrl(path), { headers, credentials: "include" });
   } catch {
     throw new ApiError(0, "NETWORK", "Нет связи с сервером");
   }
@@ -166,12 +163,17 @@ export type SafeUser = {
   initials: string;
   color: string;
   jobRole: string;
+  /** Телефон — из AD у LDAP-пользователей, вручную при создании локального. */
+  phone: string;
   /** Глобальная роль ресурса (users.global_role) — источник прав.
    *  Проектная роль приходит в ProjectBootstrap.members. */
   globalRole: GlobalRole;
   isActive: boolean;
   /** local | ldap — у ldap-юзеров роль/профиль приходят из директории. */
   authSource: "local" | "ldap";
+  /** мс эпохи последней загрузки аватарки; null — аватарки нет. Cache-buster
+   *  для GET /api/users/:id/avatar. */
+  avatarUpdatedAt: number | null;
   /** Настройки уведомлений — приходят только в GET /api/auth/me (не в общем списке). */
   notifyPrefs?: NotifyPrefs;
   /** Избранные проекты (миграция 024) — id, тоже только в GET /api/auth/me. */
@@ -527,9 +529,69 @@ export const usersApi = {
     initials: string;
     color: string;
     jobRole: string;
+    phone?: string;
     globalRole?: GlobalRole;
   }) => api<SafeUser>("/api/admin/users", { method: "POST", body }),
 };
+
+/** Аватарки — самообслуживание (миграция 027): только свой профиль. */
+export const avatarApi = {
+  upload: (file: File) => apiUpload<{ avatarUpdatedAt: number }>("/api/me/avatar", file),
+  remove: () => api<void>("/api/me/avatar", { method: "DELETE" }),
+  /** URL картинки для <img src>; ?v= — cache-buster при повторной загрузке.
+   *  Не авторизован по себе — фактическая отдача идёт через getAvatarBlobUrl
+   *  ниже (авторизованный fetch, у <img> заголовок не выставить). */
+  url: (userId: string, avatarUpdatedAt: number) => buildUrl(`/api/users/${userId}/avatar`, { v: String(avatarUpdatedAt) }),
+};
+
+/** Кэш blob-URL аватарок — по userId+avatarUpdatedAt, на время жизни вкладки.
+ *  <img src> не может нести Authorization-заголовок, поэтому вместо прямой
+ *  ссылки грузим авторизованным fetch и кэшируем object URL (тот же приём,
+ *  что downloadBlob, но с кэшем — аватарки показываются массово: доска,
+ *  сайдбар, всплывающие карточки). null в кэше — "проверяли, аватарки нет". */
+const avatarBlobCache = new Map<string, Promise<string | null>>();
+const AVATAR_CACHE_MAX = 256;
+
+function evictAvatarCacheEntry(key: string): void {
+  const pending = avatarBlobCache.get(key);
+  avatarBlobCache.delete(key);
+  void pending?.then((url) => {
+    if (url) URL.revokeObjectURL(url);
+  });
+}
+
+export function getAvatarBlobUrl(userId: string, avatarUpdatedAt: number | null | undefined): Promise<string | null> {
+  if (!avatarUpdatedAt) return Promise.resolve(null);
+  const cacheKey = `${userId}:${avatarUpdatedAt}`;
+  const cached = avatarBlobCache.get(cacheKey);
+  if (cached) return cached;
+
+  const promise = (async () => {
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    try {
+      const res = await fetch(avatarApi.url(userId, avatarUpdatedAt), { headers, credentials: "include" });
+      if (!res.ok) return null;
+      return URL.createObjectURL(await res.blob());
+    } catch {
+      return null;
+    }
+  })();
+  avatarBlobCache.set(cacheKey, promise);
+  while (avatarBlobCache.size > AVATAR_CACHE_MAX) {
+    const oldest = avatarBlobCache.keys().next().value as string | undefined;
+    if (!oldest) break;
+    evictAvatarCacheEntry(oldest);
+  }
+  return promise;
+}
+
+export function invalidateAvatarBlobUrl(userId: string): void {
+  for (const key of avatarBlobCache.keys()) {
+    if (key.startsWith(`${userId}:`)) evictAvatarCacheEntry(key);
+  }
+}
 
 export const membersApi = {
   /** Добавить участника / сменить его проектную роль (PUT — upsert на сервере). */
@@ -653,6 +715,7 @@ export async function downloadReportCsv(f: ReportFilter & { scope: ReportScope }
   const token = getToken();
   const res = await fetch(reportsApi.exportUrl(f), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
   });
   if (!res.ok) {
     let reason = "Не удалось сформировать выгрузку";

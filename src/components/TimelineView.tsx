@@ -4,6 +4,7 @@ import type { Issue } from "../types";
 import { IcChevR, IcTimeline } from "../icons";
 import { Lozenge, Empty } from "../ui";
 import { TypeIcon } from "../icons";
+import { useT } from "../i18n";
 
 // 52 недель (год) с пиксельными колонками + горизонтальный скролл — раньше
 // было 8 фиксированных недель без возможности посмотреть дальше (overdrive).
@@ -13,6 +14,7 @@ const LABEL_PX = 260;
 const GRID_COLS = `${LABEL_PX}px repeat(${WEEKS}, ${WEEK_PX}px)`;
 
 export default function TimelineView() {
+  const { t, lang } = useT();
   const { data, idx, openIssue } = useStore();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const scrollElRef = useRef<HTMLDivElement | null>(null);
@@ -80,15 +82,15 @@ export default function TimelineView() {
       <div className="mx-auto max-w-[1120px] min-[1536px]:max-w-[1380px] min-[1920px]:max-w-[1680px] px-6 py-5">
         <div className="anim-fadeup flex items-end justify-between gap-3">
           <div>
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Таймлайн</h1>
-            <p className="mt-0.5 text-[11.5px] text-faint">Дорожная карта направлений на ближайший год · тяните колёсиком/трекпадом, чтобы посмотреть дальше</p>
+            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("timeline.title")}</h1>
+            <p className="mt-0.5 text-[11.5px] text-faint">{t("timeline.subtitle")}</p>
           </div>
           {epics.length > 0 && (
             <button
               onClick={scrollToToday}
               className="mb-0.5 flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-line bg-panel px-3 text-[12px] font-medium text-sub transition-colors hover:border-accent hover:text-accent"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-danger" /> Сегодня
+              <span className="h-1.5 w-1.5 rounded-full bg-danger" /> {t("timeline.today")}
             </button>
           )}
         </div>
@@ -97,8 +99,8 @@ export default function TimelineView() {
           <div className="mt-6">
             <Empty
               icon={<IcTimeline size={24} />}
-              title="Направлений пока нет"
-              sub="Направление — это обычная задача, на которую ссылаются другие. Откройте любую задачу, в поле «Направление» выберите родителя — он появится здесь как дорожка с датами t-start / t-span."
+              title={t("timeline.emptyTitle")}
+              sub={t("timeline.emptySub")}
             />
           </div>
         ) : (
@@ -106,17 +108,17 @@ export default function TimelineView() {
             ref={scrollRef}
             tabIndex={0}
             role="group"
-            aria-label="Дорожная карта — прокручивается по неделям стрелками или колёсиком"
+            aria-label={t("timeline.aria")}
             className="focusable anim-fadeup mt-4 overflow-x-auto overflow-y-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]"
             style={{ animationDelay: "60ms" }}
           >
             {/* шапка недель */}
             <div className="grid border-b border-line bg-canvas/60" style={{ gridTemplateColumns: GRID_COLS, width: LABEL_PX + WEEKS * WEEK_PX }}>
-              <div className="sticky left-0 z-10 bg-canvas px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">Направление</div>
+              <div className="sticky left-0 z-10 bg-canvas px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">{t("field.direction")}</div>
               {weeks.map((w, i) => (
                 <div key={i} className={`border-l border-linesoft px-1.5 py-2.5 text-center ${i === 0 ? "bg-accentsoft/60" : ""}`}>
-                  <p className="font-mono text-[11px] font-bold text-sub">{w.toLocaleDateString("ru-RU", { day: "numeric" })}</p>
-                  <p className="text-[10px] capitalize text-faint">{w.toLocaleDateString("ru-RU", { month: "short" })}</p>
+                  <p className="font-mono text-[11px] font-bold text-sub">{w.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric" })}</p>
+                  <p className="text-[10px] capitalize text-faint">{w.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "short" })}</p>
                 </div>
               ))}
             </div>
@@ -138,13 +140,13 @@ export default function TimelineView() {
                       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: epic.color }} />
                       <span className="min-w-0">
                         <span className="block truncate text-[13px] font-semibold text-ink">{epic.title}</span>
-                        <span className="block font-mono text-[10px] text-faint">{done}/{kids.length} задач · {epic.key}</span>
+                        <span className="block font-mono text-[10px] text-faint">{t("timeline.issueCount", { done, total: kids.length, key: epic.key })}</span>
                       </span>
                     </button>
                     <div className="relative col-span-full row-start-1" style={{ gridColumn: `2 / span ${WEEKS}` }}>
                       <div className="relative h-[46px]">
                         {/* линия сегодня */}
-                        <span className="absolute bottom-0 top-0 z-10 w-px bg-danger/70" style={{ left: todayPx }} title="Сегодня" />
+                        <span className="absolute bottom-0 top-0 z-10 w-px bg-danger/70" style={{ left: todayPx }} title={t("timeline.today")} />
                         {/* Разделители недель — один фоновый repeating-gradient вместо
                             52 отдельных <span> на строку (аудит: 6.5x рост DOM после
                             расширения WEEKS 8→52), как .dotgrid уже делает для канвы. */}
@@ -154,7 +156,7 @@ export default function TimelineView() {
                         />
                         <button
                           onClick={() => openIssue(epic.id)}
-                          title={`${epic.title} · ${done}/${kids.length} готово`}
+                          title={t("timeline.barTitle", { title: epic.title, done, total: kids.length })}
                           className="timeline-bar group absolute top-1/2 flex h-6 items-center overflow-hidden rounded-full text-white shadow-sm"
                           style={{ "--bar-x": `${start * WEEK_PX}px`, width: span * WEEK_PX, background: epic.color } as React.CSSProperties}
                         >
@@ -166,7 +168,7 @@ export default function TimelineView() {
                   </div>
                   {expanded && (
                     <div className="anim-fadeup sticky left-0 border-t border-dashed border-linesoft bg-canvas/40" style={{ width: viewportW || "100%" }}>
-                      {kids.length === 0 && <p className="px-10 py-2.5 text-[12px] text-faint">В направлении пока нет задач.</p>}
+                      {kids.length === 0 && <p className="px-10 py-2.5 text-[12px] text-faint">{t("timeline.noIssues")}</p>}
                       {kids.map((k) => {
                         const st = idx.statuses.get(k.statusId);
                         if (!st) return null;
@@ -188,7 +190,7 @@ export default function TimelineView() {
         )}
 
         <p className="anim-fadeup mt-3 flex items-center gap-2 text-[11px] text-faint" style={{ animationDelay: "120ms" }}>
-          <span className="inline-block h-3 w-px bg-danger/70" /> сегодня · тёмная часть полосы — доля закрытых задач направления
+          <span className="inline-block h-3 w-px bg-danger/70" /> {t("timeline.legend")}
         </p>
       </div>
     </div>

@@ -15,6 +15,7 @@ import { ldapAuthenticate, LdapUnavailableError } from "../services/ldap.js";
 import { provisionFromLdap } from "../services/userProvisioning.js";
 import { syncDepartmentMembership } from "../services/departmentSync.js";
 import { listFavoriteProjectIds } from "../services/favorites.js";
+import { clearSessionCookie, sessionCookie } from "../sessionCookie.js";
 
 /* -------- простой in-memory rate limit: 10 попыток входа с IP за 5 минут (fix 3a).
    Счётчик сбрасывается перезапуском процесса — для внутренней сети достаточно. -------- */
@@ -120,7 +121,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       }
 
       await audit(row.id, "auth.login", "user", row.id, { via: row.auth_source });
-      reply.send({ token: signToken(app, row), user: safeUser(row) });
+      const token = signToken(app, row);
+      reply.header("Set-Cookie", sessionCookie(token));
+      // token остаётся в JSON для CLI/старых клиентов; браузер Taskira его не
+      // сохраняет и работает только с недоступной JavaScript HttpOnly-cookie.
+      reply.send({ token, user: safeUser(row) });
     },
   );
 
@@ -143,9 +148,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
    *  Без этого «Выйти» стирало токен только в браузере, а сам JWT оставался
    *  рабочим ещё до 12 часов (аудит SEC-01). */
   app.post("/logout", { preHandler: requireAuth }, async (req, reply) => {
-    await q(`UPDATE users SET tokens_valid_from = now() WHERE id = $1`, [req.user.sub]);
+    await q(`UPDATE users SET session_version = session_version + 1 WHERE id = $1`, [req.user.sub]);
     revokeUserSessions(req.user.sub, "logout"); // иначе отзыв ждал бы до 30 секунд, а WS — до закрытия вкладки
     await audit(req.user.sub, "auth.logout", "user", req.user.sub, {});
+    reply.header("Set-Cookie", clearSessionCookie());
     reply.code(204).send();
   });
 

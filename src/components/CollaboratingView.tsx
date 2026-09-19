@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { SoloIssueCard } from "./SoloView";
 import { IcLink } from "../icons";
+import { useT } from "../i18n";
 
 /** «Мои подключения» в обычном интерфейсе: приглашения к задачам в проектах,
  *  которые пользователю не открыты. Карточка — та же, что в SoloView. */
@@ -17,6 +18,7 @@ const hashIssueId = (): string | null => {
 };
 
 export default function CollaboratingView() {
+  const { t } = useT();
   const { data, me, refreshCollaborations } = useStore();
   const items = data.collaborations;
   const [selected, setSelected] = useState<string | null>(null);
@@ -41,9 +43,9 @@ export default function CollaboratingView() {
       <div className="flex w-[300px] shrink-0 flex-col border-r border-line bg-panel">
         <div className="border-b border-linesoft px-4 py-3">
           <p className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-wider text-sub">
-            <IcLink size={13} className="text-accent" /> Мои подключения
+            <IcLink size={13} className="text-accent" /> {t("collaborating.title")}
           </p>
-          <p className="mt-0.5 text-[11px] text-faint">Задачи из проектов, куда вас пригласили точечно.</p>
+          <p className="mt-0.5 text-[11px] text-faint">{t("collaborating.subtitle")}</p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {items.map((it) => (
@@ -65,7 +67,7 @@ export default function CollaboratingView() {
           ))}
           {items.length === 0 && (
             <p className="px-2.5 py-6 text-center text-[11.5px] text-faint">
-              Активных приглашений нет. Здесь появятся задачи, к которым вас подключат из другого проекта.
+              {t("collaborating.empty")}
             </p>
           )}
         </div>
@@ -81,7 +83,7 @@ export default function CollaboratingView() {
           />
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-[13px] text-faint">
-            {items.length ? "Выберите задачу слева." : "Пока вас никуда не приглашали."}
+            {t(items.length ? "collaborating.select" : "collaborating.none")}
           </div>
         )}
       </div>

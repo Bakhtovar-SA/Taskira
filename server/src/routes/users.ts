@@ -60,10 +60,10 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       try {
         row = (
           await q<UserRow>(
-            `INSERT INTO users (username, password_hash, name, initials, color, job_role, global_role, is_active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `INSERT INTO users (username, password_hash, name, initials, color, job_role, phone, global_role, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING *`,
-            [body.username, hash, body.name, body.initials, body.color, body.jobRole, body.globalRole, body.isActive ?? true],
+            [body.username, hash, body.name, body.initials, body.color, body.jobRole, body.phone ?? "", body.globalRole, body.isActive ?? true],
           )
         )[0];
       } catch (e) {
@@ -107,7 +107,11 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       //   - есть другой активный админ.
       const rows = await q<UserRow>(
         `UPDATE users
-            SET global_role = $1, is_active = COALESCE($2, is_active)
+            SET session_version = session_version + CASE
+                  WHEN global_role IS DISTINCT FROM $1 OR is_active IS DISTINCT FROM COALESCE($2, is_active) THEN 1
+                  ELSE 0
+                END,
+                global_role = $1, is_active = COALESCE($2, is_active)
           WHERE id = $3
             AND (
               global_role <> 'admin' OR NOT is_active

@@ -1,6 +1,6 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
 import type { PoolClient } from "pg";
-import { one, q, withClient } from "../db.js";
+import { one, q, withTransaction } from "../db.js";
 import { badRequest, notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
 import { listAttachments, type AttachmentDto } from "./attachments.js";
@@ -149,17 +149,28 @@ export async function validateAssigneesInProject(projectId: string, userIds: str
 /** Полная замена списка исполнителей задачи (как labels — не diff, а замена
  *  целиком). Дедуп на всякий случай — контракт уже отсекает дубли, но это не
  *  единственный источник вызова. */
-export async function setAssignees(issueId: string, userIds: string[], addedBy: string): Promise<void> {
-  await q(`DELETE FROM issue_assignees WHERE issue_id = $1`, [issueId]);
-  const uniqueIds = [...new Set(userIds)];
-  if (uniqueIds.length === 0) return;
-
-  const values = uniqueIds.map((_, i) => `($1, $${i + 2}, $${uniqueIds.length + 2})`).join(", ");
-  const params = [issueId, ...uniqueIds, addedBy];
-  await q(
-    `INSERT INTO issue_assignees (issue_id, user_id, added_by) VALUES ${values} ON CONFLICT DO NOTHING`,
-    params,
-  );
+export async function setAssignees(
+  issueId: string,
+  userIds: string[],
+  addedBy: string,
+  existingClient?: PoolClient,
+): Promise<void> {
+  const replace = async (client: PoolClient) => {
+    // Лок строки задачи сериализует две конкурентные полные замены списка.
+    await client.query(`SELECT id FROM issues WHERE id = $1 FOR UPDATE`, [issueId]);
+    await client.query(`DELETE FROM issue_assignees WHERE issue_id = $1`, [issueId]);
+    const unique = [...new Set(userIds)];
+    if (unique.length > 0) {
+      await client.query(
+        `INSERT INTO issue_assignees (issue_id, user_id, added_by)
+         SELECT $1, user_id, $3 FROM unnest($2::uuid[]) AS input(user_id)
+         ON CONFLICT DO NOTHING`,
+        [issueId, unique, addedBy],
+      );
+    }
+  };
+  if (existingClient) return replace(existingClient);
+  await withTransaction(replace);
 }
 
 /** Скрывает sprintId в ответе, если у проекта выключен модуль спринтов —
@@ -256,19 +267,11 @@ async function validateParentAssignmentTx(
  *  внутри одной транзакции, но не между двумя независимыми). */
 export async function withAdvisoryLocks<T>(keys: string[], run: (client: PoolClient) => Promise<T>): Promise<T> {
   const sortedKeys = [...new Set(keys)].sort();
-  return withClient(async (client) => {
-    await client.query("BEGIN");
-    try {
-      for (const key of sortedKeys) {
-        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [key]);
-      }
-      const result = await run(client);
-      await client.query("COMMIT");
-      return result;
-    } catch (e) {
-      await client.query("ROLLBACK").catch(() => undefined);
-      throw e;
+  return withTransaction(async (client) => {
+    for (const key of sortedKeys) {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [key]);
     }
+    return run(client);
   });
 }
 
@@ -436,6 +439,8 @@ export async function listActivity(issueId: string, limit = 100): Promise<Activi
 }
 
 /** Запись в историю задачи («кто, что, когда»). */
-export async function logActivity(issueId: string, actorId: string, text: string): Promise<void> {
-  await q(`INSERT INTO activity (issue_id, actor_id, text) VALUES ($1, $2, $3)`, [issueId, actorId, text]);
+export async function logActivity(issueId: string, actorId: string, text: string, client?: PoolClient): Promise<void> {
+  const sql = `INSERT INTO activity (issue_id, actor_id, text) VALUES ($1, $2, $3)`;
+  if (client) await client.query(sql, [issueId, actorId, text]);
+  else await q(sql, [issueId, actorId, text]);
 }

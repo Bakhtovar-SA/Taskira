@@ -53,6 +53,21 @@ export async function withClient<T>(fn: (client: pg.PoolClient) => Promise<T>): 
   }
 }
 
+/** Выполняет составную мутацию атомарно на одном соединении. */
+export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+  return withClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      const result = await fn(client);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    }
+  });
+}
+
 /**
  * Применяет миграции из server/migrations по имени, отмечая выполненные в schema_migrations.
  * Каждая миграция проходит ЦЕЛИКОМ на одном соединении внутри явной транзакции:
@@ -62,27 +77,32 @@ export async function migrate(): Promise<void> {
   const p = getPool();
   const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
   const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+  const client = await p.connect();
+  try {
+    // Один session-level lock на весь цикл: две стартующие реплики больше не
+    // могут одновременно увидеть одну и ту же миграцию неприменённой.
+    await client.query(`SELECT pg_advisory_lock(hashtext('taskira:schema-migrations'))`);
+    await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
 
-  await p.query(`CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
+    for (const file of files) {
+      const applied = await client.query(`SELECT 1 FROM schema_migrations WHERE name = $1`, [file]);
+      if (applied.rows.length > 0) continue;
 
-  for (const file of files) {
-    const applied = await p.query(`SELECT 1 FROM schema_migrations WHERE name = $1`, [file]);
-    if (applied.rows.length > 0) continue;
-
-    const sql = readFileSync(join(dir, file), "utf8");
-    const client = await p.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(sql); // все операторы файла — внутри одной транзакции
-      await client.query(`INSERT INTO schema_migrations (name) VALUES ($1)`, [file]);
-      await client.query("COMMIT");
-      console.log(`[db] применена миграция ${file}`);
-    } catch (e) {
-      await client.query("ROLLBACK").catch(() => undefined);
-      throw e;
-    } finally {
-      client.release();
+      const sql = readFileSync(join(dir, file), "utf8");
+      try {
+        await client.query("BEGIN");
+        await client.query(sql);
+        await client.query(`INSERT INTO schema_migrations (name) VALUES ($1)`, [file]);
+        await client.query("COMMIT");
+        console.log(`[db] применена миграция ${file}`);
+      } catch (e) {
+        await client.query("ROLLBACK").catch(() => undefined);
+        throw e;
+      }
     }
+  } finally {
+    await client.query(`SELECT pg_advisory_unlock(hashtext('taskira:schema-migrations'))`).catch(() => undefined);
+    client.release();
   }
 }
 

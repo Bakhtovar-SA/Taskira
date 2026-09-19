@@ -28,10 +28,12 @@ import type {
   Workflow,
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
+import { useOptionalT } from "./i18n";
 import {
   LIMITS,
   sanitizeText,
   validateChecklistItemText,
+  localizeValidationError,
   validateComment,
   validateDescription,
   validateLabels,
@@ -42,6 +44,7 @@ import {
   API_BASE,
   attachmentsApi,
   authApi,
+  avatarApi,
   clearToken,
   collaboratorsApi,
   issueTemplatesApi,
@@ -50,6 +53,7 @@ import {
   commentsApi,
   departmentsApi,
   getToken,
+  invalidateAvatarBlobUrl,
   issuesApi,
   membersApi,
   notificationsApi,
@@ -81,21 +85,21 @@ export const statusById = (wf: Workflow, id: string) => wf.statuses.find((s) => 
 export const assignableUsers = (data: Pick<Data, "users" | "members">, currentAssigneeIds: string[] = []) =>
   data.users.filter((u) => u.id in data.members || currentAssigneeIds.includes(u.id));
 
-export const relTime = (ts: number) => {
+export const relTime = (ts: number, lang: "ru" | "en" = "ru") => {
   const diff = Date.now() - ts;
   const m = Math.floor(diff / 6e4);
-  if (m < 1) return "только что";
-  if (m < 60) return `${m} мин назад`;
+  if (m < 1) return lang === "ru" ? "только что" : "just now";
+  if (m < 60) return lang === "ru" ? `${m} мин назад` : `${m} min ago`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h} ч назад`;
+  if (h < 24) return lang === "ru" ? `${h} ч назад` : `${h} hr ago`;
   const dN = Math.floor(h / 24);
-  if (dN === 1) return "вчера";
-  if (dN < 7) return `${dN} дн назад`;
-  return new Date(ts).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  if (dN === 1) return lang === "ru" ? "вчера" : "yesterday";
+  if (dN < 7) return lang === "ru" ? `${dN} дн назад` : `${dN} days ago`;
+  return new Date(ts).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short" });
 };
 
-export const fmtDate = (iso: string) =>
-  new Date(iso + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+export const fmtDate = (iso: string, lang: "ru" | "en" = "ru") =>
+  new Date(iso + "T00:00:00").toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short" });
 
 /** Общая логика markNotificationsRead/dismissNotifications: без `ids` действие
  *  применяется ко ВСЕМ уведомлениям пользователя на сервере (не только к
@@ -168,6 +172,7 @@ export interface CreateInput {
   complexity: ComplexityId | null;
   statusId?: string;
   dueDate?: string | null;
+  checklistItems?: string[];
 }
 
 type CreateIssuePayload = {
@@ -182,6 +187,7 @@ type CreateIssuePayload = {
   complexity: ComplexityId | null;
   statusId?: string;
   dueDate: string | null;
+  checklistItems: string[];
 };
 
 /** Общие для createIssue() и importIssues() валидация + сборка тела
@@ -213,6 +219,7 @@ function buildCreatePayload(input: CreateInput): { ok: true; body: CreateIssuePa
       complexity: input.complexity,
       statusId: input.statusId,
       dueDate: input.dueDate ?? null,
+      checklistItems: input.checklistItems ?? [],
     },
   };
 }
@@ -220,6 +227,20 @@ function buildCreatePayload(input: CreateInput): { ok: true; body: CreateIssuePa
 /** Сколько задач клиент тянет за раз. Серверный потолок — 200; держим их
  *  в одной константе, чтобы «сколько загружено» и «сколько всего» не разъезжались. */
 const ISSUES_PAGE = 200;
+
+/** Клиентские доска/бэклог/таймлайн фильтруют локально, поэтому им нужен весь
+ * активный набор, а не молча первые 200 строк. Сервер всё равно ограничивает
+ * один ответ; дочитываем страницы последовательно, не создавая всплеск запросов. */
+async function listAllIssues(projectId: string): Promise<{ items: ServerIssue[]; total: number }> {
+  const first = await issuesApi.list(projectId, { limit: ISSUES_PAGE, offset: 0 });
+  const items = [...first.items];
+  while (items.length < first.total) {
+    const page = await issuesApi.list(projectId, { limit: ISSUES_PAGE, offset: items.length });
+    if (page.items.length === 0) break;
+    items.push(...page.items);
+  }
+  return { items, total: first.total };
+}
 
 const PROJECT_KEY = "taskira.project";
 const readLastProject = (): string => {
@@ -293,12 +314,14 @@ function mapUser(u: SafeUser, members: Record<string, ProjectRole>): User {
     initials: u.initials,
     color: u.color,
     role: u.jobRole,
+    phone: u.phone,
     globalRole: u.globalRole,
     // Реальная эффективная роль в текущем проекте (globalRole + членство).
     // Не-участник и не admin ресурса → роли нет: фолбэк 'viewer' (минимум прав).
     // Для `me` store дополнительно пересчитывает её в memo при изменении data.members.
     accessRole: resolveRole(u.globalRole, members[u.id]) ?? "viewer",
     username: u.username,
+    avatarUpdatedAt: u.avatarUpdatedAt,
   };
 }
 
@@ -486,6 +509,9 @@ interface Api {
   markNotificationsRead: (ids?: string[]) => void;
   dismissNotifications: (ids?: string[]) => void;
   setNotifyPrefs: (patch: NotifyPrefsT) => void;
+  /** Своя аватарка (миграция 027) — самообслуживание, без параметра userId. */
+  uploadAvatar: (file: File) => Promise<void>;
+  removeAvatar: () => Promise<void>;
   logout: () => void;
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
@@ -560,6 +586,10 @@ const Ctx = createContext<Api | null>(null);
 let toastSeq = 1;
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const lang = useOptionalT()?.lang ?? "ru";
+  const langRef = useRef(lang);
+  langRef.current = lang;
+  const local = useCallback((ru: string, en: string) => (langRef.current === "ru" ? ru : en), []);
   const [data, setData] = useState<Data>(emptyData);
   const [bootStatus, setBootStatus] = useState<BootStatus>("idle");
   const [solo, setSolo] = useState<SoloState | null>(null);
@@ -596,19 +626,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleApiError = useCallback(
-    (err: unknown, fallback = "Ошибка запроса") => {
+    (err: unknown, fallback = local("Ошибка запроса", "Request failed")) => {
       if (err instanceof ApiError) {
         if (err.status === 401) {
           clearToken();
           setBootStatus("unauthenticated");
           setData(emptyData());
         }
-        toast("error", err.message || fallback);
+        const englishByCode: Record<string, string> = {
+          NETWORK: "Can't connect to the server",
+          RATE_LIMITED: "Too many requests — try again shortly",
+          INTERNAL: "Internal server error",
+          UNAUTHORIZED: "Your session has expired — sign in again",
+          FORBIDDEN: "You don't have permission for this action",
+          NOT_FOUND: "The requested item was not found",
+        };
+        toast("error", langRef.current === "ru" ? err.message || fallback : englishByCode[err.code] ?? fallback);
         return;
       }
       toast("error", fallback);
     },
-    [toast],
+    [toast, local],
   );
 
   const me = useMemo<User>(() => {
@@ -636,10 +674,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const requirePerm = useCallback(
     (perm: PermId, issue?: Issue): boolean => {
       if (canDo(me, perm, issue)) return true;
-      toast("error", denialReason(me, perm, issue));
+      toast("error", denialReason(me, perm, issue, lang));
       return false;
     },
-    [me, toast],
+    [me, toast, lang],
   );
 
   /** Грузит данные одного проекта (bootstrap + задачи) в объект Data. */
@@ -653,7 +691,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       favoriteProjectIds: string[],
     ): Promise<Data> => {
       const boot = await projectsApi.get(projectId);
-      const issuesRes = await issuesApi.list(projectId, { limit: ISSUES_PAGE });
+      const issuesRes = await listAllIssues(projectId);
       const members: Record<string, ProjectRole> = {};
       for (const m of boot.members) members[m.userId] = m.role;
       const users = boot.users.map((u) => mapUser(u, members));
@@ -678,7 +716,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // Сервер уже вернул честный total — сравниваем и запоминаем, что список
         // урезан. Раньше total уходил в неиспользуемое поле seq, и клиент молча
         // показывал первые N задач как будто это всё (аудит BLOCK-01).
-        issuesTruncated: issuesRes.items.length < issuesRes.total,
+        issuesTruncated: false,
         issuesTotal: issuesRes.total,
         assignedToMe: [],
         assignedTruncated: false,
@@ -749,20 +787,49 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const { notifyPrefs } = await notificationsApi.setPrefs(patch);
           setData((prev) => ({ ...prev, notifyPrefs: notifyPrefs as NotifyPrefsT }));
-          toast("success", "Настройки уведомлений сохранены");
+          toast("success", local("Настройки уведомлений сохранены", "Notification settings saved"));
         } catch (err) {
-          handleApiError(err, "Не удалось сохранить настройки");
+          handleApiError(err, local("Не удалось сохранить настройки", "Couldn't save settings"));
         }
       })();
     },
     [toast, handleApiError],
   );
 
-  const bootstrap = useCallback(async () => {
-    if (!getToken()) {
-      setBootStatus("unauthenticated");
-      return;
+  /** Патчит avatarUpdatedAt текущего пользователя в data.users — тот же приём,
+   *  что setNotifyPrefs выше, только точечно по одному полю одного User. */
+  const patchMyAvatar = useCallback((avatarUpdatedAt: number | null) => {
+    invalidateAvatarBlobUrl(dataRef.current.currentUserId);
+    setData((prev) => ({
+      ...prev,
+      users: prev.users.map((u) => (u.id === prev.currentUserId ? { ...u, avatarUpdatedAt } : u)),
+    }));
+  }, []);
+
+  const uploadAvatar = useCallback(
+    async (file: File) => {
+      try {
+        const { avatarUpdatedAt } = await avatarApi.upload(file);
+        patchMyAvatar(avatarUpdatedAt);
+        toast("success", local("Аватарка обновлена", "Profile photo updated"));
+      } catch (err) {
+        handleApiError(err, local("Не удалось загрузить аватарку", "Couldn't upload the profile photo"));
+      }
+    },
+    [toast, handleApiError, patchMyAvatar],
+  );
+
+  const removeAvatar = useCallback(async () => {
+    try {
+      await avatarApi.remove();
+      patchMyAvatar(null);
+      toast("success", local("Аватарка удалена", "Profile photo removed"));
+    } catch (err) {
+      handleApiError(err, local("Не удалось удалить аватарку", "Couldn't remove the profile photo"));
     }
+  }, [toast, handleApiError, patchMyAvatar]);
+
+  const bootstrap = useCallback(async () => {
     setBootStatus("loading");
     try {
       const user = await authApi.me();
@@ -797,9 +864,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setData({ ...emptyData(), currentUserId: user.id, departments: deps, users: [mapUser(user, {})] });
         if (user.globalRole === "admin") {
           setUi((u) => ({ ...u, view: "admin" }));
-          toast("info", "Проектов пока нет — создайте первый в разделе «Департаменты»");
+          toast("info", local("Проектов пока нет — создайте первый в разделе «Департаменты»", "There are no projects yet — create the first one in Departments"));
         } else {
-          toast("info", "Вам пока не открыт ни один проект — обратитесь к администратору");
+          toast("info", local("Вам пока не открыт ни один проект — обратитесь к администратору", "You don't have access to any projects yet — contact an administrator"));
         }
         setBootStatus("ready");
         return;
@@ -858,7 +925,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setBootStatus("unauthenticated");
         return;
       }
-      handleApiError(err, "Не удалось загрузить данные");
+      handleApiError(err, local("Не удалось загрузить данные", "Couldn't load data"));
       setBootStatus("error");
     }
   }, [handleApiError, buildProjectData, toast, refreshNotifications]);
@@ -898,7 +965,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           setBootStatus("ready");
         } catch (err) {
           if (seq !== switchSeqRef.current) return;
-          handleApiError(err, "Не удалось открыть проект");
+          handleApiError(err, local("Не удалось открыть проект", "Couldn't open the project"));
           setBootStatus("ready");
         }
       })();
@@ -958,14 +1025,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshIssues = useCallback(async () => {
+    const requestProjectId = pid();
     try {
-      const issuesRes = await issuesApi.list(pid(), { limit: ISSUES_PAGE });
+      const issuesRes = await listAllIssues(requestProjectId);
       setData((prev) => {
+        if (prev.currentProjectId !== requestProjectId) return prev;
         const byId = new Map(prev.issues.map((i) => [i.id, i]));
         return {
           ...prev,
           issues: issuesRes.items.map((dto) => mapIssue(dto, byId.get(dto.id))),
-          issuesTruncated: issuesRes.items.length < issuesRes.total,
+          issuesTruncated: false,
           issuesTotal: issuesRes.total,
         };
       });
@@ -988,17 +1057,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (id: string | null) => {
       setUi((u) => ({ ...u, selectedIssueId: id }));
       if (!id) return;
+      const requestProjectId = pid();
       void (async () => {
         try {
           // История задачи грузится вместе с карточкой: до этого таблица activity
           // писалась, но клиент её ниоткуда не получал, и вкладка «История»
           // всегда была пуста (аудит).
           const [dto, comments, activity] = await Promise.all([
-            issuesApi.get(pid(), id),
-            commentsApi.list(pid(), id).catch(() => []),
-            issuesApi.activity(pid(), id).catch(() => []),
+            issuesApi.get(requestProjectId, id),
+            commentsApi.list(requestProjectId, id).catch(() => []),
+            issuesApi.activity(requestProjectId, id).catch(() => []),
           ]);
           setData((prev) => {
+            if (prev.currentProjectId !== requestProjectId) return prev;
             const mapped = mapIssue(dto, prev.issues.find((x) => x.id === id));
             mapped.comments = (comments as { id: string; authorId: string; body: string; createdAt: string }[]).map(
               (c) => ({
@@ -1018,7 +1089,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             return { ...prev, issues: upsertIssue(prev.issues, mapped) };
           });
         } catch (err) {
-          handleApiError(err, "Не удалось открыть задачу");
+          handleApiError(err, local("Не удалось открыть задачу", "Couldn't open the issue"));
         }
       })();
     },
@@ -1047,7 +1118,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (cur.collaborations.some((c) => c.issueId === h.issueId)) return; // раздел «Мои подключения»
     const clearHash = () => history.replaceState(null, "", location.pathname + location.search);
     if (h.projectId === cur.currentProjectId) {
-      if (cur.issues.some((i) => i.id === h.issueId)) openIssue(h.issueId);
+      openIssue(h.issueId);
       clearHash();
     } else if (cur.projects.some((p) => p.id === h.projectId)) {
       switchProject(h.projectId); // после переключения эффект повторится и откроет задачу
@@ -1088,7 +1159,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const connect = () => {
       const token = getToken();
-      if (!token || stopped) return;
+      if (stopped) return;
       const wsUrl = `${API_BASE.replace(/^http/, "ws")}/api/ws`;
       socket = new WebSocket(wsUrl);
       socket.onopen = () => {
@@ -1098,7 +1169,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // никогда бы не накапливался (сервер закрывает сокет почти сразу же
         // после того же onopen, который его якобы сбросил) и свёрнутая вкладка
         // долбила бы /api/ws примерно раз в секунду бесконечно.
-        socket?.send(JSON.stringify({ type: "auth", token }));
+        // Новые браузерные сессии аутентифицируются HttpOnly-cookie прямо на
+        // WS-handshake. Bearer-сообщение оставлено для старых клиентов/тестов.
+        if (token) socket?.send(JSON.stringify({ type: "auth", token }));
       };
       socket.onmessage = (e) => {
         try {
@@ -1128,30 +1201,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (input: CreateInput) => {
       if (!requirePerm("create")) return;
       const payload = buildCreatePayload(input);
-      if (!payload.ok) return toast("error", payload.error);
+      if (!payload.ok) return toast("error", localizeValidationError(payload.error, langRef.current));
+      const requestProjectId = pid();
+      const requestWorkflow = dataRef.current.workflow;
 
       void (async () => {
         try {
-          const dto = await issuesApi.create(pid(), payload.body);
+          const dto = await issuesApi.create(requestProjectId, payload.body);
           const issue = mapIssue(dto);
-          const isDone = statusById(dataRef.current.workflow, issue.statusId)?.category === "done";
-          setData((prev) => ({
-            ...prev,
-            issues: patchParentSubtasksSummary([...prev.issues, issue], issue.parentId, {
+          const isDone = statusById(requestWorkflow, issue.statusId)?.category === "done";
+          setData((prev) => {
+            if (prev.currentProjectId !== requestProjectId) return prev;
+            return {
+              ...prev,
+              issues: patchParentSubtasksSummary([...prev.issues, issue], issue.parentId, {
               total: 1,
               done: isDone ? 1 : 0,
-            }),
-          }));
+              }),
+            };
+          });
           // Закрывать (или нет) модалку — решение вызывающего компонента, не
           // этого коллбэка: CreateIssueModal сам решает это синхронно, ДО
           // резолва этого промиса, по чекбоксу «создать ещё одну следом».
           // Раньше createOpen:false здесь стирал это решение уже ПОСЛЕ
           // ответа сервера, так что чекбокс не мог удержать модалку открытой
           // ни при каких обстоятельствах (ревью PR #46).
-          setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() } }));
-          toast("success", `${issue.key} создана`);
+          if (dataRef.current.currentProjectId === requestProjectId) {
+            setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() } }));
+          }
+          toast("success", local(`${issue.key} создана`, `${issue.key} created`));
         } catch (err) {
-          handleApiError(err, "Не удалось создать задачу");
+          handleApiError(err, local("Не удалось создать задачу", "Couldn't create the issue"));
         }
       })();
     },
@@ -1180,6 +1260,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       isCancelled?: () => boolean,
     ): Promise<{ ok: number; failed: number; cancelled: boolean }> => {
       if (!requirePerm("create")) return { ok: 0, failed: inputs.length, cancelled: false };
+      const requestProjectId = pid();
       let ok = 0;
       let failed = 0;
       let stoppedByAuth = false;
@@ -1202,6 +1283,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
 
       for (const input of inputs) {
+        if (dataRef.current.currentProjectId !== requestProjectId) {
+          cancelled = true;
+          break;
+        }
         if (isCancelled?.()) {
           cancelled = true;
           break;
@@ -1209,7 +1294,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const payload = buildCreatePayload(input);
         if (payload.ok) {
           try {
-            const dto = await issuesApi.create(pid(), payload.body);
+            const dto = await issuesApi.create(requestProjectId, payload.body);
             created.push(mapIssue(dto));
             ok++;
           } catch (err) {
@@ -1224,9 +1309,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             if (isAuth) {
               handleApiError(err);
             } else if (err instanceof ApiError) {
-              if (!toastedErrors.has(err.message)) {
-                toastedErrors.add(err.message);
-                toast("error", err.message);
+              const errorKey = `${err.code}:${err.message}`;
+              if (!toastedErrors.has(errorKey)) {
+                toastedErrors.add(errorKey);
+                handleApiError(err, local("Не удалось импортировать задачу", "Couldn't import the issue"));
               }
             }
             if (isAuth || isPerm) {
@@ -1239,7 +1325,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           failed++;
-          reportLocalFailure(payload.error);
+          reportLocalFailure(localizeValidationError(payload.error, langRef.current));
         }
         onProgress?.(ok + failed, inputs.length);
       }
@@ -1251,18 +1337,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // разлогина. При 403 сессия остаётся рабочей, created применяем как
       // обычно (ревью PR #48, третий раунд).
       if (created.length > 0 && !stoppedByAuth) {
-        setData((prev) => ({ ...prev, issues: [...prev.issues, ...created] }));
+        setData((prev) =>
+          prev.currentProjectId === requestProjectId ? { ...prev, issues: [...prev.issues, ...created] } : prev,
+        );
       }
       if (cancelled) {
-        toast("info", `Импорт остановлен: ${ok} из ${inputs.length} успели создаться`);
+        toast("info", local(`Импорт остановлен: ${ok} из ${inputs.length} успели создаться`, `Import stopped: ${ok} of ${inputs.length} were created`));
       } else if (stoppedByPermission) {
         // Причина отказа уже показана выше (дедуп по err.message) — здесь
         // только итог по количеству, симметрично ветке cancelled: без этого
         // пользователь не видел, сколько карточек успело создаться до потери
         // доступа (ревью PR #48, третий раунд).
-        toast("info", `Импорт остановлен: ${ok} из ${inputs.length} успели создаться — доступ отозван`);
+        toast("info", local(`Импорт остановлен: ${ok} из ${inputs.length} успели создаться — доступ отозван`, `Import stopped: ${ok} of ${inputs.length} were created — access was revoked`));
       } else if (!stoppedByAuth) {
-        toast(failed === 0 ? "success" : "info", `Импортировано ${ok} из ${inputs.length}${failed ? `, не удалось: ${failed}` : ""}`);
+        toast(failed === 0 ? "success" : "info", local(`Импортировано ${ok} из ${inputs.length}${failed ? `, не удалось: ${failed}` : ""}`, `Imported ${ok} of ${inputs.length}${failed ? `, failed: ${failed}` : ""}`));
       }
       return { ok, failed, cancelled };
     },
@@ -1278,13 +1366,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const body: Record<string, unknown> = {};
       if (patch.title !== undefined) {
         const r = validateTitle(patch.title);
-        if (!r.ok) return toast("error", r.error);
+        if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
         body.title = r.value;
       }
       if (patch.description !== undefined) body.description = sanitizeText(patch.description, LIMITS.description.max);
       if (patch.labels !== undefined) {
         const r = validateLabels(patch.labels);
-        if (!r.ok) return toast("error", r.error);
+        if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
         body.labels = r.value;
       }
       if (patch.complexity !== undefined) body.complexity = patch.complexity;
@@ -1306,7 +1394,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             issues: prev.issues.map((i) => (i.id === id ? mapIssue(dto, i) : i)),
           }));
         } catch (err) {
-          handleApiError(err, "Не удалось сохранить задачу");
+          handleApiError(err, local("Не удалось сохранить задачу", "Couldn't save the issue"));
         }
       })();
     },
@@ -1315,32 +1403,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const moveStatus = useCallback(
     (issueId: string, toStatus: string, beforeId?: string | null) => {
-      if (!requirePerm("transition")) return;
       const iss = dataRef.current.issues.find((i) => i.id === issueId);
       if (!iss) return;
+      if (!requirePerm("transition", iss)) return;
       const wf = dataRef.current.workflow;
+      const requestProjectId = pid();
       if (iss.statusId !== toStatus && !canTransition(wf, iss.statusId, toStatus)) {
         const fromN = statusById(wf, iss.statusId)?.name ?? iss.statusId;
         const toN = statusById(wf, toStatus)?.name ?? toStatus;
-        toast("error", `Переход «${fromN} → ${toN}» запрещён рабочим процессом`);
+        toast("error", local(`Переход «${fromN} → ${toN}» запрещён рабочим процессом`, `The “${fromN} → ${toN}” transition is not allowed by the workflow`));
         return;
       }
       void (async () => {
         try {
-          const dto = await issuesApi.transition(pid(), issueId, toStatus, beforeId);
+          const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId);
           const wasDone = iss.doneAt != null;
           const nowDone = dto.doneAt != null;
-          setData((prev) => ({
-            ...prev,
-            issues: patchParentSubtasksSummary(
-              prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
-              iss.parentId,
-              wasDone === nowDone ? {} : { done: nowDone ? 1 : -1 },
-            ),
-          }));
-          setUi((u) => ({ ...u, lastEvent: { issueId, ts: Date.now() } }));
+          setData((prev) => {
+            if (prev.currentProjectId !== requestProjectId) return prev;
+            return {
+              ...prev,
+              issues: patchParentSubtasksSummary(
+                prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
+                iss.parentId,
+                wasDone === nowDone ? {} : { done: nowDone ? 1 : -1 },
+              ),
+            };
+          });
+          if (dataRef.current.currentProjectId === requestProjectId) {
+            setUi((u) => ({ ...u, lastEvent: { issueId, ts: Date.now() } }));
+          }
         } catch (err) {
-          handleApiError(err, "Не удалось сменить статус");
+          handleApiError(err, local("Не удалось сменить статус", "Couldn't change the status"));
           void refreshIssues();
         }
       })();
@@ -1352,7 +1446,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (issueId: string, body: string) => {
       if (!requirePerm("comment")) return;
       const r = validateComment(body);
-      if (!r.ok) return toast("error", r.error);
+      if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
       void (async () => {
         try {
           const c = await commentsApi.create(pid(), issueId, r.value);
@@ -1375,7 +1469,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 : i,
             ),
           }));
-          toast("success", "Комментарий добавлен");
+          toast("success", local("Комментарий добавлен", "Comment added"));
         } catch (err) {
           handleApiError(err);
         }
@@ -1403,9 +1497,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             ...list.filter((x) => x.userId !== c.userId),
             { userId: c.userId, name: c.name, initials: c.initials, color: c.color, jobRole: c.jobRole },
           ]);
-          toast("success", `${c.name} — приглашён(а) к задаче`);
+          toast("success", local(`${c.name} — приглашён(а) к задаче`, `${c.name} was invited to the issue`));
         } catch (err) {
-          handleApiError(err, "Не удалось пригласить участника");
+          handleApiError(err, local("Не удалось пригласить участника", "Couldn't invite the person"));
         }
       })();
     },
@@ -1420,9 +1514,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           await collaboratorsApi.remove(pid(), issueId, userId);
           patchIssueCollaborators(issueId, (list) => list.filter((x) => x.userId !== userId));
-          toast("info", "Участник отключён от задачи");
+          toast("info", local("Участник отключён от задачи", "Guest removed from the issue"));
         } catch (err) {
-          handleApiError(err, "Не удалось отключить участника");
+          handleApiError(err, local("Не удалось отключить участника", "Couldn't remove the guest"));
         }
       })();
     },
@@ -1447,9 +1541,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // разворачивает сам и возвращает связи именно issueId.
           const res = await issuesApi.addLink(pid(), issueId, linkedIssueId, type);
           setIssueLinks(issueId, res.links);
-          toast("success", "Связь добавлена");
+          toast("success", local("Связь добавлена", "Link added"));
         } catch (err) {
-          handleApiError(err, "Не удалось связать задачи");
+          handleApiError(err, local("Не удалось связать задачи", "Couldn't link the issues"));
         }
       })();
     },
@@ -1464,9 +1558,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const res = await issuesApi.removeLink(pid(), issueId, linkId);
           setIssueLinks(issueId, res.links);
-          toast("info", "Связь удалена");
+          toast("info", local("Связь удалена", "Link removed"));
         } catch (err) {
-          handleApiError(err, "Не удалось удалить связь");
+          handleApiError(err, local("Не удалось удалить связь", "Couldn't remove the link"));
         }
       })();
     },
@@ -1486,13 +1580,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const issue = dataRef.current.issues.find((i) => i.id === issueId);
       if (!requirePerm("edit", issue)) return;
       const r = validateChecklistItemText(text);
-      if (!r.ok) return toast("error", r.error);
+      if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
       void (async () => {
         try {
           const res = await issuesApi.addChecklistItem(pid(), issueId, r.value);
           setChecklist(issueId, res.checklist);
         } catch (err) {
-          handleApiError(err, "Не удалось добавить пункт чек-листа");
+          handleApiError(err, local("Не удалось добавить пункт чек-листа", "Couldn't add the checklist item"));
         }
       })();
     },
@@ -1508,7 +1602,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const res = await issuesApi.patchChecklistItem(pid(), issueId, itemId, { done });
           setChecklist(issueId, res.checklist);
         } catch (err) {
-          handleApiError(err, "Не удалось обновить пункт чек-листа");
+          handleApiError(err, local("Не удалось обновить пункт чек-листа", "Couldn't update the checklist item"));
         }
       })();
     },
@@ -1524,7 +1618,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const res = await issuesApi.removeChecklistItem(pid(), issueId, itemId);
           setChecklist(issueId, res.checklist);
         } catch (err) {
-          handleApiError(err, "Не удалось удалить пункт чек-листа");
+          handleApiError(err, local("Не удалось удалить пункт чек-листа", "Couldn't delete the checklist item"));
         }
       })();
     },
@@ -1546,7 +1640,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             issues: prev.issues.map((i) => (i.id === issueId ? { ...i, customFieldValues: res.values } : i)),
           }));
         } catch (err) {
-          handleApiError(err, "Не удалось сохранить значение поля");
+          handleApiError(err, local("Не удалось сохранить значение поля", "Couldn't save the field value"));
         }
       })();
     },
@@ -1569,22 +1663,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // источник правды (config.blockExt + magic-байты); этот список НЕ
       // исчерпывающий, держим примерно в ногу с DEFAULT_BLOCK_EXT.
       if (file.size > LIMITS.attachment.maxBytes) {
-        return toast("error", `Файл больше ${Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} МБ`);
+        return toast("error", local(`Файл больше ${Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} МБ`, `The file is larger than ${Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} MB`));
       }
       if (
         /\.(exe|dll|scr|com|pif|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|msi|msp|cpl|reg|lnk|sh|bash|zsh|ksh|run|bin|jar|apk|app|dmg|pkg|deb|rpm|elf|so|dylib|gadget|inf)$/i.test(
           file.name,
         )
       ) {
-        return toast("error", "Такой тип файла загружать нельзя (исполняемый/скрипт)");
+        return toast("error", local("Такой тип файла загружать нельзя (исполняемый/скрипт)", "This file type is not allowed (executable or script)"));
       }
       void (async () => {
         try {
           const a = await attachmentsApi.upload(pid(), issueId, file);
           patchIssueAttachments(issueId, (list) => [...list.filter((x) => x.id !== a.id), mapAttachment(a)]);
-          toast("success", `${a.filename} — прикреплён`);
+          toast("success", local(`${a.filename} — прикреплён`, `${a.filename} attached`));
         } catch (err) {
-          handleApiError(err, "Не удалось загрузить файл");
+          handleApiError(err, local("Не удалось загрузить файл", "Couldn't upload the file"));
         }
       })();
     },
@@ -1599,9 +1693,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           await attachmentsApi.remove(pid(), issueId, attId);
           patchIssueAttachments(issueId, (list) => list.filter((a) => a.id !== attId));
-          toast("info", "Вложение удалено");
+          toast("info", local("Вложение удалено", "Attachment deleted"));
         } catch (err) {
-          handleApiError(err, "Не удалось удалить вложение");
+          handleApiError(err, local("Не удалось удалить вложение", "Couldn't delete the attachment"));
         }
       })();
     },
@@ -1612,7 +1706,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (issueId: string, att: { id: string; filename: string }) => {
       void attachmentsApi
         .download(pid(), issueId, att.id, att.filename)
-        .catch((err) => handleApiError(err, "Не удалось скачать файл"));
+        .catch((err) => handleApiError(err, local("Не удалось скачать файл", "Couldn't download the file")));
     },
     [handleApiError],
   );
@@ -1642,7 +1736,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             ),
           }));
           setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
-          if (iss) toast("info", `${iss.key} удалена`);
+          if (iss) toast("info", local(`${iss.key} удалена`, `${iss.key} deleted`));
         } catch (err) {
           handleApiError(err);
         }
@@ -1653,8 +1747,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addTransition = useCallback(
     (from: string, to: string): string | null => {
-      if (!requirePerm("editWorkflow")) return "Нет прав";
-      if (from === to) return "Статусы «из» и «в» совпадают";
+      if (!requirePerm("editWorkflow")) return local("Нет прав", "Permission denied");
+      if (from === to) return local("Статусы «из» и «в» совпадают", "The source and destination statuses are the same");
       void (async () => {
         try {
           const tr = await workflowApi.addTransition(pid(), from, to);
@@ -1665,14 +1759,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               transitions: [...prev.workflow.transitions, { id: tr.id, from: tr.from, to: tr.to }],
             },
           }));
-          toast("success", "Переход добавлен");
+          toast("success", local("Переход добавлен", "Transition added"));
         } catch (err) {
           handleApiError(err);
         }
       })();
       return null;
     },
-    [requirePerm, toast, handleApiError],
+    [requirePerm, toast, handleApiError, local],
   );
 
   const removeTransition = useCallback(
@@ -1688,7 +1782,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               transitions: prev.workflow.transitions.filter((t) => t.id !== id),
             },
           }));
-          toast("info", "Переход удалён");
+          toast("info", local("Переход удалён", "Transition removed"));
         } catch (err) {
           handleApiError(err);
         }
@@ -1710,7 +1804,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
           },
         }));
-        toast("info", "Схема восстановлена");
+        toast("info", local("Схема восстановлена", "Workflow reset"));
       } catch (err) {
         handleApiError(err);
       }
@@ -1728,9 +1822,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const t = await issueTemplatesApi.create(pid(), input);
           setData((prev) => ({ ...prev, issueTemplates: [...prev.issueTemplates, mapIssueTemplate(t)] }));
-          toast("success", "Шаблон добавлен");
+          toast("success", local("Шаблон добавлен", "Template added"));
         } catch (err) {
-          handleApiError(err, "Не удалось добавить шаблон");
+          handleApiError(err, local("Не удалось добавить шаблон", "Couldn't add the template"));
         }
       })();
     },
@@ -1747,9 +1841,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             ...prev,
             issueTemplates: prev.issueTemplates.map((x) => (x.id === templateId ? mapIssueTemplate(t) : x)),
           }));
-          toast("success", "Шаблон обновлён");
+          toast("success", local("Шаблон обновлён", "Template updated"));
         } catch (err) {
-          handleApiError(err, "Не удалось обновить шаблон");
+          handleApiError(err, local("Не удалось обновить шаблон", "Couldn't update the template"));
         }
       })();
     },
@@ -1763,9 +1857,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           await issueTemplatesApi.remove(pid(), templateId);
           setData((prev) => ({ ...prev, issueTemplates: prev.issueTemplates.filter((x) => x.id !== templateId) }));
-          toast("info", "Шаблон удалён");
+          toast("info", local("Шаблон удалён", "Template deleted"));
         } catch (err) {
-          handleApiError(err, "Не удалось удалить шаблон");
+          handleApiError(err, local("Не удалось удалить шаблон", "Couldn't delete the template"));
         }
       })();
     },
@@ -1780,14 +1874,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (name: string, fieldType: CustomFieldType, options: string[]) => {
       if (!requirePerm("editWorkflow")) return;
       const trimmed = name.trim();
-      if (!trimmed) return toast("error", "Название поля не может быть пустым");
+      if (!trimmed) return toast("error", local("Название поля не может быть пустым", "Field name cannot be empty"));
       void (async () => {
         try {
           const field = await customFieldsApi.create(pid(), { name: trimmed, fieldType, options });
           setData((prev) => ({ ...prev, customFields: [...prev.customFields, field] }));
-          toast("success", "Поле добавлено");
+          toast("success", local("Поле добавлено", "Field added"));
         } catch (err) {
-          handleApiError(err, "Не удалось добавить поле");
+          handleApiError(err, local("Не удалось добавить поле", "Couldn't add the field"));
         }
       })();
     },
@@ -1798,7 +1892,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (fieldId: string, name: string) => {
       if (!requirePerm("editWorkflow")) return;
       const trimmed = name.trim();
-      if (!trimmed) return toast("error", "Название поля не может быть пустым");
+      if (!trimmed) return toast("error", local("Название поля не может быть пустым", "Field name cannot be empty"));
       void (async () => {
         try {
           const field = await customFieldsApi.rename(pid(), fieldId, trimmed);
@@ -1807,7 +1901,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             customFields: prev.customFields.map((f) => (f.id === fieldId ? field : f)),
           }));
         } catch (err) {
-          handleApiError(err, "Не удалось переименовать поле");
+          handleApiError(err, local("Не удалось переименовать поле", "Couldn't rename the field"));
         }
       })();
     },
@@ -1828,9 +1922,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               customFieldValues: i.customFieldValues.filter((v) => v.fieldId !== fieldId),
             })),
           }));
-          toast("info", "Поле удалено");
+          toast("info", local("Поле удалено", "Field deleted"));
         } catch (err) {
-          handleApiError(err, "Не удалось удалить поле");
+          handleApiError(err, local("Не удалось удалить поле", "Couldn't delete the field"));
         }
       })();
     },
@@ -1844,9 +1938,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const res = await membersApi.set(pid(), userId, role);
           setData((prev) => ({ ...prev, members: { ...prev.members, [res.userId]: res.role } }));
-          toast("success", "Роль участника обновлена");
+          toast("success", local("Роль участника обновлена", "Member role updated"));
         } catch (err) {
-          handleApiError(err, "Не удалось изменить роль участника");
+          handleApiError(err, local("Не удалось изменить роль участника", "Couldn't update the member role"));
         }
       })();
     },
@@ -1864,9 +1958,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             delete members[userId];
             return { ...prev, members };
           });
-          toast("info", "Участник удалён из проекта");
+          toast("info", local("Участник удалён из проекта", "Member removed from the project"));
         } catch (err) {
-          handleApiError(err, "Не удалось удалить участника");
+          handleApiError(err, local("Не удалось удалить участника", "Couldn't remove the member"));
         }
       })();
     },
@@ -1898,9 +1992,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         await membersApi.set(projectId, userId, role);
         if (projectId === dataRef.current.currentProjectId) await syncCurrentMembers(projectId);
-        toast("success", "Роль участника обновлена");
+        toast("success", local("Роль участника обновлена", "Member role updated"));
       } catch (err) {
-        handleApiError(err, "Не удалось изменить участника проекта");
+        handleApiError(err, local("Не удалось изменить участника проекта", "Couldn't update the project member"));
         throw err;
       }
     },
@@ -1913,9 +2007,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         await membersApi.remove(projectId, userId);
         if (projectId === dataRef.current.currentProjectId) await syncCurrentMembers(projectId);
-        toast("info", "Участник удалён из проекта");
+        toast("info", local("Участник удалён из проекта", "Member removed from the project"));
       } catch (err) {
-        handleApiError(err, "Не удалось удалить участника проекта");
+        handleApiError(err, local("Не удалось удалить участника проекта", "Couldn't remove the project member"));
         throw err;
       }
     },
@@ -1948,9 +2042,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           await departmentsApi.create(name);
           await refreshOrg();
-          toast("success", `Отдел «${name}» создан`);
+          toast("success", local(`Отдел «${name}» создан`, `Department “${name}” created`));
         } catch (err) {
-          handleApiError(err, "Не удалось создать отдел");
+          handleApiError(err, local("Не удалось создать отдел", "Couldn't create the department"));
         }
       })();
     },
@@ -1965,7 +2059,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           await departmentsApi.patch(id, { name });
           await refreshOrg();
         } catch (err) {
-          handleApiError(err, "Не удалось переименовать отдел");
+          handleApiError(err, local("Не удалось переименовать отдел", "Couldn't rename the department"));
         }
       })();
     },
@@ -1980,9 +2074,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           await departmentsApi.patch(id, { ldapGroupDn });
           await refreshOrg();
-          toast("success", ldapGroupDn ? "LDAP-группа привязана" : "Привязка LDAP-группы снята");
+          toast("success", ldapGroupDn ? local("LDAP-группа привязана", "LDAP group linked") : local("Привязка LDAP-группы снята", "LDAP group unlinked"));
         } catch (err) {
-          handleApiError(err, "Не удалось сохранить LDAP-группу");
+          handleApiError(err, local("Не удалось сохранить LDAP-группу", "Couldn't save the LDAP group"));
         }
       })();
     },
@@ -1995,12 +2089,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     void (async () => {
       try {
         const r = await ldapApi.resync();
-        const tail =
+        const ruTail =
           (r.notFound.length ? ` · не найдено в LDAP: ${r.notFound.length}` : "") +
           (r.errors.length ? ` · ошибок: ${r.errors.length}` : "");
-        toast(r.errors.length ? "error" : "success", `Ресинк: ${r.synced}/${r.total}${tail}`);
+        const enTail =
+          (r.notFound.length ? ` · not found in LDAP: ${r.notFound.length}` : "") +
+          (r.errors.length ? ` · errors: ${r.errors.length}` : "");
+        toast(r.errors.length ? "error" : "success", local(`Ресинк: ${r.synced}/${r.total}${ruTail}`, `Resync: ${r.synced}/${r.total}${enTail}`));
       } catch (err) {
-        handleApiError(err, "Ресинк LDAP не удался");
+        handleApiError(err, local("Ресинк LDAP не удался", "LDAP resync failed"));
       }
     })();
   }, [requirePerm, toast, handleApiError]);
@@ -2012,9 +2109,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           await departmentsApi.remove(id);
           await refreshOrg();
-          toast("info", "Отдел удалён");
+          toast("info", local("Отдел удалён", "Department deleted"));
         } catch (err) {
-          handleApiError(err, "Не удалось удалить отдел");
+          handleApiError(err, local("Не удалось удалить отдел", "Couldn't delete the department"));
         }
       })();
     },
@@ -2028,9 +2125,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const p = await projectsApi.create(input);
           await refreshOrg();
-          toast("success", `Проект ${p.key} создан`);
+          toast("success", local(`Проект ${p.key} создан`, `Project ${p.key} created`));
         } catch (err) {
-          handleApiError(err, "Не удалось создать проект");
+          handleApiError(err, local("Не удалось создать проект", "Couldn't create the project"));
         }
       })();
     },
@@ -2053,7 +2150,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             setData((prev) => ({ ...prev, project: { ...prev.project, ...patch } }));
           }
         } catch (err) {
-          handleApiError(err, "Не удалось изменить проект");
+          handleApiError(err, local("Не удалось изменить проект", "Couldn't update the project"));
         }
       })();
     },
@@ -2067,7 +2164,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       void (async () => {
         try {
           await projectsApi.remove(id);
-          toast("info", "Проект удалён");
+          toast("info", local("Проект удалён", "Project deleted"));
           if (wasCurrent) {
             if (readLastProject() === id) writeLastProject("");
             await bootstrap();
@@ -2075,7 +2172,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             await refreshOrg();
           }
         } catch (err) {
-          handleApiError(err, "Не удалось удалить проект");
+          handleApiError(err, local("Не удалось удалить проект", "Couldn't delete the project"));
         }
       })();
     },
@@ -2092,9 +2189,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const s = await sprintsApi.create(pid(), input);
           setData((prev) => ({ ...prev, sprints: [...prev.sprints, mapSprint(s)] }));
-          toast("success", `Спринт «${s.name}» создан`);
+          toast("success", local(`Спринт «${s.name}» создан`, `Sprint “${s.name}” created`));
         } catch (err) {
-          handleApiError(err, "Не удалось создать спринт");
+          handleApiError(err, local("Не удалось создать спринт", "Couldn't create the sprint"));
         }
       })();
     },
@@ -2108,9 +2205,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const s = await sprintsApi.start(pid(), sprintId);
           setData((prev) => ({ ...prev, sprints: prev.sprints.map((x) => (x.id === sprintId ? mapSprint(s) : x)) }));
-          toast("success", `Спринт «${s.name}» начат`);
+          toast("success", local(`Спринт «${s.name}» начат`, `Sprint “${s.name}” started`));
         } catch (err) {
-          handleApiError(err, "Не удалось начать спринт");
+          handleApiError(err, local("Не удалось начать спринт", "Couldn't start the sprint"));
         }
       })();
     },
@@ -2134,10 +2231,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }));
           toast(
             movedToBacklog > 0 ? "info" : "success",
-            `Спринт «${sprint.name}» завершён${movedToBacklog > 0 ? `, в бэклог перенесено: ${movedToBacklog}` : ""}`,
+            local(
+              `Спринт «${sprint.name}» завершён${movedToBacklog > 0 ? `, в бэклог перенесено: ${movedToBacklog}` : ""}`,
+              `Sprint “${sprint.name}” completed${movedToBacklog > 0 ? `; moved to backlog: ${movedToBacklog}` : ""}`,
+            ),
           );
         } catch (err) {
-          handleApiError(err, "Не удалось завершить спринт");
+          handleApiError(err, local("Не удалось завершить спринт", "Couldn't complete the sprint"));
         }
       })();
     },
@@ -2152,7 +2252,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const dto = await issuesApi.setSprint(pid(), issueId, sprintId);
           setData((prev) => ({ ...prev, issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)) }));
         } catch (err) {
-          handleApiError(err, "Не удалось изменить спринт задачи");
+          handleApiError(err, local("Не удалось изменить спринт задачи", "Couldn't change the issue sprint"));
         }
       })();
     },
@@ -2185,7 +2285,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               ? [...prev.favoriteProjectIds, projectId]
               : prev.favoriteProjectIds.filter((id) => id !== projectId),
           }));
-          handleApiError(err, "Не удалось изменить избранное");
+          handleApiError(err, local("Не удалось изменить избранное", "Couldn't update favorites"));
         }
       })();
     },
@@ -2199,7 +2299,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const res = await issuesApi.search(q);
         return { items: res.items as SearchResultItem[], truncated: res.truncated };
       } catch (err) {
-        handleApiError(err, "Не удалось выполнить поиск");
+        handleApiError(err, local("Не удалось выполнить поиск", "Search failed"));
         return { items: [], truncated: false };
       }
     },
@@ -2234,6 +2334,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     markNotificationsRead,
     dismissNotifications,
     setNotifyPrefs,
+    uploadAvatar,
+    removeAvatar,
     logout,
     setView: (v) => setUi((u) => ({ ...u, view: v })),
     openIssue,

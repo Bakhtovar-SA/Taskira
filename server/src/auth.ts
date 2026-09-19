@@ -12,6 +12,7 @@ export interface UserRow {
   initials: string;
   color: string;
   job_role: string;
+  phone: string; // миграция 026 — синкается из AD (telephoneNumber) для LDAP-пользователей
   global_role: GlobalRole; // admin | member (миграция 004) — источник прав
   is_active: boolean;
   password_hash: string | null; // NULL у LDAP-пользователей (миграция 009)
@@ -19,6 +20,11 @@ export interface UserRow {
   ldap_dn: string | null;
   email: string | null;
   notify_prefs: NotifyPrefs | null; // миграция 011 (jsonb; node-postgres отдаёт объектом)
+  avatar_driver: "local" | "s3" | null; // миграция 027
+  avatar_key: string | null;
+  avatar_content_type: string | null;
+  avatar_updated_at: Date | null;
+  session_version: string | number; // bigint, миграция 029
 }
 
 export interface SafeUser {
@@ -28,12 +34,18 @@ export interface SafeUser {
   initials: string;
   color: string;
   jobRole: string;
+  /** Телефон (миграция 026) — из AD у LDAP-пользователей, вручную при создании
+   *  локального. "" — не заполнен. */
+  phone: string;
   /** Глобальная роль ресурса (users.global_role) — источник прав.
    *  Проектная роль — в bootstrap `members`, не здесь. */
   globalRole: GlobalRole;
   isActive: boolean;
   /** local | ldap (миграция 009) — для UI: у ldap-юзеров роль/профиль из директории. */
   authSource: "local" | "ldap";
+  /** мс эпохи последней загрузки аватарки (миграция 027) — null, если её нет.
+   *  Клиент использует как cache-buster для GET /users/:id/avatar. */
+  avatarUpdatedAt: number | null;
 }
 
 export function safeUser(row: UserRow): SafeUser {
@@ -44,23 +56,21 @@ export function safeUser(row: UserRow): SafeUser {
     initials: row.initials,
     color: row.color,
     jobRole: row.job_role,
+    phone: row.phone,
     globalRole: row.global_role,
     isActive: row.is_active,
     authSource: row.auth_source,
+    avatarUpdatedAt: row.avatar_updated_at ? row.avatar_updated_at.getTime() : null,
   };
 }
 
 export function signToken(app: FastifyInstance, row: UserRow): string {
   // loadConfig() — кэшированный конфиг (fix 3a), env не читается на каждый токен
-  // iatMs — момент выдачи с точностью до миллисекунд. Стандартный iat в JWT
-  // хранится в ЦЕЛЫХ СЕКУНДАХ, и этой точности не хватает для отзыва: выход
-  // через доли секунды после входа попадал бы в ту же секунду, и старый токен
-  // оказывался бы «выданным не раньше» отметки отзыва (миграция 017).
   const payload: JwtPayload = {
     sub: row.id,
     globalRole: row.global_role,
     name: row.name,
-    iatMs: Date.now(),
+    sessionVersion: Number(row.session_version),
   };
   return app.jwt.sign(payload, { expiresIn: loadConfig().jwtExpires });
 }

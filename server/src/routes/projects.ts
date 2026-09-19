@@ -8,7 +8,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
-import { one, q } from "../db.js";
+import { one, q, withTransaction } from "../db.js";
 import {
   badRequest,
   notFound,
@@ -79,19 +79,20 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
 
       let projectId: string;
       try {
-        projectId = (
-          await one<{ id: string }>(
-            `INSERT INTO projects (key, name, description, department_id, is_shared, sprints_enabled)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            [body.key, body.name, body.description, body.departmentId, body.isShared, body.sprintsEnabled],
-          )
-        )!.id;
+        projectId = await withTransaction(async (client) => {
+          const created = await client.query<{ id: string }>(
+              `INSERT INTO projects (key, name, description, department_id, is_shared, sprints_enabled)
+               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+              [body.key, body.name, body.description, body.departmentId, body.isShared, body.sprintsEnabled],
+            );
+          const id = created.rows[0].id;
+          await seedProjectWorkflow(id, client);
+          return id;
+        });
       } catch (e) {
         if ((e as { code?: string }).code === "23505") throw conflict("Проект с таким ключом уже есть");
         throw e;
       }
-
-      await seedProjectWorkflow(projectId);
       await audit(actor.sub, "project.create", "project", projectId, { key: body.key });
       reply.code(201).send(await projectDtoById(projectId));
     },

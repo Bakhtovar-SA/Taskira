@@ -2,7 +2,7 @@ import { useState } from "react";
 import { assignableUsers, useStore } from "../store";
 import type { ComplexityId, IssueTypeId, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
-import { IcChevD, IcX, TypeIcon } from "../icons";
+import { IcChevD, IcPlus, IcX, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, Dropdown, Modal, Chip } from "../ui";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
@@ -25,6 +25,8 @@ export default function CreateIssueModal() {
   const [dueDate, setDueDate] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [labelDraft, setLabelDraft] = useState("");
+  const [checklistItems, setChecklistItems] = useState<string[]>([]);
+  const [checklistDraft, setChecklistDraft] = useState("");
   const [again, setAgain] = useState(false);
   // Шаблон (issue_templates, миграция 022) — чистый prefill формы: applyTemplate
   // копирует его поля в локальный стейт один раз при выборе, дальше форма живёт
@@ -64,6 +66,8 @@ export default function CreateIssueModal() {
       setError(t("createIssue.titleRequired"));
       return;
     }
+    const pendingChecklist = checklistDraft.trim();
+    const initialChecklist = pendingChecklist ? [...checklistItems, pendingChecklist] : checklistItems;
     createIssue({
       title,
       description,
@@ -76,6 +80,7 @@ export default function CreateIssueModal() {
       complexity,
       dueDate: dueDate || null,
       statusId: templateStatusId ?? undefined,
+      checklistItems: initialChecklist,
     });
     if (again) {
       setTitle("");
@@ -83,6 +88,8 @@ export default function CreateIssueModal() {
       setError("");
       setDueDate("");
       setLabels([]);
+      setChecklistItems([]);
+      setChecklistDraft("");
       setTemplateId("");
       setTemplateStatusId(null);
     } else {
@@ -138,6 +145,61 @@ export default function CreateIssueModal() {
                 <TypeIcon type={ty} size={14} /> {t(`issueType.${ty}`)}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("createIssue.checklist")}</p>
+          <div className="space-y-1.5">
+            {checklistItems.map((item, index) => (
+              <div key={`${item}-${index}`} className="flex items-center gap-2 rounded-md border border-linesoft bg-canvas/50 px-2.5 py-1.5 text-[12.5px] text-sub">
+                <span className="h-3.5 w-3.5 shrink-0 rounded border border-line2 bg-panel" />
+                <span className="min-w-0 flex-1 break-words">{item}</span>
+                <button
+                  type="button"
+                  onClick={() => setChecklistItems((items) => items.filter((_, i) => i !== index))}
+                  className="rounded p-0.5 text-faint hover:bg-dangersoft hover:text-danger"
+                  aria-label={t("createIssue.removeChecklistItem")}
+                >
+                  <IcX size={12} />
+                </button>
+              </div>
+            ))}
+            {checklistItems.length < LIMITS.checklistItemsPerIssue && (
+              <div className="flex gap-2">
+                <input
+                  value={checklistDraft}
+                  onChange={(e) => setChecklistDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const text = checklistDraft.trim();
+                      if (text) {
+                        setChecklistItems((items) => [...items, text]);
+                        setChecklistDraft("");
+                      }
+                    }
+                  }}
+                  maxLength={LIMITS.checklistItem.text.max}
+                  placeholder={t("createIssue.checklistPlaceholder")}
+                  className={inputCls}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = checklistDraft.trim();
+                    if (!text) return;
+                    setChecklistItems((items) => [...items, text]);
+                    setChecklistDraft("");
+                  }}
+                  disabled={!checklistDraft.trim()}
+                  className="flex h-[34px] w-[38px] shrink-0 items-center justify-center rounded-md border border-line text-sub hover:border-accent hover:text-accent disabled:opacity-40"
+                  aria-label={t("createIssue.addChecklistItem")}
+                >
+                  <IcPlus size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -203,7 +265,7 @@ export default function CreateIssueModal() {
               width={220}
               button={(open) => (
                 <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
-                  <AvatarStack users={assignees} size={18} max={2} />
+                  <AvatarStack users={assignees} size={18} max={2} interactive={false} />
                   <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
                     {assignees.length === 0
                       ? t("createIssue.unassigned")
@@ -225,7 +287,7 @@ export default function CreateIssueModal() {
                         onClick={() => setAssigneeIds((p) => (on ? p.filter((id) => id !== u.id) : [...p, u.id]))}
                         className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft"
                       >
-                        <Avatar user={u} size={18} /> {u.name} {on && <IcCheck size={12} className="ml-auto text-accent" />}
+                        <Avatar user={u} size={18} interactive={false} /> {u.name} {on && <IcCheck size={12} className="ml-auto text-accent" />}
                       </button>
                     );
                   })}

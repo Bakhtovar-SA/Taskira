@@ -248,15 +248,24 @@ describe("In-app API", () => {
     res = await app.inject({ method: "GET", url: "/api/notifications/unread-count", headers: auth(empTok) });
     expect(JSON.parse(res.body).count).toBe(0);
 
-    // настройки
+    // настройки: "off" больше не принимается (миграция 028 — почту нельзя выключить)
     res = await app.inject({
       method: "PATCH",
       url: "/api/notifications/prefs",
       headers: auth(empTok),
       payload: { email: "off", selfWatch: false },
     });
+    expect(res.statusCode).toBe(400);
+
+    // но режим доставки (instant/daily) и selfWatch по-прежнему настраиваются
+    res = await app.inject({
+      method: "PATCH",
+      url: "/api/notifications/prefs",
+      headers: auth(empTok),
+      payload: { email: "daily", selfWatch: false },
+    });
     expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).notifyPrefs).toMatchObject({ email: "off", selfWatch: false });
+    expect(JSON.parse(res.body).notifyPrefs).toMatchObject({ email: "daily", selfWatch: false });
 
     // чужие уведомления не видны: mgr2 своей ленты — пусто
     const mgr2Tok = await login(app, "mgr2");

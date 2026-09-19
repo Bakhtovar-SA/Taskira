@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { departmentsApi, projectsApi, usersApi, type DepartmentMember, type SafeUser } from "../api";
 import type { ProjectRole, ProjectSummary } from "../types";
-import { roleMeta } from "../permissions";
 import { LIMITS } from "../validation";
 import { IcChevD, IcChevR, IcInbox, IcLock, IcPlus, IcTrash, IcUsers } from "../icons";
 import { UserSearchPicker } from "../ui";
+import { useT } from "../i18n";
 
 const KEY_RE = /^[A-Z][A-Z0-9]{1,9}$/;
 const PROJECT_ROLES: ProjectRole[] = ["manager", "employee", "viewer"];
@@ -52,6 +52,7 @@ function MiniAvatar({ user }: { user: { name?: string; initials?: string; color?
  *  (у них и так полный доступ); сам список кандидатов больше не выгружается
  *  целиком — см. UserSearchPicker. */
 function ProjectMembers({ projectId, adminIds }: { projectId: string; adminIds: Set<string> }) {
+  const { t, lang } = useT();
   const { setProjectMember, removeProjectMember } = useStore();
   const [state, setState] = useState<
     | { status: "loading" }
@@ -82,13 +83,13 @@ function ProjectMembers({ projectId, adminIds }: { projectId: string; adminIds: 
   };
 
   if (state.status === "loading")
-    return <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-faint">Загрузка состава…</p>;
+    return <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-faint">{t("admin.loadingMembers")}</p>;
   if (state.status === "error")
     return (
       <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-danger">
-        Не удалось загрузить состав.{" "}
+        {t("admin.loadMembersFailed")}{" "}
         <button className="underline" onClick={load}>
-          повторить
+          {t("reports.retry")}
         </button>
       </p>
     );
@@ -96,12 +97,12 @@ function ProjectMembers({ projectId, adminIds }: { projectId: string; adminIds: 
   const roleByUser = new Map(state.members.map((m) => [m.userId, m.role]));
   const rows = state.members
     .map((m) => ({ m, u: state.users.find((x) => x.id === m.userId) }))
-    .sort((a, b) => (a.u?.name ?? "").localeCompare(b.u?.name ?? "", "ru"));
+    .sort((a, b) => (a.u?.name ?? "").localeCompare(b.u?.name ?? "", lang === "ru" ? "ru" : "en"));
   const exclude = new Set([...roleByUser.keys(), ...adminIds]);
 
   return (
     <div className="border-t border-linesoft bg-canvas/30 px-3 py-2.5">
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">Состав проекта · {state.members.length}</p>
+      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">{t("admin.projectMembers", { count: state.members.length })}</p>
 
       <div className="space-y-1">
         {rows.map(({ m, u }) => (
@@ -116,7 +117,7 @@ function ProjectMembers({ projectId, adminIds }: { projectId: string; adminIds: 
             >
               {PROJECT_ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {roleMeta(r).name}
+                  {t(`role.${r}.name`)}
                 </option>
               ))}
             </select>
@@ -125,11 +126,11 @@ function ProjectMembers({ projectId, adminIds }: { projectId: string; adminIds: 
               onClick={() => run(removeProjectMember(projectId, m.userId))}
               className="rounded-md border border-line bg-panel px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-40"
             >
-              Убрать
+              {t("access.remove")}
             </button>
           </div>
         ))}
-        {state.members.length === 0 && <p className="text-[11px] text-faint">Участников пока нет.</p>}
+        {state.members.length === 0 && <p className="text-[11px] text-faint">{t("admin.noMembers")}</p>}
       </div>
 
       <div className="mt-2 flex flex-wrap items-start gap-2">
@@ -141,7 +142,7 @@ function ProjectMembers({ projectId, adminIds }: { projectId: string; adminIds: 
         >
           {PROJECT_ROLES.map((r) => (
             <option key={r} value={r}>
-              {roleMeta(r).name}
+              {t(`role.${r}.name`)}
             </option>
           ))}
         </select>
@@ -149,14 +150,13 @@ function ProjectMembers({ projectId, adminIds }: { projectId: string; adminIds: 
           <UserSearchPicker
             exclude={exclude}
             disabled={busy}
-            pickLabel="Добавить"
+            pickLabel={t("ui.add")}
             onPick={(userId) => run(setProjectMember(projectId, userId, addRole))}
           />
         </div>
       </div>
       <p className="mt-1.5 text-[10px] leading-relaxed text-faint">
-        Добавление в этот проект не открывает остальные проекты отдела. «Наблюдатель» — только просмотр.
-        Отдел человека значения не имеет — можно добавить кого угодно из любого отдела.
+        {t("admin.projectMembersHint")}
       </p>
     </div>
   );
@@ -167,6 +167,7 @@ function ProjectMembers({ projectId, adminIds }: { projectId: string; adminIds: 
  *  из группы AD) показаны, но не убираются отсюда — только через саму
  *  группу в директории; убрать можно только вручную добавленных. */
 function DepartmentMembers({ departmentId }: { departmentId: string }) {
+  const { t, lang } = useT();
   const [state, setState] = useState<
     { status: "loading" } | { status: "error" } | { status: "ready"; members: DepartmentMember[] }
   >({ status: "loading" });
@@ -193,23 +194,23 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
   };
 
   if (state.status === "loading")
-    return <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-faint">Загрузка состава…</p>;
+    return <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-faint">{t("admin.loadingMembers")}</p>;
   if (state.status === "error")
     return (
       <p className="border-t border-linesoft bg-canvas/30 px-3 py-2 text-[11px] text-danger">
-        Не удалось загрузить состав.{" "}
+        {t("admin.loadMembersFailed")}{" "}
         <button className="underline" onClick={load}>
-          повторить
+          {t("reports.retry")}
         </button>
       </p>
     );
 
-  const rows = [...state.members].sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  const rows = [...state.members].sort((a, b) => a.name.localeCompare(b.name, lang === "ru" ? "ru" : "en"));
   const exclude = new Set(state.members.map((m) => m.userId));
 
   return (
     <div className="border-t border-linesoft bg-canvas/30 px-3 py-2.5">
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">Состав отдела · {rows.length}</p>
+      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">{t("admin.departmentMembers", { count: rows.length })}</p>
 
       <div className="space-y-1">
         {rows.map((m) => (
@@ -217,40 +218,41 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
             <MiniAvatar user={m} />
             <span className="min-w-0 flex-1 truncate text-[12px] text-ink">{m.name}</span>
             <span
-              title={m.source === "ldap" ? "Членство пришло из LDAP-группы" : "Добавлено вручную"}
+              title={t(m.source === "ldap" ? "admin.fromLdap" : "admin.addedManually")}
               className="shrink-0 rounded bg-linesoft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-faint"
             >
-              {m.source === "ldap" ? "LDAP" : "вручную"}
+              {m.source === "ldap" ? "LDAP" : t("admin.manually")}
             </span>
             <button
               disabled={busy || m.source === "ldap"}
-              title={m.source === "ldap" ? "Уберите человека из группы в директории — не отсюда" : "Убрать из отдела"}
+              title={t(m.source === "ldap" ? "admin.removeInDirectory" : "admin.removeFromDepartment")}
               onClick={() => run(departmentsApi.removeMember(departmentId, m.userId))}
               className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-40"
             >
-              Убрать
+              {t("access.remove")}
             </button>
           </div>
         ))}
-        {rows.length === 0 && <p className="text-[11px] text-faint">Участников пока нет.</p>}
+        {rows.length === 0 && <p className="text-[11px] text-faint">{t("admin.noMembers")}</p>}
       </div>
 
       <div className="mt-2">
         <UserSearchPicker
           exclude={exclude}
           disabled={busy}
-          pickLabel="Добавить"
+          pickLabel={t("ui.add")}
           onPick={(userId) => run(departmentsApi.addMember(departmentId, userId))}
         />
       </div>
       <p className="mt-1.5 text-[10px] leading-relaxed text-faint">
-        Ручное добавление — для отделов без LDAP-группы или пока человек не попал ни в одну группу директории.
+        {t("admin.departmentMembersHint")}
       </p>
     </div>
   );
 }
 
 export default function AdminView() {
+  const { t } = useT();
   const {
     data,
     can,
@@ -298,7 +300,7 @@ export default function AdminView() {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="flex items-center gap-2 text-[13px] text-faint">
-          <IcLock size={15} /> Раздел доступен только администратору ресурса.
+          <IcLock size={15} /> {t("admin.denied")}
         </p>
       </div>
     );
@@ -309,19 +311,18 @@ export default function AdminView() {
       <div className="mx-auto max-w-[900px] min-[1536px]:max-w-[1120px] min-[1920px]:max-w-[1360px] px-6 py-5">
         <div className="anim-fadeup flex items-start justify-between gap-3">
           <div>
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Департаменты и проекты</h1>
+            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("admin.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
-              Отдел = группа проектов. Проект по умолчанию виден участникам своего отдела; «общий» — видят все.
-              {ldap && " В режиме LDAP членство в отделе приходит из группы AD."}
+              {t("admin.subtitle")}{ldap && ` ${t("admin.ldapSubtitle")}`}
             </p>
           </div>
           {ldap && (
             <button
               onClick={resyncLdap}
-              title="Пересобрать членство в отделах из групп LDAP для всех LDAP-пользователей"
+              title={t("admin.resyncHint")}
               className="shrink-0 rounded-md border border-line bg-panel px-2.5 py-1.5 text-[11.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
             >
-              Пересинхронизировать LDAP
+              {t("admin.resync")}
             </button>
           )}
         </div>
@@ -332,7 +333,7 @@ export default function AdminView() {
             value={newDept}
             onChange={(e) => setNewDept(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && newDept.trim() && (createDepartment(newDept.trim()), setNewDept(""))}
-            placeholder="Название нового отдела"
+            placeholder={t("admin.newDepartmentPlaceholder")}
             maxLength={LIMITS.department.name.max}
             className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2.5 py-1.5 text-[12.5px] focus:border-accent focus:outline-none"
           />
@@ -344,7 +345,7 @@ export default function AdminView() {
             disabled={!newDept.trim()}
             className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            <IcPlus size={13} /> Отдел
+            <IcPlus size={13} /> {t("admin.department")}
           </button>
         </div>
 
@@ -358,22 +359,22 @@ export default function AdminView() {
                 <header className="flex items-center gap-2 border-b border-linesoft bg-canvas/50 px-3 py-2">
                   <IcInbox size={15} className="shrink-0 text-accent" />
                   <EditableName value={d.name} onSave={(v) => renameDepartment(d.id, v)} maxLength={LIMITS.department.name.max} />
-                  <span className="shrink-0 text-[11px] text-faint">{projs.length} проект(ов)</span>
+                  <span className="shrink-0 text-[11px] text-faint">{t("admin.projectCount", { count: projs.length })}</span>
                   <button
                     onClick={() => setOpenDeptMembers((s) => ({ ...s, [d.id]: !s[d.id] }))}
                     className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
                   >
                     {openDeptMembers[d.id] ? <IcChevD size={12} /> : <IcChevR size={12} />}
-                    <IcUsers size={12} /> Состав
+                    <IcUsers size={12} /> {t("admin.members")}
                   </button>
                   <button
                     onClick={() =>
                       projs.length === 0 &&
-                      window.confirm(`Удалить отдел «${d.name}»?`) &&
+                      window.confirm(t("admin.deleteDepartmentConfirm", { name: d.name })) &&
                       deleteDepartment(d.id)
                     }
                     disabled={projs.length > 0}
-                    title={projs.length > 0 ? "Сначала удалите или перенесите проекты" : "Удалить отдел"}
+                    title={t(projs.length > 0 ? "admin.deleteDepartmentBlocked" : "admin.deleteDepartment")}
                     className="shrink-0 rounded-md border border-line bg-panel p-1.5 text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-30 disabled:hover:border-line disabled:hover:text-sub"
                   >
                     <IcTrash size={13} />
@@ -384,11 +385,11 @@ export default function AdminView() {
 
                 {ldap && (
                   <div className="flex items-center gap-2 border-b border-linesoft bg-canvas/30 px-3 py-1.5">
-                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-faint">LDAP-группа</span>
+                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-faint">{t("admin.ldapGroup")}</span>
                     <input
                       key={d.ldapGroupDn ?? ""}
                       defaultValue={d.ldapGroupDn ?? ""}
-                      placeholder="DN группы AD, напр. cn=dept-ib,ou=groups,dc=corp,dc=example,dc=com"
+                      placeholder={t("admin.ldapPlaceholder")}
                       maxLength={LIMITS.department.ldapGroupDn.max}
                       onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
                       onBlur={(e) => {
@@ -414,10 +415,10 @@ export default function AdminView() {
                             checked={p.isShared}
                             onChange={(e) => patchProject(p.id, { isShared: e.target.checked })}
                           />
-                          общий
+                          {t("admin.shared")}
                         </label>
                         <label
-                          title="Опциональный модуль — бэклог + спринты вместо одной доски (SPRINTS_MIGRATION.md)"
+                          title={t("admin.sprintsHint")}
                           className="flex shrink-0 items-center gap-1 text-[11px] text-sub"
                         >
                           <input
@@ -425,25 +426,25 @@ export default function AdminView() {
                             checked={p.sprintsEnabled}
                             onChange={(e) => patchProject(p.id, { sprintsEnabled: e.target.checked })}
                           />
-                          спринты
+                          {t("admin.sprints")}
                         </label>
                         <button
                           onClick={() => setOpenMembers((s) => ({ ...s, [p.id]: !s[p.id] }))}
                           className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
                         >
                           {openMembers[p.id] ? <IcChevD size={12} /> : <IcChevR size={12} />}
-                          <IcUsers size={12} /> Состав
+                          <IcUsers size={12} /> {t("admin.members")}
                         </button>
                         <button
                           onClick={() => switchProject(p.id)}
                           disabled={p.id === data.currentProjectId}
                           className="shrink-0 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
                         >
-                          {p.id === data.currentProjectId ? "открыт" : "Открыть"}
+                          {t(p.id === data.currentProjectId ? "admin.opened" : "admin.open")}
                         </button>
                         <button
                           onClick={() =>
-                            window.confirm(`Удалить проект ${p.key} со всеми задачами? Действие необратимо.`) &&
+                            window.confirm(t("admin.deleteProjectConfirm", { key: p.key })) &&
                             deleteProject(p.id)
                           }
                           className="shrink-0 rounded-md border border-line bg-panel p-1.5 text-sub transition-colors hover:border-danger hover:text-danger"
@@ -460,14 +461,14 @@ export default function AdminView() {
                     <input
                       value={f.key}
                       onChange={(e) => setForm(d.id, { key: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })}
-                      placeholder="КЛЮЧ"
+                      placeholder={t("admin.keyPlaceholder")}
                       maxLength={10}
                       className="w-20 rounded-md border border-line bg-panel px-2 py-1 font-mono text-[11px] uppercase focus:border-accent focus:outline-none"
                     />
                     <input
                       value={f.name}
                       onChange={(e) => setForm(d.id, { name: e.target.value })}
-                      placeholder="Название проекта"
+                      placeholder={t("admin.projectNamePlaceholder")}
                       maxLength={LIMITS.project.name.max}
                       className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] focus:border-accent focus:outline-none"
                     />
@@ -480,7 +481,7 @@ export default function AdminView() {
                       disabled={!KEY_RE.test(f.key) || !f.name.trim()}
                       className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                     >
-                      <IcPlus size={12} /> Проект
+                      <IcPlus size={12} /> {t("admin.project")}
                     </button>
                   </div>
                 </div>
@@ -489,7 +490,7 @@ export default function AdminView() {
           })}
           {data.departments.length === 0 && (
             <p className="rounded-xl border border-dashed border-line bg-panel px-4 py-6 text-center text-[12px] text-faint">
-              Отделов пока нет — создайте первый выше.
+              {t("admin.noDepartments")}
             </p>
           )}
         </div>

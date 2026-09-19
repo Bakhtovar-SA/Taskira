@@ -48,7 +48,20 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
   const cfg = loadConfig();
   const login = principal.login;
   const globalRole = roleFromGroups(principal.groupDns);
-  const params = [principal.dn, principal.email, principal.name, initialsOf(principal.name), globalRole] as const;
+  // job_role/phone — AD title/telephoneNumber. Синкаются на КАЖДОМ логине, как
+  // и name/email ниже — это сознательно отменяет для job_role решение
+  // LDAP_MIGRATION.md D4 "job_role переживает LDAP-adopt без изменений"
+  // (026_ad_profile_attrs.sql): AD теперь единственный источник должности для
+  // LDAP-пользователей. Локальных пользователей эта функция не трогает.
+  const params = [
+    principal.dn,
+    principal.email,
+    principal.name,
+    initialsOf(principal.name),
+    globalRole,
+    principal.title ?? "",
+    principal.phone ?? "",
+  ] as const;
 
   const existing = await one<UserRow>(`SELECT * FROM users WHERE username = $1`, [login]);
 
@@ -64,6 +77,7 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
         `UPDATE users
             SET auth_source = 'ldap', password_hash = NULL,
                 ldap_dn = $2, email = $3, name = $4, initials = $5,
+                job_role = $7, phone = $8,
                 global_role = ${KEEP_LAST_ADMIN("$6", "$1")}
           WHERE id = $1
         RETURNING *`,
@@ -80,6 +94,7 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
       await q<UserRow>(
         `UPDATE users
             SET ldap_dn = $2, email = $3, name = $4, initials = $5,
+                job_role = $7, phone = $8,
                 global_role = ${KEEP_LAST_ADMIN("$6", "$1")}
           WHERE id = $1
         RETURNING *`,
@@ -95,8 +110,8 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
   try {
     return (
       await q<UserRow>(
-        `INSERT INTO users (username, name, initials, color, job_role, global_role, is_active, auth_source, ldap_dn, email)
-         VALUES ($1, $4, $5, '#0B5FD9', '', $6, true, 'ldap', $2, $3)
+        `INSERT INTO users (username, name, initials, color, job_role, phone, global_role, is_active, auth_source, ldap_dn, email)
+         VALUES ($1, $4, $5, '#0B5FD9', $7, $8, $6, true, 'ldap', $2, $3)
        RETURNING *`,
         [login, ...params],
       )

@@ -50,6 +50,7 @@ const toRow = (r: ProjectDbRow): ProjectRow => ({
  * то есть посторонние продолжали бы попадать в проект. TTL тот же, что у кэшей
  * ролей и членства в middleware.ts, — рассинхрон ограничен 30 секундами. */
 const CACHE_TTL_MS = 30_000;
+const CACHE_MAX = 10_000;
 const cache = new Map<string, { row: ProjectRow; at: number }>();
 
 export async function projectById(id: string): Promise<ProjectRow | null> {
@@ -61,6 +62,10 @@ export async function projectById(id: string): Promise<ProjectRow | null> {
     return null;
   }
   const p = toRow(row);
+  if (!cache.has(id) && cache.size >= CACHE_MAX) {
+    const oldest = cache.keys().next().value as string | undefined;
+    if (oldest) cache.delete(oldest);
+  }
   cache.set(id, { row: p, at: Date.now() });
   return p;
 }

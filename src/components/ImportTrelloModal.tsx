@@ -4,12 +4,14 @@ import { parseTrelloExport, type TrelloParseResult } from "../import/trello";
 import type { CreateInput } from "../store";
 import { IcX } from "../icons";
 import { Modal } from "../ui";
+import { useT } from "../i18n";
 
 /** Импорт задач из JSON-экспорта доски Trello (Меню → Ещё → Печать и экспорт →
  *  Экспортировать как JSON). Разбор файла — parseTrelloExport (чистая функция,
  *  своими тестами); сама запись — store.importIssues(), тем же POST /issues,
  *  что обычное создание задачи, по одному запросу на карточку. */
 export default function ImportTrelloModal({ onClose }: { onClose: () => void }) {
+  const { t, lang } = useT();
   const { importIssues } = useStore();
   const [parsed, setParsed] = useState<TrelloParseResult | null>(null);
   const [fileError, setFileError] = useState("");
@@ -44,10 +46,15 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
         const json = JSON.parse(String(reader.result));
         setParsed(parseTrelloExport(json));
       } catch (e) {
-        setFileError(e instanceof Error ? e.message : "Не удалось разобрать файл");
+        const message = e instanceof Error ? e.message : "";
+        setFileError(lang === "en" && message.includes("не JSON-объект")
+          ? t("trello.notObject")
+          : lang === "en" && message.includes('нет полей "lists"/"cards"')
+            ? t("trello.notBoard")
+            : message || t("trello.parseFailed"));
       }
     };
-    reader.onerror = () => setFileError("Не удалось прочитать файл");
+    reader.onerror = () => setFileError(t("trello.readFailed"));
     reader.readAsText(file);
   };
 
@@ -99,19 +106,19 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
   };
 
   return (
-    <Modal onClose={handleClose} w={520} title="Импорт из Trello">
+    <Modal onClose={handleClose} w={520} title={t("backlog.importTrello")}>
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-        <span className="font-disp text-[14px] font-bold text-ink">Импорт из Trello</span>
-        <button onClick={handleClose} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-canvas hover:text-ink" aria-label="Закрыть">
+        <span className="font-disp text-[14px] font-bold text-ink">{t("backlog.importTrello")}</span>
+        <button onClick={handleClose} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-canvas hover:text-ink" aria-label={t("common.close")}>
           <IcX size={15} />
         </button>
       </div>
 
       <div className="space-y-4 px-5 py-4">
         <div>
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">JSON-экспорт доски</p>
+          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("trello.export")}</p>
           <p className="mb-2 text-[11.5px] leading-relaxed text-faint">
-            В Trello: меню доски → «Ещё» → «Печать и экспорт» → «Экспортировать как JSON». Импорт из Jira/Asana — отдельная задача, не поддерживается здесь.
+            {t("trello.instructions")}
           </p>
           <input
             type="file"
@@ -126,8 +133,8 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
           <div className="rounded-md border border-line bg-canvas/50 px-3 py-2.5 text-[12.5px]">
             <p className="font-semibold text-ink">«{parsed.boardName}»</p>
             <p className="mt-0.5 text-faint">
-              Найдено карточек: {parsed.items.length}
-              {parsed.skipped > 0 && ` (пропущено без названия: ${parsed.skipped})`}
+              {t("trello.found", { count: parsed.items.length })}
+              {parsed.skipped > 0 && ` ${t("trello.skipped", { count: parsed.skipped })}`}
             </p>
             <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12px] text-sub">
               <input
@@ -136,9 +143,9 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
                 onChange={(e) => setIncludeClosed(e.target.checked)}
                 className="h-3.5 w-3.5 accent-accent"
               />
-              включая архивные карточки Trello ({closedCount})
+              {t("trello.includeArchived", { count: closedCount })}
             </label>
-            <p className="mt-1.5 font-semibold text-ink">Будет создано: {importable.length}</p>
+            <p className="mt-1.5 font-semibold text-ink">{t("trello.willCreate", { count: importable.length })}</p>
           </div>
         )}
 
@@ -156,8 +163,8 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
 
         {result && (
           <p className="text-[12.5px] font-semibold text-ink">
-            Импортировано {result.ok} из {result.ok + result.failed}
-            {result.failed > 0 && `, не удалось: ${result.failed}`}.
+            {t("trello.imported", { ok: result.ok, total: result.ok + result.failed })}
+            {result.failed > 0 && ` ${t("trello.failed", { count: result.failed })}`}
           </p>
         )}
 
@@ -172,10 +179,10 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
             disabled={!parsed || importable.length === 0 || running || !!result}
             className="rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {running ? "Импортирую…" : `Импортировать${importable.length ? ` (${importable.length})` : ""}`}
+            {running ? t("trello.importing") : t("trello.import", { count: importable.length ? ` (${importable.length})` : "" })}
           </button>
           <button onClick={handleClose} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-canvas">
-            {result ? "Готово" : "Отмена"}
+            {result ? t("toast.success") : t("common.cancel")}
           </button>
         </div>
       </div>

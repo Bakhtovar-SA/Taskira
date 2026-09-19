@@ -40,6 +40,19 @@ async function secondP1Issue(): Promise<string> {
 }
 
 describe("checklist", () => {
+  test("начальный чек-лист создаётся вместе с задачей", async () => {
+    const mgr = await login(app, "mgr1");
+    const created = await post(`/api/projects/${p1()}/issues`, mgr, {
+      ...newIssue({ title: "with checklist" }),
+      checklistItems: ["первый", "второй"],
+    });
+    expect(created.statusCode).toBe(201);
+    const body = JSON.parse(created.body);
+    expect(body.checklist.map((i: { text: string }) => i.text)).toEqual(["первый", "второй"]);
+    const detail = JSON.parse((await g(issueUrl(body.id), mgr)).body);
+    expect(detail.checklist.map((i: { text: string }) => i.text)).toEqual(["первый", "второй"]);
+  });
+
   test("manager добавляет пункт — виден и в ответе POST, и в GET /:id", async () => {
     const mgr = await login(app, "mgr1");
     const issue = fx.issues.p1issue;

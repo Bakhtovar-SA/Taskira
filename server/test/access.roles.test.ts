@@ -81,6 +81,23 @@ describe("матрица ролей в проекте", () => {
       (await post(`/api/projects/${fx.projects.p1}/issues`, adm, newIssue({ assigneeIds: [fx.users.mgr1] }))).body,
     );
     expect((await patch(`/api/projects/${fx.projects.p1}/issues/${created.id}`, emp, { title: "hax" })).statusCode).toBe(403);
+    // То же task-level правило действует на drag/status transition.
+    expect(
+      (await post(`/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/transition`, emp, {
+        to: fx.p1status.inprogress,
+      })).statusCode,
+    ).toBe(200);
+    expect(
+      (await post(`/api/projects/${fx.projects.p1}/issues/${created.id}/transition`, emp, {
+        to: fx.p1status.inprogress,
+      })).statusCode,
+    ).toBe(403);
+    const mgr = await login(app, "mgr1");
+    expect(
+      (await post(`/api/projects/${fx.projects.p1}/issues/${created.id}/transition`, mgr, {
+        to: fx.p1status.inprogress,
+      })).statusCode,
+    ).toBe(200);
   });
 });
 

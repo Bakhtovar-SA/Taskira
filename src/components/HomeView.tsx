@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { relTime, useStore } from "../store";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
 import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
-import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, catColor } from "../ui";
+import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, catColor } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
 
@@ -155,7 +155,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                     open ? "border-accent bg-accentsoft" : "border-line bg-panel hover:border-line2"
                   }`}
                 >
-                  <Avatar user={me ?? null} size={24} />
+                  <Avatar user={me ?? null} size={24} interactive={false} />
                   <span className="hidden text-left sm:block">
                     <span className="block text-[12px] font-semibold leading-tight text-ink">{me?.name?.split(" ")[0] ?? "—"}</span>
                     <span className="block text-[10px] leading-tight text-faint">{me?.role}</span>
@@ -165,10 +165,11 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
             >
               {(close) => (
                 <>
-                  <div className="border-b border-linesoft px-3.5 py-3">
-                    <p className="truncate text-[13px] font-bold text-ink">{me?.name ?? "—"}</p>
-                    <p className="text-[11px] text-faint">{me?.role}</p>
-                  </div>
+                  {me && (
+                    <div className="border-b border-linesoft">
+                      <UserCardBody userId={me.id} />
+                    </div>
+                  )}
                   <AppearanceSettings />
                   <MenuItem
                     onClick={() => {
@@ -319,7 +320,7 @@ function RecentActivity({
                 className="flex w-full items-start gap-2.5 border-b border-linesoft px-3.5 py-2.5 text-left transition-colors last:border-0 enabled:hover:bg-accentsoft/50 disabled:cursor-default"
               >
                 <span className="mt-0.5 shrink-0">
-                  <Avatar user={n.actor} size={22} />
+                  <Avatar user={n.actor} size={22} interactive />
                 </span>
                 <span className="min-w-0 flex-1 text-[12px] leading-snug text-ink">
                   <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b>{" "}
