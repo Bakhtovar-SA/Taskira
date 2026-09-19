@@ -22,11 +22,13 @@ trap cleanup EXIT INT TERM
 mkdir -p "$INSTALL_DIR" "$RELEASE_DIR/images" "$DOWNGRADE_DIR/images" "$OLD_SOURCE_DIR"
 git -C "$ROOT_DIR" cat-file -e "$OLD_REF^{commit}"
 git -C "$ROOT_DIR" archive "$OLD_REF" | tar -x -C "$OLD_SOURCE_DIR"
-# The historical server predates versioned health responses. Add only the
-# release-contract field; its application code and migrations remain from OLD_REF.
+# The historical release predates the offline bundle's same-origin proxy and
+# versioned health contract. Add that release wiring only; application code,
+# static assets, dependencies, and migrations remain from OLD_REF.
 grep -Fq 'send({ ok: db, db, ts:' "$OLD_SOURCE_DIR/server/src/app.ts"
 sed -i "s/send({ ok: db, db, ts:/send({ ok: db, db, version: \"$OLD_VERSION\", ts:/" \
   "$OLD_SOURCE_DIR/server/src/app.ts"
+cp "$ROOT_DIR/nginx.conf" "$OLD_SOURCE_DIR/nginx.conf"
 
 docker build -t "localhost/taskira-server:$OLD_VERSION" "$OLD_SOURCE_DIR/server"
 docker build --build-arg "TASKIRA_VERSION=$NEW_VERSION" -t "localhost/taskira-server:$NEW_VERSION" "$ROOT_DIR/server"
