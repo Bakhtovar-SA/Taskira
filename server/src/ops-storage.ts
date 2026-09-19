@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readFile, stat as fileStat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, stat as fileStat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { loadConfig } from "./config.js";
@@ -30,7 +30,8 @@ async function exportStorage(directory: string): Promise<void> {
   const storage = await getStorage(cfg);
   const root = safeDirectory(directory);
   const objectsDir = join(root, "objects");
-  await mkdir(objectsDir, { recursive: true });
+  await mkdir(objectsDir, { recursive: true, mode: 0o777 });
+  await chmod(objectsDir, 0o777);
   const entries: Entry[] = [];
   const objects = (await storage.list()).sort((a, b) => a.key.localeCompare(b.key));
   for (const [index, object] of objects.entries()) {
@@ -39,7 +40,7 @@ async function exportStorage(directory: string): Promise<void> {
     if (!metadata) throw new Error(`storage object disappeared during backup: ${object.key}`);
     const file = `objects/${String(index).padStart(8, "0")}.bin`;
     const target = join(root, file);
-    await pipeline(await storage.get(object.key), createWriteStream(target, { mode: 0o600 }));
+    await pipeline(await storage.get(object.key), createWriteStream(target, { mode: 0o644 }));
     const actual = await fileStat(target);
     if (actual.size !== metadata.size) throw new Error(`storage object size changed during backup: ${object.key}`);
     entries.push({
@@ -51,7 +52,7 @@ async function exportStorage(directory: string): Promise<void> {
     });
   }
   const manifest: ObjectManifest = { format: 1, driver: cfg.storage.driver, objects: entries };
-  await writeFile(join(root, "objects.json"), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
+  await writeFile(join(root, "objects.json"), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o644 });
   console.log(`Exported ${entries.length} storage objects (${cfg.storage.driver}).`);
 }
 
