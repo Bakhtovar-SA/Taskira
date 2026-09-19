@@ -169,6 +169,7 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `GET /api/issues/assigned-to-me` | — | requireAuth | открытые задачи на мне по всем видимым проектам; ответ `{items, truncated, limit}` — выдача ограничена 100 |
 | `GET /api/reports/summary` | query `ReportQuery` | requireAuth; scope = **видимые проекты** | закрыто/создано/открыто/просрочено за период, ср. и медианное время в работе, разбивка (`groupBy`), недельный тренд |
 | `GET /api/reports/issues.csv` | query `ReportExportQuery` | requireAuth; scope = **видимые проекты** | построчная выгрузка (`scope`: `closed`\|`created`\|`open`); CSV с `;` и BOM для русского Excel; пишется в `audit_log` |
+| `GET /api/admin/audit-log/export` | `format=jsonl\|csv`, `from?`, `to?`, `limit<=100000` | global admin | SIEM-выгрузка: одна запись на строку, стабильные `timestamp/actor/action/object/result/details` |
 | `GET …/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
 | `POST …/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
 | `DELETE …/workflow/transitions/:id` | — | **admin** | удалить переход |
@@ -287,6 +288,7 @@ cd server
 npm i
 cp .env.example .env
 # Заполните: DATABASE_URL, JWT_SECRET (>=32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
+# (пароль: >=14 символов, минимум 3 из 4 групп, без имени пользователя)
 # JWT_SECRET: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 npm run dev        # tsx watch (chokidar polling): миграции → seed админа → listen :8080
@@ -728,5 +730,6 @@ typescript, playwright). Корневой `package.json` теперь `"name": "
 
 ## Секреты
 
-Только через env: `JWT_SECRET` (≥ 32 символов), `DATABASE_URL`, `ADMIN_PASSWORD`.
+Только через env: `JWT_SECRET` (≥ 32 символов), `DATABASE_URL`, `ADMIN_PASSWORD`
+(≥14 символов, 3 из 4 групп, без логина и известных дефолтов).
 `.env`, `server/.env`, `server/dist`, `server/node_modules` — в `.gitignore`.

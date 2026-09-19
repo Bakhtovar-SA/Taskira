@@ -16,7 +16,7 @@ async function main(): Promise<void> {
 
   const app = buildApp();
   await app.listen({ port: cfg.port, host: cfg.host });
-  console.log(`[taskira] API слушает http://${cfg.host}:${cfg.port}`);
+  console.log(`[taskira] сервер запущен, версия ${cfg.version}`);
 
   // Фоновый воркер email-уведомлений — только если email включён и воркер разрешён
   // в этом процессе (NOTIFICATIONS_MIGRATION.md D4). In-app работает без него.

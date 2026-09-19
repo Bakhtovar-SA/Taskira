@@ -51,6 +51,32 @@ function rateLimited(ip: string): boolean {
   return false;
 }
 
+type LoginAccount = { id: string; locked_until: Date | null };
+
+async function loginAccount(username: string): Promise<LoginAccount | null> {
+  return one<LoginAccount>(`SELECT id, locked_until FROM users WHERE username = $1`, [username]);
+}
+
+async function recordLoginFailure(username: string): Promise<LoginAccount | null> {
+  const rl = loadConfig().rateLimit;
+  return one<LoginAccount>(
+    `UPDATE users
+        SET failed_login_attempts = failed_login_attempts + 1,
+            locked_until = CASE
+              WHEN failed_login_attempts + 1 >= $2
+                THEN now() + ($3 * interval '1 second')
+              ELSE locked_until
+            END
+      WHERE username = $1
+      RETURNING id, locked_until`,
+    [username, rl.accountMaxFailures, rl.accountLockSeconds],
+  );
+}
+
+async function clearLoginFailures(userId: string): Promise<void> {
+  await q(`UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1`, [userId]);
+}
+
 /** Локальная проверка пароля. onlyBreakGlass: в ldap-режиме пускаем локально
  *  только config.admin.username (D2/D4) — остальные локальные строки не входят. */
 async function localPasswordCheck(username: string, password: string, onlyBreakGlass: boolean): Promise<UserRow | null> {
@@ -67,13 +93,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const ip = req.ip;
       if (rateLimited(ip)) {
-        await audit(null, "auth.login.rate_limited", "auth", null, { ip });
+        await audit(null, "auth.login.rate_limited", "auth", null, { ip }, "denied");
         throw new ApiHttpError(429, "RATE_LIMITED", "Слишком много попыток входа — подождите несколько минут");
       }
 
       const { username, password } = req.body as ReturnType<typeof LoginBody.parse>;
       const cfg = loadConfig();
       let row: UserRow | null = null;
+      const account = await loginAccount(username);
+      if (account?.locked_until && account.locked_until.getTime() > Date.now()) {
+        await audit(account.id, "auth.login.locked", "user", account.id, { ip }, "denied");
+        throw unauthorized("Неверный логин или пароль");
+      }
 
       if (cfg.authMode === "ldap") {
         try {
@@ -90,7 +121,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         } catch (e) {
           if (e instanceof LdapUnavailableError) {
             req.log.warn({ err: e }, "LDAP недоступен — пробуем break-glass локальный вход");
-            await audit(null, "auth.ldap.unavailable", "auth", null, { username });
+            await audit(null, "auth.ldap.unavailable", "auth", null, { username }, "error");
             row = await localPasswordCheck(username, password, true);
           } else if (e instanceof ApiHttpError && e.statusCode === 409) {
             // login совпал с именем break-glass админа: не раскрываем это
@@ -109,17 +140,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       if (!row) {
         // actorId для аудита восстанавливаем по username (если такой юзер есть) —
         // чтобы неудачные попытки можно было джойнить к users.id для мониторинга.
-        const known = await one<{ id: string }>(`SELECT id FROM users WHERE username = $1`, [username]);
-        await audit(known?.id ?? null, "auth.login.denied", "user", known?.id ?? null, { username });
+        const known = await recordLoginFailure(username);
+        await audit(known?.id ?? null, "auth.login.denied", "user", known?.id ?? null, { username, ip }, "denied");
         throw unauthorized("Неверный логин или пароль");
       }
 
       // Деактивированные аккаунты не входят (миграция 002)
       if (!row.is_active) {
-        await audit(row.id, "auth.login.inactive", "user", row.id, {});
+        await audit(row.id, "auth.login.inactive", "user", row.id, { ip }, "denied");
         throw forbidden("Аккаунт деактивирован — обратитесь к администратору");
       }
 
+      await clearLoginFailures(row.id);
       await audit(row.id, "auth.login", "user", row.id, { via: row.auth_source });
       const token = signToken(app, row);
       reply.header("Set-Cookie", sessionCookie(token));

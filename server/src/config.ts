@@ -4,6 +4,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { passwordPolicyError } from "./passwordPolicy.js";
 
 /** Настройки LDAP/AD — заполнены только при authMode === "ldap".
  *  Подробности и примеры для реального AD — LDAP_SETUP.md (Фаза 6). */
@@ -138,7 +139,8 @@ export interface Config {
   host: string;
   databaseUrl: string;
   jwtSecret: string;
-  jwtExpires: string;
+  sessionTtlSeconds: number;
+  sessionRotateAfterSeconds: number;
   sessionCookieSecure: boolean;
   /** Значение опции Fastify `trustProxy`. За reverse-proxy (nginx) без него
    *  `req.ip` = адрес прокси — ломает rate-limit логина по IP и IP в audit-логе. */
@@ -154,7 +156,15 @@ export interface Config {
   /** Размер пула соединений к Postgres (аудит PERF-07: было зашито в код). */
   pgPoolMax: number;
   /** Глобальный лимит запросов на пользователя/IP (аудит SEC-03). */
-  rateLimit: { enabled: boolean; max: number; windowMs: number; loginMax: number; loginWindowMs: number };
+  rateLimit: {
+    enabled: boolean;
+    max: number;
+    windowMs: number;
+    loginMax: number;
+    loginWindowMs: number;
+    accountMaxFailures: number;
+    accountLockSeconds: number;
+  };
 }
 
 function fail(msg: string): never {
@@ -403,24 +413,32 @@ function buildConfig(): Config {
   const authMode = (process.env.AUTH_MODE ?? "local").trim();
   if (authMode !== "local" && authMode !== "ldap") fail("AUTH_MODE должен быть 'local' или 'ldap'");
 
+  if (!adminUser || !adminPass)
+    fail("ADMIN_USERNAME и ADMIN_PASSWORD обязательны для первого администратора / break-glass входа");
+  const adminPasswordError = passwordPolicyError(adminPass, adminUser);
+  if (adminPasswordError) fail(`ADMIN_PASSWORD: ${adminPasswordError}`);
+
+  const sessionTtlSeconds = envPosInt("SESSION_TTL_SECONDS", 8 * 60 * 60);
+  const sessionRotateAfterSeconds = envPosInt("SESSION_ROTATE_AFTER_SECONDS", 60 * 60);
+  if (sessionRotateAfterSeconds >= sessionTtlSeconds)
+    fail("SESSION_ROTATE_AFTER_SECONDS должен быть меньше SESSION_TTL_SECONDS");
+
   return {
     version: process.env.TASKIRA_VERSION?.trim() || "dev",
     port: Number(process.env.PORT ?? 8080),
     host: process.env.HOST ?? "0.0.0.0",
     databaseUrl,
     jwtSecret,
-    jwtExpires: process.env.JWT_EXPIRES ?? "12h",
+    sessionTtlSeconds,
+    sessionRotateAfterSeconds,
     sessionCookieSecure: envBool(process.env.SESSION_COOKIE_SECURE, process.env.NODE_ENV === "production"),
     trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
     corsOrigin: corsRaw === "*" ? "*" : corsRaw.split(",").map((s) => s.trim()).filter(Boolean),
-    admin:
-      adminUser && adminPass
-        ? {
-            username: adminUser,
-            password: adminPass,
-            name: process.env.ADMIN_NAME?.trim() || "Администратор",
-          }
-        : null,
+    admin: {
+      username: adminUser,
+      password: adminPass,
+      name: process.env.ADMIN_NAME?.trim() || "Администратор",
+    },
     authMode,
     ldap: authMode === "ldap" ? buildLdapConfig() : null,
     storage: buildStorageConfig(),
@@ -443,6 +461,8 @@ function buildConfig(): Config {
       windowMs: envPosInt("RATE_LIMIT_WINDOW_MS", 60_000),
       loginMax: envPosInt("RATE_LIMIT_LOGIN_MAX", 10),
       loginWindowMs: envPosInt("RATE_LIMIT_LOGIN_WINDOW_MS", 5 * 60_000),
+      accountMaxFailures: envPosInt("ACCOUNT_LOCK_MAX_FAILURES", 5),
+      accountLockSeconds: envPosInt("ACCOUNT_LOCK_SECONDS", 15 * 60),
     },
   };
 }

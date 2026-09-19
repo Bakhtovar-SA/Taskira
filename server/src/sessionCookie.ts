@@ -29,7 +29,7 @@ export function requestToken(req: Pick<FastifyRequest, "headers">): string | und
 }
 
 export function sessionCookie(token: string): string {
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict${secureAttribute()}`;
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${loadConfig().sessionTtlSeconds}${secureAttribute()}`;
 }
 
 export function clearSessionCookie(): string {
