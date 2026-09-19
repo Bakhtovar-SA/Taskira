@@ -160,8 +160,10 @@ sed \
   "$TEMPLATE_DIR/README_INSTALL.md.in" > "$WORK_DIR/README_INSTALL.md"
 cp "$TEMPLATE_DIR/.env.example" "$WORK_DIR/.env.example"
 cp "$TEMPLATE_DIR/install.sh" "$WORK_DIR/install.sh"
+cp "$ROOT_DIR/scripts/upgrade.sh" "$WORK_DIR/upgrade.sh"
 cp "$TEMPLATE_DIR/container-engine.sh" "$WORK_DIR/container-engine.sh"
-chmod 0755 "$WORK_DIR/install.sh"
+chmod 0755 "$WORK_DIR/install.sh" "$WORK_DIR/upgrade.sh"
+find "$ROOT_DIR/server/migrations" -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | LC_ALL=C sort > "$WORK_DIR/MIGRATIONS.txt"
 printf '%s\n%s\n%s\n' "$CLIENT_IMAGE" "$SERVER_IMAGE" "$POSTGRES_IMAGE" > "$WORK_DIR/IMAGES.txt"
 printf '%s\n' "$VERSION" > "$WORK_DIR/VERSION"
 
@@ -173,7 +175,7 @@ cat > "$WORK_DIR/manifest.json" <<EOF
   "git_sha": "$GIT_SHA",
   "architecture": "$IMAGE_ARCH",
   "source_date_epoch": $SOURCE_EPOCH,
-  "migrations": "embedded in $SERVER_IMAGE",
+  "migrations": "embedded in $SERVER_IMAGE; ordered list in MIGRATIONS.txt",
   "images": [
     {"name": "taskira-client", "tag": "$CLIENT_IMAGE", "id": "$CLIENT_ID", "archive": "$CLIENT_TAR", "sha256": "$CLIENT_SUM"},
     {"name": "taskira-server", "tag": "$SERVER_IMAGE", "id": "$SERVER_ID", "archive": "$SERVER_TAR", "sha256": "$SERVER_SUM"},

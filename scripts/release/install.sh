@@ -45,20 +45,8 @@ verify_release() {
   fi
 }
 
-compose_run() {
-  if [ "$ENGINE" = "docker" ]; then
-    docker compose "$@"
-  elif podman compose version >/dev/null 2>&1; then
-    podman compose "$@"
-  else
-    echo "ERROR: Podman must provide the 'podman compose' command" >&2
-    exit 1
-  fi
-}
-
 env_value() {
-  key="$1"
-  sed -n "s/^${key}=//p" .env | tail -n 1 | sed 's/\r$//'
+  env_file_value .env "$1"
 }
 
 validate_env() {
@@ -71,24 +59,11 @@ validate_env() {
   [ "${#jwt}" -ge 32 ] || { echo "ERROR: JWT_SECRET must contain at least 32 characters" >&2; exit 1; }
 }
 
-wait_until_healthy() {
+wait_for_install_health() {
   port="$(env_value CLIENT_PORT)"
   [ -n "$port" ] || port="8081"
   expected="$(cat VERSION)"
-  attempt=1
-  while [ "$attempt" -le 60 ]; do
-    health="$(curl --fail --silent --show-error "http://127.0.0.1:${port}/api/health" 2>/dev/null || true)"
-    if printf '%s' "$health" | grep -Fq "\"version\":\"${expected}\""; then
-      echo "Taskira $expected is healthy: $health"
-      return
-    fi
-    sleep 2
-    attempt=$((attempt + 1))
-  done
-  echo "ERROR: Taskira did not become healthy within 120 seconds" >&2
-  compose_run --env-file .env -f docker-compose.yml ps >&2 || true
-  compose_run --env-file .env -f docker-compose.yml logs --tail=100 server >&2 || true
-  exit 1
+  wait_until_healthy "$expected" "$port" "$ROOT_DIR"
 }
 
 echo "[1/4] Verifying release checksums"
@@ -121,7 +96,7 @@ if [ "$MODE" = "start" ]; then
   validate_env
   compose_run --env-file .env -f docker-compose.yml config >/dev/null
   compose_run --env-file .env -f docker-compose.yml up -d
-  wait_until_healthy
+  wait_for_install_health
   compose_run --env-file .env -f docker-compose.yml ps
   echo "Taskira was started. Open $(env_value CORS_ORIGIN)"
 else
