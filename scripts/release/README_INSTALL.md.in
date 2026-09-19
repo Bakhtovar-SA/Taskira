@@ -1,0 +1,171 @@
+# Taskira __VERSION__: установка без доступа в интернет
+
+Этот каталог — полный комплект для установки Taskira на один сервер. Целевому
+серверу не нужен доступ в интернет: выполнять `docker pull` или `podman pull`
+на нём не требуется. В комплект входят образы клиента, сервера и PostgreSQL.
+
+Метаданные релиза находятся в `manifest.json`, контрольные суммы — в
+`SHA256SUMS`.
+
+## 1. Требования к серверу
+
+- Linux __ARCH__, минимум 2 ядра CPU, 4 ГБ RAM и 20 ГБ свободного места.
+- Docker Engine 24+ с Compose v2 либо Podman 4+ с провайдером Compose
+  (`podman compose` или `podman-compose`).
+- Команды `bash`, `sha256sum` (обычно пакет coreutils) и `curl`.
+- Доступный пользователям TCP-порт 8081 либо другой непривилегированный порт,
+  выбранный в `.env`.
+- Registry и интернет на целевом сервере не нужны.
+
+Скопируйте на сервер архив `taskira-__VERSION__.tar.gz` и соседний файл
+`taskira-__VERSION__.tar.gz.sha256`. Сначала проверьте и распакуйте архив:
+
+```bash
+sha256sum -c taskira-__VERSION__.tar.gz.sha256
+tar -xzf taskira-__VERSION__.tar.gz
+cd taskira-__VERSION__
+```
+
+Не переносите содержимое каталога по одному: `install.sh` дополнительно
+проверяет все внутренние файлы как единый релиз.
+
+## 2. Проверка и загрузка образов
+
+Перейдите в каталог релиза:
+
+```bash
+chmod +x install.sh
+./install.sh --verify-only
+./install.sh                 # сначала ищет Podman, затем Docker
+```
+
+Движок можно выбрать явно:
+
+```bash
+./install.sh --engine docker
+# или
+./install.sh --engine podman
+```
+
+До загрузки первого образа установщик проверяет каждый файл из `SHA256SUMS`.
+Затем он создаёт `.env` из `.env.example`, если файла настроек ещё нет.
+
+## 3. Настройка
+
+Откройте `.env` в текстовом редакторе и заполните пустые значения:
+
+```bash
+nano .env
+```
+
+- `POSTGRES_PASSWORD`: создайте командой `openssl rand -hex 24`.
+- `JWT_SECRET`: минимум 32 символа; пример — `openssl rand -hex 48`.
+- `ADMIN_PASSWORD`: начальный пароль администратора Taskira.
+- `CORS_ORIGIN`: точный адрес, который будут открывать пользователи, например
+  `http://10.20.30.40:8081` или `http://taskira.corp.example:8081`.
+- `SESSION_COOKIE_SECURE=false` для прямого HTTP. Значение `true` допустимо
+  только при настроенном HTTPS reverse proxy перед этим compose-стеком.
+
+Не указывайте `localhost` в `CORS_ORIGIN`, если пользователи заходят с других
+компьютеров. Пароль PostgreSQL должен состоять из URL-безопасных символов:
+команда с `-hex` выше создаёт подходящее значение.
+
+## 4. Первый запуск
+
+```bash
+./install.sh --start
+```
+
+При первом старте сервер создаёт таблицы, автоматически применяет все миграции
+из образа и создаёт администратора. Установщик ждёт рабочий health endpoint до
+120 секунд и завершится ошибкой с последними логами сервера, если запуск не
+удался.
+
+Откройте в браузере адрес из `CORS_ORIGIN` и войдите с `ADMIN_USERNAME` и
+`ADMIN_PASSWORD` из `.env`.
+
+## 5. Проверка состояния и просмотр логов
+
+Docker:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml ps
+docker compose --env-file .env -f docker-compose.yml logs -f server
+curl -f "$(sed -n 's/^CORS_ORIGIN=//p' .env)/api/health"
+```
+
+Rootless Podman:
+
+```bash
+podman compose --env-file .env -f docker-compose.yml ps
+podman compose --env-file .env -f docker-compose.yml logs -f server
+curl -f "$(sed -n 's/^CORS_ORIGIN=//p' .env)/api/health"
+```
+
+Контейнеры `postgres`, `server` и `client` должны перейти в состояние
+`healthy`, а health endpoint — вернуть JSON с `"ok":true` и версией
+`"version":"__VERSION__"`. Та же версия отображается в меню пользователя.
+Для выхода из
+просмотра логов нажмите `Ctrl+C`: контейнеры продолжат работу.
+
+## 6. Отдельно о rootless Podman
+
+Выполняйте все команды от одного обычного пользователя. Не используйте
+`sudo podman`: root и rootless Podman имеют разные хранилища образов и томов.
+Порт 8081 выше 1024, поэтому публикуется без root-прав.
+
+Чтобы пользовательские сервисы продолжали работать после выхода из сессии и
+после перезагрузки, администратор ОС может один раз включить lingering:
+
+```bash
+sudo loginctl enable-linger "$USER"
+systemctl --user enable podman-restart.service
+```
+
+Если `podman compose` сообщает, что провайдер не найден, установите
+`podman-compose` с установочного носителя или из внутреннего репозитория ОС до
+отключения сети. Taskira не скачивает эту зависимость.
+
+## 7. Остановка, запуск и сохранность данных
+
+Команды для Docker (для Podman замените `docker compose` на `podman compose`):
+
+```bash
+docker compose --env-file .env -f docker-compose.yml stop
+docker compose --env-file .env -f docker-compose.yml start
+docker compose --env-file .env -f docker-compose.yml down
+```
+
+`down` удаляет контейнеры и внутреннюю сеть, но сохраняет именованные тома
+`pgdata` и `attachments`. Никогда не выполняйте `down -v`, если не требуется
+безвозвратно удалить базу данных и вложения.
+
+## 8. Частые проблемы
+
+- `checksum mismatch`: повторно скопируйте весь архив; не загружайте образы.
+- `image ... not known`: запустите `install.sh` с тем же движком, который
+  использует Compose.
+- контейнеры не становятся healthy: посмотрите `logs server` и `logs postgres`.
+- после входа снова появляется форма входа: для HTTP должно быть
+  `SESSION_COOKIE_SECURE=false`; для `true` открывайте настроенный HTTPS-адрес.
+- ошибка CORS в браузере: `CORS_ORIGIN` должен в точности совпадать с origin в
+  адресной строке, включая схему и порт, без завершающего `/`.
+- порт занят: поменяйте `CLIENT_PORT` и тот же порт в `CORS_ORIGIN`.
+
+## 9. Приёмочная проверка полностью без сети
+
+Для проверки нового релиза на чистой машине заранее установите Docker/Podman и
+Compose, скопируйте только `.tar.gz` и `.tar.gz.sha256`, затем отключите сетевой
+интерфейс или запретите исходящий трафик. После этого последовательно выполните
+разделы 2–5 этого документа. Проверка считается успешной, если:
+
+1. обе проверки SHA-256 завершились без ошибок;
+2. `install.sh` загрузил ровно три образа без попытки обратиться к registry;
+3. все три контейнера стали healthy;
+4. `/api/health` показывает версию `__VERSION__`;
+5. начальный администратор вошёл в веб-интерфейс с другой машины закрытой сети.
+
+Сохраните вывод `compose ps`, ответ health endpoint и первые строки
+`compose logs server` как протокол приёмки конкретного релиза.
+
+Релиз собран __DATE__ из Git-коммита `__GIT_SHA__`.

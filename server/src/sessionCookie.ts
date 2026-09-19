@@ -2,6 +2,12 @@ import type { FastifyRequest } from "fastify";
 
 export const SESSION_COOKIE = "taskira_session";
 
+function secureAttribute(): string {
+  const configured = process.env.SESSION_COOKIE_SECURE?.trim().toLowerCase();
+  const enabled = configured === undefined || configured === "" ? process.env.NODE_ENV === "production" : configured === "true" || configured === "1";
+  return enabled ? "; Secure" : "";
+}
+
 function cookieValue(header: string | undefined, name: string): string | undefined {
   if (!header) return undefined;
   for (const part of header.split(";")) {
@@ -23,11 +29,9 @@ export function requestToken(req: Pick<FastifyRequest, "headers">): string | und
 }
 
 export function sessionCookie(token: string): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict${secure}`;
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict${secureAttribute()}`;
 }
 
 export function clearSessionCookie(): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secure}`;
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secureAttribute()}`;
 }

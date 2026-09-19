@@ -73,6 +73,9 @@ jobs:
 
       - run: npm run build
 
+      - name: Validate offline release scripts
+        run: bash scripts/test-release-scripts.sh
+
   # Отдельный job: LDAP-путь против НАСТОЯЩЕГО OpenLDAP (не мока).
   # AUTH_MODE=ldap здесь только для этого job — основной `server` job идёт в local.
   ldap:

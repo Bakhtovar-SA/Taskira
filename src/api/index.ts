@@ -2,7 +2,11 @@
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
 let legacyBearerToken: string | null = null;
 
-export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:8080";
+/** В production API обычно доступен на том же origin через nginx /api proxy.
+ *  Явный VITE_API_URL остаётся для раздельного dev/legacy-деплоя. */
+export const API_BASE =
+  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
+  (typeof window !== "undefined" ? window.location.origin : "http://localhost:8080");
 
 export type ApiErrorBody = { error: { code: string; reason: string } };
 

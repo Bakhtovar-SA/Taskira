@@ -32,6 +32,8 @@ services:
   server:
     build:
       context: ./server
+      args:
+        TASKIRA_VERSION: ${TASKIRA_VERSION:-dev}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -47,9 +49,12 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD не задан — см. .env.example}
       ADMIN_NAME: ${ADMIN_NAME:-Администратор}
-      # Origin клиента, который реально увидит браузер — должен совпадать с
-      # тем, куда смотрит VITE_API_URL ниже (CORS иначе отклонит запросы).
+      # Origin клиента, который реально увидит браузер. При пустом
+      # VITE_API_URL запросы идут сюда же и nginx проксирует /api к server.
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
+      # Для прямого HTTP-доступа в локальной/закрытой сети нужен false.
+      # За HTTPS reverse proxy обязательно выставить true.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       STORAGE_DIR: /app/var/attachments
     volumes:
       - attachments:/app/var/attachments
@@ -66,9 +71,10 @@ services:
     build:
       context: .
       args:
-        # Печётся в сборку (Vite инлайнит env на этапе build, не runtime) —
-        # адрес, по которому СЕРВЕР реально доступен браузеру пользователя.
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        # Пусто — переносимый same-origin image; непустое значение печётся в
+        # сборку для legacy-схемы с API на отдельном origin.
+        VITE_API_URL: ${VITE_API_URL:-}
+        VITE_APP_VERSION: ${TASKIRA_VERSION:-dev}
     restart: unless-stopped
     depends_on:
       - server
