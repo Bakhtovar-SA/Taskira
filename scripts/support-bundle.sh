@@ -73,7 +73,7 @@ if compose exec -T postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "
   : > "$BUNDLE/table-row-counts.tsv"
   while IFS= read -r count_query; do
     [ -z "$count_query" ] || compose exec -T postgres psql -At -F $'\t' -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-      -c "$count_query" >> "$BUNDLE/table-row-counts.tsv"
+      -c "$count_query" </dev/null >> "$BUNDLE/table-row-counts.tsv"
   done < <(compose exec -T postgres psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
     -c "SELECT format('SELECT %L, count(*) FROM %I.%I', schemaname || '.' || tablename, schemaname, tablename) FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename")
 fi
