@@ -244,7 +244,8 @@ fi
 timestamp="$(date -u +'%Y%m%dT%H%M%SZ')"
 BACKUP_DIR="$INSTALL_DIR/backups/${timestamp}_${current_version}_to_${target_version}"
 STAGE="creating backup directory"
-mkdir -p "$BACKUP_DIR"
+mkdir -p "$INSTALL_DIR/backups"
+mkdir "$BACKUP_DIR"
 chmod 0700 "$BACKUP_DIR"
 for name in docker-compose.yml VERSION IMAGES.txt manifest.json MIGRATIONS.txt .env; do
   [ ! -f "$INSTALL_DIR/$name" ] || cp "$INSTALL_DIR/$name" "$BACKUP_DIR/$name"
