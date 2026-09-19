@@ -159,10 +159,16 @@ sed \
   -e "s/__ARCH__/$IMAGE_ARCH/g" \
   "$TEMPLATE_DIR/README_INSTALL.md.in" > "$WORK_DIR/README_INSTALL.md"
 cp "$TEMPLATE_DIR/.env.example" "$WORK_DIR/.env.example"
+cp "$ROOT_DIR/docs/OPERATIONS.md" "$WORK_DIR/OPERATIONS.md"
 cp "$TEMPLATE_DIR/install.sh" "$WORK_DIR/install.sh"
 cp "$ROOT_DIR/scripts/upgrade.sh" "$WORK_DIR/upgrade.sh"
+cp "$ROOT_DIR/scripts/backup.sh" "$WORK_DIR/backup.sh"
+cp "$ROOT_DIR/scripts/restore.sh" "$WORK_DIR/restore.sh"
+cp "$ROOT_DIR/scripts/support-bundle.sh" "$WORK_DIR/support-bundle.sh"
+cp "$ROOT_DIR/scripts/operations-common.sh" "$WORK_DIR/operations-common.sh"
 cp "$TEMPLATE_DIR/container-engine.sh" "$WORK_DIR/container-engine.sh"
-chmod 0755 "$WORK_DIR/install.sh" "$WORK_DIR/upgrade.sh"
+chmod 0755 "$WORK_DIR/install.sh" "$WORK_DIR/upgrade.sh" "$WORK_DIR/backup.sh" \
+  "$WORK_DIR/restore.sh" "$WORK_DIR/support-bundle.sh" "$WORK_DIR/operations-common.sh"
 find "$ROOT_DIR/server/migrations" -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | LC_ALL=C sort > "$WORK_DIR/MIGRATIONS.txt"
 printf '%s\n%s\n%s\n' "$CLIENT_IMAGE" "$SERVER_IMAGE" "$POSTGRES_IMAGE" > "$WORK_DIR/IMAGES.txt"
 printf '%s\n' "$VERSION" > "$WORK_DIR/VERSION"
