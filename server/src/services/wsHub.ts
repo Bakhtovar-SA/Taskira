@@ -7,6 +7,12 @@ import type { WsMessage } from "../contract.js";
 
 const byUser = new Map<string, Set<WebSocket>>();
 
+export function activeSocketCount(): number {
+  let count = 0;
+  for (const sockets of byUser.values()) count += sockets.size;
+  return count;
+}
+
 /**
  * Момент последнего отзыва сессии пользователя (мс, Date.now()). Закрывает
  * TOCTOU-окно хендшейка (routes/ws.ts): assertFreshUser — это поход в БД, и

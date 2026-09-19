@@ -1,5 +1,27 @@
 # Эксплуатация Taskira: резервное копирование и диагностика
 
+## Проверки состояния и метрики
+
+Служебные endpoints доступны на HTTP-порту сервера (в Compose — внутри сети,
+`http://server:8080`):
+
+- `GET /health` — liveness процесса, не обращается к зависимостям;
+- `GET /ready` — readiness: PostgreSQL, полный набор миграций текущей версии и
+  local/S3 storage. При любой неготовой зависимости возвращает `503`;
+- `GET /metrics` — Prometheus exposition format. Сборщик должен опрашивать этот
+  endpoint; Prometheus/Grafana в поставку Taskira намеренно не входят.
+
+Экспортируются `taskira_http_request_duration_seconds` и
+`taskira_http_requests_total` (labels используют шаблон route, а не UUID из
+URL), `taskira_ws_connections`, `taskira_background_queue_size`,
+`taskira_ldap_resync_duration_seconds` и `taskira_s3_errors_total`.
+
+Каждый HTTP-ответ содержит `X-Request-Id`. Если клиент прислал этот заголовок,
+значение сохраняется; иначе сервер создаёт UUID. То же значение находится в
+JSON-логах Fastify в поле `reqId`, поэтому его следует просить у пользователя
+при обращении в поддержку. Не публикуйте `/metrics` и probes в интернет:
+разрешите доступ только балансировщику и системе мониторинга.
+
 Команды ниже выполняются из распакованного каталога установленного релиза. Они
 работают без интернета и registry, с Docker Compose и rootless Podman Compose.
 
