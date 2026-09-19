@@ -21,7 +21,7 @@
 
 services:
   minio:
-    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    image: quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z
     container_name: taskira-minio
     command: server /data --console-address ":9001"
     environment:
@@ -37,7 +37,7 @@ services:
   # образе без curl) и завести приватный бакет для вложений.
   # `docker compose wait createbucket` в CI блокируется до его выхода с кодом 0.
   createbucket:
-    image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+    image: quay.io/minio/mc:RELEASE.2024-01-16T16-06-34Z
     container_name: taskira-minio-mc
     depends_on:
       - minio
