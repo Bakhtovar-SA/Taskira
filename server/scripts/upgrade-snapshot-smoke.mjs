@@ -13,16 +13,17 @@ if (!snapshot) {
 }
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
-const testSchema = process.env.UPGRADE_TEST_SCHEMA || "public";
+const testSchema = process.env.UPGRADE_TEST_SCHEMA || `upgrade_snapshot_${process.pid}_${Date.now()}`;
 if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(testSchema)) throw new Error("invalid UPGRADE_TEST_SCHEMA");
+if (testSchema === "public") throw new Error("UPGRADE_TEST_SCHEMA must name a disposable non-public schema");
 const quotedSchema = `"${testSchema}"`;
 const testUrl = new URL(databaseUrl);
-if (testSchema !== "public") testUrl.searchParams.set("options", `-csearch_path=${testSchema},public`);
+testUrl.searchParams.set("options", `-csearch_path=${testSchema},public`);
 const testDatabaseUrl = testUrl.toString();
 
 const client = new pg.Client({ connectionString: databaseUrl });
 await client.connect();
-if (testSchema !== "public") await client.query(`CREATE SCHEMA ${quotedSchema}`);
+await client.query(`CREATE SCHEMA ${quotedSchema}`);
 const snapshotSql = readFileSync(resolve(serverDir, snapshot), "utf8").replaceAll("public.", `${quotedSchema}.`);
 await client.query(snapshotSql);
 await client.end();
@@ -56,7 +57,7 @@ try {
     } catch {
       // Server is still applying migrations or binding the port.
     }
-    await new Promise((resolveWait) => setTimeout(resolveWait, 500));
+    await new Promise((resolveWait) => setTimeout(resolveWait, 2000));
   }
   if (!health || health.version !== "upgrade-ci" || health.db !== true) {
     throw new Error(`health-check failed: ${JSON.stringify(health)}`);
@@ -95,10 +96,8 @@ try {
       resolveWait();
     }, 5000).unref();
   });
-  if (testSchema !== "public") {
-    const cleanup = new pg.Client({ connectionString: databaseUrl });
-    await cleanup.connect();
-    await cleanup.query(`DROP SCHEMA IF EXISTS ${quotedSchema} CASCADE`);
-    await cleanup.end();
-  }
+  const cleanup = new pg.Client({ connectionString: databaseUrl });
+  await cleanup.connect();
+  await cleanup.query(`DROP SCHEMA IF EXISTS ${quotedSchema} CASCADE`);
+  await cleanup.end();
 }

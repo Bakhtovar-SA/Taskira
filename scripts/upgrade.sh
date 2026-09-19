@@ -191,6 +191,20 @@ drop_database() {
     -c "DROP DATABASE IF EXISTS \"$database\" WITH (FORCE)"
 }
 
+wait_for_database_connections_to_close() {
+  database="$1"
+  attempt=1
+  while [ "$attempt" -le 30 ]; do
+    connection_count="$(compose exec -T postgres psql -At -U "$POSTGRES_USER" -d postgres \
+      -c "SELECT count(*) FROM pg_stat_activity WHERE datname = '$database'")"
+    [ "$connection_count" = "0" ] && return 0
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+  echo "ERROR: connections to database $database did not close within 30 seconds" >&2
+  return 1
+}
+
 verify_database_dump() {
   dump_file="$1"
   validation_db="taskira_backup_check_$(date -u +%Y%m%d%H%M%S)_$$"
@@ -211,10 +225,16 @@ restore_database_safely() {
     -c "SELECT 1 FROM pg_database WHERE datname = '$POSTGRES_DB'")"
   safety_moved=0
   if [ "$database_exists" = "1" ]; then
-    compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+    compose exec -T postgres psql -1 -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
       -c "ALTER DATABASE \"$POSTGRES_DB\" WITH ALLOW_CONNECTIONS false" \
-      -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$POSTGRES_DB'" \
-      -c "ALTER DATABASE \"$POSTGRES_DB\" RENAME TO \"$safety_db\""
+      -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$POSTGRES_DB'"
+    if ! wait_for_database_connections_to_close "$POSTGRES_DB" ||
+       ! compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+         -c "ALTER DATABASE \"$POSTGRES_DB\" RENAME TO \"$safety_db\""; then
+      compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+        -c "ALTER DATABASE \"$POSTGRES_DB\" WITH ALLOW_CONNECTIONS true" >/dev/null 2>&1 || true
+      return 1
+    fi
     safety_moved=1
   fi
   if ! compose exec -T postgres createdb -U "$POSTGRES_USER" -O "$POSTGRES_USER" "$POSTGRES_DB" ||
@@ -222,7 +242,7 @@ restore_database_safely() {
        -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$dump_file"; then
     drop_database "$POSTGRES_DB" >/dev/null 2>&1 || true
     if [ "$safety_moved" = "1" ]; then
-      compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+      compose exec -T postgres psql -1 -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
         -c "ALTER DATABASE \"$safety_db\" RENAME TO \"$POSTGRES_DB\"" \
         -c "ALTER DATABASE \"$POSTGRES_DB\" WITH ALLOW_CONNECTIONS true" || {
           echo "CRITICAL: automatic restoration of the pre-rollback database failed; it remains named $safety_db" >&2
@@ -309,7 +329,7 @@ comm -23 "$TMP_DIR/release.txt" "$TMP_DIR/applied-sorted.txt" > "$TMP_DIR/pendin
 db_bytes="$(compose exec -T postgres psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'SELECT pg_database_size(current_database())' | tr -d '\r')"
 [[ "$db_bytes" =~ ^[0-9]+$ ]] || { echo "ERROR: cannot determine database size" >&2; exit 1; }
 images_kb="$(du -sk "$RELEASE_DIR/images" | awk '{print $1}')"
-required_kb=$((images_kb + (db_bytes / 1024) * 2 + 1048576))
+required_kb=$(((db_bytes / 1024) * 2 + 1048576))
 available_kb="$(df -Pk "$INSTALL_DIR" | awk 'NR==2 {print $4}')"
 [[ "$available_kb" =~ ^[0-9]+$ ]] || { echo "ERROR: cannot determine free disk space" >&2; exit 1; }
 [ "$available_kb" -ge "$required_kb" ] || {
