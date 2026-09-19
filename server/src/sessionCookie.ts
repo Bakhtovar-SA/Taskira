@@ -1,10 +1,10 @@
 import type { FastifyRequest } from "fastify";
-import { envBool } from "./config.js";
+import { loadConfig } from "./config.js";
 
 export const SESSION_COOKIE = "taskira_session";
 
 function secureAttribute(): string {
-  const enabled = envBool(process.env.SESSION_COOKIE_SECURE, process.env.NODE_ENV === "production");
+  const enabled = loadConfig().sessionCookieSecure;
   return enabled ? "; Secure" : "";
 }
 

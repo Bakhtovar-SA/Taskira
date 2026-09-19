@@ -151,8 +151,7 @@ SERVER_SUM="$(sha256sum "$WORK_DIR/$SERVER_TAR" | awk '{print $1}')"
 POSTGRES_SUM="$(sha256sum "$WORK_DIR/$POSTGRES_TAR" | awk '{print $1}')"
 
 echo "[5/7] Writing installation files and release manifest"
-sed "s/__VERSION__/$VERSION/g" "$TEMPLATE_DIR/docker-compose.yml.in" > "$WORK_DIR/docker-compose.yml"
-cp "$ROOT_DIR/compose.common.yml" "$WORK_DIR/compose.common.yml"
+"$ROOT_DIR/scripts/render-compose.sh" release "$VERSION" > "$WORK_DIR/docker-compose.yml"
 sed \
   -e "s/__VERSION__/$VERSION/g" \
   -e "s/__DATE__/$BUILD_DATE/g" \

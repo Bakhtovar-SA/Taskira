@@ -142,7 +142,7 @@ export function buildApp(): FastifyInstance {
     reply.code(db ? 200 : 503).send({
       ok: db,
       db,
-      version: process.env.TASKIRA_VERSION || "dev",
+      version: cfg.version,
       ts: new Date().toISOString(),
     });
   });

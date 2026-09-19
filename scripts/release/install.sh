@@ -67,10 +67,6 @@ validate_env() {
     value="$(env_value "$key")"
     [ -n "$value" ] || { echo "ERROR: $key is empty in .env" >&2; exit 1; }
   done
-  [ "$(env_value CORS_ORIGIN)" != "http://192.0.2.10:8081" ] || {
-    echo "ERROR: CORS_ORIGIN still contains the example address" >&2
-    exit 1
-  }
   jwt="$(env_value JWT_SECRET)"
   [ "${#jwt}" -ge 32 ] || { echo "ERROR: JWT_SECRET must contain at least 32 characters" >&2; exit 1; }
 }

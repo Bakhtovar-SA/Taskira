@@ -12,14 +12,14 @@
 | Файл | Роль |
 |---|---|
 | `docker-compose.yml` (корень) | оркестрация: `postgres` + `server` + `client` |
-| `compose.common.yml` (корень) | общие runtime-настройки обычного и offline compose |
+| `scripts/render-compose.sh` | единый генератор обычного и offline compose |
 | `server/Dockerfile` | сборка API (`tsc` → тонкий рантайм, без devDependencies и исходников) |
 | `Dockerfile` (корень) | сборка клиента (`vite build` → статика, раздаёт `nginx`) |
 | `nginx.conf` (корень) | конфиг nginx для контейнера клиента |
 | `.env.example` (корень) | переменные для docker-compose (**не** `server/.env` — тот для `cd server && npm run dev` без Docker) |
 
 `server/.env` в контейнер не попадает и не читается — вся конфигурация идёт
-через `environment:` в `compose.common.yml`. `config.ts` сам это поддерживает:
+через `environment:` в `docker-compose.yml`. `config.ts` сам это поддерживает:
 файл `.env` — необязательный фолбэк, `process.env` (в контейнере — из
 `environment:`) имеет приоритет (см. CLAUDE.md, «Server imports» и раздел
 про парсер `.env`).
@@ -100,7 +100,7 @@ docker compose down -v
 LDAP/AD, S3-хранилище, email-уведомления — те же переменные, что и в
 `server/.env.example` ([LDAP_SETUP.md](LDAP_SETUP.md), [STORAGE_SETUP.md](STORAGE_SETUP.md),
 [NOTIFICATIONS_SETUP.md](NOTIFICATIONS_SETUP.md)). Добавьте их в
-`services.server.environment` в `compose.common.yml`, либо смонтируйте
+`services.server.environment` в `docker-compose.yml`, либо смонтируйте
 готовый файл через `env_file:`. Единственное отличие для `S3`:
 `STORAGE_DIR`/том `attachments` в этом compose не нужны — можно убрать volume.
 
@@ -150,5 +150,7 @@ docker compose up -d --build   # пересобирает server/client, есл�
 не остаётся ни одного образа, требующего загрузки из registry.
 
 На закрытом сервере достаточно распаковать архив и выполнять только команды из
-`README_INSTALL.md`. Скрипт установки не вызывает `pull` и release-compose
-содержит `pull_policy: never`.
+`README_INSTALL.md`. Скрипт установки не вызывает `pull`, загружает и проверяет
+наличие каждого точного versioned image до запуска Compose. Release-compose не
+использует необязательные расширения Compose, которые расходятся между Docker
+и разными Podman provider.

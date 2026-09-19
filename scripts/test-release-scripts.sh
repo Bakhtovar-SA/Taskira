@@ -5,7 +5,10 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 bash -n scripts/build-release.sh
+bash -n scripts/render-compose.sh
 bash -n scripts/release/install.sh
+
+scripts/render-compose.sh source | cmp - docker-compose.yml
 
 if scripts/build-release.sh invalid-version >/dev/null 2>&1; then
   echo "build-release.sh accepted an invalid version" >&2
@@ -63,7 +66,6 @@ RELEASE_DIR="$TMP_DIR/output/taskira-9.8.7-test"
 [ -f "$RELEASE_DIR/manifest.json" ]
 [ -f "$RELEASE_DIR/README_INSTALL.md" ]
 [ -f "$RELEASE_DIR/CHANGELOG.md" ]
-[ -f "$RELEASE_DIR/compose.common.yml" ]
 [ -f "$RELEASE_DIR/container-engine.sh" ]
 [ "$(cat "$RELEASE_DIR/VERSION")" = "9.8.7-test" ]
 [ "$(find "$RELEASE_DIR/images" -type f -name '*.tar' | wc -l | tr -d ' ')" = "3" ]
@@ -74,7 +76,10 @@ if grep -R '__VERSION__\|__DATE__\|__GIT_SHA__\|__ARCH__' "$RELEASE_DIR" --exclu
   echo "release contains an unresolved template placeholder" >&2
   exit 1
 fi
-grep -q 'pull_policy: never' "$RELEASE_DIR/docker-compose.yml"
+if grep -q 'pull_policy:\|extends:' "$RELEASE_DIR/docker-compose.yml"; then
+  echo "release compose must stay compatible with basic Compose providers" >&2
+  exit 1
+fi
 if grep -qE '^[[:space:]]+build:' "$RELEASE_DIR/docker-compose.yml"; then
   echo "release compose must not contain build instructions" >&2
   exit 1
