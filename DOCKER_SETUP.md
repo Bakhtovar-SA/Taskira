@@ -37,9 +37,9 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-По умолчанию: клиент — `http://localhost:8081`, API доступен на
-`http://127.0.0.1:8080` только с самого Docker-хоста. С других компьютеров API
-открывается через клиентский nginx по пути `/api`.
+По умолчанию клиент и API доступны через единую точку входа
+`http://localhost:8081`; API находится по пути `/api`. Контейнер `server`
+напрямую на хост не публикуется.
 Первый старт `server` сам прогонит миграции и создаст админа/дефолтный проект
 (`migrate()` → `seedAdmin()` → `seedProject()` в `src/index.ts` — то же самое,
 что при обычном `npm run dev`, идемпотентно).
@@ -47,7 +47,7 @@ docker compose up -d --build
 Проверить:
 
 ```bash
-curl http://localhost:8080/api/health   # {"ok":true,...}
+curl http://localhost:8081/api/health   # {"ok":true,...}
 docker compose ps                        # все три — healthy
 docker compose logs -f server
 ```
@@ -87,14 +87,21 @@ docker compose down -v
 
 ## 4. Это не сам reverse-proxy
 
-`client` публикуется в сеть, а отладочный порт `server` привязан только к
-`127.0.0.1` Docker-хоста. Это не позволяет сетевому клиенту обойти встроенный
-nginx и подделать `X-Forwarded-For`. Целевая архитектура (ARCHITECTURE.md,
-«Компоненты») предполагает
+`client` публикуется в сеть, а `server` доступен только во внутренней
+compose-сети. Это не позволяет клиенту обойти встроенный nginx и подделать
+`X-Forwarded-For`. Целевая архитектура (ARCHITECTURE.md, «Компоненты»)
+предполагает
 **внешний** nginx с TLS перед обоими — этот compose его не заменяет и не
 включает. `TRUST_PROXY=true` уже включён для встроенного nginx; если внешний
 прокси добавляет больше одного доверенного hop, задайте более точную настройку
 согласно корневому README, раздел «Аутентификация».
+
+> **Обновление существующей HTTPS-инсталляции.** До появления параметра
+> `SESSION_COOKIE_SECURE` production-образ всегда добавлял cookie-флаг
+> `Secure`. Теперь HTTP является рабочим режимом по умолчанию, поэтому при TLS
+> termination во внешнем reverse proxy обязательно добавьте в `.env`
+> `SESSION_COOKIE_SECURE=true` до перезапуска контейнеров. Внешний proxy должен
+> направлять HTTP и WebSocket на опубликованный порт `client`, а не `server`.
 
 ---
 

@@ -68,14 +68,6 @@ cat <<'EOF'
     volumes:
       - attachments:/app/var/attachments
 EOF
-if [ "$MODE" = "source" ]; then
-  cat <<'EOF'
-    ports:
-      # Debug/API access is host-local. Network users enter through client nginx,
-      # which is the trusted proxy and prevents spoofed X-Forwarded-For headers.
-      - "127.0.0.1:${SERVER_PORT:-8080}:8080"
-EOF
-fi
 cat <<'EOF'
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
