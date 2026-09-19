@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip } from "../ui";
+import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip, UserCardBody } from "../ui";
 import { useT, type TKey } from "../i18n";
 
 const VIEW_LABEL: Record<ViewId, TKey> = {
@@ -324,7 +324,6 @@ function NotifySettings() {
           [
             ["instant", t("topbar.emailMode.instant")],
             ["daily", t("topbar.emailMode.daily")],
-            ["off", t("topbar.emailMode.off")],
           ] as const
         ).map(([v, label]) => (
           <button
@@ -360,7 +359,10 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
       align="right"
       button={(open) => (
         <button className={`flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${open ? "border-accent bg-accentsoft" : "border-line bg-panel hover:border-line2"}`} aria-label={t("topbar.userMenuAria")}>
-          <Avatar user={me} size={26} />
+          {/* interactive=false: клик по аватарке здесь должен открывать это же
+              меню (логаут/настройки), а не всплывающую карточку профиля —
+              её показывает сам заголовок открытого меню ниже. */}
+          <Avatar user={me} size={26} interactive={false} />
           <span className="hidden max-w-[120px] truncate text-left md:block">
             <span className="block truncate text-[12.5px] font-semibold leading-tight text-ink">{me.name.split(" ")[0]}</span>
             <span className="block text-[10px] leading-tight text-faint">{me.role}</span>
@@ -371,16 +373,16 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
     >
       {(close) => (
         <>
-          <div className="border-b border-linesoft px-3.5 py-3">
-            <div className="flex items-center gap-2.5">
-              <Avatar user={me} size={34} />
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-bold text-ink">{me.name}</p>
-                <p className="text-[11px] text-faint">{me.role} · {data.project.name}</p>
+          {/* UserCardBody, не Avatar+Dropdown вложенно: любой другой открытый
+              Dropdown закрывает это меню через DROPDOWN_OPEN_EVT — вложенный
+              Dropdown внутри уже открытого захлопнул бы его под собой. */}
+          <div className="border-b border-linesoft">
+            <UserCardBody userId={me.id} />
+            <div className="-mt-2 px-4 pb-3">
+              <p className="text-[11px] text-faint">{data.project.name}</p>
+              <div className="mt-2">
+                <RoleBadge role={me.accessRole} size="sm" />
               </div>
-            </div>
-            <div className="mt-2">
-              <RoleBadge role={me.accessRole} size="sm" />
             </div>
           </div>
           <AppearanceSettings />

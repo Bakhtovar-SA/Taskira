@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
 import { attachmentsApi, commentsApi, issuesApi, type ServerComment, type ServerIssue, type ServerParticipant } from "../api";
 import { MentionText } from "./IssueModal";
-import { LIMITS, validateComment } from "../validation";
+import { LIMITS, localizeValidationError, validateComment } from "../validation";
 import type { IssueTypeId, PriorityId } from "../types";
 import { PRIORITY_ORDER } from "../types";
 import { IcSend, Logo, PriorityIcon, TypeIcon } from "../icons";
@@ -48,7 +48,7 @@ export function SoloIssueCard({
   statusHint?: string;
   currentUser: { id: string; name: string };
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { toast } = useStore();
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [issue, setIssue] = useState<ServerIssue | null>(null);
@@ -80,11 +80,11 @@ export function SoloIssueCard({
     return m;
   }, [issue]);
 
-  if (state === "loading") return <div className="flex h-full items-center justify-center text-[13px] text-faint">Загрузка задачи…</div>;
+  if (state === "loading") return <div className="flex h-full items-center justify-center text-[13px] text-faint">{t("solo.loadingIssue")}</div>;
   if (state === "error" || !issue)
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-[13px] text-faint">
-        Не удалось открыть задачу — возможно, вас отключили от неё.
+        {t("solo.openFailed")}
       </div>
     );
 
@@ -94,18 +94,18 @@ export function SoloIssueCard({
   const reporter = pById.get(issue.reporterId);
 
   const fmtBytes = (n: number): string =>
-    n < 1024 ? `${n} Б` : n < 1024 * 1024 ? `${Math.round(n / 1024)} КБ` : `${(n / 1024 / 1024).toFixed(1)} МБ`;
+    n < 1024 ? `${n} ${lang === "ru" ? "Б" : "B"}` : n < 1024 * 1024 ? `${Math.round(n / 1024)} ${lang === "ru" ? "КБ" : "KB"}` : `${(n / 1024 / 1024).toFixed(1)} ${lang === "ru" ? "МБ" : "MB"}`;
 
   const uploadFile = (f: File) => {
     attachmentsApi
       .upload(projectId, issueId, f)
       .then((a) => setIssue((prev) => (prev ? { ...prev, attachments: [...(prev.attachments ?? []), a] } : prev)))
-      .catch((e: { reason?: string }) => toast("error", e?.reason ?? "Не удалось загрузить файл"));
+      .catch((e: { reason?: string }) => toast("error", lang === "ru" && e?.reason ? e.reason : t("solo.uploadFailed")));
   };
 
   const send = () => {
     const r = validateComment(draft);
-    if (!r.ok) return toast("error", r.error);
+    if (!r.ok) return toast("error", localizeValidationError(r.error, lang));
     setSending(true);
     commentsApi
       .create(projectId, issueId, r.value)
@@ -113,7 +113,7 @@ export function SoloIssueCard({
         setComments((prev) => [...prev, c]);
         setDraft("");
       })
-      .catch(() => toast("error", "Не удалось отправить комментарий"))
+      .catch(() => toast("error", t("solo.commentFailed")))
       .finally(() => setSending(false));
   };
 
@@ -131,7 +131,7 @@ export function SoloIssueCard({
           {PRIORITY_ORDER.includes(issue.priorityId as PriorityId) ? t(`priority.${issue.priorityId as PriorityId}`) : issue.priorityId}
         </span>
         <span className="flex flex-wrap items-center gap-1.5">
-          Исполнители:{" "}
+          {t("issue.assignees")}:{" "}
           {assignees.length > 0 ? (
             assignees.map((a, i) => (
               <span key={i} className="flex items-center gap-1">
@@ -139,10 +139,10 @@ export function SoloIssueCard({
               </span>
             ))
           ) : (
-            <span className="text-faint">не назначен</span>
+            <span className="text-faint">{t("createIssue.unassigned")}</span>
           )}
         </span>
-        <span>Автор: {reporter?.name ?? "—"}</span>
+        <span>{t("issue.reporter")}: {reporter?.name ?? "—"}</span>
       </div>
 
       {issue.labels.length > 0 && (
@@ -162,12 +162,12 @@ export function SoloIssueCard({
       )}
 
       {(issue.collaborators?.length ?? 0) > 0 && (
-        <p className="mt-3 text-[11.5px] text-faint">Приглашены к задаче: {issue.collaborators!.map((c) => c.name).join(", ")}</p>
+        <p className="mt-3 text-[11.5px] text-faint">{t("solo.invited")}: {issue.collaborators!.map((c) => c.name).join(", ")}</p>
       )}
 
       <div className="mt-5">
         <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-faint">
-          Вложения · {issue.attachments?.length ?? 0}
+          {t("solo.attachmentsCount", { count: issue.attachments?.length ?? 0 })}
         </p>
         <div className="space-y-1">
           {(issue.attachments ?? []).map((a) => (
@@ -176,17 +176,17 @@ export function SoloIssueCard({
                 onClick={() =>
                   attachmentsApi
                     .download(projectId, issueId, a.id, a.filename)
-                    .catch(() => toast("error", "Не удалось скачать файл"))
+                    .catch(() => toast("error", t("solo.downloadFailed")))
                 }
                 className="min-w-0 flex-1 truncate text-left text-ink transition-colors hover:text-accent"
-                title={`Скачать «${a.filename}»`}
+                title={t("issue.downloadFile", { filename: a.filename })}
               >
                 {a.filename}
               </button>
               <span className="shrink-0 text-faint">{fmtBytes(a.byteSize)}</span>
             </div>
           ))}
-          {(issue.attachments?.length ?? 0) === 0 && <span className="text-[12px] text-faint">файлов нет</span>}
+          {(issue.attachments?.length ?? 0) === 0 && <span className="text-[12px] text-faint">{t("issue.noFiles")}</span>}
         </div>
         <input
           ref={attRef}
@@ -202,12 +202,12 @@ export function SoloIssueCard({
           onClick={() => attRef.current?.click()}
           className="mt-1.5 rounded-md border border-dashed border-line2 px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
         >
-          + прикрепить файл
+          {t("issue.attachFile")}
         </button>
       </div>
 
       <div className="mt-6">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-faint">Комментарии · {comments.length}</p>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-faint">{t("issue.commentsCount", { count: comments.length })}</p>
         <div className="space-y-3">
           {comments.map((c) => {
             const a = authorOf(c.authorId);
@@ -216,14 +216,14 @@ export function SoloIssueCard({
                 <Ava p={a} size={26} />
                 <div className="min-w-0 flex-1">
                   <p className="text-[11.5px] text-faint">
-                    <span className="font-semibold text-sub">{a?.name ?? "—"}</span> · {relTime(Date.parse(c.createdAt) || Date.now())}
+                    <span className="font-semibold text-sub">{a?.name ?? "—"}</span> · {relTime(Date.parse(c.createdAt) || Date.now(), lang)}
                   </p>
                   <p className="mt-0.5 whitespace-pre-wrap text-[13px] text-ink"><MentionText text={c.body} /></p>
                 </div>
               </div>
             );
           })}
-          {comments.length === 0 && <p className="text-[12px] text-faint">Пока нет комментариев.</p>}
+          {comments.length === 0 && <p className="text-[12px] text-faint">{t("solo.noComments")}</p>}
         </div>
 
         <div className="mt-3 flex gap-2">
@@ -238,7 +238,7 @@ export function SoloIssueCard({
             }}
             maxLength={LIMITS.comment.max}
             rows={2}
-            placeholder="Комментарий…  (Ctrl+Enter)"
+            placeholder={t("solo.commentPlaceholder")}
             className="min-w-0 flex-1 resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
           />
           <button
@@ -255,6 +255,7 @@ export function SoloIssueCard({
 }
 
 export default function SoloView({ onLogout }: { onLogout: () => void }) {
+  const { t } = useT();
   const { solo } = useStore();
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -274,7 +275,7 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
           <p className="font-disp text-[14px] font-bold text-white">Taskira</p>
         </div>
         <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f7396]">
-          Мои подключения · {solo.items.length}
+          {t("solo.connectionsCount", { count: solo.items.length })}
         </p>
         <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-2">
           {solo.items.map((it) => (
@@ -292,12 +293,12 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
               <span className="text-[10px] text-[#7b8fb2]">{it.statusName}</span>
             </button>
           ))}
-          {solo.items.length === 0 && <p className="px-2.5 text-[11.5px] text-[#7b8fb2]">Вас пока никуда не приглашали.</p>}
+          {solo.items.length === 0 && <p className="px-2.5 text-[11.5px] text-[#7b8fb2]">{t("solo.none")}</p>}
         </div>
         <div className="border-t border-[#24385a] p-3 text-[11px]">
           <p className="truncate text-[#9db0cd]">{solo.userName}</p>
           <button onClick={onLogout} className="mt-1 text-[#7b8fb2] transition-colors hover:text-white">
-            Выйти
+            {t("topbar.logout")}
           </button>
         </div>
       </aside>
@@ -311,7 +312,7 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
             currentUser={{ id: solo.userId, name: solo.userName }}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-[13px] text-faint">Выберите задачу слева.</div>
+          <div className="flex h-full items-center justify-center text-[13px] text-faint">{t("collaborating.select")}</div>
         )}
       </main>
       <Toasts />

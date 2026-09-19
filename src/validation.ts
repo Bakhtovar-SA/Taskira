@@ -37,6 +37,27 @@ export const LIMITS = {
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
+/** Validation functions keep stable Russian messages for existing tests and API
+ * parity. English UI translates only these known system messages. */
+export function localizeValidationError(error: string, lang: "ru" | "en"): string {
+  if (lang === "ru") return error;
+  const exact: Record<string, string> = {
+    "Название задачи не может быть пустым": "Issue title cannot be empty",
+    "Комментарий не может быть пустым": "Comment cannot be empty",
+    "Текст пункта не может быть пустым": "Checklist item text cannot be empty",
+  };
+  if (exact[error]) return exact[error];
+  const rules: [RegExp, string][] = [
+    [/^Название длиннее (\d+) символов — сократите его$/, "Title is longer than $1 characters — shorten it"],
+    [/^Описание длиннее (\d+) символов$/, "Description is longer than $1 characters"],
+    [/^Комментарий длиннее (\d+) символов$/, "Comment is longer than $1 characters"],
+    [/^Не больше (\d+) меток на задачу$/, "No more than $1 labels per issue"],
+    [/^Текст пункта длиннее (\d+) символов$/, "Checklist item is longer than $1 characters"],
+  ];
+  for (const [pattern, replacement] of rules) if (pattern.test(error)) return error.replace(pattern, replacement);
+  return error;
+}
+
 /* Управляющие символы (кроме \n и \t, они нужны в описаниях) */
 const CTRL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 

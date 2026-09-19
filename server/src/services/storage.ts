@@ -56,6 +56,14 @@ export function newStorageKey(issueId: string): string {
   return `${issueId}/${randomUUID()}`;
 }
 
+/** Ключ аватарки: avatars/<userId>/<uuid> (миграция 027) — тот же Storage,
+ *  отдельный префикс только для читаемости листинга на диске/в бакете;
+ *  storageSweeper.ts различает "известные" объекты по users.avatar_key, не
+ *  по префиксу. */
+export function newAvatarStorageKey(userId: string): string {
+  return `avatars/${userId}/${randomUUID()}`;
+}
+
 /** Ключи мы генерируем сами (newStorageKey), но раскладка ключа в путь на диске
  *  всё равно защищается от обхода каталога — на случай будущих вызовов. */
 function keyToRelPath(key: string): string {

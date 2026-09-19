@@ -1,32 +1,92 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { AccessRole, Status, User } from "./types";
 import { useStore } from "./store";
-import { usersApi, type PickableUser } from "./api";
-import { IcX } from "./icons";
+import { usersApi, getAvatarBlobUrl, type PickableUser } from "./api";
+import { IcBriefcase, IcCamera, IcPhone, IcTrash, IcX } from "./icons";
 import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
 import { useT } from "./i18n";
+import { cropAndResizeAvatar } from "./avatarCrop";
 
 /** Аватару достаточно имени/инициалов/цвета — принимаем любой такой объект
- *  (не только полный User: напр. `actor` в уведомлениях). */
-type AvatarUser = Pick<User, "name" | "initials" | "color">;
-export const Avatar = ({ user, size = 26, ring = false }: { user: AvatarUser | null | undefined; size?: number; ring?: boolean }) => {
+ *  (не только полный User: напр. `actor` в уведомлениях). id/avatarUpdatedAt
+ *  опциональны для того же — если они есть, аватар кликабелен (карточка
+ *  пользователя) и может показать загруженное фото, а не только инициалы. */
+type AvatarUser = Pick<User, "name" | "initials" | "color"> & Partial<Pick<User, "id" | "avatarUpdatedAt">>;
+
+/** Картинка аватарки (blob-URL, авторизованный fetch с кэшем — см. getAvatarBlobUrl
+ *  в api/index.ts) — null, пока грузится или если её нет. */
+function useAvatarSrc(userId?: string, avatarUpdatedAt?: number | null): string | null {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!userId || !avatarUpdatedAt) {
+      setSrc(null);
+      return;
+    }
+    getAvatarBlobUrl(userId, avatarUpdatedAt).then((url) => {
+      if (!cancelled) setSrc(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, avatarUpdatedAt]);
+  return src;
+}
+
+export const Avatar = ({
+  user,
+  size = 26,
+  ring = false,
+  interactive = false,
+}: {
+  user: AvatarUser | null | undefined;
+  size?: number;
+  ring?: boolean;
+  /** true — открывать карточку пользователя по клику (свой профиль/чужой).
+   *  Default false: Avatar часто сидит внутри чужого интерактивного контрола
+   *  (фильтр по исполнителю, пикер в Dropdown, триггер другого Dropdown) —
+   *  там клик по аватарке должен управлять ЭТИМ контролом, а не открывать
+   *  карточку, и вложенный Dropdown внутри уже открытого закрыл бы его
+   *  (DROPDOWN_OPEN_EVT). Включай явно только там, где аватар — просто
+   *  статичный показ личности (карточка/лента, не сам управляющий элемент). */
+  interactive?: boolean;
+}) => {
+  const { t } = useT();
+  const src = useAvatarSrc(user?.id, user?.avatarUpdatedAt);
+  const canOpenCard = interactive && !!user?.id;
+
   if (!user)
     return (
       <span
         className="inline-flex items-center justify-center rounded-full border border-dashed border-line2 bg-linesoft text-faint"
         style={{ width: size, height: size, fontSize: size * 0.42 }}
-        title="Не назначен"
+        title={t("createIssue.unassigned")}
       >
         –
       </span>
     );
-  return (
+
+  const circle = (
     <span
-      className={`inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold text-white ${ring ? "ring-2 ring-panel" : ""}`}
-      style={{ width: size, height: size, fontSize: size * 0.36, background: user.color }}
+      className={`inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold text-white ${ring ? "ring-2 ring-panel" : ""} ${canOpenCard ? "cursor-pointer" : ""}`}
+      style={{ width: size, height: size, fontSize: size * 0.36, background: src ? undefined : user.color }}
       title={user.name}
     >
-      {user.initials}
+      {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : user.initials}
+    </span>
+  );
+
+  if (!canOpenCard) return circle;
+
+  // stopPropagation — Avatar souvent сидит внутри целиком кликабельной строки/
+  // карточки (напр. Board.tsx открывает задачу по клику на всю карточку);
+  // без этого клик по аватару одновременно открывал бы и карточку пользователя,
+  // и саму задачу под ней.
+  return (
+    <span onClick={(e) => e.stopPropagation()} className="inline-flex">
+      <Dropdown button={() => circle} width={260}>
+        {() => <UserCardBody userId={user.id!} />}
+      </Dropdown>
     </span>
   );
 };
@@ -35,7 +95,20 @@ export const Avatar = ({ user, size = 26, ring = false }: { user: AvatarUser | n
  *  на задаче — не путать с issue_collaborators) — внахлёст, максимум `max`
  *  штук, остаток — кружок «+N». Пустой список — тот же «не назначен», что
  *  одиночный Avatar(null). */
-export const AvatarStack = ({ users, size = 22, max = 3 }: { users: AvatarUser[]; size?: number; max?: number }) => {
+export const AvatarStack = ({
+  users,
+  size = 22,
+  max = 3,
+  interactive = false,
+}: {
+  users: AvatarUser[];
+  size?: number;
+  max?: number;
+  /** true — все аватары в стопке кликабельны (карточка пользователя) — см.
+   *  Avatar.interactive, тот же default false по той же причине. */
+  interactive?: boolean;
+}) => {
+  const { t } = useT();
   if (users.length === 0) return <Avatar user={null} size={size} />;
   const shown = users.slice(0, max);
   const overflow = users.length - shown.length;
@@ -43,14 +116,14 @@ export const AvatarStack = ({ users, size = 22, max = 3 }: { users: AvatarUser[]
     <span className="flex shrink-0 items-center">
       {shown.map((u, i) => (
         <span key={i} className={i === 0 ? "" : "-ml-1.5"}>
-          <Avatar user={u} size={size} ring />
+          <Avatar user={u} size={size} ring interactive={interactive} />
         </span>
       ))}
       {overflow > 0 && (
         <span
           className="-ml-1.5 inline-flex shrink-0 select-none items-center justify-center rounded-full bg-linesoft font-semibold text-faint ring-2 ring-panel"
           style={{ width: size, height: size, fontSize: size * 0.34 }}
-          title={`ещё ${overflow}`}
+          title={t("ui.more", { count: overflow })}
         >
           +{overflow}
         </span>
@@ -79,19 +152,22 @@ export const Lozenge = ({ status, size = "md" }: { status: Status; size?: "sm" |
   );
 };
 
-export const Chip = ({ text, color, onRemove }: { text: string; color?: string; onRemove?: () => void }) => (
-  <span
-    className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
-    style={color ? { background: `${color}1c`, color } : { background: "var(--c-linesoft)", color: "var(--c-sub)" }}
-  >
-    {text}
-    {onRemove && (
-      <button onClick={onRemove} className="rounded hover:bg-black/10" aria-label={`Убрать ${text}`}>
-        <IcX size={10} />
-      </button>
-    )}
-  </span>
-);
+export const Chip = ({ text, color, onRemove }: { text: string; color?: string; onRemove?: () => void }) => {
+  const { t } = useT();
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
+      style={color ? { background: `${color}1c`, color } : { background: "var(--c-linesoft)", color: "var(--c-sub)" }}
+    >
+      {text}
+      {onRemove && (
+        <button onClick={onRemove} className="rounded hover:bg-black/10" aria-label={t("ui.remove", { text })}>
+          <IcX size={10} />
+        </button>
+      )}
+    </span>
+  );
+};
 
 /** Событие «открылся какой-то дропдаун» — чтобы одновременно был открыт только
  *  один (ticket-scaling §2): каждый инстанс шлёт его при открытии со своим id,
@@ -117,14 +193,18 @@ export function Dropdown({ button, children, align = "left", width = 240 }: { bu
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    const onDoc = (e: PointerEvent) => {
+      const path = e.composedPath();
+      if (ref.current && !path.includes(ref.current)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
+    // capture + pointerdown закрывает меню ещё до React onClick и одинаково
+    // работает для мыши, пера и тача. Bubble-mousedown терялся, когда внешний
+    // компонент делал stopPropagation().
+    document.addEventListener("pointerdown", onDoc, true);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("pointerdown", onDoc, true);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -163,6 +243,104 @@ export const MenuItem = ({ onClick, children, danger, disabled, title }: { onCli
   </button>
 );
 
+/** Содержимое карточки пользователя — без обёртки Dropdown, чтобы Topbar мог
+ *  вставить её прямо в уже открытое меню профиля (обёртывать в ЕЩЁ один
+ *  Dropdown внутри открытого было бы багом: любой другой открывшийся Dropdown
+ *  закрывает все прочие через DROPDOWN_OPEN_EVT, так что вложенный тут же
+ *  захлопнул бы меню профиля под собой). UserCardPopover ниже — тот же
+ *  контент, но в собственном Dropdown, для клика по чужому аватару. Для себя
+ *  дополнительно показывает загрузку/удаление аватарки (самообслуживание —
+ *  см. план миграции 027, без admin-загрузки за другого). Должность/телефон
+ *  читаются из уже загруженного data.users — отдельный запрос не нужен. */
+export function UserCardBody({ userId }: { userId: string }) {
+  const { t } = useT();
+  const { data, idx, uploadAvatar, removeAvatar } = useStore();
+  const user = idx.users.get(userId);
+  const src = useAvatarSrc(user?.id, user?.avatarUpdatedAt);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  if (!user) return null;
+  const isMe = data.currentUserId === userId;
+
+  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const cropped = await cropAndResizeAvatar(file);
+      await uploadAvatar(cropped);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onRemove = async () => {
+    setBusy(true);
+    try {
+      await removeAvatar();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="p-4">
+      <div className="flex items-center gap-3">
+        <span
+          className="inline-flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-xl font-semibold text-white"
+          style={{ background: src ? undefined : user.color }}
+        >
+          {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : user.initials}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-[14px] font-semibold text-ink">{user.name}</p>
+          {user.username && <p className="truncate text-[11.5px] text-faint">@{user.username}</p>}
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-1.5 border-t border-linesoft pt-3 text-[12.5px] text-sub">
+        <div className="flex items-center gap-2">
+          <IcBriefcase size={13} />
+          <span className="truncate">{user.role || t("userCard.notSet")}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <IcPhone size={13} />
+          <span className="truncate">{user.phone || t("userCard.notSet")}</span>
+        </div>
+      </div>
+
+      {isMe && (
+        <div className="mt-3 flex gap-1.5 border-t border-linesoft pt-3">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+            title={t("userCard.avatarHint")}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-[12px] font-semibold text-sub transition-colors hover:border-line2 disabled:opacity-50"
+          >
+            <IcCamera size={13} />
+            {user.avatarUpdatedAt ? t("userCard.changeAvatar") : t("userCard.uploadAvatar")}
+          </button>
+          {user.avatarUpdatedAt && (
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={busy}
+              title={t("userCard.removeAvatar")}
+              className="flex items-center justify-center rounded-md border border-line px-2 text-danger transition-colors hover:bg-dangersoft disabled:opacity-50"
+            >
+              <IcTrash size={13} />
+            </button>
+          )}
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif" className="hidden" onChange={onPick} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Что считается фокусируемым внутри диалога (для ловушки фокуса по Tab). */
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -181,13 +359,15 @@ export function Modal({
   onClose,
   children,
   w = 860,
-  title = "Диалог",
+  title,
 }: {
   onClose: () => void;
   children: React.ReactNode;
   w?: number;
   title?: string;
 }) {
+  const { t } = useT();
+  const resolvedTitle = title ?? t("ui.dialog");
   const boxRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   // onClose обычно приходит инлайн-стрелкой (`onClose={() => setX(false)}`),
@@ -269,7 +449,7 @@ export function Modal({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <h2 id={titleId} className="sr-only">
-          {title}
+          {resolvedTitle}
         </h2>
         {children}
       </div>
@@ -355,11 +535,12 @@ export const roleBadgeColors: Record<AccessRole, string> = {
 };
 
 export const RoleBadge = ({ role, size = "md" }: { role: AccessRole; size?: "sm" | "md" }) => {
+  const { t } = useT();
   const meta = {
-    admin: { name: "Администратор", color: "var(--c-danger)", bg: "var(--c-dangersoft)" },
-    manager: { name: "Менеджер", color: "var(--c-accent)", bg: "var(--c-accentsoft)" },
-    employee: { name: "Сотрудник", color: "var(--c-ok)", bg: "var(--c-oksoft)" },
-    viewer: { name: "Наблюдатель", color: "var(--c-sub)", bg: "var(--c-linesoft)" },
+    admin: { name: t("role.admin.name"), color: "var(--c-danger)", bg: "var(--c-dangersoft)" },
+    manager: { name: t("role.manager.name"), color: "var(--c-accent)", bg: "var(--c-accentsoft)" },
+    employee: { name: t("role.employee.name"), color: "var(--c-ok)", bg: "var(--c-oksoft)" },
+    viewer: { name: t("role.viewer.name"), color: "var(--c-sub)", bg: "var(--c-linesoft)" },
   }[role];
   return (
     <span
@@ -495,8 +676,8 @@ export function Toasts() {
 export function UserSearchPicker({
   exclude,
   onPick,
-  placeholder = "Найти сотрудника по имени или должности",
-  pickLabel = "Добавить",
+  placeholder,
+  pickLabel,
   disabled = false,
 }: {
   exclude: Set<string>;
@@ -505,6 +686,9 @@ export function UserSearchPicker({
   pickLabel?: string;
   disabled?: boolean;
 }) {
+  const { t } = useT();
+  const resolvedPlaceholder = placeholder ?? t("ui.findEmployee");
+  const resolvedPickLabel = pickLabel ?? t("ui.add");
   const [pickable, setPickable] = useState<PickableUser[]>([]);
   const [pick, setPick] = useState("");
   const [search, setSearch] = useState("");
@@ -538,8 +722,8 @@ export function UserSearchPicker({
           setSearch(e.target.value);
           setPick("");
         }}
-        placeholder={placeholder}
-        aria-label={placeholder}
+        placeholder={resolvedPlaceholder}
+        aria-label={resolvedPlaceholder}
         disabled={disabled}
         className="w-full rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-ink placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-50"
       />
@@ -548,11 +732,11 @@ export function UserSearchPicker({
           value={pick}
           onChange={(e) => setPick(e.target.value)}
           disabled={disabled || candidates.length === 0}
-          aria-label="Кого добавить"
+          aria-label={t("ui.whomToAdd")}
           className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
         >
           <option value="">
-            {search.trim().length < 2 ? "введите минимум 2 символа" : candidates.length ? "— выбрать —" : "никого не нашлось"}
+            {t(search.trim().length < 2 ? "ui.minTwoChars" : candidates.length ? "ui.select" : "ui.noPeople")}
           </option>
           {candidates.map((u) => (
             <option key={u.id} value={u.id}>
@@ -569,7 +753,7 @@ export function UserSearchPicker({
           }}
           className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
         >
-          {pickLabel}
+          {resolvedPickLabel}
         </button>
       </div>
     </div>

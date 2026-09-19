@@ -1,5 +1,6 @@
 /** Workflow: схема переходов, её проверка и DTO. Переход вне схемы — 409 CONFLICT. */
-import { one, q } from "../db.js";
+import type { PoolClient } from "pg";
+import { one, q, withTransaction } from "../db.js";
 import { badRequest, notFound } from "../middleware.js";
 import { ApiHttpError } from "../middleware.js";
 
@@ -60,23 +61,29 @@ export const conflict = (reason: string) => new ApiHttpError(409, "CONFLICT", re
 
 /** Создаёт для нового проекта дефолтные 4 статуса + 8 переходов.
     Используется в seedProject() и в POST /api/projects. */
-export async function seedProjectWorkflow(projectId: string): Promise<void> {
+export async function seedProjectWorkflow(projectId: string, existingClient?: PoolClient): Promise<void> {
+  const seed = async (client: PoolClient) => {
   const sidToId = new Map<string, string>();
   for (const s of DEFAULT_STATUSES) {
-    const row = await one<{ id: string }>(
+    const row = (
+      await client.query<{ id: string }>(
       `INSERT INTO workflow_statuses (project_id, sid, name, category, position)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [projectId, s.sid, s.name, s.category, s.position],
-    );
+      )
+    ).rows[0];
     if (!row) throw new Error(`Не удалось создать статус ${s.sid}`);
     sidToId.set(s.sid, row.id);
   }
   for (const [fromSid, toSid] of DEFAULT_TRANSITIONS) {
-    await q(
+    await client.query(
       `INSERT INTO workflow_transitions (project_id, from_status_id, to_status_id) VALUES ($1, $2, $3)`,
       [projectId, sidToId.get(fromSid)!, sidToId.get(toSid)!],
     );
   }
+  };
+  if (existingClient) return seed(existingClient);
+  await withTransaction(seed);
 }
 
 /** Загружает статусы проекта (по position). */

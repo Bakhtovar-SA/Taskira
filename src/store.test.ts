@@ -51,8 +51,10 @@ describe("assignableUsers", () => {
     initials: "XX",
     color: "#333",
     role: "qa",
+    phone: "",
     globalRole: "member",
     accessRole: "employee",
+    avatarUpdatedAt: null,
   });
   const data = {
     users: [mkUser("a"), mkUser("b"), mkUser("c")],

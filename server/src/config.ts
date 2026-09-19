@@ -26,6 +26,10 @@ export interface LdapConfig {
   attrLogin: string;
   attrName: string;
   attrMail: string;
+  /** Должность (AD: title) — синкается в users.job_role при каждом LDAP-логине. */
+  attrTitle: string;
+  /** Телефон (AD: telephoneNumber) — синкается в users.phone при каждом LDAP-логине. */
+  attrPhone: string;
   startTls: boolean;
   tlsCaFile: string | null;
   tlsRejectUnauthorized: boolean;
@@ -65,6 +69,9 @@ export interface StorageConfig {
   maxFilename: number;
   /** Заблокированные расширения — нижний регистр, без ведущей точки (D3). */
   blockExt: string[];
+  /** Максимальный размер аватарки пользователя, байт — отдельный, гораздо
+   *  меньший потолок, чем у обычных вложений; тот же Storage-драйвер. */
+  avatarMaxBytes: number;
 }
 
 /** Параметры SMTP — заполнены только при notify.emailEnabled.
@@ -220,6 +227,8 @@ function buildLdapConfig(): LdapConfig {
     attrLogin: process.env.LDAP_ATTR_LOGIN?.trim() || "sAMAccountName",
     attrName: process.env.LDAP_ATTR_NAME?.trim() || "displayName",
     attrMail: process.env.LDAP_ATTR_MAIL?.trim() || "mail",
+    attrTitle: process.env.LDAP_ATTR_TITLE?.trim() || "title",
+    attrPhone: process.env.LDAP_ATTR_PHONE?.trim() || "telephoneNumber",
     startTls: envBool(process.env.LDAP_STARTTLS, false),
     tlsCaFile: process.env.LDAP_TLS_CA_FILE?.trim() || null,
     tlsRejectUnauthorized: envBool(process.env.LDAP_TLS_REJECT_UNAUTHORIZED, true),
@@ -287,6 +296,7 @@ function buildStorageConfig(): StorageConfig {
     maxPerIssue: envPosInt("ATTACH_MAX_PER_ISSUE", 50),
     maxFilename: envPosInt("ATTACH_MAX_FILENAME", 200),
     blockExt,
+    avatarMaxBytes: envPosInt("AVATAR_MAX_BYTES", 3 * 1024 * 1024),
   };
 }
 

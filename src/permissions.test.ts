@@ -18,8 +18,10 @@ const user = (accessRole: AccessRole, id = "u1"): User => ({
   initials: "ТТ",
   color: "#334455",
   role: "qa",
+  phone: "",
   globalRole: accessRole === "admin" ? "admin" : "member",
   accessRole,
+  avatarUpdatedAt: null,
 });
 
 const issue = (over: Partial<Issue> = {}): Issue => ({
@@ -138,6 +140,8 @@ describe("can()", () => {
   test("с задачей применяется сужение по владельцу", () => {
     expect(can(user("employee"), "edit", issue())).toBe(false);
     expect(can(user("employee"), "edit", issue({ assigneeIds: ["u1"] }))).toBe(true);
+    expect(can(user("employee"), "transition", issue())).toBe(false);
+    expect(can(user("employee"), "transition", issue({ reporterId: "u1" }))).toBe(true);
   });
 
   test("задача не влияет на права, не связанные с ней", () => {

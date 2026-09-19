@@ -17,6 +17,7 @@ const byUser = new Map<string, Set<WebSocket>>();
  * ними, так что сравнение атомарно относительно любого другого revoke().
  */
 const revokedAt = new Map<string, number>();
+const REVOKED_TTL_MS = 60_000;
 
 export function registerSocket(userId: string, socket: WebSocket): void {
   let set = byUser.get(userId);
@@ -59,7 +60,11 @@ export function pushToUser(userId: string, message: WsMessage): void {
  * unregisterSocket() отработает штатно.
  */
 export function closeUserSockets(userId: string, reason: string): void {
-  revokedAt.set(userId, Date.now());
+  const now = Date.now();
+  for (const [id, at] of revokedAt) {
+    if (now - at > REVOKED_TTL_MS) revokedAt.delete(id);
+  }
+  revokedAt.set(userId, now);
   const set = byUser.get(userId);
   if (!set) return;
   for (const socket of set) {
@@ -72,6 +77,10 @@ export function closeUserSockets(userId: string, reason: string): void {
  *  БД (assertFreshUser) — закрывает гонку, описанную у closeUserSockets(). */
 export function revokedSince(userId: string, sinceMs: number): boolean {
   const t = revokedAt.get(userId);
+  if (t !== undefined && Date.now() - t > REVOKED_TTL_MS) {
+    revokedAt.delete(userId);
+    return false;
+  }
   return t !== undefined && t >= sinceMs;
 }
 

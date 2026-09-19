@@ -6,11 +6,11 @@
 
 Две независимые npm-сборки:
 
-- **корень** (`src/`) — SPA на React 18 + TypeScript + Vite + Tailwind CSS 4. Весь UI — на русском.
+- **корень** (`src/`) — SPA на React 18 + TypeScript + Vite + Tailwind CSS 4. Интерфейс полностью доступен на русском и английском.
 - **`server/`** (`server/src/`) — API на Fastify 5 + PostgreSQL + JWT. **Здесь источник истины по правам.**
 
-Данные хранятся в PostgreSQL на сервере; в браузере — только токен сессии
-(`taskira.token`) и выбор оформления (`taskira.theme` / `taskira.bg`).
+Данные хранятся в PostgreSQL на сервере; сессия передаётся защищённой
+`HttpOnly`-cookie, а в `localStorage` остаются только локальные настройки интерфейса.
 Клиент общается с сервером исключительно через `src/api/` + `src/store.tsx`.
 
 ## Запуск
@@ -32,7 +32,7 @@ cd server
 npm install
 cp .env.example .env      # заполнить DATABASE_URL, JWT_SECRET (≥32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
 npm run dev               # tsx watch → миграции → seed админа и проекта → :8080
-npm test                  # vitest — интеграционные тесты прав/контракта (~140, часть — только с LDAP/S3/mail env)
+npm test                  # vitest — интеграционные тесты прав/контракта (часть — только с LDAP/S3/mail env)
 ```
 
 Нужен доступный локально PostgreSQL (`DATABASE_URL`): миграции и seed выполняются
@@ -160,15 +160,16 @@ JWT re-валидируется на сервере: `requireAuth` каждые 
 - **Project** `{key, name, description, departmentId, isShared}` — под отделом.
 - **Department** `{id, name, ldapGroupDn}` — соответствует группе LDAP/AD.
 - **User** `{id, name, jobRole, globalRole: admin | member}` + `ProjectMember {projectId, userId, role: manager | employee | viewer}`.
-- **Issue** `{key: "CORP-N", typeId: task | bug | request, statusId, priorityId: low | medium | high | critical, complexity: simple | medium | hard | null, assigneeId, reporterId, epicId, dueDate, doneAt, archivedAt, labels[], links[], comments[], activity[]}`.
+- **Issue** `{key: "CORP-N", typeId: task | bug | request, statusId, priorityId: low | medium | high | critical, complexity: simple | medium | hard | null, assigneeIds[], reporterId, epicId, sprintId, dueDate, doneAt, archivedAt, labels[], checklist[], links[], comments[], activity[]}`.
 - **IssueLink** `{issueId, linkedIssueId, type: relates | blocks}`.
 - **Направление** — не отдельная сущность: обычная задача, на которую ссылаются
   другие через `epicId`; несёт `color`, `tStart`/`tSpan` для таймлайна.
 - **Workflow** `{statuses: [{id, sid, name, category}], transitions: [{from, to}]}`.
 
 Типы `story`/`epic` слиты в `task` (миграция 002); приоритетов было 5, стало 4
-(миграция 013); спринты удалены целиком (миграция 012). Числовая «Оценка (очки)»
-(`points`) заменена на «Сложность» — три значения без Scrum-сленга (миграция 018).
+(миграция 013); спринты после удаления миграцией 012 возвращены как опциональный
+модуль миграцией 023. Числовая «Оценка (очки)» (`points`) заменена на
+«Сложность» — три значения без Scrum-сленга (миграция 018).
 
 ## Оформление
 

@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { IcDownload, IcReport, IcSearch } from "../icons";
 import { Empty } from "../ui";
+import { useT } from "../i18n";
 
 /** Готовые периоды — закрывают почти все реальные запросы «что сделали за…». */
 type PresetId = "month" | "quarter" | "year" | "custom";
@@ -17,33 +18,14 @@ type PresetId = "month" | "quarter" | "year" | "custom";
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const daysAgo = (n: number) => iso(new Date(Date.now() - n * 86_400_000));
 
-const PRESETS: { id: PresetId; label: string; from: () => string }[] = [
-  { id: "month", label: "30 дней", from: () => daysAgo(30) },
-  { id: "quarter", label: "Квартал", from: () => daysAgo(90) },
-  { id: "year", label: "Год", from: () => daysAgo(365) },
+const PRESETS: { id: PresetId; labelKey: "reports.preset.month" | "reports.preset.quarter" | "reports.preset.year"; from: () => string }[] = [
+  { id: "month", labelKey: "reports.preset.month", from: () => daysAgo(30) },
+  { id: "quarter", labelKey: "reports.preset.quarter", from: () => daysAgo(90) },
+  { id: "year", labelKey: "reports.preset.year", from: () => daysAgo(365) },
 ];
 
-const GROUPS: { id: ReportGroup; label: string }[] = [
-  { id: "project", label: "По проектам" },
-  { id: "assignee", label: "По исполнителям" },
-  { id: "type", label: "По типам" },
-  { id: "priority", label: "По приоритетам" },
-];
-
-const SCOPES: { id: ReportScope; label: string }[] = [
-  { id: "closed", label: "закрытые за период" },
-  { id: "created", label: "созданные за период" },
-  { id: "open", label: "открытые сейчас" },
-];
-
-const plural = (n: number, one: string, few: string, many: string): string => {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m100 >= 11 && m100 <= 14) return many;
-  if (m10 === 1) return one;
-  if (m10 >= 2 && m10 <= 4) return few;
-  return many;
-};
+const GROUPS: ReportGroup[] = ["project", "assignee", "type", "priority"];
+const SCOPES: ReportScope[] = ["closed", "created", "open"];
 
 /** Крупная цифра сводки. Четыре таких плитки — это и есть суть экрана,
  *  поэтому здесь заливка уместна; ниже по странице её уже нет. */
@@ -61,14 +43,15 @@ function Tile({ n, label, hint, tone }: { n: string; label: string; hint?: strin
 /** Недельный тренд закрытий. Своя мини-диаграмма, без библиотеки: данных мало,
  *  а тянуть чарт-пакет ради десятка столбиков — лишний вес в бандле. */
 function Trend({ points }: { points: { week: string; closed: number }[] }) {
+  const { t } = useT();
   if (points.length < 2) return null;
   const max = Math.max(...points.map((p) => p.closed), 1);
   return (
     <section className="mt-5">
-      <h2 className="text-[12px] font-bold uppercase tracking-wider text-sub">Закрытия по неделям</h2>
+      <h2 className="text-[12px] font-bold uppercase tracking-wider text-sub">{t("reports.trend.title")}</h2>
       <div className="mt-2.5 flex h-24 items-end gap-1 overflow-x-auto rounded-lg border border-line bg-panel p-3">
         {points.map((p) => (
-          <div key={p.week} className="flex min-w-[18px] flex-1 flex-col items-center gap-1" title={`Неделя с ${p.week}: ${p.closed}`}>
+          <div key={p.week} className="flex min-w-[18px] flex-1 flex-col items-center gap-1" title={t("reports.trend.week", { week: p.week, count: p.closed })}>
             <span className="text-[9.5px] font-semibold tabular-nums text-faint">{p.closed}</span>
             <div
               className="w-full rounded-t bg-accent transition-all"
@@ -78,13 +61,14 @@ function Trend({ points }: { points: { week: string; closed: number }[] }) {
         ))}
       </div>
       <p className="mt-1 text-[10.5px] text-faint">
-        Каждый столбик — неделя; подпись — сколько задач закрыто. Максимум за период: {max}.
+        {t("reports.trend.hint", { max })}
       </p>
     </section>
   );
 }
 
 export default function ReportsView() {
+  const { t, tn, lang } = useT();
   const { data, toast } = useStore();
 
   const [preset, setPreset] = useState<PresetId>("month");
@@ -113,12 +97,12 @@ export default function ReportsView() {
     try {
       setReport(await reportsApi.summary({ from, to, groupBy, projectId: projectId || undefined }));
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Не удалось загрузить отчёт");
+      setError(e instanceof ApiError && lang === "ru" ? e.message : t("reports.loadFailed"));
       setReport(null);
     } finally {
       setLoading(false);
     }
-  }, [from, to, groupBy, projectId]);
+  }, [from, to, groupBy, projectId, t, lang]);
 
   useEffect(() => {
     void load();
@@ -128,9 +112,9 @@ export default function ReportsView() {
     setExporting(true);
     try {
       await downloadReportCsv({ from, to, scope, projectId: projectId || undefined });
-      toast("success", "Выгрузка скачана");
+      toast("success", t("reports.exported"));
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : "Не удалось сформировать выгрузку");
+      toast("error", e instanceof ApiError && lang === "ru" ? e.message : t("reports.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -148,11 +132,11 @@ export default function ReportsView() {
       <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="mr-2">
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Отчёты</h1>
+            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("reports.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
               {report
-                ? `${report.projectCount} ${plural(report.projectCount, "проект", "проекта", "проектов")} в отчёте`
-                : "Загрузка…"}
+                ? t("reports.projectCount", { count: report.projectCount, noun: tn(report.projectCount, "noun.project.one", "noun.project.few", "noun.project.many").toLowerCase() })
+                : t("common.loading")}
             </p>
           </div>
 
@@ -165,11 +149,11 @@ export default function ReportsView() {
                   preset === p.id ? "border-accent bg-accentsoft text-accent" : "border-line bg-panel text-sub hover:border-line2"
                 }`}
               >
-                {p.label}
+                {t(p.labelKey)}
               </button>
             ))}
             <label className="flex items-center gap-1.5 text-[11.5px] text-faint">
-              с
+              {t("reports.from")}
               <input
                 type="date"
                 id="report-from"
@@ -183,7 +167,7 @@ export default function ReportsView() {
               />
             </label>
             <label className="flex items-center gap-1.5 text-[11.5px] text-faint">
-              по
+              {t("reports.to")}
               <input
                 type="date"
                 id="report-to"
@@ -204,10 +188,10 @@ export default function ReportsView() {
             id="report-project"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            aria-label="Проект"
+            aria-label={t("reports.project")}
             className={field}
           >
-            <option value="">Все доступные проекты</option>
+            <option value="">{t("reports.allProjects")}</option>
             {data.projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.key} · {p.name}
@@ -219,12 +203,12 @@ export default function ReportsView() {
             id="report-group"
             value={groupBy}
             onChange={(e) => setGroupBy(e.target.value as ReportGroup)}
-            aria-label="Разбивка"
+            aria-label={t("reports.grouping")}
             className={field}
           >
             {GROUPS.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.label}
+              <option key={g} value={g}>
+                {t(`reports.group.${g}`)}
               </option>
             ))}
           </select>
@@ -234,12 +218,12 @@ export default function ReportsView() {
               id="report-scope"
               value={scope}
               onChange={(e) => setScope(e.target.value as ReportScope)}
-              aria-label="Что выгружать"
+              aria-label={t("reports.exportScope")}
               className={field}
             >
               {SCOPES.map((sc) => (
-                <option key={sc.id} value={sc.id}>
-                  Выгрузить: {sc.label}
+                <option key={sc} value={sc}>
+                  {t("reports.exportOption", { scope: t(`reports.scope.${sc}`) })}
                 </option>
               ))}
             </select>
@@ -249,7 +233,7 @@ export default function ReportsView() {
               className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               <IcDownload size={13} />
-              {exporting ? "Готовим…" : "Скачать CSV"}
+              {t(exporting ? "reports.preparing" : "reports.downloadCsv")}
             </button>
           </span>
         </div>
@@ -260,7 +244,7 @@ export default function ReportsView() {
           <div className="mb-4 rounded-lg border border-danger/40 bg-dangersoft px-4 py-3 text-[13px] text-danger">
             {error}
             <button onClick={() => void load()} className="ml-2 font-bold underline">
-              Повторить
+              {t("reports.retry")}
             </button>
           </div>
         )}
@@ -276,26 +260,26 @@ export default function ReportsView() {
         {report && totals && (
           <>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <Tile n={String(totals.closed)} label="Закрыто за период" tone="ok" />
-              <Tile n={String(totals.created)} label="Создано за период" />
-              <Tile n={String(totals.open)} label="Открыто сейчас" />
+              <Tile n={String(totals.closed)} label={t("reports.closedPeriod")} tone="ok" />
+              <Tile n={String(totals.created)} label={t("reports.createdPeriod")} />
+              <Tile n={String(totals.open)} label={t("reports.openNow")} />
               <Tile
                 n={String(totals.overdue)}
-                label="Просрочено"
+                label={t("reports.overdue")}
                 tone={totals.overdue > 0 ? "warn" : undefined}
               />
             </div>
 
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <Tile
-                n={totals.avgLeadDays === null ? "—" : `${totals.avgLeadDays} дн`}
-                label="Среднее время в работе"
-                hint="от создания до закрытия"
+                n={totals.avgLeadDays === null ? "—" : t("reports.days", { count: totals.avgLeadDays })}
+                label={t("reports.avgLead")}
+                hint={t("reports.avgLeadHint")}
               />
               <Tile
-                n={totals.medianLeadDays === null ? "—" : `${totals.medianLeadDays} дн`}
-                label="Медиана"
-                hint="устойчивее среднего к единичным «хвостам»"
+                n={totals.medianLeadDays === null ? "—" : t("reports.days", { count: totals.medianLeadDays })}
+                label={t("reports.median")}
+                hint={t("reports.medianHint")}
               />
             </div>
 
@@ -303,15 +287,15 @@ export default function ReportsView() {
 
             <section className="mt-5">
               <h2 className="text-[12px] font-bold uppercase tracking-wider text-sub">
-                {GROUPS.find((g) => g.id === groupBy)?.label}
+                {t(`reports.group.${groupBy}`)}
               </h2>
 
               {report.rows.length === 0 ? (
                 <div className="mt-2.5">
                   <Empty
                     icon={<IcReport size={22} />}
-                    title="За этот период данных нет"
-                    sub="Измените период или выберите другой проект."
+                    title={t("reports.emptyTitle")}
+                    sub={t("reports.emptySub")}
                   />
                 </div>
               ) : (
@@ -319,11 +303,11 @@ export default function ReportsView() {
                   <table className="w-full min-w-[560px] text-[13px]">
                     <thead>
                       <tr className="border-b border-line text-[11px] uppercase tracking-wide text-faint">
-                        <th className="px-3 py-2 text-left font-semibold">Название</th>
-                        <th className="px-3 py-2 text-right font-semibold">Закрыто</th>
-                        <th className="px-3 py-2 text-right font-semibold">Создано</th>
-                        <th className="px-3 py-2 text-right font-semibold">Открыто</th>
-                        <th className="px-3 py-2 text-right font-semibold">Ср. дней</th>
+                        <th className="px-3 py-2 text-left font-semibold">{t("reports.table.name")}</th>
+                        <th className="px-3 py-2 text-right font-semibold">{t("reports.table.closed")}</th>
+                        <th className="px-3 py-2 text-right font-semibold">{t("reports.table.created")}</th>
+                        <th className="px-3 py-2 text-right font-semibold">{t("reports.table.open")}</th>
+                        <th className="px-3 py-2 text-right font-semibold">{t("reports.table.avgDays")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -356,8 +340,7 @@ export default function ReportsView() {
             <p className="mt-4 flex items-start gap-1.5 text-[11px] leading-relaxed text-faint">
               <IcSearch size={12} className="mt-0.5 shrink-0" />
               <span>
-                В отчёт входят только проекты, доступные вам в интерфейсе. Архивные задачи из истории
-                не выпадают — архив убирает их с доски, но не из отчётов.
+                {t("reports.footnote")}
               </span>
             </p>
           </>

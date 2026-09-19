@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Logo } from "../icons";
-import { ApiError, authApi, setToken } from "../api";
+import { ApiError, authApi } from "../api";
 import { useT } from "../i18n";
 
 type Props = {
@@ -8,7 +8,7 @@ type Props = {
 };
 
 export default function LoginForm({ onSuccess }: Props) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -19,14 +19,12 @@ export default function LoginForm({ onSuccess }: Props) {
     setError(null);
     setBusy(true);
     try {
-      const res = await authApi.login(username.trim(), password);
-      setToken(res.token);
+      await authApi.login(username.trim(), password);
       onSuccess();
     } catch (err) {
-      // Сообщение сервера (err.message) приходит только по-русски — сервер
-      // пока не локализован (см. CLAUDE.md, раздел i18n). Фолбэк на "не удалось
-      // войти" переведён, сама причина отказа (неверный пароль и т.п.) — нет.
-      const msg = err instanceof ApiError ? err.message : t("login.failed");
+      // Причина от сервера пока русская: показываем её только в русской
+      // локали, а в английской не допускаем смешивания языков.
+      const msg = err instanceof ApiError && lang === "ru" ? err.message : t("login.failed");
       setError(msg);
     } finally {
       setBusy(false);

@@ -12,6 +12,10 @@ export interface LdapPrincipal {
   login: string;
   name: string;
   email: string | null;
+  /** Должность (AD title) — синкается в users.job_role. */
+  title: string | null;
+  /** Телефон (AD telephoneNumber) — синкается в users.phone. */
+  phone: string | null;
   /** DN всех групп пользователя (для маппинга на департаменты и admin-группу). */
   groupDns: string[];
 }
@@ -80,7 +84,7 @@ export async function ldapAuthenticate(username: string, password: string): Prom
   if (!password) return null; // пустой пароль → anonymous bind, не пускаем
 
   const client = mkClient(c);
-  const attrs = [c.attrLogin, c.attrName, c.attrMail, "memberOf"];
+  const attrs = [c.attrLogin, c.attrName, c.attrMail, c.attrTitle, c.attrPhone, "memberOf"];
   try {
     if (c.startTls) await client.startTLS(tlsOptions(c));
 
@@ -143,6 +147,8 @@ export async function ldapAuthenticate(username: string, password: string): Prom
       login: firstStr(entry[c.attrLogin]) ?? username,
       name: firstStr(entry[c.attrName]) ?? username,
       email: firstStr(entry[c.attrMail]),
+      title: firstStr(entry[c.attrTitle]),
+      phone: firstStr(entry[c.attrPhone]),
       groupDns,
     };
   } catch (e) {

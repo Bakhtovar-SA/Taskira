@@ -14,6 +14,7 @@ interface Props {
   children: ReactNode;
   /** Меняется при смене раздела — сбрасывает состояние ошибки. */
   resetKey?: string;
+  copy: { title: string; body: string; retry: string; reload: string };
 }
 
 interface State {
@@ -44,10 +45,9 @@ export default class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="max-w-[460px] rounded-xl border border-line bg-panel p-6 text-center">
-          <h2 className="font-disp text-[17px] font-bold tracking-tight text-ink">Раздел не открылся</h2>
+          <h2 className="font-disp text-[17px] font-bold tracking-tight text-ink">{this.props.copy.title}</h2>
           <p className="mt-2 text-[13px] leading-relaxed text-sub">
-            Что-то пошло не так при отрисовке этого экрана. Остальные разделы работают — можно
-            переключиться на них в меню слева.
+            {this.props.copy.body}
           </p>
           <p className="mt-3 break-words rounded-md bg-canvas px-3 py-2 text-left font-mono text-[11px] text-faint">
             {error.message || String(error)}
@@ -57,13 +57,13 @@ export default class ErrorBoundary extends Component<Props, State> {
               onClick={() => this.setState({ error: null })}
               className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90"
             >
-              Попробовать снова
+              {this.props.copy.retry}
             </button>
             <button
               onClick={() => location.reload()}
               className="rounded-md border border-line px-3 py-1.5 text-[12.5px] font-semibold text-sub transition-colors hover:border-line2 hover:text-ink"
             >
-              Перезагрузить
+              {this.props.copy.reload}
             </button>
           </div>
         </div>

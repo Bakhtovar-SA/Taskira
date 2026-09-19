@@ -1,4 +1,5 @@
 import type { IssueTypeId, PriorityId } from "./types";
+import { useT } from "./i18n";
 
 type P = { size?: number; className?: string };
 
@@ -29,9 +30,10 @@ export const Logo = ({ size = 26 }: P) => (
 );
 
 export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId | string; size?: number }) => {
+  const { t } = useT();
   if (type === "bug")
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Баг">
+      <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t("issueType.bug")}>
         <circle cx="8" cy="8" r="7.2" fill="#D23A2E" />
         <ellipse cx="8" cy="8.8" rx="2.5" ry="3.1" fill="#fff" />
         <circle cx="8" cy="4.9" r="1.4" fill="#fff" />
@@ -40,7 +42,7 @@ export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId | string; size
     );
   if (type === "request")
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Запрос">
+      <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t("issueType.request")}>
         <rect x="1" y="1" width="14" height="14" rx="3" fill="#7A5CC6" />
         <path d="M5 6.5h6M5 9.5h4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
         <circle cx="11" cy="11" r="1.4" fill="#fff" />
@@ -48,7 +50,7 @@ export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId | string; size
     );
   /* task (и legacy story/epic → как задача) */
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Задача">
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t("issueType.task")}>
       <rect x="1" y="1" width="14" height="14" rx="3" fill="#3D7FE0" />
       <path d="M4.6 8.3l2.3 2.3 4.5-4.8" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -66,17 +68,18 @@ export const PRIORITY_COLOR: Record<PriorityId, string> = {
 };
 
 export const PriorityIcon = ({ p, size = 15 }: { p: PriorityId; size?: number }) => {
+  const { t } = useT();
   const c = PRIORITY_COLOR[p];
   if (p === "medium")
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Средний приоритет">
+      <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t(`priority.${p}`)}>
         <rect x="2.5" y="5" width="11" height="2.4" rx="1.2" fill={c} />
         <rect x="2.5" y="9" width="11" height="2.4" rx="1.2" fill={c} />
       </svg>
     );
   const down = p === "low";
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Приоритет" style={{ transform: down ? "rotate(180deg)" : undefined }}>
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t(`priority.${p}`)} style={{ transform: down ? "rotate(180deg)" : undefined }}>
       {p === "critical" ? (
         // двойная стрелка вверх — «Критичный»
         <path d="M8 1.4l5.2 5.4h-2.8v3.2H5.6V6.8H2.8L8 1.4zM4.4 12h7.2v2.4H4.4z" fill={c} />
@@ -115,6 +118,15 @@ export const IcTrash = (p: P) => (
 );
 export const IcPencil = (p: P) => (
   <S {...p}><path d="M11.3 2.9l1.8 1.8L5.5 12.3l-2.5.7.7-2.5 7.6-7.6z" /></S>
+);
+export const IcCamera = (p: P) => (
+  <S {...p}><path d="M2.5 5.8h2l1-1.6h5l1 1.6h2v7.7h-11z" /><circle cx="8" cy="9.6" r="2.4" /></S>
+);
+export const IcPhone = (p: P) => (
+  <S {...p}><path d="M3.6 2.6l1.9-.3 1 2.6-1.1 1.1c.4 1.1 1.6 2.3 2.7 2.7l1.1-1.1 2.6 1 -.3 1.9c-.2.9-1 1.5-1.9 1.4-3.5-.4-6.7-3.6-7.1-7.1-.1-.9.5-1.7 1.4-1.9z" /></S>
+);
+export const IcBriefcase = (p: P) => (
+  <S {...p}><rect x="2" y="5.2" width="12" height="8" rx="1.4" /><path d="M5.5 5.2V4a1.4 1.4 0 011.4-1.4h2.2A1.4 1.4 0 0110.5 4v1.2M2 9h12" /></S>
 );
 export const IcLink = (p: P) => (
   <S {...p}><path d="M6.5 9.5l3-3" /><path d="M7.5 4.8L9 3.3a2.5 2.5 0 013.5 3.5L11 8.3M8.5 11.2L7 12.7a2.5 2.5 0 01-3.5-3.5L5 7.7" /></S>

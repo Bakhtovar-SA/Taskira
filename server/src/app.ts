@@ -24,6 +24,7 @@ import { issueTemplatesRoutes } from "./routes/issueTemplates.js";
 import { customFieldsRoutes } from "./routes/customFields.js";
 import { sprintsRoutes } from "./routes/sprints.js";
 import { userRoutes } from "./routes/users.js";
+import { avatarRoutes } from "./routes/avatar.js";
 import { ldapRoutes } from "./routes/ldap.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { reportRoutes } from "./routes/reports.js";
@@ -31,6 +32,7 @@ import { wsRoutes } from "./routes/ws.js";
 import { q } from "./db.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
+import { requestToken } from "./sessionCookie.js";
 
 export function buildApp(): FastifyInstance {
   const cfg = loadConfig();
@@ -60,6 +62,10 @@ export function buildApp(): FastifyInstance {
     referrerPolicy: { policy: "no-referrer" },
   });
 
+  // JWT регистрируем до rate-limit: keyGenerator ниже проверяет Bearer-токен
+  // сам, потому что глобальный limiter выполняется раньше route preHandler.
+  app.register(jwt, { secret: cfg.jwtSecret, verify: { extractToken: requestToken } });
+
   // Глобальный лимит запросов (аудит SEC-03): раньше он был только на логине,
   // и один аутентифицированный пользователь мог безнаказанно долбить любую ручку.
   // Ключ — id пользователя (а не IP): за корпоративным NAT у всех один адрес.
@@ -69,8 +75,17 @@ export function buildApp(): FastifyInstance {
       max: cfg.rateLimit.max,
       timeWindow: cfg.rateLimit.windowMs,
       keyGenerator: (req) => {
-        const sub = (req.user as { sub?: string } | undefined)?.sub;
-        return sub ?? req.ip;
+        const token = requestToken(req);
+        if (token) {
+          try {
+            const payload = app.jwt.verify<{ sub?: string }>(token);
+            if (payload.sub) return `user:${payload.sub}`;
+          } catch {
+            // Невалидные/просроченные токены делят IP-bucket; requireAuth ниже
+            // всё равно вернёт 401 и не доверяет этому результату.
+          }
+        }
+        return `ip:${req.ip}`;
       },
       errorResponseBuilder: () => ({
         error: { code: "RATE_LIMITED", reason: "Слишком много запросов — подождите немного" },
@@ -84,9 +99,8 @@ export function buildApp(): FastifyInstance {
     // preflight для PATCH/PUT/DELETE тогда падает («Нет связи с сервером» на клиенте).
     methods: ["GET", "HEAD", "POST", "PATCH", "PUT", "DELETE"],
     allowedHeaders: ["Authorization", "Content-Type"],
-    credentials: false,
+    credentials: true,
   });
-  app.register(jwt, { secret: cfg.jwtSecret });
   app.register(websocket); // realtime-маршруты — Этап 3c
   // Вложения к задачам: потоковый multipart, один файл за запрос, лимит из конфига
   // (FILES_MIGRATION.md D3). throwFileSizeLimit — стрим падает ошибкой при превышении.
@@ -132,6 +146,7 @@ export function buildApp(): FastifyInstance {
     async (api) => {
       await api.register(authRoutes, { prefix: "/auth" });
       await api.register(userRoutes); // /users, /admin/users (global admin) + /users/pickable
+      await api.register(avatarRoutes); // /me/avatar (самообслуживание) + /users/:id/avatar (отдача)
       await api.register(ldapRoutes, { prefix: "/ldap" }); // /ldap/ping (global admin)
       await api.register(notificationRoutes); // /notifications* (project-less, requireAuth)
       await api.register(reportRoutes); // /reports/* (project-less, scope = видимые проекты)

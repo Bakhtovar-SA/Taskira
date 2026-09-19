@@ -134,15 +134,20 @@ export const canEditIssue = (user: User, issue: Issue): boolean => {
 
 export function can(user: User, perm: PermId, issue?: Issue): boolean {
   if (!roleHas(user.accessRole, perm)) return false;
-  if (perm === "edit" && issue) return canEditIssue(user, issue);
+  if ((perm === "edit" || perm === "transition") && issue) return canEditIssue(user, issue);
   return true;
 }
 
-export function denialReason(user: User, perm: PermId, issue?: Issue): string {
-  const role = roleMeta(user.accessRole).name;
-  if (perm === "edit" && issue && roleHas(user.accessRole, "edit") && !canEditIssue(user, issue))
-    return `Роль «${role}» может редактировать только задачи, где вы исполнитель или автор`;
-  return `Недоступно для роли «${role}» — требуется разрешение «${permMeta(perm).name}»`;
+export function denialReason(user: User, perm: PermId, issue?: Issue, lang: "ru" | "en" = "ru"): string {
+  const role = lang === "ru" ? roleMeta(user.accessRole).name : ({ admin: "Administrator", manager: "Project manager", employee: "Employee", viewer: "Viewer" } as const)[user.accessRole];
+  if ((perm === "edit" || perm === "transition") && issue && roleHas(user.accessRole, perm) && !canEditIssue(user, issue))
+    return lang === "ru"
+      ? `Роль «${role}» может изменять и перемещать только задачи, где вы исполнитель или автор`
+      : `The “${role}” role can edit and move only issues where you are the assignee or reporter`;
+  const permission = lang === "ru" ? permMeta(perm).name : perm;
+  return lang === "ru"
+    ? `Недоступно для роли «${role}» — требуется разрешение «${permission}»`
+    : `Unavailable to the “${role}” role — the “${permission}” permission is required`;
 }
 
 export interface CapabilitySummary {

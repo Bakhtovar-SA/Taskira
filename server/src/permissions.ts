@@ -125,7 +125,7 @@ export function roleCan(
 ): boolean {
   if (!role) return false;
   if (!roleHas(role, perm)) return false;
-  if (perm === "edit" && ctx) {
+  if ((perm === "edit" || perm === "transition") && ctx) {
     if (role === "admin" || role === "manager") return true;
     return isOwnIssue(ctx.userId, ctx.issue); // employee — только свои
   }
@@ -140,18 +140,18 @@ export function can(user: ServerUser, membership: Membership, perm: PermId, issu
 /** Человекочитаемая причина отказа по эффективной роли — уходит клиенту в теле 403. */
 export function roleDenialReason(role: AccessRole | null, perm: PermId, ownIssueViolation = false): string {
   if (!role) return "Нет доступа к проекту — обратитесь к администратору";
-  if (perm === "edit" && ownIssueViolation)
-    return `Роль «${ROLE_NAMES[role]}» может редактировать только задачи, где вы исполнитель или автор`;
+  if ((perm === "edit" || perm === "transition") && ownIssueViolation)
+    return `Роль «${ROLE_NAMES[role]}» может изменять и перемещать только задачи, где вы исполнитель или автор`;
   return `Недоступно для роли «${ROLE_NAMES[role]}» — требуется разрешение «${PERM_NAMES[perm]}»`;
 }
 
 export function denialReason(user: ServerUser, membership: Membership, perm: PermId, issue?: IssueRef): string {
   const role = resolveRole(user, membership);
   const ownIssueViolation =
-    perm === "edit" &&
+    (perm === "edit" || perm === "transition") &&
     !!issue &&
     !!role &&
-    roleHas(role, "edit") &&
-    !roleCan(role, "edit", { userId: user.id, issue });
+    roleHas(role, perm) &&
+    !roleCan(role, perm, { userId: user.id, issue });
   return roleDenialReason(role, perm, ownIssueViolation);
 }

@@ -40,6 +40,10 @@ export const LIMITS = {
   project: { key: { min: 2, max: 10 }, name: { min: 1, max: 120 }, description: { max: 2000 } },
   // Вложения (FILES_MIGRATION.md D3). Дефолты; сервер переопределяет из ATTACH_* env.
   attachment: { maxBytes: 25 * 1024 * 1024, maxPerIssue: 50, maxFilename: 200 },
+  // Аватарка пользователя (миграция 027) — тот же Storage, отдельный потолок;
+  // сервер переопределяет из AVATAR_MAX_BYTES env.
+  avatar: { maxBytes: 3 * 1024 * 1024 },
+  phone: { max: 30 },
   // Чек-лист (миграция 019).
   checklistItem: { text: { min: 1, max: 200 } },
   checklistItemsPerIssue: 50,
@@ -109,6 +113,7 @@ export const CreateUserBody = z.object({
   initials: oneLine(4),
   color: z.string().regex(/^#[0-9a-f]{6}$/i),
   jobRole: oneLine(40),
+  phone: oneLine(LIMITS.phone.max).optional(),
   globalRole: z.enum(GLOBAL_ROLES).default("member"),
   isActive: z.boolean().optional(),
 });
@@ -219,6 +224,11 @@ export const IssueCreateBody = z.object({
   complexity: z.enum(COMPLEXITIES).nullable(),
   dueDate: isoDate().nullable().optional(),
   statusId: uuid.optional(),
+  /** Начальный чек-лист создаётся атомарно вместе с задачей. */
+  checklistItems: z
+    .array(oneLine(LIMITS.checklistItem.text.max, LIMITS.checklistItem.text.min, "Текст пункта не может быть пустым"))
+    .max(LIMITS.checklistItemsPerIssue)
+    .default([]),
 });
 
 export const IssuePatchBody = z
@@ -358,13 +368,19 @@ export const NOTIFY_TYPES = [
 export type NotifyType = (typeof NOTIFY_TYPES)[number];
 
 /** users.notify_prefs (D6). Хранится как jsonb; поля опциональны, дефолты — в коде
- *  (email 'instant' если у юзера есть email, иначе 'off'; selfWatch true). */
+ *  (email 'instant' если у юзера есть email, иначе 'off'; selfWatch true).
+ *  'off' остаётся допустимым значением ЭТОГО типа (чтение) — это внутренний
+ *  сентинел "у пользователя нет email" (notify.ts/notifier.ts), а не то, что
+ *  пользователь теперь может выбрать сам — см. NotifyPrefsBody ниже (миграция
+ *  028: почтовые уведомления больше нельзя выключить вручную). */
 export type NotifyPrefs = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
 
-/** PATCH /api/notifications/prefs — частичное обновление (мержится в jsonb). */
+/** PATCH /api/notifications/prefs — частичное обновление (мержится в jsonb).
+ *  'off' сознательно исключён из ЭТОЙ схемы (миграция 028) — пользователь
+ *  выбирает только режим доставки, выключить почту целиком больше нельзя. */
 export const NotifyPrefsBody = z
   .object({
-    email: z.enum(["instant", "daily", "off"]),
+    email: z.enum(["instant", "daily"]),
     selfWatch: z.boolean(),
   })
   .partial()

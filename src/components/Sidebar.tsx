@@ -132,7 +132,7 @@ export default function Sidebar() {
       <div className="px-3 pb-4 pt-3">
         <div className="rounded-lg border border-[#24385a] bg-sidebar2/70 p-2.5">
           <div className="flex items-center gap-2.5">
-            <Avatar user={me} size={30} />
+            <Avatar user={me} size={30} interactive />
             <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-[12.5px] font-semibold text-white">{me?.name}</p>
               <p className="text-[10.5px] text-[#7b8fb2]">{me?.role}</p>

@@ -56,7 +56,7 @@ const Card = memo(function Card({
   draggable: boolean;
   moveTargets: Status[];
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { openIssue } = useStore();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -73,14 +73,14 @@ const Card = memo(function Card({
     const onOtherOpen = (e: Event) => {
       if ((e as CustomEvent<string>).detail !== menuId) setMenu(false);
     };
-    const onOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false);
+    const onOutside = (e: PointerEvent) => {
+      if (menuRef.current && !e.composedPath().includes(menuRef.current)) setMenu(false);
     };
     window.addEventListener(DROPDOWN_OPEN_EVT, onOtherOpen);
-    document.addEventListener("mousedown", onOutside);
+    document.addEventListener("pointerdown", onOutside, true);
     return () => {
       window.removeEventListener(DROPDOWN_OPEN_EVT, onOtherOpen);
-      document.removeEventListener("mousedown", onOutside);
+      document.removeEventListener("pointerdown", onOutside, true);
     };
   }, [menu, menuId]);
 
@@ -171,10 +171,10 @@ const Card = memo(function Card({
           {issue.dueDate && (
             <span className={`flex items-center gap-0.5 text-[10px] font-semibold ${overdue ? "text-danger" : "text-faint"}`}>
               <IcCalendar size={11} />
-              {fmtDate(issue.dueDate)}
+              {fmtDate(issue.dueDate, lang)}
             </span>
           )}
-          <AvatarStack users={assignees} size={22} />
+          <AvatarStack users={assignees} size={22} interactive />
         </span>
       </div>
 
@@ -562,7 +562,7 @@ export default function Board() {
                         if (id && id !== i.id) moveStatus(id, st.id, i.id);
                       }}
                       onOver={() => setOverCol(st.id)}
-                      draggable={canMove}
+                      draggable={can("transition", i)}
                     />
                   ))}
                   {/* Свёрнутый «хвост» закрытого: данные на месте, в один клик. */}

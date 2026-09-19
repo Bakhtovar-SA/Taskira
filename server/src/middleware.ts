@@ -31,10 +31,11 @@ export { ApiHttpError } from "./errors.js";
 /* -------- типы JWT и расширений запроса -------- */
 export interface JwtPayload {
   sub: string;
-  /** Момент выдачи, мс (см. auth.ts). Нужен для отзыва токенов: стандартного
-   *  iat в целых секундах для этого недостаточно. Может отсутствовать
-   *  у токенов, выданных до миграции 017. */
-  iatMs?: number;
+  /** Монотонная версия сессии из users.session_version (миграция 029). */
+  sessionVersion?: number;
+  /** Стандартные JWT timestamps добавляет @fastify/jwt. */
+  iat?: number;
+  exp?: number;
   /** Глобальная роль (users.global_role). В токене может быть устаревшей —
    *  requireAuth всегда перезаписывает свежим значением из БД. */
   globalRole: GlobalRole;
@@ -112,9 +113,17 @@ export function zparams<T extends ZodType>(schema: T): preValidationHookHandler 
    смена роли админом или деактивация аккаунта действуют без ожидания
    истечения токена (12h). Лёгкий кэш на 30 секунд бережёт БД на внутренней сети. */
 const FRESH_TTL_MS = 30_000;
+const AUTH_CACHE_MAX = 10_000;
+function boundedSet<K, V>(map: Map<K, V>, key: K, value: V): void {
+  if (!map.has(key) && map.size >= AUTH_CACHE_MAX) {
+    const oldest = map.keys().next().value as K | undefined;
+    if (oldest !== undefined) map.delete(oldest);
+  }
+  map.set(key, value);
+}
 const freshUsers = new Map<
   string,
-  { globalRole: GlobalRole; active: boolean; tokensValidFrom: number | null; at: number }
+  { globalRole: GlobalRole; active: boolean; sessionVersion: number; at: number }
 >();
 
 /** Сбрасывает 30-секундный кэш свежести — безопасно вызывать при ЛЮБОЙ записи
@@ -149,35 +158,26 @@ export function revokeUserSessions(userId: string, reason: string): void {
  * токенов — по БД. Бросает unauthorized(), иначе отдаёт актуальную
  * global_role (из БД, не из токена — тот мог устареть).
  */
-export async function assertFreshUser(userId: string, iatMs: number | undefined): Promise<GlobalRole> {
+export async function assertFreshUser(userId: string, sessionVersion: number | undefined): Promise<GlobalRole> {
   let fresh = freshUsers.get(userId);
   if (!fresh || Date.now() - fresh.at > FRESH_TTL_MS) {
-    const row = await one<{ global_role: GlobalRole; is_active: boolean; tokens_valid_from: Date | null }>(
-      `SELECT global_role, is_active, tokens_valid_from FROM users WHERE id = $1`,
+    const row = await one<{ global_role: GlobalRole; is_active: boolean; session_version: string | number }>(
+      `SELECT global_role, is_active, session_version FROM users WHERE id = $1`,
       [userId],
     );
     if (!row) throw unauthorized("Пользователь больше не существует");
     fresh = {
       globalRole: row.global_role,
       active: row.is_active,
-      tokensValidFrom: row.tokens_valid_from ? new Date(row.tokens_valid_from).getTime() : null,
+      sessionVersion: Number(row.session_version),
       at: Date.now(),
     };
-    freshUsers.set(userId, fresh);
+    boundedSet(freshUsers, userId, fresh);
   }
   if (!fresh.active) throw unauthorized("Аккаунт деактивирован администратором");
 
-  // Отзыв токенов (миграция 017): всё, что выдано до tokens_valid_from,
-  // недействительно. Так «Выйти» действительно завершает сессию, а не только
-  // стирает токен в браузере. iat в секундах — сравниваем в них же, с запасом
-  // в секунду на округление при подписи.
-  if (fresh.tokensValidFrom !== null) {
-    // Токен без iatMs выдан до миграции 017 — считаем недействительным:
-    // раз по этому пользователю отзыв вообще случался, безопаснее попросить
-    // войти заново, чем пропустить старый токен.
-    if (iatMs === undefined || iatMs < fresh.tokensValidFrom) {
-      throw unauthorized("Сессия завершена — войдите заново");
-    }
+  if (sessionVersion === undefined || sessionVersion !== fresh.sessionVersion) {
+    throw unauthorized("Сессия завершена — войдите заново");
   }
 
   return fresh.globalRole;
@@ -192,7 +192,7 @@ export const requireAuth: preHandlerAsyncHookHandler = async (req) => {
 
   // Глобальная роль из БД новее токена — перезаписываем для всех последующих проверок.
   // Payload токена (может быть без globalRole у старых токенов) для авторизации не используется.
-  const globalRole = await assertFreshUser(req.user.sub, req.user.iatMs);
+  const globalRole = await assertFreshUser(req.user.sub, req.user.sessionVersion);
   req.user = { ...req.user, globalRole };
 };
 
@@ -221,7 +221,7 @@ async function loadProjectMembership(userId: string, projectId: string): Promise
       [userId, projectId],
     );
     role = row?.role ?? null;
-    membershipCache.set(key, { role, at: Date.now() });
+    boundedSet(membershipCache, key, { role, at: Date.now() });
   }
   return role ? { projectId, role } : null;
 }
@@ -244,7 +244,7 @@ async function isDeptMember(userId: string, departmentId: string): Promise<boole
     [userId, departmentId],
   );
   const member = !!row;
-  deptMemberCache.set(key, { member, at: Date.now() });
+  boundedSet(deptMemberCache, key, { member, at: Date.now() });
   return member;
 }
 
@@ -361,7 +361,10 @@ export function requireIssuePerm(perm: PermId, gate?: (project: ProjectRow) => v
     }
     await audit(u.id, "access.denied", perm, issueRef.id, { path: req.url, method: req.method, projectId });
     const ownViolation =
-      perm === "edit" && !!role && roleHas(role, "edit") && !roleCan(role, "edit", { userId: u.id, issue: issueRef });
+      (perm === "edit" || perm === "transition") &&
+      !!role &&
+      roleHas(role, perm) &&
+      !roleCan(role, perm, { userId: u.id, issue: issueRef });
     throw forbidden(roleDenialReason(role, perm, ownViolation));
   };
 }

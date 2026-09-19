@@ -1,25 +1,29 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { StoreProvider, useStore } from "./store";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import Board from "./components/Board";
-import Backlog from "./components/Backlog";
-import SprintsView from "./components/SprintsView";
-import TimelineView from "./components/TimelineView";
-import ReportsView from "./components/ReportsView";
-import WorkflowView from "./components/WorkflowView";
-import PermissionsView from "./components/PermissionsView";
-import AdminView from "./components/AdminView";
-import DocsView from "./components/DocsView";
-import CollaboratingView from "./components/CollaboratingView";
-import IssueModal from "./components/IssueModal";
-import CreateIssueModal from "./components/CreateIssueModal";
 import LoginForm from "./components/LoginForm";
 import ErrorBoundary from "./components/ErrorBoundary";
-import SoloView from "./components/SoloView";
-import HomeView from "./components/HomeView";
 import { SkeletonColumn, Toasts } from "./ui";
 import type { ViewId } from "./types";
+import { useT } from "./i18n";
+
+// Рабочие разделы и тяжёлые модалки загружаются по требованию: первый экран
+// больше не тянет отчёты, документацию и админку одним монолитным бандлом.
+const Backlog = lazy(() => import("./components/Backlog"));
+const SprintsView = lazy(() => import("./components/SprintsView"));
+const TimelineView = lazy(() => import("./components/TimelineView"));
+const ReportsView = lazy(() => import("./components/ReportsView"));
+const WorkflowView = lazy(() => import("./components/WorkflowView"));
+const PermissionsView = lazy(() => import("./components/PermissionsView"));
+const AdminView = lazy(() => import("./components/AdminView"));
+const DocsView = lazy(() => import("./components/DocsView"));
+const CollaboratingView = lazy(() => import("./components/CollaboratingView"));
+const IssueModal = lazy(() => import("./components/IssueModal"));
+const CreateIssueModal = lazy(() => import("./components/CreateIssueModal"));
+const SoloView = lazy(() => import("./components/SoloView"));
+const HomeView = lazy(() => import("./components/HomeView"));
 
 /** Скелет оболочки на время bootstrap — вместо голого «Загрузка…» (round4 §1). */
 function BootSkeleton() {
@@ -52,10 +56,11 @@ function BootSkeleton() {
 }
 
 function Shell() {
+  const { t } = useT();
   const { ui, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout } = useStore();
 
-  /* При старте: есть токен → bootstrap; нет → unauthenticated (форма входа).
-     Раньше при отсутствии токена bootStatus оставался idle → вечная «Загрузка». */
+  /* При старте всегда проверяем серверную HttpOnly-сессию. Если её нет или она
+     отозвана, bootstrap переводит приложение на форму входа. */
   useEffect(() => {
     if (bootStatus === "idle") void bootstrap();
   }, [bootStatus, bootstrap]);
@@ -81,7 +86,7 @@ function Shell() {
       if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") {
         e.preventDefault();
         if (can("create")) setCreateOpen(true);
-        else toast("error", "Ваша роль не позволяет создавать задачи");
+        else toast("error", t("topbar.createDeniedTip"));
         return;
       }
       const map: Record<string, ViewId> = {
@@ -99,7 +104,7 @@ function Shell() {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen]);
+  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, t]);
 
   if (bootStatus === "loading" || bootStatus === "idle") {
     return <BootSkeleton />;
@@ -116,10 +121,10 @@ function Shell() {
   }
 
   // Приглашённый без единого видимого проекта — одиночный режим (COLLAB_MIGRATION.md Фаза 6).
-  if (bootStatus === "solo") return <SoloView onLogout={logout} />;
+  if (bootStatus === "solo") return <Suspense fallback={<BootSkeleton />}><SoloView onLogout={logout} /></Suspense>;
 
   // ≥ 2 доступных проектов, до выбора проекта — главный экран (UI_RESTRUCTURE.md D4).
-  if (bootStatus === "home") return <HomeView onLogout={logout} />;
+  if (bootStatus === "home") return <Suspense fallback={<BootSkeleton />}><HomeView onLogout={logout} /></Suspense>;
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -129,8 +134,13 @@ function Shell() {
         <main className="min-h-0 flex-1 bg-canvas">
           {/* Граница вокруг контента, а не всего приложения: сайдбар и шапка
               переживают падение раздела, и из него можно уйти. */}
-          <ErrorBoundary resetKey={ui.view}>
-          <div key={ui.view} className="anim-fadeup h-full">
+          <ErrorBoundary resetKey={ui.view} copy={{
+            title: t("errorBoundary.title"),
+            body: t("errorBoundary.body"),
+            retry: t("errorBoundary.retry"),
+            reload: t("errorBoundary.reload"),
+          }}>
+          <Suspense fallback={<BootSkeleton />}><div key={ui.view} className="anim-fadeup h-full">
             {ui.view === "board" && <Board />}
             {ui.view === "backlog" && <Backlog />}
             {ui.view === "sprints" && <SprintsView />}
@@ -141,13 +151,15 @@ function Shell() {
             {ui.view === "admin" && <AdminView />}
             {ui.view === "docs" && <DocsView />}
             {ui.view === "collaborating" && <CollaboratingView />}
-          </div>
+          </div></Suspense>
           </ErrorBoundary>
         </main>
       </div>
 
-      {ui.selectedIssueId && <IssueModal />}
-      {ui.createOpen && <CreateIssueModal />}
+      <Suspense fallback={null}>
+        {ui.selectedIssueId && <IssueModal />}
+        {ui.createOpen && <CreateIssueModal />}
+      </Suspense>
       <Toasts />
     </div>
   );

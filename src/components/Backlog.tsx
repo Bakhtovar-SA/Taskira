@@ -8,13 +8,6 @@ import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
 
 type SortKey = "priority" | "due" | "updated" | "key";
-const SORT_LABEL: Record<SortKey, string> = {
-  priority: "Приоритет",
-  due: "Срок",
-  updated: "Обновление",
-  key: "Ключ",
-};
-
 const keyNum = (key: string) => {
   const n = parseInt(key.slice(key.lastIndexOf("-") + 1), 10);
   return Number.isFinite(n) ? n : 0;
@@ -28,6 +21,7 @@ const selectCls =
   "h-8 rounded-md border border-line bg-panel px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 function Row({ issue }: { issue: Issue }) {
+  const { t, lang } = useT();
   const { idx, openIssue, deleteIssue, can } = useStore();
   // Ассоциированные сущности ищем по индексам из контекста, а не линейным
   // проходом по массивам в каждой строке списка (аудит PERF-02).
@@ -58,7 +52,7 @@ function Row({ issue }: { issue: Issue }) {
         ))}
       </span>
       {issue.dueDate && (
-        <span className="hidden shrink-0 font-mono text-[10.5px] text-faint md:inline">{fmtDate(issue.dueDate)}</span>
+        <span className="hidden shrink-0 font-mono text-[10.5px] text-faint md:inline">{fmtDate(issue.dueDate, lang)}</span>
       )}
       {status && (
         <span className="hidden shrink-0 sm:inline">
@@ -66,7 +60,7 @@ function Row({ issue }: { issue: Issue }) {
         </span>
       )}
       <PriorityIcon p={issue.priorityId} size={14} />
-      <AvatarStack users={assignees} size={22} />
+      <AvatarStack users={assignees} size={22} interactive />
       <div onClick={(e) => e.stopPropagation()}>
         <Dropdown
           align="right"
@@ -74,7 +68,7 @@ function Row({ issue }: { issue: Issue }) {
           button={() => (
             <button
               className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink group-hover:opacity-100"
-              aria-label="Действия"
+              aria-label={t("common.actions")}
             >
               <IcDots size={14} />
             </button>
@@ -82,12 +76,12 @@ function Row({ issue }: { issue: Issue }) {
         >
           {(close) => (
             <>
-              <MenuItem onClick={() => { openIssue(issue.id); close(); }}>Открыть задачу</MenuItem>
+              <MenuItem onClick={() => { openIssue(issue.id); close(); }}>{t("backlog.openIssue")}</MenuItem>
               {can("delete") && (
                 <>
                   <div className="my-1 border-t border-linesoft" />
                   <MenuItem danger onClick={() => { deleteIssue(issue.id); close(); }}>
-                    <IcTrash size={13} /> Удалить
+                    <IcTrash size={13} /> {t("common.delete")}
                   </MenuItem>
                 </>
               )}
@@ -113,6 +107,12 @@ export default function Backlog() {
   const [showDone, setShowDone] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("priority");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const sortLabels: Record<SortKey, string> = {
+    priority: t("field.priority"),
+    due: t("field.dueDate"),
+    updated: t("backlog.sort.updated"),
+    key: t("backlog.sort.key"),
+  };
 
   const doneIds = useMemo(
     () => new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id)),
@@ -168,11 +168,13 @@ export default function Backlog() {
       <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="mr-2">
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Список задач</h1>
+            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("backlog.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
-              {rows.length} из {showDone ? data.issues.length : activeCount}{" "}
-              {showDone ? "задач" : "активных задач"}
-              {data.issuesTruncated && ` · загружено ${data.issues.length} из ${data.issuesTotal}`}
+              {t(showDone ? "backlog.countAll" : "backlog.countActive", {
+                shown: rows.length,
+                total: showDone ? data.issues.length : activeCount,
+              })}
+              {data.issuesTruncated && ` · ${t("backlog.loaded", { shown: data.issues.length, total: data.issuesTotal })}`}
             </p>
           </div>
 
@@ -182,7 +184,7 @@ export default function Backlog() {
                 onClick={() => setImportOpen(true)}
                 className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:border-accent hover:text-accent"
               >
-                <IcInbox size={13} /> Импорт из Trello
+                <IcInbox size={13} /> {t("backlog.importTrello")}
               </button>
             )}
             <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-panel px-2.5">
@@ -190,11 +192,11 @@ export default function Backlog() {
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Поиск по названию или ключу"
+                placeholder={t("backlog.searchPlaceholder")}
                 className="w-44 bg-transparent text-[12.5px] outline-none placeholder:text-faint"
               />
               {q && (
-                <button onClick={() => setQ("")} className="text-faint hover:text-ink" aria-label="Очистить">
+                <button onClick={() => setQ("")} className="text-faint hover:text-ink" aria-label={t("common.clear")}>
                   <IcX size={12} />
                 </button>
               )}
@@ -207,16 +209,16 @@ export default function Backlog() {
               button={(open) => (
                 <button className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
                   <IcFilter size={12} className="text-faint" />
-                  {SORT_LABEL[sortKey]}
+                  {sortLabels[sortKey]}
                   <IcChevD size={11} className="text-faint" />
                 </button>
               )}
             >
               {(close) => (
                 <>
-                  {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
+                  {(Object.keys(sortLabels) as SortKey[]).map((k) => (
                     <MenuItem key={k} onClick={() => { pickSort(k); close(); }}>
-                      {SORT_LABEL[k]} {k === sortKey && <span className="ml-auto text-[10.5px] text-accent">✓</span>}
+                      {sortLabels[k]} {k === sortKey && <span className="ml-auto text-[10.5px] text-accent">✓</span>}
                     </MenuItem>
                   ))}
                 </>
@@ -224,9 +226,9 @@ export default function Backlog() {
             </Dropdown>
             <button
               onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-              title={sortDir === "asc" ? "По возрастанию" : "По убыванию"}
+              title={t(sortDir === "asc" ? "backlog.sort.asc" : "backlog.sort.desc")}
               className="flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-sub hover:text-ink"
-              aria-label="Направление сортировки"
+              aria-label={t("backlog.sort.direction")}
             >
               <IcChevD size={13} className={sortDir === "asc" ? "rotate-180" : ""} />
             </button>
@@ -236,14 +238,14 @@ export default function Backlog() {
         {/* фильтры */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={`${selectCls} cursor-pointer`}>
-            <option value="">Все статусы</option>
+            <option value="">{t("backlog.allStatuses")}</option>
             {data.workflow.statuses.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
           <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className={`${selectCls} cursor-pointer`}>
-            <option value="">Любой исполнитель</option>
-            <option value="none">Без исполнителя</option>
+            <option value="">{t("backlog.anyAssignee")}</option>
+            <option value="none">{t("createIssue.unassigned")}</option>
             {data.users.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
@@ -261,7 +263,7 @@ export default function Backlog() {
               checked={fOverdue}
               onChange={(e) => setFOverdue(e.target.checked)}
             />
-            Просроченные
+            {t("backlog.overdue")}
           </label>
           <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
             <input
@@ -270,11 +272,11 @@ export default function Backlog() {
               checked={showDone}
               onChange={(e) => setShowDone(e.target.checked)}
             />
-            Показывать закрытые
+            {t("backlog.showClosed")}
           </label>
           {filterActive && (
             <button onClick={resetFilters} className="flex h-8 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-faint hover:text-ink">
-              <IcX size={11} /> Сбросить
+              <IcX size={11} /> {t("common.reset")}
             </button>
           )}
         </div>
@@ -292,8 +294,8 @@ export default function Backlog() {
           ) : (
             <Empty
               icon={<IcInbox size={22} />}
-              title={filterActive ? "Ничего не найдено" : "Задач пока нет"}
-              sub={filterActive ? "Измените или сбросьте фильтры" : "Создайте задачу кнопкой «Создать» в шапке"}
+              title={t(filterActive ? "backlog.emptyFilteredTitle" : "backlog.emptyTitle")}
+              sub={t(filterActive ? "backlog.emptyFilteredSub" : "backlog.emptySub")}
             />
           )}
         </div>
