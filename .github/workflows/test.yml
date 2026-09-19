@@ -58,6 +58,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # build-release.sh deliberately rejects shallow history because it
+          # cannot generate a trustworthy CHANGELOG.md from an incomplete log.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
