@@ -54,7 +54,12 @@ on_error() {
   echo "ERROR: upgrade failed during: $STAGE" >&2
   if [ "$ROLLBACK_READY" = "1" ]; then
     compose down >/dev/null 2>&1 || true
-    echo "Run this exact command to restore the previous version and database:" >&2
+    if [ "$MODE" = "rollback" ]; then
+      echo "The rollback is incomplete. The original dump is unchanged." >&2
+      echo "Fix the reported cause, then retry this exact restore command:" >&2
+    else
+      echo "Run this exact command to restore the previous version and database:" >&2
+    fi
     rollback_command >&2
   else
     echo "No installation changes were made; rollback is not required." >&2
@@ -71,6 +76,14 @@ require_file() {
 env_value() {
   key="$1"
   sed -n "s/^${key}=//p" "$INSTALL_DIR/.env" | tail -n 1 | sed 's/\r$//'
+}
+
+load_install_settings() {
+  POSTGRES_USER="$(env_value POSTGRES_USER)"; [ -n "$POSTGRES_USER" ] || POSTGRES_USER="taskira"
+  POSTGRES_DB="$(env_value POSTGRES_DB)"; [ -n "$POSTGRES_DB" ] || POSTGRES_DB="taskira"
+  CLIENT_PORT="$(env_value CLIENT_PORT)"; [ -n "$CLIENT_PORT" ] || CLIENT_PORT="8081"
+  [[ "$POSTGRES_USER" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "ERROR: unsafe POSTGRES_USER" >&2; return 1; }
+  [[ "$POSTGRES_DB" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "ERROR: unsafe POSTGRES_DB" >&2; return 1; }
 }
 
 compose() {
@@ -147,11 +160,7 @@ require_file "$INSTALL_DIR/VERSION"
 . "$RELEASE_DIR/container-engine.sh"
 detect_engine
 
-POSTGRES_USER="$(env_value POSTGRES_USER)"; [ -n "$POSTGRES_USER" ] || POSTGRES_USER="taskira"
-POSTGRES_DB="$(env_value POSTGRES_DB)"; [ -n "$POSTGRES_DB" ] || POSTGRES_DB="taskira"
-CLIENT_PORT="$(env_value CLIENT_PORT)"; [ -n "$CLIENT_PORT" ] || CLIENT_PORT="8081"
-[[ "$POSTGRES_USER" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "ERROR: unsafe POSTGRES_USER" >&2; exit 1; }
-[[ "$POSTGRES_DB" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "ERROR: unsafe POSTGRES_DB" >&2; exit 1; }
+load_install_settings
 
 if [ "$MODE" = "rollback" ]; then
   STAGE="rollback validation"
@@ -159,6 +168,8 @@ if [ "$MODE" = "rollback" ]; then
   require_file "$ROLLBACK_DIR/database.dump"
   require_file "$ROLLBACK_DIR/docker-compose.yml"
   require_file "$ROLLBACK_DIR/VERSION"
+  BACKUP_DIR="$ROLLBACK_DIR"
+  ROLLBACK_READY=1
   old_version="$(tr -d '\r\n' < "$ROLLBACK_DIR/VERSION")"
 
   STAGE="stopping the failed upgrade"
@@ -166,6 +177,7 @@ if [ "$MODE" = "rollback" ]; then
   STAGE="restoring previous release metadata"
   restore_release_files "$ROLLBACK_DIR"
   [ ! -f "$ROLLBACK_DIR/.env" ] || cp "$ROLLBACK_DIR/.env" "$INSTALL_DIR/.env"
+  load_install_settings
 
   STAGE="starting PostgreSQL for restore"
   compose up -d postgres
