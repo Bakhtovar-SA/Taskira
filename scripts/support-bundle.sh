@@ -59,7 +59,7 @@ redact_stream() {
   awk 'NR==FNR { if ($0 != "__TASKIRA_NO_SECRET_SENTINEL__") secret[++n]=$0; next }
        { for (i=1;i<=n;i++) while ((p=index($0,secret[i]))>0) $0=substr($0,1,p-1) "[REDACTED]" substr($0,p+length(secret[i]));
          gsub(/Bearer [A-Za-z0-9._~-]+/, "Bearer [REDACTED]");
-         gsub(/taskira_session=[^ ;\"]+/, "taskira_session=[REDACTED]"); print }' "$SECRET_FILE" -
+         gsub(/taskira_session=[^ ;"]+/, "taskira_session=[REDACTED]"); print }' "$SECRET_FILE" -
 }
 for service in server client postgres; do
   compose logs --no-color --tail="$LOG_LINES" "$service" 2>&1 | redact_stream > "$BUNDLE/logs/$service.log" || true

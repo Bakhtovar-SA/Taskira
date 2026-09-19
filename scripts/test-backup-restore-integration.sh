@@ -78,11 +78,20 @@ attachment_id="$(printf '%s' "$attachment_json" | jq -r '.id')"
 "$INSTALL_DIR/support-bundle.sh" --install-dir "$INSTALL_DIR" --engine docker --lines 100 --output "$SUPPORT_ARCHIVE"
 mkdir "$TMP_DIR/support"
 tar -xzf "$SUPPORT_ARCHIVE" -C "$TMP_DIR/support"
-grep -Fq $'public.issues\t1' "$TMP_DIR/support/table-row-counts.tsv"
-! grep -R -Fq 'backup-restore-admin-secret' "$TMP_DIR/support"
-! grep -R -Fq 'backup-restore-jwt-secret' "$TMP_DIR/support"
-! grep -R -Fq "$ISSUE_TITLE" "$TMP_DIR/support"
-! grep -R -Fq "$ATTACHMENT_CONTENT" "$TMP_DIR/support"
+cat "$TMP_DIR/support/table-row-counts.tsv"
+grep -Fq $'public.issues\t1' "$TMP_DIR/support/table-row-counts.tsv" || {
+  echo "support bundle has no expected issues row count" >&2; exit 1;
+}
+assert_bundle_excludes() {
+  label="$1"
+  needle="$2"
+  matches="$(grep -R -F -l -- "$needle" "$TMP_DIR/support" || true)"
+  [ -z "$matches" ] || { echo "support bundle leaked $label in: $matches" >&2; exit 1; }
+}
+assert_bundle_excludes "admin password" 'backup-restore-admin-secret'
+assert_bundle_excludes "JWT secret" 'backup-restore-jwt-secret'
+assert_bundle_excludes "task title" "$ISSUE_TITLE"
+assert_bundle_excludes "attachment content" "$ATTACHMENT_CONTENT"
 
 # Disaster rehearsal: remove both persistent volumes, not merely containers.
 (cd "$INSTALL_DIR" && docker compose --env-file .env -f docker-compose.yml down -v)
