@@ -133,11 +133,13 @@ export interface MaintenanceConfig {
 }
 
 export interface Config {
+  version: string;
   port: number;
   host: string;
   databaseUrl: string;
   jwtSecret: string;
   jwtExpires: string;
+  sessionCookieSecure: boolean;
   /** Значение опции Fastify `trustProxy`. За reverse-proxy (nginx) без него
    *  `req.ip` = адрес прокси — ломает rate-limit логина по IP и IP в audit-логе. */
   trustProxy: boolean | string;
@@ -402,11 +404,13 @@ function buildConfig(): Config {
   if (authMode !== "local" && authMode !== "ldap") fail("AUTH_MODE должен быть 'local' или 'ldap'");
 
   return {
+    version: process.env.TASKIRA_VERSION?.trim() || "dev",
     port: Number(process.env.PORT ?? 8080),
     host: process.env.HOST ?? "0.0.0.0",
     databaseUrl,
     jwtSecret,
     jwtExpires: process.env.JWT_EXPIRES ?? "12h",
+    sessionCookieSecure: envBool(process.env.SESSION_COOKIE_SECURE, process.env.NODE_ENV === "production"),
     trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
     corsOrigin: corsRaw === "*" ? "*" : corsRaw.split(",").map((s) => s.trim()).filter(Boolean),
     admin:

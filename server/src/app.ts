@@ -139,7 +139,12 @@ export function buildApp(): FastifyInstance {
     } catch {
       db = false;
     }
-    reply.code(db ? 200 : 503).send({ ok: db, db, ts: new Date().toISOString() });
+    reply.code(db ? 200 : 503).send({
+      ok: db,
+      db,
+      version: cfg.version,
+      ts: new Date().toISOString(),
+    });
   });
 
   app.register(

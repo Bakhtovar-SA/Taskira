@@ -5,6 +5,8 @@
 #   docker build -t taskira-server -f server/Dockerfile server
 # Обычно через docker-compose.yml в корне репозитория (build.context: ./server).
 
+ARG TASKIRA_VERSION=dev
+
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -13,8 +15,10 @@ COPY . .
 RUN npm run build
 
 FROM node:22-alpine
+ARG TASKIRA_VERSION
 WORKDIR /app
 ENV NODE_ENV=production
+ENV TASKIRA_VERSION=$TASKIRA_VERSION
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist

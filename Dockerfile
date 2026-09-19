@@ -4,16 +4,17 @@
 # защитный дефолт на случай прямого захода на несуществующий путь, а не
 # обязательное условие для работы хэш-роутинга.
 #
-# VITE_API_URL печётся В СБОРКУ (Vite инлайнит env на этапе build, не runtime) —
-# указывайте адрес, откуда сервер реально будет доступен браузеру пользователя,
-# не адрес контейнера в docker-сети. См. docker-compose.yml + .env.example.
+# По умолчанию клиент использует свой origin, а nginx проксирует /api к server.
+# VITE_API_URL нужен только для legacy-развёртывания с API на другом origin.
 #
 #   docker build -t taskira-client --build-arg VITE_API_URL=https://api.example.com .
 
 FROM node:22-alpine AS build
 WORKDIR /app
-ARG VITE_API_URL
+ARG VITE_API_URL=""
+ARG VITE_APP_VERSION="dev"
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_APP_VERSION=$VITE_APP_VERSION
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .

@@ -387,6 +387,9 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
           </div>
           <AppearanceSettings />
           <NotifySettings />
+          <p className="border-t border-linesoft px-4 py-2 font-mono text-[10px] text-faint">
+            Taskira {import.meta.env.VITE_APP_VERSION || "dev"}
+          </p>
           <MenuItem
             onClick={() => {
               onLogout();

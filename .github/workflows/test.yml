@@ -58,6 +58,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # build-release.sh deliberately rejects shallow history because it
+          # cannot generate a trustworthy CHANGELOG.md from an incomplete log.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -72,6 +76,21 @@ jobs:
       - run: npm test
 
       - run: npm run build
+
+      - name: Validate offline release scripts
+        run: bash scripts/test-release-scripts.sh
+
+      - name: Validate source and release Compose files with Docker Compose
+        env:
+          POSTGRES_PASSWORD: compose-check
+          JWT_SECRET: compose-check-12345678901234567890123456789012
+          ADMIN_PASSWORD: compose-check
+          CORS_ORIGIN: http://127.0.0.1:8081
+        run: |
+          docker compose -f docker-compose.yml config >/dev/null
+          release_compose="$(mktemp)"
+          scripts/render-compose.sh release 9.8.7-test > "$release_compose"
+          docker compose -f "$release_compose" config >/dev/null
 
   # Отдельный job: LDAP-путь против НАСТОЯЩЕГО OpenLDAP (не мока).
   # AUTH_MODE=ldap здесь только для этого job — основной `server` job идёт в local.
