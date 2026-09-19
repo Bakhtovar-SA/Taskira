@@ -87,7 +87,19 @@ printf '%s\n' '0.9.0' > "$DOWNGRADE_DIR/VERSION"
 (
   cd "$INSTALL_DIR"
   docker compose --env-file .env -f docker-compose.yml up -d postgres
-  until docker compose --env-file .env -f docker-compose.yml exec -T postgres pg_isready -U taskira -d taskira >/dev/null 2>&1; do sleep 1; done
+  # The official Postgres entrypoint briefly accepts connections on a temporary
+  # server and then restarts it. Require several consecutive SQL probes so the
+  # snapshot is not piped into that shutdown window.
+  stable_probes=0
+  while [ "$stable_probes" -lt 3 ]; do
+    if docker compose --env-file .env -f docker-compose.yml exec -T postgres \
+      psql -At -U taskira -d taskira -c 'SELECT 1' >/dev/null 2>&1; then
+      stable_probes=$((stable_probes + 1))
+    else
+      stable_probes=0
+    fi
+    sleep 1
+  done
   docker compose --env-file .env -f docker-compose.yml exec -T postgres psql -v ON_ERROR_STOP=1 -U taskira -d taskira \
     < "$ROOT_DIR/fixtures/db-snapshots/schema-023-d6c3966.sql"
   docker compose --env-file .env -f docker-compose.yml up -d

@@ -180,6 +180,15 @@ health с новой версией. Не удаляйте старые versione
 
 ## 8. Остановка, запуск и сохранность данных
 
+Команды резервного копирования, восстановления и сбора диагностического архива
+описаны в приложенном `OPERATIONS.md`. Кратко:
+
+```bash
+./backup.sh --install-dir /opt/taskira/current --output /var/backups/taskira.tar.gz
+./restore.sh --install-dir /opt/taskira/current --archive /var/backups/taskira.tar.gz
+./support-bundle.sh --install-dir /opt/taskira/current --lines 500
+```
+
 Команды для Docker (для Podman замените `docker compose` на `podman compose`):
 
 ```bash

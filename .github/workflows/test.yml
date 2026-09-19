@@ -75,6 +75,14 @@ jobs:
       - name: Build versioned images, upgrade snapshot data, and roll back
         run: bash scripts/test-upgrade-integration.sh
 
+  backup-restore-rehearsal:
+    name: backup, destroy volumes, and restore
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Back up data, remove volumes, restore, and verify login/task/attachment
+        run: bash scripts/test-backup-restore-integration.sh
+
   migration-policy:
     runs-on: ubuntu-latest
     steps:
