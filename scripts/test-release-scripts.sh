@@ -71,6 +71,8 @@ RELEASE_DIR="$TMP_DIR/output/taskira-9.8.7-test"
 [ -f "$RELEASE_DIR/manifest.json" ]
 [ -f "$RELEASE_DIR/README_INSTALL.md" ]
 [ -f "$RELEASE_DIR/OPERATIONS.md" ]
+[ -f "$RELEASE_DIR/SECURITY_OVERVIEW.md" ]
+[ -f "$RELEASE_DIR/SECURITY.md" ]
 [ -f "$RELEASE_DIR/CHANGELOG.md" ]
 [ -f "$RELEASE_DIR/container-engine.sh" ]
 [ -x "$RELEASE_DIR/upgrade.sh" ]
@@ -101,7 +103,7 @@ fi
 (cd "$RELEASE_DIR" && bash install.sh --verify-only >/dev/null)
 
 # Windows-edited CRLF env files must not append carriage returns to secrets.
-printf 'POSTGRES_PASSWORD=dbsecret\r\nJWT_SECRET=12345678901234567890123456789012\r\nADMIN_PASSWORD=adminsecret\r\nCORS_ORIGIN=http://10.20.30.40:8081\r\nCLIENT_PORT=8081\r\n' > "$RELEASE_DIR/.env"
+printf 'POSTGRES_PASSWORD=dbsecret\r\nJWT_SECRET=12345678901234567890123456789012\r\nADMIN_PASSWORD=Release-Secure-42!\r\nCORS_ORIGIN=http://10.20.30.40:8081\r\nCLIENT_PORT=8081\r\n' > "$RELEASE_DIR/.env"
 (cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" bash install.sh --engine podman --start >/dev/null)
 
 # A relative --output is relative to the caller, not to the repository.

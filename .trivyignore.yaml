@@ -1,0 +1,7 @@
+# Security exceptions must be narrow. Each item requires an `expired_at` date
+# and a non-empty `statement` containing `owner=<team>` plus the reason.
+# scripts/check-trivy-ignore.sh enforces this. No exceptions are active.
+vulnerabilities: []
+misconfigurations: []
+secrets: []
+licenses: []

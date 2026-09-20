@@ -6,7 +6,7 @@ let legacyBearerToken: string | null = null;
  *  Явный VITE_API_URL остаётся для раздельного dev/legacy-деплоя. */
 export const API_BASE =
   (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
-  (typeof window !== "undefined" ? window.location.origin : "http://localhost:8080");
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 export type ApiErrorBody = { error: { code: string; reason: string } };
 

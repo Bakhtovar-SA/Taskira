@@ -160,6 +160,8 @@ sed \
   "$TEMPLATE_DIR/README_INSTALL.md.in" > "$WORK_DIR/README_INSTALL.md"
 cp "$TEMPLATE_DIR/.env.example" "$WORK_DIR/.env.example"
 cp "$ROOT_DIR/docs/OPERATIONS.md" "$WORK_DIR/OPERATIONS.md"
+cp "$ROOT_DIR/docs/SECURITY_OVERVIEW.md" "$WORK_DIR/SECURITY_OVERVIEW.md"
+cp "$ROOT_DIR/SECURITY.md" "$WORK_DIR/SECURITY.md"
 cp "$TEMPLATE_DIR/install.sh" "$WORK_DIR/install.sh"
 cp "$ROOT_DIR/scripts/upgrade.sh" "$WORK_DIR/upgrade.sh"
 cp "$ROOT_DIR/scripts/backup.sh" "$WORK_DIR/backup.sh"

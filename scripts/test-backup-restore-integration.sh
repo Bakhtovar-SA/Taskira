@@ -43,7 +43,7 @@ POSTGRES_PASSWORD=backup-restore-db-secret
 POSTGRES_DB=taskira
 JWT_SECRET=backup-restore-jwt-secret-000000000000000000000
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=backup-restore-admin-secret
+ADMIN_PASSWORD=Backup-Restore-42!Secure
 ADMIN_NAME=Backup Admin
 CORS_ORIGIN=http://127.0.0.1:18082
 CLIENT_PORT=18082
@@ -58,7 +58,7 @@ for _ in $(seq 1 60); do
 done
 curl --fail --silent --show-error "$BASE_URL/api/health" >/dev/null
 curl --fail --silent --show-error -c "$COOKIE" -H 'content-type: application/json' \
-  -d '{"username":"admin","password":"backup-restore-admin-secret"}' \
+  -d '{"username":"admin","password":"Backup-Restore-42!Secure"}' \
   "$BASE_URL/api/auth/login" >/dev/null
 project_id="$(curl --fail --silent --show-error -b "$COOKIE" "$BASE_URL/api/projects" | jq -r '.[0].id')"
 [ -n "$project_id" ] && [ "$project_id" != null ]
@@ -88,7 +88,7 @@ assert_bundle_excludes() {
   matches="$(grep -R -F -l -- "$needle" "$TMP_DIR/support" || true)"
   [ -z "$matches" ] || { echo "support bundle leaked $label in: $matches" >&2; exit 1; }
 }
-assert_bundle_excludes "admin password" 'backup-restore-admin-secret'
+assert_bundle_excludes "admin password" 'Backup-Restore-42!Secure'
 assert_bundle_excludes "JWT secret" 'backup-restore-jwt-secret'
 assert_bundle_excludes "task title" "$ISSUE_TITLE"
 assert_bundle_excludes "attachment content" "$ATTACHMENT_CONTENT"
@@ -99,7 +99,7 @@ assert_bundle_excludes "attachment content" "$ATTACHMENT_CONTENT"
 
 rm -f "$COOKIE"
 curl --fail --silent --show-error -c "$COOKIE" -H 'content-type: application/json' \
-  -d '{"username":"admin","password":"backup-restore-admin-secret"}' \
+  -d '{"username":"admin","password":"Backup-Restore-42!Secure"}' \
   "$BASE_URL/api/auth/login" >/dev/null
 restored_issue="$(curl --fail --silent --show-error -b "$COOKIE" \
   "$BASE_URL/api/projects/$project_id/issues/$issue_id")"

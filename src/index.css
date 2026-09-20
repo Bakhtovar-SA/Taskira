@@ -98,9 +98,9 @@
 }
 
 @theme {
-  --font-disp: "Unbounded", "Golos Text", sans-serif;
-  --font-body: "Golos Text", "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-disp: "Segoe UI", Arial, sans-serif;
+  --font-body: "Segoe UI", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
 
   --color-canvas: var(--c-canvas);
   --color-panel: var(--c-panel);

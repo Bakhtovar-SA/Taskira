@@ -28,8 +28,9 @@ export function requestToken(req: Pick<FastifyRequest, "headers">): string | und
   return cookieValue(req.headers.cookie, SESSION_COOKIE);
 }
 
-export function sessionCookie(token: string): string {
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict${secureAttribute()}`;
+export function sessionCookie(token: string, maxAgeSeconds = loadConfig().sessionTtlSeconds): string {
+  const maxAge = Math.max(0, Math.floor(maxAgeSeconds));
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secureAttribute()}`;
 }
 
 export function clearSessionCookie(): string {

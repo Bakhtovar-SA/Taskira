@@ -11,7 +11,7 @@ import react from "@vitejs/plugin-react";
  * тесты (jsdom уже подключён) добавляются по мере необходимости.
  */
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react({ jsxImportSource: "#secure-jsx" })],
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
     environment: "jsdom",

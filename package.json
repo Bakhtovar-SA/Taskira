@@ -2,6 +2,9 @@
   "name": "taskira",
   "private": true,
   "type": "module",
+  "imports": {
+    "#secure-jsx/*": "./src/secure-jsx/*.ts"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
