@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useStore } from "../store";
+import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
 import type { CustomFieldType, IssueTypeId, PriorityId, Transition } from "../types";
 import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo } from "../icons";
 import { Lozenge, catColor } from "../ui";
@@ -84,7 +85,10 @@ export default function WorkflowView() {
 
   const sidById = new Map(statuses.map((s) => [s.id, s.sid]));
   const sidOf = (id: string) => sidById.get(id) ?? "";
-  const countBy = (statusId: string) => data.issues.filter((i) => i.statusId === statusId).length;
+  // Число задач в статусе — агрегат по проекту (счётчики сервера), а не обход
+  // всех задач на клиенте (PERF-06); до ответа — многоточие, а не ложный 0.
+  const { counts: statusCounts } = useIssueCounts(data.currentProjectId || null, NO_ISSUE_FILTERS, useIssuesRevision());
+  const countBy = (statusId: string): number | string => (statusCounts ? (statusCounts.byStatus[statusId] ?? 0) : "…");
   const stName = (id: string) => statuses.find((s) => s.id === id);
 
   const submit = () => {
