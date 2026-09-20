@@ -359,6 +359,11 @@ const en: Record<keyof Dict, string> = {
   "timeline.issueCount": "{done}/{total} issues · {key}",
   "timeline.barTitle": "{title} · {done}/{total} done",
   "timeline.noIssues": "No issues in this direction yet.",
+  "timeline.loadMore": "Show more",
+  "timeline.shownOf": "Showing {shown} of {total}",
+  "timeline.epicsTruncated": "Showing the first {n} directions",
+  "timeline.loadError": "Couldn't load the directions",
+  "timeline.childrenError": "Couldn't load the direction's issues",
   "timeline.legend": "today · the dark part of a bar is the share of closed issues in the direction",
 
   "sprints.removeIssue": "Remove from sprint",

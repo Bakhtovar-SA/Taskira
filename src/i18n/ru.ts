@@ -360,6 +360,11 @@ const ru = {
   "timeline.issueCount": "{done}/{total} задач · {key}",
   "timeline.barTitle": "{title} · {done}/{total} готово",
   "timeline.noIssues": "В направлении пока нет задач.",
+  "timeline.loadMore": "Показать ещё",
+  "timeline.shownOf": "Показано {shown} из {total}",
+  "timeline.epicsTruncated": "Показаны первые {n} направлений",
+  "timeline.loadError": "Не удалось загрузить направления",
+  "timeline.childrenError": "Не удалось загрузить задачи направления",
   "timeline.legend": "сегодня · тёмная часть полосы — доля закрытых задач направления",
 
   "sprints.removeIssue": "Убрать из спринта",

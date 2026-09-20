@@ -399,9 +399,11 @@ export interface EpicsState {
   truncated: boolean;
   loading: boolean;
   error: string | null;
+  /** Перечитать вручную (после ошибки). */
+  reload: () => void;
 }
 
-const NO_EPICS: EpicsState = { byId: new Map(), list: [], truncated: false, loading: false, error: null };
+const NO_EPICS: EpicsState = { byId: new Map(), list: [], truncated: false, loading: false, error: null, reload: () => undefined };
 
 /**
  * Справочник направлений проекта (`GET …/issues/epics`): один запрос на открытие
@@ -416,6 +418,8 @@ const NO_EPICS: EpicsState = { byId: new Map(), list: [], truncated: false, load
  */
 export function useEpics(projectId: string | null, revision: string | number): EpicsState {
   const [state, setState] = useState<{ projectId: string | null; value: EpicsState }>({ projectId: null, value: NO_EPICS });
+  const [tick, setTick] = useState(0);
+  const reload = useCallback(() => setTick((n) => n + 1), []);
   const gen = useRef(0);
   useEffect(() => {
     const my = ++gen.current;
@@ -423,20 +427,20 @@ export function useEpics(projectId: string | null, revision: string | number): E
       setState({ projectId: null, value: NO_EPICS });
       return;
     }
-    setState((prev) => (prev.projectId === projectId ? { ...prev, value: { ...prev.value, loading: true, error: null } } : { projectId, value: { ...NO_EPICS, loading: true } }));
+    setState((prev) => (prev.projectId === projectId ? { ...prev, value: { ...prev.value, loading: true, error: null } } : { projectId, value: { ...NO_EPICS, loading: true, reload } }));
     issuesApi.epics(projectId).then(
       (res) => {
         if (gen.current !== my) return;
-        setState({ projectId, value: { byId: new Map(res.items.map((e) => [e.id, e])), list: res.items, truncated: res.truncated, loading: false, error: null } });
+        setState({ projectId, value: { byId: new Map(res.items.map((e) => [e.id, e])), list: res.items, truncated: res.truncated, loading: false, error: null, reload } });
       },
       (e: unknown) => {
         if (gen.current !== my) return;
-        setState((prev) => ({ projectId, value: { ...(prev.projectId === projectId ? prev.value : NO_EPICS), loading: false, error: errText(e) } }));
+        setState((prev) => ({ projectId, value: { ...(prev.projectId === projectId ? prev.value : NO_EPICS), loading: false, error: errText(e), reload } }));
       },
     );
     return () => {
       gen.current++;
     };
-  }, [projectId, revision]);
+  }, [projectId, revision, tick, reload]);
   return state.projectId === projectId ? state.value : NO_EPICS;
 }
