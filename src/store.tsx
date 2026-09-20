@@ -529,6 +529,10 @@ interface Api {
   ) => Promise<{ ok: number; failed: number; cancelled: boolean }>;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
+  /** Растёт при изменениях, способных поменять состав или порядок наборов задач
+   *  (создание, импорт, удаление, правка полей, смена статуса): по ней Список и
+   *  Доска перечитываются. Не пересчитывается по массиву задач. */
+  issuesRevision: number;
   addComment: (issueId: string, body: string) => void;
   addCollaborator: (issueId: string, userId: string) => void;
   removeCollaborator: (issueId: string, userId: string) => void;
@@ -620,6 +624,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   dataRef.current = data;
 
   /** id текущего проекта — для вызовов /api/projects/:projectId/... */
+  // Ревизия задач (PERF-06): растёт при изменениях, которые могут поменять СОСТАВ
+  // или порядок наборов (создание, импорт, удаление, правка полей, смена статуса).
+  // Наборы Списка и Доски перечитываются по ней. Правки, не влияющие на состав
+  // (комментарий, чек-лист, вложение), её не трогают, а заполнение кэша задачами
+  // (открытие карточки, resolveIssue) — тем более: иначе загрузка страницы
+  // запускала бы перечитывание, а оно — новую загрузку.
+  const [issuesRevision, setIssuesRevision] = useState(0);
+  const bumpIssues = useCallback(() => setIssuesRevision((n) => n + 1), []);
+
   const pid = () => dataRef.current.currentProjectId;
 
   const toast = useCallback((kind: Toast["kind"], text: string) => {
@@ -673,6 +686,55 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [data.users, data.currentUserId, data.members]);
 
   const canFn = useCallback((perm: PermId, issue?: Issue) => canDo(me, perm, issue), [me]);
+
+  /**
+   * Задача по id для проверки прав и мутаций. Сначала — из известных стору
+   * (кэш «id → задача»: то, что пользователь открыл, увидел в списке/доске или
+   * создал); при промахе — точечный GET, а не молчаливый отказ. Если задача не
+   * нашлась или нет доступа (удалена параллельно, права сняты) — явная ошибка
+   * пользователю: правило «сотрудник правит только свои» читает assigneeIds и
+   * reporterId именно из этого объекта, и тихий return выглядел бы как баг.
+   */
+  const resolveIssue = useCallback(
+    async (id: string): Promise<Issue | null> => {
+      const known = dataRef.current.issues.find((i) => i.id === id);
+      if (known) return known;
+      const requestProjectId = pid();
+      try {
+        const mapped = mapIssue(await issuesApi.get(requestProjectId, id));
+        setData((prev) =>
+          prev.currentProjectId !== requestProjectId || prev.issues.some((x) => x.id === id)
+            ? prev
+            : { ...prev, issues: upsertIssue(prev.issues, mapped) },
+        );
+        return mapped;
+      } catch (err) {
+        if (err instanceof ApiError && (err.status === 404 || err.status === 403)) {
+          toast(
+            "error",
+            local(
+              "Задача недоступна: её удалили или у вас больше нет к ней доступа",
+              "The issue is unavailable: it was deleted or you no longer have access",
+            ),
+          );
+        } else {
+          handleApiError(err, local("Не удалось загрузить задачу", "Couldn't load the issue"));
+        }
+        return null;
+      }
+    },
+    [toast, local, handleApiError],
+  );
+
+  /** Выполняет `fn` с задачей: сразу, если она известна, иначе после точечной загрузки. */
+  const withIssue = useCallback(
+    (id: string, fn: (issue: Issue) => void) => {
+      const known = dataRef.current.issues.find((i) => i.id === id);
+      if (known) fn(known);
+      else void resolveIssue(id).then((issue) => issue && fn(issue));
+    },
+    [resolveIssue],
+  );
 
   const requirePerm = useCallback(
     (perm: PermId, issue?: Issue): boolean => {
@@ -1041,10 +1103,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           issuesTotal: issuesRes.total,
         };
       });
+      bumpIssues();
     } catch (err) {
       handleApiError(err);
     }
-  }, [handleApiError]);
+  }, [handleApiError, bumpIssues]);
 
   /** Перечитать «Мои подключения» (приглашения к задачам чужих проектов). */
   const refreshCollaborations = useCallback(async () => {
@@ -1223,6 +1286,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               }),
             };
           });
+          bumpIssues();
           // Закрывать (или нет) модалку — решение вызывающего компонента, не
           // этого коллбэка: CreateIssueModal сам решает это синхронно, ДО
           // резолва этого промиса, по чекбоксу «создать ещё одну следом».
@@ -1343,6 +1407,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setData((prev) =>
           prev.currentProjectId === requestProjectId ? { ...prev, issues: [...prev.issues, ...created] } : prev,
         );
+        bumpIssues();
       }
       if (cancelled) {
         toast("info", local(`Импорт остановлен: ${ok} из ${inputs.length} успели создаться`, `Import stopped: ${ok} of ${inputs.length} were created`));
@@ -1362,87 +1427,89 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const updateIssue = useCallback(
     (id: string, patch: Partial<Issue>) => {
-      const iss = dataRef.current.issues.find((i) => i.id === id);
-      if (!iss) return;
-      if (!requirePerm("edit", iss)) return;
+      withIssue(id, (iss) => {
+        if (!requirePerm("edit", iss)) return;
 
-      const body: Record<string, unknown> = {};
-      if (patch.title !== undefined) {
-        const r = validateTitle(patch.title);
-        if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
-        body.title = r.value;
-      }
-      if (patch.description !== undefined) body.description = sanitizeText(patch.description, LIMITS.description.max);
-      if (patch.labels !== undefined) {
-        const r = validateLabels(patch.labels);
-        if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
-        body.labels = r.value;
-      }
-      if (patch.complexity !== undefined) body.complexity = patch.complexity;
-      if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
-      if (patch.assigneeIds !== undefined) body.assigneeIds = patch.assigneeIds;
-      if (patch.epicId !== undefined) body.epicId = patch.epicId;
-      if (patch.dueDate !== undefined) body.dueDate = patch.dueDate;
-      if (patch.tStart !== undefined) body.tStart = patch.tStart;
-      if (patch.tSpan !== undefined) body.tSpan = patch.tSpan;
-      if (patch.color !== undefined) body.color = patch.color;
-
-      if (Object.keys(body).length === 0) return;
-
-      void (async () => {
-        try {
-          const dto = await issuesApi.patch(pid(), id, body);
-          setData((prev) => ({
-            ...prev,
-            issues: prev.issues.map((i) => (i.id === id ? mapIssue(dto, i) : i)),
-          }));
-        } catch (err) {
-          handleApiError(err, local("Не удалось сохранить задачу", "Couldn't save the issue"));
+        const body: Record<string, unknown> = {};
+        if (patch.title !== undefined) {
+          const r = validateTitle(patch.title);
+          if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
+          body.title = r.value;
         }
-      })();
+        if (patch.description !== undefined) body.description = sanitizeText(patch.description, LIMITS.description.max);
+        if (patch.labels !== undefined) {
+          const r = validateLabels(patch.labels);
+          if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
+          body.labels = r.value;
+        }
+        if (patch.complexity !== undefined) body.complexity = patch.complexity;
+        if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
+        if (patch.assigneeIds !== undefined) body.assigneeIds = patch.assigneeIds;
+        if (patch.epicId !== undefined) body.epicId = patch.epicId;
+        if (patch.dueDate !== undefined) body.dueDate = patch.dueDate;
+        if (patch.tStart !== undefined) body.tStart = patch.tStart;
+        if (patch.tSpan !== undefined) body.tSpan = patch.tSpan;
+        if (patch.color !== undefined) body.color = patch.color;
+
+        if (Object.keys(body).length === 0) return;
+
+        void (async () => {
+          try {
+            const dto = await issuesApi.patch(pid(), id, body);
+            setData((prev) => ({
+              ...prev,
+              issues: prev.issues.map((i) => (i.id === id ? mapIssue(dto, i) : i)),
+            }));
+            bumpIssues();
+          } catch (err) {
+            handleApiError(err, local("Не удалось сохранить задачу", "Couldn't save the issue"));
+          }
+        })();
+      });
     },
-    [requirePerm, toast, handleApiError],
+    [requirePerm, toast, handleApiError, withIssue, bumpIssues],
   );
 
   const moveStatus = useCallback(
     (issueId: string, toStatus: string, beforeId?: string | null) => {
-      const iss = dataRef.current.issues.find((i) => i.id === issueId);
-      if (!iss) return;
-      if (!requirePerm("transition", iss)) return;
-      const wf = dataRef.current.workflow;
-      const requestProjectId = pid();
-      if (iss.statusId !== toStatus && !canTransition(wf, iss.statusId, toStatus)) {
-        const fromN = statusById(wf, iss.statusId)?.name ?? iss.statusId;
-        const toN = statusById(wf, toStatus)?.name ?? toStatus;
-        toast("error", local(`Переход «${fromN} → ${toN}» запрещён рабочим процессом`, `The “${fromN} → ${toN}” transition is not allowed by the workflow`));
-        return;
-      }
-      void (async () => {
-        try {
-          const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId);
-          const wasDone = iss.doneAt != null;
-          const nowDone = dto.doneAt != null;
-          setData((prev) => {
-            if (prev.currentProjectId !== requestProjectId) return prev;
-            return {
-              ...prev,
-              issues: patchParentSubtasksSummary(
-                prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
-                iss.parentId,
-                wasDone === nowDone ? {} : { done: nowDone ? 1 : -1 },
-              ),
-            };
-          });
-          if (dataRef.current.currentProjectId === requestProjectId) {
-            setUi((u) => ({ ...u, lastEvent: { issueId, ts: Date.now() } }));
-          }
-        } catch (err) {
-          handleApiError(err, local("Не удалось сменить статус", "Couldn't change the status"));
-          void refreshIssues();
+      withIssue(issueId, (iss) => {
+        if (!requirePerm("transition", iss)) return;
+        const wf = dataRef.current.workflow;
+        const requestProjectId = pid();
+        if (iss.statusId !== toStatus && !canTransition(wf, iss.statusId, toStatus)) {
+          const fromN = statusById(wf, iss.statusId)?.name ?? iss.statusId;
+          const toN = statusById(wf, toStatus)?.name ?? toStatus;
+          toast("error", local(`Переход «${fromN} → ${toN}» запрещён рабочим процессом`, `The “${fromN} → ${toN}” transition is not allowed by the workflow`));
+          return;
         }
-      })();
+        void (async () => {
+          try {
+            const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId);
+            const wasDone = iss.doneAt != null;
+            const nowDone = dto.doneAt != null;
+            setData((prev) => {
+              if (prev.currentProjectId !== requestProjectId) return prev;
+              return {
+                ...prev,
+                issues: patchParentSubtasksSummary(
+                  prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)),
+                  iss.parentId,
+                  wasDone === nowDone ? {} : { done: nowDone ? 1 : -1 },
+                ),
+              };
+            });
+            bumpIssues();
+            if (dataRef.current.currentProjectId === requestProjectId) {
+              setUi((u) => ({ ...u, lastEvent: { issueId, ts: Date.now() } }));
+            }
+          } catch (err) {
+            handleApiError(err, local("Не удалось сменить статус", "Couldn't change the status"));
+            void refreshIssues();
+          }
+        })();
+      });
     },
-    [requirePerm, toast, handleApiError, refreshIssues],
+    [requirePerm, toast, handleApiError, refreshIssues, withIssue, bumpIssues],
   );
 
   const addComment = useCallback(
@@ -1536,38 +1603,40 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addIssueLink = useCallback(
     (issueId: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") => {
-      const issue = dataRef.current.issues.find((i) => i.id === issueId);
-      if (!requirePerm("edit", issue)) return;
-      void (async () => {
-        try {
-          // Запрос всегда на issueId (открытая карточка); 'blocked_by' сервер
-          // разворачивает сам и возвращает связи именно issueId.
-          const res = await issuesApi.addLink(pid(), issueId, linkedIssueId, type);
-          setIssueLinks(issueId, res.links);
-          toast("success", local("Связь добавлена", "Link added"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось связать задачи", "Couldn't link the issues"));
-        }
-      })();
+      withIssue(issueId, (issue) => {
+        if (!requirePerm("edit", issue)) return;
+        void (async () => {
+          try {
+            // Запрос всегда на issueId (открытая карточка); 'blocked_by' сервер
+            // разворачивает сам и возвращает связи именно issueId.
+            const res = await issuesApi.addLink(pid(), issueId, linkedIssueId, type);
+            setIssueLinks(issueId, res.links);
+            toast("success", local("Связь добавлена", "Link added"));
+          } catch (err) {
+            handleApiError(err, local("Не удалось связать задачи", "Couldn't link the issues"));
+          }
+        })();
+      });
     },
-    [requirePerm, toast, handleApiError],
+    [requirePerm, toast, handleApiError, withIssue],
   );
 
   const removeIssueLink = useCallback(
     (issueId: string, linkId: string) => {
-      const issue = dataRef.current.issues.find((i) => i.id === issueId);
-      if (!requirePerm("edit", issue)) return;
-      void (async () => {
-        try {
-          const res = await issuesApi.removeLink(pid(), issueId, linkId);
-          setIssueLinks(issueId, res.links);
-          toast("info", local("Связь удалена", "Link removed"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось удалить связь", "Couldn't remove the link"));
-        }
-      })();
+      withIssue(issueId, (issue) => {
+        if (!requirePerm("edit", issue)) return;
+        void (async () => {
+          try {
+            const res = await issuesApi.removeLink(pid(), issueId, linkId);
+            setIssueLinks(issueId, res.links);
+            toast("info", local("Связь удалена", "Link removed"));
+          } catch (err) {
+            handleApiError(err, local("Не удалось удалить связь", "Couldn't remove the link"));
+          }
+        })();
+      });
     },
-    [requirePerm, toast, handleApiError],
+    [requirePerm, toast, handleApiError, withIssue],
   );
 
   /* -------- чек-лист (checklist_items, миграция 019) -------- */
@@ -1580,52 +1649,55 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addChecklistItem = useCallback(
     (issueId: string, text: string) => {
-      const issue = dataRef.current.issues.find((i) => i.id === issueId);
-      if (!requirePerm("edit", issue)) return;
-      const r = validateChecklistItemText(text);
-      if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
-      void (async () => {
-        try {
-          const res = await issuesApi.addChecklistItem(pid(), issueId, r.value);
-          setChecklist(issueId, res.checklist);
-        } catch (err) {
-          handleApiError(err, local("Не удалось добавить пункт чек-листа", "Couldn't add the checklist item"));
-        }
-      })();
+      withIssue(issueId, (issue) => {
+        if (!requirePerm("edit", issue)) return;
+        const r = validateChecklistItemText(text);
+        if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
+        void (async () => {
+          try {
+            const res = await issuesApi.addChecklistItem(pid(), issueId, r.value);
+            setChecklist(issueId, res.checklist);
+          } catch (err) {
+            handleApiError(err, local("Не удалось добавить пункт чек-листа", "Couldn't add the checklist item"));
+          }
+        })();
+      });
     },
-    [requirePerm, toast, handleApiError],
+    [requirePerm, toast, handleApiError, withIssue],
   );
 
   const toggleChecklistItem = useCallback(
     (issueId: string, itemId: string, done: boolean) => {
-      const issue = dataRef.current.issues.find((i) => i.id === issueId);
-      if (!requirePerm("edit", issue)) return;
-      void (async () => {
-        try {
-          const res = await issuesApi.patchChecklistItem(pid(), issueId, itemId, { done });
-          setChecklist(issueId, res.checklist);
-        } catch (err) {
-          handleApiError(err, local("Не удалось обновить пункт чек-листа", "Couldn't update the checklist item"));
-        }
-      })();
+      withIssue(issueId, (issue) => {
+        if (!requirePerm("edit", issue)) return;
+        void (async () => {
+          try {
+            const res = await issuesApi.patchChecklistItem(pid(), issueId, itemId, { done });
+            setChecklist(issueId, res.checklist);
+          } catch (err) {
+            handleApiError(err, local("Не удалось обновить пункт чек-листа", "Couldn't update the checklist item"));
+          }
+        })();
+      });
     },
-    [requirePerm, handleApiError],
+    [requirePerm, handleApiError, withIssue],
   );
 
   const removeChecklistItem = useCallback(
     (issueId: string, itemId: string) => {
-      const issue = dataRef.current.issues.find((i) => i.id === issueId);
-      if (!requirePerm("edit", issue)) return;
-      void (async () => {
-        try {
-          const res = await issuesApi.removeChecklistItem(pid(), issueId, itemId);
-          setChecklist(issueId, res.checklist);
-        } catch (err) {
-          handleApiError(err, local("Не удалось удалить пункт чек-листа", "Couldn't delete the checklist item"));
-        }
-      })();
+      withIssue(issueId, (issue) => {
+        if (!requirePerm("edit", issue)) return;
+        void (async () => {
+          try {
+            const res = await issuesApi.removeChecklistItem(pid(), issueId, itemId);
+            setChecklist(issueId, res.checklist);
+          } catch (err) {
+            handleApiError(err, local("Не удалось удалить пункт чек-листа", "Couldn't delete the checklist item"));
+          }
+        })();
+      });
     },
-    [requirePerm, handleApiError],
+    [requirePerm, handleApiError, withIssue],
   );
 
   /* -------- значения пользовательских полей (custom_field_values, миграция 020).
@@ -1633,21 +1705,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const setCustomFieldValue = useCallback(
     (issueId: string, fieldId: string, value: string | null) => {
-      const issue = dataRef.current.issues.find((i) => i.id === issueId);
-      if (!requirePerm("edit", issue)) return;
-      void (async () => {
-        try {
-          const res = await issuesApi.setCustomFieldValue(pid(), issueId, fieldId, value);
-          setData((prev) => ({
-            ...prev,
-            issues: prev.issues.map((i) => (i.id === issueId ? { ...i, customFieldValues: res.values } : i)),
-          }));
-        } catch (err) {
-          handleApiError(err, local("Не удалось сохранить значение поля", "Couldn't save the field value"));
-        }
-      })();
+      withIssue(issueId, (issue) => {
+        if (!requirePerm("edit", issue)) return;
+        void (async () => {
+          try {
+            const res = await issuesApi.setCustomFieldValue(pid(), issueId, fieldId, value);
+            setData((prev) => ({
+              ...prev,
+              issues: prev.issues.map((i) => (i.id === issueId ? { ...i, customFieldValues: res.values } : i)),
+            }));
+          } catch (err) {
+            handleApiError(err, local("Не удалось сохранить значение поля", "Couldn't save the field value"));
+          }
+        })();
+      });
     },
-    [requirePerm, handleApiError],
+    [requirePerm, handleApiError, withIssue],
   );
 
   /* -------- вложения (attachments, миграция 010) -------- */
@@ -1660,32 +1733,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const uploadAttachment = useCallback(
     (issueId: string, file: File) => {
-      const issue = dataRef.current.issues.find((i) => i.id === issueId);
-      if (!requirePerm("comment", issue)) return; // сервер перепроверит
-      // UX-подсказки, чтобы не гонять заведомо плохой файл на сервер. Сервер —
-      // источник правды (config.blockExt + magic-байты); этот список НЕ
-      // исчерпывающий, держим примерно в ногу с DEFAULT_BLOCK_EXT.
-      if (file.size > LIMITS.attachment.maxBytes) {
-        return toast("error", local(`Файл больше ${Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} МБ`, `The file is larger than ${Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} MB`));
-      }
-      if (
-        /\.(exe|dll|scr|com|pif|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|msi|msp|cpl|reg|lnk|sh|bash|zsh|ksh|run|bin|jar|apk|app|dmg|pkg|deb|rpm|elf|so|dylib|gadget|inf)$/i.test(
-          file.name,
-        )
-      ) {
-        return toast("error", local("Такой тип файла загружать нельзя (исполняемый/скрипт)", "This file type is not allowed (executable or script)"));
-      }
-      void (async () => {
-        try {
-          const a = await attachmentsApi.upload(pid(), issueId, file);
-          patchIssueAttachments(issueId, (list) => [...list.filter((x) => x.id !== a.id), mapAttachment(a)]);
-          toast("success", local(`${a.filename} — прикреплён`, `${a.filename} attached`));
-        } catch (err) {
-          handleApiError(err, local("Не удалось загрузить файл", "Couldn't upload the file"));
+      withIssue(issueId, (issue) => {
+        if (!requirePerm("comment", issue)) return; // сервер перепроверит
+        // UX-подсказки, чтобы не гонять заведомо плохой файл на сервер. Сервер —
+        // источник правды (config.blockExt + magic-байты); этот список НЕ
+        // исчерпывающий, держим примерно в ногу с DEFAULT_BLOCK_EXT.
+        if (file.size > LIMITS.attachment.maxBytes) {
+          return toast("error", local(`Файл больше ${Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} МБ`, `The file is larger than ${Math.round(LIMITS.attachment.maxBytes / 1024 / 1024)} MB`));
         }
-      })();
+        if (
+          /\.(exe|dll|scr|com|pif|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|msi|msp|cpl|reg|lnk|sh|bash|zsh|ksh|run|bin|jar|apk|app|dmg|pkg|deb|rpm|elf|so|dylib|gadget|inf)$/i.test(
+            file.name,
+          )
+        ) {
+          return toast("error", local("Такой тип файла загружать нельзя (исполняемый/скрипт)", "This file type is not allowed (executable or script)"));
+        }
+        void (async () => {
+          try {
+            const a = await attachmentsApi.upload(pid(), issueId, file);
+            patchIssueAttachments(issueId, (list) => [...list.filter((x) => x.id !== a.id), mapAttachment(a)]);
+            toast("success", local(`${a.filename} — прикреплён`, `${a.filename} attached`));
+          } catch (err) {
+            handleApiError(err, local("Не удалось загрузить файл", "Couldn't upload the file"));
+          }
+        })();
+      });
     },
-    [requirePerm, toast, handleApiError],
+    [requirePerm, toast, handleApiError, withIssue],
   );
 
   const removeAttachment = useCallback(
@@ -1738,6 +1812,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               { total: -1, done: iss?.doneAt ? -1 : 0 },
             ),
           }));
+          bumpIssues();
           setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
           if (iss) toast("info", local(`${iss.key} удалена`, `${iss.key} deleted`));
         } catch (err) {
@@ -2349,6 +2424,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     importIssues,
     updateIssue,
     moveStatus,
+    issuesRevision,
     addComment,
     addCollaborator,
     removeCollaborator,
