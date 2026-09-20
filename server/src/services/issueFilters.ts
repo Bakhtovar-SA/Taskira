@@ -33,6 +33,8 @@ export function buildIssueFilter(projectId: string, f: IssueFilters): { clauses:
   if (f.assignee === "none") clauses.push("i.has_assignee = false");
   else if (f.assignee) add("EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = ?)", f.assignee);
   if (f.type) add("i.type_id = ?", f.type);
+  if (f.parentId) add("i.parent_id = ?", f.parentId);
+  if (f.epicId) add("i.epic_id = ?", f.epicId);
   if (f.q) add("(i.title ILIKE ? OR i.key ILIKE ?)", `%${escLike(f.q)}%`, `%${escLike(f.q)}%`);
   if (f.dueFrom) add("i.due_date >= ?", f.dueFrom);
   if (f.dueTo) add("i.due_date <= ?", f.dueTo);

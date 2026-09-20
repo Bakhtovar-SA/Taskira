@@ -351,6 +351,18 @@ async function getSubtasksSummary(issueId: string): Promise<SubtasksSummaryDto> 
   return { total: Number(row?.total ?? 0), done: Number(row?.done ?? 0) };
 }
 
+/** Сколько активных задач ссылается на эту через epic_id. Нужен карточке, чтобы
+ *  не предлагать «направление» самому направлению (раньше клиент выводил это из
+ *  всего списка задач). Архивные не считаются — как и в прежней клиентской
+ *  проверке, которая видела только активный набор. */
+async function getEpicChildrenCount(issueId: string): Promise<number> {
+  const row = await one<{ n: string }>(
+    `SELECT count(*)::text AS n FROM issues WHERE epic_id = $1 AND archived_at IS NULL`,
+    [issueId],
+  );
+  return Number(row?.n ?? 0);
+}
+
 /** Карточка задачи: DTO + приглашённые участники (issue_collaborators, миграция 008)
  *  + участники (reporter/assignee/авторы комментариев/приглашённые) для рендера
  *  карточки без bootstrap. Всё это — только в детальном ответе GET /:id, не в списке. */
@@ -362,11 +374,13 @@ export type IssueDetailDto = IssueDto & {
   checklist: ChecklistItemDto[];
   customFieldValues: CustomFieldValueDto[];
   subtasksSummary: SubtasksSummaryDto;
+  /** Число активных задач с epic_id = эта задача (0 — она не «направление»). */
+  epicChildrenCount: number;
 };
 
 export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
-  const [assigneeIds, collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary] = await Promise.all([
+  const [assigneeIds, collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary, epicChildrenCount] = await Promise.all([
     listAssigneeIds(row.id),
     listCollaborators(row.id),
     listParticipants(row.id),
@@ -375,8 +389,9 @@ export async function getIssueDto(projectId: string, issueId: string): Promise<I
     listChecklistItems(row.id),
     listValuesForIssue(row.id),
     getSubtasksSummary(row.id),
+    getEpicChildrenCount(row.id),
   ]);
-  return { ...mapIssue(row, assigneeIds), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary };
+  return { ...mapIssue(row, assigneeIds), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary, epicChildrenCount };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).
