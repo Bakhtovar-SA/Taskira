@@ -88,6 +88,20 @@ export function SearchBox() {
     closeAfterPick();
   };
 
+  // Счётчик показываем только когда есть что считать: при нуле результатов ниже уже стоит
+  // «Ничего не найдено по запросу…», и «Результаты · 0» над ним — дубль.
+  const headerLabel = allProjects
+    ? searching
+      ? t("topbar.searchingAllProjects")
+      : (remote?.items.length ?? 0) > 0
+        ? t("topbar.allProjectsCount", { n: remote?.items.length ?? 0 })
+        : ""
+    : local.status === "loading"
+      ? t("picker.searching")
+      : local.status === "ready" && localResults.length > 0
+        ? t("topbar.resultsCount", { n: localResults.length })
+        : "";
+
   return (
     <div className="relative">
       <div className={`flex items-center gap-2 rounded-md border bg-panel px-2.5 transition-all duration-200 ${focus ? "w-[190px] border-accent shadow-[0_0_0_3px_rgba(11,95,217,0.12)] sm:w-[340px]" : "w-[130px] border-line sm:w-[228px]"}`}>
@@ -116,13 +130,7 @@ export function SearchBox() {
             className="flex w-full items-center justify-between border-b border-linesoft px-3 py-1.5 text-left transition-colors hover:bg-canvas"
           >
             <span className="text-[10px] font-bold uppercase tracking-wider text-faint">
-              {allProjects
-                ? searching
-                  ? t("topbar.searchingAllProjects")
-                  : t("topbar.allProjectsCount", { n: remote?.items.length ?? 0 })
-                : local.status === "loading"
-                  ? t("picker.searching")
-                  : t("topbar.resultsCount", { n: localResults.length })}
+              {headerLabel}
             </span>
             <span className="shrink-0 text-[10.5px] font-semibold text-accent">
               {allProjects ? t("topbar.thisProjectOnly") : t("topbar.allProjectsToggle")}

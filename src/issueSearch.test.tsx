@@ -378,6 +378,8 @@ describe("Topbar: быстрый поиск идёт на сервер (250 мс
     focusAndType(screen.getByPlaceholderText("Поиск задач…") as HTMLInputElement, "опечаткаа");
     await settle();
     expect(screen.getByText("Ничего не найдено по запросу «опечаткаа»")).toBeTruthy();
+    // счётчик «Результаты · 0» над сообщением «ничего не найдено» — дубль, его нет
+    expect(screen.queryByText(/Результаты/)).toBeNull();
     h.ui.unmount();
   });
 
