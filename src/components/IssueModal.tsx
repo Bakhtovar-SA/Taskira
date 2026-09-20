@@ -7,6 +7,7 @@ import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
 import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
 import { useT } from "../i18n";
+import IssueSearchBox from "./IssueSearchBox";
 import { workflowStatusName } from "../workflowStatus";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
@@ -479,25 +480,25 @@ function CustomFieldRow({
 
 function LinksField({ issue }: { issue: Issue }) {
   const { t } = useT();
-  const { data, can, addIssueLink, removeIssueLink, openIssue } = useStore();
+  const { can, addIssueLink, removeIssueLink, openIssue } = useStore();
   const canEdit = can("edit", issue);
   const [expand, setExpand] = useState(false);
   const [type, setType] = useState<"relates" | "blocks" | "blocked_by">("relates");
-  const [target, setTarget] = useState("");
+  const [picking, setPicking] = useState(false);
 
   const links = issue.links;
   if (!canEdit && links.length === 0) return null;
 
-  const linkedIds = new Set(links.map((l) => l.issue.id));
-  const candidates = data.issues.filter((i) => i.id !== issue.id && !linkedIds.has(i.id));
+  // Кандидаты ищутся на сервере (поиск по ключу/названию), а не берутся из
+  // списка всех задач проекта; уже связанные и сама задача исключаются.
+  const excludeIds = [issue.id, ...links.map((l) => l.issue.id)];
 
-  const submit = () => {
-    if (!target) return;
+  const pick = (target: Issue) => {
     // Всегда линкуем «от открытой задачи»: сервер сам разворачивает 'blocked_by'
     // в строку 'blocks' наоборот и возвращает связи именно этой задачи, так что
     // модалка обновляется независимо от направления.
-    addIssueLink(issue.id, target, type);
-    setTarget("");
+    addIssueLink(issue.id, target.id, type);
+    setPicking(false);
     setExpand(false);
   };
 
@@ -550,36 +551,25 @@ function LinksField({ issue }: { issue: Issue }) {
       </div>
 
       {canEdit && (
-        <div className="mt-1.5 flex items-center gap-1.5">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as typeof type)}
-            className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none"
-          >
-            <option value="relates">{t("issue.link.relates")}</option>
-            <option value="blocks">{t("issue.link.blocks")}</option>
-            <option value="blocked_by">{t("issue.link.blocked_by")}</option>
-          </select>
-          <select
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            disabled={candidates.length === 0}
-            className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
-          >
-            <option value="">{t(candidates.length ? "issue.selectIssue" : "issue.noIssues")}</option>
-            {candidates.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.key} · {i.title}
-              </option>
-            ))}
-          </select>
-          <button
-            disabled={!target}
-            onClick={submit}
-            className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            {t("issue.linkAction")}
-          </button>
+        <div className="mt-1.5 space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as typeof type)}
+              className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none"
+            >
+              <option value="relates">{t("issue.link.relates")}</option>
+              <option value="blocks">{t("issue.link.blocks")}</option>
+              <option value="blocked_by">{t("issue.link.blocked_by")}</option>
+            </select>
+            <button
+              onClick={() => setPicking((v) => !v)}
+              className="rounded-md border border-line bg-panel px-2.5 py-1 text-[11.5px] font-semibold text-accent transition-colors hover:border-accent"
+            >
+              {picking ? t("common.cancel") : t("issue.linkPlus")}
+            </button>
+          </div>
+          {picking && <IssueSearchBox autoFocus ariaLabel={t("issue.links")} excludeIds={excludeIds} onPick={pick} />}
         </div>
       )}
     </Field>
@@ -596,7 +586,6 @@ export default function IssueModal() {
   const [descDraft, setDescDraft] = useState("");
   const [labelInput, setLabelInput] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
-  const [dirQuery, setDirQuery] = useState("");
 
   useEffect(() => {
     setTab("comments");
@@ -604,7 +593,6 @@ export default function IssueModal() {
     setComment("");
     setConfirmDel(false);
     setLabelInput("");
-    setDirQuery("");
   }, [ui.selectedIssueId]);
 
   const epic = useMemo(() => data.issues.find((i) => i.id === issue?.epicId), [data.issues, issue?.epicId]);
@@ -645,18 +633,6 @@ export default function IssueModal() {
   // проекта, а не только уже выбранные: иначе выбрать первое направление было
   // бы невозможно — список кандидатов вечно оставался бы пуст.
   const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
-  // Кандидаты в «направление»: все задачи проекта, кроме самой открытой и
-  // архивных (выбирать родителем задачу, убранную из активного набора, незачем).
-  const directionOptions = data.issues.filter((i) => i.id !== issue.id && i.archivedAt === null);
-
-  const dirTerm = dirQuery.trim().toLowerCase();
-  const shownDirections = (
-    dirTerm
-      ? directionOptions.filter(
-          (i) => i.title.toLowerCase().includes(dirTerm) || i.key.toLowerCase().includes(dirTerm),
-        )
-      : directionOptions
-  ).slice(0, 50);
 
   /* права доступа: что можно делать с этой задачей */
   const editOk = can("edit", issue);
@@ -1109,7 +1085,7 @@ export default function IssueModal() {
             <Field label={t("field.direction")}>
               {editOk ? (
               <Dropdown
-                width={220}
+                width={300}
                 button={(open) => (
                   <button className={`${selectCls} ${open ? "border-accent" : ""}`}>
                     {epic ? (
@@ -1126,33 +1102,17 @@ export default function IssueModal() {
               >
                 {(close) => (
                   <>
-                    {/* Список задач проекта может быть длинным — без фильтра
-                        выпадашка становится непригодной (аудит UX-05). */}
-                    {directionOptions.length > 8 && (
-                      <input
-                        autoFocus
-                        value={dirQuery}
-                        onChange={(e) => setDirQuery(e.target.value)}
-                        placeholder={t("backlog.searchPlaceholder")}
-                        aria-label={t("issue.searchDirection")}
-                        className="mb-1 w-full rounded-md border border-line bg-panel px-2 py-1 text-[12px] text-ink placeholder:text-faint focus:border-accent focus:outline-none"
-                      />
-                    )}
                     <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>{t("createIssue.noDirection")}</MenuItem>
-                    {shownDirections.map((e) => (
-                      <MenuItem key={e.id} onClick={() => { updateIssue(issue.id, { epicId: e.id }); setDirQuery(""); close(); }}>
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: e.color }} />
-                        <span className="truncate">{e.title}</span>
-                      </MenuItem>
-                    ))}
-                    {directionOptions.length > 0 && shownDirections.length === 0 && (
-                      <p className="px-3 py-2.5 text-[11.5px] text-faint">{t("topbar.nothingFound")}</p>
-                    )}
-                    {directionOptions.length === 0 && (
-                      <p className="px-3 py-2.5 text-[11.5px] leading-snug text-faint">
-                        {t("issue.noDirectionsHint")}
-                      </p>
-                    )}
+                    <div className="mt-1 border-t border-linesoft pt-1.5">
+                      {/* Кандидаты в «направление» ищутся на сервере: любая другая активная
+                          задача проекта, а не плоский список всех задач (PERF-06). */}
+                      <IssueSearchBox
+                        autoFocus
+                        ariaLabel={t("issue.searchDirection")}
+                        excludeIds={[issue.id]}
+                        onPick={(e) => { updateIssue(issue.id, { epicId: e.id }); close(); }}
+                      />
+                    </div>
                   </>
                 )}
               </Dropdown>
