@@ -30,7 +30,7 @@ export async function auditExportRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireGlobalAdmin, preValidation: zquery(ExportQuery) },
     async (req, reply) => {
       const query = ExportQuery.parse(req.query);
-      const rows = await q<AuditExportRow>(
+      const result = await q<AuditExportRow>(
         `SELECT a.created_at,
                 COALESCE(u.username, a.actor_id::text, 'anonymous') AS actor,
                 a.action,
@@ -43,8 +43,12 @@ export async function auditExportRoutes(app: FastifyInstance): Promise<void> {
             AND ($2::timestamptz IS NULL OR a.created_at < $2)
           ORDER BY a.created_at, a.id
           LIMIT $3`,
-        [query.from ?? null, query.to ?? null, query.limit],
+        [query.from ?? null, query.to ?? null, query.limit + 1],
       );
+      const truncated = result.length > query.limit;
+      const rows = truncated ? result.slice(0, query.limit) : result;
+      reply.header("X-Taskira-Truncated", String(truncated));
+      reply.header("X-Taskira-Limit", String(query.limit));
 
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       await audit(req.user.sub, "audit.export", "audit", null, {
@@ -52,6 +56,7 @@ export async function auditExportRoutes(app: FastifyInstance): Promise<void> {
         from: query.from ?? null,
         to: query.to ?? null,
         rows: rows.length,
+        truncated,
       });
 
       if (query.format === "csv") {

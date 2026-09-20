@@ -5,8 +5,8 @@ import App from "./App.tsx";
 import { applyTheme, watchSystemTheme } from "./theme";
 import { I18nProvider } from "./i18n";
 
-// Тему ставим до первого рендера (data-theme из index.html уже применён без
-// мигания; здесь ещё и пресет фона --c-canvas), затем следим за системной темой.
+// Внешний theme-init.js ставит data-theme до загрузки CSS без нарушения CSP;
+// здесь применяем ещё и пресет фона --c-canvas, затем следим за системой.
 applyTheme();
 watchSystemTheme();
 
