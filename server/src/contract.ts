@@ -450,6 +450,13 @@ export const IssueQuery = IssueFilterQuery.extend({
 /** GET …/issues/counts — тот же набор фильтров, без пагинации и сортировки. */
 export const IssueCountsQuery = IssueFilterQuery;
 
+/** GET …/issues/assignees — исполнители активных задач проекта по убыванию
+ *  нагрузки. Доска строит по нему полоску аватаров-фильтров: раньше она
+ *  выводила её из всех загруженных задач, а при ленивой загрузке их не видно. */
+export const IssueAssigneesQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(24),
+});
+
 /** Метаданные страницы списка задач. И серверный payload, и его TS-тип
  * выводятся из этой схемы; `total` отсутствует без явного includeTotal. */
 export const IssueListPageMeta = z.object({

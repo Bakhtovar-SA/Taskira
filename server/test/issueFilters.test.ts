@@ -277,3 +277,31 @@ describe("has_assignee (assignee=none)", () => {
     expect(await drift()).toBe(0);
   });
 });
+
+describe("GET …/issues/assignees", () => {
+  test("исполнители активных задач по убыванию нагрузки; архивные и чужие проекты не считаются", async () => {
+    const a = await create({ title: "a", assigneeIds: [fx.users.mgr1, fx.users.emp1] });
+    await create({ title: "b", assigneeIds: [fx.users.mgr1] });
+    await create({ title: "c", assigneeIds: [fx.users.mgr1] });
+    const archived = await create({ title: "arch", assigneeIds: [fx.users.emp1] });
+    await q(`UPDATE issues SET archived_at = now() WHERE id = $1`, [archived.id]);
+    void a;
+
+    const res = await g(`${base()}/assignees`);
+    expect(res.status).toBe(200);
+    const byUser = Object.fromEntries(res.body.items.map((r: { userId: string; count: number }) => [r.userId, r.count]));
+    expect(byUser[fx.users.mgr1]).toBe(3);
+    // emp1: задача фикстуры (assignee=emp1) + «a»; архивная «arch» не учитывается
+    expect(byUser[fx.users.emp1]).toBe(2);
+    expect(res.body.items[0].userId).toBe(fx.users.mgr1);
+
+    expect((await g(`${base()}/assignees?limit=1`)).body.items).toHaveLength(1);
+    expect((await g(`${base()}/assignees?limit=0`)).status).toBe(400);
+  });
+
+  test("нужно право browse", async () => {
+    const outsider = await login(app, "outsider");
+    const res = await app.inject({ url: `${base()}/assignees`, headers: auth(outsider) });
+    expect([403, 404]).toContain(res.statusCode);
+  });
+});

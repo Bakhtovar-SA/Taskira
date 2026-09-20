@@ -73,6 +73,7 @@ import {
   CustomFieldParams,
   CustomFieldValueBody,
   IssueCreateBody,
+  IssueAssigneesQuery,
   IssueCountsQuery,
   IssueListPageMeta,
   IssueLinkCreateBody,
@@ -293,6 +294,23 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       total += Number(r.n);
     }
     return { total, byStatus };
+  });
+
+  /* ------------------------------------------- исполнители (для фильтра доски) */
+  app.get("/assignees", { preHandler: [issueListPermission, zquery(IssueAssigneesQuery)] }, async (req) => {
+    const project = req.project!;
+    const { limit } = req.query as z.infer<typeof IssueAssigneesQuery>;
+    const rows = await q<{ user_id: string; n: number }>(
+      `SELECT ia.user_id, count(*)::int AS n
+         FROM issue_assignees ia
+         JOIN issues i ON i.id = ia.issue_id
+        WHERE i.project_id = $1 AND i.archived_at IS NULL
+        GROUP BY ia.user_id
+        ORDER BY n DESC, ia.user_id
+        LIMIT $2`,
+      [project.id, limit],
+    );
+    return { items: rows.map((r) => ({ userId: r.user_id, count: r.n })) };
   });
 
   /* ---------------------------------------------------------- создание */
