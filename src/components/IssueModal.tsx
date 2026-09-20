@@ -8,6 +8,7 @@ import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, 
 import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
 import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
+import { freshRows, useIssue, useIssueSet, useIssuesRevision, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { workflowStatusName } from "../workflowStatus";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
@@ -253,9 +254,8 @@ function AttachmentField({ issue }: { issue: Issue }) {
 
 /** Связанные задачи (issue_links, миграция 014, §3.2). Список видят все, кто
  *  открыл карточку; добавляет/убирает — право `edit` на эту задачу. */
-/** Подзадачи (issues.parent_id, миграция 021) — список НЕ отдельный запрос:
- *  клиент уже держит весь активный список задач проекта в data.issues и
- *  фильтрует по parentId локально, как TimelineView делает для epicId. */
+/** Подзадачи (issues.parent_id, миграция 021): дети открытой задачи запрашиваются у сервера
+ *  (`GET …/issues?parentId=`), а не выбираются фильтром из списка всех задач проекта. */
 function SubtasksField({ issue }: { issue: Issue }) {
   const { t } = useT();
   const { data, idx, can, openIssue, openCreateSubtask } = useStore();
@@ -263,7 +263,13 @@ function SubtasksField({ issue }: { issue: Issue }) {
   // сервер всё равно откажет во втором уровне вложенности (assignParentLocked),
   // но так кнопка не заводит на гарантированный отказ.
   const canCreate = can("create") && !issue.parentId;
-  const children = data.issues.filter((i) => i.parentId === issue.id);
+  const query = useMemo<IssueSetQuery | null>(
+    () => (data.currentProjectId ? { projectId: data.currentProjectId, filters: { parentId: issue.id }, sort: "rank", dir: "asc" } : null),
+    [data.currentProjectId, issue.id],
+  );
+  const set = useIssueSet(query, { withCounts: false });
+  useOnRevision(useIssuesRevision(), set.revalidate);
+  const children = useMemo(() => freshRows(set.items, idx.issues), [set.items, idx.issues]);
   // subtasksSummary (детальный GET /issues/:id) считает total/done по ВСЕМ
   // детям, включая заархивированных — children здесь видит только активные
   // (data.issues — список по умолчанию), так что просто children.length
@@ -595,8 +601,9 @@ export default function IssueModal() {
     setLabelInput("");
   }, [ui.selectedIssueId]);
 
-  const epic = useMemo(() => data.issues.find((i) => i.id === issue?.epicId), [data.issues, issue?.epicId]);
-  const parentIssue = useMemo(() => data.issues.find((i) => i.id === issue?.parentId), [data.issues, issue?.parentId]);
+  // Эпик и родитель открытой задачи — точечные запросы по id (или кэш), а не поиск в списке всех задач.
+  const epic = useIssue(issue?.epicId);
+  const parentIssue = useIssue(issue?.parentId);
   if (!issue) return null;
 
   // Без non-null-утверждений: раньше `!` глушил TypeScript, но при отсутствии
@@ -626,13 +633,10 @@ export default function IssueModal() {
   }
   // Срок горит: дата в прошлом и задача не в финальной категории статуса.
   const overdue = !!issue.dueDate && status.category !== "done" && issue.dueDate < new Date().toISOString().slice(0, 10);
-  // Тип "epic" упразднён (миграция 002): «направление» — задача, на которую
-  // ссылаются другие через epicId. epicIds — те, у кого уже есть дети (нужно,
-  // чтобы скрыть само поле «Направление» у такой задачи — направление не может
-  // выбрать себе направление). Кандидаты в самом пикере — любая другая задача
-  // проекта, а не только уже выбранные: иначе выбрать первое направление было
-  // бы невозможно — список кандидатов вечно оставался бы пуст.
-  const epicIds = new Set(data.issues.map((i) => i.epicId).filter(Boolean));
+  // Тип "epic" упразднён (миграция 002): «направление» — задача, на которую ссылаются другие
+  // через epicId. Признак приходит в детальном ответе (epicChildrenCount), а не выводится
+  // обходом всех задач проекта; направление не может выбрать себе направление.
+  const isDirection = (issue.epicChildrenCount ?? 0) > 0;
 
   /* права доступа: что можно делать с этой задачей */
   const editOk = can("edit", issue);
@@ -1081,7 +1085,7 @@ export default function IssueModal() {
             </div>
           </div>
 
-          {!epicIds.has(issue.id) && (
+          {!isDirection && (
             <Field label={t("field.direction")}>
               {editOk ? (
               <Dropdown
@@ -1131,7 +1135,7 @@ export default function IssueModal() {
             </Field>
           )}
 
-          {epicIds.has(issue.id) && (
+          {isDirection && (
             <div className="space-y-2.5 rounded-md border border-dashed border-line p-2.5">
               <Field label={t("issue.directionColor")}>
                 {editOk ? (

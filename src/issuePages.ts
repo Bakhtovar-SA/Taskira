@@ -274,11 +274,14 @@ export function useOnRevision(revision: string, fn: () => void): void {
 }
 
 /**
- * Строки набора в актуальном виде: правки берутся из стора, а задачи, которых
- * там уже нет (удалены), отбрасываются. Порядок — серверный, не пересчитывается.
+ * Строки набора в актуальном виде: если задачу правили (в том числе из модалки), берётся
+ * свежая версия из стора, иначе — та, что пришла с сервера. Порядок — серверный, не
+ * пересчитывается. Задачи, которых нет в сторе, НЕ отбрасываются: стор больше не держит
+ * все задачи проекта, и «нет в сторе» не значит «удалена». Удаление отражает ревизия
+ * (`issuesRevision` растёт при удалении, и набор перечитывается).
  */
-export function freshRows(items: Issue[], byId: ReadonlyMap<string, Issue>, storeHasIssues: boolean): Issue[] {
-  return items.map((i) => byId.get(i.id) ?? i).filter((i) => !storeHasIssues || byId.has(i.id));
+export function freshRows(items: Issue[], byId: ReadonlyMap<string, Issue>): Issue[] {
+  return items.map((i) => byId.get(i.id) ?? i);
 }
 
 export interface IssueCountsState {
@@ -364,4 +367,26 @@ export function useLoadMoreSentinel(
     // refreshKey: после каждой подгрузки якорь уходит вниз, наблюдение начинается заново
   }, [active, refreshKey, rootMargin]);
   return ref;
+}
+
+/**
+ * Одна задача по id для отображения (бейдж эпика/родителя, родитель создаваемой
+ * подзадачи): из кэша стора, а при промахе — один точечный запрос
+ * (`GET …/issues/:id`) вместо поиска в списке всех задач. `null`, пока не
+ * загружена или недоступна (удалена, нет доступа): вызывающий скрывает бейдж.
+ */
+export function useIssue(id: string | null | undefined): Issue | null {
+  const { idx, lookupIssue } = useStore();
+  const known = id ? (idx.issues.get(id) ?? null) : null;
+  const [fetched, setFetched] = useState<{ id: string; issue: Issue | null } | null>(null);
+  useEffect(() => {
+    if (!id || known) return;
+    let live = true;
+    void lookupIssue(id).then((issue) => live && setFetched({ id, issue }));
+    return () => {
+      live = false;
+    };
+    // known как признак, а не объект: перерисовки со сменой ссылки не должны перезапрашивать
+  }, [id, !!known, lookupIssue]);
+  return known ?? (fetched && fetched.id === id ? fetched.issue : null);
 }

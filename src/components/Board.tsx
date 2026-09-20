@@ -318,7 +318,7 @@ function ColumnCards({
   const query = useMemo<IssueSetQuery>(() => ({ projectId, filters, sort: "rank", dir: "asc" }), [projectId, filters]);
   const set = useIssueSet(query, { withCounts: false });
   useOnRevision(revision, set.revalidate);
-  const rows = useMemo(() => freshRows(set.items, idx.issues, data.issues.length > 0), [set.items, idx.issues, data.issues.length]);
+  const rows = useMemo(() => freshRows(set.items, idx.issues), [set.items, idx.issues]);
 
   const { hasMore, loading, loadingMore, loadMore } = set;
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length, "200px");

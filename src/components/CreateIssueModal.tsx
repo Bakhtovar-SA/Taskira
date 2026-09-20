@@ -8,13 +8,15 @@ import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
 import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
+import { useIssue } from "../issuePages";
 
 const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 export default function CreateIssueModal() {
   const { t } = useT();
   const { data, ui, setCreateOpen, createIssue } = useStore();
-  const parent = ui.createParentId ? data.issues.find((i) => i.id === ui.createParentId) : undefined;
+  // Родитель создаваемой подзадачи: из кэша (его только что открывали) или точечный запрос по id.
+  const parent = useIssue(ui.createParentId) ?? undefined;
   const [typeId, setTypeId] = useState<IssueTypeId>("task");
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");

@@ -429,6 +429,7 @@ export function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     customFieldValues: dto.customFieldValues ?? prev?.customFieldValues ?? [],
     // subtasksSummary — тоже только в детальном ответе; null, пока не загружено.
     subtasksSummary: dto.subtasksSummary ?? prev?.subtasksSummary ?? null,
+    epicChildrenCount: dto.epicChildrenCount ?? prev?.epicChildrenCount ?? null,
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
     doneAt: dto.doneAt ? Date.parse(dto.doneAt) || null : null,
@@ -533,6 +534,8 @@ interface Api {
    *  (создание, импорт, удаление, правка полей, смена статуса): по ней Список и
    *  Доска перечитываются. Не пересчитывается по массиву задач. */
   issuesRevision: number;
+  /** Задача по id: из известных стору, иначе точечный `GET …/issues/:id` (без тостов при ошибке). */
+  lookupIssue: (id: string) => Promise<Issue | null>;
   addComment: (issueId: string, body: string) => void;
   addCollaborator: (issueId: string, userId: string) => void;
   removeCollaborator: (issueId: string, userId: string) => void;
@@ -696,7 +699,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
    * reporterId именно из этого объекта, и тихий return выглядел бы как баг.
    */
   const resolveIssue = useCallback(
-    async (id: string): Promise<Issue | null> => {
+    async (id: string, opts: { silent?: boolean } = {}): Promise<Issue | null> => {
       const known = dataRef.current.issues.find((i) => i.id === id);
       if (known) return known;
       const requestProjectId = pid();
@@ -709,6 +712,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         );
         return mapped;
       } catch (err) {
+        // silent — справочные запросы (бейдж эпика/родителя): недоступность не повод для тоста
+        if (opts.silent) return null;
         if (err instanceof ApiError && (err.status === 404 || err.status === 403)) {
           toast(
             "error",
@@ -725,6 +730,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     [toast, local, handleApiError],
   );
+
+  /** Задача по id для отображения (бейджи, справочники): из кэша, иначе точечный GET; без тостов. */
+  const lookupIssue = useCallback((id: string) => resolveIssue(id, { silent: true }), [resolveIssue]);
 
   /** Выполняет `fn` с задачей: сразу, если она известна, иначе после точечной загрузки. */
   const withIssue = useCallback(
@@ -2425,6 +2433,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateIssue,
     moveStatus,
     issuesRevision,
+    lookupIssue,
     addComment,
     addCollaborator,
     removeCollaborator,

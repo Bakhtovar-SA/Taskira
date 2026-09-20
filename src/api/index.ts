@@ -312,6 +312,7 @@ export type ServerIssue = {
    *  что фильтр data.issues.filter(i => i.parentId === ...) на клиенте
    *  (тот видит только активные). Только в детальном ответе GET /issues/:id. */
   subtasksSummary?: { total: number; done: number };
+  epicChildrenCount?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -617,6 +618,9 @@ export interface IssueFilterParams {
   /** id исполнителя или "none" — задачи без исполнителей. */
   assignee?: string;
   type?: string;
+  /** Дети одной задачи: подзадачи и задачи «направления». */
+  parentId?: string;
+  epicId?: string;
   q?: string;
   overdue?: "1";
   /** "hide" — без закрытых; "recent" — закрытые не старше closedDays; "older" — только старше. */

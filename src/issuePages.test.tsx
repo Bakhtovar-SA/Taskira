@@ -420,14 +420,10 @@ describe("useIssueSet без счётчика (колонка доски)", () =
 });
 
 describe("freshRows", () => {
-  test("правки берутся из стора, удалённые отбрасываются, порядок сервера сохраняется", () => {
+  test("правки берутся из стора, порядок сервера сохраняется, неизвестные стору задачи не отбрасываются", () => {
     const mk = (id: string, title = id) => ({ id, title }) as unknown as Issue;
-    const byId = new Map([
-      ["a", mk("a", "правка")],
-      ["c", mk("c")],
-    ]);
-    expect(freshRows([mk("a"), mk("b"), mk("c")], byId, true).map((i) => i.title)).toEqual(["правка", "c"]);
-    // пустой стор (ещё не загружен) — показываем то, что пришло
-    expect(freshRows([mk("a"), mk("b")], new Map(), false).map((i) => i.id)).toEqual(["a", "b"]);
+    const byId = new Map([["a", mk("a", "правка")]]);
+    expect(freshRows([mk("a"), mk("b"), mk("c")], byId).map((i) => i.title)).toEqual(["правка", "b", "c"]);
+    expect(freshRows([mk("x")], new Map()).map((i) => i.id)).toEqual(["x"]);
   });
 });

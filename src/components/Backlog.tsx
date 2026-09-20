@@ -143,7 +143,7 @@ export default function Backlog() {
   // Правки задач (в т. ч. из модалки) живут в сторе; строки показывают свежую
   // версию оттуда, а набор перечитывается, чтобы состав (фильтр, удаление,
   // новые задачи) не устарел. Пока стор держит все задачи, это дёшево.
-  const rows = useMemo(() => freshRows(set.items, idx.issues, data.issues.length > 0), [set.items, idx.issues, data.issues.length]);
+  const rows = useMemo(() => freshRows(set.items, idx.issues), [set.items, idx.issues]);
   useOnRevision(useIssuesRevision(), set.revalidate);
 
   // Подгрузка при прокрутке к концу списка; кнопка «Показать ещё» — запасной путь.
