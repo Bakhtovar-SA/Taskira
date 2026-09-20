@@ -122,6 +122,9 @@ jobs:
         working-directory: server
       - run: npm run build
         working-directory: server
+      - name: Verify interrupted concurrent-index recovery
+        run: node scripts/test-concurrent-index-recovery.mjs
+        working-directory: server
       - name: Restore snapshot, migrate, start, and smoke-test
         run: node scripts/upgrade-snapshot-smoke.mjs "../${{ matrix.snapshot }}"
         working-directory: server
@@ -201,6 +204,8 @@ jobs:
       - run: npm rebuild esbuild
 
       - run: npm run typecheck
+
+      - run: npm run contracts:check
 
       - run: npm test
 

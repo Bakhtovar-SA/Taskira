@@ -232,14 +232,16 @@ const ISSUES_PAGE = 200;
  * активный набор, а не молча первые 200 строк. Сервер всё равно ограничивает
  * один ответ; дочитываем страницы последовательно, не создавая всплеск запросов. */
 async function listAllIssues(projectId: string): Promise<{ items: ServerIssue[]; total: number }> {
-  const first = await issuesApi.list(projectId, { limit: ISSUES_PAGE, offset: 0 });
-  const items = [...first.items];
-  while (items.length < first.total) {
-    const page = await issuesApi.list(projectId, { limit: ISSUES_PAGE, offset: items.length });
+  let page = await issuesApi.list(projectId, { limit: ISSUES_PAGE });
+  const items = [...page.items];
+  while (page.nextCursor) {
+    // Курсор — эфемерное состояние обхода. В URL/localStorage он намеренно не
+    // попадает: сохранённая ссылка описывает фильтр, а не позицию в выдаче.
+    page = await issuesApi.list(projectId, { limit: ISSUES_PAGE, cursor: page.nextCursor });
     if (page.items.length === 0) break;
     items.push(...page.items);
   }
-  return { items, total: first.total };
+  return { items, total: items.length };
 }
 
 const PROJECT_KEY = "taskira.project";
@@ -381,7 +383,8 @@ const mapIssueLink = (l: ServerIssueLink): IssueLink => ({
   createdAt: Date.parse(l.createdAt) || Date.now(),
 });
 
-function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
+/** Экспортируется для постраничных наборов (`issuePages.ts`): они мапят DTO страницы так же, как стор. */
+export function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
   return {
     id: dto.id,
     key: dto.key,
@@ -741,8 +744,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const refreshNotifications = useCallback(async () => {
     try {
-      const res = await notificationsApi.list();
-      setData((prev) => ({ ...prev, notifications: res.items.map(mapNotification), unreadCount: res.unread }));
+      const [res, unread] = await Promise.all([notificationsApi.list(), notificationsApi.unreadCount()]);
+      setData((prev) => ({ ...prev, notifications: res.items.map(mapNotification), unreadCount: unread.count }));
     } catch {
       /* тихо — колокол не критичен */
     }

@@ -30,6 +30,28 @@ function migrationFiles(): string[] {
   return readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 }
 
+const NON_TRANSACTIONAL_MARKER = "-- migration-transaction: none";
+
+function isNonTransactionalMigration(sql: string): boolean {
+  return sql.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0].trim() === NON_TRANSACTIONAL_MARKER;
+}
+
+async function assertNoInvalidIndexes(client: pg.PoolClient, file: string): Promise<void> {
+  const invalid = await client.query<{ index_name: string }>(
+    `SELECT indexrelid::regclass::text AS index_name
+       FROM pg_index
+      WHERE NOT indisvalid
+        AND indrelid IN (
+          SELECT c.oid FROM pg_class c WHERE c.relnamespace = current_schema()::regnamespace
+        )`,
+  );
+  if (invalid.rows.length > 0) {
+    throw new Error(
+      `Нетранзакционная миграция ${file} оставила/обнаружила невалидный индекс: ${invalid.rows.map((row) => row.index_name).join(", ")}. Выполните recovery из SQL-файла и повторите запуск.`,
+    );
+  }
+}
+
 export async function q<T>(text: string, params: unknown[] = []): Promise<T[]> {
   const res = await getPool().query(text, params);
   return res.rows as T[];
@@ -75,8 +97,11 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
 
 /**
  * Применяет миграции из server/migrations по имени, отмечая выполненные в schema_migrations.
- * Каждая миграция проходит ЦЕЛИКОМ на одном соединении внутри явной транзакции:
- * при ошибке — ROLLBACK, соединение всегда возвращается в пул (fix 3a).
+ * Обычная миграция проходит целиком внутри явной транзакции. Файл с первой
+ * строкой `-- migration-transaction: none` исполняется без BEGIN — только для
+ * PostgreSQL DDL вроде CREATE INDEX CONCURRENTLY; после него runner проверяет,
+ * что в текущей схеме не осталось невалидных индексов, и лишь затем ставит
+ * отметку schema_migrations.
  */
 export async function migrate(): Promise<void> {
   const p = getPool();
@@ -94,6 +119,16 @@ export async function migrate(): Promise<void> {
       if (applied.rows.length > 0) continue;
 
       const sql = readFileSync(join(dir, file), "utf8");
+      if (isNonTransactionalMigration(sql)) {
+        if (!/^-- recovery: .+$/m.test(sql.replaceAll("\r", ""))) {
+          throw new Error(`Нетранзакционная миграция ${file} не содержит обязательный -- recovery:`);
+        }
+        await client.query(sql);
+        await assertNoInvalidIndexes(client, file);
+        await client.query(`INSERT INTO schema_migrations (name) VALUES ($1)`, [file]);
+        console.log(`[db] применена нетранзакционная миграция ${file}`);
+        continue;
+      }
       try {
         await client.query("BEGIN");
         await client.query(sql);

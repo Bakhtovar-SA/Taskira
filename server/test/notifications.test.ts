@@ -224,7 +224,7 @@ describe("In-app API", () => {
     expect(res.statusCode).toBe(200);
     let body = JSON.parse(res.body);
     expect(body.items.length).toBe(2);
-    expect(body.unread).toBe(2);
+    expect(body).not.toHaveProperty("unread"); // count живёт в отдельном opt-in endpoint
     expect(body.items[0].actor.id).toBe(fx.users.mgr1);
     expect(body.items[0].payload.key).toBe("CORP-1");
 

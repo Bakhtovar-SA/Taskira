@@ -8,6 +8,7 @@ import type { z } from "zod";
 import { escLike, one, q, withTransaction } from "../db.js";
 import {
   badRequest,
+  formatZod,
   notFound,
   requireIssuePerm,
   requirePerm,
@@ -56,6 +57,15 @@ import { storageKeysForIssue, deleteStorageObjects } from "../services/attachmen
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import { assertSprintsEnabled, getSprintInProject } from "../services/sprints.js";
+import { loadConfig } from "../config.js";
+import {
+  decodeIssueListCursor,
+  decodeIssueSortCursor,
+  encodeIssueListCursor,
+  encodeIssueSortCursor,
+  type IssueCursorSort,
+} from "../issueListCursor.js";
+import { buildIssueFilter, needsStatusJoin, SORT_EXPR } from "../services/issueFilters.js";
 import {
   ChecklistItemCreateBody,
   ChecklistItemParams,
@@ -63,6 +73,9 @@ import {
   CustomFieldParams,
   CustomFieldValueBody,
   IssueCreateBody,
+  IssueAssigneesQuery,
+  IssueCountsQuery,
+  IssueListPageMeta,
   IssueLinkCreateBody,
   IssueLinkParams,
   IssuePatchBody,
@@ -87,63 +100,218 @@ const COMPLEXITY_NAMES: Record<string, string> = {
 
 const me = (req: { user: JwtPayload }) => req.user;
 
+const PERF_TRACE = process.env.PERF_TRACE === "1";
+const elapsedMs = (started: bigint): number => Number(process.hrtime.bigint() - started) / 1e6;
+
+interface IssueListPerfTrace {
+  requestStarted: bigint;
+  permissionMs?: number;
+  queryValidationMs?: number;
+  beforeFirstSqlMs?: number;
+  countSqlMs?: number;
+  listSqlMs?: number;
+  assigneesSqlMs?: number;
+  responseBuildMs?: number;
+  serializationStarted?: bigint;
+}
+
+const issueListPerfTraces = new WeakMap<object, IssueListPerfTrace>();
+const issueListPermission = requirePerm("browse");
+
 export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   /* ---------------------------------------------------------- список с фильтрами */
   app.get(
     "/",
-    { preHandler: [requirePerm("browse"), zquery(IssueQuery)] },
+    {
+      onRequest: PERF_TRACE
+        ? async (req) => {
+            issueListPerfTraces.set(req, { requestStarted: process.hrtime.bigint() });
+          }
+        : undefined,
+      preHandler: PERF_TRACE
+        ? [
+            async (req, reply) => {
+              const started = process.hrtime.bigint();
+              await issueListPermission.call(req.server, req, reply);
+              const trace = issueListPerfTraces.get(req);
+              if (trace) trace.permissionMs = elapsedMs(started);
+            },
+            async (req) => {
+              const started = process.hrtime.bigint();
+              const parsed = IssueQuery.safeParse(req.query);
+              if (!parsed.success) throw badRequest(formatZod(parsed.error));
+              req.query = parsed.data as typeof req.query;
+              const trace = issueListPerfTraces.get(req);
+              if (trace) trace.queryValidationMs = elapsedMs(started);
+            },
+          ]
+        : [issueListPermission, zquery(IssueQuery)],
+      preSerialization: PERF_TRACE
+        ? async (req) => {
+            const trace = issueListPerfTraces.get(req);
+            if (trace) trace.serializationStarted = process.hrtime.bigint();
+          }
+        : undefined,
+      onSend: PERF_TRACE
+        ? async (req, _reply, payload) => {
+            const trace = issueListPerfTraces.get(req);
+            if (trace) {
+              const query = req.query as z.infer<typeof IssueQuery>;
+              process.stdout.write(
+                `[perf-trace] ${JSON.stringify({
+                  route: "GET /api/projects/:projectId/issues",
+                  requestId: req.id,
+                  limit: query.limit,
+                  offset: query.offset,
+                  cursor: query.cursor ? "present" : undefined,
+                  beforeFirstSqlMs: trace.beforeFirstSqlMs,
+                  countSqlMs: trace.countSqlMs,
+                  listSqlMs: trace.listSqlMs,
+                  assigneesSqlMs: trace.assigneesSqlMs,
+                  permissionMs: trace.permissionMs,
+                  queryValidationMs: trace.queryValidationMs,
+                  responseValidationMs: 0,
+                  responseBuildMs: trace.responseBuildMs,
+                  serializationMs: trace.serializationStarted ? elapsedMs(trace.serializationStarted) : undefined,
+                  handlerToSerializedMs: elapsedMs(trace.requestStarted),
+                })}\n`,
+              );
+            }
+            return payload;
+          }
+        : undefined,
+    },
     async (req, reply) => {
       const project = req.project!;
       const f = req.query as z.infer<typeof IssueQuery>;
+      const trace = issueListPerfTraces.get(req);
 
-      // Архив (миграция 016) из активного набора исключён по умолчанию: доска и
-      // «Список задач» показывают живые задачи. ?archived=1 — только архивные,
-      // ?archived=all — всё вместе (для отчётов и сквозного поиска).
-      const clauses: string[] = ["i.project_id = $1"];
-      if (f.archived === "1") clauses.push("i.archived_at IS NOT NULL");
-      else if (f.archived !== "all") clauses.push("i.archived_at IS NULL");
-      const params: unknown[] = [project.id];
-      const add = (clause: string, ...vals: unknown[]) => {
-        for (const v of vals) {
-          params.push(v);
-          clause = clause.replace("?", `$${params.length}`);
+      const { clauses, params } = buildIssueFilter(project.id, f);
+
+      // total относится ко всему отфильтрованному набору, а не к хвосту после
+      // курсора. Поэтому фиксируем WHERE/params до добавления keyset-предиката.
+      const countWhere = clauses.join(" AND ");
+      const countParams = [...params];
+      if (trace) trace.beforeFirstSqlMs = elapsedMs(trace.requestStarted);
+      const countStarted = trace && f.includeTotal ? process.hrtime.bigint() : undefined;
+      const total = f.includeTotal
+        ? await one<{ n: string }>(
+            `SELECT count(*)::text AS n FROM issues i
+               JOIN workflow_statuses ws ON ws.id = i.status_id
+              WHERE ${countWhere}`,
+            countParams,
+          )
+        : null;
+      if (trace && countStarted) trace.countSqlMs = elapsedMs(countStarted);
+
+      const secret = loadConfig().jwtSecret;
+      const byRank = f.sort === "rank";
+      const sortExpr = f.sort === "rank" ? "" : SORT_EXPR[f.sort];
+      if (f.cursor) {
+        try {
+          if (byRank) {
+            const cursor = decodeIssueListCursor(f.cursor, secret);
+            params.push(cursor.rank, cursor.id);
+            clauses.push(`(i.rank, i.id) > ($${params.length - 1}, $${params.length})`);
+          } else {
+            const cursor = decodeIssueSortCursor(f.cursor, secret);
+            if (cursor.sort !== f.sort || cursor.dir !== f.dir) throw new Error("cursor sort mismatch");
+            params.push(cursor.value, cursor.num);
+            // Тай-брейк зеркален направлению: индекс (project_id, <ключ>, num)
+            // читается и вперёд, и назад, а смешанный порядок (ключ DESC,
+            // num ASC) потребовал бы второго индекса на каждую сортировку.
+            // Из-за этого позицию можно задать сравнением строк: в отличие от
+            // `a > x OR (a = x AND b > y)` оно становится условием индекса и
+            // глубокая страница не читает пропущенное.
+            const cmp = f.dir === "asc" ? ">" : "<";
+            clauses.push(`(${sortExpr}, i.num) ${cmp} ($${params.length - 1}, $${params.length})`);
+          }
+        } catch {
+          throw badRequest("Некорректный курсор страницы");
         }
-        clauses.push(clause);
-      };
-
-      if (f.status) add("i.status_id = ?", f.status);
-      if (f.assignee) add("EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = ?)", f.assignee);
-      if (f.type) add("i.type_id = ?", f.type);
-      if (f.q) add("(i.title ILIKE ? OR i.key ILIKE ?)", `%${escLike(f.q)}%`, `%${escLike(f.q)}%`);
-      if (f.dueFrom) add("i.due_date >= ?", f.dueFrom);
-      if (f.dueTo) add("i.due_date <= ?", f.dueTo);
-      if (f.overdue) clauses.push("i.due_date IS NOT NULL AND i.due_date < CURRENT_DATE AND ws.category <> 'done'");
-
+      }
       const where = clauses.join(" AND ");
-      const total = (
-        await one<{ n: string }>(
-          `SELECT count(*)::text AS n FROM issues i
-             JOIN workflow_statuses ws ON ws.id = i.status_id
-            WHERE ${where}`,
-          params,
-        )
-      )!;
-      params.push(f.limit, f.offset);
-      const rows = await q<IssueRow>(
-        `SELECT i.* FROM issues i
+      params.push(f.limit + 1, f.cursor ? 0 : f.offset);
+      const dirSql = f.dir === "desc" ? "DESC" : "ASC";
+      const orderBy = byRank ? "i.rank, i.id" : `${sortExpr} ${dirSql}, i.num ${dirSql}`;
+      const listStarted = trace ? process.hrtime.bigint() : undefined;
+      const rows = await q<IssueRow & { sort_val?: number }>(
+        `SELECT i.*${byRank ? "" : `, ${sortExpr} AS sort_val`} FROM issues i
            JOIN workflow_statuses ws ON ws.id = i.status_id
           WHERE ${where}
-          ORDER BY i.rank, i.id
+          ORDER BY ${orderBy}
           LIMIT $${params.length - 1} OFFSET $${params.length}`,
         params,
       );
-      const assigneesByIssue = await listAssigneeIdsBatch(rows.map((r) => r.id));
-      reply.send({
-        items: rows.map((r) => maskSprintId(mapIssue(r, assigneesByIssue.get(r.id) ?? []), project.sprintsEnabled)),
-        total: Number(total.n),
-      });
+      if (trace && listStarted) trace.listSqlMs = elapsedMs(listStarted);
+      const hasMore = rows.length > f.limit;
+      const pageRows = hasMore ? rows.slice(0, f.limit) : rows;
+      const assigneesStarted = trace ? process.hrtime.bigint() : undefined;
+      const assigneesByIssue = await listAssigneeIdsBatch(pageRows.map((r) => r.id));
+      if (trace && assigneesStarted) trace.assigneesSqlMs = elapsedMs(assigneesStarted);
+      const responseBuildStarted = trace ? process.hrtime.bigint() : undefined;
+      const pageMeta: IssueListPageMeta = {
+        hasMore,
+        nextCursor:
+          hasMore && pageRows.length > 0
+            ? byRank
+              ? encodeIssueListCursor(pageRows.at(-1)!, secret)
+              : encodeIssueSortCursor(
+                  { sort: f.sort as IssueCursorSort, dir: f.dir, value: pageRows.at(-1)!.sort_val!, num: pageRows.at(-1)!.num },
+                  secret,
+                )
+            : null,
+        ...(total ? { total: Number(total.n) } : {}),
+      };
+      const payload = {
+        items: pageRows.map((r) => maskSprintId(mapIssue(r, assigneesByIssue.get(r.id) ?? []), project.sprintsEnabled)),
+        ...pageMeta,
+      };
+      if (trace && responseBuildStarted) trace.responseBuildMs = elapsedMs(responseBuildStarted);
+      return reply.send(payload);
     },
   );
+
+  /* ------------------------------------------------ счётчики по статусам */
+  // Тот же набор фильтров, что у списка. Один запрос на набор: клиент берёт
+  // отсюда общее число и заголовки колонок доски, а не считает загруженное.
+  // Идёт по idx_issues_active (project_id, status_id, rank) WHERE archived_at IS NULL.
+  app.get("/counts", { preHandler: [issueListPermission, zquery(IssueCountsQuery)] }, async (req) => {
+    const project = req.project!;
+    const f = req.query as z.infer<typeof IssueCountsQuery>;
+    const { clauses, params } = buildIssueFilter(project.id, f);
+    const rows = await q<{ status_id: string; n: string }>(
+      `SELECT i.status_id, count(*)::text AS n FROM issues i
+         ${needsStatusJoin(f) ? "JOIN workflow_statuses ws ON ws.id = i.status_id" : ""}
+        WHERE ${clauses.join(" AND ")}
+        GROUP BY i.status_id`,
+      params,
+    );
+    const byStatus: Record<string, number> = {};
+    let total = 0;
+    for (const r of rows) {
+      byStatus[r.status_id] = Number(r.n);
+      total += Number(r.n);
+    }
+    return { total, byStatus };
+  });
+
+  /* ------------------------------------------- исполнители (для фильтра доски) */
+  app.get("/assignees", { preHandler: [issueListPermission, zquery(IssueAssigneesQuery)] }, async (req) => {
+    const project = req.project!;
+    const { limit } = req.query as z.infer<typeof IssueAssigneesQuery>;
+    const rows = await q<{ user_id: string; n: number }>(
+      `SELECT ia.user_id, count(*)::int AS n
+         FROM issue_assignees ia
+         JOIN issues i ON i.id = ia.issue_id
+        WHERE i.project_id = $1 AND i.archived_at IS NULL
+        GROUP BY ia.user_id
+        ORDER BY n DESC, ia.user_id
+        LIMIT $2`,
+      [project.id, limit],
+    );
+    return { items: rows.map((r) => ({ userId: r.user_id, count: r.n })) };
+  });
 
   /* ---------------------------------------------------------- создание */
   app.post(
