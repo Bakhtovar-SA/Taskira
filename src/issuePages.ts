@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { issuesApi, type IssueCounts, type IssueFilterParams, type IssueSortKey } from "./api";
+import { issuesApi, type IssueCounts, type IssueEpic, type IssueFilterParams, type IssueSortKey } from "./api";
 import { mapIssue, useStore } from "./store";
 import type { Issue } from "./types";
 
@@ -389,4 +389,54 @@ export function useIssue(id: string | null | undefined): Issue | null {
     // known как признак, а не объект: перерисовки со сменой ссылки не должны перезапрашивать
   }, [id, !!known, lookupIssue]);
   return known ?? (fetched && fetched.id === id ? fetched.issue : null);
+}
+
+export interface EpicsState {
+  /** id направления → его данные (для бейджей). */
+  byId: ReadonlyMap<string, IssueEpic>;
+  list: readonly IssueEpic[];
+  /** Направлений больше потолка сервера (500): часть бейджей может отсутствовать. */
+  truncated: boolean;
+  loading: boolean;
+  error: string | null;
+}
+
+const NO_EPICS: EpicsState = { byId: new Map(), list: [], truncated: false, loading: false, error: null };
+
+/**
+ * Справочник направлений проекта (`GET …/issues/epics`): один запрос на открытие
+ * экрана и на смену `revision`, а не на каждую ревалидацию наборов — цена запроса
+ * растёт с числом детей направлений (см. EPIC-01). Вызывающий выбирает, что считать
+ * сигналом: Доска и Список — `epicsRevision` (меняются заголовок, цвет, привязка),
+ * Timeline, которому нужны и счётчики детей, — `issuesRevision`. Показанное не
+ * сбрасывается на время перечитывания.
+ *
+ * Отсутствие направления в справочнике = «не загружено или архивно», а не
+ * «не существует»: вызывающий скрывает бейдж, но не считает задачу битой.
+ */
+export function useEpics(projectId: string | null, revision: string | number): EpicsState {
+  const [state, setState] = useState<{ projectId: string | null; value: EpicsState }>({ projectId: null, value: NO_EPICS });
+  const gen = useRef(0);
+  useEffect(() => {
+    const my = ++gen.current;
+    if (!projectId) {
+      setState({ projectId: null, value: NO_EPICS });
+      return;
+    }
+    setState((prev) => (prev.projectId === projectId ? { ...prev, value: { ...prev.value, loading: true, error: null } } : { projectId, value: { ...NO_EPICS, loading: true } }));
+    issuesApi.epics(projectId).then(
+      (res) => {
+        if (gen.current !== my) return;
+        setState({ projectId, value: { byId: new Map(res.items.map((e) => [e.id, e])), list: res.items, truncated: res.truncated, loading: false, error: null } });
+      },
+      (e: unknown) => {
+        if (gen.current !== my) return;
+        setState((prev) => ({ projectId, value: { ...(prev.projectId === projectId ? prev.value : NO_EPICS), loading: false, error: errText(e) } }));
+      },
+    );
+    return () => {
+      gen.current++;
+    };
+  }, [projectId, revision]);
+  return state.projectId === projectId ? state.value : NO_EPICS;
 }

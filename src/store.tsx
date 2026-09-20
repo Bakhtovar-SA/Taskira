@@ -534,6 +534,8 @@ interface Api {
    *  (создание, импорт, удаление, правка полей, смена статуса): по ней Список и
    *  Доска перечитываются. Не пересчитывается по массиву задач. */
   issuesRevision: number;
+  /** Растёт при изменениях, влияющих на справочник направлений (заголовок, цвет, привязка, удаление). */
+  epicsRevision: number;
   /** Задача по id: из известных стору, иначе точечный `GET …/issues/:id` (без тостов при ошибке). */
   lookupIssue: (id: string) => Promise<Issue | null>;
   addComment: (issueId: string, body: string) => void;
@@ -635,6 +637,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // запускала бы перечитывание, а оно — новую загрузку.
   const [issuesRevision, setIssuesRevision] = useState(0);
   const bumpIssues = useCallback(() => setIssuesRevision((n) => n + 1), []);
+  // Отдельный сигнал для справочника направлений: заголовок, цвет и привязка задач к
+  // направлению меняются редко, а запрос `epics` дорожает с числом детей (EPIC-01), поэтому
+  // перемещение карточки или правка приоритета его не перезапрашивает.
+  const [epicsRevision, setEpicsRevision] = useState(0);
+  const bumpEpics = useCallback(() => setEpicsRevision((n) => n + 1), []);
 
   const pid = () => dataRef.current.currentProjectId;
 
@@ -1295,6 +1302,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             };
           });
           bumpIssues();
+          if (dto.epicId) bumpEpics();
           // Закрывать (или нет) модалку — решение вызывающего компонента, не
           // этого коллбэка: CreateIssueModal сам решает это синхронно, ДО
           // резолва этого промиса, по чекбоксу «создать ещё одну следом».
@@ -1469,6 +1477,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               issues: prev.issues.map((i) => (i.id === id ? mapIssue(dto, i) : i)),
             }));
             bumpIssues();
+            if (body.epicId !== undefined || body.title !== undefined || body.color !== undefined) bumpEpics();
           } catch (err) {
             handleApiError(err, local("Не удалось сохранить задачу", "Couldn't save the issue"));
           }
@@ -1821,6 +1830,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             ),
           }));
           bumpIssues();
+          bumpEpics();
           setUi((u) => ({ ...u, selectedIssueId: u.selectedIssueId === issueId ? null : u.selectedIssueId }));
           if (iss) toast("info", local(`${iss.key} удалена`, `${iss.key} deleted`));
         } catch (err) {
@@ -2433,6 +2443,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateIssue,
     moveStatus,
     issuesRevision,
+    epicsRevision,
     lookupIssue,
     addComment,
     addCollaborator,

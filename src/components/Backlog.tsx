@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { fmtDate, useStore } from "../store";
 import type { Issue } from "../types";
 import { TYPE_ORDER } from "../types";
-import { freshRows, useDebounced, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
-import type { IssueFilterParams } from "../api";
+import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
+import type { IssueEpic, IssueFilterParams } from "../api";
 import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, SkeletonRow } from "../ui";
 import ImportTrelloModal from "./ImportTrelloModal";
@@ -20,13 +20,12 @@ const isEmptyText = (v: string) => v === "";
 const selectCls =
   "h-8 rounded-md border border-line bg-panel px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
 
-function Row({ issue }: { issue: Issue }) {
+function Row({ issue, epic }: { issue: Issue; epic: Pick<IssueEpic, "title" | "color"> | undefined }) {
   const { t, lang } = useT();
   const { idx, openIssue, deleteIssue, can } = useStore();
   // Ассоциированные сущности ищем по индексам из контекста, а не линейным
   // проходом по массивам в каждой строке списка (аудит PERF-02).
   const assignees = issue.assigneeIds.map((id) => idx.users.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
-  const epic = issue.epicId ? idx.issues.get(issue.epicId) : undefined;
   const status = idx.statuses.get(issue.statusId);
 
   return (
@@ -95,7 +94,7 @@ function Row({ issue }: { issue: Issue }) {
 
 export default function Backlog() {
   const { t } = useT();
-  const { data, idx, can } = useStore();
+  const { data, idx, can, epicsRevision } = useStore();
   const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
   const [fStatus, setFStatus] = useState("");
@@ -139,6 +138,8 @@ export default function Backlog() {
   }, [data.currentProjectId, fStatus, fAssignee, fType, qDebounced, fOverdue, showDone, sortKey, sortDir]);
 
   const set = useIssueSet(query);
+  // Направления строк — справочник (один запрос на экран), а не поиск в списке всех задач.
+  const epics = useEpics(data.currentProjectId || null, epicsRevision);
 
   // Правки задач (в т. ч. из модалки) живут в сторе; строки показывают свежую
   // версию оттуда, а набор перечитывается, чтобы состав (фильтр, удаление,
@@ -309,7 +310,7 @@ export default function Backlog() {
             <>
               <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
                 {rows.map((i) => (
-                  <Row key={i.id} issue={i} />
+                  <Row key={i.id} issue={i} epic={i.epicId ? epics.byId.get(i.epicId) : undefined} />
                 ))}
                 {loadingMore && (
                   <div className="border-t border-linesoft" aria-busy="true" aria-label={t("backlog.loadingMore")}>

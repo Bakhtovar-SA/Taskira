@@ -274,3 +274,31 @@ describe("issuesRevision — явный счётчик, а не пересчёт
     h.unmount();
   });
 });
+
+describe("epicsRevision — отдельный сигнал справочника направлений", () => {
+  test("растёт от смены заголовка/направления, но не от смены приоритета", async () => {
+    const h = await setup({ role: "manager", listed: [dto("i1")] });
+    const r0 = h.store().epicsRevision;
+    h.patch.mockResolvedValue(dto("i1", { priorityId: "high" }));
+    await act(async () => {
+      h.store().updateIssue("i1", { priorityId: "high" });
+      await flush();
+    });
+    expect(h.store().epicsRevision).toBe(r0); // порядок/состав наборов мог измениться, справочник — нет
+
+    h.patch.mockResolvedValue(dto("i1", { title: "Новое имя" }));
+    await act(async () => {
+      h.store().updateIssue("i1", { title: "Новое имя" });
+      await flush();
+    });
+    expect(h.store().epicsRevision).toBe(r0 + 1);
+
+    h.patch.mockResolvedValue(dto("i1", { epicId: "e1" }));
+    await act(async () => {
+      h.store().updateIssue("i1", { epicId: "e1" });
+      await flush();
+    });
+    expect(h.store().epicsRevision).toBe(r0 + 2);
+    h.unmount();
+  });
+});

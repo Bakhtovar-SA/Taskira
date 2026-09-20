@@ -5,12 +5,13 @@ import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearc
 import { Avatar, AvatarStack, BOARD_COLUMN_SHELL, Chip, SkeletonCard, catColor, DROPDOWN_OPEN_EVT } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
-import { issuesApi, type IssueFilterParams } from "../api";
+import { issuesApi, type IssueEpic, type IssueFilterParams } from "../api";
 import {
   ISSUE_PAGE_SIZE,
   NO_ISSUE_FILTERS,
   freshRows,
   useDebounced,
+  useEpics,
   useIssueCounts,
   useIssueSet,
   useIssuesRevision,
@@ -68,7 +69,8 @@ const Card = memo(function Card({
 }: {
   issue: Issue;
   assignees: User[];
-  epic: Issue | undefined;
+  /** Направление карточки из справочника (`useEpics`), а не из списка задач в сторе. */
+  epic: Pick<IssueEpic, "title" | "color"> | undefined;
   doneCat: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -172,9 +174,9 @@ const Card = memo(function Card({
           {epic && (
             <span
               className="inline-flex max-w-[130px] items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold"
-              style={{ background: `${epic.color}1f`, color: epic.color }}
+              style={{ background: `${epic.color}1f`, color: epic.color ?? undefined }}
             >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ background: epic.color }} />
+              <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ background: epic.color ?? undefined }} />
               <span className="truncate">{epic.title}</span>
             </span>
           )}
@@ -360,10 +362,14 @@ function ColumnCards({
 
 export default function Board() {
   const { t, tn } = useT();
-  const { data, ui, moveStatus, can } = useStore();
+  const { data, ui, moveStatus, can, epicsRevision } = useStore();
   const canMove = can("transition");
   const canCreate = can("create");
   const [dragId, setDragId] = useState<string | null>(null);
+  // Перетаскиваемую задачу берём из самой карточки, а не ищем по id в сторе: стор больше не
+  // держит все задачи, и «нет в сторе» молча отключило бы проверку допустимости перехода
+  // (canDropTo) — все колонки выглядели бы допустимыми.
+  const [dragIssue, setDragIssue] = useState<Issue | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
   const [filterUser, setFilterUser] = useState<string | null | "none">(null);
   const [q, setQ] = useState("");
@@ -389,7 +395,6 @@ export default function Board() {
 
   // Индексы вместо линейного поиска в каждой карточке (аудит PERF-02).
   const usersById = useMemo(() => new Map(data.users.map((u) => [u.id, u])), [data.users]);
-  const issuesById = useMemo(() => new Map(data.issues.map((i) => [i.id, i])), [data.issues]);
   const statusById = useMemo(
     () => new Map(data.workflow.statuses.map((st) => [st.id, st])),
     [data.workflow.statuses],
@@ -415,6 +420,7 @@ export default function Board() {
   const filtersOn = hasBoardFilters(fState);
   const projectId = data.currentProjectId || null;
   const revision = useIssuesRevision();
+  const epics = useEpics(projectId, epicsRevision);
   const hasDoneColumn = doneIds.size > 0;
 
   // Счётчики: один запрос на набор фильтров, а не на колонку и не на рендер.
@@ -454,7 +460,7 @@ export default function Board() {
     return [...ids].map((id) => usersById.get(id)).filter((u): u is User => !!u);
   }, [topAssignees, filterUser, usersById]);
 
-  const dragged = dragId ? (issuesById.get(dragId) ?? null) : null;
+  const dragged = dragId ? dragIssue : null;
 
   /** Проект, где не осталось ни одной незакрытой задачи (аудит LIFE-04).
    *  Для отдела, работающего волнами, это нормальное и частое состояние, а не
@@ -625,13 +631,14 @@ export default function Board() {
                           key={i.id}
                           issue={i}
                           assignees={i.assigneeIds.map((id) => usersById.get(id)).filter((u): u is User => !!u)}
-                          epic={i.epicId ? issuesById.get(i.epicId) : undefined}
+                          epic={i.epicId ? epics.byId.get(i.epicId) : undefined}
                           doneCat={statusById.get(i.statusId)?.category === "done"}
                           moveTargets={targetsFor(i.statusId)}
                           onMove={(id, to) => moveStatus(id, to, null)}
                           flash={ui.lastEvent?.issueId === i.id && Date.now() - ui.lastEvent.ts < 1500}
                           onDragStart={() => {
                             setDragId(i.id);
+                            setDragIssue(i);
                             dragRef.current = i.id;
                           }}
                           onDragEnd={() => {
