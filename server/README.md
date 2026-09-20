@@ -157,6 +157,7 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `GET /api/projects/:projectId` | — | browse | bootstrap: проект, **активные** пользователи (с `globalRole`, без `password_hash`), `members: [{userId, role}]`, workflow |
 | `GET …/issues` | `IssueQuery`: status, assignee (uuid или `none`; `none` — по `issues.has_assignee`, ведёт триггер), type, q, dueFrom, dueTo, overdue, closed (`hide`/`recent`/`older`) + closedDays (14), archived, sort (`rank`/`priority`/`due`/`updated`/`key`) + dir, limit(≤200), cursor, includeTotal | browse | `{items, hasMore, nextCursor, total?}`. Фильтры, сортировка и поиск — серверные; курсор привязан к sort/dir (иначе 400). Тай-брейк везде — номер задачи |
 | `GET …/issues/counts` | те же фильтры (`IssueCountsQuery`), без sort/limit/cursor | browse | `{total, byStatus:{statusId:n}}` — считает тот же набор, что и список; архивные не учитываются |
+| `GET …/issues/assignees` | `limit` (1–50, по умолчанию 24) | browse | `{items:[{userId,count}]}` — исполнители активных задач проекта по убыванию нагрузки (полоска фильтров доски) |
 | `POST …/issues` | `IssueCreateBody` | create | num — атомарный счётчик (миграция 003); статус по умолчанию — первый `todo`; rank — в конец колонки |
 | `GET …/issues/:id` | — | browse | задача + `comments`/`participants`/`collaborators`/`attachments`/`links`/`checklist`/`customFieldValues`/`subtasksSummary` (`{total, done}` по всем детям, включая архив) |
 | `PATCH …/issues/:id` | `IssuePatchBody` | edit (employee — **только свои**) | правка полей + activity |
