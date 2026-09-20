@@ -110,6 +110,10 @@ async function setup(opts: { role: "manager" | "employee"; listed: ServerIssue[]
   await act(async () => {
     await latest.bootstrap();
   });
+  await act(async () => {
+    // bootstrap больше не грузит задачи (PERF-06): тест исходит из «стор уже знает эти задачи», поэтому догружаем явно
+    await latest.ensureAllIssues();
+  });
   expect(latest.bootStatus).toBe("ready");
   return {
     store: () => latest,

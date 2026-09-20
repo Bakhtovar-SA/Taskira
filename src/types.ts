@@ -295,7 +295,6 @@ export interface Data {
   unreadCount: number;
   /** Настройки уведомлений текущего пользователя (из /api/auth/me). */
   notifyPrefs: NotifyPrefsT;
-  seq: number;
 }
 
 /** Уведомление в ленте (миграция 011, NOTIFICATIONS_MIGRATION.md). */

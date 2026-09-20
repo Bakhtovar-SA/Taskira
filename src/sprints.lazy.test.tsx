@@ -16,7 +16,7 @@ import SprintsView from "./components/SprintsView";
 /**
  * PERF-06 A15: Sprints — осознанное исключение «обернуть, не оптимизировать». Его единственная
  * особенность — полный набор задач проекта, поэтому экран сам запрашивает его при входе
- * (`ensureAllIssues`), а bootstrap в режиме `eagerIssues={false}` больше ничего целиком не грузит.
+ * (`ensureAllIssues`), а bootstrap больше ничего целиком не грузит (финальный шаг PERF-06: eager-режима нет).
  */
 
 const user = {
@@ -79,7 +79,7 @@ const settle = () => act(async () => { await flush(); await flush(); await flush
 
 type ListPage = { items: ServerIssue[]; hasMore: boolean; nextCursor: string | null };
 
-async function setup(eager: boolean, listed: ServerIssue[], showSprints: boolean, listImpl?: () => Promise<ListPage>) {
+async function setup(listed: ServerIssue[], showSprints: boolean, listImpl?: () => Promise<ListPage>) {
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(user as never);
@@ -99,7 +99,7 @@ async function setup(eager: boolean, listed: ServerIssue[], showSprints: boolean
   }
   const tree = (withSprints: boolean) => (
     <I18nProvider>
-      <StoreProvider eagerIssues={eager}>
+      <StoreProvider>
         <Grab />
         {withSprints && <SprintsView />}
       </StoreProvider>
@@ -124,7 +124,7 @@ afterEach(() => {
 
 describe("Sprints — единственный потребитель полной загрузки", () => {
   test("не-eager bootstrap ничего целиком не грузит: стор пуст, issuesComplete = false", async () => {
-    const h = await setup(false, [dto("i1")], false);
+    const h = await setup([dto("i1")], false);
     expect(h.afterBootstrap).toBe(0);
     expect(h.store().data.issues).toHaveLength(0);
     expect(h.store().data.issuesComplete).toBe(false);
@@ -132,7 +132,7 @@ describe("Sprints — единственный потребитель полно
   });
 
   test("вход на экран Sprints догружает все задачи один раз, бэклог показывает их", async () => {
-    const h = await setup(false, [dto("i1", { title: "Из бэклога" }), dto("i2")], true);
+    const h = await setup([dto("i1", { title: "Из бэклога" }), dto("i2")], true);
     expect(h.list).toHaveBeenCalledTimes(1);
     expect(h.store().data.issuesComplete).toBe(true);
     expect(h.store().data.issues.map((i) => i.id).sort()).toEqual(["i1", "i2"]);
@@ -140,16 +140,8 @@ describe("Sprints — единственный потребитель полно
     h.ui.unmount();
   });
 
-  test("eager-режим (прежнее поведение): экран повторно ничего не грузит", async () => {
-    const h = await setup(true, [dto("i1")], true);
-    expect(h.afterBootstrap).toBe(1);
-    expect(h.list).toHaveBeenCalledTimes(1); // только bootstrap
-    expect(h.store().data.issuesComplete).toBe(true);
-    h.ui.unmount();
-  });
-
   test("ensureAllIssues идемпотентна: одновременные вызовы — один обход; повторный после загрузки — ни одного", async () => {
-    const h = await setup(false, [dto("i1")], false);
+    const h = await setup([dto("i1")], false);
     await act(async () => {
       await Promise.all([h.store().ensureAllIssues(), h.store().ensureAllIssues(), h.store().ensureAllIssues()]);
     });
@@ -162,7 +154,7 @@ describe("Sprints — единственный потребитель полно
   });
 
   test("догрузка не затирает уже известные объекты и не теряет известные задачи вне списка", async () => {
-    const h = await setup(false, [dto("i1", { title: "Из списка" })], false);
+    const h = await setup([dto("i1", { title: "Из списка" })], false);
     vi.spyOn(issuesApi, "get").mockResolvedValue({ ...dto("known", { title: "Открытая архивная" }), links: [], checklist: [], attachments: [], collaborators: [], participants: [], customFieldValues: [], subtasksSummary: { total: 0, done: 0 }, epicChildrenCount: 0 } as never);
     // «архивная» задача известна стору (её открывали), но в списке активных её нет
     const known = await h.store().lookupIssue("known");
@@ -176,7 +168,7 @@ describe("Sprints — единственный потребитель полно
 
   test("до загрузки экран не показывает ложное «в бэклоге пусто»: скелет и подпись, затем задачи", async () => {
     let release!: (v: ListPage) => void;
-    const h = await setup(false, [], true, () => new Promise<ListPage>((r) => (release = r)));
+    const h = await setup([], true, () => new Promise<ListPage>((r) => (release = r)));
     expect(screen.getAllByLabelText("Загружаем задачи проекта…").length).toBeGreaterThan(0);
     expect(screen.queryByText(/пуст/i)).toBeNull();
     await act(async () => {

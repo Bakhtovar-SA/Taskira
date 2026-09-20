@@ -145,6 +145,10 @@ async function setup(
   await act(async () => {
     await store.bootstrap();
   });
+  await act(async () => {
+    // bootstrap больше не грузит задачи (PERF-06): тест исходит из «стор уже знает эти задачи», поэтому догружаем явно
+    await store.ensureAllIssues();
+  });
   // Хук useIssue монтируется после bootstrap, как и компоненты приложения (до него стор пуст)
   ui.rerender(tree(true));
   return { store: () => store, get, page, ui };

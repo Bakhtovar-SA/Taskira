@@ -292,7 +292,6 @@ const emptyData = (): Data => ({
   notifications: [],
   unreadCount: 0,
   notifyPrefs: {},
-  seq: 1,
 });
 
 function mapNotification(dto: ServerNotification): NotificationT {
@@ -598,13 +597,7 @@ const Ctx = createContext<Api | null>(null);
 
 let toastSeq = 1;
 
-/** Режим bootstrap по умолчанию: грузить все задачи проекта (`true`) или стартовать с пустым сторе
- *  (`VITE_EAGER_ISSUES=false`). Финальный шаг PERF-06 меняет умолчание. */
-const EAGER_ISSUES_DEFAULT = import.meta.env.VITE_EAGER_ISSUES !== "false";
-
-export function StoreProvider({ children, eagerIssues = EAGER_ISSUES_DEFAULT }: { children: React.ReactNode; eagerIssues?: boolean }) {
-  const eagerIssuesRef = useRef(eagerIssues);
-  eagerIssuesRef.current = eagerIssues;
+export function StoreProvider({ children }: { children: React.ReactNode }) {
   const lang = useOptionalT()?.lang ?? "ru";
   const langRef = useRef(lang);
   langRef.current = lang;
@@ -778,11 +771,6 @@ export function StoreProvider({ children, eagerIssues = EAGER_ISSUES_DEFAULT }: 
       favoriteProjectIds: string[],
     ): Promise<Data> => {
       const boot = await projectsApi.get(projectId);
-      // eager — прежний режим: bootstrap грузит все задачи проекта. Не-eager (VITE_EAGER_ISSUES=false)
-      // стартует с пустым сторе, а задачи приходят страницами наборов, точечными запросами и
-      // (для Sprints) по явному ensureAllIssues.
-      const eager = eagerIssuesRef.current;
-      const issuesRes = eager ? await listAllIssues(projectId) : { items: [] as ServerIssue[], total: 0 };
       const members: Record<string, ProjectRole> = {};
       for (const m of boot.members) members[m.userId] = m.role;
       const users = boot.users.map((u) => mapUser(u, members));
@@ -803,8 +791,10 @@ export function StoreProvider({ children, eagerIssues = EAGER_ISSUES_DEFAULT }: 
         users,
         members,
         currentUserId,
-        issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
-        issuesComplete: eager,
+        // Стор стартует пустым: задачи приходят наборами (Список/Доска/Timeline), точечными запросами
+        // по id и — только для Sprints — по явному ensureAllIssues.
+        issues: [],
+        issuesComplete: false,
         assignedToMe: [],
         assignedTruncated: false,
         collaborations,
@@ -818,7 +808,6 @@ export function StoreProvider({ children, eagerIssues = EAGER_ISSUES_DEFAULT }: 
         issueTemplates: boot.issueTemplates.map(mapIssueTemplate),
         customFields: boot.customFields,
         sprints: boot.sprints.map(mapSprint),
-        seq: issuesRes.total + 1,
       };
     },
     [],
