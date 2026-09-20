@@ -5,6 +5,7 @@ import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, TypeIco
 import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, catColor } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 const PROJECT_KEY = "taskira.project";
 const readLastProject = (): string => {
@@ -54,7 +55,7 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
         className="hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide md:inline"
         style={{ background: c.bg, color: c.fg }}
       >
-        {issue.statusName}
+        {workflowStatusName({ name: issue.statusName }, t)}
       </span>
       <span className="shrink-0" title={t(`priority.${issue.priorityId}`)}>
         <PriorityIcon p={issue.priorityId} size={13} />
@@ -329,7 +330,7 @@ function RecentActivity({
                     <span className="font-mono text-[11px] font-semibold text-accent">{n.payload.key}</span>
                   )}
                   {n.type === "issue.status" && n.payload.from && (
-                    <span className="text-faint"> · {n.payload.from} → {n.payload.to}</span>
+                    <span className="text-faint"> · {workflowStatusName({ name: n.payload.from }, t)} → {workflowStatusName({ name: n.payload.to ?? "" }, t)}</span>
                   )}
                   <span className="mt-0.5 block text-[10.5px] text-faint">{relTime(n.createdAt)}</span>
                 </span>

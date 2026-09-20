@@ -482,6 +482,10 @@ const ru = {
   "access.card.workflow": "Workflow поверх прав",
   "access.card.workflowDesc": "Даже разрешённую задачу нельзя переместить против схемы переходов: права и workflow проверяются независимо.",
 
+  "workflow.status.todo": "К выполнению",
+  "workflow.status.inprogress": "В работе",
+  "workflow.status.review": "На ревью",
+  "workflow.status.done": "Готово",
   "workflow.title": "Рабочий процесс",
   "workflow.subtitle": "Схема переходов проекта {key} — доска и карточки подчиняются этим правилам · {count} переходов",
   "workflow.reset": "Сбросить схему",

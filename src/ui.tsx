@@ -6,6 +6,7 @@ import { IcBriefcase, IcCamera, IcPhone, IcTrash, IcX } from "./icons";
 import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
 import { useT } from "./i18n";
 import { cropAndResizeAvatar } from "./avatarCrop";
+import { workflowStatusName } from "./workflowStatus";
 
 /** Аватару достаточно имени/инициалов/цвета — принимаем любой такой объект
  *  (не только полный User: напр. `actor` в уведомлениях). id/avatarUpdatedAt
@@ -140,6 +141,7 @@ export const catColor = (cat: Status["category"]) =>
       : { dot: "var(--c-todo)", bg: "var(--c-todosoft)", fg: "var(--c-todo-fg)" };
 
 export const Lozenge = ({ status, size = "md" }: { status: Status; size?: "sm" | "md" }) => {
+  const { t } = useT();
   const c = catColor(status.category);
   return (
     <span
@@ -147,7 +149,7 @@ export const Lozenge = ({ status, size = "md" }: { status: Status; size?: "sm" |
       style={{ background: c.bg, color: c.fg }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
-      {status.name}
+      {workflowStatusName(status, t)}
     </span>
   );
 };

@@ -481,6 +481,10 @@ const en: Record<keyof Dict, string> = {
   "access.card.workflow": "Workflow on top of access",
   "access.card.workflowDesc": "Even an otherwise allowed issue cannot move against the transition schema: permissions and workflow are checked independently.",
 
+  "workflow.status.todo": "To do",
+  "workflow.status.inprogress": "In progress",
+  "workflow.status.review": "Review",
+  "workflow.status.done": "Done",
   "workflow.title": "Workflow",
   "workflow.subtitle": "Transition schema for project {key} — the board and issue details follow these rules · {count} transitions",
   "workflow.reset": "Reset schema",

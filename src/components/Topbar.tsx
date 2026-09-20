@@ -4,6 +4,7 @@ import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "..
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip, UserCardBody } from "../ui";
 import { useT, type TKey } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
@@ -257,7 +258,7 @@ function BellPanel({ close }: { close: () => void }) {
                 {n.type === "issue.status" && n.payload.from && (
                   <span className="text-faint">
                     {" "}
-                    · {n.payload.from} → {n.payload.to}
+                    · {workflowStatusName({ name: n.payload.from }, t)} → {workflowStatusName({ name: n.payload.to ?? "" }, t)}
                   </span>
                 )}
                 {n.type === "project.member" && n.payload.projectName && (
