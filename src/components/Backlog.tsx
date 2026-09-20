@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { fmtDate, useStore } from "../store";
 import type { Issue } from "../types";
 import { TYPE_ORDER } from "../types";
-import { useIssueSet, type IssueSetQuery } from "../issuePages";
+import { freshRows, useDebounced, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import type { IssueFilterParams } from "../api";
 import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, SkeletonRow } from "../ui";
@@ -15,6 +15,7 @@ type SortKey = "priority" | "due" | "updated" | "key";
 /** Поиск уходит на сервер не на каждую букву. */
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MAX = 120; // = LIMITS сервера для q
+const isEmptyText = (v: string) => v === "";
 
 const selectCls =
   "h-8 rounded-md border border-line bg-panel px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
@@ -119,11 +120,7 @@ export default function Backlog() {
   };
 
   // Поле поиска отвечает мгновенно, а запрос к серверу — после паузы в наборе.
-  const [qDebounced, setQDebounced] = useState("");
-  useEffect(() => {
-    const id = setTimeout(() => setQDebounced(q.trim().slice(0, SEARCH_MAX)), q.trim() ? SEARCH_DEBOUNCE_MS : 0);
-    return () => clearTimeout(id);
-  }, [q]);
+  const qDebounced = useDebounced(q.trim().slice(0, SEARCH_MAX), SEARCH_DEBOUNCE_MS, isEmptyText);
 
   // Фильтры, сортировка и поиск — на сервере (PERF-05): клиент видит лишь часть
   // набора, и фильтр «по загруженному» искал бы только в ней. Явно выбранный
@@ -146,34 +143,12 @@ export default function Backlog() {
   // Правки задач (в т. ч. из модалки) живут в сторе; строки показывают свежую
   // версию оттуда, а набор перечитывается, чтобы состав (фильтр, удаление,
   // новые задачи) не устарел. Пока стор держит все задачи, это дёшево.
-  const rows = useMemo(
-    () => set.items.map((i) => idx.issues.get(i.id) ?? i).filter((i) => data.issues.length === 0 || idx.issues.has(i.id)),
-    [set.items, idx.issues, data.issues.length],
-  );
-  const storeSignature = useMemo(
-    () => `${data.issues.length}:${data.issues.reduce((m, i) => (i.updatedAt > m ? i.updatedAt : m), 0)}`,
-    [data.issues],
-  );
-  const signatureSeen = useRef(storeSignature);
-  const { revalidate } = set;
-  useEffect(() => {
-    if (signatureSeen.current === storeSignature) return;
-    signatureSeen.current = storeSignature;
-    revalidate();
-  }, [storeSignature, revalidate]);
+  const rows = useMemo(() => freshRows(set.items, idx.issues, data.issues.length > 0), [set.items, idx.issues, data.issues.length]);
+  useOnRevision(useIssuesRevision(), set.revalidate);
 
   // Подгрузка при прокрутке к концу списка; кнопка «Показать ещё» — запасной путь.
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const { hasMore, loading, loadingMore, loadMore } = set;
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || !hasMore || typeof IntersectionObserver === "undefined") return;
-    const obs = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && loadMore(), {
-      rootMargin: "300px",
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [hasMore, loading, loadingMore, loadMore, rows.length]);
+  const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length);
 
   const filterActive = !!(q || fStatus || fAssignee || fType || fOverdue || showDone);
   const resetFilters = () => {

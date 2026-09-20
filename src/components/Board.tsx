@@ -2,20 +2,42 @@ import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "
 import { canTransition, fmtDate, useStore } from "../store";
 import type { Issue, Status, User } from "../types";
 import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PRIORITY_COLOR, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, AvatarStack, BOARD_COLUMN_SHELL, Chip, catColor, DROPDOWN_OPEN_EVT } from "../ui";
+import { Avatar, AvatarStack, BOARD_COLUMN_SHELL, Chip, SkeletonCard, catColor, DROPDOWN_OPEN_EVT } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
+import { issuesApi, type IssueFilterParams } from "../api";
+import {
+  ISSUE_PAGE_SIZE,
+  freshRows,
+  useDebounced,
+  useIssueCounts,
+  useIssueSet,
+  useIssuesRevision,
+  useLoadMoreSentinel,
+  useOnRevision,
+  type IssueSetQuery,
+} from "../issuePages";
+import {
+  DONE_WINDOW_DAYS,
+  boardFilterParams,
+  columnFilterParams,
+  columnTotal,
+  hasBoardFilters,
+  hiddenDoneCount,
+  openTotal,
+  type QuickChip,
+} from "../boardFilters";
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+/** Поиск уходит на сервер не на каждую букву; пустой — сразу. */
+const SEARCH_DEBOUNCE_MS = 250;
+const SEARCH_MAX = 120; // = LIMITS сервера для q
+const isEmptyText = (v: string) => v === "";
+const NO_FILTERS = {};
 
-/** Сколько дней закрытая задача остаётся видимой в колонке «Готово».
- *  Дальше она прячется за строку «Ранее закрыто», а через ARCHIVE_AFTER_DAYS
- *  (настройка сервера) уходит в архив и перестаёт грузиться вовсе. */
-const DONE_WINDOW_DAYS = 14;
-
-// Быстрые фильтры-чипы над доской (round4 §3.3) — клиентская фильтрация
-// поверх уже загруженных задач, комбинируется с текстовым фильтром.
-type QuickChip = "mine" | "overdue" | "unassigned";
+// Быстрые фильтры-чипы над доской (round4 §3.3). Фильтры серверные
+// (`boardFilters.ts`): окно «Готово» (DONE_WINDOW_DAYS) — там же; закрытое
+// дальше окна прячется за строку «Ранее закрыто», а через ARCHIVE_AFTER_DAYS
+// (настройка сервера) уходит в архив и перестаёт грузиться вовсе.
 const QUICK_CHIPS: { id: QuickChip; labelKey: TKey }[] = [
   { id: "mine", labelKey: "board.quickChip.mine" },
   { id: "overdue", labelKey: "board.quickChip.overdue" },
@@ -274,6 +296,68 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
   );
 }
 
+/**
+ * Карточки одной колонки: собственный постраничный набор (первые
+ * ISSUE_PAGE_SIZE, дальше — по прокрутке или кнопке), независимый от соседних.
+ * Число в заголовке колонки берётся из счётчика сервера, а не из числа
+ * загруженных карточек.
+ */
+function ColumnCards({
+  projectId,
+  filters,
+  revision,
+  renderCard,
+}: {
+  projectId: string;
+  filters: IssueFilterParams;
+  revision: string;
+  renderCard: (issue: Issue) => React.ReactNode;
+}) {
+  const { t } = useT();
+  const { data, idx } = useStore();
+  const query = useMemo<IssueSetQuery>(() => ({ projectId, filters, sort: "rank", dir: "asc" }), [projectId, filters]);
+  const set = useIssueSet(query, { withCounts: false });
+  useOnRevision(revision, set.revalidate);
+  const rows = useMemo(() => freshRows(set.items, idx.issues, data.issues.length > 0), [set.items, idx.issues, data.issues.length]);
+
+  const { hasMore, loading, loadingMore, loadMore } = set;
+  const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length, "200px");
+
+  return (
+    <>
+      {loading && rows.length === 0 && (
+        <div aria-busy="true" aria-label={t("common.loading")} className="space-y-2">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      )}
+      {set.error && rows.length === 0 && !loading && (
+        <button onClick={set.reload} className="w-full rounded-lg border border-dashed border-danger px-3 py-3 text-[11.5px] font-medium text-danger hover:bg-dangersoft">
+          {t("board.columnLoadError")}
+        </button>
+      )}
+      {rows.map((i) => renderCard(i))}
+      {loadingMore && <SkeletonCard />}
+      <div ref={sentinelRef}>
+        {set.error && rows.length > 0 ? (
+          <button onClick={loadMore} className="w-full px-3 py-1.5 text-[11.5px] font-medium text-accent hover:underline">
+            {t("board.loadMoreFailed")}
+          </button>
+        ) : hasMore && !loadingMore ? (
+          <button
+            onClick={loadMore}
+            className="w-full rounded-lg px-3 py-1.5 text-[11.5px] font-medium text-faint transition-colors hover:text-accent"
+          >
+            {t("board.loadMore")}
+          </button>
+        ) : !hasMore && rows.length > ISSUE_PAGE_SIZE ? (
+          <p className="px-3 py-1.5 text-center text-[11px] text-faint">{t("board.allLoaded", { n: rows.length })}</p>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
 export default function Board() {
   const { t, tn } = useT();
   const { data, ui, moveStatus, can } = useStore();
@@ -320,44 +404,55 @@ export default function Board() {
   // накидывать задачи имеет смысл в начало потока, не в «В работе»/«Готово» (D3).
   const firstTodoId = data.workflow.statuses.find((s) => s.category === "todo")?.id;
 
-  const pool = data.issues;
+  // Фильтры доски — на сервере (PERF-05): колонки видят только свои первые
+  // страницы, и клиентский фильтр «по загруженному» искал бы лишь в них.
+  const qDebounced = useDebounced(q.trim().slice(0, SEARCH_MAX), SEARCH_DEBOUNCE_MS, isEmptyText);
+  const fState = useMemo(
+    () => ({ filterUser, chips, q: qDebounced, currentUserId: data.currentUserId }),
+    [filterUser, chips, qDebounced, data.currentUserId],
+  );
+  const baseFilters = useMemo(() => boardFilterParams(fState), [fState]);
+  const filtersOn = hasBoardFilters(fState);
+  const projectId = data.currentProjectId || null;
+  const revision = useIssuesRevision();
+  const hasDoneColumn = doneIds.size > 0;
 
-  const visible = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    const td = todayStr();
-    return pool.filter((i) => {
-      if (filterUser === "none" ? i.assigneeIds.length !== 0 : filterUser ? !i.assigneeIds.includes(filterUser) : false) return false;
-      if (s && !i.title.toLowerCase().includes(s) && !i.key.toLowerCase().includes(s)) return false;
-      if (chips.has("mine") && !i.assigneeIds.includes(data.currentUserId)) return false;
-      if (chips.has("unassigned") && i.assigneeIds.length !== 0) return false;
-      if (chips.has("overdue") && !(i.dueDate && !doneIds.has(i.statusId) && i.dueDate < td)) return false;
-      return true;
-    });
-  }, [pool, filterUser, q, chips, data.currentUserId, doneIds]);
+  // Счётчики: один запрос на набор фильтров, а не на колонку и не на рендер.
+  const filtered = useIssueCounts(projectId, baseFilters, revision);
+  const unfiltered = useIssueCounts(projectId, filtersOn ? NO_FILTERS : null, revision);
+  const olderFilters = useMemo(
+    () => (hasDoneColumn && !showAllDone ? { ...baseFilters, closed: "older" as const, closedDays: DONE_WINDOW_DAYS } : null),
+    [hasDoneColumn, showAllDone, baseFilters],
+  );
+  const older = useIssueCounts(projectId, olderFilters, revision);
+  const projectCounts = filtersOn ? unfiltered.counts : filtered.counts;
 
-  /** Задачи колонки.
-   *
-   *  Колонка «Готово» по умолчанию показывает только закрытое за последние
-   *  DONE_WINDOW_DAYS дней (аудит LIFE-02). Раньше закрытые копились там вечно,
-   *  и через год колонка превращалась в место, куда никто не смотрит. Это не
-   *  сокрытие данных: остальное — в один клик по строке «Ранее закрыто».
-   *  Задачи без doneAt (закрытые до миграции 016) считаем свежими, чтобы
-   *  они не пропали из виду молча. */
-  const doneCutoff = Date.now() - DONE_WINDOW_DAYS * 86_400_000;
-  const isRecentDone = (i: Issue) => i.doneAt === null || i.doneAt >= doneCutoff;
+  /** Задачи колонки: их получает `ColumnCards`. «Готово» по умолчанию — только
+   *  закрытое за DONE_WINDOW_DAYS (аудит LIFE-02); остальное — в один клик по
+   *  строке «Ранее закрыто». Задачи без doneAt (закрытые до миграции 016)
+   *  считаются свежими, чтобы они не пропали из виду молча. */
+  const totalOf = (sid: string) => columnTotal(filtered.counts, older.counts, sid, { isDone: doneIds.has(sid), showAllDone });
+  const hiddenDone = (sid: string) => hiddenDoneCount(older.counts, sid, { isDone: doneIds.has(sid), showAllDone });
 
-  const byStatus = (sid: string) => {
-    const all = visible.filter((i) => i.statusId === sid);
-    if (!doneIds.has(sid) || showAllDone) return all;
-    return all.filter(isRecentDone);
-  };
-  /** Сколько закрытого в колонке спрятано окном (для строки «Ранее закрыто»). */
-  const hiddenDone = (sid: string) =>
-    doneIds.has(sid) && !showAllDone ? visible.filter((i) => i.statusId === sid && !isRecentDone(i)).length : 0;
+  // Полоска аватаров-фильтров: самые загруженные исполнители проекта (сервер), а
+  // не «все, кого видно среди загруженных задач».
+  const [topAssignees, setTopAssignees] = useState<string[]>([]);
+  useEffect(() => {
+    if (!projectId) return;
+    let live = true;
+    issuesApi.assignees(projectId, 24).then(
+      (r) => live && setTopAssignees(r.items.map((x) => x.userId)),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [projectId]);
   const assignees = useMemo(() => {
-    const ids = new Set(pool.flatMap((i) => i.assigneeIds));
-    return data.users.filter((u) => ids.has(u.id));
-  }, [pool, data.users]);
+    const ids = new Set(topAssignees);
+    if (filterUser && filterUser !== "none") ids.add(filterUser);
+    return [...ids].map((id) => usersById.get(id)).filter((u): u is User => !!u);
+  }, [topAssignees, filterUser, usersById]);
 
   const dragged = dragId ? (issuesById.get(dragId) ?? null) : null;
 
@@ -365,11 +460,11 @@ export default function Board() {
    *  Для отдела, работающего волнами, это нормальное и частое состояние, а не
    *  крайний случай, — и показывать его надо как достижение, а не как пустой
    *  экран с надписью «перетащите задачи сюда». */
-  const openCount = pool.filter((i) => !doneIds.has(i.statusId)).length;
-  const closedRecently = pool.filter(
-    (i) => doneIds.has(i.statusId) && i.doneAt !== null && i.doneAt >= Date.now() - 30 * 86_400_000,
-  ).length;
-  const allClear = pool.length > 0 && openCount === 0;
+  const openCount = openTotal(projectCounts, doneIds);
+  const poolTotal = projectCounts?.total ?? null;
+  const allClear = poolTotal !== null && poolTotal > 0 && openCount === 0;
+  const recentDone = useIssueCounts(projectId, allClear ? { closed: "recent", closedDays: 30 } : null, revision);
+  const closedRecently = recentDone.counts?.total ?? 0;
   const canDropTo = (sid: string) => !dragged || dragged.statusId === sid || canTransition(data.workflow, dragged.statusId, sid);
 
   return (
@@ -382,7 +477,7 @@ export default function Board() {
           <p className="mt-0.5 flex items-center gap-2 text-[11.5px] text-faint">
             <span>{data.project.name}</span>
             <span>·</span>
-            <span>{pool.length} {tn(pool.length, "noun.issue.one", "noun.issue.few", "noun.issue.many")}</span>
+            <span>{poolTotal ?? "…"} {tn(poolTotal ?? 0, "noun.issue.one", "noun.issue.few", "noun.issue.many")}</span>
           </p>
         </div>
 
@@ -442,7 +537,7 @@ export default function Board() {
              <IcX size={11} /> {t("common.reset")}
            </button>
          )}
-         <span className="ml-auto text-[11.5px] text-faint">{t("board.filteredOf", { visible: visible.length, total: pool.length })}</span>
+         <span className="ml-auto text-[11.5px] text-faint">{t("board.filteredOf", { visible: filtered.counts?.total ?? "…", total: poolTotal ?? "…" })}</span>
        </div>
       </div>
 
@@ -450,22 +545,6 @@ export default function Board() {
         <div className="flex items-center gap-2 border-b border-line bg-warnsoft/60 px-6 py-1.5 text-[12px] font-medium text-warn">
           <IcEye size={14} className="shrink-0" />
           <span className="truncate">{t("board.readOnlyBanner")}</span>
-        </div>
-      )}
-
-      {/* Честная плашка об усечении: сервер вернул total больше, чем влезло
-          в одну страницу. Раньше клиент молча показывал первые N задач, и экран
-          выглядел непротиворечиво, но был неверным (аудит BLOCK-01). */}
-      {data.issuesTruncated && (
-        <div className="flex items-center gap-2 border-b border-line bg-warnsoft/60 px-6 py-1.5 text-[12px] font-medium text-warn">
-          <IcEye size={14} className="shrink-0" />
-          <span className="truncate">
-            {t("board.truncatedBanner", {
-              shown: pool.length,
-              total: data.issuesTotal,
-              noun: tn(pool.length, "noun.issue.one", "noun.issue.few", "noun.issue.many"),
-            })}
-          </span>
         </div>
       )}
 
@@ -489,7 +568,8 @@ export default function Board() {
       <div className="dotgrid flex-1 overflow-x-auto overflow-y-hidden">
         <div className="mx-auto flex h-full w-max items-start gap-4 px-4 py-4 sm:px-6">
           {data.workflow.statuses.map((st, ci) => {
-            const items = byStatus(st.id);
+            const total = totalOf(st.id);
+            const colFilters = columnFilterParams(baseFilters, st.id, { isDone: doneIds.has(st.id), showAllDone });
             const c = catColor(st.category);
             const isOver = overCol === st.id;
             const ok = canDropTo(st.id);
@@ -517,7 +597,7 @@ export default function Board() {
                 <header className="mb-1.5 flex items-center gap-2 px-1.5 pt-1">
                   <span className="h-2 w-2 rounded-sm" style={{ background: c.dot }} />
                   <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{workflowStatusName(st, t)}</h3>
-                  <span className="rounded-full bg-todosoft px-1.5 font-mono text-[10.5px] font-bold text-sub">{items.length}</span>
+                  <span className="rounded-full bg-todosoft px-1.5 font-mono text-[10.5px] font-bold text-sub">{total ?? "…"}</span>
                   {canCreate && st.id === firstTodoId && (
                     <button
                       onClick={() => setQuickFor(st.id)}
@@ -535,37 +615,44 @@ export default function Board() {
                   }`}
                 >
                   {quickFor === st.id && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
-                  {items.map((i) => (
-                    <Card
-                      key={i.id}
-                      issue={i}
-                      assignees={i.assigneeIds.map((id) => usersById.get(id)).filter((u): u is User => !!u)}
-                      epic={i.epicId ? issuesById.get(i.epicId) : undefined}
-                      doneCat={statusById.get(i.statusId)?.category === "done"}
-                      moveTargets={targetsFor(i.statusId)}
-                      onMove={(id, to) => moveStatus(id, to, null)}
-                      flash={ui.lastEvent?.issueId === i.id && Date.now() - ui.lastEvent.ts < 1500}
-                      onDragStart={() => {
-                        setDragId(i.id);
-                        dragRef.current = i.id;
-                      }}
-                      onDragEnd={() => {
-                        setDragId(null);
-                        setOverCol(null);
-                        dragRef.current = null;
-                      }}
-                      onDropOn={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const id = e.dataTransfer.getData("text/plain");
-                        setOverCol(null);
-                        setDragId(null);
-                        if (id && id !== i.id) moveStatus(id, st.id, i.id);
-                      }}
-                      onOver={() => setOverCol(st.id)}
-                      draggable={can("transition", i)}
+                  {projectId && (
+                    <ColumnCards
+                      projectId={projectId}
+                      filters={colFilters}
+                      revision={revision}
+                      renderCard={(i) => (
+                        <Card
+                          key={i.id}
+                          issue={i}
+                          assignees={i.assigneeIds.map((id) => usersById.get(id)).filter((u): u is User => !!u)}
+                          epic={i.epicId ? issuesById.get(i.epicId) : undefined}
+                          doneCat={statusById.get(i.statusId)?.category === "done"}
+                          moveTargets={targetsFor(i.statusId)}
+                          onMove={(id, to) => moveStatus(id, to, null)}
+                          flash={ui.lastEvent?.issueId === i.id && Date.now() - ui.lastEvent.ts < 1500}
+                          onDragStart={() => {
+                            setDragId(i.id);
+                            dragRef.current = i.id;
+                          }}
+                          onDragEnd={() => {
+                            setDragId(null);
+                            setOverCol(null);
+                            dragRef.current = null;
+                          }}
+                          onDropOn={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const id = e.dataTransfer.getData("text/plain");
+                            setOverCol(null);
+                            setDragId(null);
+                            if (id && id !== i.id) moveStatus(id, st.id, i.id);
+                          }}
+                          onOver={() => setOverCol(st.id)}
+                          draggable={can("transition", i)}
+                        />
+                      )}
                     />
-                  ))}
+                  )}
                   {/* Свёрнутый «хвост» закрытого: данные на месте, в один клик. */}
                   {hiddenDone(st.id) > 0 && (
                     <button
@@ -584,7 +671,7 @@ export default function Board() {
                       {t("board.collapseDone", { days: DONE_WINDOW_DAYS })}
                     </button>
                   )}
-                  {items.length === 0 && quickFor !== st.id && hiddenDone(st.id) === 0 && (
+                  {total === 0 && quickFor !== st.id && hiddenDone(st.id) === 0 && (
                     <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[11.5px] transition-colors ${isOver ? "border-accent text-accent" : "border-line2 text-faint"}`}>
                       {isOver ? (ok ? t("board.dropReleaseOk") : t("board.dropForbidden")) : t("board.dropHere")}
                     </div>
@@ -599,9 +686,9 @@ export default function Board() {
                   )}
                 </div>
 
-                {st.id === doneStatusId && items.length > 0 && (
+                {st.id === doneStatusId && total !== null && total > 0 && (
                   <p className="mt-1.5 flex items-center gap-1.5 px-1 text-[11px] text-ok">
-                    <IcInbox size={13} /> {t("board.closedCount", { n: items.length })}
+                    <IcInbox size={13} /> {t("board.closedCount", { n: total })}
                   </p>
                 )}
               </section>

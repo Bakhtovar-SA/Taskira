@@ -646,6 +646,9 @@ export const issuesApi = {
   /** Общее число и разбивка по статусам для набора — один запрос на набор, не на страницу. */
   counts: (projectId: string, params: IssueFilterParams) =>
     api<IssueCounts>(`${P(projectId)}/issues/counts`, { query: params as Record<string, string | number | undefined> }),
+  /** Исполнители активных задач проекта по убыванию нагрузки (полоска фильтров доски). */
+  assignees: (projectId: string, limit?: number) =>
+    api<{ items: { userId: string; count: number }[] }>(`${P(projectId)}/issues/assignees`, { query: { limit } }),
   get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),

@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { act, render } from "@testing-library/react";
-import { issuesApi, type IssuePageParams, type ServerIssue } from "./api";
-import { appendUnique, issueSetKey, useIssueSet, type IssueSet, type IssueSetQuery } from "./issuePages";
+import { issuesApi, type IssueFilterParams, type IssuePageParams, type ServerIssue } from "./api";
+import {
+  appendUnique,
+  freshRows,
+  issueSetKey,
+  useIssueCounts,
+  useIssueSet,
+  type IssueCountsState,
+  type IssueSet,
+  type IssueSetQuery,
+} from "./issuePages";
 import type { Issue } from "./types";
 
 /**
@@ -296,5 +305,129 @@ describe("useIssueSet", () => {
     expect(counts).not.toHaveBeenCalled();
     expect(h.set.loading).toBe(false);
     h.unmount();
+  });
+});
+
+describe("useIssueCounts", () => {
+  function CountsProbe({
+    pid,
+    filters,
+    revision,
+    onState,
+  }: {
+    pid: string | null;
+    filters: IssueFilterParams | null;
+    revision: string;
+    onState: (s: IssueCountsState) => void;
+  }) {
+    onState(useIssueCounts(pid, filters, revision));
+    return null;
+  }
+  function mountCounts(pid: string | null, filters: IssueFilterParams | null, revision = "r1") {
+    let latest!: IssueCountsState;
+    const ui = render(<CountsProbe pid={pid} filters={filters} revision={revision} onState={(s) => (latest = s)} />);
+    return {
+      get state() {
+        return latest;
+      },
+      rerender: (p: string | null, f: IssueFilterParams | null, r = revision) =>
+        ui.rerender(<CountsProbe pid={p} filters={f} revision={r} onState={(s) => (latest = s)} />),
+      unmount: ui.unmount,
+    };
+  }
+
+  test("один запрос на набор; перерисовка с тем же содержимым фильтра его не повторяет", async () => {
+    const counts = vi.spyOn(issuesApi, "counts").mockResolvedValue({ total: 7, byStatus: { s1: 7 } });
+    const h = mountCounts("p1", { assignee: "u1" });
+    expect(h.state.loading).toBe(true);
+    await settle();
+    expect(h.state.counts).toEqual({ total: 7, byStatus: { s1: 7 } });
+    h.rerender("p1", { assignee: "u1" }); // новый объект, то же содержимое
+    await settle();
+    expect(counts).toHaveBeenCalledTimes(1);
+    h.unmount();
+  });
+
+  test("смена фильтра: старое значение не показывается, приходит новое; опоздавший ответ отбрасывается", async () => {
+    let resolveOld!: (v: { total: number; byStatus: Record<string, number> }) => void;
+    const counts = vi.spyOn(issuesApi, "counts");
+    counts.mockImplementationOnce(() => new Promise((r) => (resolveOld = r)));
+    counts.mockResolvedValueOnce({ total: 2, byStatus: {} });
+    const h = mountCounts("p1", { assignee: "u1" });
+    h.rerender("p1", { assignee: "u2" });
+    await settle();
+    expect(h.state.counts?.total).toBe(2);
+    await act(async () => {
+      resolveOld({ total: 999, byStatus: {} });
+      await flush();
+    });
+    expect(h.state.counts?.total).toBe(2);
+    h.unmount();
+  });
+
+  test("смена ревизии перечитывает счётчик, не сбрасывая показанное", async () => {
+    const counts = vi.spyOn(issuesApi, "counts");
+    counts.mockResolvedValueOnce({ total: 5, byStatus: {} });
+    counts.mockResolvedValueOnce({ total: 4, byStatus: {} });
+    const h = mountCounts("p1", {}, "r1");
+    await settle();
+    expect(h.state.counts?.total).toBe(5);
+    h.rerender("p1", {}, "r2");
+    expect(h.state.counts?.total).toBe(5); // пока идёт перечитывание — прежнее значение
+    await settle();
+    expect(h.state.counts?.total).toBe(4);
+    expect(counts).toHaveBeenCalledTimes(2);
+    h.unmount();
+  });
+
+  test("filters = null: запросов нет, значения нет", async () => {
+    const counts = vi.spyOn(issuesApi, "counts").mockResolvedValue({ total: 1, byStatus: {} });
+    const h = mountCounts("p1", null);
+    await settle();
+    expect(counts).not.toHaveBeenCalled();
+    expect(h.state.counts).toBeNull();
+    expect(h.state.loading).toBe(false);
+    h.unmount();
+  });
+
+  test("ошибка: counts = null, error задан", async () => {
+    vi.spyOn(issuesApi, "counts").mockRejectedValue(new Error("сеть"));
+    const h = mountCounts("p1", {});
+    await settle();
+    expect(h.state.counts).toBeNull();
+    expect(h.state.error).toBe("сеть");
+    h.unmount();
+  });
+});
+
+describe("useIssueSet без счётчика (колонка доски)", () => {
+  test("страница грузится, counts не запрашивается, total = null", async () => {
+    const { page, counts } = fakeServer(Array.from({ length: 150 }, (_, n) => dto(n)));
+    let latest!: IssueSet;
+    function P() {
+      latest = useIssueSet(baseQuery({ status: "s1" }), { withCounts: false });
+      return null;
+    }
+    const ui = render(<P />);
+    await settle();
+    expect(page).toHaveBeenCalledTimes(1);
+    expect(counts).not.toHaveBeenCalled();
+    expect(latest.items).toHaveLength(100);
+    expect(latest.total).toBeNull();
+    expect(latest.hasMore).toBe(true);
+    ui.unmount();
+  });
+});
+
+describe("freshRows", () => {
+  test("правки берутся из стора, удалённые отбрасываются, порядок сервера сохраняется", () => {
+    const mk = (id: string, title = id) => ({ id, title }) as unknown as Issue;
+    const byId = new Map([
+      ["a", mk("a", "правка")],
+      ["c", mk("c")],
+    ]);
+    expect(freshRows([mk("a"), mk("b"), mk("c")], byId, true).map((i) => i.title)).toEqual(["правка", "c"]);
+    // пустой стор (ещё не загружен) — показываем то, что пришло
+    expect(freshRows([mk("a"), mk("b")], new Map(), false).map((i) => i.id)).toEqual(["a", "b"]);
   });
 });
