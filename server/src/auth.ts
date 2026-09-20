@@ -68,11 +68,13 @@ export function safeUser(row: UserRow): SafeUser {
 
 export function signToken(app: FastifyInstance, row: UserRow): string {
   // loadConfig() — кэшированный конфиг (fix 3a), env не читается на каждый токен
+  const nowSeconds = Math.floor(Date.now() / 1000);
   const payload: JwtPayload = {
     sub: row.id,
     globalRole: row.global_role,
     name: row.name,
     sessionVersion: Number(row.session_version),
+    origIat: nowSeconds,
   };
   return app.jwt.sign(payload, { expiresIn: loadConfig().sessionTtlSeconds });
 }

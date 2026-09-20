@@ -51,10 +51,10 @@ function rateLimited(ip: string): boolean {
   return false;
 }
 
-type LoginAccount = { id: string; locked_until: Date | null };
+type LoginAccount = { id: string; auth_source: "local" | "ldap"; locked_until: Date | null };
 
 async function loginAccount(username: string): Promise<LoginAccount | null> {
-  return one<LoginAccount>(`SELECT id, locked_until FROM users WHERE username = $1`, [username]);
+  return one<LoginAccount>(`SELECT id, auth_source, locked_until FROM users WHERE username = $1`, [username]);
 }
 
 async function recordLoginFailure(username: string): Promise<LoginAccount | null> {
@@ -67,8 +67,8 @@ async function recordLoginFailure(username: string): Promise<LoginAccount | null
                 THEN now() + ($3 * interval '1 second')
               ELSE locked_until
             END
-      WHERE username = $1
-      RETURNING id, locked_until`,
+      WHERE username = $1 AND auth_source = 'local'
+      RETURNING id, auth_source, locked_until`,
     [username, rl.accountMaxFailures, rl.accountLockSeconds],
   );
 }
@@ -101,9 +101,14 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       const cfg = loadConfig();
       let row: UserRow | null = null;
       const account = await loginAccount(username);
-      if (account?.locked_until && account.locked_until.getTime() > Date.now()) {
+      if (account?.auth_source === "local" && account.locked_until && account.locked_until.getTime() > Date.now()) {
         await audit(account.id, "auth.login.locked", "user", account.id, { ip }, "denied");
         throw unauthorized("Неверный логин или пароль");
+      }
+      // После естественного истечения блокировки начинается новое окно ошибок.
+      // Иначе один опечатанный пароль немедленно блокировал бы аккаунт снова.
+      if (account?.auth_source === "local" && account.locked_until) {
+        await clearLoginFailures(account.id);
       }
 
       if (cfg.authMode === "ldap") {

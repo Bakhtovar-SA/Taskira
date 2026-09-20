@@ -35,6 +35,46 @@ describe("account lockout and audit export", () => {
     expect(state).toEqual({ failed_login_attempts: 0, locked_until: null });
   });
 
+  test("starts a fresh failure window after a lock naturally expires", async () => {
+    await q(
+      `UPDATE users
+          SET failed_login_attempts = 5, locked_until = now() - interval '1 second'
+        WHERE username = 'emp1'`,
+    );
+
+    const denied = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { username: "emp1", password: "one-new-typo" },
+    });
+    expect(denied.statusCode).toBe(401);
+
+    const [state] = await q<{ failed_login_attempts: number; locked_until: Date | null }>(
+      `SELECT failed_login_attempts, locked_until FROM users WHERE username = 'emp1'`,
+    );
+    expect(state).toEqual({ failed_login_attempts: 1, locked_until: null });
+  });
+
+  test("does not apply local lockout counters to LDAP accounts", async () => {
+    await q(
+      `UPDATE users SET auth_source = 'ldap', password_hash = NULL WHERE username = 'emp1'`,
+    );
+
+    for (let i = 0; i < 5; i++) {
+      const denied = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { username: "emp1", password: "wrong-ldap-password" },
+      });
+      expect(denied.statusCode).toBe(401);
+    }
+
+    const [state] = await q<{ failed_login_attempts: number; locked_until: Date | null }>(
+      `SELECT failed_login_attempts, locked_until FROM users WHERE username = 'emp1'`,
+    );
+    expect(state).toEqual({ failed_login_attempts: 0, locked_until: null });
+  });
+
   test("exports parseable one-record-per-line JSONL and stable CSV columns", async () => {
     const token = await login(app, "admin");
     await q(
@@ -62,6 +102,24 @@ describe("account lockout and audit export", () => {
     });
     expect(csv.statusCode).toBe(200);
     expect(csv.body.split("\n")[0]).toBe("timestamp,actor,action,object,result,details");
+  });
+
+  test("marks an audit export when the selected window is truncated", async () => {
+    const token = await login(app, "admin");
+    await q(
+      `INSERT INTO audit_log (actor_id, action, entity, details, result)
+       SELECT id, 'security.extra', 'user', '{}'::jsonb, 'success'
+         FROM users WHERE username = 'admin'`,
+    );
+    const response = await app.inject({
+      url: "/api/admin/audit-log/export?format=jsonl&limit=1",
+      headers: auth(token),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["x-taskira-truncated"]).toBe("true");
+    expect(response.headers["x-taskira-limit"]).toBe("1");
+    expect(response.body.trim().split("\n")).toHaveLength(1);
   });
 
   test("denies audit export to a non-admin user", async () => {

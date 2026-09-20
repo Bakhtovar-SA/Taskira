@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import type { JwtPayload } from "../src/middleware.js";
 import { getApp, resetDb, seedFixture, stopApp } from "./helpers.js";
 
 let app: FastifyInstance;
@@ -74,6 +75,8 @@ describe("HttpOnly session cookie", () => {
       url: "/api/auth/login",
       payload: { username: "emp1", password: "password123" },
     });
+    const initialToken = JSON.parse(login.body).token as string;
+    const initialPayload = app.jwt.decode<JwtPayload>(initialToken);
     const cookie = setCookieHeader(login.headers["set-cookie"]).split(";", 1)[0];
     await new Promise((resolve) => setTimeout(resolve, 1100));
     const me = await app.inject({ url: "/api/auth/me", headers: { cookie } });
@@ -81,6 +84,12 @@ describe("HttpOnly session cookie", () => {
     const rotated = setCookieHeader(me.headers["set-cookie"]);
     expect(rotated).toContain("taskira_session=");
     expect(rotated).not.toBe(setCookieHeader(login.headers["set-cookie"]));
+    const rotatedToken = decodeURIComponent(rotated.split(";", 1)[0].split("=", 2)[1]);
+    const rotatedPayload = app.jwt.decode<JwtPayload>(rotatedToken);
+    expect(initialPayload.origIat).toBeTypeOf("number");
+    expect(rotatedPayload.origIat).toBe(initialPayload.origIat);
+    expect(rotatedPayload.exp).toBe(initialPayload.exp);
+    expect(rotated).not.toContain("Max-Age=28800");
   });
 
   test("logout clears and revokes the cookie session", async () => {

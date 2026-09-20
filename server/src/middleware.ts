@@ -38,6 +38,8 @@ export interface JwtPayload {
   /** Стандартные JWT timestamps добавляет @fastify/jwt. */
   iat?: number;
   exp?: number;
+  /** Начало сессии, сохраняемое при ротации для абсолютного TTL. */
+  origIat?: number;
   /** Глобальная роль (users.global_role). В токене может быть устаревшей —
    *  requireAuth всегда перезаписывает свежим значением из БД. */
   globalRole: GlobalRole;
@@ -197,25 +199,32 @@ export const requireAuth: preHandlerAsyncHookHandler = async (req, reply) => {
   const globalRole = await assertFreshUser(req.user.sub, req.user.sessionVersion);
   req.user = { ...req.user, globalRole };
 
-  // Sliding rotation for browser sessions. The session_version claim remains
-  // unchanged, so logout/deactivation still revokes every rotated token.
-  const rotateAfter = loadConfig().sessionRotateAfterSeconds;
+  // Ротация обновляет подпись cookie, но не продлевает абсолютный срок сессии.
+  // session_version остаётся прежней, поэтому logout/deactivation отзывает
+  // также все ротированные токены.
+  const config = loadConfig();
+  const rotateAfter = config.sessionRotateAfterSeconds;
   const nowSeconds = Math.floor(Date.now() / 1000);
   if (
     req.user.iat &&
     nowSeconds - req.user.iat >= rotateAfter &&
     req.headers.cookie?.split(";").some((part) => part.trim().startsWith(`${SESSION_COOKIE}=`))
   ) {
+    // Старые токены без origIat получают абсолютную границу от своего iat.
+    const origIat = req.user.origIat ?? req.user.iat;
+    const remainingSeconds = origIat + config.sessionTtlSeconds - nowSeconds;
+    if (remainingSeconds <= 0) throw unauthorized();
     const token = req.server.jwt.sign(
       {
         sub: req.user.sub,
         globalRole,
         name: req.user.name,
         sessionVersion: req.user.sessionVersion,
+        origIat,
       },
-      { expiresIn: loadConfig().sessionTtlSeconds },
+      { expiresIn: remainingSeconds },
     );
-    reply.header("Set-Cookie", sessionCookie(token));
+    reply.header("Set-Cookie", sessionCookie(token, remainingSeconds));
   }
 };
 
