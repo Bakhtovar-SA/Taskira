@@ -58,7 +58,14 @@ import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import { assertSprintsEnabled, getSprintInProject } from "../services/sprints.js";
 import { loadConfig } from "../config.js";
-import { decodeIssueListCursor, encodeIssueListCursor } from "../issueListCursor.js";
+import {
+  decodeIssueListCursor,
+  decodeIssueSortCursor,
+  encodeIssueListCursor,
+  encodeIssueSortCursor,
+  type IssueCursorSort,
+} from "../issueListCursor.js";
+import { buildIssueFilter, needsStatusJoin, SORT_EXPR } from "../services/issueFilters.js";
 import {
   ChecklistItemCreateBody,
   ChecklistItemParams,
@@ -66,6 +73,7 @@ import {
   CustomFieldParams,
   CustomFieldValueBody,
   IssueCreateBody,
+  IssueCountsQuery,
   IssueListPageMeta,
   IssueLinkCreateBody,
   IssueLinkParams,
@@ -177,28 +185,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const f = req.query as z.infer<typeof IssueQuery>;
       const trace = issueListPerfTraces.get(req);
 
-      // Архив (миграция 016) из активного набора исключён по умолчанию: доска и
-      // «Список задач» показывают живые задачи. ?archived=1 — только архивные,
-      // ?archived=all — всё вместе (для отчётов и сквозного поиска).
-      const clauses: string[] = ["i.project_id = $1"];
-      if (f.archived === "1") clauses.push("i.archived_at IS NOT NULL");
-      else if (f.archived !== "all") clauses.push("i.archived_at IS NULL");
-      const params: unknown[] = [project.id];
-      const add = (clause: string, ...vals: unknown[]) => {
-        for (const v of vals) {
-          params.push(v);
-          clause = clause.replace("?", `$${params.length}`);
-        }
-        clauses.push(clause);
-      };
-
-      if (f.status) add("i.status_id = ?", f.status);
-      if (f.assignee) add("EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = ?)", f.assignee);
-      if (f.type) add("i.type_id = ?", f.type);
-      if (f.q) add("(i.title ILIKE ? OR i.key ILIKE ?)", `%${escLike(f.q)}%`, `%${escLike(f.q)}%`);
-      if (f.dueFrom) add("i.due_date >= ?", f.dueFrom);
-      if (f.dueTo) add("i.due_date <= ?", f.dueTo);
-      if (f.overdue) clauses.push("i.due_date IS NOT NULL AND i.due_date < CURRENT_DATE AND ws.category <> 'done'");
+      const { clauses, params } = buildIssueFilter(project.id, f);
 
       // total относится ко всему отфильтрованному набору, а не к хвосту после
       // курсора. Поэтому фиксируем WHERE/params до добавления keyset-предиката.
@@ -216,23 +203,42 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         : null;
       if (trace && countStarted) trace.countSqlMs = elapsedMs(countStarted);
 
+      const secret = loadConfig().jwtSecret;
+      const byRank = f.sort === "rank";
+      const sortExpr = f.sort === "rank" ? "" : SORT_EXPR[f.sort];
       if (f.cursor) {
-        let cursor;
         try {
-          cursor = decodeIssueListCursor(f.cursor, loadConfig().jwtSecret);
+          if (byRank) {
+            const cursor = decodeIssueListCursor(f.cursor, secret);
+            params.push(cursor.rank, cursor.id);
+            clauses.push(`(i.rank, i.id) > ($${params.length - 1}, $${params.length})`);
+          } else {
+            const cursor = decodeIssueSortCursor(f.cursor, secret);
+            if (cursor.sort !== f.sort || cursor.dir !== f.dir) throw new Error("cursor sort mismatch");
+            params.push(cursor.value, cursor.num);
+            // Тай-брейк зеркален направлению: индекс (project_id, <ключ>, num)
+            // читается и вперёд, и назад, а смешанный порядок (ключ DESC,
+            // num ASC) потребовал бы второго индекса на каждую сортировку.
+            // Из-за этого позицию можно задать сравнением строк: в отличие от
+            // `a > x OR (a = x AND b > y)` оно становится условием индекса и
+            // глубокая страница не читает пропущенное.
+            const cmp = f.dir === "asc" ? ">" : "<";
+            clauses.push(`(${sortExpr}, i.num) ${cmp} ($${params.length - 1}, $${params.length})`);
+          }
         } catch {
           throw badRequest("Некорректный курсор страницы");
         }
-        add("(i.rank, i.id) > (?, ?)", cursor.rank, cursor.id);
       }
       const where = clauses.join(" AND ");
       params.push(f.limit + 1, f.cursor ? 0 : f.offset);
+      const dirSql = f.dir === "desc" ? "DESC" : "ASC";
+      const orderBy = byRank ? "i.rank, i.id" : `${sortExpr} ${dirSql}, i.num ${dirSql}`;
       const listStarted = trace ? process.hrtime.bigint() : undefined;
-      const rows = await q<IssueRow>(
-        `SELECT i.* FROM issues i
+      const rows = await q<IssueRow & { sort_val?: number }>(
+        `SELECT i.*${byRank ? "" : `, ${sortExpr} AS sort_val`} FROM issues i
            JOIN workflow_statuses ws ON ws.id = i.status_id
           WHERE ${where}
-          ORDER BY i.rank, i.id
+          ORDER BY ${orderBy}
           LIMIT $${params.length - 1} OFFSET $${params.length}`,
         params,
       );
@@ -247,7 +253,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         hasMore,
         nextCursor:
           hasMore && pageRows.length > 0
-            ? encodeIssueListCursor(pageRows.at(-1)!, loadConfig().jwtSecret)
+            ? byRank
+              ? encodeIssueListCursor(pageRows.at(-1)!, secret)
+              : encodeIssueSortCursor(
+                  { sort: f.sort as IssueCursorSort, dir: f.dir, value: pageRows.at(-1)!.sort_val!, num: pageRows.at(-1)!.num },
+                  secret,
+                )
             : null,
         ...(total ? { total: Number(total.n) } : {}),
       };
@@ -259,6 +270,30 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       return reply.send(payload);
     },
   );
+
+  /* ------------------------------------------------ счётчики по статусам */
+  // Тот же набор фильтров, что у списка. Один запрос на набор: клиент берёт
+  // отсюда общее число и заголовки колонок доски, а не считает загруженное.
+  // Идёт по idx_issues_active (project_id, status_id, rank) WHERE archived_at IS NULL.
+  app.get("/counts", { preHandler: [issueListPermission, zquery(IssueCountsQuery)] }, async (req) => {
+    const project = req.project!;
+    const f = req.query as z.infer<typeof IssueCountsQuery>;
+    const { clauses, params } = buildIssueFilter(project.id, f);
+    const rows = await q<{ status_id: string; n: string }>(
+      `SELECT i.status_id, count(*)::text AS n FROM issues i
+         ${needsStatusJoin(f) ? "JOIN workflow_statuses ws ON ws.id = i.status_id" : ""}
+        WHERE ${clauses.join(" AND ")}
+        GROUP BY i.status_id`,
+      params,
+    );
+    const byStatus: Record<string, number> = {};
+    let total = 0;
+    for (const r of rows) {
+      byStatus[r.status_id] = Number(r.n);
+      total += Number(r.n);
+    }
+    return { total, byStatus };
+  });
 
   /* ---------------------------------------------------------- создание */
   app.post(

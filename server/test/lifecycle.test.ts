@@ -198,8 +198,11 @@ describe("пагинация списка задач", () => {
     const base = `/api/projects/${fx.projects.p1}/issues`;
     await post(base, adm, newIssue({ title: "вторая" }));
     const page = JSON.parse((await g(`${base}?limit=1`, adm)).body);
-    const tail = page.nextCursor.at(-1) === "A" ? "B" : "A";
-    const corrupted = `${page.nextCursor.slice(0, -1)}${tail}`;
+    // Меняем бит внутри данных курсора, а не последний символ: у base64url в
+    // хвосте есть неиспользуемые биты, и подмена там иногда не меняла байты.
+    const bytes = Buffer.from(page.nextCursor as string, "base64url");
+    bytes[10] ^= 1;
+    const corrupted = bytes.toString("base64url");
     expect((await g(`${base}?limit=1&cursor=${corrupted}`, adm)).statusCode).toBe(400);
   });
 });

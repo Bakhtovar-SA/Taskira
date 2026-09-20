@@ -405,27 +405,50 @@ export const DismissNotificationsBody = MarkReadBody;
 /* ---------------- Workflow / Users ---------------- */
 export const TransitionCreateBody = z.object({ from: uuid, to: uuid });
 
-/** GET /api/issues — query-параметры приходят строками; числа приводятся z.coerce. */
-export const IssueQuery = z.object({
+/** Фильтры списка задач. Общие для страницы (`GET …/issues`) и счётчиков
+ *  (`GET …/issues/counts`): счётчик обязан считать ровно тот же набор, что
+ *  листает страница, иначе заголовок колонки расходится с её содержимым. */
+export const ISSUE_SORTS = ["rank", "priority", "due", "updated", "key"] as const;
+export const IssueFilterQuery = z.object({
   status: uuid.optional(),
-  assignee: uuid.optional(),
+  /** uuid — исполнитель; "none" — задачи без исполнителей. */
+  assignee: z.union([uuid, z.literal("none")]).optional(),
   type: z.enum(ISSUE_TYPES).optional(),
   q: z.string().max(120).optional(),
   dueFrom: isoDate().optional(),
   dueTo: isoDate().optional(),
   overdue: z.enum(["1", "true"]).optional(),
+  /** Закрытые задачи (категория статуса `done`): "hide" — скрыть все,
+   *  "recent" — только закрытые за последние `closedDays` дней (задачи без
+   *  done_at, закрытые до миграции 016, считаются свежими), "older" — только
+   *  более давние. Окно «Готово» доски (DONE_WINDOW_DAYS) живёт здесь, а не в
+   *  клиентском фильтре по уже загруженному набору. */
+  closed: z.enum(["hide", "recent", "older"]).optional(),
+  closedDays: z.coerce.number().int().min(1).max(3650).default(14),
   /** Архив (миграция 016): по умолчанию архивные скрыты; "1" — только архивные,
    *  "all" — вместе с активными (сквозной поиск и отчёты). */
   archived: z.enum(["1", "all"]).optional(),
+});
+
+/** GET /api/issues — query-параметры приходят строками; числа приводятся z.coerce. */
+export const IssueQuery = IssueFilterQuery.extend({
   /** Точный total дорог: по умолчанию страница возвращает только hasMore,
    *  `includeTotal=1|true` — явный opt-in для редких потребителей. */
   includeTotal: z.enum(["1", "true"]).optional(),
+  /** Порядок выдачи. `rank` — порядок доски; остальные — сортировки «Списка
+   *  задач». Тай-брейк — номер задачи в том же направлении, что и `dir`. */
+  sort: z.enum(ISSUE_SORTS).default("rank"),
+  dir: z.enum(["asc", "desc"]).default("asc"),
   /** Непрозрачный keyset-курсор. При наличии имеет приоритет над offset;
-   *  offset остаётся на expand-релиз для совместимости старых клиентов. */
+   *  offset остаётся на expand-релиз для совместимости старых клиентов.
+   *  Курсор привязан к sort/dir, с которыми выдан. */
   cursor: z.string().regex(/^[A-Za-z0-9_-]+$/).max(128).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
   offset: z.coerce.number().int().min(0).default(0),
 });
+
+/** GET …/issues/counts — тот же набор фильтров, без пагинации и сортировки. */
+export const IssueCountsQuery = IssueFilterQuery;
 
 /** Метаданные страницы списка задач. И серверный payload, и его TS-тип
  * выводятся из этой схемы; `total` отсутствует без явного includeTotal. */
