@@ -287,8 +287,7 @@ const emptyData = (): Data => ({
   sprints: [],
   assignedToMe: [],
   assignedTruncated: false,
-  issuesTruncated: false,
-  issuesTotal: 0,
+  issuesComplete: false,
   collaborations: [],
   notifications: [],
   unreadCount: 0,
@@ -533,6 +532,8 @@ interface Api {
   /** Растёт при изменениях, способных поменять состав или порядок наборов задач
    *  (создание, импорт, удаление, правка полей, смена статуса): по ней Список и
    *  Доска перечитываются. Не пересчитывается по массиву задач. */
+  /** Загрузить все задачи проекта (только для экранов, которым нужен полный набор, — Sprints). */
+  ensureAllIssues: () => Promise<void>;
   issuesRevision: number;
   /** Растёт при изменениях, влияющих на справочник направлений (заголовок, цвет, привязка, удаление). */
   epicsRevision: number;
@@ -597,7 +598,13 @@ const Ctx = createContext<Api | null>(null);
 
 let toastSeq = 1;
 
-export function StoreProvider({ children }: { children: React.ReactNode }) {
+/** Режим bootstrap по умолчанию: грузить все задачи проекта (`true`) или стартовать с пустым сторе
+ *  (`VITE_EAGER_ISSUES=false`). Финальный шаг PERF-06 меняет умолчание. */
+const EAGER_ISSUES_DEFAULT = import.meta.env.VITE_EAGER_ISSUES !== "false";
+
+export function StoreProvider({ children, eagerIssues = EAGER_ISSUES_DEFAULT }: { children: React.ReactNode; eagerIssues?: boolean }) {
+  const eagerIssuesRef = useRef(eagerIssues);
+  eagerIssuesRef.current = eagerIssues;
   const lang = useOptionalT()?.lang ?? "ru";
   const langRef = useRef(lang);
   langRef.current = lang;
@@ -771,7 +778,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       favoriteProjectIds: string[],
     ): Promise<Data> => {
       const boot = await projectsApi.get(projectId);
-      const issuesRes = await listAllIssues(projectId);
+      // eager — прежний режим: bootstrap грузит все задачи проекта. Не-eager (VITE_EAGER_ISSUES=false)
+      // стартует с пустым сторе, а задачи приходят страницами наборов, точечными запросами и
+      // (для Sprints) по явному ensureAllIssues.
+      const eager = eagerIssuesRef.current;
+      const issuesRes = eager ? await listAllIssues(projectId) : { items: [] as ServerIssue[], total: 0 };
       const members: Record<string, ProjectRole> = {};
       for (const m of boot.members) members[m.userId] = m.role;
       const users = boot.users.map((u) => mapUser(u, members));
@@ -793,11 +804,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         members,
         currentUserId,
         issues: issuesRes.items.map((i) => mapIssue(i)).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
-        // Сервер уже вернул честный total — сравниваем и запоминаем, что список
-        // урезан. Раньше total уходил в неиспользуемое поле seq, и клиент молча
-        // показывал первые N задач как будто это всё (аудит BLOCK-01).
-        issuesTruncated: false,
-        issuesTotal: issuesRes.total,
+        issuesComplete: eager,
         assignedToMe: [],
         assignedTruncated: false,
         collaborations,
@@ -1106,6 +1113,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const refreshIssues = useCallback(async () => {
     const requestProjectId = pid();
+    // Частичный стор не перезагружает всё: наборы Списка и Доски перечитаются по ревизии.
+    if (!dataRef.current.issuesComplete) {
+      bumpIssues();
+      return;
+    }
     try {
       const issuesRes = await listAllIssues(requestProjectId);
       setData((prev) => {
@@ -1114,8 +1126,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return {
           ...prev,
           issues: issuesRes.items.map((dto) => mapIssue(dto, byId.get(dto.id))),
-          issuesTruncated: false,
-          issuesTotal: issuesRes.total,
+          issuesComplete: true,
         };
       });
       bumpIssues();
@@ -1123,6 +1134,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       handleApiError(err);
     }
   }, [handleApiError, bumpIssues]);
+
+  /**
+   * Явная полная загрузка задач проекта — единственный осознанный потребитель «всего проекта»
+   * (экран Sprints, модуль по умолчанию выключен, PERF-06 A15: «обернуть, не оптимизировать»).
+   * Идемпотентна: если стор уже полный или загрузка идёт — повторного обхода нет. Уже известные
+   * задачи сохраняют свои объекты (детали карточки не затираются списочной версией).
+   */
+  const allIssuesInFlight = useRef<Promise<void> | null>(null);
+  const ensureAllIssues = useCallback((): Promise<void> => {
+    if (dataRef.current.issuesComplete) return Promise.resolve();
+    if (allIssuesInFlight.current) return allIssuesInFlight.current;
+    const requestProjectId = pid();
+    const run = (async () => {
+      try {
+        const res = await listAllIssues(requestProjectId);
+        setData((prev) => {
+          if (prev.currentProjectId !== requestProjectId) return prev;
+          const known = new Map(prev.issues.map((i) => [i.id, i]));
+          const merged = res.items.map((dto) => mapIssue(dto, known.get(dto.id)));
+          const seen = new Set(merged.map((i) => i.id));
+          // задачи, известные стору, но не пришедшие в списке (например, открытые архивные), остаются
+          const extra = prev.issues.filter((i) => !seen.has(i.id));
+          return { ...prev, issues: [...merged, ...extra].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)), issuesComplete: true };
+        });
+      } catch (err) {
+        handleApiError(err, local("Не удалось загрузить задачи проекта", "Couldn't load the project's issues"));
+      } finally {
+        allIssuesInFlight.current = null;
+      }
+    })();
+    allIssuesInFlight.current = run;
+    return run;
+  }, [handleApiError, local]);
 
   /** Перечитать «Мои подключения» (приглашения к задачам чужих проектов). */
   const refreshCollaborations = useCallback(async () => {
@@ -2443,6 +2487,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateIssue,
     moveStatus,
     issuesRevision,
+    ensureAllIssues,
     epicsRevision,
     lookupIssue,
     addComment,

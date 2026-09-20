@@ -386,6 +386,7 @@ const ru = {
   "sprints.dropHere": "Перетащите задачи из бэклога сюда",
   "sprints.disabledTitle": "Модуль спринтов не подключён",
   "sprints.disabledSub": "Обратитесь к администратору, чтобы включить его для этого проекта.",
+  "sprints.loadingIssues": "Загружаем задачи проекта…",
   "sprints.backlogEmpty": "Бэклог пуст",
   "sprints.count": "Спринты · {count}",
   "sprints.sprint": "Спринт",

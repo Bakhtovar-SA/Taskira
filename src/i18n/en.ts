@@ -385,6 +385,7 @@ const en: Record<keyof Dict, string> = {
   "sprints.dropHere": "Drag issues here from the backlog",
   "sprints.disabledTitle": "Sprints are not enabled",
   "sprints.disabledSub": "Ask an administrator to enable the module for this project.",
+  "sprints.loadingIssues": "Loading the project's issues…",
   "sprints.backlogEmpty": "Backlog is empty",
   "sprints.count": "Sprints · {count}",
   "sprints.sprint": "Sprint",
