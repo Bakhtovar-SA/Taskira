@@ -145,6 +145,29 @@ describe("порядок новых задач", () => {
   });
 });
 
+describe("пагинация списка задач", () => {
+  test("по умолчанию отдаёт hasMore без count, total — только по includeTotal", async () => {
+    const adm = await login(app, "admin");
+    const base = `/api/projects/${fx.projects.p1}/issues`;
+    await post(base, adm, newIssue({ title: "вторая" }));
+    await post(base, adm, newIssue({ title: "третья" }));
+
+    const first = JSON.parse((await g(`${base}?limit=2&offset=0`, adm)).body);
+    expect(first.items).toHaveLength(2);
+    expect(first.hasMore).toBe(true);
+    expect(first).not.toHaveProperty("total");
+
+    const last = JSON.parse((await g(`${base}?limit=2&offset=2`, adm)).body);
+    expect(last.items).toHaveLength(1);
+    expect(last.hasMore).toBe(false);
+    expect(last).not.toHaveProperty("total");
+
+    const withTotal = JSON.parse((await g(`${base}?limit=2&offset=0&includeTotal=1`, adm)).body);
+    expect(withTotal.hasMore).toBe(true);
+    expect(withTotal.total).toBe(3);
+  });
+});
+
 describe("история задачи", () => {
   test("GET /activity отдаёт записи, которые пишет logActivity", async () => {
     const adm = await login(app, "admin");

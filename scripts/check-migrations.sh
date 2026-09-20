@@ -41,6 +41,18 @@ while IFS=$'\t' read -r status file; do
   fi
 
   sql="$(git show "$HEAD_REF:$file")"
+  if printf '%s\n' "$sql" | grep -Eiq '\bCREATE[[:space:]]+INDEX[[:space:]]+CONCURRENTLY\b'; then
+    first_line="$(printf '%s\n' "$sql" | tr -d '\r' | head -n 1)"
+    if [ "$first_line" != "-- migration-transaction: none" ]; then
+      echo "ERROR: CREATE INDEX CONCURRENTLY requires -- migration-transaction: none as the first line: $file" >&2
+      failed=1
+    fi
+    if ! printf '%s\n' "$sql" | tr -d '\r' | grep -Eq '^-- recovery: .+$'; then
+      echo "ERROR: non-transactional migration lacks an exact -- recovery: command: $file" >&2
+      failed=1
+    fi
+  fi
+
   if printf '%s\n' "$sql" | perl -0777 -ne '
       for my $statement (split /;/) {
         if ($statement =~ /\bDROP\s+COLUMN\b|\bDROP\s+TABLE\b|\bALTER\b.*\bTYPE\b/is) {

@@ -417,9 +417,20 @@ export const IssueQuery = z.object({
   /** Архив (миграция 016): по умолчанию архивные скрыты; "1" — только архивные,
    *  "all" — вместе с активными (сквозной поиск и отчёты). */
   archived: z.enum(["1", "all"]).optional(),
+  /** Точный total дорог: по умолчанию страница возвращает только hasMore,
+   *  `includeTotal=1|true` — явный opt-in для редких потребителей. */
+  includeTotal: z.enum(["1", "true"]).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
   offset: z.coerce.number().int().min(0).default(0),
 });
+
+/** Метаданные страницы списка задач. И серверный payload, и его TS-тип
+ * выводятся из этой схемы; `total` отсутствует без явного includeTotal. */
+export const IssueListPageMeta = z.object({
+  hasMore: z.boolean(),
+  total: z.number().int().nonnegative().optional(),
+});
+export type IssueListPageMeta = z.infer<typeof IssueListPageMeta>;
 
 /** GET /api/issues/search — кросс-проектный поиск (миграция 024), project-less,
  *  по всем видимым пользователю проектам (см. routes/home.ts для того же

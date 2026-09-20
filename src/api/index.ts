@@ -455,7 +455,7 @@ export const authApi = {
 /** Уведомления (миграция 011). Доставка in-app — polling. */
 export const notificationsApi = {
   list: (cursor?: string) =>
-    api<{ items: ServerNotification[]; nextCursor: string | null; unread: number }>("/api/notifications", {
+    api<{ items: ServerNotification[]; nextCursor: string | null }>("/api/notifications", {
       query: { cursor, limit: 20 },
     }),
   unreadCount: () => api<{ count: number }>("/api/notifications/unread-count"),
@@ -610,7 +610,7 @@ export const membersApi = {
 
 export const issuesApi = {
   list: (projectId: string, query?: Record<string, string | number | undefined>) =>
-    api<{ items: ServerIssue[]; total: number }>(`${P(projectId)}/issues`, { query }),
+    api<{ items: ServerIssue[]; hasMore: boolean; total?: number }>(`${P(projectId)}/issues`, { query }),
   get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),

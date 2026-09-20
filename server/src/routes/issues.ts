@@ -8,6 +8,7 @@ import type { z } from "zod";
 import { escLike, one, q, withTransaction } from "../db.js";
 import {
   badRequest,
+  formatZod,
   notFound,
   requireIssuePerm,
   requirePerm,
@@ -63,6 +64,7 @@ import {
   CustomFieldParams,
   CustomFieldValueBody,
   IssueCreateBody,
+  IssueListPageMeta,
   IssueLinkCreateBody,
   IssueLinkParams,
   IssuePatchBody,
@@ -87,14 +89,90 @@ const COMPLEXITY_NAMES: Record<string, string> = {
 
 const me = (req: { user: JwtPayload }) => req.user;
 
+const PERF_TRACE = process.env.PERF_TRACE === "1";
+const elapsedMs = (started: bigint): number => Number(process.hrtime.bigint() - started) / 1e6;
+
+interface IssueListPerfTrace {
+  requestStarted: bigint;
+  permissionMs?: number;
+  queryValidationMs?: number;
+  beforeFirstSqlMs?: number;
+  countSqlMs?: number;
+  listSqlMs?: number;
+  assigneesSqlMs?: number;
+  responseBuildMs?: number;
+  serializationStarted?: bigint;
+}
+
+const issueListPerfTraces = new WeakMap<object, IssueListPerfTrace>();
+const issueListPermission = requirePerm("browse");
+
 export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   /* ---------------------------------------------------------- список с фильтрами */
   app.get(
     "/",
-    { preHandler: [requirePerm("browse"), zquery(IssueQuery)] },
+    {
+      onRequest: PERF_TRACE
+        ? async (req) => {
+            issueListPerfTraces.set(req, { requestStarted: process.hrtime.bigint() });
+          }
+        : undefined,
+      preHandler: PERF_TRACE
+        ? [
+            async (req, reply) => {
+              const started = process.hrtime.bigint();
+              await issueListPermission.call(req.server, req, reply);
+              const trace = issueListPerfTraces.get(req);
+              if (trace) trace.permissionMs = elapsedMs(started);
+            },
+            async (req) => {
+              const started = process.hrtime.bigint();
+              const parsed = IssueQuery.safeParse(req.query);
+              if (!parsed.success) throw badRequest(formatZod(parsed.error));
+              req.query = parsed.data as typeof req.query;
+              const trace = issueListPerfTraces.get(req);
+              if (trace) trace.queryValidationMs = elapsedMs(started);
+            },
+          ]
+        : [issueListPermission, zquery(IssueQuery)],
+      preSerialization: PERF_TRACE
+        ? async (req) => {
+            const trace = issueListPerfTraces.get(req);
+            if (trace) trace.serializationStarted = process.hrtime.bigint();
+          }
+        : undefined,
+      onSend: PERF_TRACE
+        ? async (req, _reply, payload) => {
+            const trace = issueListPerfTraces.get(req);
+            if (trace) {
+              const query = req.query as z.infer<typeof IssueQuery>;
+              process.stdout.write(
+                `[perf-trace] ${JSON.stringify({
+                  route: "GET /api/projects/:projectId/issues",
+                  requestId: req.id,
+                  limit: query.limit,
+                  offset: query.offset,
+                  beforeFirstSqlMs: trace.beforeFirstSqlMs,
+                  countSqlMs: trace.countSqlMs,
+                  listSqlMs: trace.listSqlMs,
+                  assigneesSqlMs: trace.assigneesSqlMs,
+                  permissionMs: trace.permissionMs,
+                  queryValidationMs: trace.queryValidationMs,
+                  responseValidationMs: 0,
+                  responseBuildMs: trace.responseBuildMs,
+                  serializationMs: trace.serializationStarted ? elapsedMs(trace.serializationStarted) : undefined,
+                  handlerToSerializedMs: elapsedMs(trace.requestStarted),
+                })}\n`,
+              );
+            }
+            return payload;
+          }
+        : undefined,
+    },
     async (req, reply) => {
       const project = req.project!;
       const f = req.query as z.infer<typeof IssueQuery>;
+      const trace = issueListPerfTraces.get(req);
 
       // Архив (миграция 016) из активного набора исключён по умолчанию: доска и
       // «Список задач» показывают живые задачи. ?archived=1 — только архивные,
@@ -120,15 +198,19 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (f.overdue) clauses.push("i.due_date IS NOT NULL AND i.due_date < CURRENT_DATE AND ws.category <> 'done'");
 
       const where = clauses.join(" AND ");
-      const total = (
-        await one<{ n: string }>(
-          `SELECT count(*)::text AS n FROM issues i
-             JOIN workflow_statuses ws ON ws.id = i.status_id
-            WHERE ${where}`,
-          params,
-        )
-      )!;
-      params.push(f.limit, f.offset);
+      if (trace) trace.beforeFirstSqlMs = elapsedMs(trace.requestStarted);
+      const countStarted = trace && f.includeTotal ? process.hrtime.bigint() : undefined;
+      const total = f.includeTotal
+        ? await one<{ n: string }>(
+            `SELECT count(*)::text AS n FROM issues i
+               JOIN workflow_statuses ws ON ws.id = i.status_id
+              WHERE ${where}`,
+            params,
+          )
+        : null;
+      if (trace && countStarted) trace.countSqlMs = elapsedMs(countStarted);
+      params.push(f.limit + 1, f.offset);
+      const listStarted = trace ? process.hrtime.bigint() : undefined;
       const rows = await q<IssueRow>(
         `SELECT i.* FROM issues i
            JOIN workflow_statuses ws ON ws.id = i.status_id
@@ -137,11 +219,23 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           LIMIT $${params.length - 1} OFFSET $${params.length}`,
         params,
       );
-      const assigneesByIssue = await listAssigneeIdsBatch(rows.map((r) => r.id));
-      reply.send({
-        items: rows.map((r) => maskSprintId(mapIssue(r, assigneesByIssue.get(r.id) ?? []), project.sprintsEnabled)),
-        total: Number(total.n),
-      });
+      if (trace && listStarted) trace.listSqlMs = elapsedMs(listStarted);
+      const hasMore = rows.length > f.limit;
+      const pageRows = hasMore ? rows.slice(0, f.limit) : rows;
+      const assigneesStarted = trace ? process.hrtime.bigint() : undefined;
+      const assigneesByIssue = await listAssigneeIdsBatch(pageRows.map((r) => r.id));
+      if (trace && assigneesStarted) trace.assigneesSqlMs = elapsedMs(assigneesStarted);
+      const responseBuildStarted = trace ? process.hrtime.bigint() : undefined;
+      const pageMeta: IssueListPageMeta = {
+        hasMore,
+        ...(total ? { total: Number(total.n) } : {}),
+      };
+      const payload = {
+        items: pageRows.map((r) => maskSprintId(mapIssue(r, assigneesByIssue.get(r.id) ?? []), project.sprintsEnabled)),
+        ...pageMeta,
+      };
+      if (trace && responseBuildStarted) trace.responseBuildMs = elapsedMs(responseBuildStarted);
+      return reply.send(payload);
     },
   );
 

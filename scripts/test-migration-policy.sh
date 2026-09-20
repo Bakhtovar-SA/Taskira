@@ -35,4 +35,25 @@ git -C "$TMP_DIR" commit -qm safe-contract
 SAFE_SHA="$(git -C "$TMP_DIR" rev-parse HEAD)"
 (cd "$TMP_DIR" && "$ROOT_DIR/scripts/check-migrations.sh" "$BASE_SHA" "$SAFE_SHA")
 
+cat > "$TMP_DIR/server/migrations/20260919T1210_concurrent_index.sql" <<'SQL'
+CREATE INDEX CONCURRENTLY idx_probe ON issues (id);
+SQL
+git -C "$TMP_DIR" add server/migrations/20260919T1210_concurrent_index.sql
+git -C "$TMP_DIR" commit -qm unsafe-concurrent
+UNSAFE_CONCURRENT_SHA="$(git -C "$TMP_DIR" rev-parse HEAD)"
+if (cd "$TMP_DIR" && "$ROOT_DIR/scripts/check-migrations.sh" "$SAFE_SHA" "$UNSAFE_CONCURRENT_SHA" >/dev/null 2>&1); then
+  echo "migration policy accepted CREATE INDEX CONCURRENTLY without transaction/recovery markers" >&2
+  exit 1
+fi
+
+cat > "$TMP_DIR/server/migrations/20260919T1210_concurrent_index.sql" <<'SQL'
+-- migration-transaction: none
+-- recovery: DROP INDEX CONCURRENTLY IF EXISTS idx_probe; then rerun migrations.
+CREATE INDEX CONCURRENTLY idx_probe ON issues (id);
+SQL
+git -C "$TMP_DIR" add server/migrations/20260919T1210_concurrent_index.sql
+git -C "$TMP_DIR" commit -qm safe-concurrent
+SAFE_CONCURRENT_SHA="$(git -C "$TMP_DIR" rev-parse HEAD)"
+(cd "$TMP_DIR" && "$ROOT_DIR/scripts/check-migrations.sh" "$SAFE_SHA" "$SAFE_CONCURRENT_SHA")
+
 echo "migration policy checks passed"

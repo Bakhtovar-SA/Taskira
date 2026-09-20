@@ -105,8 +105,8 @@ async function bootToReady(sprints: ServerSprint[] = [], issues: ServerIssue[] =
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
   vi.spyOn(projectsApi, "get").mockResolvedValue(bootPayload);
-  vi.spyOn(issuesApi, "list").mockResolvedValue({ items: issuesPayload, total: issuesPayload.length });
-  vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null, unread: 0 });
+  vi.spyOn(issuesApi, "list").mockResolvedValue({ items: issuesPayload, hasMore: false });
+  vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
 
   let latest: ReturnType<typeof useStore> | null = null;

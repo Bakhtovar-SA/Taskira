@@ -44,6 +44,12 @@ try {
   await client.query(`CREATE TABLE schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
   for (const name of migrations) {
     const sql = readFileSync(join(migrationsDir, name), "utf8");
+    const nonTransactional = sql.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0].trim() === "-- migration-transaction: none";
+    if (nonTransactional) {
+      await client.query(sql);
+      await client.query("INSERT INTO schema_migrations(name) VALUES ($1)", [name]);
+      continue;
+    }
     await client.query("BEGIN");
     try {
       await client.query(`SET LOCAL search_path TO ${JSON.stringify(schema)}, public`);
