@@ -13,6 +13,7 @@ import {
 } from "./api";
 import { ISSUE_SEARCH_DEBOUNCE_MS, useIssueSearch, type IssueSearchState } from "./issueSearch";
 import IssueSearchBox from "./components/IssueSearchBox";
+import { SearchBox } from "./components/Topbar";
 import { I18nProvider } from "./i18n";
 
 /**
@@ -135,6 +136,30 @@ describe("useIssueSearch", () => {
     h.unmount();
   });
 
+  test('emptyMode "none": пустое поле не шлёт запрос; текст — шлёт; возврат к пустому снова тишина', async () => {
+    const spy = vi.spyOn(issuesApi, "page").mockResolvedValue(page([dto(1)]));
+    let latest!: IssueSearchState;
+    function P({ term }: { term: string }) {
+      latest = useIssueSearch("p1", term, { emptyMode: "none", limit: 8 });
+      return null;
+    }
+    const ui = render(<P term="" />);
+    await settle();
+    expect(spy).not.toHaveBeenCalled();
+    expect(latest.status).toBe("ready");
+    expect(latest.results).toEqual([]);
+    ui.rerender(<P term="abc" />);
+    await settle();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][1]).toMatchObject({ q: "abc", limit: 8 });
+    expect(latest.results).toHaveLength(1);
+    ui.rerender(<P term="" />);
+    await settle(30);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(latest.results).toEqual([]);
+    ui.unmount();
+  });
+
   test("ошибка: статус error без результатов; retry повторяет запрос", async () => {
     const spy = vi.spyOn(issuesApi, "page");
     spy.mockRejectedValueOnce(new Error("сеть"));
@@ -189,7 +214,12 @@ class FakeWebSocket {
 type Page = ReturnType<typeof page>;
 
 /** `initial` — ответ на ПЕРВЫЙ запрос пикера (он уходит сразу после bootstrap). */
-async function mountBox(onPick: (id: string) => void, initial: () => Promise<Page> = async () => page([]), excludeIds?: string[]) {
+async function mountBox(
+  onPick: (id: string) => void,
+  initial: () => Promise<Page> = async () => page([]),
+  excludeIds?: string[],
+  kind: "picker" | "topbar" = "picker",
+) {
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(user as never);
@@ -211,9 +241,12 @@ async function mountBox(onPick: (id: string) => void, initial: () => Promise<Pag
   function Box() {
     const { data } = useStore();
     // пикер рендерим после bootstrap, когда известен проект
-    return data.currentProjectId ? (
+    if (!data.currentProjectId) return null;
+    return kind === "topbar" ? (
+      <SearchBox />
+    ) : (
       <IssueSearchBox ariaLabel="Поиск задачи" excludeIds={excludeIds} onPick={(i) => onPick(i.id)} />
-    ) : null;
+    );
   }
   const ui = render(
     <I18nProvider>
@@ -226,7 +259,7 @@ async function mountBox(onPick: (id: string) => void, initial: () => Promise<Pag
   await act(async () => {
     await store.bootstrap();
   });
-  return { search, ui, input: () => screen.getByRole("combobox") as HTMLInputElement };
+  return { search, ui, store: () => store, input: () => screen.getByRole("combobox") as HTMLInputElement };
 }
 
 describe("IssueSearchBox — что видит пользователь в каждом состоянии", () => {
@@ -286,6 +319,90 @@ describe("IssueSearchBox — что видит пользователь в ка�
     expect(picked).toEqual(["i2"]);
     fireEvent.click(screen.getAllByRole("option")[2]);
     expect(picked).toEqual(["i2", "i3"]);
+    h.ui.unmount();
+  });
+});
+
+describe("Topbar: быстрый поиск идёт на сервер (250 мс, топ-8), пустое поле ничего не ищет", () => {
+  const focusAndType = (input: HTMLInputElement, text: string) => {
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: text } });
+  };
+
+  test("пустое поле и фокус: выпадашки нет, запросов нет", async () => {
+    const h = await mountBox(() => {}, async () => page([dto(1)]), undefined, "topbar");
+    await settle(80);
+    fireEvent.focus(screen.getByPlaceholderText("Поиск задач…"));
+    await settle();
+    // ни при монтировании, ни при фокусе: пустое поле в Topbar ничего не ищет (в отличие от пикеров)
+    expect(h.search).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Результаты/)).toBeNull();
+    h.ui.unmount();
+  });
+
+  test("ввод: один запрос после паузы с q и limit=8; результаты — ключ и название", async () => {
+    const h = await mountBox(() => {}, async () => page([]), undefined, "topbar");
+    h.search.mockClear();
+    h.search.mockImplementation(async () => page([dto(1, { title: "Найденная задача" }), dto(2)]));
+    const input = screen.getByPlaceholderText("Поиск задач…") as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "н" } });
+    fireEvent.change(input, { target: { value: "на" } });
+    fireEvent.change(input, { target: { value: "най" } });
+    await settle();
+    expect(h.search).toHaveBeenCalledTimes(1);
+    expect(h.search.mock.calls[0][1]).toMatchObject({ q: "най", limit: 8 });
+    expect(screen.getByText("Найденная задача")).toBeTruthy();
+    expect(screen.getByText("Результаты · 2")).toBeTruthy();
+    h.ui.unmount();
+  });
+
+  test("идёт запрос: скелет и «Поиск…» в шапке, а не пустой список", async () => {
+    let release!: (v: Page) => void;
+    const h = await mountBox(() => {}, async () => page([]), undefined, "topbar");
+    h.search.mockImplementation(() => new Promise<Page>((r) => (release = r)));
+    focusAndType(screen.getByPlaceholderText("Поиск задач…") as HTMLInputElement, "медленно");
+    await settle();
+    expect(screen.getByLabelText("Поиск…")).toBeTruthy();
+    await act(async () => {
+      release(page([dto(1)]));
+      await flush();
+    });
+    expect(screen.queryByLabelText("Поиск…")).toBeNull();
+    h.ui.unmount();
+  });
+
+  test("нет совпадений: «Ничего не найдено по запросу «…»»", async () => {
+    const h = await mountBox(() => {}, async () => page([]), undefined, "topbar");
+    h.search.mockImplementation(async () => page([]));
+    focusAndType(screen.getByPlaceholderText("Поиск задач…") as HTMLInputElement, "опечаткаа");
+    await settle();
+    expect(screen.getByText("Ничего не найдено по запросу «опечаткаа»")).toBeTruthy();
+    h.ui.unmount();
+  });
+
+  test("ошибка: сообщение и «Повторить», повтор находит результат", async () => {
+    const h = await mountBox(() => {}, async () => page([]), undefined, "topbar");
+    h.search.mockRejectedValueOnce(new Error("сеть")).mockImplementation(async () => page([dto(1, { title: "После повтора" })]));
+    focusAndType(screen.getByPlaceholderText("Поиск задач…") as HTMLInputElement, "abc");
+    await settle();
+    expect(screen.getByText("Не удалось выполнить поиск")).toBeTruthy();
+    fireEvent.mouseDown(screen.getByText("Повторить"));
+    await settle(80);
+    expect(screen.getByText("После повтора")).toBeTruthy();
+    h.ui.unmount();
+  });
+
+  test("клик по результату открывает карточку задачи", async () => {
+    const h = await mountBox(() => {}, async () => page([]), undefined, "topbar");
+    h.search.mockImplementation(async () => page([dto(7, { title: "Открой меня" })]));
+    vi.spyOn(issuesApi, "get").mockResolvedValue({ ...dto(7), links: [], checklist: [], attachments: [], collaborators: [], participants: [], customFieldValues: [], subtasksSummary: { total: 0, done: 0 }, epicChildrenCount: 0 } as never);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    focusAndType(screen.getByPlaceholderText("Поиск задач…") as HTMLInputElement, "открой");
+    await settle();
+    fireEvent.mouseDown(screen.getByText("Открой меня"));
+    await settle(30);
+    expect(h.store().ui.selectedIssueId).toBe("i7");
     h.ui.unmount();
   });
 });

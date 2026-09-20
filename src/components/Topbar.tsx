@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { relTime, useStore } from "../store";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip, UserCardBody } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
+import { useIssueSearch } from "../issueSearch";
 
 const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
@@ -19,7 +20,8 @@ const VIEW_LABEL: Record<ViewId, TKey> = {
   collaborating: "sidebar.nav.collaborating",
 };
 
-function SearchBox() {
+/** Быстрый поиск: «в этом проекте» — серверный поиск (250 мс, топ-8), «во всех проектах» — кросс-проектный. */
+export function SearchBox() {
   const { t } = useT();
   const { data, openIssue, switchProject, searchAllProjects } = useStore();
   const [q, setQ] = useState("");
@@ -29,17 +31,13 @@ function SearchBox() {
   const [searching, setSearching] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
 
-  const localResults = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return [];
-    return data.issues
-      .filter((i) => i.key.toLowerCase().includes(s) || i.title.toLowerCase().includes(s))
-      .slice(0, 8);
-  }, [q, data.issues]);
+  // Поиск в проекте — на сервере (PERF-06): раньше фильтровался весь список задач на клиенте.
+  // Пауза 250 мс, топ-8, пустое поле ничего не ищет. Каждое состояние объяснено текстом.
+  const local = useIssueSearch(allProjects ? null : data.currentProjectId || null, q, { limit: 8, emptyMode: "none" });
+  const localResults = local.results;
 
   // Кросс-проектный поиск бьёт по серверу — дебаунс, иначе каждый символ
-  // в поле даёт отдельный запрос. Только пока включён режим "во всех проектах":
-  // обычный (локальный) поиск по уже загруженным data.issues остаётся мгновенным.
+  // в поле даёт отдельный запрос. Только пока включён режим "во всех проектах".
   useEffect(() => {
     const s = q.trim();
     if (!allProjects || !s) {
@@ -122,7 +120,9 @@ function SearchBox() {
                 ? searching
                   ? t("topbar.searchingAllProjects")
                   : t("topbar.allProjectsCount", { n: remote?.items.length ?? 0 })
-                : t("topbar.resultsCount", { n: localResults.length })}
+                : local.status === "loading"
+                  ? t("picker.searching")
+                  : t("topbar.resultsCount", { n: localResults.length })}
             </span>
             <span className="shrink-0 text-[10.5px] font-semibold text-accent">
               {allProjects ? t("topbar.thisProjectOnly") : t("topbar.allProjectsToggle")}
@@ -156,8 +156,29 @@ function SearchBox() {
             </>
           ) : (
             <>
-              {localResults.length === 0 && (
-                <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q })}</p>
+              {local.status === "loading" && localResults.length === 0 && (
+                <div className="space-y-1.5 px-3 py-3" aria-busy="true" aria-label={t("picker.searching")}>
+                  {[0, 1, 2].map((n) => (
+                    <div key={n} className="skeleton h-6 w-full" />
+                  ))}
+                </div>
+              )}
+              {local.status === "error" && (
+                <div className="px-3 py-4 text-center text-[12.5px] text-danger">
+                  <p>{t("picker.error")}</p>
+                  <button
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      local.retry();
+                    }}
+                    className="mt-1 font-semibold text-accent hover:underline"
+                  >
+                    {t("common.retry")}
+                  </button>
+                </div>
+              )}
+              {local.status === "ready" && localResults.length === 0 && (
+                <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q: local.term })}</p>
               )}
               {localResults.map((i) => (
                 <button

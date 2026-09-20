@@ -13,6 +13,9 @@ import type { Issue } from "./types";
  * задачи (`isRecent = true`), чтобы пользователь сразу видел, что выбирать есть
  * из чего. Пустота допустима только как объяснённое состояние: «нет совпадений»
  * (по введённому тексту) или «в проекте нет других задач».
+ *
+ * Для строки поиска (Topbar) пустое поле — не повод что-то показывать:
+ * `emptyMode: "none"` не отправляет запрос и возвращает пустой готовый результат.
  */
 
 export const ISSUE_SEARCH_DEBOUNCE_MS = 250;
@@ -37,9 +40,10 @@ const isEmptyText = (v: string) => v === "";
 export function useIssueSearch(
   projectId: string | null,
   rawTerm: string,
-  options: { excludeIds?: readonly string[]; limit?: number } = {},
+  options: { excludeIds?: readonly string[]; limit?: number; emptyMode?: "recent" | "none" } = {},
 ): IssueSearchState {
   const limit = options.limit ?? ISSUE_SEARCH_LIMIT;
+  const emptyMode = options.emptyMode ?? "recent";
   const term = useDebounced(rawTerm.trim().slice(0, SEARCH_MAX), ISSUE_SEARCH_DEBOUNCE_MS, isEmptyText);
   const excludeRef = useRef(options.excludeIds ?? []);
   excludeRef.current = options.excludeIds ?? [];
@@ -53,11 +57,12 @@ export function useIssueSearch(
   });
   const [tick, setTick] = useState(0);
   const gen = useRef(0);
-  const key = projectId ? JSON.stringify([projectId, term, limit, excludeKey]) : "";
+  const idle = !projectId || (emptyMode === "none" && term === "");
+  const key = idle ? "" : JSON.stringify([projectId, term, limit, excludeKey]);
 
   useEffect(() => {
     const my = ++gen.current;
-    if (!projectId) return;
+    if (idle || !projectId) return;
     setState((prev) => ({ ...prev, key, status: "loading", error: null }));
     // Исключённые (сама задача, уже связанные) отфильтровываются на клиенте, поэтому
     // просим с запасом на их число: страница не должна опустеть из-за исключений.
@@ -82,14 +87,14 @@ export function useIssueSearch(
     return () => {
       gen.current++;
     };
-  }, [key, tick, projectId, term, limit]);
+  }, [key, tick, projectId, term, limit, idle]);
 
   const retry = useCallback(() => setTick((n) => n + 1), []);
   const current = state.key === key;
   return {
-    results: state.results,
+    results: idle ? [] : state.results,
     // между сменой текста и ответом сервера — «загрузка», а не устаревший «готово»
-    status: !projectId ? "ready" : current ? state.status : "loading",
+    status: idle ? "ready" : current ? state.status : "loading",
     error: current ? state.error : null,
     isRecent: term === "",
     term,
