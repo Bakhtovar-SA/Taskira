@@ -8,6 +8,7 @@ import { workflowStatusName } from "../workflowStatus";
 import { issuesApi, type IssueFilterParams } from "../api";
 import {
   ISSUE_PAGE_SIZE,
+  NO_ISSUE_FILTERS,
   freshRows,
   useDebounced,
   useIssueCounts,
@@ -32,7 +33,6 @@ import {
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MAX = 120; // = LIMITS сервера для q
 const isEmptyText = (v: string) => v === "";
-const NO_FILTERS = {};
 
 // Быстрые фильтры-чипы над доской (round4 §3.3). Фильтры серверные
 // (`boardFilters.ts`): окно «Готово» (DONE_WINDOW_DAYS) — там же; закрытое
@@ -419,7 +419,7 @@ export default function Board() {
 
   // Счётчики: один запрос на набор фильтров, а не на колонку и не на рендер.
   const filtered = useIssueCounts(projectId, baseFilters, revision);
-  const unfiltered = useIssueCounts(projectId, filtersOn ? NO_FILTERS : null, revision);
+  const unfiltered = useIssueCounts(projectId, filtersOn ? NO_ISSUE_FILTERS : null, revision);
   const olderFilters = useMemo(
     () => (hasDoneColumn && !showAllDone ? { ...baseFilters, closed: "older" as const, closedDays: DONE_WINDOW_DAYS } : null),
     [hasDoneColumn, showAllDone, baseFilters],

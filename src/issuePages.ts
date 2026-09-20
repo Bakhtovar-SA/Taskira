@@ -19,6 +19,9 @@ import type { Issue } from "./types";
 
 export const ISSUE_PAGE_SIZE = 100;
 
+/** Стабильное значение «без фильтров» для useIssueCounts (счётчики всего проекта). */
+export const NO_ISSUE_FILTERS: IssueFilterParams = {};
+
 export interface IssueSetQuery {
   projectId: string;
   filters: IssueFilterParams;
