@@ -115,6 +115,14 @@ LDAP/AD, S3-хранилище, email-уведомления — те же пе�
 готовый файл через `env_file:`. Единственное отличие для `S3`:
 `STORAGE_DIR`/том `attachments` в этом compose не нужны — можно убрать volume.
 
+**PostgreSQL на SSD: `random_page_cost=1.1`.** Значение по умолчанию (4) рассчитано
+на HDD; на SSD планировщик из-за него выбирает полное сканирование вместо индекса
+для счётчиков по статусам на крупном проекте (≈19 → 7 мс на 50 000 задач,
+[PERF-05](docs/performance-tickets/PERF-05-step1-server-filters.md)). В
+`docker-compose.yml` добавьте сервису `postgres`
+`command: ["postgres", "-c", "random_page_cost=1.1"]`. Строка проверена только по
+документации PostgreSQL, не запуском контейнера (Docker на dev-машине нет).
+
 ---
 
 ## 6. Бэкапы

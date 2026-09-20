@@ -71,6 +71,16 @@ JSON-логах Fastify в поле `reqId`, поэтому его следуе�
 корпоративном менеджере секретов. Без неё восстановление на новом хосте потребует
 новых JWT/admin/S3/LDAP/SMTP credentials.
 
+## Настройка PostgreSQL
+
+Для сервера на SSD задайте `random_page_cost = 1.1` (`postgresql.conf` или
+`ALTER SYSTEM SET random_page_cost = 1.1; SELECT pg_reload_conf();`). Дефолт 4
+рассчитан на HDD и на крупном проекте заставляет планировщик читать таблицу
+целиком вместо индекса `idx_issues_active`: счётчики по статусам ≈19 мс вместо
+≈7 мс на 50 000 задач. Compose-деплой — см. `DOCKER_SETUP.md`, раздел 5. Проверка:
+`SHOW random_page_cost;`. Основание и замеры —
+`docs/performance-tickets/PERF-05-step1-server-filters.md`.
+
 ## Диагностический бандл
 
 ```bash
