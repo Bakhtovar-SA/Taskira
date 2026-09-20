@@ -1852,9 +1852,12 @@ export function StoreProvider({ children, eagerIssues = EAGER_ISSUES_DEFAULT }: 
   const deleteIssue = useCallback(
     (issueId: string) => {
       if (!requirePerm("delete")) return;
-      const iss = dataRef.current.issues.find((i) => i.id === issueId);
       void (async () => {
         try {
+          // Стор может быть частичным: задачи в нём нет, если её не открывали и не показывали.
+          // Подпись в тосте и поправка счётчика подзадач у родителя берутся из самой задачи,
+          // поэтому сначала подтягиваем её точечно (не тихий пропуск, если её просто не загрузили).
+          const iss = dataRef.current.issues.find((i) => i.id === issueId) ?? (await resolveIssue(issueId, { silent: true })) ?? undefined;
           await issuesApi.remove(pid(), issueId);
           setData((prev) => ({
             ...prev,
@@ -1882,7 +1885,7 @@ export function StoreProvider({ children, eagerIssues = EAGER_ISSUES_DEFAULT }: 
         }
       })();
     },
-    [requirePerm, toast, handleApiError],
+    [requirePerm, resolveIssue, toast, handleApiError],
   );
 
   const addTransition = useCallback(
