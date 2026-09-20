@@ -146,7 +146,7 @@ describe("порядок новых задач", () => {
 });
 
 describe("пагинация списка задач", () => {
-  test("по умолчанию отдаёт hasMore без count, total — только по includeTotal", async () => {
+  test("offset остаётся совместимым; total возвращается только по includeTotal", async () => {
     const adm = await login(app, "admin");
     const base = `/api/projects/${fx.projects.p1}/issues`;
     await post(base, adm, newIssue({ title: "вторая" }));
@@ -155,16 +155,52 @@ describe("пагинация списка задач", () => {
     const first = JSON.parse((await g(`${base}?limit=2&offset=0`, adm)).body);
     expect(first.items).toHaveLength(2);
     expect(first.hasMore).toBe(true);
+    expect(first.nextCursor).toEqual(expect.any(String));
     expect(first).not.toHaveProperty("total");
 
     const last = JSON.parse((await g(`${base}?limit=2&offset=2`, adm)).body);
     expect(last.items).toHaveLength(1);
     expect(last.hasMore).toBe(false);
+    expect(last.nextCursor).toBeNull();
     expect(last).not.toHaveProperty("total");
 
     const withTotal = JSON.parse((await g(`${base}?limit=2&offset=0&includeTotal=1`, adm)).body);
     expect(withTotal.hasMore).toBe(true);
     expect(withTotal.total).toBe(3);
+  });
+
+  test("курсор не теряет и не дублирует строки при вставке перед текущей позицией", async () => {
+    const adm = await login(app, "admin");
+    const base = `/api/projects/${fx.projects.p1}/issues`;
+    for (const title of ["вторая", "третья", "четвёртая", "пятая"]) {
+      await post(base, adm, newIssue({ title }));
+    }
+
+    const before = JSON.parse((await g(`${base}?limit=200`, adm)).body).items as Array<{ id: string }>;
+    let page = JSON.parse((await g(`${base}?limit=2`, adm)).body);
+    const seen = [...page.items] as Array<{ id: string }>;
+
+    // Новые задачи получают меньший rank и появляются до уже выданного
+    // курсора. OFFSET сдвинул бы окно и продублировал строку.
+    const inserted = JSON.parse((await post(base, adm, newIssue({ title: "вставлена во время листания" }))).body);
+    while (page.nextCursor) {
+      page = JSON.parse((await g(`${base}?limit=2&cursor=${encodeURIComponent(page.nextCursor)}`, adm)).body);
+      seen.push(...page.items);
+    }
+
+    expect(seen.map((issue) => issue.id)).toEqual(before.map((issue) => issue.id));
+    expect(new Set(seen.map((issue) => issue.id)).size).toBe(seen.length);
+    expect(seen.map((issue) => issue.id)).not.toContain(inserted.id);
+  });
+
+  test("повреждённый курсор отклоняется", async () => {
+    const adm = await login(app, "admin");
+    const base = `/api/projects/${fx.projects.p1}/issues`;
+    await post(base, adm, newIssue({ title: "вторая" }));
+    const page = JSON.parse((await g(`${base}?limit=1`, adm)).body);
+    const tail = page.nextCursor.at(-1) === "A" ? "B" : "A";
+    const corrupted = `${page.nextCursor.slice(0, -1)}${tail}`;
+    expect((await g(`${base}?limit=1&cursor=${corrupted}`, adm)).statusCode).toBe(400);
   });
 });
 

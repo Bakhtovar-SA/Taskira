@@ -115,7 +115,7 @@ describe("bootstrap → один проект (single-project path)", () => {
     vi.spyOn(projectsApi, "list").mockResolvedValue([projects[0]] as never);
     vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
     vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-    vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false });
+    vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
     vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
     const boot: ProjectBootstrap = {
       project: projects[0],

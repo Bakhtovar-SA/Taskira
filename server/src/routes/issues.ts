@@ -57,6 +57,8 @@ import { storageKeysForIssue, deleteStorageObjects } from "../services/attachmen
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import { assertSprintsEnabled, getSprintInProject } from "../services/sprints.js";
+import { loadConfig } from "../config.js";
+import { decodeIssueListCursor, encodeIssueListCursor } from "../issueListCursor.js";
 import {
   ChecklistItemCreateBody,
   ChecklistItemParams,
@@ -152,6 +154,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
                   requestId: req.id,
                   limit: query.limit,
                   offset: query.offset,
+                  cursor: query.cursor ? "present" : undefined,
                   beforeFirstSqlMs: trace.beforeFirstSqlMs,
                   countSqlMs: trace.countSqlMs,
                   listSqlMs: trace.listSqlMs,
@@ -197,19 +200,33 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (f.dueTo) add("i.due_date <= ?", f.dueTo);
       if (f.overdue) clauses.push("i.due_date IS NOT NULL AND i.due_date < CURRENT_DATE AND ws.category <> 'done'");
 
-      const where = clauses.join(" AND ");
+      // total относится ко всему отфильтрованному набору, а не к хвосту после
+      // курсора. Поэтому фиксируем WHERE/params до добавления keyset-предиката.
+      const countWhere = clauses.join(" AND ");
+      const countParams = [...params];
       if (trace) trace.beforeFirstSqlMs = elapsedMs(trace.requestStarted);
       const countStarted = trace && f.includeTotal ? process.hrtime.bigint() : undefined;
       const total = f.includeTotal
         ? await one<{ n: string }>(
             `SELECT count(*)::text AS n FROM issues i
                JOIN workflow_statuses ws ON ws.id = i.status_id
-              WHERE ${where}`,
-            params,
+              WHERE ${countWhere}`,
+            countParams,
           )
         : null;
       if (trace && countStarted) trace.countSqlMs = elapsedMs(countStarted);
-      params.push(f.limit + 1, f.offset);
+
+      if (f.cursor) {
+        let cursor;
+        try {
+          cursor = decodeIssueListCursor(f.cursor, loadConfig().jwtSecret);
+        } catch {
+          throw badRequest("Некорректный курсор страницы");
+        }
+        add("(i.rank, i.id) > (?, ?)", cursor.rank, cursor.id);
+      }
+      const where = clauses.join(" AND ");
+      params.push(f.limit + 1, f.cursor ? 0 : f.offset);
       const listStarted = trace ? process.hrtime.bigint() : undefined;
       const rows = await q<IssueRow>(
         `SELECT i.* FROM issues i
@@ -228,6 +245,10 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const responseBuildStarted = trace ? process.hrtime.bigint() : undefined;
       const pageMeta: IssueListPageMeta = {
         hasMore,
+        nextCursor:
+          hasMore && pageRows.length > 0
+            ? encodeIssueListCursor(pageRows.at(-1)!, loadConfig().jwtSecret)
+            : null,
         ...(total ? { total: Number(total.n) } : {}),
       };
       const payload = {

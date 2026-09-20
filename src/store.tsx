@@ -232,10 +232,12 @@ const ISSUES_PAGE = 200;
  * активный набор, а не молча первые 200 строк. Сервер всё равно ограничивает
  * один ответ; дочитываем страницы последовательно, не создавая всплеск запросов. */
 async function listAllIssues(projectId: string): Promise<{ items: ServerIssue[]; total: number }> {
-  let page = await issuesApi.list(projectId, { limit: ISSUES_PAGE, offset: 0 });
+  let page = await issuesApi.list(projectId, { limit: ISSUES_PAGE });
   const items = [...page.items];
-  while (page.hasMore) {
-    page = await issuesApi.list(projectId, { limit: ISSUES_PAGE, offset: items.length });
+  while (page.nextCursor) {
+    // Курсор — эфемерное состояние обхода. В URL/localStorage он намеренно не
+    // попадает: сохранённая ссылка описывает фильтр, а не позицию в выдаче.
+    page = await issuesApi.list(projectId, { limit: ISSUES_PAGE, cursor: page.nextCursor });
     if (page.items.length === 0) break;
     items.push(...page.items);
   }

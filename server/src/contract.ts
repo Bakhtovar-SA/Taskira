@@ -420,6 +420,9 @@ export const IssueQuery = z.object({
   /** Точный total дорог: по умолчанию страница возвращает только hasMore,
    *  `includeTotal=1|true` — явный opt-in для редких потребителей. */
   includeTotal: z.enum(["1", "true"]).optional(),
+  /** Непрозрачный keyset-курсор. При наличии имеет приоритет над offset;
+   *  offset остаётся на expand-релиз для совместимости старых клиентов. */
+  cursor: z.string().regex(/^[A-Za-z0-9_-]+$/).max(128).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
   offset: z.coerce.number().int().min(0).default(0),
 });
@@ -428,6 +431,7 @@ export const IssueQuery = z.object({
  * выводятся из этой схемы; `total` отсутствует без явного includeTotal. */
 export const IssueListPageMeta = z.object({
   hasMore: z.boolean(),
+  nextCursor: z.string().nullable(),
   total: z.number().int().nonnegative().optional(),
 });
 export type IssueListPageMeta = z.infer<typeof IssueListPageMeta>;

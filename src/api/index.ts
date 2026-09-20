@@ -1,5 +1,7 @@
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
+import type { IssueListPageMeta } from "./generated-contracts";
+
 let legacyBearerToken: string | null = null;
 
 /** В production API обычно доступен на том же origin через nginx /api proxy.
@@ -610,7 +612,7 @@ export const membersApi = {
 
 export const issuesApi = {
   list: (projectId: string, query?: Record<string, string | number | undefined>) =>
-    api<{ items: ServerIssue[]; hasMore: boolean; total?: number }>(`${P(projectId)}/issues`, { query }),
+    api<IssueListPageMeta & { items: ServerIssue[] }>(`${P(projectId)}/issues`, { query }),
   get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),
