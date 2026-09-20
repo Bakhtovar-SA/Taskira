@@ -610,9 +610,42 @@ export const membersApi = {
     api<void>(`${P(projectId)}/members/${userId}`, { method: "DELETE" }),
 };
 
+/** Фильтры набора задач — зеркало `IssueFilterQuery` сервера (server/src/contract.ts).
+ *  Курсор сюда не входит: это состояние обхода, а не свойство набора. */
+export interface IssueFilterParams {
+  status?: string;
+  /** id исполнителя или "none" — задачи без исполнителей. */
+  assignee?: string;
+  type?: string;
+  q?: string;
+  overdue?: "1";
+  /** "hide" — без закрытых; "recent" — закрытые не старше closedDays; "older" — только старше. */
+  closed?: "hide" | "recent" | "older";
+  closedDays?: number;
+}
+export type IssueSortKey = "rank" | "priority" | "due" | "updated" | "key";
+export interface IssuePageParams extends IssueFilterParams {
+  sort?: IssueSortKey;
+  dir?: "asc" | "desc";
+  cursor?: string;
+  limit?: number;
+}
+export interface IssueCounts {
+  total: number;
+  byStatus: Record<string, number>;
+}
+
 export const issuesApi = {
   list: (projectId: string, query?: Record<string, string | number | undefined>) =>
     api<IssueListPageMeta & { items: ServerIssue[] }>(`${P(projectId)}/issues`, { query }),
+  /** Одна страница набора: фильтры/сортировка серверные, продолжение — по `cursor`. */
+  page: (projectId: string, params: IssuePageParams) =>
+    api<IssueListPageMeta & { items: ServerIssue[] }>(`${P(projectId)}/issues`, {
+      query: params as Record<string, string | number | undefined>,
+    }),
+  /** Общее число и разбивка по статусам для набора — один запрос на набор, не на страницу. */
+  counts: (projectId: string, params: IssueFilterParams) =>
+    api<IssueCounts>(`${P(projectId)}/issues/counts`, { query: params as Record<string, string | number | undefined> }),
   get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),

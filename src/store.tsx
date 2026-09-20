@@ -383,7 +383,8 @@ const mapIssueLink = (l: ServerIssueLink): IssueLink => ({
   createdAt: Date.parse(l.createdAt) || Date.now(),
 });
 
-function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
+/** Экспортируется для постраничных наборов (`issuePages.ts`): они мапят DTO страницы так же, как стор. */
+export function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
   return {
     id: dto.id,
     key: dto.key,
