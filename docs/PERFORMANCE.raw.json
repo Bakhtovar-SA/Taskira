@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-09-19T15:19:56.630Z",
+  "baseUrl": "http://127.0.0.1:8090",
+  "fixture": {
+    "issues": 50000,
+    "concurrentUsers": 200,
+    "boardColumnCards": 1500
+  },
+  "durationSecondsPerScenario": 15,
+  "timeoutSeconds": 30,
+  "host": {
+    "platform": "win32 10.0.26200 x64",
+    "cpu": "Intel(R) Core(TM) i3-N305",
+    "logicalCpus": 8,
+    "memoryBytes": 8226639872,
+    "node": "v24.20.0"
+  },
+  "scenarios": [
+    {
+      "name": "project-bootstrap",
+      "latencyMs": {
+        "average": 1146.46,
+        "p50": 1026,
+        "p95": 1772.5538000000001,
+        "p99": 1956,
+        "max": 1988
+      },
+      "requestsPerSecond": 167.27,
+      "throughputBytesPerSecond": 10894301.87,
+      "requests": 2509,
+      "errors": 0,
+      "timeouts": 0,
+      "non2xx": 0
+    },
+    {
+      "name": "issues-first-page-50k",
+      "latencyMs": {
+        "average": 8108.42,
+        "p50": 8106,
+        "p95": 8391.795,
+        "p99": 8503,
+        "max": 8521
+      },
+      "requestsPerSecond": 13.34,
+      "throughputBytesPerSecond": 1559620.27,
+      "requests": 200,
+      "errors": 0,
+      "timeouts": 0,
+      "non2xx": 0
+    },
+    {
+      "name": "issues-deep-page-50k",
+      "latencyMs": {
+        "average": 11344.39,
+        "p50": 11381,
+        "p95": 11645.8037,
+        "p99": 11758,
+        "max": 11807
+      },
+      "requestsPerSecond": 13.34,
+      "throughputBytesPerSecond": 1586926.94,
+      "requests": 200,
+      "errors": 0,
+      "timeouts": 0,
+      "non2xx": 0
+    },
+    {
+      "name": "board-column-1500",
+      "latencyMs": {
+        "average": 1555.2,
+        "p50": 1246,
+        "p95": 3631.5897999999997,
+        "p99": 8874,
+        "max": 10163
+      },
+      "requestsPerSecond": 160,
+      "throughputBytesPerSecond": 18025949.87,
+      "requests": 2400,
+      "errors": 0,
+      "timeouts": 0,
+      "non2xx": 0
+    }
+  ]
+}

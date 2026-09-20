@@ -1,5 +1,6 @@
 /** Сборка Fastify: плагины, обработчики ошибок, маршруты. */
 import Fastify, { type FastifyInstance } from "fastify";
+import { randomUUID } from "node:crypto";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
@@ -30,19 +31,37 @@ import { notificationRoutes } from "./routes/notifications.js";
 import { reportRoutes } from "./routes/reports.js";
 import { auditExportRoutes } from "./routes/auditExport.js";
 import { wsRoutes } from "./routes/ws.js";
-import { q } from "./db.js";
+import { pendingMigrations, q } from "./db.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
 import { requestToken } from "./sessionCookie.js";
+import { getStorage } from "./services/storage.js";
+import { activeSocketCount } from "./services/wsHub.js";
+import { observeHttpRequest, refreshBackgroundQueueMetrics, renderMetrics } from "./metrics.js";
 
 export function buildApp(): FastifyInstance {
   const cfg = loadConfig();
 
   const app = Fastify({
     logger: process.env.NODE_ENV === "test" ? false : { level: "info" },
+    requestIdHeader: "x-request-id",
+    genReqId: () => randomUUID(),
     // За nginx/LB: без этого `req.ip` = адрес прокси — ломает rate-limit логина
     // по IP и IP в audit-логе. Значение из TRUST_PROXY (см. .env.example).
     trustProxy: cfg.trustProxy,
+  });
+
+  const requestStarted = new WeakMap<object, bigint>();
+  app.addHook("onRequest", async (req, reply) => {
+    requestStarted.set(req, process.hrtime.bigint());
+    reply.header("x-request-id", req.id);
+  });
+  app.addHook("onResponse", async (req, reply) => {
+    const started = requestStarted.get(req);
+    if (started === undefined) return;
+    const route = req.routeOptions.url ?? "unmatched";
+    if (route === "/metrics") return;
+    observeHttpRequest(req.method, route, reply.statusCode, Number(process.hrtime.bigint() - started) / 1e9);
   });
 
   // Security-заголовки (аудит SEC-02). API отдаёт только JSON и файлы вложений,
@@ -100,6 +119,7 @@ export function buildApp(): FastifyInstance {
     // preflight для PATCH/PUT/DELETE тогда падает («Нет связи с сервером» на клиенте).
     methods: ["GET", "HEAD", "POST", "PATCH", "PUT", "DELETE"],
     allowedHeaders: ["Authorization", "Content-Type"],
+    exposedHeaders: ["X-Request-Id"],
     credentials: true,
   });
   app.register(websocket); // realtime-маршруты — Этап 3c
@@ -132,20 +152,47 @@ export function buildApp(): FastifyInstance {
     reply.code(404).send({ error: { code: "NOT_FOUND", reason: "Эндпоинт не найден" } });
   });
 
-  /* Служебное: готовность + связь с БД. Нет БД — 503 для балансировщика/мониторинга. */
-  app.get("/api/health", async (_req, reply) => {
-    let db = true;
+  /* Liveness ничего не спрашивает у зависимостей: процесс способен отвечать. */
+  app.get("/health", async () => ({ ok: true, version: cfg.version, ts: new Date().toISOString() }));
+
+  const readiness = async (_req: unknown, reply: { code(status: number): { send(body: unknown): void } }) => {
+    const checks = { db: false, migrations: false, storage: false };
+    let pending: string[] = [];
     try {
       await q(`SELECT 1`);
-    } catch {
-      db = false;
+      checks.db = true;
+      pending = await pendingMigrations();
+      checks.migrations = pending.length === 0;
+    } catch (error) {
+      app.log.warn({ err: error }, "readiness database check failed");
     }
-    reply.code(db ? 200 : 503).send({
-      ok: db,
-      db,
+    try {
+      const storage = await getStorage(cfg);
+      await storage.checkReady();
+      checks.storage = true;
+    } catch (error) {
+      app.log.warn({ err: error }, "readiness storage check failed");
+    }
+    const ok = checks.db && checks.migrations && checks.storage;
+    reply.code(ok ? 200 : 503).send({
+      ok,
+      // legacy /api/health consumers read this top-level field; /ready clients
+      // should prefer the complete checks object below.
+      db: checks.db,
+      checks,
+      ...(pending.length > 0 ? { pendingMigrations: pending } : {}),
       version: cfg.version,
       ts: new Date().toISOString(),
     });
+  };
+
+  app.get("/ready", readiness);
+  // Совместимость со старыми healthcheck релизов; семантика теперь readiness.
+  app.get("/api/health", readiness);
+
+  app.get("/metrics", async (_req, reply) => {
+    await refreshBackgroundQueueMetrics();
+    reply.type("text/plain; version=0.0.4; charset=utf-8").send(renderMetrics(activeSocketCount()));
   });
 
   app.register(

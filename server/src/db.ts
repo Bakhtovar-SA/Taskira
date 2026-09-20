@@ -25,6 +25,11 @@ function getPool(): pg.Pool {
   return pool;
 }
 
+function migrationFiles(): string[] {
+  const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+  return readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+}
+
 export async function q<T>(text: string, params: unknown[] = []): Promise<T[]> {
   const res = await getPool().query(text, params);
   return res.rows as T[];
@@ -76,7 +81,7 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
 export async function migrate(): Promise<void> {
   const p = getPool();
   const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
-  const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+  const files = migrationFiles();
   const client = await p.connect();
   try {
     // Один session-level lock на весь цикл: две стартующие реплики больше не
@@ -104,6 +109,13 @@ export async function migrate(): Promise<void> {
     await client.query(`SELECT pg_advisory_unlock(hashtext('taskira:schema-migrations'))`).catch(() => undefined);
     client.release();
   }
+}
+
+/** Проверка readiness: БД отвечает и каждая миграция этого build применена. */
+export async function pendingMigrations(): Promise<string[]> {
+  const rows = await q<{ name: string }>(`SELECT name FROM schema_migrations`);
+  const applied = new Set(rows.map((row) => row.name));
+  return migrationFiles().filter((file) => !applied.has(file));
 }
 
 export async function closePool(): Promise<void> {

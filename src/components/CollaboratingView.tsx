@@ -3,6 +3,7 @@ import { useStore } from "../store";
 import { SoloIssueCard } from "./SoloView";
 import { IcLink } from "../icons";
 import { useT } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 /** «Мои подключения» в обычном интерфейсе: приглашения к задачам в проектах,
  *  которые пользователю не открыты. Карточка — та же, что в SoloView. */
@@ -62,7 +63,7 @@ export default function CollaboratingView() {
                 {it.key} · {it.projectName}
               </span>
               <span className="w-full truncate text-[12.5px] font-medium text-ink">{it.title}</span>
-              <span className="text-[10px] text-faint">{it.statusName}</span>
+              <span className="text-[10px] text-faint">{workflowStatusName({ name: it.statusName }, t)}</span>
             </button>
           ))}
           {items.length === 0 && (
@@ -78,7 +79,7 @@ export default function CollaboratingView() {
             key={current.issueId}
             projectId={current.projectId}
             issueId={current.issueId}
-            statusHint={current.statusName}
+            statusHint={workflowStatusName({ name: current.statusName }, t)}
             currentUser={{ id: data.currentUserId, name: me.name }}
           />
         ) : (
