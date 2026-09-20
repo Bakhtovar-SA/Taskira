@@ -106,6 +106,22 @@ describe("триграммные индексы поиска", () => {
     expect(await existingIndexes()).toEqual([...INDEXES].sort());
   });
 
+  // Регрессия, найденная на стенде: расширение уже стояло в БД, но в другой схеме, чем
+  // search_path миграции (его создали раньше из схемы тестов), и `gin_trgm_ops` без схемы
+  // не находился — миграция падала. Класс операторов берётся из схемы расширения.
+  test("расширение установлено в другой схеме, чем search_path: индексы всё равно создаются", async () => {
+    await rolledBack(async (c) => {
+      await c.query(`DROP INDEX ${INDEXES[0]}`);
+      await c.query(`DROP INDEX ${INDEXES[1]}`);
+      await c.query(`DROP EXTENSION pg_trgm`);
+      await c.query(`CREATE SCHEMA ext_elsewhere`);
+      await c.query(`CREATE EXTENSION pg_trgm SCHEMA ext_elsewhere`);
+      await c.query(SQL); // не должно бросить
+      const made = await c.query(`SELECT indexname FROM pg_indexes WHERE indexname = ANY($1) ORDER BY 1`, [INDEXES]);
+      expect(made.rows.map((r) => r.indexname)).toEqual([...INDEXES].sort());
+    });
+  });
+
   test("без расширения миграция не падает и индексы не создаёт («если возможно»)", async () => {
     await rolledBack(async (c) => {
       await c.query(`DROP INDEX ${INDEXES[0]}`);
