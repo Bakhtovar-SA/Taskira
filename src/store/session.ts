@@ -254,8 +254,10 @@ export function useSessionActions(
   );
 
   const refreshAssignedToMe = useCallback(async () => {
+    const epoch = sessionEpochRef.current; // SEC-01
     try {
       const res = await issuesApi.assignedToMe();
+      if (epoch !== sessionEpochRef.current) return;
       // Серверный DTO отдаёт typeId/priorityId строками — сужаем к юнионам клиента,
       // как это делалось и раньше для голого массива.
       setData((prev) => ({
@@ -364,8 +366,10 @@ export function useSessionActions(
 
   /** Перечитать «Мои подключения» (приглашения к задачам чужих проектов). */
   const refreshCollaborations = useCallback(async () => {
+    const epoch = sessionEpochRef.current; // SEC-01
     try {
       const items = await issuesApi.collaborating();
+      if (epoch !== sessionEpochRef.current) return;
       setData((prev) => ({ ...prev, collaborations: items }));
     } catch {
       /* тихо — раздел просто не обновится */
