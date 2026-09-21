@@ -13,7 +13,6 @@ import type {
   ProjectRole,
   ProjectSummary,
   SearchResultItem,
-  Sprint,
   Toast,
   User,
   ViewId,
@@ -49,7 +48,6 @@ import {
   membersApi,
   notificationsApi,
   projectsApi,
-  sprintsApi,
   type CollaboratingItem,
   type IssueTemplateInput,
   type NotifyPrefs,
@@ -79,13 +77,11 @@ import {
   upsertIssue,
   writeLastProject,
 } from "./store/mappers";
-import type {
-  BootStatus,
-  CreateInput,
-  SoloState,
-  StoreIndexes,
-  UIState,
-} from "./store/mappers";
+import type { BootStatus, CreateInput, SoloState, StoreIndexes, UIState } from "./store/mappers";
+
+import type { StoreCtx } from "./store/ctx";
+import { useSprintActions } from "./store/sprints";
+import { useFavoritesAndSearch } from "./store/favoritesSearch";
 
 // Фасад: публичные имена по-прежнему берутся из "store" — компоненты и тесты не менялись (ТЗ 2.3).
 export {
@@ -1926,132 +1922,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, toast, handleApiError, refreshOrg, bootstrap],
   );
 
-  /* -------- спринты (миграция 023, опциональный модуль — SPRINTS_MIGRATION.md) --------
-     Права manageSprints — тем же проверяет и сервер; requirePerm здесь только
-     ради мгновенной UX-реакции (скрытые кнопки и т.п.), источник истины — 403. */
-  const addSprint = useCallback(
-    (input: { name: string; goal: string; startDate?: string | null; endDate?: string | null }) => {
-      if (!requirePerm("manageSprints")) return;
-      void (async () => {
-        try {
-          const s = await sprintsApi.create(pid(), input);
-          setData((prev) => ({ ...prev, sprints: [...prev.sprints, mapSprint(s)] }));
-          toast("success", local(`Спринт «${s.name}» создан`, `Sprint “${s.name}” created`));
-        } catch (err) {
-          handleApiError(err, local("Не удалось создать спринт", "Couldn't create the sprint"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const startSprint = useCallback(
-    (sprintId: string) => {
-      if (!requirePerm("manageSprints")) return;
-      void (async () => {
-        try {
-          const s = await sprintsApi.start(pid(), sprintId);
-          setData((prev) => ({ ...prev, sprints: prev.sprints.map((x) => (x.id === sprintId ? mapSprint(s) : x)) }));
-          toast("success", local(`Спринт «${s.name}» начат`, `Sprint “${s.name}” started`));
-        } catch (err) {
-          handleApiError(err, local("Не удалось начать спринт", "Couldn't start the sprint"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const completeSprint = useCallback(
-    (sprintId: string) => {
-      if (!requirePerm("manageSprints")) return;
-      void (async () => {
-        try {
-          const { sprint, movedToBacklog } = await sprintsApi.complete(pid(), sprintId);
-          setData((prev) => ({
-            ...prev,
-            sprints: prev.sprints.map((x) => (x.id === sprintId ? mapSprint(sprint) : x)),
-            // Зеркалим перенос незакрытых задач в бэклог локально (сервер уже
-            // сделал это одной транзакцией в completeSprint()) — без этого
-            // карточки повисли бы в UI на завершённом спринте до следующего
-            // bootstrap()/openIssue(). Закрытые (doneAt≠null) сервер не трогает.
-            issues: prev.issues.map((i) => (i.sprintId === sprintId && i.doneAt == null ? { ...i, sprintId: null } : i)),
-          }));
-          toast(
-            movedToBacklog > 0 ? "info" : "success",
-            local(
-              `Спринт «${sprint.name}» завершён${movedToBacklog > 0 ? `, в бэклог перенесено: ${movedToBacklog}` : ""}`,
-              `Sprint “${sprint.name}” completed${movedToBacklog > 0 ? `; moved to backlog: ${movedToBacklog}` : ""}`,
-            ),
-          );
-        } catch (err) {
-          handleApiError(err, local("Не удалось завершить спринт", "Couldn't complete the sprint"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const setIssueSprint = useCallback(
-    (issueId: string, sprintId: string | null) => {
-      if (!requirePerm("manageSprints")) return;
-      void (async () => {
-        try {
-          const dto = await issuesApi.setSprint(pid(), issueId, sprintId);
-          setData((prev) => ({ ...prev, issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)) }));
-        } catch (err) {
-          handleApiError(err, local("Не удалось изменить спринт задачи", "Couldn't change the issue sprint"));
-        }
-      })();
-    },
-    [requirePerm, handleApiError],
-  );
-
-  /* -------- избранные проекты (миграция 024) -------- */
-  const toggleFavoriteProject = useCallback(
-    (projectId: string) => {
-      const isFav = dataRef.current.favoriteProjectIds.includes(projectId);
-      // Оптимистично: проект уже виден в переключателе (иначе звёздочки бы не
-      // было) — round-trip на toggle не должен ощущаться заметной задержкой,
-      // в отличие от мутаций, где сервер реально может отказать по бизнес-правилу.
-      // 403 здесь реалистичен только при потере доступа между рендером списка
-      // и кликом — откатываем как обычную ошибку.
-      setData((prev) => ({
-        ...prev,
-        favoriteProjectIds: isFav
-          ? prev.favoriteProjectIds.filter((id) => id !== projectId)
-          : [...prev.favoriteProjectIds, projectId],
-      }));
-      void (async () => {
-        try {
-          if (isFav) await projectsApi.unfavorite(projectId);
-          else await projectsApi.favorite(projectId);
-        } catch (err) {
-          setData((prev) => ({
-            ...prev,
-            favoriteProjectIds: isFav
-              ? [...prev.favoriteProjectIds, projectId]
-              : prev.favoriteProjectIds.filter((id) => id !== projectId),
-          }));
-          handleApiError(err, local("Не удалось изменить избранное", "Couldn't update favorites"));
-        }
-      })();
-    },
-    [handleApiError],
-  );
-
-  /* -------- кросс-проектный поиск (миграция 024) -------- */
-  const searchAllProjects = useCallback(
-    async (q: string): Promise<{ items: SearchResultItem[]; truncated: boolean }> => {
-      try {
-        const res = await issuesApi.search(q);
-        return { items: res.items as SearchResultItem[], truncated: res.truncated };
-      } catch (err) {
-        handleApiError(err, local("Не удалось выполнить поиск", "Search failed"));
-        return { items: [], truncated: false };
-      }
-    },
-    [handleApiError],
-  );
+  // Домены, вынесенные из провайдера (ТЗ 2.3): общий контекст — в ./store/ctx.
+  const storeCtx: StoreCtx = { setData, dataRef, pid, toast, handleApiError, requirePerm, local };
+  const { addSprint, startSprint, completeSprint, setIssueSprint } = useSprintActions(storeCtx);
+  const { toggleFavoriteProject, searchAllProjects } = useFavoritesAndSearch(storeCtx);
 
   const idx = useMemo<StoreIndexes>(
     () => ({
