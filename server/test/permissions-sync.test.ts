@@ -1,29 +1,28 @@
 /**
- * Синхронность клиентской и серверной копий модели прав и лимитов.
+ * Единый источник прав и синхронность клиента с сервером (ТЗ 2.2), плюс синхронность лимитов валидации.
  *
- * `src/permissions.ts` и `server/src/permissions.ts` намеренно держат одну и ту
- * же MATRIX: клиенту она нужна для мгновенной реакции интерфейса, серверу — как
- * источник истины. Решение оправдано, но до сих пор соблюдение правила «менять
- * в двух местах синхронно» ничем не проверялось (аудит DEBT-01), а тестов на
- * клиенте нет вовсе.
+ * Матрица прав живёт в shared/permissions.matrix.json; src/permissions.matrix.ts и server/src/permissions.matrix.ts
+ * (и docs/PERMISSIONS.md) ГЕНЕРИРУЮТСЯ из неё (scripts/generate-permissions.mjs). Общий импорт невозможен: сервер
+ * собирается из контекста server/ (Dockerfile, rootDir=src), клиент — из корня без server/ — поэтому общий
+ * источник — данные, а тест/CI сверяют, что обе копии — ровно то, что порождает источник. Логика поверх матрицы
+ * (резолв роли, правило «своей» задачи, тексты отказов) продублирована в коде и проверяется здесь по ПОВЕДЕНИЮ на
+ * всех комбинациях роль × право × «своя/чужая».
  *
- * Рассинхрон не пробивает безопасность — сервер всё равно перепроверит каждую
- * мутацию, — но даёт худший для доверия класс багов: кнопка есть, нажимаешь,
- * получаешь отказ. Или наоборот: право есть, а кнопки нет.
- *
- * Тест живёт в серверном наборе, потому что он единственный в проекте. Файл
- * клиента читается с диска и разбирается текстом — тащить сборку фронтенда
- * в серверные тесты ради этого не нужно.
+ * Лимиты валидации (src/validation.ts ↔ server/src/contract.ts) по-прежнему сверяются разбором файла клиента.
  */
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { MATRIX_FOR_TESTS, PERM_IDS_FOR_TESTS } from "../src/permissions.js";
-import { LIMITS as SERVER_LIMITS } from "../src/contract.js";
+import { MATRIX, PERM_IDS, ROLE_IDS } from "../src/permissions.matrix.js";
+import { ACCESS_ROLES as CONTRACT_ROLES, LIMITS as SERVER_LIMITS } from "../src/contract.js";
+import { can as serverCan, denialReason as serverDenial, type IssueRef, type Membership } from "../src/permissions.js";
+import { can as clientCan, denialReason as clientDenial } from "../../src/permissions.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (rel: string) => readFileSync(join(repoRoot, rel), "utf8");
+const norm = (s: string) => s.replace(/\r\n/g, "\n");
 
 /** Вытаскивает объект-литерал по имени из исходника и парсит его как JS. */
 function extractObject(source: string, declaration: string): Record<string, unknown> {
@@ -51,32 +50,66 @@ function extractObject(source: string, declaration: string): Record<string, unkn
   return Function(`"use strict"; return (${literal});`)() as Record<string, unknown>;
 }
 
-describe("матрица прав: клиент ↔ сервер", () => {
-  const clientSource = read("src/permissions.ts");
-  const clientMatrix = extractObject(clientSource, "const MATRIX") as Record<string, string[]>;
+describe("матрица прав: единый источник", () => {
+  const source = JSON.parse(read("shared/permissions.matrix.json")) as {
+    roles: { id: string }[];
+    permissions: { id: string; roles: string[] }[];
+  };
 
-  test("наборы разрешений совпадают", () => {
-    expect(Object.keys(clientMatrix).sort()).toEqual([...PERM_IDS_FOR_TESTS].sort());
+  test("сгенерированные файлы совпадают с источником (тот же чек, что в CI)", () => {
+    const r = spawnSync(process.execPath, [join(repoRoot, "scripts", "generate-permissions.mjs"), "--check"], { encoding: "utf8" });
+    expect(r.status, r.stderr).toBe(0);
   });
 
-  test("у каждого разрешения одинаковый набор ролей", () => {
-    for (const perm of PERM_IDS_FOR_TESTS) {
-      expect([...(clientMatrix[perm] ?? [])].sort(), `разрешение «${perm}» разошлось`).toEqual(
-        [...MATRIX_FOR_TESTS[perm]].sort(),
+  test("клиентская и серверная копии матрицы побайтно одинаковы", () => {
+    expect(norm(read("src/permissions.matrix.ts"))).toBe(norm(read("server/src/permissions.matrix.ts")));
+  });
+
+  test("серверная MATRIX и роли — ровно данные источника", () => {
+    expect([...PERM_IDS]).toEqual(source.permissions.map((p) => p.id));
+    expect([...ROLE_IDS]).toEqual(source.roles.map((r) => r.id));
+    for (const p of source.permissions) expect([...MATRIX[p.id as keyof typeof MATRIX]], p.id).toEqual(p.roles);
+  });
+
+  test("ACCESS_ROLES в contract.ts (ответы API) совпадает с ролями источника", () => {
+    expect([...CONTRACT_ROLES]).toEqual([...ROLE_IDS]);
+  });
+});
+
+describe("модель прав: поведение клиента и сервера совпадает", () => {
+  // Все комбинации: роль × право × (нет задачи | своя как исполнитель | своя как автор | чужая).
+  const issues: (IssueRef | undefined)[] = [
+    undefined,
+    { id: "i", assigneeIds: ["me"], reporterId: "other" },
+    { id: "i", assigneeIds: ["x"], reporterId: "me" },
+    { id: "i", assigneeIds: ["x", "y"], reporterId: "other" },
+  ];
+  const cases = ROLE_IDS.flatMap((role) => PERM_IDS.flatMap((perm) => issues.map((issue) => ({ role, perm, issue }))));
+
+  const asServer = (role: (typeof ROLE_IDS)[number]) => ({
+    user: { id: "me", globalRole: role === "admin" ? ("admin" as const) : ("member" as const) },
+    membership: (role === "admin" ? null : { projectId: "p", role }) as Membership,
+  });
+  const asClient = (role: (typeof ROLE_IDS)[number]) => ({ id: "me", accessRole: role }) as never;
+  const clientIssue = (i: IssueRef | undefined) => (i ? ({ id: i.id, assigneeIds: i.assigneeIds, reporterId: i.reporterId } as never) : undefined);
+
+  test("can(): одинаковый ответ на всех комбинациях", () => {
+    expect(cases.length).toBeGreaterThan(100);
+    for (const { role, perm, issue } of cases) {
+      const s = asServer(role);
+      expect(clientCan(asClient(role), perm, clientIssue(issue)), `${role}/${perm}/${JSON.stringify(issue)}`).toBe(
+        serverCan(s.user, s.membership, perm, issue),
       );
     }
   });
 
-  test("правило «своей» задачи описано на обеих сторонах", () => {
-    // Сужение edit для employee — вторая половина модели, и она тоже
-    // продублирована. Проверяем хотя бы наличие одноимённой функции.
-    expect(clientSource).toContain("isOwnIssue");
-    // Клиент сравнивает с user.id, сервер — с userId; проверяем саму суть
-    // правила: «своя» = я исполнитель ИЛИ я автор, обе половины на месте.
-    const rule = clientSource.slice(clientSource.indexOf("isOwnIssue"));
-    expect(rule).toMatch(/assigneeIds\.includes/);
-    expect(rule).toMatch(/reporterId ===/);
-    expect(rule).toMatch(/\|\|/);
+  test("denialReason(): одинаковый русский текст отказа на всех комбинациях", () => {
+    for (const { role, perm, issue } of cases) {
+      const s = asServer(role);
+      expect(clientDenial(asClient(role), perm, clientIssue(issue), "ru"), `${role}/${perm}/${JSON.stringify(issue)}`).toBe(
+        serverDenial(s.user, s.membership, perm, issue),
+      );
+    }
   });
 });
 

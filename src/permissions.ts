@@ -1,4 +1,7 @@
 import type { AccessRole, GlobalRole, Issue, ProjectRole, User } from "./types";
+import { MATRIX, PERM_IDS, PERM_META, ROLE_DESCRIPTIONS, ROLE_IDS, ROLE_NAMES, type PermId, type PermScope } from "./permissions.matrix";
+
+export type { PermId };
 
 /* ============================================================
    СИСТЕМА ПРАВ ДОСТУПА (клиент — только UX; сервер — источник истины)
@@ -7,7 +10,8 @@ import type { AccessRole, GlobalRole, Issue, ProjectRole, User } from "./types";
    Модель project-scoped (миграция 004): эффективная роль пользователя =
    resolveRole(globalRole, projectRole). Ниже `user.accessRole` — это уже
    ВЫЧИСЛЕННАЯ эффективная роль (store подставляет её в `me`).
-   MATRIX и can()/denialReason() зеркалят server/src/permissions.ts.
+   Матрица, PermId и названия — из ЕДИНОГО источника shared/permissions.matrix.json (ТЗ 2.2, permissions.matrix.ts
+   генерируется); can()/denialReason() зеркалят server/src/permissions.ts и сверяются с ним тестом поведения.
 
    Вложения к задачам (миграция 010, FILES_MIGRATION.md D2) отдельного права
    не имеют: загрузка/удаление своего = `comment`; удаление чужого = `delete`.
@@ -21,18 +25,6 @@ export const resolveRole = (
   projectRole: ProjectRole | undefined,
 ): AccessRole | null => (globalRole === "admin" ? "admin" : projectRole ?? null);
 
-export type PermId =
-  | "browse"
-  | "create"
-  | "edit"
-  | "delete"
-  | "transition"
-  | "comment"
-  | "editWorkflow"
-  | "manageAccess"
-  | "manageCollaborators"
-  | "manageSprints";
-
 export interface RoleMeta {
   id: AccessRole;
   name: string;
@@ -41,83 +33,33 @@ export interface RoleMeta {
   desc: string;
 }
 
-export const ACCESS_ROLES: RoleMeta[] = [
-  {
-    id: "admin",
-    name: "Администратор",
-    short: "admin",
-    color: "#B42318",
-    desc: "Полный контроль проекта: схема workflow, права доступа, удаление задач.",
-  },
-  {
-    id: "manager",
-    name: "Менеджер проекта",
-    short: "pm",
-    color: "#0B5FD9",
-    desc: "Управляет задачами: создание, редактирование и удаление. Не меняет workflow и роли.",
-  },
-  {
-    id: "employee",
-    name: "Сотрудник",
-    short: "emp",
-    color: "#1C8A5C",
-    desc: "Создаёт задачи, двигает по workflow, комментирует. Редактирует только свои (исполнитель или автор).",
-  },
-  {
-    id: "viewer",
-    name: "Наблюдатель",
-    short: "read",
-    color: "#64748B",
-    desc: "Только просмотр: доска, список задач, карточки — без изменений.",
-  },
-];
+/** Только клиентское оформление роли (цвет, короткая метка); имя и описание — из общей матрицы. */
+const ROLE_STYLE: Record<AccessRole, { short: string; color: string }> = {
+  admin: { short: "admin", color: "#B42318" },
+  manager: { short: "pm", color: "#0B5FD9" },
+  employee: { short: "emp", color: "#1C8A5C" },
+  viewer: { short: "read", color: "#64748B" },
+};
 
-export const ROLE_ORDER: AccessRole[] = ["admin", "manager", "employee", "viewer"];
+export const ACCESS_ROLES: RoleMeta[] = ROLE_IDS.map((id) => ({
+  id,
+  name: ROLE_NAMES[id],
+  desc: ROLE_DESCRIPTIONS[id],
+  ...ROLE_STYLE[id],
+}));
+
+export const ROLE_ORDER: AccessRole[] = [...ROLE_IDS];
 
 export const roleMeta = (id: AccessRole): RoleMeta => ACCESS_ROLES.find((r) => r.id === id) ?? ACCESS_ROLES[3];
-
-const MATRIX: Record<PermId, AccessRole[]> = {
-  browse: ["admin", "manager", "employee", "viewer"],
-  create: ["admin", "manager", "employee"],
-  edit: ["admin", "manager", "employee"],
-  delete: ["admin", "manager"],
-  transition: ["admin", "manager", "employee"],
-  comment: ["admin", "manager", "employee"],
-  editWorkflow: ["admin"],
-  manageAccess: ["admin"],
-  manageCollaborators: ["admin", "manager"],
-  manageSprints: ["admin", "manager"],
-};
 
 export interface PermMeta {
   id: PermId;
   name: string;
   desc: string;
-  scope: "Проект" | "Задача" | "Схема" | "Пользователи";
+  scope: PermScope;
 }
 
-export const PERMISSIONS: PermMeta[] = [
-  { id: "browse", name: "Просмотр проекта", desc: "Доска, список задач, карточки, история и комментарии.", scope: "Проект" },
-  { id: "create", name: "Создание задач", desc: "Кнопка «Создать», создание задач.", scope: "Задача" },
-  { id: "edit", name: "Редактирование задач", desc: "Поля задачи. Для сотрудника — только свои.", scope: "Задача" },
-  { id: "transition", name: "Смена статуса", desc: "Перетаскивание и смена статуса в пределах workflow.", scope: "Задача" },
-  { id: "delete", name: "Удаление задач", desc: "Удаление задач.", scope: "Задача" },
-  { id: "comment", name: "Комментарии", desc: "Добавление комментариев.", scope: "Задача" },
-  { id: "editWorkflow", name: "Изменение workflow", desc: "Переходы и сброс схемы.", scope: "Схема" },
-  { id: "manageAccess", name: "Управление доступом", desc: "Пользователи и роли (на сервере).", scope: "Пользователи" },
-  {
-    id: "manageCollaborators",
-    name: "Подключение к задаче",
-    desc: "Пригласить человека к отдельной задаче (просмотр + комментарии), не добавляя в проект.",
-    scope: "Задача",
-  },
-  {
-    id: "manageSprints",
-    name: "Управление спринтами",
-    desc: "Создание, старт и завершение спринтов; перенос задач между бэклогом и спринтом. Только в проектах с включённым модулем спринтов.",
-    scope: "Проект",
-  },
-];
+export const PERMISSIONS: PermMeta[] = PERM_IDS.map((id) => ({ id, ...PERM_META[id] }));
 
 export const permMeta = (id: PermId): PermMeta => PERMISSIONS.find((p) => p.id === id)!;
 

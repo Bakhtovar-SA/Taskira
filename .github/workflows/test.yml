@@ -236,6 +236,10 @@ jobs:
       - name: Typecheck client (includes server/src/contract.ts)
         run: npm run typecheck
 
+      # ТЗ 2.2: матрица прав генерируется из shared/permissions.matrix.json; ручная правка любой копии или docs/PERMISSIONS.md — красный чек.
+      - name: Permissions matrix is in sync with its single source
+        run: npm run permissions:check
+
   # Клиент (корневой пакет): typecheck + прод-сборка. БД не нужна.
   # В CI клиент раньше не проверялся вообще — единственный барьер против
   # красной сборки перед тяжёлой работой над UI.

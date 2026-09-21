@@ -13,20 +13,11 @@
 иначе роль участника проекта (`project_members.role`), иначе нет доступа. `MATRIX` —
 источник в `src/permissions.ts` (сервер) ↔ `../src/permissions.ts` (клиент, только для UX).
 
-| Разрешение | admin | manager | employee | viewer |
-|---|:-:|:-:|:-:|:-:|
-| browse — просмотр проекта | ✓ | ✓ | ✓ | ✓ |
-| create — создание задач | ✓ | ✓ | ✓ | — |
-| edit — редактирование задач | ✓ | ✓ | ✓* | — |
-| transition — смена статуса | ✓ | ✓ | ✓ | — |
-| comment — комментарии | ✓ | ✓ | ✓ | — |
-| delete — удаление задач | ✓ | ✓ | — | — |
-| manageCollaborators — приглашённые к задаче | ✓ | ✓ | — | — |
-| manageSprints — управление спринтами и назначение задач в спринт | ✓ | ✓ | — | — |
-| editWorkflow — схема переходов | ✓ | — | — | — |
-| manageAccess — пользователи и роли | ✓ | — | — | — |
+Таблица «разрешение × роль» — [`../docs/PERMISSIONS.md`](../docs/PERMISSIONS.md): генерируется из единственного
+источника `../shared/permissions.matrix.json` (`npm run permissions:generate` в корне), руками не правится. Матрица
+попадает в `src/permissions.matrix.ts` (сервер) и `../src/permissions.matrix.ts` (клиент, только для UX) генератором.
 
-\* **employee — только свои задачи** (исполнитель или автор). Правило — `isOwnIssue()` в
+**employee — только свои задачи** (исполнитель или автор). Правило — `isOwnIssue()` в
 `roleCan()` (сервер) / `canEditIssue()` (клиент).
 
 `manageSprints` удалялось вместе со спринтами миграцией 012 и восстановлено миграцией 023
