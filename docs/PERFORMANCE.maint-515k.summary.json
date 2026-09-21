@@ -1,0 +1,245 @@
+{
+  "description": "MAINT-01: pass over 515 403 eligible issues on a temporary copy (DB taskira_perf_maint, schema taskira_perf), two server processes with MAINTENANCE_ENABLED=true, MAINTENANCE_MAX_PER_RUN=1000000, default batch 1000 / pause 50 ms. Direct-SQL write probe (4 workers per class) + load-lazy `mixed` 2x50 connections.",
+  "code": "bb8148c + performance-maint-*.mjs",
+  "passWindowRelativeToProbeStartSeconds": {
+    "from": 211,
+    "to": 355.3,
+    "durationSeconds": 144.3
+  },
+  "pass": {
+    "archived": 515403,
+    "batches": 516,
+    "auditRowsMaintenanceRun": 1,
+    "executorProcess": 8082,
+    "skippedProcess": 8081,
+    "jobDurationSeconds": 144.88,
+    "stillEligibleAfter": 1
+  },
+  "writeProbeMs": {
+    "probeStartedAt": "2026-09-21T08:15:27.360Z",
+    "errors": {
+      "other": 0,
+      "eligible": 0
+    },
+    "segments": {
+      "baseline_no_load_110_210s": {
+        "other": {
+          "n": 25750,
+          "p50": 2.26,
+          "p95": 3.78,
+          "p99": 12.45,
+          "max": 426.17
+        },
+        "eligible": {
+          "n": 25682,
+          "p50": 2.41,
+          "p95": 4.79,
+          "p99": 12.18,
+          "max": 1401.31
+        }
+      },
+      "control_load_only_0_80s": {
+        "other": {
+          "n": 21193,
+          "p50": 2.33,
+          "p95": 4.15,
+          "p99": 6.58,
+          "max": 1136.69
+        },
+        "eligible": {
+          "n": 20890,
+          "p50": 2.63,
+          "p95": 5.61,
+          "p99": 7.92,
+          "max": 780.47
+        }
+      },
+      "pass_plus_load_211_288s": {
+        "other": {
+          "n": 17827,
+          "p50": 3.46,
+          "p95": 25.48,
+          "p99": 59.17,
+          "max": 7395.62
+        },
+        "eligible": {
+          "n": 15912,
+          "p50": 4.39,
+          "p95": 33.2,
+          "p99": 67.15,
+          "max": 8312.44
+        }
+      },
+      "pass_no_load_288_355s": {
+        "other": {
+          "n": 17429,
+          "p50": 2.65,
+          "p95": 6.32,
+          "p99": 17.56,
+          "max": 1648.39
+        },
+        "eligible": {
+          "n": 16617,
+          "p50": 2.74,
+          "p95": 6.95,
+          "p99": 23.08,
+          "max": 1428.84
+        }
+      },
+      "after_pass_355s_plus": {
+        "other": {
+          "n": 67487,
+          "p50": 2.2,
+          "p95": 3.27,
+          "p99": 4.82,
+          "max": 1046.47
+        },
+        "eligible": {
+          "n": 67819,
+          "p50": 2.19,
+          "p95": 3.25,
+          "p99": 4.7,
+          "max": 66.9
+        }
+      }
+    }
+  },
+  "loadLazyMixed": {
+    "control": {
+      "8081": {
+        "startedAt": "2026-09-21T08:14:10.442Z",
+        "durationSecondsPerScenario": 60,
+        "warmupSecondsPerScenario": 10,
+        "concurrentUsers": 50,
+        "warnings": 1,
+        "git": {
+          "commit": "bb8148c3a2575dfec74ccbdec5a66b9184a18056",
+          "branch": "codex/perf-00-indexed-pages",
+          "dirty": false
+        },
+        "scenario": {
+          "name": "mixed",
+          "latencyMs": {
+            "average": 191.25,
+            "p50": 161,
+            "p95": 460.9846,
+            "p99": 564,
+            "max": 872
+          },
+          "requestsPerSecond": 262.37,
+          "requests": 15742,
+          "minRequests": 5000,
+          "valid": true,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      },
+      "8082": {
+        "startedAt": "2026-09-21T08:14:10.442Z",
+        "durationSecondsPerScenario": 60,
+        "warmupSecondsPerScenario": 10,
+        "concurrentUsers": 50,
+        "warnings": 1,
+        "git": {
+          "commit": "bb8148c3a2575dfec74ccbdec5a66b9184a18056",
+          "branch": "codex/perf-00-indexed-pages",
+          "dirty": false
+        },
+        "scenario": {
+          "name": "mixed",
+          "latencyMs": {
+            "average": 185.38,
+            "p50": 164,
+            "p95": 432.3035,
+            "p99": 537,
+            "max": 848
+          },
+          "requestsPerSecond": 270.86,
+          "requests": 16251,
+          "minRequests": 5000,
+          "valid": true,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      }
+    },
+    "during": {
+      "8081": {
+        "startedAt": "2026-09-21T08:18:57.434Z",
+        "durationSecondsPerScenario": 60,
+        "warmupSecondsPerScenario": 10,
+        "concurrentUsers": 50,
+        "warnings": 1,
+        "git": {
+          "commit": "bb8148c3a2575dfec74ccbdec5a66b9184a18056",
+          "branch": "codex/perf-00-indexed-pages",
+          "dirty": false
+        },
+        "scenario": {
+          "name": "mixed",
+          "latencyMs": {
+            "average": 454.81,
+            "p50": 371,
+            "p95": 1011.4432,
+            "p99": 1435,
+            "max": 2262
+          },
+          "requestsPerSecond": 109.8,
+          "requests": 6588,
+          "minRequests": 5000,
+          "valid": true,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      },
+      "8082": {
+        "startedAt": "2026-09-21T08:18:57.433Z",
+        "durationSecondsPerScenario": 60,
+        "warmupSecondsPerScenario": 10,
+        "concurrentUsers": 50,
+        "warnings": 1,
+        "git": {
+          "commit": "bb8148c3a2575dfec74ccbdec5a66b9184a18056",
+          "branch": "codex/perf-00-indexed-pages",
+          "dirty": false
+        },
+        "scenario": {
+          "name": "mixed",
+          "latencyMs": {
+            "average": 512.42,
+            "p50": 373,
+            "p95": 1206.1303,
+            "p99": 1457,
+            "max": 2360
+          },
+          "requestsPerSecond": 97.74,
+          "requests": 5864,
+          "minRequests": 5000,
+          "valid": true,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      }
+    }
+  },
+  "stallsOver1sMs": [
+    "other 13.0s 1137",
+    "eligible 135.4s 1401",
+    "other 218.4s 1950",
+    "eligible 224.6s 3488",
+    "other 247.9s 7396",
+    "eligible 258.5s 8312",
+    "eligible 269.5s 6170",
+    "other 284.7s 3348",
+    "other 287.9s 1796",
+    "eligible 313.6s 1429",
+    "other 314.2s 1648",
+    "eligible 316.6s 1114",
+    "other 338.4s 1184",
+    "other 365.1s 1046"
+  ]
+}
