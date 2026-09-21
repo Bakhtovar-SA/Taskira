@@ -1,8 +1,7 @@
 /* Workflow, шаблоны задач и определения пользовательских полей (миграции 020, 022): действия стора. Вынесено из
  * store.tsx без изменений поведения (ТЗ 2.3, шаг 3). */
 import { useCallback } from "react";
-import type { CustomFieldType, Workflow } from "../types";
-import { type PermId } from "../permissions";
+import type { CustomFieldType } from "../types";
 import {
   issueTemplatesApi,
   customFieldsApi,

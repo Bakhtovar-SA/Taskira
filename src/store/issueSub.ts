@@ -210,7 +210,7 @@ export function useIssueSubActions(
   );
 
   /* -------- значения пользовательских полей (custom_field_values, миграция 020).
-     Определения полей (add/rename/remove) — ниже, у остальных editWorkflow-действий. */
+     Определения полей (add/rename/remove) находятся в store/meta.ts. */
 
   const setCustomFieldValue = useCallback(
     (issueId: string, fieldId: string, value: string | null) => {
