@@ -24,7 +24,11 @@ function migrationList(): string {
     const lines = norm(readFileSync(join(dir, file), "utf8")).split("\n");
     const parts: string[] = [];
     for (const raw of lines) {
-      if (!raw.trim().startsWith("--")) break; // шапка кончилась
+      if (!raw.trim()) {
+        if (parts.length > 0) break; // пустая строка после описания — конец абзаца
+        continue; // пустые строки до описания не считаем концом шапки
+      }
+      if (!raw.trim().startsWith("--")) break; // пошёл SQL — шапка кончилась
       const l = raw.replace(/^\s*--+\s?/, "").trim();
       const decoration = !l || /^=+$/.test(l) || /^-+$/.test(l);
       // служебные директивы docs/MIGRATIONS.md (`-- migration-transaction: none`, `-- recovery: …`) и шапка db.ts — не описание

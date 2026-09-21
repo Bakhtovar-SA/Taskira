@@ -236,10 +236,11 @@ jobs:
       - name: Typecheck client (includes server/src/contract.ts)
         run: npm run typecheck
 
-      # ТЗ 2.2: матрица прав генерируется из shared/permissions.matrix.json; ручная правка любой копии или docs/PERMISSIONS.md — красный чек.
+      # ТЗ 2.4: генератор документации (scripts/generate-docs.ts) — TypeScript вне tsconfig клиента и сервера, проверяем отдельно.
       - name: Typecheck scripts/ (docs generator)
         run: npm run typecheck:scripts
 
+      # ТЗ 2.2: матрица прав генерируется из shared/permissions.matrix.json; ручная правка любой копии или docs/PERMISSIONS.md — красный чек.
       - name: Permissions matrix is in sync with its single source
         run: npm run permissions:check
 
