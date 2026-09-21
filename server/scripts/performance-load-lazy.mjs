@@ -136,6 +136,11 @@ if (warmup <= 0) warnings.push("NO WARMUP: PERF_WARMUP_SECONDS=0 — в заме
 if (duration < 60) warnings.push(`SHORT RUN: ${duration} с меньше 60 — TTL кэша assignees (45 с) мог не истечь ни разу.`);
 
 const MIN_REQUESTS_PER_CONNECTION = 10;
+// Порог валидности замера: не меньше connections × 10 (иначе соединения не вышли на установившийся режим —
+// в первом замере PERF-00 было по одному запросу на соединение) и не меньше абсолютного пола. Пол 5000 при
+// 100 соединениях × 60 с: наименьший сценарий (холодный старт доски) даёт ~33 000, так что просадка в разы
+// не пройдёт как «valid». Пол рассчитан на стандартные 100×60 с; для другой конфигурации задайте PERF_MIN_REQUESTS.
+const minRequests = Math.max(connections * MIN_REQUESTS_PER_CONNECTION, Number(process.env.PERF_MIN_REQUESTS ?? 5000));
 const startedAt = new Date().toISOString();
 const healthBefore = await getHealth();
 for (const w of healthBefore.warnings ?? []) warnings.push(`SERVER HEALTH ${w.code}: ${w.reason}`);
@@ -159,16 +164,15 @@ const compact = scenarios.map(({ name, result, p95 }) => ({
   latencyMs: { average: result.latency.average, p50: result.latency.p50, p95, p99: result.latency.p99, max: result.latency.max },
   requestsPerSecond: result.requests.average,
   requests: result.requests.total,
-  // замер валиден, только если дошёл до установившегося режима: минимум 10 запросов на соединение
-  // (в самом первом замере PERF-00 было 200 запросов на 200 соединений — по одному на каждое)
-  minRequests: connections * MIN_REQUESTS_PER_CONNECTION,
-  valid: result.requests.total >= connections * MIN_REQUESTS_PER_CONNECTION,
+  // замер валиден, только если дошёл до установившегося режима и не просел в разы — см. minRequests выше
+  minRequests,
+  valid: result.requests.total >= minRequests,
   errors: result.errors,
   timeouts: result.timeouts,
   non2xx: result.non2xx,
 }));
 for (const c of compact) {
-  if (!c.valid) warnings.push(`INVALID RUN ${c.name}: ${c.requests} запросов < ${c.minRequests} (connections × ${MIN_REQUESTS_PER_CONNECTION}) — замер не дошёл до установившегося режима, числа не использовать.`);
+  if (!c.valid) warnings.push(`INVALID RUN ${c.name}: ${c.requests} запросов < ${c.minRequests} (max(connections × ${MIN_REQUESTS_PER_CONNECTION}, PERF_MIN_REQUESTS)) — замер не дошёл до установившегося режима, числа не использовать.`);
   if (c.errors || c.timeouts || c.non2xx) warnings.push(`INVALID RUN ${c.name}: errors=${c.errors} timeouts=${c.timeouts} non2xx=${c.non2xx}.`);
 }
 for (const w of healthAfter.warnings ?? []) if (!(healthBefore.warnings ?? []).some((b) => b.code === w.code)) warnings.push(`SERVER HEALTH CHANGED DURING RUN ${w.code}: ${w.reason}`);
