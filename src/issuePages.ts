@@ -354,7 +354,7 @@ export function useLoadMoreSentinel(
   active: boolean,
   refreshKey: unknown,
   rootMargin = "300px",
-): RefObject<HTMLDivElement> {
+): RefObject<HTMLDivElement | null> {
   const ref = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef(loadMore);
   loadMoreRef.current = loadMore;
