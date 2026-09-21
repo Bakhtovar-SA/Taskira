@@ -14,4 +14,6 @@ export interface StoreCtx {
   requirePerm: (perm: PermId, issue?: Issue) => boolean;
   /** RU/EN по текущему языку (читает langRef). */
   local: (ru: string, en: string) => string;
+  /** Эпоха сессии (SEC-01): растёт при logout и при 401. Действие, начатое в прошлой эпохе, после `await` ничего не пишет. */
+  sessionEpochRef: MutableRefObject<number>;
 }
