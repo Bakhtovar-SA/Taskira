@@ -23,7 +23,8 @@
 - `offset` и `hasMore` сохранены на один expand-релиз. Если переданы и cursor,
   и offset, cursor имеет приоритет. Удаление offset — отдельный релиз.
 - Zod-схема `IssueListPageMeta` — источник истины. Скрипт
-  `server/scripts/generate-client-contracts.mjs` формирует клиентский тип;
+  `server/scripts/generate-client-contracts.mjs` формирует клиентский тип (удалён в ТЗ 2.1: клиент теперь
+  импортирует `IssueListPageMeta` из `server/src/contract.ts` напрямую);
   CI проверяет, что сгенерированный файл актуален.
 - Клиент хранит cursor только в локальной переменной последовательного обхода.
   URL и сохранённые фильтры его не содержат.

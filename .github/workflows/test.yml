@@ -205,8 +205,6 @@ jobs:
 
       - run: npm run typecheck
 
-      - run: npm run contracts:check
-
       - run: npm test
 
   # Клиент (корневой пакет): typecheck + прод-сборка. БД не нужна.

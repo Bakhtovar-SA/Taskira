@@ -4,14 +4,9 @@
  *  переходить на дробный rank, а не заводить его заранее). */
 import { one, q } from "../db.js";
 import { notFound } from "../middleware.js";
+import type { ChecklistItemDto } from "../contract.js";
+export type { ChecklistItemDto };
 
-export interface ChecklistItemDto {
-  id: string;
-  text: string;
-  done: boolean;
-  position: number;
-  createdAt: string;
-}
 
 interface Row {
   id: string;

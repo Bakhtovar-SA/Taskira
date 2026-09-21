@@ -2,23 +2,9 @@
  *  Модель минимальна: 'relates' (симметрична) + 'blocks' (направлена).
  *  См. ticket-features-polish-round4.md §3.2. */
 import { one, q } from "../db.js";
-import type { IssueLinkDir } from "../contract.js";
+import type { IssueLinkDir, IssueLinkDto } from "../contract.js";
+export type { IssueLinkDto };
 
-export interface IssueLinkDto {
-  id: string;
-  /** тип связи со стороны запрошенной задачи */
-  dir: IssueLinkDir;
-  /** задача на другом конце связи */
-  issue: {
-    id: string;
-    key: string;
-    title: string;
-    typeId: string;
-    statusId: string;
-    statusCategory: string;
-  };
-  createdAt: string;
-}
 
 interface Row {
   id: string;
@@ -28,9 +14,9 @@ interface Row {
   other_id: string;
   other_key: string;
   other_title: string;
-  other_type_id: string;
+  other_type_id: IssueLinkDto["issue"]["typeId"];
   other_status_id: string;
-  other_status_category: string;
+  other_status_category: IssueLinkDto["issue"]["statusCategory"];
   created_at: Date;
 }
 
