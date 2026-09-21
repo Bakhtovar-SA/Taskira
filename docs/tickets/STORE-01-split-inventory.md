@@ -1,6 +1,6 @@
 # STORE-01 — разрезание `src/store.tsx` по доменам (ТЗ 2.3): инвентаризация
 
-**Статус: шаги 1–3 выполнены** (шаг 2: спринты и избранное+поиск — `src/store/sprints.ts`, `favoritesSearch.ts`, общий контекст
+**Статус: шаги 1–4 выполнены** (шаг 2: спринты и избранное+поиск — `src/store/sprints.ts`, `favoritesSearch.ts`, общий контекст
 доменных хуков `ctx.ts`; `store.tsx` ~2 030 строк). Шаг 1: (чистые функции и типы вынесены в `src/store/mappers.ts`, `store.tsx` 2 535 → ~2 150 строк);
 шаги 2–6 впереди. Инвентаризация снята 2026-09-21 на `main` @ `9c46bc1`. Из PERF-06 «половина работы» уже
 сделана в части данных (частичный стор, `useIssueSet`/`useEpics` в `issuePages.ts`, `issueSearch.ts`,
@@ -56,7 +56,10 @@
    `useMetaActions(ctx)` (`store/meta.ts`), `useOrgActions(ctx, { bootstrap })` (`store/org.ts`; `bootstrap` нужен
    `deleteProject`). До выноса эти 21 действие не покрывал ни один тест — добавлен `store.metaOrg.test.tsx`
    (проверен на коде ДО выноса и после; мутации ловит). `store.tsx` ~1 590 строк.
-4. **Подсущности задачи** (276) и **уведомления + аватар** (90).
+4. ~~**Подсущности задачи** (276) и **уведомления + аватар** (90)~~ — **сделано**: `useIssueSubActions(ctx, { withIssue,
+   langRef })` (`store/issueSub.ts`), `useNotificationActions(ctx)` (`store/notifications.ts`; `storeCtx` пришлось создавать раньше —
+   перед блоком уведомлений). Покрытие до выноса было только у `addComment`: добавлен `store.issueSub.test.tsx` (8 тестов,
+   зелёные на коде ДО выноса и после; две мутации ловит). `store.tsx` ~1 210 строк.
 5. **CRUD задач + `deleteIssue`** (290): `bumpIssues`/`bumpEpics`, оптимистичные правки.
 6. **Boot/сессия/навигация + список/открытие задачи** (400): последними — тут `switchSeqRef`, гонки и
    `pendingOpenIssueRef` (см. пометки в CLAUDE.md про `upsertIssue` и `bootstrap`).
