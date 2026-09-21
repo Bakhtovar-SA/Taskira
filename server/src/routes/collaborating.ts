@@ -5,6 +5,7 @@
 import type { FastifyInstance } from "fastify";
 import { q } from "../db.js";
 import { requireAuth, type JwtPayload } from "../middleware.js";
+import type { CollaboratingItemDto } from "../contract.js";
 
 interface Row {
   issue_id: string;
@@ -13,7 +14,7 @@ interface Row {
   title: string;
   status_id: string;
   status_name: string;
-  status_category: string;
+  status_category: CollaboratingItemDto["statusCategory"]; // CHECK workflow_statuses.category
   project_key: string;
   project_name: string;
 }
@@ -42,7 +43,7 @@ export async function collaboratingRoutes(app: FastifyInstance): Promise<void> {
         ORDER BY p.name, i.num`,
       [user.sub],
     );
-    return rows.map((r) => ({
+    return rows.map((r): CollaboratingItemDto => ({
       issueId: r.issue_id,
       projectId: r.project_id,
       key: r.key,

@@ -9,17 +9,18 @@ import type { z } from "zod";
 import { escLike, q } from "../db.js";
 import { requireAuth, zquery, type JwtPayload } from "../middleware.js";
 import { SearchQuery } from "../contract.js";
+import type { SearchResultDto, SearchResultItemDto } from "../contract.js";
 
 interface Row {
   id: string;
   project_id: string;
   key: string;
   title: string;
-  type_id: string;
-  priority_id: string;
+  type_id: SearchResultItemDto["typeId"];
+  priority_id: SearchResultItemDto["priorityId"];
   status_id: string;
   status_name: string;
-  status_category: string;
+  status_category: SearchResultItemDto["statusCategory"];
   project_key: string;
   project_name: string;
 }
@@ -29,7 +30,7 @@ interface Row {
 const SEARCH_LIMIT = 30;
 
 export async function searchRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/issues/search", { preHandler: [requireAuth, zquery(SearchQuery)] }, async (req) => {
+  app.get("/issues/search", { preHandler: [requireAuth, zquery(SearchQuery)] }, async (req): Promise<SearchResultDto> => {
     const user: JwtPayload = req.user;
     const { q: query } = req.query as z.infer<typeof SearchQuery>;
     const isGlobalAdmin = user.globalRole === "admin";
@@ -60,7 +61,7 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
     );
 
     const truncated = rows.length > SEARCH_LIMIT;
-    const items = (truncated ? rows.slice(0, SEARCH_LIMIT) : rows).map((r) => ({
+    const items = (truncated ? rows.slice(0, SEARCH_LIMIT) : rows).map((r): SearchResultItemDto => ({
       id: r.id,
       projectId: r.project_id,
       key: r.key,

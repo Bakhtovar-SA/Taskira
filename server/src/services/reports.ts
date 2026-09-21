@@ -13,51 +13,14 @@
  */
 import { q } from "../db.js";
 import { listVisibleProjects } from "./projects.js";
+import type { ReportGroup, ReportPoint, ReportResult, ReportRow, ReportTotals } from "../contract.js";
+export type { ReportPoint, ReportResult, ReportRow, ReportTotals };
 
 export interface ReportScope {
   /** id проектов, по которым пользователю разрешено смотреть отчёты. */
   projectIds: string[];
   from: string;
   to: string;
-}
-
-export interface ReportTotals {
-  /** Закрыто за период (по done_at). */
-  closed: number;
-  /** Создано за период (по created_at). */
-  created: number;
-  /** Открыто сейчас — не в категории done, независимо от периода. */
-  open: number;
-  /** Просрочено сейчас — срок в прошлом и задача не закрыта. */
-  overdue: number;
-  /** Среднее время от создания до закрытия, дней (по закрытым за период). */
-  avgLeadDays: number | null;
-  /** Медиана того же — устойчивее среднего к одному забытому «хвосту». */
-  medianLeadDays: number | null;
-}
-
-export interface ReportRow {
-  key: string;
-  label: string;
-  closed: number;
-  created: number;
-  open: number;
-  avgLeadDays: number | null;
-}
-
-export interface ReportPoint {
-  /** Неделя закрытия, понедельник, ГГГГ-ММ-ДД. */
-  week: string;
-  closed: number;
-}
-
-export interface ReportResult {
-  from: string;
-  to: string;
-  groupBy: string;
-  totals: ReportTotals;
-  rows: ReportRow[];
-  trend: ReportPoint[];
 }
 
 /** Разрешённые проекты с учётом запрошенных фильтров.
@@ -87,7 +50,7 @@ export async function buildReport(
   projectIds: string[],
   from: string,
   to: string,
-  groupBy: string,
+  groupBy: ReportGroup,
 ): Promise<ReportResult> {
   const empty: ReportResult = {
     from,

@@ -800,3 +800,163 @@ export const ProjectBootstrapDto = z.object({
   sprints: z.array(SprintDto),
 });
 export type ProjectBootstrapDto = z.infer<typeof ProjectBootstrapDto>;
+
+/* ---- уведомления, главный экран, поиск, счётчики, отчёты (ТЗ 2.1, PR 3) ---- */
+
+export const NotificationDto = z.object({
+  id: z.string(),
+  type: z.enum(NOTIFY_TYPES),
+  actorId: z.string().nullable(),
+  actor: ActorMini.nullable(),
+  projectId: z.string().nullable(),
+  issueId: z.string().nullable(),
+  payload: z.record(z.union([z.string(), z.boolean()]).optional()),
+  createdAt: z.string(),
+  read: z.boolean(),
+});
+export type NotificationDto = z.infer<typeof NotificationDto>;
+
+export const NotificationPageDto = z.object({ items: z.array(NotificationDto), nextCursor: z.string().nullable() });
+export type NotificationPageDto = z.infer<typeof NotificationPageDto>;
+
+export const UnreadCountDto = z.object({ count: z.number() });
+export type UnreadCountDto = z.infer<typeof UnreadCountDto>;
+
+export const NotifyPrefsResponse = z.object({ notifyPrefs: NotifyPrefs });
+export type NotifyPrefsResponse = z.infer<typeof NotifyPrefsResponse>;
+
+/** Мини-пользователь для пикеров (GET /api/users/pickable). */
+export const PickableUserDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  initials: z.string(),
+  color: z.string(),
+  jobRole: z.string(),
+});
+export type PickableUserDto = z.infer<typeof PickableUserDto>;
+
+/** Элемент «Моих подключений» (GET /api/issues/collaborating). */
+export const CollaboratingItemDto = z.object({
+  issueId: z.string(),
+  projectId: z.string(),
+  key: z.string(),
+  title: z.string(),
+  statusId: z.string(),
+  statusName: z.string(),
+  statusCategory: z.enum(STATUS_CATEGORIES),
+  projectKey: z.string(),
+  projectName: z.string(),
+});
+export type CollaboratingItemDto = z.infer<typeof CollaboratingItemDto>;
+
+/** Задача, назначенная мне (GET /api/issues/assigned-to-me) — главный экран. */
+export const AssignedIssueDto = z.object({
+  issueId: z.string(),
+  projectId: z.string(),
+  key: z.string(),
+  title: z.string(),
+  typeId: z.enum(ISSUE_TYPES),
+  priorityId: z.enum(PRIORITIES),
+  statusId: z.string(),
+  statusName: z.string(),
+  statusCategory: z.enum(STATUS_CATEGORIES),
+  dueDate: z.string().nullable(),
+  projectKey: z.string(),
+  projectName: z.string(),
+});
+export type AssignedIssueDto = z.infer<typeof AssignedIssueDto>;
+
+/** Список урезан до `limit`: `truncated` — честный признак, что показана не вся выдача. */
+export const AssignedToMeDto = z.object({ items: z.array(AssignedIssueDto), truncated: z.boolean(), limit: z.number() });
+export type AssignedToMeDto = z.infer<typeof AssignedToMeDto>;
+
+/** Результат кросс-проектного поиска (GET /api/issues/search, миграция 024). */
+export const SearchResultItemDto = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  key: z.string(),
+  title: z.string(),
+  typeId: z.enum(ISSUE_TYPES),
+  priorityId: z.enum(PRIORITIES),
+  statusId: z.string(),
+  statusName: z.string(),
+  statusCategory: z.enum(STATUS_CATEGORIES),
+  projectKey: z.string(),
+  projectName: z.string(),
+});
+export type SearchResultItemDto = z.infer<typeof SearchResultItemDto>;
+
+export const SearchResultDto = z.object({ items: z.array(SearchResultItemDto), truncated: z.boolean() });
+export type SearchResultDto = z.infer<typeof SearchResultDto>;
+
+/** GET …/issues/counts: число активных задач набора и разбивка по статусам. */
+export const IssueCountsDto = z.object({ total: z.number(), byStatus: z.record(z.number()) });
+export type IssueCountsDto = z.infer<typeof IssueCountsDto>;
+
+/** GET …/issues/assignees: исполнители проекта (для фильтра доски), по убыванию числа задач. */
+export const IssueAssigneesDto = z.object({ items: z.array(z.object({ userId: z.string(), count: z.number() })) });
+export type IssueAssigneesDto = z.infer<typeof IssueAssigneesDto>;
+
+/** Направление (эпик) с агрегатом по активным детям: сколько их и сколько закрыто (категория done). */
+export const IssueEpicDto = z.object({
+  id: z.string(),
+  key: z.string(),
+  title: z.string(),
+  color: z.string().nullable(),
+  tStart: z.number().nullable(),
+  tSpan: z.number().nullable(),
+  childTotal: z.number(),
+  childDone: z.number(),
+});
+export type IssueEpicDto = z.infer<typeof IssueEpicDto>;
+
+export const IssueEpicsDto = z.object({ items: z.array(IssueEpicDto), truncated: z.boolean() });
+export type IssueEpicsDto = z.infer<typeof IssueEpicsDto>;
+
+export const ReportTotals = z.object({
+  /** Закрыто за период (по done_at). */
+  closed: z.number(),
+  /** Создано за период (по created_at). */
+  created: z.number(),
+  /** Открыто сейчас — не в категории done, независимо от периода. */
+  open: z.number(),
+  /** Просрочено сейчас — срок в прошлом и задача не закрыта. */
+  overdue: z.number(),
+  /** Среднее время от создания до закрытия, дней (по закрытым за период). */
+  avgLeadDays: z.number().nullable(),
+  /** Медиана того же — устойчивее среднего к одному забытому «хвосту». */
+  medianLeadDays: z.number().nullable(),
+});
+export type ReportTotals = z.infer<typeof ReportTotals>;
+
+export const ReportRow = z.object({
+  key: z.string(),
+  label: z.string(),
+  closed: z.number(),
+  created: z.number(),
+  open: z.number(),
+  avgLeadDays: z.number().nullable(),
+});
+export type ReportRow = z.infer<typeof ReportRow>;
+
+export const ReportPoint = z.object({
+  /** Неделя закрытия, понедельник, ГГГГ-ММ-ДД. */
+  week: z.string(),
+  closed: z.number(),
+});
+export type ReportPoint = z.infer<typeof ReportPoint>;
+
+/** Результат построения отчёта (services/reports.ts buildReport). */
+export const ReportResult = z.object({
+  from: z.string(),
+  to: z.string(),
+  groupBy: z.enum(REPORT_GROUPS),
+  totals: ReportTotals,
+  rows: z.array(ReportRow),
+  trend: z.array(ReportPoint),
+});
+export type ReportResult = z.infer<typeof ReportResult>;
+
+/** GET /api/reports/summary: результат + число проектов в выборке. */
+export const ReportSummaryDto = ReportResult.extend({ projectCount: z.number() });
+export type ReportSummaryDto = z.infer<typeof ReportSummaryDto>;

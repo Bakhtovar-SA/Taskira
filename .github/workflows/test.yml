@@ -207,6 +207,35 @@ jobs:
 
       - run: npm test
 
+  # Контракт клиент↔сервер (ТЗ 2.1): клиентские типы выводятся из server/src/contract.ts, поэтому правка серверных
+  # типов может сломать клиент и наоборот. Оба typecheck в ОДНОЙ джобе — один статус проверки на PR, а не два,
+  # которые можно смёржить по отдельности. Чтобы он реально блокировал мерж, джоба должна быть required check в
+  # настройках ветки (на бесплатном приватном репозитории GitHub эту настройку не даёт — см. docs/tickets/UI-02).
+  types:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - run: npm ci
+      - run: npm ci
+        working-directory: server
+
+      - name: Typecheck server
+        run: npm run typecheck
+        working-directory: server
+
+      - name: Typecheck client (includes server/src/contract.ts)
+        run: npm run typecheck
+
   # Клиент (корневой пакет): typecheck + прод-сборка. БД не нужна.
   # В CI клиент раньше не проверялся вообще — единственный барьер против
   # красной сборки перед тяжёлой работой над UI.
