@@ -9,7 +9,6 @@ import { ApiError, issuesApi } from "../api";
 import {
   buildCreatePayload,
   canTransition,
-  emptyData,
   mapIssue,
   patchParentSubtasksSummary,
   statusById,
