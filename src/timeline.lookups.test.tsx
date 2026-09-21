@@ -227,4 +227,28 @@ describe("Timeline при частичном сторе", () => {
     expect(h.epicsSpy).toHaveBeenCalledTimes(2);
     h.ui.unmount();
   });
+
+  test("узел с >100 детьми (250): три страницы 100+100+50, счётчик «Показано N из 250», курсоры по цепочке, без дублей", async () => {
+    const mk = (from: number, n: number) => Array.from({ length: n }, (_, i) => dto(`k${from + i}`, { title: `Ребёнок ${from + i}` }));
+    const h = await setup({ epics: [epic({ childTotal: 250, childDone: 40 })], pages: [mk(0, 100), mk(100, 100), mk(200, 50)] });
+    await toggle("Альфа");
+    expect(screen.getAllByText(/^Ребёнок \d+$/)).toHaveLength(100);
+    expect(screen.getByText("Показано 100 из 250")).toBeTruthy();
+    fireEvent.click(screen.getByText("Показать ещё"));
+    await settle();
+    expect(screen.getAllByText(/^Ребёнок \d+$/)).toHaveLength(200);
+    expect(screen.getByText("Показано 200 из 250")).toBeTruthy();
+    fireEvent.click(screen.getByText("Показать ещё"));
+    await settle();
+    // все 250 разные карточки, повторов при склейке страниц нет
+    const titles = screen.getAllByText(/^Ребёнок \d+$/).map((el) => el.textContent);
+    expect(titles).toHaveLength(250);
+    expect(new Set(titles).size).toBe(250);
+    expect(screen.queryByText("Показать ещё")).toBeNull();
+    expect(screen.queryByText(/Показано \d+ из/)).toBeNull();
+    expect(h.pageSpy.mock.calls.filter((c) => c[1].epicId === "e1").map((c) => c[1].cursor)).toEqual([undefined, "c1", "c2"]);
+    // шапка узла — агрегат сервера, подгрузка её не меняет
+    expect(screen.getByText("40/250 задач · A21-e1")).toBeTruthy();
+    h.ui.unmount();
+  });
 });
