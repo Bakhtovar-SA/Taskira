@@ -135,6 +135,7 @@ const warnings = [
 if (warmup <= 0) warnings.push("NO WARMUP: PERF_WARMUP_SECONDS=0 — в замер попадают холодные соединения, кэши и планы запросов.");
 if (duration < 60) warnings.push(`SHORT RUN: ${duration} с меньше 60 — TTL кэша assignees (45 с) мог не истечь ни разу.`);
 
+const MIN_REQUESTS_PER_CONNECTION = 10;
 const startedAt = new Date().toISOString();
 const healthBefore = await getHealth();
 for (const w of healthBefore.warnings ?? []) warnings.push(`SERVER HEALTH ${w.code}: ${w.reason}`);
@@ -158,10 +159,19 @@ const compact = scenarios.map(({ name, result, p95 }) => ({
   latencyMs: { average: result.latency.average, p50: result.latency.p50, p95, p99: result.latency.p99, max: result.latency.max },
   requestsPerSecond: result.requests.average,
   requests: result.requests.total,
+  // замер валиден, только если дошёл до установившегося режима: минимум 10 запросов на соединение
+  // (в самом первом замере PERF-00 было 200 запросов на 200 соединений — по одному на каждое)
+  minRequests: connections * MIN_REQUESTS_PER_CONNECTION,
+  valid: result.requests.total >= connections * MIN_REQUESTS_PER_CONNECTION,
   errors: result.errors,
   timeouts: result.timeouts,
   non2xx: result.non2xx,
 }));
+for (const c of compact) {
+  if (!c.valid) warnings.push(`INVALID RUN ${c.name}: ${c.requests} запросов < ${c.minRequests} (connections × ${MIN_REQUESTS_PER_CONNECTION}) — замер не дошёл до установившегося режима, числа не использовать.`);
+  if (c.errors || c.timeouts || c.non2xx) warnings.push(`INVALID RUN ${c.name}: errors=${c.errors} timeouts=${c.timeouts} non2xx=${c.non2xx}.`);
+}
+for (const w of healthAfter.warnings ?? []) if (!(healthBefore.warnings ?? []).some((b) => b.code === w.code)) warnings.push(`SERVER HEALTH CHANGED DURING RUN ${w.code}: ${w.reason}`);
 const gitStatus = git("status", "--porcelain", "--untracked-files=no");
 const report = {
   generatedAt: new Date().toISOString(),
@@ -196,5 +206,6 @@ const report = {
 await mkdir(resolve(output, ".."), { recursive: true });
 await writeFile(output, `${JSON.stringify(report, null, 2)}
 `, "utf8");
+if (compact.some((c) => !c.valid)) process.exitCode = 2;
 for (const w of warnings) console.warn(`WARNING: ${w}`);
 console.log(JSON.stringify({ ...report, raw: undefined }, null, 2));
