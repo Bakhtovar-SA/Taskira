@@ -40,7 +40,7 @@ const boot = (projectRole: "manager" | "employee"): ProjectBootstrap => ({
   project,
   users: [user("member") as never],
   members: [{ userId: "u1", role: projectRole }],
-  workflow: { statuses: [{ id: "s1", sid: "todo", name: "К работе", category: "todo" }], transitions: [] },
+  workflow: { statuses: [{ id: "s1", sid: "todo", name: "К работе", category: "todo", position: 0 }], transitions: [] },
   issueTemplates: [],
   customFields: [],
   sprints: [],

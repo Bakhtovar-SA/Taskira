@@ -43,8 +43,8 @@ const bootWith = (transitions: { id: string; from: string; to: string }[]): Proj
   members: [{ userId: "u1", role: "manager" }],
   workflow: {
     statuses: [
-      { id: "s1", sid: "todo", name: "К работе", category: "todo" },
-      { id: "s2", sid: "done", name: "Готово", category: "done" },
+      { id: "s1", sid: "todo", name: "К работе", category: "todo", position: 0 },
+      { id: "s2", sid: "done", name: "Готово", category: "done", position: 1 },
     ],
     transitions,
   },

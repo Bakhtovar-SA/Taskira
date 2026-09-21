@@ -6,6 +6,7 @@
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { LoginBody } from "../contract.js";
+import type { MeDto } from "../contract.js";
 import { audit } from "../audit.js";
 import { one, q } from "../db.js";
 import { loadConfig } from "../config.js";
@@ -155,7 +156,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       // сам /me, поэтому переключатель проектов может показать звёзды сразу
       // при входе, ещё до захода в конкретный проект (главный экран/home).
       const favoriteProjectIds = await listFavoriteProjectIds(row.id);
-      reply.send({ ...safeUser(row), notifyPrefs: row.notify_prefs ?? {}, favoriteProjectIds });
+      const me: MeDto = { ...safeUser(row), notifyPrefs: row.notify_prefs ?? {}, favoriteProjectIds };
+      reply.send(me);
     },
   );
 

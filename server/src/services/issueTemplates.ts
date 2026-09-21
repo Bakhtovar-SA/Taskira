@@ -2,23 +2,14 @@
  *  customFields.ts: определения — уровень проекта, применение — чистый
  *  client-side prefill формы создания, никакой связи с созданной задачей. */
 import { one, q } from "../db.js";
-
-export interface IssueTemplateDto {
-  id: string;
-  name: string;
-  typeId: string;
-  priorityId: string;
-  title: string;
-  description: string;
-  statusId: string | null;
-  position: number;
-}
+import type { IssueTemplateDto } from "../contract.js";
+export type { IssueTemplateDto };
 
 interface Row {
   id: string;
   name: string;
-  type_id: string;
-  priority_id: string;
+  type_id: IssueTemplateDto["typeId"]; // CHECK (022)
+  priority_id: IssueTemplateDto["priorityId"]; // CHECK (022)
   title: string;
   description: string;
   status_id: string | null;
