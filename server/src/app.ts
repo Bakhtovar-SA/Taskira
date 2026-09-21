@@ -37,6 +37,8 @@ import { formatZod } from "./middleware.js";
 import { requestToken } from "./sessionCookie.js";
 import { getStorage } from "./services/storage.js";
 import { activeSocketCount } from "./services/wsHub.js";
+import { searchIndexWarnings, type HealthWarning } from "./services/healthWarnings.js";
+import { createTtlCache } from "./services/ttlCache.js";
 import { observeHttpRequest, refreshBackgroundQueueMetrics, renderMetrics } from "./metrics.js";
 
 export function buildApp(): FastifyInstance {
@@ -155,6 +157,7 @@ export function buildApp(): FastifyInstance {
   /* Liveness ничего не спрашивает у зависимостей: процесс способен отвечать. */
   app.get("/health", async () => ({ ok: true, version: cfg.version, ts: new Date().toISOString() }));
 
+  const healthWarningsCache = createTtlCache<HealthWarning[]>(60_000);
   const readiness = async (_req: unknown, reply: { code(status: number): { send(body: unknown): void } }) => {
     const checks = { db: false, migrations: false, storage: false };
     let pending: string[] = [];
@@ -174,6 +177,16 @@ export function buildApp(): FastifyInstance {
       app.log.warn({ err: error }, "readiness storage check failed");
     }
     const ok = checks.db && checks.migrations && checks.storage;
+    // Деградация без ошибки (пока — поиск без индексов): видна в ответе, но не роняет readiness.
+    // Кэш на минуту: healthcheck оркестратора приходит каждые несколько секунд.
+    let warnings: HealthWarning[] = [];
+    if (checks.db) {
+      try {
+        warnings = await healthWarningsCache.get("warnings", searchIndexWarnings);
+      } catch (error) {
+        app.log.warn({ err: error }, "readiness warnings check failed");
+      }
+    }
     reply.code(ok ? 200 : 503).send({
       ok,
       // legacy /api/health consumers read this top-level field; /ready clients
@@ -181,6 +194,7 @@ export function buildApp(): FastifyInstance {
       db: checks.db,
       checks,
       ...(pending.length > 0 ? { pendingMigrations: pending } : {}),
+      ...(warnings.length > 0 ? { warnings } : {}),
       version: cfg.version,
       ts: new Date().toISOString(),
     });

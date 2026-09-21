@@ -19,6 +19,8 @@ describe("operational observability", () => {
       ok: true,
       checks: { db: true, migrations: true, storage: true },
     });
+    // индексы поиска на месте — предупреждений нет
+    expect(ready.json().warnings).toBeUndefined();
   });
 
   it("exports Prometheus metrics using route templates", async () => {
