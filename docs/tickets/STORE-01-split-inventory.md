@@ -1,6 +1,6 @@
 # STORE-01 — разрезание `src/store.tsx` по доменам (ТЗ 2.3): инвентаризация
 
-**Статус: шаги 1–4 выполнены** (шаг 2: спринты и избранное+поиск — `src/store/sprints.ts`, `favoritesSearch.ts`, общий контекст
+**Статус: шаги 1–5 выполнены** (шаг 2: спринты и избранное+поиск — `src/store/sprints.ts`, `favoritesSearch.ts`, общий контекст
 доменных хуков `ctx.ts`; `store.tsx` ~2 030 строк). Шаг 1: (чистые функции и типы вынесены в `src/store/mappers.ts`, `store.tsx` 2 535 → ~2 150 строк);
 шаги 2–6 впереди. Инвентаризация снята 2026-09-21 на `main` @ `9c46bc1`. Из PERF-06 «половина работы» уже
 сделана в части данных (частичный стор, `useIssueSet`/`useEpics` в `issuePages.ts`, `issueSearch.ts`,
@@ -60,7 +60,10 @@
    langRef })` (`store/issueSub.ts`), `useNotificationActions(ctx)` (`store/notifications.ts`; `storeCtx` пришлось создавать раньше —
    перед блоком уведомлений). Покрытие до выноса было только у `addComment`: добавлен `store.issueSub.test.tsx` (8 тестов,
    зелёные на коде ДО выноса и после; две мутации ловит). `store.tsx` ~1 210 строк.
-5. **CRUD задач + `deleteIssue`** (290): `bumpIssues`/`bumpEpics`, оптимистичные правки.
+5. ~~**CRUD задач + `deleteIssue`** (290)~~ — **сделано**: `useIssueCrudActions(ctx, deps)` (`store/issueCrud.ts`;
+   `withIssue`, `resolveIssue`, `refreshIssues`, `setUi`, `bumpIssues`, `bumpEpics`, `langRef`). Эти действия **не оптимистичны**:
+   запрос → применение ответа сервера; откат с перечитыванием — только у `moveStatus`. Тесты написаны ДО выноса
+   (`store.issueCrud.test.tsx`, 12; четыре мутации ловит на коде до и после). `store.tsx` ~920 строк.
 6. **Boot/сессия/навигация + список/открытие задачи** (400): последними — тут `switchSeqRef`, гонки и
    `pendingOpenIssueRef` (см. пометки в CLAUDE.md про `upsertIssue` и `bootstrap`).
 
