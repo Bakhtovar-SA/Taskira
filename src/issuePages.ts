@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { issuesApi, type IssueCounts, type IssueFilterParams, type IssueSortKey } from "./api";
+import { issuesApi, type IssueCounts, type IssueEpic, type IssueFilterParams, type IssueSortKey } from "./api";
 import { mapIssue, useStore } from "./store";
 import type { Issue } from "./types";
 
@@ -18,6 +18,9 @@ import type { Issue } from "./types";
  */
 
 export const ISSUE_PAGE_SIZE = 100;
+
+/** Стабильное значение «без фильтров» для useIssueCounts (счётчики всего проекта). */
+export const NO_ISSUE_FILTERS: IssueFilterParams = {};
 
 export interface IssueSetQuery {
   projectId: string;
@@ -248,17 +251,14 @@ export function useDebounced<T>(value: T, ms: number, immediate?: (v: T) => bool
 }
 
 /**
- * Ревизия задач в сторе. Правки (в том числе из модалки) живут в сторе; наборы
- * перечитываются, когда ревизия меняется, чтобы состав (фильтр, удаление, новые
- * задачи) не устарел. Пока стор держит все задачи, это дёшево; это же место
- * заменит явный сигнал, когда стор перестанет держать всё.
+ * Ревизия задач в сторе — явный счётчик, который стор увеличивает при
+ * изменениях, способных поменять состав или порядок наборов (создание, импорт,
+ * удаление, правка полей, смена статуса). Наборы перечитываются, когда он
+ * меняется. Раньше ревизия считалась обходом всего массива задач на каждый
+ * рендер (O(n)).
  */
 export function useIssuesRevision(): string {
-  const { data } = useStore();
-  return useMemo(
-    () => `${data.issues.length}:${data.issues.reduce((m, i) => (i.updatedAt > m ? i.updatedAt : m), 0)}`,
-    [data.issues],
-  );
+  return String(useStore().issuesRevision);
 }
 
 /** Вызывает `fn` при смене ревизии (но не при первом рендере). */
@@ -274,11 +274,14 @@ export function useOnRevision(revision: string, fn: () => void): void {
 }
 
 /**
- * Строки набора в актуальном виде: правки берутся из стора, а задачи, которых
- * там уже нет (удалены), отбрасываются. Порядок — серверный, не пересчитывается.
+ * Строки набора в актуальном виде: если задачу правили (в том числе из модалки), берётся
+ * свежая версия из стора, иначе — та, что пришла с сервера. Порядок — серверный, не
+ * пересчитывается. Задачи, которых нет в сторе, НЕ отбрасываются: стор больше не держит
+ * все задачи проекта, и «нет в сторе» не значит «удалена». Удаление отражает ревизия
+ * (`issuesRevision` растёт при удалении, и набор перечитывается).
  */
-export function freshRows(items: Issue[], byId: ReadonlyMap<string, Issue>, storeHasIssues: boolean): Issue[] {
-  return items.map((i) => byId.get(i.id) ?? i).filter((i) => !storeHasIssues || byId.has(i.id));
+export function freshRows(items: Issue[], byId: ReadonlyMap<string, Issue>): Issue[] {
+  return items.map((i) => byId.get(i.id) ?? i);
 }
 
 export interface IssueCountsState {
@@ -364,4 +367,80 @@ export function useLoadMoreSentinel(
     // refreshKey: после каждой подгрузки якорь уходит вниз, наблюдение начинается заново
   }, [active, refreshKey, rootMargin]);
   return ref;
+}
+
+/**
+ * Одна задача по id для отображения (бейдж эпика/родителя, родитель создаваемой
+ * подзадачи): из кэша стора, а при промахе — один точечный запрос
+ * (`GET …/issues/:id`) вместо поиска в списке всех задач. `null`, пока не
+ * загружена или недоступна (удалена, нет доступа): вызывающий скрывает бейдж.
+ */
+export function useIssue(id: string | null | undefined): Issue | null {
+  const { idx, lookupIssue } = useStore();
+  const known = id ? (idx.issues.get(id) ?? null) : null;
+  const [fetched, setFetched] = useState<{ id: string; issue: Issue | null } | null>(null);
+  useEffect(() => {
+    if (!id || known) return;
+    let live = true;
+    void lookupIssue(id).then((issue) => live && setFetched({ id, issue }));
+    return () => {
+      live = false;
+    };
+    // known как признак, а не объект: перерисовки со сменой ссылки не должны перезапрашивать
+  }, [id, !!known, lookupIssue]);
+  return known ?? (fetched && fetched.id === id ? fetched.issue : null);
+}
+
+export interface EpicsState {
+  /** id направления → его данные (для бейджей). */
+  byId: ReadonlyMap<string, IssueEpic>;
+  list: readonly IssueEpic[];
+  /** Направлений больше потолка сервера (500): часть бейджей может отсутствовать. */
+  truncated: boolean;
+  loading: boolean;
+  error: string | null;
+  /** Перечитать вручную (после ошибки). */
+  reload: () => void;
+}
+
+const NO_EPICS: EpicsState = { byId: new Map(), list: [], truncated: false, loading: false, error: null, reload: () => undefined };
+
+/**
+ * Справочник направлений проекта (`GET …/issues/epics`): один запрос на открытие
+ * экрана и на смену `revision`, а не на каждую ревалидацию наборов — цена запроса
+ * растёт с числом детей направлений (см. EPIC-01). Вызывающий выбирает, что считать
+ * сигналом: Доска и Список — `epicsRevision` (меняются заголовок, цвет, привязка),
+ * Timeline, которому нужны и счётчики детей, — `issuesRevision`. Показанное не
+ * сбрасывается на время перечитывания.
+ *
+ * Отсутствие направления в справочнике = «не загружено или архивно», а не
+ * «не существует»: вызывающий скрывает бейдж, но не считает задачу битой.
+ */
+export function useEpics(projectId: string | null, revision: string | number): EpicsState {
+  const [state, setState] = useState<{ projectId: string | null; value: EpicsState }>({ projectId: null, value: NO_EPICS });
+  const [tick, setTick] = useState(0);
+  const reload = useCallback(() => setTick((n) => n + 1), []);
+  const gen = useRef(0);
+  useEffect(() => {
+    const my = ++gen.current;
+    if (!projectId) {
+      setState({ projectId: null, value: NO_EPICS });
+      return;
+    }
+    setState((prev) => (prev.projectId === projectId ? { ...prev, value: { ...prev.value, loading: true, error: null } } : { projectId, value: { ...NO_EPICS, loading: true, reload } }));
+    issuesApi.epics(projectId).then(
+      (res) => {
+        if (gen.current !== my) return;
+        setState({ projectId, value: { byId: new Map(res.items.map((e) => [e.id, e])), list: res.items, truncated: res.truncated, loading: false, error: null, reload } });
+      },
+      (e: unknown) => {
+        if (gen.current !== my) return;
+        setState((prev) => ({ projectId, value: { ...(prev.projectId === projectId ? prev.value : NO_EPICS), loading: false, error: errText(e), reload } }));
+      },
+    );
+    return () => {
+      gen.current++;
+    };
+  }, [projectId, revision, tick, reload]);
+  return state.projectId === projectId ? state.value : NO_EPICS;
 }

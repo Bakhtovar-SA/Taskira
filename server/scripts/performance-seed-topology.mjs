@@ -9,6 +9,9 @@
  *   - исполнителей: ~70% задач с исполнителем, выборка сильно смещена к
  *     нескольким «загруженным» людям (степень 3), у 15% — второй исполнитель;
  *   - архивные задачи PERF (активных по-прежнему PERF_ISSUES);
+ *   - направления (эпики): в каждом проекте ~min(PERF_EPICS, size/50) активных задач
+ *     становятся «направлениями», ~8% остальных активных задач ссылаются на них
+ *     через epic_id (нужны для замеров GET …/issues/epics и фильтра epicId);
  *   - ещё PERF_EXTRA_PROJECTS проектов разного размера, у каждого свой workflow.
  *
  * Запускать ТОЛЬКО в изолированной схеме/БД:
@@ -29,6 +32,7 @@ if (process.env.PERF_CONFIRM !== "seed-topology") {
 if (!schema || !/^[a-z_][a-z0-9_]*$/.test(schema) || schema === "public") {
   throw new Error("PERF_SCHEMA must name an isolated non-public schema");
 }
+const maxEpics = Number(process.env.PERF_EPICS ?? 60);
 const archivedExtra = Number(process.env.PERF_ARCHIVED ?? 10_000);
 // размеры дополнительных проектов: от крупного до крошечного
 const extraSizes = (process.env.PERF_EXTRA_SIZES ?? "20000,8000,3000,1000,500,200,100,50,10")
@@ -37,6 +41,31 @@ const extraSizes = (process.env.PERF_EXTRA_SIZES ?? "20000,8000,3000,1000,500,20
 
 const client = new pg.Client({ connectionString: databaseUrl });
 await client.connect();
+
+/** Идемпотентно: сбрасывает epic_id проекта и заново назначает направления. */
+async function seedEpics(projectId, activeCount) {
+  const k = Math.min(maxEpics, Math.floor(activeCount / 50));
+  await client.query(`UPDATE issues SET epic_id = NULL WHERE project_id = $1 AND epic_id IS NOT NULL`, [projectId]);
+  if (k < 1) return 0;
+  const ids = (
+    await client.query(
+      `SELECT id FROM issues WHERE project_id = $1 AND archived_at IS NULL ORDER BY random() LIMIT $2`,
+      [projectId, k],
+    )
+  ).rows.map((r) => r.id);
+  await client.query(
+    `UPDATE issues SET epic_id = ($2::uuid[])[1 + floor(random() * $3)::int]
+      WHERE project_id = $1 AND archived_at IS NULL AND NOT (id = ANY($2::uuid[])) AND random() < 0.08`,
+    [projectId, ids, ids.length],
+  );
+  await client.query(
+    `UPDATE issues SET color = '#' || lpad(to_hex((floor(random() * 12000000) + 2000000)::int), 6, '0'),
+                       t_start = floor(random() * 30)::int, t_span = (1 + floor(random() * 8))::int
+      WHERE id = ANY($1::uuid[])`,
+    [ids],
+  );
+  return ids.length;
+}
 try {
   await client.query(`SET search_path TO "${schema}"`);
   await client.query("BEGIN");
@@ -96,6 +125,8 @@ try {
     [perf.id, Math.max(maxNum, activeMax) + archivedExtra + 1],
   );
 
+  const perfActive = Number((await client.query(`SELECT count(*) AS n FROM issues WHERE project_id = $1 AND archived_at IS NULL`, [perf.id])).rows[0].n);
+  const perfEpics = await seedEpics(perf.id, perfActive);
   // 4. Дополнительные проекты.
   await client.query(`DELETE FROM projects WHERE key ~ '^PX[0-9]{2}$'`);
   const summary = [];
@@ -144,12 +175,12 @@ try {
        ON CONFLICT (project_id) DO UPDATE SET next_num = EXCLUDED.next_num`,
       [project, size + 1],
     );
-    summary.push({ key, size });
+    summary.push({ key, size, epics: await seedEpics(project, size) });
   }
   await client.query("COMMIT");
   await client.query("ANALYZE issues");
   await client.query("ANALYZE issue_assignees");
-  console.log(JSON.stringify({ perfProject: perf.id, archivedExtra, extraProjects: summary }));
+  console.log(JSON.stringify({ perfProject: perf.id, perfEpics, archivedExtra, extraProjects: summary }));
 } catch (error) {
   await client.query("ROLLBACK").catch(() => undefined);
   throw error;

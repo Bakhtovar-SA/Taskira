@@ -14,6 +14,13 @@ const httpRequests = new Map<string, number>();
 const httpDurations = new Map<string, HistogramValue>();
 const s3Errors = new Map<string, number>();
 const ldapDurations = new Map<string, HistogramValue>();
+const JOB_BUCKETS = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30, 60, 300, 900];
+const jobRuns = new Map<string, number>();
+const jobDurations = new Map<string, HistogramValue>();
+const jobLastSuccess = new Map<string, number>();
+const jobRunning = new Map<string, number>();
+let maintenanceArchived = 0;
+let maintenanceAuditPurged = 0;
 let backgroundQueueSize = 0;
 let collectionErrors = 0;
 
@@ -51,6 +58,23 @@ export function observeHttpRequest(method: string, route: string, status: number
 
 export function observeLdapResync(seconds: number, outcome: "success" | "partial" | "error"): void {
   observe(ldapDurations, LDAP_BUCKETS, { outcome }, seconds);
+}
+
+/** Итог тика фонового джоба. `skipped` — чужой процесс держит лок джоба (не ошибка, длительность не пишется). */
+export function recordBackgroundJob(job: string, result: "success" | "error" | "skipped", seconds?: number): void {
+  const key = labelsKey({ job, result });
+  jobRuns.set(key, (jobRuns.get(key) ?? 0) + 1);
+  if (result !== "skipped" && seconds !== undefined) observe(jobDurations, JOB_BUCKETS, { job }, seconds);
+  if (result === "success") jobLastSuccess.set(job, Date.now() / 1000);
+}
+
+export function setBackgroundJobRunning(job: string, running: boolean): void {
+  jobRunning.set(job, running ? 1 : 0);
+}
+
+export function addMaintenanceWork(archived: number, auditPurged: number): void {
+  maintenanceArchived += archived;
+  maintenanceAuditPurged += auditPurged;
 }
 
 export function incrementS3Error(operation: string): void {
@@ -123,6 +147,32 @@ export function renderMetrics(activeWsConnections: number): string {
     ldapDurations,
     LDAP_BUCKETS,
   ));
+  lines.push("# HELP taskira_background_job_runs_total Background job ticks by job and result (success, error, skipped = lock held elsewhere). Per process.", "# TYPE taskira_background_job_runs_total counter");
+  for (const [key, value] of [...jobRuns.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    lines.push(`taskira_background_job_runs_total${labelSet(parseLabels(key))} ${value}`);
+  }
+  lines.push(...renderHistogram(
+    "taskira_background_job_duration_seconds",
+    "Duration of executed background job ticks (skipped ticks excluded).",
+    jobDurations,
+    JOB_BUCKETS,
+  ));
+  lines.push("# HELP taskira_background_job_last_success_timestamp_seconds Unix time of the last successful tick of the job in this process.", "# TYPE taskira_background_job_last_success_timestamp_seconds gauge");
+  for (const [job, value] of [...jobLastSuccess.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    lines.push(`taskira_background_job_last_success_timestamp_seconds${labelSet({ job })} ${value}`);
+  }
+  lines.push("# HELP taskira_background_job_running 1 while a tick of the job is executing in this process.", "# TYPE taskira_background_job_running gauge");
+  for (const [job, value] of [...jobRunning.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    lines.push(`taskira_background_job_running${labelSet({ job })} ${value}`);
+  }
+  lines.push(
+    "# HELP taskira_maintenance_archived_issues_total Issues auto-archived by this process.",
+    "# TYPE taskira_maintenance_archived_issues_total counter",
+    `taskira_maintenance_archived_issues_total ${maintenanceArchived}`,
+    "# HELP taskira_maintenance_audit_purged_total audit_log rows purged by retention in this process.",
+    "# TYPE taskira_maintenance_audit_purged_total counter",
+    `taskira_maintenance_audit_purged_total ${maintenanceAuditPurged}`,
+  );
   lines.push(
     "# HELP taskira_s3_errors_total S3 operation errors.",
     "# TYPE taskira_s3_errors_total counter",
@@ -144,6 +194,12 @@ export function _resetMetrics(): void {
   httpDurations.clear();
   s3Errors.clear();
   ldapDurations.clear();
+  jobRuns.clear();
+  jobDurations.clear();
+  jobLastSuccess.clear();
+  jobRunning.clear();
+  maintenanceArchived = 0;
+  maintenanceAuditPurged = 0;
   backgroundQueueSize = 0;
   collectionErrors = 0;
 }

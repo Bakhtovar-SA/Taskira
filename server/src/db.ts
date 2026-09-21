@@ -15,8 +15,19 @@ pg.types.setTypeParser(1082, (v) => v);
 
 let pool: pg.Pool | null = null;
 
-export function initPool(databaseUrl: string, max = 10): pg.Pool {
-  pool = new Pool({ connectionString: databaseUrl, max });
+/**
+ * `idleTimeoutMillis: 0` — простаивающие соединения не закрываются. Умолчание `pg` (10 с) рассчитано
+ * на другой профиль: после паузы первый запрос платит за новое соединение (на стенде 60–92 мс против
+ * 0,5 мс на тёплом), а при малом трафике — по утрам, после выходных — это каждый первый запрос.
+ * Пул ограничен `max` (по умолчанию 10), поэтому держать их открытыми дёшево; при нескольких
+ * процессах сервера постоянно занято `процессов × max` соединений — учитывайте `max_connections`.
+ */
+export function initPool(databaseUrl: string, max = 10, idleTimeoutMillis = 0): pg.Pool {
+  pool = new Pool({ connectionString: databaseUrl, max, idleTimeoutMillis, keepAlive: true });
+  // Без обработчика 'error' на пуле обрыв простаивающего соединения (рестарт Postgres, failover,
+  // idle_session_timeout, обрыв через балансировщик) — необработанное событие и падение процесса.
+  // Раньше 10-секундный тайм-аут прятал это окно; с постоянными соединениями оно открыто.
+  pool.on("error", (err) => console.error(`[db] ошибка простаивающего соединения: ${err.message}`));
   return pool;
 }
 
@@ -49,6 +60,43 @@ async function assertNoInvalidIndexes(client: pg.PoolClient, file: string): Prom
     throw new Error(
       `Нетранзакционная миграция ${file} оставила/обнаружила невалидный индекс: ${invalid.rows.map((row) => row.index_name).join(", ")}. Выполните recovery из SQL-файла и повторите запуск.`,
     );
+  }
+}
+
+export type LockResult<T> = { acquired: true; value: T } | { acquired: false };
+
+/**
+ * Межпроцессная взаимоисключающая секция на session-level advisory-локе Postgres. Держит ОДНО выделенное
+ * соединение на время `fn`; лок снимается в `finally`, а при обрыве соединения Postgres снимает его сам —
+ * упавший процесс не оставляет «вечный лок».
+ *
+ * `wait: false` — не ждать: занято → `{ acquired: false }` без выполнения (тик фонового джоба просто
+ * пропускается). `wait: true` — встать в очередь (стартовый сид: второй экземпляр дождётся первого и увидит
+ * уже созданное). Ключ — строка, `hashtext` даёт int4: префикс `taskira:` по образцу существующих локов.
+ * Не работает через pgbouncer в transaction-режиме (лок привязан к серверному соединению).
+ */
+export async function withAdvisoryLock<T>(key: string, opts: { wait: boolean }, fn: () => Promise<T>): Promise<LockResult<T>> {
+  const client = await getPool().connect();
+  let locked = false;
+  let broken = false;
+  try {
+    if (opts.wait) {
+      await client.query(`SELECT pg_advisory_lock(hashtext($1))`, [key]);
+      locked = true;
+    } else {
+      const r = await client.query<{ ok: boolean }>(`SELECT pg_try_advisory_lock(hashtext($1)) AS ok`, [key]);
+      locked = r.rows[0]?.ok === true;
+      if (!locked) return { acquired: false };
+    }
+    return { acquired: true, value: await fn() };
+  } finally {
+    if (locked) {
+      // не смогли снять лок — соединение нельзя возвращать в пул с висящим локом: закрываем его
+      await client.query(`SELECT pg_advisory_unlock(hashtext($1))`, [key]).catch(() => {
+        broken = true;
+      });
+    }
+    client.release(broken);
   }
 }
 

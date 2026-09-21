@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import type { Issue, Sprint } from "../types";
 import { LIMITS } from "../validation";
 import { IcCheck, IcFlag, IcPlus, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Empty, Modal } from "../ui";
+import { AvatarStack, Empty, Modal, SkeletonRow } from "../ui";
 import { useT } from "../i18n";
 
 /** Бэклог + спринты (sprints, миграция 023) — опциональный модуль, вкладка
@@ -240,8 +240,14 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
 
 export default function SprintsView() {
   const { t } = useT();
-  const { data, can, setIssueSprint } = useStore();
+  const { data, can, setIssueSprint, ensureAllIssues } = useStore();
   const [showCreate, setShowCreate] = useState(false);
+  // Sprints группирует ВСЕ задачи проекта по спринтам и бэклогу и потому остаётся единственным
+  // осознанным потребителем полной загрузки (PERF-06 A15: обернуть, не оптимизировать). Экран
+  // выключен по умолчанию; полный набор грузится только при входе на него.
+  useEffect(() => {
+    void ensureAllIssues();
+  }, [ensureAllIssues]);
 
   const backlogIssues = useMemo(
     () => data.issues.filter((i) => i.sprintId === null && !i.archivedAt).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
@@ -271,10 +277,16 @@ export default function SprintsView() {
       <div className="flex w-[300px] shrink-0 flex-col rounded-lg border border-line bg-panel">
         <div className="border-b border-linesoft px-3.5 py-2.5">
           <span className="font-disp text-[13.5px] font-bold text-ink">{t("sidebar.nav.backlog")}</span>
-          <span className="ml-1.5 text-[11px] text-faint">{backlogIssues.length}</span>
+          <span className="ml-1.5 text-[11px] text-faint">{data.issuesComplete ? backlogIssues.length : "…"}</span>
         </div>
         <DropZone onDropIssue={(id) => setIssueSprint(id, null)} className="min-h-0 flex-1 overflow-y-auto transition-colors">
-          {backlogIssues.length === 0 ? (
+          {!data.issuesComplete ? (
+            <div aria-busy="true" aria-label={t("sprints.loadingIssues")}>
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+            </div>
+          ) : backlogIssues.length === 0 ? (
             <p className="px-3.5 py-3 text-[12px] text-faint">{t("sprints.backlogEmpty")}</p>
           ) : (
             backlogIssues.map((i) => <IssueRow key={i.id} issue={i} />)
@@ -294,6 +306,7 @@ export default function SprintsView() {
             </button>
           )}
         </div>
+        {!data.issuesComplete && <p className="mb-2 text-[11.5px] text-faint">{t("sprints.loadingIssues")}</p>}
         {sortedSprints.length === 0 ? (
           <Empty icon={<IcFlag size={28} />} title={t("sprints.emptyTitle")} sub={t("sprints.emptySub")} />
         ) : (

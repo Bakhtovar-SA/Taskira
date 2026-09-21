@@ -312,6 +312,7 @@ export type ServerIssue = {
    *  что фильтр data.issues.filter(i => i.parentId === ...) на клиенте
    *  (тот видит только активные). Только в детальном ответе GET /issues/:id. */
   subtasksSummary?: { total: number; done: number };
+  epicChildrenCount?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -617,6 +618,9 @@ export interface IssueFilterParams {
   /** id исполнителя или "none" — задачи без исполнителей. */
   assignee?: string;
   type?: string;
+  /** Дети одной задачи: подзадачи и задачи «направления». */
+  parentId?: string;
+  epicId?: string;
   q?: string;
   overdue?: "1";
   /** "hide" — без закрытых; "recent" — закрытые не старше closedDays; "older" — только старше. */
@@ -630,6 +634,19 @@ export interface IssuePageParams extends IssueFilterParams {
   cursor?: string;
   limit?: number;
 }
+/** Направление проекта (`GET …/issues/epics`): задача, на которую ссылаются другие через epicId. */
+export interface IssueEpic {
+  id: string;
+  key: string;
+  title: string;
+  color: string | null;
+  tStart: number | null;
+  tSpan: number | null;
+  /** Активные дети и сколько из них закрыто (по категории статуса done). */
+  childTotal: number;
+  childDone: number;
+}
+
 export interface IssueCounts {
   total: number;
   byStatus: Record<string, number>;
@@ -646,6 +663,9 @@ export const issuesApi = {
   /** Общее число и разбивка по статусам для набора — один запрос на набор, не на страницу. */
   counts: (projectId: string, params: IssueFilterParams) =>
     api<IssueCounts>(`${P(projectId)}/issues/counts`, { query: params as Record<string, string | number | undefined> }),
+  /** Направления проекта с агрегатом по детям: справочник для бейджей и Timeline. */
+  epics: (projectId: string, limit?: number) =>
+    api<{ items: IssueEpic[]; truncated: boolean }>(`${P(projectId)}/issues/epics`, { query: { limit } }),
   /** Исполнители активных задач проекта по убыванию нагрузки (полоска фильтров доски). */
   assignees: (projectId: string, limit?: number) =>
     api<{ items: { userId: string; count: number }[] }>(`${P(projectId)}/issues/assignees`, { query: { limit } }),

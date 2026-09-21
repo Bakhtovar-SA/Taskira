@@ -5,13 +5,14 @@
  *  от первого события, затем одно письмо-сводка. Ретрай через email_tries,
  *  после NOTIFY_EMAIL_MAX_TRIES → 'failed'.
  *
- *  MVP — один воркер в основном процессе. Перекрытие тиков исключено re-entrancy
- *  guard'ом (`running`); окно «упал между send и UPDATE → повторная отправка на
- *  рестарте» — приемлемо и задокументировано (§5). Несколько процессов —
- *  NOTIFY_WORKER_ENABLED=false на всех, кроме одного (лидер-лок — Фаза 6).
+ *  Перекрытие тиков в процессе исключено re-entrancy guard'ом (`running`), между процессами —
+ *  advisory-локом на тик (`runNotifierTick`, RESTART-SAFETY): второй экземпляр на той же БД
+ *  пропускает тик, письма не дублируются. Окно «упал между send и UPDATE → повторная отправка
+ *  на рестарте» остаётся — приемлемо и задокументировано (§5). `NOTIFY_WORKER_ENABLED=false`
+ *  по-прежнему выключает воркер в конкретном процессе.
  */
 import nodemailer, { type Transporter } from "nodemailer";
-import { q } from "../db.js";
+import { q, withAdvisoryLock } from "../db.js";
 import { loadConfig } from "../config.js";
 import { renderDigest, renderOne, type MailItem } from "./emailTemplates.js";
 import type { NotifyType, NotifyPrefs } from "../contract.js";
@@ -46,6 +47,10 @@ function tx(): Transporter {
 /** Сброс транспорта — для тестов (смена SMTP между кейсами). */
 export function _resetTransport(): void {
   transport = null;
+}
+/** Подмена транспорта — для тестов без SMTP-приёмника. */
+export function _setTransport(t: Pick<Transporter, "sendMail"> | null): void {
+  transport = t as Transporter | null;
 }
 
 export interface NotifierStats {
@@ -138,6 +143,17 @@ export async function runNotifierOnce(): Promise<NotifierStats> {
   return stats;
 }
 
+/**
+ * Один тик под межпроцессной блокировкой. Выборка `pending` не захватывает строки, поэтому без неё два
+ * живущих процесса (второй экземпляр, забытый `NOTIFY_WORKER_ENABLED=false`, staging на той же БД) отправили бы
+ * одно и то же письмо дважды. Занято — тик пропускается: следующий подберёт то, что осталось. Блокировка
+ * снимается при обрыве соединения, упавший процесс её не удерживает.
+ */
+export async function runNotifierTick(): Promise<NotifierStats | null> {
+  const r = await withAdvisoryLock("taskira:job:notifier", { wait: false }, runNotifierOnce);
+  return r.acquired ? r.value : null;
+}
+
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 
@@ -148,7 +164,7 @@ export function startNotifier(): void {
   timer = setInterval(() => {
     if (running) return; // тики не перекрываются — это и есть «мягкий лок» одного процесса
     running = true;
-    runNotifierOnce()
+    runNotifierTick()
       .catch((e) => console.error("[notifier] тик упал", e))
       .finally(() => {
         running = false;

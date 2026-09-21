@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { act, render } from "@testing-library/react";
-import { issuesApi, type IssueFilterParams, type IssuePageParams, type ServerIssue } from "./api";
+import { issuesApi, type IssueEpic, type IssueFilterParams, type IssuePageParams, type ServerIssue } from "./api";
 import {
   appendUnique,
   freshRows,
   issueSetKey,
+  useEpics,
   useIssueCounts,
   useIssueSet,
   type IssueCountsState,
@@ -420,14 +421,93 @@ describe("useIssueSet без счётчика (колонка доски)", () =
 });
 
 describe("freshRows", () => {
-  test("правки берутся из стора, удалённые отбрасываются, порядок сервера сохраняется", () => {
+  test("правки берутся из стора, порядок сервера сохраняется, неизвестные стору задачи не отбрасываются", () => {
     const mk = (id: string, title = id) => ({ id, title }) as unknown as Issue;
-    const byId = new Map([
-      ["a", mk("a", "правка")],
-      ["c", mk("c")],
-    ]);
-    expect(freshRows([mk("a"), mk("b"), mk("c")], byId, true).map((i) => i.title)).toEqual(["правка", "c"]);
-    // пустой стор (ещё не загружен) — показываем то, что пришло
-    expect(freshRows([mk("a"), mk("b")], new Map(), false).map((i) => i.id)).toEqual(["a", "b"]);
+    const byId = new Map([["a", mk("a", "правка")]]);
+    expect(freshRows([mk("a"), mk("b"), mk("c")], byId).map((i) => i.title)).toEqual(["правка", "b", "c"]);
+    expect(freshRows([mk("x")], new Map()).map((i) => i.id)).toEqual(["x"]);
+  });
+});
+
+describe("useEpics", () => {
+  const epic = (id: string, title = id): IssueEpic => ({ id, key: `A-${id}`, title, color: "#123456", tStart: null, tSpan: null, childTotal: 2, childDone: 1 });
+  function EpicsProbe({ pid, revision, on }: { pid: string | null; revision: number; on: (s: ReturnType<typeof useEpics>) => void }) {
+    on(useEpics(pid, revision));
+    return null;
+  }
+  function mountEpics(pid: string | null, revision = 0) {
+    let latest!: ReturnType<typeof useEpics>;
+    const ui = render(<EpicsProbe pid={pid} revision={revision} on={(s) => (latest = s)} />);
+    return {
+      get s() {
+        return latest;
+      },
+      rerender: (p: string | null, r = revision) => ui.rerender(<EpicsProbe pid={p} revision={r} on={(s) => (latest = s)} />),
+      unmount: ui.unmount,
+    };
+  }
+
+  test("один запрос на открытие; справочник по id и списком", async () => {
+    const spy = vi.spyOn(issuesApi, "epics").mockResolvedValue({ items: [epic("e1", "Альфа"), epic("e2")], truncated: false });
+    const h = mountEpics("p1");
+    expect(h.s.loading).toBe(true);
+    await settle();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(h.s.byId.get("e1")?.title).toBe("Альфа");
+    expect(h.s.list.map((e) => e.id)).toEqual(["e1", "e2"]);
+    expect(h.s.loading).toBe(false);
+    await settle();
+    expect(spy).toHaveBeenCalledTimes(1); // перерисовки не перезапрашивают
+    h.unmount();
+  });
+
+  test("смена ревизии перечитывает справочник, не сбрасывая показанное", async () => {
+    const spy = vi.spyOn(issuesApi, "epics");
+    spy.mockResolvedValueOnce({ items: [epic("e1", "До")], truncated: false });
+    spy.mockResolvedValueOnce({ items: [epic("e1", "После")], truncated: false });
+    const h = mountEpics("p1", 0);
+    await settle();
+    h.rerender("p1", 1);
+    expect(h.s.byId.get("e1")?.title).toBe("До"); // пока идёт перечитывание — прежнее
+    await settle();
+    expect(h.s.byId.get("e1")?.title).toBe("После");
+    expect(spy).toHaveBeenCalledTimes(2);
+    h.unmount();
+  });
+
+  test("смена проекта: справочник прежнего проекта не показывается", async () => {
+    const spy = vi.spyOn(issuesApi, "epics");
+    spy.mockResolvedValueOnce({ items: [epic("e1")], truncated: false });
+    let release!: (v: { items: IssueEpic[]; truncated: boolean }) => void;
+    spy.mockImplementationOnce(() => new Promise((r) => (release = r)));
+    const h = mountEpics("p1");
+    await settle();
+    h.rerender("p2");
+    expect(h.s.list).toEqual([]);
+    await act(async () => {
+      release({ items: [epic("x9")], truncated: false });
+      await flush();
+    });
+    expect(h.s.list.map((e) => e.id)).toEqual(["x9"]);
+    h.unmount();
+  });
+
+  test("ошибка: error задан, ранее показанное сохраняется; projectId = null — запросов нет", async () => {
+    const spy = vi.spyOn(issuesApi, "epics");
+    spy.mockResolvedValueOnce({ items: [epic("e1")], truncated: true });
+    spy.mockRejectedValueOnce(new Error("сеть"));
+    const h = mountEpics("p1", 0);
+    await settle();
+    expect(h.s.truncated).toBe(true);
+    h.rerender("p1", 1);
+    await settle();
+    expect(h.s.error).toBe("сеть");
+    expect(h.s.byId.has("e1")).toBe(true);
+    h.unmount();
+    spy.mockClear();
+    const none = mountEpics(null);
+    await settle();
+    expect(spy).not.toHaveBeenCalled();
+    none.unmount();
   });
 });

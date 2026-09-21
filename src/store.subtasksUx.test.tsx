@@ -267,4 +267,32 @@ describe("subtasksSummary родителя — обновляется локал
 
     expect(store.get().data.issues.find((i) => i.id === "parent")?.subtasksSummary).toEqual({ total: 0, done: 0 });
   });
+
+  test("deleteIssue() задачи, которой нет в сторе (частичный стор): подтягивает её по id, поправляет родителя и вызывает remove", async () => {
+    const store = await bootToReady();
+    vi.spyOn(issuesApi, "create").mockResolvedValueOnce(fakeServerIssue("parent"));
+    await act(async () => {
+      store.get().createIssue(input("Родитель"));
+      await flush();
+    });
+    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    const get = vi.spyOn(issuesApi, "get").mockResolvedValue(fakeServerIssue("parent", { subtasksSummary: { total: 1, done: 1 } }));
+    await act(async () => {
+      store.get().openIssue("parent");
+      await flush();
+    });
+    // «Подзадача» в сторе не лежит (не показывалась ни в одном наборе), но существует на сервере
+    expect(store.get().data.issues.some((i) => i.id === "child")).toBe(false);
+    get.mockResolvedValue(fakeServerIssue("child", { parentId: "parent", doneAt: new Date().toISOString() }));
+    const remove = vi.spyOn(issuesApi, "remove").mockResolvedValue(undefined);
+    await act(async () => {
+      store.get().deleteIssue("child");
+      await flush();
+      await flush();
+    });
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(store.get().data.issues.some((i) => i.id === "child")).toBe(false);
+    expect(store.get().data.issues.find((i) => i.id === "parent")?.subtasksSummary).toEqual({ total: 0, done: 0 });
+  });
 });

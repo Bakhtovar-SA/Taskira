@@ -58,6 +58,7 @@ import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import { assertSprintsEnabled, getSprintInProject } from "../services/sprints.js";
 import { loadConfig } from "../config.js";
+import { createTtlCache } from "../services/ttlCache.js";
 import {
   decodeIssueListCursor,
   decodeIssueSortCursor,
@@ -74,6 +75,7 @@ import {
   CustomFieldValueBody,
   IssueCreateBody,
   IssueAssigneesQuery,
+  IssueEpicsQuery,
   IssueCountsQuery,
   IssueListPageMeta,
   IssueLinkCreateBody,
@@ -119,6 +121,7 @@ const issueListPerfTraces = new WeakMap<object, IssueListPerfTrace>();
 const issueListPermission = requirePerm("browse");
 
 export async function issuesRoutes(app: FastifyInstance): Promise<void> {
+  const assigneesCache = createTtlCache<{ items: { userId: string; count: number }[] }>(loadConfig().assigneesCacheTtlMs);
   /* ---------------------------------------------------------- список с фильтрами */
   app.get(
     "/",
@@ -300,17 +303,72 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/assignees", { preHandler: [issueListPermission, zquery(IssueAssigneesQuery)] }, async (req) => {
     const project = req.project!;
     const { limit } = req.query as z.infer<typeof IssueAssigneesQuery>;
-    const rows = await q<{ user_id: string; n: number }>(
-      `SELECT ia.user_id, count(*)::int AS n
-         FROM issue_assignees ia
-         JOIN issues i ON i.id = ia.issue_id
-        WHERE i.project_id = $1 AND i.archived_at IS NULL
-        GROUP BY ia.user_id
-        ORDER BY n DESC, ia.user_id
+    // Агрегат по всем назначениям проекта (на 50 тыс. задач — 65 мс и Seq Scan), а список нужен лишь для
+    // аватарок фильтра: точность «на эту секунду» не нужна, поэтому кэш на процесс на короткое время.
+    // Результат не зависит от пользователя (только проект и лимит), поэтому ключ — без пользователя.
+    return assigneesCache.get(`${project.id}:${limit}`, async () => {
+      const rows = await q<{ user_id: string; n: number }>(
+        `SELECT ia.user_id, count(*)::int AS n
+           FROM issue_assignees ia
+           JOIN issues i ON i.id = ia.issue_id
+          WHERE i.project_id = $1 AND i.archived_at IS NULL
+          GROUP BY ia.user_id
+          ORDER BY n DESC, ia.user_id
+          LIMIT $2`,
+        [project.id, limit],
+      );
+      return { items: rows.map((r) => ({ userId: r.user_id, count: r.n })) };
+    });
+  });
+
+  /* ------------------------------------------------ направления (эпики) */
+  // «Эпик» — задача, на которую ссылается чей-то epic_id (миграция 002). Возвращает
+  // только активные направления с агрегатом по их активным детям: число и
+  // сколько из них закрыто (по категории статуса, как считал клиент). Размер
+  // ответа — число направлений, а не задач проекта.
+  app.get("/epics", { preHandler: [issueListPermission, zquery(IssueEpicsQuery)] }, async (req) => {
+    const project = req.project!;
+    const { limit } = req.query as z.infer<typeof IssueEpicsQuery>;
+    const rows = await q<{
+      id: string;
+      key: string;
+      title: string;
+      color: string | null;
+      t_start: number | null;
+      t_span: number | null;
+      total: number;
+      done: number;
+    }>(
+      `SELECT e.id, e.key, e.title, e.color, e.t_start, e.t_span, c.total, c.done
+         FROM (
+           SELECT ch.epic_id,
+                  count(*)::int AS total,
+                  (count(*) FILTER (WHERE ws.category = 'done'))::int AS done
+             FROM issues ch
+             JOIN workflow_statuses ws ON ws.id = ch.status_id
+            WHERE ch.project_id = $1 AND ch.archived_at IS NULL AND ch.epic_id IS NOT NULL
+            GROUP BY ch.epic_id
+         ) c
+         JOIN issues e ON e.id = c.epic_id
+        WHERE e.archived_at IS NULL
+        ORDER BY e.rank, e.id
         LIMIT $2`,
-      [project.id, limit],
+      [project.id, limit + 1],
     );
-    return { items: rows.map((r) => ({ userId: r.user_id, count: r.n })) };
+    const truncated = rows.length > limit;
+    return {
+      items: (truncated ? rows.slice(0, limit) : rows).map((r) => ({
+        id: r.id,
+        key: r.key,
+        title: r.title,
+        color: r.color,
+        tStart: r.t_start,
+        tSpan: r.t_span,
+        childTotal: r.total,
+        childDone: r.done,
+      })),
+      truncated,
+    };
   });
 
   /* ---------------------------------------------------------- создание */

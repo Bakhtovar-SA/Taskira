@@ -414,6 +414,12 @@ export const IssueFilterQuery = z.object({
   /** uuid — исполнитель; "none" — задачи без исполнителей. */
   assignee: z.union([uuid, z.literal("none")]).optional(),
   type: z.enum(ISSUE_TYPES).optional(),
+  /** Дети одной задачи: подзадачи (`parentId`, миграция 021) и задачи
+   *  «направления» (`epicId`). Те же пагинация, сортировка и права, что у списка,
+   *  поэтому для карточки не нужен отдельный путь. Подзадачи лежат в проекте
+   *  родителя; архивные скрыты, как и везде, — `archived=all` вернёт их. */
+  parentId: uuid.optional(),
+  epicId: uuid.optional(),
   q: z.string().max(120).optional(),
   dueFrom: isoDate().optional(),
   dueTo: isoDate().optional(),
@@ -449,6 +455,13 @@ export const IssueQuery = IssueFilterQuery.extend({
 
 /** GET …/issues/counts — тот же набор фильтров, без пагинации и сортировки. */
 export const IssueCountsQuery = IssueFilterQuery;
+
+/** GET …/issues/epics — направления проекта («эпик» — задача, на которую
+ *  ссылаются другие через epicId) с агрегатом по активным детям. Timeline и
+ *  справочник направлений доски/списка читают его вместо обхода всех задач. */
+export const IssueEpicsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+});
 
 /** GET …/issues/assignees — исполнители активных задач проекта по убыванию
  *  нагрузки. Доска строит по нему полоску аватаров-фильтров: раньше она

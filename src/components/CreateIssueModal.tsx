@@ -1,19 +1,22 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { assignableUsers, useStore } from "../store";
-import type { ComplexityId, IssueTypeId, PriorityId } from "../types";
+import type { ComplexityId, Issue, IssueTypeId, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcPlus, IcX, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, Dropdown, Modal, Chip } from "../ui";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
 import { useT } from "../i18n";
+import IssueSearchBox from "./IssueSearchBox";
+import { useIssue } from "../issuePages";
 
 const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 export default function CreateIssueModal() {
   const { t } = useT();
   const { data, ui, setCreateOpen, createIssue } = useStore();
-  const parent = ui.createParentId ? data.issues.find((i) => i.id === ui.createParentId) : undefined;
+  // Родитель создаваемой подзадачи: из кэша (его только что открывали) или точечный запрос по id.
+  const parent = useIssue(ui.createParentId) ?? undefined;
   const [typeId, setTypeId] = useState<IssueTypeId>("task");
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
@@ -22,6 +25,20 @@ export default function CreateIssueModal() {
   const [complexity, setComplexity] = useState<ComplexityId | null>(null);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [epicId, setEpicId] = useState<string | null>(null);
+  // Выбранное направление держим объектом: заголовок для кнопки берётся из него, а не
+  // из списка всех задач проекта.
+  const [epicPicked, setEpicPicked] = useState<Issue | null>(null);
+  const [dirOpen, setDirOpen] = useState(false);
+  const dirPanelRef = useRef<HTMLDivElement>(null);
+  // Панель раскрывается внутри прокручиваемого тела модалки: без прокрутки список
+  // оказывался бы под нижней панелью с кнопкой «Создать задачу».
+  useEffect(() => {
+    if (!dirOpen) return;
+    const scroll = () => dirPanelRef.current?.scrollIntoView({ block: "nearest" });
+    scroll();
+    const id = setTimeout(scroll, 350); // после загрузки «недавних» панель вырастает
+    return () => clearTimeout(id);
+  }, [dirOpen]);
   const [dueDate, setDueDate] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [labelDraft, setLabelDraft] = useState("");
@@ -48,11 +65,6 @@ export default function CreateIssueModal() {
     setTemplateStatusId(t.statusId);
   };
 
-  // Тип "epic" упразднён (миграция 002): «направление» — обычная задача, на
-  // которую ссылаются через epicId. Кандидат — любая задача проекта, а не
-  // только уже кем-то выбранная — иначе список кандидатов никогда бы не
-  // наполнился (выбрать было бы не из чего, чтобы появилось первое направление).
-  const directionOptions = data.issues;
   const assignees = assigneeIds.map((id) => data.users.find((u) => u.id === id)).filter((u): u is NonNullable<typeof u> => !!u);
 
   const addLabel = () => {
@@ -101,7 +113,7 @@ export default function CreateIssueModal() {
     <Modal onClose={() => setCreateOpen(false)} w={620} title={t("createIssue.title")}>
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
         <span className="font-disp text-[14px] font-bold text-ink">{parent ? t("createIssue.newSubtask") : t("createIssue.newIssue")}</span>
-        <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-sub">{data.project.key}-{data.seq}</span>
+        <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-sub">{data.project.key}</span>
         {parent && (
           <span className="rounded bg-accentsoft px-1.5 py-0.5 text-[10.5px] font-semibold text-accent">
             {t("createIssue.subtaskOf", { key: parent.key })}
@@ -297,17 +309,36 @@ export default function CreateIssueModal() {
           </div>
           <div>
             <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.direction")}</p>
-            <select value={epicId ?? ""} onChange={(e) => setEpicId(e.target.value || null)} className={`${inputCls} cursor-pointer`}>
-              <option value="">{t("createIssue.noDirection")}</option>
-              {directionOptions.map((e) => (
-                <option key={e.id} value={e.id}>{e.title}</option>
-              ))}
-            </select>
-            {directionOptions.length === 0 && (
-              <p className="mt-1 text-[10.5px] leading-snug text-faint">
-                {t("createIssue.noDirectionsYet")}
-              </p>
+            {/* Панель раскрывается в потоке формы, а не всплывающим слоем: тело модалки
+                прокручивается, и выпадашка обрезалась бы нижней панелью с кнопкой. */}
+            <button
+              type="button"
+              onClick={() => setDirOpen((o) => !o)}
+              aria-expanded={dirOpen}
+              className={`${inputCls} flex items-center gap-2 text-left ${dirOpen ? "border-accent" : ""}`}
+            >
+              <span className={`min-w-0 flex-1 truncate ${epicPicked ? "" : "text-faint"}`}>
+                {epicPicked ? epicPicked.title : t("createIssue.noDirection")}
+              </span>
+              <IcChevD size={12} className={`shrink-0 text-faint transition-transform ${dirOpen ? "rotate-180" : ""}`} />
+            </button>
+            {dirOpen && (
+              <div ref={dirPanelRef} className="mt-1.5 rounded-md border border-line bg-panel p-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setEpicId(null); setEpicPicked(null); setDirOpen(false); }}
+                  className="mb-1 w-full rounded px-2 py-1.5 text-left text-[12px] text-sub transition-colors hover:bg-canvas"
+                >
+                  {t("createIssue.noDirection")}
+                </button>
+                <IssueSearchBox
+                  autoFocus
+                  ariaLabel={t("field.direction")}
+                  onPick={(e) => { setEpicId(e.id); setEpicPicked(e); setDirOpen(false); }}
+                />
+              </div>
             )}
+            <p className="mt-1 text-[10.5px] leading-snug text-faint">{t("createIssue.directionHint")}</p>
           </div>
           <div>
             <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.complexity")}</p>
