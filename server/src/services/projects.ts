@@ -1,16 +1,8 @@
 /** Проекты: список видимых пользователю + DTO. Резолв одного проекта — services/project.ts. */
 import { q } from "../db.js";
 import type { ProjectRow } from "./project.js";
-
-export interface ProjectDto {
-  id: string;
-  key: string;
-  name: string;
-  description: string;
-  departmentId: string;
-  isShared: boolean;
-  sprintsEnabled: boolean;
-}
+import type { ProjectDto } from "../contract.js";
+export type { ProjectDto };
 
 interface ProjectDbRow {
   id: string;

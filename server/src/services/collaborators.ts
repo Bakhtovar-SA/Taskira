@@ -9,7 +9,6 @@ import { one, q } from "../db.js";
 import type { CollaboratorDto } from "../contract.js";
 export type { CollaboratorDto };
 
-
 interface Row {
   user_id: string;
   name: string;

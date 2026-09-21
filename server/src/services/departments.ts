@@ -1,13 +1,7 @@
 /** Департаменты: список и одна запись. CRUD — в routes/departments.ts. */
 import { q, one } from "../db.js";
-
-export interface DepartmentDto {
-  id: string;
-  name: string;
-  /** DN группы LDAP/AD — заполняется на этапе LDAP-синхронизации. */
-  ldapGroupDn: string | null;
-  projectCount: number;
-}
+import type { DepartmentDto, DepartmentMemberDto } from "../contract.js";
+export type { DepartmentDto, DepartmentMemberDto };
 
 interface DepartmentDbRow {
   id: string;
@@ -38,19 +32,6 @@ export async function listDepartments(withLdapGroup: boolean): Promise<Departmen
 export async function getDepartment(id: string): Promise<DepartmentDto | null> {
   const row = await one<DepartmentDbRow>(`${SELECT} WHERE d.id = $1`, [id]);
   return row ? toDto(row, true) : null;
-}
-
-/** Состав отдела (department_members, 009_ldap.sql). source='ldap' —
- *  пересобирается синхронизацией (services/departmentSync.ts), 'manual' —
- *  добавлено/убирается здесь напрямую (для отделов без LDAP-группы или пока
- *  человек не попал ни в одну группу директории). */
-export interface DepartmentMemberDto {
-  userId: string;
-  name: string;
-  initials: string;
-  color: string;
-  jobRole: string;
-  source: "ldap" | "manual";
 }
 
 interface MemberRow {

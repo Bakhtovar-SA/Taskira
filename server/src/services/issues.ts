@@ -43,7 +43,6 @@ export interface IssueRow {
   archived_at: Date | null;
 }
 
-
 /** assigneeIds передаётся явным параметром, а не читается из row — исполнители
  *  больше не колонка issues (миграция 025), это отдельная таблица, и то, как
  *  её выгодно грузить (одна задача vs batch по списку), зависит от вызывающего
@@ -276,9 +275,6 @@ export async function withIssueParentLock<T>(issueId: string, write: (client: Po
   return withAdvisoryLocks([issueId], write);
 }
 
-/** Мини-профиль участника задачи — чтобы карточку можно было отрисовать без
- *  bootstrap проекта (одиночный просмотр приглашённого, COLLAB_MIGRATION.md Фаза 6). */
-
 async function listParticipants(issueId: string): Promise<ParticipantDto[]> {
   const rows = await q<{ id: string; name: string; initials: string; color: string; job_role: string }>(
     `SELECT u.id, u.name, u.initials, u.color, u.job_role
@@ -293,7 +289,6 @@ async function listParticipants(issueId: string): Promise<ParticipantDto[]> {
   );
   return rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role }));
 }
-
 
 /** Итог по подзадачам — total/done СЧИТАЕТСЯ по всем детям (включая
  *  заархивированных), не по тому, что успел загрузить клиент в data.issues
@@ -324,10 +319,6 @@ async function getEpicChildrenCount(issueId: string): Promise<number> {
   );
   return Number(row?.n ?? 0);
 }
-
-/** Карточка задачи: DTO + приглашённые участники (issue_collaborators, миграция 008)
- *  + участники (reporter/assignee/авторы комментариев/приглашённые) для рендера
- *  карточки без bootstrap. Всё это — только в детальном ответе GET /:id, не в списке. */
 
 export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
@@ -360,7 +351,6 @@ export async function nextIssueNum(projectId: string): Promise<number> {
   if (!row) throw new Error("Счётчик задач не вернул номер");
   return row.num;
 }
-
 
 /** История задачи, последние `limit` записей в хронологическом порядке.
  *

@@ -108,13 +108,13 @@ Enforcement points:
 `src/validation.ts` `LIMITS` ↔ `server/src/contract.ts` `LIMITS` + zod schemas. `contract.ts`
 is the single source of request/response shapes; the server validates every body/query with it
 via `zbody()` / `zquery()` preValidation hooks. Client validation is UX-only; the server repeats it.
-**Response types (TZ 2.1, in progress — issue family done):** `contract.ts` also holds zod schemas for responses
+**Response types (TZ 2.1, in progress — issue family and project/user/workflow/bootstrap done):** `contract.ts` also holds zod schemas for responses
 (`IssueDto`, `IssueDetailDto`, `CommentDto`, …); server mappers are annotated with `z.infer` of them and the client
 imports the same types (`import type` from `../../server/src/contract`, root has `zod` as a devDependency for types
 only — nothing reaches the bundle). Those schemas are **type sources only, never `.parse()`d at runtime** — they do
 not guarantee a mapper returns what it declares (SQL rows are cast `q<Row>`); don't assume the API is protected from
-drift against the DB because a schema exists. Response types not yet in `contract.ts` (project/workflow/users,
-notifications, reports, sprints, templates, home/search, …) are still hand-written in `src/api/index.ts` and
+drift against the DB because a schema exists. Response types not yet in `contract.ts` (notifications, reports, home/search/collaborating,
+counts/epics/assignees, pickable users, …) are still hand-written in `src/api/index.ts` and
 `server/src/services/*.ts` until the next steps of 2.1. The old text-emitting `generate-client-contracts.mjs` /
 `contracts:check` is gone: a client `npm run typecheck` now fails when a contract field disappears.
 

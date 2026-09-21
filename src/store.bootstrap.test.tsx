@@ -121,7 +121,7 @@ describe("bootstrap → один проект (single-project path)", () => {
       project: projects[0],
       users: [baseUser as never],
       members: [{ userId: "u1", role: "manager" }],
-      workflow: { statuses: [{ id: "s1", sid: "todo", name: "К работе", category: "todo" }], transitions: [] },
+      workflow: { statuses: [{ id: "s1", sid: "todo", name: "К работе", category: "todo", position: 0 }], transitions: [] },
       issueTemplates: [
         { id: "t1", name: "Баг-репорт", typeId: "bug", priorityId: "high", title: "Баг: ", description: "", statusId: null, position: 0 },
       ],

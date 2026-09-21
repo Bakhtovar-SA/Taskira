@@ -10,8 +10,20 @@ import type {
   IssueDetailDto,
   IssueDto,
   IssueLinkDto,
+  CustomFieldDto,
+  DepartmentDto,
+  DepartmentMemberDto,
+  GLOBAL_ROLES,
   IssueListPageMeta,
+  IssueTemplateDto,
+  MeDto,
+  NotifyPrefs as NotifyPrefsDto,
   ParticipantDto,
+  PROJECT_ROLES,
+  ProjectBootstrapDto,
+  ProjectDto,
+  SafeUser as SafeUserDto,
+  SprintDto,
 } from "../../server/src/contract";
 
 let legacyBearerToken: string | null = null;
@@ -171,34 +183,23 @@ export async function downloadBlob(path: string, filename: string): Promise<void
 
 /* -------- типизированные вызовы -------- */
 
-export type GlobalRole = "admin" | "member";
-export type ProjectRole = "manager" | "employee" | "viewer";
+/* -------- пользователи, проекты, bootstrap: из zod-контракта сервера (ТЗ 2.1, PR 2) -------- */
+export type GlobalRole = (typeof GLOBAL_ROLES)[number];
+export type ProjectRole = (typeof PROJECT_ROLES)[number];
+export type NotifyPrefs = NotifyPrefsDto;
 
-export type SafeUser = {
-  id: string;
-  username: string;
-  name: string;
-  initials: string;
-  color: string;
-  jobRole: string;
-  /** Телефон — из AD у LDAP-пользователей, вручную при создании локального. */
-  phone: string;
-  /** Глобальная роль ресурса (users.global_role) — источник прав.
-   *  Проектная роль приходит в ProjectBootstrap.members. */
-  globalRole: GlobalRole;
-  isActive: boolean;
-  /** local | ldap — у ldap-юзеров роль/профиль приходят из директории. */
-  authSource: "local" | "ldap";
-  /** мс эпохи последней загрузки аватарки; null — аватарки нет. Cache-buster
-   *  для GET /api/users/:id/avatar. */
-  avatarUpdatedAt: number | null;
-  /** Настройки уведомлений — приходят только в GET /api/auth/me (не в общем списке). */
-  notifyPrefs?: NotifyPrefs;
-  /** Избранные проекты (миграция 024) — id, тоже только в GET /api/auth/me. */
-  favoriteProjectIds?: string[];
-};
+/** Профиль пользователя. `notifyPrefs`/`favoriteProjectIds` приходят только в GET /api/auth/me (`MeDto`), поэтому
+ *  у клиента необязательны: общий список пользователей отдаёт `SafeUser` без них. */
+export type SafeUser = SafeUserDto & Partial<Pick<MeDto, "notifyPrefs" | "favoriteProjectIds">>;
 
-export type NotifyPrefs = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
+export type Project = ProjectDto;
+export type Department = DepartmentDto;
+export type DepartmentMember = DepartmentMemberDto;
+export type ServerSprint = SprintDto;
+export type ServerIssueTemplate = IssueTemplateDto;
+export type ServerCustomField = CustomFieldDto;
+/** Ответ `GET /api/projects/:projectId`; `users` клиент читает как `SafeUser` (см. выше). */
+export type ProjectBootstrap = Omit<ProjectBootstrapDto, "users"> & { users: SafeUser[] };
 
 export type ServerNotification = {
   id: string;
@@ -270,81 +271,6 @@ export type SearchResultItem = {
   statusCategory: string;
   projectKey: string;
   projectName: string;
-};
-
-/** Проект (список / карточка / ответ POST·PATCH). */
-export type Project = {
-  id: string;
-  key: string;
-  name: string;
-  description: string;
-  departmentId: string;
-  isShared: boolean;
-  sprintsEnabled: boolean;
-};
-
-export type Department = {
-  id: string;
-  name: string;
-  ldapGroupDn: string | null;
-  projectCount: number;
-};
-
-/** Состав отдела: из LDAP-группы или добавлено вручную (department_members,
- *  миграция 009 — source='manual' был в схеме с самого начала, роут появился позже). */
-export type DepartmentMember = {
-  userId: string;
-  name: string;
-  initials: string;
-  color: string;
-  jobRole: string;
-  source: "ldap" | "manual";
-};
-
-/** Ответ GET /api/projects/:projectId — данные одного проекта. */
-export type ProjectBootstrap = {
-  project: Project;
-  users: SafeUser[];
-  /** Состав проекта: userId → проектная роль. Права me считаются из globalRole + этого. */
-  members: { userId: string; role: ProjectRole }[];
-  workflow: {
-    statuses: { id: string; sid: string; name: string; category: "todo" | "inprogress" | "done"; position?: number }[];
-    transitions: { id: string; from: string; to: string }[];
-  };
-  issueTemplates: ServerIssueTemplate[];
-  customFields: ServerCustomField[];
-  sprints: ServerSprint[];
-};
-
-/** Спринт проекта (sprints, миграция 023, опциональный модуль). */
-export type ServerSprint = {
-  id: string;
-  name: string;
-  goal: string;
-  status: "future" | "active" | "completed";
-  startDate: string | null;
-  endDate: string | null;
-};
-
-/** Шаблон задачи проекта (issue_templates, миграция 022). */
-export type ServerIssueTemplate = {
-  id: string;
-  name: string;
-  typeId: string;
-  priorityId: string;
-  title: string;
-  description: string;
-  statusId: string | null;
-  position: number;
-};
-
-/** Определение пользовательского поля проекта (custom_fields, миграция 020). */
-export type ServerCustomField = {
-  id: string;
-  name: string;
-  fieldType: "text" | "number" | "select" | "checkbox" | "date";
-  options: string[];
-  position: number;
 };
 
 /** Префикс ресурсов проекта. */

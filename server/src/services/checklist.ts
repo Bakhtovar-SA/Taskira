@@ -7,7 +7,6 @@ import { notFound } from "../middleware.js";
 import type { ChecklistItemDto } from "../contract.js";
 export type { ChecklistItemDto };
 
-
 interface Row {
   id: string;
   text: string;

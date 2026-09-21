@@ -33,7 +33,7 @@ const boot: ProjectBootstrap = {
   project,
   users: [baseUser as never],
   members: [{ userId: "u1", role: "manager" }],
-  workflow: { statuses: [{ id: "s1", sid: "todo", name: "К работе", category: "todo" }], transitions: [] },
+  workflow: { statuses: [{ id: "s1", sid: "todo", name: "К работе", category: "todo", position: 0 }], transitions: [] },
   issueTemplates: [],
   customFields: [],
   sprints: [],
