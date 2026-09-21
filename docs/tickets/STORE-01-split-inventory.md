@@ -34,7 +34,7 @@
 ## Потребители и ограничения
 
 - 32 файла вызывают `useStore()`; чаще всего берут по 2–8 полей (`data`, `can`, действия домена). Публичный API
-  (`Api`, 90 полей) **не меняется** — иначе разрез становится переписыванием UI.
+  (`Api`, 74 поля; «90» — число замыканий в провайдере) **не меняется** — иначе разрез становится переписыванием UI.
 - Тесты на `StoreProvider`: `store.test.ts`, `store.bootstrap.test.tsx`, `store.openIssue.test.tsx`,
   `store.issueLookup.test.tsx`, `store.importIssues.test.tsx`, `store.favorites.test.tsx`, `store.sprints.test.tsx`,
   `store.subtasksUx.test.tsx`, `sprints.lazy.test.tsx` и др. — должны проходить **без правок**.
