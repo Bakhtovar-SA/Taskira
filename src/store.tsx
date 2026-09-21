@@ -16,7 +16,6 @@ import type {
   Toast,
   User,
   ViewId,
-  Workflow,
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
@@ -37,15 +36,11 @@ import {
   avatarApi,
   clearToken,
   collaboratorsApi,
-  issueTemplatesApi,
-  customFieldsApi,
-  ldapApi,
   commentsApi,
   departmentsApi,
   getToken,
   invalidateAvatarBlobUrl,
   issuesApi,
-  membersApi,
   notificationsApi,
   projectsApi,
   type CollaboratingItem,
@@ -53,7 +48,6 @@ import {
   type NotifyPrefs,
   type ServerChecklistItem,
   type ServerIssueLink,
-  workflowApi,
 } from "./api";
 import {
   applyNotificationAction,
@@ -81,6 +75,8 @@ import type { BootStatus, CreateInput, SoloState, StoreIndexes, UIState } from "
 
 import type { StoreCtx } from "./store/ctx";
 import { useSprintActions } from "./store/sprints";
+import { useMetaActions } from "./store/meta";
+import { useOrgActions } from "./store/org";
 import { useFavoritesAndSearch } from "./store/favoritesSearch";
 
 // Фасад: публичные имена по-прежнему берутся из "store" — компоненты и тесты не менялись (ТЗ 2.3).
@@ -1488,444 +1484,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [requirePerm, resolveIssue, toast, handleApiError],
   );
 
-  const addTransition = useCallback(
-    (from: string, to: string): string | null => {
-      if (!requirePerm("editWorkflow")) return local("Нет прав", "Permission denied");
-      if (from === to) return local("Статусы «из» и «в» совпадают", "The source and destination statuses are the same");
-      void (async () => {
-        try {
-          const tr = await workflowApi.addTransition(pid(), from, to);
-          setData((prev) => ({
-            ...prev,
-            workflow: {
-              ...prev.workflow,
-              transitions: [...prev.workflow.transitions, { id: tr.id, from: tr.from, to: tr.to }],
-            },
-          }));
-          toast("success", local("Переход добавлен", "Transition added"));
-        } catch (err) {
-          handleApiError(err);
-        }
-      })();
-      return null;
-    },
-    [requirePerm, toast, handleApiError, local],
-  );
-
-  const removeTransition = useCallback(
-    (id: string) => {
-      if (!requirePerm("editWorkflow")) return;
-      void (async () => {
-        try {
-          await workflowApi.removeTransition(pid(), id);
-          setData((prev) => ({
-            ...prev,
-            workflow: {
-              ...prev.workflow,
-              transitions: prev.workflow.transitions.filter((t) => t.id !== id),
-            },
-          }));
-          toast("info", local("Переход удалён", "Transition removed"));
-        } catch (err) {
-          handleApiError(err);
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const resetWorkflow = useCallback(() => {
-    if (!requirePerm("editWorkflow")) return;
-    void (async () => {
-      try {
-        await workflowApi.reset(pid());
-        const boot = await projectsApi.get(pid());
-        setData((prev) => ({
-          ...prev,
-          workflow: {
-            statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
-            transitions: boot.workflow.transitions.map((t) => ({ id: t.id, from: t.from, to: t.to })),
-          },
-        }));
-        toast("info", local("Схема восстановлена", "Workflow reset"));
-      } catch (err) {
-        handleApiError(err);
-      }
-    })();
-  }, [requirePerm, toast, handleApiError]);
-
-  /* -------- шаблоны задач (issue_templates, миграция 022). Тем же правом
-     editWorkflow, что и схема workflow/custom-fields — не заводили отдельный
-     PermId под ещё одну «структурную схему проекта». -------- */
-
-  const addIssueTemplate = useCallback(
-    (input: IssueTemplateInput) => {
-      if (!requirePerm("editWorkflow")) return;
-      void (async () => {
-        try {
-          const t = await issueTemplatesApi.create(pid(), input);
-          setData((prev) => ({ ...prev, issueTemplates: [...prev.issueTemplates, mapIssueTemplate(t)] }));
-          toast("success", local("Шаблон добавлен", "Template added"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось добавить шаблон", "Couldn't add the template"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const updateIssueTemplateAction = useCallback(
-    (templateId: string, input: IssueTemplateInput) => {
-      if (!requirePerm("editWorkflow")) return;
-      void (async () => {
-        try {
-          const t = await issueTemplatesApi.update(pid(), templateId, input);
-          setData((prev) => ({
-            ...prev,
-            issueTemplates: prev.issueTemplates.map((x) => (x.id === templateId ? mapIssueTemplate(t) : x)),
-          }));
-          toast("success", local("Шаблон обновлён", "Template updated"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось обновить шаблон", "Couldn't update the template"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const removeIssueTemplate = useCallback(
-    (templateId: string) => {
-      if (!requirePerm("editWorkflow")) return;
-      void (async () => {
-        try {
-          await issueTemplatesApi.remove(pid(), templateId);
-          setData((prev) => ({ ...prev, issueTemplates: prev.issueTemplates.filter((x) => x.id !== templateId) }));
-          toast("info", local("Шаблон удалён", "Template deleted"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось удалить шаблон", "Couldn't delete the template"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  /* -------- определения пользовательских полей (custom_fields, миграция 020).
-     Тем же правом editWorkflow, что и схема workflow (см. миграцию/комментарий
-     в customFields.ts на сервере) — отдельного PermId под них не заводили. */
-
-  const addCustomField = useCallback(
-    (name: string, fieldType: CustomFieldType, options: string[]) => {
-      if (!requirePerm("editWorkflow")) return;
-      const trimmed = name.trim();
-      if (!trimmed) return toast("error", local("Название поля не может быть пустым", "Field name cannot be empty"));
-      void (async () => {
-        try {
-          const field = await customFieldsApi.create(pid(), { name: trimmed, fieldType, options });
-          setData((prev) => ({ ...prev, customFields: [...prev.customFields, field] }));
-          toast("success", local("Поле добавлено", "Field added"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось добавить поле", "Couldn't add the field"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const renameCustomField = useCallback(
-    (fieldId: string, name: string) => {
-      if (!requirePerm("editWorkflow")) return;
-      const trimmed = name.trim();
-      if (!trimmed) return toast("error", local("Название поля не может быть пустым", "Field name cannot be empty"));
-      void (async () => {
-        try {
-          const field = await customFieldsApi.rename(pid(), fieldId, trimmed);
-          setData((prev) => ({
-            ...prev,
-            customFields: prev.customFields.map((f) => (f.id === fieldId ? field : f)),
-          }));
-        } catch (err) {
-          handleApiError(err, local("Не удалось переименовать поле", "Couldn't rename the field"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const removeCustomField = useCallback(
-    (fieldId: string) => {
-      if (!requirePerm("editWorkflow")) return;
-      void (async () => {
-        try {
-          await customFieldsApi.remove(pid(), fieldId);
-          setData((prev) => ({
-            ...prev,
-            customFields: prev.customFields.filter((f) => f.id !== fieldId),
-            issues: prev.issues.map((i) => ({
-              ...i,
-              customFieldValues: i.customFieldValues.filter((v) => v.fieldId !== fieldId),
-            })),
-          }));
-          toast("info", local("Поле удалено", "Field deleted"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось удалить поле", "Couldn't delete the field"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const setMemberRole = useCallback(
-    (userId: string, role: ProjectRole) => {
-      if (!requirePerm("manageAccess")) return;
-      void (async () => {
-        try {
-          const res = await membersApi.set(pid(), userId, role);
-          setData((prev) => ({ ...prev, members: { ...prev.members, [res.userId]: res.role } }));
-          toast("success", local("Роль участника обновлена", "Member role updated"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось изменить роль участника", "Couldn't update the member role"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  const removeMember = useCallback(
-    (userId: string) => {
-      if (!requirePerm("manageAccess")) return;
-      void (async () => {
-        try {
-          await membersApi.remove(pid(), userId);
-          setData((prev) => {
-            const members = { ...prev.members };
-            delete members[userId];
-            return { ...prev, members };
-          });
-          toast("info", local("Участник удалён из проекта", "Member removed from the project"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось удалить участника", "Couldn't remove the member"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError],
-  );
-
-  /** Пересобрать состав + профили ОТКРЫТОГО проекта из bootstrap. Оптимистичного
-   *  патча data.members мало: только что добавленный участник отсутствует в
-   *  data.users (bootstrap-состав = «участники ∪ глоб. админы»), из-за чего в
-   *  PermissionsView он рендерится сырым UUID, а в пикере исполнителя его нет. */
-  const syncCurrentMembers = useCallback(async (projectId: string) => {
-    const boot = await projectsApi.get(projectId);
-    const members: Record<string, ProjectRole> = {};
-    for (const m of boot.members) members[m.userId] = m.role;
-    setData((prev) =>
-      prev.currentProjectId === projectId
-        ? { ...prev, members, users: boot.users.map((u) => mapUser(u, members)) }
-        : prev,
-    );
-  }, []);
-
-  /** Изменить/добавить участника ЛЮБОГО проекта (не только текущего) — из AdminView.
-   *  Сервер разрешает это глобальному admin для любого проекта. Если правится
-   *  открытый проект — ресинк data.members + data.users, чтобы me/PermissionsView/
-   *  пикер исполнителя не отстали. */
-  const setProjectMember = useCallback(
-    async (projectId: string, userId: string, role: ProjectRole): Promise<void> => {
-      if (!requirePerm("manageAccess")) return;
-      try {
-        await membersApi.set(projectId, userId, role);
-        if (projectId === dataRef.current.currentProjectId) await syncCurrentMembers(projectId);
-        toast("success", local("Роль участника обновлена", "Member role updated"));
-      } catch (err) {
-        handleApiError(err, local("Не удалось изменить участника проекта", "Couldn't update the project member"));
-        throw err;
-      }
-    },
-    [requirePerm, toast, handleApiError, syncCurrentMembers],
-  );
-
-  const removeProjectMember = useCallback(
-    async (projectId: string, userId: string): Promise<void> => {
-      if (!requirePerm("manageAccess")) return;
-      try {
-        await membersApi.remove(projectId, userId);
-        if (projectId === dataRef.current.currentProjectId) await syncCurrentMembers(projectId);
-        toast("info", local("Участник удалён из проекта", "Member removed from the project"));
-      } catch (err) {
-        handleApiError(err, local("Не удалось удалить участника проекта", "Couldn't remove the project member"));
-        throw err;
-      }
-    },
-    [requirePerm, toast, handleApiError, syncCurrentMembers],
-  );
-
-  /* -------- админ: департаменты и проекты (manageAccess = глобальный admin) -------- */
-
-  /** Перезагрузка списков проектов и департаментов после мутаций оргструктуры. */
-  const refreshOrg = useCallback(async () => {
-    const [list, deps] = await Promise.all([projectsApi.list(), departmentsApi.list().catch(() => [])]);
-    setData((prev) => ({
-      ...prev,
-      projects: list.map((p) => ({
-        id: p.id,
-        key: p.key,
-        name: p.name,
-        departmentId: p.departmentId,
-        isShared: p.isShared,
-        sprintsEnabled: p.sprintsEnabled,
-      })),
-      departments: deps,
-    }));
-  }, []);
-
-  const createDepartment = useCallback(
-    (name: string) => {
-      if (!requirePerm("manageAccess")) return;
-      void (async () => {
-        try {
-          await departmentsApi.create(name);
-          await refreshOrg();
-          toast("success", local(`Отдел «${name}» создан`, `Department “${name}” created`));
-        } catch (err) {
-          handleApiError(err, local("Не удалось создать отдел", "Couldn't create the department"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError, refreshOrg],
-  );
-
-  const renameDepartment = useCallback(
-    (id: string, name: string) => {
-      if (!requirePerm("manageAccess")) return;
-      void (async () => {
-        try {
-          await departmentsApi.patch(id, { name });
-          await refreshOrg();
-        } catch (err) {
-          handleApiError(err, local("Не удалось переименовать отдел", "Couldn't rename the department"));
-        }
-      })();
-    },
-    [requirePerm, handleApiError, refreshOrg],
-  );
-
-  /** Привязать/очистить LDAP-группу отдела (только AUTH_MODE=ldap). */
-  const setDepartmentLdapGroup = useCallback(
-    (id: string, ldapGroupDn: string | null) => {
-      if (!requirePerm("manageAccess")) return;
-      void (async () => {
-        try {
-          await departmentsApi.patch(id, { ldapGroupDn });
-          await refreshOrg();
-          toast("success", ldapGroupDn ? local("LDAP-группа привязана", "LDAP group linked") : local("Привязка LDAP-группы снята", "LDAP group unlinked"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось сохранить LDAP-группу", "Couldn't save the LDAP group"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError, refreshOrg],
-  );
-
-  /** Ручной ресинк членства в департаментах из LDAP (до фонового воркера). */
-  const resyncLdap = useCallback(() => {
-    if (!requirePerm("manageAccess")) return;
-    void (async () => {
-      try {
-        const r = await ldapApi.resync();
-        const ruTail =
-          (r.notFound.length ? ` · не найдено в LDAP: ${r.notFound.length}` : "") +
-          (r.errors.length ? ` · ошибок: ${r.errors.length}` : "");
-        const enTail =
-          (r.notFound.length ? ` · not found in LDAP: ${r.notFound.length}` : "") +
-          (r.errors.length ? ` · errors: ${r.errors.length}` : "");
-        toast(r.errors.length ? "error" : "success", local(`Ресинк: ${r.synced}/${r.total}${ruTail}`, `Resync: ${r.synced}/${r.total}${enTail}`));
-      } catch (err) {
-        handleApiError(err, local("Ресинк LDAP не удался", "LDAP resync failed"));
-      }
-    })();
-  }, [requirePerm, toast, handleApiError]);
-
-  const deleteDepartment = useCallback(
-    (id: string) => {
-      if (!requirePerm("manageAccess")) return;
-      void (async () => {
-        try {
-          await departmentsApi.remove(id);
-          await refreshOrg();
-          toast("info", local("Отдел удалён", "Department deleted"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось удалить отдел", "Couldn't delete the department"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError, refreshOrg],
-  );
-
-  const createProject = useCallback(
-    (input: { key: string; name: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean }) => {
-      if (!requirePerm("manageAccess")) return;
-      void (async () => {
-        try {
-          const p = await projectsApi.create(input);
-          await refreshOrg();
-          toast("success", local(`Проект ${p.key} создан`, `Project ${p.key} created`));
-        } catch (err) {
-          handleApiError(err, local("Не удалось создать проект", "Couldn't create the project"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError, refreshOrg],
-  );
-
-  const patchProject = useCallback(
-    (
-      id: string,
-      patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean; sprintsEnabled?: boolean },
-    ) => {
-      if (!requirePerm("manageAccess")) return;
-      void (async () => {
-        try {
-          await projectsApi.patch(id, patch);
-          await refreshOrg();
-          // открытый проект: патчим все переданные поля (name/description/isShared/…),
-          // иначе шапка/бейдж покажут устаревшее до следующего switchProject/bootstrap
-          if (id === dataRef.current.currentProjectId) {
-            setData((prev) => ({ ...prev, project: { ...prev.project, ...patch } }));
-          }
-        } catch (err) {
-          handleApiError(err, local("Не удалось изменить проект", "Couldn't update the project"));
-        }
-      })();
-    },
-    [requirePerm, handleApiError, refreshOrg],
-  );
-
-  const deleteProject = useCallback(
-    (id: string) => {
-      if (!requirePerm("manageAccess")) return;
-      const wasCurrent = id === dataRef.current.currentProjectId;
-      void (async () => {
-        try {
-          await projectsApi.remove(id);
-          toast("info", local("Проект удалён", "Project deleted"));
-          if (wasCurrent) {
-            if (readLastProject() === id) writeLastProject("");
-            await bootstrap();
-          } else {
-            await refreshOrg();
-          }
-        } catch (err) {
-          handleApiError(err, local("Не удалось удалить проект", "Couldn't delete the project"));
-        }
-      })();
-    },
-    [requirePerm, toast, handleApiError, refreshOrg, bootstrap],
-  );
-
   // Домены, вынесенные из провайдера (ТЗ 2.3): общий контекст — в ./store/ctx.
   const storeCtx: StoreCtx = { setData, dataRef, pid, toast, handleApiError, requirePerm, local };
   const { addSprint, startSprint, completeSprint, setIssueSprint } = useSprintActions(storeCtx);
   const { toggleFavoriteProject, searchAllProjects } = useFavoritesAndSearch(storeCtx);
+  const { addTransition, removeTransition, resetWorkflow, addIssueTemplate, updateIssueTemplateAction, removeIssueTemplate,
+    addCustomField, renameCustomField, removeCustomField } = useMetaActions(storeCtx);
+  const { setMemberRole, removeMember, setProjectMember, removeProjectMember, createDepartment, renameDepartment,
+    setDepartmentLdapGroup, resyncLdap, deleteDepartment, createProject, patchProject, deleteProject } =
+    useOrgActions(storeCtx, { bootstrap });
 
   const idx = useMemo<StoreIndexes>(
     () => ({
