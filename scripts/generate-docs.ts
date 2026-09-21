@@ -27,6 +27,8 @@ function migrationList(): string {
       if (!raw.trim().startsWith("--")) break; // шапка кончилась
       if (!l || /^=+$/.test(l) || /^-+$/.test(l)) continue;
       if (/^Применяется server\/src\/db\.ts/i.test(l)) continue;
+      // служебные директивы docs/MIGRATIONS.md (`-- migration-transaction: none`, `-- recovery: …`) — не описание
+      if (/^(migration-transaction|recovery)\s*:/i.test(l)) continue;
       return l.replace(/^Taskira\.\s*/i, "").replace(/\|/g, "\\|").slice(0, 200);
     }
     return "";
@@ -124,7 +126,10 @@ async function apiSchemas(): Promise<string> {
   const mod = (await import(pathToFileURL(join(root, "server", "src", "contract.ts")).href)) as Record<string, unknown>;
   const isZod = (v: unknown): boolean => typeof v === "object" && v !== null && "_def" in (v as object) && typeof (v as { safeParse?: unknown }).safeParse === "function";
   const names = Object.keys(mod).filter((k) => isZod(mod[k])).sort();
-  const kindOf = (n: string) => (/(Dto|Result|Response)$/.test(n) || /^(SafeUser|ReportTotals|ReportRow|ReportPoint|NotifyPrefs)$/.test(n) ? "response" : "request");
+  // Запрос — то, что клиент шлёт: суффиксы Body/Query/Params (так названы все схемы запросов в contract.ts). Всё остальное —
+  // форма данных ответа (…Dto, IssueListPageMeta, SafeUser, ReportRow и т. п.): по умолчанию «ответ», а не «запрос», чтобы
+  // странно названная схема не попадала в запросы молча.
+  const kindOf = (n: string) => (/(Body|Query|Params)$/.test(n) ? "request" : "response");
   const section = (n: string): string => {
     const shape = objectShape(mod[n]);
     if (!shape) return `### ${n}\n\n\`${describe(mod[n]).type}\`\n`;

@@ -195,14 +195,6 @@
 |---|---|---|
 | `linkId` | string (uuid) |  |
 
-### IssueListPageMeta
-
-| Поле | Тип | Замечания |
-|---|---|---|
-| `hasMore` | boolean |  |
-| `nextCursor` | string | может быть null |
-| `total` | integer | необязательное; 0…∞ |
-
 ### IssuePatchBody
 
 | Поле | Тип | Замечания |
@@ -630,6 +622,14 @@
 | `dir` | enum: `relates` \| `blocks` \| `blocked_by` |  |
 | `issue` | object |  |
 | `createdAt` | string |  |
+
+### IssueListPageMeta
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `hasMore` | boolean |  |
+| `nextCursor` | string | может быть null |
+| `total` | integer | необязательное; 0…∞ |
 
 ### IssueTemplateDto
 

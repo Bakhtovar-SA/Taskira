@@ -42,11 +42,11 @@
 | Файл | Первая строка описания |
 |---|---|
 | `20260919T1500_security_hardening.sql` |  |
-| `20260920T0631_index_active_issues_page.sql` | migration-transaction: none |
-| `20260920T1400_index_issues_sort_priority.sql` | migration-transaction: none |
-| `20260920T1401_index_issues_sort_due.sql` | migration-transaction: none |
-| `20260920T1402_index_issues_sort_updated.sql` | migration-transaction: none |
+| `20260920T0631_index_active_issues_page.sql` | CREATE INDEX CONCURRENTLY нельзя выполнять внутри BEGIN. При обрыве PostgreSQL |
+| `20260920T1400_index_issues_sort_priority.sql` | Сортировка «Списка задач» (priority) по активным задачам проекта. Выражение и |
+| `20260920T1401_index_issues_sort_due.sql` | Сортировка «Списка задач» (due) по активным задачам проекта. Выражение и |
+| `20260920T1402_index_issues_sort_updated.sql` | Сортировка «Списка задач» (updated) по активным задачам проекта. Выражение и |
 | `20260920T1410_issue_has_assignee.sql` | PERF-05: денормализованный признак «есть исполнитель» для фильтра assignee=none. |
-| `20260920T1411_index_issues_unassigned.sql` | migration-transaction: none |
+| `20260920T1411_index_issues_unassigned.sql` | «Нераспределённые» активные задачи проекта: счётчик по статусам (index-only) и |
 | `20260920T1420_trigram_search_indexes.sql` | SEARCH-01: триграммные индексы для текстового поиска задач (фильтр `q`). |
 | `20260921T1000_login_attempts.sql` | RESTART-SAFETY: лимит попыток входа по IP переезжает из памяти процесса в БД. |
