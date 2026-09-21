@@ -52,7 +52,7 @@
 | Переменная | Обяз. | Пример OpenLDAP | Пример **[AD]** | Назначение |
 |---|---|---|---|---|
 | `AUTH_MODE` | да | `ldap` | `ldap` | `local` (деф.) \| `ldap` |
-| `LDAP_URL` | да | `ldap://dc.corp.local:389` | `ldaps://dc.corp.example.com:636` | один хост; LDAPS см. §7 |
+| `LDAP_URL` | да | `ldap://dc.corp.example:389` | `ldaps://dc.corp.example.com:636` | один хост; LDAPS см. §7 |
 | `LDAP_BIND_DN` | да¹ | `cn=svc-taskira,ou=people,dc=taskira,dc=test` | `CN=svc-taskira,OU=Service,DC=corp,DC=example,DC=com` | read-only сервис-аккаунт |
 | `LDAP_BIND_PASSWORD` | с `BIND_DN` | — | — | пароль сервис-аккаунта; только env, не логируется |
 | `LDAP_USER_BASE_DN` | да | `ou=people,dc=taskira,dc=test` | `OU=Users,OU=Corp,DC=corp,DC=example,DC=com` | база поиска людей (scope sub) |

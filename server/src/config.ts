@@ -119,6 +119,16 @@ export interface MaintenanceConfig {
    *  инстансах включать ровно на одном, как и notify.workerEnabled. */
   enabled: boolean;
   intervalMs: number;
+  /** Задержка первого прохода после старта процесса (MAINTENANCE_START_DELAY_MS, по умолчанию 5 мин): рестарт
+   *  или деплой в час пик не должен сразу запускать архивацию. Джобы sweep/LDAP идут после неё со своим сдвигом. */
+  startDelayMs: number;
+  /** Размер одной пачки архивации/уборки аудита: каждая пачка — отдельный оператор без долгой транзакции,
+   *  так что блокировка строк держится только на время пачки. */
+  batchSize: number;
+  /** Пауза между пачками, мс — чтобы не занимать БД непрерывно. */
+  batchPauseMs: number;
+  /** Потолок строк каждого вида работы за один проход; остаток дообрабатывается следующими проходами. */
+  maxPerRun: number;
   /** Закрытая задача уходит в архив через столько дней после done_at. */
   archiveAfterDays: number;
   /** Строки audit_log старше стольких дней удаляются. 0 — не удалять никогда. */
@@ -155,6 +165,10 @@ export interface Config {
   maintenance: MaintenanceConfig;
   /** Размер пула соединений к Postgres (аудит PERF-07: было зашито в код). */
   pgPoolMax: number;
+  /** Через сколько мс закрывать простаивающее соединение; 0 — не закрывать (умолчание). */
+  pgPoolIdleTimeoutMs: number;
+  /** Время жизни кэша списка исполнителей фильтра доски, мс (на процесс); 0 — выключить. */
+  assigneesCacheTtlMs: number;
   /** Глобальный лимит запросов на пользователя/IP (аудит SEC-03). */
   rateLimit: {
     enabled: boolean;
@@ -251,6 +265,14 @@ function buildLdapConfig(): LdapConfig {
 }
 
 /** Положительное целое из env, иначе дефолт; мусор (не число) — fail-fast. */
+function envNonNegInt(key: string, def: number): number {
+  const raw = process.env[key]?.trim();
+  if (!raw) return def;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) fail(`${key} должен быть неотрицательным целым числом`);
+  return n;
+}
+
 function envPosInt(key: string, def: number): number {
   const raw = process.env[key]?.trim();
   if (!raw) return def;
@@ -446,6 +468,10 @@ function buildConfig(): Config {
     maintenance: {
       enabled: envBool(process.env.MAINTENANCE_ENABLED, true),
       intervalMs: envPosInt("MAINTENANCE_INTERVAL_MS", 60 * 60_000), // раз в час
+      startDelayMs: envNonNegInt("MAINTENANCE_START_DELAY_MS", 5 * 60_000), // не сразу при старте
+      batchSize: envPosInt("MAINTENANCE_BATCH_SIZE", 1000),
+      batchPauseMs: envNonNegInt("MAINTENANCE_BATCH_PAUSE_MS", 50),
+      maxPerRun: envPosInt("MAINTENANCE_MAX_PER_RUN", 50_000),
       archiveAfterDays: envPosInt("ARCHIVE_AFTER_DAYS", 30),
       auditRetentionDays: Number(process.env.AUDIT_RETENTION_DAYS ?? 365),
       storageSweepEnabled: envBool(process.env.STORAGE_SWEEP_ENABLED, true),
@@ -453,6 +479,8 @@ function buildConfig(): Config {
       storageSweepGraceMs: envPosInt("STORAGE_SWEEP_GRACE_MS", 24 * 60 * 60_000), // 24 часа
     },
     pgPoolMax: envPosInt("PG_POOL_MAX", 10),
+    pgPoolIdleTimeoutMs: envNonNegInt("PG_POOL_IDLE_TIMEOUT_MS", 0),
+    assigneesCacheTtlMs: envNonNegInt("ASSIGNEES_CACHE_TTL_MS", 45_000),
     rateLimit: {
       // Выключать только осознанно (тесты выставляют явно) — прод-код больше не
       // смотрит на NODE_ENV сам (аудит DEBT-03).

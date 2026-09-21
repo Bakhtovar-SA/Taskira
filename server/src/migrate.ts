@@ -3,7 +3,7 @@ import { initConfig } from "./config.js";
 import { closePool, initPool, migrate } from "./db.js";
 
 const cfg = initConfig();
-initPool(cfg.databaseUrl, cfg.pgPoolMax);
+initPool(cfg.databaseUrl, cfg.pgPoolMax, cfg.pgPoolIdleTimeoutMs);
 try {
   await migrate();
 } finally {

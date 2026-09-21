@@ -5,6 +5,7 @@ import { q } from "../db.js";
 import { audit } from "../audit.js";
 import { invalidateDeptMembership } from "../middleware.js";
 import { ldapUserGroups } from "./ldap.js";
+import { observeLdapResync } from "../metrics.js";
 
 /** actorId по умолчанию — сам пользователь (JIT-синк при его собственном
  *  логине, routes/auth.ts). Явно передаётся из resyncAllLdapUsers(), чтобы
@@ -74,36 +75,43 @@ const RESYNC_CONCURRENCY = 8;
  *  сервис-аккаунт (LDAP_BIND_DN) — вызывающий
  *  сам проверяет это до вызова, чтобы отличать «не настроено» от «пусто прошло». */
 export async function resyncAllLdapUsers(actorId: string | null): Promise<LdapResyncResult> {
-  const users = await q<{ id: string; username: string }>(
-    `SELECT id, username FROM users WHERE auth_source = 'ldap' ORDER BY username`,
-  );
-  let synced = 0;
-  const notFound: string[] = [];
-  const errors: string[] = [];
+  const started = process.hrtime.bigint();
+  let outcome: "success" | "partial" | "error" = "error";
+  try {
+    const users = await q<{ id: string; username: string }>(
+      `SELECT id, username FROM users WHERE auth_source = 'ldap' ORDER BY username`,
+    );
+    let synced = 0;
+    const notFound: string[] = [];
+    const errors: string[] = [];
 
-  const resyncOne = async (u: { id: string; username: string }): Promise<void> => {
-    try {
-      const groups = await ldapUserGroups(u.username);
-      if (groups === null) {
-        notFound.push(u.username);
-        return;
+    const resyncOne = async (u: { id: string; username: string }): Promise<void> => {
+      try {
+        const groups = await ldapUserGroups(u.username);
+        if (groups === null) {
+          notFound.push(u.username);
+          return;
+        }
+        await syncDepartmentMembership(u.id, groups, actorId);
+        synced += 1;
+      } catch (e) {
+        errors.push(`${u.username}: ${(e as Error).message}`);
       }
-      await syncDepartmentMembership(u.id, groups, actorId);
-      synced += 1;
-    } catch (e) {
-      errors.push(`${u.username}: ${(e as Error).message}`);
+    };
+
+    for (let i = 0; i < users.length; i += RESYNC_CONCURRENCY) {
+      await Promise.all(users.slice(i, i + RESYNC_CONCURRENCY).map(resyncOne));
     }
-  };
 
-  for (let i = 0; i < users.length; i += RESYNC_CONCURRENCY) {
-    await Promise.all(users.slice(i, i + RESYNC_CONCURRENCY).map(resyncOne));
+    await audit(actorId, "ldap.resync", "ldap", null, {
+      total: users.length,
+      synced,
+      notFound: notFound.length,
+      errors: errors.length,
+    });
+    outcome = errors.length > 0 || notFound.length > 0 ? "partial" : "success";
+    return { total: users.length, synced, notFound, errors };
+  } finally {
+    observeLdapResync(Number(process.hrtime.bigint() - started) / 1e9, outcome);
   }
-
-  await audit(actorId, "ldap.resync", "ldap", null, {
-    total: users.length,
-    synced,
-    notFound: notFound.length,
-    errors: errors.length,
-  });
-  return { total: users.length, synced, notFound, errors };
 }

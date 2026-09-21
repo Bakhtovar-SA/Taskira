@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export LC_ALL=C
 
 BASE_REF="${1:-}"
 HEAD_REF="${2:-HEAD}"
@@ -18,6 +19,12 @@ git rev-parse --verify "$HEAD_REF^{commit}" >/dev/null 2>&1 || {
 }
 
 failed=0
+
+# Раннер применяет непримённые файлы в порядке имён. Новая миграция с именем
+# «раньше» уже выпущенной на свежей установке выполнилась бы до неё, а на
+# обновлённой — после: схемы разъезжаются. Поэтому новый файл обязан идти
+# по имени после всех, что есть в базовом коммите.
+latest_base_name="$(git ls-tree -r --name-only "$BASE_REF" -- server/migrations | grep -E '\.sql$' | sed 's|.*/||' | LC_ALL=C sort | tail -n 1 || true)"
 
 # Applied migration files are an immutable audit trail. A file newly added in
 # the current change remains status A relative to the base and may be edited
@@ -38,12 +45,43 @@ while IFS=$'\t' read -r status file; do
       echo "ERROR: new migration must use YYYYMMDDTHHMM_name.sql: $file" >&2
       failed=1
     fi
+    if [ -n "$latest_base_name" ] && [[ "$name" < "$latest_base_name" ]]; then
+      echo "ERROR: new migration sorts before already released $latest_base_name: $file" >&2
+      echo "Rename it so it sorts after every migration in the base commit." >&2
+      failed=1
+    fi
   fi
 
   sql="$(git show "$HEAD_REF:$file")"
-  if printf '%s\n' "$sql" | perl -0777 -ne '
+  # Комментарии не участвуют в поиске опасных операций: слова DROP/TYPE в
+  # пояснении не должны требовать маркера, а маркер ищется в исходном тексте.
+  code="$(printf '%s\n' "$sql" | perl -0777 -pe 's/--[^\n]*//g')"
+  if printf '%s\n' "$code" | grep -Eiq '\bCREATE[[:space:]]+INDEX[[:space:]]+CONCURRENTLY\b'; then
+    first_line="$(printf '%s\n' "$sql" | tr -d '\r' | head -n 1)"
+    if [ "$first_line" != "-- migration-transaction: none" ]; then
+      echo "ERROR: CREATE INDEX CONCURRENTLY requires -- migration-transaction: none as the first line: $file" >&2
+      failed=1
+    fi
+    if ! printf '%s\n' "$sql" | tr -d '\r' | grep -Eq '^-- recovery: .+$'; then
+      echo "ERROR: non-transactional migration lacks an exact -- recovery: command: $file" >&2
+      failed=1
+    fi
+  fi
+
+  # Несколько команд в одном запросе PostgreSQL выполняет в неявной транзакции,
+  # где CREATE INDEX CONCURRENTLY невозможен: миграция упала бы при первом
+  # применении. Один нетранзакционный файл — одна команда.
+  if [ "$(printf '%s\n' "$sql" | tr -d '\r' | head -n 1)" = "-- migration-transaction: none" ]; then
+    statements="$(printf '%s\n' "$code" | perl -0777 -ne 'my $n = () = grep { /\S/ } split /;/; print $n;')"
+    if [ "$statements" != "1" ]; then
+      echo "ERROR: non-transactional migration must contain exactly one statement (found $statements): $file" >&2
+      failed=1
+    fi
+  fi
+
+  if printf '%s\n' "$code" | perl -0777 -ne '
       for my $statement (split /;/) {
-        if ($statement =~ /\bDROP\s+COLUMN\b|\bDROP\s+TABLE\b|\bALTER\b.*\bTYPE\b/is) {
+        if ($statement =~ /\bDROP\s+COLUMN\b|\bDROP\s+TABLE\b|\bALTER\b.*\bTYPE\b|\bRENAME\b|\bTRUNCATE\b/is) {
           exit 0;
         }
       }
