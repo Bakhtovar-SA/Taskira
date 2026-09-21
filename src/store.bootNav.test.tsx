@@ -499,7 +499,7 @@ describe("гонки с logout", () => {
     expect(get().data.issues).toEqual([]);
   });
 
-  test("openIssue ПОСЛЕ logout (клик по устаревшему элементу): запрос уходит с ПУСТЫМ id проекта, а guard «проект не сменился» пропускает ответ (\"\" === \"\") — задача попадает в сброшенный стор", async () => {
+  test("SEC-01: openIssue ПОСЛЕ logout — запроса нет (pid() пуст), в сброшенный стор ничего не попадает", async () => {
     const { get } = await readyInP1();
     act(() => get().logout());
     const getIssue = vi.spyOn(issuesApi, "get").mockResolvedValue(dto(I1, P1));
@@ -507,13 +507,11 @@ describe("гонки с logout", () => {
     vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
     act(() => get().openIssue(I1));
     await settle();
-    expect(getIssue).toHaveBeenCalledWith("", I1); // фиксируем как есть: pid() после выхода — пустая строка
-    // ТЕКУЩЕЕ поведение: на реальном сервере запрос вернул бы 401 (токен отозван), но защита от «ответ пришёл не туда»
-    // здесь сравнивает пустые строки и пропускает — стор после выхода принимает задачу.
-    expect(get().data.issues.map((i) => i.id)).toEqual([I1]);
+    expect(getIssue).not.toHaveBeenCalled();
+    expect(get().data.issues).toEqual([]);
   });
 
-  test("НАХОДКА (SEC): switchProject, ответивший ПОСЛЕ logout, воскрешает данные — logout не отменяет запоздавший переход", async () => {
+  test("SEC-01: switchProject, ответивший ПОСЛЕ logout, данные не воскрешает — остаётся unauthenticated и пустой стор", async () => {
     const d2 = defer<ProjectBootstrap>();
     const { get, getSpy } = await readyInP1();
     getSpy.mockReturnValue(d2.promise);
@@ -522,12 +520,12 @@ describe("гонки с logout", () => {
     expect(get().bootStatus).toBe("unauthenticated");
     await act(async () => { d2.resolve(boot(projects[1])); });
     await settle();
-    // ТЕКУЩЕЕ поведение (баг): данные проекта и статус ready вернулись уже после выхода.
-    expect(get().data.currentProjectId).toBe(P2);
-    expect(get().bootStatus).toBe("ready");
+    expect(get().bootStatus).toBe("unauthenticated");
+    expect(get().data.currentProjectId).toBe("");
+    expect(get().data.currentUserId).toBe("");
   });
 
-  test("НАХОДКА (SEC): bootstrap, запущенный до logout и завершившийся после, тоже воскрешает данные", async () => {
+  test("SEC-01: bootstrap, запущенный до logout и завершившийся после, статус и данные не меняет", async () => {
     const dm = defer<unknown>();
     install();
     vi.mocked(authApi.me).mockReturnValue(dm.promise as never);
@@ -538,8 +536,85 @@ describe("гонки с logout", () => {
     expect(get().bootStatus).toBe("unauthenticated");
     await act(async () => { dm.resolve(user()); await run; });
     await settle();
-    // ТЕКУЩЕЕ поведение (баг): после выхода статус снова не unauthenticated.
-    expect(get().bootStatus).not.toBe("unauthenticated");
+    expect(get().bootStatus).toBe("unauthenticated");
+    expect(get().data.currentUserId).toBe("");
+    expect(get().data.currentProjectId).toBe("");
+  });
+
+  test("SEC-01: запоздавший bootstrap после logout не пишет и при ошибке (нет тоста/статуса error)", async () => {
+    const dm = defer<unknown>();
+    install();
+    vi.mocked(authApi.me).mockReturnValue(dm.promise as never);
+    const get = mount();
+    let run!: Promise<void>;
+    act(() => { run = get().bootstrap(); });
+    act(() => get().logout());
+    await act(async () => { dm.reject(new ApiError(500, "INTERNAL", "boom")); await run; });
+    await settle();
+    expect(get().bootStatus).toBe("unauthenticated");
+    expect(get().toasts.filter((t) => t.kind === "error")).toEqual([]);
+  });
+
+  test("SEC-01: bootstrap (ветка home) — ответ /assigned-to-me после logout не применяется", async () => {
+    const da = defer<{ items: never[]; truncated: boolean; limit: number }>();
+    install();
+    vi.mocked(issuesApi.assignedToMe).mockReturnValue(da.promise as never);
+    const get = mount();
+    let run!: Promise<void>;
+    act(() => { run = get().bootstrap(); });
+    await settle(); // me/list/... уже отвечены, bootstrap ждёт assignedToMe
+    act(() => get().logout());
+    await act(async () => { da.resolve({ items: [], truncated: false, limit: 100 }); await run; });
+    await settle();
+    expect(get().bootStatus).toBe("unauthenticated");
+    expect(get().data.currentUserId).toBe("");
+  });
+
+  test("SEC-01: bootstrap (один проект) — bootstrap проекта, ответивший после logout, не применяется", async () => {
+    const dp = defer<ProjectBootstrap>();
+    install({ projects: [proj(P1, "AA")] });
+    vi.mocked(projectsApi.get).mockReturnValue(dp.promise);
+    const get = mount();
+    let run!: Promise<void>;
+    act(() => { run = get().bootstrap(); });
+    await settle();
+    act(() => get().logout());
+    await act(async () => { dp.resolve(boot(projects[0])); await run; });
+    await settle();
+    expect(get().bootStatus).toBe("unauthenticated");
+    expect(get().data.currentProjectId).toBe("");
+  });
+
+  test("SEC-01: сброс сессии по 401 (не logout) тоже отсекает запоздавший switchProject", async () => {
+    const d2 = defer<ProjectBootstrap>();
+    const { get, getSpy } = await readyInP1();
+    getSpy.mockReturnValue(d2.promise);
+    vi.spyOn(issuesApi, "get").mockRejectedValue(new ApiError(401, "UNAUTHORIZED", "сессия истекла"));
+    act(() => get().switchProject(P2));
+    act(() => get().openIssue(I1)); // 401 → handleApiError сбрасывает сессию
+    await settle();
+    expect(get().bootStatus).toBe("unauthenticated");
+    await act(async () => { d2.resolve(boot(projects[1])); });
+    await settle();
+    expect(get().bootStatus).toBe("unauthenticated");
+    expect(get().data.currentProjectId).toBe("");
+  });
+
+  test("SEC-01: lookupIssue после logout — запроса нет, null", async () => {
+    const { get } = await readyInP1();
+    act(() => get().logout());
+    const getIssue = vi.spyOn(issuesApi, "get").mockResolvedValue(dto(I1, P1));
+    let r: unknown = "unset";
+    await act(async () => { r = await get().lookupIssue(I1); });
+    expect(r).toBeNull();
+    expect(getIssue).not.toHaveBeenCalled();
+  });
+
+  test("SEC-01: новый вход сразу после выхода работает — эпоха отсекает только старые запросы", async () => {
+    const { get } = await readyInP1();
+    act(() => get().logout());
+    await act(async () => { await get().bootstrap(); });
+    expect(get().bootStatus).toBe("home");
     expect(get().data.currentUserId).toBe("u1");
   });
 });

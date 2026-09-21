@@ -163,6 +163,8 @@ let toastSeq = 1;
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const lang = useOptionalT()?.lang ?? "ru";
   const langRef = useRef(lang);
+  // SEC-01: эпоха сессии — растёт при logout и при сбросе сессии по 401; запросы, начатые в прошлой эпохе, не применяются.
+  const sessionEpochRef = useRef(0);
   langRef.current = lang;
   const local = useCallback((ru: string, en: string) => (langRef.current === "ru" ? ru : en), []);
   const [data, setData] = useState<Data>(emptyData);
@@ -218,6 +220,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (err: unknown, fallback = local("Ошибка запроса", "Request failed")) => {
       if (err instanceof ApiError) {
         if (err.status === 401) {
+          sessionEpochRef.current++;
           clearToken();
           setBootStatus("unauthenticated");
           setData(emptyData());
@@ -285,7 +288,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const { bootstrap, switchProject, goHome, enterProject, logout, refreshIssues, ensureAllIssues, refreshCollaborations,
     openIssue, pendingOpenIssueRef } = useSessionActions(storeCtx, {
-    setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications,
+    setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef,
   });
 
   // Завершение кросс-проектного "открыть задачу из другого проекта" (см.

@@ -12,6 +12,7 @@ export function useIssueLookup({ setData, dataRef, pid, toast, handleApiError, l
       const known = dataRef.current.issues.find((i) => i.id === id);
       if (known) return known;
       const requestProjectId = pid();
+      if (!requestProjectId) return null; // SEC-01: нет проекта/сессии — грузить нечего
       try {
         const mapped = mapIssue(await issuesApi.get(requestProjectId, id));
         setData((prev) =>

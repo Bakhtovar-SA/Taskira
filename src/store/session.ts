@@ -3,7 +3,7 @@
  * вынесено из store.tsx без изменений поведения (ТЗ 2.3, шаг 6). Поведение и гонки зафиксированы
  * store.bootNav.test.tsx, ДО выноса. Известная брешь (SEC-01: ответы после logout воскрешают данные) перенесена как есть. */
 import { useCallback, useRef } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { AssignedIssue, Collaboration, Data, Department, ProjectRole, ProjectSummary } from "../types";
 import {
   ApiError,
@@ -38,11 +38,13 @@ export interface SessionDeps {
   setUi: Dispatch<SetStateAction<UIState>>;
   bumpIssues: () => void;
   refreshNotifications: () => Promise<void>;
+  /** Эпоха сессии (SEC-01): растёт при logout и при 401; ответ запроса, начатого в прошлой эпохе, применять нельзя. */
+  sessionEpochRef: MutableRefObject<number>;
 }
 
 export function useSessionActions(
   { setData, dataRef, pid, toast, handleApiError, local }: StoreCtx,
-  { setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications }: SessionDeps,
+  { setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef }: SessionDeps,
 ) {
   /** Грузит данные одного проекта (bootstrap + задачи) в объект Data. */
   const buildProjectData = useCallback(
@@ -99,14 +101,20 @@ export function useSessionActions(
 
   const bootstrap = useCallback(async () => {
     setBootStatus("loading");
+    // SEC-01: если за время загрузки был logout (или сессия сброшена по 401), результат применять нельзя — иначе данные
+    // предыдущего пользователя «воскресают» в UI уже после выхода.
+    const epoch = sessionEpochRef.current;
+    const stale = () => epoch !== sessionEpochRef.current;
     try {
       const user = await authApi.me();
+      if (stale()) return;
       const [list, deps, collabs, cfg] = await Promise.all([
         projectsApi.list(),
         departmentsApi.list().catch(() => []),
         issuesApi.collaborating().catch(() => [] as CollaboratingItem[]),
         authApi.config().catch(() => ({ authMode: "local" as const })),
       ]);
+      if (stale()) return;
       setAuthMode(cfg.authMode);
       const projects: ProjectSummary[] = list.map((p) => ({
         id: p.id,
@@ -152,6 +160,7 @@ export function useSessionActions(
         const assigned = await issuesApi
           .assignedToMe()
           .catch(() => ({ items: [] as AssignedIssue[], truncated: false, limit: 0 }));
+        if (stale()) return;
         setData({
           ...emptyData(),
           currentUserId: user.id,
@@ -178,6 +187,7 @@ export function useSessionActions(
       const wanted = readLastProject();
       const chosen = hashProjectVisible ? hash!.projectId : projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
       const next = await buildProjectData(chosen, user.id, projects, deps, collabs, user.favoriteProjectIds ?? []);
+      if (stale()) return;
       setData({ ...next, notifyPrefs: user.notifyPrefs ?? {} });
       void refreshNotifications();
       writeLastProject(chosen);
@@ -188,6 +198,7 @@ export function useSessionActions(
       }
       setBootStatus("ready");
     } catch (err) {
+      if (stale()) return;
       if (err instanceof ApiError && err.status === 401) {
         clearToken();
         setBootStatus("unauthenticated");
@@ -215,6 +226,7 @@ export function useSessionActions(
       const cur = dataRef.current;
       if (projectId === cur.currentProjectId || !cur.projects.some((p) => p.id === projectId)) return;
       const seq = ++switchSeqRef.current;
+      const epoch = sessionEpochRef.current; // SEC-01: ответ после logout/401 не применяем
       setBootStatus("loading");
       void (async () => {
         try {
@@ -226,13 +238,13 @@ export function useSessionActions(
             cur.collaborations,
             cur.favoriteProjectIds,
           );
-          if (seq !== switchSeqRef.current) return; // пришёл более поздний клик
+          if (seq !== switchSeqRef.current || epoch !== sessionEpochRef.current) return; // более поздний клик или уже был выход
           setData(next);
           writeLastProject(projectId);
           setUi((u) => ({ ...u, selectedIssueId: null }));
           setBootStatus("ready");
         } catch (err) {
-          if (seq !== switchSeqRef.current) return;
+          if (seq !== switchSeqRef.current || epoch !== sessionEpochRef.current) return;
           handleApiError(err, local("Не удалось открыть проект", "Couldn't open the project"));
           setBootStatus("ready");
         }
@@ -284,6 +296,7 @@ export function useSessionActions(
     // Сначала сообщаем серверу — он пометит выданные токены недействительными.
     // Ответа не ждём: локальный выход должен произойти в любом случае, даже
     // если сеть отвалилась. Ошибку глушим — токен всё равно уже стёрт.
+    sessionEpochRef.current++; // SEC-01: отсекаем все запросы, начатые до выхода
     void authApi.logout().catch(() => undefined);
     clearToken();
     setData(emptyData());
@@ -364,6 +377,7 @@ export function useSessionActions(
       setUi((u) => ({ ...u, selectedIssueId: id }));
       if (!id) return;
       const requestProjectId = pid();
+      if (!requestProjectId) return; // SEC-01: после выхода pid() = "", и guard `"" === ""` пропустил бы ответ
       void (async () => {
         try {
           // История задачи грузится вместе с карточкой: до этого таблица activity
