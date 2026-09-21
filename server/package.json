@@ -8,8 +8,6 @@
     "dev": "cross-env CHOKIDAR_USEPOLLING=1 CHOKIDAR_INTERVAL=250 tsx watch src/index.ts",
     "dev:native": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "contracts:generate": "npm run build && node scripts/generate-client-contracts.mjs",
-    "contracts:check": "npm run build && node scripts/generate-client-contracts.mjs --check",
     "start": "node dist/index.js",
     "seed": "tsx src/seed.ts",
     "migrate": "tsx src/migrate.ts",

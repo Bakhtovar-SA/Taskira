@@ -8,6 +8,8 @@ import { loadIssue } from "../services/issues.js";
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import { CommentBody } from "../contract.js";
+import type { CommentDto } from "../contract.js";
+export type { CommentDto };
 
 interface CommentRow {
   id: string;
@@ -20,14 +22,6 @@ interface CommentRow {
   author_color: string;
 }
 
-export interface CommentDto {
-  id: string;
-  issueId: string;
-  authorId: string;
-  author: { id: string; name: string; initials: string; color: string };
-  body: string;
-  createdAt: string;
-}
 
 const mapComment = (r: CommentRow): CommentDto => ({
   id: r.id,

@@ -532,3 +532,146 @@ export type WsMessage =
  *  первым сообщением после открытия — браузерный WebSocket не умеет слать
  *  свои заголовки, поэтому Authorization для хендшейка не годится. */
 export type WsAuthMessage = { type: "auth"; token: string };
+
+/* ---------------- Ответы API: типы выводятся из схем (ТЗ 2.1) ----------------
+ * Это ЕДИНСТВЕННОЕ описание формы ответов: сервер аннотирует ими возвращаемые значения мапперов
+ * (mapIssue и др.), клиент импортирует те же типы (import type, в бандл ничего не попадает).
+ *
+ * ВАЖНО: схема здесь — только источник ТИПОВ. Ответы сервера через неё в рантайме НЕ проверяются (нет .parse()),
+ * поэтому наличие схемы не гарантирует, что маппер вернёт то, что объявлено: SQL-строки приводятся к типу
+ * `q<Row>` без проверки. Строже, чем «объявлено», выйти можно только явным .parse() на границе — осознанно не
+ * добавлен. Поля с CHECK в БД (typeId, priorityId, complexity, статус-категория, dir) описаны как z.enum: JSON на
+ * проводе тот же, но опечатку "hgih" ловит typecheck.
+ */
+const ActorMini = z.object({ id: z.string(), name: z.string(), initials: z.string(), color: z.string() });
+
+export const ParticipantDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  initials: z.string(),
+  color: z.string(),
+  jobRole: z.string(),
+});
+export type ParticipantDto = z.infer<typeof ParticipantDto>;
+
+export const CollaboratorDto = z.object({
+  userId: z.string(),
+  name: z.string(),
+  initials: z.string(),
+  color: z.string(),
+  jobRole: z.string(),
+  addedAt: z.string(),
+});
+export type CollaboratorDto = z.infer<typeof CollaboratorDto>;
+
+export const AttachmentDto = z.object({
+  id: z.string(),
+  issueId: z.string(),
+  filename: z.string(),
+  contentType: z.string(),
+  byteSize: z.number(),
+  sha256: z.string(),
+  uploadedById: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type AttachmentDto = z.infer<typeof AttachmentDto>;
+
+export const ChecklistItemDto = z.object({
+  id: z.string(),
+  text: z.string(),
+  done: z.boolean(),
+  position: z.number(),
+  createdAt: z.string(),
+});
+export type ChecklistItemDto = z.infer<typeof ChecklistItemDto>;
+
+export const IssueLinkDto = z.object({
+  id: z.string(),
+  /** тип связи со стороны запрошенной задачи */
+  dir: z.enum(ISSUE_LINK_DIRS),
+  /** задача на другом конце связи */
+  issue: z.object({
+    id: z.string(),
+    key: z.string(),
+    title: z.string(),
+    typeId: z.enum(ISSUE_TYPES),
+    statusId: z.string(),
+    statusCategory: z.enum(STATUS_CATEGORIES),
+  }),
+  createdAt: z.string(),
+});
+export type IssueLinkDto = z.infer<typeof IssueLinkDto>;
+
+export const CustomFieldValueDto = z.object({ fieldId: z.string(), value: z.string().nullable() });
+export type CustomFieldValueDto = z.infer<typeof CustomFieldValueDto>;
+
+/** total/done по ВСЕМ детям, включая заархивированных. */
+export const SubtasksSummaryDto = z.object({ total: z.number(), done: z.number() });
+export type SubtasksSummaryDto = z.infer<typeof SubtasksSummaryDto>;
+
+export const CommentDto = z.object({
+  id: z.string(),
+  issueId: z.string(),
+  authorId: z.string(),
+  author: ActorMini,
+  body: z.string(),
+  createdAt: z.string(),
+});
+export type CommentDto = z.infer<typeof CommentDto>;
+
+export const ActivityDto = z.object({
+  id: z.string(),
+  actorId: z.string().nullable(),
+  actor: ActorMini.nullable(),
+  text: z.string(),
+  createdAt: z.string(),
+});
+export type ActivityDto = z.infer<typeof ActivityDto>;
+
+export const IssueDto = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  num: z.number(),
+  key: z.string(),
+  title: z.string(),
+  description: z.string(),
+  typeId: z.enum(ISSUE_TYPES),
+  statusId: z.string(),
+  priorityId: z.enum(PRIORITIES),
+  /** Исполнители (issue_assignees, миграция 025) — плоский список. */
+  assigneeIds: z.array(z.string()),
+  reporterId: z.string(),
+  epicId: z.string().nullable(),
+  /** Родитель-подзадачи (миграция 021); независимо от epicId. */
+  parentId: z.string().nullable(),
+  /** Спринт (миграция 023, опциональный модуль). */
+  sprintId: z.string().nullable(),
+  color: z.string().nullable(),
+  tStart: z.number().nullable(),
+  tSpan: z.number().nullable(),
+  complexity: z.enum(COMPLEXITIES).nullable(),
+  labels: z.array(z.string()),
+  dueDate: z.string().nullable(),
+  rank: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  /** Момент закрытия (миграция 016); null — задача не закрыта. */
+  doneAt: z.string().nullable(),
+  /** Момент ухода в архив; null — задача в активном наборе проекта. */
+  archivedAt: z.string().nullable(),
+});
+export type IssueDto = z.infer<typeof IssueDto>;
+
+/** Карточка задачи: DTO + участники/вложения/связи/чеклист — только в детальном ответе GET /:id, не в списке. */
+export const IssueDetailDto = IssueDto.extend({
+  collaborators: z.array(CollaboratorDto),
+  participants: z.array(ParticipantDto),
+  attachments: z.array(AttachmentDto),
+  links: z.array(IssueLinkDto),
+  checklist: z.array(ChecklistItemDto),
+  customFieldValues: z.array(CustomFieldValueDto),
+  subtasksSummary: SubtasksSummaryDto,
+  /** Число активных задач с epic_id = эта задача (0 — она не «направление»). */
+  epicChildrenCount: z.number(),
+});
+export type IssueDetailDto = z.infer<typeof IssueDetailDto>;
