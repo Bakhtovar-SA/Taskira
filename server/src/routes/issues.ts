@@ -58,6 +58,7 @@ import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
 import { assertSprintsEnabled, getSprintInProject } from "../services/sprints.js";
 import { loadConfig } from "../config.js";
+import { createTtlCache } from "../services/ttlCache.js";
 import {
   decodeIssueListCursor,
   decodeIssueSortCursor,
@@ -120,6 +121,7 @@ const issueListPerfTraces = new WeakMap<object, IssueListPerfTrace>();
 const issueListPermission = requirePerm("browse");
 
 export async function issuesRoutes(app: FastifyInstance): Promise<void> {
+  const assigneesCache = createTtlCache<{ items: { userId: string; count: number }[] }>(loadConfig().assigneesCacheTtlMs);
   /* ---------------------------------------------------------- список с фильтрами */
   app.get(
     "/",
@@ -301,17 +303,22 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/assignees", { preHandler: [issueListPermission, zquery(IssueAssigneesQuery)] }, async (req) => {
     const project = req.project!;
     const { limit } = req.query as z.infer<typeof IssueAssigneesQuery>;
-    const rows = await q<{ user_id: string; n: number }>(
-      `SELECT ia.user_id, count(*)::int AS n
-         FROM issue_assignees ia
-         JOIN issues i ON i.id = ia.issue_id
-        WHERE i.project_id = $1 AND i.archived_at IS NULL
-        GROUP BY ia.user_id
-        ORDER BY n DESC, ia.user_id
-        LIMIT $2`,
-      [project.id, limit],
-    );
-    return { items: rows.map((r) => ({ userId: r.user_id, count: r.n })) };
+    // Агрегат по всем назначениям проекта (на 50 тыс. задач — 65 мс и Seq Scan), а список нужен лишь для
+    // аватарок фильтра: точность «на эту секунду» не нужна, поэтому кэш на процесс на короткое время.
+    // Результат не зависит от пользователя (только проект и лимит), поэтому ключ — без пользователя.
+    return assigneesCache.get(`${project.id}:${limit}`, async () => {
+      const rows = await q<{ user_id: string; n: number }>(
+        `SELECT ia.user_id, count(*)::int AS n
+           FROM issue_assignees ia
+           JOIN issues i ON i.id = ia.issue_id
+          WHERE i.project_id = $1 AND i.archived_at IS NULL
+          GROUP BY ia.user_id
+          ORDER BY n DESC, ia.user_id
+          LIMIT $2`,
+        [project.id, limit],
+      );
+      return { items: rows.map((r) => ({ userId: r.user_id, count: r.n })) };
+    });
   });
 
   /* ------------------------------------------------ направления (эпики) */

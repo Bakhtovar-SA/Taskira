@@ -157,6 +157,8 @@ export interface Config {
   pgPoolMax: number;
   /** Через сколько мс закрывать простаивающее соединение; 0 — не закрывать (умолчание). */
   pgPoolIdleTimeoutMs: number;
+  /** Время жизни кэша списка исполнителей фильтра доски, мс (на процесс); 0 — выключить. */
+  assigneesCacheTtlMs: number;
   /** Глобальный лимит запросов на пользователя/IP (аудит SEC-03). */
   rateLimit: {
     enabled: boolean;
@@ -464,6 +466,7 @@ function buildConfig(): Config {
     },
     pgPoolMax: envPosInt("PG_POOL_MAX", 10),
     pgPoolIdleTimeoutMs: envNonNegInt("PG_POOL_IDLE_TIMEOUT_MS", 0),
+    assigneesCacheTtlMs: envNonNegInt("ASSIGNEES_CACHE_TTL_MS", 45_000),
     rateLimit: {
       // Выключать только осознанно (тесты выставляют явно) — прод-код больше не
       // смотрит на NODE_ENV сам (аудит DEBT-03).

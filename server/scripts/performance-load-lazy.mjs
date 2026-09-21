@@ -11,6 +11,7 @@
  *
  * Только для изолированного стенда (схема `taskira_perf`), см. docs/OPERATIONS.md.
  * PERF_BREAKDOWN=1 — дополнительно каждый запрос холодного старта отдельным сценарием.
+ * PERF_SCENARIOS=<regexp> — запускать только сценарии с подходящим именем.
  * Сервер на время прогона: RATE_LIMIT_ENABLED=false (200 входов с одного адреса) и
  * MAINTENANCE_ENABLED=false. Перед прогоном проверьте, что триграммные индексы на месте.
  */
@@ -108,7 +109,8 @@ const fixture = await getFixture(tokens[0]);
 const sets = requestSets(`/api/projects/${fixture.projectId}`, fixture.ids);
 
 const scenarios = [];
-for (const [name, paths] of Object.entries(sets)) scenarios.push(await runScenario(name, tokens, paths));
+const only = process.env.PERF_SCENARIOS ? new RegExp(process.env.PERF_SCENARIOS) : null;
+for (const [name, paths] of Object.entries(sets)) if (!only || only.test(name)) scenarios.push(await runScenario(name, tokens, paths));
 
 const compact = scenarios.map(({ name, result, p95 }) => ({
   name,

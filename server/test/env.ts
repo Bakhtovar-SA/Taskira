@@ -27,6 +27,8 @@ process.env.ADMIN_PASSWORD = "Test-Secure-Admin-42!";
 process.env.NODE_ENV = "test";
 // Лимиты запросов выключаются ЯВНО (боевой код больше не смотрит на NODE_ENV сам).
 process.env.RATE_LIMIT_ENABLED = "false";
+// Кэш исполнителей фильтра выключен, чтобы тесты видели изменения сразу; сам кэш проверяет ttlCache.test.ts.
+process.env.ASSIGNEES_CACHE_TTL_MS = "0";
 
 // Вложения (миграция 010): драйвер local во временный каталог, чтобы прогон
 // тестов не писал в server/var/. global-setup.ts чистит его перед прогоном.
