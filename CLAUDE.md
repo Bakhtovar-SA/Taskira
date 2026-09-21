@@ -83,15 +83,18 @@ happen before `listen`).
 
 ## Architecture
 
-### Permission model is defined twice and must stay in sync
+### Permission matrix: one source, two generated copies; the logic on top is mirrored and behaviour-tested
 
-`src/permissions.ts` (client) and `server/src/permissions.ts` (server) carry the **same `MATRIX`
-and `PermId` union** and the same own-issue rule (`isOwnIssue`), plus `roleHas()` / `denialReason()`.
-Each side then adds its own surface: the client has role metadata for the UI (`ACCESS_ROLES`,
-`roleMeta`, `canEditIssue(user, issue)`); the server has `ServerUser` / `Membership` / `IssueRef`
-and `can(user, membership, perm, issue?)`. Roles: `admin | manager | employee | viewer`. The
-client copy exists **only for instant UX feedback** (hiding buttons, lock tooltips); the server
-re-checks every mutation and is authoritative. Change the shared parts on both sides identically.
+`shared/permissions.matrix.json` is the **only** place to change `MATRIX`, `PermId`, role/permission names and the
+permissions doc table. `npm run permissions:generate` (`scripts/generate-permissions.mjs`) writes
+`src/permissions.matrix.ts` and `server/src/permissions.matrix.ts` (identical content) and `docs/PERMISSIONS.md`; never
+edit them by hand — `npm run permissions:check` (CI job `types`, and `server/test/permissions-sync.test.ts`) fails on any
+drift. A shared *import* is impossible by design: the server builds from `server/` (Dockerfile, `rootDir: src`), the
+client from the repo root with `server/` in `.dockerignore`. What stays duplicated in code — `resolveRole`, `isOwnIssue`,
+`roleCan`/`can`, `denialReason` in `src/permissions.ts` ↔ `server/src/permissions.ts` — is verified by behaviour:
+the sync test runs client `can()`/`denialReason()` against the server's on every role × permission × own/foreign issue
+combination. The client copy exists **only for instant UX feedback**; the server re-checks every mutation and is
+authoritative. Client-only extras (`ACCESS_ROLES` colors, `summarize`, …) stay in `src/permissions.ts` fed by the matrix.
 
 Enforcement points:
 - **Client**: `store.tsx` → `requirePerm()` gates every mutating action before the API call and

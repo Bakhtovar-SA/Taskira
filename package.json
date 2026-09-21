@@ -9,6 +9,8 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
+    "permissions:generate": "node scripts/generate-permissions.mjs",
+    "permissions:check": "node scripts/generate-permissions.mjs --check",
     "test": "vitest run",
     "test:watch": "vitest"
   },

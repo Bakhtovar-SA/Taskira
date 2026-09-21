@@ -1,6 +1,8 @@
 /**
- * СИСТЕМА ПРАВ ДОСТУПА — СЕРВЕРНАЯ КОПИЯ (источник истины).
- * Клиентский src/permissions.ts используется только для UX-подсказок.
+ * СИСТЕМА ПРАВ ДОСТУПА — серверная сторона (источник истины для проверок).
+ * Матрица — общая с клиентом (shared/permissions.matrix.json → permissions.matrix.ts); клиентский src/permissions.ts
+ * использует её только для UX-подсказок. Правило «своей» задачи и резолв роли продублированы в коде и сверяются
+ * тестом эквивалентности поведения (test/permissions-sync.test.ts).
  *
  * Модель (project-scoped: миграция 004 + Фаза 2, см. ROLE_MIGRATION.md):
  *   1) Глобальная роль `users.global_role`: admin | member.
@@ -19,21 +21,14 @@
  *      редактировать можно только задачи, где он исполнитель или автор.
  */
 
-export type AccessRole = "admin" | "manager" | "employee" | "viewer";
+import { MATRIX, PERM_META, ROLE_NAMES, type AccessRole, type PermId } from "./permissions.matrix.js";
+
+// Матрица, PermId, AccessRole, имена ролей и разрешений — из ЕДИНОГО источника shared/permissions.matrix.json
+// (ТЗ 2.2, генерация: scripts/generate-permissions.mjs). Здесь только модель поверх неё.
+export { MATRIX, ROLE_NAMES };
+export type { AccessRole, PermId };
 export type GlobalRole = "admin" | "member";
 export type ProjectRole = "manager" | "employee" | "viewer";
-
-export type PermId =
-  | "browse"
-  | "create"
-  | "edit"
-  | "delete"
-  | "transition"
-  | "comment"
-  | "editWorkflow"
-  | "manageAccess"
-  | "manageCollaborators"
-  | "manageSprints";
 
 /** Пользователь: id + глобальная роль (из JWT, освежается из БД в requireAuth). */
 export interface ServerUser {
@@ -51,56 +46,8 @@ export interface IssueRef {
   reporterId: string;
 }
 
-export const ROLE_NAMES: Record<AccessRole, string> = {
-  admin: "Администратор",
-  manager: "Менеджер проекта",
-  employee: "Сотрудник",
-  viewer: "Наблюдатель",
-};
-
-const PERM_NAMES: Record<PermId, string> = {
-  browse: "Просмотр проекта",
-  create: "Создание задач",
-  edit: "Редактирование задач",
-  delete: "Удаление задач",
-  transition: "Смена статуса",
-  comment: "Комментарии",
-  editWorkflow: "Изменение workflow",
-  manageAccess: "Управление доступом",
-  manageCollaborators: "Подключение к задаче",
-  manageSprints: "Управление спринтами",
-};
-
-/* -------- матрица: разрешение → роли, которым оно доступно --------
-   Изменения от project-scoped модели: НЕ вносились. manageCollaborators —
-   аддитивный ключ (COLLAB_MIGRATION.md D2): подключать приглашённого к задаче
-   могут admin и manager проекта; наборы прочих прав не тронуты.
-   manageSprints (миграция 023, SPRINTS_MIGRATION.md) — восстановлен под тем
-   же именем и тем же набором ролей, что был до удаления в миграции 012
-   (UI_RESTRUCTURE.md §D1): создание/старт/завершение спринта и назначение
-   задачи в спринт. Действует только в проектах с sprints_enabled=true —
-   вне их роуты /sprints* отвечают 404 независимо от роли (см. routes/sprints.ts). */
-const MATRIX: Record<PermId, AccessRole[]> = {
-  browse: ["admin", "manager", "employee", "viewer"],
-  create: ["admin", "manager", "employee"],
-  edit: ["admin", "manager", "employee"],
-  delete: ["admin", "manager"],
-  transition: ["admin", "manager", "employee"],
-  comment: ["admin", "manager", "employee"],
-  editWorkflow: ["admin"],
-  manageAccess: ["admin"],
-  manageCollaborators: ["admin", "manager"],
-  manageSprints: ["admin", "manager"],
-};
-
+/** Есть ли у роли разрешение по матрице (без сужения «своей» задачи — оно в roleCan). */
 export const roleHas = (role: AccessRole, perm: PermId): boolean => MATRIX[perm].includes(role);
-
-/* Экспорт для теста синхронности с клиентской копией (test/permissions-sync.test.ts).
-   Матрица дублируется намеренно (клиенту она нужна для мгновенной реакции UI),
-   и тест следит, чтобы копии не разъехались. В рантайме этими именами
-   не пользуемся — только MATRIX и roleHas выше. */
-export const MATRIX_FOR_TESTS: Readonly<Record<PermId, readonly AccessRole[]>> = MATRIX;
-export const PERM_IDS_FOR_TESTS = Object.keys(MATRIX) as PermId[];
 
 /* ============================================================
    Резолв эффективной роли и проверки
@@ -142,7 +89,7 @@ export function roleDenialReason(role: AccessRole | null, perm: PermId, ownIssue
   if (!role) return "Нет доступа к проекту — обратитесь к администратору";
   if ((perm === "edit" || perm === "transition") && ownIssueViolation)
     return `Роль «${ROLE_NAMES[role]}» может изменять и перемещать только задачи, где вы исполнитель или автор`;
-  return `Недоступно для роли «${ROLE_NAMES[role]}» — требуется разрешение «${PERM_NAMES[perm]}»`;
+  return `Недоступно для роли «${ROLE_NAMES[role]}» — требуется разрешение «${PERM_META[perm].name}»`;
 }
 
 export function denialReason(user: ServerUser, membership: Membership, perm: PermId, issue?: IssueRef): string {
