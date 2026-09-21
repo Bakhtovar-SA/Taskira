@@ -10,6 +10,7 @@ import { invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, revokeU
 import { conflict } from "../services/workflow.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
+import type { PickableUserDto } from "../contract.js";
 import { ChangeRoleBody, CreateUserBody } from "../contract.js";
 
 /** Пикер сотрудников: минимум символов для поиска и потолок выдачи. */
@@ -26,7 +27,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   /** Тонкий справочник для пикеров (подключение к задаче и т.п.) — любой
    *  аутентифицированный, только активные, без globalRole/username
    *  (COLLAB_MIGRATION.md D7). */
-  app.get("/users/pickable", { preHandler: requireAuth }, async (req) => {
+  app.get("/users/pickable", { preHandler: requireAuth }, async (req): Promise<PickableUserDto[]> => {
     // Поиск, а не выгрузка всего справочника (аудит SEC-04): раньше любой
     // залогиненный одним запросом получал всю оргструктуру — на 1000 сотрудников
     // это и утечка данных, и мегабайт трафика на каждое открытие пикера.

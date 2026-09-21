@@ -4,18 +4,19 @@
 import type { FastifyInstance } from "fastify";
 import { q } from "../db.js";
 import { requireAuth, type JwtPayload } from "../middleware.js";
+import type { AssignedIssueDto, AssignedToMeDto } from "../contract.js";
 
 interface Row {
   issue_id: string;
   project_id: string;
   key: string;
   title: string;
-  priority_id: string;
+  priority_id: AssignedIssueDto["priorityId"];
   status_id: string;
   status_name: string;
-  status_category: string;
+  status_category: AssignedIssueDto["statusCategory"];
   due_date: string | null;
-  type_id: string;
+  type_id: AssignedIssueDto["typeId"];
   project_key: string;
   project_name: string;
 }
@@ -26,7 +27,7 @@ interface Row {
 const HOME_LIMIT = 100;
 
 export async function homeRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/issues/assigned-to-me", { preHandler: requireAuth }, async (req) => {
+  app.get("/issues/assigned-to-me", { preHandler: requireAuth }, async (req): Promise<AssignedToMeDto> => {
     const user: JwtPayload = req.user;
     const isGlobalAdmin = user.globalRole === "admin";
 
@@ -61,7 +62,7 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
     // урезан, и сказать об этом человеку. Молчаливое усечение — тот самый баг,
     // который не выглядит как баг.
     const truncated = rows.length > HOME_LIMIT;
-    const items = (truncated ? rows.slice(0, HOME_LIMIT) : rows).map((r) => ({
+    const items = (truncated ? rows.slice(0, HOME_LIMIT) : rows).map((r): AssignedIssueDto => ({
       issueId: r.issue_id,
       projectId: r.project_id,
       key: r.key,

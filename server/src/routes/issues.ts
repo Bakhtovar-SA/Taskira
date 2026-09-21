@@ -67,6 +67,7 @@ import {
   type IssueCursorSort,
 } from "../issueListCursor.js";
 import { buildIssueFilter, needsStatusJoin, SORT_EXPR } from "../services/issueFilters.js";
+import type { IssueAssigneesDto, IssueCountsDto, IssueEpicDto, IssueEpicsDto } from "../contract.js";
 import {
   ChecklistItemCreateBody,
   ChecklistItemParams,
@@ -121,7 +122,7 @@ const issueListPerfTraces = new WeakMap<object, IssueListPerfTrace>();
 const issueListPermission = requirePerm("browse");
 
 export async function issuesRoutes(app: FastifyInstance): Promise<void> {
-  const assigneesCache = createTtlCache<{ items: { userId: string; count: number }[] }>(loadConfig().assigneesCacheTtlMs);
+  const assigneesCache = createTtlCache<IssueAssigneesDto>(loadConfig().assigneesCacheTtlMs);
   /* ---------------------------------------------------------- список с фильтрами */
   app.get(
     "/",
@@ -279,7 +280,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   // Тот же набор фильтров, что у списка. Один запрос на набор: клиент берёт
   // отсюда общее число и заголовки колонок доски, а не считает загруженное.
   // Идёт по idx_issues_active (project_id, status_id, rank) WHERE archived_at IS NULL.
-  app.get("/counts", { preHandler: [issueListPermission, zquery(IssueCountsQuery)] }, async (req) => {
+  app.get("/counts", { preHandler: [issueListPermission, zquery(IssueCountsQuery)] }, async (req): Promise<IssueCountsDto> => {
     const project = req.project!;
     const f = req.query as z.infer<typeof IssueCountsQuery>;
     const { clauses, params } = buildIssueFilter(project.id, f);
@@ -300,7 +301,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /* ------------------------------------------- исполнители (для фильтра доски) */
-  app.get("/assignees", { preHandler: [issueListPermission, zquery(IssueAssigneesQuery)] }, async (req) => {
+  app.get("/assignees", { preHandler: [issueListPermission, zquery(IssueAssigneesQuery)] }, async (req): Promise<IssueAssigneesDto> => {
     const project = req.project!;
     const { limit } = req.query as z.infer<typeof IssueAssigneesQuery>;
     // Агрегат по всем назначениям проекта (на 50 тыс. задач — 65 мс и Seq Scan), а список нужен лишь для
@@ -326,7 +327,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   // только активные направления с агрегатом по их активным детям: число и
   // сколько из них закрыто (по категории статуса, как считал клиент). Размер
   // ответа — число направлений, а не задач проекта.
-  app.get("/epics", { preHandler: [issueListPermission, zquery(IssueEpicsQuery)] }, async (req) => {
+  app.get("/epics", { preHandler: [issueListPermission, zquery(IssueEpicsQuery)] }, async (req): Promise<IssueEpicsDto> => {
     const project = req.project!;
     const { limit } = req.query as z.infer<typeof IssueEpicsQuery>;
     const rows = await q<{
@@ -357,7 +358,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     );
     const truncated = rows.length > limit;
     return {
-      items: (truncated ? rows.slice(0, limit) : rows).map((r) => ({
+      items: (truncated ? rows.slice(0, limit) : rows).map((r): IssueEpicDto => ({
         id: r.id,
         key: r.key,
         title: r.title,

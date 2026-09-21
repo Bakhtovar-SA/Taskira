@@ -1,13 +1,42 @@
-export type IssueTypeId = "task" | "bug" | "request";
-export type PriorityId = "low" | "medium" | "high" | "critical";
-export type ComplexityId = "simple" | "medium" | "hard";
-export type StatusCategory = "todo" | "inprogress" | "done";
+import type {
+  ACCESS_ROLES,
+  AssignedIssueDto,
+  COMPLEXITIES,
+  CollaboratingItemDto,
+  CUSTOM_FIELD_TYPES,
+  CustomFieldDto,
+  CustomFieldValueDto,
+  DepartmentDto,
+  GLOBAL_ROLES,
+  IssueTemplateDto,
+  ISSUE_LINK_DIRS,
+  ISSUE_TYPES,
+  NotifyPrefs,
+  PRIORITIES,
+  PROJECT_ROLES,
+  ProjectDto,
+  SearchResultItemDto,
+  SprintDto,
+  STATUS_CATEGORIES,
+  StatusDto,
+  TransitionDto,
+} from "../server/src/contract";
+
+/* Этот файл — КЛИЕНТСКИЕ типы: состояние UI и вьюмодели. Форма ответов API описана один раз в
+ * server/src/contract.ts (ТЗ 2.1); здесь она только переиспользуется. Вьюмодель отличается от ответа сервера
+ * тем, что клиент преобразует данные при загрузке (ISO-время → мс, вложенные записи, вычисляемые поля): это User,
+ * Issue, CommentT, Activity, Attachment, IssueLink, ChecklistItem, NotificationT, Project. Остальное — прямые
+ * псевдонимы серверных типов, а не второе описание. */
+export type IssueTypeId = (typeof ISSUE_TYPES)[number];
+export type PriorityId = (typeof PRIORITIES)[number];
+export type ComplexityId = (typeof COMPLEXITIES)[number];
+export type StatusCategory = (typeof STATUS_CATEGORIES)[number];
 /** Эффективная роль для матрицы прав (см. permissions.ts). */
-export type AccessRole = "admin" | "manager" | "employee" | "viewer";
+export type AccessRole = (typeof ACCESS_ROLES)[number];
 /** Глобальная роль ресурса (users.global_role). */
-export type GlobalRole = "admin" | "member";
+export type GlobalRole = (typeof GLOBAL_ROLES)[number];
 /** Роль участника проекта (project_members.role). */
-export type ProjectRole = "manager" | "employee" | "viewer";
+export type ProjectRole = (typeof PROJECT_ROLES)[number];
 
 export interface User {
   id: string;
@@ -28,21 +57,10 @@ export interface User {
   avatarUpdatedAt: number | null;
 }
 
-export interface Status {
-  id: string;
-  /** Стабильный ключ статуса (todo|inprogress|review|done) — не uuid.
-   *  Нужен визуализации в WorkflowView (POS/PATHS по sid). */
-  sid: string;
-  name: string;
-  category: StatusCategory;
-}
-
-export interface Transition {
-  id: string;
-  from: string;
-  to: string;
-}
-
+/** Статус workflow (`sid` — стабильный ключ todo|inprogress|review|done, не uuid). Клиент не хранит `position`
+ *  из ответа: порядок задаёт порядок массива. */
+export type Status = Omit<StatusDto, "position">;
+export type Transition = TransitionDto;
 export interface Workflow {
   statuses: Status[];
   transitions: Transition[];
@@ -87,9 +105,9 @@ export interface Attachment {
 
 /** Тип связи со стороны открытой задачи (issue_links, миграция 014, §3.2).
  *  `blocks` — эта задача блокирует другую; `blocked_by` — наоборот. */
-export type IssueLinkDir = "relates" | "blocks" | "blocked_by";
-
 /** Связь с другой задачей. Заполняется при открытии карточки (GET /issues/:id). */
+export type IssueLinkDir = (typeof ISSUE_LINK_DIRS)[number];
+
 export interface IssueLink {
   id: string;
   dir: IssueLinkDir;
@@ -117,52 +135,23 @@ export interface ChecklistItem {
 /** Шаблон задачи проекта (issue_templates, миграция 022) — уровень проекта,
  *  как workflow/custom-fields. Применение — чистый client-side prefill формы
  *  CreateIssueModal, не связано с созданной задачей. */
-export interface IssueTemplate {
-  id: string;
-  name: string;
-  typeId: IssueTypeId;
-  priorityId: PriorityId;
-  title: string;
-  description: string;
-  /** Необязательная подсказка стартового статуса; null — «как обычно». */
-  statusId: string | null;
-  position: number;
-}
+export type IssueTemplate = IssueTemplateDto;
 
 /** Пользовательское поле проекта (custom_fields, миграция 020) — определение,
  *  на уровне проекта, приходит в bootstrap (data.customFields), не в задаче. */
-export type CustomFieldType = "text" | "number" | "select" | "checkbox" | "date";
-
-export interface CustomFieldDef {
-  id: string;
-  name: string;
-  fieldType: CustomFieldType;
-  /** Только для fieldType='select'. */
-  options: string[];
-  position: number;
-}
+export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number];
+export type CustomFieldDef = CustomFieldDto;
 
 /** Спринт проекта (sprints, миграция 023) — опциональный модуль, включается
  *  per-project флагом project.sprintsEnabled (SPRINTS_MIGRATION.md). Приходит
  *  в bootstrap (data.sprints), как issueTemplates/customFields. */
-export type SprintStatus = "future" | "active" | "completed";
-
-export interface Sprint {
-  id: string;
-  name: string;
-  goal: string;
-  status: SprintStatus;
-  startDate: string | null;
-  endDate: string | null;
-}
+export type SprintStatus = SprintDto["status"];
+export type Sprint = SprintDto;
 
 /** Значение поля на конкретной задаче (custom_field_values). Заполняется при
  *  открытии карточки (детальный GET /issues/:id), как attachments/links/checklist.
  *  Отсутствие записи для fieldId в массиве = значение не задано. */
-export interface CustomFieldValue {
-  fieldId: string;
-  value: string | null;
-}
+export type CustomFieldValue = CustomFieldValueDto;
 
 export interface Issue {
   id: string;
@@ -232,21 +221,9 @@ export interface Project {
 }
 
 /** Краткая карточка проекта для списка/переключателя. */
-export interface ProjectSummary {
-  id: string;
-  key: string;
-  name: string;
-  departmentId: string;
-  isShared: boolean;
-  sprintsEnabled: boolean;
-}
+export type ProjectSummary = Pick<ProjectDto, "id" | "key" | "name" | "departmentId" | "isShared" | "sprintsEnabled">;
 
-export interface Department {
-  id: string;
-  name: string;
-  ldapGroupDn: string | null;
-  projectCount: number;
-}
+export type Department = DepartmentDto;
 
 export interface Toast {
   id: number;
@@ -324,7 +301,7 @@ export interface NotificationT {
   read: boolean;
 }
 
-export type NotifyPrefsT = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
+export type NotifyPrefsT = NotifyPrefs;
 
 export type ViewId =
   | "board"
@@ -340,51 +317,16 @@ export type ViewId =
 
 /** Задача, к которой пользователя пригласили как collaborator'а (в чужом проекте).
  *  GET /api/issues/collaborating. Показывается в разделе «Мои подключения». */
-export interface Collaboration {
-  issueId: string;
-  projectId: string;
-  key: string;
-  title: string;
-  statusId: string;
-  statusName: string;
-  statusCategory: string;
-  projectKey: string;
-  projectName: string;
-}
+export type Collaboration = CollaboratingItemDto;
 
 /** Задача, назначенная мне (GET /api/issues/assigned-to-me). Показывается на
  *  главном экране в блоке «Мои задачи» (UI_RESTRUCTURE.md D4). */
-export interface AssignedIssue {
-  issueId: string;
-  projectId: string;
-  key: string;
-  title: string;
-  typeId: IssueTypeId;
-  priorityId: PriorityId;
-  statusId: string;
-  statusName: string;
-  statusCategory: string;
-  dueDate: string | null;
-  projectKey: string;
-  projectName: string;
-}
+export type AssignedIssue = AssignedIssueDto;
 
 /** Результат кросс-проектного поиска (GET /api/issues/search, миграция 024) —
  *  по всем видимым проектам, не только текущему. Открытие идёт обычным
  *  openIssue() после switchProject() на найденный projectId. */
-export interface SearchResultItem {
-  id: string;
-  projectId: string;
-  key: string;
-  title: string;
-  typeId: IssueTypeId;
-  priorityId: PriorityId;
-  statusId: string;
-  statusName: string;
-  statusCategory: string;
-  projectKey: string;
-  projectName: string;
-}
+export type SearchResultItem = SearchResultItemDto;
 
 // Display names for these three id sets live in src/i18n/ (issueType.*,
 // priority.*, complexity.* keys) — call sites do t(`priority.${id}`) etc.

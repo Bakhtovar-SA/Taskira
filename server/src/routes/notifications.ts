@@ -8,14 +8,15 @@ import type { z } from "zod";
 import { one, q } from "../db.js";
 import { badRequest, formatZod, requireAuth, zbody, zquery, type JwtPayload } from "../middleware.js";
 import { MarkReadBody, NotificationsQuery, NotifyPrefsBody, DismissNotificationsBody } from "../contract.js";
+import type { NotificationDto, NotificationPageDto, NotifyPrefsResponse, UnreadCountDto } from "../contract.js";
 
 interface NRow {
   id: string;
-  type: string;
+  type: NotificationDto["type"]; // CHECK в миграции 011
   actor_id: string | null;
   project_id: string | null;
   issue_id: string | null;
-  payload: Record<string, unknown>;
+  payload: NotificationDto["payload"];
   created_at: Date;
   read_at: Date | null;
   actor_name: string | null;
@@ -23,11 +24,12 @@ interface NRow {
   actor_color: string | null;
 }
 
-const mapN = (r: NRow) => ({
+const mapN = (r: NRow): NotificationDto => ({
   id: r.id,
   type: r.type,
   actorId: r.actor_id,
-  actor: r.actor_id ? { id: r.actor_id, name: r.actor_name, initials: r.actor_initials, color: r.actor_color } : null,
+  // actor_id задан ⇒ LEFT JOIN users нашёл строку, имя/инициалы/цвет NOT NULL (FK ON DELETE SET NULL обнуляет actor_id)
+  actor: r.actor_id ? { id: r.actor_id, name: r.actor_name as string, initials: r.actor_initials as string, color: r.actor_color as string } : null,
   projectId: r.project_id,
   issueId: r.issue_id,
   payload: r.payload ?? {},
@@ -79,15 +81,17 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     );
     const hasMore = rows.length > limit;
     const items = rows.slice(0, limit);
-    return {
+    const page: NotificationPageDto = {
       items: items.map(mapN),
       nextCursor: hasMore ? new Date(items[items.length - 1].created_at).toISOString() : null,
     };
+    return page;
   });
 
   /* число непрочитанных — для бейджа (partial-индекс, дёшево) */
   app.get("/notifications/unread-count", { preHandler: requireAuth }, async (req) => {
-    return { count: await unreadOf((req.user as JwtPayload).sub) };
+    const body: UnreadCountDto = { count: await unreadOf((req.user as JwtPayload).sub) };
+    return body;
   });
 
   /* отметить прочитанными: { ids } или пустое тело = все */
@@ -121,7 +125,8 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
         `UPDATE users SET notify_prefs = notify_prefs || $2::jsonb WHERE id = $1 RETURNING notify_prefs`,
         [uid, JSON.stringify(patch)],
       );
-      return { notifyPrefs: row?.notify_prefs ?? {} };
+      const body: NotifyPrefsResponse = { notifyPrefs: row?.notify_prefs ?? {} };
+      return body;
     },
   );
 }

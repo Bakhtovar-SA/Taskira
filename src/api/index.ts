@@ -24,6 +24,24 @@ import type {
   ProjectDto,
   SafeUser as SafeUserDto,
   SprintDto,
+  AssignedIssueDto,
+  AssignedToMeDto,
+  CollaboratingItemDto,
+  IssueAssigneesDto,
+  IssueCountsDto,
+  IssueEpicDto,
+  IssueEpicsDto,
+  NotificationDto,
+  NotificationPageDto,
+  NotifyPrefsResponse,
+  PickableUserDto,
+  REPORT_GROUPS,
+  ReportRow as ReportRowDto,
+  ReportSummaryDto,
+  ReportTotals as ReportTotalsDto,
+  SearchResultDto,
+  SearchResultItemDto,
+  UnreadCountDto,
 } from "../../server/src/contract";
 
 let legacyBearerToken: string | null = null;
@@ -201,17 +219,18 @@ export type ServerCustomField = CustomFieldDto;
 /** Ответ `GET /api/projects/:projectId`; `users` клиент читает как `SafeUser` (см. выше). */
 export type ProjectBootstrap = Omit<ProjectBootstrapDto, "users"> & { users: SafeUser[] };
 
-export type ServerNotification = {
-  id: string;
-  type: string;
-  actorId: string | null;
-  actor: { id: string; name: string; initials: string; color: string } | null;
-  projectId: string | null;
-  issueId: string | null;
-  payload: Record<string, string | boolean | undefined>;
-  createdAt: string;
-  read: boolean;
-};
+/* -------- уведомления, главный экран, поиск, счётчики, отчёты: из zod-контракта сервера (ТЗ 2.1, PR 3) -------- */
+export type ServerNotification = NotificationDto;
+export type CollaboratingItem = CollaboratingItemDto;
+export type AssignedIssue = AssignedIssueDto;
+export type SearchResultItem = SearchResultItemDto;
+export type PickableUser = PickableUserDto;
+export type IssueEpic = IssueEpicDto;
+export type IssueCounts = IssueCountsDto;
+export type ReportTotals = ReportTotalsDto;
+export type ReportRow = ReportRowDto;
+export type ReportSummary = ReportSummaryDto;
+export type ReportGroup = (typeof REPORT_GROUPS)[number];
 
 /* -------- типы ответов задачи: из zod-контракта сервера (server/src/contract.ts, ТЗ 2.1) --------
  * Форма ответов больше не описывается здесь руками: это те же типы, которыми аннотированы мапперы сервера. */
@@ -228,50 +247,6 @@ export type ServerCustomFieldValue = CustomFieldValueDto;
  *  (те же поля + участники/вложения/связи/чеклист/подзадачи). Поля детального ответа у клиента необязательны —
  *  в списочной задаче их нет. Это клиентская вьюмодель поверх двух серверных типов, а не третье описание. */
 export type ServerIssue = IssueDto & Partial<Omit<IssueDetailDto, keyof IssueDto>>;
-
-/** Элемент «Моих подключений» (GET /api/issues/collaborating). */
-export type CollaboratingItem = {
-  issueId: string;
-  projectId: string;
-  key: string;
-  title: string;
-  statusId: string;
-  statusName: string;
-  statusCategory: string;
-  projectKey: string;
-  projectName: string;
-};
-
-/** Задача, назначенная мне (GET /api/issues/assigned-to-me) — главный экран. */
-export type AssignedIssue = {
-  issueId: string;
-  projectId: string;
-  key: string;
-  title: string;
-  typeId: string;
-  priorityId: string;
-  statusId: string;
-  statusName: string;
-  statusCategory: string;
-  dueDate: string | null;
-  projectKey: string;
-  projectName: string;
-};
-
-/** Результат кросс-проектного поиска (GET /api/issues/search, миграция 024). */
-export type SearchResultItem = {
-  id: string;
-  projectId: string;
-  key: string;
-  title: string;
-  typeId: string;
-  priorityId: string;
-  statusId: string;
-  statusName: string;
-  statusCategory: string;
-  projectKey: string;
-  projectName: string;
-};
 
 /** Префикс ресурсов проекта. */
 const P = (projectId: string) => `/api/projects/${projectId}`;
@@ -295,16 +270,16 @@ export const authApi = {
 /** Уведомления (миграция 011). Доставка in-app — polling. */
 export const notificationsApi = {
   list: (cursor?: string) =>
-    api<{ items: ServerNotification[]; nextCursor: string | null }>("/api/notifications", {
+    api<NotificationPageDto>("/api/notifications", {
       query: { cursor, limit: 20 },
     }),
-  unreadCount: () => api<{ count: number }>("/api/notifications/unread-count"),
+  unreadCount: () => api<UnreadCountDto>("/api/notifications/unread-count"),
   markRead: (ids?: string[]) =>
     api<void>("/api/notifications/read", { method: "POST", body: ids && ids.length ? { ids } : {} }),
   dismiss: (ids?: string[]) =>
     api<void>("/api/notifications/dismiss", { method: "POST", body: ids && ids.length ? { ids } : {} }),
   setPrefs: (prefs: NotifyPrefs) =>
-    api<{ notifyPrefs: NotifyPrefs }>("/api/notifications/prefs", { method: "PATCH", body: prefs }),
+    api<NotifyPrefsResponse>("/api/notifications/prefs", { method: "PATCH", body: prefs }),
 };
 
 /** LDAP: диагностика и ручной ресинк членства (глобальный admin). */
@@ -355,9 +330,6 @@ export const departmentsApi = {
   removeMember: (id: string, userId: string) =>
     api<void>(`/api/departments/${id}/members/${userId}`, { method: "DELETE" }),
 };
-
-/** Тонкий профиль для пикеров (подключение к задаче и т.п.). */
-export type PickableUser = { id: string; name: string; initials: string; color: string; jobRole: string };
 
 /** Пользователи ресурса — `list`/`create` только для глобального admin;
  *  `pickable` — любой аутентифицированный (см. COLLAB_MIGRATION.md D7). */
@@ -471,24 +443,6 @@ export interface IssuePageParams extends IssueFilterParams {
   cursor?: string;
   limit?: number;
 }
-/** Направление проекта (`GET …/issues/epics`): задача, на которую ссылаются другие через epicId. */
-export interface IssueEpic {
-  id: string;
-  key: string;
-  title: string;
-  color: string | null;
-  tStart: number | null;
-  tSpan: number | null;
-  /** Активные дети и сколько из них закрыто (по категории статуса done). */
-  childTotal: number;
-  childDone: number;
-}
-
-export interface IssueCounts {
-  total: number;
-  byStatus: Record<string, number>;
-}
-
 export const issuesApi = {
   list: (projectId: string, query?: Record<string, string | number | undefined>) =>
     api<IssueListPageMeta & { items: ServerIssue[] }>(`${P(projectId)}/issues`, { query }),
@@ -502,19 +456,19 @@ export const issuesApi = {
     api<IssueCounts>(`${P(projectId)}/issues/counts`, { query: params as Record<string, string | number | undefined> }),
   /** Направления проекта с агрегатом по детям: справочник для бейджей и Timeline. */
   epics: (projectId: string, limit?: number) =>
-    api<{ items: IssueEpic[]; truncated: boolean }>(`${P(projectId)}/issues/epics`, { query: { limit } }),
+    api<IssueEpicsDto>(`${P(projectId)}/issues/epics`, { query: { limit } }),
   /** Исполнители активных задач проекта по убыванию нагрузки (полоска фильтров доски). */
   assignees: (projectId: string, limit?: number) =>
-    api<{ items: { userId: string; count: number }[] }>(`${P(projectId)}/issues/assignees`, { query: { limit } }),
+    api<IssueAssigneesDto>(`${P(projectId)}/issues/assignees`, { query: { limit } }),
   get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),
   /** Открытые задачи, назначенные мне, по всем видимым проектам (главный экран).
    *  Ответ — объект: сервер ограничивает выдачу и честно сообщает об усечении. */
-  assignedToMe: () => api<{ items: AssignedIssue[]; truncated: boolean; limit: number }>("/api/issues/assigned-to-me"),
+  assignedToMe: () => api<AssignedToMeDto>("/api/issues/assigned-to-me"),
   /** Кросс-проектный поиск (миграция 024) — по всем видимым проектам, не
    *  только текущему. */
-  search: (q: string) => api<{ items: SearchResultItem[]; truncated: boolean }>("/api/issues/search", { query: { q } }),
+  search: (q: string) => api<SearchResultDto>("/api/issues/search", { query: { q } }),
   /** История задачи («кто, что, когда»). */
   activity: (projectId: string, id: string) => api<ServerActivity[]>(`${P(projectId)}/issues/${id}/activity`),
   create: (projectId: string, body: Record<string, unknown>) =>
@@ -559,35 +513,6 @@ export const issuesApi = {
 
 /* ---------------- Отчёты ---------------- */
 
-export type ReportTotals = {
-  closed: number;
-  created: number;
-  open: number;
-  overdue: number;
-  avgLeadDays: number | null;
-  medianLeadDays: number | null;
-};
-
-export type ReportRow = {
-  key: string;
-  label: string;
-  closed: number;
-  created: number;
-  open: number;
-  avgLeadDays: number | null;
-};
-
-export type ReportSummary = {
-  from: string;
-  to: string;
-  groupBy: ReportGroup;
-  projectCount: number;
-  totals: ReportTotals;
-  rows: ReportRow[];
-  trend: { week: string; closed: number }[];
-};
-
-export type ReportGroup = "project" | "assignee" | "type" | "priority";
 export type ReportScope = "closed" | "created" | "open";
 
 export type ReportFilter = {
