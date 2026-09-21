@@ -66,7 +66,7 @@
 |---|---|---|
 | `name` | string | длина 1…60 |
 | `fieldType` | enum: `text` \| `number` \| `select` \| `checkbox` \| `date` |  |
-| `options` | array&lt;string&gt; | необязательное; по умолчанию [] |
+| `options` | array&lt;string&gt; | необязательное; по умолчанию []; 0…30 эл. |
 
 ### CustomFieldParams
 
@@ -117,7 +117,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `ids` | array&lt;string (uuid)&gt; | необязательное |
+| `ids` | array&lt;string (uuid)&gt; | необязательное; 0…500 эл. |
 
 ### IssueAssigneesQuery
 
@@ -150,14 +150,14 @@
 | `description` | string | необязательное; по умолчанию ""; длина 0…5000 |
 | `typeId` | enum: `task` \| `bug` \| `request` |  |
 | `priorityId` | enum: `low` \| `medium` \| `high` \| `critical` |  |
-| `assigneeIds` | array&lt;string (uuid)&gt; | необязательное; по умолчанию [] |
+| `assigneeIds` | array&lt;string (uuid)&gt; | необязательное; по умолчанию []; 0…10 эл. |
 | `epicId` | string (uuid) | может быть null |
 | `parentId` | string (uuid) | необязательное, может быть null |
-| `labels` | array&lt;string&gt; | необязательное; по умолчанию [] |
+| `labels` | array&lt;string&gt; | необязательное; по умолчанию []; 0…10 эл. |
 | `complexity` | enum: `simple` \| `medium` \| `hard` | может быть null |
 | `dueDate` | string | необязательное, может быть null |
 | `statusId` | string (uuid) | необязательное |
-| `checklistItems` | array&lt;string&gt; | необязательное; по умолчанию [] |
+| `checklistItems` | array&lt;string&gt; | необязательное; по умолчанию []; 0…50 эл. |
 
 ### IssueEpicsQuery
 
@@ -202,10 +202,10 @@
 | `title` | string | необязательное; длина 1…250 |
 | `description` | string | необязательное; длина 0…5000 |
 | `priorityId` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
-| `assigneeIds` | array&lt;string (uuid)&gt; | необязательное |
+| `assigneeIds` | array&lt;string (uuid)&gt; | необязательное; 0…10 эл. |
 | `epicId` | string (uuid) | необязательное, может быть null |
 | `parentId` | string (uuid) | необязательное, может быть null |
-| `labels` | array&lt;string&gt; | необязательное |
+| `labels` | array&lt;string&gt; | необязательное; 0…10 эл. |
 | `complexity` | enum: `simple` \| `medium` \| `hard` | необязательное, может быть null |
 | `dueDate` | string | необязательное, может быть null |
 | `tStart` | integer | необязательное, может быть null; 0…52 |
@@ -263,7 +263,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `ids` | array&lt;string (uuid)&gt; | необязательное |
+| `ids` | array&lt;string (uuid)&gt; | необязательное; 0…500 эл. |
 
 ### MemberParams
 

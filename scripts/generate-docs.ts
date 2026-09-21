@@ -22,16 +22,23 @@ function migrationList(): string {
   const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
   const summary = (file: string): string => {
     const lines = norm(readFileSync(join(dir, file), "utf8")).split("\n");
+    const parts: string[] = [];
     for (const raw of lines) {
-      const l = raw.replace(/^\s*--+\s?/, "").trim();
       if (!raw.trim().startsWith("--")) break; // шапка кончилась
-      if (!l || /^=+$/.test(l) || /^-+$/.test(l)) continue;
-      if (/^Применяется server\/src\/db\.ts/i.test(l)) continue;
-      // служебные директивы docs/MIGRATIONS.md (`-- migration-transaction: none`, `-- recovery: …`) — не описание
-      if (/^(migration-transaction|recovery)\s*:/i.test(l)) continue;
-      return l.replace(/^Taskira\.\s*/i, "").replace(/\|/g, "\\|").slice(0, 200);
+      const l = raw.replace(/^\s*--+\s?/, "").trim();
+      const decoration = !l || /^=+$/.test(l) || /^-+$/.test(l);
+      // служебные директивы docs/MIGRATIONS.md (`-- migration-transaction: none`, `-- recovery: …`) и шапка db.ts — не описание
+      const directive = /^(migration-transaction|recovery)\s*:/i.test(l) || /^Применяется server\/src\/db\.ts/i.test(l);
+      if (parts.length === 0) {
+        if (decoration || directive) continue; // ещё не дошли до описания
+        parts.push(l.replace(/^Taskira\.\s*/i, ""));
+      } else {
+        if (decoration || directive) break; // описание — до пустой строки комментария
+        parts.push(l);
+      }
     }
-    return "";
+    const text = parts.join(" ").replace(/\|/g, "\\|");
+    return text.length > 300 ? `${text.slice(0, 297)}…` : text;
   };
   const legacy = files.filter((f) => /^\d{3}_/.test(f));
   const stamped = files.filter((f) => !/^\d{3}_/.test(f));
@@ -100,7 +107,15 @@ function describe(schema: unknown): { type: string; optional: boolean; nullable:
     case "ZodEnum": type = `enum: ${(d.values as string[]).map((v) => `\`${v}\``).join(" \\| ")}`; break;
     case "ZodNativeEnum": type = "enum"; break;
     case "ZodLiteral": type = `\`${JSON.stringify(d.value)}\``; break;
-    case "ZodArray": type = `array&lt;${describe(d.type).type}&gt;`; break;
+    case "ZodArray": {
+      type = `array&lt;${describe(d.type).type}&gt;`;
+      const min = (d.minLength as { value: number } | null)?.value;
+      const max = (d.maxLength as { value: number } | null)?.value;
+      const exact = (d.exactLength as { value: number } | null)?.value;
+      if (exact !== undefined) notes.push(`ровно ${exact} эл.`);
+      else if (min !== undefined || max !== undefined) notes.push(`${min ?? 0}…${max ?? "∞"} эл.`);
+      break;
+    }
     case "ZodRecord": type = `record&lt;string, ${describe(d.valueType).type}&gt;`; break;
     case "ZodUnion": type = (d.options as unknown[]).map((o) => describe(o).type).join(" \\| "); break;
     case "ZodObject": type = "object"; break;
