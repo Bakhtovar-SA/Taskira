@@ -27,6 +27,7 @@ import { sprintsRoutes } from "./routes/sprints.js";
 import { userRoutes } from "./routes/users.js";
 import { avatarRoutes } from "./routes/avatar.js";
 import { ldapRoutes } from "./routes/ldap.js";
+import { maintenanceRoutes } from "./routes/maintenance.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { reportRoutes } from "./routes/reports.js";
 import { auditExportRoutes } from "./routes/auditExport.js";
@@ -215,6 +216,7 @@ export function buildApp(): FastifyInstance {
       await api.register(userRoutes); // /users, /admin/users (global admin) + /users/pickable
       await api.register(avatarRoutes); // /me/avatar (самообслуживание) + /users/:id/avatar (отдача)
       await api.register(ldapRoutes, { prefix: "/ldap" }); // /ldap/ping (global admin)
+      await api.register(maintenanceRoutes, { prefix: "/maintenance" }); // статус и ручной запуск (global admin)
       await api.register(notificationRoutes); // /notifications* (project-less, requireAuth)
       await api.register(reportRoutes); // /reports/* (project-less, scope = видимые проекты)
       await api.register(auditExportRoutes); // /admin/audit-log/export (global admin, JSONL/CSV)

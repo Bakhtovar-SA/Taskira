@@ -16,6 +16,32 @@
 URL), `taskira_ws_connections`, `taskira_background_queue_size`,
 `taskira_ldap_resync_duration_seconds` и `taskira_s3_errors_total`.
 
+### Фоновое обслуживание (MAINT-01)
+
+Три джоба — `maintenance` (автоархив закрытых задач + уборка `audit_log` + остатки лимитера входа), `storage-sweep`,
+`ldap-resync` — видны в `/metrics` **каждого процесса** (метрики по процессу, не по кластеру):
+`taskira_background_job_runs_total{job,result}` (`success` / `error` / `skipped` — лок держит другой процесс),
+`taskira_background_job_duration_seconds{job}`, `taskira_background_job_last_success_timestamp_seconds{job}`,
+`taskira_background_job_running{job}`, `taskira_maintenance_archived_issues_total`,
+`taskira_maintenance_audit_purged_total`. Алерт «нет успешного прохода дольше 3 интервалов»:
+`time() - max(taskira_background_job_last_success_timestamp_seconds{job="maintenance"}) > 3 * 3600` — берите `max`
+по всем процессам, потому что каждый тик исполняет один из них.
+
+Значения по умолчанию: интервал 1 ч (`MAINTENANCE_INTERVAL_MS`); **первый проход через 5 минут после старта**
+(`MAINTENANCE_START_DELAY_MS`, sweep и LDAP — ещё позже на 15 и 30 с); пачка 1 000 строк (`MAINTENANCE_BATCH_SIZE`)
+с паузой 50 мс (`MAINTENANCE_BATCH_PAUSE_MS`); потолок 50 000 строк каждого вида за проход
+(`MAINTENANCE_MAX_PER_RUN`) — на установке с накопленным архивом (восстановление из бэкапа, импорт) остаток
+дообрабатывается следующими часовыми проходами, а лог пишет «достигнут потолок». Каждая пачка — отдельная короткая
+транзакция; строку, которую в этот момент правит пользователь, проход пропускает (`SKIP LOCKED`).
+
+Управление (только глобальный админ): `GET /api/maintenance` — состояние джобов **этого процесса** (последний запуск,
+результат, длительность, следующий запуск) и действующие настройки; `POST /api/maintenance/run?dryRun=true` —
+сколько задач будет архивировано и записей аудита удалено, без изменений; `?dryRun=false` — выполнить проход сейчас
+(тот же лок, что у расписания; `409 maintenance_busy`, если проход уже идёт). Параметр `dryRun` обязателен. Проход,
+который что-то сделал, оставляет в `audit_log` запись `maintenance.run` (кто/по расписанию, сколько, упёрлись ли в
+потолок). Что **не** сделано из MAINT-01: порог «при N больше лимита не выполнять автоматически, а ждать
+подтверждения администратора» — потолок за проход и dry-run покрывают тот же риск, но не блокируют проход.
+
 Каждый HTTP-ответ содержит `X-Request-Id`. Если клиент прислал этот заголовок,
 значение сохраняется; иначе сервер создаёт UUID. То же значение находится в
 JSON-логах Fastify в поле `reqId`, поэтому его следует просить у пользователя

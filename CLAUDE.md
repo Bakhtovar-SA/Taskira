@@ -240,7 +240,7 @@ who typed them used — there is no dictionary key for someone's actual data.
   original shape and it triplicated the same ~20 lines of guard-flag/setInterval/log
   boilerplate; `startJob` also makes `stop()` reliably reset the in-flight guard flag, which
   the copy-pasted versions didn't, silently wedging a job forever if `stopMaintenance()` ran
-  mid-tick): archive + `audit_log` purge every `intervalMs` (default 1h, `startDelayMs=0`),
+  mid-tick): archive + `audit_log` purge every `intervalMs` (default 1h, first pass after `MAINTENANCE_START_DELAY_MS`, default 5 min, in `MAINTENANCE_BATCH_SIZE` batches under `FOR UPDATE SKIP LOCKED`, capped by `MAINTENANCE_MAX_PER_RUN`; one executor per cluster via `pg_try_advisory_lock`; metrics `taskira_background_job_*`; admin `GET /api/maintenance` + `POST /api/maintenance/run?dryRun=` — MAINT-01),
   `storageSweeper.ts` every `storageSweepIntervalMs` (default 24h, `startDelayMs=15s` — a full
   `Storage.list()` is pricier than one `UPDATE`), and (when `AUTH_MODE=ldap` + a bind DN)
   `departmentSync.ts`'s LDAP resync every `resyncIntervalMs` (default 6h, `startDelayMs=30s`).
