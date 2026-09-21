@@ -1,7 +1,7 @@
 /* Участники проекта, департаменты, проекты и LDAP-ресинк (админские действия): действия стора. Вынесено из
  * store.tsx без изменений поведения (ТЗ 2.3, шаг 3). `bootstrap` нужен deleteProject — приходит из провайдера. */
 import { useCallback } from "react";
-import type { Department, ProjectRole } from "../types";
+import type { ProjectRole } from "../types";
 import { ldapApi, departmentsApi, membersApi, projectsApi } from "../api";
 import { mapUser, readLastProject, writeLastProject } from "./mappers";
 import type { StoreCtx } from "./ctx";
