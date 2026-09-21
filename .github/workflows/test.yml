@@ -237,6 +237,9 @@ jobs:
         run: npm run typecheck
 
       # ТЗ 2.2: матрица прав генерируется из shared/permissions.matrix.json; ручная правка любой копии или docs/PERMISSIONS.md — красный чек.
+      - name: Typecheck scripts/ (docs generator)
+        run: npm run typecheck:scripts
+
       - name: Permissions matrix is in sync with its single source
         run: npm run permissions:check
 
