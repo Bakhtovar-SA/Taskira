@@ -16,15 +16,16 @@ The client was originally a localStorage-only app; it now talks to the API exclu
 (`src/api/`, `src/store.tsx`). `README.md` (root) and `ARCHITECTURE.md` track the current
 design; **`server/README.md`** is the authoritative API contract and data model. `src/seed.ts`
 is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still imports. The
-`*_MIGRATION.md` files are historical records of completed schema/feature migrations, in order:
-roles (004/006), departments (007), issue collaborators (008), LDAP (009), attachments (010),
-notifications (011), UI restructure / drop sprints (012), 4-level priorities (013), issue
-links (014), notification dismiss (015), issue lifecycle — `done_at`/`archived_at` (016),
-token revocation (017), points → complexity (018), checklist items (019),
-custom fields (020), subtasks (021), issue templates (022), sprints as an optional
-module (023, [SPRINTS_MIGRATION.md](SPRINTS_MIGRATION.md) — a deliberate, scoped
-exception to migration 012's removal, not a reversal of it; off by default),
-favorite projects (024), multiple assignees (025).
+`*_MIGRATION.md` files are historical records of completed schema/feature migrations; the list of
+migrations is generated from `server/migrations/` into [docs/MIGRATION-LIST.md](docs/MIGRATION-LIST.md) and the
+permission table into [docs/PERMISSIONS.md](docs/PERMISSIONS.md) — don't maintain either by hand. Sprints (migration
+023) are an optional, off-by-default module and a deliberate exception to migration 012's removal, not a reversal of
+it (ADR-0002/0003).
+
+**Decisions live in [docs/adr/](docs/adr/README.md).** An ADR records a decision on its date and never goes stale: it is
+`Accepted` or `Superseded by ADR-MMMM`. Changing an architectural decision = a **new ADR** with a
+`Supersedes ADR-NNNN` line; the old ADR gets only `Status: Superseded by ADR-MMMM` — its content is never edited.
+Generated docs (`npm run permissions:generate`, `npm run docs:generate`) are checked in CI (job `types`).
 
 Database changes must follow [docs/MIGRATIONS.md](docs/MIGRATIONS.md): immutable legacy
 migrations, timestamp-prefixed new files, transactional execution, and expand/contract across

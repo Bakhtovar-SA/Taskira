@@ -236,9 +236,17 @@ jobs:
       - name: Typecheck client (includes server/src/contract.ts)
         run: npm run typecheck
 
+      # ТЗ 2.4: генератор документации (scripts/generate-docs.ts) — TypeScript вне tsconfig клиента и сервера, проверяем отдельно.
+      - name: Typecheck scripts/ (docs generator)
+        run: npm run typecheck:scripts
+
       # ТЗ 2.2: матрица прав генерируется из shared/permissions.matrix.json; ручная правка любой копии или docs/PERMISSIONS.md — красный чек.
       - name: Permissions matrix is in sync with its single source
         run: npm run permissions:check
+
+      # ТЗ 2.4: список миграций и справочник схем API порождаются из кода; ручная правка — красный чек.
+      - name: Generated docs (migration list, API schemas) are up to date
+        run: npm run docs:check
 
   # Клиент (корневой пакет): typecheck + прод-сборка. БД не нужна.
   # В CI клиент раньше не проверялся вообще — единственный барьер против

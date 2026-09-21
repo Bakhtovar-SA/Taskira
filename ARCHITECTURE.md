@@ -182,9 +182,11 @@ Workflow    { projectId, statuses[], transitions[] } -- одна схема на
   сортировкой, без понятий "активный/будущий спринт" (миграция 012,
   [UI_RESTRUCTURE.md](UI_RESTRUCTURE.md))
 - ✅ Story points — заменены на «Сложность» (`simple | medium | hard`),
-  редактируемую в карточке и при создании задачи (миграция 018).
-- ✅ `TimelineView.tsx` — вопрос закрыт в пользу сохранения: получил pan по
-  холсту и физику перетаскивания (`Timeline.tsx`, PR «overdrive»); удаление
+  редактируемую в карточке и при создании задачи (миграция 018,
+  [ADR-0004](docs/adr/0004-complexity-instead-of-story-points.md)).
+- ✅ `TimelineView.tsx` — вопрос закрыт в пользу сохранения: получил pan/zoom по
+  холсту; pointer-«физика» перетаскивания (PR «overdrive») откатана, доска на нативном
+  HTML5 DnD — см. [ADR-0007](docs/adr/0007-native-html5-dnd-physics-dnd-reverted.md); удаление
   не рассматривается.
 
 ## Порядок разработки
@@ -210,7 +212,7 @@ Workflow    { projectId, statuses[], transitions[] } -- одна схема на
    (плоский список с фильтрами и сортировкой), «Эпик» → «Направление» в подписях,
    «+» на доске только у первого `todo`-столбца, добавлен главный экран
    (`HomeView` + `GET /api/issues/assigned-to-me`). «Таймлайн» остаётся и
-   развивается (pan, физика перетаскивания). Story points → «Сложность»
+   развивается (pan/zoom; без «физики» перетаскивания — ADR-0007). Story points → «Сложность»
    сделано (миграция 018). Осталось: переименование внутренних `epicId`/`ViewId`.
    Спринты и `manageSprints` позже вернулись как **опциональный, выключенный по
    умолчанию модуль** (миграция 023, [SPRINTS_MIGRATION.md](SPRINTS_MIGRATION.md)) —
