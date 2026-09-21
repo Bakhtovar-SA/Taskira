@@ -1,5 +1,19 @@
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
+import type {
+  ActivityDto,
+  AttachmentDto,
+  ChecklistItemDto,
+  CollaboratorDto,
+  CommentDto,
+  CustomFieldValueDto,
+  IssueDetailDto,
+  IssueDto,
+  IssueLinkDto,
+  IssueListPageMeta,
+  ParticipantDto,
+} from "../../server/src/contract";
+
 let legacyBearerToken: string | null = null;
 
 /** В production API обычно доступен на том же origin через nginx /api proxy.
@@ -198,32 +212,21 @@ export type ServerNotification = {
   read: boolean;
 };
 
-/** Приглашённый участник задачи (issue_collaborators). Приходит в детальном
- *  ответе GET /issues/:id (не в списке). */
-export type ServerCollaborator = {
-  userId: string;
-  name: string;
-  initials: string;
-  color: string;
-  jobRole: string;
-  addedAt: string;
-};
+/* -------- типы ответов задачи: из zod-контракта сервера (server/src/contract.ts, ТЗ 2.1) --------
+ * Форма ответов больше не описывается здесь руками: это те же типы, которыми аннотированы мапперы сервера. */
+export type ServerCollaborator = CollaboratorDto;
+export type ServerParticipant = ParticipantDto;
+export type ServerAttachment = AttachmentDto;
+export type ServerIssueLink = IssueLinkDto;
+export type ServerChecklistItem = ChecklistItemDto;
+export type ServerComment = CommentDto;
+export type ServerActivity = ActivityDto;
+export type ServerCustomFieldValue = CustomFieldValueDto;
 
-/** Мини-профиль участника (reporter/assignee/автор коммента/приглашённый) —
- *  для отрисовки карточки без bootstrap проекта. Детальный ответ GET /issues/:id. */
-export type ServerParticipant = { id: string; name: string; initials: string; color: string; jobRole: string };
-
-/** Вложение задачи (attachments, миграция 010). Детальный ответ GET /issues/:id. */
-export type ServerAttachment = {
-  id: string;
-  issueId: string;
-  filename: string;
-  contentType: string;
-  byteSize: number;
-  sha256: string;
-  uploadedById: string | null;
-  createdAt: string;
-};
+/** Одна клиентская форма для списка и карточки: список отдаёт `IssueDto`, GET /issues/:id — `IssueDetailDto`
+ *  (те же поля + участники/вложения/связи/чеклист/подзадачи). Поля детального ответа у клиента необязательны —
+ *  в списочной задаче их нет. Это клиентская вьюмодель поверх двух серверных типов, а не третье описание. */
+export type ServerIssue = IssueDto & Partial<Omit<IssueDetailDto, keyof IssueDto>>;
 
 /** Элемент «Моих подключений» (GET /api/issues/collaborating). */
 export type CollaboratingItem = {
@@ -267,89 +270,6 @@ export type SearchResultItem = {
   statusCategory: string;
   projectKey: string;
   projectName: string;
-};
-
-export type ServerIssue = {
-  id: string;
-  projectId: string;
-  num: number;
-  key: string;
-  title: string;
-  description: string;
-  typeId: string;
-  statusId: string;
-  priorityId: string;
-  /** Исполнители (issue_assignees, миграция 025) — плоский список. */
-  assigneeIds: string[];
-  reporterId: string;
-  epicId: string | null;
-  /** Родитель-подзадачи (миграция 021); независимо от epicId. */
-  parentId: string | null;
-  /** Спринт (миграция 023, опциональный модуль); не только в детальном
-   *  ответе — как parentId/epicId. */
-  sprintId: string | null;
-  color: string | null;
-  tStart: number | null;
-  tSpan: number | null;
-  complexity: string | null;
-  labels: string[];
-  dueDate: string | null;
-  rank: number;
-  /** Момент закрытия (миграция 016); null — задача не закрыта. */
-  doneAt: string | null;
-  /** Момент ухода в архив; null — задача в активном наборе проекта. */
-  archivedAt: string | null;
-  /** Только в детальном ответе GET /issues/:id. */
-  collaborators?: ServerCollaborator[];
-  participants?: ServerParticipant[];
-  attachments?: ServerAttachment[];
-  links?: ServerIssueLink[];
-  checklist?: ServerChecklistItem[];
-  customFieldValues?: ServerCustomFieldValue[];
-  /** total/done по ВСЕМ детям, включая заархивированных — не то же самое,
-   *  что фильтр data.issues.filter(i => i.parentId === ...) на клиенте
-   *  (тот видит только активные). Только в детальном ответе GET /issues/:id. */
-  subtasksSummary?: { total: number; done: number };
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type ServerIssueLink = {
-  id: string;
-  dir: "relates" | "blocks" | "blocked_by";
-  issue: {
-    id: string;
-    key: string;
-    title: string;
-    typeId: string;
-    statusId: string;
-    statusCategory: string;
-  };
-  createdAt: string;
-};
-
-export type ServerChecklistItem = {
-  id: string;
-  text: string;
-  done: boolean;
-  position: number;
-  createdAt: string;
-};
-
-export type ServerComment = {
-  id: string;
-  issueId: string;
-  authorId: string;
-  body: string;
-  createdAt: string;
-};
-
-export type ServerActivity = {
-  id: string;
-  actorId: string | null;
-  actor: { id: string; name: string; initials: string; color: string } | null;
-  text: string;
-  createdAt: string;
 };
 
 /** Проект (список / карточка / ответ POST·PATCH). */
@@ -427,12 +347,6 @@ export type ServerCustomField = {
   position: number;
 };
 
-/** Значение поля на конкретной задаче; отсутствие в массиве = не задано. */
-export type ServerCustomFieldValue = {
-  fieldId: string;
-  value: string | null;
-};
-
 /** Префикс ресурсов проекта. */
 const P = (projectId: string) => `/api/projects/${projectId}`;
 
@@ -455,7 +369,7 @@ export const authApi = {
 /** Уведомления (миграция 011). Доставка in-app — polling. */
 export const notificationsApi = {
   list: (cursor?: string) =>
-    api<{ items: ServerNotification[]; nextCursor: string | null; unread: number }>("/api/notifications", {
+    api<{ items: ServerNotification[]; nextCursor: string | null }>("/api/notifications", {
       query: { cursor, limit: 20 },
     }),
   unreadCount: () => api<{ count: number }>("/api/notifications/unread-count"),
@@ -608,9 +522,64 @@ export const membersApi = {
     api<void>(`${P(projectId)}/members/${userId}`, { method: "DELETE" }),
 };
 
+/** Фильтры набора задач — зеркало `IssueFilterQuery` сервера (server/src/contract.ts).
+ *  Курсор сюда не входит: это состояние обхода, а не свойство набора. */
+export interface IssueFilterParams {
+  status?: string;
+  /** id исполнителя или "none" — задачи без исполнителей. */
+  assignee?: string;
+  type?: string;
+  /** Дети одной задачи: подзадачи и задачи «направления». */
+  parentId?: string;
+  epicId?: string;
+  q?: string;
+  overdue?: "1";
+  /** "hide" — без закрытых; "recent" — закрытые не старше closedDays; "older" — только старше. */
+  closed?: "hide" | "recent" | "older";
+  closedDays?: number;
+}
+export type IssueSortKey = "rank" | "priority" | "due" | "updated" | "key";
+export interface IssuePageParams extends IssueFilterParams {
+  sort?: IssueSortKey;
+  dir?: "asc" | "desc";
+  cursor?: string;
+  limit?: number;
+}
+/** Направление проекта (`GET …/issues/epics`): задача, на которую ссылаются другие через epicId. */
+export interface IssueEpic {
+  id: string;
+  key: string;
+  title: string;
+  color: string | null;
+  tStart: number | null;
+  tSpan: number | null;
+  /** Активные дети и сколько из них закрыто (по категории статуса done). */
+  childTotal: number;
+  childDone: number;
+}
+
+export interface IssueCounts {
+  total: number;
+  byStatus: Record<string, number>;
+}
+
 export const issuesApi = {
   list: (projectId: string, query?: Record<string, string | number | undefined>) =>
-    api<{ items: ServerIssue[]; total: number }>(`${P(projectId)}/issues`, { query }),
+    api<IssueListPageMeta & { items: ServerIssue[] }>(`${P(projectId)}/issues`, { query }),
+  /** Одна страница набора: фильтры/сортировка серверные, продолжение — по `cursor`. */
+  page: (projectId: string, params: IssuePageParams) =>
+    api<IssueListPageMeta & { items: ServerIssue[] }>(`${P(projectId)}/issues`, {
+      query: params as Record<string, string | number | undefined>,
+    }),
+  /** Общее число и разбивка по статусам для набора — один запрос на набор, не на страницу. */
+  counts: (projectId: string, params: IssueFilterParams) =>
+    api<IssueCounts>(`${P(projectId)}/issues/counts`, { query: params as Record<string, string | number | undefined> }),
+  /** Направления проекта с агрегатом по детям: справочник для бейджей и Timeline. */
+  epics: (projectId: string, limit?: number) =>
+    api<{ items: IssueEpic[]; truncated: boolean }>(`${P(projectId)}/issues/epics`, { query: { limit } }),
+  /** Исполнители активных задач проекта по убыванию нагрузки (полоска фильтров доски). */
+  assignees: (projectId: string, limit?: number) =>
+    api<{ items: { userId: string; count: number }[] }>(`${P(projectId)}/issues/assignees`, { query: { limit } }),
   get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),

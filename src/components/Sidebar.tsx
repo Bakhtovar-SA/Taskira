@@ -1,4 +1,6 @@
 import { useStore } from "../store";
+import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
+import { openTotal } from "../boardFilters";
 import type { ViewId } from "../types";
 import { IcBacklog, IcBoard, IcBook, IcFlag, IcFlow, IcInbox, IcLink, IcReport, IcShield, IcTimeline, Logo } from "../icons";
 import { Avatar, Kbd, RoleBadge } from "../ui";
@@ -45,7 +47,11 @@ export default function Sidebar() {
   const { t } = useT();
   const { data, ui, setView, me, goHome } = useStore();
   const doneIds = new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id));
-  const openCount = data.issues.filter((i) => !doneIds.has(i.statusId)).length;
+  // «Открытых задач» и полоса прогресса — агрегат по всему проекту: одним
+  // запросом счётчиков, а не обходом всех задач на клиенте (PERF-06).
+  const { counts } = useIssueCounts(data.currentProjectId || null, NO_ISSUE_FILTERS, useIssuesRevision());
+  const openCount = openTotal(counts, doneIds);
+  const totalCount = counts?.total ?? 0;
   // Лого ведёт на главный экран — как крошка «Проекты» в топбаре; кликабельно
   // только когда главный экран вообще есть (≥ 2 доступных проекта).
   const homeAvailable = data.projects.length >= 2;
@@ -118,12 +124,12 @@ export default function Sidebar() {
       <div className="mx-3 rounded-lg border border-[#24385a] bg-sidebar2/50 p-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold text-[#9db0cd]">{t("sidebar.openIssues")}</p>
-          <span className="font-mono text-[15px] font-bold text-white">{openCount}</span>
+          <span className="font-mono text-[15px] font-bold text-white">{openCount ?? "…"}</span>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#24385a]">
           <div
             className="h-full rounded-full bg-gradient-to-r from-accent to-[#22a06b] transition-all duration-700"
-            style={{ width: `${Math.round((1 - openCount / Math.max(1, data.issues.length)) * 100)}%` }}
+            style={{ width: `${openCount === null ? 0 : Math.round((1 - openCount / Math.max(1, totalCount)) * 100)}%` }}
           />
         </div>
         <p className="mt-1.5 text-[10px] text-[#5f7396]">{t("sidebar.closedShare")}</p>

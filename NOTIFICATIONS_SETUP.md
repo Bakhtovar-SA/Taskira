@@ -49,11 +49,11 @@ Taskira к корпоративному SMTP-релею. In-app-уведомле
 |---|---|---|---|---|
 | `NOTIFY_EMAIL_ENABLED` | — | `true` | `true` | `false` (деф.) — только in-app |
 | `APP_BASE_URL` | да¹ | `https://taskira.corp` | `https://taskira.example.com` | база для ссылки в письме |
-| `SMTP_HOST` | да¹ | `smtp-relay.corp.local` | `smtp.example.com` | адрес SMTP |
+| `SMTP_HOST` | да¹ | `smtp-relay.corp.example` | `smtp.example.com` | адрес SMTP |
 | `SMTP_PORT` | да¹ | `25` | `587` (STARTTLS) / `465` (implicit TLS) | порт |
 | `SMTP_SECURE` | — | `false` | `true` для 465, `false` для 587/25 | implicit TLS |
 | `SMTP_USER` / `SMTP_PASS` | — | — (аноним. релей в контуре) | логин/пароль ящика | аутентификация |
-| `SMTP_FROM` | да¹ | `Taskira <noreply@corp.local>` | `Taskira <taskira@example.com>` | заголовок `From:` |
+| `SMTP_FROM` | да¹ | `Taskira <noreply@corp.example>` | `Taskira <taskira@example.com>` | заголовок `From:` |
 | `NOTIFY_WORKER_ENABLED` | — | `true` | `true` | стартовать воркер в этом процессе (см. §5) |
 | `NOTIFY_WORKER_INTERVAL_MS` | — | `15000` | `15000` | период прохода воркера |
 | `NOTIFY_EMAIL_MAX_TRIES` | — | `4` | `4` | попыток отправки до `failed` |

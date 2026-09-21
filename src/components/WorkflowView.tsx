@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useStore } from "../store";
+import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
 import type { CustomFieldType, IssueTypeId, PriorityId, Transition } from "../types";
 import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo } from "../icons";
 import { Lozenge, catColor } from "../ui";
 import { useT } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 /* POS/PATHS рассчитаны ТОЛЬКО на 4 дефолтных статуса (ключи — стабильные sid,
    не uuid). Статус сверх стандартных четырёх просто не отрисуется — если появится
@@ -83,7 +85,10 @@ export default function WorkflowView() {
 
   const sidById = new Map(statuses.map((s) => [s.id, s.sid]));
   const sidOf = (id: string) => sidById.get(id) ?? "";
-  const countBy = (statusId: string) => data.issues.filter((i) => i.statusId === statusId).length;
+  // Число задач в статусе — агрегат по проекту (счётчики сервера), а не обход
+  // всех задач на клиенте (PERF-06); до ответа — многоточие, а не ложный 0.
+  const { counts: statusCounts } = useIssueCounts(data.currentProjectId || null, NO_ISSUE_FILTERS, useIssuesRevision());
+  const countBy = (statusId: string): number | string => (statusCounts ? (statusCounts.byStatus[statusId] ?? 0) : "…");
   const stName = (id: string) => statuses.find((s) => s.id === id);
 
   const submit = () => {
@@ -180,7 +185,7 @@ export default function WorkflowView() {
                 <g key={s.id}>
                   <rect x={p.x} y={p.y} width={p.w} height={p.h} rx="12" fill="var(--c-panel)" stroke={active2(hover, data.workflow.transitions, s.id) ? "var(--c-accent)" : "var(--c-line)"} strokeWidth={active2(hover, data.workflow.transitions, s.id) ? 2 : 1.2} className="transition-all" />
                   <rect x={p.x} y={p.y} width="6" height={p.h} rx="3" fill={c.dot} />
-                  <text x={p.x + 22} y={p.y + 32} fontSize="14.5" fontWeight="700" fill="var(--c-ink)" fontFamily="Golos Text, sans-serif">{s.name}</text>
+                  <text x={p.x + 22} y={p.y + 32} fontSize="14.5" fontWeight="700" fill="var(--c-ink)" fontFamily="Golos Text, sans-serif">{workflowStatusName(s, t)}</text>
                   <text x={p.x + 22} y={p.y + 54} fontSize="11.5" fill="var(--c-faint)" fontFamily="JetBrains Mono, monospace">{t("workflow.issueCount", { count: countBy(s.id) })}</text>
                 </g>
               );
@@ -242,7 +247,7 @@ export default function WorkflowView() {
                 <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("workflow.fromStatus")}</span>
                 <select value={from} onChange={(e) => setFrom(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent">
                   {data.workflow.statuses.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
                   ))}
                 </select>
               </label>
@@ -250,7 +255,7 @@ export default function WorkflowView() {
                 <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("workflow.toStatus")}</span>
                 <select value={to} onChange={(e) => setTo(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent">
                   {data.workflow.statuses.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
                   ))}
                 </select>
               </label>
@@ -371,7 +376,7 @@ export default function WorkflowView() {
                   >
                     <option value="">{t("workflow.asUsual")}</option>
                     {data.workflow.statuses.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                      <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
                     ))}
                   </select>
                 </label>

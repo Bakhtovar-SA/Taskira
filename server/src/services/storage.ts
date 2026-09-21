@@ -20,10 +20,12 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  HeadBucketCommand,
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import type { Config, S3Config } from "../config.js";
+import { incrementS3Error } from "../metrics.js";
 
 export interface StoredObject {
   /** Размер объекта в байтах. */
@@ -37,6 +39,8 @@ export interface StoredObject {
 }
 
 export interface Storage {
+  /** Быстрая проверка доступности backend для /ready. */
+  checkReady(): Promise<void>;
   /** Записать поток под ключом. Существующий объект перезаписывается. */
   put(key: string, data: Readable, meta: { contentType: string; size: number }): Promise<void>;
   /** Поток на чтение. Бросает, если объекта нет (роут до этого уже сверил строку в БД). */
@@ -89,6 +93,10 @@ class LocalDiskStorage implements Storage {
     } catch {
       throw new Error(`storage: каталог ${this.root} недоступен на запись (STORAGE_DIR)`);
     }
+  }
+
+  async checkReady(): Promise<void> {
+    await access(this.root, FS.R_OK | FS.W_OK);
   }
 
   async put(key: string, data: Readable, _meta: { contentType: string; size: number }): Promise<void> {
@@ -164,23 +172,44 @@ class S3Storage implements Storage {
     });
   }
 
-  async put(key: string, data: Readable, meta: { contentType: string; size: number }): Promise<void> {
-    const up = new Upload({
-      client: this.client,
-      params: { Bucket: this.bucket, Key: key, Body: data, ContentType: meta.contentType },
+  private async measured<T>(operation: string, run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (error) {
+      incrementS3Error(operation);
+      throw error;
+    }
+  }
+
+  async checkReady(): Promise<void> {
+    await this.measured("head_bucket", async () => {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
     });
-    await up.done();
+  }
+
+  async put(key: string, data: Readable, meta: { contentType: string; size: number }): Promise<void> {
+    await this.measured("put", async () => {
+      const up = new Upload({
+        client: this.client,
+        params: { Bucket: this.bucket, Key: key, Body: data, ContentType: meta.contentType },
+      });
+      await up.done();
+    });
   }
 
   async get(key: string): Promise<Readable> {
-    const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
-    if (!res.Body) throw new Error(`s3: пустое тело для ${key}`);
-    return res.Body as unknown as Readable;
+    return this.measured("get", async () => {
+      const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+      if (!res.Body) throw new Error(`s3: пустое тело для ${key}`);
+      return res.Body as unknown as Readable;
+    });
   }
 
   async delete(key: string): Promise<void> {
     // DeleteObject в S3 идемпотентен — отсутствующий ключ не ошибка.
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    await this.measured("delete", async () => {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    });
   }
 
   async stat(key: string): Promise<StoredObject | null> {
@@ -190,23 +219,26 @@ class S3Storage implements Storage {
     } catch (e) {
       const err = e as { name?: string; $metadata?: { httpStatusCode?: number } };
       if (err.name === "NotFound" || err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) return null;
+      incrementS3Error("stat");
       throw e;
     }
   }
 
   async list(): Promise<{ key: string; mtimeMs: number }[]> {
-    const out: { key: string; mtimeMs: number }[] = [];
-    let token: string | undefined;
-    do {
-      const res = await this.client.send(
-        new ListObjectsV2Command({ Bucket: this.bucket, ContinuationToken: token }),
-      );
-      for (const obj of res.Contents ?? []) {
-        if (obj.Key) out.push({ key: obj.Key, mtimeMs: obj.LastModified?.getTime() ?? Date.now() });
-      }
-      token = res.IsTruncated ? res.NextContinuationToken : undefined;
-    } while (token);
-    return out;
+    return this.measured("list", async () => {
+      const out: { key: string; mtimeMs: number }[] = [];
+      let token: string | undefined;
+      do {
+        const res = await this.client.send(
+          new ListObjectsV2Command({ Bucket: this.bucket, ContinuationToken: token }),
+        );
+        for (const obj of res.Contents ?? []) {
+          if (obj.Key) out.push({ key: obj.Key, mtimeMs: obj.LastModified?.getTime() ?? Date.now() });
+        }
+        token = res.IsTruncated ? res.NextContinuationToken : undefined;
+      } while (token);
+      return out;
+    });
   }
 }
 

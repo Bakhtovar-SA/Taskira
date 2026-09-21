@@ -82,7 +82,6 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     return {
       items: items.map(mapN),
       nextCursor: hasMore ? new Date(items[items.length - 1].created_at).toISOString() : null,
-      unread: await unreadOf(uid),
     };
   });
 

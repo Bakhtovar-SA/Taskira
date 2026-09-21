@@ -13,20 +13,57 @@ if (!snapshot) {
 }
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
-const testSchema = process.env.UPGRADE_TEST_SCHEMA || `upgrade_snapshot_${process.pid}_${Date.now()}`;
-if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(testSchema)) throw new Error("invalid UPGRADE_TEST_SCHEMA");
-if (testSchema === "public") throw new Error("UPGRADE_TEST_SCHEMA must name a disposable non-public schema");
-const quotedSchema = `"${testSchema}"`;
-const testUrl = new URL(databaseUrl);
-testUrl.searchParams.set("options", `-csearch_path=${testSchema},public`);
-const testDatabaseUrl = testUrl.toString();
 
-const client = new pg.Client({ connectionString: databaseUrl });
-await client.connect();
-await client.query(`CREATE SCHEMA ${quotedSchema}`);
-const snapshotSql = readFileSync(resolve(serverDir, snapshot), "utf8").replaceAll("public.", `${quotedSchema}.`);
-await client.query(snapshotSql);
-await client.end();
+// Одноразовая БД, а не схема внутри переданной (TEST-01): расширения (`pg_trgm`, `pgcrypto`) принадлежат базе,
+// и `DROP SCHEMA … CASCADE` схемы, где их создала миграция, молча уносит их вместе с индексами других схем.
+// Снимок при этом грузится в `public`, как на настоящей установке, без переписывания имён схемы.
+// DATABASE_URL используется только как «сервер + учётные данные»: его собственная БД не меняется.
+// Нужно право CREATEDB (в CI роль — владелец docker-сервиса Postgres).
+const testDatabase = process.env.UPGRADE_TEST_DATABASE || `upgrade_snapshot_${process.pid}_${Date.now()}`;
+if (!/^upgrade_snapshot_[A-Za-z0-9_]+$/.test(testDatabase)) {
+  throw new Error("UPGRADE_TEST_DATABASE must match upgrade_snapshot_<letters, digits, underscore>: the script drops it at the end");
+}
+const urlFor = (database) => {
+  const url = new URL(databaseUrl);
+  url.pathname = `/${database}`;
+  url.searchParams.delete("options"); // схемный режим больше не используется
+  return url.toString();
+};
+const testDatabaseUrl = urlFor(testDatabase);
+
+const admin = new pg.Client({ connectionString: urlFor("postgres") });
+await admin.connect();
+try {
+  await admin.query(`CREATE DATABASE "${testDatabase}"`);
+} catch (error) {
+  await admin.end();
+  if (error.code === "42501") {
+    throw new Error(`No CREATEDB privilege to create the disposable database "${testDatabase}": ALTER ROLE <role> CREATEDB;`);
+  }
+  throw error;
+}
+await admin.end();
+
+async function dropTestDatabase() {
+  const cleanup = new pg.Client({ connectionString: urlFor("postgres") });
+  await cleanup.connect();
+  await cleanup.query(`DROP DATABASE IF EXISTS "${testDatabase}" WITH (FORCE)`);
+  await cleanup.end();
+}
+
+// Битый снимок падает ДО основного try/finally — БД нужно убрать и в этом случае.
+try {
+  const client = new pg.Client({ connectionString: testDatabaseUrl });
+  await client.connect();
+  try {
+    await client.query(readFileSync(resolve(serverDir, snapshot), "utf8"));
+  } finally {
+    await client.end();
+  }
+} catch (error) {
+  await dropTestDatabase();
+  throw error;
+}
 
 const port = 18080;
 const logs = [];
@@ -96,8 +133,5 @@ try {
       resolveWait();
     }, 5000).unref();
   });
-  const cleanup = new pg.Client({ connectionString: databaseUrl });
-  await cleanup.connect();
-  await cleanup.query(`DROP SCHEMA IF EXISTS ${quotedSchema} CASCADE`);
-  await cleanup.end();
+  await dropTestDatabase();
 }

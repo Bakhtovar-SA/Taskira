@@ -108,6 +108,15 @@ Enforcement points:
 `src/validation.ts` `LIMITS` ↔ `server/src/contract.ts` `LIMITS` + zod schemas. `contract.ts`
 is the single source of request/response shapes; the server validates every body/query with it
 via `zbody()` / `zquery()` preValidation hooks. Client validation is UX-only; the server repeats it.
+**Response types (TZ 2.1, in progress — issue family done):** `contract.ts` also holds zod schemas for responses
+(`IssueDto`, `IssueDetailDto`, `CommentDto`, …); server mappers are annotated with `z.infer` of them and the client
+imports the same types (`import type` from `../../server/src/contract`, root has `zod` as a devDependency for types
+only — nothing reaches the bundle). Those schemas are **type sources only, never `.parse()`d at runtime** — they do
+not guarantee a mapper returns what it declares (SQL rows are cast `q<Row>`); don't assume the API is protected from
+drift against the DB because a schema exists. Response types not yet in `contract.ts` (project/workflow/users,
+notifications, reports, sprints, templates, home/search, …) are still hand-written in `src/api/index.ts` and
+`server/src/services/*.ts` until the next steps of 2.1. The old text-emitting `generate-client-contracts.mjs` /
+`contracts:check` is gone: a client `npm run typecheck` now fails when a contract field disappears.
 
 ### Client data flow
 
@@ -240,7 +249,7 @@ who typed them used — there is no dictionary key for someone's actual data.
   original shape and it triplicated the same ~20 lines of guard-flag/setInterval/log
   boilerplate; `startJob` also makes `stop()` reliably reset the in-flight guard flag, which
   the copy-pasted versions didn't, silently wedging a job forever if `stopMaintenance()` ran
-  mid-tick): archive + `audit_log` purge every `intervalMs` (default 1h, `startDelayMs=0`),
+  mid-tick): archive + `audit_log` purge every `intervalMs` (default 1h, first pass after `MAINTENANCE_START_DELAY_MS`, default 5 min, in `MAINTENANCE_BATCH_SIZE` batches under `FOR UPDATE SKIP LOCKED`, capped by `MAINTENANCE_MAX_PER_RUN`; one executor per cluster via `pg_try_advisory_lock`; metrics `taskira_background_job_*`; admin `GET /api/maintenance` + `POST /api/maintenance/run?dryRun=` — MAINT-01),
   `storageSweeper.ts` every `storageSweepIntervalMs` (default 24h, `startDelayMs=15s` — a full
   `Storage.list()` is pricier than one `UPDATE`), and (when `AUTH_MODE=ldap` + a bind DN)
   `departmentSync.ts`'s LDAP resync every `resyncIntervalMs` (default 6h, `startDelayMs=30s`).

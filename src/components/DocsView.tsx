@@ -5,6 +5,7 @@ import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcBook, PriorityIcon, TypeIcon } from "../icons";
 import { Kbd, RoleBadge, catColor } from "../ui";
 import { useT } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 const SECTIONS = [
   { id: "overview", label: "Обзор системы" },
@@ -208,7 +209,7 @@ export default function DocsView() {
                     <div key={s.id} className="flex items-center gap-3 rounded-lg border border-linesoft bg-canvas/50 px-3 py-2.5">
                       <span className="h-2.5 w-2.5 rounded-sm" style={{ background: c.dot }} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-bold text-ink">{s.name}</p>
+                        <p className="text-[13px] font-bold text-ink">{workflowStatusName(s, t)}</p>
                         <p className="font-mono text-[10px] text-faint">id: {s.id} · категория: {s.category}</p>
                       </div>
                       <span className="font-mono text-[10.5px] text-faint">{out} → / {inc} ←</span>

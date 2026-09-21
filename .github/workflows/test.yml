@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -72,7 +72,7 @@ jobs:
     outputs:
       snapshots: ${{ steps.snapshots.outputs.json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: snapshots
         name: Discover database snapshots
         run: |
@@ -112,7 +112,7 @@ jobs:
       NOTIFY_WORKER_ENABLED: "false"
       MAINTENANCE_ENABLED: "false"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -122,6 +122,9 @@ jobs:
         working-directory: server
       - run: npm run build
         working-directory: server
+      - name: Verify interrupted concurrent-index recovery
+        run: node scripts/test-concurrent-index-recovery.mjs
+        working-directory: server
       - name: Restore snapshot, migrate, start, and smoke-test
         run: node scripts/upgrade-snapshot-smoke.mjs "../${{ matrix.snapshot }}"
         working-directory: server
@@ -130,7 +133,7 @@ jobs:
     name: offline upgrade and rollback
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Build versioned images, upgrade snapshot data, and roll back
@@ -140,14 +143,14 @@ jobs:
     name: backup, destroy volumes, and restore
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Back up data, remove volumes, restore, and verify login/task/attachment
         run: bash scripts/test-backup-restore-integration.sh
 
   migration-policy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -186,7 +189,7 @@ jobs:
       DATABASE_URL_TEST: postgresql://taskira:taskira@localhost:5432/taskira_test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -211,7 +214,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # build-release.sh deliberately rejects shallow history because it
           # cannot generate a trustworthy CHANGELOG.md from an incomplete log.
@@ -289,7 +292,7 @@ jobs:
       ADMIN_PASSWORD: Emergency-Access-42!
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -378,7 +381,7 @@ jobs:
       STORAGE_S3_FORCE_PATH_STYLE: "true"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -440,7 +443,7 @@ jobs:
       MAIL_API: http://localhost:8025
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:

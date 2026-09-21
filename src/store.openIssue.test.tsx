@@ -102,8 +102,8 @@ describe("openIssue() — вкладки Комментарии/История �
     // Задача уже в списке (как после обычной загрузки доски) — до открытия
     // карточки comments/activity у неё пустые, как и мэппит mapIssue() для
     // списочного ответа.
-    vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [fakeServerIssue("i1")], total: 1 });
-    vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null, unread: 0 });
+    vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [fakeServerIssue("i1")], hasMore: false, nextCursor: null });
+  vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
     vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
 
     let latest: ReturnType<typeof useStore> | null = null;
@@ -115,6 +115,10 @@ describe("openIssue() — вкладки Комментарии/История �
     try {
       await act(async () => {
         await latest!.bootstrap();
+      });
+      await act(async () => {
+        // bootstrap больше не грузит задачи (PERF-06): тест исходит из «стор уже знает эти задачи», поэтому догружаем явно
+        await latest!.ensureAllIssues();
       });
       expect(latest!.bootStatus).toBe("ready");
       expect(latest!.data.issues.find((i) => i.id === "i1")?.comments).toEqual([]);

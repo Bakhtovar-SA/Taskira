@@ -11,44 +11,22 @@ import { one, q } from "../db.js";
 import { loadConfig } from "../config.js";
 import { ApiHttpError, requireAuth, revokeUserSessions, unauthorized, forbidden, zbody } from "../middleware.js";
 import { safeUser, signToken, type UserRow } from "../auth.js";
+import { loginRateLimited } from "../services/loginRateLimit.js";
 import { ldapAuthenticate, LdapUnavailableError } from "../services/ldap.js";
 import { provisionFromLdap } from "../services/userProvisioning.js";
 import { syncDepartmentMembership } from "../services/departmentSync.js";
 import { listFavoriteProjectIds } from "../services/favorites.js";
 import { clearSessionCookie, sessionCookie } from "../sessionCookie.js";
 
-/* -------- простой in-memory rate limit: 10 попыток входа с IP за 5 минут (fix 3a).
-   Счётчик сбрасывается перезапуском процесса — для внутренней сети достаточно. -------- */
-const attemptsByIp = new Map<string, number[]>();
-let lastSweep = 0;
-
-/** Периодическая уборка Map: раньше ключи-IP не удалялись никогда и таблица
- *  росла без ограничений (аудит SEC-06). Подметаем не чаще раза в минуту. */
-function sweep(now: number, windowMs: number): void {
-  if (now - lastSweep < 60_000) return;
-  lastSweep = now;
-  for (const [ip, times] of attemptsByIp) {
-    const live = times.filter((t) => now - t < windowMs);
-    if (live.length === 0) attemptsByIp.delete(ip);
-    else attemptsByIp.set(ip, live);
-  }
-}
-
-function rateLimited(ip: string): boolean {
+/* -------- лимит попыток входа по IP (10 за 5 минут по умолчанию): состояние в БД, services/loginRateLimit.ts.
+   Раньше — Map в памяти процесса; при втором экземпляре лимит умножался на число процессов. Блокировка по
+   аккаунту (failed_login_attempts / locked_until) — ниже, тоже в БД. -------- */
+async function rateLimited(ip: string): Promise<boolean> {
   // Флаг берётся из конфига, а не из NODE_ENV: раньше боевой код сам проверял
   // окружение, и кривой NODE_ENV отключал защиту в проде (аудит DEBT-03).
   const rl = loadConfig().rateLimit;
   if (!rl.enabled) return false;
-  const now = Date.now();
-  sweep(now, rl.loginWindowMs);
-  const recent = (attemptsByIp.get(ip) ?? []).filter((t) => now - t < rl.loginWindowMs);
-  if (recent.length >= rl.loginMax) {
-    attemptsByIp.set(ip, recent);
-    return true;
-  }
-  recent.push(now);
-  attemptsByIp.set(ip, recent);
-  return false;
+  return loginRateLimited(ip, rl.loginMax, rl.loginWindowMs);
 }
 
 type LoginAccount = { id: string; auth_source: "local" | "ldap"; locked_until: Date | null };
@@ -92,7 +70,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     { preValidation: zbody(LoginBody) },
     async (req, reply) => {
       const ip = req.ip;
-      if (rateLimited(ip)) {
+      if (await rateLimited(ip)) {
         await audit(null, "auth.login.rate_limited", "auth", null, { ip }, "denied");
         throw new ApiHttpError(429, "RATE_LIMITED", "Слишком много попыток входа — подождите несколько минут");
       }
