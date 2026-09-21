@@ -1,6 +1,7 @@
 # STORE-01 — разрезание `src/store.tsx` по доменам (ТЗ 2.3): инвентаризация
 
-**Статус: шаги 1–5 выполнены** (шаг 2: спринты и избранное+поиск — `src/store/sprints.ts`, `favoritesSearch.ts`, общий контекст
+**Статус: шаги 1–6 выполнены — разрезание store.tsx завершено** (`store.tsx` 2 535 → ~500 строк: состояние, индексы,
+контекст и эффекты; домены — в `src/store/*`) (шаг 2: спринты и избранное+поиск — `src/store/sprints.ts`, `favoritesSearch.ts`, общий контекст
 доменных хуков `ctx.ts`; `store.tsx` ~2 030 строк). Шаг 1: (чистые функции и типы вынесены в `src/store/mappers.ts`, `store.tsx` 2 535 → ~2 150 строк);
 шаги 2–6 впереди. Инвентаризация снята 2026-09-21 на `main` @ `9c46bc1`. Из PERF-06 «половина работы» уже
 сделана в части данных (частичный стор, `useIssueSet`/`useEpics` в `issuePages.ts`, `issueSearch.ts`,
@@ -64,8 +65,13 @@
    `withIssue`, `resolveIssue`, `refreshIssues`, `setUi`, `bumpIssues`, `bumpEpics`, `langRef`). Эти действия **не оптимистичны**:
    запрос → применение ответа сервера; откат с перечитыванием — только у `moveStatus`. Тесты написаны ДО выноса
    (`store.issueCrud.test.tsx`, 12; четыре мутации ловит на коде до и после). `store.tsx` ~920 строк.
-6. **Boot/сессия/навигация + список/открытие задачи** (400): последними — тут `switchSeqRef`, гонки и
-   `pendingOpenIssueRef` (см. пометки в CLAUDE.md про `upsertIssue` и `bootstrap`).
+6. ~~**Boot/сессия/навигация + список/открытие задачи** (400)~~ — **сделано**: `useSessionActions(ctx, deps)`
+   (`store/session.ts`: `bootstrap`, `switchProject`, `goHome`, `enterProject`, `logout`, `refreshIssues`, `ensureAllIssues`,
+   `refreshCollaborations`, `openIssue`, refs `switchSeqRef`/`pendingOpenIssueRef`/`allIssuesInFlight`) и
+   `useIssueLookup(ctx)` (`store/issueLookup.ts`: `resolveIssue`, `lookupIssue`, `withIssue`); четыре `useEffect` (хэш, отложенное
+   открытие, polling, WebSocket) остались в провайдере. 31 характеризационный тест (`store.bootNav.test.tsx`) написан ДО
+   переноса, включая гонки; девять мутаций ловит и на коде до, и после. Найдена брешь **SEC-01** (ответы после logout
+   воскрешают данные) — перенесена как есть, исправляется отдельным PR сразу после.
 
 Приём: `type StoreCtx = { setData; dataRef; pid; toast; handleApiError; requirePerm; withIssue; resolveIssue; local;
 bumpIssues; bumpEpics }` собирается один раз в ядре; `useXxxActions(ctx)` возвращает объект действий; провайдер
