@@ -30,7 +30,7 @@ const admin = {
 const viewerUser = { ...admin, id: "u2", username: "v", globalRole: "member" as const };
 const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false };
 
-const bootPayload = (users = [admin]): ProjectBootstrap => ({
+const bootPayload = (users: unknown[] = [admin]): ProjectBootstrap => ({
   project,
   users: users as never,
   members: [{ userId: "u2", role: "viewer" }],
@@ -56,7 +56,7 @@ class FakeWebSocket {
 
 let unmountCurrent: (() => void) | null = null;
 
-async function bootAs(me: typeof admin) {
+async function bootAs(me: typeof admin | typeof viewerUser) {
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(me as never);
