@@ -30,6 +30,7 @@ import { invalidateProjectCache } from "../services/project.js";
 import { listVisibleProjects, projectRowToDto, type ProjectDto } from "../services/projects.js";
 import { storageKeysForProject, deleteStorageObjects } from "../services/attachments.js";
 import { ProjectCreateBody, ProjectParams, ProjectPatchBody } from "../contract.js";
+import type { ProjectBootstrapDto } from "../contract.js";
 import type { ProjectRole } from "../permissions.js";
 
 interface MemberRow {
@@ -102,7 +103,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/projects/:projectId",
     { preHandler: [requirePerm("browse")], preValidation: zparams(ProjectParams) },
-    async (req) => {
+    async (req): Promise<ProjectBootstrapDto> => {
       const project = req.project!;
       // Активные: участники проекта + глобальные админы + участники департамента
       // проекта; а если проект is_shared — вообще все активные (тот же неявный

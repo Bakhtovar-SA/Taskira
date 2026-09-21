@@ -32,7 +32,6 @@ interface AttachmentRow {
   created_at: Date;
 }
 
-
 const toDto = (r: AttachmentRow): AttachmentDto => ({
   id: r.id,
   issueId: r.issue_id,

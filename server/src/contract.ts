@@ -377,7 +377,11 @@ export type NotifyType = (typeof NOTIFY_TYPES)[number];
  *  сентинел "у пользователя нет email" (notify.ts/notifier.ts), а не то, что
  *  пользователь теперь может выбрать сам — см. NotifyPrefsBody ниже (миграция
  *  028: почтовые уведомления больше нельзя выключить вручную). */
-export type NotifyPrefs = { email?: "instant" | "daily" | "off"; selfWatch?: boolean };
+export const NotifyPrefs = z.object({
+  email: z.enum(["instant", "daily", "off"]).optional(),
+  selfWatch: z.boolean().optional(),
+});
+export type NotifyPrefs = z.infer<typeof NotifyPrefs>;
 
 /** PATCH /api/notifications/prefs — частичное обновление (мержится в jsonb).
  *  'off' сознательно исключён из ЭТОЙ схемы (миграция 028) — пользователь
@@ -545,6 +549,8 @@ export type WsAuthMessage = { type: "auth"; token: string };
  */
 const ActorMini = z.object({ id: z.string(), name: z.string(), initials: z.string(), color: z.string() });
 
+/** Мини-профиль участника задачи — чтобы карточку можно было отрисовать без bootstrap проекта
+ *  (одиночный просмотр приглашённого, COLLAB_MIGRATION.md Фаза 6). */
 export const ParticipantDto = z.object({
   id: z.string(),
   name: z.string(),
@@ -675,3 +681,122 @@ export const IssueDetailDto = IssueDto.extend({
   epicChildrenCount: z.number(),
 });
 export type IssueDetailDto = z.infer<typeof IssueDetailDto>;
+
+/* ---- проекты, пользователи, workflow, bootstrap (ТЗ 2.1, PR 2) ---- */
+
+export const SafeUser = z.object({
+  id: z.string(),
+  username: z.string(),
+  name: z.string(),
+  initials: z.string(),
+  color: z.string(),
+  jobRole: z.string(),
+  /** Телефон (миграция 026) — из AD у LDAP-пользователей, вручную при создании локального. "" — не заполнен. */
+  phone: z.string(),
+  /** Глобальная роль ресурса (users.global_role) — источник прав. Проектная роль — в bootstrap `members`. */
+  globalRole: z.enum(GLOBAL_ROLES),
+  isActive: z.boolean(),
+  /** local | ldap (миграция 009) — у ldap-юзеров роль/профиль из директории. */
+  authSource: z.enum(["local", "ldap"]),
+  /** мс эпохи последней загрузки аватарки (миграция 027) — null, если её нет; cache-buster для /users/:id/avatar. */
+  avatarUpdatedAt: z.number().nullable(),
+});
+export type SafeUser = z.infer<typeof SafeUser>;
+
+/** GET /api/auth/me: профиль + то, что видно только себе (настройки уведомлений, избранные проекты). */
+export const MeDto = SafeUser.extend({ notifyPrefs: NotifyPrefs, favoriteProjectIds: z.array(z.string()) });
+export type MeDto = z.infer<typeof MeDto>;
+
+export const ProjectDto = z.object({
+  id: z.string(),
+  key: z.string(),
+  name: z.string(),
+  description: z.string(),
+  departmentId: z.string(),
+  isShared: z.boolean(),
+  sprintsEnabled: z.boolean(),
+});
+export type ProjectDto = z.infer<typeof ProjectDto>;
+
+/** ldapGroupDn — DN корпоративной AD-группы: только глобальному admin (для остальных — null). */
+export const DepartmentDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  ldapGroupDn: z.string().nullable(),
+  projectCount: z.number(),
+});
+export type DepartmentDto = z.infer<typeof DepartmentDto>;
+
+/** source: 'ldap' пересобирается синхронизацией (departmentSync.ts), 'manual' — добавлено вручную. */
+export const DepartmentMemberDto = z.object({
+  userId: z.string(),
+  name: z.string(),
+  initials: z.string(),
+  color: z.string(),
+  jobRole: z.string(),
+  source: z.enum(["ldap", "manual"]),
+});
+export type DepartmentMemberDto = z.infer<typeof DepartmentMemberDto>;
+
+export const StatusDto = z.object({
+  id: z.string(),
+  sid: z.string(),
+  name: z.string(),
+  category: z.enum(STATUS_CATEGORIES),
+  position: z.number(),
+});
+export type StatusDto = z.infer<typeof StatusDto>;
+
+/** Ребро схемы переходов в camelCase: `{ id, from, to }` (SQL-строка — snake_case). */
+export const TransitionDto = z.object({ id: z.string(), from: z.string(), to: z.string() });
+export type TransitionDto = z.infer<typeof TransitionDto>;
+
+export const WorkflowDto = z.object({ statuses: z.array(StatusDto), transitions: z.array(TransitionDto) });
+export type WorkflowDto = z.infer<typeof WorkflowDto>;
+
+export const SprintDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  goal: z.string(),
+  status: z.enum(["future", "active", "completed"]),
+  startDate: z.string().nullable(),
+  endDate: z.string().nullable(),
+});
+export type SprintDto = z.infer<typeof SprintDto>;
+
+export const IssueTemplateDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  typeId: z.enum(ISSUE_TYPES),
+  priorityId: z.enum(PRIORITIES),
+  title: z.string(),
+  description: z.string(),
+  statusId: z.string().nullable(),
+  position: z.number(),
+});
+export type IssueTemplateDto = z.infer<typeof IssueTemplateDto>;
+
+export const CustomFieldDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  fieldType: z.enum(CUSTOM_FIELD_TYPES),
+  options: z.array(z.string()),
+  position: z.number(),
+});
+export type CustomFieldDto = z.infer<typeof CustomFieldDto>;
+
+/** Состав проекта: userId → проектная роль. Права me считаются из globalRole + этого. */
+export const ProjectMemberDto = z.object({ userId: z.string(), role: z.enum(PROJECT_ROLES) });
+export type ProjectMemberDto = z.infer<typeof ProjectMemberDto>;
+
+/** GET /api/projects/:projectId — всё, что нужно клиенту при входе в проект (кроме самих задач). */
+export const ProjectBootstrapDto = z.object({
+  project: ProjectDto,
+  users: z.array(SafeUser),
+  members: z.array(ProjectMemberDto),
+  workflow: WorkflowDto,
+  issueTemplates: z.array(IssueTemplateDto),
+  customFields: z.array(CustomFieldDto),
+  sprints: z.array(SprintDto),
+});
+export type ProjectBootstrapDto = z.infer<typeof ProjectBootstrapDto>;

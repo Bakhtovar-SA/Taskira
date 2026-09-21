@@ -5,7 +5,6 @@ import { one, q } from "../db.js";
 import type { IssueLinkDir, IssueLinkDto } from "../contract.js";
 export type { IssueLinkDto };
 
-
 interface Row {
   id: string;
   link_type: "relates" | "blocks";

@@ -3,7 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { loadConfig } from "./config.js";
 import type { JwtPayload } from "./middleware.js";
 import type { GlobalRole } from "./permissions.js";
-import type { NotifyPrefs } from "./contract.js";
+import type { NotifyPrefs, SafeUser } from "./contract.js";
+export type { SafeUser };
 
 export interface UserRow {
   id: string;
@@ -27,27 +28,6 @@ export interface UserRow {
   session_version: string | number; // bigint, миграция 029
   failed_login_attempts: number;
   locked_until: Date | null;
-}
-
-export interface SafeUser {
-  id: string;
-  username: string;
-  name: string;
-  initials: string;
-  color: string;
-  jobRole: string;
-  /** Телефон (миграция 026) — из AD у LDAP-пользователей, вручную при создании
-   *  локального. "" — не заполнен. */
-  phone: string;
-  /** Глобальная роль ресурса (users.global_role) — источник прав.
-   *  Проектная роль — в bootstrap `members`, не здесь. */
-  globalRole: GlobalRole;
-  isActive: boolean;
-  /** local | ldap (миграция 009) — для UI: у ldap-юзеров роль/профиль из директории. */
-  authSource: "local" | "ldap";
-  /** мс эпохи последней загрузки аватарки (миграция 027) — null, если её нет.
-   *  Клиент использует как cache-buster для GET /users/:id/avatar. */
-  avatarUpdatedAt: number | null;
 }
 
 export function safeUser(row: UserRow): SafeUser {

@@ -3,14 +3,10 @@ import type { PoolClient } from "pg";
 import { one, q, withTransaction } from "../db.js";
 import { badRequest, notFound } from "../middleware.js";
 import { ApiHttpError } from "../middleware.js";
-
-export interface StatusRow {
-  id: string;
-  sid: string;
-  name: string;
-  category: "todo" | "inprogress" | "done";
-  position: number;
-}
+import type { StatusDto, TransitionDto, WorkflowDto } from "../contract.js";
+export type { TransitionDto, WorkflowDto };
+/** Строка статуса из БД и элемент ответа — одно и то же (`workflow_statuses`). */
+export type StatusRow = StatusDto;
 
 export interface TransitionRow {
   id: string;
@@ -18,24 +14,11 @@ export interface TransitionRow {
   to_status_id: string;
 }
 
-/** DTO ребра схемы в camelCase — контракт с клиентом (taskira-review §1.1).
- *  Клиент/`contract`-типы ожидают `{ id, from, to }`; SQL-строка — snake_case. */
-export interface TransitionDto {
-  id: string;
-  from: string;
-  to: string;
-}
-
 export const mapTransition = (row: TransitionRow): TransitionDto => ({
   id: row.id,
   from: row.from_status_id,
   to: row.to_status_id,
 });
-
-export interface WorkflowDto {
-  statuses: StatusRow[];
-  transitions: TransitionDto[];
-}
 
 /** Дефолтный граф переходов (используется в seed и в POST /workflow/reset).
     Ключи — стабильные sid статусов, не uuid. */

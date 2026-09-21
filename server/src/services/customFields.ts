@@ -3,17 +3,8 @@
  *  задачи, одна строка на (custom_field_id, issue_id), NULL/отсутствие = не задано. */
 import { one, q } from "../db.js";
 import { badRequest } from "../middleware.js";
-import type { CustomFieldType } from "../contract.js";
-import type { CustomFieldValueDto } from "../contract.js";
-export type { CustomFieldValueDto };
-
-export interface CustomFieldDto {
-  id: string;
-  name: string;
-  fieldType: CustomFieldType;
-  options: string[];
-  position: number;
-}
+import type { CustomFieldDto, CustomFieldType, CustomFieldValueDto } from "../contract.js";
+export type { CustomFieldDto, CustomFieldValueDto };
 
 interface FieldRow {
   id: string;
