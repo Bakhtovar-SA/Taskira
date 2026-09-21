@@ -69,6 +69,9 @@ export async function runMaintenanceOnce(): Promise<MaintenanceStats> {
     auditPurged = purged.length;
   }
 
+  // Остатки лимитера входа по IP (сам лимитер чистит только «свой» IP при следующей попытке).
+  await q(`DELETE FROM login_attempts WHERE attempted_at < now() - interval '1 day'`);
+
   return { archived: archivedRows.length, auditPurged };
 }
 

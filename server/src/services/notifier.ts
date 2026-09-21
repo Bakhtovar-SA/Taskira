@@ -5,10 +5,11 @@
  *  от первого события, затем одно письмо-сводка. Ретрай через email_tries,
  *  после NOTIFY_EMAIL_MAX_TRIES → 'failed'.
  *
- *  MVP — один воркер в основном процессе. Перекрытие тиков исключено re-entrancy
- *  guard'ом (`running`); окно «упал между send и UPDATE → повторная отправка на
- *  рестарте» — приемлемо и задокументировано (§5). Несколько процессов —
- *  NOTIFY_WORKER_ENABLED=false на всех, кроме одного (лидер-лок — Фаза 6).
+ *  Перекрытие тиков в процессе исключено re-entrancy guard'ом (`running`), между процессами —
+ *  advisory-локом на тик (`runNotifierTick`, RESTART-SAFETY): второй экземпляр на той же БД
+ *  пропускает тик, письма не дублируются. Окно «упал между send и UPDATE → повторная отправка
+ *  на рестарте» остаётся — приемлемо и задокументировано (§5). `NOTIFY_WORKER_ENABLED=false`
+ *  по-прежнему выключает воркер в конкретном процессе.
  */
 import nodemailer, { type Transporter } from "nodemailer";
 import { q, withAdvisoryLock } from "../db.js";

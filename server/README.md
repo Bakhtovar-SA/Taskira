@@ -299,7 +299,7 @@ npm run dev        # tsx watch (chokidar polling): миграции → seed а�
 
 **За reverse-proxy (nginx/LB)** обязательно задайте `TRUST_PROXY` (`true` — если до
 приложения дотягивается только прокси; либо список IP/CIDR). Иначе `req.ip` = адрес
-прокси: rate-limit логина (`routes/auth.ts`, 10 попыток/IP/5 мин) считает всех
+прокси: rate-limit логина (`routes/auth.ts` + `services/loginRateLimit.ts`, 10 попыток/IP/5 мин) считает всех
 пользователей как один IP, и в `audit_log` пишется адрес прокси, а не клиента.
 Значение прокидывается в опцию Fastify `trustProxy` (`app.ts`).
 
@@ -330,7 +330,7 @@ curl -s -X POST localhost:8080/api/auth/login \
 TOKEN=…; curl -s localhost:8080/api/auth/me -H "authorization: Bearer $TOKEN"
 ```
 
-Rate-limit логина (in-memory, 10 попыток / IP / 5 минут):
+Rate-limit логина (состояние в БД, таблица `login_attempts`; 10 попыток / IP / 5 минут; общий для всех процессов):
 
 ```bash
 for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
