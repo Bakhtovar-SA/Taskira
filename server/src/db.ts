@@ -63,6 +63,43 @@ async function assertNoInvalidIndexes(client: pg.PoolClient, file: string): Prom
   }
 }
 
+export type LockResult<T> = { acquired: true; value: T } | { acquired: false };
+
+/**
+ * Межпроцессная взаимоисключающая секция на session-level advisory-локе Postgres. Держит ОДНО выделенное
+ * соединение на время `fn`; лок снимается в `finally`, а при обрыве соединения Postgres снимает его сам —
+ * упавший процесс не оставляет «вечный лок».
+ *
+ * `wait: false` — не ждать: занято → `{ acquired: false }` без выполнения (тик фонового джоба просто
+ * пропускается). `wait: true` — встать в очередь (стартовый сид: второй экземпляр дождётся первого и увидит
+ * уже созданное). Ключ — строка, `hashtext` даёт int4: префикс `taskira:` по образцу существующих локов.
+ * Не работает через pgbouncer в transaction-режиме (лок привязан к серверному соединению).
+ */
+export async function withAdvisoryLock<T>(key: string, opts: { wait: boolean }, fn: () => Promise<T>): Promise<LockResult<T>> {
+  const client = await getPool().connect();
+  let locked = false;
+  let broken = false;
+  try {
+    if (opts.wait) {
+      await client.query(`SELECT pg_advisory_lock(hashtext($1))`, [key]);
+      locked = true;
+    } else {
+      const r = await client.query<{ ok: boolean }>(`SELECT pg_try_advisory_lock(hashtext($1)) AS ok`, [key]);
+      locked = r.rows[0]?.ok === true;
+      if (!locked) return { acquired: false };
+    }
+    return { acquired: true, value: await fn() };
+  } finally {
+    if (locked) {
+      // не смогли снять лок — соединение нельзя возвращать в пул с висящим локом: закрываем его
+      await client.query(`SELECT pg_advisory_unlock(hashtext($1))`, [key]).catch(() => {
+        broken = true;
+      });
+    }
+    client.release(broken);
+  }
+}
+
 export async function q<T>(text: string, params: unknown[] = []): Promise<T[]> {
   const res = await getPool().query(text, params);
   return res.rows as T[];

@@ -32,7 +32,7 @@
  *  нужен всегда. Как и notifier, при нескольких инстансах включать ровно на
  *  одном (MAINTENANCE_ENABLED=false на остальных).
  */
-import { q } from "../db.js";
+import { q, withAdvisoryLock } from "../db.js";
 import { loadConfig } from "../config.js";
 import { getStorage } from "./storage.js";
 import { runStorageSweepOnce } from "./storageSweeper.js";
@@ -80,6 +80,12 @@ export async function runMaintenanceOnce(): Promise<MaintenanceStats> {
  * — без этого второй start() после stop() посреди прогона молча блокировался
  * бы своим же guard'ом навсегда, ни разу не выполнившись.
  */
+/** Один тик под межпроцессным локом джоба; занято — молча пропустить. Вынесено, чтобы проверять без таймеров. */
+export async function runJobLocked(name: string, run: () => Promise<void>): Promise<boolean> {
+  const r = await withAdvisoryLock(`taskira:job:${name}`, { wait: false }, run);
+  return r.acquired;
+}
+
 function startJob(name: string, intervalMs: number, startDelayMs: number, run: () => Promise<void>) {
   let running = false;
   let timer: NodeJS.Timeout | null = null;
@@ -88,7 +94,9 @@ function startJob(name: string, intervalMs: number, startDelayMs: number, run: (
   const tick = (): void => {
     if (running) return;
     running = true;
-    void run()
+    // Межпроцессный лидер: каждый джоб исполняется одним процессом за тик (второй экземпляр на той же БД
+    // пропускает тик). Иначе архив/уборка делались бы дважды, а LDAP-ресинк — двумя полными обходами каталога.
+    void runJobLocked(name, run)
       .catch((e) => console.error(`[${name}] проход не удался`, e))
       .finally(() => {
         running = false;

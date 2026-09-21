@@ -1,8 +1,7 @@
 /** Точка входа: конфиг → миграции → seed → старт HTTP/WS. */
 import { initConfig } from "./config.js";
 import { closePool, initPool, migrate } from "./db.js";
-import { seedAdmin } from "./seed.js";
-import { seedProject } from "./seedProject.js";
+import { runStartupSeeds } from "./seedStartup.js";
 import { buildApp } from "./app.js";
 import { startNotifier, stopNotifier } from "./services/notifier.js";
 import { startMaintenance, stopMaintenance } from "./services/maintenance.js";
@@ -11,8 +10,7 @@ async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
   initPool(cfg.databaseUrl, cfg.pgPoolMax, cfg.pgPoolIdleTimeoutMs);
   await migrate();
-  await seedAdmin();
-  await seedProject(); // проект CORP + дефолтный workflow (идемпотентно)
+  await runStartupSeeds(); // первый админ + проект CORP с workflow; под блокировкой (см. seedStartup.ts)
 
   const app = buildApp();
   await app.listen({ port: cfg.port, host: cfg.host });
