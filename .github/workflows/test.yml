@@ -240,6 +240,10 @@ jobs:
       - name: Permissions matrix is in sync with its single source
         run: npm run permissions:check
 
+      # ТЗ 2.4: список миграций и справочник схем API порождаются из кода; ручная правка — красный чек.
+      - name: Generated docs (migration list, API schemas) are up to date
+        run: npm run docs:check
+
   # Клиент (корневой пакет): typecheck + прод-сборка. БД не нужна.
   # В CI клиент раньше не проверялся вообще — единственный барьер против
   # красной сборки перед тяжёлой работой над UI.

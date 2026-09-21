@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "permissions:generate": "node scripts/generate-permissions.mjs",
     "permissions:check": "node scripts/generate-permissions.mjs --check",
+    "docs:generate": "node server/node_modules/tsx/dist/cli.mjs scripts/generate-docs.ts",
+    "docs:check": "node server/node_modules/tsx/dist/cli.mjs scripts/generate-docs.ts --check",
     "test": "vitest run",
     "test:watch": "vitest"
   },
