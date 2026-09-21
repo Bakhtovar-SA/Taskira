@@ -40,7 +40,9 @@ Client (run from repo root):
 
 ```bash
 npm ci                # after every pull/merge from main — never trust an existing node_modules (React/Vite versions
-                      # have moved under people before: a stale install gives phantom type errors, e.g. RefObject)
+                      # have moved under people before: a stale install gives phantom type errors, e.g. RefObject).
+                      # WINDOWS: STOP the dev servers first (Vite holds lightningcss's native .node open) — otherwise
+                      # `npm ci` dies with EPERM halfway and leaves node_modules half-deleted; recover with `npm install`.
 npm run dev         # Vite dev server on http://localhost:3000 (strictPort — fails if taken)
 npm run build       # production build to dist/
 npm run typecheck   # tsc --noEmit
@@ -51,7 +53,7 @@ Server (run from `server/`):
 
 ```bash
 cd server
-npm install
+npm ci                 # same rule as the client: after every pull, dev server stopped first on Windows (tsx holds esbuild)
 cp .env.example .env   # then fill DATABASE_URL, JWT_SECRET (>=32 chars), ADMIN_USERNAME/ADMIN_PASSWORD
 npm run dev            # tsx watch (chokidar polling) -> migrations -> seed admin+project -> :8080
 npm run dev:native     # same, native fs events (no polling)

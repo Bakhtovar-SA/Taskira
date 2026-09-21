@@ -25,7 +25,9 @@
 Клиент (из корня):
 
 ```bash
-npm install
+npm ci             # после каждого pull из main; на Windows сначала остановите dev-серверы (Vite держит нативный
+                   # lightningcss открытым — иначе npm ci падает с EPERM и оставляет node_modules наполовину удалённым;
+                   # лечится `npm install`)
 npm run dev        # Vite на http://localhost:3000 (strictPort)
 npm run build      # прод-сборка в dist/
 npm run typecheck  # tsc --noEmit
@@ -36,7 +38,7 @@ npm test           # vitest — права, валидация, хелперы �
 
 ```bash
 cd server
-npm install
+npm ci                    # то же правило: после pull, dev-сервер остановлен (Windows)
 cp .env.example .env      # заполнить DATABASE_URL, JWT_SECRET (≥32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
 npm run dev               # tsx watch → миграции → seed админа и проекта → :8080
 npm test                  # vitest — интеграционные тесты прав/контракта (часть — только с LDAP/S3/mail env)
