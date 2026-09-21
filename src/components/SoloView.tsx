@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { relTime, useStore } from "../store";
+import { useStore } from "../store";
+import { relTime } from "../store/mappers";
 import { attachmentsApi, commentsApi, issuesApi, type ServerComment, type ServerIssue, type ServerParticipant } from "../api";
 import { MentionText } from "./IssueModal";
 import { LIMITS, localizeValidationError, validateComment } from "../validation";

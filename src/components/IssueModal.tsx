@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { assignableUsers, canTransition, fmtDate, relTime, useStore } from "../store";
+import { useStore } from "../store";
+import { assignableUsers, canTransition, fmtDate, relTime } from "../store/mappers";
 import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";

@@ -1,6 +1,7 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
-import { StoreProvider, useStore, type CreateInput } from "./store";
+import { StoreProvider, useStore } from "./store";
+import { type CreateInput } from "./store/mappers";
 import {
   ApiError,
   authApi,

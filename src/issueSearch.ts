@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { issuesApi } from "./api";
-import { mapIssue } from "./store";
+import { mapIssue } from "./store/mappers";
 import { useDebounced } from "./issuePages";
 import type { Issue } from "./types";
 

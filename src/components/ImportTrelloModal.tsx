@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { parseTrelloExport, type TrelloParseResult } from "../import/trello";
-import type { CreateInput } from "../store";
+import type { CreateInput } from "../store/mappers";
 import { IcX } from "../icons";
 import { Modal } from "../ui";
 import { useT } from "../i18n";

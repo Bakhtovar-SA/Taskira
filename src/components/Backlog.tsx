@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fmtDate, useStore } from "../store";
+import { useStore } from "../store";
+import { fmtDate } from "../store/mappers";
 import type { Issue } from "../types";
 import { TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { relTime, useStore } from "../store";
+import { useStore } from "../store";
+import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
 import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, catColor } from "../ui";
