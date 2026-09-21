@@ -4,6 +4,8 @@
 import { one, q } from "../db.js";
 import { badRequest } from "../middleware.js";
 import type { CustomFieldType } from "../contract.js";
+import type { CustomFieldValueDto } from "../contract.js";
+export type { CustomFieldValueDto };
 
 export interface CustomFieldDto {
   id: string;
@@ -70,10 +72,6 @@ export async function deleteCustomField(fieldId: string): Promise<void> {
   await q(`DELETE FROM custom_fields WHERE id = $1`, [fieldId]);
 }
 
-export interface CustomFieldValueDto {
-  fieldId: string;
-  value: string | null;
-}
 
 export async function listValuesForIssue(issueId: string): Promise<CustomFieldValueDto[]> {
   const rows = await q<{ custom_field_id: string; value: string | null }>(

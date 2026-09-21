@@ -12,6 +12,8 @@ import { ApiHttpError } from "../errors.js";
 import { getStorage, newStorageKey } from "./storage.js";
 import { checkUpload, HEAD_BYTES } from "./fileGuard.js";
 import { roleCan, type AccessRole } from "../permissions.js";
+import type { AttachmentDto } from "../contract.js";
+export type { AttachmentDto };
 
 // Кэш драйвера — общий с maintenance.ts (storageSweeper.ts), см. getStorage() в storage.ts.
 const storage = () => getStorage(loadConfig());
@@ -30,16 +32,6 @@ interface AttachmentRow {
   created_at: Date;
 }
 
-export interface AttachmentDto {
-  id: string;
-  issueId: string;
-  filename: string;
-  contentType: string;
-  byteSize: number;
-  sha256: string;
-  uploadedById: string | null;
-  createdAt: string;
-}
 
 const toDto = (r: AttachmentRow): AttachmentDto => ({
   id: r.id,

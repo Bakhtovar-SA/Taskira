@@ -49,6 +49,7 @@ services:
     volumes:
       - attachments:/app/var/attachments
     healthcheck:
+      # Keep the legacy readiness alias so rollback images remain health-checkable.
       test: ["CMD", "node", "-e", "fetch('http://localhost:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s

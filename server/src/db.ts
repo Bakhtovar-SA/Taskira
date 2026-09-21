@@ -15,14 +15,89 @@ pg.types.setTypeParser(1082, (v) => v);
 
 let pool: pg.Pool | null = null;
 
-export function initPool(databaseUrl: string, max = 10): pg.Pool {
-  pool = new Pool({ connectionString: databaseUrl, max });
+/**
+ * `idleTimeoutMillis: 0` — простаивающие соединения не закрываются. Умолчание `pg` (10 с) рассчитано
+ * на другой профиль: после паузы первый запрос платит за новое соединение (на стенде 60–92 мс против
+ * 0,5 мс на тёплом), а при малом трафике — по утрам, после выходных — это каждый первый запрос.
+ * Пул ограничен `max` (по умолчанию 10), поэтому держать их открытыми дёшево; при нескольких
+ * процессах сервера постоянно занято `процессов × max` соединений — учитывайте `max_connections`.
+ */
+export function initPool(databaseUrl: string, max = 10, idleTimeoutMillis = 0): pg.Pool {
+  pool = new Pool({ connectionString: databaseUrl, max, idleTimeoutMillis, keepAlive: true });
+  // Без обработчика 'error' на пуле обрыв простаивающего соединения (рестарт Postgres, failover,
+  // idle_session_timeout, обрыв через балансировщик) — необработанное событие и падение процесса.
+  // Раньше 10-секундный тайм-аут прятал это окно; с постоянными соединениями оно открыто.
+  pool.on("error", (err) => console.error(`[db] ошибка простаивающего соединения: ${err.message}`));
   return pool;
 }
 
 function getPool(): pg.Pool {
   if (!pool) throw new Error("Пул БД не инициализирован — вызовите initPool()");
   return pool;
+}
+
+function migrationFiles(): string[] {
+  const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+  return readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+}
+
+const NON_TRANSACTIONAL_MARKER = "-- migration-transaction: none";
+
+function isNonTransactionalMigration(sql: string): boolean {
+  return sql.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0].trim() === NON_TRANSACTIONAL_MARKER;
+}
+
+async function assertNoInvalidIndexes(client: pg.PoolClient, file: string): Promise<void> {
+  const invalid = await client.query<{ index_name: string }>(
+    `SELECT indexrelid::regclass::text AS index_name
+       FROM pg_index
+      WHERE NOT indisvalid
+        AND indrelid IN (
+          SELECT c.oid FROM pg_class c WHERE c.relnamespace = current_schema()::regnamespace
+        )`,
+  );
+  if (invalid.rows.length > 0) {
+    throw new Error(
+      `Нетранзакционная миграция ${file} оставила/обнаружила невалидный индекс: ${invalid.rows.map((row) => row.index_name).join(", ")}. Выполните recovery из SQL-файла и повторите запуск.`,
+    );
+  }
+}
+
+export type LockResult<T> = { acquired: true; value: T } | { acquired: false };
+
+/**
+ * Межпроцессная взаимоисключающая секция на session-level advisory-локе Postgres. Держит ОДНО выделенное
+ * соединение на время `fn`; лок снимается в `finally`, а при обрыве соединения Postgres снимает его сам —
+ * упавший процесс не оставляет «вечный лок».
+ *
+ * `wait: false` — не ждать: занято → `{ acquired: false }` без выполнения (тик фонового джоба просто
+ * пропускается). `wait: true` — встать в очередь (стартовый сид: второй экземпляр дождётся первого и увидит
+ * уже созданное). Ключ — строка, `hashtext` даёт int4: префикс `taskira:` по образцу существующих локов.
+ * Не работает через pgbouncer в transaction-режиме (лок привязан к серверному соединению).
+ */
+export async function withAdvisoryLock<T>(key: string, opts: { wait: boolean }, fn: () => Promise<T>): Promise<LockResult<T>> {
+  const client = await getPool().connect();
+  let locked = false;
+  let broken = false;
+  try {
+    if (opts.wait) {
+      await client.query(`SELECT pg_advisory_lock(hashtext($1))`, [key]);
+      locked = true;
+    } else {
+      const r = await client.query<{ ok: boolean }>(`SELECT pg_try_advisory_lock(hashtext($1)) AS ok`, [key]);
+      locked = r.rows[0]?.ok === true;
+      if (!locked) return { acquired: false };
+    }
+    return { acquired: true, value: await fn() };
+  } finally {
+    if (locked) {
+      // не смогли снять лок — соединение нельзя возвращать в пул с висящим локом: закрываем его
+      await client.query(`SELECT pg_advisory_unlock(hashtext($1))`, [key]).catch(() => {
+        broken = true;
+      });
+    }
+    client.release(broken);
+  }
 }
 
 export async function q<T>(text: string, params: unknown[] = []): Promise<T[]> {
@@ -70,13 +145,16 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
 
 /**
  * Применяет миграции из server/migrations по имени, отмечая выполненные в schema_migrations.
- * Каждая миграция проходит ЦЕЛИКОМ на одном соединении внутри явной транзакции:
- * при ошибке — ROLLBACK, соединение всегда возвращается в пул (fix 3a).
+ * Обычная миграция проходит целиком внутри явной транзакции. Файл с первой
+ * строкой `-- migration-transaction: none` исполняется без BEGIN — только для
+ * PostgreSQL DDL вроде CREATE INDEX CONCURRENTLY; после него runner проверяет,
+ * что в текущей схеме не осталось невалидных индексов, и лишь затем ставит
+ * отметку schema_migrations.
  */
 export async function migrate(): Promise<void> {
   const p = getPool();
   const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
-  const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+  const files = migrationFiles();
   const client = await p.connect();
   try {
     // Один session-level lock на весь цикл: две стартующие реплики больше не
@@ -89,6 +167,16 @@ export async function migrate(): Promise<void> {
       if (applied.rows.length > 0) continue;
 
       const sql = readFileSync(join(dir, file), "utf8");
+      if (isNonTransactionalMigration(sql)) {
+        if (!/^-- recovery: .+$/m.test(sql.replaceAll("\r", ""))) {
+          throw new Error(`Нетранзакционная миграция ${file} не содержит обязательный -- recovery:`);
+        }
+        await client.query(sql);
+        await assertNoInvalidIndexes(client, file);
+        await client.query(`INSERT INTO schema_migrations (name) VALUES ($1)`, [file]);
+        console.log(`[db] применена нетранзакционная миграция ${file}`);
+        continue;
+      }
       try {
         await client.query("BEGIN");
         await client.query(sql);
@@ -104,6 +192,13 @@ export async function migrate(): Promise<void> {
     await client.query(`SELECT pg_advisory_unlock(hashtext('taskira:schema-migrations'))`).catch(() => undefined);
     client.release();
   }
+}
+
+/** Проверка readiness: БД отвечает и каждая миграция этого build применена. */
+export async function pendingMigrations(): Promise<string[]> {
+  const rows = await q<{ name: string }>(`SELECT name FROM schema_migrations`);
+  const applied = new Set(rows.map((row) => row.name));
+  return migrationFiles().filter((file) => !applied.has(file));
 }
 
 export async function closePool(): Promise<void> {

@@ -212,6 +212,9 @@ export interface Issue {
    *  заполняется при открытии карточки (GET /issues/:id); null, пока не
    *  загружено (список задач его не знает — см. subtasksSummary в api/index.ts). */
   subtasksSummary: { total: number; done: number } | null;
+  /** Число активных задач с epic_id = эта (детальный GET /issues/:id); null, пока карточка не открыта.
+   *  > 0 — задача уже «направление»: ей нельзя выбрать своё направление. */
+  epicChildrenCount: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -282,10 +285,9 @@ export interface Data {
   assignedToMe: AssignedIssue[];
   /** true — сервер урезал список «Моих задач» своим потолком; надо сказать человеку. */
   assignedTruncated: boolean;
-  /** true — в проекте больше задач, чем клиент успел загрузить (см. issuesTotal). */
-  issuesTruncated: boolean;
-  /** Сколько задач в проекте всего по данным сервера (для честного счётчика). */
-  issuesTotal: number;
+  /** true — стор содержит ВСЕ активные задачи проекта (eager-режим bootstrap либо после
+   *  `ensureAllIssues`). false — стор частичный: задачи есть лишь те, что открывали/видели. */
+  issuesComplete: boolean;
   /** Приглашения текущего пользователя к задачам в проектах, которые ему не открыты. */
   collaborations: Collaboration[];
   /** Лента уведомлений текущего пользователя (первая страница) + счётчик непрочитанных. */
@@ -293,7 +295,6 @@ export interface Data {
   unreadCount: number;
   /** Настройки уведомлений текущего пользователя (из /api/auth/me). */
   notifyPrefs: NotifyPrefsT;
-  seq: number;
 }
 
 /** Уведомление в ленте (миграция 011, NOTIFICATIONS_MIGRATION.md). */

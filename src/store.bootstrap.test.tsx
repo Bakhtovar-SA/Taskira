@@ -64,7 +64,7 @@ describe("bootstrap → главный экран (≥2 проектов)", () =
     vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
     vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
     vi.spyOn(issuesApi, "assignedToMe").mockResolvedValue({ items: assignedItems, truncated: false, limit: 200 });
-    vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null, unread: 0 });
+    vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
 
     let latest: ReturnType<typeof useStore> | null = null;
     render(
@@ -115,8 +115,8 @@ describe("bootstrap → один проект (single-project path)", () => {
     vi.spyOn(projectsApi, "list").mockResolvedValue([projects[0]] as never);
     vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
     vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-    vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], total: 0 });
-    vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null, unread: 0 });
+    vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
+    vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
     const boot: ProjectBootstrap = {
       project: projects[0],
       users: [baseUser as never],

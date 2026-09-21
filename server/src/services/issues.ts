@@ -7,6 +7,8 @@ import { listAttachments, type AttachmentDto } from "./attachments.js";
 import { listIssueLinks, type IssueLinkDto } from "./issueLinks.js";
 import { listChecklistItems, type ChecklistItemDto } from "./checklist.js";
 import { listValuesForIssue, type CustomFieldValueDto } from "./customFields.js";
+import type { ActivityDto, IssueDetailDto, IssueDto, ParticipantDto, SubtasksSummaryDto } from "../contract.js";
+export type { ActivityDto, IssueDetailDto, IssueDto, ParticipantDto, SubtasksSummaryDto };
 
 /* -------- строка БД → camelCase DTO (единый формат ответа API) -------- */
 export interface IssueRow {
@@ -16,9 +18,9 @@ export interface IssueRow {
   key: string;
   title: string;
   description: string;
-  type_id: string;
+  type_id: IssueDto["typeId"]; // CHECK issues_type_id_check
   status_id: string;
-  priority_id: string;
+  priority_id: IssueDto["priorityId"]; // CHECK issues_priority_id_check
   reporter_id: string;
   epic_id: string | null;
   /** Родитель-подзадачи (миграция 021); NULL — обычная задача/сама родитель. */
@@ -29,7 +31,7 @@ export interface IssueRow {
   color: string | null;
   t_start: number | null;
   t_span: number | null;
-  complexity: string | null;
+  complexity: IssueDto["complexity"]; // CHECK issues_complexity_check
   labels: string[];
   due_date: string | null; // PG отдаёт date как строку YYYY-MM-DD
   rank: number;
@@ -41,35 +43,6 @@ export interface IssueRow {
   archived_at: Date | null;
 }
 
-export interface IssueDto {
-  id: string;
-  projectId: string;
-  num: number;
-  key: string;
-  title: string;
-  description: string;
-  typeId: string;
-  statusId: string;
-  priorityId: string;
-  /** Исполнители (миграция 025, issue_assignees) — не в issues-строке, передаётся
-   *  вызывающим (см. mapIssue) отдельно, обычно из batch-запроса по многим задачам сразу. */
-  assigneeIds: string[];
-  reporterId: string;
-  epicId: string | null;
-  parentId: string | null;
-  sprintId: string | null;
-  color: string | null;
-  tStart: number | null;
-  tSpan: number | null;
-  complexity: string | null;
-  labels: string[];
-  dueDate: string | null;
-  rank: number;
-  createdAt: string;
-  updatedAt: string;
-  doneAt: string | null;
-  archivedAt: string | null;
-}
 
 /** assigneeIds передаётся явным параметром, а не читается из row — исполнители
  *  больше не колонка issues (миграция 025), это отдельная таблица, и то, как
@@ -305,13 +278,6 @@ export async function withIssueParentLock<T>(issueId: string, write: (client: Po
 
 /** Мини-профиль участника задачи — чтобы карточку можно было отрисовать без
  *  bootstrap проекта (одиночный просмотр приглашённого, COLLAB_MIGRATION.md Фаза 6). */
-export interface ParticipantDto {
-  id: string;
-  name: string;
-  initials: string;
-  color: string;
-  jobRole: string;
-}
 
 async function listParticipants(issueId: string): Promise<ParticipantDto[]> {
   const rows = await q<{ id: string; name: string; initials: string; color: string; job_role: string }>(
@@ -328,10 +294,6 @@ async function listParticipants(issueId: string): Promise<ParticipantDto[]> {
   return rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role }));
 }
 
-export interface SubtasksSummaryDto {
-  total: number;
-  done: number;
-}
 
 /** Итог по подзадачам — total/done СЧИТАЕТСЯ по всем детям (включая
  *  заархивированных), не по тому, что успел загрузить клиент в data.issues
@@ -351,22 +313,25 @@ async function getSubtasksSummary(issueId: string): Promise<SubtasksSummaryDto> 
   return { total: Number(row?.total ?? 0), done: Number(row?.done ?? 0) };
 }
 
+/** Сколько активных задач ссылается на эту через epic_id. Нужен карточке, чтобы
+ *  не предлагать «направление» самому направлению (раньше клиент выводил это из
+ *  всего списка задач). Архивные не считаются — как и в прежней клиентской
+ *  проверке, которая видела только активный набор. */
+async function getEpicChildrenCount(issueId: string): Promise<number> {
+  const row = await one<{ n: string }>(
+    `SELECT count(*)::text AS n FROM issues WHERE epic_id = $1 AND archived_at IS NULL`,
+    [issueId],
+  );
+  return Number(row?.n ?? 0);
+}
+
 /** Карточка задачи: DTO + приглашённые участники (issue_collaborators, миграция 008)
  *  + участники (reporter/assignee/авторы комментариев/приглашённые) для рендера
  *  карточки без bootstrap. Всё это — только в детальном ответе GET /:id, не в списке. */
-export type IssueDetailDto = IssueDto & {
-  collaborators: CollaboratorDto[];
-  participants: ParticipantDto[];
-  attachments: AttachmentDto[];
-  links: IssueLinkDto[];
-  checklist: ChecklistItemDto[];
-  customFieldValues: CustomFieldValueDto[];
-  subtasksSummary: SubtasksSummaryDto;
-};
 
 export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
-  const [assigneeIds, collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary] = await Promise.all([
+  const [assigneeIds, collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary, epicChildrenCount] = await Promise.all([
     listAssigneeIds(row.id),
     listCollaborators(row.id),
     listParticipants(row.id),
@@ -375,8 +340,9 @@ export async function getIssueDto(projectId: string, issueId: string): Promise<I
     listChecklistItems(row.id),
     listValuesForIssue(row.id),
     getSubtasksSummary(row.id),
+    getEpicChildrenCount(row.id),
   ]);
-  return { ...mapIssue(row, assigneeIds), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary };
+  return { ...mapIssue(row, assigneeIds), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary, epicChildrenCount };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).
@@ -395,13 +361,6 @@ export async function nextIssueNum(projectId: string): Promise<number> {
   return row.num;
 }
 
-export interface ActivityDto {
-  id: string;
-  actorId: string | null;
-  actor: { id: string; name: string; initials: string; color: string } | null;
-  text: string;
-  createdAt: string;
-}
 
 /** История задачи, последние `limit` записей в хронологическом порядке.
  *

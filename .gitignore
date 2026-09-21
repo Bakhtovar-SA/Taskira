@@ -4,9 +4,15 @@ dist/
 build/
 *.log
 
-# Секреты — никогда в репозитории
+# Секреты — никогда в репозитории (в т.ч. .env.local, .env.production и т.п.; шаблоны .env.example — в git)
 .env
+.env.*
+!.env.example
 server/.env
+server/.env.*
+!server/.env.example
+scripts/release/.env.*
+!scripts/release/.env.example
 
 # Серверные артефакты
 server/node_modules/
@@ -16,7 +22,11 @@ server/dist/
 server/var/
 
 # Локальные дампы БД — не коммитим (содержат хэши паролей)
+# Осознанно НЕ `*.sql`: им были бы закрыты миграции (server/migrations/*.sql) и снимки для проверки обновления.
 backup*.sql
+dump*.sql
+*.sql.gz
+*.pgdump
 *.dump
 backups/
 server/scripts/backup.env

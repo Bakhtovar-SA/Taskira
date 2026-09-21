@@ -49,6 +49,7 @@ const issue = (over: Partial<Issue> = {}): Issue => ({
   checklist: [],
   customFieldValues: [],
   subtasksSummary: null,
+  epicChildrenCount: null,
   createdAt: 0,
   updatedAt: 0,
   ...over,

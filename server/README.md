@@ -155,7 +155,10 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | Метод и путь | Тело / query | Права | Назначение |
 | --- | --- | --- | --- |
 | `GET /api/projects/:projectId` | — | browse | bootstrap: проект, **активные** пользователи (с `globalRole`, без `password_hash`), `members: [{userId, role}]`, workflow |
-| `GET …/issues` | `IssueQuery`: status, assignee, type, q, dueFrom, dueTo, overdue, limit(≤200), offset | browse | `{items, total}`, сортировка по rank |
+| `GET …/issues` | `IssueQuery`: status, parentId, epicId (дети одной задачи), assignee (uuid или `none`; `none` — по `issues.has_assignee`, ведёт триггер), type, q, dueFrom, dueTo, overdue, closed (`hide`/`recent`/`older`) + closedDays (14), archived, sort (`rank`/`priority`/`due`/`updated`/`key`) + dir, limit(≤200), cursor, includeTotal | browse | `{items, hasMore, nextCursor, total?}`. Фильтры, сортировка и поиск — серверные; курсор привязан к sort/dir (иначе 400). Тай-брейк везде — номер задачи |
+| `GET …/issues/counts` | те же фильтры (`IssueCountsQuery`), без sort/limit/cursor | browse | `{total, byStatus:{statusId:n}}` — считает тот же набор, что и список; архивные не учитываются |
+| `GET …/issues/assignees` | `limit` (1–50, по умолчанию 24) | browse | `{items:[{userId,count}]}` — исполнители активных задач проекта по убыванию нагрузки (полоска фильтров доски) |
+| `GET …/issues/epics` | `limit` (1–500, по умолчанию 200) | browse | `{items:[{id,key,title,color,tStart,tSpan,childTotal,childDone}], truncated}` — активные «направления» (на них ссылается чей-то `epic_id`) с агрегатом по активным детям; `childDone` — по категории статуса `done` |
 | `POST …/issues` | `IssueCreateBody` | create | num — атомарный счётчик (миграция 003); статус по умолчанию — первый `todo`; rank — в конец колонки |
 | `GET …/issues/:id` | — | browse | задача + `comments`/`participants`/`collaborators`/`attachments`/`links`/`checklist`/`customFieldValues`/`subtasksSummary` (`{total, done}` по всем детям, включая архив) |
 | `PATCH …/issues/:id` | `IssuePatchBody` | edit (employee — **только свои**) | правка полей + activity |
@@ -210,8 +213,12 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 
 Воркер обслуживания живёт отдельно от email-воркера (тот стартует только при
 `NOTIFY_EMAIL_ENABLED`, а архив нужен всегда) и вторым проходом чистит `audit_log`
-старше `AUDIT_RETENTION_DAYS`. При нескольких инстансах включать ровно на одном
-(`MAINTENANCE_ENABLED=false` на остальных).
+старше `AUDIT_RETENTION_DAYS`. Первый проход — через `MAINTENANCE_START_DELAY_MS` (по умолчанию 5 минут)
+после старта, а не сразу: рестарт в час пик ничего не запускает. Работа идёт пачками
+(`MAINTENANCE_BATCH_SIZE`, пауза `MAINTENANCE_BATCH_PAUSE_MS`, потолок `MAINTENANCE_MAX_PER_RUN` за проход), так что
+блокировка строк держится на время пачки; строка, которую в этот момент правит пользователь, пропускается и
+забирается следующим проходом. При нескольких инстансах каждый тик исполняет один процесс (advisory-лок
+`pg_try_advisory_lock`), остальные тик пропускают — `MAINTENANCE_ENABLED=false` на них больше не обязателен.
 
 ### Сборщик осиротевших объектов хранилища
 
@@ -296,7 +303,7 @@ npm run dev        # tsx watch (chokidar polling): миграции → seed а�
 
 **За reverse-proxy (nginx/LB)** обязательно задайте `TRUST_PROXY` (`true` — если до
 приложения дотягивается только прокси; либо список IP/CIDR). Иначе `req.ip` = адрес
-прокси: rate-limit логина (`routes/auth.ts`, 10 попыток/IP/5 мин) считает всех
+прокси: rate-limit логина (`routes/auth.ts` + `services/loginRateLimit.ts`, 10 попыток/IP/5 мин) считает всех
 пользователей как один IP, и в `audit_log` пишется адрес прокси, а не клиента.
 Значение прокидывается в опцию Fastify `trustProxy` (`app.ts`).
 
@@ -327,7 +334,7 @@ curl -s -X POST localhost:8080/api/auth/login \
 TOKEN=…; curl -s localhost:8080/api/auth/me -H "authorization: Bearer $TOKEN"
 ```
 
-Rate-limit логина (in-memory, 10 попыток / IP / 5 минут):
+Rate-limit логина (состояние в БД, таблица `login_attempts`; 10 попыток / IP / 5 минут; общий для всех процессов):
 
 ```bash
 for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code}\n" \
@@ -345,10 +352,11 @@ npm test            # vitest run
 npm run test:watch
 ```
 
-Прогоняются по **схеме `taskira_test`** внутри dev-БД
-(`options=-csearch_path=taskira_test,public`) — отдельная БД и права CREATEDB не
-нужны, dev-схема `public` не затрагивается. `test/global-setup.ts` пересоздаёт
-схему и гоняет миграции один раз; `test/helpers.ts` — `getApp` / `seedFixture`
+Прогоняются в **отдельной БД `taskira_test`** (TEST-01): расширения (`pg_trgm`) принадлежат базе, и сброс
+схемы внутри рабочей БД раньше молча удалял триграммные индексы всех остальных схем. Ролю тестов нужно один
+раз наделить правом создавать БД (`ALTER ROLE taskira CREATEDB;` от суперпользователя) либо создать
+`taskira_test` вручную; в CI её создаёт docker-сервис. `test/global-setup.ts` создаёт БД при отсутствии,
+пересоздаёт в ней схему `public` и гоняет миграции один раз; `test/helpers.ts` — `getApp` / `seedFixture`
 (admin + 2 проекта в 2 отделах + участники всех ролей + outsider) / `login`.
 
 Покрыто (`test/access.roles.test.ts`, `test/access.multiproject.test.ts`):

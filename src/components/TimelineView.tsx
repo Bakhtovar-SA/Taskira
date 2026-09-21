@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
-import type { Issue } from "../types";
+import { ISSUE_PAGE_SIZE, freshRows, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { IcChevR, IcTimeline } from "../icons";
-import { Lozenge, Empty } from "../ui";
+import { Lozenge, Empty, SkeletonRow } from "../ui";
 import { TypeIcon } from "../icons";
 import { useT } from "../i18n";
 
@@ -13,9 +13,78 @@ const WEEK_PX = 56;
 const LABEL_PX = 260;
 const GRID_COLS = `${LABEL_PX}px repeat(${WEEKS}, ${WEEK_PX}px)`;
 
+/** Задачи раскрытого направления: собственный постраничный набор (`?epicId=`), а не выборка из
+ *  всех задач в сторе. Число в шапке узла — агрегат сервера по ВСЕМ детям, поэтому пока набор не
+ *  дочитан, показанных строк меньше числа в шапке: это ожидаемо и подписано «Показано N из M». */
+function EpicChildren({ projectId, epicId, total }: { projectId: string; epicId: string; total: number }) {
+  const { t } = useT();
+  const { idx, openIssue } = useStore();
+  const query = useMemo<IssueSetQuery | null>(
+    () => (projectId ? { projectId, filters: { epicId }, sort: "rank", dir: "asc" } : null),
+    [projectId, epicId],
+  );
+  const set = useIssueSet(query, { withCounts: false });
+  useOnRevision(useIssuesRevision(), set.revalidate);
+  const rows = useMemo(() => freshRows(set.items, idx.issues), [set.items, idx.issues]);
+  const { hasMore, loading, loadingMore, loadMore } = set;
+  const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length);
+
+  if (loading && rows.length === 0) {
+    return (
+      <div aria-busy="true" aria-label={t("common.loading")}>
+        <SkeletonRow />
+        <SkeletonRow />
+      </div>
+    );
+  }
+  if (set.error && rows.length === 0) {
+    return (
+      <div className="px-10 py-2.5 text-[12px] text-danger">
+        <p>{t("timeline.childrenError")}</p>
+        <button onClick={set.reload} className="mt-1 font-semibold text-accent hover:underline">
+          {t("common.retry")}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <>
+      {rows.length === 0 && <p className="px-10 py-2.5 text-[12px] text-faint">{t("timeline.noIssues")}</p>}
+      {rows.map((k) => {
+        const st = idx.statuses.get(k.statusId);
+        if (!st) return null;
+        return (
+            <button key={k.id} onClick={() => openIssue(k.id)} className="flex w-full items-center gap-2.5 px-10 py-2 text-left transition-colors hover:bg-accentsoft/60">
+              <TypeIcon type={k.typeId} size={13} />
+              <span className="font-mono text-[10.5px] font-semibold text-faint">{k.key}</span>
+              <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{k.title}</span>
+              <Lozenge status={st} size="sm" />
+            </button>
+        );
+      })}
+      <div ref={sentinelRef} className="px-10 py-1.5 text-[11px] text-faint">
+        {set.error ? (
+          <button onClick={loadMore} className="font-semibold text-accent hover:underline">
+            {t("board.loadMoreFailed")}
+          </button>
+        ) : hasMore ? (
+          <span className="flex items-center gap-3">
+            <span>{t("timeline.shownOf", { shown: rows.length, total })}</span>
+            {!loadingMore && (
+              <button onClick={loadMore} className="font-semibold text-accent hover:underline">
+                {t("timeline.loadMore")}
+              </button>
+            )}
+          </span>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
 export default function TimelineView() {
   const { t, lang } = useT();
-  const { data, idx, openIssue } = useStore();
+  const { data, openIssue } = useStore();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const scrollElRef = useRef<HTMLDivElement | null>(null);
   const resizeObsRef = useRef<ResizeObserver | null>(null);
@@ -54,24 +123,13 @@ export default function TimelineView() {
     });
   }, []);
 
-  // Тип "epic" упразднён (миграция 002): «эпик» — задача, на которую ссылаются
-  // другие через epicId.
-  const epicIds = useMemo(() => new Set(data.issues.map((i) => i.epicId).filter(Boolean)), [data.issues]);
-  const epics = useMemo(() => data.issues.filter((i) => epicIds.has(i.id)), [data.issues, epicIds]);
-
-  // Дети группируются ОДИН раз, а не пересчитываются фильтром по всему списку
-  // задач для каждого направления (аудит PERF-02).
-  const childrenByEpic = useMemo(() => {
-    const m = new Map<string, Issue[]>();
-    for (const i of data.issues) {
-      if (!i.epicId) continue;
-      const list = m.get(i.epicId);
-      if (list) list.push(i);
-      else m.set(i.epicId, [i]);
-    }
-    return m;
-  }, [data.issues]);
-  const children = (epicId: string) => childrenByEpic.get(epicId) ?? [];
+  // Направления и агрегат по детям (сколько всего и сколько закрыто) — одним запросом сервера
+  // (`GET …/issues/epics`), а не выводом из загруженных задач: раньше «направления» получались
+  // из epicId загруженных задач, и при частичном сторе Timeline остался бы пустым или неверным.
+  // Timeline обновляется по issuesRevision (счётчики закрытых зависят от смены статусов).
+  const revision = useIssuesRevision();
+  const epicsState = useEpics(data.currentProjectId || null, revision);
+  const epics = epicsState.list;
   const dayOfWeek = (new Date().getDay() + 6) % 7;
   const todayPx = ((dayOfWeek + 0.5) / 7) * WEEK_PX;
 
@@ -95,7 +153,33 @@ export default function TimelineView() {
           )}
         </div>
 
-        {epics.length === 0 ? (
+        {epicsState.loading && epics.length === 0 ? (
+          <div
+            className="mt-6 overflow-hidden rounded-xl border border-line bg-panel"
+            aria-busy="true"
+            aria-label={t("common.loading")}
+          >
+            {[0, 1, 2].map((n) => (
+              <SkeletonRow key={n} />
+            ))}
+          </div>
+        ) : epicsState.error && epics.length === 0 ? (
+          <div className="mt-6">
+            <Empty
+              icon={<IcTimeline size={24} />}
+              title={t("timeline.loadError")}
+              sub={epicsState.error}
+              action={
+                <button
+                  onClick={epicsState.reload}
+                  className="h-8 rounded-md border border-line bg-panel px-3 text-[12.5px] font-medium text-sub hover:border-accent hover:text-accent"
+                >
+                  {t("common.retry")}
+                </button>
+              }
+            />
+          </div>
+        ) : epics.length === 0 ? (
           <div className="mt-6">
             <Empty
               icon={<IcTimeline size={24} />}
@@ -124,8 +208,10 @@ export default function TimelineView() {
             </div>
 
             {epics.map((epic) => {
-              const kids = children(epic.id);
-              const done = kids.filter((k) => idx.doneStatusIds.has(k.statusId)).length;
+              // Счётчики — агрегат сервера по всем детям; раскрытый список может показывать меньше
+              // (постраничная подгрузка): это не рассинхрон, под списком подписано «Показано N из M».
+              const total = epic.childTotal;
+              const done = epic.childDone;
               const start = Math.max(0, Math.min(epic.tStart ?? 0, WEEKS - 1));
               const span = Math.max(1, Math.min(epic.tSpan ?? 3, WEEKS - start));
               const expanded = open[epic.id];
@@ -137,10 +223,10 @@ export default function TimelineView() {
                       className="sticky left-0 z-10 flex items-center gap-2.5 bg-panel px-4 py-3 text-left transition-colors hover:bg-canvas/60"
                     >
                       <IcChevR size={12} className={`shrink-0 text-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
-                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: epic.color }} />
+                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: epic.color ?? undefined }} />
                       <span className="min-w-0">
                         <span className="block truncate text-[13px] font-semibold text-ink">{epic.title}</span>
-                        <span className="block font-mono text-[10px] text-faint">{t("timeline.issueCount", { done, total: kids.length, key: epic.key })}</span>
+                        <span className="block font-mono text-[10px] text-faint">{t("timeline.issueCount", { done, total: total, key: epic.key })}</span>
                       </span>
                     </button>
                     <div className="relative col-span-full row-start-1" style={{ gridColumn: `2 / span ${WEEKS}` }}>
@@ -156,11 +242,11 @@ export default function TimelineView() {
                         />
                         <button
                           onClick={() => openIssue(epic.id)}
-                          title={t("timeline.barTitle", { title: epic.title, done, total: kids.length })}
+                          title={t("timeline.barTitle", { title: epic.title, done, total: total })}
                           className="timeline-bar group absolute top-1/2 flex h-6 items-center overflow-hidden rounded-full text-white shadow-sm"
                           style={{ "--bar-x": `${start * WEEK_PX}px`, width: span * WEEK_PX, background: epic.color } as React.CSSProperties}
                         >
-                          <span className="timeline-bar-fill absolute inset-y-0 left-0 bg-black/25" style={{ width: `${kids.length ? (done / kids.length) * 100 : 0}%` }} />
+                          <span className="timeline-bar-fill absolute inset-y-0 left-0 bg-black/25" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
                           <span className="relative z-10 truncate px-2.5 text-[10.5px] font-bold">{epic.key}</span>
                         </button>
                       </div>
@@ -168,25 +254,17 @@ export default function TimelineView() {
                   </div>
                   {expanded && (
                     <div className="anim-fadeup sticky left-0 border-t border-dashed border-linesoft bg-canvas/40" style={{ width: viewportW || "100%" }}>
-                      {kids.length === 0 && <p className="px-10 py-2.5 text-[12px] text-faint">{t("timeline.noIssues")}</p>}
-                      {kids.map((k) => {
-                        const st = idx.statuses.get(k.statusId);
-                        if (!st) return null;
-                        return (
-                          <button key={k.id} onClick={() => openIssue(k.id)} className="flex w-full items-center gap-2.5 px-10 py-2 text-left transition-colors hover:bg-accentsoft/60">
-                            <TypeIcon type={k.typeId} size={13} />
-                            <span className="font-mono text-[10.5px] font-semibold text-faint">{k.key}</span>
-                            <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{k.title}</span>
-                            <Lozenge status={st} size="sm" />
-                          </button>
-                        );
-                      })}
+                      <EpicChildren projectId={data.currentProjectId} epicId={epic.id} total={total} />
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+        )}
+
+        {epicsState.truncated && (
+          <p className="mt-3 text-[11.5px] font-medium text-warn">{t("timeline.epicsTruncated", { n: epics.length })}</p>
         )}
 
         <p className="anim-fadeup mt-3 flex items-center gap-2 text-[11px] text-faint" style={{ animationDelay: "120ms" }}>

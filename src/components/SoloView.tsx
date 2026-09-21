@@ -8,6 +8,7 @@ import { PRIORITY_ORDER } from "../types";
 import { IcSend, Logo, PriorityIcon, TypeIcon } from "../icons";
 import { Toasts } from "../ui";
 import { useT } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 /** Одиночный режим (COLLAB_MIGRATION.md Фаза 6): пользователь без единого видимого
  *  проекта, но приглашённый (issue collaborator) к отдельным задачам. Урезанная
@@ -290,7 +291,7 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
                 {it.key} · {it.projectName}
               </span>
               <span className="w-full truncate text-[12.5px] font-medium">{it.title}</span>
-              <span className="text-[10px] text-[#7b8fb2]">{it.statusName}</span>
+              <span className="text-[10px] text-[#7b8fb2]">{workflowStatusName({ name: it.statusName }, t)}</span>
             </button>
           ))}
           {solo.items.length === 0 && <p className="px-2.5 text-[11.5px] text-[#7b8fb2]">{t("solo.none")}</p>}
@@ -308,7 +309,7 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
             key={current.issueId}
             projectId={current.projectId}
             issueId={current.issueId}
-            statusHint={current.statusName}
+            statusHint={workflowStatusName({ name: current.statusName }, t)}
             currentUser={{ id: solo.userId, name: solo.userName }}
           />
         ) : (

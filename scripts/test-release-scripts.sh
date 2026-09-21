@@ -14,6 +14,7 @@ bash -n scripts/operations-common.sh
 bash -n scripts/release/install.sh
 
 scripts/render-compose.sh source | cmp - docker-compose.yml
+scripts/render-compose.sh release 9.8.7-test | grep -F "localhost:8080/api/health" >/dev/null
 
 if scripts/build-release.sh invalid-version >/dev/null 2>&1; then
   echo "build-release.sh accepted an invalid version" >&2

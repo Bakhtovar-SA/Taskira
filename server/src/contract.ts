@@ -405,21 +405,79 @@ export const DismissNotificationsBody = MarkReadBody;
 /* ---------------- Workflow / Users ---------------- */
 export const TransitionCreateBody = z.object({ from: uuid, to: uuid });
 
-/** GET /api/issues — query-параметры приходят строками; числа приводятся z.coerce. */
-export const IssueQuery = z.object({
+/** Фильтры списка задач. Общие для страницы (`GET …/issues`) и счётчиков
+ *  (`GET …/issues/counts`): счётчик обязан считать ровно тот же набор, что
+ *  листает страница, иначе заголовок колонки расходится с её содержимым. */
+export const ISSUE_SORTS = ["rank", "priority", "due", "updated", "key"] as const;
+export const IssueFilterQuery = z.object({
   status: uuid.optional(),
-  assignee: uuid.optional(),
+  /** uuid — исполнитель; "none" — задачи без исполнителей. */
+  assignee: z.union([uuid, z.literal("none")]).optional(),
   type: z.enum(ISSUE_TYPES).optional(),
+  /** Дети одной задачи: подзадачи (`parentId`, миграция 021) и задачи
+   *  «направления» (`epicId`). Те же пагинация, сортировка и права, что у списка,
+   *  поэтому для карточки не нужен отдельный путь. Подзадачи лежат в проекте
+   *  родителя; архивные скрыты, как и везде, — `archived=all` вернёт их. */
+  parentId: uuid.optional(),
+  epicId: uuid.optional(),
   q: z.string().max(120).optional(),
   dueFrom: isoDate().optional(),
   dueTo: isoDate().optional(),
   overdue: z.enum(["1", "true"]).optional(),
+  /** Закрытые задачи (категория статуса `done`): "hide" — скрыть все,
+   *  "recent" — только закрытые за последние `closedDays` дней (задачи без
+   *  done_at, закрытые до миграции 016, считаются свежими), "older" — только
+   *  более давние. Окно «Готово» доски (DONE_WINDOW_DAYS) живёт здесь, а не в
+   *  клиентском фильтре по уже загруженному набору. */
+  closed: z.enum(["hide", "recent", "older"]).optional(),
+  closedDays: z.coerce.number().int().min(1).max(3650).default(14),
   /** Архив (миграция 016): по умолчанию архивные скрыты; "1" — только архивные,
    *  "all" — вместе с активными (сквозной поиск и отчёты). */
   archived: z.enum(["1", "all"]).optional(),
+});
+
+/** GET /api/issues — query-параметры приходят строками; числа приводятся z.coerce. */
+export const IssueQuery = IssueFilterQuery.extend({
+  /** Точный total дорог: по умолчанию страница возвращает только hasMore,
+   *  `includeTotal=1|true` — явный opt-in для редких потребителей. */
+  includeTotal: z.enum(["1", "true"]).optional(),
+  /** Порядок выдачи. `rank` — порядок доски; остальные — сортировки «Списка
+   *  задач». Тай-брейк — номер задачи в том же направлении, что и `dir`. */
+  sort: z.enum(ISSUE_SORTS).default("rank"),
+  dir: z.enum(["asc", "desc"]).default("asc"),
+  /** Непрозрачный keyset-курсор. При наличии имеет приоритет над offset;
+   *  offset остаётся на expand-релиз для совместимости старых клиентов.
+   *  Курсор привязан к sort/dir, с которыми выдан. */
+  cursor: z.string().regex(/^[A-Za-z0-9_-]+$/).max(128).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
   offset: z.coerce.number().int().min(0).default(0),
 });
+
+/** GET …/issues/counts — тот же набор фильтров, без пагинации и сортировки. */
+export const IssueCountsQuery = IssueFilterQuery;
+
+/** GET …/issues/epics — направления проекта («эпик» — задача, на которую
+ *  ссылаются другие через epicId) с агрегатом по активным детям. Timeline и
+ *  справочник направлений доски/списка читают его вместо обхода всех задач. */
+export const IssueEpicsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+});
+
+/** GET …/issues/assignees — исполнители активных задач проекта по убыванию
+ *  нагрузки. Доска строит по нему полоску аватаров-фильтров: раньше она
+ *  выводила её из всех загруженных задач, а при ленивой загрузке их не видно. */
+export const IssueAssigneesQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(24),
+});
+
+/** Метаданные страницы списка задач. И серверный payload, и его TS-тип
+ * выводятся из этой схемы; `total` отсутствует без явного includeTotal. */
+export const IssueListPageMeta = z.object({
+  hasMore: z.boolean(),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().nonnegative().optional(),
+});
+export type IssueListPageMeta = z.infer<typeof IssueListPageMeta>;
 
 /** GET /api/issues/search — кросс-проектный поиск (миграция 024), project-less,
  *  по всем видимым пользователю проектам (см. routes/home.ts для того же
@@ -474,3 +532,146 @@ export type WsMessage =
  *  первым сообщением после открытия — браузерный WebSocket не умеет слать
  *  свои заголовки, поэтому Authorization для хендшейка не годится. */
 export type WsAuthMessage = { type: "auth"; token: string };
+
+/* ---------------- Ответы API: типы выводятся из схем (ТЗ 2.1) ----------------
+ * Это ЕДИНСТВЕННОЕ описание формы ответов: сервер аннотирует ими возвращаемые значения мапперов
+ * (mapIssue и др.), клиент импортирует те же типы (import type, в бандл ничего не попадает).
+ *
+ * ВАЖНО: схема здесь — только источник ТИПОВ. Ответы сервера через неё в рантайме НЕ проверяются (нет .parse()),
+ * поэтому наличие схемы не гарантирует, что маппер вернёт то, что объявлено: SQL-строки приводятся к типу
+ * `q<Row>` без проверки. Строже, чем «объявлено», выйти можно только явным .parse() на границе — осознанно не
+ * добавлен. Поля с CHECK в БД (typeId, priorityId, complexity, статус-категория, dir) описаны как z.enum: JSON на
+ * проводе тот же, но опечатку "hgih" ловит typecheck.
+ */
+const ActorMini = z.object({ id: z.string(), name: z.string(), initials: z.string(), color: z.string() });
+
+export const ParticipantDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  initials: z.string(),
+  color: z.string(),
+  jobRole: z.string(),
+});
+export type ParticipantDto = z.infer<typeof ParticipantDto>;
+
+export const CollaboratorDto = z.object({
+  userId: z.string(),
+  name: z.string(),
+  initials: z.string(),
+  color: z.string(),
+  jobRole: z.string(),
+  addedAt: z.string(),
+});
+export type CollaboratorDto = z.infer<typeof CollaboratorDto>;
+
+export const AttachmentDto = z.object({
+  id: z.string(),
+  issueId: z.string(),
+  filename: z.string(),
+  contentType: z.string(),
+  byteSize: z.number(),
+  sha256: z.string(),
+  uploadedById: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type AttachmentDto = z.infer<typeof AttachmentDto>;
+
+export const ChecklistItemDto = z.object({
+  id: z.string(),
+  text: z.string(),
+  done: z.boolean(),
+  position: z.number(),
+  createdAt: z.string(),
+});
+export type ChecklistItemDto = z.infer<typeof ChecklistItemDto>;
+
+export const IssueLinkDto = z.object({
+  id: z.string(),
+  /** тип связи со стороны запрошенной задачи */
+  dir: z.enum(ISSUE_LINK_DIRS),
+  /** задача на другом конце связи */
+  issue: z.object({
+    id: z.string(),
+    key: z.string(),
+    title: z.string(),
+    typeId: z.enum(ISSUE_TYPES),
+    statusId: z.string(),
+    statusCategory: z.enum(STATUS_CATEGORIES),
+  }),
+  createdAt: z.string(),
+});
+export type IssueLinkDto = z.infer<typeof IssueLinkDto>;
+
+export const CustomFieldValueDto = z.object({ fieldId: z.string(), value: z.string().nullable() });
+export type CustomFieldValueDto = z.infer<typeof CustomFieldValueDto>;
+
+/** total/done по ВСЕМ детям, включая заархивированных. */
+export const SubtasksSummaryDto = z.object({ total: z.number(), done: z.number() });
+export type SubtasksSummaryDto = z.infer<typeof SubtasksSummaryDto>;
+
+export const CommentDto = z.object({
+  id: z.string(),
+  issueId: z.string(),
+  authorId: z.string(),
+  author: ActorMini,
+  body: z.string(),
+  createdAt: z.string(),
+});
+export type CommentDto = z.infer<typeof CommentDto>;
+
+export const ActivityDto = z.object({
+  id: z.string(),
+  actorId: z.string().nullable(),
+  actor: ActorMini.nullable(),
+  text: z.string(),
+  createdAt: z.string(),
+});
+export type ActivityDto = z.infer<typeof ActivityDto>;
+
+export const IssueDto = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  num: z.number(),
+  key: z.string(),
+  title: z.string(),
+  description: z.string(),
+  typeId: z.enum(ISSUE_TYPES),
+  statusId: z.string(),
+  priorityId: z.enum(PRIORITIES),
+  /** Исполнители (issue_assignees, миграция 025) — плоский список. */
+  assigneeIds: z.array(z.string()),
+  reporterId: z.string(),
+  epicId: z.string().nullable(),
+  /** Родитель-подзадачи (миграция 021); независимо от epicId. */
+  parentId: z.string().nullable(),
+  /** Спринт (миграция 023, опциональный модуль). */
+  sprintId: z.string().nullable(),
+  color: z.string().nullable(),
+  tStart: z.number().nullable(),
+  tSpan: z.number().nullable(),
+  complexity: z.enum(COMPLEXITIES).nullable(),
+  labels: z.array(z.string()),
+  dueDate: z.string().nullable(),
+  rank: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  /** Момент закрытия (миграция 016); null — задача не закрыта. */
+  doneAt: z.string().nullable(),
+  /** Момент ухода в архив; null — задача в активном наборе проекта. */
+  archivedAt: z.string().nullable(),
+});
+export type IssueDto = z.infer<typeof IssueDto>;
+
+/** Карточка задачи: DTO + участники/вложения/связи/чеклист — только в детальном ответе GET /:id, не в списке. */
+export const IssueDetailDto = IssueDto.extend({
+  collaborators: z.array(CollaboratorDto),
+  participants: z.array(ParticipantDto),
+  attachments: z.array(AttachmentDto),
+  links: z.array(IssueLinkDto),
+  checklist: z.array(ChecklistItemDto),
+  customFieldValues: z.array(CustomFieldValueDto),
+  subtasksSummary: SubtasksSummaryDto,
+  /** Число активных задач с epic_id = эта задача (0 — она не «направление»). */
+  epicChildrenCount: z.number(),
+});
+export type IssueDetailDto = z.infer<typeof IssueDetailDto>;

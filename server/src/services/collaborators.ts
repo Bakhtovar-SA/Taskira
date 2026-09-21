@@ -6,15 +6,9 @@
  *  доменные операции над таблицей.
  */
 import { one, q } from "../db.js";
+import type { CollaboratorDto } from "../contract.js";
+export type { CollaboratorDto };
 
-export interface CollaboratorDto {
-  userId: string;
-  name: string;
-  initials: string;
-  color: string;
-  jobRole: string;
-  addedAt: string;
-}
 
 interface Row {
   user_id: string;

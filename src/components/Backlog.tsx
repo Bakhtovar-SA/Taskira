@@ -1,32 +1,31 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fmtDate, useStore } from "../store";
 import type { Issue } from "../types";
-import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
+import { TYPE_ORDER } from "../types";
+import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
+import type { IssueEpic, IssueFilterParams } from "../api";
 import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem } from "../ui";
+import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, SkeletonRow } from "../ui";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
+import { workflowStatusName } from "../workflowStatus";
 
 type SortKey = "priority" | "due" | "updated" | "key";
-const keyNum = (key: string) => {
-  const n = parseInt(key.slice(key.lastIndexOf("-") + 1), 10);
-  return Number.isFinite(n) ? n : 0;
-};
 
-const today = () => new Date().toISOString().slice(0, 10);
-const isOverdue = (i: Issue, doneIds: Set<string>) =>
-  !!i.dueDate && !doneIds.has(i.statusId) && i.dueDate < today();
+/** Поиск уходит на сервер не на каждую букву. */
+const SEARCH_DEBOUNCE_MS = 250;
+const SEARCH_MAX = 120; // = LIMITS сервера для q
+const isEmptyText = (v: string) => v === "";
 
 const selectCls =
   "h-8 rounded-md border border-line bg-panel px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
 
-function Row({ issue }: { issue: Issue }) {
+function Row({ issue, epic }: { issue: Issue; epic: Pick<IssueEpic, "title" | "color"> | undefined }) {
   const { t, lang } = useT();
   const { idx, openIssue, deleteIssue, can } = useStore();
   // Ассоциированные сущности ищем по индексам из контекста, а не линейным
   // проходом по массивам в каждой строке списка (аудит PERF-02).
   const assignees = issue.assigneeIds.map((id) => idx.users.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
-  const epic = issue.epicId ? idx.issues.get(issue.epicId) : undefined;
   const status = idx.statuses.get(issue.statusId);
 
   return (
@@ -95,7 +94,7 @@ function Row({ issue }: { issue: Issue }) {
 
 export default function Backlog() {
   const { t } = useT();
-  const { data, can } = useStore();
+  const { data, idx, can, epicsRevision } = useStore();
   const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
   const [fStatus, setFStatus] = useState("");
@@ -114,43 +113,43 @@ export default function Backlog() {
     key: t("backlog.sort.key"),
   };
 
-  const doneIds = useMemo(
-    () => new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id)),
-    [data.workflow.statuses],
-  );
-
   const pickSort = (k: SortKey) => {
     setSortKey(k);
     setSortDir(k === "updated" ? "desc" : "asc");
   };
 
-  const rows = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    const filtered = data.issues.filter((i) => {
-      // Явно выбранный статус важнее общего переключателя: если человек выбрал
-      // «Готово» в фильтре, он хочет видеть именно закрытые.
-      if (!showDone && !fStatus && doneIds.has(i.statusId)) return false;
-      if (fStatus && i.statusId !== fStatus) return false;
-      if (fAssignee === "none" ? i.assigneeIds.length !== 0 : fAssignee ? !i.assigneeIds.includes(fAssignee) : false) return false;
-      if (fType && i.typeId !== fType) return false;
-      if (s && !i.title.toLowerCase().includes(s) && !i.key.toLowerCase().includes(s)) return false;
-      if (fOverdue && !isOverdue(i, doneIds)) return false;
-      return true;
-    });
-    const cmp: Record<SortKey, (a: Issue, b: Issue) => number> = {
-      priority: (a, b) => PRIORITY_ORDER.indexOf(a.priorityId) - PRIORITY_ORDER.indexOf(b.priorityId),
-      due: (a, b) => (a.dueDate ?? "9999-99-99").localeCompare(b.dueDate ?? "9999-99-99"),
-      updated: (a, b) => a.updatedAt - b.updatedAt,
-      key: (a, b) => keyNum(a.key) - keyNum(b.key),
-    };
-    const dir = sortDir === "asc" ? 1 : -1;
-    return [...filtered].sort((a, b) => cmp[sortKey](a, b) * dir || keyNum(a.key) - keyNum(b.key));
-  }, [data.issues, q, fStatus, fAssignee, fType, fOverdue, sortKey, sortDir, doneIds, showDone]);
+  // Поле поиска отвечает мгновенно, а запрос к серверу — после паузы в наборе.
+  const qDebounced = useDebounced(q.trim().slice(0, SEARCH_MAX), SEARCH_DEBOUNCE_MS, isEmptyText);
 
-  const activeCount = useMemo(
-    () => data.issues.filter((i) => !doneIds.has(i.statusId)).length,
-    [data.issues, doneIds],
-  );
+  // Фильтры, сортировка и поиск — на сервере (PERF-05): клиент видит лишь часть
+  // набора, и фильтр «по загруженному» искал бы только в ней. Явно выбранный
+  // статус важнее общего переключателя: выбрав «Готово», человек хочет закрытые.
+  const query = useMemo<IssueSetQuery | null>(() => {
+    if (!data.currentProjectId) return null;
+    const filters: IssueFilterParams = {
+      status: fStatus || undefined,
+      assignee: fAssignee || undefined,
+      type: fType || undefined,
+      q: qDebounced || undefined,
+      overdue: fOverdue ? "1" : undefined,
+      closed: !showDone && !fStatus ? "hide" : undefined,
+    };
+    return { projectId: data.currentProjectId, filters, sort: sortKey, dir: sortDir };
+  }, [data.currentProjectId, fStatus, fAssignee, fType, qDebounced, fOverdue, showDone, sortKey, sortDir]);
+
+  const set = useIssueSet(query);
+  // Направления строк — справочник (один запрос на экран), а не поиск в списке всех задач.
+  const epics = useEpics(data.currentProjectId || null, epicsRevision);
+
+  // Правки задач (в т. ч. из модалки) живут в сторе; строки показывают свежую
+  // версию оттуда, а набор перечитывается, чтобы состав (фильтр, удаление,
+  // новые задачи) не устарел. Пока стор держит все задачи, это дёшево.
+  const rows = useMemo(() => freshRows(set.items, idx.issues), [set.items, idx.issues]);
+  useOnRevision(useIssuesRevision(), set.revalidate);
+
+  // Подгрузка при прокрутке к концу списка; кнопка «Показать ещё» — запасной путь.
+  const { hasMore, loading, loadingMore, loadMore } = set;
+  const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length);
 
   const filterActive = !!(q || fStatus || fAssignee || fType || fOverdue || showDone);
   const resetFilters = () => {
@@ -170,11 +169,9 @@ export default function Backlog() {
           <div className="mr-2">
             <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("backlog.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
-              {t(showDone ? "backlog.countAll" : "backlog.countActive", {
-                shown: rows.length,
-                total: showDone ? data.issues.length : activeCount,
-              })}
-              {data.issuesTruncated && ` · ${t("backlog.loaded", { shown: data.issues.length, total: data.issuesTotal })}`}
+              {set.total === null
+                ? t("common.loading")
+                : t(showDone || fStatus ? "backlog.countAll" : "backlog.countActive", { shown: rows.length, total: set.total })}
             </p>
           </div>
 
@@ -240,7 +237,7 @@ export default function Backlog() {
           <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.allStatuses")}</option>
             {data.workflow.statuses.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
             ))}
           </select>
           <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className={`${selectCls} cursor-pointer`}>
@@ -285,12 +282,61 @@ export default function Backlog() {
       {/* список */}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
-          {rows.length > 0 ? (
-            <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
-              {rows.map((i) => (
-                <Row key={i.id} issue={i} />
+          {set.loading ? (
+            <div
+              className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]"
+              aria-busy="true"
+              aria-label={t("common.loading")}
+            >
+              {Array.from({ length: 8 }).map((_, i) => (
+                <SkeletonRow key={i} />
               ))}
             </div>
+          ) : set.error && rows.length === 0 ? (
+            <Empty
+              icon={<IcInbox size={22} />}
+              title={t("backlog.loadError")}
+              sub={set.error}
+              action={
+                <button
+                  onClick={set.reload}
+                  className="h-8 rounded-md border border-line bg-panel px-3 text-[12.5px] font-medium text-sub hover:border-accent hover:text-accent"
+                >
+                  {t("common.retry")}
+                </button>
+              }
+            />
+          ) : rows.length > 0 ? (
+            <>
+              <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
+                {rows.map((i) => (
+                  <Row key={i.id} issue={i} epic={i.epicId ? epics.byId.get(i.epicId) : undefined} />
+                ))}
+                {loadingMore && (
+                  <div className="border-t border-linesoft" aria-busy="true" aria-label={t("backlog.loadingMore")}>
+                    <SkeletonRow />
+                  </div>
+                )}
+              </div>
+              <div ref={sentinelRef} className="mt-3 flex min-h-8 items-center justify-center text-[12px] text-faint">
+                {set.error ? (
+                  <button onClick={loadMore} className="font-medium text-accent hover:underline">
+                    {t("backlog.loadMoreFailed")}
+                  </button>
+                ) : hasMore ? (
+                  !loadingMore && (
+                    <button
+                      onClick={loadMore}
+                      className="h-8 rounded-md border border-line bg-panel px-3 font-medium text-sub hover:border-accent hover:text-accent"
+                    >
+                      {t("backlog.loadMore")}
+                    </button>
+                  )
+                ) : (
+                  <span>{t("backlog.allLoaded", { total: rows.length })}</span>
+                )}
+              </div>
+            </>
           ) : (
             <Empty
               icon={<IcInbox size={22} />}
