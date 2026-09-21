@@ -2,21 +2,37 @@
  * Тестовое окружение. Импортируется в setupFiles (в воркерах) и в global-setup
  * (в главном процессе) — ДО первого loadConfig().
  *
- * По умолчанию тесты идут по СХЕМЕ `taskira_test` внутри dev-БД
- * (`options=-csearch_path=taskira_test,public`) — отдельная БД и права CREATEDB
- * не нужны, dev-схема `public` не затрагивается. Переопределяется
- * `DATABASE_URL_TEST` (напр. отдельная БД в CI).
+ * Тесты идут в ОТДЕЛЬНОЙ БД `taskira_test`, а не в схеме внутри рабочей БД (TEST-01). Причина: расширения
+ * (`pg_trgm`, `pgcrypto`) принадлежат базе, а не схеме; сброс тестовой схемы через `DROP SCHEMA … CASCADE`
+ * удалял расширение вместе с триграммными индексами всех остальных схем той же БД — молча, без ошибки.
+ * Переопределяется `DATABASE_URL_TEST` (в CI — та же схема из docker-сервиса Postgres).
  */
-const DEFAULT_TEST_URL =
-  "postgresql://taskira:taskira@localhost:5432/taskira?options=-csearch_path%3Dtaskira_test%2Cpublic";
+const DEFAULT_TEST_URL = "postgresql://taskira:taskira@localhost:5432/taskira_test";
 
 export const TEST_DB_URL = process.env.DATABASE_URL_TEST || DEFAULT_TEST_URL;
 export const TEST_JWT_SECRET = "test-jwt-secret-do-not-use-in-prod-0000000000";
 
-if (!/taskira_test/.test(TEST_DB_URL)) {
+const testDbUrl = (() => {
+  try {
+    return new URL(TEST_DB_URL);
+  } catch {
+    throw new Error("DATABASE_URL_TEST — некорректный URL подключения");
+  }
+})();
+export const TEST_DB_NAME = decodeURIComponent(testDbUrl.pathname.replace(/^\//, ""));
+
+// Защита от прогона по dev/prod-базе: имя БД должно быть taskira_test…, а схемный режим (search_path в
+// options) больше не поддерживается — он и был причиной TEST-01.
+if (!/^taskira_test/.test(TEST_DB_NAME)) {
   throw new Error(
-    `DATABASE_URL_TEST должен указывать на taskira_test (схему или БД). Получено: ${TEST_DB_URL}. ` +
+    `DATABASE_URL_TEST должен указывать на БД taskira_test. Получено БД «${TEST_DB_NAME}». ` +
       "Это защита от случайного прогона тестов по dev/prod-базе.",
+  );
+}
+if (testDbUrl.searchParams.has("options")) {
+  throw new Error(
+    "DATABASE_URL_TEST: параметр options (search_path) не поддерживается — тесты идут в отдельной БД " +
+      "taskira_test, а не в схеме рабочей БД (TEST-01). Уберите options из URL.",
   );
 }
 

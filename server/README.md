@@ -348,10 +348,11 @@ npm test            # vitest run
 npm run test:watch
 ```
 
-Прогоняются по **схеме `taskira_test`** внутри dev-БД
-(`options=-csearch_path=taskira_test,public`) — отдельная БД и права CREATEDB не
-нужны, dev-схема `public` не затрагивается. `test/global-setup.ts` пересоздаёт
-схему и гоняет миграции один раз; `test/helpers.ts` — `getApp` / `seedFixture`
+Прогоняются в **отдельной БД `taskira_test`** (TEST-01): расширения (`pg_trgm`) принадлежат базе, и сброс
+схемы внутри рабочей БД раньше молча удалял триграммные индексы всех остальных схем. Ролю тестов нужно один
+раз наделить правом создавать БД (`ALTER ROLE taskira CREATEDB;` от суперпользователя) либо создать
+`taskira_test` вручную; в CI её создаёт docker-сервис. `test/global-setup.ts` создаёт БД при отсутствии,
+пересоздаёт в ней схему `public` и гоняет миграции один раз; `test/helpers.ts` — `getApp` / `seedFixture`
 (admin + 2 проекта в 2 отделах + участники всех ролей + outsider) / `login`.
 
 Покрыто (`test/access.roles.test.ts`, `test/access.multiproject.test.ts`):
