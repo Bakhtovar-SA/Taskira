@@ -6,7 +6,7 @@
 
 Две независимые npm-сборки:
 
-- **корень** (`src/`) — SPA на React 18 + TypeScript + Vite + Tailwind CSS 4. Интерфейс полностью доступен на русском и английском.
+- **корень** (`src/`) — SPA на React 19 + TypeScript + Vite + Tailwind CSS 4. Интерфейс полностью доступен на русском и английском.
 - **`server/`** (`server/src/`) — API на Fastify 5 + PostgreSQL + JWT. **Здесь источник истины по правам.**
 
 Данные хранятся в PostgreSQL на сервере; сессия передаётся защищённой
@@ -199,7 +199,7 @@ JWT re-валидируется на сервере: `requireAuth` каждые 
 
 ## Стек
 
-Клиент: React 18, TypeScript, Vite 6, Tailwind CSS 4. Без внешних UI-библиотек —
+Клиент: React 19, TypeScript, Vite 8, Tailwind CSS 4. Без внешних UI-библиотек —
 иконки, дропдауны, модалки и тосты написаны вручную; роутинг — хэш вручную в `App.tsx`.
 
 Сервер: Fastify 5, PostgreSQL (`pg`), `@fastify/jwt`, `zod`, `bcryptjs`, `ldapts`,

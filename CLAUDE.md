@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Taskira — an internal corporate task tracker (board / task list / timeline / workflow editor)
 with a role-based permission system. Two independent npm packages:
 
-- **root** — React 18 + TypeScript + Vite SPA (`src/`). Was Russian-only; `src/i18n/` (added in
+- **root** — React 19 + TypeScript + Vite 8 SPA (`src/`). Was Russian-only; `src/i18n/` (added in
   the i18n-foundation branch) now covers the app shell and issue-creation/board flows in RU+EN —
   see the i18n section below for exactly what is and isn't covered yet.
 - **`server/`** — Fastify 5 + PostgreSQL + JWT API (`server/src/`). **The permission system's source of truth.**
@@ -39,7 +39,8 @@ in [SECURITY.md](SECURITY.md); do not add credentials, customer data, or private
 Client (run from repo root):
 
 ```bash
-npm install
+npm ci                # after every pull/merge from main — never trust an existing node_modules (React/Vite versions
+                      # have moved under people before: a stale install gives phantom type errors, e.g. RefObject)
 npm run dev         # Vite dev server on http://localhost:3000 (strictPort — fails if taken)
 npm run build       # production build to dist/
 npm run typecheck   # tsc --noEmit
