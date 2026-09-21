@@ -4,6 +4,7 @@ import { StoreProvider, useStore } from "./store";
 import {
   ApiError,
   authApi,
+  avatarApi,
   commentsApi,
   departmentsApi,
   issuesApi,
@@ -608,6 +609,56 @@ describe("гонки с logout", () => {
     await act(async () => { r = await get().lookupIssue(I1); });
     expect(r).toBeNull();
     expect(getIssue).not.toHaveBeenCalled();
+  });
+
+  test("SEC-01 (остаток): refreshNotifications / refreshCollaborations / goHome→«Мои задачи», ответившие после logout, в сброшенный стор не пишут", async () => {
+    const { get } = await readyInP1();
+    const dn = defer<{ items: never[]; nextCursor: null }>();
+    const dc = defer<CollaboratingItem[]>();
+    const da = defer<{ items: never[]; truncated: boolean; limit: number }>();
+    vi.mocked(notificationsApi.list).mockReturnValue(dn.promise as never);
+    vi.mocked(notificationsApi.unreadCount).mockResolvedValue({ count: 7 });
+    vi.mocked(issuesApi.collaborating).mockReturnValue(dc.promise);
+    vi.mocked(issuesApi.assignedToMe).mockReturnValue(da.promise as never);
+    let rn!: Promise<void>;
+    let rc!: Promise<void>;
+    act(() => { rn = get().refreshNotifications(); rc = get().refreshCollaborations(); });
+    act(() => get().goHome());
+    act(() => get().logout());
+    const note = { id: "n1", type: "issue.comment", actorId: null, actor: null, projectId: P1, issueId: I1, payload: {}, createdAt: new Date().toISOString(), read: false };
+    const collab = { issueId: I9, projectId: P2, key: "K", title: "t", statusId: "s", statusName: "n", statusCategory: "todo", projectKey: "B", projectName: "B" } as CollaboratingItem;
+    const assigned = { issueId: I1, projectId: P1, key: "K", title: "t", typeId: "task", priorityId: "medium", statusId: "s1", statusName: "n", statusCategory: "todo", dueDate: null, projectKey: "A", projectName: "A" };
+    await act(async () => {
+      dn.resolve({ items: [note] as never, nextCursor: null });
+      dc.resolve([collab]);
+      da.resolve({ items: [assigned] as never, truncated: false, limit: 100 });
+      await Promise.all([rn, rc]);
+    });
+    await settle();
+    expect(get().data.notifications).toEqual([]);
+    expect(get().data.unreadCount).toBe(0);
+    expect(get().data.collaborations).toEqual([]);
+    expect(get().data.assignedToMe).toEqual([]);
+  });
+
+  test("SEC-01 (остаток): setNotifyPrefs и uploadAvatar, ответившие после logout, не пишут в стор и не показывают тост успеха", async () => {
+    const { get } = await readyInP1();
+    const dp = defer<{ notifyPrefs: { email: string } }>();
+    const du = defer<{ avatarUpdatedAt: number }>();
+    vi.spyOn(notificationsApi, "setPrefs").mockReturnValue(dp.promise as never);
+    vi.spyOn(avatarApi, "upload").mockReturnValue(du.promise);
+    let up!: Promise<void>;
+    act(() => get().setNotifyPrefs({ email: "daily" }));
+    act(() => { up = get().uploadAvatar(new File(["x"], "a.png", { type: "image/png" })); });
+    act(() => get().logout());
+    await act(async () => {
+      dp.resolve({ notifyPrefs: { email: "daily" } });
+      du.resolve({ avatarUpdatedAt: 777 });
+      await up;
+    });
+    await settle();
+    expect(get().data.notifyPrefs).toEqual({});
+    expect(get().toasts.filter((t) => t.kind === "success")).toEqual([]);
   });
 
   test("SEC-01: новый вход сразу после выхода работает — эпоха отсекает только старые запросы", async () => {

@@ -6,12 +6,14 @@ import { avatarApi, invalidateAvatarBlobUrl, notificationsApi, type NotifyPrefs 
 import { applyNotificationAction, mapNotification } from "./mappers";
 import type { StoreCtx } from "./ctx";
 
-export function useNotificationActions({ setData, dataRef, toast, handleApiError, local }: StoreCtx) {
+export function useNotificationActions({ setData, dataRef, toast, handleApiError, local, sessionEpochRef }: StoreCtx) {
   /* -------- уведомления (миграция 011) -------- */
 
   const refreshNotifications = useCallback(async () => {
+    const epoch = sessionEpochRef.current; // SEC-01: ответ после logout/401 не пишем в стор
     try {
       const [res, unread] = await Promise.all([notificationsApi.list(), notificationsApi.unreadCount()]);
+      if (epoch !== sessionEpochRef.current) return;
       setData((prev) => ({ ...prev, notifications: res.items.map(mapNotification), unreadCount: unread.count }));
     } catch {
       /* тихо — колокол не критичен */
@@ -19,8 +21,10 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
   }, []);
 
   const refreshUnreadCount = useCallback(async () => {
+    const epoch = sessionEpochRef.current; // SEC-01
     try {
       const { count } = await notificationsApi.unreadCount();
+      if (epoch !== sessionEpochRef.current) return;
       setData((prev) => (prev.unreadCount === count ? prev : { ...prev, unreadCount: count }));
     } catch {
       /* тихо */
@@ -28,9 +32,11 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
   }, []);
 
   const markNotificationsRead = useCallback((ids?: string[]) => {
+    const epoch = sessionEpochRef.current; // SEC-01
     void (async () => {
       try {
         await notificationsApi.markRead(ids);
+        if (epoch !== sessionEpochRef.current) return;
         setData((prev) => applyNotificationAction(prev, ids, "read"));
       } catch (err) {
         handleApiError(err);
@@ -41,9 +47,11 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
   /** Скрыть уведомления из СВОЕЙ ленты (мягко, dismissed_at на сервере) — не
    *  затрагивает чужие уведомления и аудит-след. Без ids — скрыть все свои. */
   const dismissNotifications = useCallback((ids?: string[]) => {
+    const epoch = sessionEpochRef.current; // SEC-01
     void (async () => {
       try {
         await notificationsApi.dismiss(ids);
+        if (epoch !== sessionEpochRef.current) return;
         setData((prev) => applyNotificationAction(prev, ids, "dismiss"));
       } catch (err) {
         handleApiError(err);
@@ -53,9 +61,11 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
 
   const setNotifyPrefs = useCallback(
     (patch: NotifyPrefs) => {
+      const epoch = sessionEpochRef.current; // SEC-01
       void (async () => {
         try {
           const { notifyPrefs } = await notificationsApi.setPrefs(patch);
+          if (epoch !== sessionEpochRef.current) return;
           setData((prev) => ({ ...prev, notifyPrefs: notifyPrefs as NotifyPrefsT }));
           toast("success", local("Настройки уведомлений сохранены", "Notification settings saved"));
         } catch (err) {
@@ -78,8 +88,10 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
 
   const uploadAvatar = useCallback(
     async (file: File) => {
+      const epoch = sessionEpochRef.current; // SEC-01
       try {
         const { avatarUpdatedAt } = await avatarApi.upload(file);
+        if (epoch !== sessionEpochRef.current) return;
         patchMyAvatar(avatarUpdatedAt);
         toast("success", local("Аватарка обновлена", "Profile photo updated"));
       } catch (err) {
@@ -90,8 +102,10 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
   );
 
   const removeAvatar = useCallback(async () => {
+    const epoch = sessionEpochRef.current; // SEC-01
     try {
       await avatarApi.remove();
+      if (epoch !== sessionEpochRef.current) return;
       patchMyAvatar(null);
       toast("success", local("Аватарка удалена", "Profile photo removed"));
     } catch (err) {

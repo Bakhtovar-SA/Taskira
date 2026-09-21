@@ -263,7 +263,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Общий контекст доменных хуков (ТЗ 2.3): собирается один раз, после requirePerm/withIssue.
-  const storeCtx: StoreCtx = { setData, dataRef, pid, toast, handleApiError, requirePerm, local };
+  const storeCtx: StoreCtx = { setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef };
   const { resolveIssue, lookupIssue, withIssue } = useIssueLookup(storeCtx);
   const { refreshNotifications, refreshUnreadCount, markNotificationsRead, dismissNotifications, setNotifyPrefs, uploadAvatar,
     removeAvatar } = useNotificationActions(storeCtx);
