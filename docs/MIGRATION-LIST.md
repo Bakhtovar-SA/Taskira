@@ -41,7 +41,7 @@
 
 | Файл | Первая строка описания |
 |---|---|
-| `20260919T1500_security_hardening.sql` |  |
+| `20260919T1500_security_hardening.sql` | (нет комментария-описания) |
 | `20260920T0631_index_active_issues_page.sql` | CREATE INDEX CONCURRENTLY нельзя выполнять внутри BEGIN. При обрыве PostgreSQL |
 | `20260920T1400_index_issues_sort_priority.sql` | Сортировка «Списка задач» (priority) по активным задачам проекта. Выражение и |
 | `20260920T1401_index_issues_sort_due.sql` | Сортировка «Списка задач» (due) по активным задачам проекта. Выражение и |
