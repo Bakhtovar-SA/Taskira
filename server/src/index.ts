@@ -9,7 +9,7 @@ import { startMaintenance, stopMaintenance } from "./services/maintenance.js";
 
 async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
-  initPool(cfg.databaseUrl, cfg.pgPoolMax);
+  initPool(cfg.databaseUrl, cfg.pgPoolMax, cfg.pgPoolIdleTimeoutMs);
   await migrate();
   await seedAdmin();
   await seedProject(); // проект CORP + дефолтный workflow (идемпотентно)

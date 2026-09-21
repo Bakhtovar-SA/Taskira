@@ -15,8 +15,19 @@ pg.types.setTypeParser(1082, (v) => v);
 
 let pool: pg.Pool | null = null;
 
-export function initPool(databaseUrl: string, max = 10): pg.Pool {
-  pool = new Pool({ connectionString: databaseUrl, max });
+/**
+ * `idleTimeoutMillis: 0` — простаивающие соединения не закрываются. Умолчание `pg` (10 с) рассчитано
+ * на другой профиль: после паузы первый запрос платит за новое соединение (на стенде 60–92 мс против
+ * 0,5 мс на тёплом), а при малом трафике — по утрам, после выходных — это каждый первый запрос.
+ * Пул ограничен `max` (по умолчанию 10), поэтому держать их открытыми дёшево; при нескольких
+ * процессах сервера постоянно занято `процессов × max` соединений — учитывайте `max_connections`.
+ */
+export function initPool(databaseUrl: string, max = 10, idleTimeoutMillis = 0): pg.Pool {
+  pool = new Pool({ connectionString: databaseUrl, max, idleTimeoutMillis, keepAlive: true });
+  // Без обработчика 'error' на пуле обрыв простаивающего соединения (рестарт Postgres, failover,
+  // idle_session_timeout, обрыв через балансировщик) — необработанное событие и падение процесса.
+  // Раньше 10-секундный тайм-аут прятал это окно; с постоянными соединениями оно открыто.
+  pool.on("error", (err) => console.error(`[db] ошибка простаивающего соединения: ${err.message}`));
   return pool;
 }
 

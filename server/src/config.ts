@@ -155,6 +155,8 @@ export interface Config {
   maintenance: MaintenanceConfig;
   /** Размер пула соединений к Postgres (аудит PERF-07: было зашито в код). */
   pgPoolMax: number;
+  /** Через сколько мс закрывать простаивающее соединение; 0 — не закрывать (умолчание). */
+  pgPoolIdleTimeoutMs: number;
   /** Глобальный лимит запросов на пользователя/IP (аудит SEC-03). */
   rateLimit: {
     enabled: boolean;
@@ -251,6 +253,14 @@ function buildLdapConfig(): LdapConfig {
 }
 
 /** Положительное целое из env, иначе дефолт; мусор (не число) — fail-fast. */
+function envNonNegInt(key: string, def: number): number {
+  const raw = process.env[key]?.trim();
+  if (!raw) return def;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) fail(`${key} должен быть неотрицательным целым числом`);
+  return n;
+}
+
 function envPosInt(key: string, def: number): number {
   const raw = process.env[key]?.trim();
   if (!raw) return def;
@@ -453,6 +463,7 @@ function buildConfig(): Config {
       storageSweepGraceMs: envPosInt("STORAGE_SWEEP_GRACE_MS", 24 * 60 * 60_000), // 24 часа
     },
     pgPoolMax: envPosInt("PG_POOL_MAX", 10),
+    pgPoolIdleTimeoutMs: envNonNegInt("PG_POOL_IDLE_TIMEOUT_MS", 0),
     rateLimit: {
       // Выключать только осознанно (тесты выставляют явно) — прод-код больше не
       // смотрит на NODE_ENV сам (аудит DEBT-03).
