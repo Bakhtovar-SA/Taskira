@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { assignableUsers, useStore } from "../store";
+import { useStore } from "../store";
+import { assignableUsers } from "../store/mappers";
 import type { ComplexityId, Issue, IssueTypeId, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcPlus, IcX, TypeIcon } from "../icons";

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { issuesApi, type IssueCounts, type IssueEpic, type IssueFilterParams, type IssueSortKey } from "./api";
-import { mapIssue, useStore } from "./store";
+import { useStore } from "./store";
+import { mapIssue } from "./store/mappers";
 import type { Issue } from "./types";
 
 /**

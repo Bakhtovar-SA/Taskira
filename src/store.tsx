@@ -35,24 +35,6 @@ import { useIssueLookup } from "./store/issueLookup";
 import { useSessionActions } from "./store/session";
 import { useFavoritesAndSearch } from "./store/favoritesSearch";
 
-// Фасад: публичные имена по-прежнему берутся из "store" — компоненты и тесты не менялись (ТЗ 2.3).
-export {
-  canTransition,
-  statusById,
-  assignableUsers,
-  relTime,
-  fmtDate,
-  applyNotificationAction,
-  mapIssue,
-} from "./store/mappers";
-export type {
-  BootStatus,
-  SoloState,
-  UIState,
-  CreateInput,
-  StoreIndexes,
-} from "./store/mappers";
-
 interface Api {
   data: Data;
   idx: StoreIndexes;

@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
-import { applyNotificationAction, assignableUsers, canTransition, fmtDate, relTime, statusById } from "./store";
+import { applyNotificationAction, assignableUsers, canTransition, fmtDate, relTime, statusById } from "./store/mappers";
 import type { Data, NotificationT, ProjectRole, User, Workflow } from "./types";
 
 /**
