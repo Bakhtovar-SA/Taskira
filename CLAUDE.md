@@ -34,6 +34,9 @@ separate releases. CI rejects unmarked destructive contract operations.
 Security-facing behavior and claims must stay aligned with
 [docs/SECURITY_OVERVIEW.md](docs/SECURITY_OVERVIEW.md). Vulnerability reporting is documented
 in [SECURITY.md](SECURITY.md); do not add credentials, customer data, or private reports to issues.
+License key storage/rotation/breach procedure is [docs/LICENSE_KEYS.md](docs/LICENSE_KEYS.md) — the
+private signing key itself never goes in the repo, only its public half
+(`server/src/licenseTrustedKeys.ts`).
 
 ## Commands
 
@@ -282,6 +285,29 @@ who typed them used — there is no dictionary key for someone's actual data.
   `storage.put()` *before* the `INSERT INTO attachments`, so a just-uploaded object is briefly
   visible to `list()` without a DB row yet; the grace period is the guard against sweeping it
   mid-upload.
+- `services/license.ts` (ТЗ 4.3, plan v2 Track 4) — offline license: an RS256-signed token
+  (`header.payload.signature`, base64url, `node:crypto` directly — no new JWT dependency), verified
+  against `server/src/licenseTrustedKeys.ts`'s `kid`-keyed public-key registry, never against
+  `JWT_SECRET` (that's a separate, symmetric key for user sessions). `kid` support and a multi-key
+  registry are there from the start — without it, key rotation is permanent breakage, and a leaked
+  private key has no recovery path. `getLicenseStatus()` reads `instance.license_key` with its own
+  `SELECT`, deliberately bypassing `services/instance.ts`'s `getInstance()` cache, since
+  `scripts/install-license.ts` writes that column from a separate one-off process with no way to
+  call `invalidateInstanceCache()` on the running server. Seat counting (`countActiveSeats`) counts
+  users who logged in within `activeWindowDays` (a field *in the license itself*, default 30 at
+  issuance — not a server constant), not `count(*) FROM users`: LDAP JIT-provisioning
+  (`userProvisioning.ts`, `departmentSync.ts`) creates user rows automatically on first login and on
+  background AD resync, with no purchaser involvement, so counting all rows would blow a seat limit
+  on day one for any client with a large AD tree, regardless of how many people actually use
+  Taskira. `users.last_login_at` (migration `20260922T1600_users_last_login.sql`, set in
+  `routes/auth.ts` on every successful login) is what this counts against — not `audit_log`, whose
+  retention (`AUDIT_RETENTION_DAYS`) is independently configurable and could silently drop below the
+  license's window. Expiry is a grace period, not a hard stop: `checkLicenseAndWarn()` (run at
+  startup and once every 24h, `startLicenseCheck()`/`stopLicenseCheck()`) only writes
+  `audit_log` (`license.expired` / `license.invalid` / `license.seats_over_limit`); nothing blocks a
+  request. `requiresPlan(feature)` (`middleware.ts`, same shape as `requirePerm`) exists but is
+  intentionally wired to zero routes in this PR. `docs/LICENSE_KEYS.md` covers private-key custody,
+  rotation, and breach response — the private key itself never enters this repo.
 - `db.ts` — thin `pg` wrapper: `q` / `one` / `exec` / `withClient` (dedicated client for
   race-free read-then-write). `migrate()` applies `server/migrations/*.sql` in filename order,
   each file in one transaction, tracked in `schema_migrations`. New migration policy and naming

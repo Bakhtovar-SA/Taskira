@@ -9,6 +9,7 @@ import { one } from "./db.js";
 import { ApiHttpError } from "./errors.js";
 import { projectById, type ProjectRow } from "./services/project.js";
 import { isIssueCollaborator } from "./services/collaborators.js";
+import { getLicenseStatus, licenseHasFeature } from "./services/license.js";
 import { closeUserSockets } from "./services/wsHub.js";
 import { loadConfig } from "./config.js";
 import { SESSION_COOKIE, sessionCookie } from "./sessionCookie.js";
@@ -297,6 +298,24 @@ export const requireGlobalAdmin: preHandlerAsyncHookHandler = async (req, reply:
   await audit(req.user.sub, "access.denied", "globalAdmin", null, { path: req.url, method: req.method }, "denied");
   throw forbidden("Действие доступно только администратору ресурса");
 };
+
+/**
+ * ТЗ 4.3: гейт по лицензионному плану, в стиле requirePerm() выше — но не проектная роль, а
+ * `features[]` из проверенной лицензии инсталляции (services/license.ts). Просроченная лицензия
+ * (grace period, тот же ТЗ) НЕ блокирует здесь — это сознательно тот же принцип, что и у
+ * checkLicenseAndWarn(): предупреждение, не отказ в работе; блокирует только отсутствующая/
+ * неисправная лицензия или лицензия без нужной фичи в списке. Не подключён ни к одному роуту в
+ * этом PR — план v2 явно просит инфраструктуру без подключения (см. ТЗ 4.3, п.5).
+ */
+export function requiresPlan(feature: string): preHandlerAsyncHookHandler {
+  return async (req, reply: FastifyReply) => {
+    await requireAuth.call(req.server, req, reply);
+    const status = await getLicenseStatus();
+    if (licenseHasFeature(status, feature)) return;
+    await audit(req.user.sub, "access.denied", "plan", null, { feature, path: req.url, method: req.method }, "denied");
+    throw new ApiHttpError(403, "PLAN_REQUIRED", `Функция «${feature}» недоступна на текущем плане лицензии`);
+  };
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

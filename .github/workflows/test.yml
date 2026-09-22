@@ -233,6 +233,12 @@ jobs:
         run: npm run typecheck
         working-directory: server
 
+      # ТЗ 4.3: server/scripts/generate-license.ts и install-license.ts — вне server/tsconfig.json
+      # (rootDir: src), тот же случай, что и корневой scripts/ ниже.
+      - name: Typecheck server/scripts (license CLI)
+        run: npm run typecheck:scripts
+        working-directory: server
+
       - name: Typecheck client (includes server/src/contract.ts)
         run: npm run typecheck
 

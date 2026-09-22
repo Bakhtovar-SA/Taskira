@@ -136,6 +136,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       }
 
       await clearLoginFailures(row.id);
+      // ТЗ 4.3: seat-подсчёт лицензии считает "активных" по этому столбцу, не по count(*) users
+      // (см. миграцию 20260922T1600_users_last_login.sql и services/license.ts) — обновляется
+      // здесь же, единственном месте успешного входа, тем же приёмом, что failed_login_attempts.
+      await q(`UPDATE users SET last_login_at = now() WHERE id = $1`, [row.id]);
       await audit(row.id, "auth.login", "user", row.id, { via: row.auth_source });
       const token = signToken(app, row);
       reply.header("Set-Cookie", sessionCookie(token));

@@ -5,6 +5,7 @@ import { runStartupSeeds } from "./seedStartup.js";
 import { buildApp } from "./app.js";
 import { startNotifier, stopNotifier } from "./services/notifier.js";
 import { startMaintenance, stopMaintenance } from "./services/maintenance.js";
+import { startLicenseCheck, stopLicenseCheck } from "./services/license.js";
 
 async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
@@ -23,10 +24,14 @@ async function main(): Promise<void> {
   // Обслуживание (автоархив закрытых задач, уборка аудита) — независимо от email.
   startMaintenance();
 
+  // ТЗ 4.3: проверка лицензии сразу при старте + раз в сутки (см. services/license.ts).
+  startLicenseCheck();
+
   const shutdown = async (sig: string) => {
     console.log(`[taskira] получен ${sig}, останавливаемся…`);
     stopNotifier();
     stopMaintenance();
+    stopLicenseCheck();
     await app.close();
     await closePool();
     process.exit(0);
