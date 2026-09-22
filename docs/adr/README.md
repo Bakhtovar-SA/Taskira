@@ -26,10 +26,5 @@
 | [0005](./0005-two-layer-permission-model.md) | Двухслойная модель прав: глобальная роль + роль в проекте | Accepted | 2026-09-06 |
 | [0006](./0006-epic-is-an-ordinary-task.md) | «Эпик» — обычная задача; в интерфейсе — «Направление» | Accepted | 2026-09-05 |
 | [0007](./0007-native-html5-dnd-physics-dnd-reverted.md) | Доска: нативный HTML5 drag&drop; кастомная «физика» перетаскивания откатана | Accepted | 2026-09-13 |
-
-## Что здесь намеренно нет
-
-**Database-per-tenant.** В репозитории нет решения об этом: ни в SCOPE.md, ARCHITECTURE.md, UI_RESTRUCTURE.md, ни в
-миграциях, ни в истории; в `CLAUDE.md` зафиксировано обратное — «single project, no multi-tenant» — и это
-ограничение реализации, а не оформленное решение. ADR задним числом про то, чего не решали, не создаётся; если
-мультитенантность будет обсуждаться — это будет новый ADR с реальной датой.
+| [0008](./0008-wouter-for-client-routing.md) | Клиентский роутинг: `wouter`, а не `react-router` | Accepted | 2026-09-22 |
+| [0009](./0009-database-per-tenant.md) | Database-per-tenant: одна БД = одна организация, без `organization_id` в схеме | Accepted | 2026-09-22 |

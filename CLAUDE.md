@@ -56,11 +56,11 @@ Server (run from `server/`):
 cd server
 npm ci                 # same rule as the client: after every pull, dev server stopped first on Windows (tsx holds esbuild)
 cp .env.example .env   # then fill DATABASE_URL, JWT_SECRET (>=32 chars), ADMIN_USERNAME/ADMIN_PASSWORD
-npm run dev            # tsx watch (chokidar polling) -> migrations -> seed admin+project -> :8080
+npm run dev            # tsx watch (chokidar polling) -> migrations -> seed admin+project+instance -> :8080
 npm run dev:native     # same, native fs events (no polling)
 npm run build          # tsc -p tsconfig.json -> dist/
 npm run start          # node dist/index.js
-npm run seed           # run migrate() + seedAdmin() + seedProject() standalone
+npm run seed           # run migrate() + seedAdmin() + seedProject() + seedInstance() standalone
 npm run typecheck      # tsc --noEmit
 npm test               # vitest run — access/contract/home/notifications/lifecycle/reports/storage/ldap suites (~140 tests)
 ```
@@ -147,11 +147,20 @@ Mutations are optimistic-ish: call API, then patch `data` from the returned DTO;
 re-fetches issues on failure to undo local drift.
 
 Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating`)
-are switched by `ui.view` in `App.tsx` — no router. `backlog` is internal id for the
-"Список задач" view (`Backlog.tsx`, a flat filtered/sorted list — sprints removed in
-migration 012). `bootStatus` also has a `"home"` state: with ≥2 visible projects, login
-lands on `HomeView.tsx` (Мои задачи + Недавние проекты) before any project is entered.
-Deep links to a task use a hash (`#/issue/<pid>/<iid>`) parsed by hand in `App.tsx`.
+are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs
+(`/p/:projectKey/<view>`, `/reports` — the one exception, project-less) by
+`useRouterSync.ts` — `wouter` (ADR-0008), not a hand-rolled hash parser (ТЗ 3.1, plan v2
+Track 3; see that file's own header comment for the bidirectional-sync design and the
+race it guards against). `backlog` is internal id for the "Список задач" view
+(`Backlog.tsx`, a flat filtered/sorted list — sprints removed in migration 012).
+`bootStatus` also has a `"home"` state: with ≥2 visible projects, login lands on
+`HomeView.tsx` (Мои задачи + Недавние проекты) before any project is entered — its URL
+is `/`. Deep links to a task (`/p/:projectKey/issue/:issueKey`) resolve the human-readable
+key via `GET /api/issues/resolve` (`server/src/routes/search.ts` — the key is globally
+unique, so no project needs to be named to resolve it) before opening the issue; `src/router.ts`
+holds the pure path helpers/parser. `nginx.conf`'s `try_files $uri /index.html` (and Vite's
+dev-server default) is what makes a hard refresh on one of these paths work — required now
+that the path itself carries state, unlike the old hash-only scheme.
 Keyboard shortcuts (`/`, `C`, `1`–`9` for the nine views, `Esc`) are wired in `App.tsx`;
 they are suppressed while a modal is open. `reports` (`ReportsView.tsx`) is project-less —
 it reads `/api/reports/*`, which scope themselves to the user's visible projects.
@@ -251,7 +260,10 @@ who typed them used — there is no dictionary key for someone's actual data.
   illegal move), `rank.ts` (fractional `issues.rank` float8; midpoint insert, column
   rebalance when gap `< 1e-9`, whole calculation under `pg_advisory_xact_lock` keyed by
   status column so concurrent drags into the same slot don't race to the same rank),
-  `project.ts` (`currentProject()`, cached — **single project, no multi-tenant**).
+  `project.ts` (`projectById()`, cached — resolved per `:projectId`, not a singleton: multi-project
+  within one installation since migration 007. **No multi-tenant** in the ADR-0009 sense still
+  holds — no `organization_id` anywhere — but "single project" stopped being true back at that
+  migration and this line just hadn't caught up; see [docs/adr/0009-database-per-tenant.md](docs/adr/0009-database-per-tenant.md)).
   `maintenance.ts` runs three independent background jobs on a shared `startJob(name,
   intervalMs, startDelayMs, run)` helper (not one bespoke timer per job — that was the
   original shape and it triplicated the same ~20 lines of guard-flag/setInterval/log

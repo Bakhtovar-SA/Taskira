@@ -10,7 +10,7 @@ async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
   initPool(cfg.databaseUrl, cfg.pgPoolMax, cfg.pgPoolIdleTimeoutMs);
   await migrate();
-  await runStartupSeeds(); // первый админ + проект CORP с workflow; под блокировкой (см. seedStartup.ts)
+  await runStartupSeeds(); // первый админ + проект CORP с workflow + instance (ТЗ 4.1); под блокировкой (см. seedStartup.ts)
 
   const app = buildApp();
   await app.listen({ port: cfg.port, host: cfg.host });

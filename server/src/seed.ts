@@ -36,9 +36,11 @@ const isMain = process.argv[1]?.endsWith("seed.ts") || process.argv[1]?.endsWith
 if (isMain) {
   const { initPool, migrate, closePool } = await import("./db.js");
   const { seedProject } = await import("./seedProject.js");
+  const { seedInstance } = await import("./seedInstance.js");
   initPool(loadConfig().databaseUrl);
   await migrate();
   await seedAdmin();
   await seedProject();
+  await seedInstance();
   await closePool();
 }
