@@ -264,3 +264,58 @@ describe("защита от смены проекта во время запро
     expect(get().ui.lastEvent).toBeNull();
   });
 });
+
+describe("bulkApplyIssueAction — ТЗ 3.3 (план v2 Трек 3)", () => {
+  test("succeeded>0 — issuesRevision растёт (refreshIssues/bumpIssues), тост success/info по наличию failed", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockResolvedValue({ succeeded: ["a", "b"], failed: [] });
+    const rev0 = get().issuesRevision;
+    let res: { succeeded: string[]; failed: { issueId: string; reason: string }[] } | null | undefined;
+    await act(async () => {
+      res = await get().bulkApplyIssueAction({ action: "priority", issueIds: ["a", "b"], priorityId: "high" });
+    });
+    expect(res).toEqual({ succeeded: ["a", "b"], failed: [] });
+    expect(get().issuesRevision).toBeGreaterThan(rev0);
+    expect(get().toasts.at(-1)?.kind).toBe("success");
+  });
+
+  test("частичный успех — тост info с точным текстом «Изменено N из M, K пропущено — нет прав»", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockResolvedValue({
+      succeeded: ["a"],
+      failed: [{ issueId: "b", reason: "Нет прав на эту задачу" }],
+    });
+    await act(async () => {
+      await get().bulkApplyIssueAction({ action: "status", issueIds: ["a", "b"], statusId: "s2" });
+    });
+    const last = get().toasts.at(-1);
+    expect(last?.kind).toBe("info");
+    expect(last?.text).toBe("Изменено 1 из 2, 1 пропущено — нет прав");
+  });
+
+  test("succeeded=0 (полный отказ) — issuesRevision не растёт, тост error, список не перечитывается зря", async () => {
+    const { get } = await boot();
+    const bulk = vi.spyOn(issuesApi, "bulk").mockResolvedValue({
+      succeeded: [],
+      failed: [{ issueId: "a", reason: "Нет прав на эту задачу" }],
+    });
+    const rev0 = get().issuesRevision;
+    await act(async () => {
+      await get().bulkApplyIssueAction({ action: "delete", issueIds: ["a"] });
+    });
+    expect(bulk).toHaveBeenCalledWith("p1", { action: "delete", issueIds: ["a"] });
+    expect(get().issuesRevision).toBe(rev0);
+    expect(get().toasts.at(-1)?.kind).toBe("error");
+  });
+
+  test("ошибка сети/сервера — handleApiError-тост, возвращает null (не путать с «0 успехов, но запрос дошёл»)", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockRejectedValue(new ApiError(500, "INTERNAL", "boom"));
+    let res: unknown = "not set";
+    await act(async () => {
+      res = await get().bulkApplyIssueAction({ action: "priority", issueIds: ["a"], priorityId: "high" });
+    });
+    expect(res).toBeNull();
+    expect(get().toasts.at(-1)?.kind).toBe("error");
+  });
+});

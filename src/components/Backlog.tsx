@@ -7,7 +7,7 @@ import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
 import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, SkeletonRow } from "../ui";
+import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, Modal, SkeletonRow } from "../ui";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -26,9 +26,15 @@ const selectCls =
 function Row({
   issue,
   epic,
+  selectMode,
+  selected,
+  onToggleSelect,
 }: {
   issue: Issue;
   epic: Pick<IssueEpic, "title" | "color"> | undefined;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
 }) {
   const { t, lang } = useT();
   const { idx, openIssue, deleteIssue, can } = useStore();
@@ -40,8 +46,20 @@ function Row({
   return (
     <div
       onClick={() => openIssue(issue.id)}
-      className="group flex cursor-pointer items-center gap-2.5 border-b border-linesoft bg-panel px-3 py-2 transition-colors last:border-0 hover:bg-accentsoft/50"
+      className={`group flex cursor-pointer items-center gap-2.5 border-b border-linesoft bg-panel px-3 py-2 transition-colors last:border-0 hover:bg-accentsoft/50 ${selected ? "bg-accentsoft/40" : ""}`}
     >
+      {/* ТЗ 3.3: чекбоксы появляются только в режиме выделения — не занимают
+          места в обычном режиме просмотра списка. */}
+      {selectMode && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => onToggleSelect(issue.id)}
+          className="shrink-0 cursor-pointer"
+          aria-label={t("backlog.selectRow", { key: issue.key })}
+        />
+      )}
       <TypeIcon type={issue.typeId} size={14} />
       <span className="w-14 shrink-0 font-mono text-[11px] font-semibold text-faint">{issue.key}</span>
       <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{issue.title}</span>
@@ -103,7 +121,7 @@ function Row({
 
 export default function Backlog() {
   const { t } = useT();
-  const { data, idx, can, epicsRevision } = useStore();
+  const { data, idx, can, epicsRevision, bulkApplyIssueAction } = useStore();
   const [path, navigate] = useLocation();
   const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -244,6 +262,40 @@ export default function Backlog() {
     setViews((prev) => prev.filter((x) => x.id !== v.id));
   };
 
+  // ТЗ 3.3 (план v2 Трек 3): массовые операции — чекбоксы только в «режиме
+  // выделения» (не занимают места в обычном просмотре). Права на КАЖДУЮ
+  // задачу проверяет сервер при выполнении (частичный успех) — здесь только UI.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const clearSelection = () => setSelectedIds(new Set());
+  useEffect(() => {
+    if (!selectMode) clearSelection();
+  }, [selectMode]);
+  // Смена проекта/перезагрузка набора — старые id не должны молча пережить переход.
+  useEffect(() => {
+    clearSelection();
+  }, [data.currentProjectId]);
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const runBulk = async (body: Parameters<typeof bulkApplyIssueAction>[0]) => {
+    setBulkBusy(true);
+    try {
+      await bulkApplyIssueAction(body);
+    } finally {
+      setBulkBusy(false);
+      clearSelection();
+      setConfirmDelete(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* шапка */}
@@ -259,6 +311,13 @@ export default function Backlog() {
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {/* ТЗ 3.3: режим выделения — чекбоксы появляются в строках только пока он включён. */}
+            <button
+              onClick={() => setSelectMode((v) => !v)}
+              className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium transition-colors ${selectMode ? "border-accent text-accent" : "border-line text-sub hover:border-accent hover:text-accent"}`}
+            >
+              {t("backlog.selectMode")}
+            </button>
             {can("create") && (
               <button
                 onClick={() => setImportOpen(true)}
@@ -428,7 +487,107 @@ export default function Backlog() {
             )}
           </Dropdown>
         </div>
+
+        {/* ТЗ 3.3: панель массовых действий — видна только при непустом выделении.
+            Права проверяет сервер на каждую задачу; результат — тост «Изменено N из M». */}
+        {selectMode && selectedIds.size > 0 && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 rounded-md border border-accent/30 bg-accentsoft/40 px-2.5 py-2">
+            <span className="text-[12.5px] font-semibold text-ink">{t("backlog.selectedCount", { n: selectedIds.size })}</span>
+            <Dropdown
+              align="left"
+              width={180}
+              button={() => (
+                <button disabled={bulkBusy} className="flex h-7 items-center gap-1 rounded-md border border-line bg-panel px-2 text-[12px] font-medium text-sub disabled:opacity-50">
+                  {t("field.status")} <IcChevD size={10} className="text-faint" />
+                </button>
+              )}
+            >
+              {(close) => (
+                <>
+                  {data.workflow.statuses.map((s) => (
+                    <MenuItem key={s.id} onClick={() => { close(); void runBulk({ action: "status", issueIds: [...selectedIds], statusId: s.id }); }}>
+                      {workflowStatusName(s, t)}
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+            </Dropdown>
+            <Dropdown
+              align="left"
+              width={200}
+              button={() => (
+                <button disabled={bulkBusy} className="flex h-7 items-center gap-1 rounded-md border border-line bg-panel px-2 text-[12px] font-medium text-sub disabled:opacity-50">
+                  {t("field.assignee")} <IcChevD size={10} className="text-faint" />
+                </button>
+              )}
+            >
+              {(close) => (
+                <>
+                  <MenuItem onClick={() => { close(); void runBulk({ action: "assignee", issueIds: [...selectedIds], assigneeId: "none" }); }}>
+                    {t("createIssue.unassigned")}
+                  </MenuItem>
+                  {data.users.map((u) => (
+                    <MenuItem key={u.id} onClick={() => { close(); void runBulk({ action: "assignee", issueIds: [...selectedIds], assigneeId: u.id }); }}>
+                      {u.name}
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+            </Dropdown>
+            <Dropdown
+              align="left"
+              width={160}
+              button={() => (
+                <button disabled={bulkBusy} className="flex h-7 items-center gap-1 rounded-md border border-line bg-panel px-2 text-[12px] font-medium text-sub disabled:opacity-50">
+                  {t("field.priority")} <IcChevD size={10} className="text-faint" />
+                </button>
+              )}
+            >
+              {(close) => (
+                <>
+                  {PRIORITY_ORDER.map((p) => (
+                    <MenuItem key={p} onClick={() => { close(); void runBulk({ action: "priority", issueIds: [...selectedIds], priorityId: p }); }}>
+                      {t(`priority.${p}`)}
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+            </Dropdown>
+            {can("delete") && (
+              <button
+                disabled={bulkBusy}
+                onClick={() => setConfirmDelete(true)}
+                className="flex h-7 items-center gap-1 rounded-md border border-danger/40 px-2 text-[12px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+              >
+                <IcTrash size={12} /> {t("common.delete")}
+              </button>
+            )}
+            <button onClick={clearSelection} className="ml-auto text-[11.5px] font-medium text-faint hover:text-ink">
+              {t("common.clear")}
+            </button>
+          </div>
+        )}
       </div>
+
+      {confirmDelete && (
+        <Modal onClose={() => setConfirmDelete(false)} w={420} title={t("backlog.confirmBulkDeleteTitle")}>
+          <div className="p-5">
+            <p className="text-[13px] text-sub">{t("backlog.confirmBulkDeleteBody", { n: selectedIds.size })}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setConfirmDelete(false)} className="h-8 rounded-md border border-line px-3 text-[12.5px] font-medium text-sub hover:text-ink">
+                {t("common.cancel")}
+              </button>
+              <button
+                disabled={bulkBusy}
+                onClick={() => void runBulk({ action: "delete", issueIds: [...selectedIds] })}
+                className="h-8 rounded-md bg-danger px-3 text-[12.5px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {t("common.delete")}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* список */}
       <div className="flex-1 overflow-y-auto">
@@ -461,7 +620,14 @@ export default function Backlog() {
             <>
               <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
                 {rows.map((i) => (
-                  <Row key={i.id} issue={i} epic={i.epicId ? epics.byId.get(i.epicId) : undefined} />
+                  <Row
+                    key={i.id}
+                    issue={i}
+                    epic={i.epicId ? epics.byId.get(i.epicId) : undefined}
+                    selectMode={selectMode}
+                    selected={selectedIds.has(i.id)}
+                    onToggleSelect={toggleSelect}
+                  />
                 ))}
                 {loadingMore && (
                   <div className="border-t border-linesoft" aria-busy="true" aria-label={t("backlog.loadingMore")}>

@@ -63,6 +63,10 @@ export const LIMITS = {
   // вьюха тяжелее — имя + условия — лимит здесь не лишний).
   savedView: { name: { min: 1, max: 60 } },
   savedViewsPerUserProject: 30,
+  // Массовые операции (ТЗ 3.3, план v2 Трек 3) — потолок на один запрос:
+  // защита от случайного/злонамеренного выделения «вообще всего проекта»
+  // одним кликом и от запроса, который блокирует БД на непредсказуемое время.
+  bulkIssuesMax: 100,
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -264,6 +268,36 @@ export const TransitionBody = z.object({
   to: uuid,
   beforeId: uuid.nullable().optional(),
 });
+
+/** ТЗ 3.3 (план v2 Трек 3): массовые операции — панель действий применяет РОВНО
+ *  одно изменение ко всей выборке за раз (не произвольный многополый patch), тем
+ *  же четырём кнопкам, что в самом ТЗ P0-5: статус, исполнитель, приоритет,
+ *  удаление. Спринт сознательно не входит (план v2: «спринты в парковке»).
+ *  Права проверяются НА КАЖДУЮ задачу индивидуально при выполнении (routes/
+ *  issuesBulk.ts), а не одной проверкой на весь батч — сотрудник с task-level
+ *  ограничением получает частичный успех, а не общий отказ по первой чужой задаче. */
+const bulkIssueIds = z.array(uuid).min(1).max(LIMITS.bulkIssuesMax);
+export const BulkIssueAction = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("status"), issueIds: bulkIssueIds, statusId: uuid }),
+  // "none" — снять всех исполнителей; иначе список заменяется РОВНО одним
+  // указанным (простое, предсказуемое действие кнопки, а не слияние со
+  // старым списком — при multiple assignees (миграция 025) "добавить всем"
+  // не одно и то же, что "поставить всем", и кнопка называет второе).
+  z.object({ action: z.literal("assignee"), issueIds: bulkIssueIds, assigneeId: z.union([uuid, z.literal("none")]) }),
+  z.object({ action: z.literal("priority"), issueIds: bulkIssueIds, priorityId: z.enum(PRIORITIES) }),
+  z.object({ action: z.literal("delete"), issueIds: bulkIssueIds }),
+]);
+export type BulkIssueAction = z.infer<typeof BulkIssueAction>;
+
+/** Частичный успех — «Изменено 8 из 10, 2 пропущено» (ТЗ 3.3). `reason` —
+ *  человекочитаемая причина отказа по КОНКРЕТНОЙ задаче (нет прав, не найдена,
+ *  недопустимый переход по workflow) — тот же принцип, что denialReason()
+ *  (permissions.ts), не общий "forbidden". */
+export const BulkIssueResultDto = z.object({
+  succeeded: z.array(z.string()),
+  failed: z.array(z.object({ issueId: z.string(), reason: z.string() })),
+});
+export type BulkIssueResultDto = z.infer<typeof BulkIssueResultDto>;
 
 export const CommentBody = z.object({
   body: multiLine(LIMITS.comment.max, LIMITS.comment.min, "Комментарий не может быть пустым"),

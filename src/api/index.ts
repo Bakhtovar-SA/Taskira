@@ -40,6 +40,8 @@ import type {
   ReportRow as ReportRowDto,
   ReportSummaryDto,
   ReportTotals as ReportTotalsDto,
+  BulkIssueAction,
+  BulkIssueResultDto,
   SavedViewDto,
   SearchResultDto,
   SearchResultItemDto,
@@ -219,6 +221,8 @@ export type ServerSprint = SprintDto;
 export type ServerIssueTemplate = IssueTemplateDto;
 export type ServerCustomField = CustomFieldDto;
 export type ServerSavedView = SavedViewDto;
+export type BulkAction = BulkIssueAction;
+export type BulkResult = BulkIssueResultDto;
 /** Ответ `GET /api/projects/:projectId`; `users` клиент читает как `SafeUser` (см. выше). */
 export type ProjectBootstrap = Omit<ProjectBootstrapDto, "users"> & { users: SafeUser[] };
 
@@ -487,6 +491,9 @@ export const issuesApi = {
   patch: (projectId: string, id: string, body: Record<string, unknown>) =>
     api<ServerIssue>(`${P(projectId)}/issues/${id}`, { method: "PATCH", body }),
   remove: (projectId: string, id: string) => api<void>(`${P(projectId)}/issues/${id}`, { method: "DELETE" }),
+  /** Массовые операции (ТЗ 3.3, план v2 Трек 3) — ровно одно действие на весь
+   *  выделенный набор; частичный успех (see BulkResult) — не общий success/fail. */
+  bulk: (projectId: string, body: BulkAction) => api<BulkResult>(`${P(projectId)}/issues/bulk`, { method: "PATCH", body }),
   /** Назначение/снятие спринта (миграция 023) — отдельным роутом, право
    *  manageSprints, не edit. sprintId=null возвращает задачу в бэклог. */
   setSprint: (projectId: string, id: string, sprintId: string | null) =>

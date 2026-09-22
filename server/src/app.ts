@@ -14,6 +14,7 @@ import { departmentRoutes } from "./routes/departments.js";
 import { projectsRoutes } from "./routes/projects.js";
 import { memberRoutes } from "./routes/members.js";
 import { issuesRoutes } from "./routes/issues.js";
+import { issuesBulkRoutes } from "./routes/issuesBulk.js";
 import { commentRoutes } from "./routes/comments.js";
 import { attachmentRoutes } from "./routes/attachments.js";
 import { collaboratorRoutes } from "./routes/collaborators.js";
@@ -232,6 +233,7 @@ export function buildApp(): FastifyInstance {
         async (proj) => {
           await proj.register(memberRoutes, { prefix: "/members" }); // /:userId
           await proj.register(issuesRoutes, { prefix: "/issues" }); // CRUD + transition + watchers
+          await proj.register(issuesBulkRoutes, { prefix: "/issues" }); // PATCH /bulk — ТЗ 3.3
           await proj.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
           await proj.register(attachmentRoutes, { prefix: "/issues" }); // /:id/attachments[/:attId]
           await proj.register(collaboratorRoutes, { prefix: "/issues" }); // /:id/collaborators[/:userId]

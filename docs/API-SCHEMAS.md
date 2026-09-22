@@ -459,6 +459,17 @@
 | `uploadedById` | string | может быть null |
 | `createdAt` | string |  |
 
+### BulkIssueAction
+
+`discriminatedunion`
+
+### BulkIssueResultDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `succeeded` | array&lt;string&gt; |  |
+| `failed` | array&lt;object&gt; |  |
+
 ### ChecklistItemDto
 
 | Поле | Тип | Замечания |

@@ -19,6 +19,7 @@ const API_KEYS = [
   "authMode",
   "bootStatus",
   "bootstrap",
+  "bulkApplyIssueAction",
   "can",
   "clearCollabOpenIssueId",
   "completeSprint",

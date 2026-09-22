@@ -13,7 +13,7 @@ import type {
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
-import { ApiError, API_BASE, clearToken, getToken, type IssueTemplateInput } from "./api";
+import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput } from "./api";
 import {
   applyNotificationAction,
   canTransition,
@@ -96,6 +96,9 @@ interface Api {
   removeAttachment: (issueId: string, attId: string) => void;
   downloadAttachment: (issueId: string, att: { id: string; filename: string }) => void;
   deleteIssue: (issueId: string) => void;
+  /** ТЗ 3.3 — null означает "запрос не дошёл" (сеть/500), не "0 успехов":
+   *  тост об ошибке уже показан здесь, отдельно показывать результат не нужно. */
+  bulkApplyIssueAction: (body: BulkAction) => Promise<BulkResult | null>;
   addTransition: (from: string, to: string) => string | null;
   removeTransition: (id: string) => void;
   resetWorkflow: () => void;
@@ -365,7 +368,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, [bootStatus, refreshUnreadCount]);
 
-  const { createIssue, importIssues, updateIssue, moveStatus, deleteIssue } = useIssueCrudActions(storeCtx, {
+  const { createIssue, importIssues, updateIssue, moveStatus, deleteIssue, bulkApplyIssueAction } = useIssueCrudActions(storeCtx, {
     withIssue, resolveIssue, refreshIssues, setUi, bumpIssues, bumpEpics, langRef,
   });
 
@@ -445,6 +448,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     removeAttachment,
     downloadAttachment,
     deleteIssue,
+    bulkApplyIssueAction,
     addTransition,
     removeTransition,
     resetWorkflow,

@@ -321,11 +321,53 @@ export function useIssueCrudActions(
     [requirePerm, resolveIssue, toast, handleApiError],
   );
 
+  /** Массовые операции (ТЗ 3.3, план v2 Трек 3) — ровно одно действие на весь
+   *  выделенный набор. НЕ гейтится requirePerm() как остальные действия здесь:
+   *  сервер уже возвращает частичный успех по каждой задаче индивидуально
+   *  (сотрудник с task-level ограничением — успех по своим, отказ по чужим), и
+   *  ЗАРАНЕЕ блокировать весь вызов одной клиентской проверкой значило бы не
+   *  давать сотруднику применить действие даже к собственным задачам в
+   *  выборке. Результат возвращается вызывающему (Backlog.tsx показывает отчёт
+   *  «Изменено N из M») — здесь только сам вызов, перечитывание набора и общий
+   *  тост-итог, единый для success/partial/fail. */
+  const bulkApplyIssueAction = useCallback(
+    async (body: Parameters<typeof issuesApi.bulk>[1]): Promise<{ succeeded: string[]; failed: { issueId: string; reason: string }[] } | null> => {
+      const requestProjectId = pid();
+      try {
+        const res = await issuesApi.bulk(requestProjectId, body);
+        if (res.succeeded.length > 0) {
+          bumpIssues();
+          void refreshIssues();
+        }
+        if (res.failed.length === 0) {
+          toast("success", local(`Применено к ${res.succeeded.length} из ${res.succeeded.length}`, `Applied to ${res.succeeded.length} of ${res.succeeded.length}`));
+        } else if (res.succeeded.length === 0) {
+          toast("error", local("Не применено ни к одной задаче — нет прав", "Not applied to any issue — no permission"));
+        } else {
+          const total = res.succeeded.length + res.failed.length;
+          toast(
+            "info",
+            local(
+              `Изменено ${res.succeeded.length} из ${total}, ${res.failed.length} пропущено — нет прав`,
+              `Changed ${res.succeeded.length} of ${total}, ${res.failed.length} skipped — no permission`,
+            ),
+          );
+        }
+        return res;
+      } catch (err) {
+        handleApiError(err, local("Не удалось выполнить массовую операцию", "Couldn't run the bulk action"));
+        return null;
+      }
+    },
+    [handleApiError, refreshIssues, bumpIssues, toast],
+  );
+
   return {
     createIssue,
     importIssues,
     updateIssue,
     moveStatus,
     deleteIssue,
+    bulkApplyIssueAction,
   };
 }
