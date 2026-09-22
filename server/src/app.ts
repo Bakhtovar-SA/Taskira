@@ -24,6 +24,7 @@ import { workflowRoutes } from "./routes/workflow.js";
 import { issueTemplatesRoutes } from "./routes/issueTemplates.js";
 import { customFieldsRoutes } from "./routes/customFields.js";
 import { sprintsRoutes } from "./routes/sprints.js";
+import { savedViewsRoutes } from "./routes/savedViews.js";
 import { userRoutes } from "./routes/users.js";
 import { avatarRoutes } from "./routes/avatar.js";
 import { ldapRoutes } from "./routes/ldap.js";
@@ -238,6 +239,7 @@ export function buildApp(): FastifyInstance {
           await proj.register(issueTemplatesRoutes, { prefix: "/issue-templates" });
           await proj.register(customFieldsRoutes, { prefix: "/custom-fields" });
           await proj.register(sprintsRoutes, { prefix: "/sprints" }); // опциональный модуль, см. SPRINTS_MIGRATION.md
+          await proj.register(savedViewsRoutes, { prefix: "/saved-views" }); // личные, ТЗ 3.2
         },
         { prefix: "/projects/:projectId" },
       );

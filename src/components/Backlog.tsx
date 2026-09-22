@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { useStore } from "../store";
 import { fmtDate } from "../store/mappers";
 import type { Issue } from "../types";
-import { TYPE_ORDER } from "../types";
+import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
-import type { IssueEpic, IssueFilterParams } from "../api";
-import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
+import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, SkeletonRow } from "../ui";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
+import { EMPTY_FILTERS, filtersFromSearch, searchFromFilters, type FilterState } from "../router";
 
 type SortKey = "priority" | "due" | "updated" | "key";
 
@@ -21,7 +23,13 @@ const isEmptyText = (v: string) => v === "";
 const selectCls =
   "h-8 rounded-md border border-line bg-panel px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
 
-function Row({ issue, epic }: { issue: Issue; epic: Pick<IssueEpic, "title" | "color"> | undefined }) {
+function Row({
+  issue,
+  epic,
+}: {
+  issue: Issue;
+  epic: Pick<IssueEpic, "title" | "color"> | undefined;
+}) {
   const { t, lang } = useT();
   const { idx, openIssue, deleteIssue, can } = useStore();
   // Ассоциированные сущности ищем по индексам из контекста, а не линейным
@@ -96,17 +104,36 @@ function Row({ issue, epic }: { issue: Issue; epic: Pick<IssueEpic, "title" | "c
 export default function Backlog() {
   const { t } = useT();
   const { data, idx, can, epicsRevision } = useStore();
+  const [path, navigate] = useLocation();
   const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
-  const [fStatus, setFStatus] = useState("");
-  const [fAssignee, setFAssignee] = useState(""); // "" | "none" | userId
-  const [fType, setFType] = useState("");
-  const [fOverdue, setFOverdue] = useState(false);
+  // Инициализируются из URL один раз при монтировании (переход по сохранённой
+  // ссылке/вьюхе, перезагрузка страницы) — ТЗ 3.1 п.3/ТЗ 3.2. Дальше состояние
+  // здесь ведущее, а useEffect ниже отражает его обратно в адресную строку
+  // (та же «сравнить и подтолкнуть» модель, что useRouterSync.ts, только
+  // локально для query-параметров одного вида, не для всего приложения).
+  const [filters, setFilters] = useState<FilterState>(() => filtersFromSearch(location.search));
+  const [fOverdue, setFOverdue] = useState(() => new URLSearchParams(location.search).get("overdue") === "1");
   // Закрытые по умолчанию скрыты (аудит LIFE-02): раньше вью открывался со
   // смесью живого и архивного, и счётчик считал их наравне.
-  const [showDone, setShowDone] = useState(false);
+  const [showDone, setShowDone] = useState(() => new URLSearchParams(location.search).get("done") === "1");
   const [sortKey, setSortKey] = useState<SortKey>("priority");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const { status: fStatus, assignee: fAssignee, type: fType, priority: fPriority, label: fLabel } = filters;
+  const setField = (k: keyof FilterState) => (v: string) => setFilters((cur) => ({ ...cur, [k]: v }));
+
+  // Состояние → URL: реплейсим (не пушим) — фильтр не должен плодить историю
+  // на каждое изменение чекбокса/дропдауна, иначе «назад» листало бы прошлые
+  // состояния фильтра, а не реальную навигацию (см. useRouterSync.ts). q — с
+  // задержкой (qDebounced ниже уже есть для запроса; для URL берём то же).
+  useEffect(() => {
+    const next = searchFromFilters(location.search, filters, { overdue: fOverdue ? "1" : "", done: showDone ? "1" : "" });
+    if (next !== location.search.replace(/^\?/, "")) {
+      navigate(`${path}${next ? `?${next}` : ""}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- path/navigate стабильны для текущего вида; включать их
+    // пересоздавало бы эффект на каждый чужой навигационный пуш и гоняло бы сравнение впустую.
+  }, [filters, fOverdue, showDone]);
   const sortLabels: Record<SortKey, string> = {
     priority: t("field.priority"),
     due: t("field.dueDate"),
@@ -127,16 +154,18 @@ export default function Backlog() {
   // статус важнее общего переключателя: выбрав «Готово», человек хочет закрытые.
   const query = useMemo<IssueSetQuery | null>(() => {
     if (!data.currentProjectId) return null;
-    const filters: IssueFilterParams = {
+    const apiFilters: IssueFilterParams = {
       status: fStatus || undefined,
       assignee: fAssignee || undefined,
       type: fType || undefined,
+      priority: fPriority || undefined,
+      label: fLabel || undefined,
       q: qDebounced || undefined,
       overdue: fOverdue ? "1" : undefined,
       closed: !showDone && !fStatus ? "hide" : undefined,
     };
-    return { projectId: data.currentProjectId, filters, sort: sortKey, dir: sortDir };
-  }, [data.currentProjectId, fStatus, fAssignee, fType, qDebounced, fOverdue, showDone, sortKey, sortDir]);
+    return { projectId: data.currentProjectId, filters: apiFilters, sort: sortKey, dir: sortDir };
+  }, [data.currentProjectId, fStatus, fAssignee, fType, fPriority, fLabel, qDebounced, fOverdue, showDone, sortKey, sortDir]);
 
   const set = useIssueSet(query);
   // Направления строк — справочник (один запрос на экран), а не поиск в списке всех задач.
@@ -152,14 +181,67 @@ export default function Backlog() {
   const { hasMore, loading, loadingMore, loadMore } = set;
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length);
 
-  const filterActive = !!(q || fStatus || fAssignee || fType || fOverdue || showDone);
+  const filterActive = !!(q || fStatus || fAssignee || fType || fPriority || fLabel || fOverdue || showDone);
   const resetFilters = () => {
     setQ("");
-    setFStatus("");
-    setFAssignee("");
-    setFType("");
+    setFilters(EMPTY_FILTERS);
     setFOverdue(false);
     setShowDone(false);
+  };
+
+  // ТЗ 3.2: сохранённые вьюхи — личные, тянутся заново при смене проекта.
+  const [views, setViews] = useState<ServerSavedView[]>([]);
+  const [savingView, setSavingView] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
+  useEffect(() => {
+    if (!data.currentProjectId) return;
+    let cancelled = false;
+    void savedViewsApi.list(data.currentProjectId).then((items) => {
+      if (!cancelled) setViews(items);
+    }).catch(() => undefined); // тихо — панель просто пуста, не критично для доски/списка
+    return () => {
+      cancelled = true;
+    };
+  }, [data.currentProjectId]);
+
+  const applyView = (v: ServerSavedView) => {
+    setFilters({
+      status: v.filter.status ?? "",
+      assignee: v.filter.assignee ?? "",
+      type: v.filter.type ?? "",
+      priority: v.filter.priority ?? "",
+      label: v.filter.label ?? "",
+    });
+    setQ(v.filter.q ?? "");
+  };
+
+  const saveCurrentAsView = async () => {
+    const name = newViewName.trim();
+    if (!name || !data.currentProjectId) return;
+    // Пустая строка — не то же самое, что "условие не задано": сервер валидирует
+    // status/assignee/sprintId как uuid и отклонил бы "" (SavedViewFilter, contract.ts).
+    const body: SavedViewInput = {
+      name,
+      filter: {
+        status: fStatus || undefined,
+        assignee: fAssignee || undefined,
+        type: fType || undefined,
+        priority: fPriority || undefined,
+        label: fLabel || undefined,
+        q: q || undefined,
+      },
+      isDefault: false,
+    };
+    const created = await savedViewsApi.create(data.currentProjectId, body);
+    setViews((prev) => [...prev, created]);
+    setNewViewName("");
+    setSavingView(false);
+  };
+
+  const removeView = async (v: ServerSavedView) => {
+    if (!data.currentProjectId) return;
+    await savedViewsApi.remove(data.currentProjectId, v.id);
+    setViews((prev) => prev.filter((x) => x.id !== v.id));
   };
 
   return (
@@ -235,25 +317,38 @@ export default function Backlog() {
 
         {/* фильтры */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select value={fStatus} onChange={(e) => setField("status")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.allStatuses")}</option>
             {data.workflow.statuses.map((s) => (
               <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
             ))}
           </select>
-          <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select value={fAssignee} onChange={(e) => setField("assignee")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.anyAssignee")}</option>
             <option value="none">{t("createIssue.unassigned")}</option>
             {data.users.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
-          <select value={fType} onChange={(e) => setFType(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select value={fType} onChange={(e) => setField("type")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("issueType.allShort")}</option>
             {TYPE_ORDER.map((ty) => (
               <option key={ty} value={ty}>{t(`issueType.${ty}`)}</option>
             ))}
           </select>
+          {/* ТЗ 3.2: приоритет и метка — та же серверная пара условий, что status/assignee/type. */}
+          <select value={fPriority} onChange={(e) => setField("priority")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+            <option value="">{t("backlog.anyPriority")}</option>
+            {PRIORITY_ORDER.map((p) => (
+              <option key={p} value={p}>{t(`priority.${p}`)}</option>
+            ))}
+          </select>
+          <input
+            value={fLabel}
+            onChange={(e) => setField("label")(e.target.value)}
+            placeholder={t("backlog.labelPlaceholder")}
+            className={`${selectCls} w-28`}
+          />
           <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
             <input
               id="backlog-overdue"
@@ -277,6 +372,61 @@ export default function Backlog() {
               <IcX size={11} /> {t("common.reset")}
             </button>
           )}
+
+          {/* ТЗ 3.2: сохранённые вьюхи — личные, применяют/сохраняют текущий набор условий. */}
+          <Dropdown
+            align="left"
+            width={240}
+            button={(open) => (
+              <button className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+                <IcStar size={12} className="text-faint" />
+                {t("backlog.savedViews")}
+                {views.length > 0 && <span className="text-[10.5px] text-faint">({views.length})</span>}
+                <IcChevD size={11} className="text-faint" />
+              </button>
+            )}
+          >
+            {(close) => (
+              <>
+                {views.length === 0 && (
+                  <div className="px-2.5 py-1.5 text-[12px] text-faint">{t("backlog.noSavedViews")}</div>
+                )}
+                {views.map((v) => (
+                  <div key={v.id} className="group flex items-center">
+                    <MenuItem onClick={() => { applyView(v); close(); }}>
+                      {v.name}
+                      {v.isDefault && <IcStar size={11} className="ml-auto text-accent" />}
+                    </MenuItem>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void removeView(v); }}
+                      aria-label={t("backlog.deleteView")}
+                      className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-todosoft hover:text-danger group-hover:opacity-100"
+                    >
+                      <IcTrash size={12} />
+                    </button>
+                  </div>
+                ))}
+                <div className="my-1 border-t border-linesoft" />
+                {savingView ? (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+                    <input
+                      autoFocus
+                      value={newViewName}
+                      onChange={(e) => setNewViewName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") void saveCurrentAsView(); if (e.key === "Escape") setSavingView(false); }}
+                      placeholder={t("backlog.viewNamePlaceholder")}
+                      className="h-7 min-w-0 flex-1 rounded border border-line bg-panel px-2 text-[12px] outline-none focus:border-accent"
+                    />
+                    <button onClick={() => void saveCurrentAsView()} className="text-[11px] font-semibold text-accent hover:underline">
+                      {t("common.save")}
+                    </button>
+                  </div>
+                ) : (
+                  <MenuItem onClick={() => setSavingView(true)}>{t("backlog.saveAsView")}</MenuItem>
+                )}
+              </>
+            )}
+          </Dropdown>
         </div>
       </div>
 

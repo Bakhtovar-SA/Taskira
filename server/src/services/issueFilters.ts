@@ -10,8 +10,14 @@ import type { IssueCursorSort } from "../issueListCursor.js";
 
 export type IssueFilters = z.infer<typeof IssueFilterQuery>;
 
-/** Запросу нужен JOIN workflow_statuses под алиасом `ws` (категория статуса). */
-export function buildIssueFilter(projectId: string, f: IssueFilters): { clauses: string[]; params: unknown[] } {
+/** Запросу нужен JOIN workflow_statuses под алиасом `ws` (категория статуса).
+ *  `sprintsEnabled` — project.sprintsEnabled: `f.sprintId` молча игнорируется,
+ *  если у проекта выключен модуль спринтов, а не 404-ит список (см. contract.ts). */
+export function buildIssueFilter(
+  projectId: string,
+  f: IssueFilters,
+  { sprintsEnabled = true }: { sprintsEnabled?: boolean } = {},
+): { clauses: string[]; params: unknown[] } {
   // Архив (миграция 016) из активного набора исключён по умолчанию: доска и
   // «Список задач» показывают живые задачи. ?archived=1 — только архивные,
   // ?archived=all — всё вместе (для отчётов и сквозного поиска).
@@ -33,8 +39,20 @@ export function buildIssueFilter(projectId: string, f: IssueFilters): { clauses:
   if (f.assignee === "none") clauses.push("i.has_assignee = false");
   else if (f.assignee) add("EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = ?)", f.assignee);
   if (f.type) add("i.type_id = ?", f.type);
+  if (f.priority) add("i.priority_id = ?", f.priority);
+  if (f.label) add("? = ANY(i.labels)", f.label);
+  if (f.sprintId && sprintsEnabled) add("i.sprint_id = ?", f.sprintId);
   if (f.parentId) add("i.parent_id = ?", f.parentId);
   if (f.epicId) add("i.epic_id = ?", f.epicId);
+  // ТЗ 3.4 (план v2 Трек 3) сознательно НЕ трогает этот `q` — он живой
+  // as-you-type фильтр списка (Backlog.tsx), а не отдельный поиск: подстрочный
+  // ILIKE ловит "impl" в середине "implementation", полнотекстовый поиск по
+  // токенам (search_vector, routes/search.ts) — нет, слово либо есть целиком,
+  // либо нет. Замена здесь была бы регрессией UX-контракта, а не апгрейдом;
+  // индекс (SEARCH-01, pg_trgm) уже даёт этому ILIKE приемлемую скорость.
+  // Полнотекстовый поиск (описание/комментарии/чек-лист, ранжирование) — в
+  // отдельном кросс-проектном /api/issues/search, для него UX другой:
+  // осмысленный запрос, не префикс на каждую нажатую клавишу.
   if (f.q) add("(i.title ILIKE ? OR i.key ILIKE ?)", `%${escLike(f.q)}%`, `%${escLike(f.q)}%`);
   if (f.dueFrom) add("i.due_date >= ?", f.dueFrom);
   if (f.dueTo) add("i.due_date <= ?", f.dueTo);

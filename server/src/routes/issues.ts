@@ -190,7 +190,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const f = req.query as z.infer<typeof IssueQuery>;
       const trace = issueListPerfTraces.get(req);
 
-      const { clauses, params } = buildIssueFilter(project.id, f);
+      const { clauses, params } = buildIssueFilter(project.id, f, { sprintsEnabled: project.sprintsEnabled });
 
       // total относится ко всему отфильтрованному набору, а не к хвосту после
       // курсора. Поэтому фиксируем WHERE/params до добавления keyset-предиката.
@@ -283,7 +283,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/counts", { preHandler: [issueListPermission, zquery(IssueCountsQuery)] }, async (req): Promise<IssueCountsDto> => {
     const project = req.project!;
     const f = req.query as z.infer<typeof IssueCountsQuery>;
-    const { clauses, params } = buildIssueFilter(project.id, f);
+    const { clauses, params } = buildIssueFilter(project.id, f, { sprintsEnabled: project.sprintsEnabled });
     const rows = await q<{ status_id: string; n: string }>(
       `SELECT i.status_id, count(*)::text AS n FROM issues i
          ${needsStatusJoin(f) ? "JOIN workflow_statuses ws ON ws.id = i.status_id" : ""}

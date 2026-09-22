@@ -76,6 +76,62 @@ describe("фильтры на сервере", () => {
     expect(res.body.items.map((i: { title: string }) => i.title)).toEqual(["свободна"]);
   });
 
+  // ТЗ 3.2 (план v2 Трек 3): фильтры условий сохранённых вьюх — priority/label/sprintId.
+  test("priority — точное совпадение", async () => {
+    await create({ title: "low", priorityId: "low" });
+    const crit = await create({ title: "crit", priorityId: "critical" });
+    await create({ title: "med", priorityId: "medium" });
+    const res = await g(`${base()}?priority=critical`);
+    expect(res.body.items.map((i: { id: string }) => i.id)).toEqual([crit.id]);
+  });
+
+  test("label — точное совпадение одной метки среди нескольких на задаче", async () => {
+    const tagged = await create({ title: "с меткой", labels: ["frontend", "urgent"] });
+    await create({ title: "без метки" });
+    await create({ title: "другая метка", labels: ["backend"] });
+    const res = await g(`${base()}?label=urgent`);
+    expect(res.body.items.map((i: { id: string }) => i.id)).toEqual([tagged.id]);
+  });
+
+  test("sprintId — фильтрует по спринту; молча игнорируется, если модуль спринтов выключен", async () => {
+    await q(`UPDATE projects SET sprints_enabled = true WHERE id = $1`, [fx.projects.p1]);
+    const sprintRes = await app.inject({
+      method: "POST",
+      url: `${base().replace("/issues", "")}/sprints`,
+      headers: auth(adm),
+      payload: { name: "Sprint 1", goal: "" },
+    });
+    expect(sprintRes.statusCode).toBe(201);
+    const sprint = JSON.parse(sprintRes.body);
+    const inSprint = await create({ title: "в спринте" });
+    await create({ title: "не в спринте" });
+    const assign = await app.inject({
+      method: "PATCH",
+      url: `${base()}/${inSprint.id}/sprint`,
+      headers: auth(adm),
+      payload: { sprintId: sprint.id },
+    });
+    expect(assign.statusCode).toBe(200);
+
+    const filtered = await g(`${base()}?sprintId=${sprint.id}`);
+    expect(filtered.body.items.map((i: { id: string }) => i.id)).toEqual([inSprint.id]);
+
+    // Выключаем модуль через настоящий PATCH (не raw SQL) — projectById() кэширует
+    // проект на 30с (services/project.ts), и только PATCH /api/projects/:id зовёт
+    // invalidateProjectCache(); прямой UPDATE оставил бы кэш с прежним sprints_enabled
+    // и тест ловил бы устаревшее значение, а не проверял реальное поведение фильтра.
+    const off = await app.inject({
+      method: "PATCH",
+      url: `/api/projects/${fx.projects.p1}`,
+      headers: auth(adm),
+      payload: { sprintsEnabled: false },
+    });
+    expect(off.statusCode).toBe(200);
+    const ignored = await g(`${base()}?sprintId=${sprint.id}`);
+    expect(ignored.status).toBe(200);
+    expect(ignored.body.items.length).toBeGreaterThanOrEqual(2); // фильтр проигнорирован, вернулись обе
+  });
+
   test("closed: hide / recent / older", async () => {
     const done = await sidOf("done");
     const fresh = await create({ title: "свежая" });

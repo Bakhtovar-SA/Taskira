@@ -40,6 +40,7 @@ import type {
   ReportRow as ReportRowDto,
   ReportSummaryDto,
   ReportTotals as ReportTotalsDto,
+  SavedViewDto,
   SearchResultDto,
   SearchResultItemDto,
   UnreadCountDto,
@@ -217,6 +218,7 @@ export type DepartmentMember = DepartmentMemberDto;
 export type ServerSprint = SprintDto;
 export type ServerIssueTemplate = IssueTemplateDto;
 export type ServerCustomField = CustomFieldDto;
+export type ServerSavedView = SavedViewDto;
 /** Ответ `GET /api/projects/:projectId`; `users` клиент читает как `SafeUser` (см. выше). */
 export type ProjectBootstrap = Omit<ProjectBootstrapDto, "users"> & { users: SafeUser[] };
 
@@ -428,6 +430,10 @@ export interface IssueFilterParams {
   /** id исполнителя или "none" — задачи без исполнителей. */
   assignee?: string;
   type?: string;
+  /** ТЗ 3.2: то же подмножество, что SavedViewFilter на сервере. */
+  priority?: string;
+  label?: string;
+  sprintId?: string;
   /** Дети одной задачи: подзадачи и задачи «направления». */
   parentId?: string;
   epicId?: string;
@@ -631,6 +637,25 @@ export const customFieldsApi = {
     api<ServerCustomField>(`${P(projectId)}/custom-fields/${fieldId}`, { method: "PATCH", body: { name } }),
   remove: (projectId: string, fieldId: string) =>
     api<void>(`${P(projectId)}/custom-fields/${fieldId}`, { method: "DELETE" }),
+};
+
+/** Сохранённые вьюхи (ТЗ 3.2, план v2 Трек 3) — личные: сервер сам скрывает чужие
+ *  (не только 404 на прямой id), поэтому list() здесь возвращает только свои
+ *  же, а не «список проекта» — в отличие от issueTemplatesApi её нет смысла
+ *  тянуть через bootstrap проекта (общие для всех данные), она персональная. */
+export interface SavedViewInput {
+  name: string;
+  filter: IssueFilterParams;
+  isDefault: boolean;
+}
+export const savedViewsApi = {
+  list: (projectId: string) => api<ServerSavedView[]>(`${P(projectId)}/saved-views`),
+  create: (projectId: string, body: SavedViewInput) =>
+    api<ServerSavedView>(`${P(projectId)}/saved-views`, { method: "POST", body }),
+  update: (projectId: string, viewId: string, body: SavedViewInput) =>
+    api<ServerSavedView>(`${P(projectId)}/saved-views/${viewId}`, { method: "PATCH", body }),
+  remove: (projectId: string, viewId: string) =>
+    api<void>(`${P(projectId)}/saved-views/${viewId}`, { method: "DELETE" }),
 };
 
 /** Спринты проекта (миграция 023, опциональный модуль) — 404, если у

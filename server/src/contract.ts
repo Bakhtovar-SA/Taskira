@@ -57,6 +57,12 @@ export const LIMITS = {
   // Спринты (миграция 023, опциональный модуль — SPRINTS_MIGRATION.md).
   sprint: { name: { min: 1, max: 120 }, goal: { max: 500 } },
   sprintsPerProject: 200,
+  // Сохранённые вьюхи (ТЗ 3.2, план v2 Трек 3, миграция 20260922T1100) — личные
+  // (user_id), не общие для проекта, поэтому потолок разумно щедрый, как у
+  // остальных «личных» коллекций (избранные проекты не лимитированы вовсе, но
+  // вьюха тяжелее — имя + условия — лимит здесь не лишний).
+  savedView: { name: { min: 1, max: 60 } },
+  savedViewsPerUserProject: 30,
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -418,6 +424,19 @@ export const IssueFilterQuery = z.object({
   /** uuid — исполнитель; "none" — задачи без исполнителей. */
   assignee: z.union([uuid, z.literal("none")]).optional(),
   type: z.enum(ISSUE_TYPES).optional(),
+  /** ТЗ 3.2 (план v2 Трек 3): условия визуального конструктора сохранённых
+   *  вьюх — тот же набор фильтров, что и остальные здесь (одно значение на
+   *  условие, как status/assignee/type, а не массив — конструктор в этом
+   *  релизе не строит OR внутри одного измерения; расширить до массива —
+   *  обратно совместимое дополнение поля, не новая миграция). `label` — точное
+   *  совпадение одной метки (issues.labels — text[]); `sprintId` игнорируется
+   *  молча, если у проекта выключен модуль спринтов (project.sprintsEnabled) —
+   *  список задач не должен 404-ить из-за фильтра, который просто ни на что
+   *  не влияет на этом проекте. Фильтр по кастомному полю НЕ входит в этот
+   *  релиз (см. docs/tickets/ROUTE-02-custom-field-filter-deferred.md). */
+  priority: z.enum(PRIORITIES).optional(),
+  label: z.string().max(60).optional(),
+  sprintId: uuid.optional(),
   /** Дети одной задачи: подзадачи (`parentId`, миграция 021) и задачи
    *  «направления» (`epicId`). Те же пагинация, сортировка и права, что у списка,
    *  поэтому для карточки не нужен отдельный путь. Подзадачи лежат в проекте
@@ -439,6 +458,46 @@ export const IssueFilterQuery = z.object({
    *  "all" — вместе с активными (сквозной поиск и отчёты). */
   archived: z.enum(["1", "all"]).optional(),
 });
+
+/** ТЗ 3.2 (план v2 Трек 3): условия визуального конструктора сохранённых вьюх —
+ *  подмножество `IssueFilterQuery` (без пагинации/сортировки/архива/диапазона
+ *  дат — конструктор не выставляет их как условие «вьюхи», это параметры
+ *  просмотра, не сохраняемого набора условий). Хранится как есть в
+ *  `saved_views.filter_json`; при применении разворачивается в query-параметры
+ *  GET …/issues теми же именами полей — конвертации нет. */
+export const SavedViewFilter = z
+  .object({
+    status: uuid.optional(),
+    assignee: z.union([uuid, z.literal("none")]).optional(),
+    type: z.enum(ISSUE_TYPES).optional(),
+    priority: z.enum(PRIORITIES).optional(),
+    label: z.string().max(60).optional(),
+    sprintId: uuid.optional(),
+    q: z.string().max(120).optional(),
+  })
+  // .strict(), не молчаливая обрезка неизвестных полей — иначе сохранение вьюхи
+  // с опечаткой в имени условия или полем, которое конструктор ещё не поддерживает
+  // (например, будущий customField), тихо теряло бы это условие вместо явной 400.
+  .strict();
+export type SavedViewFilter = z.infer<typeof SavedViewFilter>;
+
+export const SavedViewBody = z.object({
+  name: z.string().min(LIMITS.savedView.name.min).max(LIMITS.savedView.name.max),
+  filter: SavedViewFilter,
+  isDefault: z.boolean().optional().default(false),
+});
+
+export const SavedViewParams = z.object({ viewId: uuid });
+
+export const SavedViewDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  filter: SavedViewFilter,
+  isDefault: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type SavedViewDto = z.infer<typeof SavedViewDto>;
 
 /** GET /api/issues — query-параметры приходят строками; числа приводятся z.coerce. */
 export const IssueQuery = IssueFilterQuery.extend({

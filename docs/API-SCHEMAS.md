@@ -132,6 +132,9 @@
 | `status` | string (uuid) | необязательное |
 | `assignee` | string (uuid) \| `"none"` | необязательное |
 | `type` | enum: `task` \| `bug` \| `request` | необязательное |
+| `priority` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
+| `label` | string | необязательное; длина 0…60 |
+| `sprintId` | string (uuid) | необязательное |
 | `parentId` | string (uuid) | необязательное |
 | `epicId` | string (uuid) | необязательное |
 | `q` | string | необязательное; длина 0…120 |
@@ -172,6 +175,9 @@
 | `status` | string (uuid) | необязательное |
 | `assignee` | string (uuid) \| `"none"` | необязательное |
 | `type` | enum: `task` \| `bug` \| `request` | необязательное |
+| `priority` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
+| `label` | string | необязательное; длина 0…60 |
+| `sprintId` | string (uuid) | необязательное |
 | `parentId` | string (uuid) | необязательное |
 | `epicId` | string (uuid) | необязательное |
 | `q` | string | необязательное; длина 0…120 |
@@ -219,6 +225,9 @@
 | `status` | string (uuid) | необязательное |
 | `assignee` | string (uuid) \| `"none"` | необязательное |
 | `type` | enum: `task` \| `bug` \| `request` | необязательное |
+| `priority` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
+| `label` | string | необязательное; длина 0…60 |
+| `sprintId` | string (uuid) | необязательное |
 | `parentId` | string (uuid) | необязательное |
 | `epicId` | string (uuid) | необязательное |
 | `q` | string | необязательное; длина 0…120 |
@@ -344,6 +353,20 @@
 | `projectId` | string (uuid) | необязательное |
 | `departmentId` | string (uuid) | необязательное |
 | `groupBy` | enum: `project` \| `assignee` \| `type` \| `priority` | необязательное; по умолчанию "project" |
+
+### SavedViewBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…60 |
+| `filter` | object |  |
+| `isDefault` | boolean | необязательное; по умолчанию false |
+
+### SavedViewParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `viewId` | string (uuid) |  |
 
 ### SearchQuery
 
@@ -828,6 +851,29 @@
 | `isActive` | boolean |  |
 | `authSource` | enum: `local` \| `ldap` |  |
 | `avatarUpdatedAt` | number | может быть null |
+
+### SavedViewDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `filter` | object |  |
+| `isDefault` | boolean |  |
+| `createdAt` | string |  |
+| `updatedAt` | string |  |
+
+### SavedViewFilter
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `status` | string (uuid) | необязательное |
+| `assignee` | string (uuid) \| `"none"` | необязательное |
+| `type` | enum: `task` \| `bug` \| `request` | необязательное |
+| `priority` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
+| `label` | string | необязательное; длина 0…60 |
+| `sprintId` | string (uuid) | необязательное |
+| `q` | string | необязательное; длина 0…120 |
 
 ### SearchResultDto
 
