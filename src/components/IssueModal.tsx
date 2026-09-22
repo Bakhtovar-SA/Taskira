@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { assignableUsers, canTransition, fmtDate, relTime } from "../store/mappers";
+import { pathForIssue } from "../router";
 import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
@@ -665,8 +666,9 @@ export default function IssueModal() {
   };
 
   const copyLink = async () => {
-    // uuid-форма — её понимает одиночный режим (SoloView) для приглашённых.
-    const url = `${location.origin}/#/issue/${data.currentProjectId}/${issue.id}`;
+    // Человекочитаемая форма (ТЗ 3.1) — резолвится сервером по ключу
+    // (GET /api/issues/resolve), в том числе для приглашённых (одиночный режим).
+    const url = `${location.origin}${pathForIssue(data.project.key, issue.key)}`;
     try {
       await navigator.clipboard.writeText(url);
       toast("success", t("issue.linkCopied", { key: issue.key }));

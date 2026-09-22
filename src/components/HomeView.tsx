@@ -67,7 +67,7 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
 
 export default function HomeView({ onLogout }: { onLogout: () => void }) {
   const { t, tn } = useT();
-  const { data, enterProject, setCreateOpen } = useStore();
+  const { data, enterProject, switchProject, setCreateOpen } = useStore();
   const me = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
   const last = readLastProject();
   const [q, setQ] = useState("");
@@ -117,13 +117,12 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   // Принимаем только то, что реально нужно навигации — и TaskRow (полный
   // AssignedIssue), и «Недавняя активность» (у уведомления лишь project/issue id)
   // остаются честными перед типизацией, без приведения через весь AssignedIssue.
+  // switchProject(projectId, issueId) — тот же примитив, что уже использовал
+  // кросс-проектный поиск (pendingOpenIssueRef, store/session.ts): открывает
+  // задачу сразу после переключения, без промежуточного хэша/пути — адресную
+  // строку после этого приводит в соответствие useRouterSync (App.tsx).
   const openTask = (item: Pick<AssignedIssue, "projectId" | "issueId">) => {
-    try {
-      location.hash = `#/issue/${item.projectId}/${item.issueId}`;
-    } catch {
-      /* noop */
-    }
-    enterProject(item.projectId);
+    switchProject(item.projectId, item.issueId);
   };
 
   return (

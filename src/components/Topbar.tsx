@@ -25,12 +25,40 @@ const VIEW_LABEL: Record<ViewId, TKey> = {
 export function SearchBox() {
   const { t } = useT();
   const { data, openIssue, switchProject, searchAllProjects } = useStore();
-  const [q, setQ] = useState("");
-  const [focus, setFocus] = useState(false);
-  const [allProjects, setAllProjects] = useState(false);
+  // ТЗ 3.4 (план v2 Трек 3, дополнение к ТЗ 3.1): результаты кросс-проектного
+  // поиска — адресуемые. Инициализация из URL при монтировании (перезагрузка
+  // страницы/вставленная ссылка восстанавливают запрос и режим "во всех
+  // проектах"); запись обратно — ниже, тем же debounce, что и сам запрос к
+  // серверу, через обычный history.replaceState (не useRouterSync — тот
+  // синхронизирует ТОЛЬКО путь вида/задачи, не query параметры этой
+  // выпадашки; конфликт возможен только если реальная навигация случится
+  // ровно в момент открытого поиска — узкий, редкий край, не гонка).
+  const initial = new URLSearchParams(location.search);
+  const [q, setQ] = useState(() => initial.get("q") ?? "");
+  // Восстановленный из URL непустой запрос сразу показывает результаты —
+  // иначе вставленная/перезагруженная ссылка молча предзаполняла бы поле, не
+  // показывая то, ради чего её вообще послали (сама суть "адресуемости").
+  const [focus, setFocus] = useState(() => !!initial.get("q"));
+  const [allProjects, setAllProjects] = useState(() => initial.get("scope") === "all");
   const [remote, setRemote] = useState<{ items: SearchResultItem[]; truncated: boolean } | null>(null);
   const [searching, setSearching] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const p = new URLSearchParams(location.search);
+    const s = q.trim();
+    if (allProjects && s) {
+      p.set("q", s);
+      p.set("scope", "all");
+    } else {
+      p.delete("q");
+      p.delete("scope");
+    }
+    const next = p.toString();
+    if (next !== location.search.replace(/^\?/, "")) {
+      history.replaceState(null, "", `${location.pathname}${next ? `?${next}` : ""}`);
+    }
+  }, [q, allProjects]);
 
   // Поиск в проекте — на сервере (PERF-06): раньше фильтровался весь список задач на клиенте.
   // Пауза 250 мс, топ-8, пустое поле ничего не ищет. Каждое состояние объяснено текстом.
@@ -226,7 +254,7 @@ export const NOTIF_VERB: Record<NotificationT["type"], TKey> = {
  *  маунте (подтянуть свежую ленту) срабатывал при открытии. */
 function BellPanel({ close }: { close: () => void }) {
   const { t } = useT();
-  const { data, openIssue, refreshNotifications, markNotificationsRead, dismissNotifications } = useStore();
+  const { data, openIssue, switchProject, refreshNotifications, markNotificationsRead, dismissNotifications } = useStore();
   useEffect(() => {
     void refreshNotifications();
   }, [refreshNotifications]);
@@ -236,8 +264,11 @@ function BellPanel({ close }: { close: () => void }) {
 
   const go = (n: NotificationT) => {
     if (!n.read) markNotificationsRead([n.id]);
+    // Тот же проект — открыть прямо сейчас; другой — switchProject(projectId, issueId)
+    // (pendingOpenIssueRef, store/session.ts) откроет её сам после переключения.
+    // Адресную строку после этого приводит в соответствие useRouterSync (App.tsx).
     if (n.issueId && n.projectId === data.currentProjectId) openIssue(n.issueId);
-    else if (n.issueId) window.location.hash = `#/issue/${n.projectId}/${n.issueId}`;
+    else if (n.issueId && n.projectId) switchProject(n.projectId, n.issueId);
     close();
   };
 

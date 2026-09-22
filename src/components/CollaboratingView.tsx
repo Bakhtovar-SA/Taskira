@@ -6,21 +6,15 @@ import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 
 /** «Мои подключения» в обычном интерфейсе: приглашения к задачам в проектах,
- *  которые пользователю не открыты. Карточка — та же, что в SoloView. */
-
-const HASH_ISSUE_RE = /^#\/issue\/([0-9a-fA-F-]{36})\/([0-9a-fA-F-]{36})$/;
-const hashIssueId = (): string | null => {
-  try {
-    const m = location.hash.match(HASH_ISSUE_RE);
-    return m ? m[2] : null;
-  } catch {
-    return null;
-  }
-};
+ *  которые пользователю не открыты. Карточка — та же, что в SoloView. Прямая ссылка
+ *  на такую задачу (ТЗ 3.1) приходит не через свой URL-формат, а через
+ *  `ui.collabOpenIssueId` — его выставляет bootstrap()/useRouterSync, разобрав
+ *  /p/:projectKey/issue/:issueKey и обнаружив, что это приглашение, а не открытый
+ *  проект (заменяет прежний точечный разбор location.hash прямо здесь). */
 
 export default function CollaboratingView() {
   const { t } = useT();
-  const { data, me, refreshCollaborations } = useStore();
+  const { data, ui, me, refreshCollaborations, clearCollabOpenIssueId } = useStore();
   const items = data.collaborations;
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -31,11 +25,12 @@ export default function CollaboratingView() {
   useEffect(() => {
     setSelected((cur) => {
       if (cur && items.some((i) => i.issueId === cur)) return cur;
-      const fromHash = hashIssueId();
-      if (fromHash && items.some((i) => i.issueId === fromHash)) return fromHash;
+      const fromLink = ui.collabOpenIssueId;
+      if (fromLink && items.some((i) => i.issueId === fromLink)) return fromLink;
       return items.length === 1 ? items[0].issueId : null;
     });
-  }, [items]);
+    if (ui.collabOpenIssueId) clearCollabOpenIssueId();
+  }, [items, ui.collabOpenIssueId, clearCollabOpenIssueId]);
 
   const current = useMemo(() => items.find((i) => i.issueId === selected) ?? null, [items, selected]);
 
