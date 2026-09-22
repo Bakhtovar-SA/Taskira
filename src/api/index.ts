@@ -31,6 +31,7 @@ import type {
   IssueCountsDto,
   IssueEpicDto,
   IssueEpicsDto,
+  IssueResolveDto,
   NotificationDto,
   NotificationPageDto,
   NotifyPrefsResponse,
@@ -469,6 +470,10 @@ export const issuesApi = {
   /** Кросс-проектный поиск (миграция 024) — по всем видимым проектам, не
    *  только текущему. */
   search: (q: string) => api<SearchResultDto>("/api/issues/search", { query: { q } }),
+  /** Ключ задачи (CORP-123, человекочитаемый — из URL роутера, ТЗ 3.1) → id/projectId.
+   *  404, если ключа нет ИЛИ проект не виден вызывающему — не различаются намеренно
+   *  (см. server/src/routes/search.ts). */
+  resolve: (key: string) => api<IssueResolveDto>("/api/issues/resolve", { query: { key } }),
   /** История задачи («кто, что, когда»). */
   activity: (projectId: string, id: string) => api<ServerActivity[]>(`${P(projectId)}/issues/${id}/activity`),
   create: (projectId: string, body: Record<string, unknown>) =>

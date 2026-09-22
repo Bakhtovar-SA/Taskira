@@ -5,6 +5,7 @@ import type { Attachment, ChecklistItem, ComplexityId, Data, Issue, IssueLink, I
 import { resolveRole } from "../permissions";
 import { validateDescription, validateLabels, validateTitle } from "../validation";
 import { issuesApi, type CollaboratingItem, type ServerAttachment, type ServerChecklistItem, type ServerIssueLink, type ServerIssueTemplate, type ServerNotification, type ServerIssue, type ServerSprint, type SafeUser } from "../api";
+import { parsePath } from "../router";
 
 export const canTransition = (wf: Workflow, from: string, to: string) =>
   from === to || wf.transitions.some((t) => t.from === from && t.to === to);
@@ -76,7 +77,7 @@ export interface SoloState {
   userId: string;
   userName: string;
   items: CollaboratingItem[];
-  /** Задача из прямой ссылки #/issue/<projectId>/<issueId>, если была. */
+  /** Задача из прямой ссылки /p/:projectKey/issue/:issueKey (ТЗ 3.1), если была. */
   openTarget: { projectId: string; issueId: string } | null;
 }
 
@@ -90,6 +91,11 @@ export interface UIState {
    *  openCreateSubtask(). */
   createParentId: string | null;
   lastEvent: { issueId: string; ts: number } | null;
+  /** Задача, на которую вела прямая ссылка /p/:projectKey/issue/:issueKey (ТЗ 3.1), но
+   *  которая оказалась приглашённой (issue collaborator), а не в открытом проекте —
+   *  CollaboratingView подхватывает и сбрасывает это на маунте, чтобы выбрать именно
+   *  её. Заменяет прежний точечный разбор location.hash внутри самого компонента. */
+  collabOpenIssueId: string | null;
 }
 
 export interface CreateInput {
@@ -193,15 +199,43 @@ export const writeLastProject = (id: string): void => {
   }
 };
 
-/** Прямая ссылка на задачу: #/issue/<projectId>/<issueId> (обе — uuid). */
-export const HASH_ISSUE_RE = /^#\/issue\/([0-9a-fA-F-]{36})\/([0-9a-fA-F-]{36})$/;
-export const readIssueHash = (): { projectId: string; issueId: string } | null => {
-  try {
-    const m = location.hash.match(HASH_ISSUE_RE);
-    return m ? { projectId: m[1], issueId: m[2] } : null;
-  } catch {
-    return null;
+/** Итог разбора URL при загрузке/переходе (ТЗ 3.1) — заменяет прежний синхронный
+ *  `readIssueHash()` (UUID-пара прямо в `#/issue/<projectId>/<issueId>`). Асинхронность —
+ *  единственное структурное отличие: человекочитаемый ключ задачи в пути
+ *  (`/p/:projectKey/issue/:issueKey`) требует одного обращения к серверу
+ *  (`issuesApi.resolve`, см. server/src/routes/search.ts — ключ глобально уникален,
+ *  поэтому проект для резолва указывать не нужно); ключ вида (`/p/:projectKey/board`)
+ *  резолвится локально — `projectKey` ищется в уже загруженном списке видимых проектов,
+ *  сети не требует. Ключ не найден / недоступен / путь не совпал ни с одной схемой →
+ *  `null`, с тем же молчаливым фолбэком, что раньше был у «хэш есть, но не наш формат».
+ *
+ *  `path` передаётся явно (а не читается из `location.pathname` внутри) — резолв
+ *  ключа задачи асинхронный (сетевой запрос), а useRouterSync.ts параллельно может
+ *  переписать URL по другой причине, пока этот запрос летит; без явного параметра
+ *  функция досчитала бы уже НЕ ту ссылку, на которую её вызвали (гонка, поймана
+ *  тестом App.routerSync.test.tsx до того, как попасть в реальный деплой). */
+export type BootPathTarget =
+  | { kind: "issue"; projectId: string; issueId: string }
+  | { kind: "view"; projectId: string; view: ViewId };
+
+export const resolveBootPathTarget = async (
+  path: string,
+  projects: { id: string; key: string }[],
+): Promise<BootPathTarget | null> => {
+  const parsed = parsePath(path);
+  if (parsed.kind === "issue") {
+    try {
+      const res = await issuesApi.resolve(parsed.issueKey);
+      return { kind: "issue", projectId: res.projectId, issueId: res.id };
+    } catch {
+      return null;
+    }
   }
+  if (parsed.kind === "view") {
+    const p = projects.find((pr) => pr.key === parsed.projectKey);
+    return p ? { kind: "view", projectId: p.id, view: parsed.view } : null;
+  }
+  return null; // reports / root — bootstrap() сам выбирает вид по обычным правилам
 };
 
 export const emptyData = (): Data => ({

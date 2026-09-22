@@ -235,6 +235,12 @@
 | `limit` | integer | необязательное; по умолчанию 100; 1…200 |
 | `offset` | integer | необязательное; по умолчанию 0; 0…∞ |
 
+### IssueResolveQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `key` | string | длина 1…40 |
+
 ### IssueTemplateBody
 
 | Поле | Тип | Замечания |
@@ -630,6 +636,14 @@
 | `hasMore` | boolean |  |
 | `nextCursor` | string | может быть null |
 | `total` | integer | необязательное; 0…∞ |
+
+### IssueResolveDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `projectId` | string |  |
+| `projectKey` | string |  |
 
 ### IssueTemplateDto
 

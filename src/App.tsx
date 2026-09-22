@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { StoreProvider, useStore } from "./store";
+import { useRouterSync } from "./useRouterSync";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import Board from "./components/Board";
@@ -60,10 +61,18 @@ function Shell() {
   const { ui, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout } = useStore();
 
   /* При старте всегда проверяем серверную HttpOnly-сессию. Если её нет или она
-     отозвана, bootstrap переводит приложение на форму входа. */
+     отозвана, bootstrap переводит приложение на форму входа. Путь, с которого
+     стартовали (в т.ч. прямая ссылка на задачу), остаётся в адресной строке как
+     есть — LoginForm ничего с ним не делает, и после успешного входа повторный
+     bootstrap() разбирает его заново (ТЗ 3.1: логин сохраняет целевой URL). */
   useEffect(() => {
     if (bootStatus === "idle") void bootstrap();
   }, [bootStatus, bootstrap]);
+
+  // ТЗ 3.1: URL ↔ состояние в обе стороны — см. useRouterSync.ts. Должен идти
+  // после bootstrap() выше (реагирует на bootStatus/данные, которые тот выставляет),
+  // но порядок вызовов хуков это не меняет — оба всегда выполняются на каждом рендере.
+  useRouterSync();
 
   const modalOpen = !!ui.selectedIssueId || ui.createOpen;
 

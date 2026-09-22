@@ -19,7 +19,6 @@ import {
   canTransition,
   emptyData,
   mapIssue,
-  readIssueHash,
   statusById,
 } from "./store/mappers";
 import type { BootStatus, CreateInput, SoloState, StoreIndexes, UIState } from "./store/mappers";
@@ -62,6 +61,7 @@ interface Api {
   logout: () => void;
   setView: (v: ViewId) => void;
   openIssue: (id: string | null) => void;
+  clearCollabOpenIssueId: () => void;
   setCreateOpen: (v: boolean) => void;
   openCreateSubtask: (parentId: string) => void;
   toast: (kind: Toast["kind"], text: string) => void;
@@ -159,6 +159,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createOpen: false,
     createParentId: null,
     lastEvent: null,
+    collabOpenIssueId: null,
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -284,25 +285,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [data.currentProjectId, openIssue]);
 
-  /** Прямая ссылка #/issue/<projectId>/<issueId> в обычном интерфейсе: если задача
-   *  в видимом проекте — открыть её (при необходимости переключив проект). Ссылки
-   *  на приглашённые задачи ведёт CollaboratingView/SoloView (taskira-review §1.5). */
-  useEffect(() => {
-    if (bootStatus !== "ready") return;
-    const h = readIssueHash();
-    if (!h) return;
-    const cur = dataRef.current;
-    if (cur.collaborations.some((c) => c.issueId === h.issueId)) return; // раздел «Мои подключения»
-    const clearHash = () => history.replaceState(null, "", location.pathname + location.search);
-    if (h.projectId === cur.currentProjectId) {
-      openIssue(h.issueId);
-      clearHash();
-    } else if (cur.projects.some((p) => p.id === h.projectId)) {
-      switchProject(h.projectId); // после переключения эффект повторится и откроет задачу
-    } else {
-      clearHash(); // проект недоступен — молча снимаем хэш
-    }
-  }, [bootStatus, openIssue, switchProject]);
+  // Прямая ссылка /p/:projectKey/issue/:issueKey (ТЗ 3.1) и вообще любая
+  // синхронизация URL ↔ состояние (переходы внутри уже загруженного приложения,
+  // кнопка «назад», начальный deep link) — теперь в одном месте: App.tsx (Shell),
+  // через wouter, а не здесь и не в bootstrap() отдельно. Раньше это жило в двух
+  // местах (bootstrap() решал, в какой проект войти; этот эффект — открывал
+  // саму задачу) специально ПОД синхронный readIssueHash(); с асинхронным
+  // резолвом по ключу (issuesApi.resolve) держать два независимых потребителя
+  // одной и той же ссылки было источником гонки (см. историю правки), поэтому
+  // потребление ссылки после входа в проект теперь тоже там.
 
   /* Polling счётчика непрочитанных: раз в 30 c + при возврате фокуса на вкладку.
    *  Полная лента подтягивается при открытии колокола (Bell). */
@@ -425,6 +416,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     logout,
     setView: (v) => setUi((u) => ({ ...u, view: v })),
     openIssue,
+    // ТЗ 3.1: прямая ссылка на приглашённую задачу выставляет collabOpenIssueId
+    // (bootstrap()/useRouterSync); CollaboratingView подхватывает его один раз на
+    // маунте и сбрасывает — переключение между карточками в самом разделе после
+    // этого больше не «прилипает» к исходной ссылке.
+    clearCollabOpenIssueId: () => setUi((u) => (u.collabOpenIssueId ? { ...u, collabOpenIssueId: null } : u)),
     setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v, createParentId: null })),
     openCreateSubtask: (parentId: string) => setUi((u) => ({ ...u, createOpen: true, createParentId: parentId })),
     toast,

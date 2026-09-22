@@ -6,10 +6,10 @@
  *  проекту. */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
-import { escLike, q } from "../db.js";
-import { requireAuth, zquery, type JwtPayload } from "../middleware.js";
-import { SearchQuery } from "../contract.js";
-import type { SearchResultDto, SearchResultItemDto } from "../contract.js";
+import { escLike, one, q } from "../db.js";
+import { notFound, requireAuth, zquery, type JwtPayload } from "../middleware.js";
+import { IssueResolveQuery, SearchQuery } from "../contract.js";
+import type { IssueResolveDto, SearchResultDto, SearchResultItemDto } from "../contract.js";
 
 interface Row {
   id: string;
@@ -76,4 +76,36 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
     }));
     return { items, truncated };
   });
+
+  // ТЗ 3.1 (план v2, Трек 3): роутер резолвит /p/:projectKey/issue/:issueKey через
+  // этот роут перед открытием карточки. Точное совпадение по ключу (не ILIKE, как в
+  // поиске выше) — ключ либо есть целиком в URL, либо нет; частичное совпадение здесь
+  // означало бы открывать не ту задачу. 404, а не пустой ответ, если ключ не найден
+  // ИЛИ найден, но проект не входит в видимые пользователю — тот же предикат, что и
+  // выше, специально не различает эти два случая в ответе (не подсказывать
+  // существование чужой задачи стороннему пользователю).
+  app.get(
+    "/issues/resolve",
+    { preHandler: [requireAuth, zquery(IssueResolveQuery)] },
+    async (req): Promise<IssueResolveDto> => {
+      const user: JwtPayload = req.user;
+      const { key } = req.query as z.infer<typeof IssueResolveQuery>;
+      const isGlobalAdmin = user.globalRole === "admin";
+      const row = await one<{ id: string; project_id: string; project_key: string }>(
+        `SELECT i.id, i.project_id, p.key AS project_key
+           FROM issues i
+           JOIN projects p ON p.id = i.project_id
+          WHERE i.key = $1
+            AND ($3
+                 OR EXISTS (SELECT 1 FROM project_members pm
+                             WHERE pm.project_id = p.id AND pm.user_id = $2)
+                 OR EXISTS (SELECT 1 FROM department_members dm
+                             WHERE dm.department_id = p.department_id AND dm.user_id = $2)
+                 OR p.is_shared)`,
+        [key, user.sub, isGlobalAdmin],
+      );
+      if (!row) throw notFound("Задача не найдена");
+      return { id: row.id, projectId: row.project_id, projectKey: row.project_key };
+    },
+  );
 }

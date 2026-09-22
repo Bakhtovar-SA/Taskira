@@ -491,6 +491,14 @@ export const SearchQuery = z.object({
   q: z.string().min(1).max(120),
 });
 
+/** GET /api/issues/resolve — ключ задачи (CORP-123, человекочитаемый, из URL ТЗ 3.1)
+ *  → id/projectId/projectKey. Project-less, по тому же предикату видимости, что
+ *  /api/issues/search — ключ глобально уникален (issues.key UNIQUE, миграция 001),
+ *  поэтому проект для поиска указывать не нужно. */
+export const IssueResolveQuery = z.object({
+  key: z.string().min(1).max(40),
+});
+
 /* ---------------- Отчёты (аудит: отчётность по отделам) ---------------- */
 /** Группировка сводки: по проектам, по исполнителям или по типам задач. */
 export const REPORT_GROUPS = ["project", "assignee", "type", "priority"] as const;
@@ -888,6 +896,16 @@ export type SearchResultItemDto = z.infer<typeof SearchResultItemDto>;
 
 export const SearchResultDto = z.object({ items: z.array(SearchResultItemDto), truncated: z.boolean() });
 export type SearchResultDto = z.infer<typeof SearchResultDto>;
+
+/** Результат GET /api/issues/resolve — ровно то, что нужно роутеру, чтобы перейти
+ *  с /p/:projectKey/issue/:issueKey на реальный проект/задачу (id — UUID, для
+ *  остальных запросов; ключи — только для сверки/отображения в URL). */
+export const IssueResolveDto = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  projectKey: z.string(),
+});
+export type IssueResolveDto = z.infer<typeof IssueResolveDto>;
 
 /** GET …/issues/counts: число активных задач набора и разбивка по статусам. */
 export const IssueCountsDto = z.object({ total: z.number(), byStatus: z.record(z.number()) });

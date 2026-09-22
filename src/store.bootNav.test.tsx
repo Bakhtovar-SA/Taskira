@@ -14,6 +14,7 @@ import {
   type ProjectBootstrap,
   type ServerIssue,
 } from "./api";
+import { pathForIssue, pathForView } from "./router";
 
 /** Характеризационные тесты загрузки, сессии, навигации между проектами и открытия задачи в сторе — написаны ДО выноса
  *  в src/store/session.ts (ТЗ 2.3, шаг 6). Фиксируют ТЕКУЩЕЕ поведение, включая гонки (порядок событий во времени):
@@ -130,6 +131,7 @@ afterEach(() => {
   unmountCurrent = null;
   localStorage.clear();
   location.hash = "";
+  history.replaceState(null, "", "/");
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -140,6 +142,35 @@ describe("bootstrap — ветки входа", () => {
     const get = mount();
     await act(async () => { await get().bootstrap(); });
     expect(get().bootStatus).toBe("unauthenticated");
+  });
+
+  // Характеризационный тест ДО начала ТЗ 3.1 (роутинг): фиксирует текущее поведение
+  // границы "не залогинен + есть deep link" перед тем, как навигация переедет на
+  // router — чтобы рефакторинг не мог тихо сломать именно этот путь незамеченным.
+  // Проверяет только то, чем ведает сам bootstrap() (какой проект выбрать) — открытие
+  // САМОЙ задачи по такой ссылке теперь на уровне App.tsx (useRouterSync, а не
+  // StoreProvider — этот файл его не монтирует), см. src/App.routerSync.test.tsx для
+  // полного пути "не залогинен → логин → задача открыта".
+  test("не залогинен + deep link на задачу: путь переживает unauthenticated и приводит в нужный проект после повторного bootstrap (успешный логин)", async () => {
+    history.pushState(null, "", pathForIssue("BB", "K-aa"));
+    install({ me: new ApiError(401, "UNAUTHORIZED", "нет") });
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    expect(get().bootStatus).toBe("unauthenticated");
+    // Ключевое: 401-ветка не трогает путь — LoginForm не отменяет и не заменяет URL.
+    expect(location.pathname).toBe(pathForIssue("BB", "K-aa"));
+
+    // "Успешный логин" в этом сторе — не отдельный API-вызов, а просто повторный
+    // bootstrap() (см. App.tsx: LoginForm.onSuccess → bootstrap()); токен из
+    // LoginForm сюда не моделируется, только эффект — authApi.me() теперь резолвится.
+    vi.restoreAllMocks();
+    install();
+    vi.spyOn(issuesApi, "resolve").mockResolvedValue({ id: I1, projectId: P2, projectKey: "BB" });
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+
+    expect(get().bootStatus).toBe("ready");
+    expect(get().data.currentProjectId).toBe(P2);
   });
 
   test("прочая ошибка → error", async () => {
@@ -184,11 +215,9 @@ describe("bootstrap — ветки входа", () => {
   });
 
   test("≥2 проектов и прямая ссылка на задачу видимого проекта → сразу в этот проект, минуя home", async () => {
-    location.hash = `#/issue/${P2}/${I1}`;
+    history.pushState(null, "", pathForIssue("BB", "K-aa"));
     install();
-    vi.spyOn(issuesApi, "get").mockResolvedValue(dto(I1, P2));
-    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
-    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "resolve").mockResolvedValue({ id: I1, projectId: P2, projectKey: "BB" });
     const get = mount();
     await act(async () => { await get().bootstrap(); });
     await settle();
@@ -196,15 +225,29 @@ describe("bootstrap — ветки входа", () => {
     expect(get().data.currentProjectId).toBe(P2);
   });
 
+  test("≥2 проектов и прямая ссылка на вид внутри видимого проекта → сразу в этот проект и вид, минуя home", async () => {
+    history.pushState(null, "", pathForView("BB", "backlog"));
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().data.currentProjectId).toBe(P2);
+    expect(get().ui.view).toBe("backlog");
+  });
+
   test("прямая ссылка на приглашённую задачу → раздел «Мои подключения»; проект — из lastProject, а не первый", async () => {
-    const collab = { issueId: I1, projectId: "99999999-0000-4000-8000-000000000000", key: "X-1", title: "t", statusId: "s", statusName: "n", statusCategory: "todo", projectKey: "X", projectName: "X" } as CollaboratingItem;
-    location.hash = `#/issue/99999999-0000-4000-8000-000000000000/${I1}`;
+    const OTHER = "99999999-0000-4000-8000-000000000000";
+    const collab = { issueId: I1, projectId: OTHER, key: "X-1", title: "t", statusId: "s", statusName: "n", statusCategory: "todo", projectKey: "X", projectName: "X" } as CollaboratingItem;
+    history.pushState(null, "", pathForIssue("X", "X-1"));
     localStorage.setItem("taskira.project", P2);
     install({ collabs: [collab] });
+    vi.spyOn(issuesApi, "resolve").mockResolvedValue({ id: I1, projectId: OTHER, projectKey: "X" });
     const get = mount();
     await act(async () => { await get().bootstrap(); });
     expect(get().bootStatus).toBe("ready");
     expect(get().ui.view).toBe("collaborating");
+    expect(get().ui.collabOpenIssueId).toBe(I1);
     expect(get().data.currentProjectId).toBe(P2);
   });
 });

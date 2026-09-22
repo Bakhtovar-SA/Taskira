@@ -22,8 +22,8 @@ import {
   mapIssueTemplate,
   mapSprint,
   mapUser,
-  readIssueHash,
   readLastProject,
+  resolveBootPathTarget,
   takeHomeIntro,
   upsertIssue,
   writeLastProject,
@@ -124,12 +124,22 @@ export function useSessionActions(
         isShared: p.isShared,
         sprintsEnabled: p.sprintsEnabled,
       }));
+      // ТЗ 3.1: резолв прямой ссылки (/p/:projectKey/issue/:issueKey ИЛИ
+      // /p/:projectKey/<вид>) ОДИН раз для всей функции — обе ветки ниже (solo и
+      // обычная) читают её результат. Асинхронно только у issue-варианта
+      // (человекочитаемый ключ требует обращения к серверу); ключ вида резолвится
+      // локально по уже полученному списку projects — сети не требует.
+      const pathTarget = await resolveBootPathTarget(location.pathname, projects);
+      if (stale()) return;
+
       if (projects.length === 0) {
         // Ни одного видимого проекта, но, возможно, приглашён к отдельным задачам
         // (issue collaborators) — тогда одиночный режим (COLLAB_MIGRATION.md Фаза 6).
         if (collabs.length > 0) {
-          const hash = readIssueHash();
-          const openTarget = hash && collabs.some((c) => c.issueId === hash.issueId) ? hash : null;
+          const openTarget =
+            pathTarget && pathTarget.kind === "issue" && collabs.some((c) => c.issueId === pathTarget.issueId)
+              ? { projectId: pathTarget.projectId, issueId: pathTarget.issueId }
+              : null;
           setSolo({ userId: user.id, userName: user.name, items: collabs, openTarget });
           setBootStatus("solo");
           return;
@@ -147,16 +157,17 @@ export function useSessionActions(
         setBootStatus("ready");
         return;
       }
-      const hash = readIssueHash();
-      const hashProjectVisible = !!hash && projects.some((p) => p.id === hash.projectId);
+      const pathProjectVisible = !!pathTarget && projects.some((p) => p.id === pathTarget.projectId);
       // Прямая ссылка на приглашённую задачу (проект пользователю не открыт) —
       // ведёт в «Мои подключения», а не на главный экран (ниже по ветке ready).
-      const hashIsCollab = !!hash && collabs.some((c) => c.issueId === hash.issueId);
+      const pathIsCollab =
+        !!pathTarget && pathTarget.kind === "issue" && collabs.some((c) => c.issueId === pathTarget.issueId);
 
-      // ≥ 2 проектов и это НЕ переход по прямой ссылке на задачу → главный экран
-      // (UI_RESTRUCTURE.md D4): список проектов и задач, в проект не входим.
-      // При 1 проекте главный экран бессмыслен — сразу внутрь (ветка ниже).
-      if (projects.length >= 2 && !hashProjectVisible && !hashIsCollab) {
+      // ≥ 2 проектов и это НЕ переход по прямой ссылке (на задачу или на вид
+      // внутри проекта) → главный экран (UI_RESTRUCTURE.md D4): список проектов и
+      // задач, в проект не входим. При 1 проекте главный экран бессмыслен — сразу
+      // внутрь (ветка ниже).
+      if (projects.length >= 2 && !pathProjectVisible && !pathIsCollab) {
         const assigned = await issuesApi
           .assignedToMe()
           .catch(() => ({ items: [] as AssignedIssue[], truncated: false, limit: 0 }));
@@ -185,16 +196,26 @@ export function useSessionActions(
       }
 
       const wanted = readLastProject();
-      const chosen = hashProjectVisible ? hash!.projectId : projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
+      const chosen = pathProjectVisible ? pathTarget!.projectId : projects.find((p) => p.id === wanted)?.id ?? projects[0].id;
       const next = await buildProjectData(chosen, user.id, projects, deps, collabs, user.favoriteProjectIds ?? []);
       if (stale()) return;
       setData({ ...next, notifyPrefs: user.notifyPrefs ?? {} });
       void refreshNotifications();
       writeLastProject(chosen);
       // Прямая ссылка на приглашённую задачу (в проекте, который не открыт) —
-      // сразу в раздел «Мои подключения» (Фаза 6 для пользователей с проектами).
-      if (hashIsCollab) {
-        setUi((u) => ({ ...u, view: "collaborating" }));
+      // сразу в раздел «Мои подключения» (Фаза 6 для пользователей с проектами);
+      // прямая ссылка на конкретный вид (/p/:projectKey/<вид>) — открыть его вместо
+      // обычного дефолта (доска/последний открытый). Открытие самой задачи для
+      // issue-ссылки в СВОЁМ проекте — отдельный эффект в store.tsx (readyToOpen),
+      // не здесь: та же граница ответственности, что была у readIssueHash раньше.
+      if (pathIsCollab) {
+        setUi((u) => ({
+          ...u,
+          view: "collaborating",
+          collabOpenIssueId: pathTarget!.kind === "issue" ? pathTarget!.issueId : null,
+        }));
+      } else if (pathTarget && pathTarget.kind === "view" && pathTarget.projectId === chosen) {
+        setUi((u) => ({ ...u, view: pathTarget.view }));
       }
       setBootStatus("ready");
     } catch (err) {
@@ -303,7 +324,7 @@ export function useSessionActions(
     clearToken();
     setData(emptyData());
     setSolo(null);
-    setUi({ view: "board", selectedIssueId: null, createOpen: false, createParentId: null, lastEvent: null });
+    setUi({ view: "board", selectedIssueId: null, createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
     setBootStatus("unauthenticated");
   }, []);
 

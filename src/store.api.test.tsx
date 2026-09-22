@@ -20,6 +20,7 @@ const API_KEYS = [
   "bootStatus",
   "bootstrap",
   "can",
+  "clearCollabOpenIssueId",
   "completeSprint",
   "createDepartment",
   "createIssue",

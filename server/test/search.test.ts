@@ -86,3 +86,55 @@ describe("кросс-проектный поиск", () => {
     expect(r.statusCode).toBe(400);
   });
 });
+
+describe("GET /api/issues/resolve — ключ → id/projectId (ТЗ 3.1, роутер)", () => {
+  const resolve = (key: string, token: string) => g(`/api/issues/resolve?key=${encodeURIComponent(key)}`, token);
+
+  test("точный ключ видимой задачи → id, projectId, projectKey", async () => {
+    const mgr = await login(app, "mgr1");
+    const issue = await createIssue(p1(), mgr, { title: "т" });
+
+    const r = await resolve(issue.key, mgr);
+    expect(r.statusCode).toBe(200);
+    expect(JSON.parse(r.body)).toEqual({ id: issue.id, projectId: p1(), projectKey: "CORP" });
+  });
+
+  test("ключа не существует → 404", async () => {
+    const mgr = await login(app, "mgr1");
+    const r = await resolve("NOPE-999999", mgr);
+    expect(r.statusCode).toBe(404);
+  });
+
+  test("ключ существует, но проект не виден вызывающему → 404 (не отличимо от «не существует»)", async () => {
+    const outsider = await login(app, "outsider");
+    const mgr2 = await login(app, "mgr2");
+    const issue = await createIssue(p2(), mgr2, { title: "Секретная для outsider задача" });
+
+    const r = await resolve(issue.key, outsider);
+    expect(r.statusCode).toBe(404);
+  });
+
+  test("частичное совпадение не резолвится — только точный ключ", async () => {
+    const mgr = await login(app, "mgr1");
+    const issue = await createIssue(p1(), mgr, { title: "т" });
+
+    const r = await resolve(issue.key.slice(0, -1), mgr); // CORP-12 → CORP-1
+    expect(r.statusCode).toBe(404);
+  });
+
+  test("заархивированная задача всё равно резолвится — deep link переживает архивацию (issue lifecycle: архивация — не удаление)", async () => {
+    const mgr = await login(app, "mgr1");
+    const issue = await createIssue(p1(), mgr, { title: "Архивная" });
+    await q(`UPDATE issues SET archived_at = now() WHERE id = $1`, [issue.id]);
+
+    const r = await resolve(issue.key, mgr);
+    expect(r.statusCode).toBe(200);
+    expect(JSON.parse(r.body).id).toBe(issue.id);
+  });
+
+  test("пустой key отклоняется валидацией — 400", async () => {
+    const mgr = await login(app, "mgr1");
+    const r = await g("/api/issues/resolve?key=", mgr);
+    expect(r.statusCode).toBe(400);
+  });
+});
