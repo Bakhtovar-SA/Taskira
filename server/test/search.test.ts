@@ -85,6 +85,93 @@ describe("кросс-проектный поиск", () => {
     const r = await g("/api/issues/search?q=", mgr);
     expect(r.statusCode).toBe(400);
   });
+
+  // ТЗ 3.4 (план v2 Трек 3): полнотекстовый поиск — по описанию, комментариям,
+  // пунктам чек-листа, не только по названию/ключу.
+  test("находит задачу по слову только в описании (не в названии)", async () => {
+    const mgr = await login(app, "mgr1");
+    const issue = await createIssue(p1(), mgr, { title: "т", description: "содержит уникальноеслово нигде больше" });
+    const r = await search("уникальноеслово", mgr);
+    expect(r.statusCode).toBe(200);
+    expect(JSON.parse(r.body).items.map((i: { id: string }) => i.id)).toContain(issue.id);
+  });
+
+  test("находит задачу по слову только в комментарии", async () => {
+    const mgr = await login(app, "mgr1");
+    const issue = await createIssue(p1(), mgr, { title: "т", description: "" });
+    const c = await app.inject({
+      method: "POST",
+      url: `/api/projects/${p1()}/issues/${issue.id}/comments`,
+      headers: auth(mgr),
+      payload: { body: "обсуждаем комментарийсрочнофиксить прямо здесь" },
+    });
+    expect(c.statusCode).toBe(201);
+    const r = await search("комментарийсрочнофиксить", mgr);
+    expect(JSON.parse(r.body).items.map((i: { id: string }) => i.id)).toContain(issue.id);
+  });
+
+  test("находит задачу по слову только в пункте чек-листа", async () => {
+    const mgr = await login(app, "mgr1");
+    const issue = await createIssue(p1(), mgr, { title: "т", description: "" });
+    const item = await app.inject({
+      method: "POST",
+      url: `/api/projects/${p1()}/issues/${issue.id}/checklist`,
+      headers: auth(mgr),
+      payload: { text: "проверитьчеклистуникум перед релизом" },
+    });
+    expect(item.statusCode).toBe(200);
+    const r = await search("проверитьчеклистуникум", mgr);
+    expect(JSON.parse(r.body).items.map((i: { id: string }) => i.id)).toContain(issue.id);
+  });
+
+  test("ранжирование: совпадение в заголовке выше совпадения в старом комментарии", async () => {
+    const mgr = await login(app, "mgr1");
+    const titleHit = await createIssue(p1(), mgr, { title: "жарптица в названии", description: "" });
+    const commentHit = await createIssue(p1(), mgr, { title: "другая штука", description: "" });
+    const c = await app.inject({
+      method: "POST",
+      url: `/api/projects/${p1()}/issues/${commentHit.id}/comments`,
+      headers: auth(mgr),
+      payload: { body: "здесь тоже упомянута жарптица, но в комментарии" },
+    });
+    expect(c.statusCode).toBe(201);
+
+    const r = await search("жарптица", mgr);
+    const ids = JSON.parse(r.body).items.map((i: { id: string }) => i.id);
+    expect(ids.indexOf(titleHit.id)).toBeLessThan(ids.indexOf(commentHit.id));
+  });
+
+  test("находит и кириллицей, и латиницей ('simple' — без стемминга ни одного из языков)", async () => {
+    const mgr = await login(app, "mgr1");
+    const ru = await createIssue(p1(), mgr, { title: "кириллическийпоиск т", description: "" });
+    const en = await createIssue(p1(), mgr, { title: "latinsearchterm issue", description: "" });
+    const rRu = await search("кириллическийпоиск", mgr);
+    expect(JSON.parse(rRu.body).items.map((i: { id: string }) => i.id)).toContain(ru.id);
+    const rEn = await search("latinsearchterm", mgr);
+    expect(JSON.parse(rEn.body).items.map((i: { id: string }) => i.id)).toContain(en.id);
+  });
+
+  test("частичное совпадение по ключу всё ещё работает (ILIKE-ветка, не FTS)", async () => {
+    const mgr = await login(app, "mgr1");
+    const issue = await createIssue(p1(), mgr, { title: "т" });
+    const r = await search(issue.key.slice(0, -1), mgr); // без последней цифры
+    expect(JSON.parse(r.body).items.map((i: { id: string }) => i.id)).toContain(issue.id);
+  });
+
+  test("заархивированная задача не находится даже по совпадению в комментарии", async () => {
+    const mgr = await login(app, "mgr1");
+    const issue = await createIssue(p1(), mgr, { title: "т", description: "" });
+    await q(`UPDATE issues SET archived_at = now() WHERE id = $1`, [issue.id]);
+    const c = await app.inject({
+      method: "POST",
+      url: `/api/projects/${p1()}/issues/${issue.id}/comments`,
+      headers: auth(mgr),
+      payload: { body: "архивнаязадачакомментарий" },
+    });
+    expect(c.statusCode).toBe(201);
+    const r = await search("архивнаязадачакомментарий", mgr);
+    expect(JSON.parse(r.body).items.map((i: { id: string }) => i.id)).not.toContain(issue.id);
+  });
 });
 
 describe("GET /api/issues/resolve — ключ → id/projectId (ТЗ 3.1, роутер)", () => {

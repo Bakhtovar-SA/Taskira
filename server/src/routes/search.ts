@@ -36,28 +36,57 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
     const isGlobalAdmin = user.globalRole === "admin";
     const like = `%${escLike(query)}%`;
 
-    // Предикат видимости ОБЯЗАН совпадать с services/projects.ts listVisibleProjects
-    // (участник ∪ департамент ∪ is_shared ∪ глобальный admin) — тот же инвариант,
-    // что уже прокомментирован в routes/home.ts для assigned-to-me: иначе поиск
-    // покажет задачи из проектов, которые потом не открыть.
-    const rows = await q<Row>(
-      `SELECT i.id, i.project_id, i.key, i.title, i.type_id, i.priority_id, i.status_id,
+    // ТЗ 3.4 (план v2 Трек 3): полнотекстовый поиск по названию/описанию,
+    // комментариям и пунктам чек-листа (миграция 20260922T1400 — три отдельные
+    // generated-tsvector-колонки, см. её комментарий: агрегировать их в одну
+    // через LEFT JOIN в generated-выражении технически невозможно, поэтому
+    // объединение — здесь, запросом с UNION, не в схеме). Ключ задачи — ОТДЕЛЬНАЯ
+    // ветка с ILIKE (не FTS: "CORP-123" — структурный код, а не текст словаря)
+    // с фиксированным высоким рангом, чтобы точное/частичное совпадение по
+    // ключу не проигрывало посредственному текстовому совпадению по ранжированию.
+    // Комментарии/чек-лист дают тот же issue, но с заниженным весом (* 0.5) —
+    // совпадение в заголовке/описании обязано ранжироваться выше совпадения в
+    // старом комментарии (буквальное требование ТЗ), а не просто "тоже нашлось".
+    const rows = await q<Row & { rank: number }>(
+      `WITH tsq AS (SELECT websearch_to_tsquery('simple', $1) AS q),
+            matches AS (
+              SELECT i.id AS issue_id, ts_rank(i.search_vector, tsq.q) AS rank
+                FROM issues i CROSS JOIN tsq
+               WHERE i.archived_at IS NULL AND i.search_vector @@ tsq.q
+              UNION ALL
+              SELECT i.id AS issue_id, 1.0 AS rank
+                FROM issues i
+               WHERE i.archived_at IS NULL AND i.key ILIKE $2
+              UNION ALL
+              SELECT c.issue_id, ts_rank(c.search_vector, tsq.q) * 0.5 AS rank
+                FROM comments c JOIN issues i ON i.id = c.issue_id CROSS JOIN tsq
+               WHERE i.archived_at IS NULL AND c.search_vector @@ tsq.q
+              UNION ALL
+              SELECT ci.issue_id, ts_rank(ci.search_vector, tsq.q) * 0.5 AS rank
+                FROM checklist_items ci JOIN issues i ON i.id = ci.issue_id CROSS JOIN tsq
+               WHERE i.archived_at IS NULL AND ci.search_vector @@ tsq.q
+            ),
+            best AS (SELECT issue_id, max(rank) AS rank FROM matches GROUP BY issue_id)
+       SELECT i.id, i.project_id, i.key, i.title, i.type_id, i.priority_id, i.status_id,
               ws.name AS status_name, ws.category AS status_category,
-              p.key AS project_key, p.name AS project_name
-         FROM issues i
+              p.key AS project_key, p.name AS project_name, best.rank
+         FROM best
+         JOIN issues i ON i.id = best.issue_id
          JOIN projects p ON p.id = i.project_id
          JOIN workflow_statuses ws ON ws.id = i.status_id
-        WHERE i.archived_at IS NULL
-          AND (i.title ILIKE $1 OR i.key ILIKE $1)
-          AND ($3
+        -- Предикат видимости ОБЯЗАН совпадать с services/projects.ts listVisibleProjects
+        -- (участник ∪ департамент ∪ is_shared ∪ глобальный admin) — тот же инвариант,
+        -- что уже прокомментирован в routes/home.ts для assigned-to-me: иначе поиск
+        -- покажет задачи из проектов, которые потом не открыть.
+        WHERE ($4
                OR EXISTS (SELECT 1 FROM project_members pm
-                           WHERE pm.project_id = p.id AND pm.user_id = $2)
+                           WHERE pm.project_id = p.id AND pm.user_id = $3)
                OR EXISTS (SELECT 1 FROM department_members dm
-                           WHERE dm.department_id = p.department_id AND dm.user_id = $2)
+                           WHERE dm.department_id = p.department_id AND dm.user_id = $3)
                OR p.is_shared)
-        ORDER BY i.updated_at DESC
-        LIMIT $4`,
-      [like, user.sub, isGlobalAdmin, SEARCH_LIMIT + 1],
+        ORDER BY best.rank DESC, i.updated_at DESC
+        LIMIT $5`,
+      [query, like, user.sub, isGlobalAdmin, SEARCH_LIMIT + 1],
     );
 
     const truncated = rows.length > SEARCH_LIMIT;
