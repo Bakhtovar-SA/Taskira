@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
-import { departmentsApi, projectsApi, usersApi, type DepartmentMember, type SafeUser } from "../api";
+import { API_BASE, departmentsApi, projectsApi, usersApi, type DepartmentMember, type SafeUser } from "../api";
 import type { ProjectRole, ProjectSummary } from "../types";
 import { LIMITS } from "../validation";
 import { IcChevD, IcChevR, IcInbox, IcLock, IcPlus, IcTrash, IcUsers } from "../icons";
@@ -316,15 +316,32 @@ export default function AdminView() {
               {t("admin.subtitle")}{ldap && ` ${t("admin.ldapSubtitle")}`}
             </p>
           </div>
-          {ldap && (
-            <button
-              onClick={resyncLdap}
-              title={t("admin.resyncHint")}
-              className="shrink-0 rounded-md border border-line bg-panel px-2.5 py-1.5 text-[11.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
-            >
-              {t("admin.resync")}
-            </button>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {/* ТЗ 3.5 (план v2 Трек 3): полный экспорт инсталляции — обычная
+                ссылка, не fetch+blob: сессия живёт в HttpOnly-cookie (api/index.ts),
+                браузер сам приложит её к прямой навигации по этому же origin/site
+                (SESSION_COOKIE — SameSite=Strict, что разрешает переход по ссылке
+                в пределах одного site, включая dev-порты localhost:3000/:8080).
+                Сервер сам вернёт 403 не-админу — здесь только UX-подсказка. */}
+            {canManage && (
+              <a
+                href={`${API_BASE}/api/admin/export`}
+                title={t("admin.exportHint")}
+                className="rounded-md border border-line bg-panel px-2.5 py-1.5 text-[11.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
+              >
+                {t("admin.export")}
+              </a>
+            )}
+            {ldap && (
+              <button
+                onClick={resyncLdap}
+                title={t("admin.resyncHint")}
+                className="rounded-md border border-line bg-panel px-2.5 py-1.5 text-[11.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent"
+              >
+                {t("admin.resync")}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* новый отдел */}

@@ -581,6 +581,8 @@ const ru = {
   "admin.ldapSubtitle": "В режиме LDAP членство в отделе приходит из группы AD.",
   "admin.resyncHint": "Пересобрать членство в отделах из групп LDAP для всех LDAP-пользователей",
   "admin.resync": "Пересинхронизировать LDAP",
+  "admin.export": "Экспорт данных",
+  "admin.exportHint": "Полный экспорт всех данных инсталляции в формате NDJSON",
   "admin.newDepartmentPlaceholder": "Название нового отдела",
   "admin.department": "Отдел",
   "admin.projectCount": "{count} проект(ов)",

@@ -580,6 +580,8 @@ const en: Record<keyof Dict, string> = {
   "admin.ldapSubtitle": "In LDAP mode, department membership comes from an AD group.",
   "admin.resyncHint": "Rebuild department membership from LDAP groups for all LDAP users",
   "admin.resync": "Resync LDAP",
+  "admin.export": "Export data",
+  "admin.exportHint": "Full export of all installation data as NDJSON",
   "admin.newDepartmentPlaceholder": "New department name",
   "admin.department": "Department",
   "admin.projectCount": "{count} project(s)",

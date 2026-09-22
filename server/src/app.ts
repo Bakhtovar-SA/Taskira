@@ -33,6 +33,7 @@ import { maintenanceRoutes } from "./routes/maintenance.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { reportRoutes } from "./routes/reports.js";
 import { auditExportRoutes } from "./routes/auditExport.js";
+import { dataExportRoutes } from "./routes/dataExport.js";
 import { wsRoutes } from "./routes/ws.js";
 import { pendingMigrations, q } from "./db.js";
 import { ZodError } from "zod";
@@ -222,6 +223,7 @@ export function buildApp(): FastifyInstance {
       await api.register(notificationRoutes); // /notifications* (project-less, requireAuth)
       await api.register(reportRoutes); // /reports/* (project-less, scope = видимые проекты)
       await api.register(auditExportRoutes); // /admin/audit-log/export (global admin, JSONL/CSV)
+      await api.register(dataExportRoutes); // /admin/export (global admin, NDJSON) — ТЗ 3.5
       await api.register(collaboratingRoutes); // /issues/collaborating (project-less)
       await api.register(homeRoutes); // /issues/assigned-to-me (project-less, главный экран)
       await api.register(searchRoutes); // /issues/search (project-less, кросс-проектный поиск)
