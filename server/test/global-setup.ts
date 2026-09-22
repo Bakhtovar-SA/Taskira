@@ -44,10 +44,42 @@ async function ensureTestDatabase(): Promise<void> {
   }
 }
 
+/**
+ * Межпроцессный лок против ДВУХ одновременных `vitest run` (сам раннер, не файлы внутри одного
+ * прогона — `fileParallelism: false` в vitest.config.ts защищает только от этого). Без него второй
+ * прогон, стартовавший, пока первый ещё выполняет тесты, доходит здесь до `DROP SCHEMA public CASCADE`
+ * и вырывает таблицы из-под первого прогона — "отношение users не существует" посреди случайного
+ * файла, который приходится каждый раз заново диагностировать как "это не регрессия, это я сам себе
+ * помешал" (воспроизводилось на практике трижды за одну сессию работы над Треком 4).
+ *
+ * Session-level advisory lock на ВЫДЕЛЕННОМ соединении, которое живёт до teardown(): второй прогон
+ * получает `pg_try_advisory_lock() = false` сразу, с понятным сообщением, вместо того чтобы молча
+ * продолжить и дать ложные failures. Postgres снимает лок сам при обрыве соединения — упавший/убитый
+ * прогон (Ctrl+C, OOM) не оставляет вечный лок, в отличие от lock-файла на диске, который пришлось бы
+ * чистить вручную.
+ */
+const LOCK_KEY = "taskira:test-global-setup";
+let lockClient: pg.Client | null = null;
+
 export async function setup(): Promise<void> {
   await rm(TEST_STORAGE_DIR, { recursive: true, force: true }); // чистое хранилище вложений
 
   await ensureTestDatabase();
+
+  lockClient = new pg.Client({ connectionString: TEST_DB_URL });
+  await lockClient.connect();
+  const { rows } = await lockClient.query<{ ok: boolean }>(`SELECT pg_try_advisory_lock(hashtext($1)) AS ok`, [LOCK_KEY]);
+  if (!rows[0]?.ok) {
+    await lockClient.end();
+    lockClient = null;
+    throw new Error(
+      "Другой `vitest run` уже выполняет global-setup (DROP/CREATE SCHEMA + миграции) против той же " +
+        `тестовой БД (${TEST_DB_NAME}). Дождитесь его завершения и запустите заново — параллельный ` +
+        "запуск второго раннера не даёт параллельность, а рвёт схему из-под первого (ложные failures " +
+        '"relation ... does not exist").',
+    );
+  }
+
   const client = new pg.Client({ connectionString: TEST_DB_URL });
   await client.connect();
   await client.query("DROP SCHEMA IF EXISTS public CASCADE");
@@ -57,4 +89,11 @@ export async function setup(): Promise<void> {
   initPool(TEST_DB_URL);
   await migrate();
   await closePool();
+}
+
+export async function teardown(): Promise<void> {
+  if (!lockClient) return;
+  await lockClient.query(`SELECT pg_advisory_unlock(hashtext($1))`, [LOCK_KEY]).catch(() => undefined);
+  await lockClient.end().catch(() => undefined);
+  lockClient = null;
 }
