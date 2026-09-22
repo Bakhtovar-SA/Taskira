@@ -173,6 +173,23 @@ describe("countActiveSeats / getLicenseStatus (БД)", () => {
     }
   });
 
+  test("getLicenseStatus(): activeWindowDays читается ИЗ лицензии, не из константы сервера (дефолт 30)", async () => {
+    await q(`INSERT INTO instance (id, name) VALUES (1, 'Test Instance')`);
+    // Пользователь входил 10 дней назад — попадает в окно 7 дней? Нет. В окно 30? Да.
+    // Лицензия здесь намеренно указывает 7, а не дефолтные 30 из baseClaims — если бы
+    // getLicenseStatus() читал захардкоженные 30 вместо claims.activeWindowDays, seatsUsed
+    // здесь ошибочно оказался бы 1 вместо 0 (эта мутация не ловилась до этого теста —
+    // остальные тесты файла все используют дефолт 30, поэтому не различали "из лицензии"
+    // и "константа 30 в коде").
+    await mkUser("u1", { lastLoginDaysAgo: 10 });
+    const token = signLicense(baseClaims({ activeWindowDays: 7, maxSeats: 10 }), keyA.privateKey, "kid-a");
+    await q(`UPDATE instance SET license_key = $1 WHERE id = 1`, [token]);
+
+    const status = await getLicenseStatus(trustedKeys);
+    expect(status.state).toBe("active");
+    if (status.state === "active") expect(status.seatsUsed).toBe(0);
+  });
+
   test("getLicenseStatus(): seatsOverLimit=true, когда занятых мест больше maxSeats", async () => {
     await q(`INSERT INTO instance (id, name) VALUES (1, 'Test Instance')`);
     await mkUser("u1", { lastLoginDaysAgo: 1 });
