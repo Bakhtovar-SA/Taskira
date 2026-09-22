@@ -115,11 +115,50 @@ describe("фоновые джобы: лидер на каждый", () => {
 });
 
 describe("стартовые сиды", () => {
-  test("два одновременных старта на пустой БД: оба успешно, один админ и один проект", async () => {
+  test("два одновременных старта на пустой БД: оба успешно, один админ, один проект, одна строка instance", async () => {
     const results = await Promise.allSettled([runStartupSeeds(), runStartupSeeds()]);
     expect(results.map((r) => r.status)).toEqual(["fulfilled", "fulfilled"]);
-    const [{ u, p }] = await q<{ u: number; p: number }>(`SELECT (SELECT count(*) FROM users)::int AS u, (SELECT count(*) FROM projects)::int AS p`);
+    const [{ u, p, i }] = await q<{ u: number; p: number; i: number }>(
+      `SELECT (SELECT count(*) FROM users)::int AS u, (SELECT count(*) FROM projects)::int AS p,
+              (SELECT count(*) FROM instance)::int AS i`,
+    );
     expect(u).toBe(1);
     expect(p).toBe(1);
+    expect(i).toBe(1);
+  });
+
+  /**
+   * ТЗ 4.2 (план v2, Трек 4): «провижининг» новой инсталляции — это не отдельный скрипт, а сама
+   * штатная последовательность старта сервера (migrate() → runStartupSeeds(), см. index.ts),
+   * которую install.sh --start запускает, поднимая контейнер server. Явное требование ТЗ 4.2 —
+   * повторный прогон на уже готовой инсталляции (например, перезапуск контейнера, повторный
+   * install.sh --start) не должен дублировать данные и не должен создавать второго админа.
+   * Последовательный (не конкурентный, в отличие от теста выше) повторный вызов — тот самый
+   * сценарий; проверяем не только счётчики, но и что это буквально те же строки (id не меняются).
+   */
+  test("повторный запуск на готовой инсталляции не дублирует админа/проект/instance", async () => {
+    await runStartupSeeds();
+    const before = await q<{ id: string; table: string }>(
+      `SELECT id::text, 'user' AS table FROM users
+       UNION ALL SELECT id::text, 'project' FROM projects
+       UNION ALL SELECT id::text, 'instance' FROM instance`,
+    );
+
+    await runStartupSeeds(); // повторный запуск на уже готовой инсталляции
+
+    const after = await q<{ id: string; table: string }>(
+      `SELECT id::text, 'user' AS table FROM users
+       UNION ALL SELECT id::text, 'project' FROM projects
+       UNION ALL SELECT id::text, 'instance' FROM instance`,
+    );
+    expect(after).toEqual(before); // те же строки, ничего не добавилось и не изменилось
+
+    const [{ u, p, i }] = await q<{ u: number; p: number; i: number }>(
+      `SELECT (SELECT count(*) FROM users)::int AS u, (SELECT count(*) FROM projects)::int AS p,
+              (SELECT count(*) FROM instance)::int AS i`,
+    );
+    expect(u).toBe(1);
+    expect(p).toBe(1);
+    expect(i).toBe(1);
   });
 });

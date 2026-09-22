@@ -60,6 +60,8 @@ cat <<'EOF'
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required; see .env.example}
       ADMIN_NAME: ${ADMIN_NAME:-Administrator}
+      INSTANCE_NAME: ${INSTANCE_NAME:-Taskira}
+      INSTANCE_PLAN: ${INSTANCE_PLAN:-default}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
       APP_BASE_URL: ${CORS_ORIGIN:-http://localhost:8081}
       TRUST_PROXY: ${TRUST_PROXY:-true}
