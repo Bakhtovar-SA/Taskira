@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "
 import { useStore } from "../store";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
-import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PRIORITY_COLOR, PriorityIcon, TypeIcon } from "../icons";
+import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, BOARD_COLUMN_SHELL, Chip, SkeletonCard, catColor, DROPDOWN_OPEN_EVT } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -152,62 +152,56 @@ const Card = memo(function Card({
       }}
       onDrop={onDropOn}
       onClick={() => openIssue(issue.id)}
-      className={`group relative cursor-pointer overflow-hidden rounded-lg border border-line bg-panel p-2.5 pt-3 shadow-[0_1px_2px_rgba(20,35,64,0.06)] transition-all duration-150 hover:-translate-y-px hover:border-line2 hover:shadow-[0_6px_18px_rgba(20,35,64,0.12)] active:scale-[0.99] ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
+      className={`surface-raised group relative cursor-pointer rounded-lg p-3 ring-1 ring-inset ring-line/70 transition-[box-shadow,background-color] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2 active:bg-hover/40 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
-      {/* цветной якорь сверху: цвет направления, иначе — приоритета (round4 §3.1) */}
-      <span
-        aria-hidden
-        className="absolute inset-x-0 top-0 h-[3px]"
-        style={{ background: epic?.color ?? PRIORITY_COLOR[issue.priorityId] }}
-      />
-
-      {/* тип + ключ */}
-      <div className="mb-1.5 flex items-center gap-1.5">
+      {/* уровень 1: тип и ключ */}
+      <div className="mb-1.5 flex items-center gap-1.5 pr-6">
         <TypeIcon type={issue.typeId} size={14} />
-        <span className="font-mono text-[11px] font-semibold tracking-tight text-faint">{issue.key}</span>
+        <span className="font-mono text-[11px] text-faint">{issue.key}</span>
       </div>
 
-      <h4 className="text-[13.5px] font-medium leading-snug text-ink">{issue.title}</h4>
+      {/* уровень 2: заголовок, не больше двух строк */}
+      <h4 className="line-clamp-2 text-[13.5px] font-medium leading-[1.4] tracking-[-0.005em] text-ink">{issue.title}</h4>
 
-      {/* направление + метки */}
+      {/* направление и метки — одной строкой-переносом, только если есть */}
       {(epic || issue.labels.length > 0) && (
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="mt-2 flex flex-wrap items-center gap-1">
           {epic && (
-            <span
-              className="inline-flex max-w-[130px] items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold"
-              style={{ background: `${epic.color}1f`, color: epic.color ?? undefined }}
-            >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ background: epic.color ?? undefined }} />
+            <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 py-px text-[11.5px] text-sub ring-1 ring-inset ring-linesoft">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: epic.color ?? "var(--accent-solid)" }} />
               <span className="truncate">{epic.title}</span>
             </span>
           )}
           {issue.labels.slice(0, 3).map((l) => (
             <Chip key={l} text={l} />
           ))}
+          {issue.labels.length > 3 && <span className="text-[11px] text-faint">+{issue.labels.length - 3}</span>}
         </div>
       )}
 
-      {/* приоритет с подписью · срок · исполнитель */}
-      <div className="mt-2.5 flex items-center gap-2">
-        <span className="flex items-center gap-1 text-[10.5px] font-bold" style={{ color: PRIORITY_COLOR[issue.priorityId] }}>
-          <PriorityIcon p={issue.priorityId} size={12} />
-          {t(`priority.${issue.priorityId}`)}
+      {/* уровень 3: приоритет, срок (выделен, только если просрочен), исполнители */}
+      <div className="mt-2.5 flex h-5 items-center gap-2">
+        <span className="flex items-center" title={t(`priority.${issue.priorityId}`)}>
+          <PriorityIcon p={issue.priorityId} size={14} />
         </span>
-        <span className="ml-auto flex items-center gap-2">
-          {issue.dueDate && (
-            <span className={`flex items-center gap-0.5 text-[10px] font-semibold ${overdue ? "text-danger" : "text-faint"}`}>
-              <IcCalendar size={11} />
-              {fmtDate(issue.dueDate, lang)}
-            </span>
-          )}
-          <AvatarStack users={assignees} size={22} interactive />
+        {issue.dueDate && (
+          <span
+            className={`flex items-center gap-1 rounded-md text-[11.5px] tabular ${overdue ? "bg-dangersoft px-1.5 font-medium text-[var(--status-danger-fg)]" : "text-faint"}`}
+            title={overdue ? t("board.quickChip.overdue") : undefined}
+          >
+            <IcCalendar size={12} />
+            {fmtDate(issue.dueDate, lang)}
+          </span>
+        )}
+        <span className="ml-auto">
+          <AvatarStack users={assignees} size={20} interactive />
         </span>
       </div>
 
       {/* Перемещение без мыши. Кнопка видна при наведении и при фокусе с
           клавиатуры, список — только разрешённые схемой переходы. */}
       {draggable && (
-        <div className="absolute right-1 top-1" ref={menuRef}>
+        <div className="absolute right-1.5 top-1.5" ref={menuRef}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -216,7 +210,7 @@ const Card = memo(function Card({
             aria-haspopup="menu"
             aria-expanded={menu}
             aria-label={t("board.moveAria", { key: issue.key })}
-            className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-canvas hover:text-ink focus:opacity-100 focus-visible:ring-2 focus-visible:ring-accent group-hover:opacity-100"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-faint opacity-0 transition-opacity hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100"
           >
             <IcMove size={12} />
           </button>
@@ -224,7 +218,7 @@ const Card = memo(function Card({
             <div
               role="menu"
               onClick={(e) => e.stopPropagation()}
-              className="absolute right-0 top-6 z-20 min-w-[168px] rounded-lg border border-line bg-panel p-1 shadow-[0_8px_24px_rgba(12,22,38,0.18)]"
+              className="glass anim-pop absolute right-0 top-7 z-20 min-w-[180px] rounded-xl border border-line p-1 shadow-e3"
             >
               {moveTargets.length === 0 && (
                 <p className="px-2 py-1.5 text-[11.5px] text-faint">{t("board.noAllowedTransitions")}</p>
@@ -237,9 +231,9 @@ const Card = memo(function Card({
                     setMenu(false);
                     onMove(issue.id, target.id);
                   }}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12.5px] text-ink hover:bg-canvas"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink hover:bg-hover/70"
                 >
-                  <span className="h-1.5 w-1.5 rounded-sm" style={{ background: catColor(target.category).dot }} />
+                  <span className="h-2 w-2 rounded-full" style={{ background: catColor(target.category).dot }} />
                   {target.name}
                 </button>
               ))}
@@ -271,7 +265,7 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
     setText("");
   };
   return (
-    <div className="anim-fadeup rounded-lg border border-accent bg-panel p-2 shadow-[0_0_0_3px_rgba(11,95,217,0.1)]">
+    <div className="anim-fadeup rounded-lg border border-accent bg-panel p-2.5 shadow-focus">
       <textarea
         autoFocus
         value={text}
@@ -285,13 +279,13 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
         }}
         placeholder={t("board.quickCreatePlaceholder", { status: workflowStatusName(status, t) })}
         rows={2}
-        className="w-full resize-none bg-transparent text-[13px] outline-none placeholder:text-faint"
+        className="w-full resize-none bg-transparent text-[13.5px] text-ink outline-none placeholder:text-faint"
       />
       <div className="flex items-center gap-1.5">
-        <button onClick={submit} className="flex items-center gap-1 rounded bg-accent px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-accentdeep">
+        <button onClick={submit} className="btn-primary flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-medium">
           <IcCheck size={12} /> {t("board.addButton")}
         </button>
-        <button onClick={onDone} className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-canvas hover:text-ink" aria-label={t("common.cancel")}>
+        <button onClick={onDone} className="flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("common.cancel")}>
           <IcX size={13} />
         </button>
       </div>
@@ -477,11 +471,11 @@ export default function Board() {
   return (
     <div className="flex h-full flex-col">
       {/* шапка */}
-      <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
+      <div className="px-4 pb-3 pt-5 sm:px-6">
        <div className="flex flex-wrap items-center gap-3">
         <div className="mr-2">
-          <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("board.title")}</h1>
-          <p className="mt-0.5 flex items-center gap-2 text-[11.5px] text-faint">
+          <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("board.title")}</h1>
+          <p className="mt-0.5 flex items-center gap-2 text-[12.5px] text-faint">
             <span>{data.project.name}</span>
             <span>·</span>
             <span>{poolTotal ?? "…"} {tn(poolTotal ?? 0, "noun.issue.one", "noun.issue.few", "noun.issue.many")}</span>
@@ -495,7 +489,7 @@ export default function Board() {
                 key={u.id}
                 onClick={() => setFilterUser(filterUser === u.id ? null : u.id)}
                 title={t("board.filterUserAria", { name: u.name })}
-                className={`rounded-full transition-all ${filterUser === u.id ? "z-10 scale-110 ring-2 ring-accent" : "hover:z-10 hover:scale-105"} ${filterUser && filterUser !== u.id ? "opacity-40" : ""}`}
+                className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === u.id ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== u.id ? "opacity-40" : ""}`}
               >
                 <Avatar user={u} size={26} ring />
               </button>
@@ -503,14 +497,14 @@ export default function Board() {
             <button
               onClick={() => setFilterUser(filterUser === "none" ? null : "none")}
               title={t("board.unassignedFilter")}
-              className={`rounded-full transition-all ${filterUser === "none" ? "z-10 scale-110 ring-2 ring-accent" : "hover:z-10 hover:scale-105"} ${filterUser && filterUser !== "none" ? "opacity-40" : ""}`}
+              className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === "none" ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== "none" ? "opacity-40" : ""}`}
             >
               <Avatar user={null} size={26} ring />
             </button>
           </div>
-          <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-panel px-2.5">
-            <IcSearch size={13} className="text-faint" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("board.searchPlaceholder")} className="w-32 bg-transparent text-[12.5px] outline-none placeholder:text-faint" />
+          <div className="flex h-8 items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
+            <IcSearch size={14} className="text-faint" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("board.searchPlaceholder")} className="w-36 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint" />
             {q && (
               <button onClick={() => setQ("")} className="text-faint hover:text-ink" aria-label={t("common.reset")}>
                 <IcX size={12} />
@@ -521,15 +515,16 @@ export default function Board() {
        </div>
 
        {/* быстрые фильтры-чипы (round4 §3.3) */}
-       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+       <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
          {QUICK_CHIPS.map((c) => {
            const on = chips.has(c.id);
            return (
              <button
                key={c.id}
                onClick={() => toggleChip(c.id)}
-               className={`flex h-7 items-center rounded-full border px-2.5 text-[12px] font-medium transition-colors ${
-                 on ? "border-accent bg-accentsoft text-accent" : "border-line bg-panel text-sub hover:border-line2"
+               aria-pressed={on}
+               className={`flex h-7 items-center rounded-lg px-2.5 text-[12.5px] font-medium transition-colors duration-150 ${
+                 on ? "bg-accentsoft text-accenttext ring-1 ring-inset ring-accentmuted" : "text-sub ring-1 ring-inset ring-line hover:bg-hover hover:text-ink"
                }`}
              >
                {t(c.labelKey)}
@@ -539,25 +534,25 @@ export default function Board() {
          {chips.size > 0 && (
            <button
              onClick={() => setChips(new Set())}
-             className="flex h-7 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-faint hover:text-ink"
+             className="flex h-7 items-center gap-1 rounded-lg px-2 text-[12.5px] text-faint hover:text-ink"
            >
              <IcX size={11} /> {t("common.reset")}
            </button>
          )}
-         <span className="ml-auto text-[11.5px] text-faint">{t("board.filteredOf", { visible: filtered.counts?.total ?? "…", total: poolTotal ?? "…" })}</span>
+         <span className="ml-auto text-[12px] tabular text-faint">{t("board.filteredOf", { visible: filtered.counts?.total ?? "…", total: poolTotal ?? "…" })}</span>
        </div>
       </div>
 
       {!canMove && (
-        <div className="flex items-center gap-2 border-b border-line bg-warnsoft/60 px-6 py-1.5 text-[12px] font-medium text-warn">
+        <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg bg-warnsoft px-3 py-1.5 text-[12.5px] text-[var(--status-progress-fg)] sm:mx-6">
           <IcEye size={14} className="shrink-0" />
           <span className="truncate">{t("board.readOnlyBanner")}</span>
         </div>
       )}
 
       {allClear && (
-        <div className="border-b border-line bg-oksoft/50 px-6 py-3">
-          <p className="flex items-center gap-2 text-[13px] font-semibold text-ok">
+        <div className="mx-4 mb-2 rounded-lg bg-oksoft px-4 py-3 sm:mx-6">
+          <p className="flex items-center gap-2 text-[13.5px] font-medium text-[var(--status-done-fg)]">
             <IcCheck size={15} /> {t("board.allClearTitle")}
           </p>
           <p className="mt-0.5 text-[11.5px] text-sub">
@@ -572,9 +567,9 @@ export default function Board() {
       {/* колонки. w-max + mx-auto: на широком экране группа колонок
           центрируется, а когда не влезает — просто прокручивается от левого края
           (ticket-board-columns-theme-fix §3). */}
-      <div className="dotgrid flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="mx-auto flex h-full w-max items-start gap-4 px-4 py-4 sm:px-6">
-          {data.workflow.statuses.map((st, ci) => {
+      <div className="flex-1 snap-x overflow-x-auto overflow-y-hidden md:snap-none">
+        <div className="flex h-full w-max items-start gap-3 px-4 pb-4 pt-1 sm:px-6">
+          {data.workflow.statuses.map((st) => {
             const total = totalOf(st.id);
             const colFilters = columnFilterParams(baseFilters, st.id, { isDone: doneIds.has(st.id), showAllDone });
             const c = catColor(st.category);
@@ -583,8 +578,7 @@ export default function Board() {
             return (
               <section
                 key={st.id}
-                className={`anim-fadeup ${BOARD_COLUMN_SHELL}`}
-                style={{ animationDelay: `${ci * 60}ms` }}
+                className={`snap-start ${BOARD_COLUMN_SHELL} transition-[box-shadow,background-color] duration-150 ${isOver ? (ok ? "!bg-accentsoft/70 !ring-accentmuted" : "!bg-dangersoft/70 !ring-danger/40") : ""}`}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setOverCol(st.id);
@@ -601,14 +595,14 @@ export default function Board() {
                   if (id) moveStatus(id, st.id, null);
                 }}
               >
-                <header className="mb-1.5 flex items-center gap-2 px-1.5 pt-1">
-                  <span className="h-2 w-2 rounded-sm" style={{ background: c.dot }} />
-                  <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub">{workflowStatusName(st, t)}</h3>
-                  <span className="rounded-full bg-todosoft px-1.5 font-mono text-[10.5px] font-bold text-sub">{total ?? "…"}</span>
+                <header className="mb-1 flex h-8 items-center gap-2 px-2">
+                  <span className="h-2.5 w-2.5 rounded-full ring-[3px]" style={{ background: c.dot, "--tw-ring-color": `color-mix(in oklch, ${c.dot} 22%, transparent)` } as React.CSSProperties} />
+                  <h3 className="text-[13px] font-medium text-ink">{workflowStatusName(st, t)}</h3>
+                  <span className="tabular text-[12.5px] text-faint">{total ?? "…"}</span>
                   {canCreate && st.id === firstTodoId && (
                     <button
                       onClick={() => setQuickFor(st.id)}
-                      className="ml-auto flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-todosoft hover:text-ink"
+                      className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink"
                       aria-label={t("board.addToStatusAria", { name: workflowStatusName(st, t) })}
                     >
                       <IcPlus size={14} />
@@ -617,9 +611,7 @@ export default function Board() {
                 </header>
 
                 <div
-                  className={`flex-1 space-y-2 overflow-y-auto rounded-lg border border-dashed p-1.5 transition-all duration-150 ${
-                    isOver ? (ok ? "border-accent bg-accentsoft" : "border-danger bg-dangersoft") : "border-transparent bg-canvas"
-                  }`}
+                  className="flex-1 space-y-1.5 overflow-y-auto p-0.5"
                 >
                   {quickFor === st.id && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
                   {projectId && (
@@ -665,7 +657,7 @@ export default function Board() {
                   {hiddenDone(st.id) > 0 && (
                     <button
                       onClick={() => setShowAllDone(true)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line2 px-3 py-2 text-[11.5px] font-medium text-faint transition-colors hover:border-accent hover:text-accent"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] text-faint transition-colors hover:bg-hover hover:text-ink"
                     >
                       <IcArchive size={12} />
                       {t("board.hiddenDone", { n: hiddenDone(st.id) })}
@@ -674,18 +666,18 @@ export default function Board() {
                   {showAllDone && doneIds.has(st.id) && (
                     <button
                       onClick={() => setShowAllDone(false)}
-                      className="w-full rounded-lg px-3 py-1.5 text-[11px] font-medium text-faint transition-colors hover:text-ink"
+                      className="w-full rounded-lg px-3 py-1.5 text-[12px] text-faint transition-colors hover:bg-hover hover:text-ink"
                     >
                       {t("board.collapseDone", { days: DONE_WINDOW_DAYS })}
                     </button>
                   )}
                   {total === 0 && quickFor !== st.id && hiddenDone(st.id) === 0 && (
-                    <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[11.5px] transition-colors ${isOver ? "border-accent text-accent" : "border-line2 text-faint"}`}>
+                    <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[12px] transition-colors ${isOver ? (ok ? "border-accent text-accenttext" : "border-danger/60 text-danger") : "border-line text-faint"}`}>
                       {isOver ? (ok ? t("board.dropReleaseOk") : t("board.dropForbidden")) : t("board.dropHere")}
                     </div>
                   )}
                   {isOver && !ok && (
-                    <p className="rounded bg-dangersoft px-2 py-1 text-center text-[11px] font-semibold text-danger">
+                    <p className="rounded-md bg-dangersoft px-2 py-1 text-center text-[11.5px] font-medium text-[var(--status-danger-fg)]">
                       {t("board.transitionOutOfSchema", {
                         from: dragged ? workflowStatusName(data.workflow.statuses.find((s) => s.id === dragged.statusId) ?? { name: "" }, t) : "",
                         to: workflowStatusName(st, t),
@@ -695,7 +687,7 @@ export default function Board() {
                 </div>
 
                 {st.id === doneStatusId && total !== null && total > 0 && (
-                  <p className="mt-1.5 flex items-center gap-1.5 px-1 text-[11px] text-ok">
+                  <p className="mt-1 flex items-center gap-1.5 px-2 pb-0.5 text-[12px] text-faint">
                     <IcInbox size={13} /> {t("board.closedCount", { n: total })}
                   </p>
                 )}

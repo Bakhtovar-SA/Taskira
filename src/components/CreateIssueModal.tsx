@@ -113,14 +113,14 @@ export default function CreateIssueModal() {
   return (
     <Modal onClose={() => setCreateOpen(false)} w={620} title={t("createIssue.title")}>
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-        <span className="font-disp text-[14px] font-bold text-ink">{parent ? t("createIssue.newSubtask") : t("createIssue.newIssue")}</span>
-        <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-sub">{data.project.key}</span>
+        <span className="font-disp text-[14px] font-semibold text-ink">{parent ? t("createIssue.newSubtask") : t("createIssue.newIssue")}</span>
+        <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-sub">{data.project.key}</span>
         {parent && (
           <span className="rounded bg-accentsoft px-1.5 py-0.5 text-[10.5px] font-semibold text-accent">
             {t("createIssue.subtaskOf", { key: parent.key })}
           </span>
         )}
-        <button onClick={() => setCreateOpen(false)} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-canvas hover:text-ink" aria-label={t("common.close")}>
+        <button onClick={() => setCreateOpen(false)} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("common.close")}>
           <IcX size={15} />
         </button>
       </div>
@@ -129,11 +129,11 @@ export default function CreateIssueModal() {
         {/* шаблон (issue_templates, миграция 022) — только если в проекте есть хоть один */}
         {data.issueTemplates.length > 0 && (
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("createIssue.templateLabel")}</p>
+            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.templateLabel")}</p>
             <select
               value={templateId}
               onChange={(e) => applyTemplate(e.target.value)}
-              className="w-full cursor-pointer rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none focus:border-accent"
+              className="w-full cursor-pointer rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
             >
               <option value="">{t("createIssue.noTemplate")}</option>
               {data.issueTemplates.map((t) => (
@@ -145,14 +145,14 @@ export default function CreateIssueModal() {
 
         {/* тип */}
         <div>
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.type")}</p>
+          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.type")}</p>
           <div className="flex gap-1.5">
             {TYPE_ORDER.map((ty) => (
               <button
                 key={ty}
                 onClick={() => setTypeId(ty)}
                 className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-2 py-2 text-[12.5px] font-semibold transition-all ${
-                  typeId === ty ? "border-accent bg-accentsoft text-accent shadow-[0_0_0_2px_rgba(11,95,217,0.15)]" : "border-line bg-panel text-sub hover:border-line2"
+                  typeId === ty ? "border-accent bg-accentsoft text-accent shadow-focus" : "border-line bg-panel text-sub hover:border-line2"
                 }`}
               >
                 <TypeIcon type={ty} size={14} /> {t(`issueType.${ty}`)}
@@ -162,10 +162,10 @@ export default function CreateIssueModal() {
         </div>
 
         <div>
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("createIssue.checklist")}</p>
+          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.checklist")}</p>
           <div className="space-y-1.5">
             {checklistItems.map((item, index) => (
-              <div key={`${item}-${index}`} className="flex items-center gap-2 rounded-md border border-linesoft bg-canvas/50 px-2.5 py-1.5 text-[12.5px] text-sub">
+              <div key={`${item}-${index}`} className="flex items-center gap-2 rounded-md border border-linesoft bg-sunken px-2.5 py-1.5 text-[12.5px] text-sub">
                 <span className="h-3.5 w-3.5 shrink-0 rounded border border-line2 bg-panel" />
                 <span className="min-w-0 flex-1 break-words">{item}</span>
                 <button
@@ -218,7 +218,7 @@ export default function CreateIssueModal() {
 
         {/* название */}
         <div>
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("createIssue.titleField")}</p>
+          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.titleField")}</p>
           <input
             autoFocus
             value={title}
@@ -235,7 +235,7 @@ export default function CreateIssueModal() {
         </div>
 
         <div>
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("createIssue.descriptionField")}</p>
+          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.descriptionField")}</p>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -245,13 +245,13 @@ export default function CreateIssueModal() {
             className={`${inputCls} resize-y`}
           />
           {description.length > LIMITS.description.max * 0.8 && (
-            <p className="mt-1 text-right font-mono text-[10.5px] text-faint">{description.length} / {LIMITS.description.max}</p>
+            <p className="mt-1 text-right tabular text-[10.5px] text-faint">{description.length} / {LIMITS.description.max}</p>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.priority")}</p>
+            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.priority")}</p>
             <Dropdown
               width={220}
               button={(open) => (
@@ -273,7 +273,7 @@ export default function CreateIssueModal() {
             </Dropdown>
           </div>
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.assignee")}</p>
+            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.assignee")}</p>
             <Dropdown
               width={220}
               button={(open) => (
@@ -309,7 +309,7 @@ export default function CreateIssueModal() {
             </Dropdown>
           </div>
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.direction")}</p>
+            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.direction")}</p>
             {/* Панель раскрывается в потоке формы, а не всплывающим слоем: тело модалки
                 прокручивается, и выпадашка обрезалась бы нижней панелью с кнопкой. */}
             <button
@@ -328,7 +328,7 @@ export default function CreateIssueModal() {
                 <button
                   type="button"
                   onClick={() => { setEpicId(null); setEpicPicked(null); setDirOpen(false); }}
-                  className="mb-1 w-full rounded px-2 py-1.5 text-left text-[12px] text-sub transition-colors hover:bg-canvas"
+                  className="mb-1 w-full rounded px-2 py-1.5 text-left text-[12px] text-sub transition-colors hover:bg-hover"
                 >
                   {t("createIssue.noDirection")}
                 </button>
@@ -342,7 +342,7 @@ export default function CreateIssueModal() {
             <p className="mt-1 text-[10.5px] leading-snug text-faint">{t("createIssue.directionHint")}</p>
           </div>
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.complexity")}</p>
+            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.complexity")}</p>
             <Dropdown
               width={220}
               button={(open) => (
@@ -370,11 +370,11 @@ export default function CreateIssueModal() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.dueDate")}</p>
+            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.dueDate")}</p>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${inputCls} cursor-pointer`} />
           </div>
           <div>
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.labels")}</p>
+            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.labels")}</p>
             <div className={`flex flex-wrap items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1.5 ${labelDraft ? "" : ""}`}>
               {labels.map((l) => (
                 <Chip key={l} text={l} onRemove={() => setLabels((p) => p.filter((x) => x !== l))} />
@@ -398,10 +398,10 @@ export default function CreateIssueModal() {
       </div>
 
       <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
-        <button onClick={submit} className="rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.97]">
+        <button onClick={submit} className="rounded-lg btn-primary px-4 py-2 text-[13px] font-medium text-onaccent transition-all active:scale-[0.97]">
           {t("createIssue.submit")}
         </button>
-        <button onClick={() => setCreateOpen(false)} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-canvas">
+        <button onClick={() => setCreateOpen(false)} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-hover">
           {t("common.cancel")}
         </button>
         <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12px] text-sub">

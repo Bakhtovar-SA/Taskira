@@ -277,6 +277,12 @@ jobs:
 
       - run: npm run typecheck
 
+      - name: Design tokens — contrast of text/background pairs (ТЗ 5.4)
+        run: npm run contrast:check
+
+      - name: Design tokens — no raw colours outside tokens.css (ТЗ 5.4)
+        run: npm run colors:check
+
       - run: npm test
 
       - run: npm run build

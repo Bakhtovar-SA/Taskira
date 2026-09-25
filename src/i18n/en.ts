@@ -608,6 +608,7 @@ const en: Record<keyof Dict, string> = {
   "appearance.theme.dark": "Dark",
   "appearance.bgAria": "Background: {name}",
   "appearance.language": "Language",
+  "appearance.texture": "Background texture",
 
   "toast.success": "Done",
   "toast.error": "Error",

@@ -3,7 +3,7 @@ import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePag
 import { openTotal } from "../boardFilters";
 import type { ViewId } from "../types";
 import { IcBacklog, IcBoard, IcBook, IcFlag, IcFlow, IcInbox, IcLink, IcReport, IcShield, IcTimeline, Logo } from "../icons";
-import { Avatar, Kbd, RoleBadge } from "../ui";
+import { Avatar, Kbd } from "../ui";
 import { useT, type TKey } from "../i18n";
 
 const GROUPS: {
@@ -56,34 +56,41 @@ export default function Sidebar() {
   // только когда главный экран вообще есть (≥ 2 доступных проекта).
   const homeAvailable = data.projects.length >= 2;
 
+  const closedPct = openCount === null ? 0 : Math.round((1 - openCount / Math.max(1, totalCount)) * 100);
+
   return (
-    <aside className="hidden w-[232px] shrink-0 flex-col bg-sidebar text-[#c6d2e4] md:flex">
+    <aside className="hidden w-[248px] shrink-0 flex-col text-sub md:flex">
+      {/* Знак + название инсталляции. Боковая панель прозрачна: под ней —
+          атмосфера (свечение бренд-оттенка и зерно, ТЗ 5.14), хром поверх неё
+          остаётся нейтральным. */}
       <button
         type="button"
         onClick={homeAvailable ? goHome : undefined}
         aria-label={homeAvailable ? t("sidebar.homeAria") : "Taskira"}
-        className={`flex items-center gap-3 px-4 pb-6 pt-6 text-left ${homeAvailable ? "cursor-pointer" : "cursor-default"}`}
+        className={`mx-2 mt-3 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 ${homeAvailable ? "cursor-pointer hover:bg-hover/70" : "cursor-default"}`}
       >
-        <Logo size={36} />
-        <div className="leading-none">
-          <p className={`font-disp text-[20px] font-bold tracking-tight text-white ${homeAvailable ? "transition-opacity hover:opacity-80" : ""}`}>Taskira</p>
-          <p className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#5f7396]">{t("sidebar.tagline")}</p>
-        </div>
+        <Logo size={26} />
+        <span className="font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink">Taskira</span>
       </button>
 
-      <div className="mx-3 mb-4 flex items-center gap-2.5 rounded-lg border border-[#24385a] bg-sidebar2/70 p-2.5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent font-disp text-[13px] font-bold text-white">{data.project.key[0]}</span>
+      {/* Текущий проект */}
+      <div className="mx-2 mb-2 mt-2 flex items-center gap-2.5 rounded-lg px-2.5 py-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accentsoft font-disp text-[12.5px] font-semibold text-accenttext ring-1 ring-inset ring-accentmuted/60">
+          {data.project.key[0]}
+        </span>
         <div className="min-w-0 leading-tight">
-          <p className="truncate text-[13px] font-semibold text-white">{data.project.name}</p>
-          <p className="font-mono text-[10px] text-[#7b8fb2]">{data.project.key} · {t("sidebar.projectTeamSuffix")}</p>
+          <p className="truncate text-[13px] font-semibold text-ink">{data.project.name}</p>
+          <p className="mt-0.5 truncate text-[11px] text-faint">
+            <span className="font-mono">{data.project.key}</span> · {t("sidebar.projectTeamSuffix")}
+          </p>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {GROUPS.map((g) => (
-          <div key={g.labelKey} className="mb-4">
-            <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f7396]">{t(g.labelKey)}</p>
-            <nav className="flex flex-col gap-0.5 px-3">
+          <div key={g.labelKey} className="mb-3">
+            <p className="px-2.5 pb-1 pt-2 text-[11.5px] font-medium text-faint">{t(g.labelKey)}</p>
+            <nav className="flex flex-col gap-px">
               {g.items
                 .filter(
                   (item) =>
@@ -98,18 +105,20 @@ export default function Sidebar() {
                   <button
                     key={item.id}
                     onClick={() => setView(item.id)}
-                    className={`group relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-all duration-150 ${
-                      active ? "bg-white/[0.09] text-white" : "text-[#9db0cd] hover:bg-white/[0.05] hover:text-white"
+                    aria-current={active ? "page" : undefined}
+                    className={`group relative flex h-8 items-center gap-2.5 rounded-md px-2.5 text-left text-[13.5px] transition-colors duration-150 ${
+                      active
+                        ? "bg-[var(--sidebar-item-active)] font-medium text-ink shadow-e1"
+                        : "text-sub hover:bg-hover/70 hover:text-ink"
                     }`}
                   >
-                    {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-accent" />}
-                    <span className={active ? "text-[#7ab3ff]" : "text-[#647ba1] group-hover:text-[#9db0cd]"}>{item.icon({ size: 16 })}</span>
-                    <span className="flex-1">{t(item.labelKey)}</span>
+                    <span className={`transition-colors duration-150 ${active ? "text-accenttext" : "text-faint group-hover:text-sub"}`}>{item.icon({ size: 16 })}</span>
+                    <span className="flex-1 truncate">{t(item.labelKey)}</span>
                     {badge > 0 && (
-                      <span className="rounded-full bg-accent px-1.5 py-px text-[10px] font-bold text-white">{badge}</span>
+                      <span className="rounded-full bg-accent px-1.5 py-px text-[10.5px] font-semibold tabular text-onaccent">{badge}</span>
                     )}
                     {badge === 0 && item.kbd && (
-                      <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                         <Kbd>{item.kbd}</Kbd>
                       </span>
                     )}
@@ -121,35 +130,29 @@ export default function Sidebar() {
         ))}
       </div>
 
-      <div className="mx-3 rounded-lg border border-[#24385a] bg-sidebar2/50 p-3">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold text-[#9db0cd]">{t("sidebar.openIssues")}</p>
-          <span className="font-mono text-[15px] font-bold text-white">{openCount ?? "…"}</span>
+      {/* Прогресс проекта: доля закрытых — тонкая полоса, цифра открытых. */}
+      <div className="mx-4 mb-3">
+        <div className="flex items-baseline justify-between">
+          <p className="text-[12px] text-faint">{t("sidebar.openIssues")}</p>
+          <span className="tabular text-[13px] font-semibold text-ink">{openCount ?? "…"}</span>
         </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#24385a]">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-accent to-[#22a06b] transition-all duration-700"
-            style={{ width: `${openCount === null ? 0 : Math.round((1 - openCount / Math.max(1, totalCount)) * 100)}%` }}
-          />
+        <div
+          className="mt-1.5 h-1 overflow-hidden rounded-full bg-active"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={closedPct}
+          aria-label={t("sidebar.closedShare")}
+        >
+          <div className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out" style={{ width: `${closedPct}%` }} />
         </div>
-        <p className="mt-1.5 text-[10px] text-[#5f7396]">{t("sidebar.closedShare")}</p>
       </div>
 
-      <div className="px-3 pb-4 pt-3">
-        <div className="rounded-lg border border-[#24385a] bg-sidebar2/70 p-2.5">
-          <div className="flex items-center gap-2.5">
-            <Avatar user={me} size={30} interactive />
-            <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate text-[12.5px] font-semibold text-white">{me?.name}</p>
-              <p className="text-[10.5px] text-[#7b8fb2]">{me?.role}</p>
-            </div>
-          </div>
-          <div className="mt-2 flex items-center justify-between border-t border-[#24385a] pt-2">
-            <RoleBadge role={me.accessRole} size="sm" />
-            <span className="text-[9.5px] text-[#5f7396]">
-              <Kbd>/</Kbd> <Kbd>C</Kbd> <Kbd>1–9</Kbd>
-            </span>
-          </div>
+      <div className="mx-2 mb-3 flex items-center gap-2.5 rounded-lg border-t border-linesoft/70 px-2.5 pb-1 pt-3">
+        <Avatar user={me} size={28} interactive />
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-[13px] font-medium text-ink">{me?.name}</p>
+          <p className="mt-0.5 truncate text-[11px] text-faint">{me?.role}</p>
         </div>
       </div>
     </aside>

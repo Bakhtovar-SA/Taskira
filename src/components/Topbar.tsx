@@ -133,7 +133,7 @@ export function SearchBox() {
 
   return (
     <div className="relative">
-      <div className={`flex items-center gap-2 rounded-md border bg-panel px-2.5 transition-all duration-200 ${focus ? "w-[190px] border-accent shadow-[0_0_0_3px_rgba(11,95,217,0.12)] sm:w-[340px]" : "w-[130px] border-line sm:w-[228px]"}`}>
+      <div className={`flex items-center gap-2 rounded-lg border px-2.5 transition-[width,background-color,border-color,box-shadow] duration-200 ease-out ${focus ? "w-[190px] border-accent bg-panel shadow-focus sm:w-[360px]" : "w-[130px] border-linesoft bg-sunken hover:border-line sm:w-[240px]"}`}>
         <IcSearch size={14} className="shrink-0 text-faint" />
         <input
           id="global-search"
@@ -146,22 +146,22 @@ export function SearchBox() {
           className="h-8 w-full bg-transparent text-[13px] outline-none placeholder:text-faint"
         />
         {!focus && (
-          <kbd className="shrink-0 rounded border border-line bg-canvas px-1.5 font-mono text-[10px] text-faint">/</kbd>
+          <kbd className="shrink-0 rounded border border-line bg-panel px-1.5 font-mono text-[10.5px] leading-[16px] text-faint shadow-[inset_0_-1px_0_var(--border-default)]">/</kbd>
         )}
       </div>
       {focus && q.trim() && (
-        <div className="anim-pop absolute left-0 right-0 top-full z-40 mt-1.5 overflow-hidden rounded-lg border border-line bg-panel shadow-[0_12px_40px_rgba(20,35,64,0.18)]">
+        <div className="glass anim-pop absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-line shadow-e3">
           <button
             onMouseDown={(e) => {
               e.preventDefault();
               setAllProjects((v) => !v);
             }}
-            className="flex w-full items-center justify-between border-b border-linesoft px-3 py-1.5 text-left transition-colors hover:bg-canvas"
+            className="flex w-full items-center justify-between border-b border-linesoft px-3 py-2 text-left transition-colors hover:bg-hover/60"
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider text-faint">
+            <span className="text-[11.5px] font-medium text-faint">
               {headerLabel}
             </span>
-            <span className="shrink-0 text-[10.5px] font-semibold text-accent">
+            <span className="shrink-0 text-[11.5px] font-medium text-accenttext">
               {allProjects ? t("topbar.thisProjectOnly") : t("topbar.allProjectsToggle")}
             </span>
           </button>
@@ -177,10 +177,10 @@ export function SearchBox() {
                     e.preventDefault();
                     openRemote(i);
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-accentsoft"
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-hover/70"
                 >
                   <TypeIcon type={i.typeId} size={14} />
-                  <span className="font-mono text-[11px] font-semibold text-faint">{i.key}</span>
+                  <span className="font-mono text-[11px] text-faint">{i.key}</span>
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{i.title}</span>
                   <span className="shrink-0 truncate text-[10.5px] text-faint">{i.projectKey}</span>
                 </button>
@@ -225,10 +225,10 @@ export function SearchBox() {
                     openIssue(i.id);
                     closeAfterPick();
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-accentsoft"
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-hover/70"
                 >
                   <TypeIcon type={i.typeId} size={14} />
-                  <span className="font-mono text-[11px] font-semibold text-faint">{i.key}</span>
+                  <span className="font-mono text-[11px] text-faint">{i.key}</span>
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{i.title}</span>
                   <PriorityIcon p={i.priorityId} size={13} />
                 </button>
@@ -275,10 +275,10 @@ function BellPanel({ close }: { close: () => void }) {
   return (
     <div className="flex max-h-[70vh] flex-col">
       <div className="flex items-center justify-between border-b border-linesoft px-3.5 py-2.5">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-faint">{t("topbar.notifications")}</p>
+        <p className="text-[13px] font-semibold text-ink">{t("topbar.notifications")}</p>
         <div className="flex items-center gap-3">
           {anyUnread && (
-            <button onClick={() => markNotificationsRead()} className="text-[11px] font-semibold text-accent hover:underline">
+            <button onClick={() => markNotificationsRead()} className="text-[12px] font-medium text-accenttext hover:underline">
               {t("topbar.markAllRead")}
             </button>
           )}
@@ -286,7 +286,7 @@ function BellPanel({ close }: { close: () => void }) {
             <button
               onClick={() => dismissNotifications()}
               title={t("topbar.clearListTitle")}
-              className="text-[11px] font-semibold text-faint hover:text-danger hover:underline"
+              className="text-[12px] font-medium text-faint hover:text-danger hover:underline"
             >
               {t("topbar.clear")}
             </button>
@@ -300,8 +300,8 @@ function BellPanel({ close }: { close: () => void }) {
         {list.map((n) => (
           <div
             key={n.id}
-            className={`group relative flex w-full items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-accentsoft ${
-              n.read ? "" : "bg-accentsoft"
+            className={`group relative mx-1.5 flex items-start gap-2.5 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-hover/70 ${
+              n.read ? "" : "bg-accentsoft/60"
             }`}
           >
             <button onClick={() => go(n)} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
@@ -314,7 +314,7 @@ function BellPanel({ close }: { close: () => void }) {
               <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
                 <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b> {t(NOTIF_VERB[n.type])}{" "}
                 {n.payload.key && (
-                  <span className="font-mono text-[11px] font-semibold text-accent">{n.payload.key}</span>
+                  <span className="font-mono text-[11px] font-medium text-accenttext">{n.payload.key}</span>
                 )}
                 {n.type === "issue.status" && n.payload.from && (
                   <span className="text-faint">
@@ -355,12 +355,12 @@ export function Bell() {
       align="right"
       button={(open) => (
         <button
-          className={`relative flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${open ? "border-accent bg-accentsoft text-accent" : "border-line bg-panel text-sub hover:text-ink"}`}
+          className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150 ${open ? "bg-active text-ink" : "text-sub hover:bg-hover hover:text-ink"}`}
           aria-label={t("topbar.notifications")}
         >
-          <IcBell size={15} />
+          <IcBell size={16} />
           {unread > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9.5px] font-semibold tabular text-onaccent ring-2 ring-canvas">
               {unread > 99 ? "99+" : unread}
             </span>
           )}
@@ -380,8 +380,8 @@ function NotifySettings() {
   const selfWatch = data.notifyPrefs.selfWatch !== false;
   return (
     <div className="border-b border-linesoft px-3.5 py-3">
-      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("topbar.emailNotifications")}</p>
-      <div className="flex gap-1">
+      <p className="mb-2 text-[12px] font-medium text-sub">{t("topbar.emailNotifications")}</p>
+      <div className="flex gap-0.5 rounded-lg bg-sunken p-0.5 ring-1 ring-inset ring-linesoft">
         {(
           [
             ["instant", t("topbar.emailMode.instant")],
@@ -391,8 +391,8 @@ function NotifySettings() {
           <button
             key={v}
             onClick={() => setNotifyPrefs({ email: v })}
-            className={`flex-1 rounded border px-1.5 py-1 text-[11px] font-semibold transition-colors ${
-              mode === v ? "border-accent bg-accentsoft text-accent" : "border-line text-sub hover:border-line2"
+            className={`flex-1 rounded-md px-1.5 py-1 text-[12px] font-medium transition-colors duration-150 ${
+              mode === v ? "bg-panel text-ink shadow-e1" : "text-sub hover:text-ink"
             }`}
           >
             {label}
@@ -420,13 +420,13 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
       width={280}
       align="right"
       button={(open) => (
-        <button className={`flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${open ? "border-accent bg-accentsoft" : "border-line bg-panel hover:border-line2"}`} aria-label={t("topbar.userMenuAria")}>
+        <button className={`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors duration-150 ${open ? "bg-active" : "hover:bg-hover"}`} aria-label={t("topbar.userMenuAria")}>
           {/* interactive=false: клик по аватарке здесь должен открывать это же
               меню (логаут/настройки), а не всплывающую карточку профиля —
               её показывает сам заголовок открытого меню ниже. */}
           <Avatar user={me} size={26} interactive={false} />
           <span className="hidden max-w-[120px] truncate text-left md:block">
-            <span className="block truncate text-[12.5px] font-semibold leading-tight text-ink">{me.name.split(" ")[0]}</span>
+            <span className="block truncate text-[12.5px] font-medium leading-tight text-ink">{me.name.split(" ")[0]}</span>
             <span className="block text-[10px] leading-tight text-faint">{me.role}</span>
           </span>
           <IcChevD size={11} className="text-faint" />
@@ -449,7 +449,7 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
           </div>
           <AppearanceSettings />
           <NotifySettings />
-          <p className="border-t border-linesoft px-4 py-2 font-mono text-[10px] text-faint">
+          <p className="border-t border-linesoft px-4 py-2 tabular text-[11px] text-faint">
             Taskira {import.meta.env.VITE_APP_VERSION || "dev"}
           </p>
           <MenuItem
@@ -477,12 +477,12 @@ function ProjectRow({ p, active, onOpen }: { p: ProjectSummary; active: boolean;
     <div className="group flex items-center">
       <button
         onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-[13px] text-ink transition-colors hover:bg-accentsoft"
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-hover/70"
       >
-        <span className="w-12 shrink-0 rounded bg-linesoft px-1 text-center font-mono text-[10px] font-bold text-sub">{p.key}</span>
+        <span className="w-12 shrink-0 rounded bg-sunken px-1 text-center font-mono text-[10.5px] font-medium text-sub ring-1 ring-inset ring-linesoft">{p.key}</span>
         <span className="min-w-0 flex-1 truncate">{p.name}</span>
-        {p.isShared && <span className="shrink-0 text-[9.5px] uppercase text-faint">{t("topbar.sharedBadge")}</span>}
-        {active && <IcCheck size={12} className="shrink-0 text-accent" />}
+        {p.isShared && <span className="shrink-0 text-[11px] text-faint">{t("topbar.sharedBadge")}</span>}
+        {active && <IcCheck size={13} className="shrink-0 text-accenttext" />}
       </button>
       <button
         onClick={(e) => {
@@ -529,8 +529,8 @@ function ProjectSwitcher() {
       width={300}
       button={(open) => (
         <button
-          className={`flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold transition-colors ${
-            open ? "bg-accentsoft text-accent" : "text-sub hover:bg-canvas"
+          className={`flex items-center gap-1 rounded-md px-1.5 py-1 font-medium transition-colors duration-150 ${
+            open ? "bg-active text-ink" : "text-sub hover:bg-hover hover:text-ink"
           }`}
         >
           <span className="max-w-[180px] truncate">{data.project.name}</span>
@@ -552,13 +552,13 @@ function ProjectSwitcher() {
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder={t("topbar.findProjectPlaceholder")}
-                className="w-full rounded-md border border-line bg-canvas px-2.5 py-1.5 text-[12.5px] text-ink focus:border-accent focus:outline-none"
+                className="w-full rounded-lg border border-linesoft bg-sunken px-2.5 py-1.5 text-[13px] text-ink placeholder:text-faint focus:border-accent focus:bg-panel focus:shadow-focus focus:outline-none"
               />
             </div>
-            <div className="overflow-y-auto py-1">
+            <div className="overflow-y-auto px-1 py-1">
               {favorites.length > 0 && (
                 <div className="mb-1 border-b border-linesoft pb-1">
-                  <p className="px-3 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">{t("topbar.favoritesSection")}</p>
+                  <p className="px-3 pb-1 pt-1.5 text-[11.5px] font-medium text-faint">{t("topbar.favoritesSection")}</p>
                   {favorites.map((p) => (
                     <ProjectRow key={p.id} p={p} active={p.id === data.currentProjectId} onOpen={() => open(p.id)} />
                   ))}
@@ -566,7 +566,7 @@ function ProjectSwitcher() {
               )}
               {deptGroups.map(([name, projs]) => (
                 <div key={name}>
-                  <p className="px-3 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">{name}</p>
+                  <p className="px-3 pb-1 pt-2 text-[11.5px] font-medium text-faint">{name}</p>
                   {projs.map((p) => (
                     <ProjectRow key={p.id} p={p} active={p.id === data.currentProjectId} onOpen={() => open(p.id)} />
                   ))}
@@ -609,7 +609,7 @@ function MobileViewSwitcher() {
       value={ui.view}
       onChange={(e) => setView(e.target.value as ViewId)}
       aria-label={t("topbar.sectionAria")}
-      className="h-8 max-w-[160px] rounded-md border border-line bg-panel px-2 text-[13px] font-semibold text-ink focus:border-accent focus:outline-none md:hidden"
+      className="h-8 max-w-[160px] rounded-lg border border-line bg-panel px-2 text-[13px] font-medium text-ink focus:border-accent focus:shadow-focus focus:outline-none md:hidden"
     >
       {ids.map((id) => (
         <option key={id} value={id}>
@@ -631,24 +631,24 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
   const canCreate = can("create");
 
   return (
-    <header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-line bg-panel px-3 sm:px-5">
+    <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-linesoft px-3 sm:px-4">
       {/* Навигация по разделам на узком экране: сайдбар там скрыт, и без этого
           переключателя на телефоне не осталось бы вообще никакой навигации
           (аудит UX-03). На широком экране роль навигации играет сайдбар. */}
       <MobileViewSwitcher />
 
-      <nav className="hidden min-w-0 items-center gap-1 text-[13px] text-faint md:flex">
+      <nav className="hidden min-w-0 items-center gap-0.5 text-[13px] text-faint md:flex">
         {homeAvailable ? (
-          <button onClick={goHome} className="font-semibold text-sub transition-colors hover:text-accent" title={t("sidebar.homeAria")}>
+          <button onClick={goHome} className="rounded-md px-1.5 py-1 font-medium text-sub transition-colors duration-150 hover:bg-hover hover:text-ink" title={t("sidebar.homeAria")}>
             {t("topbar.projectsCrumb")}
           </button>
         ) : (
-          <span className="font-semibold text-sub">{t("topbar.projectsCrumb")}</span>
+          <span className="px-1.5 font-medium text-sub">{t("topbar.projectsCrumb")}</span>
         )}
-        <IcChevR size={12} />
+        <IcChevR size={12} className="text-line2" />
         <ProjectSwitcher />
-        <IcChevR size={12} />
-        <span className="font-bold text-ink">{viewTitle}</span>
+        <IcChevR size={12} className="text-line2" />
+        <span className="px-1.5 font-semibold text-ink">{viewTitle}</span>
       </nav>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
@@ -657,19 +657,19 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
         {canCreate ? (
           <button
             onClick={() => setCreateOpen(true)}
-            className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-2.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.35)] transition-all hover:bg-accentdeep hover:shadow-[0_4px_14px_rgba(11,95,217,0.4)] active:scale-[0.97] sm:px-3.5"
+            className="btn-primary flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium sm:px-3"
             aria-label={t("topbar.createAria")}
           >
             <IcPlus size={14} /> <span className="hidden sm:inline">{t("topbar.create")}</span>
           </button>
         ) : (
           <Tip label={t("topbar.createDeniedTip")}>
-            <button className="flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md border border-line bg-canvas px-3.5 text-[13px] font-semibold text-faint">
+            <button className="flex h-8 cursor-not-allowed items-center gap-1.5 rounded-lg border border-linesoft bg-sunken px-3 text-[13px] font-medium text-faint">
               <IcLock size={13} /> {t("topbar.create")}
             </button>
           </Tip>
         )}
-        <div className="ml-1 border-l border-line pl-3">
+        <div className="ml-0.5 border-l border-linesoft pl-2">
           <UserMenu onLogout={doLogout} />
         </div>
       </div>

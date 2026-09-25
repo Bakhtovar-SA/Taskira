@@ -46,7 +46,7 @@ function Row({
   return (
     <div
       onClick={() => openIssue(issue.id)}
-      className={`group flex cursor-pointer items-center gap-2.5 border-b border-linesoft bg-panel px-3 py-2 transition-colors last:border-0 hover:bg-accentsoft/50 ${selected ? "bg-accentsoft/40" : ""}`}
+      className={`group flex cursor-pointer items-center gap-2.5 border-b border-linesoft bg-panel px-3 py-2 transition-colors last:border-0 hover:bg-hover/60 ${selected ? "bg-accentsoft/40" : ""}`}
     >
       {/* ТЗ 3.3: чекбоксы появляются только в режиме выделения — не занимают
           места в обычном режиме просмотра списка. */}
@@ -66,7 +66,7 @@ function Row({
       {epic && (
         <span
           className="hidden items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10.5px] font-semibold lg:inline-flex"
-          style={{ background: `${epic.color}1a`, color: epic.color ?? undefined }}
+          style={{ background: `color-mix(in oklch, ${epic.color ?? "var(--accent-solid)"} 14%, transparent)`, color: epic.color ?? undefined }}
         >
           <span className="h-1.5 w-1.5 rounded-sm" style={{ background: epic.color ?? undefined }} />
           <span className="max-w-[110px] truncate">{epic.title}</span>
@@ -78,7 +78,7 @@ function Row({
         ))}
       </span>
       {issue.dueDate && (
-        <span className="hidden shrink-0 font-mono text-[10.5px] text-faint md:inline">{fmtDate(issue.dueDate, lang)}</span>
+        <span className="hidden shrink-0 tabular text-[10.5px] text-faint md:inline">{fmtDate(issue.dueDate, lang)}</span>
       )}
       {status && (
         <span className="hidden shrink-0 sm:inline">
@@ -299,10 +299,10 @@ export default function Backlog() {
   return (
     <div className="flex h-full flex-col">
       {/* шапка */}
-      <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
+      <div className="px-4 pb-3 pt-5 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="mr-2">
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("backlog.title")}</h1>
+            <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("backlog.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
               {set.total === null
                 ? t("common.loading")
@@ -321,7 +321,7 @@ export default function Backlog() {
             {can("create") && (
               <button
                 onClick={() => setImportOpen(true)}
-                className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:border-accent hover:text-accent"
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-panel shadow-e1 px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:bg-hover hover:text-ink"
               >
                 <IcInbox size={13} /> {t("backlog.importTrello")}
               </button>
@@ -366,7 +366,7 @@ export default function Backlog() {
             <button
               onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
               title={t(sortDir === "asc" ? "backlog.sort.asc" : "backlog.sort.desc")}
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-sub hover:text-ink"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-panel shadow-e1 text-sub hover:text-ink"
               aria-label={t("backlog.sort.direction")}
             >
               <IcChevD size={13} className={sortDir === "asc" ? "rotate-180" : ""} />
@@ -474,7 +474,7 @@ export default function Backlog() {
                       onChange={(e) => setNewViewName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") void saveCurrentAsView(); if (e.key === "Escape") setSavingView(false); }}
                       placeholder={t("backlog.viewNamePlaceholder")}
-                      className="h-7 min-w-0 flex-1 rounded border border-line bg-panel px-2 text-[12px] outline-none focus:border-accent"
+                      className="h-7 min-w-0 flex-1 rounded border border-line bg-panel px-2 text-[12px] outline-none focus:border-accent focus:shadow-focus"
                     />
                     <button onClick={() => void saveCurrentAsView()} className="text-[11px] font-semibold text-accent hover:underline">
                       {t("common.save")}
@@ -580,7 +580,7 @@ export default function Backlog() {
               <button
                 disabled={bulkBusy}
                 onClick={() => void runBulk({ action: "delete", issueIds: [...selectedIds] })}
-                className="h-8 rounded-md bg-danger px-3 text-[12.5px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                className="h-8 rounded-md bg-danger px-3 text-[12.5px] font-semibold text-onaccent hover:opacity-90 disabled:opacity-50"
               >
                 {t("common.delete")}
               </button>
@@ -594,7 +594,7 @@ export default function Backlog() {
         <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
           {set.loading ? (
             <div
-              className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]"
+              className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70"
               aria-busy="true"
               aria-label={t("common.loading")}
             >
@@ -610,7 +610,7 @@ export default function Backlog() {
               action={
                 <button
                   onClick={set.reload}
-                  className="h-8 rounded-md border border-line bg-panel px-3 text-[12.5px] font-medium text-sub hover:border-accent hover:text-accent"
+                  className="h-8 rounded-lg border border-line bg-panel shadow-e1 px-3 text-[12.5px] font-medium text-sub hover:bg-hover hover:text-ink"
                 >
                   {t("common.retry")}
                 </button>
@@ -618,7 +618,7 @@ export default function Backlog() {
             />
           ) : rows.length > 0 ? (
             <>
-              <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
+              <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
                 {rows.map((i) => (
                   <Row
                     key={i.id}
@@ -644,7 +644,7 @@ export default function Backlog() {
                   !loadingMore && (
                     <button
                       onClick={loadMore}
-                      className="h-8 rounded-md border border-line bg-panel px-3 font-medium text-sub hover:border-accent hover:text-accent"
+                      className="h-8 rounded-lg border border-line bg-panel shadow-e1 px-3 font-medium text-sub hover:bg-hover hover:text-ink"
                     >
                       {t("backlog.loadMore")}
                     </button>

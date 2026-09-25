@@ -25,7 +25,7 @@ const SECTIONS = [
 ];
 
 const H = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="font-disp mb-1 mt-8 text-[15px] font-bold tracking-tight text-ink first:mt-0">{children}</h2>
+  <h2 className="font-disp mb-1 mt-8 text-[15px] font-semibold tracking-tight text-ink first:mt-0">{children}</h2>
 );
 const P = ({ children }: { children: React.ReactNode }) => <p className="mt-2 text-[13px] leading-relaxed text-sub">{children}</p>;
 const Code = ({ children }: { children: React.ReactNode }) => (
@@ -66,14 +66,14 @@ function DocsEnglish() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] px-6 py-5">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-white"><IcBook size={18} /></span>
-          <div><h1 className="font-disp text-[17px] font-bold text-ink">Taskira documentation</h1><p className="mt-0.5 text-[11.5px] text-faint">A complete guide to the current product behavior and access model</p></div>
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-onaccent"><IcBook size={18} /></span>
+          <div><h1 className="font-disp text-[17px] font-semibold text-ink">Taskira documentation</h1><p className="mt-0.5 text-[11.5px] text-faint">A complete guide to the current product behavior and access model</p></div>
         </div>
         <div className="mt-4 grid gap-5 lg:grid-cols-[220px_1fr]">
-          <nav className="top-5 h-fit rounded-xl border border-line bg-panel p-2 lg:sticky">
-            {EN_SECTIONS.map(([id, label]) => <button key={id} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-canvas"}`}>{label}</button>)}
+          <nav className="top-5 h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-2 lg:sticky">
+            {EN_SECTIONS.map(([id, label]) => <button key={id} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{label}</button>)}
           </nav>
-          <div>{sections.map((s) => <section key={s.id} id={`doc-en-${s.id}`} className="mb-4 scroll-mt-5 rounded-xl border border-line bg-panel p-5"><H>{s.title}</H><P>{s.body}</P></section>)}</div>
+          <div>{sections.map((s) => <section key={s.id} id={`doc-en-${s.id}`} className="mb-4 scroll-mt-5 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5"><H>{s.title}</H><P>{s.body}</P></section>)}</div>
         </div>
       </div>
     </div>
@@ -94,23 +94,23 @@ export default function DocsView() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
         <div className="anim-fadeup flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-white"><IcBook size={18} /></span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-onaccent"><IcBook size={18} /></span>
           <div>
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">Документация Taskira</h1>
+            <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">Документация Taskira</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">Полный справочник по системе: роли, workflow, модель данных · всегда актуален, так как генерируется из кода</p>
           </div>
         </div>
 
         <div className="mt-4 grid gap-5 lg:grid-cols-[220px_1fr]">
           {/* навигация */}
-          <nav className="top-5 h-fit rounded-xl border border-line bg-panel p-2 shadow-[0_1px_3px_rgba(20,35,64,0.05)] lg:sticky">
+          <nav className="top-5 h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-2 lg:sticky">
             {SECTIONS.map((s, i) => (
               <button
                 key={s.id}
                 onClick={() => go(s.id)}
-                className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[12.5px] font-medium transition-colors ${active === s.id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-canvas hover:text-ink"}`}
+                className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[12.5px] font-medium transition-colors ${active === s.id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover hover:text-ink"}`}
               >
-                <span className={`font-mono text-[10px] font-bold ${active === s.id ? "text-accent" : "text-faint"}`}>{String(i + 1).padStart(2, "0")}</span>
+                <span className={`font-mono text-[10px] font-semibold ${active === s.id ? "text-accent" : "text-faint"}`}>{String(i + 1).padStart(2, "0")}</span>
                 {s.label}
               </button>
             ))}
@@ -118,7 +118,7 @@ export default function DocsView() {
 
           {/* контент */}
           <div className="min-w-0 pb-10">
-            <section id="doc-overview" className="anim-fadeup rounded-xl border border-line bg-panel p-5 shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
+            <section id="doc-overview" className="anim-fadeup surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>1 · Обзор системы</H>
               <P>
                 <b className="text-ink">Taskira</b> — корпоративный трекер задач: канбан-доска, список задач, таймлайн направлений,
@@ -148,7 +148,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-roles" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "40ms" }}>
+            <section id="doc-roles" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "40ms" }}>
               <H>2 · Роли и права доступа</H>
               <P>
                 Двухуровневая модель: <b className="text-ink">ролевой уровень</b> (матрица «разрешение × роль») и{" "}
@@ -158,7 +158,7 @@ export default function DocsView() {
               </P>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {ACCESS_ROLES.map((r) => (
-                  <div key={r.id} className="rounded-lg border border-linesoft bg-canvas/50 p-3">
+                  <div key={r.id} className="rounded-lg border border-linesoft bg-sunken p-3">
                     <RoleBadge role={r.id} size="sm" />
                     <p className="mt-2 text-[12px] leading-relaxed text-sub">{r.desc}</p>
                   </div>
@@ -167,9 +167,9 @@ export default function DocsView() {
               <table className="mt-4 w-full border-collapse text-[12px]">
                 <thead>
                   <tr className="border-b border-line">
-                    <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-faint">Разрешение</th>
+                    <th className="px-2 py-2 text-left text-[11.5px] font-medium text-faint">Разрешение</th>
                     {ROLE_ORDER.map((r) => (
-                      <th key={r} className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wider" style={{ color: roleMeta(r).color }}>{roleMeta(r).short}</th>
+                      <th key={r} className="px-2 py-2 text-center text-[11.5px] font-medium" style={{ color: roleMeta(r).color }}>{roleMeta(r).short}</th>
                     ))}
                   </tr>
                 </thead>
@@ -179,7 +179,7 @@ export default function DocsView() {
                       <td className="px-2 py-1.5 font-medium text-ink">{p.name}</td>
                       {ROLE_ORDER.map((r) => (
                         <td key={r} className="px-2 py-1.5 text-center">
-                          {roleHas(r, p.id) ? <span className="font-bold text-ok">✓</span> : <span className="text-line2">—</span>}
+                          {roleHas(r, p.id) ? <span className="font-semibold text-ok">✓</span> : <span className="text-line2">—</span>}
                         </td>
                       ))}
                     </tr>
@@ -194,7 +194,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-workflow" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "60ms" }}>
+            <section id="doc-workflow" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "60ms" }}>
               <H>3 · Рабочий процесс (workflow)</H>
               <P>
                 Workflow — ориентированный граф: вершины — статусы, рёбра — разрешённые переходы. Статусы принадлежат категориям,
@@ -206,10 +206,10 @@ export default function DocsView() {
                   const out = DEFAULT_WORKFLOW.transitions.filter((tr) => tr.from === s.id).length;
                   const inc = DEFAULT_WORKFLOW.transitions.filter((tr) => tr.to === s.id).length;
                   return (
-                    <div key={s.id} className="flex items-center gap-3 rounded-lg border border-linesoft bg-canvas/50 px-3 py-2.5">
+                    <div key={s.id} className="flex items-center gap-3 rounded-lg border border-linesoft bg-sunken px-3 py-2.5">
                       <span className="h-2.5 w-2.5 rounded-sm" style={{ background: c.dot }} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-bold text-ink">{workflowStatusName(s, t)}</p>
+                        <p className="text-[13px] font-semibold text-ink">{workflowStatusName(s, t)}</p>
                         <p className="font-mono text-[10px] text-faint">id: {s.id} · категория: {s.category}</p>
                       </div>
                       <span className="font-mono text-[10.5px] text-faint">{out} → / {inc} ←</span>
@@ -225,11 +225,11 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-issues" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "80ms" }}>
+            <section id="doc-issues" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "80ms" }}>
               <H>4 · Карточка задачи</H>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {TYPE_ORDER.map((ty) => (
-                  <div key={ty} className="flex items-center gap-2.5 rounded-lg border border-linesoft bg-canvas/50 px-3 py-2">
+                  <div key={ty} className="flex items-center gap-2.5 rounded-lg border border-linesoft bg-sunken px-3 py-2">
                     <TypeIcon type={ty} size={16} />
                     <span className="text-[13px] font-semibold text-ink">{t(`issueType.${ty}`)}</span>
                     <span className="ml-auto font-mono text-[10px] text-faint">{ty}</span>
@@ -238,7 +238,7 @@ export default function DocsView() {
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {PRIORITY_ORDER.map((p) => (
-                  <span key={p} className="flex items-center gap-2 rounded-lg border border-linesoft bg-canvas/50 px-3 py-1.5 text-[12.5px] font-medium text-ink">
+                  <span key={p} className="flex items-center gap-2 rounded-lg border border-linesoft bg-sunken px-3 py-1.5 text-[12.5px] font-medium text-ink">
                     <PriorityIcon p={p} size={14} /> {t(`priority.${p}`)}
                   </span>
                 ))}
@@ -276,7 +276,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-list" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "100ms" }}>
+            <section id="doc-list" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "100ms" }}>
               <H>5 · Список задач</H>
               <P>
                 <b className="text-ink">Список задач</b> — плоский перечень всех задач проекта без секций и планирования. Фильтры (статус,
@@ -289,7 +289,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-sprints" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "120ms" }}>
+            <section id="doc-sprints" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "120ms" }}>
               <H>6 · Спринты (опциональный модуль)</H>
               <P>
                 Спринты выключены по умолчанию — администратор включает их отдельно на каждый проект («общий» флаг не даёт
@@ -305,7 +305,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-notifications" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "140ms" }}>
+            <section id="doc-notifications" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "140ms" }}>
               <H>7 · Уведомления</H>
               <P>
                 Колокольчик в шапке показывает непрочитанные уведомления в реальном времени (по WebSocket — сокет лишь
@@ -320,7 +320,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-attachments" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "160ms" }}>
+            <section id="doc-attachments" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "160ms" }}>
               <H>8 · Вложения</H>
               <P>
                 Файлы прикрепляются прямо к карточке задачи (до 50 штук, каждый до 25&nbsp;МБ — сервер может настроить другие
@@ -330,7 +330,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-departments" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "180ms" }}>
+            <section id="doc-departments" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "180ms" }}>
               <H>9 · Департаменты, видимость проектов и LDAP</H>
               <P>
                 <b className="text-ink">Отдел</b> — группа проектов, а не отдельная область данных: проект по умолчанию виден
@@ -347,7 +347,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-reports" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "200ms" }}>
+            <section id="doc-reports" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "200ms" }}>
               <H>10 · Отчёты</H>
               <P>
                 Отчёт не завязан на один проект — он строится по всем проектам, видимым текущему пользователю (то же правило
@@ -359,7 +359,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-home" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "220ms" }}>
+            <section id="doc-home" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "220ms" }}>
               <H>11 · Главный экран и переключение проектов</H>
               <P>
                 Появляется, когда пользователю видно два и более проекта: сводка «мои задачи» (открытые задачи, где он
@@ -370,7 +370,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-hotkeys" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "240ms" }}>
+            <section id="doc-hotkeys" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "240ms" }}>
               <H>12 · Горячие клавиши</H>
               <table className="mt-2 w-full max-w-[460px] border-collapse text-[13px]">
                 <tbody>
@@ -390,15 +390,15 @@ export default function DocsView() {
               </table>
             </section>
 
-            <section id="doc-model" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "260ms" }}>
+            <section id="doc-model" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "260ms" }}>
               <H>13 · Модель данных</H>
               <P>Сущности и связи (описаны в <Code>src/types.ts</Code>):</P>
               <table className="mt-3 w-full border-collapse text-[12px]">
                 <thead>
                   <tr className="border-b border-line text-left">
-                    <th className="px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-faint">Сущность</th>
-                    <th className="px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-faint">Ключевые поля</th>
-                    <th className="px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-faint">Связи</th>
+                    <th className="px-2 py-2 text-[11.5px] font-medium text-faint">Сущность</th>
+                    <th className="px-2 py-2 text-[11.5px] font-medium text-faint">Ключевые поля</th>
+                    <th className="px-2 py-2 text-[11.5px] font-medium text-faint">Связи</th>
                   </tr>
                 </thead>
                 <tbody className="align-top">
@@ -422,7 +422,7 @@ export default function DocsView() {
                     ["Workflow", "statuses[], transitions[]", "Status: id, name, category; Transition: from → to"],
                   ].map(([e, f, r]) => (
                     <tr key={e} className="border-b border-linesoft last:border-0">
-                      <td className="px-2 py-2 font-mono text-[11px] font-bold text-accent">{e}</td>
+                      <td className="px-2 py-2 font-mono text-[11px] font-semibold text-accent">{e}</td>
                       <td className="px-2 py-2 text-sub">{f}</td>
                       <td className="px-2 py-2 text-faint">{r}</td>
                     </tr>
@@ -437,7 +437,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-storage" className="anim-fadeup mt-4 rounded-xl border border-line bg-panel p-5" style={{ animationDelay: "280ms" }}>
+            <section id="doc-storage" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "280ms" }}>
               <H>14 · Хранение и сессия</H>
               <P>
                 Данные приходят с API (<Code>src/api/</Code>): bootstrap <Code>GET /api/projects/:id</Code> отдаёт проект, участников,

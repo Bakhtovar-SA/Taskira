@@ -33,8 +33,8 @@ function Tile({ n, label, hint, tone }: { n: string; label: string; hint?: strin
   const color = tone === "ok" ? "text-ok" : tone === "warn" ? "text-danger" : "text-ink";
   return (
     <div className="rounded-lg border border-line bg-panel px-4 py-3">
-      <p className={`font-disp text-[26px] font-bold leading-none tracking-tight tabular-nums ${color}`}>{n}</p>
-      <p className="mt-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-faint">{label}</p>
+      <p className={`font-disp text-[26px] font-semibold leading-none tracking-tight tabular-nums ${color}`}>{n}</p>
+      <p className="mt-1.5 text-[12px] font-semibold text-faint">{label}</p>
       {hint && <p className="mt-0.5 text-[11px] text-sub">{hint}</p>}
     </div>
   );
@@ -48,7 +48,7 @@ function Trend({ points }: { points: { week: string; closed: number }[] }) {
   const max = Math.max(...points.map((p) => p.closed), 1);
   return (
     <section className="mt-5">
-      <h2 className="text-[12px] font-bold uppercase tracking-wider text-sub">{t("reports.trend.title")}</h2>
+      <h2 className="text-[13px] font-medium text-sub">{t("reports.trend.title")}</h2>
       <div className="mt-2.5 flex h-24 items-end gap-1 overflow-x-auto rounded-lg border border-line bg-panel p-3">
         {points.map((p) => (
           <div key={p.week} className="flex min-w-[18px] flex-1 flex-col items-center gap-1" title={t("reports.trend.week", { week: p.week, count: p.closed })}>
@@ -129,10 +129,10 @@ export default function ReportsView() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       {/* шапка + фильтры */}
-      <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
+      <div className="px-4 pb-3 pt-5 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="mr-2">
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("reports.title")}</h1>
+            <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("reports.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
               {report
                 ? t("reports.projectCount", { count: report.projectCount, noun: tn(report.projectCount, "noun.project.one", "noun.project.few", "noun.project.many").toLowerCase() })
@@ -230,7 +230,7 @@ export default function ReportsView() {
             <button
               onClick={exportCsv}
               disabled={exporting || loading}
-              className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-[12.5px] font-semibold text-onaccent transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               <IcDownload size={13} />
               {t(exporting ? "reports.preparing" : "reports.downloadCsv")}
@@ -243,7 +243,7 @@ export default function ReportsView() {
         {error && (
           <div className="mb-4 rounded-lg border border-danger/40 bg-dangersoft px-4 py-3 text-[13px] text-danger">
             {error}
-            <button onClick={() => void load()} className="ml-2 font-bold underline">
+            <button onClick={() => void load()} className="ml-2 font-semibold underline">
               {t("reports.retry")}
             </button>
           </div>
@@ -286,7 +286,7 @@ export default function ReportsView() {
             <Trend points={report.trend} />
 
             <section className="mt-5">
-              <h2 className="text-[12px] font-bold uppercase tracking-wider text-sub">
+              <h2 className="text-[13px] font-medium text-sub">
                 {t(`reports.group.${groupBy}`)}
               </h2>
 
@@ -302,7 +302,7 @@ export default function ReportsView() {
                 <div className="mt-2.5 overflow-x-auto rounded-lg border border-line bg-panel">
                   <table className="w-full min-w-[560px] text-[13px]">
                     <thead>
-                      <tr className="border-b border-line text-[11px] uppercase tracking-wide text-faint">
+                      <tr className="border-b border-line text-[12px] text-faint">
                         <th className="px-3 py-2 text-left font-semibold">{t("reports.table.name")}</th>
                         <th className="px-3 py-2 text-right font-semibold">{t("reports.table.closed")}</th>
                         <th className="px-3 py-2 text-right font-semibold">{t("reports.table.created")}</th>

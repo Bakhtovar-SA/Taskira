@@ -1,107 +1,73 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 /* ============================================================
-   Палитра. Значения живут в обычных custom properties ВНЕ @theme
-   (@theme компилируется статически при сборке — переопределить его
-   переменные в рантайме нельзя). @theme лишь ссылается на них, поэтому
-   сгенерированные классы (bg-canvas, text-ink, …) продолжают работать,
-   а реальный цвет резолвится браузером из --c-* и переключается по
-   data-theme на <html>. См. ticket-theme-background-home-logo.md §3.
+   Шрифты — локально в сборке (закрытый контур), подмножества
+   латиница + кириллица, font-display: swap. Onest — интерфейс,
+   JetBrains Mono — только ключи задач (ADR-0012).
    ============================================================ */
-:root {
-  color-scheme: light;
-
-  /* поверхности */
-  --c-canvas: #f1f3f7;
-  --c-panel: #fdfdfe;
-  --c-line: #dde3ec;
-  --c-linesoft: #e8edf4;
-  --c-line2: #c3ccda; /* пунктирные рамки / disabled — на тон темнее line */
-
-  /* текст */
-  --c-ink: #17233b;
-  --c-sub: #57606f;
-  --c-faint: #626b7a; /* было #8b95a7 — 3.0:1 на --c-panel/--c-canvas, ниже WCAG AA (4.5:1) для мелкого текста */
-
-  /* сайдбар (тёмный в обеих темах) */
-  --c-sidebar: #0f1b2d;
-  --c-sidebar2: #182a44;
-
-  /* акцент */
-  --c-accent: #0b5fd9;
-  --c-accentdeep: #0a4cb0;
-  --c-accentsoft: #e8f0fd;
-
-  /* статусные */
-  --c-ok: #1c8a5c;
-  --c-oksoft: #ddf3e7;
-  --c-warn: #b45f06;
-  --c-warnsoft: #fdf0cf;
-  --c-warndot: #e2b203;
-  --c-danger: #d23a2e;
-  --c-dangersoft: #fdeae8;
-  --c-todo: #44546f;
-  --c-todosoft: #e3e9f1;
-
-  /* насыщенный текст на *soft-подложках (лозенги статусов, catColor) */
-  --c-ok-fg: #116e46;
-  --c-warn-fg: #7a5c00;
-  --c-todo-fg: #44546f;
-
-  /* приоритет задачи (PriorityIcon, Board-карточка) — единственный источник
-     цвета для обеих реализаций, чтобы не расходиться и адаптироваться к теме */
-  --c-prio-critical: var(--c-danger);
-  --c-prio-high: #e8772e;
-  --c-prio-medium: #c79a0a;
-  --c-prio-low: #3d7fe0;
+@font-face {
+  font-family: "Onest";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./assets/fonts/onest-cyrillic-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Onest";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./assets/fonts/onest-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("./assets/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+2000-206F;
 }
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --c-canvas: #161a20;
-  --c-panel: #1e232c;
-  --c-line: #333c48;
-  --c-linesoft: #29313b;
-  --c-line2: #3c4552;
-
-  --c-ink: #e9edf4;
-  --c-sub: #a9b3c1;
-  --c-faint: #8a94a6; /* было #6e7887 — 3.5:1 на --c-panel, ниже WCAG AA (4.5:1) для мелкого текста */
-
-  --c-sidebar: #10141a;
-  --c-sidebar2: #191f27;
-
-  --c-accent: #4f8ef0;
-  --c-accentdeep: #6ba0f4;
-  --c-accentsoft: #1f3350;
-
-  --c-ok: #34b37a;
-  --c-oksoft: #16362a;
-  --c-warn: #d98b3a;
-  --c-warnsoft: #3a2e17;
-  --c-warndot: #e2b203;
-  --c-danger: #e5594d;
-  --c-dangersoft: #3a201e;
-  --c-todo: #9aa8bd;
-  --c-todosoft: #2b323d;
-
-  --c-ok-fg: #5cc99a;
-  --c-warn-fg: #e0a94a;
-  --c-todo-fg: #aeb9c9;
-
-  /* светлее исходных, чтобы держать контраст на тёмной --c-panel */
-  --c-prio-critical: var(--c-danger);
-  --c-prio-high: #f0954f;
-  --c-prio-medium: #e0b23a;
-  --c-prio-low: #6fa3ee;
-}
-
+/* ============================================================
+   Tailwind-тема ссылается на токены (src/styles/tokens.css):
+   значения резолвятся браузером и переключаются по data-theme.
+   Старые имена классов (bg-canvas, text-ink, …) — алиасы.
+   ============================================================ */
 @theme {
-  --font-disp: "Segoe UI", Arial, sans-serif;
-  --font-body: "Segoe UI", Arial, sans-serif;
-  --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+  --font-disp: "Onest", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Onest", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Onest", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", "Consolas", ui-monospace, monospace;
 
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+
+  --shadow-e1: var(--elev-1);
+  --shadow-e2: var(--elev-2);
+  --shadow-e3: var(--elev-3);
+  --shadow-e4: var(--elev-4);
+  --shadow-accent: var(--elev-accent);
+  --shadow-focus: 0 0 0 3px var(--focus-ring);
+
+  /* семантические имена — для нового кода */
+  --color-frame: var(--bg-frame);
+  --color-sunken: var(--bg-sunken);
+  --color-raised: var(--bg-raised);
+  --color-overlay: var(--bg-overlay);
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-onaccent: var(--text-on-accent);
+  --color-accenttext: var(--accent-text);
+  --color-accentmuted: var(--accent-muted);
+
+  /* алиасы (docs/design/ALIASES.md) */
   --color-canvas: var(--c-canvas);
   --color-panel: var(--c-panel);
   --color-line: var(--c-line);
@@ -138,51 +104,144 @@ body,
 
 body {
   font-family: var(--font-body);
-  background: var(--color-canvas);
-  color: var(--color-ink);
-  -webkit-font-smoothing: antialiased;
   font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: -0.003em;
+  color: var(--text-1);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  /* ── Атмосфера (ТЗ 5.14): свечение бренд-оттенка по углам холста.
+     Лежит ЗА рабочим пространством — хром и контент поверх него
+     непрозрачны, кроме стеклянной боковой панели. */
+  background-color: var(--bg-frame);
+  background-image:
+    radial-gradient(70vw 60vh at -8% -12%, var(--glow-a), transparent 68%),
+    radial-gradient(60vw 60vh at 108% 112%, var(--glow-b), transparent 70%),
+    radial-gradient(40vw 45vh at 62% -18%, var(--glow-c), transparent 70%);
+  background-attachment: fixed;
+  isolation: isolate;
 }
 
-/* Плавное переключение тёмная/светлая — без резкого мигания фона.
-   Держим только на корневых поверхностях (см. ticket round4 §0.2). */
-:root,
+/* Зерно — готовая плитка из сборки (не живой SVG-фильтр), только на
+   атмосфере: z-index -1 внутри изолированного body кладёт его над фоном,
+   но под любым контентом. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("./assets/atmosphere/grain.png");
+  background-size: 160px 160px;
+  opacity: var(--texture-opacity);
+  mix-blend-mode: var(--texture-blend);
+}
+
+/* Плавное переключение темы — только корневые поверхности. */
 body {
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color var(--dur-4) var(--ease-standard), color var(--dur-4) var(--ease-standard);
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--c-accent) 32%, transparent);
+  background: color-mix(in oklch, var(--accent-solid) 30%, transparent);
+}
+
+/* ── Числа: табличные на ключах, датах, счётчиках. */
+.font-mono,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.font-mono {
+  letter-spacing: -0.01em;
+}
+
+/* ── Стекло — только хром (поповеры, меню, боковая панель, шапки диалогов).
+   Никогда на карточках задач и формах. Отключается при
+   prefers-reduced-transparency и где backdrop-filter не поддерживается. */
+.glass {
+  background: var(--bg-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: var(--bg-raised);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: var(--bg-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Поверхность-«лист» рабочей области (Linear-подобная вставка справа от
+   боковой панели): верхний блик в тёмной теме + мягкая тень в светлой. */
+.surface-sheet {
+  background: var(--bg-canvas);
+  box-shadow: var(--highlight-top), var(--elev-2);
+}
+
+/* Поднятая поверхность карточки/панели: тень уровня + верхний блик. */
+.surface-raised {
+  background: var(--bg-panel);
+  box-shadow: var(--highlight-top), var(--elev-1);
+}
+
+/* Основная кнопка: сплошной акцент, внутренний блик, мягкое свечение. */
+.btn-primary {
+  background: var(--accent-solid);
+  color: var(--text-on-accent);
+  box-shadow: var(--highlight-accent), var(--elev-accent);
+  transition:
+    background-color var(--dur-2) var(--ease-standard),
+    box-shadow var(--dur-2) var(--ease-standard),
+    transform var(--dur-1) var(--ease-standard);
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+.btn-primary:active {
+  transform: translateY(0.5px) scale(0.985);
 }
 
 *::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: var(--c-line2);
-  border-radius: 8px;
-  border: 2px solid transparent;
+  background: color-mix(in oklch, var(--border-strong) 80%, transparent);
+  border-radius: 10px;
+  border: 3px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--c-faint);
+  background: var(--text-3);
   background-clip: content-box;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
+}
+* {
+  scrollbar-color: color-mix(in oklch, var(--border-strong) 80%, transparent) transparent;
+  scrollbar-width: thin;
 }
 
+/* Сетка точек — только экран входа и пустые состояния (гейт 5.3). */
 .dotgrid {
-  background-image: radial-gradient(color-mix(in srgb, var(--c-faint) 55%, transparent) 1px, transparent 1.1px);
+  background-image: radial-gradient(color-mix(in oklch, var(--text-3) 30%, transparent) 1px, transparent 1.1px);
   background-size: 22px 22px;
 }
 
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -192,7 +251,7 @@ body {
 @keyframes popIn {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(8px);
+    transform: scale(0.98) translateY(-2px);
   }
   to {
     opacity: 1;
@@ -221,10 +280,10 @@ body {
 @keyframes pulseDot {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(34, 160, 107, 0.5);
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--status-done) 50%, transparent);
   }
   55% {
-    box-shadow: 0 0 0 6px rgba(34, 160, 107, 0);
+    box-shadow: 0 0 0 6px color-mix(in oklch, var(--status-done) 0%, transparent);
   }
 }
 @keyframes drawIn {
@@ -266,10 +325,29 @@ body {
 }
 
 .anim-fadeup {
-  animation: fadeUp 0.34s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation: fadeUp var(--dur-3) var(--ease-out) both;
 }
 .anim-pop {
-  animation: popIn 0.22s cubic-bezier(0.2, 0.8, 0.3, 1.1) both;
+  animation: popIn var(--dur-2) var(--ease-out) both;
+  transform-origin: top center;
+}
+/* Диалог: подложка затухает, окно поднимается из лёгкого масштаба. */
+@keyframes scrimIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+.anim-scrim {
+  animation: scrimIn var(--dur-3) var(--ease-standard) both;
+}
+.anim-dialog {
+  animation: dialogIn var(--dur-4) var(--ease-out) both;
 }
 .anim-toast {
   animation: toastIn 0.25s cubic-bezier(0.2, 0.7, 0.3, 1) both;
@@ -306,10 +384,29 @@ body {
   transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .timeline-bar:hover {
-  transform: translateX(var(--bar-x, 0)) translateY(-50%) scaleY(1.1);
+  box-shadow: 0 8px 22px -8px color-mix(in oklch, var(--bar) 80%, transparent);
+  --bar-edge: color-mix(in oklch, var(--bar) 70%, transparent);
+}
+.timeline-bar {
+  --bar-edge: color-mix(in oklch, var(--bar) 45%, transparent);
+  box-shadow: 0 6px 18px -8px color-mix(in oklch, var(--bar) 60%, transparent);
+}
+.timeline-bar-bg {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--bar) 14%, var(--bg-panel)),
+    color-mix(in oklch, var(--bar) 30%, var(--bg-panel)) 70%,
+    color-mix(in oklch, var(--bar) 42%, var(--bg-panel))
+  );
 }
 .timeline-bar-fill {
-  transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--bar) 40%, var(--bg-panel)),
+    color-mix(in oklch, var(--bar) 62%, var(--bg-panel))
+  );
+  box-shadow: inset -1px 0 0 color-mix(in oklch, var(--bar) 70%, transparent);
+  transition: width var(--dur-4) var(--ease-out);
 }
 
 /* Скелет-заглушка (round4 §1): серый плейсхолдер с бегущим бликом.
@@ -317,17 +414,32 @@ body {
 .skeleton {
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--c-line) 45%, transparent) 25%,
-    color-mix(in srgb, var(--c-line2) 60%, transparent) 37%,
-    color-mix(in srgb, var(--c-line) 45%, transparent) 63%
+    var(--bg-hover) 25%,
+    var(--bg-active) 37%,
+    var(--bg-hover) 63%
   );
   background-size: 400% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 6px;
 }
+@keyframes fadeOnly {
+  from {
+    opacity: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none;
+  }
+  /* Только прозрачность, без сдвигов и масштабов (ТЗ 5.13 п.4). */
+  .anim-fadeup,
+  .anim-pop,
+  .anim-dialog,
+  .anim-toast {
+    animation: fadeOnly var(--dur-2) linear both;
+  }
+  .btn-primary:active {
+    transform: none;
   }
   .anim-drop,
   .anim-drop-done {
@@ -339,9 +451,11 @@ body {
   }
 }
 
+/* Единое кольцо фокуса для всего интерактивного. */
+:where(button, a, [tabindex], summary, select, input[type="checkbox"], input[type="radio"]):focus-visible,
 .focusable:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 input,

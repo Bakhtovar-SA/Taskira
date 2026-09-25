@@ -138,24 +138,24 @@ export default function TimelineView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1120px] min-[1536px]:max-w-[1380px] min-[1920px]:max-w-[1680px] px-6 py-5">
-        <div className="anim-fadeup flex items-end justify-between gap-3">
+        <div className="flex items-end justify-between gap-3">
           <div>
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("timeline.title")}</h1>
-            <p className="mt-0.5 text-[11.5px] text-faint">{t("timeline.subtitle")}</p>
+            <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("timeline.title")}</h1>
+            <p className="mt-0.5 text-[12.5px] text-faint">{t("timeline.subtitle")}</p>
           </div>
           {epics.length > 0 && (
             <button
               onClick={scrollToToday}
-              className="mb-0.5 flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-line bg-panel px-3 text-[12px] font-medium text-sub transition-colors hover:border-accent hover:text-accent"
+              className="mb-0.5 flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium text-sub ring-1 ring-inset ring-line transition-colors hover:bg-hover hover:text-ink"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-danger" /> {t("timeline.today")}
+              <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_0_3px_var(--accent-subtle)]" /> {t("timeline.today")}
             </button>
           )}
         </div>
 
         {epicsState.loading && epics.length === 0 ? (
           <div
-            className="mt-6 overflow-hidden rounded-xl border border-line bg-panel"
+            className="surface-raised mt-6 overflow-hidden rounded-xl ring-1 ring-inset ring-line/70"
             aria-busy="true"
             aria-label={t("common.loading")}
           >
@@ -172,7 +172,7 @@ export default function TimelineView() {
               action={
                 <button
                   onClick={epicsState.reload}
-                  className="h-8 rounded-md border border-line bg-panel px-3 text-[12.5px] font-medium text-sub hover:border-accent hover:text-accent"
+                  className="h-8 rounded-lg border border-line bg-panel px-3 text-[12.5px] font-medium text-sub shadow-e1 hover:bg-hover hover:text-ink"
                 >
                   {t("common.retry")}
                 </button>
@@ -193,16 +193,15 @@ export default function TimelineView() {
             tabIndex={0}
             role="group"
             aria-label={t("timeline.aria")}
-            className="focusable anim-fadeup mt-4 overflow-x-auto overflow-y-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]"
-            style={{ animationDelay: "60ms" }}
+            className="focusable surface-raised mt-5 overflow-x-auto overflow-y-hidden rounded-xl ring-1 ring-inset ring-line/70"
           >
             {/* шапка недель */}
-            <div className="grid border-b border-line bg-canvas/60" style={{ gridTemplateColumns: GRID_COLS, width: LABEL_PX + WEEKS * WEEK_PX }}>
-              <div className="sticky left-0 z-10 bg-canvas px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">{t("field.direction")}</div>
+            <div className="grid border-b border-linesoft bg-sunken/70" style={{ gridTemplateColumns: GRID_COLS, width: LABEL_PX + WEEKS * WEEK_PX }}>
+              <div className="sticky left-0 z-10 bg-sunken px-4 py-2.5 text-[12px] font-medium text-faint">{t("field.direction")}</div>
               {weeks.map((w, i) => (
-                <div key={i} className={`border-l border-linesoft px-1.5 py-2.5 text-center ${i === 0 ? "bg-accentsoft/60" : ""}`}>
-                  <p className="font-mono text-[11px] font-bold text-sub">{w.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric" })}</p>
-                  <p className="text-[10px] capitalize text-faint">{w.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "short" })}</p>
+                <div key={i} className={`border-l border-linesoft/70 px-1.5 py-2 text-center ${i === 0 ? "bg-accentsoft/70" : ""}`}>
+                  <p className={`tabular text-[12px] font-medium ${i === 0 ? "text-accenttext" : "text-sub"}`}>{w.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric" })}</p>
+                  <p className="text-[11px] capitalize text-faint">{w.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "short" })}</p>
                 </div>
               ))}
             </div>
@@ -220,19 +219,19 @@ export default function TimelineView() {
                   <div className="grid items-center" style={{ gridTemplateColumns: GRID_COLS }}>
                     <button
                       onClick={() => setOpen((o) => ({ ...o, [epic.id]: !expanded }))}
-                      className="sticky left-0 z-10 flex items-center gap-2.5 bg-panel px-4 py-3 text-left transition-colors hover:bg-canvas/60"
+                      className="sticky left-0 z-10 flex items-center gap-2.5 bg-panel px-4 py-3 text-left transition-colors hover:bg-hover"
                     >
                       <IcChevR size={12} className={`shrink-0 text-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
-                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: epic.color ?? undefined }} />
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: epic.color ?? "var(--accent-solid)" }} />
                       <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-semibold text-ink">{epic.title}</span>
-                        <span className="block font-mono text-[10px] text-faint">{t("timeline.issueCount", { done, total: total, key: epic.key })}</span>
+                        <span className="block truncate text-[13px] font-medium text-ink">{epic.title}</span>
+                        <span className="block text-[11px] tabular text-faint">{t("timeline.issueCount", { done, total: total, key: epic.key })}</span>
                       </span>
                     </button>
                     <div className="relative col-span-full row-start-1" style={{ gridColumn: `2 / span ${WEEKS}` }}>
                       <div className="relative h-[46px]">
                         {/* линия сегодня */}
-                        <span className="absolute bottom-0 top-0 z-10 w-px bg-danger/70" style={{ left: todayPx }} title={t("timeline.today")} />
+                        <span className="absolute bottom-0 top-0 z-10 w-px bg-accent/70" style={{ left: todayPx }} title={t("timeline.today")} />
                         {/* Разделители недель — один фоновый repeating-gradient вместо
                             52 отдельных <span> на строку (аудит: 6.5x рост DOM после
                             расширения WEEKS 8→52), как .dotgrid уже делает для канвы. */}
@@ -243,17 +242,27 @@ export default function TimelineView() {
                         <button
                           onClick={() => openIssue(epic.id)}
                           title={t("timeline.barTitle", { title: epic.title, done, total: total })}
-                          className="timeline-bar group absolute top-1/2 flex h-6 items-center overflow-hidden rounded-full text-white shadow-sm"
-                          style={{ "--bar-x": `${start * WEEK_PX}px`, width: span * WEEK_PX, background: epic.color } as React.CSSProperties}
+                          className="timeline-bar group absolute top-1/2 flex h-7 items-center overflow-hidden rounded-lg text-ink ring-1 ring-inset ring-[var(--bar-edge)]"
+                          style={
+                            {
+                              "--bar-x": `${start * WEEK_PX}px`,
+                              "--bar": epic.color ?? "var(--accent-solid)",
+                              width: span * WEEK_PX,
+                            } as React.CSSProperties
+                          }
                         >
-                          <span className="timeline-bar-fill absolute inset-y-0 left-0 bg-black/25" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
-                          <span className="relative z-10 truncate px-2.5 text-[10.5px] font-bold">{epic.key}</span>
+                          {/* Атмосферная заливка полосы: мягкий градиент тона направления
+                              (ТЗ 5.12 f / 5.15 — «градиент в календаре»), прогресс — насыщенная
+                              часть того же тона. */}
+                          <span aria-hidden className="timeline-bar-bg absolute inset-0" />
+                          <span className="timeline-bar-fill absolute inset-y-0 left-0" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+                          <span className="relative z-10 truncate px-2.5 font-mono text-[11px] font-medium">{epic.key}</span>
                         </button>
                       </div>
                     </div>
                   </div>
                   {expanded && (
-                    <div className="anim-fadeup sticky left-0 border-t border-dashed border-linesoft bg-canvas/40" style={{ width: viewportW || "100%" }}>
+                    <div className="anim-fadeup sticky left-0 border-t border-dashed border-linesoft bg-sunken" style={{ width: viewportW || "100%" }}>
                       <EpicChildren projectId={data.currentProjectId} epicId={epic.id} total={total} />
                     </div>
                   )}
@@ -267,8 +276,8 @@ export default function TimelineView() {
           <p className="mt-3 text-[11.5px] font-medium text-warn">{t("timeline.epicsTruncated", { n: epics.length })}</p>
         )}
 
-        <p className="anim-fadeup mt-3 flex items-center gap-2 text-[11px] text-faint" style={{ animationDelay: "120ms" }}>
-          <span className="inline-block h-3 w-px bg-danger/70" /> {t("timeline.legend")}
+        <p className="mt-3 flex items-center gap-2 text-[12px] text-faint">
+          <span className="inline-block h-3 w-px bg-accent/70" /> {t("timeline.legend")}
         </p>
       </div>
     </div>

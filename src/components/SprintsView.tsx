@@ -30,7 +30,7 @@ function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) 
         e.dataTransfer.effectAllowed = "move";
       }}
       onClick={() => openIssue(issue.id)}
-      className="group flex cursor-pointer items-center gap-2 border-b border-linesoft bg-panel px-2.5 py-1.5 transition-colors last:border-0 hover:bg-accentsoft/50"
+      className="group flex cursor-pointer items-center gap-2 border-b border-linesoft bg-panel px-2.5 py-1.5 transition-colors last:border-0 hover:bg-hover/60"
     >
       <TypeIcon type={issue.typeId} size={13} />
       <span className="w-14 shrink-0 truncate font-mono text-[10.5px] font-semibold text-faint">{issue.key}</span>
@@ -102,14 +102,14 @@ function CreateSprintModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal onClose={onClose} w={440} title={t("sprints.new")}>
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-        <span className="font-disp text-[14px] font-bold text-ink">{t("sprints.new")}</span>
-        <button onClick={onClose} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-canvas hover:text-ink" aria-label={t("common.close")}>
+        <span className="font-disp text-[14px] font-semibold text-ink">{t("sprints.new")}</span>
+        <button onClick={onClose} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("common.close")}>
           <IcX size={15} />
         </button>
       </div>
       <div className="space-y-3 px-5 py-4">
         <div>
-          <label className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("sprints.name")}</label>
+          <label className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.name")}</label>
           <input
             autoFocus
             value={name}
@@ -117,48 +117,48 @@ function CreateSprintModal({ onClose }: { onClose: () => void }) {
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder={t("sprints.namePlaceholder")}
             maxLength={LIMITS.sprint.name.max}
-            className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:outline-none"
+            className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:shadow-focus focus:outline-none"
           />
         </div>
         <div>
-          <label className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("sprints.goal")}</label>
+          <label className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.goal")}</label>
           <textarea
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             rows={2}
             placeholder={t("sprints.goalPlaceholder")}
             maxLength={LIMITS.sprint.goal.max}
-            className="w-full resize-none rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:outline-none"
+            className="w-full resize-none rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:shadow-focus focus:outline-none"
           />
         </div>
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("sprints.start")}</label>
+            <label className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.start")}</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:outline-none"
+              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:shadow-focus focus:outline-none"
             />
           </div>
           <div className="flex-1">
-            <label className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("sprints.end")}</label>
+            <label className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.end")}</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:outline-none"
+              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:shadow-focus focus:outline-none"
             />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-canvas">
+          <button onClick={onClose} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-hover">
             {t("common.cancel")}
           </button>
           <button
             onClick={submit}
             disabled={!name.trim()}
-            className="rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg btn-primary px-4 py-2 text-[13px] font-medium text-onaccent transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t("common.create")}
           </button>
@@ -178,9 +178,9 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
     <div className="rounded-lg border border-line bg-panel">
       <div className="flex flex-wrap items-center gap-2.5 border-b border-linesoft px-3.5 py-2.5">
         <IcFlag size={14} />
-        <span className="font-disp text-[13.5px] font-bold text-ink">{sprint.name}</span>
+        <span className="font-disp text-[13.5px] font-semibold text-ink">{sprint.name}</span>
         <span
-          className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+          className={`rounded px-1.5 py-0.5 text-[11.5px] font-medium ${
             sprint.status === "active"
               ? "bg-oksoft text-ok"
               : sprint.status === "future"
@@ -214,7 +214,7 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
               onClick={() => {
                 if (window.confirm(t("sprints.completeConfirm", { name: sprint.name }))) completeSprint(sprint.id);
               }}
-              className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-semibold text-white transition-colors hover:bg-accentdeep"
+              className="flex items-center gap-1 rounded-lg btn-primary px-2.5 py-1 text-[11.5px] font-medium text-onaccent transition-colors"
             >
               <IcCheck size={12} /> {t("sprints.complete")}
             </button>
@@ -276,7 +276,7 @@ export default function SprintsView() {
     <div className="flex h-full gap-4 overflow-hidden p-4">
       <div className="flex w-[300px] shrink-0 flex-col rounded-lg border border-line bg-panel">
         <div className="border-b border-linesoft px-3.5 py-2.5">
-          <span className="font-disp text-[13.5px] font-bold text-ink">{t("sidebar.nav.backlog")}</span>
+          <span className="font-disp text-[13.5px] font-semibold text-ink">{t("sidebar.nav.backlog")}</span>
           <span className="ml-1.5 text-[11px] text-faint">{data.issuesComplete ? backlogIssues.length : "…"}</span>
         </div>
         <DropZone onDropIssue={(id) => setIssueSprint(id, null)} className="min-h-0 flex-1 overflow-y-auto transition-colors">
@@ -296,11 +296,11 @@ export default function SprintsView() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-faint">{t("sprints.count", { count: data.sprints.length })}</p>
+          <p className="text-[12px] font-semibold text-faint">{t("sprints.count", { count: data.sprints.length })}</p>
           {can("manageSprints") && (
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.97]"
+              className="flex items-center gap-1.5 rounded-lg btn-primary px-3 py-1.5 text-[12.5px] font-medium text-onaccent transition-all active:scale-[0.97]"
             >
               <IcPlus size={13} /> {t("sprints.sprint")}
             </button>

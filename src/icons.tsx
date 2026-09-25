@@ -1,4 +1,5 @@
 import type { IssueTypeId, PriorityId } from "./types";
+import { useId } from "react";
 import { useT } from "./i18n";
 
 type P = { size?: number; className?: string };
@@ -11,7 +12,7 @@ const S = ({ size = 16, className, children, viewBox = "0 0 16 16", filled = fal
     className={className}
     fill={filled ? "currentColor" : "none"}
     stroke={filled ? "none" : "currentColor"}
-    strokeWidth={filled ? 0 : 1.7}
+    strokeWidth={filled ? 0 : 1.55}
     strokeLinecap="round"
     strokeLinejoin="round"
     aria-hidden="true"
@@ -20,39 +21,64 @@ const S = ({ size = 16, className, children, viewBox = "0 0 16 16", filled = fal
   </svg>
 );
 
-export const Logo = ({ size = 26 }: P) => (
-  <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-    <rect width="32" height="32" rx="7" fill="#0F1B2D" />
-    <rect x="6" y="10" width="5" height="13" rx="2" fill="#0B5FD9" />
-    <rect x="13.5" y="6" width="5" height="17" rx="2" fill="#22A06B" />
-    <rect x="21" y="13" width="5" height="10" rx="2" fill="#E2B203" />
-  </svg>
-);
+/** Знак Taskira — «Две карточки» (ТЗ 5.5): перекладина и ножка буквы «Т» —
+ *  две карточки задач с зазором между ними, отсылка к доске. Знак живёт в одном
+ *  цвете (`mono` — currentColor, части различаются зазором, а не градиентом);
+ *  цветная версия — на бренд-плашке с мягким градиентом тона 288. */
+export const Logo = ({ size = 26, mono = false, className }: P & { mono?: boolean }) => {
+  const id = useId().replace(/:/g, "");
+  if (mono)
+    return (
+      <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={className} fill="currentColor">
+        <rect x="5" y="6" width="22" height="7" rx="3.5" />
+        <rect x="12.5" y="15" width="7" height="12" rx="3.5" />
+      </svg>
+    );
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={className}>
+      <defs>
+        <linearGradient id={`${id}-plate`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="oklch(0.66 0.19 298)" />
+          <stop offset="1" stopColor="oklch(0.45 0.21 280)" />
+        </linearGradient>
+        <linearGradient id={`${id}-sheen`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="oklch(1 0 0)" stopOpacity="0.28" />
+          <stop offset="0.5" stopColor="oklch(1 0 0)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="9" fill={`url(#${id}-plate)`} />
+      <rect width="32" height="32" rx="9" fill={`url(#${id}-sheen)`} />
+      <rect x="0.5" y="0.5" width="31" height="31" rx="8.5" fill="none" stroke="oklch(1 0 0)" strokeOpacity="0.16" />
+      <rect x="7.5" y="8.5" width="17" height="5.5" rx="2.75" fill="oklch(0.99 0.006 288)" />
+      <rect x="13.25" y="16" width="5.5" height="8.5" rx="2.75" fill="oklch(0.99 0.006 288)" fillOpacity="0.8" />
+    </svg>
+  );
+};
 
 export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId | string; size?: number }) => {
   const { t } = useT();
   if (type === "bug")
     return (
       <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t("issueType.bug")}>
-        <circle cx="8" cy="8" r="7.2" fill="#D23A2E" />
-        <ellipse cx="8" cy="8.8" rx="2.5" ry="3.1" fill="#fff" />
-        <circle cx="8" cy="4.9" r="1.4" fill="#fff" />
-        <path d="M6.7 4.2L5.4 3M9.3 4.2l1.3-1.2M5.3 8H3.2M12.8 8h-2.1M5.6 11.4l-1.7 1.2M10.4 11.4l1.7 1.2" stroke="#fff" strokeWidth="1.1" strokeLinecap="round" />
+        <circle cx="8" cy="8" r="7.2" fill="var(--type-bug)" />
+        <ellipse cx="8" cy="8.8" rx="2.5" ry="3.1" fill="var(--text-on-accent)" />
+        <circle cx="8" cy="4.9" r="1.4" fill="var(--text-on-accent)" />
+        <path d="M6.7 4.2L5.4 3M9.3 4.2l1.3-1.2M5.3 8H3.2M12.8 8h-2.1M5.6 11.4l-1.7 1.2M10.4 11.4l1.7 1.2" stroke="var(--text-on-accent)" strokeWidth="1.1" strokeLinecap="round" />
       </svg>
     );
   if (type === "request")
     return (
       <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t("issueType.request")}>
-        <rect x="1" y="1" width="14" height="14" rx="3" fill="#7A5CC6" />
-        <path d="M5 6.5h6M5 9.5h4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
-        <circle cx="11" cy="11" r="1.4" fill="#fff" />
+        <rect x="1" y="1" width="14" height="14" rx="4" fill="var(--type-request)" />
+        <path d="M5 6.5h6M5 9.5h4" stroke="var(--text-on-accent)" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="11" cy="11" r="1.4" fill="var(--text-on-accent)" />
       </svg>
     );
   /* task (и legacy story/epic → как задача) */
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t("issueType.task")}>
-      <rect x="1" y="1" width="14" height="14" rx="3" fill="#3D7FE0" />
-      <path d="M4.6 8.3l2.3 2.3 4.5-4.8" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="1" y="1" width="14" height="14" rx="4" fill="var(--type-task)" />
+      <path d="M4.6 8.3l2.3 2.3 4.5-4.8" stroke="var(--text-on-accent)" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 };

@@ -38,7 +38,7 @@ export default function CollaboratingView() {
     <div className="flex h-full">
       <div className="flex w-[300px] shrink-0 flex-col border-r border-line bg-panel">
         <div className="border-b border-linesoft px-4 py-3">
-          <p className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-wider text-sub">
+          <p className="flex items-center gap-2 text-[13px] font-medium text-sub">
             <IcLink size={13} className="text-accent" /> {t("collaborating.title")}
           </p>
           <p className="mt-0.5 text-[11px] text-faint">{t("collaborating.subtitle")}</p>
@@ -51,10 +51,10 @@ export default function CollaboratingView() {
               className={`mb-1 flex w-full flex-col items-start gap-0.5 rounded-md border px-2.5 py-2 text-left transition-colors ${
                 it.issueId === selected
                   ? "border-accent bg-accentsoft/50"
-                  : "border-transparent hover:border-linesoft hover:bg-canvas/60"
+                  : "border-transparent hover:border-linesoft hover:bg-hover"
               }`}
             >
-              <span className="w-full truncate font-mono text-[10.5px] font-bold text-sub">
+              <span className="w-full truncate font-mono text-[10.5px] font-semibold text-sub">
                 {it.key} · {it.projectName}
               </span>
               <span className="w-full truncate text-[12.5px] font-medium text-ink">{it.title}</span>

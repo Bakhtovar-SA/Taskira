@@ -234,7 +234,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: "",
         name: "…",
         initials: "?",
-        color: "#64748B",
+        color: "var(--gray-9)",
         role: "",
         globalRole: "member" as const,
         accessRole: "viewer" as const,

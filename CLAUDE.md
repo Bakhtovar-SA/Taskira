@@ -603,15 +603,18 @@ since any edit touches it. The board shows the last 14 days in its done column
   the client has no router and no drag lib wired in; hash routing is hand-rolled in `App.tsx`.
 - CI (`.github/workflows/test.yml`) now has a `client` job (root `npm run typecheck` +
   `npm test` + `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
-- **Theming** (`src/theme.ts` + `src/index.css`): the palette lives in plain custom
-  properties on `:root` / `:root[data-theme="dark"]` (`--c-canvas`, …); `@theme` only
-  aliases them (`--color-canvas: var(--c-canvas)`) so `bg-canvas` / `text-ink` / etc.
-  resolve live per theme. **Don't add raw `#hex` to components** — use a token class or
-  `var(--c-*)` in inline styles, otherwise it won't dark-theme. `catColor()` in `ui.tsx`
-  returns `var(--c-*)`. Theme mode (`system|light|dark`) and one of 6 background presets
-  are in `localStorage` only (`taskira.theme` / `taskira.bg`), applied to `<html>` by
-  `applyTheme()`; the profile-menu "Оформление" popup (`AppearanceSettings` in `ui.tsx`)
-  is the UI. Sidebar-internal colors stay hardcoded (the rail is dark in both themes).
+- **Theming / design tokens** (ADR-0012, [docs/design/DESIGN.md](docs/design/DESIGN.md)): every colour lives in
+  `src/styles/tokens.css` — OKLCH primitives (`--violet-*`, `--gray-*`, hue 288) → semantic tokens (`--bg-*`,
+  `--text-1/2/3`, `--border-*`, `--accent-*`, `--status-*`, `--elev-*`) → aliases of the old `--c-*` names, so old
+  classes (`bg-canvas`, `text-ink`, …) still resolve ([docs/design/ALIASES.md](docs/design/ALIASES.md)). Themes
+  override only the semantic layer. **Don't add raw `#hex`/`rgb()` to components** — `npm run colors:check` fails CI;
+  `npm run contrast:check` fails CI if a declared text/background pair drops below 4.5:1. Theme, atmosphere preset
+  and grain texture are `<html>` attributes (`data-theme`, `data-atmosphere`, `data-texture`) set by `applyTheme()`
+  and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg` /
+  `taskira.texture`). The sidebar is transparent over the atmosphere (glow + grain on `body`); the work area is a
+  `.surface-sheet`. Glass (`.glass`) is chrome-only — popovers, menus, toasts, tooltips — never task cards or forms.
+  Fonts are vendored in `src/assets/fonts/` (Onest latin+cyrillic; JetBrains Mono latin, keys only); weights
+  400/500/600 only, no all-caps labels.
 - **Responsive layout**: below 768px the issue modal's right-hand panel (status, assignee,
   due date, labels) collapses under the main content instead of sitting beside it, the
   sidebar hides in favor of a native `<select>` in `Topbar.tsx` carrying the same sections

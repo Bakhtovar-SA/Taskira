@@ -28,3 +28,4 @@
 | [0007](./0007-native-html5-dnd-physics-dnd-reverted.md) | Доска: нативный HTML5 drag&drop; кастомная «физика» перетаскивания откатана | Accepted | 2026-09-13 |
 | [0008](./0008-wouter-for-client-routing.md) | Клиентский роутинг: `wouter`, а не `react-router` | Accepted | 2026-09-22 |
 | [0009](./0009-database-per-tenant.md) | Database-per-tenant: одна БД = одна организация, без `organization_id` в схеме | Accepted | 2026-09-22 |
+| [0012](./0012-design-language.md) | Язык дизайна: фиолет 288, Onest, токены в три слоя, «тихий хром — живая атмосфера» | Accepted | 2026-09-25 |

@@ -609,6 +609,7 @@ const ru = {
   "appearance.theme.dark": "Тёмная",
   "appearance.bgAria": "Фон: {name}",
   "appearance.language": "Язык",
+  "appearance.texture": "Текстура фона",
 
   "toast.success": "Готово",
   "toast.error": "Ошибка",

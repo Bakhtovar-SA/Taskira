@@ -6,7 +6,7 @@ import Topbar from "./components/Topbar";
 import Board from "./components/Board";
 import LoginForm from "./components/LoginForm";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { SkeletonColumn, Toasts } from "./ui";
+import { Toasts } from "./ui";
 import type { ViewId } from "./types";
 import { useT } from "./i18n";
 
@@ -26,29 +26,36 @@ const CreateIssueModal = lazy(() => import("./components/CreateIssueModal"));
 const SoloView = lazy(() => import("./components/SoloView"));
 const HomeView = lazy(() => import("./components/HomeView"));
 
-/** Скелет оболочки на время bootstrap — вместо голого «Загрузка…» (round4 §1). */
+/** Скелет оболочки на время bootstrap — форма боковой панели и шапки, а не
+ *  доски (ТЗ 5.8 п.7): до загрузки неизвестно, какой раздел откроется. */
 function BootSkeleton() {
   return (
-    <div className="flex h-full overflow-hidden">
-      <div className="hidden w-[240px] shrink-0 flex-col gap-3 bg-sidebar p-4 md:flex">
-        <div className="skeleton h-8 w-32 opacity-40" />
-        <div className="mt-4 space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="skeleton h-6 w-full opacity-30" />
+    <div className="flex h-full overflow-hidden" aria-busy="true">
+      <div className="hidden w-[248px] shrink-0 flex-col gap-2 px-4 pt-5 md:flex">
+        <div className="flex items-center gap-2.5">
+          <div className="skeleton h-[26px] w-[26px] rounded-lg" />
+          <div className="skeleton h-4 w-20" />
+        </div>
+        <div className="mt-5 flex items-center gap-2.5">
+          <div className="skeleton h-7 w-7 rounded-md" />
+          <div className="skeleton h-3.5 w-32" />
+        </div>
+        <div className="mt-6 space-y-2.5">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="skeleton h-5" style={{ width: `${[78, 64, 70, 58, 74, 66, 60][i]}%` }} />
           ))}
         </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-3 border-b border-line bg-panel px-6 py-4">
-          <div className="skeleton h-5 w-40" />
-          <div className="skeleton ml-auto h-8 w-32" />
-        </div>
-        <div className="dotgrid flex-1 overflow-hidden">
-          <div className="mx-auto flex h-full w-max items-start gap-4 px-6 py-4">
-            <SkeletonColumn cards={3} />
-            <SkeletonColumn cards={2} />
-            <SkeletonColumn cards={4} />
-            <SkeletonColumn cards={1} />
+      <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
+        <div className="surface-sheet flex min-h-0 flex-1 flex-col overflow-hidden md:rounded-xl md:border md:border-linesoft">
+          <div className="flex h-[52px] items-center gap-3 border-b border-linesoft px-5">
+            <div className="skeleton h-4 w-44" />
+            <div className="skeleton ml-auto h-8 w-56 rounded-lg" />
+            <div className="skeleton h-8 w-24 rounded-lg" />
+          </div>
+          <div className="flex-1 space-y-3 px-6 py-6">
+            <div className="skeleton h-6 w-40" />
+            <div className="skeleton h-4 w-64" />
           </div>
         </div>
       </div>
@@ -138,9 +145,12 @@ function Shell() {
   return (
     <div className="flex h-full overflow-hidden">
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* Рабочая область — «лист», вставленный справа от боковой панели:
+          своя поверхность, скругление и мягкая тень поверх атмосферы. */}
+      <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
+       <div className="surface-sheet flex min-h-0 flex-1 flex-col overflow-hidden md:rounded-xl md:border md:border-linesoft">
         <Topbar onLogout={logout} />
-        <main className="min-h-0 flex-1 bg-canvas">
+        <main className="min-h-0 flex-1">
           {/* Граница вокруг контента, а не всего приложения: сайдбар и шапка
               переживают падение раздела, и из него можно уйти. */}
           <ErrorBoundary resetKey={ui.view} copy={{
@@ -163,6 +173,7 @@ function Shell() {
           </div></Suspense>
           </ErrorBoundary>
         </main>
+       </div>
       </div>
 
       <Suspense fallback={null}>
