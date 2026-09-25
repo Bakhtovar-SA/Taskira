@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { act, render } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider, useStore, useToasts } from "./store";
 import {
   ApiError,
   authApi,
@@ -12,6 +12,11 @@ import {
   type ProjectBootstrap,
   type ServerIssue,
 } from "./api";
+
+/** `useStore()` + вынесенные из него домены (ADR-0011, шаги 1–2): тосты и уведомления — отдельные хранилища. */
+function useStoreSnapshot() {
+  return { ...useStore(), toasts: useToasts() };
+}
 
 /**
  * PERF-06, срез стора «issues-lookup». Мутациям нужен объект задачи: правило
@@ -78,8 +83,8 @@ class FakeWebSocket {
   close(): void {}
 }
 
-function Probe({ onSnapshot }: { onSnapshot: (api: ReturnType<typeof useStore>) => void }) {
-  onSnapshot(useStore());
+function Probe({ onSnapshot }: { onSnapshot: (api: ReturnType<typeof useStoreSnapshot>) => void }) {
+  onSnapshot(useStoreSnapshot());
   return null;
 }
 
@@ -101,7 +106,7 @@ async function setup(opts: { role: "manager" | "employee"; listed: ServerIssue[]
   const get = vi.spyOn(issuesApi, "get");
   const patch = vi.spyOn(issuesApi, "patch");
 
-  let latest!: ReturnType<typeof useStore>;
+  let latest!: ReturnType<typeof useStoreSnapshot>;
   const ui = render(
     <StoreProvider>
       <Probe onSnapshot={(api) => (latest = api)} />

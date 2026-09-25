@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useStore } from "../store";
+import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
 import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
@@ -68,6 +68,7 @@ function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }
 export default function HomeView({ onLogout }: { onLogout: () => void }) {
   const { t, tn } = useT();
   const { data, enterProject, switchProject, setCreateOpen } = useStore();
+  const { notifications } = useNotifications();
   const me = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
   const last = readLastProject();
   const [q, setQ] = useState("");
@@ -279,7 +280,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
               </div>
             </section>
 
-            <RecentActivity notifications={data.notifications} onOpen={openTask} />
+            <RecentActivity notifications={notifications} onOpen={openTask} />
             </div>
           </div>
         </div>

@@ -6,7 +6,7 @@ import { avatarApi, invalidateAvatarBlobUrl, notificationsApi, type NotifyPrefs 
 import { applyNotificationAction, mapNotification } from "./mappers";
 import type { StoreCtx } from "./ctx";
 
-export function useNotificationActions({ setData, dataRef, toast, handleApiError, local, sessionEpochRef }: StoreCtx) {
+export function useNotificationActions({ setData, dataRef, toast, handleApiError, local, sessionEpochRef, notifStore }: StoreCtx) {
   /* -------- уведомления (миграция 011) -------- */
 
   const refreshNotifications = useCallback(async () => {
@@ -14,7 +14,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
     try {
       const [res, unread] = await Promise.all([notificationsApi.list(), notificationsApi.unreadCount()]);
       if (epoch !== sessionEpochRef.current) return;
-      setData((prev) => ({ ...prev, notifications: res.items.map(mapNotification), unreadCount: unread.count }));
+      notifStore.setState(() => ({ notifications: res.items.map(mapNotification), unreadCount: unread.count }));
     } catch {
       /* тихо — колокол не критичен */
     }
@@ -25,7 +25,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
     try {
       const { count } = await notificationsApi.unreadCount();
       if (epoch !== sessionEpochRef.current) return;
-      setData((prev) => (prev.unreadCount === count ? prev : { ...prev, unreadCount: count }));
+      notifStore.setState((prev) => (prev.unreadCount === count ? prev : { ...prev, unreadCount: count }));
     } catch {
       /* тихо */
     }
@@ -37,7 +37,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
       try {
         await notificationsApi.markRead(ids);
         if (epoch !== sessionEpochRef.current) return;
-        setData((prev) => applyNotificationAction(prev, ids, "read"));
+        notifStore.setState((prev) => applyNotificationAction(prev, ids, "read"));
       } catch (err) {
         handleApiError(err);
       }
@@ -52,7 +52,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
       try {
         await notificationsApi.dismiss(ids);
         if (epoch !== sessionEpochRef.current) return;
-        setData((prev) => applyNotificationAction(prev, ids, "dismiss"));
+        notifStore.setState((prev) => applyNotificationAction(prev, ids, "dismiss"));
       } catch (err) {
         handleApiError(err);
       }

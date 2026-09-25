@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { AccessRole, Status, User } from "./types";
-import { useStore } from "./store";
+import { useStore, useToasts } from "./store";
 import { usersApi, getAvatarBlobUrl, type PickableUser } from "./api";
 import { IcBriefcase, IcCamera, IcPhone, IcTrash, IcX } from "./icons";
 import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
@@ -714,7 +714,7 @@ export function Switch({ checked, onChange, disabled }: { checked: boolean; onCh
 }
 
 export function Toasts() {
-  const { toasts } = useStore();
+  const toasts = useToasts();
   const { t } = useT();
   const meta = {
     success: { dot: "var(--status-done)", label: t("toast.success") },

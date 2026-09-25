@@ -29,6 +29,7 @@ import {
   writeLastProject,
 } from "./mappers";
 import type { StoreCtx } from "./ctx";
+import { EMPTY_NOTIFICATIONS } from "./slices";
 import type { BootStatus, SoloState, UIState } from "./mappers";
 
 export interface SessionDeps {
@@ -43,9 +44,12 @@ export interface SessionDeps {
 }
 
 export function useSessionActions(
-  { setData, dataRef, pid, toast, handleApiError, local }: StoreCtx,
+  { setData, dataRef, pid, toast, handleApiError, local, notifStore }: StoreCtx,
   { setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef }: SessionDeps,
 ) {
+  // Лента и счётчик уведомлений живут отдельно от `data` (ADR-0011, шаг 2), но сбрасываются там же, где раньше
+  // сбрасывались вместе с ним: при каждой полной замене `data` (вход, смена проекта, выход).
+  const resetNotifications = useCallback(() => notifStore.setState(() => EMPTY_NOTIFICATIONS), [notifStore]);
   /** Грузит данные одного проекта (bootstrap + задачи) в объект Data. */
   const buildProjectData = useCallback(
     async (
@@ -84,8 +88,6 @@ export function useSessionActions(
         assignedToMe: [],
         assignedTruncated: false,
         collaborations,
-        notifications: [],
-        unreadCount: 0,
         notifyPrefs: {},
         workflow: {
           statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
@@ -148,6 +150,7 @@ export function useSessionActions(
         // синтетического 'member'/'viewer' (глоб. admin потерял бы доступ к
         // AdminView, откуда только и можно создать первый проект).
         setData({ ...emptyData(), currentUserId: user.id, departments: deps, users: [mapUser(user, {})] });
+        resetNotifications();
         if (user.globalRole === "admin") {
           setUi((u) => ({ ...u, view: "admin" }));
           toast("info", local("Проектов пока нет — создайте первый в разделе «Департаменты»", "There are no projects yet — create the first one in Departments"));
@@ -184,6 +187,7 @@ export function useSessionActions(
           assignedTruncated: assigned.truncated,
           notifyPrefs: user.notifyPrefs ?? {},
         });
+        resetNotifications();
         void refreshNotifications();
         if (takeHomeIntro()) {
           toast(
@@ -200,6 +204,7 @@ export function useSessionActions(
       const next = await buildProjectData(chosen, user.id, projects, deps, collabs, user.favoriteProjectIds ?? []);
       if (stale()) return;
       setData({ ...next, notifyPrefs: user.notifyPrefs ?? {} });
+      resetNotifications();
       void refreshNotifications();
       writeLastProject(chosen);
       // Прямая ссылка на приглашённую задачу (в проекте, который не открыт) —
@@ -228,7 +233,7 @@ export function useSessionActions(
       handleApiError(err, local("Не удалось загрузить данные", "Couldn't load data"));
       setBootStatus("error");
     }
-  }, [handleApiError, buildProjectData, toast, refreshNotifications]);
+  }, [handleApiError, buildProjectData, toast, refreshNotifications, resetNotifications]);
 
   const switchSeqRef = useRef(0);
   // Кросс-проектный переход "найти задачу → открыть её" (SearchBox): switchProject
@@ -261,6 +266,7 @@ export function useSessionActions(
           );
           if (seq !== switchSeqRef.current || epoch !== sessionEpochRef.current) return; // более поздний клик или уже был выход
           setData(next);
+          resetNotifications();
           writeLastProject(projectId);
           setUi((u) => ({ ...u, selectedIssueId: null }));
           setBootStatus("ready");
@@ -271,7 +277,7 @@ export function useSessionActions(
         }
       })();
     },
-    [buildProjectData, handleApiError],
+    [buildProjectData, handleApiError, resetNotifications],
   );
 
   const refreshAssignedToMe = useCallback(async () => {
@@ -323,10 +329,11 @@ export function useSessionActions(
     void authApi.logout().catch(() => undefined);
     clearToken();
     setData(emptyData());
+    resetNotifications();
     setSolo(null);
     setUi({ view: "board", selectedIssueId: null, createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
     setBootStatus("unauthenticated");
-  }, []);
+  }, [resetNotifications]);
 
   const refreshIssues = useCallback(async () => {
     const requestProjectId = pid();

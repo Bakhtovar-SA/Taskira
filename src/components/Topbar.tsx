@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useStore } from "../store";
+import { useNotifications, useStore, useUnreadCount } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
@@ -255,12 +255,12 @@ export const NOTIF_VERB: Record<NotificationT["type"], TKey> = {
 function BellPanel({ close }: { close: () => void }) {
   const { t } = useT();
   const { data, openIssue, switchProject, refreshNotifications, markNotificationsRead, dismissNotifications } = useStore();
+  const { notifications: list, unreadCount } = useNotifications();
   useEffect(() => {
     void refreshNotifications();
   }, [refreshNotifications]);
 
-  const list = data.notifications;
-  const anyUnread = data.unreadCount > 0 || list.some((n) => !n.read);
+  const anyUnread = unreadCount > 0 || list.some((n) => !n.read);
 
   const go = (n: NotificationT) => {
     if (!n.read) markNotificationsRead([n.id]);
@@ -347,8 +347,8 @@ function BellPanel({ close }: { close: () => void }) {
 
 export function Bell() {
   const { t } = useT();
-  const { data } = useStore();
-  const unread = data.unreadCount;
+  // Только счётчик (ADR-0011, шаг 2): Bell не подписан на общий контекст стора.
+  const unread = useUnreadCount();
   return (
     <Dropdown
       width={360}

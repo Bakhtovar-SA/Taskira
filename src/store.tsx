@@ -21,6 +21,7 @@ import {
   mapIssue,
   statusById,
 } from "./store/mappers";
+import { createSlices, EMPTY_NOTIFICATIONS, SlicesCtx } from "./store/slices";
 import type { BootStatus, CreateInput, SoloState, StoreIndexes, UIState } from "./store/mappers";
 
 import type { StoreCtx } from "./store/ctx";
@@ -39,7 +40,7 @@ interface Api {
   idx: StoreIndexes;
   me: User;
   ui: UIState;
-  toasts: Toast[];
+  // Тосты и уведомления — не здесь (ADR-0011, шаги 1–2): `useToasts()`, `useNotifications()`, `useUnreadCount()`.
   bootStatus: BootStatus;
   /** Заполнено только при bootStatus === "solo" (одиночный просмотр приглашённого). */
   solo: SoloState | null;
@@ -164,7 +165,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     lastEvent: null,
     collabOpenIssueId: null,
   });
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  // Тосты и уведомления — внешние хранилища (ADR-0011, шаги 1–2): их изменения не перерисовывают провайдер,
+  // а значит и всех потребителей `useStore()`. Создаются один раз на провайдер.
+  const [slices] = useState(createSlices);
 
   /* Подсветка только что перемещённой карточки гаснет ПО ТАЙМЕРУ.
      Раньше Board сравнивал Date.now() прямо в рендере, но ререндер сам собой не
@@ -198,9 +201,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const toast = useCallback((kind: Toast["kind"], text: string) => {
     const id = toastSeq++;
-    setToasts((t) => [...t.slice(-3), { id, kind, text }]);
-    window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
-  }, []);
+    slices.toasts.setState((t) => [...t.slice(-3), { id, kind, text }]);
+    window.setTimeout(() => slices.toasts.setState((t) => (t.some((x) => x.id === id) ? t.filter((x) => x.id !== id) : t)), 4200);
+  }, [slices]);
 
   const handleApiError = useCallback(
     (err: unknown, fallback = local("Ошибка запроса", "Request failed")) => {
@@ -210,6 +213,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           clearToken();
           setBootStatus("unauthenticated");
           setData(emptyData());
+          slices.notifications.setState(() => EMPTY_NOTIFICATIONS);
         }
         const englishByCode: Record<string, string> = {
           NETWORK: "Can't connect to the server",
@@ -224,7 +228,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       toast("error", fallback);
     },
-    [toast, local],
+    [toast, local, slices],
   );
 
   const me = useMemo<User>(() => {
@@ -267,7 +271,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Общий контекст доменных хуков (ТЗ 2.3): собирается один раз, после requirePerm/withIssue.
-  const storeCtx: StoreCtx = { setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef };
+  const storeCtx: StoreCtx = {
+    setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef, notifStore: slices.notifications,
+  };
   const { resolveIssue, lookupIssue, withIssue } = useIssueLookup(storeCtx);
   const { refreshNotifications, refreshUnreadCount, markNotificationsRead, dismissNotifications, setNotifyPrefs, uploadAvatar,
     removeAvatar } = useNotificationActions(storeCtx);
@@ -401,7 +407,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     idx,
     me,
     ui,
-    toasts,
     bootStatus,
     solo,
     can: canFn,
@@ -479,8 +484,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     searchAllProjects,
   };
 
-  return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
+  return (
+    <SlicesCtx.Provider value={slices}>
+      <Ctx.Provider value={api}>{children}</Ctx.Provider>
+    </SlicesCtx.Provider>
+  );
 }
+
+export { useNotifications, useToasts, useUnreadCount } from "./store/slices";
+export type { NotificationsState } from "./store/slices";
 
 export function useStore(): Api {
   const ctx = useContext(Ctx);

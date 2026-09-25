@@ -1,6 +1,6 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider, useNotifications, useStore, useToasts } from "./store";
 import {
   attachmentsApi,
   authApi,
@@ -13,6 +13,11 @@ import {
   type ProjectBootstrap,
   type ServerIssue,
 } from "./api";
+
+/** `useStore()` + вынесенные из него домены (ADR-0011, шаги 1–2): тосты и уведомления — отдельные хранилища. */
+function useStoreSnapshot() {
+  return { ...useStore(), toasts: useToasts(), notif: useNotifications() };
+}
 
 /** Характеризационные тесты действий подсущностей задачи и уведомлений/аватара, вынесенных из store.tsx в
  *  src/store/issueSub.ts и notifications.ts (ТЗ 2.3, шаг 4): до выноса их почти не покрывал ни один тест. */
@@ -74,9 +79,9 @@ async function boot() {
   vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [issue("i1")], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [note("n1", false), note("n2", false), note("n3", true)] as never, nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 2 });
-  let latest: ReturnType<typeof useStore> | null = null;
+  let latest: ReturnType<typeof useStoreSnapshot> | null = null;
   function Probe() {
-    latest = useStore();
+    latest = useStoreSnapshot();
     return null;
   }
   const { unmount } = render(
@@ -95,7 +100,7 @@ async function boot() {
   return () => latest!;
 }
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); await new Promise((r) => setTimeout(r, 0)); });
-const theIssue = (get: () => ReturnType<typeof useStore>) => get().data.issues.find((i) => i.id === "i1")!;
+const theIssue = (get: () => ReturnType<typeof useStoreSnapshot>) => get().data.issues.find((i) => i.id === "i1")!;
 
 afterEach(() => {
   unmountCurrent?.();
@@ -180,19 +185,19 @@ describe("подсущности задачи (src/store/issueSub.ts)", () => {
 describe("уведомления и аватар (src/store/notifications.ts)", () => {
   test("после bootstrap лента и счётчик из API; markNotificationsRead / dismissNotifications", async () => {
     const get = await boot();
-    expect(get().data.notifications.map((n) => n.id)).toEqual(["n1", "n2", "n3"]);
-    expect(get().data.unreadCount).toBe(2);
+    expect(get().notif.notifications.map((n) => n.id)).toEqual(["n1", "n2", "n3"]);
+    expect(get().notif.unreadCount).toBe(2);
     const mark = vi.spyOn(notificationsApi, "markRead").mockResolvedValue(undefined as never);
     const dis = vi.spyOn(notificationsApi, "dismiss").mockResolvedValue(undefined as never);
     act(() => get().markNotificationsRead(["n1"]));
     await settle();
     expect(mark).toHaveBeenCalledWith(["n1"]);
-    expect(get().data.notifications.find((n) => n.id === "n1")!.read).toBe(true);
-    expect(get().data.unreadCount).toBe(1);
+    expect(get().notif.notifications.find((n) => n.id === "n1")!.read).toBe(true);
+    expect(get().notif.unreadCount).toBe(1);
     act(() => get().dismissNotifications(["n2"]));
     await settle();
     expect(dis).toHaveBeenCalledWith(["n2"]);
-    expect(get().data.notifications.map((n) => n.id)).toEqual(["n1", "n3"]);
+    expect(get().notif.notifications.map((n) => n.id)).toEqual(["n1", "n3"]);
   });
 
   test("refreshNotifications перечитывает ленту; setNotifyPrefs сохраняет ответ сервера", async () => {
@@ -202,7 +207,7 @@ describe("уведомления и аватар (src/store/notifications.ts)", 
     await act(async () => {
       await get().refreshNotifications();
     });
-    expect(get().data.notifications.map((n) => n.id)).toEqual(["n9"]);
+    expect(get().notif.notifications.map((n) => n.id)).toEqual(["n9"]);
     vi.spyOn(notificationsApi, "setPrefs").mockResolvedValue({ notifyPrefs: { email: "daily" } } as never);
     act(() => get().setNotifyPrefs({ email: "daily" }));
     await settle();

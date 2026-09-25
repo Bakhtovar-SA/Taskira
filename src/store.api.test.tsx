@@ -76,7 +76,6 @@ const API_KEYS = [
   "startSprint",
   "switchProject",
   "toast",
-  "toasts",
   "toggleChecklistItem",
   "toggleFavoriteProject",
   "ui",
