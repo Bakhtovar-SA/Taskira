@@ -6,7 +6,7 @@ import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
-import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
 import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
@@ -78,7 +78,7 @@ export function MentionText({ text }: { text: string }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1 text-[12px] font-medium text-faint">{label}</p>
+      <p className="mb-1.5 text-[12px] font-semibold text-faint">{label}</p>
       {children}
     </div>
   );
@@ -680,7 +680,7 @@ export default function IssueModal() {
   };
 
   return (
-    <Modal onClose={() => openIssue(null)} w={940} title={t("issueModal.title", { key: issue.key, title: issue.title })}>
+    <Modal variant="panel" onClose={() => openIssue(null)} w={980} title={t("issueModal.title", { key: issue.key, title: issue.title })}>
       {/* шапка */}
       <div className="flex items-center gap-2 border-b border-linesoft px-5 py-3">
         <span title={t(`issueType.${issue.typeId}`)} className="flex items-center">
@@ -729,7 +729,7 @@ export default function IssueModal() {
 
       {/* Ниже ~720px карточка складывается в одну колонку: именно её открывают
           по ссылке из письма, в том числе с телефона (аудит UX-03). */}
-      <div className="grid grid-cols-1 gap-0 md:grid-cols-[1fr_280px]">
+      <div className="grid min-h-[calc(100%-49px)] grid-cols-1 gap-0 md:grid-cols-[1fr_300px]">
         {/* основная колонка */}
         <div className="min-w-0 px-6 py-5">
           <EditableTitle issue={issue} readOnly={!editOk} />
@@ -880,7 +880,7 @@ export default function IssueModal() {
         </div>
 
         {/* правая панель */}
-        <aside className="space-y-3 rounded-b-xl border-t border-linesoft bg-sunken px-4 py-4 md:rounded-bl-none md:rounded-br-xl md:border-l md:border-t-0">
+        <aside className="space-y-3.5 border-t border-linesoft bg-sunken/80 px-4 py-5 md:border-l md:border-t-0">
           {!editOk && (
             <div className="flex items-start gap-2 rounded-md border border-line bg-warnsoft/50 px-2.5 py-2 text-[11.5px] leading-snug text-warn">
               <IcLock size={13} className="mt-0.5 shrink-0" />
@@ -898,7 +898,7 @@ export default function IssueModal() {
                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-medium ring-1 ring-inset ring-[oklch(0.5_0.02_288/0.08)] transition-[filter] hover:brightness-[0.98] ${open ? "!ring-2 !ring-accent/40" : ""}`}
                     style={{ background: c.bg, color: c.fg }}
                   >
-                    <span className="h-2 w-2 rounded-full" style={{ background: c.dot }} />
+                    <StatusGlyph category={status.category} size={14} />
                     <span className="min-w-0 truncate">{workflowStatusName(status, t)}</span>
                     <IcChevD size={12} className="ml-auto shrink-0" />
                   </button>
@@ -938,7 +938,7 @@ export default function IssueModal() {
                     style={{ background: c.bg, color: c.fg }}
                     title={denyMsg}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
+                    <StatusGlyph category={status.category} size={14} />
                     <span className="min-w-0 truncate">{workflowStatusName(status, t)}</span>
                     <IcLock size={11} className="ml-auto shrink-0 opacity-70" />
                   </span>
@@ -1258,7 +1258,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
   const [editing, setEditing] = useState(false);
   useEffect(() => setDraft(issue.title), [issue.title, issue.id]);
 
-  if (readOnly) return <h2 className="px-0 py-1 text-[20px] font-semibold leading-snug tracking-[-0.02em] text-ink">{issue.title}</h2>;
+  if (readOnly) return <h2 className="px-0 py-1 text-[22px] font-bold leading-snug tracking-[-0.03em] text-ink">{issue.title}</h2>;
 
   if (editing)
     return (
@@ -1278,7 +1278,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
             setEditing(false);
           }
         }}
-        className="w-full resize-none rounded-md border border-accent bg-panel p-2 text-[20px] font-semibold leading-snug tracking-[-0.02em] text-ink outline-none ring-2 ring-accent/15"
+        className="w-full resize-none rounded-md border border-accent bg-panel p-2 text-[22px] font-bold leading-snug tracking-[-0.03em] text-ink outline-none ring-2 ring-accent/15"
       />
     );
   // Заголовок редактируется по клику, но должен открываться и с клавиатуры:
@@ -1297,7 +1297,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
         }}
         title={t("issue.clickToRename")}
         aria-label={t("issue.renameAria", { title: issue.title })}
-        className="group block cursor-text rounded-md px-2 py-1 text-[20px] font-semibold leading-snug tracking-[-0.02em] text-ink transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="group block cursor-text rounded-md px-2 py-1 text-[22px] font-bold leading-snug tracking-[-0.03em] text-ink transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         {issue.title}
         <IcPencil size={13} className="ml-2 inline text-faint opacity-0 transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100" />

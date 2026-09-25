@@ -408,6 +408,15 @@ body {
     transform: translateY(6px) scale(0.985);
   }
 }
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+.anim-panel {
+  animation: panelIn var(--dur-4) var(--ease-out) both;
+}
 .anim-scrim {
   animation: scrimIn var(--dur-3) var(--ease-standard) both;
 }
@@ -503,6 +512,7 @@ body {
   .anim-fadeup,
   .anim-pop,
   .anim-dialog,
+  .anim-panel,
   .anim-toast {
     animation: fadeOnly var(--dur-2) linear both;
   }

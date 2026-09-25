@@ -392,11 +392,16 @@ export function Modal({
   children,
   w = 860,
   title,
+  variant = "center",
 }: {
   onClose: () => void;
   children: React.ReactNode;
   w?: number;
   title?: string;
+  /** "panel" — выезжающая справа панель на всю высоту (просмотр задачи поверх
+   *  доски с сохранением контекста, ТЗ 5.6 п.4 / прототип гейта); "center" —
+   *  обычный диалог. Доступность (роль, ловушка фокуса, Esc) одна и та же. */
+  variant?: "center" | "panel";
 }) {
   const { t } = useT();
   const resolvedTitle = title ?? t("ui.dialog");
@@ -467,7 +472,11 @@ export function Modal({
 
   return (
     <div
-      className="anim-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--bg-scrim)] px-4 py-10 backdrop-blur-[3px]"
+      className={
+        variant === "panel"
+          ? "anim-scrim fixed inset-0 z-50 flex justify-end bg-[color-mix(in_oklch,var(--bg-scrim)_70%,transparent)] p-2 backdrop-blur-[2px]"
+          : "anim-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--bg-scrim)] px-4 py-10 backdrop-blur-[3px]"
+      }
       onMouseDown={onClose}
     >
       <div
@@ -476,7 +485,11 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="anim-dialog w-full rounded-xl border border-line bg-overlay shadow-[var(--highlight-top),var(--elev-4)] outline-none"
+        className={
+          variant === "panel"
+            ? "anim-panel glass-edge h-full w-full overflow-y-auto rounded-xl bg-overlay shadow-[var(--highlight-top),var(--elev-4)] outline-none"
+            : "anim-dialog glass-edge w-full rounded-xl bg-overlay shadow-[var(--highlight-top),var(--elev-4)] outline-none"
+        }
         style={{ maxWidth: w }}
         onMouseDown={(e) => e.stopPropagation()}
       >
