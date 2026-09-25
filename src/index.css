@@ -452,6 +452,9 @@ body {
   box-shadow: 0 8px 22px -8px color-mix(in oklch, var(--bar) 80%, transparent);
   --bar-edge: color-mix(in oklch, var(--bar) 70%, transparent);
 }
+.timeline-name {
+  transform: translateX(calc(var(--bar-x, 0px) - 4px));
+}
 .timeline-bar {
   --bar-edge: color-mix(in oklch, var(--bar) 45%, transparent);
   box-shadow: 0 6px 18px -8px color-mix(in oklch, var(--bar) 60%, transparent);

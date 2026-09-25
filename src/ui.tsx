@@ -152,6 +152,17 @@ export const ProjectMark = ({ projectKey, size = 20 }: { projectKey: string; siz
   </span>
 );
 
+/** Цвет направления: сохранённый в БД цвет, иначе — детерминированный тон из
+ *  палитры проектов (ТЗ 5.3 п.6) по id, чтобы соседние полосы не сливались в
+ *  один фиолетовый. */
+const DIRECTION_HUES = [262, 312, 350, 25, 60, 150, 190, 230];
+export const directionColor = (id: string, color?: string | null) => {
+  if (color) return color;
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `oklch(0.64 0.14 ${DIRECTION_HUES[h % DIRECTION_HUES.length]})`;
+};
+
 export const catColor = (cat: Status["category"]) =>
   cat === "done"
     ? { dot: "var(--c-ok)", bg: "var(--c-oksoft)", fg: "var(--c-ok-fg)" }
