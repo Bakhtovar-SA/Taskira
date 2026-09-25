@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useStore } from "../store";
 import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
 import type { CustomFieldType, IssueTypeId, PriorityId, Transition } from "../types";
-import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo } from "../icons";
-import { Lozenge, catColor } from "../ui";
+import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo, StatusGlyph } from "../icons";
+import { Lozenge } from "../ui";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 
@@ -129,7 +129,7 @@ export default function WorkflowView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
-        <div className="anim-fadeup flex items-end gap-3">
+        <div className="flex items-end gap-3">
           <div>
             <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("workflow.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
@@ -144,7 +144,7 @@ export default function WorkflowView() {
         </div>
 
         {/* граф */}
-        <div className="anim-fadeup mt-4 overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70" style={{ animationDelay: "60ms" }}>
+        <div className="mt-4 overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
           <div className="flex items-center gap-2 border-b border-linesoft bg-sunken px-4 py-2.5">
             <IcFlow size={14} className="text-accent" />
             <span className="text-[13px] font-medium text-sub">{t("workflow.map")}</span>
@@ -152,41 +152,47 @@ export default function WorkflowView() {
           </div>
           <svg viewBox="0 -62 980 422" className="block w-full">
             <defs>
-              <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0L10,5L0,10z" fill="var(--c-faint)" />
+              <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+                <path d="M1,1.2 9,5 1,8.8Q2.4,5 1,1.2z" fill="var(--border-strong)" />
               </marker>
-              <marker id="arrA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0L10,5L0,10z" fill="var(--c-accent)" />
+              <marker id="arrA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+                <path d="M1,1.2 9,5 1,8.8Q2.4,5 1,1.2z" fill="var(--accent-solid)" />
               </marker>
+              {/* Мягкая заливка узла цветом его категории — слева направо, в ноль. */}
+              {(["todo", "inprogress", "done"] as const).map((cat) => (
+                <linearGradient key={cat} id={`wf-wash-${cat}`} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stopColor={cat === "done" ? "var(--status-done)" : cat === "inprogress" ? "var(--status-progress)" : "var(--status-todo)"} stopOpacity="0.14" />
+                  <stop offset="0.6" stopColor={cat === "done" ? "var(--status-done)" : cat === "inprogress" ? "var(--status-progress)" : "var(--status-todo)"} stopOpacity="0" />
+                </linearGradient>
+              ))}
             </defs>
             <g className="pointer-events-none">
-              {data.workflow.transitions.map((t, i) => {
+              {data.workflow.transitions.map((t) => {
                 const active = hover === t.id;
                 return (
                   <path
                     key={t.id}
                     d={edgePath(t, sidOf)}
-                    pathLength={1}
                     fill="none"
-                    stroke={active ? "var(--c-accent)" : "var(--c-line2)"}
-                    strokeWidth={active ? 2.6 : 1.6}
+                    className={`wf-edge ${active ? "is-on" : ""}`}
                     markerEnd={`url(#${active ? "arrA" : "arr"})`}
-                    className="edge-draw transition-all duration-200"
-                    style={{ animationDelay: `${i * 70}ms` }}
                   />
                 );
               })}
             </g>
-            {data.workflow.statuses.map((s) => {
+            {data.workflow.statuses.map((s, i, all) => {
               const p = POS[s.sid]; // POS ключуется по sid, не uuid (§1.4)
               if (!p) return null;
-              const c = catColor(s.category);
+              const on = active2(hover, data.workflow.transitions, s.id);
               return (
-                <g key={s.id}>
-                  <rect x={p.x} y={p.y} width={p.w} height={p.h} rx="12" fill="var(--c-panel)" stroke={active2(hover, data.workflow.transitions, s.id) ? "var(--c-accent)" : "var(--c-line)"} strokeWidth={active2(hover, data.workflow.transitions, s.id) ? 2 : 1.2} className="transition-all" />
-                  <rect x={p.x} y={p.y} width="6" height={p.h} rx="3" fill={c.dot} />
-                  <text x={p.x + 22} y={p.y + 32} fontSize="14.5" fontWeight="700" fill="var(--c-ink)" fontFamily="Golos Text, sans-serif">{workflowStatusName(s, t)}</text>
-                  <text x={p.x + 22} y={p.y + 54} fontSize="11.5" fill="var(--c-faint)" fontFamily="JetBrains Mono, monospace">{t("workflow.issueCount", { count: countBy(s.id) })}</text>
+                <g key={s.id} className={`wf-node wf-${s.category} ${on ? "is-on" : ""}`}>
+                  <rect className="wf-node-box" x={p.x} y={p.y} width={p.w} height={p.h} rx="14" />
+                  <rect className="wf-node-wash" x={p.x} y={p.y} width={p.w} height={p.h} rx="14" fill={`url(#wf-wash-${s.category})`} />
+                  <g transform={`translate(${p.x + 18} ${p.y + 20})`}>
+                    <StatusGlyph category={s.category} position={all.length > 1 ? i / (all.length - 1) : 0.5} size={16} />
+                  </g>
+                  <text x={p.x + 44} y={p.y + 33} className="wf-node-name">{workflowStatusName(s, t)}</text>
+                  <text x={p.x + 44} y={p.y + 54} className="wf-node-count">{t("workflow.issueCount", { count: countBy(s.id) })}</text>
                 </g>
               );
             })}
@@ -194,7 +200,7 @@ export default function WorkflowView() {
         </div>
 
         {/* список переходов */}
-        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[1fr_320px]" style={{ animationDelay: "120ms" }}>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
             <p className="border-b border-linesoft bg-sunken px-4 py-2.5 text-[13px] font-medium text-sub">{t("workflow.allowed")}</p>
             {data.workflow.transitions.length === 0 && (
@@ -279,7 +285,7 @@ export default function WorkflowView() {
         </div>
 
         {/* шаблоны задач проекта (issue_templates, миграция 022) */}
-        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[1fr_320px]" style={{ animationDelay: "160ms" }}>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
             <p className="border-b border-linesoft bg-sunken px-4 py-2.5 text-[13px] font-medium text-sub">
               {t("workflow.templatesCount", { count: data.issueTemplates.length })}
@@ -393,7 +399,7 @@ export default function WorkflowView() {
         </div>
 
         {/* пользовательские поля проекта (custom_fields, миграция 020) */}
-        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[1fr_320px]" style={{ animationDelay: "200ms" }}>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
             <p className="border-b border-linesoft bg-sunken px-4 py-2.5 text-[13px] font-medium text-sub">
               {t("workflow.fieldsCount", { count: data.customFields.length })}
