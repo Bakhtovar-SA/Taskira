@@ -41,7 +41,7 @@ type NavItem = {
   sprintsOnly?: boolean;
 };
 
-/** Представления проекта — ветки дерева «Проекты» и вкладки шапки (ADR-0013 §1). */
+/** Представления проекта — вкладки в шапке проекта (ADR-0013 §2.2); в боковой панели их нет. */
 export const PROJECT_VIEWS: NavItem[] = [
   { id: "board", labelKey: "sidebar.nav.board", icon: (p) => <IcBoard {...p} />, tone: "violet", kbd: "1" },
   { id: "backlog", labelKey: "sidebar.nav.backlog", icon: (p) => <IcBacklog {...p} />, tone: "indigo", kbd: "2" },
@@ -138,61 +138,31 @@ export default function Sidebar() {
   const inSettings = SETTINGS_VIEWS.some((s) => s.id === ui.view);
   const settingsItems = SETTINGS_VIEWS.filter((s) => !s.adminOnly || me.globalRole === "admin");
 
-  /** Перейти в представление проекта: в текущем — сразу, в другом — вид ставится
-   *  до переключения (switchProject сохраняет ui.view). */
-  const openView = (p: ProjectSummary, view: ViewId) => {
-    setView(view);
-    if (p.id !== data.currentProjectId) switchProject(p.id);
+  /** Открыть другой проект. Если сейчас открыто представление (Доска, Список…) —
+   *  то же представление в новом проекте; иначе — Доска. switchProject сохраняет ui.view. */
+  const openProject = (p: ProjectSummary) => {
+    const keep = PROJECT_VIEWS.some((v) => v.id === ui.view) && (ui.view !== "sprints" || p.sprintsEnabled);
+    if (!keep) setView("board");
+    switchProject(p.id);
   };
 
+  // Проект в дереве — одна строка: представления (Доска, Список, Таймлайн, Спринты) живут
+  // вкладками в шапке проекта, не в панели (уточнение владельца к ADR-0013).
   const projectNode = (p: ProjectSummary) => {
     const cur = p.id === data.currentProjectId;
-    const expanded = isOpen(`p:${p.id}`, cur);
-    const views = PROJECT_VIEWS.filter((v) => !v.sprintsOnly || (cur ? data.project.sprintsEnabled : p.sprintsEnabled));
+    const active = cur && PROJECT_VIEWS.some((v) => v.id === ui.view);
     return (
-      <div key={p.id}>
-        <button
-          type="button"
-          onClick={() => {
-            // Клик по проекту раскрывает его представления; чужой проект — ещё и открывает (Доска).
-            if (!cur) {
-              setOpen((o) => ({ ...o, [`p:${p.id}`]: true }));
-              openView(p, "board");
-            } else toggle(`p:${p.id}`, true);
-          }}
-          aria-expanded={expanded}
-          aria-current={cur && !expanded ? "true" : undefined}
-          className={`${navItem} ${cur ? "text-ink" : navOff}`}
-        >
-          <ProjectMark projectKey={p.key} size={18} />
-          <span className={`flex-1 truncate ${cur ? "font-semibold" : ""}`}>{p.name}</span>
-          <Chevron open={expanded} />
-        </button>
-        {expanded && (
-          <div className={`${branch} mb-1 mt-px`}>
-            {views.map((v) => {
-              const active = cur && ui.view === v.id;
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => openView(p, v.id)}
-                  aria-current={active ? "page" : undefined}
-                  className={`${navItem} h-[30px] text-[13px] ${active ? navOn : navOff}`}
-                >
-                  <span className={`transition-opacity duration-150 ${active ? "" : "opacity-85 group-hover:opacity-100"}`}>{v.icon({ size: 15, tone: v.tone })}</span>
-                  <span className="flex-1 truncate">{t(v.labelKey)}</span>
-                  {cur && v.kbd && (
-                    <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                      <Kbd>{v.kbd}</Kbd>
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <button
+        key={p.id}
+        type="button"
+        onClick={() => !cur ? openProject(p) : !active && setView("board")}
+        aria-current={cur ? "true" : undefined}
+        className={`${navItem} ${active ? navOn : cur ? "font-semibold text-ink" : navOff}`}
+      >
+        <ProjectMark projectKey={p.key} size={18} />
+        <span className="flex-1 truncate">{p.name}</span>
+        {cur && !active && <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />}
+      </button>
     );
   };
 
@@ -277,7 +247,7 @@ export default function Sidebar() {
             {isOpen("s:fav") && (
               <div className="flex flex-col gap-px">
                 {favorites.map((p) => (
-                  <button key={p.id} type="button" onClick={() => openView(p, "board")} className={`${navItem} ${navOff}`}>
+                  <button key={p.id} type="button" onClick={() => p.id !== data.currentProjectId && openProject(p)} className={`${navItem} ${navOff}`}>
                     <ProjectMark projectKey={p.key} size={18} />
                     <span className="flex-1 truncate">{p.name}</span>
                   </button>
