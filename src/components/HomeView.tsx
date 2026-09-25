@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNotifications, useStore } from "../store";
-import { relTime } from "../store/mappers";
+import { fmtDate, relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
-import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
-import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, catColor, ProjectMark } from "../ui";
+import { DueRing, IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -20,53 +20,61 @@ const readLastProject = (): string => {
 const today = () => new Date().toISOString().slice(0, 10);
 const isOverdue = (i: AssignedIssue) => !!i.dueDate && i.statusCategory !== "done" && i.dueDate < today();
 
-function StatCard({ num, label, tone }: { num: number; label: string; tone?: "accent" | "danger" }) {
-  return (
-    <div className="surface-raised rounded-xl px-4 py-3.5 ring-1 ring-inset ring-line/70">
-      <div
-        className="font-disp text-[24px] font-semibold leading-none tracking-[-0.02em] tabular"
-        style={tone === "accent" ? { color: "var(--accent-text)" } : tone === "danger" && num > 0 ? { color: "var(--status-danger-fg)" } : { color: "var(--text-1)" }}
-      >
-        {num}
-      </div>
-      <div className="mt-1.5 text-[12.5px] text-faint">{label}</div>
-    </div>
-  );
-}
+type Focus = "all" | "overdue" | "week" | "inprogress";
+
+/** Срок в ближайшие 7 дней (включая сегодня), не просрочен и не закрыт. */
+const isThisWeek = (i: AssignedIssue) => {
+  if (!i.dueDate || i.statusCategory === "done") return false;
+  const d = (Date.parse(i.dueDate) - Date.parse(today())) / 864e5;
+  return d >= 0 && d <= 7;
+};
+const FOCUS_TEST: Record<Focus, (i: AssignedIssue) => boolean> = {
+  all: () => true,
+  overdue: isOverdue,
+  week: isThisWeek,
+  inprogress: (i) => i.statusCategory === "inprogress",
+};
+
+/** Приветствие по времени суток — мелочь, но экран перестаёт быть шаблоном. */
+const greetingKey = (h = new Date().getHours()) =>
+  h < 5 ? "home.greetingNight" : h < 12 ? "home.greetingMorning" : h < 18 ? "home.greetingDay" : h < 23 ? "home.greetingEvening" : "home.greetingNight";
 
 function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }) {
-  const { t } = useT();
-  const c = catColor(issue.statusCategory as "todo" | "inprogress" | "done");
-  const overdue = isOverdue(issue);
+  const { t, lang } = useT();
+  const cat = issue.statusCategory as "todo" | "inprogress" | "done";
   return (
     <button
       onClick={onOpen}
-      className="group flex w-full items-center gap-2.5 border-b border-linesoft px-3.5 py-2.5 text-left transition-colors last:border-0 hover:bg-hover/60"
+      className="group flex h-11 w-full items-center gap-3 border-b border-linesoft px-3.5 text-left transition-colors last:border-0 hover:bg-hover/60"
     >
-      <span className="shrink-0" title={t(`issueType.${issue.typeId}`)}>
-        <TypeIcon type={issue.typeId} size={14} />
-      </span>
-      <span className="w-16 shrink-0 font-mono text-[11px] text-faint">{issue.key}</span>
-      <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{issue.title}</span>
-      {overdue && issue.dueDate && (
-        <span className="hidden shrink-0 tabular text-[11.5px] font-semibold text-danger lg:inline">{issue.dueDate.slice(5)}</span>
-      )}
-      <span className="hidden shrink-0 text-[10.5px] font-semibold text-faint sm:inline">{issue.projectKey}</span>
-      <span
-        className="hidden shrink-0 rounded px-1.5 py-0.5 text-[11.5px] font-medium md:inline"
-        style={{ background: c.bg, color: c.fg }}
-      >
-        {workflowStatusName({ name: issue.statusName }, t)}
-      </span>
       <span className="shrink-0" title={t(`priority.${issue.priorityId}`)}>
-        <PriorityIcon p={issue.priorityId} size={13} />
+        <PriorityIcon p={issue.priorityId} size={14} />
+      </span>
+      <span className="w-[68px] shrink-0 font-mono text-[12px] text-faint">{issue.key}</span>
+      <span className="shrink-0" title={workflowStatusName({ name: issue.statusName }, t)}>
+        <StatusGlyph category={cat} size={14} />
+      </span>
+      {issue.typeId !== "task" && (
+        <span className="shrink-0" title={t(`issueType.${issue.typeId}`)}>
+          <TypeIcon type={issue.typeId} size={14} />
+        </span>
+      )}
+      <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">{issue.title}</span>
+      {issue.dueDate && (
+        <span className={`hidden shrink-0 items-center gap-1 text-[12px] tabular md:inline-flex ${isOverdue(issue) ? "font-medium text-[var(--status-danger-fg)]" : "text-faint"}`}>
+          <DueRing due={issue.dueDate} today={today()} done={cat === "done"} />
+          {fmtDate(issue.dueDate, lang)}
+        </span>
+      )}
+      <span className="hidden shrink-0 sm:inline-flex" title={issue.projectName}>
+        <ProjectMark projectKey={issue.projectKey} size={20} />
       </span>
     </button>
   );
 }
 
 export default function HomeView({ onLogout }: { onLogout: () => void }) {
-  const { t, tn } = useT();
+  const { t, tn, lang } = useT();
   const { data, enterProject, switchProject, setCreateOpen } = useStore();
   const { notifications } = useNotifications();
   const me = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
@@ -82,15 +90,22 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
     enterProject(createTarget);
   };
 
-  const overdueCount = useMemo(() => data.assignedToMe.filter(isOverdue).length, [data.assignedToMe]);
+  // Полоса фокуса вместо плашек-счётчиков: каждая цифра — фильтр списка ниже
+  // (анти-список трека: «большое число + подпись» только если оно что-то открывает).
+  const [focus, setFocus] = useState<Focus>("all");
+  const focusCounts = useMemo(
+    () => Object.fromEntries((Object.keys(FOCUS_TEST) as Focus[]).map((f) => [f, data.assignedToMe.filter(FOCUS_TEST[f]).length])) as Record<Focus, number>,
+    [data.assignedToMe],
+  );
 
   const tasks = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return data.assignedToMe;
-    return data.assignedToMe.filter(
+    const inFocus = data.assignedToMe.filter(FOCUS_TEST[focus]);
+    if (!s) return inFocus;
+    return inFocus.filter(
       (item) => item.key.toLowerCase().includes(s) || item.title.toLowerCase().includes(s) || item.projectName.toLowerCase().includes(s),
     );
-  }, [data.assignedToMe, q]);
+  }, [data.assignedToMe, q, focus]);
 
   const countInProject = useMemo(() => {
     const m = new Map<string, number>();
@@ -122,6 +137,8 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   // кросс-проектный поиск (pendingOpenIssueRef, store/session.ts): открывает
   // задачу сразу после переключения, без промежуточного хэша/пути — адресную
   // строку после этого приводит в соответствие useRouterSync (App.tsx).
+  const dateLine = new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+
   const openTask = (item: Pick<AssignedIssue, "projectId" | "issueId">) => {
     switchProject(item.projectId, item.issueId);
   };
@@ -191,15 +208,37 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
       {/* тело */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[1160px] px-5 py-10 sm:px-8 min-[1536px]:max-w-[1320px]">
-          <h1 className="font-disp text-[28px] font-semibold tracking-[-0.03em] text-ink">{t("home.greeting", { name: me?.name?.split(" ")[0] ?? "" })}</h1>
+          <p className="text-[13px] font-medium text-faint first-letter:uppercase">{dateLine}</p>
+          <h1 className="mt-1 font-disp text-[28px] font-semibold tracking-[-0.03em] text-ink">
+            {t(greetingKey(), { name: me?.name?.split(" ")[0] ?? "" })}
+          </h1>
           <p className="mt-1 text-[14px] text-sub">{t("home.subtitle")}</p>
 
-          {/* плашки-счётчики */}
-          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard num={data.assignedToMe.length} label={t("home.myTasks")} tone="accent" />
-            <StatCard num={overdueCount} label={t("home.overdue")} tone="danger" />
-            <StatCard num={data.projects.length} label={tn(data.projects.length, "noun.project.one", "noun.project.few", "noun.project.many")} />
-            <StatCard num={data.departments.length} label={tn(data.departments.length, "noun.department.one", "noun.department.few", "noun.department.many")} />
+          {/* полоса фокуса: каждая цифра фильтрует «Мои задачи» */}
+          <div role="tablist" aria-label={t("home.myTasks")} className="mt-7 flex flex-wrap gap-2">
+            {(
+              [
+                ["all", "home.focus.all", "violet"],
+                ["overdue", "home.focus.overdue", "red"],
+                ["week", "home.focus.week", "amber"],
+                ["inprogress", "home.focus.inprogress", "sky"],
+              ] as const
+            ).map(([id, key, tone]) => {
+              const on = focus === id;
+              const n = focusCounts[id];
+              return (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setFocus(id)}
+                  className={`focus-chip tk-tone-${tone} ${on ? "is-on" : ""} flex h-10 items-center gap-2.5 rounded-xl pl-3 pr-3.5 text-[13px] font-medium transition-[background-color,box-shadow,color] duration-150`}
+                >
+                  <span className={`font-disp text-[18px] font-semibold tabular leading-none ${id === "overdue" && n > 0 ? "text-[var(--status-danger-fg)]" : on ? "text-current" : "text-ink"}`}>{n}</span>
+                  <span className={on ? "text-ink" : "text-sub"}>{t(key)}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* две колонки */}
@@ -207,7 +246,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
             {/* Мои задачи */}
             <section>
               <div className="mb-2 flex items-baseline gap-2">
-                <h2 className="text-[14px] font-semibold text-ink">{t("home.myTasks")}</h2>
+                <h2 className="text-[14px] font-semibold text-ink">{focus === "all" ? t("home.myTasks") : t(`home.focus.${focus}`)}</h2>
                 <span className="tabular text-[13px] text-faint">{tasks.length}</span>
               </div>
               {tasks.length > 0 ? (

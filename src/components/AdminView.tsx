@@ -4,7 +4,7 @@ import { API_BASE, departmentsApi, projectsApi, usersApi, type DepartmentMember,
 import type { ProjectRole, ProjectSummary } from "../types";
 import { LIMITS } from "../validation";
 import { IcChevD, IcChevR, IcInbox, IcLock, IcPlus, IcTrash, IcUsers } from "../icons";
-import { UserSearchPicker } from "../ui";
+import { ProjectMark, Switch, UserSearchPicker } from "../ui";
 import { useT } from "../i18n";
 
 const KEY_RE = /^[A-Z][A-Z0-9]{1,9}$/;
@@ -422,27 +422,15 @@ export default function AdminView() {
                   {projs.map((p) => (
                     <div key={p.id}>
                       <div className="flex items-center gap-2 px-3 py-2">
-                        <span className="w-16 shrink-0 rounded bg-linesoft px-1.5 py-0.5 text-center font-mono text-[10.5px] font-semibold text-sub">
-                          {p.key}
-                        </span>
+                        <ProjectMark projectKey={p.key} size={22} />
+                        <span className="w-12 shrink-0 font-mono text-[11.5px] font-medium text-faint">{p.key}</span>
                         <EditableName value={p.name} onSave={(v) => patchProject(p.id, { name: v })} maxLength={LIMITS.project.name.max} />
-                        <label className="flex shrink-0 items-center gap-1 text-[11px] text-sub">
-                          <input
-                            type="checkbox"
-                            checked={p.isShared}
-                            onChange={(e) => patchProject(p.id, { isShared: e.target.checked })}
-                          />
+                        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] text-sub">
+                          <Switch checked={p.isShared} onChange={(v) => patchProject(p.id, { isShared: v })} />
                           {t("admin.shared")}
                         </label>
-                        <label
-                          title={t("admin.sprintsHint")}
-                          className="flex shrink-0 items-center gap-1 text-[11px] text-sub"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={p.sprintsEnabled}
-                            onChange={(e) => patchProject(p.id, { sprintsEnabled: e.target.checked })}
-                          />
+                        <label title={t("admin.sprintsHint")} className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] text-sub">
+                          <Switch checked={p.sprintsEnabled} onChange={(v) => patchProject(p.id, { sprintsEnabled: v })} />
                           {t("admin.sprints")}
                         </label>
                         <button

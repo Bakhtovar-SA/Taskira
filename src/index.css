@@ -338,6 +338,19 @@ html.vt-theme::view-transition-new(root) {
   mix-blend-mode: normal;
 }
 
+/* Полоса фокуса на Главной: пункт — волосяной контур; выбранный — лёгкая
+   заливка своим тоном (tk-tone-* задаёт currentColor) и кольцо того же тона. */
+.focus-chip {
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+.focus-chip:hover {
+  background: var(--bg-hover);
+}
+.focus-chip.is-on {
+  background: color-mix(in oklch, currentColor 10%, var(--bg-panel));
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 45%, transparent), 0 4px 14px -6px color-mix(in oklch, currentColor 45%, transparent);
+}
+
 /* Строка командной палитры: активная — лёгкий акцентный фон и светящаяся
    метка слева, как у активного пункта боковой панели. */
 .palette-row {
