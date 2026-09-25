@@ -268,6 +268,28 @@ body {
   box-shadow: 0 0 0 1.5px var(--accent-solid), 0 6px 20px -8px var(--accent-glow);
 }
 
+/* Перетаскивание (Board.tsx setDragGhost): силуэт на месте и «карточка в руке». */
+.board-card[data-dragging] {
+  opacity: 0.45;
+  box-shadow: none;
+  outline: 1.5px dashed var(--border-strong);
+  outline-offset: -1.5px;
+}
+.board-card[data-dragging] > * {
+  opacity: 0.5;
+}
+.drag-ghost {
+  position: fixed;
+  top: -2000px;
+  left: -2000px;
+  padding: 16px;
+  pointer-events: none;
+}
+.drag-ghost > .board-card {
+  transform: rotate(2deg);
+  box-shadow: var(--highlight-top), var(--elev-3), 0 0 0 1.5px color-mix(in oklch, var(--accent-solid) 70%, transparent);
+}
+
 /* Пилюли меты на карточке: волосяной контур, одна высота, цифры табличные. */
 .meta-pill {
   display: inline-flex;
@@ -306,6 +328,14 @@ body {
   border-radius: 50%;
   background: var(--c, currentColor);
   box-shadow: 0 0 0 2px color-mix(in oklch, var(--c, currentColor) 20%, transparent);
+}
+
+/* Смена темы через View Transitions (theme.ts): свой клип-круг вместо
+   стандартного перекрёстного затухания — только пока стоит .vt-theme. */
+html.vt-theme::view-transition-old(root),
+html.vt-theme::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 
 /* Строка командной палитры: активная — лёгкий акцентный фон и светящаяся

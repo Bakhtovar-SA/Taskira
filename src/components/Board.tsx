@@ -203,9 +203,13 @@ const Card = memo(function Card({
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", issue.id);
         e.dataTransfer.effectAllowed = "move";
+        setDragGhost(e);
         onDragStart(issue);
       }}
-      onDragEnd={onDragEnd}
+      onDragEnd={(e) => {
+        e.currentTarget.removeAttribute("data-dragging");
+        onDragEnd();
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -272,6 +276,31 @@ const Card = memo(function Card({
     </article>
   );
 });
+
+/**
+ * Своё изображение перетаскиваемой карточки (ТЗ 5.13 п.3, ADR-0007 — нативный DnD):
+ * копия карточки чуть под наклоном, с акцентной кромкой и тенью, а на исходном
+ * месте — пунктирный силуэт (`data-dragging`). Атрибут и размеры пишутся через
+ * DOM/CSSOM, не через состояние React: начало перетаскивания не перерисовывает
+ * ни одной карточки (ADR-0011, шаг 0), а CSSOM разрешён CSP (ADR-0010).
+ */
+function setDragGhost(e: React.DragEvent<HTMLElement>) {
+  const card = e.currentTarget;
+  card.setAttribute("data-dragging", "");
+  if (typeof e.dataTransfer.setDragImage !== "function") return;
+  const rect = card.getBoundingClientRect();
+  const wrap = document.createElement("div");
+  wrap.className = "drag-ghost";
+  const clone = card.cloneNode(true) as HTMLElement;
+  clone.removeAttribute("data-dragging");
+  clone.removeAttribute("id");
+  clone.style.width = `${rect.width}px`;
+  wrap.appendChild(clone);
+  document.body.appendChild(wrap);
+  // Точка захвата — там же, где курсор взял карточку (+ поле обёртки под тень).
+  e.dataTransfer.setDragImage(wrap, e.clientX - rect.left + 16, e.clientY - rect.top + 16);
+  requestAnimationFrame(() => wrap.remove());
+}
 
 function QuickCreate({ status, onDone }: { status: Status; onDone: () => void }) {
   const { t } = useT();
