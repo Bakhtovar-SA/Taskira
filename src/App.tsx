@@ -9,6 +9,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { Toasts } from "./ui";
 import type { ViewId } from "./types";
 import { useT } from "./i18n";
+import { CreateIssueModal, IssueModal, preloadModalsWhenIdle } from "./lazyModals";
 
 // Рабочие разделы и тяжёлые модалки загружаются по требованию: первый экран
 // больше не тянет отчёты, документацию и админку одним монолитным бандлом.
@@ -21,8 +22,8 @@ const PermissionsView = lazy(() => import("./components/PermissionsView"));
 const AdminView = lazy(() => import("./components/AdminView"));
 const DocsView = lazy(() => import("./components/DocsView"));
 const CollaboratingView = lazy(() => import("./components/CollaboratingView"));
-const IssueModal = lazy(() => import("./components/IssueModal"));
-const CreateIssueModal = lazy(() => import("./components/CreateIssueModal"));
+// IssueModal / CreateIssueModal — тоже ленивые, но с предзагрузкой в простое и при наведении на карточку
+// (src/lazyModals.ts): первое открытие задачи не ждёт чанк.
 const SoloView = lazy(() => import("./components/SoloView"));
 const HomeView = lazy(() => import("./components/HomeView"));
 
@@ -82,6 +83,12 @@ function Shell() {
   useRouterSync();
 
   const modalOpen = !!ui.selectedIssueId || ui.createOpen;
+
+  // Чанки модалок — в простое после входа, не на критическом пути первого экрана (PERF-BUDGET п. 3).
+  useEffect(() => {
+    if (bootStatus !== "ready") return;
+    return preloadModalsWhenIdle();
+  }, [bootStatus]);
 
   useEffect(() => {
     if (bootStatus !== "ready") return;

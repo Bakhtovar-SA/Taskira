@@ -7,6 +7,7 @@ import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearc
 import { Avatar, AvatarStack, BOARD_COLUMN_SHELL, Chip, SkeletonCard, catColor, DROPDOWN_OPEN_EVT } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
+import { preloadIssueModal } from "../lazyModals";
 import { issuesApi, type IssueEpic, type IssueFilterParams } from "../api";
 import {
   ISSUE_PAGE_SIZE,
@@ -163,6 +164,8 @@ const Card = memo(function Card({
         onOver();
       }}
       onDrop={(e) => onDropOn(e, issue)}
+      onPointerEnter={preloadIssueModal}
+      onFocus={preloadIssueModal}
       onClick={() => openIssue(issue.id)}
       className={`surface-raised group relative cursor-pointer rounded-lg p-3 ring-1 ring-inset ring-line/70 transition-[box-shadow,background-color] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2 active:bg-hover/40 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
