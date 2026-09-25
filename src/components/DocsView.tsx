@@ -93,7 +93,7 @@ export default function DocsView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
-        <div className="anim-fadeup flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-onaccent"><IcBook size={18} /></span>
           <div>
             <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">Документация Taskira</h1>
@@ -118,7 +118,7 @@ export default function DocsView() {
 
           {/* контент */}
           <div className="min-w-0 pb-10">
-            <section id="doc-overview" className="anim-fadeup surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
+            <section id="doc-overview" className="surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>1 · Обзор системы</H>
               <P>
                 <b className="text-ink">Taskira</b> — корпоративный трекер задач: канбан-доска, список задач, таймлайн направлений,
@@ -148,7 +148,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-roles" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "40ms" }}>
+            <section id="doc-roles" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>2 · Роли и права доступа</H>
               <P>
                 Двухуровневая модель: <b className="text-ink">ролевой уровень</b> (матрица «разрешение × роль») и{" "}
@@ -194,7 +194,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-workflow" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "60ms" }}>
+            <section id="doc-workflow" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>3 · Рабочий процесс (workflow)</H>
               <P>
                 Workflow — ориентированный граф: вершины — статусы, рёбра — разрешённые переходы. Статусы принадлежат категориям,
@@ -225,7 +225,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-issues" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "80ms" }}>
+            <section id="doc-issues" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>4 · Карточка задачи</H>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {TYPE_ORDER.map((ty) => (
@@ -276,7 +276,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-list" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "100ms" }}>
+            <section id="doc-list" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>5 · Список задач</H>
               <P>
                 <b className="text-ink">Список задач</b> — плоский перечень всех задач проекта без секций и планирования. Фильтры (статус,
@@ -289,7 +289,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-sprints" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "120ms" }}>
+            <section id="doc-sprints" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>6 · Спринты (опциональный модуль)</H>
               <P>
                 Спринты выключены по умолчанию — администратор включает их отдельно на каждый проект («общий» флаг не даёт
@@ -305,7 +305,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-notifications" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "140ms" }}>
+            <section id="doc-notifications" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>7 · Уведомления</H>
               <P>
                 Колокольчик в шапке показывает непрочитанные уведомления в реальном времени (по WebSocket — сокет лишь
@@ -320,7 +320,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-attachments" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "160ms" }}>
+            <section id="doc-attachments" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>8 · Вложения</H>
               <P>
                 Файлы прикрепляются прямо к карточке задачи (до 50 штук, каждый до 25&nbsp;МБ — сервер может настроить другие
@@ -330,7 +330,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-departments" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "180ms" }}>
+            <section id="doc-departments" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>9 · Департаменты, видимость проектов и LDAP</H>
               <P>
                 <b className="text-ink">Отдел</b> — группа проектов, а не отдельная область данных: проект по умолчанию виден
@@ -347,7 +347,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-reports" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "200ms" }}>
+            <section id="doc-reports" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>10 · Отчёты</H>
               <P>
                 Отчёт не завязан на один проект — он строится по всем проектам, видимым текущему пользователю (то же правило
@@ -359,7 +359,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-home" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "220ms" }}>
+            <section id="doc-home" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>11 · Главный экран и переключение проектов</H>
               <P>
                 Появляется, когда пользователю видно два и более проекта: сводка «мои задачи» (открытые задачи, где он
@@ -370,7 +370,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-hotkeys" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "240ms" }}>
+            <section id="doc-hotkeys" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>12 · Горячие клавиши</H>
               <table className="mt-2 w-full max-w-[460px] border-collapse text-[13px]">
                 <tbody>
@@ -390,7 +390,7 @@ export default function DocsView() {
               </table>
             </section>
 
-            <section id="doc-model" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "260ms" }}>
+            <section id="doc-model" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>13 · Модель данных</H>
               <P>Сущности и связи (описаны в <Code>src/types.ts</Code>):</P>
               <table className="mt-3 w-full border-collapse text-[12px]">
@@ -437,7 +437,7 @@ export default function DocsView() {
               </P>
             </section>
 
-            <section id="doc-storage" className="anim-fadeup mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5" style={{ animationDelay: "280ms" }}>
+            <section id="doc-storage" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>14 · Хранение и сессия</H>
               <P>
                 Данные приходят с API (<Code>src/api/</Code>): bootstrap <Code>GET /api/projects/:id</Code> отдаёт проект, участников,

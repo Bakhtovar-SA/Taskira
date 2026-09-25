@@ -72,7 +72,7 @@ export default function PermissionsView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
-        <div className="anim-fadeup">
+        <div>
           <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("access.title")}</h1>
           <p className="mt-0.5 text-[11.5px] text-faint">
             {t("access.subtitle", { key: data.project.key })}
@@ -80,7 +80,7 @@ export default function PermissionsView() {
         </div>
 
         {/* текущий пользователь + переключение */}
-        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[340px_1fr]" style={{ animationDelay: "50ms" }}>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[340px_1fr]">
           <div className="surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-4">
             <p className="flex items-center gap-2 text-[13px] font-medium text-sub">
               <IcShield size={14} className="text-accent" /> {t("access.currentSession")}
@@ -200,7 +200,7 @@ export default function PermissionsView() {
         </div>
 
         {/* матрица разрешений */}
-        <div className="anim-fadeup mt-4 overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70" style={{ animationDelay: "110ms" }}>
+        <div className="mt-4 overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
           <p className="border-b border-linesoft bg-sunken px-4 py-2.5 text-[13px] font-medium text-sub">
             {t("access.matrix", { permissions: PERMISSIONS.length, roles: ROLE_ORDER.length })}
           </p>
@@ -254,7 +254,7 @@ export default function PermissionsView() {
         </div>
 
         {/* как это работает */}
-        <div className="anim-fadeup mt-4 grid gap-4 pb-8 md:grid-cols-3" style={{ animationDelay: "170ms" }}>
+        <div className="mt-4 grid gap-4 pb-8 md:grid-cols-3">
           {[
             { t: t("access.card.server"), d: t("access.card.serverDesc"), i: <IcShield size={16} /> },
             { t: t("access.card.ui"), d: t("access.card.uiDesc"), i: <IcEye size={16} /> },

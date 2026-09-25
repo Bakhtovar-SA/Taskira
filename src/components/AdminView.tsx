@@ -309,7 +309,7 @@ export default function AdminView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[900px] min-[1536px]:max-w-[1120px] min-[1920px]:max-w-[1360px] px-6 py-5">
-        <div className="anim-fadeup flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("admin.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
@@ -345,7 +345,7 @@ export default function AdminView() {
         </div>
 
         {/* новый отдел */}
-        <div className="anim-fadeup mt-4 flex items-center gap-2 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-3">
+        <div className="mt-4 flex items-center gap-2 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-3">
           <input
             value={newDept}
             onChange={(e) => setNewDept(e.target.value)}
@@ -367,7 +367,7 @@ export default function AdminView() {
         </div>
 
         {/* список отделов */}
-        <div className="anim-fadeup mt-4 space-y-3" style={{ animationDelay: "60ms" }}>
+        <div className="mt-4 space-y-3">
           {data.departments.map((d) => {
             const projs = byDept[d.id] ?? [];
             const f = form(d.id);
