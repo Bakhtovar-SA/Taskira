@@ -3,7 +3,7 @@ import { useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
 import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
-import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, catColor } from "../ui";
+import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, catColor, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -261,9 +261,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                             onClick={() => enterProject(p.id)}
                             className="surface-raised group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ring-1 ring-inset ring-line/70 transition-[box-shadow] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2"
                           >
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accentsoft font-mono text-[10.5px] font-medium text-accenttext ring-1 ring-inset ring-accentmuted/60">
-                              {p.key}
-                            </span>
+                            <ProjectMark projectKey={p.key} size={32} />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-[13.5px] font-medium text-ink">{p.name}</span>
                               <span className="block text-[12px] text-faint">

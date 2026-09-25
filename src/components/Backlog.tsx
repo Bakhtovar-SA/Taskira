@@ -6,8 +6,8 @@ import type { Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, Modal, SkeletonRow } from "../ui";
+import { DueRing, IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -21,7 +21,7 @@ const SEARCH_MAX = 120; // = LIMITS сервера для q
 const isEmptyText = (v: string) => v === "";
 
 const selectCls =
-  "h-8 rounded-md border border-line bg-panel px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
+  "h-8 rounded-lg border border-linesoft bg-sunken px-2 text-[12.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
 
 function Row({
   issue,
@@ -31,7 +31,7 @@ function Row({
   onToggleSelect,
 }: {
   issue: Issue;
-  epic: Pick<IssueEpic, "title" | "color"> | undefined;
+  epic: Pick<IssueEpic, "id" | "title" | "color"> | undefined;
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
@@ -46,7 +46,7 @@ function Row({
   return (
     <div
       onClick={() => openIssue(issue.id)}
-      className={`group flex cursor-pointer items-center gap-2.5 border-b border-linesoft bg-panel px-3 py-2 transition-colors last:border-0 hover:bg-hover/60 ${selected ? "bg-accentsoft/40" : ""}`}
+      className={`group flex h-11 cursor-pointer items-center gap-3 border-b border-linesoft/80 px-4 transition-colors last:border-0 hover:bg-hover/60 ${selected ? "bg-accentsoft/50" : "bg-panel"}`}
     >
       {/* ТЗ 3.3: чекбоксы появляются только в режиме выделения — не занимают
           места в обычном режиме просмотра списка. */}
@@ -60,16 +60,15 @@ function Row({
           aria-label={t("backlog.selectRow", { key: issue.key })}
         />
       )}
+      <PriorityIcon p={issue.priorityId} size={14} />
+      <span className="w-16 shrink-0 font-mono text-[12px] text-faint">{issue.key}</span>
+      {status && <StatusGlyph category={status.category} size={14} />}
       <TypeIcon type={issue.typeId} size={14} />
-      <span className="w-14 shrink-0 font-mono text-[11px] font-semibold text-faint">{issue.key}</span>
-      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{issue.title}</span>
+      <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">{issue.title}</span>
       {epic && (
-        <span
-          className="hidden items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10.5px] font-semibold lg:inline-flex"
-          style={{ background: `color-mix(in oklch, ${epic.color ?? "var(--accent-solid)"} 14%, transparent)`, color: epic.color ?? undefined }}
-        >
-          <span className="h-1.5 w-1.5 rounded-sm" style={{ background: epic.color ?? undefined }} />
-          <span className="max-w-[110px] truncate">{epic.title}</span>
+        <span className="hidden max-w-[180px] items-center gap-1.5 truncate rounded-md px-1.5 py-px text-[11.5px] text-sub ring-1 ring-inset ring-linesoft lg:inline-flex">
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: directionColor(epic.id, epic.color) }} />
+          <span className="truncate">{epic.title}</span>
         </span>
       )}
       <span className="hidden gap-1 xl:flex">
@@ -78,14 +77,16 @@ function Row({
         ))}
       </span>
       {issue.dueDate && (
-        <span className="hidden shrink-0 tabular text-[10.5px] text-faint md:inline">{fmtDate(issue.dueDate, lang)}</span>
+        <span className="hidden shrink-0 items-center gap-1 text-[12px] tabular text-faint md:inline-flex">
+          <DueRing due={issue.dueDate} today={new Date().toISOString().slice(0, 10)} done={status?.category === "done"} />
+          {fmtDate(issue.dueDate, lang)}
+        </span>
       )}
       {status && (
         <span className="hidden shrink-0 sm:inline">
           <Lozenge status={status} size="sm" />
         </span>
       )}
-      <PriorityIcon p={issue.priorityId} size={14} />
       <AvatarStack users={assignees} size={22} interactive />
       <div onClick={(e) => e.stopPropagation()}>
         <Dropdown
