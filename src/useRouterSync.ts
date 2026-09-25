@@ -15,8 +15,9 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useStore } from "./store";
+import { useT } from "./i18n";
 import { resolveBootPathTarget } from "./store/mappers";
-import { parsePath, pathForIssue, pathForView } from "./router";
+import { parsePath, pathForIssue, pathForView, samePlace } from "./router";
 import type { Data } from "./types";
 import type { BootStatus, UIState } from "./store/mappers";
 
@@ -38,7 +39,8 @@ function derivePath(data: Data, ui: UIState, bootStatus: BootStatus): string | u
 export function useRouterSync(): void {
   const [path, navigate] = useLocation();
   const store = useStore();
-  const { data, ui, bootStatus, switchProject, openIssue, setView, goHome } = store;
+  const { data, ui, bootStatus, switchProject, openIssue, setView, goHome, toast } = store;
+  const { t } = useT();
 
   // Пока «URL → состояние» досчитывает асинхронный резолв (ключ задачи — сетевой
   // запрос), «состояние → URL» ниже обязан промолчать: состояние в этот момент ещё
@@ -65,8 +67,8 @@ export function useRouterSync(): void {
           if (data.projects.length >= 2) goHome();
           return;
         }
-        if (parsed.kind === "reports") {
-          setView("reports");
+        if (parsed.kind === "global") {
+          setView(parsed.view);
           return;
         }
         // "view" и "issue" оба требуют резолва ключа проекта/задачи — переиспользуем
@@ -104,10 +106,23 @@ export function useRouterSync(): void {
     // изменение стора в другом месте приложения тоже пыталось бы «догонять» URL этим эффектом).
   }, [path, bootStatus]);
 
+  // Спринты при выключенном модуле — на доску с объяснением, а не экран-отказ (ADR-0013 §5).
+  // Отдельным эффектом: вид могли выставить и bootstrap() по прямой ссылке, и переход выше.
+  const sprintsOff = bootStatus === "ready" && ui.view === "sprints" && !!data.project.key && !data.project.sprintsEnabled;
+  useEffect(() => {
+    if (!sprintsOff) return;
+    toast("info", t("router.sprintsOff"));
+    setView("board");
+  }, [sprintsOff, toast, t, setView]);
+
   // Состояние → URL.
   useEffect(() => {
     if (applyingRef.current) return; // см. комментарий у applyingRef выше
     const target = derivePath(data, ui, bootStatus);
-    if (target && target !== path) navigate(target, { replace: false });
+    if (!target || target === path) return;
+    // Старый адрес того же места (/p/K/backlog?status=… → /p/K/list?status=…, ADR-0013 §5):
+    // заменить запись истории, а не добавить, и сохранить query — в нём фильтры списка.
+    if (samePlace(path, target)) navigate(`${target}${location.search}`, { replace: true });
+    else navigate(target, { replace: false });
   }, [data, ui, bootStatus, path, navigate]);
 }

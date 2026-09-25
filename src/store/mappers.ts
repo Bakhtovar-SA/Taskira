@@ -236,7 +236,7 @@ export const resolveBootPathTarget = async (
     const p = projects.find((pr) => pr.key === parsed.projectKey);
     return p ? { kind: "view", projectId: p.id, view: parsed.view } : null;
   }
-  return null; // reports / root — bootstrap() сам выбирает вид по обычным правилам
+  return null; // global / root — bootstrap() сам выбирает вид по обычным правилам
 };
 
 export const emptyData = (): Data => ({

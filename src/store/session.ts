@@ -153,7 +153,7 @@ export function useSessionActions(
         resetNotifications();
         if (user.globalRole === "admin") {
           setUi((u) => ({ ...u, view: "admin" }));
-          toast("info", local("Проектов пока нет — создайте первый в разделе «Департаменты»", "There are no projects yet — create the first one in Departments"));
+          toast("info", local("Проектов пока нет — создайте первый в разделе «Отделы и проекты»", "There are no projects yet — create the first one in Departments & projects"));
         } else {
           toast("info", local("Вам пока не открыт ни один проект — обратитесь к администратору", "You don't have access to any projects yet — contact an administrator"));
         }

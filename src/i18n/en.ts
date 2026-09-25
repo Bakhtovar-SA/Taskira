@@ -145,6 +145,7 @@ const en: Record<keyof Dict, string> = {
   "topbar.projectsCrumb": "Projects",
   "topbar.createAria": "Create issue",
   "topbar.viewsAria": "Project views",
+  "router.sprintsOff": "Sprints are turned off in this project — showing the board",
   "topbar.create": "Create",
   "topbar.createDeniedTip": "Your role doesn't allow creating issues",
   "topbar.searchingAllProjects": "Searching all projects…",

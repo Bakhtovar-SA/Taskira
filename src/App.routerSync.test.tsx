@@ -3,6 +3,7 @@ import { act, render } from "@testing-library/react";
 import { useEffect } from "react";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
+import { I18nProvider } from "./i18n";
 import { pathForIssue, pathForView } from "./router";
 import {
   ApiError,
@@ -79,9 +80,11 @@ function mount() {
     return null;
   }
   const { unmount } = render(
-    <StoreProvider>
-      <Probe />
-    </StoreProvider>,
+    <I18nProvider>
+      <StoreProvider>
+        <Probe />
+      </StoreProvider>
+    </I18nProvider>,
   );
   unmountCurrent = unmount;
   return () => latest!;
@@ -169,5 +172,26 @@ describe("useRouterSync — URL → состояние, полный путь (�
     await settle();
     expect(location.pathname).toBe(pathForView("AA", "board"));
     expect(get().ui.view).toBe("board");
+  });
+
+  test("старая ссылка /p/KEY/backlog?фильтры → /p/KEY/list с теми же фильтрами, без лишней записи в истории (ADR-0013 §5)", async () => {
+    history.pushState(null, "", "/p/BB/backlog?status=s1&priority=high");
+    const before = history.length;
+    install();
+    const get = mount();
+    await settle();
+    expect(get().ui.view).toBe("backlog");
+    expect(location.pathname).toBe("/p/BB/list");
+    expect(location.search).toBe("?status=s1&priority=high");
+    expect(history.length).toBe(before);
+  });
+
+  test("/p/KEY/sprints при выключенном модуле → доска, а не экран-отказ (ADR-0013 §5)", async () => {
+    history.pushState(null, "", "/p/BB/sprints");
+    install();
+    const get = mount();
+    await settle();
+    expect(get().ui.view).toBe("board");
+    expect(location.pathname).toBe("/p/BB/board");
   });
 });

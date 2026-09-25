@@ -1,11 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { EMPTY_FILTERS, filtersFromSearch, parsePath, pathForIssue, pathForView, searchFromFilters } from "./router";
+import { EMPTY_FILTERS, filtersFromSearch, parsePath, pathForIssue, pathForView, samePlace, searchFromFilters } from "./router";
 
 describe("pathForView / pathForIssue", () => {
-  test("reports — путь без префикса /p/:projectKey, остальные виды — с ним", () => {
+  test("ADR-0013 §5: разделы без проекта — свои пути, представления и настройки — под /p/:projectKey", () => {
     expect(pathForView("CORP", "reports")).toBe("/reports");
+    expect(pathForView("CORP", "admin")).toBe("/admin/departments");
+    expect(pathForView("CORP", "docs")).toBe("/help");
+    expect(pathForView("CORP", "collaborating")).toBe("/shared");
     expect(pathForView("CORP", "board")).toBe("/p/CORP/board");
-    expect(pathForView("CORP", "backlog")).toBe("/p/CORP/backlog");
+    expect(pathForView("CORP", "backlog")).toBe("/p/CORP/list");
+    expect(pathForView("CORP", "workflow")).toBe("/p/CORP/settings/workflow");
+    expect(pathForView("CORP", "access")).toBe("/p/CORP/settings/access");
   });
 
   test("issue — всегда /p/:projectKey/issue/:issueKey", () => {
@@ -19,8 +24,22 @@ describe("pathForView / pathForIssue", () => {
 });
 
 describe("parsePath", () => {
-  test("/reports → kind reports", () => {
-    expect(parsePath("/reports")).toEqual({ kind: "reports" });
+  test("разделы без проекта → kind global", () => {
+    expect(parsePath("/reports")).toEqual({ kind: "global", view: "reports" });
+    expect(parsePath("/admin/departments")).toEqual({ kind: "global", view: "admin" });
+    expect(parsePath("/help")).toEqual({ kind: "global", view: "docs" });
+    expect(parsePath("/shared/")).toEqual({ kind: "global", view: "collaborating" });
+  });
+
+  test("старые адреса (до ADR-0013) разбираются в тот же вид, что новые", () => {
+    expect(parsePath("/p/CORP/backlog")).toEqual({ kind: "view", projectKey: "CORP", view: "backlog" });
+    expect(parsePath("/p/CORP/list")).toEqual({ kind: "view", projectKey: "CORP", view: "backlog" });
+    expect(parsePath("/p/CORP/workflow")).toEqual({ kind: "view", projectKey: "CORP", view: "workflow" });
+    expect(parsePath("/p/CORP/settings/workflow")).toEqual({ kind: "view", projectKey: "CORP", view: "workflow" });
+    expect(parsePath("/p/CORP/settings/nonsense")).toEqual({ kind: "root" });
+    expect(samePlace("/p/CORP/backlog", "/p/CORP/list")).toBe(true);
+    expect(samePlace("/p/CORP/access", "/p/CORP/settings/access")).toBe(true);
+    expect(samePlace("/p/CORP/board", "/p/CORP/list")).toBe(false);
   });
 
   test("/p/:key/issue/:key → kind issue, ключи декодированы", () => {
@@ -30,7 +49,6 @@ describe("parsePath", () => {
 
   test("/p/:key/<вид> → kind view для известных видов, root для неизвестных", () => {
     expect(parsePath("/p/CORP/board")).toEqual({ kind: "view", projectKey: "CORP", view: "board" });
-    expect(parsePath("/p/CORP/backlog")).toEqual({ kind: "view", projectKey: "CORP", view: "backlog" });
     expect(parsePath("/p/CORP/nonsense")).toEqual({ kind: "root" });
   });
 

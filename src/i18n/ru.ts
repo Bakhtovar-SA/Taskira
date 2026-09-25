@@ -146,6 +146,7 @@ const ru = {
   "topbar.projectsCrumb": "Проекты",
   "topbar.createAria": "Создать задачу",
   "topbar.viewsAria": "Представления проекта",
+  "router.sprintsOff": "Модуль спринтов в этом проекте выключен — открыта доска",
   "topbar.create": "Создать",
   "topbar.createDeniedTip": "Ваша роль не позволяет создавать задачи",
   "topbar.searchingAllProjects": "Поиск во всех проектах…",

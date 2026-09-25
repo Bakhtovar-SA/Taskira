@@ -5,18 +5,43 @@
  *  `wouter` (ADR-0008) даёт реактивную подписку на `location` в компоненте (`App.tsx`),
  *  сам разбор путей — здесь, чистыми функциями, без хуков, чтобы быть тестируемым без DOM.
  *
- *  `reports` — единственный вид без префикса `/p/:projectKey/` (`/reports`): он
- *  project-less и на сервере, и в данных (см. CLAUDE.md, ReportsView.tsx). Остальные виды
- *  всегда идут внутри контекста текущего проекта. */
+ *  Карта адресов — ADR-0013 §5: представления и настройки проекта под `/p/:projectKey/`,
+ *  разделы без проекта (`/reports`, `/admin/departments`, `/help`, `/shared`) — свои пути;
+ *  старые `/p/:projectKey/<вид>` разбираются и заменяются новыми. */
 import type { ViewId } from "./types";
 
-/** Виды, для которых имеет смысл прямая ссылка вида /p/:projectKey/<vid> — то есть все,
- *  кроме `reports` (свой отдельный путь). Порядок — как в `ViewId`, не важен. */
-const PATH_VIEWS: readonly ViewId[] = [
-  "board", "backlog", "sprints", "timeline", "workflow", "access", "admin", "docs", "collaborating",
-];
-
-const isPathView = (v: string): v is (typeof PATH_VIEWS)[number] => (PATH_VIEWS as readonly string[]).includes(v);
+/** Адреса по ADR-0013 §5. Представления и настройки проекта живут под `/p/:projectKey/…`;
+ *  разделы без проекта (отчёты, отделы, справка, приглашения) — свои пути верхнего уровня,
+ *  как `/reports` было и раньше. */
+const PROJECT_SEGMENT: Partial<Record<ViewId, string>> = {
+  board: "board",
+  backlog: "list",
+  timeline: "timeline",
+  sprints: "sprints",
+  workflow: "settings/workflow",
+  access: "settings/access",
+};
+const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
+  reports: "/reports",
+  admin: "/admin/departments",
+  docs: "/help",
+  collaborating: "/shared",
+};
+/** Старые сегменты `/p/:projectKey/<вид>` (до ADR-0013) — ссылки уже разосланы людьми,
+ *  поэтому разбираются как прежде; синхронизация URL тут же заменяет их новым адресом. */
+const LEGACY_SEGMENT: Record<string, ViewId> = {
+  backlog: "backlog",
+  workflow: "workflow",
+  access: "access",
+  admin: "admin",
+  docs: "docs",
+  collaborating: "collaborating",
+};
+const SEGMENT_VIEW: Record<string, ViewId> = {
+  ...LEGACY_SEGMENT,
+  ...Object.fromEntries(Object.entries(PROJECT_SEGMENT).map(([v, seg]) => [seg, v as ViewId])),
+};
+const GLOBAL_VIEW: Record<string, ViewId> = Object.fromEntries(Object.entries(GLOBAL_PATH).map(([v, p]) => [p, v as ViewId]));
 
 const enc = (s: string) => encodeURIComponent(s);
 const dec = (s: string) => {
@@ -27,9 +52,9 @@ const dec = (s: string) => {
   }
 };
 
-/** URL для вида внутри проекта (или /reports — единственное исключение). */
+/** URL вида: разделы без проекта — свой путь, остальное — внутри проекта. */
 export const pathForView = (projectKey: string, view: ViewId): string =>
-  view === "reports" ? "/reports" : `/p/${enc(projectKey)}/${view}`;
+  GLOBAL_PATH[view] ?? `/p/${enc(projectKey)}/${PROJECT_SEGMENT[view] ?? view}`;
 
 /** URL прямой ссылки на задачу — всегда открывает её поверх доски (ТЗ 3.1 п.2:
  *  «модалка задачи открыта поверх доски сразу»), независимо от того, на каком виде
@@ -39,12 +64,13 @@ export const pathForIssue = (projectKey: string, issueKey: string): string =>
   `/p/${enc(projectKey)}/issue/${enc(issueKey)}`;
 
 const RE_ISSUE = /^\/p\/([^/]+)\/issue\/([^/]+)\/?$/;
-const RE_VIEW = /^\/p\/([^/]+)\/([^/]+)\/?$/;
+const RE_VIEW = /^\/p\/([^/]+)\/((?:settings\/)?[^/]+)\/?$/;
 
 export type ParsedPath =
   | { kind: "issue"; projectKey: string; issueKey: string }
   | { kind: "view"; projectKey: string; view: ViewId }
-  | { kind: "reports" }
+  /** Раздел без проекта: отчёты, отделы, справка, приглашения. */
+  | { kind: "global"; view: ViewId }
   | { kind: "root" };
 
 /** Разбор `pathname` (без query/hash) в одну из ожидаемых форм роутера. Путь, который
@@ -52,13 +78,20 @@ export type ParsedPath =
  *  трактуется как `root`, а не как ошибка: та же терпимость, что была у старого
  *  `readIssueHash` к «хэш есть, но не похож на наш» (тихо игнорировался). */
 export const parsePath = (pathname: string): ParsedPath => {
-  if (pathname === "/reports") return { kind: "reports" };
+  const g = GLOBAL_VIEW[pathname.replace(/\/$/, "")];
+  if (g) return { kind: "global", view: g };
   const mi = pathname.match(RE_ISSUE);
   if (mi) return { kind: "issue", projectKey: dec(mi[1]), issueKey: dec(mi[2]) };
   const mv = pathname.match(RE_VIEW);
-  if (mv && isPathView(dec(mv[2]))) return { kind: "view", projectKey: dec(mv[1]), view: dec(mv[2]) as ViewId };
+  const view = mv ? SEGMENT_VIEW[dec(mv[2])] : undefined;
+  if (mv && view) return { kind: "view", projectKey: dec(mv[1]), view };
   return { kind: "root" };
 };
+
+/** Одно ли место описывают два пути (старый адрес и новый для того же вида/задачи) —
+ *  тогда синхронизация заменяет запись в истории, а не добавляет новую, и «Назад» не
+ *  возвращает на старый адрес, который тут же снова перепишется. */
+export const samePlace = (a: string, b: string): boolean => JSON.stringify(parsePath(a)) === JSON.stringify(parsePath(b));
 
 /** ТЗ 3.2 (план v2 Трек 3): условия фильтра в query-параметрах URL — те же имена
  *  полей, что `IssueFilterParams` (`src/api/index.ts`) и `SavedViewFilter` на сервере

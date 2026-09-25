@@ -158,8 +158,10 @@ Mutations are optimistic-ish: call API, then patch `data` from the returned DTO;
 re-fetches issues on failure to undo local drift.
 
 Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating`)
-are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs
-(`/p/:projectKey/<view>`, `/reports` — the one exception, project-less) by
+are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs (ADR-0013 §5:
+`/p/:projectKey/{board,list,timeline,sprints}`, `/p/:projectKey/settings/{workflow,access}`, and project-less
+`/reports`, `/admin/departments`, `/help`, `/shared`; old `/p/:projectKey/<view>` links still parse and are replaced
+in place — `samePlace()` in `src/router.ts`, query preserved) by
 `useRouterSync.ts` — `wouter` (ADR-0008), not a hand-rolled hash parser (ТЗ 3.1, plan v2
 Track 3; see that file's own header comment for the bidirectional-sync design and the
 race it guards against). `backlog` is internal id for the "Список задач" view
