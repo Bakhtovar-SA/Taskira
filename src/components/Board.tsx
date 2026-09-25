@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
+import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
 import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
@@ -56,9 +57,10 @@ const QUICK_CHIPS: { id: QuickChip; labelKey: TKey }[] = [
  */
 const Card = memo(function Card({
   issue,
-  assignees,
+  usersById,
   epic,
   doneCat,
+  onOpen: openIssue,
   onDragStart,
   onDragEnd,
   onDropOn,
@@ -69,13 +71,20 @@ const Card = memo(function Card({
   moveTargets,
 }: {
   issue: Issue;
-  assignees: User[];
+  /** Справочник пользователей (стабилен, пока не меняется `data.users`): исполнители
+   *  карточки выбираются здесь, а не массивом сверху — новый массив на каждый рендер
+   *  доски ломал memo (ADR-0011, шаг 0). */
+  usersById: ReadonlyMap<string, User>;
   /** Направление карточки из справочника (`useEpics`), а не из списка задач в сторе. */
   epic: Pick<IssueEpic, "title" | "color"> | undefined;
   doneCat: boolean;
-  onDragStart: () => void;
+  /** Открыть задачу. Пропсом, а не `useStore()` внутри: подписка на контекст обходит memo. */
+  onOpen: (id: string) => void;
+  /** Все колбэки стабильны (useCallback в доске/колонке) и получают задачу аргументом,
+   *  а не замыкают её: иначе memo(Card) не держит (ADR-0011, шаг 0). */
+  onDragStart: (issue: Issue) => void;
   onDragEnd: () => void;
-  onDropOn: (e: React.DragEvent) => void;
+  onDropOn: (e: React.DragEvent, target: Issue) => void;
   onOver: () => void;
   onMove: (issueId: string, statusId: string) => void;
   flash: boolean;
@@ -83,7 +92,10 @@ const Card = memo(function Card({
   moveTargets: Status[];
 }) {
   const { t, lang } = useT();
-  const { openIssue } = useStore();
+  const assignees = useMemo(
+    () => issue.assigneeIds.map((id) => usersById.get(id)).filter((u): u is User => !!u),
+    [issue.assigneeIds, usersById],
+  );
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -142,7 +154,7 @@ const Card = memo(function Card({
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", issue.id);
         e.dataTransfer.effectAllowed = "move";
-        onDragStart();
+        onDragStart(issue);
       }}
       onDragEnd={onDragEnd}
       onDragOver={(e) => {
@@ -150,7 +162,7 @@ const Card = memo(function Card({
         e.stopPropagation();
         onOver();
       }}
-      onDrop={onDropOn}
+      onDrop={(e) => onDropOn(e, issue)}
       onClick={() => openIssue(issue.id)}
       className={`surface-raised group relative cursor-pointer rounded-lg p-3 ring-1 ring-inset ring-line/70 transition-[box-shadow,background-color] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2 active:bg-hover/40 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
@@ -355,9 +367,207 @@ function ColumnCards({
   );
 }
 
+/** Стабильный пустой список переходов (новый `[]` на каждый рендер ломал бы memo карточки). */
+const NO_TARGETS: Status[] = [];
+
+/**
+ * Колонка доски — отдельный memo-компонент (ADR-0011, шаг 0): подсветка колонки под курсором
+ * при перетаскивании (`overCol`) и начало перетаскивания меняют пропсы только затронутых
+ * колонок, а карточки с неизменными пропсами не перерисовываются вовсе. Все пропсы —
+ * примитивы, стабильные справочники (`Map` из `useMemo`) или стабильные колбэки.
+ */
+const BoardColumn = memo(function BoardColumn({
+  st,
+  total,
+  hiddenDone,
+  colFilters,
+  isOver,
+  ok,
+  draggedStatusId,
+  isDone,
+  isDoneStatus,
+  showAllDone,
+  setShowAllDone,
+  canCreate,
+  isFirstTodo,
+  quickOpen,
+  setQuickFor,
+  projectId,
+  revision,
+  usersById,
+  statusById,
+  epicsById,
+  targetsByStatus,
+  lastEvent,
+  can,
+  moveStatus,
+  onOpen,
+  onMove,
+  onCardDragStart,
+  onCardDragEnd,
+  setOverCol,
+  setDragId,
+  dragRef,
+}: {
+  st: Status;
+  total: number | null;
+  hiddenDone: number;
+  colFilters: IssueFilterParams;
+  isOver: boolean;
+  ok: boolean;
+  /** Статус перетаскиваемой задачи — только колонке под курсором (текст «переход вне схемы»). */
+  draggedStatusId: string | null;
+  isDone: boolean;
+  isDoneStatus: boolean;
+  showAllDone: boolean;
+  setShowAllDone: (v: boolean) => void;
+  canCreate: boolean;
+  isFirstTodo: boolean;
+  quickOpen: boolean;
+  setQuickFor: (id: string | null) => void;
+  projectId: string | null;
+  revision: string;
+  usersById: ReadonlyMap<string, User>;
+  statusById: ReadonlyMap<string, Status>;
+  epicsById: ReadonlyMap<string, IssueEpic>;
+  targetsByStatus: ReadonlyMap<string, Status[]>;
+  lastEvent: { issueId: string; ts: number } | null;
+  can: (perm: PermId, issue?: Issue) => boolean;
+  moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
+  onOpen: (id: string) => void;
+  onMove: (issueId: string, statusId: string) => void;
+  onCardDragStart: (issue: Issue) => void;
+  onCardDragEnd: () => void;
+  setOverCol: (id: string | null) => void;
+  setDragId: (id: string | null) => void;
+  dragRef: { current: string | null };
+}) {
+  const { t } = useT();
+  const c = catColor(st.category);
+  const onOver = useCallback(() => setOverCol(st.id), [setOverCol, st.id]);
+  const onDropOn = useCallback(
+    (e: React.DragEvent, target: Issue) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = e.dataTransfer.getData("text/plain");
+      setOverCol(null);
+      setDragId(null);
+      if (id && id !== target.id) moveStatus(id, st.id, target.id);
+    },
+    [setOverCol, setDragId, moveStatus, st.id],
+  );
+  const renderCard = useCallback(
+    (i: Issue) => (
+      <Card
+        key={i.id}
+        issue={i}
+        usersById={usersById}
+        epic={i.epicId ? epicsById.get(i.epicId) : undefined}
+        doneCat={statusById.get(i.statusId)?.category === "done"}
+        moveTargets={targetsByStatus.get(i.statusId) ?? NO_TARGETS}
+        onOpen={onOpen}
+        onMove={onMove}
+        flash={lastEvent?.issueId === i.id && Date.now() - lastEvent.ts < 1500}
+        onDragStart={onCardDragStart}
+        onDragEnd={onCardDragEnd}
+        onDropOn={onDropOn}
+        onOver={onOver}
+        draggable={can("transition", i)}
+      />
+    ),
+    [usersById, epicsById, statusById, targetsByStatus, onOpen, onMove, lastEvent, onCardDragStart, onCardDragEnd, onDropOn, onOver, can],
+  );
+  return (
+    <section
+      className={`snap-start ${BOARD_COLUMN_SHELL} transition-[box-shadow,background-color] duration-150 ${isOver ? (ok ? "!bg-accentsoft/70 !ring-accentmuted" : "!bg-dangersoft/70 !ring-danger/40") : ""}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOverCol(st.id);
+      }}
+      onDragLeave={(e) => {
+        if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setOverCol(null);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        const id = e.dataTransfer.getData("text/plain");
+        setOverCol(null);
+        setDragId(null);
+        dragRef.current = null;
+        if (id) moveStatus(id, st.id, null);
+      }}
+    >
+      <header className="mb-1 flex h-8 items-center gap-2 px-2">
+        <span className="h-2.5 w-2.5 rounded-full ring-[3px]" style={{ background: c.dot, "--tw-ring-color": `color-mix(in oklch, ${c.dot} 22%, transparent)` } as React.CSSProperties} />
+        <h3 className="text-[13px] font-medium text-ink">{workflowStatusName(st, t)}</h3>
+        <span className="tabular text-[12.5px] text-faint">{total ?? "…"}</span>
+        {canCreate && isFirstTodo && (
+          <button
+            onClick={() => setQuickFor(st.id)}
+            className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink"
+            aria-label={t("board.addToStatusAria", { name: workflowStatusName(st, t) })}
+          >
+            <IcPlus size={14} />
+          </button>
+        )}
+      </header>
+
+      <div
+        className="flex-1 space-y-1.5 overflow-y-auto p-0.5"
+      >
+        {quickOpen && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
+        {projectId && (
+          <ColumnCards
+            projectId={projectId}
+            filters={colFilters}
+            revision={revision}
+            renderCard={renderCard}
+          />
+        )}
+        {/* Свёрнутый «хвост» закрытого: данные на месте, в один клик. */}
+        {hiddenDone > 0 && (
+          <button
+            onClick={() => setShowAllDone(true)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] text-faint transition-colors hover:bg-hover hover:text-ink"
+          >
+            <IcArchive size={12} />
+            {t("board.hiddenDone", { n: hiddenDone })}
+          </button>
+        )}
+        {showAllDone && isDone && (
+          <button
+            onClick={() => setShowAllDone(false)}
+            className="w-full rounded-lg px-3 py-1.5 text-[12px] text-faint transition-colors hover:bg-hover hover:text-ink"
+          >
+            {t("board.collapseDone", { days: DONE_WINDOW_DAYS })}
+          </button>
+        )}
+        {total === 0 && !quickOpen && hiddenDone === 0 && (
+          <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[12px] transition-colors ${isOver ? (ok ? "border-accent text-accenttext" : "border-danger/60 text-danger") : "border-line text-faint"}`}>
+            {isOver ? (ok ? t("board.dropReleaseOk") : t("board.dropForbidden")) : t("board.dropHere")}
+          </div>
+        )}
+        {isOver && !ok && (
+          <p className="rounded-md bg-dangersoft px-2 py-1 text-center text-[11.5px] font-medium text-[var(--status-danger-fg)]">
+            {t("board.transitionOutOfSchema", {
+              from: draggedStatusId ? workflowStatusName(statusById.get(draggedStatusId) ?? { name: "" }, t) : "",
+              to: workflowStatusName(st, t),
+            })}
+          </p>
+        )}
+      </div>
+
+      {isDoneStatus && total !== null && total > 0 && (
+        <p className="mt-1 flex items-center gap-1.5 px-2 pb-0.5 text-[12px] text-faint">
+          <IcInbox size={13} /> {t("board.closedCount", { n: total })}
+        </p>
+      )}
+    </section>
+  );
+});
+
 export default function Board() {
   const { t, tn } = useT();
-  const { data, ui, moveStatus, can, epicsRevision } = useStore();
+  const { data, ui, moveStatus, openIssue, can, epicsRevision } = useStore();
   const canMove = can("transition");
   const canCreate = can("create");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -395,9 +605,16 @@ export default function Board() {
     [data.workflow.statuses],
   );
 
-  // Куда эту задачу разрешено двигать по схеме workflow (для меню на карточке).
-  const targetsFor = useCallback(
-    (statusId: string) => data.workflow.statuses.filter((st) => st.id !== statusId && canTransition(data.workflow, statusId, st.id)),
+  // Куда задачу из статуса разрешено двигать по схеме workflow (для меню на карточке) — один
+  // массив на статус, пересчитывается со схемой, а не на каждый рендер: иначе memo(Card) не держит.
+  const targetsByStatus = useMemo(
+    () =>
+      new Map(
+        data.workflow.statuses.map((from) => [
+          from.id,
+          data.workflow.statuses.filter((st) => st.id !== from.id && canTransition(data.workflow, from.id, st.id)),
+        ]),
+      ),
     [data.workflow],
   );
   // Быстрое создание («+») — только у первого столбца категории «todo» (по позиции):
@@ -434,6 +651,15 @@ export default function Board() {
    *  считаются свежими, чтобы они не пропали из виду молча. */
   const totalOf = (sid: string) => columnTotal(filtered.counts, older.counts, sid, { isDone: doneIds.has(sid), showAllDone });
   const hiddenDone = (sid: string) => hiddenDoneCount(older.counts, sid, { isDone: doneIds.has(sid), showAllDone });
+  // Фильтры колонок — по объекту на статус, стабильные между рендерами доски (иначе каждая
+  // колонка получала бы новый объект и перерисовывалась вместе с любым состоянием доски).
+  const colFiltersById = useMemo(
+    () =>
+      new Map(
+        data.workflow.statuses.map((st) => [st.id, columnFilterParams(baseFilters, st.id, { isDone: doneIds.has(st.id), showAllDone })]),
+      ),
+    [data.workflow.statuses, baseFilters, doneIds, showAllDone],
+  );
 
   // Полоска аватаров-фильтров: самые загруженные исполнители проекта (сервер), а
   // не «все, кого видно среди загруженных задач».
@@ -467,6 +693,19 @@ export default function Board() {
   const recentDone = useIssueCounts(projectId, allClear ? { closed: "recent", closedDays: 30 } : null, revision);
   const closedRecently = recentDone.counts?.total ?? 0;
   const canDropTo = (sid: string) => !dragged || dragged.statusId === sid || canTransition(data.workflow, dragged.statusId, sid);
+
+  // Колбэки карточек стабильны: задачу они получают аргументом (ADR-0011, шаг 0).
+  const onMove = useCallback((id: string, to: string) => moveStatus(id, to, null), [moveStatus]);
+  const onCardDragStart = useCallback((i: Issue) => {
+    setDragId(i.id);
+    setDragIssue(i);
+    dragRef.current = i.id;
+  }, []);
+  const onCardDragEnd = useCallback(() => {
+    setDragId(null);
+    setOverCol(null);
+    dragRef.current = null;
+  }, []);
 
   return (
     <div className="flex h-full flex-col">
@@ -570,128 +809,42 @@ export default function Board() {
       <div className="flex-1 snap-x overflow-x-auto overflow-y-hidden md:snap-none">
         <div className="flex h-full w-max items-start gap-3 px-4 pb-4 pt-1 sm:px-6">
           {data.workflow.statuses.map((st) => {
-            const total = totalOf(st.id);
-            const colFilters = columnFilterParams(baseFilters, st.id, { isDone: doneIds.has(st.id), showAllDone });
-            const c = catColor(st.category);
             const isOver = overCol === st.id;
-            const ok = canDropTo(st.id);
             return (
-              <section
+              <BoardColumn
                 key={st.id}
-                className={`snap-start ${BOARD_COLUMN_SHELL} transition-[box-shadow,background-color] duration-150 ${isOver ? (ok ? "!bg-accentsoft/70 !ring-accentmuted" : "!bg-dangersoft/70 !ring-danger/40") : ""}`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setOverCol(st.id);
-                }}
-                onDragLeave={(e) => {
-                  if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setOverCol(null);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const id = e.dataTransfer.getData("text/plain");
-                  setOverCol(null);
-                  setDragId(null);
-                  dragRef.current = null;
-                  if (id) moveStatus(id, st.id, null);
-                }}
-              >
-                <header className="mb-1 flex h-8 items-center gap-2 px-2">
-                  <span className="h-2.5 w-2.5 rounded-full ring-[3px]" style={{ background: c.dot, "--tw-ring-color": `color-mix(in oklch, ${c.dot} 22%, transparent)` } as React.CSSProperties} />
-                  <h3 className="text-[13px] font-medium text-ink">{workflowStatusName(st, t)}</h3>
-                  <span className="tabular text-[12.5px] text-faint">{total ?? "…"}</span>
-                  {canCreate && st.id === firstTodoId && (
-                    <button
-                      onClick={() => setQuickFor(st.id)}
-                      className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink"
-                      aria-label={t("board.addToStatusAria", { name: workflowStatusName(st, t) })}
-                    >
-                      <IcPlus size={14} />
-                    </button>
-                  )}
-                </header>
-
-                <div
-                  className="flex-1 space-y-1.5 overflow-y-auto p-0.5"
-                >
-                  {quickFor === st.id && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
-                  {projectId && (
-                    <ColumnCards
-                      projectId={projectId}
-                      filters={colFilters}
-                      revision={revision}
-                      renderCard={(i) => (
-                        <Card
-                          key={i.id}
-                          issue={i}
-                          assignees={i.assigneeIds.map((id) => usersById.get(id)).filter((u): u is User => !!u)}
-                          epic={i.epicId ? epics.byId.get(i.epicId) : undefined}
-                          doneCat={statusById.get(i.statusId)?.category === "done"}
-                          moveTargets={targetsFor(i.statusId)}
-                          onMove={(id, to) => moveStatus(id, to, null)}
-                          flash={ui.lastEvent?.issueId === i.id && Date.now() - ui.lastEvent.ts < 1500}
-                          onDragStart={() => {
-                            setDragId(i.id);
-                            setDragIssue(i);
-                            dragRef.current = i.id;
-                          }}
-                          onDragEnd={() => {
-                            setDragId(null);
-                            setOverCol(null);
-                            dragRef.current = null;
-                          }}
-                          onDropOn={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const id = e.dataTransfer.getData("text/plain");
-                            setOverCol(null);
-                            setDragId(null);
-                            if (id && id !== i.id) moveStatus(id, st.id, i.id);
-                          }}
-                          onOver={() => setOverCol(st.id)}
-                          draggable={can("transition", i)}
-                        />
-                      )}
-                    />
-                  )}
-                  {/* Свёрнутый «хвост» закрытого: данные на месте, в один клик. */}
-                  {hiddenDone(st.id) > 0 && (
-                    <button
-                      onClick={() => setShowAllDone(true)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] text-faint transition-colors hover:bg-hover hover:text-ink"
-                    >
-                      <IcArchive size={12} />
-                      {t("board.hiddenDone", { n: hiddenDone(st.id) })}
-                    </button>
-                  )}
-                  {showAllDone && doneIds.has(st.id) && (
-                    <button
-                      onClick={() => setShowAllDone(false)}
-                      className="w-full rounded-lg px-3 py-1.5 text-[12px] text-faint transition-colors hover:bg-hover hover:text-ink"
-                    >
-                      {t("board.collapseDone", { days: DONE_WINDOW_DAYS })}
-                    </button>
-                  )}
-                  {total === 0 && quickFor !== st.id && hiddenDone(st.id) === 0 && (
-                    <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[12px] transition-colors ${isOver ? (ok ? "border-accent text-accenttext" : "border-danger/60 text-danger") : "border-line text-faint"}`}>
-                      {isOver ? (ok ? t("board.dropReleaseOk") : t("board.dropForbidden")) : t("board.dropHere")}
-                    </div>
-                  )}
-                  {isOver && !ok && (
-                    <p className="rounded-md bg-dangersoft px-2 py-1 text-center text-[11.5px] font-medium text-[var(--status-danger-fg)]">
-                      {t("board.transitionOutOfSchema", {
-                        from: dragged ? workflowStatusName(data.workflow.statuses.find((s) => s.id === dragged.statusId) ?? { name: "" }, t) : "",
-                        to: workflowStatusName(st, t),
-                      })}
-                    </p>
-                  )}
-                </div>
-
-                {st.id === doneStatusId && total !== null && total > 0 && (
-                  <p className="mt-1 flex items-center gap-1.5 px-2 pb-0.5 text-[12px] text-faint">
-                    <IcInbox size={13} /> {t("board.closedCount", { n: total })}
-                  </p>
-                )}
-              </section>
+                st={st}
+                total={totalOf(st.id)}
+                hiddenDone={hiddenDone(st.id)}
+                colFilters={colFiltersById.get(st.id) ?? NO_ISSUE_FILTERS}
+                isOver={isOver}
+                ok={canDropTo(st.id)}
+                draggedStatusId={isOver && dragged ? dragged.statusId : null}
+                isDone={doneIds.has(st.id)}
+                isDoneStatus={st.id === doneStatusId}
+                showAllDone={showAllDone}
+                setShowAllDone={setShowAllDone}
+                canCreate={canCreate}
+                isFirstTodo={st.id === firstTodoId}
+                quickOpen={quickFor === st.id}
+                setQuickFor={setQuickFor}
+                projectId={projectId}
+                revision={revision}
+                usersById={usersById}
+                statusById={statusById}
+                epicsById={epics.byId}
+                targetsByStatus={targetsByStatus}
+                lastEvent={ui.lastEvent}
+                can={can}
+                moveStatus={moveStatus}
+                onOpen={openIssue}
+                onMove={onMove}
+                onCardDragStart={onCardDragStart}
+                onCardDragEnd={onCardDragEnd}
+                setOverCol={setOverCol}
+                setDragId={setDragId}
+                dragRef={dragRef}
+              />
             );
           })}
         </div>

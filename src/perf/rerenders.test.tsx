@@ -195,6 +195,8 @@ const boot: ProjectBootstrap = {
   sprints: [],
 } as unknown as ProjectBootstrap;
 
+const FIXED_TS = "2026-09-20T10:00:00.000Z";
+const EDITED_TS = "2026-09-21T10:00:00.000Z";
 const dto = (statusId: string, n: number, over: Partial<ServerIssue> = {}): ServerIssue =>
   ({
     id: `${statusId}-${n}`,
@@ -212,9 +214,11 @@ const dto = (statusId: string, n: number, over: Partial<ServerIssue> = {}): Serv
     complexity: null,
     dueDate: n % 7 === 0 ? "2026-10-01" : null,
     rank: n,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    doneAt: statusId === "s3" ? new Date().toISOString() : null,
+    // Фиксированные метки, как у настоящего сервера: неизменённая задача при перечитывании
+    // приходит с тем же updatedAt (на этом стоит структурное разделение в useIssueSet).
+    createdAt: FIXED_TS,
+    updatedAt: FIXED_TS,
+    doneAt: statusId === "s3" ? FIXED_TS : null,
     archivedAt: null,
     ...over,
   }) as unknown as ServerIssue;
@@ -266,7 +270,7 @@ async function setupBoard() {
       items: Array.from({ length: PER_COLUMN }, (_, n) => {
         const d = dto(st, n);
         const p = priority.get(d.id);
-        return p ? ({ ...d, priorityId: p } as ServerIssue) : d;
+        return p ? ({ ...d, priorityId: p, updatedAt: EDITED_TS } as ServerIssue) : d;
       }),
       hasMore: false,
       nextCursor: null,
@@ -279,7 +283,7 @@ async function setupBoard() {
   vi.spyOn(issuesApi, "patch").mockImplementation(async (_p, id, body) => {
     const [st, n] = id.split("-");
     priority.set(id, body.priorityId as PriorityId);
-    return dto(st, Number(n), { priorityId: body.priorityId as PriorityId });
+    return dto(st, Number(n), { priorityId: body.priorityId as PriorityId, updatedAt: EDITED_TS } as Partial<ServerIssue>);
   });
 
   let store!: ReturnType<typeof useStore>;
