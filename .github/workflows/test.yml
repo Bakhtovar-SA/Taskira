@@ -287,6 +287,9 @@ jobs:
 
       - run: npm run build
 
+      - name: Bundle size budget — JS/CSS gzip vs scripts/bundle-budget.json (ТЗ 5.2)
+        run: npm run bundle:check
+
       - name: Validate offline release scripts
         run: bash scripts/test-release-scripts.sh
 

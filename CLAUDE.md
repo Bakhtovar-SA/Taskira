@@ -51,6 +51,8 @@ npm run dev         # Vite dev server on http://localhost:3000 (strictPort — f
 npm run build       # production build to dist/
 npm run typecheck   # tsc --noEmit
 npm test            # vitest run — permissions / validation / store helpers
+npm run bundle:check    # after build: gzip JS/CSS vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
+npm run perf:rerenders  # re-render measurement tables (src/perf/, ADR-0011); same file runs silently in npm test
 ```
 
 Server (run from `server/`):
@@ -131,7 +133,11 @@ required check). The old text-emitting `generate-client-contracts.mjs` / `contra
 
 ### Client data flow
 
-`src/store.tsx` is a single React Context (`StoreProvider` / `useStore`) — no reducer library.
+`src/store.tsx` is a single React Context (`StoreProvider` / `useStore`) — no reducer library. Measured (ТЗ 5.2):
+every state change — even a toast or the unread counter — re-renders the whole tree incl. all board cards; the
+accepted fix is a domain-by-domain move to `useSyncExternalStore` selector subscriptions behind the `useStore()`
+facade ([ADR-0011](docs/adr/0011-store-selector-subscriptions.md); prototype `src/store/experimental/`, not used in
+production).
 Boot sequence in `App.tsx` → `store.bootstrap()`: if no token in `localStorage` (`taskira.token`),
 show `LoginForm`; otherwise call `authApi.me()` + `projectsApi.bootstrap(id)` + `issuesApi.list()`
 and populate one flat `Data` object. `bootStatus` drives the shell:
@@ -615,6 +621,12 @@ since any edit touches it. The board shows the last 14 days in its done column
   `.surface-sheet`. Glass (`.glass`) is chrome-only — popovers, menus, toasts, tooltips — never task cards or forms.
   Fonts are vendored in `src/assets/fonts/` (Onest latin+cyrillic; JetBrains Mono latin, keys only); weights
   400/500/600 only, no all-caps labels.
+- **Dynamic style values under the CSP** ([ADR-0010](docs/adr/0010-dynamic-styles-under-csp.md), verified in Chromium by
+  `npm run csp:spike`): CSSOM writes (`el.style.x`, `setProperty('--x')`, WAAPI `el.animate`) are allowed by
+  `style-src-attr 'none'`; `style=""` in markup, `setAttribute('style')` and `<style>` are blocked. `secure-jsx`
+  currently turns every distinct `style` value into a new rule in `public/dynamic.css` (unbounded) — for continuous
+  values (positions, progress, colours from data) set a custom property via ref/CSSOM and consume it from a static rule;
+  enumerable states go in `data-*` attributes. Browser matrix: [docs/design/BROWSERS.md](docs/design/BROWSERS.md).
 - **Responsive layout**: below 768px the issue modal's right-hand panel (status, assignee,
   due date, labels) collapses under the main content instead of sitting beside it, the
   sidebar hides in favor of a native `<select>` in `Topbar.tsx` carrying the same sections

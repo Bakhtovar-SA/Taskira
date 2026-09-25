@@ -1,0 +1,28 @@
+/* Статический лист спайка — ровно то, что разрешает CSP style-src 'self'. */
+#stage { position: relative; width: 400px; min-height: 300px; }
+.track { position: relative; width: 200px; height: 8px; }
+
+/* (a) кастомное свойство, выставленное через CSSOM, приходит в var() одного статического правила */
+.bar { height: 8px; width: calc(var(--p, 0) * 1%); background: var(--tone, rgb(0, 0, 0)); }
+
+/* (d) data-атрибут + конечный набор правил (в продукте — ступени, сгенерированные сборкой) */
+.bar-step[data-progress="0"] { width: 0%; }
+.bar-step[data-progress="35"] { width: 35%; }
+.bar-step[data-progress="40"] { width: 40%; }
+.bar-step[data-progress="100"] { width: 100%; }
+.tone[data-tone="danger"] { color: rgb(200, 30, 30); }
+.tone[data-tone="ok"] { color: rgb(20, 140, 60); }
+
+/* (d') типизированный attr() из CSS Values 5 — значение прямо из data-атрибута, без JS */
+.bar-attr { height: 8px; width: attr(data-w type(<percentage>), 0%); }
+
+/* (b) цель для Web Animations API */
+.anim { width: 10px; height: 10px; }
+
+/* (b') @property в статическом листе — анимируемое кастомное свойство */
+@property --angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.spin { width: 10px; height: 10px; transform: rotate(var(--angle)); }
+
+/* floating-ui: координаты библиотека пишет в element.style.left/top/transform */
+.ref { position: absolute; left: 150px; top: 100px; width: 80px; height: 24px; }
+.floating { position: absolute; left: 0; top: 0; width: 120px; height: 40px; }

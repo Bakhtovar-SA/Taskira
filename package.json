@@ -17,6 +17,9 @@
     "contrast:check": "node scripts/check-contrast.mjs",
     "colors:check": "node scripts/check-raw-colors.mjs",
     "grain:generate": "node scripts/generate-grain.mjs",
+    "bundle:check": "node scripts/check-bundle-size.mjs",
+    "perf:rerenders": "vitest run --config vitest.perf.config.ts",
+    "csp:spike": "node scripts/csp-spike/run.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
