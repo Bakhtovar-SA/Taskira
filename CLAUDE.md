@@ -133,11 +133,13 @@ required check). The old text-emitting `generate-client-contracts.mjs` / `contra
 
 ### Client data flow
 
-`src/store.tsx` is a single React Context (`StoreProvider` / `useStore`) — no reducer library. Measured (ТЗ 5.2):
-every state change — even a toast or the unread counter — re-renders the whole tree incl. all board cards; the
-accepted fix is a domain-by-domain move to `useSyncExternalStore` selector subscriptions behind the `useStore()`
-facade ([ADR-0011](docs/adr/0011-store-selector-subscriptions.md); prototype `src/store/experimental/`, not used in
-production).
+`src/store.tsx` is a React Context (`StoreProvider` / `useStore`) — no reducer library. Measured (ТЗ 5.2):
+every state change re-rendered the whole tree incl. all board cards; the accepted fix is a domain-by-domain move to
+`useSyncExternalStore` selector subscriptions behind the `useStore()` facade
+([ADR-0011](docs/adr/0011-store-selector-subscriptions.md)). Done so far (steps 0–2): board cards take stable props
+and columns are `memo` (`BoardColumn`), so they don't depend on the context; toasts and notifications live in
+external stores (`src/store/slices.ts`) — read them with `useToasts()` / `useNotifications()` / `useUnreadCount()`,
+they are **not** on `useStore()` anymore. Modal chunks are preloaded via `src/lazyModals.ts`.
 Boot sequence in `App.tsx` → `store.bootstrap()`: if no token in `localStorage` (`taskira.token`),
 show `LoginForm`; otherwise call `authApi.me()` + `projectsApi.bootstrap(id)` + `issuesApi.list()`
 and populate one flat `Data` object. `bootStatus` drives the shell:
