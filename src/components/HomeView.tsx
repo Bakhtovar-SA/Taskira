@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
+import { FOCUS_TEST, FocusChips, TaskRow, useFocusCounts, type Focus } from "./MyIssues";
 import { useNotifications, useStore } from "../store";
-import { fmtDate, relTime } from "../store/mappers";
+import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
-import { DueRing, IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
@@ -17,61 +18,9 @@ const readLastProject = (): string => {
   }
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
-const isOverdue = (i: AssignedIssue) => !!i.dueDate && i.statusCategory !== "done" && i.dueDate < today();
-
-type Focus = "all" | "overdue" | "week" | "inprogress";
-
-/** Срок в ближайшие 7 дней (включая сегодня), не просрочен и не закрыт. */
-const isThisWeek = (i: AssignedIssue) => {
-  if (!i.dueDate || i.statusCategory === "done") return false;
-  const d = (Date.parse(i.dueDate) - Date.parse(today())) / 864e5;
-  return d >= 0 && d <= 7;
-};
-const FOCUS_TEST: Record<Focus, (i: AssignedIssue) => boolean> = {
-  all: () => true,
-  overdue: isOverdue,
-  week: isThisWeek,
-  inprogress: (i) => i.statusCategory === "inprogress",
-};
-
 /** Приветствие по времени суток — мелочь, но экран перестаёт быть шаблоном. */
 const greetingKey = (h = new Date().getHours()) =>
   h < 5 ? "home.greetingNight" : h < 12 ? "home.greetingMorning" : h < 18 ? "home.greetingDay" : h < 23 ? "home.greetingEvening" : "home.greetingNight";
-
-function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }) {
-  const { t, lang } = useT();
-  const cat = issue.statusCategory as "todo" | "inprogress" | "done";
-  return (
-    <button
-      onClick={onOpen}
-      className="group flex h-11 w-full items-center gap-3 border-b border-linesoft px-3.5 text-left transition-colors last:border-0 hover:bg-hover/60"
-    >
-      <span className="shrink-0" title={t(`priority.${issue.priorityId}`)}>
-        <PriorityIcon p={issue.priorityId} size={14} />
-      </span>
-      <span className="w-[68px] shrink-0 font-mono text-[12px] text-faint">{issue.key}</span>
-      <span className="shrink-0" title={workflowStatusName({ name: issue.statusName }, t)}>
-        <StatusGlyph category={cat} size={14} />
-      </span>
-      {issue.typeId !== "task" && (
-        <span className="shrink-0" title={t(`issueType.${issue.typeId}`)}>
-          <TypeIcon type={issue.typeId} size={14} />
-        </span>
-      )}
-      <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">{issue.title}</span>
-      {issue.dueDate && (
-        <span className={`hidden shrink-0 items-center gap-1 text-[12px] tabular md:inline-flex ${isOverdue(issue) ? "font-medium text-[var(--status-danger-fg)]" : "text-faint"}`}>
-          <DueRing due={issue.dueDate} today={today()} done={cat === "done"} />
-          {fmtDate(issue.dueDate, lang)}
-        </span>
-      )}
-      <span className="hidden shrink-0 sm:inline-flex" title={issue.projectName}>
-        <ProjectMark projectKey={issue.projectKey} size={20} />
-      </span>
-    </button>
-  );
-}
 
 export default function HomeView({ onLogout }: { onLogout: () => void }) {
   const { t, tn, lang } = useT();
@@ -93,10 +42,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   // Полоса фокуса вместо плашек-счётчиков: каждая цифра — фильтр списка ниже
   // (анти-список трека: «большое число + подпись» только если оно что-то открывает).
   const [focus, setFocus] = useState<Focus>("all");
-  const focusCounts = useMemo(
-    () => Object.fromEntries((Object.keys(FOCUS_TEST) as Focus[]).map((f) => [f, data.assignedToMe.filter(FOCUS_TEST[f]).length])) as Record<Focus, number>,
-    [data.assignedToMe],
-  );
+  const focusCounts = useFocusCounts(data.assignedToMe);
 
   const tasks = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -215,31 +161,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
           <p className="mt-1 text-[14px] text-sub">{t("home.subtitle")}</p>
 
           {/* полоса фокуса: каждая цифра фильтрует «Мои задачи» */}
-          <div role="tablist" aria-label={t("home.myTasks")} className="mt-7 flex flex-wrap gap-2">
-            {(
-              [
-                ["all", "home.focus.all", "violet"],
-                ["overdue", "home.focus.overdue", "red"],
-                ["week", "home.focus.week", "amber"],
-                ["inprogress", "home.focus.inprogress", "sky"],
-              ] as const
-            ).map(([id, key, tone]) => {
-              const on = focus === id;
-              const n = focusCounts[id];
-              return (
-                <button
-                  key={id}
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => setFocus(id)}
-                  className={`focus-chip tk-tone-${tone} ${on ? "is-on" : ""} flex h-10 items-center gap-2.5 rounded-xl pl-3 pr-3.5 text-[13px] font-medium transition-[background-color,box-shadow,color] duration-150`}
-                >
-                  <span className={`font-disp text-[18px] font-semibold tabular leading-none ${id === "overdue" && n > 0 ? "text-[var(--status-danger-fg)]" : on ? "text-current" : "text-ink"}`}>{n}</span>
-                  <span className={on ? "text-ink" : "text-sub"}>{t(key)}</span>
-                </button>
-              );
-            })}
-          </div>
+          <FocusChips focus={focus} onFocus={setFocus} counts={focusCounts} className="mt-7" />
 
           {/* две колонки */}
           <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.7fr_1fr]">

@@ -52,6 +52,8 @@ interface Api {
   /** Войти в проект с главного экрана (переключить, если это другой проект). */
   enterProject: (projectId: string) => void;
   refreshCollaborations: () => Promise<void>;
+  /** «Мои задачи» по всем проектам — перечитать (страница `/my-issues`, Главная). */
+  refreshAssignedToMe: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   markNotificationsRead: (ids?: string[]) => void;
   dismissNotifications: (ids?: string[]) => void;
@@ -278,7 +280,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { refreshNotifications, refreshUnreadCount, markNotificationsRead, dismissNotifications, setNotifyPrefs, uploadAvatar,
     removeAvatar } = useNotificationActions(storeCtx);
 
-  const { bootstrap, switchProject, goHome, enterProject, logout, refreshIssues, ensureAllIssues, refreshCollaborations,
+  const { bootstrap, switchProject, goHome, enterProject, refreshAssignedToMe, logout, refreshIssues, ensureAllIssues, refreshCollaborations,
     openIssue, pendingOpenIssueRef } = useSessionActions(storeCtx, {
     setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef,
   });
@@ -415,6 +417,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     goHome,
     enterProject,
     refreshCollaborations,
+    refreshAssignedToMe,
     refreshNotifications,
     markNotificationsRead,
     dismissNotifications,

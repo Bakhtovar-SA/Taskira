@@ -879,7 +879,7 @@ export default function Board() {
       {/* колонки. w-max + mx-auto: на широком экране группа колонок
           центрируется, а когда не влезает — просто прокручивается от левого края
           (ticket-board-columns-theme-fix §3). */}
-      <div className="flex-1 snap-x overflow-x-auto overflow-y-hidden md:snap-none">
+      <div className="flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden md:snap-none">
         <div className="flex h-full w-max items-start gap-3 px-4 pb-4 pt-1 sm:px-6">
           {data.workflow.statuses.map((st) => {
             const isOver = overCol === st.id;

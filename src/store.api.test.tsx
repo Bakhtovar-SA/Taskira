@@ -47,6 +47,7 @@ const API_KEYS = [
   "openCreateSubtask",
   "openIssue",
   "patchProject",
+  "refreshAssignedToMe",
   "refreshCollaborations",
   "refreshNotifications",
   "removeAttachment",

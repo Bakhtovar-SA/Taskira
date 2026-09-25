@@ -26,6 +26,8 @@ const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
   admin: "/admin/departments",
   docs: "/help",
   collaborating: "/shared",
+  inbox: "/inbox",
+  my: "/my-issues",
 };
 /** Старые сегменты `/p/:projectKey/<вид>` (до ADR-0013) — ссылки уже разосланы людьми,
  *  поэтому разбираются как прежде; синхронизация URL тут же заменяет их новым адресом. */

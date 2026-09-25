@@ -157,10 +157,11 @@ carries `comments`/`activity` separately (fetched on demand when an issue modal 
 Mutations are optimistic-ish: call API, then patch `data` from the returned DTO; `moveStatus`
 re-fetches issues on failure to undo local drift.
 
-Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating`)
+Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating | inbox | my`)
 are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs (ADR-0013 §5:
 `/p/:projectKey/{board,list,timeline,sprints}`, `/p/:projectKey/settings/{workflow,access}`, and project-less
-`/reports`, `/admin/departments`, `/help`, `/shared`; old `/p/:projectKey/<view>` links still parse and are replaced
+`/inbox`, `/my-issues`, `/reports`, `/admin/departments`, `/help`, `/shared` — a project-less path at boot opens that view
+inside the last project's shell instead of the home screen; old `/p/:projectKey/<view>` links still parse and are replaced
 in place — `samePlace()` in `src/router.ts`, query preserved) by
 `useRouterSync.ts` — `wouter` (ADR-0008), not a hand-rolled hash parser (ТЗ 3.1, plan v2
 Track 3; see that file's own header comment for the bidirectional-sync design and the
@@ -174,8 +175,8 @@ unique, so no project needs to be named to resolve it) before opening the issue;
 holds the pure path helpers/parser. `nginx.conf`'s `try_files $uri /index.html` (and Vite's
 dev-server default) is what makes a hard refresh on one of these paths work — required now
 that the path itself carries state, unlike the old hash-only scheme.
-Keyboard shortcuts (`/`, `C`, `1`–`4` for the project views — board/list/timeline/sprints, `G` then `H`/`R`/`S` for
-home/reports/project settings, `Esc`, `?` help — ADR-0013 §7) are wired in `App.tsx`;
+Keyboard shortcuts (`/`, `C`, `1`–`4` for the project views — board/list/timeline/sprints, `G` then `H`/`I`/`M`/`R`/`S` for
+home/inbox/my issues/reports/project settings, `[` collapses the sidebar to an icon rail (`taskira.sidebar.collapsed`), `Esc`, `?` help — ADR-0013 §7) are wired in `App.tsx`;
 they are suppressed while a modal is open. `⌘K`/`Ctrl+K` (matched by `e.code`, so it works in the Russian layout)
 opens the command palette from anywhere (`CommandPalette.tsx`, lazy chunk; `src/palette/` — fuzzy + wrong-layout
 matching, recent issues in `localStorage`, `openPalette()` event for buttons). `reports` (`ReportsView.tsx`) is project-less —
@@ -635,11 +636,13 @@ since any edit touches it. The board shows the last 14 days in its done column
   currently turns every distinct `style` value into a new rule in `public/dynamic.css` (unbounded) — for continuous
   values (positions, progress, colours from data) set a custom property via ref/CSSOM and consume it from a static rule;
   enumerable states go in `data-*` attributes. Browser matrix: [docs/design/BROWSERS.md](docs/design/BROWSERS.md).
-- **Responsive layout**: below 768px the issue modal's right-hand panel (status, assignee,
-  due date, labels) collapses under the main content instead of sitting beside it, the
-  sidebar hides in favor of a native `<select>` in `Topbar.tsx` carrying the same sections
-  and visibility rules (admin-only "Департаменты", collab-only "Мои подключения"), and view
-  side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
+- **Responsive layout**: below 1024px the sidebar is a drawer over the content, opened by the
+  «Меню» button in `Topbar.tsx` (`openSidebarDrawer()`), closed by navigation / Esc / the scrim; the
+  project view tabs stay in the header, icon-only for inactive tabs, and the search box idles as a
+  magnifier. `.glass-edge` sets `position: relative` unlayered, so the drawer's `position: fixed`
+  lives in `index.css` (`.side-drawer`), not in a Tailwind utility. Below 768px the issue modal's
+  right-hand panel (status, assignee, due date, labels) collapses under the main content, the board
+  scrolls column-by-column with snap, and view side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
   don't assume mobile parity for anything not explicitly listed here.
 - **`<Dropdown>` (`ui.tsx`) is the only correct way to build a popup menu** — it closes on
   outside click, on Escape, and on any *other* dropdown opening (`DROPDOWN_OPEN_EVT`, a

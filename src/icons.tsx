@@ -344,6 +344,13 @@ export const IcLock = (p: P) => (
     <R x={7} y={9.5} w={2} h={3} />
   </D>
 );
+/** Боковая панель: свернуть / развернуть / меню на узком экране. */
+export const IcPanel = (p: P) => (
+  <D {...p}>
+    <Plate />
+    <R x={3} y={3} w={3.5} h={10} r={1.25} />
+  </D>
+);
 export const IcFlag = (p: P) => (
   <D {...p}>
     <path className="t" d="M4.5 2h9l-2 3.25 2 3.25h-9z" />

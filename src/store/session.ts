@@ -29,6 +29,7 @@ import {
   writeLastProject,
 } from "./mappers";
 import type { StoreCtx } from "./ctx";
+import { parsePath } from "../router";
 import { EMPTY_NOTIFICATIONS } from "./slices";
 import type { BootStatus, SoloState, UIState } from "./mappers";
 
@@ -133,6 +134,10 @@ export function useSessionActions(
       // локально по уже полученному списку projects — сети не требует.
       const pathTarget = await resolveBootPathTarget(location.pathname, projects);
       if (stale()) return;
+      // Раздел без проекта по прямой ссылке (/inbox, /my-issues, /reports…, ADR-0013 §5) —
+      // открыть его в оболочке последнего проекта, а не сбрасывать на главный экран.
+      const bootPath = parsePath(location.pathname);
+      const globalView = bootPath.kind === "global" ? bootPath.view : null;
 
       if (projects.length === 0) {
         // Ни одного видимого проекта, но, возможно, приглашён к отдельным задачам
@@ -170,7 +175,7 @@ export function useSessionActions(
       // внутри проекта) → главный экран (UI_RESTRUCTURE.md D4): список проектов и
       // задач, в проект не входим. При 1 проекте главный экран бессмыслен — сразу
       // внутрь (ветка ниже).
-      if (projects.length >= 2 && !pathProjectVisible && !pathIsCollab) {
+      if (projects.length >= 2 && !pathProjectVisible && !pathIsCollab && !globalView) {
         const assigned = await issuesApi
           .assignedToMe()
           .catch(() => ({ items: [] as AssignedIssue[], truncated: false, limit: 0 }));
@@ -221,6 +226,8 @@ export function useSessionActions(
         }));
       } else if (pathTarget && pathTarget.kind === "view" && pathTarget.projectId === chosen) {
         setUi((u) => ({ ...u, view: pathTarget.view }));
+      } else if (globalView) {
+        setUi((u) => ({ ...u, view: globalView }));
       }
       setBootStatus("ready");
     } catch (err) {
@@ -453,6 +460,7 @@ export function useSessionActions(
     switchProject,
     goHome,
     enterProject,
+    refreshAssignedToMe,
     logout,
     refreshIssues,
     ensureAllIssues,

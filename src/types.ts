@@ -313,7 +313,10 @@ export type ViewId =
   | "access"
   | "admin"
   | "docs"
-  | "collaborating";
+  | "collaborating"
+  /** Личный слой (ADR-0013 §1): уведомления и назначенные задачи по всем проектам. */
+  | "inbox"
+  | "my";
 
 /** Задача, к которой пользователя пригласили как collaborator'а (в чужом проекте).
  *  GET /api/issues/collaborating. Показывается в разделе «Мои подключения». */

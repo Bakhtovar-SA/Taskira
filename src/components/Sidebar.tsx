@@ -1,4 +1,4 @@
-import { useStore } from "../store";
+import { useStore, useUnreadCount } from "../store";
 import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
 import { openTotal } from "../boardFilters";
 import type { ProjectSummary, ViewId } from "../types";
@@ -11,7 +11,10 @@ import {
   IcFlag,
   IcFlow,
   IcHome,
+  IcInbox,
   IcLink,
+  IcMyIssues,
+  IcPanel,
   IcReport,
   IcSearch,
   IcSettings,
@@ -22,7 +25,8 @@ import {
   type IconTone,
 } from "../icons";
 import { Avatar, Kbd, ProjectMark } from "../ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT, type TKey } from "../i18n";
 import { openPalette, paletteShortcut } from "../palette/events";
 
@@ -57,8 +61,15 @@ export const SETTINGS_VIEWS: NavItem[] = [
   { id: "admin", labelKey: "sidebar.nav.admin", icon: (p) => <IcUsers {...p} />, tone: "blue", adminOnly: true },
 ];
 
+/** Личный слой (ADR-0013 §1): Входящие и Мои задачи — по всем проектам. */
+export const PERSONAL_VIEWS: NavItem[] = [
+  { id: "inbox", labelKey: "sidebar.nav.inbox", icon: (p) => <IcInbox {...p} />, tone: "sky" },
+  { id: "my", labelKey: "sidebar.nav.my", icon: (p) => <IcMyIssues {...p} />, tone: "violet" },
+];
+
 /** Плоский список всех разделов — для командной палитры (она ищет по нему). */
 export const NAV_GROUPS: { labelKey: TKey; items: NavItem[] }[] = [
+  { labelKey: "sidebar.group.personal", items: PERSONAL_VIEWS },
   { labelKey: "sidebar.group.projects", items: PROJECT_VIEWS },
   {
     labelKey: "sidebar.group.org",
@@ -71,6 +82,25 @@ export const NAV_GROUPS: { labelKey: TKey; items: NavItem[] }[] = [
   { labelKey: "sidebar.settings", items: SETTINGS_VIEWS },
 ];
 
+/** Узкий экран (< 1024 px): панель выезжает поверх по кнопке «Меню» в шапке (ТЗ 5.8 п.3). */
+export const SIDEBAR_DRAWER_EVT = "taskira:sidebar-drawer";
+export const openSidebarDrawer = () => window.dispatchEvent(new Event(SIDEBAR_DRAWER_EVT));
+
+const WIDE = "(min-width: 1024px)";
+const isWide = () => window.matchMedia?.(WIDE).matches ?? true;
+function useWide() {
+  const [wide, setWide] = useState(isWide);
+  useEffect(() => {
+    const mq = window.matchMedia?.(WIDE);
+    if (!mq) return;
+    const on = () => setWide(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return wide;
+}
+
+const COLLAPSED_KEY = "taskira.sidebar.collapsed";
 const OPEN_KEY = "taskira.sidebar.open";
 const readOpen = (): Record<string, boolean> => {
   try {
@@ -119,6 +149,58 @@ export default function Sidebar() {
       /* приватный режим — просто не запомним */
     }
   }, [open]);
+  const unread = useUnreadCount();
+  const wide = useWide();
+
+  // Свёрнута в полосу иконок (≥ 1024 px) — помним локально, как тему.
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+    } catch {
+      /* приватный режим */
+    }
+  }, [collapsed]);
+  const rail = collapsed && wide;
+
+  // Выезжающая панель на узком экране: открывает кнопка «Меню» в шапке, закрывает
+  // переход, Esc или клик мимо.
+  const [drawer, setDrawer] = useState(false);
+  useEffect(() => {
+    const on = () => setDrawer(true);
+    window.addEventListener(SIDEBAR_DRAWER_EVT, on);
+    return () => window.removeEventListener(SIDEBAR_DRAWER_EVT, on);
+  }, []);
+  useEffect(() => setDrawer(false), [ui.view, data.currentProjectId, wide]);
+  const asideRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (drawer) asideRef.current?.querySelector<HTMLElement>("button")?.focus();
+  }, [drawer]);
+
+  // «[» — свернуть/развернуть (на узком экране — открыть/закрыть), Esc закрывает выезжающую.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable) return;
+      if (e.key === "Escape" && drawer) {
+        setDrawer(false);
+        return;
+      }
+      if (e.code !== "BracketLeft" || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("[role=dialog]")) return;
+      e.preventDefault();
+      if (isWide()) setCollapsed((c) => !c);
+      else setDrawer((d) => !d);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawer]);
+
   const isOpen = (id: string, dflt = true) => open[id] ?? dflt;
   const toggle = (id: string, dflt = true) => setOpen((o) => ({ ...o, [id]: !(o[id] ?? dflt) }));
 
@@ -166,8 +248,27 @@ export default function Sidebar() {
     );
   };
 
+  const shell = `glass-side glass-edge flex shrink-0 flex-col overflow-hidden rounded-xl text-ink shadow-[0_1px_2px_oklch(0.2_0.05_288/0.06),0_12px_40px_-16px_oklch(0.2_0.08_288/0.3)]
+    lg:relative lg:my-2 lg:ml-2 lg:transition-[width] lg:duration-200 lg:ease-out
+    side-drawer max-lg:fixed max-lg:inset-y-2 max-lg:left-2 max-lg:z-50 max-lg:w-[272px] max-lg:max-w-[calc(100vw-48px)] max-lg:transition-[transform,visibility] max-lg:duration-300 max-lg:ease-out
+    ${drawer ? "" : "max-lg:invisible max-lg:-translate-x-[calc(100%+16px)]"}`;
+
+  if (rail)
+    return (
+      <Rail
+        className={`${shell} w-[60px]`}
+        homeAvailable={homeAvailable}
+        unread={unread}
+        projects={deptGroups.flatMap((g) => g.projects)}
+        openProject={openProject}
+        onExpand={() => setCollapsed(false)}
+      />
+    );
+
   return (
-    <aside className="glass-side glass-edge my-2 ml-2 hidden w-[256px] shrink-0 flex-col overflow-hidden rounded-xl text-ink shadow-[0_1px_2px_oklch(0.2_0.05_288/0.06),0_12px_40px_-16px_oklch(0.2_0.08_288/0.3)] md:flex">
+    <>
+    {drawer && <div className="anim-scrim fixed inset-0 z-40 bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] backdrop-blur-[2px] lg:hidden" onClick={() => setDrawer(false)} />}
+    <aside ref={asideRef} aria-label={t("sidebar.menu")} className={`${shell} lg:w-[256px]`}>
       {/* Знак + название инсталляции. Стеклянная панель над атмосферой (ADR-0016). */}
       <div className="mx-2 mt-2.5 flex items-center">
         {homeAvailable ? (
@@ -186,6 +287,15 @@ export default function Sidebar() {
             <span className="font-disp text-[16px] font-bold tracking-[-0.03em] text-ink">Taskira</span>
           </div>
         )}
+        <button
+          type="button"
+          onClick={() => (wide ? setCollapsed(true) : setDrawer(false))}
+          aria-label={t(wide ? "sidebar.collapse" : "common.close")}
+          title={wide ? `${t("sidebar.collapse")}  [` : undefined}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover/70 hover:text-ink"
+        >
+          <IcPanel size={15} />
+        </button>
       </div>
 
       {/* Поиск и команды, новая задача (ADR-0013 §2.1). */}
@@ -212,14 +322,33 @@ export default function Sidebar() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 [scrollbar-width:none]">
         {/* Личный слой */}
-        {(homeAvailable || data.collaborations.length > 0) && (
-          <nav className="flex flex-col gap-px pt-1">
+        <nav className="flex flex-col gap-px pt-1">
             {homeAvailable && (
               <button type="button" onClick={goHome} className={`${navItem} ${navOff}`}>
                 <IcHome size={16} tone="violet" />
                 <span className="flex-1 truncate">{t("sidebar.nav.home")}</span>
               </button>
             )}
+            {PERSONAL_VIEWS.map((v) => {
+              const on = ui.view === v.id;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setView(v.id)}
+                  aria-current={on ? "page" : undefined}
+                  className={`${navItem} ${on ? navOn : navOff}`}
+                >
+                  {v.icon({ size: 16, tone: v.tone })}
+                  <span className="flex-1 truncate">{t(v.labelKey)}</span>
+                  {v.id === "inbox" && unread > 0 && (
+                    <span className="rounded-full bg-accent px-1.5 py-px text-[10.5px] font-semibold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
             {data.collaborations.length > 0 && (
               <button
                 type="button"
@@ -234,8 +363,7 @@ export default function Sidebar() {
                 </span>
               </button>
             )}
-          </nav>
-        )}
+        </nav>
 
         {/* Избранное */}
         {favorites.length > 0 && (
@@ -369,6 +497,119 @@ export default function Sidebar() {
           <p className="mt-0.5 truncate text-[11.5px] text-faint">{me?.role}</p>
         </div>
       </div>
+    </aside>
+    </>
+  );
+}
+
+/** Свёрнутая панель — полоса иконок (ТЗ 5.8 п.1). Тот же состав, что у полной: подписи —
+ *  всплывающие подсказки справа (фиксированный слой: полоса обрезает всё, что шире неё). */
+function Rail({
+  className,
+  homeAvailable,
+  unread,
+  projects,
+  openProject,
+  onExpand,
+}: {
+  className: string;
+  homeAvailable: boolean;
+  unread: number;
+  projects: ProjectSummary[];
+  openProject: (p: ProjectSummary) => void;
+  onExpand: () => void;
+}) {
+  const { t } = useT();
+  const { data, ui, me, setView, goHome, setCreateOpen, can } = useStore();
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [tip, setTip] = useState<string | null>(null);
+  const show = (label: string) => (e: React.SyntheticEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const el = tipRef.current;
+    if (el) {
+      el.style.top = `${r.top + r.height / 2}px`;
+      el.style.left = `${r.right + 10}px`;
+    }
+    setTip(label);
+  };
+  const hide = () => setTip(null);
+
+  const btn = (key: string, label: string, icon: React.ReactNode, onClick: () => void, on = false, extra?: React.ReactNode) => (
+    <button
+      key={key}
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-current={on ? "page" : undefined}
+      onMouseEnter={show(label)}
+      onMouseLeave={hide}
+      onFocus={show(label)}
+      onBlur={hide}
+      className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${on ? navOn : "text-sub hover:bg-hover/70 hover:text-ink"}`}
+    >
+      {icon}
+      {extra}
+    </button>
+  );
+  const sep = <span className="my-1.5 h-px w-6 shrink-0 bg-linesoft" />;
+
+  return (
+    <aside aria-label={t("sidebar.menu")} className={`${className} items-center py-2.5`}>
+      {btn("logo", homeAvailable ? t("sidebar.homeAria") : "Taskira", <Logo size={22} />, () => homeAvailable && goHome())}
+      <div className="mt-1.5 flex flex-col items-center gap-1">
+        {btn("search", `${t("sidebar.search")} · ${paletteShortcut()}`, <IcSearch size={16} />, openPalette)}
+        {can("create") && btn("new", `${t("sidebar.newIssue")} · C`, <IcCompose size={16} tone="violet" />, () => setCreateOpen(true))}
+      </div>
+      {sep}
+      <div className="flex flex-col items-center gap-1">
+        {homeAvailable && btn("home", t("sidebar.nav.home"), <IcHome size={16} tone="violet" />, goHome)}
+        {PERSONAL_VIEWS.map((v) =>
+          btn(v.id, t(v.labelKey), v.icon({ size: 16, tone: v.tone }), () => setView(v.id), ui.view === v.id,
+            v.id === "inbox" && unread > 0 ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] ring-2 ring-[var(--bg-frame)]" /> : undefined,
+          ),
+        )}
+        {data.collaborations.length > 0 &&
+          btn("collab", t("sidebar.nav.collaborating"), <IcLink size={16} tone="violet" />, () => setView("collaborating"), ui.view === "collaborating")}
+      </div>
+      {sep}
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none]">
+        {projects.map((p) => {
+          const cur = p.id === data.currentProjectId;
+          const active = cur && PROJECT_VIEWS.some((v) => v.id === ui.view);
+          return btn(
+            `p:${p.id}`,
+            p.name,
+            <span className={`flex rounded-md ${cur && !active ? "ring-2 ring-accent/50 ring-offset-1 ring-offset-[var(--bg-frame)]" : ""}`}>
+              <ProjectMark projectKey={p.key} size={22} />
+            </span>,
+            () => (!cur ? openProject(p) : !active && setView("board")),
+            active,
+          );
+        })}
+        {sep}
+        {btn("reports", t("sidebar.nav.reports"), <IcReport size={16} tone="sky" />, () => setView("reports"), ui.view === "reports")}
+      </div>
+      <div className="mt-1 flex flex-col items-center gap-1 border-t border-linesoft/70 pt-2">
+        {btn("docs", t("sidebar.nav.docs"), <IcBook size={16} tone="orange" />, () => setView("docs"), ui.view === "docs")}
+        {btn("settings", t("sidebar.settings"), <IcSettings size={16} tone="gray" />, () => setView("workflow"), SETTINGS_VIEWS.some((s) => s.id === ui.view))}
+        {btn("expand", `${t("sidebar.expand")} · [`, <IcPanel size={16} />, onExpand)}
+        <span className="mt-1">
+          <Avatar user={me} size={28} interactive />
+        </span>
+      </div>
+      {/* В портале: у стеклянной панели backdrop-filter, а он делает её контейнером для
+          position: fixed потомков — подсказка обрезалась бы по краю полосы. */}
+      {createPortal(
+        <div
+          ref={tipRef}
+          role="tooltip"
+          hidden={!tip}
+          className="glass pointer-events-none fixed z-[70] -translate-y-1/2 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5 text-[12px] font-medium text-ink shadow-e3"
+        >
+          {tip}
+        </div>,
+        document.body,
+      )}
     </aside>
   );
 }

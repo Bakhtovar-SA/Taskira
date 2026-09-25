@@ -351,6 +351,33 @@ html.vt-theme::view-transition-new(root) {
   box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 45%, transparent), 0 4px 14px -6px color-mix(in oklch, currentColor 45%, transparent);
 }
 
+/* Выезжающая боковая панель (< 1024 px) лежит поверх контента, а не над
+   атмосферой — стекло плотнее, чтобы текст под ней не просвечивал. */
+@media (max-width: 1023.98px) {
+  .glass-side.side-drawer {
+    /* .glass-edge (вне слоёв) ставит position: relative и перебил бы max-lg:fixed. */
+    position: fixed;
+    background: color-mix(in oklch, var(--bg-overlay) 94%, transparent);
+  }
+}
+
+/* Входящие: непрочитанное — лёгкий акцентный фон; строка под курсором J/K —
+   светящаяся метка слева (тот же язык, что у активного пункта панели и палитры). */
+.inbox-row.is-unread {
+  background: color-mix(in oklch, var(--accent-solid) 5%, transparent);
+}
+.inbox-row[data-active]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent-solid);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
 /* Строка командной палитры: активная — лёгкий акцентный фон и светящаяся
    метка слева, как у активного пункта боковой панели. */
 .palette-row {

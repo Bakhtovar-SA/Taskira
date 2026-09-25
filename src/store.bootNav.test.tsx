@@ -241,6 +241,16 @@ describe("bootstrap — ветки входа", () => {
     expect(get().ui.view).toBe("backlog");
   });
 
+  test("≥2 проектов и ссылка на раздел без проекта (/inbox) → оболочка с этим разделом, а не главный экран", async () => {
+    history.pushState(null, "", "/inbox");
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.view).toBe("inbox");
+  });
+
   test("прямая ссылка на приглашённую задачу → раздел «Мои подключения»; проект — из lastProject, а не первый", async () => {
     const OTHER = "99999999-0000-4000-8000-000000000000";
     const collab = { issueId: I1, projectId: OTHER, key: "X-1", title: "t", statusId: "s", statusName: "n", statusCategory: "todo", projectKey: "X", projectName: "X" } as CollaboratingItem;

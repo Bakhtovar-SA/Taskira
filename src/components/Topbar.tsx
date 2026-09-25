@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useNotifications, useStore, useUnreadCount } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPanel, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, MenuItem, ProjectMark, RoleBadge, Tip, UserCardBody } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
-import { PROJECT_VIEWS } from "./Sidebar";
+import { PROJECT_VIEWS, openSidebarDrawer } from "./Sidebar";
 
 const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
@@ -20,6 +20,8 @@ const VIEW_LABEL: Record<ViewId, TKey> = {
   admin: "sidebar.nav.admin",
   docs: "sidebar.nav.docs",
   collaborating: "sidebar.nav.collaborating",
+  inbox: "sidebar.nav.inbox",
+  my: "sidebar.nav.my",
 };
 
 /** Быстрый поиск: «в этом проекте» — серверный поиск (250 мс, топ-8), «во всех проектах» — кросс-проектный. */
@@ -134,7 +136,16 @@ export function SearchBox() {
 
   return (
     <div className="relative">
-      <div className={`flex items-center gap-2 rounded-lg border px-2.5 transition-[width,background-color,border-color,box-shadow] duration-200 ease-out ${focus ? "w-[190px] border-accent bg-panel shadow-focus sm:w-[360px]" : "w-[130px] border-linesoft bg-sunken hover:border-line sm:w-[240px]"}`}>
+      {/* До 1024 px в покое — только лупа (место в шапке нужно вкладкам); клик по ней ставит фокус. */}
+      <div
+        onMouseDown={(e) => {
+          if (e.target !== ref.current) {
+            e.preventDefault();
+            ref.current?.focus();
+          }
+        }}
+        className={`flex cursor-text items-center gap-2 rounded-lg border px-2 transition-[width,background-color,border-color,box-shadow] duration-200 ease-out lg:px-2.5 ${focus ? "w-[190px] border-accent bg-panel shadow-focus sm:w-[360px]" : "w-8 border-linesoft bg-sunken hover:border-line lg:w-[240px]"}`}
+      >
         <IcSearch size={14} className="shrink-0 text-faint" />
         <input
           id="global-search"
@@ -147,7 +158,7 @@ export function SearchBox() {
           className="h-8 w-full bg-transparent text-[13px] outline-none placeholder:text-faint"
         />
         {!focus && (
-          <kbd className="shrink-0 rounded border border-line bg-panel px-1.5 font-mono text-[10.5px] leading-[16px] text-faint shadow-[inset_0_-1px_0_var(--border-default)]">/</kbd>
+          <kbd className="hidden shrink-0 rounded border border-line bg-panel px-1.5 font-mono lg:block text-[10.5px] leading-[16px] text-faint shadow-[inset_0_-1px_0_var(--border-default)]">/</kbd>
         )}
       </div>
       {focus && q.trim() && (
@@ -584,43 +595,6 @@ function ProjectSwitcher() {
   );
 }
 
-/** Переключатель разделов для узких экранов — нативный select, чтобы на
- *  телефоне открывался системный список, а не самодельная выпадашка. Набор
- *  пунктов повторяет сайдбар, включая те же правила видимости. */
-function MobileViewSwitcher() {
-  const { t } = useT();
-  const { data, ui, setView, me } = useStore();
-  const isAdmin = me.globalRole === "admin";
-  const ids: ViewId[] = [
-    "board",
-    "backlog",
-    ...(data.project.sprintsEnabled ? (["sprints"] as ViewId[]) : []),
-    "timeline",
-    "reports",
-    "workflow",
-    "access",
-    ...(isAdmin ? (["admin"] as ViewId[]) : []),
-    "docs",
-    ...(data.collaborations.length > 0 ? (["collaborating"] as ViewId[]) : []),
-  ];
-
-  return (
-    <select
-      id="mobile-view"
-      value={ui.view}
-      onChange={(e) => setView(e.target.value as ViewId)}
-      aria-label={t("topbar.sectionAria")}
-      className="h-8 max-w-[160px] rounded-lg border border-line bg-panel px-2 text-[13px] font-medium text-ink focus:border-accent focus:shadow-focus focus:outline-none md:hidden"
-    >
-      {ids.map((id) => (
-        <option key={id} value={id}>
-          {t(VIEW_LABEL[id])}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 export default function Topbar({ onLogout }: { onLogout?: () => void }) {
   const { t } = useT();
   const { data, ui, setCreateOpen, can, logout, setView } = useStore();
@@ -632,18 +606,28 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
 
   return (
     <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-linesoft px-3 sm:px-4">
-      {/* Навигация по разделам на узком экране: сайдбар там скрыт, и без этого
-          переключателя на телефоне не осталось бы вообще никакой навигации
-          (аудит UX-03). На широком экране роль навигации играет сайдбар. */}
-      <MobileViewSwitcher />
+      {/* Узкий экран (< 1024 px): боковая панель выезжает поверх по этой кнопке (ТЗ 5.8 п.3) —
+          там Главная, Входящие, Мои задачи и дерево проектов. */}
+      <button
+        type="button"
+        onClick={openSidebarDrawer}
+        aria-label={t("sidebar.menu")}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sub transition-colors hover:bg-hover hover:text-ink lg:hidden"
+      >
+        <IcPanel size={16} />
+      </button>
 
       {/* Шапка проекта (ADR-0013 §2.2): значок и переключатель проекта, рядом —
           вкладки представлений. На экранах вне представлений — крошка раздела. */}
-      <nav className="hidden min-w-0 items-center gap-0.5 text-[13px] text-faint md:flex">
-        <ProjectMark projectKey={data.project.key} size={20} />
-        <ProjectSwitcher />
+      <nav className="flex min-w-0 items-center gap-0.5 text-[13px] text-faint">
+        <span className="hidden sm:flex">
+          <ProjectMark projectKey={data.project.key} size={20} />
+        </span>
+        <span className="hidden md:flex">
+          <ProjectSwitcher />
+        </span>
         {isProjectView ? (
-          <div role="tablist" aria-label={t("topbar.viewsAria")} className="ml-2 flex items-center gap-0.5 rounded-lg bg-sunken/70 p-0.5 ring-1 ring-inset ring-linesoft">
+          <div role="tablist" aria-label={t("topbar.viewsAria")} className="flex items-center gap-0.5 rounded-lg bg-sunken/70 p-0.5 ring-1 ring-inset ring-linesoft md:ml-2">
             {views.map((v) => {
               const on = ui.view === v.id;
               return (
@@ -651,21 +635,22 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
                   key={v.id}
                   role="tab"
                   aria-selected={on}
+                  title={`${t(v.labelKey)} · ${v.kbd}`}
                   onClick={() => setView(v.id)}
                   className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-semibold transition-[background-color,color,box-shadow] duration-150 ${
                     on ? "bg-panel text-ink shadow-[var(--highlight-top),0_1px_2px_oklch(0.2_0.05_288/0.1)]" : "text-sub hover:text-ink"
                   }`}
                 >
                   {v.icon({ size: 14, tone: on ? v.tone : undefined })}
-                  {t(v.labelKey)}
+                  <span className={on ? "max-sm:sr-only" : "max-lg:sr-only"}>{t(v.labelKey)}</span>
                 </button>
               );
             })}
           </div>
         ) : (
           <>
-            <span className="px-0.5 text-line2">/</span>
-            <span className="px-1.5 font-bold tracking-[-0.01em] text-ink">{viewTitle}</span>
+            <span className="hidden px-0.5 text-line2 md:inline">/</span>
+            <span className="truncate px-1.5 font-bold tracking-[-0.01em] text-ink">{viewTitle}</span>
           </>
         )}
       </nav>

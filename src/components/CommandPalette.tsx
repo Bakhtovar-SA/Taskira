@@ -53,6 +53,8 @@ const VIEW_ALIASES: Record<string, string[]> = {
   admin: ["departments", "admin"],
   docs: ["docs", "help"],
   collaborating: ["shared", "collaborating"],
+  inbox: ["inbox", "notifications", "уведомления"],
+  my: ["my issues", "assigned", "назначенные"],
 };
 
 export default function CommandPalette({ onClose, onShortcuts }: { onClose: () => void; onShortcuts: () => void }) {
@@ -315,6 +317,18 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           "shortcuts.goHome",
         ],
         [
+          <span key="gi" className="flex items-center gap-1">
+            <Kbd>G</Kbd> <Kbd>I</Kbd>
+          </span>,
+          "shortcuts.goInbox",
+        ],
+        [
+          <span key="gm" className="flex items-center gap-1">
+            <Kbd>G</Kbd> <Kbd>M</Kbd>
+          </span>,
+          "shortcuts.goMy",
+        ],
+        [
           <span key="gr" className="flex items-center gap-1">
             <Kbd>G</Kbd> <Kbd>R</Kbd>
           </span>,
@@ -326,6 +340,7 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           </span>,
           "shortcuts.goSettings",
         ],
+        [<Kbd key="b">[</Kbd>, "shortcuts.toggleSidebar"],
         [<Kbd key="e">Esc</Kbd>, "shortcuts.close"],
         [<Kbd key="h">?</Kbd>, "shortcuts.help"],
       ],

@@ -6,6 +6,8 @@ describe("pathForView / pathForIssue", () => {
     expect(pathForView("CORP", "reports")).toBe("/reports");
     expect(pathForView("CORP", "admin")).toBe("/admin/departments");
     expect(pathForView("CORP", "docs")).toBe("/help");
+    expect(pathForView("CORP", "inbox")).toBe("/inbox");
+    expect(pathForView("CORP", "my")).toBe("/my-issues");
     expect(pathForView("CORP", "collaborating")).toBe("/shared");
     expect(pathForView("CORP", "board")).toBe("/p/CORP/board");
     expect(pathForView("CORP", "backlog")).toBe("/p/CORP/list");
@@ -29,6 +31,8 @@ describe("parsePath", () => {
     expect(parsePath("/admin/departments")).toEqual({ kind: "global", view: "admin" });
     expect(parsePath("/help")).toEqual({ kind: "global", view: "docs" });
     expect(parsePath("/shared/")).toEqual({ kind: "global", view: "collaborating" });
+    expect(parsePath("/inbox")).toEqual({ kind: "global", view: "inbox" });
+    expect(parsePath("/my-issues")).toEqual({ kind: "global", view: "my" });
   });
 
   test("старые адреса (до ADR-0013) разбираются в тот же вид, что новые", () => {

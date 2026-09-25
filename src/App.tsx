@@ -24,6 +24,8 @@ const PermissionsView = lazy(() => import("./components/PermissionsView"));
 const AdminView = lazy(() => import("./components/AdminView"));
 const DocsView = lazy(() => import("./components/DocsView"));
 const CollaboratingView = lazy(() => import("./components/CollaboratingView"));
+const InboxView = lazy(() => import("./components/InboxView"));
+const MyIssuesView = lazy(() => import("./components/MyIssuesView"));
 // IssueModal / CreateIssueModal — тоже ленивые, но с предзагрузкой в простое и при наведении на карточку
 // (src/lazyModals.ts): первое открытие задачи не ждёт чанк.
 const SoloView = lazy(() => import("./components/SoloView"));
@@ -37,7 +39,7 @@ const ShortcutsDialog = lazy(() => import("./components/CommandPalette").then((m
 function BootSkeleton() {
   return (
     <div className="flex h-full overflow-hidden" aria-busy="true">
-      <div className="glass-side glass-edge my-2 ml-2 hidden w-[248px] shrink-0 flex-col gap-2 rounded-xl px-4 pt-5 md:flex">
+      <div className="glass-side glass-edge my-2 ml-2 hidden w-[248px] shrink-0 flex-col gap-2 rounded-xl px-4 pt-5 lg:flex">
         <div className="flex items-center gap-2.5">
           <div className="skeleton h-[26px] w-[26px] rounded-lg" />
           <div className="skeleton h-4 w-20" />
@@ -161,6 +163,10 @@ function Shell() {
         const go: Record<string, () => void> = {
           h: () => data.projects.length >= 2 && goHome(),
           р: () => data.projects.length >= 2 && goHome(),
+          i: () => setView("inbox"),
+          ш: () => setView("inbox"),
+          m: () => setView("my"),
+          ь: () => setView("my"),
           r: () => setView("reports"),
           к: () => setView("reports"),
           s: () => setView("workflow"),
@@ -232,6 +238,8 @@ function Shell() {
             {ui.view === "admin" && <AdminView />}
             {ui.view === "docs" && <DocsView />}
             {ui.view === "collaborating" && <CollaboratingView />}
+            {ui.view === "inbox" && <InboxView />}
+            {ui.view === "my" && <MyIssuesView />}
           </div></Suspense>
           </ErrorBoundary>
         </main>
