@@ -3,8 +3,8 @@ import { useStore } from "../store";
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
-import { IcArchive, IcCalendar, IcCheck, IcEye, IcInbox, IcMove, IcPlus, IcSearch, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, AvatarStack, BOARD_COLUMN_SHELL, Chip, SkeletonCard, catColor, DROPDOWN_OPEN_EVT } from "../ui";
+import { DueRing, IcArchive, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcUsers, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { Avatar, AvatarStack, BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, SkeletonCard, DROPDOWN_OPEN_EVT, directionColor, labelTone } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { preloadIssueModal } from "../lazyModals";
@@ -60,7 +60,8 @@ const Card = memo(function Card({
   issue,
   usersById,
   epic,
-  doneCat,
+  status,
+  statusPos,
   onOpen: openIssue,
   onDragStart,
   onDragEnd,
@@ -77,8 +78,10 @@ const Card = memo(function Card({
    *  доски ломал memo (ADR-0011, шаг 0). */
   usersById: ReadonlyMap<string, User>;
   /** Направление карточки из справочника (`useEpics`), а не из списка задач в сторе. */
-  epic: Pick<IssueEpic, "title" | "color"> | undefined;
-  doneCat: boolean;
+  epic: Pick<IssueEpic, "id" | "title" | "color"> | undefined;
+  /** Статус карточки (стабильный объект из справочника) и его место в процессе 0…1 — для глифа. */
+  status: Status | undefined;
+  statusPos: number;
   /** Открыть задачу. Пропсом, а не `useStore()` внутри: подписка на контекст обходит memo. */
   onOpen: (id: string) => void;
   /** Все колбэки стабильны (useCallback в доске/колонке) и получают задачу аргументом,
@@ -100,7 +103,10 @@ const Card = memo(function Card({
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
-  const overdue = !!issue.dueDate && !doneCat && issue.dueDate < new Date().toISOString().slice(0, 10);
+  const doneCat = status?.category === "done";
+  const today = new Date().toISOString().slice(0, 10);
+  const dueDays = issue.dueDate ? Math.round((Date.parse(issue.dueDate) - Date.parse(today)) / 864e5) : null;
+  const overdue = !!issue.dueDate && !doneCat && issue.dueDate < today;
 
   // Своё меню, не <Dropdown> (открывается ещё и с клавиатуры, см. onKeyDown
   // ниже) — но без этих двух эффектов оно вело себя как БАГ, а не как
@@ -130,6 +136,48 @@ const Card = memo(function Card({
       return next;
     });
   };
+
+  // Перемещение без мыши. Кнопка видна при наведении и при фокусе с
+  // клавиатуры, список — только разрешённые схемой переходы.
+  const moveButton = draggable && (
+    <span className="relative flex" ref={menuRef}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleMenu();
+        }}
+        aria-haspopup="menu"
+        aria-expanded={menu}
+        aria-label={t("board.moveAria", { key: issue.key })}
+        className={`flex h-5 w-5 items-center justify-center rounded-md text-faint transition-opacity hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100 ${menu ? "opacity-100" : "opacity-0"}`}
+      >
+        <IcMove size={12} />
+      </button>
+      {menu && (
+        <div
+          role="menu"
+          onClick={(e) => e.stopPropagation()}
+          className="glass anim-pop absolute right-0 top-6 z-20 min-w-[190px] rounded-xl border border-line p-1 shadow-e3"
+        >
+          {moveTargets.length === 0 && <p className="px-2 py-1.5 text-[11.5px] text-faint">{t("board.noAllowedTransitions")}</p>}
+          {moveTargets.map((target) => (
+            <button
+              key={target.id}
+              role="menuitem"
+              onClick={() => {
+                setMenu(false);
+                onMove(issue.id, target.id);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink hover:bg-hover/70"
+            >
+              <StatusGlyph category={target.category} size={13} />
+              {target.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  );
 
   return (
     <article
@@ -167,95 +215,60 @@ const Card = memo(function Card({
       onPointerEnter={preloadIssueModal}
       onFocus={preloadIssueModal}
       onClick={() => openIssue(issue.id)}
-      className={`surface-raised group relative cursor-pointer rounded-lg p-3 ring-1 ring-inset ring-line/70 transition-[box-shadow,background-color] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2 active:bg-hover/40 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
+      className={`board-card group relative flex cursor-pointer flex-col gap-2 rounded-[10px] px-[11px] py-2.5 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
-      {/* уровень 1: тип и ключ */}
-      <div className="mb-1.5 flex items-center gap-1.5 pr-6">
-        <TypeIcon type={issue.typeId} size={14} />
-        <span className="font-mono text-[11px] text-faint">{issue.key}</span>
-      </div>
-
-      {/* уровень 2: заголовок, не больше двух строк */}
-      <h4 className="line-clamp-2 text-[13.5px] font-medium leading-[1.4] tracking-[-0.005em] text-ink">{issue.title}</h4>
-
-      {/* направление и метки — одной строкой-переносом, только если есть */}
-      {(epic || issue.labels.length > 0) && (
-        <div className="mt-2 flex flex-wrap items-center gap-1">
-          {epic && (
-            <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 py-px text-[11.5px] text-sub ring-1 ring-inset ring-linesoft">
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: epic.color ?? "var(--accent-solid)" }} />
-              <span className="truncate">{epic.title}</span>
-            </span>
-          )}
-          {issue.labels.slice(0, 3).map((l) => (
-            <Chip key={l} text={l} />
-          ))}
-          {issue.labels.length > 3 && <span className="text-[11px] text-faint">+{issue.labels.length - 3}</span>}
-        </div>
-      )}
-
-      {/* уровень 3: приоритет, срок (выделен, только если просрочен), исполнители */}
-      <div className="mt-2.5 flex h-5 items-center gap-2">
-        <span className="flex items-center" title={t(`priority.${issue.priorityId}`)}>
-          <PriorityIcon p={issue.priorityId} size={14} />
-        </span>
-        {issue.dueDate && (
-          <span
-            className={`flex items-center gap-1 rounded-md text-[11.5px] tabular ${overdue ? "bg-dangersoft px-1.5 font-medium text-[var(--status-danger-fg)]" : "text-faint"}`}
-            title={overdue ? t("board.quickChip.overdue") : undefined}
-          >
-            <IcCalendar size={12} />
-            {fmtDate(issue.dueDate, lang)}
+      {/* верх: глиф статуса, ключ, тип (кроме обычной задачи), справа — кнопка
+          перемещения (при наведении/фокусе) и исполнители */}
+      <div className="flex h-5 items-center gap-[7px] text-faint">
+        {status && <StatusGlyph category={status.category} position={statusPos} size={14} />}
+        <span className="font-mono text-[11.5px] font-medium tracking-[0.01em]">{issue.key}</span>
+        {issue.typeId !== "task" && (
+          <span title={t(`issueType.${issue.typeId}`)} className="flex">
+            <TypeIcon type={issue.typeId} size={13} />
           </span>
         )}
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-1">
+          {moveButton}
           <AvatarStack users={assignees} size={20} interactive />
         </span>
       </div>
 
-      {/* Перемещение без мыши. Кнопка видна при наведении и при фокусе с
-          клавиатуры, список — только разрешённые схемой переходы. */}
-      {draggable && (
-        <div className="absolute right-1.5 top-1.5" ref={menuRef}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMenu();
-            }}
-            aria-haspopup="menu"
-            aria-expanded={menu}
-            aria-label={t("board.moveAria", { key: issue.key })}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-faint opacity-0 transition-opacity hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100"
-          >
-            <IcMove size={12} />
-          </button>
-          {menu && (
-            <div
-              role="menu"
-              onClick={(e) => e.stopPropagation()}
-              className="glass anim-pop absolute right-0 top-7 z-20 min-w-[180px] rounded-xl border border-line p-1 shadow-e3"
-            >
-              {moveTargets.length === 0 && (
-                <p className="px-2 py-1.5 text-[11.5px] text-faint">{t("board.noAllowedTransitions")}</p>
-              )}
-              {moveTargets.map((target) => (
-                <button
-                  key={target.id}
-                  role="menuitem"
-                  onClick={() => {
-                    setMenu(false);
-                    onMove(issue.id, target.id);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink hover:bg-hover/70"
-                >
-                  <span className="h-2 w-2 rounded-full" style={{ background: catColor(target.category).dot }} />
-                  {target.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* заголовок, не больше двух строк */}
+      <h4 className="line-clamp-2 text-[13.5px] font-semibold leading-[1.38] tracking-[-0.006em] text-ink">{issue.title}</h4>
+
+      {/* мета: приоритет, направление, метки, срок, подзадачи — пилюли одной высоты */}
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="meta-pill is-icon" title={t(`priority.${issue.priorityId}`)}>
+          <PriorityIcon p={issue.priorityId} size={14} />
+        </span>
+        {epic && (
+          <span className="meta-pill min-w-0 max-w-[172px]" title={epic.title}>
+            <i className="meta-dot" style={{ "--c": directionColor(epic.id, epic.color) } as React.CSSProperties} />
+            <span>{epic.title}</span>
+          </span>
+        )}
+        {issue.labels.slice(0, 2).map((l) => (
+          <span key={l} className="meta-pill min-w-0 max-w-[120px]">
+            <i className={`meta-dot tk-tone-${labelTone(l)}`} />
+            <span>{l}</span>
+          </span>
+        ))}
+        {issue.labels.length > 2 && <span className="meta-pill tabular">+{issue.labels.length - 2}</span>}
+        {issue.dueDate && (
+          <span className={`meta-pill tabular ${dueDays !== null && dueDays < 0 && !doneCat ? "is-late" : dueDays !== null && dueDays <= 3 && !doneCat ? "is-soon" : ""}`} title={overdue ? t("board.quickChip.overdue") : undefined}>
+            <DueRing due={issue.dueDate} today={today} done={doneCat} />
+            <span>{fmtDate(issue.dueDate, lang)}</span>
+          </span>
+        )}
+        {issue.subtasksSummary && issue.subtasksSummary.total > 0 && (
+          <span className="meta-pill tabular">
+            <IcMyIssues size={13} />
+            <span>
+              {issue.subtasksSummary.done}/{issue.subtasksSummary.total}
+            </span>
+          </span>
+        )}
+      </div>
     </article>
   );
 });
@@ -399,6 +412,7 @@ const BoardColumn = memo(function BoardColumn({
   revision,
   usersById,
   statusById,
+  posById,
   epicsById,
   targetsByStatus,
   lastEvent,
@@ -432,6 +446,8 @@ const BoardColumn = memo(function BoardColumn({
   revision: string;
   usersById: ReadonlyMap<string, User>;
   statusById: ReadonlyMap<string, Status>;
+  /** Место статуса в процессе 0…1 (для заполнения глифа статуса). */
+  posById: ReadonlyMap<string, number>;
   epicsById: ReadonlyMap<string, IssueEpic>;
   targetsByStatus: ReadonlyMap<string, Status[]>;
   lastEvent: { issueId: string; ts: number } | null;
@@ -446,7 +462,7 @@ const BoardColumn = memo(function BoardColumn({
   dragRef: { current: string | null };
 }) {
   const { t } = useT();
-  const c = catColor(st.category);
+  const statusPos = posById.get(st.id) ?? 0.5;
   const onOver = useCallback(() => setOverCol(st.id), [setOverCol, st.id]);
   const onDropOn = useCallback(
     (e: React.DragEvent, target: Issue) => {
@@ -466,7 +482,8 @@ const BoardColumn = memo(function BoardColumn({
         issue={i}
         usersById={usersById}
         epic={i.epicId ? epicsById.get(i.epicId) : undefined}
-        doneCat={statusById.get(i.statusId)?.category === "done"}
+        status={statusById.get(i.statusId)}
+        statusPos={posById.get(i.statusId) ?? 0.5}
         moveTargets={targetsByStatus.get(i.statusId) ?? NO_TARGETS}
         onOpen={onOpen}
         onMove={onMove}
@@ -478,11 +495,12 @@ const BoardColumn = memo(function BoardColumn({
         draggable={can("transition", i)}
       />
     ),
-    [usersById, epicsById, statusById, targetsByStatus, onOpen, onMove, lastEvent, onCardDragStart, onCardDragEnd, onDropOn, onOver, can],
+    [usersById, epicsById, statusById, posById, targetsByStatus, onOpen, onMove, lastEvent, onCardDragStart, onCardDragEnd, onDropOn, onOver, can],
   );
   return (
     <section
-      className={`snap-start ${BOARD_COLUMN_SHELL} transition-[box-shadow,background-color] duration-150 ${isOver ? (ok ? "!bg-accentsoft/70 !ring-accentmuted" : "!bg-dangersoft/70 !ring-danger/40") : ""}`}
+      aria-label={workflowStatusName(st, t)}
+      className={`snap-start ${BOARD_COLUMN_SHELL}`}
       onDragOver={(e) => {
         e.preventDefault();
         setOverCol(st.id);
@@ -499,9 +517,10 @@ const BoardColumn = memo(function BoardColumn({
         if (id) moveStatus(id, st.id, null);
       }}
     >
-      <header className="mb-1 flex h-8 items-center gap-2 px-2">
-        <span className="h-2.5 w-2.5 rounded-full ring-[3px]" style={{ background: c.dot, "--tw-ring-color": `color-mix(in oklch, ${c.dot} 22%, transparent)` } as React.CSSProperties} />
-        <h3 className="text-[13px] font-medium text-ink">{workflowStatusName(st, t)}</h3>
+      {/* Заголовок над жёлобом: глиф статуса (заполнен по месту в процессе), имя, число. */}
+      <header className="group/col flex h-[34px] shrink-0 items-center gap-2 pl-2 pr-1.5">
+        <StatusGlyph category={st.category} position={statusPos} size={14} />
+        <h3 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h3>
         <span className="tabular text-[12.5px] text-faint">{total ?? "…"}</span>
         {canCreate && isFirstTodo && (
           <button
@@ -515,7 +534,7 @@ const BoardColumn = memo(function BoardColumn({
       </header>
 
       <div
-        className="flex-1 space-y-1.5 overflow-y-auto p-0.5"
+        className={`${BOARD_COLUMN_BODY} transition-[box-shadow,background-color] duration-150 ${isOver ? (ok ? "!bg-accentsoft/60 !shadow-[inset_0_0_0_1px_var(--accent-muted)]" : "!bg-dangersoft/60 !shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--status-danger)_40%,transparent)]") : ""}`}
       >
         {quickOpen && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
         {projectId && (
@@ -525,6 +544,15 @@ const BoardColumn = memo(function BoardColumn({
             revision={revision}
             renderCard={renderCard}
           />
+        )}
+        {canCreate && isFirstTodo && !quickOpen && total !== 0 && (
+          <button
+            onClick={() => setQuickFor(st.id)}
+            className="flex h-[30px] shrink-0 items-center gap-[7px] rounded-lg px-2 text-[12.5px] text-faint transition-colors hover:bg-hover hover:text-ink"
+          >
+            <IcPlus size={13} />
+            {t("board.addCard")}
+          </button>
         )}
         {/* Свёрнутый «хвост» закрытого: данные на месте, в один клик. */}
         {hiddenDone > 0 && (
@@ -607,6 +635,11 @@ export default function Board() {
     () => new Map(data.workflow.statuses.map((st) => [st.id, st])),
     [data.workflow.statuses],
   );
+
+  const posById = useMemo(() => {
+    const ss = data.workflow.statuses;
+    return new Map(ss.map((st, i) => [st.id, ss.length > 1 ? i / (ss.length - 1) : 0.5]));
+  }, [data.workflow.statuses]);
 
   // Куда задачу из статуса разрешено двигать по схеме workflow (для меню на карточке) — один
   // массив на статус, пересчитывается со схемой, а не на каждый рендер: иначе memo(Card) не держит.
@@ -765,11 +798,19 @@ export default function Board() {
                key={c.id}
                onClick={() => toggleChip(c.id)}
                aria-pressed={on}
-               className={`flex h-7 items-center rounded-lg px-2.5 text-[12.5px] font-medium transition-colors duration-150 ${
+               className={`flex h-[26px] items-center gap-1.5 rounded-[7px] px-[9px] text-[12.5px] font-medium transition-colors duration-150 ${
                  on ? "bg-accentsoft text-accenttext ring-1 ring-inset ring-accentmuted" : "text-sub ring-1 ring-inset ring-line hover:bg-hover hover:text-ink"
                }`}
              >
+               {c.id === "mine" ? (
+                 <IcMyIssues size={14} tone={on ? undefined : "violet"} />
+               ) : c.id === "overdue" ? (
+                 <DueRing due="2000-01-01" today="2000-01-02" size={14} />
+               ) : (
+                 <IcUsers size={14} tone={on ? undefined : "gray"} />
+               )}
                {t(c.labelKey)}
+               {on && <IcX size={11} className="-mr-0.5 opacity-60" />}
              </button>
            );
          })}
@@ -835,6 +876,7 @@ export default function Board() {
                 revision={revision}
                 usersById={usersById}
                 statusById={statusById}
+                posById={posById}
                 epicsById={epics.byId}
                 targetsByStatus={targetsByStatus}
                 lastEvent={ui.lastEvent}

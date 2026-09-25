@@ -62,6 +62,7 @@ const en: Record<keyof Dict, string> = {
   "board.moveAria": "Move {key}",
   "board.noAllowedTransitions": "No allowed transitions",
   "board.addButton": "Add",
+  "board.addCard": "Issue",
   "board.quickCreatePlaceholder": "Issue in “{status}”…",
 
   "lang.ru": "Русский",

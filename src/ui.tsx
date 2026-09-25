@@ -142,6 +142,14 @@ export const projectTone = (key: string) => {
   for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return PROJECT_TONES[h % PROJECT_TONES.length];
 };
+/** Тон метки: у меток нет цвета в БД, поэтому стабильный хэш текста → один из
+ *  фирменных тонов (`tk-tone-*`). Одна и та же метка везде одного цвета. */
+const LABEL_TONES = ["violet", "pink", "teal", "amber", "sky", "green", "orange", "indigo", "red"] as const;
+export const labelTone = (text: string) => {
+  let h = 0;
+  for (const ch of text.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return LABEL_TONES[h % LABEL_TONES.length];
+};
 export const ProjectMark = ({ projectKey, size = 20 }: { projectKey: string; size?: number }) => (
   <span
     className={`tk-tone-${projectTone(projectKey)} inline-flex shrink-0 items-center justify-center rounded-md bg-current/15 font-bold ring-1 ring-inset ring-current/25`}
@@ -517,8 +525,9 @@ export const Empty = ({ icon, title, sub, action }: { icon: React.ReactNode; tit
  *  (`Board.tsx`) и для скелета (`SkeletonColumn`), чтобы во время bootstrap
  *  заглушка выглядела как готовая колонка, а не «прыгала» в неё после загрузки
  *  (ticket-board-columns-theme-fix). */
-export const BOARD_COLUMN_SHELL =
-  "flex h-full max-h-full w-[288px] shrink-0 flex-col rounded-xl bg-sunken/80 p-1.5 ring-1 ring-inset ring-linesoft/70 min-[1536px]:w-[304px] min-[1920px]:w-[328px]";
+export const BOARD_COLUMN_SHELL = "flex h-full max-h-full w-[288px] shrink-0 flex-col min-[1536px]:w-[304px] min-[1920px]:w-[328px]";
+/** Жёлоб с карточками под заголовком колонки (ADR-0016: заголовок — над ним, не внутри). */
+export const BOARD_COLUMN_BODY = "board-col-body flex min-h-0 flex-col gap-1.5 overflow-y-auto rounded-xl p-1.5";
 
 export const SkeletonRow = () => (
   <div className="flex items-center gap-3 border-b border-linesoft px-3.5 py-3 last:border-0">
@@ -531,27 +540,28 @@ export const SkeletonRow = () => (
 );
 
 export const SkeletonCard = () => (
-  <div className="surface-raised rounded-lg p-3">
-    <div className="mb-2 flex items-center gap-1.5">
-      <div className="skeleton h-3.5 w-3.5 rounded" />
+  <div className="board-card rounded-[10px] px-[11px] py-2.5">
+    <div className="mb-2.5 flex items-center gap-1.5">
+      <div className="skeleton h-3.5 w-3.5 rounded-full" />
       <div className="skeleton h-2.5 w-12" />
+      <div className="skeleton ml-auto h-5 w-5 rounded-full" />
     </div>
     <div className="skeleton h-3 w-full" />
     <div className="skeleton mt-1.5 h-3 w-2/3" />
-    <div className="mt-3 flex items-center gap-2">
-      <div className="skeleton h-3 w-16" />
-      <div className="skeleton ml-auto h-5 w-5 rounded-full" />
+    <div className="mt-2.5 flex items-center gap-1">
+      <div className="skeleton h-[22px] w-[22px] rounded-md" />
+      <div className="skeleton h-[22px] w-20 rounded-md" />
     </div>
   </div>
 );
 
 export const SkeletonColumn = ({ cards = 3 }: { cards?: number }) => (
   <div className={BOARD_COLUMN_SHELL}>
-    <div className="mb-1.5 flex items-center gap-2 px-1.5 pt-1">
-      <div className="skeleton h-2 w-2 rounded-sm" />
+    <div className="flex h-[34px] items-center gap-2 px-2">
+      <div className="skeleton h-3.5 w-3.5 rounded-full" />
       <div className="skeleton h-3 w-24" />
     </div>
-    <div className="flex-1 space-y-2 p-0.5">
+    <div className={BOARD_COLUMN_BODY}>
       {Array.from({ length: cards }).map((_, i) => (
         <SkeletonCard key={i} />
       ))}

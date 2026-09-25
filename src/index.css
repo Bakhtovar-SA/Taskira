@@ -223,6 +223,91 @@ body {
   box-shadow: var(--highlight-top), var(--elev-1);
 }
 
+/* Доска (ADR-0016). Колонка — тонированный жёлоб без рамки поверх листа;
+   карточка — плотная панель с верхним бликом, не стекло. На наведении по
+   контуру карточки проступает градиентная кромка бренда (маска, как у
+   .glass-edge), а не заливка: карточка остаётся тихой, пока её не трогают. */
+.board-col-body {
+  background: color-mix(in oklch, var(--bg-sunken) 55%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  scrollbar-width: thin;
+}
+.board-card {
+  background: var(--bg-panel);
+  box-shadow: var(--highlight-top), var(--elev-1);
+  transition: box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
+}
+.board-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    140deg,
+    color-mix(in oklch, var(--accent-solid) 65%, transparent),
+    transparent 40%,
+    transparent 65%,
+    color-mix(in oklch, var(--accent-solid) 30%, transparent)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  transition: opacity var(--dur-2, 180ms) ease-out;
+}
+.board-card:hover {
+  box-shadow: var(--highlight-top), var(--elev-2);
+}
+.board-card:hover::after {
+  opacity: 1;
+}
+.board-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--accent-solid), 0 6px 20px -8px var(--accent-glow);
+}
+
+/* Пилюли меты на карточке: волосяной контур, одна высота, цифры табличные. */
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  white-space: nowrap;
+  color: var(--text-2);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+.meta-pill > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.meta-pill.is-icon {
+  width: 22px;
+  padding: 0;
+  justify-content: center;
+}
+.meta-pill.is-late {
+  color: var(--status-danger-fg);
+  background: color-mix(in oklch, var(--status-danger) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--status-danger) 40%, transparent);
+}
+.meta-pill.is-soon {
+  color: var(--status-progress-fg);
+}
+/* Точка цвета метки/направления: цвет — из tk-tone-* (currentColor) или --c. */
+.meta-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c, currentColor);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--c, currentColor) 20%, transparent);
+}
+
 /* Основная кнопка: сплошной акцент, внутренний блик, мягкое свечение. */
 .btn-primary {
   background: var(--accent-solid);

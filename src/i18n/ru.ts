@@ -63,6 +63,7 @@ const ru = {
   "board.moveAria": "Переместить {key}",
   "board.noAllowedTransitions": "Нет разрешённых переходов",
   "board.addButton": "Добавить",
+  "board.addCard": "Задача",
   "board.quickCreatePlaceholder": "Задача в «{status}»…",
 
   "lang.ru": "Русский",
