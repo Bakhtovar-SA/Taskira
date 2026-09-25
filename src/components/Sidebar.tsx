@@ -7,7 +7,7 @@ import { Avatar, Kbd, ProjectMark } from "../ui";
 import { useState } from "react";
 import { useT, type TKey } from "../i18n";
 
-const GROUPS: {
+export const NAV_GROUPS: {
   labelKey: TKey;
   items: {
     id: ViewId;
@@ -105,7 +105,7 @@ export default function Sidebar() {
           <ProjectMark projectKey={data.project.key} size={20} />
           <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-sub">{data.project.name}</p>
         </div>
-        {GROUPS.map((g) => (
+        {NAV_GROUPS.map((g) => (
           <div key={g.labelKey} className="mb-2">
             <p className="px-2.5 pb-1 pt-2 text-[11.5px] font-semibold tracking-[0.01em] text-faint">{t(g.labelKey)}</p>
             <nav className="flex flex-col gap-px">

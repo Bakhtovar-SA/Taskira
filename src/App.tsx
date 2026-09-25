@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
 import Sidebar from "./components/Sidebar";
@@ -10,6 +10,8 @@ import { Toasts } from "./ui";
 import type { ViewId } from "./types";
 import { useT } from "./i18n";
 import { CreateIssueModal, IssueModal, preloadModalsWhenIdle } from "./lazyModals";
+import { OPEN_PALETTE_EVT } from "./palette/events";
+import { pushRecent } from "./palette/recent";
 
 // Рабочие разделы и тяжёлые модалки загружаются по требованию: первый экран
 // больше не тянет отчёты, документацию и админку одним монолитным бандлом.
@@ -26,6 +28,9 @@ const CollaboratingView = lazy(() => import("./components/CollaboratingView"));
 // (src/lazyModals.ts): первое открытие задачи не ждёт чанк.
 const SoloView = lazy(() => import("./components/SoloView"));
 const HomeView = lazy(() => import("./components/HomeView"));
+// Командная палитра и справка «?» — один чанк, грузится при первом открытии (ТЗ 5.8 п.4–5).
+const CommandPalette = lazy(() => import("./components/CommandPalette"));
+const ShortcutsDialog = lazy(() => import("./components/CommandPalette").then((m) => ({ default: m.ShortcutsDialog })));
 
 /** Скелет оболочки на время bootstrap — форма боковой панели и шапки, а не
  *  доски (ТЗ 5.8 п.7): до загрузки неизвестно, какой раздел откроется. */
@@ -66,7 +71,28 @@ function BootSkeleton() {
 
 function Shell() {
   const { t } = useT();
-  const { ui, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout } = useStore();
+  const { ui, idx, data, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout } = useStore();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => {
+    const open = () => setPaletteOpen(true);
+    window.addEventListener(OPEN_PALETTE_EVT, open);
+    return () => window.removeEventListener(OPEN_PALETTE_EVT, open);
+  }, []);
+
+  // «Недавние задачи» палитры: каждая открытая карточка (из любого места).
+  const openedIssue = ui.selectedIssueId ? idx.issues.get(ui.selectedIssueId) : undefined;
+  useEffect(() => {
+    if (!openedIssue) return;
+    pushRecent({
+      id: openedIssue.id,
+      projectId: data.currentProjectId,
+      key: openedIssue.key,
+      title: openedIssue.title,
+      category: idx.statuses.get(openedIssue.statusId)?.category ?? "todo",
+    });
+  }, [openedIssue, idx.statuses, data.currentProjectId]);
 
   /* При старте всегда проверяем серверную HttpOnly-сессию. Если её нет или она
      отозвана, bootstrap переводит приложение на форму входа. Путь, с которого
@@ -82,7 +108,7 @@ function Shell() {
   // но порядок вызовов хуков это не меняет — оба всегда выполняются на каждом рендере.
   useRouterSync();
 
-  const modalOpen = !!ui.selectedIssueId || ui.createOpen;
+  const modalOpen = !!ui.selectedIssueId || ui.createOpen || paletteOpen || helpOpen;
 
   // Чанки модалок — в простое после входа, не на критическом пути первого экрана (PERF-BUDGET п. 3).
   useEffect(() => {
@@ -95,6 +121,15 @@ function Shell() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       const typing = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable;
+      // ⌘K / Ctrl+K — палитра откуда угодно, даже из поля ввода и поверх карточки.
+      // По e.code, а не e.key: в русской раскладке это «л».
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.code === "KeyK") {
+        e.preventDefault();
+        setHelpOpen(false);
+        setPaletteOpen((v) => !v);
+        return;
+      }
+      if (paletteOpen || helpOpen) return; // Esc и остальное у открытого диалога свои
       if (e.key === "Escape") {
         if (!typing) {
           setCreateOpen(false);
@@ -106,6 +141,11 @@ function Shell() {
       // человек закрывал карточку и оказывался не там, где был (аудит BUG-04).
       if (modalOpen) return;
       if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "?") {
+        e.preventDefault();
+        setHelpOpen(true);
+        return;
+      }
       if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") {
         e.preventDefault();
         if (can("create")) setCreateOpen(true);
@@ -127,7 +167,7 @@ function Shell() {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, t]);
+  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, paletteOpen, helpOpen, t]);
 
   if (bootStatus === "loading" || bootStatus === "idle") {
     return <BootSkeleton />;
@@ -186,6 +226,13 @@ function Shell() {
       <Suspense fallback={null}>
         {ui.selectedIssueId && <IssueModal />}
         {ui.createOpen && <CreateIssueModal />}
+        {paletteOpen && (
+          <CommandPalette
+            onClose={() => setPaletteOpen(false)}
+            onShortcuts={() => setHelpOpen(true)}
+          />
+        )}
+        {helpOpen && <ShortcutsDialog onClose={() => setHelpOpen(false)} />}
       </Suspense>
       <Toasts />
     </div>

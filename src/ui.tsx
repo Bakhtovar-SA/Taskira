@@ -409,7 +409,7 @@ export function Modal({
   /** "panel" — выезжающая справа панель на всю высоту (просмотр задачи поверх
    *  доски с сохранением контекста, ТЗ 5.6 п.4 / прототип гейта); "center" —
    *  обычный диалог. Доступность (роль, ловушка фокуса, Esc) одна и та же. */
-  variant?: "center" | "panel";
+  variant?: "center" | "panel" | "palette";
 }) {
   const { t } = useT();
   const resolvedTitle = title ?? t("ui.dialog");
@@ -483,7 +483,9 @@ export function Modal({
       className={
         variant === "panel"
           ? "anim-scrim fixed inset-0 z-50 flex justify-end bg-[color-mix(in_oklch,var(--bg-scrim)_70%,transparent)] p-2 backdrop-blur-[2px]"
-          : "anim-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--bg-scrim)] px-4 py-10 backdrop-blur-[3px]"
+          : variant === "palette"
+            ? "anim-scrim fixed inset-0 z-[60] flex items-start justify-center bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] px-4 pt-[12vh] backdrop-blur-[2px]"
+            : "anim-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--bg-scrim)] px-4 py-10 backdrop-blur-[3px]"
       }
       onMouseDown={onClose}
     >
@@ -496,7 +498,9 @@ export function Modal({
         className={
           variant === "panel"
             ? "anim-panel glass-edge h-full w-full overflow-y-auto rounded-xl bg-overlay shadow-[var(--highlight-top),var(--elev-4)] outline-none"
-            : "anim-dialog glass-edge w-full rounded-xl bg-overlay shadow-[var(--highlight-top),var(--elev-4)] outline-none"
+            : variant === "palette"
+              ? "anim-dialog glass-edge w-full overflow-hidden rounded-2xl bg-[color-mix(in_oklch,var(--bg-overlay)_90%,transparent)] shadow-[var(--highlight-top),var(--elev-4)] outline-none backdrop-blur-2xl backdrop-saturate-150"
+              : "anim-dialog glass-edge w-full rounded-xl bg-overlay shadow-[var(--highlight-top),var(--elev-4)] outline-none"
         }
         style={{ maxWidth: w }}
         onMouseDown={(e) => e.stopPropagation()}

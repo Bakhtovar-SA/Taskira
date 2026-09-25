@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useNotifications, useStore, useUnreadCount } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcSparkle, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, MenuItem, ProjectMark, RoleBadge, Tip, UserCardBody } from "../ui";
+import { openPalette, paletteShortcut } from "../palette/events";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
@@ -654,6 +655,17 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
 
       <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
         <SearchBox />
+        {/* Командная палитра: всё приложение с клавиатуры (ТЗ 5.8 п.4). */}
+        <Tip label={t("palette.open")}>
+          <button
+            onClick={openPalette}
+            aria-label={t("palette.open")}
+            className="hidden h-8 items-center gap-1.5 rounded-lg px-2 text-faint ring-1 ring-inset ring-linesoft transition-colors hover:bg-hover hover:text-ink hover:ring-line lg:flex"
+          >
+            <IcSparkle size={14} tone="violet" />
+            <span className="font-mono text-[11.5px] font-medium tabular">{paletteShortcut()}</span>
+          </button>
+        </Tip>
         <Bell />
         {canCreate ? (
           <button

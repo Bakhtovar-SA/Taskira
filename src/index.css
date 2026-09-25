@@ -308,6 +308,26 @@ body {
   box-shadow: 0 0 0 2px color-mix(in oklch, var(--c, currentColor) 20%, transparent);
 }
 
+/* Строка командной палитры: активная — лёгкий акцентный фон и светящаяся
+   метка слева, как у активного пункта боковой панели. */
+.palette-row {
+  transition: background-color var(--dur-1, 100ms) linear, color var(--dur-1, 100ms) linear;
+}
+.palette-row.is-active {
+  background: color-mix(in oklch, var(--accent-solid) 9%, var(--bg-hover));
+}
+.palette-row.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent-solid);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
 /* Основная кнопка: сплошной акцент, внутренний блик, мягкое свечение. */
 .btn-primary {
   background: var(--accent-solid);
