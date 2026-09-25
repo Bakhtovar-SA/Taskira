@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useNotifications, useStore, useUnreadCount } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcSparkle, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AppearanceSettings, Avatar, Dropdown, MenuItem, ProjectMark, RoleBadge, Tip, UserCardBody } from "../ui";
-import { openPalette, paletteShortcut } from "../palette/events";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
+import { PROJECT_VIEWS } from "./Sidebar";
 
 const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
@@ -623,11 +623,10 @@ function MobileViewSwitcher() {
 
 export default function Topbar({ onLogout }: { onLogout?: () => void }) {
   const { t } = useT();
-  const { data, ui, setCreateOpen, can, logout, goHome } = useStore();
+  const { data, ui, setCreateOpen, can, logout, setView } = useStore();
   const doLogout = onLogout ?? logout;
-  // «Проекты» — назад на главный экран; кликабельно только когда он вообще есть
-  // (≥ 2 доступных проектов), иначе это просто метка (UI_RESTRUCTURE.md D4).
-  const homeAvailable = data.projects.length >= 2;
+  const views = PROJECT_VIEWS.filter((v) => !v.sprintsOnly || data.project.sprintsEnabled);
+  const isProjectView = views.some((v) => v.id === ui.view);
   const viewTitle = t(VIEW_LABEL[ui.view]);
   const canCreate = can("create");
 
@@ -638,34 +637,41 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
           (аудит UX-03). На широком экране роль навигации играет сайдбар. */}
       <MobileViewSwitcher />
 
+      {/* Шапка проекта (ADR-0013 §2.2): значок и переключатель проекта, рядом —
+          вкладки представлений. На экранах вне представлений — крошка раздела. */}
       <nav className="hidden min-w-0 items-center gap-0.5 text-[13px] text-faint md:flex">
-        {homeAvailable ? (
-          <button onClick={goHome} className="rounded-md px-1.5 py-1 font-medium text-sub transition-colors duration-150 hover:bg-hover hover:text-ink" title={t("sidebar.homeAria")}>
-            {t("topbar.projectsCrumb")}
-          </button>
-        ) : (
-          <span className="px-1.5 font-medium text-sub">{t("topbar.projectsCrumb")}</span>
-        )}
-        <span className="px-0.5 text-line2">/</span>
-        <ProjectMark projectKey={data.project.key} size={18} />
+        <ProjectMark projectKey={data.project.key} size={20} />
         <ProjectSwitcher />
-        <span className="px-0.5 text-line2">/</span>
-        <span className="px-1.5 font-bold tracking-[-0.01em] text-ink">{viewTitle}</span>
+        {isProjectView ? (
+          <div role="tablist" aria-label={t("topbar.viewsAria")} className="ml-2 flex items-center gap-0.5 rounded-lg bg-sunken/70 p-0.5 ring-1 ring-inset ring-linesoft">
+            {views.map((v) => {
+              const on = ui.view === v.id;
+              return (
+                <button
+                  key={v.id}
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setView(v.id)}
+                  className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-semibold transition-[background-color,color,box-shadow] duration-150 ${
+                    on ? "bg-panel text-ink shadow-[var(--highlight-top),0_1px_2px_oklch(0.2_0.05_288/0.1)]" : "text-sub hover:text-ink"
+                  }`}
+                >
+                  {v.icon({ size: 14, tone: on ? v.tone : undefined })}
+                  {t(v.labelKey)}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <>
+            <span className="px-0.5 text-line2">/</span>
+            <span className="px-1.5 font-bold tracking-[-0.01em] text-ink">{viewTitle}</span>
+          </>
+        )}
       </nav>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
         <SearchBox />
-        {/* Командная палитра: всё приложение с клавиатуры (ТЗ 5.8 п.4). */}
-        <Tip label={t("palette.open")}>
-          <button
-            onClick={openPalette}
-            aria-label={t("palette.open")}
-            className="hidden h-8 items-center gap-1.5 rounded-lg px-2 text-faint ring-1 ring-inset ring-linesoft transition-colors hover:bg-hover hover:text-ink hover:ring-line lg:flex"
-          >
-            <IcSparkle size={14} tone="violet" />
-            <span className="font-mono text-[11.5px] font-medium tabular">{paletteShortcut()}</span>
-          </button>
-        </Tip>
         <Bell />
         {canCreate ? (
           <button

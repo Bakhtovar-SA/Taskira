@@ -276,7 +276,7 @@ export default function SprintsView() {
     <div className="flex h-full gap-4 overflow-hidden p-4">
       <div className="flex w-[300px] shrink-0 flex-col rounded-lg border border-line bg-panel">
         <div className="border-b border-linesoft px-3.5 py-2.5">
-          <span className="font-disp text-[13.5px] font-semibold text-ink">{t("sidebar.nav.backlog")}</span>
+          <span className="font-disp text-[13.5px] font-semibold text-ink">{t("sprints.backlogTitle")}</span>
           <span className="ml-1.5 text-[11px] text-faint">{data.issuesComplete ? backlogIssues.length : "…"}</span>
         </div>
         <DropZone onDropIssue={(id) => setIssueSprint(id, null)} className="min-h-0 flex-1 overflow-y-auto transition-colors">

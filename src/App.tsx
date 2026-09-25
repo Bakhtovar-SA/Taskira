@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
 import Sidebar from "./components/Sidebar";
@@ -71,7 +71,8 @@ function BootSkeleton() {
 
 function Shell() {
   const { t } = useT();
-  const { ui, idx, data, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout } = useStore();
+  const { ui, idx, data, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout, goHome } = useStore();
+  const gPending = useRef(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -152,22 +153,36 @@ function Shell() {
         else toast("error", t("topbar.createDeniedTip"));
         return;
       }
-      const map: Record<string, ViewId> = {
-        "1": "board",
-        "2": "backlog",
-        "3": "timeline",
-        "4": "reports",
-        "5": "workflow",
-        "6": "access",
-        "7": "admin",
-        "8": "docs",
-        "9": "collaborating",
-      };
+      // ADR-0013 §7: цифры — только представления проекта (раньше 1–9 открывали и
+      // настройки, и скрытые экраны-отказы); переходы — «G, затем буква» (как в Linear).
+      const k = e.key.toLowerCase();
+      if (gPending.current && Date.now() - gPending.current < 1200) {
+        gPending.current = 0;
+        const go: Record<string, () => void> = {
+          h: () => data.projects.length >= 2 && goHome(),
+          р: () => data.projects.length >= 2 && goHome(),
+          r: () => setView("reports"),
+          к: () => setView("reports"),
+          s: () => setView("workflow"),
+          ы: () => setView("workflow"),
+        };
+        if (go[k]) {
+          e.preventDefault();
+          go[k]();
+        }
+        return;
+      }
+      if (k === "g" || k === "п") {
+        gPending.current = Date.now();
+        return;
+      }
+      const map: Record<string, ViewId> = { "1": "board", "2": "backlog", "3": "timeline" };
+      if (data.project.sprintsEnabled) map["4"] = "sprints";
       if (map[e.key]) setView(map[e.key]);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, paletteOpen, helpOpen, t]);
+  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, paletteOpen, helpOpen, t, data.projects.length, data.project.sprintsEnabled, goHome]);
 
   if (bootStatus === "loading" || bootStatus === "idle") {
     return <BootSkeleton />;

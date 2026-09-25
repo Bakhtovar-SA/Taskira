@@ -95,7 +95,7 @@ describe("Командная палитра", () => {
     const h = await setup();
     fireEvent.change(h.input, { target: { value: "cgbcjr" } }); // «список» на QWERTY
     const first = screen.getAllByRole("option")[0];
-    expect(first.textContent).toContain("Список задач");
+    expect(first.textContent).toContain("Список");
     expect(first.getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("Ищем «список»")).toBeTruthy();
     fireEvent.keyDown(h.input, { key: "Enter" });

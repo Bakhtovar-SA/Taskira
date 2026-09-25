@@ -172,7 +172,8 @@ unique, so no project needs to be named to resolve it) before opening the issue;
 holds the pure path helpers/parser. `nginx.conf`'s `try_files $uri /index.html` (and Vite's
 dev-server default) is what makes a hard refresh on one of these paths work — required now
 that the path itself carries state, unlike the old hash-only scheme.
-Keyboard shortcuts (`/`, `C`, `1`–`9` for the nine views, `Esc`, `?` help) are wired in `App.tsx`;
+Keyboard shortcuts (`/`, `C`, `1`–`4` for the project views — board/list/timeline/sprints, `G` then `H`/`R`/`S` for
+home/reports/project settings, `Esc`, `?` help — ADR-0013 §7) are wired in `App.tsx`;
 they are suppressed while a modal is open. `⌘K`/`Ctrl+K` (matched by `e.code`, so it works in the Russian layout)
 opens the command palette from anywhere (`CommandPalette.tsx`, lazy chunk; `src/palette/` — fuzzy + wrong-layout
 matching, recent issues in `localStorage`, `openPalette()` event for buttons). `reports` (`ReportsView.tsx`) is project-less —

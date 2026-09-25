@@ -304,9 +304,27 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
         [<Kbd key="c">C</Kbd>, "shortcuts.create"],
         [
           <span key="n" className="flex items-center gap-1">
-            <Kbd>1</Kbd>–<Kbd>9</Kbd>
+            <Kbd>1</Kbd>–<Kbd>4</Kbd>
           </span>,
           "shortcuts.views",
+        ],
+        [
+          <span key="gh" className="flex items-center gap-1">
+            <Kbd>G</Kbd> <Kbd>H</Kbd>
+          </span>,
+          "shortcuts.goHome",
+        ],
+        [
+          <span key="gr" className="flex items-center gap-1">
+            <Kbd>G</Kbd> <Kbd>R</Kbd>
+          </span>,
+          "shortcuts.goReports",
+        ],
+        [
+          <span key="gs" className="flex items-center gap-1">
+            <Kbd>G</Kbd> <Kbd>S</Kbd>
+          </span>,
+          "shortcuts.goSettings",
         ],
         [<Kbd key="e">Esc</Kbd>, "shortcuts.close"],
         [<Kbd key="h">?</Kbd>, "shortcuts.help"],
