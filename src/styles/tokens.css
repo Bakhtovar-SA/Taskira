@@ -136,12 +136,23 @@
   --highlight-top: inset 0 1px 0 oklch(1 0 0 / 0.6);
   --highlight-accent: inset 0 1px 0 oklch(1 0 0 / 0.22);
 
-  /* ─── Атмосфера (только за рабочим пространством — ТЗ 5.14) ─────────── */
-  --texture-opacity: 0.035; /* ≈ ±1% модуляции светлоты (гейт 5.3) — см. ADR-0012 */
-  --texture-blend: multiply;
-  --glow-a: oklch(0.78 0.11 288 / 0.42);
-  --glow-b: oklch(0.86 0.07 330 / 0.3);
-  --glow-c: oklch(0.9 0.05 250 / 0.22);
+  /* ─── Атмосфера (только за рабочим пространством — ТЗ 5.14) ───────────
+     Три свечения за стеклом навигации и рабочего листа; зерно убрано
+     решением владельца 25.09.2026 (ADR-0016). */
+  --glow-a: oklch(0.78 0.13 288 / 0.75);
+  --glow-b: oklch(0.86 0.1 20 / 0.55);
+  --glow-c: oklch(0.86 0.09 220 / 0.55);
+
+  /* Стекло хрома: боковая панель, рабочий лист, кромка. */
+  --glass-side: oklch(0.99 0.006 288 / 0.5);
+  --glass-sheet: oklch(0.99 0.004 288 / 0.8);
+  --glass-edge: oklch(1 0 0 / 0.85);
+  --glass-edge-2: oklch(1 0 0 / 0.2);
+
+  /* Знак и фирменные тона иконок навигации. */
+  --logo: oklch(0.52 0.2 288);
+  --ic-l: 0.58;
+  --ic-c: 0.14;
 
   /* ─── Прочие токены ──────────────────────────────────────────────────── */
   --radius-xs: 4px;
@@ -266,11 +277,18 @@
   --highlight-top: inset 0 1px 0 oklch(1 0 0 / 0.055);
   --highlight-accent: inset 0 1px 0 oklch(1 0 0 / 0.2);
 
-  --texture-opacity: 0.07; /* ≈ ±2% */
-  --texture-blend: screen;
-  --glow-a: oklch(0.42 0.17 288 / 0.5);
-  --glow-b: oklch(0.36 0.13 325 / 0.32);
-  --glow-c: oklch(0.34 0.1 255 / 0.25);
+  --glow-a: oklch(0.45 0.2 288 / 0.7);
+  --glow-b: oklch(0.4 0.17 330 / 0.45);
+  --glow-c: oklch(0.42 0.14 250 / 0.45);
+
+  --glass-side: oklch(0.2 0.02 288 / 0.45);
+  --glass-sheet: oklch(0.17 0.014 288 / 0.82);
+  --glass-edge: oklch(1 0 0 / 0.16);
+  --glass-edge-2: oklch(1 0 0 / 0.03);
+
+  --logo: oklch(0.78 0.13 288);
+  --ic-l: 0.74;
+  --ic-c: 0.13;
 }
 
 /* Атмосферные пресеты (личная настройка «Фон», theme.ts). Меняют только
@@ -316,14 +334,9 @@
   --glow-c: oklch(0.3 0.015 288 / 0);
 }
 
-:root[data-texture="off"] {
-  --texture-opacity: 0;
-}
-
 /* Высокая контрастность: без текстуры и без стекла, границы сильнее. */
 @media (prefers-contrast: more) {
   :root {
-    --texture-opacity: 0;
     --border-subtle: var(--border-strong);
     --border-default: var(--border-strong);
     --text-3: var(--text-2);

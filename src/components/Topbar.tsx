@@ -3,7 +3,7 @@ import { useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AppearanceSettings, Avatar, Dropdown, MenuItem, RoleBadge, Tip, UserCardBody } from "../ui";
+import { AppearanceSettings, Avatar, Dropdown, MenuItem, ProjectMark, RoleBadge, Tip, UserCardBody } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
@@ -645,10 +645,11 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
         ) : (
           <span className="px-1.5 font-medium text-sub">{t("topbar.projectsCrumb")}</span>
         )}
-        <IcChevR size={12} className="text-line2" />
+        <span className="px-0.5 text-line2">/</span>
+        <ProjectMark projectKey={data.project.key} size={18} />
         <ProjectSwitcher />
-        <IcChevR size={12} className="text-line2" />
-        <span className="px-1.5 font-semibold text-ink">{viewTitle}</span>
+        <span className="px-0.5 text-line2">/</span>
+        <span className="px-1.5 font-bold tracking-[-0.01em] text-ink">{viewTitle}</span>
       </nav>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-2.5">

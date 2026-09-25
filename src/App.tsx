@@ -31,7 +31,7 @@ const HomeView = lazy(() => import("./components/HomeView"));
 function BootSkeleton() {
   return (
     <div className="flex h-full overflow-hidden" aria-busy="true">
-      <div className="hidden w-[248px] shrink-0 flex-col gap-2 px-4 pt-5 md:flex">
+      <div className="glass-side glass-edge my-2 ml-2 hidden w-[248px] shrink-0 flex-col gap-2 rounded-xl px-4 pt-5 md:flex">
         <div className="flex items-center gap-2.5">
           <div className="skeleton h-[26px] w-[26px] rounded-lg" />
           <div className="skeleton h-4 w-20" />
@@ -46,8 +46,8 @@ function BootSkeleton() {
           ))}
         </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
-        <div className="surface-sheet flex min-h-0 flex-1 flex-col overflow-hidden md:rounded-xl md:border md:border-linesoft">
+      <div className="flex min-w-0 flex-1 flex-col md:p-2">
+        <div className="glass-sheet glass-edge flex min-h-0 flex-1 flex-col overflow-hidden shadow-e2 md:rounded-xl">
           <div className="flex h-[52px] items-center gap-3 border-b border-linesoft px-5">
             <div className="skeleton h-4 w-44" />
             <div className="skeleton ml-auto h-8 w-56 rounded-lg" />
@@ -147,8 +147,8 @@ function Shell() {
       <Sidebar />
       {/* Рабочая область — «лист», вставленный справа от боковой панели:
           своя поверхность, скругление и мягкая тень поверх атмосферы. */}
-      <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
-       <div className="surface-sheet flex min-h-0 flex-1 flex-col overflow-hidden md:rounded-xl md:border md:border-linesoft">
+      <div className="flex min-w-0 flex-1 flex-col md:p-2">
+       <div className="glass-sheet glass-edge flex min-h-0 flex-1 flex-col overflow-hidden shadow-e2 md:rounded-xl">
         <Topbar onLogout={logout} />
         <main className="min-h-0 flex-1">
           {/* Граница вокруг контента, а не всего приложения: сайдбар и шапка

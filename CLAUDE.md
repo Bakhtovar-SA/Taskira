@@ -609,18 +609,19 @@ since any edit touches it. The board shows the last 14 days in its done column
   the client has no router and no drag lib wired in; hash routing is hand-rolled in `App.tsx`.
 - CI (`.github/workflows/test.yml`) now has a `client` job (root `npm run typecheck` +
   `npm test` + `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
-- **Theming / design tokens** (ADR-0012, [docs/design/DESIGN.md](docs/design/DESIGN.md)): every colour lives in
+- **Theming / design tokens** (ADR-0012 + ADR-0016, [docs/design/DESIGN.md](docs/design/DESIGN.md)): every colour lives in
   `src/styles/tokens.css` — OKLCH primitives (`--violet-*`, `--gray-*`, hue 288) → semantic tokens (`--bg-*`,
   `--text-1/2/3`, `--border-*`, `--accent-*`, `--status-*`, `--elev-*`) → aliases of the old `--c-*` names, so old
   classes (`bg-canvas`, `text-ink`, …) still resolve ([docs/design/ALIASES.md](docs/design/ALIASES.md)). Themes
   override only the semantic layer. **Don't add raw `#hex`/`rgb()` to components** — `npm run colors:check` fails CI;
-  `npm run contrast:check` fails CI if a declared text/background pair drops below 4.5:1. Theme, atmosphere preset
-  and grain texture are `<html>` attributes (`data-theme`, `data-atmosphere`, `data-texture`) set by `applyTheme()`
-  and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg` /
-  `taskira.texture`). The sidebar is transparent over the atmosphere (glow + grain on `body`); the work area is a
-  `.surface-sheet`. Glass (`.glass`) is chrome-only — popovers, menus, toasts, tooltips — never task cards or forms.
-  Fonts are vendored in `src/assets/fonts/` (Onest latin+cyrillic; JetBrains Mono latin, keys only); weights
-  400/500/600 only, no all-caps labels.
+  `npm run contrast:check` fails CI if a declared text/background pair drops below 4.5:1. Theme and atmosphere preset
+  are `<html>` attributes (`data-theme`, `data-atmosphere`) set by `applyTheme()`
+  and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg`).
+  ADR-0016 (supersedes parts of 0012): the sidebar (`.glass-side`) and the work sheet (`.glass-sheet`) are glass over
+  the atmosphere glow on `body` (no grain); popovers/menus/toasts use `.glass`; never glass on task cards or forms.
+  Font is Manrope only (vendored in `src/assets/fonts/`); `font-mono` in the UI means issue keys = Manrope with tabular
+  numerals, real code uses `--font-code`. Icons are the in-house duotone set in `src/icons.tsx` (`tone` prop for nav
+  colours); logo is `<Logo variant="mark|mono|app">`, app-icon files come from `scripts/generate-brand-assets.mjs`.
 - **Dynamic style values under the CSP** ([ADR-0010](docs/adr/0010-dynamic-styles-under-csp.md), verified in Chromium by
   `npm run csp:spike`): CSSOM writes (`el.style.x`, `setProperty('--x')`, WAAPI `el.animate`) are allowed by
   `style-src-attr 'none'`; `style=""` in markup, `setAttribute('style')` and `<style>` are blocked. `secure-jsx`

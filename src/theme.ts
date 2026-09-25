@@ -6,14 +6,13 @@
  *  созданного в рантайме:
  *    data-theme      = light | dark        (+ режим «Как в системе»)
  *    data-atmosphere = violet | dusk | dawn | aurora | graphite
- *    data-texture    = on | off            (зерно на холсте)
+ *  Зерно фона убрано решением владельца 25.09.2026 (ADR-0016).
  */
 
 export type ThemeMode = "system" | "light" | "dark";
 
 const THEME_KEY = "taskira.theme";
 const BG_KEY = "taskira.bg";
-const TEXTURE_KEY = "taskira.texture";
 
 /** Атмосферные пресеты: меняют только свечение за рабочим пространством.
  *  Хром и акцент остаются фиолетовыми в любом из них. `swatch` — превью в
@@ -69,15 +68,6 @@ export function readBgId(): string {
   }
 }
 
-/** Текстура фона включена по умолчанию; хранится только выключение. */
-export function readTexture(): boolean {
-  try {
-    return localStorage.getItem(TEXTURE_KEY) !== "off";
-  } catch {
-    return true;
-  }
-}
-
 const prefersDark = (): boolean => {
   try {
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -91,16 +81,15 @@ export function effectiveTheme(mode: ThemeMode = readTheme()): "light" | "dark" 
   return mode === "system" ? (prefersDark() ? "dark" : "light") : mode;
 }
 
-/** Ставит атрибуты темы/атмосферы/текстуры на <html>. Дёргается на старте
+/** Ставит атрибуты темы и атмосферы на <html>. Дёргается на старте
  *  (после внешнего theme-init.js, который делает то же до загрузки CSS) и при
  *  каждом переключении в настройках. */
-export function applyTheme(mode: ThemeMode = readTheme(), bgId: string = readBgId(), texture: boolean = readTexture()): void {
+export function applyTheme(mode: ThemeMode = readTheme(), bgId: string = readBgId()): void {
   const root = document.documentElement;
   root.setAttribute("data-theme", effectiveTheme(mode));
   const preset = BG_PRESETS.find((p) => p.id === bgId) ?? BG_PRESETS[0];
   if (preset.id === "default") root.removeAttribute("data-atmosphere");
   else root.setAttribute("data-atmosphere", preset.id);
-  root.setAttribute("data-texture", texture ? "on" : "off");
   // До ТЗ 5.4 пресет фона писался инлайн-стилем --c-canvas на <html>; у
   // тех, кто открыл новую версию во вкладке со старой, он перебил бы токены.
   root.style.removeProperty("--c-canvas");
@@ -123,16 +112,6 @@ export function setBg(id: string): void {
     /* noop */
   }
   applyTheme(readTheme(), id);
-}
-
-export function setTexture(on: boolean): void {
-  try {
-    if (on) localStorage.removeItem(TEXTURE_KEY);
-    else localStorage.setItem(TEXTURE_KEY, "off");
-  } catch {
-    /* noop */
-  }
-  applyTheme(readTheme(), readBgId(), on);
 }
 
 /** Реагировать на смену системной темы, пока выбран режим «Системная». */

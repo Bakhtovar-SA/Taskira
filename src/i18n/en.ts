@@ -77,6 +77,7 @@ const en: Record<keyof Dict, string> = {
 
   "sidebar.group.planning": "Planning",
   "sidebar.group.project": "Project",
+  "sidebar.nav.home": "Home",
   "sidebar.nav.board": "Board",
   "sidebar.nav.backlog": "Backlog",
   "sidebar.nav.sprints": "Sprints",
@@ -608,7 +609,6 @@ const en: Record<keyof Dict, string> = {
   "appearance.theme.dark": "Dark",
   "appearance.bgAria": "Background: {name}",
   "appearance.language": "Language",
-  "appearance.texture": "Background texture",
 
   "toast.success": "Done",
   "toast.error": "Error",

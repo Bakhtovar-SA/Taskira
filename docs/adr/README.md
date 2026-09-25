@@ -30,4 +30,5 @@
 | [0009](./0009-database-per-tenant.md) | Database-per-tenant: одна БД = одна организация, без `organization_id` в схеме | Accepted | 2026-09-22 |
 | [0010](./0010-dynamic-styles-under-csp.md) | Динамические стили под CSP: кастомные свойства и WAAPI через CSSOM, `data-*` для перечислимого; не правило на значение | Accepted | 2026-09-25 |
 | [0011](./0011-store-selector-subscriptions.md) | Стор: подписки с селектором на `useSyncExternalStore`, миграция по доменам | Accepted | 2026-09-25 |
-| [0012](./0012-design-language.md) | Язык дизайна: фиолет 288, Onest, токены в три слоя, «тихий хром — живая атмосфера» | Accepted | 2026-09-25 |
+| [0012](./0012-design-language.md) | Язык дизайна: фиолет 288, Onest, токены в три слоя, «тихий хром — живая атмосфера» | Superseded by ADR-0016 (частично) | 2026-09-25 |
+| [0016](./0016-design-language-v2.md) | Язык дизайна v2: Manrope, стекло хрома, знак «Отметка», двухтоновые иконки | Accepted | 2026-09-25 |

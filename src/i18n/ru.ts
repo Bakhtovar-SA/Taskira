@@ -78,6 +78,7 @@ const ru = {
 
   "sidebar.group.planning": "Планирование",
   "sidebar.group.project": "Проект",
+  "sidebar.nav.home": "Главная",
   "sidebar.nav.board": "Доска",
   "sidebar.nav.backlog": "Список задач",
   "sidebar.nav.sprints": "Спринты",
@@ -609,7 +610,6 @@ const ru = {
   "appearance.theme.dark": "Тёмная",
   "appearance.bgAria": "Фон: {name}",
   "appearance.language": "Язык",
-  "appearance.texture": "Текстура фона",
 
   "toast.success": "Готово",
   "toast.error": "Ошибка",

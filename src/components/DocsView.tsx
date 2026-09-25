@@ -29,7 +29,7 @@ const H = ({ children }: { children: React.ReactNode }) => (
 );
 const P = ({ children }: { children: React.ReactNode }) => <p className="mt-2 text-[13px] leading-relaxed text-sub">{children}</p>;
 const Code = ({ children }: { children: React.ReactNode }) => (
-  <code className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[11.5px] font-semibold text-accentdeep">{children}</code>
+  <code className="rounded bg-linesoft px-1.5 py-0.5 font-[family-name:var(--font-code)] text-[11.5px] font-semibold text-accentdeep">{children}</code>
 );
 
 const EN_SECTIONS = [

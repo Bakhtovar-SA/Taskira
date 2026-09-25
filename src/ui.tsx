@@ -3,7 +3,7 @@ import type { AccessRole, Status, User } from "./types";
 import { useStore } from "./store";
 import { usersApi, getAvatarBlobUrl, type PickableUser } from "./api";
 import { IcBriefcase, IcCamera, IcPhone, IcTrash, IcX } from "./icons";
-import { BG_PRESETS, effectiveTheme, readBgId, readTexture, readTheme, setBg, setTexture, setThemeMode, type ThemeMode } from "./theme";
+import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
 import { useT } from "./i18n";
 import { cropAndResizeAvatar } from "./avatarCrop";
 import { workflowStatusName } from "./workflowStatus";
@@ -132,6 +132,25 @@ export const AvatarStack = ({
     </span>
   );
 };
+
+/** Знак проекта: плашка в тоне проекта с первой буквой ключа. Тон выбирается
+ *  детерминированно по ключу из палитры проектов (ТЗ 5.3 п.6) — один и тот же
+ *  проект всегда одного цвета, и цвет не хранится на сервере. */
+const PROJECT_TONES = ["blue", "pink", "orange", "green", "teal", "red", "amber", "sky", "indigo"] as const;
+export const projectTone = (key: string) => {
+  let h = 0;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PROJECT_TONES[h % PROJECT_TONES.length];
+};
+export const ProjectMark = ({ projectKey, size = 20 }: { projectKey: string; size?: number }) => (
+  <span
+    className={`tk-tone-${projectTone(projectKey)} inline-flex shrink-0 items-center justify-center rounded-md bg-current/15 font-bold ring-1 ring-inset ring-current/25`}
+    style={{ width: size, height: size, fontSize: Math.round(size * 0.5) }}
+    aria-hidden="true"
+  >
+    {projectKey[0]}
+  </span>
+);
 
 export const catColor = (cat: Status["category"]) =>
   cat === "done"
@@ -600,14 +619,13 @@ export function Segmented<T extends string>({
   );
 }
 
-/** Попап «Оформление» — тема, атмосфера (свечение за рабочим пространством),
- *  текстура фона и язык. Живёт в меню профиля (Topbar) и в шапке HomeView.
+/** Попап «Оформление» — тема, атмосфера (свечение за рабочим пространством)
+ *  и язык. Живёт в меню профиля (Topbar) и в шапке HomeView.
  *  Хранение — localStorage (theme.ts), без сервера. */
 export function AppearanceSettings() {
   const { t, lang, setLang } = useT();
   const [mode, setMode] = useState<ThemeMode>(() => readTheme());
   const [bg, setBgState] = useState<string>(() => readBgId());
-  const [texture, setTextureState] = useState<boolean>(() => readTexture());
   const eff = effectiveTheme(mode);
   return (
     <div className="border-b border-linesoft px-3.5 py-3">
@@ -643,16 +661,6 @@ export function AppearanceSettings() {
           />
         ))}
       </div>
-      <label className="mt-3 flex cursor-pointer items-center justify-between gap-2 text-[12.5px] text-sub">
-        {t("appearance.texture")}
-        <Switch
-          checked={texture}
-          onChange={(on) => {
-            setTexture(on);
-            setTextureState(on);
-          }}
-        />
-      </label>
       <p className="mb-2 mt-3.5 text-[12px] font-medium text-sub">{t("appearance.language")}</p>
       <Segmented value={lang} options={(["ru", "en"] as const).map((l) => [l, t(`lang.${l}`)] as const)} onChange={setLang} ariaLabel={t("appearance.language")} />
     </div>
