@@ -451,7 +451,7 @@ const ru = {
   "reports.medianHint": "устойчивее среднего к единичным «хвостам»",
   "reports.trend.title": "Закрытия по неделям",
   "reports.trend.week": "Неделя с {week}: {count}",
-  "reports.trend.hint": "Каждый столбик — неделя; подпись — сколько задач закрыто. Максимум за период: {max}.",
+  "reports.trend.hint": "Каждая точка — неделя закрытий. Максимум за период: {max}.",
   "reports.emptyTitle": "За этот период данных нет",
   "reports.emptySub": "Измените период или выберите другой проект.",
   "reports.table.name": "Название",

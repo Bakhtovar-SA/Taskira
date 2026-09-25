@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useStore } from "../store";
 import {
   downloadReportCsv,
@@ -40,29 +40,76 @@ function Tile({ n, label, hint, tone }: { n: string; label: string; hint?: strin
   );
 }
 
-/** Недельный тренд закрытий. Своя мини-диаграмма, без библиотеки: данных мало,
- *  а тянуть чарт-пакет ради десятка столбиков — лишний вес в бандле. */
+/** Недельный тренд закрытий: площадь с градиентом и линия, без библиотеки
+ *  (данных — десяток точек, чарт-пакет был бы лишним весом). Всё — атрибуты
+ *  SVG из данных, а не инлайн-стили: под CSP не плодит динамических правил
+ *  (ADR-0010). Наведение на неделю подсвечивает её и показывает число. */
 function Trend({ points }: { points: { week: string; closed: number }[] }) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const [hover, setHover] = useState<number | null>(null);
+  const gid = useId().replace(/:/g, "");
   if (points.length < 2) return null;
+  const W = 600;
+  const H = 120;
+  const PAD = 10;
   const max = Math.max(...points.map((p) => p.closed), 1);
+  const x = (i: number) => (i / (points.length - 1)) * W;
+  const y = (v: number) => PAD + (1 - v / max) * (H - PAD * 2);
+  // Сглаженная кривая: кубические Безье через середины отрезков.
+  let line = `M${x(0)},${y(points[0].closed)}`;
+  for (let i = 1; i < points.length; i++) {
+    const mx = (x(i - 1) + x(i)) / 2;
+    line += ` C${mx},${y(points[i - 1].closed)} ${mx},${y(points[i].closed)} ${x(i)},${y(points[i].closed)}`;
+  }
+  const area = `${line} L${W},${H} L0,${H}Z`;
+  const fmt = (w: string) => new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "short" }).format(new Date(w));
+  const hi = hover ?? points.length - 1;
   return (
     <section className="mt-5">
-      <h2 className="text-[13px] font-medium text-sub">{t("reports.trend.title")}</h2>
-      <div className="mt-2.5 flex h-24 items-end gap-1 overflow-x-auto rounded-lg border border-line bg-panel p-3">
-        {points.map((p) => (
-          <div key={p.week} className="flex min-w-[18px] flex-1 flex-col items-center gap-1" title={t("reports.trend.week", { week: p.week, count: p.closed })}>
-            <span className="text-[9.5px] font-semibold tabular-nums text-faint">{p.closed}</span>
-            <div
-              className="w-full rounded-t bg-accent transition-all"
-              style={{ height: `${Math.max(3, (p.closed / max) * 100)}%` }}
-            />
-          </div>
-        ))}
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-[13px] font-medium text-sub">{t("reports.trend.title")}</h2>
+        <span className="ml-auto text-[12px] tabular text-faint">
+          {t("reports.trend.week", { week: fmt(points[hi].week), count: points[hi].closed })}
+        </span>
       </div>
-      <p className="mt-1 text-[10.5px] text-faint">
-        {t("reports.trend.hint", { max })}
-      </p>
+      <div className="surface-raised relative mt-2.5 overflow-hidden rounded-xl px-0 pb-2 pt-3 ring-1 ring-inset ring-line/70">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block h-32 w-full" onMouseLeave={() => setHover(null)}>
+          <defs>
+            <linearGradient id={`tr-fill-${gid}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="var(--accent-solid)" stopOpacity="0.32" />
+              <stop offset="1" stopColor="var(--accent-solid)" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id={`tr-line-${gid}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="var(--status-todo)" />
+              <stop offset="1" stopColor="var(--accent-solid)" />
+            </linearGradient>
+          </defs>
+          {[0.25, 0.5, 0.75].map((f) => (
+            <line key={f} x1="0" x2={W} y1={PAD + f * (H - PAD * 2)} y2={PAD + f * (H - PAD * 2)} stroke="var(--border-subtle)" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
+          ))}
+          <path d={area} fill={`url(#tr-fill-${gid})`} />
+          <path d={line} fill="none" stroke={`url(#tr-line-${gid})`} strokeWidth="2.25" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <line x1={x(hi)} x2={x(hi)} y1="0" y2={H} stroke="var(--accent-solid)" strokeOpacity="0.35" vectorEffect="non-scaling-stroke" />
+          {points.map((p, i) => (
+            <rect
+              key={p.week}
+              x={x(i) - W / (points.length - 1) / 2}
+              y="0"
+              width={W / (points.length - 1)}
+              height={H}
+              fill="transparent"
+              onMouseEnter={() => setHover(i)}
+            >
+              <title>{t("reports.trend.week", { week: fmt(p.week), count: p.closed })}</title>
+            </rect>
+          ))}
+        </svg>
+        <div className="mt-1 flex justify-between px-3 text-[10.5px] tabular text-faint">
+          <span>{fmt(points[0].week)}</span>
+          <span>{fmt(points[points.length - 1].week)}</span>
+        </div>
+      </div>
+      <p className="mt-1 text-[11px] text-faint">{t("reports.trend.hint", { max })}</p>
     </section>
   );
 }

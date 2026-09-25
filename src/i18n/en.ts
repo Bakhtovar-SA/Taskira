@@ -450,7 +450,7 @@ const en: Record<keyof Dict, string> = {
   "reports.medianHint": "less affected by isolated long-running issues",
   "reports.trend.title": "Closures by week",
   "reports.trend.week": "Week of {week}: {count}",
-  "reports.trend.hint": "Each bar is one week; its label is the number of closed issues. Period maximum: {max}.",
+  "reports.trend.hint": "Each point is a week of closures. Peak for the period: {max}.",
   "reports.emptyTitle": "No data for this period",
   "reports.emptySub": "Change the period or select another project.",
   "reports.table.name": "Name",
