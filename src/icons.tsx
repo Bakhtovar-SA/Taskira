@@ -1,65 +1,110 @@
 import type { IssueTypeId, PriorityId } from "./types";
+import { useId } from "react";
 import { useT } from "./i18n";
 
-type P = { size?: number; className?: string };
 
-const S = ({ size = 16, className, children, viewBox = "0 0 16 16", filled = false }: P & { children: React.ReactNode; viewBox?: string; filled?: boolean }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox={viewBox}
-    className={className}
-    fill={filled ? "currentColor" : "none"}
-    stroke={filled ? "none" : "currentColor"}
-    strokeWidth={filled ? 0 : 1.7}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
+/** Иконки — собственный двухтоновый набор (ADR-0016). Сетка 16 px: прямые
+ *  края и толщины — целые пиксели, поэтому на обычном экране (1x) значок не
+ *  размывается, а на Retina/4K он векторный на любом размере.
+ *  Слои (стили — .tk-ic в index.css): .s — рисунок (сплошной цвет),
+ *  .t — тон (заливка ~24 % того же цвета), .k — редкие штрихи 2 px.
+ *  `tone` — фирменный тон раздела (навигация); без него значок берёт цвет
+ *  текста, чтобы служебный хром не пестрил. */
+export type IconTone = "violet" | "indigo" | "blue" | "sky" | "teal" | "green" | "amber" | "orange" | "red" | "pink" | "gray";
+type P = { size?: number; className?: string; tone?: IconTone };
+
+const D = ({ size = 16, className = "", tone, children }: P & { children: React.ReactNode }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" className={`tk-ic ${tone ? `tk-tone-${tone}` : ""} ${className}`} aria-hidden="true">
     {children}
   </svg>
 );
-
-export const Logo = ({ size = 26 }: P) => (
-  <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-    <rect width="32" height="32" rx="7" fill="#0F1B2D" />
-    <rect x="6" y="10" width="5" height="13" rx="2" fill="#0B5FD9" />
-    <rect x="13.5" y="6" width="5" height="17" rx="2" fill="#22A06B" />
-    <rect x="21" y="13" width="5" height="10" rx="2" fill="#E2B203" />
-  </svg>
+const R = ({ x, y, w, h, r = 1, c = "s" }: { x: number; y: number; w: number; h: number; r?: number; c?: "s" | "t" }) => (
+  <rect className={c} x={x} y={y} width={w} height={h} rx={r} />
 );
+const Plate = () => <R x={1} y={1} w={14} h={14} r={3.5} c="t" />;
+
+/** Знак Taskira «Отметка» (ТЗ 5.5, выбор владельца 25.09.2026, ADR-0016):
+ *  перекладина — «Т», длинное плечо галочки становится ножкой буквы и
+ *  упирается в перекладину. Основной знак — один цвет без плашки
+ *  (`variant="mark"` — фирменный цвет `--logo`, `"mono"` — currentColor).
+ *  `"app"` — иконка приложения на плашке: фавикон, ярлык, PWA; те же файлы
+ *  лежат в public/ (scripts/generate-brand-assets.mjs). */
+export const LOGO_MARK_PATHS = ["M3 5.05h18", "M5.86 14.6 9.68 18.94 15.08 5.05"] as const;
+const LOGO_APP_PATHS = ["M7.5 9.4h17", "M10.2 18.4 13.8 22.5 18.9 9.4"] as const;
+
+export const Logo = ({ size = 24, variant = "mark", className }: P & { variant?: "mark" | "mono" | "app" }) => {
+  const id = useId().replace(/:/g, "");
+  if (variant !== "app")
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        className={`${variant === "mark" ? "text-[var(--logo)]" : ""} ${className ?? ""}`}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={3.3}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {LOGO_MARK_PATHS.map((d) => (
+          <path key={d} d={d} />
+        ))}
+      </svg>
+    );
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={className}>
+      <defs>
+        <linearGradient id={`${id}-plate`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="oklch(0.66 0.19 300)" />
+          <stop offset="1" stopColor="oklch(0.45 0.21 278)" />
+        </linearGradient>
+        <linearGradient id={`${id}-sheen`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="oklch(1 0 0)" stopOpacity="0.3" />
+          <stop offset="0.55" stopColor="oklch(1 0 0)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="9" fill={`url(#${id}-plate)`} />
+      <rect width="32" height="32" rx="9" fill={`url(#${id}-sheen)`} />
+      <rect x="0.5" y="0.5" width="31" height="31" rx="8.5" fill="none" stroke="oklch(1 0 0)" strokeOpacity="0.18" />
+      <g fill="none" stroke="oklch(0.99 0.006 288)" strokeWidth={3.1} strokeLinecap="round" strokeLinejoin="round">
+        {LOGO_APP_PATHS.map((d) => (
+          <path key={d} d={d} />
+        ))}
+      </g>
+    </svg>
+  );
+};
 
 export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId | string; size?: number }) => {
   const { t } = useT();
   if (type === "bug")
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t("issueType.bug")}>
-        <circle cx="8" cy="8" r="7.2" fill="#D23A2E" />
-        <ellipse cx="8" cy="8.8" rx="2.5" ry="3.1" fill="#fff" />
-        <circle cx="8" cy="4.9" r="1.4" fill="#fff" />
-        <path d="M6.7 4.2L5.4 3M9.3 4.2l1.3-1.2M5.3 8H3.2M12.8 8h-2.1M5.6 11.4l-1.7 1.2M10.4 11.4l1.7 1.2" stroke="#fff" strokeWidth="1.1" strokeLinecap="round" />
+      <svg width={size} height={size} viewBox="0 0 16 16" className="tk-ic tk-tone-red" role="img" aria-label={t("issueType.bug")}>
+        <circle className="t" cx="8" cy="8" r="7" />
+        <path className="s" d="M8 4.5a2.75 2.75 0 0 1 2.75 2.75v2.5a2.75 2.75 0 0 1-5.5 0v-2.5A2.75 2.75 0 0 1 8 4.5z" />
+        <path className="k" d="M4 7h1.25M10.75 7H12M4.25 11h1M10.75 11h1" />
       </svg>
     );
   if (type === "request")
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t("issueType.request")}>
-        <rect x="1" y="1" width="14" height="14" rx="3" fill="#7A5CC6" />
-        <path d="M5 6.5h6M5 9.5h4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
-        <circle cx="11" cy="11" r="1.4" fill="#fff" />
+      <svg width={size} height={size} viewBox="0 0 16 16" className="tk-ic tk-tone-teal" role="img" aria-label={t("issueType.request")}>
+        <path className="t" d="M1 4a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7l-4 3v-3.2A3 3 0 0 1 1 10z" />
+        <rect className="s" x="4" y="5" width="8" height="2" rx="1" />
+        <rect className="s" x="4" y="8" width="5" height="2" rx="1" />
       </svg>
     );
   /* task (и legacy story/epic → как задача) */
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t("issueType.task")}>
-      <rect x="1" y="1" width="14" height="14" rx="3" fill="#3D7FE0" />
-      <path d="M4.6 8.3l2.3 2.3 4.5-4.8" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={size} height={size} viewBox="0 0 16 16" className="tk-ic tk-tone-violet" role="img" aria-label={t("issueType.task")}>
+      <rect className="t" x="1" y="1" width="14" height="14" rx="4" />
+      <path className="k" d="M4.75 8.25 7 10.5l4.25-4.75" />
     </svg>
   );
 };
 
-/** Цвет приоритета — единственный источник (токены темы var(--c-prio-*) в
- *  index.css), используется и здесь, и в Board-карточке (PRIO_COLOR раньше
- *  дублировал этот список отдельно и расходился с ним для "low"). */
+/** Цвет приоритета — токены темы var(--c-prio-*). */
 export const PRIORITY_COLOR: Record<PriorityId, string> = {
   critical: "var(--c-prio-critical)",
   high: "var(--c-prio-high)",
@@ -67,136 +112,397 @@ export const PRIORITY_COLOR: Record<PriorityId, string> = {
   low: "var(--c-prio-low)",
 };
 
+/** Приоритет — ступени сигнала (1–3), «Критичный» — отдельная форма
+ *  (плашка с «!»), а не четвёртая ступень: срочное читается формой, не
+ *  подсчётом столбиков. Цвет — только у критичного; остальное — чернила. */
 export const PriorityIcon = ({ p, size = 15 }: { p: PriorityId; size?: number }) => {
   const { t } = useT();
-  const c = PRIORITY_COLOR[p];
-  if (p === "medium")
+  if (p === "critical")
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t(`priority.${p}`)}>
-        <rect x="2.5" y="5" width="11" height="2.4" rx="1.2" fill={c} />
-        <rect x="2.5" y="9" width="11" height="2.4" rx="1.2" fill={c} />
+      <svg width={size} height={size} viewBox="0 0 16 16" role="img" aria-label={t(`priority.${p}`)}>
+        <rect x="1" y="1" width="14" height="14" rx="4" fill="var(--c-prio-critical)" />
+        <rect x="7" y="4" width="2" height="5" rx="1" fill="var(--text-on-accent)" />
+        <rect x="7" y="10.5" width="2" height="2" rx="1" fill="var(--text-on-accent)" />
       </svg>
     );
-  const down = p === "low";
+  const lvl = p === "high" ? 3 : p === "medium" ? 2 : 1;
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-label={t(`priority.${p}`)} style={{ transform: down ? "rotate(180deg)" : undefined }}>
-      {p === "critical" ? (
-        // двойная стрелка вверх — «Критичный»
-        <path d="M8 1.4l5.2 5.4h-2.8v3.2H5.6V6.8H2.8L8 1.4zM4.4 12h7.2v2.4H4.4z" fill={c} />
-      ) : (
-        // одинарная стрелка (для «Низкий» перевёрнута вниз через rotate)
-        <path d="M8 2.4l4.8 5H9.7v5.2H6.3V7.4H3.2L8 2.4z" fill={c} />
-      )}
+    <svg width={size} height={size} viewBox="0 0 16 16" role="img" aria-label={t(`priority.${p}`)}>
+      {[0, 1, 2].map((i) => (
+        <rect
+          key={i}
+          x={2 + i * 4.5}
+          y={10 - i * 3.5}
+          width="3"
+          height={4 + i * 3.5}
+          rx="1"
+          fill={i < lvl ? "var(--text-2)" : "var(--text-3)"}
+          opacity={i < lvl ? 1 : 0.35}
+        />
+      ))}
+    </svg>
+  );
+};
+
+/** Глиф статуса: доля заполненного круга = доля пути по процессу.
+ *  `position` — место статуса в своём workflow (0…1); todo — пустой круг,
+ *  done — закрытый круг с галочкой. */
+export const StatusGlyph = ({ category, position = 0.5, size = 14 }: { category: "todo" | "inprogress" | "done"; position?: number; size?: number }) => {
+  const color = category === "done" ? "var(--status-done)" : category === "inprogress" ? "var(--status-progress)" : "var(--status-todo)";
+  if (category === "done")
+    return (
+      <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden="true">
+        <circle cx="7" cy="7" r="6.5" fill={color} />
+        <path d="m4.3 7.2 1.9 1.9 3.5-3.7" fill="none" stroke="var(--bg-panel)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  const f = category === "todo" ? 0 : Math.min(0.85, Math.max(0.35, position));
+  const r = 3.25;
+  const a = f * 2 * Math.PI;
+  const x = 7 + r * Math.sin(a);
+  const y = 7 - r * Math.cos(a);
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden="true">
+      <circle cx="7" cy="7" r="5.75" fill="none" stroke={color} strokeWidth="1.5" />
+      {f > 0 && <path d={`M7 7 7 ${7 - r} A${r} ${r} 0 ${f > 0.5 ? 1 : 0} 1 ${x.toFixed(2)} ${y.toFixed(2)}Z`} fill={color} />}
+    </svg>
+  );
+};
+
+/** Кольцо срока: дуга заполняется по мере приближения даты (окно 14 дней),
+ *  тёплая — за 3 дня, красная — просрочено. Срочность видна без чтения цифр. */
+export const DueRing = ({ due, today, size = 13, done = false }: { due: string; today: string; size?: number; done?: boolean }) => {
+  const days = Math.round((Date.parse(due) - Date.parse(today)) / 864e5);
+  const late = !done && days < 0;
+  const f = done ? 1 : late ? 1 : Math.max(0.08, Math.min(1, 1 - days / 14));
+  const r = 4.75;
+  const C = 2 * Math.PI * r;
+  const color = done ? "var(--status-done)" : late ? "var(--status-danger)" : days <= 3 ? "var(--orange-solid)" : "var(--text-3)";
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden="true">
+      <circle cx="7" cy="7" r={r} fill="none" stroke="var(--border-strong)" strokeWidth="1.5" />
+      <circle cx="7" cy="7" r={r} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeDasharray={`${(C * f).toFixed(2)} ${C.toFixed(2)}`} transform="rotate(-90 7 7)" />
     </svg>
   );
 };
 
 export const IcSearch = (p: P) => (
-  <S {...p}><circle cx="7" cy="7" r="4.6" /><path d="M10.6 10.6L14 14" /></S>
+  <D {...p}>
+    <circle className="t" cx="7" cy="7" r="3.5" />
+    <path className="s" fillRule="evenodd" d="M7 1.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11zm0 2a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" />
+    <path className="s" d="m10.4 11.8 1.4-1.4 3 3a1 1 0 0 1-1.4 1.4z" />
+  </D>
 );
-export const IcPlus = (p: P) => <S {...p}><path d="M8 3v10M3 8h10" /></S>;
-export const IcX = (p: P) => <S {...p}><path d="M4 4l8 8M12 4l-8 8" /></S>;
-export const IcChevD = (p: P) => <S {...p}><path d="M4 6l4 4 4-4" /></S>;
-export const IcChevR = (p: P) => <S {...p}><path d="M6 4l4 4-4 4" /></S>;
+export const IcPlus = (p: P) => (
+  <D {...p}>
+    <R x={7} y={2} w={2} h={12} />
+    <R x={2} y={7} w={12} h={2} />
+  </D>
+);
+export const IcX = (p: P) => (
+  <D {...p}>
+    <g transform="rotate(45 8 8)">
+      <R x={7} y={1.5} w={2} h={13} />
+      <R x={1.5} y={7} w={13} h={2} />
+    </g>
+  </D>
+);
+export const IcChevD = (p: P) => <D {...p}><path className="k" d="m4 6 4 4 4-4" /></D>;
+export const IcChevR = (p: P) => <D {...p}><path className="k" d="m6 4 4 4-4 4" /></D>;
 export const IcBoard = (p: P) => (
-  <S {...p}><rect x="2" y="2.5" width="3.6" height="11" rx="1" /><rect x="6.9" y="2.5" width="3.6" height="7.5" rx="1" /><rect x="11.8" y="2.5" width="3.6" height="9.5" rx="1" /></S>
+  <D {...p}>
+    <Plate />
+    <R x={3} y={3} w={3} h={10} />
+    <R x={7} y={3} w={3} h={6} />
+    <R x={11} y={3} w={2} h={8} />
+  </D>
 );
 export const IcBacklog = (p: P) => (
-  <S {...p}><path d="M5.5 4h8M5.5 8h8M5.5 12h8" /><circle cx="2.6" cy="4" r="0.9" fill="currentColor" stroke="none" /><circle cx="2.6" cy="8" r="0.9" fill="currentColor" stroke="none" /><circle cx="2.6" cy="12" r="0.9" fill="currentColor" stroke="none" /></S>
+  <D {...p}>
+    <Plate />
+    <R x={3} y={4} w={2} h={2} />
+    <R x={6} y={4} w={7} h={2} />
+    <R x={3} y={7} w={2} h={2} />
+    <R x={6} y={7} w={7} h={2} />
+    <R x={3} y={10} w={2} h={2} />
+    <R x={6} y={10} w={5} h={2} />
+  </D>
 );
 export const IcTimeline = (p: P) => (
-  <S {...p}><path d="M2 8h12" /><rect x="3" y="3" width="6" height="3" rx="1" /><rect x="7" y="10" width="6" height="3" rx="1" /></S>
+  <D {...p}>
+    <Plate />
+    <R x={3} y={4} w={6} h={2} />
+    <R x={6} y={7} w={7} h={2} />
+    <R x={4} y={10} w={5} h={2} />
+  </D>
+);
+export const IcRoadmap = (p: P) => (
+  <D {...p}>
+    <Plate />
+    <R x={3} y={4} w={5} h={2} />
+    <R x={6} y={7} w={7} h={2} />
+    <path className="s" d="m6 9.5 2 2-2 2-2-2z" />
+  </D>
 );
 export const IcFlow = (p: P) => (
-  <S {...p}><circle cx="3.4" cy="8" r="1.9" /><circle cx="12.6" cy="3.6" r="1.9" /><circle cx="12.6" cy="12.4" r="1.9" /><path d="M5.3 8h3.2M8.5 8c1.5 0 1.5-4.4 2.3-4.4M8.5 8c1.5 0 1.5 4.4 2.3 4.4" /></S>
+  <D {...p}>
+    <path className="k k-soft" d="M5 4h1.5A2.5 2.5 0 0 1 9 6.5v3A2.5 2.5 0 0 1 6.5 12H5M9 8h2" />
+    <circle className="s" cx="4" cy="4" r="2.25" />
+    <circle className="s" cx="4" cy="12" r="2.25" />
+    <circle className="s" cx="12.5" cy="8" r="2.25" />
+  </D>
 );
 export const IcBell = (p: P) => (
-  <S {...p}><path d="M8 2.2a4 4 0 00-4 4v2.6L2.6 11h10.8L12 8.8V6.2a4 4 0 00-4-4z" /><path d="M6.4 13.4a1.7 1.7 0 003.2 0" /></S>
+  <D {...p}>
+    <path className="t" d="M3.5 11V7a4.5 4.5 0 0 1 9 0v4l1.5 1.5v.5H2v-.5z" />
+    <R x={1} y={11} w={14} h={2} />
+    <path className="s" d="M6.25 14h3.5a1.75 1.75 0 0 1-3.5 0z" />
+  </D>
 );
 export const IcTrash = (p: P) => (
-  <S {...p}><path d="M3 4.5h10M6.2 4.5V3h3.6v1.5M4.4 4.5l.6 8.5h6l.6-8.5M6.6 7v4M9.4 7v4" /></S>
+  <D {...p}>
+    <path className="t" d="M3.5 5h9l-.75 8.6a1.5 1.5 0 0 1-1.5 1.4h-4.5a1.5 1.5 0 0 1-1.5-1.4z" />
+    <R x={1.5} y={3} w={13} h={2} />
+    <R x={6} y={1} w={4} h={2} />
+    <R x={6} y={7.5} w={1.5} h={5} r={0.75} />
+    <R x={8.5} y={7.5} w={1.5} h={5} r={0.75} />
+  </D>
 );
 export const IcPencil = (p: P) => (
-  <S {...p}><path d="M11.3 2.9l1.8 1.8L5.5 12.3l-2.5.7.7-2.5 7.6-7.6z" /></S>
+  <D {...p}>
+    <path className="t" d="M1.75 14.25 2.6 11l2.4 2.4z" />
+    <path className="s" d="M11 1.9a1.6 1.6 0 0 1 2.25 0l.85.85a1.6 1.6 0 0 1 0 2.25L6.4 12.7 3.3 9.6z" />
+  </D>
 );
 export const IcCamera = (p: P) => (
-  <S {...p}><path d="M2.5 5.8h2l1-1.6h5l1 1.6h2v7.7h-11z" /><circle cx="8" cy="9.6" r="2.4" /></S>
+  <D {...p}>
+    <path className="t" d="M1 5.5a2 2 0 0 1 2-2h1.5l1-1.5h5l1 1.5H13a2 2 0 0 1 2 2V12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2z" />
+    <path className="s" fillRule="evenodd" d="M8 5.25a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zm0 1.75a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5z" />
+  </D>
 );
 export const IcPhone = (p: P) => (
-  <S {...p}><path d="M3.6 2.6l1.9-.3 1 2.6-1.1 1.1c.4 1.1 1.6 2.3 2.7 2.7l1.1-1.1 2.6 1 -.3 1.9c-.2.9-1 1.5-1.9 1.4-3.5-.4-6.7-3.6-7.1-7.1-.1-.9.5-1.7 1.4-1.9z" /></S>
+  <D {...p}>
+    <path className="s" d="M3.6 1.6 5.8 1.3l1.2 3-1.3 1.3c.5 1.3 1.9 2.7 3.2 3.2l1.3-1.3 3 1.2-.3 2.2c-.2 1.1-1.2 1.8-2.3 1.7C6.4 12.1 2.9 8.6 2.4 4.4 2.3 3.2 2.6 2 3.6 1.6z" />
+  </D>
 );
 export const IcBriefcase = (p: P) => (
-  <S {...p}><rect x="2" y="5.2" width="12" height="8" rx="1.4" /><path d="M5.5 5.2V4a1.4 1.4 0 011.4-1.4h2.2A1.4 1.4 0 0110.5 4v1.2M2 9h12" /></S>
+  <D {...p}>
+    <R x={1} y={4} w={14} h={10} r={2.5} c="t" />
+    <path className="s" fillRule="evenodd" d="M5.5 4V3a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 10.5 3v1H9V3H7v1z" />
+    <R x={1} y={8} w={14} h={2} r={0} />
+  </D>
 );
-export const IcLink = (p: P) => (
-  <S {...p}><path d="M6.5 9.5l3-3" /><path d="M7.5 4.8L9 3.3a2.5 2.5 0 013.5 3.5L11 8.3M8.5 11.2L7 12.7a2.5 2.5 0 01-3.5-3.5L5 7.7" /></S>
-);
+export const IcLink = (p: P) => <D {...p}><path className="k" d="M6.75 9.25a3 3 0 0 0 4.25 0l2-2A3 3 0 0 0 8.75 3l-.5.5M9.25 6.75a3 3 0 0 0-4.25 0l-2 2A3 3 0 0 0 7.25 13l.5-.5" /></D>;
 export const IcDots = (p: P) => (
-  <S {...p} filled><circle cx="3.2" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="12.8" cy="8" r="1.3" /></S>
+  <D {...p}>
+    <circle className="s" cx="3" cy="8" r="1.5" />
+    <circle className="s" cx="8" cy="8" r="1.5" />
+    <circle className="s" cx="13" cy="8" r="1.5" />
+  </D>
 );
-export const IcCheck = (p: P) => <S {...p}><path d="M3.5 8.5l3 3 6-7" /></S>;
+export const IcCheck = (p: P) => <D {...p}><path className="k" d="m3 8.5 3.25 3.25L13 4.5" /></D>;
 export const IcCalendar = (p: P) => (
-  <S {...p}><rect x="2.5" y="3.5" width="11" height="10" rx="1.5" /><path d="M2.5 6.5h11M5.5 2v2.6M10.5 2v2.6" /></S>
+  <D {...p}>
+    <R x={1} y={3} w={14} h={12} r={2.5} c="t" />
+    <path className="s" d="M1 5.5A2.5 2.5 0 0 1 3.5 3h9A2.5 2.5 0 0 1 15 5.5V7H1z" />
+    <R x={4} y={1} w={2} h={4} />
+    <R x={10} y={1} w={2} h={4} />
+    <R x={4} y={9} w={2} h={2} r={0.5} />
+    <R x={7} y={9} w={2} h={2} r={0.5} />
+    <R x={10} y={9} w={2} h={2} r={0.5} />
+  </D>
 );
-export const IcBolt = (p: P) => <S {...p} filled><path d="M8.8 1.8L3.6 9.4h3.2L5.9 14.2l5.5-6.8H8.2l.6-5.6z" /></S>;
+export const IcBolt = (p: P) => <D {...p}><path className="s" d="M9.5 1 3 9h4.5L6.5 15 13 7H8.5z" /></D>;
 export const IcStar = (p: P & { filled?: boolean }) => (
-  <S {...p} viewBox="0 0 24 24">
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-  </S>
+  <D {...p}>
+    <path className={p.filled ? "s" : "t"} d="m8 1.5 1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.3l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />
+  </D>
 );
-export const IcSend = (p: P) => <S {...p}><path d="M13.5 2.5L7 13.2l-.7-4.5-4.5-.7L13.5 2.5z" /><path d="M13.5 2.5L6.3 8.7" /></S>;
-export const IcFilter = (p: P) => <S {...p}><path d="M2.5 4h11M4.5 8h7M6.5 12h3" /></S>;
-export const IcUndo = (p: P) => <S {...p}><path d="M3 3.5v4h4" /><path d="M3.4 7.3A5.2 5.2 0 1113 9.5" /></S>;
+export const IcSend = (p: P) => (
+  <D {...p}>
+    <path className="t" d="M14.5 1.5 1.5 6.75 6.5 9z" />
+    <path className="s" d="M14.5 1.5 6.9 9.4l2.2 5.1z" />
+  </D>
+);
+export const IcFilter = (p: P) => (
+  <D {...p}>
+    <R x={2} y={3} w={12} h={2} />
+    <R x={4} y={7} w={8} h={2} />
+    <R x={6} y={11} w={4} h={2} />
+  </D>
+);
+export const IcUndo = (p: P) => (
+  <D {...p}>
+    <path className="k" d="M4.5 6.5h6a3.5 3.5 0 0 1 0 7H7" />
+    <path className="s" d="M1.5 6.5 5.5 3v7z" />
+  </D>
+);
 export const IcLock = (p: P) => (
-  <S {...p}><rect x="3.5" y="7" width="9" height="6.5" rx="1.5" /><path d="M5.5 7V5.3a2.5 2.5 0 015 0V7" /></S>
+  <D {...p}>
+    <path className="k" d="M5 7V5a3 3 0 0 1 6 0v2" />
+    <R x={2.5} y={7} w={11} h={8} r={2.5} c="t" />
+    <R x={7} y={9.5} w={2} h={3} />
+  </D>
 );
-export const IcFlag = (p: P) => <S {...p}><path d="M4 14V2.5" /><path d="M4 3h8.5l-2 2.8 2 2.7H4" /></S>;
+/** Открыть полностью (задачу из панели — страницей). */
+export const IcExpand = (p: P) => (
+  <D {...p}>
+    <Plate />
+    <path className="k" d="M9 3.75h3.25V7M7 12.25H3.75V9M12 4 8.75 7.25M4 12l3.25-3.25" />
+  </D>
+);
+/** Боковая панель: свернуть / развернуть / меню на узком экране. */
+export const IcPanel = (p: P) => (
+  <D {...p}>
+    <Plate />
+    <R x={3} y={3} w={3.5} h={10} r={1.25} />
+  </D>
+);
+export const IcFlag = (p: P) => (
+  <D {...p}>
+    <path className="t" d="M4.5 2h9l-2 3.25 2 3.25h-9z" />
+    <R x={2.5} y={1.5} w={2} h={13} />
+  </D>
+);
 export const IcInbox = (p: P) => (
-  <S {...p}><path d="M2.5 9.5L4.5 3h7l2 6.5" /><path d="M2.5 9.5h3.4l1 2h2.2l1-2h3.4V12a1.5 1.5 0 01-1.5 1.5H4A1.5 1.5 0 012.5 12V9.5z" /></S>
+  <D {...p}>
+    <path className="t" d="M2 5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" />
+    <path className="s" d="M2 9h3.25l1 1.5h3.5l1-1.5H14v3a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" />
+  </D>
 );
 export const IcShield = (p: P) => (
-  <S {...p}><path d="M8 1.8l5.2 1.9v4.1c0 3.5-2.2 5.7-5.2 6.6-3-.9-5.2-3.1-5.2-6.6V3.7L8 1.8z" /><path d="M5.8 8l1.6 1.6 2.9-3.2" /></S>
+  <D {...p}>
+    <path className="t" d="M8 1 14 3.2v4.3c0 3.5-2.4 6-6 7.5-3.6-1.5-6-4-6-7.5V3.2z" />
+    <path className="k" d="M5.25 7.75 7.25 9.75 10.75 6.25" />
+  </D>
 );
 export const IcBook = (p: P) => (
-  <S {...p}><path d="M3 2.5h7.2A1.8 1.8 0 0112 4.3v9.2H4.8A1.8 1.8 0 013 11.7V2.5z" /><path d="M3 11.7A1.8 1.8 0 014.8 10H12v3.5H4.8A1.8 1.8 0 013 11.7zM6 5.5h3.5M6 8h2.5" /></S>
+  <D {...p}>
+    <path className="s" d="M1 3a1 1 0 0 1 1-1h4a2 2 0 0 1 2 2v10.25C7.5 13.5 6.75 13 6 13H1z" />
+    <path className="t" d="M15 3a1 1 0 0 0-1-1h-4a2 2 0 0 0-2 2v10.25c.5-.75 1.25-1.25 2-1.25h5z" />
+  </D>
 );
 export const IcUsers = (p: P) => (
-  <S {...p}><circle cx="6" cy="5.5" r="2.3" /><path d="M1.8 13.5c.5-2.6 2.1-4 4.2-4s3.7 1.4 4.2 4" /><circle cx="11.3" cy="6" r="1.7" /><path d="M11 9.6c1.8.2 3 1.4 3.4 3.4" /></S>
+  <D {...p}>
+    <circle className="t" cx="11" cy="5" r="2.5" />
+    <path className="t" d="M9 14c.25-2.5 1.5-4 3.5-4S15.75 11.5 16 14z" />
+    <circle className="s" cx="6" cy="5" r="3" />
+    <path className="s" d="M.75 14.75C1 11.75 3 10 6 10s5 1.75 5.25 4.75z" />
+  </D>
 );
 export const IcEye = (p: P) => (
-  <S {...p}><path d="M1.8 8S4 4.2 8 4.2 14.2 8 14.2 8 12 11.8 8 11.8 1.8 8 1.8 8z" /><circle cx="8" cy="8" r="1.8" /></S>
+  <D {...p}>
+    <path className="t" d="M.75 8S3.5 3 8 3s7.25 5 7.25 5S12.5 13 8 13 .75 8 .75 8z" />
+    <circle className="s" cx="8" cy="8" r="2.5" />
+  </D>
 );
-
 /** Перемещение задачи между колонками (кнопка «переместить» на карточке доски). */
 export const IcMove = (p: P) => (
-  <S {...p}>
-    <path d="M2.5 5.5h7M2.5 10.5h7" />
-    <path d="M11 3.5l2.5 2-2.5 2M11 8.5l2.5 2-2.5 2" />
-  </S>
+  <D {...p}>
+    <path className="s" d="M2 3.5h7V1.5l4.5 3-4.5 3v-2H2z" />
+    <path className="t" d="M14 10.5H7v-2l-4.5 3 4.5 3v-2h7z" />
+  </D>
 );
-
-/** Отчёты и выгрузка (столбики). */
+/** Отчёты (столбики). */
 export const IcReport = (p: P) => (
-  <S {...p}>
-    <path d="M2.5 13.5h11" />
-    <path d="M4.5 13.5V9M8 13.5V4M11.5 13.5V6.5" />
-  </S>
+  <D {...p}>
+    <Plate />
+    <R x={3} y={9} w={2} h={4} r={0.75} />
+    <R x={7} y={6} w={2} h={7} r={0.75} />
+    <R x={11} y={3} w={2} h={10} r={0.75} />
+  </D>
 );
-
 /** Скачать файл. */
 export const IcDownload = (p: P) => (
-  <S {...p}>
-    <path d="M8 2.5v7.5" />
-    <path d="M5 7.5L8 10.5l3-3" />
-    <path d="M2.5 12.5h11" />
-  </S>
+  <D {...p}>
+    <path className="s" d="M7 1.5h2V8h2.5L8 11.5 4.5 8H7z" />
+    <R x={1.5} y={12.5} w={13} h={2} c="t" />
+  </D>
 );
-
 /** Архив (закрытые задачи, убранные из активного набора). */
 export const IcArchive = (p: P) => (
-  <S {...p}>
-    <path d="M2 4.5h12v2.5H2z" />
-    <path d="M3 7v6.5h10V7" />
-    <path d="M6.5 9.5h3" />
-  </S>
+  <D {...p}>
+    <R x={2} y={6} w={12} h={9} r={1.5} c="t" />
+    <R x={1} y={2} w={14} h={4} r={1.5} />
+    <R x={6} y={8} w={4} h={2} />
+  </D>
+);
+export const IcHome = (p: P) => (
+  <D {...p}>
+    <path className="t" d="M2 7.5 8 2.5l6 5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />
+    <path className="s" d="M1 7.2 8 1.4l7 5.8-1 1.2L8 3.4 2 8.4z" />
+    <path className="s" d="M6.5 14v-3a1.5 1.5 0 0 1 3 0v3z" />
+  </D>
+);
+export const IcMyIssues = (p: P) => (
+  <D {...p}>
+    <circle className="t" cx="8" cy="8" r="7" />
+    <path className="k" d="M5 8.25 7 10.25 11 6" />
+  </D>
+);
+export const IcSettings = (p: P) => (
+  <D {...p}>
+    {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+      <rect key={a} className="s" x="6.75" y=".75" width="2.5" height="3" rx=".75" transform={`rotate(${a} 8 8)`} />
+    ))}
+    <path className="s" fillRule="evenodd" d="M8 2.75a5.25 5.25 0 1 1 0 10.5 5.25 5.25 0 0 1 0-10.5zM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+  </D>
+);
+export const IcCompose = (p: P) => (
+  <D {...p}>
+    <R x={1} y={3} w={12} h={12} r={3} c="t" />
+    <path className="s" d="M12.25 1.5a1.5 1.5 0 0 1 2.25 2.25L9 9.25 6 10l.75-3z" />
+  </D>
+);
+export const IcComment = (p: P) => (
+  <D {...p}>
+    <path className="t" d="M1 4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7l-4 3v-3a2 2 0 0 1-2-2z" />
+    <circle className="s" cx="5" cy="7" r="1.25" />
+    <circle className="s" cx="8" cy="7" r="1.25" />
+    <circle className="s" cx="11" cy="7" r="1.25" />
+  </D>
+);
+export const IcDiamond = (p: P) => (
+  <D {...p}>
+    <path className="t" d="M8 1 15 8l-7 7-7-7z" />
+    <path className="s" d="M8 4.5 11.5 8 8 11.5 4.5 8z" />
+  </D>
+);
+export const IcDisplay = (p: P) => (
+  <D {...p}>
+    <R x={1} y={4} w={14} h={2} c="t" />
+    <R x={1} y={10} w={14} h={2} c="t" />
+    <circle className="s" cx="10.5" cy="5" r="2.5" />
+    <circle className="s" cx="5.5" cy="11" r="2.5" />
+  </D>
+);
+export const IcSparkle = (p: P) => (
+  <D {...p}>
+    <path className="s" d="M7 1c.5 3.25 1.5 4.25 4.75 4.75C8.5 6.25 7.5 7.25 7 10.5 6.5 7.25 5.5 6.25 2.25 5.75 5.5 5.25 6.5 4.25 7 1z" />
+    <path className="t" d="M12 9c.25 1.75.75 2.25 2.5 2.5-1.75.25-2.25.75-2.5 2.5-.25-1.75-.75-2.25-2.5-2.5 1.75-.25 2.25-.75 2.5-2.5z" />
+  </D>
+);
+export const IcSun = (p: P) => (
+  <D {...p}>
+    {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+      <rect key={a} className="s" x="7.25" y=".5" width="1.5" height="2.5" rx=".75" transform={`rotate(${a} 8 8)`} />
+    ))}
+    <circle className="s" cx="8" cy="8" r="3.25" />
+  </D>
+);
+export const IcMoon = (p: P) => <D {...p}><path className="s" d="M14 9.75A6.25 6.25 0 0 1 6.25 2 6.25 6.25 0 1 0 14 9.75z" /></D>;
+export const IcKeyboard = (p: P) => (
+  <D {...p}>
+    <R x={0.5} y={3} w={15} h={10} r={2.5} c="t" />
+    {[2.5, 5.5, 8.5, 11.5].map((x) => (
+      <R key={x} x={x} y={5.25} w={2} h={2} r={0.6} />
+    ))}
+    <R x={4} y={9.5} w={8} h={1.75} r={0.875} />
+  </D>
+);
+export const IcGlobe = (p: P) => (
+  <D {...p}>
+    <circle className="t" cx="8" cy="8" r="7" />
+    <path className="s" fillRule="evenodd" d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1.6c-.55.5-1.3 1.9-1.52 4.65h3.04C9.3 4.5 8.55 3.1 8 2.6zm1.52 6.15H6.48C6.7 11.5 7.45 12.9 8 13.4c.55-.5 1.3-1.9 1.52-4.65zM2.65 8.75a5.4 5.4 0 0 0 2.6 3.9c-.4-1-.7-2.3-.8-3.9zm0-1.5h1.8c.1-1.6.4-2.9.8-3.9a5.4 5.4 0 0 0-2.6 3.9zm8.9 1.5c-.1 1.6-.4 2.9-.8 3.9a5.4 5.4 0 0 0 2.6-3.9zm1.8-1.5a5.4 5.4 0 0 0-2.6-3.9c.4 1 .7 2.3.8 3.9z" />
+  </D>
 );

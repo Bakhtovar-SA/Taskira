@@ -1,7 +1,12 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider, useStore, useToasts } from "./store";
 import { ApiError, authApi, departmentsApi, issuesApi, notificationsApi, projectsApi, type ProjectBootstrap, type ServerIssue } from "./api";
+
+/** `useStore()` + вынесенные из него домены (ADR-0011, шаги 1–2): тосты и уведомления — отдельные хранилища. */
+function useStoreSnapshot() {
+  return { ...useStore(), toasts: useToasts() };
+}
 
 /** Характеризационные тесты CRUD задач в сторе (createIssue, updateIssue, moveStatus, deleteIssue), написанные ДО выноса
  *  в src/store/issueCrud.ts (ТЗ 2.3, шаг 5). Эти действия не «оптимистичны» в узком смысле: сначала запрос, потом
@@ -59,9 +64,9 @@ async function boot(opts: { me?: typeof admin | typeof employee; issues?: Server
   const listSpy = vi.spyOn(issuesApi, "list").mockResolvedValue({ items: opts.issues ?? [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
-  let latest: ReturnType<typeof useStore> | null = null;
+  let latest: ReturnType<typeof useStoreSnapshot> | null = null;
   function Probe() {
-    latest = useStore();
+    latest = useStoreSnapshot();
     return null;
   }
   const { unmount } = render(
@@ -80,7 +85,7 @@ async function boot(opts: { me?: typeof admin | typeof employee; issues?: Server
   return { get: () => latest!, listSpy };
 }
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); await new Promise((r) => setTimeout(r, 0)); });
-const find = (get: () => ReturnType<typeof useStore>, id: string) => get().data.issues.find((i) => i.id === id);
+const find = (get: () => ReturnType<typeof useStoreSnapshot>, id: string) => get().data.issues.find((i) => i.id === id);
 
 afterEach(() => {
   unmountCurrent?.();

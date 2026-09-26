@@ -44,8 +44,8 @@ export default class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <div className="max-w-[460px] rounded-xl border border-line bg-panel p-6 text-center">
-          <h2 className="font-disp text-[17px] font-bold tracking-tight text-ink">{this.props.copy.title}</h2>
+        <div className="max-w-[460px] surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-6 text-center">
+          <h2 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{this.props.copy.title}</h2>
           <p className="mt-2 text-[13px] leading-relaxed text-sub">
             {this.props.copy.body}
           </p>
@@ -55,7 +55,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           <div className="mt-4 flex justify-center gap-2">
             <button
               onClick={() => this.setState({ error: null })}
-              className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90"
+              className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-onaccent transition-opacity hover:opacity-90"
             >
               {this.props.copy.retry}
             </button>

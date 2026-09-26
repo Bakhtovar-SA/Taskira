@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CSP spike — ТЗ 5.2 / ADR-0010</title>
+    <script src="/early.js"></script>
+    <link rel="stylesheet" href="/spike.css" />
+    <!-- Тот же приём, что public/dynamic.css в продукте: пустой same-origin лист для insertRule. -->
+    <link id="taskira-dynamic-styles" rel="stylesheet" href="/dynamic.css" />
+  </head>
+  <body>
+    <!-- Контроль: инлайн-атрибут style в разметке ОБЯЗАН быть заблокирован (style-src-attr 'none'). -->
+    <div id="ctl-markup" style="color: rgb(255, 0, 0)">control: style="" в разметке</div>
+    <div id="stage"></div>
+    <script type="module" src="/spike.js"></script>
+  </body>
+</html>

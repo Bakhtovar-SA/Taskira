@@ -1,6 +1,6 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider, useStore, useToasts } from "./store";
 import { type CreateInput } from "./store/mappers";
 import {
   ApiError,
@@ -12,6 +12,11 @@ import {
   type ProjectBootstrap,
   type ServerIssue,
 } from "./api";
+
+/** `useStore()` + вынесенные из него домены (ADR-0011, шаги 1–2): тосты и уведомления — отдельные хранилища. */
+function useStoreSnapshot() {
+  return { ...useStore(), toasts: useToasts() };
+}
 
 /**
  * importIssues() — импорт из Trello и т.п. (ревью PR #48): раньше 401 посреди
@@ -82,8 +87,8 @@ const input = (title: string, over: Partial<CreateInput> = {}): CreateInput => (
   ...over,
 });
 
-function Probe({ onSnapshot }: { onSnapshot: (api: ReturnType<typeof useStore>) => void }) {
-  const api = useStore();
+function Probe({ onSnapshot }: { onSnapshot: (api: ReturnType<typeof useStoreSnapshot>) => void }) {
+  const api = useStoreSnapshot();
   onSnapshot(api);
   return null;
 }
@@ -106,7 +111,7 @@ let unmountCurrent: (() => void) | null = null;
 /** Держим ссылку живой через весь тест (не возвращаем один снэпшот) — после
  *  importIssues() store может ещё раз перерендериться (401 → setBootStatus),
  *  и снэпшот, снятый до этого, не увидит новое значение bootStatus. */
-async function bootToReady(): Promise<{ get: () => ReturnType<typeof useStore> }> {
+async function bootToReady(): Promise<{ get: () => ReturnType<typeof useStoreSnapshot> }> {
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(baseUser as never);
@@ -119,7 +124,7 @@ async function bootToReady(): Promise<{ get: () => ReturnType<typeof useStore> }
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
 
-  let latest: ReturnType<typeof useStore> | null = null;
+  let latest: ReturnType<typeof useStoreSnapshot> | null = null;
   const { unmount } = render(
     <StoreProvider>
       <Probe onSnapshot={(api) => { latest = api; }} />

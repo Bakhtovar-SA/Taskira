@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { useStore } from "../store";
+import { FOCUS_TEST, FocusChips, TaskRow, useFocusCounts, type Focus } from "./MyIssues";
+import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
-import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo, PriorityIcon, TypeIcon } from "../icons";
-import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, catColor } from "../ui";
+import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo } from "../icons";
+import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -17,57 +18,14 @@ const readLastProject = (): string => {
   }
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
-const isOverdue = (i: AssignedIssue) => !!i.dueDate && i.statusCategory !== "done" && i.dueDate < today();
-
-function StatCard({ num, label, tone }: { num: number; label: string; tone?: "accent" | "danger" }) {
-  return (
-    <div className="rounded-xl border border-line bg-panel px-4 py-3">
-      <div
-        className="font-disp text-[22px] font-bold leading-none"
-        style={tone === "accent" ? { color: "var(--c-accent)" } : tone === "danger" ? { color: "var(--c-danger)" } : { color: "var(--c-ink)" }}
-      >
-        {num}
-      </div>
-      <div className="mt-1 text-[11px] font-semibold text-faint">{label}</div>
-    </div>
-  );
-}
-
-function TaskRow({ issue, onOpen }: { issue: AssignedIssue; onOpen: () => void }) {
-  const { t } = useT();
-  const c = catColor(issue.statusCategory as "todo" | "inprogress" | "done");
-  const overdue = isOverdue(issue);
-  return (
-    <button
-      onClick={onOpen}
-      className="group flex w-full items-center gap-2.5 border-b border-linesoft bg-panel px-3.5 py-2.5 text-left transition-colors last:border-0 hover:bg-accentsoft/50"
-    >
-      <span className="shrink-0" title={t(`issueType.${issue.typeId}`)}>
-        <TypeIcon type={issue.typeId} size={14} />
-      </span>
-      <span className="w-14 shrink-0 font-mono text-[10.5px] font-semibold text-faint">{issue.key}</span>
-      <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">{issue.title}</span>
-      {overdue && issue.dueDate && (
-        <span className="hidden shrink-0 font-mono text-[10px] font-bold text-danger lg:inline">{issue.dueDate.slice(5)}</span>
-      )}
-      <span className="hidden shrink-0 text-[10.5px] font-semibold text-faint sm:inline">{issue.projectKey}</span>
-      <span
-        className="hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide md:inline"
-        style={{ background: c.bg, color: c.fg }}
-      >
-        {workflowStatusName({ name: issue.statusName }, t)}
-      </span>
-      <span className="shrink-0" title={t(`priority.${issue.priorityId}`)}>
-        <PriorityIcon p={issue.priorityId} size={13} />
-      </span>
-    </button>
-  );
-}
+/** Приветствие по времени суток — мелочь, но экран перестаёт быть шаблоном. */
+const greetingKey = (h = new Date().getHours()) =>
+  h < 5 ? "home.greetingNight" : h < 12 ? "home.greetingMorning" : h < 18 ? "home.greetingDay" : h < 23 ? "home.greetingEvening" : "home.greetingNight";
 
 export default function HomeView({ onLogout }: { onLogout: () => void }) {
-  const { t, tn } = useT();
+  const { t, tn, lang } = useT();
   const { data, enterProject, switchProject, setCreateOpen } = useStore();
+  const { notifications } = useNotifications();
   const me = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
   const last = readLastProject();
   const [q, setQ] = useState("");
@@ -81,15 +39,19 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
     enterProject(createTarget);
   };
 
-  const overdueCount = useMemo(() => data.assignedToMe.filter(isOverdue).length, [data.assignedToMe]);
+  // Полоса фокуса вместо плашек-счётчиков: каждая цифра — фильтр списка ниже
+  // (анти-список трека: «большое число + подпись» только если оно что-то открывает).
+  const [focus, setFocus] = useState<Focus>("all");
+  const focusCounts = useFocusCounts(data.assignedToMe);
 
   const tasks = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return data.assignedToMe;
-    return data.assignedToMe.filter(
+    const inFocus = data.assignedToMe.filter(FOCUS_TEST[focus]);
+    if (!s) return inFocus;
+    return inFocus.filter(
       (item) => item.key.toLowerCase().includes(s) || item.title.toLowerCase().includes(s) || item.projectName.toLowerCase().includes(s),
     );
-  }, [data.assignedToMe, q]);
+  }, [data.assignedToMe, q, focus]);
 
   const countInProject = useMemo(() => {
     const m = new Map<string, number>();
@@ -121,39 +83,41 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   // кросс-проектный поиск (pendingOpenIssueRef, store/session.ts): открывает
   // задачу сразу после переключения, без промежуточного хэша/пути — адресную
   // строку после этого приводит в соответствие useRouterSync (App.tsx).
+  const dateLine = new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+
   const openTask = (item: Pick<AssignedIssue, "projectId" | "issueId">) => {
-    switchProject(item.projectId, item.issueId);
+    switchProject(item.projectId, item.issueId, "page");
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-canvas">
+    <div className="flex h-full flex-col overflow-hidden">
       {/* шапка */}
-      <header className="flex h-[54px] shrink-0 items-center gap-4 border-b border-line bg-panel px-5">
+      <header className="glass flex h-[56px] shrink-0 items-center gap-4 border-b border-linesoft px-5">
         <div className="flex items-center gap-2">
           <Logo size={24} />
-          <span className="font-disp text-[14px] font-bold text-ink">Taskira</span>
+          <span className="font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink">Taskira</span>
         </div>
 
-        <label className="flex h-8 w-[320px] items-center gap-2 rounded-md border border-line bg-canvas px-2.5">
+        <label className="flex h-8 w-[340px] items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
           <IcSearch size={13} className="shrink-0 text-faint" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t("home.searchPlaceholder")}
-            className="min-w-0 flex-1 bg-transparent text-[12.5px] outline-none placeholder:text-faint"
+            className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint"
           />
         </label>
 
         <div className="ml-auto flex items-center gap-2.5">
           <Bell />
-          <div className="ml-1 border-l border-line pl-2.5">
+          <div className="ml-0.5 border-l border-linesoft pl-2">
             <Dropdown
               align="right"
               width={280}
               button={(open) => (
                 <button
-                  className={`flex items-center gap-2 rounded-md border py-1 pl-1.5 pr-2 transition-colors ${
-                    open ? "border-accent bg-accentsoft" : "border-line bg-panel hover:border-line2"
+                  className={`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors ${
+                    open ? "bg-active" : "hover:bg-hover"
                   }`}
                 >
                   <Avatar user={me ?? null} size={24} interactive={false} />
@@ -189,28 +153,26 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
 
       {/* тело */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1160px] min-[1536px]:max-w-[1440px] min-[1920px]:max-w-[1760px] px-7 py-7">
-          <h1 className="font-disp text-[20px] font-bold tracking-tight text-ink">{t("home.greeting", { name: me?.name?.split(" ")[0] ?? "" })}</h1>
-          <p className="mt-0.5 text-[12.5px] text-faint">{t("home.subtitle")}</p>
+        <div className="mx-auto max-w-[1160px] px-5 py-10 sm:px-8 min-[1536px]:max-w-[1320px]">
+          <p className="text-[13px] font-medium text-faint first-letter:uppercase">{dateLine}</p>
+          <h1 className="mt-1 font-disp text-[28px] font-semibold tracking-[-0.03em] text-ink">
+            {t(greetingKey(), { name: me?.name?.split(" ")[0] ?? "" })}
+          </h1>
+          <p className="mt-1 text-[14px] text-sub">{t("home.subtitle")}</p>
 
-          {/* плашки-счётчики */}
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard num={data.assignedToMe.length} label={t("home.myTasks")} tone="accent" />
-            <StatCard num={overdueCount} label={t("home.overdue")} tone="danger" />
-            <StatCard num={data.projects.length} label={tn(data.projects.length, "noun.project.one", "noun.project.few", "noun.project.many")} />
-            <StatCard num={data.departments.length} label={tn(data.departments.length, "noun.department.one", "noun.department.few", "noun.department.many")} />
-          </div>
+          {/* полоса фокуса: каждая цифра фильтрует «Мои задачи» */}
+          <FocusChips focus={focus} onFocus={setFocus} counts={focusCounts} className="mt-7" />
 
           {/* две колонки */}
-          <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1.7fr_1fr]">
+          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.7fr_1fr]">
             {/* Мои задачи */}
             <section>
               <div className="mb-2 flex items-baseline gap-2">
-                <h2 className="text-[13px] font-bold text-ink">{t("home.myTasks")}</h2>
-                <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10px] font-bold text-sub">{tasks.length}</span>
+                <h2 className="text-[14px] font-semibold text-ink">{focus === "all" ? t("home.myTasks") : t(`home.focus.${focus}`)}</h2>
+                <span className="tabular text-[13px] text-faint">{tasks.length}</span>
               </div>
               {tasks.length > 0 ? (
-                <div className="overflow-hidden rounded-xl border border-line bg-panel">
+                <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
                   {tasks.map((item) => (
                     <TaskRow key={item.issueId} issue={item} onOpen={() => openTask(item)} />
                   ))}
@@ -234,7 +196,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                     !q && createTarget ? (
                       <button
                         onClick={startCreate}
-                        className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-accentdeep"
+                        className="flex items-center gap-1.5 rounded-lg btn-primary px-3 py-1.5 text-[12px] font-medium text-onaccent transition"
                       >
                         <IcPlus size={13} /> {t("home.createIssue")}
                       </button>
@@ -247,11 +209,11 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
             {/* правая колонка: проекты + недавняя активность */}
             <div className="space-y-6">
             <section>
-              <h2 className="mb-2 text-[13px] font-bold text-ink">{t("home.projects")}</h2>
+              <h2 className="mb-2 text-[14px] font-semibold text-ink">{t("home.projects")}</h2>
               <div className="space-y-4">
                 {groups.map((g) => (
                   <div key={g.deptId}>
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-faint">{g.deptName}</p>
+                    <p className="mb-1.5 text-[11.5px] font-medium text-faint">{g.deptName}</p>
                     <div className="space-y-2">
                       {g.projects.map((p) => {
                         const n = countInProject.get(p.id) ?? 0;
@@ -259,19 +221,17 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                           <button
                             key={p.id}
                             onClick={() => enterProject(p.id)}
-                            className="group flex w-full items-center gap-2.5 rounded-xl border border-line bg-panel px-3 py-2.5 text-left transition-colors hover:border-accent"
+                            className="surface-raised group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ring-1 ring-inset ring-line/70 transition-[box-shadow] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2"
                           >
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accentsoft font-mono text-[10.5px] font-bold text-accent">
-                              {p.key}
-                            </span>
+                            <ProjectMark projectKey={p.key} size={32} />
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[12.5px] font-semibold text-ink">{p.name}</span>
-                              <span className="block text-[10.5px] text-faint">
+                              <span className="block truncate text-[13.5px] font-medium text-ink">{p.name}</span>
+                              <span className="block text-[12px] text-faint">
                                 {p.id === last ? t("home.continueProject") : p.isShared ? t("home.sharedProject") : t("home.teamProject")}
                                 {n > 0 && ` · ${n} ${tn(n, "noun.issue.one", "noun.issue.few", "noun.issue.many")}`}
                               </span>
                             </span>
-                            <IcChevR size={13} className="shrink-0 text-line2 group-hover:text-accent" />
+                            <IcChevR size={14} className="shrink-0 text-faint transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-ink" />
                           </button>
                         );
                       })}
@@ -281,7 +241,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
               </div>
             </section>
 
-            <RecentActivity notifications={data.notifications} onOpen={openTask} />
+            <RecentActivity notifications={notifications} onOpen={openTask} />
             </div>
           </div>
         </div>
@@ -302,15 +262,15 @@ function RecentActivity({
   const items = notifications.slice(0, 5);
   return (
     <section>
-      <h2 className="mb-2 flex items-center gap-1.5 text-[13px] font-bold text-ink">
+      <h2 className="mb-2 flex items-center gap-1.5 text-[14px] font-semibold text-ink">
         <IcBell size={13} className="text-faint" /> {t("home.recentActivity")}
       </h2>
       {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-line2 px-3 py-6 text-center text-[11.5px] text-faint">
+        <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-[12.5px] text-faint">
           {t("home.noActivity")}
         </p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-line bg-panel">
+        <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
           {items.map((n) => {
             const clickable = !!n.issueId && !!n.projectId;
             return (
@@ -318,7 +278,7 @@ function RecentActivity({
                 key={n.id}
                 disabled={!clickable}
                 onClick={() => clickable && onOpen({ projectId: n.projectId!, issueId: n.issueId! })}
-                className="flex w-full items-start gap-2.5 border-b border-linesoft px-3.5 py-2.5 text-left transition-colors last:border-0 enabled:hover:bg-accentsoft/50 disabled:cursor-default"
+                className="flex w-full items-start gap-2.5 border-b border-linesoft px-3.5 py-2.5 text-left transition-colors last:border-0 enabled:hover:bg-hover/60 disabled:cursor-default"
               >
                 <span className="mt-0.5 shrink-0">
                   <Avatar user={n.actor} size={22} interactive />
@@ -327,7 +287,7 @@ function RecentActivity({
                   <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b>{" "}
                   {t(NOTIF_VERB[n.type])}{" "}
                   {n.payload.key && (
-                    <span className="font-mono text-[11px] font-semibold text-accent">{n.payload.key}</span>
+                    <span className="font-mono text-[11px] text-accenttext">{n.payload.key}</span>
                   )}
                   {n.type === "issue.status" && n.payload.from && (
                     <span className="text-faint"> · {workflowStatusName({ name: n.payload.from }, t)} → {workflowStatusName({ name: n.payload.to ?? "" }, t)}</span>

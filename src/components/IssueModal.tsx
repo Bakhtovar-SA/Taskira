@@ -6,16 +6,21 @@ import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
-import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { IcCalendar, IcCheck, IcChevD, IcChevR, IcExpand, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
 import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
 import { freshRows, useIssue, useIssueSet, useIssuesRevision, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { workflowStatusName } from "../workflowStatus";
+import { neighborIssue, revealIssue } from "../issueNav";
+import type { IssueMode } from "../store/mappers";
+import { VIEW_LABEL } from "./Topbar";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
-const DIRECTION_COLORS = ["#0B5FD9", "#22A06B", "#E2B203", "#D23A2E", "#E8772E", "#7A5CC6"];
+/** Палитра направлений = палитра проектов ТЗ 5.3 (одна светлота и хрома, разные
+ *  тона; бренд-тон 288 не входит). Hex, а не токены: цвет хранится в БД. */
+const DIRECTION_COLORS = ["#5283e0", "#a468c7", "#c65b93", "#d15c56", "#c66c00", "#2e9e52", "#00a19a", "#0094ce"];
 
 /** Activity rows are stored as historical Russian text for compatibility.
  * Translate only known system phrases; captured user names/issue keys stay intact. */
@@ -76,13 +81,13 @@ export function MentionText({ text }: { text: string }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1 text-[10.5px] font-bold uppercase tracking-wider text-faint">{label}</p>
+      <p className="mb-1.5 text-[12px] font-semibold text-faint">{label}</p>
       {children}
     </div>
   );
 }
 
-const selectCls = "flex w-full items-center gap-2 rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] font-medium text-ink transition-colors hover:border-accent";
+const selectCls = "flex w-full items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-[13px] text-ink shadow-e1 transition-colors hover:border-line2";
 
 /** Приглашённые участники задачи (issue collaborators). Видны всем, кто открыл
  *  карточку; добавляет/убирает — manageCollaborators (admin/manager проекта). */
@@ -102,7 +107,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
       <Field label={t("issue.collaborators")}>
         <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
           <span>{t("issue.noCollaborators")}</span>
-          <button onClick={() => setExpand(true)} className="font-bold text-accent hover:underline">{t("issue.invitePlus")}</button>
+          <button onClick={() => setExpand(true)} className="font-semibold text-accent hover:underline">{t("issue.invitePlus")}</button>
         </div>
       </Field>
     );
@@ -126,7 +131,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
             className="flex items-center gap-1.5 rounded-full bg-linesoft py-0.5 pl-1 pr-2 text-[11.5px] text-ink"
           >
             <span
-              className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[7.5px] font-bold text-white"
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[7.5px] font-semibold text-onaccent"
               style={{ background: c.color }}
             >
               {c.initials}
@@ -198,7 +203,7 @@ function AttachmentField({ issue }: { issue: Issue }) {
         {hiddenInput}
         <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
           <span>{t("issue.noFiles")}</span>
-          <button onClick={() => fileRef.current?.click()} className="font-bold text-accent hover:underline">{t("issue.filePlus")}</button>
+          <button onClick={() => fileRef.current?.click()} className="font-semibold text-accent hover:underline">{t("issue.filePlus")}</button>
         </div>
       </Field>
     );
@@ -295,7 +300,7 @@ function SubtasksField({ issue }: { issue: Issue }) {
               <button
                 key={c.id}
                 onClick={() => openIssue(c.id)}
-                className="flex w-full items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5 text-left hover:bg-canvas"
+                className="flex w-full items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5 text-left hover:bg-hover"
               >
                 <TypeIcon type={c.typeId} size={13} />
                 <span className="font-mono text-[11px] font-semibold text-faint">{c.key}</span>
@@ -390,7 +395,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
           onBlur={submit}
           placeholder={t("issue.addChecklistItem")}
           maxLength={LIMITS.checklistItem.text.max}
-          className={`w-full rounded-md border border-dashed border-line2 bg-transparent px-2 py-1.5 text-[12.5px] outline-none placeholder:text-faint focus:border-accent ${items.length > 0 ? "mt-1.5" : ""}`}
+          className={`w-full rounded-md border border-dashed border-line2 bg-transparent px-2 py-1.5 text-[12.5px] outline-none placeholder:text-faint focus:border-accent focus:shadow-focus ${items.length > 0 ? "mt-1.5" : ""}`}
         />
       )}
     </Field>
@@ -451,7 +456,7 @@ function CustomFieldRow({
         <select
           value={current}
           onChange={(e) => setValue(issue.id, field.id, e.target.value === "" ? null : e.target.value)}
-          className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+          className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent focus:shadow-focus"
         >
           <option value="">—</option>
           {field.options.map((o) => (
@@ -470,7 +475,7 @@ function CustomFieldRow({
           type="date"
           value={current}
           onChange={(e) => setValue(issue.id, field.id, e.target.value || null)}
-          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent focus:shadow-focus"
         />
       ) : (
         <input
@@ -479,7 +484,7 @@ function CustomFieldRow({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => e.key === "Enter" && commit()}
-          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent focus:shadow-focus"
         />
       )}
     </Field>
@@ -515,7 +520,7 @@ function LinksField({ issue }: { issue: Issue }) {
       <Field label={t("issue.links")}>
         <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
           <span>{t("issue.noLinks")}</span>
-          <button onClick={() => setExpand(true)} className="font-bold text-accent hover:underline">
+          <button onClick={() => setExpand(true)} className="font-semibold text-accent hover:underline">
             {t("issue.linkPlus")}
           </button>
         </div>
@@ -533,7 +538,7 @@ function LinksField({ issue }: { issue: Issue }) {
               key={l.id}
               className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
             >
-              <span className="w-[76px] shrink-0 text-[10px] font-bold uppercase tracking-wide text-faint">
+              <span className="w-[76px] shrink-0 text-[11.5px] font-medium text-faint">
                 {t(`issue.link.${l.dir}`)}
               </span>
               <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: c.dot }} title={l.issue.statusCategory} />
@@ -564,7 +569,7 @@ function LinksField({ issue }: { issue: Issue }) {
             <select
               value={type}
               onChange={(e) => setType(e.target.value as typeof type)}
-              className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none"
+              className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-1 text-[11.5px] text-sub focus:border-accent focus:shadow-focus focus:outline-none"
             >
               <option value="relates">{t("issue.link.relates")}</option>
               <option value="blocks">{t("issue.link.blocks")}</option>
@@ -584,7 +589,7 @@ function LinksField({ issue }: { issue: Issue }) {
   );
 }
 
-export default function IssueModal() {
+export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const { t, lang } = useT();
   const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
   const issue = data.issues.find((i) => i.id === ui.selectedIssueId);
@@ -602,6 +607,31 @@ export default function IssueModal() {
     setConfirmDel(false);
     setLabelInput("");
   }, [ui.selectedIssueId]);
+
+  // J / K — соседняя задача текущего представления, панель не закрывается (ADR-0013 §3).
+  const selectedId = ui.selectedIssueId;
+  const go = (dir: 1 | -1) => {
+    const next = selectedId ? neighborIssue(selectedId, dir) : null;
+    if (!next) return false;
+    openIssue(next);
+    revealIssue(next);
+    return true;
+  };
+  const goRef = useRef(go);
+  goRef.current = go;
+  useEffect(() => {
+    if (mode !== "panel") return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const dir = k === "j" || k === "о" ? 1 : k === "k" || k === "л" ? -1 : 0;
+      if (dir && goRef.current(dir)) e.preventDefault();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mode]);
 
   // Эпик и родитель открытой задачи — точечные запросы по id (или кэш), а не поиск в списке всех задач.
   const epic = useIssue(issue?.epicId);
@@ -625,7 +655,7 @@ export default function IssueModal() {
           </p>
           <button
             onClick={() => openIssue(null)}
-            className="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white"
+            className="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-onaccent"
           >
             {t("common.close")}
           </button>
@@ -677,14 +707,28 @@ export default function IssueModal() {
     }
   };
 
-  return (
-    <Modal onClose={() => openIssue(null)} w={940} title={t("issueModal.title", { key: issue.key, title: issue.title })}>
+  const page = mode === "page";
+  const hasPrev = !page && !!neighborIssue(issue.id, -1);
+  const hasNext = !page && !!neighborIssue(issue.id, 1);
+  const iconBtn = "flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-35";
+
+  const content = (
+    <>
       {/* шапка */}
-      <div className="flex items-center gap-2 border-b border-line px-5 py-3">
+      <div className={`flex items-center gap-2 border-b border-linesoft px-5 py-3 ${page ? "sticky top-0 z-10 bg-[color-mix(in_oklch,var(--bg-canvas)_82%,transparent)] backdrop-blur-md" : ""}`}>
+        {page && (
+          <>
+            <button onClick={() => openIssue(null)} className="-ml-1.5 flex h-7 items-center gap-1 rounded-md pl-1 pr-2 text-[12.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">
+              <IcChevR size={13} className="rotate-180" />
+              {t(VIEW_LABEL[ui.view])}
+            </button>
+            <span className="text-line2">/</span>
+          </>
+        )}
         <span title={t(`issueType.${issue.typeId}`)} className="flex items-center">
           <TypeIcon type={issue.typeId} size={16} />
         </span>
-        <span className="font-mono text-[12.5px] font-bold text-ink">{issue.key}</span>
+        <span className="font-mono text-[12.5px] text-sub">{issue.key}</span>
         {/* parentIssue может отсутствовать в загруженном data.issues (родитель
             заархивирован worker'ом после закрытия, или в проекте больше задач,
             чем клиент подгрузил на bootstrap) — тогда бейдж скрываем целиком
@@ -700,11 +744,25 @@ export default function IssueModal() {
         )}
         <div className="ml-auto flex items-center gap-1">
           {!editOk && (
-            <span className="mr-1 flex items-center gap-1.5 rounded bg-warnsoft px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-warn" title={denyMsg}>
+            <span className="mr-1 flex items-center gap-1.5 rounded bg-warnsoft px-2 py-1 text-[11.5px] font-medium text-warn" title={denyMsg}>
               <IcEye size={11} /> {t("issue.readOnly")}
             </span>
           )}
-          <button onClick={copyLink} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-canvas hover:text-ink" title={t("issue.copyLink")}>
+          {!page && (
+            <>
+              <button onClick={() => go(-1)} disabled={!hasPrev} className={iconBtn} title={`${t("issue.prev")} · K`} aria-label={t("issue.prev")}>
+                <IcChevD size={15} className="rotate-180" />
+              </button>
+              <button onClick={() => go(1)} disabled={!hasNext} className={iconBtn} title={`${t("issue.next")} · J`} aria-label={t("issue.next")}>
+                <IcChevD size={15} />
+              </button>
+              <span className="mx-0.5 h-4 w-px bg-linesoft" />
+              <button onClick={() => openIssue(issue.id, "page")} className={iconBtn} title={t("issue.openFull")} aria-label={t("issue.openFull")}>
+                <IcExpand size={15} />
+              </button>
+            </>
+          )}
+          <button onClick={copyLink} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink" title={t("issue.copyLink")}>
             <IcLink size={15} />
           </button>
           {canDelete &&
@@ -715,11 +773,11 @@ export default function IssueModal() {
             ) : (
               <span className="flex items-center gap-1.5 rounded-md bg-dangersoft px-2 py-1">
                 <span className="text-[11.5px] font-semibold text-danger">{t("issue.deleteConfirm")}</span>
-                <button onClick={() => deleteIssue(issue.id)} className="rounded bg-danger px-1.5 py-0.5 text-[11px] font-bold text-white hover:opacity-90">{t("common.yes")}</button>
+                <button onClick={() => deleteIssue(issue.id)} className="rounded bg-danger px-1.5 py-0.5 text-[11px] font-semibold text-onaccent hover:opacity-90">{t("common.yes")}</button>
                 <button onClick={() => setConfirmDel(false)} className="text-[11px] font-semibold text-sub hover:text-ink">{t("common.no")}</button>
               </span>
             ))}
-          <button onClick={() => openIssue(null)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-canvas hover:text-ink" aria-label={t("common.close")}>
+          <button onClick={() => openIssue(null)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink" aria-label={t("common.close")}>
             <IcX size={15} />
           </button>
         </div>
@@ -727,15 +785,15 @@ export default function IssueModal() {
 
       {/* Ниже ~720px карточка складывается в одну колонку: именно её открывают
           по ссылке из письма, в том числе с телефона (аудит UX-03). */}
-      <div className="grid grid-cols-1 gap-0 md:grid-cols-[1fr_264px]">
+      <div className="grid min-h-[calc(100%-49px)] grid-cols-1 gap-0 md:grid-cols-[1fr_300px]">
         {/* основная колонка */}
-        <div className="min-w-0 px-5 py-4">
+        <div className="min-w-0 px-6 py-5">
           <EditableTitle issue={issue} readOnly={!editOk} />
 
           {/* описание — сам блок кликабелен для входа в редактирование (отдельной
               кнопки «Редактировать» нет, как у EditableTitle) */}
           <div className="mt-4">
-            <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("issue.description")}</p>
+            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("issue.description")}</p>
             {editingDesc ? (
               <div className="anim-fadeup">
                 <textarea
@@ -747,8 +805,8 @@ export default function IssueModal() {
                   className="w-full resize-y rounded-md border border-accent bg-panel p-2.5 text-[13px] leading-relaxed outline-none ring-2 ring-accent/15"
                 />
                 <div className="mt-1.5 flex gap-1.5">
-                  <button onClick={saveDesc} className="rounded bg-accent px-3 py-1 text-[12px] font-semibold text-white hover:bg-accentdeep">{t("common.save")}</button>
-                  <button onClick={() => setEditingDesc(false)} className="rounded px-3 py-1 text-[12px] font-semibold text-sub hover:bg-canvas">{t("common.cancel")}</button>
+                  <button onClick={saveDesc} className="rounded btn-primary px-3 py-1 text-[12px] font-medium text-onaccent">{t("common.save")}</button>
+                  <button onClick={() => setEditingDesc(false)} className="rounded px-3 py-1 text-[12px] font-semibold text-sub hover:bg-hover">{t("common.cancel")}</button>
                 </div>
               </div>
             ) : issue.description ? (
@@ -771,13 +829,13 @@ export default function IssueModal() {
                     }
                   }}
                   title={t("issue.clickToEdit")}
-                  className="group cursor-text whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub transition-colors hover:bg-canvas focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  className="group cursor-text whitespace-pre-wrap rounded-md bg-sunken p-3 text-[13px] leading-relaxed text-sub transition-colors hover:bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   <MentionText text={issue.description} />
                   <IcPencil size={12} className="ml-1.5 inline align-text-bottom text-faint opacity-0 transition-opacity group-hover:opacity-100" />
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap rounded-md bg-canvas/70 p-3 text-[13px] leading-relaxed text-sub"><MentionText text={issue.description} /></p>
+                <p className="whitespace-pre-wrap rounded-md bg-sunken p-3 text-[13px] leading-relaxed text-sub"><MentionText text={issue.description} /></p>
               )
             ) : editOk ? (
               <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accent">
@@ -789,12 +847,12 @@ export default function IssueModal() {
           </div>
 
           {/* вкладки */}
-          <div className="mt-5 flex items-center gap-1 border-b border-line">
+          <div className="mt-6 flex items-center gap-1 border-b border-linesoft">
             {([["comments", t("issue.commentsCount", { count: issue.comments.length })], ["activity", t("issue.activityCount", { count: issue.activity.length })]] as const).map(([id, label]) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
-                className={`relative px-3 py-2 text-[12.5px] font-semibold transition-colors ${tab === id ? "text-accent" : "text-faint hover:text-ink"}`}
+                className={`relative px-3 py-2 text-[13px] font-medium transition-colors ${tab === id ? "text-ink" : "text-faint hover:text-ink"}`}
               >
                 {label}
                 {tab === id && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />}
@@ -823,7 +881,7 @@ export default function IssueModal() {
                     <button
                       onClick={submitComment}
                       disabled={!comment.trim()}
-                      className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition-all hover:bg-accentdeep disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex items-center gap-1.5 rounded-lg btn-primary px-3 py-1.5 text-[12px] font-medium text-onaccent transition-all disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <IcSend size={12} /> {t("issue.send")}
                     </button>
@@ -831,7 +889,7 @@ export default function IssueModal() {
                 </div>
               </div>
               ) : (
-                <p className="flex items-center gap-2 rounded-md border border-dashed border-line2 bg-canvas/50 px-3 py-2.5 text-[12px] text-faint">
+                <p className="flex items-center gap-2 rounded-md border border-dashed border-line2 bg-sunken px-3 py-2.5 text-[12px] text-faint">
                   <IcLock size={13} /> {t("issue.commentDenied")}
                 </p>
               )}
@@ -840,7 +898,7 @@ export default function IssueModal() {
                 return (
                   <div key={c.id} className="anim-fadeup flex gap-2.5">
                     <Avatar user={u ?? null} size={28} interactive />
-                    <div className="min-w-0 flex-1 rounded-lg rounded-tl-none bg-canvas/80 px-3 py-2">
+                    <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
                       <p className="text-[12px]">
                         <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(c.ts, lang)}</span>
                       </p>
@@ -878,7 +936,7 @@ export default function IssueModal() {
         </div>
 
         {/* правая панель */}
-        <aside className="space-y-2.5 border-t border-line bg-canvas/50 px-4 py-4 md:border-l md:border-t-0">
+        <aside className="space-y-3.5 border-t border-linesoft bg-sunken/80 px-4 py-5 md:border-l md:border-t-0">
           {!editOk && (
             <div className="flex items-start gap-2 rounded-md border border-line bg-warnsoft/50 px-2.5 py-2 text-[11.5px] leading-snug text-warn">
               <IcLock size={13} className="mt-0.5 shrink-0" />
@@ -893,10 +951,10 @@ export default function IssueModal() {
                 const c = catColor(status.category);
                 return (
                   <button
-                    className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-bold uppercase tracking-wide transition-opacity hover:opacity-90 ${open ? "ring-2 ring-accent/40" : ""}`}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-medium ring-1 ring-inset ring-[oklch(0.5_0.02_288/0.08)] transition-[filter] hover:brightness-[0.98] ${open ? "!ring-2 !ring-accent/40" : ""}`}
                     style={{ background: c.bg, color: c.fg }}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
+                    <StatusGlyph category={status.category} size={14} />
                     <span className="min-w-0 truncate">{workflowStatusName(status, t)}</span>
                     <IcChevD size={12} className="ml-auto shrink-0" />
                   </button>
@@ -932,11 +990,11 @@ export default function IssueModal() {
                 const c = catColor(status.category);
                 return (
                   <span
-                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-bold uppercase tracking-wide"
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] font-medium"
                     style={{ background: c.bg, color: c.fg }}
                     title={denyMsg}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
+                    <StatusGlyph category={status.category} size={14} />
                     <span className="min-w-0 truncate">{workflowStatusName(status, t)}</span>
                     <IcLock size={11} className="ml-auto shrink-0 opacity-70" />
                   </span>
@@ -1005,7 +1063,7 @@ export default function IssueModal() {
                   width={220}
                   button={(open) => (
                     <button
-                      className={`flex w-full items-center gap-1.5 rounded-md border bg-panel px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
+                      className={`flex w-full items-center gap-1.5 rounded-lg border bg-panel px-2 py-1.5 text-[12.5px] text-ink shadow-e1 transition-colors hover:border-line2 ${open ? "border-accent" : "border-line"}`}
                     >
                       <PriorityIcon p={issue.priorityId} size={13} />
                       <span className="min-w-0 flex-1 truncate text-left">{t(`priority.${issue.priorityId}`)}</span>
@@ -1036,7 +1094,7 @@ export default function IssueModal() {
                     type="date"
                     value={issue.dueDate ?? ""}
                     onChange={(e) => updateIssue(issue.id, { dueDate: e.target.value || null })}
-                    className={`w-full rounded-md border bg-panel px-1.5 py-1.5 text-[12px] font-medium outline-none transition-colors focus:border-accent ${
+                    className={`w-full rounded-md border bg-panel px-1.5 py-1.5 text-[12px] font-medium outline-none transition-colors focus:border-accent focus:shadow-focus ${
                       overdue ? "border-danger text-danger" : "border-line text-ink"
                     }`}
                   />
@@ -1057,7 +1115,7 @@ export default function IssueModal() {
                   width={180}
                   button={(open) => (
                     <button
-                      className={`flex w-full items-center gap-1.5 rounded-md border bg-panel px-2 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-accent ${open ? "border-accent" : "border-line"}`}
+                      className={`flex w-full items-center gap-1.5 rounded-lg border bg-panel px-2 py-1.5 text-[12.5px] text-ink shadow-e1 transition-colors hover:border-line2 ${open ? "border-accent" : "border-line"}`}
                     >
                       <span className="min-w-0 flex-1 truncate text-left">
                         {issue.complexity ? t(`complexity.${issue.complexity}`) : t("complexity.none")}
@@ -1173,7 +1231,7 @@ export default function IssueModal() {
                         max={52}
                         value={issue.tStart ?? 0}
                         onChange={(e) => updateIssue(issue.id, { tStart: Math.max(0, Math.min(52, Number(e.target.value))) })}
-                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-ink outline-none transition-colors focus:border-accent"
+                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-ink outline-none transition-colors focus:border-accent focus:shadow-focus"
                       />
                     ) : (
                       <span>{issue.tStart ?? 0}</span>
@@ -1189,7 +1247,7 @@ export default function IssueModal() {
                         max={52}
                         value={issue.tSpan ?? 3}
                         onChange={(e) => updateIssue(issue.id, { tSpan: Math.max(1, Math.min(52, Number(e.target.value))) })}
-                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-ink outline-none transition-colors focus:border-accent"
+                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-ink outline-none transition-colors focus:border-accent focus:shadow-focus"
                       />
                     ) : (
                       <span>{issue.tSpan ?? 3}</span>
@@ -1201,7 +1259,7 @@ export default function IssueModal() {
             </div>
           )}
 
-          <div className="space-y-2.5 border-t border-line pt-3.5">
+          <div className="space-y-3 border-t border-linesoft pt-3.5">
             <Field label={t("field.labels")}>
               <div className="flex flex-wrap gap-1.5">
                 {issue.labels.map((l) => (
@@ -1218,7 +1276,7 @@ export default function IssueModal() {
                       }
                     }}
                     placeholder={t("issue.labelPlaceholder")}
-                    className="w-20 rounded border border-dashed border-line2 bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent"
+                    className="w-20 rounded border border-dashed border-line2 bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent focus:shadow-focus"
                   />
                 )}
                 {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">{t("issue.noLabels")}</span>}
@@ -1238,13 +1296,26 @@ export default function IssueModal() {
             <AttachmentField issue={issue} />
           </div>
 
-          <div className="space-y-1.5 border-t border-line pt-3.5 text-[11.5px] text-faint">
+          <div className="space-y-1.5 border-t border-linesoft pt-3.5 text-[12px] text-faint">
             <p className="flex justify-between gap-2"><span>{t("issue.reporter")}</span><span className="font-semibold text-sub">{reporter?.name}</span></p>
             <p className="flex justify-between gap-2"><span>{t("issue.created")}</span><span>{relTime(issue.createdAt, lang)}</span></p>
             <p className="flex justify-between gap-2"><span>{t("issue.updated")}</span><span>{relTime(issue.updatedAt, lang)}</span></p>
           </div>
         </aside>
       </div>
+    </>
+  );
+
+  // Полная страница (ADR-0013 §3): та же карточка внутри листа, вместо представления.
+  if (page)
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="mx-auto max-w-[1180px]">{content}</div>
+      </div>
+    );
+  return (
+    <Modal variant="panel" onClose={() => openIssue(null)} w={980} title={t("issueModal.title", { key: issue.key, title: issue.title })}>
+      {content}
     </Modal>
   );
 }
@@ -1256,7 +1327,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
   const [editing, setEditing] = useState(false);
   useEffect(() => setDraft(issue.title), [issue.title, issue.id]);
 
-  if (readOnly) return <h2 className="px-0 py-1 text-[17px] font-bold leading-snug text-ink">{issue.title}</h2>;
+  if (readOnly) return <h2 className="px-0 py-1 text-[22px] font-bold leading-snug tracking-[-0.03em] text-ink">{issue.title}</h2>;
 
   if (editing)
     return (
@@ -1276,7 +1347,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
             setEditing(false);
           }
         }}
-        className="w-full resize-none rounded-md border border-accent bg-panel p-2 text-[17px] font-bold leading-snug text-ink outline-none ring-2 ring-accent/15"
+        className="w-full resize-none rounded-md border border-accent bg-panel p-2 text-[22px] font-bold leading-snug tracking-[-0.03em] text-ink outline-none ring-2 ring-accent/15"
       />
     );
   // Заголовок редактируется по клику, но должен открываться и с клавиатуры:
@@ -1295,7 +1366,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
         }}
         title={t("issue.clickToRename")}
         aria-label={t("issue.renameAria", { title: issue.title })}
-        className="group block cursor-text rounded-md px-2 py-1 text-[17px] font-bold leading-snug text-ink transition-colors hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="group block cursor-text rounded-md px-2 py-1 text-[22px] font-bold leading-snug tracking-[-0.03em] text-ink transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         {issue.title}
         <IcPencil size={13} className="ml-2 inline text-faint opacity-0 transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100" />

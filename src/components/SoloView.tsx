@@ -27,7 +27,7 @@ function Ava({ p, size = 24 }: { p: { name: string; initials: string; color: str
     );
   return (
     <span
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
+      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-onaccent"
       style={{ width: size, height: size, fontSize: size * 0.36, background: p.color }}
       title={p.name}
     >
@@ -90,7 +90,7 @@ export function SoloIssueCard({
       </div>
     );
 
-  const meFallback = { name: currentUser.name, initials: currentUser.name.slice(0, 2).toUpperCase(), color: "#0B5FD9" };
+  const meFallback = { name: currentUser.name, initials: currentUser.name.slice(0, 2).toUpperCase(), color: "var(--accent-solid)" };
   const authorOf = (id: string) => pById.get(id) ?? (id === currentUser.id ? meFallback : undefined);
   const assignees = issue.assigneeIds.map((id) => pById.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
   const reporter = pById.get(issue.reporterId);
@@ -121,11 +121,11 @@ export function SoloIssueCard({
 
   return (
     <div className="mx-auto max-w-[760px] min-[1536px]:max-w-[920px] min-[1920px]:max-w-[1080px] px-6 py-6">
-      <div className="flex items-center gap-2 font-mono text-[12px] font-bold text-sub">
+      <div className="flex items-center gap-2 font-mono text-[12px] font-semibold text-sub">
         <TypeIcon type={issue.typeId as IssueTypeId} size={15} /> {issue.key}
         {statusHint && <span className="rounded bg-linesoft px-1.5 py-0.5 font-sans text-[10.5px] font-semibold text-sub">{statusHint}</span>}
       </div>
-      <h1 className="mt-1.5 text-[19px] font-bold leading-snug text-ink">{issue.title}</h1>
+      <h1 className="mt-1.5 text-[19px] font-semibold leading-snug text-ink">{issue.title}</h1>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] text-sub">
         <span className="flex items-center gap-1.5">
@@ -168,7 +168,7 @@ export function SoloIssueCard({
       )}
 
       <div className="mt-5">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-faint">
+        <p className="mb-2 text-[12px] font-medium text-faint">
           {t("solo.attachmentsCount", { count: issue.attachments?.length ?? 0 })}
         </p>
         <div className="space-y-1">
@@ -209,7 +209,7 @@ export function SoloIssueCard({
       </div>
 
       <div className="mt-6">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-faint">{t("issue.commentsCount", { count: comments.length })}</p>
+        <p className="mb-2 text-[12px] font-medium text-faint">{t("issue.commentsCount", { count: comments.length })}</p>
         <div className="space-y-3">
           {comments.map((c) => {
             const a = authorOf(c.authorId);
@@ -241,12 +241,12 @@ export function SoloIssueCard({
             maxLength={LIMITS.comment.max}
             rows={2}
             placeholder={t("solo.commentPlaceholder")}
-            className="min-w-0 flex-1 resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+            className="min-w-0 flex-1 resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
           />
           <button
             onClick={send}
             disabled={sending || !draft.trim()}
-            className="shrink-0 self-end rounded-md bg-accent px-3 py-2 text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="btn-primary shrink-0 self-end rounded-lg px-3 py-2 disabled:opacity-40"
           >
             <IcSend size={14} />
           </button>
@@ -271,52 +271,55 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div className="flex h-full overflow-hidden">
-      <aside className="flex w-[280px] shrink-0 flex-col bg-sidebar text-[#c6d2e4]">
+      <aside className="flex w-[280px] shrink-0 flex-col text-sub">
         <div className="flex items-center gap-2.5 px-4 pb-4 pt-5">
           <Logo size={26} />
-          <p className="font-disp text-[14px] font-bold text-white">Taskira</p>
+          <p className="font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink">Taskira</p>
         </div>
-        <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f7396]">
+        <p className="px-4 pb-1.5 text-[11.5px] font-medium text-faint">
           {t("solo.connectionsCount", { count: solo.items.length })}
         </p>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-2">
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
           {solo.items.map((it) => (
             <button
               key={it.issueId}
               onClick={() => setSelected(it.issueId)}
-              className={`mb-1 flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left transition-colors ${
-                it.issueId === selected ? "bg-white/[0.09] text-white" : "text-[#9db0cd] hover:bg-white/[0.05] hover:text-white"
+              aria-current={it.issueId === selected ? "true" : undefined}
+              className={`mb-0.5 flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 ${
+                it.issueId === selected ? "bg-[var(--sidebar-item-active)] text-ink shadow-e1" : "text-sub hover:bg-hover/70 hover:text-ink"
               }`}
             >
-              <span className="w-full truncate font-mono text-[10.5px] text-[#7b8fb2]">
-                {it.key} · {it.projectName}
+              <span className="w-full truncate text-[11px] text-faint">
+                <span className="font-mono">{it.key}</span> · {it.projectName}
               </span>
-              <span className="w-full truncate text-[12.5px] font-medium">{it.title}</span>
-              <span className="text-[10px] text-[#7b8fb2]">{workflowStatusName({ name: it.statusName }, t)}</span>
+              <span className="w-full truncate text-[13px] font-medium">{it.title}</span>
+              <span className="text-[11px] text-faint">{workflowStatusName({ name: it.statusName }, t)}</span>
             </button>
           ))}
-          {solo.items.length === 0 && <p className="px-2.5 text-[11.5px] text-[#7b8fb2]">{t("solo.none")}</p>}
+          {solo.items.length === 0 && <p className="px-2.5 text-[12px] text-faint">{t("solo.none")}</p>}
         </div>
-        <div className="border-t border-[#24385a] p-3 text-[11px]">
-          <p className="truncate text-[#9db0cd]">{solo.userName}</p>
-          <button onClick={onLogout} className="mt-1 text-[#7b8fb2] transition-colors hover:text-white">
+        <div className="mx-2 mb-3 border-t border-linesoft/70 px-2.5 pt-3 text-[12px]">
+          <p className="truncate font-medium text-ink">{solo.userName}</p>
+          <button onClick={onLogout} className="mt-1 text-faint transition-colors hover:text-ink">
             {t("topbar.logout")}
           </button>
         </div>
       </aside>
-      <main className="min-h-0 flex-1 overflow-y-auto bg-canvas">
-        {current ? (
-          <SoloIssueCard
-            key={current.issueId}
-            projectId={current.projectId}
-            issueId={current.issueId}
-            statusHint={workflowStatusName({ name: current.statusName }, t)}
-            currentUser={{ id: solo.userId, name: solo.userName }}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-[13px] text-faint">{t("collaborating.select")}</div>
-        )}
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col py-2 pr-2">
+        <main className="surface-sheet min-h-0 flex-1 overflow-y-auto rounded-xl border border-linesoft">
+          {current ? (
+            <SoloIssueCard
+              key={current.issueId}
+              projectId={current.projectId}
+              issueId={current.issueId}
+              statusHint={workflowStatusName({ name: current.statusName }, t)}
+              currentUser={{ id: solo.userId, name: solo.userName }}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-[13px] text-faint">{t("collaborating.select")}</div>
+          )}
+        </main>
+      </div>
       <Toasts />
     </div>
   );

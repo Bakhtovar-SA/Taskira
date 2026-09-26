@@ -14,6 +14,11 @@
     "docs:generate": "tsx scripts/generate-docs.ts",
     "docs:check": "tsx scripts/generate-docs.ts --check",
     "typecheck:scripts": "tsc -p scripts/tsconfig.json --noEmit",
+    "contrast:check": "node scripts/check-contrast.mjs",
+    "colors:check": "node scripts/check-raw-colors.mjs",
+    "bundle:check": "node scripts/check-bundle-size.mjs",
+    "perf:rerenders": "vitest run --config vitest.perf.config.ts",
+    "csp:spike": "node scripts/csp-spike/run.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

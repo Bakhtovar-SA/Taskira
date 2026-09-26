@@ -3,6 +3,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { PermId } from "../permissions";
 import type { Data, Issue, Toast } from "../types";
+import type { ExternalStore } from "./external";
+import type { NotificationsState } from "./slices";
 
 export interface StoreCtx {
   setData: Dispatch<SetStateAction<Data>>;
@@ -16,4 +18,6 @@ export interface StoreCtx {
   local: (ru: string, en: string) => string;
   /** Эпоха сессии (SEC-01): растёт при logout и при 401. Действие, начатое в прошлой эпохе, после `await` ничего не пишет. */
   sessionEpochRef: MutableRefObject<number>;
+  /** Лента и счётчик уведомлений — отдельное хранилище (ADR-0011, шаг 2), не `data`. */
+  notifStore: ExternalStore<NotificationsState>;
 }

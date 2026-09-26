@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { AccessRole, Status, User } from "./types";
-import { useStore } from "./store";
+import { useStore, useToasts } from "./store";
 import { usersApi, getAvatarBlobUrl, type PickableUser } from "./api";
 import { IcBriefcase, IcCamera, IcPhone, IcTrash, IcX } from "./icons";
 import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
@@ -59,7 +59,7 @@ export const Avatar = ({
   if (!user)
     return (
       <span
-        className="inline-flex items-center justify-center rounded-full border border-dashed border-line2 bg-linesoft text-faint"
+        className="inline-flex shrink-0 items-center justify-center rounded-full border border-dashed border-line2 bg-sunken text-faint"
         style={{ width: size, height: size, fontSize: size * 0.42 }}
         title={t("createIssue.unassigned")}
       >
@@ -69,7 +69,7 @@ export const Avatar = ({
 
   const circle = (
     <span
-      className={`inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold text-white ${ring ? "ring-2 ring-panel" : ""} ${canOpenCard ? "cursor-pointer" : ""}`}
+      className={`inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold tracking-[-0.02em] text-onaccent shadow-[inset_0_0_0_1px_oklch(1_0_0/0.12)] ${ring ? "ring-2 ring-panel" : ""} ${canOpenCard ? "cursor-pointer" : ""}`}
       style={{ width: size, height: size, fontSize: size * 0.36, background: src ? undefined : user.color }}
       title={user.name}
     >
@@ -122,7 +122,7 @@ export const AvatarStack = ({
       ))}
       {overflow > 0 && (
         <span
-          className="-ml-1.5 inline-flex shrink-0 select-none items-center justify-center rounded-full bg-linesoft font-semibold text-faint ring-2 ring-panel"
+          className="-ml-1.5 inline-flex shrink-0 select-none items-center justify-center rounded-full bg-active font-semibold text-sub ring-2 ring-panel"
           style={{ width: size, height: size, fontSize: size * 0.34 }}
           title={t("ui.more", { count: overflow })}
         >
@@ -131,6 +131,44 @@ export const AvatarStack = ({
       )}
     </span>
   );
+};
+
+/** Знак проекта: плашка в тоне проекта с первой буквой ключа. Тон выбирается
+ *  детерминированно по ключу из палитры проектов (ТЗ 5.3 п.6) — один и тот же
+ *  проект всегда одного цвета, и цвет не хранится на сервере. */
+const PROJECT_TONES = ["blue", "pink", "orange", "green", "teal", "red", "amber", "sky", "indigo"] as const;
+export const projectTone = (key: string) => {
+  let h = 0;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PROJECT_TONES[h % PROJECT_TONES.length];
+};
+/** Тон метки: у меток нет цвета в БД, поэтому стабильный хэш текста → один из
+ *  фирменных тонов (`tk-tone-*`). Одна и та же метка везде одного цвета. */
+const LABEL_TONES = ["violet", "pink", "teal", "amber", "sky", "green", "orange", "indigo", "red"] as const;
+export const labelTone = (text: string) => {
+  let h = 0;
+  for (const ch of text.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return LABEL_TONES[h % LABEL_TONES.length];
+};
+export const ProjectMark = ({ projectKey, size = 20 }: { projectKey: string; size?: number }) => (
+  <span
+    className={`tk-tone-${projectTone(projectKey)} inline-flex shrink-0 items-center justify-center rounded-md bg-current/15 font-bold ring-1 ring-inset ring-current/25`}
+    style={{ width: size, height: size, fontSize: Math.round(size * 0.5) }}
+    aria-hidden="true"
+  >
+    {projectKey[0]}
+  </span>
+);
+
+/** Цвет направления: сохранённый в БД цвет, иначе — детерминированный тон из
+ *  палитры проектов (ТЗ 5.3 п.6) по id, чтобы соседние полосы не сливались в
+ *  один фиолетовый. */
+const DIRECTION_HUES = [262, 312, 350, 25, 60, 150, 190, 230];
+export const directionColor = (id: string, color?: string | null) => {
+  if (color) return color;
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `oklch(0.64 0.14 ${DIRECTION_HUES[h % DIRECTION_HUES.length]})`;
 };
 
 export const catColor = (cat: Status["category"]) =>
@@ -145,10 +183,10 @@ export const Lozenge = ({ status, size = "md" }: { status: Status; size?: "sm" |
   const c = catColor(status.category);
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded font-semibold uppercase tracking-wide ${size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-[11px]"}`}
+      className={`inline-flex items-center gap-1.5 rounded-md font-medium ${size === "sm" ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-0.5 text-[12px]"}`}
       style={{ background: c.bg, color: c.fg }}
     >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
+      <span className="h-2 w-2 rounded-full" style={{ background: c.dot }} />
       {workflowStatusName(status, t)}
     </span>
   );
@@ -158,12 +196,12 @@ export const Chip = ({ text, color, onRemove }: { text: string; color?: string; 
   const { t } = useT();
   return (
     <span
-      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
-      style={color ? { background: `${color}1c`, color } : { background: "var(--c-linesoft)", color: "var(--c-sub)" }}
+      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-px text-[11.5px] ${color ? "font-medium" : "bg-sunken text-sub ring-1 ring-inset ring-linesoft"}`}
+      style={color ? { background: `color-mix(in oklch, ${color} 14%, transparent)`, color } : undefined}
     >
       {text}
       {onRemove && (
-        <button onClick={onRemove} className="rounded hover:bg-black/10" aria-label={t("ui.remove", { text })}>
+        <button onClick={onRemove} className="rounded text-faint hover:bg-active hover:text-ink" aria-label={t("ui.remove", { text })}>
           <IcX size={10} />
         </button>
       )}
@@ -222,7 +260,7 @@ export function Dropdown({ button, children, align = "left", width = 240 }: { bu
       <div onClick={toggle}>{button(open)}</div>
       {open && (
         <div
-          className="anim-pop absolute z-40 mt-1.5 overflow-hidden rounded-lg border border-line bg-panel shadow-[0_10px_34px_rgba(20,35,64,0.16)]"
+          className="glass anim-pop absolute z-40 mt-1.5 overflow-hidden rounded-xl border border-line shadow-e3"
           style={{ width, [align]: 0 } as React.CSSProperties}
         >
           {typeof children === "function" ? children(() => setOpen(false)) : children}
@@ -237,8 +275,8 @@ export const MenuItem = ({ onClick, children, danger, disabled, title }: { onCli
     onClick={onClick}
     disabled={disabled}
     title={title}
-    className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] transition-colors ${
-      disabled ? "cursor-not-allowed text-faint" : danger ? "text-danger hover:bg-dangersoft" : "text-ink hover:bg-accentsoft"
+    className={`flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] transition-colors duration-100 ${
+      disabled ? "cursor-not-allowed text-faint" : danger ? "text-danger hover:bg-dangersoft" : "text-ink hover:bg-hover/70"
     }`}
   >
     {children}
@@ -291,7 +329,7 @@ export function UserCardBody({ userId }: { userId: string }) {
     <div className="p-4">
       <div className="flex items-center gap-3">
         <span
-          className="inline-flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-xl font-semibold text-white"
+          className="inline-flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-xl font-semibold text-onaccent shadow-e2"
           style={{ background: src ? undefined : user.color }}
         >
           {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : user.initials}
@@ -320,7 +358,7 @@ export function UserCardBody({ userId }: { userId: string }) {
             onClick={() => fileRef.current?.click()}
             disabled={busy}
             title={t("userCard.avatarHint")}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-line px-2 py-1.5 text-[12px] font-semibold text-sub transition-colors hover:border-line2 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-sub shadow-e1 transition-colors hover:bg-hover hover:text-ink disabled:opacity-50"
           >
             <IcCamera size={13} />
             {user.avatarUpdatedAt ? t("userCard.changeAvatar") : t("userCard.uploadAvatar")}
@@ -331,7 +369,7 @@ export function UserCardBody({ userId }: { userId: string }) {
               onClick={onRemove}
               disabled={busy}
               title={t("userCard.removeAvatar")}
-              className="flex items-center justify-center rounded-md border border-line px-2 text-danger transition-colors hover:bg-dangersoft disabled:opacity-50"
+              className="flex items-center justify-center rounded-lg border border-line bg-panel px-2 text-danger shadow-e1 transition-colors hover:bg-dangersoft disabled:opacity-50"
             >
               <IcTrash size={13} />
             </button>
@@ -362,11 +400,16 @@ export function Modal({
   children,
   w = 860,
   title,
+  variant = "center",
 }: {
   onClose: () => void;
   children: React.ReactNode;
   w?: number;
   title?: string;
+  /** "panel" — выезжающая справа панель на всю высоту (просмотр задачи поверх
+   *  доски с сохранением контекста, ТЗ 5.6 п.4 / прототип гейта); "center" —
+   *  обычный диалог. Доступность (роль, ловушка фокуса, Esc) одна и та же. */
+  variant?: "center" | "panel" | "palette";
 }) {
   const { t } = useT();
   const resolvedTitle = title ?? t("ui.dialog");
@@ -437,7 +480,13 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0c1626]/55 px-4 py-10 backdrop-blur-[2px]"
+      className={
+        variant === "panel"
+          ? "anim-scrim fixed inset-0 z-50 flex justify-end bg-[color-mix(in_oklch,var(--bg-scrim)_70%,transparent)] p-2 backdrop-blur-[2px]"
+          : variant === "palette"
+            ? "anim-scrim fixed inset-0 z-[60] flex items-start justify-center bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] px-4 pt-[12vh] backdrop-blur-[2px]"
+            : "anim-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--bg-scrim)] px-4 py-10 backdrop-blur-[3px]"
+      }
       onMouseDown={onClose}
     >
       <div
@@ -446,7 +495,13 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="anim-pop w-full rounded-xl border border-line bg-panel shadow-[0_24px_70px_rgba(12,22,38,0.4)] outline-none"
+        className={
+          variant === "panel"
+            ? "anim-panel glass-edge h-full w-full overflow-y-auto rounded-xl bg-overlay shadow-[var(--highlight-top),var(--elev-4)] outline-none"
+            : variant === "palette"
+              ? "anim-dialog glass-edge w-full overflow-hidden rounded-2xl bg-[color-mix(in_oklch,var(--bg-overlay)_90%,transparent)] shadow-[var(--highlight-top),var(--elev-4)] outline-none backdrop-blur-2xl backdrop-saturate-150"
+              : "anim-dialog glass-edge w-full rounded-xl bg-overlay shadow-[var(--highlight-top),var(--elev-4)] outline-none"
+        }
         style={{ maxWidth: w }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -460,10 +515,10 @@ export function Modal({
 }
 
 export const Empty = ({ icon, title, sub, action }: { icon: React.ReactNode; title: string; sub?: string; action?: React.ReactNode }) => (
-  <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line2 px-4 py-7 text-center">
-    <span className="text-faint">{icon}</span>
-    <p className="text-[13px] font-semibold text-sub">{title}</p>
-    {sub && <p className="max-w-[240px] text-xs text-faint">{sub}</p>}
+  <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-line px-4 py-8 text-center">
+    <span className="mb-1 flex h-9 w-9 items-center justify-center rounded-lg bg-sunken text-faint ring-1 ring-inset ring-linesoft">{icon}</span>
+    <p className="text-[13.5px] font-medium text-ink">{title}</p>
+    {sub && <p className="max-w-[260px] text-[12.5px] text-faint">{sub}</p>}
     {action && <div className="mt-2">{action}</div>}
   </div>
 );
@@ -474,8 +529,9 @@ export const Empty = ({ icon, title, sub, action }: { icon: React.ReactNode; tit
  *  (`Board.tsx`) и для скелета (`SkeletonColumn`), чтобы во время bootstrap
  *  заглушка выглядела как готовая колонка, а не «прыгала» в неё после загрузки
  *  (ticket-board-columns-theme-fix). */
-export const BOARD_COLUMN_SHELL =
-  "flex h-full max-h-full w-[286px] shrink-0 flex-col rounded-xl border border-line bg-panel p-2 shadow-[0_1px_3px_rgba(20,35,64,0.05)] min-[1536px]:w-[300px] min-[1920px]:w-[324px]";
+export const BOARD_COLUMN_SHELL = "flex h-full max-h-full w-[288px] shrink-0 flex-col min-[1536px]:w-[304px] min-[1920px]:w-[328px]";
+/** Жёлоб с карточками под заголовком колонки (ADR-0016: заголовок — над ним, не внутри). */
+export const BOARD_COLUMN_BODY = "board-col-body flex min-h-0 flex-col gap-1.5 overflow-y-auto rounded-xl p-1.5";
 
 export const SkeletonRow = () => (
   <div className="flex items-center gap-3 border-b border-linesoft px-3.5 py-3 last:border-0">
@@ -488,27 +544,28 @@ export const SkeletonRow = () => (
 );
 
 export const SkeletonCard = () => (
-  <div className="rounded-lg border border-line bg-panel p-2.5">
-    <div className="mb-2 flex items-center gap-1.5">
-      <div className="skeleton h-3.5 w-3.5 rounded" />
+  <div className="board-card rounded-[10px] px-[11px] py-2.5">
+    <div className="mb-2.5 flex items-center gap-1.5">
+      <div className="skeleton h-3.5 w-3.5 rounded-full" />
       <div className="skeleton h-2.5 w-12" />
+      <div className="skeleton ml-auto h-5 w-5 rounded-full" />
     </div>
     <div className="skeleton h-3 w-full" />
     <div className="skeleton mt-1.5 h-3 w-2/3" />
-    <div className="mt-3 flex items-center gap-2">
-      <div className="skeleton h-3 w-16" />
-      <div className="skeleton ml-auto h-5 w-5 rounded-full" />
+    <div className="mt-2.5 flex items-center gap-1">
+      <div className="skeleton h-[22px] w-[22px] rounded-md" />
+      <div className="skeleton h-[22px] w-20 rounded-md" />
     </div>
   </div>
 );
 
 export const SkeletonColumn = ({ cards = 3 }: { cards?: number }) => (
   <div className={BOARD_COLUMN_SHELL}>
-    <div className="mb-1.5 flex items-center gap-2 px-1.5 pt-1">
-      <div className="skeleton h-2 w-2 rounded-sm" />
+    <div className="flex h-[34px] items-center gap-2 px-2">
+      <div className="skeleton h-3.5 w-3.5 rounded-full" />
       <div className="skeleton h-3 w-24" />
     </div>
-    <div className="flex-1 space-y-2 rounded-lg bg-canvas p-1.5">
+    <div className={BOARD_COLUMN_BODY}>
       {Array.from({ length: cards }).map((_, i) => (
         <SkeletonCard key={i} />
       ))}
@@ -517,13 +574,13 @@ export const SkeletonColumn = ({ cards = 3 }: { cards?: number }) => (
 );
 
 export const Kbd = ({ children }: { children: React.ReactNode }) => (
-  <kbd className="rounded border border-[#2c415f] bg-sidebar2 px-1.5 py-px font-mono text-[10px] font-medium text-[#8fa3c2]">{children}</kbd>
+  <kbd className="inline-flex min-w-[18px] items-center justify-center rounded border border-line bg-panel px-1 font-mono text-[10.5px] leading-[16px] text-faint shadow-[inset_0_-1px_0_var(--border-default)]">{children}</kbd>
 );
 
 export const Tip = ({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) => (
   <span className={`group/tip relative inline-flex ${className}`}>
     {children}
-    <span className="pointer-events-none absolute bottom-full left-1/2 z-[60] mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-sidebar px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_6px_20px_rgba(12,22,38,0.35)] transition-opacity duration-150 group-hover/tip:opacity-100">
+    <span className="glass pointer-events-none absolute bottom-full left-1/2 z-[60] mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5 text-[12px] text-ink opacity-0 shadow-e3 transition-opacity delay-150 duration-150 group-hover/tip:opacity-100">
       {label}
     </span>
   </span>
@@ -546,7 +603,7 @@ export const RoleBadge = ({ role, size = "md" }: { role: AccessRole; size?: "sm"
   }[role];
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded font-semibold ${size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]"}`}
+      className={`inline-flex items-center gap-1 rounded-md font-medium ${size === "sm" ? "px-1.5 py-px text-[10.5px]" : "px-2 py-0.5 text-[11.5px]"}`}
       style={{ background: meta.bg, color: meta.color }}
     >
       <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -559,7 +616,7 @@ export const RoleBadge = ({ role, size = "md" }: { role: AccessRole; size?: "sm"
 
 export const LockedField = ({ children, reason }: { children: React.ReactNode; reason: string }) => (
   <Tip label={reason} className="w-full">
-    <div className="flex w-full cursor-not-allowed items-center gap-2 rounded-md border border-linesoft bg-canvas/70 px-2.5 py-1.5 text-[13px] text-faint opacity-80">
+    <div className="flex w-full cursor-not-allowed items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 py-1.5 text-[13px] text-faint">
       <span className="min-w-0 flex-1 truncate text-left">{children}</span>
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
         <rect x="3.5" y="7" width="9" height="6.5" rx="1.5" />
@@ -569,9 +626,40 @@ export const LockedField = ({ children, reason }: { children: React.ReactNode; r
   </Tip>
 );
 
-/** Попап «Оформление» — тема (3 варианта) + пресеты фона рабочей области.
- *  Живёт в меню профиля (Topbar) и в шапке HomeView. Хранение — localStorage
- *  (theme.ts), без сервера. */
+/** Сегментированный переключатель — один стиль для темы, почты, языка. */
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+}: {
+  value: T;
+  options: readonly (readonly [T, string])[];
+  onChange: (v: T) => void;
+  ariaLabel?: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={ariaLabel} className="flex gap-0.5 rounded-lg bg-sunken p-0.5 ring-1 ring-inset ring-linesoft">
+      {options.map(([v, label]) => (
+        <button
+          key={v}
+          role="radio"
+          aria-checked={value === v}
+          onClick={() => onChange(v)}
+          className={`flex-1 rounded-md px-1.5 py-1 text-[12px] font-medium transition-colors duration-150 ${
+            value === v ? "bg-panel text-ink shadow-e1" : "text-sub hover:text-ink"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Попап «Оформление» — тема, атмосфера (свечение за рабочим пространством)
+ *  и язык. Живёт в меню профиля (Topbar) и в шапке HomeView.
+ *  Хранение — localStorage (theme.ts), без сервера. */
 export function AppearanceSettings() {
   const { t, lang, setLang } = useT();
   const [mode, setMode] = useState<ThemeMode>(() => readTheme());
@@ -579,85 +667,85 @@ export function AppearanceSettings() {
   const eff = effectiveTheme(mode);
   return (
     <div className="border-b border-linesoft px-3.5 py-3">
-      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("appearance.title")}</p>
-      <div className="flex gap-1">
-        {(
-          [
-            ["system", t("appearance.theme.system")],
-            ["light", t("appearance.theme.light")],
-            ["dark", t("appearance.theme.dark")],
-          ] as const
-        ).map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => {
-              setThemeMode(v);
-              setMode(v);
-            }}
-            className={`flex-1 rounded border px-1.5 py-1 text-[11px] font-semibold transition-colors ${
-              mode === v ? "border-accent bg-accentsoft text-accent" : "border-line text-sub hover:border-line2"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="mt-2.5 flex flex-wrap gap-1.5">
+      <p className="mb-2 text-[12px] font-medium text-sub">{t("appearance.title")}</p>
+      <Segmented
+        value={mode}
+        ariaLabel={t("appearance.title")}
+        options={[
+          ["system", t("appearance.theme.system")],
+          ["light", t("appearance.theme.light")],
+          ["dark", t("appearance.theme.dark")],
+        ]}
+        onChange={(v) => {
+          setThemeMode(v);
+          setMode(v);
+        }}
+      />
+      <div className="mt-3 flex items-center gap-2">
         {BG_PRESETS.map((p) => (
           <button
             key={p.id}
             title={p.name}
             aria-label={t("appearance.bgAria", { name: p.name })}
+            aria-pressed={bg === p.id}
             onClick={() => {
               setBg(p.id);
               setBgState(p.id);
             }}
-            className={`h-6 w-6 rounded-md border-2 transition-transform hover:scale-110 ${
-              bg === p.id ? "border-accent" : "border-line"
+            className={`h-7 flex-1 rounded-lg ring-offset-2 ring-offset-[var(--bg-raised)] transition-[box-shadow,transform] duration-150 hover:scale-[1.04] ${
+              bg === p.id ? "ring-2 ring-accent" : "ring-1 ring-inset ring-[oklch(0.5_0.02_288/0.18)]"
             }`}
-            style={{ background: eff === "dark" ? p.dark : p.light }}
+            style={{ backgroundImage: eff === "dark" ? p.dark : p.light }}
           />
         ))}
       </div>
-      <p className="mb-1.5 mt-3 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("appearance.language")}</p>
-      <div className="flex gap-1">
-        {(["ru", "en"] as const).map((l) => (
-          <button
-            key={l}
-            onClick={() => setLang(l)}
-            className={`flex-1 rounded border px-1.5 py-1 text-[11px] font-semibold transition-colors ${
-              lang === l ? "border-accent bg-accentsoft text-accent" : "border-line text-sub hover:border-line2"
-            }`}
-          >
-            {t(`lang.${l}`)}
-          </button>
-        ))}
-      </div>
+      <p className="mb-2 mt-3.5 text-[12px] font-medium text-sub">{t("appearance.language")}</p>
+      <Segmented value={lang} options={(["ru", "en"] as const).map((l) => [l, t(`lang.${l}`)] as const)} onChange={setLang} ariaLabel={t("appearance.language")} />
     </div>
   );
 }
 
+/** Переключатель (вкл/выкл). */
+export function Switch({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-[18px] w-[30px] shrink-0 items-center rounded-full transition-colors duration-200 disabled:opacity-50 ${
+        checked ? "bg-accent" : "bg-active ring-1 ring-inset ring-line"
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 rounded-full bg-[var(--text-on-accent)] shadow-e1 transition-transform duration-200 ease-out ${
+          checked ? "translate-x-[14px]" : "translate-x-[2px]"
+        }`}
+      />
+    </button>
+  );
+}
+
 export function Toasts() {
-  const { toasts } = useStore();
+  const toasts = useToasts();
   const { t } = useT();
   const meta = {
-    success: { border: "var(--c-ok)", fg: "var(--c-ok-fg)", bg: "var(--c-oksoft)", label: t("toast.success") },
-    error: { border: "var(--c-danger)", fg: "var(--c-danger)", bg: "var(--c-dangersoft)", label: t("toast.error") },
-    info: { border: "var(--c-accent)", fg: "var(--c-accentdeep)", bg: "var(--c-accentsoft)", label: t("toast.info") },
+    success: { dot: "var(--status-done)", label: t("toast.success") },
+    error: { dot: "var(--status-danger)", label: t("toast.error") },
+    info: { dot: "var(--accent-solid)", label: t("toast.info") },
   };
   return (
-    <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[340px] flex-col gap-2">
+    <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2" role="status" aria-live="polite">
       {toasts.map((item) => {
         const m = meta[item.kind];
         return (
-          <div key={item.id} className="anim-toast pointer-events-auto flex items-start gap-2.5 rounded-lg border border-line bg-panel py-2.5 pl-3 pr-3 shadow-[0_12px_36px_rgba(15,27,45,0.22)]" style={{ borderLeft: `4px solid ${m.border}` }}>
-            <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold" style={{ background: m.bg, color: m.fg }}>
-              {item.kind === "error" ? "!" : "✓"}
-            </span>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: m.fg }}>{m.label}</p>
-              <p className="text-[13px] leading-snug text-ink">{item.text}</p>
-            </div>
+          <div key={item.id} className="glass anim-toast pointer-events-auto flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3">
+            <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
+            <p className="min-w-0 text-[13px] leading-snug text-ink">
+              <span className="sr-only">{m.label}: </span>
+              {item.text}
+            </p>
           </div>
         );
       })}
@@ -727,7 +815,7 @@ export function UserSearchPicker({
         placeholder={resolvedPlaceholder}
         aria-label={resolvedPlaceholder}
         disabled={disabled}
-        className="w-full rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-ink placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-50"
+        className="w-full rounded-lg border border-line bg-panel px-2.5 py-1.5 text-[12.5px] text-ink placeholder:text-faint focus:border-accent focus:shadow-focus focus:outline-none disabled:opacity-50"
       />
       <div className="mt-1.5 flex items-center gap-1.5">
         <select
@@ -735,7 +823,7 @@ export function UserSearchPicker({
           onChange={(e) => setPick(e.target.value)}
           disabled={disabled || candidates.length === 0}
           aria-label={t("ui.whomToAdd")}
-          className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-panel px-2 py-1.5 text-[12.5px] text-sub focus:border-accent focus:shadow-focus focus:outline-none disabled:opacity-50"
         >
           <option value="">
             {t(search.trim().length < 2 ? "ui.minTwoChars" : candidates.length ? "ui.select" : "ui.noPeople")}
@@ -753,7 +841,7 @@ export function UserSearchPicker({
             setPick("");
             setSearch("");
           }}
-          className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="btn-primary shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-medium disabled:opacity-40"
         >
           {resolvedPickLabel}
         </button>

@@ -1,6 +1,6 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider, useNotifications, useStore, useToasts } from "./store";
 import {
   ApiError,
   authApi,
@@ -15,6 +15,11 @@ import {
   type ServerIssue,
 } from "./api";
 import { pathForIssue, pathForView } from "./router";
+
+/** `useStore()` + вынесенные из него домены (ADR-0011, шаги 1–2): тосты и уведомления — отдельные хранилища. */
+function useStoreSnapshot() {
+  return { ...useStore(), toasts: useToasts(), notif: useNotifications() };
+}
 
 /** Характеризационные тесты загрузки, сессии, навигации между проектами и открытия задачи в сторе — написаны ДО выноса
  *  в src/store/session.ts (ТЗ 2.3, шаг 6). Фиксируют ТЕКУЩЕЕ поведение, включая гонки (порядок событий во времени):
@@ -64,7 +69,7 @@ class FakeWebSocket {
 
 const projects = [proj(P1, "AA"), proj(P2, "BB"), proj(P3, "CC")];
 let unmountCurrent: (() => void) | null = null;
-type Store = ReturnType<typeof useStore>;
+type Store = ReturnType<typeof useStoreSnapshot>;
 
 interface Setup {
   me?: ReturnType<typeof user> | Error;
@@ -99,7 +104,7 @@ function install(o: Setup = {}) {
 function mount() {
   let latest: Store | null = null;
   function Probe() {
-    latest = useStore();
+    latest = useStoreSnapshot();
     return null;
   }
   const { unmount } = render(
@@ -234,6 +239,16 @@ describe("bootstrap — ветки входа", () => {
     expect(get().bootStatus).toBe("ready");
     expect(get().data.currentProjectId).toBe(P2);
     expect(get().ui.view).toBe("backlog");
+  });
+
+  test("≥2 проектов и ссылка на раздел без проекта (/inbox) → оболочка с этим разделом, а не главный экран", async () => {
+    history.pushState(null, "", "/inbox");
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.view).toBe("inbox");
   });
 
   test("прямая ссылка на приглашённую задачу → раздел «Мои подключения»; проект — из lastProject, а не первый", async () => {
@@ -678,8 +693,8 @@ describe("гонки с logout", () => {
       await Promise.all([rn, rc]);
     });
     await settle();
-    expect(get().data.notifications).toEqual([]);
-    expect(get().data.unreadCount).toBe(0);
+    expect(get().notif.notifications).toEqual([]);
+    expect(get().notif.unreadCount).toBe(0);
     expect(get().data.collaborations).toEqual([]);
     expect(get().data.assignedToMe).toEqual([]);
   });

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useStore } from "../store";
 import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
 import type { CustomFieldType, IssueTypeId, PriorityId, Transition } from "../types";
-import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo } from "../icons";
-import { Lozenge, catColor } from "../ui";
+import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo, StatusGlyph } from "../icons";
+import { Lozenge } from "../ui";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 
@@ -129,64 +129,70 @@ export default function WorkflowView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
-        <div className="anim-fadeup flex items-end gap-3">
+        <div className="flex items-end gap-3">
           <div>
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("workflow.title")}</h1>
+            <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("workflow.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
               {t("workflow.subtitle", { key: data.project.key, count: data.workflow.transitions.length })}
             </p>
           </div>
           {canEditWf && (
-            <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-[12.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent">
+            <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-lg border border-line bg-panel shadow-e1 px-3 text-[12.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">
               <IcUndo size={13} /> {t("workflow.reset")}
             </button>
           )}
         </div>
 
         {/* граф */}
-        <div className="anim-fadeup mt-4 overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]" style={{ animationDelay: "60ms" }}>
-          <div className="flex items-center gap-2 border-b border-linesoft bg-canvas/60 px-4 py-2.5">
+        <div className="mt-4 overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
+          <div className="flex items-center gap-2 border-b border-linesoft bg-sunken px-4 py-2.5">
             <IcFlow size={14} className="text-accent" />
-            <span className="text-[12px] font-bold uppercase tracking-wider text-sub">{t("workflow.map")}</span>
+            <span className="text-[13px] font-medium text-sub">{t("workflow.map")}</span>
             <span className="ml-auto text-[11px] text-faint">{t("workflow.mapHint")}</span>
           </div>
           <svg viewBox="0 -62 980 422" className="block w-full">
             <defs>
-              <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0L10,5L0,10z" fill="var(--c-faint)" />
+              <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+                <path d="M1,1.2 9,5 1,8.8Q2.4,5 1,1.2z" fill="var(--border-strong)" />
               </marker>
-              <marker id="arrA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0L10,5L0,10z" fill="var(--c-accent)" />
+              <marker id="arrA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+                <path d="M1,1.2 9,5 1,8.8Q2.4,5 1,1.2z" fill="var(--accent-solid)" />
               </marker>
+              {/* Мягкая заливка узла цветом его категории — слева направо, в ноль. */}
+              {(["todo", "inprogress", "done"] as const).map((cat) => (
+                <linearGradient key={cat} id={`wf-wash-${cat}`} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stopColor={cat === "done" ? "var(--status-done)" : cat === "inprogress" ? "var(--status-progress)" : "var(--status-todo)"} stopOpacity="0.14" />
+                  <stop offset="0.6" stopColor={cat === "done" ? "var(--status-done)" : cat === "inprogress" ? "var(--status-progress)" : "var(--status-todo)"} stopOpacity="0" />
+                </linearGradient>
+              ))}
             </defs>
             <g className="pointer-events-none">
-              {data.workflow.transitions.map((t, i) => {
+              {data.workflow.transitions.map((t) => {
                 const active = hover === t.id;
                 return (
                   <path
                     key={t.id}
                     d={edgePath(t, sidOf)}
-                    pathLength={1}
                     fill="none"
-                    stroke={active ? "var(--c-accent)" : "var(--c-line2)"}
-                    strokeWidth={active ? 2.6 : 1.6}
+                    className={`wf-edge ${active ? "is-on" : ""}`}
                     markerEnd={`url(#${active ? "arrA" : "arr"})`}
-                    className="edge-draw transition-all duration-200"
-                    style={{ animationDelay: `${i * 70}ms` }}
                   />
                 );
               })}
             </g>
-            {data.workflow.statuses.map((s) => {
+            {data.workflow.statuses.map((s, i, all) => {
               const p = POS[s.sid]; // POS ключуется по sid, не uuid (§1.4)
               if (!p) return null;
-              const c = catColor(s.category);
+              const on = active2(hover, data.workflow.transitions, s.id);
               return (
-                <g key={s.id}>
-                  <rect x={p.x} y={p.y} width={p.w} height={p.h} rx="12" fill="var(--c-panel)" stroke={active2(hover, data.workflow.transitions, s.id) ? "var(--c-accent)" : "var(--c-line)"} strokeWidth={active2(hover, data.workflow.transitions, s.id) ? 2 : 1.2} className="transition-all" />
-                  <rect x={p.x} y={p.y} width="6" height={p.h} rx="3" fill={c.dot} />
-                  <text x={p.x + 22} y={p.y + 32} fontSize="14.5" fontWeight="700" fill="var(--c-ink)" fontFamily="Golos Text, sans-serif">{workflowStatusName(s, t)}</text>
-                  <text x={p.x + 22} y={p.y + 54} fontSize="11.5" fill="var(--c-faint)" fontFamily="JetBrains Mono, monospace">{t("workflow.issueCount", { count: countBy(s.id) })}</text>
+                <g key={s.id} className={`wf-node wf-${s.category} ${on ? "is-on" : ""}`}>
+                  <rect className="wf-node-box" x={p.x} y={p.y} width={p.w} height={p.h} rx="14" />
+                  <rect className="wf-node-wash" x={p.x} y={p.y} width={p.w} height={p.h} rx="14" fill={`url(#wf-wash-${s.category})`} />
+                  <g transform={`translate(${p.x + 18} ${p.y + 20})`}>
+                    <StatusGlyph category={s.category} position={all.length > 1 ? i / (all.length - 1) : 0.5} size={16} />
+                  </g>
+                  <text x={p.x + 44} y={p.y + 33} className="wf-node-name">{workflowStatusName(s, t)}</text>
+                  <text x={p.x + 44} y={p.y + 54} className="wf-node-count">{t("workflow.issueCount", { count: countBy(s.id) })}</text>
                 </g>
               );
             })}
@@ -194,9 +200,9 @@ export default function WorkflowView() {
         </div>
 
         {/* список переходов */}
-        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[1fr_320px]" style={{ animationDelay: "120ms" }}>
-          <div className="overflow-hidden rounded-xl border border-line bg-panel">
-            <p className="border-b border-linesoft bg-canvas/60 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wider text-sub">{t("workflow.allowed")}</p>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
+          <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
+            <p className="border-b border-linesoft bg-sunken px-4 py-2.5 text-[13px] font-medium text-sub">{t("workflow.allowed")}</p>
             {data.workflow.transitions.length === 0 && (
               <p className="px-4 py-6 text-center text-[12.5px] text-faint">{t("workflow.noTransitions")}</p>
             )}
@@ -209,12 +215,12 @@ export default function WorkflowView() {
                   key={transition.id}
                   onMouseEnter={() => setHover(transition.id)}
                   onMouseLeave={() => setHover(null)}
-                  className={`flex items-center gap-3 border-b border-linesoft px-4 py-2.5 transition-colors last:border-0 ${hover === transition.id ? "bg-accentsoft" : "hover:bg-canvas/60"}`}
+                  className={`flex items-center gap-3 border-b border-linesoft px-4 py-2.5 transition-colors last:border-0 ${hover === transition.id ? "bg-accentsoft" : "hover:bg-hover"}`}
                 >
                   <Lozenge status={a} size="sm" />
                   <IcChevR size={13} className={hover === transition.id ? "text-accent" : "text-faint"} />
                   <Lozenge status={b} size="sm" />
-                  <span className="ml-auto font-mono text-[10.5px] text-faint">{countBy(transition.from)} → {countBy(transition.to)}</span>
+                  <span className="ml-auto tabular text-[10.5px] text-faint">{countBy(transition.from)} → {countBy(transition.to)}</span>
                   {canEditWf && (
                     <button
                       onClick={() => removeTransition(transition.id)}
@@ -229,31 +235,31 @@ export default function WorkflowView() {
             })}
           </div>
 
-          <div className="h-fit rounded-xl border border-line bg-panel p-4">
+          <div className="h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-4">
             {!canEditWf ? (
               <div className="flex flex-col items-center gap-2 py-4 text-center">
                 <IcLock size={22} className="text-faint" />
-                <p className="text-[13px] font-bold text-sub">{t("workflow.readOnly")}</p>
+                <p className="text-[13px] font-semibold text-sub">{t("workflow.readOnly")}</p>
                 <p className="text-[11.5px] leading-relaxed text-faint">
                   {t("workflow.readOnlyHint")}
                 </p>
               </div>
             ) : (
             <>
-            <p className="text-[12px] font-bold uppercase tracking-wider text-sub">{t("workflow.newTransition")}</p>
+            <p className="text-[13px] font-medium text-sub">{t("workflow.newTransition")}</p>
             <p className="mt-1 text-[11.5px] leading-relaxed text-faint">{t("workflow.newTransitionHint")}</p>
             <div className="mt-3 space-y-2.5">
               <label className="block">
-                <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("workflow.fromStatus")}</span>
-                <select value={from} onChange={(e) => setFrom(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent">
+                <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.fromStatus")}</span>
+                <select value={from} onChange={(e) => setFrom(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus">
                   {data.workflow.statuses.map((s) => (
                     <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
                   ))}
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("workflow.toStatus")}</span>
-                <select value={to} onChange={(e) => setTo(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent">
+                <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.toStatus")}</span>
+                <select value={to} onChange={(e) => setTo(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus">
                   {data.workflow.statuses.map((s) => (
                     <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
                   ))}
@@ -262,7 +268,7 @@ export default function WorkflowView() {
               {formErr && <p className="rounded bg-dangersoft px-2.5 py-1.5 text-[11.5px] font-semibold text-danger">{formErr}</p>}
               <button
                 onClick={submit}
-                className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-[12.5px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.98]"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg btn-primary px-3 py-2 text-[12.5px] font-medium text-onaccent transition-all active:scale-[0.98]"
               >
                 <IcPlus size={13} /> {t("workflow.addTransition")}
               </button>
@@ -279,21 +285,21 @@ export default function WorkflowView() {
         </div>
 
         {/* шаблоны задач проекта (issue_templates, миграция 022) */}
-        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[1fr_320px]" style={{ animationDelay: "160ms" }}>
-          <div className="overflow-hidden rounded-xl border border-line bg-panel">
-            <p className="border-b border-linesoft bg-canvas/60 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wider text-sub">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
+          <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
+            <p className="border-b border-linesoft bg-sunken px-4 py-2.5 text-[13px] font-medium text-sub">
               {t("workflow.templatesCount", { count: data.issueTemplates.length })}
             </p>
             {data.issueTemplates.length === 0 && (
               <p className="px-4 py-6 text-center text-[12.5px] text-faint">{t("workflow.noTemplates")}</p>
             )}
             {data.issueTemplates.map((template) => (
-              <div key={template.id} className="flex items-center gap-3 border-b border-linesoft px-4 py-2.5 last:border-0 hover:bg-canvas/60">
+              <div key={template.id} className="flex items-center gap-3 border-b border-linesoft px-4 py-2.5 last:border-0 hover:bg-hover">
                 <span className="text-[13px] font-medium text-ink">{template.name}</span>
-                <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10px] font-bold text-sub">
+                <span className="rounded-md bg-sunken px-1.5 py-0.5 tabular text-[11.5px] text-sub ring-1 ring-inset ring-linesoft">
                   {t(`issueType.${template.typeId}`)}
                 </span>
-                <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10px] font-bold text-sub">
+                <span className="rounded-md bg-sunken px-1.5 py-0.5 tabular text-[11.5px] text-sub ring-1 ring-inset ring-linesoft">
                   {t(`priority.${template.priorityId}`)}
                 </span>
                 {canEditWf && (
@@ -310,26 +316,26 @@ export default function WorkflowView() {
           </div>
 
           {canEditWf && (
-            <div className="h-fit rounded-xl border border-line bg-panel p-4">
-              <p className="text-[12px] font-bold uppercase tracking-wider text-sub">{t("workflow.newTemplate")}</p>
+            <div className="h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-4">
+              <p className="text-[13px] font-medium text-sub">{t("workflow.newTemplate")}</p>
               <p className="mt-1 text-[11.5px] leading-relaxed text-faint">{t("workflow.newTemplateHint")}</p>
               <div className="mt-3 space-y-2.5">
                 <label className="block">
-                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("workflow.templateName")}</span>
+                  <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.templateName")}</span>
                   <input
                     value={tplName}
                     onChange={(e) => setTplName(e.target.value)}
                     placeholder={t("workflow.templateNamePlaceholder")}
-                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                   />
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block">
-                    <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.type")}</span>
+                    <span className="mb-1 block text-[12px] font-medium text-faint">{t("field.type")}</span>
                     <select
                       value={tplType}
                       onChange={(e) => setTplType(e.target.value as IssueTypeId)}
-                      className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                      className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                     >
                       {(["task", "bug", "request"] as IssueTypeId[]).map((v) => (
                         <option key={v} value={v}>{t(`issueType.${v}`)}</option>
@@ -337,11 +343,11 @@ export default function WorkflowView() {
                     </select>
                   </label>
                   <label className="block">
-                    <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.priority")}</span>
+                    <span className="mb-1 block text-[12px] font-medium text-faint">{t("field.priority")}</span>
                     <select
                       value={tplPriority}
                       onChange={(e) => setTplPriority(e.target.value as PriorityId)}
-                      className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                      className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                     >
                       {(["critical", "high", "medium", "low"] as PriorityId[]).map((v) => (
                         <option key={v} value={v}>{t(`priority.${v}`)}</option>
@@ -350,29 +356,29 @@ export default function WorkflowView() {
                   </label>
                 </div>
                 <label className="block">
-                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("workflow.defaultTitle")}</span>
+                  <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.defaultTitle")}</span>
                   <input
                     value={tplTitle}
                     onChange={(e) => setTplTitle(e.target.value)}
                     placeholder={t("workflow.defaultTitlePlaceholder")}
-                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("workflow.defaultDescription")}</span>
+                  <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.defaultDescription")}</span>
                   <textarea
                     value={tplDescription}
                     onChange={(e) => setTplDescription(e.target.value)}
                     rows={3}
-                    className="w-full resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                    className="w-full resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("workflow.startStatus")}</span>
+                  <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.startStatus")}</span>
                   <select
                     value={tplStatusId}
                     onChange={(e) => setTplStatusId(e.target.value)}
-                    className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                    className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                   >
                     <option value="">{t("workflow.asUsual")}</option>
                     {data.workflow.statuses.map((s) => (
@@ -383,7 +389,7 @@ export default function WorkflowView() {
                 <button
                   onClick={submitTemplate}
                   disabled={!tplName.trim()}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-[12.5px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg btn-primary px-3 py-2 text-[12.5px] font-medium text-onaccent transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <IcPlus size={13} /> {t("workflow.addTemplate")}
                 </button>
@@ -393,18 +399,18 @@ export default function WorkflowView() {
         </div>
 
         {/* пользовательские поля проекта (custom_fields, миграция 020) */}
-        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[1fr_320px]" style={{ animationDelay: "200ms" }}>
-          <div className="overflow-hidden rounded-xl border border-line bg-panel">
-            <p className="border-b border-linesoft bg-canvas/60 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wider text-sub">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
+          <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
+            <p className="border-b border-linesoft bg-sunken px-4 py-2.5 text-[13px] font-medium text-sub">
               {t("workflow.fieldsCount", { count: data.customFields.length })}
             </p>
             {data.customFields.length === 0 && (
               <p className="px-4 py-6 text-center text-[12.5px] text-faint">{t("workflow.noFields")}</p>
             )}
             {data.customFields.map((f) => (
-              <div key={f.id} className="flex items-center gap-3 border-b border-linesoft px-4 py-2.5 last:border-0 hover:bg-canvas/60">
+              <div key={f.id} className="flex items-center gap-3 border-b border-linesoft px-4 py-2.5 last:border-0 hover:bg-hover">
                 <span className="text-[13px] font-medium text-ink">{f.name}</span>
-                <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10px] font-bold text-sub">
+                <span className="rounded-md bg-sunken px-1.5 py-0.5 tabular text-[11.5px] text-sub ring-1 ring-inset ring-linesoft">
                   {t(`fieldType.${f.fieldType}`)}
                 </span>
                 {f.fieldType === "select" && f.options.length > 0 && (
@@ -424,25 +430,25 @@ export default function WorkflowView() {
           </div>
 
           {canEditWf && (
-            <div className="h-fit rounded-xl border border-line bg-panel p-4">
-              <p className="text-[12px] font-bold uppercase tracking-wider text-sub">{t("workflow.newField")}</p>
+            <div className="h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-4">
+              <p className="text-[13px] font-medium text-sub">{t("workflow.newField")}</p>
               <p className="mt-1 text-[11.5px] leading-relaxed text-faint">{t("workflow.newFieldHint")}</p>
               <div className="mt-3 space-y-2.5">
                 <label className="block">
-                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("sprints.name")}</span>
+                  <span className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.name")}</span>
                   <input
                     value={fieldName}
                     onChange={(e) => setFieldName(e.target.value)}
                     placeholder={t("workflow.fieldNamePlaceholder")}
-                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("field.type")}</span>
+                  <span className="mb-1 block text-[12px] font-medium text-faint">{t("field.type")}</span>
                   <select
                     value={fieldType}
                     onChange={(e) => setFieldType(e.target.value as CustomFieldType)}
-                    className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                    className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                   >
                     {(["text", "number", "select", "checkbox", "date"] as CustomFieldType[]).map((fieldTypeOption) => (
                       <option key={fieldTypeOption} value={fieldTypeOption}>{t(`fieldType.${fieldTypeOption}`)}</option>
@@ -451,19 +457,19 @@ export default function WorkflowView() {
                 </label>
                 {fieldType === "select" && (
                   <label className="block">
-                    <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("workflow.options")}</span>
+                    <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.options")}</span>
                     <input
                       value={fieldOptions}
                       onChange={(e) => setFieldOptions(e.target.value)}
                       placeholder={t("workflow.optionsPlaceholder")}
-                      className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent"
+                      className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                     />
                   </label>
                 )}
                 <button
                   onClick={submitField}
                   disabled={!fieldName.trim() || (fieldType === "select" && !fieldOptions.trim())}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-[12.5px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg btn-primary px-3 py-2 text-[12.5px] font-medium text-onaccent transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <IcPlus size={13} /> {t("workflow.addField")}
                 </button>

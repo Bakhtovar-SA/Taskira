@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider, useStore, useToasts } from "./store";
 import {
   ApiError,
   authApi,
@@ -17,6 +17,11 @@ import { I18nProvider } from "./i18n";
 import IssueModal from "./components/IssueModal";
 import { useIssue } from "./issuePages";
 import type { Issue } from "./types";
+
+/** `useStore()` + вынесенные из него домены (ADR-0011, шаги 1–2): тосты и уведомления — отдельные хранилища. */
+function useStoreSnapshot() {
+  return { ...useStore(), toasts: useToasts() };
+}
 
 /**
  * PERF-06, модалки: карточка перестаёт искать связанные задачи в списке всех задач
@@ -127,9 +132,9 @@ async function setup(
     nextCursor: null,
   }));
 
-  let store!: ReturnType<typeof useStore>;
+  let store!: ReturnType<typeof useStoreSnapshot>;
   function Grab() {
-    store = useStore();
+    store = useStoreSnapshot();
     return null;
   }
   const tree = (withProbe: boolean) => (

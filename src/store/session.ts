@@ -29,7 +29,9 @@ import {
   writeLastProject,
 } from "./mappers";
 import type { StoreCtx } from "./ctx";
-import type { BootStatus, SoloState, UIState } from "./mappers";
+import { parsePath } from "../router";
+import { EMPTY_NOTIFICATIONS } from "./slices";
+import type { BootStatus, IssueMode, SoloState, UIState } from "./mappers";
 
 export interface SessionDeps {
   setBootStatus: Dispatch<SetStateAction<BootStatus>>;
@@ -43,9 +45,12 @@ export interface SessionDeps {
 }
 
 export function useSessionActions(
-  { setData, dataRef, pid, toast, handleApiError, local }: StoreCtx,
+  { setData, dataRef, pid, toast, handleApiError, local, notifStore }: StoreCtx,
   { setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef }: SessionDeps,
 ) {
+  // Лента и счётчик уведомлений живут отдельно от `data` (ADR-0011, шаг 2), но сбрасываются там же, где раньше
+  // сбрасывались вместе с ним: при каждой полной замене `data` (вход, смена проекта, выход).
+  const resetNotifications = useCallback(() => notifStore.setState(() => EMPTY_NOTIFICATIONS), [notifStore]);
   /** Грузит данные одного проекта (bootstrap + задачи) в объект Data. */
   const buildProjectData = useCallback(
     async (
@@ -84,8 +89,6 @@ export function useSessionActions(
         assignedToMe: [],
         assignedTruncated: false,
         collaborations,
-        notifications: [],
-        unreadCount: 0,
         notifyPrefs: {},
         workflow: {
           statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
@@ -131,6 +134,10 @@ export function useSessionActions(
       // локально по уже полученному списку projects — сети не требует.
       const pathTarget = await resolveBootPathTarget(location.pathname, projects);
       if (stale()) return;
+      // Раздел без проекта по прямой ссылке (/inbox, /my-issues, /reports…, ADR-0013 §5) —
+      // открыть его в оболочке последнего проекта, а не сбрасывать на главный экран.
+      const bootPath = parsePath(location.pathname);
+      const globalView = bootPath.kind === "global" ? bootPath.view : null;
 
       if (projects.length === 0) {
         // Ни одного видимого проекта, но, возможно, приглашён к отдельным задачам
@@ -148,9 +155,10 @@ export function useSessionActions(
         // синтетического 'member'/'viewer' (глоб. admin потерял бы доступ к
         // AdminView, откуда только и можно создать первый проект).
         setData({ ...emptyData(), currentUserId: user.id, departments: deps, users: [mapUser(user, {})] });
+        resetNotifications();
         if (user.globalRole === "admin") {
           setUi((u) => ({ ...u, view: "admin" }));
-          toast("info", local("Проектов пока нет — создайте первый в разделе «Департаменты»", "There are no projects yet — create the first one in Departments"));
+          toast("info", local("Проектов пока нет — создайте первый в разделе «Отделы и проекты»", "There are no projects yet — create the first one in Departments & projects"));
         } else {
           toast("info", local("Вам пока не открыт ни один проект — обратитесь к администратору", "You don't have access to any projects yet — contact an administrator"));
         }
@@ -167,7 +175,7 @@ export function useSessionActions(
       // внутри проекта) → главный экран (UI_RESTRUCTURE.md D4): список проектов и
       // задач, в проект не входим. При 1 проекте главный экран бессмыслен — сразу
       // внутрь (ветка ниже).
-      if (projects.length >= 2 && !pathProjectVisible && !pathIsCollab) {
+      if (projects.length >= 2 && !pathProjectVisible && !pathIsCollab && !globalView) {
         const assigned = await issuesApi
           .assignedToMe()
           .catch(() => ({ items: [] as AssignedIssue[], truncated: false, limit: 0 }));
@@ -184,6 +192,7 @@ export function useSessionActions(
           assignedTruncated: assigned.truncated,
           notifyPrefs: user.notifyPrefs ?? {},
         });
+        resetNotifications();
         void refreshNotifications();
         if (takeHomeIntro()) {
           toast(
@@ -200,6 +209,7 @@ export function useSessionActions(
       const next = await buildProjectData(chosen, user.id, projects, deps, collabs, user.favoriteProjectIds ?? []);
       if (stale()) return;
       setData({ ...next, notifyPrefs: user.notifyPrefs ?? {} });
+      resetNotifications();
       void refreshNotifications();
       writeLastProject(chosen);
       // Прямая ссылка на приглашённую задачу (в проекте, который не открыт) —
@@ -216,6 +226,8 @@ export function useSessionActions(
         }));
       } else if (pathTarget && pathTarget.kind === "view" && pathTarget.projectId === chosen) {
         setUi((u) => ({ ...u, view: pathTarget.view }));
+      } else if (globalView) {
+        setUi((u) => ({ ...u, view: globalView }));
       }
       setBootStatus("ready");
     } catch (err) {
@@ -228,7 +240,7 @@ export function useSessionActions(
       handleApiError(err, local("Не удалось загрузить данные", "Couldn't load data"));
       setBootStatus("error");
     }
-  }, [handleApiError, buildProjectData, toast, refreshNotifications]);
+  }, [handleApiError, buildProjectData, toast, refreshNotifications, resetNotifications]);
 
   const switchSeqRef = useRef(0);
   // Кросс-проектный переход "найти задачу → открыть её" (SearchBox): switchProject
@@ -236,14 +248,14 @@ export function useSessionActions(
   // на <BootSkeleton/> — компонент поиска со своим локальным ref размонтируется и
   // отслеживание "какую задачу открыть после переключения" терялось бы вместе с ним.
   // Держим его здесь, в StoreProvider, которого этот размонт не касается.
-  const pendingOpenIssueRef = useRef<{ projectId: string; issueId: string } | null>(null);
+  const pendingOpenIssueRef = useRef<{ projectId: string; issueId: string; mode?: IssueMode } | null>(null);
   const switchProject = useCallback(
-    (projectId: string, openIssueId?: string) => {
+    (projectId: string, openIssueId?: string, mode?: IssueMode) => {
       // Любой вызов без openIssueId — обычная навигация (ProjectSwitcher, HomeView, …),
       // которая отменяет ранее поставленное намерение "открыть задачу после переключения".
       // Без этого сброса задача из давно отменённого/перебитого поиска могла бы
       // неожиданно открыться при обычном возврате в тот же проект позже.
-      pendingOpenIssueRef.current = openIssueId ? { projectId, issueId: openIssueId } : null;
+      pendingOpenIssueRef.current = openIssueId ? { projectId, issueId: openIssueId, mode } : null;
       const cur = dataRef.current;
       if (projectId === cur.currentProjectId || !cur.projects.some((p) => p.id === projectId)) return;
       const seq = ++switchSeqRef.current;
@@ -261,6 +273,7 @@ export function useSessionActions(
           );
           if (seq !== switchSeqRef.current || epoch !== sessionEpochRef.current) return; // более поздний клик или уже был выход
           setData(next);
+          resetNotifications();
           writeLastProject(projectId);
           setUi((u) => ({ ...u, selectedIssueId: null }));
           setBootStatus("ready");
@@ -271,7 +284,7 @@ export function useSessionActions(
         }
       })();
     },
-    [buildProjectData, handleApiError],
+    [buildProjectData, handleApiError, resetNotifications],
   );
 
   const refreshAssignedToMe = useCallback(async () => {
@@ -323,10 +336,11 @@ export function useSessionActions(
     void authApi.logout().catch(() => undefined);
     clearToken();
     setData(emptyData());
+    resetNotifications();
     setSolo(null);
-    setUi({ view: "board", selectedIssueId: null, createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
+    setUi({ view: "board", selectedIssueId: null, issueMode: "panel", createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
     setBootStatus("unauthenticated");
-  }, []);
+  }, [resetNotifications]);
 
   const refreshIssues = useCallback(async () => {
     const requestProjectId = pid();
@@ -398,8 +412,8 @@ export function useSessionActions(
   }, []);
 
   const openIssue = useCallback(
-    (id: string | null) => {
-      setUi((u) => ({ ...u, selectedIssueId: id }));
+    (id: string | null, mode: IssueMode = "panel") => {
+      setUi((u) => ({ ...u, selectedIssueId: id, issueMode: id ? mode : "panel" }));
       if (!id) return;
       const requestProjectId = pid();
       if (!requestProjectId) return; // SEC-01: после выхода pid() = "", и guard `"" === ""` пропустил бы ответ
@@ -446,6 +460,7 @@ export function useSessionActions(
     switchProject,
     goHome,
     enterProject,
+    refreshAssignedToMe,
     logout,
     refreshIssues,
     ensureAllIssues,

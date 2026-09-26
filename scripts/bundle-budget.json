@@ -1,0 +1,16 @@
+{
+  "comment": "ТЗ 5.2, docs/design/PERF-BUDGET.md. Байты gzip (node:zlib, уровень по умолчанию). base — точка отсчёта UX-трека (коммит 7d500ad, ТЗ 5.4), allowedGrowth — допустимый рост относительно base за весь трек. Проверка: npm run build && npm run bundle:check.",
+  "base": {
+    "js": 187489,
+    "css": 13715,
+    "entry": 81035,
+    "total": 201204,
+    "note": "Замерено на 7d500ad (ТЗ 5.4: токены, темы, шрифты) + ТЗ 5.2 (код продукта не менялся)."
+  },
+  "allowedGrowth": {
+    "total": 81920,
+    "js": 81920,
+    "css": 20480,
+    "entry": 40960
+  }
+}

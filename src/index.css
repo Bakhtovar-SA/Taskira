@@ -1,107 +1,70 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 /* ============================================================
-   Палитра. Значения живут в обычных custom properties ВНЕ @theme
-   (@theme компилируется статически при сборке — переопределить его
-   переменные в рантайме нельзя). @theme лишь ссылается на них, поэтому
-   сгенерированные классы (bg-canvas, text-ink, …) продолжают работать,
-   а реальный цвет резолвится браузером из --c-* и переключается по
-   data-theme на <html>. См. ticket-theme-background-home-logo.md §3.
+   Шрифт — Manrope (решение владельца 25.09.2026, ADR-0016), локально в
+   сборке (закрытый контур), variable 200–800, подмножества латиница +
+   кириллица, font-display: swap. Ключи задач — тот же Manrope с
+   табличными цифрами: второй шрифт на первом экране не грузится
+   (бюджет ТЗ 5.2 — не более 2 файлов шрифтов).
    ============================================================ */
-:root {
-  color-scheme: light;
-
-  /* поверхности */
-  --c-canvas: #f1f3f7;
-  --c-panel: #fdfdfe;
-  --c-line: #dde3ec;
-  --c-linesoft: #e8edf4;
-  --c-line2: #c3ccda; /* пунктирные рамки / disabled — на тон темнее line */
-
-  /* текст */
-  --c-ink: #17233b;
-  --c-sub: #57606f;
-  --c-faint: #626b7a; /* было #8b95a7 — 3.0:1 на --c-panel/--c-canvas, ниже WCAG AA (4.5:1) для мелкого текста */
-
-  /* сайдбар (тёмный в обеих темах) */
-  --c-sidebar: #0f1b2d;
-  --c-sidebar2: #182a44;
-
-  /* акцент */
-  --c-accent: #0b5fd9;
-  --c-accentdeep: #0a4cb0;
-  --c-accentsoft: #e8f0fd;
-
-  /* статусные */
-  --c-ok: #1c8a5c;
-  --c-oksoft: #ddf3e7;
-  --c-warn: #b45f06;
-  --c-warnsoft: #fdf0cf;
-  --c-warndot: #e2b203;
-  --c-danger: #d23a2e;
-  --c-dangersoft: #fdeae8;
-  --c-todo: #44546f;
-  --c-todosoft: #e3e9f1;
-
-  /* насыщенный текст на *soft-подложках (лозенги статусов, catColor) */
-  --c-ok-fg: #116e46;
-  --c-warn-fg: #7a5c00;
-  --c-todo-fg: #44546f;
-
-  /* приоритет задачи (PriorityIcon, Board-карточка) — единственный источник
-     цвета для обеих реализаций, чтобы не расходиться и адаптироваться к теме */
-  --c-prio-critical: var(--c-danger);
-  --c-prio-high: #e8772e;
-  --c-prio-medium: #c79a0a;
-  --c-prio-low: #3d7fe0;
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("./assets/fonts/manrope-cyrillic-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("./assets/fonts/manrope-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --c-canvas: #161a20;
-  --c-panel: #1e232c;
-  --c-line: #333c48;
-  --c-linesoft: #29313b;
-  --c-line2: #3c4552;
-
-  --c-ink: #e9edf4;
-  --c-sub: #a9b3c1;
-  --c-faint: #8a94a6; /* было #6e7887 — 3.5:1 на --c-panel, ниже WCAG AA (4.5:1) для мелкого текста */
-
-  --c-sidebar: #10141a;
-  --c-sidebar2: #191f27;
-
-  --c-accent: #4f8ef0;
-  --c-accentdeep: #6ba0f4;
-  --c-accentsoft: #1f3350;
-
-  --c-ok: #34b37a;
-  --c-oksoft: #16362a;
-  --c-warn: #d98b3a;
-  --c-warnsoft: #3a2e17;
-  --c-warndot: #e2b203;
-  --c-danger: #e5594d;
-  --c-dangersoft: #3a201e;
-  --c-todo: #9aa8bd;
-  --c-todosoft: #2b323d;
-
-  --c-ok-fg: #5cc99a;
-  --c-warn-fg: #e0a94a;
-  --c-todo-fg: #aeb9c9;
-
-  /* светлее исходных, чтобы держать контраст на тёмной --c-panel */
-  --c-prio-critical: var(--c-danger);
-  --c-prio-high: #f0954f;
-  --c-prio-medium: #e0b23a;
-  --c-prio-low: #6fa3ee;
-}
-
+/* ============================================================
+   Tailwind-тема ссылается на токены (src/styles/tokens.css):
+   значения резолвятся браузером и переключаются по data-theme.
+   Старые имена классов (bg-canvas, text-ink, …) — алиасы.
+   ============================================================ */
 @theme {
-  --font-disp: "Segoe UI", Arial, sans-serif;
-  --font-body: "Segoe UI", Arial, sans-serif;
-  --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+  --font-disp: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Manrope", "Segoe UI", system-ui, sans-serif;
+  /* «mono» в интерфейсе — это ключи задач: Manrope с табличными цифрами
+     (см. .font-mono ниже). Настоящий моноширинный — только для кода. */
+  --font-mono: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-code: ui-monospace, "Cascadia Mono", "Consolas", "SF Mono", monospace;
 
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+
+  --shadow-e1: var(--elev-1);
+  --shadow-e2: var(--elev-2);
+  --shadow-e3: var(--elev-3);
+  --shadow-e4: var(--elev-4);
+  --shadow-accent: var(--elev-accent);
+  --shadow-focus: 0 0 0 3px var(--focus-ring);
+
+  /* семантические имена — для нового кода */
+  --color-frame: var(--bg-frame);
+  --color-sunken: var(--bg-sunken);
+  --color-raised: var(--bg-raised);
+  --color-overlay: var(--bg-overlay);
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-onaccent: var(--text-on-accent);
+  --color-accenttext: var(--accent-text);
+  --color-accentmuted: var(--accent-muted);
+
+  /* алиасы (docs/design/ALIASES.md) */
   --color-canvas: var(--c-canvas);
   --color-panel: var(--c-panel);
   --color-line: var(--c-line);
@@ -138,51 +101,387 @@ body,
 
 body {
   font-family: var(--font-body);
-  background: var(--color-canvas);
-  color: var(--color-ink);
-  -webkit-font-smoothing: antialiased;
   font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: -0.006em;
+  color: var(--text-1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  /* ── Атмосфера (ТЗ 5.14): свечение бренд-оттенка по углам холста.
+     Лежит ЗА рабочим пространством — хром и контент поверх него
+     непрозрачны, кроме стеклянной боковой панели. */
+  background-color: var(--bg-frame);
+  background-image:
+    radial-gradient(42vw 60vh at 4% 8%, var(--glow-a), transparent 70%),
+    radial-gradient(45vw 55vh at 96% 100%, var(--glow-b), transparent 70%),
+    radial-gradient(40vw 45vh at 62% -6%, var(--glow-c), transparent 70%);
+  background-attachment: fixed;
+  isolation: isolate;
 }
 
-/* Плавное переключение тёмная/светлая — без резкого мигания фона.
-   Держим только на корневых поверхностях (см. ticket round4 §0.2). */
-:root,
+/* Стеклянная кромка: 1 px градиент, светлее сверху-слева — «лист стекла»,
+   а не рамка. Добавляется к стеклянным поверхностям хрома. */
+.glass-edge {
+  position: relative;
+}
+.glass-edge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(150deg, var(--glass-edge), var(--glass-edge-2) 40%, var(--glass-edge-2) 70%, var(--glass-edge) 140%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Плавное переключение темы — только корневые поверхности. */
 body {
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color var(--dur-4) var(--ease-standard), color var(--dur-4) var(--ease-standard);
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--c-accent) 32%, transparent);
+  background: color-mix(in oklch, var(--accent-solid) 30%, transparent);
+}
+
+/* ── Числа: табличные на ключах, датах, счётчиках. */
+.font-mono,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.font-mono {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  font-feature-settings: "tnum", "case";
+}
+
+/* ── Стекло — только хром (поповеры, меню, боковая панель, шапки диалогов).
+   Никогда на карточках задач и формах. Отключается при
+   prefers-reduced-transparency и где backdrop-filter не поддерживается. */
+.glass {
+  background: var(--bg-glass);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+}
+/* Стеклянная боковая панель и рабочий лист (ТЗ 5.14 п.4 — стекло только на хроме). */
+.glass-side {
+  background: var(--glass-side);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  backdrop-filter: blur(28px) saturate(1.8);
+}
+.glass-sheet {
+  background: var(--glass-sheet);
+  -webkit-backdrop-filter: blur(32px) saturate(1.5);
+  backdrop-filter: blur(32px) saturate(1.5);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: var(--bg-raised);
+  }
+  .glass-side {
+    background: var(--bg-frame);
+  }
+  .glass-sheet {
+    background: var(--bg-canvas);
+  }
+}
+/* Без стекла: системная настройка (Chromium) или высокий контраст —
+   в Firefox/Safari prefers-reduced-transparency не работает (BROWSERS.md). */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .glass,
+  .glass-side,
+  .glass-sheet {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .glass {
+    background: var(--bg-raised);
+  }
+  .glass-side {
+    background: var(--bg-frame);
+  }
+  .glass-sheet {
+    background: var(--bg-canvas);
+  }
+}
+
+/* Поверхность-«лист» рабочей области (Linear-подобная вставка справа от
+   боковой панели): верхний блик в тёмной теме + мягкая тень в светлой. */
+.surface-sheet {
+  background: var(--bg-canvas);
+  box-shadow: var(--elev-2);
+}
+
+/* Поднятая поверхность карточки/панели: тень уровня + верхний блик. */
+.surface-raised {
+  background: var(--bg-panel);
+  box-shadow: var(--highlight-top), var(--elev-1);
+}
+
+/* Доска (ADR-0016). Колонка — тонированный жёлоб без рамки поверх листа;
+   карточка — плотная панель с верхним бликом, не стекло. На наведении по
+   контуру карточки проступает градиентная кромка бренда (маска, как у
+   .glass-edge), а не заливка: карточка остаётся тихой, пока её не трогают. */
+.board-col-body {
+  background: color-mix(in oklch, var(--bg-sunken) 55%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  scrollbar-width: thin;
+}
+.board-card {
+  background: var(--bg-panel);
+  box-shadow: var(--highlight-top), var(--elev-1);
+  transition: box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
+}
+.board-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    140deg,
+    color-mix(in oklch, var(--accent-solid) 65%, transparent),
+    transparent 40%,
+    transparent 65%,
+    color-mix(in oklch, var(--accent-solid) 30%, transparent)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  transition: opacity var(--dur-2, 180ms) ease-out;
+}
+.board-card:hover {
+  box-shadow: var(--highlight-top), var(--elev-2);
+}
+.board-card:hover::after {
+  opacity: 1;
+}
+.board-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--accent-solid), 0 6px 20px -8px var(--accent-glow);
+}
+
+/* Перетаскивание (Board.tsx setDragGhost): силуэт на месте и «карточка в руке». */
+.board-card[data-dragging] {
+  opacity: 0.45;
+  box-shadow: none;
+  outline: 1.5px dashed var(--border-strong);
+  outline-offset: -1.5px;
+}
+.board-card[data-dragging] > * {
+  opacity: 0.5;
+}
+.drag-ghost {
+  position: fixed;
+  top: -2000px;
+  left: -2000px;
+  padding: 16px;
+  pointer-events: none;
+}
+.drag-ghost > .board-card {
+  transform: rotate(2deg);
+  box-shadow: var(--highlight-top), var(--elev-3), 0 0 0 1.5px color-mix(in oklch, var(--accent-solid) 70%, transparent);
+}
+
+/* Пилюли меты на карточке: волосяной контур, одна высота, цифры табличные. */
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  white-space: nowrap;
+  color: var(--text-2);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+.meta-pill > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.meta-pill.is-icon {
+  width: 22px;
+  padding: 0;
+  justify-content: center;
+}
+.meta-pill.is-late {
+  color: var(--status-danger-fg);
+  background: color-mix(in oklch, var(--status-danger) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--status-danger) 40%, transparent);
+}
+.meta-pill.is-soon {
+  color: var(--status-progress-fg);
+}
+/* Точка цвета метки/направления: цвет — из tk-tone-* (currentColor) или --c. */
+.meta-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c, currentColor);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--c, currentColor) 20%, transparent);
+}
+
+/* Смена темы через View Transitions (theme.ts): свой клип-круг вместо
+   стандартного перекрёстного затухания — только пока стоит .vt-theme. */
+html.vt-theme::view-transition-old(root),
+html.vt-theme::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Полоса фокуса на Главной: пункт — волосяной контур; выбранный — лёгкая
+   заливка своим тоном (tk-tone-* задаёт currentColor) и кольцо того же тона. */
+.focus-chip {
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+.focus-chip:hover {
+  background: var(--bg-hover);
+}
+.focus-chip.is-on {
+  background: color-mix(in oklch, currentColor 10%, var(--bg-panel));
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 45%, transparent), 0 4px 14px -6px color-mix(in oklch, currentColor 45%, transparent);
+}
+
+/* Выезжающая боковая панель (< 1024 px) лежит поверх контента, а не над
+   атмосферой — стекло плотнее, чтобы текст под ней не просвечивал. */
+@media (max-width: 1023.98px) {
+  .glass-side.side-drawer {
+    /* .glass-edge (вне слоёв) ставит position: relative и перебил бы max-lg:fixed. */
+    position: fixed;
+    background: color-mix(in oklch, var(--bg-overlay) 94%, transparent);
+  }
+}
+
+/* Входящие: непрочитанное — лёгкий акцентный фон; строка под курсором J/K —
+   светящаяся метка слева (тот же язык, что у активного пункта панели и палитры). */
+.inbox-row.is-unread {
+  background: color-mix(in oklch, var(--accent-solid) 5%, transparent);
+}
+.inbox-row[data-active]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent-solid);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Строка командной палитры: активная — лёгкий акцентный фон и светящаяся
+   метка слева, как у активного пункта боковой панели. */
+.palette-row {
+  transition: background-color var(--dur-1, 100ms) linear, color var(--dur-1, 100ms) linear;
+}
+.palette-row.is-active {
+  background: color-mix(in oklch, var(--accent-solid) 9%, var(--bg-hover));
+}
+.palette-row.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent-solid);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Основная кнопка: сплошной акцент, внутренний блик, мягкое свечение. */
+.btn-primary {
+  background: var(--accent-solid);
+  color: var(--text-on-accent);
+  box-shadow: var(--highlight-accent), var(--elev-accent);
+  transition:
+    background-color var(--dur-2) var(--ease-standard),
+    box-shadow var(--dur-2) var(--ease-standard),
+    transform var(--dur-1) var(--ease-standard);
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+.btn-primary:active {
+  transform: translateY(0.5px) scale(0.985);
 }
 
 *::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: var(--c-line2);
-  border-radius: 8px;
-  border: 2px solid transparent;
+  background: color-mix(in oklch, var(--border-strong) 80%, transparent);
+  border-radius: 10px;
+  border: 3px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--c-faint);
+  background: var(--text-3);
   background-clip: content-box;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
+}
+* {
+  scrollbar-color: color-mix(in oklch, var(--border-strong) 80%, transparent) transparent;
+  scrollbar-width: thin;
 }
 
+/* ── Иконки (src/icons.tsx, ADR-0016): слои двухтонового набора. */
+.tk-ic {
+  flex: none;
+}
+.tk-ic .s {
+  fill: currentColor;
+}
+.tk-ic .t {
+  fill: currentColor;
+  opacity: 0.26;
+}
+.tk-ic .k {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tk-ic .k.k-soft {
+  opacity: 0.4;
+}
+/* Фирменные тона разделов: одна светлота и хрома, разные тона. */
+.tk-tone-violet { color: oklch(var(--ic-l) var(--ic-c) 288); }
+.tk-tone-indigo { color: oklch(var(--ic-l) var(--ic-c) 268); }
+.tk-tone-blue { color: oklch(var(--ic-l) var(--ic-c) 250); }
+.tk-tone-sky { color: oklch(var(--ic-l) var(--ic-c) 225); }
+.tk-tone-teal { color: oklch(var(--ic-l) var(--ic-c) 195); }
+.tk-tone-green { color: oklch(var(--ic-l) var(--ic-c) 158); }
+.tk-tone-amber { color: oklch(var(--ic-l) var(--ic-c) 75); }
+.tk-tone-orange { color: oklch(var(--ic-l) var(--ic-c) 50); }
+.tk-tone-red { color: oklch(var(--ic-l) var(--ic-c) 25); }
+.tk-tone-pink { color: oklch(var(--ic-l) var(--ic-c) 340); }
+.tk-tone-gray { color: oklch(var(--ic-l) 0.02 288); }
+
+/* Сетка точек — только экран входа и пустые состояния (гейт 5.3). */
 .dotgrid {
-  background-image: radial-gradient(color-mix(in srgb, var(--c-faint) 55%, transparent) 1px, transparent 1.1px);
+  background-image: radial-gradient(color-mix(in oklch, var(--text-3) 30%, transparent) 1px, transparent 1.1px);
   background-size: 22px 22px;
 }
 
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -192,7 +491,7 @@ body {
 @keyframes popIn {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(8px);
+    transform: scale(0.98) translateY(-2px);
   }
   to {
     opacity: 1;
@@ -221,18 +520,10 @@ body {
 @keyframes pulseDot {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(34, 160, 107, 0.5);
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--status-done) 50%, transparent);
   }
   55% {
-    box-shadow: 0 0 0 6px rgba(34, 160, 107, 0);
-  }
-}
-@keyframes drawIn {
-  from {
-    stroke-dashoffset: 1;
-  }
-  to {
-    stroke-dashoffset: 0;
+    box-shadow: 0 0 0 6px color-mix(in oklch, var(--status-done) 0%, transparent);
   }
 }
 @keyframes shimmer {
@@ -266,10 +557,38 @@ body {
 }
 
 .anim-fadeup {
-  animation: fadeUp 0.34s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation: fadeUp var(--dur-3) var(--ease-out) both;
 }
 .anim-pop {
-  animation: popIn 0.22s cubic-bezier(0.2, 0.8, 0.3, 1.1) both;
+  animation: popIn var(--dur-2) var(--ease-out) both;
+  transform-origin: top center;
+}
+/* Диалог: подложка затухает, окно поднимается из лёгкого масштаба. */
+@keyframes scrimIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+.anim-panel {
+  animation: panelIn var(--dur-4) var(--ease-out) both;
+}
+.anim-scrim {
+  animation: scrimIn var(--dur-3) var(--ease-standard) both;
+}
+.anim-dialog {
+  animation: dialogIn var(--dur-4) var(--ease-out) both;
 }
 .anim-toast {
   animation: toastIn 0.25s cubic-bezier(0.2, 0.7, 0.3, 1) both;
@@ -280,11 +599,56 @@ body {
 .pulse-dot {
   animation: pulseDot 1.8s ease-out infinite;
 }
-.edge-draw {
-  /* пути помечены pathLength="1" — рисуются пропорционально длине, а не по
-     фиксированным 260 (из-за чего длинная дуга «Готово → В работе» обрезалась). */
-  stroke-dasharray: 1;
-  animation: drawIn 0.7s ease-out both;
+/* Граф рабочего процесса (WorkflowView). Узел — панель с тенью и мягкой
+   заливкой цветом категории; ребро — волосяная линия, на наведении (строка
+   перехода в списке) — акцент и бегущий пунктир по направлению перехода. */
+.wf-node-box {
+  fill: var(--bg-panel);
+  stroke: var(--border-default);
+  stroke-width: 1;
+  filter: drop-shadow(0 1px 1px color-mix(in oklch, var(--text-1) 6%, transparent))
+    drop-shadow(0 8px 18px color-mix(in oklch, var(--text-1) 8%, transparent));
+  transition: stroke var(--dur-2) ease-out, stroke-width var(--dur-2) ease-out;
+}
+.wf-node.is-on .wf-node-box {
+  stroke: var(--accent-solid);
+  stroke-width: 1.5;
+}
+.wf-node-wash {
+  pointer-events: none;
+}
+.wf-node-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  fill: var(--text-1);
+}
+.wf-node-count {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-3);
+}
+.wf-edge {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  transition: stroke var(--dur-2) ease-out, stroke-width var(--dur-2) ease-out;
+}
+.wf-edge.is-on {
+  stroke: var(--accent-solid);
+  stroke-width: 2.25;
+  stroke-dasharray: 7 5;
+  filter: drop-shadow(0 0 4px var(--accent-glow));
+  animation: wfFlow 0.9s linear infinite;
+}
+@keyframes wfFlow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wf-edge.is-on {
+    animation: none;
+  }
 }
 /* Приземление карточки после drop: экспоненциальное замедление до scale(1) +
    существующая вспышка. `.anim-drop-done` — то же замедление, но зелёная
@@ -306,10 +670,32 @@ body {
   transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .timeline-bar:hover {
-  transform: translateX(var(--bar-x, 0)) translateY(-50%) scaleY(1.1);
+  box-shadow: 0 8px 22px -8px color-mix(in oklch, var(--bar) 80%, transparent);
+  --bar-edge: color-mix(in oklch, var(--bar) 70%, transparent);
+}
+.timeline-name {
+  transform: translateX(calc(var(--bar-x, 0px) - 4px));
+}
+.timeline-bar {
+  --bar-edge: color-mix(in oklch, var(--bar) 45%, transparent);
+  box-shadow: 0 6px 18px -8px color-mix(in oklch, var(--bar) 60%, transparent);
+}
+.timeline-bar-bg {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--bar) 14%, var(--bg-panel)),
+    color-mix(in oklch, var(--bar) 30%, var(--bg-panel)) 70%,
+    color-mix(in oklch, var(--bar) 42%, var(--bg-panel))
+  );
 }
 .timeline-bar-fill {
-  transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--bar) 40%, var(--bg-panel)),
+    color-mix(in oklch, var(--bar) 62%, var(--bg-panel))
+  );
+  box-shadow: inset -1px 0 0 color-mix(in oklch, var(--bar) 70%, transparent);
+  transition: width var(--dur-4) var(--ease-out);
 }
 
 /* Скелет-заглушка (round4 §1): серый плейсхолдер с бегущим бликом.
@@ -317,17 +703,33 @@ body {
 .skeleton {
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--c-line) 45%, transparent) 25%,
-    color-mix(in srgb, var(--c-line2) 60%, transparent) 37%,
-    color-mix(in srgb, var(--c-line) 45%, transparent) 63%
+    var(--bg-hover) 25%,
+    var(--bg-active) 37%,
+    var(--bg-hover) 63%
   );
   background-size: 400% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 6px;
 }
+@keyframes fadeOnly {
+  from {
+    opacity: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none;
+  }
+  /* Только прозрачность, без сдвигов и масштабов (ТЗ 5.13 п.4). */
+  .anim-fadeup,
+  .anim-pop,
+  .anim-dialog,
+  .anim-panel,
+  .anim-toast {
+    animation: fadeOnly var(--dur-2) linear both;
+  }
+  .btn-primary:active {
+    transform: none;
   }
   .anim-drop,
   .anim-drop-done {
@@ -339,9 +741,11 @@ body {
   }
 }
 
+/* Единое кольцо фокуса для всего интерактивного. */
+:where(button, a, [tabindex], summary, select, input[type="checkbox"], input[type="radio"]):focus-visible,
 .focusable:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 input,

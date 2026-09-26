@@ -72,33 +72,33 @@ export default function PermissionsView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
-        <div className="anim-fadeup">
-          <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("access.title")}</h1>
+        <div>
+          <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("access.title")}</h1>
           <p className="mt-0.5 text-[11.5px] text-faint">
             {t("access.subtitle", { key: data.project.key })}
           </p>
         </div>
 
         {/* текущий пользователь + переключение */}
-        <div className="anim-fadeup mt-4 grid gap-4 lg:grid-cols-[340px_1fr]" style={{ animationDelay: "50ms" }}>
-          <div className="rounded-xl border border-line bg-panel p-4 shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
-            <p className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-wider text-sub">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[340px_1fr]">
+          <div className="surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-4">
+            <p className="flex items-center gap-2 text-[13px] font-medium text-sub">
               <IcShield size={14} className="text-accent" /> {t("access.currentSession")}
             </p>
             <div className="mt-3 flex items-center gap-3">
               <Avatar user={me} size={44} interactive />
               <div className="min-w-0">
-                <p className="truncate text-[14px] font-bold text-ink">{me.name}</p>
+                <p className="truncate text-[14px] font-semibold text-ink">{me.name}</p>
                 <p className="text-[11.5px] text-faint">{me.role} · {data.project.name}</p>
                 <div className="mt-1"><RoleBadge role={me.accessRole} size="sm" /></div>
               </div>
             </div>
-            <p className="mt-3 rounded-md bg-canvas/80 p-2.5 text-[11.5px] leading-relaxed text-sub">{t(`role.${me.accessRole}.desc`)}</p>
+            <p className="mt-3 rounded-md bg-sunken p-2.5 text-[11.5px] leading-relaxed text-sub">{t(`role.${me.accessRole}.desc`)}</p>
           </div>
 
           {/* состав проекта */}
-          <div className="rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
-            <p className="border-b border-linesoft bg-canvas/60 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wider text-sub">
+          <div className="surface-raised rounded-xl ring-1 ring-inset ring-line/70">
+            <p className="border-b border-linesoft bg-sunken px-4 py-2.5 text-[13px] font-medium text-sub">
               {t("access.membersCount", { count: memberIds.length })}
               {canManage && <span className="ml-2 font-medium normal-case text-faint">{t("access.canManage")}</span>}
             </p>
@@ -108,13 +108,13 @@ export default function PermissionsView() {
                 const role = data.members[id];
                 const mine = id === me.id;
                 return (
-                  <div key={id} className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${mine ? "bg-accentsoft/50" : "hover:bg-canvas/50"}`}>
-                    <Avatar user={u ?? { name: "?", initials: "?", color: "#94a3b8" }} size={30} interactive />
+                  <div key={id} className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${mine ? "bg-accentsoft/50" : "hover:bg-hover"}`}>
+                    <Avatar user={u ?? { name: "?", initials: "?", color: "var(--gray-9)" }} size={30} interactive />
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-2 text-[13px] font-semibold text-ink">
                         {u?.name ?? id}
-                        {mine && <span className="rounded bg-accent px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-white">{t("access.you")}</span>}
-                        {u?.globalRole === "admin" && <span className="rounded bg-danger px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-white">{t("access.resourceAdmin")}</span>}
+                        {mine && <span className="rounded bg-accent px-1.5 py-px text-[11px] font-medium text-onaccent">{t("access.you")}</span>}
+                        {u?.globalRole === "admin" && <span className="rounded bg-danger px-1.5 py-px text-[11px] font-medium text-onaccent">{t("access.resourceAdmin")}</span>}
                       </p>
                       {u?.role && <p className="text-[11px] text-faint">{u.role}</p>}
                     </div>
@@ -122,7 +122,7 @@ export default function PermissionsView() {
                       <select
                         value={role}
                         onChange={(e) => setMemberRole(id, e.target.value as ProjectRole)}
-                        className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:outline-none"
+                        className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:shadow-focus focus:outline-none"
                       >
                         {PROJECT_ROLES.map((r) => (
                           <option key={r} value={r}>{roleName(r)}</option>
@@ -148,12 +148,12 @@ export default function PermissionsView() {
             </div>
 
             {canManage && nonMembers.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 border-t border-linesoft bg-canvas/40 px-4 py-2.5">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("access.addMember")}</span>
+              <div className="flex flex-wrap items-center gap-2 border-t border-linesoft bg-sunken px-4 py-2.5">
+                <span className="text-[12px] font-medium text-faint">{t("access.addMember")}</span>
                 <select
                   value={addUser}
                   onChange={(e) => setAddUser(e.target.value)}
-                  className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:outline-none"
+                  className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:shadow-focus focus:outline-none"
                 >
                   <option value="">{t("access.select")}</option>
                   {nonMembers.map((u) => (
@@ -163,7 +163,7 @@ export default function PermissionsView() {
                 <select
                   value={addRole}
                   onChange={(e) => setAddRole(e.target.value as ProjectRole)}
-                  className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:outline-none"
+                  className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:shadow-focus focus:outline-none"
                 >
                   {PROJECT_ROLES.map((r) => (
                     <option key={r} value={r}>{roleName(r)}</option>
@@ -172,7 +172,7 @@ export default function PermissionsView() {
                 <button
                   onClick={doAdd}
                   disabled={!addUser}
-                  className="rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                  className="rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-semibold text-onaccent transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   {t("common.create")}
                 </button>
@@ -181,7 +181,7 @@ export default function PermissionsView() {
 
             {globalAdmins.length > 0 && (
               <div className="border-t border-linesoft px-4 py-2.5">
-                <p className="text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("access.resourceAdmins")}</p>
+                <p className="text-[12px] font-medium text-faint">{t("access.resourceAdmins")}</p>
                 <p className="mt-0.5 text-[10.5px] leading-relaxed text-faint">
                   {t("access.resourceAdminsHint")} {globalAdmins.map((u) => u.name).join(", ")}
                 </p>
@@ -200,19 +200,19 @@ export default function PermissionsView() {
         </div>
 
         {/* матрица разрешений */}
-        <div className="anim-fadeup mt-4 overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]" style={{ animationDelay: "110ms" }}>
-          <p className="border-b border-linesoft bg-canvas/60 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wider text-sub">
+        <div className="mt-4 overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
+          <p className="border-b border-linesoft bg-sunken px-4 py-2.5 text-[13px] font-medium text-sub">
             {t("access.matrix", { permissions: PERMISSIONS.length, roles: ROLE_ORDER.length })}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[12.5px]">
               <thead>
-                <tr className="border-b border-line bg-canvas/40">
-                  <th className="px-4 py-2.5 text-left text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("access.permission")}</th>
-                  <th className="w-20 px-2 py-2.5 text-left text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("access.scope")}</th>
+                <tr className="border-b border-line bg-sunken">
+                  <th className="px-4 py-2.5 text-left text-[12px] font-medium text-faint">{t("access.permission")}</th>
+                  <th className="w-20 px-2 py-2.5 text-left text-[12px] font-medium text-faint">{t("access.scope")}</th>
                   {ROLE_ORDER.map((r) => (
                     <th key={r} className={`w-[110px] px-2 py-2.5 text-center ${me.accessRole === r ? "bg-accentsoft/70" : ""}`}>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold" style={{ color: roleMeta(r).color }}>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold" style={{ color: roleMeta(r).color }}>
                         <span className="h-1.5 w-1.5 rounded-full" style={{ background: roleMeta(r).color }} />
                         {roleName(r).split(" ")[0]}
                       </span>
@@ -222,13 +222,13 @@ export default function PermissionsView() {
               </thead>
               <tbody>
                 {PERMISSIONS.map((p) => (
-                  <tr key={p.id} className="border-b border-linesoft transition-colors last:border-0 hover:bg-canvas/50">
+                  <tr key={p.id} className="border-b border-linesoft transition-colors last:border-0 hover:bg-hover">
                     <td className="px-4 py-2.5">
                       <p className="font-semibold text-ink">{t(`permission.${p.id}.name`)}</p>
                       <p className="mt-0.5 max-w-[440px] text-[11px] leading-snug text-faint">{t(`permission.${p.id}.desc`)}</p>
                     </td>
                     <td className="px-2 py-2.5">
-                      <span className="rounded bg-linesoft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sub">{t(`scope.${p.scope}`)}</span>
+                      <span className="rounded bg-linesoft px-1.5 py-0.5 text-[11.5px] font-medium text-sub">{t(`scope.${p.scope}`)}</span>
                     </td>
                     {ROLE_ORDER.map((r) => {
                       const ok = roleHas(r, p.id);
@@ -248,21 +248,21 @@ export default function PermissionsView() {
               </tbody>
             </table>
           </div>
-          <p className="border-t border-linesoft bg-canvas/40 px-4 py-2.5 text-[11px] text-faint">
+          <p className="border-t border-linesoft bg-sunken px-4 py-2.5 text-[11px] text-faint">
             {t("access.matrixHint")}
           </p>
         </div>
 
         {/* как это работает */}
-        <div className="anim-fadeup mt-4 grid gap-4 pb-8 md:grid-cols-3" style={{ animationDelay: "170ms" }}>
+        <div className="mt-4 grid gap-4 pb-8 md:grid-cols-3">
           {[
             { t: t("access.card.server"), d: t("access.card.serverDesc"), i: <IcShield size={16} /> },
             { t: t("access.card.ui"), d: t("access.card.uiDesc"), i: <IcEye size={16} /> },
             { t: t("access.card.workflow"), d: t("access.card.workflowDesc"), i: <IcCheck size={16} /> },
           ].map((c) => (
-            <div key={c.t} className="rounded-xl border border-line bg-panel p-4 shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
+            <div key={c.t} className="surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-4">
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accentsoft text-accent">{c.i}</span>
-              <p className="mt-2.5 text-[13px] font-bold text-ink">{c.t}</p>
+              <p className="mt-2.5 text-[13px] font-semibold text-ink">{c.t}</p>
               <p className="mt-1 text-[11.5px] leading-relaxed text-sub">{c.d}</p>
             </div>
           ))}

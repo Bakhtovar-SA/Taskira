@@ -267,9 +267,9 @@ export interface Data {
   issuesComplete: boolean;
   /** Приглашения текущего пользователя к задачам в проектах, которые ему не открыты. */
   collaborations: Collaboration[];
-  /** Лента уведомлений текущего пользователя (первая страница) + счётчик непрочитанных. */
-  notifications: NotificationT[];
-  unreadCount: number;
+  /* Лента уведомлений и счётчик непрочитанных — не здесь, а в отдельном хранилище
+     (`src/store/slices.ts`, `useNotifications()`; ADR-0011, шаг 2): их частые изменения
+     больше не перерисовывают всё дерево через общий контекст. */
   /** Настройки уведомлений текущего пользователя (из /api/auth/me). */
   notifyPrefs: NotifyPrefsT;
 }
@@ -313,7 +313,10 @@ export type ViewId =
   | "access"
   | "admin"
   | "docs"
-  | "collaborating";
+  | "collaborating"
+  /** Личный слой (ADR-0013 §1): уведомления и назначенные задачи по всем проектам. */
+  | "inbox"
+  | "my";
 
 /** Задача, к которой пользователя пригласили как collaborator'а (в чужом проекте).
  *  GET /api/issues/collaborating. Показывается в разделе «Мои подключения». */

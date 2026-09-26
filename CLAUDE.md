@@ -51,6 +51,8 @@ npm run dev         # Vite dev server on http://localhost:3000 (strictPort — f
 npm run build       # production build to dist/
 npm run typecheck   # tsc --noEmit
 npm test            # vitest run — permissions / validation / store helpers
+npm run bundle:check    # after build: gzip JS/CSS vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
+npm run perf:rerenders  # re-render measurement tables (src/perf/, ADR-0011); same file runs silently in npm test
 ```
 
 Server (run from `server/`):
@@ -131,7 +133,13 @@ required check). The old text-emitting `generate-client-contracts.mjs` / `contra
 
 ### Client data flow
 
-`src/store.tsx` is a single React Context (`StoreProvider` / `useStore`) — no reducer library.
+`src/store.tsx` is a React Context (`StoreProvider` / `useStore`) — no reducer library. Measured (ТЗ 5.2):
+every state change re-rendered the whole tree incl. all board cards; the accepted fix is a domain-by-domain move to
+`useSyncExternalStore` selector subscriptions behind the `useStore()` facade
+([ADR-0011](docs/adr/0011-store-selector-subscriptions.md)). Done so far (steps 0–2): board cards take stable props
+and columns are `memo` (`BoardColumn`), so they don't depend on the context; toasts and notifications live in
+external stores (`src/store/slices.ts`) — read them with `useToasts()` / `useNotifications()` / `useUnreadCount()`,
+they are **not** on `useStore()` anymore. Modal chunks are preloaded via `src/lazyModals.ts`.
 Boot sequence in `App.tsx` → `store.bootstrap()`: if no token in `localStorage` (`taskira.token`),
 show `LoginForm`; otherwise call `authApi.me()` + `projectsApi.bootstrap(id)` + `issuesApi.list()`
 and populate one flat `Data` object. `bootStatus` drives the shell:
@@ -149,9 +157,15 @@ carries `comments`/`activity` separately (fetched on demand when an issue modal 
 Mutations are optimistic-ish: call API, then patch `data` from the returned DTO; `moveStatus`
 re-fetches issues on failure to undo local drift.
 
-Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating`)
-are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs
-(`/p/:projectKey/<view>`, `/reports` — the one exception, project-less) by
+Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating | inbox | my`)
+are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs (ADR-0013 §5:
+`/p/:projectKey/{board,list,timeline,sprints}`, `/p/:projectKey/settings/{workflow,access}`, and project-less
+`/inbox`, `/my-issues`, `/reports`, `/admin/departments`, `/help`, `/shared` — a project-less path at boot opens that view
+inside the last project's shell instead of the home screen; old `/p/:projectKey/<view>` links still parse and are replaced
+in place — `samePlace()` in `src/router.ts`, query preserved; an open issue is `?issue=KEY` on the view path when
+shown as the right-hand panel (`ui.issueMode = "panel"`, Back closes it, `J`/`K` walk the view's `data-issue-id`
+order via `src/issueNav.ts`) and `/p/:projectKey/issue/:issueKey` when shown as a full page inside the sheet
+(`"page"` — used from Inbox, My issues and search, and by every shared link)) by
 `useRouterSync.ts` — `wouter` (ADR-0008), not a hand-rolled hash parser (ТЗ 3.1, plan v2
 Track 3; see that file's own header comment for the bidirectional-sync design and the
 race it guards against). `backlog` is internal id for the "Список задач" view
@@ -164,8 +178,11 @@ unique, so no project needs to be named to resolve it) before opening the issue;
 holds the pure path helpers/parser. `nginx.conf`'s `try_files $uri /index.html` (and Vite's
 dev-server default) is what makes a hard refresh on one of these paths work — required now
 that the path itself carries state, unlike the old hash-only scheme.
-Keyboard shortcuts (`/`, `C`, `1`–`9` for the nine views, `Esc`) are wired in `App.tsx`;
-they are suppressed while a modal is open. `reports` (`ReportsView.tsx`) is project-less —
+Keyboard shortcuts (`/`, `C`, `1`–`4` for the project views — board/list/timeline/sprints, `G` then `H`/`I`/`M`/`R`/`S` for
+home/inbox/my issues/reports/project settings, `[` collapses the sidebar to an icon rail (`taskira.sidebar.collapsed`), `Esc`, `?` help — ADR-0013 §7) are wired in `App.tsx`;
+they are suppressed while a modal is open. `⌘K`/`Ctrl+K` (matched by `e.code`, so it works in the Russian layout)
+opens the command palette from anywhere (`CommandPalette.tsx`, lazy chunk; `src/palette/` — fuzzy + wrong-layout
+matching, recent issues in `localStorage`, `openPalette()` event for buttons). `reports` (`ReportsView.tsx`) is project-less —
 it reads `/api/reports/*`, which scope themselves to the user's visible projects.
 
 The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `issues`,
@@ -603,20 +620,32 @@ since any edit touches it. The board shows the last 14 days in its done column
   the client has no router and no drag lib wired in; hash routing is hand-rolled in `App.tsx`.
 - CI (`.github/workflows/test.yml`) now has a `client` job (root `npm run typecheck` +
   `npm test` + `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
-- **Theming** (`src/theme.ts` + `src/index.css`): the palette lives in plain custom
-  properties on `:root` / `:root[data-theme="dark"]` (`--c-canvas`, …); `@theme` only
-  aliases them (`--color-canvas: var(--c-canvas)`) so `bg-canvas` / `text-ink` / etc.
-  resolve live per theme. **Don't add raw `#hex` to components** — use a token class or
-  `var(--c-*)` in inline styles, otherwise it won't dark-theme. `catColor()` in `ui.tsx`
-  returns `var(--c-*)`. Theme mode (`system|light|dark`) and one of 6 background presets
-  are in `localStorage` only (`taskira.theme` / `taskira.bg`), applied to `<html>` by
-  `applyTheme()`; the profile-menu "Оформление" popup (`AppearanceSettings` in `ui.tsx`)
-  is the UI. Sidebar-internal colors stay hardcoded (the rail is dark in both themes).
-- **Responsive layout**: below 768px the issue modal's right-hand panel (status, assignee,
-  due date, labels) collapses under the main content instead of sitting beside it, the
-  sidebar hides in favor of a native `<select>` in `Topbar.tsx` carrying the same sections
-  and visibility rules (admin-only "Департаменты", collab-only "Мои подключения"), and view
-  side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
+- **Theming / design tokens** (ADR-0012 + ADR-0016, [docs/design/DESIGN.md](docs/design/DESIGN.md)): every colour lives in
+  `src/styles/tokens.css` — OKLCH primitives (`--violet-*`, `--gray-*`, hue 288) → semantic tokens (`--bg-*`,
+  `--text-1/2/3`, `--border-*`, `--accent-*`, `--status-*`, `--elev-*`) → aliases of the old `--c-*` names, so old
+  classes (`bg-canvas`, `text-ink`, …) still resolve ([docs/design/ALIASES.md](docs/design/ALIASES.md)). Themes
+  override only the semantic layer. **Don't add raw `#hex`/`rgb()` to components** — `npm run colors:check` fails CI;
+  `npm run contrast:check` fails CI if a declared text/background pair drops below 4.5:1. Theme and atmosphere preset
+  are `<html>` attributes (`data-theme`, `data-atmosphere`) set by `applyTheme()`
+  and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg`).
+  ADR-0016 (supersedes parts of 0012): the sidebar (`.glass-side`) and the work sheet (`.glass-sheet`) are glass over
+  the atmosphere glow on `body` (no grain); popovers/menus/toasts use `.glass`; never glass on task cards or forms.
+  Font is Manrope only (vendored in `src/assets/fonts/`); `font-mono` in the UI means issue keys = Manrope with tabular
+  numerals, real code uses `--font-code`. Icons are the in-house duotone set in `src/icons.tsx` (`tone` prop for nav
+  colours); logo is `<Logo variant="mark|mono|app">`, app-icon files come from `scripts/generate-brand-assets.mjs`.
+- **Dynamic style values under the CSP** ([ADR-0010](docs/adr/0010-dynamic-styles-under-csp.md), verified in Chromium by
+  `npm run csp:spike`): CSSOM writes (`el.style.x`, `setProperty('--x')`, WAAPI `el.animate`) are allowed by
+  `style-src-attr 'none'`; `style=""` in markup, `setAttribute('style')` and `<style>` are blocked. `secure-jsx`
+  currently turns every distinct `style` value into a new rule in `public/dynamic.css` (unbounded) — for continuous
+  values (positions, progress, colours from data) set a custom property via ref/CSSOM and consume it from a static rule;
+  enumerable states go in `data-*` attributes. Browser matrix: [docs/design/BROWSERS.md](docs/design/BROWSERS.md).
+- **Responsive layout**: below 1024px the sidebar is a drawer over the content, opened by the
+  «Меню» button in `Topbar.tsx` (`openSidebarDrawer()`), closed by navigation / Esc / the scrim; the
+  project view tabs stay in the header, icon-only for inactive tabs, and the search box idles as a
+  magnifier. `.glass-edge` sets `position: relative` unlayered, so the drawer's `position: fixed`
+  lives in `index.css` (`.side-drawer`), not in a Tailwind utility. Below 768px the issue modal's
+  right-hand panel (status, assignee, due date, labels) collapses under the main content, the board
+  scrolls column-by-column with snap, and view side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
   don't assume mobile parity for anything not explicitly listed here.
 - **`<Dropdown>` (`ui.tsx`) is the only correct way to build a popup menu** — it closes on
   outside click, on Escape, and on any *other* dropdown opening (`DROPDOWN_OPEN_EVT`, a
