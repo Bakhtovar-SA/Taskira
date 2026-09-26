@@ -219,6 +219,7 @@ const Card = memo(function Card({
       onPointerEnter={preloadIssueModal}
       onFocus={preloadIssueModal}
       onClick={() => openIssue(issue.id)}
+      data-issue-id={issue.id}
       className={`board-card group relative flex cursor-pointer flex-col gap-2 rounded-[10px] px-[11px] py-2.5 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
       {/* верх: глиф статуса, ключ, тип (кроме обычной задачи), справа — кнопка

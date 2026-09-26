@@ -31,7 +31,7 @@ import {
 import type { StoreCtx } from "./ctx";
 import { parsePath } from "../router";
 import { EMPTY_NOTIFICATIONS } from "./slices";
-import type { BootStatus, SoloState, UIState } from "./mappers";
+import type { BootStatus, IssueMode, SoloState, UIState } from "./mappers";
 
 export interface SessionDeps {
   setBootStatus: Dispatch<SetStateAction<BootStatus>>;
@@ -248,14 +248,14 @@ export function useSessionActions(
   // на <BootSkeleton/> — компонент поиска со своим локальным ref размонтируется и
   // отслеживание "какую задачу открыть после переключения" терялось бы вместе с ним.
   // Держим его здесь, в StoreProvider, которого этот размонт не касается.
-  const pendingOpenIssueRef = useRef<{ projectId: string; issueId: string } | null>(null);
+  const pendingOpenIssueRef = useRef<{ projectId: string; issueId: string; mode?: IssueMode } | null>(null);
   const switchProject = useCallback(
-    (projectId: string, openIssueId?: string) => {
+    (projectId: string, openIssueId?: string, mode?: IssueMode) => {
       // Любой вызов без openIssueId — обычная навигация (ProjectSwitcher, HomeView, …),
       // которая отменяет ранее поставленное намерение "открыть задачу после переключения".
       // Без этого сброса задача из давно отменённого/перебитого поиска могла бы
       // неожиданно открыться при обычном возврате в тот же проект позже.
-      pendingOpenIssueRef.current = openIssueId ? { projectId, issueId: openIssueId } : null;
+      pendingOpenIssueRef.current = openIssueId ? { projectId, issueId: openIssueId, mode } : null;
       const cur = dataRef.current;
       if (projectId === cur.currentProjectId || !cur.projects.some((p) => p.id === projectId)) return;
       const seq = ++switchSeqRef.current;
@@ -338,7 +338,7 @@ export function useSessionActions(
     setData(emptyData());
     resetNotifications();
     setSolo(null);
-    setUi({ view: "board", selectedIssueId: null, createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
+    setUi({ view: "board", selectedIssueId: null, issueMode: "panel", createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
     setBootStatus("unauthenticated");
   }, [resetNotifications]);
 
@@ -412,8 +412,8 @@ export function useSessionActions(
   }, []);
 
   const openIssue = useCallback(
-    (id: string | null) => {
-      setUi((u) => ({ ...u, selectedIssueId: id }));
+    (id: string | null, mode: IssueMode = "panel") => {
+      setUi((u) => ({ ...u, selectedIssueId: id, issueMode: id ? mode : "panel" }));
       if (!id) return;
       const requestProjectId = pid();
       if (!requestProjectId) return; // SEC-01: после выхода pid() = "", и guard `"" === ""` пропустил бы ответ

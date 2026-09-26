@@ -194,4 +194,63 @@ describe("useRouterSync — URL → состояние, полный путь (�
     expect(get().ui.view).toBe("board");
     expect(location.pathname).toBe("/p/BB/board");
   });
+
+  test("панель задачи — ?issue=KEY поверх вида; полная страница — /p/KEY/issue/KEY; «назад» закрывает (ADR-0013 §3)", async () => {
+    history.pushState(null, "", pathForView("AA", "board"));
+    install();
+    const dto = {
+      id: I1, projectId: P1, num: 1, key: "AA-1", title: "т", description: "", typeId: "task", statusId: "s1",
+      priorityId: "medium", assigneeIds: [], reporterId: "u1", epicId: null, parentId: null, sprintId: null, color: null,
+      tStart: null, tSpan: null, complexity: null, labels: [], dueDate: null, rank: 0,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), doneAt: null, archivedAt: null,
+    };
+    vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [dto], hasMore: false, nextCursor: null } as never);
+    vi.spyOn(issuesApi, "get").mockResolvedValue(dto as never);
+    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    const get = mount();
+    await settle();
+
+    act(() => get().openIssue(I1));
+    await settle();
+    expect(location.pathname).toBe("/p/AA/board");
+    expect(location.search).toBe("?issue=AA-1");
+
+    act(() => get().openIssue(I1, "page"));
+    await settle();
+    expect(location.pathname).toBe(pathForIssue("AA", "AA-1"));
+    expect(location.search).toBe("");
+
+    act(() => { history.back(); });
+    await settle();
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(get().ui.issueMode).toBe("panel");
+
+    act(() => { history.back(); });
+    await settle();
+    expect(location.search).toBe("");
+    expect(get().ui.selectedIssueId).toBeNull();
+  });
+
+  test("ссылка /p/KEY/list?issue=KEY открывает Список и панель задачи над ним", async () => {
+    history.pushState(null, "", "/p/BB/list?priority=high&issue=BB-7");
+    install();
+    vi.spyOn(issuesApi, "resolve").mockResolvedValue({ id: I1, projectId: P2, projectKey: "BB" });
+    vi.spyOn(issuesApi, "get").mockResolvedValue({
+      id: I1, projectId: P2, num: 7, key: "BB-7", title: "т", description: "", typeId: "task", statusId: "s1",
+      priorityId: "medium", assigneeIds: [], reporterId: "u1", epicId: null, parentId: null, sprintId: null, color: null,
+      tStart: null, tSpan: null, complexity: null, labels: [], dueDate: null, rank: 0,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), doneAt: null, archivedAt: null,
+    } as never);
+    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    const get = mount();
+    await settle();
+    await settle();
+    expect(get().ui.view).toBe("backlog");
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(get().ui.issueMode).toBe("panel");
+    expect(location.pathname).toBe("/p/BB/list");
+    expect(new URLSearchParams(location.search).get("priority")).toBe("high");
+  });
 });

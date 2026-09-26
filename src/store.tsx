@@ -22,7 +22,7 @@ import {
   statusById,
 } from "./store/mappers";
 import { createSlices, EMPTY_NOTIFICATIONS, SlicesCtx } from "./store/slices";
-import type { BootStatus, CreateInput, SoloState, StoreIndexes, UIState } from "./store/mappers";
+import type { BootStatus, CreateInput, IssueMode, SoloState, StoreIndexes, UIState } from "./store/mappers";
 
 import type { StoreCtx } from "./store/ctx";
 import { useSprintActions } from "./store/sprints";
@@ -46,7 +46,7 @@ interface Api {
   solo: SoloState | null;
   can: (perm: PermId, issue?: Issue) => boolean;
   bootstrap: () => Promise<void>;
-  switchProject: (projectId: string, openIssueId?: string) => void;
+  switchProject: (projectId: string, openIssueId?: string, mode?: IssueMode) => void;
   /** Показать главный экран (`<HomeView>`), не выгружая текущий проект. */
   goHome: () => void;
   /** Войти в проект с главного экрана (переключить, если это другой проект). */
@@ -63,7 +63,8 @@ interface Api {
   removeAvatar: () => Promise<void>;
   logout: () => void;
   setView: (v: ViewId) => void;
-  openIssue: (id: string | null) => void;
+  /** Открыть задачу панелью (по умолчанию) или полной страницей; null — закрыть. */
+  openIssue: (id: string | null, mode?: IssueMode) => void;
   clearCollabOpenIssueId: () => void;
   setCreateOpen: (v: boolean) => void;
   openCreateSubtask: (parentId: string) => void;
@@ -162,6 +163,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [ui, setUi] = useState<UIState>({
     view: "board",
     selectedIssueId: null,
+    issueMode: "panel",
     createOpen: false,
     createParentId: null,
     lastEvent: null,
@@ -292,7 +294,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const pending = pendingOpenIssueRef.current;
     if (pending && pending.projectId === data.currentProjectId) {
       pendingOpenIssueRef.current = null;
-      openIssue(pending.issueId);
+      openIssue(pending.issueId, pending.mode);
     }
   }, [data.currentProjectId, openIssue]);
 
@@ -425,7 +427,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     uploadAvatar,
     removeAvatar,
     logout,
-    setView: (v) => setUi((u) => ({ ...u, view: v })),
+    // Переход к представлению закрывает полную страницу задачи (панель остаётся — это слой поверх).
+    setView: (v) => setUi((u) => (u.selectedIssueId && u.issueMode === "page" ? { ...u, view: v, selectedIssueId: null, issueMode: "panel" } : { ...u, view: v })),
     openIssue,
     // ТЗ 3.1: прямая ссылка на приглашённую задачу выставляет collabOpenIssueId
     // (bootstrap()/useRouterSync); CollaboratingView подхватывает его один раз на

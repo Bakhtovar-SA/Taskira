@@ -86,7 +86,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   const dateLine = new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
 
   const openTask = (item: Pick<AssignedIssue, "projectId" | "issueId">) => {
-    switchProject(item.projectId, item.issueId);
+    switchProject(item.projectId, item.issueId, "page");
   };
 
   return (

@@ -82,9 +82,14 @@ export interface SoloState {
   openTarget: { projectId: string; issueId: string } | null;
 }
 
+/** Как показана открытая задача (ADR-0013 §3): панель справа поверх представления
+ *  (`?issue=KEY`) или полная страница (`/p/:key/issue/:issueKey`). */
+export type IssueMode = "panel" | "page";
+
 export interface UIState {
   view: ViewId;
   selectedIssueId: string | null;
+  issueMode: IssueMode;
   createOpen: boolean;
   /** Родитель для «+ добавить подзадачу» (миграция 021) — CreateIssueModal
    *  предзаполняет им поле и делает его нередактируемым. null — обычное

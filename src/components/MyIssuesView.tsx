@@ -32,7 +32,8 @@ export default function MyIssuesView() {
     );
   }, [data.assignedToMe, focus, data.currentProjectId]);
 
-  const open = (i: AssignedIssue) => (i.projectId === data.currentProjectId ? openIssue(i.issueId) : switchProject(i.projectId, i.issueId));
+  // Полной страницей: контекста доски здесь нет (ADR-0013 §3).
+  const open = (i: AssignedIssue) => (i.projectId === data.currentProjectId ? openIssue(i.issueId, "page") : switchProject(i.projectId, i.issueId, "page"));
 
   return (
     <div className="h-full overflow-y-auto">

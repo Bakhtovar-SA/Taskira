@@ -72,8 +72,9 @@ export default function CommandPalette({ onClose, onShortcuts }: { onClose: () =
     fn();
   };
 
+  // Найденная задача — полной страницей (ADR-0013 §3: «из поиска»).
   const openFound = (projectId: string, id: string) =>
-    projectId === data.currentProjectId ? openIssue(id) : switchProject(projectId, id);
+    projectId === data.currentProjectId ? openIssue(id, "page") : switchProject(projectId, id, "page");
 
   // Задачи — серверным поиском по всем проектам, с паузой 200 мс, от двух символов.
   const term = q.trim();
@@ -350,6 +351,12 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       items: [
         [<Kbd key="enter">↵</Kbd>, "shortcuts.openCard"],
         [<Kbd key="m">M</Kbd>, "shortcuts.moveCard"],
+        [
+          <span key="jk" className="flex items-center gap-1">
+            <Kbd>J</Kbd> <Kbd>K</Kbd>
+          </span>,
+          "shortcuts.nextPrev",
+        ],
       ],
     },
   ];

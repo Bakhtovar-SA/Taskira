@@ -49,8 +49,9 @@ export default function InboxView() {
   const go = (n: NotificationT) => {
     if (!n.read) markNotificationsRead([n.id]);
     // Тот же проект — открыть сразу; другой — switchProject откроет задачу после переключения.
-    if (n.issueId && n.projectId === data.currentProjectId) openIssue(n.issueId);
-    else if (n.issueId && n.projectId) switchProject(n.projectId, n.issueId);
+    // Из Входящих — полной страницей: контекста доски здесь нет (ADR-0013 §3).
+    if (n.issueId && n.projectId === data.currentProjectId) openIssue(n.issueId, "page");
+    else if (n.issueId && n.projectId) switchProject(n.projectId, n.issueId, "page");
   };
 
   // J/K — по ленте, Enter — открыть, E — прочитано (как во входящих Linear и почты).

@@ -111,7 +111,9 @@ function Shell() {
   // но порядок вызовов хуков это не меняет — оба всегда выполняются на каждом рендере.
   useRouterSync();
 
-  const modalOpen = !!ui.selectedIssueId || ui.createOpen || paletteOpen || helpOpen;
+  // Полная страница задачи — не модалка: цифры и G-переходы уводят с неё, как с любого экрана.
+  const issuePage = !!ui.selectedIssueId && ui.issueMode === "page";
+  const modalOpen = (!!ui.selectedIssueId && !issuePage) || ui.createOpen || paletteOpen || helpOpen;
 
   // Чанки модалок — в простое после входа, не на критическом пути первого экрана (PERF-BUDGET п. 3).
   useEffect(() => {
@@ -221,13 +223,15 @@ function Shell() {
         <main className="min-h-0 flex-1">
           {/* Граница вокруг контента, а не всего приложения: сайдбар и шапка
               переживают падение раздела, и из него можно уйти. */}
-          <ErrorBoundary resetKey={ui.view} copy={{
+          <ErrorBoundary resetKey={issuePage ? `issue:${ui.selectedIssueId}` : ui.view} copy={{
             title: t("errorBoundary.title"),
             body: t("errorBoundary.body"),
             retry: t("errorBoundary.retry"),
             reload: t("errorBoundary.reload"),
           }}>
-          <Suspense fallback={<BootSkeleton />}><div key={ui.view} className="anim-fadeup h-full">
+          <Suspense fallback={<BootSkeleton />}>{issuePage ? (
+            <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>
+          ) : (<div key={ui.view} className="anim-fadeup h-full">
             {ui.view === "board" && <Board />}
             {ui.view === "backlog" && <Backlog />}
             {ui.view === "sprints" && <SprintsView />}
@@ -240,14 +244,14 @@ function Shell() {
             {ui.view === "collaborating" && <CollaboratingView />}
             {ui.view === "inbox" && <InboxView />}
             {ui.view === "my" && <MyIssuesView />}
-          </div></Suspense>
+          </div>)}</Suspense>
           </ErrorBoundary>
         </main>
        </div>
       </div>
 
       <Suspense fallback={null}>
-        {ui.selectedIssueId && <IssueModal />}
+        {ui.selectedIssueId && !issuePage && <IssueModal />}
         {ui.createOpen && <CreateIssueModal />}
         {paletteOpen && (
           <CommandPalette

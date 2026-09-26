@@ -46,6 +46,7 @@ function Row({
   return (
     <div
       onClick={() => openIssue(issue.id)}
+      data-issue-id={issue.id}
       className={`group flex h-11 cursor-pointer items-center gap-3 border-b border-linesoft/80 px-4 transition-colors last:border-0 hover:bg-hover/60 ${selected ? "bg-accentsoft/50" : "bg-panel"}`}
     >
       {/* ТЗ 3.3: чекбоксы появляются только в режиме выделения — не занимают

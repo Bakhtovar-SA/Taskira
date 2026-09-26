@@ -6,12 +6,15 @@ import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
-import { IcCalendar, IcCheck, IcChevD, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { IcCalendar, IcCheck, IcChevD, IcChevR, IcExpand, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
 import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
 import { freshRows, useIssue, useIssueSet, useIssuesRevision, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { workflowStatusName } from "../workflowStatus";
+import { neighborIssue, revealIssue } from "../issueNav";
+import type { IssueMode } from "../store/mappers";
+import { VIEW_LABEL } from "./Topbar";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -586,7 +589,7 @@ function LinksField({ issue }: { issue: Issue }) {
   );
 }
 
-export default function IssueModal() {
+export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const { t, lang } = useT();
   const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
   const issue = data.issues.find((i) => i.id === ui.selectedIssueId);
@@ -604,6 +607,31 @@ export default function IssueModal() {
     setConfirmDel(false);
     setLabelInput("");
   }, [ui.selectedIssueId]);
+
+  // J / K — соседняя задача текущего представления, панель не закрывается (ADR-0013 §3).
+  const selectedId = ui.selectedIssueId;
+  const go = (dir: 1 | -1) => {
+    const next = selectedId ? neighborIssue(selectedId, dir) : null;
+    if (!next) return false;
+    openIssue(next);
+    revealIssue(next);
+    return true;
+  };
+  const goRef = useRef(go);
+  goRef.current = go;
+  useEffect(() => {
+    if (mode !== "panel") return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const dir = k === "j" || k === "о" ? 1 : k === "k" || k === "л" ? -1 : 0;
+      if (dir && goRef.current(dir)) e.preventDefault();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mode]);
 
   // Эпик и родитель открытой задачи — точечные запросы по id (или кэш), а не поиск в списке всех задач.
   const epic = useIssue(issue?.epicId);
@@ -679,10 +707,24 @@ export default function IssueModal() {
     }
   };
 
-  return (
-    <Modal variant="panel" onClose={() => openIssue(null)} w={980} title={t("issueModal.title", { key: issue.key, title: issue.title })}>
+  const page = mode === "page";
+  const hasPrev = !page && !!neighborIssue(issue.id, -1);
+  const hasNext = !page && !!neighborIssue(issue.id, 1);
+  const iconBtn = "flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-35";
+
+  const content = (
+    <>
       {/* шапка */}
-      <div className="flex items-center gap-2 border-b border-linesoft px-5 py-3">
+      <div className={`flex items-center gap-2 border-b border-linesoft px-5 py-3 ${page ? "sticky top-0 z-10 bg-[color-mix(in_oklch,var(--bg-canvas)_82%,transparent)] backdrop-blur-md" : ""}`}>
+        {page && (
+          <>
+            <button onClick={() => openIssue(null)} className="-ml-1.5 flex h-7 items-center gap-1 rounded-md pl-1 pr-2 text-[12.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">
+              <IcChevR size={13} className="rotate-180" />
+              {t(VIEW_LABEL[ui.view])}
+            </button>
+            <span className="text-line2">/</span>
+          </>
+        )}
         <span title={t(`issueType.${issue.typeId}`)} className="flex items-center">
           <TypeIcon type={issue.typeId} size={16} />
         </span>
@@ -705,6 +747,20 @@ export default function IssueModal() {
             <span className="mr-1 flex items-center gap-1.5 rounded bg-warnsoft px-2 py-1 text-[11.5px] font-medium text-warn" title={denyMsg}>
               <IcEye size={11} /> {t("issue.readOnly")}
             </span>
+          )}
+          {!page && (
+            <>
+              <button onClick={() => go(-1)} disabled={!hasPrev} className={iconBtn} title={`${t("issue.prev")} · K`} aria-label={t("issue.prev")}>
+                <IcChevD size={15} className="rotate-180" />
+              </button>
+              <button onClick={() => go(1)} disabled={!hasNext} className={iconBtn} title={`${t("issue.next")} · J`} aria-label={t("issue.next")}>
+                <IcChevD size={15} />
+              </button>
+              <span className="mx-0.5 h-4 w-px bg-linesoft" />
+              <button onClick={() => openIssue(issue.id, "page")} className={iconBtn} title={t("issue.openFull")} aria-label={t("issue.openFull")}>
+                <IcExpand size={15} />
+              </button>
+            </>
           )}
           <button onClick={copyLink} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink" title={t("issue.copyLink")}>
             <IcLink size={15} />
@@ -1247,6 +1303,19 @@ export default function IssueModal() {
           </div>
         </aside>
       </div>
+    </>
+  );
+
+  // Полная страница (ADR-0013 §3): та же карточка внутри листа, вместо представления.
+  if (page)
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="mx-auto max-w-[1180px]">{content}</div>
+      </div>
+    );
+  return (
+    <Modal variant="panel" onClose={() => openIssue(null)} w={980} title={t("issueModal.title", { key: issue.key, title: issue.title })}>
+      {content}
     </Modal>
   );
 }

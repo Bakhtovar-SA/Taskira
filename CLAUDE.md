@@ -162,7 +162,10 @@ are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs
 `/p/:projectKey/{board,list,timeline,sprints}`, `/p/:projectKey/settings/{workflow,access}`, and project-less
 `/inbox`, `/my-issues`, `/reports`, `/admin/departments`, `/help`, `/shared` — a project-less path at boot opens that view
 inside the last project's shell instead of the home screen; old `/p/:projectKey/<view>` links still parse and are replaced
-in place — `samePlace()` in `src/router.ts`, query preserved) by
+in place — `samePlace()` in `src/router.ts`, query preserved; an open issue is `?issue=KEY` on the view path when
+shown as the right-hand panel (`ui.issueMode = "panel"`, Back closes it, `J`/`K` walk the view's `data-issue-id`
+order via `src/issueNav.ts`) and `/p/:projectKey/issue/:issueKey` when shown as a full page inside the sheet
+(`"page"` — used from Inbox, My issues and search, and by every shared link)) by
 `useRouterSync.ts` — `wouter` (ADR-0008), not a hand-rolled hash parser (ТЗ 3.1, plan v2
 Track 3; see that file's own header comment for the bidirectional-sync design and the
 race it guards against). `backlog` is internal id for the "Список задач" view

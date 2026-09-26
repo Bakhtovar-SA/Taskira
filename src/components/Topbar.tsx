@@ -9,7 +9,7 @@ import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
 import { PROJECT_VIEWS, openSidebarDrawer } from "./Sidebar";
 
-const VIEW_LABEL: Record<ViewId, TKey> = {
+export const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
   backlog: "sidebar.nav.backlog",
   sprints: "sidebar.nav.sprints",
@@ -112,10 +112,11 @@ export function SearchBox() {
   };
 
   const openRemote = (item: SearchResultItem) => {
+    // Из поиска — полной страницей (ADR-0013 §3).
     if (item.projectId === data.currentProjectId) {
-      openIssue(item.id);
+      openIssue(item.id, "page");
     } else {
-      switchProject(item.projectId, item.id);
+      switchProject(item.projectId, item.id, "page");
     }
     closeAfterPick();
   };
@@ -234,7 +235,7 @@ export function SearchBox() {
                   key={i.id}
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    openIssue(i.id);
+                    openIssue(i.id, "page");
                     closeAfterPick();
                   }}
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-hover/70"

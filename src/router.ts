@@ -58,10 +58,9 @@ const dec = (s: string) => {
 export const pathForView = (projectKey: string, view: ViewId): string =>
   GLOBAL_PATH[view] ?? `/p/${enc(projectKey)}/${PROJECT_SEGMENT[view] ?? view}`;
 
-/** URL прямой ссылки на задачу — всегда открывает её поверх доски (ТЗ 3.1 п.2:
- *  «модалка задачи открыта поверх доски сразу»), независимо от того, на каком виде
- *  задачу открыли — не о полноте истории навигации, а о простоте и предсказуемости
- *  адреса, который можно вставить в письмо. */
+/** URL прямой ссылки на задачу — полная страница задачи (ADR-0013 §3), независимо от того,
+ *  на каком виде задачу открыли: простой и предсказуемый адрес, который можно вставить в
+ *  письмо. Панель поверх представления — это `?issue=KEY` к пути вида (`useRouterSync.ts`). */
 export const pathForIssue = (projectKey: string, issueKey: string): string =>
   `/p/${enc(projectKey)}/issue/${enc(issueKey)}`;
 
