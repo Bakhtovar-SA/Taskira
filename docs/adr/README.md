@@ -35,3 +35,4 @@
 | [0014](./0014-component-library-native-primitives.md) | Библиотека компонентов: свои на нативных `<dialog>` и Popover API + `@floating-ui/dom`; не Radix | Accepted | 2026-09-26 |
 | [0015](./0015-motion-waapi-css.md) | Движение: CSS + WAAPI + View Transitions, без библиотеки | Accepted | 2026-09-25 |
 | [0016](./0016-design-language-v2.md) | Язык дизайна v2: Manrope, стекло хрома, знак «Отметка», двухтоновые иконки | Accepted | 2026-09-25 |
+| [0017](./0017-project-templates-as-data.md) | Шаблоны проектов — данные над существующими настройками; свои статусы у проекта; не флаги возможностей | Accepted | 2026-09-27 |

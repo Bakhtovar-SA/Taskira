@@ -4,7 +4,7 @@ import type { z } from "zod";
 import { one, q, withTransaction } from "../db.js";
 import { badRequest, notFound, requirePerm, zbody, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
-import { conflict, DEFAULT_TRANSITIONS, getWorkflow, mapTransition, statusName } from "../services/workflow.js";
+import { conflict, DEFAULT_STATUSES, DEFAULT_TRANSITIONS, getWorkflow, mapTransition, statusName } from "../services/workflow.js";
 import { TransitionCreateBody } from "../contract.js";
 
 export async function workflowRoutes(app: FastifyInstance): Promise<void> {
@@ -82,6 +82,11 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
       [project.id],
     );
     const bySid = new Map(statuses.map((s) => [s.sid, s.id]));
+    // Проект из шаблона (ТЗ 5.10) со своими статусами: стандартные 8 переходов ссылаются на todo/inprogress/
+    // review/done — без них сброс удалил бы все переходы и оставил проект без процесса.
+    if (DEFAULT_STATUSES.some((d) => !bySid.has(d.sid))) {
+      throw conflict("У проекта свои статусы (создан из шаблона) — сброс к стандартной схеме недоступен. Переходы меняются по одному.");
+    }
 
     await withTransaction(async (client) => {
       await client.query(`DELETE FROM workflow_transitions WHERE project_id = $1`, [project.id]);

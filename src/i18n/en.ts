@@ -716,6 +716,8 @@ const en: Record<keyof Dict, string> = {
   "permission.manageCollaborators.desc": "Invite someone to one issue without adding them to the project.",
   "permission.manageSprints.name": "Manage sprints",
   "permission.manageSprints.desc": "Create, start, and complete sprints; move issues between the backlog and sprints.",
+  "permission.saveProjectTemplate.name": "Save project as template",
+  "permission.saveProjectTemplate.desc": "Save the project's statuses, transitions, fields, issue templates and labels as an organization template.",
   "access.matrixHint": "* Employees can edit and move only issues where they are the assignee or reporter. Access and workflow management are restricted to resource administrators. Your current role column is highlighted.",
   "access.card.server": "Server enforcement",
   "access.card.serverDesc": "Every operation rechecks the effective role and project membership on the server.",

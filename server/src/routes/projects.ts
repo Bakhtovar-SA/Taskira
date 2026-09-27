@@ -21,12 +21,13 @@ import {
 } from "../middleware.js";
 import { conflict, getWorkflow, seedProjectWorkflow } from "../services/workflow.js";
 import { listIssueTemplates } from "../services/issueTemplates.js";
+import { applyProjectTemplate, getProjectTemplate } from "../services/projectTemplates.js";
 import { listCustomFields } from "../services/customFields.js";
 import { listSprints } from "../services/sprints.js";
 import { addFavoriteProject, removeFavoriteProject } from "../services/favorites.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
-import { invalidateProjectCache } from "../services/project.js";
+import { invalidateProjectCache, projectById } from "../services/project.js";
 import { listVisibleProjects, projectRowToDto, type ProjectDto } from "../services/projects.js";
 import { storageKeysForProject, deleteStorageObjects } from "../services/attachments.js";
 import { ProjectCreateBody, ProjectParams, ProjectPatchBody } from "../contract.js";
@@ -39,26 +40,10 @@ interface MemberRow {
 }
 
 async function projectDtoById(id: string): Promise<ProjectDto | null> {
-  const r = await one<{
-    id: string;
-    key: string;
-    name: string;
-    description: string;
-    department_id: string;
-    is_shared: boolean;
-    sprints_enabled: boolean;
-  }>(`SELECT id, key, name, description, department_id, is_shared, sprints_enabled FROM projects WHERE id = $1`, [id]);
-  return r
-    ? {
-        id: r.id,
-        key: r.key,
-        name: r.name,
-        description: r.description,
-        departmentId: r.department_id,
-        isShared: r.is_shared,
-        sprintsEnabled: r.sprints_enabled,
-      }
-    : null;
+  // Без кэша projectById: сразу после создания/правки нужна свежая строка.
+  invalidateProjectCache(id);
+  const p = await projectById(id);
+  return p ? projectRowToDto(p) : null;
 }
 
 export async function projectsRoutes(app: FastifyInstance): Promise<void> {
@@ -77,6 +62,9 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
 
       const dep = await one<{ id: string }>(`SELECT id FROM departments WHERE id = $1`, [body.departmentId]);
       if (!dep) throw badRequest("Отдел не найден");
+      // ТЗ 5.10: шаблон проекта. Неизвестный id — 400 до начала транзакции, а не полупроект.
+      const template = body.templateId ? await getProjectTemplate(body.templateId) : null;
+      if (body.templateId && !template) throw badRequest("Шаблон проекта не найден");
 
       let projectId: string;
       try {
@@ -87,14 +75,24 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
               [body.key, body.name, body.description, body.departmentId, body.isShared, body.sprintsEnabled],
             );
           const id = created.rows[0].id;
-          await seedProjectWorkflow(id, client);
+          // Всё — в одной транзакции: сбой на любом шаге (статус, поле, участник) не оставляет полупроекта.
+          if (template) await applyProjectTemplate(client, id, template.spec);
+          else await seedProjectWorkflow(id, client);
+          for (const m of body.members) {
+            await client.query(
+              `INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)
+               ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+              [id, m.userId, m.role],
+            );
+          }
           return id;
         });
       } catch (e) {
         if ((e as { code?: string }).code === "23505") throw conflict("Проект с таким ключом уже есть");
+        if ((e as { code?: string }).code === "23503") throw badRequest("Участник не найден");
         throw e;
       }
-      await audit(actor.sub, "project.create", "project", projectId, { key: body.key });
+      await audit(actor.sub, "project.create", "project", projectId, { key: body.key, template: template?.id ?? null, members: body.members.length });
       reply.code(201).send(await projectDtoById(projectId));
     },
   );

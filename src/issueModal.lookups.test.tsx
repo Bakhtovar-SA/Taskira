@@ -41,7 +41,7 @@ const user = {
   isActive: true,
   authSource: "local" as const,
 };
-const project = { id: "p1", key: "A21", name: "Проект", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false };
+const project = { id: "p1", key: "A21", name: "Проект", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [] };
 const boot: ProjectBootstrap = {
   project,
   users: [user as never],

@@ -316,6 +316,8 @@
 | `departmentId` | string (uuid) |  |
 | `isShared` | boolean | необязательное; по умолчанию false |
 | `sprintsEnabled` | boolean | необязательное; по умолчанию false |
+| `templateId` | string | необязательное; длина 0…64 |
+| `members` | array&lt;object&gt; | необязательное; по умолчанию []; 0…200 эл. |
 
 ### ProjectParams
 
@@ -332,6 +334,12 @@
 | `departmentId` | string (uuid) | необязательное |
 | `isShared` | boolean | необязательное |
 | `sprintsEnabled` | boolean | необязательное |
+
+### ProjectTemplateParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `templateId` | string (uuid) |  |
 
 ### ReportExportQuery
 
@@ -353,6 +361,13 @@
 | `projectId` | string (uuid) | необязательное |
 | `departmentId` | string (uuid) | необязательное |
 | `groupBy` | enum: `project` \| `assignee` \| `type` \| `priority` | необязательное; по умолчанию "project" |
+
+### SaveProjectTemplateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…80 |
+| `description` | string | необязательное; по умолчанию ""; длина 0…300 |
 
 ### SavedViewBody
 
@@ -787,6 +802,8 @@
 | `departmentId` | string |  |
 | `isShared` | boolean |  |
 | `sprintsEnabled` | boolean |  |
+| `defaultView` | enum: `board` \| `backlog` \| `timeline` | может быть null |
+| `suggestedLabels` | array&lt;string&gt; |  |
 
 ### ProjectMemberDto
 
@@ -794,6 +811,28 @@
 |---|---|---|
 | `userId` | string |  |
 | `role` | enum: `manager` \| `employee` \| `viewer` |  |
+
+### ProjectTemplateDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `description` | string |  |
+| `builtin` | boolean |  |
+| `spec` | object |  |
+
+### ProjectTemplateSpec
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `statuses` | array&lt;object&gt; | 2…12 эл. |
+| `transitions` | array&lt;tuple&gt; | 0…80 эл. |
+| `customFields` | array&lt;object&gt; | необязательное; по умолчанию []; 0…30 эл. |
+| `issueTemplates` | array&lt;object&gt; | необязательное; по умолчанию []; 0…30 эл. |
+| `defaultView` | enum: `board` \| `backlog` \| `timeline` | необязательное; по умолчанию "board" |
+| `labels` | array&lt;string&gt; | необязательное; по умолчанию []; 0…30 эл. |
+| `sprintsEnabled` | boolean | необязательное; по умолчанию false |
 
 ### ReportPoint
 

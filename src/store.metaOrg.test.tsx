@@ -28,7 +28,7 @@ const admin = {
   authSource: "local" as const,
 };
 const viewerUser = { ...admin, id: "u2", username: "v", globalRole: "member" as const };
-const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false };
+const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [] };
 
 const bootPayload = (users: unknown[] = [admin]): ProjectBootstrap => ({
   project,

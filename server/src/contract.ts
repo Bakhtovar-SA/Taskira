@@ -201,6 +201,13 @@ export const ProjectCreateBody = z.object({
   departmentId: uuid,
   isShared: z.boolean().default(false),
   sprintsEnabled: z.boolean().default(false),
+  /** Шаблон проекта (ТЗ 5.10): `builtin:<id>` или uuid шаблона организации; без него — стандартная схема. */
+  templateId: z.string().max(64).optional(),
+  /** Участники сразу при создании — в той же транзакции (мастер, шаг «Доступ»). */
+  members: z
+    .array(z.object({ userId: uuid, role: z.enum(PROJECT_ROLES) }))
+    .max(200)
+    .default([]),
 });
 
 /** PATCH /api/projects/:projectId [global admin] */
@@ -816,6 +823,9 @@ export const ProjectDto = z.object({
   departmentId: z.string(),
   isShared: z.boolean(),
   sprintsEnabled: z.boolean(),
+  /** Шаблон проекта (ТЗ 5.10): с какого представления открывать (null — Доска) и предложенные метки. */
+  defaultView: z.enum(["board", "backlog", "timeline"]).nullable(),
+  suggestedLabels: z.array(z.string()),
 });
 export type ProjectDto = z.infer<typeof ProjectDto>;
 
@@ -1071,3 +1081,66 @@ export type ReportResult = z.infer<typeof ReportResult>;
 /** GET /api/reports/summary: результат + число проектов в выборке. */
 export const ReportSummaryDto = ReportResult.extend({ projectCount: z.number() });
 export type ReportSummaryDto = z.infer<typeof ReportSummaryDto>;
+
+/* ============================================================================
+   Шаблоны проектов (ТЗ 5.10). Шаблон — не код, а набор уже существующих настроек проекта:
+   статусы и переходы, пользовательские поля, шаблоны задач, представление по умолчанию,
+   предложенные метки, модуль спринтов. Встроенные — server/src/templates/builtin.json,
+   шаблоны организации — таблица project_templates (миграция 20260927T1000).
+   ============================================================================ */
+export const PROJECT_DEFAULT_VIEWS = ["board", "backlog", "timeline"] as const;
+const statusSid = z.string().regex(/^[a-z][a-z0-9_]{1,31}$/, "sid: латиница в нижнем регистре, цифры и _");
+
+export const ProjectTemplateSpec = z
+  .object({
+    statuses: z
+      .array(z.object({ sid: statusSid, name: oneLine(60, 1), category: z.enum(STATUS_CATEGORIES) }))
+      .min(2)
+      .max(12),
+    transitions: z.array(z.tuple([statusSid, statusSid])).max(80),
+    customFields: z.array(CustomFieldCreateBody).max(LIMITS.customFieldsPerProject).default([]),
+    issueTemplates: z
+      .array(IssueTemplateBody.omit({ statusId: true }).extend({ statusSid: statusSid.nullable().default(null) }))
+      .max(LIMITS.issueTemplatesPerProject)
+      .default([]),
+    defaultView: z.enum(PROJECT_DEFAULT_VIEWS).default("board"),
+    labels: z.array(oneLine(LIMITS.label.max, 1)).max(30).default([]),
+    sprintsEnabled: z.boolean().default(false),
+  })
+  .superRefine((v, ctx) => {
+    const sids = v.statuses.map((s) => s.sid);
+    if (new Set(sids).size !== sids.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["statuses"], message: "sid статусов повторяются" });
+    if (!v.statuses.some((s) => s.category === "todo")) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["statuses"], message: "Нужен хотя бы один статус категории todo" });
+    if (!v.statuses.some((s) => s.category === "done")) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["statuses"], message: "Нужен хотя бы один статус категории done" });
+    const known = new Set(sids);
+    const seen = new Set<string>();
+    v.transitions.forEach(([a, b], i) => {
+      if (!known.has(a) || !known.has(b) || a === b) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["transitions", i], message: `Переход ${a} → ${b} ссылается на неизвестный статус или ведёт в себя` });
+      if (seen.has(`${a}>${b}`)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["transitions", i], message: `Переход ${a} → ${b} повторяется` });
+      seen.add(`${a}>${b}`);
+    });
+    v.issueTemplates.forEach((t, i) => {
+      if (t.statusSid && !known.has(t.statusSid)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["issueTemplates", i, "statusSid"], message: `Неизвестный статус ${t.statusSid}` });
+    });
+    const fieldNames = v.customFields.map((f) => f.name.toLowerCase());
+    if (new Set(fieldNames).size !== fieldNames.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["customFields"], message: "Названия полей повторяются" });
+  });
+export type ProjectTemplateSpec = z.infer<typeof ProjectTemplateSpec>;
+
+export const ProjectTemplateDto = z.object({
+  /** `builtin:<id>` у встроенных, uuid у шаблонов организации. */
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  builtin: z.boolean(),
+  spec: ProjectTemplateSpec,
+});
+export type ProjectTemplateDto = z.infer<typeof ProjectTemplateDto>;
+
+/** POST /api/projects/:projectId/save-as-template [saveProjectTemplate] */
+export const SaveProjectTemplateBody = z.object({
+  name: oneLine(80, 1, "Название шаблона не может быть пустым"),
+  description: multiLine(300).default(""),
+});
+export const ProjectTemplateParams = z.object({ templateId: uuid });
+

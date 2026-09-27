@@ -16,6 +16,9 @@ export interface ProjectRow {
    *  См. SPRINTS_MIGRATION.md; routes/sprints.ts 404-ит все свои роуты,
    *  если этот флаг false, независимо от роли вызывающего. */
   sprintsEnabled: boolean;
+  /** Шаблон проекта (ТЗ 5.10): представление по умолчанию и предложенные метки. */
+  defaultView: "board" | "backlog" | "timeline" | null;
+  suggestedLabels: string[];
 }
 
 interface ProjectDbRow {
@@ -26,9 +29,11 @@ interface ProjectDbRow {
   department_id: string;
   is_shared: boolean;
   sprints_enabled: boolean;
+  default_view: "board" | "backlog" | "timeline" | null;
+  suggested_labels: string[];
 }
 
-const SELECT_COLS = `id, key, name, description, department_id, is_shared, sprints_enabled`;
+const SELECT_COLS = `id, key, name, description, department_id, is_shared, sprints_enabled, default_view, suggested_labels`;
 
 const toRow = (r: ProjectDbRow): ProjectRow => ({
   id: r.id,
@@ -38,6 +43,8 @@ const toRow = (r: ProjectDbRow): ProjectRow => ({
   departmentId: r.department_id,
   isShared: r.is_shared,
   sprintsEnabled: r.sprints_enabled,
+  defaultView: r.default_view,
+  suggestedLabels: r.suggested_labels ?? [],
 });
 
 /* Кэш по id — проекты меняются редко (создание/правка админом → invalidate).

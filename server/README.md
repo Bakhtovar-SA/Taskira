@@ -165,6 +165,9 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `GET /api/reports/issues.csv` | query `ReportExportQuery` | requireAuth; scope = **видимые проекты** | построчная выгрузка (`scope`: `closed`\|`created`\|`open`); CSV с `;` и BOM для русского Excel; пишется в `audit_log` |
 | `GET /api/admin/audit-log/export` | `format=jsonl\|csv`, `from?`, `to?`, `limit<=100000` | global admin | SIEM-выгрузка: одна запись на строку, стабильные `timestamp/actor/action/object/result/details` |
 | `GET /api/admin/license` | — | global admin | статус офлайн-лицензии (`getLicenseStatus`): `unset` / `invalid` (причина) / `active` / `expired` с `claims` и занятыми местами; сам токен не отдаётся. Только чтение — установка по-прежнему CLI |
+| `GET /api/project-templates` | — | global admin | шаблоны проектов (ТЗ 5.10): 5 встроенных (`id = builtin:<id>`, `server/src/templates/builtin.json`) + шаблоны организации (`project_templates`) |
+| `POST /api/projects/:projectId/save-as-template` | `{name ≤80, description ≤300}` | `saveProjectTemplate` (роль admin в проекте = глобальный admin); занятое имя — `409`; конфигурация не проходит `ProjectTemplateSpec` — `400` | снимок статусов, переходов, полей, шаблонов задач, меток и представления по умолчанию |
+| `DELETE /api/project-templates/:templateId` | — | global admin | удалить шаблон организации; встроенные не удаляются |
 | `GET …/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
 | `POST …/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
 | `DELETE …/workflow/transitions/:id` | — | **admin** | удалить переход |
@@ -172,6 +175,7 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `POST /api/auth/logout` | — | requireAuth | завершает сессию: `users.tokens_valid_from = now()`, все ранее выданные токены становятся недействительными (миграция 017) |
 | `GET /api/users` | — | **admin** | все, включая деактивированных; DTO с `globalRole` |
 | `GET /api/users/pickable?q=` | — | requireAuth | **поиск** по имени/должности: минимум 2 символа, до 20 совпадений. Справочник целиком не отдаётся |
+| `POST /api/projects` | `ProjectCreateBody` (+ `templateId?`, `members?[{userId, role}]`) | global admin | создать проект; шаблон и участники применяются в той же транзакции — при сбое проекта нет |
 | `POST /api/admin/users` | `CreateUserBody` (bcrypt, `globalRole`) | **admin**; занятый username — `409` | создать пользователя; членство в проекте — отдельно |
 | `PATCH /api/users/:id` | `{globalRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена **глобальной** роли; `invalidateUserCache` — действует сразу |
 | `PUT /api/project/members/:userId` | `SetMemberBody` `{role}` | **admin** (`manageAccess`) | добавить участника / сменить проектную роль; upsert; `invalidateMembership` |

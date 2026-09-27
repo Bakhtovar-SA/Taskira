@@ -1,0 +1,161 @@
+{
+  "$comment": "Встроенные шаблоны проектов (ТЗ 5.10). Не больше пяти в первой версии. Каждый проверяется zod-схемой ProjectTemplateSpec (contract.ts) при старте и в тестах (test/projectTemplates.test.ts). Названия статусов, полей и шаблонов задач — живая лексика отрасли, не «Задача 1».",
+  "templates": [
+    {
+      "id": "blank",
+      "name": "Пустой",
+      "description": "Стандартная схема Taskira: к выполнению → в работе → на ревью → готово. Без полей и шаблонов — настроите сами.",
+      "spec": {
+        "statuses": [
+          { "sid": "todo", "name": "К выполнению", "category": "todo" },
+          { "sid": "inprogress", "name": "В работе", "category": "inprogress" },
+          { "sid": "review", "name": "На ревью", "category": "inprogress" },
+          { "sid": "done", "name": "Готово", "category": "done" }
+        ],
+        "transitions": [
+          ["todo", "inprogress"], ["todo", "done"], ["inprogress", "todo"], ["inprogress", "review"],
+          ["inprogress", "done"], ["review", "inprogress"], ["review", "done"], ["done", "inprogress"]
+        ],
+        "customFields": [],
+        "issueTemplates": [],
+        "defaultView": "board",
+        "labels": [],
+        "sprintsEnabled": false
+      }
+    },
+    {
+      "id": "marketing",
+      "name": "Маркетинговые кампании",
+      "description": "От брифа до отчёта: креатив, согласование с брендом, запуск. Поля канала и бюджета, шаблоны брифа и отчёта.",
+      "spec": {
+        "statuses": [
+          { "sid": "brief", "name": "Бриф", "category": "todo" },
+          { "sid": "creative", "name": "Креатив", "category": "inprogress" },
+          { "sid": "approval", "name": "Согласование", "category": "inprogress" },
+          { "sid": "live", "name": "В эфире", "category": "inprogress" },
+          { "sid": "report", "name": "Отчёт готов", "category": "done" }
+        ],
+        "transitions": [
+          ["brief", "creative"], ["creative", "approval"], ["approval", "creative"], ["approval", "live"],
+          ["live", "report"], ["report", "live"], ["brief", "report"]
+        ],
+        "customFields": [
+          { "name": "Канал", "fieldType": "select", "options": ["Соцсети", "E-mail", "Контекст", "Наружная реклама", "Мероприятие", "PR"] },
+          { "name": "Бюджет, ₽", "fieldType": "number", "options": [] },
+          { "name": "Дата запуска", "fieldType": "date", "options": [] },
+          { "name": "Целевая аудитория", "fieldType": "text", "options": [] }
+        ],
+        "issueTemplates": [
+          { "name": "Бриф кампании", "typeId": "task", "priorityId": "medium", "title": "Бриф: ", "description": "Цель кампании:\nКлючевое сообщение:\nЦелевая аудитория:\nKPI:\nСроки и бюджет:", "statusSid": "brief" },
+          { "name": "Макет на согласование", "typeId": "request", "priorityId": "high", "title": "Согласовать макет: ", "description": "Ссылка на макет:\nФорматы и размеры:\nКто согласует со стороны бренда:", "statusSid": "approval" },
+          { "name": "Отчёт по кампании", "typeId": "task", "priorityId": "medium", "title": "Отчёт: ", "description": "Охват:\nКлики и конверсии:\nСтоимость лида:\nВыводы для следующей кампании:", "statusSid": "live" }
+        ],
+        "defaultView": "timeline",
+        "labels": ["бренд", "smm", "контекст", "ивент", "pr", "срочно"],
+        "sprintsEnabled": false
+      }
+    },
+    {
+      "id": "hr",
+      "name": "Найм и адаптация",
+      "description": "Воронка кандидата от заявки на вакансию до выхода на работу и испытательного срока. Шаблоны вакансии и чек-листа первого дня.",
+      "spec": {
+        "statuses": [
+          { "sid": "vacancy", "name": "Заявка на вакансию", "category": "todo" },
+          { "sid": "sourcing", "name": "Поиск кандидатов", "category": "inprogress" },
+          { "sid": "interview", "name": "Собеседования", "category": "inprogress" },
+          { "sid": "offer", "name": "Оффер", "category": "inprogress" },
+          { "sid": "onboarding", "name": "Адаптация", "category": "inprogress" },
+          { "sid": "hired", "name": "Вышел на работу", "category": "done" },
+          { "sid": "closed", "name": "Закрыта без найма", "category": "done" }
+        ],
+        "transitions": [
+          ["vacancy", "sourcing"], ["sourcing", "interview"], ["interview", "sourcing"], ["interview", "offer"],
+          ["offer", "interview"], ["offer", "onboarding"], ["onboarding", "hired"],
+          ["vacancy", "closed"], ["sourcing", "closed"], ["interview", "closed"], ["offer", "closed"], ["closed", "sourcing"]
+        ],
+        "customFields": [
+          { "name": "Должность", "fieldType": "text", "options": [] },
+          { "name": "Грейд", "fieldType": "select", "options": ["Стажёр", "Младший", "Специалист", "Старший", "Ведущий", "Руководитель"] },
+          { "name": "Источник", "fieldType": "select", "options": ["hh.ru", "Рекомендация", "Сайт компании", "Кадровое агентство", "Внутренний перевод"] },
+          { "name": "Дата выхода", "fieldType": "date", "options": [] },
+          { "name": "Испытательный срок пройден", "fieldType": "checkbox", "options": [] }
+        ],
+        "issueTemplates": [
+          { "name": "Заявка на вакансию", "typeId": "request", "priorityId": "medium", "title": "Вакансия: ", "description": "Отдел и руководитель:\nОбязанности:\nТребования:\nВилка:\nЖелаемая дата выхода:", "statusSid": "vacancy" },
+          { "name": "Первый день сотрудника", "typeId": "task", "priorityId": "high", "title": "Выход на работу: ", "description": "Рабочее место и техника:\nУчётные записи и доступы:\nНаставник:\nВводный инструктаж по охране труда:\nПлан на испытательный срок:", "statusSid": "onboarding" }
+        ],
+        "defaultView": "board",
+        "labels": ["it", "продажи", "бэк-офис", "удалёнка", "срочный найм"],
+        "sprintsEnabled": false
+      }
+    },
+    {
+      "id": "support",
+      "name": "Заявки и поддержка",
+      "description": "Service desk: новая заявка, разбор, работа, ожидание ответа клиента, решено. Поля SLA и канала обращения, шаблоны инцидента и запроса.",
+      "spec": {
+        "statuses": [
+          { "sid": "new", "name": "Новая", "category": "todo" },
+          { "sid": "triage", "name": "Разбор", "category": "todo" },
+          { "sid": "work", "name": "В работе", "category": "inprogress" },
+          { "sid": "waiting", "name": "Ждём клиента", "category": "inprogress" },
+          { "sid": "resolved", "name": "Решена", "category": "done" },
+          { "sid": "rejected", "name": "Отклонена", "category": "done" }
+        ],
+        "transitions": [
+          ["new", "triage"], ["new", "work"], ["triage", "work"], ["triage", "rejected"], ["work", "waiting"],
+          ["waiting", "work"], ["work", "resolved"], ["waiting", "resolved"], ["resolved", "work"], ["rejected", "triage"]
+        ],
+        "customFields": [
+          { "name": "Канал обращения", "fieldType": "select", "options": ["Портал", "E-mail", "Телефон", "Мессенджер"] },
+          { "name": "Уровень поддержки", "fieldType": "select", "options": ["1-я линия", "2-я линия", "3-я линия"] },
+          { "name": "Срок по SLA", "fieldType": "date", "options": [] },
+          { "name": "Клиент / подразделение", "fieldType": "text", "options": [] }
+        ],
+        "issueTemplates": [
+          { "name": "Инцидент", "typeId": "bug", "priorityId": "high", "title": "Не работает: ", "description": "Что случилось:\nС какого времени:\nСколько пользователей затронуто:\nШаги воспроизведения:\nОбходное решение:", "statusSid": "new" },
+          { "name": "Запрос на обслуживание", "typeId": "request", "priorityId": "medium", "title": "Прошу: ", "description": "Что нужно сделать:\nДля кого:\nСогласовано с руководителем: да / нет", "statusSid": "new" }
+        ],
+        "defaultView": "backlog",
+        "labels": ["доступы", "оборудование", "1с", "почта", "vpn", "sla-нарушен"],
+        "sprintsEnabled": false
+      }
+    },
+    {
+      "id": "approval",
+      "name": "Согласование документов",
+      "description": "Типичный маршрут банка и телекома: черновик → юрист → комплаенс → руководитель → подписан. Возврат на доработку с любого этапа.",
+      "spec": {
+        "statuses": [
+          { "sid": "draft", "name": "Черновик", "category": "todo" },
+          { "sid": "legal", "name": "Юридическая проверка", "category": "inprogress" },
+          { "sid": "compliance", "name": "Комплаенс", "category": "inprogress" },
+          { "sid": "signoff", "name": "Подпись руководителя", "category": "inprogress" },
+          { "sid": "rework", "name": "На доработке", "category": "todo" },
+          { "sid": "signed", "name": "Подписан", "category": "done" },
+          { "sid": "cancelled", "name": "Отозван", "category": "done" }
+        ],
+        "transitions": [
+          ["draft", "legal"], ["legal", "compliance"], ["compliance", "signoff"], ["signoff", "signed"],
+          ["legal", "rework"], ["compliance", "rework"], ["signoff", "rework"], ["rework", "legal"],
+          ["draft", "cancelled"], ["rework", "cancelled"]
+        ],
+        "customFields": [
+          { "name": "Вид документа", "fieldType": "select", "options": ["Договор", "Дополнительное соглашение", "Приказ", "Регламент", "Доверенность", "Служебная записка"] },
+          { "name": "Контрагент", "fieldType": "text", "options": [] },
+          { "name": "Сумма, ₽", "fieldType": "number", "options": [] },
+          { "name": "Срок действия до", "fieldType": "date", "options": [] },
+          { "name": "Требует визы ИБ", "fieldType": "checkbox", "options": [] }
+        ],
+        "issueTemplates": [
+          { "name": "Договор с контрагентом", "typeId": "request", "priorityId": "medium", "title": "Договор: ", "description": "Предмет договора:\nКонтрагент и ИНН:\nСумма и порядок оплаты:\nСрок действия:\nОсобые условия:", "statusSid": "draft" },
+          { "name": "Приказ", "typeId": "task", "priorityId": "medium", "title": "Приказ: ", "description": "Основание:\nС кем ознакомить:\nДата вступления в силу:", "statusSid": "draft" }
+        ],
+        "defaultView": "board",
+        "labels": ["закупки", "аренда", "персонал", "иб", "срочно"],
+        "sprintsEnabled": false
+      }
+    }
+  ]
+}

@@ -12,7 +12,7 @@ import CommandPalette from "./components/CommandPalette";
  */
 
 const user = { id: "u1", username: "u1", name: "Пользователь", initials: "П", color: "#0B5FD9", jobRole: "", globalRole: "member" as const, isActive: true, authSource: "local" as const };
-const project = { id: "p1", key: "A21", name: "Проект", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false };
+const project = { id: "p1", key: "A21", name: "Проект", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [] };
 const boot: ProjectBootstrap = {
   project,
   users: [user as never],

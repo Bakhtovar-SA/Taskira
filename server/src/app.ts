@@ -42,6 +42,7 @@ import { requestToken } from "./sessionCookie.js";
 import { getStorage } from "./services/storage.js";
 import { activeSocketCount } from "./services/wsHub.js";
 import { licenseRoutes } from "./routes/license.js";
+import { projectTemplateRoutes } from "./routes/projectTemplates.js";
 import { searchIndexWarnings, type HealthWarning } from "./services/healthWarnings.js";
 import { createTtlCache } from "./services/ttlCache.js";
 import { observeHttpRequest, refreshBackgroundQueueMetrics, renderMetrics } from "./metrics.js";
@@ -226,6 +227,7 @@ export function buildApp(): FastifyInstance {
       await api.register(auditExportRoutes); // /admin/audit-log/export (global admin, JSONL/CSV)
       await api.register(dataExportRoutes); // /admin/export (global admin, NDJSON) — ТЗ 3.5
       await api.register(licenseRoutes); // /admin/license (global admin, только чтение) — ТЗ 5.9
+      await api.register(projectTemplateRoutes); // /project-templates, /projects/:id/save-as-template — ТЗ 5.10
       await api.register(collaboratingRoutes); // /issues/collaborating (project-less)
       await api.register(homeRoutes); // /issues/assigned-to-me (project-less, главный экран)
       await api.register(searchRoutes); // /issues/search (project-less, кросс-проектный поиск)

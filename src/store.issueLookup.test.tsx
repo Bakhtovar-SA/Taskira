@@ -39,7 +39,7 @@ const user = (role: "admin" | "member") => ({
   authSource: "local" as const,
 });
 
-const project = { id: "p1", key: "A21", name: "Проект", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false };
+const project = { id: "p1", key: "A21", name: "Проект", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [] };
 
 const boot = (projectRole: "manager" | "employee"): ProjectBootstrap => ({
   project,
