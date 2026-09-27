@@ -228,9 +228,12 @@ body {
    карточка — плотная панель с верхним бликом, не стекло. На наведении по
    контуру карточки проступает градиентная кромка бренда (маска, как у
    .glass-edge), а не заливка: карточка остаётся тихой, пока её не трогают. */
-.board-col-body {
+/* ТЗ 5.12 c: колонка — одна поверхность со своим слоем; заголовок внутри неё, карточки прокручиваются под ним. */
+.board-col {
   background: color-mix(in oklch, var(--bg-sunken) 55%, transparent);
   box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.board-col-body {
   scrollbar-width: thin;
 }
 .board-card {

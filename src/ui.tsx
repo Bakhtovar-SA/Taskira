@@ -532,9 +532,10 @@ export const Empty = ({ icon, title, sub, action }: { icon: React.ReactNode; tit
  *  (`Board.tsx`) и для скелета (`SkeletonColumn`), чтобы во время bootstrap
  *  заглушка выглядела как готовая колонка, а не «прыгала» в неё после загрузки
  *  (ticket-board-columns-theme-fix). */
-export const BOARD_COLUMN_SHELL = "flex h-full max-h-full w-[288px] shrink-0 flex-col min-[1536px]:w-[304px] min-[1920px]:w-[328px]";
+/** Ширина гибкая с пределами (ТЗ 5.12 c): от 288 до 360 px, лишнее место делят поровну. */
+export const BOARD_COLUMN_SHELL = "flex h-full max-h-full flex-[1_0_288px] max-w-[360px] flex-col";
 /** Жёлоб с карточками под заголовком колонки (ADR-0016: заголовок — над ним, не внутри). */
-export const BOARD_COLUMN_BODY = "board-col-body flex min-h-0 flex-col gap-1.5 overflow-y-auto rounded-xl p-1.5";
+export const BOARD_COLUMN_BODY = "board-col-body flex min-h-0 flex-col gap-1.5 overflow-y-auto rounded-b-xl px-1.5 pb-1.5";
 
 export const SkeletonRow = () => (
   <div className="flex items-center gap-3 border-b border-linesoft px-3.5 py-3 last:border-0">
@@ -546,25 +547,28 @@ export const SkeletonRow = () => (
   </div>
 );
 
+/** Скелет карточки доски — той же формы, что карточка (ТЗ 5.12 c): ключ; две строки заголовка; мета — метки и срок
+ *  слева, исполнитель справа. */
 export const SkeletonCard = () => (
-  <div className="board-card rounded-[10px] px-[11px] py-2.5">
-    <div className="mb-2.5 flex items-center gap-1.5">
-      <div className="skeleton h-3.5 w-3.5 rounded-full" />
+  <div className="board-card flex flex-col gap-2 rounded-[10px] px-[11px] py-2.5">
+    <div className="flex h-5 items-center">
       <div className="skeleton h-2.5 w-12" />
-      <div className="skeleton ml-auto h-5 w-5 rounded-full" />
     </div>
-    <div className="skeleton h-3 w-full" />
-    <div className="skeleton mt-1.5 h-3 w-2/3" />
-    <div className="mt-2.5 flex items-center gap-1">
-      <div className="skeleton h-[22px] w-[22px] rounded-md" />
-      <div className="skeleton h-[22px] w-20 rounded-md" />
+    <div>
+      <div className="skeleton h-3 w-full" />
+      <div className="skeleton mt-1.5 h-3 w-2/3" />
+    </div>
+    <div className="flex h-[22px] items-center gap-1">
+      <div className="skeleton h-[22px] w-16 rounded-md" />
+      <div className="skeleton h-[22px] w-14 rounded-md" />
+      <div className="skeleton ml-auto h-5 w-5 rounded-full" />
     </div>
   </div>
 );
 
 export const SkeletonColumn = ({ cards = 3 }: { cards?: number }) => (
-  <div className={BOARD_COLUMN_SHELL}>
-    <div className="flex h-[34px] items-center gap-2 px-2">
+  <div className={`board-col rounded-xl ${BOARD_COLUMN_SHELL}`}>
+    <div className="flex h-10 items-center gap-2 px-3">
       <div className="skeleton h-3.5 w-3.5 rounded-full" />
       <div className="skeleton h-3 w-24" />
     </div>
