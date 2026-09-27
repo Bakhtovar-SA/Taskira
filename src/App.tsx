@@ -11,6 +11,8 @@ import type { ViewId } from "./types";
 import { useT } from "./i18n";
 import { CreateIssueModal, IssueModal, preloadModalsWhenIdle } from "./lazyModals";
 import { OPEN_PALETTE_EVT } from "./palette/events";
+import { isSettingsHome } from "./settings/sections";
+import { useOpenSettings } from "./settings/useOpenSettings";
 import { pushRecent } from "./palette/recent";
 
 // Рабочие разделы и тяжёлые модалки загружаются по требованию: первый экран
@@ -19,9 +21,8 @@ const Backlog = lazy(() => import("./components/Backlog"));
 const SprintsView = lazy(() => import("./components/SprintsView"));
 const TimelineView = lazy(() => import("./components/TimelineView"));
 const ReportsView = lazy(() => import("./components/ReportsView"));
-const WorkflowView = lazy(() => import("./components/WorkflowView"));
-const PermissionsView = lazy(() => import("./components/PermissionsView"));
-const AdminView = lazy(() => import("./components/AdminView"));
+// Три дома настроек (ТЗ 5.9): «Процесс», «Доступ», «Отделы и проекты» и новые страницы — внутри.
+const SettingsView = lazy(() => import("./components/settings/SettingsView"));
 const DocsView = lazy(() => import("./components/DocsView"));
 const CollaboratingView = lazy(() => import("./components/CollaboratingView"));
 const InboxView = lazy(() => import("./components/InboxView"));
@@ -75,6 +76,8 @@ function Shell() {
   const { t } = useT();
   const { ui, idx, data, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout, goHome } = useStore();
   const gPending = useRef(0);
+  const openSettings = useOpenSettings();
+  const openProjectSettings = () => openSettings("projectSettings");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -171,8 +174,8 @@ function Shell() {
           ь: () => setView("my"),
           r: () => setView("reports"),
           к: () => setView("reports"),
-          s: () => setView("workflow"),
-          ы: () => setView("workflow"),
+          s: openProjectSettings,
+          ы: openProjectSettings,
         };
         if (go[k]) {
           e.preventDefault();
@@ -190,7 +193,7 @@ function Shell() {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, paletteOpen, helpOpen, t, data.projects.length, data.project.sprintsEnabled, goHome]);
+  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, paletteOpen, helpOpen, t, data.projects.length, data.project.sprintsEnabled, goHome, openSettings]);
 
   if (bootStatus === "loading" || bootStatus === "idle") {
     return <BootSkeleton />;
@@ -237,9 +240,7 @@ function Shell() {
             {ui.view === "sprints" && <SprintsView />}
             {ui.view === "timeline" && <TimelineView />}
             {ui.view === "reports" && <ReportsView />}
-            {ui.view === "workflow" && <WorkflowView />}
-            {ui.view === "access" && <PermissionsView />}
-            {ui.view === "admin" && <AdminView />}
+            {isSettingsHome(ui.view) && <SettingsView />}
             {ui.view === "docs" && <DocsView />}
             {ui.view === "collaborating" && <CollaboratingView />}
             {ui.view === "inbox" && <InboxView />}

@@ -309,9 +309,10 @@ export type ViewId =
   | "sprints"
   | "timeline"
   | "reports"
-  | "workflow"
-  | "access"
-  | "admin"
+  /** Три дома настроек (ADR-0013 §2, ТЗ 5.9); подраздел — `ui.section`. */
+  | "settings"
+  | "projectSettings"
+  | "orgSettings"
   | "docs"
   | "collaborating"
   /** Личный слой (ADR-0013 §1): уведомления и назначенные задачи по всем проектам. */

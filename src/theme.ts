@@ -165,6 +165,28 @@ export function setBg(id: string): void {
   applyTheme(readTheme(), id);
 }
 
+/** Плотность интерфейса (ТЗ 5.7, ADR-0014 п. 3): data-density на <html>; до первой отрисовки её ставит
+ *  public/theme-init.js. Только localStorage — как тема. */
+export type Density = "comfortable" | "compact";
+const DENSITY_KEY = "taskira.density";
+export function readDensity(): Density {
+  try {
+    return localStorage.getItem(DENSITY_KEY) === "compact" ? "compact" : "comfortable";
+  } catch {
+    return "comfortable";
+  }
+}
+export function setDensity(d: Density): void {
+  try {
+    if (d === "compact") localStorage.setItem(DENSITY_KEY, d);
+    else localStorage.removeItem(DENSITY_KEY);
+  } catch {
+    /* noop */
+  }
+  if (d === "compact") document.documentElement.setAttribute("data-density", d);
+  else document.documentElement.removeAttribute("data-density");
+}
+
 /** Реагировать на смену системной темы, пока выбран режим «Системная». */
 export function watchSystemTheme(): () => void {
   try {

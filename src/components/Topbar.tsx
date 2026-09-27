@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNotifications, useStore, useUnreadCount } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPanel, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AppearanceSettings, Avatar, Dropdown, MenuItem, ProjectMark, RoleBadge, Tip, UserCardBody } from "../ui";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPanel, IcPlus, IcSettings, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { Avatar, Dropdown, MenuItem, ProjectMark, RoleBadge, Tip, UserCardBody } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
 import { PROJECT_VIEWS, openSidebarDrawer } from "./Sidebar";
+import { useOpenSettings } from "../settings/useOpenSettings";
 
 export const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
@@ -15,9 +16,9 @@ export const VIEW_LABEL: Record<ViewId, TKey> = {
   sprints: "sidebar.nav.sprints",
   timeline: "sidebar.nav.timeline",
   reports: "sidebar.nav.reports",
-  workflow: "sidebar.nav.workflow",
-  access: "sidebar.nav.access",
-  admin: "sidebar.nav.admin",
+  settings: "settings.title",
+  projectSettings: "settings.title",
+  orgSettings: "settings.title",
   docs: "sidebar.nav.docs",
   collaborating: "sidebar.nav.collaborating",
   inbox: "sidebar.nav.inbox",
@@ -385,49 +386,10 @@ export function Bell() {
   );
 }
 
-/** Настройки уведомлений — компактный блок в меню пользователя (D6). */
-function NotifySettings() {
-  const { t } = useT();
-  const { data, setNotifyPrefs } = useStore();
-  const mode = data.notifyPrefs.email ?? "instant";
-  const selfWatch = data.notifyPrefs.selfWatch !== false;
-  return (
-    <div className="border-b border-linesoft px-3.5 py-3">
-      <p className="mb-2 text-[12px] font-medium text-sub">{t("topbar.emailNotifications")}</p>
-      <div className="flex gap-0.5 rounded-lg bg-sunken p-0.5 ring-1 ring-inset ring-linesoft">
-        {(
-          [
-            ["instant", t("topbar.emailMode.instant")],
-            ["daily", t("topbar.emailMode.daily")],
-          ] as const
-        ).map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => setNotifyPrefs({ email: v })}
-            className={`flex-1 rounded-md px-1.5 py-1 text-[12px] font-medium transition-colors duration-150 ${
-              mode === v ? "bg-panel text-ink shadow-e1" : "text-sub hover:text-ink"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11.5px] text-sub">
-        <input
-          type="checkbox"
-          checked={selfWatch}
-          onChange={(e) => setNotifyPrefs({ selfWatch: e.target.checked })}
-          className="h-3.5 w-3.5 accent-accent"
-        />
-        {t("topbar.selfWatch")}
-      </label>
-    </div>
-  );
-}
-
 function UserMenu({ onLogout }: { onLogout: () => void }) {
   const { t } = useT();
   const { data, me } = useStore();
+  const openSettings = useOpenSettings();
   return (
     <Dropdown
       width={280}
@@ -460,8 +422,16 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
               </div>
             </div>
           </div>
-          <AppearanceSettings />
-          <NotifySettings />
+          <MenuItem
+            onClick={() => {
+              openSettings("settings");
+              close();
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <IcSettings size={14} tone="gray" /> {t("settings.menu")}
+            </span>
+          </MenuItem>
           <p className="border-t border-linesoft px-4 py-2 tabular text-[11px] text-faint">
             Taskira {import.meta.env.VITE_APP_VERSION || "dev"}
           </p>

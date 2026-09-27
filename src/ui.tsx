@@ -3,7 +3,6 @@ import type { AccessRole, Status, User } from "./types";
 import { useStore, useToasts } from "./store";
 import { usersApi, getAvatarBlobUrl, type PickableUser } from "./api";
 import { IcBriefcase, IcCamera, IcPhone, IcTrash, IcX } from "./icons";
-import { BG_PRESETS, effectiveTheme, readBgId, readTheme, setBg, setThemeMode, type ThemeMode } from "./theme";
 import { useT } from "./i18n";
 import { cropAndResizeAvatar } from "./avatarCrop";
 import { workflowStatusName } from "./workflowStatus";
@@ -16,7 +15,7 @@ type AvatarUser = Pick<User, "name" | "initials" | "color"> & Partial<Pick<User,
 
 /** Картинка аватарки (blob-URL, авторизованный fetch с кэшем — см. getAvatarBlobUrl
  *  в api/index.ts) — null, пока грузится или если её нет. */
-function useAvatarSrc(userId?: string, avatarUpdatedAt?: number | null): string | null {
+export function useAvatarSrc(userId?: string, avatarUpdatedAt?: number | null): string | null {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -625,85 +624,6 @@ export const LockedField = ({ children, reason }: { children: React.ReactNode; r
     </div>
   </Tip>
 );
-
-/** Сегментированный переключатель — один стиль для темы, почты, языка. */
-export function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-  ariaLabel,
-}: {
-  value: T;
-  options: readonly (readonly [T, string])[];
-  onChange: (v: T) => void;
-  ariaLabel?: string;
-}) {
-  return (
-    <div role="radiogroup" aria-label={ariaLabel} className="flex gap-0.5 rounded-lg bg-sunken p-0.5 ring-1 ring-inset ring-linesoft">
-      {options.map(([v, label]) => (
-        <button
-          key={v}
-          role="radio"
-          aria-checked={value === v}
-          onClick={() => onChange(v)}
-          className={`flex-1 rounded-md px-1.5 py-1 text-[12px] font-medium transition-colors duration-150 ${
-            value === v ? "bg-panel text-ink shadow-e1" : "text-sub hover:text-ink"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** Попап «Оформление» — тема, атмосфера (свечение за рабочим пространством)
- *  и язык. Живёт в меню профиля (Topbar) и в шапке HomeView.
- *  Хранение — localStorage (theme.ts), без сервера. */
-export function AppearanceSettings() {
-  const { t, lang, setLang } = useT();
-  const [mode, setMode] = useState<ThemeMode>(() => readTheme());
-  const [bg, setBgState] = useState<string>(() => readBgId());
-  const eff = effectiveTheme(mode);
-  return (
-    <div className="border-b border-linesoft px-3.5 py-3">
-      <p className="mb-2 text-[12px] font-medium text-sub">{t("appearance.title")}</p>
-      <Segmented
-        value={mode}
-        ariaLabel={t("appearance.title")}
-        options={[
-          ["system", t("appearance.theme.system")],
-          ["light", t("appearance.theme.light")],
-          ["dark", t("appearance.theme.dark")],
-        ]}
-        onChange={(v) => {
-          setThemeMode(v);
-          setMode(v);
-        }}
-      />
-      <div className="mt-3 flex items-center gap-2">
-        {BG_PRESETS.map((p) => (
-          <button
-            key={p.id}
-            title={p.name}
-            aria-label={t("appearance.bgAria", { name: p.name })}
-            aria-pressed={bg === p.id}
-            onClick={() => {
-              setBg(p.id);
-              setBgState(p.id);
-            }}
-            className={`h-7 flex-1 rounded-lg ring-offset-2 ring-offset-[var(--bg-raised)] transition-[box-shadow,transform] duration-150 hover:scale-[1.04] ${
-              bg === p.id ? "ring-2 ring-accent" : "ring-1 ring-inset ring-[oklch(0.5_0.02_288/0.18)]"
-            }`}
-            style={{ backgroundImage: eff === "dark" ? p.dark : p.light }}
-          />
-        ))}
-      </div>
-      <p className="mb-2 mt-3.5 text-[12px] font-medium text-sub">{t("appearance.language")}</p>
-      <Segmented value={lang} options={(["ru", "en"] as const).map((l) => [l, t(`lang.${l}`)] as const)} onChange={setLang} ariaLabel={t("appearance.language")} />
-    </div>
-  );
-}
 
 /** Переключатель (вкл/выкл). */
 export function Switch({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {

@@ -185,12 +185,13 @@ describe("bootstrap — ветки входа", () => {
     expect(get().bootStatus).toBe("error");
   });
 
-  test("нет проектов: админ уходит в раздел admin, обычный пользователь остаётся на доске; оба ready", async () => {
+  test("нет проектов: админ уходит в «Отделы и проекты» настроек организации, обычный пользователь остаётся на доске; оба ready", async () => {
     install({ projects: [], me: user() });
     let get = mount();
     await act(async () => { await get().bootstrap(); });
     expect(get().bootStatus).toBe("ready");
-    expect(get().ui.view).toBe("admin");
+    expect(get().ui.view).toBe("orgSettings");
+    expect(get().ui.section).toBe("departments");
     expect(get().data.currentProjectId).toBe("");
     unmountCurrent?.();
     vi.restoreAllMocks();

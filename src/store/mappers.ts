@@ -88,6 +88,8 @@ export type IssueMode = "panel" | "page";
 
 export interface UIState {
   view: ViewId;
+  /** Подраздел дома настроек (`/settings/:section` и т.п.); "" — раздел по умолчанию. */
+  section: string;
   selectedIssueId: string | null;
   issueMode: IssueMode;
   createOpen: boolean;
@@ -222,7 +224,7 @@ export const writeLastProject = (id: string): void => {
  *  тестом App.routerSync.test.tsx до того, как попасть в реальный деплой). */
 export type BootPathTarget =
   | { kind: "issue"; projectId: string; issueId: string }
-  | { kind: "view"; projectId: string; view: ViewId };
+  | { kind: "view"; projectId: string; view: ViewId; section?: string };
 
 export const resolveBootPathTarget = async (
   path: string,
@@ -239,7 +241,7 @@ export const resolveBootPathTarget = async (
   }
   if (parsed.kind === "view") {
     const p = projects.find((pr) => pr.key === parsed.projectKey);
-    return p ? { kind: "view", projectId: p.id, view: parsed.view } : null;
+    return p ? { kind: "view", projectId: p.id, view: parsed.view, section: parsed.section } : null;
   }
   return null; // global / root — bootstrap() сам выбирает вид по обычным правилам
 };

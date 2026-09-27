@@ -37,9 +37,9 @@ function derivePlace(data: Data, ui: UIState, bootStatus: BootStatus): Place | u
     if (!issue) return undefined; // задача ещё не в data.issues — подождать
     return ui.issueMode === "page"
       ? { path: pathForIssue(proj.key, issue.key), issue: null }
-      : { path: pathForView(proj.key, ui.view), issue: issue.key };
+      : { path: pathForView(proj.key, ui.view, ui.section), issue: issue.key };
   }
-  return { path: pathForView(proj.key, ui.view), issue: null };
+  return { path: pathForView(proj.key, ui.view, ui.section), issue: null };
 }
 
 const issueParam = (search: string) => new URLSearchParams(search).get("issue");
@@ -87,7 +87,7 @@ export function useRouterSync(): void {
           return;
         }
         if (parsed.kind === "global") {
-          setView(parsed.view);
+          setView(parsed.view, parsed.section);
           return;
         }
         // "view" и "issue" оба требуют резолва ключа проекта/задачи — переиспользуем
@@ -99,7 +99,7 @@ export function useRouterSync(): void {
         if (cancelled || !target) return; // ключ не найден/недоступен — молча остаёмся как есть
         if (target.kind === "view") {
           if (target.projectId !== data.currentProjectId) switchProject(target.projectId);
-          setView(target.view);
+          setView(target.view, target.section);
           // `?issue=KEY` — панель задачи поверх представления. Ключ ищем сначала среди
           // загруженных задач, иначе спрашиваем сервер (ключ глобально уникален).
           if (!urlIssue) {

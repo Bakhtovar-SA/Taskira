@@ -1,0 +1,202 @@
+/** Личные настройки (IA §3.1): профиль, уведомления, внешний вид, язык. Доступны каждому; раньше жили в
+ *  меню аватара, и на Главной и у гостя их не было. */
+import { useRef, useState } from "react";
+import { useStore } from "../../store";
+import { useT } from "../../i18n";
+import { Avatar, Button, RadioGroup, Switch, Tag } from "../../ds";
+import { IcCamera, IcTrash } from "../../icons";
+import { useAvatarSrc } from "../../ui";
+import { cropAndResizeAvatar } from "../../avatarCrop";
+import { BG_PRESETS, effectiveTheme, readBgId, readDensity, readTheme, setBg, setDensity, setThemeMode, type Density, type ThemeMode } from "../../theme";
+import { SettingRow, SettingsCard, SettingsPage } from "./parts";
+
+export function PersonalSection({ section }: { section: string }) {
+  if (section === "notifications") return <Notifications />;
+  if (section === "appearance") return <Appearance />;
+  if (section === "language") return <Language />;
+  return <Profile />;
+}
+
+function Profile() {
+  const { t } = useT();
+  const { me, uploadAvatar, removeAvatar, authMode } = useStore();
+  const src = useAvatarSrc(me.id, me.avatarUpdatedAt);
+  const [busy, setBusy] = useState(false);
+  const file = useRef<HTMLInputElement>(null);
+
+  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setBusy(true);
+    try {
+      await uploadAvatar(await cropAndResizeAvatar(f));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await removeAvatar();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ro = (v: string | undefined) => (v ? <span className="text-[13px] font-medium text-ink">{v}</span> : <span className="text-[13px] text-faint">{t("userCard.notSet")}</span>);
+
+  return (
+    <SettingsPage title={t("settings.personal.profile")} desc={t("settings.desc.profile")}>
+      <SettingsCard>
+        <div className="flex flex-wrap items-center gap-4 px-5 py-5">
+          <Avatar person={{ name: me.name, src }} size={64} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-disp text-[17px] font-bold tracking-[-0.01em] text-ink">{me.name}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {me.username && <span className="text-[12.5px] text-faint">@{me.username}</span>}
+              <Tag tone={me.globalRole === "admin" ? "red" : "gray"} size="sm" strong>
+                {t(me.globalRole === "admin" ? "settings.profile.roleAdmin" : "settings.profile.roleUser")}
+              </Tag>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" loading={busy} iconLeft={<IcCamera size={14} />} onClick={() => file.current?.click()}>
+              {me.avatarUpdatedAt ? t("userCard.changeAvatar") : t("userCard.uploadAvatar")}
+            </Button>
+            {me.avatarUpdatedAt && (
+              <Button variant="ghost" size="sm" disabled={busy} iconLeft={<IcTrash size={14} />} onClick={remove}>
+                {t("userCard.removeAvatar")}
+              </Button>
+            )}
+            <input ref={file} type="file" accept="image/png,image/jpeg,image/gif" className="hidden" onChange={pick} aria-label={t("userCard.uploadAvatar")} />
+          </div>
+        </div>
+      </SettingsCard>
+      <SettingsCard footer={t(authMode === "ldap" ? "settings.profile.managedLdap" : "settings.profile.managedAdmin")}>
+        <SettingRow label={t("settings.profile.name")}>{ro(me.name)}</SettingRow>
+        <SettingRow label={t("userCard.jobRole")}>{ro(me.role)}</SettingRow>
+        <SettingRow label={t("userCard.phone")}>{ro(me.phone)}</SettingRow>
+        <SettingRow label={t("settings.profile.username")}>{ro(me.username)}</SettingRow>
+      </SettingsCard>
+    </SettingsPage>
+  );
+}
+
+function Notifications() {
+  const { t } = useT();
+  const { data, setNotifyPrefs } = useStore();
+  const mode = data.notifyPrefs.email ?? "instant";
+  const selfWatch = data.notifyPrefs.selfWatch !== false;
+  return (
+    <SettingsPage title={t("settings.personal.notifications")} desc={t("settings.desc.notifications")}>
+      <SettingsCard title={t("topbar.emailNotifications")}>
+        <div className="px-5 py-4">
+          <RadioGroup
+            value={mode}
+            onChange={(v) => setNotifyPrefs({ email: v })}
+            options={[
+              { value: "instant", label: t("topbar.emailMode.instant"), description: t("settings.notif.instantDesc") },
+              { value: "daily", label: t("topbar.emailMode.daily"), description: t("settings.notif.dailyDesc") },
+            ]}
+          />
+        </div>
+      </SettingsCard>
+      <SettingsCard footer={t("settings.notif.inApp")}>
+        <div className="px-5 py-4">
+          <Switch checked={selfWatch} onChange={(v) => setNotifyPrefs({ selfWatch: v })} label={t("topbar.selfWatch")} description={t("settings.notif.selfWatchDesc")} labelFirst />
+        </div>
+      </SettingsCard>
+    </SettingsPage>
+  );
+}
+
+function Appearance() {
+  const { t } = useT();
+  const [mode, setMode] = useState<ThemeMode>(readTheme);
+  const [bg, setBgState] = useState(readBgId);
+  const [density, setDens] = useState<Density>(readDensity);
+  const eff = effectiveTheme(mode);
+  return (
+    <SettingsPage title={t("settings.personal.appearance")} desc={t("settings.desc.appearance")}>
+      <SettingsCard title={t("settings.appearance.theme")}>
+        <div role="radiogroup" aria-label={t("settings.appearance.theme")} className="grid grid-cols-3 gap-3 px-5 py-4">
+          {(["system", "light", "dark"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={mode === m}
+              onClick={() => {
+                setThemeMode(m);
+                setMode(m);
+              }}
+              className="theme-choice ds-focus flex flex-col gap-2 rounded-xl p-1.5 text-left"
+            >
+              <span className="theme-thumb" data-kind={m} aria-hidden="true">
+                <span />
+                <span />
+              </span>
+              <span className="px-1 pb-0.5 text-[12.5px] font-semibold text-ink">{t(`appearance.theme.${m}`)}</span>
+            </button>
+          ))}
+        </div>
+      </SettingsCard>
+      <SettingsCard title={t("settings.appearance.atmosphere")}>
+        <div role="radiogroup" aria-label={t("settings.appearance.atmosphere")} className="flex flex-wrap gap-3 px-5 py-4">
+          {BG_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              role="radio"
+              aria-checked={bg === p.id}
+              onClick={() => {
+                setBg(p.id);
+                setBgState(p.id);
+              }}
+              className="theme-choice ds-focus flex w-[112px] flex-col gap-1.5 rounded-xl p-1.5 text-left"
+            >
+              <span className="h-12 rounded-lg ring-1 ring-inset ring-line/60" style={{ backgroundImage: eff === "dark" ? p.dark : p.light }} />
+              <span className="px-1 text-[12px] font-semibold text-ink">{p.name}</span>
+            </button>
+          ))}
+        </div>
+      </SettingsCard>
+      <SettingsCard title={t("settings.appearance.density")}>
+        <div className="px-5 py-4">
+          <RadioGroup<Density>
+            value={density}
+            onChange={(v) => {
+              setDensity(v);
+              setDens(v);
+            }}
+            options={[
+              { value: "comfortable", label: t("settings.appearance.comfortable"), description: t("settings.appearance.comfortableDesc") },
+              { value: "compact", label: t("settings.appearance.compact"), description: t("settings.appearance.compactDesc") },
+            ]}
+          />
+        </div>
+      </SettingsCard>
+    </SettingsPage>
+  );
+}
+
+function Language() {
+  const { t, lang, setLang } = useT();
+  return (
+    <SettingsPage title={t("settings.personal.language")} desc={t("settings.desc.language")}>
+      <SettingsCard footer={t("settings.language.note")}>
+        <div className="px-5 py-4">
+          <RadioGroup
+            value={lang}
+            onChange={setLang}
+            options={[
+              { value: "ru", label: t("lang.ru") },
+              { value: "en", label: t("lang.en") },
+            ]}
+          />
+        </div>
+      </SettingsCard>
+    </SettingsPage>
+  );
+}

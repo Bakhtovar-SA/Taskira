@@ -10,6 +10,8 @@ import { matchScore, fuzzyScore, swapLayout } from "../palette/fuzzy";
 import { readRecent, type RecentIssue } from "../palette/recent";
 import { paletteShortcut } from "../palette/events";
 import { useIssueSearch } from "../issueSearch";
+import { isSettingsHome } from "../settings/sections";
+import { useOpenSettings } from "../settings/useOpenSettings";
 
 /**
  * Командная палитра (ТЗ 5.8 п.4). Один вход ко всему: разделы, проекты,
@@ -48,9 +50,9 @@ const VIEW_ALIASES: Record<string, string[]> = {
   sprints: ["sprints"],
   timeline: ["timeline", "roadmap", "gantt"],
   reports: ["reports", "analytics"],
-  workflow: ["workflow", "statuses"],
-  access: ["access", "permissions", "roles"],
-  admin: ["departments", "admin"],
+  settings: ["settings", "profile", "notifications", "theme", "профиль", "уведомления", "тема"],
+  projectSettings: ["project settings", "workflow", "statuses", "access", "fields", "templates", "процесс", "доступ", "поля", "шаблоны"],
+  orgSettings: ["admin", "organization", "departments", "users", "отделы", "пользователи"],
   docs: ["docs", "help"],
   collaborating: ["shared", "collaborating"],
   inbox: ["inbox", "notifications", "уведомления"],
@@ -60,6 +62,7 @@ const VIEW_ALIASES: Record<string, string[]> = {
 export default function CommandPalette({ onClose, onShortcuts }: { onClose: () => void; onShortcuts: () => void }) {
   const { t, lang, setLang } = useT();
   const { data, idx, me, ui, setView, setCreateOpen, can, openIssue, switchProject, goHome, searchAllProjects, logout } = useStore();
+  const openSettings = useOpenSettings();
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const [remote, setRemote] = useState<SearchResultItem[] | null>(null);
@@ -123,7 +126,7 @@ export default function CommandPalette({ onClose, onShortcuts }: { onClose: () =
           keywords: VIEW_ALIASES[item.id],
           icon: item.icon({ size: 16, tone: item.tone }),
           hint: item.kbd ? <Kbd>{item.kbd}</Kbd> : undefined,
-          run: () => setView(item.id),
+          run: () => (isSettingsHome(item.id) ? openSettings(item.id) : setView(item.id)),
         });
       }
     if (can("create"))
@@ -149,7 +152,7 @@ export default function CommandPalette({ onClose, onShortcuts }: { onClose: () =
       });
     }
     return rows;
-  }, [data.projects, data.collaborations.length, data.project.sprintsEnabled, data.currentProjectId, me.globalRole, t, lang, can, goHome, setView, setCreateOpen, setLang, onShortcuts, logout, switchProject]);
+  }, [data.projects, data.collaborations.length, data.project.sprintsEnabled, data.currentProjectId, me.globalRole, t, lang, can, goHome, setView, setCreateOpen, setLang, onShortcuts, logout, switchProject, openSettings]);
 
   const recent = useMemo(() => readRecent().filter((r) => r.id !== ui.selectedIssueId), [ui.selectedIssueId]);
 

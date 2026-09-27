@@ -9,6 +9,7 @@
     root.setAttribute("data-theme", dark ? "dark" : "light");
     var bg = localStorage.getItem("taskira.bg");
     if (bg && bg !== "default") root.setAttribute("data-atmosphere", bg);
+    if (localStorage.getItem("taskira.density") === "compact") root.setAttribute("data-density", "compact");
   } catch (_) {
     // Storage or matchMedia can be unavailable; the light :root palette remains.
   }

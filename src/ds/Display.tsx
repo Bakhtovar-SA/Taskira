@@ -24,7 +24,7 @@ const initials = (name: string) =>
 
 export type AvatarPerson = { name: string; src?: string | null };
 
-export function Avatar({ person, size = 24, ring, status }: { person: AvatarPerson; size?: 20 | 24 | 28 | 32 | 40; ring?: boolean; status?: "online" | "away" }) {
+export function Avatar({ person, size = 24, ring, status }: { person: AvatarPerson; size?: 20 | 24 | 28 | 32 | 40 | 64; ring?: boolean; status?: "online" | "away" }) {
   const tone = toneOf(person.name);
   return (
     <span className={`ds-av tk-tone-${tone}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name}>

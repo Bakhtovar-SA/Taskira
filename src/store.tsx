@@ -62,7 +62,8 @@ interface Api {
   uploadAvatar: (file: File) => Promise<void>;
   removeAvatar: () => Promise<void>;
   logout: () => void;
-  setView: (v: ViewId) => void;
+  /** Сменить раздел; `section` — подраздел дома настроек. */
+  setView: (v: ViewId, section?: string) => void;
   /** Открыть задачу панелью (по умолчанию) или полной страницей; null — закрыть. */
   openIssue: (id: string | null, mode?: IssueMode) => void;
   clearCollabOpenIssueId: () => void;
@@ -162,6 +163,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [authMode, setAuthMode] = useState<"local" | "ldap">("local");
   const [ui, setUi] = useState<UIState>({
     view: "board",
+    section: "",
     selectedIssueId: null,
     issueMode: "panel",
     createOpen: false,
@@ -428,7 +430,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     removeAvatar,
     logout,
     // Переход к представлению закрывает полную страницу задачи (панель остаётся — это слой поверх).
-    setView: (v) => setUi((u) => (u.selectedIssueId && u.issueMode === "page" ? { ...u, view: v, selectedIssueId: null, issueMode: "panel" } : { ...u, view: v })),
+    setView: (v, section = "") =>
+      setUi((u) => (u.selectedIssueId && u.issueMode === "page" ? { ...u, view: v, section, selectedIssueId: null, issueMode: "panel" } : { ...u, view: v, section })),
     openIssue,
     // ТЗ 3.1: прямая ссылка на приглашённую задачу выставляет collabOpenIssueId
     // (bootstrap()/useRouterSync); CollaboratingView подхватывает его один раз на

@@ -718,6 +718,7 @@
 .ds-av[data-size="28"] { --av: 28px; }
 .ds-av[data-size="32"] { --av: 32px; }
 .ds-av[data-size="40"] { --av: 40px; }
+.ds-av[data-size="64"] { --av: 64px; }
 .ds-av[data-ring] {
   box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 30%, transparent), 0 0 0 2px var(--bg-panel);
 }

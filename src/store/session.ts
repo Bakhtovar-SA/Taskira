@@ -138,6 +138,7 @@ export function useSessionActions(
       // открыть его в оболочке последнего проекта, а не сбрасывать на главный экран.
       const bootPath = parsePath(location.pathname);
       const globalView = bootPath.kind === "global" ? bootPath.view : null;
+      const globalSection = bootPath.kind === "global" ? (bootPath.section ?? "") : "";
 
       if (projects.length === 0) {
         // Ни одного видимого проекта, но, возможно, приглашён к отдельным задачам
@@ -157,7 +158,7 @@ export function useSessionActions(
         setData({ ...emptyData(), currentUserId: user.id, departments: deps, users: [mapUser(user, {})] });
         resetNotifications();
         if (user.globalRole === "admin") {
-          setUi((u) => ({ ...u, view: "admin" }));
+          setUi((u) => ({ ...u, view: "orgSettings", section: "departments" }));
           toast("info", local("Проектов пока нет — создайте первый в разделе «Отделы и проекты»", "There are no projects yet — create the first one in Departments & projects"));
         } else {
           toast("info", local("Вам пока не открыт ни один проект — обратитесь к администратору", "You don't have access to any projects yet — contact an administrator"));
@@ -225,9 +226,9 @@ export function useSessionActions(
           collabOpenIssueId: pathTarget!.kind === "issue" ? pathTarget!.issueId : null,
         }));
       } else if (pathTarget && pathTarget.kind === "view" && pathTarget.projectId === chosen) {
-        setUi((u) => ({ ...u, view: pathTarget.view }));
+        setUi((u) => ({ ...u, view: pathTarget.view, section: pathTarget.section ?? "" }));
       } else if (globalView) {
-        setUi((u) => ({ ...u, view: globalView }));
+        setUi((u) => ({ ...u, view: globalView, section: globalSection }));
       }
       setBootStatus("ready");
     } catch (err) {
@@ -338,7 +339,7 @@ export function useSessionActions(
     setData(emptyData());
     resetNotifications();
     setSolo(null);
-    setUi({ view: "board", selectedIssueId: null, issueMode: "panel", createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
+    setUi({ view: "board", section: "", selectedIssueId: null, issueMode: "panel", createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
     setBootStatus("unauthenticated");
   }, [resetNotifications]);
 

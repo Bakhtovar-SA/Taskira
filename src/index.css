@@ -362,6 +362,65 @@ html.vt-theme::view-transition-new(root) {
   }
 }
 
+/* Настройки → Внешний вид: выбор темы превью-карточками. Превью рисуются своими
+   цветами (не токенами: токены переключаются только на :root). */
+.theme-choice {
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  transition: box-shadow var(--dur-2) var(--ease-standard), background-color var(--dur-2);
+}
+.theme-choice:hover {
+  background: var(--bg-hover);
+}
+.theme-choice[aria-checked="true"] {
+  background: color-mix(in oklch, var(--accent-solid) 7%, transparent);
+  box-shadow: inset 0 0 0 2px var(--accent-solid), 0 6px 18px -10px var(--accent-glow);
+}
+.theme-thumb {
+  position: relative;
+  display: block;
+  height: 72px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: oklch(0.975 0.006 288);
+  box-shadow: inset 0 0 0 1px oklch(0.5 0.02 288 / 0.14);
+}
+.theme-thumb > span:first-child {
+  position: absolute;
+  inset: 6px auto 6px 6px;
+  width: 26%;
+  border-radius: 5px;
+  background: oklch(0.93 0.02 288);
+}
+.theme-thumb > span:last-child {
+  position: absolute;
+  inset: 6px 6px 6px 34%;
+  border-radius: 5px;
+  background: oklch(1 0 0);
+  box-shadow: 0 1px 2px oklch(0.2 0.05 288 / 0.12);
+  background-image: linear-gradient(oklch(0.55 0.2 288), oklch(0.55 0.2 288)), linear-gradient(oklch(0.88 0.01 288), oklch(0.88 0.01 288)),
+    linear-gradient(oklch(0.88 0.01 288), oklch(0.88 0.01 288));
+  background-size: 34% 6px, 70% 4px, 52% 4px;
+  background-position: 8px 9px, 8px 22px, 8px 31px;
+  background-repeat: no-repeat;
+}
+.theme-thumb[data-kind="dark"] {
+  background: oklch(0.17 0.015 288);
+}
+.theme-thumb[data-kind="dark"] > span:first-child {
+  background: oklch(0.23 0.03 288);
+}
+.theme-thumb[data-kind="dark"] > span:last-child {
+  background-color: oklch(0.21 0.015 288);
+  background-image: linear-gradient(oklch(0.68 0.17 288), oklch(0.68 0.17 288)), linear-gradient(oklch(0.34 0.015 288), oklch(0.34 0.015 288)),
+    linear-gradient(oklch(0.34 0.015 288), oklch(0.34 0.015 288));
+}
+.theme-thumb[data-kind="system"] {
+  background: linear-gradient(135deg, oklch(0.975 0.006 288) 50%, oklch(0.17 0.015 288) 50%);
+}
+.theme-thumb[data-kind="system"] > span:first-child {
+  background: linear-gradient(135deg, oklch(0.93 0.02 288) 50%, oklch(0.23 0.03 288) 50%);
+}
+
 /* Входящие: непрочитанное — лёгкий акцентный фон; строка под курсором J/K —
    светящаяся метка слева (тот же язык, что у активного пункта панели и палитры). */
 .inbox-row.is-unread {

@@ -4,15 +4,20 @@ import { EMPTY_FILTERS, filtersFromSearch, parsePath, pathForIssue, pathForView,
 describe("pathForView / pathForIssue", () => {
   test("ADR-0013 §5: разделы без проекта — свои пути, представления и настройки — под /p/:projectKey", () => {
     expect(pathForView("CORP", "reports")).toBe("/reports");
-    expect(pathForView("CORP", "admin")).toBe("/admin/departments");
+    expect(pathForView("CORP", "orgSettings")).toBe("/admin/departments");
+    expect(pathForView("CORP", "orgSettings", "users")).toBe("/admin/users");
+    expect(pathForView("CORP", "settings")).toBe("/settings/profile");
+    expect(pathForView("CORP", "settings", "appearance")).toBe("/settings/appearance");
+    expect(pathForView("CORP", "projectSettings")).toBe("/p/CORP/settings/general");
     expect(pathForView("CORP", "docs")).toBe("/help");
     expect(pathForView("CORP", "inbox")).toBe("/inbox");
     expect(pathForView("CORP", "my")).toBe("/my-issues");
     expect(pathForView("CORP", "collaborating")).toBe("/shared");
     expect(pathForView("CORP", "board")).toBe("/p/CORP/board");
     expect(pathForView("CORP", "backlog")).toBe("/p/CORP/list");
-    expect(pathForView("CORP", "workflow")).toBe("/p/CORP/settings/workflow");
-    expect(pathForView("CORP", "access")).toBe("/p/CORP/settings/access");
+    expect(pathForView("CORP", "projectSettings", "workflow")).toBe("/p/CORP/settings/workflow");
+    expect(pathForView("CORP", "projectSettings", "access")).toBe("/p/CORP/settings/access");
+    expect(pathForView("CORP", "projectSettings", "nonsense")).toBe("/p/CORP/settings/general");
   });
 
   test("issue — всегда /p/:projectKey/issue/:issueKey", () => {
@@ -28,7 +33,11 @@ describe("pathForView / pathForIssue", () => {
 describe("parsePath", () => {
   test("разделы без проекта → kind global", () => {
     expect(parsePath("/reports")).toEqual({ kind: "global", view: "reports" });
-    expect(parsePath("/admin/departments")).toEqual({ kind: "global", view: "admin" });
+    expect(parsePath("/admin/departments")).toEqual({ kind: "global", view: "orgSettings", section: "departments" });
+    expect(parsePath("/admin")).toEqual({ kind: "global", view: "orgSettings", section: "departments" });
+    expect(parsePath("/settings/language")).toEqual({ kind: "global", view: "settings", section: "language" });
+    expect(parsePath("/settings")).toEqual({ kind: "global", view: "settings", section: "profile" });
+    expect(parsePath("/settings/nonsense")).toEqual({ kind: "root" });
     expect(parsePath("/help")).toEqual({ kind: "global", view: "docs" });
     expect(parsePath("/shared/")).toEqual({ kind: "global", view: "collaborating" });
     expect(parsePath("/inbox")).toEqual({ kind: "global", view: "inbox" });
@@ -38,8 +47,10 @@ describe("parsePath", () => {
   test("старые адреса (до ADR-0013) разбираются в тот же вид, что новые", () => {
     expect(parsePath("/p/CORP/backlog")).toEqual({ kind: "view", projectKey: "CORP", view: "backlog" });
     expect(parsePath("/p/CORP/list")).toEqual({ kind: "view", projectKey: "CORP", view: "backlog" });
-    expect(parsePath("/p/CORP/workflow")).toEqual({ kind: "view", projectKey: "CORP", view: "workflow" });
-    expect(parsePath("/p/CORP/settings/workflow")).toEqual({ kind: "view", projectKey: "CORP", view: "workflow" });
+    expect(parsePath("/p/CORP/workflow")).toEqual({ kind: "view", projectKey: "CORP", view: "projectSettings", section: "workflow" });
+    expect(parsePath("/p/CORP/settings/workflow")).toEqual({ kind: "view", projectKey: "CORP", view: "projectSettings", section: "workflow" });
+    expect(parsePath("/p/CORP/settings")).toEqual({ kind: "view", projectKey: "CORP", view: "projectSettings", section: "general" });
+    expect(parsePath("/p/CORP/admin")).toEqual({ kind: "view", projectKey: "CORP", view: "orgSettings", section: "departments" });
     expect(parsePath("/p/CORP/settings/nonsense")).toEqual({ kind: "root" });
     expect(samePlace("/p/CORP/backlog", "/p/CORP/list")).toBe(true);
     expect(samePlace("/p/CORP/access", "/p/CORP/settings/access")).toBe(true);

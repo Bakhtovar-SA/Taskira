@@ -4,7 +4,7 @@ import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
 import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo } from "../icons";
-import { AppearanceSettings, Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, ProjectMark } from "../ui";
+import { Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -24,7 +24,7 @@ const greetingKey = (h = new Date().getHours()) =>
 
 export default function HomeView({ onLogout }: { onLogout: () => void }) {
   const { t, tn, lang } = useT();
-  const { data, enterProject, switchProject, setCreateOpen } = useStore();
+  const { data, enterProject, switchProject, setCreateOpen, setView } = useStore();
   const { notifications } = useNotifications();
   const me = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
   const last = readLastProject();
@@ -33,6 +33,12 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   // «+ Создать задачу» с главного экрана: заходим в проект (последний открытый
   // или первый) и оставляем модалку создания открытой — она смонтируется в Shell.
   const createTarget = data.projects.find((p) => p.id === last)?.id ?? data.projects[0]?.id;
+  // Личные настройки живут в оболочке (ТЗ 5.9): заходим в последний проект сразу на /settings/profile.
+  const openPersonalSettings = () => {
+    if (!createTarget) return;
+    setView("settings", "profile");
+    enterProject(createTarget);
+  };
   const startCreate = () => {
     if (!createTarget) return;
     setCreateOpen(true);
@@ -135,7 +141,14 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                       <UserCardBody userId={me.id} />
                     </div>
                   )}
-                  <AppearanceSettings />
+                  <MenuItem
+                    onClick={() => {
+                      close();
+                      openPersonalSettings();
+                    }}
+                  >
+                    {t("settings.menu")}
+                  </MenuItem>
                   <MenuItem
                     onClick={() => {
                       onLogout();

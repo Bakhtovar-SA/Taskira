@@ -6,6 +6,7 @@ import {
   IcBacklog,
   IcBoard,
   IcBook,
+  IcBriefcase,
   IcChevD,
   IcCompose,
   IcFlag,
@@ -18,7 +19,6 @@ import {
   IcReport,
   IcSearch,
   IcSettings,
-  IcShield,
   IcTimeline,
   IcUsers,
   Logo,
@@ -29,6 +29,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useT, type TKey } from "../i18n";
 import { openPalette, paletteShortcut } from "../palette/events";
+import { useOpenSettings } from "../settings/useOpenSettings";
 
 type NavItem = {
   id: ViewId;
@@ -53,12 +54,11 @@ export const PROJECT_VIEWS: NavItem[] = [
   { id: "sprints", labelKey: "sidebar.nav.sprints", icon: (p) => <IcFlag {...p} />, tone: "amber", kbd: "4", sprintsOnly: true },
 ];
 
-/** Настройки до ТЗ 5.9: пока это прежние экраны, собранные под одним узлом
- *  «Настройки» (проект — процесс и доступ; организация — отделы и проекты). */
+/** Три дома настроек (ADR-0013 §2, ТЗ 5.9): Личные, Проект, Организация. */
 export const SETTINGS_VIEWS: NavItem[] = [
-  { id: "workflow", labelKey: "sidebar.nav.workflow", icon: (p) => <IcFlow {...p} />, tone: "pink" },
-  { id: "access", labelKey: "sidebar.nav.access", icon: (p) => <IcShield {...p} />, tone: "green" },
-  { id: "admin", labelKey: "sidebar.nav.admin", icon: (p) => <IcUsers {...p} />, tone: "blue", adminOnly: true },
+  { id: "settings", labelKey: "settings.home.personal", icon: (p) => <IcBriefcase {...p} />, tone: "violet" },
+  { id: "projectSettings", labelKey: "settings.home.project", icon: (p) => <IcFlow {...p} />, tone: "pink" },
+  { id: "orgSettings", labelKey: "settings.home.org", icon: (p) => <IcUsers {...p} />, tone: "blue", adminOnly: true },
 ];
 
 /** Личный слой (ADR-0013 §1): Входящие и Мои задачи — по всем проектам. */
@@ -131,6 +131,7 @@ function Chevron({ open }: { open: boolean }) {
 export default function Sidebar() {
   const { t } = useT();
   const { data, ui, setView, me, goHome, switchProject, setCreateOpen, can } = useStore();
+  const openSettings = useOpenSettings();
   const doneIds = new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id));
   // «Открытых задач» и полоса прогресса — агрегат по всему проекту: одним
   // запросом счётчиков, а не обходом всех задач на клиенте (PERF-06).
@@ -477,7 +478,7 @@ export default function Sidebar() {
                 <button
                   key={v.id}
                   type="button"
-                  onClick={() => setView(v.id)}
+                  onClick={() => openSettings(v.id as "settings" | "projectSettings" | "orgSettings")}
                   aria-current={active ? "page" : undefined}
                   className={`${navItem} h-[30px] text-[13px] ${active ? navOn : navOff}`}
                 >
@@ -521,6 +522,7 @@ function Rail({
 }) {
   const { t } = useT();
   const { data, ui, me, setView, goHome, setCreateOpen, can } = useStore();
+  const openSettings = useOpenSettings();
   const tipRef = useRef<HTMLDivElement>(null);
   const [tip, setTip] = useState<string | null>(null);
   const show = (label: string) => (e: React.SyntheticEvent<HTMLElement>) => {
@@ -591,7 +593,7 @@ function Rail({
       </div>
       <div className="mt-1 flex flex-col items-center gap-1 border-t border-linesoft/70 pt-2">
         {btn("docs", t("sidebar.nav.docs"), <IcBook size={16} tone="orange" />, () => setView("docs"), ui.view === "docs")}
-        {btn("settings", t("sidebar.settings"), <IcSettings size={16} tone="gray" />, () => setView("workflow"), SETTINGS_VIEWS.some((s) => s.id === ui.view))}
+        {btn("settings", t("sidebar.settings"), <IcSettings size={16} tone="gray" />, () => openSettings("projectSettings"), SETTINGS_VIEWS.some((s) => s.id === ui.view))}
         {btn("expand", `${t("sidebar.expand")} · [`, <IcPanel size={16} />, onExpand)}
         <span className="mt-1">
           <Avatar user={me} size={28} interactive />

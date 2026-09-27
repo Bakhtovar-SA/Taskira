@@ -9,21 +9,19 @@
  *  разделы без проекта (`/reports`, `/admin/departments`, `/help`, `/shared`) — свои пути;
  *  старые `/p/:projectKey/<вид>` разбираются и заменяются новыми. */
 import type { ViewId } from "./types";
+import { DEFAULT_SECTION, isSection, isSettingsHome } from "./settings/sections";
 
-/** Адреса по ADR-0013 §5. Представления и настройки проекта живут под `/p/:projectKey/…`;
- *  разделы без проекта (отчёты, отделы, справка, приглашения) — свои пути верхнего уровня,
- *  как `/reports` было и раньше. */
+/** Адреса по ADR-0013 §5. Представления проекта живут под `/p/:projectKey/…`; настройки — три дома
+ *  (IA §3): личные `/settings/:section`, проекта `/p/:projectKey/settings/:section`, организации
+ *  `/admin/:section`; прочие разделы без проекта — свои пути верхнего уровня. */
 const PROJECT_SEGMENT: Partial<Record<ViewId, string>> = {
   board: "board",
   backlog: "list",
   timeline: "timeline",
   sprints: "sprints",
-  workflow: "settings/workflow",
-  access: "settings/access",
 };
 const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
   reports: "/reports",
-  admin: "/admin/departments",
   docs: "/help",
   collaborating: "/shared",
   inbox: "/inbox",
@@ -31,17 +29,17 @@ const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
 };
 /** Старые сегменты `/p/:projectKey/<вид>` (до ADR-0013) — ссылки уже разосланы людьми,
  *  поэтому разбираются как прежде; синхронизация URL тут же заменяет их новым адресом. */
-const LEGACY_SEGMENT: Record<string, ViewId> = {
-  backlog: "backlog",
-  workflow: "workflow",
-  access: "access",
-  admin: "admin",
-  docs: "docs",
-  collaborating: "collaborating",
+const LEGACY_SEGMENT: Record<string, { view: ViewId; section?: string }> = {
+  backlog: { view: "backlog" },
+  workflow: { view: "projectSettings", section: "workflow" },
+  access: { view: "projectSettings", section: "access" },
+  admin: { view: "orgSettings", section: "departments" },
+  docs: { view: "docs" },
+  collaborating: { view: "collaborating" },
 };
-const SEGMENT_VIEW: Record<string, ViewId> = {
+const SEGMENT_VIEW: Record<string, { view: ViewId; section?: string }> = {
   ...LEGACY_SEGMENT,
-  ...Object.fromEntries(Object.entries(PROJECT_SEGMENT).map(([v, seg]) => [seg, v as ViewId])),
+  ...Object.fromEntries(Object.entries(PROJECT_SEGMENT).map(([v, seg]) => [seg, { view: v as ViewId }])),
 };
 const GLOBAL_VIEW: Record<string, ViewId> = Object.fromEntries(Object.entries(GLOBAL_PATH).map(([v, p]) => [p, v as ViewId]));
 
@@ -54,9 +52,16 @@ const dec = (s: string) => {
   }
 };
 
-/** URL вида: разделы без проекта — свой путь, остальное — внутри проекта. */
-export const pathForView = (projectKey: string, view: ViewId): string =>
-  GLOBAL_PATH[view] ?? `/p/${enc(projectKey)}/${PROJECT_SEGMENT[view] ?? view}`;
+/** URL вида. `section` — подраздел дома настроек (для остальных видов не используется). */
+export const pathForView = (projectKey: string, view: ViewId, section = ""): string => {
+  if (isSettingsHome(view)) {
+    const sec = section && isSection(view, section) ? section : DEFAULT_SECTION[view];
+    if (view === "settings") return `/settings/${sec}`;
+    if (view === "orgSettings") return `/admin/${sec}`;
+    return `/p/${enc(projectKey)}/settings/${sec}`;
+  }
+  return GLOBAL_PATH[view] ?? `/p/${enc(projectKey)}/${PROJECT_SEGMENT[view] ?? view}`;
+};
 
 /** URL прямой ссылки на задачу — полная страница задачи (ADR-0013 §3), независимо от того,
  *  на каком виде задачу открыли: простой и предсказуемый адрес, который можно вставить в
@@ -65,13 +70,15 @@ export const pathForIssue = (projectKey: string, issueKey: string): string =>
   `/p/${enc(projectKey)}/issue/${enc(issueKey)}`;
 
 const RE_ISSUE = /^\/p\/([^/]+)\/issue\/([^/]+)\/?$/;
-const RE_VIEW = /^\/p\/([^/]+)\/((?:settings\/)?[^/]+)\/?$/;
+const RE_PROJECT_SETTINGS = /^\/p\/([^/]+)\/settings(?:\/([^/]+))?\/?$/;
+const RE_VIEW = /^\/p\/([^/]+)\/([^/]+)\/?$/;
+const RE_HOME = /^\/(settings|admin)(?:\/([^/]+))?\/?$/;
 
 export type ParsedPath =
   | { kind: "issue"; projectKey: string; issueKey: string }
-  | { kind: "view"; projectKey: string; view: ViewId }
-  /** Раздел без проекта: отчёты, отделы, справка, приглашения. */
-  | { kind: "global"; view: ViewId }
+  | { kind: "view"; projectKey: string; view: ViewId; section?: string }
+  /** Раздел без проекта: отчёты, справка, входящие, личные настройки и настройки организации. */
+  | { kind: "global"; view: ViewId; section?: string }
   | { kind: "root" };
 
 /** Разбор `pathname` (без query/hash) в одну из ожидаемых форм роутера. Путь, который
@@ -81,11 +88,22 @@ export type ParsedPath =
 export const parsePath = (pathname: string): ParsedPath => {
   const g = GLOBAL_VIEW[pathname.replace(/\/$/, "")];
   if (g) return { kind: "global", view: g };
+  const mh = pathname.match(RE_HOME);
+  if (mh) {
+    const view = mh[1] === "settings" ? "settings" : "orgSettings";
+    const sec = mh[2] ? dec(mh[2]) : DEFAULT_SECTION[view];
+    return isSection(view, sec) ? { kind: "global", view, section: sec } : { kind: "root" };
+  }
   const mi = pathname.match(RE_ISSUE);
   if (mi) return { kind: "issue", projectKey: dec(mi[1]), issueKey: dec(mi[2]) };
+  const ms = pathname.match(RE_PROJECT_SETTINGS);
+  if (ms) {
+    const sec = ms[2] ? dec(ms[2]) : DEFAULT_SECTION.projectSettings;
+    return isSection("projectSettings", sec) ? { kind: "view", projectKey: dec(ms[1]), view: "projectSettings", section: sec } : { kind: "root" };
+  }
   const mv = pathname.match(RE_VIEW);
-  const view = mv ? SEGMENT_VIEW[dec(mv[2])] : undefined;
-  if (mv && view) return { kind: "view", projectKey: dec(mv[1]), view };
+  const hit = mv ? SEGMENT_VIEW[dec(mv[2])] : undefined;
+  if (mv && hit) return hit.section ? { kind: "view", projectKey: dec(mv[1]), view: hit.view, section: hit.section } : { kind: "view", projectKey: dec(mv[1]), view: hit.view };
   return { kind: "root" };
 };
 

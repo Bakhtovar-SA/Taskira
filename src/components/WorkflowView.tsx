@@ -50,7 +50,9 @@ function edgePath(t: Transition, sidOf: (id: string) => string) {
   return `M${ax},${ay} Q${(ax + bx) / 2},${Math.min(ay, by) - 60} ${bx},${by}`;
 }
 
-export default function WorkflowView() {
+/** Схема проекта (ТЗ 5.9): три раздела настроек проекта — процесс, шаблоны задач, поля — на одном
+ *  экране-источнике; `part` выбирает, какой показать. */
+export default function WorkflowView({ part = "workflow" }: { part?: "workflow" | "templates" | "fields" }) {
   const { t } = useT();
   const {
     data,
@@ -131,18 +133,19 @@ export default function WorkflowView() {
       <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
         <div className="flex items-end gap-3">
           <div>
-            <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("workflow.title")}</h1>
+            <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t(part === "workflow" ? "workflow.title" : part === "templates" ? "settings.project.templates" : "settings.project.fields")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
               {t("workflow.subtitle", { key: data.project.key, count: data.workflow.transitions.length })}
             </p>
           </div>
-          {canEditWf && (
+          {canEditWf && part === "workflow" && (
             <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-lg border border-line bg-panel shadow-e1 px-3 text-[12.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">
               <IcUndo size={13} /> {t("workflow.reset")}
             </button>
           )}
         </div>
 
+        {part === "workflow" && (<>
         {/* граф */}
         <div className="mt-4 overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
           <div className="flex items-center gap-2 border-b border-linesoft bg-sunken px-4 py-2.5">
@@ -284,6 +287,8 @@ export default function WorkflowView() {
           </div>
         </div>
 
+        </>)}
+        {part === "templates" && (<>
         {/* шаблоны задач проекта (issue_templates, миграция 022) */}
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
@@ -398,6 +403,8 @@ export default function WorkflowView() {
           )}
         </div>
 
+        </>)}
+        {part === "fields" && (<>
         {/* пользовательские поля проекта (custom_fields, миграция 020) */}
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
@@ -477,6 +484,7 @@ export default function WorkflowView() {
             </div>
           )}
         </div>
+        </>)}
       </div>
     </div>
   );
