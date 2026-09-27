@@ -595,7 +595,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const { t, lang } = useT();
   const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
   const issue = data.issues.find((i) => i.id === ui.selectedIssueId);
-  const [tab, setTab] = useState<"comments" | "activity">("comments");
+  const [feed, setFeed] = useState<"all" | "comments" | "history">("all");
   const [comment, setComment] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState("");
@@ -603,7 +603,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const [confirmDel, setConfirmDel] = useState(false);
 
   useEffect(() => {
-    setTab("comments");
+    setFeed("all");
     setEditingDesc(false);
     setComment("");
     setConfirmDel(false);
@@ -684,10 +684,12 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
     setComment("");
   };
 
+  // Мгновенное сохранение (ТЗ 5.12 d): при выходе из поля, без кнопки «Сохранить»; Esc — отменить.
   const saveDesc = () => {
-    updateIssue(issue.id, { description: descDraft.trim() });
     setEditingDesc(false);
-    if (descDraft.trim() !== issue.description) toast("success", t("issue.descriptionSaved"));
+    if (descDraft.trim() === issue.description) return;
+    updateIssue(issue.id, { description: descDraft.trim() });
+    toast("success", t("issue.descriptionSaved"));
   };
 
   const addLabel = () => {
@@ -807,14 +809,20 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                   autoFocus
                   value={descDraft}
                   onChange={(e) => setDescDraft(e.target.value)}
+                  onBlur={saveDesc}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingDesc(false);
+                    }
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (e.target as HTMLTextAreaElement).blur();
+                  }}
                   rows={5}
                   placeholder={t("issue.descriptionPlaceholder")}
                   className="w-full resize-y rounded-md border border-accent bg-panel p-2.5 text-[13px] leading-relaxed outline-none ring-2 ring-accent/15"
                 />
-                <div className="mt-1.5 flex gap-1.5">
-                  <button onClick={saveDesc} className="rounded btn-primary px-3 py-1 text-[12px] font-medium text-onaccent">{t("common.save")}</button>
-                  <button onClick={() => setEditingDesc(false)} className="rounded px-3 py-1 text-[12px] font-semibold text-sub hover:bg-hover">{t("common.cancel")}</button>
-                </div>
+                <p className="mt-1 text-[11.5px] text-faint">{t("issue.descSaveHint")}</p>
               </div>
             ) : issue.description ? (
               editOk ? (
@@ -853,93 +861,107 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
             )}
           </div>
 
-          {/* вкладки */}
-          <div className="mt-6 flex items-center gap-1 border-b border-linesoft">
-            {([["comments", t("issue.commentsCount", { count: issue.comments.length })], ["activity", t("issue.activityCount", { count: issue.activity.length })]] as const).map(([id, label]) => (
+          {/* Лента (ТЗ 5.12 d): комментарии и история — одна лента по времени, переключатель сужает её. */}
+          <div role="group" aria-label={t("issue.feed.label")} className="mt-6 flex items-center gap-1 border-b border-linesoft">
+            {(
+              [
+                ["all", t("issue.feed.all")],
+                ["comments", t("issue.commentsCount", { count: issue.comments.length })],
+                ["history", t("issue.activityCount", { count: issue.activity.length })],
+              ] as const
+            ).map(([id, label]) => (
               <button
                 key={id}
-                onClick={() => setTab(id)}
-                className={`relative px-3 py-2 text-[13px] font-medium transition-colors ${tab === id ? "text-ink" : "text-faint hover:text-ink"}`}
+                type="button"
+                aria-pressed={feed === id}
+                onClick={() => setFeed(id)}
+                className={`relative px-3 py-2 text-[13px] font-medium transition-colors ${feed === id ? "text-ink" : "text-faint hover:text-ink"}`}
               >
                 {label}
-                {tab === id && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />}
+                {feed === id && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />}
               </button>
             ))}
           </div>
 
-          {tab === "comments" ? (
-            <div className="mt-3.5 space-y-4">
-              {canComment ? (
-              <div className="flex gap-2.5">
-                <Avatar user={me} size={28} interactive />
-                <div className="flex-1">
-                  <textarea
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitComment();
-                    }}
-                    rows={2}
-                    maxLength={LIMITS.comment.max}
-                    placeholder={t("issue.commentPlaceholder")}
-                    className="w-full resize-y rounded-md border border-line bg-panel p-2.5 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15"
-                  />
-                  <div className="mt-1.5 flex justify-end">
-                    <button
-                      onClick={submitComment}
-                      disabled={!comment.trim()}
-                      className="flex items-center gap-1.5 rounded-lg btn-primary px-3 py-1.5 text-[12px] font-medium text-onaccent transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <IcSend size={12} /> {t("issue.send")}
-                    </button>
+          <div className="mt-3.5 space-y-4">
+            {feed !== "history" &&
+              (canComment ? (
+                <div className="flex gap-2.5">
+                  <Avatar user={me} size={28} interactive />
+                  <div className="flex-1">
+                    <textarea
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitComment();
+                      }}
+                      rows={2}
+                      maxLength={LIMITS.comment.max}
+                      placeholder={t("issue.commentPlaceholder")}
+                      className="w-full resize-y rounded-md border border-line bg-panel p-2.5 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15"
+                    />
+                    <div className="mt-1.5 flex justify-end">
+                      <button
+                        onClick={submitComment}
+                        disabled={!comment.trim()}
+                        className="flex items-center gap-1.5 rounded-lg btn-primary px-3 py-1.5 text-[12px] font-medium text-onaccent transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <IcSend size={12} /> {t("issue.send")}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
               ) : (
                 <p className="flex items-center gap-2 rounded-md border border-dashed border-line2 bg-sunken px-3 py-2.5 text-[12px] text-faint">
                   <IcLock size={13} /> {t("issue.commentDenied")}
                 </p>
-              )}
-              {[...issue.comments].reverse().map((c) => {
-                const u = data.users.find((x) => x.id === c.authorId);
+              ))}
+
+            {(() => {
+              // Новые сверху. Комментарий — пузырь с текстом; событие истории — тихая строка с аватаром.
+              const items = [
+                ...(feed !== "history" ? issue.comments.map((c) => ({ kind: "comment" as const, ts: c.ts, c })) : []),
+                ...(feed !== "comments" ? issue.activity.map((a) => ({ kind: "event" as const, ts: a.ts, a })) : []),
+              ].sort((x, y) => y.ts - x.ts);
+              if (!items.length)
                 return (
-                  <div key={c.id} className="anim-fadeup flex gap-2.5">
-                    <Avatar user={u ?? null} size={28} interactive />
-                    <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
-                      <p className="text-[12px]">
-                        <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(c.ts, lang)}</span>
-                      </p>
-                      <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-sub"><MentionText text={c.body} /></p>
-                    </div>
-                  </div>
+                  <p className="py-3 text-center text-[12px] text-faint">
+                    {feed === "comments" ? t("issue.noComments") : feed === "history" ? t("issue.noActivity") : t("issue.feedEmpty")}
+                  </p>
                 );
-              })}
-              {issue.comments.length === 0 && <p className="py-3 text-center text-[12px] text-faint">{t("issue.noComments")}</p>}
-            </div>
-          ) : (
-            <div className="mt-4 space-y-0">
-              {[...issue.activity].reverse().map((a, idx, arr) => {
-                // Профиль автора приходит вместе с записью: история переживает
-                // вывод человека из проекта и удаление его учётки.
-                const who = a.author;
+              return items.map((it) => {
+                if (it.kind === "comment") {
+                  const u = data.users.find((x) => x.id === it.c.authorId);
+                  return (
+                    <div key={`c-${it.c.id}`} className="anim-fadeup flex gap-2.5">
+                      <Avatar user={u ?? null} size={28} interactive />
+                      <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
+                        <p className="text-[12px]">
+                          <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(it.c.ts, lang)}</span>
+                        </p>
+                        <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-sub">
+                          <MentionText text={it.c.body} />
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                // Профиль автора приходит вместе с записью: история переживает вывод человека из проекта.
+                const who = it.a.author;
                 return (
-                  <div key={a.id} className="relative flex gap-3 pb-4">
-                    {idx < arr.length - 1 && <span className="absolute left-[11px] top-6 h-full w-px bg-line" />}
-                    <span className="relative z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line bg-panel">
+                  <div key={`a-${it.a.id}`} className="flex items-start gap-2.5 pl-1">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
                       <Avatar user={who} size={18} interactive />
                     </span>
-                    <p className="pt-0.5 text-[12.5px] leading-snug text-sub">
-                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {localizeActivity(a.text, lang, t)}
-                      <span className="ml-1.5 text-[11px] text-faint">{relTime(a.ts, lang)}</span>
+                    <p className="text-[12.5px] leading-snug text-sub">
+                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {localizeActivity(it.a.text, lang, t)}
+                      <span className="ml-1.5 text-[11px] text-faint">{relTime(it.a.ts, lang)}</span>
                     </p>
                   </div>
                 );
-              })}
-              {issue.activity.length === 0 && (
-                <p className="py-3 text-center text-[12px] text-faint">{t("issue.noActivity")}</p>
-              )}
-            </div>
-          )}
+              });
+            })()}
+          </div>
         </div>
 
         {/* правая панель */}
