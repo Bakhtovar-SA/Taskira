@@ -6,11 +6,10 @@ import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo, StatusGlyph } from ".
 import { Lozenge } from "../ui";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
+import { layoutWorkflow } from "../workflowLayout";
 
-/* POS/PATHS рассчитаны ТОЛЬКО на 4 дефолтных статуса (ключи — стабильные sid,
-   не uuid). Статус сверх стандартных четырёх просто не отрисуется — если появится
-   возможность добавлять свои статусы, эту визуализацию нужно доработать
-   (taskira-review §1.4). */
+/* POS/PATHS — заготовленная схема для 4 дефолтных статусов (ключи — стабильные sid, не uuid).
+   Любой другой набор статусов раскладывает workflowLayout.ts. */
 const POS: Record<string, { x: number; y: number; w: number; h: number }> = {
   todo: { x: 40, y: 140, w: 190, h: 76 },
   inprogress: { x: 390, y: 32, w: 190, h: 76 },
@@ -34,61 +33,21 @@ const PATHS: Record<string, string> = {
   "done>inprogress": "M814,138 C884,-42 486,-48 486,32",
 };
 
-type Box = { x: number; y: number; w: number; h: number };
-type Layout = { standard: boolean; boxes: Map<string, Box>; viewBox: string };
+type Box = { x: number; y: number; w: number; h: number; lines?: string[] };
+type Layout = { standard: boolean; boxes: Map<string, Box>; viewBox: string; edge?: (from: string, to: string) => string };
 
-/** Раскладка графа (ТЗ 5.10, ADR-0017). Стандартные четыре статуса — заготовленная схема как в Jira;
- *  у проекта из шаблона свои статусы — сетка по их порядку (до 4 в ряд), слева направо, сверху вниз. */
-function layoutFor(statuses: { id: string; sid: string }[]): Layout {
+/** Стандартные четыре статуса — заготовленная схема как в Jira; свои статусы (проект из шаблона) —
+ *  послойная раскладка из workflowLayout.ts. */
+function layoutFor(statuses: { id: string; sid: string; name: string; category: "todo" | "inprogress" | "done" }[], transitions: Transition[], nameOf: (s: (typeof statuses)[number]) => string): Layout {
   const standard = statuses.length === 4 && statuses.every((s) => POS[s.sid]);
   if (standard) return { standard, boxes: new Map(statuses.map((s) => [s.id, POS[s.sid]])), viewBox: "0 -62 980 422" };
-  const cols = Math.min(4, Math.max(1, statuses.length));
-  const rows = Math.ceil(statuses.length / cols);
-  const w = 190;
-  const h = 64;
-  const gapX = cols > 1 ? (900 - w) / (cols - 1) : 0;
-  const boxes = new Map<string, Box>();
-  statuses.forEach((s, i) => {
-    const r = Math.floor(i / cols);
-    // Змейкой: чётные ряды слева направо, нечётные — справа налево, чтобы цепочка шла без длинных возвратов.
-    const c = r % 2 === 0 ? i % cols : cols - 1 - (i % cols);
-    boxes.set(s.id, { x: 40 + c * gapX, y: 30 + r * 130, w, h });
-  });
-  return { standard, boxes, viewBox: `0 -20 980 ${rows * 130 + 60}` };
+  const l = layoutWorkflow(statuses.map((s) => ({ ...s, name: nameOf(s) })), transitions);
+  return { standard, ...l };
 }
 
-/** Точка выхода луча из центра прямоугольника к цели — чтобы стрелка садилась на кромку блока. */
-function clip(b: Box, tx: number, ty: number, pad = 6) {
-  const cx = b.x + b.w / 2;
-  const cy = b.y + b.h / 2;
-  const dx = tx - cx;
-  const dy = ty - cy;
-  const k = Math.min(Math.abs((b.w / 2 + pad) / (dx || 1e-6)), Math.abs((b.h / 2 + pad) / (dy || 1e-6)));
-  return { x: cx + dx * k, y: cy + dy * k };
-}
-
-/** t.from/t.to — реальные uuid статусов. Стандартная схема — заготовленные маршруты по sid; иначе —
- *  дуга между кромками блоков, встречные переходы (A→B и B→A) расходятся в разные стороны. */
 function edgePath(t: Transition, sidOf: (id: string) => string, layout: Layout) {
-  if (layout.standard) {
-    const key = `${sidOf(t.from)}>${sidOf(t.to)}`;
-    if (PATHS[key]) return PATHS[key];
-  }
-  const a = layout.boxes.get(t.from);
-  const b = layout.boxes.get(t.to);
-  if (!a || !b) return "";
-  const acx = a.x + a.w / 2;
-  const acy = a.y + a.h / 2;
-  const bcx = b.x + b.w / 2;
-  const bcy = b.y + b.h / 2;
-  const len = Math.hypot(bcx - acx, bcy - acy) || 1;
-  // Смещение контрольной точки перпендикулярно отрезку: всегда «вправо» по ходу стрелки.
-  const bend = Math.min(60, 22 + len * 0.08);
-  const mx = (acx + bcx) / 2 + ((bcy - acy) / len) * -bend;
-  const my = (acy + bcy) / 2 + ((bcx - acx) / len) * bend;
-  const p1 = clip(a, mx, my, 2);
-  const p2 = clip(b, mx, my, 6);
-  return `M${p1.x.toFixed(1)},${p1.y.toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  if (layout.edge) return layout.edge(t.from, t.to);
+  return PATHS[`${sidOf(t.from)}>${sidOf(t.to)}`] ?? "";
 }
 
 export default function WorkflowView({ part = "workflow" }: { part?: "workflow" | "templates" | "fields" }) {
@@ -126,7 +85,7 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
 
   const sidById = new Map(statuses.map((s) => [s.id, s.sid]));
   const sidOf = (id: string) => sidById.get(id) ?? "";
-  const layout = layoutFor(statuses);
+  const layout = layoutFor(statuses, data.workflow.transitions, (s) => workflowStatusName(s, t));
   // Число задач в статусе — агрегат по проекту (счётчики сервера), а не обход
   // всех задач на клиенте (PERF-06); до ответа — многоточие, а не ложный 0.
   const { counts: statusCounts } = useIssueCounts(data.currentProjectId || null, NO_ISSUE_FILTERS, useIssuesRevision());
@@ -231,11 +190,22 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                 <g key={s.id} className={`wf-node wf-${s.category} ${on ? "is-on" : ""}`}>
                   <rect className="wf-node-box" x={p.x} y={p.y} width={p.w} height={p.h} rx="14" />
                   <rect className="wf-node-wash" x={p.x} y={p.y} width={p.w} height={p.h} rx="14" fill={`url(#wf-wash-${s.category})`} />
-                  <g transform={`translate(${p.x + 18} ${p.y + 20})`}>
+                  <g transform={`translate(${p.x + 18} ${p.y + (p.lines && p.lines.length > 1 ? 13 : 20)})`}>
                     <StatusGlyph category={s.category} position={all.length > 1 ? i / (all.length - 1) : 0.5} size={16} />
                   </g>
-                  <text x={p.x + 44} y={p.y + (layout.standard ? 33 : 28)} className="wf-node-name">{workflowStatusName(s, t)}</text>
-                  <text x={p.x + 44} y={p.y + (layout.standard ? 54 : 48)} className="wf-node-count">{t("workflow.issueCount", { count: countBy(s.id) })}</text>
+                  {p.lines ? (
+                    <>
+                      {p.lines.map((line, li) => (
+                        <text key={li} x={p.x + 44} y={p.y + (p.lines!.length > 1 ? 25 : 31) + li * 17} className="wf-node-name">{line}</text>
+                      ))}
+                      <text x={p.x + 44} y={p.y + (p.lines.length > 1 ? 60 : 51)} className="wf-node-count">{t("workflow.issueCount", { count: countBy(s.id) })}</text>
+                    </>
+                  ) : (
+                    <>
+                      <text x={p.x + 44} y={p.y + 33} className="wf-node-name">{workflowStatusName(s, t)}</text>
+                      <text x={p.x + 44} y={p.y + 54} className="wf-node-count">{t("workflow.issueCount", { count: countBy(s.id) })}</text>
+                    </>
+                  )}
                 </g>
               );
             })}
