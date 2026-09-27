@@ -540,7 +540,7 @@ the backlog (`sprint_id = NULL`) in one transaction; there is no auto-carry into
 a later pass will generalize, not reinvent; this migration does not build that model, only the one
 flag it needs today.
 
-Project templates (`project_templates`, migration `20260927T1000_project_templates.sql`, [ADR-0017](docs/adr/0017-project-templates.md),
+Project templates (`project_templates`, migration `20260927T1000_project_templates.sql`, [ADR-0017](docs/adr/0017-project-templates-as-data.md),
 `services/projectTemplates.ts`): a template is **data over existing project settings** — statuses (own `sid`s allowed),
 transitions, custom fields, issue templates, suggested labels, default view — never code. Five built-ins live in
 `server/src/templates/builtin.json` (ТЗ 5.10 caps them at 5); organisation templates are rows saved from a project
