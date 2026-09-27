@@ -122,6 +122,29 @@ describe("создание проекта", () => {
   });
 });
 
+describe("внешний вид проекта: иконка, цвет, фон", () => {
+  test("задаются при создании, меняются PATCH, без иконки берётся иконка шаблона", async () => {
+    const a = JSON.parse((await create({ key: "LOOK", name: "С видом", icon: "rocket", color: "teal", background: "aurora" })).body);
+    expect([a.icon, a.color, a.background]).toEqual(["rocket", "teal", "aurora"]);
+    const b = JSON.parse((await create({ key: "HIRE", name: "Найм", templateId: "builtin:hr" })).body);
+    expect([b.icon, b.color, b.background]).toEqual(["users", null, null]);
+    const plain = JSON.parse((await create({ key: "BARE", name: "Без вида" })).body);
+    expect([plain.icon, plain.color, plain.background]).toEqual([null, null, null]);
+    const p = await app.inject({ method: "PATCH", url: `/api/projects/${a.id}`, headers: auth(adm), payload: { icon: null, color: "pink", background: null } });
+    expect(p.statusCode).toBe(200);
+    const after = (await boot(a.id)).project;
+    expect([after.icon, after.color, after.background]).toEqual([null, "pink", null]);
+  });
+
+  test("значения только из закрытых списков; менять может только глобальный админ", async () => {
+    expect((await create({ key: "BAD", name: "Плохой", icon: "../x" })).statusCode).toBe(400);
+    expect((await create({ key: "BAD2", name: "Плохой", color: "#ff0000" })).statusCode).toBe(400);
+    const mgr = await login(app, "mgr1");
+    const r = await app.inject({ method: "PATCH", url: `/api/projects/${fx.projects.p1}`, headers: auth(mgr), payload: { color: "red" } });
+    expect(r.statusCode).toBe(403);
+  });
+});
+
 describe("сохранить проект как шаблон", () => {
   const save = (projectId: string, token: string, name = "Наш процесс") =>
     app.inject({ method: "POST", url: `/api/projects/${projectId}/save-as-template`, headers: auth(token), payload: { name, description: "Из проекта CORP" } });

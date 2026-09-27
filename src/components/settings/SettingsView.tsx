@@ -1,6 +1,7 @@
 /** Настройки — три дома (ADR-0013 §2, IA §3, ТЗ 5.9): Личные, Проект, Организация. Слева — все доступные
  *  разделы, сгруппированные по дому; справа — страница раздела. Каждая настройка живёт ровно в одном месте. */
 import { lazy, Suspense, type ReactNode } from "react";
+import { lookOf } from "../../projectLook";
 import { useStore } from "../../store";
 import { useT, type TKey } from "../../i18n";
 import { allowedSections } from "../../settings/access";
@@ -115,7 +116,7 @@ export default function SettingsView() {
           return (
             <div key={h} className="md:mb-3 max-md:contents">
               <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-2 text-[11.5px] font-semibold text-faint max-md:hidden">
-                {h === "projectSettings" && <ProjectMark projectKey={data.project.key} size={14} />}
+                {h === "projectSettings" && <ProjectMark projectKey={data.project.key} {...lookOf(data.projects, data.currentProjectId)} size={14} />}
                 {t(HOME_KEY[h])}
                 {h === "projectSettings" && <span className="truncate font-medium">· {data.project.name}</span>}
               </p>

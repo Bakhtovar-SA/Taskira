@@ -70,9 +70,9 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       try {
         projectId = await withTransaction(async (client) => {
           const created = await client.query<{ id: string }>(
-              `INSERT INTO projects (key, name, description, department_id, is_shared, sprints_enabled)
-               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-              [body.key, body.name, body.description, body.departmentId, body.isShared, body.sprintsEnabled],
+              `INSERT INTO projects (key, name, description, department_id, is_shared, sprints_enabled, icon, color, background)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+              [body.key, body.name, body.description, body.departmentId, body.isShared, body.sprintsEnabled, body.icon !== undefined ? body.icon : (template?.spec.icon ?? null), body.color, body.background],
             );
           const id = created.rows[0].id;
           // Всё — в одной транзакции: сбой на любом шаге (статус, поле, участник) не оставляет полупроекта.
@@ -166,6 +166,9 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       if (body.departmentId !== undefined) push("department_id", body.departmentId);
       if (body.isShared !== undefined) push("is_shared", body.isShared);
       if (body.sprintsEnabled !== undefined) push("sprints_enabled", body.sprintsEnabled);
+      if (body.icon !== undefined) push("icon", body.icon);
+      if (body.color !== undefined) push("color", body.color);
+      if (body.background !== undefined) push("background", body.background);
       vals.push(projectId);
       await q(`UPDATE projects SET ${sets.join(", ")} WHERE id = $${vals.length}`, vals);
 

@@ -1,6 +1,7 @@
 /** «Мои задачи» (ADR-0013 §1, `/my-issues`) — назначенные мне задачи во всех проектах,
  *  сгруппированные по проекту. Та же полоса фокуса и строка, что на Главной (`MyIssues.tsx`). */
 import { useEffect, useMemo, useState } from "react";
+import { lookOf } from "../projectLook";
 import { useStore } from "../store";
 import type { AssignedIssue } from "../types";
 import { IcInbox } from "../icons";
@@ -53,7 +54,7 @@ export default function MyIssuesView() {
             {groups.map((items) => (
               <section key={items[0].projectId}>
                 <h2 className="mb-2 flex items-center gap-2 px-1 text-[13px] font-semibold text-ink">
-                  <ProjectMark projectKey={items[0].projectKey} size={18} />
+                  <ProjectMark projectKey={items[0].projectKey} {...lookOf(data.projects, items[0].projectKey)} size={18} />
                   {items[0].projectName}
                   <span className="tabular text-[12px] font-medium text-faint">{items.length}</span>
                 </h2>

@@ -104,8 +104,8 @@ export async function snapshotProject(projectId: string) {
       `SELECT name, type_id, priority_id, title, description, status_id FROM issue_templates WHERE project_id = $1 ORDER BY position, created_at`,
       [projectId],
     ),
-    one<{ default_view: string | null; suggested_labels: string[]; sprints_enabled: boolean }>(
-      `SELECT default_view, suggested_labels, sprints_enabled FROM projects WHERE id = $1`,
+    one<{ default_view: string | null; suggested_labels: string[]; sprints_enabled: boolean; icon: string | null }>(
+      `SELECT default_view, suggested_labels, sprints_enabled, icon FROM projects WHERE id = $1`,
       [projectId],
     ),
   ]);
@@ -125,5 +125,6 @@ export async function snapshotProject(projectId: string) {
     defaultView: project?.default_view ?? "board",
     labels: project?.suggested_labels ?? [],
     sprintsEnabled: project?.sprints_enabled ?? false,
+    icon: project?.icon ?? undefined,
   });
 }

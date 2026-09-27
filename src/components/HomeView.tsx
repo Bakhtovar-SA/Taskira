@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { lookOf } from "../projectLook";
 import { FOCUS_TEST, FocusChips, TaskRow, useFocusCounts, type Focus } from "./MyIssues";
 import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
@@ -187,7 +188,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
               {tasks.length > 0 ? (
                 <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
                   {tasks.map((item) => (
-                    <TaskRow key={item.issueId} issue={item} onOpen={() => openTask(item)} />
+                    <TaskRow key={item.issueId} issue={item} onOpen={() => openTask(item)} look={lookOf(data.projects, item.projectKey)} />
                   ))}
                   {/* Сервер ограничивает выдачу — говорим об этом прямо, а не
                       показываем часть списка как будто это всё. */}
@@ -236,7 +237,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                             onClick={() => enterProject(p.id)}
                             className="surface-raised group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ring-1 ring-inset ring-line/70 transition-[box-shadow] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2"
                           >
-                            <ProjectMark projectKey={p.key} size={32} />
+                            <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={32} />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-[13.5px] font-medium text-ink">{p.name}</span>
                               <span className="block text-[12px] text-faint">

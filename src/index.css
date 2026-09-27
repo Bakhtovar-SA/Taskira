@@ -375,6 +375,19 @@ html.vt-theme::view-transition-new(root) {
   background: color-mix(in oklch, var(--accent-solid) 7%, transparent);
   box-shadow: inset 0 0 0 2px var(--accent-solid), 0 6px 18px -10px var(--accent-glow);
 }
+/* Выбор иконки и цвета проекта (ProjectLookPicker): кольцо на выбранном, без заливки фона. */
+.look-choice {
+  transition: box-shadow var(--dur-2) var(--ease-standard), background-color var(--dur-2);
+}
+.look-choice:hover {
+  background: var(--bg-hover);
+}
+.look-choice[aria-checked="true"] {
+  box-shadow: inset 0 0 0 2px var(--accent-solid);
+}
+.look-bg-personal {
+  background: repeating-linear-gradient(135deg, var(--bg-sunken) 0 6px, var(--bg-panel) 6px 12px);
+}
 .theme-thumb {
   position: relative;
   display: block;

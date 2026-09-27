@@ -2,6 +2,7 @@
  *  и полоса фокуса. Данные — `data.assignedToMe` (GET /api/issues/assigned-to-me, по всем
  *  видимым проектам). */
 import { useMemo } from "react";
+import type { lookOf } from "../projectLook";
 import { fmtDate } from "../store/mappers";
 import type { AssignedIssue } from "../types";
 import { DueRing, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
@@ -67,7 +68,7 @@ export function FocusChips({ focus, onFocus, counts, className = "" }: { focus: 
   );
 }
 
-export function TaskRow({ issue, onOpen, showProject = true }: { issue: AssignedIssue; onOpen: () => void; showProject?: boolean }) {
+export function TaskRow({ issue, onOpen, showProject = true, look }: { issue: AssignedIssue; onOpen: () => void; showProject?: boolean; look?: ReturnType<typeof lookOf> }) {
   const { t, lang } = useT();
   const cat = issue.statusCategory as "todo" | "inprogress" | "done";
   return (
@@ -96,7 +97,7 @@ export function TaskRow({ issue, onOpen, showProject = true }: { issue: Assigned
       )}
       {showProject && (
         <span className="hidden shrink-0 sm:inline-flex" title={issue.projectName}>
-          <ProjectMark projectKey={issue.projectKey} size={20} />
+          <ProjectMark projectKey={issue.projectKey} {...look} size={20} />
         </span>
       )}
     </button>

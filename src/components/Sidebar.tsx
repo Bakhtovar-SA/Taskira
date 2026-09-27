@@ -243,7 +243,7 @@ export default function Sidebar() {
         aria-current={cur ? "true" : undefined}
         className={`${navItem} ${active ? navOn : cur ? "font-semibold text-ink" : navOff}`}
       >
-        <ProjectMark projectKey={p.key} size={18} />
+        <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />
         <span className="flex-1 truncate">{p.name}</span>
         {cur && !active && <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />}
       </button>
@@ -378,7 +378,7 @@ export default function Sidebar() {
               <div className="flex flex-col gap-px">
                 {favorites.map((p) => (
                   <button key={p.id} type="button" onClick={() => p.id !== data.currentProjectId && openProject(p)} className={`${navItem} ${navOff}`}>
-                    <ProjectMark projectKey={p.key} size={18} />
+                    <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />
                     <span className="flex-1 truncate">{p.name}</span>
                   </button>
                 ))}
@@ -596,7 +596,7 @@ function Rail({
             `p:${p.id}`,
             p.name,
             <span className={`flex rounded-md ${cur && !active ? "ring-2 ring-accent/50 ring-offset-1 ring-offset-[var(--bg-frame)]" : ""}`}>
-              <ProjectMark projectKey={p.key} size={22} />
+              <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={22} />
             </span>,
             () => (!cur ? openProject(p) : !active && setView("board")),
             active,

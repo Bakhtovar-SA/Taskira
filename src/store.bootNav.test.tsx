@@ -36,7 +36,7 @@ const user = (over: Record<string, unknown> = {}) => ({
   id: "u1", username: "admin", name: "Админ", initials: "А", color: "#0B5FD9", jobRole: "Админ",
   globalRole: "admin" as const, isActive: true, authSource: "local" as const, ...over,
 });
-const proj = (id: string, key: string) => ({ id, key, name: key, description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [] });
+const proj = (id: string, key: string) => ({ id, key, name: key, description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null });
 const boot = (p: ReturnType<typeof proj>): ProjectBootstrap => ({
   project: p,
   users: [user()] as never,

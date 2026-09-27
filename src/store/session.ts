@@ -128,6 +128,9 @@ export function useSessionActions(
         sprintsEnabled: p.sprintsEnabled,
         defaultView: p.defaultView ?? null,
         suggestedLabels: p.suggestedLabels ?? [],
+        icon: p.icon ?? null,
+        color: p.color ?? null,
+        background: p.background ?? null,
       }));
       // ТЗ 3.1: резолв прямой ссылки (/p/:projectKey/issue/:issueKey ИЛИ
       // /p/:projectKey/<вид>) ОДИН раз для всей функции — обе ветки ниже (solo и

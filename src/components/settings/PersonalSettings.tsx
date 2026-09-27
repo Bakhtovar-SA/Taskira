@@ -7,7 +7,7 @@ import { Avatar, Button, RadioGroup, Switch, Tag } from "../../ds";
 import { IcCamera, IcTrash } from "../../icons";
 import { useAvatarSrc } from "../../ui";
 import { cropAndResizeAvatar } from "../../avatarCrop";
-import { BG_PRESETS, effectiveTheme, readBgId, readDensity, readTheme, setBg, setDensity, setThemeMode, type Density, type ThemeMode } from "../../theme";
+import { BG_PRESETS, effectiveTheme, projectBackground, readBgId, readDensity, readTheme, setBg, setDensity, setThemeMode, type Density, type ThemeMode } from "../../theme";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 
 export function PersonalSection({ section }: { section: string }) {
@@ -161,6 +161,7 @@ function Appearance() {
             </button>
           ))}
         </div>
+        {projectBackground() && <p className="-mt-1 px-5 pb-4 text-[12px] text-faint">{t("settings.appearance.projectBgNote")}</p>}
       </SettingsCard>
       <SettingsCard title={t("settings.appearance.density")}>
         <div className="px-5 py-4">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { lookOf } from "../projectLook";
 import { useNotifications, useStore, useUnreadCount } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
@@ -592,7 +593,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
           вкладки представлений. На экранах вне представлений — крошка раздела. */}
       <nav className="flex min-w-0 items-center gap-0.5 text-[13px] text-faint">
         <span className="hidden sm:flex">
-          <ProjectMark projectKey={data.project.key} size={20} />
+          <ProjectMark projectKey={data.project.key} {...lookOf(data.projects, data.currentProjectId)} size={20} />
         </span>
         <span className="hidden md:flex">
           <ProjectSwitcher />

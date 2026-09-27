@@ -11,6 +11,7 @@ import { fmtDate } from "../../store/mappers";
 import { Button, Dialog, EmptyState, Input, Switch, Textarea } from "../../ds";
 import { IcArchive, IcTrash } from "../../icons";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
+import { BackgroundPicker, ColorPicker, IconPicker } from "../ProjectLookPicker";
 
 export function ProjectSection({ section }: { section: string }) {
   if (section === "modules") return <Modules />;
@@ -21,7 +22,7 @@ export function ProjectSection({ section }: { section: string }) {
 function useCurrentProject() {
   const { data } = useStore();
   const summary = data.projects.find((p) => p.id === data.currentProjectId);
-  return { id: data.currentProjectId, key: data.project.key, name: data.project.name, description: data.project.description ?? "", departmentId: summary?.departmentId ?? "", isShared: !!summary?.isShared, sprintsEnabled: !!summary?.sprintsEnabled };
+  return { id: data.currentProjectId, key: data.project.key, name: data.project.name, description: data.project.description ?? "", departmentId: summary?.departmentId ?? "", isShared: !!summary?.isShared, sprintsEnabled: !!summary?.sprintsEnabled, icon: summary?.icon ?? null, color: summary?.color ?? null, background: summary?.background ?? null };
 }
 
 function General() {
@@ -72,6 +73,24 @@ function General() {
           <Input label={t("settings.project.key")} value={p.key} readOnly disabled={t("settings.project.keyFixed")} />
           <div className="sm:col-span-2">
             <Textarea label={t("settings.project.description")} value={desc} onChange={(e) => setDesc(e.target.value)} maxChars={LIMITS.project.description.max} rows={4} placeholder={t("settings.project.descriptionPlaceholder")} />
+          </div>
+        </div>
+      </SettingsCard>
+      <SettingsCard title={t("settings.project.look")}>
+        <div className="flex flex-col gap-5 px-5 py-5">
+          <p className="-mt-1 text-[12.5px] text-faint">{t("settings.project.lookHint")}</p>
+          <div className="flex flex-col gap-2">
+            <span className="ds-label">{t("look.icon")}</span>
+            <IconPicker projectKey={p.key} color={p.color} value={p.icon} onChange={(v) => patchProject(p.id, { icon: v })} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="ds-label">{t("look.color")}</span>
+            <ColorPicker projectKey={p.key} value={p.color} onChange={(v) => patchProject(p.id, { color: v })} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="ds-label">{t("look.background")}</span>
+            <BackgroundPicker value={p.background} onChange={(v) => patchProject(p.id, { background: v })} />
+            <span className="ds-hint">{t("look.bgHint")}</span>
           </div>
         </div>
       </SettingsCard>

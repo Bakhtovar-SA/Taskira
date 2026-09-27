@@ -549,9 +549,16 @@ creates the project, applies the template and adds members in **one transaction*
 project whose statuses aren't the default four (reset would orphan its issues). New project columns: `default_view`
 (bootstrap opens it when the URL names no view) and `suggested_labels` (quick "+ label" chips in `IssueModal`).
 Client: `ProjectWizard.tsx` (lazy; opened by `openProjectWizard()` from the sidebar "+", the palette and
-«Отделы и проекты») — template → name/key (`suggestKey`, transliterated) → access → review. There is no project
-icon/colour/background setting, so the wizard doesn't offer one. `WorkflowView`'s graph lays out any status set
-(`layoutFor`), the standard four keep their fixed layout.
+«Отделы и проекты») — template → name/key/icon/colour (`suggestKey`, transliterated) → access → background + review.
+`WorkflowView`'s graph lays out any status set with `src/workflowLayout.ts` (layered: longest forward path, loop-back
+statuses beside their earliest predecessor, done statuses last or in a row below; arcs for back/skip edges), the
+standard four keep their fixed layout. **Project appearance** ([ADR-0018](docs/adr/0018-project-appearance.md),
+migration `20260927T1400_project_appearance.sql`): `projects.icon`/`color`/`background` are ids from closed lists in
+`contract.ts` (`PROJECT_ICONS`, `PROJECT_COLORS` = `tk-tone-*`, `PROJECT_BACKGROUNDS` = atmosphere presets) — never
+hex/URLs, so nothing new under the CSP; `null` = old behaviour (key letter, tone by key, personal background).
+`ProjectMark` (`ui.tsx`) takes `icon`/`color` — pass them (or `lookOf(data.projects, key)` from `src/projectLook.tsx`)
+wherever a project mark is shown. A project background overrides the personal one while that project is open
+(`setProjectBackground()` in `theme.ts`, driven from `App.tsx`); the wizard previews it live and restores on close.
 
 Department membership (`department_members`, migration 009) has always had a `source` column
 (`'ldap' | 'manual'`), but only the LDAP sync path (`departmentSync.ts`) ever wrote to it until

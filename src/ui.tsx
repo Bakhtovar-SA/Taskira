@@ -6,6 +6,7 @@ import { IcBriefcase, IcCamera, IcPhone, IcTrash, IcX } from "./icons";
 import { useT } from "./i18n";
 import { cropAndResizeAvatar } from "./avatarCrop";
 import { workflowStatusName } from "./workflowStatus";
+import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
 
 /** Аватару достаточно имени/инициалов/цвета — принимаем любой такой объект
  *  (не только полный User: напр. `actor` в уведомлениях). id/avatarUpdatedAt
@@ -132,9 +133,9 @@ export const AvatarStack = ({
   );
 };
 
-/** Знак проекта: плашка в тоне проекта с первой буквой ключа. Тон выбирается
- *  детерминированно по ключу из палитры проектов (ТЗ 5.3 п.6) — один и тот же
- *  проект всегда одного цвета, и цвет не хранится на сервере. */
+/** Знак проекта: плашка в тоне проекта с иконкой или первой буквой ключа. Цвет и иконку выбирают в мастере
+ *  и в настройках проекта (ТЗ 5.10); без них — буква и тон по ключу из палитры проектов (ТЗ 5.3 п.6), так
+ *  что проект без настроек всегда одного цвета. */
 const PROJECT_TONES = ["blue", "pink", "orange", "green", "teal", "red", "amber", "sky", "indigo"] as const;
 export const projectTone = (key: string) => {
   let h = 0;
@@ -149,15 +150,18 @@ export const labelTone = (text: string) => {
   for (const ch of text.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return LABEL_TONES[h % LABEL_TONES.length];
 };
-export const ProjectMark = ({ projectKey, size = 20 }: { projectKey: string; size?: number }) => (
-  <span
-    className={`tk-tone-${projectTone(projectKey)} inline-flex shrink-0 items-center justify-center rounded-md bg-current/15 font-bold ring-1 ring-inset ring-current/25`}
-    style={{ width: size, height: size, fontSize: Math.round(size * 0.5) }}
-    aria-hidden="true"
-  >
-    {projectKey[0]}
-  </span>
-);
+export const ProjectMark = ({ projectKey, icon, color, size = 20 }: { projectKey: string; icon?: ProjectIcon | null; color?: ProjectColor | null; size?: number }) => {
+  const Icon = icon ? PROJECT_ICON_MAP[icon] : null;
+  return (
+    <span
+      className={`tk-tone-${color ?? projectTone(projectKey)} inline-flex shrink-0 items-center justify-center rounded-md bg-current/15 font-bold ring-1 ring-inset ring-current/25`}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.5) }}
+      aria-hidden="true"
+    >
+      {Icon ? <Icon size={Math.round(size * 0.62)} /> : projectKey[0]}
+    </span>
+  );
+};
 
 /** Цвет направления: сохранённый в БД цвет, иначе — детерминированный тон из
  *  палитры проектов (ТЗ 5.3 п.6) по id, чтобы соседние полосы не сливались в

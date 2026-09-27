@@ -175,7 +175,7 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `POST /api/auth/logout` | — | requireAuth | завершает сессию: `users.tokens_valid_from = now()`, все ранее выданные токены становятся недействительными (миграция 017) |
 | `GET /api/users` | — | **admin** | все, включая деактивированных; DTO с `globalRole` |
 | `GET /api/users/pickable?q=` | — | requireAuth | **поиск** по имени/должности: минимум 2 символа, до 20 совпадений. Справочник целиком не отдаётся |
-| `POST /api/projects` | `ProjectCreateBody` (+ `templateId?`, `members?[{userId, role}]`) | global admin | создать проект; шаблон и участники применяются в той же транзакции — при сбое проекта нет |
+| `POST /api/projects` | `ProjectCreateBody` (+ `templateId?`, `members?[{userId, role}]`, `icon?`, `color?`, `background?` — ADR-0018) | global admin | создать проект; шаблон и участники применяются в той же транзакции — при сбое проекта нет |
 | `POST /api/admin/users` | `CreateUserBody` (bcrypt, `globalRole`) | **admin**; занятый username — `409` | создать пользователя; членство в проекте — отдельно |
 | `PATCH /api/users/:id` | `{globalRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена **глобальной** роли; `invalidateUserCache` — действует сразу |
 | `PUT /api/project/members/:userId` | `SetMemberBody` `{role}` | **admin** (`manageAccess`) | добавить участника / сменить проектную роль; upsert; `invalidateMembership` |

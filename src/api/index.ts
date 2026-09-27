@@ -301,7 +301,10 @@ export const ldapApi = {
 };
 
 /** Тело POST /api/projects (ТЗ 5.10: `templateId` — `builtin:<id>` или uuid шаблона организации, `members` — в той же транзакции). */
-export type CreateProjectInput = { key: string; name: string; description?: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean; templateId?: string; members?: { userId: string; role: ProjectRole }[] };
+/** Внешний вид проекта (иконка, цвет, фон) — null: как было до настройки. */
+export type ProjectLookInput = Partial<Pick<Project, "icon" | "color" | "background">>;
+export type CreateProjectInput = { key: string; name: string; description?: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean; templateId?: string; members?: { userId: string; role: ProjectRole }[] } & ProjectLookInput;
+export type ProjectPatchInput = Partial<{ name: string; description: string; departmentId: string; isShared: boolean; sprintsEnabled: boolean }> & ProjectLookInput;
 
 /** Шаблоны проектов (ТЗ 5.10): встроенные + организации; сохранение из проекта; удаление. */
 export const projectTemplatesApi = {
@@ -317,10 +320,7 @@ export const projectsApi = {
   /** Данные одного проекта (bootstrap: users/members/workflow). */
   get: (projectId: string) => api<ProjectBootstrap>(P(projectId)),
   create: (body: CreateProjectInput) => api<Project>("/api/projects", { method: "POST", body }),
-  patch: (
-    projectId: string,
-    body: Partial<{ name: string; description: string; departmentId: string; isShared: boolean; sprintsEnabled: boolean }>,
-  ) => api<Project>(P(projectId), { method: "PATCH", body }),
+  patch: (projectId: string, body: ProjectPatchInput) => api<Project>(P(projectId), { method: "PATCH", body }),
   remove: (projectId: string) => api<void>(P(projectId), { method: "DELETE" }),
   /** Избранное (миграция 024) — идемпотентно в обе стороны на сервере. */
   favorite: (projectId: string) => api<void>(`${P(projectId)}/favorite`, { method: "PUT" }),

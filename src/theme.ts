@@ -84,7 +84,17 @@ export function effectiveTheme(mode: ThemeMode = readTheme()): "light" | "dark" 
 /** Ставит атрибуты темы и атмосферы на <html>. Дёргается на старте
  *  (после внешнего theme-init.js, который делает то же до загрузки CSS) и при
  *  каждом переключении в настройках. */
-export function applyTheme(mode: ThemeMode = readTheme(), bgId: string = readBgId()): void {
+/** Фон проекта (ТЗ 5.10/5.14): пока открыт проект со своим фоном, он перекрывает личный выбор человека. */
+let projectBg: string | null = null;
+export function setProjectBackground(id: string | null | undefined): void {
+  const next = id && BG_PRESETS.some((p) => p.id === id) ? id : null;
+  if (next === projectBg) return;
+  projectBg = next;
+  applyTheme();
+}
+export const projectBackground = (): string | null => projectBg;
+
+export function applyTheme(mode: ThemeMode = readTheme(), bgId: string = projectBg ?? readBgId()): void {
   const root = document.documentElement;
   root.setAttribute("data-theme", effectiveTheme(mode));
   const preset = BG_PRESETS.find((p) => p.id === bgId) ?? BG_PRESETS[0];
@@ -162,7 +172,7 @@ export function setBg(id: string): void {
   } catch {
     /* noop */
   }
-  applyTheme(readTheme(), id);
+  applyTheme(readTheme(), projectBg ?? id);
 }
 
 /** Плотность интерфейса (ТЗ 5.7, ADR-0014 п. 3): data-density на <html>; до первой отрисовки её ставит

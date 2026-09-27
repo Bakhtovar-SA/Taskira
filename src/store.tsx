@@ -13,7 +13,7 @@ import type {
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
-import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type Project as ApiProject } from "./api";
+import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type Project as ApiProject } from "./api";
 import {
   applyNotificationAction,
   canTransition,
@@ -129,7 +129,7 @@ interface Api {
   createProject: (input: CreateProjectInput) => Promise<ApiProject | null>;
   patchProject: (
     id: string,
-    patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean; sprintsEnabled?: boolean },
+    patch: ProjectPatchInput,
   ) => void;
   deleteProject: (id: string) => void;
   addSprint: (input: { name: string; goal: string; startDate?: string | null; endDate?: string | null }) => void;

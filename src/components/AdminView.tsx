@@ -244,7 +244,7 @@ export default function AdminView() {
                   {projs.map((p) => (
                     <div key={p.id}>
                       <div className="flex items-center gap-2 px-3 py-2">
-                        <ProjectMark projectKey={p.key} size={22} />
+                        <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={22} />
                         <span className="w-12 shrink-0 font-mono text-[11.5px] font-medium text-faint">{p.key}</span>
                         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{p.name}</span>
                         {p.isShared && <span className="shrink-0 text-[11px] text-faint">{t("admin.shared")}</span>}

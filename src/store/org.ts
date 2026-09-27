@@ -2,7 +2,7 @@
  * store.tsx без изменений поведения (ТЗ 2.3, шаг 3). `bootstrap` нужен deleteProject — приходит из провайдера. */
 import { useCallback } from "react";
 import type { ProjectRole } from "../types";
-import { ldapApi, departmentsApi, membersApi, projectsApi, type CreateProjectInput } from "../api";
+import { ldapApi, departmentsApi, membersApi, projectsApi, type CreateProjectInput, type ProjectPatchInput } from "../api";
 import { mapUser, readLastProject, writeLastProject } from "./mappers";
 import type { StoreCtx } from "./ctx";
 
@@ -111,6 +111,9 @@ export function useOrgActions(
         sprintsEnabled: p.sprintsEnabled,
         defaultView: p.defaultView ?? null,
         suggestedLabels: p.suggestedLabels ?? [],
+        icon: p.icon ?? null,
+        color: p.color ?? null,
+        background: p.background ?? null,
       })),
       departments: deps,
     }));
@@ -218,7 +221,7 @@ export function useOrgActions(
   const patchProject = useCallback(
     (
       id: string,
-      patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean; sprintsEnabled?: boolean },
+      patch: ProjectPatchInput,
     ) => {
       if (!requirePerm("manageAccess")) return;
       void (async () => {

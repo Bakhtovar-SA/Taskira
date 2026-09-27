@@ -14,6 +14,9 @@ interface ProjectDbRow {
   sprints_enabled: boolean;
   default_view: "board" | "backlog" | "timeline" | null;
   suggested_labels: string[];
+  icon: ProjectDto["icon"];
+  color: ProjectDto["color"];
+  background: ProjectDto["background"];
 }
 
 const toDto = (r: ProjectDbRow): ProjectDto => ({
@@ -26,6 +29,9 @@ const toDto = (r: ProjectDbRow): ProjectDto => ({
   sprintsEnabled: r.sprints_enabled,
   defaultView: r.default_view,
   suggestedLabels: r.suggested_labels ?? [],
+  icon: r.icon ?? null,
+  color: r.color ?? null,
+  background: r.background ?? null,
 });
 
 export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
@@ -38,9 +44,12 @@ export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
   sprintsEnabled: p.sprintsEnabled,
   defaultView: p.defaultView,
   suggestedLabels: p.suggestedLabels,
+  icon: p.icon,
+  color: p.color,
+  background: p.background,
 });
 
-const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared, p.sprints_enabled, p.default_view, p.suggested_labels`;
+const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared, p.sprints_enabled, p.default_view, p.suggested_labels, p.icon, p.color, p.background`;
 
 /**
  * Видимость (LDAP_MIGRATION.md D8 — закрывает DEPT_MIGRATION.md §3.5):

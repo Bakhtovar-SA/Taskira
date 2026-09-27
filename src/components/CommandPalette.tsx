@@ -148,7 +148,7 @@ export default function CommandPalette({ onClose, onShortcuts }: { onClose: () =
         group: "projects",
         label: p.name,
         keywords: [p.key],
-        icon: <ProjectMark projectKey={p.key} size={18} />,
+        icon: <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />,
         hint: <span className="font-mono text-[11px] text-faint">{p.key}</span>,
         run: () => switchProject(p.id),
       });

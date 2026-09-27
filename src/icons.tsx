@@ -506,3 +506,49 @@ export const IcGlobe = (p: P) => (
     <path className="s" fillRule="evenodd" d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1.6c-.55.5-1.3 1.9-1.52 4.65h3.04C9.3 4.5 8.55 3.1 8 2.6zm1.52 6.15H6.48C6.7 11.5 7.45 12.9 8 13.4c.55-.5 1.3-1.9 1.52-4.65zM2.65 8.75a5.4 5.4 0 0 0 2.6 3.9c-.4-1-.7-2.3-.8-3.9zm0-1.5h1.8c.1-1.6.4-2.9.8-3.9a5.4 5.4 0 0 0-2.6 3.9zm8.9 1.5c-.1 1.6-.4 2.9-.8 3.9a5.4 5.4 0 0 0 2.6-3.9zm1.8-1.5a5.4 5.4 0 0 0-2.6-3.9c.4 1 .7 2.3.8 3.9z" />
   </D>
 );
+
+/* Иконки проектов (ТЗ 5.10, мастер): тот же двухтоновый набор на сетке 16 px. */
+export const IcRocket = (p: P) => (
+  <D {...p}>
+    <path className="t" d="M8 1c2.2 1.6 3.3 4 3.3 6.8V11H4.7V7.8C4.7 5 5.8 2.6 8 1z" />
+    <circle className="s" cx="8" cy="6.25" r="1.5" />
+    <path className="s" d="M4.7 8.25 2.5 10.75V13l2.2-1.25zM11.3 8.25l2.2 2.5V13l-2.2-1.25zM6.5 12h3L8 15z" />
+  </D>
+);
+export const IcMegaphone = (p: P) => (
+  <D {...p}>
+    <path className="t" d="M3 5.5h2.5L12 2.5v11L5.5 10.5H3A1.5 1.5 0 0 1 1.5 9V7A1.5 1.5 0 0 1 3 5.5z" />
+    <R x={12} y={1.5} w={2.5} h={13} r={1.25} />
+    <path className="s" d="M4.25 10.5h2.5l1 3.5h-2.5z" />
+  </D>
+);
+export const IcHeadset = (p: P) => (
+  <D {...p}>
+    <path className="k k-soft" d="M3 9.5V8a5 5 0 0 1 10 0v1.5" />
+    <R x={1.5} y={8.5} w={3.5} h={5.5} r={1.5} />
+    <R x={11} y={8.5} w={3.5} h={5.5} r={1.5} />
+    <R x={6.5} y={13} w={3.5} h={2} r={1} c="t" />
+  </D>
+);
+export const IcDocument = (p: P) => (
+  <D {...p}>
+    <path className="t" d="M3.5 1h6L13.5 5v9a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z" />
+    <path className="s" d="M9.5 1v4h4z" />
+    <R x={4.75} y={7.5} w={6.5} h={1.5} r={0.75} />
+    <R x={4.75} y={10.5} w={4.5} h={1.5} r={0.75} />
+  </D>
+);
+export const IcCode = (p: P) => (
+  <D {...p}>
+    <Plate />
+    <path className="k" d="M6 5.25 3.5 8 6 10.75M10 5.25 12.5 8 10 10.75" />
+  </D>
+);
+export const IcCart = (p: P) => (
+  <D {...p}>
+    <path className="t" d="M4 3.5h10.5l-1.3 5.6a1 1 0 0 1-1 .9H5.6z" />
+    <path className="s" d="M1 1.5h2.6l2.3 9h7.6V12H4.8L2.4 3H1z" />
+    <circle className="s" cx="5.75" cy="14" r="1.25" />
+    <circle className="s" cx="12" cy="14" r="1.25" />
+  </D>
+);

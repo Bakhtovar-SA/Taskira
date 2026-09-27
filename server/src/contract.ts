@@ -190,6 +190,21 @@ const projectKey = z
   .max(LIMITS.project.key.max)
   .regex(/^[A-Z][A-Z0-9]+$/, "Ключ: заглавные латинские буквы и цифры, начинается с буквы");
 
+/** Внешний вид проекта (ТЗ 5.10, мастер; миграция 20260927T1400): закрытые списки идентификаторов.
+ *  Иконка — из собственного набора (src/icons.tsx, PROJECT_ICON_MAP), цвет — фирменный тон (tk-tone-*),
+ *  фон — атмосферный пресет (theme.ts BG_PRESETS). null — как раньше: буква ключа, тон по ключу, личный фон. */
+export const PROJECT_ICONS = [
+  "rocket", "megaphone", "users", "headset", "document", "briefcase", "code", "chart", "shield", "cart",
+  "book", "calendar", "star", "bolt", "globe", "sparkle", "flag", "home", "camera", "diamond",
+] as const;
+export const PROJECT_COLORS = ["violet", "indigo", "blue", "sky", "teal", "green", "amber", "orange", "red", "pink"] as const;
+export const PROJECT_BACKGROUNDS = ["default", "dusk", "dawn", "aurora", "graphite"] as const;
+const projectAppearance = {
+  icon: z.enum(PROJECT_ICONS).nullable(),
+  color: z.enum(PROJECT_COLORS).nullable(),
+  background: z.enum(PROJECT_BACKGROUNDS).nullable(),
+};
+
 /** POST /api/projects [global admin] — создаёт проект + дефолтный workflow.
  *  sprintsEnabled по умолчанию false — включение модуля спринтов задумано
  *  как отдельно предоставляемая возможность (см. SPRINTS_MIGRATION.md), а
@@ -208,6 +223,10 @@ export const ProjectCreateBody = z.object({
     .array(z.object({ userId: uuid, role: z.enum(PROJECT_ROLES) }))
     .max(200)
     .default([]),
+  /** Без иконки — берётся иконка шаблона (если есть), иначе буква ключа. */
+  icon: projectAppearance.icon.optional(),
+  color: projectAppearance.color.default(null),
+  background: projectAppearance.background.default(null),
 });
 
 /** PATCH /api/projects/:projectId [global admin] */
@@ -218,6 +237,7 @@ export const ProjectPatchBody = z
     departmentId: uuid,
     isShared: z.boolean(),
     sprintsEnabled: z.boolean(),
+    ...projectAppearance,
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
@@ -826,6 +846,9 @@ export const ProjectDto = z.object({
   /** Шаблон проекта (ТЗ 5.10): с какого представления открывать (null — Доска) и предложенные метки. */
   defaultView: z.enum(["board", "backlog", "timeline"]).nullable(),
   suggestedLabels: z.array(z.string()),
+  icon: z.enum(PROJECT_ICONS).nullable(),
+  color: z.enum(PROJECT_COLORS).nullable(),
+  background: z.enum(PROJECT_BACKGROUNDS).nullable(),
 });
 export type ProjectDto = z.infer<typeof ProjectDto>;
 
@@ -1106,6 +1129,8 @@ export const ProjectTemplateSpec = z
     defaultView: z.enum(PROJECT_DEFAULT_VIEWS).default("board"),
     labels: z.array(oneLine(LIMITS.label.max, 1)).max(30).default([]),
     sprintsEnabled: z.boolean().default(false),
+    /** Иконка, которую мастер предлагает для проекта из этого шаблона. */
+    icon: z.enum(PROJECT_ICONS).optional(),
   })
   .superRefine((v, ctx) => {
     const sids = v.statuses.map((s) => s.sid);

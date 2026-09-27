@@ -1,6 +1,7 @@
 /** «Входящие» (ADR-0013 §1, `/inbox`) — полная страница ленты уведомлений; колокол в шапке
  *  остаётся быстрым просмотром той же ленты. Данные — внешний стор уведомлений (ADR-0011). */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { lookOf } from "../projectLook";
 import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT } from "../types";
@@ -171,7 +172,7 @@ export default function InboxView() {
                             )}
                           </span>
                           <span className="flex shrink-0 items-center gap-2 pt-0.5">
-                            {pk && <ProjectMark projectKey={pk} size={18} />}
+                            {pk && <ProjectMark projectKey={pk} {...lookOf(data.projects, pk)} size={18} />}
                             <span className="w-[72px] text-right text-[11.5px] tabular text-faint">{relTime(n.createdAt)}</span>
                           </span>
                         </button>

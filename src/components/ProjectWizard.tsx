@@ -1,7 +1,8 @@
-/** Мастер создания проекта (ТЗ 5.10): шаблон с превью → название и ключ → доступ → проверка. Проект, шаблон и
- *  участники создаются одним запросом и одной транзакцией на сервере (POST /api/projects с templateId и members).
- *  Иконки, цвета и фона у проекта нет как настройки (ADR-0017) — значок выводится из ключа, превью показывает его. */
-import { useEffect, useMemo, useState } from "react";
+/** Мастер создания проекта (ТЗ 5.10): шаблон с превью → название, ключ, иконка и цвет → доступ → фон и проверка.
+ *  Проект, шаблон, участники и внешний вид создаются одним запросом и одной транзакцией на сервере
+ *  (POST /api/projects с templateId, members, icon/color/background). Иконку предлагает шаблон; фон на последнем
+ *  шаге сразу виден за окном мастера — и возвращается как был, если мастер закрыть. */
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { projectTemplatesApi, usersApi, type ProjectRole } from "../api";
@@ -10,6 +11,9 @@ import { Avatar, Button, Combobox, Dialog, Input, Switch, Tag, Textarea, type Co
 import { StatusGlyph, IcX } from "../icons";
 import { ProjectMark } from "../ui";
 import { LIMITS } from "../validation";
+import { projectBackground, setProjectBackground } from "../theme";
+import type { ProjectBackground, ProjectColor, ProjectIcon } from "../projectLook";
+import { BackgroundPicker, ColorPicker, IconPicker } from "./ProjectLookPicker";
 
 const KEY_RE = /^[A-Z][A-Z0-9]{1,9}$/;
 const TRANSLIT: Record<string, string> = { а: "A", б: "B", в: "V", г: "G", д: "D", е: "E", ё: "E", ж: "Z", з: "Z", и: "I", й: "I", к: "K", л: "L", м: "M", н: "N", о: "O", п: "P", р: "R", с: "S", т: "T", у: "U", ф: "F", х: "H", ц: "C", ч: "C", ш: "S", щ: "S", ы: "Y", э: "E", ю: "U", я: "Y" };
@@ -47,6 +51,10 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
   const [shared, setShared] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [busy, setBusy] = useState(false);
+  const [icon, setIcon] = useState<ProjectIcon | null>(null);
+  const [iconTouched, setIconTouched] = useState(false);
+  const [color, setColor] = useState<ProjectColor | null>(null);
+  const [bg, setBg] = useState<ProjectBackground | null>(null);
 
   useEffect(() => {
     projectTemplatesApi.list().then(setTemplates, () => setTemplates([]));
@@ -57,6 +65,19 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
   }, [name, keyTouched, taken]);
 
   const tpl = templates?.find((x) => x.id === tplId) ?? null;
+  useEffect(() => {
+    if (!iconTouched) setIcon(tpl?.spec.icon ?? null);
+  }, [tpl, iconTouched]);
+
+  // Живое превью фона за окном мастера; при закрытии — фон, который был до мастера.
+  const bgBefore = useRef(projectBackground());
+  useEffect(() => {
+    const before = bgBefore.current;
+    return () => setProjectBackground(before);
+  }, []);
+  useEffect(() => {
+    setProjectBackground(step === 3 && bg ? bg : bgBefore.current);
+  }, [step, bg]);
   const keyErr = !key ? undefined : !KEY_RE.test(key) ? t("wizard.keyFormat") : taken.has(key) ? t("wizard.keyTaken") : undefined;
   const canNext = [!!tpl, !!name.trim() && KEY_RE.test(key) && !taken.has(key), !!dept, true][step];
 
@@ -71,6 +92,9 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
       isShared: shared,
       templateId: tpl.id,
       members: members.map((m) => ({ userId: m.userId, role: m.role })),
+      icon,
+      color,
+      background: bg,
     });
     setBusy(false);
     if (!p) return;
@@ -134,17 +158,20 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
                     role="radio"
                     aria-checked={x.id === tplId}
                     onClick={() => setTplId(x.id)}
-                    className="theme-choice ds-focus flex flex-col items-start gap-0.5 rounded-xl px-3 py-2.5 text-left"
+                    className="theme-choice ds-focus flex items-center gap-3 rounded-xl px-3 py-2.5 text-left"
                   >
-                    <span className="flex items-center gap-2 text-[13px] font-semibold text-ink">
-                      {x.name}
-                      {!x.builtin && (
-                        <Tag tone="violet" size="sm">
-                          {t("wizard.orgTemplate")}
-                        </Tag>
-                      )}
+                    <ProjectMark projectKey={x.name} icon={x.spec.icon ?? null} color={x.id === tplId ? color : null} size={28} />
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+                        <span className="truncate">{x.name}</span>
+                        {!x.builtin && (
+                          <Tag tone="violet" size="sm">
+                            {t("wizard.orgTemplate")}
+                          </Tag>
+                        )}
+                      </span>
+                      <span className="text-[11.5px] text-faint">{t("wizard.statusCount", { n: x.spec.statuses.length, fields: x.spec.customFields.length })}</span>
                     </span>
-                    <span className="text-[11.5px] text-faint">{t("wizard.statusCount", { n: x.spec.statuses.length, fields: x.spec.customFields.length })}</span>
                   </button>
                 ))}
           </div>
@@ -164,10 +191,26 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
             }}
             error={keyErr}
             hint={keyErr ? undefined : t("wizard.keyHint", { key: key || "KEY" })}
-            right={<ProjectMark projectKey={key || "?"} size={18} />}
+            right={<ProjectMark projectKey={key || "?"} icon={icon} color={color} size={18} />}
           />
           <div className="sm:col-span-2">
-            <Textarea label={t("settings.project.description")} value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxChars={LIMITS.project.description.max} placeholder={t("settings.project.descriptionPlaceholder")} />
+            <Textarea label={t("settings.project.description")} value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} maxChars={LIMITS.project.description.max} placeholder={t("settings.project.descriptionPlaceholder")} />
+          </div>
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <span className="ds-label">{t("look.icon")}</span>
+            <IconPicker
+              projectKey={key}
+              color={color}
+              value={icon}
+              onChange={(v) => {
+                setIconTouched(true);
+                setIcon(v);
+              }}
+            />
+          </div>
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <span className="ds-label">{t("look.color")}</span>
+            <ColorPicker projectKey={key} value={color} onChange={setColor} />
           </div>
         </div>
       )}
@@ -177,7 +220,7 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
       {step === 3 && tpl && (
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3 rounded-xl bg-sunken/60 p-4 ring-1 ring-inset ring-linesoft">
-            <ProjectMark projectKey={key} size={40} />
+            <ProjectMark projectKey={key} icon={icon} color={color} size={40} />
             <div className="min-w-0 flex-1">
               <p className="truncate font-disp text-[17px] font-bold text-ink">{name.trim()}</p>
               <p className="text-[12.5px] text-faint">
@@ -185,6 +228,13 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
                 {shared && ` · ${t("settings.project.shared").toLowerCase()}`}
               </p>
             </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="ds-label">
+              {t("look.background")} <span className="font-normal text-faint">· {t("wizard.optional")}</span>
+            </span>
+            <BackgroundPicker value={bg} onChange={setBg} />
+            <span className="ds-hint">{t("look.bgHint")}</span>
           </div>
           <TemplatePreview tpl={tpl} compact />
           <p className="text-[12.5px] text-sub">{members.length ? t("wizard.membersSummary", { n: members.length, names: members.map((m) => m.name).join(", ") }) : t("wizard.noMembers")}</p>

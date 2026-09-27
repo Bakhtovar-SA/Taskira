@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { setProjectBackground } from "./theme";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
 import Sidebar from "./components/Sidebar";
@@ -94,6 +95,10 @@ function Shell() {
     window.addEventListener(OPEN_PROJECT_WIZARD_EVT, open);
     return () => window.removeEventListener(OPEN_PROJECT_WIZARD_EVT, open);
   }, []);
+
+  // Фон проекта (ТЗ 5.10): пока открыт проект со своим фоном, он перекрывает личный; на главной — личный.
+  const projectBg = bootStatus === "ready" ? (data.projects.find((p) => p.id === data.currentProjectId)?.background ?? null) : null;
+  useEffect(() => setProjectBackground(projectBg), [projectBg]);
 
   // «Недавние задачи» палитры: каждая открытая карточка (из любого места).
   const openedIssue = ui.selectedIssueId ? idx.issues.get(ui.selectedIssueId) : undefined;

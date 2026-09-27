@@ -52,7 +52,8 @@
         ],
         "defaultView": "timeline",
         "labels": ["бренд", "smm", "контекст", "ивент", "pr", "срочно"],
-        "sprintsEnabled": false
+        "sprintsEnabled": false,
+        "icon": "megaphone"
       }
     },
     {
@@ -87,7 +88,8 @@
         ],
         "defaultView": "board",
         "labels": ["it", "продажи", "бэк-офис", "удалёнка", "срочный найм"],
-        "sprintsEnabled": false
+        "sprintsEnabled": false,
+        "icon": "users"
       }
     },
     {
@@ -119,7 +121,8 @@
         ],
         "defaultView": "backlog",
         "labels": ["доступы", "оборудование", "1с", "почта", "vpn", "sla-нарушен"],
-        "sprintsEnabled": false
+        "sprintsEnabled": false,
+        "icon": "headset"
       }
     },
     {
@@ -154,7 +157,8 @@
         ],
         "defaultView": "board",
         "labels": ["закупки", "аренда", "персонал", "иб", "срочно"],
-        "sprintsEnabled": false
+        "sprintsEnabled": false,
+        "icon": "document"
       }
     }
   ]
