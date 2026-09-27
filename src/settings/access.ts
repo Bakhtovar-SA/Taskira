@@ -16,7 +16,7 @@ const ADMIN_ONLY_PROJECT = new Set(["general", "modules", "archive"]);
 /** Разделы, чьи страницы уже готовы (ТЗ 5.9 идёт по шагам); остальные появятся в навигации вместе со страницей. */
 const READY: Record<SettingsHome, Set<string>> = {
   settings: new Set(["profile", "notifications", "appearance", "language"]),
-  projectSettings: new Set(["workflow", "fields", "templates", "access"]),
+  projectSettings: new Set(["general", "workflow", "fields", "templates", "access", "modules", "archive"]),
   orgSettings: new Set(["departments"]),
 };
 

@@ -31,6 +31,7 @@ import {
 import { EmptyState } from "../../ds";
 import { ProjectMark } from "../../ui";
 import { PersonalSection } from "./PersonalSettings";
+import { ProjectSection } from "./ProjectSettings";
 
 const WorkflowView = lazy(() => import("../WorkflowView"));
 const PermissionsView = lazy(() => import("../PermissionsView"));
@@ -93,7 +94,13 @@ export default function SettingsView() {
   } else if (home === "settings") page = <PersonalSection section={section} />;
   else if (home === "projectSettings") {
     page =
-      section === "access" ? <PermissionsView /> : <WorkflowView part={section as "workflow" | "templates" | "fields"} />;
+      section === "access" ? (
+        <PermissionsView />
+      ) : section === "workflow" || section === "templates" || section === "fields" ? (
+        <WorkflowView part={section} />
+      ) : (
+        <ProjectSection section={section} />
+      );
   } else page = <AdminView />;
 
   return (

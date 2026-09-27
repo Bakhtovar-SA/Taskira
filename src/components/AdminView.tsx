@@ -46,122 +46,6 @@ function MiniAvatar({ user }: { user: { name?: string; initials?: string; color?
   );
 }
 
-/** Состав конкретного проекта — ленивая загрузка bootstrap на раскрытие.
- *  Добавление здесь НЕ открывает другие проекты отдела: выбор проекта + роли явный.
- *  `adminIds` — только чтобы исключить админов ресурса из кандидатов пикера
- *  (у них и так полный доступ); сам список кандидатов больше не выгружается
- *  целиком — см. UserSearchPicker. */
-function ProjectMembers({ projectId, adminIds }: { projectId: string; adminIds: Set<string> }) {
-  const { t, lang } = useT();
-  const { setProjectMember, removeProjectMember } = useStore();
-  const [state, setState] = useState<
-    | { status: "loading" }
-    | { status: "error" }
-    | { status: "ready"; members: { userId: string; role: ProjectRole }[]; users: SafeUser[] }
-  >({ status: "loading" });
-  const [addRole, setAddRole] = useState<ProjectRole>("employee");
-  const [busy, setBusy] = useState(false);
-  const alive = useRef(true);
-  useEffect(() => () => void (alive.current = false), []);
-
-  const load = useCallback(() => {
-    setState({ status: "loading" });
-    projectsApi
-      .get(projectId)
-      .then((b) => alive.current && setState({ status: "ready", members: b.members, users: b.users }))
-      .catch(() => alive.current && setState({ status: "error" }));
-  }, [projectId]);
-  useEffect(() => load(), [load]);
-
-  const run = (op: Promise<void>) => {
-    setBusy(true);
-    op.catch(() => {}).finally(() => {
-      if (!alive.current) return;
-      setBusy(false);
-      load(); // рефетч — увидеть отказ гарда «последний менеджер» и т.п.
-    });
-  };
-
-  if (state.status === "loading")
-    return <p className="border-t border-linesoft bg-sunken px-3 py-2 text-[11px] text-faint">{t("admin.loadingMembers")}</p>;
-  if (state.status === "error")
-    return (
-      <p className="border-t border-linesoft bg-sunken px-3 py-2 text-[11px] text-danger">
-        {t("admin.loadMembersFailed")}{" "}
-        <button className="underline" onClick={load}>
-          {t("reports.retry")}
-        </button>
-      </p>
-    );
-
-  const roleByUser = new Map(state.members.map((m) => [m.userId, m.role]));
-  const rows = state.members
-    .map((m) => ({ m, u: state.users.find((x) => x.id === m.userId) }))
-    .sort((a, b) => (a.u?.name ?? "").localeCompare(b.u?.name ?? "", lang === "ru" ? "ru" : "en"));
-  const exclude = new Set([...roleByUser.keys(), ...adminIds]);
-
-  return (
-    <div className="border-t border-linesoft bg-sunken px-3 py-2.5">
-      <p className="mb-1.5 text-[11.5px] font-medium text-faint">{t("admin.projectMembers", { count: state.members.length })}</p>
-
-      <div className="space-y-1">
-        {rows.map(({ m, u }) => (
-          <div key={m.userId} className="flex items-center gap-2">
-            <MiniAvatar user={u} />
-            <span className="min-w-0 flex-1 truncate text-[12px] text-ink">{u?.name ?? m.userId}</span>
-            <select
-              value={roleByUser.get(m.userId)}
-              disabled={busy}
-              onChange={(e) => run(setProjectMember(projectId, m.userId, e.target.value as ProjectRole))}
-              className="rounded-md border border-line bg-panel px-1.5 py-0.5 text-[11px] font-semibold text-sub focus:border-accent focus:shadow-focus focus:outline-none disabled:opacity-50"
-            >
-              {PROJECT_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {t(`role.${r}.name`)}
-                </option>
-              ))}
-            </select>
-            <button
-              disabled={busy}
-              onClick={() => run(removeProjectMember(projectId, m.userId))}
-              className="rounded-md border border-line bg-panel px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-40"
-            >
-              {t("access.remove")}
-            </button>
-          </div>
-        ))}
-        {state.members.length === 0 && <p className="text-[11px] text-faint">{t("admin.noMembers")}</p>}
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-start gap-2">
-        <select
-          value={addRole}
-          onChange={(e) => setAddRole(e.target.value as ProjectRole)}
-          disabled={busy}
-          className="shrink-0 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub focus:border-accent focus:shadow-focus focus:outline-none disabled:opacity-50"
-        >
-          {PROJECT_ROLES.map((r) => (
-            <option key={r} value={r}>
-              {t(`role.${r}.name`)}
-            </option>
-          ))}
-        </select>
-        <div className="min-w-[220px] flex-1">
-          <UserSearchPicker
-            exclude={exclude}
-            disabled={busy}
-            pickLabel={t("ui.add")}
-            onPick={(userId) => run(setProjectMember(projectId, userId, addRole))}
-          />
-        </div>
-      </div>
-      <p className="mt-1.5 text-[10px] leading-relaxed text-faint">
-        {t("admin.projectMembersHint")}
-      </p>
-    </div>
-  );
-}
-
 /** Состав отдела (department_members, миграция 009) — ленивая загрузка на
  *  раскрытие, тот же паттерн, что ProjectMembers выше. LDAP-строки (source
  *  из группы AD) показаны, но не убираются отсюда — только через саму
@@ -260,9 +144,8 @@ export default function AdminView() {
     renameDepartment,
     deleteDepartment,
     createProject,
-    patchProject,
-    deleteProject,
     switchProject,
+    setView,
     authMode,
     setDepartmentLdapGroup,
     resyncLdap,
@@ -283,19 +166,7 @@ export default function AdminView() {
   const setForm = (id: string, patch: Partial<{ key: string; name: string }>) =>
     setForms((s) => ({ ...s, [id]: { ...form(id), ...patch } }));
 
-  const [openMembers, setOpenMembers] = useState<Record<string, boolean>>({});
   const [openDeptMembers, setOpenDeptMembers] = useState<Record<string, boolean>>({});
-  // Только для исключения админов ресурса из пикера состава проекта (у них и
-  // так полный доступ) — сам список кандидатов больше не выгружается целиком.
-  const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    if (!canManage) return;
-    usersApi
-      .list()
-      .then((users) => setAdminIds(new Set(users.filter((u) => u.globalRole === "admin").map((u) => u.id))))
-      .catch(() => {});
-  }, [canManage]);
-
   if (!canManage) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -424,40 +295,29 @@ export default function AdminView() {
                       <div className="flex items-center gap-2 px-3 py-2">
                         <ProjectMark projectKey={p.key} size={22} />
                         <span className="w-12 shrink-0 font-mono text-[11.5px] font-medium text-faint">{p.key}</span>
-                        <EditableName value={p.name} onSave={(v) => patchProject(p.id, { name: v })} maxLength={LIMITS.project.name.max} />
-                        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] text-sub">
-                          <Switch checked={p.isShared} onChange={(v) => patchProject(p.id, { isShared: v })} />
-                          {t("admin.shared")}
-                        </label>
-                        <label title={t("admin.sprintsHint")} className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] text-sub">
-                          <Switch checked={p.sprintsEnabled} onChange={(v) => patchProject(p.id, { sprintsEnabled: v })} />
-                          {t("admin.sprints")}
-                        </label>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{p.name}</span>
+                        {p.isShared && <span className="shrink-0 text-[11px] text-faint">{t("admin.shared")}</span>}
+                        {/* Название, «общий», модули, состав и удаление — один дом: настройки проекта (ТЗ 5.9). */}
                         <button
-                          onClick={() => setOpenMembers((s) => ({ ...s, [p.id]: !s[p.id] }))}
+                          onClick={() => {
+                            setView("projectSettings", "general");
+                            if (p.id !== data.currentProjectId) switchProject(p.id);
+                          }}
+                          className="shrink-0 rounded-lg border border-line bg-panel shadow-e1 px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink"
+                        >
+                          {t("settings.menu")}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setView("projectSettings", "access");
+                            if (p.id !== data.currentProjectId) switchProject(p.id);
+                          }}
                           className="flex shrink-0 items-center gap-1 rounded-lg border border-line bg-panel shadow-e1 px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink"
                         >
-                          {openMembers[p.id] ? <IcChevD size={12} /> : <IcChevR size={12} />}
                           <IcUsers size={12} /> {t("admin.members")}
                         </button>
-                        <button
-                          onClick={() => switchProject(p.id)}
-                          disabled={p.id === data.currentProjectId}
-                          className="shrink-0 rounded-lg border border-line bg-panel shadow-e1 px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink disabled:opacity-40"
-                        >
-                          {t(p.id === data.currentProjectId ? "admin.opened" : "admin.open")}
-                        </button>
-                        <button
-                          onClick={() =>
-                            window.confirm(t("admin.deleteProjectConfirm", { key: p.key })) &&
-                            deleteProject(p.id)
-                          }
-                          className="shrink-0 rounded-md border border-line bg-panel p-1.5 text-sub transition-colors hover:border-danger hover:text-danger"
-                        >
-                          <IcTrash size={13} />
-                        </button>
                       </div>
-                      {openMembers[p.id] && <ProjectMembers projectId={p.id} adminIds={adminIds} />}
+
                     </div>
                   ))}
 
