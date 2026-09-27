@@ -1,7 +1,7 @@
 /** Поля формы (ТЗ 5.7): Input, Textarea, Checkbox, Radio/RadioGroup, Switch. Подпись, подсказка и
  *  ошибка связаны с полем через aria-* — экранный диктор читает их вместе с полем. */
 import { forwardRef, useState, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
-import { dsId } from "./floating";
+import { dsId } from "./ids";
 
 type FieldShell = {
   label?: ReactNode;

@@ -57,6 +57,5 @@ export const hidePop = (el: HTMLElement | null) => {
   }
 };
 
-let seq = 0;
 /** Стабильный id для связок aria-* (useId в React 19 даёт «:r1:», это валидно, но в селекторах неудобно). */
-export const dsId = (prefix: string) => `${prefix}-${(++seq).toString(36)}`;
+export { dsId } from "./ids";

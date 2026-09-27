@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { STEPS, hideOnboarding, useOnboarding } from "../onboarding";
-import { ProgressRing } from "../ds";
+import { ProgressRing } from "../ds/Display";
 import { IcCheck, IcX } from "../icons";
 import type { OnboardingStep } from "../../server/src/contract";
 import type { ViewId } from "../types";

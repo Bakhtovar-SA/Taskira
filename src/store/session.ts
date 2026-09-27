@@ -141,6 +141,13 @@ export function useSessionActions(
       // локально по уже полученному списку projects — сети не требует.
       const pathTarget = await resolveBootPathTarget(location.pathname, projects);
       if (stale()) return;
+      // Ссылка на проект или задачу, которая никуда не ведёт — показать «Не найдено», а не молча открыть другое место.
+      const deepKind = parsePath(location.pathname).kind;
+      const missingPath =
+        (deepKind === "view" || deepKind === "issue") &&
+        (!pathTarget || (!projects.some((p) => p.id === pathTarget.projectId) && !collabs.some((c) => pathTarget.kind === "issue" && c.issueId === pathTarget.issueId)))
+          ? location.pathname
+          : null;
       // Раздел без проекта по прямой ссылке (/inbox, /my-issues, /reports…, ADR-0013 §5) —
       // открыть его в оболочке последнего проекта, а не сбрасывать на главный экран.
       const bootPath = parsePath(location.pathname);
@@ -183,7 +190,7 @@ export function useSessionActions(
       // внутри проекта) → главный экран (UI_RESTRUCTURE.md D4): список проектов и
       // задач, в проект не входим. При 1 проекте главный экран бессмыслен — сразу
       // внутрь (ветка ниже).
-      if (projects.length >= 2 && !pathProjectVisible && !pathIsCollab && !globalView) {
+      if (projects.length >= 2 && !pathProjectVisible && !pathIsCollab && !globalView && !missingPath) {
         const assigned = await issuesApi
           .assignedToMe()
           .catch(() => ({ items: [] as AssignedIssue[], truncated: false, limit: 0 }));
@@ -241,6 +248,7 @@ export function useSessionActions(
       } else if (globalView) {
         setUi((u) => ({ ...u, view: globalView, section: globalSection }));
       }
+      if (missingPath) setUi((u) => ({ ...u, missing: missingPath }));
       setBootStatus("ready");
     } catch (err) {
       if (stale()) return;
@@ -350,7 +358,7 @@ export function useSessionActions(
     setData(emptyData());
     resetNotifications();
     setSolo(null);
-    setUi({ view: "board", section: "", selectedIssueId: null, issueMode: "panel", createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
+    setUi({ view: "board", section: "", selectedIssueId: null, issueMode: "panel", createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null, missing: null });
     setBootStatus("unauthenticated");
   }, [resetNotifications]);
 
@@ -425,7 +433,7 @@ export function useSessionActions(
 
   const openIssue = useCallback(
     (id: string | null, mode: IssueMode = "panel") => {
-      setUi((u) => ({ ...u, selectedIssueId: id, issueMode: id ? mode : "panel" }));
+      setUi((u) => ({ ...u, selectedIssueId: id, issueMode: id ? mode : "panel", missing: id ? null : u.missing }));
       if (!id) return;
       const requestProjectId = pid();
       if (!requestProjectId) return; // SEC-01: после выхода pid() = "", и guard `"" === ""` пропустил бы ответ

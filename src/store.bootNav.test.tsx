@@ -268,6 +268,56 @@ describe("bootstrap — ветки входа", () => {
   });
 });
 
+// ТЗ 5.12 a: прямая ссылка, которая никуда не ведёт (нет такого проекта/задачи, или к ним нет доступа —
+// сервер эти случаи не различает намеренно) — bootstrap() выставляет ui.missing вместо того, чтобы
+// молча уводить на главный экран или в случайный проект. См. src/store/session.ts (missingPath) и
+// src/components/StatusScreens.tsx (NotFoundPage, откуда путь берётся обратно).
+describe("bootstrap — ТЗ 5.12 a: ui.missing на несуществующую прямую ссылку", () => {
+  test("≥2 проектов, ключ проекта не среди видимых (/p/NOPE/board) → ready (НЕ home), ui.missing = путь", async () => {
+    history.pushState(null, "", "/p/NOPE/board");
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.missing).toBe("/p/NOPE/board");
+  });
+
+  test("прямая ссылка на задачу видимого проекта, но issuesApi.resolve падает (404) → ui.missing = этот путь", async () => {
+    const path = pathForIssue("BB", "K-999");
+    history.pushState(null, "", path);
+    install();
+    vi.spyOn(issuesApi, "resolve").mockRejectedValue(new ApiError(404, "NOT_FOUND", "нет такой задачи"));
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.missing).toBe(path);
+  });
+
+  test("обычная прямая ссылка на существующий вид → ui.missing остаётся null", async () => {
+    history.pushState(null, "", pathForView("BB", "board"));
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.missing).toBeNull();
+  });
+
+  test("setView() из состояния «не найдено» сбрасывает ui.missing", async () => {
+    history.pushState(null, "", "/p/NOPE/board");
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().ui.missing).toBe("/p/NOPE/board");
+    act(() => get().setView("backlog"));
+    expect(get().ui.missing).toBeNull();
+    expect(get().ui.view).toBe("backlog");
+  });
+});
+
 describe("enterProject / goHome / logout / refresh*", () => {
   test("enterProject: неизвестный проект — ничего; текущий — просто уходит с home без запросов", async () => {
     const { get, getSpy } = await readyInP1();

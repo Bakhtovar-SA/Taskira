@@ -2,7 +2,7 @@
  *  — от браузера; начальный фокус и возврат фокуса на вызвавший элемент — здесь. */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { IconButton } from "./Button";
-import { dsId } from "./floating";
+import { dsId } from "./ids";
 
 type DialogProps = {
   open: boolean;

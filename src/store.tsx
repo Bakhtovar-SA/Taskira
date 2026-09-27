@@ -134,6 +134,8 @@ interface Api {
   deleteProject: (id: string) => void;
   /** Перечитать проекты и отделы (после действий вне стора: демо-проект первичной настройки). */
   refreshOrg: () => Promise<void>;
+  /** Показать «Не найдено» для ссылки, которая никуда не ведёт (ТЗ 5.12 a). */
+  showMissing: (path: string) => void;
   addSprint: (input: { name: string; goal: string; startDate?: string | null; endDate?: string | null }) => void;
   startSprint: (sprintId: string) => void;
   completeSprint: (sprintId: string) => void;
@@ -173,6 +175,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createParentId: null,
     lastEvent: null,
     collabOpenIssueId: null,
+    missing: null,
   });
   // Тосты и уведомления — внешние хранилища (ADR-0011, шаги 1–2): их изменения не перерисовывают провайдер,
   // а значит и всех потребителей `useStore()`. Создаются один раз на провайдер.
@@ -434,7 +437,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     logout,
     // Переход к представлению закрывает полную страницу задачи (панель остаётся — это слой поверх).
     setView: (v, section = "") =>
-      setUi((u) => (u.selectedIssueId && u.issueMode === "page" ? { ...u, view: v, section, selectedIssueId: null, issueMode: "panel" } : { ...u, view: v, section })),
+      setUi((u) => (u.selectedIssueId && u.issueMode === "page" ? { ...u, view: v, section, selectedIssueId: null, issueMode: "panel", missing: null } : { ...u, view: v, section, missing: null })),
+    showMissing: (path: string) => setUi((u) => ({ ...u, missing: path, selectedIssueId: null, issueMode: "panel" })),
     openIssue,
     // ТЗ 3.1: прямая ссылка на приглашённую задачу выставляет collabOpenIssueId
     // (bootstrap()/useRouterSync); CollaboratingView подхватывает его один раз на

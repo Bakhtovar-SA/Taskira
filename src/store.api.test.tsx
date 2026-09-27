@@ -74,6 +74,7 @@ const API_KEYS = [
   "setNotifyPrefs",
   "setProjectMember",
   "setView",
+  "showMissing",
   "solo",
   "startSprint",
   "switchProject",

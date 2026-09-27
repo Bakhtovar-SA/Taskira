@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { GettingStarted } from "./GettingStarted";
 import { lookOf } from "../projectLook";
-import { FOCUS_TEST, FocusChips, TaskRow, useFocusCounts, type Focus } from "./MyIssues";
+import { FOCUS_TEST, FocusChips, TaskRow, groupByUrgency, useFocusCounts, type Focus } from "./MyIssues";
+import { readRecent } from "../palette/recent";
+import { Button, EmptyState } from "../ds";
 import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
-import { IcBell, IcChevR, IcInbox, IcPlus, IcSearch, Logo } from "../icons";
-import { Avatar, Dropdown, Empty, MenuItem, Toasts, UserCardBody, ProjectMark } from "../ui";
+import { IcBell, IcChevR, IcComment, IcMyIssues, IcPlus, IcSearch, StatusGlyph, Logo } from "../icons";
+import { Avatar, Dropdown, MenuItem, Toasts, UserCardBody, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -100,13 +102,13 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* шапка */}
-      <header className="glass flex h-[56px] shrink-0 items-center gap-4 border-b border-linesoft px-5">
+      <header className="glass flex h-[56px] shrink-0 items-center gap-4 border-b border-linesoft px-5 max-sm:gap-2.5 max-sm:px-4">
         <div className="flex items-center gap-2">
           <Logo size={24} />
-          <span className="font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink">Taskira</span>
+          <span className="font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink max-sm:hidden">Taskira</span>
         </div>
 
-        <label className="flex h-8 w-[340px] items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
+        <label className="flex h-8 w-full min-w-0 max-w-[340px] items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
           <IcSearch size={13} className="shrink-0 text-faint" />
           <input
             value={q}
@@ -175,16 +177,6 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
           </h1>
           <p className="mt-1 text-[14px] text-sub">{t("home.subtitle")}</p>
 
-          {/* «Начало работы» (ТЗ 5.11) — пока не пройдено и не скрыто */}
-          <GettingStarted
-            className="mt-7 max-w-[640px]"
-            navigate={(v, sec) => {
-              if (!createTarget) return;
-              setView(v, sec);
-              enterProject(createTarget);
-            }}
-          />
-
           {/* полоса фокуса: каждая цифра фильтрует «Мои задачи» */}
           <FocusChips focus={focus} onFocus={setFocus} counts={focusCounts} className="mt-7" />
 
@@ -198,8 +190,19 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
               </div>
               {tasks.length > 0 ? (
                 <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
-                  {tasks.map((item) => (
-                    <TaskRow key={item.issueId} issue={item} onOpen={() => openTask(item)} look={lookOf(data.projects, item.projectKey)} />
+                  {/* «Все мои» без поиска — по срочности, с заголовками групп; остальные фильтры — плоским списком. */}
+                  {(focus === "all" && !q.trim() ? groupByUrgency(tasks) : [{ id: null, items: tasks }]).map((g) => (
+                    <div key={g.id ?? "flat"}>
+                      {g.id && (
+                        <p className="urgency-head flex items-center gap-2 border-b border-linesoft px-3.5 pb-1.5 pt-3 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-faint" data-urgency={g.id}>
+                          {t(`home.urgency.${g.id}`)}
+                          <span className="tabular font-medium">{g.items.length}</span>
+                        </p>
+                      )}
+                      {g.items.map((item) => (
+                        <TaskRow key={item.issueId} issue={item} onOpen={() => openTask(item)} look={lookOf(data.projects, item.projectKey)} />
+                      ))}
+                    </div>
                   ))}
                   {/* Сервер ограничивает выдачу — говорим об этом прямо, а не
                       показываем часть списка как будто это всё. */}
@@ -213,26 +216,40 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                   )}
                 </div>
               ) : (
-                <Empty
-                  icon={<IcInbox size={22} />}
+                <EmptyState
+                  icon={<IcMyIssues size={22} tone="violet" />}
                   title={q ? t("home.searchEmptyTitle") : t("home.noAssignedTitle")}
                   sub={q ? t("home.searchEmptySub") : t("home.noAssignedSub")}
                   action={
-                    !q && createTarget ? (
-                      <button
-                        onClick={startCreate}
-                        className="flex items-center gap-1.5 rounded-lg btn-primary px-3 py-1.5 text-[12px] font-medium text-onaccent transition"
-                      >
-                        <IcPlus size={13} /> {t("home.createIssue")}
-                      </button>
+                    q ? (
+                      <Button size="sm" variant="secondary" onClick={() => setQ("")}>
+                        {t("common.reset")}
+                      </Button>
+                    ) : focus !== "all" ? (
+                      <Button size="sm" variant="secondary" onClick={() => setFocus("all")}>
+                        {t("common.reset")}
+                      </Button>
+                    ) : createTarget ? (
+                      <Button size="sm" variant="primary" iconLeft={<IcPlus size={13} />} onClick={startCreate}>
+                        {t("home.createIssue")}
+                      </Button>
                     ) : undefined
                   }
                 />
               )}
             </section>
 
-            {/* правая колонка: проекты + недавняя активность */}
+            {/* правая колонка: упоминания, проекты, недавно открытые, активность */}
             <div className="space-y-6">
+            {/* «Начало работы» (ТЗ 5.11) — пока не пройдено и не скрыто; сбоку, чтобы не отодвигать задачи. */}
+            <GettingStarted
+              navigate={(v, sec) => {
+                if (!createTarget) return;
+                setView(v, sec);
+                enterProject(createTarget);
+              }}
+            />
+            <Mentions notifications={notifications} onOpen={openTask} />
             <section>
               <h2 className="mb-2 text-[14px] font-semibold text-ink">{t("home.projects")}</h2>
               <div className="space-y-4">
@@ -266,6 +283,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
               </div>
             </section>
 
+            <RecentlyOpened onOpen={openTask} />
             <RecentActivity notifications={notifications} onOpen={openTask} />
             </div>
           </div>
@@ -324,6 +342,65 @@ function RecentActivity({
           })}
         </div>
       )}
+    </section>
+  );
+}
+
+/** Упоминания (ТЗ 5.12 b): непрочитанные «@вас упомянули» — отдельно от общей ленты, их легко пропустить. */
+function Mentions({ notifications, onOpen }: { notifications: NotificationT[]; onOpen: (t: Pick<AssignedIssue, "projectId" | "issueId">) => void }) {
+  const { t } = useT();
+  const items = notifications.filter((n) => n.type === "issue.mention" && !n.read && n.issueId && n.projectId).slice(0, 5);
+  if (!items.length) return null;
+  return (
+    <section>
+      <h2 className="mb-2 flex items-center gap-1.5 text-[14px] font-semibold text-ink">
+        <IcComment size={13} tone="violet" /> {t("home.mentions")}
+        <span className="tabular text-[13px] font-medium text-faint">{items.length}</span>
+      </h2>
+      <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
+        {items.map((n) => (
+          <button
+            key={n.id}
+            onClick={() => onOpen({ projectId: n.projectId!, issueId: n.issueId! })}
+            className="flex w-full items-start gap-2.5 border-b border-linesoft px-3.5 py-2.5 text-left transition-colors last:border-0 hover:bg-hover/60"
+          >
+            <span className="mt-0.5 shrink-0">
+              <Avatar user={n.actor} size={22} />
+            </span>
+            <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
+              <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b> {t("home.mentionedYou")}{" "}
+              {n.payload.key && <span className="font-mono text-[11.5px] text-accenttext">{n.payload.key}</span>}
+              {n.payload.title && <span className="mt-0.5 block truncate text-faint">{n.payload.title}</span>}
+            </span>
+            <span className="shrink-0 pt-0.5 text-[11px] tabular text-faint">{relTime(n.createdAt)}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Недавно открытые (ТЗ 5.12 b «недавнее»): последние карточки, которые человек открывал в этом браузере. */
+function RecentlyOpened({ onOpen }: { onOpen: (t: Pick<AssignedIssue, "projectId" | "issueId">) => void }) {
+  const { t } = useT();
+  const [items] = useState(() => readRecent().slice(0, 5));
+  if (!items.length) return null;
+  return (
+    <section>
+      <h2 className="mb-2 text-[14px] font-semibold text-ink">{t("home.recentlyOpened")}</h2>
+      <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
+        {items.map((r) => (
+          <button
+            key={r.id}
+            onClick={() => onOpen({ projectId: r.projectId, issueId: r.id })}
+            className="flex h-10 w-full items-center gap-2.5 border-b border-linesoft px-3.5 text-left transition-colors last:border-0 hover:bg-hover/60"
+          >
+            <StatusGlyph category={r.category} size={13} />
+            <span className="w-[64px] shrink-0 font-mono text-[11.5px] text-faint">{r.key}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{r.title}</span>
+          </button>
+        ))}
+      </div>
     </section>
   );
 }

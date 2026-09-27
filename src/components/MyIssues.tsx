@@ -28,6 +28,28 @@ export const FOCUS_TEST: Record<Focus, (i: AssignedIssue) => boolean> = {
   inprogress: (i) => i.statusCategory === "inprogress",
 };
 
+/** Срочность (ТЗ 5.12 b: «мои задачи по срочности»): просрочено → сегодня → неделя → позже → без срока;
+ *  внутри группы — по сроку, затем по приоритету. Закрытые — в конце без срока. */
+export type Urgency = "overdue" | "today" | "week" | "later" | "nodate";
+export const URGENCY_ORDER: Urgency[] = ["overdue", "today", "week", "later", "nodate"];
+const PRIO_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+export function urgencyOf(i: AssignedIssue, now = today()): Urgency {
+  if (!i.dueDate || i.statusCategory === "done") return "nodate";
+  if (i.dueDate < now) return "overdue";
+  if (i.dueDate === now) return "today";
+  return (Date.parse(i.dueDate) - Date.parse(now)) / 864e5 <= 7 ? "week" : "later";
+}
+export function groupByUrgency(items: AssignedIssue[], now = today()): { id: Urgency; items: AssignedIssue[] }[] {
+  const by = new Map<Urgency, AssignedIssue[]>();
+  for (const i of items) {
+    const u = urgencyOf(i, now);
+    by.set(u, [...(by.get(u) ?? []), i]);
+  }
+  const cmp = (a: AssignedIssue, b: AssignedIssue) =>
+    (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") || (PRIO_RANK[a.priorityId] ?? 9) - (PRIO_RANK[b.priorityId] ?? 9);
+  return URGENCY_ORDER.filter((u) => by.has(u)).map((u) => ({ id: u, items: by.get(u)!.sort(cmp) }));
+}
+
 export function useFocusCounts(items: AssignedIssue[]) {
   return useMemo(
     () => Object.fromEntries((Object.keys(FOCUS_TEST) as Focus[]).map((f) => [f, items.filter(FOCUS_TEST[f]).length])) as Record<Focus, number>,

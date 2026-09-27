@@ -9,6 +9,7 @@ import Topbar from "./components/Topbar";
 import Board from "./components/Board";
 import LoginForm from "./components/LoginForm";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { BootErrorScreen, NotFoundPage, OfflineBanner } from "./components/StatusScreens";
 import { Toasts } from "./ui";
 import type { ViewId } from "./types";
 import { useT } from "./i18n";
@@ -235,7 +236,10 @@ function Shell() {
     return <BootSkeleton />;
   }
 
-  if (bootStatus === "unauthenticated" || bootStatus === "error") {
+  // Загрузка не удалась (сервер недоступен, нет сети) — не форма входа: сессия, скорее всего, цела.
+  if (bootStatus === "error") return <BootErrorScreen onRetry={() => void bootstrap()} onLogout={logout} />;
+
+  if (bootStatus === "unauthenticated") {
     return (
       <LoginForm
         onSuccess={() => {
@@ -259,6 +263,7 @@ function Shell() {
       <div className="flex min-w-0 flex-1 flex-col md:p-2">
        <div className="glass-sheet glass-edge flex min-h-0 flex-1 flex-col overflow-hidden shadow-e2 md:rounded-xl">
         <Topbar onLogout={logout} />
+        <OfflineBanner />
         <main className="min-h-0 flex-1">
           {/* Граница вокруг контента, а не всего приложения: сайдбар и шапка
               переживают падение раздела, и из него можно уйти. */}
@@ -267,8 +272,11 @@ function Shell() {
             body: t("errorBoundary.body"),
             retry: t("errorBoundary.retry"),
             reload: t("errorBoundary.reload"),
+            details: t("errorBoundary.details"),
           }}>
-          <Suspense fallback={<BootSkeleton />}>{issuePage ? (
+          <Suspense fallback={<BootSkeleton />}>{ui.missing ? (
+            <NotFoundPage path={ui.missing} onHome={() => (data.projects.length >= 2 ? goHome() : setView("board"))} onBack={() => history.back()} />
+          ) : issuePage ? (
             <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>
           ) : (<div key={ui.view} className="anim-fadeup h-full">
             {ui.view === "board" && <Board />}

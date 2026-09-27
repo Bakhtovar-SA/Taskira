@@ -1,10 +1,11 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
-import { act, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useEffect } from "react";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
 import { I18nProvider } from "./i18n";
 import { pathForIssue, pathForView } from "./router";
+import App from "./App";
 import {
   ApiError,
   authApi,
@@ -95,6 +96,7 @@ const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)
 afterEach(() => {
   unmountCurrent?.();
   unmountCurrent = null;
+  cleanup(); // тесты ниже (полный <App/>), в отличие от остальных в файле, не проходят через mount()/unmountCurrent
   localStorage.clear();
   history.replaceState(null, "", "/");
   vi.restoreAllMocks();
@@ -252,5 +254,35 @@ describe("useRouterSync — URL → состояние, полный путь (�
     expect(get().ui.issueMode).toBe("panel");
     expect(location.pathname).toBe("/p/BB/list");
     expect(new URLSearchParams(location.search).get("priority")).toBe("high");
+  });
+});
+
+// ТЗ 5.12 a: раньше сбой загрузки (сервер недоступен/сеть упала — не 401, значит сессия скорее всего
+// цела) молча показывал LoginForm, как будто человек разлогинен. Полный <App/> (не Probe выше) — иначе
+// не проверить, ЧТО реально рендерится вместо доски: LoginForm или BootErrorScreen.
+describe("App — ТЗ 5.12 a: сбой загрузки (не 401) не путают с разлогином", () => {
+  test("authApi.me() падает не 401-ошибкой → форма входа не показана, есть «Повторить», клик по ней вызывает bootstrap() заново", async () => {
+    const meSpy = vi.spyOn(authApi, "me").mockRejectedValue(new ApiError(0, "NETWORK", "нет сети"));
+    vi.spyOn(authApi, "config").mockResolvedValue({ authMode: "local" });
+    vi.spyOn(projectsApi, "list").mockResolvedValue([]);
+    vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
+    vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
+
+    render(
+      <I18nProvider>
+        <App />
+      </I18nProvider>,
+    );
+    await settle();
+
+    expect(screen.getByRole("alert").textContent).toContain("Не удалось загрузить Taskira");
+    expect(screen.queryByLabelText("Логин")).toBeNull(); // форма входа НЕ показана
+    expect(meSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText("Повторить"));
+    await settle();
+    expect(meSpy).toHaveBeenCalledTimes(2); // повтор — обычный bootstrap(), не отдельный путь
   });
 });

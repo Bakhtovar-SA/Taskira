@@ -1,7 +1,7 @@
 /** Отображение (ТЗ 5.7): Avatar и группа, Tag, Kbd, EmptyState, Progress, ProgressRing, Skeleton, Toast.
  *  Цвета — только токены и тоны `tk-tone-*` (currentColor), без значений из данных в разметке. */
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { Tooltip } from "./Overlay";
+import { Tooltip } from "./LazyTooltip";
 
 export type Tone = "violet" | "indigo" | "blue" | "sky" | "teal" | "green" | "amber" | "orange" | "red" | "pink" | "gray";
 const TONES: Tone[] = ["violet", "indigo", "blue", "sky", "teal", "green", "amber", "orange", "red", "pink"];

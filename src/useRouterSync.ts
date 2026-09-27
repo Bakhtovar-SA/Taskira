@@ -30,6 +30,8 @@ type Place = { path: string; issue: string | null };
 function derivePlace(data: Data, ui: UIState, bootStatus: BootStatus): Place | undefined {
   if (bootStatus === "home" || bootStatus === "solo") return { path: "/", issue: null };
   if (bootStatus !== "ready") return undefined;
+  // «Не найдено» (ТЗ 5.12 a): адрес не трогаем — человек видит ссылку, по которой пришёл.
+  if (ui.missing) return undefined;
   const proj = data.projects.find((p) => p.id === data.currentProjectId) ?? data.project;
   if (!proj.key || proj.key === "…") return undefined; // стор ещё пуст
   if (ui.selectedIssueId) {
@@ -57,7 +59,7 @@ export function useRouterSync(): void {
   const search = useSearch();
   const urlIssue = issueParam(search);
   const store = useStore();
-  const { data, ui, bootStatus, switchProject, openIssue, setView, goHome, toast } = store;
+  const { data, ui, bootStatus, switchProject, openIssue, setView, goHome, toast, showMissing } = store;
   const { t } = useT();
 
   // Пока «URL → состояние» досчитывает асинхронный резолв (ключ задачи — сетевой
@@ -96,7 +98,9 @@ export function useRouterSync(): void {
         // что уже проверен выше, не текущий location.pathname (см. комментарий
         // resolveBootPathTarget в store/mappers.ts).
         const target = await resolveBootPathTarget(path, data.projects);
-        if (cancelled || !target) return; // ключ не найден/недоступен — молча остаёмся как есть
+        if (cancelled) return;
+        // Ключ не найден или недоступен — «Не найдено» (ТЗ 5.12 a) вместо тихого «остаёмся как есть».
+        if (!target) return showMissing(path);
         if (target.kind === "view") {
           if (target.projectId !== data.currentProjectId) switchProject(target.projectId);
           setView(target.view, target.section);

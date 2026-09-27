@@ -1,6 +1,6 @@
 import { useStore, useUnreadCount } from "../store";
 import { GettingStarted } from "./GettingStarted";
-import { Tag } from "../ds";
+import { Tag } from "../ds/Display";
 import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
 import { openTotal } from "../boardFilters";
 import type { ProjectSummary, ViewId } from "../types";
