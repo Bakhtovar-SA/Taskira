@@ -1,4 +1,6 @@
 import { useStore, useUnreadCount } from "../store";
+import { GettingStarted } from "./GettingStarted";
+import { Tag } from "../ds";
 import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
 import { openTotal } from "../boardFilters";
 import type { ProjectSummary, ViewId } from "../types";
@@ -245,6 +247,7 @@ export default function Sidebar() {
       >
         <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />
         <span className="flex-1 truncate">{p.name}</span>
+        {p.isDemo && <Tag tone="amber" size="sm">{t("setup.demoTag")}</Tag>}
         {cur && !active && <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />}
       </button>
     );
@@ -443,6 +446,9 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
+
+      {/* «Начало работы» (ТЗ 5.11) — тем, у кого нет главной (один проект): свёрнутая строка с прогрессом. */}
+      {!homeAvailable && !collapsed && <GettingStarted compact className="mx-3 mb-2" />}
 
       {/* Прогресс проекта: доля закрытых — тонкая полоса, цифра открытых. */}
       <div className="mx-4 mb-2 mt-1">

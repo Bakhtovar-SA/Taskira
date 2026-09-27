@@ -1,10 +1,12 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Hint } from "./Hint";
 import { useStore } from "../store";
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
-import { DueRing, IcArchive, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcUsers, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcUsers, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, SkeletonCard, DROPDOWN_OPEN_EVT, directionColor, labelTone } from "../ui";
+import { Button, EmptyState } from "../ds";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { preloadIssueModal } from "../lazyModals";
@@ -628,7 +630,7 @@ const BoardColumn = memo(function BoardColumn({
 
 export default function Board() {
   const { t, tn } = useT();
-  const { data, ui, moveStatus, openIssue, can, epicsRevision } = useStore();
+  const { data, ui, moveStatus, openIssue, can, epicsRevision, setCreateOpen } = useStore();
   const canMove = can("transition");
   const canCreate = can("create");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -875,6 +877,25 @@ export default function Board() {
             {canCreate && t("board.canCreateSuffix")}
           </p>
         </div>
+      )}
+
+      {/* Проект без единой задачи (не путать с allClear — там закрыто хоть что-то): колонки
+          остаются под низом как цели переноса, а сверху — объяснение места и одно действие. */}
+      {poolTotal === 0 && !filtersOn && (
+        <div className="mx-4 mb-2 sm:mx-6">
+          <EmptyState
+            icon={<IcBoard size={22} tone="violet" />}
+            title={t("empty.board.title")}
+            sub={t("empty.board.sub")}
+            action={canCreate ? <Button size="sm" onClick={() => setCreateOpen(true)}>{t("home.createIssue")}</Button> : undefined}
+          />
+        </div>
+      )}
+
+      {canMove && !!poolTotal && (
+        <Hint id="board-move" className="mx-4 mb-2 sm:mx-6">
+          {t("hint.boardMove")}
+        </Hint>
       )}
 
       {/* колонки. w-max + mx-auto: на широком экране группа колонок

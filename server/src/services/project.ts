@@ -24,6 +24,7 @@ export interface ProjectRow {
   icon: ProjectDto["icon"];
   color: ProjectDto["color"];
   background: ProjectDto["background"];
+  isDemo: boolean;
 }
 
 interface ProjectDbRow {
@@ -39,9 +40,10 @@ interface ProjectDbRow {
   icon: ProjectDto["icon"];
   color: ProjectDto["color"];
   background: ProjectDto["background"];
+  is_demo: boolean;
 }
 
-const SELECT_COLS = `id, key, name, description, department_id, is_shared, sprints_enabled, default_view, suggested_labels, icon, color, background`;
+const SELECT_COLS = `id, key, name, description, department_id, is_shared, sprints_enabled, default_view, suggested_labels, icon, color, background, is_demo`;
 
 const toRow = (r: ProjectDbRow): ProjectRow => ({
   id: r.id,
@@ -56,6 +58,7 @@ const toRow = (r: ProjectDbRow): ProjectRow => ({
   icon: r.icon ?? null,
   color: r.color ?? null,
   background: r.background ?? null,
+  isDemo: !!r.is_demo,
 });
 
 /* Кэш по id — проекты меняются редко (создание/правка админом → invalidate).

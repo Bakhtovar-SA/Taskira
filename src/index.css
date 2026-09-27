@@ -375,6 +375,11 @@ html.vt-theme::view-transition-new(root) {
   background: color-mix(in oklch, var(--accent-solid) 7%, transparent);
   box-shadow: inset 0 0 0 2px var(--accent-solid), 0 6px 18px -10px var(--accent-glow);
 }
+/* Подсказка при первой встрече с функцией (Hint.tsx, ТЗ 5.11): тихая строка с фиолетовым краем, не баннер. */
+.hint-line {
+  background: color-mix(in oklch, var(--accent-solid) 6%, var(--bg-panel));
+  box-shadow: inset 2px 0 0 var(--accent-solid);
+}
 /* Выбор иконки и цвета проекта (ProjectLookPicker): кольцо на выбранном, без заливки фона. */
 .look-choice {
   transition: box-shadow var(--dur-2) var(--ease-standard), background-color var(--dur-2);

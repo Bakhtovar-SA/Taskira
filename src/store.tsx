@@ -132,6 +132,8 @@ interface Api {
     patch: ProjectPatchInput,
   ) => void;
   deleteProject: (id: string) => void;
+  /** Перечитать проекты и отделы (после действий вне стора: демо-проект первичной настройки). */
+  refreshOrg: () => Promise<void>;
   addSprint: (input: { name: string; goal: string; startDate?: string | null; endDate?: string | null }) => void;
   startSprint: (sprintId: string) => void;
   completeSprint: (sprintId: string) => void;
@@ -396,7 +398,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { addTransition, removeTransition, resetWorkflow, addIssueTemplate, updateIssueTemplateAction, removeIssueTemplate,
     addCustomField, renameCustomField, removeCustomField } = useMetaActions(storeCtx);
   const { setMemberRole, removeMember, setProjectMember, removeProjectMember, createDepartment, renameDepartment,
-    setDepartmentLdapGroup, resyncLdap, deleteDepartment, createProject, patchProject, deleteProject } =
+    setDepartmentLdapGroup, resyncLdap, deleteDepartment, createProject, patchProject, deleteProject, refreshOrg } =
     useOrgActions(storeCtx, { bootstrap });
 
   const idx = useMemo<StoreIndexes>(
@@ -486,6 +488,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createProject,
     patchProject,
     deleteProject,
+    refreshOrg,
     addSprint,
     startSprint,
     completeSprint,

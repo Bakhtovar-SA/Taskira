@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { GettingStarted } from "./GettingStarted";
 import { lookOf } from "../projectLook";
 import { FOCUS_TEST, FocusChips, TaskRow, useFocusCounts, type Focus } from "./MyIssues";
 import { useNotifications, useStore } from "../store";
@@ -173,6 +174,16 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
             {t(greetingKey(), { name: me?.name?.split(" ")[0] ?? "" })}
           </h1>
           <p className="mt-1 text-[14px] text-sub">{t("home.subtitle")}</p>
+
+          {/* «Начало работы» (ТЗ 5.11) — пока не пройдено и не скрыто */}
+          <GettingStarted
+            className="mt-7 max-w-[640px]"
+            navigate={(v, sec) => {
+              if (!createTarget) return;
+              setView(v, sec);
+              enterProject(createTarget);
+            }}
+          />
 
           {/* полоса фокуса: каждая цифра фильтрует «Мои задачи» */}
           <FocusChips focus={focus} onFocus={setFocus} counts={focusCounts} className="mt-7" />

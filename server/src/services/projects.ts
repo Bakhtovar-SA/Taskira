@@ -17,6 +17,7 @@ interface ProjectDbRow {
   icon: ProjectDto["icon"];
   color: ProjectDto["color"];
   background: ProjectDto["background"];
+  is_demo: boolean;
 }
 
 const toDto = (r: ProjectDbRow): ProjectDto => ({
@@ -32,6 +33,7 @@ const toDto = (r: ProjectDbRow): ProjectDto => ({
   icon: r.icon ?? null,
   color: r.color ?? null,
   background: r.background ?? null,
+  isDemo: !!r.is_demo,
 });
 
 export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
@@ -47,9 +49,10 @@ export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
   icon: p.icon,
   color: p.color,
   background: p.background,
+  isDemo: p.isDemo,
 });
 
-const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared, p.sprints_enabled, p.default_view, p.suggested_labels, p.icon, p.color, p.background`;
+const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared, p.sprints_enabled, p.default_view, p.suggested_labels, p.icon, p.color, p.background, p.is_demo`;
 
 /**
  * Видимость (LDAP_MIGRATION.md D8 — закрывает DEPT_MIGRATION.md §3.5):

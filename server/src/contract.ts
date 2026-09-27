@@ -849,6 +849,8 @@ export const ProjectDto = z.object({
   icon: z.enum(PROJECT_ICONS).nullable(),
   color: z.enum(PROJECT_COLORS).nullable(),
   background: z.enum(PROJECT_BACKGROUNDS).nullable(),
+  /** Демо-проект из первичной настройки (ТЗ 5.11) — помечен в интерфейсе, удаляется одной кнопкой. */
+  isDemo: z.boolean(),
 });
 export type ProjectDto = z.infer<typeof ProjectDto>;
 
@@ -1169,3 +1171,36 @@ export const SaveProjectTemplateBody = z.object({
 });
 export const ProjectTemplateParams = z.object({ templateId: uuid });
 
+
+/* ============================================================================
+   Онбординг (ТЗ 5.11, миграция 20260927T1800). «Начало работы» — шаги, которые сервер
+   отмечает сам по реальным действиям; тема живёт только в браузере, поэтому шаг «theme»
+   — единственный, о котором сообщает клиент. Подсказки — id закрытых, чтобы не повторялись.
+   ============================================================================ */
+export const ONBOARDING_STEPS = ["open_issue", "change_status", "comment", "notifications", "theme"] as const;
+export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
+/** Шаги, которые сервер не видит сам (тема — localStorage). */
+export const CLIENT_ONBOARDING_STEPS = ["theme"] as const;
+export const OnboardingDto = z.object({
+  done: z.array(z.enum(ONBOARDING_STEPS)),
+  hidden: z.boolean(),
+  hints: z.array(z.string()),
+});
+export type OnboardingDto = z.infer<typeof OnboardingDto>;
+export const OnboardingStepBody = z.object({ step: z.enum(CLIENT_ONBOARDING_STEPS) });
+export const HintParams = z.object({ hintId: z.string().regex(/^[a-z][a-z0-9.-]{0,39}$/, "Некорректный id подсказки") });
+export const LIMIT_DISMISSED_HINTS = 100;
+
+/** Первичная настройка инсталляции (глобальный администратор, первый вход после установки). */
+export const SetupStatusDto = z.object({
+  completed: z.boolean(),
+  instanceName: z.string(),
+  authMode: z.enum(["local", "ldap"]),
+  /** Активные пользователи, кроме системного администратора. */
+  users: z.number(),
+  /** Проекты без демо. */
+  projects: z.number(),
+  demoProjectId: z.string().nullable(),
+});
+export type SetupStatusDto = z.infer<typeof SetupStatusDto>;
+export const SetupPatchBody = z.object({ instanceName: oneLine(80, 1, "Название не может быть пустым") });

@@ -560,6 +560,19 @@ hex/URLs, so nothing new under the CSP; `null` = old behaviour (key letter, tone
 wherever a project mark is shown. A project background overrides the personal one while that project is open
 (`setProjectBackground()` in `theme.ts`, driven from `App.tsx`); the wizard previews it live and restores on close.
 
+Onboarding ([ADR-0019](docs/adr/0019-onboarding-in-product.md), migration `20260927T1800_onboarding.sql`): progress lives
+on the server per user (`user_onboarding`: done steps, hidden, dismissed hint ids). Steps are marked **by the server from
+real actions** — routes call `markStep()` (`services/onboarding.ts`, never throws, per-process cache) after opening an
+issue you're assigned to, a status change, a comment, saving notification prefs; only `theme` is reported by the client
+(`markThemeStep()` via `onThemeChosen` in `theme.ts`). Client store: `src/onboarding.ts` (external store; call
+`refreshOnboardingSoon()` after an action that may mark a step). UI: `GettingStarted` (Home; collapsed in the sidebar
+when there's no Home), `<Hint id>` one-line first-encounter tips (never modal, never shown again once dismissed),
+guest explanation in `SoloView`, «Организация → Начальная настройка» (`Setup.tsx`, `/admin/setup`) opened once per
+session for an admin while `instance.setup_completed_at` is null. Demo project (`projects.is_demo`, at most one) is built
+directly in one transaction by `services/demoProject.ts` — no notifications, **no audit rows** — and its deletion removes
+the project plus any `audit_log` rows for it and its issues; `server/test/onboarding.test.ts` compares row counts of every
+table before/after. New project-list columns reach the client as `isDemo` (sidebar «демо» tag).
+
 Department membership (`department_members`, migration 009) has always had a `source` column
 (`'ldap' | 'manual'`), but only the LDAP sync path (`departmentSync.ts`) ever wrote to it until
 now — there was no route or UI for `source='manual'` despite the schema explicitly being built
@@ -672,7 +685,7 @@ since any edit touches it. The board shows the last 14 days in its done column
   showcase `/dev/ui` (`src/dev/DevUI.tsx`) exists only under `import.meta.env.DEV` in `main.tsx`; `npm run test:ui`
   (Playwright + axe, `e2e/`, baselines in `e2e/__screenshots__`, Linux Chromium of `@playwright/test` 1.56.1 — pinned
   exactly) runs in CI only for PRs touching components (`.github/workflows/ui-visual.yml`). jsdom has no Popover API
-  (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. Screens
+  (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. `Button`/`IconButton` load their `Tooltip` lazily (`React.lazy` in `ds/Button.tsx`) so `@floating-ui/dom` stays out of the entry chunk for eager screens like the board — in tests await it (`findByRole("tooltip")`). Screens
   still use `src/ui.tsx`; migration follows the map in COMPONENTS.md (ТЗ 5.12).
 - **Dynamic style values under the CSP** ([ADR-0010](docs/adr/0010-dynamic-styles-under-csp.md), verified in Chromium by
   `npm run csp:spike`): CSSOM writes (`el.style.x`, `setProperty('--x')`, WAAPI `el.animate`) are allowed by

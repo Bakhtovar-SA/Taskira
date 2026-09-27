@@ -1,5 +1,6 @@
 /** Комментарии к задачам: GET /api/issues/:id/comments · POST — то же. */
 import type { FastifyInstance } from "fastify";
+import { markStep } from "../services/onboarding.js";
 import type { z } from "zod";
 import { q } from "../db.js";
 import { requireIssuePerm, zbody, type JwtPayload } from "../middleware.js";
@@ -90,6 +91,7 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
       // Уведомления (NOTIFICATIONS_MIGRATION.md D2): автор → watcher (selfWatch),
       // затем событие комментария подписчикам и отдельно — упомянутым.
       await autoWatch(iss.id, user.sub);
+      await markStep(user.sub, "comment");
       await emit({
         type: "issue.comment",
         actorId: user.sub,

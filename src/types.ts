@@ -221,7 +221,7 @@ export interface Project {
 }
 
 /** Краткая карточка проекта для списка/переключателя. */
-export type ProjectSummary = Pick<ProjectDto, "id" | "key" | "name" | "departmentId" | "isShared" | "sprintsEnabled" | "defaultView" | "suggestedLabels" | "icon" | "color" | "background">;
+export type ProjectSummary = Pick<ProjectDto, "id" | "key" | "name" | "departmentId" | "isShared" | "sprintsEnabled" | "defaultView" | "suggestedLabels" | "icon" | "color" | "background" | "isDemo">;
 
 export type Department = DepartmentDto;
 

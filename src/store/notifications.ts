@@ -1,5 +1,6 @@
 /* Уведомления (миграция 011), настройки уведомлений и аватар текущего пользователя — действия стора. Вынесено из
  * store.tsx без изменений поведения (ТЗ 2.3, шаг 4). */
+import { refreshOnboardingSoon } from "../onboarding";
 import { useCallback } from "react";
 import type { NotifyPrefsT, User } from "../types";
 import { avatarApi, invalidateAvatarBlobUrl, notificationsApi, type NotifyPrefs } from "../api";
@@ -65,6 +66,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
       void (async () => {
         try {
           const { notifyPrefs } = await notificationsApi.setPrefs(patch);
+          refreshOnboardingSoon();
           if (epoch !== sessionEpochRef.current) return;
           setData((prev) => ({ ...prev, notifyPrefs: notifyPrefs as NotifyPrefsT }));
           toast("success", local("Настройки уведомлений сохранены", "Notification settings saved"));

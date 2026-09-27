@@ -1,6 +1,7 @@
 /** Настройки организации (IA §3.3, ТЗ 5.9 п. 2): то, что сервер уже умеет, а интерфейса не было —
  *  пользователи, проверка LDAP, лицензия, аудит, обслуживание, состояние системы. Значения, которые
  *  задаются только переменными окружения, показаны справочно (ТЗ 5.9: новых настроек не добавлять). */
+import { Setup } from "./Setup";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
@@ -14,6 +15,8 @@ import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 
 export function OrgSection({ section }: { section: string }) {
   switch (section) {
+    case "setup":
+      return <Setup />;
     case "users":
       return <Users />;
     case "ldap":

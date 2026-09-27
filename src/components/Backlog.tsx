@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Hint } from "./Hint";
 import { useLocation } from "wouter";
 import { useStore } from "../store";
 import { fmtDate } from "../store/mappers";
@@ -6,8 +7,9 @@ import type { Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { DueRing, IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
-import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
+import { DueRing, IcBacklog, IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
+import { Button, EmptyState } from "../ds";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -123,7 +125,7 @@ function Row({
 
 export default function Backlog() {
   const { t } = useT();
-  const { data, idx, can, epicsRevision, bulkApplyIssueAction } = useStore();
+  const { data, idx, can, epicsRevision, bulkApplyIssueAction, setCreateOpen } = useStore();
   const [path, navigate] = useLocation();
   const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -489,6 +491,7 @@ export default function Backlog() {
             )}
           </Dropdown>
         </div>
+        <Hint id="saved-views" className="mt-2.5">{t("hint.savedViews")}</Hint>
 
         {/* ТЗ 3.3: панель массовых действий — видна только при непустом выделении.
             Права проверяет сервер на каждую задачу; результат — тост «Изменено N из M». */}
@@ -605,18 +608,11 @@ export default function Backlog() {
               ))}
             </div>
           ) : set.error && rows.length === 0 ? (
-            <Empty
-              icon={<IcInbox size={22} />}
+            <EmptyState
+              icon={<IcBacklog size={22} tone="indigo" />}
               title={t("backlog.loadError")}
               sub={set.error}
-              action={
-                <button
-                  onClick={set.reload}
-                  className="h-8 rounded-lg border border-line bg-panel shadow-e1 px-3 text-[12.5px] font-medium text-sub hover:bg-hover hover:text-ink"
-                >
-                  {t("common.retry")}
-                </button>
-              }
+              action={<Button size="sm" variant="secondary" onClick={set.reload}>{t("common.retry")}</Button>}
             />
           ) : rows.length > 0 ? (
             <>
@@ -657,10 +653,17 @@ export default function Backlog() {
               </div>
             </>
           ) : (
-            <Empty
-              icon={<IcInbox size={22} />}
+            <EmptyState
+              icon={<IcBacklog size={22} tone="indigo" />}
               title={t(filterActive ? "backlog.emptyFilteredTitle" : "backlog.emptyTitle")}
               sub={t(filterActive ? "backlog.emptyFilteredSub" : "backlog.emptySub")}
+              action={
+                filterActive ? (
+                  <Button size="sm" variant="secondary" onClick={resetFilters}>{t("common.reset")}</Button>
+                ) : can("create") ? (
+                  <Button size="sm" onClick={() => setCreateOpen(true)}>{t("home.createIssue")}</Button>
+                ) : undefined
+              }
             />
           )}
         </div>

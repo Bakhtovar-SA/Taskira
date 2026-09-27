@@ -6,7 +6,8 @@ import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT } from "../types";
 import { IcCheck, IcInbox, IcX } from "../icons";
-import { Avatar, Empty, ProjectMark } from "../ui";
+import { Avatar, ProjectMark } from "../ui";
+import { Button, EmptyState } from "../ds";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { NOTIF_VERB } from "./Topbar";
@@ -128,7 +129,16 @@ export default function InboxView() {
 
         {list.length === 0 ? (
           <div className="mt-10">
-            <Empty icon={<IcInbox size={22} />} title={t(filter === "unread" ? "inbox.emptyUnreadTitle" : "inbox.emptyTitle")} sub={t("inbox.emptySub")} />
+            <EmptyState
+              icon={<IcInbox size={22} tone="sky" />}
+              title={t(filter === "unread" ? "inbox.emptyUnreadTitle" : "inbox.emptyTitle")}
+              sub={t("inbox.emptySub")}
+              action={
+                filter === "unread" && notifications.length > 0 ? (
+                  <Button size="sm" variant="secondary" onClick={() => setFilter("all")}>{t("inbox.filterAll")}</Button>
+                ) : undefined
+              }
+            />
           </div>
         ) : (
           <div ref={listRef} className="mt-6 space-y-6">

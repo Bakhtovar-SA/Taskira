@@ -9,7 +9,7 @@ import {
   type ReportSummary,
 } from "../api";
 import { IcDownload, IcReport, IcSearch } from "../icons";
-import { Empty } from "../ui";
+import { Button, EmptyState } from "../ds";
 import { useT } from "../i18n";
 
 /** Готовые периоды — закрывают почти все реальные запросы «что сделали за…». */
@@ -136,6 +136,13 @@ export default function ReportsView() {
     if (!p) return;
     setFrom(p.from());
     setTo(iso(new Date()));
+  };
+
+  // Единственное действие пустого состояния разбивки (ТЗ 5.11 п.4): свести
+  // период и проект к значениям по умолчанию, а не только сообщить, что пусто.
+  const resetReportFilters = () => {
+    applyPreset("month");
+    setProjectId("");
   };
 
   const load = useCallback(async () => {
@@ -339,10 +346,11 @@ export default function ReportsView() {
 
               {report.rows.length === 0 ? (
                 <div className="mt-2.5">
-                  <Empty
-                    icon={<IcReport size={22} />}
+                  <EmptyState
+                    icon={<IcReport size={22} tone="sky" />}
                     title={t("reports.emptyTitle")}
                     sub={t("reports.emptySub")}
+                    action={<Button size="sm" variant="secondary" onClick={resetReportFilters}>{t("common.reset")}</Button>}
                   />
                 </div>
               ) : (

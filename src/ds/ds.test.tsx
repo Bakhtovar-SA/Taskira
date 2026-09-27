@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button, Checkbox, IconButton, Switch, Tabs, Textarea } from ".";
 
 describe("Button", () => {
-  test("недоступная — aria-disabled, в порядке фокуса, клик не срабатывает, причина — в подсказке", () => {
+  test("недоступная — aria-disabled, в порядке фокуса, клик не срабатывает, причина — в подсказке", async () => {
     const onClick = vi.fn();
     render(<Button disabled="Нет прав" onClick={onClick}>Удалить</Button>);
     const b = screen.getByRole("button", { name: "Удалить" });
@@ -12,7 +12,8 @@ describe("Button", () => {
     expect(b.hasAttribute("disabled")).toBe(false);
     fireEvent.click(b);
     expect(onClick).not.toHaveBeenCalled();
-    expect(screen.getByRole("tooltip", { hidden: true }).textContent).toContain("Нет прав");
+    // Подсказка грузится отдельным чанком (Button.tsx) — дожидаемся её.
+    expect((await screen.findByRole("tooltip", { hidden: true })).textContent).toContain("Нет прав");
   });
 
   test("загрузка — aria-busy и клик не срабатывает", () => {

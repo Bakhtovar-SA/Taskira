@@ -1,7 +1,17 @@
 /** Button и IconButton (ТЗ 5.7). Недоступная кнопка — `aria-disabled`, а не `disabled`: она остаётся в
  *  порядке фокуса и показывает причину во всплывающей подсказке (ТЗ: «disabled с причиной»). */
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { Tooltip } from "./Overlay";
+import { forwardRef, lazy, Suspense, type ButtonHTMLAttributes, type ReactElement, type ReactNode } from "react";
+
+/* Подсказка грузится отдельно: с ней приходит @floating-ui/dom, а кнопки стоят и на экранах из входного чанка
+ * (доска). Пока модуль не пришёл, кнопка уже на месте — без подсказки, а не пустое место. */
+const LazyTooltip = lazy(() => import("./Overlay").then((m) => ({ default: m.Tooltip })));
+const Tooltip = ({ label, kbd, children }: { label: string; kbd?: string; children: ReactElement }) => (
+  <Suspense fallback={children}>
+    <LazyTooltip label={label} kbd={kbd}>
+      {children}
+    </LazyTooltip>
+  </Suspense>
+);
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";

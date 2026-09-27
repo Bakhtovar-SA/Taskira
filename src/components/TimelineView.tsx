@@ -2,7 +2,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { ISSUE_PAGE_SIZE, freshRows, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { IcChevR, IcTimeline } from "../icons";
-import { Lozenge, Empty, SkeletonRow, directionColor } from "../ui";
+import { Lozenge, SkeletonRow, directionColor } from "../ui";
+import { Button, EmptyState } from "../ds";
 import { TypeIcon } from "../icons";
 import { useT } from "../i18n";
 
@@ -85,7 +86,7 @@ function EpicChildren({ projectId, epicId, total }: { projectId: string; epicId:
 
 export default function TimelineView() {
   const { t, lang } = useT();
-  const { data, openIssue } = useStore();
+  const { data, openIssue, setView } = useStore();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const scrollElRef = useRef<HTMLDivElement | null>(null);
   const resizeObsRef = useRef<ResizeObserver | null>(null);
@@ -176,23 +177,21 @@ export default function TimelineView() {
         </div>
       ) : epicsState.error && epics.length === 0 ? (
         <div className="mx-4 sm:mx-6">
-          <Empty
-            icon={<IcTimeline size={20} tone="teal" />}
+          <EmptyState
+            icon={<IcTimeline size={22} tone="teal" />}
             title={t("timeline.loadError")}
             sub={epicsState.error}
-            action={
-              <button
-                onClick={epicsState.reload}
-                className="h-8 rounded-lg border border-line bg-panel px-3 text-[12.5px] font-medium text-sub shadow-e1 hover:bg-hover hover:text-ink"
-              >
-                {t("common.retry")}
-              </button>
-            }
+            action={<Button size="sm" variant="secondary" onClick={epicsState.reload}>{t("common.retry")}</Button>}
           />
         </div>
       ) : epics.length === 0 ? (
         <div className="mx-4 sm:mx-6">
-          <Empty icon={<IcTimeline size={20} tone="teal" />} title={t("timeline.emptyTitle")} sub={t("timeline.emptySub")} />
+          <EmptyState
+            icon={<IcTimeline size={22} tone="teal" />}
+            title={t("timeline.emptyTitle")}
+            sub={t("timeline.emptySub")}
+            action={<Button size="sm" variant="secondary" onClick={() => setView("backlog")}>{t("empty.timeline.action")}</Button>}
+          />
         </div>
       ) : (
         <div

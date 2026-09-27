@@ -2,6 +2,7 @@
  * `enterProject`, `logout`, список и открытие задачи (`refreshIssues`, `ensureAllIssues`, `refreshCollaborations`, `openIssue`) —
  * вынесено из store.tsx без изменений поведения (ТЗ 2.3, шаг 6). Поведение и гонки зафиксированы
  * store.bootNav.test.tsx, ДО выноса. Известная брешь (SEC-01: ответы после logout воскрешают данные) перенесена как есть. */
+import { refreshOnboardingSoon } from "../onboarding";
 import { useCallback, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { AssignedIssue, Collaboration, Data, Department, ProjectRole, ProjectSummary } from "../types";
@@ -131,6 +132,7 @@ export function useSessionActions(
         icon: p.icon ?? null,
         color: p.color ?? null,
         background: p.background ?? null,
+        isDemo: !!p.isDemo,
       }));
       // ТЗ 3.1: резолв прямой ссылки (/p/:projectKey/issue/:issueKey ИЛИ
       // /p/:projectKey/<вид>) ОДИН раз для всей функции — обе ветки ниже (solo и
@@ -433,7 +435,7 @@ export function useSessionActions(
           // писалась, но клиент её ниоткуда не получал, и вкладка «История»
           // всегда была пуста (аудит).
           const [dto, comments, activity] = await Promise.all([
-            issuesApi.get(requestProjectId, id),
+            issuesApi.get(requestProjectId, id).finally(refreshOnboardingSoon),
             commentsApi.list(requestProjectId, id).catch(() => []),
             issuesApi.activity(requestProjectId, id).catch(() => []),
           ]);

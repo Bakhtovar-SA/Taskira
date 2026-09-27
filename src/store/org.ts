@@ -114,6 +114,7 @@ export function useOrgActions(
         icon: p.icon ?? null,
         color: p.color ?? null,
         background: p.background ?? null,
+        isDemo: !!p.isDemo,
       })),
       departments: deps,
     }));
@@ -276,5 +277,6 @@ export function useOrgActions(
     createProject,
     patchProject,
     deleteProject,
+    refreshOrg,
   };
 }

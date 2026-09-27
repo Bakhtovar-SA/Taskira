@@ -50,6 +50,7 @@ const API_KEYS = [
   "refreshAssignedToMe",
   "refreshCollaborations",
   "refreshNotifications",
+  "refreshOrg",
   "removeAttachment",
   "removeAvatar",
   "removeChecklistItem",

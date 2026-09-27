@@ -4,6 +4,7 @@
  *  Доставка — polling клиента; WebSocket-пуш — Фаза 6.
  */
 import type { FastifyInstance } from "fastify";
+import { markStep } from "../services/onboarding.js";
 import type { z } from "zod";
 import { one, q } from "../db.js";
 import { badRequest, formatZod, requireAuth, zbody, zquery, type JwtPayload } from "../middleware.js";
@@ -125,6 +126,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
         `UPDATE users SET notify_prefs = notify_prefs || $2::jsonb WHERE id = $1 RETURNING notify_prefs`,
         [uid, JSON.stringify(patch)],
       );
+      await markStep(uid, "notifications");
       const body: NotifyPrefsResponse = { notifyPrefs: row?.notify_prefs ?? {} };
       return body;
     },

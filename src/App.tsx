@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { setProjectBackground } from "./theme";
+import { loadOnboarding, markThemeStep, resetOnboarding } from "./onboarding";
+import { setupApi } from "./api";
+import { onThemeChosen, setProjectBackground } from "./theme";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
 import Sidebar from "./components/Sidebar";
@@ -77,7 +79,7 @@ function BootSkeleton() {
 
 function Shell() {
   const { t } = useT();
-  const { ui, idx, data, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout, goHome } = useStore();
+  const { ui, idx, data, me, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout, goHome } = useStore();
   const gPending = useRef(0);
   const openSettings = useOpenSettings();
   const openProjectSettings = () => openSettings("projectSettings");
@@ -99,6 +101,27 @@ function Shell() {
   // Фон проекта (ТЗ 5.10): пока открыт проект со своим фоном, он перекрывает личный; на главной — личный.
   const projectBg = bootStatus === "ready" ? (data.projects.find((p) => p.id === data.currentProjectId)?.background ?? null) : null;
   useEffect(() => setProjectBackground(projectBg), [projectBg]);
+
+  // Онбординг (ТЗ 5.11): прогресс «Начала работы» и подсказки — после входа; выход — забыть.
+  const signedIn = bootStatus === "ready" || bootStatus === "home" || bootStatus === "solo";
+  useEffect(() => {
+    if (!signedIn) return resetOnboarding();
+    loadOnboarding();
+    onThemeChosen(markThemeStep);
+    return () => onThemeChosen(null);
+  }, [signedIn]);
+  // Первый вход администратора после установки — в «Начальную настройку», один раз за сессию.
+  const isAdmin = me.globalRole === "admin";
+  useEffect(() => {
+    if (bootStatus !== "ready" || !isAdmin) return;
+    try {
+      if (sessionStorage.getItem("taskira.setupPrompted")) return;
+      sessionStorage.setItem("taskira.setupPrompted", "1");
+    } catch {
+      /* приватный режим — спросим снова в следующий раз, это не страшно */
+    }
+    setupApi.get().then((s) => !s.completed && setView("orgSettings", "setup"), () => undefined);
+  }, [bootStatus, isAdmin, setView]);
 
   // «Недавние задачи» палитры: каждая открытая карточка (из любого места).
   const openedIssue = ui.selectedIssueId ? idx.issues.get(ui.selectedIssueId) : undefined;

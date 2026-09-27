@@ -155,8 +155,15 @@ function applyThemeAnimated(mode: ThemeMode): void {
   vt.finished.finally(() => root.classList.remove("vt-theme")).catch(() => undefined);
 }
 
+/** Слушатель выбора темы человеком (онбординг, ТЗ 5.11: шаг «выбрать тему»; тема живёт только в браузере). */
+let themeChosen: (() => void) | null = null;
+export const onThemeChosen = (fn: (() => void) | null): void => {
+  themeChosen = fn;
+};
+
 export function setThemeMode(mode: ThemeMode): void {
   watchPointer();
+  themeChosen?.();
   try {
     if (mode === "system") localStorage.removeItem(THEME_KEY);
     else localStorage.setItem(THEME_KEY, mode);

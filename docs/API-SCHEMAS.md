@@ -119,6 +119,12 @@
 |---|---|---|
 | `ids` | array&lt;string (uuid)&gt; | необязательное; 0…500 эл. |
 
+### HintParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `hintId` | string |  |
+
 ### IssueAssigneesQuery
 
 | Поле | Тип | Замечания |
@@ -306,6 +312,12 @@
 | `email` | enum: `instant` \| `daily` | необязательное |
 | `selfWatch` | boolean | необязательное |
 
+### OnboardingStepBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `step` | enum: `theme` |  |
+
 ### ProjectCreateBody
 
 | Поле | Тип | Замечания |
@@ -400,6 +412,12 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `role` | enum: `manager` \| `employee` \| `viewer` |  |
+
+### SetupPatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `instanceName` | string | длина 1…80 |
 
 ### SprintCreateBody
 
@@ -765,6 +783,14 @@
 |---|---|---|
 | `notifyPrefs` | object |  |
 
+### OnboardingDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `done` | array&lt;enum: `open_issue` \| `change_status` \| `comment` \| `notifications` \| `theme`&gt; |  |
+| `hidden` | boolean |  |
+| `hints` | array&lt;string&gt; |  |
+
 ### ParticipantDto
 
 | Поле | Тип | Замечания |
@@ -813,6 +839,7 @@
 | `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | может быть null |
 | `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | может быть null |
 | `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `graphite` | может быть null |
+| `isDemo` | boolean |  |
 
 ### ProjectMemberDto
 
@@ -957,6 +984,17 @@
 | `statusCategory` | enum: `todo` \| `inprogress` \| `done` |  |
 | `projectKey` | string |  |
 | `projectName` | string |  |
+
+### SetupStatusDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `completed` | boolean |  |
+| `instanceName` | string |  |
+| `authMode` | enum: `local` \| `ldap` |  |
+| `users` | number |  |
+| `projects` | number |  |
+| `demoProjectId` | string | может быть null |
 
 ### SprintDto
 

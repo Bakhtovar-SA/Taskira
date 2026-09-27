@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Hint } from "./Hint";
 import { useStore } from "../store";
 import { assignableUsers, canTransition, fmtDate, relTime } from "../store/mappers";
 import { pathForIssue } from "../router";
@@ -789,6 +790,11 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
       <div className="grid min-h-[calc(100%-49px)] grid-cols-1 gap-0 md:grid-cols-[1fr_300px]">
         {/* основная колонка */}
         <div className="min-w-0 px-6 py-5">
+          {!page && (hasPrev || hasNext) && (
+            <Hint id="issue-nav" className="mb-3">
+              {t("hint.issueNav")}
+            </Hint>
+          )}
           <EditableTitle issue={issue} readOnly={!editOk} />
 
           {/* описание — сам блок кликабелен для входа в редактирование (отдельной

@@ -168,6 +168,12 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `GET /api/project-templates` | — | global admin | шаблоны проектов (ТЗ 5.10): 5 встроенных (`id = builtin:<id>`, `server/src/templates/builtin.json`) + шаблоны организации (`project_templates`) |
 | `POST /api/projects/:projectId/save-as-template` | `{name ≤80, description ≤300}` | `saveProjectTemplate` (роль admin в проекте = глобальный admin); занятое имя — `409`; конфигурация не проходит `ProjectTemplateSpec` — `400` | снимок статусов, переходов, полей, шаблонов задач, меток и представления по умолчанию |
 | `DELETE /api/project-templates/:templateId` | — | global admin | удалить шаблон организации; встроенные не удаляются |
+| `GET /api/me/onboarding` | — | requireAuth | прогресс «Начала работы» `{done, hidden, hints}` (ТЗ 5.11, ADR-0019); шаги отмечает сервер от действий |
+| `POST /api/me/onboarding/steps` | `{step: "theme"}` | requireAuth | единственный шаг, о котором сообщает клиент; остальные — `400` |
+| `POST /api/me/onboarding/hide` | — | requireAuth | скрыть карточку навсегда |
+| `POST /api/me/hints/:hintId/dismiss` | — | requireAuth | закрыть подсказку навсегда (id `^[a-z][a-z0-9.-]{0,39}$`, хранится не больше 100) |
+| `GET/PATCH /api/admin/setup`, `POST /api/admin/setup/complete` | `{instanceName}` | global admin | первичная настройка: статус, название инсталляции, «завершить» |
+| `POST/DELETE /api/admin/demo-project` | — | global admin | демо-проект (один; `409`, если уже есть); удаление не оставляет строк в БД, в т.ч. в `audit_log` |
 | `GET …/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
 | `POST …/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
 | `DELETE …/workflow/transitions/:id` | — | **admin** | удалить переход |

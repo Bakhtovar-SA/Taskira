@@ -1,6 +1,8 @@
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
 import type {
+  OnboardingDto,
+  SetupStatusDto,
   ActivityDto,
   AttachmentDto,
   ChecklistItemDto,
@@ -288,6 +290,24 @@ export const notificationsApi = {
     api<void>("/api/notifications/dismiss", { method: "POST", body: ids && ids.length ? { ids } : {} }),
   setPrefs: (prefs: NotifyPrefs) =>
     api<NotifyPrefsResponse>("/api/notifications/prefs", { method: "PATCH", body: prefs }),
+};
+
+/** Онбординг (ТЗ 5.11): прогресс «Начала работы» и закрытые подсказки текущего пользователя. */
+export const onboardingApi = {
+  get: () => api<OnboardingDto>("/api/me/onboarding"),
+  /** Шаг, который сервер не видит сам: тема живёт только в браузере. */
+  markTheme: () => api<OnboardingDto>("/api/me/onboarding/steps", { method: "POST", body: { step: "theme" } }),
+  hide: () => api<void>("/api/me/onboarding/hide", { method: "POST" }),
+  dismissHint: (hintId: string) => api<void>(`/api/me/hints/${encodeURIComponent(hintId)}/dismiss`, { method: "POST" }),
+};
+
+/** Первичная настройка инсталляции и демо-проект (ТЗ 5.11, глобальный admin). */
+export const setupApi = {
+  get: () => api<SetupStatusDto>("/api/admin/setup"),
+  rename: (instanceName: string) => api<SetupStatusDto>("/api/admin/setup", { method: "PATCH", body: { instanceName } }),
+  complete: () => api<SetupStatusDto>("/api/admin/setup/complete", { method: "POST" }),
+  createDemo: () => api<{ id: string }>("/api/admin/demo-project", { method: "POST" }),
+  removeDemo: () => api<void>("/api/admin/demo-project", { method: "DELETE" }),
 };
 
 /** LDAP: диагностика и ручной ресинк членства (глобальный admin). */

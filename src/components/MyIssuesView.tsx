@@ -1,11 +1,13 @@
 /** «Мои задачи» (ADR-0013 §1, `/my-issues`) — назначенные мне задачи во всех проектах,
  *  сгруппированные по проекту. Та же полоса фокуса и строка, что на Главной (`MyIssues.tsx`). */
+import { Hint } from "./Hint";
 import { useEffect, useMemo, useState } from "react";
 import { lookOf } from "../projectLook";
 import { useStore } from "../store";
 import type { AssignedIssue } from "../types";
-import { IcInbox } from "../icons";
-import { Empty, ProjectMark } from "../ui";
+import { IcMyIssues } from "../icons";
+import { ProjectMark } from "../ui";
+import { Button, EmptyState } from "../ds";
 import { useT } from "../i18n";
 import { FOCUS_TEST, FocusChips, TaskRow, useFocusCounts, type Focus } from "./MyIssues";
 
@@ -41,12 +43,20 @@ export default function MyIssuesView() {
       <div className="mx-auto max-w-[960px] px-4 pb-12 pt-6 sm:px-8">
         <h1 className="font-disp text-[22px] font-semibold tracking-[-0.02em] text-ink">{t("sidebar.nav.my")}</h1>
         <p className="mt-0.5 text-[12.5px] text-faint">{t("my.subtitle")}</p>
+        <Hint id="palette" className="mt-3">
+          {t("hint.palette")}
+        </Hint>
         <FocusChips focus={focus} onFocus={setFocus} counts={counts} className="mt-5" />
 
         {groups.length === 0 ? (
           loaded && (
             <div className="mt-10">
-              <Empty icon={<IcInbox size={22} />} title={t("home.noAssignedTitle")} sub={t("home.noAssignedSub")} />
+              <EmptyState
+                icon={<IcMyIssues size={22} tone="violet" />}
+                title={t("home.noAssignedTitle")}
+                sub={t("home.noAssignedSub")}
+                action={focus !== "all" ? <Button size="sm" variant="secondary" onClick={() => setFocus("all")}>{t("common.reset")}</Button> : undefined}
+              />
             </div>
           )
         ) : (

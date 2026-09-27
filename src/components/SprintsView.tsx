@@ -3,7 +3,8 @@ import { useStore } from "../store";
 import type { Issue, Sprint } from "../types";
 import { LIMITS } from "../validation";
 import { IcCheck, IcFlag, IcPlus, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Empty, Modal, SkeletonRow } from "../ui";
+import { AvatarStack, Modal, SkeletonRow } from "../ui";
+import { Button, EmptyState } from "../ds";
 import { useT } from "../i18n";
 
 /** Бэклог + спринты (sprints, миграция 023) — опциональный модуль, вкладка
@@ -269,7 +270,9 @@ export default function SprintsView() {
   const sortedSprints = useMemo(() => [...data.sprints].sort((a, b) => order[a.status] - order[b.status]), [data.sprints]);
 
   if (!data.project.sprintsEnabled) {
-    return <Empty icon={<IcFlag size={28} />} title={t("sprints.disabledTitle")} sub={t("sprints.disabledSub")} />;
+    // Модуль выключен администратором — на этом экране действия нет ни у кого,
+    // включая роли, у которых иначе есть manageSprints (D3/ТЗ 5.11 п.4).
+    return <EmptyState icon={<IcFlag size={22} tone="amber" />} title={t("sprints.disabledTitle")} sub={t("sprints.disabledSub")} />;
   }
 
   return (
@@ -308,7 +311,12 @@ export default function SprintsView() {
         </div>
         {!data.issuesComplete && <p className="mb-2 text-[11.5px] text-faint">{t("sprints.loadingIssues")}</p>}
         {sortedSprints.length === 0 ? (
-          <Empty icon={<IcFlag size={28} />} title={t("sprints.emptyTitle")} sub={t("sprints.emptySub")} />
+          <EmptyState
+            icon={<IcFlag size={22} tone="amber" />}
+            title={t("sprints.emptyTitle")}
+            sub={t("sprints.emptySub")}
+            action={can("manageSprints") ? <Button size="sm" onClick={() => setShowCreate(true)}>{t("sprints.new")}</Button> : undefined}
+          />
         ) : (
           <div className="space-y-3 pb-4">
             {sortedSprints.map((s) => (

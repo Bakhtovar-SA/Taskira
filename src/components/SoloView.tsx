@@ -6,7 +6,8 @@ import { MentionText } from "./IssueModal";
 import { LIMITS, localizeValidationError, validateComment } from "../validation";
 import type { IssueTypeId, PriorityId } from "../types";
 import { PRIORITY_ORDER } from "../types";
-import { IcSend, Logo, PriorityIcon, TypeIcon } from "../icons";
+import { IcLink, IcSend, Logo, PriorityIcon, TypeIcon } from "../icons";
+import { EmptyState } from "../ds";
 import { Toasts } from "../ui";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -276,6 +277,12 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
           <Logo size={26} />
           <p className="font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink">Taskira</p>
         </div>
+        {/* ТЗ 5.11: гостю сразу ясно, где он и что может. */}
+        <div className="mx-3 mb-3 rounded-lg bg-accentsoft/60 px-3 py-2.5 ring-1 ring-inset ring-accent/15">
+          <p className="text-[12.5px] font-semibold text-ink">{t("solo.guestTitle")}</p>
+          <p className="mt-0.5 text-[12px] leading-relaxed text-sub">{t("solo.guestCan")}</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-faint">{t("solo.guestCannot")}</p>
+        </div>
         <p className="px-4 pb-1.5 text-[11.5px] font-medium text-faint">
           {t("solo.connectionsCount", { count: solo.items.length })}
         </p>
@@ -316,7 +323,9 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
               currentUser={{ id: solo.userId, name: solo.userName }}
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-[13px] text-faint">{t("collaborating.select")}</div>
+            <div className="flex h-full items-center justify-center">
+              <EmptyState icon={<IcLink size={22} tone="violet" />} title={t("collaborating.select")} sub={t("solo.selectSub")} />
+            </div>
           )}
         </main>
       </div>
