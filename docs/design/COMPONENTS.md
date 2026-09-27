@@ -1,0 +1,58 @@
+# Библиотека компонентов — `src/ds/`
+
+ТЗ 5.7, решение об основе — [ADR-0014](../adr/0014-component-library-native-primitives.md). Витрина всех
+состояний — `/dev/ui` (только `npm run dev`). Визуальная регрессия и axe — `npm run test:ui`
+(`e2e/ui.visual.pw.ts`, эталоны в `e2e/__screenshots__`; CI — `.github/workflows/ui-visual.yml`, только на PR,
+затрагивающих компоненты).
+
+## Правила
+
+- Экраны строятся только из `src/ds` (`import { Button } from "../ds"`). Новое поведение сначала появляется здесь,
+  на `/dev/ui` и в тесте, потом на экране.
+- Стили компонентов — CSS-классы `ds-*` в `src/ds/ds.css` (слой `components`): утилиты Tailwind у потребителя
+  задают только раскладку (отступы, ширину), не внешний вид.
+- Состояния: обычное, `:hover`, `:focus-visible` (одно кольцо на всю библиотеку — `outline`), `:active`,
+  недоступное (`aria-disabled` + причина подсказкой), загрузка (`data-loading`). `data-force` — только для
+  `/dev/ui` и снимков.
+- Плотность — `data-density="comfortable|compact"` на `<html>`; размеры — токены `--ctl-h-*`, `--ctl-px-*`,
+  `--row-h`. Переключатель появится в «Личных настройках» (ТЗ 5.9).
+- Непрерывные значения (прогресс, размеры скелетона) — кастомным свойством через CSSOM (ADR-0010), не `style`.
+- Поверхности верхнего слоя — Popover API и `<dialog>`; `DROPDOWN_OPEN_EVT` в новом коде не нужен.
+
+## Карта «старый → новый» (миграция экранов — ТЗ 5.12)
+
+| Сейчас (`src/ui.tsx` и разметка экранов) | Новый компонент | Заметки для миграции |
+|---|---|---|
+| `className="btn-primary …"`, самодельные кнопки с `bg-accent`, `hover:bg-hover` | `Button` (`primary` / `secondary` / `ghost` / `danger`, `sm/md/lg`) | `disabled` → строка-причина вместо `Tip` поверх кнопки |
+| кнопки-иконки `h-7 w-7 … title=` (шапка задачи, панель, доска) | `IconButton` (`label` обязателен) | `title` убрать — подсказку и `aria-label` даёт компонент |
+| `Tip` | `Tooltip` | верхний слой — не обрезается стеклом (как было у свёрнутой панели) |
+| `Dropdown` + `MenuItem` | `Menu` (действия) или `Popover` (форма, фильтр) | клавиатура APG; `DROPDOWN_OPEN_EVT` и ручной outside-click уходят; самодельное меню «переместить» на карточке (`Board.tsx`, клавиша `M`) — `Menu` с управляемым `open` |
+| `Modal` (`variant="center"`) | `Dialog` | нативный `<dialog>`; ручная ловушка фокуса и `onCloseRef` не нужны |
+| `Modal` (`variant="panel"`), панель задачи | `SidePanel` | `IssueModal` — последним, у неё свой адрес и `J`/`K` (ADR-0013 §3) |
+| `Modal` (`variant="palette"`) | остаётся своим | у палитры своя клавиатура поверх списка; перевести на `<dialog>` без `Dialog`-шапки |
+| `Segmented`, вкладки в `Topbar`, чипы фокуса | `Tabs` (`segmented` / `line`) | роving tabindex вместо набора кнопок |
+| `Switch` (`ui.tsx`) | `Switch` (`ds`) | подпись и описание — пропсы, `role="switch"` уже был |
+| `<input type="checkbox">` с классами (Список, импорт Trello) | `Checkbox` | `indeterminate` для «выбрать все» в Списке |
+| радиокнопки в «Оформлении», уведомлениях | `RadioGroup` | |
+| поля `<input>`/`<textarea>` с классами `rounded-md border …` | `Input` / `Textarea` | подпись, подсказка, ошибка, счётчик символов (`LIMITS` из `validation.ts`) |
+| `UserSearchPicker`, `IssueSearchBox` | `Combobox` (`load(q)`) | пауза и отбрасывание устаревших ответов — внутри; строки с аватаром — `icon` |
+| `<input type="date">` (срок задачи, спринты) | `DatePicker` | ввод словами — концепция 3, ждёт решения |
+| `Avatar`, `AvatarStack` | `Avatar`, `AvatarGroup` | цвет — тон по имени (концепция 6); фото — `src`; карточка пользователя — `Popover` вокруг |
+| `Chip`, `.meta-pill`, `Lozenge`, `RoleBadge` | `Tag` (`tone`, `dot`, `strong`) | тоны `tk-tone-*`, без `color` из данных |
+| `Kbd` (`ui.tsx`) | `Kbd` (`ds`) | |
+| `Empty` | `EmptyState` | |
+| полосы прогресса в панели и отчётах | `Progress`, `ProgressRing` | |
+| `SkeletonRow`, `SkeletonCard`, `SkeletonColumn` | `Skeleton.Line/Block/Circle`, пример `SkeletonCard` | каждый экран собирает свой скелетон из примитивов |
+| `Toasts` (вид тоста) | `Toast` | очередь остаётся во внешнем сторе (`useToasts()`, ADR-0011); `action` для «Отменить» |
+| `LockedField` | `Input`/`Checkbox`/`Switch` с `disabled="причина"` | |
+
+## Концепции на утверждение владельца (26.09.2026)
+
+Новое относительно нынешнего интерфейса; на `/dev/ui` — раздел «Концепции». Решение по каждой — отдельно.
+
+1. **Клавиша в кнопке** — `Button kbd="C"`.
+2. **Недоступно с причиной** — `aria-disabled` + подсказка вместо серой немой кнопки.
+3. **Срок словами** — «завтра», «пт», «+3», «через 2 недели», «15 окт» + пресеты (`src/ds/dateParse.ts`).
+4. **Тост с таймером и «Отменить»** — полоса оставшегося времени, пауза при наведении.
+5. **Метка: тон + точка** — цвет только у фона, кольца и точки; текст основным цветом.
+6. **Мягкий аватар** — тонированный фон и инициалы тоном по имени, без цвета из базы.

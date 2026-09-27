@@ -633,6 +633,16 @@ since any edit touches it. The board shows the last 14 days in its done column
   Font is Manrope only (vendored in `src/assets/fonts/`); `font-mono` in the UI means issue keys = Manrope with tabular
   numerals, real code uses `--font-code`. Icons are the in-house duotone set in `src/icons.tsx` (`tone` prop for nav
   colours); logo is `<Logo variant="mark|mono|app">`, app-icon files come from `scripts/generate-brand-assets.mjs`.
+- **Component library** (ТЗ 5.7, [ADR-0014](docs/adr/0014-component-library-native-primitives.md),
+  [docs/design/COMPONENTS.md](docs/design/COMPONENTS.md)): `src/ds/` — own components on native `<dialog>` and the
+  Popover API, positioned by `@floating-ui/dom` (Radix was rejected: its scroll lock injects `<style>`, which our CSP
+  blocks). Styles are `ds-*` classes in `src/ds/ds.css` (layer `components`); states via `:hover`/`:focus-visible`/
+  `aria-disabled`/`data-loading`, `data-force` only for the showcase; density is `data-density` on `<html>`. The
+  showcase `/dev/ui` (`src/dev/DevUI.tsx`) exists only under `import.meta.env.DEV` in `main.tsx`; `npm run test:ui`
+  (Playwright + axe, `e2e/`, baselines in `e2e/__screenshots__`, Linux Chromium of `@playwright/test` 1.56.1 — pinned
+  exactly) runs in CI only for PRs touching components (`.github/workflows/ui-visual.yml`). jsdom has no Popover API
+  (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. Screens
+  still use `src/ui.tsx`; migration follows the map in COMPONENTS.md (ТЗ 5.12).
 - **Dynamic style values under the CSP** ([ADR-0010](docs/adr/0010-dynamic-styles-under-csp.md), verified in Chromium by
   `npm run csp:spike`): CSSOM writes (`el.style.x`, `setProperty('--x')`, WAAPI `el.animate`) are allowed by
   `style-src-attr 'none'`; `style=""` in markup, `setAttribute('style')` and `<style>` are blocked. `secure-jsx`

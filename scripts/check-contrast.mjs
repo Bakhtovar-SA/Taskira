@@ -95,6 +95,7 @@ const TEXT = 4.5;
 const UI = 3.0;
 const PAIRS = [
   ["--text-1", "--bg-canvas", TEXT],
+  ["--text-on-accent", "--status-danger-strong", TEXT],
   ["--text-1", "--bg-panel", TEXT],
   ["--text-2", "--bg-canvas", TEXT],
   ["--text-2", "--bg-panel", TEXT],

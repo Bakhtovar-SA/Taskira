@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
+@import "./ds/ds.css" layer(components);
 
 /* ============================================================
    Шрифт — Manrope (решение владельца 25.09.2026, ADR-0016), локально в

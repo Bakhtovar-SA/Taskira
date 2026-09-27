@@ -10,8 +10,16 @@ import { I18nProvider } from "./i18n";
 applyTheme();
 watchSystemTheme();
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <I18nProvider>
-    <App />
-  </I18nProvider>,
-);
+const root = ReactDOM.createRoot(document.getElementById("root")!);
+
+// /dev/ui — витрина компонентов (ТЗ 5.7). Под import.meta.env.DEV: в продовой сборке условие — константа
+// false, ветка и динамический импорт вырезаются, чанка DevUI в dist нет (проверяет scripts/check-bundle-size.mjs).
+if (import.meta.env.DEV && location.pathname.replace(/\/$/, "") === "/dev/ui") {
+  void import("./dev/DevUI").then(({ default: DevUI }) => root.render(<DevUI />));
+} else {
+  root.render(
+    <I18nProvider>
+      <App />
+    </I18nProvider>,
+  );
+}

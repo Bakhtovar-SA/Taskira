@@ -1,0 +1,950 @@
+/* ============================================================
+   Библиотека компонентов (ТЗ 5.7, ADR-0014). Подключается в слое
+   components — утилиты Tailwind у потребителя (отступы, ширина)
+   перекрывают эти правила, а не наоборот.
+
+   Состояния: :hover / :focus-visible / :active / [aria-disabled] /
+   [data-loading]. `[data-force~=…]` — принудительное состояние для
+   /dev/ui и визуальной регрессии (в продукте не ставится).
+   Плотность — data-density на <html> (ADR-0014 п. 3).
+   ============================================================ */
+
+:root {
+  --ctl-h-sm: 28px;
+  --ctl-h-md: 32px;
+  --ctl-h-lg: 38px;
+  --ctl-px-sm: 10px;
+  --ctl-px-md: 12px;
+  --ctl-px-lg: 16px;
+  --ctl-fs: 13px;
+  --ctl-fs-sm: 12.5px;
+  --row-h: 44px;
+  --ds-gap: 8px;
+}
+:root[data-density="compact"] {
+  --ctl-h-sm: 24px;
+  --ctl-h-md: 28px;
+  --ctl-h-lg: 34px;
+  --ctl-px-sm: 8px;
+  --ctl-px-md: 10px;
+  --ctl-px-lg: 14px;
+  --ctl-fs: 12.5px;
+  --ctl-fs-sm: 12px;
+  --row-h: 36px;
+  --ds-gap: 6px;
+}
+
+/* ---------- кольцо фокуса: одно на всю библиотеку ---------- */
+/* outline, а не box-shadow: тени вариантов кнопок его не перебивают. */
+.ds-focus:focus-visible,
+.ds-focus[data-force~="focus"] {
+  outline: 2px solid color-mix(in oklch, var(--accent-solid) 75%, transparent);
+  outline-offset: 2px;
+}
+
+/* ---------- Button ---------- */
+.ds-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--ctl-h-md);
+  padding: 0 var(--ctl-px-md);
+  border-radius: var(--radius-m);
+  font: 600 var(--ctl-fs) / 1 var(--font-body);
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-2) var(--ease-standard),
+    box-shadow var(--dur-2) var(--ease-standard),
+    color var(--dur-2) var(--ease-standard),
+    transform var(--dur-1) var(--ease-standard);
+}
+.ds-btn[data-size="sm"] {
+  height: var(--ctl-h-sm);
+  padding: 0 var(--ctl-px-sm);
+  font-size: var(--ctl-fs-sm);
+  border-radius: var(--radius-s);
+}
+.ds-btn[data-size="lg"] {
+  height: var(--ctl-h-lg);
+  padding: 0 var(--ctl-px-lg);
+  font-size: 14px;
+}
+.ds-btn:active:not([aria-disabled="true"]),
+.ds-btn[data-force~="active"] {
+  transform: translateY(0.5px) scale(0.985);
+}
+
+.ds-btn[data-variant="primary"] {
+  background: var(--accent-solid);
+  color: var(--text-on-accent);
+  box-shadow: var(--highlight-accent), var(--elev-accent);
+}
+.ds-btn[data-variant="primary"]:hover:not([aria-disabled="true"]),
+.ds-btn[data-variant="primary"][data-force~="hover"] {
+  background: var(--accent-hover);
+}
+
+.ds-btn[data-variant="secondary"] {
+  background: var(--bg-panel);
+  color: var(--text-1);
+  box-shadow: var(--highlight-top), inset 0 0 0 1px var(--border-default), 0 1px 2px var(--shadow-tint);
+}
+.ds-btn[data-variant="secondary"]:hover:not([aria-disabled="true"]),
+.ds-btn[data-variant="secondary"][data-force~="hover"] {
+  background: var(--bg-hover);
+  box-shadow: var(--highlight-top), inset 0 0 0 1px var(--border-strong), 0 1px 2px var(--shadow-tint);
+}
+
+.ds-btn[data-variant="ghost"] {
+  background: transparent;
+  color: var(--text-2);
+}
+.ds-btn[data-variant="ghost"]:hover:not([aria-disabled="true"]),
+.ds-btn[data-variant="ghost"][data-force~="hover"] {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.ds-btn[data-variant="danger"] {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-fg);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--status-danger) 30%, transparent);
+}
+.ds-btn[data-variant="danger"]:hover:not([aria-disabled="true"]),
+.ds-btn[data-variant="danger"][data-force~="hover"] {
+  background: var(--status-danger-strong);
+  color: var(--text-on-accent);
+}
+
+.ds-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.45;
+  box-shadow: none;
+}
+.ds-btn[data-loading] {
+  cursor: progress;
+}
+.ds-btn[data-loading] > :not(.ds-spinner) {
+  visibility: hidden;
+}
+.ds-btn > .ds-spinner {
+  position: absolute;
+}
+.ds-btn .ds-btn-kbd {
+  margin-left: 2px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font: 600 10.5px / 16px var(--font-body);
+  opacity: 0.7;
+  background: color-mix(in oklch, currentColor 12%, transparent);
+}
+
+/* IconButton — квадрат той же высоты */
+.ds-btn[data-icon] {
+  width: var(--ctl-h-md);
+  padding: 0;
+}
+.ds-btn[data-icon][data-size="sm"] {
+  width: var(--ctl-h-sm);
+}
+.ds-btn[data-icon][data-size="lg"] {
+  width: var(--ctl-h-lg);
+}
+
+/* ---------- Spinner ---------- */
+.ds-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in oklch, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  animation: dsSpin 0.7s linear infinite;
+}
+@keyframes dsSpin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* ---------- поля ввода ---------- */
+.ds-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.ds-label {
+  font: 600 12px / 1.3 var(--font-body);
+  color: var(--text-2);
+}
+.ds-hint {
+  font: 500 11.5px / 1.4 var(--font-body);
+  color: var(--text-3);
+}
+.ds-hint[data-tone="error"] {
+  color: var(--status-danger-fg);
+}
+.ds-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--ctl-h-md);
+  padding: 0 var(--ctl-px-md);
+  border-radius: var(--radius-m);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  color: var(--text-1);
+  transition: box-shadow var(--dur-2) var(--ease-standard), background-color var(--dur-2) var(--ease-standard);
+}
+.ds-input:hover,
+.ds-input[data-force~="hover"] {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.ds-input:focus-within,
+.ds-input[data-force~="focus"] {
+  background: var(--bg-panel);
+  box-shadow: inset 0 0 0 1px var(--accent-solid), 0 0 0 3px var(--focus-ring);
+}
+.ds-input[data-invalid] {
+  box-shadow: inset 0 0 0 1px var(--status-danger), 0 0 0 3px color-mix(in oklch, var(--status-danger) 18%, transparent);
+}
+.ds-input[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ds-input > input,
+.ds-input > textarea {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: 500 var(--ctl-fs) / 1.4 var(--font-body);
+}
+.ds-input > textarea {
+  padding: 8px 0;
+  resize: vertical;
+  min-height: 72px;
+}
+.ds-input > input::placeholder,
+.ds-input > textarea::placeholder {
+  color: var(--text-3);
+}
+.ds-input > input:disabled,
+.ds-input > textarea:disabled {
+  cursor: not-allowed;
+}
+.ds-input .ds-adorn {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+.ds-counter {
+  margin-left: auto;
+  font: 500 11px / 1 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.ds-counter[data-over] {
+  color: var(--status-danger-fg);
+}
+
+/* ---------- Checkbox / Radio ---------- */
+.ds-check {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font: 500 var(--ctl-fs) / 18px var(--font-body);
+  color: var(--text-1);
+}
+.ds-check[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.ds-check input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.ds-box {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 5px;
+  background: var(--bg-panel);
+  box-shadow: inset 0 0 0 1.5px var(--border-strong);
+  color: var(--text-on-accent);
+  transition: background-color var(--dur-2) var(--ease-standard), box-shadow var(--dur-2) var(--ease-standard);
+}
+.ds-check[data-kind="radio"] .ds-box {
+  border-radius: 999px;
+}
+.ds-box svg {
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity var(--dur-2) var(--ease-standard), transform var(--dur-2) var(--ease-out);
+}
+.ds-check:hover .ds-box,
+.ds-check[data-force~="hover"] .ds-box {
+  box-shadow: inset 0 0 0 1.5px var(--accent-solid);
+}
+.ds-check input:focus-visible + .ds-box,
+.ds-check[data-force~="focus"] .ds-box {
+  box-shadow: inset 0 0 0 1.5px var(--accent-solid), 0 0 0 3px var(--focus-ring);
+}
+.ds-check input:checked + .ds-box,
+.ds-check input:indeterminate + .ds-box {
+  background: var(--accent-solid);
+  box-shadow: var(--highlight-accent), 0 2px 6px -2px var(--accent-glow);
+}
+.ds-check input:checked + .ds-box svg,
+.ds-check input:indeterminate + .ds-box svg {
+  opacity: 1;
+  transform: none;
+}
+.ds-check[data-kind="radio"] .ds-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity var(--dur-2), transform var(--dur-2) var(--ease-out);
+}
+.ds-check[data-kind="radio"] input:checked + .ds-box .ds-dot {
+  opacity: 1;
+  transform: none;
+}
+.ds-check-desc {
+  display: block;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ---------- Switch ---------- */
+.ds-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+  cursor: pointer;
+  transition: background-color var(--dur-3) var(--ease-standard), box-shadow var(--dur-2) var(--ease-standard);
+}
+.ds-switch > span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--bg-overlay);
+  color: var(--accent-solid);
+  box-shadow: 0 1px 3px oklch(0.2 0.05 288 / 0.3);
+  transition: transform var(--dur-3) var(--ease-out);
+}
+.ds-switch > span svg {
+  opacity: 0;
+  transition: opacity var(--dur-2);
+}
+.ds-switch[aria-checked="true"] {
+  background: var(--accent-solid);
+  box-shadow: var(--highlight-accent), 0 2px 8px -3px var(--accent-glow);
+}
+.ds-switch[aria-checked="true"] > span {
+  transform: translateX(14px);
+}
+.ds-switch[aria-checked="true"] > span svg {
+  opacity: 1;
+}
+.ds-switch:hover:not([aria-disabled="true"]),
+.ds-switch[data-force~="hover"] {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.ds-switch[aria-checked="true"]:hover:not([aria-disabled="true"]) {
+  background: var(--accent-hover);
+}
+.ds-switch[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- Tabs ---------- */
+.ds-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.ds-tabs[data-variant="segmented"] {
+  padding: 2px;
+  border-radius: var(--radius-m);
+  background: color-mix(in oklch, var(--bg-sunken) 75%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.ds-tabs[data-variant="line"] {
+  gap: 16px;
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.ds-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: calc(var(--ctl-h-md) - 4px);
+  padding: 0 10px;
+  border-radius: calc(var(--radius-m) - 2px);
+  font: 600 var(--ctl-fs-sm) / 1 var(--font-body);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background-color var(--dur-2), color var(--dur-2), box-shadow var(--dur-2);
+}
+.ds-tab:hover,
+.ds-tab[data-force~="hover"] {
+  color: var(--text-1);
+}
+.ds-tabs[data-variant="segmented"] .ds-tab[aria-selected="true"] {
+  background: var(--bg-panel);
+  color: var(--text-1);
+  box-shadow: var(--highlight-top), 0 1px 2px var(--shadow-tint);
+}
+.ds-tabs[data-variant="line"] .ds-tab {
+  position: relative;
+  height: var(--ctl-h-md);
+  padding: 0 2px;
+  border-radius: 0;
+}
+.ds-tabs[data-variant="line"] .ds-tab[aria-selected="true"] {
+  color: var(--text-1);
+}
+.ds-tabs[data-variant="line"] .ds-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent-solid);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+.ds-tab[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ds-tab .ds-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+/* ---------- поверхности верхнего слоя: Popover / Menu / Tooltip ---------- */
+.ds-pop {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 4px;
+  min-width: 180px;
+  max-width: min(360px, calc(100vw - 16px));
+  border: 0;
+  border-radius: var(--radius-l);
+  background: color-mix(in oklch, var(--bg-overlay) 88%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: var(--highlight-top), inset 0 0 0 1px var(--border-subtle), var(--elev-3);
+  color: var(--text-1);
+  overflow: auto;
+}
+.ds-pop:popover-open {
+  animation: dsPopIn var(--dur-2) var(--ease-out);
+}
+@keyframes dsPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.98);
+  }
+}
+.ds-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: calc(var(--ctl-h-md) - 2px);
+  padding: 0 8px;
+  border-radius: var(--radius-s);
+  font: 500 var(--ctl-fs) / 1.25 var(--font-body);
+  color: var(--text-1);
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+.ds-menu-item:hover,
+.ds-menu-item:focus-visible,
+.ds-menu-item[data-active],
+.ds-menu-item[data-force~="hover"] {
+  background: color-mix(in oklch, var(--accent-solid) 9%, var(--bg-hover));
+}
+.ds-menu-item[data-tone="danger"] {
+  color: var(--status-danger-fg);
+}
+.ds-menu-item[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ds-menu-item .ds-menu-hint {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.ds-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border-subtle);
+}
+.ds-menu-label {
+  padding: 6px 8px 4px;
+  font: 600 11px / 1 var(--font-body);
+  color: var(--text-3);
+}
+.ds-tip {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: var(--gray-12);
+  color: var(--gray-1);
+  font: 500 12px / 1.35 var(--font-body);
+  max-width: 280px;
+  box-shadow: var(--elev-2);
+  pointer-events: none;
+}
+.ds-tip:popover-open {
+  animation: dsTipIn var(--dur-2) var(--ease-out);
+}
+@keyframes dsTipIn {
+  from {
+    opacity: 0;
+  }
+}
+.ds-tip .ds-kbd {
+  margin-left: 6px;
+  background: color-mix(in oklch, var(--gray-1) 16%, transparent);
+  box-shadow: none;
+  color: inherit;
+}
+
+/* ---------- Dialog / SidePanel (нативный <dialog>) ---------- */
+.ds-dialog {
+  /* preflight Tailwind обнуляет margin у всех элементов — нативное центрирование <dialog> возвращаем. */
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--bg-overlay);
+  color: var(--text-1);
+  width: min(var(--dlg-w, 480px), calc(100vw - 32px));
+  max-height: calc(100dvh - 64px);
+  box-shadow: var(--highlight-top), inset 0 0 0 1px var(--border-subtle), var(--elev-4);
+  overflow: hidden;
+}
+.ds-dialog[data-size="sm"] {
+  --dlg-w: 400px;
+}
+.ds-dialog[data-size="lg"] {
+  --dlg-w: 720px;
+}
+.ds-dialog::backdrop {
+  background: color-mix(in oklch, var(--bg-scrim) 80%, transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.ds-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  animation: dsDialogIn var(--dur-3) var(--ease-out);
+}
+@keyframes dsDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+.ds-dialog[data-kind="panel"] {
+  margin: 8px 8px 8px auto;
+  height: calc(100dvh - 16px);
+  max-height: none;
+  width: min(var(--dlg-w, 560px), calc(100vw - 16px));
+  border-radius: var(--radius-l);
+}
+.ds-dialog[data-kind="panel"][open] {
+  animation: dsPanelIn var(--dur-4) var(--ease-out);
+}
+@keyframes dsPanelIn {
+  from {
+    opacity: 0.4;
+    transform: translateX(24px);
+  }
+}
+.ds-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 12px;
+}
+.ds-dialog-title {
+  font: 700 16px / 1.3 var(--font-disp);
+  letter-spacing: -0.01em;
+}
+.ds-dialog-desc {
+  margin-top: 4px;
+  font: 500 13px / 1.45 var(--font-body);
+  color: var(--text-2);
+}
+.ds-dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 20px 16px;
+}
+.ds-dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ---------- Toast ---------- */
+.ds-toast {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  padding: 12px 12px 12px 14px;
+  border-radius: var(--radius-l);
+  background: color-mix(in oklch, var(--bg-overlay) 90%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: var(--highlight-top), inset 0 0 0 1px var(--border-subtle), var(--elev-3);
+  overflow: hidden;
+  font: 500 13px / 1.4 var(--font-body);
+  color: var(--text-1);
+}
+.ds-toast-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  color: var(--text-on-accent);
+  background: var(--accent-solid);
+}
+.ds-toast[data-kind="success"] .ds-toast-icon {
+  background: var(--status-done);
+}
+.ds-toast[data-kind="error"] .ds-toast-icon {
+  background: var(--status-danger);
+}
+.ds-toast-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.ds-toast-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: left;
+  background: var(--accent-solid);
+  opacity: 0.55;
+  animation: dsToastBar var(--toast-ms, 5000ms) linear forwards;
+}
+.ds-toast:hover .ds-toast-bar {
+  animation-play-state: paused;
+}
+@keyframes dsToastBar {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* ---------- Avatar ---------- */
+.ds-av {
+  --av: 24px;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--av);
+  height: var(--av);
+  border-radius: 999px;
+  /* Мягкий аватар: тон — фон 20% и инициалы тем же тоном; читается в обеих темах. */
+  background: linear-gradient(160deg, color-mix(in oklch, currentColor 28%, var(--bg-panel)), color-mix(in oklch, currentColor 16%, var(--bg-panel)));
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 30%, transparent);
+}
+.ds-av > span:first-child,
+.ds-av-more {
+  font: 700 calc(var(--av) * 0.4) / 1 var(--font-body);
+  letter-spacing: -0.02em;
+  color: color-mix(in oklch, currentColor 65%, var(--text-1));
+}
+.ds-av > img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+.ds-av[data-size="20"] { --av: 20px; }
+.ds-av[data-size="28"] { --av: 28px; }
+.ds-av[data-size="32"] { --av: 32px; }
+.ds-av[data-size="40"] { --av: 40px; }
+.ds-av[data-ring] {
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 30%, transparent), 0 0 0 2px var(--bg-panel);
+}
+.ds-av-more {
+  background: var(--bg-active);
+  color: var(--text-2);
+}
+.ds-av-status {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 30%;
+  height: 30%;
+  min-width: 7px;
+  min-height: 7px;
+  border-radius: 999px;
+  background: var(--status-done);
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
+.ds-av-status[data-status="away"] {
+  background: var(--status-warn);
+}
+.ds-av-group {
+  display: inline-flex;
+  align-items: center;
+}
+.ds-av-group > * + * {
+  margin-left: -6px;
+}
+
+/* ---------- Badge / Tag ---------- */
+.ds-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  max-width: 100%;
+  padding: 0 8px;
+  border-radius: 999px;
+  font: 600 11.5px / 1 var(--font-body);
+  white-space: nowrap;
+  background: color-mix(in oklch, currentColor 11%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 20%, transparent);
+}
+.ds-tag[data-size="sm"] {
+  height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.ds-tag > .ds-tag-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-1);
+}
+/* Текст тоном, но с примесью основного цвета: жёлтый и зелёный иначе не дотягивают до 4.5:1. */
+.ds-tag[data-strong] > .ds-tag-text {
+  color: color-mix(in oklch, currentColor 55%, var(--text-1));
+}
+.ds-tag > .ds-tag-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: currentColor;
+}
+.ds-tag button {
+  display: grid;
+  place-items: center;
+  margin-right: -3px;
+  border-radius: 999px;
+  color: var(--text-3);
+}
+.ds-tag button:hover {
+  color: var(--text-1);
+  background: color-mix(in oklch, currentColor 14%, transparent);
+}
+
+/* ---------- Kbd ---------- */
+.ds-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font: 600 10.5px / 1 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  background: var(--bg-panel);
+  box-shadow: inset 0 -1px 0 var(--border-default), inset 0 0 0 1px var(--border-subtle);
+}
+
+/* ---------- Progress ---------- */
+.ds-progress {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-active);
+  overflow: hidden;
+}
+.ds-progress > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--p, 0%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-solid), var(--status-done));
+  transition: width var(--dur-4) var(--ease-out);
+}
+.ds-progress[data-indeterminate] > span {
+  width: 35%;
+  animation: dsIndet 1.2s var(--ease-in-out) infinite;
+}
+@keyframes dsIndet {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+.ds-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.ds-ring .ds-ring-track {
+  stroke: var(--bg-active);
+}
+.ds-ring .ds-ring-val {
+  stroke: var(--accent-solid);
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--dur-4) var(--ease-out);
+}
+
+/* ---------- EmptyState ---------- */
+.ds-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 24px;
+  text-align: center;
+}
+.ds-empty-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 6px;
+  border-radius: 16px;
+  background: radial-gradient(circle at 30% 25%, color-mix(in oklch, var(--accent-solid) 16%, var(--bg-panel)), var(--bg-panel));
+  box-shadow: var(--highlight-top), inset 0 0 0 1px var(--border-subtle), 0 10px 24px -12px var(--accent-glow);
+}
+.ds-empty-title {
+  font: 700 14px / 1.3 var(--font-disp);
+  color: var(--text-1);
+}
+.ds-empty-sub {
+  max-width: 36ch;
+  font: 500 12.5px / 1.5 var(--font-body);
+  color: var(--text-2);
+}
+
+/* ---------- Skeleton ---------- */
+.ds-sk {
+  border-radius: var(--radius-s);
+  background: linear-gradient(90deg, var(--bg-active) 0%, var(--bg-hover) 40%, var(--bg-active) 80%);
+  background-size: 200% 100%;
+  animation: dsShimmer 1.4s linear infinite;
+}
+@keyframes dsShimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- Combobox / DatePicker ---------- */
+.ds-option[aria-selected="true"] {
+  color: var(--accent-text);
+}
+.ds-cal {
+  display: grid;
+  grid-template-columns: repeat(7, 32px);
+  gap: 2px;
+}
+.ds-cal-dow {
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font: 600 10.5px / 1 var(--font-body);
+  color: var(--text-3);
+}
+.ds-cal-day {
+  height: 32px;
+  border-radius: var(--radius-s);
+  font: 600 12.5px / 1 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+  cursor: pointer;
+  outline: none;
+}
+.ds-cal-day[data-out] {
+  color: var(--text-3);
+}
+.ds-cal-day:hover,
+.ds-cal-day:focus-visible {
+  background: var(--bg-hover);
+}
+.ds-cal-day:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--accent-solid);
+}
+.ds-cal-day[data-today] {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.ds-cal-day[aria-selected="true"] {
+  background: var(--accent-solid);
+  color: var(--text-on-accent);
+  box-shadow: var(--highlight-accent), 0 2px 8px -3px var(--accent-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-pop:popover-open,
+  .ds-tip:popover-open,
+  .ds-dialog[open],
+  .ds-sk,
+  .ds-progress[data-indeterminate] > span {
+    animation: none;
+  }
+}

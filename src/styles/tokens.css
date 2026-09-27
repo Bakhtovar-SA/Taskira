@@ -118,6 +118,8 @@
   --status-danger: var(--red-solid);
   --status-danger-bg: var(--red-soft);
   --status-danger-fg: var(--red-text);
+  /* Сплошной красный под белым текстом (кнопка «опасно» при наведении): ≥ 4.5:1 с --text-on-accent. */
+  --status-danger-strong: oklch(0.52 0.2 25);
   --status-warn: oklch(0.6 0.13 65);
 
   --type-task: var(--violet-9);
@@ -246,6 +248,7 @@
   --text-2: oklch(0.78 0.012 288);
   --text-3: oklch(0.66 0.014 288);
   --text-on-accent: oklch(0.99 0.006 288);
+  --status-danger-strong: oklch(0.52 0.19 25);
 
   --border-subtle: oklch(0.255 0.014 288);
   --border-default: oklch(0.29 0.016 288);
