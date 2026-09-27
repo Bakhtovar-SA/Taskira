@@ -15,7 +15,7 @@ const SRC = join(ROOT, "src");
 const ALLOW = {
   // Цвет направления хранится в БД как hex (contract.ts: /^#[0-9a-f]{6}$/) —
   // это данные пользователя, а не оформление; палитра = палитра проектов ТЗ 5.3.
-  "src/components/IssueModal.tsx": "DIRECTION_COLORS — hex хранится в БД",
+  "src/dataColors.ts": "DATA_COLORS — hex хранится в БД (цвет направления и пользователя)",
 };
 
 const PATTERNS = [

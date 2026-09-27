@@ -32,6 +32,7 @@ import { EmptyState } from "../../ds";
 import { ProjectMark } from "../../ui";
 import { PersonalSection } from "./PersonalSettings";
 import { ProjectSection } from "./ProjectSettings";
+import { OrgSection } from "./OrgSettings";
 
 const WorkflowView = lazy(() => import("../WorkflowView"));
 const PermissionsView = lazy(() => import("../PermissionsView"));
@@ -101,7 +102,7 @@ export default function SettingsView() {
       ) : (
         <ProjectSection section={section} />
       );
-  } else page = <AdminView />;
+  } else page = section === "departments" ? <AdminView /> : <OrgSection section={section} />;
 
   return (
     <div className="flex h-full min-h-0 max-md:flex-col">

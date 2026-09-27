@@ -355,6 +355,36 @@ export const usersApi = {
     phone?: string;
     globalRole?: GlobalRole;
   }) => api<SafeUser>("/api/admin/users", { method: "POST", body }),
+  /** Глобальная роль и активность (PATCH /api/users/:id); последнего активного админа сервер не отпустит — 409. */
+  patch: (id: string, body: { globalRole: GlobalRole; isActive?: boolean }) => api<SafeUser>(`/api/users/${id}`, { method: "PATCH", body }),
+};
+
+/** Организация → Лицензия / Обслуживание / Состояние системы (ТЗ 5.9). Типы — зеркало ответов сервера
+ *  (`services/license.ts`, `routes/maintenance.ts`, `/api/health` в `app.ts`); только чтение, кроме запуска обслуживания. */
+export type LicenseStatusDto =
+  | { state: "unset" }
+  | { state: "invalid"; reason: string }
+  | { state: "active" | "expired"; claims: { plan: string; maxSeats: number; features: string[]; activeWindowDays: number; issuedTo?: string; iat: number; exp: number }; seatsUsed: number; seatsOverLimit: boolean; daysUntilExpiry?: number; daysSinceExpiry?: number };
+export type MaintenanceJob = { name: string; intervalMs: number; running: boolean; lastRunAt: string | null; lastResult: "success" | "error" | "skipped" | null; lastDurationMs: number | null; lastError: string | null; nextRunAt: string | null };
+export type MaintenanceStatusDto = {
+  enabled: boolean;
+  jobs: MaintenanceJob[];
+  settings: { intervalMs: number; startDelayMs: number; batchSize: number; batchPauseMs: number; maxPerRun: number; archiveAfterDays: number; auditRetentionDays: number };
+};
+export type HealthDto = { ok: boolean; db: boolean; checks: Record<string, boolean>; pendingMigrations?: string[]; warnings?: { code: string; reason: string }[]; version: string; ts: string };
+export const adminApi = {
+  license: () => api<LicenseStatusDto>("/api/admin/license"),
+  maintenance: () => api<MaintenanceStatusDto>("/api/maintenance"),
+  runMaintenance: (dryRun: boolean) => api<{ archived: number; auditPurged: number; capped: boolean; dryRun: boolean }>("/api/maintenance/run", { method: "POST", query: { dryRun: String(dryRun) } }),
+  health: () => api<HealthDto>("/api/health"),
+  /** Прямые ссылки для скачивания (сессия — HttpOnly-cookie, браузер приложит её сам; см. AdminView). */
+  exportUrl: () => `${API_BASE}/api/admin/export`,
+  auditExportUrl: (format: "csv" | "jsonl", from?: string, to?: string) => {
+    const q = new URLSearchParams({ format });
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    return `${API_BASE}/api/admin/audit-log/export?${q}`;
+  },
 };
 
 /** Аватарки — самообслуживание (миграция 027): только свой профиль. */

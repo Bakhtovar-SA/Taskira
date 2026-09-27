@@ -187,32 +187,7 @@ export default function AdminView() {
               {t("admin.subtitle")}{ldap && ` ${t("admin.ldapSubtitle")}`}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {/* ТЗ 3.5 (план v2 Трек 3): полный экспорт инсталляции — обычная
-                ссылка, не fetch+blob: сессия живёт в HttpOnly-cookie (api/index.ts),
-                браузер сам приложит её к прямой навигации по этому же origin/site
-                (SESSION_COOKIE — SameSite=Strict, что разрешает переход по ссылке
-                в пределах одного site, включая dev-порты localhost:3000/:8080).
-                Сервер сам вернёт 403 не-админу — здесь только UX-подсказка. */}
-            {canManage && (
-              <a
-                href={`${API_BASE}/api/admin/export`}
-                title={t("admin.exportHint")}
-                className="rounded-lg border border-line bg-panel shadow-e1 px-2.5 py-1.5 text-[11.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink"
-              >
-                {t("admin.export")}
-              </a>
-            )}
-            {ldap && (
-              <button
-                onClick={resyncLdap}
-                title={t("admin.resyncHint")}
-                className="rounded-lg border border-line bg-panel shadow-e1 px-2.5 py-1.5 text-[11.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink"
-              >
-                {t("admin.resync")}
-              </button>
-            )}
-          </div>
+          {/* Экспорт — «Организация → Экспорт», ресинк и LDAP-группы отделов — «Организация → LDAP» (ТЗ 5.9). */}
         </div>
 
         {/* новый отдел */}
@@ -270,24 +245,6 @@ export default function AdminView() {
                 </header>
 
                 {openDeptMembers[d.id] && <DepartmentMembers departmentId={d.id} />}
-
-                {ldap && (
-                  <div className="flex items-center gap-2 border-b border-linesoft bg-sunken px-3 py-1.5">
-                    <span className="shrink-0 text-[11.5px] font-medium text-faint">{t("admin.ldapGroup")}</span>
-                    <input
-                      key={d.ldapGroupDn ?? ""}
-                      defaultValue={d.ldapGroupDn ?? ""}
-                      placeholder={t("admin.ldapPlaceholder")}
-                      maxLength={LIMITS.department.ldapGroupDn.max}
-                      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v !== (d.ldapGroupDn ?? "")) setDepartmentLdapGroup(d.id, v || null);
-                      }}
-                      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 font-mono text-[11px] text-sub hover:border-linesoft focus:border-accent focus:shadow-focus focus:bg-panel focus:outline-none"
-                    />
-                  </div>
-                )}
 
                 <div className="divide-y divide-linesoft">
                   {projs.map((p) => (

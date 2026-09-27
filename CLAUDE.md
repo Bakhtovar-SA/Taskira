@@ -185,6 +185,17 @@ opens the command palette from anywhere (`CommandPalette.tsx`, lazy chunk; `src/
 matching, recent issues in `localStorage`, `openPalette()` event for buttons). `reports` (`ReportsView.tsx`) is project-less —
 it reads `/api/reports/*`, which scope themselves to the user's visible projects.
 
+**Settings — three homes** (ТЗ 5.9, ADR-0013 §2, `docs/design/IA.md` §3): `ViewId` `settings` (personal, `/settings/:section`),
+`projectSettings` (`/p/:projectKey/settings/:section`) and `orgSettings` (`/admin/:section`), sub-page in `ui.section`
+(`setView(view, section)`). Section lists — `src/settings/sections.ts`; who sees what — `src/settings/access.ts`
+(`allowedSections`: project general/modules/archive and the whole organization home are global-admin only — the server's
+`PATCH/DELETE /projects/:id` and admin routes require it; workflow/fields/templates/access are open to every member,
+read-only without `editWorkflow`/`manageAccess`, as before); open a home with `useOpenSettings()` so it lands on a section
+the person may see. Screens: `src/components/settings/` (`SettingsView` shell; `PersonalSettings`, `ProjectSettings`,
+`OrgSettings`), the old `WorkflowView` (split by `part`), `PermissionsView` (the only place for project members) and
+`AdminView` (departments + project creation only). Every setting has exactly one home; env-only values are shown
+read-only with an `env` tag. `GET /api/admin/license` (read-only, `routes/license.ts`) feeds the license page.
+
 The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `issues`,
 `statuses`) and a `doneStatusIds` `Set`. Use them instead of `data.users.find(...)` inside
 list/card renders — the linear scans were quadratic across a board.

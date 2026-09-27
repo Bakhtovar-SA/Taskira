@@ -1,0 +1,632 @@
+/** Настройки организации (IA §3.3, ТЗ 5.9 п. 2): то, что сервер уже умеет, а интерфейса не было —
+ *  пользователи, проверка LDAP, лицензия, аудит, обслуживание, состояние системы. Значения, которые
+ *  задаются только переменными окружения, показаны справочно (ТЗ 5.9: новых настроек не добавлять). */
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useStore } from "../../store";
+import { useT } from "../../i18n";
+import { adminApi, ApiError, ldapApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
+import { Avatar, Button, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
+import { IcDiamond, IcDownload, IcLink, IcPlus, IcSearch } from "../../icons";
+import { LIMITS } from "../../validation";
+import { dataColorFor } from "../../dataColors";
+import { SettingRow, SettingsCard, SettingsPage } from "./parts";
+
+export function OrgSection({ section }: { section: string }) {
+  switch (section) {
+    case "users":
+      return <Users />;
+    case "ldap":
+      return <Ldap />;
+    case "license":
+      return <License />;
+    case "export":
+      return <Export />;
+    case "audit":
+      return <Audit />;
+    case "maintenance":
+      return <Maintenance />;
+    default:
+      return <Health />;
+  }
+}
+
+/** Загрузка с явными состояниями: null — идёт, Error — не удалось. */
+function useLoad<T>(fn: () => Promise<T>) {
+  const [v, setV] = useState<T | null | Error>(null);
+  const reload = useCallback(() => {
+    setV(null);
+    fn().then(setV, (e) => setV(e instanceof Error ? e : new Error(String(e))));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(reload, [reload]);
+  return [v, reload, setV] as const;
+}
+
+function Loading() {
+  return (
+    <div className="flex flex-col gap-2.5 px-5 py-5" aria-busy="true">
+      <div className="ds-sk h-4 w-2/3" />
+      <div className="ds-sk h-4 w-1/2" />
+      <div className="ds-sk h-4 w-3/5" />
+    </div>
+  );
+}
+function Failed({ err, retry }: { err: Error; retry: () => void }) {
+  const { t } = useT();
+  return (
+    <div className="flex items-center gap-3 px-5 py-5">
+      <p className="flex-1 text-[12.5px] text-[var(--status-danger-fg)]">{err.message || t("settings.org.loadFailed")}</p>
+      <Button size="sm" variant="secondary" onClick={retry}>
+        {t("common.retry")}
+      </Button>
+    </div>
+  );
+}
+const EnvTag = () => (
+  <Tag tone="gray" size="sm">
+    env
+  </Tag>
+);
+const dt = (iso: string | null, lang: string) => (iso ? new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso)) : "—");
+const dur = (ms: number, lang: string) => {
+  const h = ms / 3_600_000;
+  if (h >= 1) return lang === "en" ? `${+h.toFixed(1)} h` : `${+h.toFixed(1)} ч`;
+  return lang === "en" ? `${Math.round(ms / 60_000)} min` : `${Math.round(ms / 60_000)} мин`;
+};
+
+/* ---------------- Пользователи ---------------- */
+
+function Users() {
+  const { t } = useT();
+  const { authMode, toast, me } = useStore();
+  const [list, reload, setList] = useLoad(() => usersApi.list());
+  const [q, setQ] = useState("");
+  const [create, setCreate] = useState(false);
+  const ldap = authMode === "ldap";
+
+  const users = list instanceof Array ? list : [];
+  const shown = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    const sorted = [...users].sort((a, b) => Number(b.isActive) - Number(a.isActive) || a.name.localeCompare(b.name));
+    return s ? sorted.filter((u) => u.name.toLowerCase().includes(s) || u.username.toLowerCase().includes(s) || u.jobRole.toLowerCase().includes(s)) : sorted;
+  }, [users, q]);
+
+  const patch = async (u: SafeUser, body: { globalRole: SafeUser["globalRole"]; isActive?: boolean }) => {
+    try {
+      const next = await usersApi.patch(u.id, body);
+      setList(users.map((x) => (x.id === u.id ? next : x)));
+    } catch (e) {
+      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+    }
+  };
+
+  return (
+    <SettingsPage title={t("settings.org.users")} desc={t(ldap ? "settings.desc.usersLdap" : "settings.desc.users")}>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[220px] flex-1">
+          <Input aria-label={t("settings.org.searchUsers")} iconLeft={<IcSearch size={14} />} placeholder={t("settings.org.searchUsers")} value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <Button variant="primary" iconLeft={<IcPlus size={14} />} disabled={ldap ? t("settings.org.createLdap") : false} onClick={() => setCreate(true)}>
+          {t("settings.org.addUser")}
+        </Button>
+      </div>
+      <SettingsCard footer={list instanceof Array ? t("settings.org.usersCount", { n: users.length, active: users.filter((u) => u.isActive).length }) : undefined}>
+        {list === null ? (
+          <Loading />
+        ) : list instanceof Error ? (
+          <Failed err={list} retry={reload} />
+        ) : (
+          shown.map((u) => {
+            const ldapUser = ldap && u.authSource === "ldap";
+            return (
+              <div key={u.id} className={`flex flex-wrap items-center gap-3 px-5 py-3 ${u.isActive ? "" : "opacity-60"}`}>
+                <Avatar person={{ name: u.name }} size={32} />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-2 truncate text-[13px] font-medium text-ink">
+                    {u.name}
+                    {u.id === me.id && <span className="text-[11.5px] font-normal text-faint">{t("settings.org.you")}</span>}
+                  </p>
+                  <p className="truncate text-[12px] text-faint">
+                    @{u.username}
+                    {u.jobRole && ` · ${u.jobRole}`}
+                  </p>
+                </div>
+                {u.authSource === "ldap" && (
+                  <Tag tone="teal" size="sm">
+                    LDAP
+                  </Tag>
+                )}
+                <select
+                  aria-label={t("settings.org.globalRole", { name: u.name })}
+                  value={u.globalRole}
+                  disabled={ldapUser}
+                  title={ldapUser ? t("settings.org.roleFromLdap") : undefined}
+                  onChange={(e) => void patch(u, { globalRole: e.target.value as SafeUser["globalRole"] })}
+                  className="ds-input ds-focus h-8 min-w-[150px] cursor-pointer text-[12.5px] font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="member">{t("settings.org.roleMember")}</option>
+                  <option value="admin">{t("settings.profile.roleAdmin")}</option>
+                </select>
+                <Switch checked={u.isActive} onChange={(v) => void patch(u, { globalRole: u.globalRole, isActive: v })} label={t("settings.org.active")} labelFirst />
+              </div>
+            );
+          })
+        )}
+      </SettingsCard>
+      <CreateUser
+        open={create}
+        onClose={() => setCreate(false)}
+        onCreated={(u) => {
+          setList([...users, u]);
+          setCreate(false);
+          toast("success", t("settings.org.userCreated", { name: u.name }));
+        }}
+      />
+    </SettingsPage>
+  );
+}
+
+function CreateUser({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (u: SafeUser) => void }) {
+  const { t } = useT();
+  const [f, setF] = useState({ username: "", name: "", jobRole: "", phone: "", password: "", globalRole: "member" as SafeUser["globalRole"] });
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setF({ username: "", name: "", jobRole: "", phone: "", password: "", globalRole: "member" });
+      setErr(null);
+    }
+  }, [open]);
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
+  const missing = !f.username.trim() || !f.name.trim() || !f.password;
+  const initials =
+    f.name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+
+  const submit = async () => {
+    if (missing) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const u = await usersApi.create({
+        username: f.username.trim(),
+        password: f.password,
+        name: f.name.trim(),
+        initials,
+        color: dataColorFor(f.username.trim()),
+        jobRole: f.jobRole.trim(),
+        phone: f.phone.trim() || undefined,
+        globalRole: f.globalRole,
+      });
+      onCreated(u);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      dismissable={false}
+      title={t("settings.org.addUser")}
+      description={t("settings.org.addUserDesc")}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" loading={busy} disabled={missing ? t("settings.org.fillRequired") : false} onClick={() => void submit()}>
+            {t("common.create")}
+          </Button>
+        </>
+      }
+    >
+      <form
+        className="grid gap-4 sm:grid-cols-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        <Input label={t("settings.profile.name")} value={f.name} onChange={set("name")} required data-autofocus />
+        <Input label={t("settings.profile.username")} value={f.username} onChange={set("username")} required autoComplete="off" />
+        <Input label={t("userCard.jobRole")} value={f.jobRole} onChange={set("jobRole")} />
+        <Input label={t("userCard.phone")} value={f.phone} onChange={set("phone")} type="tel" />
+        <div className="sm:col-span-2">
+          <Input label={t("settings.org.password")} value={f.password} onChange={set("password")} type="password" autoComplete="new-password" required hint={t("settings.org.passwordHint")} error={err ?? undefined} />
+        </div>
+        <div className="sm:col-span-2">
+          <RadioGroup
+            label={t("settings.org.globalRoleLabel")}
+            value={f.globalRole}
+            onChange={(v) => setF((s) => ({ ...s, globalRole: v }))}
+            options={[
+              { value: "member", label: t("settings.org.roleMember"), description: t("settings.org.roleMemberDesc") },
+              { value: "admin", label: t("settings.profile.roleAdmin"), description: t("settings.org.roleAdminDesc") },
+            ]}
+          />
+        </div>
+        <button type="submit" hidden />
+      </form>
+    </Dialog>
+  );
+}
+
+/* ---------------- LDAP ---------------- */
+
+function Ldap() {
+  const { t } = useT();
+  const { authMode, resyncLdap, data, setDepartmentLdapGroup } = useStore();
+  const [ping, setPing] = useState<Awaited<ReturnType<typeof ldapApi.ping>> | Error | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (authMode !== "ldap")
+    return (
+      <SettingsPage title={t("settings.org.ldap")} desc={t("settings.desc.ldap")}>
+        <SettingsCard footer={t("settings.org.ldapOffHint")}>
+          <EmptyState icon={<IcLink size={22} tone="teal" />} title={t("settings.org.ldapOff")} sub={t("settings.org.ldapOffSub")} />
+        </SettingsCard>
+      </SettingsPage>
+    );
+  const check = async () => {
+    setBusy(true);
+    try {
+      setPing(await ldapApi.ping());
+    } catch (e) {
+      setPing(e instanceof Error ? e : new Error(String(e)));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <SettingsPage title={t("settings.org.ldap")} desc={t("settings.desc.ldap")}>
+      <SettingsCard>
+        <SettingRow
+          label={t("settings.org.ldapCheck")}
+          hint={
+            ping === null ? (
+              t("settings.org.ldapCheckHint")
+            ) : ping instanceof Error ? (
+              <span className="text-[var(--status-danger-fg)]">{ping.message}</span>
+            ) : ping.ok ? (
+              <span className="text-[var(--status-done-fg)]">{t("settings.org.ldapOk", { url: ping.url ?? "", base: ping.baseDn ?? "" })}</span>
+            ) : (
+              <span className="text-[var(--status-danger-fg)]">{ping.error}</span>
+            )
+          }
+        >
+          <Button variant="secondary" loading={busy} onClick={() => void check()}>
+            {t("settings.org.ldapCheckBtn")}
+          </Button>
+        </SettingRow>
+        <SettingRow label={t("settings.org.ldapResync")} hint={t("admin.resyncHint")}>
+          <Button variant="secondary" onClick={resyncLdap}>
+            {t("admin.resync")}
+          </Button>
+        </SettingRow>
+      </SettingsCard>
+      <SettingsCard title={t("settings.org.ldapGroups")} footer={t("settings.org.ldapGroupsHint")}>
+        {data.departments.map((d) => (
+          <div key={d.id} className="grid items-center gap-2 px-5 py-3 sm:grid-cols-[200px_1fr]">
+            <span className="truncate text-[13px] font-medium text-ink">{d.name}</span>
+            <input
+              key={d.ldapGroupDn ?? ""}
+              aria-label={t("settings.org.ldapGroupFor", { name: d.name })}
+              defaultValue={d.ldapGroupDn ?? ""}
+              placeholder={t("admin.ldapPlaceholder")}
+              maxLength={LIMITS.department.ldapGroupDn.max}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              onBlur={(e) => {
+                const v = e.target.value.trim();
+                if (v !== (d.ldapGroupDn ?? "")) setDepartmentLdapGroup(d.id, v || null);
+              }}
+              className="ds-input ds-focus h-8 font-[family-name:var(--font-code)] text-[12px]"
+            />
+          </div>
+        ))}
+      </SettingsCard>
+    </SettingsPage>
+  );
+}
+
+/* ---------------- Лицензия ---------------- */
+
+function License() {
+  const { t, lang } = useT();
+  const [st, reload] = useLoad(() => adminApi.license());
+  let body: ReactNode;
+  if (st === null) body = <Loading />;
+  else if (st instanceof Error) body = <Failed err={st} retry={reload} />;
+  else body = <LicenseBody st={st} lang={lang} />;
+  return (
+    <SettingsPage title={t("settings.org.license")} desc={t("settings.desc.license")}>
+      <SettingsCard footer={t("settings.org.licenseCli")}>{body}</SettingsCard>
+    </SettingsPage>
+  );
+}
+
+function LicenseBody({ st, lang }: { st: LicenseStatusDto; lang: string }) {
+  const { t } = useT();
+  if (st.state === "unset") return <EmptyState icon={<IcDiamond size={22} tone="indigo" />} title={t("settings.org.licenseUnset")} sub={t("settings.org.licenseUnsetSub")} />;
+  if (st.state === "invalid")
+    return (
+      <SettingRow label={t("settings.org.licenseState")} hint={t("settings.org.licenseInvalidHint", { reason: st.reason })}>
+        <Tag tone="red" strong dot>
+          {t("settings.org.licenseInvalid")}
+        </Tag>
+      </SettingRow>
+    );
+  const c = st.claims;
+  const exp = new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { dateStyle: "long" }).format(new Date(c.exp * 1000));
+  const pct = Math.round((st.seatsUsed / Math.max(1, c.maxSeats)) * 100);
+  return (
+    <>
+      <SettingRow label={t("settings.org.licenseState")} hint={st.state === "active" ? t("settings.org.licenseDaysLeft", { n: st.daysUntilExpiry ?? 0, date: exp }) : t("settings.org.licenseExpiredHint", { n: st.daysSinceExpiry ?? 0, date: exp })}>
+        <Tag tone={st.state === "active" ? "green" : "amber"} strong dot>
+          {t(st.state === "active" ? "settings.org.licenseActive" : "settings.org.licenseExpired")}
+        </Tag>
+      </SettingRow>
+      <SettingRow label={t("settings.org.licensePlan")}>
+        <span className="text-[13px] font-semibold text-ink">{c.plan}</span>
+        {c.issuedTo && <span className="ml-2 text-[12px] text-faint">{c.issuedTo}</span>}
+      </SettingRow>
+      <SettingRow label={t("settings.org.licenseSeats")} hint={t("settings.org.licenseSeatsHint", { days: c.activeWindowDays })}>
+        <div className="flex w-[220px] flex-col gap-1.5">
+          <span className={`text-right text-[13px] font-semibold tabular ${st.seatsOverLimit ? "text-[var(--status-danger-fg)]" : "text-ink"}`}>
+            {st.seatsUsed} / {c.maxSeats}
+          </span>
+          <Progress value={pct} label={t("settings.org.licenseSeats")} />
+        </div>
+      </SettingRow>
+      {c.features.length > 0 && (
+        <SettingRow label={t("settings.org.licenseFeatures")}>
+          <div className="flex max-w-[320px] flex-wrap justify-end gap-1">
+            {c.features.map((f) => (
+              <Tag key={f} tone="indigo" size="sm">
+                {f}
+              </Tag>
+            ))}
+          </div>
+        </SettingRow>
+      )}
+    </>
+  );
+}
+
+/* ---------------- Экспорт и аудит ---------------- */
+
+function Export() {
+  const { t } = useT();
+  return (
+    <SettingsPage title={t("settings.org.export")} desc={t("settings.desc.export")}>
+      <SettingsCard>
+        <SettingRow label={t("admin.export")} hint={t("admin.exportHint")}>
+          <a href={adminApi.exportUrl()} className="ds-btn ds-focus" data-variant="secondary" data-size="md">
+            <IcDownload size={14} /> NDJSON
+          </a>
+        </SettingRow>
+      </SettingsCard>
+    </SettingsPage>
+  );
+}
+
+function Audit() {
+  const { t } = useT();
+  const [m] = useLoad(() => adminApi.maintenance());
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [format, setFormat] = useState<"csv" | "jsonl">("csv");
+  const iso = (d: string, end = false) => (d ? new Date(`${d}T${end ? "23:59:59" : "00:00:00"}`).toISOString() : undefined);
+  return (
+    <SettingsPage title={t("settings.org.audit")} desc={t("settings.desc.audit")}>
+      <SettingsCard title={t("settings.org.auditExport")} footer={t("settings.org.auditExportHint")}>
+        <div className="grid gap-4 px-5 py-4 sm:grid-cols-2">
+          <Input label={t("settings.org.from")} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <Input label={t("settings.org.to")} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <RadioGroup
+            label={t("settings.org.format")}
+            value={format}
+            onChange={setFormat}
+            options={[
+              { value: "csv", label: "CSV", description: t("settings.org.csvDesc") },
+              { value: "jsonl", label: "JSONL", description: t("settings.org.jsonlDesc") },
+            ]}
+          />
+          <div className="flex items-end justify-end">
+            <a href={adminApi.auditExportUrl(format, iso(from), iso(to, true))} className="ds-btn ds-focus" data-variant="primary" data-size="md">
+              <IcDownload size={14} /> {t("settings.org.download")}
+            </a>
+          </div>
+        </div>
+      </SettingsCard>
+      <SettingsCard>
+        <SettingRow label={t("settings.org.auditRetention")} hint={t("settings.org.auditRetentionHint")}>
+          <span className="flex items-center gap-2 text-[13px] font-semibold tabular text-ink">
+            {m && !(m instanceof Error) ? t("settings.org.days", { n: m.settings.auditRetentionDays }) : "…"} <EnvTag />
+          </span>
+        </SettingRow>
+      </SettingsCard>
+    </SettingsPage>
+  );
+}
+
+/* ---------------- Обслуживание ---------------- */
+
+const JOB_KEY: Record<string, string> = { maintenance: "settings.org.jobMaintenance", "storage-sweep": "settings.org.jobStorage", "ldap-resync": "settings.org.jobLdap" };
+
+function Maintenance() {
+  const { t, lang } = useT();
+  const { toast } = useStore();
+  const [st, reload] = useLoad<MaintenanceStatusDto>(() => adminApi.maintenance());
+  const [dry, setDry] = useState<{ archived: number; auditPurged: number; capped: boolean } | null>(null);
+  const [busy, setBusy] = useState<"dry" | "run" | null>(null);
+  const [confirm, setConfirm] = useState(false);
+
+  const run = async (dryRun: boolean) => {
+    setBusy(dryRun ? "dry" : "run");
+    try {
+      const r = await adminApi.runMaintenance(dryRun);
+      if (dryRun) setDry(r);
+      else {
+        toast("success", t("settings.org.maintDone", { archived: r.archived, purged: r.auditPurged }));
+        setDry(null);
+        reload();
+      }
+    } catch (e) {
+      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+    } finally {
+      setBusy(null);
+      setConfirm(false);
+    }
+  };
+
+  return (
+    <SettingsPage title={t("settings.org.maintenance")} desc={t("settings.desc.maintenance")}>
+      <SettingsCard title={t("settings.org.maintRun")}>
+        <SettingRow
+          label={t("settings.org.maintDry")}
+          hint={
+            dry ? (
+              <span className="font-medium text-ink">
+                {t("settings.org.maintDryResult", { archived: dry.archived, purged: dry.auditPurged })}
+                {dry.capped && ` ${t("settings.org.maintCapped")}`}
+              </span>
+            ) : (
+              t("settings.org.maintDryHint")
+            )
+          }
+        >
+          <div className="flex gap-2">
+            <Button variant="secondary" loading={busy === "dry"} onClick={() => void run(true)}>
+              {t("settings.org.maintCheck")}
+            </Button>
+            <Button variant="primary" loading={busy === "run"} disabled={busy === "dry"} onClick={() => setConfirm(true)}>
+              {t("settings.org.maintNow")}
+            </Button>
+          </div>
+        </SettingRow>
+      </SettingsCard>
+
+      <SettingsCard title={t("settings.org.jobs")}>
+        {st === null ? (
+          <Loading />
+        ) : st instanceof Error ? (
+          <Failed err={st} retry={reload} />
+        ) : st.jobs.length === 0 ? (
+          <p className="px-5 py-5 text-[12.5px] text-faint">{t(st.enabled ? "settings.org.jobsNone" : "settings.org.jobsDisabled")}</p>
+        ) : (
+          st.jobs.map((j) => (
+            <div key={j.name} className="flex flex-wrap items-center gap-3 px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-ink">{JOB_KEY[j.name] ? t(JOB_KEY[j.name] as "settings.org.jobMaintenance") : j.name}</p>
+                <p className="text-[12px] text-faint">
+                  {t("settings.org.jobEvery", { every: dur(j.intervalMs, lang) })} · {t("settings.org.jobLast", { at: dt(j.lastRunAt, lang) })}
+                  {j.lastDurationMs !== null && ` · ${j.lastDurationMs} ms`}
+                </p>
+                {j.lastError && <p className="mt-0.5 text-[12px] text-[var(--status-danger-fg)]">{j.lastError}</p>}
+              </div>
+              <Tag tone={j.running ? "sky" : j.lastResult === "error" ? "red" : j.lastResult === "success" ? "green" : "gray"} size="sm" strong dot>
+                {t(j.running ? "settings.org.jobRunning" : j.lastResult === "error" ? "settings.org.jobError" : j.lastResult === "success" ? "settings.org.jobOk" : j.lastResult === "skipped" ? "settings.org.jobSkipped" : "settings.org.jobNever")}
+              </Tag>
+            </div>
+          ))
+        )}
+      </SettingsCard>
+
+      {st && !(st instanceof Error) && (
+        <SettingsCard title={t("settings.org.envTitle")} footer={t("settings.org.envHint")}>
+          {(
+            [
+              ["settings.org.archiveAfter", t("settings.org.days", { n: st.settings.archiveAfterDays })],
+              ["settings.org.auditRetention", t("settings.org.days", { n: st.settings.auditRetentionDays })],
+              ["settings.org.interval", dur(st.settings.intervalMs, lang)],
+              ["settings.org.batch", `${st.settings.batchSize} / ${st.settings.maxPerRun}`],
+            ] as const
+          ).map(([k, v]) => (
+            <SettingRow key={k} label={t(k)}>
+              <span className="flex items-center gap-2 text-[13px] font-semibold tabular text-ink">
+                {v} <EnvTag />
+              </span>
+            </SettingRow>
+          ))}
+        </SettingsCard>
+      )}
+
+      <Dialog
+        open={confirm}
+        onClose={() => setConfirm(false)}
+        title={t("settings.org.maintConfirm")}
+        description={t("settings.org.maintConfirmDesc")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirm(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="primary" loading={busy === "run"} onClick={() => void run(false)}>
+              {t("settings.org.maintNow")}
+            </Button>
+          </>
+        }
+      />
+    </SettingsPage>
+  );
+}
+
+/* ---------------- Состояние системы ---------------- */
+
+function Health() {
+  const { t, lang } = useT();
+  const [h, reload] = useLoad<HealthDto>(() => adminApi.health());
+  return (
+    <SettingsPage title={t("settings.org.health")} desc={t("settings.desc.health")}>
+      <div className="flex justify-end">
+        <Button size="sm" variant="ghost" onClick={reload}>
+          {t("settings.org.refresh")}
+        </Button>
+      </div>
+      <SettingsCard footer={h && !(h instanceof Error) ? t("settings.org.healthAt", { at: dt(h.ts, lang), version: h.version }) : undefined}>
+        {h === null ? (
+          <Loading />
+        ) : h instanceof Error ? (
+          <Failed err={h} retry={reload} />
+        ) : (
+          Object.entries(h.checks).map(([k, ok]) => (
+            <SettingRow key={k} label={t(`settings.org.check.${k}` as "settings.org.check.db")}>
+              <Tag tone={ok ? "green" : "red"} strong dot>
+                {t(ok ? "settings.org.checkOk" : "settings.org.checkFail")}
+              </Tag>
+            </SettingRow>
+          ))
+        )}
+      </SettingsCard>
+      {h && !(h instanceof Error) && (h.warnings?.length || h.pendingMigrations?.length) ? (
+        <SettingsCard title={t("settings.org.warnings")}>
+          {h.warnings?.map((w) => (
+            <div key={w.code} className="flex items-start gap-3 px-5 py-3">
+              <Tag tone="amber" size="sm" strong dot>
+                {w.code}
+              </Tag>
+              <p className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-sub">{w.reason}</p>
+            </div>
+          ))}
+          {h.pendingMigrations?.map((m) => (
+            <div key={m} className="flex items-start gap-3 px-5 py-3">
+              <Tag tone="red" size="sm" strong dot>
+                {t("settings.org.pendingMigration")}
+              </Tag>
+              <p className="font-[family-name:var(--font-code)] text-[12px] text-sub">{m}</p>
+            </div>
+          ))}
+        </SettingsCard>
+      ) : h && !(h instanceof Error) ? (
+        <p className="px-1 text-[12.5px] text-faint">{t("settings.org.noWarnings")}</p>
+      ) : null}
+    </SettingsPage>
+  );
+}

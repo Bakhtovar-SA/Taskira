@@ -12,6 +12,7 @@ import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
 import { freshRows, useIssue, useIssueSet, useIssuesRevision, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { workflowStatusName } from "../workflowStatus";
+import { DATA_COLORS } from "../dataColors";
 import { neighborIssue, revealIssue } from "../issueNav";
 import type { IssueMode } from "../store/mappers";
 import { VIEW_LABEL } from "./Topbar";
@@ -20,7 +21,7 @@ import { VIEW_LABEL } from "./Topbar";
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
 /** Палитра направлений = палитра проектов ТЗ 5.3 (одна светлота и хрома, разные
  *  тона; бренд-тон 288 не входит). Hex, а не токены: цвет хранится в БД. */
-const DIRECTION_COLORS = ["#5283e0", "#a468c7", "#c65b93", "#d15c56", "#c66c00", "#2e9e52", "#00a19a", "#0094ce"];
+const DIRECTION_COLORS = DATA_COLORS;
 
 /** Activity rows are stored as historical Russian text for compatibility.
  * Translate only known system phrases; captured user names/issue keys stay intact. */
