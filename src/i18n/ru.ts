@@ -355,6 +355,7 @@ const ru = {
   "inbox.emptySub": "Здесь появятся назначения, упоминания и смены статуса ваших задач.",
   "inbox.emptyUnreadTitle": "Непрочитанных нет",
   "inbox.hint": "J / K — вверх и вниз, Enter — открыть, E — прочитано",
+  "inbox.moreEvents": "ещё {n}",
   "my.subtitle": "Назначенные вам задачи во всех проектах",
   "sidebar.tagline": "issue tracking",
   "sidebar.homeAria": "На главный экран",

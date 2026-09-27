@@ -14,6 +14,10 @@ import { NOTIF_VERB } from "./Topbar";
 
 type Filter = "all" | "unread";
 type DayGroup = "today" | "yesterday" | "earlier";
+/** Строка ленты: последнее событие задачи за день и остальные события той же задачи. */
+type Thread = { head: NotificationT; rest: NotificationT[] };
+const ids = (t: Thread) => [t.head, ...t.rest].map((n) => n.id);
+const unreadIds = (t: Thread) => [t.head, ...t.rest].filter((n) => !n.read).map((n) => n.id);
 
 const dayGroup = (ms: number): DayGroup => {
   const start = new Date();
@@ -34,22 +38,28 @@ export default function InboxView() {
     void refreshNotifications();
   }, [refreshNotifications]);
 
-  const list = useMemo(() => (filter === "unread" ? notifications.filter((n) => !n.read) : notifications), [notifications, filter]);
+  const filtered = useMemo(() => (filter === "unread" ? notifications.filter((n) => !n.read) : notifications), [notifications, filter]);
+  // ТЗ 5.12 g, как во входящих Linear: события одной задачи за день — одна строка (последнее событие + «ещё N»).
   const groups = useMemo(() => {
-    const out: { id: DayGroup; items: NotificationT[] }[] = [];
-    for (const n of list) {
+    const out: { id: DayGroup; items: Thread[] }[] = [];
+    for (const n of filtered) {
       const g = dayGroup(n.createdAt);
-      const last = out[out.length - 1];
-      if (last?.id === g) last.items.push(n);
-      else out.push({ id: g, items: [n] });
+      let day = out[out.length - 1];
+      if (day?.id !== g) out.push((day = { id: g, items: [] }));
+      const same = n.issueId ? day.items.find((x) => x.head.issueId === n.issueId) : undefined;
+      if (same) same.rest.push(n);
+      else day.items.push({ head: n, rest: [] });
     }
     return out;
-  }, [list]);
+  }, [filtered]);
+  const list = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const projectKey = useMemo(() => new Map(data.projects.map((p) => [p.id, p.key])), [data.projects]);
   const cur = Math.min(cursor, Math.max(0, list.length - 1));
 
-  const go = (n: NotificationT) => {
-    if (!n.read) markNotificationsRead([n.id]);
+  const go = (th: Thread) => {
+    const n = th.head;
+    const unread = unreadIds(th);
+    if (unread.length) markNotificationsRead(unread);
     // Тот же проект — открыть сразу; другой — switchProject откроет задачу после переключения.
     // Из Входящих — полной страницей: контекста доски здесь нет (ADR-0013 §3).
     if (n.issueId && n.projectId === data.currentProjectId) openIssue(n.issueId, "page");
@@ -80,7 +90,8 @@ export default function InboxView() {
         open(l[c]);
       } else if (k === "e" || k === "у") {
         e.preventDefault();
-        if (!l[c].read) markNotificationsRead([l[c].id]);
+        const unread = unreadIds(l[c]);
+        if (unread.length) markNotificationsRead(unread);
       }
     };
     document.addEventListener("keydown", onKey);
@@ -146,7 +157,9 @@ export default function InboxView() {
               <section key={g.id}>
                 <h2 className="mb-2 px-1 text-[11.5px] font-semibold tracking-[0.01em] text-faint">{t(`inbox.${g.id}`)}</h2>
                 <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
-                  {g.items.map((n) => {
+                  {g.items.map((th) => {
+                    const n = th.head;
+                    const read = !unreadIds(th).length;
                     row += 1;
                     const i = row;
                     const pk = n.projectId ? projectKey.get(n.projectId) : undefined;
@@ -155,19 +168,24 @@ export default function InboxView() {
                         key={n.id}
                         data-row={i}
                         data-active={i === cur ? "" : undefined}
-                        className={`inbox-row group relative flex items-start gap-3 border-b border-linesoft px-4 py-3 transition-colors last:border-0 hover:bg-hover/60 ${n.read ? "" : "is-unread"}`}
+                        className={`inbox-row group relative flex items-start gap-3 border-b border-linesoft px-4 py-3 transition-colors last:border-0 hover:bg-hover/60 ${read ? "" : "is-unread"}`}
                         onMouseEnter={() => setCursor(i)}
                       >
-                        <button onClick={() => go(n)} className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                        <button onClick={() => go(th)} className="flex min-w-0 flex-1 items-start gap-3 text-left">
                           <span className="relative mt-0.5 shrink-0">
                             <Avatar user={n.actor} size={30} />
-                            {!n.read && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] ring-2 ring-panel" />}
+                            {!read && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] ring-2 ring-panel" />}
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-[13.5px] leading-snug text-ink">
                               <b className="font-semibold">{n.actor?.name ?? t("topbar.someone")}</b> {t(NOTIF_VERB[n.type])}{" "}
                               {n.payload.key && <span className="font-mono text-[12px] font-medium text-accenttext">{n.payload.key}</span>}
                               {n.type === "project.member" && n.payload.projectName && <span className="text-faint"> «{n.payload.projectName}»</span>}
+                              {th.rest.length > 0 && (
+                                <span className="ml-1.5 rounded-full bg-sunken px-1.5 py-px align-[1px] text-[11px] font-medium tabular text-faint ring-1 ring-inset ring-linesoft">
+                                  {t("inbox.moreEvents", { n: th.rest.length })}
+                                </span>
+                              )}
                             </span>
                             {(n.payload.title || (n.type === "issue.status" && n.payload.from)) && (
                               <span className="mt-0.5 block truncate text-[12.5px] text-sub">
@@ -187,7 +205,7 @@ export default function InboxView() {
                           </span>
                         </button>
                         <button
-                          onClick={() => dismissNotifications([n.id])}
+                          onClick={() => dismissNotifications(ids(th))}
                           title={t("topbar.dismissOneTitle")}
                           aria-label={t("topbar.dismissOneTitle")}
                           className="mt-1 shrink-0 rounded p-1 text-faint opacity-0 transition-opacity hover:bg-linesoft hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"

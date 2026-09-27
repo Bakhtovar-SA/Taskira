@@ -354,6 +354,7 @@ const en: Record<keyof Dict, string> = {
   "inbox.emptySub": "Assignments, mentions and status changes of your issues will show up here.",
   "inbox.emptyUnreadTitle": "No unread notifications",
   "inbox.hint": "J / K — up and down, Enter — open, E — mark read",
+  "inbox.moreEvents": "+{n} more",
   "my.subtitle": "Issues assigned to you across all projects",
   "sidebar.tagline": "issue tracking",
   "sidebar.homeAria": "Go to home screen",
