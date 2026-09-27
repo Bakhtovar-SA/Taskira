@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
+import { openProjectWizard } from "../palette/events";
 import { API_BASE, departmentsApi, projectsApi, usersApi, type DepartmentMember, type SafeUser } from "../api";
 import type { ProjectRole, ProjectSummary } from "../types";
 import { LIMITS } from "../validation";
@@ -7,7 +8,6 @@ import { IcChevD, IcChevR, IcInbox, IcLock, IcPlus, IcTrash, IcUsers } from "../
 import { ProjectMark, Switch, UserSearchPicker } from "../ui";
 import { useT } from "../i18n";
 
-const KEY_RE = /^[A-Z][A-Z0-9]{1,9}$/;
 const PROJECT_ROLES: ProjectRole[] = ["manager", "employee", "viewer"];
 
 /** Инлайн-переименование: input выглядит как текст, сохраняет по blur/Enter. */
@@ -143,7 +143,6 @@ export default function AdminView() {
     createDepartment,
     renameDepartment,
     deleteDepartment,
-    createProject,
     switchProject,
     setView,
     authMode,
@@ -161,10 +160,6 @@ export default function AdminView() {
   }, [data.projects]);
 
   const [newDept, setNewDept] = useState("");
-  const [forms, setForms] = useState<Record<string, { key: string; name: string }>>({});
-  const form = (id: string) => forms[id] ?? { key: "", name: "" };
-  const setForm = (id: string, patch: Partial<{ key: string; name: string }>) =>
-    setForms((s) => ({ ...s, [id]: { ...form(id), ...patch } }));
 
   const [openDeptMembers, setOpenDeptMembers] = useState<Record<string, boolean>>({});
   if (!canManage) {
@@ -216,7 +211,6 @@ export default function AdminView() {
         <div className="mt-4 space-y-3">
           {data.departments.map((d) => {
             const projs = byDept[d.id] ?? [];
-            const f = form(d.id);
             return (
               <section key={d.id} className="surface-raised rounded-xl ring-1 ring-inset ring-line/70">
                 <header className="flex items-center gap-2 border-b border-linesoft bg-sunken px-3 py-2">
@@ -278,32 +272,13 @@ export default function AdminView() {
                     </div>
                   ))}
 
-                  {/* новый проект в этом отделе */}
-                  <div className="flex flex-wrap items-center gap-2 bg-sunken px-3 py-2">
-                    <input
-                      value={f.key}
-                      onChange={(e) => setForm(d.id, { key: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })}
-                      placeholder={t("admin.keyPlaceholder")}
-                      maxLength={10}
-                      className="w-20 rounded-md border border-line bg-panel px-2 py-1 font-mono text-[11px] uppercase focus:border-accent focus:shadow-focus focus:outline-none"
-                    />
-                    <input
-                      value={f.name}
-                      onChange={(e) => setForm(d.id, { name: e.target.value })}
-                      placeholder={t("admin.projectNamePlaceholder")}
-                      maxLength={LIMITS.project.name.max}
-                      className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] focus:border-accent focus:shadow-focus focus:outline-none"
-                    />
+                  {/* Новый проект — мастер с шаблоном, ключом и доступом (ТЗ 5.10). */}
+                  <div className="bg-sunken px-3 py-2">
                     <button
-                      onClick={() => {
-                        if (!KEY_RE.test(f.key) || !f.name.trim()) return;
-                        createProject({ key: f.key, name: f.name.trim(), departmentId: d.id });
-                        setForm(d.id, { key: "", name: "" });
-                      }}
-                      disabled={!KEY_RE.test(f.key) || !f.name.trim()}
-                      className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-onaccent transition-opacity hover:opacity-90 disabled:opacity-40"
+                      onClick={() => openProjectWizard(d.id)}
+                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-semibold text-accenttext transition-colors hover:bg-accentsoft"
                     >
-                      <IcPlus size={12} /> {t("admin.project")}
+                      <IcPlus size={12} /> {t("wizard.newProjectIn", { name: d.name })}
                     </button>
                   </div>
                 </div>

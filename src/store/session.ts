@@ -126,6 +126,8 @@ export function useSessionActions(
         departmentId: p.departmentId,
         isShared: p.isShared,
         sprintsEnabled: p.sprintsEnabled,
+        defaultView: p.defaultView ?? null,
+        suggestedLabels: p.suggestedLabels ?? [],
       }));
       // ТЗ 3.1: резолв прямой ссылки (/p/:projectKey/issue/:issueKey ИЛИ
       // /p/:projectKey/<вид>) ОДИН раз для всей функции — обе ветки ниже (solo и
@@ -227,6 +229,10 @@ export function useSessionActions(
         }));
       } else if (pathTarget && pathTarget.kind === "view" && pathTarget.projectId === chosen) {
         setUi((u) => ({ ...u, view: pathTarget.view, section: pathTarget.section ?? "" }));
+      } else if (!pathTarget && !globalView) {
+        // Шаблон проекта (ТЗ 5.10): «представление по умолчанию», если по адресу вид не задан.
+        const dv = projects.find((p) => p.id === chosen)?.defaultView;
+        if (dv) setUi((u) => ({ ...u, view: dv }));
       } else if (globalView) {
         setUi((u) => ({ ...u, view: globalView, section: globalSection }));
       }

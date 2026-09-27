@@ -4,9 +4,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
-import { adminApi, ApiError, ldapApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
+import { adminApi, ApiError, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
 import { Avatar, Button, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
-import { IcDiamond, IcDownload, IcLink, IcPlus, IcSearch } from "../../icons";
+import { IcCompose, IcDiamond, IcDownload, IcLink, IcPlus, IcSearch, IcTrash } from "../../icons";
+import { openProjectWizard } from "../../palette/events";
 import { LIMITS } from "../../validation";
 import { dataColorFor } from "../../dataColors";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
@@ -17,6 +18,8 @@ export function OrgSection({ section }: { section: string }) {
       return <Users />;
     case "ldap":
       return <Ldap />;
+    case "project-templates":
+      return <Templates />;
     case "license":
       return <License />;
     case "export":
@@ -630,3 +633,76 @@ function Health() {
     </SettingsPage>
   );
 }
+
+/* ---------------- Шаблоны проектов (ТЗ 5.10) ---------------- */
+
+function Templates() {
+  const { t } = useT();
+  const { toast } = useStore();
+  const [list, reload, setList] = useLoad(() => projectTemplatesApi.list());
+  const [confirm, setConfirm] = useState<{ id: string; name: string } | null>(null);
+  const all = list instanceof Array ? list : [];
+  const org = all.filter((x) => !x.builtin);
+  const builtin = all.filter((x) => x.builtin);
+  const remove = async (id: string) => {
+    try {
+      await projectTemplatesApi.remove(id);
+      setList(all.filter((x) => x.id !== id));
+    } catch (e) {
+      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+    } finally {
+      setConfirm(null);
+    }
+  };
+  const row = (x: (typeof all)[number], deletable: boolean) => (
+    <div key={x.id} className="flex items-center gap-3 px-5 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13px] font-medium text-ink">{x.name}</p>
+        <p className="truncate text-[12px] text-faint">{x.spec.statuses.map((s) => s.name).join(" → ")}</p>
+      </div>
+      {deletable && (
+        <Button size="sm" variant="ghost" iconLeft={<IcTrash size={13} />} onClick={() => setConfirm({ id: x.id, name: x.name })}>
+          {t("common.delete")}
+        </Button>
+      )}
+    </div>
+  );
+  return (
+    <SettingsPage title={t("settings.org.project-templates")} desc={t("settings.desc.projectTemplates")}>
+      <div className="flex justify-end">
+        <Button variant="primary" iconLeft={<IcPlus size={14} />} onClick={() => openProjectWizard()}>
+          {t("wizard.title")}
+        </Button>
+      </div>
+      <SettingsCard title={t("settings.org.templatesOrg")} footer={t("settings.org.templatesOrgHint")}>
+        {list === null ? (
+          <Loading />
+        ) : list instanceof Error ? (
+          <Failed err={list} retry={reload} />
+        ) : org.length === 0 ? (
+          <EmptyState icon={<IcCompose size={22} tone="pink" />} title={t("settings.org.templatesEmpty")} sub={t("settings.org.templatesEmptySub")} />
+        ) : (
+          org.map((x) => row(x, true))
+        )}
+      </SettingsCard>
+      {builtin.length > 0 && <SettingsCard title={t("settings.org.templatesBuiltin")}>{builtin.map((x) => row(x, false))}</SettingsCard>}
+      <Dialog
+        open={!!confirm}
+        onClose={() => setConfirm(null)}
+        title={t("settings.org.templateDeleteTitle", { name: confirm?.name ?? "" })}
+        description={t("settings.org.templateDeleteDesc")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirm(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="danger" onClick={() => confirm && void remove(confirm.id)}>
+              {t("common.delete")}
+            </Button>
+          </>
+        }
+      />
+    </SettingsPage>
+  );
+}
+

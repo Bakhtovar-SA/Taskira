@@ -13,7 +13,7 @@ import type {
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
-import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput } from "./api";
+import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type Project as ApiProject } from "./api";
 import {
   applyNotificationAction,
   canTransition,
@@ -125,7 +125,8 @@ interface Api {
   setDepartmentLdapGroup: (id: string, ldapGroupDn: string | null) => void;
   resyncLdap: () => void;
   deleteDepartment: (id: string) => void;
-  createProject: (input: { key: string; name: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean }) => void;
+  /** Создать проект (ТЗ 5.10: из шаблона и сразу с участниками); resolve — созданный проект или null при ошибке. */
+  createProject: (input: CreateProjectInput) => Promise<ApiProject | null>;
   patchProject: (
     id: string,
     patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean; sprintsEnabled?: boolean },

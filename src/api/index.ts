@@ -46,6 +46,7 @@ import type {
   SearchResultDto,
   SearchResultItemDto,
   UnreadCountDto,
+  ProjectTemplateDto,
 } from "../../server/src/contract";
 
 let legacyBearerToken: string | null = null;
@@ -299,19 +300,23 @@ export const ldapApi = {
     api<{ total: number; synced: number; notFound: string[]; errors: string[] }>("/api/ldap/resync", { method: "POST" }),
 };
 
+/** Тело POST /api/projects (ТЗ 5.10: `templateId` — `builtin:<id>` или uuid шаблона организации, `members` — в той же транзакции). */
+export type CreateProjectInput = { key: string; name: string; description?: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean; templateId?: string; members?: { userId: string; role: ProjectRole }[] };
+
+/** Шаблоны проектов (ТЗ 5.10): встроенные + организации; сохранение из проекта; удаление. */
+export const projectTemplatesApi = {
+  list: () => api<ProjectTemplateDto[]>("/api/project-templates"),
+  saveFromProject: (projectId: string, body: { name: string; description: string }) =>
+    api<ProjectTemplateDto>(`${P(projectId)}/save-as-template`, { method: "POST", body }),
+  remove: (templateId: string) => api<void>(`/api/project-templates/${templateId}`, { method: "DELETE" }),
+};
+
 export const projectsApi = {
   /** Проекты, видимые пользователю (member ∪ is_shared ∪ глоб. admin). */
   list: () => api<Project[]>("/api/projects"),
   /** Данные одного проекта (bootstrap: users/members/workflow). */
   get: (projectId: string) => api<ProjectBootstrap>(P(projectId)),
-  create: (body: {
-    key: string;
-    name: string;
-    description?: string;
-    departmentId: string;
-    isShared?: boolean;
-    sprintsEnabled?: boolean;
-  }) => api<Project>("/api/projects", { method: "POST", body }),
+  create: (body: CreateProjectInput) => api<Project>("/api/projects", { method: "POST", body }),
   patch: (
     projectId: string,
     body: Partial<{ name: string; description: string; departmentId: string; isShared: boolean; sprintsEnabled: boolean }>,

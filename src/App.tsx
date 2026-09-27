@@ -10,7 +10,7 @@ import { Toasts } from "./ui";
 import type { ViewId } from "./types";
 import { useT } from "./i18n";
 import { CreateIssueModal, IssueModal, preloadModalsWhenIdle } from "./lazyModals";
-import { OPEN_PALETTE_EVT } from "./palette/events";
+import { OPEN_PALETTE_EVT, OPEN_PROJECT_WIZARD_EVT } from "./palette/events";
 import { isSettingsHome } from "./settings/sections";
 import { useOpenSettings } from "./settings/useOpenSettings";
 import { pushRecent } from "./palette/recent";
@@ -23,6 +23,8 @@ const TimelineView = lazy(() => import("./components/TimelineView"));
 const ReportsView = lazy(() => import("./components/ReportsView"));
 // Три дома настроек (ТЗ 5.9): «Процесс», «Доступ», «Отделы и проекты» и новые страницы — внутри.
 const SettingsView = lazy(() => import("./components/settings/SettingsView"));
+// Мастер создания проекта (ТЗ 5.10) — свой чанк, только для администраторов.
+const ProjectWizard = lazy(() => import("./components/ProjectWizard"));
 const DocsView = lazy(() => import("./components/DocsView"));
 const CollaboratingView = lazy(() => import("./components/CollaboratingView"));
 const InboxView = lazy(() => import("./components/InboxView"));
@@ -86,6 +88,12 @@ function Shell() {
     window.addEventListener(OPEN_PALETTE_EVT, open);
     return () => window.removeEventListener(OPEN_PALETTE_EVT, open);
   }, []);
+  const [wizard, setWizard] = useState<{ departmentId?: string } | null>(null);
+  useEffect(() => {
+    const open = (e: Event) => setWizard({ departmentId: (e as CustomEvent<{ departmentId?: string }>).detail?.departmentId });
+    window.addEventListener(OPEN_PROJECT_WIZARD_EVT, open);
+    return () => window.removeEventListener(OPEN_PROJECT_WIZARD_EVT, open);
+  }, []);
 
   // «Недавние задачи» палитры: каждая открытая карточка (из любого места).
   const openedIssue = ui.selectedIssueId ? idx.issues.get(ui.selectedIssueId) : undefined;
@@ -116,7 +124,7 @@ function Shell() {
 
   // Полная страница задачи — не модалка: цифры и G-переходы уводят с неё, как с любого экрана.
   const issuePage = !!ui.selectedIssueId && ui.issueMode === "page";
-  const modalOpen = (!!ui.selectedIssueId && !issuePage) || ui.createOpen || paletteOpen || helpOpen;
+  const modalOpen = (!!ui.selectedIssueId && !issuePage) || ui.createOpen || paletteOpen || helpOpen || !!wizard;
 
   // Чанки модалок — в простое после входа, не на критическом пути первого экрана (PERF-BUDGET п. 3).
   useEffect(() => {
@@ -261,6 +269,7 @@ function Shell() {
           />
         )}
         {helpOpen && <ShortcutsDialog onClose={() => setHelpOpen(false)} />}
+        {wizard && <ProjectWizard departmentId={wizard.departmentId} onClose={() => setWizard(null)} />}
       </Suspense>
       <Toasts />
     </div>

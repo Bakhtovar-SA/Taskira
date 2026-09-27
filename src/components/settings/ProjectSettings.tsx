@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
 import { LIMITS } from "../../validation";
-import { issuesApi } from "../../api";
+import { ApiError, issuesApi, projectTemplatesApi } from "../../api";
 import { fmtDate } from "../../store/mappers";
 import { Button, Dialog, EmptyState, Input, Switch, Textarea } from "../../ds";
 import { IcArchive, IcTrash } from "../../icons";
@@ -26,7 +26,7 @@ function useCurrentProject() {
 
 function General() {
   const { t } = useT();
-  const { data, patchProject } = useStore();
+  const { data, patchProject, can } = useStore();
   const p = useCurrentProject();
   const [name, setName] = useState(p.name);
   const [desc, setDesc] = useState(p.description);
@@ -75,6 +75,7 @@ function General() {
           </div>
         </div>
       </SettingsCard>
+      {can("saveProjectTemplate") && <SaveAsTemplate projectId={p.id} projectName={p.name} />}
       <SettingsCard>
         <SettingRow label={t("settings.project.department")} hint={t("settings.project.departmentHint")}>
           <select
@@ -206,3 +207,67 @@ function Archive() {
     </SettingsPage>
   );
 }
+
+/** «Сохранить проект как шаблон» (ТЗ 5.10): статусы, переходы, поля, шаблоны задач, метки и представление по
+ *  умолчанию уходят в шаблоны организации; задачи и участники — нет. Право — saveProjectTemplate, проверяет сервер. */
+function SaveAsTemplate({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const { t } = useT();
+  const { toast } = useStore();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await projectTemplatesApi.saveFromProject(projectId, { name: name.trim(), description: desc.trim() });
+      toast("success", t("settings.project.templateSaved", { name: name.trim() }));
+      setOpen(false);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <SettingsCard>
+      <SettingRow label={t("settings.project.saveAsTemplate")} hint={t("settings.project.saveAsTemplateHint")}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setName(projectName);
+            setDesc("");
+            setErr(null);
+            setOpen(true);
+          }}
+        >
+          {t("settings.project.saveAsTemplateBtn")}
+        </Button>
+      </SettingRow>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={t("settings.project.saveAsTemplate")}
+        description={t("settings.project.saveAsTemplateHint")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="primary" loading={busy} disabled={name.trim() ? false : t("settings.project.nameRequired")} onClick={() => void save()}>
+              {t("common.save")}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Input label={t("settings.project.templateName")} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} error={err ?? undefined} data-autofocus />
+          <Textarea label={t("settings.project.description")} value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxChars={300} />
+        </div>
+      </Dialog>
+    </SettingsCard>
+  );
+}
+

@@ -21,6 +21,8 @@ vi.mock("../../store", () => ({
     patchProject,
     deleteProject,
     openIssue: vi.fn(),
+    can: () => false,
+    toast: vi.fn(),
   }),
 }));
 vi.mock("../../api", () => ({ issuesApi: { list: vi.fn(() => Promise.resolve({ items: [], hasMore: false, nextCursor: null })) } }));

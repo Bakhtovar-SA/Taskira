@@ -10,7 +10,7 @@ export const SETTINGS_SECTIONS = {
   /** Проект — `/p/:key/settings/…`, по правам проекта. */
   projectSettings: ["general", "workflow", "fields", "templates", "access", "modules", "archive"],
   /** Организация — `/admin/…`, глобальный администратор. */
-  orgSettings: ["users", "departments", "ldap", "license", "export", "audit", "maintenance", "health"],
+  orgSettings: ["users", "departments", "project-templates", "ldap", "license", "export", "audit", "maintenance", "health"],
 } as const satisfies Record<SettingsHome, readonly string[]>;
 
 export type SettingsSection<H extends SettingsHome = SettingsHome> = (typeof SETTINGS_SECTIONS)[H][number];

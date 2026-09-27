@@ -540,6 +540,19 @@ the backlog (`sprint_id = NULL`) in one transaction; there is no auto-carry into
 a later pass will generalize, not reinvent; this migration does not build that model, only the one
 flag it needs today.
 
+Project templates (`project_templates`, migration `20260927T1000_project_templates.sql`, [ADR-0017](docs/adr/0017-project-templates.md),
+`services/projectTemplates.ts`): a template is **data over existing project settings** — statuses (own `sid`s allowed),
+transitions, custom fields, issue templates, suggested labels, default view — never code. Five built-ins live in
+`server/src/templates/builtin.json` (ТЗ 5.10 caps them at 5); organisation templates are rows saved from a project
+(`POST /projects/:id/save-as-template`, PermId `saveProjectTemplate`). `POST /projects` with `templateId` + `members[]`
+creates the project, applies the template and adds members in **one transaction**. Workflow reset returns 409 for a
+project whose statuses aren't the default four (reset would orphan its issues). New project columns: `default_view`
+(bootstrap opens it when the URL names no view) and `suggested_labels` (quick "+ label" chips in `IssueModal`).
+Client: `ProjectWizard.tsx` (lazy; opened by `openProjectWizard()` from the sidebar "+", the palette and
+«Отделы и проекты») — template → name/key (`suggestKey`, transliterated) → access → review. There is no project
+icon/colour/background setting, so the wizard doesn't offer one. `WorkflowView`'s graph lays out any status set
+(`layoutFor`), the standard four keep their fixed layout.
+
 Department membership (`department_members`, migration 009) has always had a `source` column
 (`'ldap' | 'manual'`), but only the LDAP sync path (`departmentSync.ts`) ever wrote to it until
 now — there was no route or UI for `source='manual'` despite the schema explicitly being built

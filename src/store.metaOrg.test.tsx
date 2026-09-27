@@ -140,7 +140,9 @@ describe("участники / проекты (src/store/org.ts)", () => {
     const created = { ...project, id: "p2", key: "NEW", name: "Новый" };
     vi.spyOn(projectsApi, "create").mockResolvedValue(created as never);
     vi.spyOn(projectsApi, "list").mockResolvedValue([project, created] as never);
-    act(() => get().createProject({ key: "NEW", name: "Новый", departmentId: "d1" }));
+    await act(async () => {
+      await get().createProject({ key: "NEW", name: "Новый", departmentId: "d1" });
+    });
     await settle();
     expect(get().data.projects.map((p) => p.key)).toEqual(["A21", "NEW"]);
   });

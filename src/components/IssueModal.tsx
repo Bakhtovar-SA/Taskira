@@ -1280,6 +1280,22 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                     className="w-20 rounded border border-dashed border-line2 bg-transparent px-1.5 py-0.5 text-[11.5px] outline-none focus:border-accent focus:shadow-focus"
                   />
                 )}
+                {/* Предложенные метки проекта (шаблон проекта, ТЗ 5.10) — подсказка в один клик, не ограничение. */}
+                {editOk &&
+                  (data.projects.find((p) => p.id === data.currentProjectId)?.suggestedLabels ?? [])
+                    .filter((l) => !issue.labels.includes(l))
+                    .slice(0, 6)
+                    .map((l) => (
+                      <button
+                        key={`s:${l}`}
+                        type="button"
+                        onClick={() => updateIssue(issue.id, { labels: [...issue.labels, l] })}
+                        title={t("issue.suggestedLabel")}
+                        className="rounded px-1.5 py-0.5 text-[11.5px] text-faint transition-colors hover:bg-hover hover:text-ink"
+                      >
+                        + {l}
+                      </button>
+                    ))}
                 {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">{t("issue.noLabels")}</span>}
               </div>
             </Field>

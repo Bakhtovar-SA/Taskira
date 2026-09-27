@@ -2,13 +2,13 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useT, type TKey } from "../i18n";
 import type { SearchResultItem, StatusCategory } from "../types";
-import { IcCompose, IcGlobe, IcHome, IcKeyboard, IcMoon, IcSearch, IcSun, IcDisplay, IcX, StatusGlyph } from "../icons";
+import { IcCompose, IcPlus, IcGlobe, IcHome, IcKeyboard, IcMoon, IcSearch, IcSun, IcDisplay, IcX, StatusGlyph } from "../icons";
 import { Kbd, Modal, ProjectMark } from "../ui";
 import { setThemeMode } from "../theme";
 import { NAV_GROUPS } from "./Sidebar";
 import { matchScore, fuzzyScore, swapLayout } from "../palette/fuzzy";
 import { readRecent, type RecentIssue } from "../palette/recent";
-import { paletteShortcut } from "../palette/events";
+import { openProjectWizard, paletteShortcut } from "../palette/events";
 import { useIssueSearch } from "../issueSearch";
 import { isSettingsHome } from "../settings/sections";
 import { useOpenSettings } from "../settings/useOpenSettings";
@@ -129,6 +129,8 @@ export default function CommandPalette({ onClose, onShortcuts }: { onClose: () =
           run: () => (isSettingsHome(item.id) ? openSettings(item.id) : setView(item.id)),
         });
       }
+    if (me.globalRole === "admin")
+      rows.push({ id: "newProject", group: "actions", label: t("wizard.title"), keywords: ["new project", "создать проект", "шаблон"], icon: <IcPlus size={16} tone="violet" />, run: () => openProjectWizard() });
     if (can("create"))
       rows.push({ id: "create", group: "actions", label: t("palette.newIssue"), keywords: ["new issue", "create"], icon: <IcCompose size={16} tone="violet" />, hint: <Kbd>C</Kbd>, run: () => setCreateOpen(true) });
     rows.push(

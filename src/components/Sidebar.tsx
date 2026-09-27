@@ -16,6 +16,7 @@ import {
   IcLink,
   IcMyIssues,
   IcPanel,
+  IcPlus,
   IcReport,
   IcSearch,
   IcSettings,
@@ -28,7 +29,7 @@ import { Avatar, Kbd, ProjectMark } from "../ui";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useT, type TKey } from "../i18n";
-import { openPalette, paletteShortcut } from "../palette/events";
+import { openPalette, openProjectWizard, paletteShortcut } from "../palette/events";
 import { useOpenSettings } from "../settings/useOpenSettings";
 
 type NavItem = {
@@ -225,7 +226,7 @@ export default function Sidebar() {
    *  то же представление в новом проекте; иначе — Доска. switchProject сохраняет ui.view. */
   const openProject = (p: ProjectSummary) => {
     const keep = PROJECT_VIEWS.some((v) => v.id === ui.view) && (ui.view !== "sprints" || p.sprintsEnabled);
-    if (!keep) setView("board");
+    if (!keep) setView(p.defaultView ?? "board");
     switchProject(p.id);
   };
 
@@ -388,10 +389,23 @@ export default function Sidebar() {
 
         {/* Проекты: отдел → проект → представления */}
         <div>
-          <button type="button" onClick={() => toggle("s:projects")} aria-expanded={isOpen("s:projects")} className={`${sectionLabel} hover:text-sub`}>
-            <Chevron open={isOpen("s:projects")} />
-            {t("sidebar.group.projects")}
-          </button>
+          <div className="group/proj flex items-center">
+            <button type="button" onClick={() => toggle("s:projects")} aria-expanded={isOpen("s:projects")} className={`${sectionLabel} hover:text-sub`}>
+              <Chevron open={isOpen("s:projects")} />
+              {t("sidebar.group.projects")}
+            </button>
+            {me.globalRole === "admin" && (
+              <button
+                type="button"
+                onClick={() => openProjectWizard()}
+                aria-label={t("wizard.title")}
+                title={t("wizard.title")}
+                className="mr-1 mt-2 grid h-6 w-6 shrink-0 place-items-center rounded-md text-faint opacity-0 transition-opacity hover:bg-hover hover:text-ink focus-visible:opacity-100 group-hover/proj:opacity-100"
+              >
+                <IcPlus size={13} />
+              </button>
+            )}
+          </div>
           {isOpen("s:projects") &&
             (deptGroups.length > 1 ? (
               <div className="flex flex-col gap-px">
