@@ -6,17 +6,27 @@ export const Fragment = React.Fragment;
 
 type Props = Record<string, unknown> & { className?: string; style?: CSSProperties; children?: ReactNode };
 
-function secured(type: React.ElementType, props: Props | null, key?: React.Key): React.ReactElement {
-  if (!props?.style) return createElement(type, key === undefined ? props : { ...props, key });
-  const { style, className, ...rest } = props;
-  const generated = dynamicStyle(style);
-  const next = { ...rest, className: [className, generated].filter(Boolean).join(" ") || undefined };
-  return createElement(type, key === undefined ? next : { ...next, key });
+function secured(type: React.ElementType, props: Props | null, key: React.Key | undefined, staticChildren: boolean): React.ReactElement {
+  let next: Props | null = props;
+  if (props?.style) {
+    const { style, className, ...rest } = props;
+    const generated = dynamicStyle(style);
+    next = { ...rest, className: [className, generated].filter(Boolean).join(" ") || undefined };
+  }
+  if (key !== undefined) next = { ...next, key };
+  // Статичные дети (jsxs: <a><b/><c/></a>) — отдельными аргументами, как у настоящего jsxs: массив в props.children
+  // React в dev принимает за список и требует key у каждого элемента — консоль тонула в ложных предупреждениях.
+  if (staticChildren && Array.isArray(next?.children)) {
+    const { children, ...rest } = next;
+    return createElement(type, rest, ...(children as ReactNode[]));
+  }
+  return createElement(type, next);
 }
 
-export const jsx = secured;
-export const jsxs = secured;
-export const jsxDEV = secured;
+export const jsx = (type: React.ElementType, props: Props | null, key?: React.Key) => secured(type, props, key, false);
+export const jsxs = (type: React.ElementType, props: Props | null, key?: React.Key) => secured(type, props, key, true);
+export const jsxDEV = (type: React.ElementType, props: Props | null, key?: React.Key, isStaticChildren?: boolean) =>
+  secured(type, props, key, !!isStaticChildren);
 
 export namespace JSX {
   export type ElementType = React.JSX.ElementType;

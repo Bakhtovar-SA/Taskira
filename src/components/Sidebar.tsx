@@ -1,5 +1,4 @@
 import { useStore, useUnreadCount } from "../store";
-import { cssVars } from "../cssVars";
 import { GettingStarted } from "./GettingStarted";
 import { Tag } from "../ds/Display";
 import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
@@ -466,7 +465,7 @@ export default function Sidebar() {
           aria-label={t("sidebar.closedShare")}
         >
           <div
-            ref={cssVars({ "--pct": `${closedPct}%` })}
+            ref={(el) => el?.style.setProperty("--pct", `${closedPct}%`)}
             className="h-full w-[var(--pct)] rounded-full bg-[linear-gradient(90deg,var(--accent-solid),var(--status-done))] transition-[width] duration-300 ease-out"
           />
         </div>

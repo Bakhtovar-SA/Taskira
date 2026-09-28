@@ -3,6 +3,7 @@
  * вынесено из store.tsx без изменений поведения (ТЗ 2.3, шаг 6). Поведение и гонки зафиксированы
  * store.bootNav.test.tsx, ДО выноса. Известная брешь (SEC-01: ответы после logout воскрешают данные) перенесена как есть. */
 import { refreshOnboardingSoon } from "../onboarding";
+import { viewTransition } from "../motion";
 import { useCallback, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { AssignedIssue, Collaboration, Data, Department, ProjectRole, ProjectSummary } from "../types";
@@ -433,7 +434,11 @@ export function useSessionActions(
 
   const openIssue = useCallback(
     (id: string | null, mode: IssueMode = "panel") => {
-      setUi((u) => ({ ...u, selectedIssueId: id, issueMode: id ? mode : "panel", missing: id ? null : u.missing }));
+      const apply = () => setUi((u) => ({ ...u, selectedIssueId: id, issueMode: id ? mode : "panel", missing: id ? null : u.missing }));
+      // Полная страница задачи сменяет вид целиком — тот же переход, что между представлениями; панель
+      // выезжает сама (anim-panel).
+      if (id && mode === "page") viewTransition(apply);
+      else apply();
       if (!id) return;
       const requestProjectId = pid();
       if (!requestProjectId) return; // SEC-01: после выхода pid() = "", и guard `"" === ""` пропустил бы ответ

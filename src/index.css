@@ -336,6 +336,12 @@ body {
 
 /* Смена темы через View Transitions (theme.ts): свой клип-круг вместо
    стандартного перекрёстного затухания — только пока стоит .vt-theme. */
+/* Переход между представлениями и к полной странице задачи (ТЗ 5.13, motion.ts viewTransition): только короткое
+   перекрёстное затухание стандартными анимациями UA, длительность — токен. */
+html.vt-nav::view-transition-old(root),
+html.vt-nav::view-transition-new(root) {
+  animation-duration: var(--dur-2);
+}
 html.vt-theme::view-transition-old(root),
 html.vt-theme::view-transition-new(root) {
   animation: none;

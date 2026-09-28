@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flipFrom } from "../motion";
 import { Hint } from "./Hint";
 import { useStore } from "../store";
 import type { PermId } from "../permissions";
@@ -106,6 +107,15 @@ const Card = memo(function Card({
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  // Приземление после переноса (ТЗ 5.13 п.3): карточка появилась на новом месте (ответ сервера) — доезжает туда
+  // из точки, где отпустили «призрак». Только для только что брошенной карточки, не для чужих перемещений.
+  const cardRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const l = landing;
+    if (!l || l.id !== issue.id || performance.now() - l.at > 1500 || !cardRef.current) return;
+    landing = null;
+    flipFrom(cardRef.current, l.left, l.top);
+  }, [issue.id, issue.statusId, issue.rank]);
   const doneCat = status?.category === "done";
   const today = new Date().toISOString().slice(0, 10);
   const overdue = !!issue.dueDate && !doneCat && issue.dueDate < today;
@@ -183,6 +193,7 @@ const Card = memo(function Card({
 
   return (
     <article
+      ref={cardRef}
       draggable={draggable}
       tabIndex={0}
       aria-label={`${issue.key}: ${issue.title}`}
@@ -270,11 +281,20 @@ const Card = memo(function Card({
  * DOM/CSSOM, не через состояние React: начало перетаскивания не перерисовывает
  * ни одной карточки (ADR-0011, шаг 0), а CSSOM разрешён CSP (ADR-0010).
  */
+/** Где курсор взял карточку и куда её отпустили — для FLIP-приземления в Card (модульное состояние: перетаскивание
+ *  одно на страницу, а через React оно перерисовало бы доску). */
+let grab = { x: 0, y: 0 };
+let landing: { id: string; left: number; top: number; at: number } | null = null;
+const noteLanding = (id: string, e: React.DragEvent) => {
+  landing = { id, left: e.clientX - grab.x, top: e.clientY - grab.y, at: performance.now() };
+};
+
 function setDragGhost(e: React.DragEvent<HTMLElement>) {
   const card = e.currentTarget;
   card.setAttribute("data-dragging", "");
-  if (typeof e.dataTransfer.setDragImage !== "function") return;
   const rect = card.getBoundingClientRect();
+  grab = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  if (typeof e.dataTransfer.setDragImage !== "function") return;
   const wrap = document.createElement("div");
   wrap.className = "drag-ghost";
   const clone = card.cloneNode(true) as HTMLElement;
@@ -486,7 +506,10 @@ const BoardColumn = memo(function BoardColumn({
       const id = e.dataTransfer.getData("text/plain");
       setOverCol(null);
       setDragId(null);
-      if (id && id !== target.id) moveStatus(id, st.id, target.id);
+      if (id && id !== target.id) {
+        noteLanding(id, e);
+        moveStatus(id, st.id, target.id);
+      }
     },
     [setOverCol, setDragId, moveStatus, st.id],
   );
@@ -529,7 +552,10 @@ const BoardColumn = memo(function BoardColumn({
         setOverCol(null);
         setDragId(null);
         dragRef.current = null;
-        if (id) moveStatus(id, st.id, null);
+        if (id) {
+          noteLanding(id, e);
+          moveStatus(id, st.id, null);
+        }
       }}
     >
       {/* Заголовок внутри поверхности колонки и не прокручивается с карточками: глиф статуса, имя, число с сервера. */}

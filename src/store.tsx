@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { viewTransition } from "./motion";
 import type {
   AccessRole,
   CustomFieldType,
@@ -436,8 +437,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     removeAvatar,
     logout,
     // Переход к представлению закрывает полную страницу задачи (панель остаётся — это слой поверх).
+    // Смена представления — короткое перекрёстное затухание (ТЗ 5.13, motion.ts); без View Transitions — мгновенно.
     setView: (v, section = "") =>
-      setUi((u) => (u.selectedIssueId && u.issueMode === "page" ? { ...u, view: v, section, selectedIssueId: null, issueMode: "panel", missing: null } : { ...u, view: v, section, missing: null })),
+      viewTransition(() =>
+        setUi((u) => (u.selectedIssueId && u.issueMode === "page" ? { ...u, view: v, section, selectedIssueId: null, issueMode: "panel", missing: null } : { ...u, view: v, section, missing: null })),
+      ),
     showMissing: (path: string) => setUi((u) => ({ ...u, missing: path, selectedIssueId: null, issueMode: "panel" })),
     openIssue,
     // ТЗ 3.1: прямая ссылка на приглашённую задачу выставляет collabOpenIssueId
