@@ -3,6 +3,7 @@
  * Все мутации защищены правами на сервере; ранги и переходы — только после проверок.
  */
 import type { FastifyInstance } from "fastify";
+import { markStep } from "../services/onboarding.js";
 import type { PoolClient } from "pg";
 import type { z } from "zod";
 import { escLike, one, q, withTransaction } from "../db.js";
@@ -26,6 +27,7 @@ import {
   listActivity,
   listAssigneeIds,
   listAssigneeIdsBatch,
+  subtasksSummaryBatch,
   loadIssue,
   logActivity,
   mapIssue,
@@ -251,7 +253,8 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const hasMore = rows.length > f.limit;
       const pageRows = hasMore ? rows.slice(0, f.limit) : rows;
       const assigneesStarted = trace ? process.hrtime.bigint() : undefined;
-      const assigneesByIssue = await listAssigneeIdsBatch(pageRows.map((r) => r.id));
+      const pageIds = pageRows.map((r) => r.id);
+      const [assigneesByIssue, subtasksByIssue] = await Promise.all([listAssigneeIdsBatch(pageIds), subtasksSummaryBatch(pageIds)]);
       if (trace && assigneesStarted) trace.assigneesSqlMs = elapsedMs(assigneesStarted);
       const responseBuildStarted = trace ? process.hrtime.bigint() : undefined;
       const pageMeta: IssueListPageMeta = {
@@ -268,7 +271,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         ...(total ? { total: Number(total.n) } : {}),
       };
       const payload = {
-        items: pageRows.map((r) => maskSprintId(mapIssue(r, assigneesByIssue.get(r.id) ?? []), project.sprintsEnabled)),
+        items: pageRows.map((r) =>
+          maskSprintId(
+            { ...mapIssue(r, assigneesByIssue.get(r.id) ?? []), subtasksSummary: subtasksByIssue.get(r.id) ?? { total: 0, done: 0 } },
+            project.sprintsEnabled,
+          ),
+        ),
         ...pageMeta,
       };
       if (trace && responseBuildStarted) trace.responseBuildMs = elapsedMs(responseBuildStarted);
@@ -479,6 +487,8 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/:id", { preHandler: requireIssuePerm("browse") }, async (req) => {
     const project = req.project!;
     const { id } = req.params as { id: string };
+    // «Начало работы» (ТЗ 5.11): открыл свою задачу — ту, где он исполнитель.
+    if (req.issueRef?.assigneeIds.includes(me(req).sub)) await markStep(me(req).sub, "open_issue");
     return maskSprintId(await getIssueDto(project.id, id), project.sprintsEnabled);
   });
 
@@ -717,6 +727,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           issueId: iss.id,
           payload: { key: iss.key, title: iss.title, from, to },
         });
+        await markStep(user.sub, "change_status");
       }
       await audit(user.sub, "issue.transition", "issue", iss.id, { key: iss.key, from: iss.status_id, to: body.to });
       return maskSprintId(mapIssue(row, await listAssigneeIds(iss.id)), project.sprintsEnabled);

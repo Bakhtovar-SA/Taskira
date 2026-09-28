@@ -1,6 +1,8 @@
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
 import type {
+  OnboardingDto,
+  SetupStatusDto,
   ActivityDto,
   AttachmentDto,
   ChecklistItemDto,
@@ -46,6 +48,10 @@ import type {
   SearchResultDto,
   SearchResultItemDto,
   UnreadCountDto,
+  ProjectTemplateDto,
+  BrandDto,
+  MilestoneDto,
+  RoadmapDto,
 } from "../../server/src/contract";
 
 let legacyBearerToken: string | null = null;
@@ -148,6 +154,11 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
 export async function apiUpload<T = unknown>(path: string, file: File, fieldName = "file"): Promise<T> {
   const fd = new FormData();
   fd.append(fieldName, file, file.name);
+  return apiUploadForm<T>(path, fd);
+}
+
+/** multipart с несколькими полями (фото фона проекта: два размера + светлота). */
+export async function apiUploadForm<T = unknown>(path: string, fd: FormData): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -289,6 +300,55 @@ export const notificationsApi = {
     api<NotifyPrefsResponse>("/api/notifications/prefs", { method: "PATCH", body: prefs }),
 };
 
+/** Онбординг (ТЗ 5.11): прогресс «Начала работы» и закрытые подсказки текущего пользователя. */
+export const onboardingApi = {
+  get: () => api<OnboardingDto>("/api/me/onboarding"),
+  /** Шаг, который сервер не видит сам: тема живёт только в браузере. */
+  markTheme: () => api<OnboardingDto>("/api/me/onboarding/steps", { method: "POST", body: { step: "theme" } }),
+  hide: () => api<void>("/api/me/onboarding/hide", { method: "POST" }),
+  dismissHint: (hintId: string) => api<void>(`/api/me/hints/${encodeURIComponent(hintId)}/dismiss`, { method: "POST" }),
+};
+
+/** Первичная настройка инсталляции и демо-проект (ТЗ 5.11, глобальный admin). */
+export const setupApi = {
+  get: () => api<SetupStatusDto>("/api/admin/setup"),
+  rename: (instanceName: string) => api<SetupStatusDto>("/api/admin/setup", { method: "PATCH", body: { instanceName } }),
+  complete: () => api<SetupStatusDto>("/api/admin/setup/complete", { method: "POST" }),
+  createDemo: () => api<{ id: string }>("/api/admin/demo-project", { method: "POST" }),
+  removeDemo: () => api<void>("/api/admin/demo-project", { method: "DELETE" }),
+};
+
+/** Брендирование (ТЗ 5.14 п.5): чтение публичное (нужно экрану входа), запись — глобальный admin. */
+export const brandApi = {
+  get: () => api<BrandDto>("/api/instance/brand", { auth: false }),
+  patch: (body: { name?: string | null; hue?: number | null }) => api<BrandDto>("/api/admin/brand", { method: "PATCH", body }),
+  uploadLogo: (file: File) => apiUpload<BrandDto>("/api/admin/brand/logo", file),
+  removeLogo: () => api<BrandDto>("/api/admin/brand/logo", { method: "DELETE" }),
+  /** blob: URL знака — img-src CSP разрешает blob:, а API в dev живёт на другом origin; null — нет или ошибка. */
+  logoBlobUrl: async (v: number): Promise<string | null> => {
+    try {
+      const res = await fetch(buildUrl("/api/instance/brand/logo", { v: String(v) }), { credentials: "include" });
+      return res.ok ? URL.createObjectURL(await res.blob()) : null;
+    } catch {
+      return null;
+    }
+  },
+};
+
+/** Роадмап проектов (ТЗ 5.15): чтение — все видимые проекты; правка — право editRoadmap в проекте. */
+export const roadmapApi = {
+  get: () => api<RoadmapDto>("/api/roadmap"),
+  setDates: (projectId: string, body: { startDate?: string | null; targetDate?: string | null }) =>
+    api<void>(`${P(projectId)}/roadmap`, { method: "PATCH", body }),
+  addMilestone: (projectId: string, body: { name: string; date: string }) => api<MilestoneDto>(`${P(projectId)}/milestones`, { method: "POST", body }),
+  patchMilestone: (projectId: string, id: string, body: { name?: string; date?: string }) =>
+    api<MilestoneDto>(`${P(projectId)}/milestones/${id}`, { method: "PATCH", body }),
+  removeMilestone: (projectId: string, id: string) => api<void>(`${P(projectId)}/milestones/${id}`, { method: "DELETE" }),
+  addDependency: (projectId: string, sourceProjectId: string) =>
+    api<{ sourceId: string; dependentId: string }>(`${P(projectId)}/dependencies`, { method: "POST", body: { sourceProjectId } }),
+  removeDependency: (projectId: string, sourceProjectId: string) => api<void>(`${P(projectId)}/dependencies/${sourceProjectId}`, { method: "DELETE" }),
+};
+
 /** LDAP: диагностика и ручной ресинк членства (глобальный admin). */
 export const ldapApi = {
   ping: () =>
@@ -299,23 +359,50 @@ export const ldapApi = {
     api<{ total: number; synced: number; notFound: string[]; errors: string[] }>("/api/ldap/resync", { method: "POST" }),
 };
 
+/** Тело POST /api/projects (ТЗ 5.10: `templateId` — `builtin:<id>` или uuid шаблона организации, `members` — в той же транзакции). */
+/** Внешний вид проекта (иконка, цвет, фон) — null: как было до настройки. */
+export type ProjectLookInput = Partial<Pick<Project, "icon" | "color" | "background">>;
+export type CreateProjectInput = { key: string; name: string; description?: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean; templateId?: string; members?: { userId: string; role: ProjectRole }[] } & ProjectLookInput;
+export type ProjectPatchInput = Partial<{ name: string; description: string; departmentId: string; isShared: boolean; sprintsEnabled: boolean }> & ProjectLookInput;
+
+/** Шаблоны проектов (ТЗ 5.10): встроенные + организации; сохранение из проекта; удаление. */
+export const projectTemplatesApi = {
+  list: () => api<ProjectTemplateDto[]>("/api/project-templates"),
+  saveFromProject: (projectId: string, body: { name: string; description: string }) =>
+    api<ProjectTemplateDto>(`${P(projectId)}/save-as-template`, { method: "POST", body }),
+  remove: (templateId: string) => api<void>(`/api/project-templates/${templateId}`, { method: "DELETE" }),
+};
+
 export const projectsApi = {
   /** Проекты, видимые пользователю (member ∪ is_shared ∪ глоб. admin). */
   list: () => api<Project[]>("/api/projects"),
   /** Данные одного проекта (bootstrap: users/members/workflow). */
   get: (projectId: string) => api<ProjectBootstrap>(P(projectId)),
-  create: (body: {
-    key: string;
-    name: string;
-    description?: string;
-    departmentId: string;
-    isShared?: boolean;
-    sprintsEnabled?: boolean;
-  }) => api<Project>("/api/projects", { method: "POST", body }),
-  patch: (
-    projectId: string,
-    body: Partial<{ name: string; description: string; departmentId: string; isShared: boolean; sprintsEnabled: boolean }>,
-  ) => api<Project>(P(projectId), { method: "PATCH", body }),
+  create: (body: CreateProjectInput) => api<Project>("/api/projects", { method: "POST", body }),
+  patch: (projectId: string, body: ProjectPatchInput) => api<Project>(P(projectId), { method: "PATCH", body }),
+  /** Своё фото фона (ТЗ 5.14 п.2): два WebP + средняя светлота; право editAppearance. */
+  uploadPhoto: (projectId: string, p: { full: Blob; small: Blob; luma: number }) => {
+    const fd = new FormData();
+    fd.append("luma", String(p.luma));
+    fd.append("full", p.full, "full.webp");
+    fd.append("small", p.small, "small.webp");
+    return apiUploadForm<Project>(`${P(projectId)}/background-photo`, fd);
+  },
+  removePhoto: (projectId: string) => api<Project>(`${P(projectId)}/background-photo`, { method: "DELETE" }),
+  /** blob: URL фото — авторизованный fetch (у CSS url() заголовка не выставить); null — нет или ошибка. */
+  photoBlobUrl: async (projectId: string, size: "full" | "small", v: number): Promise<string | null> => {
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    try {
+      const res = await fetch(buildUrl(`${P(projectId)}/background-photo/${size}`, { v: String(v) }), { headers, credentials: "include" });
+      return res.ok ? URL.createObjectURL(await res.blob()) : null;
+    } catch {
+      return null;
+    }
+  },
+  /** Иконка, цвет, фон — право проекта editAppearance (ТЗ 5.14 п.7), не только глобальный администратор. */
+  appearance: (projectId: string, body: ProjectLookInput) => api<Project>(`${P(projectId)}/appearance`, { method: "PATCH", body }),
   remove: (projectId: string) => api<void>(P(projectId), { method: "DELETE" }),
   /** Избранное (миграция 024) — идемпотентно в обе стороны на сервере. */
   favorite: (projectId: string) => api<void>(`${P(projectId)}/favorite`, { method: "PUT" }),
@@ -355,6 +442,36 @@ export const usersApi = {
     phone?: string;
     globalRole?: GlobalRole;
   }) => api<SafeUser>("/api/admin/users", { method: "POST", body }),
+  /** Глобальная роль и активность (PATCH /api/users/:id); последнего активного админа сервер не отпустит — 409. */
+  patch: (id: string, body: { globalRole: GlobalRole; isActive?: boolean }) => api<SafeUser>(`/api/users/${id}`, { method: "PATCH", body }),
+};
+
+/** Организация → Лицензия / Обслуживание / Состояние системы (ТЗ 5.9). Типы — зеркало ответов сервера
+ *  (`services/license.ts`, `routes/maintenance.ts`, `/api/health` в `app.ts`); только чтение, кроме запуска обслуживания. */
+export type LicenseStatusDto =
+  | { state: "unset" }
+  | { state: "invalid"; reason: string }
+  | { state: "active" | "expired"; claims: { plan: string; maxSeats: number; features: string[]; activeWindowDays: number; issuedTo?: string; iat: number; exp: number }; seatsUsed: number; seatsOverLimit: boolean; daysUntilExpiry?: number; daysSinceExpiry?: number };
+export type MaintenanceJob = { name: string; intervalMs: number; running: boolean; lastRunAt: string | null; lastResult: "success" | "error" | "skipped" | null; lastDurationMs: number | null; lastError: string | null; nextRunAt: string | null };
+export type MaintenanceStatusDto = {
+  enabled: boolean;
+  jobs: MaintenanceJob[];
+  settings: { intervalMs: number; startDelayMs: number; batchSize: number; batchPauseMs: number; maxPerRun: number; archiveAfterDays: number; auditRetentionDays: number };
+};
+export type HealthDto = { ok: boolean; db: boolean; checks: Record<string, boolean>; pendingMigrations?: string[]; warnings?: { code: string; reason: string }[]; version: string; ts: string };
+export const adminApi = {
+  license: () => api<LicenseStatusDto>("/api/admin/license"),
+  maintenance: () => api<MaintenanceStatusDto>("/api/maintenance"),
+  runMaintenance: (dryRun: boolean) => api<{ archived: number; auditPurged: number; capped: boolean; dryRun: boolean }>("/api/maintenance/run", { method: "POST", query: { dryRun: String(dryRun) } }),
+  health: () => api<HealthDto>("/api/health"),
+  /** Прямые ссылки для скачивания (сессия — HttpOnly-cookie, браузер приложит её сам; см. AdminView). */
+  exportUrl: () => `${API_BASE}/api/admin/export`,
+  auditExportUrl: (format: "csv" | "jsonl", from?: string, to?: string) => {
+    const q = new URLSearchParams({ format });
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    return `${API_BASE}/api/admin/audit-log/export?${q}`;
+  },
 };
 
 /** Аватарки — самообслуживание (миграция 027): только свой профиль. */

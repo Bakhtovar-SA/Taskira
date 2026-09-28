@@ -108,15 +108,15 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
   return (
     <Modal onClose={handleClose} w={520} title={t("backlog.importTrello")}>
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-        <span className="font-disp text-[14px] font-bold text-ink">{t("backlog.importTrello")}</span>
-        <button onClick={handleClose} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-canvas hover:text-ink" aria-label={t("common.close")}>
+        <span className="font-disp text-[14px] font-semibold text-ink">{t("backlog.importTrello")}</span>
+        <button onClick={handleClose} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("common.close")}>
           <IcX size={15} />
         </button>
       </div>
 
       <div className="space-y-4 px-5 py-4">
         <div>
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint">{t("trello.export")}</p>
+          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("trello.export")}</p>
           <p className="mb-2 text-[11.5px] leading-relaxed text-faint">
             {t("trello.instructions")}
           </p>
@@ -130,7 +130,7 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
         </div>
 
         {parsed && (
-          <div className="rounded-md border border-line bg-canvas/50 px-3 py-2.5 text-[12.5px]">
+          <div className="rounded-md border border-line bg-sunken px-3 py-2.5 text-[12.5px]">
             <p className="font-semibold text-ink">«{parsed.boardName}»</p>
             <p className="mt-0.5 text-faint">
               {t("trello.found", { count: parsed.items.length })}
@@ -177,11 +177,11 @@ export default function ImportTrelloModal({ onClose }: { onClose: () => void }) 
             // карточек ещё раз, создавая дубликаты (ревью PR #48). Новый
             // импорт того же файла — через явное «Готово» → новый выбор файла.
             disabled={!parsed || importable.length === 0 || running || !!result}
-            className="rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(11,95,217,0.3)] transition-all hover:bg-accentdeep active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg btn-primary px-4 py-2 text-[13px] font-medium text-onaccent transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {running ? t("trello.importing") : t("trello.import", { count: importable.length ? ` (${importable.length})` : "" })}
           </button>
-          <button onClick={handleClose} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-canvas">
+          <button onClick={handleClose} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-hover">
             {result ? t("toast.success") : t("common.cancel")}
           </button>
         </div>

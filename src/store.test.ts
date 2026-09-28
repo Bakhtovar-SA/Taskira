@@ -1,4 +1,5 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
+import type { NotificationsState } from "./store/slices";
 import { applyNotificationAction, assignableUsers, canTransition, fmtDate, relTime, statusById } from "./store/mappers";
 import type { Data, NotificationT, ProjectRole, User, Workflow } from "./types";
 
@@ -129,7 +130,7 @@ describe("applyNotificationAction", () => {
   const base = {
     notifications: [n("a", false), n("b", false), n("c", true)],
     unreadCount: 7, // на сервере непрочитанных больше, чем в загруженной странице
-  } as unknown as Data;
+  } satisfies NotificationsState;
 
   test("с ids помечает прочитанными только их", () => {
     const next = applyNotificationAction(base, ["a"], "read");
@@ -172,7 +173,7 @@ describe("applyNotificationAction", () => {
   });
 
   test("счётчик никогда не уходит ниже нуля", () => {
-    const skewed = { ...base, unreadCount: 1 } as Data;
+    const skewed = { ...base, unreadCount: 1 };
     expect(applyNotificationAction(skewed, ["a", "b"], "read").unreadCount).toBe(0);
   });
 });

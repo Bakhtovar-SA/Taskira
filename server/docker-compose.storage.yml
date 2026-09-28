@@ -1,15 +1,17 @@
-# Локальный S3-совместимый MinIO для разработки и CI драйвера STORAGE_DRIVER=s3
+# Локальный S3-совместимый сервер для разработки и CI драйвера STORAGE_DRIVER=s3
 # (FILES_MIGRATION.md D1, Фаза 4). Разработка по умолчанию идёт на STORAGE_DRIVER=local
 # и этот compose не нужен — он для проверки S3-пути.
 #
+# Был MinIO (quay.io/minio/*), но 28.09.2026 его образы стали недоступны без авторизации
+# (docker.io и quay.io отвечают 401) — CI упал на `docker compose pull`. Замена — SeaweedFS:
+# настоящий S3-сервер с подписью SigV4 и path-style адресацией, не заглушка. Для кода сервера
+# ничего не меняется: тот же @aws-sdk/client-s3, тот же endpoint, ключи и бакет.
+#
 #   docker compose -f docker-compose.storage.yml up -d
 #   docker compose -f docker-compose.storage.yml wait createbucket   # дождаться бакета
-#   docker compose -f docker-compose.storage.yml exec minio mc alias set local http://localhost:9000 taskira taskira-minio-dev
-#   docker compose -f docker-compose.storage.yml exec minio mc ls local/
 #   docker compose -f docker-compose.storage.yml down -v
 #
-# Консоль MinIO: http://localhost:9001  (taskira / taskira-minio-dev)
-# S3 API:        http://localhost:9000
+# S3 API: http://localhost:9000  (ключи taskira / taskira-minio-dev — ci/seaweedfs-s3.json)
 #
 # Env для сервера (полный набор и реальный on-prem — STORAGE_SETUP.md):
 #   STORAGE_DRIVER=s3
@@ -20,39 +22,41 @@
 #   STORAGE_S3_FORCE_PATH_STYLE=true
 
 services:
-  minio:
-    image: quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z
-    container_name: taskira-minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: "taskira"
-      MINIO_ROOT_PASSWORD: "taskira-minio-dev"
+  s3:
+    # mirror.gcr.io — зеркало Docker Hub без лимита анонимных запросов (тот же образ chrislusf/seaweedfs).
+    image: mirror.gcr.io/chrislusf/seaweedfs:3.80
+    container_name: taskira-s3
+    command: server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json -volume.max=10
     ports:
       - "9000:9000"
-      - "9001:9001"
     volumes:
-      - taskira-minio-data:/data
+      - ./ci/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+      - taskira-s3-data:/data
 
-  # Одноразовый шаг: дождаться MinIO (свой retry-loop — надёжнее healthcheck на
-  # образе без curl) и завести приватный бакет для вложений.
+  # Одноразовый шаг: дождаться S3 и завести приватный бакет для вложений.
   # `docker compose wait createbucket` в CI блокируется до его выхода с кодом 0.
   createbucket:
-    image: quay.io/minio/mc:RELEASE.2024-01-16T16-06-34Z
-    container_name: taskira-minio-mc
+    image: mirror.gcr.io/amazon/aws-cli:2.22.0
+    container_name: taskira-s3-createbucket
     depends_on:
-      - minio
+      - s3
     restart: "no"
+    environment:
+      AWS_ACCESS_KEY_ID: "taskira"
+      AWS_SECRET_ACCESS_KEY: "taskira-minio-dev"
+      AWS_DEFAULT_REGION: "us-east-1"
     entrypoint:
       - /bin/sh
       - -c
       - >
-        until mc alias set local http://minio:9000 taskira taskira-minio-dev >/dev/null 2>&1; do
-          echo 'ждём MinIO...'; sleep 1;
+        for i in $$(seq 1 60); do
+          aws --endpoint-url http://s3:9000 s3api create-bucket --bucket taskira-attachments >/dev/null 2>&1 && break;
+          aws --endpoint-url http://s3:9000 s3api head-bucket --bucket taskira-attachments >/dev/null 2>&1 && break;
+          echo 'ждём S3...'; sleep 1;
         done;
-        mc mb --ignore-existing local/taskira-attachments;
-        mc anonymous set none local/taskira-attachments;
-        mc ls local/;
+        aws --endpoint-url http://s3:9000 s3api head-bucket --bucket taskira-attachments &&
+        aws --endpoint-url http://s3:9000 s3 ls &&
         echo 'бакет taskira-attachments готов (приватный)';
 
 volumes:
-  taskira-minio-data:
+  taskira-s3-data:

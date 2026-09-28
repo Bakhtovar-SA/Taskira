@@ -35,6 +35,17 @@ async function createIssue(token: string, over: Record<string, unknown> = {}): P
 }
 
 describe("подзадачи", () => {
+  test("список задач отдаёт subtasksSummary у каждой строки (карточка доски, «2/5»), включая закрытые", async () => {
+    const mgr = await login(app, "mgr1");
+    const parent = await createIssue(mgr, { title: "родитель" });
+    const a = await createIssue(mgr, { title: "a", parentId: parent.id });
+    await createIssue(mgr, { title: "b", parentId: parent.id });
+    await q(`UPDATE issues SET done_at = now() WHERE id = $1`, [a.id]);
+    const items = JSON.parse((await g(issuesUrl(), mgr)).body).items as { id: string; subtasksSummary?: { total: number; done: number } }[];
+    expect(items.find((i) => i.id === parent.id)?.subtasksSummary).toEqual({ total: 2, done: 1 });
+    expect(items.find((i) => i.id === a.id)?.subtasksSummary).toEqual({ total: 0, done: 0 });
+  });
+
   test("создание с parentId — видно в ответе и в GET списка", async () => {
     const mgr = await login(app, "mgr1");
     const parent = await createIssue(mgr, { title: "родитель" });

@@ -1,6 +1,7 @@
 /* CRUD задач: создание, массовый импорт, правка, смена статуса, удаление — действия стора. Вынесено из store.tsx без
  * изменений поведения (ТЗ 2.3, шаг 5). Действия не оптимистичны: сначала запрос, затем применение ответа сервера;
  * откат с перечитыванием задач — только у moveStatus. Поведение зафиксировано store.issueCrud.test.tsx. */
+import { refreshOnboardingSoon } from "../onboarding";
 import { useCallback } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { Issue } from "../types";
@@ -255,6 +256,7 @@ export function useIssueCrudActions(
         void (async () => {
           try {
             const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId);
+            refreshOnboardingSoon();
             const wasDone = iss.doneAt != null;
             const nowDone = dto.doneAt != null;
             setData((prev) => {

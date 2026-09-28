@@ -12,6 +12,14 @@ interface ProjectDbRow {
   department_id: string;
   is_shared: boolean;
   sprints_enabled: boolean;
+  default_view: "board" | "backlog" | "timeline" | null;
+  suggested_labels: string[];
+  icon: ProjectDto["icon"];
+  color: ProjectDto["color"];
+  background: ProjectDto["background"];
+  is_demo: boolean;
+  bg_photo_updated_at: Date | null;
+  bg_photo_luma: number | null;
 }
 
 const toDto = (r: ProjectDbRow): ProjectDto => ({
@@ -22,6 +30,13 @@ const toDto = (r: ProjectDbRow): ProjectDto => ({
   departmentId: r.department_id,
   isShared: r.is_shared,
   sprintsEnabled: r.sprints_enabled,
+  defaultView: r.default_view,
+  suggestedLabels: r.suggested_labels ?? [],
+  icon: r.icon ?? null,
+  color: r.color ?? null,
+  background: r.background ?? null,
+  backgroundPhoto: r.bg_photo_updated_at ? { updatedAt: r.bg_photo_updated_at.getTime(), luma: r.bg_photo_luma ?? 0.5 } : null,
+  isDemo: !!r.is_demo,
 });
 
 export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
@@ -32,9 +47,16 @@ export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
   departmentId: p.departmentId,
   isShared: p.isShared,
   sprintsEnabled: p.sprintsEnabled,
+  defaultView: p.defaultView,
+  suggestedLabels: p.suggestedLabels,
+  icon: p.icon,
+  color: p.color,
+  background: p.background,
+  backgroundPhoto: p.backgroundPhoto,
+  isDemo: p.isDemo,
 });
 
-const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared, p.sprints_enabled`;
+const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared, p.sprints_enabled, p.default_view, p.suggested_labels, p.icon, p.color, p.background, p.is_demo, p.bg_photo_updated_at, p.bg_photo_luma`;
 
 /**
  * Видимость (LDAP_MIGRATION.md D8 — закрывает DEPT_MIGRATION.md §3.5):

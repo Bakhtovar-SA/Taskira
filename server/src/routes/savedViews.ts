@@ -30,7 +30,7 @@ export async function savedViewsRoutes(app: FastifyInstance): Promise<void> {
 
     const existing = await countSavedViews(user.sub, project.id);
     if (existing >= LIMITS.savedViewsPerUserProject) {
-      throw badRequest(`Нельзя сохранить больше ${LIMITS.savedViewsPerUserProject} вьюх в проекте`);
+      throw badRequest(`Нельзя сохранить больше ${LIMITS.savedViewsPerUserProject} фильтров в проекте`);
     }
     const view = await createSavedView(user.sub, project.id, { name: body.name, filter: body.filter, isDefault: body.isDefault });
     await audit(user.sub, "savedView.add", "project", project.id, { viewId: view.id, name: view.name });
@@ -47,7 +47,7 @@ export async function savedViewsRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as z.infer<typeof SavedViewBody>;
 
       const existing = await getSavedViewForUser(user.sub, project.id, viewId);
-      if (!existing) throw notFound("Вьюха не найдена");
+      if (!existing) throw notFound("Сохранённый фильтр не найден");
       return updateSavedView(user.sub, project.id, viewId, { name: body.name, filter: body.filter, isDefault: body.isDefault });
     },
   );
@@ -58,7 +58,7 @@ export async function savedViewsRoutes(app: FastifyInstance): Promise<void> {
     const { viewId } = req.params as z.infer<typeof SavedViewParams>;
 
     const existing = await getSavedViewForUser(user.sub, project.id, viewId);
-    if (!existing) throw notFound("Вьюха не найдена");
+    if (!existing) throw notFound("Сохранённый фильтр не найден");
     await deleteSavedView(user.sub, project.id, viewId);
     await audit(user.sub, "savedView.remove", "project", project.id, { viewId, name: existing.name });
     reply.code(204).send();

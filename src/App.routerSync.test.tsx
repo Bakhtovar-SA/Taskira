@@ -1,9 +1,11 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
-import { act, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useEffect } from "react";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
+import { I18nProvider } from "./i18n";
 import { pathForIssue, pathForView } from "./router";
+import App from "./App";
 import {
   ApiError,
   authApi,
@@ -31,7 +33,7 @@ const user = (over: Record<string, unknown> = {}) => ({
   id: "u1", username: "admin", name: "Админ", initials: "А", color: "#0B5FD9", jobRole: "Админ",
   globalRole: "admin" as const, isActive: true, authSource: "local" as const, ...over,
 });
-const proj = (id: string, key: string) => ({ id, key, name: key, description: "", departmentId: "d1", isShared: false, sprintsEnabled: false });
+const proj = (id: string, key: string) => ({ id, key, name: key, description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false });
 const boot = (p: ReturnType<typeof proj>): ProjectBootstrap => ({
   project: p,
   users: [user()] as never,
@@ -79,9 +81,11 @@ function mount() {
     return null;
   }
   const { unmount } = render(
-    <StoreProvider>
-      <Probe />
-    </StoreProvider>,
+    <I18nProvider>
+      <StoreProvider>
+        <Probe />
+      </StoreProvider>
+    </I18nProvider>,
   );
   unmountCurrent = unmount;
   return () => latest!;
@@ -92,6 +96,7 @@ const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)
 afterEach(() => {
   unmountCurrent?.();
   unmountCurrent = null;
+  cleanup(); // тесты ниже (полный <App/>), в отличие от остальных в файле, не проходят через mount()/unmountCurrent
   localStorage.clear();
   history.replaceState(null, "", "/");
   vi.restoreAllMocks();
@@ -169,5 +174,115 @@ describe("useRouterSync — URL → состояние, полный путь (�
     await settle();
     expect(location.pathname).toBe(pathForView("AA", "board"));
     expect(get().ui.view).toBe("board");
+  });
+
+  test("старая ссылка /p/KEY/backlog?фильтры → /p/KEY/list с теми же фильтрами, без лишней записи в истории (ADR-0013 §5)", async () => {
+    history.pushState(null, "", "/p/BB/backlog?status=s1&priority=high");
+    const before = history.length;
+    install();
+    const get = mount();
+    await settle();
+    expect(get().ui.view).toBe("backlog");
+    expect(location.pathname).toBe("/p/BB/list");
+    expect(location.search).toBe("?status=s1&priority=high");
+    expect(history.length).toBe(before);
+  });
+
+  test("/p/KEY/sprints при выключенном модуле → доска, а не экран-отказ (ADR-0013 §5)", async () => {
+    history.pushState(null, "", "/p/BB/sprints");
+    install();
+    const get = mount();
+    await settle();
+    expect(get().ui.view).toBe("board");
+    expect(location.pathname).toBe("/p/BB/board");
+  });
+
+  test("панель задачи — ?issue=KEY поверх вида; полная страница — /p/KEY/issue/KEY; «назад» закрывает (ADR-0013 §3)", async () => {
+    history.pushState(null, "", pathForView("AA", "board"));
+    install();
+    const dto = {
+      id: I1, projectId: P1, num: 1, key: "AA-1", title: "т", description: "", typeId: "task", statusId: "s1",
+      priorityId: "medium", assigneeIds: [], reporterId: "u1", epicId: null, parentId: null, sprintId: null, color: null,
+      tStart: null, tSpan: null, complexity: null, labels: [], dueDate: null, rank: 0,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), doneAt: null, archivedAt: null,
+    };
+    vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [dto], hasMore: false, nextCursor: null } as never);
+    vi.spyOn(issuesApi, "get").mockResolvedValue(dto as never);
+    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    const get = mount();
+    await settle();
+
+    act(() => get().openIssue(I1));
+    await settle();
+    expect(location.pathname).toBe("/p/AA/board");
+    expect(location.search).toBe("?issue=AA-1");
+
+    act(() => get().openIssue(I1, "page"));
+    await settle();
+    expect(location.pathname).toBe(pathForIssue("AA", "AA-1"));
+    expect(location.search).toBe("");
+
+    act(() => { history.back(); });
+    await settle();
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(get().ui.issueMode).toBe("panel");
+
+    act(() => { history.back(); });
+    await settle();
+    expect(location.search).toBe("");
+    expect(get().ui.selectedIssueId).toBeNull();
+  });
+
+  test("ссылка /p/KEY/list?issue=KEY открывает Список и панель задачи над ним", async () => {
+    history.pushState(null, "", "/p/BB/list?priority=high&issue=BB-7");
+    install();
+    vi.spyOn(issuesApi, "resolve").mockResolvedValue({ id: I1, projectId: P2, projectKey: "BB" });
+    vi.spyOn(issuesApi, "get").mockResolvedValue({
+      id: I1, projectId: P2, num: 7, key: "BB-7", title: "т", description: "", typeId: "task", statusId: "s1",
+      priorityId: "medium", assigneeIds: [], reporterId: "u1", epicId: null, parentId: null, sprintId: null, color: null,
+      tStart: null, tSpan: null, complexity: null, labels: [], dueDate: null, rank: 0,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), doneAt: null, archivedAt: null,
+    } as never);
+    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    const get = mount();
+    await settle();
+    await settle();
+    expect(get().ui.view).toBe("backlog");
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(get().ui.issueMode).toBe("panel");
+    expect(location.pathname).toBe("/p/BB/list");
+    expect(new URLSearchParams(location.search).get("priority")).toBe("high");
+  });
+});
+
+// ТЗ 5.12 a: раньше сбой загрузки (сервер недоступен/сеть упала — не 401, значит сессия скорее всего
+// цела) молча показывал LoginForm, как будто человек разлогинен. Полный <App/> (не Probe выше) — иначе
+// не проверить, ЧТО реально рендерится вместо доски: LoginForm или BootErrorScreen.
+describe("App — ТЗ 5.12 a: сбой загрузки (не 401) не путают с разлогином", () => {
+  test("authApi.me() падает не 401-ошибкой → форма входа не показана, есть «Повторить», клик по ней вызывает bootstrap() заново", async () => {
+    const meSpy = vi.spyOn(authApi, "me").mockRejectedValue(new ApiError(0, "NETWORK", "нет сети"));
+    vi.spyOn(authApi, "config").mockResolvedValue({ authMode: "local" });
+    vi.spyOn(projectsApi, "list").mockResolvedValue([]);
+    vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
+    vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
+
+    render(
+      <I18nProvider>
+        <App />
+      </I18nProvider>,
+    );
+    await settle();
+
+    expect(screen.getByRole("alert").textContent).toContain("Не удалось загрузить Taskira");
+    expect(screen.queryByLabelText("Логин")).toBeNull(); // форма входа НЕ показана
+    expect(meSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText("Повторить"));
+    await settle();
+    expect(meSpy).toHaveBeenCalledTimes(2); // повтор — обычный bootstrap(), не отдельный путь
   });
 });

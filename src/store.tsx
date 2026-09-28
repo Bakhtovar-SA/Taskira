@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { viewTransition } from "./motion";
 import type {
   AccessRole,
   CustomFieldType,
@@ -13,7 +14,7 @@ import type {
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
-import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput } from "./api";
+import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type ProjectLookInput, type Project as ApiProject } from "./api";
 import {
   applyNotificationAction,
   canTransition,
@@ -21,7 +22,8 @@ import {
   mapIssue,
   statusById,
 } from "./store/mappers";
-import type { BootStatus, CreateInput, SoloState, StoreIndexes, UIState } from "./store/mappers";
+import { createSlices, EMPTY_NOTIFICATIONS, SlicesCtx } from "./store/slices";
+import type { BootStatus, CreateInput, IssueMode, SoloState, StoreIndexes, UIState } from "./store/mappers";
 
 import type { StoreCtx } from "./store/ctx";
 import { useSprintActions } from "./store/sprints";
@@ -39,18 +41,20 @@ interface Api {
   idx: StoreIndexes;
   me: User;
   ui: UIState;
-  toasts: Toast[];
+  // Тосты и уведомления — не здесь (ADR-0011, шаги 1–2): `useToasts()`, `useNotifications()`, `useUnreadCount()`.
   bootStatus: BootStatus;
   /** Заполнено только при bootStatus === "solo" (одиночный просмотр приглашённого). */
   solo: SoloState | null;
   can: (perm: PermId, issue?: Issue) => boolean;
   bootstrap: () => Promise<void>;
-  switchProject: (projectId: string, openIssueId?: string) => void;
+  switchProject: (projectId: string, openIssueId?: string, mode?: IssueMode) => void;
   /** Показать главный экран (`<HomeView>`), не выгружая текущий проект. */
   goHome: () => void;
   /** Войти в проект с главного экрана (переключить, если это другой проект). */
   enterProject: (projectId: string) => void;
   refreshCollaborations: () => Promise<void>;
+  /** «Мои задачи» по всем проектам — перечитать (страница `/my-issues`, Главная). */
+  refreshAssignedToMe: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   markNotificationsRead: (ids?: string[]) => void;
   dismissNotifications: (ids?: string[]) => void;
@@ -59,8 +63,10 @@ interface Api {
   uploadAvatar: (file: File) => Promise<void>;
   removeAvatar: () => Promise<void>;
   logout: () => void;
-  setView: (v: ViewId) => void;
-  openIssue: (id: string | null) => void;
+  /** Сменить раздел; `section` — подраздел дома настроек. */
+  setView: (v: ViewId, section?: string) => void;
+  /** Открыть задачу панелью (по умолчанию) или полной страницей; null — закрыть. */
+  openIssue: (id: string | null, mode?: IssueMode) => void;
   clearCollabOpenIssueId: () => void;
   setCreateOpen: (v: boolean) => void;
   openCreateSubtask: (parentId: string) => void;
@@ -120,12 +126,19 @@ interface Api {
   setDepartmentLdapGroup: (id: string, ldapGroupDn: string | null) => void;
   resyncLdap: () => void;
   deleteDepartment: (id: string) => void;
-  createProject: (input: { key: string; name: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean }) => void;
+  /** Создать проект (ТЗ 5.10: из шаблона и сразу с участниками); resolve — созданный проект или null при ошибке. */
+  createProject: (input: CreateProjectInput) => Promise<ApiProject | null>;
   patchProject: (
     id: string,
-    patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean; sprintsEnabled?: boolean },
+    patch: ProjectPatchInput,
   ) => void;
   deleteProject: (id: string) => void;
+  /** Иконка/цвет/фон проекта — право editAppearance (ТЗ 5.14 п.7). */
+  patchProjectAppearance: (id: string, patch: ProjectLookInput) => void;
+  /** Перечитать проекты и отделы (после действий вне стора: демо-проект первичной настройки). */
+  refreshOrg: () => Promise<void>;
+  /** Показать «Не найдено» для ссылки, которая никуда не ведёт (ТЗ 5.12 a). */
+  showMissing: (path: string) => void;
   addSprint: (input: { name: string; goal: string; startDate?: string | null; endDate?: string | null }) => void;
   startSprint: (sprintId: string) => void;
   completeSprint: (sprintId: string) => void;
@@ -158,13 +171,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [authMode, setAuthMode] = useState<"local" | "ldap">("local");
   const [ui, setUi] = useState<UIState>({
     view: "board",
+    section: "",
     selectedIssueId: null,
+    issueMode: "panel",
     createOpen: false,
     createParentId: null,
     lastEvent: null,
     collabOpenIssueId: null,
+    missing: null,
   });
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  // Тосты и уведомления — внешние хранилища (ADR-0011, шаги 1–2): их изменения не перерисовывают провайдер,
+  // а значит и всех потребителей `useStore()`. Создаются один раз на провайдер.
+  const [slices] = useState(createSlices);
 
   /* Подсветка только что перемещённой карточки гаснет ПО ТАЙМЕРУ.
      Раньше Board сравнивал Date.now() прямо в рендере, но ререндер сам собой не
@@ -198,9 +216,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const toast = useCallback((kind: Toast["kind"], text: string) => {
     const id = toastSeq++;
-    setToasts((t) => [...t.slice(-3), { id, kind, text }]);
-    window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
-  }, []);
+    slices.toasts.setState((t) => [...t.slice(-3), { id, kind, text }]);
+    window.setTimeout(() => slices.toasts.setState((t) => (t.some((x) => x.id === id) ? t.filter((x) => x.id !== id) : t)), 4200);
+  }, [slices]);
 
   const handleApiError = useCallback(
     (err: unknown, fallback = local("Ошибка запроса", "Request failed")) => {
@@ -210,6 +228,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           clearToken();
           setBootStatus("unauthenticated");
           setData(emptyData());
+          slices.notifications.setState(() => EMPTY_NOTIFICATIONS);
         }
         const englishByCode: Record<string, string> = {
           NETWORK: "Can't connect to the server",
@@ -224,7 +243,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       toast("error", fallback);
     },
-    [toast, local],
+    [toast, local, slices],
   );
 
   const me = useMemo<User>(() => {
@@ -234,7 +253,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: "",
         name: "…",
         initials: "?",
-        color: "#64748B",
+        color: "var(--gray-9)",
         role: "",
         globalRole: "member" as const,
         accessRole: "viewer" as const,
@@ -267,12 +286,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Общий контекст доменных хуков (ТЗ 2.3): собирается один раз, после requirePerm/withIssue.
-  const storeCtx: StoreCtx = { setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef };
+  const storeCtx: StoreCtx = {
+    setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef, notifStore: slices.notifications,
+  };
   const { resolveIssue, lookupIssue, withIssue } = useIssueLookup(storeCtx);
   const { refreshNotifications, refreshUnreadCount, markNotificationsRead, dismissNotifications, setNotifyPrefs, uploadAvatar,
     removeAvatar } = useNotificationActions(storeCtx);
 
-  const { bootstrap, switchProject, goHome, enterProject, logout, refreshIssues, ensureAllIssues, refreshCollaborations,
+  const { bootstrap, switchProject, goHome, enterProject, refreshAssignedToMe, logout, refreshIssues, ensureAllIssues, refreshCollaborations,
     openIssue, pendingOpenIssueRef } = useSessionActions(storeCtx, {
     setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef,
   });
@@ -284,7 +305,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const pending = pendingOpenIssueRef.current;
     if (pending && pending.projectId === data.currentProjectId) {
       pendingOpenIssueRef.current = null;
-      openIssue(pending.issueId);
+      openIssue(pending.issueId, pending.mode);
     }
   }, [data.currentProjectId, openIssue]);
 
@@ -383,7 +404,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { addTransition, removeTransition, resetWorkflow, addIssueTemplate, updateIssueTemplateAction, removeIssueTemplate,
     addCustomField, renameCustomField, removeCustomField } = useMetaActions(storeCtx);
   const { setMemberRole, removeMember, setProjectMember, removeProjectMember, createDepartment, renameDepartment,
-    setDepartmentLdapGroup, resyncLdap, deleteDepartment, createProject, patchProject, deleteProject } =
+    setDepartmentLdapGroup, resyncLdap, deleteDepartment, createProject, patchProject, patchProjectAppearance, deleteProject, refreshOrg } =
     useOrgActions(storeCtx, { bootstrap });
 
   const idx = useMemo<StoreIndexes>(
@@ -401,7 +422,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     idx,
     me,
     ui,
-    toasts,
     bootStatus,
     solo,
     can: canFn,
@@ -410,6 +430,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     goHome,
     enterProject,
     refreshCollaborations,
+    refreshAssignedToMe,
     refreshNotifications,
     markNotificationsRead,
     dismissNotifications,
@@ -417,7 +438,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     uploadAvatar,
     removeAvatar,
     logout,
-    setView: (v) => setUi((u) => ({ ...u, view: v })),
+    // Переход к представлению закрывает полную страницу задачи (панель остаётся — это слой поверх).
+    // Смена представления — короткое перекрёстное затухание (ТЗ 5.13, motion.ts); без View Transitions — мгновенно.
+    setView: (v, section = "") =>
+      viewTransition(() =>
+        setUi((u) => (u.selectedIssueId && u.issueMode === "page" ? { ...u, view: v, section, selectedIssueId: null, issueMode: "panel", missing: null } : { ...u, view: v, section, missing: null })),
+      ),
+    showMissing: (path: string) => setUi((u) => ({ ...u, missing: path, selectedIssueId: null, issueMode: "panel" })),
     openIssue,
     // ТЗ 3.1: прямая ссылка на приглашённую задачу выставляет collabOpenIssueId
     // (bootstrap()/useRouterSync); CollaboratingView подхватывает его один раз на
@@ -470,7 +497,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     deleteDepartment,
     createProject,
     patchProject,
+    patchProjectAppearance,
     deleteProject,
+    refreshOrg,
     addSprint,
     startSprint,
     completeSprint,
@@ -479,8 +508,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     searchAllProjects,
   };
 
-  return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
+  return (
+    <SlicesCtx.Provider value={slices}>
+      <Ctx.Provider value={api}>{children}</Ctx.Provider>
+    </SlicesCtx.Provider>
+  );
 }
+
+export { useNotifications, useToasts, useUnreadCount } from "./store/slices";
+export type { NotificationsState } from "./store/slices";
 
 export function useStore(): Api {
   const ctx = useContext(Ctx);

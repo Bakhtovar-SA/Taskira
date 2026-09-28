@@ -1,6 +1,7 @@
 /* Подсущности задачи: комментарии, приглашённые участники, связи, чек-лист, значения пользовательских полей,
  * вложения — действия стора. Вынесено из store.tsx без изменений поведения (ТЗ 2.3, шаг 4). `withIssue` и `langRef`
  * приходят из провайдера. */
+import { refreshOnboardingSoon } from "../onboarding";
 import { useCallback } from "react";
 import type { MutableRefObject } from "react";
 import type { Attachment, Collaborator } from "../types";
@@ -29,6 +30,7 @@ export function useIssueSubActions(
       void (async () => {
         try {
           const c = await commentsApi.create(pid(), issueId, r.value);
+          refreshOnboardingSoon();
           setData((prev) => ({
             ...prev,
             issues: prev.issues.map((i) =>

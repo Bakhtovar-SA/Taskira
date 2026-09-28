@@ -1,17 +1,29 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { PX_PER_DAY, addDays, scaleTicks, startOfWeek, timeScale, ZOOMS, type Zoom } from "../timeScale";
+import { TimeCanvas, TIME_PAD } from "./TimeCanvas";
+import { cssVars } from "../cssVars";
+import { Tabs } from "../ds/Tabs";
 import { useStore } from "../store";
 import { ISSUE_PAGE_SIZE, freshRows, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { IcChevR, IcTimeline } from "../icons";
-import { Lozenge, Empty, SkeletonRow } from "../ui";
+import { Lozenge, SkeletonRow, directionColor } from "../ui";
+import { Button } from "../ds/Button";
+import { EmptyState } from "../ds/Display";
 import { TypeIcon } from "../icons";
 import { useT } from "../i18n";
 
-// 52 недель (год) с пиксельными колонками + горизонтальный скролл — раньше
-// было 8 фиксированных недель без возможности посмотреть дальше (overdrive).
+// Направления лежат на сетке недель от текущего понедельника (issues.t_start / t_span — номера недель),
+// горизонт — год. Масштаб (недели / месяцы / кварталы) меняет только px на день, не данные.
 const WEEKS = 52;
-const WEEK_PX = 56;
-const LABEL_PX = 260;
-const GRID_COLS = `${LABEL_PX}px repeat(${WEEKS}, ${WEEK_PX}px)`;
+const ZOOM_KEY = "taskira.timeline.zoom";
+const readZoom = (): Zoom => {
+  try {
+    const v = localStorage.getItem(ZOOM_KEY);
+    return ZOOMS.includes(v as Zoom) ? (v as Zoom) : "week";
+  } catch {
+    return "week";
+  }
+};
 
 /** Задачи раскрытого направления: собственный постраничный набор (`?epicId=`), а не выборка из
  *  всех задач в сторе. Число в шапке узла — агрегат сервера по ВСЕМ детям, поэтому пока набор не
@@ -84,129 +96,127 @@ function EpicChildren({ projectId, epicId, total }: { projectId: string; epicId:
 
 export default function TimelineView() {
   const { t, lang } = useT();
-  const { data, openIssue } = useStore();
+  const { data, openIssue, setView } = useStore();
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [zoom, setZoomState] = useState<Zoom>(readZoom);
+  const setZoom = (z: Zoom) => {
+    setZoomState(z);
+    try {
+      localStorage.setItem(ZOOM_KEY, z);
+    } catch {
+      /* приватный режим — масштаб не переживёт перезагрузку */
+    }
+  };
   const scrollElRef = useRef<HTMLDivElement | null>(null);
   const resizeObsRef = useRef<ResizeObserver | null>(null);
-  // Ширина видимой части скроллящейся панели (без учёта того, что реально
-  // прокручено вбок) — нужна раскрытому списку задач направления, который
-  // должен оставаться на месте при горизонтальном скролле недель (см. ниже,
-  // sticky left-0). "100%" внутри него равнялось бы полной прокручиваемой
-  // ширине (260px + 52 недели), а 100vw — ширине всего окна, а не панели.
+  // Ширина видимой части скроллящейся панели — нужна раскрытому списку задач направления, который
+  // остаётся на месте при горизонтальной прокрутке (sticky left-0), и шкале: на мелком масштабе год
+  // уже экрана, и шкала дотягивается до правого края. getBoundingClientRect (border-box), а не
+  // contentRect — иначе первый колбэк RO расходится с начальным значением на ширину рамки.
   const [viewportW, setViewportW] = useState(0);
-  // callback-ref, а не useEffect с [] — сам скроллящийся div рендерится только
-  // когда epics.length > 0 (изначально при загрузке данных его в DOM ещё нет),
-  // эффект «один раз при монтировании» просто ничего бы не нашёл и не
-  // переподключился бы позже, когда div появится.
+  // callback-ref, а не эффект с [] — панель появляется только когда направления загрузились.
   const scrollRef = useCallback((node: HTMLDivElement | null) => {
     scrollElRef.current = node;
     resizeObsRef.current?.disconnect();
     resizeObsRef.current = null;
     if (node) {
-      setViewportW(node.getBoundingClientRect().width); // сразу, не ждём первый колбэк observer'а
-      // getBoundingClientRect (border-box), а не entries[0].contentRect (content-box) —
-      // иначе первый колбэк RO расходится с начальным значением на ширину border (1-2px).
+      setViewportW(node.getBoundingClientRect().width);
       const ro = new ResizeObserver(() => setViewportW(node.getBoundingClientRect().width));
       ro.observe(node);
       resizeObsRef.current = ro;
     }
   }, []);
 
-  const weeks = useMemo(() => {
-    const now = new Date();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    return Array.from({ length: WEEKS }, (_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i * 7);
-      return d;
-    });
-  }, []);
-
   // Направления и агрегат по детям (сколько всего и сколько закрыто) — одним запросом сервера
-  // (`GET …/issues/epics`), а не выводом из загруженных задач: раньше «направления» получались
-  // из epicId загруженных задач, и при частичном сторе Timeline остался бы пустым или неверным.
-  // Timeline обновляется по issuesRevision (счётчики закрытых зависят от смены статусов).
+  // (`GET …/issues/epics`), а не выводом из загруженных задач: при частичном сторе Timeline иначе
+  // остался бы пустым или неверным. Обновляется по issuesRevision (закрытые зависят от статусов).
   const revision = useIssuesRevision();
   const epicsState = useEpics(data.currentProjectId || null, revision);
   const epics = epicsState.list;
-  const dayOfWeek = (new Date().getDay() + 6) % 7;
-  const todayPx = ((dayOfWeek + 0.5) / 7) * WEEK_PX;
+
+  const locale = lang === "ru" ? "ru-RU" : "en-US";
+  const origin = useMemo(() => startOfWeek(new Date()), []);
+  const scale = useMemo(() => {
+    const fill = Math.ceil((viewportW - TIME_PAD - 48) / PX_PER_DAY[zoom]);
+    return timeScale(origin, Math.max(WEEKS * 7, fill), zoom);
+  }, [origin, zoom, viewportW]);
+  const ticks = useMemo(
+    () =>
+      scaleTicks(scale, zoom, {
+        day: (d) => String(d.getDate()),
+        month: (d) => d.toLocaleDateString(locale, { month: "short" }).replace(".", ""),
+        year: (d) => String(d.getFullYear()),
+        quarter: (d) => t("timeline.quarter", { n: Math.floor(d.getMonth() / 3) + 1 }),
+      }),
+    [scale, zoom, locale, t],
+  );
+  const now = new Date();
+  const today = { x: scale.x(now) + scale.pxPerDay / 2, label: now.toLocaleDateString(locale, { day: "numeric", month: "short" }).replace(".", "") };
+  const weekPx = 7 * scale.pxPerDay;
 
   const scrollToToday = () => scrollElRef.current?.scrollTo({ left: 0, behavior: "smooth" });
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-[1120px] min-[1536px]:max-w-[1380px] min-[1920px]:max-w-[1680px] px-6 py-5">
-        <div className="anim-fadeup flex items-end justify-between gap-3">
-          <div>
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("timeline.title")}</h1>
-            <p className="mt-0.5 text-[11.5px] text-faint">{t("timeline.subtitle")}</p>
-          </div>
-          {epics.length > 0 && (
+    <div className="flex h-full flex-col">
+      <div className="flex flex-wrap items-end justify-between gap-3 px-4 pb-3 pt-5 sm:px-6">
+        <div className="min-w-0">
+          <h1 className="font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{t("timeline.title")}</h1>
+          <p className="mt-0.5 text-[12.5px] text-faint">{t("timeline.subtitle")}</p>
+        </div>
+        {epics.length > 0 && (
+          <div className="mb-0.5 flex shrink-0 items-center gap-2">
+            <Tabs
+              label={t("timeline.zoom")}
+              value={zoom}
+              onChange={setZoom}
+              items={ZOOMS.map((z) => ({ id: z, label: t(`timeline.zoom.${z}`) }))}
+            />
             <button
               onClick={scrollToToday}
-              className="mb-0.5 flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-line bg-panel px-3 text-[12px] font-medium text-sub transition-colors hover:border-accent hover:text-accent"
+              className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-semibold text-sub ring-1 ring-inset ring-line transition-colors hover:bg-hover hover:text-ink"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-danger" /> {t("timeline.today")}
+              <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_0_3px_var(--accent-subtle)]" /> {t("timeline.today")}
             </button>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {epicsState.loading && epics.length === 0 ? (
-          <div
-            className="mt-6 overflow-hidden rounded-xl border border-line bg-panel"
-            aria-busy="true"
-            aria-label={t("common.loading")}
-          >
-            {[0, 1, 2].map((n) => (
-              <SkeletonRow key={n} />
-            ))}
-          </div>
-        ) : epicsState.error && epics.length === 0 ? (
-          <div className="mt-6">
-            <Empty
-              icon={<IcTimeline size={24} />}
-              title={t("timeline.loadError")}
-              sub={epicsState.error}
-              action={
-                <button
-                  onClick={epicsState.reload}
-                  className="h-8 rounded-md border border-line bg-panel px-3 text-[12.5px] font-medium text-sub hover:border-accent hover:text-accent"
-                >
-                  {t("common.retry")}
-                </button>
-              }
-            />
-          </div>
-        ) : epics.length === 0 ? (
-          <div className="mt-6">
-            <Empty
-              icon={<IcTimeline size={24} />}
-              title={t("timeline.emptyTitle")}
-              sub={t("timeline.emptySub")}
-            />
-          </div>
-        ) : (
-          <div
-            ref={scrollRef}
-            tabIndex={0}
-            role="group"
-            aria-label={t("timeline.aria")}
-            className="focusable anim-fadeup mt-4 overflow-x-auto overflow-y-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]"
-            style={{ animationDelay: "60ms" }}
-          >
-            {/* шапка недель */}
-            <div className="grid border-b border-line bg-canvas/60" style={{ gridTemplateColumns: GRID_COLS, width: LABEL_PX + WEEKS * WEEK_PX }}>
-              <div className="sticky left-0 z-10 bg-canvas px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">{t("field.direction")}</div>
-              {weeks.map((w, i) => (
-                <div key={i} className={`border-l border-linesoft px-1.5 py-2.5 text-center ${i === 0 ? "bg-accentsoft/60" : ""}`}>
-                  <p className="font-mono text-[11px] font-bold text-sub">{w.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric" })}</p>
-                  <p className="text-[10px] capitalize text-faint">{w.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { month: "short" })}</p>
-                </div>
-              ))}
+      {epicsState.loading && epics.length === 0 ? (
+        <div className="mx-4 sm:mx-6" aria-busy="true" aria-label={t("common.loading")}>
+          {["ml-[4%] w-[46%]", "ml-[18%] w-[62%]", "ml-[30%] w-[38%]"].map((cls) => (
+            <div key={cls} className="py-4">
+              <div className="skeleton h-3.5 w-40" />
+              <div className={`skeleton mt-3 h-7 rounded-lg ${cls}`} />
             </div>
-
+          ))}
+        </div>
+      ) : epicsState.error && epics.length === 0 ? (
+        <div className="mx-4 sm:mx-6">
+          <EmptyState
+            icon={<IcTimeline size={22} tone="teal" />}
+            title={t("timeline.loadError")}
+            sub={epicsState.error}
+            action={<Button size="sm" variant="secondary" onClick={epicsState.reload}>{t("common.retry")}</Button>}
+          />
+        </div>
+      ) : epics.length === 0 ? (
+        <div className="mx-4 sm:mx-6">
+          <EmptyState
+            icon={<IcTimeline size={22} tone="teal" />}
+            title={t("timeline.emptyTitle")}
+            sub={t("timeline.emptySub")}
+            action={<Button size="sm" variant="secondary" onClick={() => setView("backlog")}>{t("empty.timeline.action")}</Button>}
+          />
+        </div>
+      ) : (
+        <div
+          ref={scrollRef}
+          tabIndex={0}
+          role="group"
+          aria-label={t("timeline.aria")}
+          className="focusable relative min-h-0 flex-1 overflow-auto border-t border-linesoft"
+        >
+          <TimeCanvas scale={scale} ticks={ticks} today={today}>
             {epics.map((epic) => {
               // Счётчики — агрегат сервера по всем детям; раскрытый список может показывать меньше
               // (постраничная подгрузка): это не рассинхрон, под списком подписано «Показано N из M».
@@ -214,63 +224,71 @@ export default function TimelineView() {
               const done = epic.childDone;
               const start = Math.max(0, Math.min(epic.tStart ?? 0, WEEKS - 1));
               const span = Math.max(1, Math.min(epic.tSpan ?? 3, WEEKS - start));
+              const barW = Math.max(8, span * weekPx);
               const expanded = open[epic.id];
+              const pct = total ? Math.round((done / total) * 100) : 0;
               return (
-                <div key={epic.id} className="border-b border-linesoft last:border-0" style={{ width: LABEL_PX + WEEKS * WEEK_PX }}>
-                  <div className="grid items-center" style={{ gridTemplateColumns: GRID_COLS }}>
+                <div
+                  key={epic.id}
+                  className="relative"
+                  ref={cssVars({
+                    "--bar-x": TIME_PAD + scale.x(addDays(origin, start * 7)),
+                    "--bar-w": barW,
+                    "--bar": directionColor(epic.id, epic.color),
+                    "--pct": `${pct}%`,
+                  })}
+                >
+                  {/* Строка направления: имя стоит у начала своей полосы (как роадмап Linear), полоса — под ним. */}
+                  <div className="relative h-[84px]">
                     <button
                       onClick={() => setOpen((o) => ({ ...o, [epic.id]: !expanded }))}
-                      className="sticky left-0 z-10 flex items-center gap-2.5 bg-panel px-4 py-3 text-left transition-colors hover:bg-canvas/60"
+                      aria-expanded={expanded}
+                      className="timeline-name absolute left-0 top-3 flex max-w-[520px] items-center gap-2 rounded-md py-0.5 pl-1 pr-2 text-left transition-colors hover:bg-hover/70"
                     >
-                      <IcChevR size={12} className={`shrink-0 text-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
-                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: epic.color ?? undefined }} />
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-semibold text-ink">{epic.title}</span>
-                        <span className="block font-mono text-[10px] text-faint">{t("timeline.issueCount", { done, total: total, key: epic.key })}</span>
+                      <IcChevR size={11} className={`shrink-0 text-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--bar)] shadow-[0_0_0_3px_color-mix(in_oklch,var(--bar)_20%,transparent)]" />
+                      <span className="truncate text-[13px] font-bold tracking-[-0.01em] text-ink">{epic.title}</span>
+                      <span className="shrink-0 rounded-md bg-sunken px-1.5 text-[11px] font-semibold tabular text-sub ring-1 ring-inset ring-linesoft">
+                        {t("timeline.issueCount", { done, total, key: epic.key })}
                       </span>
                     </button>
-                    <div className="relative col-span-full row-start-1" style={{ gridColumn: `2 / span ${WEEKS}` }}>
-                      <div className="relative h-[46px]">
-                        {/* линия сегодня */}
-                        <span className="absolute bottom-0 top-0 z-10 w-px bg-danger/70" style={{ left: todayPx }} title={t("timeline.today")} />
-                        {/* Разделители недель — один фоновый repeating-gradient вместо
-                            52 отдельных <span> на строку (аудит: 6.5x рост DOM после
-                            расширения WEEKS 8→52), как .dotgrid уже делает для канвы. */}
-                        <div
-                          className="pointer-events-none absolute inset-x-0 bottom-1 top-1"
-                          style={{ backgroundImage: `repeating-linear-gradient(to right, var(--c-linesoft) 0 1px, transparent 1px ${WEEK_PX}px)` }}
-                        />
-                        <button
-                          onClick={() => openIssue(epic.id)}
-                          title={t("timeline.barTitle", { title: epic.title, done, total: total })}
-                          className="timeline-bar group absolute top-1/2 flex h-6 items-center overflow-hidden rounded-full text-white shadow-sm"
-                          style={{ "--bar-x": `${start * WEEK_PX}px`, width: span * WEEK_PX, background: epic.color } as React.CSSProperties}
-                        >
-                          <span className="timeline-bar-fill absolute inset-y-0 left-0 bg-black/25" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
-                          <span className="relative z-10 truncate px-2.5 text-[10.5px] font-bold">{epic.key}</span>
-                        </button>
-                      </div>
-                    </div>
+                    <button
+                      onClick={() => openIssue(epic.id)}
+                      title={t("timeline.barTitle", { title: epic.title, done, total })}
+                      className="timeline-bar group absolute left-0 top-[50px] flex h-7 items-center overflow-hidden rounded-lg text-ink ring-1 ring-inset ring-[var(--bar-edge)]"
+                    >
+                      {/* Заливка — мягкий градиент тона направления; прогресс — насыщенная часть того же тона. */}
+                      <span aria-hidden className="timeline-bar-bg absolute inset-0" />
+                      <span className="timeline-bar-fill absolute inset-y-0 left-0 w-[var(--pct)]" />
+                      {barW >= 64 && <span className="relative z-10 truncate px-2.5 font-mono text-[11px]">{epic.key}</span>}
+                      {barW * (pct / 100) >= 104 && (
+                        <span className="absolute left-[var(--pct)] top-1/2 z-10 -translate-x-[calc(100%+7px)] -translate-y-1/2 text-[11px] font-bold tabular">{pct}%</span>
+                      )}
+                    </button>
                   </div>
                   {expanded && (
-                    <div className="anim-fadeup sticky left-0 border-t border-dashed border-linesoft bg-canvas/40" style={{ width: viewportW || "100%" }}>
+                    <div
+                      ref={cssVars({ "--panel-w": Math.max(0, (viewportW || 600) - 32) })}
+                      className="anim-fadeup sticky left-4 mb-2 ml-4 w-[var(--panel-w)] rounded-lg border border-linesoft bg-panel/90 shadow-e1"
+                    >
                       <EpicChildren projectId={data.currentProjectId} epicId={epic.id} total={total} />
                     </div>
                   )}
                 </div>
               );
             })}
-          </div>
-        )}
+          </TimeCanvas>
+        </div>
+      )}
 
-        {epicsState.truncated && (
-          <p className="mt-3 text-[11.5px] font-medium text-warn">{t("timeline.epicsTruncated", { n: epics.length })}</p>
-        )}
-
-        <p className="anim-fadeup mt-3 flex items-center gap-2 text-[11px] text-faint" style={{ animationDelay: "120ms" }}>
-          <span className="inline-block h-3 w-px bg-danger/70" /> {t("timeline.legend")}
-        </p>
-      </div>
+      {(epicsState.truncated || epics.length > 0) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-linesoft px-4 py-2 text-[12px] text-faint sm:px-6">
+          <span className="flex items-center gap-2">
+            <span className="inline-block h-3 w-px bg-accent" /> {t("timeline.legend")}
+          </span>
+          {epicsState.truncated && <span className="font-medium text-warn">{t("timeline.epicsTruncated", { n: epics.length })}</span>}
+        </div>
+      )}
     </div>
   );
 }

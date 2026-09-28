@@ -164,6 +164,24 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `GET /api/reports/summary` | query `ReportQuery` | requireAuth; scope = **видимые проекты** | закрыто/создано/открыто/просрочено за период, ср. и медианное время в работе, разбивка (`groupBy`), недельный тренд |
 | `GET /api/reports/issues.csv` | query `ReportExportQuery` | requireAuth; scope = **видимые проекты** | построчная выгрузка (`scope`: `closed`\|`created`\|`open`); CSV с `;` и BOM для русского Excel; пишется в `audit_log` |
 | `GET /api/admin/audit-log/export` | `format=jsonl\|csv`, `from?`, `to?`, `limit<=100000` | global admin | SIEM-выгрузка: одна запись на строку, стабильные `timestamp/actor/action/object/result/details` |
+| `GET /api/admin/license` | — | global admin | статус офлайн-лицензии (`getLicenseStatus`): `unset` / `invalid` (причина) / `active` / `expired` с `claims` и занятыми местами; сам токен не отдаётся. Только чтение — установка по-прежнему CLI |
+| `GET /api/project-templates` | — | global admin | шаблоны проектов (ТЗ 5.10): 5 встроенных (`id = builtin:<id>`, `server/src/templates/builtin.json`) + шаблоны организации (`project_templates`) |
+| `POST /api/projects/:projectId/save-as-template` | `{name ≤80, description ≤300}` | `saveProjectTemplate` (роль admin в проекте = глобальный admin); занятое имя — `409`; конфигурация не проходит `ProjectTemplateSpec` — `400` | снимок статусов, переходов, полей, шаблонов задач, меток и представления по умолчанию |
+| `DELETE /api/project-templates/:templateId` | — | global admin | удалить шаблон организации; встроенные не удаляются |
+| `GET /api/me/onboarding` | — | requireAuth | прогресс «Начала работы» `{done, hidden, hints}` (ТЗ 5.11, ADR-0019); шаги отмечает сервер от действий |
+| `POST /api/me/onboarding/steps` | `{step: "theme"}` | requireAuth | единственный шаг, о котором сообщает клиент; остальные — `400` |
+| `POST /api/me/onboarding/hide` | — | requireAuth | скрыть карточку навсегда |
+| `POST /api/me/hints/:hintId/dismiss` | — | requireAuth | закрыть подсказку навсегда (id `^[a-z][a-z0-9.-]{0,39}$`, хранится не больше 100) |
+| `GET/PATCH /api/admin/setup`, `POST /api/admin/setup/complete` | `{instanceName}` | global admin | первичная настройка: статус, название инсталляции, «завершить» |
+| `POST/DELETE /api/admin/demo-project` | — | global admin | демо-проект (один; `409`, если уже есть); удаление не оставляет строк в БД, в т.ч. в `audit_log` |
+| `PATCH /api/projects/:projectId/appearance` | `ProjectAppearanceBody` `{icon?, color?, background?}` | `editAppearance` (admin, manager) | внешний вид проекта (ТЗ 5.14 п.7); `audit_log: project.appearance` |
+| `POST/DELETE /api/projects/:projectId/background-photo`, `GET …/background-photo/:size` | multipart `full`, `small` (WebP) + `luma` | `editAppearance` · `browse` | своё фото фона проекта (ТЗ 5.14 п.2): сервер проверяет WebP и габариты, `size = full\|small` |
+| `GET /api/instance/brand`, `GET /api/instance/brand/logo` | — | **публично** (нужно экрану входа) | брендирование (ТЗ 5.14 п.5): `{name, hue, logoUpdatedAt}`; `null` — по умолчанию |
+| `PATCH /api/admin/brand`, `POST/DELETE /api/admin/brand/logo` | `{name?, hue? 255–320}` · multipart PNG/WebP ≤ 200 КБ, 32–1024 px | global admin | диапазон оттенка целиком проверяет `npm run contrast:check`; `audit_log: instance.brand` |
+| `GET /api/roadmap` | — | requireAuth; scope = **видимые проекты** | роадмап (ТЗ 5.15): проекты с датами, прогрессом (`done/total` по всем задачам, включая архив), вехами и `canEdit`; зависимости — только между видимыми |
+| `PATCH /api/projects/:projectId/roadmap` | `{startDate?, targetDate?}` (ГГГГ-ММ-ДД или `null`) | `editRoadmap` (admin, manager); цель раньше начала — `400` | даты проекта; `audit_log: project.roadmap` |
+| `POST …/milestones`, `PATCH/DELETE …/milestones/:milestoneId` | `{name ≤80, date}` | `editRoadmap`; не больше 30 у проекта — `409` | вехи; `audit_log: project.milestone.*` |
+| `POST …/dependencies`, `DELETE …/dependencies/:sourceProjectId` | `{sourceProjectId}` | `editRoadmap` в **зависимом** проекте; источник должен быть виден (иначе `404`); цикл — `409 DEPENDENCY_CYCLE` | «проект ждёт другой»; проверка цикла и вставка — в одной транзакции под advisory-блокировкой; `audit_log: project.dependency.*` |
 | `GET …/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
 | `POST …/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
 | `DELETE …/workflow/transitions/:id` | — | **admin** | удалить переход |
@@ -171,6 +189,7 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `POST /api/auth/logout` | — | requireAuth | завершает сессию: `users.tokens_valid_from = now()`, все ранее выданные токены становятся недействительными (миграция 017) |
 | `GET /api/users` | — | **admin** | все, включая деактивированных; DTO с `globalRole` |
 | `GET /api/users/pickable?q=` | — | requireAuth | **поиск** по имени/должности: минимум 2 символа, до 20 совпадений. Справочник целиком не отдаётся |
+| `POST /api/projects` | `ProjectCreateBody` (+ `templateId?`, `members?[{userId, role}]`, `icon?`, `color?`, `background?` — ADR-0018) | global admin | создать проект; шаблон и участники применяются в той же транзакции — при сбое проекта нет |
 | `POST /api/admin/users` | `CreateUserBody` (bcrypt, `globalRole`) | **admin**; занятый username — `409` | создать пользователя; членство в проекте — отдельно |
 | `PATCH /api/users/:id` | `{globalRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена **глобальной** роли; `invalidateUserCache` — действует сразу |
 | `PUT /api/project/members/:userId` | `SetMemberBody` `{role}` | **admin** (`manageAccess`) | добавить участника / сменить проектную роль; upsert; `invalidateMembership` |

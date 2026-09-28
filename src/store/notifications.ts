@@ -1,12 +1,13 @@
 /* Уведомления (миграция 011), настройки уведомлений и аватар текущего пользователя — действия стора. Вынесено из
  * store.tsx без изменений поведения (ТЗ 2.3, шаг 4). */
+import { refreshOnboardingSoon } from "../onboarding";
 import { useCallback } from "react";
 import type { NotifyPrefsT, User } from "../types";
 import { avatarApi, invalidateAvatarBlobUrl, notificationsApi, type NotifyPrefs } from "../api";
 import { applyNotificationAction, mapNotification } from "./mappers";
 import type { StoreCtx } from "./ctx";
 
-export function useNotificationActions({ setData, dataRef, toast, handleApiError, local, sessionEpochRef }: StoreCtx) {
+export function useNotificationActions({ setData, dataRef, toast, handleApiError, local, sessionEpochRef, notifStore }: StoreCtx) {
   /* -------- уведомления (миграция 011) -------- */
 
   const refreshNotifications = useCallback(async () => {
@@ -14,7 +15,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
     try {
       const [res, unread] = await Promise.all([notificationsApi.list(), notificationsApi.unreadCount()]);
       if (epoch !== sessionEpochRef.current) return;
-      setData((prev) => ({ ...prev, notifications: res.items.map(mapNotification), unreadCount: unread.count }));
+      notifStore.setState(() => ({ notifications: res.items.map(mapNotification), unreadCount: unread.count }));
     } catch {
       /* тихо — колокол не критичен */
     }
@@ -25,7 +26,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
     try {
       const { count } = await notificationsApi.unreadCount();
       if (epoch !== sessionEpochRef.current) return;
-      setData((prev) => (prev.unreadCount === count ? prev : { ...prev, unreadCount: count }));
+      notifStore.setState((prev) => (prev.unreadCount === count ? prev : { ...prev, unreadCount: count }));
     } catch {
       /* тихо */
     }
@@ -37,7 +38,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
       try {
         await notificationsApi.markRead(ids);
         if (epoch !== sessionEpochRef.current) return;
-        setData((prev) => applyNotificationAction(prev, ids, "read"));
+        notifStore.setState((prev) => applyNotificationAction(prev, ids, "read"));
       } catch (err) {
         handleApiError(err);
       }
@@ -52,7 +53,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
       try {
         await notificationsApi.dismiss(ids);
         if (epoch !== sessionEpochRef.current) return;
-        setData((prev) => applyNotificationAction(prev, ids, "dismiss"));
+        notifStore.setState((prev) => applyNotificationAction(prev, ids, "dismiss"));
       } catch (err) {
         handleApiError(err);
       }
@@ -65,6 +66,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
       void (async () => {
         try {
           const { notifyPrefs } = await notificationsApi.setPrefs(patch);
+          refreshOnboardingSoon();
           if (epoch !== sessionEpochRef.current) return;
           setData((prev) => ({ ...prev, notifyPrefs: notifyPrefs as NotifyPrefsT }));
           toast("success", local("Настройки уведомлений сохранены", "Notification settings saved"));

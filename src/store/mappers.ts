@@ -6,6 +6,7 @@ import { resolveRole } from "../permissions";
 import { validateDescription, validateLabels, validateTitle } from "../validation";
 import { issuesApi, type CollaboratingItem, type ServerAttachment, type ServerChecklistItem, type ServerIssueLink, type ServerIssueTemplate, type ServerNotification, type ServerIssue, type ServerSprint, type SafeUser } from "../api";
 import { parsePath } from "../router";
+import type { NotificationsState } from "./slices";
 
 export const canTransition = (wf: Workflow, from: string, to: string) =>
   from === to || wf.transitions.some((t) => t.from === from && t.to === to);
@@ -41,7 +42,7 @@ export const fmtDate = (iso: string, lang: "ru" | "en" = "ru") =>
  *  непрочитанных в этом случае считаем как prev.unreadCount целиком, а не по
  *  (неполному) списку в памяти. С `ids` — считаем реально непрочитанные среди
  *  них, устойчиво к вызову с уже прочитанными id (review PR #19, PR #30). */
-export const applyNotificationAction = (prev: Data, ids: string[] | undefined, mode: "read" | "dismiss"): Data => {
+export const applyNotificationAction = <T extends NotificationsState>(prev: T, ids: string[] | undefined, mode: "read" | "dismiss"): T => {
   const set = ids && ids.length ? new Set(ids) : null;
   let cleared = 0;
   const notifications = prev.notifications.reduce<NotificationT[]>((acc, n) => {
@@ -81,9 +82,16 @@ export interface SoloState {
   openTarget: { projectId: string; issueId: string } | null;
 }
 
+/** Как показана открытая задача (ADR-0013 §3): панель справа поверх представления
+ *  (`?issue=KEY`) или полная страница (`/p/:key/issue/:issueKey`). */
+export type IssueMode = "panel" | "page";
+
 export interface UIState {
   view: ViewId;
+  /** Подраздел дома настроек (`/settings/:section` и т.п.); "" — раздел по умолчанию. */
+  section: string;
   selectedIssueId: string | null;
+  issueMode: IssueMode;
   createOpen: boolean;
   /** Родитель для «+ добавить подзадачу» (миграция 021) — CreateIssueModal
    *  предзаполняет им поле и делает его нередактируемым. null — обычное
@@ -96,6 +104,10 @@ export interface UIState {
    *  CollaboratingView подхватывает и сбрасывает это на маунте, чтобы выбрать именно
    *  её. Заменяет прежний точечный разбор location.hash внутри самого компонента. */
   collabOpenIssueId: string | null;
+  /** Прямая ссылка, которая никуда не ведёт (ТЗ 5.12 a): проекта или задачи нет, или к ним нет доступа — сервер
+   *  эти случаи не различает намеренно. Не null — вместо представления показывается страница «Не найдено»;
+   *  сбрасывается любым переходом (setView, openIssue). */
+  missing: string | null;
 }
 
 export interface CreateInput {
@@ -216,7 +228,7 @@ export const writeLastProject = (id: string): void => {
  *  тестом App.routerSync.test.tsx до того, как попасть в реальный деплой). */
 export type BootPathTarget =
   | { kind: "issue"; projectId: string; issueId: string }
-  | { kind: "view"; projectId: string; view: ViewId };
+  | { kind: "view"; projectId: string; view: ViewId; section?: string };
 
 export const resolveBootPathTarget = async (
   path: string,
@@ -233,9 +245,9 @@ export const resolveBootPathTarget = async (
   }
   if (parsed.kind === "view") {
     const p = projects.find((pr) => pr.key === parsed.projectKey);
-    return p ? { kind: "view", projectId: p.id, view: parsed.view } : null;
+    return p ? { kind: "view", projectId: p.id, view: parsed.view, section: parsed.section } : null;
   }
-  return null; // reports / root — bootstrap() сам выбирает вид по обычным правилам
+  return null; // global / root — bootstrap() сам выбирает вид по обычным правилам
 };
 
 export const emptyData = (): Data => ({
@@ -256,8 +268,6 @@ export const emptyData = (): Data => ({
   assignedTruncated: false,
   issuesComplete: false,
   collaborations: [],
-  notifications: [],
-  unreadCount: 0,
   notifyPrefs: {},
 });
 

@@ -1,11 +1,23 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import ru, { type TKey } from "./ru";
-import en from "./en";
 
 export type { TKey };
 
 export type Lang = "ru" | "en";
-const DICTS: Record<Lang, Record<TKey, string>> = { ru, en };
+/* Английский словарь — отдельным чанком: его грузят только те, кто выбрал English (ТЗ 5.2, бюджет бандла).
+ * main.tsx ждёт его до первой отрисовки, если язык уже сохранён, — вспышки русского текста нет. */
+type Dict = Record<TKey, string>;
+const DICTS: Partial<Record<Lang, Dict>> = { ru };
+let enLoading: Promise<void> | null = null;
+export function loadLang(l: Lang): Promise<void> {
+  if (DICTS[l]) return Promise.resolve();
+  enLoading ??= import("./en").then((m) => {
+    DICTS.en = m.default;
+  });
+  return enLoading;
+}
+/** Язык из localStorage — для main.tsx, чтобы дождаться словаря до первой отрисовки. */
+export const storedLang = (): Lang => readStoredLang();
 const STORAGE_KEY = "taskira.lang";
 
 function readStoredLang(): Lang {
@@ -37,13 +49,19 @@ function interpolate(s: string, params?: TParams): string {
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(readStoredLang);
+  // Словарь выбранного языка ещё не пришёл (редкий случай: язык сменили только что) — пока русский, потом перерисуем.
+  const [, setLoaded] = useState(0);
+  useEffect(() => {
+    if (!DICTS[lang]) void loadLang(lang).then(() => setLoaded((n) => n + 1));
+  }, [lang]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
 
   const setLang = (l: Lang) => {
-    setLangState(l);
+    // Сначала словарь, потом переключение — чтобы интерфейс не мигнул русским.
+    void loadLang(l).then(() => setLangState(l));
     try {
       localStorage.setItem(STORAGE_KEY, l);
     } catch {
@@ -51,10 +69,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const dict = DICTS[lang] ?? ru;
   const t = useMemo<TFn>(() => {
-    const dict = DICTS[lang];
     return (key, params) => interpolate(dict[key] ?? ru[key], params);
-  }, [lang]);
+  }, [dict]);
 
   const tn = useMemo<TnFn>(() => {
     return (n, one, few, many) => t(pluralForm(lang, n, [one, few, many]) as TKey);

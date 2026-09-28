@@ -51,6 +51,8 @@ npm run dev         # Vite dev server on http://localhost:3000 (strictPort — f
 npm run build       # production build to dist/
 npm run typecheck   # tsc --noEmit
 npm test            # vitest run — permissions / validation / store helpers
+npm run bundle:check    # after build: gzip JS/CSS vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
+npm run perf:rerenders  # re-render measurement tables (src/perf/, ADR-0011); same file runs silently in npm test
 ```
 
 Server (run from `server/`):
@@ -131,7 +133,13 @@ required check). The old text-emitting `generate-client-contracts.mjs` / `contra
 
 ### Client data flow
 
-`src/store.tsx` is a single React Context (`StoreProvider` / `useStore`) — no reducer library.
+`src/store.tsx` is a React Context (`StoreProvider` / `useStore`) — no reducer library. Measured (ТЗ 5.2):
+every state change re-rendered the whole tree incl. all board cards; the accepted fix is a domain-by-domain move to
+`useSyncExternalStore` selector subscriptions behind the `useStore()` facade
+([ADR-0011](docs/adr/0011-store-selector-subscriptions.md)). Done so far (steps 0–2): board cards take stable props
+and columns are `memo` (`BoardColumn`), so they don't depend on the context; toasts and notifications live in
+external stores (`src/store/slices.ts`) — read them with `useToasts()` / `useNotifications()` / `useUnreadCount()`,
+they are **not** on `useStore()` anymore. Modal chunks are preloaded via `src/lazyModals.ts`.
 Boot sequence in `App.tsx` → `store.bootstrap()`: if no token in `localStorage` (`taskira.token`),
 show `LoginForm`; otherwise call `authApi.me()` + `projectsApi.bootstrap(id)` + `issuesApi.list()`
 and populate one flat `Data` object. `bootStatus` drives the shell:
@@ -149,9 +157,15 @@ carries `comments`/`activity` separately (fetched on demand when an issue modal 
 Mutations are optimistic-ish: call API, then patch `data` from the returned DTO; `moveStatus`
 re-fetches issues on failure to undo local drift.
 
-Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating`)
-are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs
-(`/p/:projectKey/<view>`, `/reports` — the one exception, project-less) by
+Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating | inbox | my`)
+are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs (ADR-0013 §5:
+`/p/:projectKey/{board,list,timeline,sprints}`, `/p/:projectKey/settings/{workflow,access}`, and project-less
+`/inbox`, `/my-issues`, `/reports`, `/admin/departments`, `/help`, `/shared` — a project-less path at boot opens that view
+inside the last project's shell instead of the home screen; old `/p/:projectKey/<view>` links still parse and are replaced
+in place — `samePlace()` in `src/router.ts`, query preserved; an open issue is `?issue=KEY` on the view path when
+shown as the right-hand panel (`ui.issueMode = "panel"`, Back closes it, `J`/`K` walk the view's `data-issue-id`
+order via `src/issueNav.ts`) and `/p/:projectKey/issue/:issueKey` when shown as a full page inside the sheet
+(`"page"` — used from Inbox, My issues and search, and by every shared link)) by
 `useRouterSync.ts` — `wouter` (ADR-0008), not a hand-rolled hash parser (ТЗ 3.1, plan v2
 Track 3; see that file's own header comment for the bidirectional-sync design and the
 race it guards against). `backlog` is internal id for the "Список задач" view
@@ -164,9 +178,23 @@ unique, so no project needs to be named to resolve it) before opening the issue;
 holds the pure path helpers/parser. `nginx.conf`'s `try_files $uri /index.html` (and Vite's
 dev-server default) is what makes a hard refresh on one of these paths work — required now
 that the path itself carries state, unlike the old hash-only scheme.
-Keyboard shortcuts (`/`, `C`, `1`–`9` for the nine views, `Esc`) are wired in `App.tsx`;
-they are suppressed while a modal is open. `reports` (`ReportsView.tsx`) is project-less —
+Keyboard shortcuts (`/`, `C`, `1`–`4` for the project views — board/list/timeline/sprints, `G` then `H`/`I`/`M`/`R`/`S` for
+home/inbox/my issues/reports/project settings, `[` collapses the sidebar to an icon rail (`taskira.sidebar.collapsed`), `Esc`, `?` help — ADR-0013 §7) are wired in `App.tsx`;
+they are suppressed while a modal is open. `⌘K`/`Ctrl+K` (matched by `e.code`, so it works in the Russian layout)
+opens the command palette from anywhere (`CommandPalette.tsx`, lazy chunk; `src/palette/` — fuzzy + wrong-layout
+matching, recent issues in `localStorage`, `openPalette()` event for buttons). `reports` (`ReportsView.tsx`) is project-less —
 it reads `/api/reports/*`, which scope themselves to the user's visible projects.
+
+**Settings — three homes** (ТЗ 5.9, ADR-0013 §2, `docs/design/IA.md` §3): `ViewId` `settings` (personal, `/settings/:section`),
+`projectSettings` (`/p/:projectKey/settings/:section`) and `orgSettings` (`/admin/:section`), sub-page in `ui.section`
+(`setView(view, section)`). Section lists — `src/settings/sections.ts`; who sees what — `src/settings/access.ts`
+(`allowedSections`: project general/modules/archive and the whole organization home are global-admin only — the server's
+`PATCH/DELETE /projects/:id` and admin routes require it; workflow/fields/templates/access are open to every member,
+read-only without `editWorkflow`/`manageAccess`, as before); open a home with `useOpenSettings()` so it lands on a section
+the person may see. Screens: `src/components/settings/` (`SettingsView` shell; `PersonalSettings`, `ProjectSettings`,
+`OrgSettings`), the old `WorkflowView` (split by `part`), `PermissionsView` (the only place for project members) and
+`AdminView` (departments + project creation only). Every setting has exactly one home; env-only values are shown
+read-only with an `env` tag. `GET /api/admin/license` (read-only, `routes/license.ts`) feeds the license page.
 
 The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `issues`,
 `statuses`) and a `doneStatusIds` `Set`. Use them instead of `data.users.find(...)` inside
@@ -512,6 +540,39 @@ the backlog (`sprint_id = NULL`) in one transaction; there is no auto-carry into
 a later pass will generalize, not reinvent; this migration does not build that model, only the one
 flag it needs today.
 
+Project templates (`project_templates`, migration `20260927T1000_project_templates.sql`, [ADR-0017](docs/adr/0017-project-templates-as-data.md),
+`services/projectTemplates.ts`): a template is **data over existing project settings** — statuses (own `sid`s allowed),
+transitions, custom fields, issue templates, suggested labels, default view — never code. Five built-ins live in
+`server/src/templates/builtin.json` (ТЗ 5.10 caps them at 5); organisation templates are rows saved from a project
+(`POST /projects/:id/save-as-template`, PermId `saveProjectTemplate`). `POST /projects` with `templateId` + `members[]`
+creates the project, applies the template and adds members in **one transaction**. Workflow reset returns 409 for a
+project whose statuses aren't the default four (reset would orphan its issues). New project columns: `default_view`
+(bootstrap opens it when the URL names no view) and `suggested_labels` (quick "+ label" chips in `IssueModal`).
+Client: `ProjectWizard.tsx` (lazy; opened by `openProjectWizard()` from the sidebar "+", the palette and
+«Отделы и проекты») — template → name/key/icon/colour (`suggestKey`, transliterated) → access → background + review.
+`WorkflowView`'s graph lays out any status set with `src/workflowLayout.ts` (layered: longest forward path, loop-back
+statuses beside their earliest predecessor, done statuses last or in a row below; arcs for back/skip edges), the
+standard four keep their fixed layout. **Project appearance** ([ADR-0018](docs/adr/0018-project-appearance.md),
+migration `20260927T1400_project_appearance.sql`): `projects.icon`/`color`/`background` are ids from closed lists in
+`contract.ts` (`PROJECT_ICONS`, `PROJECT_COLORS` = `tk-tone-*`, `PROJECT_BACKGROUNDS` = atmosphere presets) — never
+hex/URLs, so nothing new under the CSP; `null` = old behaviour (key letter, tone by key, personal background).
+`ProjectMark` (`ui.tsx`) takes `icon`/`color` — pass them (or `lookOf(data.projects, key)` from `src/projectLook.tsx`)
+wherever a project mark is shown. A project background overrides the personal one while that project is open
+(`setProjectBackground()` in `theme.ts`, driven from `App.tsx`); the wizard previews it live and restores on close.
+
+Onboarding ([ADR-0019](docs/adr/0019-onboarding-in-product.md), migration `20260927T1800_onboarding.sql`): progress lives
+on the server per user (`user_onboarding`: done steps, hidden, dismissed hint ids). Steps are marked **by the server from
+real actions** — routes call `markStep()` (`services/onboarding.ts`, never throws, per-process cache) after opening an
+issue you're assigned to, a status change, a comment, saving notification prefs; only `theme` is reported by the client
+(`markThemeStep()` via `onThemeChosen` in `theme.ts`). Client store: `src/onboarding.ts` (external store; call
+`refreshOnboardingSoon()` after an action that may mark a step). UI: `GettingStarted` (Home; collapsed in the sidebar
+when there's no Home), `<Hint id>` one-line first-encounter tips (never modal, never shown again once dismissed),
+guest explanation in `SoloView`, «Организация → Начальная настройка» (`Setup.tsx`, `/admin/setup`) opened once per
+session for an admin while `instance.setup_completed_at` is null. Demo project (`projects.is_demo`, at most one) is built
+directly in one transaction by `services/demoProject.ts` — no notifications, **no audit rows** — and its deletion removes
+the project plus any `audit_log` rows for it and its issues; `server/test/onboarding.test.ts` compares row counts of every
+table before/after. New project-list columns reach the client as `isDemo` (sidebar «демо» tag).
+
 Department membership (`department_members`, migration 009) has always had a `source` column
 (`'ldap' | 'manual'`), but only the LDAP sync path (`departmentSync.ts`) ever wrote to it until
 now — there was no route or UI for `source='manual'` despite the schema explicitly being built
@@ -603,20 +664,59 @@ since any edit touches it. The board shows the last 14 days in its done column
   the client has no router and no drag lib wired in; hash routing is hand-rolled in `App.tsx`.
 - CI (`.github/workflows/test.yml`) now has a `client` job (root `npm run typecheck` +
   `npm test` + `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
-- **Theming** (`src/theme.ts` + `src/index.css`): the palette lives in plain custom
-  properties on `:root` / `:root[data-theme="dark"]` (`--c-canvas`, …); `@theme` only
-  aliases them (`--color-canvas: var(--c-canvas)`) so `bg-canvas` / `text-ink` / etc.
-  resolve live per theme. **Don't add raw `#hex` to components** — use a token class or
-  `var(--c-*)` in inline styles, otherwise it won't dark-theme. `catColor()` in `ui.tsx`
-  returns `var(--c-*)`. Theme mode (`system|light|dark`) and one of 6 background presets
-  are in `localStorage` only (`taskira.theme` / `taskira.bg`), applied to `<html>` by
-  `applyTheme()`; the profile-menu "Оформление" popup (`AppearanceSettings` in `ui.tsx`)
-  is the UI. Sidebar-internal colors stay hardcoded (the rail is dark in both themes).
-- **Responsive layout**: below 768px the issue modal's right-hand panel (status, assignee,
-  due date, labels) collapses under the main content instead of sitting beside it, the
-  sidebar hides in favor of a native `<select>` in `Topbar.tsx` carrying the same sections
-  and visibility rules (admin-only "Департаменты", collab-only "Мои подключения"), and view
-  side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
+- **Theming / design tokens** (ADR-0012 + ADR-0016, [docs/design/DESIGN.md](docs/design/DESIGN.md)): every colour lives in
+  `src/styles/tokens.css` — OKLCH primitives (`--violet-*`, `--gray-*`, hue 288) → semantic tokens (`--bg-*`,
+  `--text-1/2/3`, `--border-*`, `--accent-*`, `--status-*`, `--elev-*`) → aliases of the old `--c-*` names, so old
+  classes (`bg-canvas`, `text-ink`, …) still resolve ([docs/design/ALIASES.md](docs/design/ALIASES.md)). Themes
+  override only the semantic layer. **Don't add raw `#hex`/`rgb()` to components** — `npm run colors:check` fails CI;
+  `npm run contrast:check` fails CI if a declared text/background pair drops below 4.5:1. `npm run motion:check` fails CI on an animation/transition
+  duration that isn't a `--dur-*` token (or > 450 ms), or on a moving animation not overridden under
+  `prefers-reduced-motion` (ТЗ 5.13, `scripts/check-motion.mjs`). `npm run antilist:check` fails CI on caps labels
+  (`uppercase`; `first-letter:uppercase` is fine) or a trailing «→» in a dictionary string (DESIGN.md «Нельзя», ТЗ 5.16). The start splash is static markup in `index.html`
+  (`#splash`), removed by `src/splash.ts` right after the first render. Theme and atmosphere preset
+  are `<html>` attributes (`data-theme`, `data-atmosphere`) set by `applyTheme()`
+  and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg`).
+  ADR-0016 (supersedes parts of 0012): the sidebar (`.glass-side`) and the work sheet (`.glass-sheet`) are glass over
+  the atmosphere glow on `body` (no grain); popovers/menus/toasts use `.glass`; never glass on task cards or forms.
+  Font is Manrope only (vendored in `src/assets/fonts/`); `font-mono` in the UI means issue keys = Manrope with tabular
+  numerals, real code uses `--font-code`. Icons are the in-house duotone set in `src/icons.tsx` (`tone` prop for nav
+  colours); logo is `<Logo variant="mark|mono|app">`, app-icon files come from `scripts/generate-brand-assets.mjs`.
+- **Component library** (ТЗ 5.7, [ADR-0014](docs/adr/0014-component-library-native-primitives.md),
+  [docs/design/COMPONENTS.md](docs/design/COMPONENTS.md)): `src/ds/` — own components on native `<dialog>` and the
+  Popover API, positioned by `@floating-ui/dom` (Radix was rejected: its scroll lock injects `<style>`, which our CSP
+  blocks). Styles are `ds-*` classes in `src/ds/ds.css` (layer `components`); states via `:hover`/`:focus-visible`/
+  `aria-disabled`/`data-loading`, `data-force` only for the showcase; density is `data-density` on `<html>`. The
+  showcase `/dev/ui` (`src/dev/DevUI.tsx`) exists only under `import.meta.env.DEV` in `main.tsx`; `npm run test:ui`
+  (Playwright + axe, `e2e/`, baselines in `e2e/__screenshots__`, Linux Chromium of `@playwright/test` 1.56.1 — pinned
+  exactly) runs in CI only for PRs touching components (`.github/workflows/ui-visual.yml`). jsdom has no Popover API
+  (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. `Button`/`IconButton`/`AvatarGroup` use the lazy `Tooltip` from `ds/LazyTooltip.tsx` and `dsId` lives in `ds/ids.ts`, so `@floating-ui/dom` stays out of the entry chunk — in tests await tooltips (`findByRole("tooltip")`). **Modules in the entry chunk (Board, Sidebar, LoginForm, StatusScreens, ErrorBoundary, GettingStarted) import `ds` components from their files (`../ds/Button`), not the `../ds` barrel** — the barrel's re-exports pull `Overlay` into `modulepreload`. The English dictionary is a lazy chunk (`loadLang()` in `src/i18n/index.tsx`; `main.tsx` awaits it before the first render when English is stored). Screens
+  still use `src/ui.tsx`; migration follows the map in COMPONENTS.md (ТЗ 5.12).
+- **Dynamic style values under the CSP** ([ADR-0010](docs/adr/0010-dynamic-styles-under-csp.md), verified in Chromium by
+  `npm run csp:spike`): CSSOM writes (`el.style.x`, `setProperty('--x')`, WAAPI `el.animate`) are allowed by
+  `style-src-attr 'none'`; `style=""` in markup, `setAttribute('style')` and `<style>` are blocked. `secure-jsx`
+  currently turns every distinct `style` value into a new rule in `public/dynamic.css` (unbounded) — for continuous
+  values (positions, progress, colours from data) set a custom property via ref/CSSOM and consume it from a static rule
+  (`ref={cssVars({"--x": 12})}` from `src/cssVars.ts` + `left-[var(--x)]`);
+  enumerable states go in `data-*` attributes. Browser matrix: [docs/design/BROWSERS.md](docs/design/BROWSERS.md).
+- **Time scale** (ТЗ 5.12 f): `src/timeScale.ts` (pure: date ↔ x, week/month/quarter ticks) + `TimeCanvas.tsx` (grid,
+  sticky header, today line) are shared by the Timeline and the project roadmap (ТЗ 5.15) — reuse them, don't
+  write a second scale. **Roadmap** (`/roadmap`, `RoadmapView.tsx`, pure layout in `src/roadmapLayout.ts`; server
+  `routes/roadmap.ts`, migration `20260928T1400_project_roadmap.sql`, PermId `editRoadmap`, [ADR-0021](docs/adr/0021-project-roadmap.md)): project start/target dates,
+  milestones, dependencies (cycles refused server-side under one advisory lock); edited in project settings «Сроки и
+  вехи». Rows keep positions in days and CSS multiplies by `--ppd`, and only rows in the scroll window are rendered —
+  measured: with 100 projects a zoom switch re-rendering every row cost 250 ms, mostly style recalc; keep it that way.
+- **Branding** (ТЗ 5.14 п.5, [ADR-0020](docs/adr/0020-brand-hue-bounded-variable.md), `src/brand.ts`, `BrandMark.tsx`, «Организация → Брендирование»): name, accent hue
+  (`--brand-h` on `<html>`, every accent token derives from it; range `BRAND_HUE` 255–320 in `contract.ts`, mirrored in
+  `brand.ts`, whole range swept by `contrast:check`), PNG/WebP logo. Public `GET /api/instance/brand`; hue and name are
+  cached in `taskira.brand` so `theme-init.js` applies them before first paint. Use `<BrandMark>`/`useBrandName()`
+  instead of `<Logo>`/"Taskira" in the shell.
+- **Responsive layout**: below 1024px the sidebar is a drawer over the content, opened by the
+  «Меню» button in `Topbar.tsx` (`openSidebarDrawer()`), closed by navigation / Esc / the scrim; the
+  project view tabs stay in the header, icon-only for inactive tabs, and the search box idles as a
+  magnifier. `.glass-edge` sets `position: relative` unlayered, so the drawer's `position: fixed`
+  lives in `index.css` (`.side-drawer`), not in a Tailwind utility. Below 768px the issue modal's
+  right-hand panel (status, assignee, due date, labels) collapses under the main content, the board
+  scrolls column-by-column with snap, and view side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
   don't assume mobile parity for anything not explicitly listed here.
 - **`<Dropdown>` (`ui.tsx`) is the only correct way to build a popup menu** — it closes on
   outside click, on Escape, and on any *other* dropdown opening (`DROPDOWN_OPEN_EVT`, a

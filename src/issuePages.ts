@@ -70,6 +70,46 @@ export function appendUnique(items: Issue[], page: Issue[]): Issue[] {
   return fresh.length === 0 ? items : [...items, ...fresh];
 }
 
+/** Глубокое сравнение простых данных (примитивы, массивы, plain-объекты) — для задач из API. */
+function sameData(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a)) {
+    if (!Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!sameData(a[i], b[i])) return false;
+    return true;
+  }
+  if (Array.isArray(b)) return false;
+  const ka = Object.keys(a);
+  if (ka.length !== Object.keys(b).length) return false;
+  for (const k of ka) {
+    if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
+    if (!sameData((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k])) return false;
+  }
+  return true;
+}
+
+/**
+ * Структурное разделение при перечитывании набора (ADR-0011, шаг 0): задача, которая не
+ * изменилась (тот же id и то же содержимое, включая `updatedAt`), остаётся ПРЕЖНИМ объектом,
+ * а если не изменилось ничего — возвращается прежний массив. Иначе перечитывание колонки по
+ * `issuesRevision` давало 100 новых объектов, и `memo(Card)` перерисовывал все карточки.
+ * Сравнение по содержимому, а не только по `updatedAt`: ранг и состав исполнителей сервер
+ * может менять, не трогая `updated_at`.
+ */
+export function shareUnchanged(prev: Issue[], next: Issue[]): Issue[] {
+  if (prev.length === 0) return next;
+  const byId = new Map(prev.map((i) => [i.id, i]));
+  let identical = prev.length === next.length;
+  const out = next.map((n, k) => {
+    const old = byId.get(n.id);
+    const keep = old && old.updatedAt === n.updatedAt && sameData(old, n) ? old : n;
+    if (identical && keep !== prev[k]) identical = false;
+    return keep;
+  });
+  return identical ? prev : out;
+}
+
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export interface IssueSet {
@@ -207,7 +247,7 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
         if (gen.current !== my) return;
         setState((prev) => ({
           ...prev,
-          items,
+          items: shareUnchanged(prev.items, items),
           nextCursor: page.nextCursor,
           hasMore: page.hasMore,
           counts,

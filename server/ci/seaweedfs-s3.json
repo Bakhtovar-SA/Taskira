@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "taskira",
+      "credentials": [{ "accessKey": "taskira", "secretKey": "taskira-minio-dev" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

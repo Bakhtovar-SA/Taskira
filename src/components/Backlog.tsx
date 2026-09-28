@@ -1,19 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Hint } from "./Hint";
 import { useLocation } from "wouter";
 import { useStore } from "../store";
-import { fmtDate } from "../store/mappers";
+import { fmtDate, relTime } from "../store/mappers";
 import type { Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Chip, Dropdown, Empty, Lozenge, MenuItem, Modal, SkeletonRow } from "../ui";
+import { DueRing, IcBacklog, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
+import { Button, EmptyState } from "../ds";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { EMPTY_FILTERS, filtersFromSearch, searchFromFilters, type FilterState } from "../router";
+import { COLUMNS, LEFT, gridTemplate, readColumns, writeColumns, type ColumnId, type SortKey } from "../listColumns";
 
-type SortKey = "priority" | "due" | "updated" | "key";
 
 /** Поиск уходит на сервер не на каждую букву. */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -21,17 +23,40 @@ const SEARCH_MAX = 120; // = LIMITS сервера для q
 const isEmptyText = (v: string) => v === "";
 
 const selectCls =
-  "h-8 rounded-md border border-line bg-panel px-2 text-[12.5px] text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/15";
+  "h-8 rounded-lg border border-linesoft bg-sunken px-2 text-[12.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
+
+function HeadCell({ id, sortKey, sortDir, onSort, compact }: { id: ColumnId | "key"; sortKey: SortKey; sortDir: "asc" | "desc"; onSort: (k: SortKey) => void; compact?: boolean }) {
+  const { t } = useT();
+  const def = id === "key" ? { label: "backlog.sort.key" as const, sort: "key" as SortKey } : COLUMNS.find((c) => c.id === id)!;
+  const label = t(def.label);
+  const on = def.sort && def.sort === sortKey;
+  const text = compact ? <span className="sr-only">{label}</span> : <span className="truncate">{label}</span>;
+  return (
+    <span role="columnheader" data-col={id} aria-sort={on ? (sortDir === "asc" ? "ascending" : "descending") : undefined} className="flex min-w-0 items-center">
+      {def.sort ? (
+        <button type="button" onClick={() => onSort(def.sort!)} title={label} className={`ds-focus -mx-1 flex min-w-0 items-center gap-1 rounded px-1 hover:text-ink ${on ? "text-ink" : ""}`}>
+          {compact && !on ? <IcFilter size={11} className="shrink-0 opacity-60" /> : null}
+          {text}
+          {on && <IcChevD size={10} className={`shrink-0 ${sortDir === "asc" ? "rotate-180" : ""}`} />}
+        </button>
+      ) : (
+        text
+      )}
+    </span>
+  );
+}
 
 function Row({
   issue,
   epic,
+  cols,
   selectMode,
   selected,
   onToggleSelect,
 }: {
   issue: Issue;
-  epic: Pick<IssueEpic, "title" | "color"> | undefined;
+  epic: Pick<IssueEpic, "id" | "title" | "color"> | undefined;
+  cols: ColumnId[];
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
@@ -42,58 +67,96 @@ function Row({
   // проходом по массивам в каждой строке списка (аудит PERF-02).
   const assignees = issue.assigneeIds.map((id) => idx.users.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
   const status = idx.statuses.get(issue.statusId);
+  const today = new Date().toISOString().slice(0, 10);
+  const overdue = !!issue.dueDate && status?.category !== "done" && issue.dueDate < today;
+
+  const cell = (id: ColumnId) => {
+    switch (id) {
+      case "priority":
+        return <PriorityIcon p={issue.priorityId} size={14} />;
+      case "type":
+        return <TypeIcon type={issue.typeId} size={14} />;
+      case "direction":
+        return epic ? (
+          <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md px-1.5 py-px text-[11.5px] text-sub ring-1 ring-inset ring-linesoft">
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: directionColor(epic.id, epic.color) }} />
+            <span className="truncate">{epic.title}</span>
+          </span>
+        ) : null;
+      case "labels":
+        return (
+          <span className="flex min-w-0 gap-1 overflow-hidden">
+            {issue.labels.slice(0, 2).map((l) => (
+              <Chip key={l} text={l} />
+            ))}
+            {issue.labels.length > 2 && <span className="text-[11.5px] tabular text-faint">+{issue.labels.length - 2}</span>}
+          </span>
+        );
+      case "due":
+        return issue.dueDate ? (
+          <span className={`inline-flex items-center gap-1 text-[12px] tabular ${overdue ? "font-medium text-[var(--status-danger-fg)]" : "text-faint"}`} title={overdue ? t("board.quickChip.overdue") : undefined}>
+            <DueRing due={issue.dueDate} today={today} done={status?.category === "done"} />
+            {fmtDate(issue.dueDate, lang)}
+          </span>
+        ) : null;
+      case "status":
+        return status ? <Lozenge status={status} size="sm" /> : null;
+      case "assignee":
+        return <AvatarStack users={assignees} size={22} interactive />;
+      case "updated":
+        return <span className="text-[12px] tabular text-faint">{relTime(issue.updatedAt, lang)}</span>;
+    }
+  };
 
   return (
     <div
+      role="row"
       onClick={() => openIssue(issue.id)}
-      className={`group flex cursor-pointer items-center gap-2.5 border-b border-linesoft bg-panel px-3 py-2 transition-colors last:border-0 hover:bg-accentsoft/50 ${selected ? "bg-accentsoft/40" : ""}`}
+      data-issue-id={issue.id}
+      aria-selected={selectMode ? selected : undefined}
+      className={`list-grid group h-11 cursor-pointer items-center gap-x-3 border-b border-linesoft/80 px-4 transition-colors last:border-0 hover:bg-hover/60 ${selected ? "bg-accentsoft/50" : "bg-panel"}`}
     >
       {/* ТЗ 3.3: чекбоксы появляются только в режиме выделения — не занимают
           места в обычном режиме просмотра списка. */}
       {selectMode && (
-        <input
-          type="checkbox"
-          checked={selected}
-          onClick={(e) => e.stopPropagation()}
-          onChange={() => onToggleSelect(issue.id)}
-          className="shrink-0 cursor-pointer"
-          aria-label={t("backlog.selectRow", { key: issue.key })}
-        />
-      )}
-      <TypeIcon type={issue.typeId} size={14} />
-      <span className="w-14 shrink-0 font-mono text-[11px] font-semibold text-faint">{issue.key}</span>
-      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{issue.title}</span>
-      {epic && (
-        <span
-          className="hidden items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10.5px] font-semibold lg:inline-flex"
-          style={{ background: `${epic.color}1a`, color: epic.color ?? undefined }}
-        >
-          <span className="h-1.5 w-1.5 rounded-sm" style={{ background: epic.color ?? undefined }} />
-          <span className="max-w-[110px] truncate">{epic.title}</span>
+        <span role="cell" className="flex">
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(e) => e.stopPropagation()}
+            onChange={() => onToggleSelect(issue.id)}
+            className="shrink-0 cursor-pointer"
+            aria-label={t("backlog.selectRow", { key: issue.key })}
+          />
         </span>
       )}
-      <span className="hidden gap-1 xl:flex">
-        {issue.labels.slice(0, 2).map((l) => (
-          <Chip key={l} text={l} />
-        ))}
+      {LEFT.filter((id) => cols.includes(id)).map((id) => (
+        <span key={id} role="cell" data-col={id} className="flex min-w-0 items-center">
+          {cell(id)}
+        </span>
+      ))}
+      <span role="cell" data-col="key" className="truncate font-mono text-[12px] tabular text-faint">
+        {issue.key}
       </span>
-      {issue.dueDate && (
-        <span className="hidden shrink-0 font-mono text-[10.5px] text-faint md:inline">{fmtDate(issue.dueDate, lang)}</span>
-      )}
-      {status && (
-        <span className="hidden shrink-0 sm:inline">
-          <Lozenge status={status} size="sm" />
+      <span role="cell" className="min-w-0 text-[13.5px] font-medium text-ink">
+        {/* На телефоне колонки ключа нет — ключ мелко над названием. */}
+        <span aria-hidden className="block truncate font-mono text-[11px] font-normal leading-tight tabular text-faint sm:hidden">
+          {issue.key}
         </span>
-      )}
-      <PriorityIcon p={issue.priorityId} size={14} />
-      <AvatarStack users={assignees} size={22} interactive />
-      <div onClick={(e) => e.stopPropagation()}>
+        <span className="block truncate">{issue.title}</span>
+      </span>
+      {COLUMNS.filter((c) => !LEFT.includes(c.id) && cols.includes(c.id)).map((c) => (
+        <span key={c.id} role="cell" data-col={c.id} className="flex min-w-0 items-center">
+          {cell(c.id)}
+        </span>
+      ))}
+      <span role="cell" data-col="actions" className="flex justify-end" onClick={(e) => e.stopPropagation()}>
         <Dropdown
           align="right"
           width={190}
           button={() => (
             <button
-              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink group-hover:opacity-100"
+              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
               aria-label={t("common.actions")}
             >
               <IcDots size={14} />
@@ -114,14 +177,14 @@ function Row({
             </>
           )}
         </Dropdown>
-      </div>
+      </span>
     </div>
   );
 }
 
 export default function Backlog() {
   const { t } = useT();
-  const { data, idx, can, epicsRevision, bulkApplyIssueAction } = useStore();
+  const { data, idx, can, epicsRevision, bulkApplyIssueAction, setCreateOpen } = useStore();
   const [path, navigate] = useLocation();
   const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -265,6 +328,17 @@ export default function Backlog() {
   // ТЗ 3.3 (план v2 Трек 3): массовые операции — чекбоксы только в «режиме
   // выделения» (не занимают места в обычном просмотре). Права на КАЖДУЮ
   // задачу проверяет сервер при выполнении (частичный успех) — здесь только UI.
+  // Колонки таблицы — личная настройка в этом браузере (listColumns.ts); ширины — CSS-переменные через CSSOM (ADR-0010).
+  const [cols, setCols] = useState<ColumnId[]>(readColumns);
+  const toggleCol = (id: ColumnId) =>
+    setCols((prev) => {
+      const next = prev.includes(id) ? prev.filter((c) => c !== id) : COLUMNS.map((c) => c.id).filter((c) => c === id || prev.includes(c));
+      writeColumns(next);
+      return next;
+    });
+  const tableRef = useRef<HTMLDivElement>(null);
+  // Клик по заголовку колонки: та же колонка — сменить направление; другая — как выбор в меню сортировки.
+  const toggleSortBy = (k: SortKey) => (k === sortKey ? setSortDir((d) => (d === "asc" ? "desc" : "asc")) : pickSort(k));
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const toggleSelect = (id: string) =>
@@ -283,6 +357,14 @@ export default function Backlog() {
     clearSelection();
   }, [data.currentProjectId]);
 
+  useLayoutEffect(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    el.style.setProperty("--list-cols", gridTemplate(cols, selectMode));
+    // Телефон: только название с ключом, статус и исполнитель (остальные ячейки скрывает index.css).
+    el.style.setProperty("--list-cols-sm", gridTemplate(cols.filter((c) => c === "status" || c === "assignee"), selectMode, true));
+  });
+
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const runBulk = async (body: Parameters<typeof bulkApplyIssueAction>[0]) => {
@@ -299,10 +381,10 @@ export default function Backlog() {
   return (
     <div className="flex h-full flex-col">
       {/* шапка */}
-      <div className="border-b border-line bg-panel/70 px-4 py-3.5 sm:px-6">
+      <div className="px-4 pb-3 pt-5 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="mr-2">
-            <h1 className="font-disp text-[17px] font-bold tracking-tight text-ink">{t("backlog.title")}</h1>
+            <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("backlog.title")}</h1>
             <p className="mt-0.5 text-[11.5px] text-faint">
               {set.total === null
                 ? t("common.loading")
@@ -321,7 +403,7 @@ export default function Backlog() {
             {can("create") && (
               <button
                 onClick={() => setImportOpen(true)}
-                className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:border-accent hover:text-accent"
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-panel shadow-e1 px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:bg-hover hover:text-ink"
               >
                 <IcInbox size={13} /> {t("backlog.importTrello")}
               </button>
@@ -340,6 +422,31 @@ export default function Backlog() {
                 </button>
               )}
             </div>
+
+            {/* колонки таблицы (ТЗ 5.12 e) */}
+            <Dropdown
+              align="right"
+              width={230}
+              button={(open) => (
+                <button className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+                  <IcDisplay size={12} className="text-faint" />
+                  {t("backlog.columns")}
+                  <IcChevD size={11} className="text-faint" />
+                </button>
+              )}
+            >
+              {() => (
+                <div className="p-1">
+                  {COLUMNS.map((c) => (
+                    <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink hover:bg-hover/70">
+                      <input type="checkbox" checked={cols.includes(c.id)} onChange={() => toggleCol(c.id)} className="cursor-pointer" />
+                      {t(c.label)}
+                    </label>
+                  ))}
+                  <p className="border-t border-linesoft px-2 pb-1 pt-1.5 text-[11px] leading-snug text-faint">{t("backlog.columnsHint")}</p>
+                </div>
+              )}
+            </Dropdown>
 
             {/* сортировка */}
             <Dropdown
@@ -366,7 +473,7 @@ export default function Backlog() {
             <button
               onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
               title={t(sortDir === "asc" ? "backlog.sort.asc" : "backlog.sort.desc")}
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-sub hover:text-ink"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-panel shadow-e1 text-sub hover:text-ink"
               aria-label={t("backlog.sort.direction")}
             >
               <IcChevD size={13} className={sortDir === "asc" ? "rotate-180" : ""} />
@@ -376,27 +483,27 @@ export default function Backlog() {
 
         {/* фильтры */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <select value={fStatus} onChange={(e) => setField("status")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select aria-label={t("field.status")} value={fStatus} onChange={(e) => setField("status")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.allStatuses")}</option>
             {data.workflow.statuses.map((s) => (
               <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
             ))}
           </select>
-          <select value={fAssignee} onChange={(e) => setField("assignee")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select aria-label={t("field.assignee")} value={fAssignee} onChange={(e) => setField("assignee")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.anyAssignee")}</option>
             <option value="none">{t("createIssue.unassigned")}</option>
             {data.users.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
-          <select value={fType} onChange={(e) => setField("type")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select aria-label={t("field.type")} value={fType} onChange={(e) => setField("type")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("issueType.allShort")}</option>
             {TYPE_ORDER.map((ty) => (
               <option key={ty} value={ty}>{t(`issueType.${ty}`)}</option>
             ))}
           </select>
           {/* ТЗ 3.2: приоритет и метка — та же серверная пара условий, что status/assignee/type. */}
-          <select value={fPriority} onChange={(e) => setField("priority")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select aria-label={t("field.priority")} value={fPriority} onChange={(e) => setField("priority")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.anyPriority")}</option>
             {PRIORITY_ORDER.map((p) => (
               <option key={p} value={p}>{t(`priority.${p}`)}</option>
@@ -474,7 +581,7 @@ export default function Backlog() {
                       onChange={(e) => setNewViewName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") void saveCurrentAsView(); if (e.key === "Escape") setSavingView(false); }}
                       placeholder={t("backlog.viewNamePlaceholder")}
-                      className="h-7 min-w-0 flex-1 rounded border border-line bg-panel px-2 text-[12px] outline-none focus:border-accent"
+                      className="h-7 min-w-0 flex-1 rounded border border-line bg-panel px-2 text-[12px] outline-none focus:border-accent focus:shadow-focus"
                     />
                     <button onClick={() => void saveCurrentAsView()} className="text-[11px] font-semibold text-accent hover:underline">
                       {t("common.save")}
@@ -487,6 +594,7 @@ export default function Backlog() {
             )}
           </Dropdown>
         </div>
+        <Hint id="saved-views" className="mt-2.5">{t("hint.savedViews")}</Hint>
 
         {/* ТЗ 3.3: панель массовых действий — видна только при непустом выделении.
             Права проверяет сервер на каждую задачу; результат — тост «Изменено N из M». */}
@@ -580,7 +688,7 @@ export default function Backlog() {
               <button
                 disabled={bulkBusy}
                 onClick={() => void runBulk({ action: "delete", issueIds: [...selectedIds] })}
-                className="h-8 rounded-md bg-danger px-3 text-[12.5px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                className="h-8 rounded-md bg-danger px-3 text-[12.5px] font-semibold text-onaccent hover:opacity-90 disabled:opacity-50"
               >
                 {t("common.delete")}
               </button>
@@ -594,7 +702,7 @@ export default function Backlog() {
         <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
           {set.loading ? (
             <div
-              className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]"
+              className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70"
               aria-busy="true"
               aria-label={t("common.loading")}
             >
@@ -603,27 +711,45 @@ export default function Backlog() {
               ))}
             </div>
           ) : set.error && rows.length === 0 ? (
-            <Empty
-              icon={<IcInbox size={22} />}
+            <EmptyState
+              icon={<IcBacklog size={22} tone="indigo" />}
               title={t("backlog.loadError")}
               sub={set.error}
-              action={
-                <button
-                  onClick={set.reload}
-                  className="h-8 rounded-md border border-line bg-panel px-3 text-[12.5px] font-medium text-sub hover:border-accent hover:text-accent"
-                >
-                  {t("common.retry")}
-                </button>
-              }
+              action={<Button size="sm" variant="secondary" onClick={set.reload}>{t("common.retry")}</Button>}
             />
           ) : rows.length > 0 ? (
             <>
-              <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-[0_1px_3px_rgba(20,35,64,0.05)]">
+              {/* ТЗ 5.12 e: таблица — одна сетка на заголовок и строки; заголовок прилипает при прокрутке.
+                  overflow-clip, а не hidden: hidden сделал бы таблицу контейнером прокрутки и сломал sticky. */}
+              <div role="table" ref={tableRef} aria-label={t("backlog.title")} aria-rowcount={set.total ?? undefined} className="overflow-clip surface-raised rounded-xl ring-1 ring-inset ring-line/70">
+                <div role="row" className="list-grid list-head sticky top-0 z-10 h-9 items-center gap-x-3 border-b border-linesoft px-4 text-[11.5px] font-semibold text-faint">
+                  {selectMode && (
+                    <span role="columnheader" className="flex">
+                      <input
+                        type="checkbox"
+                        aria-label={t("backlog.selectAll")}
+                        checked={rows.length > 0 && rows.every((r) => selectedIds.has(r.id))}
+                        onChange={(e) => setSelectedIds(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())}
+                        className="cursor-pointer"
+                      />
+                    </span>
+                  )}
+                  {LEFT.filter((id) => cols.includes(id)).map((id) => (
+                    <HeadCell key={id} id={id} sortKey={sortKey} sortDir={sortDir} onSort={toggleSortBy} compact />
+                  ))}
+                  <HeadCell id="key" sortKey={sortKey} sortDir={sortDir} onSort={toggleSortBy} />
+                  <span role="columnheader">{t("backlog.col.title")}</span>
+                  {COLUMNS.filter((c) => !LEFT.includes(c.id) && cols.includes(c.id)).map((c) => (
+                    <HeadCell key={c.id} id={c.id} sortKey={sortKey} sortDir={sortDir} onSort={toggleSortBy} />
+                  ))}
+                  <span role="columnheader" data-col="actions" aria-label={t("common.actions")} />
+                </div>
                 {rows.map((i) => (
                   <Row
                     key={i.id}
                     issue={i}
                     epic={i.epicId ? epics.byId.get(i.epicId) : undefined}
+                    cols={cols}
                     selectMode={selectMode}
                     selected={selectedIds.has(i.id)}
                     onToggleSelect={toggleSelect}
@@ -644,7 +770,7 @@ export default function Backlog() {
                   !loadingMore && (
                     <button
                       onClick={loadMore}
-                      className="h-8 rounded-md border border-line bg-panel px-3 font-medium text-sub hover:border-accent hover:text-accent"
+                      className="h-8 rounded-lg border border-line bg-panel shadow-e1 px-3 font-medium text-sub hover:bg-hover hover:text-ink"
                     >
                       {t("backlog.loadMore")}
                     </button>
@@ -655,10 +781,17 @@ export default function Backlog() {
               </div>
             </>
           ) : (
-            <Empty
-              icon={<IcInbox size={22} />}
+            <EmptyState
+              icon={<IcBacklog size={22} tone="indigo" />}
               title={t(filterActive ? "backlog.emptyFilteredTitle" : "backlog.emptyTitle")}
               sub={t(filterActive ? "backlog.emptyFilteredSub" : "backlog.emptySub")}
+              action={
+                filterActive ? (
+                  <Button size="sm" variant="secondary" onClick={resetFilters}>{t("common.reset")}</Button>
+                ) : can("create") ? (
+                  <Button size="sm" onClick={() => setCreateOpen(true)}>{t("home.createIssue")}</Button>
+                ) : undefined
+              }
             />
           )}
         </div>

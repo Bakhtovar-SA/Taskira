@@ -5,6 +5,7 @@ import {
   appendUnique,
   freshRows,
   issueSetKey,
+  shareUnchanged,
   useEpics,
   useIssueCounts,
   useIssueSet,
@@ -114,6 +115,43 @@ describe("appendUnique", () => {
   test("добавляет в конец и пропускает уже загруженные", () => {
     const mk = (id: string) => ({ id }) as unknown as Issue;
     expect(appendUnique([mk("a"), mk("b")], [mk("b"), mk("c")]).map((i) => i.id)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("shareUnchanged (ADR-0011, шаг 0)", () => {
+  const mk = (id: string, over: Partial<Issue> = {}) =>
+    ({ id, title: id, updatedAt: 1, labels: ["a"], assigneeIds: ["u1"], ...over }) as unknown as Issue;
+
+  test("ничего не изменилось — прежний массив и прежние объекты", () => {
+    const prev = [mk("a"), mk("b")];
+    expect(shareUnchanged(prev, [mk("a"), mk("b")])).toBe(prev);
+  });
+
+  test("изменилась одна задача — новая только она, остальные прежними объектами", () => {
+    const prev = [mk("a"), mk("b"), mk("c")];
+    const next = shareUnchanged(prev, [mk("a"), mk("b", { title: "B!", updatedAt: 2 }), mk("c")]);
+    expect(next).not.toBe(prev);
+    expect(next[0]).toBe(prev[0]);
+    expect(next[1]).not.toBe(prev[1]);
+    expect(next[1].title).toBe("B!");
+    expect(next[2]).toBe(prev[2]);
+  });
+
+  test("тот же updatedAt, но другое содержимое (ранг, исполнители) — задача заменяется", () => {
+    const prev = [mk("a", { rank: 1 }), mk("b")];
+    const next = shareUnchanged(prev, [mk("a", { rank: 2 }), mk("b", { assigneeIds: ["u2"] })]);
+    expect(next[0]).not.toBe(prev[0]);
+    expect(next[0].rank).toBe(2);
+    expect(next[1]).not.toBe(prev[1]);
+    expect(next[1].assigneeIds).toEqual(["u2"]);
+  });
+
+  test("порядок и состав берутся из нового ответа; удалённая пропадает, новая появляется", () => {
+    const prev = [mk("a"), mk("b"), mk("c")];
+    const next = shareUnchanged(prev, [mk("c"), mk("d"), mk("a")]);
+    expect(next.map((i) => i.id)).toEqual(["c", "d", "a"]);
+    expect(next[0]).toBe(prev[2]);
+    expect(next[2]).toBe(prev[0]);
   });
 });
 
@@ -295,6 +333,38 @@ describe("useIssueSet", () => {
     expect(h.set.items.map((i) => i.id)).not.toContain("i5");
     expect(h.set.items).toHaveLength(200); // прежняя глубина сохранена
     expect(h.set.total).toBe(249);
+    h.unmount();
+  });
+
+  test("revalidate без изменений на сервере сохраняет прежние объекты задач и прежний массив", async () => {
+    const stamp = "2026-09-01T10:00:00.000Z";
+    let all = Array.from({ length: 5 }, (_, n) => dto(n, { createdAt: stamp, updatedAt: stamp } as Partial<ServerIssue>));
+    fakeServer(all);
+    const h = mount(baseQuery());
+    await settle();
+    const before = h.set.items;
+    expect(before).toHaveLength(5);
+    await act(async () => {
+      h.set.revalidate();
+      await flush();
+      await flush();
+    });
+    expect(h.set.items).toBe(before);
+
+    // правка одной задачи — новый объект только у неё
+    all = all.map((d) => (d.id === "i2" ? ({ ...d, title: "Правка", updatedAt: "2026-09-02T10:00:00.000Z" } as ServerIssue) : d));
+    vi.restoreAllMocks();
+    fakeServer(all);
+    await act(async () => {
+      h.set.revalidate();
+      await flush();
+      await flush();
+    });
+    const after = h.set.items;
+    expect(after).not.toBe(before);
+    expect(after[2].title).toBe("Правка");
+    expect(after[2]).not.toBe(before[2]);
+    for (const k of [0, 1, 3, 4]) expect(after[k]).toBe(before[k]);
     h.unmount();
   });
 

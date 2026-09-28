@@ -1,6 +1,6 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider, useNotifications, useStore, useToasts } from "./store";
 import {
   ApiError,
   authApi,
@@ -15,6 +15,11 @@ import {
   type ServerIssue,
 } from "./api";
 import { pathForIssue, pathForView } from "./router";
+
+/** `useStore()` + вынесенные из него домены (ADR-0011, шаги 1–2): тосты и уведомления — отдельные хранилища. */
+function useStoreSnapshot() {
+  return { ...useStore(), toasts: useToasts(), notif: useNotifications() };
+}
 
 /** Характеризационные тесты загрузки, сессии, навигации между проектами и открытия задачи в сторе — написаны ДО выноса
  *  в src/store/session.ts (ТЗ 2.3, шаг 6). Фиксируют ТЕКУЩЕЕ поведение, включая гонки (порядок событий во времени):
@@ -31,7 +36,7 @@ const user = (over: Record<string, unknown> = {}) => ({
   id: "u1", username: "admin", name: "Админ", initials: "А", color: "#0B5FD9", jobRole: "Админ",
   globalRole: "admin" as const, isActive: true, authSource: "local" as const, ...over,
 });
-const proj = (id: string, key: string) => ({ id, key, name: key, description: "", departmentId: "d1", isShared: false, sprintsEnabled: false });
+const proj = (id: string, key: string) => ({ id, key, name: key, description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false });
 const boot = (p: ReturnType<typeof proj>): ProjectBootstrap => ({
   project: p,
   users: [user()] as never,
@@ -64,7 +69,7 @@ class FakeWebSocket {
 
 const projects = [proj(P1, "AA"), proj(P2, "BB"), proj(P3, "CC")];
 let unmountCurrent: (() => void) | null = null;
-type Store = ReturnType<typeof useStore>;
+type Store = ReturnType<typeof useStoreSnapshot>;
 
 interface Setup {
   me?: ReturnType<typeof user> | Error;
@@ -99,7 +104,7 @@ function install(o: Setup = {}) {
 function mount() {
   let latest: Store | null = null;
   function Probe() {
-    latest = useStore();
+    latest = useStoreSnapshot();
     return null;
   }
   const { unmount } = render(
@@ -180,12 +185,13 @@ describe("bootstrap — ветки входа", () => {
     expect(get().bootStatus).toBe("error");
   });
 
-  test("нет проектов: админ уходит в раздел admin, обычный пользователь остаётся на доске; оба ready", async () => {
+  test("нет проектов: админ уходит в «Отделы и проекты» настроек организации, обычный пользователь остаётся на доске; оба ready", async () => {
     install({ projects: [], me: user() });
     let get = mount();
     await act(async () => { await get().bootstrap(); });
     expect(get().bootStatus).toBe("ready");
-    expect(get().ui.view).toBe("admin");
+    expect(get().ui.view).toBe("orgSettings");
+    expect(get().ui.section).toBe("departments");
     expect(get().data.currentProjectId).toBe("");
     unmountCurrent?.();
     vi.restoreAllMocks();
@@ -236,6 +242,16 @@ describe("bootstrap — ветки входа", () => {
     expect(get().ui.view).toBe("backlog");
   });
 
+  test("≥2 проектов и ссылка на раздел без проекта (/inbox) → оболочка с этим разделом, а не главный экран", async () => {
+    history.pushState(null, "", "/inbox");
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.view).toBe("inbox");
+  });
+
   test("прямая ссылка на приглашённую задачу → раздел «Мои подключения»; проект — из lastProject, а не первый", async () => {
     const OTHER = "99999999-0000-4000-8000-000000000000";
     const collab = { issueId: I1, projectId: OTHER, key: "X-1", title: "t", statusId: "s", statusName: "n", statusCategory: "todo", projectKey: "X", projectName: "X" } as CollaboratingItem;
@@ -249,6 +265,72 @@ describe("bootstrap — ветки входа", () => {
     expect(get().ui.view).toBe("collaborating");
     expect(get().ui.collabOpenIssueId).toBe(I1);
     expect(get().data.currentProjectId).toBe(P2);
+  });
+});
+
+// ТЗ 5.12 a: прямая ссылка, которая никуда не ведёт (нет такого проекта/задачи, или к ним нет доступа —
+// сервер эти случаи не различает намеренно) — bootstrap() выставляет ui.missing вместо того, чтобы
+// молча уводить на главный экран или в случайный проект. См. src/store/session.ts (missingPath) и
+// src/components/StatusScreens.tsx (NotFoundPage, откуда путь берётся обратно).
+describe("bootstrap — ТЗ 5.12 a: ui.missing на несуществующую прямую ссылку", () => {
+  test("≥2 проектов, ключ проекта не среди видимых (/p/NOPE/board) → ready (НЕ home), ui.missing = путь", async () => {
+    history.pushState(null, "", "/p/NOPE/board");
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.missing).toBe("/p/NOPE/board");
+  });
+
+  test("прямая ссылка на задачу видимого проекта, но issuesApi.resolve падает (404) → ui.missing = этот путь", async () => {
+    const path = pathForIssue("BB", "K-999");
+    history.pushState(null, "", path);
+    install();
+    vi.spyOn(issuesApi, "resolve").mockRejectedValue(new ApiError(404, "NOT_FOUND", "нет такой задачи"));
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.missing).toBe(path);
+  });
+
+  test("обычная прямая ссылка на существующий вид → ui.missing остаётся null", async () => {
+    history.pushState(null, "", pathForView("BB", "board"));
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.missing).toBeNull();
+  });
+
+  test("setView() из состояния «не найдено» сбрасывает ui.missing", async () => {
+    history.pushState(null, "", "/p/NOPE/board");
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().ui.missing).toBe("/p/NOPE/board");
+    act(() => get().setView("backlog"));
+    expect(get().ui.missing).toBeNull();
+    expect(get().ui.view).toBe("backlog");
+  });
+
+  test("«На главную» и вход в проект (goHome / enterProject / switchProject) сбрасывают ui.missing (ревью PR #93)", async () => {
+    history.pushState(null, "", "/p/NOPE/board");
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().ui.missing).toBe("/p/NOPE/board");
+    act(() => get().goHome());
+    expect(get().ui.missing).toBeNull();
+    // Снова «не найдено», затем вход в уже открытый проект — ветка enterProject без переключения.
+    act(() => get().showMissing("/p/NOPE/board"));
+    expect(get().ui.missing).toBe("/p/NOPE/board");
+    act(() => get().enterProject(get().data.currentProjectId));
+    expect(get().ui.missing).toBeNull();
   });
 });
 
@@ -678,8 +760,8 @@ describe("гонки с logout", () => {
       await Promise.all([rn, rc]);
     });
     await settle();
-    expect(get().data.notifications).toEqual([]);
-    expect(get().data.unreadCount).toBe(0);
+    expect(get().notif.notifications).toEqual([]);
+    expect(get().notif.unreadCount).toBe(0);
     expect(get().data.collaborations).toEqual([]);
     expect(get().data.assignedToMe).toEqual([]);
   });

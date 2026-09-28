@@ -8,6 +8,13 @@
 
 ## Запросы (тела, query, params)
 
+### BrandPatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | необязательное, может быть null; длина 1…60 |
+| `hue` | integer | необязательное, может быть null; 255…320 |
+
 ### ChangeRoleBody
 
 | Поле | Тип | Замечания |
@@ -113,11 +120,30 @@
 | `name` | string | необязательное; длина 1…80 |
 | `ldapGroupDn` | string | необязательное, может быть null; длина 1…1024 |
 
+### DependencyCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `sourceProjectId` | string (uuid) |  |
+
+### DependencyParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `projectId` | string (uuid) |  |
+| `sourceProjectId` | string (uuid) |  |
+
 ### DismissNotificationsBody
 
 | Поле | Тип | Замечания |
 |---|---|---|
 | `ids` | array&lt;string (uuid)&gt; | необязательное; 0…500 эл. |
+
+### HintParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `hintId` | string |  |
 
 ### IssueAssigneesQuery
 
@@ -286,6 +312,27 @@
 |---|---|---|
 | `userId` | string (uuid) |  |
 
+### MilestoneCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…80 |
+| `date` | string |  |
+
+### MilestoneParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `projectId` | string (uuid) |  |
+| `milestoneId` | string (uuid) |  |
+
+### MilestonePatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | необязательное; длина 1…80 |
+| `date` | string | необязательное |
+
 ### MoveToSprintBody
 
 | Поле | Тип | Замечания |
@@ -306,6 +353,20 @@
 | `email` | enum: `instant` \| `daily` | необязательное |
 | `selfWatch` | boolean | необязательное |
 
+### OnboardingStepBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `step` | enum: `theme` |  |
+
+### ProjectAppearanceBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное, может быть null |
+| `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null |
+| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null |
+
 ### ProjectCreateBody
 
 | Поле | Тип | Замечания |
@@ -316,6 +377,11 @@
 | `departmentId` | string (uuid) |  |
 | `isShared` | boolean | необязательное; по умолчанию false |
 | `sprintsEnabled` | boolean | необязательное; по умолчанию false |
+| `templateId` | string | необязательное; длина 0…64 |
+| `members` | array&lt;object&gt; | необязательное; по умолчанию []; 0…200 эл. |
+| `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное, может быть null |
+| `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null; по умолчанию null |
+| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null; по умолчанию null |
 
 ### ProjectParams
 
@@ -332,6 +398,22 @@
 | `departmentId` | string (uuid) | необязательное |
 | `isShared` | boolean | необязательное |
 | `sprintsEnabled` | boolean | необязательное |
+| `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное, может быть null |
+| `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null |
+| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null |
+
+### ProjectRoadmapBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `startDate` | string | необязательное, может быть null |
+| `targetDate` | string | необязательное, может быть null |
+
+### ProjectTemplateParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `templateId` | string (uuid) |  |
 
 ### ReportExportQuery
 
@@ -353,6 +435,13 @@
 | `projectId` | string (uuid) | необязательное |
 | `departmentId` | string (uuid) | необязательное |
 | `groupBy` | enum: `project` \| `assignee` \| `type` \| `priority` | необязательное; по умолчанию "project" |
+
+### SaveProjectTemplateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…80 |
+| `description` | string | необязательное; по умолчанию ""; длина 0…300 |
 
 ### SavedViewBody
 
@@ -379,6 +468,12 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `role` | enum: `manager` \| `employee` \| `viewer` |  |
+
+### SetupPatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `instanceName` | string | длина 1…80 |
 
 ### SprintCreateBody
 
@@ -458,6 +553,14 @@
 | `sha256` | string |  |
 | `uploadedById` | string | может быть null |
 | `createdAt` | string |  |
+
+### BrandDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | может быть null |
+| `hue` | number | может быть null |
+| `logoUpdatedAt` | number | может быть null |
 
 ### BulkIssueAction
 
@@ -595,13 +698,13 @@
 | `updatedAt` | string |  |
 | `doneAt` | string | может быть null |
 | `archivedAt` | string | может быть null |
+| `subtasksSummary` | object |  |
 | `collaborators` | array&lt;object&gt; |  |
 | `participants` | array&lt;object&gt; |  |
 | `attachments` | array&lt;object&gt; |  |
 | `links` | array&lt;object&gt; |  |
 | `checklist` | array&lt;object&gt; |  |
 | `customFieldValues` | array&lt;object&gt; |  |
-| `subtasksSummary` | object |  |
 | `epicChildrenCount` | number |  |
 
 ### IssueDto
@@ -633,6 +736,7 @@
 | `updatedAt` | string |  |
 | `doneAt` | string | может быть null |
 | `archivedAt` | string | может быть null |
+| `subtasksSummary` | object | необязательное |
 
 ### IssueEpicDto
 
@@ -710,6 +814,14 @@
 | `notifyPrefs` | object |  |
 | `favoriteProjectIds` | array&lt;string&gt; |  |
 
+### MilestoneDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `date` | string |  |
+
 ### NotificationDto
 
 | Поле | Тип | Замечания |
@@ -743,6 +855,14 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `notifyPrefs` | object |  |
+
+### OnboardingDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `done` | array&lt;enum: `open_issue` \| `change_status` \| `comment` \| `notifications` \| `theme`&gt; |  |
+| `hidden` | boolean |  |
+| `hints` | array&lt;string&gt; |  |
 
 ### ParticipantDto
 
@@ -787,6 +907,13 @@
 | `departmentId` | string |  |
 | `isShared` | boolean |  |
 | `sprintsEnabled` | boolean |  |
+| `defaultView` | enum: `board` \| `backlog` \| `timeline` | может быть null |
+| `suggestedLabels` | array&lt;string&gt; |  |
+| `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | может быть null |
+| `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | может быть null |
+| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | может быть null |
+| `backgroundPhoto` | object | может быть null |
+| `isDemo` | boolean |  |
 
 ### ProjectMemberDto
 
@@ -794,6 +921,29 @@
 |---|---|---|
 | `userId` | string |  |
 | `role` | enum: `manager` \| `employee` \| `viewer` |  |
+
+### ProjectTemplateDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `description` | string |  |
+| `builtin` | boolean |  |
+| `spec` | object |  |
+
+### ProjectTemplateSpec
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `statuses` | array&lt;object&gt; | 2…12 эл. |
+| `transitions` | array&lt;tuple&gt; | 0…80 эл. |
+| `customFields` | array&lt;object&gt; | необязательное; по умолчанию []; 0…30 эл. |
+| `issueTemplates` | array&lt;object&gt; | необязательное; по умолчанию []; 0…30 эл. |
+| `defaultView` | enum: `board` \| `backlog` \| `timeline` | необязательное; по умолчанию "board" |
+| `labels` | array&lt;string&gt; | необязательное; по умолчанию []; 0…30 эл. |
+| `sprintsEnabled` | boolean | необязательное; по умолчанию false |
+| `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное |
 
 ### ReportPoint
 
@@ -846,6 +996,31 @@
 | `overdue` | number |  |
 | `avgLeadDays` | number | может быть null |
 | `medianLeadDays` | number | может быть null |
+
+### RoadmapDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `projects` | array&lt;object&gt; |  |
+| `dependencies` | array&lt;object&gt; |  |
+
+### RoadmapProjectDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `key` | string |  |
+| `name` | string |  |
+| `departmentId` | string |  |
+| `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | может быть null |
+| `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | может быть null |
+| `createdAt` | string |  |
+| `startDate` | string | может быть null |
+| `targetDate` | string | может быть null |
+| `done` | number |  |
+| `total` | number |  |
+| `milestones` | array&lt;object&gt; |  |
+| `canEdit` | boolean |  |
 
 ### SafeUser
 
@@ -908,6 +1083,17 @@
 | `statusCategory` | enum: `todo` \| `inprogress` \| `done` |  |
 | `projectKey` | string |  |
 | `projectName` | string |  |
+
+### SetupStatusDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `completed` | boolean |  |
+| `instanceName` | string |  |
+| `authMode` | enum: `local` \| `ldap` |  |
+| `users` | number |  |
+| `projects` | number |  |
+| `demoProjectId` | string | может быть null |
 
 ### SprintDto
 

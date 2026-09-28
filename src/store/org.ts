@@ -2,7 +2,7 @@
  * store.tsx без изменений поведения (ТЗ 2.3, шаг 3). `bootstrap` нужен deleteProject — приходит из провайдера. */
 import { useCallback } from "react";
 import type { ProjectRole } from "../types";
-import { ldapApi, departmentsApi, membersApi, projectsApi } from "../api";
+import { ldapApi, departmentsApi, membersApi, projectsApi, type CreateProjectInput, type ProjectLookInput, type ProjectPatchInput } from "../api";
 import { mapUser, readLastProject, writeLastProject } from "./mappers";
 import type { StoreCtx } from "./ctx";
 
@@ -109,6 +109,13 @@ export function useOrgActions(
         departmentId: p.departmentId,
         isShared: p.isShared,
         sprintsEnabled: p.sprintsEnabled,
+        defaultView: p.defaultView ?? null,
+        suggestedLabels: p.suggestedLabels ?? [],
+        icon: p.icon ?? null,
+        color: p.color ?? null,
+        background: p.background ?? null,
+        backgroundPhoto: p.backgroundPhoto ?? null,
+        isDemo: !!p.isDemo,
       })),
       departments: deps,
     }));
@@ -198,25 +205,40 @@ export function useOrgActions(
   );
 
   const createProject = useCallback(
-    (input: { key: string; name: string; departmentId: string; isShared?: boolean; sprintsEnabled?: boolean }) => {
-      if (!requirePerm("manageAccess")) return;
+    async (input: CreateProjectInput) => {
+      if (!requirePerm("manageAccess")) return null;
+      try {
+        const p = await projectsApi.create(input);
+        await refreshOrg();
+        toast("success", local(`Проект ${p.key} создан`, `Project ${p.key} created`));
+        return p;
+      } catch (err) {
+        handleApiError(err, local("Не удалось создать проект", "Couldn't create the project"));
+        return null;
+      }
+    },
+    [requirePerm, toast, handleApiError, refreshOrg],
+  );
+
+  const patchProjectAppearance = useCallback(
+    (id: string, patch: ProjectLookInput) => {
+      if (!requirePerm("editAppearance")) return;
       void (async () => {
         try {
-          const p = await projectsApi.create(input);
+          await projectsApi.appearance(id, patch);
           await refreshOrg();
-          toast("success", local(`Проект ${p.key} создан`, `Project ${p.key} created`));
         } catch (err) {
-          handleApiError(err, local("Не удалось создать проект", "Couldn't create the project"));
+          handleApiError(err, local("Не удалось изменить внешний вид проекта", "Couldn't update the project's look"));
         }
       })();
     },
-    [requirePerm, toast, handleApiError, refreshOrg],
+    [requirePerm, handleApiError, refreshOrg],
   );
 
   const patchProject = useCallback(
     (
       id: string,
-      patch: { name?: string; description?: string; departmentId?: string; isShared?: boolean; sprintsEnabled?: boolean },
+      patch: ProjectPatchInput,
     ) => {
       if (!requirePerm("manageAccess")) return;
       void (async () => {
@@ -270,6 +292,8 @@ export function useOrgActions(
     deleteDepartment,
     createProject,
     patchProject,
+    patchProjectAppearance,
     deleteProject,
+    refreshOrg,
   };
 }

@@ -67,6 +67,14 @@ export const LIMITS = {
   // защита от случайного/злонамеренного выделения «вообще всего проекта»
   // одним кликом и от запроса, который блокирует БД на непредсказуемое время.
   bulkIssuesMax: 100,
+  // Шаблоны проектов (ТЗ 5.10, миграция 20260927T1000): имя/описание при «Сохранить как шаблон» и размеры спецификации.
+  projectTemplate: { name: { min: 1, max: 80 }, description: { max: 300 }, statusName: { min: 1, max: 60 }, statusesMax: 12, transitionsMax: 80, labelsMax: 30 },
+  // Роадмап (ТЗ 5.15, миграция 20260928T1400).
+  milestone: { name: { min: 1, max: 80 } },
+  milestonesPerProject: 30,
+  projectDependenciesMax: 20,
+  // Брендирование (ТЗ 5.14 п.5).
+  brand: { name: { min: 1, max: 60 } },
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -92,6 +100,9 @@ const oneLine = (max: number, min = 0, minMsg?: string) =>
     .min(min, minMsg)
     .max(max)
     .transform((s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim());
+/** Непустая строка в одну линию: `oneLine(max, 1)` проверяет длину до обрезки пробелов, поэтому « » прошла бы
+ *  и сохранилась пустой (или упала бы на CHECK в БД 500-й) — здесь пустота проверяется и после обрезки. */
+const requiredLine = (max: number, msg: string) => oneLine(max, 1, msg).refine((s) => s.length > 0, msg);
 
 const multiLine = (max: number, min = 0, minMsg?: string) =>
   z
@@ -190,6 +201,22 @@ const projectKey = z
   .max(LIMITS.project.key.max)
   .regex(/^[A-Z][A-Z0-9]+$/, "Ключ: заглавные латинские буквы и цифры, начинается с буквы");
 
+/** Внешний вид проекта (ТЗ 5.10, мастер; миграция 20260927T1400): закрытые списки идентификаторов.
+ *  Иконка — из собственного набора (src/icons.tsx, PROJECT_ICON_MAP), цвет — фирменный тон (tk-tone-*),
+ *  фон — атмосферный пресет (theme.ts BG_PRESETS). null — как раньше: буква ключа, тон по ключу, личный фон. */
+export const PROJECT_ICONS = [
+  "rocket", "megaphone", "users", "headset", "document", "briefcase", "code", "chart", "shield", "cart",
+  "book", "calendar", "star", "bolt", "globe", "sparkle", "flag", "home", "camera", "diamond",
+] as const;
+export const PROJECT_COLORS = ["violet", "indigo", "blue", "sky", "teal", "green", "amber", "orange", "red", "pink"] as const;
+/** Фоны проекта = встроенная галерея (ТЗ 5.14 п.1, src/theme.ts BG_IDS); первые пять — с 5.10, список только растёт. */
+export const PROJECT_BACKGROUNDS = ["default", "dusk", "dawn", "aurora", "sea", "rose", "mint", "graphite", "plain", "grid", "dots", "rings", "prism", "lines"] as const;
+const projectAppearance = {
+  icon: z.enum(PROJECT_ICONS).nullable(),
+  color: z.enum(PROJECT_COLORS).nullable(),
+  background: z.enum(PROJECT_BACKGROUNDS).nullable(),
+};
+
 /** POST /api/projects [global admin] — создаёт проект + дефолтный workflow.
  *  sprintsEnabled по умолчанию false — включение модуля спринтов задумано
  *  как отдельно предоставляемая возможность (см. SPRINTS_MIGRATION.md), а
@@ -201,6 +228,17 @@ export const ProjectCreateBody = z.object({
   departmentId: uuid,
   isShared: z.boolean().default(false),
   sprintsEnabled: z.boolean().default(false),
+  /** Шаблон проекта (ТЗ 5.10): `builtin:<id>` или uuid шаблона организации; без него — стандартная схема. */
+  templateId: z.string().max(64).optional(),
+  /** Участники сразу при создании — в той же транзакции (мастер, шаг «Доступ»). */
+  members: z
+    .array(z.object({ userId: uuid, role: z.enum(PROJECT_ROLES) }))
+    .max(200)
+    .default([]),
+  /** Без иконки — берётся иконка шаблона (если есть), иначе буква ключа. */
+  icon: projectAppearance.icon.optional(),
+  color: projectAppearance.color.default(null),
+  background: projectAppearance.background.default(null),
 });
 
 /** PATCH /api/projects/:projectId [global admin] */
@@ -211,9 +249,66 @@ export const ProjectPatchBody = z
     departmentId: uuid,
     isShared: z.boolean(),
     sprintsEnabled: z.boolean(),
+    ...projectAppearance,
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+
+/** PATCH /api/projects/:projectId/appearance [perm editAppearance] — иконка, цвет, фон (ТЗ 5.14 п.7). */
+export const ProjectAppearanceBody = z
+  .object(projectAppearance)
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+
+/* ---------------- Роадмап проектов (ТЗ 5.15) ---------------- */
+
+/** PATCH /api/projects/:projectId/roadmap [perm editRoadmap] — даты начала и цели; null — снять. */
+export const ProjectRoadmapBody = z
+  .object({ startDate: isoDate().nullable(), targetDate: isoDate().nullable() })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+
+/** POST/PATCH /api/projects/:projectId/milestones[/:milestoneId] [perm editRoadmap]. */
+export const MilestoneCreateBody = z.object({
+  name: requiredLine(LIMITS.milestone.name.max, "Название вехи не может быть пустым"),
+  date: isoDate(),
+});
+export const MilestonePatchBody = MilestoneCreateBody.partial().refine((v) => Object.keys(v).length > 0, "Пустой патч");
+export const MilestoneParams = z.object({ projectId: uuid, milestoneId: uuid });
+
+/** POST /api/projects/:projectId/dependencies [perm editRoadmap] — проект :projectId ждёт sourceProjectId. */
+export const DependencyCreateBody = z.object({ sourceProjectId: uuid });
+export const DependencyParams = z.object({ projectId: uuid, sourceProjectId: uuid });
+
+export const MilestoneDto = z.object({ id: z.string(), name: z.string(), date: z.string() });
+export type MilestoneDto = z.infer<typeof MilestoneDto>;
+
+/** Строка роадмапа: видимый пользователю проект. Даты — ГГГГ-ММ-ДД; прогресс — все задачи проекта, включая архив
+ *  (архив — закрытые, они и есть сделанная работа). */
+export const RoadmapProjectDto = z.object({
+  id: z.string(),
+  key: z.string(),
+  name: z.string(),
+  departmentId: z.string(),
+  icon: z.enum(PROJECT_ICONS).nullable(),
+  color: z.enum(PROJECT_COLORS).nullable(),
+  createdAt: z.string(),
+  startDate: z.string().nullable(),
+  targetDate: z.string().nullable(),
+  done: z.number(),
+  total: z.number(),
+  milestones: z.array(MilestoneDto),
+  /** Право editRoadmap в этом проекте у текущего пользователя. */
+  canEdit: z.boolean(),
+});
+export type RoadmapProjectDto = z.infer<typeof RoadmapProjectDto>;
+
+/** GET /api/roadmap — проекты, видимые пользователю, и зависимости между ними (обе стороны видимы). */
+export const RoadmapDto = z.object({
+  projects: z.array(RoadmapProjectDto),
+  dependencies: z.array(z.object({ sourceId: z.string(), dependentId: z.string() })),
+});
+export type RoadmapDto = z.infer<typeof RoadmapDto>;
 
 /** Исполнители (миграция 025, issue_assignees) — плоский список без иерархии,
  *  без дублей. Пустой массив = не назначен (эквивалент старого assigneeId: null). */
@@ -766,6 +861,9 @@ export const IssueDto = z.object({
   doneAt: z.string().nullable(),
   /** Момент ухода в архив; null — задача в активном наборе проекта. */
   archivedAt: z.string().nullable(),
+  /** Подзадачи total/done (включая архив). В списке `GET …/issues` — у каждой строки (карточка доски показывает
+   *  «2/5»); в ответах на правку может отсутствовать — клиент тогда держит прежнее значение. */
+  subtasksSummary: SubtasksSummaryDto.optional(),
 });
 export type IssueDto = z.infer<typeof IssueDto>;
 
@@ -816,6 +914,16 @@ export const ProjectDto = z.object({
   departmentId: z.string(),
   isShared: z.boolean(),
   sprintsEnabled: z.boolean(),
+  /** Шаблон проекта (ТЗ 5.10): с какого представления открывать (null — Доска) и предложенные метки. */
+  defaultView: z.enum(["board", "backlog", "timeline"]).nullable(),
+  suggestedLabels: z.array(z.string()),
+  icon: z.enum(PROJECT_ICONS).nullable(),
+  color: z.enum(PROJECT_COLORS).nullable(),
+  background: z.enum(PROJECT_BACKGROUNDS).nullable(),
+  /** Своё фото фона (ТЗ 5.14 п.2): версия (ms) для ссылки и средняя светлота 0…1; перекрывает background. */
+  backgroundPhoto: z.object({ updatedAt: z.number(), luma: z.number() }).nullable(),
+  /** Демо-проект из первичной настройки (ТЗ 5.11) — помечен в интерфейсе, удаляется одной кнопкой. */
+  isDemo: z.boolean(),
 });
 export type ProjectDto = z.infer<typeof ProjectDto>;
 
@@ -1071,3 +1179,122 @@ export type ReportResult = z.infer<typeof ReportResult>;
 /** GET /api/reports/summary: результат + число проектов в выборке. */
 export const ReportSummaryDto = ReportResult.extend({ projectCount: z.number() });
 export type ReportSummaryDto = z.infer<typeof ReportSummaryDto>;
+
+/* ============================================================================
+   Шаблоны проектов (ТЗ 5.10). Шаблон — не код, а набор уже существующих настроек проекта:
+   статусы и переходы, пользовательские поля, шаблоны задач, представление по умолчанию,
+   предложенные метки, модуль спринтов. Встроенные — server/src/templates/builtin.json,
+   шаблоны организации — таблица project_templates (миграция 20260927T1000).
+   ============================================================================ */
+export const PROJECT_DEFAULT_VIEWS = ["board", "backlog", "timeline"] as const;
+const statusSid = z.string().regex(/^[a-z][a-z0-9_]{1,31}$/, "sid: латиница в нижнем регистре, цифры и _");
+
+export const ProjectTemplateSpec = z
+  .object({
+    statuses: z
+      .array(z.object({ sid: statusSid, name: oneLine(LIMITS.projectTemplate.statusName.max, LIMITS.projectTemplate.statusName.min), category: z.enum(STATUS_CATEGORIES) }))
+      .min(2)
+      .max(LIMITS.projectTemplate.statusesMax),
+    transitions: z.array(z.tuple([statusSid, statusSid])).max(LIMITS.projectTemplate.transitionsMax),
+    customFields: z.array(CustomFieldCreateBody).max(LIMITS.customFieldsPerProject).default([]),
+    issueTemplates: z
+      .array(IssueTemplateBody.omit({ statusId: true }).extend({ statusSid: statusSid.nullable().default(null) }))
+      .max(LIMITS.issueTemplatesPerProject)
+      .default([]),
+    defaultView: z.enum(PROJECT_DEFAULT_VIEWS).default("board"),
+    labels: z.array(oneLine(LIMITS.label.max, 1)).max(LIMITS.projectTemplate.labelsMax).default([]),
+    sprintsEnabled: z.boolean().default(false),
+    /** Иконка, которую мастер предлагает для проекта из этого шаблона. */
+    icon: z.enum(PROJECT_ICONS).optional(),
+  })
+  .superRefine((v, ctx) => {
+    const sids = v.statuses.map((s) => s.sid);
+    if (new Set(sids).size !== sids.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["statuses"], message: "sid статусов повторяются" });
+    if (!v.statuses.some((s) => s.category === "todo")) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["statuses"], message: "Нужен хотя бы один статус категории todo" });
+    if (!v.statuses.some((s) => s.category === "done")) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["statuses"], message: "Нужен хотя бы один статус категории done" });
+    const known = new Set(sids);
+    const seen = new Set<string>();
+    v.transitions.forEach(([a, b], i) => {
+      if (!known.has(a) || !known.has(b) || a === b) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["transitions", i], message: `Переход ${a} → ${b} ссылается на неизвестный статус или ведёт в себя` });
+      if (seen.has(`${a}>${b}`)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["transitions", i], message: `Переход ${a} → ${b} повторяется` });
+      seen.add(`${a}>${b}`);
+    });
+    v.issueTemplates.forEach((t, i) => {
+      if (t.statusSid && !known.has(t.statusSid)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["issueTemplates", i, "statusSid"], message: `Неизвестный статус ${t.statusSid}` });
+    });
+    const fieldNames = v.customFields.map((f) => f.name.toLowerCase());
+    if (new Set(fieldNames).size !== fieldNames.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["customFields"], message: "Названия полей повторяются" });
+  });
+export type ProjectTemplateSpec = z.infer<typeof ProjectTemplateSpec>;
+
+export const ProjectTemplateDto = z.object({
+  /** `builtin:<id>` у встроенных, uuid у шаблонов организации. */
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  builtin: z.boolean(),
+  spec: ProjectTemplateSpec,
+});
+export type ProjectTemplateDto = z.infer<typeof ProjectTemplateDto>;
+
+/** POST /api/projects/:projectId/save-as-template [saveProjectTemplate] */
+export const SaveProjectTemplateBody = z.object({
+  name: requiredLine(LIMITS.projectTemplate.name.max, "Название шаблона не может быть пустым"),
+  description: multiLine(LIMITS.projectTemplate.description.max).default(""),
+});
+export const ProjectTemplateParams = z.object({ templateId: uuid });
+
+
+/* ============================================================================
+   Онбординг (ТЗ 5.11, миграция 20260927T1800). «Начало работы» — шаги, которые сервер
+   отмечает сам по реальным действиям; тема живёт только в браузере, поэтому шаг «theme»
+   — единственный, о котором сообщает клиент. Подсказки — id закрытых, чтобы не повторялись.
+   ============================================================================ */
+export const ONBOARDING_STEPS = ["open_issue", "change_status", "comment", "notifications", "theme"] as const;
+export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
+/** Шаги, которые сервер не видит сам (тема — localStorage). */
+export const CLIENT_ONBOARDING_STEPS = ["theme"] as const;
+export const OnboardingDto = z.object({
+  done: z.array(z.enum(ONBOARDING_STEPS)),
+  hidden: z.boolean(),
+  hints: z.array(z.string()),
+});
+export type OnboardingDto = z.infer<typeof OnboardingDto>;
+export const OnboardingStepBody = z.object({ step: z.enum(CLIENT_ONBOARDING_STEPS) });
+export const HintParams = z.object({ hintId: z.string().regex(/^[a-z][a-z0-9.-]{0,39}$/, "Некорректный id подсказки") });
+export const LIMIT_DISMISSED_HINTS = 100;
+
+/** Первичная настройка инсталляции (глобальный администратор, первый вход после установки). */
+export const SetupStatusDto = z.object({
+  completed: z.boolean(),
+  instanceName: z.string(),
+  authMode: z.enum(["local", "ldap"]),
+  /** Активные пользователи, кроме системного администратора. */
+  users: z.number(),
+  /** Проекты без демо. */
+  projects: z.number(),
+  demoProjectId: z.string().nullable(),
+});
+export type SetupStatusDto = z.infer<typeof SetupStatusDto>;
+export const SetupPatchBody = z.object({ instanceName: oneLine(80, 1, "Название не может быть пустым") });
+
+/* ---------------- Брендирование инсталляции (ТЗ 5.14 п.5) ---------------- */
+/** Допустимый оттенок акцента (OKLCH hue): от сине-фиолетового до пурпурного. Для каждого значения диапазона
+ *  scripts/check-contrast.mjs проверяет все пары акцента во всех темах — это и есть «контраст проверяется
+ *  автоматически при сохранении»: сервер принимает только проверенный диапазон. 288 — фирменный. */
+export const BRAND_HUE = { min: 255, max: 320, default: 288 } as const;
+/** GET /api/instance/brand — публично (нужно экрану входа): null — не задано. */
+export const BrandDto = z.object({
+  name: z.string().nullable(),
+  hue: z.number().nullable(),
+  logoUpdatedAt: z.number().nullable(),
+});
+export type BrandDto = z.infer<typeof BrandDto>;
+/** PATCH /api/admin/brand [global admin]. null — вернуть как было (Taskira / 288). */
+export const BrandPatchBody = z
+  .object({
+    name: requiredLine(LIMITS.brand.name.max, "Название не может быть пустым").nullable(),
+    hue: z.number().int().min(BRAND_HUE.min, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).max(BRAND_HUE.max, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).nullable(),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");

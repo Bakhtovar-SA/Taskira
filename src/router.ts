@@ -5,18 +5,44 @@
  *  `wouter` (ADR-0008) даёт реактивную подписку на `location` в компоненте (`App.tsx`),
  *  сам разбор путей — здесь, чистыми функциями, без хуков, чтобы быть тестируемым без DOM.
  *
- *  `reports` — единственный вид без префикса `/p/:projectKey/` (`/reports`): он
- *  project-less и на сервере, и в данных (см. CLAUDE.md, ReportsView.tsx). Остальные виды
- *  всегда идут внутри контекста текущего проекта. */
+ *  Карта адресов — ADR-0013 §5: представления и настройки проекта под `/p/:projectKey/`,
+ *  разделы без проекта (`/reports`, `/admin/departments`, `/help`, `/shared`) — свои пути;
+ *  старые `/p/:projectKey/<вид>` разбираются и заменяются новыми. */
 import type { ViewId } from "./types";
+import { DEFAULT_SECTION, isSection, isSettingsHome } from "./settings/sections";
 
-/** Виды, для которых имеет смысл прямая ссылка вида /p/:projectKey/<vid> — то есть все,
- *  кроме `reports` (свой отдельный путь). Порядок — как в `ViewId`, не важен. */
-const PATH_VIEWS: readonly ViewId[] = [
-  "board", "backlog", "sprints", "timeline", "workflow", "access", "admin", "docs", "collaborating",
-];
-
-const isPathView = (v: string): v is (typeof PATH_VIEWS)[number] => (PATH_VIEWS as readonly string[]).includes(v);
+/** Адреса по ADR-0013 §5. Представления проекта живут под `/p/:projectKey/…`; настройки — три дома
+ *  (IA §3): личные `/settings/:section`, проекта `/p/:projectKey/settings/:section`, организации
+ *  `/admin/:section`; прочие разделы без проекта — свои пути верхнего уровня. */
+const PROJECT_SEGMENT: Partial<Record<ViewId, string>> = {
+  board: "board",
+  backlog: "list",
+  timeline: "timeline",
+  sprints: "sprints",
+};
+const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
+  reports: "/reports",
+  roadmap: "/roadmap",
+  docs: "/help",
+  collaborating: "/shared",
+  inbox: "/inbox",
+  my: "/my-issues",
+};
+/** Старые сегменты `/p/:projectKey/<вид>` (до ADR-0013) — ссылки уже разосланы людьми,
+ *  поэтому разбираются как прежде; синхронизация URL тут же заменяет их новым адресом. */
+const LEGACY_SEGMENT: Record<string, { view: ViewId; section?: string }> = {
+  backlog: { view: "backlog" },
+  workflow: { view: "projectSettings", section: "workflow" },
+  access: { view: "projectSettings", section: "access" },
+  admin: { view: "orgSettings", section: "departments" },
+  docs: { view: "docs" },
+  collaborating: { view: "collaborating" },
+};
+const SEGMENT_VIEW: Record<string, { view: ViewId; section?: string }> = {
+  ...LEGACY_SEGMENT,
+  ...Object.fromEntries(Object.entries(PROJECT_SEGMENT).map(([v, seg]) => [seg, { view: v as ViewId }])),
+};
+const GLOBAL_VIEW: Record<string, ViewId> = Object.fromEntries(Object.entries(GLOBAL_PATH).map(([v, p]) => [p, v as ViewId]));
 
 const enc = (s: string) => encodeURIComponent(s);
 const dec = (s: string) => {
@@ -27,24 +53,33 @@ const dec = (s: string) => {
   }
 };
 
-/** URL для вида внутри проекта (или /reports — единственное исключение). */
-export const pathForView = (projectKey: string, view: ViewId): string =>
-  view === "reports" ? "/reports" : `/p/${enc(projectKey)}/${view}`;
+/** URL вида. `section` — подраздел дома настроек (для остальных видов не используется). */
+export const pathForView = (projectKey: string, view: ViewId, section = ""): string => {
+  if (isSettingsHome(view)) {
+    const sec = section && isSection(view, section) ? section : DEFAULT_SECTION[view];
+    if (view === "settings") return `/settings/${sec}`;
+    if (view === "orgSettings") return `/admin/${sec}`;
+    return `/p/${enc(projectKey)}/settings/${sec}`;
+  }
+  return GLOBAL_PATH[view] ?? `/p/${enc(projectKey)}/${PROJECT_SEGMENT[view] ?? view}`;
+};
 
-/** URL прямой ссылки на задачу — всегда открывает её поверх доски (ТЗ 3.1 п.2:
- *  «модалка задачи открыта поверх доски сразу»), независимо от того, на каком виде
- *  задачу открыли — не о полноте истории навигации, а о простоте и предсказуемости
- *  адреса, который можно вставить в письмо. */
+/** URL прямой ссылки на задачу — полная страница задачи (ADR-0013 §3), независимо от того,
+ *  на каком виде задачу открыли: простой и предсказуемый адрес, который можно вставить в
+ *  письмо. Панель поверх представления — это `?issue=KEY` к пути вида (`useRouterSync.ts`). */
 export const pathForIssue = (projectKey: string, issueKey: string): string =>
   `/p/${enc(projectKey)}/issue/${enc(issueKey)}`;
 
 const RE_ISSUE = /^\/p\/([^/]+)\/issue\/([^/]+)\/?$/;
+const RE_PROJECT_SETTINGS = /^\/p\/([^/]+)\/settings(?:\/([^/]+))?\/?$/;
 const RE_VIEW = /^\/p\/([^/]+)\/([^/]+)\/?$/;
+const RE_HOME = /^\/(settings|admin)(?:\/([^/]+))?\/?$/;
 
 export type ParsedPath =
   | { kind: "issue"; projectKey: string; issueKey: string }
-  | { kind: "view"; projectKey: string; view: ViewId }
-  | { kind: "reports" }
+  | { kind: "view"; projectKey: string; view: ViewId; section?: string }
+  /** Раздел без проекта: отчёты, справка, входящие, личные настройки и настройки организации. */
+  | { kind: "global"; view: ViewId; section?: string }
   | { kind: "root" };
 
 /** Разбор `pathname` (без query/hash) в одну из ожидаемых форм роутера. Путь, который
@@ -52,13 +87,36 @@ export type ParsedPath =
  *  трактуется как `root`, а не как ошибка: та же терпимость, что была у старого
  *  `readIssueHash` к «хэш есть, но не похож на наш» (тихо игнорировался). */
 export const parsePath = (pathname: string): ParsedPath => {
-  if (pathname === "/reports") return { kind: "reports" };
+  const g = GLOBAL_VIEW[pathname.replace(/\/$/, "")];
+  if (g) return { kind: "global", view: g };
+  const mh = pathname.match(RE_HOME);
+  if (mh) {
+    const view = mh[1] === "settings" ? "settings" : "orgSettings";
+    const sec = mh[2] ? dec(mh[2]) : DEFAULT_SECTION[view];
+    return isSection(view, sec) ? { kind: "global", view, section: sec } : { kind: "root" };
+  }
   const mi = pathname.match(RE_ISSUE);
   if (mi) return { kind: "issue", projectKey: dec(mi[1]), issueKey: dec(mi[2]) };
+  const ms = pathname.match(RE_PROJECT_SETTINGS);
+  if (ms) {
+    const sec = ms[2] ? dec(ms[2]) : DEFAULT_SECTION.projectSettings;
+    return isSection("projectSettings", sec) ? { kind: "view", projectKey: dec(ms[1]), view: "projectSettings", section: sec } : { kind: "root" };
+  }
   const mv = pathname.match(RE_VIEW);
-  if (mv && isPathView(dec(mv[2]))) return { kind: "view", projectKey: dec(mv[1]), view: dec(mv[2]) as ViewId };
+  const hit = mv ? SEGMENT_VIEW[dec(mv[2])] : undefined;
+  // Старые /p/KEY/docs, /p/KEY/collaborating, /p/KEY/admin ведут в разделы без проекта (справка, «Мои подключения»,
+  // организация): разбираются так же, как их новые адреса, — без ключа проекта. Иначе ссылка человека, который больше
+  // не видит тот проект, давала ложное «Не найдено», а samePlace() не узнавал в ней тот же раздел (ревью PR #93).
+  if (mv && hit && (hit.view in GLOBAL_PATH || isSettingsHome(hit.view) && hit.view !== "projectSettings"))
+    return hit.section ? { kind: "global", view: hit.view, section: hit.section } : { kind: "global", view: hit.view };
+  if (mv && hit) return hit.section ? { kind: "view", projectKey: dec(mv[1]), view: hit.view, section: hit.section } : { kind: "view", projectKey: dec(mv[1]), view: hit.view };
   return { kind: "root" };
 };
+
+/** Одно ли место описывают два пути (старый адрес и новый для того же вида/задачи) —
+ *  тогда синхронизация заменяет запись в истории, а не добавляет новую, и «Назад» не
+ *  возвращает на старый адрес, который тут же снова перепишется. */
+export const samePlace = (a: string, b: string): boolean => JSON.stringify(parsePath(a)) === JSON.stringify(parsePath(b));
 
 /** ТЗ 3.2 (план v2 Трек 3): условия фильтра в query-параметрах URL — те же имена
  *  полей, что `IssueFilterParams` (`src/api/index.ts`) и `SavedViewFilter` на сервере

@@ -83,7 +83,7 @@ export default function IssueSearchBox({
 
       <div id={listId} role="listbox" aria-busy={status === "loading"} className="mt-1 max-h-[220px] overflow-y-auto">
         {status === "ready" && results.length > 0 && isRecent && (
-          <p className="px-2 pb-0.5 pt-1 text-[10px] font-bold uppercase tracking-wide text-faint">{t("picker.recent")}</p>
+          <p className="px-2 pb-0.5 pt-1 text-[11.5px] font-medium text-faint">{t("picker.recent")}</p>
         )}
 
         {showSkeleton && (
@@ -112,7 +112,7 @@ export default function IssueSearchBox({
               onClick={() => onPick(issue)}
               onMouseEnter={() => setActive(i)}
               className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors ${
-                i === active ? "bg-accentsoft" : "hover:bg-canvas"
+                i === active ? "bg-accentsoft" : "hover:bg-hover"
               }`}
             >
               <span className="w-[62px] shrink-0 font-mono text-[10.5px] font-semibold text-faint">{issue.key}</span>

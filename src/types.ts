@@ -221,7 +221,7 @@ export interface Project {
 }
 
 /** Краткая карточка проекта для списка/переключателя. */
-export type ProjectSummary = Pick<ProjectDto, "id" | "key" | "name" | "departmentId" | "isShared" | "sprintsEnabled">;
+export type ProjectSummary = Pick<ProjectDto, "id" | "key" | "name" | "departmentId" | "isShared" | "sprintsEnabled" | "defaultView" | "suggestedLabels" | "icon" | "color" | "background" | "backgroundPhoto" | "isDemo">;
 
 export type Department = DepartmentDto;
 
@@ -267,9 +267,9 @@ export interface Data {
   issuesComplete: boolean;
   /** Приглашения текущего пользователя к задачам в проектах, которые ему не открыты. */
   collaborations: Collaboration[];
-  /** Лента уведомлений текущего пользователя (первая страница) + счётчик непрочитанных. */
-  notifications: NotificationT[];
-  unreadCount: number;
+  /* Лента уведомлений и счётчик непрочитанных — не здесь, а в отдельном хранилище
+     (`src/store/slices.ts`, `useNotifications()`; ADR-0011, шаг 2): их частые изменения
+     больше не перерисовывают всё дерево через общий контекст. */
   /** Настройки уведомлений текущего пользователя (из /api/auth/me). */
   notifyPrefs: NotifyPrefsT;
 }
@@ -309,11 +309,17 @@ export type ViewId =
   | "sprints"
   | "timeline"
   | "reports"
-  | "workflow"
-  | "access"
-  | "admin"
+  /** Роадмап проектов (ТЗ 5.15) — без проекта, по всем видимым. */
+  | "roadmap"
+  /** Три дома настроек (ADR-0013 §2, ТЗ 5.9); подраздел — `ui.section`. */
+  | "settings"
+  | "projectSettings"
+  | "orgSettings"
   | "docs"
-  | "collaborating";
+  | "collaborating"
+  /** Личный слой (ADR-0013 §1): уведомления и назначенные задачи по всем проектам. */
+  | "inbox"
+  | "my";
 
 /** Задача, к которой пользователя пригласили как collaborator'а (в чужом проекте).
  *  GET /api/issues/collaborating. Показывается в разделе «Мои подключения». */

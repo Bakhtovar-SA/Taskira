@@ -78,7 +78,11 @@ const KEYED_TABLES: KeyedTable[] = [
       "avatar_content_type", "avatar_updated_at",
     ],
   },
-  { type: "project", table: "projects", columns: ["id", "key", "name", "description", "created_at", "department_id", "is_shared", "sprints_enabled"] },
+  { type: "project", table: "projects", columns: ["id", "key", "name", "description", "created_at", "department_id", "is_shared", "sprints_enabled", "default_view", "suggested_labels", "icon", "color", "background", "bg_photo_driver", "bg_photo_key", "bg_photo_small_key", "bg_photo_luma", "bg_photo_updated_at", "start_date", "target_date"] },
+  // ТЗ 5.15: вехи роадмапа (зависимости между проектами — составной ключ, ниже в OFFSET_TABLES).
+  { type: "projectMilestone", table: "project_milestones", columns: ["id", "project_id", "name", "date", "position", "created_at"] },
+  // ТЗ 5.10: шаблоны проектов организации (встроенные — в репозитории, в экспорт не входят).
+  { type: "projectTemplate", table: "project_templates", columns: ["id", "name", "description", "spec", "created_by", "created_at"] },
   { type: "workflowStatus", table: "workflow_statuses", columns: ["id", "project_id", "sid", "name", "category", "position"] },
   { type: "workflowTransition", table: "workflow_transitions", columns: ["id", "project_id", "from_status_id", "to_status_id"] },
   { type: "customField", table: "custom_fields", columns: ["id", "project_id", "name", "field_type", "options", "position", "created_at"] },
@@ -117,6 +121,7 @@ const OFFSET_TABLES: OffsetTable[] = [
   { type: "projectMember", table: "project_members", columns: ["project_id", "user_id", "role", "added_at"], orderBy: "project_id, user_id" },
   { type: "issueAssignee", table: "issue_assignees", columns: ["issue_id", "user_id", "added_by", "added_at"], orderBy: "issue_id, user_id" },
   { type: "issueCollaborator", table: "issue_collaborators", columns: ["issue_id", "user_id", "added_by", "added_at"], orderBy: "issue_id, user_id" },
+  { type: "projectDependency", table: "project_dependencies", columns: ["source_project_id", "dependent_project_id", "created_at"], orderBy: "source_project_id, dependent_project_id" },
 ];
 
 // Имена таблиц/колонок здесь — фиксированный список констант в этом файле,
@@ -154,6 +159,12 @@ async function* generateExport(): AsyncGenerator<string> {
   // будущий импорт (отдельная задача) должен уметь отказаться от файла со
   // слишком новой/незнакомой schemaVersion, не гадая по содержимому.
   yield `${JSON.stringify({ type: "meta", schemaVersion: EXPORT_SCHEMA_VERSION, exportedAt: new Date().toISOString(), product: "Taskira" })}\n`;
+  // Инсталляция (ТЗ 5.14 п.8): название и брендирование. Ключ лицензии и её срок — не данные организации, а
+  // учётные внутренности (как password_hash у users), в дамп не идут.
+  const inst = await q<Record<string, unknown>>(
+    `SELECT name, brand_name, brand_hue, brand_logo_driver, brand_logo_key, brand_logo_content_type, brand_logo_updated_at FROM instance WHERE id = 1`,
+  );
+  for (const row of inst) yield `${JSON.stringify({ type: "instance", ...camelizeRow(row) })}\n`;
   for (const t of KEYED_TABLES) yield* streamKeyed(t);
   for (const t of OFFSET_TABLES) yield* streamOffset(t);
 }

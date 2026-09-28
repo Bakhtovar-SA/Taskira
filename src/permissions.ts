@@ -35,10 +35,10 @@ export interface RoleMeta {
 
 /** Только клиентское оформление роли (цвет, короткая метка); имя и описание — из общей матрицы. */
 const ROLE_STYLE: Record<AccessRole, { short: string; color: string }> = {
-  admin: { short: "admin", color: "#B42318" },
-  manager: { short: "pm", color: "#0B5FD9" },
-  employee: { short: "emp", color: "#1C8A5C" },
-  viewer: { short: "read", color: "#64748B" },
+  admin: { short: "admin", color: "var(--status-danger-fg)" },
+  manager: { short: "pm", color: "var(--accent-text)" },
+  employee: { short: "emp", color: "var(--status-done-fg)" },
+  viewer: { short: "read", color: "var(--text-3)" },
 };
 
 export const ACCESS_ROLES: RoleMeta[] = ROLE_IDS.map((id) => ({

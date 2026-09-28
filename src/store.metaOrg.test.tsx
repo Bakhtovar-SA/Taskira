@@ -28,7 +28,7 @@ const admin = {
   authSource: "local" as const,
 };
 const viewerUser = { ...admin, id: "u2", username: "v", globalRole: "member" as const };
-const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false };
+const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false };
 
 const bootPayload = (users: unknown[] = [admin]): ProjectBootstrap => ({
   project,
@@ -140,7 +140,9 @@ describe("участники / проекты (src/store/org.ts)", () => {
     const created = { ...project, id: "p2", key: "NEW", name: "Новый" };
     vi.spyOn(projectsApi, "create").mockResolvedValue(created as never);
     vi.spyOn(projectsApi, "list").mockResolvedValue([project, created] as never);
-    act(() => get().createProject({ key: "NEW", name: "Новый", departmentId: "d1" }));
+    await act(async () => {
+      await get().createProject({ key: "NEW", name: "Новый", departmentId: "d1" });
+    });
     await settle();
     expect(get().data.projects.map((p) => p.key)).toEqual(["A21", "NEW"]);
   });

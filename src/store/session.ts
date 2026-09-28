@@ -2,6 +2,8 @@
  * `enterProject`, `logout`, список и открытие задачи (`refreshIssues`, `ensureAllIssues`, `refreshCollaborations`, `openIssue`) —
  * вынесено из store.tsx без изменений поведения (ТЗ 2.3, шаг 6). Поведение и гонки зафиксированы
  * store.bootNav.test.tsx, ДО выноса. Известная брешь (SEC-01: ответы после logout воскрешают данные) перенесена как есть. */
+import { refreshOnboardingSoon } from "../onboarding";
+import { viewTransition } from "../motion";
 import { useCallback, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { AssignedIssue, Collaboration, Data, Department, ProjectRole, ProjectSummary } from "../types";
@@ -29,7 +31,9 @@ import {
   writeLastProject,
 } from "./mappers";
 import type { StoreCtx } from "./ctx";
-import type { BootStatus, SoloState, UIState } from "./mappers";
+import { parsePath } from "../router";
+import { EMPTY_NOTIFICATIONS } from "./slices";
+import type { BootStatus, IssueMode, SoloState, UIState } from "./mappers";
 
 export interface SessionDeps {
   setBootStatus: Dispatch<SetStateAction<BootStatus>>;
@@ -43,9 +47,12 @@ export interface SessionDeps {
 }
 
 export function useSessionActions(
-  { setData, dataRef, pid, toast, handleApiError, local }: StoreCtx,
+  { setData, dataRef, pid, toast, handleApiError, local, notifStore }: StoreCtx,
   { setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef }: SessionDeps,
 ) {
+  // Лента и счётчик уведомлений живут отдельно от `data` (ADR-0011, шаг 2), но сбрасываются там же, где раньше
+  // сбрасывались вместе с ним: при каждой полной замене `data` (вход, смена проекта, выход).
+  const resetNotifications = useCallback(() => notifStore.setState(() => EMPTY_NOTIFICATIONS), [notifStore]);
   /** Грузит данные одного проекта (bootstrap + задачи) в объект Data. */
   const buildProjectData = useCallback(
     async (
@@ -84,8 +91,6 @@ export function useSessionActions(
         assignedToMe: [],
         assignedTruncated: false,
         collaborations,
-        notifications: [],
-        unreadCount: 0,
         notifyPrefs: {},
         workflow: {
           statuses: boot.workflow.statuses.map((s) => ({ id: s.id, sid: s.sid, name: s.name, category: s.category })),
@@ -123,6 +128,13 @@ export function useSessionActions(
         departmentId: p.departmentId,
         isShared: p.isShared,
         sprintsEnabled: p.sprintsEnabled,
+        defaultView: p.defaultView ?? null,
+        suggestedLabels: p.suggestedLabels ?? [],
+        icon: p.icon ?? null,
+        color: p.color ?? null,
+        background: p.background ?? null,
+        backgroundPhoto: p.backgroundPhoto ?? null,
+        isDemo: !!p.isDemo,
       }));
       // ТЗ 3.1: резолв прямой ссылки (/p/:projectKey/issue/:issueKey ИЛИ
       // /p/:projectKey/<вид>) ОДИН раз для всей функции — обе ветки ниже (solo и
@@ -131,6 +143,18 @@ export function useSessionActions(
       // локально по уже полученному списку projects — сети не требует.
       const pathTarget = await resolveBootPathTarget(location.pathname, projects);
       if (stale()) return;
+      // Ссылка на проект или задачу, которая никуда не ведёт — показать «Не найдено», а не молча открыть другое место.
+      const deepKind = parsePath(location.pathname).kind;
+      const missingPath =
+        (deepKind === "view" || deepKind === "issue") &&
+        (!pathTarget || (!projects.some((p) => p.id === pathTarget.projectId) && !collabs.some((c) => pathTarget.kind === "issue" && c.issueId === pathTarget.issueId)))
+          ? location.pathname
+          : null;
+      // Раздел без проекта по прямой ссылке (/inbox, /my-issues, /reports…, ADR-0013 §5) —
+      // открыть его в оболочке последнего проекта, а не сбрасывать на главный экран.
+      const bootPath = parsePath(location.pathname);
+      const globalView = bootPath.kind === "global" ? bootPath.view : null;
+      const globalSection = bootPath.kind === "global" ? (bootPath.section ?? "") : "";
 
       if (projects.length === 0) {
         // Ни одного видимого проекта, но, возможно, приглашён к отдельным задачам
@@ -148,9 +172,10 @@ export function useSessionActions(
         // синтетического 'member'/'viewer' (глоб. admin потерял бы доступ к
         // AdminView, откуда только и можно создать первый проект).
         setData({ ...emptyData(), currentUserId: user.id, departments: deps, users: [mapUser(user, {})] });
+        resetNotifications();
         if (user.globalRole === "admin") {
-          setUi((u) => ({ ...u, view: "admin" }));
-          toast("info", local("Проектов пока нет — создайте первый в разделе «Департаменты»", "There are no projects yet — create the first one in Departments"));
+          setUi((u) => ({ ...u, view: "orgSettings", section: "departments" }));
+          toast("info", local("Проектов пока нет — создайте первый в разделе «Отделы и проекты»", "There are no projects yet — create the first one in Departments & projects"));
         } else {
           toast("info", local("Вам пока не открыт ни один проект — обратитесь к администратору", "You don't have access to any projects yet — contact an administrator"));
         }
@@ -167,7 +192,7 @@ export function useSessionActions(
       // внутри проекта) → главный экран (UI_RESTRUCTURE.md D4): список проектов и
       // задач, в проект не входим. При 1 проекте главный экран бессмыслен — сразу
       // внутрь (ветка ниже).
-      if (projects.length >= 2 && !pathProjectVisible && !pathIsCollab) {
+      if (projects.length >= 2 && !pathProjectVisible && !pathIsCollab && !globalView && !missingPath) {
         const assigned = await issuesApi
           .assignedToMe()
           .catch(() => ({ items: [] as AssignedIssue[], truncated: false, limit: 0 }));
@@ -184,6 +209,7 @@ export function useSessionActions(
           assignedTruncated: assigned.truncated,
           notifyPrefs: user.notifyPrefs ?? {},
         });
+        resetNotifications();
         void refreshNotifications();
         if (takeHomeIntro()) {
           toast(
@@ -200,6 +226,7 @@ export function useSessionActions(
       const next = await buildProjectData(chosen, user.id, projects, deps, collabs, user.favoriteProjectIds ?? []);
       if (stale()) return;
       setData({ ...next, notifyPrefs: user.notifyPrefs ?? {} });
+      resetNotifications();
       void refreshNotifications();
       writeLastProject(chosen);
       // Прямая ссылка на приглашённую задачу (в проекте, который не открыт) —
@@ -215,8 +242,15 @@ export function useSessionActions(
           collabOpenIssueId: pathTarget!.kind === "issue" ? pathTarget!.issueId : null,
         }));
       } else if (pathTarget && pathTarget.kind === "view" && pathTarget.projectId === chosen) {
-        setUi((u) => ({ ...u, view: pathTarget.view }));
+        setUi((u) => ({ ...u, view: pathTarget.view, section: pathTarget.section ?? "" }));
+      } else if (!pathTarget && !globalView) {
+        // Шаблон проекта (ТЗ 5.10): «представление по умолчанию», если по адресу вид не задан.
+        const dv = projects.find((p) => p.id === chosen)?.defaultView;
+        if (dv) setUi((u) => ({ ...u, view: dv }));
+      } else if (globalView) {
+        setUi((u) => ({ ...u, view: globalView, section: globalSection }));
       }
+      if (missingPath) setUi((u) => ({ ...u, missing: missingPath }));
       setBootStatus("ready");
     } catch (err) {
       if (stale()) return;
@@ -228,7 +262,7 @@ export function useSessionActions(
       handleApiError(err, local("Не удалось загрузить данные", "Couldn't load data"));
       setBootStatus("error");
     }
-  }, [handleApiError, buildProjectData, toast, refreshNotifications]);
+  }, [handleApiError, buildProjectData, toast, refreshNotifications, resetNotifications]);
 
   const switchSeqRef = useRef(0);
   // Кросс-проектный переход "найти задачу → открыть её" (SearchBox): switchProject
@@ -236,14 +270,14 @@ export function useSessionActions(
   // на <BootSkeleton/> — компонент поиска со своим локальным ref размонтируется и
   // отслеживание "какую задачу открыть после переключения" терялось бы вместе с ним.
   // Держим его здесь, в StoreProvider, которого этот размонт не касается.
-  const pendingOpenIssueRef = useRef<{ projectId: string; issueId: string } | null>(null);
+  const pendingOpenIssueRef = useRef<{ projectId: string; issueId: string; mode?: IssueMode } | null>(null);
   const switchProject = useCallback(
-    (projectId: string, openIssueId?: string) => {
+    (projectId: string, openIssueId?: string, mode?: IssueMode) => {
       // Любой вызов без openIssueId — обычная навигация (ProjectSwitcher, HomeView, …),
       // которая отменяет ранее поставленное намерение "открыть задачу после переключения".
       // Без этого сброса задача из давно отменённого/перебитого поиска могла бы
       // неожиданно открыться при обычном возврате в тот же проект позже.
-      pendingOpenIssueRef.current = openIssueId ? { projectId, issueId: openIssueId } : null;
+      pendingOpenIssueRef.current = openIssueId ? { projectId, issueId: openIssueId, mode } : null;
       const cur = dataRef.current;
       if (projectId === cur.currentProjectId || !cur.projects.some((p) => p.id === projectId)) return;
       const seq = ++switchSeqRef.current;
@@ -261,8 +295,10 @@ export function useSessionActions(
           );
           if (seq !== switchSeqRef.current || epoch !== sessionEpochRef.current) return; // более поздний клик или уже был выход
           setData(next);
+          resetNotifications();
           writeLastProject(projectId);
-          setUi((u) => ({ ...u, selectedIssueId: null }));
+          // Проект открылся — прежнее «Не найдено» (ui.missing) больше не про текущее место (ревью PR #93).
+          setUi((u) => ({ ...u, selectedIssueId: null, missing: null }));
           setBootStatus("ready");
         } catch (err) {
           if (seq !== switchSeqRef.current || epoch !== sessionEpochRef.current) return;
@@ -271,7 +307,7 @@ export function useSessionActions(
         }
       })();
     },
-    [buildProjectData, handleApiError],
+    [buildProjectData, handleApiError, resetNotifications],
   );
 
   const refreshAssignedToMe = useCallback(async () => {
@@ -294,7 +330,7 @@ export function useSessionActions(
   /** Вернуться на главный экран из проекта (UI_RESTRUCTURE.md D4). Проект не
    *  выгружаем — `<HomeView>` показывается поверх; данные «Моих задач» освежаем. */
   const goHome = useCallback(() => {
-    setUi((u) => ({ ...u, selectedIssueId: null, createOpen: false }));
+    setUi((u) => ({ ...u, selectedIssueId: null, createOpen: false, missing: null }));
     setBootStatus("home");
     void refreshAssignedToMe();
     void refreshNotifications();
@@ -307,6 +343,7 @@ export function useSessionActions(
       const cur = dataRef.current;
       if (!cur.projects.some((p) => p.id === projectId)) return;
       if (projectId === cur.currentProjectId) {
+        setUi((u) => (u.missing ? { ...u, missing: null } : u));
         setBootStatus("ready");
       } else {
         switchProject(projectId);
@@ -323,10 +360,11 @@ export function useSessionActions(
     void authApi.logout().catch(() => undefined);
     clearToken();
     setData(emptyData());
+    resetNotifications();
     setSolo(null);
-    setUi({ view: "board", selectedIssueId: null, createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null });
+    setUi({ view: "board", section: "", selectedIssueId: null, issueMode: "panel", createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null, missing: null });
     setBootStatus("unauthenticated");
-  }, []);
+  }, [resetNotifications]);
 
   const refreshIssues = useCallback(async () => {
     const requestProjectId = pid();
@@ -398,8 +436,12 @@ export function useSessionActions(
   }, []);
 
   const openIssue = useCallback(
-    (id: string | null) => {
-      setUi((u) => ({ ...u, selectedIssueId: id }));
+    (id: string | null, mode: IssueMode = "panel") => {
+      const apply = () => setUi((u) => ({ ...u, selectedIssueId: id, issueMode: id ? mode : "panel", missing: id ? null : u.missing }));
+      // Полная страница задачи сменяет вид целиком — тот же переход, что между представлениями; панель
+      // выезжает сама (anim-panel).
+      if (id && mode === "page") viewTransition(apply);
+      else apply();
       if (!id) return;
       const requestProjectId = pid();
       if (!requestProjectId) return; // SEC-01: после выхода pid() = "", и guard `"" === ""` пропустил бы ответ
@@ -409,7 +451,7 @@ export function useSessionActions(
           // писалась, но клиент её ниоткуда не получал, и вкладка «История»
           // всегда была пуста (аудит).
           const [dto, comments, activity] = await Promise.all([
-            issuesApi.get(requestProjectId, id),
+            issuesApi.get(requestProjectId, id).finally(refreshOnboardingSoon),
             commentsApi.list(requestProjectId, id).catch(() => []),
             issuesApi.activity(requestProjectId, id).catch(() => []),
           ]);
@@ -446,6 +488,7 @@ export function useSessionActions(
     switchProject,
     goHome,
     enterProject,
+    refreshAssignedToMe,
     logout,
     refreshIssues,
     ensureAllIssues,

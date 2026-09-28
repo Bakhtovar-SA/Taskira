@@ -36,7 +36,7 @@ const user = {
   isActive: true,
   authSource: "local" as const,
 };
-const project = { id: "p1", key: "A21", name: "Проект", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false };
+const project = { id: "p1", key: "A21", name: "Проект", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false };
 const boot: ProjectBootstrap = {
   project,
   users: [user as never],
@@ -249,6 +249,24 @@ describe("Timeline при частичном сторе", () => {
     expect(h.pageSpy.mock.calls.filter((c) => c[1].epicId === "e1").map((c) => c[1].cursor)).toEqual([undefined, "c1", "c2"]);
     // шапка узла — агрегат сервера, подгрузка её не меняет
     expect(screen.getByText("40/250 задач · A21-e1")).toBeTruthy();
+    h.ui.unmount();
+  });
+
+  // ТЗ 5.12 f, шаг 1 — характеризация ДО переделки вида: полоса открывает направление, «Сегодня» прокручивает
+  // к началу шкалы, процент готовности подписан на полосе, когда он на ней помещается.
+  test("полоса: клик открывает направление; процент на широкой полосе; «Сегодня» прокручивает шкалу", async () => {
+    const scrollTo = vi.fn();
+    Element.prototype.scrollTo = scrollTo as never;
+    const h = await setup({ epics: [epic({ childTotal: 100, childDone: 50 })] });
+    fireEvent.click(screen.getByRole("button", { name: /Сегодня/ }));
+    expect(scrollTo).toHaveBeenCalled();
+    // Клик по полосе — последним: открытие задачи асинхронно перечитывает направления, и под нагрузкой
+    // шапка с «Сегодня» на время перечитывания пропадала — порядок действий в тесте, не поведение экрана.
+    const bar = screen.getByTitle("Альфа · 50/100 готово");
+    expect(bar.textContent).toContain("50%");
+    fireEvent.click(bar);
+    await settle();
+    expect(h.store().ui.selectedIssueId).toBe("e1");
     h.ui.unmount();
   });
 });

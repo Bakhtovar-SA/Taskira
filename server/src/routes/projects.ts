@@ -21,15 +21,18 @@ import {
 } from "../middleware.js";
 import { conflict, getWorkflow, seedProjectWorkflow } from "../services/workflow.js";
 import { listIssueTemplates } from "../services/issueTemplates.js";
+import { applyProjectTemplate, getProjectTemplate } from "../services/projectTemplates.js";
 import { listCustomFields } from "../services/customFields.js";
 import { listSprints } from "../services/sprints.js";
 import { addFavoriteProject, removeFavoriteProject } from "../services/favorites.js";
 import { audit } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
-import { invalidateProjectCache } from "../services/project.js";
+import { invalidateProjectCache, projectById } from "../services/project.js";
 import { listVisibleProjects, projectRowToDto, type ProjectDto } from "../services/projects.js";
 import { storageKeysForProject, deleteStorageObjects } from "../services/attachments.js";
-import { ProjectCreateBody, ProjectParams, ProjectPatchBody } from "../contract.js";
+import { PHOTO_LIMITS, openProjectPhoto, removeProjectPhoto, setProjectPhoto } from "../services/projectPhoto.js";
+import { ApiHttpError } from "../errors.js";
+import { ProjectAppearanceBody, ProjectCreateBody, ProjectParams, ProjectPatchBody } from "../contract.js";
 import type { ProjectBootstrapDto } from "../contract.js";
 import type { ProjectRole } from "../permissions.js";
 
@@ -39,26 +42,10 @@ interface MemberRow {
 }
 
 async function projectDtoById(id: string): Promise<ProjectDto | null> {
-  const r = await one<{
-    id: string;
-    key: string;
-    name: string;
-    description: string;
-    department_id: string;
-    is_shared: boolean;
-    sprints_enabled: boolean;
-  }>(`SELECT id, key, name, description, department_id, is_shared, sprints_enabled FROM projects WHERE id = $1`, [id]);
-  return r
-    ? {
-        id: r.id,
-        key: r.key,
-        name: r.name,
-        description: r.description,
-        departmentId: r.department_id,
-        isShared: r.is_shared,
-        sprintsEnabled: r.sprints_enabled,
-      }
-    : null;
+  // Без кэша projectById: сразу после создания/правки нужна свежая строка.
+  invalidateProjectCache(id);
+  const p = await projectById(id);
+  return p ? projectRowToDto(p) : null;
 }
 
 export async function projectsRoutes(app: FastifyInstance): Promise<void> {
@@ -77,24 +64,37 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
 
       const dep = await one<{ id: string }>(`SELECT id FROM departments WHERE id = $1`, [body.departmentId]);
       if (!dep) throw badRequest("Отдел не найден");
+      // ТЗ 5.10: шаблон проекта. Неизвестный id — 400 до начала транзакции, а не полупроект.
+      const template = body.templateId ? await getProjectTemplate(body.templateId) : null;
+      if (body.templateId && !template) throw badRequest("Шаблон проекта не найден");
 
       let projectId: string;
       try {
         projectId = await withTransaction(async (client) => {
           const created = await client.query<{ id: string }>(
-              `INSERT INTO projects (key, name, description, department_id, is_shared, sprints_enabled)
-               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-              [body.key, body.name, body.description, body.departmentId, body.isShared, body.sprintsEnabled],
+              `INSERT INTO projects (key, name, description, department_id, is_shared, sprints_enabled, icon, color, background)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+              [body.key, body.name, body.description, body.departmentId, body.isShared, body.sprintsEnabled, body.icon !== undefined ? body.icon : (template?.spec.icon ?? null), body.color, body.background],
             );
           const id = created.rows[0].id;
-          await seedProjectWorkflow(id, client);
+          // Всё — в одной транзакции: сбой на любом шаге (статус, поле, участник) не оставляет полупроекта.
+          if (template) await applyProjectTemplate(client, id, template.spec);
+          else await seedProjectWorkflow(id, client);
+          for (const m of body.members) {
+            await client.query(
+              `INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)
+               ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+              [id, m.userId, m.role],
+            );
+          }
           return id;
         });
       } catch (e) {
         if ((e as { code?: string }).code === "23505") throw conflict("Проект с таким ключом уже есть");
+        if ((e as { code?: string }).code === "23503") throw badRequest("Участник не найден");
         throw e;
       }
-      await audit(actor.sub, "project.create", "project", projectId, { key: body.key });
+      await audit(actor.sub, "project.create", "project", projectId, { key: body.key, template: template?.id ?? null, members: body.members.length });
       reply.code(201).send(await projectDtoById(projectId));
     },
   );
@@ -168,12 +168,103 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       if (body.departmentId !== undefined) push("department_id", body.departmentId);
       if (body.isShared !== undefined) push("is_shared", body.isShared);
       if (body.sprintsEnabled !== undefined) push("sprints_enabled", body.sprintsEnabled);
+      if (body.icon !== undefined) push("icon", body.icon);
+      if (body.color !== undefined) push("color", body.color);
+      if (body.background !== undefined) push("background", body.background);
       vals.push(projectId);
       await q(`UPDATE projects SET ${sets.join(", ")} WHERE id = $${vals.length}`, vals);
 
       invalidateProjectCache(projectId);
       await audit(actor.sub, "project.update", "project", projectId, { fields: Object.keys(body) });
       return projectDtoById(projectId);
+    },
+  );
+
+  /* ---------------------------------------------------------- внешний вид (ТЗ 5.14 п.7) */
+  // Отдельно от PATCH /projects/:id (глобальный администратор): иконку, цвет и фон меняет роль проекта с
+  // editAppearance (admin/manager), без права трогать название, отдел и модули.
+  app.patch(
+    "/projects/:projectId/appearance",
+    { preHandler: requirePerm("editAppearance"), preValidation: [zparams(ProjectParams), zbody(ProjectAppearanceBody)] },
+    async (req) => {
+      const actor: JwtPayload = req.user;
+      const { projectId } = req.params as z.infer<typeof ProjectParams>;
+      const body = req.body as z.infer<typeof ProjectAppearanceBody>;
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+      for (const col of ["icon", "color", "background"] as const) {
+        if (body[col] === undefined) continue;
+        vals.push(body[col]);
+        sets.push(`${col} = $${vals.length}`);
+      }
+      vals.push(projectId);
+      await q(`UPDATE projects SET ${sets.join(", ")} WHERE id = $${vals.length}`, vals);
+      invalidateProjectCache(projectId);
+      await audit(actor.sub, "project.appearance", "project", projectId, body);
+      return projectDtoById(projectId);
+    },
+  );
+
+  /* ---------------------------------------------------------- фото фона (ТЗ 5.14 п.2) */
+  // multipart: файлы full и small (WebP, уменьшены клиентом) + поле luma. Глобальный лимит multipart — один файл
+  // на запрос (вложения); здесь их два, поэтому лимиты переданы в req.parts() явно.
+  app.post(
+    "/projects/:projectId/background-photo",
+    { preHandler: requirePerm("editAppearance"), preValidation: zparams(ProjectParams) },
+    async (req) => {
+      const actor: JwtPayload = req.user;
+      const { projectId } = req.params as z.infer<typeof ProjectParams>;
+      const files: Partial<Record<"full" | "small", Buffer>> = {};
+      let luma = NaN;
+      try {
+        for await (const part of req.parts({ limits: { files: 2, fileSize: PHOTO_LIMITS.full.maxBytes, fields: 2, fieldSize: 32 } })) {
+          if (part.type === "file") {
+            const buf = await part.toBuffer();
+            if (part.fieldname === "full" || part.fieldname === "small") files[part.fieldname] = buf;
+          } else if (part.fieldname === "luma") luma = Number(part.value);
+        }
+      } catch (e) {
+        const code = (e as { code?: string }).code;
+        if (code === "FST_REQ_FILE_TOO_LARGE") throw new ApiHttpError(413, "PHOTO_TOO_LARGE", "Фото слишком большое");
+        if (code === "FST_INVALID_MULTIPART_CONTENT_TYPE") throw badRequest("Ожидается multipart/form-data с полями full, small, luma");
+        throw e;
+      }
+      if (!files.full || !files.small) throw badRequest("Нужны оба размера фото: full и small");
+      await setProjectPhoto(projectId, { full: files.full, small: files.small }, luma);
+      invalidateProjectCache(projectId);
+      await audit(actor.sub, "project.appearance", "project", projectId, { backgroundPhoto: "set" });
+      return projectDtoById(projectId);
+    },
+  );
+
+  app.delete(
+    "/projects/:projectId/background-photo",
+    { preHandler: requirePerm("editAppearance"), preValidation: zparams(ProjectParams) },
+    async (req) => {
+      const actor: JwtPayload = req.user;
+      const { projectId } = req.params as z.infer<typeof ProjectParams>;
+      await removeProjectPhoto(projectId);
+      invalidateProjectCache(projectId);
+      await audit(actor.sub, "project.appearance", "project", projectId, { backgroundPhoto: "removed" });
+      return projectDtoById(projectId);
+    },
+  );
+
+  // Отдача — любому, кто видит проект: фон виден всем участникам, пока проект открыт.
+  app.get(
+    "/projects/:projectId/background-photo/:size",
+    { preHandler: requirePerm("browse") },
+    async (req, reply) => {
+      const { projectId, size } = req.params as { projectId: string; size: string };
+      if (size !== "full" && size !== "small") throw notFound("Фото не найдено");
+      const stream = await openProjectPhoto(projectId, size);
+      if (!stream) throw notFound("Фото не найдено");
+      reply
+        .header("Content-Type", "image/webp")
+        .header("X-Content-Type-Options", "nosniff")
+        // Клиент версионирует ссылку ?v=<updatedAt>; новый файл — новый ключ, кэш безопасен.
+        .header("Cache-Control", "private, max-age=31536000, immutable");
+      return reply.send(stream);
     },
   );
 
@@ -190,6 +281,9 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       // Каскад FK снесёт строки attachments, но не файлы в хранилище, и после
       // удаления проекта найти их будет уже нечем (аудит BUG-01).
       const attachKeys = await storageKeysForProject(projectId);
+      // …и фото фона проекта (ТЗ 5.14) — строка уйдёт вместе с проектом.
+      const photo = await one<{ a: string | null; b: string | null }>(`SELECT bg_photo_key AS a, bg_photo_small_key AS b FROM projects WHERE id = $1`, [projectId]);
+      for (const k of [photo?.a, photo?.b]) if (k) attachKeys.push(k);
       // Каскады по FK: issues / project_members / workflow_* / project_counters.
       await q(`DELETE FROM projects WHERE id = $1`, [projectId]);
       await deleteStorageObjects(attachKeys); // best-effort уборка хранилища

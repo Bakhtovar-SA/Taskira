@@ -28,3 +28,15 @@
 | [0007](./0007-native-html5-dnd-physics-dnd-reverted.md) | Доска: нативный HTML5 drag&drop; кастомная «физика» перетаскивания откатана | Accepted | 2026-09-13 |
 | [0008](./0008-wouter-for-client-routing.md) | Клиентский роутинг: `wouter`, а не `react-router` | Accepted | 2026-09-22 |
 | [0009](./0009-database-per-tenant.md) | Database-per-tenant: одна БД = одна организация, без `organization_id` в схеме | Accepted | 2026-09-22 |
+| [0010](./0010-dynamic-styles-under-csp.md) | Динамические стили под CSP: кастомные свойства и WAAPI через CSSOM, `data-*` для перечислимого; не правило на значение | Accepted | 2026-09-25 |
+| [0011](./0011-store-selector-subscriptions.md) | Стор: подписки с селектором на `useSyncExternalStore`, миграция по доменам | Accepted | 2026-09-25 |
+| [0012](./0012-design-language.md) | Язык дизайна: фиолет 288, Onest, токены в три слоя, «тихий хром — живая атмосфера» | Superseded by ADR-0016 (частично) | 2026-09-25 |
+| [0013](./0013-information-architecture.md) | Информационная архитектура: панель с деревом проектов, три дома настроек, панель задачи | Accepted | 2026-09-25 |
+| [0014](./0014-component-library-native-primitives.md) | Библиотека компонентов: свои на нативных `<dialog>` и Popover API + `@floating-ui/dom`; не Radix | Accepted | 2026-09-26 |
+| [0015](./0015-motion-waapi-css.md) | Движение: CSS + WAAPI + View Transitions, без библиотеки | Accepted | 2026-09-25 |
+| [0016](./0016-design-language-v2.md) | Язык дизайна v2: Manrope, стекло хрома, знак «Отметка», двухтоновые иконки | Accepted | 2026-09-25 |
+| [0017](./0017-project-templates-as-data.md) | Шаблоны проектов — данные над существующими настройками; свои статусы у проекта; не флаги возможностей | Accepted | 2026-09-27 |
+| [0018](./0018-project-appearance.md) | Внешний вид проекта: иконка, цвет и фон — идентификаторы из закрытых списков | Accepted | 2026-09-27 |
+| [0019](./0019-onboarding-in-product.md) | Онбординг встроен в продукт: прогресс на сервере, шаги отмечают реальные действия, демо без следов | Accepted | 2026-09-27 |
+| [0020](./0020-brand-hue-bounded-variable.md) | Брендирование: оттенок акцента — одна переменная в проверенном диапазоне, название и знак — данные | Accepted | 2026-09-28 |
+| [0021](./0021-project-roadmap.md) | Роадмап проектов: даты и вехи у проекта, зависимостями владеет зависимый, циклы запрещает сервер | Accepted | 2026-09-28 |

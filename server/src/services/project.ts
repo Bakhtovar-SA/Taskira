@@ -4,6 +4,7 @@ import { one } from "../db.js";
 // ApiHttpError из ./errors.js, не из middleware.js: middleware импортирует
 // этот модуль (Фаза 2 ролей), импорт notFound обратно создал бы цикл.
 import { ApiHttpError } from "../errors.js";
+import type { ProjectDto } from "../contract.js";
 
 export interface ProjectRow {
   id: string;
@@ -16,6 +17,15 @@ export interface ProjectRow {
    *  См. SPRINTS_MIGRATION.md; routes/sprints.ts 404-ит все свои роуты,
    *  если этот флаг false, независимо от роли вызывающего. */
   sprintsEnabled: boolean;
+  /** Шаблон проекта (ТЗ 5.10): представление по умолчанию и предложенные метки. */
+  defaultView: "board" | "backlog" | "timeline" | null;
+  suggestedLabels: string[];
+  /** Внешний вид (миграция 20260927T1400). */
+  icon: ProjectDto["icon"];
+  color: ProjectDto["color"];
+  background: ProjectDto["background"];
+  backgroundPhoto: ProjectDto["backgroundPhoto"];
+  isDemo: boolean;
 }
 
 interface ProjectDbRow {
@@ -26,9 +36,17 @@ interface ProjectDbRow {
   department_id: string;
   is_shared: boolean;
   sprints_enabled: boolean;
+  default_view: "board" | "backlog" | "timeline" | null;
+  suggested_labels: string[];
+  icon: ProjectDto["icon"];
+  color: ProjectDto["color"];
+  background: ProjectDto["background"];
+  is_demo: boolean;
+  bg_photo_updated_at: Date | null;
+  bg_photo_luma: number | null;
 }
 
-const SELECT_COLS = `id, key, name, description, department_id, is_shared, sprints_enabled`;
+const SELECT_COLS = `id, key, name, description, department_id, is_shared, sprints_enabled, default_view, suggested_labels, icon, color, background, is_demo, bg_photo_updated_at, bg_photo_luma`;
 
 const toRow = (r: ProjectDbRow): ProjectRow => ({
   id: r.id,
@@ -38,6 +56,13 @@ const toRow = (r: ProjectDbRow): ProjectRow => ({
   departmentId: r.department_id,
   isShared: r.is_shared,
   sprintsEnabled: r.sprints_enabled,
+  defaultView: r.default_view,
+  suggestedLabels: r.suggested_labels ?? [],
+  icon: r.icon ?? null,
+  color: r.color ?? null,
+  background: r.background ?? null,
+  backgroundPhoto: r.bg_photo_updated_at ? { updatedAt: r.bg_photo_updated_at.getTime(), luma: r.bg_photo_luma ?? 0.5 } : null,
+  isDemo: !!r.is_demo,
 });
 
 /* Кэш по id — проекты меняются редко (создание/правка админом → invalidate).
