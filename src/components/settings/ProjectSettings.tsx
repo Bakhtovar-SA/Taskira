@@ -108,7 +108,7 @@ function PhotoCard({ projectId, photo, editable }: { projectId: string; photo: {
           <p className="text-[12.5px] leading-relaxed text-faint">{t("look.photo.hint")}</p>
           {editable && (
             <div className="flex flex-wrap gap-2">
-              <input ref={input} type="file" accept="image/*" className="sr-only" tabIndex={-1} onChange={(e) => onFile(e.target.files?.[0])} />
+              <input ref={input} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-label={t("look.photo.upload")} onChange={(e) => onFile(e.target.files?.[0])} />
               <Button size="sm" variant="secondary" loading={busy} onClick={() => input.current?.click()}>
                 {t(photo ? "look.photo.replace" : "look.photo.upload")}
               </Button>
@@ -193,7 +193,7 @@ function General() {
           </select>
         </SettingRow>
         <SettingRow label={t("settings.project.shared")} hint={t("settings.project.sharedHint")}>
-          <Switch checked={p.isShared} onChange={(v) => patchProject(p.id, { isShared: v })} />
+          <Switch checked={p.isShared} onChange={(v) => patchProject(p.id, { isShared: v })} aria-label={t("settings.project.shared")} />
         </SettingRow>
       </SettingsCard>
     </SettingsPage>

@@ -195,7 +195,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                   {(focus === "all" && !q.trim() ? groupByUrgency(tasks) : [{ id: null, items: tasks }]).map((g) => (
                     <div key={g.id ?? "flat"}>
                       {g.id && (
-                        <p className="urgency-head flex items-center gap-2 border-b border-linesoft px-3.5 pb-1.5 pt-3 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-faint" data-urgency={g.id}>
+                        <p className="urgency-head flex items-center gap-2 border-b border-linesoft px-3.5 pb-1.5 pt-3 text-[12px] font-semibold text-sub" data-urgency={g.id}>
                           {t(`home.urgency.${g.id}`)}
                           <span className="tabular font-medium">{g.items.length}</span>
                         </p>

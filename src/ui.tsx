@@ -430,20 +430,25 @@ export function Modal({
   // повторного запуска эффекта монтирования.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  // Куда вернуть фокус после закрытия — обычно это кнопка/карточка, с которой диалог открыли. Запоминается при
+  // первом рендере: к моменту эффекта `autoFocus` поля внутри уже забрал фокус, и «открывший» был бы самим полем.
+  const openerRef = useRef(document.activeElement as HTMLElement | null);
 
   useEffect(() => {
-    // Куда вернуть фокус после закрытия — обычно это кнопка/карточка,
-    // с которой диалог открыли.
-    const opener = document.activeElement as HTMLElement | null;
+    const opener = openerRef.current;
 
     // Фон не должен прокручиваться под открытым диалогом.
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // Фокус внутрь: первый осмысленный элемент, иначе сам контейнер.
+    // Фокус внутрь: первый осмысленный элемент, иначе сам контейнер. Если поле уже взяло фокус само (`autoFocus`
+    // у названия в «Создать задачу» срабатывает раньше этого эффекта), не перебивать его крестиком из шапки —
+    // найдено проходом с клавиатуры (ТЗ 5.16): после C фокус стоял на «Закрыть», а не в поле названия.
     const box = boxRef.current;
-    const first = box?.querySelector<HTMLElement>(FOCUSABLE);
-    (first ?? box)?.focus();
+    if (!box?.contains(document.activeElement)) {
+      const first = box?.querySelector<HTMLElement>(FOCUSABLE);
+      (first ?? box)?.focus();
+    }
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

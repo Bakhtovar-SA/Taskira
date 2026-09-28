@@ -63,6 +63,7 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
     removeCustomField,
     toast,
     can,
+    setView,
   } = useStore();
   const canEditWf = can("editWorkflow");
   const [fieldName, setFieldName] = useState("");
@@ -286,7 +287,7 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                 <IcPlus size={13} /> {t("workflow.addTransition")}
               </button>
               <button
-                onClick={() => toast("info", t("workflow.helpToast"))}
+                onClick={() => setView("docs")}
                 className="w-full rounded-md px-3 py-1.5 text-[11.5px] font-semibold text-faint hover:text-accent"
               >
                 {t("workflow.how")}

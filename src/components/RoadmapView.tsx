@@ -268,7 +268,7 @@ export default function RoadmapView() {
             {shown.map((it) =>
               it.kind === "group" ? (
                 <div key={`g:${it.group.id}`} ref={cssVars({ "--y": it.y })} className="absolute inset-x-0 top-[var(--y)] h-[36px]">
-                  <div className="sticky left-0 flex h-full w-fit items-end px-4 pb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-faint sm:px-6">
+                  <div className="sticky left-0 flex h-full w-fit items-end px-4 pb-1.5 text-[12px] font-semibold text-sub sm:px-6">
                     {it.group.name} · {it.group.projects.length}
                   </div>
                 </div>

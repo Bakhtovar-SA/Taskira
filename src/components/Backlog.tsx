@@ -483,27 +483,27 @@ export default function Backlog() {
 
         {/* фильтры */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <select value={fStatus} onChange={(e) => setField("status")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select aria-label={t("field.status")} value={fStatus} onChange={(e) => setField("status")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.allStatuses")}</option>
             {data.workflow.statuses.map((s) => (
               <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
             ))}
           </select>
-          <select value={fAssignee} onChange={(e) => setField("assignee")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select aria-label={t("field.assignee")} value={fAssignee} onChange={(e) => setField("assignee")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.anyAssignee")}</option>
             <option value="none">{t("createIssue.unassigned")}</option>
             {data.users.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
-          <select value={fType} onChange={(e) => setField("type")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select aria-label={t("field.type")} value={fType} onChange={(e) => setField("type")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("issueType.allShort")}</option>
             {TYPE_ORDER.map((ty) => (
               <option key={ty} value={ty}>{t(`issueType.${ty}`)}</option>
             ))}
           </select>
           {/* ТЗ 3.2: приоритет и метка — та же серверная пара условий, что status/assignee/type. */}
-          <select value={fPriority} onChange={(e) => setField("priority")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+          <select aria-label={t("field.priority")} value={fPriority} onChange={(e) => setField("priority")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.anyPriority")}</option>
             {PRIORITY_ORDER.map((p) => (
               <option key={p} value={p}>{t(`priority.${p}`)}</option>

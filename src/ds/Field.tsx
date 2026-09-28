@@ -179,10 +179,13 @@ export function Switch({
   disabled,
   force,
   labelFirst,
+  "aria-label": ariaLabel,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label?: ReactNode;
+  /** Имя переключателя без видимой подписи рядом (подпись — у строки настройки). */
+  "aria-label"?: string;
   description?: ReactNode;
   disabled?: boolean | string;
   force?: "hover" | "focus";
@@ -197,6 +200,7 @@ export function Switch({
       aria-checked={checked}
       aria-disabled={disabled ? true : undefined}
       aria-labelledby={label ? `${id}-l` : undefined}
+      aria-label={label ? undefined : ariaLabel}
       title={typeof disabled === "string" ? disabled : undefined}
       data-force={force}
       className="ds-switch ds-focus"

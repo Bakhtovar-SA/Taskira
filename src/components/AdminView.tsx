@@ -12,9 +12,11 @@ const PROJECT_ROLES: ProjectRole[] = ["manager", "employee", "viewer"];
 
 /** Инлайн-переименование: input выглядит как текст, сохраняет по blur/Enter. */
 function EditableName({ value, onSave, maxLength }: { value: string; onSave: (v: string) => void; maxLength: number }) {
+  const { t } = useT();
   return (
     <input
       key={value}
+      aria-label={t("admin.renameDepartment", { name: value })}
       defaultValue={value}
       maxLength={maxLength}
       onKeyDown={(e) => {

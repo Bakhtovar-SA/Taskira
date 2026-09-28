@@ -286,6 +286,9 @@ jobs:
       - name: Motion — durations from tokens, ≤ 450 ms, reduced-motion covered (ТЗ 5.13)
         run: npm run motion:check
 
+      - name: Anti-list — no caps labels or arrows in button text (DESIGN.md, ТЗ 5.16)
+        run: npm run antilist:check
+
       - run: npm test
 
       - run: npm run build

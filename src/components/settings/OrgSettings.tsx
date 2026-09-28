@@ -795,7 +795,7 @@ function Brand() {
           <p className="text-[12px] leading-relaxed text-faint">{t("brand.hueHint")}</p>
         </div>
         <div className="flex flex-col gap-3 px-5 py-4">
-          <p className="text-[11.5px] font-medium uppercase tracking-[0.05em] text-faint">{t("brand.preview")}</p>
+          <p className="text-[12px] font-medium text-faint">{t("brand.preview")}</p>
           <div className="flex flex-wrap items-center gap-4 rounded-lg bg-sunken/70 px-4 py-3 ring-1 ring-inset ring-linesoft">
             <span className="flex min-w-0 items-center gap-2.5">
               <BrandMark size={22} />
@@ -825,7 +825,7 @@ function Brand() {
           <div className="flex min-w-0 flex-col gap-3">
             <p className="text-[12.5px] leading-relaxed text-faint">{t("brand.logoHint")}</p>
             <div className="flex flex-wrap gap-2">
-              <input ref={input} type="file" accept="image/png,image/webp" className="sr-only" tabIndex={-1} onChange={(e) => onFile(e.target.files?.[0])} />
+              <input ref={input} type="file" accept="image/png,image/webp" className="sr-only" tabIndex={-1} aria-label={t("brand.logoUpload")} onChange={(e) => onFile(e.target.files?.[0])} />
               <Button size="sm" variant="secondary" loading={busy} onClick={() => input.current?.click()}>
                 {t(brand.logoUpdatedAt ? "brand.logoReplace" : "brand.logoUpload")}
               </Button>

@@ -17,6 +17,7 @@
     "contrast:check": "node scripts/check-contrast.mjs",
     "colors:check": "node scripts/check-raw-colors.mjs",
     "motion:check": "node scripts/check-motion.mjs",
+    "antilist:check": "node scripts/check-antilist.mjs",
     "bundle:check": "node scripts/check-bundle-size.mjs",
     "perf:rerenders": "vitest run --config vitest.perf.config.ts",
     "csp:spike": "node scripts/csp-spike/run.mjs",

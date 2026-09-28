@@ -475,6 +475,7 @@ function CustomFieldRow({
       ) : field.fieldType === "date" ? (
         <input
           type="date"
+          aria-label={field.name}
           value={current}
           onChange={(e) => setValue(issue.id, field.id, e.target.value || null)}
           className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent focus:shadow-focus"
@@ -1121,6 +1122,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                 {editOk ? (
                   <input
                     type="date"
+                    aria-label={t("field.dueDate")}
                     value={issue.dueDate ?? ""}
                     onChange={(e) => updateIssue(issue.id, { dueDate: e.target.value || null })}
                     className={`w-full rounded-md border bg-panel px-1.5 py-1.5 text-[12px] font-medium outline-none transition-colors focus:border-accent focus:shadow-focus ${
@@ -1256,6 +1258,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                     {editOk ? (
                       <input
                         type="number"
+                        aria-label={t("issue.startWeeks")}
                         min={0}
                         max={52}
                         value={issue.tStart ?? 0}
@@ -1272,6 +1275,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                     {editOk ? (
                       <input
                         type="number"
+                        aria-label={t("issue.durationWeeks")}
                         min={1}
                         max={52}
                         value={issue.tSpan ?? 3}

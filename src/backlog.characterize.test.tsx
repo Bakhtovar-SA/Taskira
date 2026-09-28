@@ -534,7 +534,7 @@ describe("Список задач — характеризующие тесты 
   test("6a. список сохранённых вьюх подгружается через savedViewsApi.list", async () => {
     const view: ServerSavedView = { id: "v1", name: "Мои горящие", filter: { priority: "high", status: "s1" }, isDefault: false, createdAt: "t", updatedAt: "t" };
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }), views: [view] });
-    fireEvent.click(screen.getByRole("button", { name: /Вьюхи/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранённые фильтры/ }));
     await settle();
     expect(screen.getByText("Мои горящие")).toBeTruthy();
     h.ui.unmount();
@@ -544,7 +544,7 @@ describe("Список задач — характеризующие тесты 
     const view: ServerSavedView = { id: "v1", name: "Мои горящие", filter: { priority: "high", status: "s1" }, isDefault: false, createdAt: "t", updatedAt: "t" };
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }), views: [view] });
     h.pageCalls.length = 0;
-    fireEvent.click(screen.getByRole("button", { name: /Вьюхи/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранённые фильтры/ }));
     await settle();
     fireEvent.click(screen.getByText("Мои горящие"));
     await settle();
@@ -557,11 +557,11 @@ describe("Список задач — характеризующие тесты 
     const [, , typeSel] = screen.getAllByRole("combobox");
     fireEvent.change(typeSel, { target: { value: "bug" } });
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: /Вьюхи/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранённые фильтры/ }));
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить как вьюху" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить фильтр" }));
     await settle();
-    fireEvent.change(screen.getByPlaceholderText("Название вьюхи"), { target: { value: "Баги" } });
+    fireEvent.change(screen.getByPlaceholderText("Название фильтра"), { target: { value: "Баги" } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await settle();
 
@@ -573,9 +573,9 @@ describe("Список задач — характеризующие тесты 
   test("6d. удаление вьюхи зовёт savedViewsApi.remove с её id", async () => {
     const view: ServerSavedView = { id: "v1", name: "Мои горящие", filter: {}, isDefault: false, createdAt: "t", updatedAt: "t" };
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }), views: [view] });
-    fireEvent.click(screen.getByRole("button", { name: /Вьюхи/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сохранённые фильтры/ }));
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Удалить вьюху" }));
+    fireEvent.click(screen.getByRole("button", { name: "Удалить фильтр" }));
     await settle();
     expect(h.viewsRemoveCalls).toEqual(["v1"]);
     h.ui.unmount();

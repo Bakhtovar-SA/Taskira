@@ -47,7 +47,7 @@ const Frame = memo(function Frame({ ticks, today }: Omit<FrameProps, "scale">) {
             <span
               key={t.x}
               ref={cssVars({ "--x": TIME_PAD + t.x, "--w": t.w, "--in": firstMajorAt(t) })}
-              className="absolute left-[var(--x)] top-[7px] w-[var(--w)] truncate pl-[var(--in)] pr-1 text-[11px] font-bold uppercase tracking-[0.06em] text-sub"
+              className="absolute left-[var(--x)] top-[7px] w-[var(--w)] truncate pl-[var(--in)] pr-1 text-[11.5px] font-bold text-sub first-letter:uppercase"
             >
               {t.w >= 28 && t.label}
             </span>

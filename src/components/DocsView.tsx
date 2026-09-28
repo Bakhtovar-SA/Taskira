@@ -97,7 +97,7 @@ export default function DocsView() {
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-onaccent"><IcBook size={18} /></span>
           <div>
             <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">Документация Taskira</h1>
-            <p className="mt-0.5 text-[11.5px] text-faint">Полный справочник по системе: роли, workflow, модель данных · всегда актуален, так как генерируется из кода</p>
+            <p className="mt-0.5 text-[11.5px] text-faint">Полный справочник по системе: роли, workflow, модель данных</p>
           </div>
         </div>
 

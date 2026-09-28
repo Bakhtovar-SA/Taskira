@@ -120,6 +120,7 @@ export default function PermissionsView() {
                     </div>
                     {canManage ? (
                       <select
+                        aria-label={t("access.roleOf", { name: u?.name ?? "" })}
                         value={role}
                         onChange={(e) => setMemberRole(id, e.target.value as ProjectRole)}
                         className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:shadow-focus focus:outline-none"
@@ -151,6 +152,7 @@ export default function PermissionsView() {
               <div className="flex flex-wrap items-center gap-2 border-t border-linesoft bg-sunken px-4 py-2.5">
                 <span className="text-[12px] font-medium text-faint">{t("access.addMember")}</span>
                 <select
+                  aria-label={t("access.addMember")}
                   value={addUser}
                   onChange={(e) => setAddUser(e.target.value)}
                   className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:shadow-focus focus:outline-none"
@@ -161,6 +163,7 @@ export default function PermissionsView() {
                   ))}
                 </select>
                 <select
+                  aria-label={t("access.newRole")}
                   value={addRole}
                   onChange={(e) => setAddRole(e.target.value as ProjectRole)}
                   className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] font-semibold text-sub focus:border-accent focus:shadow-focus focus:outline-none"
