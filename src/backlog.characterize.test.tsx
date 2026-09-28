@@ -354,6 +354,27 @@ describe("Список задач — характеризующие тесты 
     h.ui.unmount();
   });
 
+  test("ТЗ 5.12 e: таблица — заголовок сортирует (повторный клик меняет направление), колонки скрываются и запоминаются", async () => {
+    localStorage.removeItem("taskira.list.columns");
+    const h = await setup({ pageImpl: async () => ({ items: [dto("r1")], hasMore: false, nextCursor: null }) });
+    const head = () => within(screen.getByRole("table")).getAllByRole("columnheader");
+    expect(head().some((c) => c.textContent === "Срок")).toBe(true);
+    h.pageCalls.length = 0;
+    fireEvent.click(within(screen.getByRole("table")).getByRole("button", { name: "Срок" }));
+    await settle();
+    expect(h.pageCalls[h.pageCalls.length - 1]).toMatchObject({ sort: "due", dir: "asc" });
+    fireEvent.click(within(screen.getByRole("table")).getByRole("button", { name: "Срок" }));
+    await settle();
+    expect(h.pageCalls[h.pageCalls.length - 1]).toMatchObject({ sort: "due", dir: "desc" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Колонки" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Метки" }));
+    expect(head().some((c) => c.textContent === "Метки")).toBe(false);
+    expect(JSON.parse(localStorage.getItem("taskira.list.columns")!)).not.toContain("labels");
+    localStorage.removeItem("taskira.list.columns");
+    h.ui.unmount();
+  });
+
   test("2b. переключатель направления меняет dir; выбор «Обновление» сам переключает направление на убывание", async () => {
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
@@ -399,7 +420,8 @@ describe("Список задач — характеризующие тесты 
     });
     const row = document.querySelector('[data-issue-id="k1"]') as HTMLElement;
     expect(row).toBeTruthy();
-    expect(within(row).getByText("A21-k1")).toBeTruthy();
+    // Ключ — в своей колонке и (для телефона, скрыт на широком экране) над названием.
+    expect(within(row).getAllByText("A21-k1").length).toBeGreaterThan(0);
     expect(within(row).getByText("Починить биллинг")).toBeTruthy();
 
     expect(h.store().ui.selectedIssueId).toBeNull();

@@ -378,6 +378,25 @@ html.vt-theme::view-transition-new(root) {
   background: color-mix(in oklch, var(--accent-solid) 7%, transparent);
   box-shadow: inset 0 0 0 2px var(--accent-solid), 0 6px 18px -10px var(--accent-glow);
 }
+/* Таблица «Список задач» (ТЗ 5.12 e): заголовок и строки — одна сетка, шаблон колонок задаёт Backlog.tsx через
+   CSSOM (--list-cols). На телефоне — только название (ключ над ним), статус и исполнитель. */
+.list-grid {
+  display: grid;
+  grid-template-columns: var(--list-cols);
+}
+.list-head {
+  background: color-mix(in oklch, var(--bg-panel) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+@media (max-width: 639px) {
+  .list-grid {
+    grid-template-columns: var(--list-cols-sm);
+    column-gap: 0.5rem;
+  }
+  .list-grid > [data-col]:not([data-col="status"]):not([data-col="assignee"]) {
+    display: none;
+  }
+}
 /* Подсказка при первой встрече с функцией (Hint.tsx, ТЗ 5.11): тихая строка с фиолетовым краем, не баннер. */
 .hint-line {
   background: color-mix(in oklch, var(--accent-solid) 6%, var(--bg-panel));

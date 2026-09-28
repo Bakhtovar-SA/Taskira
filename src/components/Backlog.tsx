@@ -1,21 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Hint } from "./Hint";
 import { useLocation } from "wouter";
 import { useStore } from "../store";
-import { fmtDate } from "../store/mappers";
+import { fmtDate, relTime } from "../store/mappers";
 import type { Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { DueRing, IcBacklog, IcChevD, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { DueRing, IcBacklog, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
 import { Button, EmptyState } from "../ds";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { EMPTY_FILTERS, filtersFromSearch, searchFromFilters, type FilterState } from "../router";
+import { COLUMNS, LEFT, gridTemplate, readColumns, writeColumns, type ColumnId, type SortKey } from "../listColumns";
 
-type SortKey = "priority" | "due" | "updated" | "key";
 
 /** Поиск уходит на сервер не на каждую букву. */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -25,15 +25,38 @@ const isEmptyText = (v: string) => v === "";
 const selectCls =
   "h-8 rounded-lg border border-linesoft bg-sunken px-2 text-[12.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
 
+function HeadCell({ id, sortKey, sortDir, onSort, compact }: { id: ColumnId | "key"; sortKey: SortKey; sortDir: "asc" | "desc"; onSort: (k: SortKey) => void; compact?: boolean }) {
+  const { t } = useT();
+  const def = id === "key" ? { label: "backlog.sort.key" as const, sort: "key" as SortKey } : COLUMNS.find((c) => c.id === id)!;
+  const label = t(def.label);
+  const on = def.sort && def.sort === sortKey;
+  const text = compact ? <span className="sr-only">{label}</span> : <span className="truncate">{label}</span>;
+  return (
+    <span role="columnheader" data-col={id} aria-sort={on ? (sortDir === "asc" ? "ascending" : "descending") : undefined} className="flex min-w-0 items-center">
+      {def.sort ? (
+        <button type="button" onClick={() => onSort(def.sort!)} title={label} className={`ds-focus -mx-1 flex min-w-0 items-center gap-1 rounded px-1 hover:text-ink ${on ? "text-ink" : ""}`}>
+          {compact && !on ? <IcFilter size={11} className="shrink-0 opacity-60" /> : null}
+          {text}
+          {on && <IcChevD size={10} className={`shrink-0 ${sortDir === "asc" ? "rotate-180" : ""}`} />}
+        </button>
+      ) : (
+        text
+      )}
+    </span>
+  );
+}
+
 function Row({
   issue,
   epic,
+  cols,
   selectMode,
   selected,
   onToggleSelect,
 }: {
   issue: Issue;
   epic: Pick<IssueEpic, "id" | "title" | "color"> | undefined;
+  cols: ColumnId[];
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
@@ -44,60 +67,96 @@ function Row({
   // проходом по массивам в каждой строке списка (аудит PERF-02).
   const assignees = issue.assigneeIds.map((id) => idx.users.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
   const status = idx.statuses.get(issue.statusId);
+  const today = new Date().toISOString().slice(0, 10);
+  const overdue = !!issue.dueDate && status?.category !== "done" && issue.dueDate < today;
+
+  const cell = (id: ColumnId) => {
+    switch (id) {
+      case "priority":
+        return <PriorityIcon p={issue.priorityId} size={14} />;
+      case "type":
+        return <TypeIcon type={issue.typeId} size={14} />;
+      case "direction":
+        return epic ? (
+          <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md px-1.5 py-px text-[11.5px] text-sub ring-1 ring-inset ring-linesoft">
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: directionColor(epic.id, epic.color) }} />
+            <span className="truncate">{epic.title}</span>
+          </span>
+        ) : null;
+      case "labels":
+        return (
+          <span className="flex min-w-0 gap-1 overflow-hidden">
+            {issue.labels.slice(0, 2).map((l) => (
+              <Chip key={l} text={l} />
+            ))}
+            {issue.labels.length > 2 && <span className="text-[11.5px] tabular text-faint">+{issue.labels.length - 2}</span>}
+          </span>
+        );
+      case "due":
+        return issue.dueDate ? (
+          <span className={`inline-flex items-center gap-1 text-[12px] tabular ${overdue ? "font-medium text-[var(--status-danger-fg)]" : "text-faint"}`} title={overdue ? t("board.quickChip.overdue") : undefined}>
+            <DueRing due={issue.dueDate} today={today} done={status?.category === "done"} />
+            {fmtDate(issue.dueDate, lang)}
+          </span>
+        ) : null;
+      case "status":
+        return status ? <Lozenge status={status} size="sm" /> : null;
+      case "assignee":
+        return <AvatarStack users={assignees} size={22} interactive />;
+      case "updated":
+        return <span className="text-[12px] tabular text-faint">{relTime(issue.updatedAt, lang)}</span>;
+    }
+  };
 
   return (
     <div
+      role="row"
       onClick={() => openIssue(issue.id)}
       data-issue-id={issue.id}
-      className={`group flex h-11 cursor-pointer items-center gap-3 border-b border-linesoft/80 px-4 transition-colors last:border-0 hover:bg-hover/60 ${selected ? "bg-accentsoft/50" : "bg-panel"}`}
+      aria-selected={selectMode ? selected : undefined}
+      className={`list-grid group h-11 cursor-pointer items-center gap-x-3 border-b border-linesoft/80 px-4 transition-colors last:border-0 hover:bg-hover/60 ${selected ? "bg-accentsoft/50" : "bg-panel"}`}
     >
       {/* ТЗ 3.3: чекбоксы появляются только в режиме выделения — не занимают
           места в обычном режиме просмотра списка. */}
       {selectMode && (
-        <input
-          type="checkbox"
-          checked={selected}
-          onClick={(e) => e.stopPropagation()}
-          onChange={() => onToggleSelect(issue.id)}
-          className="shrink-0 cursor-pointer"
-          aria-label={t("backlog.selectRow", { key: issue.key })}
-        />
-      )}
-      <PriorityIcon p={issue.priorityId} size={14} />
-      <span className="w-16 shrink-0 font-mono text-[12px] text-faint">{issue.key}</span>
-      {status && <StatusGlyph category={status.category} size={14} />}
-      <TypeIcon type={issue.typeId} size={14} />
-      <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">{issue.title}</span>
-      {epic && (
-        <span className="hidden max-w-[180px] items-center gap-1.5 truncate rounded-md px-1.5 py-px text-[11.5px] text-sub ring-1 ring-inset ring-linesoft lg:inline-flex">
-          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: directionColor(epic.id, epic.color) }} />
-          <span className="truncate">{epic.title}</span>
+        <span role="cell" className="flex">
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(e) => e.stopPropagation()}
+            onChange={() => onToggleSelect(issue.id)}
+            className="shrink-0 cursor-pointer"
+            aria-label={t("backlog.selectRow", { key: issue.key })}
+          />
         </span>
       )}
-      <span className="hidden gap-1 xl:flex">
-        {issue.labels.slice(0, 2).map((l) => (
-          <Chip key={l} text={l} />
-        ))}
+      {LEFT.filter((id) => cols.includes(id)).map((id) => (
+        <span key={id} role="cell" data-col={id} className="flex min-w-0 items-center">
+          {cell(id)}
+        </span>
+      ))}
+      <span role="cell" data-col="key" className="truncate font-mono text-[12px] tabular text-faint">
+        {issue.key}
       </span>
-      {issue.dueDate && (
-        <span className="hidden shrink-0 items-center gap-1 text-[12px] tabular text-faint md:inline-flex">
-          <DueRing due={issue.dueDate} today={new Date().toISOString().slice(0, 10)} done={status?.category === "done"} />
-          {fmtDate(issue.dueDate, lang)}
+      <span role="cell" className="min-w-0 text-[13.5px] font-medium text-ink">
+        {/* На телефоне колонки ключа нет — ключ мелко над названием. */}
+        <span aria-hidden className="block truncate font-mono text-[11px] font-normal leading-tight tabular text-faint sm:hidden">
+          {issue.key}
         </span>
-      )}
-      {status && (
-        <span className="hidden shrink-0 sm:inline">
-          <Lozenge status={status} size="sm" />
+        <span className="block truncate">{issue.title}</span>
+      </span>
+      {COLUMNS.filter((c) => !LEFT.includes(c.id) && cols.includes(c.id)).map((c) => (
+        <span key={c.id} role="cell" data-col={c.id} className="flex min-w-0 items-center">
+          {cell(c.id)}
         </span>
-      )}
-      <AvatarStack users={assignees} size={22} interactive />
-      <div onClick={(e) => e.stopPropagation()}>
+      ))}
+      <span role="cell" data-col="actions" className="flex justify-end" onClick={(e) => e.stopPropagation()}>
         <Dropdown
           align="right"
           width={190}
           button={() => (
             <button
-              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink group-hover:opacity-100"
+              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
               aria-label={t("common.actions")}
             >
               <IcDots size={14} />
@@ -118,7 +177,7 @@ function Row({
             </>
           )}
         </Dropdown>
-      </div>
+      </span>
     </div>
   );
 }
@@ -269,6 +328,17 @@ export default function Backlog() {
   // ТЗ 3.3 (план v2 Трек 3): массовые операции — чекбоксы только в «режиме
   // выделения» (не занимают места в обычном просмотре). Права на КАЖДУЮ
   // задачу проверяет сервер при выполнении (частичный успех) — здесь только UI.
+  // Колонки таблицы — личная настройка в этом браузере (listColumns.ts); ширины — CSS-переменные через CSSOM (ADR-0010).
+  const [cols, setCols] = useState<ColumnId[]>(readColumns);
+  const toggleCol = (id: ColumnId) =>
+    setCols((prev) => {
+      const next = prev.includes(id) ? prev.filter((c) => c !== id) : COLUMNS.map((c) => c.id).filter((c) => c === id || prev.includes(c));
+      writeColumns(next);
+      return next;
+    });
+  const tableRef = useRef<HTMLDivElement>(null);
+  // Клик по заголовку колонки: та же колонка — сменить направление; другая — как выбор в меню сортировки.
+  const toggleSortBy = (k: SortKey) => (k === sortKey ? setSortDir((d) => (d === "asc" ? "desc" : "asc")) : pickSort(k));
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const toggleSelect = (id: string) =>
@@ -286,6 +356,14 @@ export default function Backlog() {
   useEffect(() => {
     clearSelection();
   }, [data.currentProjectId]);
+
+  useLayoutEffect(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    el.style.setProperty("--list-cols", gridTemplate(cols, selectMode));
+    // Телефон: только название с ключом, статус и исполнитель (остальные ячейки скрывает index.css).
+    el.style.setProperty("--list-cols-sm", gridTemplate(cols.filter((c) => c === "status" || c === "assignee"), selectMode, true));
+  });
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -344,6 +422,31 @@ export default function Backlog() {
                 </button>
               )}
             </div>
+
+            {/* колонки таблицы (ТЗ 5.12 e) */}
+            <Dropdown
+              align="right"
+              width={230}
+              button={(open) => (
+                <button className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+                  <IcDisplay size={12} className="text-faint" />
+                  {t("backlog.columns")}
+                  <IcChevD size={11} className="text-faint" />
+                </button>
+              )}
+            >
+              {() => (
+                <div className="p-1">
+                  {COLUMNS.map((c) => (
+                    <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink hover:bg-hover/70">
+                      <input type="checkbox" checked={cols.includes(c.id)} onChange={() => toggleCol(c.id)} className="cursor-pointer" />
+                      {t(c.label)}
+                    </label>
+                  ))}
+                  <p className="border-t border-linesoft px-2 pb-1 pt-1.5 text-[11px] leading-snug text-faint">{t("backlog.columnsHint")}</p>
+                </div>
+              )}
+            </Dropdown>
 
             {/* сортировка */}
             <Dropdown
@@ -616,12 +719,37 @@ export default function Backlog() {
             />
           ) : rows.length > 0 ? (
             <>
-              <div className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70">
+              {/* ТЗ 5.12 e: таблица — одна сетка на заголовок и строки; заголовок прилипает при прокрутке.
+                  overflow-clip, а не hidden: hidden сделал бы таблицу контейнером прокрутки и сломал sticky. */}
+              <div role="table" ref={tableRef} aria-label={t("backlog.title")} aria-rowcount={set.total ?? undefined} className="overflow-clip surface-raised rounded-xl ring-1 ring-inset ring-line/70">
+                <div role="row" className="list-grid list-head sticky top-0 z-10 h-9 items-center gap-x-3 border-b border-linesoft px-4 text-[11.5px] font-semibold text-faint">
+                  {selectMode && (
+                    <span role="columnheader" className="flex">
+                      <input
+                        type="checkbox"
+                        aria-label={t("backlog.selectAll")}
+                        checked={rows.length > 0 && rows.every((r) => selectedIds.has(r.id))}
+                        onChange={(e) => setSelectedIds(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())}
+                        className="cursor-pointer"
+                      />
+                    </span>
+                  )}
+                  {LEFT.filter((id) => cols.includes(id)).map((id) => (
+                    <HeadCell key={id} id={id} sortKey={sortKey} sortDir={sortDir} onSort={toggleSortBy} compact />
+                  ))}
+                  <HeadCell id="key" sortKey={sortKey} sortDir={sortDir} onSort={toggleSortBy} />
+                  <span role="columnheader">{t("backlog.col.title")}</span>
+                  {COLUMNS.filter((c) => !LEFT.includes(c.id) && cols.includes(c.id)).map((c) => (
+                    <HeadCell key={c.id} id={c.id} sortKey={sortKey} sortDir={sortDir} onSort={toggleSortBy} />
+                  ))}
+                  <span role="columnheader" data-col="actions" aria-label={t("common.actions")} />
+                </div>
                 {rows.map((i) => (
                   <Row
                     key={i.id}
                     issue={i}
                     epic={i.epicId ? epics.byId.get(i.epicId) : undefined}
+                    cols={cols}
                     selectMode={selectMode}
                     selected={selectedIds.has(i.id)}
                     onToggleSelect={toggleSelect}
