@@ -8,7 +8,7 @@ import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { LIMITS } from "../validation";
 import { ApiError, savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { DueRing, IcBacklog, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
 import { Button, EmptyState } from "../ds";
 import ImportTrelloModal from "./ImportTrelloModal";
@@ -201,7 +201,8 @@ export default function Backlog() {
   const [showDone, setShowDone] = useState(() => new URLSearchParams(location.search).get("done") === "1");
   const [sortKey, setSortKey] = useState<SortKey>("priority");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const { status: fStatus, assignee: fAssignee, type: fType, priority: fPriority, label: fLabel } = filters;
+  const { status: fStatus, assignee: fAssignee, type: fType, priority: fPriority, label: fLabel, sprintId: fSprint, dueFrom: fDueFrom, dueTo: fDueTo } = filters;
+  const sprintsOn = !!data.projects.find((pr) => pr.id === data.currentProjectId)?.sprintsEnabled;
   const setField = (k: keyof FilterState) => (v: string) => setFilters((cur) => ({ ...cur, [k]: v }));
 
   // Состояние → URL: реплейсим (не пушим) — фильтр не должен плодить историю
@@ -242,12 +243,15 @@ export default function Backlog() {
       type: fType || undefined,
       priority: fPriority || undefined,
       label: fLabel || undefined,
+      sprintId: (sprintsOn && fSprint) || undefined,
+      dueFrom: fDueFrom || undefined,
+      dueTo: fDueTo || undefined,
       q: qDebounced || undefined,
       overdue: fOverdue ? "1" : undefined,
       closed: !showDone && !fStatus ? "hide" : undefined,
     };
     return { projectId: data.currentProjectId, filters: apiFilters, sort: sortKey, dir: sortDir };
-  }, [data.currentProjectId, fStatus, fAssignee, fType, fPriority, fLabel, qDebounced, fOverdue, showDone, sortKey, sortDir]);
+  }, [data.currentProjectId, fStatus, fAssignee, fType, fPriority, fLabel, fSprint, fDueFrom, fDueTo, sprintsOn, qDebounced, fOverdue, showDone, sortKey, sortDir]);
 
   const set = useIssueSet(query);
   // Направления строк — справочник (один запрос на экран), а не поиск в списке всех задач.
@@ -263,7 +267,7 @@ export default function Backlog() {
   const { hasMore, loading, loadingMore, loadMore } = set;
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length);
 
-  const filterActive = !!(q || fStatus || fAssignee || fType || fPriority || fLabel || fOverdue || showDone);
+  const filterActive = !!(q || fStatus || fAssignee || fType || fPriority || fLabel || fSprint || fDueFrom || fDueTo || fOverdue || showDone);
   const resetFilters = () => {
     setQ("");
     setFilters(EMPTY_FILTERS);
@@ -287,7 +291,7 @@ export default function Backlog() {
       if (cancelled) return;
       setViews(items);
       const def = items.find((v) => v.isDefault);
-      const noConditions = !fStatus && !fAssignee && !fType && !fPriority && !fLabel && !q;
+      const noConditions = !fStatus && !fAssignee && !fType && !fPriority && !fLabel && !fSprint && !fDueFrom && !fDueTo && !q;
       if (def && noConditions && defaultApplied.current !== pid) applyView(def);
       defaultApplied.current = pid;
     }).catch(() => undefined); // тихо — панель просто пуста, не критично для доски/списка
@@ -304,6 +308,9 @@ export default function Backlog() {
       type: v.filter.type ?? "",
       priority: v.filter.priority ?? "",
       label: v.filter.label ?? "",
+      sprintId: v.filter.sprintId ?? "",
+      dueFrom: v.filter.dueFrom ?? "",
+      dueTo: v.filter.dueTo ?? "",
     });
     setQ(v.filter.q ?? "");
   };
@@ -321,6 +328,9 @@ export default function Backlog() {
         type: fType || undefined,
         priority: fPriority || undefined,
         label: fLabel || undefined,
+        sprintId: (sprintsOn && fSprint) || undefined,
+        dueFrom: fDueFrom || undefined,
+        dueTo: fDueTo || undefined,
         q: q || undefined,
       },
       isDefault: false,
@@ -543,6 +553,19 @@ export default function Backlog() {
             onChange={(e) => setField("label")(e.target.value)}
             placeholder={t("backlog.labelPlaceholder")}
             className={`${selectCls} w-28`}
+          />
+          {sprintsOn && data.sprints.length > 0 && (
+            <select aria-label={t("backlog.sprintFilter")} value={fSprint} onChange={(e) => setField("sprintId")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+              <option value="">{t("backlog.anySprint")}</option>
+              {data.sprints.map((sp) => (
+                <option key={sp.id} value={sp.id}>{sp.name}</option>
+              ))}
+            </select>
+          )}
+          <DueRangeFilter
+            from={fDueFrom}
+            to={fDueTo}
+            onChange={(from, to) => setFilters((cur) => ({ ...cur, dueFrom: from, dueTo: to }))}
           />
           <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
             <input
@@ -864,5 +887,66 @@ export default function Backlog() {
 
       {importOpen && <ImportTrelloModal onClose={() => setImportOpen(false)} />}
     </div>
+  );
+}
+
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDaysLocal = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+/** «Срок»: готовые периоды считаются от сегодняшнего дня в момент выбора и дальше живут как обычные даты «с … по …»
+ *  (так их можно сохранить в фильтр и поделиться ссылкой); «Свои даты» — два поля. */
+function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onChange: (from: string, to: string) => void }) {
+  const { t, lang } = useT();
+  const today = new Date();
+  const monday = addDaysLocal(today, -((today.getDay() + 6) % 7));
+  const presets: { key: string; from: string; to: string }[] = [
+    { key: "backlog.due.today", from: isoDay(today), to: isoDay(today) },
+    { key: "backlog.due.thisWeek", from: isoDay(monday), to: isoDay(addDaysLocal(monday, 6)) },
+    { key: "backlog.due.next7", from: isoDay(today), to: isoDay(addDaysLocal(today, 7)) },
+    { key: "backlog.due.thisMonth", from: isoDay(new Date(today.getFullYear(), today.getMonth(), 1)), to: isoDay(new Date(today.getFullYear(), today.getMonth() + 1, 0)) },
+  ];
+  const fmt = (s: string) => fmtDate(s, lang);
+  const active = !!(from || to);
+  const label = !active ? t("backlog.due.any") : from && to && from === to ? fmt(from) : `${from ? fmt(from) : "…"} – ${to ? fmt(to) : "…"}`;
+  return (
+    <Dropdown
+      align="left"
+      width={250}
+      button={(open) => (
+        <button
+          aria-label={`${t("field.dueDate")}: ${label}`}
+          className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open || active ? "border-accent" : "border-line"} bg-panel ${active ? "text-ink" : "text-sub"}`}
+        >
+          <IcCalendar size={12} className="text-faint" />
+          <span className="tabular">{active ? label : t("field.dueDate")}</span>
+          <IcChevD size={11} className="text-faint" />
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          {presets.map((p) => (
+            <MenuItem key={p.key} onClick={() => { onChange(p.from, p.to); close(); }}>
+              {t(p.key as never)}
+              {from === p.from && to === p.to && <IcCheck size={12} className="ml-auto text-accent" />}
+            </MenuItem>
+          ))}
+          <div className="my-1 border-t border-linesoft" />
+          <div className="grid grid-cols-2 gap-1.5 px-2.5 py-1.5">
+            <label className="text-[11px] font-medium text-faint">
+              {t("backlog.due.from")}
+              <input type="date" value={from} max={to || undefined} onChange={(e) => onChange(e.target.value, to)} className="mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[12px] text-ink outline-none focus:border-accent" />
+            </label>
+            <label className="text-[11px] font-medium text-faint">
+              {t("backlog.due.to")}
+              <input type="date" value={to} min={from || undefined} onChange={(e) => onChange(from, e.target.value)} className="mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[12px] text-ink outline-none focus:border-accent" />
+            </label>
+          </div>
+          {active && (
+            <MenuItem onClick={() => { onChange("", ""); close(); }}>{t("backlog.due.clear")}</MenuItem>
+          )}
+        </>
+      )}
+    </Dropdown>
   );
 }

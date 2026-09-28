@@ -559,6 +559,9 @@ export interface IssueFilterParams {
   parentId?: string;
   epicId?: string;
   q?: string;
+  /** Срок в диапазоне, ГГГГ-ММ-ДД включительно. */
+  dueFrom?: string;
+  dueTo?: string;
   overdue?: "1";
   /** "hide" — без закрытых; "recent" — закрытые не старше closedDays; "older" — только старше. */
   closed?: "hide" | "recent" | "older";

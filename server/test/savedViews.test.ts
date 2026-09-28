@@ -132,6 +132,13 @@ describe("сохранённые вьюхи: валидация и лимиты"
     expect(r.statusCode).toBe(400);
   });
 
+  test("срок «с … по …» сохраняется в фильтре; не-дата — 400", async () => {
+    const mgr = await login(app, "mgr1");
+    const v = await createView(mgr, { filter: { dueFrom: "2026-09-01", dueTo: "2026-09-30" } });
+    expect(v.filter).toEqual({ dueFrom: "2026-09-01", dueTo: "2026-09-30" });
+    expect((await post(viewsUrl(), mgr, body({ filter: { dueFrom: "завтра" } }))).statusCode).toBe(400);
+  });
+
   test("лимит вьюх на пользователя в проекте — 400 после LIMITS.savedViewsPerUserProject", async () => {
     const mgr = await login(app, "mgr1");
     for (let i = 0; i < 30; i++) {

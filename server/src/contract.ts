@@ -603,6 +603,9 @@ export const SavedViewFilter = z
     label: z.string().max(60).optional(),
     sprintId: uuid.optional(),
     q: z.string().max(120).optional(),
+    /** Срок «с … по …» (фильтр списка): даты фиксируются при сохранении, не «эта неделя». */
+    dueFrom: isoDate().optional(),
+    dueTo: isoDate().optional(),
   })
   // .strict(), не молчаливая обрезка неизвестных полей — иначе сохранение вьюхи
   // с опечаткой в имени условия или полем, которое конструктор ещё не поддерживает

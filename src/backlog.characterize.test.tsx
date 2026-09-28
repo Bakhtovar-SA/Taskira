@@ -167,18 +167,25 @@ interface Setup {
   countsImpl?: (projectId: string, params: IssueFilterParams) => Promise<{ total: number; byStatus: Record<string, number> }>;
   views?: ServerSavedView[];
   bulkImpl?: (body: BulkAction) => Promise<BulkResultLike>;
+  /** Модуль спринтов включён и в проекте есть один спринт `sp1`. */
+  sprintsOn?: boolean;
 }
 
-async function setup({ role = "manager", pageImpl, countsImpl, views, bulkImpl }: Setup) {
+async function setup({ role = "manager", pageImpl, countsImpl, views, bulkImpl, sprintsOn = false }: Setup) {
   history.pushState(null, "", "/p/A21/list");
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(user1 as never);
   vi.spyOn(authApi, "config").mockResolvedValue({ authMode: "local" });
-  vi.spyOn(projectsApi, "list").mockResolvedValue([project] as never);
+  const proj = { ...project, sprintsEnabled: sprintsOn };
+  vi.spyOn(projectsApi, "list").mockResolvedValue([proj] as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-  vi.spyOn(projectsApi, "get").mockResolvedValue(bootWith(role));
+  vi.spyOn(projectsApi, "get").mockResolvedValue({
+    ...bootWith(role),
+    project: proj,
+    sprints: sprintsOn ? [{ id: "sp1", name: "Спринт 7", goal: "", status: "active", startDate: null, endDate: null }] : [],
+  } as ProjectBootstrap);
   vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
@@ -314,6 +321,33 @@ describe("Список задач — характеризующие тесты 
     const qs = new URLSearchParams(location.search);
     expect(qs.get("overdue")).toBe("1");
     expect(qs.get("done")).toBe("1");
+    h.ui.unmount();
+  });
+
+  test("1f. срок «с … по …» и спринт уходят как dueFrom/dueTo/sprintId и в URL", async () => {
+    const h = await setup({ sprintsOn: true, pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
+    h.pageCalls.length = 0;
+    fireEvent.change(screen.getByLabelText("Спринт"), { target: { value: "sp1" } });
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: /^Срок/ }));
+    await settle();
+    fireEvent.change(screen.getByLabelText("С"), { target: { value: "2026-09-01" } });
+    await settle();
+    fireEvent.change(screen.getByLabelText("По"), { target: { value: "2026-09-30" } });
+    await settle();
+
+    const last = h.pageCalls[h.pageCalls.length - 1];
+    expect(last).toMatchObject({ sprintId: "sp1", dueFrom: "2026-09-01", dueTo: "2026-09-30" });
+    const qs = new URLSearchParams(location.search);
+    expect(qs.get("sprintId")).toBe("sp1");
+    expect(qs.get("dueFrom")).toBe("2026-09-01");
+    expect(qs.get("dueTo")).toBe("2026-09-30");
+    h.ui.unmount();
+  });
+
+  test("1g. модуль спринтов выключен — фильтра по спринту нет", async () => {
+    const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
+    expect(screen.queryByLabelText("Спринт")).toBeNull();
     h.ui.unmount();
   });
 

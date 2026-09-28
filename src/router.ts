@@ -129,9 +129,13 @@ export interface FilterState {
   type: string;
   priority: string;
   label: string;
+  /** Спринт (только при включённом модуле) и диапазон срока «с … по …», ГГГГ-ММ-ДД включительно. */
+  sprintId: string;
+  dueFrom: string;
+  dueTo: string;
 }
-export const EMPTY_FILTERS: FilterState = { status: "", assignee: "", type: "", priority: "", label: "" };
-const FILTER_QS_KEYS: (keyof FilterState)[] = ["status", "assignee", "type", "priority", "label"];
+export const EMPTY_FILTERS: FilterState = { status: "", assignee: "", type: "", priority: "", label: "", sprintId: "", dueFrom: "", dueTo: "" };
+const FILTER_QS_KEYS: (keyof FilterState)[] = ["status", "assignee", "type", "priority", "label", "sprintId", "dueFrom", "dueTo"];
 
 export function filtersFromSearch(search: string): FilterState {
   const p = new URLSearchParams(search);
