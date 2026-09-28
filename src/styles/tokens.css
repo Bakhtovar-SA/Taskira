@@ -294,47 +294,284 @@
   --ic-c: 0.13;
 }
 
-/* Атмосферные пресеты (личная настройка «Фон», theme.ts). Меняют только
-   свечение — хром и акцент остаются фиолетовыми в любом пресете. */
-:root[data-atmosphere="dusk"] {
+/* Превью фона «по умолчанию» на плашке выбора — базовое свечение темы (ниже его перекрывают темы). */
+[data-atmo="default"] {
+  --glow-a: oklch(0.78 0.13 288 / 0.75);
+  --glow-b: oklch(0.86 0.1 20 / 0.55);
+  --glow-c: oklch(0.86 0.09 220 / 0.55);
+}
+:root[data-theme="dark"] [data-atmo="default"] {
+  --glow-a: oklch(0.45 0.2 288 / 0.7);
+  --glow-b: oklch(0.4 0.17 330 / 0.45);
+  --glow-c: oklch(0.42 0.14 250 / 0.45);
+}
+
+/* ── Курируемые темы (ТЗ 5.14 п.3, theme.ts THEMES). Тема = переопределение семантического слоя поверх базовой
+   светлой/тёмной (data-theme) + своё свечение по умолчанию. Акцент в хроме — фиолетовый в любой теме.
+   Стоят ПОСЛЕ базовых блоков и ДО фонов: выбранный человеком фон (data-atmosphere) перекрывает свечение темы. */
+
+/* «Сумерки» — тёмная, глубже и фиолетовее базовой. */
+:root[data-skin="dusk"] {
+  --bg-frame: oklch(0.14 0.03 292);
+  --bg-canvas: oklch(0.17 0.032 292);
+  --bg-sunken: oklch(0.15 0.03 292);
+  --bg-panel: oklch(0.2 0.034 292);
+  --bg-raised: oklch(0.226 0.036 292);
+  --bg-overlay: oklch(0.216 0.035 292);
+  --bg-hover: oklch(0.246 0.04 292);
+  --bg-active: oklch(0.28 0.05 292);
+  --bg-glass: oklch(0.22 0.036 292 / 0.8);
+  --bg-sidebar: oklch(0.14 0.03 292 / 0.5);
+  --sidebar-item-active: oklch(0.3 0.06 292 / 0.55);
+  --text-2: oklch(0.79 0.02 292);
+  --text-3: oklch(0.69 0.026 292);
+  --border-subtle: oklch(0.25 0.032 292);
+  --border-default: oklch(0.29 0.036 292);
+  --border-strong: oklch(0.37 0.04 292);
+  --status-todo-bg: oklch(0.255 0.03 292);
+  --glass-side: oklch(0.19 0.045 292 / 0.45);
+  --glass-sheet: oklch(0.16 0.032 292 / 0.82);
+}
+:root[data-skin="dusk"],
+:root[data-skin="dusk"] [data-atmo="default"] {
+  --glow-a: oklch(0.48 0.22 296 / 0.75);
+  --glow-b: oklch(0.42 0.2 322 / 0.5);
+  --glow-c: oklch(0.4 0.16 268 / 0.5);
+}
+
+/* «Графит» — тёмная нейтральная: серые без фиолетового подтона, свечение почти погашено. */
+:root[data-skin="graphite"] {
+  --bg-frame: oklch(0.16 0.003 260);
+  --bg-canvas: oklch(0.185 0.003 260);
+  --bg-sunken: oklch(0.168 0.003 260);
+  --bg-panel: oklch(0.215 0.004 260);
+  --bg-raised: oklch(0.24 0.004 260);
+  --bg-overlay: oklch(0.23 0.004 260);
+  --bg-hover: oklch(0.258 0.004 260);
+  --bg-active: oklch(0.29 0.005 260);
+  --bg-glass: oklch(0.235 0.004 260 / 0.82);
+  --bg-sidebar: oklch(0.155 0.003 260 / 0.55);
+  --sidebar-item-active: oklch(0.3 0.006 260 / 0.6);
+  --text-1: oklch(0.95 0.002 260);
+  --text-2: oklch(0.79 0.004 260);
+  --text-3: oklch(0.67 0.004 260);
+  --border-subtle: oklch(0.26 0.004 260);
+  --border-default: oklch(0.3 0.004 260);
+  --border-strong: oklch(0.38 0.005 260);
+  --status-todo: oklch(0.62 0.004 260);
+  --status-todo-bg: oklch(0.27 0.004 260);
+  --status-todo-fg: oklch(0.79 0.004 260);
+  --glass-side: oklch(0.2 0.004 260 / 0.55);
+  --glass-sheet: oklch(0.175 0.003 260 / 0.86);
+}
+:root[data-skin="graphite"],
+:root[data-skin="graphite"] [data-atmo="default"] {
+  --glow-a: oklch(0.34 0.012 260 / 0.55);
+  --glow-b: oklch(0.3 0.01 260 / 0.35);
+  --glow-c: oklch(0.3 0.01 260 / 0);
+}
+
+/* «Рассвет» — светлая с тёплым подтоном поверхностей и тёплым свечением. */
+:root[data-skin="dawn"] {
+  --bg-frame: oklch(0.955 0.016 62);
+  --bg-canvas: oklch(0.976 0.01 62);
+  --bg-sunken: oklch(0.958 0.013 62);
+  --bg-panel: oklch(0.996 0.004 62);
+  --bg-raised: oklch(0.996 0.004 62);
+  --bg-overlay: oklch(0.996 0.004 62);
+  --bg-hover: oklch(0.946 0.015 62);
+  --bg-active: oklch(0.926 0.02 62);
+  --bg-glass: oklch(0.992 0.006 62 / 0.8);
+  --bg-sidebar: oklch(0.95 0.018 62 / 0.55);
+  --sidebar-item-active: oklch(0.996 0.004 62 / 0.92);
+  --text-2: oklch(0.43 0.024 50);
+  --text-3: oklch(0.51 0.022 50);
+  --border-subtle: oklch(0.922 0.014 62);
+  --border-default: oklch(0.892 0.016 62);
+  --border-strong: oklch(0.815 0.02 62);
+  --status-todo-bg: oklch(0.943 0.012 62);
+  --glass-side: oklch(0.985 0.012 62 / 0.52);
+  --glass-sheet: oklch(0.988 0.008 62 / 0.82);
+}
+:root[data-skin="dawn"],
+:root[data-skin="dawn"] [data-atmo="default"] {
+  --glow-a: oklch(0.86 0.1 58 / 0.55);
+  --glow-b: oklch(0.83 0.1 352 / 0.42);
+  --glow-c: oklch(0.87 0.07 300 / 0.32);
+}
+
+/* «Бумага» — светлая высококонтрастная: белые поверхности, текст темнее, границы заметнее, стекло почти глухое. */
+:root[data-skin="paper"] {
+  --bg-frame: oklch(0.962 0.002 288);
+  --bg-canvas: oklch(1 0 0);
+  --bg-sunken: oklch(0.972 0.002 288);
+  --bg-panel: oklch(1 0 0);
+  --bg-raised: oklch(1 0 0);
+  --bg-overlay: oklch(1 0 0);
+  --bg-hover: oklch(0.955 0.003 288);
+  --bg-active: oklch(0.93 0.005 288);
+  --bg-glass: oklch(1 0 0 / 0.94);
+  --bg-sidebar: oklch(0.962 0.002 288 / 0.88);
+  --sidebar-item-active: oklch(1 0 0);
+  --text-1: oklch(0.17 0.004 288);
+  --text-2: oklch(0.33 0.008 288);
+  --text-3: oklch(0.42 0.008 288);
+  --border-subtle: oklch(0.88 0.004 288);
+  --border-default: oklch(0.82 0.005 288);
+  --border-strong: oklch(0.68 0.006 288);
+  --status-todo-bg: oklch(0.945 0.004 288);
+  --glass-side: oklch(0.975 0.002 288 / 0.92);
+  --glass-sheet: oklch(1 0 0 / 0.97);
+}
+:root[data-skin="paper"],
+:root[data-skin="paper"] [data-atmo="default"] {
+  --glow-a: oklch(0.9 0.03 288 / 0.3);
+  --glow-b: oklch(0.9 0.02 288 / 0);
+  --glow-c: oklch(0.9 0.02 288 / 0);
+}
+
+/* ── Фоны (ТЗ 5.14 п.1, theme.ts BG_IDS): градиентное свечение и абстрактная геометрия, всё в сборке, ничего из
+   сети. Фон меняет только атмосферу за рабочим листом — хром и акцент остаются фиолетовыми. Селектор [data-atmo]
+   — превью того же фона на плашке выбора (.atmo-swatch): значения одни, без inline-стилей. Без своего свечения
+   (grid, dots, lines) фон берёт свечение темы; --pattern — слой геометрии поверх свечения. */
+:root,
+[data-atmo] {
+  --pattern: none;
+}
+:root[data-atmosphere="dusk"],
+[data-atmo="dusk"] {
   --glow-a: oklch(0.72 0.14 300 / 0.5);
   --glow-b: oklch(0.78 0.12 340 / 0.4);
   --glow-c: oklch(0.82 0.08 270 / 0.3);
 }
-:root[data-theme="dark"][data-atmosphere="dusk"] {
+:root[data-theme="dark"][data-atmosphere="dusk"],
+:root[data-theme="dark"] [data-atmo="dusk"] {
   --glow-a: oklch(0.45 0.2 300 / 0.6);
   --glow-b: oklch(0.4 0.17 340 / 0.42);
   --glow-c: oklch(0.36 0.14 270 / 0.3);
 }
-:root[data-atmosphere="dawn"] {
+:root[data-atmosphere="dawn"],
+[data-atmo="dawn"] {
   --glow-a: oklch(0.86 0.09 55 / 0.45);
   --glow-b: oklch(0.82 0.1 350 / 0.35);
   --glow-c: oklch(0.84 0.08 288 / 0.3);
 }
-:root[data-theme="dark"][data-atmosphere="dawn"] {
+:root[data-theme="dark"][data-atmosphere="dawn"],
+:root[data-theme="dark"] [data-atmo="dawn"] {
   --glow-a: oklch(0.42 0.1 50 / 0.45);
   --glow-b: oklch(0.38 0.12 350 / 0.35);
   --glow-c: oklch(0.36 0.12 288 / 0.3);
 }
-:root[data-atmosphere="aurora"] {
+:root[data-atmosphere="aurora"],
+[data-atmo="aurora"] {
   --glow-a: oklch(0.84 0.08 200 / 0.4);
   --glow-b: oklch(0.8 0.1 290 / 0.4);
   --glow-c: oklch(0.88 0.07 160 / 0.25);
 }
-:root[data-theme="dark"][data-atmosphere="aurora"] {
+:root[data-theme="dark"][data-atmosphere="aurora"],
+:root[data-theme="dark"] [data-atmo="aurora"] {
   --glow-a: oklch(0.4 0.1 200 / 0.45);
   --glow-b: oklch(0.4 0.15 290 / 0.45);
   --glow-c: oklch(0.36 0.08 160 / 0.25);
 }
-:root[data-atmosphere="graphite"] {
+:root[data-atmosphere="sea"],
+[data-atmo="sea"] {
+  --glow-a: oklch(0.82 0.09 235 / 0.5);
+  --glow-b: oklch(0.85 0.08 195 / 0.4);
+  --glow-c: oklch(0.88 0.05 288 / 0.3);
+}
+:root[data-theme="dark"][data-atmosphere="sea"],
+:root[data-theme="dark"] [data-atmo="sea"] {
+  --glow-a: oklch(0.42 0.13 240 / 0.55);
+  --glow-b: oklch(0.38 0.1 200 / 0.4);
+  --glow-c: oklch(0.34 0.1 288 / 0.3);
+}
+:root[data-atmosphere="rose"],
+[data-atmo="rose"] {
+  --glow-a: oklch(0.84 0.09 10 / 0.45);
+  --glow-b: oklch(0.86 0.08 330 / 0.4);
+  --glow-c: oklch(0.88 0.05 60 / 0.3);
+}
+:root[data-theme="dark"][data-atmosphere="rose"],
+:root[data-theme="dark"] [data-atmo="rose"] {
+  --glow-a: oklch(0.42 0.14 10 / 0.5);
+  --glow-b: oklch(0.38 0.13 330 / 0.4);
+  --glow-c: oklch(0.34 0.08 60 / 0.25);
+}
+:root[data-atmosphere="mint"],
+[data-atmo="mint"] {
+  --glow-a: oklch(0.87 0.08 165 / 0.45);
+  --glow-b: oklch(0.86 0.07 200 / 0.35);
+  --glow-c: oklch(0.9 0.05 120 / 0.3);
+}
+:root[data-theme="dark"][data-atmosphere="mint"],
+:root[data-theme="dark"] [data-atmo="mint"] {
+  --glow-a: oklch(0.4 0.1 165 / 0.45);
+  --glow-b: oklch(0.36 0.09 200 / 0.35);
+  --glow-c: oklch(0.34 0.07 120 / 0.25);
+}
+:root[data-atmosphere="graphite"],
+[data-atmo="graphite"] {
   --glow-a: oklch(0.9 0.01 288 / 0.3);
   --glow-b: oklch(0.9 0.01 288 / 0);
   --glow-c: oklch(0.9 0.01 288 / 0);
 }
-:root[data-theme="dark"][data-atmosphere="graphite"] {
+:root[data-theme="dark"][data-atmosphere="graphite"],
+:root[data-theme="dark"] [data-atmo="graphite"] {
   --glow-a: oklch(0.3 0.015 288 / 0.4);
   --glow-b: oklch(0.3 0.015 288 / 0);
   --glow-c: oklch(0.3 0.015 288 / 0);
+}
+:root[data-atmosphere="plain"],
+[data-atmo="plain"] {
+  --glow-a: oklch(0.9 0.01 288 / 0);
+  --glow-b: oklch(0.9 0.01 288 / 0);
+  --glow-c: oklch(0.9 0.01 288 / 0);
+}
+:root[data-theme="dark"][data-atmosphere="plain"],
+:root[data-theme="dark"] [data-atmo="plain"] {
+  --glow-a: oklch(0.3 0.01 288 / 0);
+  --glow-b: oklch(0.3 0.01 288 / 0);
+  --glow-c: oklch(0.3 0.01 288 / 0);
+}
+:root[data-atmosphere="grid"],
+[data-atmo="grid"] {
+  --pattern: linear-gradient(color-mix(in oklch, var(--accent-solid) 9%, transparent) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, color-mix(in oklch, var(--accent-solid) 9%, transparent) 1px, transparent 1px) 0 0 / 44px 44px;
+}
+:root[data-atmosphere="dots"],
+[data-atmo="dots"] {
+  --pattern: radial-gradient(color-mix(in oklch, var(--accent-solid) 22%, transparent) 1.2px, transparent 1.6px) 0 0 / 18px 18px;
+}
+:root[data-atmosphere="rings"],
+[data-atmo="rings"] {
+  --glow-a: oklch(0.82 0.1 300 / 0.45);
+  --glow-b: oklch(0.86 0.07 250 / 0.35);
+  --glow-c: oklch(0.9 0.05 330 / 0.25);
+  --pattern: repeating-radial-gradient(circle at 0% 100%, transparent 0 46px, color-mix(in oklch, var(--accent-solid) 12%, transparent) 46px 47px);
+}
+:root[data-theme="dark"][data-atmosphere="rings"],
+:root[data-theme="dark"] [data-atmo="rings"] {
+  --glow-a: oklch(0.4 0.17 300 / 0.5);
+  --glow-b: oklch(0.36 0.12 250 / 0.35);
+  --glow-c: oklch(0.34 0.1 330 / 0.25);
+}
+:root[data-atmosphere="prism"],
+[data-atmo="prism"] {
+  --glow-a: oklch(0.82 0.1 288 / 0.35);
+  --glow-b: oklch(0.86 0.08 200 / 0.3);
+  --glow-c: oklch(0.88 0.07 350 / 0.3);
+  --pattern: conic-gradient(from 210deg at 78% 18%, color-mix(in oklch, var(--glow-a) 60%, transparent), transparent 25%, color-mix(in oklch, var(--glow-b) 60%, transparent) 50%, transparent 75%, color-mix(in oklch, var(--glow-c) 60%, transparent));
+}
+:root[data-theme="dark"][data-atmosphere="prism"],
+:root[data-theme="dark"] [data-atmo="prism"] {
+  --glow-a: oklch(0.4 0.15 288 / 0.4);
+  --glow-b: oklch(0.36 0.1 200 / 0.3);
+  --glow-c: oklch(0.34 0.1 350 / 0.3);
+}
+:root[data-atmosphere="lines"],
+[data-atmo="lines"] {
+  --pattern: repeating-linear-gradient(135deg, transparent 0 13px, color-mix(in oklch, var(--accent-solid) 8%, transparent) 13px 14px);
 }
 
 /* Высокая контрастность: без текстуры и без стекла, границы сильнее. */

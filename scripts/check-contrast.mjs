@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ТЗ 5.4 п.7 — автоматическая проверка контраста семантических пар
-// текст/фон в обеих темах. Читает src/styles/tokens.css, резолвит var()
+// текст/фон во всех темах (базовые светлая/тёмная + курируемые, ТЗ 5.14). Читает src/styles/tokens.css, резолвит var()
 // внутри блока темы (светлая = :root, тёмная = :root + [data-theme="dark"]),
 // переводит OKLCH → sRGB и считает контраст WCAG 2.x. Падает (exit 1),
 // если хоть одна пара ниже порога: 4.5 — текст, 3.0 — элементы интерфейса.
@@ -49,6 +49,8 @@ function block(selector) {
 
 const light = block(":root");
 const dark = { ...light, ...block(':root[data-theme="dark"]') };
+// Курируемые темы (ТЗ 5.14 п.3): базовая + data-skin.
+const skin = (base, id) => ({ ...base, ...block(`:root[data-skin="${id}"]`) });
 
 function resolve(vars, value, depth = 0) {
   if (depth > 20) throw new Error(`var() cycle: ${value}`);
@@ -135,6 +137,10 @@ let failed = 0;
 for (const [name, vars] of [
   ["light", light],
   ["dark", dark],
+  ["dusk (Сумерки)", skin(dark, "dusk")],
+  ["graphite (Графит)", skin(dark, "graphite")],
+  ["dawn (Рассвет)", skin(light, "dawn")],
+  ["paper (Бумага)", skin(light, "paper")],
 ]) {
   console.log(`\n${name}`);
   for (const [fgName, bgName, min, baseName] of PAIRS) {

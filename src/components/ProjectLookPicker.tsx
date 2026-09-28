@@ -1,7 +1,7 @@
 /** Выбор внешнего вида проекта (ТЗ 5.10: мастер, шаги 2 и 4; настройки проекта → Общее): иконка, цвет, фон.
  *  Все три — radiogroup: стрелки не нужны, но выбранный пункт читается скринридером. */
 import { useT } from "../i18n";
-import { BG_PRESETS, effectiveTheme } from "../theme";
+import type { BgId } from "../theme";
 import { ProjectMark, projectTone } from "../ui";
 import { PROJECT_BG_IDS, PROJECT_COLOR_IDS, PROJECT_ICON_IDS, type ProjectBackground, type ProjectColor, type ProjectIcon } from "../projectLook";
 
@@ -46,21 +46,27 @@ export function ColorPicker({ projectKey, value, onChange }: { projectKey: strin
   );
 }
 
+/** Плашка фона: тот же CSS, что у настоящего фона (tokens.css [data-atmo], index.css .atmo-swatch), в масштабе. */
+export function BgSwatch({ id, checked, onPick }: { id: BgId; checked: boolean; onPick: () => void }) {
+  const { t } = useT();
+  return (
+    <button type="button" role="radio" aria-checked={checked} onClick={onPick} className="theme-choice ds-focus flex flex-col gap-1.5 rounded-xl p-1.5 text-left">
+      <span data-atmo={id} className="atmo-swatch h-12 rounded-lg ring-1 ring-inset ring-line/60" />
+      <span className="truncate px-1 text-[12px] font-semibold text-ink">{t(`bg.${id}`)}</span>
+    </button>
+  );
+}
+
 export function BackgroundPicker({ value, onChange }: { value: ProjectBackground | null; onChange: (v: ProjectBackground | null) => void }) {
   const { t } = useT();
-  const dark = effectiveTheme() === "dark";
-  const presets = PROJECT_BG_IDS.map((id) => BG_PRESETS.find((p) => p.id === id)!).filter(Boolean);
   return (
-    <div role="radiogroup" aria-label={t("look.background")} className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+    <div role="radiogroup" aria-label={t("look.background")} className="grid grid-cols-3 gap-2 sm:grid-cols-5">
       <button type="button" role="radio" aria-checked={value === null} onClick={() => onChange(null)} className="theme-choice ds-focus flex flex-col gap-1.5 rounded-xl p-1.5 text-left">
         <span className="look-bg-personal flex h-12 items-center justify-center rounded-lg text-[11px] font-medium text-faint ring-1 ring-inset ring-line/60">{t("look.bgPersonalShort")}</span>
         <span className="px-1 text-[12px] font-semibold text-ink">{t("look.bgPersonal")}</span>
       </button>
-      {presets.map((p) => (
-        <button key={p.id} type="button" role="radio" aria-checked={value === p.id} onClick={() => onChange(p.id as ProjectBackground)} className="theme-choice ds-focus flex flex-col gap-1.5 rounded-xl p-1.5 text-left">
-          <span className="h-12 rounded-lg ring-1 ring-inset ring-line/60" style={{ backgroundImage: dark ? p.dark : p.light }} />
-          <span className="px-1 text-[12px] font-semibold text-ink">{p.name}</span>
-        </button>
+      {PROJECT_BG_IDS.map((id) => (
+        <BgSwatch key={id} id={id} checked={value === id} onPick={() => onChange(id)} />
       ))}
     </div>
   );

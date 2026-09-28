@@ -4,9 +4,11 @@
   var root = document.documentElement;
   try {
     var theme = localStorage.getItem("taskira.theme");
-    var dark = theme === "dark" ||
+    var skinBase = { dusk: "dark", graphite: "dark", dawn: "light", paper: "light" };
+    var dark = skinBase[theme] ? skinBase[theme] === "dark" : theme === "dark" ||
       (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     root.setAttribute("data-theme", dark ? "dark" : "light");
+    if (skinBase[theme]) root.setAttribute("data-skin", theme);
     var bg = localStorage.getItem("taskira.bg");
     if (bg && bg !== "default") root.setAttribute("data-atmosphere", bg);
     if (localStorage.getItem("taskira.density") === "compact") root.setAttribute("data-density", "compact");

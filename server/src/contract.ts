@@ -198,7 +198,8 @@ export const PROJECT_ICONS = [
   "book", "calendar", "star", "bolt", "globe", "sparkle", "flag", "home", "camera", "diamond",
 ] as const;
 export const PROJECT_COLORS = ["violet", "indigo", "blue", "sky", "teal", "green", "amber", "orange", "red", "pink"] as const;
-export const PROJECT_BACKGROUNDS = ["default", "dusk", "dawn", "aurora", "graphite"] as const;
+/** Фоны проекта = встроенная галерея (ТЗ 5.14 п.1, src/theme.ts BG_IDS); первые пять — с 5.10, список только растёт. */
+export const PROJECT_BACKGROUNDS = ["default", "dusk", "dawn", "aurora", "sea", "rose", "mint", "graphite", "plain", "grid", "dots", "rings", "prism", "lines"] as const;
 const projectAppearance = {
   icon: z.enum(PROJECT_ICONS).nullable(),
   color: z.enum(PROJECT_COLORS).nullable(),

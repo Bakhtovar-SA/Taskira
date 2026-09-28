@@ -113,11 +113,12 @@ body {
   /* ── Атмосфера (ТЗ 5.14): свечение бренд-оттенка по углам холста.
      Лежит ЗА рабочим пространством — хром и контент поверх него
      непрозрачны, кроме стеклянной боковой панели. */
-  background-color: var(--bg-frame);
-  background-image:
+  /* Слои сверху вниз: геометрия фона (--pattern, ТЗ 5.14 п.1), три свечения, цвет рамки. */
+  background:
+    var(--pattern),
     radial-gradient(42vw 60vh at 4% 8%, var(--glow-a), transparent 70%),
     radial-gradient(45vw 55vh at 96% 100%, var(--glow-b), transparent 70%),
-    radial-gradient(40vw 45vh at 62% -6%, var(--glow-c), transparent 70%);
+    radial-gradient(40vw 45vh at 62% -6%, var(--glow-c), transparent 70%) var(--bg-frame);
   background-attachment: fixed;
   isolation: isolate;
 }
@@ -460,16 +461,29 @@ html.vt-theme::view-transition-new(root) {
 .look-choice[aria-checked="true"] {
   box-shadow: inset 0 0 0 2px var(--accent-solid);
 }
+/* Плашка выбора фона: тот же стек слоёв, что у body, в масштабе плашки; значения — из [data-atmo] в tokens.css. */
+.atmo-swatch {
+  background:
+    var(--pattern),
+    radial-gradient(80% 110% at 0% 0%, var(--glow-a), transparent 70%),
+    radial-gradient(80% 110% at 100% 100%, var(--glow-b), transparent 70%),
+    radial-gradient(70% 80% at 62% -10%, var(--glow-c), transparent 70%) var(--bg-frame);
+}
 .look-bg-personal {
   background: repeating-linear-gradient(135deg, var(--bg-sunken) 0 6px, var(--bg-panel) 6px 12px);
 }
 .theme-thumb {
+  --tt-bg: oklch(0.975 0.006 288);
+  --tt-side: oklch(0.93 0.02 288);
+  --tt-sheet: oklch(1 0 0);
+  --tt-line: oklch(0.88 0.01 288);
+  --tt-accent: oklch(0.55 0.2 288);
   position: relative;
   display: block;
   height: 72px;
   border-radius: 9px;
   overflow: hidden;
-  background: oklch(0.975 0.006 288);
+  background: var(--tt-bg);
   box-shadow: inset 0 0 0 1px oklch(0.5 0.02 288 / 0.14);
 }
 .theme-thumb > span:first-child {
@@ -477,30 +491,53 @@ html.vt-theme::view-transition-new(root) {
   inset: 6px auto 6px 6px;
   width: 26%;
   border-radius: 5px;
-  background: oklch(0.93 0.02 288);
+  background: var(--tt-side);
 }
 .theme-thumb > span:last-child {
   position: absolute;
   inset: 6px 6px 6px 34%;
   border-radius: 5px;
-  background: oklch(1 0 0);
+  background-color: var(--tt-sheet);
   box-shadow: 0 1px 2px oklch(0.2 0.05 288 / 0.12);
-  background-image: linear-gradient(oklch(0.55 0.2 288), oklch(0.55 0.2 288)), linear-gradient(oklch(0.88 0.01 288), oklch(0.88 0.01 288)),
-    linear-gradient(oklch(0.88 0.01 288), oklch(0.88 0.01 288));
+  background-image: linear-gradient(var(--tt-accent), var(--tt-accent)), linear-gradient(var(--tt-line), var(--tt-line)),
+    linear-gradient(var(--tt-line), var(--tt-line));
   background-size: 34% 6px, 70% 4px, 52% 4px;
   background-position: 8px 9px, 8px 22px, 8px 31px;
   background-repeat: no-repeat;
 }
 .theme-thumb[data-kind="dark"] {
-  background: oklch(0.17 0.015 288);
+  --tt-bg: oklch(0.17 0.015 288);
+  --tt-side: oklch(0.23 0.03 288);
+  --tt-sheet: oklch(0.21 0.015 288);
+  --tt-line: oklch(0.34 0.015 288);
+  --tt-accent: oklch(0.68 0.17 288);
 }
-.theme-thumb[data-kind="dark"] > span:first-child {
-  background: oklch(0.23 0.03 288);
+.theme-thumb[data-kind="dusk"] {
+  --tt-bg: oklch(0.14 0.035 294);
+  --tt-side: oklch(0.24 0.07 294);
+  --tt-sheet: oklch(0.2 0.036 294);
+  --tt-line: oklch(0.34 0.04 294);
+  --tt-accent: oklch(0.68 0.19 294);
 }
-.theme-thumb[data-kind="dark"] > span:last-child {
-  background-color: oklch(0.21 0.015 288);
-  background-image: linear-gradient(oklch(0.68 0.17 288), oklch(0.68 0.17 288)), linear-gradient(oklch(0.34 0.015 288), oklch(0.34 0.015 288)),
-    linear-gradient(oklch(0.34 0.015 288), oklch(0.34 0.015 288));
+.theme-thumb[data-kind="graphite"] {
+  --tt-bg: oklch(0.17 0.003 260);
+  --tt-side: oklch(0.24 0.004 260);
+  --tt-sheet: oklch(0.215 0.004 260);
+  --tt-line: oklch(0.35 0.004 260);
+  --tt-accent: oklch(0.66 0.16 288);
+}
+.theme-thumb[data-kind="dawn"] {
+  --tt-bg: linear-gradient(135deg, oklch(0.93 0.05 58), oklch(0.93 0.04 352));
+  --tt-side: oklch(0.95 0.025 62 / 0.8);
+  --tt-sheet: oklch(0.996 0.004 62);
+  --tt-line: oklch(0.88 0.018 62);
+}
+.theme-thumb[data-kind="paper"] {
+  --tt-bg: oklch(0.955 0.002 288);
+  --tt-side: oklch(0.99 0 0);
+  --tt-sheet: oklch(1 0 0);
+  --tt-line: oklch(0.72 0.006 288);
+  box-shadow: inset 0 0 0 1px oklch(0.4 0.01 288 / 0.3);
 }
 .theme-thumb[data-kind="system"] {
   background: linear-gradient(135deg, oklch(0.975 0.006 288) 50%, oklch(0.17 0.015 288) 50%);

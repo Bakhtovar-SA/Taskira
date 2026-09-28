@@ -7,7 +7,8 @@ import { Avatar, Button, RadioGroup, Switch, Tag } from "../../ds";
 import { IcCamera, IcTrash } from "../../icons";
 import { useAvatarSrc } from "../../ui";
 import { cropAndResizeAvatar } from "../../avatarCrop";
-import { BG_PRESETS, effectiveTheme, projectBackground, readBgId, readDensity, readTheme, setBg, setDensity, setThemeMode, type Density, type ThemeMode } from "../../theme";
+import { BG_IDS, THEMES, projectBackground, readBgId, readDensity, readTheme, setBg, setDensity, setThemeMode, type Density, type ThemeMode } from "../../theme";
+import { BgSwatch } from "../ProjectLookPicker";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 
 export function PersonalSection({ section }: { section: string }) {
@@ -116,12 +117,11 @@ function Appearance() {
   const [mode, setMode] = useState<ThemeMode>(readTheme);
   const [bg, setBgState] = useState(readBgId);
   const [density, setDens] = useState<Density>(readDensity);
-  const eff = effectiveTheme(mode);
   return (
     <SettingsPage title={t("settings.personal.appearance")} desc={t("settings.desc.appearance")}>
       <SettingsCard title={t("settings.appearance.theme")}>
-        <div role="radiogroup" aria-label={t("settings.appearance.theme")} className="grid grid-cols-3 gap-3 px-5 py-4">
-          {(["system", "light", "dark"] as const).map((m) => (
+        <div role="radiogroup" aria-label={t("settings.appearance.theme")} className="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-4">
+          {THEMES.map((m) => (
             <button
               key={m}
               type="button"
@@ -143,22 +143,17 @@ function Appearance() {
         </div>
       </SettingsCard>
       <SettingsCard title={t("settings.appearance.atmosphere")}>
-        <div role="radiogroup" aria-label={t("settings.appearance.atmosphere")} className="flex flex-wrap gap-3 px-5 py-4">
-          {BG_PRESETS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              role="radio"
-              aria-checked={bg === p.id}
-              onClick={() => {
-                setBg(p.id);
-                setBgState(p.id);
+        <div role="radiogroup" aria-label={t("settings.appearance.atmosphere")} className="grid grid-cols-3 gap-2 px-5 py-4 sm:grid-cols-5">
+          {BG_IDS.map((id) => (
+            <BgSwatch
+              key={id}
+              id={id}
+              checked={bg === id}
+              onPick={() => {
+                setBg(id);
+                setBgState(id);
               }}
-              className="theme-choice ds-focus flex w-[112px] flex-col gap-1.5 rounded-xl p-1.5 text-left"
-            >
-              <span className="h-12 rounded-lg ring-1 ring-inset ring-line/60" style={{ backgroundImage: eff === "dark" ? p.dark : p.light }} />
-              <span className="px-1 text-[12px] font-semibold text-ink">{p.name}</span>
-            </button>
+            />
           ))}
         </div>
         {projectBackground() && <p className="-mt-1 px-5 pb-4 text-[12px] text-faint">{t("settings.appearance.projectBgNote")}</p>}

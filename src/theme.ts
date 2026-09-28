@@ -5,55 +5,33 @@
  *  src/styles/tokens.css — ни одного инлайн-стиля и ни одного CSS-правила,
  *  созданного в рантайме:
  *    data-theme      = light | dark        (+ режим «Как в системе»)
- *    data-atmosphere = violet | dusk | dawn | aurora | graphite
+ *    data-skin       = dusk | graphite | dawn | paper   (курируемая тема поверх базовой)
+ *    data-atmosphere = фон из BG_IDS (default — без атрибута)
  *  Зерно фона убрано решением владельца 25.09.2026 (ADR-0016).
  */
 
-export type ThemeMode = "system" | "light" | "dark";
+/** Темы (ТЗ 5.14 п.3): «Как в системе», базовые светлая и тёмная и четыре курируемые. Курируемая тема =
+ *  базовая (data-theme) + переопределение семантического слоя (data-skin) в tokens.css. */
+export const THEMES = ["system", "light", "dark", "dusk", "graphite", "dawn", "paper"] as const;
+export type ThemeMode = (typeof THEMES)[number];
+type Skin = "dusk" | "graphite" | "dawn" | "paper";
+const SKIN_BASE: Record<Skin, "light" | "dark"> = { dusk: "dark", graphite: "dark", dawn: "light", paper: "light" };
+const isSkin = (m: string): m is Skin => m in SKIN_BASE;
 
 const THEME_KEY = "taskira.theme";
 const BG_KEY = "taskira.bg";
 
-/** Атмосферные пресеты: меняют только свечение за рабочим пространством.
- *  Хром и акцент остаются фиолетовыми в любом из них. `swatch` — превью в
- *  настройках (градиент на кнопке выбора), по паре для светлой и тёмной темы. */
-export const BG_PRESETS: { id: string; name: string; light: string; dark: string }[] = [
-  {
-    id: "default",
-    name: "Фиалка",
-    light: "linear-gradient(135deg, oklch(0.8 0.11 288), oklch(0.93 0.04 330))",
-    dark: "linear-gradient(135deg, oklch(0.42 0.17 288), oklch(0.26 0.06 325))",
-  },
-  {
-    id: "dusk",
-    name: "Сумерки",
-    light: "linear-gradient(135deg, oklch(0.72 0.14 300), oklch(0.8 0.12 340))",
-    dark: "linear-gradient(135deg, oklch(0.45 0.2 300), oklch(0.36 0.15 340))",
-  },
-  {
-    id: "dawn",
-    name: "Рассвет",
-    light: "linear-gradient(135deg, oklch(0.86 0.09 55), oklch(0.84 0.09 350))",
-    dark: "linear-gradient(135deg, oklch(0.42 0.1 50), oklch(0.36 0.12 350))",
-  },
-  {
-    id: "aurora",
-    name: "Сияние",
-    light: "linear-gradient(135deg, oklch(0.84 0.08 200), oklch(0.8 0.1 290))",
-    dark: "linear-gradient(135deg, oklch(0.4 0.1 200), oklch(0.4 0.15 290))",
-  },
-  {
-    id: "graphite",
-    name: "Графит",
-    light: "linear-gradient(135deg, oklch(0.9 0.01 288), oklch(0.96 0.005 288))",
-    dark: "linear-gradient(135deg, oklch(0.3 0.015 288), oklch(0.2 0.012 288))",
-  },
-];
+/** Фоны (ТЗ 5.14 п.1): свечение и геометрия за рабочим листом. Значения — в tokens.css
+ *  (`:root[data-atmosphere]` и `[data-atmo]` для плашки выбора), подписи — словарь `bg.<id>`.
+ *  Первые пять id совпадают с сохранёнными у проектов до 5.14 (projects.background). */
+export const BG_IDS = ["default", "dusk", "dawn", "aurora", "sea", "rose", "mint", "graphite", "plain", "grid", "dots", "rings", "prism", "lines"] as const;
+export type BgId = (typeof BG_IDS)[number];
+const isBg = (v: string | null | undefined): v is BgId => !!v && (BG_IDS as readonly string[]).includes(v);
 
 export function readTheme(): ThemeMode {
   try {
     const v = localStorage.getItem(THEME_KEY);
-    return v === "light" || v === "dark" ? v : "system";
+    return v && v !== "system" && (THEMES as readonly string[]).includes(v) ? (v as ThemeMode) : "system";
   } catch {
     return "system";
   }
@@ -62,7 +40,7 @@ export function readTheme(): ThemeMode {
 export function readBgId(): string {
   try {
     const v = localStorage.getItem(BG_KEY);
-    return v && BG_PRESETS.some((p) => p.id === v) ? v : "default";
+    return isBg(v) ? v : "default";
   } catch {
     return "default";
   }
@@ -78,7 +56,7 @@ const prefersDark = (): boolean => {
 
 /** Фактическая тема с учётом режима «Системная». */
 export function effectiveTheme(mode: ThemeMode = readTheme()): "light" | "dark" {
-  return mode === "system" ? (prefersDark() ? "dark" : "light") : mode;
+  return mode === "system" ? (prefersDark() ? "dark" : "light") : isSkin(mode) ? SKIN_BASE[mode] : mode;
 }
 
 /** Ставит атрибуты темы и атмосферы на <html>. Дёргается на старте
@@ -87,7 +65,7 @@ export function effectiveTheme(mode: ThemeMode = readTheme()): "light" | "dark" 
 /** Фон проекта (ТЗ 5.10/5.14): пока открыт проект со своим фоном, он перекрывает личный выбор человека. */
 let projectBg: string | null = null;
 export function setProjectBackground(id: string | null | undefined): void {
-  const next = id && BG_PRESETS.some((p) => p.id === id) ? id : null;
+  const next = isBg(id) ? id : null;
   if (next === projectBg) return;
   projectBg = next;
   applyTheme();
@@ -97,9 +75,10 @@ export const projectBackground = (): string | null => projectBg;
 export function applyTheme(mode: ThemeMode = readTheme(), bgId: string = projectBg ?? readBgId()): void {
   const root = document.documentElement;
   root.setAttribute("data-theme", effectiveTheme(mode));
-  const preset = BG_PRESETS.find((p) => p.id === bgId) ?? BG_PRESETS[0];
-  if (preset.id === "default") root.removeAttribute("data-atmosphere");
-  else root.setAttribute("data-atmosphere", preset.id);
+  if (isSkin(mode)) root.setAttribute("data-skin", mode);
+  else root.removeAttribute("data-skin");
+  if (!isBg(bgId) || bgId === "default") root.removeAttribute("data-atmosphere");
+  else root.setAttribute("data-atmosphere", bgId);
   // До ТЗ 5.4 пресет фона писался инлайн-стилем --c-canvas на <html>; у
   // тех, кто открыл новую версию во вкладке со старой, он перебил бы токены.
   root.style.removeProperty("--c-canvas");
@@ -132,8 +111,9 @@ type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => 
  *  псевдоэлементов только этим переходом. */
 function applyThemeAnimated(mode: ThemeMode): void {
   const doc = document as ViewTransitionDoc;
-  const before = document.documentElement.getAttribute("data-theme");
-  if (!doc.startViewTransition || reducedMotion() || before === effectiveTheme(mode)) {
+  const root0 = document.documentElement;
+  const same = root0.getAttribute("data-theme") === effectiveTheme(mode) && (root0.getAttribute("data-skin") ?? "") === (isSkin(mode) ? mode : "");
+  if (!doc.startViewTransition || reducedMotion() || same) {
     applyTheme(mode);
     return;
   }
