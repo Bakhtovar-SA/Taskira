@@ -4,8 +4,8 @@ import { Hint } from "./Hint";
 import { useStore } from "../store";
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
-import type { Issue, Status, User } from "../types";
-import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcUsers, IcX, StatusGlyph } from "../icons";
+import type { Issue, PriorityId, Status, User } from "../types";
+import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcSubtasks, IcUsers, IcX, PriorityIcon, StatusGlyph } from "../icons";
 import { Avatar, AvatarStack, BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, SkeletonCard, DROPDOWN_OPEN_EVT, directionColor, labelTone } from "../ui";
 import { Button } from "../ds/Button";
 import { EmptyState } from "../ds/Display";
@@ -233,13 +233,28 @@ const Card = memo(function Card({
       onFocus={preloadIssueModal}
       onClick={() => openIssue(issue.id)}
       data-issue-id={issue.id}
+      data-priority={issue.priorityId === "critical" ? "critical" : undefined}
       className={`board-card group relative flex cursor-pointer flex-col gap-2 rounded-[10px] px-[11px] py-2.5 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
       {/* ТЗ 5.12 c — три уровня: ключ; заголовок (две строки); мета — направление, метки, срок, исполнители.
-          Приоритет, тип, подзадачи — в просмотре задачи. Кнопка перемещения — при наведении/фокусе. */}
-      <div className="flex h-5 items-center gap-2 text-faint">
+          В строке ключа тонко: приоритет, если он не обычный (средний — без значка, иначе шум на каждой карточке;
+          критичный ещё и красной кромкой слева), и подзадачи «готово/всего». Тип — в просмотре задачи. */}
+      <div className="flex h-5 items-center gap-1.5 text-faint">
+        {issue.priorityId !== "medium" && <PrioMark p={issue.priorityId} />}
         <span className="font-mono text-[11.5px] font-medium tabular tracking-[0.01em]">{issue.key}</span>
-        <span className="ml-auto flex items-center">{moveButton}</span>
+        <span className="ml-auto flex items-center gap-1.5">
+          {!!issue.subtasksSummary?.total && (
+            <span
+              className={`flex items-center gap-1 text-[11px] font-semibold tabular ${issue.subtasksSummary.done === issue.subtasksSummary.total ? "text-[var(--status-done-fg)]" : ""}`}
+              title={t("board.subtasksTip", { done: issue.subtasksSummary.done, total: issue.subtasksSummary.total })}
+              aria-label={t("board.subtasksTip", { done: issue.subtasksSummary.done, total: issue.subtasksSummary.total })}
+            >
+              <IcSubtasks size={12} />
+              {issue.subtasksSummary.done}/{issue.subtasksSummary.total}
+            </span>
+          )}
+          {moveButton}
+        </span>
       </div>
 
       <h4 className="line-clamp-2 text-[13.5px] font-semibold leading-[1.38] tracking-[-0.006em] text-ink">{issue.title}</h4>
@@ -273,6 +288,29 @@ const Card = memo(function Card({
     </article>
   );
 });
+
+/** Приоритет на карточке — маленький знак без подписи (подпись — aria-label и подсказка): три столбика, заполнено по
+ *  уровню; высокий — оранжевым, низкий — приглушённо; критичный — красная плашка «!» (тот же знак, что в задаче). */
+function PrioMark({ p }: { p: PriorityId }) {
+  const { t } = useT();
+  const label = t(`priority.${p}`);
+  if (p === "critical")
+    return (
+      <span title={label} className="flex">
+        <PriorityIcon p="critical" size={12} />
+      </span>
+    );
+  const lvl = p === "high" ? 3 : 1;
+  const fill = p === "high" ? "var(--c-prio-high)" : "var(--text-3)";
+  return (
+    <svg width={12} height={12} viewBox="0 0 16 16" role="img" aria-label={label} className="shrink-0">
+      <title>{label}</title>
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={2 + i * 4.5} y={10 - i * 3.5} width="3" height={4 + i * 3.5} rx="1" fill={fill} opacity={i < lvl ? 1 : 0.3} />
+      ))}
+    </svg>
+  );
+}
 
 /**
  * Своё изображение перетаскиваемой карточки (ТЗ 5.13 п.3, ADR-0007 — нативный DnD):

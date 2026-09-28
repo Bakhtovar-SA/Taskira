@@ -543,6 +543,7 @@ const ru = {
   "issue.deleteAttachment": "Удалить вложение",
   "issue.attachFile": "+ прикрепить файл",
   "issue.attachmentHint": "До {size} МБ. Исполняемые файлы и скрипты запрещены.",
+  "board.subtasksTip": "Подзадачи: готово {done} из {total}",
   "issue.subtasks": "Подзадачи",
   "issue.subtasksCount": "Подзадачи · {done}/{total}",
   "issue.archivedSubtasks": "Ещё {count} в архиве — не в списке выше, но учтены в счётчике",

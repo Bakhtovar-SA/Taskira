@@ -854,6 +854,9 @@ export const IssueDto = z.object({
   doneAt: z.string().nullable(),
   /** Момент ухода в архив; null — задача в активном наборе проекта. */
   archivedAt: z.string().nullable(),
+  /** Подзадачи total/done (включая архив). В списке `GET …/issues` — у каждой строки (карточка доски показывает
+   *  «2/5»); в ответах на правку может отсутствовать — клиент тогда держит прежнее значение. */
+  subtasksSummary: SubtasksSummaryDto.optional(),
 });
 export type IssueDto = z.infer<typeof IssueDto>;
 

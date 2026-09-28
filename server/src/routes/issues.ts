@@ -27,6 +27,7 @@ import {
   listActivity,
   listAssigneeIds,
   listAssigneeIdsBatch,
+  subtasksSummaryBatch,
   loadIssue,
   logActivity,
   mapIssue,
@@ -252,7 +253,8 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const hasMore = rows.length > f.limit;
       const pageRows = hasMore ? rows.slice(0, f.limit) : rows;
       const assigneesStarted = trace ? process.hrtime.bigint() : undefined;
-      const assigneesByIssue = await listAssigneeIdsBatch(pageRows.map((r) => r.id));
+      const pageIds = pageRows.map((r) => r.id);
+      const [assigneesByIssue, subtasksByIssue] = await Promise.all([listAssigneeIdsBatch(pageIds), subtasksSummaryBatch(pageIds)]);
       if (trace && assigneesStarted) trace.assigneesSqlMs = elapsedMs(assigneesStarted);
       const responseBuildStarted = trace ? process.hrtime.bigint() : undefined;
       const pageMeta: IssueListPageMeta = {
@@ -269,7 +271,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         ...(total ? { total: Number(total.n) } : {}),
       };
       const payload = {
-        items: pageRows.map((r) => maskSprintId(mapIssue(r, assigneesByIssue.get(r.id) ?? []), project.sprintsEnabled)),
+        items: pageRows.map((r) =>
+          maskSprintId(
+            { ...mapIssue(r, assigneesByIssue.get(r.id) ?? []), subtasksSummary: subtasksByIssue.get(r.id) ?? { total: 0, done: 0 } },
+            project.sprintsEnabled,
+          ),
+        ),
         ...pageMeta,
       };
       if (trace && responseBuildStarted) trace.responseBuildMs = elapsedMs(responseBuildStarted);

@@ -542,6 +542,7 @@ const en: Record<keyof Dict, string> = {
   "issue.deleteAttachment": "Delete attachment",
   "issue.attachFile": "+ attach file",
   "issue.attachmentHint": "Up to {size} MB. Executables and scripts are not allowed.",
+  "board.subtasksTip": "Subtasks: {done} of {total} done",
   "issue.subtasks": "Subtasks",
   "issue.subtasksCount": "Subtasks · {done}/{total}",
   "issue.archivedSubtasks": "Another {count} archived — not listed above, but included in the count",

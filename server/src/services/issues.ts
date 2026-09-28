@@ -104,6 +104,20 @@ export async function listAssigneeIdsBatch(issueIds: string[]): Promise<Map<stri
   return map;
 }
 
+/** Подзадачи пачкой по странице списка — один запрос по индексу idx_issues_parent, как listAssigneeIdsBatch.
+ *  Задачи без детей в карте отсутствуют (вызывающий подставляет {0, 0}). */
+export async function subtasksSummaryBatch(issueIds: string[]): Promise<Map<string, SubtasksSummaryDto>> {
+  const map = new Map<string, SubtasksSummaryDto>();
+  if (issueIds.length === 0) return map;
+  const rows = await q<{ parent_id: string; total: number; done: number }>(
+    `SELECT parent_id, count(*)::int AS total, count(done_at)::int AS done
+       FROM issues WHERE parent_id = ANY($1) GROUP BY parent_id`,
+    [issueIds],
+  );
+  for (const r of rows) map.set(r.parent_id, { total: r.total, done: r.done });
+  return map;
+}
+
 /** Каждый исполнитель должен реально быть участником проекта — то же правило,
  *  что раньше применялось к единственному assigneeId (глобальный admin не
  *  проходит мимо неё, если не состоит в проекте — см. историю в routes/issues.ts). */

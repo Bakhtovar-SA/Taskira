@@ -323,6 +323,30 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
+  test("5b. приоритет и подзадачи на карточке: средний — без значка, критичный — значок и кромка; «готово/всего»", async () => {
+    const h = await setup({
+      pageImpl: async (_p, params) =>
+        params.status === "s1"
+          ? {
+              items: [
+                dto("c1", { statusId: "s1", priorityId: "critical", subtasksSummary: { total: 5, done: 2 } }),
+                dto("m1", { statusId: "s1" }),
+              ],
+              hasMore: false,
+              nextCursor: null,
+            }
+          : { items: [], hasMore: false, nextCursor: null },
+    });
+    const crit = screen.getByRole("article", { name: /A21-c1/ });
+    expect(within(crit).getByRole("img", { name: "Критичный" })).toBeTruthy();
+    expect(crit.getAttribute("data-priority")).toBe("critical");
+    expect(within(crit).getByLabelText("Подзадачи: готово 2 из 5").textContent).toBe("2/5");
+    const med = screen.getByRole("article", { name: /A21-m1/ });
+    expect(within(med).queryByRole("img", { name: "Средний" })).toBeNull();
+    expect(within(med).queryByLabelText(/Подзадачи/)).toBeNull();
+    h.ui.unmount();
+  });
+
   test("6. просроченная открытая задача помечена доступным сигналом (title на пилюле срока)", async () => {
     const h = await setup({
       pageImpl: async (_p, params) =>

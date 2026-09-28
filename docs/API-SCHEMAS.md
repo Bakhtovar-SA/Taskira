@@ -698,13 +698,13 @@
 | `updatedAt` | string |  |
 | `doneAt` | string | может быть null |
 | `archivedAt` | string | может быть null |
+| `subtasksSummary` | object |  |
 | `collaborators` | array&lt;object&gt; |  |
 | `participants` | array&lt;object&gt; |  |
 | `attachments` | array&lt;object&gt; |  |
 | `links` | array&lt;object&gt; |  |
 | `checklist` | array&lt;object&gt; |  |
 | `customFieldValues` | array&lt;object&gt; |  |
-| `subtasksSummary` | object |  |
 | `epicChildrenCount` | number |  |
 
 ### IssueDto
@@ -736,6 +736,7 @@
 | `updatedAt` | string |  |
 | `doneAt` | string | может быть null |
 | `archivedAt` | string | может быть null |
+| `subtasksSummary` | object | необязательное |
 
 ### IssueEpicDto
 
