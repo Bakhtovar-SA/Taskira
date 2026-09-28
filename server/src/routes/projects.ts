@@ -30,7 +30,7 @@ import { safeUser, type UserRow } from "../auth.js";
 import { invalidateProjectCache, projectById } from "../services/project.js";
 import { listVisibleProjects, projectRowToDto, type ProjectDto } from "../services/projects.js";
 import { storageKeysForProject, deleteStorageObjects } from "../services/attachments.js";
-import { ProjectCreateBody, ProjectParams, ProjectPatchBody } from "../contract.js";
+import { ProjectAppearanceBody, ProjectCreateBody, ProjectParams, ProjectPatchBody } from "../contract.js";
 import type { ProjectBootstrapDto } from "../contract.js";
 import type { ProjectRole } from "../permissions.js";
 
@@ -174,6 +174,31 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
 
       invalidateProjectCache(projectId);
       await audit(actor.sub, "project.update", "project", projectId, { fields: Object.keys(body) });
+      return projectDtoById(projectId);
+    },
+  );
+
+  /* ---------------------------------------------------------- внешний вид (ТЗ 5.14 п.7) */
+  // Отдельно от PATCH /projects/:id (глобальный администратор): иконку, цвет и фон меняет роль проекта с
+  // editAppearance (admin/manager), без права трогать название, отдел и модули.
+  app.patch(
+    "/projects/:projectId/appearance",
+    { preHandler: requirePerm("editAppearance"), preValidation: [zparams(ProjectParams), zbody(ProjectAppearanceBody)] },
+    async (req) => {
+      const actor: JwtPayload = req.user;
+      const { projectId } = req.params as z.infer<typeof ProjectParams>;
+      const body = req.body as z.infer<typeof ProjectAppearanceBody>;
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+      for (const col of ["icon", "color", "background"] as const) {
+        if (body[col] === undefined) continue;
+        vals.push(body[col]);
+        sets.push(`${col} = $${vals.length}`);
+      }
+      vals.push(projectId);
+      await q(`UPDATE projects SET ${sets.join(", ")} WHERE id = $${vals.length}`, vals);
+      invalidateProjectCache(projectId);
+      await audit(actor.sub, "project.appearance", "project", projectId, body);
       return projectDtoById(projectId);
     },
   );

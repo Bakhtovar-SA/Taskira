@@ -341,6 +341,8 @@ export const projectsApi = {
   get: (projectId: string) => api<ProjectBootstrap>(P(projectId)),
   create: (body: CreateProjectInput) => api<Project>("/api/projects", { method: "POST", body }),
   patch: (projectId: string, body: ProjectPatchInput) => api<Project>(P(projectId), { method: "PATCH", body }),
+  /** Иконка, цвет, фон — право проекта editAppearance (ТЗ 5.14 п.7), не только глобальный администратор. */
+  appearance: (projectId: string, body: ProjectLookInput) => api<Project>(`${P(projectId)}/appearance`, { method: "PATCH", body }),
   remove: (projectId: string) => api<void>(P(projectId), { method: "DELETE" }),
   /** Избранное (миграция 024) — идемпотентно в обе стороны на сервере. */
   favorite: (projectId: string) => api<void>(`${P(projectId)}/favorite`, { method: "PUT" }),

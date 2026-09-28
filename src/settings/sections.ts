@@ -8,7 +8,7 @@ export const SETTINGS_SECTIONS = {
   /** Личные — `/settings/…`, любой пользователь. */
   settings: ["profile", "notifications", "appearance", "language"],
   /** Проект — `/p/:key/settings/…`, по правам проекта. */
-  projectSettings: ["general", "workflow", "fields", "templates", "access", "modules", "archive"],
+  projectSettings: ["general", "appearance", "workflow", "fields", "templates", "access", "modules", "archive"],
   /** Организация — `/admin/…`, глобальный администратор. */
   orgSettings: ["users", "departments", "project-templates", "ldap", "license", "export", "audit", "maintenance", "health", "setup"],
 } as const satisfies Record<SettingsHome, readonly string[]>;

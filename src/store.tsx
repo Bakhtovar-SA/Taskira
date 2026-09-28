@@ -14,7 +14,7 @@ import type {
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
-import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type Project as ApiProject } from "./api";
+import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type ProjectLookInput, type Project as ApiProject } from "./api";
 import {
   applyNotificationAction,
   canTransition,
@@ -133,6 +133,8 @@ interface Api {
     patch: ProjectPatchInput,
   ) => void;
   deleteProject: (id: string) => void;
+  /** Иконка/цвет/фон проекта — право editAppearance (ТЗ 5.14 п.7). */
+  patchProjectAppearance: (id: string, patch: ProjectLookInput) => void;
   /** Перечитать проекты и отделы (после действий вне стора: демо-проект первичной настройки). */
   refreshOrg: () => Promise<void>;
   /** Показать «Не найдено» для ссылки, которая никуда не ведёт (ТЗ 5.12 a). */
@@ -402,7 +404,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { addTransition, removeTransition, resetWorkflow, addIssueTemplate, updateIssueTemplateAction, removeIssueTemplate,
     addCustomField, renameCustomField, removeCustomField } = useMetaActions(storeCtx);
   const { setMemberRole, removeMember, setProjectMember, removeProjectMember, createDepartment, renameDepartment,
-    setDepartmentLdapGroup, resyncLdap, deleteDepartment, createProject, patchProject, deleteProject, refreshOrg } =
+    setDepartmentLdapGroup, resyncLdap, deleteDepartment, createProject, patchProject, patchProjectAppearance, deleteProject, refreshOrg } =
     useOrgActions(storeCtx, { bootstrap });
 
   const idx = useMemo<StoreIndexes>(
@@ -495,6 +497,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     deleteDepartment,
     createProject,
     patchProject,
+    patchProjectAppearance,
     deleteProject,
     refreshOrg,
     addSprint,

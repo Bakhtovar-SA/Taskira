@@ -47,6 +47,7 @@ const META: Record<string, Meta> = {
   appearance: { icon: (p) => <IcSun {...p} />, tone: "orange" },
   language: { icon: (p) => <IcGlobe {...p} />, tone: "sky" },
   general: { icon: (p) => <IcSettings {...p} />, tone: "gray" },
+  // ключ appearance у личных и проектных настроек общий — та же иконка «Внешний вид»
   workflow: { icon: (p) => <IcFlow {...p} />, tone: "pink" },
   fields: { icon: (p) => <IcFilter {...p} />, tone: "indigo" },
   templates: { icon: (p) => <IcCompose {...p} />, tone: "violet" },

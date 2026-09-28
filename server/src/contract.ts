@@ -243,6 +243,12 @@ export const ProjectPatchBody = z
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
 
+/** PATCH /api/projects/:projectId/appearance [perm editAppearance] — иконка, цвет, фон (ТЗ 5.14 п.7). */
+export const ProjectAppearanceBody = z
+  .object(projectAppearance)
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+
 /** Исполнители (миграция 025, issue_assignees) — плоский список без иерархии,
  *  без дублей. Пустой массив = не назначен (эквивалент старого assigneeId: null). */
 const assigneeIds = () =>

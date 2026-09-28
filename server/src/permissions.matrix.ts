@@ -5,7 +5,7 @@
 export const ROLE_IDS = ["admin", "manager", "employee", "viewer"] as const;
 export type AccessRole = (typeof ROLE_IDS)[number];
 
-export const PERM_IDS = ["browse", "create", "edit", "transition", "delete", "comment", "editWorkflow", "manageAccess", "manageCollaborators", "manageSprints", "saveProjectTemplate"] as const;
+export const PERM_IDS = ["browse", "create", "edit", "transition", "delete", "comment", "editWorkflow", "manageAccess", "manageCollaborators", "manageSprints", "saveProjectTemplate", "editAppearance"] as const;
 export type PermId = (typeof PERM_IDS)[number];
 
 /** Разрешение → роли, которым оно доступно (уровень задачи для employee сужается в permissions.ts). */
@@ -21,6 +21,7 @@ export const MATRIX: Record<PermId, readonly AccessRole[]> = {
   manageCollaborators: ["admin", "manager"],
   manageSprints: ["admin", "manager"],
   saveProjectTemplate: ["admin"],
+  editAppearance: ["admin", "manager"],
 };
 
 export const ROLE_NAMES: Record<AccessRole, string> = {
@@ -51,4 +52,5 @@ export const PERM_META: Record<PermId, { name: string; desc: string; scope: Perm
   manageCollaborators: { name: "Подключение к задаче", desc: "Пригласить человека к отдельной задаче (просмотр + комментарии), не добавляя в проект.", scope: "Задача" },
   manageSprints: { name: "Управление спринтами", desc: "Создание, старт и завершение спринтов; перенос задач между бэклогом и спринтом. Только в проектах с включённым модулем спринтов.", scope: "Проект" },
   saveProjectTemplate: { name: "Сохранение проекта как шаблона", desc: "Сохранить статусы, переходы, поля, шаблоны задач и метки проекта как шаблон организации (ТЗ 5.10). Роль admin в проекте есть только у глобального администратора.", scope: "Проект" },
+  editAppearance: { name: "Внешний вид проекта", desc: "Иконка, цвет и фон проекта (ТЗ 5.14 п.7). Видят все участники; фон действует, пока проект открыт.", scope: "Проект" },
 };

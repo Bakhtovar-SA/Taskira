@@ -14,6 +14,7 @@ import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 import { BackgroundPicker, ColorPicker, IconPicker } from "../ProjectLookPicker";
 
 export function ProjectSection({ section }: { section: string }) {
+  if (section === "appearance") return <Appearance />;
   if (section === "modules") return <Modules />;
   if (section === "archive") return <Archive />;
   return <General />;
@@ -23,6 +24,37 @@ function useCurrentProject() {
   const { data } = useStore();
   const summary = data.projects.find((p) => p.id === data.currentProjectId);
   return { id: data.currentProjectId, key: data.project.key, name: data.project.name, description: data.project.description ?? "", departmentId: summary?.departmentId ?? "", isShared: !!summary?.isShared, sprintsEnabled: !!summary?.sprintsEnabled, icon: summary?.icon ?? null, color: summary?.color ?? null, background: summary?.background ?? null };
+}
+
+/** Внешний вид проекта (ТЗ 5.14 п.7): видят все участники, меняет роль с editAppearance — остальным плашки
+ *  только показывают выбор (fieldset disabled), сервер всё равно проверяет право. */
+function Appearance() {
+  const { t } = useT();
+  const { patchProjectAppearance, can } = useStore();
+  const p = useCurrentProject();
+  const editable = can("editAppearance");
+  return (
+    <SettingsPage title={t("settings.project.appearance")} desc={t("settings.project.lookHint")}>
+      {!editable && <p className="-mt-2 mb-4 text-[12.5px] text-faint">{t("settings.project.lookReadOnly")}</p>}
+      <SettingsCard>
+        <fieldset disabled={!editable} className="flex flex-col gap-5 px-5 py-5 disabled:opacity-70">
+          <div className="flex flex-col gap-2">
+            <span className="ds-label">{t("look.icon")}</span>
+            <IconPicker projectKey={p.key} color={p.color} value={p.icon} onChange={(v) => patchProjectAppearance(p.id, { icon: v })} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="ds-label">{t("look.color")}</span>
+            <ColorPicker projectKey={p.key} value={p.color} onChange={(v) => patchProjectAppearance(p.id, { color: v })} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="ds-label">{t("look.background")}</span>
+            <BackgroundPicker value={p.background} onChange={(v) => patchProjectAppearance(p.id, { background: v })} />
+            <span className="ds-hint">{t("look.bgHint")}</span>
+          </div>
+        </fieldset>
+      </SettingsCard>
+    </SettingsPage>
+  );
 }
 
 function General() {
@@ -73,24 +105,6 @@ function General() {
           <Input label={t("settings.project.key")} value={p.key} readOnly disabled={t("settings.project.keyFixed")} />
           <div className="sm:col-span-2">
             <Textarea label={t("settings.project.description")} value={desc} onChange={(e) => setDesc(e.target.value)} maxChars={LIMITS.project.description.max} rows={4} placeholder={t("settings.project.descriptionPlaceholder")} />
-          </div>
-        </div>
-      </SettingsCard>
-      <SettingsCard title={t("settings.project.look")}>
-        <div className="flex flex-col gap-5 px-5 py-5">
-          <p className="-mt-1 text-[12.5px] text-faint">{t("settings.project.lookHint")}</p>
-          <div className="flex flex-col gap-2">
-            <span className="ds-label">{t("look.icon")}</span>
-            <IconPicker projectKey={p.key} color={p.color} value={p.icon} onChange={(v) => patchProject(p.id, { icon: v })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <span className="ds-label">{t("look.color")}</span>
-            <ColorPicker projectKey={p.key} value={p.color} onChange={(v) => patchProject(p.id, { color: v })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <span className="ds-label">{t("look.background")}</span>
-            <BackgroundPicker value={p.background} onChange={(v) => patchProject(p.id, { background: v })} />
-            <span className="ds-hint">{t("look.bgHint")}</span>
           </div>
         </div>
       </SettingsCard>

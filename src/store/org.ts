@@ -2,7 +2,7 @@
  * store.tsx без изменений поведения (ТЗ 2.3, шаг 3). `bootstrap` нужен deleteProject — приходит из провайдера. */
 import { useCallback } from "react";
 import type { ProjectRole } from "../types";
-import { ldapApi, departmentsApi, membersApi, projectsApi, type CreateProjectInput, type ProjectPatchInput } from "../api";
+import { ldapApi, departmentsApi, membersApi, projectsApi, type CreateProjectInput, type ProjectLookInput, type ProjectPatchInput } from "../api";
 import { mapUser, readLastProject, writeLastProject } from "./mappers";
 import type { StoreCtx } from "./ctx";
 
@@ -219,6 +219,21 @@ export function useOrgActions(
     [requirePerm, toast, handleApiError, refreshOrg],
   );
 
+  const patchProjectAppearance = useCallback(
+    (id: string, patch: ProjectLookInput) => {
+      if (!requirePerm("editAppearance")) return;
+      void (async () => {
+        try {
+          await projectsApi.appearance(id, patch);
+          await refreshOrg();
+        } catch (err) {
+          handleApiError(err, local("Не удалось изменить внешний вид проекта", "Couldn't update the project's look"));
+        }
+      })();
+    },
+    [requirePerm, handleApiError, refreshOrg],
+  );
+
   const patchProject = useCallback(
     (
       id: string,
@@ -276,6 +291,7 @@ export function useOrgActions(
     deleteDepartment,
     createProject,
     patchProject,
+    patchProjectAppearance,
     deleteProject,
     refreshOrg,
   };
