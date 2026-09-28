@@ -24,8 +24,8 @@ const baseUser = {
 };
 
 const projects = [
-  { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, isDemo: false },
-  { id: "p2", key: "CORP", name: "Проект 2", description: "", departmentId: "d2", isShared: true, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, isDemo: false },
+  { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false },
+  { id: "p2", key: "CORP", name: "Проект 2", description: "", departmentId: "d2", isShared: true, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false },
 ];
 
 const assignedItems: AssignedIssue[] = [

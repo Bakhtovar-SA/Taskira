@@ -12,6 +12,8 @@
 
 /** Темы (ТЗ 5.14 п.3): «Как в системе», базовые светлая и тёмная и четыре курируемые. Курируемая тема =
  *  базовая (data-theme) + переопределение семантического слоя (data-skin) в tokens.css. */
+import { scrimFor } from "./bgPhoto";
+
 export const THEMES = ["system", "light", "dark", "dusk", "graphite", "dawn", "paper"] as const;
 export type ThemeMode = (typeof THEMES)[number];
 type Skin = "dusk" | "graphite" | "dawn" | "paper";
@@ -72,6 +74,28 @@ export function setProjectBackground(id: string | null | undefined): void {
 }
 export const projectBackground = (): string | null => projectBg;
 
+/** Своё фото фона проекта (ТЗ 5.14 п.2): blob-URL и средняя светлота. Пока задано — перекрывает свечение и
+ *  геометрию. Всё через CSSOM (ADR-0010): --bg-photo, --photo-scrim на <html> + атрибут data-photo. */
+let projectPhoto: { url: string; luma: number } | null = null;
+export function setProjectPhoto(p: { url: string; luma: number } | null): void {
+  projectPhoto = p;
+  applyPhoto(effectiveTheme() === "dark");
+}
+function applyPhoto(dark: boolean): void {
+  const root = document.documentElement;
+  if (!projectPhoto) {
+    root.removeAttribute("data-photo");
+    root.style.removeProperty("--bg-photo");
+    root.style.removeProperty("--photo-scrim");
+    return;
+  }
+  root.style.setProperty("--bg-photo", `url("${projectPhoto.url}")`);
+  root.style.setProperty("--photo-scrim", `${scrimFor(projectPhoto.luma, dark)}%`);
+  // Схема текста поверх фото: подложка тона темы плотнее, если фото с темой не совпадает; атрибут — для правил,
+  // которым нужно знать, светлое фото или тёмное.
+  root.setAttribute("data-photo", projectPhoto.luma > 0.5 ? "light" : "dark");
+}
+
 export function applyTheme(mode: ThemeMode = readTheme(), bgId: string = projectBg ?? readBgId()): void {
   const root = document.documentElement;
   root.setAttribute("data-theme", effectiveTheme(mode));
@@ -79,6 +103,7 @@ export function applyTheme(mode: ThemeMode = readTheme(), bgId: string = project
   else root.removeAttribute("data-skin");
   if (!isBg(bgId) || bgId === "default") root.removeAttribute("data-atmosphere");
   else root.setAttribute("data-atmosphere", bgId);
+  applyPhoto(effectiveTheme(mode) === "dark");
   // До ТЗ 5.4 пресет фона писался инлайн-стилем --c-canvas на <html>; у
   // тех, кто открыл новую версию во вкладке со старой, он перебил бы токены.
   root.style.removeProperty("--c-canvas");

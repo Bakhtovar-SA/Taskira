@@ -114,6 +114,7 @@ export function useOrgActions(
         icon: p.icon ?? null,
         color: p.color ?? null,
         background: p.background ?? null,
+        backgroundPhoto: p.backgroundPhoto ?? null,
         isDemo: !!p.isDemo,
       })),
       departments: deps,

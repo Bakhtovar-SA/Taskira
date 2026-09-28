@@ -34,7 +34,7 @@ const baseUser = {
   authSource: "local" as const,
 };
 
-const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: true, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, isDemo: false };
+const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: true, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false };
 
 function fakeSprint(id: string, over: Partial<ServerSprint> = {}): ServerSprint {
   return { id, name: `Sprint ${id}`, goal: "", status: "future", startDate: null, endDate: null, ...over };

@@ -30,6 +30,8 @@ import { safeUser, type UserRow } from "../auth.js";
 import { invalidateProjectCache, projectById } from "../services/project.js";
 import { listVisibleProjects, projectRowToDto, type ProjectDto } from "../services/projects.js";
 import { storageKeysForProject, deleteStorageObjects } from "../services/attachments.js";
+import { PHOTO_LIMITS, openProjectPhoto, removeProjectPhoto, setProjectPhoto } from "../services/projectPhoto.js";
+import { ApiHttpError } from "../errors.js";
 import { ProjectAppearanceBody, ProjectCreateBody, ProjectParams, ProjectPatchBody } from "../contract.js";
 import type { ProjectBootstrapDto } from "../contract.js";
 import type { ProjectRole } from "../permissions.js";
@@ -203,6 +205,69 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  /* ---------------------------------------------------------- фото фона (ТЗ 5.14 п.2) */
+  // multipart: файлы full и small (WebP, уменьшены клиентом) + поле luma. Глобальный лимит multipart — один файл
+  // на запрос (вложения); здесь их два, поэтому лимиты переданы в req.parts() явно.
+  app.post(
+    "/projects/:projectId/background-photo",
+    { preHandler: requirePerm("editAppearance"), preValidation: zparams(ProjectParams) },
+    async (req) => {
+      const actor: JwtPayload = req.user;
+      const { projectId } = req.params as z.infer<typeof ProjectParams>;
+      const files: Partial<Record<"full" | "small", Buffer>> = {};
+      let luma = NaN;
+      try {
+        for await (const part of req.parts({ limits: { files: 2, fileSize: PHOTO_LIMITS.full.maxBytes, fields: 2, fieldSize: 32 } })) {
+          if (part.type === "file") {
+            const buf = await part.toBuffer();
+            if (part.fieldname === "full" || part.fieldname === "small") files[part.fieldname] = buf;
+          } else if (part.fieldname === "luma") luma = Number(part.value);
+        }
+      } catch (e) {
+        const code = (e as { code?: string }).code;
+        if (code === "FST_REQ_FILE_TOO_LARGE") throw new ApiHttpError(413, "PHOTO_TOO_LARGE", "Фото слишком большое");
+        if (code === "FST_INVALID_MULTIPART_CONTENT_TYPE") throw badRequest("Ожидается multipart/form-data с полями full, small, luma");
+        throw e;
+      }
+      if (!files.full || !files.small) throw badRequest("Нужны оба размера фото: full и small");
+      await setProjectPhoto(projectId, { full: files.full, small: files.small }, luma);
+      invalidateProjectCache(projectId);
+      await audit(actor.sub, "project.appearance", "project", projectId, { backgroundPhoto: "set" });
+      return projectDtoById(projectId);
+    },
+  );
+
+  app.delete(
+    "/projects/:projectId/background-photo",
+    { preHandler: requirePerm("editAppearance"), preValidation: zparams(ProjectParams) },
+    async (req) => {
+      const actor: JwtPayload = req.user;
+      const { projectId } = req.params as z.infer<typeof ProjectParams>;
+      await removeProjectPhoto(projectId);
+      invalidateProjectCache(projectId);
+      await audit(actor.sub, "project.appearance", "project", projectId, { backgroundPhoto: "removed" });
+      return projectDtoById(projectId);
+    },
+  );
+
+  // Отдача — любому, кто видит проект: фон виден всем участникам, пока проект открыт.
+  app.get(
+    "/projects/:projectId/background-photo/:size",
+    { preHandler: requirePerm("browse") },
+    async (req, reply) => {
+      const { projectId, size } = req.params as { projectId: string; size: string };
+      if (size !== "full" && size !== "small") throw notFound("Фото не найдено");
+      const stream = await openProjectPhoto(projectId, size);
+      if (!stream) throw notFound("Фото не найдено");
+      reply
+        .header("Content-Type", "image/webp")
+        .header("X-Content-Type-Options", "nosniff")
+        // Клиент версионирует ссылку ?v=<updatedAt>; новый файл — новый ключ, кэш безопасен.
+        .header("Cache-Control", "private, max-age=31536000, immutable");
+      return reply.send(stream);
+    },
+  );
+
   /* ---------------------------------------------------------- удаление */
   app.delete(
     "/projects/:projectId",
@@ -216,6 +281,9 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       // Каскад FK снесёт строки attachments, но не файлы в хранилище, и после
       // удаления проекта найти их будет уже нечем (аудит BUG-01).
       const attachKeys = await storageKeysForProject(projectId);
+      // …и фото фона проекта (ТЗ 5.14) — строка уйдёт вместе с проектом.
+      const photo = await one<{ a: string | null; b: string | null }>(`SELECT bg_photo_key AS a, bg_photo_small_key AS b FROM projects WHERE id = $1`, [projectId]);
+      for (const k of [photo?.a, photo?.b]) if (k) attachKeys.push(k);
       // Каскады по FK: issues / project_members / workflow_* / project_counters.
       await q(`DELETE FROM projects WHERE id = $1`, [projectId]);
       await deleteStorageObjects(attachKeys); // best-effort уборка хранилища

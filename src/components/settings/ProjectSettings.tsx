@@ -2,11 +2,12 @@
  *  «Департаментах», описание и отдел — только через API, спринты — чекбоксом там же, архив — только по
  *  прямой ссылке, удаление — корзиной в списке отделов. Форма пишет теми же действиями стора, что и раньше
  *  (`patchProject`, `deleteProject`) — поведение настроек не меняется. */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { preparePhoto } from "../../bgPhoto";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
 import { LIMITS } from "../../validation";
-import { ApiError, issuesApi, projectTemplatesApi } from "../../api";
+import { ApiError, issuesApi, projectTemplatesApi, projectsApi } from "../../api";
 import { fmtDate } from "../../store/mappers";
 import { Button, Dialog, EmptyState, Input, Switch, Textarea } from "../../ds";
 import { IcArchive, IcTrash } from "../../icons";
@@ -23,7 +24,7 @@ export function ProjectSection({ section }: { section: string }) {
 function useCurrentProject() {
   const { data } = useStore();
   const summary = data.projects.find((p) => p.id === data.currentProjectId);
-  return { id: data.currentProjectId, key: data.project.key, name: data.project.name, description: data.project.description ?? "", departmentId: summary?.departmentId ?? "", isShared: !!summary?.isShared, sprintsEnabled: !!summary?.sprintsEnabled, icon: summary?.icon ?? null, color: summary?.color ?? null, background: summary?.background ?? null };
+  return { id: data.currentProjectId, key: data.project.key, name: data.project.name, description: data.project.description ?? "", departmentId: summary?.departmentId ?? "", isShared: !!summary?.isShared, sprintsEnabled: !!summary?.sprintsEnabled, icon: summary?.icon ?? null, color: summary?.color ?? null, background: summary?.background ?? null, backgroundPhoto: summary?.backgroundPhoto ?? null };
 }
 
 /** Внешний вид проекта (ТЗ 5.14 п.7): видят все участники, меняет роль с editAppearance — остальным плашки
@@ -53,7 +54,72 @@ function Appearance() {
           </div>
         </fieldset>
       </SettingsCard>
+      <PhotoCard projectId={p.id} photo={p.backgroundPhoto} editable={editable} />
     </SettingsPage>
+  );
+}
+
+/** Своё фото фона (ТЗ 5.14 п.2): браузер уменьшает и перекодирует в WebP (bgPhoto.ts), сервер проверяет и хранит. */
+function PhotoCard({ projectId, photo, editable }: { projectId: string; photo: { updatedAt: number; luma: number } | null; editable: boolean }) {
+  const { t } = useT();
+  const { refreshOrg, toast } = useStore();
+  const [preview, setPreview] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!photo) return setPreview(null);
+    let url: string | null = null;
+    let live = true;
+    void projectsApi.photoBlobUrl(projectId, "small", photo.updatedAt).then((u) => {
+      url = u;
+      if (live) setPreview(u);
+    });
+    return () => {
+      live = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [projectId, photo]);
+
+  const run = async (job: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await job();
+      await refreshOrg();
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      toast("error", m === "no-webp" ? t("look.photo.noWebp") : m === "unreadable" ? t("look.photo.unreadable") : e instanceof ApiError ? e.message : t("look.photo.failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const onFile = (f: File | undefined) => {
+    if (f) void run(async () => projectsApi.uploadPhoto(projectId, await preparePhoto(f)));
+  };
+
+  return (
+    <SettingsCard title={t("look.photo")}>
+      <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center">
+        <div className="look-bg-personal flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1 ring-inset ring-line/60 sm:w-[220px]">
+          {preview ? <img src={preview} alt="" className="h-full w-full object-cover" /> : <span className="text-[12px] text-faint">{t("look.photo.none")}</span>}
+        </div>
+        <div className="flex min-w-0 flex-col gap-3">
+          <p className="text-[12.5px] leading-relaxed text-faint">{t("look.photo.hint")}</p>
+          {editable && (
+            <div className="flex flex-wrap gap-2">
+              <input ref={input} type="file" accept="image/*" className="sr-only" tabIndex={-1} onChange={(e) => onFile(e.target.files?.[0])} />
+              <Button size="sm" variant="secondary" loading={busy} onClick={() => input.current?.click()}>
+                {t(photo ? "look.photo.replace" : "look.photo.upload")}
+              </Button>
+              {photo && (
+                <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => projectsApi.removePhoto(projectId))}>
+                  {t("look.photo.remove")}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </SettingsCard>
   );
 }
 

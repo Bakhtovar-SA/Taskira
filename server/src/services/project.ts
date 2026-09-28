@@ -24,6 +24,7 @@ export interface ProjectRow {
   icon: ProjectDto["icon"];
   color: ProjectDto["color"];
   background: ProjectDto["background"];
+  backgroundPhoto: ProjectDto["backgroundPhoto"];
   isDemo: boolean;
 }
 
@@ -41,9 +42,11 @@ interface ProjectDbRow {
   color: ProjectDto["color"];
   background: ProjectDto["background"];
   is_demo: boolean;
+  bg_photo_updated_at: Date | null;
+  bg_photo_luma: number | null;
 }
 
-const SELECT_COLS = `id, key, name, description, department_id, is_shared, sprints_enabled, default_view, suggested_labels, icon, color, background, is_demo`;
+const SELECT_COLS = `id, key, name, description, department_id, is_shared, sprints_enabled, default_view, suggested_labels, icon, color, background, is_demo, bg_photo_updated_at, bg_photo_luma`;
 
 const toRow = (r: ProjectDbRow): ProjectRow => ({
   id: r.id,
@@ -58,6 +61,7 @@ const toRow = (r: ProjectDbRow): ProjectRow => ({
   icon: r.icon ?? null,
   color: r.color ?? null,
   background: r.background ?? null,
+  backgroundPhoto: r.bg_photo_updated_at ? { updatedAt: r.bg_photo_updated_at.getTime(), luma: r.bg_photo_luma ?? 0.5 } : null,
   isDemo: !!r.is_demo,
 });
 

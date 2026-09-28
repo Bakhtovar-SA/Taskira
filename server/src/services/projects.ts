@@ -18,6 +18,8 @@ interface ProjectDbRow {
   color: ProjectDto["color"];
   background: ProjectDto["background"];
   is_demo: boolean;
+  bg_photo_updated_at: Date | null;
+  bg_photo_luma: number | null;
 }
 
 const toDto = (r: ProjectDbRow): ProjectDto => ({
@@ -33,6 +35,7 @@ const toDto = (r: ProjectDbRow): ProjectDto => ({
   icon: r.icon ?? null,
   color: r.color ?? null,
   background: r.background ?? null,
+  backgroundPhoto: r.bg_photo_updated_at ? { updatedAt: r.bg_photo_updated_at.getTime(), luma: r.bg_photo_luma ?? 0.5 } : null,
   isDemo: !!r.is_demo,
 });
 
@@ -49,10 +52,11 @@ export const projectRowToDto = (p: ProjectRow): ProjectDto => ({
   icon: p.icon,
   color: p.color,
   background: p.background,
+  backgroundPhoto: p.backgroundPhoto,
   isDemo: p.isDemo,
 });
 
-const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared, p.sprints_enabled, p.default_view, p.suggested_labels, p.icon, p.color, p.background, p.is_demo`;
+const COLS = `p.id, p.key, p.name, p.description, p.department_id, p.is_shared, p.sprints_enabled, p.default_view, p.suggested_labels, p.icon, p.color, p.background, p.is_demo, p.bg_photo_updated_at, p.bg_photo_luma`;
 
 /**
  * Видимость (LDAP_MIGRATION.md D8 — закрывает DEPT_MIGRATION.md §3.5):

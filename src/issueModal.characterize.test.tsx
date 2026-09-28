@@ -57,6 +57,7 @@ const project = {
   icon: null,
   color: null,
   background: null,
+  backgroundPhoto: null,
   isDemo: false,
 };
 

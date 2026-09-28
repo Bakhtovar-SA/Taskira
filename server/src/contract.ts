@@ -856,6 +856,8 @@ export const ProjectDto = z.object({
   icon: z.enum(PROJECT_ICONS).nullable(),
   color: z.enum(PROJECT_COLORS).nullable(),
   background: z.enum(PROJECT_BACKGROUNDS).nullable(),
+  /** Своё фото фона (ТЗ 5.14 п.2): версия (ms) для ссылки и средняя светлота 0…1; перекрывает background. */
+  backgroundPhoto: z.object({ updatedAt: z.number(), luma: z.number() }).nullable(),
   /** Демо-проект из первичной настройки (ТЗ 5.11) — помечен в интерфейсе, удаляется одной кнопкой. */
   isDemo: z.boolean(),
 });

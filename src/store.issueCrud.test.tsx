@@ -19,7 +19,7 @@ const admin = {
   globalRole: "admin" as const, isActive: true, authSource: "local" as const,
 };
 const employee = { ...admin, id: "u2", username: "e", globalRole: "member" as const };
-const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, isDemo: false };
+const project = { id: "p1", key: "A21", name: "Проект 1", description: "", departmentId: "d1", isShared: false, sprintsEnabled: false, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false };
 
 const workflow = {
   statuses: [

@@ -151,6 +151,11 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
 export async function apiUpload<T = unknown>(path: string, file: File, fieldName = "file"): Promise<T> {
   const fd = new FormData();
   fd.append(fieldName, file, file.name);
+  return apiUploadForm<T>(path, fd);
+}
+
+/** multipart с несколькими полями (фото фона проекта: два размера + светлота). */
+export async function apiUploadForm<T = unknown>(path: string, fd: FormData): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -341,6 +346,27 @@ export const projectsApi = {
   get: (projectId: string) => api<ProjectBootstrap>(P(projectId)),
   create: (body: CreateProjectInput) => api<Project>("/api/projects", { method: "POST", body }),
   patch: (projectId: string, body: ProjectPatchInput) => api<Project>(P(projectId), { method: "PATCH", body }),
+  /** Своё фото фона (ТЗ 5.14 п.2): два WebP + средняя светлота; право editAppearance. */
+  uploadPhoto: (projectId: string, p: { full: Blob; small: Blob; luma: number }) => {
+    const fd = new FormData();
+    fd.append("luma", String(p.luma));
+    fd.append("full", p.full, "full.webp");
+    fd.append("small", p.small, "small.webp");
+    return apiUploadForm<Project>(`${P(projectId)}/background-photo`, fd);
+  },
+  removePhoto: (projectId: string) => api<Project>(`${P(projectId)}/background-photo`, { method: "DELETE" }),
+  /** blob: URL фото — авторизованный fetch (у CSS url() заголовка не выставить); null — нет или ошибка. */
+  photoBlobUrl: async (projectId: string, size: "full" | "small", v: number): Promise<string | null> => {
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    try {
+      const res = await fetch(buildUrl(`${P(projectId)}/background-photo/${size}`, { v: String(v) }), { headers, credentials: "include" });
+      return res.ok ? URL.createObjectURL(await res.blob()) : null;
+    } catch {
+      return null;
+    }
+  },
   /** Иконка, цвет, фон — право проекта editAppearance (ТЗ 5.14 п.7), не только глобальный администратор. */
   appearance: (projectId: string, body: ProjectLookInput) => api<Project>(`${P(projectId)}/appearance`, { method: "PATCH", body }),
   remove: (projectId: string) => api<void>(P(projectId), { method: "DELETE" }),

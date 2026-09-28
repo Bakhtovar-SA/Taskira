@@ -35,12 +35,17 @@ export async function runStorageSweepOnce(storage: Storage, driver: "local" | "s
   const objects = await storage.list();
   if (objects.length === 0) return { scanned: 0, orphaned: 0, deleted: 0, failed: 0 };
 
+  // Фото фона проекта (ТЗ 5.14, миграция 20260928T1000) — тоже известные ключи.
   // UNION с users.avatar_key (миграция 027) — иначе каждая аватарка выглядит
   // осиротевшей для этого сборщика, который раньше знал только про attachments.
   const known = await q<{ storage_key: string }>(
     `SELECT storage_key FROM attachments WHERE storage_driver = $1
      UNION
-     SELECT avatar_key FROM users WHERE avatar_driver = $1 AND avatar_key IS NOT NULL`,
+     SELECT avatar_key FROM users WHERE avatar_driver = $1 AND avatar_key IS NOT NULL
+     UNION
+     SELECT bg_photo_key FROM projects WHERE bg_photo_driver = $1 AND bg_photo_key IS NOT NULL
+     UNION
+     SELECT bg_photo_small_key FROM projects WHERE bg_photo_driver = $1 AND bg_photo_small_key IS NOT NULL`,
     [driver],
   );
   const knownKeys = new Set(known.map((r) => r.storage_key));

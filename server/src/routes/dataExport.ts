@@ -78,7 +78,7 @@ const KEYED_TABLES: KeyedTable[] = [
       "avatar_content_type", "avatar_updated_at",
     ],
   },
-  { type: "project", table: "projects", columns: ["id", "key", "name", "description", "created_at", "department_id", "is_shared", "sprints_enabled", "default_view", "suggested_labels", "icon", "color", "background"] },
+  { type: "project", table: "projects", columns: ["id", "key", "name", "description", "created_at", "department_id", "is_shared", "sprints_enabled", "default_view", "suggested_labels", "icon", "color", "background", "bg_photo_driver", "bg_photo_key", "bg_photo_small_key", "bg_photo_luma", "bg_photo_updated_at"] },
   // ТЗ 5.10: шаблоны проектов организации (встроенные — в репозитории, в экспорт не входят).
   { type: "projectTemplate", table: "project_templates", columns: ["id", "name", "description", "spec", "created_by", "created_at"] },
   { type: "workflowStatus", table: "workflow_statuses", columns: ["id", "project_id", "sid", "name", "category", "position"] },

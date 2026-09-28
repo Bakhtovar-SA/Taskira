@@ -153,6 +153,46 @@ for (const [name, vars] of [
     console.log(`  ${ok ? "ok  " : "FAIL"} ${r.toFixed(2).padStart(5)} ≥ ${min}  ${fgName} on ${bgName}${baseName ? ` (over ${baseName})` : ""}`);
   }
 }
+// ── Текст хрома поверх фона (ТЗ 5.14, проверка «≥ 4.5:1 с подложкой»). Боковая панель — стекло (--glass-side)
+// прямо над атмосферой; под ней — либо свечения фона галереи, либо своё фото под подложкой цвета рамки.
+// Тестовый набор фото — ровные серые от чёрного до белого (худшие случаи для любой светлоты); плотность подложки —
+// та же формула, что src/bgPhoto.ts scrimFor (SCRIM_MIN + SCRIM_RANGE × расхождение с темой).
+const SCRIM_MIN = 30;
+const SCRIM_RANGE = 58;
+const GLOWS = ["--glow-a", "--glow-b", "--glow-c"];
+const chrome = ["--text-1", "--text-2", "--text-3"];
+for (const [name, vars, isDark] of [
+  ["light", light, false],
+  ["dark", dark, true],
+  ["dusk", skin(dark, "dusk"), true],
+  ["graphite", skin(dark, "graphite"), true],
+  ["dawn", skin(light, "dawn"), false],
+  ["paper", skin(light, "paper"), false],
+]) {
+  const frame = oklch(resolve(vars, vars["--bg-frame"])).rgb;
+  const bases = [];
+  for (const luma of [0, 0.25, 0.5, 0.75, 1]) {
+    const photo = [1, 1, 1].map(() => toLinear(luma));
+    const pct = SCRIM_MIN + SCRIM_RANGE * (isDark ? luma : 1 - luma);
+    bases.push([`фото ${luma}`, over({ rgb: frame, alpha: pct / 100 }, photo)]);
+  }
+  // Свечения фона: каждое по отдельности во всю силу поверх рамки (в углах они не складываются все три).
+  for (const g of GLOWS) bases.push([`свечение ${g}`, over(oklch(resolve(vars, vars[g])), frame)]);
+  let worst = Infinity;
+  for (const [label, base] of bases) {
+    const glass = over(oklch(resolve(vars, vars["--glass-side"])), base);
+    for (const t of chrome) {
+      const r = ratio(over(oklch(resolve(vars, vars[t])), glass), glass);
+      worst = Math.min(worst, r);
+      if (r < TEXT) {
+        failed++;
+        console.log(`  FAIL ${r.toFixed(2)} ≥ ${TEXT}  ${name}: ${t} на стекле боковой панели над «${label}»`);
+      }
+    }
+  }
+  console.log(`  ${name}: текст боковой панели над фото/свечениями — худший ${worst.toFixed(2)}`);
+}
+
 if (failed) {
   console.error(`\n${failed} pair(s) below threshold`);
   process.exit(1);

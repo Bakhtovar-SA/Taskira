@@ -133,6 +133,7 @@ export function useSessionActions(
         icon: p.icon ?? null,
         color: p.color ?? null,
         background: p.background ?? null,
+        backgroundPhoto: p.backgroundPhoto ?? null,
         isDemo: !!p.isDemo,
       }));
       // ТЗ 3.1: резолв прямой ссылки (/p/:projectKey/issue/:issueKey ИЛИ

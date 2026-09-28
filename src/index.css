@@ -123,6 +123,16 @@ body {
   isolation: isolate;
 }
 
+/* Своё фото фона проекта (ТЗ 5.14 п.2, theme.ts setProjectPhoto): фото под подложкой цвета рамки; плотность
+   подложки (--photo-scrim) выбрана по средней светлоте фото и теме — текст хрома поверх держит контраст. */
+:root[data-photo] body {
+  background:
+    linear-gradient(color-mix(in oklch, var(--bg-frame) var(--photo-scrim), transparent), color-mix(in oklch, var(--bg-frame) var(--photo-scrim), transparent)),
+    var(--bg-photo) center / cover no-repeat,
+    var(--bg-frame);
+  background-attachment: fixed;
+}
+
 /* Стеклянная кромка: 1 px градиент, светлее сверху-слева — «лист стекла»,
    а не рамка. Добавляется к стеклянным поверхностям хрома. */
 .glass-edge {

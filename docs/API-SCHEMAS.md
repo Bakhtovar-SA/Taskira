@@ -318,6 +318,14 @@
 |---|---|---|
 | `step` | enum: `theme` |  |
 
+### ProjectAppearanceBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное, может быть null |
+| `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null |
+| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null |
+
 ### ProjectCreateBody
 
 | Поле | Тип | Замечания |
@@ -332,7 +340,7 @@
 | `members` | array&lt;object&gt; | необязательное; по умолчанию []; 0…200 эл. |
 | `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное, может быть null |
 | `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null; по умолчанию null |
-| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `graphite` | необязательное, может быть null; по умолчанию null |
+| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null; по умолчанию null |
 
 ### ProjectParams
 
@@ -351,7 +359,7 @@
 | `sprintsEnabled` | boolean | необязательное |
 | `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное, может быть null |
 | `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null |
-| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `graphite` | необязательное, может быть null |
+| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null |
 
 ### ProjectTemplateParams
 
@@ -838,7 +846,8 @@
 | `suggestedLabels` | array&lt;string&gt; |  |
 | `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | может быть null |
 | `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | может быть null |
-| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `graphite` | может быть null |
+| `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | может быть null |
+| `backgroundPhoto` | object | может быть null |
 | `isDemo` | boolean |  |
 
 ### ProjectMemberDto
