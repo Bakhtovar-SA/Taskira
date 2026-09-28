@@ -489,7 +489,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     // «Начало работы» (ТЗ 5.11): открыл свою задачу — ту, где он исполнитель.
     if (req.issueRef?.assigneeIds.includes(me(req).sub)) await markStep(me(req).sub, "open_issue");
-    return maskSprintId(await getIssueDto(project.id, id), project.sprintsEnabled);
+    return maskSprintId(await getIssueDto(project.id, id, me(req).sub), project.sprintsEnabled);
   });
 
   /* ---------------------------------------------------------- история задачи

@@ -706,6 +706,7 @@
 | `checklist` | array&lt;object&gt; |  |
 | `customFieldValues` | array&lt;object&gt; |  |
 | `epicChildrenCount` | number |  |
+| `watch` | object |  |
 
 ### IssueDto
 

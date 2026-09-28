@@ -878,6 +878,8 @@ export const IssueDetailDto = IssueDto.extend({
   subtasksSummary: SubtasksSummaryDto,
   /** Число активных задач с epic_id = эта задача (0 — она не «направление»). */
   epicChildrenCount: z.number(),
+  /** Подписка текущего пользователя (issue_watchers): следит ли он и сколько всего следят. */
+  watch: z.object({ watching: z.boolean(), watchers: z.number() }),
 });
 export type IssueDetailDto = z.infer<typeof IssueDetailDto>;
 

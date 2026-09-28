@@ -601,6 +601,9 @@ export const issuesApi = {
    *  404, если ключа нет ИЛИ проект не виден вызывающему — не различаются намеренно
    *  (см. server/src/routes/search.ts). */
   resolve: (key: string) => api<IssueResolveDto>("/api/issues/resolve", { query: { key } }),
+  /** Подписка на задачу: уведомления о всех её изменениях, не только когда ты исполнитель или автор. */
+  watch: (projectId: string, issueId: string, on: boolean) =>
+    api<{ watching: boolean; watchers: number }>(`${P(projectId)}/issues/${issueId}/watchers/me`, { method: on ? "POST" : "DELETE" }),
   /** История задачи («кто, что, когда»). */
   activity: (projectId: string, id: string) => api<ServerActivity[]>(`${P(projectId)}/issues/${id}/activity`),
   create: (projectId: string, body: Record<string, unknown>) =>

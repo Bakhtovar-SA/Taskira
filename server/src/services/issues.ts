@@ -334,9 +334,18 @@ async function getEpicChildrenCount(issueId: string): Promise<number> {
   return Number(row?.n ?? 0);
 }
 
-export async function getIssueDto(projectId: string, issueId: string): Promise<IssueDetailDto> {
+/** Следит ли пользователь за задачей и сколько всего подписчиков (issue_watchers). */
+export async function getWatchState(issueId: string, userId: string | null): Promise<{ watching: boolean; watchers: number }> {
+  const r = await one<{ n: number; me: boolean }>(
+    `SELECT count(*)::int AS n, coalesce(bool_or(user_id = $2), false) AS me FROM issue_watchers WHERE issue_id = $1`,
+    [issueId, userId],
+  );
+  return { watching: !!r?.me, watchers: r?.n ?? 0 };
+}
+
+export async function getIssueDto(projectId: string, issueId: string, viewerId: string | null = null): Promise<IssueDetailDto> {
   const row = await loadIssue(projectId, issueId);
-  const [assigneeIds, collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary, epicChildrenCount] = await Promise.all([
+  const [assigneeIds, collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary, epicChildrenCount, watch] = await Promise.all([
     listAssigneeIds(row.id),
     listCollaborators(row.id),
     listParticipants(row.id),
@@ -346,8 +355,9 @@ export async function getIssueDto(projectId: string, issueId: string): Promise<I
     listValuesForIssue(row.id),
     getSubtasksSummary(row.id),
     getEpicChildrenCount(row.id),
+    getWatchState(row.id, viewerId),
   ]);
-  return { ...mapIssue(row, assigneeIds), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary, epicChildrenCount };
+  return { ...mapIssue(row, assigneeIds), collaborators, participants, attachments, links, checklist, customFieldValues, subtasksSummary, epicChildrenCount, watch };
 }
 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).
