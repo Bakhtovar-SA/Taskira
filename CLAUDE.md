@@ -669,7 +669,10 @@ since any edit touches it. The board shows the last 14 days in its done column
   `--text-1/2/3`, `--border-*`, `--accent-*`, `--status-*`, `--elev-*`) → aliases of the old `--c-*` names, so old
   classes (`bg-canvas`, `text-ink`, …) still resolve ([docs/design/ALIASES.md](docs/design/ALIASES.md)). Themes
   override only the semantic layer. **Don't add raw `#hex`/`rgb()` to components** — `npm run colors:check` fails CI;
-  `npm run contrast:check` fails CI if a declared text/background pair drops below 4.5:1. Theme and atmosphere preset
+  `npm run contrast:check` fails CI if a declared text/background pair drops below 4.5:1. `npm run motion:check` fails CI on an animation/transition
+  duration that isn't a `--dur-*` token (or > 450 ms), or on a moving animation not overridden under
+  `prefers-reduced-motion` (ТЗ 5.13, `scripts/check-motion.mjs`). The start splash is static markup in `index.html`
+  (`#splash`), removed by `src/splash.ts` right after the first render. Theme and atmosphere preset
   are `<html>` attributes (`data-theme`, `data-atmosphere`) set by `applyTheme()`
   and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg`).
   ADR-0016 (supersedes parts of 0012): the sidebar (`.glass-side`) and the work sheet (`.glass-sheet`) are glass over

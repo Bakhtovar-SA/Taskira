@@ -944,6 +944,7 @@
   .ds-pop:popover-open,
   .ds-tip:popover-open,
   .ds-dialog[open],
+  .ds-dialog[data-kind="panel"][open],
   .ds-sk,
   .ds-progress[data-indeterminate] > span {
     animation: none;

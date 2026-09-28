@@ -258,13 +258,15 @@ describe("Timeline при частичном сторе", () => {
     const scrollTo = vi.fn();
     Element.prototype.scrollTo = scrollTo as never;
     const h = await setup({ epics: [epic({ childTotal: 100, childDone: 50 })] });
+    fireEvent.click(screen.getByRole("button", { name: /Сегодня/ }));
+    expect(scrollTo).toHaveBeenCalled();
+    // Клик по полосе — последним: открытие задачи асинхронно перечитывает направления, и под нагрузкой
+    // шапка с «Сегодня» на время перечитывания пропадала — порядок действий в тесте, не поведение экрана.
     const bar = screen.getByTitle("Альфа · 50/100 готово");
     expect(bar.textContent).toContain("50%");
     fireEvent.click(bar);
     await settle();
     expect(h.store().ui.selectedIssueId).toBe("e1");
-    fireEvent.click(screen.getByRole("button", { name: /Сегодня/ }));
-    expect(scrollTo).toHaveBeenCalled();
     h.ui.unmount();
   });
 });

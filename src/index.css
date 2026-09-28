@@ -378,6 +378,48 @@ html.vt-theme::view-transition-new(root) {
   background: color-mix(in oklch, var(--accent-solid) 7%, transparent);
   box-shadow: inset 0 0 0 2px var(--accent-solid), 0 6px 18px -10px var(--accent-glow);
 }
+/* Стартовая заставка (ТЗ 5.5 п.5 / 5.13 — единственный оркестрованный момент): перекладина, затем галочка
+   дорисовываются (≈320 мс), заставка растворяется в оболочку (200 мс) — всего не дольше 600 мс. Снимает src/splash.ts. */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: var(--bg-canvas);
+  color: var(--logo);
+  pointer-events: none;
+}
+#splash path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: splashDraw var(--dur-3) var(--ease-out) forwards;
+}
+#splash path + path {
+  animation-delay: 120ms;
+}
+#splash[data-out] {
+  animation: splashOut var(--dur-3) var(--ease-standard) forwards;
+}
+#splash[data-out] svg {
+  animation: splashLift var(--dur-3) var(--ease-standard) forwards;
+}
+@keyframes splashDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes splashOut {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes splashLift {
+  to {
+    transform: scale(1.12);
+  }
+}
+
 /* Таблица «Список задач» (ТЗ 5.12 e): заголовок и строки — одна сетка, шаблон колонок задаёт Backlog.tsx через
    CSSOM (--list-cols). На телефоне — только название (ключ над ним), статус и исполнитель. */
 .list-grid {
@@ -617,15 +659,6 @@ html.vt-theme::view-transition-new(root) {
     box-shadow: 0 0 0 0 transparent;
   }
 }
-@keyframes pulseDot {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in oklch, var(--status-done) 50%, transparent);
-  }
-  55% {
-    box-shadow: 0 0 0 6px color-mix(in oklch, var(--status-done) 0%, transparent);
-  }
-}
 @keyframes shimmer {
   from {
     background-position: -180% 0;
@@ -691,13 +724,7 @@ html.vt-theme::view-transition-new(root) {
   animation: dialogIn var(--dur-4) var(--ease-out) both;
 }
 .anim-toast {
-  animation: toastIn 0.25s cubic-bezier(0.2, 0.7, 0.3, 1) both;
-}
-.anim-flash {
-  animation: cardFlash 1.1s ease-out both;
-}
-.pulse-dot {
-  animation: pulseDot 1.8s ease-out infinite;
+  animation: toastIn var(--dur-3) var(--ease-out) both;
 }
 /* Граф рабочего процесса (WorkflowView). Узел — панель с тенью и мягкой
    заливкой цветом категории; ребро — волосяная линия, на наведении (строка
@@ -754,10 +781,10 @@ html.vt-theme::view-transition-new(root) {
    существующая вспышка. `.anim-drop-done` — то же замедление, но зелёная
    вспышка (перевод в «Готово»). */
 .anim-drop {
-  animation: dropLand 180ms cubic-bezier(0.16, 1, 0.3, 1) both, cardFlash 1.1s ease-out both;
+  animation: dropLand var(--dur-3) var(--ease-out) both, cardFlash var(--dur-5) ease-out both;
 }
 .anim-drop-done {
-  animation: dropLand 180ms cubic-bezier(0.16, 1, 0.3, 1) both, doneFlash 1.1s ease-out both;
+  animation: dropLand var(--dur-3) var(--ease-out) both, doneFlash var(--dur-5) ease-out both;
 }
 
 /* Сетка шкалы времени (TimeCanvas.tsx): тонкая линия на каждом мелком делении. */
@@ -773,7 +800,7 @@ html.vt-theme::view-transition-new(root) {
 .timeline-bar {
   width: var(--bar-w);
   transform: translateX(var(--bar-x, 0)) translateY(-50%);
-  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform var(--dur-4) var(--ease-out), width var(--dur-4) var(--ease-out);
 }
 .timeline-bar:hover {
   box-shadow: 0 8px 22px -8px color-mix(in oklch, var(--bar) 80%, transparent);
@@ -844,6 +871,11 @@ html.vt-theme::view-transition-new(root) {
   .timeline-bar,
   .timeline-bar-fill {
     transition: none;
+  }
+  #splash path,
+  #splash[data-out] svg {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }
 

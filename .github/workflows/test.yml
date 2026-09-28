@@ -283,6 +283,9 @@ jobs:
       - name: Design tokens — no raw colours outside tokens.css (ТЗ 5.4)
         run: npm run colors:check
 
+      - name: Motion — durations from tokens, ≤ 450 ms, reduced-motion covered (ТЗ 5.13)
+        run: npm run motion:check
+
       - run: npm test
 
       - run: npm run build
