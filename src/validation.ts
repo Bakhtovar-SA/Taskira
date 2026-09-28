@@ -40,6 +40,8 @@ export const LIMITS = {
   milestone: { name: { min: 1, max: 80 } },
   milestonesPerProject: 30,
   projectDependenciesMax: 20,
+  // Сохранённые фильтры списка (ТЗ 3.2).
+  savedView: { name: { min: 1, max: 60 } },
   // Брендирование (ТЗ 5.14 п.5).
   brand: { name: { min: 1, max: 60 } },
 } as const;

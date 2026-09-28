@@ -6,8 +6,9 @@ import { fmtDate, relTime } from "../store/mappers";
 import type { Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
-import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { DueRing, IcBacklog, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { LIMITS } from "../validation";
+import { ApiError, savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
+import { DueRing, IcBacklog, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
 import { Button, EmptyState } from "../ds";
 import ImportTrelloModal from "./ImportTrelloModal";
@@ -184,7 +185,7 @@ function Row({
 
 export default function Backlog() {
   const { t } = useT();
-  const { data, idx, can, epicsRevision, bulkApplyIssueAction, setCreateOpen } = useStore();
+  const { data, idx, can, epicsRevision, bulkApplyIssueAction, setCreateOpen, toast } = useStore();
   const [path, navigate] = useLocation();
   const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -274,15 +275,26 @@ export default function Backlog() {
   const [views, setViews] = useState<ServerSavedView[]>([]);
   const [savingView, setSavingView] = useState(false);
   const [newViewName, setNewViewName] = useState("");
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  // Фильтр «по умолчанию» применяется сам при открытии списка — один раз на проект и только если в адресе нет
+  // своих условий (ссылка, которой поделились, важнее личной привычки).
+  const defaultApplied = useRef<string | null>(null);
   useEffect(() => {
     if (!data.currentProjectId) return;
     let cancelled = false;
-    void savedViewsApi.list(data.currentProjectId).then((items) => {
-      if (!cancelled) setViews(items);
+    const pid = data.currentProjectId;
+    void savedViewsApi.list(pid).then((items) => {
+      if (cancelled) return;
+      setViews(items);
+      const def = items.find((v) => v.isDefault);
+      const noConditions = !fStatus && !fAssignee && !fType && !fPriority && !fLabel && !q;
+      if (def && noConditions && defaultApplied.current !== pid) applyView(def);
+      defaultApplied.current = pid;
     }).catch(() => undefined); // тихо — панель просто пуста, не критично для доски/списка
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.currentProjectId]);
 
   const applyView = (v: ServerSavedView) => {
@@ -317,6 +329,23 @@ export default function Backlog() {
     setViews((prev) => [...prev, created]);
     setNewViewName("");
     setSavingView(false);
+  };
+
+  /** Переименовать или сделать «по умолчанию» (INVENTORY 1.2 №14): PATCH принимает фильтр целиком — отдаём тот же.
+   *  «По умолчанию» у сервера один на человека и проект: остальные флаги он снимает сам, здесь — то же локально. */
+  const patchView = async (v: ServerSavedView, change: { name?: string; isDefault?: boolean }) => {
+    if (!data.currentProjectId) return;
+    try {
+      const updated = await savedViewsApi.update(data.currentProjectId, v.id, { name: change.name ?? v.name, filter: v.filter, isDefault: change.isDefault ?? v.isDefault });
+      setViews((prev) => prev.map((x) => (x.id === v.id ? updated : updated.isDefault ? { ...x, isDefault: false } : x)));
+    } catch (e) {
+      toast("error", e instanceof ApiError ? e.message : t("backlog.viewSaveFailed"));
+    }
+  };
+  const saveRename = (v: ServerSavedView) => {
+    const name = renaming?.name.trim();
+    setRenaming(null);
+    if (name && name !== v.name) void patchView(v, { name });
   };
 
   const removeView = async (v: ServerSavedView) => {
@@ -557,12 +586,47 @@ export default function Backlog() {
                 {views.length === 0 && (
                   <div className="px-2.5 py-1.5 text-[12px] text-faint">{t("backlog.noSavedViews")}</div>
                 )}
-                {views.map((v) => (
+                {views.map((v) =>
+                  renaming?.id === v.id ? (
+                    <div key={v.id} className="flex items-center gap-1.5 px-2.5 py-1">
+                      <input
+                        autoFocus
+                        value={renaming.name}
+                        maxLength={LIMITS.savedView.name.max}
+                        aria-label={t("backlog.renameView", { name: v.name })}
+                        onChange={(e) => setRenaming({ id: v.id, name: e.target.value })}
+                        onBlur={() => saveRename(v)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveRename(v);
+                          if (e.key === "Escape") {
+                            e.stopPropagation();
+                            setRenaming(null);
+                          }
+                        }}
+                        className="h-7 min-w-0 flex-1 rounded border border-accent bg-panel px-2 text-[12px] outline-none shadow-focus"
+                      />
+                    </div>
+                  ) : (
                   <div key={v.id} className="group flex items-center">
                     <MenuItem onClick={() => { applyView(v); close(); }}>
                       {v.name}
-                      {v.isDefault && <IcStar size={11} className="ml-auto text-accent" />}
                     </MenuItem>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void patchView(v, { isDefault: !v.isDefault }); }}
+                      aria-pressed={v.isDefault}
+                      aria-label={t(v.isDefault ? "backlog.unsetDefaultView" : "backlog.setDefaultView", { name: v.name })}
+                      title={t(v.isDefault ? "backlog.unsetDefaultView" : "backlog.setDefaultView", { name: v.name })}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded transition-opacity hover:bg-hover ${v.isDefault ? "text-accent" : "text-faint opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
+                    >
+                      <IcStar size={12} filled={v.isDefault} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setRenaming({ id: v.id, name: v.name }); }}
+                      aria-label={t("backlog.renameView", { name: v.name })}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-hover hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      <IcPencil size={12} />
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); void removeView(v); }}
                       aria-label={t("backlog.deleteView")}
@@ -571,7 +635,8 @@ export default function Backlog() {
                       <IcTrash size={12} />
                     </button>
                   </div>
-                ))}
+                  ),
+                )}
                 <div className="my-1 border-t border-linesoft" />
                 {savingView ? (
                   <div className="flex items-center gap-1.5 px-2.5 py-1.5">

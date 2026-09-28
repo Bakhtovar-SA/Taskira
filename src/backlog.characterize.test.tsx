@@ -218,6 +218,11 @@ async function setup({ role = "manager", pageImpl, countsImpl, views, bulkImpl }
   vi.spyOn(savedViewsApi, "remove").mockImplementation(async (_p, id) => {
     viewsRemoveCalls.push(id);
   });
+  const viewsUpdateCalls: { id: string; body: SavedViewInput }[] = [];
+  vi.spyOn(savedViewsApi, "update").mockImplementation(async (_p, id, body) => {
+    viewsUpdateCalls.push({ id, body });
+    return { id, name: body.name, filter: body.filter, isDefault: !!body.isDefault, createdAt: "t", updatedAt: "t" } as ServerSavedView;
+  });
 
   let store!: ReturnType<typeof useStoreSnapshot>;
   function Grab() {
@@ -237,7 +242,7 @@ async function setup({ role = "manager", pageImpl, countsImpl, views, bulkImpl }
     await store.bootstrap();
   });
   await settle();
-  return { ui, store: () => store, pageCalls, countsCalls, bulkCalls, viewsCreateCalls, viewsRemoveCalls };
+  return { ui, store: () => store, pageCalls, countsCalls, bulkCalls, viewsCreateCalls, viewsRemoveCalls, viewsUpdateCalls };
 }
 
 afterEach(() => {
@@ -578,6 +583,32 @@ describe("Список задач — характеризующие тесты 
     fireEvent.click(screen.getByRole("button", { name: "Удалить фильтр" }));
     await settle();
     expect(h.viewsRemoveCalls).toEqual(["v1"]);
+    h.ui.unmount();
+  });
+
+  test("6e. звёздочка делает фильтр «по умолчанию», карандаш переименовывает — PATCH с тем же фильтром", async () => {
+    const view: ServerSavedView = { id: "v1", name: "Мои горящие", filter: { priority: "high" }, isDefault: false, createdAt: "t", updatedAt: "t" };
+    const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }), views: [view] });
+    fireEvent.click(screen.getByRole("button", { name: /Сохранённые фильтры/ }));
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: "Открывать список с фильтром «Мои горящие»" }));
+    await settle();
+    expect(h.viewsUpdateCalls[0]).toEqual({ id: "v1", body: { name: "Мои горящие", filter: { priority: "high" }, isDefault: true } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Переименовать «Мои горящие»" }));
+    const input = screen.getByRole("textbox", { name: "Переименовать «Мои горящие»" });
+    fireEvent.change(input, { target: { value: "Срочное" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await settle();
+    expect(h.viewsUpdateCalls[1]).toEqual({ id: "v1", body: { name: "Срочное", filter: { priority: "high" }, isDefault: true } });
+    h.ui.unmount();
+  });
+
+  test("6f. фильтр «по умолчанию» применяется сам при открытии списка без условий в адресе", async () => {
+    const view: ServerSavedView = { id: "v1", name: "Высокие", filter: { priority: "high" }, isDefault: true, createdAt: "t", updatedAt: "t" };
+    const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }), views: [view] });
+    await settle();
+    expect(h.pageCalls.at(-1)).toMatchObject({ priority: "high" });
     h.ui.unmount();
   });
 
