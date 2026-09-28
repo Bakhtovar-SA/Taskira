@@ -3,7 +3,6 @@ import { useStore } from "../store";
 import {
   downloadReportCsv,
   reportsApi,
-  ApiError,
   type ReportGroup,
   type ReportScope,
   type ReportSummary,
@@ -118,7 +117,7 @@ function Trend({ points }: { points: { week: string; closed: number }[] }) {
 }
 
 export default function ReportsView() {
-  const { t, tn, lang } = useT();
+  const { t, tn, errText } = useT();
   const { data, toast } = useStore();
 
   const [preset, setPreset] = useState<PresetId>("month");
@@ -168,12 +167,12 @@ export default function ReportsView() {
     try {
       setReport(await reportsApi.summary({ from, to, groupBy, projectId: projectId || undefined, departmentId: departmentId || undefined }));
     } catch (e) {
-      setError(e instanceof ApiError && lang === "ru" ? e.message : t("reports.loadFailed"));
+      setError(errText(e, t("reports.loadFailed")));
       setReport(null);
     } finally {
       setLoading(false);
     }
-  }, [from, to, groupBy, projectId, departmentId, t, lang]);
+  }, [from, to, groupBy, projectId, departmentId, t, errText]);
 
   useEffect(() => {
     void load();
@@ -185,7 +184,7 @@ export default function ReportsView() {
       await downloadReportCsv({ from, to, scope, ...scopeFilter });
       toast("success", t("reports.exported"));
     } catch (e) {
-      toast("error", e instanceof ApiError && lang === "ru" ? e.message : t("reports.exportFailed"));
+      toast("error", errText(e, t("reports.exportFailed")));
     } finally {
       setExporting(false);
     }

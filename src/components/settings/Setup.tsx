@@ -5,7 +5,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
-import { ApiError, ldapApi, setupApi } from "../../api";
+import { ldapApi, setupApi } from "../../api";
 import type { SetupStatusDto } from "../../../server/src/contract";
 import { Button, Input, Tag } from "../../ds";
 import { IcCheck } from "../../icons";
@@ -15,7 +15,7 @@ import { SettingsPage } from "./parts";
 type Ping = Awaited<ReturnType<typeof ldapApi.ping>> | Error | null;
 
 export function Setup() {
-  const { t } = useT();
+  const { t, errText } = useT();
   const { data, setView, switchProject, refreshOrg, toast, bootstrap } = useStore();
   const [st, setSt] = useState<SetupStatusDto | null>(null);
   const [name, setName] = useState("");
@@ -56,7 +56,7 @@ export function Setup() {
       setSt(await setupApi.rename(name.trim()));
       setNameSaved(true);
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+      toast("error", errText(e, t("settings.org.saveFailed")));
     } finally {
       setSavingName(false);
     }
@@ -81,7 +81,7 @@ export function Setup() {
       setView("board");
       switchProject(id);
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+      toast("error", errText(e, t("settings.org.saveFailed")));
     } finally {
       setDemoBusy(false);
     }
@@ -98,7 +98,7 @@ export function Setup() {
         await load();
       }
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+      toast("error", errText(e, t("settings.org.saveFailed")));
     } finally {
       setDemoBusy(false);
     }
@@ -108,7 +108,7 @@ export function Setup() {
       setSt(await setupApi.complete());
       toast("success", t("setup.finished"));
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+      toast("error", errText(e, t("settings.org.saveFailed")));
     }
   };
 
@@ -135,7 +135,7 @@ export function Setup() {
               </Button>
               {ping !== null && (
                 <span role="status" className={`text-[12.5px] ${!(ping instanceof Error) && ping.ok ? "text-[var(--status-done-fg)]" : "text-[var(--status-danger-fg)]"}`}>
-                  {ping instanceof Error ? ping.message : ping.ok ? t("settings.org.ldapOk", { url: ping.url ?? "", base: ping.baseDn ?? "" }) : ping.error}
+                  {ping instanceof Error ? errText(ping, t("settings.org.ldapCheckFailed")) : ping.ok ? t("settings.org.ldapOk", { url: ping.url ?? "", base: ping.baseDn ?? "" }) : ping.error}
                 </span>
               )}
             </div>

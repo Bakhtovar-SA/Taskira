@@ -14,7 +14,7 @@ type Props = {
 };
 
 export default function LoginForm({ onSuccess }: Props) {
-  const { t, lang } = useT();
+  const { t, lang, errText } = useT();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,10 +39,12 @@ export default function LoginForm({ onSuccess }: Props) {
       await authApi.login(username.trim(), password);
       onSuccess();
     } catch (err) {
-      // Что случилось и что делать. Причина от сервера пока русская: показываем её только в русской локали.
+      // Что случилось и что делать. 401 здесь — неверный логин или пароль, а не «сессия закончилась»,
+      // поэтому по-английски — свой текст формы, а не общий перевод кода UNAUTHORIZED.
       if (err instanceof ApiError && err.status === 0) setError(t("login.offline"));
       else if (err instanceof ApiError && err.status === 429) setError(t("login.tooMany"));
-      else setError(err instanceof ApiError && lang === "ru" ? err.message : t("login.failed"));
+      else if (err instanceof ApiError && err.status === 401 && lang !== "ru") setError(t("login.failed"));
+      else setError(errText(err, t("login.failed")));
     } finally {
       busyRef.current = false;
       setBusy(false);

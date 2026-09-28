@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import ru, { type TKey } from "./ru";
+import { apiErrorText } from "./apiErrors";
 
 export type { TKey };
 
@@ -38,6 +39,8 @@ interface I18nCtx {
   setLang: (l: Lang) => void;
   t: TFn;
   tn: TnFn;
+  /** Текст ошибки сервера на языке интерфейса: по-русски — `reason` сервера, по-английски — по коду (apiErrors.ts). */
+  errText: (e: unknown, fallback: string) => string;
 }
 
 const Ctx = createContext<I18nCtx | null>(null);
@@ -78,7 +81,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return (n, one, few, many) => t(pluralForm(lang, n, [one, few, many]) as TKey);
   }, [lang, t]);
 
-  const value = useMemo<I18nCtx>(() => ({ lang, setLang, t, tn }), [lang, t, tn]);
+  const errText = useMemo(() => (e: unknown, fallback: string) => apiErrorText(e, lang, t, fallback), [lang, t]);
+
+  const value = useMemo<I18nCtx>(() => ({ lang, setLang, t, tn, errText }), [lang, t, tn, errText]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

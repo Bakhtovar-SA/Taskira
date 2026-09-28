@@ -9,7 +9,7 @@ import type { BrandDto } from "../../../server/src/contract";
 import { BRAND_HUE, DEFAULT_BRAND_NAME, previewHue, setBrand, useBrand } from "../../brand";
 import { cssVars } from "../../cssVars";
 import { BrandMark } from "../BrandMark";
-import { adminApi, ApiError, brandApi, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
+import { adminApi, brandApi, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
 import { Avatar, Button, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
 import { IcCompose, IcDiamond, IcDownload, IcLink, IcPlus, IcSearch, IcTrash } from "../../icons";
 import { openProjectWizard } from "../../palette/events";
@@ -64,10 +64,10 @@ function Loading() {
   );
 }
 function Failed({ err, retry }: { err: Error; retry: () => void }) {
-  const { t } = useT();
+  const { t, errText } = useT();
   return (
     <div className="flex items-center gap-3 px-5 py-5">
-      <p className="flex-1 text-[12.5px] text-[var(--status-danger-fg)]">{err.message || t("settings.org.loadFailed")}</p>
+      <p className="flex-1 text-[12.5px] text-[var(--status-danger-fg)]">{errText(err, t("settings.org.loadFailed"))}</p>
       <Button size="sm" variant="secondary" onClick={retry}>
         {t("common.retry")}
       </Button>
@@ -89,7 +89,7 @@ const dur = (ms: number, lang: string) => {
 /* ---------------- Пользователи ---------------- */
 
 function Users() {
-  const { t } = useT();
+  const { t, errText } = useT();
   const { authMode, toast, me } = useStore();
   const [list, reload, setList] = useLoad(() => usersApi.list());
   const [q, setQ] = useState("");
@@ -108,7 +108,7 @@ function Users() {
       const next = await usersApi.patch(u.id, body);
       setList(users.map((x) => (x.id === u.id ? next : x)));
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+      toast("error", errText(e, t("settings.org.saveFailed")));
     }
   };
 
@@ -179,7 +179,7 @@ function Users() {
 }
 
 function CreateUser({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (u: SafeUser) => void }) {
-  const { t } = useT();
+  const { t, errText } = useT();
   const [f, setF] = useState({ username: "", name: "", jobRole: "", phone: "", password: "", globalRole: "member" as SafeUser["globalRole"] });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -216,7 +216,7 @@ function CreateUser({ open, onClose, onCreated }: { open: boolean; onClose: () =
       });
       onCreated(u);
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+      setErr(errText(e, t("settings.org.saveFailed")));
     } finally {
       setBusy(false);
     }
@@ -274,7 +274,7 @@ function CreateUser({ open, onClose, onCreated }: { open: boolean; onClose: () =
 /* ---------------- LDAP ---------------- */
 
 function Ldap() {
-  const { t } = useT();
+  const { t, errText } = useT();
   const { authMode, resyncLdap, data, setDepartmentLdapGroup } = useStore();
   const [ping, setPing] = useState<Awaited<ReturnType<typeof ldapApi.ping>> | Error | null>(null);
   const [busy, setBusy] = useState(false);
@@ -305,7 +305,7 @@ function Ldap() {
             ping === null ? (
               t("settings.org.ldapCheckHint")
             ) : ping instanceof Error ? (
-              <span className="text-[var(--status-danger-fg)]">{ping.message}</span>
+              <span className="text-[var(--status-danger-fg)]">{errText(ping, t("settings.org.ldapCheckFailed"))}</span>
             ) : ping.ok ? (
               <span className="text-[var(--status-done-fg)]">{t("settings.org.ldapOk", { url: ping.url ?? "", base: ping.baseDn ?? "" })}</span>
             ) : (
@@ -473,7 +473,7 @@ function Audit() {
 const JOB_KEY: Record<string, string> = { maintenance: "settings.org.jobMaintenance", "storage-sweep": "settings.org.jobStorage", "ldap-resync": "settings.org.jobLdap" };
 
 function Maintenance() {
-  const { t, lang } = useT();
+  const { t, lang, errText } = useT();
   const { toast } = useStore();
   const [st, reload] = useLoad<MaintenanceStatusDto>(() => adminApi.maintenance());
   const [dry, setDry] = useState<{ archived: number; auditPurged: number; capped: boolean } | null>(null);
@@ -491,7 +491,7 @@ function Maintenance() {
         reload();
       }
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+      toast("error", errText(e, t("settings.org.saveFailed")));
     } finally {
       setBusy(null);
       setConfirm(false);
@@ -646,7 +646,7 @@ function Health() {
 /* ---------------- Шаблоны проектов (ТЗ 5.10) ---------------- */
 
 function Templates() {
-  const { t } = useT();
+  const { t, errText } = useT();
   const { toast } = useStore();
   const [list, reload, setList] = useLoad(() => projectTemplatesApi.list());
   const [confirm, setConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -658,7 +658,7 @@ function Templates() {
       await projectTemplatesApi.remove(id);
       setList(all.filter((x) => x.id !== id));
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+      toast("error", errText(e, t("settings.org.saveFailed")));
     } finally {
       setConfirm(null);
     }
@@ -721,7 +721,7 @@ const HUE_SWATCHES = [258, 268, 278, 288, 298, 308, 318];
 /** Брендирование (ТЗ 5.14 п.5): название, оттенок акцента с живым предпросмотром, знак. Оттенок применяется ко всему
  *  интерфейсу сразу (previewHue), но остаётся, только если его сохранить; уход со страницы возвращает сохранённый. */
 function Brand() {
-  const { t } = useT();
+  const { t, errText } = useT();
   const { toast } = useStore();
   const brand = useBrand();
   const [name, setName] = useState(brand.name ?? "");
@@ -744,7 +744,7 @@ function Brand() {
       setBrand(await job());
       if (ok) toast("success", ok);
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("brand.logoFailed"));
+      toast("error", errText(e, t("brand.logoFailed")));
     } finally {
       setBusy(false);
     }

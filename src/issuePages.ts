@@ -40,7 +40,7 @@ interface SetState {
   /** Подгрузка следующей страницы (компактный индикатор). */
   loadingMore: boolean;
   counts: IssueCounts | null;
-  error: string | null;
+  error: Error | null;
 }
 
 const EMPTY: SetState = {
@@ -110,7 +110,8 @@ export function shareUnchanged(prev: Issue[], next: Issue[]): Issue[] {
   return identical ? prev : out;
 }
 
-const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+/** Ошибку храним объектом, а не текстом: экран переводит её по коду (`errText` из useT), см. i18n/apiErrors.ts. */
+const asError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
 
 export interface IssueSet {
   items: Issue[];
@@ -120,7 +121,7 @@ export interface IssueSet {
   /** Размер всего набора (сервер, один запрос на набор), null пока неизвестен. */
   total: number | null;
   counts: IssueCounts | null;
-  error: string | null;
+  error: Error | null;
   loadMore: () => void;
   /** Перечитать уже загруженный диапазон, не сбрасывая набор и позицию. */
   revalidate: () => void;
@@ -184,7 +185,7 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
       },
       (e: unknown) => {
         if (gen.current !== my) return;
-        setState({ ...EMPTY, key, error: errText(e) });
+        setState({ ...EMPTY, key, error: asError(e) });
       },
     );
     return () => {
@@ -218,7 +219,7 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
         (e: unknown) => {
           if (gen.current !== my) return;
           moreInFlight.current = false;
-          setState((prev) => ({ ...prev, loadingMore: false, error: errText(e) }));
+          setState((prev) => ({ ...prev, loadingMore: false, error: asError(e) }));
         },
       );
   }, []);
@@ -328,7 +329,7 @@ export function freshRows(items: Issue[], byId: ReadonlyMap<string, Issue>): Iss
 export interface IssueCountsState {
   counts: IssueCounts | null;
   loading: boolean;
-  error: string | null;
+  error: Error | null;
 }
 
 /**
@@ -340,7 +341,7 @@ export function useIssueCounts(projectId: string | null, filters: IssueFilterPar
   const key = projectId && filters ? issueSetKey({ projectId, filters, sort: "rank", dir: "asc" }) : "";
   const argsRef = useRef({ projectId, filters });
   argsRef.current = { projectId, filters };
-  const [state, setState] = useState<{ key: string; counts: IssueCounts | null; error: string | null }>({ key: "", counts: null, error: null });
+  const [state, setState] = useState<{ key: string; counts: IssueCounts | null; error: Error | null }>({ key: "", counts: null, error: null });
   const gen = useRef(0);
   const currentKey = useRef(key);
   currentKey.current = key;
@@ -359,7 +360,7 @@ export function useIssueCounts(projectId: string | null, filters: IssueFilterPar
       },
       (e: unknown) => {
         if (gen.current !== my) return;
-        setState((prev) => (keepShown && prev.key === forKey ? prev : { key: forKey, counts: null, error: errText(e) }));
+        setState((prev) => (keepShown && prev.key === forKey ? prev : { key: forKey, counts: null, error: asError(e) }));
       },
     );
   }, []);
@@ -439,7 +440,7 @@ export interface EpicsState {
   /** Направлений больше потолка сервера (500): часть бейджей может отсутствовать. */
   truncated: boolean;
   loading: boolean;
-  error: string | null;
+  error: Error | null;
   /** Перечитать вручную (после ошибки). */
   reload: () => void;
 }
@@ -476,7 +477,7 @@ export function useEpics(projectId: string | null, revision: string | number): E
       },
       (e: unknown) => {
         if (gen.current !== my) return;
-        setState((prev) => ({ projectId, value: { ...(prev.projectId === projectId ? prev.value : NO_EPICS), loading: false, error: errText(e), reload } }));
+        setState((prev) => ({ projectId, value: { ...(prev.projectId === projectId ? prev.value : NO_EPICS), loading: false, error: asError(e), reload } }));
       },
     );
     return () => {

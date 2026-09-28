@@ -256,15 +256,13 @@ filter dropdown or reference tables, `AdminView`, `PermissionsView`, `WorkflowVi
 in `store.tsx`/`App.tsx`. Extend file-by-file the same way rather than assuming the dictionary
 is exhaustive.
 
-**Server-originated text is a separate, harder problem, not yet started**: `ApiError.message`
-(shown directly in toasts, e.g. login failures, validation rejections) is the server's `reason`
-string, which is Russian regardless of the client's language — the server has no locale
-awareness at all. Localizing that means either giving the server an `Accept-Language`-driven
-reason catalog keyed by `ApiError.code` (the code is already machine-readable; the human
-`reason` isn't), or having the client map `code` → a dictionary key and ignore `reason` for
-known codes, falling back to the raw (Russian) string only for the unmapped remainder. Don't
-add English strings to server route handlers directly — that just swaps which single language
-is hardcoded.
+**Server-originated text** is localized on the client by error code (the server still has no locale): `src/i18n/apiErrors.ts`
+`apiErrorText()` — exposed as `errText(e, fallback)` from `useT()` and used by the store's `handleApiError` — shows the
+server's Russian `reason` as-is in the Russian UI, and in English maps `ApiError.code` to an `apiError.<CODE>` dictionary
+key (generic codes like FORBIDDEN/CONFLICT/VALIDATION are prefixed with the action's `fallback`; an unmapped code falls
+back to `fallback`, never to the Russian reason). `src/i18n/apiErrors.test.ts` scans `server/src` and fails if a code the
+server throws has no dictionary entry. Show API errors through `errText`, not `e.message`. Don't add English strings to
+server route handlers — that just swaps which single language is hardcoded.
 
 User-authored or admin-configured content is **out of scope for `t()` by design, not an
 oversight**: workflow status names, project/department names, issue titles/descriptions,

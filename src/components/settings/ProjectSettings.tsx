@@ -7,7 +7,7 @@ import { preparePhoto } from "../../bgPhoto";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
 import { LIMITS } from "../../validation";
-import { ApiError, issuesApi, projectTemplatesApi, projectsApi } from "../../api";
+import { issuesApi, projectTemplatesApi, projectsApi } from "../../api";
 import { fmtDate } from "../../store/mappers";
 import { Button, Dialog, EmptyState, Input, Switch, Textarea } from "../../ds";
 import { IcArchive, IcTrash } from "../../icons";
@@ -63,7 +63,7 @@ function Appearance() {
 
 /** Своё фото фона (ТЗ 5.14 п.2): браузер уменьшает и перекодирует в WebP (bgPhoto.ts), сервер проверяет и хранит. */
 function PhotoCard({ projectId, photo, editable }: { projectId: string; photo: { updatedAt: number; luma: number } | null; editable: boolean }) {
-  const { t } = useT();
+  const { t, errText } = useT();
   const { refreshOrg, toast } = useStore();
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -89,7 +89,7 @@ function PhotoCard({ projectId, photo, editable }: { projectId: string; photo: {
       await refreshOrg();
     } catch (e) {
       const m = e instanceof Error ? e.message : "";
-      toast("error", m === "no-webp" ? t("look.photo.noWebp") : m === "unreadable" ? t("look.photo.unreadable") : e instanceof ApiError ? e.message : t("look.photo.failed"));
+      toast("error", m === "no-webp" ? t("look.photo.noWebp") : m === "unreadable" ? t("look.photo.unreadable") : errText(e, t("look.photo.failed")));
     } finally {
       setBusy(false);
     }
@@ -312,7 +312,7 @@ function Archive() {
 /** «Сохранить проект как шаблон» (ТЗ 5.10): статусы, переходы, поля, шаблоны задач, метки и представление по
  *  умолчанию уходят в шаблоны организации; задачи и участники — нет. Право — saveProjectTemplate, проверяет сервер. */
 function SaveAsTemplate({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const { t } = useT();
+  const { t, errText } = useT();
   const { toast } = useStore();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -327,7 +327,7 @@ function SaveAsTemplate({ projectId, projectName }: { projectId: string; project
       toast("success", t("settings.project.templateSaved", { name: name.trim() }));
       setOpen(false);
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : t("settings.org.saveFailed"));
+      setErr(errText(e, t("settings.org.saveFailed")));
     } finally {
       setBusy(false);
     }

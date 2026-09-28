@@ -7,7 +7,7 @@ import type { Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { LIMITS } from "../validation";
-import { ApiError, savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
+import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
 import { Button, EmptyState } from "../ds";
@@ -184,7 +184,7 @@ function Row({
 }
 
 export default function Backlog() {
-  const { t } = useT();
+  const { t, errText } = useT();
   const { data, idx, can, epicsRevision, bulkApplyIssueAction, setCreateOpen, toast } = useStore();
   const [path, navigate] = useLocation();
   const [importOpen, setImportOpen] = useState(false);
@@ -349,7 +349,7 @@ export default function Backlog() {
       const updated = await savedViewsApi.update(data.currentProjectId, v.id, { name: change.name ?? v.name, filter: v.filter, isDefault: change.isDefault ?? v.isDefault });
       setViews((prev) => prev.map((x) => (x.id === v.id ? updated : updated.isDefault ? { ...x, isDefault: false } : x)));
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("backlog.viewSaveFailed"));
+      toast("error", errText(e, t("backlog.viewSaveFailed")));
     }
   };
   const saveRename = (v: ServerSavedView) => {
@@ -802,7 +802,7 @@ export default function Backlog() {
             <EmptyState
               icon={<IcBacklog size={22} tone="indigo" />}
               title={t("backlog.loadError")}
-              sub={set.error}
+              sub={errText(set.error, "")}
               action={<Button size="sm" variant="secondary" onClick={set.reload}>{t("common.retry")}</Button>}
             />
           ) : rows.length > 0 ? (

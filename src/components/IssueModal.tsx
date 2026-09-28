@@ -17,7 +17,7 @@ import { DATA_COLORS } from "../dataColors";
 import { neighborIssue, revealIssue } from "../issueNav";
 import type { IssueMode } from "../store/mappers";
 import { VIEW_LABEL } from "./Topbar";
-import { ApiError, issuesApi } from "../api";
+import { issuesApi } from "../api";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -1478,7 +1478,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
 /** «Следить» (issue_watchers): подписка на уведомления о всех изменениях задачи. Состояние приходит в детальном
  *  ответе (`issue.watch`); переключение — сразу в кнопке, сервер подтверждает числом подписчиков. */
 function WatchButton({ projectId, issueId, watch }: { projectId: string; issueId: string; watch: { watching: boolean; watchers: number } | null }) {
-  const { t } = useT();
+  const { t, errText } = useT();
   const { toast } = useStore();
   const [state, setState] = useState(watch);
   const [busy, setBusy] = useState(false);
@@ -1493,7 +1493,7 @@ function WatchButton({ projectId, issueId, watch }: { projectId: string; issueId
       setState(await issuesApi.watch(projectId, issueId, next));
     } catch (e) {
       setState(state);
-      toast("error", e instanceof ApiError ? e.message : t("issue.watchFailed"));
+      toast("error", errText(e, t("issue.watchFailed")));
     } finally {
       setBusy(false);
     }

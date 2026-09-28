@@ -159,8 +159,12 @@ const Ctx = createContext<Api | null>(null);
 let toastSeq = 1;
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const lang = useOptionalT()?.lang ?? "ru";
+  const i18n = useOptionalT();
+  const lang = i18n?.lang ?? "ru";
   const langRef = useRef(lang);
+  // Без провайдера (изолированные тесты) — русский: reason сервера как есть.
+  const errTextRef = useRef<(e: unknown, fallback: string) => string>((e, fb) => (e instanceof ApiError ? e.message || fb : fb));
+  if (i18n) errTextRef.current = i18n.errText;
   // SEC-01: эпоха сессии — растёт при logout и при сбросе сессии по 401; запросы, начатые в прошлой эпохе, не применяются.
   const sessionEpochRef = useRef(0);
   langRef.current = lang;
@@ -230,15 +234,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           setData(emptyData());
           slices.notifications.setState(() => EMPTY_NOTIFICATIONS);
         }
-        const englishByCode: Record<string, string> = {
-          NETWORK: "Can't connect to the server",
-          RATE_LIMITED: "Too many requests — try again shortly",
-          INTERNAL: "Internal server error",
-          UNAUTHORIZED: "Your session has expired — sign in again",
-          FORBIDDEN: "You don't have permission for this action",
-          NOT_FOUND: "The requested item was not found",
-        };
-        toast("error", langRef.current === "ru" ? err.message || fallback : englishByCode[err.code] ?? fallback);
+        toast("error", errTextRef.current(err, fallback));
         return;
       }
       toast("error", fallback);
