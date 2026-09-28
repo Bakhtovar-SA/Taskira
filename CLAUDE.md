@@ -691,8 +691,12 @@ since any edit touches it. The board shows the last 14 days in its done column
   `npm run csp:spike`): CSSOM writes (`el.style.x`, `setProperty('--x')`, WAAPI `el.animate`) are allowed by
   `style-src-attr 'none'`; `style=""` in markup, `setAttribute('style')` and `<style>` are blocked. `secure-jsx`
   currently turns every distinct `style` value into a new rule in `public/dynamic.css` (unbounded) — for continuous
-  values (positions, progress, colours from data) set a custom property via ref/CSSOM and consume it from a static rule;
+  values (positions, progress, colours from data) set a custom property via ref/CSSOM and consume it from a static rule
+  (`ref={cssVars({"--x": 12})}` from `src/cssVars.ts` + `left-[var(--x)]`);
   enumerable states go in `data-*` attributes. Browser matrix: [docs/design/BROWSERS.md](docs/design/BROWSERS.md).
+- **Time scale** (ТЗ 5.12 f): `src/timeScale.ts` (pure: date ↔ x, week/month/quarter ticks) + `TimeCanvas.tsx` (grid,
+  sticky header, today line) are shared by the Timeline and the planned project roadmap (ТЗ 5.15) — reuse them, don't
+  write a second scale.
 - **Responsive layout**: below 1024px the sidebar is a drawer over the content, opened by the
   «Меню» button in `Topbar.tsx` (`openSidebarDrawer()`), closed by navigation / Esc / the scrim; the
   project view tabs stay in the header, icon-only for inactive tabs, and the search box idles as a

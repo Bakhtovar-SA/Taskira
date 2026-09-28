@@ -251,4 +251,20 @@ describe("Timeline при частичном сторе", () => {
     expect(screen.getByText("40/250 задач · A21-e1")).toBeTruthy();
     h.ui.unmount();
   });
+
+  // ТЗ 5.12 f, шаг 1 — характеризация ДО переделки вида: полоса открывает направление, «Сегодня» прокручивает
+  // к началу шкалы, процент готовности подписан на полосе, когда он на ней помещается.
+  test("полоса: клик открывает направление; процент на широкой полосе; «Сегодня» прокручивает шкалу", async () => {
+    const scrollTo = vi.fn();
+    Element.prototype.scrollTo = scrollTo as never;
+    const h = await setup({ epics: [epic({ childTotal: 100, childDone: 50 })] });
+    const bar = screen.getByTitle("Альфа · 50/100 готово");
+    expect(bar.textContent).toContain("50%");
+    fireEvent.click(bar);
+    await settle();
+    expect(h.store().ui.selectedIssueId).toBe("e1");
+    fireEvent.click(screen.getByRole("button", { name: /Сегодня/ }));
+    expect(scrollTo).toHaveBeenCalled();
+    h.ui.unmount();
+  });
 });
