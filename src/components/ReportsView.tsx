@@ -128,6 +128,8 @@ export default function ReportsView() {
   const [scope, setScope] = useState<ReportScope>("closed");
   /** "" — по всем видимым проектам (свод), иначе конкретный проект. */
   const [projectId, setProjectId] = useState("");
+  /** "" — все отделы. Показываем только отделы, у которых есть видимые проекты. */
+  const [departmentId, setDepartmentId] = useState("");
   const [report, setReport] = useState<ReportSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,20 +148,32 @@ export default function ReportsView() {
   const resetReportFilters = () => {
     applyPreset("month");
     setProjectId("");
+    setDepartmentId("");
   };
+
+  const departments = useMemo(() => {
+    const withProjects = new Set(data.projects.map((p) => p.departmentId));
+    return data.departments.filter((d) => withProjects.has(d.id));
+  }, [data.projects, data.departments]);
+  const projectOptions = departmentId ? data.projects.filter((p) => p.departmentId === departmentId) : data.projects;
+  const chooseDepartment = (id: string) => {
+    setDepartmentId(id);
+    if (id && projectId && !data.projects.some((p) => p.id === projectId && p.departmentId === id)) setProjectId("");
+  };
+  const scopeFilter = { projectId: projectId || undefined, departmentId: departmentId || undefined };
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setReport(await reportsApi.summary({ from, to, groupBy, projectId: projectId || undefined }));
+      setReport(await reportsApi.summary({ from, to, groupBy, projectId: projectId || undefined, departmentId: departmentId || undefined }));
     } catch (e) {
       setError(e instanceof ApiError && lang === "ru" ? e.message : t("reports.loadFailed"));
       setReport(null);
     } finally {
       setLoading(false);
     }
-  }, [from, to, groupBy, projectId, t, lang]);
+  }, [from, to, groupBy, projectId, departmentId, t, lang]);
 
   useEffect(() => {
     void load();
@@ -168,7 +182,7 @@ export default function ReportsView() {
   const exportCsv = async () => {
     setExporting(true);
     try {
-      await downloadReportCsv({ from, to, scope, projectId: projectId || undefined });
+      await downloadReportCsv({ from, to, scope, ...scopeFilter });
       toast("success", t("reports.exported"));
     } catch (e) {
       toast("error", e instanceof ApiError && lang === "ru" ? e.message : t("reports.exportFailed"));
@@ -239,9 +253,19 @@ export default function ReportsView() {
               className={field}
             />
           </span>
+          {departments.length > 1 && (
+            <select id="report-department" value={departmentId} onChange={(e) => chooseDepartment(e.target.value)} aria-label={t("reports.department")} className={`${field} max-w-[200px]`}>
+              <option value="">{t("reports.allDepartments")}</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          )}
           <select id="report-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label={t("reports.project")} className={`${field} max-w-[240px]`}>
-            <option value="">{t("reports.allProjects")}</option>
-            {data.projects.map((p) => (
+            <option value="">{t(departmentId ? "reports.allDepartmentProjects" : "reports.allProjects")}</option>
+            {projectOptions.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.key} · {p.name}
               </option>
