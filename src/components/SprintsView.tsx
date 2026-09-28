@@ -59,10 +59,14 @@ function DropZone({
   onDropIssue,
   children,
   className = "",
+  blocked,
 }: {
   onDropIssue: (issueId: string) => void;
   children: React.ReactNode;
   className?: string;
+  /** Сюда переносить нельзя (завершённый спринт): зона подсвечивается как закрытая,
+   *  а сброс не переносит задачу — вызывается onBlockedDrop с объяснением, а не тишина. */
+  blocked?: { reason: string; onBlockedDrop: (reason: string) => void };
 }) {
   const [over, setOver] = useState(false);
   return (
@@ -76,10 +80,14 @@ function DropZone({
         e.preventDefault();
         setOver(false);
         const id = e.dataTransfer.getData("text/plain");
-        if (id) onDropIssue(id);
+        if (!id) return;
+        if (blocked) blocked.onBlockedDrop(blocked.reason);
+        else onDropIssue(id);
       }}
-      className={`${className} ${over ? "bg-accentsoft/40 ring-1 ring-inset ring-accent" : ""}`}
+      data-blocked={blocked ? "true" : undefined}
+      className={`${className} ${over ? (blocked ? "bg-sunken ring-1 ring-inset ring-line2" : "bg-accentsoft/40 ring-1 ring-inset ring-accent") : ""}`}
     >
+      {over && blocked && <p className="px-3.5 pt-2 text-[12px] font-medium text-sub">{blocked.reason}</p>}
       {children}
     </div>
   );
@@ -171,7 +179,7 @@ function CreateSprintModal({ onClose }: { onClose: () => void }) {
 
 function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; issues: Issue[]; hasActiveSprint: boolean }) {
   const { t } = useT();
-  const { can, startSprint, completeSprint, setIssueSprint } = useStore();
+  const { can, startSprint, completeSprint, setIssueSprint, toast } = useStore();
   const manage = can("manageSprints");
   const doneCount = issues.filter((i) => i.doneAt != null).length;
 
@@ -224,11 +232,12 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
       </div>
       {sprint.goal && <p className="border-b border-linesoft px-3.5 py-2 text-[12px] text-sub">{sprint.goal}</p>}
       <DropZone
-        onDropIssue={(id) => sprint.status !== "completed" && setIssueSprint(id, sprint.id)}
+        onDropIssue={(id) => setIssueSprint(id, sprint.id)}
+        blocked={sprint.status === "completed" ? { reason: t("sprints.completedNoDrop"), onBlockedDrop: (r) => toast("info", r) } : undefined}
         className="min-h-[44px] transition-colors"
       >
         {issues.length === 0 ? (
-          <p className="px-3.5 py-3 text-[12px] text-faint">{t("sprints.dropHere")}</p>
+          <p className="px-3.5 py-3 text-[12px] text-faint">{t(sprint.status === "completed" ? "sprints.completedEmpty" : "sprints.dropHere")}</p>
         ) : (
           issues.map((i) => (
             <IssueRow key={i.id} issue={i} onRemove={manage ? () => setIssueSprint(i.id, null) : undefined} />

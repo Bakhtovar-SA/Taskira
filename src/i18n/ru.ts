@@ -898,6 +898,8 @@ const ru = {
   "sprints.complete": "Завершить",
   "sprints.completeConfirm": "Завершить «{name}»? Незакрытые задачи вернутся в бэклог.",
   "sprints.dropHere": "Перетащите задачи из бэклога сюда",
+  "sprints.completedNoDrop": "Спринт завершён — задачи в него не переносятся. Перенесите в активный или будущий спринт.",
+  "sprints.completedEmpty": "В этом спринте не осталось задач",
   "sprints.disabledTitle": "Модуль спринтов не подключён",
   "sprints.disabledSub": "Обратитесь к администратору, чтобы включить его для этого проекта.",
   "sprints.loadingIssues": "Загружаем задачи проекта…",

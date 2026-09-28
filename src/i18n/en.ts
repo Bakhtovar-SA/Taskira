@@ -897,6 +897,8 @@ const en: Record<keyof Dict, string> = {
   "sprints.complete": "Complete",
   "sprints.completeConfirm": "Complete “{name}”? Unfinished issues will return to the backlog.",
   "sprints.dropHere": "Drag issues here from the backlog",
+  "sprints.completedNoDrop": "This sprint is completed — issues can't be moved into it. Move them to an active or future sprint.",
+  "sprints.completedEmpty": "No issues left in this sprint",
   "sprints.disabledTitle": "Sprints are not enabled",
   "sprints.disabledSub": "Ask an administrator to enable the module for this project.",
   "sprints.loadingIssues": "Loading the project's issues…",
