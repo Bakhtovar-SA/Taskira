@@ -45,7 +45,9 @@ export async function runStorageSweepOnce(storage: Storage, driver: "local" | "s
      UNION
      SELECT bg_photo_key FROM projects WHERE bg_photo_driver = $1 AND bg_photo_key IS NOT NULL
      UNION
-     SELECT bg_photo_small_key FROM projects WHERE bg_photo_driver = $1 AND bg_photo_small_key IS NOT NULL`,
+     SELECT bg_photo_small_key FROM projects WHERE bg_photo_driver = $1 AND bg_photo_small_key IS NOT NULL
+     UNION
+     SELECT brand_logo_key FROM instance WHERE brand_logo_driver = $1 AND brand_logo_key IS NOT NULL`,
     [driver],
   );
   const knownKeys = new Set(known.map((r) => r.storage_key));

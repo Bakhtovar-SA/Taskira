@@ -18,7 +18,7 @@ const ADMIN_ONLY_PROJECT = new Set(["general", "modules", "archive"]);
 const READY: Record<SettingsHome, Set<string>> = {
   settings: new Set(["profile", "notifications", "appearance", "language"]),
   projectSettings: new Set(["general", "appearance", "workflow", "fields", "templates", "access", "modules", "archive"]),
-  orgSettings: new Set(["setup", "users", "departments", "project-templates", "ldap", "license", "export", "audit", "maintenance", "health"]),
+  orgSettings: new Set(["setup", "users", "departments", "project-templates", "brand", "ldap", "license", "export", "audit", "maintenance", "health"]),
 };
 
 export function allowedSections(home: SettingsHome, ctx: SettingsCtx): string[] {

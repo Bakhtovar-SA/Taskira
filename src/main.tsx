@@ -5,6 +5,7 @@ import App from "./App.tsx";
 import { applyTheme, watchSystemTheme } from "./theme";
 import { I18nProvider, loadLang, storedLang } from "./i18n";
 import { dismissSplash } from "./splash";
+import { loadBrand } from "./brand";
 
 // Внешний theme-init.js ставит data-theme до загрузки CSS без нарушения CSP;
 // здесь применяем ещё и пресет фона --c-canvas, затем следим за системой.
@@ -21,6 +22,8 @@ if (import.meta.env.DEV && location.pathname.replace(/\/$/, "") === "/dev/ui") {
     dismissSplash();
   });
 } else {
+  // Бренд инсталляции (ТЗ 5.14 п.5): публичный запрос параллельно со стартом — нужен уже экрану входа.
+  loadBrand();
   // Выбран английский — дождаться его словаря (отдельный чанк), чтобы первый кадр был уже на нём.
   void loadLang(storedLang()).finally(() => {
     root.render(

@@ -156,6 +156,12 @@ async function* generateExport(): AsyncGenerator<string> {
   // будущий импорт (отдельная задача) должен уметь отказаться от файла со
   // слишком новой/незнакомой schemaVersion, не гадая по содержимому.
   yield `${JSON.stringify({ type: "meta", schemaVersion: EXPORT_SCHEMA_VERSION, exportedAt: new Date().toISOString(), product: "Taskira" })}\n`;
+  // Инсталляция (ТЗ 5.14 п.8): название и брендирование. Ключ лицензии и её срок — не данные организации, а
+  // учётные внутренности (как password_hash у users), в дамп не идут.
+  const inst = await q<Record<string, unknown>>(
+    `SELECT name, brand_name, brand_hue, brand_logo_driver, brand_logo_key, brand_logo_content_type, brand_logo_updated_at FROM instance WHERE id = 1`,
+  );
+  for (const row of inst) yield `${JSON.stringify({ type: "instance", ...camelizeRow(row) })}\n`;
   for (const t of KEYED_TABLES) yield* streamKeyed(t);
   for (const t of OFFSET_TABLES) yield* streamOffset(t);
 }

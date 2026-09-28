@@ -8,6 +8,13 @@
 
 ## Запросы (тела, query, params)
 
+### BrandPatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | необязательное, может быть null; длина 1…60 |
+| `hue` | integer | необязательное, может быть null; 255…320 |
+
 ### ChangeRoleBody
 
 | Поле | Тип | Замечания |
@@ -505,6 +512,14 @@
 | `sha256` | string |  |
 | `uploadedById` | string | может быть null |
 | `createdAt` | string |  |
+
+### BrandDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | может быть null |
+| `hue` | number | может быть null |
+| `logoUpdatedAt` | number | может быть null |
 
 ### BulkIssueAction
 

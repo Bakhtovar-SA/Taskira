@@ -49,6 +49,7 @@ import type {
   SearchResultItemDto,
   UnreadCountDto,
   ProjectTemplateDto,
+  BrandDto,
 } from "../../server/src/contract";
 
 let legacyBearerToken: string | null = null;
@@ -313,6 +314,23 @@ export const setupApi = {
   complete: () => api<SetupStatusDto>("/api/admin/setup/complete", { method: "POST" }),
   createDemo: () => api<{ id: string }>("/api/admin/demo-project", { method: "POST" }),
   removeDemo: () => api<void>("/api/admin/demo-project", { method: "DELETE" }),
+};
+
+/** Брендирование (ТЗ 5.14 п.5): чтение публичное (нужно экрану входа), запись — глобальный admin. */
+export const brandApi = {
+  get: () => api<BrandDto>("/api/instance/brand", { auth: false }),
+  patch: (body: { name?: string | null; hue?: number | null }) => api<BrandDto>("/api/admin/brand", { method: "PATCH", body }),
+  uploadLogo: (file: File) => apiUpload<BrandDto>("/api/admin/brand/logo", file),
+  removeLogo: () => api<BrandDto>("/api/admin/brand/logo", { method: "DELETE" }),
+  /** blob: URL знака — img-src CSP разрешает blob:, а API в dev живёт на другом origin; null — нет или ошибка. */
+  logoBlobUrl: async (v: number): Promise<string | null> => {
+    try {
+      const res = await fetch(buildUrl("/api/instance/brand/logo", { v: String(v) }), { credentials: "include" });
+      return res.ok ? URL.createObjectURL(await res.blob()) : null;
+    } catch {
+      return null;
+    }
+  },
 };
 
 /** LDAP: диагностика и ручной ресинк членства (глобальный admin). */

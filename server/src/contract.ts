@@ -1213,3 +1213,24 @@ export const SetupStatusDto = z.object({
 });
 export type SetupStatusDto = z.infer<typeof SetupStatusDto>;
 export const SetupPatchBody = z.object({ instanceName: oneLine(80, 1, "Название не может быть пустым") });
+
+/* ---------------- Брендирование инсталляции (ТЗ 5.14 п.5) ---------------- */
+/** Допустимый оттенок акцента (OKLCH hue): от сине-фиолетового до пурпурного. Для каждого значения диапазона
+ *  scripts/check-contrast.mjs проверяет все пары акцента во всех темах — это и есть «контраст проверяется
+ *  автоматически при сохранении»: сервер принимает только проверенный диапазон. 288 — фирменный. */
+export const BRAND_HUE = { min: 255, max: 320, default: 288 } as const;
+/** GET /api/instance/brand — публично (нужно экрану входа): null — не задано. */
+export const BrandDto = z.object({
+  name: z.string().nullable(),
+  hue: z.number().nullable(),
+  logoUpdatedAt: z.number().nullable(),
+});
+export type BrandDto = z.infer<typeof BrandDto>;
+/** PATCH /api/admin/brand [global admin]. null — вернуть как было (Taskira / 288). */
+export const BrandPatchBody = z
+  .object({
+    name: oneLine(60, 1, "Название не может быть пустым").nullable(),
+    hue: z.number().int().min(BRAND_HUE.min, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).max(BRAND_HUE.max, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).nullable(),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");

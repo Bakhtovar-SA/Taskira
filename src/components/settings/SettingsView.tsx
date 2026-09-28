@@ -58,6 +58,7 @@ const META: Record<string, Meta> = {
   users: { icon: (p) => <IcUsers {...p} />, tone: "blue" },
   departments: { icon: (p) => <IcInbox {...p} />, tone: "violet" },
   "project-templates": { icon: (p) => <IcCompose {...p} />, tone: "pink" },
+  brand: { icon: (p) => <IcSparkle {...p} />, tone: "pink" },
   ldap: { icon: (p) => <IcLink {...p} />, tone: "teal" },
   license: { icon: (p) => <IcDiamond {...p} />, tone: "indigo" },
   export: { icon: (p) => <IcDownload {...p} />, tone: "sky" },

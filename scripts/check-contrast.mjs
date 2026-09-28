@@ -153,6 +153,38 @@ for (const [name, vars] of [
     console.log(`  ${ok ? "ok  " : "FAIL"} ${r.toFixed(2).padStart(5)} ≥ ${min}  ${fgName} on ${bgName}${baseName ? ` (over ${baseName})` : ""}`);
   }
 }
+// ── Оттенок бренда (ТЗ 5.14 п.5): все пары во всех темах для каждого оттенка допустимого диапазона
+// (server/src/contract.ts BRAND_HUE). Сервер принимает только этот диапазон — так «контраст проверяется
+// автоматически при сохранении»: сохранить можно лишь то, что здесь уже проверено.
+const contract = readFileSync(new URL("../server/src/contract.ts", import.meta.url), "utf8");
+const hueRange = /BRAND_HUE = \{ min: (\d+), max: (\d+)/.exec(contract);
+if (!hueRange) throw new Error("BRAND_HUE не найден в contract.ts");
+const [hueMin, hueMax] = [+hueRange[1], +hueRange[2]];
+let hueWorst = Infinity;
+for (let h = hueMin; h <= hueMax; h += 1) {
+  for (const [name, base] of [
+    ["light", light],
+    ["dark", dark],
+    ["dusk", skin(dark, "dusk")],
+    ["graphite", skin(dark, "graphite")],
+    ["dawn", skin(light, "dawn")],
+    ["paper", skin(light, "paper")],
+  ]) {
+    const vars = { ...base, "--brand-h": String(h) };
+    for (const [fgName, bgName, min, baseName] of PAIRS) {
+      const under = baseName ? oklch(resolve(vars, vars[baseName])).rgb : [1, 1, 1];
+      const bg = over(oklch(resolve(vars, vars[bgName])), under);
+      const r = ratio(over(oklch(resolve(vars, vars[fgName])), bg), bg);
+      if (min === TEXT) hueWorst = Math.min(hueWorst, r);
+      if (r < min) {
+        failed++;
+        console.log(`  FAIL ${r.toFixed(2)} ≥ ${min}  оттенок ${h}, ${name}: ${fgName} on ${bgName}`);
+      }
+    }
+  }
+}
+console.log(`\nоттенок бренда ${hueMin}…${hueMax}: все пары во всех темах, худший текст ${hueWorst.toFixed(2)}`);
+
 // ── Текст хрома поверх фона (ТЗ 5.14, проверка «≥ 4.5:1 с подложкой»). Боковая панель — стекло (--glass-side)
 // прямо над атмосферой; под ней — либо свечения фона галереи, либо своё фото под подложкой цвета рамки.
 // Тестовый набор фото — ровные серые от чёрного до белого (худшие случаи для любой светлоты); плотность подложки —

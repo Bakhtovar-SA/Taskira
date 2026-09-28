@@ -7,7 +7,8 @@ import { Button, EmptyState } from "../ds";
 import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
-import { IcBell, IcChevR, IcComment, IcMyIssues, IcPlus, IcSearch, StatusGlyph, Logo } from "../icons";
+import { IcBell, IcChevR, IcComment, IcMyIssues, IcPlus, IcSearch, StatusGlyph } from "../icons";
+import { BrandMark, BrandName } from "./BrandMark";
 import { Avatar, Dropdown, MenuItem, Toasts, UserCardBody, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
@@ -104,8 +105,8 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
       {/* шапка */}
       <header className="glass flex h-[56px] shrink-0 items-center gap-4 border-b border-linesoft px-5 max-sm:gap-2.5 max-sm:px-4">
         <div className="flex items-center gap-2">
-          <Logo size={24} />
-          <span className="font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink max-sm:hidden">Taskira</span>
+          <BrandMark size={24} />
+          <BrandName className="max-w-[220px] truncate font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink max-sm:hidden" />
         </div>
 
         <label className="flex h-8 w-full min-w-0 max-w-[340px] items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">

@@ -2,10 +2,14 @@
  *  пользователи, проверка LDAP, лицензия, аудит, обслуживание, состояние системы. Значения, которые
  *  задаются только переменными окружения, показаны справочно (ТЗ 5.9: новых настроек не добавлять). */
 import { Setup } from "./Setup";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
-import { adminApi, ApiError, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
+import type { BrandDto } from "../../../server/src/contract";
+import { BRAND_HUE, DEFAULT_BRAND_NAME, previewHue, setBrand, useBrand } from "../../brand";
+import { cssVars } from "../../cssVars";
+import { BrandMark } from "../BrandMark";
+import { adminApi, ApiError, brandApi, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
 import { Avatar, Button, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
 import { IcCompose, IcDiamond, IcDownload, IcLink, IcPlus, IcSearch, IcTrash } from "../../icons";
 import { openProjectWizard } from "../../palette/events";
@@ -23,6 +27,8 @@ export function OrgSection({ section }: { section: string }) {
       return <Ldap />;
     case "project-templates":
       return <Templates />;
+    case "brand":
+      return <Brand />;
     case "license":
       return <License />;
     case "export":
@@ -705,6 +711,133 @@ function Templates() {
           </>
         }
       />
+    </SettingsPage>
+  );
+}
+
+/** Оттенки-образцы из диапазона BRAND_HUE; точная настройка — ползунком. */
+const HUE_SWATCHES = [258, 268, 278, 288, 298, 308, 318];
+
+/** Брендирование (ТЗ 5.14 п.5): название, оттенок акцента с живым предпросмотром, знак. Оттенок применяется ко всему
+ *  интерфейсу сразу (previewHue), но остаётся, только если его сохранить; уход со страницы возвращает сохранённый. */
+function Brand() {
+  const { t } = useT();
+  const { toast } = useStore();
+  const brand = useBrand();
+  const [name, setName] = useState(brand.name ?? "");
+  const [hue, setHue] = useState(brand.hue ?? BRAND_HUE.default);
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => () => previewHue(null), []);
+
+  const savedHue = brand.hue ?? BRAND_HUE.default;
+  const nextName = name.trim() && name.trim() !== DEFAULT_BRAND_NAME ? name.trim() : null;
+  const dirty = nextName !== brand.name || hue !== savedHue;
+  const pick = (h: number) => {
+    setHue(h);
+    previewHue(h);
+  };
+
+  const run = async (job: () => Promise<BrandDto>, ok?: string) => {
+    setBusy(true);
+    try {
+      setBrand(await job());
+      if (ok) toast("success", ok);
+    } catch (e) {
+      toast("error", e instanceof ApiError ? e.message : t("brand.logoFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const save = () => void run(() => brandApi.patch({ name: nextName, hue: hue === BRAND_HUE.default ? null : hue }), t("brand.saved"));
+  const onFile = (f: File | undefined) => {
+    if (f) void run(() => brandApi.uploadLogo(f));
+    if (input.current) input.current.value = "";
+  };
+
+  return (
+    <SettingsPage title={t("settings.org.brand")} desc={t("settings.desc.brand")}>
+      <SettingsCard>
+        <div className="px-5 py-4">
+          <Input label={t("brand.name")} hint={t("brand.nameHint")} value={name} placeholder={DEFAULT_BRAND_NAME} maxLength={60} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-3 px-5 py-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[13px] font-medium text-ink">{t("brand.hue")}</p>
+            <button type="button" className="text-[12px] text-sub transition-colors duration-150 hover:text-ink disabled:opacity-40" disabled={hue === BRAND_HUE.default} onClick={() => pick(BRAND_HUE.default)}>
+              {t("brand.default")}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("brand.hue")}>
+            {HUE_SWATCHES.map((h) => (
+              <button
+                key={h}
+                type="button"
+                role="radio"
+                aria-checked={hue === h}
+                aria-label={t("brand.hueSwatch", { h })}
+                ref={cssVars({ "--sw-h": String(h) })}
+                onClick={() => pick(h)}
+                className="h-8 w-8 rounded-full bg-[oklch(0.55_0.2_var(--sw-h))] shadow-[var(--highlight-top)] ring-offset-2 ring-offset-[var(--bg-raised)] transition-shadow duration-150 aria-checked:ring-2 aria-checked:ring-[var(--text-1)]"
+              />
+            ))}
+          </div>
+          <input
+            type="range"
+            min={BRAND_HUE.min}
+            max={BRAND_HUE.max}
+            step={1}
+            value={hue}
+            aria-label={t("brand.hue")}
+            onChange={(e) => pick(Number(e.target.value))}
+            className="w-full accent-[var(--accent-solid)]"
+          />
+          <p className="text-[12px] leading-relaxed text-faint">{t("brand.hueHint")}</p>
+        </div>
+        <div className="flex flex-col gap-3 px-5 py-4">
+          <p className="text-[11.5px] font-medium uppercase tracking-[0.05em] text-faint">{t("brand.preview")}</p>
+          <div className="flex flex-wrap items-center gap-4 rounded-lg bg-sunken/70 px-4 py-3 ring-1 ring-inset ring-linesoft">
+            <span className="flex min-w-0 items-center gap-2.5">
+              <BrandMark size={22} />
+              <span className="truncate font-disp text-[16px] font-bold tracking-[-0.03em] text-ink">{nextName ?? DEFAULT_BRAND_NAME}</span>
+            </span>
+            <span className="flex-1" />
+            <span className="text-[13px] font-medium text-accent">{t("brand.previewLink")}</span>
+            <Button size="sm" variant="primary" tabIndex={-1} aria-hidden>
+              {t("brand.previewButton")}
+            </Button>
+          </div>
+          {hue !== savedHue && <p className="text-[12px] text-faint">{t("brand.unsaved")}</p>}
+          <div className="flex justify-end">
+            <Button variant="primary" disabled={!dirty} loading={busy} onClick={save}>
+              {t("common.save")}
+            </Button>
+          </div>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard title={t("brand.logo")}>
+        <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center">
+          <div className="flex shrink-0 items-center gap-4">
+            <BrandMark size={48} variant="app" />
+            <BrandMark size={22} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-3">
+            <p className="text-[12.5px] leading-relaxed text-faint">{t("brand.logoHint")}</p>
+            <div className="flex flex-wrap gap-2">
+              <input ref={input} type="file" accept="image/png,image/webp" className="sr-only" tabIndex={-1} onChange={(e) => onFile(e.target.files?.[0])} />
+              <Button size="sm" variant="secondary" loading={busy} onClick={() => input.current?.click()}>
+                {t(brand.logoUpdatedAt ? "brand.logoReplace" : "brand.logoUpload")}
+              </Button>
+              {brand.logoUpdatedAt && (
+                <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => brandApi.removeLogo())}>
+                  {t("brand.logoRemove")}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </SettingsCard>
     </SettingsPage>
   );
 }

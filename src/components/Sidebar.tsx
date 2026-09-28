@@ -24,9 +24,10 @@ import {
   IcSettings,
   IcTimeline,
   IcUsers,
-  Logo,
   type IconTone,
 } from "../icons";
+import { BrandMark, BrandName } from "./BrandMark";
+import { useBrandName } from "../brand";
 import { Avatar, Kbd, ProjectMark } from "../ui";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -283,13 +284,13 @@ export default function Sidebar() {
             aria-label={t("sidebar.homeAria")}
             className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 hover:bg-hover/70"
           >
-            <Logo size={22} />
-            <span className="font-disp text-[16px] font-bold tracking-[-0.03em] text-ink">Taskira</span>
+            <BrandMark size={22} />
+            <BrandName className="truncate font-disp text-[16px] font-bold tracking-[-0.03em] text-ink" />
           </button>
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2">
-            <Logo size={22} />
-            <span className="font-disp text-[16px] font-bold tracking-[-0.03em] text-ink">Taskira</span>
+            <BrandMark size={22} />
+            <BrandName className="truncate font-disp text-[16px] font-bold tracking-[-0.03em] text-ink" />
           </div>
         )}
         <button
@@ -543,6 +544,7 @@ function Rail({
   const { t } = useT();
   const { data, ui, me, setView, goHome, setCreateOpen, can } = useStore();
   const openSettings = useOpenSettings();
+  const brandName = useBrandName();
   const tipRef = useRef<HTMLDivElement>(null);
   const [tip, setTip] = useState<string | null>(null);
   const show = (label: string) => (e: React.SyntheticEvent<HTMLElement>) => {
@@ -577,7 +579,7 @@ function Rail({
 
   return (
     <aside aria-label={t("sidebar.menu")} className={`${className} items-center py-2.5`}>
-      {btn("logo", homeAvailable ? t("sidebar.homeAria") : "Taskira", <Logo size={22} />, () => homeAvailable && goHome())}
+      {btn("logo", homeAvailable ? t("sidebar.homeAria") : brandName, <BrandMark size={22} />, () => homeAvailable && goHome())}
       <div className="mt-1.5 flex flex-col items-center gap-1">
         {btn("search", `${t("sidebar.search")} · ${paletteShortcut()}`, <IcSearch size={16} />, openPalette)}
         {can("create") && btn("new", `${t("sidebar.newIssue")} · C`, <IcCompose size={16} tone="violet" />, () => setCreateOpen(true))}

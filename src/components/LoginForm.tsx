@@ -1,7 +1,9 @@
 /** Вход (ТЗ 5.12 a): первое впечатление — знак и спокойная атмосфера; ошибки говорят, что случилось и что делать.
  *  Поведение, которое пережило переписывание, закреплено в LoginForm.test.tsx. */
 import { useEffect, useRef, useState } from "react";
-import { IcEye, Logo } from "../icons";
+import { IcEye } from "../icons";
+import { BrandMark } from "./BrandMark";
+import { useBrandName } from "../brand";
 import { ApiError, authApi } from "../api";
 import { useT } from "../i18n";
 import { Button } from "../ds/Button";
@@ -21,6 +23,7 @@ export default function LoginForm({ onSuccess }: Props) {
   const [caps, setCaps] = useState(false);
   const [ldap, setLdap] = useState(false);
   const busyRef = useRef(false);
+  const brandName = useBrandName();
 
   useEffect(() => {
     authApi.config().then((c) => setLdap(c.authMode === "ldap"), () => undefined);
@@ -56,9 +59,9 @@ export default function LoginForm({ onSuccess }: Props) {
 
       <main className="glass relative w-full max-w-[400px] rounded-2xl border border-line p-8 shadow-[var(--highlight-top),var(--elev-4)] max-sm:p-6">
         <div className="mb-7 flex flex-col items-center gap-3 text-center">
-          <Logo size={48} variant="app" />
+          <BrandMark size={48} variant="app" />
           <div>
-            <h1 className="font-disp text-[22px] font-semibold tracking-[-0.025em] text-ink">{t("login.appName")}</h1>
+            <h1 className="font-disp text-[22px] font-semibold tracking-[-0.025em] text-ink">{brandName}</h1>
             <p className="mt-1 text-[13.5px] text-faint">{t("login.tagline")}</p>
           </div>
         </div>

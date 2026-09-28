@@ -12,6 +12,10 @@
     var bg = localStorage.getItem("taskira.bg");
     if (bg && bg !== "default") root.setAttribute("data-atmosphere", bg);
     if (localStorage.getItem("taskira.density") === "compact") root.setAttribute("data-density", "compact");
+    // Оттенок бренда (ТЗ 5.14 п.5, src/brand.ts): CSSOM, не style="" — CSP style-src-attr 'none'.
+    var brand = JSON.parse(localStorage.getItem("taskira.brand") || "null");
+    if (brand && typeof brand.hue === "number" && brand.hue >= 255 && brand.hue <= 320) root.style.setProperty("--brand-h", String(brand.hue));
+    if (brand && typeof brand.name === "string") document.title = brand.name;
   } catch (_) {
     // Storage or matchMedia can be unavailable; the light :root palette remains.
   }

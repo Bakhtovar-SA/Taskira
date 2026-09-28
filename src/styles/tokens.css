@@ -19,18 +19,21 @@
 
 :root {
   /* ─── 1. Примитивы: светлая тема ─────────────────────────────────────── */
-  --violet-1: oklch(0.992 0.004 288);
-  --violet-2: oklch(0.978 0.011 288);
-  --violet-3: oklch(0.955 0.024 288);
-  --violet-4: oklch(0.932 0.040 288);
-  --violet-5: oklch(0.905 0.058 288);
-  --violet-6: oklch(0.865 0.078 288);
-  --violet-7: oklch(0.805 0.102 288);
-  --violet-8: oklch(0.725 0.138 288);
-  --violet-9: oklch(0.55 0.2 288);
-  --violet-10: oklch(0.505 0.2 288);
-  --violet-11: oklch(0.49 0.175 288);
-  --violet-12: oklch(0.3 0.1 288);
+  /* Оттенок бренда (ТЗ 5.14 п.5): 288 — фирменный фиолетовый; инсталляция может сдвинуть его в проверенном
+     диапазоне contract.ts BRAND_HUE (src/brand.ts ставит --brand-h на <html> через CSSOM). Серые — всегда 288. */
+  --brand-h: 288;
+  --violet-1: oklch(0.992 0.004 var(--brand-h));
+  --violet-2: oklch(0.978 0.011 var(--brand-h));
+  --violet-3: oklch(0.955 0.024 var(--brand-h));
+  --violet-4: oklch(0.932 0.040 var(--brand-h));
+  --violet-5: oklch(0.905 0.058 var(--brand-h));
+  --violet-6: oklch(0.865 0.078 var(--brand-h));
+  --violet-7: oklch(0.805 0.102 var(--brand-h));
+  --violet-8: oklch(0.725 0.138 var(--brand-h));
+  --violet-9: oklch(0.55 0.2 var(--brand-h));
+  --violet-10: oklch(0.505 0.2 var(--brand-h));
+  --violet-11: oklch(0.49 0.175 var(--brand-h));
+  --violet-12: oklch(0.3 0.1 var(--brand-h));
 
   --gray-1: oklch(0.993 0.002 288);
   --gray-2: oklch(0.982 0.004 288);
@@ -103,8 +106,8 @@
   --accent-subtle: var(--violet-3);
   --accent-muted: var(--violet-5);
   --accent-text: var(--violet-11);
-  --accent-glow: oklch(0.55 0.2 288 / 0.28);
-  --focus-ring: oklch(0.55 0.2 288 / 0.42);
+  --accent-glow: oklch(0.55 0.2 var(--brand-h) / 0.28);
+  --focus-ring: oklch(0.55 0.2 var(--brand-h) / 0.42);
 
   --status-done: var(--green-solid);
   --status-done-bg: var(--green-soft);
@@ -134,7 +137,7 @@
   --elev-2: 0 1px 2px oklch(0.3 0.04 288 / 0.05), 0 4px 12px -2px oklch(0.3 0.05 288 / 0.08);
   --elev-3: 0 2px 4px oklch(0.3 0.04 288 / 0.05), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16);
   --elev-4: 0 4px 8px oklch(0.3 0.04 288 / 0.06), 0 28px 64px -12px oklch(0.25 0.07 288 / 0.28);
-  --elev-accent: 0 1px 2px oklch(0.4 0.18 288 / 0.3), 0 4px 14px -4px oklch(0.55 0.2 288 / 0.5);
+  --elev-accent: 0 1px 2px oklch(0.4 0.18 var(--brand-h) / 0.3), 0 4px 14px -4px oklch(0.55 0.2 var(--brand-h) / 0.5);
   --highlight-top: inset 0 1px 0 oklch(1 0 0 / 0.6);
   --highlight-accent: inset 0 1px 0 oklch(1 0 0 / 0.22);
 
@@ -152,7 +155,10 @@
   --glass-edge-2: oklch(1 0 0 / 0.2);
 
   /* Знак и фирменные тона иконок навигации. */
-  --logo: oklch(0.52 0.2 288);
+  --logo: oklch(0.52 0.2 var(--brand-h));
+  /* Плашка иконки приложения (<Logo variant="app">): одна в обеих темах, следует за оттенком бренда. */
+  --logo-plate-1: oklch(0.66 0.19 calc(var(--brand-h) + 12));
+  --logo-plate-2: oklch(0.45 0.21 calc(var(--brand-h) - 10));
   --ic-l: 0.58;
   --ic-c: 0.14;
 
@@ -183,18 +189,18 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --violet-1: oklch(0.18 0.02 288);
-  --violet-2: oklch(0.205 0.032 288);
-  --violet-3: oklch(0.25 0.06 288);
-  --violet-4: oklch(0.285 0.085 288);
-  --violet-5: oklch(0.325 0.105 288);
-  --violet-6: oklch(0.375 0.12 288);
-  --violet-7: oklch(0.445 0.14 288);
-  --violet-8: oklch(0.53 0.17 288);
-  --violet-9: oklch(0.585 0.2 288);
-  --violet-10: oklch(0.635 0.19 288);
-  --violet-11: oklch(0.8 0.115 288);
-  --violet-12: oklch(0.93 0.04 288);
+  --violet-1: oklch(0.18 0.02 var(--brand-h));
+  --violet-2: oklch(0.205 0.032 var(--brand-h));
+  --violet-3: oklch(0.25 0.06 var(--brand-h));
+  --violet-4: oklch(0.285 0.085 var(--brand-h));
+  --violet-5: oklch(0.325 0.105 var(--brand-h));
+  --violet-6: oklch(0.375 0.12 var(--brand-h));
+  --violet-7: oklch(0.445 0.14 var(--brand-h));
+  --violet-8: oklch(0.53 0.17 var(--brand-h));
+  --violet-9: oklch(0.585 0.2 var(--brand-h));
+  --violet-10: oklch(0.635 0.19 var(--brand-h));
+  --violet-11: oklch(0.8 0.115 var(--brand-h));
+  --violet-12: oklch(0.93 0.04 var(--brand-h));
 
   --gray-1: oklch(0.165 0.012 288);
   --gray-2: oklch(0.185 0.012 288);
@@ -255,13 +261,13 @@
   --border-strong: oklch(0.37 0.018 288);
 
   /* Чуть глубже ступени 9 тёмной шкалы: светлый текст на кнопке держит 4.5:1. */
-  --accent-solid: oklch(0.555 0.2 288);
-  --accent-hover: oklch(0.525 0.2 288);
-  --accent-subtle: oklch(0.28 0.07 288 / 0.7);
+  --accent-solid: oklch(0.555 0.2 var(--brand-h));
+  --accent-hover: oklch(0.525 0.2 var(--brand-h));
+  --accent-subtle: oklch(0.28 0.07 var(--brand-h) / 0.7);
   --accent-muted: var(--violet-5);
   --accent-text: var(--violet-11);
-  --accent-glow: oklch(0.62 0.2 288 / 0.35);
-  --focus-ring: oklch(0.7 0.16 288 / 0.55);
+  --accent-glow: oklch(0.62 0.2 var(--brand-h) / 0.35);
+  --focus-ring: oklch(0.7 0.16 var(--brand-h) / 0.55);
 
   --status-todo: oklch(0.62 0.02 288);
   --status-todo-bg: oklch(0.265 0.014 288);
@@ -276,7 +282,7 @@
   --elev-2: 0 1px 2px oklch(0.05 0.01 288 / 0.35), 0 6px 16px -4px oklch(0.05 0.02 288 / 0.5);
   --elev-3: 0 2px 6px oklch(0.05 0.01 288 / 0.4), 0 16px 40px -8px oklch(0.04 0.02 288 / 0.7);
   --elev-4: 0 4px 12px oklch(0.05 0.01 288 / 0.45), 0 32px 80px -12px oklch(0.03 0.02 288 / 0.8);
-  --elev-accent: 0 1px 2px oklch(0.1 0.05 288 / 0.5), 0 6px 20px -6px oklch(0.58 0.2 288 / 0.65);
+  --elev-accent: 0 1px 2px oklch(0.1 0.05 var(--brand-h) / 0.5), 0 6px 20px -6px oklch(0.58 0.2 var(--brand-h) / 0.65);
   --highlight-top: inset 0 1px 0 oklch(1 0 0 / 0.055);
   --highlight-accent: inset 0 1px 0 oklch(1 0 0 / 0.2);
 
@@ -289,7 +295,7 @@
   --glass-edge: oklch(1 0 0 / 0.16);
   --glass-edge-2: oklch(1 0 0 / 0.03);
 
-  --logo: oklch(0.78 0.13 288);
+  --logo: oklch(0.78 0.13 var(--brand-h));
   --ic-l: 0.74;
   --ic-c: 0.13;
 }

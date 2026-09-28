@@ -57,8 +57,8 @@ export const Logo = ({ size = 24, variant = "mark", className }: P & { variant?:
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={className}>
       <defs>
         <linearGradient id={`${id}-plate`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="oklch(0.66 0.19 300)" />
-          <stop offset="1" stopColor="oklch(0.45 0.21 278)" />
+          <stop offset="0" className="[stop-color:var(--logo-plate-1)]" />
+          <stop offset="1" className="[stop-color:var(--logo-plate-2)]" />
         </linearGradient>
         <linearGradient id={`${id}-sheen`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="oklch(1 0 0)" stopOpacity="0.3" />

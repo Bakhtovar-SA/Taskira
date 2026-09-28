@@ -6,7 +6,8 @@ import { MentionText } from "./IssueModal";
 import { LIMITS, localizeValidationError, validateComment } from "../validation";
 import type { IssueTypeId, PriorityId } from "../types";
 import { PRIORITY_ORDER } from "../types";
-import { IcLink, IcSend, Logo, PriorityIcon, TypeIcon } from "../icons";
+import { IcLink, IcSend, PriorityIcon, TypeIcon } from "../icons";
+import { BrandMark, BrandName } from "./BrandMark";
 import { EmptyState } from "../ds";
 import { Toasts } from "../ui";
 import { useT } from "../i18n";
@@ -274,8 +275,8 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
     <div className="flex h-full overflow-hidden">
       <aside className="flex w-[280px] shrink-0 flex-col text-sub">
         <div className="flex items-center gap-2.5 px-4 pb-4 pt-5">
-          <Logo size={26} />
-          <p className="font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink">Taskira</p>
+          <BrandMark size={26} />
+          <BrandName className="truncate font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink" />
         </div>
         {/* ТЗ 5.11: гостю сразу ясно, где он и что может. */}
         <div className="mx-3 mb-3 rounded-lg bg-accentsoft/60 px-3 py-2.5 ring-1 ring-inset ring-accent/15">
