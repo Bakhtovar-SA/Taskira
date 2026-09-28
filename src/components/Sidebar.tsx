@@ -78,6 +78,7 @@ export const NAV_GROUPS: { labelKey: TKey; items: NavItem[] }[] = [
   {
     labelKey: "sidebar.group.org",
     items: [
+      { id: "roadmap", labelKey: "sidebar.nav.roadmap", icon: (p) => <IcFlag {...p} />, tone: "teal" },
       { id: "reports", labelKey: "sidebar.nav.reports", icon: (p) => <IcReport {...p} />, tone: "sky" },
       { id: "collaborating", labelKey: "sidebar.nav.collaborating", icon: (p) => <IcLink {...p} />, tone: "violet", collabOnly: true },
       { id: "docs", labelKey: "sidebar.nav.docs", icon: (p) => <IcBook {...p} />, tone: "orange" },
@@ -438,6 +439,15 @@ export default function Sidebar() {
           <p className={sectionLabel}>{t("sidebar.group.org")}</p>
           <button
             type="button"
+            onClick={() => setView("roadmap")}
+            aria-current={ui.view === "roadmap" ? "page" : undefined}
+            className={`${navItem} ${ui.view === "roadmap" ? navOn : navOff}`}
+          >
+            <IcFlag size={16} tone="teal" />
+            <span className="flex-1 truncate">{t("sidebar.nav.roadmap")}</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setView("reports")}
             aria-current={ui.view === "reports" ? "page" : undefined}
             className={`${navItem} ${ui.view === "reports" ? navOn : navOff}`}
@@ -611,6 +621,7 @@ function Rail({
           );
         })}
         {sep}
+        {btn("roadmap", t("sidebar.nav.roadmap"), <IcFlag size={16} tone="teal" />, () => setView("roadmap"), ui.view === "roadmap")}
         {btn("reports", t("sidebar.nav.reports"), <IcReport size={16} tone="sky" />, () => setView("reports"), ui.view === "reports")}
       </div>
       <div className="mt-1 flex flex-col items-center gap-1 border-t border-linesoft/70 pt-2">

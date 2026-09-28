@@ -174,6 +174,14 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `POST /api/me/hints/:hintId/dismiss` | — | requireAuth | закрыть подсказку навсегда (id `^[a-z][a-z0-9.-]{0,39}$`, хранится не больше 100) |
 | `GET/PATCH /api/admin/setup`, `POST /api/admin/setup/complete` | `{instanceName}` | global admin | первичная настройка: статус, название инсталляции, «завершить» |
 | `POST/DELETE /api/admin/demo-project` | — | global admin | демо-проект (один; `409`, если уже есть); удаление не оставляет строк в БД, в т.ч. в `audit_log` |
+| `PATCH /api/projects/:projectId/appearance` | `ProjectAppearanceBody` `{icon?, color?, background?}` | `editAppearance` (admin, manager) | внешний вид проекта (ТЗ 5.14 п.7); `audit_log: project.appearance` |
+| `POST/DELETE /api/projects/:projectId/background-photo`, `GET …/background-photo/:size` | multipart `full`, `small` (WebP) + `luma` | `editAppearance` · `browse` | своё фото фона проекта (ТЗ 5.14 п.2): сервер проверяет WebP и габариты, `size = full\|small` |
+| `GET /api/instance/brand`, `GET /api/instance/brand/logo` | — | **публично** (нужно экрану входа) | брендирование (ТЗ 5.14 п.5): `{name, hue, logoUpdatedAt}`; `null` — по умолчанию |
+| `PATCH /api/admin/brand`, `POST/DELETE /api/admin/brand/logo` | `{name?, hue? 255–320}` · multipart PNG/WebP ≤ 200 КБ, 32–1024 px | global admin | диапазон оттенка целиком проверяет `npm run contrast:check`; `audit_log: instance.brand` |
+| `GET /api/roadmap` | — | requireAuth; scope = **видимые проекты** | роадмап (ТЗ 5.15): проекты с датами, прогрессом (`done/total` по всем задачам, включая архив), вехами и `canEdit`; зависимости — только между видимыми |
+| `PATCH /api/projects/:projectId/roadmap` | `{startDate?, targetDate?}` (ГГГГ-ММ-ДД или `null`) | `editRoadmap` (admin, manager); цель раньше начала — `400` | даты проекта; `audit_log: project.roadmap` |
+| `POST …/milestones`, `PATCH/DELETE …/milestones/:milestoneId` | `{name ≤80, date}` | `editRoadmap`; не больше 30 у проекта — `409` | вехи; `audit_log: project.milestone.*` |
+| `POST …/dependencies`, `DELETE …/dependencies/:sourceProjectId` | `{sourceProjectId}` | `editRoadmap` в **зависимом** проекте; источник должен быть виден (иначе `404`); цикл — `409 DEPENDENCY_CYCLE` | «проект ждёт другой»; проверка цикла и вставка — в одной транзакции под advisory-блокировкой; `audit_log: project.dependency.*` |
 | `GET …/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
 | `POST …/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
 | `DELETE …/workflow/transitions/:id` | — | **admin** | удалить переход |

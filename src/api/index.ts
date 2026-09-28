@@ -50,6 +50,8 @@ import type {
   UnreadCountDto,
   ProjectTemplateDto,
   BrandDto,
+  MilestoneDto,
+  RoadmapDto,
 } from "../../server/src/contract";
 
 let legacyBearerToken: string | null = null;
@@ -331,6 +333,20 @@ export const brandApi = {
       return null;
     }
   },
+};
+
+/** Роадмап проектов (ТЗ 5.15): чтение — все видимые проекты; правка — право editRoadmap в проекте. */
+export const roadmapApi = {
+  get: () => api<RoadmapDto>("/api/roadmap"),
+  setDates: (projectId: string, body: { startDate?: string | null; targetDate?: string | null }) =>
+    api<void>(`${P(projectId)}/roadmap`, { method: "PATCH", body }),
+  addMilestone: (projectId: string, body: { name: string; date: string }) => api<MilestoneDto>(`${P(projectId)}/milestones`, { method: "POST", body }),
+  patchMilestone: (projectId: string, id: string, body: { name?: string; date?: string }) =>
+    api<MilestoneDto>(`${P(projectId)}/milestones/${id}`, { method: "PATCH", body }),
+  removeMilestone: (projectId: string, id: string) => api<void>(`${P(projectId)}/milestones/${id}`, { method: "DELETE" }),
+  addDependency: (projectId: string, sourceProjectId: string) =>
+    api<{ sourceId: string; dependentId: string }>(`${P(projectId)}/dependencies`, { method: "POST", body: { sourceProjectId } }),
+  removeDependency: (projectId: string, sourceProjectId: string) => api<void>(`${P(projectId)}/dependencies/${sourceProjectId}`, { method: "DELETE" }),
 };
 
 /** LDAP: диагностика и ручной ресинк членства (глобальный admin). */

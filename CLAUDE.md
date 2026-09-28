@@ -698,8 +698,17 @@ since any edit touches it. The board shows the last 14 days in its done column
   (`ref={cssVars({"--x": 12})}` from `src/cssVars.ts` + `left-[var(--x)]`);
   enumerable states go in `data-*` attributes. Browser matrix: [docs/design/BROWSERS.md](docs/design/BROWSERS.md).
 - **Time scale** (ТЗ 5.12 f): `src/timeScale.ts` (pure: date ↔ x, week/month/quarter ticks) + `TimeCanvas.tsx` (grid,
-  sticky header, today line) are shared by the Timeline and the planned project roadmap (ТЗ 5.15) — reuse them, don't
-  write a second scale.
+  sticky header, today line) are shared by the Timeline and the project roadmap (ТЗ 5.15) — reuse them, don't
+  write a second scale. **Roadmap** (`/roadmap`, `RoadmapView.tsx`, pure layout in `src/roadmapLayout.ts`; server
+  `routes/roadmap.ts`, migration `20260928T1400_project_roadmap.sql`, PermId `editRoadmap`): project start/target dates,
+  milestones, dependencies (cycles refused server-side under one advisory lock); edited in project settings «Сроки и
+  вехи». Rows keep positions in days and CSS multiplies by `--ppd`, and only rows in the scroll window are rendered —
+  measured: with 100 projects a zoom switch re-rendering every row cost 250 ms, mostly style recalc; keep it that way.
+- **Branding** (ТЗ 5.14 п.5, `src/brand.ts`, `BrandMark.tsx`, «Организация → Брендирование»): name, accent hue
+  (`--brand-h` on `<html>`, every accent token derives from it; range `BRAND_HUE` 255–320 in `contract.ts`, mirrored in
+  `brand.ts`, whole range swept by `contrast:check`), PNG/WebP logo. Public `GET /api/instance/brand`; hue and name are
+  cached in `taskira.brand` so `theme-init.js` applies them before first paint. Use `<BrandMark>`/`useBrandName()`
+  instead of `<Logo>`/"Taskira" in the shell.
 - **Responsive layout**: below 1024px the sidebar is a drawer over the content, opened by the
   «Меню» button in `Topbar.tsx` (`openSidebarDrawer()`), closed by navigation / Esc / the scrim; the
   project view tabs stay in the header, icon-only for inactive tabs, and the search box idles as a

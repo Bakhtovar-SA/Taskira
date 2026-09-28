@@ -17,6 +17,7 @@ export const VIEW_LABEL: Record<ViewId, TKey> = {
   sprints: "sidebar.nav.sprints",
   timeline: "sidebar.nav.timeline",
   reports: "sidebar.nav.reports",
+  roadmap: "sidebar.nav.roadmap",
   settings: "settings.title",
   projectSettings: "settings.title",
   orgSettings: "settings.title",

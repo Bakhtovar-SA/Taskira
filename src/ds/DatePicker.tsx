@@ -26,6 +26,7 @@ export function DatePicker({
   lang = "ru",
   today: todayProp,
   clearLabel = "Убрать срок",
+  markOverdue = true,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
@@ -35,6 +36,8 @@ export function DatePicker({
   /** Для тестов и /dev/ui — фиксированное «сегодня». */
   today?: string;
   clearLabel?: string;
+  /** Прошедшая дата красным — для срока задачи; для даты начала или вехи прошлое — не ошибка. */
+  markOverdue?: boolean;
 }) {
   const today = todayProp ?? localToday();
   const loc = lang === "en" ? "en-GB" : "ru-RU";
@@ -82,7 +85,7 @@ export function DatePicker({
     [lang === "en" ? "In a week" : "Через неделю", shift(today, 7)],
     [lang === "en" ? "In a month" : "Через месяц", parseDateInput("+1m", today)!],
   ];
-  const overdue = !!value && value < today;
+  const overdue = markOverdue && !!value && value < today;
 
   return (
     <Popover

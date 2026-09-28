@@ -22,6 +22,7 @@ const PROJECT_SEGMENT: Partial<Record<ViewId, string>> = {
 };
 const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
   reports: "/reports",
+  roadmap: "/roadmap",
   docs: "/help",
   collaborating: "/shared",
   inbox: "/inbox",

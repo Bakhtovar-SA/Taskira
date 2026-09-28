@@ -884,6 +884,34 @@ html.vt-theme::view-transition-new(root) {
   transition: width var(--dur-4) var(--ease-out);
 }
 
+/* Роадмап проектов (ТЗ 5.15): полоса того же вида, что у Таймлайна, цвет — тон проекта из палитры (5.3, как
+   .tk-tone-*; --ic-l/--ic-c свои у каждой темы). Штриховка — предварительная часть полосы (даты нет, нарисовано
+   «на глаз»); подтверждённая часть и заливка прогресса лежат поверх. Прошедшая веха — приглушённая. */
+.rm-row { --bar: oklch(var(--ic-l) var(--ic-c) var(--tone-h, 288)); }
+.rm-row[data-tone="violet"] { --tone-h: 288; }
+.rm-row[data-tone="indigo"] { --tone-h: 268; }
+.rm-row[data-tone="blue"] { --tone-h: 250; }
+.rm-row[data-tone="sky"] { --tone-h: 225; }
+.rm-row[data-tone="teal"] { --tone-h: 195; }
+.rm-row[data-tone="green"] { --tone-h: 158; }
+.rm-row[data-tone="amber"] { --tone-h: 75; }
+.rm-row[data-tone="orange"] { --tone-h: 50; }
+.rm-row[data-tone="red"] { --tone-h: 25; }
+.rm-row[data-tone="pink"] { --tone-h: 340; }
+/* Смена масштаба двигает сотню полос сразу: анимация ширины на каждой — раскладка каждый кадр (бюджет 5.2). */
+.rm-row .timeline-bar,
+.rm-row .timeline-bar-fill { transition: none; }
+.rm-hatch {
+  background:
+    repeating-linear-gradient(-45deg, color-mix(in oklch, var(--bar) 26%, transparent) 0 3px, transparent 3px 7px),
+    color-mix(in oklch, var(--bar) 7%, var(--bg-panel));
+}
+.rm-milestone {
+  background: var(--bar);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--bar) 60%, transparent);
+}
+.rm-milestone[data-done] { background: color-mix(in oklch, var(--bar) 35%, var(--bg-panel)); }
+
 /* Скелет-заглушка (round4 §1): серый плейсхолдер с бегущим бликом.
    Уважает prefers-reduced-motion — без анимации, просто ровная заливка. */
 .skeleton {

@@ -120,6 +120,19 @@
 | `name` | string | необязательное; длина 1…80 |
 | `ldapGroupDn` | string | необязательное, может быть null; длина 1…1024 |
 
+### DependencyCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `sourceProjectId` | string (uuid) |  |
+
+### DependencyParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `projectId` | string (uuid) |  |
+| `sourceProjectId` | string (uuid) |  |
+
 ### DismissNotificationsBody
 
 | Поле | Тип | Замечания |
@@ -299,6 +312,27 @@
 |---|---|---|
 | `userId` | string (uuid) |  |
 
+### MilestoneCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…80 |
+| `date` | string |  |
+
+### MilestoneParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `projectId` | string (uuid) |  |
+| `milestoneId` | string (uuid) |  |
+
+### MilestonePatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | необязательное; длина 1…80 |
+| `date` | string | необязательное |
+
 ### MoveToSprintBody
 
 | Поле | Тип | Замечания |
@@ -367,6 +401,13 @@
 | `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное, может быть null |
 | `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null |
 | `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null |
+
+### ProjectRoadmapBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `startDate` | string | необязательное, может быть null |
+| `targetDate` | string | необязательное, может быть null |
 
 ### ProjectTemplateParams
 
@@ -772,6 +813,14 @@
 | `notifyPrefs` | object |  |
 | `favoriteProjectIds` | array&lt;string&gt; |  |
 
+### MilestoneDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `date` | string |  |
+
 ### NotificationDto
 
 | Поле | Тип | Замечания |
@@ -946,6 +995,31 @@
 | `overdue` | number |  |
 | `avgLeadDays` | number | может быть null |
 | `medianLeadDays` | number | может быть null |
+
+### RoadmapDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `projects` | array&lt;object&gt; |  |
+| `dependencies` | array&lt;object&gt; |  |
+
+### RoadmapProjectDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `key` | string |  |
+| `name` | string |  |
+| `departmentId` | string |  |
+| `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | может быть null |
+| `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | может быть null |
+| `createdAt` | string |  |
+| `startDate` | string | может быть null |
+| `targetDate` | string | может быть null |
+| `done` | number |  |
+| `total` | number |  |
+| `milestones` | array&lt;object&gt; |  |
+| `canEdit` | boolean |  |
 
 ### SafeUser
 

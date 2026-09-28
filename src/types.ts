@@ -309,6 +309,8 @@ export type ViewId =
   | "sprints"
   | "timeline"
   | "reports"
+  /** Роадмап проектов (ТЗ 5.15) — без проекта, по всем видимым. */
+  | "roadmap"
   /** Три дома настроек (ADR-0013 §2, ТЗ 5.9); подраздел — `ui.section`. */
   | "settings"
   | "projectSettings"

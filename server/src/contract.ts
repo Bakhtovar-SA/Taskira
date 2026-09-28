@@ -92,6 +92,9 @@ const oneLine = (max: number, min = 0, minMsg?: string) =>
     .min(min, minMsg)
     .max(max)
     .transform((s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim());
+/** Непустая строка в одну линию: `oneLine(max, 1)` проверяет длину до обрезки пробелов, поэтому « » прошла бы
+ *  и сохранилась пустой (или упала бы на CHECK в БД 500-й) — здесь пустота проверяется и после обрезки. */
+const requiredLine = (max: number, msg: string) => oneLine(max, 1, msg).refine((s) => s.length > 0, msg);
 
 const multiLine = (max: number, min = 0, minMsg?: string) =>
   z
@@ -248,6 +251,57 @@ export const ProjectAppearanceBody = z
   .object(projectAppearance)
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+
+/* ---------------- Роадмап проектов (ТЗ 5.15) ---------------- */
+export const ROADMAP_LIMITS = { milestonesPerProject: 30, milestoneName: 80, dependenciesPerProject: 20 } as const;
+
+/** PATCH /api/projects/:projectId/roadmap [perm editRoadmap] — даты начала и цели; null — снять. */
+export const ProjectRoadmapBody = z
+  .object({ startDate: isoDate().nullable(), targetDate: isoDate().nullable() })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+
+/** POST/PATCH /api/projects/:projectId/milestones[/:milestoneId] [perm editRoadmap]. */
+export const MilestoneCreateBody = z.object({
+  name: requiredLine(ROADMAP_LIMITS.milestoneName, "Название вехи не может быть пустым"),
+  date: isoDate(),
+});
+export const MilestonePatchBody = MilestoneCreateBody.partial().refine((v) => Object.keys(v).length > 0, "Пустой патч");
+export const MilestoneParams = z.object({ projectId: uuid, milestoneId: uuid });
+
+/** POST /api/projects/:projectId/dependencies [perm editRoadmap] — проект :projectId ждёт sourceProjectId. */
+export const DependencyCreateBody = z.object({ sourceProjectId: uuid });
+export const DependencyParams = z.object({ projectId: uuid, sourceProjectId: uuid });
+
+export const MilestoneDto = z.object({ id: z.string(), name: z.string(), date: z.string() });
+export type MilestoneDto = z.infer<typeof MilestoneDto>;
+
+/** Строка роадмапа: видимый пользователю проект. Даты — ГГГГ-ММ-ДД; прогресс — все задачи проекта, включая архив
+ *  (архив — закрытые, они и есть сделанная работа). */
+export const RoadmapProjectDto = z.object({
+  id: z.string(),
+  key: z.string(),
+  name: z.string(),
+  departmentId: z.string(),
+  icon: z.enum(PROJECT_ICONS).nullable(),
+  color: z.enum(PROJECT_COLORS).nullable(),
+  createdAt: z.string(),
+  startDate: z.string().nullable(),
+  targetDate: z.string().nullable(),
+  done: z.number(),
+  total: z.number(),
+  milestones: z.array(MilestoneDto),
+  /** Право editRoadmap в этом проекте у текущего пользователя. */
+  canEdit: z.boolean(),
+});
+export type RoadmapProjectDto = z.infer<typeof RoadmapProjectDto>;
+
+/** GET /api/roadmap — проекты, видимые пользователю, и зависимости между ними (обе стороны видимы). */
+export const RoadmapDto = z.object({
+  projects: z.array(RoadmapProjectDto),
+  dependencies: z.array(z.object({ sourceId: z.string(), dependentId: z.string() })),
+});
+export type RoadmapDto = z.infer<typeof RoadmapDto>;
 
 /** Исполнители (миграция 025, issue_assignees) — плоский список без иерархии,
  *  без дублей. Пустой массив = не назначен (эквивалент старого assigneeId: null). */
@@ -1229,7 +1283,7 @@ export type BrandDto = z.infer<typeof BrandDto>;
 /** PATCH /api/admin/brand [global admin]. null — вернуть как было (Taskira / 288). */
 export const BrandPatchBody = z
   .object({
-    name: oneLine(60, 1, "Название не может быть пустым").nullable(),
+    name: requiredLine(60, "Название не может быть пустым").nullable(),
     hue: z.number().int().min(BRAND_HUE.min, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).max(BRAND_HUE.max, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).nullable(),
   })
   .partial()

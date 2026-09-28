@@ -13,9 +13,11 @@ import { Button, Dialog, EmptyState, Input, Switch, Textarea } from "../../ds";
 import { IcArchive, IcTrash } from "../../icons";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 import { BackgroundPicker, ColorPicker, IconPicker } from "../ProjectLookPicker";
+import { ProjectRoadmap } from "./ProjectRoadmap";
 
 export function ProjectSection({ section }: { section: string }) {
   if (section === "appearance") return <Appearance />;
+  if (section === "roadmap") return <ProjectRoadmap />;
   if (section === "modules") return <Modules />;
   if (section === "archive") return <Archive />;
   return <General />;

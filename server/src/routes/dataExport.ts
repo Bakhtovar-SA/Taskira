@@ -78,7 +78,9 @@ const KEYED_TABLES: KeyedTable[] = [
       "avatar_content_type", "avatar_updated_at",
     ],
   },
-  { type: "project", table: "projects", columns: ["id", "key", "name", "description", "created_at", "department_id", "is_shared", "sprints_enabled", "default_view", "suggested_labels", "icon", "color", "background", "bg_photo_driver", "bg_photo_key", "bg_photo_small_key", "bg_photo_luma", "bg_photo_updated_at"] },
+  { type: "project", table: "projects", columns: ["id", "key", "name", "description", "created_at", "department_id", "is_shared", "sprints_enabled", "default_view", "suggested_labels", "icon", "color", "background", "bg_photo_driver", "bg_photo_key", "bg_photo_small_key", "bg_photo_luma", "bg_photo_updated_at", "start_date", "target_date"] },
+  // ТЗ 5.15: вехи роадмапа (зависимости между проектами — составной ключ, ниже в OFFSET_TABLES).
+  { type: "projectMilestone", table: "project_milestones", columns: ["id", "project_id", "name", "date", "position", "created_at"] },
   // ТЗ 5.10: шаблоны проектов организации (встроенные — в репозитории, в экспорт не входят).
   { type: "projectTemplate", table: "project_templates", columns: ["id", "name", "description", "spec", "created_by", "created_at"] },
   { type: "workflowStatus", table: "workflow_statuses", columns: ["id", "project_id", "sid", "name", "category", "position"] },
@@ -119,6 +121,7 @@ const OFFSET_TABLES: OffsetTable[] = [
   { type: "projectMember", table: "project_members", columns: ["project_id", "user_id", "role", "added_at"], orderBy: "project_id, user_id" },
   { type: "issueAssignee", table: "issue_assignees", columns: ["issue_id", "user_id", "added_by", "added_at"], orderBy: "issue_id, user_id" },
   { type: "issueCollaborator", table: "issue_collaborators", columns: ["issue_id", "user_id", "added_by", "added_at"], orderBy: "issue_id, user_id" },
+  { type: "projectDependency", table: "project_dependencies", columns: ["source_project_id", "dependent_project_id", "created_at"], orderBy: "source_project_id, dependent_project_id" },
 ];
 
 // Имена таблиц/колонок здесь — фиксированный список констант в этом файле,

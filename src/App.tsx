@@ -25,6 +25,7 @@ const Backlog = lazy(() => import("./components/Backlog"));
 const SprintsView = lazy(() => import("./components/SprintsView"));
 const TimelineView = lazy(() => import("./components/TimelineView"));
 const ReportsView = lazy(() => import("./components/ReportsView"));
+const RoadmapView = lazy(() => import("./components/RoadmapView"));
 // Три дома настроек (ТЗ 5.9): «Процесс», «Доступ», «Отделы и проекты» и новые страницы — внутри.
 const SettingsView = lazy(() => import("./components/settings/SettingsView"));
 // Мастер создания проекта (ТЗ 5.10) — свой чанк, только для администраторов.
@@ -303,6 +304,7 @@ function Shell() {
             {ui.view === "sprints" && <SprintsView />}
             {ui.view === "timeline" && <TimelineView />}
             {ui.view === "reports" && <ReportsView />}
+            {ui.view === "roadmap" && <RoadmapView />}
             {isSettingsHome(ui.view) && <SettingsView />}
             {ui.view === "docs" && <DocsView />}
             {ui.view === "collaborating" && <CollaboratingView />}

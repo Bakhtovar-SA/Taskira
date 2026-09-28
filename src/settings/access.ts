@@ -6,7 +6,7 @@
  *    /projects/:id — requireGlobalAdmin); «Процесс», «Поля», «Шаблоны», «Доступ» — любому участнику
  *    проекта, как и раньше экраны «Рабочий процесс» и «Права доступа»: без `editWorkflow` /
  *    `manageAccess` они только для чтения, правка по-прежнему закрыта. «Внешний вид» — любому участнику, менять —
- *    с `editAppearance` (ТЗ 5.14 п.7).
+ *    с `editAppearance` (ТЗ 5.14 п.7). «Сроки и вехи» — любому участнику, менять — с `editRoadmap` (ТЗ 5.15).
  *  - Организация — глобальный администратор. */
 import { SETTINGS_SECTIONS, type SettingsHome } from "./sections";
 
@@ -17,7 +17,7 @@ const ADMIN_ONLY_PROJECT = new Set(["general", "modules", "archive"]);
 /** Разделы, чьи страницы уже готовы (ТЗ 5.9 идёт по шагам); остальные появятся в навигации вместе со страницей. */
 const READY: Record<SettingsHome, Set<string>> = {
   settings: new Set(["profile", "notifications", "appearance", "language"]),
-  projectSettings: new Set(["general", "appearance", "workflow", "fields", "templates", "access", "modules", "archive"]),
+  projectSettings: new Set(["general", "appearance", "roadmap", "workflow", "fields", "templates", "access", "modules", "archive"]),
   orgSettings: new Set(["setup", "users", "departments", "project-templates", "brand", "ldap", "license", "export", "audit", "maintenance", "health"]),
 };
 

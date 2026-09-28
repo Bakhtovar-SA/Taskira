@@ -1,30 +1,38 @@
 /** Холст шкалы времени (ТЗ 5.12 f): сетка делений, линия «сегодня» и липкая стеклянная шапка из двух рядов.
  *  Строки — children, позиционируются теми же x из `TimeScale`. Общий для Таймлайна направлений и роадмапа
  *  проектов (ТЗ 5.15). Позиции — CSS-переменные через CSSOM (`cssVars`), не inline style. */
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { cssVars } from "../cssVars";
 import type { Tick, TimeScale } from "../timeScale";
 
 /** Поле слева от начала шкалы — чтобы подпись строки у края не липла к рамке. */
 export const TIME_PAD = 24;
 
-export function TimeCanvas({
-  scale,
-  ticks,
-  today,
-  children,
-}: {
+type FrameProps = {
   scale: TimeScale;
   ticks: { major: Tick[]; minor: Tick[] };
   /** x центра сегодняшнего дня на шкале и подпись; null — сегодня вне шкалы. */
   today: { x: number; label: string } | null;
-  children: ReactNode;
-}) {
+};
+
+export function TimeCanvas({ scale, ticks, today, children }: FrameProps & { children: ReactNode }) {
+  return (
+    <div className="relative min-h-full w-[var(--canvas-w)]" ref={cssVars({ "--canvas-w": TIME_PAD + scale.width + 48 })}>
+      <Frame ticks={ticks} today={today} />
+      {children}
+    </div>
+  );
+}
+
+/** Сетка, «сегодня» и шапка — memo: строки под ними (children) меняются чаще (прокрутка роадмапа рисует только
+ *  видимые строки), а делений сотни — их перерисовка на каждый шаг прокрутки стоила кадров. Вызывающий держит
+ *  ticks и today стабильными (useMemo). */
+const Frame = memo(function Frame({ ticks, today }: Omit<FrameProps, "scale">) {
   const todayAt = today ? TIME_PAD + today.x : -1;
   // Подпись первого крупного деления не прячется под плашкой «сегодня».
   const firstMajorAt = (t: Tick) => (t.x === 0 && today && today.x < 80 ? Math.max(6, today.x + 34) : 6);
   return (
-    <div className="relative min-h-full w-[var(--canvas-w)]" ref={cssVars({ "--canvas-w": TIME_PAD + scale.width + 48 })}>
+    <>
       <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 left-[24px]">
         {ticks.minor.map((t) => t.x > 0 && <span key={`n${t.x}`} ref={cssVars({ "--x": t.x })} className="time-line absolute inset-y-0 left-[var(--x)]" />)}
         {ticks.major.map((t) => t.x > 0 && <span key={`j${t.x}`} ref={cssVars({ "--x": t.x })} className="absolute inset-y-0 left-[var(--x)] border-l border-dashed border-line" />)}
@@ -66,7 +74,6 @@ export function TimeCanvas({
           )}
         </div>
       </div>
-      {children}
-    </div>
+    </>
   );
-}
+});
