@@ -316,6 +316,22 @@ describe("bootstrap — ТЗ 5.12 a: ui.missing на несуществующу�
     expect(get().ui.missing).toBeNull();
     expect(get().ui.view).toBe("backlog");
   });
+
+  test("«На главную» и вход в проект (goHome / enterProject / switchProject) сбрасывают ui.missing (ревью PR #93)", async () => {
+    history.pushState(null, "", "/p/NOPE/board");
+    install();
+    const get = mount();
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    expect(get().ui.missing).toBe("/p/NOPE/board");
+    act(() => get().goHome());
+    expect(get().ui.missing).toBeNull();
+    // Снова «не найдено», затем вход в уже открытый проект — ветка enterProject без переключения.
+    act(() => get().showMissing("/p/NOPE/board"));
+    expect(get().ui.missing).toBe("/p/NOPE/board");
+    act(() => get().enterProject(get().data.currentProjectId));
+    expect(get().ui.missing).toBeNull();
+  });
 });
 
 describe("enterProject / goHome / logout / refresh*", () => {

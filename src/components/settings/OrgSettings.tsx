@@ -759,7 +759,7 @@ function Brand() {
     <SettingsPage title={t("settings.org.brand")} desc={t("settings.desc.brand")}>
       <SettingsCard>
         <div className="px-5 py-4">
-          <Input label={t("brand.name")} hint={t("brand.nameHint")} value={name} placeholder={DEFAULT_BRAND_NAME} maxLength={60} onChange={(e) => setName(e.target.value)} />
+          <Input label={t("brand.name")} hint={t("brand.nameHint")} value={name} placeholder={DEFAULT_BRAND_NAME} maxLength={LIMITS.brand.name.max} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="flex flex-col gap-3 px-5 py-4">
           <div className="flex items-baseline justify-between gap-3">

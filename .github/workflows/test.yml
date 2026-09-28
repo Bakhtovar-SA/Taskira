@@ -407,8 +407,9 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.ldap.yml logs openldap
 
-  # Отдельный job: драйвер вложений STORAGE_DRIVER=s3 против НАСТОЯЩЕГО MinIO
-  # (не заглушки). Основной `server` job идёт в STORAGE_DRIVER=local.
+  # Отдельный job: драйвер вложений STORAGE_DRIVER=s3 против НАСТОЯЩЕГО S3-сервера
+  # (SeaweedFS, не заглушки; образы MinIO с 28.09.2026 недоступны без авторизации —
+  # см. server/docker-compose.storage.yml). Основной `server` job идёт в STORAGE_DRIVER=local.
   storage-s3:
     runs-on: ubuntu-latest
 
@@ -454,7 +455,7 @@ jobs:
       - run: npm ci
       - run: npm rebuild esbuild
 
-      - name: Start MinIO + create bucket
+      - name: Start S3 (SeaweedFS) + create bucket
         run: docker compose -f docker-compose.storage.yml up -d
 
       - name: Wait for bucket (createbucket exits 0)
@@ -465,9 +466,9 @@ jobs:
 
       - run: npm run test:storage
 
-      - name: MinIO logs
+      - name: S3 server logs
         if: always()
-        run: docker compose -f docker-compose.storage.yml logs minio
+        run: docker compose -f docker-compose.storage.yml logs s3
 
   # Отдельный job: email-воркер уведомлений против НАСТОЯЩЕГО SMTP (Mailpit).
   # Основной `server` job идёт с NOTIFY_EMAIL_ENABLED unset — воркер не стартует.

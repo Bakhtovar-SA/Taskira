@@ -50,7 +50,13 @@ describe("parsePath", () => {
     expect(parsePath("/p/CORP/workflow")).toEqual({ kind: "view", projectKey: "CORP", view: "projectSettings", section: "workflow" });
     expect(parsePath("/p/CORP/settings/workflow")).toEqual({ kind: "view", projectKey: "CORP", view: "projectSettings", section: "workflow" });
     expect(parsePath("/p/CORP/settings")).toEqual({ kind: "view", projectKey: "CORP", view: "projectSettings", section: "general" });
-    expect(parsePath("/p/CORP/admin")).toEqual({ kind: "view", projectKey: "CORP", view: "orgSettings", section: "departments" });
+    // Разделы без проекта по старому адресу — та же форма, что у нового (ревью PR #93): без ключа проекта.
+    expect(parsePath("/p/CORP/admin")).toEqual({ kind: "global", view: "orgSettings", section: "departments" });
+    expect(parsePath("/p/CORP/docs")).toEqual({ kind: "global", view: "docs" });
+    expect(parsePath("/p/OLD/collaborating")).toEqual({ kind: "global", view: "collaborating" });
+    expect(samePlace("/p/CORP/docs", "/help")).toBe(true);
+    expect(samePlace("/p/CORP/admin", "/admin/departments")).toBe(true);
+    expect(samePlace("/p/OLD/collaborating", "/shared")).toBe(true);
     expect(parsePath("/p/CORP/settings/nonsense")).toEqual({ kind: "root" });
     expect(samePlace("/p/CORP/backlog", "/p/CORP/list")).toBe(true);
     expect(samePlace("/p/CORP/access", "/p/CORP/settings/access")).toBe(true);

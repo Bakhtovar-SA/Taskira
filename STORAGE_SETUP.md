@@ -3,8 +3,9 @@
 Эксплуатационная инструкция: как перевести сервер с локального диска
 (`STORAGE_DRIVER=local`) на S3-совместимое объектное хранилище
 (`STORAGE_DRIVER=s3`) — MinIO, Ceph RGW, любой S3 API. Проектные решения — в
-[FILES_MIGRATION.md](FILES_MIGRATION.md) (§3, D1–D6). Локальный тестовый MinIO —
-[server/docker-compose.storage.yml](server/docker-compose.storage.yml).
+[FILES_MIGRATION.md](FILES_MIGRATION.md) (§3, D1–D6). Локальный тестовый S3 —
+[server/docker-compose.storage.yml](server/docker-compose.storage.yml) (с 28.09.2026 — SeaweedFS: образы
+MinIO перестали скачиваться без авторизации; для кода сервера это тот же S3 API).
 
 > Разработка велась против **MinIO** — «большого» AWS S3 в контуре не было.
 > Отличия отмечены по тексту; §9 — краткая таблица `local` ↔ `s3`.
@@ -100,7 +101,7 @@ curl -sf -X POST "http://localhost:8080/api/projects/$PID/issues/$ISS/attachment
 mc ls --recursive local/taskira-attachments
 ```
 
-CI-job `storage-s3` (`.github/workflows/test.yml`) поднимает MinIO из
+CI-job `storage-s3` (`.github/workflows/test.yml`) поднимает S3-сервер (SeaweedFS) из
 `docker-compose.storage.yml` и гоняет `npm run test:storage` —
 `access.attachments.test.ts` (роут+драйвер) + `storage.s3.test.ts`
 (специфика протокола S3: ETag однокусочного PUT = MD5 тела; большой объект →

@@ -104,6 +104,11 @@ export const parsePath = (pathname: string): ParsedPath => {
   }
   const mv = pathname.match(RE_VIEW);
   const hit = mv ? SEGMENT_VIEW[dec(mv[2])] : undefined;
+  // Старые /p/KEY/docs, /p/KEY/collaborating, /p/KEY/admin ведут в разделы без проекта (справка, «Мои подключения»,
+  // организация): разбираются так же, как их новые адреса, — без ключа проекта. Иначе ссылка человека, который больше
+  // не видит тот проект, давала ложное «Не найдено», а samePlace() не узнавал в ней тот же раздел (ревью PR #93).
+  if (mv && hit && (hit.view in GLOBAL_PATH || isSettingsHome(hit.view) && hit.view !== "projectSettings"))
+    return hit.section ? { kind: "global", view: hit.view, section: hit.section } : { kind: "global", view: hit.view };
   if (mv && hit) return hit.section ? { kind: "view", projectKey: dec(mv[1]), view: hit.view, section: hit.section } : { kind: "view", projectKey: dec(mv[1]), view: hit.view };
   return { kind: "root" };
 };

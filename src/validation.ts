@@ -33,6 +33,15 @@ export const LIMITS = {
   // Спринты — зеркало server/src/contract.ts (миграция 023, опциональный модуль).
   sprint: { name: { min: 1, max: 120 }, goal: { max: 500 } },
   sprintsPerProject: 200,
+  // Ниже — зеркало server/src/contract.ts (ТЗ 5.10, 5.14, 5.15).
+  // Шаблоны проектов (ТЗ 5.10, миграция 20260927T1000): имя/описание при «Сохранить как шаблон» и размеры спецификации.
+  projectTemplate: { name: { min: 1, max: 80 }, description: { max: 300 }, statusName: { min: 1, max: 60 }, statusesMax: 12, transitionsMax: 80, labelsMax: 30 },
+  // Роадмап (ТЗ 5.15, миграция 20260928T1400).
+  milestone: { name: { min: 1, max: 80 } },
+  milestonesPerProject: 30,
+  projectDependenciesMax: 20,
+  // Брендирование (ТЗ 5.14 п.5).
+  brand: { name: { min: 1, max: 60 } },
 } as const;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };

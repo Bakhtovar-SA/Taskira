@@ -364,8 +364,8 @@ function SaveAsTemplate({ projectId, projectName }: { projectId: string; project
         }
       >
         <div className="flex flex-col gap-4">
-          <Input label={t("settings.project.templateName")} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} error={err ?? undefined} data-autofocus />
-          <Textarea label={t("settings.project.description")} value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxChars={300} />
+          <Input label={t("settings.project.templateName")} value={name} onChange={(e) => setName(e.target.value)} maxLength={LIMITS.projectTemplate.name.max} error={err ?? undefined} data-autofocus />
+          <Textarea label={t("settings.project.description")} value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxChars={LIMITS.projectTemplate.description.max} />
         </div>
       </Dialog>
     </SettingsCard>

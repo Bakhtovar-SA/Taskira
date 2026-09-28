@@ -297,7 +297,8 @@ export function useSessionActions(
           setData(next);
           resetNotifications();
           writeLastProject(projectId);
-          setUi((u) => ({ ...u, selectedIssueId: null }));
+          // Проект открылся — прежнее «Не найдено» (ui.missing) больше не про текущее место (ревью PR #93).
+          setUi((u) => ({ ...u, selectedIssueId: null, missing: null }));
           setBootStatus("ready");
         } catch (err) {
           if (seq !== switchSeqRef.current || epoch !== sessionEpochRef.current) return;
@@ -329,7 +330,7 @@ export function useSessionActions(
   /** Вернуться на главный экран из проекта (UI_RESTRUCTURE.md D4). Проект не
    *  выгружаем — `<HomeView>` показывается поверх; данные «Моих задач» освежаем. */
   const goHome = useCallback(() => {
-    setUi((u) => ({ ...u, selectedIssueId: null, createOpen: false }));
+    setUi((u) => ({ ...u, selectedIssueId: null, createOpen: false, missing: null }));
     setBootStatus("home");
     void refreshAssignedToMe();
     void refreshNotifications();
@@ -342,6 +343,7 @@ export function useSessionActions(
       const cur = dataRef.current;
       if (!cur.projects.some((p) => p.id === projectId)) return;
       if (projectId === cur.currentProjectId) {
+        setUi((u) => (u.missing ? { ...u, missing: null } : u));
         setBootStatus("ready");
       } else {
         switchProject(projectId);

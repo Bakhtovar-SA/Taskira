@@ -67,6 +67,14 @@ export const LIMITS = {
   // защита от случайного/злонамеренного выделения «вообще всего проекта»
   // одним кликом и от запроса, который блокирует БД на непредсказуемое время.
   bulkIssuesMax: 100,
+  // Шаблоны проектов (ТЗ 5.10, миграция 20260927T1000): имя/описание при «Сохранить как шаблон» и размеры спецификации.
+  projectTemplate: { name: { min: 1, max: 80 }, description: { max: 300 }, statusName: { min: 1, max: 60 }, statusesMax: 12, transitionsMax: 80, labelsMax: 30 },
+  // Роадмап (ТЗ 5.15, миграция 20260928T1400).
+  milestone: { name: { min: 1, max: 80 } },
+  milestonesPerProject: 30,
+  projectDependenciesMax: 20,
+  // Брендирование (ТЗ 5.14 п.5).
+  brand: { name: { min: 1, max: 60 } },
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -253,7 +261,6 @@ export const ProjectAppearanceBody = z
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
 
 /* ---------------- Роадмап проектов (ТЗ 5.15) ---------------- */
-export const ROADMAP_LIMITS = { milestonesPerProject: 30, milestoneName: 80, dependenciesPerProject: 20 } as const;
 
 /** PATCH /api/projects/:projectId/roadmap [perm editRoadmap] — даты начала и цели; null — снять. */
 export const ProjectRoadmapBody = z
@@ -263,7 +270,7 @@ export const ProjectRoadmapBody = z
 
 /** POST/PATCH /api/projects/:projectId/milestones[/:milestoneId] [perm editRoadmap]. */
 export const MilestoneCreateBody = z.object({
-  name: requiredLine(ROADMAP_LIMITS.milestoneName, "Название вехи не может быть пустым"),
+  name: requiredLine(LIMITS.milestone.name.max, "Название вехи не может быть пустым"),
   date: isoDate(),
 });
 export const MilestonePatchBody = MilestoneCreateBody.partial().refine((v) => Object.keys(v).length > 0, "Пустой патч");
@@ -1185,17 +1192,17 @@ const statusSid = z.string().regex(/^[a-z][a-z0-9_]{1,31}$/, "sid: латини�
 export const ProjectTemplateSpec = z
   .object({
     statuses: z
-      .array(z.object({ sid: statusSid, name: oneLine(60, 1), category: z.enum(STATUS_CATEGORIES) }))
+      .array(z.object({ sid: statusSid, name: oneLine(LIMITS.projectTemplate.statusName.max, LIMITS.projectTemplate.statusName.min), category: z.enum(STATUS_CATEGORIES) }))
       .min(2)
-      .max(12),
-    transitions: z.array(z.tuple([statusSid, statusSid])).max(80),
+      .max(LIMITS.projectTemplate.statusesMax),
+    transitions: z.array(z.tuple([statusSid, statusSid])).max(LIMITS.projectTemplate.transitionsMax),
     customFields: z.array(CustomFieldCreateBody).max(LIMITS.customFieldsPerProject).default([]),
     issueTemplates: z
       .array(IssueTemplateBody.omit({ statusId: true }).extend({ statusSid: statusSid.nullable().default(null) }))
       .max(LIMITS.issueTemplatesPerProject)
       .default([]),
     defaultView: z.enum(PROJECT_DEFAULT_VIEWS).default("board"),
-    labels: z.array(oneLine(LIMITS.label.max, 1)).max(30).default([]),
+    labels: z.array(oneLine(LIMITS.label.max, 1)).max(LIMITS.projectTemplate.labelsMax).default([]),
     sprintsEnabled: z.boolean().default(false),
     /** Иконка, которую мастер предлагает для проекта из этого шаблона. */
     icon: z.enum(PROJECT_ICONS).optional(),
@@ -1232,8 +1239,8 @@ export type ProjectTemplateDto = z.infer<typeof ProjectTemplateDto>;
 
 /** POST /api/projects/:projectId/save-as-template [saveProjectTemplate] */
 export const SaveProjectTemplateBody = z.object({
-  name: oneLine(80, 1, "Название шаблона не может быть пустым"),
-  description: multiLine(300).default(""),
+  name: requiredLine(LIMITS.projectTemplate.name.max, "Название шаблона не может быть пустым"),
+  description: multiLine(LIMITS.projectTemplate.description.max).default(""),
 });
 export const ProjectTemplateParams = z.object({ templateId: uuid });
 
@@ -1286,7 +1293,7 @@ export type BrandDto = z.infer<typeof BrandDto>;
 /** PATCH /api/admin/brand [global admin]. null — вернуть как было (Taskira / 288). */
 export const BrandPatchBody = z
   .object({
-    name: requiredLine(60, "Название не может быть пустым").nullable(),
+    name: requiredLine(LIMITS.brand.name.max, "Название не может быть пустым").nullable(),
     hue: z.number().int().min(BRAND_HUE.min, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).max(BRAND_HUE.max, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).nullable(),
   })
   .partial()

@@ -8,7 +8,7 @@
 import { q, one, withTransaction } from "../db.js";
 import { ApiHttpError } from "../errors.js";
 import { roleHas, type AccessRole, type ProjectRole } from "../permissions.js";
-import { ROADMAP_LIMITS, type MilestoneDto, type RoadmapDto, type RoadmapProjectDto } from "../contract.js";
+import { LIMITS, type MilestoneDto, type RoadmapDto, type RoadmapProjectDto } from "../contract.js";
 
 const DEPS_LOCK = "taskira:project_dependencies";
 
@@ -110,8 +110,8 @@ export async function addMilestone(projectId: string, m: { name: string; date: s
     // Блокировка строки проекта сериализует конкурентные добавления — лимит не перепрыгнуть вдвоём.
     await c.query(`SELECT 1 FROM projects WHERE id = $1 FOR UPDATE`, [projectId]);
     const n = await c.query<{ n: number }>(`SELECT count(*)::int AS n FROM project_milestones WHERE project_id = $1`, [projectId]);
-    if ((n.rows[0]?.n ?? 0) >= ROADMAP_LIMITS.milestonesPerProject)
-      throw new ApiHttpError(409, "LIMIT", `Не больше ${ROADMAP_LIMITS.milestonesPerProject} вех у проекта`);
+    if ((n.rows[0]?.n ?? 0) >= LIMITS.milestonesPerProject)
+      throw new ApiHttpError(409, "LIMIT", `Не больше ${LIMITS.milestonesPerProject} вех у проекта`);
     const r = await c.query<MilestoneDto>(
       `INSERT INTO project_milestones (project_id, name, date, position)
        VALUES ($1, $2, $3::date, COALESCE((SELECT MAX(position) + 1 FROM project_milestones WHERE project_id = $1), 0))
@@ -152,8 +152,8 @@ export async function addDependency(dependentId: string, sourceId: string): Prom
     const exists = await c.query(`SELECT 1 FROM project_dependencies WHERE source_project_id = $1 AND dependent_project_id = $2`, [sourceId, dependentId]);
     if (exists.rows.length) return "exists";
     const n = await c.query<{ n: number }>(`SELECT count(*)::int AS n FROM project_dependencies WHERE dependent_project_id = $1`, [dependentId]);
-    if ((n.rows[0]?.n ?? 0) >= ROADMAP_LIMITS.dependenciesPerProject)
-      throw new ApiHttpError(409, "LIMIT", `Не больше ${ROADMAP_LIMITS.dependenciesPerProject} зависимостей у проекта`);
+    if ((n.rows[0]?.n ?? 0) >= LIMITS.projectDependenciesMax)
+      throw new ApiHttpError(409, "LIMIT", `Не больше ${LIMITS.projectDependenciesMax} зависимостей у проекта`);
     // Новое ребро source → dependent замыкает цикл, если из dependent уже можно дойти до source.
     const cycle = await c.query(
       `WITH RECURSIVE reach(id) AS (

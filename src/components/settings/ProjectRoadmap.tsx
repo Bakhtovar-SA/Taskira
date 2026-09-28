@@ -10,6 +10,7 @@ import { Button, Combobox, DatePicker, EmptyState, Input } from "../../ds";
 import { IcFlag, IcPlus, IcTrash } from "../../icons";
 import { ProjectMark } from "../../ui";
 import { parseDay } from "../../roadmapLayout";
+import { LIMITS } from "../../validation";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 
 export function ProjectRoadmap() {
@@ -116,7 +117,7 @@ export function ProjectRoadmap() {
             }}
           >
             <div className="min-w-0 flex-1">
-              <Input label={t("roadmap.milestoneName")} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
+              <Input label={t("roadmap.milestoneName")} value={name} maxLength={LIMITS.milestone.name.max} onChange={(e) => setName(e.target.value)} />
             </div>
             <DatePicker markOverdue={false} label={t("roadmap.milestoneDate")} lang={lang} value={date} placeholder={t("roadmap.pickDate")} clearLabel={t("roadmap.clearDate")} onChange={setDate} />
             <Button type="submit" variant="secondary" iconLeft={<IcPlus size={13} />} disabled={!name.trim() || !date} loading={busy}>
