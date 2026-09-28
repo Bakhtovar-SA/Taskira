@@ -820,6 +820,7 @@ const ru = {
   "reports.preset.quarter": "Квартал",
   "reports.preset.year": "Год",
   "reports.projectCount": "{count} {noun} в отчёте",
+  "reports.period": "Период",
   "reports.from": "с",
   "reports.to": "по",
   "reports.project": "Проект",

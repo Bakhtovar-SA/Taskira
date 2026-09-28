@@ -819,6 +819,7 @@ const en: Record<keyof Dict, string> = {
   "reports.preset.quarter": "Quarter",
   "reports.preset.year": "Year",
   "reports.projectCount": "{count} {noun} in the report",
+  "reports.period": "Period",
   "reports.from": "from",
   "reports.to": "to",
   "reports.project": "Project",

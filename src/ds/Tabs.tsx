@@ -38,7 +38,8 @@ export function Tabs<T extends string>({
             role="tab"
             aria-selected={on}
             aria-disabled={it.disabled || undefined}
-            tabIndex={on ? 0 : -1}
+            // Ни одна не выбрана (например, свой период в Отчётах) — в вкладки всё равно можно попасть Tab'ом.
+            tabIndex={on || (i === 0 && !items.some((x) => x.id === value)) ? 0 : -1}
             data-force={force?.id === it.id ? force.state : undefined}
             className="ds-tab ds-focus"
             onClick={() => !it.disabled && onChange(it.id)}
