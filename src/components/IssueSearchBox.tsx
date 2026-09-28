@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { useIssueSearch } from "../issueSearch";
 import { useT } from "../i18n";
@@ -23,9 +23,12 @@ export default function IssueSearchBox({
   ariaLabel,
   placeholder,
   autoFocus,
+  accept,
 }: {
   onPick: (issue: Issue) => void;
   excludeIds?: readonly string[];
+  /** Дополнительное правило выбора (например, родителем может быть только задача без родителя). */
+  accept?: (issue: Issue) => boolean;
   ariaLabel: string;
   placeholder?: string;
   autoFocus?: boolean;
@@ -36,7 +39,8 @@ export default function IssueSearchBox({
   const [active, setActive] = useState(0);
   const listId = useId();
   const search = useIssueSearch(data.currentProjectId || null, text, { excludeIds });
-  const { results, status, isRecent, term } = search;
+  const { status, isRecent, term } = search;
+  const results = useMemo(() => (accept ? search.results.filter(accept) : search.results), [search.results, accept]);
 
   useEffect(() => setActive(0), [results]);
 

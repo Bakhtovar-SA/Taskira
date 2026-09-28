@@ -81,6 +81,9 @@ export function MentionText({ text }: { text: string }) {
   );
 }
 
+/** Родителем может быть только задача без своего родителя — не больше двух уровней. */
+const canBeParent = (i: Issue) => !i.parentId;
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -1224,6 +1227,52 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                   ) : (
                     <span className="text-faint">{t("createIssue.noDirection")}</span>
                   )}
+                </LockedField>
+              )}
+            </Field>
+          )}
+
+          {/* Родитель (миграция 021, два уровня): сменить, снять или сделать задачу подзадачей.
+              Задача со своими подзадачами сама подзадачей стать не может — поле тогда не показываем. */}
+          {(issue.parentId || (editOk && (issue.subtasksSummary?.total ?? 0) === 0)) && (
+            <Field label={t("issue.parent")}>
+              {editOk ? (
+                <Dropdown
+                  width={300}
+                  button={(open) => (
+                    <button className={`${selectCls} ${open ? "border-accent" : ""}`} aria-label={t("issue.parent")}>
+                      {issue.parentId && parentIssue ? (
+                        <>
+                          <span className="shrink-0 font-mono text-[11px] font-semibold text-faint">{parentIssue.key}</span>
+                          <span className="truncate">{parentIssue.title}</span>
+                        </>
+                      ) : (
+                        <span className="text-faint">{t("issue.noParent")}</span>
+                      )}
+                      <IcChevD size={12} className="ml-auto shrink-0 text-faint" />
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <>
+                      {issue.parentId && (
+                        <MenuItem onClick={() => { updateIssue(issue.id, { parentId: null }); close(); }}>{t("issue.removeParent")}</MenuItem>
+                      )}
+                      <div className={issue.parentId ? "mt-1 border-t border-linesoft pt-1.5" : ""}>
+                        <IssueSearchBox
+                          autoFocus
+                          ariaLabel={t("issue.searchParent")}
+                          excludeIds={issue.parentId ? [issue.id, issue.parentId] : [issue.id]}
+                          accept={canBeParent}
+                          onPick={(p) => { updateIssue(issue.id, { parentId: p.id }); close(); }}
+                        />
+                      </div>
+                    </>
+                  )}
+                </Dropdown>
+              ) : (
+                <LockedField reason={denyMsg}>
+                  {parentIssue ? `${parentIssue.key} · ${parentIssue.title}` : <span className="text-faint">{t("issue.noParent")}</span>}
                 </LockedField>
               )}
             </Field>
