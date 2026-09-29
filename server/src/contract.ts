@@ -75,6 +75,10 @@ export const LIMITS = {
   projectDependenciesMax: 20,
   // Брендирование (ТЗ 5.14 п.5).
   brand: { name: { min: 1, max: 60 } },
+  // Дашборды (ADR-0022, миграция 20260929T1000).
+  dashboard: { name: { min: 1, max: 80 }, widgetTitle: { max: 60 } },
+  widgetsPerDashboard: 24,
+  dashboardsPerUser: 20,
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -1303,3 +1307,112 @@ export const BrandPatchBody = z
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+
+/* ---------------- Дашборды (ADR-0022) ---------------- */
+/** Сетка — 12 колонок; высота виджета — в строках сетки. */
+export const DASHBOARD_GRID = { cols: 12, maxRows: 200, minH: 1, maxH: 8 } as const;
+export const WIDGET_TYPES = ["count", "breakdown", "trend", "issues", "workload", "progress", "activity"] as const;
+export type WidgetType = (typeof WIDGET_TYPES)[number];
+/** Число: открытые, просроченные, со сроком в ближайшие 7 дней, без исполнителя, закрытые и созданные за период. */
+export const COUNT_METRICS = ["open", "overdue", "dueSoon", "unassigned", "closed", "created"] as const;
+/** Разбивка открытых задач. */
+export const BREAKDOWN_GROUPS = ["status", "assignee", "priority", "type", "project"] as const;
+/** Готовые списки задач. mine — мои открытые. */
+export const ISSUE_PRESETS = ["mine", "overdue", "dueSoon", "unassigned", "recentlyCreated", "recentlyClosed"] as const;
+export const WIDGET_PERIODS = [7, 14, 30, 90, 180, 365] as const;
+
+const widgetBase = {
+  /** Задаётся клиентом, уникален в пределах дашборда. */
+  id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/, "Некорректный id виджета"),
+  x: z.number().int().min(0).max(DASHBOARD_GRID.cols - 1),
+  y: z.number().int().min(0).max(DASHBOARD_GRID.maxRows),
+  w: z.number().int().min(1).max(DASHBOARD_GRID.cols),
+  h: z.number().int().min(DASHBOARD_GRID.minH).max(DASHBOARD_GRID.maxH),
+  /** Свой заголовок; пусто — заголовок по типу и настройкам. */
+  title: z.string().trim().max(LIMITS.dashboard.widgetTitle.max).optional(),
+  /** Область: проект или отдел; пусто — все видимые проекты. На обзоре проекта сервер подставляет проект сам. */
+  projectId: uuid.optional(),
+  departmentId: uuid.optional(),
+};
+const period = z.union([z.literal(7), z.literal(14), z.literal(30), z.literal(90), z.literal(180), z.literal(365)]);
+
+export const DashboardWidget = z.discriminatedUnion("type", [
+  z.object({ ...widgetBase, type: z.literal("count"), metric: z.enum(COUNT_METRICS), periodDays: period.default(30) }),
+  z.object({ ...widgetBase, type: z.literal("breakdown"), groupBy: z.enum(BREAKDOWN_GROUPS), chart: z.enum(["donut", "bars"]).default("donut") }),
+  z.object({ ...widgetBase, type: z.literal("trend"), periodDays: period.default(90) }),
+  z.object({ ...widgetBase, type: z.literal("issues"), preset: z.enum(ISSUE_PRESETS), limit: z.number().int().min(3).max(20).default(8) }),
+  z.object({ ...widgetBase, type: z.literal("workload"), limit: z.number().int().min(3).max(20).default(8) }),
+  z.object({ ...widgetBase, type: z.literal("progress"), limit: z.number().int().min(3).max(30).default(10) }),
+  z.object({ ...widgetBase, type: z.literal("activity"), limit: z.number().int().min(5).max(30).default(10) }),
+]);
+export type DashboardWidget = z.infer<typeof DashboardWidget>;
+export const DashboardWidgets = z.array(DashboardWidget).max(LIMITS.widgetsPerDashboard, `Не больше ${LIMITS.widgetsPerDashboard} виджетов на дашборде`);
+
+export const DashboardParams = z.object({ dashboardId: uuid });
+/** POST /api/dashboards — новый дашборд уровня организации; shared=true — только глобальный администратор. */
+export const DashboardCreateBody = z.object({
+  name: requiredLine(LIMITS.dashboard.name.max, "Название не может быть пустым"),
+  shared: z.boolean().default(false),
+  widgets: DashboardWidgets.default([]),
+});
+/** PATCH /api/dashboards/:dashboardId — владелец личного или глобальный администратор для общего. */
+export const DashboardPatchBody = z
+  .object({
+    name: requiredLine(LIMITS.dashboard.name.max, "Название не может быть пустым"),
+    shared: z.boolean(),
+    widgets: DashboardWidgets,
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+/** PUT /api/projects/:projectId/overview [manageDashboards] — сохранить обзор проекта. */
+export const ProjectOverviewBody = z.object({ widgets: DashboardWidgets });
+/** POST /api/dashboards/data — данные для набора виджетов (сохранённых или ещё нет). projectId — обзор проекта. */
+export const DashboardDataBody = z.object({ widgets: DashboardWidgets, projectId: uuid.optional() });
+
+export const DashboardDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** personal — личный, org — общий организации, project — обзор проекта. */
+  kind: z.enum(["personal", "org", "project"]),
+  projectId: z.string().nullable(),
+  ownerId: z.string().nullable(),
+  /** Может ли смотрящий править этот дашборд. */
+  canEdit: z.boolean(),
+  widgets: z.array(DashboardWidget),
+  updatedAt: z.string(),
+});
+export type DashboardDto = z.infer<typeof DashboardDto>;
+/** GET /api/projects/:projectId/overview: dashboard=null — обзор не сохранён, показывается встроенный. */
+export const ProjectOverviewDto = z.object({ dashboard: DashboardDto.nullable(), canEdit: z.boolean() });
+export type ProjectOverviewDto = z.infer<typeof ProjectOverviewDto>;
+
+const WidgetIssue = AssignedIssueDto;
+export const WidgetDataDto = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("count"), value: z.number() }),
+  z.object({
+    type: z.literal("breakdown"),
+    total: z.number(),
+    items: z.array(z.object({ key: z.string(), label: z.string(), count: z.number(), category: z.enum(STATUS_CATEGORIES).nullable() })),
+  }),
+  z.object({ type: z.literal("trend"), weeks: z.array(z.object({ week: z.string(), created: z.number(), closed: z.number() })) }),
+  z.object({ type: z.literal("issues"), items: z.array(WidgetIssue), truncated: z.boolean() }),
+  z.object({
+    type: z.literal("workload"),
+    items: z.array(z.object({ userId: z.string(), name: z.string(), initials: z.string(), color: z.string(), overdue: z.number(), dueSoon: z.number(), other: z.number() })),
+  }),
+  z.object({
+    type: z.literal("progress"),
+    items: z.array(z.object({ projectId: z.string(), key: z.string(), name: z.string(), done: z.number(), total: z.number(), overdue: z.number() })),
+  }),
+  z.object({
+    type: z.literal("activity"),
+    items: z.array(
+      z.object({ id: z.string(), issueId: z.string(), issueKey: z.string(), issueTitle: z.string(), projectId: z.string(), actorName: z.string(), text: z.string(), createdAt: z.string() }),
+    ),
+  }),
+  /** Виджет не посчитался — остальные при этом не страдают. */
+  z.object({ type: z.literal("error") }),
+]);
+export type WidgetDataDto = z.infer<typeof WidgetDataDto>;
+export const DashboardDataDto = z.object({ results: z.record(z.string(), WidgetDataDto) });
+export type DashboardDataDto = z.infer<typeof DashboardDataDto>;

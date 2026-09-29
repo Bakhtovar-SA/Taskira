@@ -1022,6 +1022,8 @@ const en: Record<keyof Dict, string> = {
   "permission.editAppearance.desc": "The project's icon, colour and background. Everyone sees the background while the project is open.",
   "permission.editRoadmap.name": "Project dates & milestones",
   "permission.editRoadmap.desc": "Start and target dates, milestones and dependencies on other projects on the roadmap. Everyone who can see the project sees the roadmap.",
+  "permission.manageDashboards.name": "Project overview",
+  "permission.manageDashboards.desc": "Build and change the Overview tab — the project's shared dashboard. All members can view it; everyone sees data within their own access.",
   "access.matrixHint": "* Employees can edit and move only issues where they are the assignee or reporter. Access and workflow management are restricted to resource administrators. Your current role column is highlighted.",
   "access.card.server": "Server enforcement",
   "access.card.serverDesc": "Every operation rechecks the effective role and project membership on the server.",
