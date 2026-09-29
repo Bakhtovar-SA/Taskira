@@ -1,22 +1,17 @@
 /** Импорт из Trello (JSON-экспорт доски — «Меню → Ещё → Печать и экспорт →
  *  Экспортировать как JSON»). Публичный, стабильный, однофайловый формат —
- *  выбран из трёх обсуждавшихся (Trello/Jira/Asana) как единственный, чей
- *  парсер можно честно покрыть тестами на заранее известной схеме без
- *  доступа к реальному экспорту из живого аккаунта. Импорт из Jira/Asana —
- *  свой формат и свой парсер каждый, за рамками этой ветки.
+ *  покрыт тестами на заранее известной схеме без доступа к реальному
+ *  экспорту из живого аккаунта. У Jira и Asana отдельные CSV-парсеры.
  *
  *  Разбор — чистые функции без побочных эффектов: сам импорт (создание
  *  задач через уже существующий POST /issues, со всеми его правами и
  *  валидацией) делает store.importIssues(), не этот модуль. */
 import { LIMITS, sanitizeLabel, sanitizeLine } from "../validation";
+import { sourceLabel, type ImportItem } from "./types";
 
 /** Простой строковый хэш (djb2-подобный) — не криптографический, только
  *  чтобы дать двум разным именам списков разные 4-значные суффиксы. */
-function shortHash(s: string): string {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36).slice(0, 4).padStart(4, "0");
-}
+// The hash-suffixed label implementation is shared with Jira and Asana.
 
 /** Префикс метки списка Trello — LIMITS.label.max (30) на весь префиксованный
  *  ярлык оставляет имени списка лишь ~23 символа. Простое усечение по этому
@@ -27,25 +22,11 @@ function shortHash(s: string): string {
  *  него ещё и хэш-суффикс полного (неусечённого) имени — коллизия остаётся
  *  теоретически возможной (4 base-36 символа), но два конкретных примера из
  *  ревью, различающихся уже после точки усечения, гарантированно расходятся. */
-const TRELLO_LABEL_PREFIX = "trello:";
 function trelloListLabel(listName: string): string {
-  const clean = sanitizeLabel(listName);
-  const budget = Math.max(0, LIMITS.label.max - TRELLO_LABEL_PREFIX.length);
-  if (clean.length <= budget) return `${TRELLO_LABEL_PREFIX}${clean}`;
-  const suffix = `~${shortHash(listName)}`;
-  const nameBudget = Math.max(0, budget - suffix.length);
-  return `${TRELLO_LABEL_PREFIX}${clean.slice(0, nameBudget)}${suffix}`;
+  return sourceLabel("trello", listName);
 }
 
-export interface TrelloImportItem {
-  title: string;
-  description: string;
-  labels: string[];
-  /** YYYY-MM-DD или null. */
-  dueDate: string | null;
-  /** Карточка была архивирована в Trello (поле closed). */
-  closed: boolean;
-}
+export type TrelloImportItem = ImportItem;
 
 export interface TrelloParseResult {
   boardName: string;

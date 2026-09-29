@@ -21,6 +21,11 @@ if (import.meta.env.DEV && location.pathname.replace(/\/$/, "") === "/dev/ui") {
     root.render(<DevUI />);
     dismissSplash();
   });
+} else if (import.meta.env.DEV && location.pathname.replace(/\/$/, "") === "/dev/import") {
+  void import("./dev/ImportPreview").then(({ default: ImportPreview }) => {
+    root.render(<ImportPreview />);
+    dismissSplash();
+  });
 } else {
   // Бренд инсталляции (ТЗ 5.14 п.5): публичный запрос параллельно со стартом — нужен уже экрану входа.
   loadBrand();
