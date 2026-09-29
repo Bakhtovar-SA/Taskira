@@ -3,7 +3,7 @@
  *  перезапрос, показывается прошлый результат (без мигания скелетом); при возвращении во вкладку — обновление, если
  *  данные старше минуты. */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { dashboardsApi, type WidgetDataDto } from "../api";
+import { ApiError, dashboardsApi, type WidgetDataDto } from "../api";
 import type { Widget } from "./catalog";
 
 const STALE_MS = 60_000;
@@ -26,32 +26,63 @@ export function useDashboardData(widgets: Widget[], projectId: string | null, en
   const [tick, setTick] = useState(0);
   const widgetsRef = useRef(widgets);
   widgetsRef.current = widgets;
+  const projectRef = useRef(projectId);
+  projectRef.current = projectId;
   const at = useRef(0);
   const gen = useRef(0);
   const first = useRef(true);
 
+  // Не больше одного запроса в полёте: сервер держит не больше двух расчётов на человека (429 сверх), а правки
+  // настроек подряд иначе наслаивались бы. Новый ключ, пока идёт запрос, — запомнить и повторить после ответа.
+  const busy = useRef(false);
+  const pending = useRef(false);
+  const run = useCallback(
+    (attempt = 0) => {
+      if (busy.current) {
+        pending.current = true;
+        return;
+      }
+      busy.current = true;
+      const my = ++gen.current;
+      setState((s) => ({ ...s, loading: true }));
+      const finish = () => {
+        busy.current = false;
+        if (pending.current) {
+          pending.current = false;
+          run();
+        }
+      };
+      dashboardsApi.data(widgetsRef.current, projectRef.current ?? undefined).then(
+        (r) => {
+          if (gen.current === my) {
+            at.current = Date.now();
+            setState({ results: r.results, loading: false, failed: false });
+          }
+          finish();
+        },
+        (e: unknown) => {
+          busy.current = false;
+          // Сервер занят нашим же предыдущим расчётом — один повтор чуть позже, без ошибки на экране.
+          if (e instanceof ApiError && e.status === 429 && attempt === 0) {
+            window.setTimeout(() => run(1), 1000);
+            return;
+          }
+          if (gen.current === my) setState((s) => ({ ...s, loading: false, failed: true }));
+          finish();
+        },
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!enabled) return;
-    const my = ++gen.current;
-    setState((s) => ({ ...s, loading: true }));
     // Небольшая задержка: правка настроек подряд (заголовок, период) — один запрос, а не серия.
     const delay = first.current ? 0 : 200;
     first.current = false;
-    const timer = window.setTimeout(() => {
-      dashboardsApi.data(widgetsRef.current, projectId ?? undefined).then(
-        (r) => {
-          if (gen.current !== my) return;
-          at.current = Date.now();
-          setState({ results: r.results, loading: false, failed: false });
-        },
-        () => {
-          if (gen.current !== my) return;
-          setState((s) => ({ ...s, loading: false, failed: true }));
-        },
-      );
-    }, delay);
+    const timer = window.setTimeout(() => run(), delay);
     return () => window.clearTimeout(timer);
-  }, [key, tick, enabled, projectId]);
+  }, [key, tick, enabled, projectId, run]);
 
   useEffect(() => {
     const onFocus = () => {

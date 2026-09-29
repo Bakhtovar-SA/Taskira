@@ -12,9 +12,9 @@
  *
  *  Данные виджетов считаются только на проектах из listVisibleProjects() — как в отчётах: общий дашборд не
  *  показывает никому больше, чем тот и так может открыть. */
-import type { FastifyInstance } from "fastify";
+import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import type { z } from "zod";
-import { notFound, requireAuth, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
+import { ApiHttpError, notFound, requireAuth, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
 import { roleCan } from "../permissions.js";
 import { audit } from "../audit.js";
 import {
@@ -45,6 +45,23 @@ import { widgetData } from "../services/dashboardData.js";
 const isAdmin = (u: JwtPayload) => u.globalRole === "admin";
 /** Сколько виджетов одного запроса считаются одновременно (пул по умолчанию — 10 соединений). */
 const WIDGET_CONCURRENCY = 4;
+/** Сколько расчётов данных один человек может вести одновременно. Общий лимит частоты (SEC-03) считает запросы, а
+ *  не их одновременность: без этого пачка параллельных запросов по 4 виджета заняла бы весь пул. Клиент шлёт один
+ *  запрос на экран, так что обычной работе предел не мешает. */
+export const DATA_IN_FLIGHT_PER_USER = 2;
+const inFlight = new Map<string, number>();
+/** Занять слот расчёта; false — у человека уже идёт DATA_IN_FLIGHT_PER_USER расчётов. */
+export function acquireDataSlot(userId: string): boolean {
+  const n = inFlight.get(userId) ?? 0;
+  if (n >= DATA_IN_FLIGHT_PER_USER) return false;
+  inFlight.set(userId, n + 1);
+  return true;
+}
+export function releaseDataSlot(userId: string): void {
+  const n = (inFlight.get(userId) ?? 1) - 1;
+  if (n <= 0) inFlight.delete(userId);
+  else inFlight.set(userId, n);
+}
 
 export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
   app.get("/dashboards", { preHandler: requireAuth }, async (req) => listDashboards(req.user.sub, isAdmin(req.user)));
@@ -60,6 +77,15 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
   app.post("/dashboards/data", { preHandler: requireAuth, preValidation: zbody(DashboardDataBody) }, async (req): Promise<DashboardDataDto> => {
     const u: JwtPayload = req.user;
     const body = req.body as z.infer<typeof DashboardDataBody>;
+    if (!acquireDataSlot(u.sub)) throw new ApiHttpError(429, "RATE_LIMITED", "Данные дашборда уже считаются — подождите немного");
+    try {
+      return await computeData(u, body, req.log);
+    } finally {
+      releaseDataSlot(u.sub);
+    }
+  });
+
+  async function computeData(u: JwtPayload, body: z.infer<typeof DashboardDataBody>, log: FastifyBaseLogger): Promise<DashboardDataDto> {
     const visible = await listVisibleProjects(u.sub, isAdmin(u));
     if (body.projectId && !visible.some((p) => p.id === body.projectId)) throw notFound("Проект не найден");
 
@@ -83,14 +109,14 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
           results[w.id] = await widgetData(w, scopeOf(w), u.sub);
         } catch (err) {
           // Один сломавшийся виджет не должен гасить весь дашборд.
-          req.log.error({ err, widget: w.type }, "dashboard widget failed");
+          log.error({ err, widget: w.type }, "dashboard widget failed");
           results[w.id] = { type: "error" };
         }
       }
     };
     await Promise.all(Array.from({ length: Math.min(WIDGET_CONCURRENCY, body.widgets.length) }, worker));
     return { results };
-  });
+  }
 
   app.get("/dashboards/:dashboardId", { preHandler: requireAuth, preValidation: zparams(DashboardParams) }, async (req) => {
     const { dashboardId } = req.params as z.infer<typeof DashboardParams>;

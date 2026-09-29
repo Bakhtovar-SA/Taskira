@@ -2,6 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { LIMITS } from "../src/contract.js";
+import { DATA_IN_FLIGHT_PER_USER, acquireDataSlot, releaseDataSlot } from "../src/routes/dashboards.js";
 import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
 let app: FastifyInstance;
@@ -199,4 +200,14 @@ test("полный экспорт содержит общие дашборды �
     .filter((l) => l.type === "dashboard")
     .map((l) => l.name);
   expect(names.sort()).toEqual(["Для всех", "Обзор"]);
+});
+
+test("одновременных расчётов данных у одного человека не больше предела; освобождённый слот снова доступен", () => {
+  for (let i = 0; i < DATA_IN_FLIGHT_PER_USER; i++) expect(acquireDataSlot("u-x")).toBe(true);
+  expect(acquireDataSlot("u-x")).toBe(false);
+  expect(acquireDataSlot("u-y")).toBe(true); // у другого человека свой счёт
+  releaseDataSlot("u-x");
+  expect(acquireDataSlot("u-x")).toBe(true);
+  for (let i = 0; i < DATA_IN_FLIGHT_PER_USER; i++) releaseDataSlot("u-x");
+  releaseDataSlot("u-y");
 });
