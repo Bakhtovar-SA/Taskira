@@ -58,7 +58,7 @@ describe("Настройки проекта — те же действия, чт
     renderSection("general");
     fireEvent.click(screen.getByRole("switch"));
     expect(patchProject).toHaveBeenCalledWith("p1", { isShared: true });
-    fireEvent.change(screen.getByRole("combobox", { name: "Отдел" }), { target: { value: "d2" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Команда" }), { target: { value: "d2" } });
     expect(patchProject).toHaveBeenCalledWith("p1", { departmentId: "d2" });
   });
 

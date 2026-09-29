@@ -590,6 +590,11 @@ personal ones are not. Measured on 100 projects / 50 000 issues (`docs/PERFORMAN
 `server/scripts/performance-dashboard*.mjs`): the trend widget is one grouped pass per side, not a subquery per week,
 and «Активность» relies on `idx_activity_created` — keep both when touching those queries.
 
+**Terminology:** the UI calls a department a **«команда» / “team”** (part C, owner's request — reads more universally);
+code, API, DB and env keep `department*` (`/api/departments`, `departmentId`, `DEFAULT_DEPARTMENT`). Use «команда» in
+new dictionary strings and server error reasons; names of existing teams are data and stay as typed (the seed default
+«Общий отдел» is not renamed — the seed finds it by name on every start).
+
 Department membership (`department_members`, migration 009) has always had a `source` column
 (`'ldap' | 'manual'`), but only the LDAP sync path (`departmentSync.ts`) ever wrote to it until
 now — there was no route or UI for `source='manual'` despite the schema explicitly being built

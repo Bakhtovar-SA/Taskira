@@ -184,7 +184,7 @@ const ldapGroupDn = z.string().trim().min(1).max(LIMITS.department.ldapGroupDn.m
 
 /** POST /api/departments [global admin] */
 export const DepartmentBody = z.object({
-  name: oneLine(LIMITS.department.name.max, LIMITS.department.name.min, "Название отдела не может быть пустым"),
+  name: oneLine(LIMITS.department.name.max, LIMITS.department.name.min, "Название команды не может быть пустым"),
   ldapGroupDn: ldapGroupDn.optional(),
 });
 

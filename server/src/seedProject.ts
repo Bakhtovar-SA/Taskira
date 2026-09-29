@@ -15,6 +15,8 @@ import { one } from "./db.js";
 import { seedProjectWorkflow } from "./services/workflow.js";
 
 export async function seedProject(): Promise<void> {
+  // Имя — данные, а не подпись интерфейса («команда», ТЗ части C): не менять. Сид находит команду по имени при
+  // каждом старте, и новое имя по умолчанию создало бы на работающих установках вторую, пустую.
   const deptName = process.env.DEFAULT_DEPARTMENT?.trim() || "Общий отдел";
   const dept = await one<{ id: string }>(
     `INSERT INTO departments (name) VALUES ($1)
@@ -22,7 +24,7 @@ export async function seedProject(): Promise<void> {
      RETURNING id`,
     [deptName],
   );
-  if (!dept) throw new Error("Не удалось создать/найти департамент по умолчанию");
+  if (!dept) throw new Error("Не удалось создать/найти команду по умолчанию");
 
   const existing = await one<{ id: string }>(`SELECT id FROM projects LIMIT 1`);
   if (existing) {
@@ -44,6 +46,6 @@ export async function seedProject(): Promise<void> {
   await seedProjectWorkflow(project.id); // 4 статуса + 8 переходов
 
   console.log(
-    `[seed] департамент «${deptName}»; создан проект ${projectKey} «${projectName}»: 4 статуса, 8 переходов`,
+    `[seed] команда «${deptName}»; создан проект ${projectKey} «${projectName}»: 4 статуса, 8 переходов`,
   );
 }
