@@ -104,7 +104,7 @@ const KEYED_TABLES: KeyedTable[] = [
   { type: "issueLink", table: "issue_links", columns: ["id", "issue_id", "linked_issue_id", "link_type", "created_by", "created_at"] },
   { type: "checklistItem", table: "checklist_items", columns: ["id", "issue_id", "text", "done", "position", "created_at", "updated_at"] },
   { type: "comment", table: "comments", columns: ["id", "issue_id", "author_id", "body", "created_at"] },
-  { type: "activity", table: "activity", columns: ["id", "issue_id", "actor_id", "text", "created_at"] },
+  { type: "activity", table: "activity", columns: ["id", "issue_id", "actor_id", "text", "kind", "payload", "created_at"] },
   {
     type: "attachment",
     table: "attachments",

@@ -91,6 +91,8 @@ export const PROJECT_ROLES = ["manager", "employee", "viewer"] as const;
 export const ISSUE_TYPES = ["task", "bug", "request"] as const;
 export const PRIORITIES = ["low", "medium", "high", "critical"] as const;
 export const COMPLEXITIES = ["simple", "medium", "hard"] as const;
+export type PriorityId = (typeof PRIORITIES)[number];
+export type ComplexityId = (typeof COMPLEXITIES)[number];
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
 
 const uuid = z.string().uuid("Ожидается UUID");
@@ -847,11 +849,39 @@ export const CommentDto = z.object({
 });
 export type CommentDto = z.infer<typeof CommentDto>;
 
+/** Событие истории задачи — данные, а не готовая фраза (трек E): клиент рисует его на языке интерфейса через словарь.
+ *  Хранится в `activity.kind` + `activity.payload` (миграция 20260929T1500_activity_kind.sql); `activity.text` по-прежнему
+ *  пишется — русская фраза для старых клиентов, экспорта и записей до миграции (у них события нет, показывается текст).
+ *  Имена людей и статусов — снимок на момент события: переименование позже историю не переписывает.
+ *  Список закрытый: запись с неизвестным `kind` (от более новой версии сервера) читается как `event: null`. */
+export const ActivityEvent = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("created") }),
+  z.object({ kind: z.literal("renamed") }),
+  z.object({ kind: z.literal("description") }),
+  z.object({ kind: z.literal("priority"), from: z.enum(PRIORITIES), to: z.enum(PRIORITIES), bulk: z.boolean().optional() }),
+  z.object({ kind: z.literal("complexity"), from: z.enum(COMPLEXITIES).nullable(), to: z.enum(COMPLEXITIES).nullable() }),
+  z.object({ kind: z.literal("due"), from: z.string().nullable(), to: z.string().nullable() }),
+  z.object({ kind: z.literal("assigneeAdded"), name: z.string() }),
+  z.object({ kind: z.literal("assigneeRemoved"), name: z.string() }),
+  /** Массовая операция: назначен один человек на всю выборку или исполнители сняты. */
+  z.object({ kind: z.literal("assigneeBulk"), cleared: z.boolean() }),
+  z.object({ kind: z.literal("direction") }),
+  z.object({ kind: z.literal("parent"), set: z.boolean() }),
+  z.object({ kind: z.literal("labels") }),
+  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), bulk: z.boolean().optional() }),
+  z.object({ kind: z.literal("checklistAdded"), text: z.string() }),
+  z.object({ kind: z.literal("checklistRemoved") }),
+  z.object({ kind: z.literal("link"), type: z.enum(["blocks", "blocked_by", "relates"]), key: z.string() }),
+]);
+export type ActivityEvent = z.infer<typeof ActivityEvent>;
+
 export const ActivityDto = z.object({
   id: z.string(),
   actorId: z.string().nullable(),
   actor: ActorMini.nullable(),
+  /** Русская фраза — для записей без события (до трека E) и как запасной вариант. */
   text: z.string(),
+  event: ActivityEvent.nullable(),
   createdAt: z.string(),
 });
 export type ActivityDto = z.infer<typeof ActivityDto>;
@@ -1426,7 +1456,17 @@ export const WidgetDataDto = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("activity"),
     items: z.array(
-      z.object({ id: z.string(), issueId: z.string(), issueKey: z.string(), issueTitle: z.string(), projectId: z.string(), actorName: z.string(), text: z.string(), createdAt: z.string() }),
+      z.object({
+        id: z.string(),
+        issueId: z.string(),
+        issueKey: z.string(),
+        issueTitle: z.string(),
+        projectId: z.string(),
+        actorName: z.string(),
+        text: z.string(),
+        event: ActivityEvent.nullable(),
+        createdAt: z.string(),
+      }),
     ),
   }),
   /** Виджет не посчитался — остальные при этом не страдают. */

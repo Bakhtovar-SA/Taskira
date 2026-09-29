@@ -5,6 +5,7 @@ import { useT, type TKey } from "../i18n";
 import type { WidgetDataDto } from "../api";
 import { useStore } from "../store";
 import { relTime } from "../store/mappers";
+import { activityLine } from "../activityText";
 import { Avatar, ProjectMark } from "../ui";
 import { lookOf } from "../projectLook";
 import { DueRing, IcCheck, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
@@ -218,7 +219,7 @@ function ActivityBody({ data, nav }: { data: Data<"activity">; nav: WidgetNav })
         <li key={a.id}>
           <button type="button" onClick={() => nav.openIssue(a.projectId, a.issueId)} className="flex w-full items-baseline gap-2 rounded-md px-1 py-1 text-left hover:bg-hover">
             <span className="min-w-0 flex-1 text-[12px] leading-snug text-sub">
-              <span className="font-semibold text-ink">{a.actorName}</span> {a.text}{" "}
+              <span className="font-semibold text-ink">{a.actorName}</span> {activityLine(a.event ?? null, a.text, t, lang)}{" "}
               <span className="font-mono text-[11px] text-faint">{a.issueKey}</span>
             </span>
             <span className="shrink-0 text-[10.5px] tabular text-faint">{relTime(Date.parse(a.createdAt), lang)}</span>

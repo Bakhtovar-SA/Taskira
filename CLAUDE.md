@@ -256,6 +256,14 @@ filter dropdown or reference tables, `AdminView`, `PermissionsView`, `WorkflowVi
 in `store.tsx`/`App.tsx`. Extend file-by-file the same way rather than assuming the dictionary
 is exhaustive.
 
+**Issue history is data, not text** (track E, migration `20260929T1500_activity_kind.sql`): `logActivity(issueId, actorId,
+event)` (`server/src/services/activity.ts`) takes an `ActivityEvent` — a closed zod union in `contract.ts` — and writes
+`activity.kind` + `payload` **and** the same Russian phrase into `text` as before (older clients, export, rows from before
+the migration). The client renders `event` through the `activity.*` dictionary keys (`src/activityText.ts`); a row with
+`event: null` shows its `text` in Russian UI and, in English, is parsed back from the known phrases. Names of people and
+statuses in an event are a snapshot at write time. Add a new history event = a new union member + `activityText()` case +
+two dictionary keys + a case in `activityLine()`; never a free-text `logActivity`.
+
 **Server-originated text** is localized on the client by error code (the server still has no locale): `src/i18n/apiErrors.ts`
 `apiErrorText()` — exposed as `errText(e, fallback)` from `useT()` and used by the store's `handleApiError` — shows the
 server's Russian `reason` as-is in the Russian UI, and in English maps `ApiError.code` to an `apiError.<CODE>` dictionary

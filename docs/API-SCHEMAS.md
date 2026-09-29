@@ -564,7 +564,12 @@
 | `actorId` | string | может быть null |
 | `actor` | object | может быть null |
 | `text` | string |  |
+| `event` | discriminatedunion | может быть null |
 | `createdAt` | string |  |
+
+### ActivityEvent
+
+`discriminatedunion`
 
 ### AssignedIssueDto
 

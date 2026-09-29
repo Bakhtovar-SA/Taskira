@@ -8,6 +8,7 @@
  *  который уже проверил zod. «Открытая» задача — статус не из категории done; архив содержит только закрытые задачи
  *  (миграция 016), поэтому для открытых отдельный фильтр по archived_at не нужен. */
 import { q } from "../db.js";
+import { activityEventOf } from "./activity.js";
 import type { DashboardWidget, WidgetDataDto } from "../contract.js";
 
 type Widget<T extends DashboardWidget["type"]> = Extract<DashboardWidget, { type: T }>;
@@ -212,8 +213,8 @@ async function progressWidget(w: Widget<"progress">, ids: string[]): Promise<Dat
 }
 
 async function activityWidget(w: Widget<"activity">, ids: string[]): Promise<Data<"activity">> {
-  const rows = await q<{ id: string; issue_id: string; key: string; title: string; project_id: string; actor: string; text: string; created_at: Date }>(
-    `SELECT a.id, a.issue_id, i.key, i.title, i.project_id, u.name AS actor, a.text, a.created_at
+  const rows = await q<{ id: string; issue_id: string; key: string; title: string; project_id: string; actor: string; text: string; kind: string | null; payload: unknown; created_at: Date }>(
+    `SELECT a.id, a.issue_id, i.key, i.title, i.project_id, u.name AS actor, a.text, a.kind, a.payload, a.created_at
        FROM activity a
        JOIN issues i ON i.id = a.issue_id
        JOIN users u ON u.id = a.actor_id
@@ -224,7 +225,7 @@ async function activityWidget(w: Widget<"activity">, ids: string[]): Promise<Dat
   );
   return {
     type: "activity",
-    items: rows.map((r) => ({ id: r.id, issueId: r.issue_id, issueKey: r.key, issueTitle: r.title, projectId: r.project_id, actorName: r.actor, text: r.text, createdAt: new Date(r.created_at).toISOString() })),
+    items: rows.map((r) => ({ id: r.id, issueId: r.issue_id, issueKey: r.key, issueTitle: r.title, projectId: r.project_id, actorName: r.actor, text: r.text, event: activityEventOf(r.kind, r.payload), createdAt: new Date(r.created_at).toISOString() })),
   };
 }
 

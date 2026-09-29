@@ -471,6 +471,7 @@ export function useSessionActions(
               authorId: a.actorId,
               author: a.actor,
               text: a.text,
+              event: a.event ?? null,
               ts: Date.parse(a.createdAt) || Date.now(),
             }));
             return { ...prev, issues: upsertIssue(prev.issues, mapped) };

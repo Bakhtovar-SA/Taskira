@@ -201,6 +201,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
       actorId: "u1",
       actor: { id: "u1", name: user.name, initials: user.initials, color: user.color },
       text: "создал(а) задачу",
+      event: null, // запись до трека E — показывается по тексту
       createdAt: new Date().toISOString(),
     };
     const h = await setup({
@@ -415,6 +416,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
       actorId: "u1",
       actor: { id: "u1", name: user.name, initials: user.initials, color: user.color },
       text: "переименовал(а) задачу",
+      event: { kind: "renamed" },
       createdAt: new Date().toISOString(),
     };
     const h = await setup({ listed: [dto("i1")], get: (id) => dto(id), comments: [comment], activity: [activityRow] });
