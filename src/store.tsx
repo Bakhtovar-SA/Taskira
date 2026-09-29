@@ -14,7 +14,7 @@ import type {
 } from "./types";
 import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
-import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type ProjectLookInput, type Project as ApiProject } from "./api";
+import { ApiError, API_BASE, authApi, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type ProjectLookInput, type Project as ApiProject } from "./api";
 import {
   applyNotificationAction,
   canTransition,
@@ -317,6 +317,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   /* Polling счётчика непрочитанных: раз в 30 c + при возврате фокуса на вкладку.
    *  Полная лента подтягивается при открытии колокола (Bell). */
+  // Язык писем (трек E): сервер узнаёт язык интерфейса при входе и при каждом переключении. Сервер не пишет, если
+  // язык тот же, поэтому лишний вызов — одна пустая проверка; ошибка тихая — письмо просто уйдёт на прежнем языке.
+  const meId = data.currentUserId;
+  const signedIn = bootStatus === "ready" || bootStatus === "home" || bootStatus === "solo";
+  useEffect(() => {
+    if (!signedIn || !meId || !i18n) return;
+    authApi.setLang(lang).catch(() => undefined);
+  }, [signedIn, meId, lang, i18n]);
+
   useEffect(() => {
     if (bootStatus !== "ready") return;
     const tick = () => {

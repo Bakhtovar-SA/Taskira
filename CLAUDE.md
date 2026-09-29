@@ -235,9 +235,11 @@ if an extra one is added that `ru.ts` doesn't have, so the two can't silently dr
 `{param}` interpolation; `tn(n, oneKey, fewKey, manyKey)` picks the grammatically correct
 dictionary key for a count (Russian 1/2-4/5+ with the 11-14 exception, English singular/plural)
 — use it instead of a local `plural()` helper (two near-identical copies of one existed in
-Board.tsx and HomeView.tsx before this existed; both are gone now). Language is `localStorage`
-only (`taskira.lang`, default `"ru"`), switched from the same "Оформление" popup as the theme
-picker (`AppearanceSettings` in `ui.tsx`) — no server involvement, same pattern as `theme.ts`.
+Board.tsx and HomeView.tsx before this existed; both are gone now). The UI language lives in `localStorage`
+(`taskira.lang`, default `"ru"`), switched from the same "Оформление" popup as the theme picker (`AppearanceSettings` in
+`ui.tsx`). The server only needs it for email: the store sends it with `PUT /api/me/lang` after sign-in and on every
+switch (`users.lang`, migration `20260929T1510_users_lang.sql`), and `notifier.ts` renders mail in the recipient's
+language from `MAIL_STRINGS` (`emailTemplates.ts`, RU/EN of one shape, checked by `mailLang.test.ts`).
 
 **What's actually covered**: the app shell (`LoginForm`, `Sidebar`, `Topbar`, `HomeView`,
 `Toasts`, `AppearanceSettings`), the `Board` view, and `CreateIssueModal` — plus the shared
