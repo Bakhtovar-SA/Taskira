@@ -409,7 +409,7 @@ assignee не из проекта → 400; `DELETE` отдела с проект
 - [ ] Токен, выданный до перехода (payload с `role`), продолжает работать — роль берётся из БД в `requireAuth`
 - [ ] Глоб. `admin` без строки в `project_members` — полный доступ ко всем роутам проекта
 - [ ] `global_role='member'` без членства → любой роут проекта отдаёт **403** «Нет доступа к проекту»
-- [ ] `member` + `project_members.role='viewer'` → `GET /api/project`, `GET /api/issues` — 200; `POST /api/issues` — 403 «Создание задач»; `GET /api/users` — 403 «Управление доступом»; `POST /api/workflow/transitions` — 403 «Изменение workflow»
+- [ ] `member` + `project_members.role='viewer'` → `GET /api/project`, `GET /api/issues` — 200; `POST /api/issues` — 403 «Создание задач»; `GET /api/users` — 403 «Управление доступом»; `POST /api/workflow/transitions` — 403 «Изменение рабочего процесса»
 - [ ] Вставка/удаление строки `project_members` вступает в силу ≤ 30 с (TTL кэша) или после рестарта
 - [ ] `PATCH /api/issues/:id` со сменой `sprintId` от роли без `manageSprints` → 403
 

@@ -16,6 +16,8 @@ describe("событие рисуется через словарь", () => {
     // Стандартные названия статусов переводятся, как везде в интерфейсе; свои — данные, остаются как есть.
     expect(activityLine({ kind: "status", from: "Готово", to: "В работе", bulk: true }, "x", tEn, "en")).toBe("moved from “Done” to “In progress” (bulk action)");
     expect(activityLine({ kind: "status", from: "Согласование", to: "Готово" }, "x", tEn, "en")).toBe("moved from “Согласование” to “Done”");
+    // Переименованный стандартный статус — уже данные: имя в событии — снимок, как его назвали в проекте.
+    expect(activityLine({ kind: "status", from: "Готово ✓", to: "Сделано" }, "x", tEn, "en")).toBe("moved from “Готово ✓” to “Сделано”");
     expect(activityLine({ kind: "assigneeBulk", cleared: true }, "x", tEn, "en")).toBe("removed the assignees (bulk action)");
     // Дата текущего года — без года (fmtDate), поэтому берём этот год, а не фиксированный.
     const y = new Date().getFullYear();

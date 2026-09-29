@@ -54,7 +54,10 @@ export function activityText(e: ActivityEvent): string {
 }
 
 /** Колонки строки для INSERT: kind отдельно, остальное — payload. */
-export function activityColumns(e: ActivityEvent): { kind: string; payload: string; text: string } {
+export function activityColumns(event: ActivityEvent): { kind: string; payload: string; text: string } {
+  // Схема проверяется и на записи: вызывающие приводят строки из БД к типам (`priority_id as PriorityId`), и значение
+  // вне списка без проверки молча дало бы «undefined» во фразе. Лучше громкая ошибка, чем испорченная история.
+  const e = ActivityEvent.parse(event);
   const { kind, ...rest } = e;
   return { kind, payload: JSON.stringify(rest), text: activityText(e) };
 }

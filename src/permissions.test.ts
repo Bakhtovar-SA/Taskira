@@ -2,9 +2,12 @@ import { describe, expect, test } from "vitest";
 import { can, canEditIssue, denialReason, denialText, isOwnIssue, resolveRole, roleHas, type PermId } from "./permissions";
 import type { AccessRole, Issue, User } from "./types";
 import en from "./i18n/en";
+import ru from "./i18n/ru";
 import type { TKey } from "./i18n/ru";
 
-const tEn = (k: TKey, p: Record<string, string | number> = {}) => en[k].replace(/\{(\w+)\}/g, (_, n: string) => String(p[n]));
+const fill = (d: Record<string, string>) => (k: TKey, p: Record<string, string | number> = {}) => d[k].replace(/\{(\w+)\}/g, (_, n: string) => String(p[n]));
+const tEn = fill(en);
+const tRu = fill(ru);
 
 /**
  * Права доступа — клиентская копия.
@@ -183,4 +186,16 @@ describe("denialText() — отказ на языке интерфейса (тр
     expect(perm).toBe("Unavailable to the “Viewer” role — the “Create issues” permission is required");
     expect(/[А-Яа-яЁё]/.test(own + perm)).toBe(false);
   });
+});
+
+test("русский denialText (словарь) — слово в слово denialReason (зеркало сервера) на всех ролях, правах и задачах", () => {
+  const perms = Object.keys(ru).filter((k) => /^permission\.\w+\.name$/.test(k)).map((k) => k.split(".")[1] as PermId);
+  expect(perms.length).toBeGreaterThan(10);
+  for (const r of ["admin", "manager", "employee", "viewer"] as AccessRole[]) {
+    for (const p of perms) {
+      for (const iss of [undefined, issue(), issue({ reporterId: "u1" })]) {
+        expect(denialText(user(r), p, iss, tRu), `${r}/${p}`).toBe(denialReason(user(r), p, iss));
+      }
+    }
+  }
 });

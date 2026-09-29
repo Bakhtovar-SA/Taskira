@@ -960,12 +960,12 @@ export const SafeUser = z.object({
 });
 export type SafeUser = z.infer<typeof SafeUser>;
 
-/** GET /api/auth/me: профиль + то, что видно только себе (настройки уведомлений, избранные проекты). */
 /** Языки интерфейса (трек E): клиентский словарь и письма сервера. */
 export const LANGS = ["ru", "en"] as const;
 export type Lang = (typeof LANGS)[number];
 /** PUT /api/me/lang — язык, на котором человеку уходят письма и сводки. */
 export const MeLangBody = z.object({ lang: z.enum(LANGS) });
+/** GET /api/auth/me: профиль + то, что видно только себе (настройки уведомлений, избранные проекты, язык писем). */
 export const MeDto = SafeUser.extend({ notifyPrefs: NotifyPrefs, favoriteProjectIds: z.array(z.string()), lang: z.enum(LANGS) });
 export type MeDto = z.infer<typeof MeDto>;
 

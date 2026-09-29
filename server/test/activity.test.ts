@@ -2,7 +2,7 @@
  *  отдаётся рядом; запись без события или с неизвестным видом читается как `event: null`, а не роняет историю. */
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { activityEventOf, activityText } from "../src/services/activity.js";
+import { activityColumns, activityEventOf, activityText } from "../src/services/activity.js";
 import type { ActivityEvent } from "../src/contract.js";
 import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
@@ -47,6 +47,11 @@ describe("фраза события — та же, что писалась до 
   ];
   test.each(cases)("%o", (event, text) => {
     expect(activityText(event)).toBe(text);
+  });
+
+  test("на записи событие проверяется схемой: значение вне списка — ошибка, а не «undefined» во фразе", () => {
+    expect(() => activityColumns({ kind: "priority", from: "urgent", to: "high" } as unknown as ActivityEvent)).toThrow();
+    expect(activityColumns({ kind: "priority", from: "low", to: "high" })).toEqual({ kind: "priority", payload: '{"from":"low","to":"high"}', text: "изменил(а) приоритет: Низкий → Высокий" });
   });
 
   test("событие из строки БД: без kind и с неизвестным kind — null", () => {
