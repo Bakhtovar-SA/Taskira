@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { LIMITS } from "../validation";
+import { LIMITS, validateDescription } from "../validation";
 import { parseAsanaExport } from "./asana";
 
 /** Fixture is hand-written from public Asana CSV export documentation, not a live account. */
@@ -27,4 +27,12 @@ describe("Asana import", () => {
     expect(item.labels[0]).toBe("asana:doing");
   });
   test("wrong file gives a clear error", () => expect(() => parseAsanaExport("Summary,Notes\nA,B")).toThrow(/Name/));
+  test("long notes are shortened without losing the Asana source note", () => {
+    const long = "y".repeat(LIMITS.description.max + 100);
+    const parsed = parseAsanaExport(`Name,Notes,Task ID\nIssue,${long},1009`);
+    expect(parsed.truncatedDescriptions).toBe(1);
+    expect(parsed.items[0].description.endsWith("Импортировано из Asana: 1009")).toBe(true);
+    expect(parsed.items[0].description.length).toBeLessThanOrEqual(LIMITS.description.max);
+    expect(validateDescription(parsed.items[0].description).ok).toBe(true);
+  });
 });

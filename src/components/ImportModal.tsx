@@ -22,7 +22,7 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
   const [includeClosed, setIncludeClosed] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [result, setResult] = useState<{ ok: number; failed: number } | null>(null);
+  const [result, setResult] = useState<{ ok: number; failed: number; cancelled: boolean } | null>(null);
   const cancelledRef = useRef(false);
   const mountedRef = useRef(true);
   const readerRef = useRef<FileReader | null>(null);
@@ -106,6 +106,7 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
         {parsed.boardName && <p className="font-semibold text-ink">«{parsed.boardName}»</p>}
         <p className="mt-0.5 text-faint">{t("import.found", { count: parsed.items.length })} {parsed.skipped > 0 && t("import.skipped", { count: parsed.skipped })}</p>
         {!!parsed.unrecognizedDates && <p className="mt-1 text-faint">{t("import.badDates", { count: parsed.unrecognizedDates })}</p>}
+        {!!parsed.truncatedDescriptions && <p className="mt-1 text-faint">{t("import.truncatedDescriptions", { count: parsed.truncatedDescriptions })}</p>}
         <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12px] text-sub">
           <input type="checkbox" checked={includeClosed} onChange={(e) => setIncludeClosed(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
           {t("import.includeClosed", { count: closedCount })}
@@ -116,7 +117,9 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
         <progress value={progress.done} max={progress.total} aria-label={t("import.progress")} className="w-full accent-accent" />
         <p className="mt-1.5 text-[11.5px] text-sub">{progress.done} / {progress.total}</p>
       </div>}
-      {result && <p className="text-[12.5px] font-semibold text-ink">{t("import.imported", { ok: result.ok, total: result.ok + result.failed })} {result.failed > 0 && t("import.failed", { count: result.failed })}</p>}
+      {result && <p className="text-[12.5px] font-semibold text-ink">{result.cancelled
+        ? t("import.stopped", { ok: result.ok, total: importable.length })
+        : t("import.imported", { ok: result.ok, total: result.ok + result.failed })} {result.failed > 0 && t("import.failed", { count: result.failed })}</p>}
       <div className="flex items-center gap-3">
         <button onClick={() => void runImport()} disabled={!parsed || !importable.length || running || !!result} className="rounded-lg btn-primary px-4 py-2 text-[13px] font-medium text-onaccent disabled:cursor-not-allowed disabled:opacity-50">
           {running ? t("import.importing") : t("import.start", { count: importable.length ? ` (${importable.length})` : "" })}

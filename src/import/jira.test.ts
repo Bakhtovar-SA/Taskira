@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { LIMITS, sanitizeLabel } from "../validation";
+import { LIMITS, sanitizeLabel, validateDescription } from "../validation";
 import { parseJiraDate, parseJiraExport } from "./jira";
 
 /** Fixture is hand-written from public Jira CSV export documentation, not a live account. */
@@ -39,4 +39,12 @@ describe("Jira import", () => {
     expect(item.labels.map(sanitizeLabel)).toEqual(item.labels);
   });
   test("wrong file gives a clear error", () => expect(() => parseJiraExport("Name,Notes\nA,B")).toThrow(/Summary/));
+  test("long description is shortened without losing the Jira source note", () => {
+    const long = "x".repeat(LIMITS.description.max + 100);
+    const parsed = parseJiraExport(`Summary,Description,Issue key\nIssue,${long},APP-99`);
+    expect(parsed.truncatedDescriptions).toBe(1);
+    expect(parsed.items[0].description.endsWith("Импортировано из Jira: APP-99")).toBe(true);
+    expect(parsed.items[0].description.length).toBeLessThanOrEqual(LIMITS.description.max);
+    expect(validateDescription(parsed.items[0].description).ok).toBe(true);
+  });
 });

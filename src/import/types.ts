@@ -1,5 +1,5 @@
 import type { IssueTypeId, PriorityId } from "../types";
-import { LIMITS, sanitizeLabel } from "../validation";
+import { LIMITS, sanitizeLabel, sanitizeText } from "../validation";
 
 export interface ImportItem {
   title: string;
@@ -15,6 +15,19 @@ export interface ImportParseResult {
   items: ImportItem[];
   skipped: number;
   unrecognizedDates?: number;
+  truncatedDescriptions?: number;
+}
+
+/** Leave room for the provenance note so store validation cannot reject a long export. */
+export function importDescription(raw: string, note: string): { description: string; truncated: boolean } {
+  const suffix = sanitizeText(note, LIMITS.description.max);
+  const source = sanitizeText(raw, LIMITS.description.max + 1);
+  const budget = Math.max(0, LIMITS.description.max - suffix.length - (source ? 2 : 0));
+  const content = source.slice(0, budget).trimEnd();
+  return {
+    description: content ? `${content}\n\n${suffix}` : suffix,
+    truncated: source.length > content.length || note.length > suffix.length,
+  };
 }
 
 function shortHash(value: string): string {

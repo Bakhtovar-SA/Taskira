@@ -3,7 +3,7 @@
 import { sanitizeLine } from "../validation";
 import type { IssueTypeId, PriorityId } from "../types";
 import { columnValue, columnValues, hasColumn, parseCsv } from "./csv";
-import { importLabels, sourceLabel, type ImportParseResult } from "./types";
+import { importDescription, importLabels, sourceLabel, type ImportParseResult } from "./types";
 
 const MONTHS: Record<string, number> = {
   jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
@@ -52,14 +52,15 @@ function priority(value: string): PriorityId {
 export function parseJiraExport(text: string): ImportParseResult {
   const table = parseCsv(text);
   if (!hasColumn(table, "Summary")) throw new Error("Файл не похож на CSV-выгрузку Jira — нет колонки Summary");
-  const result: ImportParseResult = { items: [], skipped: 0, unrecognizedDates: 0 };
+  const result: ImportParseResult = { items: [], skipped: 0, unrecognizedDates: 0, truncatedDescriptions: 0 };
   for (const row of table.rows) {
     const title = sanitizeLine(columnValue(table, row, "Summary"));
     if (!title) { result.skipped++; continue; }
     const key = sanitizeLine(columnValue(table, row, "Issue key"));
     const parent = sanitizeLine(columnValue(table, row, "Parent") || columnValue(table, row, "Parent id"));
     const note = `Импортировано из Jira${key ? `: ${key}` : ""}${parent ? ` (подзадача ${parent})` : ""}`;
-    const description = [columnValue(table, row, "Description"), note].filter(Boolean).join("\n\n");
+    const { description, truncated } = importDescription(columnValue(table, row, "Description"), note);
+    if (truncated) result.truncatedDescriptions!++;
     const status = columnValue(table, row, "Status").trim();
     const dueRaw = columnValue(table, row, "Due Date");
     const dueDate = parseJiraDate(dueRaw);
