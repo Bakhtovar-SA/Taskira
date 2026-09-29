@@ -552,6 +552,21 @@ export const TransitionCreateBody = z.object({ from: uuid, to: uuid });
  *  (`GET …/issues/counts`): счётчик обязан считать ровно тот же набор, что
  *  листает страница, иначе заголовок колонки расходится с её содержимым. */
 export const ISSUE_SORTS = ["rank", "priority", "due", "updated", "key"] as const;
+/** Условие по своему полю проекта (ROUTE-02, custom_fields). Одно поле на набор, как и остальные условия. Смысл
+ *  значений зависит от типа поля, поэтому проверка формата — в buildIssueFilter, где тип известен:
+ *  - text — `cfValue` содержится в значении (без учёта регистра);
+ *  - select — `cfValue` — точное совпадение с вариантом;
+ *  - checkbox — `cfValue` "true" / "false" (не заданный чекбокс считается снятым);
+ *  - number / date — диапазон `cfFrom`…`cfTo` включительно, любая граница может отсутствовать;
+ *  - `cfEmpty=1` — значение не задано (для любого типа, кроме чекбокса).
+ *  Поле, которого в проекте нет (удалили, а сохранённый фильтр остался), ничего не находит — как удалённый статус. */
+const CUSTOM_FIELD_FILTER = {
+  cf: uuid.optional(),
+  cfValue: z.string().min(1).max(500).optional(),
+  cfFrom: z.string().max(40).optional(),
+  cfTo: z.string().max(40).optional(),
+  cfEmpty: z.literal("1").optional(),
+};
 export const IssueFilterQuery = z.object({
   status: uuid.optional(),
   /** uuid — исполнитель; "none" — задачи без исполнителей. */
@@ -565,11 +580,12 @@ export const IssueFilterQuery = z.object({
    *  совпадение одной метки (issues.labels — text[]); `sprintId` игнорируется
    *  молча, если у проекта выключен модуль спринтов (project.sprintsEnabled) —
    *  список задач не должен 404-ить из-за фильтра, который просто ни на что
-   *  не влияет на этом проекте. Фильтр по кастомному полю НЕ входит в этот
-   *  релиз (см. docs/tickets/ROUTE-02-custom-field-filter-deferred.md). */
+   *  не влияет на этом проекте. Условие по своему полю проекта — `cf*`
+   *  (ROUTE-02, см. CUSTOM_FIELD_FILTER). */
   priority: z.enum(PRIORITIES).optional(),
   label: z.string().max(60).optional(),
   sprintId: uuid.optional(),
+  ...CUSTOM_FIELD_FILTER,
   /** Дети одной задачи: подзадачи (`parentId`, миграция 021) и задачи
    *  «направления» (`epicId`). Те же пагинация, сортировка и права, что у списка,
    *  поэтому для карточки не нужен отдельный путь. Подзадачи лежат в проекте
@@ -610,10 +626,11 @@ export const SavedViewFilter = z
     /** Срок «с … по …» (фильтр списка): даты фиксируются при сохранении, не «эта неделя». */
     dueFrom: isoDate().optional(),
     dueTo: isoDate().optional(),
+    ...CUSTOM_FIELD_FILTER,
   })
   // .strict(), не молчаливая обрезка неизвестных полей — иначе сохранение вьюхи
-  // с опечаткой в имени условия или полем, которое конструктор ещё не поддерживает
-  // (например, будущий customField), тихо теряло бы это условие вместо явной 400.
+  // с опечаткой в имени условия или полем, которое конструктор ещё не поддерживает,
+  // тихо теряло бы это условие вместо явной 400.
   .strict();
 export type SavedViewFilter = z.infer<typeof SavedViewFilter>;
 

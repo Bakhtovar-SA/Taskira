@@ -1,7 +1,18 @@
 # ROUTE-02 — фильтр по кастомному полю не входит в ТЗ 3.2 (сохранённые вьюхи)
 
-**Статус: открыт, не блокирует остальную часть ТЗ 3.2.** Найдено при реализации ТЗ 3.2 (план v2
+**Статус: сделано 29 сентября 2026 года (часть C).** Найдено при реализации ТЗ 3.2 (план v2
 Трек 3), 2026-09-22.
+
+**Как сделано:** условие `cf` + `cfValue` / `cfFrom` / `cfTo` / `cfEmpty` в `IssueFilterQuery` и `SavedViewFilter`
+(`CUSTOM_FIELD_FILTER`, `server/src/contract.ts`); SQL по типу поля — `addCustomField` в
+`server/src/services/issueFilters.ts` (text — подстрока, select — точное совпадение, checkbox — «снят» включает не
+заданные, number/date — диапазон; дата сравнивается как текст ГГГГ-ММ-ДД, число приводится только после проверки
+формата). Поле ищется в проекте маршрутом; удалённое или чужое — пустой набор. Клиент — кнопка «Поле» в «Списке
+задач», условие в адресе и в сохранённом фильтре. Тесты — `server/test/customFields.test.ts`.
+
+---
+
+Исходное описание:
 
 - **Что сделано вместо этого:** `IssueFilterQuery`/`SavedViewFilter` (`server/src/contract.ts`) и
   `buildIssueFilter` (`server/src/services/issueFilters.ts`) получили `priority`/`label`/

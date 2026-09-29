@@ -5,18 +5,29 @@
  */
 import type { z } from "zod";
 import { escLike } from "../db.js";
-import type { IssueFilterQuery } from "../contract.js";
+import { badRequest } from "../middleware.js";
+import type { CustomFieldType, IssueFilterQuery } from "../contract.js";
 import type { IssueCursorSort } from "../issueListCursor.js";
 
 export type IssueFilters = z.infer<typeof IssueFilterQuery>;
 
+/** Поле проекта для условия `cf*` — его тип решает, как сравнивать (значения хранятся текстом). */
+export type FilterField = { id: string; field_type: CustomFieldType };
+
+const NUM_RE = /^-?\d+(\.\d+)?$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** Те же форматы для SQL — без «?»: `add()` подставляет параметры на место первого «?» в тексте условия. */
+const NUM_SQL = "^-{0,1}[0-9]+([.][0-9]+){0,1}$";
+const DATE_SQL = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$";
+
 /** Запросу нужен JOIN workflow_statuses под алиасом `ws` (категория статуса).
  *  `sprintsEnabled` — project.sprintsEnabled: `f.sprintId` молча игнорируется,
- *  если у проекта выключен модуль спринтов, а не 404-ит список (см. contract.ts). */
+ *  если у проекта выключен модуль спринтов, а не 404-ит список (см. contract.ts).
+ *  `customField` — поле из `f.cf`, уже найденное в ЭТОМ проекте (routes/issues.ts); null — такого поля нет. */
 export function buildIssueFilter(
   projectId: string,
   f: IssueFilters,
-  { sprintsEnabled = true }: { sprintsEnabled?: boolean } = {},
+  { sprintsEnabled = true, customField }: { sprintsEnabled?: boolean; customField?: FilterField | null } = {},
 ): { clauses: string[]; params: unknown[] } {
   // Архив (миграция 016) из активного набора исключён по умолчанию: доска и
   // «Список задач» показывают живые задачи. ?archived=1 — только архивные,
@@ -53,6 +64,7 @@ export function buildIssueFilter(
   // Полнотекстовый поиск (описание/комментарии/чек-лист, ранжирование) — в
   // отдельном кросс-проектном /api/issues/search, для него UX другой:
   // осмысленный запрос, не префикс на каждую нажатую клавишу.
+  if (f.cf) addCustomField(f, customField ?? null, add, clauses);
   if (f.q) add("(i.title ILIKE ? OR i.key ILIKE ?)", `%${escLike(f.q)}%`, `%${escLike(f.q)}%`);
   if (f.dueFrom) add("i.due_date >= ?", f.dueFrom);
   if (f.dueTo) add("i.due_date <= ?", f.dueTo);
@@ -64,6 +76,54 @@ export function buildIssueFilter(
     add("(ws.category = 'done' AND i.done_at IS NOT NULL AND i.done_at < now() - (? * interval '1 day'))", f.closedDays);
   }
   return { clauses, params };
+}
+
+/** Условие по своему полю (ROUTE-02). Значения хранятся текстом; числа и даты сравниваются после приведения, а
+ *  приведение защищено проверкой формата внутри CASE — строка, записанная до проверок, не роняет запрос. */
+function addCustomField(
+  f: IssueFilters,
+  field: FilterField | null,
+  add: (clause: string, ...vals: unknown[]) => void,
+  clauses: string[],
+): void {
+  // Поля нет в проекте (удалено, чужой id): условие ничего не находит, как удалённый статус в сохранённом фильтре.
+  if (!field) return void clauses.push("false");
+  const v = (extra: string, ...vals: unknown[]) =>
+    add(`EXISTS (SELECT 1 FROM custom_field_values cfv WHERE cfv.issue_id = i.id AND cfv.custom_field_id = ? AND ${extra})`, field.id, ...vals);
+  if (f.cfEmpty) {
+    if (field.field_type === "checkbox") throw badRequest("У чекбокса нет состояния «не задано» — выберите «снят»");
+    return add("NOT EXISTS (SELECT 1 FROM custom_field_values cfv WHERE cfv.issue_id = i.id AND cfv.custom_field_id = ?)", field.id);
+  }
+  switch (field.field_type) {
+    case "text":
+      if (f.cfValue) v("cfv.value ILIKE ?", `%${escLike(f.cfValue)}%`);
+      return;
+    case "select":
+      if (f.cfValue) v("cfv.value = ?", f.cfValue);
+      return;
+    case "checkbox":
+      if (f.cfValue === "true") v("cfv.value = 'true'");
+      else if (f.cfValue === "false") add("NOT EXISTS (SELECT 1 FROM custom_field_values cfv WHERE cfv.issue_id = i.id AND cfv.custom_field_id = ? AND cfv.value = 'true')", field.id);
+      else if (f.cfValue) throw badRequest("Значение чекбокса — true или false");
+      return;
+    case "number":
+    case "date": {
+      const re = field.field_type === "number" ? NUM_RE : DATE_RE;
+      for (const b of [f.cfFrom, f.cfTo]) {
+        if (b && !re.test(b)) throw badRequest(field.field_type === "number" ? "Граница должна быть числом" : "Граница — дата в формате ГГГГ-ММ-ДД");
+      }
+      // Число приводится к numeric только после проверки формата. Дата сравнивается как текст: ГГГГ-ММ-ДД
+      // упорядочен так же, как сами даты, а приведение к date упало бы на «2026-02-30», которую формат пропускает.
+      const [typed, cast] =
+        field.field_type === "number"
+          ? [`(CASE WHEN cfv.value ~ '${NUM_SQL}' THEN cfv.value::numeric END)`, "::numeric"]
+          : [`(CASE WHEN cfv.value ~ '${DATE_SQL}' THEN cfv.value END)`, ""];
+      if (f.cfFrom && f.cfTo) v(`${typed} BETWEEN ?${cast} AND ?${cast}`, f.cfFrom, f.cfTo);
+      else if (f.cfFrom) v(`${typed} >= ?${cast}`, f.cfFrom);
+      else if (f.cfTo) v(`${typed} <= ?${cast}`, f.cfTo);
+      return;
+    }
+  }
 }
 
 /** Нужна ли категория статуса (`ws`) — иначе JOIN в счётчике лишний. */

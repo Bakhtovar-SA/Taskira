@@ -140,9 +140,22 @@ export interface FilterState {
   sprintId: string;
   dueFrom: string;
   dueTo: string;
+  /** Своё поле проекта (ROUTE-02): id поля и условие — значение, диапазон или «не задано» (смысл — по типу поля). */
+  cf: string;
+  cfValue: string;
+  cfFrom: string;
+  cfTo: string;
+  cfEmpty: string;
 }
-export const EMPTY_FILTERS: FilterState = { status: "", assignee: "", type: "", priority: "", label: "", sprintId: "", dueFrom: "", dueTo: "" };
-const FILTER_QS_KEYS: (keyof FilterState)[] = ["status", "assignee", "type", "priority", "label", "sprintId", "dueFrom", "dueTo"];
+export const EMPTY_FILTERS: FilterState = { status: "", assignee: "", type: "", priority: "", label: "", sprintId: "", dueFrom: "", dueTo: "", cf: "", cfValue: "", cfFrom: "", cfTo: "", cfEmpty: "" };
+const FILTER_QS_KEYS: (keyof FilterState)[] = ["status", "assignee", "type", "priority", "label", "sprintId", "dueFrom", "dueTo", "cf", "cfValue", "cfFrom", "cfTo", "cfEmpty"];
+/** Условие по своему полю: только когда выбрано поле и что-то ещё (иначе поле без условия ничего не фильтрует). */
+export function customFieldCondition(f: FilterState): { cf: string; cfValue?: string; cfFrom?: string; cfTo?: string; cfEmpty?: "1" } | null {
+  if (!f.cf) return null;
+  if (f.cfEmpty) return { cf: f.cf, cfEmpty: "1" };
+  if (!f.cfValue && !f.cfFrom && !f.cfTo) return null;
+  return { cf: f.cf, cfValue: f.cfValue || undefined, cfFrom: f.cfFrom || undefined, cfTo: f.cfTo || undefined };
+}
 
 export function filtersFromSearch(search: string): FilterState {
   const p = new URLSearchParams(search);

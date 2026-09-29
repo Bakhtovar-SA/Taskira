@@ -172,3 +172,70 @@ describe("custom fields: значения на задаче", () => {
     expect(Array.isArray(detail.customFieldValues)).toBe(true);
   });
 });
+
+describe("фильтр списка по своему полю (ROUTE-02)", () => {
+  /** Четыре задачи CORP с разными значениями поля; возвращает ключи задач, которые отдаёт список с условием. */
+  async function setup(fieldType: string, values: (string | null)[], options?: string[]) {
+    const admin = await login(app, "admin");
+    const field = await createField(admin, { name: "Поле", fieldType, ...(options ? { options } : {}) });
+    const ids = [fx.issues.p1issue];
+    for (let i = 1; i < values.length; i++) {
+      const r = await post(`/api/projects/${p1()}/issues`, admin, { title: `Задача ${i}`, typeId: "task", priorityId: "medium", epicId: null, complexity: null, dueDate: null, parentId: null });
+      expect(r.statusCode).toBe(201);
+      ids.push(JSON.parse(r.body).id);
+    }
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] !== null) expect((await put(`${issueUrl(ids[i])}/custom-fields/${field.id}`, admin, { value: values[i] })).statusCode).toBe(200);
+    }
+    const keys = async (qs: Record<string, string>) => {
+      const r = await g(`/api/projects/${p1()}/issues?${new URLSearchParams({ cf: field.id, sort: "key", ...qs })}`, admin);
+      expect(r.statusCode).toBe(200);
+      return (JSON.parse(r.body).items as { id: string }[]).map((x) => ids.indexOf(x.id)).sort();
+    };
+    const counts = (qs: Record<string, string>) => g(`/api/projects/${p1()}/issues/counts?${new URLSearchParams({ cf: field.id, ...qs })}`, admin);
+    return { field, admin, keys, counts };
+  }
+
+  test("select: точное совпадение; «не задано»; счётчики считают тот же набор", async () => {
+    const { keys, counts } = await setup("select", ["Москва", "Казань", "Москва", null], ["Москва", "Казань"]);
+    expect(await keys({ cfValue: "Москва" })).toEqual([0, 2]);
+    expect(await keys({ cfEmpty: "1" })).toEqual([3]);
+    expect(JSON.parse((await counts({ cfValue: "Казань" })).body).total).toBe(1);
+  });
+
+  test("number: диапазон с одной и двумя границами", async () => {
+    const { keys } = await setup("number", ["5", "12.5", "40", null]);
+    expect(await keys({ cfFrom: "10" })).toEqual([1, 2]);
+    expect(await keys({ cfTo: "12.5" })).toEqual([0, 1]);
+    expect(await keys({ cfFrom: "6", cfTo: "39" })).toEqual([1]);
+  });
+
+  test("date: диапазон; text: подстрока без учёта регистра; checkbox: снят = не задан или false", async () => {
+    const d = await setup("date", ["2026-01-10", "2026-02-01", "2026-03-15", null]);
+    expect(await d.keys({ cfFrom: "2026-01-15", cfTo: "2026-03-15" })).toEqual([1, 2]);
+    await resetDb();
+    fx = await seedFixture();
+    const tx = await setup("text", ["ООО Ромашка", "ИП Лютик", "ромашковое поле", null]);
+    expect(await tx.keys({ cfValue: "РОМАШК" })).toEqual([0, 2]);
+    await resetDb();
+    fx = await seedFixture();
+    const cb = await setup("checkbox", ["true", "false", null, "true"]);
+    expect(await cb.keys({ cfValue: "true" })).toEqual([0, 3]);
+    expect(await cb.keys({ cfValue: "false" })).toEqual([1, 2]);
+  });
+
+  test("неверная граница — 400; поле из чужого проекта или удалённое — пустой список, а не ошибка", async () => {
+    const { field, admin, keys } = await setup("number", ["1", "2"]);
+    const bad = await g(`/api/projects/${p1()}/issues?cf=${field.id}&cfFrom=abc`, admin);
+    expect(bad.statusCode).toBe(400);
+    expect((await del(`${fieldsUrl()}/${field.id}`, admin)).statusCode).toBe(204);
+    expect(await keys({ cfFrom: "0" })).toEqual([]);
+  });
+
+  test("условие по полю сохраняется в сохранённом фильтре", async () => {
+    const { field, admin } = await setup("select", ["А"], ["А", "Б"]);
+    const r = await post(`/api/projects/${p1()}/saved-views`, admin, { name: "Только А", filter: { cf: field.id, cfValue: "А" } });
+    expect(r.statusCode).toBe(201);
+    expect(JSON.parse(r.body).filter).toEqual({ cf: field.id, cfValue: "А" });
+  });
+});

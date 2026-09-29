@@ -3,7 +3,7 @@ import { Hint } from "./Hint";
 import { useLocation } from "wouter";
 import { useStore } from "../store";
 import { fmtDate, relTime } from "../store/mappers";
-import type { Issue } from "../types";
+import type { CustomFieldDef, Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { LIMITS } from "../validation";
@@ -14,7 +14,7 @@ import { Button, EmptyState } from "../ds";
 import ImportTrelloModal from "./ImportTrelloModal";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
-import { EMPTY_FILTERS, filtersFromSearch, searchFromFilters, type FilterState } from "../router";
+import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, type FilterState } from "../router";
 import { COLUMNS, LEFT, gridTemplate, readColumns, writeColumns, type ColumnId, type SortKey } from "../listColumns";
 
 
@@ -204,6 +204,9 @@ export default function Backlog() {
   const { status: fStatus, assignee: fAssignee, type: fType, priority: fPriority, label: fLabel, sprintId: fSprint, dueFrom: fDueFrom, dueTo: fDueTo } = filters;
   const sprintsOn = !!data.projects.find((pr) => pr.id === data.currentProjectId)?.sprintsEnabled;
   const setField = (k: keyof FilterState) => (v: string) => setFilters((cur) => ({ ...cur, [k]: v }));
+  // Условие по своему полю — один объект; мемо по его частям, чтобы запрос не пересобирался на каждый рендер.
+  const { cf, cfValue, cfFrom, cfTo, cfEmpty } = filters;
+  const cfCond = useMemo(() => customFieldCondition({ ...EMPTY_FILTERS, cf, cfValue, cfFrom, cfTo, cfEmpty }), [cf, cfValue, cfFrom, cfTo, cfEmpty]);
 
   // Состояние → URL: реплейсим (не пушим) — фильтр не должен плодить историю
   // на каждое изменение чекбокса/дропдауна, иначе «назад» листало бы прошлые
@@ -246,12 +249,13 @@ export default function Backlog() {
       sprintId: (sprintsOn && fSprint) || undefined,
       dueFrom: fDueFrom || undefined,
       dueTo: fDueTo || undefined,
+      ...cfCond,
       q: qDebounced || undefined,
       overdue: fOverdue ? "1" : undefined,
       closed: !showDone && !fStatus ? "hide" : undefined,
     };
     return { projectId: data.currentProjectId, filters: apiFilters, sort: sortKey, dir: sortDir };
-  }, [data.currentProjectId, fStatus, fAssignee, fType, fPriority, fLabel, fSprint, fDueFrom, fDueTo, sprintsOn, qDebounced, fOverdue, showDone, sortKey, sortDir]);
+  }, [data.currentProjectId, fStatus, fAssignee, fType, fPriority, fLabel, fSprint, fDueFrom, fDueTo, cfCond, sprintsOn, qDebounced, fOverdue, showDone, sortKey, sortDir]);
 
   const set = useIssueSet(query);
   // Направления строк — справочник (один запрос на экран), а не поиск в списке всех задач.
@@ -267,7 +271,7 @@ export default function Backlog() {
   const { hasMore, loading, loadingMore, loadMore } = set;
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length);
 
-  const filterActive = !!(q || fStatus || fAssignee || fType || fPriority || fLabel || fSprint || fDueFrom || fDueTo || fOverdue || showDone);
+  const filterActive = !!(q || fStatus || fAssignee || fType || fPriority || fLabel || fSprint || fDueFrom || fDueTo || cfCond || fOverdue || showDone);
   const resetFilters = () => {
     setQ("");
     setFilters(EMPTY_FILTERS);
@@ -291,7 +295,7 @@ export default function Backlog() {
       if (cancelled) return;
       setViews(items);
       const def = items.find((v) => v.isDefault);
-      const noConditions = !fStatus && !fAssignee && !fType && !fPriority && !fLabel && !fSprint && !fDueFrom && !fDueTo && !q;
+      const noConditions = !fStatus && !fAssignee && !fType && !fPriority && !fLabel && !fSprint && !fDueFrom && !fDueTo && !cfCond && !q;
       if (def && noConditions && defaultApplied.current !== pid) applyView(def);
       defaultApplied.current = pid;
     }).catch(() => undefined); // тихо — панель просто пуста, не критично для доски/списка
@@ -311,6 +315,11 @@ export default function Backlog() {
       sprintId: v.filter.sprintId ?? "",
       dueFrom: v.filter.dueFrom ?? "",
       dueTo: v.filter.dueTo ?? "",
+      cf: v.filter.cf ?? "",
+      cfValue: v.filter.cfValue ?? "",
+      cfFrom: v.filter.cfFrom ?? "",
+      cfTo: v.filter.cfTo ?? "",
+      cfEmpty: v.filter.cfEmpty ?? "",
     });
     setQ(v.filter.q ?? "");
   };
@@ -331,6 +340,7 @@ export default function Backlog() {
         sprintId: (sprintsOn && fSprint) || undefined,
         dueFrom: fDueFrom || undefined,
         dueTo: fDueTo || undefined,
+        ...cfCond,
         q: q || undefined,
       },
       isDefault: false,
@@ -567,6 +577,13 @@ export default function Backlog() {
             to={fDueTo}
             onChange={(from, to) => setFilters((cur) => ({ ...cur, dueFrom: from, dueTo: to }))}
           />
+          {data.customFields.length > 0 && (
+            <CustomFieldFilter
+              fields={data.customFields}
+              value={filters}
+              onChange={(next) => setFilters((cur) => ({ ...cur, ...next }))}
+            />
+          )}
           <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
             <input
               id="backlog-overdue"
@@ -947,6 +964,142 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
           )}
         </>
       )}
+    </Dropdown>
+  );
+}
+
+type CfPart = Pick<FilterState, "cf" | "cfValue" | "cfFrom" | "cfTo" | "cfEmpty">;
+const CF_CLEAR: CfPart = { cf: "", cfValue: "", cfFrom: "", cfTo: "", cfEmpty: "" };
+
+/** Условие по своему полю проекта (ROUTE-02): сначала поле, потом условие по его типу. Одно поле на набор — как
+ *  остальные условия списка; смысл значений считает сервер (buildIssueFilter). */
+function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef[]; value: CfPart; onChange: (next: CfPart) => void }) {
+  const { t, lang } = useT();
+  const field = fields.find((f) => f.id === value.cf);
+  const set = (part: Partial<CfPart>) => onChange({ ...CF_CLEAR, cf: value.cf, ...part });
+  const fmt = (v: string) => (field?.fieldType === "date" ? fmtDate(v, lang) : v);
+  const summary = !field
+    ? ""
+    : value.cfEmpty
+      ? t("backlog.cf.empty")
+      : field.fieldType === "checkbox"
+        ? value.cfValue === "true"
+          ? t("backlog.cf.checked")
+          : value.cfValue === "false"
+            ? t("backlog.cf.unchecked")
+            : ""
+        : value.cfFrom || value.cfTo
+          ? value.cfFrom && value.cfTo && value.cfFrom === value.cfTo
+            ? fmt(value.cfFrom)
+            : `${value.cfFrom ? fmt(value.cfFrom) : "…"} – ${value.cfTo ? fmt(value.cfTo) : "…"}`
+          : value.cfValue;
+  const active = !!(field && summary);
+  const inputCls = "mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[12px] text-ink outline-none focus:border-accent";
+  const check = (on: boolean) => (on ? <IcCheck size={12} className="ml-auto text-accent" /> : null);
+  return (
+    <Dropdown
+      align="left"
+      width={250}
+      button={(open) => (
+        <button
+          aria-label={active ? `${field!.name}: ${summary}` : t("backlog.cf.button")}
+          className={`flex h-8 max-w-[240px] items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open || active ? "border-accent" : "border-line"} bg-panel ${active ? "text-ink" : "text-sub"}`}
+        >
+          <IcFilter size={12} className="shrink-0 text-faint" />
+          <span className="truncate">{active ? `${field!.name}: ${summary}` : t("backlog.cf.button")}</span>
+          <IcChevD size={11} className="shrink-0 text-faint" />
+        </button>
+      )}
+    >
+      {(close) =>
+        !field ? (
+          <>
+            <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-medium text-faint">{t("backlog.cf.pick")}</div>
+            {fields.map((f) => (
+              <MenuItem key={f.id} onClick={() => onChange({ ...CF_CLEAR, cf: f.id })}>
+                <span className="truncate">{f.name}</span>
+              </MenuItem>
+            ))}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 px-2.5 pb-1 pt-1.5">
+              <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">{field.name}</span>
+              <button type="button" onClick={() => onChange(CF_CLEAR)} className="shrink-0 text-[11.5px] font-medium text-accent hover:underline">
+                {t("backlog.cf.other")}
+              </button>
+            </div>
+            {field.fieldType === "select" &&
+              field.options.map((o) => (
+                <MenuItem key={o} onClick={() => { set({ cfValue: o }); close(); }}>
+                  <span className="truncate">{o}</span>
+                  {check(!value.cfEmpty && value.cfValue === o)}
+                </MenuItem>
+              ))}
+            {field.fieldType === "checkbox" && (
+              <>
+                <MenuItem onClick={() => { set({ cfValue: "true" }); close(); }}>
+                  {t("backlog.cf.checked")}
+                  {check(value.cfValue === "true")}
+                </MenuItem>
+                <MenuItem onClick={() => { set({ cfValue: "false" }); close(); }}>
+                  {t("backlog.cf.unchecked")}
+                  {check(value.cfValue === "false")}
+                </MenuItem>
+              </>
+            )}
+            {field.fieldType === "text" && (
+              <label className="block px-2.5 py-1.5 text-[11px] font-medium text-faint">
+                {t("backlog.cf.contains")}
+                <input
+                  autoFocus
+                  value={value.cfEmpty ? "" : value.cfValue}
+                  maxLength={500}
+                  onChange={(e) => set({ cfValue: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && close()}
+                  className={inputCls}
+                />
+              </label>
+            )}
+            {(field.fieldType === "number" || field.fieldType === "date") && (
+              <div className="grid grid-cols-2 gap-1.5 px-2.5 py-1.5">
+                <label className="text-[11px] font-medium text-faint">
+                  {t("backlog.cf.from")}
+                  <input
+                    type={field.fieldType === "date" ? "date" : "number"}
+                    value={value.cfFrom}
+                    max={field.fieldType === "date" ? value.cfTo || undefined : undefined}
+                    onChange={(e) => set({ cfFrom: e.target.value, cfTo: value.cfTo })}
+                    className={`${inputCls} tabular`}
+                  />
+                </label>
+                <label className="text-[11px] font-medium text-faint">
+                  {t("backlog.cf.to")}
+                  <input
+                    type={field.fieldType === "date" ? "date" : "number"}
+                    value={value.cfTo}
+                    min={field.fieldType === "date" ? value.cfFrom || undefined : undefined}
+                    onChange={(e) => set({ cfFrom: value.cfFrom, cfTo: e.target.value })}
+                    className={`${inputCls} tabular`}
+                  />
+                </label>
+              </div>
+            )}
+            {field.fieldType !== "checkbox" && (
+              <MenuItem onClick={() => { set({ cfEmpty: "1" }); close(); }}>
+                {t("backlog.cf.empty")}
+                {check(!!value.cfEmpty)}
+              </MenuItem>
+            )}
+            {active && (
+              <>
+                <div className="my-1 border-t border-linesoft" />
+                <MenuItem onClick={() => { onChange(CF_CLEAR); close(); }}>{t("backlog.cf.clear")}</MenuItem>
+              </>
+            )}
+          </>
+        )
+      }
     </Dropdown>
   );
 }

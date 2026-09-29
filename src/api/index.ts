@@ -582,6 +582,12 @@ export interface IssueFilterParams {
   /** Срок в диапазоне, ГГГГ-ММ-ДД включительно. */
   dueFrom?: string;
   dueTo?: string;
+  /** Своё поле проекта (ROUTE-02): значение / диапазон / «не задано» — смысл по типу поля. */
+  cf?: string;
+  cfValue?: string;
+  cfFrom?: string;
+  cfTo?: string;
+  cfEmpty?: "1";
   overdue?: "1";
   /** "hide" — без закрытых; "recent" — закрытые не старше closedDays; "older" — только старше. */
   closed?: "hide" | "recent" | "older";
