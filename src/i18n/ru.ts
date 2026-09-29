@@ -35,6 +35,7 @@ const ru = {
   "noun.issueAcc.few": "задачи",
   "noun.issueAcc.many": "задач",
 
+  "board.selectHint": "Отмечайте карточки кликом — можно из разных колонок. Перетаскивание в этом режиме выключено; Esc — выйти.",
   "board.title": "Доска",
   "board.filterUserAria": "Фильтр: {name}",
   "board.unassignedFilter": "Без исполнителя",

@@ -34,6 +34,7 @@ const en: Record<keyof Dict, string> = {
   "noun.issueAcc.few": "issues",
   "noun.issueAcc.many": "issues",
 
+  "board.selectHint": "Click cards to select them — across columns too. Dragging is off in this mode; Esc to exit.",
   "board.title": "Board",
   "board.filterUserAria": "Filter: {name}",
   "board.unassignedFilter": "Unassigned",

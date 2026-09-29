@@ -356,6 +356,12 @@ body {
   box-shadow: 0 0 0 1.5px var(--accent-solid), 0 6px 20px -8px var(--accent-glow);
 }
 
+/* Режим выделения доски (ROUTE-03): отмеченная карточка — акцентная рамка и лёгкая подложка. */
+.board-card[data-selected] {
+  background: color-mix(in oklch, var(--accent-subtle) 70%, var(--bg-panel));
+  box-shadow: 0 0 0 1.5px var(--accent-solid), var(--elev-1);
+}
+
 /* Перетаскивание (Board.tsx setDragGhost): силуэт на месте и «карточка в руке». */
 .board-card[data-dragging] {
   opacity: 0.45;

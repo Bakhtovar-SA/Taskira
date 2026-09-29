@@ -9,9 +9,10 @@ import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useL
 import { LIMITS } from "../validation";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
+import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, SkeletonRow, directionColor } from "../ui";
 import { Button, EmptyState } from "../ds";
 import ImportTrelloModal from "./ImportTrelloModal";
+import BulkBar from "./BulkBar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, type FilterState } from "../router";
@@ -185,7 +186,7 @@ function Row({
 
 export default function Backlog() {
   const { t, errText } = useT();
-  const { data, idx, can, epicsRevision, bulkApplyIssueAction, setCreateOpen, toast } = useStore();
+  const { data, idx, can, epicsRevision, setCreateOpen, toast } = useStore();
   const [path, navigate] = useLocation();
   const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -413,19 +414,6 @@ export default function Backlog() {
     // Телефон: только название с ключом, статус и исполнитель (остальные ячейки скрывает index.css).
     el.style.setProperty("--list-cols-sm", gridTemplate(cols.filter((c) => c === "status" || c === "assignee"), selectMode, true));
   });
-
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const runBulk = async (body: Parameters<typeof bulkApplyIssueAction>[0]) => {
-    setBulkBusy(true);
-    try {
-      await bulkApplyIssueAction(body);
-    } finally {
-      setBulkBusy(false);
-      clearSelection();
-      setConfirmDelete(false);
-    }
-  };
 
   return (
     <div className="flex h-full flex-col">
@@ -701,106 +689,9 @@ export default function Backlog() {
         </div>
         <Hint id="saved-views" className="mt-2.5">{t("hint.savedViews")}</Hint>
 
-        {/* ТЗ 3.3: панель массовых действий — видна только при непустом выделении.
-            Права проверяет сервер на каждую задачу; результат — тост «Изменено N из M». */}
-        {selectMode && selectedIds.size > 0 && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-2 rounded-md border border-accent/30 bg-accentsoft/40 px-2.5 py-2">
-            <span className="text-[12.5px] font-semibold text-ink">{t("backlog.selectedCount", { n: selectedIds.size })}</span>
-            <Dropdown
-              align="left"
-              width={180}
-              button={() => (
-                <button disabled={bulkBusy} className="flex h-7 items-center gap-1 rounded-md border border-line bg-panel px-2 text-[12px] font-medium text-sub disabled:opacity-50">
-                  {t("field.status")} <IcChevD size={10} className="text-faint" />
-                </button>
-              )}
-            >
-              {(close) => (
-                <>
-                  {data.workflow.statuses.map((s) => (
-                    <MenuItem key={s.id} onClick={() => { close(); void runBulk({ action: "status", issueIds: [...selectedIds], statusId: s.id }); }}>
-                      {workflowStatusName(s, t)}
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-            </Dropdown>
-            <Dropdown
-              align="left"
-              width={200}
-              button={() => (
-                <button disabled={bulkBusy} className="flex h-7 items-center gap-1 rounded-md border border-line bg-panel px-2 text-[12px] font-medium text-sub disabled:opacity-50">
-                  {t("field.assignee")} <IcChevD size={10} className="text-faint" />
-                </button>
-              )}
-            >
-              {(close) => (
-                <>
-                  <MenuItem onClick={() => { close(); void runBulk({ action: "assignee", issueIds: [...selectedIds], assigneeId: "none" }); }}>
-                    {t("createIssue.unassigned")}
-                  </MenuItem>
-                  {data.users.map((u) => (
-                    <MenuItem key={u.id} onClick={() => { close(); void runBulk({ action: "assignee", issueIds: [...selectedIds], assigneeId: u.id }); }}>
-                      {u.name}
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-            </Dropdown>
-            <Dropdown
-              align="left"
-              width={160}
-              button={() => (
-                <button disabled={bulkBusy} className="flex h-7 items-center gap-1 rounded-md border border-line bg-panel px-2 text-[12px] font-medium text-sub disabled:opacity-50">
-                  {t("field.priority")} <IcChevD size={10} className="text-faint" />
-                </button>
-              )}
-            >
-              {(close) => (
-                <>
-                  {PRIORITY_ORDER.map((p) => (
-                    <MenuItem key={p} onClick={() => { close(); void runBulk({ action: "priority", issueIds: [...selectedIds], priorityId: p }); }}>
-                      {t(`priority.${p}`)}
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-            </Dropdown>
-            {can("delete") && (
-              <button
-                disabled={bulkBusy}
-                onClick={() => setConfirmDelete(true)}
-                className="flex h-7 items-center gap-1 rounded-md border border-danger/40 px-2 text-[12px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
-              >
-                <IcTrash size={12} /> {t("common.delete")}
-              </button>
-            )}
-            <button onClick={clearSelection} className="ml-auto text-[11.5px] font-medium text-faint hover:text-ink">
-              {t("common.clear")}
-            </button>
-          </div>
-        )}
+        {/* ТЗ 3.3: панель массовых действий — видна только при непустом выделении (общая с доской, ROUTE-03). */}
+        {selectMode && selectedIds.size > 0 && <BulkBar selectedIds={selectedIds} onDone={clearSelection} className="mt-2.5" />}
       </div>
-
-      {confirmDelete && (
-        <Modal onClose={() => setConfirmDelete(false)} w={420} title={t("backlog.confirmBulkDeleteTitle")}>
-          <div className="p-5">
-            <p className="text-[13px] text-sub">{t("backlog.confirmBulkDeleteBody", { n: selectedIds.size })}</p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="h-8 rounded-md border border-line px-3 text-[12.5px] font-medium text-sub hover:text-ink">
-                {t("common.cancel")}
-              </button>
-              <button
-                disabled={bulkBusy}
-                onClick={() => void runBulk({ action: "delete", issueIds: [...selectedIds] })}
-                className="h-8 rounded-md bg-danger px-3 text-[12.5px] font-semibold text-onaccent hover:opacity-90 disabled:opacity-50"
-              >
-                {t("common.delete")}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {/* список */}
       <div className="flex-1 overflow-y-auto">
