@@ -43,6 +43,8 @@ import {
 import { widgetData } from "../services/dashboardData.js";
 
 const isAdmin = (u: JwtPayload) => u.globalRole === "admin";
+/** Сколько виджетов одного запроса считаются одновременно (пул по умолчанию — 10 соединений). */
+const WIDGET_CONCURRENCY = 4;
 
 export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
   app.get("/dashboards", { preHandler: requireAuth }, async (req) => listDashboards(req.user.sub, isAdmin(req.user)));
@@ -70,18 +72,24 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
       return list.map((p) => p.id);
     };
 
-    const entries = await Promise.all(
-      body.widgets.map(async (w): Promise<[string, WidgetDataDto]> => {
+    // Не больше WIDGET_CONCURRENCY виджетов одновременно: у дашборда до 24 виджетов, у некоторых по 2 запроса, и
+    // один запрос не должен занимать почти весь пул соединений, пока остальные маршруты ждут.
+    const results: Record<string, WidgetDataDto> = {};
+    let next = 0;
+    const worker = async () => {
+      while (next < body.widgets.length) {
+        const w = body.widgets[next++];
         try {
-          return [w.id, await widgetData(w, scopeOf(w), u.sub)];
+          results[w.id] = await widgetData(w, scopeOf(w), u.sub);
         } catch (err) {
           // Один сломавшийся виджет не должен гасить весь дашборд.
           req.log.error({ err, widget: w.type }, "dashboard widget failed");
-          return [w.id, { type: "error" }];
+          results[w.id] = { type: "error" };
         }
-      }),
-    );
-    return { results: Object.fromEntries(entries) };
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(WIDGET_CONCURRENCY, body.widgets.length) }, worker));
+    return { results };
   });
 
   app.get("/dashboards/:dashboardId", { preHandler: requireAuth, preValidation: zparams(DashboardParams) }, async (req) => {

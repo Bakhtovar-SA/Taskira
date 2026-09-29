@@ -81,6 +81,13 @@ describe("личные и общие дашборды", () => {
     expect(body<{ error: { code: string } }>(over).error.code).toBe("LIMIT");
   });
 
+  test("одновременные запросы не обходят лимит личных дашбордов", async () => {
+    const mgr = await login(app, "mgr1");
+    const rs = await Promise.all(Array.from({ length: LIMITS.dashboardsPerUser + 5 }, (_, i) => req("POST", "/api/dashboards", mgr, { name: `Д${i}` })));
+    expect(rs.filter((r) => r.statusCode === 201)).toHaveLength(LIMITS.dashboardsPerUser);
+    expect(rs.filter((r) => r.statusCode === 409)).toHaveLength(5);
+  });
+
   test("виджет неизвестного типа в сохранённой строке отбрасывается, а не ломает дашборд", async () => {
     const mgr = await login(app, "mgr1");
     const d = body<{ id: string }>(await req("POST", "/api/dashboards", mgr, { name: "Д", widgets: [count("a")] }));

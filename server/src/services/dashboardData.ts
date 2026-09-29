@@ -183,7 +183,8 @@ async function workloadWidget(w: Widget<"workload">, ids: string[]): Promise<Dat
 }
 
 async function progressWidget(w: Widget<"progress">, ids: string[]): Promise<Data<"progress">> {
-  // Доля закрытых среди всех задач проекта, включая архив — как на роадмапе (ADR-0021).
+  // Доля закрытых среди всех задач проекта, включая архив — как на роадмапе (ADR-0021). Демо-проект считается как
+  // любой видимый — так же, как в отчётах и на роадмапе: у всех виджетов одно правило области.
   const rows = await q<{ id: string; key: string; name: string; done: string; total: string; overdue: string }>(
     `SELECT pr.id, pr.key, pr.name,
             count(i.id) FILTER (WHERE ws.category = 'done') AS done,
@@ -192,7 +193,7 @@ async function progressWidget(w: Widget<"progress">, ids: string[]): Promise<Dat
        FROM projects pr
        LEFT JOIN issues i ON i.project_id = pr.id
        LEFT JOIN workflow_statuses ws ON ws.id = i.status_id
-      WHERE pr.id = ANY($1) AND NOT pr.is_demo
+      WHERE pr.id = ANY($1)
       GROUP BY pr.id, pr.key, pr.name
       ORDER BY pr.name
       LIMIT $2`,

@@ -3,7 +3,7 @@
  *  Три вида в одной таблице: личный (виден и правится только владельцем), общий организации (виден всем, правит
  *  глобальный администратор) и обзор проекта (один на проект; права — routes/dashboards.ts через матрицу). Чужой
  *  личный дашборд неотличим от несуществующего — 404, а не 403. */
-import { one, q } from "../db.js";
+import { one, q, withTransaction } from "../db.js";
 import { ApiHttpError } from "../errors.js";
 import { DASHBOARD_GRID, DashboardWidget, LIMITS, type DashboardDto } from "../contract.js";
 
@@ -85,15 +85,21 @@ export async function createDashboard(
 ): Promise<DashboardDto> {
   if (body.shared && !isGlobalAdmin) throw new ApiHttpError(403, "FORBIDDEN", "Общий дашборд может создать только администратор");
   assertLayout(body.widgets);
-  if (!body.shared) {
-    const n = await one<{ n: number }>(`SELECT count(*)::int AS n FROM dashboards WHERE owner_id = $1 AND project_id IS NULL AND NOT shared`, [userId]);
-    if ((n?.n ?? 0) >= LIMITS.dashboardsPerUser) throw new ApiHttpError(409, "LIMIT", `Не больше ${LIMITS.dashboardsPerUser} личных дашбордов`);
-  }
-  const r = await one<Row>(
-    `INSERT INTO dashboards (name, owner_id, shared, widgets) VALUES ($1, $2, $3, $4::jsonb) RETURNING ${COLS}`,
-    [body.name, userId, body.shared, JSON.stringify(body.widgets)],
-  );
-  return toDto(r as Row, userId, isGlobalAdmin);
+  // Проверка лимита и вставка — в одной транзакции под блокировкой на пользователя: иначе два одновременных
+  // запроса оба увидели бы «19» и вместе превысили лимит.
+  const r = await withTransaction(async (c) => {
+    if (!body.shared) {
+      await c.query(`SELECT pg_advisory_xact_lock(hashtext('dashboards:' || $1::text))`, [userId]);
+      const n = await c.query<{ n: number }>(`SELECT count(*)::int AS n FROM dashboards WHERE owner_id = $1 AND project_id IS NULL AND NOT shared`, [userId]);
+      if ((n.rows[0]?.n ?? 0) >= LIMITS.dashboardsPerUser) throw new ApiHttpError(409, "LIMIT", `Не больше ${LIMITS.dashboardsPerUser} личных дашбордов`);
+    }
+    const ins = await c.query<Row>(
+      `INSERT INTO dashboards (name, owner_id, shared, widgets) VALUES ($1, $2, $3, $4::jsonb) RETURNING ${COLS}`,
+      [body.name, userId, body.shared, JSON.stringify(body.widgets)],
+    );
+    return ins.rows[0];
+  });
+  return toDto(r, userId, isGlobalAdmin);
 }
 
 export async function patchDashboard(
