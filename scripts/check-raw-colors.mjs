@@ -7,8 +7,9 @@
 // Запуск: node scripts/check-raw-colors.mjs   (npm run colors:check)
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SRC = join(ROOT, "src");
 
 /** Явные исключения с причинами. Путь → причина. */
@@ -34,7 +35,7 @@ function* walk(dir) {
 
 let failed = 0;
 for (const file of walk(SRC)) {
-  const rel = relative(ROOT, file);
+  const rel = relative(ROOT, file).replaceAll("\\", "/");
   if (rel === "src/styles/tokens.css") continue; // единственный дом сырых значений
   if (ALLOW[rel]) continue;
   const lines = readFileSync(file, "utf8").split("\n");

@@ -12,8 +12,9 @@
 // Запуск: node scripts/check-motion.mjs   (npm run motion:check)
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SRC = join(ROOT, "src");
 const TOKENS_MS = [100, 150, 200, 300, 450];
 const MAX_MS = 450;
@@ -38,7 +39,7 @@ const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, "");
 const keyframes = new Map(); // имя → двигает ли
 const rules = []; // { file, selector, body, reduced }
 for (const file of walk(SRC, /\.css$/)) {
-  const rel = relative(ROOT, file);
+  const rel = relative(ROOT, file).replaceAll("\\", "/");
   if (rel === "src/styles/tokens.css") continue;
   const css = stripComments(readFileSync(file, "utf8"));
   // Простой разбор на правила верхнего уровня и внутри @media: достаточно для плоского CSS проекта.
@@ -88,7 +89,7 @@ for (const r of rules) {
 
 // --- TSX/TS: классы Tailwind и WAAPI ----------------------------------------------------------------------
 for (const file of walk(SRC, /\.tsx?$/)) {
-  const rel = relative(ROOT, file);
+  const rel = relative(ROOT, file).replaceAll("\\", "/");
   if (rel.startsWith("src/dev/")) continue;
   readFileSync(file, "utf8")
     .split("\n")
