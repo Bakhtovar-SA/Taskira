@@ -94,6 +94,23 @@ export const DEFAULT_PROJECT_OVERVIEW: Widget[] = [
   make("issues-dueSoon", at(6, 10)),
 ];
 
+/** id встроенного «Обзора организации» в адресе (`/dashboards/overview`). Серверные id — uuid, не пересекаются. */
+export const ORG_OVERVIEW_ID = "overview";
+
+/** Встроенный обзор организации: всё по проектам, которые видит смотрящий, без хранения на сервере. */
+export const DEFAULT_ORG_OVERVIEW: Widget[] = [
+  make("count-open", at(0, 0)),
+  make("count-overdue", at(3, 0)),
+  make("count-unassigned", at(6, 0)),
+  make("count-closed", at(9, 0)),
+  make("trend", at(0, 2)),
+  make("by-status", at(8, 2)),
+  make("by-project", at(0, 6)),
+  make("progress", at(6, 6)),
+  make("workload", at(0, 10)),
+  make("activity", at(6, 10), { w: 6, h: 4 }),
+];
+
 /** С чего начать новый дашборд. */
 export const DASHBOARD_TEMPLATES: { id: string; nameKey: TKey; descKey: TKey; widgets: () => Widget[] }[] = [
   {

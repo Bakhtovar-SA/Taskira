@@ -1,10 +1,11 @@
-/** Полоса дашбордов организации (ADR-0022): «Отчёты» — встроенный первым, затем общие, затем свои, «+» — новый.
- *  Её показывают и раздел «Дашборды», и «Отчёты» — чтобы между ними был один переход. */
+/** Полоса дашбордов организации (ADR-0022): встроенные «Обзор организации» и «Отчёты», затем общие, затем свои,
+ *  «+» — новый. Её показывают и раздел «Дашборды», и «Отчёты» — чтобы между ними был один переход. */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
 import { dashboardsApi, type DashboardDto } from "../api";
-import { IcLock, IcPlus, IcReport, IcUsers } from "../icons";
+import { IcDashboard, IcLock, IcPlus, IcReport, IcUsers } from "../icons";
+import { ORG_OVERVIEW_ID } from "./catalog";
 
 export function DashboardTabs({ current, dashboards, onNew }: { current: string; dashboards: DashboardDto[] | null; onNew?: () => void }) {
   const { t } = useT();
@@ -23,6 +24,7 @@ export function DashboardTabs({ current, dashboards, onNew }: { current: string;
   );
   return (
     <nav aria-label={t("dash.title")} className="flex items-center gap-1 overflow-x-auto px-4 pt-4 sm:px-6">
+      {tab(ORG_OVERVIEW_ID, t("dash.orgOverview"), <IcDashboard size={14} tone="violet" />, () => setView("dashboards", ORG_OVERVIEW_ID))}
       {tab("reports", t("sidebar.nav.reports"), <IcReport size={14} tone="sky" />, () => setView("reports"))}
       {(dashboards ?? []).map((d) =>
         tab(d.id, d.name, d.kind === "org" ? <IcUsers size={13} className="text-faint" /> : <IcLock size={12} className="text-faint" />, () => setView("dashboards", d.id)),

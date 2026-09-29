@@ -583,8 +583,9 @@ dropped on read, not fatal. `POST /api/dashboards/data` computes a whole set (sa
 categorical palette whose **order** was validated for colour-blind separation on our light/dark surfaces — don't
 reorder or add a 9th; `DashboardGrid.tsx` native drag-and-drop + pointer resize + keyboard; `spec.ts` mirrors contract
 constants — value imports from `contract.ts` would pull zod into the bundle, `spec.test.ts` checks the mirror),
-`src/components/DashboardView.tsx` (lazy; `/dashboards/:id` via `ui.section`, `/p/KEY/overview`). Reports stay as they
-are and appear as the first built-in tab (`DashboardTabs`). Shared dashboards and overviews are in the admin export;
+`src/components/DashboardView.tsx` (lazy; `/dashboards/:id` via `ui.section`, `/p/KEY/overview`). Built-in tabs come first
+(`DashboardTabs`): «Обзор организации» (`/dashboards/overview`, client constant `DEFAULT_ORG_OVERVIEW`, read-only,
+«Сохранить как свой» makes a personal copy; `/dashboards` opens it) and the unchanged Reports. Shared dashboards and overviews are in the admin export;
 personal ones are not.
 
 Department membership (`department_members`, migration 009) has always had a `source` column
