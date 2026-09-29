@@ -149,6 +149,24 @@ describe("данные виджетов — только видимые прое
     expect((await data(emp, [count("x")])).statusCode).toBe(200);
   });
 
+  test("тренд: по неделям, пустые недели — нули, создание и закрытие считаются в свою неделю", async () => {
+    const adm = await login(app, "admin");
+    // CORP-1 создана 3 недели назад и закрыта неделю назад; задача SEC создана на этой неделе.
+    await q(`UPDATE issues SET created_at = date_trunc('week', now()) - interval '21 days' + interval '1 hour',
+                                done_at = date_trunc('week', now()) - interval '7 days' + interval '2 hours' WHERE id = $1`, [fx.issues.p1issue]);
+    await q(`UPDATE issues SET created_at = date_trunc('week', now()) + interval '1 minute', done_at = NULL WHERE project_id = $1`, [fx.projects.p2]);
+    const r = body<{ results: Record<string, { weeks: { week: string; created: number; closed: number }[] }> }>(
+      await req("POST", "/api/dashboards/data", adm, { widgets: [{ id: "t", type: "trend", periodDays: 30, x: 0, y: 0, w: 8, h: 4 }] }),
+    ).results.t.weeks;
+    expect(r.length).toBeGreaterThanOrEqual(5);
+    const last = r.length - 1;
+    expect(r[last]).toMatchObject({ created: 1, closed: 0 });
+    expect(r[last - 1]).toMatchObject({ created: 0, closed: 1 });
+    expect(r[last - 2]).toMatchObject({ created: 0, closed: 0 });
+    expect(r[last - 3]).toMatchObject({ created: 1, closed: 0 });
+    expect(r.reduce((s, w) => s + w.created, 0)).toBe(2);
+  });
+
   test("каждый тип виджета отдаёт данные своей формы", async () => {
     const emp = await login(app, "emp1");
     await q(`INSERT INTO activity (issue_id, actor_id, text) VALUES ($1, $2, 'создал(а) задачу')`, [fx.issues.p1issue, fx.users.emp1]);

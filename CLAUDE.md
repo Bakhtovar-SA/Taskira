@@ -586,7 +586,9 @@ constants — value imports from `contract.ts` would pull zod into the bundle, `
 `src/components/DashboardView.tsx` (lazy; `/dashboards/:id` via `ui.section`, `/p/KEY/overview`). Built-in tabs come first
 (`DashboardTabs`): «Обзор организации» (`/dashboards/overview`, client constant `DEFAULT_ORG_OVERVIEW`, read-only,
 «Сохранить как свой» makes a personal copy; `/dashboards` opens it) and the unchanged Reports. Shared dashboards and overviews are in the admin export;
-personal ones are not.
+personal ones are not. Measured on 100 projects / 50 000 issues (`docs/PERFORMANCE.md` «Дашборды»,
+`server/scripts/performance-dashboard*.mjs`): the trend widget is one grouped pass per side, not a subquery per week,
+and «Активность» relies on `idx_activity_created` — keep both when touching those queries.
 
 Department membership (`department_members`, migration 009) has always had a `source` column
 (`'ldap' | 'manual'`), but only the LDAP sync path (`departmentSync.ts`) ever wrote to it until

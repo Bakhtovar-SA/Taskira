@@ -1,0 +1,132 @@
+{
+  "before": {
+    "date": "2026-09-29T05:50:28.245Z",
+    "base": "http://127.0.0.1:8082",
+    "runs": 30,
+    "projects": 100,
+    "employeeVisibleProjects": 14,
+    "scenarios": {
+      "orgOverviewAdmin": {
+        "n": 30,
+        "median": 161,
+        "p95": 230,
+        "max": 234,
+        "widgetErrors": 0
+      },
+      "orgOverviewEmployee": {
+        "n": 30,
+        "median": 111,
+        "p95": 131,
+        "max": 135,
+        "widgetErrors": 0
+      },
+      "projectOverview": {
+        "n": 30,
+        "median": 92,
+        "p95": 111,
+        "max": 119,
+        "widgetErrors": 0
+      }
+    },
+    "singleWidget": {
+      "count-open": 10,
+      "count-overdue": 4,
+      "count-dueSoon": 6,
+      "count-unassigned": 11,
+      "count-closed": 6,
+      "count-created": 15,
+      "by-status": 24,
+      "by-assignee": 46,
+      "by-priority": 24,
+      "by-type": 23,
+      "by-project": 25,
+      "trend-90": 165,
+      "trend-365": 476,
+      "issues-mine": 4,
+      "issues-overdue": 5,
+      "issues-dueSoon": 6,
+      "issues-unassigned": 18,
+      "issues-recentlyCreated": 42,
+      "issues-recentlyClosed": 35,
+      "workload": 35,
+      "progress": 28,
+      "activity": 73
+    },
+    "load": {
+      "users": 20,
+      "seconds": 30,
+      "requests": 580,
+      "perSecond": 19.3,
+      "failed": 0,
+      "n": 580,
+      "median": 1042,
+      "p95": 1165,
+      "max": 1400
+    }
+  },
+  "after": {
+    "date": "2026-09-29T05:53:48.371Z",
+    "base": "http://127.0.0.1:8082",
+    "runs": 30,
+    "projects": 100,
+    "employeeVisibleProjects": 14,
+    "scenarios": {
+      "orgOverviewAdmin": {
+        "n": 30,
+        "median": 66,
+        "p95": 87,
+        "max": 92,
+        "widgetErrors": 0
+      },
+      "orgOverviewEmployee": {
+        "n": 30,
+        "median": 23,
+        "p95": 34,
+        "max": 36,
+        "widgetErrors": 0
+      },
+      "projectOverview": {
+        "n": 30,
+        "median": 13,
+        "p95": 19,
+        "max": 20,
+        "widgetErrors": 0
+      }
+    },
+    "singleWidget": {
+      "count-open": 10,
+      "count-overdue": 6,
+      "count-dueSoon": 7,
+      "count-unassigned": 17,
+      "count-closed": 6,
+      "count-created": 20,
+      "by-status": 24,
+      "by-assignee": 50,
+      "by-priority": 25,
+      "by-type": 23,
+      "by-project": 25,
+      "trend-90": 21,
+      "trend-365": 30,
+      "issues-mine": 4,
+      "issues-overdue": 5,
+      "issues-dueSoon": 6,
+      "issues-unassigned": 19,
+      "issues-recentlyCreated": 41,
+      "issues-recentlyClosed": 32,
+      "workload": 34,
+      "progress": 27,
+      "activity": 4
+    },
+    "load": {
+      "users": 20,
+      "seconds": 30,
+      "requests": 2476,
+      "perSecond": 82.5,
+      "failed": 0,
+      "n": 2476,
+      "median": 237,
+      "p95": 305,
+      "max": 393
+    }
+  }
+}
