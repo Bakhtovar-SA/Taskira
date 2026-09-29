@@ -21,7 +21,7 @@ export function activityText(e: ActivityEvent): string {
     case "description":
       return "обновил(а) описание";
     case "priority":
-      return `изменил(а) приоритет: ${PRIORITY_NAMES[e.from]} → ${PRIORITY_NAMES[e.to]}${e.bulk ? BULK : ""}`;
+      return `изменил(а) приоритет: ${PRIORITY_NAMES[e.from] ?? e.from} → ${PRIORITY_NAMES[e.to] ?? e.to}${e.bulk ? BULK : ""}`;
     case "complexity":
       return `изменил(а) сложность: ${COMPLEXITY_NAMES[e.from ?? ""] ?? "—"} → ${COMPLEXITY_NAMES[e.to ?? ""] ?? "—"}`;
     case "due":
@@ -53,13 +53,20 @@ export function activityText(e: ActivityEvent): string {
   }
 }
 
-/** Колонки строки для INSERT: kind отдельно, остальное — payload. */
-export function activityColumns(event: ActivityEvent): { kind: string; payload: string; text: string } {
-  // Схема проверяется и на записи: вызывающие приводят строки из БД к типам (`priority_id as PriorityId`), и значение
-  // вне списка без проверки молча дало бы «undefined» во фразе. Лучше громкая ошибка, чем испорченная история.
-  const e = ActivityEvent.parse(event);
-  const { kind, ...rest } = e;
-  return { kind, payload: JSON.stringify(rest), text: activityText(e) };
+/** Колонки строки для INSERT: kind отдельно, остальное — payload.
+ *
+ *  Схема проверяется и на записи: вызывающие приводят строки из БД к типам (`priority_id as PriorityId`). Но бросать
+ *  нельзя — часть вызовов пишет историю уже после сохранённого изменения (`/transition`, массовые операции), и ошибка
+ *  здесь дала бы 500 при уже сохранённой правке, без строки истории и без уведомления. Поэтому событие вне схемы
+ *  пишется одной фразой с kind = NULL — так же, как читаются записи до трека E — и попадает в журнал сервера. */
+export function activityColumns(event: ActivityEvent): { kind: string | null; payload: string | null; text: string } {
+  const r = ActivityEvent.safeParse(event);
+  if (!r.success) {
+    console.warn("[activity] событие вне схемы, записано только текстом", event, r.error.issues);
+    return { kind: null, payload: null, text: activityText(event) };
+  }
+  const { kind, ...rest } = r.data;
+  return { kind, payload: JSON.stringify(rest), text: activityText(r.data) };
 }
 
 /** Событие из строки БД. Нет kind (запись до миграции) или kind неизвестен (более новая версия) — null. */

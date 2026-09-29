@@ -49,8 +49,9 @@ describe("фраза события — та же, что писалась до 
     expect(activityText(event)).toBe(text);
   });
 
-  test("на записи событие проверяется схемой: значение вне списка — ошибка, а не «undefined» во фразе", () => {
-    expect(() => activityColumns({ kind: "priority", from: "urgent", to: "high" } as unknown as ActivityEvent)).toThrow();
+  test("на записи событие проверяется схемой: вне списка — только текст (kind NULL), без ошибки и без «undefined»", () => {
+    const bad = activityColumns({ kind: "priority", from: "urgent", to: "high" } as unknown as ActivityEvent);
+    expect(bad).toEqual({ kind: null, payload: null, text: "изменил(а) приоритет: urgent → Высокий" });
     expect(activityColumns({ kind: "priority", from: "low", to: "high" })).toEqual({ kind: "priority", payload: '{"from":"low","to":"high"}', text: "изменил(а) приоритет: Низкий → Высокий" });
   });
 

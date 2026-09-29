@@ -168,7 +168,7 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `GET /api/project-templates` | — | global admin | шаблоны проектов (ТЗ 5.10): 5 встроенных (`id = builtin:<id>`, `server/src/templates/builtin.json`) + шаблоны организации (`project_templates`) |
 | `POST /api/projects/:projectId/save-as-template` | `{name ≤80, description ≤300}` | `saveProjectTemplate` (роль admin в проекте = глобальный admin); занятое имя — `409`; конфигурация не проходит `ProjectTemplateSpec` — `400` | снимок статусов, переходов, полей, шаблонов задач, меток и представления по умолчанию |
 | `DELETE /api/project-templates/:templateId` | — | global admin | удалить шаблон организации; встроенные не удаляются |
-| `PUT /api/me/lang` | `MeLangBody` `{lang: "ru" \| "en"}` | requireAuth | `204`; язык писем и сводок (трек E, `users.lang`); клиент сообщает его при входе и при переключении; `GET /api/auth/me` отдаёт `lang` |
+| `PUT /api/me/lang` | `MeLangBody` `{lang: "ru" \| "en"}` | requireAuth | `204`; язык писем и сводок (трек E, `users.lang`); клиент сообщает его при каждом входе и при переключении — побеждает последний вход: при телефоне на EN и компьютере на RU письма идут на языке того устройства, где человек входил последним; `GET /api/auth/me` отдаёт `lang` |
 | `GET /api/me/onboarding` | — | requireAuth | прогресс «Начала работы» `{done, hidden, hints}` (ТЗ 5.11, ADR-0019); шаги отмечает сервер от действий |
 | `POST /api/me/onboarding/steps` | `{step: "theme"}` | requireAuth | единственный шаг, о котором сообщает клиент; остальные — `400` |
 | `POST /api/me/onboarding/hide` | — | requireAuth | скрыть карточку навсегда |
