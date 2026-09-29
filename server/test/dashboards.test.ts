@@ -88,6 +88,14 @@ describe("личные и общие дашборды", () => {
     expect(rs.filter((r) => r.statusCode === 409)).toHaveLength(5);
   });
 
+  test("вернуть общий дашборд в личные нельзя сверх лимита личных", async () => {
+    const adm = await login(app, "admin");
+    const shared = body<{ id: string }>(await req("POST", "/api/dashboards", adm, { name: "Общий", shared: true }));
+    for (let i = 0; i < LIMITS.dashboardsPerUser; i++) await req("POST", "/api/dashboards", adm, { name: `Д${i}` });
+    const r = await req("PATCH", `/api/dashboards/${shared.id}`, adm, { shared: false });
+    expect(r.statusCode).toBe(409);
+  });
+
   test("виджет неизвестного типа в сохранённой строке отбрасывается, а не ломает дашборд", async () => {
     const mgr = await login(app, "mgr1");
     const d = body<{ id: string }>(await req("POST", "/api/dashboards", mgr, { name: "Д", widgets: [count("a")] }));
