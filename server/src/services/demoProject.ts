@@ -68,7 +68,7 @@ export async function demoProjectId(): Promise<string | null> {
 export async function createDemoProject(adminId: string): Promise<string> {
   if (await demoProjectId()) throw new ApiHttpError(409, "CONFLICT", "Демо-проект уже создан");
   const dept = await one<{ id: string }>(`SELECT id FROM departments ORDER BY created_at, name LIMIT 1`);
-  if (!dept) throw new ApiHttpError(409, "CONFLICT", "Сначала создайте хотя бы один отдел");
+  if (!dept) throw new ApiHttpError(409, "CONFLICT", "Сначала создайте хотя бы одну команду");
   const tpl = await getProjectTemplate("builtin:support");
   if (!tpl) throw new Error("builtin:support не найден");
 

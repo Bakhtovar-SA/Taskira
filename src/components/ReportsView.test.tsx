@@ -94,8 +94,8 @@ describe("Отчёты", () => {
 
   test("отдел: только отделы с проектами; сужает список проектов и уходит в запрос и выгрузку", async () => {
     await renderReports();
-    const dep = screen.getByLabelText("Отдел") as HTMLSelectElement;
-    expect([...dep.options].map((o) => o.textContent)).toEqual(["Все отделы", "Продажи", "Разработка"]);
+    const dep = screen.getByLabelText("Команда") as HTMLSelectElement;
+    expect([...dep.options].map((o) => o.textContent)).toEqual(["Все команды", "Продажи", "Разработка"]);
     fireEvent.change(screen.getByLabelText("Проект"), { target: { value: "p1" } });
     await settle();
     fireEvent.change(dep, { target: { value: "d2" } });

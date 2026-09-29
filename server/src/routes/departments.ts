@@ -22,8 +22,8 @@ function deptConflict(e: unknown): never {
   const err = e as { code?: string; constraint?: string };
   if (err.code === "23505") {
     if (err.constraint === "departments_ldap_group_dn_uk")
-      throw conflict("Эта LDAP-группа уже привязана к другому отделу");
-    throw conflict("Отдел с таким названием уже есть");
+      throw conflict("Эта LDAP-группа уже привязана к другой команде");
+    throw conflict("Команда с таким названием уже есть");
   }
   throw e;
 }
@@ -73,7 +73,7 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
       } catch (e) {
         deptConflict(e);
       }
-      if (rows.length === 0) throw notFound("Отдел не найден");
+      if (rows.length === 0) throw notFound("Команда не найдена");
       // логируем сами значения (не только имена полей) — чтобы по аудиту можно было
       // восстановить, кто и когда привязал отдел к какой LDAP-группе.
       await audit(actor.sub, "department.update", "department", id, { fields: body });
@@ -88,9 +88,9 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
       const actor: JwtPayload = req.user;
       const { id } = req.params as z.infer<typeof DepartmentParams>;
       const dep = await one<{ id: string }>(`SELECT id FROM departments WHERE id = $1`, [id]);
-      if (!dep) throw notFound("Отдел не найден");
+      if (!dep) throw notFound("Команда не найдена");
       const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM projects WHERE department_id = $1`, [id]))!;
-      if (Number(n.n) > 0) throw conflict("В отделе есть проекты — сначала перенесите или удалите их");
+      if (Number(n.n) > 0) throw conflict("В команде есть проекты — сначала перенесите или удалите их");
       await q(`DELETE FROM departments WHERE id = $1`, [id]);
       await audit(actor.sub, "department.delete", "department", id, {});
       reply.code(204).send();
@@ -102,7 +102,7 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireGlobalAdmin, preValidation: zparams(DepartmentParams) },
     async (req) => {
       const { id } = req.params as z.infer<typeof DepartmentParams>;
-      if (!(await getDepartment(id))) throw notFound("Отдел не найден");
+      if (!(await getDepartment(id))) throw notFound("Команда не найдена");
       return listDepartmentMembers(id);
     },
   );
@@ -113,7 +113,7 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const actor: JwtPayload = req.user;
       const { id, userId } = req.params as z.infer<typeof DepartmentMemberParams>;
-      if (!(await getDepartment(id))) throw notFound("Отдел не найден");
+      if (!(await getDepartment(id))) throw notFound("Команда не найдена");
       const user = await one<{ id: string; is_active: boolean }>(`SELECT id, is_active FROM users WHERE id = $1`, [userId]);
       if (!user) throw notFound("Пользователь не найден");
       if (!user.is_active) throw badRequest("Пользователь деактивирован");
@@ -131,10 +131,10 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const actor: JwtPayload = req.user;
       const { id, userId } = req.params as z.infer<typeof DepartmentMemberParams>;
-      if (!(await getDepartment(id))) throw notFound("Отдел не найден");
+      if (!(await getDepartment(id))) throw notFound("Команда не найдена");
 
       const result = await removeDepartmentMember(id, userId);
-      if (result === "not_found") throw notFound("Пользователь не состоит в отделе");
+      if (result === "not_found") throw notFound("Пользователь не состоит в команде");
       if (result === "ldap")
         throw conflict("Членство пришло из LDAP-группы — уберите человека из группы в директории, а не здесь");
       invalidateDeptMembership(userId, id);

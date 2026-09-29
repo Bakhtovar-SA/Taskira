@@ -117,10 +117,27 @@ describe("обзор проекта", () => {
 });
 
 describe("раздел «Дашборды»", () => {
-  test("своих нет — пустое состояние, «Отчёты» первым пунктом; «Новый» создаёт из шаблона и открывает", async () => {
+  test("без id — встроенный «Обзор организации» по всем видимым проектам; «Отчёты» рядом; правки нет", async () => {
     await show("org");
-    expect(screen.getByText("Своих дашбордов пока нет")).toBeTruthy();
+    expect(store.setView).toHaveBeenCalledWith("dashboards", "overview");
+    expect(screen.getByRole("heading", { name: "Обзор организации" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Отчёты/ })).toBeTruthy();
+    expect(api.data).toHaveBeenCalledWith(expect.any(Array), undefined);
+    expect(screen.queryByRole("button", { name: "Изменить" })).toBeNull();
+  });
+
+  test("«Сохранить как свой» создаёт личную копию обзора и открывает её", async () => {
+    await show("org");
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить как свой" }));
+    await settle();
+    const body = api.create.mock.calls[0][0];
+    expect(body.name).toBe("Обзор организации");
+    expect(body.widgets?.some((w) => w.type === "progress")).toBe(true);
+    expect(store.setView).toHaveBeenCalledWith("dashboards", "n1");
+  });
+
+  test("«Новый» создаёт из шаблона и открывает", async () => {
+    await show("org");
     fireEvent.click(screen.getAllByRole("button", { name: /Новый/ })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Создать" }));
     await settle();
@@ -128,5 +145,11 @@ describe("раздел «Дашборды»", () => {
     expect(body.name).toBe("Моя работа");
     expect(body.widgets?.some((w) => w.type === "issues" && w.preset === "mine")).toBe(true);
     expect(store.setView).toHaveBeenCalledWith("dashboards", "n1");
+  });
+
+  test("чужой или удалённый id — «Дашборд не найден»", async () => {
+    store.ui.section = "gone";
+    await show("org");
+    expect(screen.getByText("Дашборд не найден")).toBeTruthy();
   });
 });

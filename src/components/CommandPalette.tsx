@@ -53,7 +53,7 @@ const VIEW_ALIASES: Record<string, string[]> = {
   roadmap: ["roadmap", "projects timeline", "milestones", "вехи"],
   settings: ["settings", "profile", "notifications", "theme", "профиль", "уведомления", "тема"],
   projectSettings: ["project settings", "workflow", "statuses", "access", "fields", "templates", "процесс", "доступ", "поля", "шаблоны"],
-  orgSettings: ["admin", "organization", "departments", "users", "отделы", "пользователи"],
+  orgSettings: ["admin", "organization", "teams", "departments", "users", "команды", "отделы", "пользователи"],
   docs: ["docs", "help"],
   collaborating: ["shared", "collaborating"],
   inbox: ["inbox", "notifications", "уведомления"],

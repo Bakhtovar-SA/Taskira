@@ -190,6 +190,11 @@
 | `priority` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
 | `label` | string | необязательное; длина 0…60 |
 | `sprintId` | string (uuid) | необязательное |
+| `cf` | string (uuid) | необязательное |
+| `cfValue` | string | необязательное; длина 1…500 |
+| `cfFrom` | string | необязательное; длина 0…40 |
+| `cfTo` | string | необязательное; длина 0…40 |
+| `cfEmpty` | `"1"` | необязательное |
 | `parentId` | string (uuid) | необязательное |
 | `epicId` | string (uuid) | необязательное |
 | `q` | string | необязательное; длина 0…120 |
@@ -233,6 +238,11 @@
 | `priority` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
 | `label` | string | необязательное; длина 0…60 |
 | `sprintId` | string (uuid) | необязательное |
+| `cf` | string (uuid) | необязательное |
+| `cfValue` | string | необязательное; длина 1…500 |
+| `cfFrom` | string | необязательное; длина 0…40 |
+| `cfTo` | string | необязательное; длина 0…40 |
+| `cfEmpty` | `"1"` | необязательное |
 | `parentId` | string (uuid) | необязательное |
 | `epicId` | string (uuid) | необязательное |
 | `q` | string | необязательное; длина 0…120 |
@@ -283,6 +293,11 @@
 | `priority` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
 | `label` | string | необязательное; длина 0…60 |
 | `sprintId` | string (uuid) | необязательное |
+| `cf` | string (uuid) | необязательное |
+| `cfValue` | string | необязательное; длина 1…500 |
+| `cfFrom` | string | необязательное; длина 0…40 |
+| `cfTo` | string | необязательное; длина 0…40 |
+| `cfEmpty` | `"1"` | необязательное |
 | `parentId` | string (uuid) | необязательное |
 | `epicId` | string (uuid) | необязательное |
 | `q` | string | необязательное; длина 0…120 |
@@ -1132,6 +1147,11 @@
 | `q` | string | необязательное; длина 0…120 |
 | `dueFrom` | string | необязательное |
 | `dueTo` | string | необязательное |
+| `cf` | string (uuid) | необязательное |
+| `cfValue` | string | необязательное; длина 1…500 |
+| `cfFrom` | string | необязательное; длина 0…40 |
+| `cfTo` | string | необязательное; длина 0…40 |
+| `cfEmpty` | `"1"` | необязательное |
 
 ### SearchResultDto
 

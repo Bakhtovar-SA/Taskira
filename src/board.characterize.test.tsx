@@ -397,4 +397,40 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(screen.getByText("Свернуть до последних 14 дней")).toBeTruthy();
     h.ui.unmount();
   });
+
+  test("9. режим выделения (ROUTE-03): карточки из разных колонок отмечаются, а не открываются; перетаскивание выключено; действие уходит одним bulk-запросом", async () => {
+    const h = await setup({
+      pageImpl: async (_p, params) => ({
+        items: params.status === "s1" ? [dto("a1", { statusId: "s1" })] : params.status === "s2" ? [dto("b1", { statusId: "s2" })] : [],
+        hasMore: false,
+        nextCursor: null,
+      }),
+    });
+    const bulk = vi.spyOn(issuesApi, "bulk").mockResolvedValue({ succeeded: ["a1", "b1"], failed: [] });
+    const a = screen.getByRole("article", { name: /A21-a1/ });
+    const b = screen.getByRole("article", { name: /A21-b1/ });
+    expect(a.getAttribute("draggable")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
+    await settle();
+    expect(a.getAttribute("draggable")).toBe("false");
+    fireEvent.click(a);
+    fireEvent.keyDown(b, { key: "Enter" });
+    await settle();
+    expect(h.store().ui.selectedIssueId).toBeNull(); // клик в режиме выделения задачу не открывает
+    expect(a.hasAttribute("data-selected")).toBe(true);
+    expect(b.hasAttribute("data-selected")).toBe(true);
+
+    const bar = await screen.findByRole("toolbar", { name: /2/ });
+    fireEvent.click(within(bar).getByRole("button", { name: /Приоритет/ }));
+    fireEvent.click(await screen.findByText("Высокий"));
+    await settle();
+    expect(bulk).toHaveBeenCalledWith("p1", { action: "priority", issueIds: expect.arrayContaining(["a1", "b1"]), priorityId: "high" });
+    expect(a.hasAttribute("data-selected")).toBe(false); // после действия выделение снято, режим остаётся
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await settle();
+    expect(screen.getByRole("article", { name: /A21-a1/ }).getAttribute("draggable")).toBe("true");
+    h.ui.unmount();
+  });
 });

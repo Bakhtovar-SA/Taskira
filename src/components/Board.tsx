@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flipFrom } from "../motion";
 import { Hint } from "./Hint";
 import { useStore } from "../store";
@@ -75,6 +75,9 @@ const Card = memo(function Card({
   flash,
   draggable,
   moveTargets,
+  selecting,
+  selected,
+  onToggleSelect,
 }: {
   issue: Issue;
   /** Справочник пользователей (стабилен, пока не меняется `data.users`): исполнители
@@ -98,6 +101,11 @@ const Card = memo(function Card({
   flash: boolean;
   draggable: boolean;
   moveTargets: Status[];
+  /** Режим выделения (ROUTE-03): клик и Enter/пробел отмечают карточку вместо открытия, перетаскивание выключено —
+   *  так выделение не спорит с нативным drag&drop одной карточки (ADR-0007). */
+  selecting: boolean;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
 }) {
   const { t, lang } = useT();
   const assignees = useMemo(
@@ -151,7 +159,7 @@ const Card = memo(function Card({
 
   // Перемещение без мыши. Кнопка видна при наведении и при фокусе с
   // клавиатуры, список — только разрешённые схемой переходы.
-  const moveButton = draggable && (
+  const moveButton = draggable && !selecting && (
     <span className="relative flex" ref={menuRef}>
       <button
         onClick={(e) => {
@@ -194,17 +202,19 @@ const Card = memo(function Card({
   return (
     <article
       ref={cardRef}
-      draggable={draggable}
+      draggable={draggable && !selecting}
       tabIndex={0}
       aria-label={`${issue.key}: ${issue.title}`}
+      data-selected={selecting && selected ? "" : undefined}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          openIssue(issue.id);
+          if (selecting) onToggleSelect(issue.id);
+          else openIssue(issue.id);
         }
         // «m» / «ь» — открыть список переходов с клавиатуры: перетаскивание
         // мышью было единственным способом сменить статус на доске (UX-02).
-        if (draggable && (e.key.toLowerCase() === "m" || e.key === "ь")) {
+        if (draggable && !selecting && (e.key.toLowerCase() === "m" || e.key === "ь")) {
           e.preventDefault();
           toggleMenu();
         }
@@ -231,7 +241,7 @@ const Card = memo(function Card({
       onDrop={(e) => onDropOn(e, issue)}
       onPointerEnter={preloadIssueModal}
       onFocus={preloadIssueModal}
-      onClick={() => openIssue(issue.id)}
+      onClick={() => (selecting ? onToggleSelect(issue.id) : openIssue(issue.id))}
       data-issue-id={issue.id}
       data-priority={issue.priorityId === "critical" ? "critical" : undefined}
       className={`board-card group relative flex cursor-pointer flex-col gap-2 rounded-[10px] px-[11px] py-2.5 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
@@ -240,6 +250,17 @@ const Card = memo(function Card({
           В строке ключа тонко: приоритет, если он не обычный (средний — без значка, иначе шум на каждой карточке;
           критичный ещё и красной кромкой слева), и подзадачи «готово/всего». Тип — в просмотре задачи. */}
       <div className="flex h-5 items-center gap-1.5 text-faint">
+        {selecting && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(e) => e.stopPropagation()}
+            onChange={() => onToggleSelect(issue.id)}
+            tabIndex={-1}
+            aria-label={t("backlog.selectRow", { key: issue.key })}
+            className="shrink-0 cursor-pointer"
+          />
+        )}
         {issue.priorityId !== "medium" && <PrioMark p={issue.priorityId} />}
         <span className="font-mono text-[11.5px] font-medium tabular tracking-[0.01em]">{issue.key}</span>
         <span className="ml-auto flex items-center gap-1.5">
@@ -458,6 +479,9 @@ function ColumnCards({
 
 /** Стабильный пустой список переходов (новый `[]` на каждый рендер ломал бы memo карточки). */
 const NO_TARGETS: Status[] = [];
+const NO_SELECTION: ReadonlySet<string> = new Set();
+/** Панель массовых действий — отдельный чанк: нужна только в режиме выделения, первый экран доски без неё. */
+const BulkBar = lazy(() => import("./BulkBar"));
 
 /**
  * Колонка доски — отдельный memo-компонент (ADR-0011, шаг 0): подсветка колонки под курсором
@@ -498,6 +522,9 @@ const BoardColumn = memo(function BoardColumn({
   setOverCol,
   setDragId,
   dragRef,
+  selecting,
+  selectedIds,
+  onToggleSelect,
 }: {
   st: Status;
   total: number | null;
@@ -533,6 +560,10 @@ const BoardColumn = memo(function BoardColumn({
   setOverCol: (id: string | null) => void;
   setDragId: (id: string | null) => void;
   dragRef: { current: string | null };
+  /** Режим выделения доски (ROUTE-03) и выделенные задачи — из любых колонок. */
+  selecting: boolean;
+  selectedIds: ReadonlySet<string>;
+  onToggleSelect: (id: string) => void;
 }) {
   const { t } = useT();
   const statusPos = posById.get(st.id) ?? 0.5;
@@ -569,9 +600,12 @@ const BoardColumn = memo(function BoardColumn({
         onDropOn={onDropOn}
         onOver={onOver}
         draggable={can("transition", i)}
+        selecting={selecting}
+        selected={selectedIds.has(i.id)}
+        onToggleSelect={onToggleSelect}
       />
     ),
-    [usersById, epicsById, statusById, posById, targetsByStatus, onOpen, onMove, lastEvent, onCardDragStart, onCardDragEnd, onDropOn, onOver, can],
+    [usersById, epicsById, statusById, posById, targetsByStatus, onOpen, onMove, lastEvent, onCardDragStart, onCardDragEnd, onDropOn, onOver, can, selecting, selectedIds, onToggleSelect],
   );
   return (
     <section
@@ -691,6 +725,34 @@ export default function Board() {
   const [chips, setChips] = useState<Set<QuickChip>>(new Set());
   const [quickFor, setQuickFor] = useState<string | null>(null);
   const dragRef = useRef<string | null>(null);
+  // Выделение для массовых действий (ROUTE-03): те же действия и тот же серверный маршрут, что в «Списке задач».
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(NO_SELECTION);
+  const onToggleSelect = useCallback(
+    (id: string) =>
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (!next.delete(id)) next.add(id);
+        return next;
+      }),
+    [],
+  );
+  const clearSelection = useCallback(() => setSelectedIds(NO_SELECTION), []);
+  useEffect(() => {
+    if (!selectMode) clearSelection();
+  }, [selectMode, clearSelection]);
+  useEffect(() => {
+    setSelectMode(false);
+  }, [data.currentProjectId]);
+  // Esc выходит из режима выделения (модалки перехватывают Esc раньше — там он закрывает модалку).
+  useEffect(() => {
+    if (!selectMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("dialog[open], [role=dialog]")) setSelectMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectMode]);
 
   const toggleChip = (id: QuickChip) =>
     setChips((prev) => {
@@ -856,6 +918,13 @@ export default function Board() {
               <Avatar user={null} size={26} ring />
             </button>
           </div>
+          <button
+            onClick={() => setSelectMode((v) => !v)}
+            aria-pressed={selectMode}
+            className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-medium transition-colors ${selectMode ? "border-accent text-accent" : "border-line text-sub hover:border-accent hover:text-accent"}`}
+          >
+            {t("backlog.selectMode")}
+          </button>
           <div className="flex h-8 items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
             <IcSearch size={14} className="text-faint" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("board.searchPlaceholder")} className="w-36 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint" />
@@ -903,6 +972,16 @@ export default function Board() {
          )}
          <span className="ml-auto text-[12px] tabular text-faint">{t("board.filteredOf", { visible: filtered.counts?.total ?? "…", total: poolTotal ?? "…" })}</span>
        </div>
+       {selectMode && selectedIds.size === 0 && (
+         <p className="mt-2.5 text-[12px] text-faint" role="status">
+           {t("board.selectHint")}
+         </p>
+       )}
+       {selectMode && selectedIds.size > 0 && (
+         <Suspense fallback={null}>
+           <BulkBar selectedIds={selectedIds} onDone={clearSelection} className="mt-1" />
+         </Suspense>
+       )}
       </div>
 
       {!canMove && (
@@ -939,7 +1018,7 @@ export default function Board() {
         </div>
       )}
 
-      {canMove && !!poolTotal && (
+      {canMove && !!poolTotal && !selectMode && (
         <Hint id="board-move" className="mx-4 mb-2 sm:mx-6">
           {t("hint.boardMove")}
         </Hint>
@@ -986,6 +1065,9 @@ export default function Board() {
                 setOverCol={setOverCol}
                 setDragId={setDragId}
                 dragRef={dragRef}
+                selecting={selectMode}
+                selectedIds={selectedIds}
+                onToggleSelect={onToggleSelect}
               />
             );
           })}

@@ -85,15 +85,24 @@ async function breakdownWidget(w: Widget<"breakdown">, ids: string[]): Promise<D
 }
 
 async function trendWidget(w: Widget<"trend">, ids: string[]): Promise<Data<"trend">> {
-  // Все недели периода, в том числе пустые: провал до нуля — тоже информация.
+  // Все недели периода, в том числе пустые: провал до нуля — тоже информация. Каждая сторона — один проход с
+  // группировкой по неделе, а не подзапрос на каждую неделю: на 100 проектах за год это 476 → ~40 мс
+  // (docs/PERFORMANCE.md, «Дашборды»).
   const rows = await q<{ week: string; created: string; closed: string }>(
     `WITH weeks AS (
        SELECT generate_series(date_trunc('week', now() - make_interval(days => $2)), date_trunc('week', now()), interval '1 week') AS wk
+     ),
+     created AS (
+       SELECT date_trunc('week', i.created_at) AS wk, count(*) AS n FROM issues i
+        WHERE i.project_id = ANY($1) AND i.created_at >= (SELECT min(wk) FROM weeks) GROUP BY 1
+     ),
+     closed AS (
+       SELECT date_trunc('week', i.done_at) AS wk, count(*) AS n FROM issues i
+        WHERE i.project_id = ANY($1) AND i.done_at >= (SELECT min(wk) FROM weeks) GROUP BY 1
      )
-     SELECT to_char(weeks.wk, 'YYYY-MM-DD') AS week,
-            (SELECT count(*) FROM issues i WHERE i.project_id = ANY($1) AND i.created_at >= weeks.wk AND i.created_at < weeks.wk + interval '1 week') AS created,
-            (SELECT count(*) FROM issues i WHERE i.project_id = ANY($1) AND i.done_at    >= weeks.wk AND i.done_at    < weeks.wk + interval '1 week') AS closed
-       FROM weeks ORDER BY weeks.wk`,
+     SELECT to_char(weeks.wk, 'YYYY-MM-DD') AS week, COALESCE(c.n, 0) AS created, COALESCE(d.n, 0) AS closed
+       FROM weeks LEFT JOIN created c ON c.wk = weeks.wk LEFT JOIN closed d ON d.wk = weeks.wk
+      ORDER BY weeks.wk`,
     [ids, w.periodDays],
   );
   return { type: "trend", weeks: rows.map((r) => ({ week: r.week, created: num(r.created), closed: num(r.closed) })) };

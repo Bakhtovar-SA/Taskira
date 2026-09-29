@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { EMPTY_FILTERS, filtersFromSearch, parsePath, pathForIssue, pathForView, samePlace, searchFromFilters } from "./router";
+import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, parsePath, pathForIssue, pathForView, samePlace, searchFromFilters } from "./router";
 
 describe("pathForView / pathForIssue", () => {
   test("ADR-0013 §5: разделы без проекта — свои пути, представления и настройки — под /p/:projectKey", () => {
@@ -103,8 +103,16 @@ describe("filtersFromSearch / searchFromFilters — ТЗ 3.2", () => {
   });
 
   test("round-trip: filtersFromSearch(searchFromFilters(f)) === f", () => {
-    const f = { status: "s1", assignee: "none", type: "bug", priority: "critical", label: "urgent", sprintId: "sp1", dueFrom: "2026-09-01", dueTo: "2026-09-30" };
+    const f = { status: "s1", assignee: "none", type: "bug", priority: "critical", label: "urgent", sprintId: "sp1", dueFrom: "2026-09-01", dueTo: "2026-09-30", cf: "f1", cfValue: "", cfFrom: "10", cfTo: "20", cfEmpty: "" };
     expect(filtersFromSearch(`?${searchFromFilters("", f)}`)).toEqual(f);
+  });
+
+  test("условие по своему полю: только при выбранном поле и заданном значении; «не задано» важнее значения", () => {
+    expect(customFieldCondition({ ...EMPTY_FILTERS, cfValue: "x" })).toBeNull();
+    expect(customFieldCondition({ ...EMPTY_FILTERS, cf: "f1" })).toBeNull();
+    expect(customFieldCondition({ ...EMPTY_FILTERS, cf: "f1", cfValue: "Москва" })).toEqual({ cf: "f1", cfValue: "Москва" });
+    expect(customFieldCondition({ ...EMPTY_FILTERS, cf: "f1", cfFrom: "5" })).toEqual({ cf: "f1", cfFrom: "5" });
+    expect(customFieldCondition({ ...EMPTY_FILTERS, cf: "f1", cfValue: "x", cfEmpty: "1" })).toEqual({ cf: "f1", cfEmpty: "1" });
   });
 
   test("сохраняет посторонние query-параметры, уже присутствующие в current", () => {

@@ -128,9 +128,9 @@ export function useOrgActions(
         try {
           await departmentsApi.create(name);
           await refreshOrg();
-          toast("success", local(`Отдел «${name}» создан`, `Department “${name}” created`));
+          toast("success", local(`Команда «${name}» создана`, `Team “${name}” created`));
         } catch (err) {
-          handleApiError(err, local("Не удалось создать отдел", "Couldn't create the department"));
+          handleApiError(err, local("Не удалось создать команду", "Couldn't create the team"));
         }
       })();
     },
@@ -145,7 +145,7 @@ export function useOrgActions(
           await departmentsApi.patch(id, { name });
           await refreshOrg();
         } catch (err) {
-          handleApiError(err, local("Не удалось переименовать отдел", "Couldn't rename the department"));
+          handleApiError(err, local("Не удалось переименовать команду", "Couldn't rename the team"));
         }
       })();
     },
@@ -195,9 +195,9 @@ export function useOrgActions(
         try {
           await departmentsApi.remove(id);
           await refreshOrg();
-          toast("info", local("Отдел удалён", "Department deleted"));
+          toast("info", local("Команда удалена", "Team deleted"));
         } catch (err) {
-          handleApiError(err, local("Не удалось удалить отдел", "Couldn't delete the department"));
+          handleApiError(err, local("Не удалось удалить команду", "Couldn't delete the team"));
         }
       })();
     },

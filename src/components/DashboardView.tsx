@@ -14,7 +14,7 @@ import { DashboardGrid, GAP, ROW_H, WidgetFrame } from "../dashboards/DashboardG
 import { WidgetBody, type WidgetNav } from "../dashboards/widgets";
 import { AddWidgetDialog, WidgetSettingsDialog } from "../dashboards/WidgetDialogs";
 import { useDashboardData } from "../dashboards/useDashboardData";
-import { DASHBOARD_TEMPLATES, DEFAULT_PROJECT_OVERVIEW, addFromCatalog, defaultTitleKey, type Widget } from "../dashboards/catalog";
+import { DASHBOARD_TEMPLATES, DEFAULT_ORG_OVERVIEW, DEFAULT_PROJECT_OVERVIEW, ORG_OVERVIEW_ID, addFromCatalog, defaultTitleKey, type Widget } from "../dashboards/catalog";
 import { compact } from "../dashboards/grid";
 
 /* ---------------- общий холст: просмотр и правка ---------------- */
@@ -388,12 +388,29 @@ function OrgDashboards() {
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const current = list ? (ui.section ? list.find((d) => d.id === ui.section) : list[0]) : undefined;
+  const [copying, setCopying] = useState(false);
+  const builtin = !ui.section || ui.section === ORG_OVERVIEW_ID;
+  const current = list && !builtin ? list.find((d) => d.id === ui.section) : undefined;
 
-  // /dashboards без id — открыть первый; адрес обновится сам (useRouterSync).
+  // /dashboards без id — встроенный «Обзор организации»; адрес обновится сам (useRouterSync).
   useEffect(() => {
-    if (list && !ui.section && list[0]) setView("dashboards", list[0].id);
-  }, [list, ui.section, setView]);
+    if (!ui.section) setView("dashboards", ORG_OVERVIEW_ID);
+  }, [ui.section, setView]);
+
+  /** Встроенный обзор не правится; «Сохранить как свой» — личная копия, которую можно менять. */
+  const copyOverview = async () => {
+    setCopying(true);
+    try {
+      const d = await dashboardsApi.create({ name: t("dash.orgOverview"), shared: false, widgets: DEFAULT_ORG_OVERVIEW });
+      setList((l) => [...l, d]);
+      setView("dashboards", d.id);
+      toast("success", t("dash.copied"));
+    } catch (e) {
+      toast("error", errText(e, t("dash.createFailed")));
+    } finally {
+      setCopying(false);
+    }
+  };
 
   const replace = (d: DashboardDto) => setList((l) => l.map((x) => (x.id === d.id ? d : x)));
   const save = async (widgets: Widget[]) => {
@@ -427,7 +444,7 @@ function OrgDashboards() {
     }
   };
 
-  const tabs = <DashboardTabs current={current?.id ?? ""} dashboards={list} onNew={() => setCreating(true)} />;
+  const tabs = <DashboardTabs current={builtin ? ORG_OVERVIEW_ID : (current?.id ?? "")} dashboards={list} onNew={() => setCreating(true)} />;
   const dialogs = (
     <>
       {creating && (
@@ -473,6 +490,33 @@ function OrgDashboards() {
     </>
   );
 
+  if (builtin)
+    return (
+      <div className="flex h-full flex-col">
+        {tabs}
+        <div className="min-h-0 flex-1">
+          <Canvas
+            saved={DEFAULT_ORG_OVERVIEW}
+            canEdit={false}
+            projectId={null}
+            onSave={async () => undefined}
+            emptyHint=""
+            head={
+              <>
+                <h1 className="font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{t("dash.orgOverview")}</h1>
+                <p className="mt-0.5 text-[12.5px] text-faint">{t("dash.orgOverviewSub")}</p>
+              </>
+            }
+            actions={
+              <Button size="sm" iconLeft={<IcPlus size={13} />} onClick={() => void copyOverview()} loading={copying}>
+                {t("dash.copyToMine")}
+              </Button>
+            }
+          />
+        </div>
+        {dialogs}
+      </div>
+    );
   if (!list) return <div className="flex h-full flex-col">{tabs}</div>;
   if (!current)
     return (
@@ -481,8 +525,8 @@ function OrgDashboards() {
         <div className="px-4 py-8 sm:px-6">
           <EmptyState
             icon={<IcDashboard size={22} tone="violet" />}
-            title={t(ui.section ? "dash.notFound" : "dash.noneTitle")}
-            sub={t(ui.section ? "dash.notFoundSub" : "dash.noneSub")}
+            title={t("dash.notFound")}
+            sub={t("dash.notFoundSub")}
             action={
               <Button size="sm" variant="primary" iconLeft={<IcPlus size={13} />} onClick={() => setCreating(true)}>
                 {t("dash.new")}

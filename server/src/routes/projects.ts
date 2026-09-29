@@ -63,7 +63,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as z.infer<typeof ProjectCreateBody>;
 
       const dep = await one<{ id: string }>(`SELECT id FROM departments WHERE id = $1`, [body.departmentId]);
-      if (!dep) throw badRequest("Отдел не найден");
+      if (!dep) throw badRequest("Команда не найдена");
       // ТЗ 5.10: шаблон проекта. Неизвестный id — 400 до начала транзакции, а не полупроект.
       const template = body.templateId ? await getProjectTemplate(body.templateId) : null;
       if (body.templateId && !template) throw badRequest("Шаблон проекта не найден");
@@ -154,7 +154,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       if (!exists) throw notFound("Проект не найден");
       if (body.departmentId) {
         const dep = await one<{ id: string }>(`SELECT id FROM departments WHERE id = $1`, [body.departmentId]);
-        if (!dep) throw badRequest("Отдел не найден");
+        if (!dep) throw badRequest("Команда не найдена");
       }
 
       const sets: string[] = [];
