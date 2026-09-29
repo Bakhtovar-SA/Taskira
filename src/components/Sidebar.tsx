@@ -20,6 +20,7 @@ import {
   IcPanel,
   IcPlus,
   IcReport,
+  IcDashboard,
   IcSearch,
   IcSettings,
   IcTimeline,
@@ -52,6 +53,7 @@ type NavItem = {
 
 /** Представления проекта — вкладки в шапке проекта (ADR-0013 §2.2); в боковой панели их нет. */
 export const PROJECT_VIEWS: NavItem[] = [
+  { id: "overview", labelKey: "sidebar.nav.overview", icon: (p) => <IcDashboard {...p} />, tone: "pink" },
   { id: "board", labelKey: "sidebar.nav.board", icon: (p) => <IcBoard {...p} />, tone: "violet", kbd: "1" },
   { id: "backlog", labelKey: "sidebar.nav.backlog", icon: (p) => <IcBacklog {...p} />, tone: "indigo", kbd: "2" },
   { id: "timeline", labelKey: "sidebar.nav.timeline", icon: (p) => <IcTimeline {...p} />, tone: "teal", kbd: "3" },
@@ -79,6 +81,7 @@ export const NAV_GROUPS: { labelKey: TKey; items: NavItem[] }[] = [
     labelKey: "sidebar.group.org",
     items: [
       { id: "roadmap", labelKey: "sidebar.nav.roadmap", icon: (p) => <IcFlag {...p} />, tone: "teal" },
+      { id: "dashboards", labelKey: "sidebar.nav.dashboards", icon: (p) => <IcDashboard {...p} />, tone: "violet" },
       { id: "reports", labelKey: "sidebar.nav.reports", icon: (p) => <IcReport {...p} />, tone: "sky" },
       { id: "collaborating", labelKey: "sidebar.nav.collaborating", icon: (p) => <IcLink {...p} />, tone: "violet", collabOnly: true },
       { id: "docs", labelKey: "sidebar.nav.docs", icon: (p) => <IcBook {...p} />, tone: "orange" },
@@ -446,14 +449,15 @@ export default function Sidebar() {
             <IcFlag size={16} tone="teal" />
             <span className="flex-1 truncate">{t("sidebar.nav.roadmap")}</span>
           </button>
+          {/* «Дашборды» — раздел, в котором «Отчёты» — первый встроенный дашборд (ADR-0022). */}
           <button
             type="button"
-            onClick={() => setView("reports")}
-            aria-current={ui.view === "reports" ? "page" : undefined}
-            className={`${navItem} ${ui.view === "reports" ? navOn : navOff}`}
+            onClick={() => setView("dashboards")}
+            aria-current={ui.view === "dashboards" || ui.view === "reports" ? "page" : undefined}
+            className={`${navItem} ${ui.view === "dashboards" || ui.view === "reports" ? navOn : navOff}`}
           >
-            <IcReport size={16} tone="sky" />
-            <span className="flex-1 truncate">{t("sidebar.nav.reports")}</span>
+            <IcDashboard size={16} tone="violet" />
+            <span className="flex-1 truncate">{t("sidebar.nav.dashboards")}</span>
           </button>
         </div>
       </div>
@@ -622,7 +626,7 @@ function Rail({
         })}
         {sep}
         {btn("roadmap", t("sidebar.nav.roadmap"), <IcFlag size={16} tone="teal" />, () => setView("roadmap"), ui.view === "roadmap")}
-        {btn("reports", t("sidebar.nav.reports"), <IcReport size={16} tone="sky" />, () => setView("reports"), ui.view === "reports")}
+        {btn("dashboards", t("sidebar.nav.dashboards"), <IcDashboard size={16} tone="violet" />, () => setView("dashboards"), ui.view === "dashboards" || ui.view === "reports")}
       </div>
       <div className="mt-1 flex flex-col items-center gap-1 border-t border-linesoft/70 pt-2">
         {btn("docs", t("sidebar.nav.docs"), <IcBook size={16} tone="orange" />, () => setView("docs"), ui.view === "docs")}

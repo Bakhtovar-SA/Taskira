@@ -342,6 +342,18 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           "shortcuts.goReports",
         ],
         [
+          <span key="gd" className="flex items-center gap-1">
+            <Kbd>G</Kbd> <Kbd>D</Kbd>
+          </span>,
+          "shortcuts.goDashboards",
+        ],
+        [
+          <span key="go" className="flex items-center gap-1">
+            <Kbd>G</Kbd> <Kbd>O</Kbd>
+          </span>,
+          "shortcuts.goOverview",
+        ],
+        [
           <span key="gs" className="flex items-center gap-1">
             <Kbd>G</Kbd> <Kbd>S</Kbd>
           </span>,

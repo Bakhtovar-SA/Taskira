@@ -15,12 +15,14 @@ import { DEFAULT_SECTION, isSection, isSettingsHome } from "./settings/sections"
  *  (IA §3): личные `/settings/:section`, проекта `/p/:projectKey/settings/:section`, организации
  *  `/admin/:section`; прочие разделы без проекта — свои пути верхнего уровня. */
 const PROJECT_SEGMENT: Partial<Record<ViewId, string>> = {
+  overview: "overview",
   board: "board",
   backlog: "list",
   timeline: "timeline",
   sprints: "sprints",
 };
 const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
+  dashboards: "/dashboards",
   reports: "/reports",
   roadmap: "/roadmap",
   docs: "/help",
@@ -61,6 +63,8 @@ export const pathForView = (projectKey: string, view: ViewId, section = ""): str
     if (view === "orgSettings") return `/admin/${sec}`;
     return `/p/${enc(projectKey)}/settings/${sec}`;
   }
+  // Дашборд организации — /dashboards/:id (ADR-0022); без id — раздел, открывающий первый.
+  if (view === "dashboards" && section) return `/dashboards/${enc(section)}`;
   return GLOBAL_PATH[view] ?? `/p/${enc(projectKey)}/${PROJECT_SEGMENT[view] ?? view}`;
 };
 
@@ -74,6 +78,7 @@ const RE_ISSUE = /^\/p\/([^/]+)\/issue\/([^/]+)\/?$/;
 const RE_PROJECT_SETTINGS = /^\/p\/([^/]+)\/settings(?:\/([^/]+))?\/?$/;
 const RE_VIEW = /^\/p\/([^/]+)\/([^/]+)\/?$/;
 const RE_HOME = /^\/(settings|admin)(?:\/([^/]+))?\/?$/;
+const RE_DASHBOARD = /^\/dashboards\/([^/]+)\/?$/;
 
 export type ParsedPath =
   | { kind: "issue"; projectKey: string; issueKey: string }
@@ -89,6 +94,8 @@ export type ParsedPath =
 export const parsePath = (pathname: string): ParsedPath => {
   const g = GLOBAL_VIEW[pathname.replace(/\/$/, "")];
   if (g) return { kind: "global", view: g };
+  const md = pathname.match(RE_DASHBOARD);
+  if (md) return { kind: "global", view: "dashboards", section: dec(md[1]) };
   const mh = pathname.match(RE_HOME);
   if (mh) {
     const view = mh[1] === "settings" ? "settings" : "orgSettings";

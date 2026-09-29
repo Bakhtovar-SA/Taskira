@@ -413,6 +413,16 @@ export const IcMove = (p: P) => (
   </D>
 );
 /** Отчёты (столбики). */
+/** Дашборд: плитки разного размера (ADR-0022). */
+export const IcDashboard = (p: P) => (
+  <D {...p}>
+    <Plate />
+    <R x={3} y={3} w={5} h={4} r={0.75} />
+    <R x={9} y={3} w={4} h={7} r={0.75} />
+    <R x={3} y={8} w={5} h={5} r={0.75} />
+    <R x={9} y={11} w={4} h={2} r={0.75} />
+  </D>
+);
 export const IcReport = (p: P) => (
   <D {...p}>
     <Plate />

@@ -26,6 +26,7 @@ const SprintsView = lazy(() => import("./components/SprintsView"));
 const TimelineView = lazy(() => import("./components/TimelineView"));
 const ReportsView = lazy(() => import("./components/ReportsView"));
 const RoadmapView = lazy(() => import("./components/RoadmapView"));
+const DashboardView = lazy(() => import("./components/DashboardView"));
 // Три дома настроек (ТЗ 5.9): «Процесс», «Доступ», «Отделы и проекты» и новые страницы — внутри.
 const SettingsView = lazy(() => import("./components/settings/SettingsView"));
 // Мастер создания проекта (ТЗ 5.10) — свой чанк, только для администраторов.
@@ -231,6 +232,10 @@ function Shell() {
           ь: () => setView("my"),
           r: () => setView("reports"),
           к: () => setView("reports"),
+          d: () => setView("dashboards"),
+          в: () => setView("dashboards"),
+          o: () => setView("overview"),
+          щ: () => setView("overview"),
           s: openProjectSettings,
           ы: openProjectSettings,
         };
@@ -299,12 +304,14 @@ function Shell() {
           ) : issuePage ? (
             <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>
           ) : (<div key={ui.view} className="anim-fadeup h-full">
+            {ui.view === "overview" && <DashboardView mode="project" />}
             {ui.view === "board" && <Board />}
             {ui.view === "backlog" && <Backlog />}
             {ui.view === "sprints" && <SprintsView />}
             {ui.view === "timeline" && <TimelineView />}
             {ui.view === "reports" && <ReportsView />}
             {ui.view === "roadmap" && <RoadmapView />}
+            {ui.view === "dashboards" && <DashboardView mode="org" />}
             {isSettingsHome(ui.view) && <SettingsView />}
             {ui.view === "docs" && <DocsView />}
             {ui.view === "collaborating" && <CollaboratingView />}

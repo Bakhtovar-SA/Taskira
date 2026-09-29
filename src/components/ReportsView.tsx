@@ -9,6 +9,7 @@ import {
 } from "../api";
 import { IcDownload, IcReport, IcSearch } from "../icons";
 import { Button } from "../ds/Button";
+import { DashboardTabs, useDashboardList } from "../dashboards/DashboardTabs";
 import { EmptyState } from "../ds/Display";
 import { Tabs } from "../ds/Tabs";
 import { cssVars } from "../cssVars";
@@ -119,6 +120,7 @@ function Trend({ points }: { points: { week: string; closed: number }[] }) {
 export default function ReportsView() {
   const { t, tn, errText } = useT();
   const { data, toast } = useStore();
+  const dashboards = useDashboardList();
 
   const [preset, setPreset] = useState<PresetId>("month");
   const [from, setFrom] = useState(daysAgo(30));
@@ -199,7 +201,9 @@ export default function ReportsView() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div className="px-4 pb-3 pt-5 sm:px-6">
+      {/* Отчёты — первый встроенный дашборд (ADR-0022): та же полоса, что и в разделе «Дашборды». */}
+      <DashboardTabs current="reports" dashboards={dashboards.list} />
+      <div className="px-4 pb-3 pt-4 sm:px-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="mr-auto min-w-0">
             <h1 className="font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{t("reports.title")}</h1>
