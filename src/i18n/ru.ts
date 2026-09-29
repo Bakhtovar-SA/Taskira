@@ -8,6 +8,9 @@ const ru = {
   "common.delete": "Удалить",
   "common.create": "Создать",
   "common.close": "Закрыть",
+  "ds.remove": "Убрать",
+  "ds.nothingFound": "Ничего не найдено",
+  "ds.loadFailed": "Не удалось загрузить",
   "common.loading": "Загрузка…",
   "common.reset": "Сбросить",
   "common.retry": "Повторить",
@@ -999,6 +1002,8 @@ const ru = {
   "errorBoundary.reload": "Перезагрузить",
   "errorBoundary.details": "Подробности для администратора",
 
+  "access.deniedOwn": "Роль «{role}» может изменять и перемещать только задачи, где вы исполнитель или автор",
+  "access.deniedPerm": "Недоступно для роли «{role}» — требуется разрешение «{permission}»",
   "role.admin.name": "Администратор",
   "role.admin.desc": "Полный контроль проекта: рабочий процесс, права доступа, удаление задач.",
   "role.manager.name": "Менеджер проекта",

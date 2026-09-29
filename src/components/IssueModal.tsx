@@ -3,7 +3,7 @@ import { Hint } from "./Hint";
 import { useStore } from "../store";
 import { assignableUsers, canTransition, fmtDate, relTime } from "../store/mappers";
 import { pathForIssue } from "../router";
-import { denialReason } from "../permissions";
+import { denialText } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
@@ -646,7 +646,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const editOk = can("edit", issue);
   const canDelete = can("delete");
   const canComment = can("comment");
-  const denyMsg = denialReason(me, "edit", issue, lang);
+  const denyMsg = denialText(me, "edit", issue, t);
 
   const submitComment = () => {
     if (!comment.trim()) return;

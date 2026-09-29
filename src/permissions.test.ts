@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { can, canEditIssue, denialReason, isOwnIssue, resolveRole, roleHas, type PermId } from "./permissions";
+import { can, canEditIssue, denialReason, denialText, isOwnIssue, resolveRole, roleHas, type PermId } from "./permissions";
 import type { AccessRole, Issue, User } from "./types";
+import en from "./i18n/en";
+import type { TKey } from "./i18n/ru";
+
+const tEn = (k: TKey, p: Record<string, string | number> = {}) => en[k].replace(/\{(\w+)\}/g, (_, n: string) => String(p[n]));
 
 /**
  * Права доступа — клиентская копия.
@@ -168,5 +172,15 @@ describe("denialReason()", () => {
         expect(denialReason(user(r), p).trim().length, `${r}/${p}`).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe("denialText() — отказ на языке интерфейса (трек E)", () => {
+  test("английский: названия роли и права из словаря, без кириллицы и без сырого id права", () => {
+    const own = denialText(user("employee"), "edit", issue(), tEn);
+    expect(own).toBe("The “Employee” role can edit and move only issues where you are the assignee or reporter");
+    const perm = denialText(user("viewer"), "create", undefined, tEn);
+    expect(perm).toBe("Unavailable to the “Viewer” role — the “Create issues” permission is required");
+    expect(/[А-Яа-яЁё]/.test(own + perm)).toBe(false);
   });
 });

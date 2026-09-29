@@ -1,6 +1,7 @@
 /** Combobox с асинхронным поиском (для пикеров людей, задач) по APG combobox: фокус остаётся в поле,
  *  активная строка — aria-activedescendant, ↑/↓/Enter/Esc. Пауза 200 мс перед запросом, устаревший
  *  ответ отбрасывается. Состояния: пусто, идёт поиск, ничего не найдено, ошибка. */
+import { useOptionalT } from "../i18n";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { dsId, hidePop, showPop, useAnchored } from "./floating";
 import { Spinner } from "./Button";
@@ -14,8 +15,8 @@ export function Combobox({
   onSelect,
   value,
   minChars = 0,
-  emptyText = "Ничего не найдено",
-  errorText = "Не удалось загрузить",
+  emptyText,
+  errorText,
   hint,
 }: {
   label: ReactNode;
@@ -29,6 +30,9 @@ export function Combobox({
   errorText?: string;
   hint?: ReactNode;
 }) {
+  const t = useOptionalT()?.t;
+  emptyText ??= t ? t("ds.nothingFound") : "Ничего не найдено";
+  errorText ??= t ? t("ds.loadFailed") : "Не удалось загрузить";
   const [id] = useState(() => dsId("cb"));
   const [q, setQ] = useState(value?.label ?? "");
   const [open, setOpen] = useState(false);

@@ -1,4 +1,5 @@
 import type { AccessRole, GlobalRole, Issue, ProjectRole, User } from "./types";
+import type { TKey } from "./i18n";
 import { MATRIX, PERM_IDS, PERM_META, ROLE_DESCRIPTIONS, ROLE_IDS, ROLE_NAMES, type PermId, type PermScope } from "./permissions.matrix";
 
 export type { PermId };
@@ -80,16 +81,22 @@ export function can(user: User, perm: PermId, issue?: Issue): boolean {
   return true;
 }
 
-export function denialReason(user: User, perm: PermId, issue?: Issue, lang: "ru" | "en" = "ru"): string {
-  const role = lang === "ru" ? roleMeta(user.accessRole).name : ({ admin: "Administrator", manager: "Project manager", employee: "Employee", viewer: "Viewer" } as const)[user.accessRole];
+/** Русский текст отказа — зеркало server/src/permissions.ts (permissions-sync.test.ts сверяет их слово в слово). */
+export function denialReason(user: User, perm: PermId, issue?: Issue): string {
+  const role = roleMeta(user.accessRole).name;
   if ((perm === "edit" || perm === "transition") && issue && roleHas(user.accessRole, perm) && !canEditIssue(user, issue))
-    return lang === "ru"
-      ? `Роль «${role}» может изменять и перемещать только задачи, где вы исполнитель или автор`
-      : `The “${role}” role can edit and move only issues where you are the assignee or reporter`;
-  const permission = lang === "ru" ? permMeta(perm).name : perm;
-  return lang === "ru"
-    ? `Недоступно для роли «${role}» — требуется разрешение «${permission}»`
-    : `Unavailable to the “${role}” role — the “${permission}” permission is required`;
+    return `Роль «${role}» может изменять и перемещать только задачи, где вы исполнитель или автор`;
+  return `Недоступно для роли «${role}» — требуется разрешение «${permMeta(perm).name}»`;
+}
+
+type Translate = (key: TKey, params?: Record<string, string | number>) => string;
+/** Тот же отказ на языке интерфейса (трек E): названия роли и права — из словаря (`role.*`, `permission.*`), как на
+ *  экране «Доступ». Интерфейс показывает этот текст; denialReason() остаётся только зеркалом сервера. */
+export function denialText(user: User, perm: PermId, issue: Issue | undefined, t: Translate): string {
+  const role = t(`role.${user.accessRole}.name`);
+  if ((perm === "edit" || perm === "transition") && issue && roleHas(user.accessRole, perm) && !canEditIssue(user, issue))
+    return t("access.deniedOwn", { role });
+  return t("access.deniedPerm", { role, permission: t(`permission.${perm}.name`) });
 }
 
 export interface CapabilitySummary {

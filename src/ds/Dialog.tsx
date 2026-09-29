@@ -1,5 +1,6 @@
 /** Dialog и SidePanel на нативном `<dialog>` + showModal() (ADR-0014): верхний слой, инертный фон и Esc
  *  — от браузера; начальный фокус и возврат фокуса на вызвавший элемент — здесь. */
+import { useOptionalT } from "../i18n";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { IconButton } from "./Button";
 import { dsId } from "./ids";
@@ -43,7 +44,9 @@ function useNativeDialog(open: boolean, onClose: () => void) {
   return ref;
 }
 
-function Frame({ kind, open, onClose, title, description, children, footer, size = "md", closeLabel = "Закрыть", dismissable = true }: DialogProps & { kind: "dialog" | "panel" }) {
+function Frame({ kind, open, onClose, title, description, children, footer, size = "md", closeLabel, dismissable = true }: DialogProps & { kind: "dialog" | "panel" }) {
+  const t = useOptionalT()?.t;
+  closeLabel ??= t ? t("common.close") : "Закрыть";
   const ref = useNativeDialog(open, onClose);
   const [id] = useState(() => dsId("dlg"));
   // Клик по подложке: у <dialog> подложка — сам элемент за пределами содержимого.

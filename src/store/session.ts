@@ -214,7 +214,10 @@ export function useSessionActions(
         if (takeHomeIntro()) {
           toast(
             "info",
-            "Теперь при входе — список ваших проектов и задач. Открыть проект напрямую можно здесь.",
+            local(
+              "Теперь при входе — список ваших проектов и задач. Открыть проект напрямую можно здесь.",
+              "Sign-in now opens a list of your projects and issues. You can open a project directly from here.",
+            ),
           );
         }
         setBootStatus("home");

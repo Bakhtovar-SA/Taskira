@@ -12,7 +12,7 @@ import type {
   User,
   ViewId,
 } from "./types";
-import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
+import { can as canDo, denialReason, denialText, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
 import { ApiError, API_BASE, authApi, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type ProjectLookInput, type Project as ApiProject } from "./api";
 import {
@@ -275,10 +275,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const requirePerm = useCallback(
     (perm: PermId, issue?: Issue): boolean => {
       if (canDo(me, perm, issue)) return true;
-      toast("error", denialReason(me, perm, issue, lang));
+      toast("error", i18n ? denialText(me, perm, issue, i18n.t) : denialReason(me, perm, issue));
       return false;
     },
-    [me, toast, lang],
+    [me, toast, i18n],
   );
 
   // Общий контекст доменных хуков (ТЗ 2.3): собирается один раз, после requirePerm/withIssue.

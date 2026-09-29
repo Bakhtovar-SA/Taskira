@@ -9,6 +9,9 @@ const en: Record<keyof Dict, string> = {
   "common.delete": "Delete",
   "common.create": "Create",
   "common.close": "Close",
+  "ds.remove": "Remove",
+  "ds.nothingFound": "Nothing found",
+  "ds.loadFailed": "Couldn't load",
   "common.loading": "Loading…",
   "common.reset": "Reset",
   "common.retry": "Retry",
@@ -998,6 +1001,8 @@ const en: Record<keyof Dict, string> = {
   "errorBoundary.reload": "Reload",
   "errorBoundary.details": "Details for the administrator",
 
+  "access.deniedOwn": "The “{role}” role can edit and move only issues where you are the assignee or reporter",
+  "access.deniedPerm": "Unavailable to the “{role}” role — the “{permission}” permission is required",
   "role.admin.name": "Administrator",
   "role.admin.desc": "Full project control: workflow, access management, and issue deletion.",
   "role.manager.name": "Project manager",

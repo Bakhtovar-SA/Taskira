@@ -22,10 +22,10 @@ export function DatePicker({
   value,
   onChange,
   label,
-  placeholder = "Без срока",
+  placeholder,
   lang = "ru",
   today: todayProp,
-  clearLabel = "Убрать срок",
+  clearLabel,
   markOverdue = true,
 }: {
   value: string | null;
@@ -39,6 +39,8 @@ export function DatePicker({
   /** Прошедшая дата красным — для срока задачи; для даты начала или вехи прошлое — не ошибка. */
   markOverdue?: boolean;
 }) {
+  placeholder ??= lang === "en" ? "No due date" : "Без срока";
+  clearLabel ??= lang === "en" ? "Remove due date" : "Убрать срок";
   const today = todayProp ?? localToday();
   const loc = lang === "en" ? "en-GB" : "ru-RU";
   const [open, setOpen] = useState(false);
