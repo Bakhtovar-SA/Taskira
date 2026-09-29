@@ -224,12 +224,29 @@ describe("фильтр списка по своему полю (ROUTE-02)", () =
     expect(await cb.keys({ cfValue: "false" })).toEqual([1, 2]);
   });
 
-  test("неверная граница — 400; поле из чужого проекта или удалённое — пустой список, а не ошибка", async () => {
-    const { field, admin, keys } = await setup("number", ["1", "2"]);
-    const bad = await g(`/api/projects/${p1()}/issues?cf=${field.id}&cfFrom=abc`, admin);
-    expect(bad.statusCode).toBe(400);
-    expect((await del(`${fieldsUrl()}/${field.id}`, admin)).statusCode).toBe(204);
-    expect(await keys({ cfFrom: "0" })).toEqual([]);
+  test("граница с экспонентой (так её отдаёт <input type=number>) работает", async () => {
+    const { keys } = await setup("number", ["5", "1500", "40"]);
+    expect(await keys({ cfFrom: "1e3" })).toEqual([1]);
+    expect(await keys({ cfTo: "4.5E1" })).toEqual([0, 2]);
+  });
+
+  test("условие не по типу поля (устаревшая ссылка, смена типа) и удалённое поле — пустой набор, а не 400: список и счётчики живы", async () => {
+    const n = await setup("number", ["1", "2"]);
+    for (const qs of [{ cfFrom: "abc" }, { cfValue: "1" }, { cfFrom: "1e999999" }]) {
+      expect(await n.keys(qs)).toEqual([]);
+      const c = await n.counts(qs);
+      expect(c.statusCode).toBe(200);
+      expect(JSON.parse(c.body).total).toBe(0);
+    }
+    expect((await del(`${fieldsUrl()}/${n.field.id}`, n.admin)).statusCode).toBe(204);
+    expect(await n.keys({ cfFrom: "0" })).toEqual([]);
+
+    await resetDb();
+    fx = await seedFixture();
+    const cb = await setup("checkbox", ["true", null]);
+    expect(await cb.keys({ cfEmpty: "1" })).toEqual([]);
+    expect(await cb.keys({ cfValue: "да" })).toEqual([]);
+    expect(await cb.keys({ cfFrom: "1" })).toEqual([]);
   });
 
   test("условие по полю сохраняется в сохранённом фильтре", async () => {

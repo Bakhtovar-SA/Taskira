@@ -5,7 +5,6 @@
  */
 import type { z } from "zod";
 import { escLike } from "../db.js";
-import { badRequest } from "../middleware.js";
 import type { CustomFieldType, IssueFilterQuery } from "../contract.js";
 import type { IssueCursorSort } from "../issueListCursor.js";
 
@@ -14,7 +13,9 @@ export type IssueFilters = z.infer<typeof IssueFilterQuery>;
 /** Поле проекта для условия `cf*` — его тип решает, как сравнивать (значения хранятся текстом). */
 export type FilterField = { id: string; field_type: CustomFieldType };
 
-const NUM_RE = /^-?\d+(\.\d+)?$/;
+/** Граница диапазона для числа: как значение поля, плюс экспонента — `<input type="number">` отдаёт «1e3», а
+ *  PostgreSQL приводит её к numeric без потерь. Сами значения поля экспоненту не принимают (validateValueForField). */
+const BOUND_NUM_RE = /^-?\d+(\.\d+)?(e[+-]?\d{1,3})?$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** Те же форматы для SQL — без «?»: `add()` подставляет параметры на место первого «?» в тексте условия. */
 const NUM_SQL = "^-{0,1}[0-9]+([.][0-9]+){0,1}$";
@@ -78,40 +79,49 @@ export function buildIssueFilter(
   return { clauses, params };
 }
 
-/** Условие по своему полю (ROUTE-02). Значения хранятся текстом; числа и даты сравниваются после приведения, а
- *  приведение защищено проверкой формата внутри CASE — строка, записанная до проверок, не роняет запрос. */
+/** Условие по своему полю (ROUTE-02). Значения хранятся текстом; числа сравниваются после приведения, а приведение
+ *  защищено проверкой формата внутри CASE — строка, записанная до проверок, не роняет запрос.
+ *
+ *  Условие, которое не подходит к ТЕКУЩЕМУ полю (поле удалили или сменили ему тип, а сохранённый фильтр или ссылка
+ *  остались; граница не того формата; значение там, где нужен диапазон), ничего не находит — пустой набор, а не 400:
+ *  список и счётчики доски не должны ломаться из-за устаревшей ссылки, а кнопка фильтра честно показывает условие,
+ *  которое и дало пустоту. `cfEmpty` важнее остальных частей (клиент их вместе не шлёт). */
 function addCustomField(
   f: IssueFilters,
   field: FilterField | null,
   add: (clause: string, ...vals: unknown[]) => void,
   clauses: string[],
 ): void {
-  // Поля нет в проекте (удалено, чужой id): условие ничего не находит, как удалённый статус в сохранённом фильтре.
-  if (!field) return void clauses.push("false");
+  const nothing = () => void clauses.push("false");
+  if (!field) return nothing();
   const v = (extra: string, ...vals: unknown[]) =>
     add(`EXISTS (SELECT 1 FROM custom_field_values cfv WHERE cfv.issue_id = i.id AND cfv.custom_field_id = ? AND ${extra})`, field.id, ...vals);
+  const range = !!(f.cfFrom || f.cfTo);
   if (f.cfEmpty) {
-    if (field.field_type === "checkbox") throw badRequest("У чекбокса нет состояния «не задано» — выберите «снят»");
+    // У чекбокса «не задан» и «снят» — одно и то же: для него есть «Не отмечено», а «не задано» не бывает.
+    if (field.field_type === "checkbox") return nothing();
     return add("NOT EXISTS (SELECT 1 FROM custom_field_values cfv WHERE cfv.issue_id = i.id AND cfv.custom_field_id = ?)", field.id);
   }
   switch (field.field_type) {
     case "text":
+      if (range) return nothing();
       if (f.cfValue) v("cfv.value ILIKE ?", `%${escLike(f.cfValue)}%`);
       return;
     case "select":
+      if (range) return nothing();
       if (f.cfValue) v("cfv.value = ?", f.cfValue);
       return;
     case "checkbox":
+      if (range) return nothing();
       if (f.cfValue === "true") v("cfv.value = 'true'");
       else if (f.cfValue === "false") add("NOT EXISTS (SELECT 1 FROM custom_field_values cfv WHERE cfv.issue_id = i.id AND cfv.custom_field_id = ? AND cfv.value = 'true')", field.id);
-      else if (f.cfValue) throw badRequest("Значение чекбокса — true или false");
+      else if (f.cfValue) nothing();
       return;
     case "number":
     case "date": {
-      const re = field.field_type === "number" ? NUM_RE : DATE_RE;
-      for (const b of [f.cfFrom, f.cfTo]) {
-        if (b && !re.test(b)) throw badRequest(field.field_type === "number" ? "Граница должна быть числом" : "Граница — дата в формате ГГГГ-ММ-ДД");
-      }
+      if (f.cfValue) return nothing();
+      const re = field.field_type === "number" ? BOUND_NUM_RE : DATE_RE;
+      if ((f.cfFrom && !re.test(f.cfFrom)) || (f.cfTo && !re.test(f.cfTo))) return nothing();
       // Число приводится к numeric только после проверки формата. Дата сравнивается как текст: ГГГГ-ММ-ДД
       // упорядочен так же, как сами даты, а приведение к date упало бы на «2026-02-30», которую формат пропускает.
       const [typed, cast] =
