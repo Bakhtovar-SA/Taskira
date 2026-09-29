@@ -107,25 +107,37 @@ export async function createDashboard(
   return toDto(r, userId, isGlobalAdmin);
 }
 
+/** Строка под блокировкой до конца транзакции: проверки прав и лимита смотрят на то же состояние, которое потом
+ *  меняется, — два одновременных PATCH/DELETE одного дашборда идут по очереди. */
+async function lockVisible(c: PoolClient, id: string, userId: string): Promise<Row> {
+  const r = await c.query<Row>(
+    `SELECT ${COLS} FROM dashboards WHERE id = $1 AND project_id IS NULL AND (shared OR owner_id = $2) FOR UPDATE`,
+    [id, userId],
+  );
+  if (!r.rows[0]) throw notFound();
+  return r.rows[0];
+}
+
 export async function patchDashboard(
   id: string,
   userId: string,
   isGlobalAdmin: boolean,
   patch: { name?: string; shared?: boolean; widgets?: DashboardWidget[] },
 ): Promise<DashboardDto> {
-  const cur = await loadVisible(id, userId);
-  const canEdit = cur.shared ? isGlobalAdmin : cur.owner_id === userId;
-  if (!canEdit) throw new ApiHttpError(403, "FORBIDDEN", "Общий дашборд может менять только администратор");
-  if (patch.shared !== undefined && patch.shared !== cur.shared) {
-    // Сделать общим может только администратор; вернуть в личные — только его владелец-администратор,
-    // иначе дашборд «пропал бы» в чужие личные.
-    if (!isGlobalAdmin || cur.owner_id !== userId) throw new ApiHttpError(403, "FORBIDDEN", "Сделать дашборд общим или личным может только его автор-администратор");
-  }
   if (patch.widgets) assertLayout(patch.widgets);
-  // Вернуть общий в личные — это ещё один личный дашборд: тот же лимит и та же блокировка, что при создании.
-  const becomesPersonal = patch.shared === false && cur.shared;
   const r = await withTransaction(async (c) => {
-    if (becomesPersonal) await assertPersonalRoom(c, userId);
+    const cur = await lockVisible(c, id, userId);
+    const canEdit = cur.shared ? isGlobalAdmin : cur.owner_id === userId;
+    if (!canEdit) throw new ApiHttpError(403, "FORBIDDEN", "Общий дашборд может менять только администратор");
+    if (patch.shared !== undefined && patch.shared !== cur.shared) {
+      // Сделать общим может только администратор; вернуть в личные — только его владелец-администратор,
+      // иначе дашборд «пропал бы» в чужие личные.
+      if (!isGlobalAdmin || cur.owner_id !== userId) throw new ApiHttpError(403, "FORBIDDEN", "Сделать дашборд общим или личным может только его автор-администратор");
+    }
+    // Вернуть общий в личные — это ещё один личный дашборд: тот же лимит и та же блокировка, что при создании.
+    if (patch.shared === false && cur.shared) await assertPersonalRoom(c, userId);
+    // widgets — полная замена набора. Виджеты неизвестного этому серверу типа (parseStoredWidgets) клиент не видел,
+    // поэтому сохранение после отката версии их удаляет; это осознанно: сервер не может ни показать, ни проверить их.
     const upd = await c.query<Row>(
       `UPDATE dashboards
           SET name = COALESCE($2, name),
@@ -142,10 +154,13 @@ export async function patchDashboard(
 }
 
 export async function deleteDashboard(id: string, userId: string, isGlobalAdmin: boolean): Promise<DashboardDto> {
-  const cur = await loadVisible(id, userId);
-  const canEdit = cur.shared ? isGlobalAdmin : cur.owner_id === userId;
-  if (!canEdit) throw new ApiHttpError(403, "FORBIDDEN", "Общий дашборд может удалить только администратор");
-  await q(`DELETE FROM dashboards WHERE id = $1`, [id]);
+  const cur = await withTransaction(async (c) => {
+    const row = await lockVisible(c, id, userId);
+    const canEdit = row.shared ? isGlobalAdmin : row.owner_id === userId;
+    if (!canEdit) throw new ApiHttpError(403, "FORBIDDEN", "Общий дашборд может удалить только администратор");
+    await c.query(`DELETE FROM dashboards WHERE id = $1`, [id]);
+    return row;
+  });
   return toDto(cur, userId, isGlobalAdmin);
 }
 

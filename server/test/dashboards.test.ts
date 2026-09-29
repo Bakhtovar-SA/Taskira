@@ -97,12 +97,27 @@ describe("личные и общие дашборды", () => {
     expect(r.statusCode).toBe(409);
   });
 
+  test("два общих дашборда переводятся в личные одновременно — лимит личных соблюдается", async () => {
+    const adm = await login(app, "admin");
+    for (let i = 0; i < LIMITS.dashboardsPerUser - 1; i++) await req("POST", "/api/dashboards", adm, { name: `Д${i}` });
+    const a = body<{ id: string }>(await req("POST", "/api/dashboards", adm, { name: "А", shared: true }));
+    const b = body<{ id: string }>(await req("POST", "/api/dashboards", adm, { name: "Б", shared: true }));
+    const rs = await Promise.all([a.id, b.id].map((id) => req("PATCH", `/api/dashboards/${id}`, adm, { shared: false })));
+    expect(rs.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    const [{ n }] = await q<{ n: number }>(`SELECT count(*)::int AS n FROM dashboards WHERE NOT shared AND project_id IS NULL`);
+    expect(n).toBe(LIMITS.dashboardsPerUser);
+  });
+
   test("виджет неизвестного типа в сохранённой строке отбрасывается, а не ломает дашборд", async () => {
     const mgr = await login(app, "mgr1");
     const d = body<{ id: string }>(await req("POST", "/api/dashboards", mgr, { name: "Д", widgets: [count("a")] }));
     await q(`UPDATE dashboards SET widgets = widgets || '[{"id":"z","type":"future","x":0,"y":5,"w":2,"h":2}]'::jsonb WHERE id = $1`, [d.id]);
     const got = body<{ widgets: { id: string }[] }>(await req("GET", `/api/dashboards/${d.id}`, mgr));
     expect(got.widgets.map((w) => w.id)).toEqual(["a"]);
+    // Сохранение набора — полная замена: виджет, которого клиент не видел, после него пропадает (ADR-0022, откат).
+    await req("PATCH", `/api/dashboards/${d.id}`, mgr, { widgets: got.widgets });
+    const [row] = await q<{ widgets: { id: string }[] }>(`SELECT widgets FROM dashboards WHERE id = $1`, [d.id]);
+    expect(row.widgets.map((w) => w.id)).toEqual(["a"]);
   });
 });
 
@@ -126,6 +141,12 @@ describe("данные виджетов — только видимые прое
     const r = body<{ results: Record<string, { value: number }> }>(await data(emp, [count("x", { projectId: fx.projects.p2 })], fx.projects.p1)).results;
     expect(r.x.value).toBe(1);
     expect((await data(emp, [count("x")], fx.projects.p2)).statusCode).toBe(404);
+  });
+
+  test("расчёт, упавший с ошибкой, освобождает слот: следующий запрос не получает 429", async () => {
+    const emp = await login(app, "emp1");
+    for (let i = 0; i < DATA_IN_FLIGHT_PER_USER + 1; i++) expect((await data(emp, [count("x")], fx.projects.p2)).statusCode).toBe(404);
+    expect((await data(emp, [count("x")])).statusCode).toBe(200);
   });
 
   test("каждый тип виджета отдаёт данные своей формы", async () => {
