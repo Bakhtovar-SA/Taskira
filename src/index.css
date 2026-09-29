@@ -235,6 +235,67 @@ body {
   box-shadow: var(--highlight-top), var(--elev-1);
 }
 
+/* Дашборд (ADR-0022): сетка на 12 колонок, место виджета — переменные --gc/--gr, которые ставит CSSOM (ADR-0010).
+   Уже 768 px — одна колонка (узкие плитки чисел — по две), виджеты идут в порядке чтения, высота — та же в строках. */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: var(--row-h);
+  gap: var(--gap);
+}
+.dash-cell {
+  grid-column: var(--gc);
+  grid-row: var(--gr);
+  position: relative;
+  min-width: 0;
+  border-radius: 0.75rem;
+}
+.dash-cell:focus-visible {
+  outline: 2px solid var(--accent-solid);
+  outline-offset: 3px;
+}
+.dash-cell[data-drag="true"] {
+  opacity: 0.5;
+}
+/* В правке рамка виджета чуть темнее и откликается акцентом — видно, что это блок, который можно взять. */
+.dash-frame-edit {
+  box-shadow: var(--highlight-top), var(--elev-1), inset 0 0 0 1px var(--border-strong);
+}
+.dash-cell:hover .dash-frame-edit {
+  box-shadow: var(--highlight-top), var(--elev-2), inset 0 0 0 1px var(--accent-muted);
+}
+.dash-resize {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--border-strong);
+  border-bottom: 2px solid var(--border-strong);
+  border-bottom-right-radius: 4px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.dash-resize:hover {
+  border-color: var(--accent-solid);
+}
+@media (max-width: 767px) {
+  .dash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dash-cell {
+    grid-column: 1 / -1;
+    grid-row: span var(--h);
+  }
+  /* Узкие плитки (числа) — по две в ряд, остальное — во всю ширину. */
+  .dash-cell[data-narrow] {
+    grid-column: span 1;
+  }
+  .dash-resize {
+    display: none;
+  }
+}
+
 /* Доска (ADR-0016). Колонка — тонированный жёлоб без рамки поверх листа;
    карточка — плотная панель с верхним бликом, не стекло. На наведении по
    контуру карточки проступает градиентная кромка бренда (маска, как у

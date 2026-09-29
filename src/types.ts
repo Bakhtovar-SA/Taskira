@@ -306,6 +306,8 @@ export interface NotificationT {
 export type NotifyPrefsT = NotifyPrefs;
 
 export type ViewId =
+  /** «Обзор» проекта — его общий дашборд (ADR-0022). */
+  | "overview"
   | "board"
   | "backlog"
   | "sprints"
@@ -313,6 +315,8 @@ export type ViewId =
   | "reports"
   /** Роадмап проектов (ТЗ 5.15) — без проекта, по всем видимым. */
   | "roadmap"
+  /** Дашборды организации (ADR-0022): подраздел — id дашборда в `ui.section`. */
+  | "dashboards"
   /** Три дома настроек (ADR-0013 §2, ТЗ 5.9); подраздел — `ui.section`. */
   | "settings"
   | "projectSettings"

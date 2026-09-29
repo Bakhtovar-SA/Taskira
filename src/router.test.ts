@@ -121,4 +121,13 @@ describe("filtersFromSearch / searchFromFilters — ТЗ 3.2", () => {
     expect(p.has("overdue")).toBe(false);
     expect(p.get("done")).toBe("1");
   });
+
+  test("дашборды: /dashboards, /dashboards/:id и обзор проекта /p/KEY/overview (ADR-0022)", () => {
+    expect(parsePath("/dashboards")).toEqual({ kind: "global", view: "dashboards" });
+    expect(parsePath("/dashboards/abc-1")).toEqual({ kind: "global", view: "dashboards", section: "abc-1" });
+    expect(pathForView("CORP", "dashboards", "abc-1")).toBe("/dashboards/abc-1");
+    expect(pathForView("CORP", "dashboards")).toBe("/dashboards");
+    expect(parsePath("/p/CORP/overview")).toEqual({ kind: "view", projectKey: "CORP", view: "overview" });
+    expect(pathForView("CORP", "overview")).toBe("/p/CORP/overview");
+  });
 });

@@ -19,7 +19,7 @@
  *  бэкапа хранилища.
  *
  *  Личные, а не организационные данные (saved_views, user_favorite_projects,
- *  notifications) сознательно НЕ включены — экспорт закрывает «мы можем забрать
+ *  notifications, личные дашборды) сознательно НЕ включены — экспорт закрывает «мы можем забрать
  *  свои РАБОЧИЕ данные» (проекты/задачи/историю), не личные настройки экрана
  *  каждого пользователя.
  *
@@ -56,6 +56,8 @@ interface KeyedTable {
   type: string;
   table: string;
   columns: string[];
+  /** Постоянное условие отбора (текст из этого файла, не из запроса) — например, только общие дашборды. */
+  where?: string;
 }
 
 /** Таблицы с одиночным uuid PK `id` — keyset-пагинация. Явный список колонок
@@ -81,6 +83,8 @@ const KEYED_TABLES: KeyedTable[] = [
   { type: "project", table: "projects", columns: ["id", "key", "name", "description", "created_at", "department_id", "is_shared", "sprints_enabled", "default_view", "suggested_labels", "icon", "color", "background", "bg_photo_driver", "bg_photo_key", "bg_photo_small_key", "bg_photo_luma", "bg_photo_updated_at", "start_date", "target_date"] },
   // ТЗ 5.15: вехи роадмапа (зависимости между проектами — составной ключ, ниже в OFFSET_TABLES).
   { type: "projectMilestone", table: "project_milestones", columns: ["id", "project_id", "name", "date", "position", "created_at"] },
+  // ADR-0022: общие дашборды организации и обзоры проектов. Личные — как saved_views, в экспорт не входят.
+  { type: "dashboard", table: "dashboards", columns: ["id", "name", "owner_id", "project_id", "shared", "widgets", "created_at", "updated_at"], where: "shared" },
   // ТЗ 5.10: шаблоны проектов организации (встроенные — в репозитории, в экспорт не входят).
   { type: "projectTemplate", table: "project_templates", columns: ["id", "name", "description", "spec", "created_by", "created_at"] },
   { type: "workflowStatus", table: "workflow_statuses", columns: ["id", "project_id", "sid", "name", "category", "position"] },
@@ -133,8 +137,8 @@ async function* streamKeyed(t: KeyedTable): AsyncGenerator<string> {
   let lastId: string | null = null;
   for (;;) {
     const rows: Record<string, unknown>[] = lastId
-      ? await q<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} WHERE id > $1 ORDER BY id LIMIT $2`, [lastId, BATCH])
-      : await q<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} ORDER BY id LIMIT $1`, [BATCH]);
+      ? await q<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} WHERE ${t.where ? `(${t.where}) AND ` : ""}id > $1 ORDER BY id LIMIT $2`, [lastId, BATCH])
+      : await q<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} ${t.where ? `WHERE ${t.where}` : ""} ORDER BY id LIMIT $1`, [BATCH]);
     if (rows.length === 0) return;
     for (const row of rows) yield `${JSON.stringify({ type: t.type, ...camelizeRow(row) })}\n`;
     lastId = String((rows[rows.length - 1] as { id: string }).id);

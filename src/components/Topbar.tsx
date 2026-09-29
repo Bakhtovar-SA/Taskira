@@ -18,6 +18,8 @@ export const VIEW_LABEL: Record<ViewId, TKey> = {
   timeline: "sidebar.nav.timeline",
   reports: "sidebar.nav.reports",
   roadmap: "sidebar.nav.roadmap",
+  dashboards: "sidebar.nav.dashboards",
+  overview: "sidebar.nav.overview",
   settings: "settings.title",
   projectSettings: "settings.title",
   orgSettings: "settings.title",

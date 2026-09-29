@@ -157,7 +157,7 @@ carries `comments`/`activity` separately (fetched on demand when an issue modal 
 Mutations are optimistic-ish: call API, then patch `data` from the returned DTO; `moveStatus`
 re-fetches issues on failure to undo local drift.
 
-Views (`ViewId`: `board | backlog | timeline | reports | workflow | access | admin | docs | collaborating | inbox | my`)
+Views (`ViewId`: `overview | board | backlog | timeline | reports | dashboards | workflow | access | admin | docs | collaborating | inbox | my`)
 are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs (ADR-0013 §5:
 `/p/:projectKey/{board,list,timeline,sprints}`, `/p/:projectKey/settings/{workflow,access}`, and project-less
 `/inbox`, `/my-issues`, `/reports`, `/admin/departments`, `/help`, `/shared` — a project-less path at boot opens that view
@@ -178,8 +178,8 @@ unique, so no project needs to be named to resolve it) before opening the issue;
 holds the pure path helpers/parser. `nginx.conf`'s `try_files $uri /index.html` (and Vite's
 dev-server default) is what makes a hard refresh on one of these paths work — required now
 that the path itself carries state, unlike the old hash-only scheme.
-Keyboard shortcuts (`/`, `C`, `1`–`4` for the project views — board/list/timeline/sprints, `G` then `H`/`I`/`M`/`R`/`S` for
-home/inbox/my issues/reports/project settings, `[` collapses the sidebar to an icon rail (`taskira.sidebar.collapsed`), `Esc`, `?` help — ADR-0013 §7) are wired in `App.tsx`;
+Keyboard shortcuts (`/`, `C`, `1`–`4` for the project views — board/list/timeline/sprints, `G` then `H`/`I`/`M`/`R`/`D`/`O`/`S` for
+home/inbox/my issues/reports/dashboards/project overview/project settings, `[` collapses the sidebar to an icon rail (`taskira.sidebar.collapsed`), `Esc`, `?` help — ADR-0013 §7) are wired in `App.tsx`;
 they are suppressed while a modal is open. `⌘K`/`Ctrl+K` (matched by `e.code`, so it works in the Russian layout)
 opens the command palette from anywhere (`CommandPalette.tsx`, lazy chunk; `src/palette/` — fuzzy + wrong-layout
 matching, recent issues in `localStorage`, `openPalette()` event for buttons). `reports` (`ReportsView.tsx`) is project-less —
@@ -570,6 +570,22 @@ session for an admin while `instance.setup_completed_at` is null. Demo project (
 directly in one transaction by `services/demoProject.ts` — no notifications, **no audit rows** — and its deletion removes
 the project plus any `audit_log` rows for it and its issues; `server/test/onboarding.test.ts` compares row counts of every
 table before/after. New project-list columns reach the client as `isDemo` (sidebar «демо» tag).
+
+Dashboards ([ADR-0022](docs/adr/0022-dashboards.md), migration `20260929T1000_dashboards.sql`, `services/dashboards.ts` +
+`services/dashboardData.ts`, `routes/dashboards.ts`): one `dashboards` table — personal (owner only; others get 404),
+organisation-shared (`shared`, global admin edits) and one «Обзор» per project (`project_id`, new PermId
+`manageDashboards` for admin/manager; no row = the client's built-in `DEFAULT_PROJECT_OVERVIEW`). Widgets are **data**
+(a closed zod union `DashboardWidget` in `contract.ts`, grid position inside each widget); rows with an unknown type are
+dropped on read, not fatal. `POST /api/dashboards/data` computes a whole set (saved or unsaved) under
+`listVisibleProjects()` like reports — an invisible project yields empty data, one failing widget yields
+`{type:"error"}` for itself only; on an overview every widget is forced to that project. Client: `src/dashboards/`
+(`grid.ts` pure layout: compact/move/resize/nudge/firstFit, tested; `charts.tsx` own SVG charts on `--chart-1…8`, a
+categorical palette whose **order** was validated for colour-blind separation on our light/dark surfaces — don't
+reorder or add a 9th; `DashboardGrid.tsx` native drag-and-drop + pointer resize + keyboard; `spec.ts` mirrors contract
+constants — value imports from `contract.ts` would pull zod into the bundle, `spec.test.ts` checks the mirror),
+`src/components/DashboardView.tsx` (lazy; `/dashboards/:id` via `ui.section`, `/p/KEY/overview`). Reports stay as they
+are and appear as the first built-in tab (`DashboardTabs`). Shared dashboards and overviews are in the admin export;
+personal ones are not.
 
 Department membership (`department_members`, migration 009) has always had a `source` column
 (`'ldap' | 'manual'`), but only the LDAP sync path (`departmentSync.ts`) ever wrote to it until

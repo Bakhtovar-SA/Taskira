@@ -93,6 +93,35 @@
 |---|---|---|
 | `value` | string | может быть null; длина 0…500 |
 
+### DashboardCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…80 |
+| `shared` | boolean | необязательное; по умолчанию false |
+| `widgets` | array&lt;discriminatedunion&gt; | необязательное; по умолчанию []; 0…24 эл. |
+
+### DashboardDataBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `widgets` | array&lt;discriminatedunion&gt; | 0…24 эл. |
+| `projectId` | string (uuid) | необязательное |
+
+### DashboardParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `dashboardId` | string (uuid) |  |
+
+### DashboardPatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | необязательное; длина 1…80 |
+| `shared` | boolean | необязательное |
+| `widgets` | array&lt;discriminatedunion&gt; | необязательное; 0…24 эл. |
+
 ### DepartmentBody
 
 | Поле | Тип | Замечания |
@@ -383,6 +412,12 @@
 | `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null; по умолчанию null |
 | `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null; по умолчанию null |
 
+### ProjectOverviewBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `widgets` | array&lt;discriminatedunion&gt; | 0…24 эл. |
+
 ### ProjectParams
 
 | Поле | Тип | Замечания |
@@ -635,6 +670,33 @@
 |---|---|---|
 | `fieldId` | string |  |
 | `value` | string | может быть null |
+
+### DashboardDataDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `results` | record&lt;string, discriminatedunion&gt; |  |
+
+### DashboardDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `kind` | enum: `personal` \| `org` \| `project` |  |
+| `projectId` | string | может быть null |
+| `ownerId` | string | может быть null |
+| `canEdit` | boolean |  |
+| `widgets` | array&lt;discriminatedunion&gt; |  |
+| `updatedAt` | string |  |
+
+### DashboardWidget
+
+`discriminatedunion`
+
+### DashboardWidgets
+
+`array&lt;discriminatedunion&gt;`
 
 ### DepartmentDto
 
@@ -923,6 +985,13 @@
 | `userId` | string |  |
 | `role` | enum: `manager` \| `employee` \| `viewer` |  |
 
+### ProjectOverviewDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `dashboard` | object | может быть null |
+| `canEdit` | boolean |  |
+
 ### ProjectTemplateDto
 
 | Поле | Тип | Замечания |
@@ -1139,6 +1208,10 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `count` | number |  |
+
+### WidgetDataDto
+
+`discriminatedunion`
 
 ### WorkflowDto
 

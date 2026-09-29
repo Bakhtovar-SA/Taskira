@@ -52,6 +52,11 @@ import type {
   BrandDto,
   MilestoneDto,
   RoadmapDto,
+  DashboardDto,
+  DashboardDataDto,
+  DashboardWidget,
+  ProjectOverviewDto,
+  WidgetDataDto,
 } from "../../server/src/contract";
 
 let legacyBearerToken: string | null = null;
@@ -347,6 +352,21 @@ export const roadmapApi = {
   addDependency: (projectId: string, sourceProjectId: string) =>
     api<{ sourceId: string; dependentId: string }>(`${P(projectId)}/dependencies`, { method: "POST", body: { sourceProjectId } }),
   removeDependency: (projectId: string, sourceProjectId: string) => api<void>(`${P(projectId)}/dependencies/${sourceProjectId}`, { method: "DELETE" }),
+};
+
+/** Дашборды (ADR-0022). Данные виджетов — одним запросом для набора (в том числе ещё не сохранённого). */
+export type { DashboardDto, DashboardWidget, WidgetDataDto, ProjectOverviewDto };
+export const dashboardsApi = {
+  list: () => api<DashboardDto[]>("/api/dashboards"),
+  get: (id: string) => api<DashboardDto>(`/api/dashboards/${id}`),
+  create: (body: { name: string; shared?: boolean; widgets?: DashboardWidget[] }) => api<DashboardDto>("/api/dashboards", { method: "POST", body }),
+  patch: (id: string, body: { name?: string; shared?: boolean; widgets?: DashboardWidget[] }) =>
+    api<DashboardDto>(`/api/dashboards/${id}`, { method: "PATCH", body }),
+  remove: (id: string) => api<void>(`/api/dashboards/${id}`, { method: "DELETE" }),
+  data: (widgets: DashboardWidget[], projectId?: string) => api<DashboardDataDto>("/api/dashboards/data", { method: "POST", body: { widgets, projectId } }),
+  overview: (projectId: string) => api<ProjectOverviewDto>(`${P(projectId)}/overview`),
+  saveOverview: (projectId: string, widgets: DashboardWidget[]) => api<DashboardDto>(`${P(projectId)}/overview`, { method: "PUT", body: { widgets } }),
+  resetOverview: (projectId: string) => api<void>(`${P(projectId)}/overview`, { method: "DELETE" }),
 };
 
 /** LDAP: диагностика и ручной ресинк членства (глобальный admin). */
