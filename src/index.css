@@ -236,7 +236,7 @@ body {
 }
 
 /* Дашборд (ADR-0022): сетка на 12 колонок, место виджета — переменные --gc/--gr, которые ставит CSSOM (ADR-0010).
-   Уже 768 px — одна колонка, виджеты идут в порядке чтения, высота — та же в строках. */
+   Уже 768 px — одна колонка (узкие плитки чисел — по две), виджеты идут в порядке чтения, высота — та же в строках. */
 .dash-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -281,11 +281,15 @@ body {
 }
 @media (max-width: 767px) {
   .dash-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .dash-cell {
     grid-column: 1 / -1;
     grid-row: span var(--h);
+  }
+  /* Узкие плитки (числа) — по две в ряд, остальное — во всю ширину. */
+  .dash-cell[data-narrow] {
+    grid-column: span 1;
   }
   .dash-resize {
     display: none;

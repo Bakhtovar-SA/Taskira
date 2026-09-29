@@ -128,6 +128,7 @@ export function DashboardGrid({
             key={w.id}
             data-widget={w.id}
             data-drag={dragging === w.id ? "true" : undefined}
+            data-narrow={w.w <= 3 ? "" : undefined}
             ref={cssVars({ "--gc": `${w.x + 1} / span ${w.w}`, "--gr": `${w.y + 1} / span ${w.h}`, "--h": String(w.h) })}
             tabIndex={editing ? 0 : undefined}
             onKeyDown={onFrameKey(w)}

@@ -105,7 +105,7 @@ function TrendBody({ data, height }: { data: Data<"trend">; height: number }) {
   return (
     <div className="flex h-full flex-col gap-2">
       <Legend line items={series.map((s) => ({ key: s.key, label: s.label, color: s.color, value: sum(s.key as "created" | "closed") }))} />
-      <Lines xs={data.weeks.map((w) => w.week)} series={series} fmtX={fmt} height={Math.max(90, height - 30)} />
+      <Lines xs={data.weeks.map((w) => w.week)} series={series} fmtX={fmt} height={Math.max(90, height - 30)} label={t("dash.w.trend")} />
     </div>
   );
 }

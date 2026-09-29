@@ -169,3 +169,19 @@ describe("обзор проекта", () => {
     expect(body<unknown[]>(await req("GET", "/api/dashboards", mgr))).toHaveLength(0);
   });
 });
+
+test("полный экспорт содержит общие дашборды и обзоры проектов, но не личные", async () => {
+  const adm = await login(app, "admin");
+  const mgr = await login(app, "mgr1");
+  await req("POST", "/api/dashboards", adm, { name: "Для всех", shared: true });
+  await req("POST", "/api/dashboards", mgr, { name: "Мой" });
+  await req("PUT", `/api/projects/${fx.projects.p1}/overview`, mgr, { widgets: [count("a")] });
+  const r = await req("GET", "/api/admin/export", adm);
+  const names = r.body
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l) as Record<string, unknown>)
+    .filter((l) => l.type === "dashboard")
+    .map((l) => l.name);
+  expect(names.sort()).toEqual(["Для всех", "Обзор"]);
+});

@@ -182,6 +182,12 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `PATCH /api/projects/:projectId/roadmap` | `{startDate?, targetDate?}` (ГГГГ-ММ-ДД или `null`) | `editRoadmap` (admin, manager); цель раньше начала — `400` | даты проекта; `audit_log: project.roadmap` |
 | `POST …/milestones`, `PATCH/DELETE …/milestones/:milestoneId` | `{name ≤80, date}` | `editRoadmap`; не больше 30 у проекта — `409` | вехи; `audit_log: project.milestone.*` |
 | `POST …/dependencies`, `DELETE …/dependencies/:sourceProjectId` | `{sourceProjectId}` | `editRoadmap` в **зависимом** проекте; источник должен быть виден (иначе `404`); цикл — `409 DEPENDENCY_CYCLE` | «проект ждёт другой»; проверка цикла и вставка — в одной транзакции под advisory-блокировкой; `audit_log: project.dependency.*` |
+| `GET /api/dashboards` | — | requireAuth | дашборды организации (ADR-0022): общие (`kind: org`) и свои личные (`personal`), с `canEdit` |
+| `POST /api/dashboards` | `DashboardCreateBody` `{name ≤80, shared?, widgets?}` | requireAuth; `shared: true` — только global admin (`403`); больше 20 личных — `409 LIMIT` | новый дашборд; `audit_log: dashboard.create` |
+| `GET/PATCH/DELETE /api/dashboards/:dashboardId` | `DashboardPatchBody` `{name?, shared?, widgets?}` | личный — только владелец (для остальных `404`); общий — правит и удаляет global admin, остальным `403`; `shared` меняет только автор-администратор | `audit_log: dashboard.update/delete` |
+| `POST /api/dashboards/data` | `DashboardDataBody` `{widgets ≤24, projectId?}` | requireAuth; scope = **видимые проекты** смотрящего; `projectId` невидим — `404` | данные набора виджетов (сохранённых или нет) одним запросом: `{results: {widgetId: WidgetDataDto}}`. С `projectId` (обзор) область всех виджетов — этот проект; виджет с невидимым проектом — пустые данные; сбой одного виджета — `{type: "error"}` только у него |
+| `GET /api/projects/:projectId/overview` | — | browse | «Обзор» проекта: `{dashboard \| null, canEdit}`; `null` — клиент показывает встроенный набор |
+| `PUT/DELETE /api/projects/:projectId/overview` | `ProjectOverviewBody` `{widgets}` | `manageDashboards` (admin, manager) | сохранить обзор (одна строка на проект) / вернуть встроенный; `audit_log: project.overview.update/reset` |
 | `GET …/workflow` | — | browse | статусы, переходы, `issueCounts` по статусам |
 | `POST …/workflow/transitions` | `{from,to}` | **admin**; дубликат — `409`, петля — `400` | добавить переход |
 | `DELETE …/workflow/transitions/:id` | — | **admin** | удалить переход |

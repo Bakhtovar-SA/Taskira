@@ -45,7 +45,7 @@ export function Donut({ parts, total, centerLabel }: { parts: Part[]; total: num
   });
   return (
     <div className="flex h-full min-h-0 items-center gap-4">
-      <svg viewBox="0 0 100 100" className="aspect-square h-full max-h-[150px] min-h-[88px] shrink-0" role="img" aria-label={`${centerLabel}: ${total}`}>
+      <svg viewBox="0 0 100 100" className="aspect-square h-full max-h-[150px] min-h-[88px] max-w-[42%] shrink-0" role="img" aria-label={`${centerLabel}: ${total}`}>
         <circle cx="50" cy="50" r={R} fill="none" stroke="var(--border-subtle)" strokeWidth="11" />
         <g transform="rotate(-90 50 50)">
           {arcs.map(({ p, dash, offset }) => (
@@ -168,7 +168,7 @@ export interface Series {
 /** Две-три линии по неделям на одной оси. Наведение (и стрелки с клавиатуры) — вертикальная линия на ближайшей
  *  неделе и подсказка со всеми сериями; значения последней недели подписаны у концов линий; под графиком —
  *  таблица для скринридера. */
-export function Lines({ xs, series, fmtX, height }: { xs: string[]; series: Series[]; fmtX: (x: string) => string; height: number }) {
+export function Lines({ xs, series, fmtX, height, label }: { xs: string[]; series: Series[]; fmtX: (x: string) => string; height: number; label: string }) {
   const [boxRef, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const tableId = useId();
@@ -210,6 +210,7 @@ export function Lines({ xs, series, fmtX, height }: { xs: string[]; series: Seri
           width={width}
           height={H}
           role="img"
+          aria-label={label}
           aria-describedby={tableId}
           tabIndex={0}
           onKeyDown={onKey}
