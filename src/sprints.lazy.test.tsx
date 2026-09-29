@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { StoreProvider, useStore, useToasts } from "./store";
 import {
   authApi,
   departmentsApi,
@@ -79,7 +79,7 @@ const settle = () => act(async () => { await flush(); await flush(); await flush
 
 type ListPage = { items: ServerIssue[]; hasMore: boolean; nextCursor: string | null };
 
-async function setup(listed: ServerIssue[], showSprints: boolean, listImpl?: () => Promise<ListPage>) {
+async function setup(listed: ServerIssue[], showSprints: boolean, listImpl?: () => Promise<ListPage>, sprints: ProjectBootstrap["sprints"] = []) {
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(user as never);
@@ -87,14 +87,16 @@ async function setup(listed: ServerIssue[], showSprints: boolean, listImpl?: () 
   vi.spyOn(projectsApi, "list").mockResolvedValue([project] as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-  vi.spyOn(projectsApi, "get").mockResolvedValue(boot);
+  vi.spyOn(projectsApi, "get").mockResolvedValue({ ...boot, sprints });
   const list = vi.spyOn(issuesApi, "list").mockImplementation(listImpl ?? (async () => ({ items: listed, hasMore: false, nextCursor: null })));
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
 
   let store!: ReturnType<typeof useStore>;
+  let toasts: ReturnType<typeof useToasts> = [];
   function Grab() {
     store = useStore();
+    toasts = useToasts();
     return null;
   }
   const tree = (withSprints: boolean) => (
@@ -112,7 +114,7 @@ async function setup(listed: ServerIssue[], showSprints: boolean, listImpl?: () 
   const afterBootstrap = list.mock.calls.length;
   if (showSprints) ui.rerender(tree(true));
   await settle();
-  return { ui, store: () => store, list, afterBootstrap };
+  return { ui, store: () => store, toasts: () => toasts, list, afterBootstrap };
 }
 
 afterEach(() => {
@@ -178,6 +180,25 @@ describe("Sprints — единственный потребитель полно
     });
     expect(screen.getByText("Пришла позже")).toBeTruthy();
     expect(screen.queryByLabelText("Загружаем задачи проекта…")).toBeNull();
+    h.ui.unmount();
+  });
+});
+
+describe("Спринты: перенос в завершённый спринт", () => {
+  test("зона завершённого спринта не принимает задачу и объясняет почему, а не молчит", async () => {
+    const done = { id: "sp0", name: "Спринт 6", goal: "", status: "completed" as const, startDate: null, endDate: null };
+    const h = await setup([dto("i1")], true, undefined, [done]);
+    const setSprint = vi.spyOn(issuesApi, "setSprint");
+    expect(screen.getByText("В этом спринте не осталось задач")).toBeTruthy();
+    const zone = document.querySelector('[data-blocked="true"]') as HTMLElement;
+    expect(zone).toBeTruthy();
+    const dataTransfer = { getData: () => "i1" };
+    fireEvent.dragOver(zone, { dataTransfer });
+    expect(screen.getByText(/Спринт завершён — задачи в него не переносятся/)).toBeTruthy();
+    fireEvent.drop(zone, { dataTransfer });
+    await settle();
+    expect(setSprint).not.toHaveBeenCalled();
+    expect(h.toasts().some((x) => x.text.startsWith("Спринт завершён"))).toBe(true);
     h.ui.unmount();
   });
 });

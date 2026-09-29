@@ -6,8 +6,9 @@ import { fmtDate, relTime } from "../store/mappers";
 import type { Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
+import { LIMITS } from "../validation";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { DueRing, IcBacklog, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, Modal, SkeletonRow, directionColor } from "../ui";
 import { Button, EmptyState } from "../ds";
 import ImportTrelloModal from "./ImportTrelloModal";
@@ -183,8 +184,8 @@ function Row({
 }
 
 export default function Backlog() {
-  const { t } = useT();
-  const { data, idx, can, epicsRevision, bulkApplyIssueAction, setCreateOpen } = useStore();
+  const { t, errText } = useT();
+  const { data, idx, can, epicsRevision, bulkApplyIssueAction, setCreateOpen, toast } = useStore();
   const [path, navigate] = useLocation();
   const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -200,7 +201,8 @@ export default function Backlog() {
   const [showDone, setShowDone] = useState(() => new URLSearchParams(location.search).get("done") === "1");
   const [sortKey, setSortKey] = useState<SortKey>("priority");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const { status: fStatus, assignee: fAssignee, type: fType, priority: fPriority, label: fLabel } = filters;
+  const { status: fStatus, assignee: fAssignee, type: fType, priority: fPriority, label: fLabel, sprintId: fSprint, dueFrom: fDueFrom, dueTo: fDueTo } = filters;
+  const sprintsOn = !!data.projects.find((pr) => pr.id === data.currentProjectId)?.sprintsEnabled;
   const setField = (k: keyof FilterState) => (v: string) => setFilters((cur) => ({ ...cur, [k]: v }));
 
   // Состояние → URL: реплейсим (не пушим) — фильтр не должен плодить историю
@@ -241,12 +243,15 @@ export default function Backlog() {
       type: fType || undefined,
       priority: fPriority || undefined,
       label: fLabel || undefined,
+      sprintId: (sprintsOn && fSprint) || undefined,
+      dueFrom: fDueFrom || undefined,
+      dueTo: fDueTo || undefined,
       q: qDebounced || undefined,
       overdue: fOverdue ? "1" : undefined,
       closed: !showDone && !fStatus ? "hide" : undefined,
     };
     return { projectId: data.currentProjectId, filters: apiFilters, sort: sortKey, dir: sortDir };
-  }, [data.currentProjectId, fStatus, fAssignee, fType, fPriority, fLabel, qDebounced, fOverdue, showDone, sortKey, sortDir]);
+  }, [data.currentProjectId, fStatus, fAssignee, fType, fPriority, fLabel, fSprint, fDueFrom, fDueTo, sprintsOn, qDebounced, fOverdue, showDone, sortKey, sortDir]);
 
   const set = useIssueSet(query);
   // Направления строк — справочник (один запрос на экран), а не поиск в списке всех задач.
@@ -262,7 +267,7 @@ export default function Backlog() {
   const { hasMore, loading, loadingMore, loadMore } = set;
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length);
 
-  const filterActive = !!(q || fStatus || fAssignee || fType || fPriority || fLabel || fOverdue || showDone);
+  const filterActive = !!(q || fStatus || fAssignee || fType || fPriority || fLabel || fSprint || fDueFrom || fDueTo || fOverdue || showDone);
   const resetFilters = () => {
     setQ("");
     setFilters(EMPTY_FILTERS);
@@ -274,15 +279,26 @@ export default function Backlog() {
   const [views, setViews] = useState<ServerSavedView[]>([]);
   const [savingView, setSavingView] = useState(false);
   const [newViewName, setNewViewName] = useState("");
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  // Фильтр «по умолчанию» применяется сам при открытии списка — один раз на проект и только если в адресе нет
+  // своих условий (ссылка, которой поделились, важнее личной привычки).
+  const defaultApplied = useRef<string | null>(null);
   useEffect(() => {
     if (!data.currentProjectId) return;
     let cancelled = false;
-    void savedViewsApi.list(data.currentProjectId).then((items) => {
-      if (!cancelled) setViews(items);
+    const pid = data.currentProjectId;
+    void savedViewsApi.list(pid).then((items) => {
+      if (cancelled) return;
+      setViews(items);
+      const def = items.find((v) => v.isDefault);
+      const noConditions = !fStatus && !fAssignee && !fType && !fPriority && !fLabel && !fSprint && !fDueFrom && !fDueTo && !q;
+      if (def && noConditions && defaultApplied.current !== pid) applyView(def);
+      defaultApplied.current = pid;
     }).catch(() => undefined); // тихо — панель просто пуста, не критично для доски/списка
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.currentProjectId]);
 
   const applyView = (v: ServerSavedView) => {
@@ -292,6 +308,9 @@ export default function Backlog() {
       type: v.filter.type ?? "",
       priority: v.filter.priority ?? "",
       label: v.filter.label ?? "",
+      sprintId: v.filter.sprintId ?? "",
+      dueFrom: v.filter.dueFrom ?? "",
+      dueTo: v.filter.dueTo ?? "",
     });
     setQ(v.filter.q ?? "");
   };
@@ -309,6 +328,9 @@ export default function Backlog() {
         type: fType || undefined,
         priority: fPriority || undefined,
         label: fLabel || undefined,
+        sprintId: (sprintsOn && fSprint) || undefined,
+        dueFrom: fDueFrom || undefined,
+        dueTo: fDueTo || undefined,
         q: q || undefined,
       },
       isDefault: false,
@@ -317,6 +339,23 @@ export default function Backlog() {
     setViews((prev) => [...prev, created]);
     setNewViewName("");
     setSavingView(false);
+  };
+
+  /** Переименовать или сделать «по умолчанию» (INVENTORY 1.2 №14): PATCH принимает фильтр целиком — отдаём тот же.
+   *  «По умолчанию» у сервера один на человека и проект: остальные флаги он снимает сам, здесь — то же локально. */
+  const patchView = async (v: ServerSavedView, change: { name?: string; isDefault?: boolean }) => {
+    if (!data.currentProjectId) return;
+    try {
+      const updated = await savedViewsApi.update(data.currentProjectId, v.id, { name: change.name ?? v.name, filter: v.filter, isDefault: change.isDefault ?? v.isDefault });
+      setViews((prev) => prev.map((x) => (x.id === v.id ? updated : updated.isDefault ? { ...x, isDefault: false } : x)));
+    } catch (e) {
+      toast("error", errText(e, t("backlog.viewSaveFailed")));
+    }
+  };
+  const saveRename = (v: ServerSavedView) => {
+    const name = renaming?.name.trim();
+    setRenaming(null);
+    if (name && name !== v.name) void patchView(v, { name });
   };
 
   const removeView = async (v: ServerSavedView) => {
@@ -515,6 +554,19 @@ export default function Backlog() {
             placeholder={t("backlog.labelPlaceholder")}
             className={`${selectCls} w-28`}
           />
+          {sprintsOn && data.sprints.length > 0 && (
+            <select aria-label={t("backlog.sprintFilter")} value={fSprint} onChange={(e) => setField("sprintId")(e.target.value)} className={`${selectCls} cursor-pointer`}>
+              <option value="">{t("backlog.anySprint")}</option>
+              {data.sprints.map((sp) => (
+                <option key={sp.id} value={sp.id}>{sp.name}</option>
+              ))}
+            </select>
+          )}
+          <DueRangeFilter
+            from={fDueFrom}
+            to={fDueTo}
+            onChange={(from, to) => setFilters((cur) => ({ ...cur, dueFrom: from, dueTo: to }))}
+          />
           <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
             <input
               id="backlog-overdue"
@@ -557,12 +609,47 @@ export default function Backlog() {
                 {views.length === 0 && (
                   <div className="px-2.5 py-1.5 text-[12px] text-faint">{t("backlog.noSavedViews")}</div>
                 )}
-                {views.map((v) => (
+                {views.map((v) =>
+                  renaming?.id === v.id ? (
+                    <div key={v.id} className="flex items-center gap-1.5 px-2.5 py-1">
+                      <input
+                        autoFocus
+                        value={renaming.name}
+                        maxLength={LIMITS.savedView.name.max}
+                        aria-label={t("backlog.renameView", { name: v.name })}
+                        onChange={(e) => setRenaming({ id: v.id, name: e.target.value })}
+                        onBlur={() => saveRename(v)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveRename(v);
+                          if (e.key === "Escape") {
+                            e.stopPropagation();
+                            setRenaming(null);
+                          }
+                        }}
+                        className="h-7 min-w-0 flex-1 rounded border border-accent bg-panel px-2 text-[12px] outline-none shadow-focus"
+                      />
+                    </div>
+                  ) : (
                   <div key={v.id} className="group flex items-center">
                     <MenuItem onClick={() => { applyView(v); close(); }}>
                       {v.name}
-                      {v.isDefault && <IcStar size={11} className="ml-auto text-accent" />}
                     </MenuItem>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void patchView(v, { isDefault: !v.isDefault }); }}
+                      aria-pressed={v.isDefault}
+                      aria-label={t(v.isDefault ? "backlog.unsetDefaultView" : "backlog.setDefaultView", { name: v.name })}
+                      title={t(v.isDefault ? "backlog.unsetDefaultView" : "backlog.setDefaultView", { name: v.name })}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded transition-opacity hover:bg-hover ${v.isDefault ? "text-accent" : "text-faint opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
+                    >
+                      <IcStar size={12} filled={v.isDefault} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setRenaming({ id: v.id, name: v.name }); }}
+                      aria-label={t("backlog.renameView", { name: v.name })}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-hover hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      <IcPencil size={12} />
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); void removeView(v); }}
                       aria-label={t("backlog.deleteView")}
@@ -571,7 +658,8 @@ export default function Backlog() {
                       <IcTrash size={12} />
                     </button>
                   </div>
-                ))}
+                  ),
+                )}
                 <div className="my-1 border-t border-linesoft" />
                 {savingView ? (
                   <div className="flex items-center gap-1.5 px-2.5 py-1.5">
@@ -714,7 +802,7 @@ export default function Backlog() {
             <EmptyState
               icon={<IcBacklog size={22} tone="indigo" />}
               title={t("backlog.loadError")}
-              sub={set.error}
+              sub={errText(set.error, "")}
               action={<Button size="sm" variant="secondary" onClick={set.reload}>{t("common.retry")}</Button>}
             />
           ) : rows.length > 0 ? (
@@ -799,5 +887,66 @@ export default function Backlog() {
 
       {importOpen && <ImportTrelloModal onClose={() => setImportOpen(false)} />}
     </div>
+  );
+}
+
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDaysLocal = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+/** «Срок»: готовые периоды считаются от сегодняшнего дня в момент выбора и дальше живут как обычные даты «с … по …»
+ *  (так их можно сохранить в фильтр и поделиться ссылкой); «Свои даты» — два поля. */
+function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onChange: (from: string, to: string) => void }) {
+  const { t, lang } = useT();
+  const today = new Date();
+  const monday = addDaysLocal(today, -((today.getDay() + 6) % 7));
+  const presets: { key: string; from: string; to: string }[] = [
+    { key: "backlog.due.today", from: isoDay(today), to: isoDay(today) },
+    { key: "backlog.due.thisWeek", from: isoDay(monday), to: isoDay(addDaysLocal(monday, 6)) },
+    { key: "backlog.due.next7", from: isoDay(today), to: isoDay(addDaysLocal(today, 7)) },
+    { key: "backlog.due.thisMonth", from: isoDay(new Date(today.getFullYear(), today.getMonth(), 1)), to: isoDay(new Date(today.getFullYear(), today.getMonth() + 1, 0)) },
+  ];
+  const fmt = (s: string) => fmtDate(s, lang);
+  const active = !!(from || to);
+  const label = !active ? t("backlog.due.any") : from && to && from === to ? fmt(from) : `${from ? fmt(from) : "…"} – ${to ? fmt(to) : "…"}`;
+  return (
+    <Dropdown
+      align="left"
+      width={250}
+      button={(open) => (
+        <button
+          aria-label={`${t("field.dueDate")}: ${label}`}
+          className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open || active ? "border-accent" : "border-line"} bg-panel ${active ? "text-ink" : "text-sub"}`}
+        >
+          <IcCalendar size={12} className="text-faint" />
+          <span className="tabular">{active ? label : t("field.dueDate")}</span>
+          <IcChevD size={11} className="text-faint" />
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          {presets.map((p) => (
+            <MenuItem key={p.key} onClick={() => { onChange(p.from, p.to); close(); }}>
+              {t(p.key as never)}
+              {from === p.from && to === p.to && <IcCheck size={12} className="ml-auto text-accent" />}
+            </MenuItem>
+          ))}
+          <div className="my-1 border-t border-linesoft" />
+          <div className="grid grid-cols-2 gap-1.5 px-2.5 py-1.5">
+            <label className="text-[11px] font-medium text-faint">
+              {t("backlog.due.from")}
+              <input type="date" value={from} max={to || undefined} onChange={(e) => onChange(e.target.value, to)} className="mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[12px] text-ink outline-none focus:border-accent" />
+            </label>
+            <label className="text-[11px] font-medium text-faint">
+              {t("backlog.due.to")}
+              <input type="date" value={to} min={from || undefined} onChange={(e) => onChange(from, e.target.value)} className="mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[12px] text-ink outline-none focus:border-accent" />
+            </label>
+          </div>
+          {active && (
+            <MenuItem onClick={() => { onChange("", ""); close(); }}>{t("backlog.due.clear")}</MenuItem>
+          )}
+        </>
+      )}
+    </Dropdown>
   );
 }

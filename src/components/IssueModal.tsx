@@ -7,7 +7,7 @@ import { denialReason } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
-import { IcCalendar, IcCheck, IcChevD, IcChevR, IcExpand, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { IcBell, IcCalendar, IcCheck, IcChevD, IcChevR, IcExpand, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
 import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
@@ -17,6 +17,7 @@ import { DATA_COLORS } from "../dataColors";
 import { neighborIssue, revealIssue } from "../issueNav";
 import type { IssueMode } from "../store/mappers";
 import { VIEW_LABEL } from "./Topbar";
+import { issuesApi } from "../api";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -79,6 +80,9 @@ export function MentionText({ text }: { text: string }) {
     </>
   );
 }
+
+/** Родителем может быть только задача без своего родителя — не больше двух уровней. */
+const canBeParent = (i: Issue) => !i.parentId;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -767,6 +771,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
               </button>
             </>
           )}
+          <WatchButton projectId={data.currentProjectId} issueId={issue.id} watch={issue.watch ?? null} />
           <button onClick={copyLink} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink" title={t("issue.copyLink")}>
             <IcLink size={15} />
           </button>
@@ -1227,6 +1232,52 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
             </Field>
           )}
 
+          {/* Родитель (миграция 021, два уровня): сменить, снять или сделать задачу подзадачей.
+              Задача со своими подзадачами сама подзадачей стать не может — поле тогда не показываем. */}
+          {(issue.parentId || (editOk && (issue.subtasksSummary?.total ?? 0) === 0)) && (
+            <Field label={t("issue.parent")}>
+              {editOk ? (
+                <Dropdown
+                  width={300}
+                  button={(open) => (
+                    <button className={`${selectCls} ${open ? "border-accent" : ""}`} aria-label={t("issue.parent")}>
+                      {issue.parentId && parentIssue ? (
+                        <>
+                          <span className="shrink-0 font-mono text-[11px] font-semibold text-faint">{parentIssue.key}</span>
+                          <span className="truncate">{parentIssue.title}</span>
+                        </>
+                      ) : (
+                        <span className="text-faint">{t("issue.noParent")}</span>
+                      )}
+                      <IcChevD size={12} className="ml-auto shrink-0 text-faint" />
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <>
+                      {issue.parentId && (
+                        <MenuItem onClick={() => { updateIssue(issue.id, { parentId: null }); close(); }}>{t("issue.removeParent")}</MenuItem>
+                      )}
+                      <div className={issue.parentId ? "mt-1 border-t border-linesoft pt-1.5" : ""}>
+                        <IssueSearchBox
+                          autoFocus
+                          ariaLabel={t("issue.searchParent")}
+                          excludeIds={issue.parentId ? [issue.id, issue.parentId] : [issue.id]}
+                          accept={canBeParent}
+                          onPick={(p) => { updateIssue(issue.id, { parentId: p.id }); close(); }}
+                        />
+                      </div>
+                    </>
+                  )}
+                </Dropdown>
+              ) : (
+                <LockedField reason={denyMsg}>
+                  {parentIssue ? `${parentIssue.key} · ${parentIssue.title}` : <span className="text-faint">{t("issue.noParent")}</span>}
+                </LockedField>
+              )}
+            </Field>
+          )}
+
           {isDirection && (
             <div className="space-y-2.5 rounded-md border border-dashed border-line p-2.5">
               <Field label={t("issue.directionColor")}>
@@ -1421,5 +1472,43 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
         <IcPencil size={13} className="ml-2 inline text-faint opacity-0 transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100" />
       </span>
     </h2>
+  );
+}
+
+/** «Следить» (issue_watchers): подписка на уведомления о всех изменениях задачи. Состояние приходит в детальном
+ *  ответе (`issue.watch`); переключение — сразу в кнопке, сервер подтверждает числом подписчиков. */
+function WatchButton({ projectId, issueId, watch }: { projectId: string; issueId: string; watch: { watching: boolean; watchers: number } | null }) {
+  const { t, errText } = useT();
+  const { toast } = useStore();
+  const [state, setState] = useState(watch);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setState(watch), [watch, issueId]);
+  if (!state) return null;
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true);
+    const next = !state.watching;
+    setState({ watching: next, watchers: state.watchers + (next ? 1 : -1) });
+    try {
+      setState(await issuesApi.watch(projectId, issueId, next));
+    } catch (e) {
+      setState(state);
+      toast("error", errText(e, t("issue.watchFailed")));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const label = state.watching ? t("issue.unwatch") : t("issue.watch");
+  return (
+    <button
+      onClick={() => void toggle()}
+      aria-pressed={state.watching}
+      aria-label={label}
+      title={`${label} · ${t("issue.watchers", { n: state.watchers })}`}
+      className={`flex h-7 items-center gap-1 rounded-md px-1.5 transition-colors hover:bg-hover ${state.watching ? "text-accent" : "text-faint hover:text-ink"}`}
+    >
+      <IcBell size={15} tone={state.watching ? "violet" : undefined} />
+      {state.watchers > 0 && <span className="text-[11px] font-semibold tabular">{state.watchers}</span>}
+    </button>
   );
 }

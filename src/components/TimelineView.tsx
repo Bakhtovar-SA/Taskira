@@ -95,7 +95,7 @@ function EpicChildren({ projectId, epicId, total }: { projectId: string; epicId:
 }
 
 export default function TimelineView() {
-  const { t, lang } = useT();
+  const { t, lang, errText } = useT();
   const { data, openIssue, setView } = useStore();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [zoom, setZoomState] = useState<Zoom>(readZoom);
@@ -195,7 +195,7 @@ export default function TimelineView() {
           <EmptyState
             icon={<IcTimeline size={22} tone="teal" />}
             title={t("timeline.loadError")}
-            sub={epicsState.error}
+            sub={errText(epicsState.error, "")}
             action={<Button size="sm" variant="secondary" onClick={epicsState.reload}>{t("common.retry")}</Button>}
           />
         </div>

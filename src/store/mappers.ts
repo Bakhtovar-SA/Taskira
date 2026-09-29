@@ -405,6 +405,7 @@ export function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     // subtasksSummary — тоже только в детальном ответе; null, пока не загружено.
     subtasksSummary: dto.subtasksSummary ?? prev?.subtasksSummary ?? null,
     epicChildrenCount: dto.epicChildrenCount ?? prev?.epicChildrenCount ?? null,
+    watch: dto.watch ?? prev?.watch ?? null,
     createdAt: Date.parse(dto.createdAt) || Date.now(),
     updatedAt: Date.parse(dto.updatedAt) || Date.now(),
     doneAt: dto.doneAt ? Date.parse(dto.doneAt) || null : null,

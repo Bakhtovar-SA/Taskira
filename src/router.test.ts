@@ -103,7 +103,7 @@ describe("filtersFromSearch / searchFromFilters — ТЗ 3.2", () => {
   });
 
   test("round-trip: filtersFromSearch(searchFromFilters(f)) === f", () => {
-    const f = { status: "s1", assignee: "none", type: "bug", priority: "critical", label: "urgent" };
+    const f = { status: "s1", assignee: "none", type: "bug", priority: "critical", label: "urgent", sprintId: "sp1", dueFrom: "2026-09-01", dueTo: "2026-09-30" };
     expect(filtersFromSearch(`?${searchFromFilters("", f)}`)).toEqual(f);
   });
 

@@ -3,7 +3,7 @@
  *  право сам. Цикл зависимостей отклоняет сервер (409) — здесь показывается его объяснение. */
 import { useCallback, useEffect, useState } from "react";
 import type { RoadmapDto } from "../../../server/src/contract";
-import { ApiError, roadmapApi } from "../../api";
+import { roadmapApi } from "../../api";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
 import { Button, Combobox, DatePicker, EmptyState, Input } from "../../ds";
@@ -14,7 +14,7 @@ import { LIMITS } from "../../validation";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 
 export function ProjectRoadmap() {
-  const { t, lang } = useT();
+  const { t, lang, errText } = useT();
   const { data, toast, can, setView } = useStore();
   const projectId = data.currentProjectId;
   const editable = can("editRoadmap");
@@ -35,7 +35,7 @@ export function ProjectRoadmap() {
       if (ok) toast("success", ok);
       reload();
     } catch (e) {
-      toast("error", e instanceof ApiError ? e.message : t("roadmap.saveFailed"));
+      toast("error", errText(e, t("roadmap.saveFailed")));
     } finally {
       setBusy(false);
     }

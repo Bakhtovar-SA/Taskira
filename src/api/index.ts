@@ -559,6 +559,9 @@ export interface IssueFilterParams {
   parentId?: string;
   epicId?: string;
   q?: string;
+  /** Срок в диапазоне, ГГГГ-ММ-ДД включительно. */
+  dueFrom?: string;
+  dueTo?: string;
   overdue?: "1";
   /** "hide" — без закрытых; "recent" — закрытые не старше closedDays; "older" — только старше. */
   closed?: "hide" | "recent" | "older";
@@ -601,6 +604,9 @@ export const issuesApi = {
    *  404, если ключа нет ИЛИ проект не виден вызывающему — не различаются намеренно
    *  (см. server/src/routes/search.ts). */
   resolve: (key: string) => api<IssueResolveDto>("/api/issues/resolve", { query: { key } }),
+  /** Подписка на задачу: уведомления о всех её изменениях, не только когда ты исполнитель или автор. */
+  watch: (projectId: string, issueId: string, on: boolean) =>
+    api<{ watching: boolean; watchers: number }>(`${P(projectId)}/issues/${issueId}/watchers/me`, { method: on ? "POST" : "DELETE" }),
   /** История задачи («кто, что, когда»). */
   activity: (projectId: string, id: string) => api<ServerActivity[]>(`${P(projectId)}/issues/${id}/activity`),
   create: (projectId: string, body: Record<string, unknown>) =>

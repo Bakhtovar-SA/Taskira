@@ -216,6 +216,7 @@ export function useIssueCrudActions(
         if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
         if (patch.assigneeIds !== undefined) body.assigneeIds = patch.assigneeIds;
         if (patch.epicId !== undefined) body.epicId = patch.epicId;
+        if (patch.parentId !== undefined) body.parentId = patch.parentId;
         if (patch.dueDate !== undefined) body.dueDate = patch.dueDate;
         if (patch.tStart !== undefined) body.tStart = patch.tStart;
         if (patch.tSpan !== undefined) body.tSpan = patch.tSpan;

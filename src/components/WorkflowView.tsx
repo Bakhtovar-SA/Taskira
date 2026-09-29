@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useStore } from "../store";
 import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
 import type { CustomFieldType, IssueTypeId, PriorityId, Transition } from "../types";
-import { IcChevR, IcFlow, IcLock, IcPlus, IcTrash, IcUndo, StatusGlyph } from "../icons";
+import { IcChevR, IcFlow, IcLock, IcPencil, IcPlus, IcTrash, IcUndo, StatusGlyph } from "../icons";
 import { Lozenge } from "../ui";
 import { useT } from "../i18n";
+import { LIMITS } from "../validation";
 import { workflowStatusName } from "../workflowStatus";
 import { layoutWorkflow } from "../workflowLayout";
 
@@ -58,8 +59,10 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
     removeTransition,
     resetWorkflow,
     addIssueTemplate,
+    updateIssueTemplateAction,
     removeIssueTemplate,
     addCustomField,
+    renameCustomField,
     removeCustomField,
     toast,
     can,
@@ -83,6 +86,10 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
   const [tplTitle, setTplTitle] = useState("");
   const [tplDescription, setTplDescription] = useState("");
   const [tplStatusId, setTplStatusId] = useState("");
+  /** Шаблон, открытый на правку в той же форме (INVENTORY 1.2 №12); null — форма создаёт новый. */
+  const [tplEditId, setTplEditId] = useState<string | null>(null);
+  /** Поле, переименовываемое прямо в строке списка (INVENTORY 1.2 №13). */
+  const [fieldEdit, setFieldEdit] = useState<{ id: string; name: string } | null>(null);
 
   const sidById = new Map(statuses.map((s) => [s.id, s.sid]));
   const sidOf = (id: string) => sidById.get(id) ?? "";
@@ -102,20 +109,46 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
     }
   };
 
+  const resetTemplateForm = () => {
+    setTplEditId(null);
+    setTplName("");
+    setTplType("task");
+    setTplPriority("medium");
+    setTplTitle("");
+    setTplDescription("");
+    setTplStatusId("");
+  };
+  const editTemplate = (id: string) => {
+    const tpl = data.issueTemplates.find((x) => x.id === id);
+    if (!tpl) return;
+    setTplEditId(id);
+    setTplName(tpl.name);
+    setTplType(tpl.typeId);
+    setTplPriority(tpl.priorityId);
+    setTplTitle(tpl.title);
+    setTplDescription(tpl.description);
+    setTplStatusId(tpl.statusId ?? "");
+  };
   const submitTemplate = () => {
     if (!tplName.trim()) return;
-    addIssueTemplate({
+    const input = {
       name: tplName,
       typeId: tplType,
       priorityId: tplPriority,
       title: tplTitle,
       description: tplDescription,
       statusId: tplStatusId || null,
-    });
-    setTplName("");
-    setTplTitle("");
-    setTplDescription("");
-    setTplStatusId("");
+    };
+    if (tplEditId) updateIssueTemplateAction(tplEditId, input);
+    else addIssueTemplate(input);
+    resetTemplateForm();
+  };
+  const saveFieldName = () => {
+    if (!fieldEdit) return;
+    const f = data.customFields.find((x) => x.id === fieldEdit.id);
+    const name = fieldEdit.name.trim();
+    if (f && name && name !== f.name) renameCustomField(f.id, name);
+    setFieldEdit(null);
   };
 
   const submitField = () => {
@@ -320,8 +353,21 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                 </span>
                 {canEditWf && (
                   <button
-                    onClick={() => removeIssueTemplate(template.id)}
-                    className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
+                    onClick={() => editTemplate(template.id)}
+                    aria-pressed={tplEditId === template.id}
+                    className={`ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors hover:bg-hover hover:text-ink ${tplEditId === template.id ? "text-accent" : "text-faint"}`}
+                    aria-label={t("workflow.editTemplate", { name: template.name })}
+                  >
+                    <IcPencil size={13} />
+                  </button>
+                )}
+                {canEditWf && (
+                  <button
+                    onClick={() => {
+                      if (tplEditId === template.id) resetTemplateForm();
+                      removeIssueTemplate(template.id);
+                    }}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
                     aria-label={t("workflow.deleteTemplate")}
                   >
                     <IcTrash size={13} />
@@ -333,8 +379,8 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
 
           {canEditWf && (
             <div className="h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-4">
-              <p className="text-[13px] font-medium text-sub">{t("workflow.newTemplate")}</p>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-faint">{t("workflow.newTemplateHint")}</p>
+              <p className="text-[13px] font-medium text-sub">{tplEditId ? t("workflow.editingTemplate") : t("workflow.newTemplate")}</p>
+              <p className="mt-1 text-[11.5px] leading-relaxed text-faint">{tplEditId ? t("workflow.editingTemplateHint") : t("workflow.newTemplateHint")}</p>
               <div className="mt-3 space-y-2.5">
                 <label className="block">
                   <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.templateName")}</span>
@@ -407,8 +453,13 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                   disabled={!tplName.trim()}
                   className="flex w-full items-center justify-center gap-1.5 rounded-lg btn-primary px-3 py-2 text-[12.5px] font-medium text-onaccent transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <IcPlus size={13} /> {t("workflow.addTemplate")}
+                  {tplEditId ? t("workflow.saveTemplate") : <><IcPlus size={13} /> {t("workflow.addTemplate")}</>}
                 </button>
+                {tplEditId && (
+                  <button onClick={resetTemplateForm} className="w-full rounded-md px-3 py-1.5 text-[12px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">
+                    {t("common.cancel")}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -427,17 +478,45 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
             )}
             {data.customFields.map((f) => (
               <div key={f.id} className="flex items-center gap-3 border-b border-linesoft px-4 py-2.5 last:border-0 hover:bg-hover">
-                <span className="text-[13px] font-medium text-ink">{f.name}</span>
+                {fieldEdit?.id === f.id ? (
+                  <input
+                    autoFocus
+                    value={fieldEdit.name}
+                    maxLength={LIMITS.customField.name.max}
+                    aria-label={t("workflow.renameField", { name: f.name })}
+                    onChange={(e) => setFieldEdit({ id: f.id, name: e.target.value })}
+                    onBlur={saveFieldName}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveFieldName();
+                      if (e.key === "Escape") {
+                        e.stopPropagation();
+                        setFieldEdit(null);
+                      }
+                    }}
+                    className="min-w-0 max-w-[260px] flex-1 rounded-md border border-accent bg-panel px-2 py-1 text-[13px] font-medium text-ink outline-none shadow-focus"
+                  />
+                ) : (
+                  <span className="text-[13px] font-medium text-ink">{f.name}</span>
+                )}
                 <span className="rounded-md bg-sunken px-1.5 py-0.5 tabular text-[11.5px] text-sub ring-1 ring-inset ring-linesoft">
                   {t(`fieldType.${f.fieldType}`)}
                 </span>
                 {f.fieldType === "select" && f.options.length > 0 && (
                   <span className="min-w-0 flex-1 truncate text-[11px] text-faint">{f.options.join(", ")}</span>
                 )}
+                {canEditWf && fieldEdit?.id !== f.id && (
+                  <button
+                    onClick={() => setFieldEdit({ id: f.id, name: f.name })}
+                    className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-hover hover:text-ink"
+                    aria-label={t("workflow.renameField", { name: f.name })}
+                  >
+                    <IcPencil size={13} />
+                  </button>
+                )}
                 {canEditWf && (
                   <button
                     onClick={() => removeCustomField(f.id)}
-                    className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
                     aria-label={t("workflow.deleteField")}
                   >
                     <IcTrash size={13} />

@@ -603,6 +603,9 @@ export const SavedViewFilter = z
     label: z.string().max(60).optional(),
     sprintId: uuid.optional(),
     q: z.string().max(120).optional(),
+    /** Срок «с … по …» (фильтр списка): даты фиксируются при сохранении, не «эта неделя». */
+    dueFrom: isoDate().optional(),
+    dueTo: isoDate().optional(),
   })
   // .strict(), не молчаливая обрезка неизвестных полей — иначе сохранение вьюхи
   // с опечаткой в имени условия или полем, которое конструктор ещё не поддерживает
@@ -878,6 +881,8 @@ export const IssueDetailDto = IssueDto.extend({
   subtasksSummary: SubtasksSummaryDto,
   /** Число активных задач с epic_id = эта задача (0 — она не «направление»). */
   epicChildrenCount: z.number(),
+  /** Подписка текущего пользователя (issue_watchers): следит ли он и сколько всего следят. */
+  watch: z.object({ watching: z.boolean(), watchers: z.number() }),
 });
 export type IssueDetailDto = z.infer<typeof IssueDetailDto>;
 

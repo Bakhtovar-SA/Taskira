@@ -204,6 +204,8 @@ export interface Issue {
   /** Число активных задач с epic_id = эта (детальный GET /issues/:id); null, пока карточка не открыта.
    *  > 0 — задача уже «направление»: ей нельзя выбрать своё направление. */
   epicChildrenCount: number | null;
+  /** Подписка текущего пользователя: следит ли и сколько всего подписчиков (детальный GET /issues/:id). */
+  watch?: { watching: boolean; watchers: number } | null;
   createdAt: number;
   updatedAt: number;
 }

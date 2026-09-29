@@ -275,7 +275,7 @@ describe("useIssueSet", () => {
     vi.spyOn(issuesApi, "counts").mockResolvedValue({ total: 1, byStatus: {} });
     const h = mount(baseQuery());
     await settle();
-    expect(h.set.error).toBe("сеть недоступна");
+    expect(h.set.error?.message).toBe("сеть недоступна");
     expect(h.set.items).toHaveLength(0);
     await act(async () => {
       h.set.reload();
@@ -297,7 +297,7 @@ describe("useIssueSet", () => {
       h.set.loadMore();
       await flush();
     });
-    expect(h.set.error).toBe("503");
+    expect(h.set.error?.message).toBe("503");
     expect(h.set.items).toHaveLength(100);
     expect(h.set.hasMore).toBe(true);
     await act(async () => {
@@ -466,7 +466,7 @@ describe("useIssueCounts", () => {
     const h = mountCounts("p1", {});
     await settle();
     expect(h.state.counts).toBeNull();
-    expect(h.state.error).toBe("сеть");
+    expect(h.state.error?.message).toBe("сеть");
     h.unmount();
   });
 });
@@ -571,7 +571,7 @@ describe("useEpics", () => {
     expect(h.s.truncated).toBe(true);
     h.rerender("p1", 1);
     await settle();
-    expect(h.s.error).toBe("сеть");
+    expect(h.s.error?.message).toBe("сеть");
     expect(h.s.byId.has("e1")).toBe(true);
     h.unmount();
     spy.mockClear();

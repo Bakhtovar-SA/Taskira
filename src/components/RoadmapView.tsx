@@ -39,17 +39,17 @@ const readZoom = (): Zoom => {
 const at = (days: number) => `calc(${TIME_PAD}px + ${days} * var(--ppd))`;
 const len = (days: number) => `calc(${days} * var(--ppd))`;
 
-type State = { data: RoadmapDto | null; error: string | null; loading: boolean };
+type State = { data: RoadmapDto | null; error: Error | null; loading: boolean };
 
 export default function RoadmapView() {
-  const { t, lang } = useT();
+  const { t, lang, errText } = useT();
   const { data, setView, switchProject } = useStore();
   const [state, setState] = useState<State>({ data: null, error: null, loading: true });
   const load = useCallback(() => {
     setState((s) => ({ ...s, loading: true, error: null }));
     roadmapApi.get().then(
       (d) => setState({ data: d, error: null, loading: false }),
-      (e: unknown) => setState((s) => ({ ...s, loading: false, error: e instanceof Error ? e.message : String(e) })),
+      (e: unknown) => setState((s) => ({ ...s, loading: false, error: e instanceof Error ? e : new Error(String(e)) })),
     );
   }, []);
   useEffect(load, [load]);
@@ -199,7 +199,7 @@ export default function RoadmapView() {
           <EmptyState
             icon={<IcFlag size={22} tone="teal" />}
             title={t("roadmap.loadError")}
-            sub={state.error}
+            sub={errText(state.error, "")}
             action={<Button size="sm" variant="secondary" onClick={load}>{t("common.retry")}</Button>}
           />
         </div>

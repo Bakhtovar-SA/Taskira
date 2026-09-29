@@ -706,6 +706,7 @@
 | `checklist` | array&lt;object&gt; |  |
 | `customFieldValues` | array&lt;object&gt; |  |
 | `epicChildrenCount` | number |  |
+| `watch` | object |  |
 
 ### IssueDto
 
@@ -1060,6 +1061,8 @@
 | `label` | string | необязательное; длина 0…60 |
 | `sprintId` | string (uuid) | необязательное |
 | `q` | string | необязательное; длина 0…120 |
+| `dueFrom` | string | необязательное |
+| `dueTo` | string | необязательное |
 
 ### SearchResultDto
 

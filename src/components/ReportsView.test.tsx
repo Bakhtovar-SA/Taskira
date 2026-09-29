@@ -36,8 +36,14 @@ vi.mock("../api", async (orig) => ({
 const store = {
   data: {
     projects: [
-      { id: "p1", key: "A", name: "Альфа" },
-      { id: "p2", key: "B", name: "Бета" },
+      { id: "p1", key: "A", name: "Альфа", departmentId: "d1" },
+      { id: "p2", key: "B", name: "Бета", departmentId: "d2" },
+      { id: "p3", key: "C", name: "Гамма", departmentId: "d2" },
+    ],
+    departments: [
+      { id: "d1", name: "Продажи" },
+      { id: "d2", name: "Разработка" },
+      { id: "d3", name: "Пустой отдел" },
     ],
   },
   toast: vi.fn(),
@@ -65,7 +71,7 @@ const lastCall = () => summary.mock.calls[summary.mock.calls.length - 1][0] as R
 describe("Отчёты", () => {
   test("сводка за 30 дней по проектам: плитки, разбивка, число проектов", async () => {
     await renderReports();
-    expect(lastCall()).toEqual({ from: daysAgo(30), to: iso(new Date()), groupBy: "project", projectId: undefined });
+    expect(lastCall()).toEqual({ from: daysAgo(30), to: iso(new Date()), groupBy: "project", projectId: undefined, departmentId: undefined });
     expect(screen.getByText("2 проекта в отчёте")).toBeTruthy();
     for (const n of ["17", "23", "41", "3"]) expect(screen.getAllByText(n).length).toBeGreaterThan(0);
     expect(screen.getByText("Альфа")).toBeTruthy();
@@ -86,12 +92,29 @@ describe("Отчёты", () => {
     expect(lastCall().projectId).toBe("p2");
   });
 
+  test("отдел: только отделы с проектами; сужает список проектов и уходит в запрос и выгрузку", async () => {
+    await renderReports();
+    const dep = screen.getByLabelText("Отдел") as HTMLSelectElement;
+    expect([...dep.options].map((o) => o.textContent)).toEqual(["Все отделы", "Продажи", "Разработка"]);
+    fireEvent.change(screen.getByLabelText("Проект"), { target: { value: "p1" } });
+    await settle();
+    fireEvent.change(dep, { target: { value: "d2" } });
+    await settle();
+    // выбранный проект не из этого отдела — сбрасывается
+    expect(lastCall()).toMatchObject({ departmentId: "d2", projectId: undefined });
+    const proj = screen.getByLabelText("Проект") as HTMLSelectElement;
+    expect([...proj.options].map((o) => o.value)).toEqual(["", "p2", "p3"]);
+    fireEvent.click(screen.getByRole("button", { name: /Скачать CSV/ }));
+    await settle();
+    expect(downloadReportCsv).toHaveBeenLastCalledWith(expect.objectContaining({ departmentId: "d2" }));
+  });
+
   test("выгрузка CSV: выбранный охват, период и проект; успех — тост", async () => {
     await renderReports();
     fireEvent.change(screen.getByLabelText("Что выгружать"), { target: { value: "open" } });
     fireEvent.click(screen.getByRole("button", { name: /Скачать CSV/ }));
     await settle();
-    expect(downloadReportCsv).toHaveBeenCalledWith({ from: daysAgo(30), to: iso(new Date()), scope: "open", projectId: undefined });
+    expect(downloadReportCsv).toHaveBeenCalledWith({ from: daysAgo(30), to: iso(new Date()), scope: "open", projectId: undefined, departmentId: undefined });
     expect(store.toast).toHaveBeenCalledWith("success", "Выгрузка скачана");
   });
 

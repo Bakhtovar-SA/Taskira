@@ -319,6 +319,37 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     h.ui.unmount();
   });
 
+  test("родитель: сменить можно только на задачу без родителя; «Сделать самостоятельной» снимает родителя", async () => {
+    const base = dto("i1", { parentId: "i2" } as Partial<ServerIssue>);
+    const parent = dto("i2", { title: "Родитель" });
+    const h = await setup({ listed: [base, parent], get: (id) => (id === "i1" ? base : parent) });
+    vi.spyOn(issuesApi, "page").mockImplementation(async (_p, params) =>
+      params.parentId
+        ? { items: [], hasMore: false, nextCursor: null }
+        : { items: [dto("i3", { title: "Свободная" }), dto("i4", { title: "Чужая подзадача", parentId: "i9" } as Partial<ServerIssue>)], hasMore: false, nextCursor: null },
+    );
+    const patch = vi.spyOn(issuesApi, "patch").mockImplementation(async (_p, id, body) => ({ ...base, ...body }) as ServerIssue);
+
+    await act(async () => {
+      h.store().openIssue("i1");
+    });
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", { name: "Родительская задача" }));
+    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await settle();
+    expect(screen.queryByRole("option", { name: /Чужая подзадача/ })).toBeNull();
+    fireEvent.click(screen.getByRole("option", { name: /Свободная/ }));
+    await settle();
+    expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: "i3" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Родительская задача" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сделать самостоятельной" }));
+    await settle();
+    expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: null });
+    h.ui.unmount();
+  });
+
   test("смена срока вызывает patch с { dueDate }", async () => {
     const base = dto("i1", { dueDate: null });
     const h = await setup({ listed: [base], get: (id) => dto(id, { dueDate: null }) });
