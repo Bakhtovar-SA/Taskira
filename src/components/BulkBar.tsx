@@ -7,7 +7,7 @@ import { useT } from "../i18n";
 import { PRIORITY_ORDER } from "../types";
 import { workflowStatusName } from "../workflowStatus";
 import { IcChevD, IcTrash } from "../icons";
-import { Dropdown, MenuItem, Modal } from "../ui";
+import { Button, Dialog, Menu, type MenuEntry } from "../ds";
 
 export default function BulkBar({ selectedIds, onDone, className = "" }: { selectedIds: ReadonlySet<string>; onDone: () => void; className?: string }) {
   const { t } = useT();
@@ -26,85 +26,61 @@ export default function BulkBar({ selectedIds, onDone, className = "" }: { selec
       onDone();
     }
   };
-  const trigger = (label: string) => () => (
-    <button disabled={busy} className="flex h-7 items-center gap-1 rounded-md border border-line bg-panel px-2 text-[12px] font-medium text-sub disabled:opacity-50">
-      {label} <IcChevD size={10} className="text-faint" />
-    </button>
+  const menu = (label: string, items: MenuEntry[]) => (
+    <Menu
+      label={label}
+      items={items}
+      trigger={(p) => (
+        <Button {...p} size="sm" disabled={busy} iconRight={<IcChevD size={10} />}>
+          {label}
+        </Button>
+      )}
+    />
   );
 
   return (
     <>
       <div role="toolbar" aria-label={t("backlog.selectedCount", { n: selectedIds.size })} className={`flex flex-wrap items-center gap-2 rounded-md border border-accent/30 bg-accentsoft/40 px-2.5 py-2 ${className}`}>
         <span className="text-[12.5px] font-semibold text-ink">{t("backlog.selectedCount", { n: selectedIds.size })}</span>
-        <Dropdown align="left" width={180} button={trigger(t("field.status"))}>
-          {(close) => (
-            <>
-              {data.workflow.statuses.map((s) => (
-                <MenuItem key={s.id} onClick={() => { close(); void run({ action: "status", issueIds: ids, statusId: s.id }); }}>
-                  {workflowStatusName(s, t)}
-                </MenuItem>
-              ))}
-            </>
-          )}
-        </Dropdown>
-        <Dropdown align="left" width={200} button={trigger(t("field.assignee"))}>
-          {(close) => (
-            <>
-              <MenuItem onClick={() => { close(); void run({ action: "assignee", issueIds: ids, assigneeId: "none" }); }}>
-                {t("createIssue.unassigned")}
-              </MenuItem>
-              {data.users.map((u) => (
-                <MenuItem key={u.id} onClick={() => { close(); void run({ action: "assignee", issueIds: ids, assigneeId: u.id }); }}>
-                  {u.name}
-                </MenuItem>
-              ))}
-            </>
-          )}
-        </Dropdown>
-        <Dropdown align="left" width={160} button={trigger(t("field.priority"))}>
-          {(close) => (
-            <>
-              {PRIORITY_ORDER.map((p) => (
-                <MenuItem key={p} onClick={() => { close(); void run({ action: "priority", issueIds: ids, priorityId: p }); }}>
-                  {t(`priority.${p}`)}
-                </MenuItem>
-              ))}
-            </>
-          )}
-        </Dropdown>
-        {can("delete") && (
-          <button
-            disabled={busy}
-            onClick={() => setConfirmDelete(true)}
-            className="flex h-7 items-center gap-1 rounded-md border border-danger/40 px-2 text-[12px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
-          >
-            <IcTrash size={12} /> {t("common.delete")}
-          </button>
+        {menu(
+          t("field.status"),
+          data.workflow.statuses.map((s) => ({ id: s.id, label: workflowStatusName(s, t), onSelect: () => void run({ action: "status", issueIds: ids, statusId: s.id }) })),
         )}
-        <button onClick={onDone} className="ml-auto text-[11.5px] font-medium text-faint hover:text-ink">
+        {menu(t("field.assignee"), [
+          { id: "none", label: t("createIssue.unassigned"), onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: "none" }) },
+          ...data.users.map((u) => ({ id: u.id, label: u.name, text: u.name, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
+        ])}
+        {menu(
+          t("field.priority"),
+          PRIORITY_ORDER.map((p) => ({ id: p, label: t(`priority.${p}`), onSelect: () => void run({ action: "priority", issueIds: ids, priorityId: p }) })),
+        )}
+        {can("delete") && (
+          <Button size="sm" variant="danger" disabled={busy} iconLeft={<IcTrash size={12} />} onClick={() => setConfirmDelete(true)}>
+            {t("common.delete")}
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" className="ml-auto" onClick={onDone}>
           {t("common.clear")}
-        </button>
+        </Button>
       </div>
 
-      {confirmDelete && (
-        <Modal onClose={() => setConfirmDelete(false)} w={420} title={t("backlog.confirmBulkDeleteTitle")}>
-          <div className="p-5">
-            <p className="text-[13px] text-sub">{t("backlog.confirmBulkDeleteBody", { n: selectedIds.size })}</p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="h-8 rounded-md border border-line px-3 text-[12.5px] font-medium text-sub hover:text-ink">
-                {t("common.cancel")}
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => void run({ action: "delete", issueIds: ids })}
-                className="h-8 rounded-md bg-danger px-3 text-[12.5px] font-semibold text-onaccent hover:opacity-90 disabled:opacity-50"
-              >
-                {t("common.delete")}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <Dialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        size="sm"
+        title={t("backlog.confirmBulkDeleteTitle")}
+        description={t("backlog.confirmBulkDeleteBody", { n: selectedIds.size })}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="danger" loading={busy} onClick={() => void run({ action: "delete", issueIds: ids })}>
+              {t("common.delete")}
+            </Button>
+          </>
+        }
+      />
     </>
   );
 }

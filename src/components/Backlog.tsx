@@ -10,7 +10,7 @@ import { LIMITS } from "../validation";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, SkeletonRow, directionColor } from "../ui";
-import { Button, EmptyState } from "../ds";
+import { Button, EmptyState, Presence } from "../ds";
 import BulkBar from "./BulkBar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -795,7 +795,7 @@ export default function Backlog() {
         </div>
       </div>
 
-      {importOpen && <Suspense fallback={null}><ImportModal onClose={() => setImportOpen(false)} /></Suspense>}
+      <Presence show={importOpen}>{(open) => <Suspense fallback={null}><ImportModal open={open} onClose={() => setImportOpen(false)} /></Suspense>}</Presence>
     </div>
   );
 }

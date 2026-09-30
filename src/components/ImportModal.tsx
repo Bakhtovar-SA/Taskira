@@ -5,15 +5,15 @@ import { parseJiraExport } from "../import/jira";
 import { parseAsanaExport } from "../import/asana";
 import type { ImportParseResult } from "../import/types";
 import type { CreateInput } from "../store/mappers";
-import { IcX } from "../icons";
-import { Modal } from "../ui";
+import { Button, Checkbox, Dialog } from "../ds";
 import { useT } from "../i18n";
 
 type Source = "trello" | "jira" | "asana";
 type Parsed = ImportParseResult & { boardName?: string };
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
-export default function ImportModal({ onClose }: { onClose: () => void }) {
+/** `open` — от `Presence` в Backlog.tsx: после закрытия окно ещё доигрывает анимацию ухода. */
+export default function ImportModal({ open = true, onClose }: { open?: boolean; onClose: () => void }) {
   const { t, lang } = useT();
   const { importIssues } = useStore();
   const [source, setSource] = useState<Source>("trello");
@@ -82,12 +82,18 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
 
   const handleClose = () => { if (running) cancelledRef.current = true; onClose(); };
 
-  return <Modal onClose={handleClose} w={520} title={t("import.title")}>
-    <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-      <span className="font-disp text-[14px] font-semibold text-ink">{t("import.title")}</span>
-      <button onClick={handleClose} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("common.close")}><IcX size={15} /></button>
-    </div>
-    <div className="space-y-4 px-5 py-4">
+  return <Dialog
+    open={open}
+    onClose={handleClose}
+    title={t("import.title")}
+    footer={<>
+      <Button variant="ghost" onClick={handleClose}>{result ? t("toast.success") : t("common.cancel")}</Button>
+      <Button variant="primary" onClick={() => void runImport()} disabled={!parsed || !importable.length || !!result} loading={running}>
+        {running ? t("import.importing") : t("import.start", { count: importable.length ? ` (${importable.length})` : "" })}
+      </Button>
+    </>}
+  >
+    <div className="space-y-4">
       <div>
         <label htmlFor="import-source" className="mb-1.5 block text-[12px] font-medium text-faint">{t("import.source")}</label>
         <select id="import-source" value={source} disabled={running} onChange={(e) => selectSource(e.target.value as Source)} className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[12.5px] text-ink">
@@ -107,10 +113,9 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
         <p className="mt-0.5 text-faint">{t("import.found", { count: parsed.items.length })} {parsed.skipped > 0 && t("import.skipped", { count: parsed.skipped })}</p>
         {!!parsed.unrecognizedDates && <p className="mt-1 text-faint">{t("import.badDates", { count: parsed.unrecognizedDates })}</p>}
         {!!parsed.truncatedDescriptions && <p className="mt-1 text-faint">{t("import.truncatedDescriptions", { count: parsed.truncatedDescriptions })}</p>}
-        <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12px] text-sub">
-          <input type="checkbox" checked={includeClosed} onChange={(e) => setIncludeClosed(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
-          {t("import.includeClosed", { count: closedCount })}
-        </label>
+        <div className="mt-2">
+          <Checkbox checked={includeClosed} onChange={setIncludeClosed} label={t("import.includeClosed", { count: closedCount })} />
+        </div>
         <p className="mt-1.5 font-semibold text-ink">{t("import.willCreate", { count: importable.length })}</p>
       </div>}
       {progress && <div className="rounded-md bg-linesoft px-3 py-2">
@@ -120,12 +125,6 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
       {result && <p className="text-[12.5px] font-semibold text-ink">{result.cancelled
         ? t("import.stopped", { ok: result.ok, total: importable.length })
         : t("import.imported", { ok: result.ok, total: result.ok + result.failed })} {result.failed > 0 && t("import.failed", { count: result.failed })}</p>}
-      <div className="flex items-center gap-3">
-        <button onClick={() => void runImport()} disabled={!parsed || !importable.length || running || !!result} className="rounded-lg btn-primary px-4 py-2 text-[13px] font-medium text-onaccent disabled:cursor-not-allowed disabled:opacity-50">
-          {running ? t("import.importing") : t("import.start", { count: importable.length ? ` (${importable.length})` : "" })}
-        </button>
-        <button onClick={handleClose} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-hover">{result ? t("toast.success") : t("common.cancel")}</button>
-      </div>
     </div>
-  </Modal>;
+  </Dialog>;
 }
