@@ -1404,6 +1404,9 @@ const en: Record<keyof Dict, string> = {
   "import.failed": "Failed: {count}.",
   "import.importing": "Importing…",
   "import.start": "Import{count}",
+
+  // трек G
+  "backlog.sort.label": "Sort",
 };
 
 export default en;

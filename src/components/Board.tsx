@@ -6,7 +6,8 @@ import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, PriorityId, Status, User } from "../types";
 import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcSubtasks, IcUsers, IcX, PriorityIcon, StatusGlyph } from "../icons";
-import { Avatar, AvatarStack, BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, SkeletonCard, DROPDOWN_OPEN_EVT, directionColor, labelTone } from "../ui";
+import { Avatar, AvatarStack, BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, SkeletonCard, directionColor, labelTone } from "../ui";
+import { Menu } from "../ds/LazyMenu";
 import { Button } from "../ds/Button";
 import { EmptyState } from "../ds/Display";
 import { useT, type TKey } from "../i18n";
@@ -113,8 +114,6 @@ const Card = memo(function Card({
     [issue.assigneeIds, usersById],
   );
   const [menu, setMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuId = useId();
   // Приземление после переноса (ТЗ 5.13 п.3): карточка появилась на новом месте (ответ сервера) — доезжает туда
   // из точки, где отпустили «призрак». Только для только что брошенной карточки, не для чужих перемещений.
   const cardRef = useRef<HTMLElement>(null);
@@ -128,74 +127,37 @@ const Card = memo(function Card({
   const today = new Date().toISOString().slice(0, 10);
   const overdue = !!issue.dueDate && !doneCat && issue.dueDate < today;
 
-  // Своё меню, не <Dropdown> (открывается ещё и с клавиатуры, см. onKeyDown
-  // ниже) — но без этих двух эффектов оно вело себя как БАГ, а не как
-  // дропдаун: не закрывалось по клику мимо и не закрывало другие такие же
-  // меню на соседних карточках — на доске можно было открыть сразу несколько
-  // одновременно, и они просто зависали открытыми до explicit-выбора пункта.
-  useEffect(() => {
-    if (!menu) return;
-    const onOtherOpen = (e: Event) => {
-      if ((e as CustomEvent<string>).detail !== menuId) setMenu(false);
-    };
-    const onOutside = (e: PointerEvent) => {
-      if (menuRef.current && !e.composedPath().includes(menuRef.current)) setMenu(false);
-    };
-    window.addEventListener(DROPDOWN_OPEN_EVT, onOtherOpen);
-    document.addEventListener("pointerdown", onOutside, true);
-    return () => {
-      window.removeEventListener(DROPDOWN_OPEN_EVT, onOtherOpen);
-      document.removeEventListener("pointerdown", onOutside, true);
-    };
-  }, [menu, menuId]);
-
-  const toggleMenu = () => {
-    setMenu((v) => {
-      const next = !v;
-      if (next) window.dispatchEvent(new CustomEvent(DROPDOWN_OPEN_EVT, { detail: menuId }));
-      return next;
-    });
-  };
-
-  // Перемещение без мыши. Кнопка видна при наведении и при фокусе с
-  // клавиатуры, список — только разрешённые схемой переходы.
+  // Перемещение без мыши (UX-02): меню открывается кнопкой и клавишей M на карточке, поэтому управляемое. Клик мимо,
+  // Esc и «открыто только одно на доске» даёт сам Popover API (popover="auto"). Меню живёт внутри карточки в дереве
+  // React, поэтому клики и клавиши из него не должны всплывать до карточки (иначе Enter по пункту открыл бы задачу).
   const moveButton = draggable && !selecting && (
-    <span className="relative flex" ref={menuRef}>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleMenu();
-        }}
-        aria-haspopup="menu"
-        aria-expanded={menu}
-        aria-label={t("board.moveAria", { key: issue.key })}
-        className={`flex h-5 w-5 items-center justify-center rounded-md text-faint transition-opacity hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100 ${menu ? "opacity-100" : "opacity-0"}`}
-      >
-        <IcMove size={12} />
-      </button>
-      {menu && (
-        <div
-          role="menu"
-          onClick={(e) => e.stopPropagation()}
-          className="glass anim-pop absolute right-0 top-6 z-20 min-w-[190px] rounded-xl border border-line p-1 shadow-e3"
-        >
-          {moveTargets.length === 0 && <p className="px-2 py-1.5 text-[11.5px] text-faint">{t("board.noAllowedTransitions")}</p>}
-          {moveTargets.map((target) => (
-            <button
-              key={target.id}
-              role="menuitem"
-              onClick={() => {
-                setMenu(false);
-                onMove(issue.id, target.id);
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink hover:bg-hover/70"
-            >
-              <StatusGlyph category={target.category} size={13} />
-              {target.name}
-            </button>
-          ))}
-        </div>
-      )}
+    <span className="flex" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <Menu
+        open={menu}
+        onOpenChange={setMenu}
+        placement="bottom-end"
+        label={t("board.moveAria", { key: issue.key })}
+        trigger={(p, open) => (
+          <button
+            {...p}
+            type="button"
+            aria-label={t("board.moveAria", { key: issue.key })}
+            className={`flex h-5 w-5 items-center justify-center rounded-md text-faint transition-opacity hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100 ${open ? "opacity-100" : "opacity-0"}`}
+          >
+            <IcMove size={12} />
+          </button>
+        )}
+        items={
+          moveTargets.length === 0
+            ? [{ kind: "label", id: "none", label: t("board.noAllowedTransitions") }]
+            : moveTargets.map((target) => ({
+                id: target.id,
+                label: target.name,
+                icon: <StatusGlyph category={target.category} size={13} />,
+                onSelect: () => onMove(issue.id, target.id),
+              }))
+        }
+      />
     </span>
   );
 
@@ -216,11 +178,7 @@ const Card = memo(function Card({
         // мышью было единственным способом сменить статус на доске (UX-02).
         if (draggable && !selecting && (e.key.toLowerCase() === "m" || e.key === "ь")) {
           e.preventDefault();
-          toggleMenu();
-        }
-        if (e.key === "Escape" && menu) {
-          e.preventDefault();
-          setMenu(false);
+          setMenu((v) => !v);
         }
       }}
       onDragStart={(e) => {
