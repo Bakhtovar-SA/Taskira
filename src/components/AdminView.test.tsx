@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { departmentsApi, usersApi } from "../api";
 import { I18nProvider } from "../i18n";
 
@@ -10,7 +10,7 @@ vi.mock("../store", () => ({ useStore: () => ({
 }) }));
 import AdminView from "./AdminView";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); localStorage.clear(); });
 
 test("поиск участника не добавляет ранее выбранного человека после изменения запроса", async () => {
   vi.spyOn(departmentsApi, "listMembers").mockResolvedValue([]);
@@ -19,9 +19,11 @@ test("поиск участника не добавляет ранее выбр�
   render(<I18nProvider><AdminView /></I18nProvider>);
   fireEvent.click(screen.getByRole("button", { name: "Состав" }));
   const search = await screen.findByRole("combobox");
+  vi.useFakeTimers();
   fireEvent.focus(search);
   fireEvent.input(search, { target: { value: "Sam" } });
-  await screen.findByText("Sam Member");
+  await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+  expect(screen.getByText("Sam Member")).toBeTruthy();
   fireEvent.keyDown(search, { key: "Enter" });
   const submit = screen.getByRole("button", { name: "Добавить" });
   expect(submit.getAttribute("aria-disabled")).toBeNull();
