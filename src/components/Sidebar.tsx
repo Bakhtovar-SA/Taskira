@@ -33,11 +33,12 @@ import {
 import { BrandMark, BrandName } from "./BrandMark";
 import { useBrandName } from "../brand";
 import { ProjectMark } from "../ui";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useT, type TKey } from "../i18n";
 import { openPalette, openProjectWizard, paletteShortcut } from "../palette/events";
 import { useOpenSettings } from "../settings/useOpenSettings";
+
+const RailTooltip = lazy(() => import("../ds/Overlay").then((m) => ({ default: m.Tooltip })));
 
 type NavItem = {
   id: ViewId;
@@ -562,36 +563,22 @@ function Rail({
   const { data, ui, me, setView, goHome, setCreateOpen, can } = useStore();
   const openSettings = useOpenSettings();
   const brandName = useBrandName();
-  const tipRef = useRef<HTMLDivElement>(null);
-  const [tip, setTip] = useState<string | null>(null);
-  const show = (label: string) => (e: React.SyntheticEvent<HTMLElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const el = tipRef.current;
-    if (el) {
-      el.style.top = `${r.top + r.height / 2}px`;
-      el.style.left = `${r.right + 10}px`;
-    }
-    setTip(label);
+  const btn = (key: string, label: string, icon: React.ReactNode, onClick: () => void, on = false, extra?: React.ReactNode) => {
+    const button = (
+      <Button variant="ghost" size="sm"
+        key={key}
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        aria-current={on ? "page" : undefined}
+        className={(`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${on ? navOn : "text-sub hover:bg-hover/70 hover:text-ink"}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
+      >
+        {icon}
+        {extra}
+      </Button>
+    );
+    return <Suspense key={key} fallback={button}><RailTooltip label={label} placement="right">{button}</RailTooltip></Suspense>;
   };
-  const hide = () => setTip(null);
-
-  const btn = (key: string, label: string, icon: React.ReactNode, onClick: () => void, on = false, extra?: React.ReactNode) => (
-    <Button variant="ghost" size="sm"
-      key={key}
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-current={on ? "page" : undefined}
-      onMouseEnter={show(label)}
-      onMouseLeave={hide}
-      onFocus={show(label)}
-      onBlur={hide}
-      className={(`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${on ? navOn : "text-sub hover:bg-hover/70 hover:text-ink"}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
-    >
-      {icon}
-      {extra}
-    </Button>
-  );
   const sep = <span className="my-1.5 h-px w-6 shrink-0 bg-linesoft" />;
 
   return (
@@ -639,19 +626,6 @@ function Rail({
           <PersonAvatar user={me} size={28} interactive />
         </span>
       </div>
-      {/* В портале: у стеклянной панели backdrop-filter, а он делает её контейнером для
-          position: fixed потомков — подсказка обрезалась бы по краю полосы. */}
-      {createPortal(
-        <div
-          ref={tipRef}
-          role="tooltip"
-          hidden={!tip}
-          className="glass pointer-events-none fixed z-[70] -translate-y-1/2 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5 text-[12px] font-medium text-ink shadow-e3"
-        >
-          {tip}
-        </div>,
-        document.body,
-      )}
     </aside>
   );
 }
