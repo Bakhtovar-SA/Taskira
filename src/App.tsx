@@ -14,6 +14,7 @@ import { Toasts } from "./ui";
 import type { ViewId } from "./types";
 import { useT } from "./i18n";
 import { CreateIssueModal, IssueModal, preloadModalsWhenIdle } from "./lazyModals";
+import { Presence } from "./ds/Presence";
 import { OPEN_PALETTE_EVT, OPEN_PROJECT_WIZARD_EVT } from "./palette/events";
 import { isSettingsHome } from "./settings/sections";
 import { useOpenSettings } from "./settings/useOpenSettings";
@@ -325,7 +326,7 @@ function Shell() {
 
       <Suspense fallback={null}>
         {ui.selectedIssueId && !issuePage && <IssueModal />}
-        {ui.createOpen && <CreateIssueModal />}
+        <Presence show={ui.createOpen}>{(open) => <CreateIssueModal open={open} />}</Presence>
         {paletteOpen && (
           <CommandPalette
             onClose={() => setPaletteOpen(false)}
