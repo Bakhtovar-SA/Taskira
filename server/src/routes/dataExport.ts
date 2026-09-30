@@ -39,7 +39,7 @@
 import type { FastifyInstance } from "fastify";
 import { Readable } from "node:stream";
 import type { PoolClient } from "pg";
-import { withClient } from "../db.js";
+import { acquireClient } from "../db.js";
 import { requireGlobalAdmin, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
 
@@ -48,6 +48,7 @@ import { audit } from "../audit.js";
 // используется больше нигде в коде продукта.
 export const BATCH = 1000;
 const EXPORT_SCHEMA_VERSION = 1;
+const EXPORT_MAX_DURATION_MS = 5 * 60_000;
 
 const toCamel = (s: string): string => s.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 const camelizeRow = (row: Record<string, unknown>): Record<string, unknown> =>
@@ -185,23 +186,35 @@ export async function dataExportRoutes(app: FastifyInstance): Promise<void> {
     reply.type("application/x-ndjson; charset=utf-8");
     reply.header("Content-Disposition", `attachment; filename="taskira-export-${stamp}.jsonl"`);
     // Keep the connection until the stream ends, fails, or the client disconnects.
-    return withClient(async (client) => {
-      const stream = Readable.from(generateExport(client));
-      const finished = new Promise<void>((resolve) => stream.once("close", resolve));
-      const abort = () => stream.destroy();
-      reply.raw.once("close", abort);
-      try {
-        await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-        // Pin the snapshot before the first byte is sent.
-        await client.query("SELECT 1 FROM instance LIMIT 1");
-        reply.send(stream);
-        await finished;
-      } finally {
-        reply.raw.removeListener("close", abort);
-        stream.destroy();
-        await client.query("ROLLBACK");
-      }
-      return reply;
-    });
+    const client = await acquireClient();
+    let broken = false;
+    let streamError: Error | undefined;
+    const stream = Readable.from(generateExport(client));
+    const finished = new Promise<void>((resolve) => stream.once("close", resolve));
+    stream.on("error", (error: Error) => { streamError = error; });
+    const abort = () => stream.destroy();
+    const connectionError = (error: Error) => { broken = true; stream.destroy(error); };
+    client.on("error", connectionError);
+    reply.raw.once("close", abort);
+    const deadline = setTimeout(() => stream.destroy(new Error("Installation export exceeded its time limit")), EXPORT_MAX_DURATION_MS);
+    deadline.unref();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await client.query("SET LOCAL statement_timeout = '30s'");
+      await client.query("SET LOCAL idle_in_transaction_session_timeout = '30s'");
+      // Pin the snapshot before the first byte is sent.
+      await client.query("SELECT 1 FROM instance LIMIT 1");
+      reply.send(stream);
+      await finished;
+      if (streamError) throw streamError;
+    } finally {
+      clearTimeout(deadline);
+      reply.raw.removeListener("close", abort);
+      stream.destroy();
+      await client.query("ROLLBACK").catch(() => { broken = true; });
+      client.removeListener("error", connectionError);
+      client.release(broken);
+    }
+    return reply;
   });
 }
