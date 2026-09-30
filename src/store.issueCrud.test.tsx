@@ -175,10 +175,12 @@ describe("moveStatus", () => {
   test("переход вне схемы workflow — в API не идёт, статус прежний", async () => {
     const { get } = await boot({ issues: [dto("i1", { statusId: "s2", doneAt: new Date().toISOString() })] });
     const tr = vi.spyOn(issuesApi, "transition").mockResolvedValue(dto("i1"));
-    act(() => get().moveStatus("i1", "s1")); // done → todo в схеме нет
+    const settled = vi.fn();
+    act(() => get().moveStatus("i1", "s1", null, settled)); // done → todo в схеме нет
     await settle();
     expect(tr).not.toHaveBeenCalled();
     expect(find(get, "i1")!.statusId).toBe("s2");
+    expect(settled).toHaveBeenCalledExactlyOnceWith(false);
   });
 
   test("успех: задача обновляется по ответу, у родителя done +1 при закрытии подзадачи, растёт issuesRevision, ставится lastEvent", async () => {
@@ -187,7 +189,8 @@ describe("moveStatus", () => {
     const { get } = await boot({ issues: [parent, child] });
     const tr = vi.spyOn(issuesApi, "transition").mockResolvedValue(dto("c", { parentId: "p", statusId: "s2", doneAt: new Date().toISOString() }));
     const r0 = get().issuesRevision;
-    act(() => get().moveStatus("c", "s2", "x"));
+    const settled = vi.fn();
+    act(() => get().moveStatus("c", "s2", "x", settled));
     await settle();
     expect(tr).toHaveBeenCalledWith("p1", "c", "s2", "x");
     expect(find(get, "c")!.statusId).toBe("s2");
@@ -195,16 +198,19 @@ describe("moveStatus", () => {
     expect(find(get, "p")!.subtasksSummary).toEqual({ total: 1, done: 1 });
     expect(get().issuesRevision).toBe(r0 + 1);
     expect(get().ui.lastEvent?.issueId).toBe("c");
+    expect(settled).toHaveBeenCalledExactlyOnceWith(true);
   });
 
   test("ошибка сервера: стор не меняется локально, но задачи перечитываются (issuesApi.list вызывается снова)", async () => {
     const { get, listSpy } = await boot({ issues: [dto("i1")] });
     vi.spyOn(issuesApi, "transition").mockRejectedValue(new ApiError(409, "CONFLICT", "нельзя"));
     const calls0 = listSpy.mock.calls.length;
-    act(() => get().moveStatus("i1", "s2"));
+    const settled = vi.fn();
+    act(() => get().moveStatus("i1", "s2", null, settled));
     await settle();
     expect(find(get, "i1")!.statusId).toBe("s1");
     expect(listSpy.mock.calls.length).toBeGreaterThan(calls0);
+    expect(settled).toHaveBeenCalledExactlyOnceWith(false);
   });
 });
 

@@ -429,6 +429,7 @@ const ColumnCards = memo(function ColumnCards({
   renderCard,
   moves,
   doneStatus,
+  onMovesApplied,
 }: {
   projectId: string;
   filters: IssueFilterParams;
@@ -436,6 +437,7 @@ const ColumnCards = memo(function ColumnCards({
   renderCard: (issue: Issue) => React.ReactNode;
   moves: ReadonlyMap<string, string>;
   doneStatus: boolean;
+  onMovesApplied: (ids: readonly string[]) => void;
 }) {
   const { t } = useT();
   const { data, idx } = useStore();
@@ -443,6 +445,14 @@ const ColumnCards = memo(function ColumnCards({
   const set = useIssueSet(query, { withCounts: false });
   useOnRevision(revision, set.revalidate);
   const rows = useMemo(() => boardMoveRows(set.items, idx.issues, filters.status!, moves, { overdueOnly: filters.overdue === "1", doneStatus }), [set.items, idx.issues, filters.status, filters.overdue, moves, doneStatus]);
+  useEffect(() => {
+    const applied: string[] = [];
+    for (const [id, target] of moves) {
+      const current = idx.issues.get(id);
+      if (current && (current.statusId !== target || (target === filters.status && set.items.some(i => i.id === id && i.statusId === target && i.rank === current.rank)))) applied.push(id);
+    }
+    if (applied.length) onMovesApplied(applied);
+  }, [moves, idx.issues, filters.status, set.items, onMovesApplied]);
 
   const { hasMore, loading, loadingMore, loadMore } = set;
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length, "200px");
@@ -496,6 +506,7 @@ const BulkBar = lazy(() => import("./BulkBar"));
  */
 const BoardColumn = memo(function BoardColumn({
   moves,
+  onMovesApplied,
   st,
   total,
   hiddenDone,
@@ -533,6 +544,7 @@ const BoardColumn = memo(function BoardColumn({
   onToggleSelect,
 }: {
   moves: ReadonlyMap<string, string>;
+  onMovesApplied: (ids: readonly string[]) => void;
   st: Status;
   total: number | null;
   hiddenDone: number;
@@ -669,6 +681,7 @@ const BoardColumn = memo(function BoardColumn({
             renderCard={renderCard}
             moves={moves}
             doneStatus={isDone}
+            onMovesApplied={onMovesApplied}
           />
         )}
         {canCreate && isFirstTodo && !quickOpen && total !== 0 && (
@@ -824,16 +837,35 @@ export default function Board() {
   const moveQueryKey = JSON.stringify([projectId, baseFilters]);
   const [localMoves, setLocalMoves] = useState<{ key: string; moves: ReadonlyMap<string, string> }>({ key: "", moves: NO_MOVES });
   const moves = localMoves.key === moveQueryKey ? localMoves.moves : NO_MOVES;
-  const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
+  const moveQueryRef = useRef(moveQueryKey);
+  moveQueryRef.current = moveQueryKey;
+  const moveRequests = useRef(new Map<string, symbol>());
+  const onMovesApplied = useCallback((ids: readonly string[]) => {
     setLocalMoves(prev => {
-      const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
-      next.delete(id);
-      next.set(id, to);
-      if (next.size > 128) next.delete(next.keys().next().value!);
+      if (prev.key !== moveQueryKey || !ids.some(id => prev.moves.has(id))) return prev;
+      const next = new Map(prev.moves);
+      ids.forEach(id => next.delete(id));
       return { key: moveQueryKey, moves: next };
     });
-    moveStatus(id, to, before);
-  }, [moveStatus, moveQueryKey]);
+  }, [moveQueryKey]);
+  const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
+    if (!canMove) return;
+    const request = Symbol();
+    moveRequests.current.set(id, request);
+    moveStatus(id, to, before, confirmed => {
+      if (moveRequests.current.get(id) !== request) return;
+      moveRequests.current.delete(id);
+      if (moveQueryRef.current !== moveQueryKey) return;
+      if (!confirmed) { onMovesApplied([id]); return; }
+      setLocalMoves(prev => {
+        const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
+        next.delete(id);
+        next.set(id, to);
+        if (next.size > 128) next.delete(next.keys().next().value!);
+        return { key: moveQueryKey, moves: next };
+      });
+    });
+  }, [moveStatus, moveQueryKey, canMove, onMovesApplied]);
   const revision = useIssuesRevision();
   const epics = useEpics(projectId, epicsRevision);
   const hasDoneColumn = doneIds.size > 0;
@@ -1085,6 +1117,7 @@ export default function Board() {
                 can={can}
                 moveStatus={moveOnBoard}
                 moves={moves}
+                onMovesApplied={onMovesApplied}
                 onOpen={openIssue}
                 onMove={onMove}
                 onCardDragStart={onCardDragStart}

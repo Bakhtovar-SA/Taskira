@@ -436,12 +436,15 @@ export function Modal({
   // Куда вернуть фокус после закрытия — обычно это кнопка/карточка, с которой диалог открыли. Запоминается при
   // первом рендере: к моменту эффекта `autoFocus` поля внутри уже забрал фокус, и «открывший» был бы самим полем.
   const openerRef = useRef(document.activeElement as HTMLElement | null);
+  const focusMounted = useRef(false);
 
   // Preserve focus when a loading placeholder is replaced; leave focused fields and portalled menus alone.
   useLayoutEffect(() => {
     const box = boxRef.current;
     const active = document.activeElement;
-    if (box && !box.contains(active) && (active === openerRef.current || active === document.body)) {
+    const mounting = !focusMounted.current;
+    focusMounted.current = true;
+    if (box && !box.contains(active) && (mounting || active === openerRef.current || active === document.body)) {
       (box.querySelector<HTMLElement>(FOCUSABLE) ?? box).focus();
     }
   }, [focusReady]);

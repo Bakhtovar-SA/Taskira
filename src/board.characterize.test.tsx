@@ -208,6 +208,24 @@ afterEach(() => {
 });
 
 describe("Board — характеризующие тесты (ТЗ 5.12 c, до переписывания JSX)", () => {
+  test("a rejected same-column move preserves server order without leaving a projection entry", async () => {
+    const h = await setup({ pageImpl: async (_p, params) => ({ items: params.status === "s1" ? [dto("x", { rank: 99 }), dto("a1", { rank: 2 }), dto("y", { rank: 1 })] : [], hasMore: false, nextCursor: null }) });
+    vi.spyOn(issuesApi, "transition").mockRejectedValue(new Error("rejected"));
+    const source = h.ui.container.querySelector("section.board-col")!;
+    fireEvent.drop(source, { dataTransfer: { getData: () => "a1" } });
+    await settle();
+    expect([...source.querySelectorAll("article")].map(el => el.getAttribute("data-issue-id"))).toEqual(["x", "a1", "y"]);
+    h.ui.unmount();
+  });
+
+  test("a viewer's synthetic drop does not even request a transition", async () => {
+    const h = await setup({ role: "viewer", pageImpl: async (_p, params) => ({ items: params.status === "s1" ? [dto("a1")] : [], hasMore: false, nextCursor: null }) });
+    const transition = vi.spyOn(issuesApi, "transition");
+    fireEvent.drop(h.ui.container.querySelector("section.board-col")!, { dataTransfer: { getData: () => "a1" } });
+    await settle();
+    expect(transition).not.toHaveBeenCalled();
+    h.ui.unmount();
+  });
   test("confirmed drop lands only in the destination while paginated columns are still refreshing", async () => {
     let refresh = false;
     const pendingPages: ((value: { items: ServerIssue[]; hasMore: boolean; nextCursor: null }) => void)[] = [];
@@ -234,10 +252,12 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(vi.mocked(flipFrom).mock.calls.filter(([el]) => el === moved)).toHaveLength(1);
     expect(vi.mocked(flipFrom).mock.calls.some(([el]) => source.contains(el))).toBe(false);
     // Finish the page refresh: it must not duplicate or remount the landed card.
-    pendingPages.forEach(resolve => resolve({ items: [dto("a1", { statusId: "s2", rank: 2 })], hasMore: false, nextCursor: null }));
+    pendingPages.forEach(resolve => resolve({ items: [dto("x", { statusId: "s2", rank: 99 }), dto("a1", { statusId: "s2", rank: 2 }), dto("y", { statusId: "s2", rank: 1 })], hasMore: false, nextCursor: null }));
     await settle();
     expect(screen.getAllByRole("article", { name: /A21-a1/ })).toHaveLength(1);
     expect(screen.getByRole("article", { name: /A21-a1/ })).toBe(moved);
+    // Once the page acknowledges the move, the bridge must stop overriding its order.
+    expect([...target.querySelectorAll("article")].map(el => el.getAttribute("data-issue-id"))).toEqual(["x", "a1", "y"]);
     h.ui.unmount();
   });
   test("1. каждая колонка запрашивает свою первую страницу по своему статусу", async () => {

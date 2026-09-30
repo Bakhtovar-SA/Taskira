@@ -1,7 +1,7 @@
 import { Suspense, useState } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { lazyWithPreload } from "./lazyModals";
+import { lazyWithPreload, IssueModal, CreateIssueModal } from "./lazyModals";
 
 /** PERF-BUDGET п. 3: предзагрузка ленивых модалок — один импорт на чанк, повтор после ошибки, `lazy()` не сломан. */
 
@@ -10,6 +10,10 @@ afterEach(() => cleanup());
 const Hello = ({ name }: { name: string }) => <p>Привет, {name}</p>;
 
 describe("lazyWithPreload", () => {
+  test("lazy modal wrappers have distinct diagnostic names", () => {
+    expect(IssueModal.displayName).toBe("PreloadedIssueModal");
+    expect(CreateIssueModal.displayName).toBe("PreloadedCreateIssueModal");
+  });
   test("completed preload renders immediately without the fallback", async () => {
     const C = lazyWithPreload(async () => ({ default: Hello }));
     C.preload();

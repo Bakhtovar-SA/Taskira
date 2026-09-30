@@ -1,6 +1,6 @@
 /** Фокус в <Modal> (ТЗ 5.16, проход с клавиатуры): поле с autoFocus не перебивается крестиком из шапки, а после
  *  закрытия фокус возвращается туда, откуда диалог открыли, — а не в удалённое поле самого диалога. */
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { afterEach, expect, test } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { I18nProvider } from "./i18n";
@@ -52,4 +52,22 @@ test("explicit loading completion restores focus once and ordinary rerenders pre
   fireEvent.change(field, { target: { value: "draft" } });
   ui.rerender(view(true, 1));
   expect(document.activeElement).toBe(field);
+});
+
+test("mount pulls focus inside even when another layout effect focused an unrelated field", () => {
+  function StealFocus() {
+    useLayoutEffect(() => { document.getElementById("outside-field")!.focus(); }, []);
+    return null;
+  }
+  render(<I18nProvider><input id="outside-field" /><Modal title="Edit" onClose={() => {}}><StealFocus /><button>inside</button></Modal></I18nProvider>);
+  expect(document.activeElement).toBe(screen.getByText("inside"));
+});
+
+test("loading completion leaves focus in an external popover control", () => {
+  const view = (ready: boolean) => <I18nProvider><input aria-label="popover field" /><Modal title="Edit" focusReady={ready} onClose={() => {}}><button>inside</button></Modal></I18nProvider>;
+  const ui = render(view(false));
+  const outside = screen.getByLabelText("popover field");
+  outside.focus();
+  ui.rerender(view(true));
+  expect(document.activeElement).toBe(outside);
 });

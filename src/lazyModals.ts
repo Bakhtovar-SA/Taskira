@@ -10,7 +10,7 @@ import { createElement, lazy, useState, type ComponentType } from "react";
  * разбор чанка, а раскрытие содержимого после фолбэка React ещё и притормаживает (throttling раскрытия Suspense,
  * ~300 мс) — отсюда разница первого и повторного открытия. Замер: docs/design/PERF-BUDGET.md.
  */
-export function lazyWithPreload<P extends object>(factory: () => Promise<{ default: ComponentType<P> }>) {
+export function lazyWithPreload<P extends object>(factory: () => Promise<{ default: ComponentType<P> }>, displayName = "PreloadedModal") {
   let pending: Promise<{ default: ComponentType<P> }> | null = null;
   let resolved: ComponentType<P> | null = null;
   const load = () =>
@@ -32,14 +32,15 @@ export function lazyWithPreload<P extends object>(factory: () => Promise<{ defau
   const Preloaded = (props: P) => {
     // Choose once per mounted instance: a cold import must not replace the
     // Lazy element type after the user has started editing the loaded modal.
+    // A later, separate mount may use the already resolved component directly.
     const [Component] = useState(() => resolved ?? Lazy);
     return createElement(Component, props);
   };
-  return Object.assign(Preloaded, { preload });
+  return Object.assign(Preloaded, { preload, displayName });
 }
 
-export const IssueModal = lazyWithPreload(() => import("./components/IssueModal"));
-export const CreateIssueModal = lazyWithPreload(() => import("./components/CreateIssueModal"));
+export const IssueModal = lazyWithPreload(() => import("./components/IssueModal"), "PreloadedIssueModal");
+export const CreateIssueModal = lazyWithPreload(() => import("./components/CreateIssueModal"), "PreloadedCreateIssueModal");
 
 /** Для `onPointerEnter`/`onFocus` карточек: к клику чанк карточки задачи уже загружен. */
 export const preloadIssueModal = IssueModal.preload;
