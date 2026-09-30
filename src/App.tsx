@@ -198,7 +198,9 @@ function Shell() {
       }
       if (paletteOpen || helpOpen) return; // Esc и остальное у открытого диалога свои
       if (e.key === "Escape") {
-        if (!typing) {
+        // Esc, уже обработанный внутри (закрыть меню или всплывающее окно поверх карточки, отменить правку), карточку не
+        // закрывает: иначе Esc в меню статуса закрывал всю панель.
+        if (!typing && !e.defaultPrevented) {
           setCreateOpen(false);
           openIssue(null);
         }
