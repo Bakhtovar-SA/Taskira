@@ -23,9 +23,9 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   const liveParent = useIssue(ui.createParentId) ?? undefined;
   // Закрытие сбрасывает createParentId, а окно ещё ~200 мс уходит с анимацией: держим родителя, каким он был открытым,
   // иначе заголовок «Новая подзадача» успевает смениться на «Новая задача».
-  const parentRef = useRef(liveParent);
-  if (open) parentRef.current = liveParent;
-  const parent = open ? liveParent : parentRef.current;
+  const [heldParent, setHeldParent] = useState(liveParent);
+  if (open && heldParent?.id !== liveParent?.id) setHeldParent(liveParent);
+  const parent = open ? liveParent : heldParent;
   const [typeId, setTypeId] = useState<IssueTypeId>("task");
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
@@ -83,6 +83,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   };
 
   const submit = () => {
+    if (!open) return; // окно уже уходит: второй клик или Enter не должны создать дубль
     if (!title.trim()) {
       setError(t("createIssue.titleRequired"));
       return;
@@ -142,7 +143,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
           <Button variant="ghost" onClick={close}>
             {t("common.cancel")}
           </Button>
-          <Button variant="primary" onClick={submit}>
+          <Button variant="primary" onClick={submit} disabled={!open}>
             {t("createIssue.submit")}
           </Button>
         </>
