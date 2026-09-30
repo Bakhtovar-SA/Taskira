@@ -72,6 +72,7 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
   useEffect(() => () => void (alive.current = false), []);
+  const exclude = useMemo(() => new Set(state.status === "ready" ? state.members.map((m) => m.userId) : []), [state]);
 
   const load = useCallback(() => {
     setState({ status: "loading" });
@@ -104,7 +105,6 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
     );
 
   const rows = [...state.members].sort((a, b) => a.name.localeCompare(b.name, lang === "ru" ? "ru" : "en"));
-  const exclude = new Set(state.members.map((m) => m.userId));
 
   return (
     <div className="border-t border-linesoft bg-sunken px-3 py-2.5">

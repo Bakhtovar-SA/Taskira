@@ -32,3 +32,19 @@ test("поиск участника не добавляет ранее выбр�
   fireEvent.click(submit);
   expect(add).not.toHaveBeenCalled();
 });
+
+test("поиск участника не повторяет запрос при перерисовке с прежним составом отдела", async () => {
+  vi.spyOn(departmentsApi, "listMembers").mockResolvedValue([]);
+  const pickable = vi.spyOn(usersApi, "pickable").mockResolvedValue([]);
+  const view = render(<I18nProvider><AdminView /></I18nProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Состав" }));
+  const search = await screen.findByRole("combobox");
+  vi.useFakeTimers();
+  fireEvent.focus(search);
+  fireEvent.input(search, { target: { value: "Sam" } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+  expect(pickable).toHaveBeenCalledTimes(1);
+  view.rerender(<I18nProvider><AdminView /></I18nProvider>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+  expect(pickable).toHaveBeenCalledTimes(1);
+});
