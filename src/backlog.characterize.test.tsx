@@ -388,7 +388,7 @@ describe("Список задач — характеризующие тесты 
     // по умолчанию отсортировано по приоритету — заголовок кнопки сортировки = «Приоритет»
     fireEvent.click(screen.getByRole("button", { name: "Приоритет" }));
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Ключ" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ключ", hidden: true }));
     await settle();
     expect(h.pageCalls[h.pageCalls.length - 1]).toMatchObject({ sort: "key", dir: "asc" });
     h.ui.unmount();
@@ -408,7 +408,7 @@ describe("Список задач — характеризующие тесты 
     expect(h.pageCalls[h.pageCalls.length - 1]).toMatchObject({ sort: "due", dir: "desc" });
 
     fireEvent.click(screen.getByRole("button", { name: "Колонки" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Метки" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Метки", hidden: true }));
     expect(head().some((c) => c.textContent === "Метки")).toBe(false);
     expect(JSON.parse(localStorage.getItem("taskira.list.columns")!)).not.toContain("labels");
     localStorage.removeItem("taskira.list.columns");
@@ -424,7 +424,7 @@ describe("Список задач — характеризующие тесты 
 
     fireEvent.click(screen.getByRole("button", { name: "Приоритет" }));
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Обновление" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Обновление", hidden: true }));
     await settle();
     expect(h.pageCalls[h.pageCalls.length - 1]).toMatchObject({ sort: "updated", dir: "desc" });
     h.ui.unmount();
@@ -598,10 +598,10 @@ describe("Список задач — характеризующие тесты 
     await settle();
     fireEvent.click(screen.getByRole("button", { name: /Сохранённые фильтры/ }));
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить фильтр" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить фильтр", hidden: true }));
     await settle();
     fireEvent.change(screen.getByPlaceholderText("Название фильтра"), { target: { value: "Баги" } });
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить", hidden: true }));
     await settle();
 
     expect(h.viewsCreateCalls).toHaveLength(1);
@@ -614,7 +614,7 @@ describe("Список задач — характеризующие тесты 
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }), views: [view] });
     fireEvent.click(screen.getByRole("button", { name: /Сохранённые фильтры/ }));
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Удалить фильтр" }));
+    fireEvent.click(screen.getByRole("button", { name: "Удалить фильтр", hidden: true }));
     await settle();
     expect(h.viewsRemoveCalls).toEqual(["v1"]);
     h.ui.unmount();
@@ -625,12 +625,12 @@ describe("Список задач — характеризующие тесты 
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }), views: [view] });
     fireEvent.click(screen.getByRole("button", { name: /Сохранённые фильтры/ }));
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Открывать список с фильтром «Мои горящие»" }));
+    fireEvent.click(screen.getByRole("button", { name: "Открывать список с фильтром «Мои горящие»", hidden: true }));
     await settle();
     expect(h.viewsUpdateCalls[0]).toEqual({ id: "v1", body: { name: "Мои горящие", filter: { priority: "high" }, isDefault: true } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Переименовать «Мои горящие»" }));
-    const input = screen.getByRole("textbox", { name: "Переименовать «Мои горящие»" });
+    fireEvent.click(screen.getByRole("button", { name: "Переименовать «Мои горящие»", hidden: true }));
+    const input = screen.getByRole("textbox", { name: "Переименовать «Мои горящие»", hidden: true });
     fireEvent.change(input, { target: { value: "Срочное" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await settle();
