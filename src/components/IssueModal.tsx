@@ -621,7 +621,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
       </div>
     );
     return mode === "page" ? loading : (
-      <Modal variant="panel" onClose={() => openIssue(null)} w={980} title={t("solo.loadingIssue")}>{loading}</Modal>
+      <Modal variant="panel" focusReady={false} onClose={() => openIssue(null)} w={980} title={t("solo.loadingIssue")}>{loading}</Modal>
     );
   }
 

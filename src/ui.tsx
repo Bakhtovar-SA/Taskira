@@ -404,6 +404,7 @@ export function Modal({
   w = 860,
   title,
   variant = "center",
+  focusReady = true,
 }: {
   onClose: () => void;
   children: React.ReactNode;
@@ -413,6 +414,8 @@ export function Modal({
    *  доски с сохранением контекста, ТЗ 5.6 п.4 / прототип гейта); "center" —
    *  обычный диалог. Доступность (роль, ловушка фокуса, Esc) одна и та же. */
   variant?: "center" | "panel" | "palette";
+  /** Signal a loading-placeholder replacement; ordinary rerenders must not reset focus. */
+  focusReady?: boolean;
 }) {
   const { t } = useT();
   const resolvedTitle = title ?? t("ui.dialog");
@@ -441,7 +444,7 @@ export function Modal({
     if (box && !box.contains(active) && (active === openerRef.current || active === document.body)) {
       (box.querySelector<HTMLElement>(FOCUSABLE) ?? box).focus();
     }
-  });
+  }, [focusReady]);
 
   useEffect(() => {
     const opener = openerRef.current;

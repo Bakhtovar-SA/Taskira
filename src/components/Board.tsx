@@ -428,19 +428,21 @@ const ColumnCards = memo(function ColumnCards({
   revision,
   renderCard,
   moves,
+  doneStatus,
 }: {
   projectId: string;
   filters: IssueFilterParams;
   revision: string;
   renderCard: (issue: Issue) => React.ReactNode;
   moves: ReadonlyMap<string, string>;
+  doneStatus: boolean;
 }) {
   const { t } = useT();
   const { data, idx } = useStore();
   const query = useMemo<IssueSetQuery>(() => ({ projectId, filters, sort: "rank", dir: "asc" }), [projectId, filters]);
   const set = useIssueSet(query, { withCounts: false });
   useOnRevision(revision, set.revalidate);
-  const rows = useMemo(() => boardMoveRows(set.items, idx.issues, filters.status!, moves, filters.overdue === "1"), [set.items, idx.issues, filters.status, filters.overdue, moves]);
+  const rows = useMemo(() => boardMoveRows(set.items, idx.issues, filters.status!, moves, { overdueOnly: filters.overdue === "1", doneStatus }), [set.items, idx.issues, filters.status, filters.overdue, moves, doneStatus]);
 
   const { hasMore, loading, loadingMore, loadMore } = set;
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length, "200px");
@@ -666,6 +668,7 @@ const BoardColumn = memo(function BoardColumn({
             revision={revision}
             renderCard={renderCard}
             moves={moves}
+            doneStatus={isDone}
           />
         )}
         {canCreate && isFirstTodo && !quickOpen && total !== 0 && (

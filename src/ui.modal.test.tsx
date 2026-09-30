@@ -32,3 +32,24 @@ test("autoFocus поля сохраняется, после закрытия ф�
   expect(screen.queryByLabelText("title")).toBeNull();
   expect(document.activeElement).toBe(opener);
 });
+
+test("removing a focused conditional field does not reset focus to the close button", () => {
+  const view = (field: boolean) => <I18nProvider><Modal title="Edit" onClose={() => {}}><button>close</button>{field && <input aria-label="conditional" />}</Modal></I18nProvider>;
+  const ui = render(view(true));
+  screen.getByLabelText("conditional").focus();
+  ui.rerender(view(false));
+  expect(document.activeElement).toBe(document.body);
+  expect(document.activeElement).not.toBe(screen.getByText("close"));
+});
+
+test("explicit loading completion restores focus once and ordinary rerenders preserve it", () => {
+  const view = (ready: boolean, count: number) => <I18nProvider><Modal title="Edit" focusReady={ready} onClose={() => {}}>{ready ? <input aria-label="loaded" /> : <button>loading</button>}<span>{count}</span></Modal></I18nProvider>;
+  const ui = render(view(false, 0));
+  expect(document.activeElement).toBe(screen.getByText("loading"));
+  ui.rerender(view(true, 0));
+  const field = screen.getByLabelText("loaded");
+  expect(document.activeElement).toBe(field);
+  fireEvent.change(field, { target: { value: "draft" } });
+  ui.rerender(view(true, 1));
+  expect(document.activeElement).toBe(field);
+});

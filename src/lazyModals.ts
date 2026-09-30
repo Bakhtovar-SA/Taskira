@@ -1,4 +1,4 @@
-import { createElement, lazy, type ComponentType } from "react";
+import { createElement, lazy, useState, type ComponentType } from "react";
 
 /**
  * Ленивые модалки задачи с предзагрузкой (PERF-BUDGET п. 3: «открытие задачи < 150 мс»; первое открытие было
@@ -29,7 +29,12 @@ export function lazyWithPreload<P extends object>(factory: () => Promise<{ defau
   };
   const Lazy = lazy(load);
   // An already imported component renders synchronously, without a fresh Suspense retry on the first click.
-  const Preloaded = (props: P) => createElement(resolved ?? Lazy, props);
+  const Preloaded = (props: P) => {
+    // Choose once per mounted instance: a cold import must not replace the
+    // Lazy element type after the user has started editing the loaded modal.
+    const [Component] = useState(() => resolved ?? Lazy);
+    return createElement(Component, props);
+  };
   return Object.assign(Preloaded, { preload });
 }
 
