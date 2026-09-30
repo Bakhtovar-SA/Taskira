@@ -1,3 +1,6 @@
+import { ScreenPopover } from "./settings/parts";
+import { Input } from "../ds/Field";
+import { PersonAvatar } from "./settings/parts";
 import { useMemo, useState } from "react";
 import { GettingStarted } from "./GettingStarted";
 import { lookOf } from "../projectLook";
@@ -9,7 +12,7 @@ import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
 import { IcBell, IcChevR, IcComment, IcMyIssues, IcPlus, IcSearch, StatusGlyph } from "../icons";
 import { BrandMark, BrandName } from "./BrandMark";
-import { Avatar, Dropdown, MenuItem, Toasts, UserCardBody, ProjectMark } from "../ui";
+import { Toasts, UserCardBody, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -111,32 +114,32 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
 
         <label className="flex h-8 w-full min-w-0 max-w-[340px] items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
           <IcSearch size={13} className="shrink-0 text-faint" />
-          <input
+          <div className="min-w-0 flex-1"><Input aria-label={t("home.searchPlaceholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t("home.searchPlaceholder")}
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint"
-          />
+
+          /></div>
         </label>
 
         <div className="ml-auto flex items-center gap-2.5">
           <Bell />
           <div className="ml-0.5 border-l border-linesoft pl-2">
-            <Dropdown
-              align="right"
-              width={280}
-              button={(open) => (
-                <button
-                  className={`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors ${
+            <ScreenPopover
+              placement="bottom-end"
+              className="w-[280px]" label={t("topbar.userMenuAria")}
+              trigger={(props, open) => (
+                <Button {...props} variant="ghost" size="sm"
+                  className={(`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors ${
                     open ? "bg-active" : "hover:bg-hover"
-                  }`}
+                  }`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
                 >
-                  <Avatar user={me ?? null} size={24} interactive={false} />
+                  <PersonAvatar user={me ?? null} size={24} interactive={false} />
                   <span className="hidden text-left sm:block">
                     <span className="block text-[12px] font-semibold leading-tight text-ink">{me?.name?.split(" ")[0] ?? "—"}</span>
                     <span className="block text-[10px] leading-tight text-faint">{me?.role}</span>
                   </span>
-                </button>
+                </Button>
               )}
             >
               {(close) => (
@@ -146,25 +149,25 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                       <UserCardBody userId={me.id} />
                     </div>
                   )}
-                  <MenuItem
+                  <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"
                     onClick={() => {
                       close();
                       openPersonalSettings();
                     }}
                   >
                     {t("settings.menu")}
-                  </MenuItem>
-                  <MenuItem
+                  </Button>
+                  <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"
                     onClick={() => {
                       onLogout();
                       close();
                     }}
                   >
                     {t("topbar.logout")}
-                  </MenuItem>
+                  </Button>
                 </>
               )}
-            </Dropdown>
+            </ScreenPopover>
           </div>
         </div>
       </header>
@@ -261,10 +264,10 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                       {g.projects.map((p) => {
                         const n = countInProject.get(p.id) ?? 0;
                         return (
-                          <button
+                          <Button variant="ghost" size="sm"
                             key={p.id}
                             onClick={() => enterProject(p.id)}
-                            className="surface-raised group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ring-1 ring-inset ring-line/70 transition-[box-shadow] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2"
+                            className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                           >
                             <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={32} />
                             <span className="min-w-0 flex-1">
@@ -275,7 +278,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                               </span>
                             </span>
                             <IcChevR size={14} className="shrink-0 text-faint transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-ink" />
-                          </button>
+                          </Button>
                         );
                       })}
                     </div>
@@ -318,14 +321,14 @@ function RecentActivity({
           {items.map((n) => {
             const clickable = !!n.issueId && !!n.projectId;
             return (
-              <button
+              <Button variant="ghost" size="sm"
                 key={n.id}
                 disabled={!clickable}
                 onClick={() => clickable && onOpen({ projectId: n.projectId!, issueId: n.issueId! })}
-                className="flex w-full items-start gap-2.5 border-b border-linesoft px-3.5 py-2.5 text-left transition-colors last:border-0 enabled:hover:bg-hover/60 disabled:cursor-default"
+                className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
               >
                 <span className="mt-0.5 shrink-0">
-                  <Avatar user={n.actor} size={22} interactive />
+                  <PersonAvatar user={n.actor} size={22} interactive />
                 </span>
                 <span className="min-w-0 flex-1 text-[12px] leading-snug text-ink">
                   <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b>{" "}
@@ -338,7 +341,7 @@ function RecentActivity({
                   )}
                   <span className="mt-0.5 block text-[10.5px] text-faint">{relTime(n.createdAt)}</span>
                 </span>
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -360,13 +363,13 @@ function Mentions({ notifications, onOpen }: { notifications: NotificationT[]; o
       </h2>
       <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
         {items.map((n) => (
-          <button
+          <Button variant="ghost" size="sm"
             key={n.id}
             onClick={() => onOpen({ projectId: n.projectId!, issueId: n.issueId! })}
-            className="flex w-full items-start gap-2.5 border-b border-linesoft px-3.5 py-2.5 text-left transition-colors last:border-0 hover:bg-hover/60"
+            className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
             <span className="mt-0.5 shrink-0">
-              <Avatar user={n.actor} size={22} />
+              <PersonAvatar user={n.actor} size={22} />
             </span>
             <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
               <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b> {t("home.mentionedYou")}{" "}
@@ -374,7 +377,7 @@ function Mentions({ notifications, onOpen }: { notifications: NotificationT[]; o
               {n.payload.title && <span className="mt-0.5 block truncate text-faint">{n.payload.title}</span>}
             </span>
             <span className="shrink-0 pt-0.5 text-[11px] tabular text-faint">{relTime(n.createdAt)}</span>
-          </button>
+          </Button>
         ))}
       </div>
     </section>
@@ -391,15 +394,15 @@ function RecentlyOpened({ onOpen }: { onOpen: (t: Pick<AssignedIssue, "projectId
       <h2 className="mb-2 text-[14px] font-semibold text-ink">{t("home.recentlyOpened")}</h2>
       <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
         {items.map((r) => (
-          <button
+          <Button variant="ghost" size="sm"
             key={r.id}
             onClick={() => onOpen({ projectId: r.projectId, issueId: r.id })}
-            className="flex h-10 w-full items-center gap-2.5 border-b border-linesoft px-3.5 text-left transition-colors last:border-0 hover:bg-hover/60"
+            className="h-10 w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
             <StatusGlyph category={r.category} size={13} />
             <span className="w-[64px] shrink-0 font-mono text-[11.5px] text-faint">{r.key}</span>
             <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{r.title}</span>
-          </button>
+          </Button>
         ))}
       </div>
     </section>
