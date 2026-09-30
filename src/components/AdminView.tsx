@@ -1,3 +1,6 @@
+import { Switch, Input } from "../ds/Field";
+import { Avatar } from "../ds/Display";
+import { Button, IconButton } from "../ds/Button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { openProjectWizard } from "../palette/events";
@@ -5,16 +8,31 @@ import { API_BASE, departmentsApi, projectsApi, usersApi, type DepartmentMember,
 import type { ProjectRole, ProjectSummary } from "../types";
 import { LIMITS } from "../validation";
 import { IcChevD, IcChevR, IcInbox, IcLock, IcPlus, IcTrash, IcUsers } from "../icons";
-import { ProjectMark, Switch, UserSearchPicker } from "../ui";
+import { ProjectMark } from "../ui";
+import { Combobox, type ComboOption } from "../ds/Combobox";
 import { useT } from "../i18n";
 
 const PROJECT_ROLES: ProjectRole[] = ["manager", "employee", "viewer"];
+
+function DepartmentUserPicker({ exclude, busy, onPick }: { exclude: Set<string>; busy: boolean; onPick: (id: string) => void }) {
+  const { t } = useT();
+  const [selection, setSelection] = useState<ComboOption | null>(null);
+  const [revision, setRevision] = useState(0);
+  const load = useCallback(async (q: string) => (await usersApi.pickable(q)).filter((u) => !exclude.has(u.id)).map((u) => ({ id: u.id, label: u.name, description: u.jobRole })), [exclude]);
+  return <fieldset disabled={busy} aria-busy={busy} className="flex flex-col gap-2">
+    <Combobox key={revision} label={t("ui.whomToAdd")} placeholder={t("ui.findEmployee")} minChars={2} load={load} value={selection} onSelect={setSelection} />
+    <Button variant="primary" size="sm" disabled={busy || !selection} onClick={() => {
+      if (!selection || busy) return;
+      onPick(selection.id); setSelection(null); setRevision((v) => v + 1);
+    }}>{t("ui.add")}</Button>
+  </fieldset>;
+}
 
 /** Инлайн-переименование: input выглядит как текст, сохраняет по blur/Enter. */
 function EditableName({ value, onSave, maxLength }: { value: string; onSave: (v: string) => void; maxLength: number }) {
   const { t } = useT();
   return (
-    <input
+    <div className="min-w-0 flex-1"><Input
       key={value}
       aria-label={t("admin.renameDepartment", { name: value })}
       defaultValue={value}
@@ -31,20 +49,14 @@ function EditableName({ value, onSave, maxLength }: { value: string; onSave: (v:
         if (v && v !== value) onSave(v);
         else e.target.value = value;
       }}
-      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-[13px] font-semibold text-ink hover:border-linesoft focus:border-accent focus:shadow-focus focus:bg-panel focus:outline-none"
-    />
+
+    /></div>
   );
 }
 
 function MiniAvatar({ user }: { user: { name?: string; initials?: string; color?: string } | undefined }) {
   return (
-    <span
-      className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-onaccent"
-      style={{ background: user?.color ?? "var(--gray-9)" }}
-      title={user?.name}
-    >
-      {user?.initials ?? "?"}
-    </span>
+    <Avatar person={{ name: user?.name ?? "?" }} size={24} />
   );
 }
 
@@ -85,9 +97,9 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
     return (
       <p className="border-t border-linesoft bg-sunken px-3 py-2 text-[11px] text-danger">
         {t("admin.loadMembersFailed")}{" "}
-        <button className="underline" onClick={load}>
+        <Button variant="ghost" size="sm" className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0" onClick={load}>
           {t("reports.retry")}
-        </button>
+        </Button>
       </p>
     );
 
@@ -109,24 +121,22 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
             >
               {m.source === "ldap" ? "LDAP" : t("admin.manually")}
             </span>
-            <button
-              disabled={busy || m.source === "ldap"}
-              title={t(m.source === "ldap" ? "admin.removeInDirectory" : "admin.removeFromDepartment")}
+            <Button variant="secondary" size="sm"
+              disabled={m.source === "ldap" ? t("admin.removeInDirectory") : busy}
               onClick={() => run(departmentsApi.removeMember(departmentId, m.userId))}
-              className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-40"
+              className="shrink-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
             >
               {t("access.remove")}
-            </button>
+            </Button>
           </div>
         ))}
         {rows.length === 0 && <p className="text-[11px] text-faint">{t("admin.noMembers")}</p>}
       </div>
 
       <div className="mt-2">
-        <UserSearchPicker
+        <DepartmentUserPicker
           exclude={exclude}
-          disabled={busy}
-          pickLabel={t("ui.add")}
+          busy={busy}
           onPick={(userId) => run(departmentsApi.addMember(departmentId, userId))}
         />
       </div>
@@ -189,24 +199,24 @@ export default function AdminView() {
 
         {/* новый отдел */}
         <div className="mt-4 flex items-center gap-2 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-3">
-          <input
+          <div className="min-w-0 flex-1"><Input aria-label={t("admin.newDepartmentPlaceholder")}
             value={newDept}
             onChange={(e) => setNewDept(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && newDept.trim() && (createDepartment(newDept.trim()), setNewDept(""))}
             placeholder={t("admin.newDepartmentPlaceholder")}
             maxLength={LIMITS.department.name.max}
-            className="min-w-0 flex-1 rounded-md border border-line bg-panel px-2.5 py-1.5 text-[12.5px] focus:border-accent focus:shadow-focus focus:outline-none"
-          />
-          <button
+
+          /></div>
+          <Button variant="primary" size="sm"
             onClick={() => {
               createDepartment(newDept.trim());
               setNewDept("");
             }}
             disabled={!newDept.trim()}
-            className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-onaccent transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
             <IcPlus size={13} /> {t("admin.department")}
-          </button>
+          </Button>
         </div>
 
         {/* список отделов */}
@@ -219,25 +229,25 @@ export default function AdminView() {
                   <IcInbox size={15} className="shrink-0 text-accent" />
                   <EditableName value={d.name} onSave={(v) => renameDepartment(d.id, v)} maxLength={LIMITS.department.name.max} />
                   <span className="shrink-0 text-[11px] text-faint">{t("admin.projectCount", { count: projs.length })}</span>
-                  <button
+                  <Button variant="secondary" size="sm"
                     onClick={() => setOpenDeptMembers((s) => ({ ...s, [d.id]: !s[d.id] }))}
-                    className="flex shrink-0 items-center gap-1 rounded-lg border border-line bg-panel shadow-e1 px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink"
+                    className="shrink-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                   >
                     {openDeptMembers[d.id] ? <IcChevD size={12} /> : <IcChevR size={12} />}
                     <IcUsers size={12} /> {t("admin.members")}
-                  </button>
-                  <button
+                  </Button>
+                  <IconButton variant="secondary" size="sm" label={t(projs.length > 0 ? "admin.deleteDepartmentBlocked" : "admin.deleteDepartment")}
                     onClick={() =>
                       projs.length === 0 &&
                       window.confirm(t("admin.deleteDepartmentConfirm", { name: d.name })) &&
                       deleteDepartment(d.id)
                     }
-                    disabled={projs.length > 0}
-                    title={t(projs.length > 0 ? "admin.deleteDepartmentBlocked" : "admin.deleteDepartment")}
-                    className="shrink-0 rounded-md border border-line bg-panel p-1.5 text-sub transition-colors hover:border-danger hover:text-danger disabled:opacity-30 disabled:hover:border-line disabled:hover:text-sub"
+                    disabled={projs.length > 0 ? t("admin.deleteDepartmentBlocked") : false}
+
+                    className="shrink-0"
                   >
                     <IcTrash size={13} />
-                  </button>
+                  </IconButton>
                 </header>
 
                 {openDeptMembers[d.id] && <DepartmentMembers departmentId={d.id} />}
@@ -251,24 +261,24 @@ export default function AdminView() {
                         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{p.name}</span>
                         {p.isShared && <span className="shrink-0 text-[11px] text-faint">{t("admin.shared")}</span>}
                         {/* Название, «общий», модули, состав и удаление — один дом: настройки проекта (ТЗ 5.9). */}
-                        <button
+                        <Button variant="secondary" size="sm"
                           onClick={() => {
                             setView("projectSettings", "general");
                             if (p.id !== data.currentProjectId) switchProject(p.id);
                           }}
-                          className="shrink-0 rounded-lg border border-line bg-panel shadow-e1 px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink"
+                          className="shrink-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                         >
                           {t("settings.menu")}
-                        </button>
-                        <button
+                        </Button>
+                        <Button variant="secondary" size="sm"
                           onClick={() => {
                             setView("projectSettings", "access");
                             if (p.id !== data.currentProjectId) switchProject(p.id);
                           }}
-                          className="flex shrink-0 items-center gap-1 rounded-lg border border-line bg-panel shadow-e1 px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink"
+                          className="shrink-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                         >
                           <IcUsers size={12} /> {t("admin.members")}
-                        </button>
+                        </Button>
                       </div>
 
                     </div>
@@ -276,12 +286,12 @@ export default function AdminView() {
 
                   {/* Новый проект — мастер с шаблоном, ключом и доступом (ТЗ 5.10). */}
                   <div className="bg-sunken px-3 py-2">
-                    <button
+                    <Button variant="ghost" size="sm"
                       onClick={() => openProjectWizard(d.id)}
-                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-semibold text-accenttext transition-colors hover:bg-accentsoft"
+                      className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                     >
                       <IcPlus size={12} /> {t("wizard.newProjectIn", { name: d.name })}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </section>
