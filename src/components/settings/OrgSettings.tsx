@@ -1,3 +1,4 @@
+
 /** Настройки организации (IA §3.3, ТЗ 5.9 п. 2): то, что сервер уже умеет, а интерфейса не было —
  *  пользователи, проверка LDAP, лицензия, аудит, обслуживание, состояние системы. Значения, которые
  *  задаются только переменными окружения, показаны справочно (ТЗ 5.9: новых настроек не добавлять). */
@@ -327,7 +328,7 @@ function Ldap() {
         {data.departments.map((d) => (
           <div key={d.id} className="grid items-center gap-2 px-5 py-3 sm:grid-cols-[200px_1fr]">
             <span className="truncate text-[13px] font-medium text-ink">{d.name}</span>
-            <input
+            <Input
               key={d.ldapGroupDn ?? ""}
               aria-label={t("settings.org.ldapGroupFor", { name: d.name })}
               defaultValue={d.ldapGroupDn ?? ""}
@@ -338,7 +339,7 @@ function Ldap() {
                 const v = e.target.value.trim();
                 if (v !== (d.ldapGroupDn ?? "")) setDepartmentLdapGroup(d.id, v || null);
               }}
-              className="ds-input ds-focus h-8 font-[family-name:var(--font-code)] text-[12px]"
+
             />
           </div>
         ))}
@@ -764,23 +765,15 @@ function Brand() {
         <div className="flex flex-col gap-3 px-5 py-4">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-[13px] font-medium text-ink">{t("brand.hue")}</p>
-            <button type="button" className="text-[12px] text-sub transition-colors duration-150 hover:text-ink disabled:opacity-40" disabled={hue === BRAND_HUE.default} onClick={() => pick(BRAND_HUE.default)}>
+            <Button variant="ghost" size="sm" type="button" className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0" disabled={hue === BRAND_HUE.default} onClick={() => pick(BRAND_HUE.default)}>
               {t("brand.default")}
-            </button>
+            </Button>
           </div>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("brand.hue")}>
-            {HUE_SWATCHES.map((h) => (
-              <button
-                key={h}
-                type="button"
-                role="radio"
-                aria-checked={hue === h}
-                aria-label={t("brand.hueSwatch", { h })}
-                ref={cssVars({ "--sw-h": String(h) })}
-                onClick={() => pick(h)}
-                className="h-8 w-8 rounded-full bg-[oklch(0.55_0.2_var(--sw-h))] shadow-[var(--highlight-top)] ring-offset-2 ring-offset-[var(--bg-raised)] transition-shadow duration-150 aria-checked:ring-2 aria-checked:ring-[var(--text-1)]"
-              />
-            ))}
+          <div className="[&>div]:flex-row [&>div]:flex-wrap">
+            <RadioGroup value={String(hue)} onChange={(v) => pick(Number(v))} options={HUE_SWATCHES.map((h) => ({
+              value: String(h),
+              label: <span className="flex items-center"><span aria-hidden="true" ref={cssVars({ "--sw-h": String(h) })} className="block h-8 w-8 rounded-full bg-[oklch(0.55_0.2_var(--sw-h))]" /><span className="sr-only">{t("brand.hueSwatch", { h })}</span></span>,
+            }))} />
           </div>
           <input
             type="range"
