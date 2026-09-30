@@ -537,8 +537,10 @@ export const Empty = ({ icon, title, sub, action }: { icon: React.ReactNode; tit
  *  (`Board.tsx`) и для скелета (`SkeletonColumn`), чтобы во время bootstrap
  *  заглушка выглядела как готовая колонка, а не «прыгала» в неё после загрузки
  *  (ticket-board-columns-theme-fix). */
-/** Ширина гибкая с пределами (ТЗ 5.12 c): от 288 до 360 px, лишнее место делят поровну. */
-export const BOARD_COLUMN_SHELL = "flex h-full max-h-full flex-[1_0_288px] max-w-[360px] flex-col";
+/** Ширина гибкая с пределами (ТЗ 5.12 c): от 288 px, лишнее место делят поровну; предел растёт с экраном
+ *  (360 → 420 на 1920+ → 480 на 2560+), чтобы на широком мониторе колонки не оставались узкими полосками. */
+export const BOARD_COLUMN_SHELL =
+  "flex h-full max-h-full flex-[1_0_288px] max-w-[360px] min-[1920px]:max-w-[420px] min-[2560px]:max-w-[480px] flex-col";
 /** Жёлоб с карточками под заголовком колонки (ADR-0016: заголовок — над ним, не внутри). */
 export const BOARD_COLUMN_BODY = "board-col-body flex min-h-0 flex-col gap-1.5 overflow-y-auto rounded-b-xl px-1.5 pb-1.5";
 
