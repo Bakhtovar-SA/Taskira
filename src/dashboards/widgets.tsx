@@ -1,3 +1,6 @@
+import { Button } from "../ds/Button";
+import { EmptyState } from "../ds/Display";
+import { PersonAvatar } from "../components/settings/parts";
 /** Содержимое виджетов дашборда (ADR-0022): по одному компоненту на тип, данные — из POST /api/dashboards/data.
  *  Здесь только отрисовка; где открыть задачу или список, решает DashboardView через `WidgetNav`. */
 import type { ReactNode } from "react";
@@ -6,7 +9,7 @@ import type { WidgetDataDto } from "../api";
 import { useStore } from "../store";
 import { relTime } from "../store/mappers";
 import { activityLine } from "../activityText";
-import { Avatar, ProjectMark } from "../ui";
+import { ProjectMark } from "../ui";
 import { lookOf } from "../projectLook";
 import { DueRing, IcCheck, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { BarList, Donut, Legend, Lines, Meter, OTHER_COLOR, StackedRow, chartColor, type Part } from "./charts";
@@ -43,9 +46,9 @@ function CountBody({ w, data, projectId, nav }: { w: Extract<Widget, { type: "co
   return (
     <div className="flex h-full flex-col justify-end gap-1">
       {projectId && query && nav.openList ? (
-        <button type="button" onClick={() => nav.openList!(projectId, query())} className="w-fit rounded text-left hover:opacity-80" title={t("dash.openList")}>
+        <Button variant="ghost" size="sm" type="button" onClick={() => nav.openList!(projectId, query())} className="w-fit text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0" title={t("dash.openList")}>
           {value}
-        </button>
+        </Button>
       ) : (
         value
       )}
@@ -123,7 +126,7 @@ function IssuesBody({ data, nav, showProject }: { data: Data<"issues">; nav: Wid
       <ul className="-mx-1 min-h-0 flex-1 overflow-y-auto">
         {data.items.map((i) => (
           <li key={i.issueId}>
-            <button type="button" onClick={() => nav.openIssue(i.projectId, i.issueId)} className="flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left hover:bg-hover">
+            <Button variant="ghost" size="sm" type="button" onClick={() => nav.openIssue(i.projectId, i.issueId)} className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               <StatusGlyph category={i.statusCategory} size={13} />
               {showProject && <ProjectMark projectKey={i.projectKey} {...lookOf(store.projects, i.projectId)} size={16} />}
               <span className="w-[64px] shrink-0 truncate font-mono text-[11px] text-faint">{i.key}</span>
@@ -137,7 +140,7 @@ function IssuesBody({ data, nav, showProject }: { data: Data<"issues">; nav: Wid
                   {new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "short" }).format(new Date(i.dueDate))}
                 </span>
               )}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
@@ -163,7 +166,7 @@ function WorkloadBody({ data }: { data: Data<"workload"> }) {
       <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto">
         {data.items.map((u) => (
           <li key={u.userId} className="flex items-center gap-2">
-            <Avatar user={{ id: u.userId, name: u.name, initials: u.initials, color: u.color }} size={20} />
+            <PersonAvatar user={{ id: u.userId, name: u.name, initials: u.initials, color: u.color }} size={20} />
             <span className="w-[30%] min-w-0 truncate text-[12px] text-sub" title={u.name}>
               {u.name}
             </span>
@@ -187,7 +190,7 @@ function ProgressBody({ data, nav }: { data: Data<"progress">; nav: WidgetNav })
         const share = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
         return (
           <li key={p.projectId}>
-            <button type="button" onClick={() => nav.openProject(p.projectId)} className="-mx-1 block w-[calc(100%+0.5rem)] rounded-md px-1 py-0.5 text-left hover:bg-hover">
+            <Button variant="ghost" size="sm" type="button" onClick={() => nav.openProject(p.projectId)} className="block w-[calc(100%+0.5rem)] text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               <span className="flex items-center gap-2 text-[12.5px]">
                 <ProjectMark projectKey={p.key} {...lookOf(store.projects, p.projectId)} size={16} />
                 <span className="min-w-0 flex-1 truncate text-ink">{p.name}</span>
@@ -200,7 +203,7 @@ function ProgressBody({ data, nav }: { data: Data<"progress">; nav: WidgetNav })
               <span className="mt-1 block">
                 <Meter value={p.done} total={p.total} label={t("dash.progressOf", { name: p.name })} />
               </span>
-            </button>
+            </Button>
           </li>
         );
       })}
@@ -217,13 +220,13 @@ function ActivityBody({ data, nav }: { data: Data<"activity">; nav: WidgetNav })
     <ul className="-mx-1 h-full space-y-0.5 overflow-y-auto">
       {data.items.map((a) => (
         <li key={a.id}>
-          <button type="button" onClick={() => nav.openIssue(a.projectId, a.issueId)} className="flex w-full items-baseline gap-2 rounded-md px-1 py-1 text-left hover:bg-hover">
+          <Button variant="ghost" size="sm" type="button" onClick={() => nav.openIssue(a.projectId, a.issueId)} className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
             <span className="min-w-0 flex-1 text-[12px] leading-snug text-sub">
               <span className="font-semibold text-ink">{a.actorName}</span> {activityLine(a.event ?? null, a.text, t, lang)}{" "}
               <span className="font-mono text-[11px] text-faint">{a.issueKey}</span>
             </span>
             <span className="shrink-0 text-[10.5px] tabular text-faint">{relTime(Date.parse(a.createdAt), lang)}</span>
-          </button>
+          </Button>
         </li>
       ))}
     </ul>
@@ -232,9 +235,8 @@ function ActivityBody({ data, nav }: { data: Data<"activity">; nav: WidgetNav })
 
 function Empty({ text, ok = false }: { text: string; ok?: boolean }) {
   return (
-    <div className="flex h-full items-center justify-center gap-1.5 text-[12px] text-faint">
-      {ok && <IcCheck size={13} className="text-[var(--status-done-fg)]" />}
-      {text}
+      <div className="flex h-full items-center justify-center [&_.ds-empty]:py-3 [&_.ds-empty-art]:hidden [&_.ds-empty-title]:text-[12px]">
+        <EmptyState icon={null} title={<span className="flex items-center gap-1.5">{ok && <IcCheck size={13} className="text-[var(--status-done-fg)]" />}{text}</span>} />
     </div>
   );
 }
