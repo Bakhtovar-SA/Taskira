@@ -201,7 +201,7 @@ export async function dataExportRoutes(app: FastifyInstance): Promise<void> {
     try {
       await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
       await client.query("SET LOCAL statement_timeout = '30s'");
-      await client.query("SET LOCAL idle_in_transaction_session_timeout = '30s'");
+      await client.query("SET LOCAL idle_in_transaction_session_timeout = '5min'");
       // Pin the snapshot before the first byte is sent.
       await client.query("SELECT 1 FROM instance LIMIT 1");
       reply.send(stream);

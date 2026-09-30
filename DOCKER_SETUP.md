@@ -1,6 +1,10 @@
 # DOCKER_SETUP — деплой всего стека через docker-compose
 
 Эксплуатационная инструкция: поднять PostgreSQL + API + клиент одной командой.
+Поддерживается один serving API на БД. Для обновления используйте stop-first:
+полностью остановите старый контейнер API перед запуском нового. Rolling update
+и несколько API-реплик не поддерживаются (ADR-0024). Lease требует прямого
+PostgreSQL или session pooling; transaction pooling PgBouncer использовать нельзя.
 Раньше в репозитории были только `server/docker-compose.*.yml` для тестовых
 зависимостей CI (LDAP/mail/S3) — ни одного compose-файла для деплоя самого
 приложения не было (ARCHITECTURE.md, follow-up).

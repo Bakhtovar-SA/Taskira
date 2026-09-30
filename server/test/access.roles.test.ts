@@ -1,7 +1,8 @@
 /** Права доступа — сценарии из ROLE_MIGRATION.md (роли, гарды, requireGlobalAdmin). */
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { auth, getApp, login, newIssue, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import { auth, getApp, login, newIssue, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import { withClient } from "../src/db.js";
 
 let app: FastifyInstance;
 let fx: Fixture;
@@ -108,6 +109,32 @@ describe("гарды", () => {
     expect(r.statusCode).toBe(409);
     // деактивация тоже
     expect((await patch(`/api/users/${fx.users.admin}`, t, { globalRole: "admin", isActive: false })).statusCode).toBe(409);
+  });
+
+  test("конкурентные понижения двух администраторов оставляют одного активного admin", async () => {
+    const token = await login(app, "admin");
+    expect((await patch(`/api/users/${fx.users.mgr1}`, token, { globalRole: "admin" })).statusCode).toBe(200);
+    const results = await withClient(async (gate) => {
+      await gate.query("BEGIN");
+      await gate.query(`SELECT pg_advisory_xact_lock(hashtext('taskira:active-admins'))`);
+      const pending = Promise.all([
+        patch(`/api/users/${fx.users.admin}`, token, { globalRole: "member" }),
+        patch(`/api/users/${fx.users.mgr1}`, token, { globalRole: "member" }),
+      ]);
+      try {
+        let waiting = 0;
+        const deadline = Date.now() + 5000;
+        while (waiting < 2 && Date.now() < deadline) {
+          const [row] = await q<{ n: number }>(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%taskira:active-admins%'`);
+          waiting = row.n;
+          if (waiting < 2) await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        expect(waiting).toBe(2);
+      } finally { await gate.query("ROLLBACK"); }
+      return pending;
+    });
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    expect(await q(`SELECT count(*)::int AS n FROM users WHERE global_role = 'admin' AND is_active`)).toEqual([{ n: 1 }]);
   });
 
   test("последний менеджер проекта: DELETE и PUT-понижение → 409; после второго — ок", async () => {

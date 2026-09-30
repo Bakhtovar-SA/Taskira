@@ -48,7 +48,7 @@ export async function transitionIssue(
           archived_at = CASE WHEN $4 THEN archived_at ELSE NULL END
         WHERE id = $3 RETURNING *`, [toStatusId, rank, issueId, target.category === "done"],
     )).rows[0];
-    if (changed) await logActivity(issueId, actorId, { kind: "status", from, to: target.name, bulk: !reorder }, client);
+    if (changed) await logActivity(issueId, actorId, { kind: "status", from, to: target.name, ...(!reorder ? { bulk: true } : {}) }, client);
     return { previous, row, changed, from, to: target.name };
   });
 }

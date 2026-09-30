@@ -286,8 +286,8 @@ who typed them used — there is no dictionary key for someone's actual data.
   route options, business logic inline or delegated to `services/`.
 - `services/maintenance.ts` — background loop: auto-archives issues closed longer ago than
   `ARCHIVE_AFTER_DAYS` (default 30) and prunes `audit_log`. Separate from `notifier.ts`, which
-  only starts when `NOTIFY_EMAIL_ENABLED`; archiving must run regardless. With several
-  instances, set `MAINTENANCE_ENABLED=false` on all but one.
+  only starts when `NOTIFY_EMAIL_ENABLED`; archiving must run regardless. ADR-0024 permits one serving API per
+  database. Use stop-first deployment; multi-replica/rolling deployment and transaction-mode PgBouncer are unsupported.
 - `services/reports.ts` / `routes/reports.ts` — reporting. Visibility is resolved through
   `listVisibleProjects()` and passed into queries as `project_id = ANY($ids)`, so the
   visibility predicate is **not** duplicated a fourth time here.
@@ -305,7 +305,7 @@ who typed them used — there is no dictionary key for someone's actual data.
   original shape and it triplicated the same ~20 lines of guard-flag/setInterval/log
   boilerplate; `startJob` also makes `stop()` reliably reset the in-flight guard flag, which
   the copy-pasted versions didn't, silently wedging a job forever if `stopMaintenance()` ran
-  mid-tick): archive + `audit_log` purge every `intervalMs` (default 1h, first pass after `MAINTENANCE_START_DELAY_MS`, default 5 min, in `MAINTENANCE_BATCH_SIZE` batches under `FOR UPDATE SKIP LOCKED`, capped by `MAINTENANCE_MAX_PER_RUN`; one executor per cluster via `pg_try_advisory_lock`; metrics `taskira_background_job_*`; admin `GET /api/maintenance` + `POST /api/maintenance/run?dryRun=` — MAINT-01),
+  mid-tick): archive + `audit_log` purge every `intervalMs` (default 1h, first pass after `MAINTENANCE_START_DELAY_MS`, default 5 min, in `MAINTENANCE_BATCH_SIZE` batches under `FOR UPDATE SKIP LOCKED`, capped by `MAINTENANCE_MAX_PER_RUN`; advisory lock prevents overlap with manual maintenance (serving API remains single-process per ADR-0024); metrics `taskira_background_job_*`; admin `GET /api/maintenance` + `POST /api/maintenance/run?dryRun=` — MAINT-01),
   `storageSweeper.ts` every `storageSweepIntervalMs` (default 24h, `startDelayMs=15s` — a full
   `Storage.list()` is pricier than one `UPDATE`), and (when `AUTH_MODE=ldap` + a bind DN)
   `departmentSync.ts`'s LDAP resync every `resyncIntervalMs` (default 6h, `startDelayMs=30s`).

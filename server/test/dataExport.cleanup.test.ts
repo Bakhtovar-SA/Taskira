@@ -32,7 +32,7 @@ test("export applies database limits before pinning its snapshot and releases af
   const sql = f.client.query.mock.calls.map(([text]) => text);
   expect(sql.slice(0, 4)).toEqual([
     "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY", "SET LOCAL statement_timeout = '30s'",
-    "SET LOCAL idle_in_transaction_session_timeout = '30s'", "SELECT 1 FROM instance LIMIT 1",
+    "SET LOCAL idle_in_transaction_session_timeout = '5min'", "SELECT 1 FROM instance LIMIT 1",
   ]);
   expect(sql.at(-1)).toBe("ROLLBACK");
   expect(f.client.release).toHaveBeenCalledExactlyOnceWith(false);
@@ -56,7 +56,10 @@ test("a stalled download is destroyed after five minutes and releases its snapsh
   vi.useFakeTimers();
   const f = await fixture(false);
   const result = expect(f.run()).rejects.toThrow("exceeded its time limit");
-  await vi.advanceTimersByTimeAsync(5 * 60_000);
+  await vi.advanceTimersByTimeAsync(31_000);
+  expect(f.client.release).not.toHaveBeenCalled();
+  expect(f.send.mock.calls[0][0].destroyed).toBe(false);
+  await vi.advanceTimersByTimeAsync(5 * 60_000 - 31_000);
   await result;
   expect(f.send.mock.calls[0][0].destroyed).toBe(true);
   expect(f.client.query).toHaveBeenLastCalledWith("ROLLBACK");

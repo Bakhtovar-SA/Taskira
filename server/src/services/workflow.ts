@@ -78,8 +78,9 @@ export async function getStatuses(projectId: string): Promise<StatusRow[]> {
 }
 
 /** Название статуса (для activity-записей). */
-export async function statusName(statusId: string): Promise<string> {
-  const row = await one<{ name: string }>(`SELECT name FROM workflow_statuses WHERE id = $1`, [statusId]);
+export async function statusName(statusId: string, client?: PoolClient): Promise<string> {
+  const sql = `SELECT name FROM workflow_statuses WHERE id = $1`;
+  const row = client ? (await client.query<{ name: string }>(sql, [statusId])).rows[0] : await one<{ name: string }>(sql, [statusId]);
   return row?.name ?? statusId;
 }
 
@@ -105,7 +106,7 @@ export async function assertTransition(projectId: string, fromStatusId: string, 
   const params = [projectId, fromStatusId, toStatusId];
   const edge = client ? (await client.query<{ id: string }>(edgeSql, params)).rows[0] : await one<{ id: string }>(edgeSql, params);
   if (!edge) {
-    const [from, to] = [await statusName(fromStatusId), await statusName(toStatusId)];
+    const [from, to] = [await statusName(fromStatusId, client), await statusName(toStatusId, client)];
     throw conflict(`Переход «${from} → ${to}» запрещён схемой рабочего процесса`);
   }
 }
