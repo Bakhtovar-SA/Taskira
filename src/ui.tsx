@@ -1,137 +1,20 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { AccessRole, Status, User } from "./types";
-import { useStore, useToasts } from "./store";
-import { usersApi, getAvatarBlobUrl, type PickableUser } from "./api";
-import { IcBriefcase, IcCamera, IcPhone, IcTrash, IcX } from "./icons";
+import { useToasts } from "./store";
+import { usersApi, type PickableUser } from "./api";
+import { IcX } from "./icons";
 import { useT } from "./i18n";
-import { cropAndResizeAvatar } from "./avatarCrop";
 import { workflowStatusName } from "./workflowStatus";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
+import { UserAvatar, UserAvatarGroup, type AvatarUser } from "./components/UserAvatar";
 
-/** Аватару достаточно имени/инициалов/цвета — принимаем любой такой объект
- *  (не только полный User: напр. `actor` в уведомлениях). id/avatarUpdatedAt
- *  опциональны для того же — если они есть, аватар кликабелен (карточка
- *  пользователя) и может показать загруженное фото, а не только инициалы. */
-type AvatarUser = Pick<User, "name" | "initials" | "color"> & Partial<Pick<User, "id" | "avatarUpdatedAt">>;
+/** Аватары переехали в components/UserAvatar.tsx (трек G, G3). Старые имена — тонкие обёртки для экранов, которые
+ *  ещё импортируют их отсюда (трек H); уйдут в G6. Вид — ds-аватар с тоном по имени во всём приложении сразу, чтобы
+ *  один и тот же человек не был разного цвета на соседних экранах. */
+export { useAvatarSrc, UserCardBody, type AvatarUser } from "./components/UserAvatar";
+export const Avatar = (p: { user: AvatarUser | null | undefined; size?: number; ring?: boolean; interactive?: boolean }) => <UserAvatar {...p} />;
+export const AvatarStack = (p: { users: AvatarUser[]; size?: number; max?: number; interactive?: boolean }) => <UserAvatarGroup {...p} />;
 
-/** Картинка аватарки (blob-URL, авторизованный fetch с кэшем — см. getAvatarBlobUrl
- *  в api/index.ts) — null, пока грузится или если её нет. */
-export function useAvatarSrc(userId?: string, avatarUpdatedAt?: number | null): string | null {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    if (!userId || !avatarUpdatedAt) {
-      setSrc(null);
-      return;
-    }
-    getAvatarBlobUrl(userId, avatarUpdatedAt).then((url) => {
-      if (!cancelled) setSrc(url);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, avatarUpdatedAt]);
-  return src;
-}
-
-export const Avatar = ({
-  user,
-  size = 26,
-  ring = false,
-  interactive = false,
-}: {
-  user: AvatarUser | null | undefined;
-  size?: number;
-  ring?: boolean;
-  /** true — открывать карточку пользователя по клику (свой профиль/чужой).
-   *  Default false: Avatar часто сидит внутри чужого интерактивного контрола
-   *  (фильтр по исполнителю, пикер в Dropdown, триггер другого Dropdown) —
-   *  там клик по аватарке должен управлять ЭТИМ контролом, а не открывать
-   *  карточку, и вложенный Dropdown внутри уже открытого закрыл бы его
-   *  (DROPDOWN_OPEN_EVT). Включай явно только там, где аватар — просто
-   *  статичный показ личности (карточка/лента, не сам управляющий элемент). */
-  interactive?: boolean;
-}) => {
-  const { t } = useT();
-  const src = useAvatarSrc(user?.id, user?.avatarUpdatedAt);
-  const canOpenCard = interactive && !!user?.id;
-
-  if (!user)
-    return (
-      <span
-        className="inline-flex shrink-0 items-center justify-center rounded-full border border-dashed border-line2 bg-sunken text-faint"
-        style={{ width: size, height: size, fontSize: size * 0.42 }}
-        title={t("createIssue.unassigned")}
-      >
-        –
-      </span>
-    );
-
-  const circle = (
-    <span
-      className={`inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold tracking-[-0.02em] text-onaccent shadow-[inset_0_0_0_1px_oklch(1_0_0/0.12)] ${ring ? "ring-2 ring-panel" : ""} ${canOpenCard ? "cursor-pointer" : ""}`}
-      style={{ width: size, height: size, fontSize: size * 0.36, background: src ? undefined : user.color }}
-      title={user.name}
-    >
-      {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : user.initials}
-    </span>
-  );
-
-  if (!canOpenCard) return circle;
-
-  // stopPropagation — Avatar souvent сидит внутри целиком кликабельной строки/
-  // карточки (напр. Board.tsx открывает задачу по клику на всю карточку);
-  // без этого клик по аватару одновременно открывал бы и карточку пользователя,
-  // и саму задачу под ней.
-  return (
-    <span onClick={(e) => e.stopPropagation()} className="inline-flex">
-      <Dropdown button={() => circle} width={260}>
-        {() => <UserCardBody userId={user.id!} />}
-      </Dropdown>
-    </span>
-  );
-};
-
-/** Несколько исполнителей на карточке/в шапке задачи (несколько исполнителей
- *  на задаче — не путать с issue_collaborators) — внахлёст, максимум `max`
- *  штук, остаток — кружок «+N». Пустой список — тот же «не назначен», что
- *  одиночный Avatar(null). */
-export const AvatarStack = ({
-  users,
-  size = 22,
-  max = 3,
-  interactive = false,
-}: {
-  users: AvatarUser[];
-  size?: number;
-  max?: number;
-  /** true — все аватары в стопке кликабельны (карточка пользователя) — см.
-   *  Avatar.interactive, тот же default false по той же причине. */
-  interactive?: boolean;
-}) => {
-  const { t } = useT();
-  if (users.length === 0) return <Avatar user={null} size={size} />;
-  const shown = users.slice(0, max);
-  const overflow = users.length - shown.length;
-  return (
-    <span className="flex shrink-0 items-center">
-      {shown.map((u, i) => (
-        <span key={i} className={i === 0 ? "" : "-ml-1.5"}>
-          <Avatar user={u} size={size} ring interactive={interactive} />
-        </span>
-      ))}
-      {overflow > 0 && (
-        <span
-          className="-ml-1.5 inline-flex shrink-0 select-none items-center justify-center rounded-full bg-active font-semibold text-sub ring-2 ring-panel"
-          style={{ width: size, height: size, fontSize: size * 0.34 }}
-          title={t("ui.more", { count: overflow })}
-        >
-          +{overflow}
-        </span>
-      )}
-    </span>
-  );
-};
 
 /** Знак проекта: плашка в тоне проекта с иконкой или первой буквой ключа. Цвет и иконку выбирают в мастере
  *  и в настройках проекта (ТЗ 5.10); без них — буква и тон по ключу из палитры проектов (ТЗ 5.3 п.6), так
@@ -286,103 +169,6 @@ export const MenuItem = ({ onClick, children, danger, disabled, title }: { onCli
   </button>
 );
 
-/** Содержимое карточки пользователя — без обёртки Dropdown, чтобы Topbar мог
- *  вставить её прямо в уже открытое меню профиля (обёртывать в ЕЩЁ один
- *  Dropdown внутри открытого было бы багом: любой другой открывшийся Dropdown
- *  закрывает все прочие через DROPDOWN_OPEN_EVT, так что вложенный тут же
- *  захлопнул бы меню профиля под собой). UserCardPopover ниже — тот же
- *  контент, но в собственном Dropdown, для клика по чужому аватару. Для себя
- *  дополнительно показывает загрузку/удаление аватарки (самообслуживание —
- *  см. план миграции 027, без admin-загрузки за другого). Должность/телефон
- *  читаются из уже загруженного data.users — отдельный запрос не нужен. */
-export function UserCardBody({ userId }: { userId: string }) {
-  const { t } = useT();
-  const { data, idx, uploadAvatar, removeAvatar } = useStore();
-  const user = idx.users.get(userId);
-  const src = useAvatarSrc(user?.id, user?.avatarUpdatedAt);
-  const [busy, setBusy] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  if (!user) return null;
-  const isMe = data.currentUserId === userId;
-
-  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setBusy(true);
-    try {
-      const cropped = await cropAndResizeAvatar(file);
-      await uploadAvatar(cropped);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onRemove = async () => {
-    setBusy(true);
-    try {
-      await removeAvatar();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="p-4">
-      <div className="flex items-center gap-3">
-        <span
-          className="inline-flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-xl font-semibold text-onaccent shadow-e2"
-          style={{ background: src ? undefined : user.color }}
-        >
-          {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : user.initials}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-[14px] font-semibold text-ink">{user.name}</p>
-          {user.username && <p className="truncate text-[11.5px] text-faint">@{user.username}</p>}
-        </div>
-      </div>
-
-      <div className="mt-3 space-y-1.5 border-t border-linesoft pt-3 text-[12.5px] text-sub">
-        <div className="flex items-center gap-2">
-          <IcBriefcase size={13} />
-          <span className="truncate">{user.role || t("userCard.notSet")}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <IcPhone size={13} />
-          <span className="truncate">{user.phone || t("userCard.notSet")}</span>
-        </div>
-      </div>
-
-      {isMe && (
-        <div className="mt-3 flex gap-1.5 border-t border-linesoft pt-3">
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={busy}
-            title={t("userCard.avatarHint")}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-sub shadow-e1 transition-colors hover:bg-hover hover:text-ink disabled:opacity-50"
-          >
-            <IcCamera size={13} />
-            {user.avatarUpdatedAt ? t("userCard.changeAvatar") : t("userCard.uploadAvatar")}
-          </button>
-          {user.avatarUpdatedAt && (
-            <button
-              type="button"
-              onClick={onRemove}
-              disabled={busy}
-              title={t("userCard.removeAvatar")}
-              className="flex items-center justify-center rounded-lg border border-line bg-panel px-2 text-danger shadow-e1 transition-colors hover:bg-dangersoft disabled:opacity-50"
-            >
-              <IcTrash size={13} />
-            </button>
-          )}
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif" className="hidden" onChange={onPick} />
-        </div>
-      )}
-    </div>
-  );
-}
 
 /** Что считается фокусируемым внутри диалога (для ловушки фокуса по Tab). */
 const FOCUSABLE =

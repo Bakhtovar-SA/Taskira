@@ -9,8 +9,9 @@ import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useL
 import { LIMITS } from "../validation";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Chip, Lozenge, SkeletonRow, directionColor } from "../ui";
-import { Button, Checkbox, EmptyState, Menu, Popover, Presence } from "../ds";
+import { directionColor, labelTone } from "../ui";
+import { UserAvatarGroup } from "./UserAvatar";
+import { Button, Checkbox, EmptyState, Menu, Popover, Presence, Skeleton, Tag, type Tone } from "../ds";
 import BulkBar from "./BulkBar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -90,7 +91,9 @@ function Row({
         return (
           <span className="flex min-w-0 gap-1 overflow-hidden">
             {issue.labels.slice(0, 2).map((l) => (
-              <Chip key={l} text={l} />
+              <Tag key={l} size="sm" tone={labelTone(l)}>
+                {l}
+              </Tag>
             ))}
             {issue.labels.length > 2 && <span className="text-[11.5px] tabular text-faint">+{issue.labels.length - 2}</span>}
           </span>
@@ -103,9 +106,13 @@ function Row({
           </span>
         ) : null;
       case "status":
-        return status ? <Lozenge status={status} size="sm" /> : null;
+        return status ? (
+          <Tag size="sm" tone={STATUS_TONE[status.category]} dot strong>
+            {workflowStatusName(status, t)}
+          </Tag>
+        ) : null;
       case "assignee":
-        return <AvatarStack users={assignees} size={22} interactive />;
+        return <UserAvatarGroup users={assignees} size={22} interactive />;
       case "updated":
         return <span className="text-[12px] tabular text-faint">{relTime(issue.updatedAt, lang)}</span>;
     }
@@ -122,15 +129,8 @@ function Row({
       {/* ТЗ 3.3: чекбоксы появляются только в режиме выделения — не занимают
           места в обычном режиме просмотра списка. */}
       {selectMode && (
-        <span role="cell" className="flex">
-          <input
-            type="checkbox"
-            checked={selected}
-            onClick={(e) => e.stopPropagation()}
-            onChange={() => onToggleSelect(issue.id)}
-            className="shrink-0 cursor-pointer"
-            aria-label={t("backlog.selectRow", { key: issue.key })}
-          />
+        <span role="cell" className="flex" onClick={(e) => e.stopPropagation()}>
+          <Checkbox checked={selected} onChange={() => onToggleSelect(issue.id)} label={t("backlog.selectRow", { key: issue.key })} labelHidden />
         </span>
       )}
       {LEFT.filter((id) => cols.includes(id)).map((id) => (
@@ -389,6 +389,7 @@ export default function Backlog() {
   const toggleSortBy = (k: SortKey) => (k === sortKey ? setSortDir((d) => (d === "asc" ? "desc" : "asc")) : pickSort(k));
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -562,24 +563,12 @@ export default function Backlog() {
               onChange={(next) => setFilters((cur) => ({ ...cur, ...next }))}
             />
           )}
-          <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
-            <input
-              id="backlog-overdue"
-              type="checkbox"
-              checked={fOverdue}
-              onChange={(e) => setFOverdue(e.target.checked)}
-            />
-            {t("backlog.overdue")}
-          </label>
-          <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 text-[12.5px] font-medium text-sub">
-            <input
-              id="backlog-show-done"
-              type="checkbox"
-              checked={showDone}
-              onChange={(e) => setShowDone(e.target.checked)}
-            />
-            {t("backlog.showClosed")}
-          </label>
+          <span className="flex h-8 items-center rounded-md border border-line bg-panel px-2.5">
+            <Checkbox checked={fOverdue} onChange={setFOverdue} label={t("backlog.overdue")} />
+          </span>
+          <span className="flex h-8 items-center rounded-md border border-line bg-panel px-2.5">
+            <Checkbox checked={showDone} onChange={setShowDone} label={t("backlog.showClosed")} />
+          </span>
           {filterActive && (
             <button onClick={resetFilters} className="flex h-8 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-faint hover:text-ink">
               <IcX size={11} /> {t("common.reset")}
@@ -696,7 +685,7 @@ export default function Backlog() {
               aria-label={t("common.loading")}
             >
               {Array.from({ length: 8 }).map((_, i) => (
-                <SkeletonRow key={i} />
+                <ListSkeletonRow key={i} />
               ))}
             </div>
           ) : set.error && rows.length === 0 ? (
@@ -714,12 +703,12 @@ export default function Backlog() {
                 <div role="row" className="list-grid list-head sticky top-0 z-10 h-9 items-center gap-x-3 border-b border-linesoft px-4 text-[11.5px] font-semibold text-faint">
                   {selectMode && (
                     <span role="columnheader" className="flex">
-                      <input
-                        type="checkbox"
-                        aria-label={t("backlog.selectAll")}
-                        checked={rows.length > 0 && rows.every((r) => selectedIds.has(r.id))}
-                        onChange={(e) => setSelectedIds(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())}
-                        className="cursor-pointer"
+                      <Checkbox
+                        label={t("backlog.selectAll")}
+                        labelHidden
+                        checked={allSelected}
+                        indeterminate={!allSelected && rows.some((r) => selectedIds.has(r.id))}
+                        onChange={(on) => setSelectedIds(on ? new Set(rows.map((r) => r.id)) : new Set())}
                       />
                     </span>
                   )}
@@ -746,7 +735,7 @@ export default function Backlog() {
                 ))}
                 {loadingMore && (
                   <div className="border-t border-linesoft" aria-busy="true" aria-label={t("backlog.loadingMore")}>
-                    <SkeletonRow />
+                    <ListSkeletonRow />
                   </div>
                 )}
               </div>
@@ -851,6 +840,26 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
         </>
       )}
     </Popover>
+  );
+}
+
+/** Статус задачи тоном ds-метки: категория, а не цвет из данных (у «На ревью» категория «в работе»). */
+const STATUS_TONE: Record<"todo" | "inprogress" | "done", Tone> = { todo: "gray", inprogress: "amber", done: "green" };
+
+/** Заглушка строки таблицы на время загрузки — из ds-примитивов, по форме строки (флажок/тип, ключ, название, поле, исполнитель). */
+function ListSkeletonRow() {
+  return (
+    <div className="flex items-center gap-3 border-b border-linesoft px-3.5 py-3 last:border-0">
+      <Skeleton.Line w="14px" h={14} />
+      <Skeleton.Line w="56px" h={12} />
+      <span className="min-w-0 max-w-[320px] flex-1">
+        <Skeleton.Line h={12} />
+      </span>
+      <span className="hidden sm:block">
+        <Skeleton.Line w="64px" h={16} />
+      </span>
+      <Skeleton.Circle size={16} />
+    </div>
   );
 }
 
