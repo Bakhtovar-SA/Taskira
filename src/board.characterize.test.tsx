@@ -348,6 +348,15 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     await settle();
     expect(transition).toHaveBeenCalledWith("p1", "m1", "s2", null);
     expect(h.store().ui.selectedIssueId).toBeNull(); // клик по пункту не всплыл до карточки
+
+    // M и с фокусом на самой кнопке меню; Enter на кнопке не открывает задачу.
+    const btn = within(screen.getByRole("article", { name: /A21-m1/ })).getByRole("button", { name: "Переместить A21-m1" });
+    fireEvent.keyDown(btn, { key: "m" });
+    await settle();
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.keyDown(btn, { key: "Enter" });
+    await settle();
+    expect(h.store().ui.selectedIssueId).toBeNull();
     h.ui.unmount();
   });
 

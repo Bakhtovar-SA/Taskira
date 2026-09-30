@@ -131,7 +131,15 @@ const Card = memo(function Card({
   // Esc и «открыто только одно на доске» даёт сам Popover API (popover="auto"). Меню живёт внутри карточки в дереве
   // React, поэтому клики и клавиши из него не должны всплывать до карточки (иначе Enter по пункту открыл бы задачу).
   const moveButton = draggable && !selecting && (
-    <span className="flex" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+    <span
+      className="flex"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        // Глушим только то, что карточка поняла бы неверно: клавиши изнутри меню и Enter/Пробел на кнопке (иначе
+        // открылась бы задача). M на кнопке и остальные клавиши (J/K, общие сочетания) идут дальше как обычно.
+        if ((e.target as Element).closest("[popover]") || e.key === "Enter" || e.key === " ") e.stopPropagation();
+      }}
+    >
       <Menu
         open={menu}
         onOpenChange={setMenu}
