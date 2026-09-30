@@ -23,7 +23,8 @@ export type TriggerProps = {
   onClick: () => void;
   "aria-expanded": boolean;
   "aria-haspopup": "dialog" | "menu" | "listbox";
-  "aria-controls": string;
+  /** Нет, пока содержимое не отрисовано (заглушка LazyMenu до загрузки чанка). */
+  "aria-controls"?: string;
 };
 
 type PopoverProps = {
