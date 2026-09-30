@@ -19,18 +19,17 @@ function fixture(outcomes: boolean[]) {
   return client;
 }
 
-test("heartbeat tolerates two timeouts and resets failure count on success", async () => {
+test("the first heartbeat timeout stops uncertain ownership without queueing retries", async () => {
   vi.useFakeTimers();
-  fixture([false, false, true, false, false, false]);
+  const client = fixture([false]);
   const lost = vi.fn();
   const release = await acquireApiLease("postgres://unused", lost, 100);
   try {
-    await vi.advanceTimersByTimeAsync(300);
-    expect(lost).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(300);
+    await vi.advanceTimersByTimeAsync(100);
     expect(lost).toHaveBeenCalledOnce();
     await vi.advanceTimersByTimeAsync(1000);
     expect(lost).toHaveBeenCalledOnce();
+    expect(client.query).toHaveBeenCalledTimes(2);
   } finally { await release(); }
 });
 

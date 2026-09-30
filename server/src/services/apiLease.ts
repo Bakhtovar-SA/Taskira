@@ -7,7 +7,6 @@ export async function acquireApiLease(databaseUrl: string, onLost: () => void, h
   let acquired = false;
   let stopping = false;
   let heartbeat: ReturnType<typeof setTimeout> | undefined;
-  let heartbeatFailures = 0;
   const lost = () => {
     if (!acquired || stopping) return;
     stopping = true;
@@ -17,13 +16,8 @@ export async function acquireApiLease(databaseUrl: string, onLost: () => void, h
   const scheduleHeartbeat = () => {
     heartbeat = setTimeout(() => {
       void client.query("SELECT 1").then(() => {
-        heartbeatFailures = 0;
         if (!stopping) scheduleHeartbeat();
-      }, () => {
-        // A query timeout alone does not mean the dedicated session lost its lock.
-        if (++heartbeatFailures >= 3) lost();
-        else if (!stopping) scheduleHeartbeat();
-      });
+      }, lost); // An uncertain session must stop serving before a replacement takes ownership.
     }, heartbeatIntervalMs);
     heartbeat.unref();
   };
