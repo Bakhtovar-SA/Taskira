@@ -7,6 +7,7 @@ import { startNotifier, stopNotifier } from "./services/notifier.js";
 import { startMaintenance, stopMaintenance } from "./services/maintenance.js";
 import { startLicenseCheck, stopLicenseCheck } from "./services/license.js";
 import { acquireApiLease } from "./services/apiLease.js";
+import { closeWithDeadline } from "./services/shutdown.js";
 
 async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
@@ -32,15 +33,25 @@ async function main(): Promise<void> {
   // ТЗ 4.3: проверка лицензии сразу при старте + раз в сутки (см. services/license.ts).
   startLicenseCheck();
 
+  let stopping = false;
   const shutdown = async (sig: string) => {
+    if (stopping) return;
+    stopping = true;
     console.log(`[taskira] получен ${sig}, останавливаемся…`);
     stopNotifier();
     stopMaintenance();
     stopLicenseCheck();
-    await app.close();
-    await closePool();
-    await releaseApiLease();
-    process.exit(0);
+    try {
+      await closeWithDeadline(async () => {
+        await app.close();
+        await closePool();
+        await releaseApiLease();
+      });
+      process.exit(0);
+    } catch (error) {
+      console.error("[taskira] shutdown failed; exiting to release API ownership:", error);
+      process.exit(1); // OS closes the lease connection, even if WS/pool cleanup stalled.
+    }
   };
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("SIGINT", () => void shutdown("SIGINT"));

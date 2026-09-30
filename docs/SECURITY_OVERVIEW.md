@@ -135,6 +135,13 @@ jq -c 'select(.type == "issue")' taskira-export.jsonl | head
 
 WebSocket и инвалидация авторизации локальны. Один serving API-процесс на БД
 принудительно обеспечивается отдельным PostgreSQL session lock (ADR-0024).
+Compose связывает IPAM и `TRUST_PROXY` одной переменной `TASKIRA_NETWORK_CIDR`.
+nginx на границе отбрасывает входящий XFF; за корпоративным LB каталог
+`/etc/nginx/taskira-real-ip/*.conf` должен задавать доверенные CIDR балансировщика
+и `real_ip_header` (конкретный пример — в [OPERATIONS](OPERATIONS.md)).
+Без ограниченного `set_real_ip_from` реальный IP за LB не восстанавливается.
+Неограниченный nginx body size используется только на конечных путях загрузки файлов;
+остальные API-запросы имеют предел 1 MiB.
 
 ## Поставка, сканирование и восстановление
 

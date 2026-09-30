@@ -44,14 +44,19 @@ const KEEP_LAST_ADMIN = (roleParam: string, idParam: string) => `
     ELSE ${roleParam}
   END`;
 
-async function updateLdapUser(sql: string, params: unknown[]): Promise<UserRow[]> {
+async function updateLdapUser(sql: string, params: unknown[]) {
   return withTransaction(async (client) => {
     await client.query(`SELECT pg_advisory_xact_lock(hashtext('taskira:active-admins'))`);
-    return (await client.query<UserRow>(sql, params)).rows;
+    const previous = (await client.query<Pick<UserRow, "global_role">>(
+      `SELECT global_role FROM users WHERE id = $1 FOR UPDATE`, [params[0]],
+    )).rows[0];
+    if (!previous) throw new ApiHttpError(409, "CONFLICT", "Пользователь удалён во время синхронизации");
+    const row = (await client.query<UserRow>(sql, params)).rows[0];
+    return { previous, row };
   });
 }
 
-function refreshSession(previous: UserRow, row: UserRow): void {
+function refreshSession(previous: Pick<UserRow, "global_role">, row: UserRow): void {
   if (previous.global_role !== row.global_role) revokeUserSessions(row.id, "LDAP role changed");
   else invalidateUserCache(row.id);
 }
@@ -84,8 +89,7 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
     }
     // усыновление: сохраняем id / project_members / авторство, флипаем на ldap.
     // is_active НЕ форсим — деактивация админом остаётся в силе (D4/Фаза 4).
-    const row = (
-      await updateLdapUser(
+    const { previous, row } = await updateLdapUser(
         `UPDATE users
             SET auth_source = 'ldap', password_hash = NULL,
                 ldap_dn = $2, email = $3, name = $4, initials = $5,
@@ -95,16 +99,14 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
           WHERE id = $1
         RETURNING *`,
         [existing.id, ...params],
-      )
-    )[0];
-    refreshSession(existing, row);
+      );
+    refreshSession(previous, row);
     return row;
   }
 
   if (existing) {
     // уже ldap — обновляем профиль + роль на каждом логине (D3); is_active не трогаем
-    const row = (
-      await updateLdapUser(
+    const { previous, row } = await updateLdapUser(
         `UPDATE users
             SET ldap_dn = $2, email = $3, name = $4, initials = $5,
                 job_role = $7, phone = $8,
@@ -113,9 +115,8 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
           WHERE id = $1
         RETURNING *`,
         [existing.id, ...params],
-      )
-    )[0];
-    refreshSession(existing, row);
+      );
+    refreshSession(previous, row);
     return row;
   }
 

@@ -28,7 +28,7 @@ for (const size of [2 * 1024 * 1024, maxBytes, maxBytes + 1]) {
   });
   assert.equal(response.status, size > maxBytes ? 413 : 201);
   const body = await response.json();
-  if (size > maxBytes) assert.equal(body.code, 'ATTACHMENT_TOO_LARGE');
+  if (size > maxBytes) assert.equal(body.error?.code, 'ATTACHMENT_TOO_LARGE');
   else assert.equal(body.byteSize, size);
 }
 // Client-supplied forwarding headers must not create independent limiter buckets.
@@ -42,4 +42,11 @@ for (let i = 1; i <= 25; i++) {
   assert.equal(response.status, 401);
 }
 assert.ok(limited, 'nginx must preserve one real client IP for the login limiter');
+// Ordinary JSON endpoints keep nginx's finite body limit.
+const oversizedJson = await fetch(new URL('/api/auth/login', base), {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ username: 'x'.repeat(1024 * 1024), password: 'unused' }),
+});
+assert.equal(oversizedJson.status, 413);
+assert.match(oversizedJson.headers.get('content-type'), /text\/html/);
 console.log(`nginx proxy smoke passed (maxBytes=${maxBytes})`);

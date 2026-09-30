@@ -84,3 +84,56 @@ test("конкурентный LDAP-синк сохраняет последне
   const token = demoted.id === fx.users.admin ? tokens.admin : tokens.mgr1;
   expect((await app.inject({ url: "/api/auth/me", headers: auth(token) })).statusCode).toBe(401);
 });
+
+test.each(["local", "ldap"])("LDAP отзывает WS после изменения роли между чтением и блокировкой (%s)", async (source) => {
+  const id = fx.users.emp1;
+  await q(`UPDATE users SET auth_source = $1 WHERE id = $2`, [source, id]);
+  await withClient(async (gate) => {
+    await gate.query(`SELECT pg_advisory_lock(hashtext('taskira:active-admins'))`);
+    const pending = provisionFromLdap({ login: "emp1", dn: "uid=emp1,dc=test", name: "Employee", email: null, title: null, phone: null, groupDns: [] });
+    let ws: Awaited<ReturnType<typeof app.injectWS>> | undefined;
+    try {
+      let waiting = false;
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        const [row] = await q<{ n: number }>(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event = 'advisory'`);
+        if (row.n >= 1) { waiting = true; break; }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(waiting).toBe(true);
+      // The initial lookup saw member; another operation now promotes the user.
+      const { rows: [promoted] } = await gate.query<{ session_version: string | number }>(
+        `UPDATE users SET global_role = 'admin', session_version = session_version + 1 WHERE id = $1 RETURNING session_version`, [id],
+      );
+      const version = Number(promoted.session_version);
+      const token = app.jwt.sign({ sub: id, globalRole: "admin", sessionVersion: version });
+      ws = await app.injectWS("/api/ws");
+      const ready = new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("WS authentication did not finish")), 3000);
+        ws!.once("message", (raw) => {
+          clearTimeout(timer);
+          expect(JSON.parse(String(raw))).toMatchObject({ type: "auth_ok" });
+          resolve();
+        });
+        ws!.once("close", () => { clearTimeout(timer); reject(new Error("WS closed during authentication")); });
+      });
+      ws.send(JSON.stringify({ type: "auth", token }));
+      await ready;
+      expect(ws.readyState).toBe(ws.OPEN);
+      const closed = new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("LDAP did not revoke the WS session")), 3000);
+        ws!.once("close", () => { clearTimeout(timer); resolve(); });
+      });
+      await gate.query(`SELECT pg_advisory_unlock(hashtext('taskira:active-admins'))`);
+      const row = await pending;
+      expect(row.global_role).toBe("member");
+      expect(Number(row.session_version)).toBe(version + 1);
+      await closed;
+      expect((await app.inject({ url: "/api/auth/me", headers: auth(token) })).statusCode).toBe(401);
+    } finally {
+      ws?.terminate();
+      await gate.query(`SELECT pg_advisory_unlock(hashtext('taskira:active-admins'))`);
+      await pending.catch(() => undefined);
+    }
+  });
+});

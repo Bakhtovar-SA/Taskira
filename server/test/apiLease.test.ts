@@ -32,3 +32,17 @@ test("потеря соединения владения уведомляет в
     await release().catch(() => undefined);
   }
 });
+
+test("heartbeat сохраняет владение при idle_session_timeout", async () => {
+  const url = new URL(TEST_DB_URL);
+  url.searchParams.set("options", "-c idle_session_timeout=1000ms");
+  let lost = false;
+  const release = await acquireApiLease(url.toString(), () => { lost = true; }, 100);
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(lost).toBe(false);
+    await expect(acquireApiLease(TEST_DB_URL, () => undefined)).rejects.toThrow("one API process");
+  } finally {
+    await release().catch(() => undefined);
+  }
+});

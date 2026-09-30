@@ -24,6 +24,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    stop_grace_period: 15s
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-taskira}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-taskira}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (at least 32 characters); see .env.example}
@@ -34,7 +35,8 @@ services:
       INSTANCE_PLAN: ${INSTANCE_PLAN:-default}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
       APP_BASE_URL: ${CORS_ORIGIN:-http://localhost:8081}
-      TRUST_PROXY: ${TRUST_PROXY:-172.16.0.0/12}
+      # Use the same CIDR for IPAM and the trusted nginx hop.
+      TRUST_PROXY: ${TASKIRA_NETWORK_CIDR:-172.30.0.0/24}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-28800}
       SESSION_ROTATE_AFTER_SECONDS: ${SESSION_ROTATE_AFTER_SECONDS:-3600}
@@ -78,6 +80,12 @@ services:
       timeout: 5s
       retries: 12
       start_period: 5s
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${TASKIRA_NETWORK_CIDR:-172.30.0.0/24}
 
 volumes:
   pgdata:
