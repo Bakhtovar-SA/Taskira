@@ -120,7 +120,7 @@ function Appearance() {
   return (
     <SettingsPage title={t("settings.personal.appearance")} desc={t("settings.desc.appearance")}>
       <SettingsCard title={t("settings.appearance.theme")}>
-        <div className="px-5 py-4 [&>div]:grid [&>div]:grid-cols-2 sm:[&>div]:grid-cols-4 [&>div>p]:col-span-full">
+        <div className="px-5 py-4 [&>div]:grid [&>div]:grid-cols-2 sm:[&>div]:grid-cols-4 [&>div>p]:col-span-full [&_.ds-check>span:last-child]:min-w-0 [&_.ds-check>span:last-child]:flex-1">
           <RadioGroup<ThemeMode>
             label={t("settings.appearance.theme")}
             value={mode}
