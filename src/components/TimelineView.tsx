@@ -1,3 +1,4 @@
+import { StatusTag, ScreenSkeletonRow } from "./settings/parts";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { PX_PER_DAY, addDays, scaleTicks, startOfWeek, timeScale, ZOOMS, type Zoom } from "../timeScale";
 import { TimeCanvas, TIME_PAD } from "./TimeCanvas";
@@ -6,7 +7,7 @@ import { Tabs } from "../ds/Tabs";
 import { useStore } from "../store";
 import { ISSUE_PAGE_SIZE, freshRows, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { IcChevR, IcTimeline } from "../icons";
-import { Lozenge, SkeletonRow, directionColor } from "../ui";
+import { directionColor } from "../ui";
 import { Button } from "../ds/Button";
 import { EmptyState } from "../ds/Display";
 import { TypeIcon } from "../icons";
@@ -44,8 +45,8 @@ function EpicChildren({ projectId, epicId, total }: { projectId: string; epicId:
   if (loading && rows.length === 0) {
     return (
       <div aria-busy="true" aria-label={t("common.loading")}>
-        <SkeletonRow />
-        <SkeletonRow />
+        <ScreenSkeletonRow />
+        <ScreenSkeletonRow />
       </div>
     );
   }
@@ -53,9 +54,9 @@ function EpicChildren({ projectId, epicId, total }: { projectId: string; epicId:
     return (
       <div className="px-10 py-2.5 text-[12px] text-danger">
         <p>{t("timeline.childrenError")}</p>
-        <button onClick={set.reload} className="mt-1 font-semibold text-accent hover:underline">
+        <Button variant="ghost" size="sm" onClick={set.reload} className="mt-1 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
           {t("common.retry")}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -66,26 +67,26 @@ function EpicChildren({ projectId, epicId, total }: { projectId: string; epicId:
         const st = idx.statuses.get(k.statusId);
         if (!st) return null;
         return (
-            <button key={k.id} onClick={() => openIssue(k.id)} className="flex w-full items-center gap-2.5 px-10 py-2 text-left transition-colors hover:bg-accentsoft/60">
+            <Button variant="ghost" size="sm" key={k.id} onClick={() => openIssue(k.id)} className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               <TypeIcon type={k.typeId} size={13} />
               <span className="font-mono text-[10.5px] font-semibold text-faint">{k.key}</span>
               <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{k.title}</span>
-              <Lozenge status={st} size="sm" />
-            </button>
+              <StatusTag status={st} size="sm" />
+            </Button>
         );
       })}
       <div ref={sentinelRef} className="px-10 py-1.5 text-[11px] text-faint">
         {set.error ? (
-          <button onClick={loadMore} className="font-semibold text-accent hover:underline">
+          <Button variant="ghost" size="sm" onClick={loadMore} className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
             {t("board.loadMoreFailed")}
-          </button>
+          </Button>
         ) : hasMore ? (
           <span className="flex items-center gap-3">
             <span>{t("timeline.shownOf", { shown: rows.length, total })}</span>
             {!loadingMore && (
-              <button onClick={loadMore} className="font-semibold text-accent hover:underline">
+              <Button variant="ghost" size="sm" onClick={loadMore} className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
                 {t("timeline.loadMore")}
-              </button>
+              </Button>
             )}
           </span>
         ) : null}
@@ -171,12 +172,12 @@ export default function TimelineView() {
               onChange={setZoom}
               items={ZOOMS.map((z) => ({ id: z, label: t(`timeline.zoom.${z}`) }))}
             />
-            <button
+            <Button variant="ghost" size="sm"
               onClick={scrollToToday}
-              className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-semibold text-sub ring-1 ring-inset ring-line transition-colors hover:bg-hover hover:text-ink"
+              className="h-7 shrink-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_0_3px_var(--accent-subtle)]" /> {t("timeline.today")}
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -240,10 +241,10 @@ export default function TimelineView() {
                 >
                   {/* Строка направления: имя стоит у начала своей полосы (как роадмап Linear), полоса — под ним. */}
                   <div className="relative h-[84px]">
-                    <button
+                    <Button variant="ghost" size="sm"
                       onClick={() => setOpen((o) => ({ ...o, [epic.id]: !expanded }))}
                       aria-expanded={expanded}
-                      className="timeline-name absolute left-0 top-3 flex max-w-[520px] items-center gap-2 rounded-md py-0.5 pl-1 pr-2 text-left transition-colors hover:bg-hover/70"
+                      className="max-w-[520px] text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                     >
                       <IcChevR size={11} className={`shrink-0 text-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--bar)] shadow-[0_0_0_3px_color-mix(in_oklch,var(--bar)_20%,transparent)]" />
@@ -251,11 +252,11 @@ export default function TimelineView() {
                       <span className="shrink-0 rounded-md bg-sunken px-1.5 text-[11px] font-semibold tabular text-sub ring-1 ring-inset ring-linesoft">
                         {t("timeline.issueCount", { done, total, key: epic.key })}
                       </span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="ghost" size="sm"
                       onClick={() => openIssue(epic.id)}
                       title={t("timeline.barTitle", { title: epic.title, done, total })}
-                      className="timeline-bar group absolute left-0 top-[50px] flex h-7 items-center overflow-hidden rounded-lg text-ink ring-1 ring-inset ring-[var(--bar-edge)]"
+                      className="h-7 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                     >
                       {/* Заливка — мягкий градиент тона направления; прогресс — насыщенная часть того же тона. */}
                       <span aria-hidden className="timeline-bar-bg absolute inset-0" />
@@ -264,7 +265,7 @@ export default function TimelineView() {
                       {barW * (pct / 100) >= 104 && (
                         <span className="absolute left-[var(--pct)] top-1/2 z-10 -translate-x-[calc(100%+7px)] -translate-y-1/2 text-[11px] font-bold tabular">{pct}%</span>
                       )}
-                    </button>
+                    </Button>
                   </div>
                   {expanded && (
                     <div
