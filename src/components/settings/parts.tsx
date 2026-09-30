@@ -1,5 +1,57 @@
 /** Каркас страниц настроек (ТЗ 5.9): заголовок, пояснение, карточки со строками «подпись — управление». */
-import type { ReactNode } from "react";
+import { lazy, Suspense, useRef, useState, type ReactNode } from "react";
+import type { AccessRole, Status, User } from "../../types";
+import { Avatar, Skeleton, Tag } from "../../ds/Display";
+import { IconButton } from "../../ds/Button";
+import { UserCardBody, useAvatarSrc } from "../../ui";
+import { useT } from "../../i18n";
+import { workflowStatusName } from "../../workflowStatus";
+
+const LazyPopover = lazy(() => import("../../ds/Overlay").then((m) => ({ default: m.Popover })));
+type ScreenPopoverProps = Parameters<typeof import("../../ds/Overlay").Popover>[0];
+export function ScreenPopover(props: ScreenPopoverProps) {
+  const [loaded, setLoaded] = useState(false);
+  const [open, setOpen] = useState(false);
+  const anchor = useRef<HTMLButtonElement>(null);
+  const trigger = props.trigger({ ref: anchor, onClick: () => { setLoaded(true); setOpen(true); }, "aria-expanded": false, "aria-haspopup": props.role === "menu" ? "menu" : "dialog", "aria-controls": "" }, false);
+  if (!loaded) return trigger;
+  return <Suspense fallback={trigger}><LazyPopover {...props} open={open} onOpenChange={setOpen} /></Suspense>;
+}
+
+// Screen adapters keep profile loading and project roles outside the design system.
+type Person = Pick<User, "name"> & Partial<Pick<User, "id" | "avatarUpdatedAt" | "initials" | "color">>;
+export function PersonAvatar({ user, size = 24, ring = false, interactive = false }: {
+  user: Person | null | undefined; size?: number; ring?: boolean; interactive?: boolean;
+}) {
+  const { t } = useT();
+  const src = useAvatarSrc(user?.id, user?.avatarUpdatedAt);
+  const tokenSize = size >= 52 ? 64 : size >= 36 ? 40 : size >= 30 ? 32 : size >= 27 ? 28 : size >= 22 ? 24 : 20;
+  const circle = <Avatar person={{ name: user?.name ?? t("createIssue.unassigned"), src }} size={tokenSize} ring={ring} />;
+  if (!interactive || !user?.id) return circle;
+  return (
+    <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
+      <ScreenPopover label={user.name} className="w-[260px]"
+        trigger={(props) => <IconButton {...props} size={tokenSize >= 36 ? "lg" : tokenSize >= 28 ? "md" : "sm"} label={user.name} className="rounded-full p-0">{circle}</IconButton>}>
+        <UserCardBody userId={user.id} />
+      </ScreenPopover>
+    </span>
+  );
+}
+
+export const ROLE_TONE = { admin: "red", manager: "indigo", employee: "blue", viewer: "gray" } as const;
+export function RoleTag({ role, size = "md" }: { role: AccessRole; size?: "sm" | "md" }) {
+  const { t } = useT();
+  return <Tag tone={ROLE_TONE[role]} size={size} dot>{t(`role.${role}.name`)}</Tag>;
+}
+
+export function StatusTag({ status, size = "md" }: { status: Status; size?: "sm" | "md" }) {
+  const { t } = useT();
+  return <Tag tone={status.category === "done" ? "green" : status.category === "inprogress" ? "blue" : "gray"} size={size} dot>{workflowStatusName(status, t)}</Tag>;
+}
+
+export function ScreenSkeletonRow() {
+  return <div className="flex items-center gap-3 px-4 py-3" aria-hidden="true"><Skeleton.Circle size={20} /><div className="flex min-w-0 flex-1 flex-col gap-2"><Skeleton.Line w="76%" /><Skeleton.Line w="42%" h={10} /></div></div>;
+}
 
 /** Каркас новой страницы настроек: заголовок, пояснение, карточки. */
 export function SettingsPage({ title, desc, children }: { title: ReactNode; desc?: ReactNode; children: ReactNode }) {
