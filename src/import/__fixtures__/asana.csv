@@ -1,0 +1,9 @@
+Name,Notes,Task ID,Section/Column,Tags,Due Date,Completed At,Priority,Parent task,Assignee,Projects
+Prepare launch,"Notes, with comma",1001,Planning,"release, urgent",2026-09-29,,High,,alice,Project X
+Fix issue,Details,1002,Doing,bug,2026-10-01,2026-09-28,Medium,,bob,Project X
+Low task,Text,1003,Review,docs,2026-10-02,,Low,,alice,Project X
+Child task,Text,1004,Doing,child,2026-10-03,,High,Prepare launch,alice,Project X
+No date,Text,1005,Backlog,,bad-date,,, ,Project X
+ ,Text,1006,Backlog,,2026-10-04,,Low,,alice,Project X
+Unnamed priority,Text,1007,Backlog,,2026-10-05,,Other,,alice,Project X
+Done item,Text,1008,Done,complete,2026-10-06,2026-10-06,High,,alice,Project X

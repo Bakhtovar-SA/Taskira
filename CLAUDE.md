@@ -199,7 +199,7 @@ The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `is
 `statuses`) and a `doneStatusIds` `Set`. Use them instead of `data.users.find(...)` inside
 list/card renders — the linear scans were quadratic across a board.
 
-### Trello import is entirely client-side — no server changes, no new migration
+### Import (Trello, Jira, Asana) is entirely client-side
 
 `src/import/trello.ts` parses a Trello board's JSON export (`parseTrelloExport`, a pure
 function with its own unit tests using a hand-written fixture — there is no live Trello account
@@ -212,7 +212,7 @@ trade-off: a server-side bulk-import endpoint would mean *untested* parsing code
 real database writes; keeping the parse client-side and reusing the already-tested single-issue
 path means the only new, review-worthy code is the pure parser, and it's the one piece that
 actually needed new tests. One summary toast ("Импортировано N из M") replaces per-issue
-toasts — 50 "успешно создана" toasts from one import would be noise, not signal. `ImportTrelloModal.tsx`
+toasts — 50 "успешно создана" toasts from one import would be noise, not signal. `ImportModal.tsx`
 (entry point: a button in `Backlog.tsx`'s header, gated by `can("create")`) reads the file with
 `FileReader`, shows the parsed count and a "include archived Trello cards" checkbox before
 committing to anything, and reports live progress during the import. Each Trello list name
@@ -222,8 +222,12 @@ mapping (which Trello list is "todo" vs "done"?) isn't something the file alone 
 reliably, and getting it wrong would misfile every imported card into the wrong column. Trello
 members aren't mapped to Taskira users either, for the same reason — identity across the two
 systems doesn't line up, and a wrong-assignee guess is worse than leaving it unassigned. Import
-from Jira/Asana was explicitly discussed and deferred — each has its own export shape and would
-need its own parser and its own fixture-based tests, not a shared "generic importer."
+from Jira and Asana uses their CSV exports. `src/import/csv.ts` preserves repeated columns and
+quoted line breaks; `jira.ts` and `asana.ts` are separate pure parsers tested with hand-written
+fixtures based on public export documentation. Status/section names become `jira:`/`asana:` labels,
+and source users are not mapped to Taskira users. `ImportModal.tsx` is loaded lazily from the list
+header, limits files to 20 MB, previews skipped/closed issues, and calls the same `store.importIssues()`
+path. No server endpoint or migration is involved.
 
 ### Client i18n (RU/EN) — foundation, not full coverage
 

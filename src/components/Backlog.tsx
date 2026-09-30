@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Hint } from "./Hint";
 import { useLocation } from "wouter";
 import { useStore } from "../store";
@@ -11,12 +11,13 @@ import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewIn
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, SkeletonRow, directionColor } from "../ui";
 import { Button, EmptyState } from "../ds";
-import ImportTrelloModal from "./ImportTrelloModal";
 import BulkBar from "./BulkBar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, type FilterState } from "../router";
 import { COLUMNS, LEFT, gridTemplate, readColumns, writeColumns, type ColumnId, type SortKey } from "../listColumns";
+
+const ImportModal = lazy(() => import("./ImportModal"));
 
 
 /** Поиск уходит на сервер не на каждую букву. */
@@ -442,7 +443,7 @@ export default function Backlog() {
                 onClick={() => setImportOpen(true)}
                 className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-panel shadow-e1 px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:bg-hover hover:text-ink"
               >
-                <IcInbox size={13} /> {t("backlog.importTrello")}
+                <IcInbox size={13} /> {t("import.title")}
               </button>
             )}
             <div className="flex h-8 items-center gap-2 rounded-md border border-line bg-panel px-2.5">
@@ -793,7 +794,7 @@ export default function Backlog() {
         </div>
       </div>
 
-      {importOpen && <ImportTrelloModal onClose={() => setImportOpen(false)} />}
+      {importOpen && <Suspense fallback={null}><ImportModal onClose={() => setImportOpen(false)} /></Suspense>}
     </div>
   );
 }

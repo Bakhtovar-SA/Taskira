@@ -9,8 +9,9 @@
 // Запуск: node scripts/check-antilist.mjs   (npm run antilist:check)
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SRC = join(ROOT, "src");
 /** Аббревиатуры и коды, которые пишутся капсом по праву. */
 const ABBR = new Set(["LDAP", "CSV", "API", "PNG", "WEBP", "JPG", "JPEG", "GIF", "SVG", "JSON", "JSONL", "SIEM", "ID", "URL", "UUID", "HTTP", "HTTPS", "S3", "SMTP", "AD", "DN", "IT", "HR", "QA", "UI", "CEO", "SLA", "SSO", "PDF", "ZIP", "RGB", "WCAG", "OK", "VPN", "ERP", "CRM", "CORP", "KPI", "MVP", "PR", "CI", "TLS", "SSL", "DNS", "IP", "ISO", "СНГ", "ТЗ", "НДС", "ИНН", "ООО", "РФ", "US", "NDJSON", "KB", "MB", "GB", "КБ", "МБ", "ГБ"]);
@@ -24,7 +25,7 @@ function* walk(dir) {
 }
 const errors = [];
 for (const file of walk(SRC)) {
-  const rel = relative(ROOT, file);
+  const rel = relative(ROOT, file).replaceAll("\\", "/");
   if (rel.startsWith("src/dev/")) continue;
   readFileSync(file, "utf8")
     .split("\n")

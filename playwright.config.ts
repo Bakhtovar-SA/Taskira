@@ -14,15 +14,15 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixelRatio: 0.002, animations: "disabled", caret: "hide" },
   },
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || "3000"}`,
     ...devices["Desktop Chrome"],
     viewport: { width: 1280, height: 900 },
     deviceScaleFactor: 1,
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : undefined,
   },
   webServer: {
-    command: "npm run dev",
-    url: "http://127.0.0.1:3000",
+    command: `npm run dev -- --port ${process.env.PLAYWRIGHT_PORT || "3000"}`,
+    url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || "3000"}`,
     reuseExistingServer: true,
     timeout: 60_000,
   },

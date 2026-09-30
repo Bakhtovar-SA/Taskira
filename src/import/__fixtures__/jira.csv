@@ -1,0 +1,12 @@
+Summary,Description,Issue key,Issue Type,Priority,Status,Status Category,Resolution,Labels,Labels,Due Date,Parent,Assignee,Reporter
+Fix login,"First line
+Second line",APP-12,Bug,Highest,In Progress,,,frontend,urgent,2026-09-29,,alice,bob
+Service call,Handle request,APP-13,Service Request,High,Done,Done,,support,,29/Sep/26 12:00 PM,,alice,bob
+Child issue,Detail,APP-14,Sub-task,Low,Review,,Fixed,child,,29.09.2026,APP-12,alice,bob
+Story,Text,APP-15,Story,Medium,To Do,,,story,,9/29/2026,,alice,bob
+Bad date,Text,APP-16,Task,Minor,To Do,,,ops,,31.02.2026,,alice,bob
+ ,Text,APP-17,Task,High,To Do,,,,,,,alice,bob
+Epic,Text,APP-18,Epic,Blocker,Planning,,,roadmap,,2026-10-01,,alice,bob
+Request RU,Text,APP-19,Запрос,Major,Review,,,service,,2026-10-02,,alice,bob
+Trivial item,Text,APP-20,Task,Trivial,Backlog,,,one,,2026-10-03,,alice,bob
+Unknown priority,Text,APP-21,Task,Unusual,Backlog,,,one,,2026-10-04,,alice,bob

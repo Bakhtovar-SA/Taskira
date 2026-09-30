@@ -224,6 +224,7 @@ describe("importIssues()", () => {
 
     expect(created).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ ok: 1, failed: 0, cancelled: true });
+    expect(store.get().toasts.some((t) => t.text.includes("Импорт остановлен: 1 из 3"))).toBe(true);
     // setData после цикла (не на каждую карточку) — успешно созданная всё
     // равно долетела до data.issues одним батчем.
     expect(store.get().data.issues).toHaveLength(1);
