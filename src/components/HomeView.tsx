@@ -129,7 +129,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
               placement="bottom-end"
               className="w-[280px]" label={t("topbar.userMenuAria")}
               trigger={(props, open) => (
-                <Button {...props} variant="ghost" size="sm"
+                <Button {...props} variant="ghost" size="sm" aria-label={t("topbar.userMenuAria")}
                   className={(`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors ${
                     open ? "bg-active" : "hover:bg-hover"
                   }`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
@@ -264,10 +264,10 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                       {g.projects.map((p) => {
                         const n = countInProject.get(p.id) ?? 0;
                         return (
-                          <Button variant="ghost" size="sm"
+                          <button type="button"
                             key={p.id}
                             onClick={() => enterProject(p.id)}
-                            className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
+                            className="surface-raised group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ring-1 ring-inset ring-line/70 transition-[box-shadow] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2"
                           >
                             <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={32} />
                             <span className="min-w-0 flex-1">
@@ -278,7 +278,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                               </span>
                             </span>
                             <IcChevR size={14} className="shrink-0 text-faint transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-ink" />
-                          </Button>
+                          </button>
                         );
                       })}
                     </div>
