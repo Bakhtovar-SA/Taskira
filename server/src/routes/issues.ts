@@ -88,20 +88,10 @@ import {
   LIMITS,
   MoveToSprintBody,
   TransitionBody,
+  type ActivityEvent,
+  type ComplexityId,
+  type PriorityId,
 } from "../contract.js";
-
-const PRIORITY_NAMES: Record<string, string> = {
-  critical: "Критичный",
-  high: "Высокий",
-  medium: "Средний",
-  low: "Низкий",
-};
-
-const COMPLEXITY_NAMES: Record<string, string> = {
-  simple: "Простая",
-  medium: "Средняя",
-  hard: "Сложная",
-};
 
 const me = (req: { user: JwtPayload }) => req.user;
 
@@ -470,7 +460,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
             [created.id, body.checklistItems],
           );
         }
-        await logActivity(created.id, user.sub, "создал(а) задачу", client);
+        await logActivity(created.id, user.sub, { kind: "created" }, client);
         return created;
       };
       const row = body.parentId
@@ -526,19 +516,19 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         vals.push(val);
         sets.push(`${col} = $${vals.length}`);
       };
-      const log: string[] = [];
+      const log: ActivityEvent[] = [];
 
       if (body.title !== undefined && body.title !== iss.title) {
         push("title", body.title);
-        log.push("переименовал(а) задачу");
+        log.push({ kind: "renamed" });
       }
       if (body.description !== undefined && body.description !== iss.description) {
         push("description", body.description);
-        log.push("обновил(а) описание");
+        log.push({ kind: "description" });
       }
       if (body.priorityId !== undefined && body.priorityId !== iss.priority_id) {
         push("priority_id", body.priorityId);
-        log.push(`изменил(а) приоритет: ${PRIORITY_NAMES[iss.priority_id]} → ${PRIORITY_NAMES[body.priorityId]}`);
+        log.push({ kind: "priority", from: iss.priority_id as PriorityId, to: body.priorityId });
       }
       // Исполнители (миграция 025) — не колонка issues, отдельная запись в
       // issue_assignees ниже, после того как известно, действительно ли
@@ -555,13 +545,13 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
             [...addedAssigneeIds, ...removedAssigneeIds],
           ]);
           const nameOf = new Map(names.map((n) => [n.id, n.name]));
-          for (const uid of addedAssigneeIds) log.push(`назначил(а) исполнителем ${nameOf.get(uid) ?? "?"}`);
-          for (const uid of removedAssigneeIds) log.push(`снял(а) исполнителя ${nameOf.get(uid) ?? "?"}`);
+          for (const uid of addedAssigneeIds) log.push({ kind: "assigneeAdded", name: nameOf.get(uid) ?? "?" });
+          for (const uid of removedAssigneeIds) log.push({ kind: "assigneeRemoved", name: nameOf.get(uid) ?? "?" });
         }
       }
       if (body.epicId !== undefined && body.epicId !== iss.epic_id) {
         push("epic_id", body.epicId);
-        log.push("изменил(а) группу (эпик)");
+        log.push({ kind: "direction" });
       }
       // parentChanging — parentId реально меняется (не просто прислан тем же
       // значением). newParentId — ветка назначения НОВОГО родителя (нужна
@@ -573,21 +563,19 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const isUnsettingParent = parentChanging && body.parentId === null;
       if (parentChanging) {
         push("parent_id", body.parentId);
-        log.push(body.parentId ? "сделал(а) подзадачей другой задачи" : "убрал(а) из подзадач");
+        log.push({ kind: "parent", set: !!body.parentId });
       }
       if (body.labels !== undefined && JSON.stringify(body.labels) !== JSON.stringify(iss.labels)) {
         push("labels", body.labels);
-        log.push("обновил(а) метки");
+        log.push({ kind: "labels" });
       }
       if (body.complexity !== undefined && body.complexity !== iss.complexity) {
         push("complexity", body.complexity);
-        log.push(
-          `изменил(а) сложность: ${COMPLEXITY_NAMES[iss.complexity ?? ""] ?? "—"} → ${COMPLEXITY_NAMES[body.complexity ?? ""] ?? "—"}`,
-        );
+        log.push({ kind: "complexity", from: (iss.complexity as ComplexityId | null) ?? null, to: body.complexity });
       }
       if (body.dueDate !== undefined && body.dueDate !== iss.due_date) {
         push("due_date", body.dueDate);
-        log.push(`изменил(а) срок: ${iss.due_date ?? "—"} → ${body.dueDate ?? "—"}`);
+        log.push({ kind: "due", from: iss.due_date ?? null, to: body.dueDate ?? null });
       }
       if (body.tStart !== undefined) push("t_start", body.tStart);
       if (body.tSpan !== undefined) push("t_span", body.tSpan);
@@ -609,7 +597,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         if (newAssigneeIds !== undefined && (addedAssigneeIds.length > 0 || removedAssigneeIds.length > 0)) {
           await setAssignees(iss.id, newAssigneeIds, user.sub, client);
         }
-        for (const text of log) await logActivity(iss.id, user.sub, text, client);
+        for (const event of log) await logActivity(iss.id, user.sub, event, client);
         return row;
       };
       // Поля задачи, полный список исполнителей и activity фиксируются одним
@@ -720,7 +708,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
       if (changed) {
         const [from, to] = [await statusName(iss.status_id), await statusName(body.to)];
-        await logActivity(iss.id, user.sub, `переместил(а) из «${from}» в «${to}»`);
+        await logActivity(iss.id, user.sub, { kind: "status", from, to });
         await autoWatch(iss.id, user.sub);
         await emit({
           type: "issue.status",
@@ -792,15 +780,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (await linkExists(iss.id, other.id, stored)) throw badRequest("Такая связь уже есть");
 
       const linkId = await insertIssueLink(fromId, toId, stored, user.sub);
-      await logActivity(
-        iss.id,
-        user.sub,
-        body.type === "blocks"
-          ? `отметил(а), что задача блокирует ${other.key}`
-          : body.type === "blocked_by"
-            ? `отметил(а), что задача заблокирована ${other.key}`
-            : `связал(а) с ${other.key}`,
-      );
+      await logActivity(iss.id, user.sub, { kind: "link", type: body.type, key: other.key });
       await audit(user.sub, "issue.link.add", "issue", iss.id, { key: iss.key, to: other.key, type: body.type });
       return { id: linkId, links: await listIssueLinks(iss.id) };
     },
@@ -845,7 +825,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         throw badRequest(`В чек-листе не может быть больше ${LIMITS.checklistItemsPerIssue} пунктов`);
       }
       const item = await createChecklistItem(iss.id, body.text);
-      await logActivity(iss.id, user.sub, `добавил(а) пункт чек-листа «${body.text}»`);
+      await logActivity(iss.id, user.sub, { kind: "checklistAdded", text: body.text });
       await audit(user.sub, "issue.checklist.add", "issue", iss.id, { key: iss.key, itemId: item.id });
       return { item, checklist: await listChecklistItems(iss.id) };
     },
@@ -877,7 +857,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const existing = await getChecklistItemInIssue(iss.id, itemId);
       if (!existing) throw notFound("Пункт чек-листа не найден");
       await deleteChecklistItem(itemId);
-      await logActivity(iss.id, user.sub, "удалил(а) пункт чек-листа");
+      await logActivity(iss.id, user.sub, { kind: "checklistRemoved" });
       await audit(user.sub, "issue.checklist.remove", "issue", iss.id, { key: iss.key, itemId });
       return { checklist: await listChecklistItems(iss.id) };
     },

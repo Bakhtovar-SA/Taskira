@@ -286,6 +286,8 @@ export const authApi = {
       auth: false,
     }),
   me: () => api<SafeUser>("/api/auth/me"),
+  /** Язык писем и сводок (трек E): интерфейс живёт в браузере, серверу язык нужен только почте. */
+  setLang: (lang: "ru" | "en") => api<void>("/api/me/lang", { method: "PUT", body: { lang } }),
   /** Режим аутентификации ресурса (local | ldap). */
   config: () => api<{ authMode: "local" | "ldap" }>("/api/auth/config"),
 };

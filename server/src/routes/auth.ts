@@ -160,7 +160,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       // сам /me, поэтому переключатель проектов может показать звёзды сразу
       // при входе, ещё до захода в конкретный проект (главный экран/home).
       const favoriteProjectIds = await listFavoriteProjectIds(row.id);
-      const me: MeDto = { ...safeUser(row), notifyPrefs: row.notify_prefs ?? {}, favoriteProjectIds };
+      const me: MeDto = { ...safeUser(row), notifyPrefs: row.notify_prefs ?? {}, favoriteProjectIds, lang: row.lang ?? "ru" };
       reply.send(me);
     },
   );

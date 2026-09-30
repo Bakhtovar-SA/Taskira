@@ -175,13 +175,15 @@ export function useOrgActions(
     void (async () => {
       try {
         const r = await ldapApi.resync();
-        const ruTail =
-          (r.notFound.length ? ` · не найдено в LDAP: ${r.notFound.length}` : "") +
-          (r.errors.length ? ` · ошибок: ${r.errors.length}` : "");
-        const enTail =
-          (r.notFound.length ? ` · not found in LDAP: ${r.notFound.length}` : "") +
-          (r.errors.length ? ` · errors: ${r.errors.length}` : "");
-        toast(r.errors.length ? "error" : "success", local(`Ресинк: ${r.synced}/${r.total}${ruTail}`, `Resync: ${r.synced}/${r.total}${enTail}`));
+        const nf = r.notFound.length;
+        const er = r.errors.length;
+        toast(
+          er ? "error" : "success",
+          local(
+            `Ресинк: ${r.synced}/${r.total}${nf ? ` · не найдено в LDAP: ${nf}` : ""}${er ? ` · ошибок: ${er}` : ""}`,
+            `Resync: ${r.synced}/${r.total}${nf ? ` · not found in LDAP: ${nf}` : ""}${er ? ` · errors: ${er}` : ""}`,
+          ),
+        );
       } catch (err) {
         handleApiError(err, local("Ресинк LDAP не удался", "LDAP resync failed"));
       }

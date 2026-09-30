@@ -7,9 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Taskira — an internal corporate task tracker (board / task list / timeline / workflow editor)
 with a role-based permission system. Two independent npm packages:
 
-- **root** — React 19 + TypeScript + Vite 8 SPA (`src/`). Was Russian-only; `src/i18n/` (added in
-  the i18n-foundation branch) now covers the app shell and issue-creation/board flows in RU+EN —
-  see the i18n section below for exactly what is and isn't covered yet.
+- **root** — React 19 + TypeScript + Vite 8 SPA (`src/`). RU + EN interface (`src/i18n/`, track E): screens, toasts,
+  issue history, help and email are in both languages; user data stays as typed — see the i18n section below.
 - **`server/`** — Fastify 5 + PostgreSQL + JWT API (`server/src/`). **The permission system's source of truth.**
 
 The client was originally a localStorage-only app; it now talks to the API exclusively
@@ -239,26 +238,30 @@ if an extra one is added that `ru.ts` doesn't have, so the two can't silently dr
 `{param}` interpolation; `tn(n, oneKey, fewKey, manyKey)` picks the grammatically correct
 dictionary key for a count (Russian 1/2-4/5+ with the 11-14 exception, English singular/plural)
 — use it instead of a local `plural()` helper (two near-identical copies of one existed in
-Board.tsx and HomeView.tsx before this existed; both are gone now). Language is `localStorage`
-only (`taskira.lang`, default `"ru"`), switched from the same "Оформление" popup as the theme
-picker (`AppearanceSettings` in `ui.tsx`) — no server involvement, same pattern as `theme.ts`.
+Board.tsx and HomeView.tsx before this existed; both are gone now). The UI language lives in `localStorage`
+(`taskira.lang`, default `"ru"`), switched from the same "Оформление" popup as the theme picker (`AppearanceSettings` in
+`ui.tsx`). The server only needs it for email: the store sends it with `PUT /api/me/lang` after sign-in and on every
+switch (`users.lang`, migration `20260929T1510_users_lang.sql`), and `notifier.ts` renders mail in the recipient's
+language from `MAIL_STRINGS` (`emailTemplates.ts`, RU/EN of one shape, checked by `mailLang.test.ts`).
 
-**What's actually covered**: the app shell (`LoginForm`, `Sidebar`, `Topbar`, `HomeView`,
-`Toasts`, `AppearanceSettings`), the `Board` view, and `CreateIssueModal` — plus the shared
-`issueType.*` / `priority.*` / `complexity.*` labels, which is why those three read from the
-dictionary instead of a `.name` field on `ISSUE_TYPES` / `PRIORITIES` / `COMPLEXITIES` in
-`types.ts` now (those constants keep only `id` + ordering; call sites do
-`t(\`priority.${p}\`)`, which TS checks against the dictionary's key union because
-`PriorityId`/`IssueTypeId`/`ComplexityId` are string-literal unions — a template literal type
-substituting one of those into `t()`'s `TKey` parameter only compiles if the dictionary
-actually declares every resulting key). **What's still Russian-only, deliberately deferred
-rather than half-translated**: the rest of `IssueModal` (only its Priority/Due-date/Complexity
-fields were converted; Status/Assignee/Direction/Labels/Links/Collaborators/Attachments and the
-comments/activity tabs weren't), `Backlog`/`SoloView`/`DocsView` beyond their `ISSUE_TYPES`-type
-filter dropdown or reference tables, `AdminView`, `PermissionsView`, `WorkflowView`,
-`ReportsView`, `CollaboratingView`, `SprintsView`, `ErrorBoundary`, and every `toast(...)` call
-in `store.tsx`/`App.tsx`. Extend file-by-file the same way rather than assuming the dictionary
-is exhaustive.
+**Coverage (track E, [docs/tracks/TRACK-E-ENGLISH-UI.md](docs/tracks/TRACK-E-ENGLISH-UI.md))**: the whole client UI is in both
+languages — screens read `t()`; store toasts use `local(ru, en)` pairs (the store's idiom); `ds` components take their
+default labels from the dictionary; the in-app help (`DocsView`) has a Russian and an English version with the same
+sections (`DocsView.test.tsx`). Shared labels `issueType.*` / `priority.*` / `complexity.*` come from the dictionary, not
+from `.name` fields on `ISSUE_TYPES` / `PRIORITIES` / `COMPLEXITIES` (call sites do `t(\`priority.${p}\`)`, which TS checks
+against the key union). **`src/i18n/cyrillicGuard.test.ts` fails on Russian text in client code outside the dictionary**
+unless it is a RU/EN pair, a developer message (`console.*`, `throw new Error`, `new ApiError`), a Russian-layout hotkey, or
+in a file listed in its `FILE_ALLOW` with a reason — add a key to `ru.ts`/`en.ts` instead of silencing it. Permission and
+role names in the UI come from `permission.*` / `role.*` keys; `denialReason()` stays the Russian mirror of the server,
+the UI shows `denialText()`.
+
+**Issue history is data, not text** (track E, migration `20260929T1500_activity_kind.sql`): `logActivity(issueId, actorId,
+event)` (`server/src/services/activity.ts`) takes an `ActivityEvent` — a closed zod union in `contract.ts` — and writes
+`activity.kind` + `payload` **and** the same Russian phrase into `text` as before (older clients, export, rows from before
+the migration). The client renders `event` through the `activity.*` dictionary keys (`src/activityText.ts`); a row with
+`event: null` shows its `text` in Russian UI and, in English, is parsed back from the known phrases. Names of people and
+statuses in an event are a snapshot at write time. Add a new history event = a new union member + `activityText()` case +
+two dictionary keys + a case in `activityLine()`; never a free-text `logActivity`.
 
 **Server-originated text** is localized on the client by error code (the server still has no locale): `src/i18n/apiErrors.ts`
 `apiErrorText()` — exposed as `errText(e, fallback)` from `useT()` and used by the store's `handleApiError` — shows the

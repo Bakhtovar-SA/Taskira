@@ -12,9 +12,9 @@ import type {
   User,
   ViewId,
 } from "./types";
-import { can as canDo, denialReason, resolveRole, type PermId } from "./permissions";
+import { can as canDo, denialReason, denialText, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
-import { ApiError, API_BASE, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type ProjectLookInput, type Project as ApiProject } from "./api";
+import { ApiError, API_BASE, authApi, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type ProjectLookInput, type Project as ApiProject } from "./api";
 import {
   applyNotificationAction,
   canTransition,
@@ -275,10 +275,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const requirePerm = useCallback(
     (perm: PermId, issue?: Issue): boolean => {
       if (canDo(me, perm, issue)) return true;
-      toast("error", denialReason(me, perm, issue, lang));
+      toast("error", i18n ? denialText(me, perm, issue, i18n.t) : denialReason(me, perm, issue));
       return false;
     },
-    [me, toast, lang],
+    [me, toast, i18n],
   );
 
   // Общий контекст доменных хуков (ТЗ 2.3): собирается один раз, после requirePerm/withIssue.
@@ -317,6 +317,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   /* Polling счётчика непрочитанных: раз в 30 c + при возврате фокуса на вкладку.
    *  Полная лента подтягивается при открытии колокола (Bell). */
+  // Язык писем (трек E): сервер узнаёт язык интерфейса при входе и при каждом переключении. Правило — «последний вход
+  // побеждает»: письма идут на языке того устройства, где человек заходил последним (язык интерфейса живёт в браузере,
+  // и другого честного источника нет). Сервер не пишет, если язык тот же; ошибка тихая — письмо уйдёт на прежнем языке.
+  const meId = data.currentUserId;
+  const signedIn = bootStatus === "ready" || bootStatus === "home" || bootStatus === "solo";
+  useEffect(() => {
+    if (!signedIn || !meId || !i18n) return;
+    authApi.setLang(lang).catch(() => undefined);
+  }, [signedIn, meId, lang, i18n]);
+
   useEffect(() => {
     if (bootStatus !== "ready") return;
     const tick = () => {

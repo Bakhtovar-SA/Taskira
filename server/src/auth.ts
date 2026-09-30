@@ -21,6 +21,7 @@ export interface UserRow {
   ldap_dn: string | null;
   email: string | null;
   notify_prefs: NotifyPrefs | null; // миграция 011 (jsonb; node-postgres отдаёт объектом)
+  lang: "ru" | "en"; // трек E, миграция 20260929T1510_users_lang.sql
   avatar_driver: "local" | "s3" | null; // миграция 027
   avatar_key: string | null;
   avatar_content_type: string | null;

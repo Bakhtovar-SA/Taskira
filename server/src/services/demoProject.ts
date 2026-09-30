@@ -5,6 +5,7 @@
  *  audit_log, чтобы удаление «без следов» было честным. Удаление снимает проект (каскад FK уносит
  *  статусы, переходы, задачи, комментарии, историю, участников, счётчик) и строки audit_log, которые
  *  успели появиться от работы с демо-задачами. Тест: server/test/onboarding.test.ts. */
+import { logActivity } from "./activity.js";
 import type pg from "pg";
 import { one, withTransaction } from "../db.js";
 import { ApiHttpError } from "../errors.js";
@@ -114,7 +115,7 @@ export async function createDemoProject(adminId: string): Promise<string> {
         )
       ).rows[0].id;
       if (it.status !== "new") await client.query(`INSERT INTO issue_assignees (issue_id, user_id, added_by) VALUES ($1, $2, $2)`, [issueId, adminId]);
-      await client.query(`INSERT INTO activity (issue_id, actor_id, text) VALUES ($1, $2, 'создал(а) задачу')`, [issueId, adminId]);
+      await logActivity(issueId, adminId, { kind: "created" }, client);
       for (const [pos, [text, done]] of (it.checklist ?? []).entries())
         await client.query(`INSERT INTO checklist_items (issue_id, text, done, position) VALUES ($1, $2, $3, $4)`, [issueId, text, done, pos]);
       for (const body of it.comments ?? []) await client.query(`INSERT INTO comments (issue_id, author_id, body) VALUES ($1, $2, $3)`, [issueId, adminId, body]);

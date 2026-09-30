@@ -1,5 +1,6 @@
 /** Отображение (ТЗ 5.7): Avatar и группа, Tag, Kbd, EmptyState, Progress, ProgressRing, Skeleton, Toast.
  *  Цвета — только токены и тоны `tk-tone-*` (currentColor), без значений из данных в разметке. */
+import { useOptionalT } from "../i18n";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { Tooltip } from "./LazyTooltip";
 
@@ -57,7 +58,9 @@ export function AvatarGroup({ people, max = 4, size = 24 }: { people: AvatarPers
 
 /* ---------- Tag ---------- */
 
-export function Tag({ children, tone = "gray", dot, strong, size = "md", onRemove, removeLabel = "Убрать" }: { children: ReactNode; tone?: Tone; dot?: boolean; strong?: boolean; size?: "sm" | "md"; onRemove?: () => void; removeLabel?: string }) {
+export function Tag({ children, tone = "gray", dot, strong, size = "md", onRemove, removeLabel }: { children: ReactNode; tone?: Tone; dot?: boolean; strong?: boolean; size?: "sm" | "md"; onRemove?: () => void; removeLabel?: string }) {
+  const t = useOptionalT()?.t;
+  removeLabel ??= t ? t("ds.remove") : "Убрать";
   return (
     <span className={`ds-tag tk-tone-${tone}`} data-size={size} data-strong={strong || undefined}>
       {dot && <span className="ds-tag-dot" />}
@@ -186,7 +189,7 @@ export function Toast({
   action,
   onClose,
   durationMs = 5000,
-  closeLabel = "Закрыть",
+  closeLabel,
 }: {
   kind?: "info" | "success" | "error";
   title: ReactNode;
@@ -196,6 +199,8 @@ export function Toast({
   durationMs?: number;
   closeLabel?: string;
 }) {
+  const t = useOptionalT()?.t;
+  closeLabel ??= t ? t("common.close") : "Закрыть";
   const ref = useCssVar<HTMLDivElement>("--toast-ms", `${durationMs}ms`);
   return (
     <div ref={ref} className="ds-toast" data-kind={kind} role={kind === "error" ? "alert" : "status"}>

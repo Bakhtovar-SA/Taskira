@@ -7,7 +7,8 @@ import { Kbd, RoleBadge, catColor } from "../ui";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 
-const SECTIONS = [
+/** Разделы справки — одинаковые в русской и английской версии (docs.test.ts сверяет). */
+export const SECTIONS = [
   { id: "overview", label: "Обзор системы" },
   { id: "roles", label: "Роли и права" },
   { id: "workflow", label: "Workflow" },
@@ -18,6 +19,7 @@ const SECTIONS = [
   { id: "attachments", label: "Вложения" },
   { id: "departments", label: "Команды и LDAP" },
   { id: "reports", label: "Отчёты" },
+  { id: "dashboards", label: "Дашборды" },
   { id: "home", label: "Главный экран" },
   { id: "hotkeys", label: "Горячие клавиши" },
   { id: "model", label: "Модель данных" },
@@ -32,11 +34,11 @@ const Code = ({ children }: { children: React.ReactNode }) => (
   <code className="rounded bg-linesoft px-1.5 py-0.5 font-[family-name:var(--font-code)] text-[11.5px] font-semibold text-accentdeep">{children}</code>
 );
 
-const EN_SECTIONS = [
+export const EN_SECTIONS = [
   ["overview", "System overview"], ["roles", "Roles and permissions"], ["workflow", "Workflow"],
   ["issues", "Issue details"], ["list", "Issue list"], ["sprints", "Sprints"],
-  ["notifications", "Notifications"], ["attachments", "Attachments"], ["departments", "Departments and LDAP"],
-  ["reports", "Reports"], ["home", "Home"], ["hotkeys", "Keyboard shortcuts"],
+  ["notifications", "Notifications"], ["attachments", "Attachments"], ["departments", "Teams and LDAP"],
+  ["reports", "Reports"], ["dashboards", "Dashboards"], ["home", "Home"], ["hotkeys", "Keyboard shortcuts"],
   ["model", "Data model"], ["storage", "Storage and sessions"],
 ] as const;
 
@@ -51,16 +53,17 @@ function DocsEnglish() {
     { id: "roles", title: "2 · Roles and permissions", body: <>Resource administrators manage everything. Project managers can create, edit, move, and delete any issue. Employees can create and comment, but may edit or move only issues where they are the reporter or an assignee. Viewers have read-only access to all issues. The server is the source of truth for every permission check.</> },
     { id: "workflow", title: "3 · Workflow", body: <>Statuses belong to a project and transitions define allowed moves. The board, issue details, and API all apply the same transition schema. Only resource administrators can edit or reset it.</> },
     { id: "issues", title: "4 · Issue details", body: <>An issue contains a title, description, type, priority, status, due date, complexity, labels, assignees, a direction, optional parent, checklist, links, custom fields, attachments, comments, and activity. User-entered content is displayed exactly as written and is never translated.</> },
-    { id: "list", title: "5 · Issue list", body: <>The backlog lists all active issues and can optionally include closed ones. Filters cover text, status, assignee, type, and overdue state. Sorting is available by priority, due date, update time, or key. Trello JSON exports can be imported here.</> },
+    { id: "list", title: "5 · Issue list", body: <>The issue list shows all active issues and can optionally include closed ones. Filters cover text, status, assignee, type, priority, label, due date range, sprint, overdue state, and one of the project's own fields; the conditions live in the address bar and can be saved as named filters. Sorting is available by priority, due date, update time, or key. «Select» enables bulk status, assignee, priority, and delete actions — here and on the board. Trello JSON exports can be imported here.</> },
     { id: "sprints", title: "6 · Sprints", body: <>Sprints are an optional project module. Managers and administrators can create, start, and complete sprints and move issues between a sprint and the backlog. Completing a sprint returns unfinished issues to the backlog.</> },
     { id: "notifications", title: "7 · Notifications", body: <>Notifications cover assignments, comments, mentions, status changes, issue invitations, and project membership. Each user can choose instant email or a daily digest and can automatically watch issues they create.</> },
     { id: "attachments", title: "8 · Attachments", body: <>Attachments are stored outside the database and downloaded through an authenticated API. File size and type are validated. Users who may comment can upload files; owners and users with delete permission can remove them.</> },
-    { id: "departments", title: "9 · Departments and LDAP", body: <>Departments group projects. Shared projects are visible across departments. In LDAP mode, department membership can be synchronized from configured directory groups; manually added memberships remain manageable in Taskira.</> },
+    { id: "departments", title: "9 · Teams and LDAP", body: <>Teams group projects. A project is visible to its team's members; shared projects are visible to everyone. In LDAP mode, team membership can be synchronized from configured directory groups; manually added memberships remain manageable in Taskira.</> },
     { id: "reports", title: "10 · Reports", body: <>Reports summarize created, closed, open, and overdue issues and lead time for a selected date range. Results can be grouped by project, assignee, type, or priority and exported as CSV.</> },
-    { id: "home", title: "11 · Home", body: <>Home shows assigned and overdue work, available projects, and recent activity. Selecting a project loads its data and opens the last relevant working view.</> },
-    { id: "hotkeys", title: "12 · Keyboard shortcuts", body: <><Code>C</Code> opens issue creation, number keys switch sections, and <Code>Escape</Code> closes dialogs. In editable fields, standard typing shortcuts keep their browser behavior.</> },
-    { id: "model", title: "13 · Data model", body: <>Core entities are users, departments, projects, project members, issues, assignees, collaborators, statuses, transitions, comments, activity, checklist items, issue links, templates, custom fields, sprints, notifications, and attachments. Foreign keys and server-side permission checks protect cross-project boundaries.</> },
-    { id: "storage", title: "14 · Storage and sessions", body: <>PostgreSQL stores application data; configured object storage stores attachments and avatars. The signed session is sent in an HttpOnly, SameSite cookie and checked against a server-side session version, so logout and role changes revoke older sessions. Local storage contains interface preferences only.</> },
+    { id: "dashboards", title: "11 · Dashboards", body: <>«Dashboards» opens the built-in organization overview across every project you can see; «Save as my own» makes an editable copy. You can build personal dashboards from widgets (numbers, breakdowns, trends, issue lists, workload, project progress, activity); administrators can share a dashboard with the whole organization. Each project has an «Overview» tab that managers can arrange. Everyone sees data only from the projects they have access to.</> },
+    { id: "home", title: "12 · Home", body: <>Home shows assigned and overdue work, available projects, and recent activity. Selecting a project loads its data and opens the last relevant working view.</> },
+    { id: "hotkeys", title: "13 · Keyboard shortcuts", body: <><Code>/</Code> searches issues, <Code>C</Code> opens issue creation, <Code>1</Code>–<Code>4</Code> switch project views, <Code>G</Code> then a letter jumps to a section (<Code>H</Code> home, <Code>I</Code> inbox, <Code>M</Code> my issues, <Code>R</Code> reports, <Code>D</Code> dashboards, <Code>O</Code> project overview, <Code>S</Code> project settings), <Code>Ctrl</Code>+<Code>K</Code> opens the command palette, <Code>?</Code> lists all shortcuts, and <Code>Escape</Code> closes dialogs or leaves board selection. In editable fields, standard typing shortcuts keep their browser behavior.</> },
+    { id: "model", title: "14 · Data model", body: <>Core entities are users, teams (departments in the API), projects, project members, issues, assignees, collaborators, statuses, transitions, comments, activity, checklist items, issue links, templates, custom fields, sprints, notifications, and attachments. Foreign keys and server-side permission checks protect cross-project boundaries.</> },
+    { id: "storage", title: "15 · Storage and sessions", body: <>PostgreSQL stores application data; configured object storage stores attachments and avatars. The signed session is sent in an HttpOnly, SameSite cookie and checked against a server-side session version, so logout and role changes revoke older sessions. Local storage contains interface preferences only.</> },
   ];
   return (
     <div className="h-full overflow-y-auto">
@@ -279,9 +282,11 @@ export default function DocsView() {
             <section id="doc-list" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
               <H>5 · Список задач</H>
               <P>
-                <b className="text-ink">Список задач</b> — плоский перечень всех задач проекта без секций и планирования. Фильтры (статус,
-                исполнитель, тип, текст, «просроченные») и сортировка (по приоритету, сроку, обновлению, ключу; по возрастанию/убыванию)
-                применяются на клиенте.
+                <b className="text-ink">Список задач</b> — плоский перечень всех задач проекта без секций и планирования. Фильтры —
+                статус, исполнитель, тип, приоритет, метка, срок «с … по …», спринт, «просроченные», текст и одно из своих полей
+                проекта; условия живут в адресной строке и сохраняются как именованные фильтры. Сортировка — по приоритету, сроку,
+                обновлению, ключу. Фильтры и сортировка считаются на сервере. «Выделить» включает массовые действия (статус,
+                исполнитель, приоритет, удаление) — здесь и на доске.
               </P>
               <P>
                 Спринты — отдельный опциональный модуль (раздел 6), не часть этого списка: если он выключен в проекте,
@@ -359,8 +364,18 @@ export default function DocsView() {
               </P>
             </section>
 
+            <section id="doc-dashboards" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
+              <H>11 · Дашборды</H>
+              <P>
+                Раздел «Дашборды» открывается встроенным «Обзором организации» по всем видимым проектам; «Сохранить как свой» делает
+                копию, которую можно менять. Свои дашборды собираются из виджетов: числа, разбивки, тренд, списки задач, нагрузка,
+                прогресс проектов, активность. Администратор может сделать дашборд общим для всей организации. У каждого проекта
+                есть вкладка «Обзор», её собирает менеджер. Данные каждый видит только по проектам, к которым у него есть доступ.
+              </P>
+            </section>
+
             <section id="doc-home" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
-              <H>11 · Главный экран и переключение проектов</H>
+              <H>12 · Главный экран и переключение проектов</H>
               <P>
                 Появляется, когда пользователю видно два и более проекта: сводка «мои задачи» (открытые задачи, где он
                 исполнитель, по всем видимым проектам), просроченные, и список проектов с недавними/избранными наверху.
@@ -371,14 +386,17 @@ export default function DocsView() {
             </section>
 
             <section id="doc-hotkeys" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
-              <H>12 · Горячие клавиши</H>
+              <H>13 · Горячие клавиши</H>
               <table className="mt-2 w-full max-w-[460px] border-collapse text-[13px]">
                 <tbody>
                   {[
                     ["Поиск по задачам", "/"],
                     ["Создать задачу", "C"],
-                    ["Разделы: доска…документация", "1 – 9"],
-                    ["Закрыть окно / отмена", "Esc"],
+                    ["Виды проекта: доска, список, таймлайн, спринты", "1 – 4"],
+                    ["Перейти: главная, входящие, мои, отчёты, дашборды, обзор, настройки проекта", "G, затем H / I / M / R / D / O / S"],
+                    ["Палитра команд", "Ctrl + K"],
+                    ["Все сочетания", "?"],
+                    ["Закрыть окно / выйти из выделения", "Esc"],
                     ["Отправить комментарий", "Ctrl + Enter"],
                   ].map(([k, v]) => (
                     <tr key={k} className="border-b border-linesoft last:border-0">
@@ -391,7 +409,7 @@ export default function DocsView() {
             </section>
 
             <section id="doc-model" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
-              <H>13 · Модель данных</H>
+              <H>14 · Модель данных</H>
               <P>Сущности и связи (описаны в <Code>src/types.ts</Code>):</P>
               <table className="mt-3 w-full border-collapse text-[12px]">
                 <thead>
@@ -438,7 +456,7 @@ export default function DocsView() {
             </section>
 
             <section id="doc-storage" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
-              <H>14 · Хранение и сессия</H>
+              <H>15 · Хранение и сессия</H>
               <P>
                 Данные приходят с API (<Code>src/api/</Code>): bootstrap <Code>GET /api/projects/:id</Code> отдаёт проект, участников,
                 состав (<Code>members</Code>) и workflow; задачи — <Code>GET /api/projects/:id/issues</Code>. Роль текущего пользователя

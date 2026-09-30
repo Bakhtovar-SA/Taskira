@@ -13,7 +13,7 @@
     { "id": "transition", "name": "Смена статуса", "desc": "Перетаскивание и смена статуса в пределах workflow.", "scope": "Задача", "roles": ["admin", "manager", "employee"] },
     { "id": "delete", "name": "Удаление задач", "desc": "Удаление задач.", "scope": "Задача", "roles": ["admin", "manager"] },
     { "id": "comment", "name": "Комментарии", "desc": "Добавление комментариев.", "scope": "Задача", "roles": ["admin", "manager", "employee"] },
-    { "id": "editWorkflow", "name": "Изменение workflow", "desc": "Переходы и сброс схемы.", "scope": "Схема", "roles": ["admin"] },
+    { "id": "editWorkflow", "name": "Изменение рабочего процесса", "desc": "Переходы и сброс схемы.", "scope": "Схема", "roles": ["admin"] },
     { "id": "manageAccess", "name": "Управление доступом", "desc": "Пользователи и роли (на сервере).", "scope": "Пользователи", "roles": ["admin"] },
     { "id": "manageCollaborators", "name": "Подключение к задаче", "desc": "Пригласить человека к отдельной задаче (просмотр + комментарии), не добавляя в проект.", "scope": "Задача", "roles": ["admin", "manager"] },
     { "id": "manageSprints", "name": "Управление спринтами", "desc": "Создание, старт и завершение спринтов; перенос задач между бэклогом и спринтом. Только в проектах с включённым модулем спринтов.", "scope": "Проект", "roles": ["admin", "manager"] },

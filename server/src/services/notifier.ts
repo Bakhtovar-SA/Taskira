@@ -27,6 +27,7 @@ interface PendingRow {
   email_tries: number;
   email: string | null;
   notify_prefs: NotifyPrefs | null;
+  lang: string | null;
   issue_key: string | null;
 }
 
@@ -69,7 +70,7 @@ export async function runNotifierOnce(): Promise<NotifierStats> {
 
   const rows = await q<PendingRow>(
     `SELECT n.id, n.user_id, n.type, n.project_id, n.issue_id, n.created_at, n.email_tries,
-            u.email, u.notify_prefs, i.key AS issue_key
+            u.email, u.notify_prefs, u.lang, i.key AS issue_key
        FROM notifications n
        JOIN users u ON u.id = n.user_id
        LEFT JOIN issues i ON i.id = n.issue_id
@@ -115,7 +116,8 @@ export async function runNotifierOnce(): Promise<NotifierStats> {
       projectId: r.project_id,
       issueId: r.issue_id,
     }));
-    const mail = items.length === 1 ? renderOne(cfg.appBaseUrl!, items[0]) : renderDigest(cfg.appBaseUrl!, items);
+    const lang = first.lang === "en" ? "en" : "ru";
+    const mail = items.length === 1 ? renderOne(cfg.appBaseUrl!, items[0], lang) : renderDigest(cfg.appBaseUrl!, items, lang);
 
     try {
       await tx().sendMail({

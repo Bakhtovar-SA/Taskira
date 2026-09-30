@@ -1,5 +1,6 @@
 import type {
   ACCESS_ROLES,
+  ActivityEvent,
   AssignedIssueDto,
   COMPLEXITIES,
   CollaboratingItemDto,
@@ -80,6 +81,8 @@ export interface Activity {
   author: { id: string; name: string; initials: string; color: string } | null;
   ts: number;
   text: string;
+  /** Событие данными (трек E); null — запись до трека E, показывается по text. */
+  event: ActivityEvent | null;
 }
 
 /** Приглашённый к задаче (issue_collaborators, миграция 008): видит эту задачу и

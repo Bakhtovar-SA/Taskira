@@ -17,14 +17,7 @@ import { computeRank } from "../services/rank.js";
 import { listAssigneeIdsBatch, logActivity, setAssignees, validateAssigneesInProject } from "../services/issues.js";
 import { deleteStorageObjects, storageKeysForIssue } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
-import { BulkIssueAction, BulkIssueResultDto } from "../contract.js";
-
-const PRIORITY_NAMES: Record<string, string> = {
-  critical: "Критичный",
-  high: "Высокий",
-  medium: "Средний",
-  low: "Низкий",
-};
+import { BulkIssueAction, BulkIssueResultDto, type PriorityId } from "../contract.js";
 
 /** Перм, которым проверяется КАЖДАЯ задача выборки — зеркалит то, чем защищены
  *  одиночные пути: PATCH /:id (priority/assigneeIds) — "edit", POST /:id/transition —
@@ -60,7 +53,7 @@ async function applyStatus(projectId: string, row: Row, toStatusId: string, acto
     [toStatusId, rank, row.id],
   );
   const [from, to] = [await statusName(row.status_id), await statusName(toStatusId)];
-  await logActivity(row.id, actorId, `переместил(а) из «${from}» в «${to}»`);
+  await logActivity(row.id, actorId, { kind: "status", from, to, bulk: true });
   await autoWatch(row.id, actorId);
   await emit({ type: "issue.status", actorId, projectId, issueId: row.id, payload: { key: row.key, title: row.title, from, to } });
   // Тот же тип события, что у одиночного POST /:id/transition — обзор audit_log
@@ -81,14 +74,14 @@ async function applyAssignee(projectId: string, row: Row, assigneeId: string, ac
   if (added.length > 0) {
     await emit({ type: "issue.assigned", actorId, projectId, issueId: row.id, recipientIds: added, payload: { key: row.key, title: row.title } });
   }
-  await logActivity(row.id, actorId, assigneeId === "none" ? "снял(а) исполнителя (массовая операция)" : "назначил(а) исполнителя (массовая операция)");
+  await logActivity(row.id, actorId, { kind: "assigneeBulk", cleared: assigneeId === "none" });
   await audit(actorId, "issue.update", "issue", row.id, { key: row.key, fields: ["assigneeIds"], bulk: true });
 }
 
 async function applyPriority(row: Row, priorityId: string, actorId: string): Promise<void> {
   if (row.priority_id === priorityId) return; // no-op
   await q(`UPDATE issues SET priority_id = $1, updated_at = now() WHERE id = $2`, [priorityId, row.id]);
-  await logActivity(row.id, actorId, `изменил(а) приоритет: ${PRIORITY_NAMES[row.priority_id]} → ${PRIORITY_NAMES[priorityId]} (массовая операция)`);
+  await logActivity(row.id, actorId, { kind: "priority", from: row.priority_id as PriorityId, to: priorityId as PriorityId, bulk: true });
   await audit(actorId, "issue.update", "issue", row.id, { key: row.key, fields: ["priorityId"], bulk: true });
 }
 

@@ -3,7 +3,7 @@ import { Hint } from "./Hint";
 import { useStore } from "../store";
 import { assignableUsers, canTransition, fmtDate, relTime } from "../store/mappers";
 import { pathForIssue } from "../router";
-import { denialReason } from "../permissions";
+import { denialText } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
@@ -13,6 +13,7 @@ import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
 import { freshRows, useIssue, useIssueSet, useIssuesRevision, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { workflowStatusName } from "../workflowStatus";
+import { activityLine } from "../activityText";
 import { DATA_COLORS } from "../dataColors";
 import { neighborIssue, revealIssue } from "../issueNav";
 import type { IssueMode } from "../store/mappers";
@@ -24,44 +25,6 @@ import { issuesApi } from "../api";
 /** Палитра направлений = палитра проектов ТЗ 5.3 (одна светлота и хрома, разные
  *  тона; бренд-тон 288 не входит). Hex, а не токены: цвет хранится в БД. */
 const DIRECTION_COLORS = DATA_COLORS;
-
-/** Activity rows are stored as historical Russian text for compatibility.
- * Translate only known system phrases; captured user names/issue keys stay intact. */
-function localizeActivity(text: string, lang: "ru" | "en", t: ReturnType<typeof useT>["t"]): string {
-  if (lang === "ru") return text;
-  const exact: Record<string, string> = {
-    "создал(а) задачу": "created the issue",
-    "переименовал(а) задачу": "renamed the issue",
-    "обновил(а) описание": "updated the description",
-    "изменил(а) группу (эпик)": "changed the direction",
-    "сделал(а) подзадачей другой задачи": "made it a subtask of another issue",
-    "убрал(а) из подзадач": "removed it from subtasks",
-    "обновил(а) метки": "updated the labels",
-    "удалил(а) пункт чек-листа": "deleted a checklist item",
-  };
-  if (exact[text]) return exact[text];
-  const rules: [RegExp, (m: RegExpMatchArray) => string][] = [
-    [/^назначил\(а\) исполнителем (.+)$/, (m) => `assigned ${m[1]}`],
-    [/^снял\(а\) исполнителя (.+)$/, (m) => `unassigned ${m[1]}`],
-    [/^изменил\(а\) приоритет: (.+) → (.+)$/, (m) => `changed priority: ${translateMetric(m[1])} → ${translateMetric(m[2])}`],
-    [/^изменил\(а\) сложность: (.+) → (.+)$/, (m) => `changed complexity: ${translateMetric(m[1])} → ${translateMetric(m[2])}`],
-    [/^изменил\(а\) срок: (.+) → (.+)$/, (m) => `changed due date: ${m[1]} → ${m[2]}`],
-    [/^переместил\(а\) из «(.+)» в «(.+)»$/, (m) => `moved from “${workflowStatusName({ name: m[1] }, t)}” to “${workflowStatusName({ name: m[2] }, t)}”`],
-    [/^добавил\(а\) пункт чек-листа «(.+)»$/, (m) => `added checklist item “${m[1]}”`],
-    [/^отметил\(а\), что задача блокирует (.+)$/, (m) => `marked the issue as blocking ${m[1]}`],
-    [/^отметил\(а\), что задача заблокирована (.+)$/, (m) => `marked the issue as blocked by ${m[1]}`],
-    [/^связал\(а\) с (.+)$/, (m) => `linked to ${m[1]}`],
-  ];
-  for (const [re, format] of rules) {
-    const match = text.match(re);
-    if (match) return format(match);
-  }
-  return text;
-}
-
-function translateMetric(value: string): string {
-  return ({ Критичный: "Critical", Высокий: "High", Средний: "Medium", Низкий: "Low", Простая: "Simple", Сложная: "Hard" } as Record<string, string>)[value] ?? value;
-}
 
 /** Текст комментария/описания с подсветкой @-упоминаний (NOTIFICATIONS_MIGRATION.md D5). */
 export function MentionText({ text }: { text: string }) {
@@ -681,7 +644,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const editOk = can("edit", issue);
   const canDelete = can("delete");
   const canComment = can("comment");
-  const denyMsg = denialReason(me, "edit", issue, lang);
+  const denyMsg = denialText(me, "edit", issue, t);
 
   const submitComment = () => {
     if (!comment.trim()) return;
@@ -960,7 +923,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                       <Avatar user={who} size={18} interactive />
                     </span>
                     <p className="text-[12.5px] leading-snug text-sub">
-                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {localizeActivity(it.a.text, lang, t)}
+                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {activityLine(it.a.event, it.a.text, t, lang)}
                       <span className="ml-1.5 text-[11px] text-faint">{relTime(it.a.ts, lang)}</span>
                     </p>
                   </div>

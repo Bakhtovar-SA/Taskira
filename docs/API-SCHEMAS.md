@@ -350,6 +350,12 @@
 |---|---|---|
 | `ids` | array&lt;string (uuid)&gt; | необязательное; 0…500 эл. |
 
+### MeLangBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `lang` | enum: `ru` \| `en` |  |
+
 ### MemberParams
 
 | Поле | Тип | Замечания |
@@ -564,7 +570,12 @@
 | `actorId` | string | может быть null |
 | `actor` | object | может быть null |
 | `text` | string |  |
+| `event` | discriminatedunion | может быть null |
 | `createdAt` | string |  |
+
+### ActivityEvent
+
+`discriminatedunion`
 
 ### AssignedIssueDto
 
@@ -891,6 +902,7 @@
 | `avatarUpdatedAt` | number | может быть null |
 | `notifyPrefs` | object |  |
 | `favoriteProjectIds` | array&lt;string&gt; |  |
+| `lang` | enum: `ru` \| `en` |  |
 
 ### MilestoneDto
 

@@ -1,4 +1,5 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
+import { activityEventOf } from "./activity.js";
 import type { PoolClient } from "pg";
 import { one, q, withTransaction } from "../db.js";
 import { badRequest, notFound } from "../middleware.js";
@@ -387,12 +388,14 @@ export async function listActivity(issueId: string, limit = 100): Promise<Activi
     id: string;
     actor_id: string | null;
     text: string;
+    kind: string | null;
+    payload: unknown;
     created_at: Date;
     name: string | null;
     initials: string | null;
     color: string | null;
   }>(
-    `SELECT a.id, a.actor_id, a.text, a.created_at, u.name, u.initials, u.color
+    `SELECT a.id, a.actor_id, a.text, a.kind, a.payload, a.created_at, u.name, u.initials, u.color
        FROM activity a
        LEFT JOIN users u ON u.id = a.actor_id
       WHERE a.issue_id = $1
@@ -406,14 +409,11 @@ export async function listActivity(issueId: string, limit = 100): Promise<Activi
       actorId: r.actor_id,
       actor: r.actor_id && r.name ? { id: r.actor_id, name: r.name, initials: r.initials ?? "", color: r.color ?? "#888" } : null,
       text: r.text,
+      event: activityEventOf(r.kind, r.payload),
       createdAt: new Date(r.created_at).toISOString(),
     }))
     .reverse(); // в БД брали свежие сверху, наружу отдаём по возрастанию времени
 }
 
-/** Запись в историю задачи («кто, что, когда»). */
-export async function logActivity(issueId: string, actorId: string, text: string, client?: PoolClient): Promise<void> {
-  const sql = `INSERT INTO activity (issue_id, actor_id, text) VALUES ($1, $2, $3)`;
-  if (client) await client.query(sql, [issueId, actorId, text]);
-  else await q(sql, [issueId, actorId, text]);
-}
+/** Запись в историю задачи — теперь событием (services/activity.ts); реэкспорт для прежних импортов. */
+export { logActivity } from "./activity.js";

@@ -214,7 +214,10 @@ export function useSessionActions(
         if (takeHomeIntro()) {
           toast(
             "info",
-            "Теперь при входе — список ваших проектов и задач. Открыть проект напрямую можно здесь.",
+            local(
+              "Теперь при входе — список ваших проектов и задач. Открыть проект напрямую можно здесь.",
+              "Sign-in now opens a list of your projects and issues. You can open a project directly from here.",
+            ),
           );
         }
         setBootStatus("home");
@@ -471,6 +474,7 @@ export function useSessionActions(
               authorId: a.actorId,
               author: a.actor,
               text: a.text,
+              event: a.event ?? null,
               ts: Date.parse(a.createdAt) || Date.now(),
             }));
             return { ...prev, issues: upsertIssue(prev.issues, mapped) };
