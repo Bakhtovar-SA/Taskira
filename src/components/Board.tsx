@@ -6,10 +6,11 @@ import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, PriorityId, Status, User } from "../types";
 import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcSubtasks, IcUsers, IcX, PriorityIcon, StatusGlyph } from "../icons";
-import { Avatar, AvatarStack, BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, SkeletonCard, directionColor, labelTone } from "../ui";
+import { Avatar, AvatarStack, BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor, labelTone } from "../ui";
+import { Checkbox } from "../ds/Field";
 import { Menu } from "../ds/LazyMenu";
 import { Button } from "../ds/Button";
-import { EmptyState } from "../ds/Display";
+import { EmptyState, Skeleton } from "../ds/Display";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { preloadIssueModal } from "../lazyModals";
@@ -217,15 +218,9 @@ const Card = memo(function Card({
           критичный ещё и красной кромкой слева), и подзадачи «готово/всего». Тип — в просмотре задачи. */}
       <div className="flex h-5 items-center gap-1.5 text-faint">
         {selecting && (
-          <input
-            type="checkbox"
-            checked={selected}
-            onClick={(e) => e.stopPropagation()}
-            onChange={() => onToggleSelect(issue.id)}
-            tabIndex={-1}
-            aria-label={t("backlog.selectRow", { key: issue.key })}
-            className="shrink-0 cursor-pointer"
-          />
+          <span className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
+            <Checkbox checked={selected} onChange={() => onToggleSelect(issue.id)} label={t("backlog.selectRow", { key: issue.key })} labelHidden tabIndex={-1} />
+          </span>
         )}
         {issue.priorityId !== "medium" && <PrioMark p={issue.priorityId} />}
         <span className="font-mono text-[11.5px] font-medium tabular tracking-[0.01em]">{issue.key}</span>
@@ -275,6 +270,29 @@ const Card = memo(function Card({
     </article>
   );
 });
+
+/** Заглушка карточки на время загрузки колонки — той же формы, что карточка (ТЗ 5.12 c): ключ; две строки заголовка;
+ *  мета — метки слева, исполнитель справа. Из ds-примитивов, в оболочке самой карточки (board-card). */
+function BoardSkeletonCard() {
+  return (
+    <div className="board-card flex flex-col gap-2 rounded-[10px] px-[11px] py-2.5" aria-hidden="true">
+      <div className="flex h-5 items-center">
+        <Skeleton.Line w="48px" h={10} />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Skeleton.Line h={12} />
+        <Skeleton.Line w="66%" h={12} />
+      </div>
+      <div className="flex h-[22px] items-center gap-1">
+        <Skeleton.Line w="64px" h={22} />
+        <Skeleton.Line w="56px" h={22} />
+        <span className="ml-auto">
+          <Skeleton.Circle size={20} />
+        </span>
+      </div>
+    </div>
+  );
+}
 
 /** Приоритет на карточке — маленький знак без подписи (подпись — aria-label и подсказка): три столбика, заполнено по
  *  уровню; высокий — оранжевым, низкий — приглушённо; критичный — красная плашка «!» (тот же знак, что в задаче). */
@@ -412,8 +430,8 @@ function ColumnCards({
     <>
       {loading && rows.length === 0 && (
         <div aria-busy="true" aria-label={t("common.loading")} className="skeleton-late space-y-2">
-          <SkeletonCard />
-          <SkeletonCard />
+          <BoardSkeletonCard />
+          <BoardSkeletonCard />
         </div>
       )}
       {set.error && rows.length === 0 && !loading && (
@@ -422,7 +440,7 @@ function ColumnCards({
         </button>
       )}
       {rows.map((i) => renderCard(i))}
-      {loadingMore && <SkeletonCard />}
+      {loadingMore && <BoardSkeletonCard />}
       <div ref={sentinelRef}>
         {set.error && rows.length > 0 ? (
           <button onClick={loadMore} className="w-full px-3 py-1.5 text-[11.5px] font-medium text-accent hover:underline">
