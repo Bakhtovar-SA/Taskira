@@ -41,6 +41,9 @@
 | `src/dashboards/widgets.tsx` | `Empty`, `Avatar` |
 | `src/components/AdminView.tsx`, `src/components/ReportsView.tsx`, `src/components/SoloView.tsx` | кнопки, поля, `Avatar` — если есть |
 
+Вне обоих треков: `MyIssues.tsx`, `MyIssuesView.tsx`, `ProjectLookPicker.tsx`, `RoadmapView.tsx` берут из `ui.tsx` только
+`ProjectMark`/`projectTone`, которые остаются там (их нет в `ds`). Эти файлы не трогать.
+
 Сопоставление — строго по карте `COMPONENTS.md`:
 
 - `Modal` (`variant="center"`) → `Dialog`; `Switch` из `ui.tsx` → `Switch` из `ds`; радиокнопки → `RadioGroup`;
@@ -99,7 +102,8 @@
 
 ## Нужно в ds
 
-(заполняет исполнитель: компонент — чего не хватает — какой экран ждёт)
+(заполняет исполнитель: компонент — чего не хватает — какой экран ждёт. Трек G разбирает записи в начале каждого своего
+шага и отвечает здесь же; пока ответа нет — экран остаётся на старом компоненте, работа не стоит.)
 
 ## Сделано
 

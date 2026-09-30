@@ -20,7 +20,12 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   const { data, ui, setCreateOpen, createIssue } = useStore();
   const close = () => setCreateOpen(false);
   // Родитель создаваемой подзадачи: из кэша (его только что открывали) или точечный запрос по id.
-  const parent = useIssue(ui.createParentId) ?? undefined;
+  const liveParent = useIssue(ui.createParentId) ?? undefined;
+  // Закрытие сбрасывает createParentId, а окно ещё ~200 мс уходит с анимацией: держим родителя, каким он был открытым,
+  // иначе заголовок «Новая подзадача» успевает смениться на «Новая задача».
+  const parentRef = useRef(liveParent);
+  if (open) parentRef.current = liveParent;
+  const parent = open ? liveParent : parentRef.current;
   const [typeId, setTypeId] = useState<IssueTypeId>("task");
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");

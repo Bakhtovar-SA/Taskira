@@ -4,6 +4,7 @@ import { useOptionalT } from "../i18n";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { IconButton } from "./Button";
 import { dsId } from "./ids";
+import { DIALOG_EXIT_MS } from "./Presence";
 
 type DialogProps = {
   open: boolean;
@@ -59,7 +60,7 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
     const done = () => setShown(false);
     const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!el || reduce || typeof el.getAnimations !== "function") return done();
-    const timer = setTimeout(done, 300); // страховка, если animationend не придёт
+    const timer = setTimeout(done, DIALOG_EXIT_MS); // страховка, если animationend не придёт
     el.addEventListener("animationend", done, { once: true });
     return () => {
       clearTimeout(timer);
@@ -108,4 +109,3 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
 export const Dialog = (p: DialogProps) => <Frame kind="dialog" {...p} />;
 /** Выезжающая справа панель на всю высоту — тот же <dialog>, другая геометрия. */
 export const SidePanel = (p: DialogProps) => <Frame kind="panel" {...p} />;
-

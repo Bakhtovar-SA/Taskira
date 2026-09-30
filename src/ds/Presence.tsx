@@ -1,5 +1,9 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 
+/** Страховка Dialog: сколько ждать animationend при закрытии (уход — --dur-2, 200 мс). Живёт здесь, а не в Dialog.tsx,
+ *  чтобы App.tsx во входном чанке не тянул Dialog ради одной константы. */
+export const DIALOG_EXIT_MS = 300;
+
 /** Окно, которое родитель монтирует по условию (`{open && <X/>}`), при закрытии снималось бы сразу, без анимации
  *  ухода. `Presence` держит его смонтированным, пока `Dialog` доигрывает закрытие, и передаёт `open` дальше:
  *  `<Presence show={createOpen}>{(open) => <CreateIssueModal open={open} />}</Presence>`. Каждое новое открытие —
@@ -18,8 +22,11 @@ export function Presence({ show, children }: { show: boolean; children: (open: b
   useEffect(() => {
     if (show || !mounted) return;
     const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || typeof Element.prototype.getAnimations !== "function") return setMounted(false);
-    const timer = setTimeout(() => setMounted(false), 320); // чуть дольше страховки Dialog (300 мс)
+    if (reduce || typeof Element.prototype.getAnimations !== "function") {
+      setMounted(false);
+      return;
+    }
+    const timer = setTimeout(() => setMounted(false), DIALOG_EXIT_MS + 20); // Dialog успевает снять себя первым
     return () => clearTimeout(timer);
   }, [show, mounted]);
   return mounted ? <Fragment key={gen}>{children(show)}</Fragment> : null;
