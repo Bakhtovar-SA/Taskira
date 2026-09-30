@@ -480,6 +480,9 @@ export function useSessionActions(
             return { ...prev, issues: upsertIssue(prev.issues, mapped) };
           });
         } catch (err) {
+          if (dataRef.current.currentProjectId === requestProjectId && !dataRef.current.issues.some((i) => i.id === id)) {
+            setUi((u) => u.selectedIssueId === id ? { ...u, selectedIssueId: null } : u);
+          }
           handleApiError(err, local("Не удалось открыть задачу", "Couldn't open the issue"));
         }
       })();

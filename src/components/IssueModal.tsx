@@ -606,7 +606,24 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   // Эпик и родитель открытой задачи — точечные запросы по id (или кэш), а не поиск в списке всех задач.
   const epic = useIssue(issue?.epicId);
   const parentIssue = useIssue(issue?.parentId);
-  if (!issue) return null;
+  if (!issue) {
+    if (!selectedId) return null;
+    const loading = (
+      <div className="space-y-4 p-5" aria-busy="true">
+        <div className="flex items-center justify-between gap-3">
+          <p role="status" className="text-[13px] text-sub">{t("solo.loadingIssue")}</p>
+          <button onClick={() => openIssue(null)} aria-label={t("common.close")} className="rounded-md p-2 text-faint hover:bg-hover">
+            <IcX size={14} />
+          </button>
+        </div>
+        <div className="skeleton h-6 w-3/4 rounded-md" />
+        <div className="skeleton h-24 rounded-lg" />
+      </div>
+    );
+    return mode === "page" ? loading : (
+      <Modal variant="panel" onClose={() => openIssue(null)} w={980} title={t("solo.loadingIssue")}>{loading}</Modal>
+    );
+  }
 
   // Без non-null-утверждений: раньше `!` глушил TypeScript, но при отсутствии
   // профиля или статуса рендер падал исключением и гасил всё приложение
@@ -687,7 +704,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const content = (
     <>
       {/* шапка */}
-      <div className={`flex items-center gap-2 border-b border-linesoft px-5 py-3 ${page ? "sticky top-0 z-10 bg-[color-mix(in_oklch,var(--bg-canvas)_96%,transparent)]" : ""}`}>
+      <div data-issue-details={issue.id} className={`flex items-center gap-2 border-b border-linesoft px-5 py-3 ${page ? "sticky top-0 z-10 bg-[color-mix(in_oklch,var(--bg-canvas)_96%,transparent)]" : ""}`}>
         {page && (
           <>
             <button onClick={() => openIssue(null)} className="-ml-1.5 flex h-7 items-center gap-1 rounded-md pl-1 pr-2 text-[12.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">

@@ -17,6 +17,8 @@ import {
 import { I18nProvider } from "./i18n";
 import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
+import { flipFrom } from "./motion";
+vi.mock("./motion", () => ({ flipFrom: vi.fn() }));
 
 /**
  * ТЗ 5.12 c — доска будет визуально переписана. Эти тесты фиксируют её
@@ -141,11 +143,12 @@ const settleDebounce = () => act(async () => { await wait(320); });
 
 interface Setup {
   role?: ProjectRole;
+  transitions?: ProjectBootstrap["workflow"]["transitions"];
   pageImpl: (projectId: string, params: IssuePageParams) => Promise<{ items: ServerIssue[]; hasMore: boolean; nextCursor: string | null }>;
   countsImpl?: (projectId: string, params: IssueFilterParams) => Promise<{ total: number; byStatus: Record<string, number> }>;
 }
 
-async function setup({ role = "manager", pageImpl, countsImpl }: Setup) {
+async function setup({ role = "manager", transitions = [], pageImpl, countsImpl }: Setup) {
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(user1 as never);
@@ -153,7 +156,7 @@ async function setup({ role = "manager", pageImpl, countsImpl }: Setup) {
   vi.spyOn(projectsApi, "list").mockResolvedValue([project] as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-  vi.spyOn(projectsApi, "get").mockResolvedValue(bootWith(role));
+  vi.spyOn(projectsApi, "get").mockResolvedValue({ ...bootWith(role), workflow: { statuses: STATUSES, transitions } });
   vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
@@ -205,6 +208,38 @@ afterEach(() => {
 });
 
 describe("Board — характеризующие тесты (ТЗ 5.12 c, до переписывания JSX)", () => {
+  test("confirmed drop lands only in the destination while paginated columns are still refreshing", async () => {
+    let refresh = false;
+    const pendingPages: ((value: { items: ServerIssue[]; hasMore: boolean; nextCursor: null }) => void)[] = [];
+    let finishTransition!: (value: ServerIssue) => void;
+    const h = await setup({ transitions: [{ id: "t1", from: "s1", to: "s2" }], pageImpl: async (_p, params) => {
+      if (refresh) return new Promise(resolve => pendingPages.push(resolve));
+      return { items: params.status === "s1" ? [dto("a1")] : [], hasMore: false, nextCursor: null };
+    }});
+    const transition = vi.spyOn(issuesApi, "transition").mockImplementation(() => new Promise(resolve => { finishTransition = resolve; }));
+    const card = screen.getByRole("article", { name: /A21-a1/ });
+    const [source, target] = [...h.ui.container.querySelectorAll<HTMLElement>("section.board-col")];
+    const transfer = { getData: () => "a1", setData: vi.fn(), effectAllowed: "move" };
+    fireEvent.dragStart(card, { dataTransfer: transfer, clientX: 10, clientY: 10 });
+    fireEvent.drop(target, { dataTransfer: transfer, clientX: 400, clientY: 100 });
+    await settle();
+    expect(transition).toHaveBeenCalledWith("p1", "a1", "s2", null);
+    expect(source.contains(card)).toBe(true);
+    refresh = true;
+    act(() => finishTransition(dto("a1", { statusId: "s2", rank: 2 })));
+    await settle();
+    const moved = screen.getByRole("article", { name: /A21-a1/ });
+    expect(target.contains(moved)).toBe(true);
+    expect(within(source).queryByRole("article", { name: /A21-a1/ })).toBeNull();
+    expect(vi.mocked(flipFrom).mock.calls.filter(([el]) => el === moved)).toHaveLength(1);
+    expect(vi.mocked(flipFrom).mock.calls.some(([el]) => source.contains(el))).toBe(false);
+    // Finish the page refresh: it must not duplicate or remount the landed card.
+    pendingPages.forEach(resolve => resolve({ items: [dto("a1", { statusId: "s2", rank: 2 })], hasMore: false, nextCursor: null }));
+    await settle();
+    expect(screen.getAllByRole("article", { name: /A21-a1/ })).toHaveLength(1);
+    expect(screen.getByRole("article", { name: /A21-a1/ })).toBe(moved);
+    h.ui.unmount();
+  });
   test("1. каждая колонка запрашивает свою первую страницу по своему статусу", async () => {
     const h = await setup({
       pageImpl: async (_p, params) => ({

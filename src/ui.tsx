@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { AccessRole, Status, User } from "./types";
 import { useStore, useToasts } from "./store";
 import { usersApi, getAvatarBlobUrl, type PickableUser } from "./api";
@@ -434,6 +434,15 @@ export function Modal({
   // первом рендере: к моменту эффекта `autoFocus` поля внутри уже забрал фокус, и «открывший» был бы самим полем.
   const openerRef = useRef(document.activeElement as HTMLElement | null);
 
+  // Preserve focus when a loading placeholder is replaced; leave focused fields and portalled menus alone.
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    const active = document.activeElement;
+    if (box && !box.contains(active) && (active === openerRef.current || active === document.body)) {
+      (box.querySelector<HTMLElement>(FOCUSABLE) ?? box).focus();
+    }
+  });
+
   useEffect(() => {
     const opener = openerRef.current;
 
@@ -441,14 +450,7 @@ export function Modal({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // Фокус внутрь: первый осмысленный элемент, иначе сам контейнер. Если поле уже взяло фокус само (`autoFocus`
-    // у названия в «Создать задачу» срабатывает раньше этого эффекта), не перебивать его крестиком из шапки —
-    // найдено проходом с клавиатуры (ТЗ 5.16): после C фокус стоял на «Закрыть», а не в поле названия.
     const box = boxRef.current;
-    if (!box?.contains(document.activeElement)) {
-      const first = box?.querySelector<HTMLElement>(FOCUSABLE);
-      (first ?? box)?.focus();
-    }
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

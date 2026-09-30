@@ -45,6 +45,7 @@ function files(dir: string): string[] {
 /** Код без комментариев: блочные, JSX-комментарии и `//` до конца строки (не внутри "http://"). */
 function stripComments(src: string): string {
   return src
+    .replace(/\r\n?/g, "\n")
     .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
     .split("\n")
     .map((l) => l.replace(/(^|[\s;,(){}])\/\/.*$/, "$1"))
@@ -81,6 +82,13 @@ function offenders(path: string): string[] {
   });
   return out;
 }
+
+test("комментарии исключаются при LF и CRLF, URL сохраняются", () => {
+  const source = 'const url = "http://localhost"; // комментарий\n/* русский\nкомментарий */\nconst label = "Текст";';
+  const expected = 'const url = "http://localhost"; \n          \n              \nconst label = "Текст";';
+  expect(stripComments(source)).toBe(expected);
+  expect(stripComments(source.replace(/\n/g, "\r\n"))).toBe(expected);
+});
 
 test("русский текст в коде клиента — только в словаре или парой RU/EN", () => {
   const found = files(ROOT)
