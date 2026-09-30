@@ -9,7 +9,8 @@ import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useL
 import { LIMITS } from "../validation";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, directionColor, labelTone } from "../ui";
+import { directionColor, labelTone } from "../ui";
+import { UserAvatarGroup } from "./UserAvatar";
 import { Button, Checkbox, EmptyState, Menu, Popover, Presence, Skeleton, Tag, type Tone } from "../ds";
 import BulkBar from "./BulkBar";
 import { useT } from "../i18n";
@@ -90,7 +91,7 @@ function Row({
         return (
           <span className="flex min-w-0 gap-1 overflow-hidden">
             {issue.labels.slice(0, 2).map((l) => (
-              <Tag key={l} size="sm" tone={labelTone(l)} dot>
+              <Tag key={l} size="sm" tone={labelTone(l)}>
                 {l}
               </Tag>
             ))}
@@ -111,7 +112,7 @@ function Row({
           </Tag>
         ) : null;
       case "assignee":
-        return <AvatarStack users={assignees} size={22} interactive />;
+        return <UserAvatarGroup users={assignees} size={22} interactive />;
       case "updated":
         return <span className="text-[12px] tabular text-faint">{relTime(issue.updatedAt, lang)}</span>;
     }

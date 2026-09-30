@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
-import { Menu } from "./LazyMenu";
+import { Menu } from "./LazyOverlay";
 
 afterEach(cleanup);
 

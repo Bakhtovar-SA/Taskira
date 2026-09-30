@@ -758,6 +758,13 @@
   background: var(--bg-active);
   color: var(--text-2);
 }
+/* «Не назначен»: пустой кружок пунктиром, без тона. */
+.ds-av-empty {
+  background: var(--bg-sunken);
+  box-shadow: none;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-3);
+}
 .ds-av-status {
   position: absolute;
   right: -1px;

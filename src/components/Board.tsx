@@ -6,9 +6,10 @@ import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, PriorityId, Status, User } from "../types";
 import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcSubtasks, IcUsers, IcX, PriorityIcon, StatusGlyph } from "../icons";
-import { Avatar, AvatarStack, BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor, labelTone } from "../ui";
+import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor, labelTone } from "../ui";
+import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
-import { Menu } from "../ds/LazyMenu";
+import { Menu } from "../ds/LazyOverlay";
 import { Button } from "../ds/Button";
 import { EmptyState, Skeleton } from "../ds/Display";
 import { useT, type TKey } from "../i18n";
@@ -264,7 +265,7 @@ const Card = memo(function Card({
               </span>
             )}
           </div>
-          {assignees.length > 0 && <AvatarStack users={assignees} size={20} interactive />}
+          {assignees.length > 0 && <UserAvatarGroup users={assignees} size={20} interactive />}
         </div>
       )}
     </article>
@@ -891,7 +892,7 @@ export default function Board() {
                 title={t("board.filterUserAria", { name: u.name })}
                 className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === u.id ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== u.id ? "opacity-40" : ""}`}
               >
-                <Avatar user={u} size={26} ring />
+                <UserAvatar user={u} size={26} ring />
               </button>
             ))}
             <button
@@ -899,7 +900,7 @@ export default function Board() {
               title={t("board.unassignedFilter")}
               className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === "none" ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== "none" ? "opacity-40" : ""}`}
             >
-              <Avatar user={null} size={26} ring />
+              <UserAvatar user={null} size={26} ring />
             </button>
           </div>
           <button
