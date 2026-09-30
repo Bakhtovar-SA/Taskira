@@ -445,7 +445,7 @@ function ColumnCards({
   return (
     <>
       {loading && rows.length === 0 && (
-        <div aria-busy="true" aria-label={t("common.loading")} className="space-y-2">
+        <div aria-busy="true" aria-label={t("common.loading")} className="skeleton-late space-y-2">
           <SkeletonCard />
           <SkeletonCard />
         </div>

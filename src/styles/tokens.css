@@ -163,9 +163,14 @@
 
   /* Стекло хрома: боковая панель, рабочий лист, кромка. */
   --glass-side: oklch(0.99 0.006 288 / 0.5);
-  --glass-sheet: oklch(0.99 0.004 288 / 0.8);
+  --glass-sheet: oklch(0.99 0.004 288 / 0.7);
   --glass-edge: oklch(1 0 0 / 0.85);
   --glass-edge-2: oklch(1 0 0 / 0.2);
+  /* Доска (часть F): плашка колонки заметно темнее листа и обведена, карточка — тонкой линией. Выводятся из
+     семантических токенов темы, так что светлые облики (dawn, paper) подхватывают их сами. */
+  --board-col-bg: color-mix(in oklch, var(--border-subtle) 62%, transparent);
+  --board-col-line: var(--border-default);
+  --board-card-line: oklch(0.3 0.04 288 / 0.1);
 
   /* Знак и фирменные тона иконок навигации. */
   --logo: oklch(0.52 0.2 var(--brand-h));
@@ -314,9 +319,12 @@
   --glow-c: oklch(0.42 0.14 250 / 0.45);
 
   --glass-side: oklch(0.2 0.02 288 / 0.45);
-  --glass-sheet: oklch(0.17 0.014 288 / 0.82);
+  --glass-sheet: oklch(0.17 0.014 288 / 0.74);
   --glass-edge: oklch(1 0 0 / 0.16);
   --glass-edge-2: oklch(1 0 0 / 0.03);
+  --board-col-bg: color-mix(in oklch, var(--bg-sunken) 55%, transparent);
+  --board-col-line: var(--border-subtle);
+  --board-card-line: transparent;
 
   --logo: oklch(0.78 0.13 var(--brand-h));
   --ic-l: 0.74;

@@ -47,7 +47,25 @@ function useNativeDialog(open: boolean, onClose: () => void) {
 function Frame({ kind, open, onClose, title, description, children, footer, size = "md", closeLabel, dismissable = true }: DialogProps & { kind: "dialog" | "panel" }) {
   const t = useOptionalT()?.t;
   closeLabel ??= t ? t("common.close") : "Закрыть";
-  const ref = useNativeDialog(open, onClose);
+  // Закрытие с анимацией: после open=false диалог ещё виден, пока не доиграет уход (data-closing в ds.css), и только
+  // потом снимается. Раньше он исчезал за один кадр. Без анимаций (jsdom, prefers-reduced-motion) — сразу, как было.
+  const [shown, setShown] = useState(open);
+  if (open && !shown) setShown(true);
+  const closing = shown && !open;
+  const ref = useNativeDialog(shown, onClose);
+  useEffect(() => {
+    if (!closing) return;
+    const el = ref.current;
+    const done = () => setShown(false);
+    const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!el || reduce || typeof el.getAnimations !== "function") return done();
+    const timer = setTimeout(done, 300); // страховка, если animationend не придёт
+    el.addEventListener("animationend", done, { once: true });
+    return () => {
+      clearTimeout(timer);
+      el.removeEventListener("animationend", done);
+    };
+  }, [closing, ref]);
   const [id] = useState(() => dsId("dlg"));
   // Клик по подложке: у <dialog> подложка — сам элемент за пределами содержимого.
   useEffect(() => {
@@ -61,9 +79,9 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
     el.addEventListener("mousedown", onDown);
     return () => el.removeEventListener("mousedown", onDown);
   }, [open, dismissable, onClose, ref]);
-  if (!open) return null;
+  if (!shown) return null;
   return (
-    <dialog ref={ref} className="ds-dialog" data-kind={kind} data-size={size} aria-labelledby={`${id}-t`} aria-describedby={description ? `${id}-d` : undefined} tabIndex={-1}>
+    <dialog ref={ref} className="ds-dialog" data-kind={kind} data-size={size} data-closing={closing || undefined} aria-labelledby={`${id}-t`} aria-describedby={description ? `${id}-d` : undefined} tabIndex={-1}>
       <div className="ds-dialog-head">
         <div className="min-w-0 flex-1">
           <h2 id={`${id}-t`} className="ds-dialog-title">

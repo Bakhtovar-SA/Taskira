@@ -711,6 +711,10 @@ since any edit touches it. The board shows the last 14 days in its done column
   and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg`).
   ADR-0016 (supersedes parts of 0012): the sidebar (`.glass-side`) and the work sheet (`.glass-sheet`) are glass over
   the atmosphere glow on `body` (no grain); popovers/menus/toasts use `.glass`; never glass on task cards or forms.
+  **ADR-0023: no `backdrop-filter` on large surfaces** — sidebar and sheet are translucent without blur (blur under
+  ~90% of a 3440 px screen cost 10 fps on the board and 13–27 fps on dialogs); a personal photo is blurred once in
+  `body::before`; scrims and sticky headers don't blur. `backdrop-filter` only on small floating `.glass` surfaces.
+  Board plates/card edges come from `--board-col-bg/-line` and `--board-card-line` (stronger in light themes).
   Font is Manrope only (vendored in `src/assets/fonts/`); `font-mono` in the UI means issue keys = Manrope with tabular
   numerals, real code uses `--font-code`. Icons are the in-house duotone set in `src/icons.tsx` (`tone` prop for nav
   colours); logo is `<Logo variant="mark|mono|app">`, app-icon files come from `scripts/generate-brand-assets.mjs`.

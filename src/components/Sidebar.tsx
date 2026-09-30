@@ -277,7 +277,7 @@ export default function Sidebar() {
 
   return (
     <>
-    {drawer && <div className="anim-scrim fixed inset-0 z-40 bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] backdrop-blur-[2px] lg:hidden" onClick={() => setDrawer(false)} />}
+    {drawer && <div className="anim-scrim fixed inset-0 z-40 bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] lg:hidden" onClick={() => setDrawer(false)} />}
     <aside ref={asideRef} aria-label={t("sidebar.menu")} className={`${shell} lg:w-[256px]`}>
       {/* Знак + название инсталляции. Стеклянная панель над атмосферой (ADR-0016). */}
       <div className="mx-2 mt-2.5 flex items-center">

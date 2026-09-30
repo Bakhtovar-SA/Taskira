@@ -490,10 +490,10 @@ export function Modal({
     <div
       className={
         variant === "panel"
-          ? "anim-scrim fixed inset-0 z-50 flex justify-end bg-[color-mix(in_oklch,var(--bg-scrim)_70%,transparent)] p-2 backdrop-blur-[2px]"
+          ? "anim-scrim fixed inset-0 z-50 flex justify-end bg-[color-mix(in_oklch,var(--bg-scrim)_70%,transparent)] p-2"
           : variant === "palette"
-            ? "anim-scrim fixed inset-0 z-[60] flex items-start justify-center bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] px-4 pt-[12vh] backdrop-blur-[2px]"
-            : "anim-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--bg-scrim)] px-4 py-10 backdrop-blur-[3px]"
+            ? "anim-scrim fixed inset-0 z-[60] flex items-start justify-center bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] px-4 pt-[12vh]"
+            : "anim-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--bg-scrim)] px-4 py-10"
       }
       onMouseDown={onClose}
     >

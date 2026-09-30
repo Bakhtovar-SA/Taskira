@@ -567,10 +567,42 @@
 .ds-dialog[data-size="lg"] {
   --dlg-w: 720px;
 }
+/* Подложка без размытия (ADR-0023): blur на весь экран поверх стекла стоил 3–7 кадров в секунду при открытии.
+   Появляется и уходит плавно — раньше возникала за один кадр. */
 .ds-dialog::backdrop {
   background: color-mix(in oklch, var(--bg-scrim) 80%, transparent);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  animation: dsScrimIn var(--dur-3) var(--ease-out);
+}
+.ds-dialog[data-closing]::backdrop {
+  animation: dsScrimOut var(--dur-2) var(--ease-standard) forwards;
+}
+.ds-dialog[data-closing] {
+  animation: dsDialogOut var(--dur-2) var(--ease-standard) forwards;
+}
+.ds-dialog[data-kind="panel"][data-closing] {
+  animation: dsPanelOut var(--dur-2) var(--ease-standard) forwards;
+}
+@keyframes dsScrimIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dsScrimOut {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dsDialogOut {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+}
+@keyframes dsPanelOut {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
 }
 .ds-dialog[open] {
   display: flex;
@@ -945,6 +977,10 @@
   .ds-tip:popover-open,
   .ds-dialog[open],
   .ds-dialog[data-kind="panel"][open],
+  .ds-dialog[data-closing],
+  .ds-dialog[data-kind="panel"][data-closing],
+  .ds-dialog::backdrop,
+  .ds-dialog[data-closing]::backdrop,
   .ds-sk,
   .ds-progress[data-indeterminate] > span {
     animation: none;
