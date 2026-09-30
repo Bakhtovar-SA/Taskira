@@ -48,6 +48,8 @@ jobs:
           trap 'docker stop taskira-security-headers >/dev/null 2>&1 || true' EXIT
           for i in $(seq 1 20); do curl -sf http://127.0.0.1:18080/healthz >/dev/null && break; sleep 1; done
           bash scripts/test-security-headers.sh
+      - name: Verify real nginx IP boundary and configurable multipart limits
+        run: bash scripts/test-proxy-integration.sh
       - name: Trivy client image (HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -237,6 +239,9 @@ jobs:
       # (rootDir: src), тот же случай, что и корневой scripts/ ниже.
       - name: Typecheck server/scripts (license CLI)
         run: npm run typecheck:scripts
+        working-directory: server
+      - name: Load tool dependency compatibility
+        run: npm run perf:tool:check
         working-directory: server
 
       - name: Typecheck client (includes server/src/contract.ts)

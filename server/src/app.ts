@@ -135,7 +135,7 @@ export function buildApp(): FastifyInstance {
     exposedHeaders: ["X-Request-Id"],
     credentials: true,
   });
-  app.register(websocket); // realtime-маршруты — Этап 3c
+  app.register(websocket, { options: { maxPayload: 8192 } });
   // Вложения к задачам: потоковый multipart, один файл за запрос, лимит из конфига
   // (FILES_MIGRATION.md D3). throwFileSizeLimit — стрим падает ошибкой при превышении.
   app.register(multipart, {

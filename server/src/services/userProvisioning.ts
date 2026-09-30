@@ -1,10 +1,10 @@
 /** JIT-provisioning пользователя из LDAP (LDAP_MIGRATION.md D4).
  *  Совпадение с локальной строкой — по username == principal.login.
  *  Break-glass admin (config.admin.username) не усыновляется никогда. */
-import { one, q } from "../db.js";
+import { one, q, withTransaction } from "../db.js";
 import { loadConfig } from "../config.js";
 import { ApiHttpError } from "../errors.js";
-import { invalidateUserCache } from "../middleware.js";
+import { invalidateUserCache, revokeUserSessions } from "../middleware.js";
 import type { UserRow } from "../auth.js";
 import type { LdapPrincipal } from "./ldap.js";
 
@@ -44,6 +44,18 @@ const KEEP_LAST_ADMIN = (roleParam: string, idParam: string) => `
     ELSE ${roleParam}
   END`;
 
+async function updateLdapUser(sql: string, params: unknown[]): Promise<UserRow[]> {
+  return withTransaction(async (client) => {
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('taskira:active-admins'))`);
+    return (await client.query<UserRow>(sql, params)).rows;
+  });
+}
+
+function refreshSession(previous: UserRow, row: UserRow): void {
+  if (previous.global_role !== row.global_role) revokeUserSessions(row.id, "LDAP role changed");
+  else invalidateUserCache(row.id);
+}
+
 export async function provisionFromLdap(principal: LdapPrincipal, _retry = false): Promise<UserRow> {
   const cfg = loadConfig();
   const login = principal.login;
@@ -73,35 +85,37 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
     // усыновление: сохраняем id / project_members / авторство, флипаем на ldap.
     // is_active НЕ форсим — деактивация админом остаётся в силе (D4/Фаза 4).
     const row = (
-      await q<UserRow>(
+      await updateLdapUser(
         `UPDATE users
             SET auth_source = 'ldap', password_hash = NULL,
                 ldap_dn = $2, email = $3, name = $4, initials = $5,
                 job_role = $7, phone = $8,
-                global_role = ${KEEP_LAST_ADMIN("$6", "$1")}
+                global_role = ${KEEP_LAST_ADMIN("$6", "$1")},
+                session_version = session_version + CASE WHEN global_role IS DISTINCT FROM (${KEEP_LAST_ADMIN("$6", "$1")}) THEN 1 ELSE 0 END
           WHERE id = $1
         RETURNING *`,
         [existing.id, ...params],
       )
     )[0];
-    invalidateUserCache(row.id);
+    refreshSession(existing, row);
     return row;
   }
 
   if (existing) {
     // уже ldap — обновляем профиль + роль на каждом логине (D3); is_active не трогаем
     const row = (
-      await q<UserRow>(
+      await updateLdapUser(
         `UPDATE users
             SET ldap_dn = $2, email = $3, name = $4, initials = $5,
                 job_role = $7, phone = $8,
-                global_role = ${KEEP_LAST_ADMIN("$6", "$1")}
+                global_role = ${KEEP_LAST_ADMIN("$6", "$1")},
+                session_version = session_version + CASE WHEN global_role IS DISTINCT FROM (${KEEP_LAST_ADMIN("$6", "$1")}) THEN 1 ELSE 0 END
           WHERE id = $1
         RETURNING *`,
         [existing.id, ...params],
       )
     )[0];
-    invalidateUserCache(row.id);
+    refreshSession(existing, row);
     return row;
   }
 

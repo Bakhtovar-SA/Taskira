@@ -38,7 +38,8 @@
  */
 import type { FastifyInstance } from "fastify";
 import { Readable } from "node:stream";
-import { q } from "../db.js";
+import type { PoolClient } from "pg";
+import { withClient } from "../db.js";
 import { requireGlobalAdmin, type JwtPayload } from "../middleware.js";
 import { audit } from "../audit.js";
 
@@ -80,13 +81,14 @@ const KEYED_TABLES: KeyedTable[] = [
       "avatar_content_type", "avatar_updated_at",
     ],
   },
-  { type: "project", table: "projects", columns: ["id", "key", "name", "description", "created_at", "department_id", "is_shared", "sprints_enabled", "default_view", "suggested_labels", "icon", "color", "background", "bg_photo_driver", "bg_photo_key", "bg_photo_small_key", "bg_photo_luma", "bg_photo_updated_at", "start_date", "target_date"] },
+  { type: "project", table: "projects", columns: ["id", "key", "name", "description", "created_at", "department_id", "is_shared", "is_demo", "sprints_enabled", "default_view", "suggested_labels", "icon", "color", "background", "bg_photo_driver", "bg_photo_key", "bg_photo_small_key", "bg_photo_luma", "bg_photo_updated_at", "start_date", "target_date"] },
   // ТЗ 5.15: вехи роадмапа (зависимости между проектами — составной ключ, ниже в OFFSET_TABLES).
   { type: "projectMilestone", table: "project_milestones", columns: ["id", "project_id", "name", "date", "position", "created_at"] },
   // ADR-0022: общие дашборды организации и обзоры проектов. Личные — как saved_views, в экспорт не входят.
   { type: "dashboard", table: "dashboards", columns: ["id", "name", "owner_id", "project_id", "shared", "widgets", "created_at", "updated_at"], where: "shared" },
   // ТЗ 5.10: шаблоны проектов организации (встроенные — в репозитории, в экспорт не входят).
   { type: "projectTemplate", table: "project_templates", columns: ["id", "name", "description", "spec", "created_by", "created_at"] },
+  { type: "issueTemplate", table: "issue_templates", columns: ["id", "project_id", "name", "type_id", "priority_id", "title", "description", "status_id", "position", "created_at"] },
   { type: "workflowStatus", table: "workflow_statuses", columns: ["id", "project_id", "sid", "name", "category", "position"] },
   { type: "workflowTransition", table: "workflow_transitions", columns: ["id", "project_id", "from_status_id", "to_status_id"] },
   { type: "customField", table: "custom_fields", columns: ["id", "project_id", "name", "field_type", "options", "position", "created_at"] },
@@ -132,13 +134,13 @@ const OFFSET_TABLES: OffsetTable[] = [
 // НИКОГДА не приходят из запроса: интерполяция в SQL ниже безопасна тем же
 // рассуждением, что уже применяется к другим местам с именами таблиц/колонок
 // в коде (например, миграции, TRUNCATE в test/helpers.ts) — не пользовательский ввод.
-async function* streamKeyed(t: KeyedTable): AsyncGenerator<string> {
+async function* streamKeyed(client: PoolClient, t: KeyedTable): AsyncGenerator<string> {
   const cols = t.columns.map((c) => `"${c}"`).join(", ");
   let lastId: string | null = null;
   for (;;) {
     const rows: Record<string, unknown>[] = lastId
-      ? await q<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} WHERE ${t.where ? `(${t.where}) AND ` : ""}id > $1 ORDER BY id LIMIT $2`, [lastId, BATCH])
-      : await q<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} ${t.where ? `WHERE ${t.where}` : ""} ORDER BY id LIMIT $1`, [BATCH]);
+      ? (await client.query<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} WHERE ${t.where ? `(${t.where}) AND ` : ""}id > $1 ORDER BY id LIMIT $2`, [lastId, BATCH])).rows
+      : (await client.query<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} ${t.where ? `WHERE ${t.where}` : ""} ORDER BY id LIMIT $1`, [BATCH])).rows;
     if (rows.length === 0) return;
     for (const row of rows) yield `${JSON.stringify({ type: t.type, ...camelizeRow(row) })}\n`;
     lastId = String((rows[rows.length - 1] as { id: string }).id);
@@ -146,11 +148,11 @@ async function* streamKeyed(t: KeyedTable): AsyncGenerator<string> {
   }
 }
 
-async function* streamOffset(t: OffsetTable): AsyncGenerator<string> {
+async function* streamOffset(client: PoolClient, t: OffsetTable): AsyncGenerator<string> {
   const cols = t.columns.map((c) => `"${c}"`).join(", ");
   let offset = 0;
   for (;;) {
-    const rows = await q<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} ORDER BY ${t.orderBy} LIMIT $1 OFFSET $2`, [BATCH, offset]);
+    const { rows } = await client.query<Record<string, unknown>>(`SELECT ${cols} FROM ${t.table} ORDER BY ${t.orderBy} LIMIT $1 OFFSET $2`, [BATCH, offset]);
     if (rows.length === 0) return;
     for (const row of rows) yield `${JSON.stringify({ type: t.type, ...camelizeRow(row) })}\n`;
     offset += rows.length;
@@ -158,19 +160,19 @@ async function* streamOffset(t: OffsetTable): AsyncGenerator<string> {
   }
 }
 
-async function* generateExport(): AsyncGenerator<string> {
+async function* generateExport(client: PoolClient): AsyncGenerator<string> {
   // Первая строка — версия формата и метка времени, а не побочный эффект:
   // будущий импорт (отдельная задача) должен уметь отказаться от файла со
   // слишком новой/незнакомой schemaVersion, не гадая по содержимому.
   yield `${JSON.stringify({ type: "meta", schemaVersion: EXPORT_SCHEMA_VERSION, exportedAt: new Date().toISOString(), product: "Taskira" })}\n`;
   // Инсталляция (ТЗ 5.14 п.8): название и брендирование. Ключ лицензии и её срок — не данные организации, а
   // учётные внутренности (как password_hash у users), в дамп не идут.
-  const inst = await q<Record<string, unknown>>(
+  const { rows: inst } = await client.query<Record<string, unknown>>(
     `SELECT name, brand_name, brand_hue, brand_logo_driver, brand_logo_key, brand_logo_content_type, brand_logo_updated_at FROM instance WHERE id = 1`,
   );
   for (const row of inst) yield `${JSON.stringify({ type: "instance", ...camelizeRow(row) })}\n`;
-  for (const t of KEYED_TABLES) yield* streamKeyed(t);
-  for (const t of OFFSET_TABLES) yield* streamOffset(t);
+  for (const t of KEYED_TABLES) yield* streamKeyed(client, t);
+  for (const t of OFFSET_TABLES) yield* streamOffset(client, t);
 }
 
 export async function dataExportRoutes(app: FastifyInstance): Promise<void> {
@@ -182,6 +184,24 @@ export async function dataExportRoutes(app: FastifyInstance): Promise<void> {
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     reply.type("application/x-ndjson; charset=utf-8");
     reply.header("Content-Disposition", `attachment; filename="taskira-export-${stamp}.jsonl"`);
-    return reply.send(Readable.from(generateExport()));
+    // Keep the connection until the stream ends, fails, or the client disconnects.
+    return withClient(async (client) => {
+      const stream = Readable.from(generateExport(client));
+      const finished = new Promise<void>((resolve) => stream.once("close", resolve));
+      const abort = () => stream.destroy();
+      reply.raw.once("close", abort);
+      try {
+        await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+        // Pin the snapshot before the first byte is sent.
+        await client.query("SELECT 1 FROM instance LIMIT 1");
+        reply.send(stream);
+        await finished;
+      } finally {
+        reply.raw.removeListener("close", abort);
+        stream.destroy();
+        await client.query("ROLLBACK");
+      }
+      return reply;
+    });
   });
 }

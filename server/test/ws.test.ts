@@ -75,6 +75,16 @@ describe("WS /api/ws", () => {
     await closed;
   });
 
+  test.each(["null", "42", '"text"', "[]", "{", '{}', '{"type":"auth","token":""}', "x".repeat(8193)])(
+    "неверный auth-фрейм закрывает сокет и сохраняет работоспособность API (%#)", async (frame) => {
+      const ws = await app.injectWS("/api/ws");
+      const closed = waitClosed(ws);
+      ws.send(frame);
+      await closed;
+      expect((await app.inject({ url: "/health" })).statusCode).toBe(200);
+    },
+  );
+
   test("валидный токен → сервер отвечает auth_ok, сокет остаётся открытым", async () => {
     // auth_ok — не формальность: именно на него, а не на факт открытия
     // соединения, клиент (store.tsx) сбрасывает бэкофф переподключения.

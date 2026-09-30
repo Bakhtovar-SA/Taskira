@@ -16,6 +16,26 @@
 URL), `taskira_ws_connections`, `taskira_background_queue_size`,
 `taskira_ldap_resync_duration_seconds` и `taskira_s3_errors_total`.
 
+### API, прокси и загрузки
+
+Поддерживается **один serving API-процесс на БД** ([ADR-0024](adr/0024-single-serving-api.md)).
+Второй процесс отклоняется до запуска HTTP; потеря отдельного соединения владения останавливает
+API. Используйте прямое соединение PostgreSQL, а при обновлении сначала остановите прежний API.
+Rolling deployment и несколько serving-реплик требуют межпроцессного транспорта push/отзыва сессий.
+
+Публичный nginx перезаписывает `X-Forwarded-For` адресом своего TCP-клиента. Compose доверяет
+Docker CIDR `172.16.0.0/12`; для другой подсети задайте в `TRUST_PROXY` реальный адрес/CIDR nginx.
+Не публикуйте порт API в обход nginx и не устанавливайте `TRUST_PROXY=true`.
+За корпоративным LB настройте nginx `set_real_ip_from` только для адресов LB и `real_ip_header`
+по его контракту; LB обязан очищать пользовательские forwarding-заголовки. Без такой настройки
+все пользователи за LB будут разделять один IP-лимит. Конфигурация реального LB проверяется отдельно.
+
+nginx передаёт multipart потоком (`proxy_request_buffering off`) без собственного фиксированного
+предела тела. API ограничивает размер файла, число файлов и поля; JSON ограничен Fastify body limit.
+`ATTACH_MAX_BYTES` (по умолчанию 25 MiB) и `ATTACH_MAX_PER_ISSUE` передаются через Compose.
+Контейнерная проверка `scripts/test-proxy-integration.sh` покрывает default/override,
+2 MiB, ровно максимум, превышение и границу доверия IP.
+
 ### Фоновое обслуживание (MAINT-01)
 
 Три джоба — `maintenance` (автоархив закрытых задач + уборка `audit_log` + остатки лимитера входа), `storage-sweep`,

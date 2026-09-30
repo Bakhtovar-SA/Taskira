@@ -139,8 +139,8 @@ every state change re-rendered the whole tree incl. all board cards; the accepte
 and columns are `memo` (`BoardColumn`), so they don't depend on the context; toasts and notifications live in
 external stores (`src/store/slices.ts`) — read them with `useToasts()` / `useNotifications()` / `useUnreadCount()`,
 they are **not** on `useStore()` anymore. Modal chunks are preloaded via `src/lazyModals.ts`.
-Boot sequence in `App.tsx` → `store.bootstrap()`: if no token in `localStorage` (`taskira.token`),
-show `LoginForm`; otherwise call `authApi.me()` + `projectsApi.bootstrap(id)` + `issuesApi.list()`
+Boot sequence in `App.tsx` → `store.bootstrap()`: call `authApi.me()` with the HttpOnly session cookie;
+401 shows `LoginForm`. An authenticated boot calls `projectsApi.bootstrap(id)` + `issuesApi.list()`
 and populate one flat `Data` object. `bootStatus` drives the shell:
 `idle | loading | ready | unauthenticated | error | solo | home` (`solo` = invited to individual
 issues but member of no project; `home` = ≥2 visible projects, none entered yet → `HomeView`).
@@ -148,8 +148,8 @@ issues but member of no project; `home` = ≥2 visible projects, none entered ye
 `src/api/index.ts` is the whole HTTP layer: a generic `api()` wrapper plus typed
 `authApi` / `projectsApi` / `issuesApi` / `commentsApi` / `collaboratorsApi` / `attachmentsApi` /
 `notificationsApi` / `membersApi` / `departmentsApi` / `workflowApi` / `ldapApi` objects.
-Errors are normalized to `ApiError { status, code, reason }`; a 401 clears the token.
-`API_BASE` comes from `VITE_API_URL` (root `.env`), default `http://localhost:8080`.
+Errors are normalized to `ApiError { status, code, reason }`; a 401 invalidates the client session epoch.
+JWTs are not stored in browser localStorage. `API_BASE` comes from `VITE_API_URL`, default same origin.
 
 Server DTOs are camelCase; the store maps them to client types (`mapIssue`, `mapUser`) and
 carries `comments`/`activity` separately (fetched on demand when an issue modal opens).
@@ -348,6 +348,8 @@ who typed them used — there is no dictionary key for someone's actual data.
   number after the legacy `001`–`029` series.
 - `config.ts` — env only (no secrets in code), loaded once and cached. Parses `server/.env`
   itself (no dotenv dep). Fails fast if `DATABASE_URL` missing or `JWT_SECRET` < 32 chars.
+  Production `index.ts` permits one serving API per database (ADR-0024); startup holds a dedicated
+  PostgreSQL session lock and exits on loss of that connection. Stop the old API before upgrading.
 - `middleware.ts` — `requireAuth` verifies JWT but re-reads `global_role` / `is_active` from
   the DB (30s in-memory cache) so role changes and deactivation take effect without waiting
   for token expiry. The same lookup checks the token's `iatMs` (milliseconds, not JWT's
@@ -667,8 +669,7 @@ since any edit touches it. The board shows the last 14 days in its done column
   large multi-file change, still worth restarting dev to be sure.
 - `server/.env` is untracked (git-ignored via `.gitignore`) and never entered git history —
   only `.env.example` files are committed, with empty secret values. The working-tree
-  `server/.env` does hold real local-dev values (`JWT_SECRET`, `ADMIN_PASSWORD=qwerty!@#123`,
-  db creds `taskira`/`taskira`), so don't paste its contents anywhere shared.
+  `server/.env` may hold real development secrets; never paste its contents into shared output.
 - `CORS_ORIGIN` in `server/.env` must match the client's actual origin — the Vite dev server
   is `:3000` (`strictPort`), which is what `.env.example` now ships.
 - Behind nginx/an LB, set `TRUST_PROXY` (`true` or an IP/CIDR list) — it feeds Fastify's
@@ -694,7 +695,7 @@ since any edit touches it. The board shows the last 14 days in its done column
 - Root `package.json` was trimmed to `react` / `react-dom` + dev tooling (Vite, Tailwind,
   TypeScript, Playwright). The old unused deps (`@dnd-kit`, `@supabase/supabase-js`,
   `framer-motion`, `recharts`, `canvas-confetti`, `react-router-dom`, `uuid`, …) are gone —
-  the client has no router and no drag lib wired in; hash routing is hand-rolled in `App.tsx`.
+  pathname routing uses `wouter` and `src/router.ts`; drag and drop uses native HTML5 DnD.
 - CI (`.github/workflows/test.yml`) now has a `client` job (root `npm run typecheck` +
   `npm test` + `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
 - **Theming / design tokens** (ADR-0012 + ADR-0016, [docs/design/DESIGN.md](docs/design/DESIGN.md)): every colour lives in

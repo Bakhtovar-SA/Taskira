@@ -6,9 +6,14 @@ import { buildApp } from "./app.js";
 import { startNotifier, stopNotifier } from "./services/notifier.js";
 import { startMaintenance, stopMaintenance } from "./services/maintenance.js";
 import { startLicenseCheck, stopLicenseCheck } from "./services/license.js";
+import { acquireApiLease } from "./services/apiLease.js";
 
 async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
+  const releaseApiLease = await acquireApiLease(cfg.databaseUrl, () => {
+    console.error("[taskira] API ownership connection lost; stopping to preserve single-process session revocation");
+    process.exit(1);
+  });
   initPool(cfg.databaseUrl, cfg.pgPoolMax, cfg.pgPoolIdleTimeoutMs);
   await migrate();
   await runStartupSeeds(); // первый админ + проект CORP с workflow + instance (ТЗ 4.1); под блокировкой (см. seedStartup.ts)
@@ -34,6 +39,7 @@ async function main(): Promise<void> {
     stopLicenseCheck();
     await app.close();
     await closePool();
+    await releaseApiLease();
     process.exit(0);
   };
   process.on("SIGTERM", () => void shutdown("SIGTERM"));

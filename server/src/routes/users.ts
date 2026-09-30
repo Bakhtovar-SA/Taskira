@@ -4,7 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import bcrypt from "bcryptjs";
-import { one, q } from "../db.js";
+import { one, q, withTransaction } from "../db.js";
 import { loadConfig } from "../config.js";
 import { invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, revokeUserSessions, zbody, type JwtPayload } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
@@ -84,51 +84,54 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       const actor: JwtPayload = req.user;
       const { id } = req.params as { id: string };
       const body = req.body as z.infer<typeof ChangeRoleBody>;
+      const { user, row } = await withTransaction(async (client) => {
+        // Serialize changes to the SET of active admins, not just one user's row.
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext('taskira:active-admins'))`);
+        const user = (await client.query<UserRow>(`SELECT * FROM users WHERE id = $1 FOR UPDATE`, [id])).rows[0];
+        if (!user) throw notFound("Пользователь не найден");
 
-      const user = await one<UserRow>(`SELECT * FROM users WHERE id = $1`, [id]);
-      if (!user) throw notFound("Пользователь не найден");
+        // В режиме LDAP глобальная роль LDAP-пользователя приходит из группы
+        // (LDAP_ADMIN_GROUP_DN) и пересчитывается на каждом входе — ручная смена
+        // была бы затёрта. is_active менять можно (деактивация переживает вход).
+        if (
+          loadConfig().authMode === "ldap" &&
+          user.auth_source === "ldap" &&
+          body.globalRole !== user.global_role
+        ) {
+          throw conflict("Роль LDAP-пользователя управляется группой в директории (LDAP_ADMIN_GROUP_DN)");
+        }
 
-      // В режиме LDAP глобальная роль LDAP-пользователя приходит из группы
-      // (LDAP_ADMIN_GROUP_DN) и пересчитывается на каждом входе — ручная смена
-      // была бы затёрта. is_active менять можно (деактивация переживает вход).
-      if (
-        loadConfig().authMode === "ldap" &&
-        user.auth_source === "ldap" &&
-        body.globalRole !== user.global_role
-      ) {
-        throw conflict("Роль LDAP-пользователя управляется группой в директории (LDAP_ADMIN_GROUP_DN)");
-      }
-
-      // Гард «последний активный админ» встроен в WHERE — проверка и запись в
-      // одном стейтменте (без отдельного SELECT count → нет TOCTOU-окна).
-      // Апдейт разрешён, если он НЕ снимает статус последнего активного админа:
-      //   - строка сейчас не активный админ, ИЛИ
-      //   - после апдейта остаётся активным админом
-      //     ($1='admin' и isActive не выставлен в false), ИЛИ
-      //   - есть другой активный админ.
-      const rows = await q<UserRow>(
-        `UPDATE users
-            SET session_version = session_version + CASE
-                  WHEN global_role IS DISTINCT FROM $1 OR is_active IS DISTINCT FROM COALESCE($2, is_active) THEN 1
-                  ELSE 0
-                END,
-                global_role = $1, is_active = COALESCE($2, is_active)
-          WHERE id = $3
-            AND (
-              global_role <> 'admin' OR NOT is_active
-              OR ($1 = 'admin' AND $2 IS DISTINCT FROM false)
-              OR EXISTS (
-                   SELECT 1 FROM users a
-                    WHERE a.global_role = 'admin' AND a.is_active AND a.id <> $3
-                 )
-            )
-          RETURNING *`,
-        [body.globalRole, body.isActive ?? null, user.id],
-      );
-      // Пользователь точно существует (SELECT выше) → 0 строк = сработал гард.
-      if (rows.length === 0)
-        throw conflict("Нельзя понизить или деактивировать последнего активного администратора");
-      const row = rows[0];
+        // Проверка выполняется после общего лока, на свежем READ COMMITTED snapshot.
+        // Апдейт разрешён, если он НЕ снимает статус последнего активного админа:
+        //   - строка сейчас не активный админ, ИЛИ
+        //   - после апдейта остаётся активным админом
+        //     ($1='admin' и isActive не выставлен в false), ИЛИ
+        //   - есть другой активный админ.
+        const { rows } = await client.query<UserRow>(
+          `UPDATE users
+              SET session_version = session_version + CASE
+                    WHEN global_role IS DISTINCT FROM $1 OR is_active IS DISTINCT FROM COALESCE($2, is_active) THEN 1
+                    ELSE 0
+                  END,
+                  global_role = $1, is_active = COALESCE($2, is_active)
+            WHERE id = $3
+              AND (
+                global_role <> 'admin' OR NOT is_active
+                OR ($1 = 'admin' AND $2 IS DISTINCT FROM false)
+                OR EXISTS (
+                     SELECT 1 FROM users a
+                      WHERE a.global_role = 'admin' AND a.is_active AND a.id <> $3
+                   )
+              )
+            RETURNING *`,
+          [body.globalRole, body.isActive ?? null, user.id],
+        );
+        // Пользователь точно существует (SELECT выше) → 0 строк = сработал гард.
+        if (rows.length === 0)
+          throw conflict("Нельзя понизить или деактивировать последнего активного администратора");
+        const row = rows[0];
+        return { user, row };
+      });
 
       // Смена действует немедленно: кэш роли в requireAuth инвалидируется.
       // WS-сессии рвём, только если реально что-то отозвали (деактивация или

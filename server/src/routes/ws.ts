@@ -11,7 +11,7 @@
 import type { FastifyInstance } from "fastify";
 import type { JwtPayload } from "../middleware.js";
 import { assertFreshUser } from "../middleware.js";
-import type { WsAuthMessage, WsMessage } from "../contract.js";
+import type { WsMessage } from "../contract.js";
 import { registerSocket, revokedSince, unregisterSocket } from "../services/wsHub.js";
 import { requestToken } from "../sessionCookie.js";
 
@@ -82,6 +82,10 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
 
     socket.on("message", (raw: Buffer) => {
       if (authStarted) return; // вторую auth-раму на этом сокете не ждём вообще
+      if (raw.byteLength > 8192) {
+        socket.close(1008, "auth message too large");
+        return;
+      }
       let msg: unknown;
       try {
         msg = JSON.parse(raw.toString());
@@ -89,8 +93,13 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
         socket.close(1008, "malformed auth message");
         return;
       }
-      const auth = msg as Partial<WsAuthMessage>;
-      if (auth.type !== "auth" || typeof auth.token !== "string") {
+      if (!msg || typeof msg !== "object" || Array.isArray(msg)) {
+        socket.close(1008, "expected auth message");
+        return;
+      }
+      const auth = msg as Record<string, unknown>;
+      if (auth.type !== "auth" || typeof auth.token !== "string" || !auth.token.trim() ||
+          Object.keys(auth).some((key) => key !== "type" && key !== "token")) {
         socket.close(1008, "expected auth message");
         return;
       }
