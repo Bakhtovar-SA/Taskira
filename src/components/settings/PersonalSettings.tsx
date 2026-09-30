@@ -120,26 +120,24 @@ function Appearance() {
   return (
     <SettingsPage title={t("settings.personal.appearance")} desc={t("settings.desc.appearance")}>
       <SettingsCard title={t("settings.appearance.theme")}>
-        <div role="radiogroup" aria-label={t("settings.appearance.theme")} className="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-4">
-          {THEMES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              role="radio"
-              aria-checked={mode === m}
-              onClick={() => {
-                setThemeMode(m);
-                setMode(m);
-              }}
-              className="theme-choice ds-focus flex flex-col gap-2 rounded-xl p-1.5 text-left"
-            >
-              <span className="theme-thumb" data-kind={m} aria-hidden="true">
-                <span />
-                <span />
-              </span>
-              <span className="px-1 pb-0.5 text-[12.5px] font-semibold text-ink">{t(`appearance.theme.${m}`)}</span>
-            </button>
-          ))}
+        <div className="px-5 py-4 [&>div]:grid [&>div]:grid-cols-2 sm:[&>div]:grid-cols-4 [&>div>p]:col-span-full">
+          <RadioGroup<ThemeMode>
+            label={t("settings.appearance.theme")}
+            value={mode}
+            onChange={(m) => {
+              setThemeMode(m);
+              setMode(m);
+            }}
+            options={THEMES.map((m) => ({
+              value: m,
+              label: (
+                <span className="flex flex-col gap-2">
+                  <span className="theme-thumb" data-kind={m} aria-hidden="true"><span /><span /></span>
+                  <span>{t(`appearance.theme.${m}`)}</span>
+                </span>
+              ),
+            }))}
+          />
         </div>
       </SettingsCard>
       <SettingsCard title={t("settings.appearance.atmosphere")}>
