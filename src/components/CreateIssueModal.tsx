@@ -4,7 +4,8 @@ import { assignableUsers } from "../store/mappers";
 import type { ComplexityId, Issue, IssueTypeId, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcPlus, IcX, TypeIcon } from "../icons";
-import { Avatar, AvatarStack, Dropdown, Modal, Chip } from "../ui";
+import { Avatar, AvatarStack, Chip } from "../ui";
+import { Button, Checkbox, Dialog, Menu, Popover } from "../ds";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
 import { useT } from "../i18n";
@@ -13,9 +14,11 @@ import { useIssue } from "../issuePages";
 
 const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
 
-export default function CreateIssueModal() {
+/** `open` — от `Presence` в App.tsx: после закрытия окно ещё доигрывает анимацию ухода. */
+export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   const { t } = useT();
   const { data, ui, setCreateOpen, createIssue } = useStore();
+  const close = () => setCreateOpen(false);
   // Родитель создаваемой подзадачи: из кэша (его только что открывали) или точечный запрос по id.
   const parent = useIssue(ui.createParentId) ?? undefined;
   const [typeId, setTypeId] = useState<IssueTypeId>("task");
@@ -106,26 +109,41 @@ export default function CreateIssueModal() {
       setTemplateId("");
       setTemplateStatusId(null);
     } else {
-      setCreateOpen(false);
+      close();
     }
   };
 
   return (
-    <Modal onClose={() => setCreateOpen(false)} w={620} title={t("createIssue.title")}>
-      <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-        <span className="font-disp text-[14px] font-semibold text-ink">{parent ? t("createIssue.newSubtask") : t("createIssue.newIssue")}</span>
-        <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-sub">{data.project.key}</span>
-        {parent && (
-          <span className="rounded bg-accentsoft px-1.5 py-0.5 text-[10.5px] font-semibold text-accent">
-            {t("createIssue.subtaskOf", { key: parent.key })}
+    <Dialog
+      open={open}
+      onClose={close}
+      size="lg"
+      title={
+        <span className="flex flex-wrap items-center gap-2.5">
+          {parent ? t("createIssue.newSubtask") : t("createIssue.newIssue")}
+          <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-sub">{data.project.key}</span>
+          {parent && (
+            <span className="rounded bg-accentsoft px-1.5 py-0.5 text-[10.5px] font-semibold text-accent">
+              {t("createIssue.subtaskOf", { key: parent.key })}
+            </span>
+          )}
+        </span>
+      }
+      footer={
+        <>
+          <span className="mr-auto flex items-center">
+            <Checkbox checked={again} onChange={setAgain} label={t("createIssue.createAnother")} />
           </span>
-        )}
-        <button onClick={() => setCreateOpen(false)} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("common.close")}>
-          <IcX size={15} />
-        </button>
-      </div>
-
-      <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 py-4">
+          <Button variant="ghost" onClick={close}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" onClick={submit}>
+            {t("createIssue.submit")}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
         {/* шаблон (issue_templates, миграция 022) — только если в проекте есть хоть один */}
         {data.issueTemplates.length > 0 && (
           <div>
@@ -220,7 +238,7 @@ export default function CreateIssueModal() {
         <div>
           <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.titleField")}</p>
           <input
-            autoFocus
+            data-autofocus
             value={title}
             onChange={(e) => {
               setTitle(e.target.value);
@@ -252,32 +270,32 @@ export default function CreateIssueModal() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.priority")}</p>
-            <Dropdown
-              width={220}
-              button={(open) => (
-                <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
+            <Menu
+              label={t("field.priority")}
+              trigger={(p, open) => (
+                <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
                   <PriorityIcon p={priorityId} size={14} /> {t(`priority.${priorityId}`)}
                   <IcChevD size={12} className="ml-auto text-faint" />
                 </button>
               )}
-            >
-              {(close) => (
-                <>
-                  {PRIORITY_ORDER.map((p) => (
-                    <button key={p} onClick={() => { setPriorityId(p); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                      <PriorityIcon p={p} size={14} /> {t(`priority.${p}`)} {p === priorityId && <IcCheck size={12} className="ml-auto text-accent" />}
-                    </button>
-                  ))}
-                </>
-              )}
-            </Dropdown>
+              items={PRIORITY_ORDER.map((p) => ({
+                id: p,
+                text: t(`priority.${p}`),
+                icon: <PriorityIcon p={p} size={14} />,
+                label: t(`priority.${p}`),
+                hint: p === priorityId ? <IcCheck size={12} className="text-accent" /> : undefined,
+                onSelect: () => setPriorityId(p),
+              }))}
+            />
           </div>
           <div>
             <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.assignee")}</p>
-            <Dropdown
-              width={220}
-              button={(open) => (
-                <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
+            {/* Несколько исполнителей — выбор не закрывает список, поэтому это Popover с переключателями, а не Menu. */}
+            <Popover
+              label={t("field.assignee")}
+              className="max-h-[320px] w-[240px] overflow-y-auto"
+              trigger={(p, open) => (
+                <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
                   <AvatarStack users={assignees} size={18} max={2} interactive={false} />
                   <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
                     {assignees.length === 0
@@ -290,23 +308,25 @@ export default function CreateIssueModal() {
                 </button>
               )}
             >
-              {() => (
-                <>
-                  {assignableUsers(data).map((u) => {
-                    const on = assigneeIds.includes(u.id);
-                    return (
-                      <button
-                        key={u.id}
-                        onClick={() => setAssigneeIds((p) => (on ? p.filter((id) => id !== u.id) : [...p, u.id]))}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft"
-                      >
-                        <Avatar user={u} size={18} interactive={false} /> {u.name} {on && <IcCheck size={12} className="ml-auto text-accent" />}
-                      </button>
-                    );
-                  })}
-                </>
-              )}
-            </Dropdown>
+              <div className="flex flex-col">
+                {assignableUsers(data).map((u) => {
+                  const on = assigneeIds.includes(u.id);
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setAssigneeIds((p) => (on ? p.filter((id) => id !== u.id) : [...p, u.id]))}
+                      className="ds-menu-item"
+                    >
+                      <Avatar user={u} size={18} interactive={false} />
+                      <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                      {on && <IcCheck size={12} className="text-accent" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </Popover>
           </div>
           <div>
             <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.direction")}</p>
@@ -343,28 +363,22 @@ export default function CreateIssueModal() {
           </div>
           <div>
             <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.complexity")}</p>
-            <Dropdown
-              width={220}
-              button={(open) => (
-                <button className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
+            <Menu
+              label={t("field.complexity")}
+              trigger={(p, open) => (
+                <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
                   <span className="min-w-0 flex-1 truncate text-left">{complexity ? t(`complexity.${complexity}`) : t("complexity.none")}</span>
                   <IcChevD size={12} className="ml-auto text-faint" />
                 </button>
               )}
-            >
-              {(close) => (
-                <>
-                  <button onClick={() => { setComplexity(null); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                    {t("complexity.none")} {complexity === null && <IcCheck size={12} className="ml-auto text-accent" />}
-                  </button>
-                  {COMPLEXITY_ORDER.map((c) => (
-                    <button key={c} onClick={() => { setComplexity(c); close(); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accentsoft">
-                      {t(`complexity.${c}`)} {c === complexity && <IcCheck size={12} className="ml-auto text-accent" />}
-                    </button>
-                  ))}
-                </>
-              )}
-            </Dropdown>
+              items={[null, ...COMPLEXITY_ORDER].map((c) => ({
+                id: c ?? "none",
+                text: c ? t(`complexity.${c}`) : t("complexity.none"),
+                label: c ? t(`complexity.${c}`) : t("complexity.none"),
+                hint: c === complexity ? <IcCheck size={12} className="text-accent" /> : undefined,
+                onSelect: () => setComplexity(c),
+              }))}
+            />
           </div>
         </div>
 
@@ -397,18 +411,6 @@ export default function CreateIssueModal() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
-        <button onClick={submit} className="rounded-lg btn-primary px-4 py-2 text-[13px] font-medium text-onaccent transition-all active:scale-[0.97]">
-          {t("createIssue.submit")}
-        </button>
-        <button onClick={() => setCreateOpen(false)} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-hover">
-          {t("common.cancel")}
-        </button>
-        <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12px] text-sub">
-          <input type="checkbox" checked={again} onChange={(e) => setAgain(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
-          {t("createIssue.createAnother")}
-        </label>
-      </div>
-    </Modal>
+    </Dialog>
   );
 }

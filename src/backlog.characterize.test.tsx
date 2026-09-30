@@ -486,7 +486,7 @@ describe("Список задач — характеризующие тесты 
     const panel = screen.getByText("Выбрано: 2").parentElement as HTMLElement;
     fireEvent.click(within(panel).getByRole("button", { name: "Статус" }));
     await settle();
-    fireEvent.click(within(panel).getByRole("button", { name: "В работе" }));
+    fireEvent.click(within(panel).getByRole("menuitem", { name: "В работе" }));
     await settle();
 
     expect(h.bulkCalls).toHaveLength(1);
@@ -511,7 +511,7 @@ describe("Список задач — характеризующие тесты 
     const panel = screen.getByText("Выбрано: 2").parentElement as HTMLElement;
     fireEvent.click(within(panel).getByRole("button", { name: "Исполнитель" }));
     await settle();
-    fireEvent.click(within(panel).getByRole("button", { name: user2.name }));
+    fireEvent.click(within(panel).getByRole("menuitem", { name: user2.name }));
     await settle();
 
     expect(h.bulkCalls[0]).toMatchObject({ action: "assignee", assigneeId: "u2" });
@@ -532,7 +532,7 @@ describe("Список задач — характеризующие тесты 
     const panel = screen.getByText("Выбрано: 2").parentElement as HTMLElement;
     fireEvent.click(within(panel).getByRole("button", { name: "Приоритет" }));
     await settle();
-    fireEvent.click(within(panel).getByRole("button", { name: "Критичный" }));
+    fireEvent.click(within(panel).getByRole("menuitem", { name: "Критичный" }));
     await settle();
 
     expect(h.bulkCalls[0]).toMatchObject({ action: "priority", priorityId: "critical" });

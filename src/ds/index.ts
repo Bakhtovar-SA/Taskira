@@ -5,6 +5,7 @@ export { Checkbox, Input, RadioGroup, Switch, Textarea } from "./Field";
 export { Tabs, type TabItem } from "./Tabs";
 export { Menu, Popover, Tooltip, type MenuEntry } from "./Overlay";
 export { Dialog, SidePanel } from "./Dialog";
+export { Presence } from "./Presence";
 export { Combobox, type ComboOption } from "./Combobox";
 export { DatePicker } from "./DatePicker";
 export { parseDateInput } from "./dateParse";

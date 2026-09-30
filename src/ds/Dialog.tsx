@@ -108,3 +108,4 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
 export const Dialog = (p: DialogProps) => <Frame kind="dialog" {...p} />;
 /** Выезжающая справа панель на всю высоту — тот же <dialog>, другая геометрия. */
 export const SidePanel = (p: DialogProps) => <Frame kind="panel" {...p} />;
+
