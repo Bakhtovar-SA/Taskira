@@ -1,3 +1,6 @@
+import { Button, IconButton } from "../ds/Button";
+import { Avatar } from "../ds/Display";
+import { Textarea } from "../ds/Field";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { relTime } from "../store/mappers";
@@ -18,24 +21,8 @@ import { workflowStatusName } from "../workflowStatus";
  *  оболочка — «Мои подключения» + карточка задачи с комментариями, без проекта. */
 
 function Ava({ p, size = 24 }: { p: { name: string; initials: string; color: string } | undefined; size?: number }) {
-  if (!p)
-    return (
-      <span
-        className="inline-flex shrink-0 items-center justify-center rounded-full bg-linesoft text-faint"
-        style={{ width: size, height: size, fontSize: size * 0.4 }}
-      >
-        –
-      </span>
-    );
-  return (
-    <span
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-onaccent"
-      style={{ width: size, height: size, fontSize: size * 0.36, background: p.color }}
-      title={p.name}
-    >
-      {p.initials}
-    </span>
-  );
+  const { t } = useT();
+  return <Avatar person={{ name: p?.name ?? t("createIssue.unassigned") }} size={size >= 30 ? 32 : size >= 25 ? 28 : size >= 22 ? 24 : 20} />;
 }
 
 /** Карточка приглашённой задачи: сама грузит задачу + комментарии, поля read-only,
@@ -176,17 +163,17 @@ export function SoloIssueCard({
         <div className="space-y-1">
           {(issue.attachments ?? []).map((a) => (
             <div key={a.id} className="flex items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px]">
-              <button
+              <Button variant="ghost" size="sm"
                 onClick={() =>
                   attachmentsApi
                     .download(projectId, issueId, a.id, a.filename)
                     .catch(() => toast("error", t("solo.downloadFailed")))
                 }
-                className="min-w-0 flex-1 truncate text-left text-ink transition-colors hover:text-accent"
+                className="min-w-0 flex-1 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                 title={t("issue.downloadFile", { filename: a.filename })}
               >
                 {a.filename}
-              </button>
+              </Button>
               <span className="shrink-0 text-faint">{fmtBytes(a.byteSize)}</span>
             </div>
           ))}
@@ -202,12 +189,12 @@ export function SoloIssueCard({
             e.target.value = "";
           }}
         />
-        <button
+        <Button variant="secondary" size="sm"
           onClick={() => attRef.current?.click()}
-          className="mt-1.5 rounded-md border border-dashed border-line2 px-2.5 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-accent"
+          className="mt-1.5 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
         >
           {t("issue.attachFile")}
-        </button>
+        </Button>
       </div>
 
       <div className="mt-6">
@@ -231,7 +218,7 @@ export function SoloIssueCard({
         </div>
 
         <div className="mt-3 flex gap-2">
-          <textarea
+          <div className="min-w-0 flex-1"><Textarea aria-label={t("solo.commentPlaceholder")} maxChars={LIMITS.comment.max}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -243,15 +230,15 @@ export function SoloIssueCard({
             maxLength={LIMITS.comment.max}
             rows={2}
             placeholder={t("solo.commentPlaceholder")}
-            className="min-w-0 flex-1 resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
-          />
-          <button
+
+          /></div>
+          <IconButton variant="primary" size="sm" label={t("issue.send")}
             onClick={send}
             disabled={sending || !draft.trim()}
-            className="btn-primary shrink-0 self-end rounded-lg px-3 py-2 disabled:opacity-40"
+            className="shrink-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
             <IcSend size={14} />
-          </button>
+          </IconButton>
         </div>
       </div>
     </div>
@@ -289,11 +276,11 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
         </p>
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
           {solo.items.map((it) => (
-            <button
+            <Button variant="ghost" size="sm"
               key={it.issueId}
               onClick={() => setSelected(it.issueId)}
               aria-current={it.issueId === selected ? "true" : undefined}
-              className={`mb-0.5 flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 ${
+              className={`mb-0.5 flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:flex-col [&>span.truncate]:items-start ${
                 it.issueId === selected ? "bg-[var(--sidebar-item-active)] text-ink shadow-e1" : "text-sub hover:bg-hover/70 hover:text-ink"
               }`}
             >
@@ -302,15 +289,15 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
               </span>
               <span className="w-full truncate text-[13px] font-medium">{it.title}</span>
               <span className="text-[11px] text-faint">{workflowStatusName({ name: it.statusName }, t)}</span>
-            </button>
+            </Button>
           ))}
           {solo.items.length === 0 && <p className="px-2.5 text-[12px] text-faint">{t("solo.none")}</p>}
         </div>
         <div className="mx-2 mb-3 border-t border-linesoft/70 px-2.5 pt-3 text-[12px]">
           <p className="truncate font-medium text-ink">{solo.userName}</p>
-          <button onClick={onLogout} className="mt-1 text-faint transition-colors hover:text-ink">
+          <Button variant="ghost" size="sm" onClick={onLogout} className="mt-1 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
             {t("topbar.logout")}
-          </button>
+          </Button>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col py-2 pr-2">
