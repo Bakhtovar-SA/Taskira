@@ -1,3 +1,5 @@
+import { IconButton } from "../ds/Button";
+import { PersonAvatar } from "./settings/parts";
 /** «Входящие» (ADR-0013 §1, `/inbox`) — полная страница ленты уведомлений; колокол в шапке
  *  остаётся быстрым просмотром той же ленты. Данные — внешний стор уведомлений (ADR-0011). */
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -6,7 +8,7 @@ import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT } from "../types";
 import { IcCheck, IcInbox, IcX } from "../icons";
-import { Avatar, ProjectMark } from "../ui";
+import { ProjectMark } from "../ui";
 import { Button, EmptyState } from "../ds";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -109,7 +111,7 @@ export default function InboxView() {
           </div>
           <div role="tablist" aria-label={t("sidebar.nav.inbox")} className="flex items-center gap-0.5 rounded-lg bg-sunken/70 p-0.5 ring-1 ring-inset ring-linesoft">
             {(["all", "unread"] as const).map((f) => (
-              <button
+              <Button variant="ghost" size="sm"
                 key={f}
                 role="tab"
                 aria-selected={filter === f}
@@ -123,18 +125,18 @@ export default function InboxView() {
               >
                 {t(f === "all" ? "inbox.filterAll" : "inbox.filterUnread")}
                 {f === "unread" && unreadCount > 0 && <span className="tabular text-accenttext">{unreadCount}</span>}
-              </button>
+              </Button>
             ))}
           </div>
           {unreadCount > 0 && (
-            <button onClick={() => markNotificationsRead()} className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium text-sub ring-1 ring-inset ring-linesoft transition-colors hover:bg-hover hover:text-ink">
+            <Button variant="ghost" size="sm" onClick={() => markNotificationsRead()} className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               <IcCheck size={13} /> {t("topbar.markAllRead")}
-            </button>
+            </Button>
           )}
           {notifications.length > 0 && (
-            <button onClick={() => dismissNotifications()} title={t("topbar.clearListTitle")} className="flex h-8 items-center rounded-lg px-2.5 text-[12.5px] font-medium text-faint transition-colors hover:bg-hover hover:text-danger">
+            <Button variant="ghost" size="sm" onClick={() => dismissNotifications()} title={t("topbar.clearListTitle")} className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               {t("topbar.clear")}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -171,9 +173,9 @@ export default function InboxView() {
                         className={`inbox-row group relative flex items-start gap-3 border-b border-linesoft px-4 py-3 transition-colors last:border-0 hover:bg-hover/60 ${read ? "" : "is-unread"}`}
                         onMouseEnter={() => setCursor(i)}
                       >
-                        <button onClick={() => go(th)} className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                        <Button variant="ghost" size="sm" onClick={() => go(th)} className="min-w-0 flex-1 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
                           <span className="relative mt-0.5 shrink-0">
-                            <Avatar user={n.actor} size={30} />
+                            <PersonAvatar user={n.actor} size={30} />
                             {!read && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] ring-2 ring-panel" />}
                           </span>
                           <span className="min-w-0 flex-1">
@@ -203,15 +205,15 @@ export default function InboxView() {
                             {pk && <ProjectMark projectKey={pk} {...lookOf(data.projects, pk)} size={18} />}
                             <span className="w-[72px] text-right text-[11.5px] tabular text-faint">{relTime(n.createdAt)}</span>
                           </span>
-                        </button>
-                        <button
+                        </Button>
+                        <IconButton variant="ghost" size="sm" label={t("topbar.dismissOneTitle")}
                           onClick={() => dismissNotifications(ids(th))}
-                          title={t("topbar.dismissOneTitle")}
-                          aria-label={t("topbar.dismissOneTitle")}
-                          className="mt-1 shrink-0 rounded p-1 text-faint opacity-0 transition-opacity hover:bg-linesoft hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+
+
+                          className="mt-1 shrink-0 opacity-0 group-hover:opacity-100"
                         >
                           <IcX size={12} />
-                        </button>
+                        </IconButton>
                       </div>
                     );
                   })}
