@@ -1,7 +1,7 @@
 /* Загрузка, сессия и навигация между проектами: `bootstrap`, `switchProject` (гонки — `switchSeqRef`), `goHome`,
  * `enterProject`, `logout`, список и открытие задачи (`refreshIssues`, `ensureAllIssues`, `refreshCollaborations`, `openIssue`) —
  * вынесено из store.tsx без изменений поведения (ТЗ 2.3, шаг 6). Поведение и гонки зафиксированы
- * store.bootNav.test.tsx, ДО выноса. Известная брешь (SEC-01: ответы после logout воскрешают данные) перенесена как есть. */
+ * store.bootNav.test.tsx, ДО выноса. SEC-01 исправлена: sessionEpochRef отсекает ответы после logout/401. */
 import { refreshOnboardingSoon } from "../onboarding";
 import { viewTransition } from "../motion";
 import { useCallback, useRef } from "react";

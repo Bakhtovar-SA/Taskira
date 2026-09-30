@@ -6,6 +6,7 @@ cd "$ROOT_DIR"
 
 bash -n scripts/build-release.sh
 bash -n scripts/render-compose.sh
+bash -n scripts/test-proxy-integration.sh
 bash -n scripts/upgrade.sh
 bash -n scripts/backup.sh
 bash -n scripts/restore.sh

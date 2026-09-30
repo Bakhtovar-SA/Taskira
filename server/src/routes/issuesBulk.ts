@@ -12,8 +12,7 @@ import { badRequest, requirePerm, zbody, type JwtPayload } from "../middleware.j
 import { ApiHttpError } from "../errors.js";
 import { audit } from "../audit.js";
 import { roleCan, type IssueRef } from "../permissions.js";
-import { assertTransition, statusCategory, statusName } from "../services/workflow.js";
-import { computeRank } from "../services/rank.js";
+import { transitionIssue } from "../services/issueTransition.js";
 import { listAssigneeIdsBatch, logActivity, setAssignees, validateAssigneesInProject } from "../services/issues.js";
 import { deleteStorageObjects, storageKeysForIssue } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
@@ -42,23 +41,13 @@ interface Row {
  *  done_at/archived_at, тот же rank (в конец колонки — у массового переноса нет
  *  единой позиции "перед X", в отличие от drag&drop одной карточки). */
 async function applyStatus(projectId: string, row: Row, toStatusId: string, actorId: string): Promise<void> {
-  await assertTransition(projectId, row.status_id, toStatusId); // 409 ApiHttpError — ловится в цикле вызова
-  if (row.status_id === toStatusId) return; // no-op, как и в одиночном переходе
-  const rank = await computeRank(toStatusId, null, row.id);
-  const toCategory = await statusCategory(toStatusId);
-  const doneSql = toCategory === "done" ? "now()" : "NULL";
-  const archivedSql = toCategory === "done" ? "archived_at" : "NULL";
-  await q(
-    `UPDATE issues SET status_id = $1, rank = $2, updated_at = now(), done_at = ${doneSql}, archived_at = ${archivedSql} WHERE id = $3`,
-    [toStatusId, rank, row.id],
-  );
-  const [from, to] = [await statusName(row.status_id), await statusName(toStatusId)];
-  await logActivity(row.id, actorId, { kind: "status", from, to, bulk: true });
+  const { previous, changed, from, to } = await transitionIssue(projectId, row.id, toStatusId, null, actorId, false);
+  if (!changed) return;
   await autoWatch(row.id, actorId);
   await emit({ type: "issue.status", actorId, projectId, issueId: row.id, payload: { key: row.key, title: row.title, from, to } });
   // Тот же тип события, что у одиночного POST /:id/transition — обзор audit_log
   // не должен зависеть от того, каким путём задача сменила статус.
-  await audit(actorId, "issue.transition", "issue", row.id, { key: row.key, from: row.status_id, to: toStatusId, bulk: true });
+  await audit(actorId, "issue.transition", "issue", row.id, { key: row.key, from: previous.status_id, to: toStatusId, bulk: true });
 }
 
 /** Зеркалит PATCH /:id assigneeIds-ветку — но всегда ЗАМЕНА списка одним значением

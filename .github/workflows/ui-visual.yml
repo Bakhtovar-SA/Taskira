@@ -1,14 +1,19 @@
 name: ui visual
 
 # Визуальная регрессия и axe библиотеки компонентов (ТЗ 5.7 п. 6, ADR-0014): только на PR,
-# затрагивающих компоненты, — минуты CI платные. Эталоны: e2e/__screenshots__ (Linux Chromium
+# затрагивающих продуктовый UI, публичные ресурсы или зависимости. Эталоны: e2e/__screenshots__ (Linux Chromium
 # из @playwright/test 1.56.1); обновить — `npm run test:ui -- --update-snapshots` в той же среде.
 on:
   pull_request:
     paths:
-      - "src/ds/**"
-      - "src/dev/**"
-      - "src/styles/tokens.css"
+      - "src/**"
+      - "public/**"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.js"
+      - "tsconfig.json"
+      - ".github/workflows/ui-visual.yml"
       - "e2e/**"
       - "playwright.config.ts"
 

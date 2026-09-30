@@ -118,9 +118,14 @@ export async function exec(text: string): Promise<void> {
  *  общая для всех роутов, строящих `... ILIKE '%' || $1 || '%'`. */
 export const escLike = (s: string): string => s.replace(/[%_\\]/g, "\\$&");
 
+/** Выделенный клиент: вызывающий код обязан release(); при потере соединения — release(true). */
+export function acquireClient(): Promise<pg.PoolClient> {
+  return getPool().connect();
+}
+
 /** Операция на выделенном клиенте — для read-then-write без гонок (rank, счётчики). */
 export async function withClient<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
-  const client = await getPool().connect();
+  const client = await acquireClient();
   try {
     return await fn(client);
   } finally {

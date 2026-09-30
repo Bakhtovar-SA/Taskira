@@ -62,8 +62,6 @@ const LOCK_KEY = "taskira:test-global-setup";
 let lockClient: pg.Client | null = null;
 
 export async function setup(): Promise<void> {
-  await rm(TEST_STORAGE_DIR, { recursive: true, force: true }); // чистое хранилище вложений
-
   await ensureTestDatabase();
 
   lockClient = new pg.Client({ connectionString: TEST_DB_URL });
@@ -79,6 +77,10 @@ export async function setup(): Promise<void> {
         '"relation ... does not exist").',
     );
   }
+
+  // The runner lock protects storage too: a rejected second run must not
+  // delete attachments belonging to the first run before checking the lock.
+  await rm(TEST_STORAGE_DIR, { recursive: true, force: true });
 
   const client = new pg.Client({ connectionString: TEST_DB_URL });
   await client.connect();

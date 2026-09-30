@@ -19,8 +19,8 @@ import {
   type JwtPayload,
 } from "../middleware.js";
 import { audit } from "../audit.js";
-import { assertTransition, statusCategory, statusName } from "../services/workflow.js";
-import { computeRank } from "../services/rank.js";
+import { computeRank, lockRankColumn } from "../services/rank.js";
+import { transitionIssue } from "../services/issueTransition.js";
 import {
   assignParentLocked,
   getIssueDto,
@@ -420,13 +420,6 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       // кнопка быстрого создания и поле ввода — вверху колонки, и задача,
       // упавшая вниз за экран, читается как «не создалась». beforeId = первая
       // живая задача колонки; её нет — computeRank сам вернёт стартовый ранг.
-      const firstInColumn = await one<{ id: string }>(
-        `SELECT id FROM issues
-          WHERE status_id = $1 AND project_id = $2 AND archived_at IS NULL
-          ORDER BY rank, id LIMIT 1`,
-        [statusId, project.id],
-      );
-      const rank = await computeRank(statusId, firstInColumn?.id ?? null);
       const num = await nextIssueNum(project.id);
       const key = `${project.key}-${num}`;
 
@@ -438,12 +431,18 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const insertVals = [
         project.id, num, key, body.title, body.description, body.typeId, statusId, body.priorityId,
         user.sub, body.epicId, body.parentId ?? null, body.labels, body.complexity,
-        body.dueDate ?? null, rank,
+        body.dueDate ?? null, 0,
       ];
       // parentId задан — валидация и INSERT идут одной транзакцией под
       // advisory-локом (см. assignParentLocked): иначе конкурентный запрос мог
       // бы протиснуться между проверкой «родитель — не подзадача» и записью.
       const createInTransaction = async (client: PoolClient) => {
+        await lockRankColumn(client, statusId);
+        const firstInColumn = (await client.query<{ id: string }>(
+          `SELECT id FROM issues WHERE status_id = $1 AND project_id = $2 AND archived_at IS NULL ORDER BY rank, id LIMIT 1`,
+          [statusId, project.id],
+        )).rows[0];
+        insertVals[14] = await computeRank(client, statusId, firstInColumn?.id ?? null);
         const res = await client.query<IssueRow>(insertSql, insertVals);
         const created = res.rows[0];
         await setAssignees(created.id, assigneeIds, user.sub, client);
@@ -666,44 +665,11 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const { id } = req.params as { id: string };
       const user = me(req);
       const body = req.body as z.infer<typeof TransitionBody>;
-      const iss = await loadIssue(project.id, id);
-
-      if (body.beforeId) {
-        const anchor = await one<{ status_id: string }>(`SELECT status_id FROM issues WHERE id = $1`, [body.beforeId]);
-        if (!anchor) throw notFound("Задача-ориентир (beforeId) не найдена");
-        if (anchor.status_id !== body.to) throw badRequest("Позиция «перед» указывает на задачу из другой колонки");
-      }
-
-      // Схема workflow — источник правды; нарушение даёт 409 CONFLICT
-      await assertTransition(project.id, iss.status_id, body.to);
-
-      const rank = await computeRank(body.to, body.beforeId ?? null, iss.id);
-      const changed = iss.status_id !== body.to;
-
-      // done_at (миграция 016): ставим при входе в категорию 'done', снимаем при
-      // возврате в работу — переоткрытая и снова закрытая задача получает новую
-      // дату закрытия, а не первую. Внутри самой категории 'done' (перенос между
-      // двумя закрывающими статусами) дату НЕ трогаем — задача не «перезакрылась».
-      const toCategory = await statusCategory(body.to);
-      const wasDone = iss.done_at !== null;
-      const nowDone = toCategory === "done";
-      const doneSql = nowDone ? (wasDone ? "done_at" : "now()") : "NULL";
-      // Из архива задача выходит автоматически, как только снова становится живой.
-      const archivedSql = nowDone ? "archived_at" : "NULL";
-
-      const row = (
-        await q<IssueRow>(
-          `UPDATE issues
-              SET status_id = $1, rank = $2, updated_at = now(),
-                  done_at = ${doneSql}, archived_at = ${archivedSql}
-            WHERE id = $3 RETURNING *`,
-          [body.to, rank, iss.id],
-        )
-      )[0];
+      const { previous: iss, row, changed, from, to } = await transitionIssue(
+        project.id, id, body.to, body.beforeId ?? null, user.sub,
+      );
 
       if (changed) {
-        const [from, to] = [await statusName(iss.status_id), await statusName(body.to)];
-        await logActivity(iss.id, user.sub, { kind: "status", from, to });
         await autoWatch(iss.id, user.sub);
         await emit({
           type: "issue.status",

@@ -78,8 +78,9 @@ export async function getStatuses(projectId: string): Promise<StatusRow[]> {
 }
 
 /** Название статуса (для activity-записей). */
-export async function statusName(statusId: string): Promise<string> {
-  const row = await one<{ name: string }>(`SELECT name FROM workflow_statuses WHERE id = $1`, [statusId]);
+export async function statusName(statusId: string, client?: PoolClient): Promise<string> {
+  const sql = `SELECT name FROM workflow_statuses WHERE id = $1`;
+  const row = client ? (await client.query<{ name: string }>(sql, [statusId])).rows[0] : await one<{ name: string }>(sql, [statusId]);
   return row?.name ?? statusId;
 }
 
@@ -92,21 +93,20 @@ export async function statusCategory(statusId: string): Promise<string | null> {
 
 /** Проверка перехода по схеме. from === to — всегда разрешён (no-op/переупорядочивание).
     Статусы должны принадлежать проекту; отсутствие ребра — 409. */
-export async function assertTransition(projectId: string, fromStatusId: string, toStatusId: string): Promise<void> {
+export async function assertTransition(projectId: string, fromStatusId: string, toStatusId: string, client?: PoolClient): Promise<void> {
   if (fromStatusId === toStatusId) return;
 
-  const statuses = await q<{ id: string }>(`SELECT id FROM workflow_statuses WHERE project_id = $1`, [projectId]);
+  const sql = `SELECT id FROM workflow_statuses WHERE project_id = $1`;
+  const statuses = client ? (await client.query<{ id: string }>(sql, [projectId])).rows : await q<{ id: string }>(sql, [projectId]);
   const known = new Set(statuses.map((s) => s.id));
   if (!known.has(fromStatusId)) throw badRequest("Исходный статус не принадлежит проекту");
   if (!known.has(toStatusId)) throw badRequest("Целевой статус не принадлежит проекту");
 
-  const edge = await one<{ id: string }>(
-    `SELECT id FROM workflow_transitions
-      WHERE project_id = $1 AND from_status_id = $2 AND to_status_id = $3`,
-    [projectId, fromStatusId, toStatusId],
-  );
+  const edgeSql = `SELECT id FROM workflow_transitions WHERE project_id = $1 AND from_status_id = $2 AND to_status_id = $3`;
+  const params = [projectId, fromStatusId, toStatusId];
+  const edge = client ? (await client.query<{ id: string }>(edgeSql, params)).rows[0] : await one<{ id: string }>(edgeSql, params);
   if (!edge) {
-    const [from, to] = [await statusName(fromStatusId), await statusName(toStatusId)];
+    const [from, to] = [await statusName(fromStatusId, client), await statusName(toStatusId, client)];
     throw conflict(`Переход «${from} → ${to}» запрещён схемой рабочего процесса`);
   }
 }
