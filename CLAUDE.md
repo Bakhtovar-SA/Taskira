@@ -423,6 +423,10 @@ are never deleted).
 Issue types: `task | bug | request` only (migration 002 collapsed `story`/`epic` → `task`;
 grouping survives via nullable `issues.epic_id`, timeline fields `t_start`/`t_span` kept).
 Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counters` upsert.
+Direction ("epic") child counts are **stored on the direction's own row** (`issues.epic_child_total/done`, EPIC-01,
+migration `20260930T0500`) and kept by triggers with ±1 deltas — `GET …/issues/epics` reads them through
+`idx_issues_active_epics` instead of aggregating every child. Never maintain them from application code; a new
+write path is covered automatically. Checking and repairing drift: `docs/OPERATIONS.md`.
 Priorities: `low | medium | high | critical` (migration 013 collapsed the old 5 levels).
 Issue links (`issue_links`, migration 014): `relates` (symmetric) or `blocks` (directed);
 `blocked_by` is `blocks` seen from the other end, not a stored row. The old numeric

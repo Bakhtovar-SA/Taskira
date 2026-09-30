@@ -1,6 +1,8 @@
 # MIGR-01 — `check-migrations.sh` красный против `main` на миграциях 028/029
 
-**Статус:** открыт, не блокирует PERF-06. Записан, чтобы не потеряться при слиянии в `main`.
+**Статус: закрыт как неактуальный (30 сентября 2026 года, часть F).** `028`/`029` давно в `main`, и `scripts/check-migrations.sh origin/main` проходит без ошибок: расхождение было только у ветки, отставшей от `main`. Ниже — исходное описание.
+
+**Было:** открыт, не блокирует PERF-06. Записан, чтобы не потеряться при слиянии в `main`.
 
 `scripts/check-migrations.sh main` на ветке `codex/perf-00-indexed-pages` падает:
 `new migration must use YYYYMMDDTHHMM_name.sql: 028_notify_email_mandatory.sql, 029_session_version.sql`.

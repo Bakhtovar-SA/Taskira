@@ -324,9 +324,10 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
   /* ------------------------------------------------ направления (эпики) */
   // «Эпик» — задача, на которую ссылается чей-то epic_id (миграция 002). Возвращает
-  // только активные направления с агрегатом по их активным детям: число и
-  // сколько из них закрыто (по категории статуса, как считал клиент). Размер
-  // ответа — число направлений, а не задач проекта.
+  // только активные направления с активными детьми: число детей и сколько из них
+  // закрыто (по категории статуса). Счётчики лежат на строке направления и
+  // поддерживаются триггерами (EPIC-01, миграция 20260930T0500) — раньше здесь был
+  // агрегат по всем детям проекта, дорогой при большой доле задач под направлениями.
   app.get("/epics", { preHandler: [issueListPermission, zquery(IssueEpicsQuery)] }, async (req): Promise<IssueEpicsDto> => {
     const project = req.project!;
     const { limit } = req.query as z.infer<typeof IssueEpicsQuery>;
@@ -340,18 +341,10 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       total: number;
       done: number;
     }>(
-      `SELECT e.id, e.key, e.title, e.color, e.t_start, e.t_span, c.total, c.done
-         FROM (
-           SELECT ch.epic_id,
-                  count(*)::int AS total,
-                  (count(*) FILTER (WHERE ws.category = 'done'))::int AS done
-             FROM issues ch
-             JOIN workflow_statuses ws ON ws.id = ch.status_id
-            WHERE ch.project_id = $1 AND ch.archived_at IS NULL AND ch.epic_id IS NOT NULL
-            GROUP BY ch.epic_id
-         ) c
-         JOIN issues e ON e.id = c.epic_id
-        WHERE e.archived_at IS NULL
+      `SELECT e.id, e.key, e.title, e.color, e.t_start, e.t_span,
+              e.epic_child_total AS total, e.epic_child_done AS done
+         FROM issues e
+        WHERE e.project_id = $1 AND e.epic_child_total > 0 AND e.archived_at IS NULL
         ORDER BY e.rank, e.id
         LIMIT $2`,
       [project.id, limit + 1],
