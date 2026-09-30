@@ -19,7 +19,7 @@ function DepartmentUserPicker({ exclude, busy, onPick }: { exclude: Set<string>;
   const [selection, setSelection] = useState<ComboOption | null>(null);
   const [revision, setRevision] = useState(0);
   const load = useCallback(async (q: string) => (await usersApi.pickable(q)).filter((u) => !exclude.has(u.id)).map((u) => ({ id: u.id, label: u.name, description: u.jobRole })), [exclude]);
-  return <fieldset disabled={busy} aria-busy={busy} className="flex flex-col gap-2">
+  return <fieldset disabled={busy} aria-busy={busy} className="flex flex-col gap-2" onInputCapture={() => setSelection(null)}>
     <Combobox key={revision} label={t("ui.whomToAdd")} placeholder={t("ui.findEmployee")} minChars={2} load={load} value={selection} onSelect={setSelection} />
     <Button variant="primary" size="sm" disabled={busy || !selection} onClick={() => {
       if (!selection || busy) return;
