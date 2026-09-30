@@ -27,8 +27,10 @@ const FILE_ALLOW: Record<string, string> = {
   "palette/fuzzy.ts": "раскладка клавиатуры для поиска с неверной раскладкой",
   "components/ProjectWizard.tsx": "транслитерация названия проекта в ключ",
   "components/CommandPalette.tsx": "синонимы для поиска в палитре на обоих языках",
-  "import/trello.ts": "сообщения разбора файла переводит ImportTrelloModal (трек D меняет этот импорт)",
-  "components/ImportTrelloModal.tsx": "сопоставление русских сообщений разбора с английскими (трек D)",
+  "import/trello.ts": "сообщения разбора файла переводит ImportModal (трек D)",
+  "import/jira.ts": "русские типы задач в выгрузке Jira; пометка «Импортировано из…» — данные задачи, не интерфейс (трек D)",
+  "import/asana.ts": "пометка «Импортировано из Asana» — данные задачи (описание), не интерфейс (трек D)",
+  "components/ImportModal.tsx": "сопоставление русских сообщений разбора с английскими (трек D)",
   "api/index.ts": "reason ошибок API: английский интерфейс его не показывает — переводит по коду (apiErrors.ts)",
 };
 
