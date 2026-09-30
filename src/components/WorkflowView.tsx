@@ -1,9 +1,12 @@
+import { Button, IconButton } from "../ds/Button";
+import { Input, Textarea } from "../ds/Field";
+import { StatusTag } from "./settings/parts";
 import { useState } from "react";
 import { useStore } from "../store";
 import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
 import type { CustomFieldType, IssueTypeId, PriorityId, Transition } from "../types";
 import { IcChevR, IcFlow, IcLock, IcPencil, IcPlus, IcTrash, IcUndo, StatusGlyph } from "../icons";
-import { Lozenge } from "../ui";
+
 import { useT } from "../i18n";
 import { LIMITS } from "../validation";
 import { workflowStatusName } from "../workflowStatus";
@@ -172,9 +175,9 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
             </p>
           </div>
           {canEditWf && part === "workflow" && layout.standard && (
-            <button onClick={resetWorkflow} className="ml-auto flex h-8 items-center gap-1.5 rounded-lg border border-line bg-panel shadow-e1 px-3 text-[12.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">
+            <Button variant="secondary" size="sm" onClick={resetWorkflow} className="ml-auto h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               <IcUndo size={13} /> {t("workflow.reset")}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -264,18 +267,18 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                   onMouseLeave={() => setHover(null)}
                   className={`flex items-center gap-3 border-b border-linesoft px-4 py-2.5 transition-colors last:border-0 ${hover === transition.id ? "bg-accentsoft" : "hover:bg-hover"}`}
                 >
-                  <Lozenge status={a} size="sm" />
+                  <StatusTag status={a} size="sm" />
                   <IcChevR size={13} className={hover === transition.id ? "text-accent" : "text-faint"} />
-                  <Lozenge status={b} size="sm" />
+                  <StatusTag status={b} size="sm" />
                   <span className="ml-auto tabular text-[10.5px] text-faint">{countBy(transition.from)} → {countBy(transition.to)}</span>
                   {canEditWf && (
-                    <button
+                    <IconButton variant="ghost" size="sm" label={t("workflow.deleteTransition")}
                       onClick={() => removeTransition(transition.id)}
-                      className="flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
-                      aria-label={t("workflow.deleteTransition")}
+                      className="h-6 w-6"
+
                     >
                       <IcTrash size={13} />
-                    </button>
+                    </IconButton>
                   )}
                 </div>
               );
@@ -313,18 +316,18 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                 </select>
               </label>
               {formErr && <p className="rounded bg-dangersoft px-2.5 py-1.5 text-[11.5px] font-semibold text-danger">{formErr}</p>}
-              <button
+              <Button variant="primary" size="sm"
                 onClick={submit}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg btn-primary px-3 py-2 text-[12.5px] font-medium text-onaccent transition-all active:scale-[0.98]"
+                className="w-full [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
               >
                 <IcPlus size={13} /> {t("workflow.addTransition")}
-              </button>
-              <button
+              </Button>
+              <Button variant="ghost" size="sm"
                 onClick={() => setView("docs")}
-                className="w-full rounded-md px-3 py-1.5 text-[11.5px] font-semibold text-faint hover:text-accent"
+                className="w-full [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
               >
                 {t("workflow.how")}
-              </button>
+              </Button>
             </div>
             </>
             )}
@@ -352,26 +355,26 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                   {t(`priority.${template.priorityId}`)}
                 </span>
                 {canEditWf && (
-                  <button
+                  <IconButton variant="ghost" size="sm" label={t("workflow.editTemplate", { name: template.name })}
                     onClick={() => editTemplate(template.id)}
                     aria-pressed={tplEditId === template.id}
                     className={`ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors hover:bg-hover hover:text-ink ${tplEditId === template.id ? "text-accent" : "text-faint"}`}
-                    aria-label={t("workflow.editTemplate", { name: template.name })}
+
                   >
                     <IcPencil size={13} />
-                  </button>
+                  </IconButton>
                 )}
                 {canEditWf && (
-                  <button
+                  <IconButton variant="ghost" size="sm" label={t("workflow.deleteTemplate")}
                     onClick={() => {
                       if (tplEditId === template.id) resetTemplateForm();
                       removeIssueTemplate(template.id);
                     }}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
-                    aria-label={t("workflow.deleteTemplate")}
+                    className="h-6 w-6 shrink-0"
+
                   >
                     <IcTrash size={13} />
-                  </button>
+                  </IconButton>
                 )}
               </div>
             ))}
@@ -384,12 +387,12 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
               <div className="mt-3 space-y-2.5">
                 <label className="block">
                   <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.templateName")}</span>
-                  <input
+                  <div className="w-full"><Input aria-label={t("workflow.templateNamePlaceholder")}
                     value={tplName}
                     onChange={(e) => setTplName(e.target.value)}
                     placeholder={t("workflow.templateNamePlaceholder")}
-                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
-                  />
+
+                  /></div>
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block">
@@ -419,21 +422,21 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                 </div>
                 <label className="block">
                   <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.defaultTitle")}</span>
-                  <input
+                  <div className="w-full"><Input aria-label={t("workflow.defaultTitlePlaceholder")} maxLength={LIMITS.title.max}
                     value={tplTitle}
                     onChange={(e) => setTplTitle(e.target.value)}
                     placeholder={t("workflow.defaultTitlePlaceholder")}
-                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
-                  />
+
+                  /></div>
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.defaultDescription")}</span>
-                  <textarea
+                  <div className="w-full"><Textarea maxChars={LIMITS.description.max} maxLength={LIMITS.description.max}
                     value={tplDescription}
                     onChange={(e) => setTplDescription(e.target.value)}
                     rows={3}
-                    className="w-full resize-y rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
-                  />
+
+                  /></div>
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.startStatus")}</span>
@@ -448,17 +451,17 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                     ))}
                   </select>
                 </label>
-                <button
+                <Button variant="primary" size="sm"
                   onClick={submitTemplate}
                   disabled={!tplName.trim()}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg btn-primary px-3 py-2 text-[12.5px] font-medium text-onaccent transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                 >
                   {tplEditId ? t("workflow.saveTemplate") : <><IcPlus size={13} /> {t("workflow.addTemplate")}</>}
-                </button>
+                </Button>
                 {tplEditId && (
-                  <button onClick={resetTemplateForm} className="w-full rounded-md px-3 py-1.5 text-[12px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">
+                  <Button variant="ghost" size="sm" onClick={resetTemplateForm} className="w-full [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
                     {t("common.cancel")}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -479,7 +482,7 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
             {data.customFields.map((f) => (
               <div key={f.id} className="flex items-center gap-3 border-b border-linesoft px-4 py-2.5 last:border-0 hover:bg-hover">
                 {fieldEdit?.id === f.id ? (
-                  <input
+                  <div className="min-w-0 max-w-[260px] flex-1"><Input
                     autoFocus
                     value={fieldEdit.name}
                     maxLength={LIMITS.customField.name.max}
@@ -493,8 +496,8 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                         setFieldEdit(null);
                       }
                     }}
-                    className="min-w-0 max-w-[260px] flex-1 rounded-md border border-accent bg-panel px-2 py-1 text-[13px] font-medium text-ink outline-none shadow-focus"
-                  />
+
+                  /></div>
                 ) : (
                   <span className="text-[13px] font-medium text-ink">{f.name}</span>
                 )}
@@ -505,22 +508,22 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                   <span className="min-w-0 flex-1 truncate text-[11px] text-faint">{f.options.join(", ")}</span>
                 )}
                 {canEditWf && fieldEdit?.id !== f.id && (
-                  <button
+                  <IconButton variant="ghost" size="sm" label={t("workflow.renameField", { name: f.name })}
                     onClick={() => setFieldEdit({ id: f.id, name: f.name })}
-                    className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-hover hover:text-ink"
-                    aria-label={t("workflow.renameField", { name: f.name })}
+                    className="ml-auto h-6 w-6 shrink-0"
+
                   >
                     <IcPencil size={13} />
-                  </button>
+                  </IconButton>
                 )}
                 {canEditWf && (
-                  <button
+                  <IconButton variant="ghost" size="sm" label={t("workflow.deleteField")}
                     onClick={() => removeCustomField(f.id)}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-dangersoft hover:text-danger"
-                    aria-label={t("workflow.deleteField")}
+                    className="h-6 w-6 shrink-0"
+
                   >
                     <IcTrash size={13} />
-                  </button>
+                  </IconButton>
                 )}
               </div>
             ))}
@@ -533,12 +536,12 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
               <div className="mt-3 space-y-2.5">
                 <label className="block">
                   <span className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.name")}</span>
-                  <input
+                  <div className="w-full"><Input aria-label={t("workflow.fieldNamePlaceholder")}
                     value={fieldName}
                     onChange={(e) => setFieldName(e.target.value)}
                     placeholder={t("workflow.fieldNamePlaceholder")}
-                    className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
-                  />
+
+                  /></div>
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[12px] font-medium text-faint">{t("field.type")}</span>
@@ -555,21 +558,21 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                 {fieldType === "select" && (
                   <label className="block">
                     <span className="mb-1 block text-[12px] font-medium text-faint">{t("workflow.options")}</span>
-                    <input
+                    <div className="w-full"><Input aria-label={t("workflow.optionsPlaceholder")}
                       value={fieldOptions}
                       onChange={(e) => setFieldOptions(e.target.value)}
                       placeholder={t("workflow.optionsPlaceholder")}
-                      className="w-full rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
-                    />
+
+                    /></div>
                   </label>
                 )}
-                <button
+                <Button variant="primary" size="sm"
                   onClick={submitField}
                   disabled={!fieldName.trim() || (fieldType === "select" && !fieldOptions.trim())}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg btn-primary px-3 py-2 text-[12.5px] font-medium text-onaccent transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                 >
                   <IcPlus size={13} /> {t("workflow.addField")}
-                </button>
+                </Button>
               </div>
             </div>
           )}
