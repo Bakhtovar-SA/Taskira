@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { StoreProvider, useStore, useToasts } from "./store";
 import {
   authApi,
@@ -7,6 +7,7 @@ import {
   issuesApi,
   notificationsApi,
   projectsApi,
+  sprintsApi,
   type ProjectBootstrap,
   type ServerIssue,
 } from "./api";
@@ -199,6 +200,46 @@ describe("Спринты: перенос в завершённый спринт"
     await settle();
     expect(setSprint).not.toHaveBeenCalled();
     expect(h.toasts().some((x) => x.text.startsWith("Спринт завершён"))).toBe(true);
+    h.ui.unmount();
+  });
+});
+
+describe("Создание спринта через ds", () => {
+  test("пустое название не отправляется; выбранные даты и обрезанные поля приходят в прежний API", async () => {
+    const create = vi.spyOn(sprintsApi, "create").mockResolvedValue({ id: "sp-new", name: "Спринт 12", goal: "Релиз", status: "future", startDate: "2026-10-01", endDate: "2026-10-15" });
+    const h = await setup([], true);
+    fireEvent.click(screen.getByRole("button", { name: "Новый спринт" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Новый спринт" }));
+    const submit = dialog.getByRole("button", { name: "Создать" });
+    expect(submit.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(submit);
+    expect(create).not.toHaveBeenCalled();
+    fireEvent.change(dialog.getByLabelText("Название"), { target: { value: "  Спринт 12  " } });
+    fireEvent.change(dialog.getByLabelText("Цель (необязательно)"), { target: { value: "  Релиз  " } });
+    for (const [label, value] of [["Начало", "2026-10-01"], ["Конец", "2026-10-15"]]) {
+      const input = dialog.getByLabelText(label, { selector: "input" });
+      fireEvent.change(input, { target: { value } });
+    }
+    fireEvent.click(submit);
+    await settle();
+    expect(create).toHaveBeenCalledExactlyOnceWith("p1", { name: "Спринт 12", goal: "Релиз", startDate: "2026-10-01", endDate: "2026-10-15" });
+    expect(screen.queryByRole("dialog", { name: "Новый спринт" })).toBeNull();
+    h.ui.unmount();
+  });
+
+  test("cancel возвращает фокус и следующая форма забывает предыдущий черновик", async () => {
+    const h = await setup([], true);
+    const trigger = screen.getByRole("button", { name: "Новый спринт" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Новый спринт" });
+    fireEvent.change(within(dialog).getByLabelText("Название"), { target: { value: "Черновик" } });
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    await settle();
+    expect(screen.queryByRole("dialog", { name: "Новый спринт" })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(trigger);
+    expect((screen.getByLabelText("Название") as HTMLInputElement).value).toBe("");
     h.ui.unmount();
   });
 });
