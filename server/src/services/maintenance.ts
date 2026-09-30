@@ -109,12 +109,26 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
   const done = await withClient(async (client) => {
     // make_interval, а не строковая склейка: число дней в SQL не подставляем текстом. SKIP LOCKED: строку, которую
     // в эту секунду правит пользователь, не ждём — заберём следующим проходом.
+    // epic_locks (EPIC-01): архивация ребёнка меняет счётчики его направления, и триггер блокирует строку
+    // направления. Пачка трогает детей многих направлений; ждать их по одному значило бы рисковать взаимной
+    // блокировкой (пачка держит A и ждёт B, правка держит B и ждёт A — 40P01). Поэтому строки направлений пачки
+    // берутся заранее тем же SKIP LOCKED, что и сами задачи: занятое направление не ждём, его детей архивируем
+    // следующим проходом. Проход ничего не ждёт — значит, и в цикл ожиданий попасть не может; триггер пишет уже
+    // в захваченные строки.
     const archived = await inBatches(
       client,
       `WITH picked AS (
-         SELECT id FROM issues WHERE ${ARCHIVE_WHERE} LIMIT $2 FOR UPDATE SKIP LOCKED
+         SELECT id, epic_id FROM issues WHERE ${ARCHIVE_WHERE} LIMIT $2 FOR UPDATE SKIP LOCKED
+       ), epic_locks AS (
+         SELECT e.id FROM issues e
+          WHERE e.id IN (SELECT epic_id FROM picked WHERE epic_id IS NOT NULL)
+          ORDER BY e.id
+            FOR NO KEY UPDATE SKIP LOCKED
        )
-       UPDATE issues i SET archived_at = now() FROM picked WHERE i.id = picked.id`,
+       UPDATE issues i SET archived_at = now()
+         FROM picked
+        WHERE i.id = picked.id
+          AND (picked.epic_id IS NULL OR picked.epic_id IN (SELECT id FROM epic_locks))`,
       cfg.archiveAfterDays,
       cfg,
     );

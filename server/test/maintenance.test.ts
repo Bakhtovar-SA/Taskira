@@ -92,6 +92,31 @@ describe("пачки и потолок за проход", () => {
     expect((await runMaintenanceOnce()).archived).toBe(1); // забрана следующим проходом
   });
 
+  test("EPIC-01: занятое направление не ждём — его детей архивируем следующим проходом; счётчики верны", async () => {
+    const mk = async (over: Record<string, unknown>) =>
+      JSON.parse((await app.inject({ method: "POST", url: `/api/projects/${fx.projects.p1}/issues`, headers: auth(adm), payload: newIssue(over) })).body).id as string;
+    const busy = await mk({ title: "занятое направление" });
+    const free = await mk({ title: "свободное направление" });
+    for (let i = 0; i < 3; i++) await mk({ title: `dir-${i}`, epicId: i === 0 ? busy : free });
+    await q(`UPDATE issues SET done_at = now() - interval '40 days' WHERE title LIKE 'dir-%'`);
+    const counts = async (id: string) =>
+      (await q<{ t: number }>(`SELECT epic_child_total AS t FROM issues WHERE id = $1`, [id]))[0].t;
+
+    await withClient(async (other) => {
+      await other.query("BEGIN");
+      await other.query(`SELECT id FROM issues WHERE id = $1 FOR UPDATE`, [busy]); // «кто-то правит задачу этого направления»
+      const t0 = Date.now();
+      const s = await runMaintenanceOnce();
+      expect(Date.now() - t0).toBeLessThan(3000);
+      expect(s.archived).toBe(2); // дети свободного направления
+      await other.query("ROLLBACK");
+    });
+    expect(await counts(free)).toBe(0);
+    expect(await counts(busy)).toBe(1);
+    expect((await runMaintenanceOnce()).archived).toBe(1);
+    expect(await counts(busy)).toBe(0);
+  });
+
   test("уборка audit_log идёт теми же пачками и тем же потолком", async () => {
     cfg().auditRetentionDays = 30;
     await q(

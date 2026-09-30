@@ -124,13 +124,22 @@ body {
 }
 
 /* Своё фото фона проекта (ТЗ 5.14 п.2, theme.ts setProjectPhoto): фото под подложкой цвета рамки; плотность
-   подложки (--photo-scrim) выбрана по средней светлоте фото и теме — текст хрома поверх держит контраст. */
+   подложки (--photo-scrim) выбрана по средней светлоте фото и теме — текст хрома поверх держит контраст.
+   ADR-0023: фото размыто здесь, один раз — отдельным неподвижным слоем, — а не размытием под каждой стеклянной
+   поверхностью на каждом кадре: полупрозрачный хром поверх показывает то же «матовое стекло». */
 :root[data-photo] body {
+  background: var(--bg-frame);
+}
+:root[data-photo] body::before {
+  content: "";
+  position: fixed;
+  inset: -48px;
+  z-index: -1;
+  pointer-events: none;
   background:
     linear-gradient(color-mix(in oklch, var(--bg-frame) var(--photo-scrim), transparent), color-mix(in oklch, var(--bg-frame) var(--photo-scrim), transparent)),
-    var(--bg-photo) center / cover no-repeat,
-    var(--bg-frame);
-  background-attachment: fixed;
+    var(--bg-photo) center / cover no-repeat;
+  filter: blur(22px) saturate(1.25);
 }
 
 /* Стеклянная кромка: 1 px градиент, светлее сверху-слева — «лист стекла»,
@@ -175,6 +184,10 @@ body {
 /* ── Стекло — только хром (поповеры, меню, боковая панель, шапки диалогов).
    Никогда на карточках задач и формах. Отключается при
    prefers-reduced-transparency и где backdrop-filter не поддерживается. */
+/* ADR-0023: размытие фона (backdrop-filter) — только на малых плавающих поверхностях (.glass: поповеры, меню,
+   тосты). Боковая панель и рабочий лист — полупрозрачные БЕЗ размытия: за ними мягкое свечение, размытие его не
+   меняет, а на экране 3440 px оно пересчитывалось на каждом кадре любой анимации (диалог открывался на 13–27 кадрах
+   в секунду вместо 40). Своё фото фона размыто один раз, статически (body::before выше). */
 .glass {
   background: var(--bg-glass);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
@@ -183,35 +196,21 @@ body {
 /* Стеклянная боковая панель и рабочий лист (ТЗ 5.14 п.4 — стекло только на хроме). */
 .glass-side {
   background: var(--glass-side);
-  -webkit-backdrop-filter: blur(28px) saturate(1.8);
-  backdrop-filter: blur(28px) saturate(1.8);
 }
 .glass-sheet {
   background: var(--glass-sheet);
-  -webkit-backdrop-filter: blur(32px) saturate(1.5);
-  backdrop-filter: blur(32px) saturate(1.5);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass {
     background: var(--bg-raised);
   }
-  .glass-side {
-    background: var(--bg-frame);
-  }
-  .glass-sheet {
-    background: var(--bg-canvas);
-  }
 }
 /* Без стекла: системная настройка (Chromium) или высокий контраст —
    в Firefox/Safari prefers-reduced-transparency не работает (BROWSERS.md). */
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .glass,
-  .glass-side,
-  .glass-sheet {
+  .glass {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-  }
-  .glass {
     background: var(--bg-raised);
   }
   .glass-side {
@@ -301,16 +300,18 @@ body {
    контуру карточки проступает градиентная кромка бренда (маска, как у
    .glass-edge), а не заливка: карточка остаётся тихой, пока её не трогают. */
 /* ТЗ 5.12 c: колонка — одна поверхность со своим слоем; заголовок внутри неё, карточки прокручиваются под ним. */
+/* Плашка колонки и кромка карточки — токены --board-* (tokens.css): в светлых темах плашка тонирована и обведена,
+   карточка обведена тонкой линией — раньше доска сливалась с листом (скриншот владельца, часть F). */
 .board-col {
-  background: color-mix(in oklch, var(--bg-sunken) 55%, transparent);
-  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  background: var(--board-col-bg);
+  box-shadow: inset 0 0 0 1px var(--board-col-line);
 }
 .board-col-body {
   scrollbar-width: thin;
 }
 .board-card {
   background: var(--bg-panel);
-  box-shadow: var(--highlight-top), var(--elev-1);
+  box-shadow: var(--highlight-top), var(--elev-1), 0 0 0 1px var(--board-card-line);
   transition: box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
 }
 .board-card::after {
@@ -346,7 +347,7 @@ body {
   pointer-events: none;
 }
 .board-card:hover {
-  box-shadow: var(--highlight-top), var(--elev-2);
+  box-shadow: var(--highlight-top), var(--elev-2), 0 0 0 1px var(--board-card-line);
 }
 .board-card:hover::after {
   opacity: 1;
@@ -523,8 +524,8 @@ html.vt-theme::view-transition-new(root) {
   grid-template-columns: var(--list-cols);
 }
 .list-head {
-  background: color-mix(in oklch, var(--bg-panel) 88%, transparent);
-  backdrop-filter: blur(8px);
+  /* Без размытия (ADR-0023): липкая шапка списка перерисовывала размытие на каждом кадре прокрутки. */
+  background: color-mix(in oklch, var(--bg-panel) 96%, transparent);
 }
 @media (max-width: 639px) {
   .list-grid {
@@ -539,6 +540,34 @@ html.vt-theme::view-transition-new(root) {
 .hint-line {
   background: color-mix(in oklch, var(--accent-solid) 6%, var(--bg-panel));
   box-shadow: inset 2px 0 0 var(--accent-solid);
+}
+/* Подсказка появляется, когда данные уже пришли (например, на доске — после задач), и раньше толкала содержимое вниз
+   одним кадром (видео владельца, часть F). Теперь раскрывается по высоте — доска съезжает плавно. */
+.hint-line {
+  overflow: hidden;
+  animation: hintIn var(--dur-3) var(--ease-out);
+}
+@keyframes hintIn {
+  from {
+    max-height: 0;
+    opacity: 0;
+    padding-block: 0;
+    margin-block: 0;
+  }
+  to {
+    max-height: 48px;
+    opacity: 1;
+  }
+}
+/* Заглушки загрузки появляются только если загрузка затянулась: быстрый ответ больше не мигает серыми карточками
+   перед настоящими (видео владельца, часть F). */
+.skeleton-late {
+  animation: skeletonLate var(--dur-3) var(--ease-out) var(--dur-3) both;
+}
+@keyframes skeletonLate {
+  from {
+    opacity: 0;
+  }
 }
 /* Выбор иконки и цвета проекта (ProjectLookPicker): кольцо на выбранном, без заливки фона. */
 .look-choice {
@@ -905,7 +934,9 @@ html.vt-theme::view-transition-new(root) {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wf-edge.is-on {
+  .wf-edge.is-on,
+  .hint-line,
+  .skeleton-late {
     animation: none;
   }
 }

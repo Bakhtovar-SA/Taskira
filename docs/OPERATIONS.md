@@ -119,6 +119,33 @@ indexname LIKE 'idx_issues_active_%_trgm';`. На установке с сотн
 сборка на время блокирует запись в `issues`. Подробности:
 `docs/tickets/SEARCH-01-trigram-index.md`.
 
+## Счётчики детей направлений (EPIC-01)
+
+Число задач в направлении и сколько из них закрыто хранятся на строке самого направления
+(`issues.epic_child_total` / `epic_child_done`, миграция `20260930T0500`) и поддерживаются триггерами
+на `issues` и `workflow_statuses` при любом пути записи, в том числе при ручном SQL.
+
+- **Обновление большой установки.** Колонки добавляются без перезаписи таблицы; backfill идёт в той же
+  транзакции и на это время держит блокировку записи в `issues`. Замер: 30 000 детей на 50 000 задач —
+  18 мс; на миллионе задач ожидается порядка секунды (линейно, не замерялось). Индекс
+  `idx_issues_active_epics` собирается отдельной миграцией `CONCURRENTLY` (`20260930T0501`) и запись не
+  блокирует; при сбое — команды восстановления в её первой строке.
+- **Проверка.** Расхождений быть не должно; запрос ниже возвращает число неверных строк:
+  ```sql
+  SELECT count(*) FROM issues e LEFT JOIN (
+    SELECT ch.epic_id, count(*) t, count(*) FILTER (WHERE ws.category = 'done') d
+      FROM issues ch JOIN workflow_statuses ws ON ws.id = ch.status_id
+     WHERE ch.epic_id IS NOT NULL AND ch.archived_at IS NULL GROUP BY ch.epic_id) c ON c.epic_id = e.id
+   WHERE (e.epic_child_total, e.epic_child_done) IS DISTINCT FROM (coalesce(c.t, 0), coalesce(c.d, 0));
+  ```
+- **Починка** — повторно выполнить файл миграции (`psql -f server/migrations/20260930T0500_epic_child_counts.sql`):
+  он идемпотентен и пересчитывает все счётчики.
+- **Массовая правка `epic_id` вручную** (десятки тысяч строк одним `UPDATE`) с включённым триггером медленная:
+  каждая строка правит строку своего направления, 30 000 строк — около 20 с. Для такой правки в одной транзакции:
+  `ALTER TABLE issues DISABLE TRIGGER trg_issues_epic_counts_upd;` → свой `UPDATE` →
+  `ALTER TABLE issues ENABLE TRIGGER trg_issues_epic_counts_upd;` → повторить файл миграции (пересчёт).
+  Приложение так не пишет: массовые действия идут через API ограниченными пачками.
+
 ## Нагрузочный стенд: правила изменения и отката данных
 
 Для любых правок данных на стенде (схема `taskira_perf`, скрипты

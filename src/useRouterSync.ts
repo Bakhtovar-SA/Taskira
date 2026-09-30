@@ -59,7 +59,7 @@ export function useRouterSync(): void {
   const search = useSearch();
   const urlIssue = issueParam(search);
   const store = useStore();
-  const { data, ui, bootStatus, switchProject, openIssue, setView, goHome, toast, showMissing } = store;
+  const { data, ui, bootStatus, switchProject, openIssue, openCollabIssue, setView, goHome, toast, showMissing } = store;
   const { t } = useT();
 
   // Пока «URL → состояние» досчитывает асинхронный резолв (ключ задачи — сетевой
@@ -117,12 +117,10 @@ export function useRouterSync(): void {
           else if (data.projects.some((p) => p.id === res.projectId)) switchProject(res.projectId, res.id);
           return;
         }
-        // Прямая ссылка на приглашённую задачу (не в открытом проекте) — в «Мои
-        // подключения»; выбор конкретной карточки там (в отличие от свежего входа
-        // через bootstrap()) в этом релизе не подхватывается — список остаётся,
-        // выбрать нужно вручную (честно: не то же покрытие, что у входа с нуля).
+        // Прямая ссылка на приглашённую задачу (не в открытом проекте) — в «Мои подключения» с выбранной карточкой,
+        // как при входе через bootstrap() (ROUTE-01: раньше посреди сессии открывался только список).
         if (data.collaborations.some((c) => c.issueId === target.issueId)) {
-          setView("collaborating");
+          openCollabIssue(target.issueId);
           return;
         }
         if (target.projectId === data.currentProjectId) openIssue(target.issueId, "page");

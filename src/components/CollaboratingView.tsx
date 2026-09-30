@@ -24,9 +24,10 @@ export default function CollaboratingView() {
 
   useEffect(() => {
     setSelected((cur) => {
-      if (cur && items.some((i) => i.issueId === cur)) return cur;
+      // Карточка из ссылки важнее уже выбранной: раздел мог быть открыт с другой карточкой, когда пришла ссылка (ROUTE-01).
       const fromLink = ui.collabOpenIssueId;
       if (fromLink && items.some((i) => i.issueId === fromLink)) return fromLink;
+      if (cur && items.some((i) => i.issueId === cur)) return cur;
       return items.length === 1 ? items[0].issueId : null;
     });
     if (ui.collabOpenIssueId) clearCollabOpenIssueId();

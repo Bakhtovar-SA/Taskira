@@ -44,6 +44,7 @@ const API_KEYS = [
   "markNotificationsRead",
   "me",
   "moveStatus",
+  "openCollabIssue",
   "openCreateSubtask",
   "openIssue",
   "patchProject",

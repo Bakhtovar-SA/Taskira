@@ -687,7 +687,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const content = (
     <>
       {/* шапка */}
-      <div className={`flex items-center gap-2 border-b border-linesoft px-5 py-3 ${page ? "sticky top-0 z-10 bg-[color-mix(in_oklch,var(--bg-canvas)_82%,transparent)] backdrop-blur-md" : ""}`}>
+      <div className={`flex items-center gap-2 border-b border-linesoft px-5 py-3 ${page ? "sticky top-0 z-10 bg-[color-mix(in_oklch,var(--bg-canvas)_96%,transparent)]" : ""}`}>
         {page && (
           <>
             <button onClick={() => openIssue(null)} className="-ml-1.5 flex h-7 items-center gap-1 rounded-md pl-1 pr-2 text-[12.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">

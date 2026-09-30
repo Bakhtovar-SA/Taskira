@@ -68,6 +68,8 @@ interface Api {
   /** Открыть задачу панелью (по умолчанию) или полной страницей; null — закрыть. */
   openIssue: (id: string | null, mode?: IssueMode) => void;
   clearCollabOpenIssueId: () => void;
+  /** «Мои подключения» с выбранной приглашённой задачей — прямая ссылка посреди сессии (ROUTE-01). */
+  openCollabIssue: (issueId: string) => void;
   setCreateOpen: (v: boolean) => void;
   openCreateSubtask: (parentId: string) => void;
   toast: (kind: Toast["kind"], text: string) => void;
@@ -457,6 +459,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // маунте и сбрасывает — переключение между карточками в самом разделе после
     // этого больше не «прилипает» к исходной ссылке.
     clearCollabOpenIssueId: () => setUi((u) => (u.collabOpenIssueId ? { ...u, collabOpenIssueId: null } : u)),
+    // ROUTE-01: то же, что bootstrap() делает при входе по ссылке, но посреди сессии — вид и выбранная карточка
+    // одной записью, чтобы CollaboratingView увидел collabOpenIssueId уже на своём первом рендере.
+    openCollabIssue: (issueId: string) =>
+      viewTransition(() =>
+        setUi((u) => ({ ...u, view: "collaborating", section: "", selectedIssueId: null, issueMode: "panel", missing: null, collabOpenIssueId: issueId })),
+      ),
     setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v, createParentId: null })),
     openCreateSubtask: (parentId: string) => setUi((u) => ({ ...u, createOpen: true, createParentId: parentId })),
     toast,

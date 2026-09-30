@@ -445,7 +445,7 @@ function ColumnCards({
   return (
     <>
       {loading && rows.length === 0 && (
-        <div aria-busy="true" aria-label={t("common.loading")} className="space-y-2">
+        <div aria-busy="true" aria-label={t("common.loading")} className="skeleton-late space-y-2">
           <SkeletonCard />
           <SkeletonCard />
         </div>
@@ -1024,10 +1024,11 @@ export default function Board() {
         </Hint>
       )}
 
-      {/* колонки. Ширина колонки гибкая (288–360 px); «safe center»: на широком экране группа по центру, а когда
-          не влезает — прокручивается от левого края, не обрезаясь слева (ticket-board-columns-theme-fix §3). */}
+      {/* колонки. Ширина гибкая (BOARD_COLUMN_SHELL). Группа начинается от левого края, под заголовком и фильтрами:
+          раньше она стояла по центру, и на широком мониторе доска висела островом посреди пустоты, оторванная от
+          своей же шапки (часть F, скриншот владельца на 3440 px). Лишнее место остаётся справа. */}
       <div className="flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden md:snap-none">
-        <div className="flex h-full min-w-full items-start gap-3 px-4 pb-4 pt-1 [justify-content:safe_center] sm:px-6">
+        <div className="flex h-full min-w-full items-start gap-3 px-4 pb-4 pt-1 sm:px-6">
           {data.workflow.statuses.map((st) => {
             const isOver = overCol === st.id;
             return (

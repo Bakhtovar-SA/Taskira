@@ -423,6 +423,10 @@ are never deleted).
 Issue types: `task | bug | request` only (migration 002 collapsed `story`/`epic` → `task`;
 grouping survives via nullable `issues.epic_id`, timeline fields `t_start`/`t_span` kept).
 Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counters` upsert.
+Direction ("epic") child counts are **stored on the direction's own row** (`issues.epic_child_total/done`, EPIC-01,
+migration `20260930T0500`) and kept by triggers with ±1 deltas — `GET …/issues/epics` reads them through
+`idx_issues_active_epics` instead of aggregating every child. Never maintain them from application code; a new
+write path is covered automatically. Checking and repairing drift: `docs/OPERATIONS.md`.
 Priorities: `low | medium | high | critical` (migration 013 collapsed the old 5 levels).
 Issue links (`issue_links`, migration 014): `relates` (symmetric) or `blocks` (directed);
 `blocked_by` is `blocks` seen from the other end, not a stored row. The old numeric
@@ -707,6 +711,10 @@ since any edit touches it. The board shows the last 14 days in its done column
   and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg`).
   ADR-0016 (supersedes parts of 0012): the sidebar (`.glass-side`) and the work sheet (`.glass-sheet`) are glass over
   the atmosphere glow on `body` (no grain); popovers/menus/toasts use `.glass`; never glass on task cards or forms.
+  **ADR-0023: no `backdrop-filter` on large surfaces** — sidebar and sheet are translucent without blur (blur under
+  ~90% of a 3440 px screen cost 10 fps on the board and 13–27 fps on dialogs); a personal photo is blurred once in
+  `body::before`; scrims and sticky headers don't blur. `backdrop-filter` only on small floating `.glass` surfaces.
+  Board plates/card edges come from `--board-col-bg/-line` and `--board-card-line` (stronger in light themes).
   Font is Manrope only (vendored in `src/assets/fonts/`); `font-mono` in the UI means issue keys = Manrope with tabular
   numerals, real code uses `--font-code`. Icons are the in-house duotone set in `src/icons.tsx` (`tone` prop for nav
   colours); logo is `<Logo variant="mark|mono|app">`, app-icon files come from `scripts/generate-brand-assets.mjs`.

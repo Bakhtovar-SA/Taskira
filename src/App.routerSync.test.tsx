@@ -255,6 +255,28 @@ describe("useRouterSync — URL → состояние, полный путь (�
     expect(location.pathname).toBe("/p/BB/list");
     expect(new URLSearchParams(location.search).get("priority")).toBe("high");
   });
+
+  // ROUTE-01: при входе по ссылке bootstrap() выбирал приглашённую задачу сам, а та же ссылка посреди сессии
+  // открывала «Мои подключения» без выбранной карточки.
+  test("ссылка на приглашённую задачу посреди сессии → «Мои подключения» с выбранной карточкой", async () => {
+    const COLLAB = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    history.pushState(null, "", pathForView("AA", "board"));
+    install();
+    vi.spyOn(issuesApi, "collaborating").mockResolvedValue([{ issueId: COLLAB, projectId: "p-cc", key: "CC-5" }] as never);
+    vi.spyOn(issuesApi, "resolve").mockResolvedValue({ id: COLLAB, projectId: "p-cc", projectKey: "CC" });
+    const get = mount();
+    await settle();
+    expect(get().ui.view).toBe("board");
+
+    act(() => {
+      history.pushState(null, "", pathForIssue("CC", "CC-5"));
+      dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await settle();
+    expect(get().ui.view).toBe("collaborating");
+    expect(get().ui.collabOpenIssueId).toBe(COLLAB);
+    expect(get().data.currentProjectId).toBe(P1); // проект, где человек работал, не сменился
+  });
 });
 
 // ТЗ 5.12 a: раньше сбой загрузки (сервер недоступен/сеть упала — не 401, значит сессия скорее всего

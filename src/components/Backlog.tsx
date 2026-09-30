@@ -694,9 +694,10 @@ export default function Backlog() {
         {selectMode && selectedIds.size > 0 && <BulkBar selectedIds={selectedIds} onDone={clearSelection} className="mt-2.5" />}
       </div>
 
-      {/* список */}
+      {/* список. Начинается от левого края, как заголовок и фильтры над ним (часть F): по центру таблица на широком
+          мониторе висела отдельно от своей шапки. Предел ширины оставлен, чтобы строка читалась одним взглядом. */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
+        <div className="max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] min-[2560px]:max-w-[2000px] px-6 py-5">
           {set.loading ? (
             <div
               className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70"
