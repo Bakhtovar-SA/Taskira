@@ -153,7 +153,7 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
       <div className="flex flex-wrap items-center gap-2.5 border-b border-linesoft px-3.5 py-2.5">
         <IcFlag size={14} />
         <span className="font-disp text-[13.5px] font-semibold text-ink">{sprint.name}</span>
-        <Tag tone={sprint.status === "active" ? "green" : "gray"} size="sm">
+        <Tag tone={sprint.status === "active" ? "green" : sprint.status === "future" ? "blue" : "gray"} size="sm">
           {t(`sprints.status.${sprint.status}`)}
         </Tag>
         {(sprint.startDate || sprint.endDate) && (
