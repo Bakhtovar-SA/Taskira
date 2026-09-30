@@ -182,6 +182,22 @@ describe("счётчики детей направлений (EPIC-01)", () => {
     expect(await drift()).toEqual([]);
   });
 
+  test("встречные переносы A→B и B→A параллельно не падают взаимной блокировкой (40P01)", async () => {
+    // Окно гонки — между двумя UPDATE внутри триггера, поэтому воспроизводится только нагрузкой: две транзакции
+    // одновременно гоняют свои задачи между направлениями навстречу друг другу. Без упорядоченной блокировки строк
+    // направлений (миграция 20260930T0500) здесь падает 40P01.
+    const { e1, e2 } = await family();
+    const x = await create({ title: "x", epicId: e1.id });
+    const y = await create({ title: "y", epicId: e2.id });
+    const ROUNDS = 150;
+    const run = (id: string, from: string, to: string) =>
+      withClient(async (c) => {
+        for (let i = 0; i < ROUNDS; i++) await c.query(`UPDATE issues SET epic_id = $2 WHERE id = $1`, [id, i % 2 ? from : to]);
+      });
+    await Promise.all([run(x.id, e1.id, e2.id), run(y.id, e2.id, e1.id)]);
+    expect(await drift()).toEqual([]);
+  });
+
   test("повторный запуск миграции ничего не ломает и чинит испорченные счётчики", async () => {
     const { e1, e2 } = await family();
     await q(`UPDATE issues SET epic_child_total = 42, epic_child_done = 7 WHERE id = ANY($1)`, [[e1.id, e2.id]]);

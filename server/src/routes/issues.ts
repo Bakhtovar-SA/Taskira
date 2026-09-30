@@ -328,6 +328,8 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   // закрыто (по категории статуса). Счётчики лежат на строке направления и
   // поддерживаются триггерами (EPIC-01, миграция 20260930T0500) — раньше здесь был
   // агрегат по всем детям проекта, дорогой при большой доле задач под направлениями.
+  // Фильтр по проекту — на самом направлении: ребёнок всегда в проекте направления (epicId проверяется
+  // `project_id = $2` при создании и в PATCH, других путей записи epic_id нет), поэтому ответ тот же.
   app.get("/epics", { preHandler: [issueListPermission, zquery(IssueEpicsQuery)] }, async (req): Promise<IssueEpicsDto> => {
     const project = req.project!;
     const { limit } = req.query as z.infer<typeof IssueEpicsQuery>;

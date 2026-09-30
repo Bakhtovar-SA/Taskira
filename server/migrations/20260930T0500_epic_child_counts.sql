@@ -37,6 +37,13 @@ DECLARE
 BEGIN
   -- Пишутся только epic_child_* — их нет в списке UPDATE OF ниже, так что рекурсии нет. Если направление удаляется
   -- (дети получают epic_id = NULL каскадом), UPDATE его строки просто ничего не находит.
+  --
+  -- Перенос из направления A в B трогает две строки. Без общего порядка встречные переносы A→B и B→A в двух
+  -- транзакциях взяли бы по одной строке и ждали друг друга (взаимная блокировка, 40P01). Поэтому обе строки
+  -- блокируются заранее и всегда в порядке id.
+  IF TG_OP = 'UPDATE' AND OLD.epic_id IS NOT NULL AND NEW.epic_id IS NOT NULL AND OLD.epic_id <> NEW.epic_id THEN
+    PERFORM 1 FROM issues WHERE id IN (OLD.epic_id, NEW.epic_id) ORDER BY id FOR NO KEY UPDATE;
+  END IF;
   IF TG_OP <> 'INSERT' AND OLD.epic_id IS NOT NULL AND OLD.archived_at IS NULL THEN
     SELECT (category = 'done')::int INTO was_done FROM workflow_statuses WHERE id = OLD.status_id;
     UPDATE issues
