@@ -1,3 +1,4 @@
+import { IconButton } from "../ds/Button";
 /** Мастер создания проекта (ТЗ 5.10): шаблон с превью → название, ключ, иконка и цвет → доступ → фон и проверка.
  *  Проект, шаблон, участники и внешний вид создаются одним запросом и одной транзакцией на сервере
  *  (POST /api/projects с templateId, members, icon/color/background). Иконку предлагает шаблон; фон на последнем
@@ -7,7 +8,7 @@ import { useStore } from "../store";
 import { useT } from "../i18n";
 import { projectTemplatesApi, usersApi, type ProjectRole } from "../api";
 import type { ProjectTemplateDto } from "../../server/src/contract";
-import { Avatar, Button, Combobox, Dialog, Input, Switch, Tag, Textarea, type ComboOption } from "../ds";
+import { Avatar, Button, Combobox, Dialog, Input, RadioGroup, Switch, Tag, Textarea, type ComboOption } from "../ds";
 import { StatusGlyph, IcX } from "../icons";
 import { ProjectMark } from "../ui";
 import { LIMITS } from "../validation";
@@ -148,18 +149,12 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
     >
       {step === 0 && (
         <div className="grid gap-4 md:grid-cols-[260px_1fr]">
-          <div role="radiogroup" aria-label={t("wizard.step.template")} className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             {templates === null
               ? Array.from({ length: 5 }).map((_, i) => <div key={i} className="ds-sk h-14" />)
-              : templates.map((x) => (
-                  <button
-                    key={x.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={x.id === tplId}
-                    onClick={() => setTplId(x.id)}
-                    className="theme-choice ds-focus flex items-center gap-3 rounded-xl px-3 py-2.5 text-left"
-                  >
+              : <RadioGroup label={t("wizard.step.template")} value={tplId} onChange={setTplId} options={templates.map((x) => ({
+                  value: x.id,
+                  label: <span className="flex min-w-0 items-center gap-2">
                     <ProjectMark projectKey={x.name} icon={x.spec.icon ?? null} color={x.id === tplId ? color : null} size={28} />
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="flex items-center gap-2 text-[13px] font-semibold text-ink">
@@ -172,8 +167,8 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
                       </span>
                       <span className="text-[11.5px] text-faint">{t("wizard.statusCount", { n: x.spec.statuses.length, fields: x.spec.customFields.length })}</span>
                     </span>
-                  </button>
-                ))}
+                  </span>,
+                }))} />}
           </div>
           {tpl && <TemplatePreview tpl={tpl} />}
         </div>
@@ -367,9 +362,9 @@ function Access({
                     </option>
                   ))}
                 </select>
-                <button type="button" aria-label={t("wizard.removeMember", { name: m.name })} onClick={() => setMembers(members.filter((x) => x.userId !== m.userId))} className="ds-focus grid h-7 w-7 place-items-center rounded-md text-faint hover:bg-hover hover:text-ink">
+                <IconButton variant="ghost" size="sm" label={t("wizard.removeMember", { name: m.name })} type="button"  onClick={() => setMembers(members.filter((x) => x.userId !== m.userId))} className="h-7 w-7">
                   <IcX size={12} />
-                </button>
+                </IconButton>
               </div>
             ))}
           </div>
