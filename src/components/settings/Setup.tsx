@@ -7,7 +7,7 @@ import { useStore } from "../../store";
 import { useT } from "../../i18n";
 import { ldapApi, setupApi } from "../../api";
 import type { SetupStatusDto } from "../../../server/src/contract";
-import { Button, Input, Tag } from "../../ds";
+import { Button, Input, Skeleton, Tag } from "../../ds";
 import { IcCheck } from "../../icons";
 import { openProjectWizard } from "../../palette/events";
 import { SettingsPage } from "./parts";
@@ -40,7 +40,7 @@ export function Setup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.projects.length]);
 
-  if (!st) return <SettingsPage title={t("settings.org.setup")}>{<div className="ds-sk h-40 rounded-xl" />}</SettingsPage>;
+  if (!st) return <SettingsPage title={t("settings.org.setup")}><Skeleton.Block h={160} round /></SettingsPage>;
 
   const ldap = st.authMode === "ldap";
   const done = {
