@@ -359,7 +359,7 @@ function BellPanel({ close }: { close: () => void }) {
                 dismissNotifications([n.id]);
               }}
 
-              className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100"
+              className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             >
               <IcX size={11} />
             </IconButton>
@@ -484,7 +484,7 @@ function ProjectRow({ p, active, onOpen }: { p: ProjectSummary; active: boolean;
 
 
         className={`mr-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors ${
-          isFav ? "text-warndot" : "text-faint opacity-0 hover:text-warndot group-hover:opacity-100"
+          isFav ? "text-warndot" : "text-faint opacity-0 hover:text-warndot group-hover:opacity-100 focus-visible:opacity-100"
         }`}
       >
         <IcStar size={13} filled={isFav} />

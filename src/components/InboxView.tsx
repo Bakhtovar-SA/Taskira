@@ -210,7 +210,7 @@ export default function InboxView() {
                           onClick={() => dismissNotifications(ids(th))}
 
 
-                          className="mt-1 shrink-0 opacity-0 group-hover:opacity-100"
+                          className="mt-1 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                         >
                           <IcX size={12} />
                         </IconButton>

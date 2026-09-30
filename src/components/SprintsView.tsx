@@ -48,7 +48,7 @@ function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) 
           }}
 
 
-          className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100"
+          className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
         >
           <IcX size={11} />
         </IconButton>

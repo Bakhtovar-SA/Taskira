@@ -327,7 +327,7 @@ export default function Sidebar() {
           <Button variant="ghost" size="sm" type="button" onClick={() => setCreateOpen(true)} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
             <IcCompose size={16} tone="violet" />
             <span className="flex-1 truncate">{t("sidebar.newIssue")}</span>
-            <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
               <Kbd>C</Kbd>
             </span>
           </Button>
@@ -412,7 +412,7 @@ export default function Sidebar() {
                 onClick={() => openProjectWizard()}
 
 
-                className="mr-1 mt-2 h-6 w-6 shrink-0 opacity-0"
+                className="mr-1 mt-2 h-6 w-6 shrink-0 opacity-0 group-hover/proj:opacity-100 focus-visible:opacity-100"
               >
                 <IcPlus size={13} />
               </IconButton>
@@ -500,7 +500,7 @@ export default function Sidebar() {
         >
           <IcBook size={16} tone="orange" />
           <span className="flex-1 truncate">{t("sidebar.nav.docs")}</span>
-          <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
             <Kbd>?</Kbd>
           </span>
         </Button>

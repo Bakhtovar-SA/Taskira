@@ -9,7 +9,7 @@ import { ISSUE_PAGE_SIZE, freshRows, useEpics, useIssueSet, useIssuesRevision, u
 import { IcChevR, IcTimeline } from "../icons";
 import { directionColor } from "../ui";
 import { Button } from "../ds/Button";
-import { EmptyState } from "../ds/Display";
+import { EmptyState, Skeleton } from "../ds/Display";
 import { TypeIcon } from "../icons";
 import { useT } from "../i18n";
 
@@ -186,8 +186,8 @@ export default function TimelineView() {
         <div className="mx-4 sm:mx-6" aria-busy="true" aria-label={t("common.loading")}>
           {["ml-[4%] w-[46%]", "ml-[18%] w-[62%]", "ml-[30%] w-[38%]"].map((cls) => (
             <div key={cls} className="py-4">
-              <div className="skeleton h-3.5 w-40" />
-              <div className={`skeleton mt-3 h-7 rounded-lg ${cls}`} />
+              <Skeleton.Line w="160px" h={14} />
+              <div className={`mt-3 ${cls}`}><Skeleton.Block h={28} round /></div>
             </div>
           ))}
         </div>
@@ -241,10 +241,10 @@ export default function TimelineView() {
                 >
                   {/* Строка направления: имя стоит у начала своей полосы (как роадмап Linear), полоса — под ним. */}
                   <div className="relative h-[84px]">
-                    <Button variant="ghost" size="sm"
+                    <button type="button"
                       onClick={() => setOpen((o) => ({ ...o, [epic.id]: !expanded }))}
                       aria-expanded={expanded}
-                      className="max-w-[520px] text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
+                      className="timeline-name absolute left-0 top-3 flex max-w-[520px] items-center gap-2 rounded-md py-0.5 pl-1 pr-2 text-left transition-colors hover:bg-hover/70"
                     >
                       <IcChevR size={11} className={`shrink-0 text-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--bar)] shadow-[0_0_0_3px_color-mix(in_oklch,var(--bar)_20%,transparent)]" />
@@ -252,11 +252,11 @@ export default function TimelineView() {
                       <span className="shrink-0 rounded-md bg-sunken px-1.5 text-[11px] font-semibold tabular text-sub ring-1 ring-inset ring-linesoft">
                         {t("timeline.issueCount", { done, total, key: epic.key })}
                       </span>
-                    </Button>
-                    <Button variant="ghost" size="sm"
+                    </button>
+                    <button type="button"
                       onClick={() => openIssue(epic.id)}
                       title={t("timeline.barTitle", { title: epic.title, done, total })}
-                      className="h-7 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
+                      className="timeline-bar group absolute left-0 top-[50px] flex h-7 items-center overflow-hidden rounded-lg text-ink ring-1 ring-inset ring-[var(--bar-edge)]"
                     >
                       {/* Заливка — мягкий градиент тона направления; прогресс — насыщенная часть того же тона. */}
                       <span aria-hidden className="timeline-bar-bg absolute inset-0" />
@@ -265,7 +265,7 @@ export default function TimelineView() {
                       {barW * (pct / 100) >= 104 && (
                         <span className="absolute left-[var(--pct)] top-1/2 z-10 -translate-x-[calc(100%+7px)] -translate-y-1/2 text-[11px] font-bold tabular">{pct}%</span>
                       )}
-                    </Button>
+                    </button>
                   </div>
                   {expanded && (
                     <div

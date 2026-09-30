@@ -1,5 +1,5 @@
 /** Каркас страниц настроек (ТЗ 5.9): заголовок, пояснение, карточки со строками «подпись — управление». */
-import { lazy, Suspense, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useId, useRef, useState, type ReactNode } from "react";
 import type { AccessRole, Status, User } from "../../types";
 import { Avatar, Skeleton, Tag } from "../../ds/Display";
 import { IconButton } from "../../ds/Button";
@@ -13,9 +13,21 @@ export function ScreenPopover(props: ScreenPopoverProps) {
   const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
-  const trigger = props.trigger({ ref: anchor, onClick: () => { setLoaded(true); setOpen(true); }, "aria-expanded": false, "aria-haspopup": props.role === "menu" ? "menu" : "dialog", "aria-controls": "" }, false);
+  const triggerId = useId();
+  const renderTrigger: ScreenPopoverProps["trigger"] = (triggerProps, isOpen) => {
+    const identified = { ...triggerProps, id: triggerId };
+    return props.trigger(identified, isOpen);
+  };
+  const changeOpen = useCallback((next: boolean) => {
+    const button = document.getElementById(triggerId);
+    const panelId = button?.getAttribute("aria-controls");
+    const panel = panelId ? document.getElementById(panelId) : null;
+    if (!next && (document.activeElement === document.body || panel?.contains(document.activeElement))) button?.focus();
+    setOpen(next);
+  }, [triggerId]);
+  const trigger = renderTrigger({ ref: anchor, onClick: () => { setLoaded(true); setOpen(true); }, "aria-expanded": false, "aria-haspopup": props.role === "menu" ? "menu" : "dialog", "aria-controls": "" }, false);
   if (!loaded) return trigger;
-  return <Suspense fallback={trigger}><LazyPopover {...props} open={open} onOpenChange={setOpen} /></Suspense>;
+  return <Suspense fallback={trigger}><LazyPopover {...props} trigger={renderTrigger} open={open} onOpenChange={changeOpen} /></Suspense>;
 }
 
 // Screen adapters keep profile loading and project roles outside the design system.
