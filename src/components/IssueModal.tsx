@@ -8,7 +8,8 @@ import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
 import { IcBell, IcCalendar, IcCheck, IcChevD, IcChevR, IcExpand, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
-import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
+import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, UserSearchPicker, catColor } from "../ui";
+import { Button, Dialog, SidePanel } from "../ds";
 import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
 import { freshRows, useIssue, useIssueSet, useIssuesRevision, useOnRevision, type IssueSetQuery } from "../issuePages";
@@ -559,10 +560,16 @@ function LinksField({ issue }: { issue: Issue }) {
   );
 }
 
-export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
+/** `open` — от Presence в App.tsx (режим панели): после закрытия панель ещё доигрывает уход. */
+export default function IssueModal({ mode = "panel", open = true }: { mode?: IssueMode; open?: boolean }) {
   const { t, lang } = useT();
   const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
-  const issue = data.issues.find((i) => i.id === ui.selectedIssueId);
+  const live = data.issues.find((i) => i.id === ui.selectedIssueId);
+  // Закрытие снимает selectedIssueId сразу, а панель ещё ~200 мс уходит с анимацией: на это время держим последнюю
+  // показанную задачу, иначе содержимое исчезло бы за один кадр.
+  const [held, setHeld] = useState(live);
+  if (live && live !== held) setHeld(live);
+  const issue = live ?? (open ? undefined : held);
   const [feed, setFeed] = useState<"all" | "comments" | "history">("all");
   const [comment, setComment] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
@@ -590,7 +597,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const goRef = useRef(go);
   goRef.current = go;
   useEffect(() => {
-    if (mode !== "panel") return;
+    if (mode !== "panel" || !open) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable) return;
@@ -601,7 +608,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [mode]);
+  }, [mode, open]);
 
   // Эпик и родитель открытой задачи — точечные запросы по id (или кэш), а не поиск в списке всех задач.
   const epic = useIssue(issue?.epicId);
@@ -617,20 +624,23 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const status = data.workflow.statuses.find((s) => s.id === issue.statusId);
   if (!me || !status) {
     return (
-      <Modal onClose={() => openIssue(null)} w={420} title={t("issue.unavailable")}>
-        <div className="p-6 text-center">
-          <p className="text-[14px] font-semibold text-ink">{t("issue.openFailed")}</p>
-          <p className="mt-1.5 text-[12.5px] text-sub">
+      <Dialog
+        open={open}
+        onClose={() => openIssue(null)}
+        size="sm"
+        title={t("issue.unavailable")}
+        description={
+          <>
+            <span className="block font-semibold text-ink">{t("issue.openFailed")}</span>
             {t("issue.openFailedHint")}
-          </p>
-          <button
-            onClick={() => openIssue(null)}
-            className="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-onaccent"
-          >
+          </>
+        }
+        footer={
+          <Button variant="primary" onClick={() => openIssue(null)}>
             {t("common.close")}
-          </button>
-        </div>
-      </Modal>
+          </Button>
+        }
+      />
     );
   }
   // Срок горит: дата в прошлом и задача не в финальной категории статуса.
@@ -1377,9 +1387,9 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
       </div>
     );
   return (
-    <Modal variant="panel" onClose={() => openIssue(null)} w={980} title={t("issueModal.title", { key: issue.key, title: issue.title })}>
+    <SidePanel open={open} onClose={() => openIssue(null)} size="xl" headless title={t("issueModal.title", { key: issue.key, title: issue.title })}>
       {content}
-    </Modal>
+    </SidePanel>
   );
 }
 
@@ -1406,6 +1416,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLTextAreaElement).blur();
           if (e.key === "Escape") {
+            e.preventDefault(); // отменить правку, не закрывая панель (Esc у <dialog> — закрытие)
             setDraft(issue.title);
             setEditing(false);
           }

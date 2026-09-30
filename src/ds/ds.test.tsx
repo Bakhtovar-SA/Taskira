@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { Button, Checkbox, IconButton, Switch, Tabs, Textarea } from ".";
+import { Button, Checkbox, IconButton, SidePanel, Switch, Tabs, Textarea } from ".";
 
 describe("Button", () => {
   test("недоступная — aria-disabled, в порядке фокуса, клик не срабатывает, причина — в подсказке", async () => {
@@ -76,4 +76,21 @@ describe("поля", () => {
     expect(ta.getAttribute("aria-invalid")).toBe("true");
     expect(document.getElementById(ta.getAttribute("aria-describedby")!)?.textContent).toContain("Слишком длинно");
   });
+});
+
+test("окно: фокус на первый доступный элемент (выключенный пропускается); Esc закрывает, если его не обработали внутри", () => {
+  const onClose = vi.fn();
+  render(
+    <SidePanel open onClose={onClose} title="Карточка" headless>
+      <button disabled>Назад</button>
+      <button>Вперёд</button>
+      <input aria-label="Правка" onKeyDown={(e) => e.key === "Escape" && e.preventDefault()} />
+    </SidePanel>,
+  );
+  const next = screen.getByRole("button", { name: "Вперёд" });
+  expect(document.activeElement).toBe(next);
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Правка" }), { key: "Escape" }); // отмена правки внутри
+  expect(onClose).not.toHaveBeenCalled();
+  fireEvent.keyDown(next, { key: "Escape" });
+  expect(onClose).toHaveBeenCalledTimes(1);
 });

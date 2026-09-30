@@ -481,7 +481,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     h.ui.unmount();
   });
 
-  test("Esc сбрасывает ui.selectedIssueId в null (панельный режим — карточка внутри <Modal>)", async () => {
+  test("Esc сбрасывает ui.selectedIssueId в null (панельный режим — карточка внутри SidePanel)", async () => {
     const h = await setup({ listed: [dto("i1")], get: (id) => dto(id) });
     await act(async () => {
       h.store().openIssue("i1");
@@ -489,7 +489,10 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     await settle();
     expect(h.store().ui.selectedIssueId).toBe("i1");
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    // Esc — там, где он у человека: на элементе в фокусе внутри панели (нативный <dialog> держит фокус внутри).
+    const focused = document.activeElement as HTMLElement;
+    expect(focused.closest("dialog")).toBeTruthy();
+    fireEvent.keyDown(focused, { key: "Escape" });
 
     expect(h.store().ui.selectedIssueId).toBeNull();
     h.ui.unmount();

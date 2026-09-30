@@ -325,7 +325,7 @@ function Shell() {
       </div>
 
       <Suspense fallback={null}>
-        {ui.selectedIssueId && !issuePage && <IssueModal />}
+        <Presence show={!!ui.selectedIssueId && !issuePage}>{(open) => <IssueModal open={open} />}</Presence>
         <Presence show={ui.createOpen}>{(open) => <CreateIssueModal open={open} />}</Presence>
         {paletteOpen && (
           <CommandPalette
