@@ -80,11 +80,21 @@
     повторяет у себя с тестом сверки, как `BRAND_HUE` (`src/brand.ts`) — значения из `contract.ts` в бандл не импортировать;
   - отдаёт публичный `GET /api/instance/brand`, правит существующий `PATCH /api/admin/brand` (`routes/brand.ts`,
     `requireGlobalAdmin`, `services/brand.ts` `patchBrand`) — запись в `audit_log` как у остальных полей бренда;
+  - `server/src/services/brand.ts`: `getBrand()` и `patchBrand()` перечисляют столбцы вручную
+    (`SELECT brand_name, brand_hue, …`, список `sets`) — добавить `transparency_default` в оба, иначе поле молча не
+    читается и не пишется. Бренд читается прямым `SELECT`, кэш `getInstance()` (`services/instance.ts`) не участвует;
+    если поле начнут читать через него — `invalidateInstanceCache()` после правки;
+  - в `BrandPatchBody` `null` у остальных полей значит «вернуть по умолчанию»; новое поле не принимает `null` — сброс это
+    явное `"auto"`;
   - тест сервера: чтение по умолчанию `auto`; правка админом; не админу — 403; значение вне списка — 400.
 - Клиент: значение кэшируется в `taskira.brand` вместе с оттенком (`src/brand.ts`); `public/theme-init.js` читает его
   оттуда и передаёт в ту же `resolveTransparency` как аргумент `org` — второго места с правилом нет.
   - Старый кэш (`{name, hue}` без нового поля, `src/brand.test.ts`) — это `auto`: и `theme-init.js`, и `readBrand` считают
     отсутствующее или незнакомое значение за `auto`. Тест в `brand.test.ts` на кэш старой формы.
+  - В `src/brand.ts` меняются три вещи вместе: `writeCache()` удаляет ключ только когда `name === null && hue === null &&
+    transparencyDefault === "auto"` (сейчас — по первым двум, и организация с одной лишь «Всегда включена» не дошла бы до
+    `theme-init.js`); `readCache()` проверяет и возвращает новое поле; тест `brand.test.ts`, который сейчас ждёт `removeItem`
+    для пустого бренда, обновляется под новое условие и получает случай «только `transparencyDefault: "on"`».
   - Кэш может отставать: администратор включил «Всегда включена», а у человека в кэше `auto`. Когда приходит свежий
     `GET /api/instance/brand` (там, где сейчас обновляется оттенок), `src/theme.ts` заново вызывает `resolveTransparency`
     и переставляет атрибут сразу, без перезагрузки; первая отрисовка до ответа — по кэшу, это допустимо.
