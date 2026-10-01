@@ -134,8 +134,14 @@ function CreateSprintModal({ open, onClose }: { open: boolean; onClose: () => vo
             maxLength={LIMITS.sprint.goal.max}
           />
         <div className="grid gap-3 sm:grid-cols-2">
-          <DatePicker block label={t("sprints.start")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={startDate || null} max={endDate || undefined} onChange={(v) => setStartDate(v ?? "")} />
-          <DatePicker block label={t("sprints.end")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={endDate || null} min={startDate || undefined} onChange={(v) => setEndDate(v ?? "")} />
+          <div>
+            <p className="ds-label mb-1">{t("sprints.start")}</p>
+            <DatePicker block label={t("sprints.start")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={startDate || null} max={endDate || undefined} onChange={(v) => setStartDate(v ?? "")} />
+          </div>
+          <div>
+            <p className="ds-label mb-1">{t("sprints.end")}</p>
+            <DatePicker block label={t("sprints.end")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={endDate || null} min={startDate || undefined} onChange={(v) => setEndDate(v ?? "")} />
+          </div>
         </div>
       </div>
     </Dialog>

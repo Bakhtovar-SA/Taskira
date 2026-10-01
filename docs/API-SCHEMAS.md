@@ -12,6 +12,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `transparencyDefault` | enum: `auto` \| `on` | необязательное |
 | `name` | string | необязательное, может быть null; длина 1…60 |
 | `hue` | integer | необязательное, может быть null; 255…320 |
 
@@ -619,6 +620,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `transparencyDefault` | enum: `auto` \| `on` |  |
 | `name` | string | может быть null |
 | `hue` | number | может быть null |
 | `logoUpdatedAt` | number | может быть null |

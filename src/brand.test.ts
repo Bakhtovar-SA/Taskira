@@ -3,8 +3,8 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 const logoBlobUrl = vi.fn(async (v: number) => `blob:logo-${v}`);
 vi.mock("./api", () => ({ brandApi: { get: vi.fn(), logoBlobUrl: (v: number) => logoBlobUrl(v) } }));
 
-import { BRAND_HUE as CONTRACT_HUE } from "../server/src/contract";
-import { BRAND_HUE, applyHue, isHue, previewHue, resetBrand, setBrand } from "./brand";
+import { BRAND_HUE as CONTRACT_HUE, TRANSPARENCY_DEFAULTS as CONTRACT_TRANSPARENCY } from "../server/src/contract";
+import { TRANSPARENCY_DEFAULTS, readCache, BRAND_HUE, applyHue, isHue, previewHue, resetBrand, setBrand } from "./brand";
 
 const root = document.documentElement;
 const hueVar = () => root.style.getPropertyValue("--brand-h");
@@ -34,19 +34,19 @@ describe("брендирование (ТЗ 5.14 п.5)", () => {
   });
 
   test("ответ сервера: оттенок, заголовок вкладки, кэш для theme-init.js; null — стандартный вид", () => {
-    setBrand({ name: "Acme", hue: 262, logoUpdatedAt: null });
+    setBrand({ transparencyDefault: "auto", name: "Acme", hue: 262, logoUpdatedAt: null });
     expect(hueVar()).toBe("262");
     expect(document.title).toBe("Acme");
-    expect(JSON.parse(localStorage.getItem("taskira.brand")!)).toEqual({ name: "Acme", hue: 262 });
+    expect(JSON.parse(localStorage.getItem("taskira.brand")!)).toEqual({ name: "Acme", hue: 262, transparencyDefault: "auto" });
 
-    setBrand({ name: null, hue: null, logoUpdatedAt: null });
+    setBrand({ transparencyDefault: "auto", name: null, hue: null, logoUpdatedAt: null });
     expect(hueVar()).toBe("");
     expect(document.title).toBe("Taskira");
     expect(localStorage.getItem("taskira.brand")).toBeNull();
   });
 
   test("предпросмотр оттенка возвращается к сохранённому", () => {
-    setBrand({ name: null, hue: 270, logoUpdatedAt: null });
+    setBrand({ transparencyDefault: "auto", name: null, hue: 270, logoUpdatedAt: null });
     previewHue(310);
     expect(hueVar()).toBe("310");
     previewHue(null);
@@ -54,10 +54,31 @@ describe("брендирование (ТЗ 5.14 п.5)", () => {
   });
 
   test("знак грузится только при смене версии", async () => {
-    setBrand({ name: null, hue: null, logoUpdatedAt: 5 });
-    setBrand({ name: "X", hue: null, logoUpdatedAt: 5 });
+    setBrand({ transparencyDefault: "auto", name: null, hue: null, logoUpdatedAt: 5 });
+    setBrand({ transparencyDefault: "auto", name: "X", hue: null, logoUpdatedAt: 5 });
     await Promise.resolve();
     expect(logoBlobUrl).toHaveBeenCalledTimes(1);
     expect(logoBlobUrl).toHaveBeenCalledWith(5);
   });
+});
+
+
+test("closed transparency defaults match the contract; old and unknown cache values are auto", () => {
+  expect(TRANSPARENCY_DEFAULTS).toEqual(CONTRACT_TRANSPARENCY);
+  for (const cache of [{ name: "Acme", hue: 270 }, { transparencyDefault: "off" }]) {
+    localStorage.setItem("taskira.brand", JSON.stringify(cache));
+    expect(readCache().transparencyDefault).toBe("auto");
+  }
+});
+test("organization-only override survives cache and updates transparency on fresh response", () => {
+  vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduced-transparency") }));
+  localStorage.setItem("taskira.transparency", "auto");
+  setBrand({ name: null, hue: null, logoUpdatedAt: null, transparencyDefault: "on" });
+  expect(JSON.parse(localStorage.getItem("taskira.brand")!)).toEqual({ name: null, hue: null, transparencyDefault: "on" });
+  expect(readCache().transparencyDefault).toBe("on");
+  expect(root.dataset.transparency).toBe("on");
+  setBrand({ name: null, hue: null, logoUpdatedAt: null, transparencyDefault: "auto" });
+  expect(root.dataset.transparency).toBe("off");
+  expect(localStorage.getItem("taskira.brand")).toBeNull();
+  vi.unstubAllGlobals();
 });

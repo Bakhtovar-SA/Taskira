@@ -1346,8 +1346,10 @@ export const SetupPatchBody = z.object({ instanceName: oneLine(80, 1, "Назв�
  *  scripts/check-contrast.mjs проверяет все пары акцента во всех темах — это и есть «контраст проверяется
  *  автоматически при сохранении»: сервер принимает только проверенный диапазон. 288 — фирменный. */
 export const BRAND_HUE = { min: 255, max: 320, default: 288 } as const;
+export const TRANSPARENCY_DEFAULTS = ["auto", "on"] as const;
 /** GET /api/instance/brand — публично (нужно экрану входа): null — не задано. */
 export const BrandDto = z.object({
+  transparencyDefault: z.enum(TRANSPARENCY_DEFAULTS),
   name: z.string().nullable(),
   hue: z.number().nullable(),
   logoUpdatedAt: z.number().nullable(),
@@ -1356,6 +1358,7 @@ export type BrandDto = z.infer<typeof BrandDto>;
 /** PATCH /api/admin/brand [global admin]. null — вернуть как было (Taskira / 288). */
 export const BrandPatchBody = z
   .object({
+    transparencyDefault: z.enum(TRANSPARENCY_DEFAULTS),
     name: requiredLine(LIMITS.brand.name.max, "Название не может быть пустым").nullable(),
     hue: z.number().int().min(BRAND_HUE.min, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).max(BRAND_HUE.max, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).nullable(),
   })

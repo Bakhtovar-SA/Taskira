@@ -232,7 +232,9 @@ export default function ReportsView() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Tabs label={t("reports.period")} value={preset} onChange={applyPreset} items={PRESETS.map((p) => ({ id: p.id, label: t(p.labelKey) }))} />
           <span className="flex items-center gap-1.5 text-[12px] text-faint">
+            <span>{t("reports.from")}</span>
             <DatePicker label={t("reports.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={from || null} max={to || undefined} onChange={(v) => { setFrom(v ?? ""); setPreset("custom"); }} />
+            <span>{t("reports.to")}</span>
             <DatePicker label={t("reports.to")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={to || null} min={from || undefined} onChange={(v) => { setTo(v ?? ""); setPreset("custom"); }} />
           </span>
           {departments.length > 1 && (

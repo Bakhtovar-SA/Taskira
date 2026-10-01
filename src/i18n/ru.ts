@@ -1409,6 +1409,9 @@ const ru = {
   // трек G
   "backlog.sort.label": "Сортировка",
   // трек I
+  "transparency.orgLabel": "Прозрачность по умолчанию",
+  "transparency.alwaysOn": "Всегда включена",
+  "transparency.organization": "Организация включила прозрачность для всех",
   "transparency.label": "Прозрачность",
   "transparency.auto": "Как в системе",
   "transparency.on": "Включена",

@@ -14,6 +14,7 @@ export const LOGO_LIMITS = { maxBytes: 200_000, maxSide: 1024, minSide: 32 } as 
 const storage = () => getStorage(loadConfig());
 
 interface Row {
+  brand_transparency: BrandDto["transparencyDefault"];
   brand_name: string | null;
   brand_hue: number | null;
   brand_logo_key: string | null;
@@ -21,18 +22,19 @@ interface Row {
   brand_logo_updated_at: Date | null;
 }
 const row = () =>
-  one<Row>(`SELECT brand_name, brand_hue, brand_logo_key, brand_logo_content_type, brand_logo_updated_at FROM instance WHERE id = 1`);
+  one<Row>(`SELECT brand_transparency, brand_name, brand_hue, brand_logo_key, brand_logo_content_type, brand_logo_updated_at FROM instance WHERE id = 1`);
 
 export async function getBrand(): Promise<BrandDto> {
   const r = await row();
-  return { name: r?.brand_name ?? null, hue: r?.brand_hue ?? null, logoUpdatedAt: r?.brand_logo_updated_at ? r.brand_logo_updated_at.getTime() : null };
+  return { transparencyDefault: r?.brand_transparency ?? "auto", name: r?.brand_name ?? null, hue: r?.brand_hue ?? null, logoUpdatedAt: r?.brand_logo_updated_at ? r.brand_logo_updated_at.getTime() : null };
 }
 
-export async function patchBrand(p: { name?: string | null; hue?: number | null }): Promise<BrandDto> {
+export async function patchBrand(p: { name?: string | null; hue?: number | null; transparencyDefault?: BrandDto["transparencyDefault"] }): Promise<BrandDto> {
   const sets: string[] = [];
   const vals: unknown[] = [];
   if (p.name !== undefined) (vals.push(p.name), sets.push(`brand_name = $${vals.length}`));
   if (p.hue !== undefined) (vals.push(p.hue), sets.push(`brand_hue = $${vals.length}`));
+  if (p.transparencyDefault !== undefined) (vals.push(p.transparencyDefault), sets.push(`brand_transparency = $${vals.length}`));
   await q(`UPDATE instance SET ${sets.join(", ")} WHERE id = 1`, vals);
   return getBrand();
 }

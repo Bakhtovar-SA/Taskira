@@ -1408,6 +1408,9 @@ const en: Record<keyof Dict, string> = {
   // трек G
   "backlog.sort.label": "Sort",
   // трек I
+  "transparency.orgLabel": "Default transparency",
+  "transparency.alwaysOn": "Always on",
+  "transparency.organization": "The organization enabled transparency for everyone",
   "transparency.label": "Transparency",
   "transparency.auto": "Follow system",
   "transparency.on": "On",

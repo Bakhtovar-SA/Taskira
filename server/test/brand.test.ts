@@ -16,7 +16,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetDb();
   await seedFixture();
-  await q(`INSERT INTO instance (id, name) VALUES (1, 'Acme') ON CONFLICT (id) DO UPDATE SET brand_name = NULL, brand_hue = NULL, brand_logo_key = NULL, brand_logo_driver = NULL, brand_logo_updated_at = NULL`);
+  await q(`INSERT INTO instance (id, name) VALUES (1, 'Acme') ON CONFLICT (id) DO UPDATE SET brand_transparency = 'auto', brand_name = NULL, brand_hue = NULL, brand_logo_key = NULL, brand_logo_driver = NULL, brand_logo_updated_at = NULL`);
 });
 
 const png = (w: number, h: number) => {
@@ -37,7 +37,7 @@ const brand = async () => JSON.parse((await app.inject({ url: "/api/instance/bra
 
 describe("брендирование", () => {
   test("чтение без входа; по умолчанию ничего не задано", async () => {
-    expect(await brand()).toEqual({ name: null, hue: null, logoUpdatedAt: null });
+    expect(await brand()).toEqual({ name: null, hue: null, logoUpdatedAt: null, transparencyDefault: "auto" });
   });
 
   test("админ задаёт название и оттенок; не админ — 403; оттенок вне диапазона — 400", async () => {
@@ -78,4 +78,22 @@ describe("брендирование", () => {
     expect(inst).toMatchObject({ brandName: "Acme Tasks" });
     expect(r.body).not.toContain("SECRET-LICENSE");
   });
+});
+
+
+test("organization transparency: admin updates and resets, members denied, invalid values rejected", async () => {
+  const adm = await login(app, "admin");
+  const mgr = await login(app, "mgr1");
+  const patch = (payload: unknown, token = adm) => app.inject({ method: "PATCH", url: "/api/admin/brand", headers: auth(token), payload: payload as Record<string, unknown> });
+  expect((await patch({ transparencyDefault: "on" })).statusCode).toBe(200);
+  expect(await brand()).toMatchObject({ transparencyDefault: "on" });
+  expect((await patch({ transparencyDefault: "auto" }, mgr)).statusCode).toBe(403);
+  for (const transparencyDefault of ["off", "invalid", null]) {
+    expect((await patch({ transparencyDefault })).statusCode).toBe(400);
+    expect(await brand()).toMatchObject({ transparencyDefault: "on" });
+  }
+  expect((await patch({ transparencyDefault: "auto" })).statusCode).toBe(200);
+  expect(await brand()).toMatchObject({ transparencyDefault: "auto" });
+  const logs = await q<{ details: { transparencyDefault: string } }>("SELECT details FROM audit_log WHERE action = 'instance.brand' ORDER BY created_at DESC");
+  expect(logs.map((row) => row.details.transparencyDefault)).toContain("on");
 });

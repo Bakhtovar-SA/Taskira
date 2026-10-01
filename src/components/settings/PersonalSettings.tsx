@@ -8,6 +8,7 @@ import { IcCamera, IcTrash } from "../../icons";
 import { useAvatarSrc } from "../../ui";
 import { cropAndResizeAvatar } from "../../avatarCrop";
 import { BG_IDS, THEMES, projectBackground, readBgId, readDensity, readTheme, setBg, setDensity, setThemeMode, type Density, type ThemeMode } from "../../theme";
+import { useBrand } from "../../brand";
 import { readTransparency, setTransparency } from "../../theme";
 import { systemTransparency, watchSystemTransparency, type Transparency } from "../../transparency";
 import { BgSwatch } from "../ProjectLookPicker";
@@ -119,6 +120,7 @@ function Appearance() {
   const [mode, setMode] = useState<ThemeMode>(readTheme);
   const [bg, setBgState] = useState(readBgId);
   const [transparency, setTrans] = useState<Transparency>(readTransparency);
+  const brand = useBrand();
   const system = useSyncExternalStore(watchSystemTransparency, systemTransparency);
   const [density, setDens] = useState<Density>(readDensity);
   return (
@@ -167,7 +169,7 @@ function Appearance() {
             { value: "on", label: t("transparency.on") },
             { value: "off", label: t("transparency.off") },
           ]} />
-          {((transparency === "on" && (system & 2)) || (transparency === "auto" && system !== 0)) && <p className="mt-2 text-[12px] text-faint">{t(transparency === "on" ? "transparency.contrast" : "transparency.system")}</p>}
+          {((transparency === "on" && (system & 2)) || (transparency === "auto" && (system !== 0 || brand.transparencyDefault === "on"))) && <p className="mt-2 text-[12px] text-faint">{t(transparency === "on" ? "transparency.contrast" : !(system & 2) && brand.transparencyDefault === "on" ? "transparency.organization" : "transparency.system")}</p>}
         </div>
       </SettingsCard>
       <SettingsCard title={t("settings.appearance.density")}>
