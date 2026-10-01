@@ -10,13 +10,14 @@ export function useAnchored(
   anchor: RefObject<HTMLElement | null>,
   floating: RefObject<HTMLElement | null>,
   open: boolean,
-  { placement = "bottom-start", gap = 6, matchWidth = false }: { placement?: Placement; gap?: number; matchWidth?: boolean } = {},
+  { placement = "bottom-start", gap = 6, matchWidth = false, anchorElement }: { placement?: Placement; gap?: number; matchWidth?: boolean; anchorElement?: HTMLElement | null } = {},
 ): void {
   useLayoutEffect(() => {
     const a = anchor.current;
     const f = floating.current;
     if (!open || !a || !f) return;
-    return autoUpdate(a, f, () => {
+    let active = true;
+    const cleanup = autoUpdate(a, f, () => {
       void computePosition(a, f, {
         strategy: "fixed",
         placement,
@@ -33,12 +34,14 @@ export function useAnchored(
           }),
         ],
       }).then(({ x, y, placement: p }) => {
+        if (!active) return;
         f.style.left = `${x}px`;
         f.style.top = `${y}px`;
         f.dataset.side = p.split("-")[0];
       });
     });
-  }, [anchor, floating, open, placement, gap, matchWidth]);
+    return () => { active = false; cleanup(); };
+  }, [anchor, floating, open, placement, gap, matchWidth, anchorElement]);
 }
 
 /** showPopover/hidePopover бросают, если состояние уже такое; в jsdom их нет вовсе. */

@@ -561,6 +561,7 @@ function OrgDashboards() {
             current.canEdit && (
               <Menu
                 label={t("dash.more")}
+                placement="bottom-end"
                 trigger={(p) => (
                   <IconButton {...p} size="sm" label={t("dash.more")}>
                     <IcDots size={14} />
