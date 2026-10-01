@@ -106,7 +106,7 @@ export function Popover({
           aria-label={label}
           className={`ds-pop ${className}`}
           onKeyDown={(e) => {
-            if (e.key === "Escape") {
+            if (e.key === "Escape" && !e.defaultPrevented) {
               e.preventDefault();
               close();
             }

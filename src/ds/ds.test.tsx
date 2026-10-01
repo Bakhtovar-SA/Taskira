@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef, useState } from "react";
 import { Button, Checkbox, DatePicker, IconButton, SidePanel, Switch, Tabs, Textarea } from ".";
-import { Tooltip } from "./Overlay";
+import { Popover, Tooltip } from "./Overlay";
 
 describe("Button", () => {
   test("недоступная — aria-disabled, в порядке фокуса, клик не срабатывает, причина — в подсказке", async () => {
@@ -144,4 +144,22 @@ test("календарь: min/max — дни и быстрые кнопки вн
   expect(onChange).not.toHaveBeenCalled();
   fireEvent.click(day("2026-10-03"));
   expect(onChange).toHaveBeenCalledWith("2026-10-03");
+});
+
+
+test("Escape in a nested calendar keeps the filter popover and returns focus to its date field", () => {
+  const ui = render(<Popover label="Date filter" trigger={(p) => <button {...p}>Filter</button>}>
+    <DatePicker label="From" value={null} onChange={() => {}} />
+  </Popover>);
+  fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+  const date = screen.getByRole("button", { name: /^From:/, hidden: true });
+  fireEvent.click(date);
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "From", hidden: true }), { key: "Escape" });
+  expect(screen.queryByRole("textbox", { name: "From", hidden: true })).toBeNull();
+  expect(screen.getByRole("button", { name: "Filter" }).getAttribute("aria-expanded")).toBe("true");
+  expect(document.activeElement).toBe(date);
+  fireEvent.keyDown(date, { key: "Escape" });
+  expect(screen.getByRole("button", { name: "Filter" }).getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Filter" }));
+  ui.unmount();
 });

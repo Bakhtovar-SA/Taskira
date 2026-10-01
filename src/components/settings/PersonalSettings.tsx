@@ -1,6 +1,6 @@
 /** Личные настройки (IA §3.1): профиль, уведомления, внешний вид, язык. Доступны каждому; раньше жили в
  *  меню аватара, и на Главной и у гостя их не было. */
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
 import { Avatar, Button, RadioGroup, Switch, Tag } from "../../ds";
@@ -8,6 +8,8 @@ import { IcCamera, IcTrash } from "../../icons";
 import { useAvatarSrc } from "../../ui";
 import { cropAndResizeAvatar } from "../../avatarCrop";
 import { BG_IDS, THEMES, projectBackground, readBgId, readDensity, readTheme, setBg, setDensity, setThemeMode, type Density, type ThemeMode } from "../../theme";
+import { readTransparency, setTransparency } from "../../theme";
+import { systemTransparency, watchSystemTransparency, type Transparency } from "../../transparency";
 import { BgSwatch } from "../ProjectLookPicker";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 
@@ -116,6 +118,8 @@ function Appearance() {
   const { t } = useT();
   const [mode, setMode] = useState<ThemeMode>(readTheme);
   const [bg, setBgState] = useState(readBgId);
+  const [transparency, setTrans] = useState<Transparency>(readTransparency);
+  const system = useSyncExternalStore(watchSystemTransparency, systemTransparency);
   const [density, setDens] = useState<Density>(readDensity);
   return (
     <SettingsPage title={t("settings.personal.appearance")} desc={t("settings.desc.appearance")}>
@@ -155,6 +159,16 @@ function Appearance() {
           ))}
         </div>
         {projectBackground() && <p className="-mt-1 px-5 pb-4 text-[12px] text-faint">{t("settings.appearance.projectBgNote")}</p>}
+      </SettingsCard>
+      <SettingsCard title={t("transparency.label")}>
+        <div className="px-5 py-4">
+          <RadioGroup<Transparency> label={t("transparency.label")} value={transparency} onChange={(v) => { setTransparency(v); setTrans(v); }} options={[
+            { value: "auto", label: t("transparency.auto") },
+            { value: "on", label: t("transparency.on") },
+            { value: "off", label: t("transparency.off") },
+          ]} />
+          {((transparency === "on" && (system & 2)) || (transparency === "auto" && system !== 0)) && <p className="mt-2 text-[12px] text-faint">{t(transparency === "on" ? "transparency.contrast" : "transparency.system")}</p>}
+        </div>
       </SettingsCard>
       <SettingsCard title={t("settings.appearance.density")}>
         <div className="px-5 py-4">

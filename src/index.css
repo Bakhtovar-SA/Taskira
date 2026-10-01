@@ -183,7 +183,7 @@ body {
 
 /* ── Стекло — только хром (поповеры, меню, боковая панель, шапки диалогов).
    Никогда на карточках задач и формах. Отключается при
-   prefers-reduced-transparency и где backdrop-filter не поддерживается. */
+   data-transparency и где backdrop-filter не поддерживается. */
 /* ADR-0023: размытие фона (backdrop-filter) — только на малых плавающих поверхностях (.glass: поповеры, меню,
    тосты). Боковая панель и рабочий лист — полупрозрачные БЕЗ размытия: за ними мягкое свечение, размытие его не
    меняет, а на экране 3440 px оно пересчитывалось на каждом кадре любой анимации (диалог открывался на 13–27 кадрах
@@ -205,9 +205,9 @@ body {
     background: var(--bg-raised);
   }
 }
-/* Без стекла: системная настройка (Chromium) или высокий контраст —
-   в Firefox/Safari prefers-reduced-transparency не работает (BROWSERS.md). */
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+/* Resolved transparency applies to all glass surfaces. */
+/* Resolved before paint and on changes by theme.ts. */
+:root[data-transparency="off"] {
   .glass {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;

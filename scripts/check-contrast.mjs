@@ -26,16 +26,15 @@ function stripAtRules(text) {
   return out;
 }
 
-const css = stripAtRules(
-  readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""),
-);
+const rawCss = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const css = stripAtRules(rawCss);
 
 /** Декларации из блоков с точно таким селектором. */
-function block(selector) {
+function block(selector, source = css) {
   const out = {};
   const re = /([^{}]+)\{([^{}]*)\}/g;
   let m;
-  while ((m = re.exec(css))) {
+  while ((m = re.exec(source))) {
     if (m[1].trim() !== selector) continue;
     for (const d of m[2].split(";")) {
       const i = d.indexOf(":");
@@ -51,6 +50,26 @@ const light = block(":root");
 const dark = { ...light, ...block(':root[data-theme="dark"]') };
 // Курируемые темы (ТЗ 5.14 п.3): базовая + data-skin.
 const skin = (base, id) => ({ ...base, ...block(`:root[data-skin="${id}"]`) });
+
+// Actual high-contrast declarations, including the explicit personal glass override.
+const contrastCss = /@media \(prefers-contrast: more\)\s*\{([\s\S]*?)\n\}/.exec(rawCss)?.[1];
+if (!contrastCss) throw new Error("high-contrast tokens missing");
+const contrastVars = block(":root", contrastCss);
+const variants = [];
+for (const [name, base, isDark] of [
+  ["light", light, false], ["dark", dark, true],
+  ["dusk", skin(dark, "dusk"), true], ["graphite", skin(dark, "graphite"), true],
+  ["dawn", skin(light, "dawn"), false], ["paper", skin(light, "paper"), false],
+]) {
+  for (const transparency of ["on", "off"]) for (const contrast of [false, true]) {
+    const vars = { ...base, ...(contrast ? contrastVars : {}) };
+    if (transparency === "off") Object.assign(vars, {
+      "--bg-glass": "var(--bg-raised)", "--glass-side": "var(--bg-frame)", "--glass-sheet": "var(--bg-canvas)",
+    });
+    vars["--palette-glass"] = transparency === "off" ? "var(--bg-overlay)" : base["--bg-overlay"].replace(/\)$/, " / 0.9)");
+    variants.push([`${name}/transparency=${transparency}/contrast=${contrast}`, vars, isDark]);
+  }
+}
 
 function resolve(vars, value, depth = 0) {
   if (depth > 20) throw new Error(`var() cycle: ${value}`);
@@ -112,6 +131,9 @@ const PAIRS = [
   ["--text-2", "--bg-sidebar", TEXT, "--bg-frame"],
   ["--text-3", "--bg-sidebar", TEXT, "--bg-frame"],
   ["--text-1", "--bg-glass", TEXT, "--bg-canvas"],
+  ["--text-1", "--palette-glass", TEXT, "--bg-canvas"],
+  ["--text-2", "--palette-glass", TEXT, "--bg-canvas"],
+  ["--text-3", "--palette-glass", TEXT, "--bg-canvas"],
   ["--text-1", "--glass-side", TEXT, "--bg-frame"],
   ["--text-3", "--glass-side", TEXT, "--bg-frame"],
   ["--text-3", "--glass-sheet", TEXT, "--bg-frame"],
@@ -134,14 +156,7 @@ const PAIRS = [
 ];
 
 let failed = 0;
-for (const [name, vars] of [
-  ["light", light],
-  ["dark", dark],
-  ["dusk (Сумерки)", skin(dark, "dusk")],
-  ["graphite (Графит)", skin(dark, "graphite")],
-  ["dawn (Рассвет)", skin(light, "dawn")],
-  ["paper (Бумага)", skin(light, "paper")],
-]) {
+for (const [name, vars] of variants) {
   console.log(`\n${name}`);
   for (const [fgName, bgName, min, baseName] of PAIRS) {
     const base = baseName ? oklch(resolve(vars, vars[baseName])).rgb : [1, 1, 1];
@@ -162,14 +177,7 @@ if (!hueRange) throw new Error("BRAND_HUE не найден в contract.ts");
 const [hueMin, hueMax] = [+hueRange[1], +hueRange[2]];
 let hueWorst = Infinity;
 for (let h = hueMin; h <= hueMax; h += 1) {
-  for (const [name, base] of [
-    ["light", light],
-    ["dark", dark],
-    ["dusk", skin(dark, "dusk")],
-    ["graphite", skin(dark, "graphite")],
-    ["dawn", skin(light, "dawn")],
-    ["paper", skin(light, "paper")],
-  ]) {
+  for (const [name, base] of variants) {
     const vars = { ...base, "--brand-h": String(h) };
     for (const [fgName, bgName, min, baseName] of PAIRS) {
       const under = baseName ? oklch(resolve(vars, vars[baseName])).rgb : [1, 1, 1];
@@ -193,14 +201,7 @@ const SCRIM_MIN = 30;
 const SCRIM_RANGE = 58;
 const GLOWS = ["--glow-a", "--glow-b", "--glow-c"];
 const chrome = ["--text-1", "--text-2", "--text-3"];
-for (const [name, vars, isDark] of [
-  ["light", light, false],
-  ["dark", dark, true],
-  ["dusk", skin(dark, "dusk"), true],
-  ["graphite", skin(dark, "graphite"), true],
-  ["dawn", skin(light, "dawn"), false],
-  ["paper", skin(light, "paper"), false],
-]) {
+for (const [name, vars, isDark] of variants) {
   const frame = oklch(resolve(vars, vars["--bg-frame"])).rgb;
   const bases = [];
   for (const luma of [0, 0.25, 0.5, 0.75, 1]) {

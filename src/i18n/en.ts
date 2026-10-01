@@ -1408,6 +1408,12 @@ const en: Record<keyof Dict, string> = {
   // трек G
   "backlog.sort.label": "Sort",
   // трек I
+  "transparency.label": "Transparency",
+  "transparency.auto": "Follow system",
+  "transparency.on": "On",
+  "transparency.off": "Off",
+  "transparency.contrast": "High contrast is on — glass may reduce readability",
+  "transparency.system": "The system requests less transparency — glass is off",
   "date.empty": "No date",
 };
 

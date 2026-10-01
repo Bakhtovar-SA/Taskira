@@ -1409,6 +1409,12 @@ const ru = {
   // трек G
   "backlog.sort.label": "Сортировка",
   // трек I
+  "transparency.label": "Прозрачность",
+  "transparency.auto": "Как в системе",
+  "transparency.on": "Включена",
+  "transparency.off": "Выключена",
+  "transparency.contrast": "Включён повышенный контраст — стекло может снижать читаемость",
+  "transparency.system": "Система просит меньше прозрачности — стекло выключено",
   "date.empty": "Без даты",
 } as const;
 

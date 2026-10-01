@@ -12,6 +12,7 @@
 
 /** Темы (ТЗ 5.14 п.3): «Как в системе», базовые светлая и тёмная и четыре курируемые. Курируемая тема =
  *  базовая (data-theme) + переопределение семантического слоя (data-skin) в tokens.css. */
+import { resolveTransparency, systemTransparency, watchSystemTransparency, type Transparency, type TransparencyDefault } from "./transparency";
 import { scrimFor } from "./bgPhoto";
 
 export const THEMES = ["system", "light", "dark", "dusk", "graphite", "dawn", "paper"] as const;
@@ -104,6 +105,7 @@ export function applyTheme(mode: ThemeMode = readTheme(), bgId: string = project
   if (!isBg(bgId) || bgId === "default") root.removeAttribute("data-atmosphere");
   else root.setAttribute("data-atmosphere", bgId);
   applyPhoto(effectiveTheme(mode) === "dark");
+  applyTransparency();
   // До ТЗ 5.4 пресет фона писался инлайн-стилем --c-canvas на <html>; у
   // тех, кто открыл новую версию во вкладке со старой, он перебил бы токены.
   root.style.removeProperty("--c-canvas");
@@ -211,14 +213,37 @@ export function setDensity(d: Density): void {
 
 /** Реагировать на смену системной темы, пока выбран режим «Системная». */
 export function watchSystemTheme(): () => void {
+  const stopTransparency = watchSystemTransparency(() => applyTransparency());
+  applyTransparency();
   try {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const on = () => {
       if (readTheme() === "system") applyTheme("system");
     };
     mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
+    return () => { mq.removeEventListener("change", on); stopTransparency(); };
   } catch {
-    return () => {};
+    return stopTransparency;
   }
+}
+
+const TRANSPARENCY_KEY = "taskira.transparency";
+export function readTransparency(): Transparency {
+  try {
+    const v = localStorage.getItem(TRANSPARENCY_KEY);
+    return v === "on" || v === "off" ? v : "auto";
+  } catch { return "auto"; }
+}
+let orgTransparency: TransparencyDefault = "auto";
+export function setOrgTransparency(value: TransparencyDefault): void {
+  orgTransparency = value;
+  applyTransparency();
+}
+export function applyTransparency(personal: Transparency = readTransparency()): void {
+  const flags = systemTransparency();
+  document.documentElement.setAttribute("data-transparency", resolveTransparency(personal, orgTransparency, !!(flags & 1), !!(flags & 2)));
+}
+export function setTransparency(value: Transparency): void {
+  try { localStorage.setItem(TRANSPARENCY_KEY, value); } catch { /* unavailable storage */ }
+  applyTransparency(value);
 }
