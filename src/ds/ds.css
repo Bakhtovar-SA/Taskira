@@ -1000,6 +1000,14 @@
 .ds-cal-day[data-today] {
   box-shadow: inset 0 0 0 1px var(--border-strong);
 }
+.ds-cal-day[aria-disabled="true"] {
+  color: var(--text-3);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ds-cal-day[aria-disabled="true"]:hover {
+  background: none;
+}
 .ds-cal-day[aria-selected="true"] {
   background: var(--accent-solid);
   color: var(--text-on-accent);

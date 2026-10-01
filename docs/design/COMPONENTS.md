@@ -17,34 +17,49 @@
 - Плотность — `data-density="comfortable|compact"` на `<html>`; размеры — токены `--ctl-h-*`, `--ctl-px-*`,
   `--row-h`. Переключатель появится в «Личных настройках» (ТЗ 5.9).
 - Непрерывные значения (прогресс, размеры скелетона) — кастомным свойством через CSSOM (ADR-0010), не `style`.
-- Поверхности верхнего слоя — Popover API и `<dialog>`; `DROPDOWN_OPEN_EVT` в новом коде не нужен.
+- Поверхности верхнего слоя — Popover API и `<dialog>`. Окно, которое закрывается с анимацией, родитель держит в
+  `Presence` (`<Presence show={x}>{(open) => <Окно open={open} />}</Presence>`).
 
-## Карта «старый → новый» (миграция экранов — ТЗ 5.12)
+## Карта «старый → новый» — миграция завершена (треки G и H, 01.10.2026)
 
-| Сейчас (`src/ui.tsx` и разметка экранов) | Новый компонент | Заметки для миграции |
+Экраны переведены на `src/ds` в треках G (ядро задач: доска, список, карточка, окна, палитра —
+[TRACK-G-DS-CORE.md](../tracks/TRACK-G-DS-CORE.md)) и H (настройки и обзорные экраны —
+[TRACK-H-DS-SCREENS.md](../tracks/TRACK-H-DS-SCREENS.md)). Старые компоненты удалены из `src/ui.tsx` в G6.
+
+| Было (`src/ui.tsx` и разметка экранов) | Стало | Как сделано |
 |---|---|---|
-| `className="btn-primary …"`, самодельные кнопки с `bg-accent`, `hover:bg-hover` | `Button` (`primary` / `secondary` / `ghost` / `danger`, `sm/md/lg`) | `disabled` → строка-причина вместо `Tip` поверх кнопки |
-| кнопки-иконки `h-7 w-7 … title=` (шапка задачи, панель, доска) | `IconButton` (`label` обязателен) | `title` убрать — подсказку и `aria-label` даёт компонент |
-| `Tip` | `Tooltip` | верхний слой — не обрезается стеклом (как было у свёрнутой панели) |
-| `Dropdown` + `MenuItem` | `Menu` (действия) или `Popover` (форма, фильтр) | клавиатура APG; `DROPDOWN_OPEN_EVT` и ручной outside-click уходят; самодельное меню «переместить» на карточке (`Board.tsx`, клавиша `M`) — `Menu` с управляемым `open` |
-| `Modal` (`variant="center"`) | `Dialog` | нативный `<dialog>`; ручная ловушка фокуса и `onCloseRef` не нужны |
-| `Modal` (`variant="panel"`), панель задачи | `SidePanel` | `IssueModal` — последним, у неё свой адрес и `J`/`K` (ADR-0013 §3) |
-| `Modal` (`variant="palette"`) | остаётся своим | у палитры своя клавиатура поверх списка; перевести на `<dialog>` без `Dialog`-шапки |
-| `Segmented`, вкладки в `Topbar`, чипы фокуса | `Tabs` (`segmented` / `line`) | роving tabindex вместо набора кнопок |
-| `Switch` (`ui.tsx`) | `Switch` (`ds`) | подпись и описание — пропсы, `role="switch"` уже был |
-| `<input type="checkbox">` с классами (Список, импорт Trello) | `Checkbox` | `indeterminate` для «выбрать все» в Списке |
-| радиокнопки в «Оформлении», уведомлениях | `RadioGroup` | |
-| поля `<input>`/`<textarea>` с классами `rounded-md border …` | `Input` / `Textarea` | подпись, подсказка, ошибка, счётчик символов (`LIMITS` из `validation.ts`) |
-| `UserSearchPicker`, `IssueSearchBox` | `Combobox` (`load(q)`) | пауза и отбрасывание устаревших ответов — внутри; строки с аватаром — `icon` |
-| `<input type="date">` (срок задачи, спринты) | `DatePicker` | ввод словами — концепция 3, ждёт решения |
-| `Avatar`, `AvatarStack` | `Avatar`, `AvatarGroup` | цвет — тон по имени (концепция 6); фото — `src`; карточка пользователя — `Popover` вокруг |
-| `Chip`, `.meta-pill`, `Lozenge`, `RoleBadge` | `Tag` (`tone`, `dot`, `strong`) | тоны `tk-tone-*`, без `color` из данных |
+| `className="btn-primary …"`, самодельные кнопки | `Button` (`primary` / `secondary` / `ghost` / `danger`, `sm/md/lg`) | `disabled` — строка-причина вместо `Tip` поверх кнопки |
+| кнопки-иконки `h-7 w-7 … title=` | `IconButton` (`label` обязателен) | подсказку и `aria-label` даёт компонент |
+| `Tip` | `Tooltip` | верхний слой; дополняет ref и обработчики ребёнка, а не подменяет (G5) |
+| `Dropdown` + `MenuItem`, `DROPDOWN_OPEN_EVT` | `Menu` (действия) или `Popover` (форма, фильтр) | клавиатура APG; меню «переместить» на карточке доски (`M`) — `Menu` с управляемым `open` (G2). В модулях входного чанка — ленивые обёртки из `ds/LazyOverlay.tsx` |
+| `Modal` (`variant="center"`) | `Dialog` | нативный `<dialog>`; закрытие с анимацией — `Presence` у родителя (G1) |
+| `Modal` (`variant="panel"`), карточка задачи | `SidePanel` (`headless`, `size="xl"`) | адрес `?issue=KEY`, режим «страница», `J`/`K` сохранены (G4) |
+| `Modal` (`variant="palette"`) | `PaletteDialog` | тот же `<dialog>` у верхней трети экрана, стекло; поле поиска — `data-autofocus` (G5) |
+| `Segmented`, вкладки в `Topbar`, чипы фокуса | `Tabs` (`segmented` / `line`) | roving tabindex |
+| `Switch` (`ui.tsx`) | `Switch` (`ds`) | |
+| `<input type="checkbox">` с классами | `Checkbox` | `indeterminate` у «выбрать все» в списке; `labelHidden` в строках |
+| радиокнопки | `RadioGroup` | |
+| поля `<input>`/`<textarea>` с классами | `Input` / `Textarea` | подпись, подсказка, ошибка, счётчик символов |
+| `UserSearchPicker`, `IssueSearchBox` | `Combobox` (`load(q)`) | направление и родитель в карточке — `Popover` вокруг прежнего `IssueSearchBox` (поиск на сервере) |
+| `<input type="date">` | `DatePicker` | ввод словами; `min`/`max` (G6); `block` — во всю ширину узкой колонки. В «Отчётах» и спринтах пока нативные даты — перевести можно, границы теперь есть |
+| `Avatar`, `AvatarStack` | `UserAvatar` / `UserAvatarGroup` (`src/components/UserAvatar.tsx`) | ds-аватар, тон по имени, фото, карточка человека в `Popover`, «не назначен» (G3) |
+| `Chip`, `.meta-pill`, `Lozenge`, `RoleBadge` | `Tag` (`tone`, `dot`, `strong`) | тоны `tk-tone-*`; тон статуса — `statusTone()` (`workflowStatus.ts`) |
 | `Kbd` (`ui.tsx`) | `Kbd` (`ds`) | |
 | `Empty` | `EmptyState` | |
-| полосы прогресса в панели и отчётах | `Progress`, `ProgressRing` | |
-| `SkeletonRow`, `SkeletonCard`, `SkeletonColumn` | `Skeleton.Line/Block/Circle`, пример `SkeletonCard` | каждый экран собирает свой скелетон из примитивов |
-| `Toasts` (вид тоста) | `Toast` | очередь остаётся во внешнем сторе (`useToasts()`, ADR-0011); `action` для «Отменить» |
-| `LockedField` | `Input`/`Checkbox`/`Switch` с `disabled="причина"` | |
+| полосы прогресса | `Progress`, `ProgressRing` | |
+| `SkeletonRow`, `SkeletonCard`, `SkeletonColumn` | `Skeleton.Line/Block/Circle` | свои скелетоны экранов: `ListSkeletonRow`, `BoardSkeletonCard`, `ScreenSkeletonRow` |
+| `LockedField` | `disabled="причина"` у поля; в карточке задачи — текст с замком и причиной подсказкой | |
+
+### Что осталось в `src/ui.tsx` — намеренно
+
+Своей пары в `ds` у этого нет: это не элементы управления, а знание о данных приложения.
+
+- `ProjectMark`, `projectTone` — знак проекта (иконка и тон из настроек проекта, ТЗ 5.10).
+- `labelTone`, `directionColor`, `catColor` — тон по тексту метки, цвет направления на таймлайне, цвета категории статуса.
+- `Toasts` — очередь тостов из внешнего стора (`useToasts()`, ADR-0011).
+- `BOARD_COLUMN_SHELL`, `BOARD_COLUMN_BODY` — классы колонки доски, общие для колонки и её скелетона.
+- Реэкспорт `UserCardBody`, `useAvatarSrc` из `components/UserAvatar.tsx` — карточка человека с правкой профиля и
+  загрузка фото.
 
 ## Концепции — утверждены владельцем 27.09.2026
 

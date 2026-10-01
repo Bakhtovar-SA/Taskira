@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef, useState } from "react";
 import { Button, Checkbox, DatePicker, IconButton, SidePanel, Switch, Tabs, Textarea } from ".";
 import { Tooltip } from "./Overlay";
@@ -122,4 +122,26 @@ test("календарь: дни — в строках по неделе (grid �
   expect(rows).toHaveLength(6);
   for (const row of rows) expect(row.querySelectorAll('[role="gridcell"]')).toHaveLength(7);
   for (const cell of grid.querySelectorAll('[role="gridcell"]')) expect(cell.parentElement?.getAttribute("role")).toBe("row");
+});
+
+test("календарь: min/max — дни и быстрые кнопки вне диапазона выключены, ввод вне диапазона не принимается", () => {
+  const onChange = vi.fn();
+  const { container } = render(<DatePicker value={null} onChange={onChange} label="Начало периода" today="2026-10-01" min="2026-09-29" max="2026-10-05" />);
+  fireEvent.click(screen.getByRole("button", { name: /^Начало периода:/ }));
+  const day = (iso: string) => container.querySelector<HTMLElement>(`[data-iso="${iso}"]`)!;
+  expect(day("2026-09-28").getAttribute("aria-disabled")).toBe("true");
+  expect(day("2026-10-06").getAttribute("aria-disabled")).toBe("true");
+  expect(day("2026-10-03").getAttribute("aria-disabled")).toBeNull();
+  fireEvent.click(day("2026-10-06"));
+  expect(onChange).not.toHaveBeenCalled();
+  const box = within(container);
+  expect((box.getByRole("button", { name: "Через неделю", hidden: true }) as HTMLButtonElement).disabled).toBe(true);
+  expect((box.getByRole("button", { name: "Завтра", hidden: true }) as HTMLButtonElement).disabled).toBe(false);
+  const input = box.getByRole("textbox", { name: "Начало периода", hidden: true });
+  fireEvent.change(input, { target: { value: "10.10.2026" } });
+  expect(document.getElementById(input.getAttribute("aria-describedby")!)?.textContent).toBe("Вне допустимых дат");
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(day("2026-10-03"));
+  expect(onChange).toHaveBeenCalledWith("2026-10-03");
 });

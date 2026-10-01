@@ -66,9 +66,23 @@
 |---|---|
 | `DatePicker`: ARIA grid (axe `aria-required-children`/`-parent`) | **Сделано в PR G5:** дни — в строках по неделе (`grid → row → gridcell`), раскладка прежняя. Спринты и роадмап можно переводить на `DatePicker`. |
 | `Tooltip` затирает ref ребёнка | **Сделано в PR G5:** `Tooltip` дополняет ref, `onFocus`/`onBlur`/`onPointer*` и `aria-describedby` ребёнка, а не подменяет. Якорь `Popover` на `IconButton` больше не теряется — обход через id кнопки в `ScreenPopover` можно убрать. |
-| `DatePicker`: min/max | **Будет в G6** (свойства `min`/`max`: дни вне диапазона выключены, ввод вне диапазона не принимается). До тех пор в «Отчётах» — нативные даты, как сейчас. |
+| `DatePicker`: min/max | **Сделано в G6:** свойства `min`/`max` — дни вне диапазона выключены, быстрые кнопки вне него неактивны, ввод вне него не принимается («Вне допустимых дат»). У каждого календаря теперь своя подпись под полем (раньше общий `id` на два календаря одного экрана). «Отчёты» и спринты можно переводить с нативных дат. |
 | Select | **Не будет в G:** нативный `<select>` в классе `ds-input` — доступен из коробки и на телефоне удобнее своего списка. Поиск по длинным спискам — `Combobox`. |
 | `AvatarGroup` с карточками людей | **Уже есть:** `UserAvatarGroup` из `src/components/UserAvatar.tsx` (G3) — ds-аватары, фото, карточка человека в `Popover`, «не назначен». Для строки спринта — он, а не `AvatarStack`. |
 | Карточка пользователя (`UserCardBody`), `useAvatarSrc` | Согласен: остаются, `ui.tsx` их реэкспортирует из `UserAvatar.tsx`. |
 | `ProjectMark`, `directionColor`, `Toasts` | Согласен: остаются в `ui.tsx` намеренно (раздел «Готово, когда» выше). |
 | Сложный поиск в шапке, `BgSwatch`/карточки проектов, file/range, полоса таймлайна | Согласен: бизнес-компоненты, своей пары в `ds` не будет. |
+
+## Итог G6 (01.10.2026)
+
+- Из `src/ui.tsx` удалено всё, что больше никто не импортирует: `Modal`, `Dropdown`, `MenuItem`, `DROPDOWN_OPEN_EVT`,
+  `Tip`, `Switch`, `Chip`, `Lozenge`, `RoleBadge`, `roleBadgeColors`, `Kbd`, `Empty`, `LockedField`, `Skeleton*`,
+  `Avatar`, `AvatarStack`, `UserSearchPicker` (580 строк → 98). Последний `AvatarStack` (строка спринта) — на
+  `UserAvatarGroup`. Остались помощники с данными приложения — список в `COMPONENTS.md`.
+- Тесты удалённых `Modal` и `Dropdown`: проверки фокуса перенесены на `ds Dialog` (`src/ds/dialog.focus.test.tsx`)
+  без ослабления; закрытие `Popover` по клику мимо даёт браузер (Popover API), в jsdom его нет.
+- Удалены неиспользуемые анимации старого окна (`.anim-dialog`, `.anim-panel`).
+- `COMPONENTS.md` — карта «было → стало» с итогом по каждой строке; `CLAUDE.md` — разделы «Gotchas» про `<Dropdown>` и
+  `<Modal>` переписаны под `ds`; ручная проверка — [MANUAL-CHECK-TRACK-G.md](../MANUAL-CHECK-TRACK-G.md).
+- Попутно: нестабильный серверный тест `searchIndex` (очередь вставок GIN не разобрана перед `EXPLAIN`) и гонка ожидания
+  postgres в `scripts/test-proxy-integration.sh` (проверка по сокету ловила временный сервер `initdb`).

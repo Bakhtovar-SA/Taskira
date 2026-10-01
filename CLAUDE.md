@@ -621,17 +621,11 @@ it didn't — the only real way to drop an LDAP-sourced membership is from the A
 Both routes call `invalidateDeptMembership()` (`middleware.ts`) so the 30s project-visibility
 cache picks up the change immediately rather than on its own schedule.
 
-`UserSearchPicker` (`ui.tsx`) is a small reusable component wrapping `usersApi.pickable()`
-(debounced server-side search, ≥2 characters, ≤20 results — the same endpoint the issue
-collaborator picker already used) with a search box + select + add button. It replaced three
-independent flat, unsearchable `<select>`s that each rendered the *entire* user list as options
-(`AdminView.tsx`'s project-member add, the new department-member add, and — after refactoring —
-`IssueModal.tsx`'s collaborator picker, which had its own copy of the same debounce logic before
-this existed): on an organization with a few hundred people, scrolling a plain `<select>` to find
-one name was the actual complaint that motivated this. `AdminView.tsx` still keeps a separate,
-admin-only `usersApi.list()` fetch, but only to build a `Set` of admin user ids so they can be
-excluded from the project-member picker's candidates (admins already have implicit full access);
-that fetch no longer drives the visible candidate list itself.
+People pickers (issue collaborators in `IssueModal.tsx`, project and team members in `AdminView.tsx`) are the `ds`
+`Combobox` over `usersApi.pickable()` — debounced server-side search, ≥2 characters, ≤20 results; stale responses are
+dropped inside `Combobox`. They replaced flat, unsearchable `<select>`s that rendered the *entire* user list (and, later,
+the hand-written `UserSearchPicker`, removed in track G): on an organization with a few hundred people, scrolling a plain
+`<select>` to find one name was the actual complaint. Don't bring back a picker that loads the whole directory.
 
 ## Issue lifecycle (migration 016)
 
@@ -728,7 +722,12 @@ since any edit touches it. The board shows the last 14 days in its done column
   (Playwright + axe, `e2e/`, baselines in `e2e/__screenshots__`, Linux Chromium of `@playwright/test` 1.56.1 — pinned
   exactly) runs in CI only for PRs touching components (`.github/workflows/ui-visual.yml`). jsdom has no Popover API
   (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. `Button`/`IconButton`/`AvatarGroup` use the lazy `Tooltip` from `ds/LazyTooltip.tsx` and `dsId` lives in `ds/ids.ts`, so `@floating-ui/dom` stays out of the entry chunk — in tests await tooltips (`findByRole("tooltip")`). **Modules in the entry chunk (Board, Sidebar, LoginForm, StatusScreens, ErrorBoundary, GettingStarted) import `ds` components from their files (`../ds/Button`), not the `../ds` barrel** — the barrel's re-exports pull `Overlay` into `modulepreload`. The English dictionary is a lazy chunk (`loadLang()` in `src/i18n/index.tsx`; `main.tsx` awaits it before the first render when English is stored). Screens
-  still use `src/ui.tsx`; migration follows the map in COMPONENTS.md (ТЗ 5.12).
+  are all on `src/ds` (tracks G and H, done 01.10.2026); `src/ui.tsx` keeps only app-data helpers with no `ds` pair
+  (`ProjectMark`, `projectTone`, `labelTone`, `directionColor`, `catColor`, `Toasts`, board column classes) — the
+  finished map is in COMPONENTS.md. A window that should animate out stays mounted through `Presence`
+  (`<Presence show={x}>{(open) => <Window open={open} />}</Presence>`); people avatars are `UserAvatar`/`UserAvatarGroup`
+  (`src/components/UserAvatar.tsx`); entry-chunk modules that need `Menu`/`Popover` take the lazy ones from
+  `ds/LazyOverlay.tsx`.
 - **Dynamic style values under the CSP** ([ADR-0010](docs/adr/0010-dynamic-styles-under-csp.md), verified in Chromium by
   `npm run csp:spike`): CSSOM writes (`el.style.x`, `setProperty('--x')`, WAAPI `el.animate`) are allowed by
   `style-src-attr 'none'`; `style=""` in markup, `setAttribute('style')` and `<style>` are blocked. `secure-jsx`
@@ -756,32 +755,23 @@ since any edit touches it. The board shows the last 14 days in its done column
   right-hand panel (status, assignee, due date, labels) collapses under the main content, the board
   scrolls column-by-column with snap, and view side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
   don't assume mobile parity for anything not explicitly listed here.
-- **`<Dropdown>` (`ui.tsx`) is the only correct way to build a popup menu** — it closes on
-  outside click, on Escape, and on any *other* dropdown opening (`DROPDOWN_OPEN_EVT`, a
-  `window` `CustomEvent` broadcast — exported specifically so hand-rolled popups outside
-  `ui.tsx` can subscribe to it). A real bug shipped from skipping it: the board card's move
-  menu (`Board.tsx`, the small arrow icon — opens on click *and* on `m`/`ь` for
-  keyboard-only status changes, which `<Dropdown>` doesn't support, hence the hand-rolled
-  state instead of reusing the component outright) had its own local `useState` with none of
-  that — it never closed on outside click, and two different cards' menus could be open at
-  the same time, looking exactly like a UI freeze. Fixed by giving it the same two
-  `useEffect`s `<Dropdown>` has (listen for `DROPDOWN_OPEN_EVT` from others, listen for
-  outside `mousedown`) instead of switching it to `<Dropdown>` outright. If you add another
-  bespoke open/close popup anywhere, wire it into `DROPDOWN_OPEN_EVT` the same way — plain
-  local boolean state is not enough by itself.
-- **`<Modal>` (`ui.tsx`) takes `onClose` as a prop, and almost every caller passes it inline**
-  (`onClose={() => setX(false)}`) — a fresh function on every render of the caller. `Modal`'s
-  mount effect (focus-trap setup, initial focus, Esc handling) used to list `onClose` in its
-  dependency array; since typing into any field inside the modal re-renders the caller and
-  therefore creates a new `onClose`, that effect was tearing down and re-running on *every
-  keystroke* — and re-running it means re-focusing the first focusable element in the dialog,
-  which in most modals is the header's close (×) button, since it sits before the body's inputs
-  in the DOM. Symptom: type one character into a title/description/label field and focus jumps
-  to the × button or a link, every modal in the app, not just one. Fixed by holding `onClose` in
-  a `ref` (`onCloseRef`, updated every render, read from inside the Esc handler) so the mount
-  effect's deps can safely be `[]` — it now really does run once. If you add new imperative setup
-  to that effect, keep it independent of anything the caller re-creates per render, or route it
-  through a ref the same way.
+- **Popups are `ds` `Menu`/`Popover`, never local open/close state.** They sit on the Popover API, so closing on an
+  outside click, on Escape, and when another popup opens comes from the browser. A real bug shipped from hand-rolling
+  one: the board card's move menu (`Board.tsx`, opens on click *and* on `m`/`ь`) had its own `useState` — it never
+  closed on an outside click, and two cards' menus could be open at once, which looked exactly like a UI freeze. It is
+  now a `Menu` with controlled `open` (track G); the old `<Dropdown>` and its `DROPDOWN_OPEN_EVT` broadcast are gone.
+  jsdom has no Popover API: query popup content with `hidden: true` in unit tests.
+- **Escape handled inside a window must not close it.** `ds` `Dialog`/`SidePanel` close on Escape only if nothing
+  inside called `preventDefault()` (an open menu, a title edit being cancelled), and `App.tsx`'s global Escape handler
+  skips `e.defaultPrevented` too — without that, Escape in the issue card's status menu closed the whole card. If a
+  control inside a window uses Escape for itself, `preventDefault()` it.
+- **`ds` `Dialog` takes `onClose` inline** (`onClose={() => setX(false)}`) — a fresh function on every render of the
+  caller, and typing into a field re-renders the caller. The old `<Modal>` once listed `onClose` in its mount effect's
+  deps, so the effect re-ran on *every keystroke* and re-focused the first focusable element (usually the × button) —
+  focus jumped out of the field in every modal. `useNativeDialog` (`ds/Dialog.tsx`) holds `onClose` in a ref; keep any
+  new setup in that effect independent of values the caller re-creates per render. Initial focus: `[data-autofocus]`,
+  else the first enabled control in the body (a disabled button is skipped), else the window itself; `focusReady`
+  re-runs it once a loading placeholder is replaced. The focus tests are `src/ds/dialog.focus.test.tsx`.
 - **`upsertIssue()` (`store.tsx`) used to force `comments`/`activity` back to whatever was
   already in `data.issues` for that id**, "to be safe." Its only caller, `openIssue()`, calls
   `mapIssue()` (which itself already defaults to `prev?.comments`/`prev?.activity` for every

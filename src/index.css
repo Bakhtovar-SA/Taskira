@@ -857,32 +857,14 @@ html.vt-theme::view-transition-new(root) {
   animation: popIn var(--dur-2) var(--ease-out) both;
   transform-origin: top center;
 }
-/* Диалог: подложка затухает, окно поднимается из лёгкого масштаба. */
+/* Подложка шторки боковой панели (окна — нативный <dialog> из ds, свои анимации в ds.css). */
 @keyframes scrimIn {
   from {
     opacity: 0;
   }
 }
-@keyframes dialogIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.985);
-  }
-}
-@keyframes panelIn {
-  from {
-    opacity: 0;
-    transform: translateX(28px);
-  }
-}
-.anim-panel {
-  animation: panelIn var(--dur-4) var(--ease-out) both;
-}
 .anim-scrim {
   animation: scrimIn var(--dur-3) var(--ease-standard) both;
-}
-.anim-dialog {
-  animation: dialogIn var(--dur-4) var(--ease-out) both;
 }
 .anim-toast {
   animation: toastIn var(--dur-3) var(--ease-out) both;
@@ -1047,8 +1029,6 @@ html.vt-theme::view-transition-new(root) {
   /* Только прозрачность, без сдвигов и масштабов (ТЗ 5.13 п.4). */
   .anim-fadeup,
   .anim-pop,
-  .anim-dialog,
-  .anim-panel,
   .anim-toast {
     animation: fadeOnly var(--dur-2) linear both;
   }
