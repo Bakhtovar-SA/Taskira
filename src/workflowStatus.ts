@@ -34,3 +34,8 @@ export function workflowStatusName(status: StatusLike, t: Translate): string {
   const sid = DEFAULT_NAME_TO_SID[status.name.trim().toLowerCase()];
   return sid ? t(DEFAULT_STATUS_KEYS[sid]) : status.name;
 }
+
+/** Тон ds-метки статуса по категории (а не цвет из данных): к работе — серый, в работе (и «на ревью») — янтарный,
+ *  готово — зелёный. Одна таблица для списка задач и карточки. */
+export const statusTone = (category: "todo" | "inprogress" | "done"): "gray" | "amber" | "green" =>
+  category === "done" ? "green" : category === "inprogress" ? "amber" : "gray";

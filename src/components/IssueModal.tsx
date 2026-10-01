@@ -8,17 +8,19 @@ import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
 import { IcBell, IcCalendar, IcCheck, IcChevD, IcChevR, IcExpand, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
-import { Avatar, AvatarStack, Chip, Dropdown, LockedField, Lozenge, MenuItem, Modal, UserSearchPicker, catColor } from "../ui";
+import { catColor, labelTone } from "../ui";
+import { Button, Checkbox, Combobox, DatePicker, Dialog, Menu, Popover, SidePanel, Tag } from "../ds";
+import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { useT } from "../i18n";
 import IssueSearchBox from "./IssueSearchBox";
 import { freshRows, useIssue, useIssueSet, useIssuesRevision, useOnRevision, type IssueSetQuery } from "../issuePages";
-import { workflowStatusName } from "../workflowStatus";
+import { statusTone, workflowStatusName } from "../workflowStatus";
 import { activityLine } from "../activityText";
 import { DATA_COLORS } from "../dataColors";
 import { neighborIssue, revealIssue } from "../issueNav";
 import type { IssueMode } from "../store/mappers";
 import { VIEW_LABEL } from "./Topbar";
-import { issuesApi } from "../api";
+import { issuesApi, usersApi } from "../api";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -123,7 +125,17 @@ function CollaboratorField({ issue }: { issue: Issue }) {
       {canManage && (
         <>
           <div className="mt-1.5">
-            <UserSearchPicker exclude={exclude} onPick={(userId) => addCollaborator(issue.id, userId)} pickLabel={t("issue.invite")} />
+            {/* key: после приглашения поле очищается (Combobox держит введённое у себя) */}
+            <Combobox
+              key={collabs.length}
+              label={t("issue.invite")}
+              placeholder={t("ui.findEmployee")}
+              minChars={2}
+              load={async (q) =>
+                (await usersApi.pickable(q)).filter((u) => !exclude.has(u.id)).map((u) => ({ id: u.id, label: u.name }))
+              }
+              onSelect={(o) => addCollaborator(issue.id, o.id)}
+            />
           </div>
           <p className="mt-1 text-[10px] leading-snug text-faint">
             {t("issue.collaboratorHint")}
@@ -327,13 +339,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
               key={item.id}
               className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
             >
-              <input
-                type="checkbox"
-                checked={item.done}
-                disabled={!canEdit}
-                onChange={(e) => toggleChecklistItem(issue.id, item.id, e.target.checked)}
-                className="h-3.5 w-3.5 shrink-0 accent-accent disabled:opacity-50"
-              />
+              <Checkbox checked={item.done} disabled={!canEdit} onChange={(on) => toggleChecklistItem(issue.id, item.id, on)} label={item.text} labelHidden />
               <span className={`min-w-0 flex-1 truncate text-[12.5px] ${item.done ? "text-faint line-through" : "text-ink"}`}>
                 {item.text}
               </span>
@@ -399,7 +405,7 @@ function CustomFieldRow({
   canEdit: boolean;
   setValue: (issueId: string, fieldId: string, value: string | null) => void;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const current = issue.customFieldValues.find((v) => v.fieldId === field.id)?.value ?? "";
   const [draft, setDraft] = useState(current);
   useEffect(() => setDraft(current), [current, issue.id]);
@@ -433,20 +439,9 @@ function CustomFieldRow({
           ))}
         </select>
       ) : field.fieldType === "checkbox" ? (
-        <input
-          type="checkbox"
-          checked={current === "true"}
-          onChange={(e) => setValue(issue.id, field.id, e.target.checked ? "true" : null)}
-          className="h-3.5 w-3.5 accent-accent"
-        />
+        <Checkbox checked={current === "true"} onChange={(on) => setValue(issue.id, field.id, on ? "true" : null)} label={field.name} labelHidden />
       ) : field.fieldType === "date" ? (
-        <input
-          type="date"
-          aria-label={field.name}
-          value={current}
-          onChange={(e) => setValue(issue.id, field.id, e.target.value || null)}
-          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent focus:shadow-focus"
-        />
+        <DatePicker block label={field.name} lang={lang} markOverdue={false} placeholder="—" value={current || null} onChange={(v) => setValue(issue.id, field.id, v)} />
       ) : (
         <input
           type={field.fieldType === "number" ? "number" : "text"}
@@ -559,10 +554,16 @@ function LinksField({ issue }: { issue: Issue }) {
   );
 }
 
-export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
+/** `open` — от Presence в App.tsx (режим панели): после закрытия панель ещё доигрывает уход. */
+export default function IssueModal({ mode = "panel", open = true }: { mode?: IssueMode; open?: boolean }) {
   const { t, lang } = useT();
   const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can } = useStore();
-  const issue = data.issues.find((i) => i.id === ui.selectedIssueId);
+  const live = data.issues.find((i) => i.id === ui.selectedIssueId);
+  // Закрытие снимает selectedIssueId сразу, а панель ещё ~200 мс уходит с анимацией: на это время держим последнюю
+  // показанную задачу, иначе содержимое исчезло бы за один кадр.
+  const [held, setHeld] = useState(live);
+  if (live && live !== held) setHeld(live);
+  const issue = live ?? (open ? undefined : held);
   const [feed, setFeed] = useState<"all" | "comments" | "history">("all");
   const [comment, setComment] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
@@ -590,7 +591,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const goRef = useRef(go);
   goRef.current = go;
   useEffect(() => {
-    if (mode !== "panel") return;
+    if (mode !== "panel" || !open) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable) return;
@@ -601,7 +602,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [mode]);
+  }, [mode, open]);
 
   // Эпик и родитель открытой задачи — точечные запросы по id (или кэш), а не поиск в списке всех задач.
   const epic = useIssue(issue?.epicId);
@@ -617,20 +618,23 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
   const status = data.workflow.statuses.find((s) => s.id === issue.statusId);
   if (!me || !status) {
     return (
-      <Modal onClose={() => openIssue(null)} w={420} title={t("issue.unavailable")}>
-        <div className="p-6 text-center">
-          <p className="text-[14px] font-semibold text-ink">{t("issue.openFailed")}</p>
-          <p className="mt-1.5 text-[12.5px] text-sub">
+      <Dialog
+        open={open}
+        onClose={() => openIssue(null)}
+        size="sm"
+        title={t("issue.unavailable")}
+        description={
+          <>
+            <span className="block font-semibold text-ink">{t("issue.openFailed")}</span>
             {t("issue.openFailedHint")}
-          </p>
-          <button
-            onClick={() => openIssue(null)}
-            className="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-onaccent"
-          >
+          </>
+        }
+        footer={
+          <Button variant="primary" onClick={() => openIssue(null)}>
             {t("common.close")}
-          </button>
-        </div>
-      </Modal>
+          </Button>
+        }
+      />
     );
   }
   // Срок горит: дата в прошлом и задача не в финальной категории статуса.
@@ -856,7 +860,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
             {feed !== "history" &&
               (canComment ? (
                 <div className="flex gap-2.5">
-                  <Avatar user={me} size={28} interactive />
+                  <UserAvatar user={me} size={28} interactive />
                   <div className="flex-1">
                     <textarea
                       value={comment}
@@ -903,7 +907,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                   const u = data.users.find((x) => x.id === it.c.authorId);
                   return (
                     <div key={`c-${it.c.id}`} className="anim-fadeup flex gap-2.5">
-                      <Avatar user={u ?? null} size={28} interactive />
+                      <UserAvatar user={u ?? null} size={28} interactive />
                       <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
                         <p className="text-[12px]">
                           <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(it.c.ts, lang)}</span>
@@ -920,7 +924,7 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                 return (
                   <div key={`a-${it.a.id}`} className="flex items-start gap-2.5 pl-1">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-                      <Avatar user={who} size={18} interactive />
+                      <UserAvatar user={who} size={18} interactive />
                     </span>
                     <p className="text-[12.5px] leading-snug text-sub">
                       <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {activityLine(it.a.event, it.a.text, t, lang)}
@@ -943,12 +947,14 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
           )}
           <Field label={t("issue.status")}>
             {editOk ? (
-            <Dropdown
-              width={220}
-              button={(open) => {
+            <Menu
+              label={t("issue.status")}
+              trigger={(p, open) => {
                 const c = catColor(status.category);
                 return (
                   <button
+                    {...p}
+                    type="button"
                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-medium ring-1 ring-inset ring-[oklch(0.5_0.02_288/0.08)] transition-[filter] hover:brightness-[0.98] ${open ? "!ring-2 !ring-accent/40" : ""}`}
                     style={{ background: c.bg, color: c.fg }}
                   >
@@ -958,31 +964,28 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                   </button>
                 );
               }}
-            >
-              {(close) => (
-                <>
-                  {data.workflow.statuses.map((s) => {
-                    const allowed = canTransition(data.workflow, issue.statusId, s.id);
-                    return (
-                      <MenuItem
-                        key={s.id}
-                        disabled={!allowed}
-                        title={allowed ? undefined : t("issue.transitionForbidden")}
-                        onClick={() => {
-                          moveStatus(issue.id, s.id, null);
-                          close();
-                        }}
-                      >
-                        <Lozenge status={s} size="sm" />
-                        {s.id === issue.statusId && <IcCheck size={12} className="ml-auto text-accent" />}
-                        {!allowed && <IcLock size={12} className="ml-auto" />}
-                      </MenuItem>
-                    );
-                  })}
-                  <p className="border-t border-linesoft px-3 py-1.5 text-[10.5px] leading-snug text-faint">{t("issue.transitionsHint")}</p>
-                </>
-              )}
-            </Dropdown>
+              items={[
+                ...data.workflow.statuses.map((s) => {
+                  const allowed = canTransition(data.workflow, issue.statusId, s.id);
+                  const name = workflowStatusName(s, t);
+                  return {
+                    id: s.id,
+                    text: name,
+                    disabled: !allowed,
+                    label: (
+                      <span title={allowed ? undefined : t("issue.transitionForbidden")}>
+                        <Tag size="sm" tone={statusTone(s.category)} dot strong>
+                          {name}
+                        </Tag>
+                      </span>
+                    ),
+                    hint: s.id === issue.statusId ? <IcCheck size={12} className="text-accent" /> : !allowed ? <IcLock size={12} /> : undefined,
+                    onSelect: () => moveStatus(issue.id, s.id, null),
+                  };
+                }),
+                { kind: "label" as const, id: "hint", label: t("issue.transitionsHint") },
+              ]}
+            />
             ) : (
               (() => {
                 const c = catColor(status.category);
@@ -1003,11 +1006,12 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
 
           <Field label={t("issue.assignees")}>
             {editOk ? (
-            <Dropdown
-              width={240}
-              button={(open) => (
-                <button className={`${selectCls} ${open ? "border-accent" : ""}`}>
-                  <AvatarStack users={assignees} size={20} max={3} interactive={false} />
+            <Popover
+              label={t("issue.assignees")}
+              className="max-h-[320px] w-[240px] overflow-y-auto"
+              trigger={(p, open) => (
+                <button {...p} type="button" className={`${selectCls} ${open ? "border-accent" : ""}`}>
+                  <UserAvatarGroup users={assignees} size={20} max={3} />
                   <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
                     {assignees.length === 0
                       ? t("createIssue.unassigned")
@@ -1019,37 +1023,40 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                 </button>
               )}
             >
-              {() => {
+              {(() => {
                 const candidates = assignableUsers(data, issue.assigneeIds);
                 return (
-                  <>
+                  <div className="flex flex-col">
                     {candidates.map((u) => {
                       const on = issue.assigneeIds.includes(u.id);
                       return (
-                        <MenuItem
+                        <button
                           key={u.id}
+                          type="button"
+                          aria-pressed={on}
+                          className="ds-menu-item"
                           onClick={() =>
                             updateIssue(issue.id, {
                               assigneeIds: on ? issue.assigneeIds.filter((id) => id !== u.id) : [...issue.assigneeIds, u.id],
                             })
                           }
                         >
-                          <Avatar user={u} size={20} interactive={false} /> {u.name} {on && <IcCheck size={12} className="ml-auto text-accent" />}
-                        </MenuItem>
+                          <UserAvatar user={u} size={20} />
+                          <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                          {on && <IcCheck size={12} className="text-accent" />}
+                        </button>
                       );
                     })}
                     {candidates.length === 0 && <p className="px-3 py-2 text-[12px] text-faint">{t("issue.noAssignableUsers")}</p>}
-                  </>
+                  </div>
                 );
-              }}
-            </Dropdown>
+              })()}
+            </Popover>
             ) : (
-              <LockedField reason={denyMsg}>
-                <span className="flex items-center gap-2">
-                  <AvatarStack users={assignees} size={20} interactive />
-                  {assignees.length ? assignees.map((a) => a.name).join(", ") : t("createIssue.unassigned")}
-                </span>
-              </LockedField>
+              <Locked reason={denyMsg}>
+                <UserAvatarGroup users={assignees} size={20} />
+                <span className="min-w-0 truncate">{assignees.length ? assignees.map((a) => a.name).join(", ") : t("createIssue.unassigned")}</span>
+              </Locked>
             )}
           </Field>
 
@@ -1057,89 +1064,67 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
             <div className="min-w-[104px] flex-1">
               <Field label={t("field.priority")}>
                 {editOk ? (
-                <Dropdown
-                  width={220}
-                  button={(open) => (
-                    <button
-                      className={`flex w-full items-center gap-1.5 rounded-lg border bg-panel px-2 py-1.5 text-[12.5px] text-ink shadow-e1 transition-colors hover:border-line2 ${open ? "border-accent" : "border-line"}`}
-                    >
+                <Menu
+                  label={t("field.priority")}
+                  trigger={(p, open) => (
+                    <button {...p} type="button" className={`flex w-full items-center gap-1.5 rounded-lg border bg-panel px-2 py-1.5 text-[12.5px] text-ink shadow-e1 transition-colors hover:border-line2 ${open ? "border-accent" : "border-line"}`}>
                       <PriorityIcon p={issue.priorityId} size={13} />
                       <span className="min-w-0 flex-1 truncate text-left">{t(`priority.${issue.priorityId}`)}</span>
                     </button>
                   )}
-                >
-                  {(close) => (
-                    <>
-                      {PRIORITY_ORDER.map((p: PriorityId) => (
-                        <MenuItem key={p} onClick={() => { updateIssue(issue.id, { priorityId: p }); close(); }}>
-                          <PriorityIcon p={p} size={14} /> {t(`priority.${p}`)} {issue.priorityId === p && <IcCheck size={12} className="ml-auto text-accent" />}
-                        </MenuItem>
-                      ))}
-                    </>
-                  )}
-                </Dropdown>
+                  items={PRIORITY_ORDER.map((p: PriorityId) => ({
+                    id: p,
+                    text: t(`priority.${p}`),
+                    icon: <PriorityIcon p={p} size={14} />,
+                    label: t(`priority.${p}`),
+                    hint: issue.priorityId === p ? <IcCheck size={12} className="text-accent" /> : undefined,
+                    onSelect: () => updateIssue(issue.id, { priorityId: p }),
+                  }))}
+                />
                 ) : (
-                  <LockedField reason={denyMsg}>
-                    <span className="flex items-center gap-2"><PriorityIcon p={issue.priorityId} size={14} /> {t(`priority.${issue.priorityId}`)}</span>
-                  </LockedField>
+                  <Locked reason={denyMsg}>
+                    <PriorityIcon p={issue.priorityId} size={14} /> {t(`priority.${issue.priorityId}`)}
+                  </Locked>
                 )}
               </Field>
             </div>
             <div className="min-w-[116px] flex-1">
               <Field label={t("field.dueDate")}>
                 {editOk ? (
-                  <input
-                    type="date"
-                    aria-label={t("field.dueDate")}
-                    value={issue.dueDate ?? ""}
-                    onChange={(e) => updateIssue(issue.id, { dueDate: e.target.value || null })}
-                    className={`w-full rounded-md border bg-panel px-1.5 py-1.5 text-[12px] font-medium outline-none transition-colors focus:border-accent focus:shadow-focus ${
-                      overdue ? "border-danger text-danger" : "border-line text-ink"
-                    }`}
-                  />
+                  <DatePicker block label={t("field.dueDate")} lang={lang} value={issue.dueDate ?? null} onChange={(v) => updateIssue(issue.id, { dueDate: v })} />
                 ) : (
-                  <LockedField reason={denyMsg}>
+                  <Locked reason={denyMsg}>
                     <span className={`flex items-center gap-1.5 ${overdue ? "font-semibold text-danger" : ""}`}>
                       <IcCalendar size={12} />
                       {issue.dueDate ? fmtDate(issue.dueDate, lang) : "—"}
                     </span>
-                  </LockedField>
+                  </Locked>
                 )}
               </Field>
             </div>
             <div className="min-w-[104px] flex-1">
               <Field label={t("field.complexity")}>
                 {editOk ? (
-                <Dropdown
-                  width={180}
-                  button={(open) => (
-                    <button
-                      className={`flex w-full items-center gap-1.5 rounded-lg border bg-panel px-2 py-1.5 text-[12.5px] text-ink shadow-e1 transition-colors hover:border-line2 ${open ? "border-accent" : "border-line"}`}
-                    >
+                <Menu
+                  label={t("field.complexity")}
+                  trigger={(p, open) => (
+                    <button {...p} type="button" className={`flex w-full items-center gap-1.5 rounded-lg border bg-panel px-2 py-1.5 text-[12.5px] text-ink shadow-e1 transition-colors hover:border-line2 ${open ? "border-accent" : "border-line"}`}>
                       <span className="min-w-0 flex-1 truncate text-left">
                         {issue.complexity ? t(`complexity.${issue.complexity}`) : t("complexity.none")}
                       </span>
                       <IcChevD size={12} className="shrink-0 text-faint" />
                     </button>
                   )}
-                >
-                  {(close) => (
-                    <>
-                      <MenuItem onClick={() => { updateIssue(issue.id, { complexity: null }); close(); }}>
-                        {t("complexity.none")} {issue.complexity === null && <IcCheck size={12} className="ml-auto text-accent" />}
-                      </MenuItem>
-                      {COMPLEXITY_ORDER.map((c: ComplexityId) => (
-                        <MenuItem key={c} onClick={() => { updateIssue(issue.id, { complexity: c }); close(); }}>
-                          {t(`complexity.${c}`)} {issue.complexity === c && <IcCheck size={12} className="ml-auto text-accent" />}
-                        </MenuItem>
-                      ))}
-                    </>
-                  )}
-                </Dropdown>
+                  items={[null, ...COMPLEXITY_ORDER].map((c: ComplexityId | null) => ({
+                    id: c ?? "none",
+                    text: c ? t(`complexity.${c}`) : t("complexity.none"),
+                    label: c ? t(`complexity.${c}`) : t("complexity.none"),
+                    hint: issue.complexity === c ? <IcCheck size={12} className="text-accent" /> : undefined,
+                    onSelect: () => updateIssue(issue.id, { complexity: c }),
+                  }))}
+                />
                 ) : (
-                  <LockedField reason={denyMsg}>
-                    <span>{issue.complexity ? t(`complexity.${issue.complexity}`) : t("complexity.none")}</span>
-                  </LockedField>
+                  <Locked reason={denyMsg}>{issue.complexity ? t(`complexity.${issue.complexity}`) : t("complexity.none")}</Locked>
                 )}
               </Field>
             </div>
@@ -1148,10 +1133,11 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
           {!isDirection && (
             <Field label={t("field.direction")}>
               {editOk ? (
-              <Dropdown
-                width={300}
-                button={(open) => (
-                  <button className={`${selectCls} ${open ? "border-accent" : ""}`}>
+              <Popover
+                label={t("field.direction")}
+                className="w-[300px]"
+                trigger={(p, open) => (
+                  <button {...p} type="button" className={`${selectCls} ${open ? "border-accent" : ""}`}>
                     {epic ? (
                       <>
                         <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: epic.color }} />
@@ -1166,31 +1152,32 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
               >
                 {(close) => (
                   <>
-                    <MenuItem onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>{t("createIssue.noDirection")}</MenuItem>
-                    <div className="mt-1 border-t border-linesoft pt-1.5">
-                      {/* Кандидаты в «направление» ищутся на сервере: любая другая активная
-                          задача проекта, а не плоский список всех задач (PERF-06). */}
-                      <IssueSearchBox
-                        autoFocus
-                        ariaLabel={t("issue.searchDirection")}
-                        excludeIds={[issue.id]}
-                        onPick={(e) => { updateIssue(issue.id, { epicId: e.id }); close(); }}
-                      />
-                    </div>
+                    <button type="button" className="ds-menu-item" onClick={() => { updateIssue(issue.id, { epicId: null }); close(); }}>
+                      {t("createIssue.noDirection")}
+                    </button>
+                    <div role="separator" className="ds-menu-sep" />
+                    {/* Кандидаты в «направление» ищутся на сервере: любая другая активная
+                        задача проекта, а не плоский список всех задач (PERF-06). */}
+                    <IssueSearchBox
+                      autoFocus
+                      ariaLabel={t("issue.searchDirection")}
+                      excludeIds={[issue.id]}
+                      onPick={(e) => { updateIssue(issue.id, { epicId: e.id }); close(); }}
+                    />
                   </>
                 )}
-              </Dropdown>
+              </Popover>
               ) : (
-                <LockedField reason={denyMsg}>
+                <Locked reason={denyMsg}>
                   {epic ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: epic.color }} />
-                      {epic.title}
-                    </span>
+                    <>
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: epic.color }} />
+                      <span className="min-w-0 truncate">{epic.title}</span>
+                    </>
                   ) : (
                     <span className="text-faint">{t("createIssue.noDirection")}</span>
                   )}
-                </LockedField>
+                </Locked>
               )}
             </Field>
           )}
@@ -1200,10 +1187,11 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
           {(issue.parentId || (editOk && (issue.subtasksSummary?.total ?? 0) === 0)) && (
             <Field label={t("issue.parent")}>
               {editOk ? (
-                <Dropdown
-                  width={300}
-                  button={(open) => (
-                    <button className={`${selectCls} ${open ? "border-accent" : ""}`} aria-label={t("issue.parent")}>
+                <Popover
+                  label={t("issue.parent")}
+                  className="w-[300px]"
+                  trigger={(p, open) => (
+                    <button {...p} type="button" className={`${selectCls} ${open ? "border-accent" : ""}`} aria-label={t("issue.parent")}>
                       {issue.parentId && parentIssue ? (
                         <>
                           <span className="shrink-0 font-mono text-[11px] font-semibold text-faint">{parentIssue.key}</span>
@@ -1219,24 +1207,27 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
                   {(close) => (
                     <>
                       {issue.parentId && (
-                        <MenuItem onClick={() => { updateIssue(issue.id, { parentId: null }); close(); }}>{t("issue.removeParent")}</MenuItem>
+                        <>
+                          <button type="button" className="ds-menu-item" onClick={() => { updateIssue(issue.id, { parentId: null }); close(); }}>
+                            {t("issue.removeParent")}
+                          </button>
+                          <div role="separator" className="ds-menu-sep" />
+                        </>
                       )}
-                      <div className={issue.parentId ? "mt-1 border-t border-linesoft pt-1.5" : ""}>
-                        <IssueSearchBox
-                          autoFocus
-                          ariaLabel={t("issue.searchParent")}
-                          excludeIds={issue.parentId ? [issue.id, issue.parentId] : [issue.id]}
-                          accept={canBeParent}
-                          onPick={(p) => { updateIssue(issue.id, { parentId: p.id }); close(); }}
-                        />
-                      </div>
+                      <IssueSearchBox
+                        autoFocus
+                        ariaLabel={t("issue.searchParent")}
+                        excludeIds={issue.parentId ? [issue.id, issue.parentId] : [issue.id]}
+                        accept={canBeParent}
+                        onPick={(p) => { updateIssue(issue.id, { parentId: p.id }); close(); }}
+                      />
                     </>
                   )}
-                </Dropdown>
+                </Popover>
               ) : (
-                <LockedField reason={denyMsg}>
-                  {parentIssue ? `${parentIssue.key} · ${parentIssue.title}` : <span className="text-faint">{t("issue.noParent")}</span>}
-                </LockedField>
+                <Locked reason={denyMsg}>
+                  {parentIssue ? <span className="min-w-0 truncate">{`${parentIssue.key} · ${parentIssue.title}`}</span> : <span className="text-faint">{t("issue.noParent")}</span>}
+                </Locked>
               )}
             </Field>
           )}
@@ -1310,7 +1301,9 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
             <Field label={t("field.labels")}>
               <div className="flex flex-wrap gap-1.5">
                 {issue.labels.map((l) => (
-                  <Chip key={l} text={l} onRemove={editOk ? () => updateIssue(issue.id, { labels: issue.labels.filter((x) => x !== l) }) : undefined} />
+                  <Tag key={l} size="sm" tone={labelTone(l)} onRemove={editOk ? () => updateIssue(issue.id, { labels: issue.labels.filter((x) => x !== l) }) : undefined}>
+                    {l}
+                  </Tag>
                 ))}
                 {editOk && (
                   <input
@@ -1377,9 +1370,20 @@ export default function IssueModal({ mode = "panel" }: { mode?: IssueMode }) {
       </div>
     );
   return (
-    <Modal variant="panel" onClose={() => openIssue(null)} w={980} title={t("issueModal.title", { key: issue.key, title: issue.title })}>
+    <SidePanel open={open} onClose={() => openIssue(null)} size="xl" headless title={t("issueModal.title", { key: issue.key, title: issue.title })}>
       {content}
-    </Modal>
+    </SidePanel>
+  );
+}
+
+/** Поле, которое человек не может менять: значение текстом, причина — в подсказке. Не кнопка: у читателя иначе было бы
+ *  по лишней остановке Tab на каждое поле (была LockedField из ui.tsx). */
+function Locked({ reason, children }: { reason: string; children: React.ReactNode }) {
+  return (
+    <div title={reason} className="flex w-full cursor-not-allowed items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 py-1.5 text-[13px] text-faint">
+      <span className="flex min-w-0 flex-1 items-center gap-2 truncate text-left">{children}</span>
+      <IcLock size={12} className="shrink-0" />
+    </div>
   );
 }
 
@@ -1406,6 +1410,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLTextAreaElement).blur();
           if (e.key === "Escape") {
+            e.preventDefault(); // отменить правку, не закрывая панель (Esc у <dialog> — закрытие)
             setDraft(issue.title);
             setEditing(false);
           }

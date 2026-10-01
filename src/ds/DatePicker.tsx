@@ -27,6 +27,7 @@ export function DatePicker({
   today: todayProp,
   clearLabel,
   markOverdue = true,
+  block = false,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
@@ -38,6 +39,8 @@ export function DatePicker({
   clearLabel?: string;
   /** Прошедшая дата красным — для срока задачи; для даты начала или вехи прошлое — не ошибка. */
   markOverdue?: boolean;
+  /** Во всю ширину поля, без минимальной ширины (узкая колонка: срок в карточке задачи). */
+  block?: boolean;
 }) {
   placeholder ??= lang === "en" ? "No due date" : "Без срока";
   clearLabel ??= lang === "en" ? "Remove due date" : "Убрать срок";
@@ -100,7 +103,7 @@ export function DatePicker({
           {...p}
           type="button"
           aria-label={`${label}: ${value ? fmt(value, { day: "numeric", month: "long", year: "numeric" }) : placeholder}`}
-          className={`ds-input ds-focus min-w-[168px] cursor-pointer text-left ${overdue ? "text-[var(--status-danger-fg)]" : ""}`}
+          className={`ds-input ds-focus cursor-pointer text-left ${block ? "w-full min-w-0" : "min-w-[168px]"} ${overdue ? "text-[var(--status-danger-fg)]" : ""}`}
         >
           <span className="ds-adorn">
             <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">

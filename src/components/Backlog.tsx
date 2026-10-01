@@ -11,10 +11,10 @@ import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewIn
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { directionColor, labelTone } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
-import { Button, Checkbox, EmptyState, Menu, Popover, Presence, Skeleton, Tag, type Tone } from "../ds";
+import { Button, Checkbox, EmptyState, Menu, Popover, Presence, Skeleton, Tag } from "../ds";
 import BulkBar from "./BulkBar";
 import { useT } from "../i18n";
-import { workflowStatusName } from "../workflowStatus";
+import { statusTone, workflowStatusName } from "../workflowStatus";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, type FilterState } from "../router";
 import { COLUMNS, LEFT, gridTemplate, readColumns, writeColumns, type ColumnId, type SortKey } from "../listColumns";
 
@@ -107,7 +107,7 @@ function Row({
         ) : null;
       case "status":
         return status ? (
-          <Tag size="sm" tone={STATUS_TONE[status.category]} dot strong>
+          <Tag size="sm" tone={statusTone(status.category)} dot strong>
             {workflowStatusName(status, t)}
           </Tag>
         ) : null;
@@ -842,9 +842,6 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
     </Popover>
   );
 }
-
-/** Статус задачи тоном ds-метки: категория, а не цвет из данных (у «На ревью» категория «в работе»). */
-const STATUS_TONE: Record<"todo" | "inprogress" | "done", Tone> = { todo: "gray", inprogress: "amber", done: "green" };
 
 /** Заглушка строки таблицы на время загрузки — из ds-примитивов, по форме строки (флажок/тип, ключ, название, поле, исполнитель). */
 function ListSkeletonRow() {
