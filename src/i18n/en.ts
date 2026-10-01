@@ -1407,6 +1407,18 @@ const en: Record<keyof Dict, string> = {
 
   // трек G
   "backlog.sort.label": "Sort",
+  // трек I
+  "transparency.orgLabel": "Default transparency",
+  "transparency.alwaysOn": "Always on",
+  "transparency.organization": "The organization enabled transparency for everyone",
+  "transparency.label": "Transparency",
+  "transparency.auto": "Follow system",
+  "transparency.on": "On",
+  "transparency.off": "Off",
+  "transparency.contrast": "High contrast is on — glass may reduce readability",
+  "transparency.system": "The system requests less transparency — glass is off",
+  "date.empty": "No date",
 };
 
 export default en;
+

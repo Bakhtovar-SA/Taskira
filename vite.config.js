@@ -9,7 +9,7 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     hmr: {
-      port: 3000,
+      port: Number(process.env.PLAYWRIGHT_PORT || 3000),
     },
     // Тот же same-origin контракт, что в production nginx. Благодаря этому
     // VITE_API_URL не требуется ни для dev, ни для переносимого release image.

@@ -328,7 +328,7 @@ export const setupApi = {
 /** Брендирование (ТЗ 5.14 п.5): чтение публичное (нужно экрану входа), запись — глобальный admin. */
 export const brandApi = {
   get: () => api<BrandDto>("/api/instance/brand", { auth: false }),
-  patch: (body: { name?: string | null; hue?: number | null }) => api<BrandDto>("/api/admin/brand", { method: "PATCH", body }),
+  patch: (body: { name?: string | null; hue?: number | null; transparencyDefault?: BrandDto["transparencyDefault"] }) => api<BrandDto>("/api/admin/brand", { method: "PATCH", body }),
   uploadLogo: (file: File) => apiUpload<BrandDto>("/api/admin/brand/logo", file),
   removeLogo: () => api<BrandDto>("/api/admin/brand/logo", { method: "DELETE" }),
   /** blob: URL знака — img-src CSP разрешает blob:, а API в dev живёт на другом origin; null — нет или ошибка. */

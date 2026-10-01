@@ -651,7 +651,8 @@
 .ds-dialog[data-kind="palette"]::backdrop {
   background: color-mix(in oklch, var(--bg-scrim) 60%, transparent);
 }
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+/* Resolved before paint and on changes by theme.ts. */
+:root[data-transparency="off"] {
   .ds-dialog[data-kind="palette"] {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;

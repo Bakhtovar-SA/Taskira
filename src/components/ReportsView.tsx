@@ -8,6 +8,7 @@ import {
   type ReportSummary,
 } from "../api";
 import { IcDownload, IcReport, IcSearch } from "../icons";
+import { DatePicker } from "../ds/DatePicker";
 import { Button } from "../ds/Button";
 import { DashboardTabs, useDashboardList } from "../dashboards/DashboardTabs";
 import { EmptyState } from "../ds/Display";
@@ -118,7 +119,7 @@ function Trend({ points }: { points: { week: string; closed: number }[] }) {
 }
 
 export default function ReportsView() {
-  const { t, tn, errText } = useT();
+  const { t, tn, errText, lang } = useT();
   const { data, toast } = useStore();
   const dashboards = useDashboardList();
 
@@ -231,30 +232,10 @@ export default function ReportsView() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Tabs label={t("reports.period")} value={preset} onChange={applyPreset} items={PRESETS.map((p) => ({ id: p.id, label: t(p.labelKey) }))} />
           <span className="flex items-center gap-1.5 text-[12px] text-faint">
-            <label htmlFor="report-from">{t("reports.from")}</label>
-            <input
-              type="date"
-              id="report-from"
-              value={from}
-              max={to}
-              onChange={(e) => {
-                setFrom(e.target.value);
-                setPreset("custom");
-              }}
-              className={field}
-            />
-            <label htmlFor="report-to">{t("reports.to")}</label>
-            <input
-              type="date"
-              id="report-to"
-              value={to}
-              min={from}
-              onChange={(e) => {
-                setTo(e.target.value);
-                setPreset("custom");
-              }}
-              className={field}
-            />
+            <span>{t("reports.from")}</span>
+            <DatePicker label={t("reports.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={from || null} max={to || undefined} onChange={(v) => { setFrom(v ?? ""); setPreset("custom"); }} />
+            <span>{t("reports.to")}</span>
+            <DatePicker label={t("reports.to")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={to || null} min={from || undefined} onChange={(v) => { setTo(v ?? ""); setPreset("custom"); }} />
           </span>
           {departments.length > 1 && (
             <select id="report-department" value={departmentId} onChange={(e) => chooseDepartment(e.target.value)} aria-label={t("reports.department")} className={`${field} max-w-[200px]`}>

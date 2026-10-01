@@ -11,7 +11,7 @@ import { BRAND_HUE, DEFAULT_BRAND_NAME, previewHue, setBrand, useBrand } from ".
 import { cssVars } from "../../cssVars";
 import { BrandMark } from "../BrandMark";
 import { adminApi, brandApi, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
-import { Avatar, Button, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
+import { Avatar, Button, DatePicker, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
 import { IcCompose, IcDiamond, IcDownload, IcLink, IcPlus, IcSearch, IcTrash } from "../../icons";
 import { openProjectWizard } from "../../palette/events";
 import { LIMITS } from "../../validation";
@@ -430,7 +430,7 @@ function Export() {
 }
 
 function Audit() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [m] = useLoad(() => adminApi.maintenance());
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -440,8 +440,14 @@ function Audit() {
     <SettingsPage title={t("settings.org.audit")} desc={t("settings.desc.audit")}>
       <SettingsCard title={t("settings.org.auditExport")} footer={t("settings.org.auditExportHint")}>
         <div className="grid gap-4 px-5 py-4 sm:grid-cols-2">
-          <Input label={t("settings.org.from")} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <Input label={t("settings.org.to")} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <div>
+            <p className="ds-label mb-1">{t("settings.org.from")}</p>
+            <DatePicker block label={t("settings.org.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={from || null} max={to || undefined} onChange={(v) => setFrom(v ?? "")} />
+          </div>
+          <div>
+            <p className="ds-label mb-1">{t("settings.org.to")}</p>
+            <DatePicker block label={t("settings.org.to")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={to || null} min={from || undefined} onChange={(v) => setTo(v ?? "")} />
+          </div>
           <RadioGroup
             label={t("settings.org.format")}
             value={format}
@@ -727,13 +733,15 @@ function Brand() {
   const brand = useBrand();
   const [name, setName] = useState(brand.name ?? "");
   const [hue, setHue] = useState(brand.hue ?? BRAND_HUE.default);
+  const [transparencyDefault, setTransDefault] = useState(brand.transparencyDefault);
+  useEffect(() => setTransDefault(brand.transparencyDefault), [brand.transparencyDefault]);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => () => previewHue(null), []);
 
   const savedHue = brand.hue ?? BRAND_HUE.default;
   const nextName = name.trim() && name.trim() !== DEFAULT_BRAND_NAME ? name.trim() : null;
-  const dirty = nextName !== brand.name || hue !== savedHue;
+  const dirty = nextName !== brand.name || hue !== savedHue || transparencyDefault !== brand.transparencyDefault;
   const pick = (h: number) => {
     setHue(h);
     previewHue(h);
@@ -750,7 +758,7 @@ function Brand() {
       setBusy(false);
     }
   };
-  const save = () => void run(() => brandApi.patch({ name: nextName, hue: hue === BRAND_HUE.default ? null : hue }), t("brand.saved"));
+  const save = () => void run(() => brandApi.patch({ name: nextName, hue: hue === BRAND_HUE.default ? null : hue, transparencyDefault }), t("brand.saved"));
   const onFile = (f: File | undefined) => {
     if (f) void run(() => brandApi.uploadLogo(f));
     if (input.current) input.current.value = "";
@@ -786,6 +794,12 @@ function Brand() {
             className="w-full accent-[var(--accent-solid)]"
           />
           <p className="text-[12px] leading-relaxed text-faint">{t("brand.hueHint")}</p>
+        </div>
+        <div className="px-5 py-4">
+          <RadioGroup label={t("transparency.orgLabel")} value={transparencyDefault} onChange={setTransDefault} disabled={busy} options={[
+            { value: "auto", label: t("transparency.auto") },
+            { value: "on", label: t("transparency.alwaysOn") },
+          ]} />
         </div>
         <div className="flex flex-col gap-3 px-5 py-4">
           <p className="text-[12px] font-medium text-faint">{t("brand.preview")}</p>
