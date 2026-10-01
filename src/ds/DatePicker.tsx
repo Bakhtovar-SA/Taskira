@@ -1,7 +1,7 @@
 /** DatePicker (ТЗ 5.7): кнопка-поле → поповер с вводом словами (concept: `parseDateInput`), быстрыми
  *  пресетами и календарём-сеткой (APG date picker dialog: стрелки ±день/неделя, PageUp/PageDown — месяц,
  *  Home/End — начало/конец недели, Enter — выбрать). Значение — ISO `YYYY-MM-DD` или null. */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Popover } from "./Overlay";
 import { parseDateInput } from "./dateParse";
 import { dsId } from "./ids";
@@ -31,6 +31,8 @@ export function DatePicker({
   block = false,
   min,
   max,
+  open: openProp,
+  onOpenChange,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
@@ -48,6 +50,9 @@ export function DatePicker({
    *  не принимается. Например, «с» и «по» в отчёте ограничивают друг друга. */
   min?: string;
   max?: string;
+  /** Controlled opening for the calendar's keyboard move action. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   placeholder ??= lang === "en" ? "No due date" : "Без срока";
   clearLabel ??= lang === "en" ? "Remove due date" : "Убрать срок";
@@ -56,7 +61,10 @@ export function DatePicker({
   // Сетка открывается на выбранной дате, иначе на сегодня — но не за границей диапазона.
   const start = value ?? (min && today < min ? min : max && today > max ? max : today);
   const loc = lang === "en" ? "en-GB" : "ru-RU";
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const onOpenRef = useRef(onOpenChange); onOpenRef.current = onOpenChange;
+  const setOpen = useCallback((v: boolean) => { setOpenState(v); onOpenRef.current?.(v); }, []);
   const [text, setText] = useState("");
   // Своя подпись у каждого календаря: на экране их бывает два («с» и «по» в отчёте), а общий id связал бы оба поля
   // с одной подписью.

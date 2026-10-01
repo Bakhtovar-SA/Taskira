@@ -2,6 +2,12 @@ import { describe, expect, test } from "vitest";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, parsePath, pathForIssue, pathForView, samePlace, searchFromFilters } from "./router";
 
 describe("pathForView / pathForIssue", () => {
+  test("calendar has a project URL and preserves same-place navigation", () => {
+    expect(pathForView("CORP", "calendar")).toBe("/p/CORP/calendar");
+    expect(parsePath("/p/CORP/calendar")).toEqual({ kind: "view", projectKey: "CORP", view: "calendar" });
+    expect(samePlace("/p/CORP/calendar", "/p/CORP/calendar/")).toBe(true);
+    expect(samePlace("/p/CORP/calendar", "/p/CORP/timeline")).toBe(false);
+  });
   test("ADR-0013 §5: разделы без проекта — свои пути, представления и настройки — под /p/:projectKey", () => {
     expect(pathForView("CORP", "reports")).toBe("/reports");
     expect(pathForView("CORP", "orgSettings")).toBe("/admin/departments");

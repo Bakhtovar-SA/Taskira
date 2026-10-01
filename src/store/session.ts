@@ -365,7 +365,7 @@ export function useSessionActions(
     setData(emptyData());
     resetNotifications();
     setSolo(null);
-    setUi({ view: "board", section: "", selectedIssueId: null, issueMode: "panel", createOpen: false, createParentId: null, lastEvent: null, collabOpenIssueId: null, missing: null });
+    setUi({ view: "board", section: "", selectedIssueId: null, issueMode: "panel", createOpen: false, createParentId: null, createDueDate: null, lastEvent: null, collabOpenIssueId: null, missing: null });
     setBootStatus("unauthenticated");
   }, [resetNotifications]);
 

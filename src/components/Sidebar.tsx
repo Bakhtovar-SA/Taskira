@@ -27,6 +27,7 @@ import {
   IcSearch,
   IcSettings,
   IcTimeline,
+  IcCalendar,
   IcUsers,
   type IconTone,
 } from "../icons";
@@ -61,6 +62,7 @@ export const PROJECT_VIEWS: NavItem[] = [
   { id: "board", labelKey: "sidebar.nav.board", icon: (p) => <IcBoard {...p} />, tone: "violet", kbd: "1" },
   { id: "backlog", labelKey: "sidebar.nav.backlog", icon: (p) => <IcBacklog {...p} />, tone: "indigo", kbd: "2" },
   { id: "timeline", labelKey: "sidebar.nav.timeline", icon: (p) => <IcTimeline {...p} />, tone: "teal", kbd: "3" },
+  { id: "calendar", labelKey: "calendar.title", icon: (p) => <IcCalendar {...p} />, tone: "blue", kbd: "5" },
   { id: "sprints", labelKey: "sidebar.nav.sprints", icon: (p) => <IcFlag {...p} />, tone: "amber", kbd: "4", sprintsOnly: true },
 ];
 
@@ -336,7 +338,7 @@ export default function Sidebar() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 [scrollbar-width:none]">
         {/* Личный слой */}
-        <nav className="flex flex-col gap-px pt-1">
+        <nav aria-label={t("calendar.personalNav")} className="flex flex-col gap-px pt-1">
             {homeAvailable && (
               <Button variant="ghost" size="sm" type="button" onClick={goHome} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
                 <IcHome size={16} tone="violet" />

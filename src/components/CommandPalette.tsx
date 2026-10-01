@@ -51,6 +51,7 @@ const VIEW_ALIASES: Record<string, string[]> = {
   backlog: ["list", "backlog", "issues"],
   sprints: ["sprints"],
   timeline: ["timeline", "gantt"],
+  calendar: ["calendar", "календарь", "kalendar"],
   reports: ["reports", "analytics"],
   roadmap: ["roadmap", "projects timeline", "milestones", "вехи"],
   settings: ["settings", "profile", "notifications", "theme", "профиль", "уведомления", "тема"],
@@ -316,7 +317,7 @@ export function ShortcutsDialog({ onClose, open = true }: { onClose: () => void;
         [<Kbd key="c">C</Kbd>, "shortcuts.create"],
         [
           <span key="n" className="flex items-center gap-1">
-            <Kbd>1</Kbd>–<Kbd>4</Kbd>
+            <Kbd>1</Kbd>–<Kbd>5</Kbd>
           </span>,
           "shortcuts.views",
         ],

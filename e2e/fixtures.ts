@@ -23,6 +23,7 @@ export async function mockApi(page: Page) {
     else if (path === "/dashboards") body = [{ id: "d1", name: "Empty", kind: "personal", ownerId: "u1", projectId: null, canEdit: true, widgets: [], updatedAt: "2026-10-01" }];
     else if (path === "/projects/p1") body = boot;
     else if (path === "/instance/brand") body = brand;
+    else if (path === "/roadmap") body = { projects: [], dependencies: [] };
     else if (path === "/admin/brand" && method === "PATCH") {
       const patch = route.request().postDataJSON();
       writes.push({ path, body: patch });

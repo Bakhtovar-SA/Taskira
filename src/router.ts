@@ -19,6 +19,7 @@ const PROJECT_SEGMENT: Partial<Record<ViewId, string>> = {
   board: "board",
   backlog: "list",
   timeline: "timeline",
+  calendar: "calendar",
   sprints: "sprints",
 };
 const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
