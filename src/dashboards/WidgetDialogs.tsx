@@ -5,8 +5,8 @@ import { useT } from "../i18n";
 import { useStore } from "../store";
 import { Dialog, Button, Input } from "../ds";
 import { LIMITS } from "../validation";
-import { COUNT_METRICS, BREAKDOWN_GROUPS, ISSUE_PRESETS, WIDGET_PERIODS } from "./spec";
-import { CATALOG, CATALOG_GROUPS, defaultTitleKey, type CatalogItem, type Widget } from "./catalog";
+import { COUNT_METRICS, BREAKDOWN_GROUPS, ISSUE_PRESETS, WIDGET_PERIODS, PROJECT_WIDGET_LIMITS, MILESTONE_PERIOD_LIMITS } from "./spec";
+import { catalogFor, CATALOG_GROUPS, defaultTitleKey, type CatalogItem, type Widget } from "./catalog";
 
 const selectCls =
   "h-8 w-full rounded-lg border border-linesoft bg-sunken px-2 text-[12.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
@@ -23,16 +23,16 @@ function Row({ label, children }: { label: string; children: (id: string) => Rea
   );
 }
 
-export function AddWidgetDialog({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (item: CatalogItem) => void }) {
+export function AddWidgetDialog({ open, onClose, onPick, project = false }: { open: boolean; onClose: () => void; onPick: (item: CatalogItem) => void; project?: boolean }) {
   const { t } = useT();
   return (
     <Dialog open={open} onClose={onClose} title={t("dash.addWidget")} size="lg">
       <div className="space-y-4">
-        {CATALOG_GROUPS.map((g) => (
+        {CATALOG_GROUPS.filter(g => catalogFor(project).some(c => c.group === g.id)).map((g) => (
           <section key={g.id}>
             <h3 className="mb-1.5 text-[12px] font-semibold text-faint">{t(g.labelKey)}</h3>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              {CATALOG.filter((c) => c.group === g.id).map((c) => (
+              {catalogFor(project).filter((c) => c.group === g.id).map((c) => (
                 <button
                   key={c.key}
                   type="button"
@@ -58,7 +58,7 @@ export function WidgetSettingsDialog({ w, orgScope, onChange, onClose }: { w: Wi
   const withProjects = new Set(data.projects.map((p) => p.departmentId));
   const departments = data.departments.filter((d) => withProjects.has(d.id));
   const scope = w.projectId ? `p:${w.projectId}` : w.departmentId ? `d:${w.departmentId}` : "";
-  const limits = w.type === "activity" ? [5, 10, 15, 20, 30] : w.type === "progress" ? [5, 10, 15, 20, 30] : [3, 5, 8, 10, 15, 20];
+  const limits = w.type === "projects" ? [PROJECT_WIDGET_LIMITS.min, 10, 20, 30, PROJECT_WIDGET_LIMITS.max] : w.type === "activity" ? [5, 10, 15, 20, 30] : w.type === "progress" ? [5, 10, 15, 20, 30] : [3, 5, 8, 10, 15, 20];
 
   return (
     <Dialog open onClose={onClose} title={t("dash.widgetSettings")} size="sm" footer={<Button variant="primary" onClick={onClose}>{t("dash.done")}</Button>}>
@@ -165,7 +165,8 @@ export function WidgetSettingsDialog({ w, orgScope, onChange, onClose }: { w: Wi
             )}
           </Row>
         )}
-        {(w.type === "issues" || w.type === "workload" || w.type === "progress" || w.type === "activity") && (
+        {w.type === "milestones" && <Input label={t("dash.period")} type="number" min={MILESTONE_PERIOD_LIMITS.min} max={MILESTONE_PERIOD_LIMITS.max} value={w.periodDays} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= MILESTONE_PERIOD_LIMITS.min && n <= MILESTONE_PERIOD_LIMITS.max) set({ periodDays: n }); }} />}
+        {(w.type === "issues" || w.type === "workload" || w.type === "progress" || w.type === "activity" || w.type === "projects") && (
           <Row label={t("dash.limit")}>
             {(id) => (
               <select id={id} className={selectCls} value={w.limit} onChange={(e) => set({ limit: Number(e.target.value) })}>

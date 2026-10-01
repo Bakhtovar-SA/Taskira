@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useT, type TKey } from "../i18n";
 import { useStore } from "../store";
-import { dashboardsApi, type DashboardDto } from "../api";
+import { dashboardsApi, roadmapApi, type DashboardDto } from "../api";
 import { Button, Dialog, EmptyState, IconButton, Input, Menu } from "../ds";
 import { IcDashboard, IcDots, IcPencil, IcPlus, IcUndo } from "../icons";
 import { DashboardTabs, useDashboardList } from "../dashboards/DashboardTabs";
@@ -14,7 +14,7 @@ import { DashboardGrid, GAP, ROW_H, WidgetFrame } from "../dashboards/DashboardG
 import { WidgetBody, type WidgetNav } from "../dashboards/widgets";
 import { AddWidgetDialog, WidgetSettingsDialog } from "../dashboards/WidgetDialogs";
 import { useDashboardData } from "../dashboards/useDashboardData";
-import { DASHBOARD_TEMPLATES, DEFAULT_ORG_OVERVIEW, DEFAULT_PROJECT_OVERVIEW, ORG_OVERVIEW_ID, addFromCatalog, defaultTitleKey, type Widget } from "../dashboards/catalog";
+import { DASHBOARD_TEMPLATES, DEFAULT_ORG_OVERVIEW, projectOverview, ORG_OVERVIEW_ID, addFromCatalog, defaultTitleKey, type Widget } from "../dashboards/catalog";
 import { compact } from "../dashboards/grid";
 
 /* ---------------- общий холст: просмотр и правка ---------------- */
@@ -182,6 +182,7 @@ function Canvas({
       </div>
       <AddWidgetDialog
         open={adding}
+        project={!!projectId}
         onClose={() => setAdding(false)}
         onPick={(item) => {
           setDraft((cur) => addFromCatalog(cur ?? saved, item));
@@ -216,6 +217,13 @@ function ProjectOverview() {
   const { data, toast } = useStore();
   const projectId = data.currentProjectId;
   const [state, setState] = useState<{ dashboard: DashboardDto | null; canEdit: boolean; loaded: boolean }>({ dashboard: null, canEdit: false, loaded: false });
+  const [hasMilestones, setHasMilestones] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setHasMilestones(false);
+    roadmapApi.get().then(r => { if (alive) setHasMilestones(r.projects.some(p => p.id === projectId && p.milestones.length > 0)); }, () => {});
+    return () => { alive = false; };
+  }, [projectId]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -253,7 +261,7 @@ function ProjectOverview() {
   };
 
   if (!state.loaded) return <div className="p-6" aria-busy="true" />;
-  const widgets = state.dashboard?.widgets ?? DEFAULT_PROJECT_OVERVIEW;
+  const widgets = state.dashboard?.widgets ?? projectOverview(hasMilestones);
   return (
     <Canvas
       key={projectId}

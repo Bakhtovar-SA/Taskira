@@ -1369,7 +1369,9 @@ export const BrandPatchBody = z
 /* ---------------- Дашборды (ADR-0022) ---------------- */
 /** Сетка — 12 колонок; высота виджета — в строках сетки. */
 export const DASHBOARD_GRID = { cols: 12, maxRows: 200, minH: 1, maxH: 8 } as const;
-export const WIDGET_TYPES = ["count", "breakdown", "trend", "issues", "workload", "progress", "activity"] as const;
+export const WIDGET_TYPES = ["count", "breakdown", "trend", "issues", "workload", "progress", "activity", "projects", "projectHealth", "milestones"] as const;
+export const PROJECT_WIDGET_LIMITS = { min: 5, max: 50 } as const;
+export const MILESTONE_PERIOD_LIMITS = { min: 7, max: 180 } as const;
 export type WidgetType = (typeof WIDGET_TYPES)[number];
 /** Число: открытые, просроченные, со сроком в ближайшие 7 дней, без исполнителя, закрытые и созданные за период. */
 export const COUNT_METRICS = ["open", "overdue", "dueSoon", "unassigned", "closed", "created"] as const;
@@ -1402,6 +1404,9 @@ export const DashboardWidget = z.discriminatedUnion("type", [
   z.object({ ...widgetBase, type: z.literal("workload"), limit: z.number().int().min(3).max(20).default(8) }),
   z.object({ ...widgetBase, type: z.literal("progress"), limit: z.number().int().min(3).max(30).default(10) }),
   z.object({ ...widgetBase, type: z.literal("activity"), limit: z.number().int().min(5).max(30).default(10) }),
+  z.object({ ...widgetBase, type: z.literal("projects"), limit: z.number().int().min(PROJECT_WIDGET_LIMITS.min).max(PROJECT_WIDGET_LIMITS.max).default(10) }),
+  z.object({ ...widgetBase, type: z.literal("projectHealth") }),
+  z.object({ ...widgetBase, type: z.literal("milestones"), periodDays: z.number().int().min(MILESTONE_PERIOD_LIMITS.min).max(MILESTONE_PERIOD_LIMITS.max).default(30) }),
 ]);
 export type DashboardWidget = z.infer<typeof DashboardWidget>;
 export const DashboardWidgets = z.array(DashboardWidget).max(LIMITS.widgetsPerDashboard, `Не больше ${LIMITS.widgetsPerDashboard} виджетов на дашборде`);
@@ -1446,6 +1451,9 @@ export type ProjectOverviewDto = z.infer<typeof ProjectOverviewDto>;
 
 const WidgetIssue = AssignedIssueDto;
 export const WidgetDataDto = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("projects"), items: z.array(z.object({ projectId: z.string(), key: z.string(), name: z.string(), team: z.string(), total: z.number(), open: z.number(), overdue: z.number(), targetDate: z.string().nullable(), health: z.enum(["completed", "overdue", "atRisk", "onTrack", "noDate"]) })) }),
+  z.object({ type: z.literal("projectHealth"), items: z.array(z.object({ health: z.enum(["completed", "overdue", "atRisk", "onTrack", "noDate"]), count: z.number() })) }),
+  z.object({ type: z.literal("milestones"), items: z.array(z.object({ id: z.string(), projectId: z.string(), projectKey: z.string(), projectName: z.string(), name: z.string(), date: z.string(), overdue: z.boolean() })) }),
   z.object({ type: z.literal("count"), value: z.number() }),
   z.object({
     type: z.literal("breakdown"),
