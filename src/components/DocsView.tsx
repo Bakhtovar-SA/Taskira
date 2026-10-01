@@ -62,9 +62,9 @@ function DocsEnglish() {
     { id: "attachments", title: "8 · Attachments", body: <>Attachments are stored outside the database and downloaded through an authenticated API. File size and type are validated. Users who may comment can upload files; owners and users with delete permission can remove them.</> },
     { id: "departments", title: "9 · Teams and LDAP", body: <>Teams group projects. A project is visible to its team's members; shared projects are visible to everyone. In LDAP mode, team membership can be synchronized from configured directory groups; manually added memberships remain manageable in Taskira.</> },
     { id: "reports", title: "10 · Reports", body: <>Reports summarize created, closed, open, and overdue issues and lead time for a selected date range. Results can be grouped by project, assignee, type, or priority and exported as CSV.</> },
-    { id: "dashboards", title: "11 · Dashboards", body: <>«Dashboards» opens the built-in organization overview across every project you can see; «Save as my own» makes an editable copy. You can build personal dashboards from widgets (numbers, breakdowns, trends, issue lists, workload, project progress, activity); administrators can share a dashboard with the whole organization. Each project has an «Overview» tab that managers can arrange. Everyone sees data only from the projects they have access to.</> },
+    { id: "dashboards", title: "11 · Dashboards", body: <>«Dashboards» opens the built-in organization overview across every project you can see; «Save as my own» makes an editable copy. You can build personal dashboards from widgets (project health, upcoming milestones, projects, numbers, breakdowns, trends, issue lists, workload, project progress, activity); administrators can share a dashboard with the whole organization. Each project has an «Overview» tab that managers can arrange. Everyone sees data only from the projects they have access to.</> },
     { id: "home", title: "12 · Home", body: <>Home shows assigned and overdue work, available projects, and recent activity. Selecting a project loads its data and opens the last relevant working view.</> },
-    { id: "hotkeys", title: "13 · Keyboard shortcuts", body: <><Code>/</Code> searches issues, <Code>C</Code> opens issue creation, <Code>1</Code>–<Code>4</Code> switch project views, <Code>G</Code> then a letter jumps to a section (<Code>H</Code> home, <Code>I</Code> inbox, <Code>M</Code> my issues, <Code>R</Code> reports, <Code>D</Code> dashboards, <Code>O</Code> project overview, <Code>S</Code> project settings), <Code>Ctrl</Code>+<Code>K</Code> opens the command palette, <Code>?</Code> lists all shortcuts, and <Code>Escape</Code> closes dialogs or leaves board selection. In editable fields, standard typing shortcuts keep their browser behavior.</> },
+    { id: "hotkeys", title: "13 · Keyboard shortcuts", body: <><Code>/</Code> searches issues, <Code>C</Code> opens issue creation, <Code>1</Code>–<Code>4</Code> switch Board, List, Timeline and Sprints; <Code>5</Code> opens Calendar (month/week, drag to change due date, M to pick a date), <Code>G</Code> then a letter jumps to a section (<Code>H</Code> home, <Code>I</Code> inbox, <Code>M</Code> my issues, <Code>R</Code> reports, <Code>D</Code> dashboards, <Code>O</Code> project overview, <Code>S</Code> project settings), <Code>Ctrl</Code>+<Code>K</Code> opens the command palette, <Code>?</Code> lists all shortcuts, and <Code>Escape</Code> closes dialogs or leaves board selection. In editable fields, standard typing shortcuts keep their browser behavior.</> },
     { id: "model", title: "14 · Data model", body: <>Core entities are users, teams (departments in the API), projects, project members, issues, assignees, collaborators, statuses, transitions, comments, activity, checklist items, issue links, templates, custom fields, sprints, notifications, and attachments. Foreign keys and server-side permission checks protect cross-project boundaries.</> },
     { id: "storage", title: "15 · Storage and sessions", body: <>PostgreSQL stores application data; configured object storage stores attachments and avatars. The signed session is sent in an HttpOnly, SameSite cookie and checked against a server-side session version, so logout and role changes revoke older sessions. Local storage contains interface preferences only.</> },
   ];
@@ -137,6 +137,7 @@ export default function DocsView() {
                 <li>• <b className="text-ink">Список задач</b> — плоский перечень всех задач проекта с фильтрами и сортировкой.</li>
                 <li>• <b className="text-ink">Спринты</b> — опциональный модуль (см. раздел 6); включается администратором отдельно на каждый проект.</li>
                 <li>• <b className="text-ink">Таймлайн</b> — дорожная карта направлений с прогрессом и линией «сегодня».</li>
+                <li>• <b className="text-ink">Календарь</b> — задачи по срокам, месяц или неделя; перенос меняет срок, «Без срока» снимает его. Клавиша 5 открывает календарь, M на задаче — выбор срока.</li>
                 <li>• <b className="text-ink">Отчёты</b> — агрегаты по закрытым/созданным задачам и выгрузка в CSV (см. раздел 10).</li>
                 <li>• <b className="text-ink">Рабочий процесс</b> — граф статусов и переходов; редактируется администратором.</li>
                 <li>• <b className="text-ink">Права доступа</b> — матрица разрешений и смена пользователя для проверки ролей.</li>
@@ -370,7 +371,7 @@ export default function DocsView() {
               <H>11 · Дашборды</H>
               <P>
                 Раздел «Дашборды» открывается встроенным «Обзором организации» по всем видимым проектам; «Сохранить как свой» делает
-                копию, которую можно менять. Свои дашборды собираются из виджетов: числа, разбивки, тренд, списки задач, нагрузка,
+                копию, которую можно менять. Обзор начинается с состояния проектов, ближайших вех и таблицы портфеля. Свои дашборды собираются из виджетов: числа, разбивки, тренд, списки задач, нагрузка,
                 прогресс проектов, активность. Администратор может сделать дашборд общим для всей организации. У каждого проекта
                 есть вкладка «Обзор», её собирает менеджер. Данные каждый видит только по проектам, к которым у него есть доступ.
               </P>
@@ -394,7 +395,7 @@ export default function DocsView() {
                   {[
                     ["Поиск по задачам", "/"],
                     ["Создать задачу", "C"],
-                    ["Виды проекта: доска, список, таймлайн, спринты", "1 – 4"],
+                    ["Виды проекта: доска, список, таймлайн, спринты, календарь", "1 – 5"],
                     ["Перейти: главная, входящие, мои, отчёты, дашборды, обзор, настройки проекта", "G, затем H / I / M / R / D / O / S"],
                     ["Палитра команд", "Ctrl + K"],
                     ["Все сочетания", "?"],

@@ -72,6 +72,7 @@ interface Api {
   openCollabIssue: (issueId: string) => void;
   setCreateOpen: (v: boolean) => void;
   openCreateSubtask: (parentId: string) => void;
+  openCreate: (input: { dueDate: string }) => void;
   toast: (kind: Toast["kind"], text: string) => void;
   createIssue: (input: CreateInput) => void;
   importIssues: (
@@ -182,6 +183,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     issueMode: "panel",
     createOpen: false,
     createParentId: null,
+    createDueDate: null,
     lastEvent: null,
     collabOpenIssueId: null,
     missing: null,
@@ -465,8 +467,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       viewTransition(() =>
         setUi((u) => ({ ...u, view: "collaborating", section: "", selectedIssueId: null, issueMode: "panel", missing: null, collabOpenIssueId: issueId })),
       ),
-    setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v, createParentId: null })),
-    openCreateSubtask: (parentId: string) => setUi((u) => ({ ...u, createOpen: true, createParentId: parentId })),
+    setCreateOpen: (v) => setUi((u) => ({ ...u, createOpen: v, createParentId: null, createDueDate: null })),
+    openCreateSubtask: (parentId: string) => setUi((u) => ({ ...u, createOpen: true, createParentId: parentId, createDueDate: null })),
+    openCreate: ({ dueDate }) => setUi((u) => ({ ...u, createOpen: true, createParentId: null, createDueDate: dueDate })),
     toast,
     createIssue,
     importIssues,

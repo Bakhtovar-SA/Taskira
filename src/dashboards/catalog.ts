@@ -10,12 +10,15 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 
 export interface CatalogItem {
   key: string;
-  group: "numbers" | "breakdowns" | "trends" | "lists" | "team";
+  group: "numbers" | "breakdowns" | "trends" | "lists" | "team" | "projects";
   titleKey: TKey;
   make: () => WidgetDraft;
 }
 
 export const CATALOG: CatalogItem[] = [
+  { key: "projects", group: "projects", titleKey: "dash.w.projects", make: () => ({ type: "projects", limit: 10, w: 12, h: 5 }) },
+  { key: "projectHealth", group: "projects", titleKey: "dash.w.projectHealth", make: () => ({ type: "projectHealth", w: 4, h: 4 }) },
+  { key: "milestones", group: "projects", titleKey: "dash.w.milestones", make: () => ({ type: "milestones", periodDays: 30, w: 8, h: 4 }) },
   { key: "count-open", group: "numbers", titleKey: "dash.w.count.open", make: () => ({ type: "count", metric: "open", periodDays: 30, w: 3, h: 2 }) },
   { key: "count-overdue", group: "numbers", titleKey: "dash.w.count.overdue", make: () => ({ type: "count", metric: "overdue", periodDays: 30, w: 3, h: 2 }) },
   { key: "count-dueSoon", group: "numbers", titleKey: "dash.w.count.dueSoon", make: () => ({ type: "count", metric: "dueSoon", periodDays: 30, w: 3, h: 2 }) },
@@ -40,6 +43,7 @@ export const CATALOG: CatalogItem[] = [
 ];
 
 export const CATALOG_GROUPS: { id: CatalogItem["group"]; labelKey: TKey }[] = [
+  { id: "projects", labelKey: "dash.group.projects" },
   { id: "numbers", labelKey: "dash.group.numbers" },
   { id: "breakdowns", labelKey: "dash.group.breakdowns" },
   { id: "trends", labelKey: "dash.group.trends" },
@@ -99,20 +103,20 @@ export const ORG_OVERVIEW_ID = "overview";
 
 /** Встроенный обзор организации: всё по проектам, которые видит смотрящий, без хранения на сервере. */
 export const DEFAULT_ORG_OVERVIEW: Widget[] = [
-  make("count-open", at(0, 0)),
-  make("count-overdue", at(3, 0)),
-  make("count-unassigned", at(6, 0)),
-  make("count-closed", at(9, 0)),
-  make("trend", at(0, 2)),
-  make("by-status", at(8, 2)),
-  make("by-project", at(0, 6)),
-  make("progress", at(6, 6)),
-  make("workload", at(0, 10)),
-  make("activity", at(6, 10), { w: 6, h: 4 }),
+  make("projectHealth", at(0, 0)),
+  make("milestones", at(4, 0)),
+  make("projects", at(0, 4)),
+  make("progress", at(0, 9)),
+  make("by-project", at(6, 9)),
+  make("trend", at(0, 13), { w: 12 }),
 ];
+/** New selections on a project overview; persisted older widgets still render. */
+export const catalogFor = (project: boolean) => CATALOG.filter(c => !project || !["projects", "projectHealth", "by-project", "progress"].includes(c.key));
+export const projectOverview = (hasMilestones: boolean): Widget[] => hasMilestones ? [...DEFAULT_PROJECT_OVERVIEW, make("milestones", at(0, 14), { w: 12 })] : DEFAULT_PROJECT_OVERVIEW;
 
 /** С чего начать новый дашборд. */
 export const DASHBOARD_TEMPLATES: { id: string; nameKey: TKey; descKey: TKey; widgets: () => Widget[] }[] = [
+  { id: "portfolio", nameKey: "dash.tpl.portfolio", descKey: "dash.tpl.portfolioDesc", widgets: () => DEFAULT_ORG_OVERVIEW.map(w => ({ ...w })) },
   {
     id: "mine",
     nameKey: "dash.tpl.mine",

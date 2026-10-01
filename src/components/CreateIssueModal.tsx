@@ -49,7 +49,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
     const id = setTimeout(scroll, 350); // после загрузки «недавних» панель вырастает
     return () => clearTimeout(id);
   }, [dirOpen]);
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(ui.createDueDate ?? "");
   const [labels, setLabels] = useState<string[]>([]);
   const [labelDraft, setLabelDraft] = useState("");
   const [checklistItems, setChecklistItems] = useState<string[]>([]);

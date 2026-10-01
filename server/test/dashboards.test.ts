@@ -1,7 +1,8 @@
 /** Дашборды (ADR-0022): личные, общие, обзор проекта и данные виджетов под видимостью смотрящего. */
 import type { FastifyInstance } from "fastify";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { LIMITS } from "../src/contract.js";
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { DashboardDataDto, LIMITS } from "../src/contract.js";
+import * as widgetService from "../src/services/dashboardData.js";
 import { DATA_IN_FLIGHT_PER_USER, acquireDataSlot, releaseDataSlot } from "../src/routes/dashboards.js";
 import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
@@ -123,6 +124,49 @@ describe("личные и общие дашборды", () => {
 
 describe("данные виджетов — только видимые проекты", () => {
   const data = (token: string, widgets: unknown[], projectId?: string) => req("POST", "/api/dashboards/data", token, { widgets, projectId });
+  const portfolioWidgets = [
+    { id: "projects", type: "projects", limit: 10, x: 0, y: 0, w: 12, h: 4 },
+    { id: "health", type: "projectHealth", x: 0, y: 4, w: 4, h: 4 },
+    { id: "milestones", type: "milestones", periodDays: 30, x: 4, y: 4, w: 8, h: 4 },
+  ];
+  test("portfolio widgets scope projects and milestones by visibility and count archived done issues", async () => {
+    await q(`INSERT INTO project_milestones (project_id, name, date) VALUES ($1, 'overdue', CURRENT_DATE - 1), ($1, 'soon', CURRENT_DATE + 7), ($1, 'far', CURRENT_DATE + 31), ($2, 'secret', CURRENT_DATE)`, [fx.projects.p1, fx.projects.p2]);
+    await q(`UPDATE issues SET status_id = (SELECT id FROM workflow_statuses WHERE project_id = $1 AND sid = 'done'), archived_at = now() WHERE id = $2`, [fx.projects.p1, fx.issues.p1issue]);
+    const emp = await login(app, "emp1");
+    const response = await data(emp, portfolioWidgets);
+    expect(response.statusCode).toBe(200);
+    const r = DashboardDataDto.parse(body(response)).results;
+    expect(r.projects).toMatchObject({ type: "projects", items: [{ projectId: fx.projects.p1, total: 1, open: 0, health: "completed" }] });
+    if (r.projects.type === "projects") expect(r.projects.items).toHaveLength(1);
+    expect(r.health).toEqual({ type: "projectHealth", items: [{ health: "completed", count: 1 }, { health: "overdue", count: 0 }, { health: "atRisk", count: 0 }, { health: "onTrack", count: 0 }, { health: "noDate", count: 0 }] });
+    if (r.health.type === "projectHealth") expect(r.health.items.reduce((sum, h) => sum + h.count, 0)).toBe(1);
+    if (r.milestones.type === "milestones") expect(r.milestones.items.map(m => m.name)).toEqual(["overdue", "soon"]);
+    const scoped = DashboardDataDto.parse(body(await data(emp, portfolioWidgets.map(w => ({ ...w, projectId: fx.projects.p2 }))))).results;
+    for (const w of Object.values(scoped)) expect(w).toMatchObject({ items: [] });
+    const admin = await login(app, "admin");
+    const all = DashboardDataDto.parse(body(await data(admin, portfolioWidgets))).results;
+    if (all.projects.type === "projects") expect(all.projects.items).toHaveLength(2);
+    if (all.milestones.type === "milestones") expect(all.milestones.items.some(m => m.name === "secret")).toBe(true);
+    const overview = DashboardDataDto.parse(body(await data(admin, portfolioWidgets, fx.projects.p1))).results;
+    if (overview.projects.type === "projects") expect(overview.projects.items).toHaveLength(1);
+  });
+  test("one failing portfolio widget leaves the other widgets available", async () => {
+    const original = widgetService.widgetData;
+    const spy = vi.spyOn(widgetService, "widgetData").mockImplementation(async (w, ids, user) => {
+      if (w.type === "milestones") throw new Error("test widget failure");
+      return original(w, ids, user);
+    });
+    try {
+      const emp = await login(app, "emp1");
+      const r = DashboardDataDto.parse(body(await data(emp, portfolioWidgets))).results;
+      expect(r.milestones).toEqual({ type: "error" });
+      expect(r.projects.type).toBe("projects"); expect(r.health.type).toBe("projectHealth");
+    } finally { spy.mockRestore(); }
+  });
+  test.each([{ type: "projects", limit: 4 }, { type: "projects", limit: 51 }, { type: "milestones", periodDays: 6 }, { type: "milestones", periodDays: 181 }])("portfolio bounds are validated: %j", async (settings) => {
+    const emp = await login(app, "emp1");
+    expect((await data(emp, [{ ...portfolioWidgets[0], ...settings }])).statusCode).toBe(400);
+  });
 
   test("чужой проект в настройках виджета даёт пустые данные, а не чужие цифры", async () => {
     const emp = await login(app, "emp1");

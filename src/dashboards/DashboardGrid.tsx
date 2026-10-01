@@ -183,9 +183,9 @@ export function WidgetFrame({
         className={`flex items-center gap-2 px-3.5 pb-1 pt-3 ${editing ? "cursor-grab active:cursor-grabbing" : ""}`}
       >
         {editing && <IcMove size={13} className="shrink-0 text-faint" />}
-        <h3 className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-sub" title={title}>
+        <h2 className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-sub" title={title}>
           {title}
-        </h3>
+        </h2>
         {hint && <span className="shrink-0 truncate text-[11px] text-faint">{hint}</span>}
         {editing && onConfigure && (
           <button type="button" onClick={(e) => onConfigure(e.currentTarget)} className="grid h-6 w-6 place-items-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("dash.configure", { name: title })} title={t("dash.configureShort")}>

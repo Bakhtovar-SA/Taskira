@@ -98,6 +98,7 @@ export interface UIState {
    *  создание. Сбрасывается setCreateOpen(true); ставится только
    *  openCreateSubtask(). */
   createParentId: string | null;
+  createDueDate: string | null;
   lastEvent: { issueId: string; ts: number } | null;
   /** Задача, на которую вела прямая ссылка /p/:projectKey/issue/:issueKey (ТЗ 3.1), но
    *  которая оказалась приглашённой (issue collaborator), а не в открытом проекте —

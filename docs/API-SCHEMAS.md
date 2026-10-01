@@ -201,6 +201,7 @@
 | `q` | string | необязательное; длина 0…120 |
 | `dueFrom` | string | необязательное |
 | `dueTo` | string | необязательное |
+| `dueEmpty` | `"1"` | необязательное |
 | `overdue` | enum: `1` \| `true` | необязательное |
 | `closed` | enum: `hide` \| `recent` \| `older` | необязательное |
 | `closedDays` | integer | необязательное; по умолчанию 14; 1…3650 |
@@ -249,6 +250,7 @@
 | `q` | string | необязательное; длина 0…120 |
 | `dueFrom` | string | необязательное |
 | `dueTo` | string | необязательное |
+| `dueEmpty` | `"1"` | необязательное |
 | `overdue` | enum: `1` \| `true` | необязательное |
 | `closed` | enum: `hide` \| `recent` \| `older` | необязательное |
 | `closedDays` | integer | необязательное; по умолчанию 14; 1…3650 |
@@ -304,6 +306,7 @@
 | `q` | string | необязательное; длина 0…120 |
 | `dueFrom` | string | необязательное |
 | `dueTo` | string | необязательное |
+| `dueEmpty` | `"1"` | необязательное |
 | `overdue` | enum: `1` \| `true` | необязательное |
 | `closed` | enum: `hide` \| `recent` \| `older` | необязательное |
 | `closedDays` | integer | необязательное; по умолчанию 14; 1…3650 |

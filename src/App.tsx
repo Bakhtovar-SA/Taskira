@@ -25,6 +25,7 @@ import { pushRecent } from "./palette/recent";
 const Backlog = lazy(() => import("./components/Backlog"));
 const SprintsView = lazy(() => import("./components/SprintsView"));
 const TimelineView = lazy(() => import("./components/TimelineView"));
+const CalendarView = lazy(() => import("./components/CalendarView"));
 const ReportsView = lazy(() => import("./components/ReportsView"));
 const RoadmapView = lazy(() => import("./components/RoadmapView"));
 const DashboardView = lazy(() => import("./components/DashboardView"));
@@ -252,7 +253,7 @@ function Shell() {
         gPending.current = Date.now();
         return;
       }
-      const map: Record<string, ViewId> = { "1": "board", "2": "backlog", "3": "timeline" };
+      const map: Record<string, ViewId> = { "1": "board", "2": "backlog", "3": "timeline", "5": "calendar" };
       if (data.project.sprintsEnabled) map["4"] = "sprints";
       if (map[e.key]) setView(map[e.key]);
     };
@@ -312,6 +313,7 @@ function Shell() {
             {ui.view === "backlog" && <Backlog />}
             {ui.view === "sprints" && <SprintsView />}
             {ui.view === "timeline" && <TimelineView />}
+            {ui.view === "calendar" && <CalendarView />}
             {ui.view === "reports" && <ReportsView />}
             {ui.view === "roadmap" && <RoadmapView />}
             {ui.view === "dashboards" && <DashboardView mode="org" />}

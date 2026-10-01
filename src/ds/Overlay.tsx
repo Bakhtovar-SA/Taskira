@@ -66,9 +66,15 @@ export function Popover({
     [openProp, onOpenChange],
   );
   const [id] = useState(() => dsId("pop"));
+  // A lazy Tooltip can replace its fallback button while the menu is already open.
+  // React refs alone do not restart positioning: observe the DOM identity too.
+  const [anchorElement, setAnchorElement] = useState<HTMLButtonElement | null>(null);
   const anchor = useRef<HTMLButtonElement>(null);
+  const setAnchor = useCallback((el: HTMLButtonElement | null) => {
+    anchor.current = el;
+    setAnchorElement(el);
+  }, []);
   const pop = useRef<HTMLDivElement>(null);
-  useAnchored(anchor, pop, open, { placement, matchWidth });
 
   useLayoutEffect(() => {
     const el = pop.current;
@@ -85,6 +91,7 @@ export function Popover({
       hidePop(el);
     };
   }, [open, initialFocus, setOpen]);
+  useAnchored(anchor, pop, open, { placement, matchWidth, anchorElement });
 
   const close = useCallback(() => {
     setOpen(false);
@@ -94,7 +101,7 @@ export function Popover({
   return (
     <>
       {trigger(
-        { ref: anchor, onClick: () => setOpen(!open), "aria-expanded": open, "aria-haspopup": role, "aria-controls": id },
+        { ref: setAnchor, onClick: () => setOpen(!open), "aria-expanded": open, "aria-haspopup": role, "aria-controls": id },
         open,
       )}
       {open && (

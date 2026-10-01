@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { StoreProvider, useStore } from "./store";
 
 /**
@@ -45,6 +45,7 @@ const API_KEYS = [
   "me",
   "moveStatus",
   "openCollabIssue",
+  "openCreate",
   "openCreateSubtask",
   "openIssue",
   "patchProject",
@@ -98,6 +99,19 @@ function Probe({ onKeys }: { onKeys: (keys: string[]) => void }) {
 afterEach(() => cleanup());
 
 describe("публичный API стора", () => {
+  test("calendar creation prefills a date; ordinary creation and subtasks clear it", () => {
+    let api: ReturnType<typeof useStore>;
+    function Grab() { api = useStore(); return null; }
+    render(<StoreProvider><Grab /></StoreProvider>);
+    act(() => api.openCreate({ dueDate: "2026-10-02" }));
+    expect(api!.ui.createDueDate).toBe("2026-10-02"); expect(api!.ui.createParentId).toBeNull();
+    act(() => api.setCreateOpen(false));
+    act(() => api.setCreateOpen(true));
+    expect(api!.ui.createDueDate).toBeNull();
+    act(() => api.openCreate({ dueDate: "2026-10-03" }));
+    act(() => api.openCreateSubtask("i1"));
+    expect(api!.ui.createDueDate).toBeNull(); expect(api!.ui.createParentId).toBe("i1");
+  });
   test("useStore() отдаёт ровно зафиксированный набор полей", () => {
     let keys: string[] = [];
     render(

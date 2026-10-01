@@ -1,11 +1,13 @@
 import { Button } from "../ds/Button";
 import { EmptyState } from "../ds/Display";
+import { Progress, Tag } from "../ds";
+import { useLocation } from "wouter";
 import { PersonAvatar } from "../components/settings/parts";
 /** Содержимое виджетов дашборда (ADR-0022): по одному компоненту на тип, данные — из POST /api/dashboards/data.
  *  Здесь только отрисовка; где открыть задачу или список, решает DashboardView через `WidgetNav`. */
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useT, type TKey } from "../i18n";
-import type { WidgetDataDto } from "../api";
+import { roadmapApi, type WidgetDataDto } from "../api";
 import { useStore } from "../store";
 import { relTime } from "../store/mappers";
 import { activityLine } from "../activityText";
@@ -14,6 +16,51 @@ import { lookOf } from "../projectLook";
 import { DueRing, IcCheck, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { BarList, Donut, Legend, Lines, Meter, OTHER_COLOR, StackedRow, chartColor, type Part } from "./charts";
 import type { Widget } from "./catalog";
+
+const HEALTH_TONE = { completed: "green", overdue: "red", atRisk: "amber", onTrack: "blue", noDate: "gray" } as const;
+const HEALTH_COLOR = { completed: "var(--status-done)", overdue: "var(--status-danger)", atRisk: "var(--status-warn)", onTrack: "var(--status-progress)", noDate: "var(--status-todo)" };
+function ProjectsBody({ data, nav }: { data: Data<"projects">; nav: WidgetNav }) {
+  const { t } = useT();
+  const { data: store } = useStore();
+  if (!data.items.length) return <Empty text={t("portfolio.empty")} />;
+  return <div className="h-full overflow-auto"><table className="w-full text-left text-[12px]">
+    <thead className="text-faint"><tr>{["dash.w.projects", "portfolio.team", "portfolio.progress", "portfolio.open", "portfolio.overdue", "portfolio.target", "portfolio.health"].map(k => <th key={k} className="px-2 pb-2 font-medium">{t(k as TKey)}</th>)}</tr></thead>
+    <tbody>{data.items.map(p => <tr key={p.projectId} className="border-t border-linesoft">
+      <td className="px-2 py-2"><Button size="sm" variant="ghost" onClick={() => nav.openProject(p.projectId)}><span className="flex items-center gap-2"><ProjectMark projectKey={p.key} {...lookOf(store.projects, p.projectId)} size={16} />{p.name}</span></Button></td>
+      <td className="px-2">{p.team}</td><td className="min-w-24 px-2"><Progress value={p.total ? (p.total - p.open) / p.total * 100 : 0} label={`${p.name}: ${t("portfolio.progress")}`} /><span>{p.total ? Math.round((p.total - p.open) / p.total * 100) : 0}%</span></td>
+      <td className="px-2 tabular">{p.open}</td><td className="px-2 tabular">{p.overdue}</td><td className="whitespace-nowrap px-2">{p.targetDate ?? "—"}</td>
+      <td className="px-2"><Tag tone={HEALTH_TONE[p.health]} dot>{t(`health.${p.health}`)}</Tag></td>
+    </tr>)}</tbody>
+  </table></div>;
+}
+function HealthBody({ data }: { data: Data<"projectHealth"> }) {
+  const { t } = useT();
+  const parts = data.items.map(i => ({ key: i.health, label: t(`health.${i.health}`), value: i.count, color: HEALTH_COLOR[i.health] }));
+  return <Donut parts={parts} total={data.items.reduce((s, i) => s + i.count, 0)} centerLabel={t("dash.w.projects")} />;
+}
+function MilestonesBody({ data }: { data: Data<"milestones"> }) {
+  const { t, lang } = useT();
+  const store = useStore();
+  const [, navigate] = useLocation();
+  const [editable, setEditable] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    let alive = true;
+    roadmapApi.get().then(r => { if (alive) setEditable(new Set(r.projects.filter(p => p.canEdit).map(p => p.id))); }, () => {});
+    return () => { alive = false; };
+  }, []);
+  if (!data.items.length) return <Empty text={t("portfolio.empty")} />;
+  const open = (projectId: string) => {
+    const key = store.data.projects.find(p => p.id === projectId)?.key;
+    const canEdit = projectId === store.data.currentProjectId ? store.can("editRoadmap") : editable.has(projectId);
+    navigate(canEdit && key ? `/p/${encodeURIComponent(key)}/settings/roadmap` : "/roadmap");
+  };
+  return <ul className="h-full space-y-1 overflow-y-auto">{data.items.map(m => <li key={m.id}>
+    <Button size="sm" variant="ghost" onClick={() => open(m.projectId)} className="w-full text-left [&>span.truncate]:w-full">
+      <span className="flex items-center gap-3"><span className={`shrink-0 tabular ${m.overdue ? "text-danger" : "text-sub"}`}>{new Date(`${m.date}T12:00:00`).toLocaleDateString(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "short" })}</span>
+        <span className="min-w-0 flex-1 truncate">{m.name}</span><span className="text-faint">{m.projectKey}</span></span>
+    </Button>
+  </li>)}</ul>;
+}
 
 type Data<T extends WidgetDataDto["type"]> = Extract<WidgetDataDto, { type: T }>;
 
@@ -248,6 +295,9 @@ export function WidgetBody({ w, data, nav, projectId, height }: { w: Widget; dat
   if (data.type === "error") return <Empty text={t("dash.widgetFailed")} />;
   if (data.type !== w.type) return null;
   switch (w.type) {
+    case "projects": return <ProjectsBody data={data as Data<"projects">} nav={nav} />;
+    case "projectHealth": return <HealthBody data={data as Data<"projectHealth">} />;
+    case "milestones": return <MilestonesBody data={data as Data<"milestones">} />;
     case "count":
       return <CountBody w={w} data={data as Data<"count">} projectId={projectId} nav={nav} />;
     case "breakdown":

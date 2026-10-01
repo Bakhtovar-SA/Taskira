@@ -25,16 +25,12 @@ if (!adminUser || !adminPassword) throw new Error("PERF_ADMIN_USER and PERF_ADMI
 
 const W = (id, type, x, y, w, h, extra = {}) => ({ id, type, x, y, w, h, ...extra });
 const ORG_OVERVIEW = [
-  W("count-open", "count", 0, 0, 3, 2, { metric: "open", periodDays: 30 }),
-  W("count-overdue", "count", 3, 0, 3, 2, { metric: "overdue", periodDays: 30 }),
-  W("count-unassigned", "count", 6, 0, 3, 2, { metric: "unassigned", periodDays: 30 }),
-  W("count-closed", "count", 9, 0, 3, 2, { metric: "closed", periodDays: 30 }),
-  W("trend", "trend", 0, 2, 8, 4, { periodDays: 90 }),
-  W("by-status", "breakdown", 8, 2, 4, 4, { groupBy: "status", chart: "donut" }),
-  W("by-project", "breakdown", 0, 6, 6, 4, { groupBy: "project", chart: "bars" }),
-  W("progress", "progress", 6, 6, 6, 4, { limit: 10 }),
-  W("workload", "workload", 0, 10, 6, 4, { limit: 8 }),
-  W("activity", "activity", 6, 10, 6, 4, { limit: 10 }),
+  W("projectHealth", "projectHealth", 0, 0, 4, 4),
+  W("milestones", "milestones", 4, 0, 8, 4, { periodDays: 30 }),
+  W("projects", "projects", 0, 4, 12, 5, { limit: 10 }),
+  W("progress", "progress", 0, 9, 6, 4, { limit: 10 }),
+  W("by-project", "breakdown", 6, 9, 6, 4, { groupBy: "project", chart: "bars" }),
+  W("trend", "trend", 0, 13, 12, 4, { periodDays: 90 }),
 ];
 const PROJECT_OVERVIEW = [
   W("count-open", "count", 0, 0, 3, 2, { metric: "open", periodDays: 30 }),
@@ -50,6 +46,9 @@ const PROJECT_OVERVIEW = [
 ];
 /** Все типы и варианты из каталога — по одному запросу на виджет. */
 const SINGLE = [
+  W("projects", "projects", 0, 0, 12, 5, { limit: 50 }),
+  W("projectHealth", "projectHealth", 0, 0, 4, 4),
+  W("milestones", "milestones", 0, 0, 8, 4, { periodDays: 30 }),
   ...["open", "overdue", "dueSoon", "unassigned", "closed", "created"].map((m) => W(`count-${m}`, "count", 0, 0, 3, 2, { metric: m, periodDays: 30 })),
   ...["status", "assignee", "priority", "type", "project"].map((g) => W(`by-${g}`, "breakdown", 0, 0, 6, 4, { groupBy: g, chart: "bars" })),
   W("trend-90", "trend", 0, 0, 8, 4, { periodDays: 90 }),

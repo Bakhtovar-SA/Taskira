@@ -1,0 +1,51 @@
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { I18nProvider } from "../i18n";
+import { neighborIssue } from "../issueNav";
+import type { Issue } from "../types";
+const { store, queries, range } = vi.hoisted(() => {
+  const items = [1, 2, 3, 4, 5].map(n => ({ id: `i${n}`, key: `TEST-${n}`, title: `Issue ${n}`, dueDate: n < 5 ? "2026-10-01" : "2026-10-02", statusId: "s1", priorityId: "medium", typeId: "task", reporterId: "u1", assigneeIds: [] })) as unknown as Issue[];
+  const store = { data: { currentProjectId: "p1", workflow: { statuses: [{ id: "s1", category: "todo" }] }, users: [] }, idx: { users: new Map() }, me: { id: "u1", accessRole: "admin" }, can: vi.fn(() => true), updateIssue: vi.fn(), openCreate: vi.fn(), openIssue: vi.fn() };
+  const range = { items, loading: false, loadingMore: false, hasMore: false, error: null, loadMore: vi.fn(), revalidate: vi.fn(), reload: vi.fn() };
+  return { store, queries: vi.fn(), range };
+});
+vi.mock("../store", () => ({ useStore: () => store }));
+vi.mock("../issuePages", () => ({ useDebounced: (v: string) => v, useIssuesRevision: () => "0", useOnRevision: () => {}, useIssueSet: (q: unknown) => { queries(q); return q ? range : { ...range, items: [] }; } }));
+import CalendarView from "./CalendarView";
+const show = () => render(<I18nProvider><main><CalendarView /></main></I18nProvider>);
+beforeEach(() => { vi.clearAllMocks(); vi.useRealTimers(); localStorage.clear(); store.can.mockReturnValue(true); });
+afterEach(() => { cleanup(); vi.useRealTimers(); });
+test("requests visible dates, creation prefills the date, drop updates dueDate", async () => {
+  vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+  show();
+  expect(queries).toHaveBeenCalledWith(expect.objectContaining({ filters: expect.objectContaining({ dueFrom: "2026-09-28", dueTo: "2026-11-08" }) }));
+  const cell = document.querySelector<HTMLElement>('[data-day="2026-10-02"]')!;
+  fireEvent.click(cell.querySelector('button[aria-label="Создать задачу в этот день"]')!);
+  expect(store.openCreate).toHaveBeenCalledWith({ dueDate: "2026-10-02" });
+  fireEvent.drop(cell, { dataTransfer: { getData: () => "i1" } });
+  expect(store.updateIssue).toHaveBeenCalledWith("i1", { dueDate: "2026-10-02" });
+  fireEvent.keyDown(cell, { key: "Enter" });
+  expect(store.openCreate).toHaveBeenCalledTimes(2);
+});
+test("read-only plates are not draggable and forged drop does not mutate", () => {
+  vi.setSystemTime(new Date("2026-10-01T12:00:00Z")); store.can.mockReturnValue(false); show();
+  const card = document.querySelector<HTMLElement>('[data-issue-id="i1"]')!;
+  expect(card.getAttribute("draggable")).toBe("false");
+  fireEvent.drop(document.querySelector('[data-day="2026-10-02"]')!, { dataTransfer: { getData: () => "i1" } });
+  expect(store.updateIssue).not.toHaveBeenCalled();
+  fireEvent.keyDown(card, { key: "m" });
+  expect(screen.queryByRole("textbox", { name: "Срок", hidden: true })).toBeNull();
+});
+test("DOM issue order and J/K match the days in month and scrolling week cells", async () => {
+  vi.setSystemTime(new Date("2026-10-01T12:00:00Z")); show();
+  expect([...document.querySelectorAll('[data-issue-id]')].map(el => (el as HTMLElement).dataset.issueId)).toEqual(["i1", "i2", "i3", "i4", "i5"]);
+  expect(neighborIssue("i3", 1)).toBe("i4"); expect(neighborIssue("i4", 1)).toBe("i5");
+  fireEvent.click(screen.getByRole("tab", { name: "Неделя" }));
+  expect(screen.getAllByRole("gridcell")).toHaveLength(7);
+  expect(neighborIssue("i5", -1)).toBe("i4");
+  const card = document.querySelector('[data-issue-id="i1"]')!;
+  fireEvent.click(card); expect(store.openIssue).toHaveBeenCalledWith("i1", "panel");
+  fireEvent.keyDown(card, { key: "m" });
+  await act(async () => {});
+  expect(screen.getByRole("textbox", { name: "Срок", hidden: true })).toBeTruthy();
+});

@@ -22,6 +22,7 @@ export const VIEW_LABEL: Record<ViewId, TKey> = {
   backlog: "sidebar.nav.backlog",
   sprints: "sidebar.nav.sprints",
   timeline: "sidebar.nav.timeline",
+  calendar: "calendar.title",
   reports: "sidebar.nav.reports",
   roadmap: "sidebar.nav.roadmap",
   dashboards: "sidebar.nav.dashboards",
@@ -599,7 +600,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
 
       {/* Шапка проекта (ADR-0013 §2.2): значок и переключатель проекта, рядом —
           вкладки представлений. На экранах вне представлений — крошка раздела. */}
-      <nav className="flex min-w-0 items-center gap-0.5 text-[13px] text-faint">
+      <nav aria-label={t("calendar.breadcrumbs")} className="flex min-w-0 items-center gap-0.5 text-[13px] text-faint">
         <span className="hidden sm:flex">
           <ProjectMark projectKey={data.project.key} {...lookOf(data.projects, data.currentProjectId)} size={20} />
         </span>
@@ -609,7 +610,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
         {isProjectView ? (
           <div className="md:ml-2">
             <Tabs<ViewId> label={t("topbar.viewsAria")} value={ui.view} onChange={(v) => setView(v)}
-              items={views.map((v) => ({ id: v.id, icon: v.icon({ size: 14, tone: ui.view === v.id ? v.tone : undefined }), label: <span className={ui.view === v.id ? "max-sm:sr-only" : "max-lg:sr-only"}>{t(v.labelKey)}</span> }))} />
+              items={views.map((v) => ({ id: v.id, icon: v.icon({ size: 14, tone: ui.view === v.id ? v.tone : undefined }), label: <span className={ui.view === v.id ? "max-sm:sr-only" : "max-2xl:sr-only"}>{t(v.labelKey)}</span> }))} />
           </div>
         ) : (
           <>

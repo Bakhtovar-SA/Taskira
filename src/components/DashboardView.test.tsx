@@ -88,14 +88,14 @@ describe("обзор проекта", () => {
     await show("project");
     fireEvent.click(screen.getByRole("button", { name: "Изменить" }));
     fireEvent.click(screen.getByRole("button", { name: "Добавить виджет" }));
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Прогресс проектов" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Ближайшие вехи" }));
     const tile = document.querySelector<HTMLElement>('[data-widget="count-open"]')!;
     tile.focus();
     fireEvent.keyDown(tile, { key: "Delete" });
     fireEvent.click(screen.getByRole("button", { name: "Готово" }));
     await settle();
     const saved = api.saveOverview.mock.calls[0][1];
-    expect(saved.some((w) => w.type === "progress")).toBe(true);
+    expect(saved.some((w) => w.type === "milestones")).toBe(true);
     expect(saved.some((w) => w.id === "count-open")).toBe(false);
     expect(store.toast).toHaveBeenCalledWith("success", "Дашборд сохранён");
   });
@@ -142,8 +142,8 @@ describe("раздел «Дашборды»", () => {
     fireEvent.click(screen.getByRole("button", { name: "Создать" }));
     await settle();
     const body = api.create.mock.calls[0][0];
-    expect(body.name).toBe("Моя работа");
-    expect(body.widgets?.some((w) => w.type === "issues" && w.preset === "mine")).toBe(true);
+    expect(body.name).toBe("Портфель проектов");
+    expect(body.widgets?.some((w) => w.type === "projects")).toBe(true);
     expect(store.setView).toHaveBeenCalledWith("dashboards", "n1");
   });
 

@@ -9,6 +9,7 @@
  *  (миграция 016), поэтому для открытых отдельный фильтр по archived_at не нужен. */
 import { q } from "../db.js";
 import { activityEventOf } from "./activity.js";
+import { projectHealth } from "./projectHealth.js";
 import type { DashboardWidget, WidgetDataDto } from "../contract.js";
 
 type Widget<T extends DashboardWidget["type"]> = Extract<DashboardWidget, { type: T }>;
@@ -22,6 +23,32 @@ const NO_ASSIGNEE = `i.has_assignee = false`;
 const PRIORITY_RANK = `CASE i.priority_id WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`;
 /** Сколько групп разбивки показываем по отдельности; остальное — одной строкой «_other». */
 const BREAKDOWN_TOP = 10;
+
+/** One grouped scan for the portfolio; archived issues contribute to progress too. */
+async function portfolio(ids: string[], limit?: number): Promise<Data<"projects">["items"]> {
+  const rows = await q<{ projectId: string; key: string; name: string; team: string; total: number; open: number; overdue: number; targetDate: string | null; today: string }>(
+    `SELECT p.id AS "projectId", p.key, p.name, COALESCE(d.name, '') AS team,
+       count(i.id)::int AS total,
+       count(i.id) FILTER (WHERE ws.category <> 'done')::int AS open,
+       count(i.id) FILTER (WHERE ws.category <> 'done' AND i.due_date < CURRENT_DATE)::int AS overdue,
+       to_char(p.target_date, 'YYYY-MM-DD') AS "targetDate", to_char(CURRENT_DATE, 'YYYY-MM-DD') AS today
+     FROM projects p LEFT JOIN departments d ON d.id = p.department_id
+     LEFT JOIN issues i ON i.project_id = p.id LEFT JOIN workflow_statuses ws ON ws.id = i.status_id
+     WHERE p.id = ANY($1::uuid[]) GROUP BY p.id, d.name ORDER BY p.target_date NULLS LAST, p.key LIMIT $2`,
+    [ids, limit ?? null],
+  );
+  return rows.map(({ today, ...r }) => ({ ...r, health: projectHealth({ ...r, today }) }));
+}
+async function milestonesWidget(w: Widget<"milestones">, ids: string[]): Promise<Data<"milestones">> {
+  const items = await q<Data<"milestones">["items"][number]>(
+    `SELECT m.id, p.id AS "projectId", p.key AS "projectKey", p.name AS "projectName", m.name,
+       to_char(m.date, 'YYYY-MM-DD') AS date, m.date < CURRENT_DATE AS overdue
+     FROM project_milestones m JOIN projects p ON p.id = m.project_id
+     WHERE m.project_id = ANY($1::uuid[]) AND m.date <= CURRENT_DATE + $2::int
+     ORDER BY (m.date < CURRENT_DATE) DESC, m.date, p.key, m.position`, [ids, w.periodDays],
+  );
+  return { type: "milestones", items };
+}
 
 async function countWidget(w: Widget<"count">, ids: string[]): Promise<Data<"count">> {
   const WHERE: Record<Widget<"count">["metric"], string> = {
@@ -249,6 +276,13 @@ export function emptyWidgetData(type: DashboardWidget["type"]): WidgetDataDto {
 export async function widgetData(w: DashboardWidget, projectIds: string[], userId: string): Promise<WidgetDataDto> {
   if (projectIds.length === 0) return emptyWidgetData(w.type);
   switch (w.type) {
+    case "projects": return { type: "projects", items: await portfolio(projectIds, w.limit) };
+    case "projectHealth": {
+      const rows = await portfolio(projectIds);
+      const states = ["completed", "overdue", "atRisk", "onTrack", "noDate"] as const;
+      return { type: "projectHealth", items: states.map(health => ({ health, count: rows.filter(r => r.health === health).length })) };
+    }
+    case "milestones": return milestonesWidget(w, projectIds);
     case "count":
       return countWidget(w, projectIds);
     case "breakdown":

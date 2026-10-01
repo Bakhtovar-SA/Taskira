@@ -584,6 +584,7 @@ export interface IssueFilterParams {
   /** Срок в диапазоне, ГГГГ-ММ-ДД включительно. */
   dueFrom?: string;
   dueTo?: string;
+  dueEmpty?: "1";
   /** Своё поле проекта (ROUTE-02): значение / диапазон / «не задано» — смысл по типу поля. */
   cf?: string;
   cfValue?: string;
