@@ -637,6 +637,27 @@
     transform: translateX(24px);
   }
 }
+/* Командная палитра: у верхней трети экрана, а не по центру — список под строкой поиска растёт вниз и не двигает её.
+   Стекло с размытием допустимо: малая плавающая поверхность (ADR-0023), как меню и поповеры. */
+.ds-dialog[data-kind="palette"] {
+  --dlg-w: 640px;
+  margin: 12vh auto auto;
+  max-height: calc(88vh - 32px);
+  border-radius: var(--radius-l);
+  background: color-mix(in oklch, var(--bg-overlay) 90%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+}
+.ds-dialog[data-kind="palette"]::backdrop {
+  background: color-mix(in oklch, var(--bg-scrim) 60%, transparent);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .ds-dialog[data-kind="palette"] {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--bg-overlay);
+  }
+}
 .ds-dialog-head {
   display: flex;
   align-items: flex-start;

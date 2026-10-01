@@ -3,7 +3,8 @@ import { useStore } from "../store";
 import { useT, type TKey } from "../i18n";
 import type { SearchResultItem, StatusCategory } from "../types";
 import { IcCompose, IcPlus, IcGlobe, IcHome, IcKeyboard, IcMoon, IcSearch, IcSun, IcDisplay, IcX, StatusGlyph } from "../icons";
-import { Kbd, Modal, ProjectMark } from "../ui";
+import { ProjectMark } from "../ui";
+import { Dialog, Kbd, PaletteDialog } from "../ds";
 import { setThemeMode } from "../theme";
 import { NAV_GROUPS } from "./Sidebar";
 import { matchScore, fuzzyScore, swapLayout } from "../palette/fuzzy";
@@ -19,7 +20,8 @@ import { useOpenSettings } from "../settings/useOpenSettings";
  * шапке, ТЗ 3.4). Нечёткий поиск по командам и запрос в чужой раскладке
  * («ljcrf» находит «Доска»). Всё с клавиатуры: ↑/↓, Enter, Esc.
  *
- * Стекло — по ADR-0016 (всплывающие поверхности), а не на контенте.
+ * Окно — ds PaletteDialog (нативный <dialog>, трек G): фон инертен, Esc и клик по подложке закрывают, фокус
+ * возвращается туда, откуда открыли. Стекло — по ADR-0016/0023 (малая всплывающая поверхность).
  * Грузится отдельным чанком только при первом открытии.
  */
 
@@ -60,7 +62,8 @@ const VIEW_ALIASES: Record<string, string[]> = {
   my: ["my issues", "assigned", "назначенные"],
 };
 
-export default function CommandPalette({ onClose, onShortcuts }: { onClose: () => void; onShortcuts: () => void }) {
+/** `open` — для плавного ухода: App держит палитру в `Presence`, и на время ухода она получает open=false. */
+export default function CommandPalette({ onClose, onShortcuts, open = true }: { onClose: () => void; onShortcuts: () => void; open?: boolean }) {
   const { t, lang, setLang } = useT();
   const { data, idx, me, ui, setView, setCreateOpen, can, openIssue, switchProject, goHome, searchAllProjects, logout } = useStore();
   const openSettings = useOpenSettings();
@@ -223,11 +226,11 @@ export default function CommandPalette({ onClose, onShortcuts }: { onClose: () =
   let lastGroup: Row["group"] | null = null;
 
   return (
-    <Modal onClose={onClose} w={640} title={t("palette.aria")} variant="palette">
+    <PaletteDialog open={open} onClose={onClose} title={t("palette.aria")}>
       <div className="flex h-[54px] items-center gap-3 border-b border-linesoft px-4">
         <IcSearch size={16} className="shrink-0 text-faint" />
         <input
-          autoFocus
+          data-autofocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKey}
@@ -297,12 +300,12 @@ export default function CommandPalette({ onClose, onShortcuts }: { onClose: () =
         </span>
         <span className="ml-auto font-mono tabular">{paletteShortcut()}</span>
       </footer>
-    </Modal>
+    </PaletteDialog>
   );
 }
 
 /** Оверлей «?» (ТЗ 5.8 п.5): все сочетания в одном месте. */
-export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
+export function ShortcutsDialog({ onClose, open = true }: { onClose: () => void; open?: boolean }) {
   const { t } = useT();
   const groups: { title: TKey; items: [React.ReactNode, TKey][] }[] = [
     {
@@ -379,15 +382,8 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     },
   ];
   return (
-    <Modal onClose={onClose} w={460} title={t("shortcuts.title")}>
-      <div className="flex items-center gap-2.5 border-b border-linesoft px-5 py-4">
-        <IcKeyboard size={18} tone="violet" />
-        <h3 className="text-[15px] font-semibold text-ink">{t("shortcuts.title")}</h3>
-        <button onClick={onClose} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("common.close")}>
-          <IcX size={14} />
-        </button>
-      </div>
-      <div className="space-y-4 px-5 py-4">
+    <Dialog open={open} onClose={onClose} title={t("shortcuts.title")} size="md">
+      <div className="space-y-4">
         {groups.map((g) => (
           <section key={g.title}>
             <p className="mb-1.5 text-[12px] font-semibold text-faint">{t(g.title)}</p>
@@ -402,7 +398,7 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           </section>
         ))}
       </div>
-    </Modal>
+    </Dialog>
   );
 }
 

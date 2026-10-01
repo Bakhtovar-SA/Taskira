@@ -1076,6 +1076,11 @@ html.vt-theme::view-transition-new(root) {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
+/* Окно (<dialog tabindex=-1>) получает фокус само, когда внутри нечего фокусировать («Горячие клавиши»): это
+   контейнер, а не элемент управления — без кольца вокруг всего окна. Кольцо — у кнопок и полей внутри. */
+dialog:focus-visible {
+  outline: none;
+}
 
 input,
 textarea,

@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
-import { Button, Checkbox, IconButton, SidePanel, Switch, Tabs, Textarea } from ".";
+import { createRef, useState } from "react";
+import { Button, Checkbox, DatePicker, IconButton, SidePanel, Switch, Tabs, Textarea } from ".";
+import { Tooltip } from "./Overlay";
 
 describe("Button", () => {
   test("недоступная — aria-disabled, в порядке фокуса, клик не срабатывает, причина — в подсказке", async () => {
@@ -93,4 +94,32 @@ test("окно: фокус на первый доступный элемент (
   expect(onClose).not.toHaveBeenCalled();
   fireEvent.keyDown(next, { key: "Escape" });
   expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+test("подсказка не затирает ref и обработчики ребёнка (якорь Popover на IconButton), а дополняет их", () => {
+  const ref = createRef<HTMLButtonElement>();
+  const onFocus = vi.fn();
+  render(
+    <Tooltip label="Уведомления">
+      <button ref={ref} onFocus={onFocus} aria-describedby="hint">
+        Колокол
+      </button>
+    </Tooltip>,
+  );
+  const btn = screen.getByRole("button", { name: "Колокол" });
+  expect(ref.current).toBe(btn);
+  fireEvent.focus(btn);
+  expect(onFocus).toHaveBeenCalledTimes(1);
+  expect(btn.getAttribute("aria-describedby")?.split(" ")).toContain("hint");
+  expect(btn.getAttribute("aria-describedby")?.split(" ")).toHaveLength(2);
+});
+
+test("календарь: дни — в строках по неделе (grid → row → gridcell), как требует ARIA", () => {
+  render(<DatePicker value="2026-10-01" onChange={() => {}} label="Срок" today="2026-10-01" />);
+  fireEvent.click(screen.getByRole("button", { name: /^Срок/ }));
+  const grid = screen.getByRole("grid", { hidden: true });
+  const rows = [...grid.querySelectorAll('[role="row"]')];
+  expect(rows).toHaveLength(6);
+  for (const row of rows) expect(row.querySelectorAll('[role="gridcell"]')).toHaveLength(7);
+  for (const cell of grid.querySelectorAll('[role="gridcell"]')) expect(cell.parentElement?.getAttribute("role")).toBe("row");
 });

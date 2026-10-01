@@ -103,6 +103,14 @@ describe("Командная палитра", () => {
     expect(h.store().ui.view).toBe("backlog");
   });
 
+  test("окно — нативный <dialog>: фокус сразу в строке поиска, Esc закрывает", async () => {
+    const h = await setup();
+    expect(h.input.closest("dialog")).toBeTruthy();
+    expect(document.activeElement).toBe(h.input);
+    fireEvent.keyDown(h.input, { key: "Escape" });
+    expect(h.onClose).toHaveBeenCalled();
+  });
+
   test("стрелки двигают выделение по кругу", async () => {
     const h = await setup();
     const options = () => screen.getAllByRole("option");
