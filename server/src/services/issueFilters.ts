@@ -5,6 +5,7 @@
  */
 import type { z } from "zod";
 import { escLike } from "../db.js";
+import { ApiHttpError } from "../errors.js";
 import type { CustomFieldType, IssueFilterQuery } from "../contract.js";
 import type { IssueCursorSort } from "../issueListCursor.js";
 
@@ -30,6 +31,9 @@ export function buildIssueFilter(
   f: IssueFilters,
   { sprintsEnabled = true, customField }: { sprintsEnabled?: boolean; customField?: FilterField | null } = {},
 ): { clauses: string[]; params: unknown[] } {
+  if (f.dueEmpty && (f.dueFrom || f.dueTo || f.overdue)) {
+    throw new ApiHttpError(400, "VALIDATION", "dueEmpty cannot be combined with dueFrom, dueTo or overdue");
+  }
   // Архив (миграция 016) из активного набора исключён по умолчанию: доска и
   // «Список задач» показывают живые задачи. ?archived=1 — только архивные,
   // ?archived=all — всё вместе (для отчётов и сквозного поиска).
@@ -68,6 +72,7 @@ export function buildIssueFilter(
   if (f.cf) addCustomField(f, customField ?? null, add, clauses);
   if (f.q) add("(i.title ILIKE ? OR i.key ILIKE ?)", `%${escLike(f.q)}%`, `%${escLike(f.q)}%`);
   if (f.dueFrom) add("i.due_date >= ?", f.dueFrom);
+  if (f.dueEmpty) clauses.push("i.due_date IS NULL");
   if (f.dueTo) add("i.due_date <= ?", f.dueTo);
   if (f.overdue) clauses.push("i.due_date IS NOT NULL AND i.due_date < CURRENT_DATE AND ws.category <> 'done'");
   if (f.closed === "hide") clauses.push("ws.category <> 'done'");

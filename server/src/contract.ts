@@ -599,6 +599,7 @@ export const IssueFilterQuery = z.object({
   q: z.string().max(120).optional(),
   dueFrom: isoDate().optional(),
   dueTo: isoDate().optional(),
+  dueEmpty: z.literal("1").optional(),
   overdue: z.enum(["1", "true"]).optional(),
   /** Закрытые задачи (категория статуса `done`): "hide" — скрыть все,
    *  "recent" — только закрытые за последние `closedDays` дней (задачи без

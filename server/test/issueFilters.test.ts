@@ -56,6 +56,30 @@ async function walk(query: string, limit = 2): Promise<string[]> {
 }
 
 describe("фильтры на сервере", () => {
+  test("dueEmpty excludes scheduled and archived issues and works with closed=hide", async () => {
+    const unscheduled = await create({ title: "без срока" });
+    await create({ title: "со сроком", dueDate: "2026-10-01" });
+    const archived = await create({ title: "архив без срока" });
+    await q("UPDATE issues SET archived_at = now() WHERE id = $1", [archived.id]);
+    expect((await g(`${base()}?dueEmpty=1&closed=hide&q=${encodeURIComponent("без срока")}`)).body.items.map((i: { id: string }) => i.id)).toEqual([unscheduled.id]);
+    expect((await g(`${base()}?dueEmpty=1&archived=1`)).body.items.map((i: { id: string }) => i.id)).toEqual([archived.id]);
+    const outsider = await login(app, "outsider");
+    expect((await app.inject({ url: `${base()}?dueEmpty=1`, headers: auth(outsider) })).statusCode).toBe(403);
+  });
+  test.each(["dueFrom=2026-10-01", "dueTo=2026-10-31", "overdue=1", "overdue=true"])("dueEmpty conflicts with %s in list and counts", async (condition) => {
+    for (const endpoint of [base(), `${base()}/counts`]) {
+      const res = await g(`${endpoint}?dueEmpty=1&${condition}`);
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("VALIDATION");
+    }
+  });
+  test("employee cannot reschedule another person's issue", async () => {
+    const foreign = await create({ title: "чужая", dueDate: "2026-10-01" });
+    const employee = await login(app, "emp1");
+    const response = await app.inject({ method: "PATCH", url: `${base()}/${foreign.id}`, headers: auth(employee), payload: { dueDate: "2026-10-02" } });
+    expect(response.statusCode).toBe(403);
+    expect((await g(`${base()}/${foreign.id}`)).body.dueDate).toBe("2026-10-01");
+  });
   test("фильтр по исполнителю находит задачу за пределами первой страницы", async () => {
     const target = await create({ title: "цель", assigneeIds: [fx.users.mgr1] });
     for (let i = 0; i < 5; i++) await create({ title: `шум ${i}` });
@@ -361,3 +385,5 @@ describe("GET …/issues/assignees", () => {
     expect([403, 404]).toContain(res.statusCode);
   });
 });
+
+
