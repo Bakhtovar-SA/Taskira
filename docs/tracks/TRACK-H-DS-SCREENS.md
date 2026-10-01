@@ -50,7 +50,11 @@
   `<input type="checkbox">` → `Checkbox`; поля `<input>`/`<textarea>` с классами → `Input`/`Textarea` (подпись, подсказка,
   ошибка, счётчик по `LIMITS` из `validation.ts`); `<input type="date">` → `DatePicker`.
 - `Chip`, `Lozenge`, `RoleBadge` → `Tag` (`tone` — только `tk-tone-*`, никаких цветов из данных); `Kbd` → `Kbd` из `ds`;
-  `Empty` → `EmptyState`; `Avatar`/`AvatarStack` → `Avatar`/`AvatarGroup`; `SkeletonRow` → примитивы `Skeleton`.
+  `Empty` → `EmptyState`; `SkeletonRow` → примитивы `Skeleton`.
+- **Аватары людей** (`Avatar`/`AvatarStack` из `ui.tsx`) → `UserAvatar`/`UserAvatarGroup` из
+  `src/components/UserAvatar.tsx` (трек G, G3), **не** голые `Avatar`/`AvatarGroup` из `ds`: у людей есть загруженное
+  фото, карточка по клику (`interactive`) и «не назначен» — ds-компонент этого не знает. Вид тот же (ds-аватар, тон по
+  имени). `UserCardBody` — оттуда же. Голый `ds` `Avatar` — только для не-людей (если такие появятся).
 - `Tip` → `Tooltip`; самодельные кнопки (`btn-primary`, `bg-accent`, `hover:bg-hover`, иконки `h-7 w-7 … title=`) →
   `Button` / `IconButton` (у `IconButton` `label` обязателен, `title` убрать).
 - Выключенное с причиной — `disabled="причина"` у `Button`/`Input`/`Switch`, а не `Tip` поверх.

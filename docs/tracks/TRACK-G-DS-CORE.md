@@ -14,10 +14,10 @@
 
 | Файл | Что переводится |
 |---|---|
-| `src/components/CreateIssueModal.tsx` | `Modal` → `Dialog`; `Chip` → `Tag`; `AvatarStack` → `AvatarGroup`; поля → `Input`/`Textarea`/`DatePicker` |
+| `src/components/CreateIssueModal.tsx` | `Modal` → `Dialog`; `Chip` → `Tag`; `AvatarStack` → `UserAvatarGroup`; поля → `Input`/`Textarea`/`DatePicker` |
 | `src/components/ImportModal.tsx` | `Modal` → `Dialog`; флажок «включая закрытые» → `Checkbox` |
 | `src/components/BulkBar.tsx` | `Dropdown`/`MenuItem` → `Menu`; `Modal` подтверждения → `Dialog` |
-| `src/components/Board.tsx` | меню «переместить» на карточке (клавиша `M`) → `Menu` с управляемым `open`; `Dropdown` → `Menu`; `AvatarStack` → `AvatarGroup`; `SkeletonCard` → `ds` |
+| `src/components/Board.tsx` | меню «переместить» на карточке (клавиша `M`) → `Menu` с управляемым `open`; `Dropdown` → `Menu`; `AvatarStack` → `UserAvatarGroup`; `SkeletonCard` → `ds` |
 | `src/components/Backlog.tsx` | `MenuItem`/`Dropdown` → `Menu`/`Popover`; `Chip`/`Lozenge` → `Tag`; флажки → `Checkbox` (`indeterminate` у «выбрать все»); `SkeletonRow` → `Skeleton` |
 | `src/components/IssueModal.tsx` | `Modal variant="panel"` → `SidePanel` (последним: свой адрес и `J`/`K`, ADR-0013 §3); `LockedField` → `disabled="причина"`; `UserSearchPicker`/`IssueSearchBox` → `Combobox`; срок → `DatePicker`; `Chip`/`Lozenge` → `Tag`; меню → `Menu` |
 | `src/components/CommandPalette.tsx` | `Modal variant="palette"` → свой `<dialog>` (без шапки `Dialog`: у палитры своя клавиатура) |
@@ -28,7 +28,9 @@
 1. **G1 — окна:** `CreateIssueModal`, `ImportModal`, `BulkBar` → `Dialog`. Сверить: Esc, фокус внутрь и назад, клик по
    подложке, плавное закрытие; характеризационные тесты (`backlog.characterize`, `store.importIssues`) зелёные.
 2. **G2 — меню:** `Board` (включая `M`), `BulkBar`, `Backlog` → `Menu`/`Popover`; `DROPDOWN_OPEN_EVT` у этих мест уходит.
-3. **G3 — содержимое доски и списка:** `Tag`, `AvatarGroup`, `Checkbox`, `Skeleton`.
+3. **G3 — содержимое доски и списка:** `Tag`, `Checkbox`, `Skeleton`; аватары людей — `UserAvatar`/`UserAvatarGroup`
+   (`src/components/UserAvatar.tsx`: ds-аватар + фото, карточка пользователя в `Popover`, «не назначен»). Старые
+   `Avatar`/`AvatarStack` в `ui.tsx` с G3 — обёртки над ними, так что вид сменился во всём приложении сразу.
 4. **G4 — карточка задачи:** поля, `Combobox`, `DatePicker`, затем `SidePanel` с сохранением адреса `?issue=KEY`, режима
    «страница» и `J`/`K` (`issueModal.characterize.test.tsx` — зелёный, утверждения не ослаблять).
 5. **G5 — палитра** на свой `<dialog>`.

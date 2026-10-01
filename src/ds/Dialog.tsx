@@ -13,24 +13,36 @@ type DialogProps = {
   description?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   /** Подпись кнопки закрытия (доступное имя). */
   closeLabel?: string;
   /** Не закрывать кликом по подложке (форма с несохранённым вводом). */
   dismissable?: boolean;
+  /** Без шапки ds: содержимое рисует свою (карточка задачи — ключ, действия, крестик). Заголовок остаётся для
+   *  экранного чтения (aria-labelledby), тело — без отступов. */
+  headless?: boolean;
+  /** Signal that a loading placeholder has been replaced by interactive content. */
+  focusReady?: boolean;
 };
 
-function useNativeDialog(open: boolean, onClose: () => void) {
+function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean) {
   const ref = useRef<HTMLDialogElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose; // см. CLAUDE.md про Modal: onClose приходит новым на каждый рендер
   useLayoutEffect(() => {
     const el = ref.current;
     if (!open || !el) return;
     const back = document.activeElement as HTMLElement | null;
+    openerRef.current = back;
     if (el.showModal && !el.open) el.showModal();
     else el.setAttribute("open", ""); // jsdom
-    (el.querySelector<HTMLElement>("[data-autofocus]") ?? el.querySelector<HTMLElement>(".ds-dialog-body :is(input, textarea, select, button, [href])") ?? el)?.focus();
+    // Первый доступный элемент тела: выключенная кнопка фокус не принимает, и он оставался на body (карточка задачи:
+    // первая кнопка — «предыдущая задача», выключена без соседей).
+    (el.querySelector<HTMLElement>("[data-autofocus]") ??
+      el.querySelector<HTMLElement>(".ds-dialog-body :is(input, textarea, select, button, [href], [tabindex]):not([disabled], [tabindex='-1'], [aria-disabled='true'])") ??
+      el
+    )?.focus();
     const onCancel = (e: Event) => {
       e.preventDefault();
       onCloseRef.current();
@@ -42,10 +54,17 @@ function useNativeDialog(open: boolean, onClose: () => void) {
       back?.focus?.();
     };
   }, [open]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const active = document.activeElement;
+    if (!open || !el || el.contains(active) || (active !== document.body && active !== openerRef.current)) return;
+    (el.querySelector<HTMLElement>("[data-autofocus]") ??
+      el.querySelector<HTMLElement>(".ds-dialog-body :is(input, textarea, select, button, [href], [tabindex]):not([disabled], [tabindex='-1'], [aria-disabled='true'])") ?? el).focus();
+  }, [open, focusReady]);
   return ref;
 }
 
-function Frame({ kind, open, onClose, title, description, children, footer, size = "md", closeLabel, dismissable = true }: DialogProps & { kind: "dialog" | "panel" }) {
+function Frame({ kind, open, onClose, title, description, children, footer, size = "md", closeLabel, dismissable = true, headless, focusReady = true }: DialogProps & { kind: "dialog" | "panel" }) {
   const t = useOptionalT()?.t;
   closeLabel ??= t ? t("common.close") : "Закрыть";
   // Закрытие с анимацией: после open=false диалог ещё виден, пока не доиграет уход (data-closing в ds.css), и только
@@ -53,7 +72,7 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
   const [shown, setShown] = useState(open);
   if (open && !shown) setShown(true);
   const closing = shown && !open;
-  const ref = useNativeDialog(shown, onClose);
+  const ref = useNativeDialog(shown, onClose, focusReady);
   useEffect(() => {
     if (!closing) return;
     const el = ref.current;
@@ -82,7 +101,29 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
   }, [open, dismissable, onClose, ref]);
   if (!shown) return null;
   return (
-    <dialog ref={ref} className="ds-dialog" data-kind={kind} data-size={size} data-closing={closing || undefined} aria-labelledby={`${id}-t`} aria-describedby={description ? `${id}-d` : undefined} tabIndex={-1}>
+    <dialog
+      ref={ref}
+      className="ds-dialog"
+      data-kind={kind}
+      data-size={size}
+      data-headless={headless || undefined}
+      data-closing={closing || undefined}
+      aria-labelledby={`${id}-t`}
+      aria-describedby={description ? `${id}-d` : undefined}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        // Esc закрывает окно явно, а не только нативным cancel: так же работает и в jsdom. Если Esc уже обработали внутри
+        // (меню, поле с отменой правки — preventDefault), окно остаётся; preventDefault здесь гасит и нативный cancel.
+        if (e.key !== "Escape" || e.defaultPrevented) return;
+        e.preventDefault();
+        onClose();
+      }}
+    >
+      {headless ? (
+        <h2 id={`${id}-t`} className="sr-only">
+          {title}
+        </h2>
+      ) : (
       <div className="ds-dialog-head">
         <div className="min-w-0 flex-1">
           <h2 id={`${id}-t`} className="ds-dialog-title">
@@ -100,6 +141,7 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
           </svg>
         </IconButton>
       </div>
+      )}
       <div className="ds-dialog-body">{children}</div>
       {footer && <div className="ds-dialog-foot">{footer}</div>}
     </dialog>

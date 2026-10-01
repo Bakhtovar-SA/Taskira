@@ -101,14 +101,19 @@ type CheckProps = {
   disabled?: boolean | string;
   force?: "hover" | "focus";
   name?: string;
+  /** Подпись только для экранного чтения (флажок «выделить строку» в таблице, на карточке доски). */
+  labelHidden?: boolean;
+  /** -1 — не отдельная остановка Tab (флажок на карточке, которая сама в фокусе и переключается Enter). */
+  tabIndex?: number;
 };
 
-export function Checkbox({ checked, onChange, label, description, indeterminate, disabled, force, name }: CheckProps) {
+export function Checkbox({ checked, onChange, label, description, indeterminate, disabled, force, name, labelHidden, tabIndex }: CheckProps) {
   return (
     <label className="ds-check" aria-disabled={disabled ? true : undefined} data-force={force} title={typeof disabled === "string" ? disabled : undefined}>
       <input
         type="checkbox"
         name={name}
+        tabIndex={tabIndex}
         checked={checked}
         disabled={!!disabled}
         ref={(el) => {
@@ -117,10 +122,14 @@ export function Checkbox({ checked, onChange, label, description, indeterminate,
         onChange={(e) => onChange(e.target.checked)}
       />
       <span className="ds-box">{indeterminate ? <Dash /> : <Tick />}</span>
-      <span>
-        {label}
-        {description && <span className="ds-check-desc">{description}</span>}
-      </span>
+      {labelHidden ? (
+        <span className="sr-only">{label}</span>
+      ) : (
+        <span>
+          {label}
+          {description && <span className="ds-check-desc">{description}</span>}
+        </span>
+      )}
     </label>
   );
 }

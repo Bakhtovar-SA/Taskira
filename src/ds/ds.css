@@ -567,6 +567,12 @@
 .ds-dialog[data-size="lg"] {
   --dlg-w: 720px;
 }
+.ds-dialog[data-size="xl"] {
+  --dlg-w: 980px;
+}
+.ds-dialog[data-headless] > .ds-dialog-body {
+  padding: 0;
+}
 /* Подложка без размытия (ADR-0023): blur на весь экран поверх стекла стоил 3–7 кадров в секунду при открытии.
    Появляется и уходит плавно — раньше возникала за один кадр. */
 .ds-dialog::backdrop {
@@ -757,6 +763,13 @@
 .ds-av-more {
   background: var(--bg-active);
   color: var(--text-2);
+}
+/* «Не назначен»: пустой кружок пунктиром, без тона. */
+.ds-av-empty {
+  background: var(--bg-sunken);
+  box-shadow: none;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-3);
 }
 .ds-av-status {
   position: absolute;

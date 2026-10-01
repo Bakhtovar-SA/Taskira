@@ -19,7 +19,7 @@ import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
 import { flipFrom } from "./motion";
 vi.mock("./motion", () => ({ flipFrom: vi.fn() }));
-// Меню карточки грузится лениво (ds/LazyMenu): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
+// Меню карточки грузится лениво (ds/LazyOverlay): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
 import "./ds/Overlay";
 
 /**

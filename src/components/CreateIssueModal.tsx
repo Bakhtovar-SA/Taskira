@@ -4,8 +4,9 @@ import { assignableUsers } from "../store/mappers";
 import type { ComplexityId, Issue, IssueTypeId, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcPlus, IcX, TypeIcon } from "../icons";
-import { Avatar, AvatarStack, Chip } from "../ui";
-import { Button, Checkbox, Dialog, Menu, Popover } from "../ds";
+import { labelTone } from "../ui";
+import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
+import { Button, Checkbox, Dialog, Menu, Popover, Tag } from "../ds";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
 import { useT } from "../i18n";
@@ -302,7 +303,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
               className="max-h-[320px] w-[240px] overflow-y-auto"
               trigger={(p, open) => (
                 <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
-                  <AvatarStack users={assignees} size={18} max={2} interactive={false} />
+                  <UserAvatarGroup users={assignees} size={18} max={2} interactive={false} />
                   <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
                     {assignees.length === 0
                       ? t("createIssue.unassigned")
@@ -325,7 +326,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                       onClick={() => setAssigneeIds((p) => (on ? p.filter((id) => id !== u.id) : [...p, u.id]))}
                       className="ds-menu-item"
                     >
-                      <Avatar user={u} size={18} interactive={false} />
+                      <UserAvatar user={u} size={18} interactive={false} />
                       <span className="min-w-0 flex-1 truncate">{u.name}</span>
                       {on && <IcCheck size={12} className="text-accent" />}
                     </button>
@@ -397,7 +398,9 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
             <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.labels")}</p>
             <div className={`flex flex-wrap items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1.5 ${labelDraft ? "" : ""}`}>
               {labels.map((l) => (
-                <Chip key={l} text={l} onRemove={() => setLabels((p) => p.filter((x) => x !== l))} />
+                <Tag key={l} size="sm" tone={labelTone(l)} dot onRemove={() => setLabels((p) => p.filter((x) => x !== l))}>
+                  {l}
+                </Tag>
               ))}
               <input
                 value={labelDraft}

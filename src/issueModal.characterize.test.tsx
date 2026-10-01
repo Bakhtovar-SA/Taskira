@@ -314,13 +314,14 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
 
     fireEvent.click(screen.getByRole("button", { name: /К выполнению/ }));
     // «Готово» — переход s1→s3 не в списке transitions, пункт задизейблен.
-    const forbidden = screen.getByRole("button", { name: /Готово/ });
-    expect((forbidden as HTMLButtonElement).disabled).toBe(true);
+    // Пункты меню в всплывающем слое: jsdom скрывает любой [popover] (показать не умеет) — ищем с hidden: true.
+    const forbidden = screen.getByRole("menuitem", { name: /Готово/, hidden: true });
+    expect(forbidden.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(forbidden);
     expect(transition).not.toHaveBeenCalled();
 
     // «В работе» — s1→s2 разрешён.
-    fireEvent.click(screen.getByRole("button", { name: /В работе/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /В работе/, hidden: true }));
     await settle();
 
     expect(transition).toHaveBeenCalledWith("p1", "i1", "s2", null);
@@ -338,7 +339,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     await settle();
 
     fireEvent.click(screen.getByRole("button", { name: /Средний/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Высокий/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Высокий/, hidden: true }));
     await settle();
 
     expect(patch).toHaveBeenCalledWith("p1", "i1", { priorityId: "high" });
@@ -364,13 +365,13 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     fireEvent.click(screen.getByRole("button", { name: "Родительская задача" }));
     await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
     await settle();
-    expect(screen.queryByRole("option", { name: /Чужая подзадача/ })).toBeNull();
-    fireEvent.click(screen.getByRole("option", { name: /Свободная/ }));
+    expect(screen.queryByRole("option", { name: /Чужая подзадача/, hidden: true })).toBeNull();
+    fireEvent.click(screen.getByRole("option", { name: /Свободная/, hidden: true }));
     await settle();
     expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: "i3" });
 
     fireEvent.click(screen.getByRole("button", { name: "Родительская задача" }));
-    fireEvent.click(screen.getByRole("button", { name: "Сделать самостоятельной" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сделать самостоятельной", hidden: true }));
     await settle();
     expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: null });
     h.ui.unmount();
@@ -386,9 +387,11 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     });
     await settle();
 
-    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
-    expect(dateInput).toBeTruthy();
-    fireEvent.change(dateInput, { target: { value: "2026-10-01" } });
+    // ds DatePicker: кнопка «Срок: …» открывает поле, дата вводится текстом и подтверждается Enter.
+    fireEvent.click(screen.getByRole("button", { name: /^Срок:/ }));
+    const dateInput = screen.getByRole("textbox", { name: "Срок", hidden: true });
+    fireEvent.change(dateInput, { target: { value: "01.10.2026" } });
+    fireEvent.keyDown(dateInput, { key: "Enter" });
     await settle();
 
     expect(patch).toHaveBeenCalledWith("p1", "i1", { dueDate: "2026-10-01" });
@@ -506,7 +509,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     h.ui.unmount();
   });
 
-  test("Esc сбрасывает ui.selectedIssueId в null (панельный режим — карточка внутри <Modal>)", async () => {
+  test("Esc сбрасывает ui.selectedIssueId в null (панельный режим — карточка внутри SidePanel)", async () => {
     const h = await setup({ listed: [dto("i1")], get: (id) => dto(id) });
     await act(async () => {
       h.store().openIssue("i1");
@@ -514,7 +517,10 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     await settle();
     expect(h.store().ui.selectedIssueId).toBe("i1");
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    // Esc — там, где он у человека: на элементе в фокусе внутри панели (нативный <dialog> держит фокус внутри).
+    const focused = document.activeElement as HTMLElement;
+    expect(focused.closest("dialog")).toBeTruthy();
+    fireEvent.keyDown(focused, { key: "Escape" });
 
     expect(h.store().ui.selectedIssueId).toBeNull();
     h.ui.unmount();

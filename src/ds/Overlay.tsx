@@ -23,11 +23,11 @@ export type TriggerProps = {
   onClick: () => void;
   "aria-expanded": boolean;
   "aria-haspopup": "dialog" | "menu" | "listbox";
-  /** Нет, пока содержимое не отрисовано (заглушка LazyMenu до загрузки чанка). */
+  /** Нет, пока содержимое не отрисовано (заглушка LazyOverlay до загрузки чанка). */
   "aria-controls"?: string;
 };
 
-type PopoverProps = {
+export type PopoverProps = {
   trigger: (p: TriggerProps, open: boolean) => ReactNode;
   children: ReactNode | ((close: () => void) => ReactNode);
   placement?: Placement;
