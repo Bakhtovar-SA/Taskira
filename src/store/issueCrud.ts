@@ -243,18 +243,23 @@ export function useIssueCrudActions(
   );
 
   const moveStatus = useCallback(
-    (issueId: string, toStatus: string, beforeId?: string | null) => {
-      withIssue(issueId, (iss) => {
-        if (!requirePerm("transition", iss)) return;
+    (issueId: string, toStatus: string, beforeId?: string | null, onSettled?: (confirmed: boolean) => void) => {
+      const requestProjectId = pid();
+      const applyMove = (iss: Issue | null) => {
+        if (!iss || dataRef.current.currentProjectId !== requestProjectId || !requirePerm("transition", iss)) {
+          onSettled?.(false);
+          return;
+        }
         const wf = dataRef.current.workflow;
-        const requestProjectId = pid();
         if (iss.statusId !== toStatus && !canTransition(wf, iss.statusId, toStatus)) {
           const fromN = statusById(wf, iss.statusId)?.name ?? iss.statusId;
           const toN = statusById(wf, toStatus)?.name ?? toStatus;
           toast("error", local(`Переход «${fromN} → ${toN}» запрещён рабочим процессом`, `The “${fromN} → ${toN}” transition is not allowed by the workflow`));
+          onSettled?.(false);
           return;
         }
         void (async () => {
+          let confirmed = false;
           try {
             const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId);
             refreshOnboardingSoon();
@@ -274,15 +279,21 @@ export function useIssueCrudActions(
             bumpIssues();
             if (dataRef.current.currentProjectId === requestProjectId) {
               setUi((u) => ({ ...u, lastEvent: { issueId, ts: Date.now() } }));
+              confirmed = true;
             }
           } catch (err) {
             handleApiError(err, local("Не удалось сменить статус", "Couldn't change the status"));
             void refreshIssues();
+          } finally {
+            onSettled?.(confirmed);
           }
         })();
-      });
+      };
+      const known = dataRef.current.issues.find(i => i.id === issueId);
+      if (known) applyMove(known);
+      else void resolveIssue(issueId).then(applyMove);
     },
-    [requirePerm, toast, handleApiError, refreshIssues, withIssue, bumpIssues],
+    [requirePerm, toast, handleApiError, refreshIssues, resolveIssue, bumpIssues],
   );
 
   const deleteIssue = useCallback(

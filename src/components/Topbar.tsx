@@ -1,10 +1,16 @@
+import { ScreenPopover } from "./settings/parts";
+import { Input } from "../ds/Field";
+import { Button, IconButton } from "../ds/Button";
+import { Tabs } from "../ds/Tabs";
+import { Kbd, Skeleton } from "../ds/Display";
+import { PersonAvatar, RoleTag } from "./settings/parts";
 import { useEffect, useRef, useState } from "react";
 import { lookOf } from "../projectLook";
 import { useNotifications, useStore, useUnreadCount } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPanel, IcPlus, IcSettings, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { Avatar, Dropdown, MenuItem, ProjectMark, RoleBadge, Tip, UserCardBody } from "../ui";
+import { ProjectMark, UserCardBody } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
@@ -153,28 +159,29 @@ export function SearchBox() {
         className={`flex cursor-text items-center gap-2 rounded-lg border px-2 transition-[width,background-color,border-color,box-shadow] duration-200 ease-out lg:px-2.5 ${focus ? "w-[190px] border-accent bg-panel shadow-focus sm:w-[360px]" : "w-8 border-linesoft bg-sunken hover:border-line lg:w-[240px]"}`}
       >
         <IcSearch size={14} className="shrink-0 text-faint" />
-        <input
+        <div className="w-full"><Input
           id="global-search"
+          aria-label={t("topbar.searchPlaceholder")}
           ref={ref}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onFocus={() => setFocus(true)}
           onBlur={() => setTimeout(() => setFocus(false), 150)}
           placeholder={t("topbar.searchPlaceholder")}
-          className="h-8 w-full bg-transparent text-[13px] outline-none placeholder:text-faint"
-        />
+
+        /></div>
         {!focus && (
-          <kbd className="hidden shrink-0 rounded border border-line bg-panel px-1.5 font-mono lg:block text-[10.5px] leading-[16px] text-faint shadow-[inset_0_-1px_0_var(--border-default)]">/</kbd>
+          <span className="hidden shrink-0 lg:block"><Kbd>/</Kbd></span>
         )}
       </div>
       {focus && q.trim() && (
         <div className="glass anim-pop absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-line shadow-e3">
-          <button
+          <Button variant="ghost" size="sm"
             onMouseDown={(e) => {
               e.preventDefault();
               setAllProjects((v) => !v);
             }}
-            className="flex w-full items-center justify-between border-b border-linesoft px-3 py-2 text-left transition-colors hover:bg-hover/60"
+            className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
             <span className="text-[11.5px] font-medium text-faint">
               {headerLabel}
@@ -182,26 +189,26 @@ export function SearchBox() {
             <span className="shrink-0 text-[11.5px] font-medium text-accenttext">
               {allProjects ? t("topbar.thisProjectOnly") : t("topbar.allProjectsToggle")}
             </span>
-          </button>
+          </Button>
           {allProjects ? (
             <>
               {!searching && (remote?.items.length ?? 0) === 0 && (
                 <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q })}</p>
               )}
               {(remote?.items ?? []).map((i) => (
-                <button
+                <Button variant="ghost" size="sm"
                   key={i.id}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     openRemote(i);
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-hover/70"
+                  className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                 >
                   <TypeIcon type={i.typeId} size={14} />
                   <span className="font-mono text-[11px] text-faint">{i.key}</span>
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{i.title}</span>
                   <span className="shrink-0 truncate text-[10.5px] text-faint">{i.projectKey}</span>
-                </button>
+                </Button>
               ))}
               {remote?.truncated && (
                 <p className="border-t border-linesoft px-3 py-1.5 text-center text-[11px] text-faint">
@@ -214,42 +221,42 @@ export function SearchBox() {
               {local.status === "loading" && localResults.length === 0 && (
                 <div className="space-y-1.5 px-3 py-3" aria-busy="true" aria-label={t("picker.searching")}>
                   {[0, 1, 2].map((n) => (
-                    <div key={n} className="skeleton h-6 w-full" />
+                    <Skeleton.Block key={n} h={24} />
                   ))}
                 </div>
               )}
               {local.status === "error" && (
                 <div className="px-3 py-4 text-center text-[12.5px] text-danger">
                   <p>{t("picker.error")}</p>
-                  <button
+                  <Button variant="ghost" size="sm"
                     onMouseDown={(e) => {
                       e.preventDefault();
                       local.retry();
                     }}
-                    className="mt-1 font-semibold text-accent hover:underline"
+                    className="mt-1 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                   >
                     {t("common.retry")}
-                  </button>
+                  </Button>
                 </div>
               )}
               {local.status === "ready" && localResults.length === 0 && (
                 <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q: local.term })}</p>
               )}
               {localResults.map((i) => (
-                <button
+                <Button variant="ghost" size="sm"
                   key={i.id}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     openIssue(i.id, "page");
                     closeAfterPick();
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-hover/70"
+                  className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                 >
                   <TypeIcon type={i.typeId} size={14} />
                   <span className="font-mono text-[11px] text-faint">{i.key}</span>
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{i.title}</span>
                   <PriorityIcon p={i.priorityId} size={13} />
-                </button>
+                </Button>
               ))}
             </>
           )}
@@ -296,18 +303,18 @@ function BellPanel({ close }: { close: () => void }) {
         <p className="text-[13px] font-semibold text-ink">{t("topbar.notifications")}</p>
         <div className="flex items-center gap-3">
           {anyUnread && (
-            <button onClick={() => markNotificationsRead()} className="text-[12px] font-medium text-accenttext hover:underline">
+            <Button variant="ghost" size="sm" onClick={() => markNotificationsRead()} className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               {t("topbar.markAllRead")}
-            </button>
+            </Button>
           )}
           {list.length > 0 && (
-            <button
+            <Button variant="ghost" size="sm"
               onClick={() => dismissNotifications()}
               title={t("topbar.clearListTitle")}
-              className="text-[12px] font-medium text-faint hover:text-danger hover:underline"
+              className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
             >
               {t("topbar.clear")}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -322,9 +329,9 @@ function BellPanel({ close }: { close: () => void }) {
               n.read ? "" : "bg-accentsoft/60"
             }`}
           >
-            <button onClick={() => go(n)} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
+            <Button variant="ghost" size="sm" onClick={() => go(n)} className="min-w-0 flex-1 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               <span className="relative mt-0.5 shrink-0">
-                <Avatar user={n.actor} size={26} />
+                <PersonAvatar user={n.actor} size={26} />
                 {!n.read && (
                   <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent ring-2 ring-panel" />
                 )}
@@ -345,17 +352,17 @@ function BellPanel({ close }: { close: () => void }) {
                 )}
                 <span className="mt-0.5 block text-[11px] text-faint">{relTime(n.createdAt)}</span>
               </span>
-            </button>
-            <button
+            </Button>
+            <IconButton variant="ghost" size="sm" label={t("topbar.dismissOneTitle")}
               onClick={(e) => {
                 e.stopPropagation();
                 dismissNotifications([n.id]);
               }}
-              title={t("topbar.dismissOneTitle")}
-              className="mt-0.5 shrink-0 rounded p-0.5 text-faint opacity-0 transition-opacity hover:bg-linesoft hover:text-danger group-hover:opacity-100"
+
+              className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             >
               <IcX size={11} />
-            </button>
+            </IconButton>
           </div>
         ))}
       </div>
@@ -368,12 +375,12 @@ export function Bell() {
   // Только счётчик (ADR-0011, шаг 2): Bell не подписан на общий контекст стора.
   const unread = useUnreadCount();
   return (
-    <Dropdown
-      width={360}
-      align="right"
-      button={(open) => (
-        <button
-          className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150 ${open ? "bg-active text-ink" : "text-sub hover:bg-hover hover:text-ink"}`}
+    <ScreenPopover
+      className="w-[360px]" label={t("topbar.notifications")}
+      placement="bottom-end"
+      trigger={(props, open) => (
+        <IconButton {...props} variant="ghost" size="sm" label={t("topbar.notifications")}
+          className={(`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150 ${open ? "bg-active text-ink" : "text-sub hover:bg-hover hover:text-ink"}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
           aria-label={t("topbar.notifications")}
         >
           <IcBell size={16} />
@@ -382,11 +389,11 @@ export function Bell() {
               {unread > 99 ? "99+" : unread}
             </span>
           )}
-        </button>
+        </IconButton>
       )}
     >
       {(close) => <BellPanel close={close} />}
-    </Dropdown>
+    </ScreenPopover>
   );
 }
 
@@ -395,38 +402,36 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
   const { data, me } = useStore();
   const openSettings = useOpenSettings();
   return (
-    <Dropdown
-      width={280}
-      align="right"
-      button={(open) => (
-        <button className={`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors duration-150 ${open ? "bg-active" : "hover:bg-hover"}`} aria-label={t("topbar.userMenuAria")}>
+    <ScreenPopover
+      className="w-[280px]" label={t("topbar.userMenuAria")}
+      placement="bottom-end"
+      trigger={(props, open) => (
+        <Button {...props} variant="ghost" size="sm" className={(`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors duration-150 ${open ? "bg-active" : "hover:bg-hover"}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"} aria-label={t("topbar.userMenuAria")}>
           {/* interactive=false: клик по аватарке здесь должен открывать это же
               меню (логаут/настройки), а не всплывающую карточку профиля —
               её показывает сам заголовок открытого меню ниже. */}
-          <Avatar user={me} size={26} interactive={false} />
+          <PersonAvatar user={me} size={26} interactive={false} />
           <span className="hidden max-w-[120px] truncate text-left md:block">
             <span className="block truncate text-[12.5px] font-medium leading-tight text-ink">{me.name.split(" ")[0]}</span>
             <span className="block text-[10px] leading-tight text-faint">{me.role}</span>
           </span>
           <IcChevD size={11} className="text-faint" />
-        </button>
+        </Button>
       )}
     >
       {(close) => (
         <>
-          {/* UserCardBody, не Avatar+Dropdown вложенно: любой другой открытый
-              Dropdown закрывает это меню через DROPDOWN_OPEN_EVT — вложенный
-              Dropdown внутри уже открытого захлопнул бы его под собой. */}
+          {/* The profile body shares this popover, so its settings stay in the same focus context. */}
           <div className="border-b border-linesoft">
             <UserCardBody userId={me.id} />
             <div className="-mt-2 px-4 pb-3">
               <p className="text-[11px] text-faint">{data.project.name}</p>
               <div className="mt-2">
-                <RoleBadge role={me.accessRole} size="sm" />
+                <RoleTag role={me.accessRole} size="sm" />
               </div>
             </div>
           </div>
-          <MenuItem
+          <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"
             onClick={() => {
               openSettings("settings");
               close();
@@ -435,21 +440,21 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
             <span className="flex items-center gap-2">
               <IcSettings size={14} tone="gray" /> {t("settings.menu")}
             </span>
-          </MenuItem>
+          </Button>
           <p className="border-t border-linesoft px-4 py-2 tabular text-[11px] text-faint">
             Taskira {import.meta.env.VITE_APP_VERSION || "dev"}
           </p>
-          <MenuItem
+          <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"
             onClick={() => {
               onLogout();
               close();
             }}
           >
             {t("topbar.logout")}
-          </MenuItem>
+          </Button>
         </>
       )}
-    </Dropdown>
+    </ScreenPopover>
   );
 }
 
@@ -462,28 +467,28 @@ function ProjectRow({ p, active, onOpen }: { p: ProjectSummary; active: boolean;
   const isFav = data.favoriteProjectIds.includes(p.id);
   return (
     <div className="group flex items-center">
-      <button
+      <Button variant="ghost" size="sm"
         onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-hover/70"
+        className="min-w-0 flex-1 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
       >
         <span className="w-12 shrink-0 rounded bg-sunken px-1 text-center font-mono text-[10.5px] font-medium text-sub ring-1 ring-inset ring-linesoft">{p.key}</span>
         <span className="min-w-0 flex-1 truncate">{p.name}</span>
         {p.isShared && <span className="shrink-0 text-[11px] text-faint">{t("topbar.sharedBadge")}</span>}
         {active && <IcCheck size={13} className="shrink-0 text-accenttext" />}
-      </button>
-      <button
+      </Button>
+      <IconButton variant="ghost" size="sm" label={isFav ? t("topbar.removeFavorite") : t("topbar.addFavorite")}
         onClick={(e) => {
           e.stopPropagation();
           toggleFavoriteProject(p.id);
         }}
-        aria-label={isFav ? t("topbar.removeFavorite") : t("topbar.addFavorite")}
-        title={isFav ? t("topbar.removeFavorite") : t("topbar.addFavorite")}
+
+
         className={`mr-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors ${
-          isFav ? "text-warndot" : "text-faint opacity-0 hover:text-warndot group-hover:opacity-100"
+          isFav ? "text-warndot" : "text-faint opacity-0 hover:text-warndot group-hover:opacity-100 focus-visible:opacity-100"
         }`}
       >
         <IcStar size={13} filled={isFav} />
-      </button>
+      </IconButton>
     </div>
   );
 }
@@ -512,17 +517,17 @@ function ProjectSwitcher() {
     .sort((a, b) => a[0].localeCompare(b[0]));
 
   return (
-    <Dropdown
-      width={300}
-      button={(open) => (
-        <button
-          className={`flex items-center gap-1 rounded-md px-1.5 py-1 font-medium transition-colors duration-150 ${
+    <ScreenPopover
+      className="w-[300px]" label={t("topbar.findProjectPlaceholder")}
+      trigger={(props, open) => (
+        <Button {...props} variant="ghost" size="sm"
+          className={(`flex items-center gap-1 rounded-md px-1.5 py-1 font-medium transition-colors duration-150 ${
             open ? "bg-active text-ink" : "text-sub hover:bg-hover hover:text-ink"
-          }`}
+          }`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
         >
           <span className="max-w-[180px] truncate">{data.project.name}</span>
           <IcChevD size={11} className="opacity-70" />
-        </button>
+        </Button>
       )}
     >
       {(close) => {
@@ -534,13 +539,13 @@ function ProjectSwitcher() {
         return (
           <div className="flex max-h-[70vh] flex-col">
             <div className="shrink-0 border-b border-linesoft p-2">
-              <input
+              <div className="w-full"><Input aria-label={t("topbar.findProjectPlaceholder")}
                 autoFocus
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder={t("topbar.findProjectPlaceholder")}
-                className="w-full rounded-lg border border-linesoft bg-sunken px-2.5 py-1.5 text-[13px] text-ink placeholder:text-faint focus:border-accent focus:bg-panel focus:shadow-focus focus:outline-none"
-              />
+
+              /></div>
             </div>
             <div className="overflow-y-auto px-1 py-1">
               {favorites.length > 0 && (
@@ -566,7 +571,7 @@ function ProjectSwitcher() {
           </div>
         );
       }}
-    </Dropdown>
+    </ScreenPopover>
   );
 }
 
@@ -583,14 +588,14 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
     <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-linesoft px-3 sm:px-4">
       {/* Узкий экран (< 1024 px): боковая панель выезжает поверх по этой кнопке (ТЗ 5.8 п.3) —
           там Главная, Входящие, Мои задачи и дерево проектов. */}
-      <button
+      <IconButton variant="ghost" size="sm" label={t("sidebar.menu")}
         type="button"
         onClick={openSidebarDrawer}
-        aria-label={t("sidebar.menu")}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sub transition-colors hover:bg-hover hover:text-ink lg:hidden"
+
+        className="h-8 w-8 shrink-0 lg:hidden"
       >
         <IcPanel size={16} />
-      </button>
+      </IconButton>
 
       {/* Шапка проекта (ADR-0013 §2.2): значок и переключатель проекта, рядом —
           вкладки представлений. На экранах вне представлений — крошка раздела. */}
@@ -602,25 +607,9 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
           <ProjectSwitcher />
         </span>
         {isProjectView ? (
-          <div role="tablist" aria-label={t("topbar.viewsAria")} className="flex items-center gap-0.5 rounded-lg bg-sunken/70 p-0.5 ring-1 ring-inset ring-linesoft md:ml-2">
-            {views.map((v) => {
-              const on = ui.view === v.id;
-              return (
-                <button
-                  key={v.id}
-                  role="tab"
-                  aria-selected={on}
-                  title={`${t(v.labelKey)} · ${v.kbd}`}
-                  onClick={() => setView(v.id)}
-                  className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-semibold transition-[background-color,color,box-shadow] duration-150 ${
-                    on ? "bg-panel text-ink shadow-[var(--highlight-top),0_1px_2px_oklch(0.2_0.05_288/0.1)]" : "text-sub hover:text-ink"
-                  }`}
-                >
-                  {v.icon({ size: 14, tone: on ? v.tone : undefined })}
-                  <span className={on ? "max-sm:sr-only" : "max-lg:sr-only"}>{t(v.labelKey)}</span>
-                </button>
-              );
-            })}
+          <div className="md:ml-2">
+            <Tabs<ViewId> label={t("topbar.viewsAria")} value={ui.view} onChange={(v) => setView(v)}
+              items={views.map((v) => ({ id: v.id, icon: v.icon({ size: 14, tone: ui.view === v.id ? v.tone : undefined }), label: <span className={ui.view === v.id ? "max-sm:sr-only" : "max-lg:sr-only"}>{t(v.labelKey)}</span> }))} />
           </div>
         ) : (
           <>
@@ -634,19 +623,19 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
         <SearchBox />
         <Bell />
         {canCreate ? (
-          <button
+          <Button variant="primary" size="sm"
             onClick={() => setCreateOpen(true)}
-            className="btn-primary flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium sm:px-3"
+            className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
             aria-label={t("topbar.createAria")}
           >
             <IcPlus size={14} /> <span className="hidden sm:inline">{t("topbar.create")}</span>
-          </button>
+          </Button>
         ) : (
-          <Tip label={t("topbar.createDeniedTip")}>
-            <button className="flex h-8 cursor-not-allowed items-center gap-1.5 rounded-lg border border-linesoft bg-sunken px-3 text-[13px] font-medium text-faint">
+
+            <Button disabled={t("topbar.createDeniedTip")} variant="ghost" size="sm" className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               <IcLock size={13} /> {t("topbar.create")}
-            </button>
-          </Tip>
+            </Button>
+
         )}
         <div className="ml-0.5 border-l border-linesoft pl-2">
           <UserMenu onLogout={doLogout} />

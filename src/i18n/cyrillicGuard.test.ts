@@ -98,6 +98,13 @@ function offenders(path: string): string[] {
   return out;
 }
 
+test("комментарии исключаются при LF и CRLF, URL сохраняются", () => {
+  const source = 'const url = "http://localhost"; // комментарий\n/* русский\nкомментарий */\nconst label = "Текст";';
+  const expected = 'const url = "http://localhost"; \n          \n              \nconst label = "Текст";';
+  expect(stripComments(source)).toBe(expected);
+  expect(stripComments(source.replace(/\n/g, "\r\n"))).toBe(expected);
+});
+
 test("русский текст в коде клиента — только в словаре или парой RU/EN", () => {
   const found = files(ROOT)
     .filter((p) => !(relative(ROOT, p).replace(/\\/g, "/") in FILE_ALLOW))

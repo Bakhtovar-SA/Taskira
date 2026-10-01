@@ -1,4 +1,4 @@
-import { lazy, type ComponentType } from "react";
+import { createElement, lazy, useState, type ComponentType } from "react";
 
 /**
  * Ленивые модалки задачи с предзагрузкой (PERF-BUDGET п. 3: «открытие задачи < 150 мс»; первое открытие было
@@ -6,26 +6,41 @@ import { lazy, type ComponentType } from "react";
  *
  * Чанк по-прежнему грузится через `lazy()` и в начальный бандл не входит; `preload()` лишь запускает тот же импорт
  * раньше — в простое после входа и при наведении/фокусе на карточке. Если к первому рендеру модуль уже загружен,
- * `lazy()` разрешается в той же задаче и Suspense не показывает фолбэк; без предзагрузки первый клик ждал сеть и
+ * компонент рендерится напрямую, и Suspense не показывает фолбэк; без предзагрузки первый клик ждал сеть и
  * разбор чанка, а раскрытие содержимого после фолбэка React ещё и притормаживает (throttling раскрытия Suspense,
  * ~300 мс) — отсюда разница первого и повторного открытия. Замер: docs/design/PERF-BUDGET.md.
  */
-export function lazyWithPreload<P extends object>(factory: () => Promise<{ default: ComponentType<P> }>) {
+export function lazyWithPreload<P extends object>(factory: () => Promise<{ default: ComponentType<P> }>, displayName = "PreloadedModal") {
   let pending: Promise<{ default: ComponentType<P> }> | null = null;
+  let resolved: ComponentType<P> | null = null;
   const load = () =>
-    (pending ??= factory().catch((err: unknown) => {
-      pending = null; // сеть моргнула — следующая попытка (наведение, клик) загрузит заново
-      throw err;
-    }));
+    (pending ??= factory()
+      .then((module) => {
+        resolved = module.default;
+        return module;
+      })
+      .catch((err: unknown) => {
+        pending = null; // сеть моргнула — следующая попытка (наведение, клик) загрузит заново
+        throw err;
+      }));
   /** Загрузить чанк заранее; ошибка глушится — при настоящем открытии `lazy()` попробует снова и покажет её. */
   const preload = (): void => {
     void load().catch(() => undefined);
   };
-  return Object.assign(lazy(load), { preload });
+  const Lazy = lazy(load);
+  // An already imported component renders synchronously, without a fresh Suspense retry on the first click.
+  const Preloaded = (props: P) => {
+    // Choose once per mounted instance: a cold import must not replace the
+    // Lazy element type after the user has started editing the loaded modal.
+    // A later, separate mount may use the already resolved component directly.
+    const [Component] = useState(() => resolved ?? Lazy);
+    return createElement(Component, props);
+  };
+  return Object.assign(Preloaded, { preload, displayName });
 }
 
-export const IssueModal = lazyWithPreload(() => import("./components/IssueModal"));
-export const CreateIssueModal = lazyWithPreload(() => import("./components/CreateIssueModal"));
+export const IssueModal = lazyWithPreload(() => import("./components/IssueModal"), "PreloadedIssueModal");
+export const CreateIssueModal = lazyWithPreload(() => import("./components/CreateIssueModal"), "PreloadedCreateIssueModal");
 
 /** Для `onPointerEnter`/`onFocus` карточек: к клику чанк карточки задачи уже загружен. */
 export const preloadIssueModal = IssueModal.preload;

@@ -80,7 +80,7 @@ interface Api {
     isCancelled?: () => boolean,
   ) => Promise<{ ok: number; failed: number; cancelled: boolean }>;
   updateIssue: (id: string, patch: Partial<Issue>) => void;
-  moveStatus: (issueId: string, toStatus: string, beforeId?: string | null) => void;
+  moveStatus: (issueId: string, toStatus: string, beforeId?: string | null, onSettled?: (confirmed: boolean) => void) => void;
   /** Растёт при изменениях, способных поменять состав или порядок наборов задач
    *  (создание, импорт, удаление, правка полей, смена статуса): по ней Список и
    *  Доска перечитываются. Не пересчитывается по массиву задач. */

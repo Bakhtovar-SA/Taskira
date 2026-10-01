@@ -125,7 +125,7 @@ const settle = () =>
 
 async function setup(opts: {
   listed: ServerIssue[];
-  get: (id: string) => ServerIssue;
+  get: (id: string) => ServerIssue | Promise<ServerIssue>;
   memberRole?: "manager" | "viewer";
   mode?: "panel" | "page";
   withMain?: boolean;
@@ -187,6 +187,31 @@ afterEach(() => {
 });
 
 describe("IssueModal — характеризационные тесты (ТЗ 5.12 d, до переработки)", () => {
+  test("slow details show a closable loading panel and keep focus inside after loading", async () => {
+    let resolve!: (issue: ServerIssue) => void;
+    const pending = new Promise<ServerIssue>((done) => { resolve = done; });
+    const h = await setup({ listed: [], get: () => pending });
+    act(() => h.store().openIssue("i1"));
+    const dialog = screen.getByRole("dialog");
+    expect(screen.getByRole("status").textContent).toContain("Загрузка");
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await act(async () => { resolve(dto("i1", { title: "Loaded issue" })); });
+    await settle();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByText("Loaded issue")).toBeTruthy();
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  test("failed details close the loading panel and preserve the error notification", async () => {
+    const h = await setup({ listed: [], get: async () => { throw new Error("Network unavailable"); } });
+    act(() => h.store().openIssue("i1"));
+    await settle();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(h.store().ui.selectedIssueId).toBeNull();
+    expect(h.store().toasts.some((toast) => toast.kind === "error")).toBe(true);
+  });
+
   test("открытие задачи грузит комментарии и историю (по projectId+issueId) и показывает заголовок и описание", async () => {
     const comment: ServerComment = {
       id: "c1",

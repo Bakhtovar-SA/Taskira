@@ -1,0 +1,50 @@
+import { afterEach, expect, test, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { departmentsApi, usersApi } from "../api";
+import { I18nProvider } from "../i18n";
+
+vi.mock("../store", () => ({ useStore: () => ({
+  data: { projects: [], departments: [{ id: "d1", name: "Product", ldapGroupDn: null }] },
+  can: () => true, authMode: "local", createDepartment: vi.fn(), renameDepartment: vi.fn(),
+  deleteDepartment: vi.fn(), switchProject: vi.fn(), setView: vi.fn(),
+}) }));
+import AdminView from "./AdminView";
+
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); localStorage.clear(); });
+
+test("поиск участника не добавляет ранее выбранного человека после изменения запроса", async () => {
+  vi.spyOn(departmentsApi, "listMembers").mockResolvedValue([]);
+  vi.spyOn(usersApi, "pickable").mockResolvedValue([{ id: "u2", name: "Sam Member", jobRole: "Engineer", initials: "SM", color: "#0B5FD9" }]);
+  const add = vi.spyOn(departmentsApi, "addMember");
+  render(<I18nProvider><AdminView /></I18nProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Состав" }));
+  const search = await screen.findByRole("combobox");
+  vi.useFakeTimers();
+  fireEvent.focus(search);
+  fireEvent.input(search, { target: { value: "Sam" } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+  expect(screen.getByText("Sam Member")).toBeTruthy();
+  fireEvent.keyDown(search, { key: "Enter" });
+  const submit = screen.getByRole("button", { name: "Добавить" });
+  expect(submit.getAttribute("aria-disabled")).toBeNull();
+  fireEvent.input(search, { target: { value: "Alex" } });
+  expect(submit.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(submit);
+  expect(add).not.toHaveBeenCalled();
+});
+
+test("поиск участника не повторяет запрос при перерисовке с прежним составом отдела", async () => {
+  vi.spyOn(departmentsApi, "listMembers").mockResolvedValue([]);
+  const pickable = vi.spyOn(usersApi, "pickable").mockResolvedValue([]);
+  const view = render(<I18nProvider><AdminView /></I18nProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Состав" }));
+  const search = await screen.findByRole("combobox");
+  vi.useFakeTimers();
+  fireEvent.focus(search);
+  fireEvent.input(search, { target: { value: "Sam" } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+  expect(pickable).toHaveBeenCalledTimes(1);
+  view.rerender(<I18nProvider><AdminView /></I18nProvider>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+  expect(pickable).toHaveBeenCalledTimes(1);
+});

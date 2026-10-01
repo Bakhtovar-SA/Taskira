@@ -255,6 +255,7 @@ describe("Timeline при частичном сторе", () => {
   // ТЗ 5.12 f, шаг 1 — характеризация ДО переделки вида: полоса открывает направление, «Сегодня» прокручивает
   // к началу шкалы, процент готовности подписан на полосе, когда он на ней помещается.
   test("полоса: клик открывает направление; процент на широкой полосе; «Сегодня» прокручивает шкалу", async () => {
+    vi.spyOn(issuesApi, "get").mockImplementation(async (_project, id) => dto(id));
     const scrollTo = vi.fn();
     Element.prototype.scrollTo = scrollTo as never;
     const h = await setup({ epics: [epic({ childTotal: 100, childDone: 50 })] });

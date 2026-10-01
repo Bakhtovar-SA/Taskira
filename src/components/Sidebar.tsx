@@ -1,3 +1,6 @@
+import { Kbd } from "../ds/Display";
+import { Button, IconButton } from "../ds/Button";
+import { PersonAvatar } from "./settings/parts";
 import { useStore, useUnreadCount } from "../store";
 import { GettingStarted } from "./GettingStarted";
 import { Tag } from "../ds/Display";
@@ -29,12 +32,13 @@ import {
 } from "../icons";
 import { BrandMark, BrandName } from "./BrandMark";
 import { useBrandName } from "../brand";
-import { Avatar, Kbd, ProjectMark } from "../ui";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { ProjectMark } from "../ui";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useT, type TKey } from "../i18n";
 import { openPalette, openProjectWizard, paletteShortcut } from "../palette/events";
 import { useOpenSettings } from "../settings/useOpenSettings";
+
+const RailTooltip = lazy(() => import("../ds/Overlay").then((m) => ({ default: m.Tooltip })));
 
 type NavItem = {
   id: ViewId;
@@ -243,18 +247,18 @@ export default function Sidebar() {
     const cur = p.id === data.currentProjectId;
     const active = cur && PROJECT_VIEWS.some((v) => v.id === ui.view);
     return (
-      <button
+      <Button variant="ghost" size="sm"
         key={p.id}
         type="button"
         onClick={() => !cur ? openProject(p) : !active && setView("board")}
         aria-current={cur ? "true" : undefined}
-        className={`${navItem} ${active ? navOn : cur ? "font-semibold text-ink" : navOff}`}
+        className={(`${navItem} ${active ? navOn : cur ? "font-semibold text-ink" : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
       >
         <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />
         <span className="flex-1 truncate">{p.name}</span>
         {p.isDemo && <Tag tone="amber" size="sm">{t("setup.demoTag")}</Tag>}
         {cur && !active && <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />}
-      </button>
+      </Button>
     );
   };
 
@@ -282,51 +286,51 @@ export default function Sidebar() {
       {/* Знак + название инсталляции. Стеклянная панель над атмосферой (ADR-0016). */}
       <div className="mx-2 mt-2.5 flex items-center">
         {homeAvailable ? (
-          <button
+          <Button variant="ghost" size="sm"
             type="button"
             onClick={goHome}
             aria-label={t("sidebar.homeAria")}
-            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 hover:bg-hover/70"
+            className="min-w-0 flex-1 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
             <BrandMark size={22} />
             <BrandName className="truncate font-disp text-[16px] font-bold tracking-[-0.03em] text-ink" />
-          </button>
+          </Button>
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2">
             <BrandMark size={22} />
             <BrandName className="truncate font-disp text-[16px] font-bold tracking-[-0.03em] text-ink" />
           </div>
         )}
-        <button
+        <IconButton variant="ghost" size="sm" label={t(wide ? "sidebar.collapse" : "common.close")}
           type="button"
           onClick={() => (wide ? setCollapsed(true) : setDrawer(false))}
-          aria-label={t(wide ? "sidebar.collapse" : "common.close")}
-          title={wide ? `${t("sidebar.collapse")}  [` : undefined}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover/70 hover:text-ink"
+
+
+          className="h-7 w-7 shrink-0"
         >
           <IcPanel size={15} />
-        </button>
+        </IconButton>
       </div>
 
       {/* Поиск и команды, новая задача (ADR-0013 §2.1). */}
       <div className="mx-2 mb-1 mt-1 flex flex-col gap-1">
-        <button
+        <Button variant="ghost" size="sm"
           type="button"
           onClick={openPalette}
-          className="flex h-8 items-center gap-2.5 rounded-lg bg-[color-mix(in_oklch,var(--bg-panel)_55%,transparent)] px-2.5 text-[13px] text-faint ring-1 ring-inset ring-linesoft transition-colors hover:text-ink hover:ring-line"
+          className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
         >
           <IcSearch size={14} />
           <span className="flex-1 text-left">{t("sidebar.search")}</span>
           <span className="font-mono text-[11px] tabular">{paletteShortcut()}</span>
-        </button>
+        </Button>
         {can("create") && (
-          <button type="button" onClick={() => setCreateOpen(true)} className={`${navItem} ${navOff}`}>
+          <Button variant="ghost" size="sm" type="button" onClick={() => setCreateOpen(true)} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
             <IcCompose size={16} tone="violet" />
             <span className="flex-1 truncate">{t("sidebar.newIssue")}</span>
-            <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
               <Kbd>C</Kbd>
             </span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -334,20 +338,20 @@ export default function Sidebar() {
         {/* Личный слой */}
         <nav className="flex flex-col gap-px pt-1">
             {homeAvailable && (
-              <button type="button" onClick={goHome} className={`${navItem} ${navOff}`}>
+              <Button variant="ghost" size="sm" type="button" onClick={goHome} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
                 <IcHome size={16} tone="violet" />
                 <span className="flex-1 truncate">{t("sidebar.nav.home")}</span>
-              </button>
+              </Button>
             )}
             {PERSONAL_VIEWS.map((v) => {
               const on = ui.view === v.id;
               return (
-                <button
+                <Button variant="ghost" size="sm"
                   key={v.id}
                   type="button"
                   onClick={() => setView(v.id)}
                   aria-current={on ? "page" : undefined}
-                  className={`${navItem} ${on ? navOn : navOff}`}
+                  className={(`${navItem} ${on ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
                 >
                   {v.icon({ size: 16, tone: v.tone })}
                   <span className="flex-1 truncate">{t(v.labelKey)}</span>
@@ -356,39 +360,39 @@ export default function Sidebar() {
                       {unread > 99 ? "99+" : unread}
                     </span>
                   )}
-                </button>
+                </Button>
               );
             })}
             {data.collaborations.length > 0 && (
-              <button
+              <Button variant="ghost" size="sm"
                 type="button"
                 onClick={() => setView("collaborating")}
                 aria-current={ui.view === "collaborating" ? "page" : undefined}
-                className={`${navItem} ${ui.view === "collaborating" ? navOn : navOff}`}
+                className={(`${navItem} ${ui.view === "collaborating" ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
               >
                 <IcLink size={16} tone="violet" />
                 <span className="flex-1 truncate">{t("sidebar.nav.collaborating")}</span>
                 <span className="rounded-full bg-accent px-1.5 py-px text-[10.5px] font-semibold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
                   {data.collaborations.length}
                 </span>
-              </button>
+              </Button>
             )}
         </nav>
 
         {/* Избранное */}
         {favorites.length > 0 && (
           <div>
-            <button type="button" onClick={() => toggle("s:fav")} aria-expanded={isOpen("s:fav")} className={`${sectionLabel} hover:text-sub`}>
+            <Button variant="ghost" size="sm" type="button" onClick={() => toggle("s:fav")} aria-expanded={isOpen("s:fav")} className={(`${sectionLabel} hover:text-sub`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
               <Chevron open={isOpen("s:fav")} />
               {t("sidebar.group.favorites")}
-            </button>
+            </Button>
             {isOpen("s:fav") && (
               <div className="flex flex-col gap-px">
                 {favorites.map((p) => (
-                  <button key={p.id} type="button" onClick={() => p.id !== data.currentProjectId && openProject(p)} className={`${navItem} ${navOff}`}>
+                  <Button variant="ghost" size="sm" key={p.id} type="button" onClick={() => p.id !== data.currentProjectId && openProject(p)} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
                     <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />
                     <span className="flex-1 truncate">{p.name}</span>
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -398,20 +402,20 @@ export default function Sidebar() {
         {/* Проекты: отдел → проект → представления */}
         <div>
           <div className="group/proj flex items-center">
-            <button type="button" onClick={() => toggle("s:projects")} aria-expanded={isOpen("s:projects")} className={`${sectionLabel} hover:text-sub`}>
+            <Button variant="ghost" size="sm" type="button" onClick={() => toggle("s:projects")} aria-expanded={isOpen("s:projects")} className={(`${sectionLabel} hover:text-sub`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
               <Chevron open={isOpen("s:projects")} />
               {t("sidebar.group.projects")}
-            </button>
+            </Button>
             {me.globalRole === "admin" && (
-              <button
+              <IconButton variant="ghost" size="sm" label={t("wizard.title")}
                 type="button"
                 onClick={() => openProjectWizard()}
-                aria-label={t("wizard.title")}
-                title={t("wizard.title")}
-                className="mr-1 mt-2 grid h-6 w-6 shrink-0 place-items-center rounded-md text-faint opacity-0 transition-opacity hover:bg-hover hover:text-ink focus-visible:opacity-100 group-hover/proj:opacity-100"
+
+
+                className="mr-1 mt-2 h-6 w-6 shrink-0 opacity-0 group-hover/proj:opacity-100 focus-visible:opacity-100"
               >
                 <IcPlus size={13} />
-              </button>
+              </IconButton>
             )}
           </div>
           {isOpen("s:projects") &&
@@ -422,11 +426,11 @@ export default function Sidebar() {
                   const expanded = isOpen(`d:${g.id}`, hasCur);
                   return (
                     <div key={g.id}>
-                      <button type="button" onClick={() => toggle(`d:${g.id}`, hasCur)} aria-expanded={expanded} className={`${navItem} h-7 text-[12.5px] text-sub hover:bg-hover/70 hover:text-ink`}>
+                      <Button variant="ghost" size="sm" type="button" onClick={() => toggle(`d:${g.id}`, hasCur)} aria-expanded={expanded} className={(`${navItem} h-7 text-[12.5px] text-sub hover:bg-hover/70 hover:text-ink`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
                         <Chevron open={expanded} />
                         <span className="flex-1 truncate">{g.name}</span>
                         <span className="text-[11px] tabular text-faint">{g.projects.length}</span>
-                      </button>
+                      </Button>
                       {expanded && <div className={branch}>{g.projects.map(projectNode)}</div>}
                     </div>
                   );
@@ -440,25 +444,25 @@ export default function Sidebar() {
         {/* Организация */}
         <div>
           <p className={sectionLabel}>{t("sidebar.group.org")}</p>
-          <button
+          <Button variant="ghost" size="sm"
             type="button"
             onClick={() => setView("roadmap")}
             aria-current={ui.view === "roadmap" ? "page" : undefined}
-            className={`${navItem} ${ui.view === "roadmap" ? navOn : navOff}`}
+            className={(`${navItem} ${ui.view === "roadmap" ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
           >
             <IcFlag size={16} tone="teal" />
             <span className="flex-1 truncate">{t("sidebar.nav.roadmap")}</span>
-          </button>
+          </Button>
           {/* «Дашборды» — раздел, в котором «Отчёты» — первый встроенный дашборд (ADR-0022). */}
-          <button
+          <Button variant="ghost" size="sm"
             type="button"
             onClick={() => setView("dashboards")}
             aria-current={ui.view === "dashboards" || ui.view === "reports" ? "page" : undefined}
-            className={`${navItem} ${ui.view === "dashboards" || ui.view === "reports" ? navOn : navOff}`}
+            className={(`${navItem} ${ui.view === "dashboards" || ui.view === "reports" ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
           >
             <IcDashboard size={16} tone="violet" />
             <span className="flex-1 truncate">{t("sidebar.nav.dashboards")}</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -488,38 +492,38 @@ export default function Sidebar() {
 
       {/* Низ: Справка и Настройки (до 5.9 — прежние экраны под одним узлом), профиль. */}
       <div className="mx-2 flex flex-col gap-px border-t border-linesoft/70 pt-2">
-        <button
+        <Button variant="ghost" size="sm"
           type="button"
           onClick={() => setView("docs")}
           aria-current={ui.view === "docs" ? "page" : undefined}
-          className={`${navItem} ${ui.view === "docs" ? navOn : navOff}`}
+          className={(`${navItem} ${ui.view === "docs" ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
         >
           <IcBook size={16} tone="orange" />
           <span className="flex-1 truncate">{t("sidebar.nav.docs")}</span>
-          <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
             <Kbd>?</Kbd>
           </span>
-        </button>
-        <button type="button" onClick={() => toggle("s:settings", false)} aria-expanded={isOpen("s:settings", inSettings)} className={`${navItem} ${navOff}`}>
+        </Button>
+        <Button variant="ghost" size="sm" type="button" onClick={() => toggle("s:settings", false)} aria-expanded={isOpen("s:settings", inSettings)} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
           <IcSettings size={16} tone="gray" />
           <span className="flex-1 truncate">{t("sidebar.settings")}</span>
           <Chevron open={isOpen("s:settings", inSettings)} />
-        </button>
+        </Button>
         {isOpen("s:settings", inSettings) && (
           <div className={`${branch} mb-1`}>
             {settingsItems.map((v) => {
               const active = ui.view === v.id;
               return (
-                <button
+                <Button variant="ghost" size="sm"
                   key={v.id}
                   type="button"
                   onClick={() => openSettings(v.id as "settings" | "projectSettings" | "orgSettings")}
                   aria-current={active ? "page" : undefined}
-                  className={`${navItem} h-[30px] text-[13px] ${active ? navOn : navOff}`}
+                  className={(`${navItem} h-[30px] text-[13px] ${active ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
                 >
                   {v.icon({ size: 15, tone: v.tone })}
                   <span className="flex-1 truncate">{t(v.labelKey)}</span>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -527,7 +531,7 @@ export default function Sidebar() {
       </div>
 
       <div className="mx-2 mb-2 mt-1 flex items-center gap-2.5 px-2.5 pb-1 pt-2">
-        <Avatar user={me} size={28} interactive />
+        <PersonAvatar user={me} size={28} interactive />
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-[13px] font-semibold text-ink">{me?.name}</p>
           <p className="mt-0.5 truncate text-[11.5px] text-faint">{me?.role}</p>
@@ -559,36 +563,22 @@ function Rail({
   const { data, ui, me, setView, goHome, setCreateOpen, can } = useStore();
   const openSettings = useOpenSettings();
   const brandName = useBrandName();
-  const tipRef = useRef<HTMLDivElement>(null);
-  const [tip, setTip] = useState<string | null>(null);
-  const show = (label: string) => (e: React.SyntheticEvent<HTMLElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const el = tipRef.current;
-    if (el) {
-      el.style.top = `${r.top + r.height / 2}px`;
-      el.style.left = `${r.right + 10}px`;
-    }
-    setTip(label);
+  const btn = (key: string, label: string, icon: React.ReactNode, onClick: () => void, on = false, extra?: React.ReactNode) => {
+    const button = (
+      <Button variant="ghost" size="sm"
+        key={key}
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        aria-current={on ? "page" : undefined}
+        className={(`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${on ? navOn : "text-sub hover:bg-hover/70 hover:text-ink"}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
+      >
+        {icon}
+        {extra}
+      </Button>
+    );
+    return <Suspense key={key} fallback={button}><RailTooltip label={label} placement="right">{button}</RailTooltip></Suspense>;
   };
-  const hide = () => setTip(null);
-
-  const btn = (key: string, label: string, icon: React.ReactNode, onClick: () => void, on = false, extra?: React.ReactNode) => (
-    <button
-      key={key}
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-current={on ? "page" : undefined}
-      onMouseEnter={show(label)}
-      onMouseLeave={hide}
-      onFocus={show(label)}
-      onBlur={hide}
-      className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${on ? navOn : "text-sub hover:bg-hover/70 hover:text-ink"}`}
-    >
-      {icon}
-      {extra}
-    </button>
-  );
   const sep = <span className="my-1.5 h-px w-6 shrink-0 bg-linesoft" />;
 
   return (
@@ -633,22 +623,9 @@ function Rail({
         {btn("settings", t("sidebar.settings"), <IcSettings size={16} tone="gray" />, () => openSettings("projectSettings"), SETTINGS_VIEWS.some((s) => s.id === ui.view))}
         {btn("expand", `${t("sidebar.expand")} · [`, <IcPanel size={16} />, onExpand)}
         <span className="mt-1">
-          <Avatar user={me} size={28} interactive />
+          <PersonAvatar user={me} size={28} interactive />
         </span>
       </div>
-      {/* В портале: у стеклянной панели backdrop-filter, а он делает её контейнером для
-          position: fixed потомков — подсказка обрезалась бы по краю полосы. */}
-      {createPortal(
-        <div
-          ref={tipRef}
-          role="tooltip"
-          hidden={!tip}
-          className="glass pointer-events-none fixed z-[70] -translate-y-1/2 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5 text-[12px] font-medium text-ink shadow-e3"
-        >
-          {tip}
-        </div>,
-        document.body,
-      )}
     </aside>
   );
 }

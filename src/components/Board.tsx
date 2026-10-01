@@ -2,6 +2,7 @@ import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, u
 import { flipFrom } from "../motion";
 import { Hint } from "./Hint";
 import { useStore } from "../store";
+import { createExternalStore, useExternalStore, type ExternalStore } from "../store/external";
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, PriorityId, Status, User } from "../types";
@@ -15,11 +16,11 @@ import { EmptyState, Skeleton } from "../ds/Display";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { preloadIssueModal } from "../lazyModals";
+import { boardMoveRows } from "../boardMoves";
 import { issuesApi, type IssueEpic, type IssueFilterParams } from "../api";
 import {
   ISSUE_PAGE_SIZE,
   NO_ISSUE_FILTERS,
-  freshRows,
   useDebounced,
   useEpics,
   useIssueCounts,
@@ -121,7 +122,7 @@ const Card = memo(function Card({
   const cardRef = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const l = landing;
-    if (!l || l.id !== issue.id || performance.now() - l.at > 1500 || !cardRef.current) return;
+    if (!l || l.id !== issue.id || l.statusId !== issue.statusId || performance.now() - l.at > 1500 || !cardRef.current) return;
     landing = null;
     flipFrom(cardRef.current, l.left, l.top);
   }, [issue.id, issue.statusId, issue.rank]);
@@ -328,9 +329,9 @@ function PrioMark({ p }: { p: PriorityId }) {
 /** Где курсор взял карточку и куда её отпустили — для FLIP-приземления в Card (модульное состояние: перетаскивание
  *  одно на страницу, а через React оно перерисовало бы доску). */
 let grab = { x: 0, y: 0 };
-let landing: { id: string; left: number; top: number; at: number } | null = null;
-const noteLanding = (id: string, e: React.DragEvent) => {
-  landing = { id, left: e.clientX - grab.x, top: e.clientY - grab.y, at: performance.now() };
+let landing: { id: string; statusId: string; left: number; top: number; at: number } | null = null;
+const noteLanding = (id: string, statusId: string, e: React.DragEvent) => {
+  landing = { id, statusId, left: e.clientX - grab.x, top: e.clientY - grab.y, at: performance.now() };
 };
 
 function setDragGhost(e: React.DragEvent<HTMLElement>) {
@@ -406,23 +407,37 @@ function QuickCreate({ status, onDone }: { status: Status; onDone: () => void })
  * Число в заголовке колонки берётся из счётчика сервера, а не из числа
  * загруженных карточек.
  */
-function ColumnCards({
+const ColumnCards = memo(function ColumnCards({
   projectId,
   filters,
   revision,
   renderCard,
+  moves,
+  doneStatus,
+  onMovesApplied,
 }: {
   projectId: string;
   filters: IssueFilterParams;
   revision: string;
   renderCard: (issue: Issue) => React.ReactNode;
+  moves: ReadonlyMap<string, string>;
+  doneStatus: boolean;
+  onMovesApplied: (ids: readonly string[]) => void;
 }) {
   const { t } = useT();
   const { data, idx } = useStore();
   const query = useMemo<IssueSetQuery>(() => ({ projectId, filters, sort: "rank", dir: "asc" }), [projectId, filters]);
   const set = useIssueSet(query, { withCounts: false });
   useOnRevision(revision, set.revalidate);
-  const rows = useMemo(() => freshRows(set.items, idx.issues), [set.items, idx.issues]);
+  const rows = useMemo(() => boardMoveRows(set.items, idx.issues, filters.status!, moves, { overdueOnly: filters.overdue === "1", doneStatus }), [set.items, idx.issues, filters.status, filters.overdue, moves, doneStatus]);
+  useEffect(() => {
+    const applied: string[] = [];
+    for (const [id, target] of moves) {
+      const current = idx.issues.get(id);
+      if (current && (current.statusId !== target || (target === filters.status && set.items.some(i => i.id === id && i.statusId === target && i.rank === current.rank)))) applied.push(id);
+    }
+    if (applied.length) onMovesApplied(applied);
+  }, [moves, idx.issues, filters.status, set.items, onMovesApplied]);
 
   const { hasMore, loading, loadingMore, loadMore } = set;
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length, "200px");
@@ -460,26 +475,28 @@ function ColumnCards({
       </div>
     </>
   );
-}
+});
 
 /** Стабильный пустой список переходов (новый `[]` на каждый рендер ломал бы memo карточки). */
 const NO_TARGETS: Status[] = [];
 const NO_SELECTION: ReadonlySet<string> = new Set();
+const NO_MOVES: ReadonlyMap<string, string> = new Map();
 /** Панель массовых действий — отдельный чанк: нужна только в режиме выделения, первый экран доски без неё. */
 const BulkBar = lazy(() => import("./BulkBar"));
 
 /**
- * Колонка доски — отдельный memo-компонент (ADR-0011, шаг 0): подсветка колонки под курсором
- * при перетаскивании (`overCol`) и начало перетаскивания меняют пропсы только затронутых
- * колонок, а карточки с неизменными пропсами не перерисовываются вовсе. Все пропсы —
- * примитивы, стабильные справочники (`Map` из `useMemo`) или стабильные колбэки.
+ * Колонка доски — отдельный memo-компонент (ADR-0011): подписка на hoverStore обновляет
+ * только прежнюю и новую колонку под курсором. Memo-список карточек не обходится заново
+ * при смене подсветки; начало перетаскивания обновляет доступность переходов во всех колонках.
  */
 const BoardColumn = memo(function BoardColumn({
+  moves,
+  onMovesApplied,
   st,
   total,
   hiddenDone,
   colFilters,
-  isOver,
+  hoverStore,
   ok,
   draggedStatusId,
   isDone,
@@ -511,11 +528,13 @@ const BoardColumn = memo(function BoardColumn({
   selectedIds,
   onToggleSelect,
 }: {
+  moves: ReadonlyMap<string, string>;
+  onMovesApplied: (ids: readonly string[]) => void;
   st: Status;
   total: number | null;
   hiddenDone: number;
   colFilters: IssueFilterParams;
-  isOver: boolean;
+  hoverStore: ExternalStore<string | null>;
   ok: boolean;
   /** Статус перетаскиваемой задачи — только колонке под курсором (текст «переход вне схемы»). */
   draggedStatusId: string | null;
@@ -551,6 +570,7 @@ const BoardColumn = memo(function BoardColumn({
   onToggleSelect: (id: string) => void;
 }) {
   const { t } = useT();
+  const isOver = useExternalStore(hoverStore, (id) => id === st.id);
   const statusPos = posById.get(st.id) ?? 0.5;
   const onOver = useCallback(() => setOverCol(st.id), [setOverCol, st.id]);
   const onDropOn = useCallback(
@@ -561,7 +581,7 @@ const BoardColumn = memo(function BoardColumn({
       setOverCol(null);
       setDragId(null);
       if (id && id !== target.id) {
-        noteLanding(id, e);
+        noteLanding(id, st.id, e);
         moveStatus(id, st.id, target.id);
       }
     },
@@ -595,7 +615,7 @@ const BoardColumn = memo(function BoardColumn({
   return (
     <section
       aria-label={workflowStatusName(st, t)}
-      className={`board-col snap-start rounded-xl ${BOARD_COLUMN_SHELL}`}
+      className={`board-col relative snap-start rounded-xl ${BOARD_COLUMN_SHELL}`}
       onDragOver={(e) => {
         e.preventDefault();
         setOverCol(st.id);
@@ -610,7 +630,7 @@ const BoardColumn = memo(function BoardColumn({
         setDragId(null);
         dragRef.current = null;
         if (id) {
-          noteLanding(id, e);
+          noteLanding(id, st.id, e);
           moveStatus(id, st.id, null);
         }
       }}
@@ -631,9 +651,12 @@ const BoardColumn = memo(function BoardColumn({
         )}
       </header>
 
+      {/* Highlight a separate leaf: changing the scroll container invalidates styles for every card. */}
       <div
-        className={`${BOARD_COLUMN_BODY} transition-[box-shadow,background-color] duration-150 ${isOver ? (ok ? "!bg-accentsoft/60 !shadow-[inset_0_0_0_1px_var(--accent-muted)]" : "!bg-dangersoft/60 !shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--status-danger)_40%,transparent)]") : ""}`}
-      >
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-x-0 top-10 ${isDoneStatus && total !== null && total > 0 ? "bottom-6" : "bottom-0"} rounded-b-xl ${isOver ? (ok ? "bg-accentsoft/60 shadow-[inset_0_0_0_1px_var(--accent-muted)]" : "bg-dangersoft/60 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--status-danger)_40%,transparent)]") : ""}`}
+      />
+      <div className={`${BOARD_COLUMN_BODY} relative`}>
         {quickOpen && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
         {projectId && (
           <ColumnCards
@@ -641,6 +664,9 @@ const BoardColumn = memo(function BoardColumn({
             filters={colFilters}
             revision={revision}
             renderCard={renderCard}
+            moves={moves}
+            doneStatus={isDone}
+            onMovesApplied={onMovesApplied}
           />
         )}
         {canCreate && isFirstTodo && !quickOpen && total !== 0 && (
@@ -675,16 +701,15 @@ const BoardColumn = memo(function BoardColumn({
             {isOver ? (ok ? t("board.dropReleaseOk") : t("board.dropForbidden")) : t("board.dropHere")}
           </div>
         )}
-        {isOver && !ok && (
-          <p className="rounded-md bg-dangersoft px-2 py-1 text-center text-[11.5px] font-medium text-[var(--status-danger-fg)]">
-            {t("board.transitionOutOfSchema", {
-              from: draggedStatusId ? workflowStatusName(statusById.get(draggedStatusId) ?? { name: "" }, t) : "",
-              to: workflowStatusName(st, t),
-            })}
-          </p>
-        )}
       </div>
-
+      {isOver && !ok && (
+        <p className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 rounded-md bg-dangersoft px-2 py-1 text-center text-[11.5px] font-medium text-[var(--status-danger-fg)]">
+          {t("board.transitionOutOfSchema", {
+            from: draggedStatusId ? workflowStatusName(statusById.get(draggedStatusId) ?? { name: "" }, t) : "",
+            to: workflowStatusName(st, t),
+          })}
+        </p>
+      )}
       {isDoneStatus && total !== null && total > 0 && (
         <p className="mt-1 flex items-center gap-1.5 px-2 pb-0.5 text-[12px] text-faint">
           <IcInbox size={13} /> {t("board.closedCount", { n: total })}
@@ -704,7 +729,8 @@ export default function Board() {
   // держит все задачи, и «нет в сторе» молча отключило бы проверку допустимости перехода
   // (canDropTo) — все колонки выглядели бы допустимыми.
   const [dragIssue, setDragIssue] = useState<Issue | null>(null);
-  const [overCol, setOverCol] = useState<string | null>(null);
+  const [hoverStore] = useState(() => createExternalStore<string | null>(null));
+  const setOverCol = useCallback((id: string | null) => hoverStore.setState(() => id), [hoverStore]);
   const [filterUser, setFilterUser] = useState<string | null | "none">(null);
   const [q, setQ] = useState("");
   const [chips, setChips] = useState<Set<QuickChip>>(new Set());
@@ -793,6 +819,38 @@ export default function Board() {
   const baseFilters = useMemo(() => boardFilterParams(fState), [fState]);
   const filtersOn = hasBoardFilters(fState);
   const projectId = data.currentProjectId || null;
+  const moveQueryKey = JSON.stringify([projectId, baseFilters]);
+  const [localMoves, setLocalMoves] = useState<{ key: string; moves: ReadonlyMap<string, string> }>({ key: "", moves: NO_MOVES });
+  const moves = localMoves.key === moveQueryKey ? localMoves.moves : NO_MOVES;
+  const moveQueryRef = useRef(moveQueryKey);
+  moveQueryRef.current = moveQueryKey;
+  const moveRequests = useRef(new Map<string, symbol>());
+  const onMovesApplied = useCallback((ids: readonly string[]) => {
+    setLocalMoves(prev => {
+      if (prev.key !== moveQueryKey || !ids.some(id => prev.moves.has(id))) return prev;
+      const next = new Map(prev.moves);
+      ids.forEach(id => next.delete(id));
+      return { key: moveQueryKey, moves: next };
+    });
+  }, [moveQueryKey]);
+  const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
+    if (!canMove) return;
+    const request = Symbol();
+    moveRequests.current.set(id, request);
+    moveStatus(id, to, before, confirmed => {
+      if (moveRequests.current.get(id) !== request) return;
+      moveRequests.current.delete(id);
+      if (moveQueryRef.current !== moveQueryKey) return;
+      if (!confirmed) { onMovesApplied([id]); return; }
+      setLocalMoves(prev => {
+        const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
+        next.delete(id);
+        next.set(id, to);
+        if (next.size > 128) next.delete(next.keys().next().value!);
+        return { key: moveQueryKey, moves: next };
+      });
+    });
+  }, [moveStatus, moveQueryKey, canMove, onMovesApplied]);
   const revision = useIssuesRevision();
   const epics = useEpics(projectId, epicsRevision);
   const hasDoneColumn = doneIds.size > 0;
@@ -857,7 +915,7 @@ export default function Board() {
   const canDropTo = (sid: string) => !dragged || dragged.statusId === sid || canTransition(data.workflow, dragged.statusId, sid);
 
   // Колбэки карточек стабильны: задачу они получают аргументом (ADR-0011, шаг 0).
-  const onMove = useCallback((id: string, to: string) => moveStatus(id, to, null), [moveStatus]);
+  const onMove = useCallback((id: string, to: string) => moveOnBoard(id, to, null), [moveOnBoard]);
   const onCardDragStart = useCallback((i: Issue) => {
     setDragId(i.id);
     setDragIssue(i);
@@ -867,7 +925,7 @@ export default function Board() {
     setDragId(null);
     setOverCol(null);
     dragRef.current = null;
-  }, []);
+  }, [setOverCol]);
 
   return (
     <div className="flex h-full flex-col">
@@ -1015,7 +1073,6 @@ export default function Board() {
       <div className="flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden md:snap-none">
         <div className="flex h-full min-w-full items-start gap-3 px-4 pb-4 pt-1 sm:px-6">
           {data.workflow.statuses.map((st) => {
-            const isOver = overCol === st.id;
             return (
               <BoardColumn
                 key={st.id}
@@ -1023,9 +1080,9 @@ export default function Board() {
                 total={totalOf(st.id)}
                 hiddenDone={hiddenDone(st.id)}
                 colFilters={colFiltersById.get(st.id) ?? NO_ISSUE_FILTERS}
-                isOver={isOver}
+                hoverStore={hoverStore}
                 ok={canDropTo(st.id)}
-                draggedStatusId={isOver && dragged ? dragged.statusId : null}
+                draggedStatusId={dragged?.statusId ?? null}
                 isDone={doneIds.has(st.id)}
                 isDoneStatus={st.id === doneStatusId}
                 showAllDone={showAllDone}
@@ -1043,7 +1100,9 @@ export default function Board() {
                 targetsByStatus={targetsByStatus}
                 lastEvent={ui.lastEvent}
                 can={can}
-                moveStatus={moveStatus}
+                moveStatus={moveOnBoard}
+                moves={moves}
+                onMovesApplied={onMovesApplied}
                 onOpen={openIssue}
                 onMove={onMove}
                 onCardDragStart={onCardDragStart}

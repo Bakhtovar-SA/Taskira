@@ -1,5 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { Suspense } from "react";
+import { lazyWithPreload } from "../lazyModals";
 import { I18nProvider } from "../i18n";
 
 const createIssue = vi.fn();
@@ -36,4 +38,22 @@ test("пока окно уходит с анимацией, второй Enter �
   fireEvent.keyDown(title, { key: "Enter" });
   fireEvent.click(screen.getByRole("button", { name: "Создать задачу" }));
   expect(createIssue).toHaveBeenCalledTimes(1);
+});
+
+test("a deferred first import preserves the real create-modal draft and focus after parent rerenders", async () => {
+  let resolve!: (module: { default: typeof CreateIssueModal }) => void;
+  const LazyCreate = lazyWithPreload(() => new Promise<{ default: typeof CreateIssueModal }>(done => { resolve = done; }));
+  const view = (tick: number) => <I18nProvider><span>{tick}</span><Suspense fallback={<p>loading chunk</p>}><LazyCreate open /></Suspense></I18nProvider>;
+  const ui = render(view(0));
+  expect(screen.getByText("loading chunk")).toBeTruthy();
+  await act(async () => { resolve({ default: CreateIssueModal }); });
+  const title = await screen.findByPlaceholderText(/Экран восстановления пароля/);
+  title.focus();
+  fireEvent.change(title, { target: { value: "Новая задача, черновик" } });
+  ui.rerender(view(1));
+  ui.rerender(view(2));
+  expect(screen.getByPlaceholderText(/Экран восстановления пароля/)).toBe(title);
+  expect((title as HTMLInputElement).value).toBe("Новая задача, черновик");
+  expect(document.activeElement).toBe(title);
+  expect(createIssue).not.toHaveBeenCalled();
 });

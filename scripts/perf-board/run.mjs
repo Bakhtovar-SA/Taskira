@@ -8,6 +8,8 @@
 //   SPIKE_NODE_MODULES=/tmp/csp-spike/node_modules CHROMIUM_PATH=/path/to/chrome \
 //   THROTTLE=1,4 node scripts/perf-board/run.mjs
 // THROTTLE — список множителей замедления CPU (CDP Emulation.setCPUThrottlingRate).
+// openIssue* — видимый диалог (включая загрузку); openIssueDetails* — готовые данные задачи.
+// Для бюджета открытия с содержимым сравнивайте openIssueDetails*, а не только отклик загрузки.
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
@@ -73,6 +75,10 @@ function handle(method, url) {
   const q = url.searchParams;
   if (p === "/api/auth/config") return { authMode: "local" };
   if (p === "/api/auth/me") return USERS[0];
+  if (p === "/api/me/lang") return USERS[0];
+  if (p === "/api/instance/brand") return { name: null, hue: null, logoUpdatedAt: null };
+  if (p === "/api/me/onboarding") return { done: [], hidden: true, hints: [] };
+  if (p === "/api/admin/setup") return { completed: true, instanceName: "Taskira", authMode: "local", users: USERS.length, projects: 1, demoProjectId: null };
   if (p === "/api/projects") return [project];
   if (p === "/api/departments" || p === "/api/issues/collaborating") return [];
   if (p === "/api/notifications") return { items: [], nextCursor: null };
@@ -152,7 +158,7 @@ for (const rate of throttles) {
   }
 
   // 3. Кадры во время перетаскивания: dragover каждый кадр; «худший» — колонка под курсором
-  //    меняется каждый кадр (подсветка колонки = setState в Board), «контроль» — одна колонка.
+  //    меняется каждый кадр (подсветка колонок через hoverStore), «контроль» — одна колонка.
   const dragFrames = (alternate) =>
     page.evaluate(async (alt) => {
       const card = document.querySelectorAll("article")[5];
@@ -212,21 +218,29 @@ for (const rate of throttles) {
   for (let i = 0; i < 6; i++) {
     const evBefore = await page.evaluate(() => {
       window.__openMs = null;
+      window.__detailsMs = null;
       let clickTs = 0;
+      let opening = false;
+      let details = false;
       document.addEventListener("click", (e) => (clickTs = e.timeStamp), { capture: true, once: true });
       const mo = new MutationObserver(() => {
-        if (document.querySelector("[role=dialog]")) {
-          mo.disconnect();
+        if (!opening && document.querySelector("[role=dialog]")) {
+          opening = true;
           requestAnimationFrame(() => requestAnimationFrame(() => (window.__openMs = performance.now() - clickTs)));
+        }
+        if (!details && document.querySelector("[data-issue-details]")) {
+          details = true;
+          mo.disconnect();
+          requestAnimationFrame(() => requestAnimationFrame(() => (window.__detailsMs = performance.now() - clickTs)));
         }
       });
       mo.observe(document.body, { subtree: true, childList: true });
       return window.__events.length;
     });
     await page.locator("article").nth(3 + i).click();
-    await page.waitForFunction(() => window.__openMs !== null);
+    await page.waitForFunction(() => window.__openMs !== null && window.__detailsMs !== null);
     opens.push(
-      await page.evaluate((k) => ({ ms: window.__openMs, click: window.__events.slice(k).find((e) => e.name === "click")?.duration ?? null }), evBefore),
+      await page.evaluate((k) => ({ ms: window.__openMs, detailsMs: window.__detailsMs, click: window.__events.slice(k).find((e) => e.name === "click")?.duration ?? null }), evBefore),
     );
     await page.keyboard.press("Escape");
     await page.waitForSelector("[role=dialog]", { state: "detached" });
@@ -244,6 +258,8 @@ for (const rate of throttles) {
     unreadBadgeMedianMs: r1(med(unreadMs)),
     openIssueFirstMs: r1(opens[0].ms),
     openIssueMedianMs: r1(med(opens.slice(1).map((o) => o.ms))),
+    openIssueDetailsFirstMs: r1(opens[0].detailsMs),
+    openIssueDetailsMedianMs: r1(med(opens.slice(1).map((o) => o.detailsMs))),
     openIssueClickEventMs: opens.map((o) => o.click),
     cspViolations,
     dynamicCssRules,

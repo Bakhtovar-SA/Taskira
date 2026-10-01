@@ -99,7 +99,8 @@ describe("триграммные индексы поиска", () => {
     });
     expect(plan).toContain("idx_issues_active_title_trgm");
     expect(plan).toContain("idx_issues_active_key_trgm");
-  });
+    // Building a 40,000-row indexed fixture can exceed 15 seconds on the reference i3; assertions are unchanged.
+  }, 60_000);
 
   test("миграция повторяема: второй запуск ничего не ломает и не дублирует индексы", async () => {
     await q(SQL);

@@ -1,3 +1,4 @@
+
 /** Настройки проекта (IA §3.2): Общее, Модули, Архив и удаление. Раньше: название и «общий» — строкой в
  *  «Департаментах», описание и отдел — только через API, спринты — чекбоксом там же, архив — только по
  *  прямой ссылке, удаление — корзиной в списке отделов. Форма пишет теми же действиями стора, что и раньше
@@ -257,11 +258,11 @@ function Archive() {
         ) : (
           <>
             {rows.map((r) => (
-              <button key={r.id} type="button" onClick={() => openIssue(r.id, "page")} className="ds-focus flex h-11 items-center gap-3 px-5 text-left transition-colors hover:bg-hover/60">
+              <Button variant="ghost" size="sm" key={r.id} type="button" onClick={() => openIssue(r.id, "page")} className="h-11 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
                 <span className="w-[76px] shrink-0 font-mono text-[12px] text-faint">{r.key}</span>
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{r.title}</span>
                 {r.archivedAt && <span className="shrink-0 text-[12px] tabular text-faint">{fmtDate(r.archivedAt.slice(0, 10), lang)}</span>}
-              </button>
+              </Button>
             ))}
             {cursor && (
               <div className="px-5 py-3">

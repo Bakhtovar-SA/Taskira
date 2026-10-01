@@ -1,9 +1,12 @@
+import { Kbd } from "../ds/Display";
+import { Button } from "../ds/Button";
+import { RoleTag, StatusTag, ROLE_TONE } from "./settings/parts";
+import { Tag } from "../ds/Display";
 import { useState } from "react";
 import { DEFAULT_WORKFLOW } from "../seed";
 import { ACCESS_ROLES, PERMISSIONS, ROLE_ORDER, roleHas, roleMeta } from "../permissions";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcBook, PriorityIcon, TypeIcon } from "../icons";
-import { Kbd, RoleBadge, catColor } from "../ui";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 
@@ -74,7 +77,7 @@ function DocsEnglish() {
         </div>
         <div className="mt-4 grid gap-5 lg:grid-cols-[220px_1fr]">
           <nav className="top-5 h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-2 lg:sticky">
-            {EN_SECTIONS.map(([id, label]) => <button key={id} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{label}</button>)}
+            {EN_SECTIONS.map(([id, label]) => <Button variant="ghost" size="sm" key={id} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{label}</Button>)}
           </nav>
           <div>{sections.map((s) => <section key={s.id} id={`doc-en-${s.id}`} className="mb-4 scroll-mt-5 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5"><H>{s.title}</H><P>{s.body}</P></section>)}</div>
         </div>
@@ -108,14 +111,14 @@ export default function DocsView() {
           {/* навигация */}
           <nav className="top-5 h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-2 lg:sticky">
             {SECTIONS.map((s, i) => (
-              <button
+              <Button variant="ghost" size="sm"
                 key={s.id}
                 onClick={() => go(s.id)}
                 className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[12.5px] font-medium transition-colors ${active === s.id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover hover:text-ink"}`}
               >
                 <span className={`font-mono text-[10px] font-semibold ${active === s.id ? "text-accent" : "text-faint"}`}>{String(i + 1).padStart(2, "0")}</span>
                 {s.label}
-              </button>
+              </Button>
             ))}
           </nav>
 
@@ -162,7 +165,7 @@ export default function DocsView() {
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {ACCESS_ROLES.map((r) => (
                   <div key={r.id} className="rounded-lg border border-linesoft bg-sunken p-3">
-                    <RoleBadge role={r.id} size="sm" />
+                    <RoleTag role={r.id} size="sm" />
                     <p className="mt-2 text-[12px] leading-relaxed text-sub">{r.desc}</p>
                   </div>
                 ))}
@@ -172,7 +175,7 @@ export default function DocsView() {
                   <tr className="border-b border-line">
                     <th className="px-2 py-2 text-left text-[11.5px] font-medium text-faint">Разрешение</th>
                     {ROLE_ORDER.map((r) => (
-                      <th key={r} className="px-2 py-2 text-center text-[11.5px] font-medium" style={{ color: roleMeta(r).color }}>{roleMeta(r).short}</th>
+                      <th key={r} className="px-2 py-2 text-center text-[11.5px] font-medium"><Tag tone={ROLE_TONE[r]} size="sm">{roleMeta(r).short}</Tag></th>
                     ))}
                   </tr>
                 </thead>
@@ -205,12 +208,11 @@ export default function DocsView() {
               </P>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {DEFAULT_WORKFLOW.statuses.map((s) => {
-                  const c = catColor(s.category);
                   const out = DEFAULT_WORKFLOW.transitions.filter((tr) => tr.from === s.id).length;
                   const inc = DEFAULT_WORKFLOW.transitions.filter((tr) => tr.to === s.id).length;
                   return (
                     <div key={s.id} className="flex items-center gap-3 rounded-lg border border-linesoft bg-sunken px-3 py-2.5">
-                      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: c.dot }} />
+                      <StatusTag status={s} size="sm" />
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-semibold text-ink">{workflowStatusName(s, t)}</p>
                         <p className="font-mono text-[10px] text-faint">id: {s.id} · категория: {s.category}</p>

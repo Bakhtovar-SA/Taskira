@@ -21,16 +21,20 @@ type DialogProps = {
   /** Без шапки ds: содержимое рисует свою (карточка задачи — ключ, действия, крестик). Заголовок остаётся для
    *  экранного чтения (aria-labelledby), тело — без отступов. */
   headless?: boolean;
+  /** Signal that a loading placeholder has been replaced by interactive content. */
+  focusReady?: boolean;
 };
 
-function useNativeDialog(open: boolean, onClose: () => void) {
+function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean) {
   const ref = useRef<HTMLDialogElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose; // см. CLAUDE.md про Modal: onClose приходит новым на каждый рендер
   useLayoutEffect(() => {
     const el = ref.current;
     if (!open || !el) return;
     const back = document.activeElement as HTMLElement | null;
+    openerRef.current = back;
     if (el.showModal && !el.open) el.showModal();
     else el.setAttribute("open", ""); // jsdom
     // Первый доступный элемент тела: выключенная кнопка фокус не принимает, и он оставался на body (карточка задачи:
@@ -50,10 +54,17 @@ function useNativeDialog(open: boolean, onClose: () => void) {
       back?.focus?.();
     };
   }, [open]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const active = document.activeElement;
+    if (!open || !el || el.contains(active) || (active !== document.body && active !== openerRef.current)) return;
+    (el.querySelector<HTMLElement>("[data-autofocus]") ??
+      el.querySelector<HTMLElement>(".ds-dialog-body :is(input, textarea, select, button, [href], [tabindex]):not([disabled], [tabindex='-1'], [aria-disabled='true'])") ?? el).focus();
+  }, [open, focusReady]);
   return ref;
 }
 
-function Frame({ kind, open, onClose, title, description, children, footer, size = "md", closeLabel, dismissable = true, headless }: DialogProps & { kind: "dialog" | "panel" | "palette" }) {
+function Frame({ kind, open, onClose, title, description, children, footer, size = "md", closeLabel, dismissable = true, headless, focusReady = true }: DialogProps & { kind: "dialog" | "panel" | "palette" }) {
   const t = useOptionalT()?.t;
   closeLabel ??= t ? t("common.close") : "Закрыть";
   // Закрытие с анимацией: после open=false диалог ещё виден, пока не доиграет уход (data-closing в ds.css), и только
@@ -61,7 +72,7 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
   const [shown, setShown] = useState(open);
   if (open && !shown) setShown(true);
   const closing = shown && !open;
-  const ref = useNativeDialog(shown, onClose);
+  const ref = useNativeDialog(shown, onClose, focusReady);
   useEffect(() => {
     if (!closing) return;
     const el = ref.current;

@@ -1,3 +1,4 @@
+import { Button } from "../../ds/Button";
 /** Настройки — три дома (ADR-0013 §2, IA §3, ТЗ 5.9): Личные, Проект, Организация. Слева — все доступные
  *  разделы, сгруппированные по дому; справа — страница раздела. Каждая настройка живёт ровно в одном месте. */
 import { lazy, Suspense, type ReactNode } from "react";
@@ -129,18 +130,18 @@ export default function SettingsView() {
                 const on = h === home && s === section;
                 const m = META[s];
                 return (
-                  <button
+                  <Button variant="ghost" size="sm"
                     key={`${h}:${s}`}
                     type="button"
                     onClick={() => setView(h, s)}
                     aria-current={on ? "page" : undefined}
-                    className={`ds-focus flex h-8 w-full shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 text-left text-[13px] font-medium transition-colors max-md:w-auto ${
+                    className={(`ds-focus flex h-8 w-full shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 text-left text-[13px] font-medium transition-colors max-md:w-auto ${
                       on ? "bg-panel font-semibold text-ink shadow-[var(--highlight-top),0_1px_2px_oklch(0.2_0.05_288/0.08),0_0_0_1px_var(--border-subtle)]" : "text-sub hover:bg-hover/70 hover:text-ink"
-                    }`}
+                    }`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
                   >
                     {m.icon({ size: 15, tone: on ? m.tone : undefined })}
                     {t(sectionKey(h, s))}
-                  </button>
+                  </Button>
                 );
               })}
             </div>

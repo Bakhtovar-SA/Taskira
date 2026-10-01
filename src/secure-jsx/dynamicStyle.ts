@@ -2,6 +2,8 @@ import type { CSSProperties } from "react";
 
 const classes = new Map<string, string>();
 const inserted = new Set<string>();
+const parsedStyles = new Map<string, { className: string; cssText: string }>();
+const PARSED_STYLE_LIMIT = 256;
 let sequence = 0;
 const unitless = new Set([
   "animationIterationCount", "aspectRatio", "columnCount", "flex", "flexGrow", "flexShrink",
@@ -36,8 +38,15 @@ function ensureRule(className: string, cssText: string): void {
  * and at-rules are rejected before insertion to keep user colours inert. */
 export function dynamicStyle(style: CSSProperties): string {
   if (typeof document === "undefined") return "";
+  const entries = Object.entries(style);
+  const key = JSON.stringify(entries.map(([name, value]) => [name, typeof value, value == null ? null : String(value)]));
+  const parsed = parsedStyles.get(key);
+  if (parsed) {
+    ensureRule(parsed.className, parsed.cssText);
+    return parsed.className;
+  }
   const probe = document.createElement("div");
-  for (const [name, raw] of Object.entries(style)) {
+  for (const [name, raw] of entries) {
     if (raw === null || raw === undefined || raw === "") continue;
     const value = typeof raw === "number" && raw !== 0 && !unitless.has(name) ? `${raw}px` : String(raw);
     if (/[{};@]/.test(value) || /url\s*\(/i.test(value)) continue;
@@ -46,13 +55,11 @@ export function dynamicStyle(style: CSSProperties): string {
   }
   const cssText = probe.style.cssText;
   if (!cssText) return "";
-  const cached = classes.get(cssText);
-  if (cached) {
-    ensureRule(cached, cssText);
-    return cached;
-  }
-  const className = `taskira-dyn-${++sequence}`;
+  const className = classes.get(cssText) ?? `taskira-dyn-${++sequence}`;
   classes.set(cssText, className);
+  // Bound the fast path; generated CSS rules keep their existing deduplication and validation.
+  if (parsedStyles.size >= PARSED_STYLE_LIMIT) parsedStyles.delete(parsedStyles.keys().next().value!);
+  parsedStyles.set(key, { className, cssText });
   ensureRule(className, cssText);
   return className;
 }

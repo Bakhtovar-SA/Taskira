@@ -8,6 +8,7 @@ import { jsx, jsxs } from "./jsx-runtime";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 const keyWarnings = (spy: ReturnType<typeof vi.spyOn>) =>
@@ -24,4 +25,20 @@ test("настоящий список через jsx по-прежнему тр�
   const err = vi.spyOn(console, "error").mockImplementation(() => {});
   render(jsx("ul", { children: [createElement("li", null, "a"), createElement("li", null, "b")] }));
   expect(keyWarnings(err)).toBeGreaterThan(0);
+});
+
+test("production factory preserves CSP styles, keys and static children", () => {
+  vi.stubEnv("PROD", true);
+  const el = jsxs("div", {
+    style: { maxWidth: 312 },
+    className: "original",
+    children: [jsx("b", { children: "1" }), jsx("i", { children: "2" })],
+  }, "item");
+  expect(el.key).toBe("item");
+  const { container } = render(el);
+  const box = container.firstElementChild!;
+  expect(box.hasAttribute("style")).toBe(false);
+  expect(box.classList.contains("original")).toBe(true);
+  expect(box.classList.length).toBe(2);
+  expect(box.innerHTML).toBe("<b>1</b><i>2</i>");
 });

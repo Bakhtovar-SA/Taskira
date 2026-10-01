@@ -1,4 +1,5 @@
 import React, { createElement } from "react";
+import { jsx as reactJsx, jsxs as reactJsxs } from "react/jsx-runtime";
 import type { CSSProperties, ReactNode } from "react";
 import { dynamicStyle } from "./dynamicStyle";
 
@@ -13,6 +14,8 @@ function secured(type: React.ElementType, props: Props | null, key: React.Key | 
     const generated = dynamicStyle(style);
     next = { ...rest, className: [className, generated].filter(Boolean).join(" ") || undefined };
   }
+  // Keep the CSP style conversion, then use React's smaller production element factory.
+  if (import.meta.env.PROD) return (staticChildren ? reactJsxs : reactJsx)(type, next, key);
   if (key !== undefined) next = { ...next, key };
   // Статичные дети (jsxs: <a><b/><c/></a>) — отдельными аргументами, как у настоящего jsxs: массив в props.children
   // React в dev принимает за список и требует key у каждого элемента — консоль тонула в ложных предупреждениях.
