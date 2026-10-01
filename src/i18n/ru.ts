@@ -1405,6 +1405,9 @@ const ru = {
   "import.failed": "Не удалось: {count}.",
   "import.importing": "Импорт…",
   "import.start": "Импортировать{count}",
+
+  // трек G
+  "backlog.sort.label": "Сортировка",
 } as const;
 
 export default ru;

@@ -114,6 +114,41 @@ jq -c 'select(.type == "issue")' taskira-export.jsonl | head
 он про рабочие данные организации, не про персональные предпочтения интерфейса.
 Каждый запрос фиксируется событием `admin.export` в audit log.
 
+HTTP-экспорт держит один read-only REPEATABLE READ snapshot. SQL-запрос ограничен
+30 секундами, простой транзакции и передача — 5 минутами. При превышении лимита,
+ошибке БД или отключении клиента передача прерывается и snapshot освобождается;
+сломанное соединение удаляется из пула. Прерванный файл нельзя считать полным
+экспортом. Для длительной выгрузки всей инсталляции используйте `scripts/backup.sh`.
+
+Все таблицы и страницы одного экспорта читаются выделенным соединением в общей
+`REPEATABLE READ READ ONLY` транзакции. Завершение, ошибка или отключение клиента
+закрывают поток и транзакцию. Шаблоны задач включены как `issueTemplate` со связью
+`projectId`; whitelist колонок не включает секреты учётных записей.
+
+### Полнота экспорта
+
+| Таблицы | Решение |
+|---|---|
+| instance | Название и бренд; лицензия и состояние первичной настройки исключены |
+| departments, department_members, users, projects, project_members | Рабочая структура и профили; секреты/блокировки/эпохи сессий исключены |
+| workflow_statuses, workflow_transitions, project_templates, issue_templates | Включены определения workflow и шаблоны |
+| issues, issue_assignees, issue_collaborators, issue_links, checklist_items | Включены задачи, связи и участники |
+| custom_fields, custom_field_values, sprints | Включены определения и значения |
+| project_milestones, project_dependencies, dashboards | Включены сроки, зависимости и общие дашборды; личные дашборды исключены |
+| comments, activity, attachments, audit_log | История и метаданные файлов; бинарные файлы выгружаются через backup |
+| issue_watchers, notifications, saved_views, user_favorite_projects, user_onboarding | Личные подписки, уведомления и настройки; намеренно исключены |
+| project_counters, login_attempts, schema_migrations | Счётчики, состояние лимитера и служебная схема; исключены, не являются рабочими данными |
+
+WebSocket и инвалидация авторизации локальны. Один serving API-процесс на БД
+принудительно обеспечивается отдельным PostgreSQL session lock (ADR-0024).
+Compose связывает IPAM и `TRUST_PROXY` одной переменной `TASKIRA_NETWORK_CIDR`.
+nginx на границе отбрасывает входящий XFF; за корпоративным LB каталог
+`/etc/nginx/taskira-real-ip/*.conf` должен задавать доверенные CIDR балансировщика
+и `real_ip_header` (конкретный пример — в [OPERATIONS](OPERATIONS.md)).
+Без ограниченного `set_real_ip_from` реальный IP за LB не восстанавливается.
+Неограниченный nginx body size используется только на конечных путях загрузки файлов;
+остальные API-запросы имеют предел 1 MiB.
+
 ## Поставка, сканирование и восстановление
 
 Релиз — офлайн-архив с versioned images, manifest и SHA-256. `install.sh`

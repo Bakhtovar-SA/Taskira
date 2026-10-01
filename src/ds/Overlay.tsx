@@ -23,7 +23,8 @@ export type TriggerProps = {
   onClick: () => void;
   "aria-expanded": boolean;
   "aria-haspopup": "dialog" | "menu" | "listbox";
-  "aria-controls": string;
+  /** Нет, пока содержимое не отрисовано (заглушка LazyMenu до загрузки чанка). */
+  "aria-controls"?: string;
 };
 
 type PopoverProps = {
@@ -128,8 +129,26 @@ export type MenuEntry =
 
 /** Меню действий по шаблону APG menu button: стрелки, Home/End, набор первых букв, Enter/Space,
  *  фокус возвращается на кнопку. */
-export function Menu({ trigger, items, placement = "bottom-start", label }: { trigger: PopoverProps["trigger"]; items: MenuEntry[]; placement?: Placement; label?: string }) {
-  const [open, setOpen] = useState(false);
+export type MenuProps = {
+  trigger: PopoverProps["trigger"];
+  items: MenuEntry[];
+  placement?: Placement;
+  label?: string;
+  /** Управляемый режим: меню открывают и снаружи (клавиша M на карточке доски). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
+
+export function Menu({ trigger, items, placement = "bottom-start", label, open: openProp, onOpenChange }: MenuProps) {
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = useCallback(
+    (v: boolean) => {
+      if (openProp === undefined) setOpenState(v);
+      onOpenChange?.(v);
+    },
+    [openProp, onOpenChange],
+  );
   const listRef = useRef<HTMLDivElement>(null);
   const typed = useRef({ s: "", t: 0 });
   const focusables = () => [...(listRef.current?.querySelectorAll<HTMLElement>("[role=menuitem]:not([aria-disabled=true])") ?? [])];

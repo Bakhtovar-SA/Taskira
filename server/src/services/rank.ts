@@ -17,7 +17,6 @@
  * колонки по-прежнему обрабатываются параллельно.
  */
 import type { PoolClient } from "pg";
-import { withClient } from "../db.js";
 
 const STEP = 1000;
 const MIN_GAP = 1e-9;
@@ -52,21 +51,7 @@ async function listRanks(client: PoolClient, statusId: string, excludeId?: strin
 }
 
 /** Возвращает rank для вставки в колонку statusId перед beforeId (null = в конец). */
-export async function computeRank(statusId: string, beforeId: string | null, excludeId?: string): Promise<number> {
-  return withClient(async (client) => {
-    await client.query("BEGIN");
-    try {
-      const rank = await computeInTx(client, statusId, beforeId, excludeId);
-      await client.query("COMMIT");
-      return rank;
-    } catch (e) {
-      await client.query("ROLLBACK").catch(() => undefined);
-      throw e;
-    }
-  });
-}
-
-async function computeInTx(
+export async function computeRank(
   client: PoolClient,
   statusId: string,
   beforeId: string | null,
@@ -75,7 +60,7 @@ async function computeInTx(
   {
     // Лок на время транзакции, ключ — статус-колонка. Второй параллельный расчёт
     // по той же колонке ждёт здесь и увидит уже записанные соседями ранги.
-    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [statusId]);
+    await lockRankColumn(client, statusId);
     const pick = (rows: RankRow[]): number => {
       if (!beforeId) {
         const last = rows[rows.length - 1];
@@ -117,4 +102,9 @@ async function computeInTx(
     }
     return rank;
   }
+}
+
+/** Acquire before issue row locks; retain through the caller's INSERT/UPDATE and COMMIT. */
+export async function lockRankColumn(client: PoolClient, statusId: string): Promise<void> {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [statusId]);
 }

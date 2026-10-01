@@ -20,6 +20,7 @@
     "test:mail": "vitest run test/notifier.test.ts",
     "perf:seed": "node scripts/performance-seed.mjs",
     "perf:run": "node scripts/performance-load.mjs",
+    "perf:tool:check": "node scripts/test-load-tool.mjs",
     "license:generate": "tsx scripts/generate-license.ts",
     "license:install": "tsx scripts/install-license.ts"
   },
@@ -52,6 +53,9 @@
     "tsx": "^4.23.15",
     "typescript": "^5.7.2",
     "vitest": "^5.0.1"
+  },
+  "overrides": {
+    "hyperid": { "uuid": "11.1.1" }
   },
   "allowScripts": {
     "esbuild@0.28.2": true

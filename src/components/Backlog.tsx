@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Hint } from "./Hint";
 import { useLocation } from "wouter";
 import { useStore } from "../store";
@@ -9,8 +9,8 @@ import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useL
 import { LIMITS } from "../validation";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Chip, Dropdown, Lozenge, MenuItem, SkeletonRow, directionColor } from "../ui";
-import { Button, EmptyState, Presence } from "../ds";
+import { AvatarStack, Chip, Lozenge, SkeletonRow, directionColor } from "../ui";
+import { Button, Checkbox, EmptyState, Menu, Popover, Presence } from "../ds";
 import BulkBar from "./BulkBar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -154,32 +154,29 @@ function Row({
         </span>
       ))}
       <span role="cell" data-col="actions" className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-        <Dropdown
-          align="right"
-          width={190}
-          button={() => (
+        <Menu
+          label={t("common.actions")}
+          placement="bottom-end"
+          trigger={(p) => (
             <button
-              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+              {...p}
+              type="button"
+              className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 aria-expanded:opacity-100"
               aria-label={t("common.actions")}
             >
               <IcDots size={14} />
             </button>
           )}
-        >
-          {(close) => (
-            <>
-              <MenuItem onClick={() => { openIssue(issue.id); close(); }}>{t("backlog.openIssue")}</MenuItem>
-              {can("delete") && (
-                <>
-                  <div className="my-1 border-t border-linesoft" />
-                  <MenuItem danger onClick={() => { deleteIssue(issue.id); close(); }}>
-                    <IcTrash size={13} /> {t("common.delete")}
-                  </MenuItem>
-                </>
-              )}
-            </>
-          )}
-        </Dropdown>
+          items={[
+            { id: "open", label: t("backlog.openIssue"), onSelect: () => openIssue(issue.id) },
+            ...(can("delete")
+              ? [
+                  { kind: "sep" as const, id: "sep" },
+                  { id: "delete", label: t("common.delete"), icon: <IcTrash size={13} />, danger: true, onSelect: () => deleteIssue(issue.id) },
+                ]
+              : []),
+          ]}
+        />
       </span>
     </div>
   );
@@ -462,52 +459,44 @@ export default function Backlog() {
             </div>
 
             {/* колонки таблицы (ТЗ 5.12 e) */}
-            <Dropdown
-              align="right"
-              width={230}
-              button={(open) => (
-                <button className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+            <Popover
+              label={t("backlog.columns")}
+              placement="bottom-end"
+              className="w-[230px]"
+              trigger={(p, open) => (
+                <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
                   <IcDisplay size={12} className="text-faint" />
                   {t("backlog.columns")}
                   <IcChevD size={11} className="text-faint" />
                 </button>
               )}
             >
-              {() => (
-                <div className="p-1">
-                  {COLUMNS.map((c) => (
-                    <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink hover:bg-hover/70">
-                      <input type="checkbox" checked={cols.includes(c.id)} onChange={() => toggleCol(c.id)} className="cursor-pointer" />
-                      {t(c.label)}
-                    </label>
-                  ))}
-                  <p className="border-t border-linesoft px-2 pb-1 pt-1.5 text-[11px] leading-snug text-faint">{t("backlog.columnsHint")}</p>
-                </div>
-              )}
-            </Dropdown>
+              <div className="flex flex-col gap-0.5 p-1">
+                {COLUMNS.map((c) => (
+                  <Checkbox key={c.id} checked={cols.includes(c.id)} onChange={() => toggleCol(c.id)} label={t(c.label)} />
+                ))}
+                <p className="mt-1 border-t border-linesoft px-1 pb-0.5 pt-1.5 text-[11px] leading-snug text-faint">{t("backlog.columnsHint")}</p>
+              </div>
+            </Popover>
 
             {/* сортировка */}
-            <Dropdown
-              align="right"
-              width={180}
-              button={(open) => (
-                <button className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+            <Menu
+              label={t("backlog.sort.label")}
+              placement="bottom-end"
+              trigger={(p, open) => (
+                <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
                   <IcFilter size={12} className="text-faint" />
                   {sortLabels[sortKey]}
                   <IcChevD size={11} className="text-faint" />
                 </button>
               )}
-            >
-              {(close) => (
-                <>
-                  {(Object.keys(sortLabels) as SortKey[]).map((k) => (
-                    <MenuItem key={k} onClick={() => { pickSort(k); close(); }}>
-                      {sortLabels[k]} {k === sortKey && <span className="ml-auto text-[10.5px] text-accent">✓</span>}
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-            </Dropdown>
+              items={(Object.keys(sortLabels) as SortKey[]).map((k) => ({
+                id: k,
+                label: sortLabels[k],
+                hint: k === sortKey ? <IcCheck size={12} className="text-accent" /> : undefined,
+                onSelect: () => pickSort(k),
+              }))}
+            />
             <button
               onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
               title={t(sortDir === "asc" ? "backlog.sort.asc" : "backlog.sort.desc")}
@@ -598,11 +587,11 @@ export default function Backlog() {
           )}
 
           {/* ТЗ 3.2: сохранённые вьюхи — личные, применяют/сохраняют текущий набор условий. */}
-          <Dropdown
-            align="left"
-            width={240}
-            button={(open) => (
-              <button className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+          <Popover
+            label={t("backlog.savedViews")}
+            className="w-[240px]"
+            trigger={(p, open) => (
+              <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
                 <IcStar size={12} className="text-faint" />
                 {t("backlog.savedViews")}
                 {views.length > 0 && <span className="text-[10.5px] text-faint">({views.length})</span>}
@@ -628,6 +617,8 @@ export default function Backlog() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") saveRename(v);
                           if (e.key === "Escape") {
+                            // отменить переименование, не закрывая список (preventDefault гасит и закрытие popover)
+                            e.preventDefault();
                             e.stopPropagation();
                             setRenaming(null);
                           }
@@ -637,9 +628,9 @@ export default function Backlog() {
                     </div>
                   ) : (
                   <div key={v.id} className="group flex items-center">
-                    <MenuItem onClick={() => { applyView(v); close(); }}>
-                      {v.name}
-                    </MenuItem>
+                    <MenuButton className="min-w-0 flex-1" onClick={() => { applyView(v); close(); }}>
+                      <span className="truncate">{v.name}</span>
+                    </MenuButton>
                     <button
                       onClick={(e) => { e.stopPropagation(); void patchView(v, { isDefault: !v.isDefault }); }}
                       aria-pressed={v.isDefault}
@@ -666,7 +657,7 @@ export default function Backlog() {
                   </div>
                   ),
                 )}
-                <div className="my-1 border-t border-linesoft" />
+                <div role="separator" className="ds-menu-sep" />
                 {savingView ? (
                   <div className="flex items-center gap-1.5 px-2.5 py-1.5">
                     <input
@@ -682,11 +673,11 @@ export default function Backlog() {
                     </button>
                   </div>
                 ) : (
-                  <MenuItem onClick={() => setSavingView(true)}>{t("backlog.saveAsView")}</MenuItem>
+                  <MenuButton onClick={() => setSavingView(true)}>{t("backlog.saveAsView")}</MenuButton>
                 )}
               </>
             )}
-          </Dropdown>
+          </Popover>
         </div>
         <Hint id="saved-views" className="mt-2.5">{t("hint.savedViews")}</Hint>
 
@@ -819,11 +810,13 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
   const active = !!(from || to);
   const label = !active ? t("backlog.due.any") : from && to && from === to ? fmt(from) : `${from ? fmt(from) : "…"} – ${to ? fmt(to) : "…"}`;
   return (
-    <Dropdown
-      align="left"
-      width={250}
-      button={(open) => (
+    <Popover
+      label={t("field.dueDate")}
+      className="w-[250px]"
+      trigger={(p, open) => (
         <button
+          {...p}
+          type="button"
           aria-label={`${t("field.dueDate")}: ${label}`}
           className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open || active ? "border-accent" : "border-line"} bg-panel ${active ? "text-ink" : "text-sub"}`}
         >
@@ -836,12 +829,12 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
       {(close) => (
         <>
           {presets.map((p) => (
-            <MenuItem key={p.key} onClick={() => { onChange(p.from, p.to); close(); }}>
+            <MenuButton key={p.key} onClick={() => { onChange(p.from, p.to); close(); }}>
               {t(p.key as never)}
               {from === p.from && to === p.to && <IcCheck size={12} className="ml-auto text-accent" />}
-            </MenuItem>
+            </MenuButton>
           ))}
-          <div className="my-1 border-t border-linesoft" />
+          <div role="separator" className="ds-menu-sep" />
           <div className="grid grid-cols-2 gap-1.5 px-2.5 py-1.5">
             <label className="text-[11px] font-medium text-faint">
               {t("backlog.due.from")}
@@ -853,11 +846,20 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
             </label>
           </div>
           {active && (
-            <MenuItem onClick={() => { onChange("", ""); close(); }}>{t("backlog.due.clear")}</MenuItem>
+            <MenuButton onClick={() => { onChange("", ""); close(); }}>{t("backlog.due.clear")}</MenuButton>
           )}
         </>
       )}
-    </Dropdown>
+    </Popover>
+  );
+}
+
+/** Пункт внутри Popover (там, где кроме пунктов есть поля и Menu не подходит) — вид пункта ds-меню. */
+function MenuButton({ onClick, className = "", children }: { onClick: () => void; className?: string; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className={`ds-menu-item ${className}`}>
+      {children}
+    </button>
   );
 }
 
@@ -890,11 +892,13 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
   const inputCls = "mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[12px] text-ink outline-none focus:border-accent";
   const check = (on: boolean) => (on ? <IcCheck size={12} className="ml-auto text-accent" /> : null);
   return (
-    <Dropdown
-      align="left"
-      width={250}
-      button={(open) => (
+    <Popover
+      label={t("backlog.cf.button")}
+      className="w-[250px]"
+      trigger={(p, open) => (
         <button
+          {...p}
+          type="button"
           aria-label={active ? `${field!.name}: ${summary}` : t("backlog.cf.button")}
           className={`flex h-8 max-w-[240px] items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open || active ? "border-accent" : "border-line"} bg-panel ${active ? "text-ink" : "text-sub"}`}
         >
@@ -909,9 +913,9 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
           <>
             <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-medium text-faint">{t("backlog.cf.pick")}</div>
             {fields.map((f) => (
-              <MenuItem key={f.id} onClick={() => onChange({ ...CF_CLEAR, cf: f.id })}>
+              <MenuButton key={f.id} onClick={() => onChange({ ...CF_CLEAR, cf: f.id })}>
                 <span className="truncate">{f.name}</span>
-              </MenuItem>
+              </MenuButton>
             ))}
           </>
         ) : (
@@ -924,21 +928,21 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
             </div>
             {field.fieldType === "select" &&
               field.options.map((o) => (
-                <MenuItem key={o} onClick={() => { set({ cfValue: o }); close(); }}>
+                <MenuButton key={o} onClick={() => { set({ cfValue: o }); close(); }}>
                   <span className="truncate">{o}</span>
                   {check(!value.cfEmpty && value.cfValue === o)}
-                </MenuItem>
+                </MenuButton>
               ))}
             {field.fieldType === "checkbox" && (
               <>
-                <MenuItem onClick={() => { set({ cfValue: "true" }); close(); }}>
+                <MenuButton onClick={() => { set({ cfValue: "true" }); close(); }}>
                   {t("backlog.cf.checked")}
                   {check(value.cfValue === "true")}
-                </MenuItem>
-                <MenuItem onClick={() => { set({ cfValue: "false" }); close(); }}>
+                </MenuButton>
+                <MenuButton onClick={() => { set({ cfValue: "false" }); close(); }}>
                   {t("backlog.cf.unchecked")}
                   {check(value.cfValue === "false")}
-                </MenuItem>
+                </MenuButton>
               </>
             )}
             {field.fieldType === "text" && (
@@ -979,20 +983,20 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
               </div>
             )}
             {field.fieldType !== "checkbox" && (
-              <MenuItem onClick={() => { set({ cfEmpty: "1" }); close(); }}>
+              <MenuButton onClick={() => { set({ cfEmpty: "1" }); close(); }}>
                 {t("backlog.cf.empty")}
                 {check(!!value.cfEmpty)}
-              </MenuItem>
+              </MenuButton>
             )}
             {active && (
               <>
-                <div className="my-1 border-t border-linesoft" />
-                <MenuItem onClick={() => { onChange(CF_CLEAR); close(); }}>{t("backlog.cf.clear")}</MenuItem>
+                <div role="separator" className="ds-menu-sep" />
+                <MenuButton onClick={() => { onChange(CF_CLEAR); close(); }}>{t("backlog.cf.clear")}</MenuButton>
               </>
             )}
           </>
         )
       }
-    </Dropdown>
+    </Popover>
   );
 }

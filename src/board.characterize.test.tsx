@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StoreProvider, useStore } from "./store";
 import {
   authApi,
@@ -19,6 +19,8 @@ import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
 import { flipFrom } from "./motion";
 vi.mock("./motion", () => ({ flipFrom: vi.fn() }));
+// Меню карточки грузится лениво (ds/LazyMenu): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
+import "./ds/Overlay";
 
 /**
  * ТЗ 5.12 c — доска будет визуально переписана. Эти тесты фиксируют её
@@ -93,11 +95,11 @@ const STATUSES = [
   { id: "s3", sid: "done", name: "Готово", category: "done" as const, position: 2 },
 ];
 
-const bootWith = (role: ProjectRole): ProjectBootstrap => ({
+const bootWith = (role: ProjectRole, transitions: { id: string; from: string; to: string }[] = []): ProjectBootstrap => ({
   project,
   users: [user1, user2] as never,
   members: [{ userId: "u1", role }],
-  workflow: { statuses: STATUSES, transitions: [] },
+  workflow: { statuses: STATUSES, transitions },
   issueTemplates: [],
   customFields: [],
   sprints: [],
@@ -156,7 +158,7 @@ async function setup({ role = "manager", transitions = [], pageImpl, countsImpl 
   vi.spyOn(projectsApi, "list").mockResolvedValue([project] as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-  vi.spyOn(projectsApi, "get").mockResolvedValue({ ...bootWith(role), workflow: { statuses: STATUSES, transitions } });
+  vi.spyOn(projectsApi, "get").mockResolvedValue(bootWith(role, transitions));
   vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
@@ -375,6 +377,40 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     fireEvent.click(card);
     await settle();
     expect(h.store().ui.selectedIssueId).toBe("k1");
+    h.ui.unmount();
+  });
+
+  test("5c. меню «переместить» (G2, ds Menu): M открывает список разрешённых переходов, выбор меняет статус, клик по меню не открывает задачу", async () => {
+    const h = await setup({
+      transitions: [{ id: "t1", from: "s1", to: "s2" }],
+      pageImpl: async (_p, params) =>
+        params.status === "s1" ? { items: [dto("m1", { statusId: "s1" })], hasMore: false, nextCursor: null } : { items: [], hasMore: false, nextCursor: null },
+    });
+    const transition = vi.spyOn(issuesApi, "transition").mockImplementation(async (_p, id, to) => dto(id, { statusId: to }));
+    const card = screen.getByRole("article", { name: /A21-m1/ });
+    const trigger = await within(card).findByRole("button", { name: "Переместить A21-m1" });
+    await waitFor(() => expect(trigger.getAttribute("aria-controls")).toBeTruthy(), { timeout: 5000 }); // ленивый чанк меню пришёл
+
+    fireEvent.keyDown(card, { key: "m" });
+    await settle();
+    expect(within(card).getByRole("button", { name: "Переместить A21-m1" }).getAttribute("aria-expanded")).toBe("true");
+    // Только разрешённые схемой переходы: из «К работе» — лишь в «В работе».
+    const items = within(card).getAllByRole("menuitem", { hidden: true });
+    expect(items.map((i) => i.textContent)).toEqual(["В работе"]);
+
+    fireEvent.click(items[0]);
+    await settle();
+    expect(transition).toHaveBeenCalledWith("p1", "m1", "s2", null);
+    expect(h.store().ui.selectedIssueId).toBeNull(); // клик по пункту не всплыл до карточки
+
+    // M и с фокусом на самой кнопке меню; Enter на кнопке не открывает задачу.
+    const btn = within(screen.getByRole("article", { name: /A21-m1/ })).getByRole("button", { name: "Переместить A21-m1" });
+    fireEvent.keyDown(btn, { key: "m" });
+    await settle();
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.keyDown(btn, { key: "Enter" });
+    await settle();
+    expect(h.store().ui.selectedIssueId).toBeNull();
     h.ui.unmount();
   });
 

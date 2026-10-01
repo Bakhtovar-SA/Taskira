@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { addDeptMember, auth, getApp, login, newIssue, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 import { BATCH } from "../src/routes/dataExport.js";
+import { withClient } from "../src/db.js";
 
 let app: FastifyInstance;
 let fx: Fixture;
@@ -54,6 +55,42 @@ describe("GET /admin/export — доступ", () => {
 });
 
 describe("GET /admin/export — содержимое", () => {
+  test("все таблицы читаются из одного снимка при конкурентном изменении данных", async () => {
+    const admin = await login(app, "admin");
+    await addDeptMember(fx.depts.d1, fx.users.mgr1);
+    const response = await withClient(async (gate) => {
+      await gate.query("BEGIN");
+      await gate.query("LOCK TABLE issue_templates IN ACCESS EXCLUSIVE MODE");
+      const pending = app.inject({ url: "/api/admin/export", headers: auth(admin) }).then((r) => r);
+      try {
+        let blocked = false;
+        const deadline = Date.now() + 5000;
+        while (Date.now() < deadline) {
+          const [{ n }] = await q<{ n: number }>(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE 'SELECT%FROM issue_templates%'`);
+          if (n > 0) { blocked = true; break; }
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        expect(blocked).toBe(true);
+        await q(`DELETE FROM department_members WHERE department_id = $1 AND user_id = $2`, [fx.depts.d1, fx.users.mgr1]);
+      } finally {
+        await gate.query("ROLLBACK");
+        await pending;
+      }
+      return pending;
+    });
+    expect(response.statusCode).toBe(200);
+    expect(parseNdjson(response.body).departmentMember).toContainEqual(expect.objectContaining({ departmentId: fx.depts.d1, userId: fx.users.mgr1 }));
+    expect(await q(`SELECT * FROM department_members WHERE department_id = $1 AND user_id = $2`, [fx.depts.d1, fx.users.mgr1])).toHaveLength(0);
+  });
+  test("экспортирует созданный через API шаблон задачи со всеми полями", async () => {
+    const admin = await login(app, "admin");
+    const template = { name: "Экспорт шаблона", typeId: "bug", priorityId: "high", title: "Ошибка", description: "Описание", statusId: fx.p1status.todo };
+    const created = await post(`/api/projects/${p1()}/issue-templates`, admin, template);
+    expect(created.statusCode).toBe(201);
+    const dto = JSON.parse(created.body);
+    const exported = await app.inject({ url: "/api/admin/export", headers: auth(admin) });
+    expect(parseNdjson(exported.body).issueTemplate).toContainEqual(expect.objectContaining({ ...template, id: dto.id, projectId: p1(), position: dto.position, createdAt: expect.any(String) }));
+  });
   test("первая строка — meta со schemaVersion; каждая строка — валидный JSON", async () => {
     const admin = await login(app, "admin");
     const r = await app.inject({ url: "/api/admin/export", headers: auth(admin) });

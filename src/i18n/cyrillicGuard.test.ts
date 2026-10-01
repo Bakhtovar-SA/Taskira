@@ -52,6 +52,21 @@ function stripComments(src: string): string {
     .join("\n");
 }
 
+test.each(["\n", "\r\n"])("страж удаляет комментарии при переносах %j и сохраняет строки", (eol) => {
+  const source = [
+    '// Русский комментарий',
+    'const endpoint = "http://example.test"; // Русский комментарий',
+    '/* Блочный',
+    ' * комментарий */',
+    'const label = "Русский текст интерфейса";',
+  ].join(eol);
+  const stripped = stripComments(source);
+  expect(stripped).not.toMatch(/комментарий|Блочный/);
+  expect(stripped).toContain('"http://example.test"');
+  expect(stripped).toContain('"Русский текст интерфейса"');
+  expect(stripped.split("\n")).toHaveLength(5);
+});
+
 const LINE_OK = [
   /\blang(Ref\.current)? === "(ru|en)"/,
   /\bt \? t\(/,
