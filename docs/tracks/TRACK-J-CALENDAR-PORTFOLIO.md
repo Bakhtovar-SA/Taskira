@@ -20,12 +20,17 @@
 Календарю нужен список «Без срока» (как панель «Unscheduled» в Jira). Фильтра «срок не задан» сейчас нет.
 
 - `server/src/contract.ts` `IssueFilterQuery`: `dueEmpty: z.literal("1").optional()` рядом с `dueFrom`/`dueTo` —
-  `due_date IS NULL`. Вместе с `dueFrom`/`dueTo` в одном запросе — 400 (условия противоречат друг другу), а не пустой набор.
+  `due_date IS NULL`. Вместе с любым другим условием по сроку — `dueFrom`, `dueTo`, `overdue` — в одном запросе 400
+  (условия противоречат друг другу), а не пустой набор.
+- Где проверять: **не** `.refine` на `IssueFilterQuery` — на нём строятся `IssueQuery = IssueFilterQuery.extend(…)` и
+  `IssueCountsQuery`, а `.refine` превращает схему в `ZodEffects` без `.extend()`. Проверка — в начале
+  `buildIssueFilter()` (`services/issueFilters.ts`), общем для списка и счётчиков: `throw new ApiHttpError(400,
+  "VALIDATION", …)` из `errors.ts` (как в `services/dashboards.ts`). Код `VALIDATION` уже есть в словаре ошибок клиента.
 - В `SavedViewFilter` **не** добавлять: это параметр просмотра календаря, не условие сохранённой вьюхи.
 - Индекс не нужен: выборка идёт внутри проекта по существующим индексам; если `EXPLAIN` на 50 000 задач покажет Seq Scan
   по всей таблице — записать замер в PR и обсудить, а не добавлять индекс молча.
 - Тест сервера: `dueEmpty=1` отдаёт только задачи без срока; права и архив — как у остального списка; `dueEmpty` +
-  `dueFrom` → 400.
+  `dueFrom`, `dueEmpty` + `dueTo`, `dueEmpty` + `overdue=1` → 400 — и для списка, и для `…/issues/counts`.
 
 ## J2. Календарь проекта
 
