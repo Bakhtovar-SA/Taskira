@@ -43,9 +43,11 @@
 - Личный выбор — `localStorage` `taskira.transparency` (`auto | on | off`).
 - **Итог вычисляет JS, CSS только читает атрибут.** Одна чистая функция `resolveTransparency(personal, org,
   reducedTransparency, contrastMore)` → `"on" | "off"` пишет на `<html>` `data-transparency="on|off"` (атрибут всегда
-  стоит, значения `auto` в нём нет). CSS: правила снижения прозрачности из блока `@media (prefers-reduced-transparency …),
-  (prefers-contrast: more)` переносятся под `[data-transparency="off"]`, сам `@media`-блок удаляется — системные признаки
-  учитывает функция. Без JS (атрибута нет) — стекло, как в браузерах без поддержки этих признаков.
+  стоит, значения `auto` в нём нет). CSS: правила снижения прозрачности из **обоих** блоков `@media (prefers-reduced-transparency: reduce),
+  (prefers-contrast: more)` — `src/index.css` (~210: `.glass`, `.glass-side`, `.glass-sheet`) и `src/ds/ds.css` (~654: стекло
+  палитры `PaletteDialog`) — переносятся под `[data-transparency="off"]`, сами `@media`-блоки удаляются: системные признаки
+  учитывает функция. Иначе поверхности `ds` продолжат слушаться системы мимо личного и общего выбора. Блок
+  `@media (prefers-contrast: more)` в `src/styles/tokens.css` (~615) **остаётся**: он про контрастные цвета, не про стекло. Без JS (атрибута нет) — стекло, как в браузерах без поддержки этих признаков.
 - Функцию вызывают `public/theme-init.js` до первой отрисовки и `src/theme.ts` при смене выбора, а также по событию
   `change` у `matchMedia` для обоих системных признаков (человек переключил настройку Windows при открытой вкладке).
 - `public/theme-init.js` — обычный JS без сборки, импортировать TS-модуль он не может, поэтому функция в нём написана
@@ -92,6 +94,7 @@
 - Нет `type="date"` в `src/` (кроме тестов, если нужны).
 - I2/I3: таблица `resolveTransparency` (24 строки) совпадает в `src/transparency.ts` и `public/theme-init.js`; серверный
   тест бренда; `docs/MIGRATION-LIST.md` перегенерирован (`npm run docs:generate`).
+- `grep -rn "prefers-reduced-transparency" src` — пусто вне `src/transparency.ts` (и его теста).
 - `npm run typecheck`, `npm test`, `npm run build`, `npm run bundle:check`, `colors`, `contrast`, `motion`, `antilist`,
   `test:ui` — зелёные локально и в CI.
 - Ручная проверка — раздел «Трек I» в конце `docs/MANUAL-CHECK-TRACK-G.md`: какие поля и что нажать.
