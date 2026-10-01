@@ -1408,6 +1408,8 @@ const ru = {
 
   // трек G
   "backlog.sort.label": "Сортировка",
+  // трек I
+  "date.empty": "Без даты",
 } as const;
 
 export default ru;

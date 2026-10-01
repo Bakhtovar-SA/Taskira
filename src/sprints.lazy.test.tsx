@@ -217,8 +217,10 @@ describe("Создание спринта через ds", () => {
     fireEvent.change(dialog.getByLabelText("Название"), { target: { value: "  Спринт 12  " } });
     fireEvent.change(dialog.getByLabelText("Цель (необязательно)"), { target: { value: "  Релиз  " } });
     for (const [label, value] of [["Начало", "2026-10-01"], ["Конец", "2026-10-15"]]) {
-      const input = dialog.getByLabelText(label, { selector: "input" });
+      fireEvent.click(dialog.getByRole("button", { name: new RegExp(`^${label}:`) }));
+      const input = screen.getByRole("textbox", { name: label, hidden: true });
       fireEvent.change(input, { target: { value } });
+      fireEvent.keyDown(input, { key: "Enter" });
     }
     fireEvent.click(submit);
     await settle();

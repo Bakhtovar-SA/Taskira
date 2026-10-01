@@ -41,7 +41,7 @@
 | радиокнопки | `RadioGroup` | |
 | поля `<input>`/`<textarea>` с классами | `Input` / `Textarea` | подпись, подсказка, ошибка, счётчик символов |
 | `UserSearchPicker`, `IssueSearchBox` | `Combobox` (`load(q)`) | направление и родитель в карточке — `Popover` вокруг прежнего `IssueSearchBox` (поиск на сервере) |
-| `<input type="date">` | `DatePicker` | ввод словами; `min`/`max` (G6); `block` — во всю ширину узкой колонки. В «Отчётах» и спринтах пока нативные даты — перевести можно, границы теперь есть |
+| `<input type="date">` | `DatePicker` | ввод словами; `min`/`max` (G6); `block` — во всю ширину узкой колонки |
 | `Avatar`, `AvatarStack` | `UserAvatar` / `UserAvatarGroup` (`src/components/UserAvatar.tsx`) | ds-аватар, тон по имени, фото, карточка человека в `Popover`, «не назначен» (G3) |
 | `Chip`, `.meta-pill`, `Lozenge`, `RoleBadge` | `Tag` (`tone`, `dot`, `strong`) | тоны `tk-tone-*`; тон статуса — `statusTone()` (`workflowStatus.ts`) |
 | `Kbd` (`ui.tsx`) | `Kbd` (`ds`) | |

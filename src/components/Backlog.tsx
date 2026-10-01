@@ -11,7 +11,7 @@ import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewIn
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { directionColor, labelTone } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
-import { Button, Checkbox, EmptyState, Menu, Popover, Presence, Skeleton, Tag } from "../ds";
+import { Button, DatePicker, Checkbox, EmptyState, Menu, Popover, Presence, Skeleton, Tag } from "../ds";
 import BulkBar from "./BulkBar";
 import { useT } from "../i18n";
 import { statusTone, workflowStatusName } from "../workflowStatus";
@@ -30,7 +30,7 @@ const selectCls =
   "h-8 rounded-lg border border-linesoft bg-sunken px-2 text-[12.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
 
 function HeadCell({ id, sortKey, sortDir, onSort, compact }: { id: ColumnId | "key"; sortKey: SortKey; sortDir: "asc" | "desc"; onSort: (k: SortKey) => void; compact?: boolean }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const def = id === "key" ? { label: "backlog.sort.key" as const, sort: "key" as SortKey } : COLUMNS.find((c) => c.id === id)!;
   const label = t(def.label);
   const on = def.sort && def.sort === sortKey;
@@ -183,7 +183,7 @@ function Row({
 }
 
 export default function Backlog() {
-  const { t, errText } = useT();
+  const { t, errText, lang } = useT();
   const { data, idx, can, epicsRevision, setCreateOpen, toast } = useStore();
   const [path, navigate] = useLocation();
   const [importOpen, setImportOpen] = useState(false);
@@ -825,14 +825,14 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
           ))}
           <div role="separator" className="ds-menu-sep" />
           <div className="grid grid-cols-2 gap-1.5 px-2.5 py-1.5">
-            <label className="text-[11px] font-medium text-faint">
+            <div className="text-[11px] font-medium text-faint">
               {t("backlog.due.from")}
-              <input type="date" value={from} max={to || undefined} onChange={(e) => onChange(e.target.value, to)} className="mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[12px] text-ink outline-none focus:border-accent" />
-            </label>
-            <label className="text-[11px] font-medium text-faint">
+              <DatePicker block label={t("backlog.due.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={from || null} max={to || undefined} onChange={(v) => onChange(v ?? "", to)} />
+            </div>
+            <div className="text-[11px] font-medium text-faint">
               {t("backlog.due.to")}
-              <input type="date" value={to} min={from || undefined} onChange={(e) => onChange(from, e.target.value)} className="mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[12px] text-ink outline-none focus:border-accent" />
-            </label>
+              <DatePicker block label={t("backlog.due.to")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={to || null} min={from || undefined} onChange={(v) => onChange(from, v ?? "")} />
+            </div>
           </div>
           {active && (
             <MenuButton onClick={() => { onChange("", ""); close(); }}>{t("backlog.due.clear")}</MenuButton>

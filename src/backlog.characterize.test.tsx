@@ -331,11 +331,22 @@ describe("Список задач — характеризующие тесты 
     await settle();
     fireEvent.click(screen.getByRole("button", { name: /^Срок/ }));
     await settle();
-    fireEvent.change(screen.getByLabelText("С"), { target: { value: "2026-09-01" } });
+    fireEvent.click(screen.getByRole("button", { name: /^С:/, hidden: true }));
+    fireEvent.change(screen.getByRole("textbox", { name: "С", hidden: true }), { target: { value: "2026-09-01" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "С", hidden: true }), { key: "Enter" });
     await settle();
-    fireEvent.change(screen.getByLabelText("По"), { target: { value: "2026-09-30" } });
+    fireEvent.click(screen.getByRole("button", { name: /^По:/, hidden: true }));
+    fireEvent.change(screen.getByRole("textbox", { name: "По", hidden: true }), { target: { value: "2026-09-30" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "По", hidden: true }), { key: "Enter" });
     await settle();
 
+    // The upper bound rejects typed input too, preserving API and URL.
+    fireEvent.click(screen.getByRole("button", { name: /^С:/, hidden: true }));
+    const fromInput = screen.getByRole("textbox", { name: "С", hidden: true });
+    fireEvent.change(fromInput, { target: { value: "2026-10-01" } });
+    fireEvent.keyDown(fromInput, { key: "Enter" });
+    await settle();
+    expect(screen.getByText("Вне допустимых дат")).toBeTruthy();
     const last = h.pageCalls[h.pageCalls.length - 1];
     expect(last).toMatchObject({ sprintId: "sp1", dueFrom: "2026-09-01", dueTo: "2026-09-30" });
     const qs = new URLSearchParams(location.search);

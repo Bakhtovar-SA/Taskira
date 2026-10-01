@@ -6,7 +6,7 @@ import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcPlus, IcX, TypeIcon } from "../icons";
 import { labelTone } from "../ui";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
-import { Button, Checkbox, Dialog, Menu, Popover, Tag } from "../ds";
+import { Button, Checkbox, DatePicker, Dialog, Menu, Popover, Tag } from "../ds";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
 import { useT } from "../i18n";
@@ -17,7 +17,7 @@ const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[
 
 /** `open` — от `Presence` в App.tsx: после закрытия окно ещё доигрывает анимацию ухода. */
 export default function CreateIssueModal({ open = true }: { open?: boolean }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { data, ui, setCreateOpen, createIssue } = useStore();
   const close = () => setCreateOpen(false);
   // Родитель создаваемой подзадачи: из кэша (его только что открывали) или точечный запрос по id.
@@ -392,7 +392,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.dueDate")}</p>
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${inputCls} cursor-pointer`} />
+            <DatePicker block label={t("field.dueDate")} lang={lang} value={dueDate || null} onChange={(v) => setDueDate(v ?? "")} />
           </div>
           <div>
             <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.labels")}</p>

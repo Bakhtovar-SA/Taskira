@@ -11,7 +11,7 @@ import { BRAND_HUE, DEFAULT_BRAND_NAME, previewHue, setBrand, useBrand } from ".
 import { cssVars } from "../../cssVars";
 import { BrandMark } from "../BrandMark";
 import { adminApi, brandApi, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
-import { Avatar, Button, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
+import { Avatar, Button, DatePicker, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
 import { IcCompose, IcDiamond, IcDownload, IcLink, IcPlus, IcSearch, IcTrash } from "../../icons";
 import { openProjectWizard } from "../../palette/events";
 import { LIMITS } from "../../validation";
@@ -430,7 +430,7 @@ function Export() {
 }
 
 function Audit() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [m] = useLoad(() => adminApi.maintenance());
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -440,8 +440,8 @@ function Audit() {
     <SettingsPage title={t("settings.org.audit")} desc={t("settings.desc.audit")}>
       <SettingsCard title={t("settings.org.auditExport")} footer={t("settings.org.auditExportHint")}>
         <div className="grid gap-4 px-5 py-4 sm:grid-cols-2">
-          <Input label={t("settings.org.from")} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <Input label={t("settings.org.to")} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <DatePicker block label={t("settings.org.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={from || null} max={to || undefined} onChange={(v) => setFrom(v ?? "")} />
+          <DatePicker block label={t("settings.org.to")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={to || null} min={from || undefined} onChange={(v) => setTo(v ?? "")} />
           <RadioGroup
             label={t("settings.org.format")}
             value={format}

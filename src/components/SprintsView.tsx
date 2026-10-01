@@ -5,7 +5,7 @@ import type { Issue, Sprint } from "../types";
 import { LIMITS } from "../validation";
 import { IcCheck, IcFlag, IcPlus, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { UserAvatarGroup } from "./UserAvatar";
-import { Button, IconButton, Dialog, Input, Textarea, EmptyState, Tag } from "../ds";
+import { Button, DatePicker, IconButton, Dialog, Input, Textarea, EmptyState, Tag } from "../ds";
 import { ScreenSkeletonRow } from "./settings/parts";
 import { useT } from "../i18n";
 
@@ -96,7 +96,7 @@ function DropZone({
 }
 
 function CreateSprintModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { addSprint } = useStore();
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
@@ -134,8 +134,8 @@ function CreateSprintModal({ open, onClose }: { open: boolean; onClose: () => vo
             maxLength={LIMITS.sprint.goal.max}
           />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input type="date" label={t("sprints.start")} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          <Input type="date" label={t("sprints.end")} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <DatePicker block label={t("sprints.start")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={startDate || null} max={endDate || undefined} onChange={(v) => setStartDate(v ?? "")} />
+          <DatePicker block label={t("sprints.end")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={endDate || null} min={startDate || undefined} onChange={(v) => setEndDate(v ?? "")} />
         </div>
       </div>
     </Dialog>
