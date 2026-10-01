@@ -73,8 +73,9 @@
 - Сервер:
   - миграция по `docs/MIGRATIONS.md`: новый файл с префиксом-временем **позже последней** (сейчас последняя —
     `20260930T0501_index_issues_epics.sql`), только добавление (expand) —
-    `ALTER TABLE instance ADD COLUMN transparency_default text NOT NULL DEFAULT 'auto' CHECK (transparency_default IN
-    ('auto', 'on'))`;
+    `ALTER TABLE instance ADD COLUMN brand_transparency text NOT NULL DEFAULT 'auto' CHECK (brand_transparency IN
+    ('auto', 'on'))`; имя столбца — с приставкой `brand_`, как у остальных столбцов бренда (`brand_name`, `brand_hue`,
+    `brand_logo_*`); поле в DTO — `transparencyDefault`;
   - `server/src/contract.ts`: закрытый список `TRANSPARENCY_DEFAULTS = ["auto", "on"] as const` и `z.enum` в `BrandDto`
     (`transparencyDefault`) и в `BrandPatchBody` — новое поле внутри того же `z.object({...})`, до `.partial()`, так что
     оно необязательное, а значение вне списка отклоняется zod (400); форму схемы (`.partial().refine(...)`) не менять;
@@ -83,7 +84,7 @@
   - отдаёт публичный `GET /api/instance/brand`, правит существующий `PATCH /api/admin/brand` (`routes/brand.ts`,
     `requireGlobalAdmin`, `services/brand.ts` `patchBrand`) — запись в `audit_log` как у остальных полей бренда;
   - `server/src/services/brand.ts`: `getBrand()` и `patchBrand()` перечисляют столбцы вручную
-    (`SELECT brand_name, brand_hue, …`, список `sets`) — добавить `transparency_default` в оба, иначе поле молча не
+    (`SELECT brand_name, brand_hue, …`, список `sets`) — добавить `brand_transparency` в оба, иначе поле молча не
     читается и не пишется. Бренд читается прямым `SELECT`, кэш `getInstance()` (`services/instance.ts`) не участвует;
     если поле начнут читать через него — `invalidateInstanceCache()` после правки;
   - в `BrandPatchBody` `null` у остальных полей значит «вернуть по умолчанию»; новое поле не принимает `null` — сброс это
