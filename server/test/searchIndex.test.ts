@@ -85,6 +85,10 @@ describe("триграммные индексы поиска", () => {
           [fx.projects.p1, st, fx.users.admin],
         );
         await c.query("ANALYZE issues");
+        // Только что вставленные строки лежат в очереди вставок GIN (pending list), и планировщик, пока она не разобрана,
+        // оценивает триграммный поиск в ~25 раз дороже реального — вровень с bitmap-сканом частичного индекса по
+        // archived_at, который иногда выигрывал в CI. В рабочей БД очередь разбирает autovacuum; здесь — явно.
+        await c.query("SELECT gin_clean_pending_list('idx_issues_active_title_trgm'), gin_clean_pending_list('idx_issues_active_key_trgm')");
         // Оставляем только bitmap-планы: иначе на тестовой БД (без реальной нагрузки и статистики
         // производственного размера) планировщик выберет Seq Scan независимо от индексов.
         await c.query("SET LOCAL enable_seqscan = off");

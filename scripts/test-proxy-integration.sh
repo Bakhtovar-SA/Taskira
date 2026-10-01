@@ -25,11 +25,14 @@ for scenario in '172.30.0.0/24:26214400' '10.253.250.0/24:3145728'; do
   docker network create --subnet "$cidr" "$NETWORK" >/dev/null
   docker run -d --name "$DB" --network "$NETWORK" --network-alias postgres \
     -e POSTGRES_USER=taskira -e POSTGRES_PASSWORD=temporaryci -e POSTGRES_DB=taskira_proxy postgres:16 >/dev/null
+  # По TCP, а не через unix-сокет: образ postgres сначала поднимает временный сервер только на сокете (initdb, создание
+  # базы) и гасит его. Проверка через сокет ловила этот временный сервер, а следующая попадала на его остановку —
+  # «rejecting connections», шаг падал (main, 01.10.2026).
   for i in $(seq 1 60); do
-    if docker exec "$DB" pg_isready -U taskira -d taskira_proxy >/dev/null 2>&1; then break; fi
+    if docker exec "$DB" pg_isready -h 127.0.0.1 -U taskira -d taskira_proxy >/dev/null 2>&1; then break; fi
     sleep 1
   done
-  docker exec "$DB" pg_isready -U taskira -d taskira_proxy
+  docker exec "$DB" pg_isready -h 127.0.0.1 -U taskira -d taskira_proxy
 
   # Both the default 25 MiB limit and an env override must work through the same image.
   docker run -d --name "$API" --network "$NETWORK" --network-alias server \
