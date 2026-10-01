@@ -156,9 +156,9 @@ carries `comments`/`activity` separately (fetched on demand when an issue modal 
 Mutations are optimistic-ish: call API, then patch `data` from the returned DTO; `moveStatus`
 re-fetches issues on failure to undo local drift.
 
-Views (`ViewId`: `overview | board | backlog | timeline | reports | dashboards | workflow | access | admin | docs | collaborating | inbox | my`)
+Views (`ViewId`: `overview | board | backlog | timeline | calendar | reports | dashboards | workflow | access | admin | docs | collaborating | inbox | my`)
 are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs (ADR-0013 §5:
-`/p/:projectKey/{board,list,timeline,sprints}`, `/p/:projectKey/settings/{workflow,access}`, and project-less
+`/p/:projectKey/{board,list,timeline,calendar,sprints}`, `/p/:projectKey/settings/{workflow,access}`, and project-less
 `/inbox`, `/my-issues`, `/reports`, `/admin/departments`, `/help`, `/shared` — a project-less path at boot opens that view
 inside the last project's shell instead of the home screen; old `/p/:projectKey/<view>` links still parse and are replaced
 in place — `samePlace()` in `src/router.ts`, query preserved; an open issue is `?issue=KEY` on the view path when
@@ -177,7 +177,9 @@ unique, so no project needs to be named to resolve it) before opening the issue;
 holds the pure path helpers/parser. `nginx.conf`'s `try_files $uri /index.html` (and Vite's
 dev-server default) is what makes a hard refresh on one of these paths work — required now
 that the path itself carries state, unlike the old hash-only scheme.
-Keyboard shortcuts (`/`, `C`, `1`–`4` for the project views — board/list/timeline/sprints, `G` then `H`/`I`/`M`/`R`/`D`/`O`/`S` for
+**Project calendar (track J, ADR-0025):** /p/:projectKey/calendar, lazy CalendarView, due-date month/week grid starting Monday. Visible-range cursor pages are capped at 500; a separate dueEmpty panel lists unscheduled issues. Local civil dates, native DnD under issue edit permissions, M opens DatePicker; Enter creates with the selected due date. Calendar is not a project default view. Keys 1–4 stay unchanged; 5 opens calendar.
+
+Keyboard shortcuts (`/`, `C`, `1`–`5` for the project views — board/list/timeline/sprints/calendar, `G` then `H`/`I`/`M`/`R`/`D`/`O`/`S` for
 home/inbox/my issues/reports/dashboards/project overview/project settings, `[` collapses the sidebar to an icon rail (`taskira.sidebar.collapsed`), `Esc`, `?` help — ADR-0013 §7) are wired in `App.tsx`;
 they are suppressed while a modal is open. `⌘K`/`Ctrl+K` (matched by `e.code`, so it works in the Russian layout)
 opens the command palette from anywhere (`CommandPalette.tsx`, lazy chunk; `src/palette/` — fuzzy + wrong-layout
@@ -602,6 +604,8 @@ constants — value imports from `contract.ts` would pull zod into the bundle, `
 personal ones are not. Measured on 100 projects / 50 000 issues (`docs/PERFORMANCE.md` «Дашборды»,
 `server/scripts/performance-dashboard*.mjs`): the trend widget is one grouped pass per side, not a subquery per week,
 and «Активность» relies on `idx_activity_created` — keep both when touching those queries.
+
+**Portfolio dashboards (track J):** projects (limit 5–50), projectHealth and milestones (periodDays 7–180) extend the closed widget catalogue. Organization overview starts with these; project overview remains issue-based, adds milestones when present, and filters portfolio widgets from new selections. Existing saved layouts still render. Server projectHealth uses ordered rules and CURRENT_DATE over all issues including archives; see ADR-0025.
 
 **Terminology:** the UI calls a department a **«команда» / “team”** (part C, owner's request — reads more universally);
 code, API, DB and env keep `department*` (`/api/departments`, `departmentId`, `DEFAULT_DEPARTMENT`). Use «команда» in
