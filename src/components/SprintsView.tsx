@@ -1,10 +1,12 @@
+
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import type { Issue, Sprint } from "../types";
 import { LIMITS } from "../validation";
 import { IcCheck, IcFlag, IcPlus, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack, Modal, SkeletonRow } from "../ui";
-import { Button, EmptyState } from "../ds";
+import { AvatarStack } from "../ui";
+import { Button, IconButton, Dialog, Input, Textarea, EmptyState, Tag } from "../ds";
+import { ScreenSkeletonRow } from "./settings/parts";
 import { useT } from "../i18n";
 
 /** Бэклог + спринты (sprints, миграция 023) — опциональный модуль, вкладка
@@ -39,17 +41,17 @@ function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) 
       <PriorityIcon p={issue.priorityId} size={13} />
       <AvatarStack users={assignees} size={19} interactive />
       {onRemove && (
-        <button
+        <IconButton variant="ghost" size="sm" label={t("sprints.removeIssue")}
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
           }}
-          aria-label={t("sprints.removeIssue")}
-          title={t("sprints.removeIssue")}
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink group-hover:opacity-100"
+
+
+          className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
         >
           <IcX size={11} />
-        </button>
+        </IconButton>
       )}
     </div>
   );
@@ -93,13 +95,16 @@ function DropZone({
   );
 }
 
-function CreateSprintModal({ onClose }: { onClose: () => void }) {
+function CreateSprintModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useT();
   const { addSprint } = useStore();
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  useEffect(() => {
+    if (open) { setName(""); setGoal(""); setStartDate(""); setEndDate(""); }
+  }, [open]);
 
   const submit = () => {
     const trimmed = name.trim();
@@ -109,71 +114,31 @@ function CreateSprintModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal onClose={onClose} w={440} title={t("sprints.new")}>
-      <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-        <span className="font-disp text-[14px] font-semibold text-ink">{t("sprints.new")}</span>
-        <button onClick={onClose} className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("common.close")}>
-          <IcX size={15} />
-        </button>
-      </div>
-      <div className="space-y-3 px-5 py-4">
-        <div>
-          <label className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.name")}</label>
-          <input
-            autoFocus
+    <Dialog open={open} onClose={onClose} size="sm" title={t("sprints.new")} footer={<>
+      <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
+      <Button variant="primary" onClick={submit} disabled={!name.trim()}>{t("common.create")}</Button>
+    </>}>
+      <div className="space-y-3">
+          <Input label={t("sprints.name")} data-autofocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder={t("sprints.namePlaceholder")}
             maxLength={LIMITS.sprint.name.max}
-            className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:shadow-focus focus:outline-none"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.goal")}</label>
-          <textarea
+          <Textarea label={t("sprints.goal")} maxChars={LIMITS.sprint.goal.max}
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             rows={2}
             placeholder={t("sprints.goalPlaceholder")}
             maxLength={LIMITS.sprint.goal.max}
-            className="w-full resize-none rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:shadow-focus focus:outline-none"
           />
-        </div>
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.start")}</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:shadow-focus focus:outline-none"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="mb-1 block text-[12px] font-medium text-faint">{t("sprints.end")}</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink focus:border-accent focus:shadow-focus focus:outline-none"
-            />
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="rounded-md px-3 py-2 text-[13px] font-semibold text-sub hover:bg-hover">
-            {t("common.cancel")}
-          </button>
-          <button
-            onClick={submit}
-            disabled={!name.trim()}
-            className="rounded-lg btn-primary px-4 py-2 text-[13px] font-medium text-onaccent transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t("common.create")}
-          </button>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Input type="date" label={t("sprints.start")} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <Input type="date" label={t("sprints.end")} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -188,17 +153,9 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
       <div className="flex flex-wrap items-center gap-2.5 border-b border-linesoft px-3.5 py-2.5">
         <IcFlag size={14} />
         <span className="font-disp text-[13.5px] font-semibold text-ink">{sprint.name}</span>
-        <span
-          className={`rounded px-1.5 py-0.5 text-[11.5px] font-medium ${
-            sprint.status === "active"
-              ? "bg-oksoft text-ok"
-              : sprint.status === "future"
-                ? "bg-todosoft text-sub"
-                : "bg-linesoft text-faint"
-          }`}
-        >
+        <Tag tone={sprint.status === "active" ? "green" : sprint.status === "future" ? "blue" : "gray"} size="sm">
           {t(`sprints.status.${sprint.status}`)}
-        </span>
+        </Tag>
         {(sprint.startDate || sprint.endDate) && (
           <span className="font-mono text-[10.5px] text-faint">
             {sprint.startDate ?? "…"} – {sprint.endDate ?? "…"}
@@ -209,24 +166,23 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
         </span>
         <div className="ml-auto flex items-center gap-2">
           {manage && sprint.status === "future" && (
-            <button
+            <Button variant="secondary" size="sm"
               onClick={() => startSprint(sprint.id)}
-              disabled={hasActiveSprint}
-              title={hasActiveSprint ? t("sprints.activeExists") : undefined}
-              className="rounded-md border border-line bg-canvas px-2.5 py-1 text-[11.5px] font-semibold text-sub transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={hasActiveSprint ? t("sprints.activeExists") : false}
+              className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
             >
               {t("sprints.begin")}
-            </button>
+            </Button>
           )}
           {manage && sprint.status === "active" && (
-            <button
+            <Button variant="primary" size="sm"
               onClick={() => {
                 if (window.confirm(t("sprints.completeConfirm", { name: sprint.name }))) completeSprint(sprint.id);
               }}
-              className="flex items-center gap-1 rounded-lg btn-primary px-2.5 py-1 text-[11.5px] font-medium text-onaccent transition-colors"
+              className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
             >
               <IcCheck size={12} /> {t("sprints.complete")}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -294,9 +250,9 @@ export default function SprintsView() {
         <DropZone onDropIssue={(id) => setIssueSprint(id, null)} className="min-h-0 flex-1 overflow-y-auto transition-colors">
           {!data.issuesComplete ? (
             <div aria-busy="true" aria-label={t("sprints.loadingIssues")}>
-              <SkeletonRow />
-              <SkeletonRow />
-              <SkeletonRow />
+              <ScreenSkeletonRow />
+              <ScreenSkeletonRow />
+              <ScreenSkeletonRow />
             </div>
           ) : backlogIssues.length === 0 ? (
             <p className="px-3.5 py-3 text-[12px] text-faint">{t("sprints.backlogEmpty")}</p>
@@ -310,12 +266,12 @@ export default function SprintsView() {
         <div className="mb-3 flex items-center justify-between">
           <p className="text-[12px] font-semibold text-faint">{t("sprints.count", { count: data.sprints.length })}</p>
           {can("manageSprints") && (
-            <button
+            <Button variant="primary" size="sm"
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 rounded-lg btn-primary px-3 py-1.5 text-[12.5px] font-medium text-onaccent transition-all active:scale-[0.97]"
+              className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
             >
               <IcPlus size={13} /> {t("sprints.sprint")}
-            </button>
+            </Button>
           )}
         </div>
         {!data.issuesComplete && <p className="mb-2 text-[11.5px] text-faint">{t("sprints.loadingIssues")}</p>}
@@ -335,7 +291,7 @@ export default function SprintsView() {
         )}
       </div>
 
-      {showCreate && <CreateSprintModal onClose={() => setShowCreate(false)} />}
+      <CreateSprintModal open={showCreate} onClose={() => setShowCreate(false)} />
     </div>
   );
 }

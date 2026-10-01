@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { AccessRole, Status, User } from "./types";
 import { useToasts } from "./store";
 import { usersApi, type PickableUser } from "./api";
@@ -190,6 +190,7 @@ export function Modal({
   w = 860,
   title,
   variant = "center",
+  focusReady = true,
 }: {
   onClose: () => void;
   children: React.ReactNode;
@@ -199,6 +200,8 @@ export function Modal({
    *  доски с сохранением контекста, ТЗ 5.6 п.4 / прототип гейта); "center" —
    *  обычный диалог. Доступность (роль, ловушка фокуса, Esc) одна и та же. */
   variant?: "center" | "panel" | "palette";
+  /** Signal a loading-placeholder replacement; ordinary rerenders must not reset focus. */
+  focusReady?: boolean;
 }) {
   const { t } = useT();
   const resolvedTitle = title ?? t("ui.dialog");
@@ -219,6 +222,18 @@ export function Modal({
   // Куда вернуть фокус после закрытия — обычно это кнопка/карточка, с которой диалог открыли. Запоминается при
   // первом рендере: к моменту эффекта `autoFocus` поля внутри уже забрал фокус, и «открывший» был бы самим полем.
   const openerRef = useRef(document.activeElement as HTMLElement | null);
+  const focusMounted = useRef(false);
+
+  // Preserve focus when a loading placeholder is replaced; leave focused fields and portalled menus alone.
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    const active = document.activeElement;
+    const mounting = !focusMounted.current;
+    focusMounted.current = true;
+    if (box && !box.contains(active) && (mounting || active === openerRef.current || active === document.body)) {
+      (box.querySelector<HTMLElement>(FOCUSABLE) ?? box).focus();
+    }
+  }, [focusReady]);
 
   useEffect(() => {
     const opener = openerRef.current;
@@ -227,14 +242,7 @@ export function Modal({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // Фокус внутрь: первый осмысленный элемент, иначе сам контейнер. Если поле уже взяло фокус само (`autoFocus`
-    // у названия в «Создать задачу» срабатывает раньше этого эффекта), не перебивать его крестиком из шапки —
-    // найдено проходом с клавиатуры (ТЗ 5.16): после C фокус стоял на «Закрыть», а не в поле названия.
     const box = boxRef.current;
-    if (!box?.contains(document.activeElement)) {
-      const first = box?.querySelector<HTMLElement>(FOCUSABLE);
-      (first ?? box)?.focus();
-    }
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

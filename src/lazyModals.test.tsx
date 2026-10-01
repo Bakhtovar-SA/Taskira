@@ -1,7 +1,7 @@
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
-import { lazyWithPreload } from "./lazyModals";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { lazyWithPreload, IssueModal, CreateIssueModal } from "./lazyModals";
 
 /** PERF-BUDGET п. 3: предзагрузка ленивых модалок — один импорт на чанк, повтор после ошибки, `lazy()` не сломан. */
 
@@ -10,6 +10,32 @@ afterEach(() => cleanup());
 const Hello = ({ name }: { name: string }) => <p>Привет, {name}</p>;
 
 describe("lazyWithPreload", () => {
+  test("lazy modal wrappers have distinct diagnostic names", () => {
+    expect(IssueModal.displayName).toBe("PreloadedIssueModal");
+    expect(CreateIssueModal.displayName).toBe("PreloadedCreateIssueModal");
+  });
+  test("completed preload renders immediately without the fallback", async () => {
+    const C = lazyWithPreload(async () => ({ default: Hello }));
+    C.preload();
+    await act(async () => { await Promise.resolve(); });
+    render(<Suspense fallback={<p>loading</p>}><C name="мир" /></Suspense>);
+    expect(screen.queryByText("loading")).toBeNull();
+    expect(screen.getByText("Привет, мир")).toBeTruthy();
+  });
+
+  test("cold loading preserves component state after a parent rerender", async () => {
+    function Counter({ name }: { name: string }) {
+      const [count, setCount] = useState(0);
+      return <button onClick={() => setCount(count + 1)}>{name}: {count}</button>;
+    }
+    const C = lazyWithPreload(async () => ({ default: Counter }));
+    const tree = (name: string) => <Suspense fallback={<p>loading</p>}><C name={name} /></Suspense>;
+    const ui = render(tree("first"));
+    fireEvent.click(await screen.findByText("first: 0"));
+    ui.rerender(tree("second"));
+    expect(screen.getByText("second: 1")).toBeTruthy();
+  });
+
   test("preload() запускает импорт один раз; рендер после предзагрузки импорт не повторяет", async () => {
     const factory = vi.fn(async () => ({ default: Hello }));
     const C = lazyWithPreload(factory);

@@ -1,10 +1,12 @@
+import { Button } from "../ds/Button";
+import { PersonAvatar, RoleTag, ROLE_TONE } from "./settings/parts";
+import { Tag } from "../ds/Display";
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { ApiError, usersApi } from "../api";
-import { PERMISSIONS, ROLE_ORDER, roleHas, roleMeta } from "../permissions";
+import { PERMISSIONS, ROLE_ORDER, roleHas } from "../permissions";
 import type { AccessRole, ProjectRole } from "../types";
 import { IcCheck, IcEye, IcShield, IcX } from "../icons";
-import { Avatar, RoleBadge, roleBadgeColors } from "../ui";
 import { useT } from "../i18n";
 
 const PROJECT_ROLES: ProjectRole[] = ["manager", "employee", "viewer"];
@@ -86,11 +88,11 @@ export default function PermissionsView() {
               <IcShield size={14} className="text-accent" /> {t("access.currentSession")}
             </p>
             <div className="mt-3 flex items-center gap-3">
-              <Avatar user={me} size={44} interactive />
+              <PersonAvatar user={me} size={44} interactive />
               <div className="min-w-0">
                 <p className="truncate text-[14px] font-semibold text-ink">{me.name}</p>
                 <p className="text-[11.5px] text-faint">{me.role} · {data.project.name}</p>
-                <div className="mt-1"><RoleBadge role={me.accessRole} size="sm" /></div>
+                <div className="mt-1"><RoleTag role={me.accessRole} size="sm" /></div>
               </div>
             </div>
             <p className="mt-3 rounded-md bg-sunken p-2.5 text-[11.5px] leading-relaxed text-sub">{t(`role.${me.accessRole}.desc`)}</p>
@@ -109,7 +111,7 @@ export default function PermissionsView() {
                 const mine = id === me.id;
                 return (
                   <div key={id} className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${mine ? "bg-accentsoft/50" : "hover:bg-hover"}`}>
-                    <Avatar user={u ?? { name: "?", initials: "?", color: "var(--gray-9)" }} size={30} interactive />
+                    <PersonAvatar user={u ?? { name: "?", initials: "?", color: "var(--gray-9)" }} size={30} interactive />
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-2 text-[13px] font-semibold text-ink">
                         {u?.name ?? id}
@@ -130,15 +132,15 @@ export default function PermissionsView() {
                         ))}
                       </select>
                     ) : (
-                      <RoleBadge role={role} size="sm" />
+                      <RoleTag role={role} size="sm" />
                     )}
                     {canManage && (
-                      <button
+                      <Button variant="secondary" size="sm"
                         onClick={() => removeMember(id)}
-                        className="rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-sub transition-colors hover:border-danger hover:text-danger"
+                        className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                       >
                         {t("access.remove")}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 );
@@ -172,13 +174,13 @@ export default function PermissionsView() {
                     <option key={r} value={r}>{roleName(r)}</option>
                   ))}
                 </select>
-                <button
+                <Button variant="primary" size="sm"
                   onClick={doAdd}
                   disabled={!addUser}
-                  className="rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-semibold text-onaccent transition-opacity hover:opacity-90 disabled:opacity-40"
+                  className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                 >
                   {t("common.create")}
-                </button>
+                </Button>
               </div>
             )}
 
@@ -193,10 +195,9 @@ export default function PermissionsView() {
 
             <div className="flex flex-wrap gap-2 border-t border-linesoft px-4 py-2.5">
               {counts.map(({ role, n }) => (
-                <span key={role} className="flex items-center gap-1.5 rounded-full bg-canvas px-2.5 py-1 text-[11px] font-semibold text-sub">
-                  <span className="h-2 w-2 rounded-full" style={{ background: roleBadgeColors[role] }} />
+                <Tag key={role} tone={ROLE_TONE[role]} dot size="sm">
                   {roleName(role)}: {n}
-                </span>
+                </Tag>
               ))}
             </div>
           </div>
@@ -215,10 +216,9 @@ export default function PermissionsView() {
                   <th className="w-20 px-2 py-2.5 text-left text-[12px] font-medium text-faint">{t("access.scope")}</th>
                   {ROLE_ORDER.map((r) => (
                     <th key={r} className={`w-[110px] px-2 py-2.5 text-center ${me.accessRole === r ? "bg-accentsoft/70" : ""}`}>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold" style={{ color: roleMeta(r).color }}>
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: roleMeta(r).color }} />
+                      <Tag tone={ROLE_TONE[r]} dot size="sm">
                         {roleName(r).split(" ")[0]}
-                      </span>
+                      </Tag>
                     </th>
                   ))}
                 </tr>
