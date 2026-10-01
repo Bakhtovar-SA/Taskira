@@ -442,7 +442,7 @@ export function useSessionActions(
     (id: string | null, mode: IssueMode = "panel") => {
       const apply = () => setUi((u) => ({ ...u, selectedIssueId: id, issueMode: id ? mode : "panel", missing: id ? null : u.missing }));
       // Полная страница задачи сменяет вид целиком — тот же переход, что между представлениями; панель
-      // выезжает сама (anim-panel).
+      // выезжает сама (анимация ds SidePanel).
       if (id && mode === "page") viewTransition(apply);
       else apply();
       if (!id) return;

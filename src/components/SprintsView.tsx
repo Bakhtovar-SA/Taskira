@@ -4,7 +4,7 @@ import { useStore } from "../store";
 import type { Issue, Sprint } from "../types";
 import { LIMITS } from "../validation";
 import { IcCheck, IcFlag, IcPlus, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { AvatarStack } from "../ui";
+import { UserAvatarGroup } from "./UserAvatar";
 import { Button, IconButton, Dialog, Input, Textarea, EmptyState, Tag } from "../ds";
 import { ScreenSkeletonRow } from "./settings/parts";
 import { useT } from "../i18n";
@@ -39,7 +39,7 @@ function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) 
       <span className="w-14 shrink-0 truncate font-mono text-[10.5px] font-semibold text-faint">{issue.key}</span>
       <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">{issue.title}</span>
       <PriorityIcon p={issue.priorityId} size={13} />
-      <AvatarStack users={assignees} size={19} interactive />
+      <UserAvatarGroup users={assignees} size={19} interactive />
       {onRemove && (
         <IconButton variant="ghost" size="sm" label={t("sprints.removeIssue")}
           onClick={(e) => {

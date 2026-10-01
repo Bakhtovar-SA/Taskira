@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover } from "./Overlay";
 import { parseDateInput } from "./dateParse";
+import { dsId } from "./ids";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoOf = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -28,6 +29,8 @@ export function DatePicker({
   clearLabel,
   markOverdue = true,
   block = false,
+  min,
+  max,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
@@ -41,25 +44,36 @@ export function DatePicker({
   markOverdue?: boolean;
   /** Во всю ширину поля, без минимальной ширины (узкая колонка: срок в карточке задачи). */
   block?: boolean;
+  /** Границы диапазона (ISO, включительно): дни вне них выключены, быстрые кнопки вне них неактивны, ввод вне них
+   *  не принимается. Например, «с» и «по» в отчёте ограничивают друг друга. */
+  min?: string;
+  max?: string;
 }) {
   placeholder ??= lang === "en" ? "No due date" : "Без срока";
   clearLabel ??= lang === "en" ? "Remove due date" : "Убрать срок";
   const today = todayProp ?? localToday();
+  const inRange = (s: string) => (!min || s >= min) && (!max || s <= max);
+  // Сетка открывается на выбранной дате, иначе на сегодня — но не за границей диапазона.
+  const start = value ?? (min && today < min ? min : max && today > max ? max : today);
   const loc = lang === "en" ? "en-GB" : "ru-RU";
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
-  const [cursor, setCursor] = useState(value ?? today);
+  // Своя подпись у каждого календаря: на экране их бывает два («с» и «по» в отчёте), а общий id связал бы оба поля
+  // с одной подписью.
+  const [previewId] = useState(() => dsId("date"));
+  const [cursor, setCursor] = useState(start);
   const [cy, cm] = parts(cursor);
   const grid = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
-      setCursor(value ?? today);
+      setCursor(start);
       setText("");
     }
-  }, [open, value, today]);
+  }, [open, start]);
 
-  const parsed = text ? parseDateInput(text, today) : null;
+  const typed = text ? parseDateInput(text, today) : null;
+  const parsed = typed && inRange(typed) ? typed : null;
   const fmt = (s: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(loc, { ...o, timeZone: "UTC" }).format(new Date(`${s}T00:00:00Z`));
 
   // Сетка месяца с понедельника; 6 строк — высота не прыгает между месяцами.
@@ -135,15 +149,15 @@ export function DatePicker({
                 }}
                 placeholder={lang === "en" ? "tomorrow, fri, +3, 15.10…" : "завтра, пт, +3, 15.10…"}
                 aria-label={label}
-                aria-describedby="ds-date-preview"
+                aria-describedby={previewId}
               />
             </div>
-            <p id="ds-date-preview" className="-mt-1 min-h-[16px] px-1 text-[11.5px] text-faint" aria-live="polite">
-              {text ? (parsed ? <span className="font-semibold text-accenttext">{fmt(parsed, { weekday: "long", day: "numeric", month: "long" })} · Enter</span> : lang === "en" ? "Not a date" : "Не похоже на дату") : ""}
+            <p id={previewId} className="-mt-1 min-h-[16px] px-1 text-[11.5px] text-faint" aria-live="polite">
+              {text ? (parsed ? <span className="font-semibold text-accenttext">{fmt(parsed, { weekday: "long", day: "numeric", month: "long" })} · Enter</span> : typed ? (lang === "en" ? "Outside the allowed dates" : "Вне допустимых дат") : lang === "en" ? "Not a date" : "Не похоже на дату") : ""}
             </p>
             <div className="flex flex-wrap gap-1">
               {presets.map(([l, v]) => (
-                <button key={l} type="button" onClick={() => commit(v)} className="ds-focus rounded-md px-2 py-1 text-[12px] font-semibold text-sub ring-1 ring-inset ring-linesoft hover:bg-hover hover:text-ink">
+                <button key={l} type="button" disabled={!inRange(v)} onClick={() => commit(v)} className="ds-focus rounded-md px-2 py-1 text-[12px] font-semibold text-sub ring-1 ring-inset ring-linesoft hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-sub">
                   {l}
                 </button>
               ))}
@@ -178,10 +192,12 @@ export function DatePicker({
                       data-out={d.out || undefined}
                       data-today={d.iso === today || undefined}
                       aria-selected={d.iso === value}
+                      // Выключенный день остаётся в обходе стрелками (сетка без дыр), но не выбирается.
+                      aria-disabled={!inRange(d.iso) || undefined}
                       aria-label={fmt(d.iso, { weekday: "long", day: "numeric", month: "long" })}
                       tabIndex={d.iso === cursor ? 0 : -1}
                       className="ds-cal-day"
-                      onClick={() => commit(d.iso)}
+                      onClick={() => inRange(d.iso) && commit(d.iso)}
                       onKeyDown={(e) => {
                         const [y, m, dd] = parts(d.iso);
                         const wd = (new Date(Date.UTC(y, m - 1, dd)).getUTCDay() + 6) % 7;
