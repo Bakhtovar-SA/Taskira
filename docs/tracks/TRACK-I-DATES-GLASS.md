@@ -66,9 +66,16 @@
 
 - «Организация → Брендирование»: «Прозрачность по умолчанию» — «Как в системе» (как сейчас) / «Всегда включена».
   Только глобальный администратор, как остальные поля брендирования.
-- Сервер: столбец в `instance` (новая миграция по `docs/MIGRATIONS.md`, по умолчанию `auto`), значение — в контракте и в
-  публичном `GET /api/instance/brand` (`transparencyDefault: "auto" | "on"`), правка — там же, где сохраняется бренд,
-  запись в `audit_log` как у остальных полей бренда. Тест сервера: чтение, правка админом, запрет не админу.
+- Сервер:
+  - миграция по `docs/MIGRATIONS.md`: новый файл с префиксом-временем, только добавление (expand) —
+    `ALTER TABLE instance ADD COLUMN transparency_default text NOT NULL DEFAULT 'auto' CHECK (transparency_default IN
+    ('auto', 'on'))`;
+  - `server/src/contract.ts`: закрытый список `TRANSPARENCY_DEFAULTS = ["auto", "on"] as const` и `z.enum` в `BrandDto`
+    (`transparencyDefault`) и в `BrandPatchBody` (необязательное поле); клиент берёт тип через `import type`, а значения
+    повторяет у себя с тестом сверки, как `BRAND_HUE` (`src/brand.ts`) — значения из `contract.ts` в бандл не импортировать;
+  - отдаёт публичный `GET /api/instance/brand`, правит существующий `PATCH /api/admin/brand` (`routes/brand.ts`,
+    `requireGlobalAdmin`, `services/brand.ts` `patchBrand`) — запись в `audit_log` как у остальных полей бренда;
+  - тест сервера: чтение по умолчанию `auto`; правка админом; не админу — 403; значение вне списка — 400.
 - Клиент: значение кэшируется в `taskira.brand` вместе с оттенком (`src/brand.ts`); `public/theme-init.js` читает его
   оттуда и передаёт в ту же `resolveTransparency` как аргумент `org` — второго места с правилом нет.
 - Правило внутри функции (таблица теста I2 его и проверяет):
@@ -83,6 +90,8 @@
 ## Готово, когда
 
 - Нет `type="date"` в `src/` (кроме тестов, если нужны).
+- I2/I3: таблица `resolveTransparency` (24 строки) совпадает в `src/transparency.ts` и `public/theme-init.js`; серверный
+  тест бренда; `docs/MIGRATION-LIST.md` перегенерирован (`npm run docs:generate`).
 - `npm run typecheck`, `npm test`, `npm run build`, `npm run bundle:check`, `colors`, `contrast`, `motion`, `antilist`,
   `test:ui` — зелёные локально и в CI.
 - Ручная проверка — раздел «Трек I» в конце `docs/MANUAL-CHECK-TRACK-G.md`: какие поля и что нажать.
