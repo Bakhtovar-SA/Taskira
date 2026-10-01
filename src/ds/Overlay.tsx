@@ -245,6 +245,18 @@ export function Tooltip({ label, kbd, children, placement = "top", open: forced 
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
   useEffect(() => () => window.clearTimeout(timer.current), []);
+  // Свой ref и обработчики ребёнка не затираются, а дополняются: IconButton передаёт сюда ref кнопки, а Popover/Menu
+  // вешают на неё ref якоря и onFocus/onBlur. Раньше Tooltip их подменял — якорь Popover терял кнопку, и фокус после
+  // закрытия некуда было вернуть (запрос трека H).
+  const own: TipChildProps = isValidElement<TipChildProps>(children) ? children.props : {};
+  const ownRef = useRef(own.ref);
+  ownRef.current = own.ref;
+  const setAnchor = useCallback((el: HTMLElement | null) => {
+    anchor.current = el;
+    const r = ownRef.current;
+    if (typeof r === "function") r(el);
+    else if (r) (r as { current: HTMLElement | null }).current = el;
+  }, []);
 
   if (!isValidElement<TipChildProps>(children)) return children;
   const show = (delay: number) => {
@@ -256,15 +268,25 @@ export function Tooltip({ label, kbd, children, placement = "top", open: forced 
     setOpen(false);
   };
   const child = cloneElement(children, {
-    ref: anchor,
-    onPointerEnter: () => show(400),
-    onPointerLeave: hide,
+    ref: setAnchor,
+    onPointerEnter: (e: unknown) => {
+      own.onPointerEnter?.(e);
+      show(400);
+    },
+    onPointerLeave: (e: unknown) => {
+      own.onPointerLeave?.(e);
+      hide();
+    },
     onFocus: (e: unknown) => {
+      own.onFocus?.(e);
       // Только фокус с клавиатуры: клик мышью тоже фокусирует, но подсказка при клике мешает.
       if ((e as { target: HTMLElement }).target.matches(":focus-visible")) show(0);
     },
-    onBlur: hide,
-    "aria-describedby": id,
+    onBlur: (e: unknown) => {
+      own.onBlur?.(e);
+      hide();
+    },
+    "aria-describedby": own["aria-describedby"] ? `${own["aria-describedby"]} ${id}` : id,
   });
   return (
     <>

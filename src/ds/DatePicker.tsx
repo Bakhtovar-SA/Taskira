@@ -165,40 +165,46 @@ export function DatePicker({
                   {d}
                 </span>
               ))}
-              {days.map((d) => (
-                <button
-                  key={d.iso}
-                  type="button"
-                  role="gridcell"
-                  data-iso={d.iso}
-                  data-out={d.out || undefined}
-                  data-today={d.iso === today || undefined}
-                  aria-selected={d.iso === value}
-                  aria-label={fmt(d.iso, { weekday: "long", day: "numeric", month: "long" })}
-                  tabIndex={d.iso === cursor ? 0 : -1}
-                  className="ds-cal-day"
-                  onClick={() => commit(d.iso)}
-                  onKeyDown={(e) => {
-                    const [y, m, dd] = parts(d.iso);
-                    const wd = (new Date(Date.UTC(y, m - 1, dd)).getUTCDay() + 6) % 7;
-                    const k: Record<string, () => string> = {
-                      ArrowRight: () => shift(d.iso, 1),
-                      ArrowLeft: () => shift(d.iso, -1),
-                      ArrowDown: () => shift(d.iso, 7),
-                      ArrowUp: () => shift(d.iso, -7),
-                      Home: () => shift(d.iso, -wd),
-                      End: () => shift(d.iso, 6 - wd),
-                      PageDown: () => monthShift(1),
-                      PageUp: () => monthShift(-1),
-                    };
-                    if (k[e.key]) {
-                      e.preventDefault();
-                      moveTo(k[e.key]());
-                    }
-                  }}
-                >
-                  {d.day}
-                </button>
+              {/* Ячейки — внутри строк по неделе (grid → row → gridcell, иначе axe: aria-required-children/parent).
+                  Строка — display: contents, раскладку держит сетка .ds-cal. */}
+              {Array.from({ length: days.length / 7 }, (_, w) => (
+                <div key={w} role="row" className="contents">
+                  {days.slice(w * 7, w * 7 + 7).map((d) => (
+                    <button
+                      key={d.iso}
+                      type="button"
+                      role="gridcell"
+                      data-iso={d.iso}
+                      data-out={d.out || undefined}
+                      data-today={d.iso === today || undefined}
+                      aria-selected={d.iso === value}
+                      aria-label={fmt(d.iso, { weekday: "long", day: "numeric", month: "long" })}
+                      tabIndex={d.iso === cursor ? 0 : -1}
+                      className="ds-cal-day"
+                      onClick={() => commit(d.iso)}
+                      onKeyDown={(e) => {
+                        const [y, m, dd] = parts(d.iso);
+                        const wd = (new Date(Date.UTC(y, m - 1, dd)).getUTCDay() + 6) % 7;
+                        const k: Record<string, () => string> = {
+                          ArrowRight: () => shift(d.iso, 1),
+                          ArrowLeft: () => shift(d.iso, -1),
+                          ArrowDown: () => shift(d.iso, 7),
+                          ArrowUp: () => shift(d.iso, -7),
+                          Home: () => shift(d.iso, -wd),
+                          End: () => shift(d.iso, 6 - wd),
+                          PageDown: () => monthShift(1),
+                          PageUp: () => monthShift(-1),
+                        };
+                        if (k[e.key]) {
+                          e.preventDefault();
+                          moveTo(k[e.key]());
+                        }
+                      }}
+                    >
+                      {d.day}
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
             {value && (

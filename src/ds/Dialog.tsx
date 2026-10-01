@@ -53,7 +53,7 @@ function useNativeDialog(open: boolean, onClose: () => void) {
   return ref;
 }
 
-function Frame({ kind, open, onClose, title, description, children, footer, size = "md", closeLabel, dismissable = true, headless }: DialogProps & { kind: "dialog" | "panel" }) {
+function Frame({ kind, open, onClose, title, description, children, footer, size = "md", closeLabel, dismissable = true, headless }: DialogProps & { kind: "dialog" | "panel" | "palette" }) {
   const t = useOptionalT()?.t;
   closeLabel ??= t ? t("common.close") : "Закрыть";
   // Закрытие с анимацией: после open=false диалог ещё виден, пока не доиграет уход (data-closing в ds.css), и только
@@ -140,3 +140,6 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
 export const Dialog = (p: DialogProps) => <Frame kind="dialog" {...p} />;
 /** Выезжающая справа панель на всю высоту — тот же <dialog>, другая геометрия. */
 export const SidePanel = (p: DialogProps) => <Frame kind="panel" {...p} />;
+/** Командная палитра: тот же <dialog>, у верхней трети экрана, стекло (малая плавающая поверхность, ADR-0023), шапку
+ *  рисует содержимое — строку поиска. Поле с `data-autofocus` получает фокус при открытии. */
+export const PaletteDialog = (p: Omit<DialogProps, "headless" | "size" | "footer">) => <Frame kind="palette" headless {...p} />;

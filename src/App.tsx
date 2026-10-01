@@ -329,13 +329,10 @@ function Shell() {
       <Suspense fallback={null}>
         <Presence show={!!ui.selectedIssueId && !issuePage}>{(open) => <IssueModal open={open} />}</Presence>
         <Presence show={ui.createOpen}>{(open) => <CreateIssueModal open={open} />}</Presence>
-        {paletteOpen && (
-          <CommandPalette
-            onClose={() => setPaletteOpen(false)}
-            onShortcuts={() => setHelpOpen(true)}
-          />
-        )}
-        {helpOpen && <ShortcutsDialog onClose={() => setHelpOpen(false)} />}
+        <Presence show={paletteOpen}>
+          {(open) => <CommandPalette open={open} onClose={() => setPaletteOpen(false)} onShortcuts={() => setHelpOpen(true)} />}
+        </Presence>
+        <Presence show={helpOpen}>{(open) => <ShortcutsDialog open={open} onClose={() => setHelpOpen(false)} />}</Presence>
         {wizard && <ProjectWizard departmentId={wizard.departmentId} onClose={() => setWizard(null)} />}
       </Suspense>
       <Toasts />
