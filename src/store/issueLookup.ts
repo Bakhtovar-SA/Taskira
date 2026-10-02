@@ -6,15 +6,17 @@ import { ApiError, issuesApi } from "../api";
 import { mapIssue, upsertIssue } from "./mappers";
 import type { StoreCtx } from "./ctx";
 
-export function useIssueLookup({ setData, dataRef, pid, toast, handleApiError, local }: StoreCtx) {
+export function useIssueLookup({ setData, dataRef, pid, toast, handleApiError, local, sessionEpochRef }: StoreCtx) {
   const resolveIssue = useCallback(
     async (id: string, opts: { silent?: boolean } = {}): Promise<Issue | null> => {
       const known = dataRef.current.issues.find((i) => i.id === id);
       if (known) return known;
       const requestProjectId = pid();
+      const epoch = sessionEpochRef.current;
       if (!requestProjectId) return null; // SEC-01: нет проекта/сессии — грузить нечего
       try {
         const mapped = mapIssue(await issuesApi.get(requestProjectId, id));
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return null;
         setData((prev) =>
           prev.currentProjectId !== requestProjectId || prev.issues.some((x) => x.id === id)
             ? prev
@@ -22,6 +24,7 @@ export function useIssueLookup({ setData, dataRef, pid, toast, handleApiError, l
         );
         return mapped;
       } catch (err) {
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return null;
         // silent — справочные запросы (бейдж эпика/родителя): недоступность не повод для тоста
         if (opts.silent) return null;
         if (err instanceof ApiError && (err.status === 404 || err.status === 403)) {

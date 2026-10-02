@@ -120,6 +120,19 @@ afterEach(() => {
 });
 
 describe("createExternalStore / useExternalStore", () => {
+  test("смена селектора читает новую запись без изменения хранилища", () => {
+    const s = createExternalStore({ a: 1, b: 2 });
+    let seen = 0;
+    function Selected({ id }: { id: "a" | "b" }) {
+      seen = useExternalStore(s, x => x[id]);
+      return null;
+    }
+    const view = render(<Selected id="a" />);
+    expect(seen).toBe(1);
+    view.rerender(<Selected id="b" />);
+    expect(seen).toBe(2);
+    view.unmount();
+  });
   test("подписчик получает новое значение; тот же объект — без уведомления", () => {
     const s = createExternalStore({ a: 1, b: 1 });
     const l = vi.fn();

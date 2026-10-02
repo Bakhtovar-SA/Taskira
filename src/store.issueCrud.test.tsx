@@ -96,6 +96,24 @@ afterEach(() => {
 });
 
 describe("createIssue", () => {
+  test.each(["patch", "transition"] as const)("%s: ответ 401 старой сессии не сбрасывает повторный вход", async (method) => {
+    const { get } = await boot({ issues: [dto("i1")], members: [] });
+    vi.spyOn(authApi, "logout").mockResolvedValue(undefined as never);
+    let reject!: (error: unknown) => void;
+    vi.spyOn(issuesApi, method).mockReturnValue(new Promise((_, fail) => { reject = fail; }) as never);
+    act(() => {
+      if (method === "patch") get().updateIssue("i1", { priorityId: "high" });
+      else get().moveStatus("i1", "s2");
+    });
+    act(() => get().logout());
+    await act(async () => { await get().bootstrap(); });
+    expect(get().bootStatus).toBe("ready");
+    const before = get().toasts.length;
+    await act(async () => reject(new ApiError(401, "UNAUTHORIZED", "старый запрос")));
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().toasts.length).toBe(before);
+  });
   test("успех: задача добавляется по ответу сервера, растёт issuesRevision, ставится ui.lastEvent; epicId → растёт и epicsRevision", async () => {
     const { get } = await boot();
     const create = vi.spyOn(issuesApi, "create").mockResolvedValue(dto("n1", { epicId: "e1" }));

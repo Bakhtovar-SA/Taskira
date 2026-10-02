@@ -502,6 +502,22 @@ describe("pendingOpenIssueRef — открыть задачу после пер�
 });
 
 describe("refreshIssues / ensureAllIssues", () => {
+  test("полная загрузка нового проекта не ждёт старую; поздняя ошибка не сбрасывает сессию", async () => {
+    const old = defer<{ items: ServerIssue[]; hasMore: boolean; nextCursor: string | null }>();
+    const { get, listSpy } = await readyInP1();
+    listSpy.mockReturnValueOnce(old.promise as never);
+    let first!: Promise<void>;
+    act(() => { first = get().ensureAllIssues(); });
+    act(() => get().switchProject(P2));
+    await settle();
+    listSpy.mockResolvedValueOnce({ items: [dto(I9, P2)], hasMore: false, nextCursor: null });
+    await act(async () => { await get().ensureAllIssues(); });
+    expect(get().data.issuesComplete).toBe(true);
+    expect(get().data.issues.map(i => i.id)).toEqual([I9]);
+    await act(async () => { old.reject(new ApiError(401, "UNAUTHORIZED", "старый запрос")); await first; });
+    expect(get().bootStatus).toBe("ready");
+    expect(get().data.currentProjectId).toBe(P2);
+  });
   test("частичный стор: refreshIssues сети не трогает, только растёт issuesRevision", async () => {
     const { get, listSpy } = await readyInP1();
     const [calls, rev] = [listSpy.mock.calls.length, get().issuesRevision];
@@ -611,6 +627,43 @@ describe("openIssue", () => {
 });
 
 describe("гонки с logout", () => {
+  test.each(["resolve", "reject"] as const)("openIssue: старый ответ %s после нового входа в тот же проект игнорируется", async (result) => {
+    const dg = defer<ServerIssue>();
+    const { get } = await readyInP1();
+    vi.spyOn(issuesApi, "get").mockReturnValue(dg.promise);
+    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+    act(() => get().openIssue(I1));
+    act(() => get().logout());
+    await act(async () => { await get().bootstrap(); });
+    act(() => get().enterProject(P1));
+    await settle();
+    expect(get().data.currentProjectId).toBe(P1);
+    const toasts = get().toasts.length;
+    await act(async () => {
+      if (result === "resolve") dg.resolve(dto(I1));
+      else dg.reject(new ApiError(401, "UNAUTHORIZED", "старая сессия"));
+    });
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().data.issues).toEqual([]);
+    expect(get().toasts.length).toBe(toasts);
+  });
+
+  test("lookupIssue: результат старой сессии не возвращается после повторного входа", async () => {
+    const dg = defer<ServerIssue>();
+    const { get } = await readyInP1();
+    vi.spyOn(issuesApi, "get").mockReturnValue(dg.promise);
+    let pending!: Promise<unknown>;
+    act(() => { pending = get().lookupIssue(I1); });
+    act(() => get().logout());
+    await act(async () => { await get().bootstrap(); });
+    act(() => get().enterProject(P1));
+    await settle();
+    await act(async () => { dg.resolve(dto(I1)); });
+    expect(await pending).toBeNull();
+    expect(get().data.issues).toEqual([]);
+  });
   test("openIssue, затем logout; ответ приходит позже — данные после выхода не появляются", async () => {
     const dg = defer<ServerIssue>();
     const { get } = await readyInP1();

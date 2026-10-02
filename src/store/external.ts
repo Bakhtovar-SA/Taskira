@@ -46,7 +46,7 @@ export function useExternalStore<T, S = T>(
 ): S {
   // Последний результат кэшируется: getSnapshot обязан возвращать ту же ссылку при равном значении,
   // иначе useSyncExternalStore перерисовывает (или зацикливается на новом массиве).
-  const cache = useRef<{ state: T; value: S } | null>(null);
+  const cache = useRef<{ state: T; selector: (state: T) => S; isEqual: (a: S, b: S) => boolean; value: S } | null>(null);
   const selectorRef = useRef(selector);
   selectorRef.current = selector;
   const isEqualRef = useRef(isEqual);
@@ -54,13 +54,15 @@ export function useExternalStore<T, S = T>(
   const getSnapshot = useCallback(() => {
     const state = store.getState();
     const prev = cache.current;
-    if (prev && Object.is(prev.state, state)) return prev.value;
+    const selector = selectorRef.current;
+    const equal = isEqualRef.current;
+    if (prev && Object.is(prev.state, state) && prev.selector === selector && prev.isEqual === equal) return prev.value;
     const value = selectorRef.current(state);
     if (prev && isEqualRef.current(prev.value, value)) {
-      cache.current = { state, value: prev.value };
+      cache.current = { state, selector, isEqual: equal, value: prev.value };
       return prev.value;
     }
-    cache.current = { state, value };
+    cache.current = { state, selector, isEqual: equal, value };
     return value;
   }, [store]);
   return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);

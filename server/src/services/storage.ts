@@ -70,9 +70,9 @@ export function newAvatarStorageKey(userId: string): string {
 
 /** Ключи мы генерируем сами (newStorageKey), но раскладка ключа в путь на диске
  *  всё равно защищается от обхода каталога — на случай будущих вызовов. */
-function keyToRelPath(key: string): string {
+export function keyToRelPath(key: string): string {
   const parts = key.split("/").filter(Boolean);
-  if (parts.length === 0 || parts.some((p) => p === "." || p === ".." || p.includes("\0"))) {
+  if (parts.length === 0 || parts.some((p) => p === "." || p === ".." || p.includes("\0") || p.includes("\\") || p.includes(":"))) {
     throw new Error(`storage: недопустимый ключ ${JSON.stringify(key)}`);
   }
   return parts.join(sep);

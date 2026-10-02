@@ -371,6 +371,7 @@ export function useSessionActions(
 
   const refreshIssues = useCallback(async () => {
     const requestProjectId = pid();
+    const epoch = sessionEpochRef.current;
     // Частичный стор не перезагружает всё: наборы Списка и Доски перечитаются по ревизии.
     if (!dataRef.current.issuesComplete) {
       bumpIssues();
@@ -378,6 +379,7 @@ export function useSessionActions(
     }
     try {
       const issuesRes = await listAllIssues(requestProjectId);
+      if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
       setData((prev) => {
         if (prev.currentProjectId !== requestProjectId) return prev;
         const byId = new Map(prev.issues.map((i) => [i.id, i]));
@@ -389,6 +391,7 @@ export function useSessionActions(
       });
       bumpIssues();
     } catch (err) {
+      if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
       handleApiError(err);
     }
   }, [handleApiError, bumpIssues]);
@@ -399,14 +402,20 @@ export function useSessionActions(
    * Идемпотентна: если стор уже полный или загрузка идёт — повторного обхода нет. Уже известные
    * задачи сохраняют свои объекты (детали карточки не затираются списочной версией).
    */
-  const allIssuesInFlight = useRef<Promise<void> | null>(null);
+  const allIssuesInFlight = useRef<{ projectId: string; epoch: number; promise: Promise<void> } | null>(null);
   const ensureAllIssues = useCallback((): Promise<void> => {
     if (dataRef.current.issuesComplete) return Promise.resolve();
-    if (allIssuesInFlight.current) return allIssuesInFlight.current;
     const requestProjectId = pid();
+    const epoch = sessionEpochRef.current;
+    if (!requestProjectId) return Promise.resolve();
+    const pending = allIssuesInFlight.current;
+    if (pending?.projectId === requestProjectId && pending.epoch === epoch) return pending.promise;
+    const request = { projectId: requestProjectId, epoch, promise: Promise.resolve() };
+    allIssuesInFlight.current = request;
     const run = (async () => {
       try {
         const res = await listAllIssues(requestProjectId);
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
         setData((prev) => {
           if (prev.currentProjectId !== requestProjectId) return prev;
           const known = new Map(prev.issues.map((i) => [i.id, i]));
@@ -417,12 +426,13 @@ export function useSessionActions(
           return { ...prev, issues: [...merged, ...extra].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)), issuesComplete: true };
         });
       } catch (err) {
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
         handleApiError(err, local("Не удалось загрузить задачи проекта", "Couldn't load the project's issues"));
       } finally {
-        allIssuesInFlight.current = null;
+        if (allIssuesInFlight.current === request) allIssuesInFlight.current = null;
       }
     })();
-    allIssuesInFlight.current = run;
+    request.promise = run;
     return run;
   }, [handleApiError, local]);
 
@@ -448,6 +458,7 @@ export function useSessionActions(
       if (!id) return;
       const requestProjectId = pid();
       if (!requestProjectId) return; // SEC-01: после выхода pid() = "", и guard `"" === ""` пропустил бы ответ
+      const epoch = sessionEpochRef.current;
       void (async () => {
         try {
           // История задачи грузится вместе с карточкой: до этого таблица activity
@@ -458,6 +469,7 @@ export function useSessionActions(
             commentsApi.list(requestProjectId, id).catch(() => []),
             issuesApi.activity(requestProjectId, id).catch(() => []),
           ]);
+          if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
           setData((prev) => {
             if (prev.currentProjectId !== requestProjectId) return prev;
             const mapped = mapIssue(dto, prev.issues.find((x) => x.id === id));
@@ -480,6 +492,7 @@ export function useSessionActions(
             return { ...prev, issues: upsertIssue(prev.issues, mapped) };
           });
         } catch (err) {
+          if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
           if (dataRef.current.currentProjectId === requestProjectId && !dataRef.current.issues.some((i) => i.id === id)) {
             setUi((u) => u.selectedIssueId === id ? { ...u, selectedIssueId: null } : u);
           }

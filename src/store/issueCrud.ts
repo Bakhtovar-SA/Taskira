@@ -29,7 +29,7 @@ export interface IssueCrudDeps {
 }
 
 export function useIssueCrudActions(
-  { setData, dataRef, pid, toast, handleApiError, requirePerm, local }: StoreCtx,
+  { setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef }: StoreCtx,
   { withIssue, resolveIssue, refreshIssues, setUi, bumpIssues, bumpEpics, langRef }: IssueCrudDeps,
 ) {
   const createIssue = useCallback(
@@ -197,7 +197,10 @@ export function useIssueCrudActions(
 
   const updateIssue = useCallback(
     (id: string, patch: Partial<Issue>) => {
+      const epoch = sessionEpochRef.current;
+      const requestProjectId = pid();
       withIssue(id, (iss) => {
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
         if (!requirePerm("edit", iss)) return;
 
         const body: Record<string, unknown> = {};
@@ -226,7 +229,8 @@ export function useIssueCrudActions(
 
         void (async () => {
           try {
-            const dto = await issuesApi.patch(pid(), id, body);
+            const dto = await issuesApi.patch(requestProjectId, id, body);
+            if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
             setData((prev) => ({
               ...prev,
               issues: prev.issues.map((i) => (i.id === id ? mapIssue(dto, i) : i)),
@@ -234,6 +238,7 @@ export function useIssueCrudActions(
             bumpIssues();
             if (body.epicId !== undefined || body.title !== undefined || body.color !== undefined) bumpEpics();
           } catch (err) {
+            if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
             handleApiError(err, local("Не удалось сохранить задачу", "Couldn't save the issue"));
           }
         })();
@@ -245,8 +250,9 @@ export function useIssueCrudActions(
   const moveStatus = useCallback(
     (issueId: string, toStatus: string, beforeId?: string | null, onSettled?: (confirmed: boolean) => void) => {
       const requestProjectId = pid();
+      const epoch = sessionEpochRef.current;
       const applyMove = (iss: Issue | null) => {
-        if (!iss || dataRef.current.currentProjectId !== requestProjectId || !requirePerm("transition", iss)) {
+        if (!iss || epoch !== sessionEpochRef.current || dataRef.current.currentProjectId !== requestProjectId || !requirePerm("transition", iss)) {
           onSettled?.(false);
           return;
         }
@@ -262,6 +268,7 @@ export function useIssueCrudActions(
           let confirmed = false;
           try {
             const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId);
+            if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
             refreshOnboardingSoon();
             const wasDone = iss.doneAt != null;
             const nowDone = dto.doneAt != null;
@@ -282,6 +289,7 @@ export function useIssueCrudActions(
               confirmed = true;
             }
           } catch (err) {
+            if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
             handleApiError(err, local("Не удалось сменить статус", "Couldn't change the status"));
             void refreshIssues();
           } finally {
