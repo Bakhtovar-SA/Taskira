@@ -67,7 +67,10 @@
   flex: 1;
   min-width: 0;
 }
-.ds-btn.text-left > .truncate {
+/* Flex only when the label holds elements (icons, tags): on a plain-text label a flex container drops the
+   ellipsis — text-overflow works on block containers only — and long names in text-left buttons (sidebar,
+   search results) would be clipped without "…". */
+.ds-btn.text-left > .truncate:has(> *) {
   display: flex;
   flex-direction: inherit;
   align-items: inherit;
