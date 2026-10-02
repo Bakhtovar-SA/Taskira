@@ -1,7 +1,8 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider, useStore, useToasts } from "./store";
 import {
+  ApiError,
   authApi,
   departmentsApi,
   issuesApi,
@@ -79,8 +80,12 @@ const boot = (sprints: ServerSprint[] = [], issues: ServerIssue[] = []): { boot:
   issues,
 });
 
-function Probe({ onSnapshot }: { onSnapshot: (api: ReturnType<typeof useStore>) => void }) {
-  const api = useStore();
+function useStoreSnapshot() {
+  return { ...useStore(), toasts: useToasts() };
+}
+
+function Probe({ onSnapshot }: { onSnapshot: (api: ReturnType<typeof useStoreSnapshot>) => void }) {
+  const api = useStoreSnapshot();
   onSnapshot(api);
   return null;
 }
@@ -95,12 +100,13 @@ class FakeWebSocket {
 
 let unmountCurrent: (() => void) | null = null;
 
-async function bootToReady(sprints: ServerSprint[] = [], issues: ServerIssue[] = []): Promise<{ get: () => ReturnType<typeof useStore> }> {
+async function bootToReady(sprints: ServerSprint[] = [], issues: ServerIssue[] = []): Promise<{ get: () => ReturnType<typeof useStoreSnapshot> }> {
   const { boot: bootPayload, issues: issuesPayload } = boot(sprints, issues);
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(baseUser as never);
   vi.spyOn(authApi, "config").mockResolvedValue({ authMode: "local" });
+  vi.spyOn(authApi, "logout").mockResolvedValue(undefined);
   vi.spyOn(projectsApi, "list").mockResolvedValue([project] as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
@@ -109,7 +115,7 @@ async function bootToReady(sprints: ServerSprint[] = [], issues: ServerIssue[] =
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
 
-  let latest: ReturnType<typeof useStore> | null = null;
+  let latest: ReturnType<typeof useStoreSnapshot> | null = null;
   const { unmount } = render(
     <StoreProvider>
       <Probe onSnapshot={(api) => { latest = api; }} />
@@ -137,6 +143,58 @@ describe("спринты — жизненный цикл в сторе", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
+
+  const operations = ["addSprint", "startSprint", "completeSprint", "setIssueSprint"] as const;
+  test.each(operations.flatMap(operation => (["new-session-success", "new-session-401", "new-project-success"] as const).map(scenario => ({ operation, scenario }))))(
+    "$operation ignores an old response after $scenario",
+    async ({ operation, scenario }) => {
+      const store = await bootToReady([fakeSprint("s1", { status: "active" })], [fakeServerIssue("i1", { sprintId: "s1" })]);
+      let resolve!: (value: unknown) => void;
+      let reject!: (error: unknown) => void;
+      const pending = new Promise((yes, no) => { resolve = yes; reject = no; });
+      const value = operation === "setIssueSprint" ? fakeServerIssue("i1", { sprintId: null })
+        : operation === "completeSprint" ? { sprint: fakeSprint("s1", { status: "completed" }), movedToBacklog: 1 }
+        : fakeSprint(operation === "addSprint" ? "s2" : "s1", { status: "future" });
+      if (operation === "addSprint") vi.spyOn(sprintsApi, "create").mockReturnValue(pending as never);
+      if (operation === "startSprint") vi.spyOn(sprintsApi, "start").mockReturnValue(pending as never);
+      if (operation === "completeSprint") vi.spyOn(sprintsApi, "complete").mockReturnValue(pending as never);
+      if (operation === "setIssueSprint") vi.spyOn(issuesApi, "setSprint").mockReturnValue(pending as never);
+      act(() => {
+        if (operation === "addSprint") store.get().addSprint({ name: "Old request", goal: "" });
+        else if (operation === "setIssueSprint") store.get().setIssueSprint("i1", null);
+        else store.get()[operation]("s1");
+      });
+      if (scenario === "new-project-success") {
+        const p2 = { ...project, id: "p2", key: "NEW" };
+        vi.mocked(projectsApi.list).mockResolvedValue([project, p2] as never);
+        vi.mocked(projectsApi.get).mockImplementation(async id => ({ ...boot([fakeSprint("s1", { status: "active" })]).boot, project: id === "p2" ? p2 : project }));
+        await act(async () => { await store.get().bootstrap(); });
+        act(() => store.get().switchProject("p2"));
+        await act(async () => { await flush(); });
+        expect(store.get().data.currentProjectId).toBe("p2");
+      } else {
+        act(() => store.get().logout());
+        await act(async () => { await store.get().bootstrap(); });
+        act(() => store.get().enterProject("p1"));
+        await act(async () => { await flush(); });
+        expect(store.get().data.currentProjectId).toBe("p1");
+      }
+      expect(store.get().bootStatus).toBe("ready");
+      // Reload the issue too: an old setIssueSprint response must not overwrite a fresh row after login.
+      await act(async () => { await store.get().ensureAllIssues(); });
+      const before = store.get().data;
+      const toasts = store.get().toasts.length;
+      await act(async () => {
+        if (scenario === "new-session-401") reject(new ApiError(401, "UNAUTHORIZED", "Old session"));
+        else resolve(value);
+        await flush();
+      });
+      expect(store.get().bootStatus).toBe("ready");
+      expect(store.get().data).toEqual(before);
+      expect(store.get().data).toBe(before);
+      expect(store.get().toasts.length).toBe(toasts);
+    },
+  );
 
   test("addSprint() добавляет спринт в data.sprints", async () => {
     const store = await bootToReady();

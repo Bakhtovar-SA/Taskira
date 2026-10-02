@@ -5,7 +5,7 @@ import { issuesApi, sprintsApi } from "../api";
 import { mapIssue, mapSprint } from "./mappers";
 import type { StoreCtx } from "./ctx";
 
-export function useSprintActions({ setData, pid, toast, handleApiError, requirePerm, local }: StoreCtx) {
+export function useSprintActions({ setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef }: StoreCtx) {
   /* -------- спринты (миграция 023, опциональный модуль — SPRINTS_MIGRATION.md) --------
      Права manageSprints — тем же проверяет и сервер; requirePerm здесь только
      ради мгновенной UX-реакции (скрытые кнопки и т.п.), источник истины — 403. */
@@ -13,11 +13,16 @@ export function useSprintActions({ setData, pid, toast, handleApiError, requireP
     (input: { name: string; goal: string; startDate?: string | null; endDate?: string | null }) => {
       if (!requirePerm("manageSprints")) return;
       void (async () => {
+        const projectId = pid();
+        const epoch = sessionEpochRef.current;
+        const isCurrent = () => sessionEpochRef.current === epoch && dataRef.current.currentProjectId === projectId;
         try {
-          const s = await sprintsApi.create(pid(), input);
+          const s = await sprintsApi.create(projectId, input);
+          if (!isCurrent()) return;
           setData((prev) => ({ ...prev, sprints: [...prev.sprints, mapSprint(s)] }));
           toast("success", local(`Спринт «${s.name}» создан`, `Sprint “${s.name}” created`));
         } catch (err) {
+          if (!isCurrent()) return;
           handleApiError(err, local("Не удалось создать спринт", "Couldn't create the sprint"));
         }
       })();
@@ -29,11 +34,16 @@ export function useSprintActions({ setData, pid, toast, handleApiError, requireP
     (sprintId: string) => {
       if (!requirePerm("manageSprints")) return;
       void (async () => {
+        const projectId = pid();
+        const epoch = sessionEpochRef.current;
+        const isCurrent = () => sessionEpochRef.current === epoch && dataRef.current.currentProjectId === projectId;
         try {
-          const s = await sprintsApi.start(pid(), sprintId);
+          const s = await sprintsApi.start(projectId, sprintId);
+          if (!isCurrent()) return;
           setData((prev) => ({ ...prev, sprints: prev.sprints.map((x) => (x.id === sprintId ? mapSprint(s) : x)) }));
           toast("success", local(`Спринт «${s.name}» начат`, `Sprint “${s.name}” started`));
         } catch (err) {
+          if (!isCurrent()) return;
           handleApiError(err, local("Не удалось начать спринт", "Couldn't start the sprint"));
         }
       })();
@@ -45,8 +55,12 @@ export function useSprintActions({ setData, pid, toast, handleApiError, requireP
     (sprintId: string) => {
       if (!requirePerm("manageSprints")) return;
       void (async () => {
+        const projectId = pid();
+        const epoch = sessionEpochRef.current;
+        const isCurrent = () => sessionEpochRef.current === epoch && dataRef.current.currentProjectId === projectId;
         try {
-          const { sprint, movedToBacklog } = await sprintsApi.complete(pid(), sprintId);
+          const { sprint, movedToBacklog } = await sprintsApi.complete(projectId, sprintId);
+          if (!isCurrent()) return;
           setData((prev) => ({
             ...prev,
             sprints: prev.sprints.map((x) => (x.id === sprintId ? mapSprint(sprint) : x)),
@@ -64,6 +78,7 @@ export function useSprintActions({ setData, pid, toast, handleApiError, requireP
             ),
           );
         } catch (err) {
+          if (!isCurrent()) return;
           handleApiError(err, local("Не удалось завершить спринт", "Couldn't complete the sprint"));
         }
       })();
@@ -75,10 +90,15 @@ export function useSprintActions({ setData, pid, toast, handleApiError, requireP
     (issueId: string, sprintId: string | null) => {
       if (!requirePerm("manageSprints")) return;
       void (async () => {
+        const projectId = pid();
+        const epoch = sessionEpochRef.current;
+        const isCurrent = () => sessionEpochRef.current === epoch && dataRef.current.currentProjectId === projectId;
         try {
-          const dto = await issuesApi.setSprint(pid(), issueId, sprintId);
+          const dto = await issuesApi.setSprint(projectId, issueId, sprintId);
+          if (!isCurrent()) return;
           setData((prev) => ({ ...prev, issues: prev.issues.map((i) => (i.id === issueId ? mapIssue(dto, i) : i)) }));
         } catch (err) {
+          if (!isCurrent()) return;
           handleApiError(err, local("Не удалось изменить спринт задачи", "Couldn't change the issue sprint"));
         }
       })();
