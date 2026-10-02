@@ -9,12 +9,14 @@ const setCreateOpen = vi.fn();
 const data = { issueTemplates: [], users: [], members: [], project: { key: "CORP" } };
 vi.mock("../store", () => ({ useStore: () => ({ data, ui: { createParentId: null }, setCreateOpen, createIssue }) }));
 vi.mock("../issuePages", () => ({ useIssue: () => null }));
+vi.mock("./IssueSearchBox", () => ({ default: () => <input aria-label="Direction search" /> }));
 import CreateIssueModal from "./CreateIssueModal";
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   delete (Element.prototype as Partial<Element>).getAnimations;
+  delete (Element.prototype as Partial<Element>).scrollIntoView;
 });
 
 const view = (open: boolean) => (
@@ -38,6 +40,29 @@ test("пока окно уходит с анимацией, второй Enter �
   fireEvent.keyDown(title, { key: "Enter" });
   fireEvent.click(screen.getByRole("button", { name: "Создать задачу" }));
   expect(createIssue).toHaveBeenCalledTimes(1);
+});
+
+test("чек-лист расположен после описания и перед приоритетом", () => {
+  render(view(true));
+  const description = screen.getByPlaceholderText(/Что нужно сделать/);
+  const checklist = screen.getByPlaceholderText(/Добавить пункт и нажать Enter/);
+  const priority = screen.getByRole("button", { name: /Средний/ });
+  expect(description.compareDocumentPosition(checklist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(checklist.compareDocumentPosition(priority) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test("направление закрывается кликом снаружи, сохраняя черновик задачи", () => {
+  Object.defineProperty(Element.prototype, "scrollIntoView", { value: vi.fn(), configurable: true });
+  render(view(true));
+  const title = screen.getByPlaceholderText(/Экран восстановления пароля/);
+  fireEvent.change(title, { target: { value: "Черновик" } });
+  const direction = screen.getByRole("button", { name: "Без направления" });
+  fireEvent.click(direction);
+  expect(direction.getAttribute("aria-expanded")).toBe("true");
+  fireEvent.pointerDown(title);
+  expect(direction.getAttribute("aria-expanded")).toBe("false");
+  expect((title as HTMLInputElement).value).toBe("Черновик");
+  expect(setCreateOpen).not.toHaveBeenCalled();
 });
 
 test("a deferred first import preserves the real create-modal draft and focus after parent rerenders", async () => {

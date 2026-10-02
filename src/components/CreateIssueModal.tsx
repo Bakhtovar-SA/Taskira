@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
-import { assignableUsers } from "../store/mappers";
 import type { ComplexityId, Issue, IssueTypeId, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcChevD, IcPlus, IcX, TypeIcon } from "../icons";
 import { labelTone } from "../ui";
-import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
+import { UserAvatarGroup } from "./UserAvatar";
 import { Button, Checkbox, DatePicker, Dialog, Menu, Popover, Tag } from "../ds";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
 import { useT } from "../i18n";
+import AssigneePicker from "./AssigneePicker";
 import IssueSearchBox from "./IssueSearchBox";
 import { useIssue } from "../issuePages";
 
@@ -40,6 +40,15 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   const [epicPicked, setEpicPicked] = useState<Issue | null>(null);
   const [dirOpen, setDirOpen] = useState(false);
   const dirPanelRef = useRef<HTMLDivElement>(null);
+  const dirRootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!dirOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!dirRootRef.current?.contains(event.target as Node)) setDirOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside, true);
+    return () => document.removeEventListener("pointerdown", closeOutside, true);
+  }, [dirOpen]);
   // Панель раскрывается внутри прокручиваемого тела модалки: без прокрутки список
   // оказывался бы под нижней панелью с кнопкой «Создать задачу».
   useEffect(() => {
@@ -186,6 +195,39 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
           </div>
         </div>
 
+        {/* название */}
+        <div>
+          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.titleField")}</p>
+          <input
+            data-autofocus
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (error) setError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder={t("createIssue.titlePlaceholder")}
+            maxLength={LIMITS.title.max}
+            className={`${inputCls} ${error ? "border-danger ring-2 ring-danger/15" : ""}`}
+          />
+          {error && <p className="mt-1 text-[11.5px] font-semibold text-danger">{error}</p>}
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.descriptionField")}</p>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            maxLength={LIMITS.description.max}
+            placeholder={t("createIssue.descriptionPlaceholder")}
+            className={`${inputCls} resize-y`}
+          />
+          {description.length > LIMITS.description.max * 0.8 && (
+            <p className="mt-1 text-right tabular text-[10.5px] text-faint">{description.length} / {LIMITS.description.max}</p>
+          )}
+        </div>
+
         <div>
           <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.checklist")}</p>
           <div className="space-y-1.5">
@@ -241,39 +283,6 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
           </div>
         </div>
 
-        {/* название */}
-        <div>
-          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.titleField")}</p>
-          <input
-            data-autofocus
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              if (error) setError("");
-            }}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder={t("createIssue.titlePlaceholder")}
-            maxLength={LIMITS.title.max}
-            className={`${inputCls} ${error ? "border-danger ring-2 ring-danger/15" : ""}`}
-          />
-          {error && <p className="mt-1 text-[11.5px] font-semibold text-danger">{error}</p>}
-        </div>
-
-        <div>
-          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.descriptionField")}</p>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            maxLength={LIMITS.description.max}
-            placeholder={t("createIssue.descriptionPlaceholder")}
-            className={`${inputCls} resize-y`}
-          />
-          {description.length > LIMITS.description.max * 0.8 && (
-            <p className="mt-1 text-right tabular text-[10.5px] text-faint">{description.length} / {LIMITS.description.max}</p>
-          )}
-        </div>
-
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.priority")}</p>
@@ -315,27 +324,17 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                 </button>
               )}
             >
-              <div className="flex flex-col">
-                {assignableUsers(data).map((u) => {
-                  const on = assigneeIds.includes(u.id);
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => setAssigneeIds((p) => (on ? p.filter((id) => id !== u.id) : [...p, u.id]))}
-                      className="ds-menu-item"
-                    >
-                      <UserAvatar user={u} size={18} interactive={false} />
-                      <span className="min-w-0 flex-1 truncate">{u.name}</span>
-                      {on && <IcCheck size={12} className="text-accent" />}
-                    </button>
-                  );
-                })}
-              </div>
+              <AssigneePicker data={data} selected={assigneeIds} onChange={setAssigneeIds} />
             </Popover>
           </div>
-          <div>
+          <div ref={dirRootRef} onKeyDown={event => {
+            if (dirOpen && event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              setDirOpen(false);
+              dirRootRef.current?.querySelector("button")?.focus();
+            }
+          }}>
             <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.direction")}</p>
             {/* Панель раскрывается в потоке формы, а не всплывающим слоем: тело модалки
                 прокручивается, и выпадашка обрезалась бы нижней панелью с кнопкой. */}

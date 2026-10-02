@@ -11,6 +11,8 @@ export interface LdapPrincipal {
   /** Значение логин-атрибута (uid / sAMAccountName) — по нему матчим users.username. */
   login: string;
   name: string;
+  /** Имя отдельно от displayName: порядок слов в ФИО зависит от каталога. */
+  givenName?: string | null;
   email: string | null;
   /** Должность (AD title) — синкается в users.job_role. */
   title: string | null;
@@ -59,6 +61,11 @@ function firstStr(v: unknown): string | null {
   return v == null ? null : String(v);
 }
 
+/** `givenName` без учёта регистра ключа (каталоги и dev-мок отдают его по-разному); пустое — null. */
+function givenNameOf(entry: Record<string, unknown>): string | null {
+  return firstStr(Object.entries(entry).find(([key]) => key.toLowerCase() === "givenname")?.[1])?.trim() || null;
+}
+
 /** Экранирование значения в LDAP-фильтре (RFC 4515). */
 function escFilter(s: string): string {
   return s.replace(/[\\*()\0]/g, (ch) => "\\" + ch.charCodeAt(0).toString(16).padStart(2, "0"));
@@ -84,7 +91,7 @@ export async function ldapAuthenticate(username: string, password: string): Prom
   if (!password) return null; // пустой пароль → anonymous bind, не пускаем
 
   const client = mkClient(c);
-  const attrs = [c.attrLogin, c.attrName, c.attrMail, c.attrTitle, c.attrPhone, "memberOf"];
+  const attrs = [c.attrLogin, c.attrName, c.attrMail, c.attrTitle, c.attrPhone, "givenName", "memberOf"];
   try {
     if (c.startTls) await client.startTLS(tlsOptions(c));
 
@@ -146,6 +153,7 @@ export async function ldapAuthenticate(username: string, password: string): Prom
       dn: userDn,
       login: firstStr(entry[c.attrLogin]) ?? username,
       name: firstStr(entry[c.attrName]) ?? username,
+      givenName: givenNameOf(entry),
       email: firstStr(entry[c.attrMail]),
       title: firstStr(entry[c.attrTitle]),
       phone: firstStr(entry[c.attrPhone]),
@@ -162,7 +170,9 @@ export async function ldapAuthenticate(username: string, password: string): Prom
 /** DN групп пользователя по логину — БЕЗ проверки пароля (для ресинка, D3).
  *  Требует сервис-аккаунт (LDAP_BIND_DN). null — пользователь не найден в LDAP.
  *  Бросает LdapUnavailableError при проблемах связи. */
-export async function ldapUserGroups(login: string): Promise<string[] | null> {
+/** Ресинк: группы пользователя и его `givenName` (имя для приветствия) — одним поиском сервис-аккаунтом.
+ *  `null` — пользователя в каталоге нет. */
+export async function ldapUserGroups(login: string): Promise<{ groups: string[]; givenName: string | null } | null> {
   const c = ldapCfg();
   if (!c.bindDn) throw new LdapUnavailableError("ресинк требует LDAP_BIND_DN (сервис-аккаунт)");
 
@@ -175,19 +185,20 @@ export async function ldapUserGroups(login: string): Promise<string[] | null> {
     const { searchEntries } = await client.search(c.userBaseDn, {
       scope: "sub",
       filter,
-      attributes: [c.attrLogin, "memberOf"],
+      attributes: [c.attrLogin, "givenName", "memberOf"],
     });
     if (searchEntries.length !== 1) return null;
     const entry = searchEntries[0] as unknown as Record<string, unknown>;
     const userDn = String(entry.dn);
+    const givenName = givenNameOf(entry);
 
     if (c.groupMembership === "memberOf") {
       const mo = entry.memberOf;
-      return Array.isArray(mo) ? mo.map(String) : mo ? [String(mo)] : [];
+      return { groups: Array.isArray(mo) ? mo.map(String) : mo ? [String(mo)] : [], givenName };
     }
     const gfilter = `(&(objectClass=groupOfNames)(member=${escFilter(userDn)}))`;
     const groups = await client.search(c.groupBaseDn!, { scope: "sub", filter: gfilter, attributes: ["dn"] });
-    return groups.searchEntries.map((g) => String(g.dn));
+    return { groups: groups.searchEntries.map((g) => String(g.dn)), givenName };
   } catch (e) {
     if (e instanceof LdapUnavailableError) throw e;
     throw new LdapUnavailableError(`LDAP: ${(e as Error).message}`, e);

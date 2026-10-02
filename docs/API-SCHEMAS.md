@@ -897,6 +897,7 @@
 | `id` | string |  |
 | `username` | string |  |
 | `name` | string |  |
+| `givenName` | string | необязательное, может быть null |
 | `initials` | string |  |
 | `color` | string |  |
 | `jobRole` | string |  |
@@ -1131,6 +1132,7 @@
 | `id` | string |  |
 | `username` | string |  |
 | `name` | string |  |
+| `givenName` | string | необязательное, может быть null |
 | `initials` | string |  |
 | `color` | string |  |
 | `jobRole` | string |  |

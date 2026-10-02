@@ -946,6 +946,7 @@ export const SafeUser = z.object({
   id: z.string(),
   username: z.string(),
   name: z.string(),
+  givenName: z.string().nullable().optional(),
   initials: z.string(),
   color: z.string(),
   jobRole: z.string(),

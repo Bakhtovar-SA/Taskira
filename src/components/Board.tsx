@@ -2,6 +2,8 @@ import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, u
 import { flipFrom } from "../motion";
 import { Hint } from "./Hint";
 import { useStore } from "../store";
+import { usePersonalBoardPhoto } from "../personalBoardPhoto";
+import BoardBackgroundControl from "./BoardBackgroundControl";
 import { createExternalStore, useExternalStore, type ExternalStore } from "../store/external";
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
@@ -721,6 +723,7 @@ const BoardColumn = memo(function BoardColumn({
 export default function Board() {
   const { t, tn } = useT();
   const { data, ui, moveStatus, openIssue, can, epicsRevision, setCreateOpen } = useStore();
+  const personalPhoto = usePersonalBoardPhoto(data.currentUserId, data.currentProjectId);
   const canMove = can("transition");
   const canCreate = can("create");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -941,6 +944,7 @@ export default function Board() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />
           <div className="flex items-center -space-x-1.5">
             {assignees.map((u) => (
               <button
@@ -1069,7 +1073,9 @@ export default function Board() {
       {/* колонки. Ширина гибкая (BOARD_COLUMN_SHELL). Группа начинается от левого края, под заголовком и фильтрами:
           раньше она стояла по центру, и на широком мониторе доска висела островом посреди пустоты, оторванная от
           своей же шапки (часть F, скриншот владельца на 3440 px). Лишнее место остаётся справа. */}
-      <div className="flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden md:snap-none">
+      <div data-personal-board-photo={personalPhoto ? "true" : undefined}
+        style={personalPhoto ? { backgroundImage: `linear-gradient(color-mix(in oklch, var(--bg-canvas) 65%, transparent), color-mix(in oklch, var(--bg-canvas) 65%, transparent)), url("${personalPhoto.url}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+        className="min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden md:snap-none">
         <div className="flex h-full min-w-full items-start gap-3 px-4 pb-4 pt-1 sm:px-6">
           {data.workflow.statuses.map((st) => {
             return (

@@ -10,6 +10,7 @@ export interface UserRow {
   id: string;
   username: string;
   name: string;
+  given_name?: string | null;
   initials: string;
   color: string;
   job_role: string;
@@ -36,6 +37,7 @@ export function safeUser(row: UserRow): SafeUser {
     id: row.id,
     username: row.username,
     name: row.name,
+    givenName: row.given_name ?? null,
     initials: row.initials,
     color: row.color,
     jobRole: row.job_role,

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { loadOnboarding, markThemeStep, resetOnboarding } from "./onboarding";
-import { projectsApi, setupApi } from "./api";
-import { onThemeChosen, setProjectBackground, setProjectPhoto } from "./theme";
+import { setupApi } from "./api";
+import { onThemeChosen, setProjectBackground } from "./theme";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
 import Sidebar from "./components/Sidebar";
@@ -106,26 +106,6 @@ function Shell() {
   // Фон проекта (ТЗ 5.10): пока открыт проект со своим фоном, он перекрывает личный; на главной — личный.
   const projectBg = bootStatus === "ready" ? (data.projects.find((p) => p.id === data.currentProjectId)?.background ?? null) : null;
   useEffect(() => setProjectBackground(projectBg), [projectBg]);
-  // Своё фото фона (ТЗ 5.14 п.2) — поверх фона из галереи; на узком экране — малый размер.
-  const photo = bootStatus === "ready" ? (data.projects.find((p) => p.id === data.currentProjectId)?.backgroundPhoto ?? null) : null;
-  const photoPid = photo ? data.currentProjectId : null;
-  const photoV = photo?.updatedAt ?? 0;
-  const photoLuma = photo?.luma ?? 0;
-  useEffect(() => {
-    if (!photoPid) return setProjectPhoto(null);
-    let url: string | null = null;
-    let live = true;
-    void projectsApi.photoBlobUrl(photoPid, window.innerWidth < 900 ? "small" : "full", photoV).then((u) => {
-      url = u;
-      if (live && u) setProjectPhoto({ url: u, luma: photoLuma });
-    });
-    return () => {
-      live = false;
-      setProjectPhoto(null);
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [photoPid, photoV, photoLuma]);
-
   // Онбординг (ТЗ 5.11): прогресс «Начала работы» и подсказки — после входа; выход — забыть.
   const signedIn = bootStatus === "ready" || bootStatus === "home" || bootStatus === "solo";
   useEffect(() => {

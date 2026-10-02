@@ -67,3 +67,4 @@
 | `20260930T0500_epic_child_counts.sql` | EPIC-01: материализованные счётчики детей направлений (docs/tickets/EPIC-01-materialized-child-counts.md). GET …/issues/epics считал childTotal/childDone агрегатом по всем активным детям направлений проекта: стоимость росла с числом детей (60% задач под направлениями на 50 000 задач — 68 мс и Seq… |
 | `20260930T0501_index_issues_epics.sql` | EPIC-01: справочник направлений проекта (GET …/issues/epics) в порядке rank — только строки с активными детьми. Требует epic_child_total (20260930T0500). |
 | `20261001T0700_brand_transparency.sql` | Organization-wide transparency default (expand). |
+| `20261002T1100_users_given_name.sql` | Имя для приветствия берём из givenName, не угадываем порядок ФИО. |

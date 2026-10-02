@@ -87,12 +87,18 @@ export async function resyncAllLdapUsers(actorId: string | null): Promise<LdapRe
 
     const resyncOne = async (u: { id: string; username: string }): Promise<void> => {
       try {
-        const groups = await ldapUserGroups(u.username);
-        if (groups === null) {
+        const found = await ldapUserGroups(u.username);
+        if (found === null) {
           notFound.push(u.username);
           return;
         }
-        await syncDepartmentMembership(u.id, groups, actorId);
+        await syncDepartmentMembership(u.id, found.groups, actorId);
+        // Имя для приветствия — и без повторного входа (иначе до него показывалось бы полное имя). Пустой ответ не
+        // стирает сохранённое: если сервис-аккаунту не дали читать givenName, ресинк раз в 6 ч обнулял бы у всех то,
+        // что записал вход. Убрать имя из каталога — значит дождаться входа человека.
+        if (found.givenName) {
+          await q(`UPDATE users SET given_name = $2 WHERE id = $1 AND given_name IS DISTINCT FROM $2`, [u.id, found.givenName]);
+        }
         synced += 1;
       } catch (e) {
         errors.push(`${u.username}: ${(e as Error).message}`);

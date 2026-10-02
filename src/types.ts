@@ -42,6 +42,8 @@ export type ProjectRole = (typeof PROJECT_ROLES)[number];
 export interface User {
   id: string;
   name: string;
+  givenName?: string | null;
+  authSource?: "local" | "ldap";
   initials: string;
   color: string;
   /** Должность / job role — НЕ роль доступа. */

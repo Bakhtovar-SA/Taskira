@@ -289,6 +289,8 @@ export function mapUser(u: SafeUser, members: Record<string, ProjectRole>): User
   return {
     id: u.id,
     name: u.name,
+    givenName: u.givenName,
+    authSource: u.authSource,
     initials: u.initials,
     color: u.color,
     role: u.jobRole,
