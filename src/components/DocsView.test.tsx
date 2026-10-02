@@ -34,3 +34,13 @@ test("английская справка: у каждого пункта мен
   await waitFor(() => expect(document.getElementById("doc-en-overview")).not.toBeNull());
   for (const [id] of EN_SECTIONS) expect(document.getElementById(`doc-en-${id}`), id).not.toBeNull();
 });
+
+
+test("help has matching complete structure and tables in both languages", async () => {
+  const { helpCopy } = await import("../i18n/help");
+  expect(helpCopy.en.sections.map(s => [s.id, s.paragraphs.length, s.table?.rows.length])).toEqual(
+    helpCopy.ru.sections.map(s => [s.id, s.paragraphs.length, s.table?.rows.length]));
+  for (const lang of ["ru", "en"] as const) {
+    for (const id of ["calendar", "templates", "appearance"]) expect(helpCopy[lang].sections.find(s => s.id === id)?.paragraphs.length).toBeGreaterThan(1);
+  }
+});

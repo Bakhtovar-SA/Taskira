@@ -34,14 +34,32 @@ test("create form orders the checklist, searches project assignees and dismisses
 });
 
 test("a board photo survives reload and belongs only to this browser account", async ({ page }) => {
+  await page.addInitScript(() => {
+    const violations: string[] = [];
+    Object.assign(window, { boardCspViolations: violations });
+    document.addEventListener("securitypolicyviolation", event => violations.push(event.violatedDirective));
+  });
   await mockApi(page);
   await page.goto("/p/TEST/board");
   await page.getByRole("button", { name: "Фото моей доски", exact: true }).click();
-  await page.getByLabel("Загрузить фото", { exact: true }).setInputFiles("e2e/__screenshots__/tabs-light.png");
+  const fileChooser = page.waitForEvent("filechooser");
+  await page.getByRole("dialog", { name: "Фото моей доски", exact: true }).getByRole("button", { name: "Загрузить фото", exact: true }).and(page.locator("button")).click();
+  await (await fileChooser).setFiles("e2e/__screenshots__/tabs-light.png");
   await expect(page.locator('[data-personal-board-photo="true"]')).toBeVisible();
+  await expect.poll(() => page.locator('[data-personal-board-photo="true"]').evaluate(el => getComputedStyle(el).backgroundImage)).toContain("blob:");
   await expect(page.locator("html")).not.toHaveAttribute("data-photo");
+  await expect.poll(() => page.locator('[data-personal-board-photo="true"]').evaluate(el => {
+    const url = /url\("?([^"\)]+)"?\)/.exec(getComputedStyle(el).backgroundImage)?.[1];
+    return new Promise<boolean>(resolve => {
+      if (!url) return resolve(false);
+      const image = new Image(); image.onload = () => resolve(image.naturalWidth > 0); image.onerror = () => resolve(false); image.src = url;
+    });
+  })).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { boardCspViolations: string[] }).boardCspViolations)).toEqual([]);
+  await page.screenshot({ path: "shots/personal-board-photo.png" });
   await page.reload();
   await expect(page.locator('[data-personal-board-photo="true"]')).toBeVisible();
+  await expect.poll(() => page.locator('[data-personal-board-photo="true"]').evaluate(el => getComputedStyle(el).backgroundImage)).toContain("blob:");
   const other = await page.context().newPage();
   try {
     await mockApi(other, { id: "u2", username: "another" });
@@ -52,4 +70,5 @@ test("a board photo survives reload and belongs only to this browser account", a
   await page.getByRole("button", { name: "Фото моей доски", exact: true }).click();
   await page.getByRole("button", { name: "Убрать фото", exact: true }).click();
   await expect(page.locator('[data-personal-board-photo="true"]')).toHaveCount(0);
+  await expect(page.locator("main")).not.toContainText("blob:");
 });

@@ -12,7 +12,7 @@ export default function BoardBackgroundControl({ userId, projectId, hasPhoto }: 
   const run = async (file?: File) => {
     if (busy) return;
     setError("");
-    if (file && (!file.type.startsWith("image/") || file.size > 20 * 1024 * 1024)) {
+    if (file && (!/\.(png|jpe?g|gif|webp)$/i.test(file.name) || !file.type.startsWith("image/") || file.size > 20 * 1024 * 1024)) {
       setError(t("board.personalPhotoLimit")); return;
     }
     setBusy(true);
@@ -24,15 +24,17 @@ export default function BoardBackgroundControl({ userId, projectId, hasPhoto }: 
       setError(t(code === "no-webp" ? "look.photo.noWebp" : code === "unreadable" ? "look.photo.unreadable" : "look.photo.failed"));
     } finally { setBusy(false); if (input.current) input.current.value = ""; }
   };
-  return <Popover label={t("board.personalPhoto")} className="w-[300px] p-3"
+  return <>
+    <input ref={input} type="file" accept=".png,.jpg,.jpeg,.gif,.webp" className="hidden" tabIndex={-1} aria-label={t("look.photo.upload")}
+      onChange={event => { const file = event.target.files?.[0]; if (file) void run(file); }} />
+    <Popover label={t("board.personalPhoto")} className="w-[300px] p-3"
     trigger={(props) => <button {...props} type="button" className="ds-btn ds-focus h-8 border border-line text-sub" disabled={busy}>{t("board.personalPhoto")}</button>}>
     <p className="mb-3 text-[12px] leading-relaxed text-sub">{t("board.personalPhotoHint")}</p>
-    <input ref={input} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-label={t("look.photo.upload")}
-      onChange={event => { const file = event.target.files?.[0]; if (file) void run(file); }} />
     <div className="flex gap-2">
       <Button size="sm" loading={busy} onClick={() => input.current?.click()}>{t(hasPhoto ? "look.photo.replace" : "look.photo.upload")}</Button>
       {hasPhoto && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void run()}>{t("look.photo.remove")}</Button>}
     </div>
-    {error && <p role="alert" className="mt-2 text-[12px] text-danger">{error}</p>}
-  </Popover>;
+  </Popover>
+    {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
+  </>;
 }

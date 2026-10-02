@@ -176,9 +176,10 @@ const hueRange = /BRAND_HUE = \{ min: (\d+), max: (\d+)/.exec(contract);
 if (!hueRange) throw new Error("BRAND_HUE не найден в contract.ts");
 const [hueMin, hueMax] = [+hueRange[1], +hueRange[2]];
 let hueWorst = Infinity;
-for (let h = hueMin; h <= hueMax; h += 1) {
+const extraHues = JSON.parse(/BRAND_EXTRA_HUES = (\[[\d, ]+\])/.exec(contract)[1]);
+for (const h of [...Array.from({ length: hueMax - hueMin + 1 }, (_, i) => hueMin + i), ...extraHues]) {
   for (const [name, base] of variants) {
-    const vars = { ...base, "--brand-h": String(h) };
+    const vars = { ...base, ...(extraHues.includes(h) ? block(`:root[data-brand-palette="${h === 55 || h === 345 ? "warm" : "extended"}"]`) : {}), "--brand-h": String(h) };
     for (const [fgName, bgName, min, baseName] of PAIRS) {
       const under = baseName ? oklch(resolve(vars, vars[baseName])).rgb : [1, 1, 1];
       const bg = over(oklch(resolve(vars, vars[bgName])), under);

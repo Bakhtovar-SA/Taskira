@@ -1,0 +1,9 @@
+import { defineConfig } from "@playwright/test";
+import base from "./playwright.config";
+const port = process.env.PLAYWRIGHT_PORT || "3199";
+export default defineConfig({
+  ...base,
+  testMatch: ["pr118-feedback.pw.ts", "uploads-help-brand.pw.ts"],
+  use: { ...base.use, baseURL: `http://127.0.0.1:${port}` },
+  webServer: { command: "node scripts/preview-production.mjs", url: `http://127.0.0.1:${port}`, reuseExistingServer: false },
+});

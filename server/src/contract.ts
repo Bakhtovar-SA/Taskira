@@ -1344,10 +1344,11 @@ export type SetupStatusDto = z.infer<typeof SetupStatusDto>;
 export const SetupPatchBody = z.object({ instanceName: oneLine(80, 1, "Название не может быть пустым") });
 
 /* ---------------- Брендирование инсталляции (ТЗ 5.14 п.5) ---------------- */
-/** Допустимый оттенок акцента (OKLCH hue): от сине-фиолетового до пурпурного. Для каждого значения диапазона
+/** Допустимый оттенок акцента (OKLCH hue): старый диапазон и пять дополнительных образцов. Для каждого значения
  *  scripts/check-contrast.mjs проверяет все пары акцента во всех темах — это и есть «контраст проверяется
- *  автоматически при сохранении»: сервер принимает только проверенный диапазон. 288 — фирменный. */
+ *  автоматически при сохранении»: сервер принимает только проверенные значения. 288 — фирменный. */
 export const BRAND_HUE = { min: 255, max: 320, default: 288 } as const;
+export const BRAND_EXTRA_HUES = [55, 145, 185, 235, 345] as const;
 export const TRANSPARENCY_DEFAULTS = ["auto", "on"] as const;
 /** GET /api/instance/brand — публично (нужно экрану входа): null — не задано. */
 export const BrandDto = z.object({
@@ -1362,7 +1363,7 @@ export const BrandPatchBody = z
   .object({
     transparencyDefault: z.enum(TRANSPARENCY_DEFAULTS),
     name: requiredLine(LIMITS.brand.name.max, "Название не может быть пустым").nullable(),
-    hue: z.number().int().min(BRAND_HUE.min, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).max(BRAND_HUE.max, `Оттенок от ${BRAND_HUE.min} до ${BRAND_HUE.max}`).nullable(),
+    hue: z.number().int().refine(h => (h >= BRAND_HUE.min && h <= BRAND_HUE.max) || BRAND_EXTRA_HUES.some(value => value === h), "Выберите поддерживаемый оттенок бренда").nullable(),
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Пустой патч");

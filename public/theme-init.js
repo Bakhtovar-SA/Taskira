@@ -24,7 +24,10 @@
     if (localStorage.getItem("taskira.density") === "compact") root.setAttribute("data-density", "compact");
     // Оттенок бренда (ТЗ 5.14 п.5, src/brand.ts): CSSOM, не style="" — CSP style-src-attr 'none'.
     var brand = JSON.parse(localStorage.getItem("taskira.brand") || "null");
-    if (brand && typeof brand.hue === "number" && brand.hue >= 255 && brand.hue <= 320) root.style.setProperty("--brand-h", String(brand.hue));
+    if (brand && Number.isInteger(brand.hue) && ((brand.hue >= 255 && brand.hue <= 320) || [55, 145, 185, 235, 345].indexOf(brand.hue) !== -1)) {
+      root.style.setProperty("--brand-h", String(brand.hue));
+      if (brand.hue < 255 || brand.hue > 320) root.setAttribute("data-brand-palette", brand.hue === 55 || brand.hue === 345 ? "warm" : "extended");
+    }
     org = brand && brand.transparencyDefault === "on" ? "on" : "auto";
     if (brand && typeof brand.name === "string") document.title = brand.name;
   } catch (_) {

@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
 import type { BrandDto } from "../../../server/src/contract";
-import { BRAND_HUE, DEFAULT_BRAND_NAME, previewHue, setBrand, useBrand } from "../../brand";
+import { BRAND_EXTRA_HUES, BRAND_HUE, DEFAULT_BRAND_NAME, previewHue, setBrand, useBrand } from "../../brand";
 import { cssVars } from "../../cssVars";
 import { BrandMark } from "../BrandMark";
 import { adminApi, brandApi, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
@@ -722,8 +722,8 @@ function Templates() {
   );
 }
 
-/** Оттенки-образцы из диапазона BRAND_HUE; точная настройка — ползунком. */
-const HUE_SWATCHES = [258, 268, 278, 288, 298, 308, 318];
+/** Новые проверенные образцы и старый диапазон BRAND_HUE; ползунок доступен для старого диапазона. */
+const HUE_SWATCHES = [...BRAND_EXTRA_HUES, 258, 268, 278, 288, 298, 308, 318];
 
 /** Брендирование (ТЗ 5.14 п.5): название, оттенок акцента с живым предпросмотром, знак. Оттенок применяется ко всему
  *  интерфейсу сразу (previewHue), но остаётся, только если его сохранить; уход со страницы возвращает сохранённый. */
@@ -783,7 +783,7 @@ function Brand() {
               label: <span className="flex items-center"><span aria-hidden="true" ref={cssVars({ "--sw-h": String(h) })} className="block h-8 w-8 rounded-full bg-[oklch(0.55_0.2_var(--sw-h))]" /><span className="sr-only">{t("brand.hueSwatch", { h })}</span></span>,
             }))} />
           </div>
-          <input
+          {hue >= BRAND_HUE.min && hue <= BRAND_HUE.max && <input
             type="range"
             min={BRAND_HUE.min}
             max={BRAND_HUE.max}
@@ -792,7 +792,7 @@ function Brand() {
             aria-label={t("brand.hue")}
             onChange={(e) => pick(Number(e.target.value))}
             className="w-full accent-[var(--accent-solid)]"
-          />
+          />}
           <p className="text-[12px] leading-relaxed text-faint">{t("brand.hueHint")}</p>
         </div>
         <div className="px-5 py-4">

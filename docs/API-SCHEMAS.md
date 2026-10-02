@@ -14,7 +14,7 @@
 |---|---|---|
 | `transparencyDefault` | enum: `auto` \| `on` | необязательное |
 | `name` | string | необязательное, может быть null; длина 1…60 |
-| `hue` | integer | необязательное, может быть null; 255…320 |
+| `hue` | integer | необязательное, может быть null |
 
 ### ChangeRoleBody
 

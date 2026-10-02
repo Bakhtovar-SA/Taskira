@@ -97,3 +97,13 @@ test("organization transparency: admin updates and resets, members denied, inval
   const logs = await q<{ details: { transparencyDefault: string } }>("SELECT details FROM audit_log WHERE action = 'instance.brand' ORDER BY created_at DESC");
   expect(logs.map((row) => row.details.transparencyDefault)).toContain("on");
 });
+
+test("new preset hues persist; arbitrary extra hues are rejected", async () => {
+  const adm = await login(app, "admin");
+  for (const hue of [55, 145, 185, 235, 345]) {
+    const response = await app.inject({ method: "PATCH", url: "/api/admin/brand", headers: auth(adm), payload: { hue } });
+    expect(response.statusCode).toBe(200);
+    expect(await brand()).toMatchObject({ hue });
+  }
+  expect((await app.inject({ method: "PATCH", url: "/api/admin/brand", headers: auth(adm), payload: { hue: 146 } })).statusCode).toBe(400);
+});

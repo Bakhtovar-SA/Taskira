@@ -75,3 +75,21 @@ describe("user avatars", () => {
     expect(JSON.parse(res.body).error.code).toBe("AVATAR_REJECTED");
   });
 });
+
+test.each([
+  ["profile.svg", Buffer.from('<svg/>'), 400],
+  ["profile.webp", PNG, 400],
+  ["profile.txt", PNG, 400],
+  ["profile.png", Buffer.from("corrupt image"), 400],
+  ["profile.png", Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024)]), 413],
+])("rejected replacement keeps the owner's original avatar: %s", async (name, content, status) => {
+  const token = await login(app, "emp1");
+  const good = multipart("profile.PNG", PNG);
+  expect((await app.inject({ method: "POST", url: "/api/me/avatar", headers: { ...auth(token), ...good.headers }, payload: good.payload })).statusCode).toBe(200);
+  const bad = multipart(name, content);
+  const response = await app.inject({ method: "POST", url: "/api/me/avatar", headers: { ...auth(token), ...bad.headers }, payload: bad.payload });
+  expect(response.statusCode).toBe(status);
+  const unchanged = await app.inject({ url: `/api/users/${fx.users.emp1}/avatar`, headers: auth(token) });
+  expect(unchanged.statusCode).toBe(200);
+  expect(unchanged.rawPayload).toEqual(PNG);
+});
