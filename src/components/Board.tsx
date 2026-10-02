@@ -216,15 +216,14 @@ const Card = memo(function Card({
       className={`board-card group relative flex cursor-pointer flex-col gap-2 rounded-[10px] px-[11px] py-2.5 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
       {/* ТЗ 5.12 c — три уровня: ключ; заголовок (две строки); мета — направление, метки, срок, исполнители.
-          В строке ключа тонко: приоритет, если он не обычный (средний — без значка, иначе шум на каждой карточке;
-          критичный ещё и красной кромкой слева), и подзадачи «готово/всего». Тип — в просмотре задачи. */}
+          В строке ключа тонко: приоритет (критичный ещё и красной кромкой слева), и подзадачи «готово/всего». Тип — в просмотре задачи. */}
       <div className="flex h-5 items-center gap-1.5 text-faint">
         {selecting && (
           <span className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
             <Checkbox checked={selected} onChange={() => onToggleSelect(issue.id)} label={t("backlog.selectRow", { key: issue.key })} labelHidden tabIndex={-1} />
           </span>
         )}
-        {issue.priorityId !== "medium" && <PrioMark p={issue.priorityId} />}
+        <PrioMark p={issue.priorityId} />
         <span className="font-mono text-[11.5px] font-medium tabular tracking-[0.01em]">{issue.key}</span>
         <span className="ml-auto flex items-center gap-1.5">
           {!!issue.subtasksSummary?.total && (
@@ -307,8 +306,8 @@ function PrioMark({ p }: { p: PriorityId }) {
         <PriorityIcon p="critical" size={12} />
       </span>
     );
-  const lvl = p === "high" ? 3 : 1;
-  const fill = p === "high" ? "var(--c-prio-high)" : "var(--text-3)";
+  const lvl = p === "high" ? 3 : p === "medium" ? 2 : 1;
+  const fill = p === "high" ? "var(--c-prio-high)" : p === "medium" ? "var(--c-prio-medium)" : "var(--text-3)";
   return (
     <svg width={12} height={12} viewBox="0 0 16 16" role="img" aria-label={label} className="shrink-0">
       <title>{label}</title>

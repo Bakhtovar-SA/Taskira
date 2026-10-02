@@ -2,7 +2,7 @@ import { Kbd } from "../ds/Display";
 import { Button } from "../ds/Button";
 import { RoleTag, StatusTag, ROLE_TONE } from "./settings/parts";
 import { Tag } from "../ds/Display";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DEFAULT_WORKFLOW } from "../seed";
 import { ACCESS_ROLES, PERMISSIONS, ROLE_ORDER, roleHas, roleMeta } from "../permissions";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
@@ -45,12 +45,40 @@ export const EN_SECTIONS = [
   ["model", "Data model"], ["storage", "Storage and sessions"],
 ] as const;
 
-function DocsEnglish() {
+function useDocsNavigation(prefix: string, enabled = true) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState("overview");
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !enabled) return;
+    const sections = Array.from(root.querySelectorAll<HTMLElement>(`section[id^="${prefix}"]`));
+    const update = () => {
+      const threshold = root.getBoundingClientRect().top + 24;
+      let current: HTMLElement | undefined = sections[0];
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= threshold) current = section;
+      }
+      if (root.scrollTop > 0 && root.scrollTop + root.clientHeight >= root.scrollHeight - 2) current = sections.at(-1);
+      if (current) setActive(current.id.slice(prefix.length));
+    };
+    update();
+    root.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      root.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [prefix, enabled]);
   const go = (id: string) => {
-    setActive(id);
-    document.getElementById(`doc-en-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    rootRef.current?.querySelector<HTMLElement>(`#${prefix}${id}`)?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start",
+    });
   };
+  return { rootRef, active, go };
+}
+
+function DocsEnglish() {
+  const { rootRef, active, go } = useDocsNavigation("doc-en-");
   const sections: { id: string; title: string; body: React.ReactNode }[] = [
     { id: "overview", title: "1 · System overview", body: <>Taskira is a project-scoped issue tracker. The board, backlog, timeline, reports, workflow, and access pages are views over the same server data. Everyone with project access can view every issue; mutations are enforced separately by role.</> },
     { id: "roles", title: "2 · Roles and permissions", body: <>Resource administrators manage everything. Project managers can create, edit, move, and delete any issue. Employees can create and comment, but may edit or move only issues where they are the reporter or an assignee. Viewers have read-only access to all issues. The server is the source of truth for every permission check.</> },
@@ -69,7 +97,7 @@ function DocsEnglish() {
     { id: "storage", title: "15 · Storage and sessions", body: <>PostgreSQL stores application data; configured object storage stores attachments and avatars. The signed session is sent in an HttpOnly, SameSite cookie and checked against a server-side session version, so logout and role changes revoke older sessions. Local storage contains interface preferences only.</> },
   ];
   return (
-    <div className="h-full overflow-y-auto">
+    <div ref={rootRef} className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] px-6 py-5">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-onaccent"><IcBook size={18} /></span>
@@ -77,7 +105,7 @@ function DocsEnglish() {
         </div>
         <div className="mt-4 grid gap-5 lg:grid-cols-[220px_1fr]">
           <nav className="top-5 h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-2 lg:sticky">
-            {EN_SECTIONS.map(([id, label]) => <Button variant="ghost" size="sm" key={id} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{label}</Button>)}
+            {EN_SECTIONS.map(([id, label]) => <Button variant="ghost" size="sm" key={id} aria-current={active === id ? "location" : undefined} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{label}</Button>)}
           </nav>
           <div>{sections.map((s) => <section key={s.id} id={`doc-en-${s.id}`} className="mb-4 scroll-mt-5 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5"><H>{s.title}</H><P>{s.body}</P></section>)}</div>
         </div>
@@ -88,16 +116,12 @@ function DocsEnglish() {
 
 export default function DocsView() {
   const { t, lang } = useT();
-  const [active, setActive] = useState("overview");
-  const go = (id: string) => {
-    setActive(id);
-    document.getElementById(`doc-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const { rootRef, active, go } = useDocsNavigation("doc-", lang === "ru");
 
   if (lang === "en") return <DocsEnglish />;
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div ref={rootRef} className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] px-6 py-5">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-onaccent"><IcBook size={18} /></span>
@@ -113,6 +137,7 @@ export default function DocsView() {
             {SECTIONS.map((s, i) => (
               <Button variant="ghost" size="sm"
                 key={s.id}
+                aria-current={active === s.id ? "location" : undefined}
                 onClick={() => go(s.id)}
                 className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[12.5px] font-medium transition-colors ${active === s.id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover hover:text-ink"}`}
               >

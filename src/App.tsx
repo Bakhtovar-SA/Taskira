@@ -185,7 +185,7 @@ function Shell() {
   }, [bootStatus]);
 
   useEffect(() => {
-    if (bootStatus !== "ready") return;
+    if (bootStatus !== "ready" && bootStatus !== "home") return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       const typing = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable;
@@ -216,6 +216,7 @@ function Shell() {
         setHelpOpen(true);
         return;
       }
+      if (bootStatus === "home") return;
       if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") {
         e.preventDefault();
         if (can("create")) setCreateOpen(true);
@@ -228,8 +229,8 @@ function Shell() {
       if (gPending.current && Date.now() - gPending.current < 1200) {
         gPending.current = 0;
         const go: Record<string, () => void> = {
-          h: () => data.projects.length >= 2 && goHome(),
-          р: () => data.projects.length >= 2 && goHome(),
+          h: () => data.projects.length > 0 && goHome(),
+          р: () => data.projects.length > 0 && goHome(),
           i: () => setView("inbox"),
           ш: () => setView("inbox"),
           m: () => setView("my"),
@@ -261,6 +262,19 @@ function Shell() {
     return () => document.removeEventListener("keydown", onKey);
   }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, paletteOpen, helpOpen, t, data.projects.length, data.project.sprintsEnabled, goHome, openSettings]);
 
+  const overlays = <>
+      <Suspense fallback={null}>
+        <Presence show={!!ui.selectedIssueId && !issuePage}>{(open) => <IssueModal open={open} />}</Presence>
+        <Presence show={ui.createOpen}>{(open) => <CreateIssueModal open={open} />}</Presence>
+        <Presence show={paletteOpen}>
+          {(open) => <CommandPalette open={open} onClose={() => setPaletteOpen(false)} onShortcuts={() => setHelpOpen(true)} />}
+        </Presence>
+        <Presence show={helpOpen}>{(open) => <ShortcutsDialog open={open} onClose={() => setHelpOpen(false)} />}</Presence>
+        {wizard && <ProjectWizard departmentId={wizard.departmentId} onClose={() => setWizard(null)} />}
+      </Suspense>
+      <Toasts />
+  </>;
+
   if (bootStatus === "loading" || bootStatus === "idle") {
     return <BootSkeleton />;
   }
@@ -282,7 +296,7 @@ function Shell() {
   if (bootStatus === "solo") return <Suspense fallback={<BootSkeleton />}><SoloView onLogout={logout} /></Suspense>;
 
   // ≥ 2 доступных проектов, до выбора проекта — главный экран (UI_RESTRUCTURE.md D4).
-  if (bootStatus === "home") return <Suspense fallback={<BootSkeleton />}><HomeView onLogout={logout} /></Suspense>;
+  if (bootStatus === "home") return <><Suspense fallback={<BootSkeleton />}><HomeView onLogout={logout} /></Suspense>{overlays}</>;
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -328,16 +342,7 @@ function Shell() {
        </div>
       </div>
 
-      <Suspense fallback={null}>
-        <Presence show={!!ui.selectedIssueId && !issuePage}>{(open) => <IssueModal open={open} />}</Presence>
-        <Presence show={ui.createOpen}>{(open) => <CreateIssueModal open={open} />}</Presence>
-        <Presence show={paletteOpen}>
-          {(open) => <CommandPalette open={open} onClose={() => setPaletteOpen(false)} onShortcuts={() => setHelpOpen(true)} />}
-        </Presence>
-        <Presence show={helpOpen}>{(open) => <ShortcutsDialog open={open} onClose={() => setHelpOpen(false)} />}</Presence>
-        {wizard && <ProjectWizard departmentId={wizard.departmentId} onClose={() => setWizard(null)} />}
-      </Suspense>
-      <Toasts />
+      {overlays}
     </div>
   );
 }

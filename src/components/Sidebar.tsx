@@ -152,7 +152,7 @@ export default function Sidebar() {
   const { counts } = useIssueCounts(data.currentProjectId || null, NO_ISSUE_FILTERS, useIssuesRevision());
   const openCount = openTotal(counts, doneIds);
   const totalCount = counts?.total ?? 0;
-  const homeAvailable = data.projects.length >= 2;
+  const homeAvailable = data.projects.length > 0;
   const closedPct = openCount === null ? 0 : Math.round((1 - openCount / Math.max(1, totalCount)) * 100);
 
   // Раскрытые узлы дерева (секции, отделы, проекты) — удобство, помним локально.
@@ -469,7 +469,7 @@ export default function Sidebar() {
       </div>
 
       {/* «Начало работы» (ТЗ 5.11) — тем, у кого нет главной (один проект): свёрнутая строка с прогрессом. */}
-      {!homeAvailable && !collapsed && <GettingStarted compact className="mx-3 mb-2" />}
+      {data.projects.length < 2 && !collapsed && <GettingStarted compact className="mx-3 mb-2" />}
 
       {/* Прогресс проекта: доля закрытых — тонкая полоса, цифра открытых. */}
       <div className="mx-4 mb-2 mt-1">

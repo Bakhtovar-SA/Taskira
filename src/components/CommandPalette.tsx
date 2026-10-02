@@ -66,7 +66,7 @@ const VIEW_ALIASES: Record<string, string[]> = {
 /** `open` — для плавного ухода: App держит палитру в `Presence`, и на время ухода она получает open=false. */
 export default function CommandPalette({ onClose, onShortcuts, open = true }: { onClose: () => void; onShortcuts: () => void; open?: boolean }) {
   const { t, lang, setLang } = useT();
-  const { data, idx, me, ui, setView, setCreateOpen, can, openIssue, switchProject, goHome, searchAllProjects, logout } = useStore();
+  const { data, idx, me, ui, bootStatus, enterProject, setView, setCreateOpen, can, openIssue, switchProject, goHome, searchAllProjects, logout } = useStore();
   const openSettings = useOpenSettings();
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
@@ -81,8 +81,12 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
   };
 
   // Найденная задача — полной страницей (ADR-0013 §3: «из поиска»).
-  const openFound = (projectId: string, id: string) =>
-    projectId === data.currentProjectId ? openIssue(id, "page") : switchProject(projectId, id, "page");
+  const openFound = (projectId: string, id: string) => {
+    if (projectId === data.currentProjectId) {
+      if (bootStatus === "home") enterProject(projectId);
+      openIssue(id, "page");
+    } else switchProject(projectId, id, "page");
+  };
 
   // Задачи — серверным поиском по всем проектам, с паузой 200 мс, от двух символов.
   const term = q.trim();
@@ -117,10 +121,11 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
 
   const commands = useMemo<Row[]>(() => {
     const rows: Row[] = [];
-    if (data.projects.length >= 2)
+    if (data.projects.length > 0)
       rows.push({ id: "home", group: "nav", label: t("sidebar.nav.home"), keywords: ["home"], icon: <IcHome size={16} tone="violet" />, run: goHome });
     for (const g of NAV_GROUPS)
       for (const item of g.items) {
+        if (bootStatus === "home" && !data.currentProjectId) continue;
         if (item.adminOnly && me.globalRole !== "admin") continue;
         if (item.collabOnly && data.collaborations.length === 0) continue;
         if (item.sprintsOnly && !data.project.sprintsEnabled) continue;
@@ -131,12 +136,16 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
           keywords: VIEW_ALIASES[item.id],
           icon: item.icon({ size: 16, tone: item.tone }),
           hint: item.kbd ? <Kbd>{item.kbd}</Kbd> : undefined,
-          run: () => (isSettingsHome(item.id) ? openSettings(item.id) : setView(item.id)),
+          run: () => {
+            if (bootStatus === "home") enterProject(data.currentProjectId);
+            if (isSettingsHome(item.id)) openSettings(item.id);
+            else setView(item.id);
+          },
         });
       }
     if (me.globalRole === "admin")
       rows.push({ id: "newProject", group: "actions", label: t("wizard.title"), keywords: ["new project", "создать проект", "шаблон"], icon: <IcPlus size={16} tone="violet" />, run: () => openProjectWizard() });
-    if (can("create"))
+    if (bootStatus !== "home" && can("create"))
       rows.push({ id: "create", group: "actions", label: t("palette.newIssue"), keywords: ["new issue", "create"], icon: <IcCompose size={16} tone="violet" />, hint: <Kbd>C</Kbd>, run: () => setCreateOpen(true) });
     rows.push(
       { id: "theme:light", group: "actions", label: t("palette.themeLight"), keywords: ["light theme"], icon: <IcSun size={16} tone="amber" />, run: () => setThemeMode("light") },
@@ -147,7 +156,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
       { id: "logout", group: "actions", label: t("palette.logout"), keywords: ["logout", "sign out"], icon: <IcX size={16} tone="red" />, run: logout },
     );
     for (const p of data.projects) {
-      if (p.id === data.currentProjectId) continue;
+      if (p.id === data.currentProjectId && bootStatus !== "home") continue;
       rows.push({
         id: `project:${p.id}`,
         group: "projects",
@@ -155,11 +164,11 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
         keywords: [p.key],
         icon: <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />,
         hint: <span className="font-mono text-[11px] text-faint">{p.key}</span>,
-        run: () => switchProject(p.id),
+        run: () => enterProject(p.id),
       });
     }
     return rows;
-  }, [data.projects, data.collaborations.length, data.project.sprintsEnabled, data.currentProjectId, me.globalRole, t, lang, can, goHome, setView, setCreateOpen, setLang, onShortcuts, logout, switchProject, openSettings]);
+  }, [data.projects, data.collaborations.length, data.project.sprintsEnabled, data.currentProjectId, me.globalRole, bootStatus, enterProject, t, lang, can, goHome, setView, setCreateOpen, setLang, onShortcuts, logout, openSettings]);
 
   const recent = useMemo(() => readRecent().filter((r) => r.id !== ui.selectedIssueId), [ui.selectedIssueId]);
 

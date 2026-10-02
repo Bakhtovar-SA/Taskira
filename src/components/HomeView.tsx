@@ -12,7 +12,7 @@ import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
 import { IcBell, IcChevR, IcComment, IcMyIssues, IcPlus, IcSearch, StatusGlyph } from "../icons";
 import { BrandMark, BrandName } from "./BrandMark";
-import { Toasts, UserCardBody, ProjectMark } from "../ui";
+import { UserCardBody, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
@@ -32,7 +32,7 @@ const greetingKey = (h = new Date().getHours()) =>
 
 export default function HomeView({ onLogout }: { onLogout: () => void }) {
   const { t, tn, lang } = useT();
-  const { data, enterProject, switchProject, setCreateOpen, setView } = useStore();
+  const { data, enterProject, switchProject, openIssue, setCreateOpen, setView } = useStore();
   const { notifications } = useNotifications();
   const me = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
   const last = readLastProject();
@@ -100,7 +100,10 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   const dateLine = new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
 
   const openTask = (item: Pick<AssignedIssue, "projectId" | "issueId">) => {
-    switchProject(item.projectId, item.issueId, "page");
+    if (item.projectId === data.currentProjectId) {
+      enterProject(item.projectId);
+      openIssue(item.issueId, "page");
+    } else switchProject(item.projectId, item.issueId, "page");
   };
 
   return (
@@ -293,7 +296,6 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
       </div>
-      <Toasts />
     </div>
   );
 }

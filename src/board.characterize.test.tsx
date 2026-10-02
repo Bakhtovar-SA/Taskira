@@ -414,7 +414,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
-  test("5b. приоритет и подзадачи на карточке: средний — без значка, критичный — значок и кромка; «готово/всего»", async () => {
+  test("5b. приоритет и подзадачи на карточке: средний и критичный видны, критичный с кромкой; «готово/всего»", async () => {
     const h = await setup({
       pageImpl: async (_p, params) =>
         params.status === "s1"
@@ -433,7 +433,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(crit.getAttribute("data-priority")).toBe("critical");
     expect(within(crit).getByLabelText("Подзадачи: готово 2 из 5").textContent).toBe("2/5");
     const med = screen.getByRole("article", { name: /A21-m1/ });
-    expect(within(med).queryByRole("img", { name: "Средний" })).toBeNull();
+    expect(within(med).getByRole("img", { name: "Средний" })).toBeTruthy();
     expect(within(med).queryByLabelText(/Подзадачи/)).toBeNull();
     h.ui.unmount();
   });

@@ -610,7 +610,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
         {isProjectView ? (
           <div className="md:ml-2">
             <Tabs<ViewId> label={t("topbar.viewsAria")} value={ui.view} onChange={(v) => setView(v)}
-              items={views.map((v) => ({ id: v.id, icon: v.icon({ size: 14, tone: ui.view === v.id ? v.tone : undefined }), label: <span className={ui.view === v.id ? "max-sm:sr-only" : "max-2xl:sr-only"}>{t(v.labelKey)}</span> }))} />
+              items={views.map((v) => ({ id: v.id, icon: v.icon({ size: 14, tone: ui.view === v.id ? v.tone : undefined }), label: <span className={ui.view === v.id || v.id === "calendar" ? "max-sm:sr-only" : "max-2xl:sr-only"}>{t(v.labelKey)}</span> }))} />
           </div>
         ) : (
           <>

@@ -103,40 +103,30 @@ const CARD_MARKER = "taskira-email-card";
 function wrapCard(preheader: string, bodyHtml: string, ctaUrl: string, m: MailStrings, lang: Lang): string {
   return `<!doctype html>
 <html lang="${lang}">
-  <body style="margin:0;padding:24px 12px;background:#f1f3f7;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-    <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(preheader)}</span>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="${CARD_MARKER}">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#fdfdfe;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(23,35,59,0.08);">
-            <tr>
-              <td style="background:${BRAND};padding:18px 28px;">
-                <span style="color:#ffffff;font-size:16px;font-weight:700;letter-spacing:0.2px;">Taskira</span>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:28px 28px 20px;color:#17233b;font-size:14px;line-height:1.55;">
-                ${bodyHtml}
-                <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:20px;">
-                  <tr>
-                    <td style="border-radius:8px;background:${BRAND};">
-                      <a href="${esc(ctaUrl)}" style="display:inline-block;padding:10px 20px;color:#ffffff;font-size:13.5px;font-weight:600;text-decoration:none;">${esc(m.openLabel)}</a>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 28px 20px;border-top:1px solid #e7eaf1;color:#8b95a7;font-size:11.5px;line-height:1.5;">
-                ${m.footerHtml}
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
+  <body style="margin:0;padding:0;background:#f1f3f7;font-family:Arial,Helvetica,sans-serif;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${esc(preheader)}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="${CARD_MARKER}" style="background:#f1f3f7;">
+      <tr><td align="center" style="padding:32px 12px;font-family:Arial,Helvetica,sans-serif;">
+        <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #e0e5ed;border-radius:12px;">
+          <tr><td style="padding:24px 28px;border-top:4px solid ${BRAND};border-bottom:1px solid #e7eaf1;font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:26px;font-weight:bold;color:#17233b;">Taskira</td></tr>
+          <tr><td style="padding:28px;font-family:Arial,Helvetica,sans-serif;color:#17233b;font-size:15px;line-height:24px;">
+            ${bodyHtml}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+              <tr><td bgcolor="${BRAND}" style="background:${BRAND};border-radius:6px;padding:12px 22px;text-align:center;font-family:Arial,Helvetica,sans-serif;">
+                <a href="${esc(ctaUrl)}" style="display:inline-block;font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:15px;line-height:20px;font-weight:bold;text-decoration:none;">${esc(m.openLabel)}</a>
+              </td></tr>
+            </table>
+          </td></tr>
+          <tr><td style="padding:20px 28px;border-top:1px solid #e7eaf1;font-family:Arial,Helvetica,sans-serif;color:#626d80;font-size:12px;line-height:19px;">${m.footerHtml}</td></tr>
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+      </td></tr>
     </table>
   </body>
 </html>`;
+
 }
 
 /** Одно событие. */
@@ -145,7 +135,7 @@ export function renderOne(appBaseUrl: string, it: MailItem, lang: Lang = "ru"): 
   const ev = m.events[it.type];
   const ref = it.issueKey ? ` ${it.issueKey}` : "";
   const url = link(appBaseUrl, it);
-  const bodyHtml = `<p style="margin:0;font-size:15px;">${esc(ev)}${esc(ref)}.</p>`;
+  const bodyHtml = `<h1 style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:30px;font-weight:bold;color:#17233b;">${esc(ev.charAt(0).toUpperCase() + ev.slice(1))}</h1>${it.issueKey ? `<p style="margin:16px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:bold;color:${BRAND};">${esc(it.issueKey)}</p>` : ""}`;
   return {
     subject: `Taskira · ${ev}${ref}`,
     text: `${ev}${ref}.\n\n${m.open}: ${url}\n\n${m.footerText}\n`,
@@ -169,12 +159,12 @@ export function renderDigest(appBaseUrl: string, items: MailItem[], lang: Lang =
     const head = m.events[type];
     textBlocks.push(`${head}:\n` + group.map((it) => `  ${it.issueKey ?? m.project} — ${link(appBaseUrl, it)}`).join("\n"));
     htmlBlocks.push(
-      `<p style="margin:14px 0 4px;font-weight:700;">${esc(head)}</p>` +
+      `<p style="margin:20px 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;font-weight:bold;">${esc(head)}</p>` +
         `<ul style="margin:0;padding-left:18px;">` +
         group
           .map(
             (it) =>
-              `<li style="margin-bottom:4px;"><a href="${esc(link(appBaseUrl, it))}" style="color:${BRAND};text-decoration:none;">${esc(it.issueKey ?? m.project)}</a></li>`,
+              `<li style="margin-bottom:4px;"><a href="${esc(link(appBaseUrl, it))}" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:${BRAND};text-decoration:underline;">${esc(it.issueKey ?? m.project)}</a></li>`,
           )
           .join("") +
         `</ul>`,
@@ -182,7 +172,7 @@ export function renderDigest(appBaseUrl: string, items: MailItem[], lang: Lang =
   }
 
   const head = m.digestHead(items.length);
-  const bodyHtml = `<p style="margin:0 0 4px;font-size:15px;">${esc(head)}</p>${htmlBlocks.join("")}`;
+  const bodyHtml = `<p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:30px;font-weight:bold;">${esc(head)}</p>${htmlBlocks.join("")}`;
   return {
     subject: `Taskira · ${m.digestSubject(items.length)}`,
     text: `${head}\n\n${textBlocks.join("\n\n")}\n\n${m.footerText}\n`,
