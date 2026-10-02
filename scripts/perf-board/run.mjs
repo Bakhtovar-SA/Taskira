@@ -10,12 +10,15 @@
 // THROTTLE — список множителей замедления CPU (CDP Emulation.setCPUThrottlingRate).
 // openIssue* — видимый диалог (включая загрузку); openIssueDetails* — готовые данные задачи.
 // Для бюджета открытия с содержимым сравнивайте openIssueDetails*, а не только отклик загрузки.
+// BENCH_DETAIL_MARKER добавляет текст только в GET деталей: openIssuePreview* отмечает первый заголовок,
+// openIssueDetails* — кадр с этим текстом. Это не позволяет принять предварительные данные списка за ответ GET.
+// GPU — фактический renderer/режим compositing; memory — доступная физическая память в начале каждого прогона.
 import { createServer } from "node:http";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join, extname, resolve } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { cpus } from "node:os";
+import { cpus, freemem, totalmem } from "node:os";
 import { productionCsp } from "../csp-spike/server.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
@@ -69,6 +72,7 @@ const boot = {
   issueTemplates: [], customFields: [], sprints: [],
 };
 let unread = 0;
+const detailMarker = process.env.BENCH_DETAIL_MARKER ?? "";
 const unknown = new Set();
 function handle(method, url) {
   const p = url.pathname;
@@ -96,7 +100,7 @@ function handle(method, url) {
   const m = p.match(/^\/api\/projects\/p1\/issues\/(s\d-\d+)$/);
   if (m) {
     const [st, n] = m[1].split("-");
-    return dto(st, Number(n));
+    return { ...dto(st, Number(n)), ...(detailMarker ? { description: detailMarker } : {}) };
   }
   if (/^\/api\/projects\/p1\/issues\/[^/]+\/\w+/.test(p)) return []; // comments, activity, …
   unknown.add(`${method} ${p}`);
@@ -113,10 +117,18 @@ const profileDir = process.env.PROFILE_DIR;
 if (profileDir) await mkdir(profileDir, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const out = { browser: `Chromium ${browser.version()}`, cpu: `${cpus()[0]?.model} × ${cpus().length}`, cards: 3 * PER_COLUMN, runs: {} };
+if (detailMarker) out.serverDetailMarker = detailMarker;
+try {
+  const info = await browser.newBrowserCDPSession();
+  const { gpu } = await info.send("SystemInfo.getInfo");
+  out.gpu = { renderer: gpu.auxAttributes.glRenderer, compositing: gpu.featureStatus.gpu_compositing, rasterization: gpu.featureStatus.rasterization };
+  await info.detach();
+} catch { out.gpu = null; }
 
 for (let repeat = 1; repeat <= repeats; repeat++) for (const rate of throttles) {
   console.error(`Board benchmark: run ${repeat}/${repeats}, CPU ${rate}x`);
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  const memory = { totalMiB: Math.round(totalmem() / 1024 ** 2), availableMiB: Math.round(freemem() / 1024 ** 2) };
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate });
   if (process.env.BENCH_THEME) await page.addInitScript(theme => localStorage.setItem("taskira.theme", theme), process.env.BENCH_THEME);
@@ -297,31 +309,38 @@ for (let repeat = 1; repeat <= repeats; repeat++) for (const rate of throttles) 
   const opens = [];
   for (let i = 0; i < 6; i++) {
     if (i === 0) await beginProfile();
-    const evBefore = await page.evaluate(() => {
+    const evBefore = await page.evaluate((detailMarker) => {
       window.__openMs = null;
       window.__detailsMs = null;
+      window.__previewMs = null;
       let clickTs = 0;
       let opening = false;
       let details = false;
+      let preview = false;
       document.addEventListener("click", (e) => (clickTs = e.timeStamp), { capture: true, once: true });
       const mo = new MutationObserver(() => {
         if (!opening && document.querySelector("dialog[open], [role=dialog]")) {
           opening = true;
           requestAnimationFrame(() => requestAnimationFrame(() => (window.__openMs = performance.now() - clickTs)));
         }
-        if (!details && document.querySelector("[data-issue-details]")) {
+        const content = document.querySelector("[data-issue-details]");
+        if (!preview && content) {
+          preview = true;
+          requestAnimationFrame(() => requestAnimationFrame(() => (window.__previewMs = performance.now() - clickTs)));
+        }
+        if (!details && content && (!detailMarker || content.parentElement?.textContent?.includes(detailMarker))) {
           details = true;
           mo.disconnect();
           requestAnimationFrame(() => requestAnimationFrame(() => (window.__detailsMs = performance.now() - clickTs)));
         }
       });
-      mo.observe(document.body, { subtree: true, childList: true });
+      mo.observe(document.body, { subtree: true, childList: true, characterData: true });
       return window.__events.length;
-    });
+    }, detailMarker);
     await page.locator("article").nth(3 + i).click();
     await page.waitForFunction(() => window.__openMs !== null && window.__detailsMs !== null);
     opens.push(
-      await page.evaluate((k) => ({ ms: window.__openMs, detailsMs: window.__detailsMs, click: window.__events.slice(k).find((e) => e.name === "click")?.duration ?? null }), evBefore),
+      await page.evaluate((k) => ({ ms: window.__openMs, previewMs: window.__previewMs, detailsMs: window.__detailsMs, click: window.__events.slice(k).find((e) => e.name === "click")?.duration ?? null }), evBefore),
     );
     if (i === 0) await endProfile("open");
     await page.keyboard.press("Escape");
@@ -333,6 +352,7 @@ for (let repeat = 1; repeat <= repeats; repeat++) for (const rate of throttles) 
   const dynamicCssRules = await page.evaluate(() => document.getElementById("taskira-dynamic-styles")?.sheet?.cssRules.length ?? -1);
   out.runs[repeats === 1 ? `cpu ${rate}×` : `run ${repeat} cpu ${rate}×`] = {
     boardLoadMs: Math.round(loadMs),
+    memory,
     theme,
     loadPhases,
     fontsOnBoard: fonts,
@@ -342,6 +362,8 @@ for (let repeat = 1; repeat <= repeats; repeat++) for (const rate of throttles) 
     unreadBadgeMedianMs: r1(med(unreadMs)),
     openIssueFirstMs: r1(opens[0].ms),
     openIssueMedianMs: r1(med(opens.slice(1).map((o) => o.ms))),
+    openIssuePreviewFirstMs: r1(opens[0].previewMs),
+    openIssuePreviewMedianMs: r1(med(opens.slice(1).map((o) => o.previewMs))),
     openIssueDetailsFirstMs: r1(opens[0].detailsMs),
     openIssueDetailsMedianMs: r1(med(opens.slice(1).map((o) => o.detailsMs))),
     openIssueClickEventMs: opens.map((o) => o.click),
