@@ -3,8 +3,8 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 const logoBlobUrl = vi.fn(async (v: number) => `blob:logo-${v}`);
 vi.mock("./api", () => ({ brandApi: { get: vi.fn(), logoBlobUrl: (v: number) => logoBlobUrl(v) } }));
 
-import { BRAND_HUE as CONTRACT_HUE, TRANSPARENCY_DEFAULTS as CONTRACT_TRANSPARENCY } from "../server/src/contract";
-import { TRANSPARENCY_DEFAULTS, readCache, BRAND_HUE, applyHue, isHue, previewHue, resetBrand, setBrand } from "./brand";
+import { BRAND_HUE as CONTRACT_HUE, BRAND_EXTRA_HUES as CONTRACT_EXTRA_HUES, TRANSPARENCY_DEFAULTS as CONTRACT_TRANSPARENCY } from "../server/src/contract";
+import { TRANSPARENCY_DEFAULTS, readCache, BRAND_EXTRA_HUES, BRAND_HUE, applyHue, isHue, previewHue, resetBrand, setBrand } from "./brand";
 
 const root = document.documentElement;
 const hueVar = () => root.style.getPropertyValue("--brand-h");
@@ -81,4 +81,16 @@ test("organization-only override survives cache and updates transparency on fres
   expect(root.dataset.transparency).toBe("off");
   expect(localStorage.getItem("taskira.brand")).toBeNull();
   vi.unstubAllGlobals();
+});
+
+test("additional brand presets match the contract, cache and palette; legacy values reset the profile", () => {
+  expect(BRAND_EXTRA_HUES).toEqual(CONTRACT_EXTRA_HUES);
+  for (const hue of BRAND_EXTRA_HUES) {
+    setBrand({ name: null, hue, logoUpdatedAt: null, transparencyDefault: "auto" });
+    expect(hueVar()).toBe(String(hue));
+    expect(readCache().hue).toBe(hue);
+    expect(root.dataset.brandPalette).toBe(hue === 55 || hue === 345 ? "warm" : "extended");
+  }
+  applyHue(300);
+  expect(root.hasAttribute("data-brand-palette")).toBe(false);
 });

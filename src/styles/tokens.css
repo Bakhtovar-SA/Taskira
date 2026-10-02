@@ -660,3 +660,14 @@
   --c-prio-medium: var(--amber-solid);
   --c-prio-low: var(--gray-9);
 }
+
+/* Additional brand presets use a slightly darker solid so white labels keep WCAG AA in every theme. */
+:root[data-brand-palette="extended"] {
+  --accent-solid: oklch(0.505 0.16 var(--brand-h));
+  --accent-hover: oklch(0.475 0.16 var(--brand-h));
+}
+
+:root[data-brand-palette="warm"] {
+  --accent-solid: oklch(0.55 0.16 var(--brand-h));
+  --accent-hover: oklch(0.52 0.16 var(--brand-h));
+}

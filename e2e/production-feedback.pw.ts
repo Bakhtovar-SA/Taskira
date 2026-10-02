@@ -72,8 +72,8 @@ for (const lang of ["ru", "en"]) test(`help navigation follows scrolling and cli
   await expect(nav.locator('[aria-current="location"]')).toContainText(lang === "ru" ? "Обзор системы" : "System overview");
   await page.locator(`#${prefix}notifications`).evaluate(el => el.scrollIntoView({ block: "start" }));
   await expect(nav.locator('[aria-current="location"]')).toContainText(lang === "ru" ? "Уведомления" : "Notifications");
-  await nav.getByRole("button", { name: /Workflow/ }).click();
-  await expect(nav.locator('[aria-current="location"]')).toContainText("Workflow");
+  await nav.getByRole("button", { name: lang === "ru" ? "Рабочий процесс" : "Workflow", exact: true }).click();
+  await expect(nav.locator('[aria-current="location"]')).toContainText(lang === "ru" ? "Рабочий процесс" : "Workflow");
   await page.locator(`#${prefix}storage`).evaluate(el => el.scrollIntoView({ block: "start" }));
   await expect(nav.locator('[aria-current="location"]')).toContainText(lang === "ru" ? "Хранение и сессия" : "Storage and sessions");
 });

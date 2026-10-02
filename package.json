@@ -23,7 +23,8 @@
     "csp:spike": "node scripts/csp-spike/run.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "test:ui:production": "npm run build && playwright test --config playwright.production.config.ts"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { mockApi } from "./fixtures";
 
-for (const lang of ["ru", "en"]) test(`help labels have no numbers and align right (${lang})`, async ({ page }) => {
+for (const lang of ["ru", "en"]) test(`help labels have no numbers and align left (${lang})`, async ({ page }) => {
   await page.addInitScript(lang => localStorage.setItem("taskira.lang", lang), lang);
   await mockApi(page);
   await page.goto("/help");
@@ -10,7 +10,7 @@ for (const lang of ["ru", "en"]) test(`help labels have no numbers and align rig
   await expect(buttons).toHaveCount(await page.locator('main section[id^="doc-"]').count());
   for (const button of await buttons.all()) {
     expect(await button.innerText()).not.toMatch(/^\d/);
-    await expect(button).toHaveCSS("text-align", "right");
+    await expect(button).toHaveCSS("text-align", "left");
     const buttonBox = await button.boundingBox();
     const labelBox = await button.locator(":scope > .truncate").boundingBox();
     expect(labelBox!.width).toBeGreaterThan(buttonBox!.width - 30);

@@ -147,6 +147,7 @@ export function UserCardBody({ userId }: { userId: string }) {
   const user = idx.users.get(userId);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [avatarError, setAvatarError] = useState("");
 
   if (!user) return null;
   const isMe = data.currentUserId === userId;
@@ -154,11 +155,17 @@ export function UserCardBody({ userId }: { userId: string }) {
   const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
+    if (!file || busy) return;
+    setAvatarError("");
+    if (!/\.(png|jpe?g|gif)$/i.test(file.name)) {
+      setAvatarError(t("userCard.avatarFormat")); return;
+    }
     setBusy(true);
     try {
       const cropped = await cropAndResizeAvatar(file);
       await uploadAvatar(cropped);
+    } catch {
+      setAvatarError(t("userCard.avatarFailed"));
     } finally {
       setBusy(false);
     }
@@ -195,7 +202,7 @@ export function UserCardBody({ userId }: { userId: string }) {
       </div>
 
       {isMe && (
-        <div className="mt-3 flex gap-1.5 border-t border-linesoft pt-3">
+        <div className="mt-3 flex flex-wrap gap-1.5 border-t border-linesoft pt-3">
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
@@ -217,7 +224,8 @@ export function UserCardBody({ userId }: { userId: string }) {
               <IcTrash size={13} />
             </button>
           )}
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif" className="hidden" onChange={onPick} />
+          {avatarError && <p role="alert" className="w-full text-[12px] text-danger">{avatarError}</p>}
+          <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,.gif" className="hidden" onChange={onPick} />
         </div>
       )}
     </div>

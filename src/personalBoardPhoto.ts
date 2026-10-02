@@ -10,11 +10,13 @@ function transaction<T>(mode: IDBTransactionMode, operation: (store: IDBObjectSt
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === "undefined") return reject(new Error("storage-unavailable"));
     const opening = indexedDB.open(DB, 1);
+    let blocked = false;
     opening.onupgradeneeded = () => opening.result.createObjectStore(STORE);
     opening.onerror = () => reject(opening.error);
-    opening.onblocked = () => reject(new Error("storage-blocked"));
+    opening.onblocked = () => { blocked = true; reject(new Error("storage-blocked")); };
     opening.onsuccess = () => {
       const db = opening.result;
+      if (blocked) { db.close(); return; }
       db.onversionchange = () => db.close();
       try {
         const tx = db.transaction(STORE, mode);
@@ -45,6 +47,7 @@ export async function saveBoardPhoto(userId: string, projectId: string, photo: B
 /** Blob URLs live only as long as the current board/account. Ignore late reads after switching. */
 export function usePersonalBoardPhoto(userId: string, projectId: string) {
   const key = boardPhotoKey(userId, projectId);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
   const [photo, setPhoto] = useState<{ key: string; url: string; luma: number } | null>(null);
   useEffect(() => {
     if (!userId || !projectId) return;
@@ -53,8 +56,11 @@ export function usePersonalBoardPhoto(userId: string, projectId: string) {
     let url: string | null = null;
     const read = async () => {
       const current = ++revision;
-      const value = await readBoardPhoto(userId, projectId).catch(() => null);
+      let value: BoardPhoto | null;
+      try { value = await readBoardPhoto(userId, projectId); }
+      catch { if (live && current === revision) setErrorKey(key); return; }
       if (!live || current !== revision) return;
+      setErrorKey(null);
       if (url) URL.revokeObjectURL(url);
       url = value ? URL.createObjectURL(value.blob) : null;
       setPhoto(url && value ? { key, url, luma: value.luma } : null);
@@ -69,5 +75,5 @@ export function usePersonalBoardPhoto(userId: string, projectId: string) {
     window.addEventListener("storage", storage);
     return () => { live = false; window.removeEventListener(CHANGED, changed); window.removeEventListener("storage", storage); if (url) URL.revokeObjectURL(url); };
   }, [userId, projectId, key]);
-  return photo?.key === key ? photo : null;
+  return { photo: photo?.key === key ? photo : null, error: errorKey === key };
 }

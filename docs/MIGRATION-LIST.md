@@ -68,3 +68,4 @@
 | `20260930T0501_index_issues_epics.sql` | EPIC-01: справочник направлений проекта (GET …/issues/epics) в порядке rank — только строки с активными детьми. Требует epic_child_total (20260930T0500). |
 | `20261001T0700_brand_transparency.sql` | Organization-wide transparency default (expand). |
 | `20261002T1100_users_given_name.sql` | Имя для приветствия берём из givenName, не угадываем порядок ФИО. |
+| `20261002T1700_project_labels_type.sql` | Repair legacy schema drift: suggested_labels has been text[] since project templates shipped. JSON arrays of strings are converted losslessly; invalid values abort the transaction. contract-phase: подтверждено, добавлено в релизе 20260927T1000_project_templates |

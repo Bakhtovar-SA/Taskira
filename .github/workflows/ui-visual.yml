@@ -16,6 +16,9 @@ on:
       - ".github/workflows/ui-visual.yml"
       - "e2e/**"
       - "playwright.config.ts"
+      - "playwright.production.config.ts"
+      - "scripts/preview-production.mjs"
+      - "nginx.conf"
 
 jobs:
   ui-visual:
@@ -31,6 +34,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:ui
+      - run: npm run test:ui:production
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
