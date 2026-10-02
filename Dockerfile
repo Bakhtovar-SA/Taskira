@@ -19,9 +19,10 @@ COPY . .
 RUN npm run build
 
 FROM nginx:1.30.5-alpine3.24
-# CVE-2026-93990 (libexpat < 2.8.5, HIGH): исправленный пакет ставим поверх базового образа, пока не вышел новый тег
-# nginx:*-alpine с libexpat 2.8.5. Убрать строку, когда базовый образ обновится (Trivy в CI это покажет).
-RUN apk upgrade --no-cache libexpat
+# Обновляем исправленные пакеты поверх базового образа до обновления его тега:
+# libexpat >= 2.8.5 (CVE-2026-93990), pcre2 >= 10.49-r0 (CVE-2026-103111).
+# Проверка образа в CI остаётся обязательной, исключения для этих CVE не добавляются.
+RUN apk upgrade --no-cache libexpat pcre2
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

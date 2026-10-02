@@ -12,7 +12,7 @@
  *  Zацикливания нет: как только состояние применено, `derivePlace` при следующем
  *  рендере снова совпадёт с текущим `path`, и оба эффекта замолкают — стандартная
  *  сходимость двунаправленной синхронизации по сравнению, без флагов-заглушек. */
-import { useEffect, useRef } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useStore } from "./store";
 import { issuesApi } from "./api";
@@ -71,10 +71,15 @@ export function useRouterSync(): void {
   // App.routerSync.test.tsx: прямая ссылка на задачу схлопывалась в путь доски).
   const applyingRef = useRef(false);
   const seenUrlRef = useRef<Place | null>(null);
-  // Capture before effects update the ref: a changed URL wins over the stale state
-  // in this commit, including synchronous goHome()/setView() branches.
-  const urlChanged = seenUrlRef.current !== null &&
-    (seenUrlRef.current.path !== path || seenUrlRef.current.issue !== urlIssue);
+  const unavailableSourcesRef = useRef<{ projects: Data["projects"]; collaborations: Data["collaborations"] } | null>(null);
+  const urlChangedRef = useRef(false);
+  const [urlRevision, finishUrlApplication] = useReducer((revision: number) => revision + 1, 0);
+  // Capture the URL priority in commit order, never during render. This effect
+  // runs before URL application can record a completed address below.
+  useEffect(() => {
+    const seen = seenUrlRef.current;
+    urlChangedRef.current = !!seen && (seen.path !== path || seen.issue !== urlIssue);
+  });
 
   // URL → состояние. Эффект объявлен ПЕРВЫМ специально: React выполняет эффекты
   // одного компонента по порядку объявления в рамках одного коммита, и `applyingRef`
@@ -83,14 +88,22 @@ export function useRouterSync(): void {
   useEffect(() => {
     if (bootStatus === "idle" || bootStatus === "unauthenticated" || bootStatus === "error") {
       seenUrlRef.current = null; // A fresh bootstrap must apply deep-link queries again.
+      unavailableSourcesRef.current = null;
       return;
     }
     if (bootStatus !== "ready" && bootStatus !== "home") return;
     const seen = seenUrlRef.current;
-    if (seen && seen.path === path && seen.issue === urlIssue) return;
-    seenUrlRef.current = { path, issue: urlIssue };
+    const unavailable = unavailableSourcesRef.current;
+    const sourcesChanged = unavailable && (unavailable.projects !== data.projects || unavailable.collaborations !== data.collaborations);
+    if (seen && seen.path === path && seen.issue === urlIssue && !sourcesChanged) return;
     const want = derivePlace(data, ui, bootStatus);
-    if (want && want.path === path && want.issue === urlIssue) return; // уже в синхроне — нечего применять
+    if (want && want.path === path && want.issue === urlIssue) {
+      seenUrlRef.current = { path, issue: urlIssue };
+      unavailableSourcesRef.current = null;
+      return; // уже в синхроне — нечего применять
+    }
+    seenUrlRef.current = null; // A retry is unprocessed until it commits too.
+    unavailableSourcesRef.current = null;
     applyingRef.current = true;
     let cancelled = false;
     void (async () => {
@@ -112,22 +125,29 @@ export function useRouterSync(): void {
         const target = await resolveBootPathTarget(path, data.projects);
         if (cancelled) return;
         // Ключ не найден или недоступен — «Не найдено» (ТЗ 5.12 a) вместо тихого «остаёмся как есть».
-        if (!target) return showMissing(path);
+        if (!target) {
+          if (parsed.kind === "view") unavailableSourcesRef.current = { projects: data.projects, collaborations: data.collaborations };
+          return showMissing(path);
+        }
         if (target.kind === "view") {
-          if (target.projectId !== data.currentProjectId) switchProject(target.projectId);
-          else if (bootStatus === "home") enterProject(target.projectId);
-          setView(target.view, target.section);
           // `?issue=KEY` — панель задачи поверх представления. Ключ ищем сначала среди
           // загруженных задач, иначе спрашиваем сервер (ключ глобально уникален).
-          if (!urlIssue) {
-            if (ui.selectedIssueId) openIssue(null);
-            return;
-          }
           const local = target.projectId === data.currentProjectId ? data.issues.find((i) => i.key === urlIssue) : undefined;
-          const res = local ? { id: local.id, projectId: target.projectId } : await issuesApi.resolve(urlIssue).catch(() => null);
-          if (cancelled || !res) return;
-          if (res.projectId === data.currentProjectId) openIssue(res.id);
-          else if (data.projects.some((p) => p.id === res.projectId)) switchProject(res.projectId, res.id);
+          const res = !urlIssue ? null : local ? { id: local.id, projectId: target.projectId } : await issuesApi.resolve(urlIssue).catch(() => null);
+          if (cancelled) return;
+          // Resolve before switching: the project and its pending panel must be
+          // committed together, rather than reusing the pre-switch project closure.
+          const projectId = res?.projectId ?? target.projectId;
+          if (!data.projects.some((p) => p.id === projectId)) {
+            unavailableSourcesRef.current = { projects: data.projects, collaborations: data.collaborations };
+            return showMissing(path);
+          }
+          if (projectId !== data.currentProjectId) switchProject(projectId, res?.id);
+          else {
+            if (bootStatus === "home") enterProject(projectId);
+            if (res || ui.selectedIssueId) openIssue(res?.id ?? null);
+          }
+          setView(target.view, target.section);
           return;
         }
         // Прямая ссылка на приглашённую задачу (не в открытом проекте) — в «Мои подключения» с выбранной карточкой,
@@ -141,18 +161,27 @@ export function useRouterSync(): void {
           openIssue(target.issueId, "page");
         }
         else if (data.projects.some((p) => p.id === target.projectId)) switchProject(target.projectId, target.issueId, "page");
+        else {
+          unavailableSourcesRef.current = { projects: data.projects, collaborations: data.collaborations };
+          showMissing(path);
+        }
       } finally {
-        if (!cancelled) applyingRef.current = false;
+        if (!cancelled) {
+          seenUrlRef.current = { path, issue: urlIssue };
+          applyingRef.current = false;
+          // Even a no-op or an invalid issue query needs one committed render
+          // so state → URL can canonicalize after the external URL has settled.
+          finishUrlApplication();
+        }
       }
     })();
     return () => {
       cancelled = true;
       applyingRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- намеренно только [path, bootStatus]: остальное читаем
-    // через `data`/`ui` в замыкании на момент срабатывания, а не как повод для повторного запуска (иначе каждое
-    // изменение стора в другом месте приложения тоже пыталось бы «догонять» URL этим эффектом).
-  }, [path, urlIssue, bootStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- изменения задач/UI не переигрывают URL.
+    // Списки доступа нужны для отмены устаревшего резолва и повторного поиска недоступного проекта.
+  }, [path, urlIssue, bootStatus, data.projects, data.collaborations]);
 
   // Спринты при выключенном модуле — на доску с объяснением, а не экран-отказ (ADR-0013 §5).
   // Отдельным эффектом: вид могли выставить и bootstrap() по прямой ссылке, и переход выше.
@@ -165,7 +194,7 @@ export function useRouterSync(): void {
 
   // Состояние → URL.
   useEffect(() => {
-    if (applyingRef.current || urlChanged) return; // URL navigation wins in this commit.
+    if (applyingRef.current || urlChangedRef.current) return; // URL navigation wins in this commit.
     const want = derivePlace(data, ui, bootStatus);
     if (!want || (want.path === path && want.issue === urlIssue)) return;
     // Старый адрес того же места (/p/K/backlog?status=… → /p/K/list?status=…, ADR-0013 §5) и
@@ -180,5 +209,5 @@ export function useRouterSync(): void {
     // board URL would close a pending issue opened after switchProject().
     seenUrlRef.current = { path: want.path, issue: want.issue };
     navigate(`${want.path}${q}`, { replace });
-  }, [data, ui, bootStatus, path, urlIssue, navigate, urlChanged]);
+  }, [data, ui, bootStatus, path, urlIssue, navigate, urlRevision]);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { useEffect } from "react";
+import { StrictMode, useEffect } from "react";
 import { StoreProvider, useStore } from "./store";
 import * as storeModule from "./store";
 import { useRouterSync } from "./useRouterSync";
@@ -71,24 +71,28 @@ function install(o: { me?: ReturnType<typeof user> | Error } = {}) {
 type Store = ReturnType<typeof useStore>;
 let unmountCurrent: (() => void) | null = null;
 
-function mount() {
+function mount(strict = false) {
   let latest: Store | null = null;
+  function RouterProbe() {
+    useRouterSync();
+    return null;
+  }
   function Probe() {
     const api = useStore();
-    useRouterSync();
     useEffect(() => {
       if (api.bootStatus === "idle") void api.bootstrap();
     }, [api.bootStatus, api.bootstrap]);
     latest = api;
-    return null;
+    return strict ? (api.bootStatus === "ready" || api.bootStatus === "home" ? <StrictMode><RouterProbe /></StrictMode> : null) : <RouterProbe />;
   }
-  const { unmount } = render(
+  const tree = (
     <I18nProvider>
       <StoreProvider>
         <Probe />
       </StoreProvider>
-    </I18nProvider>,
+    </I18nProvider>
   );
+  const { unmount } = render(tree);
   unmountCurrent = unmount;
   return () => latest!;
 }
@@ -127,6 +131,121 @@ describe("useRouterSync — URL → состояние, полный путь (�
     vi.spyOn(commentsApi, "list").mockResolvedValue([]);
     vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
   }
+
+  test("a delayed panel resolve commits the project and issue together", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    issueInB();
+    let finish!: (value: { id: string; projectId: string; projectKey: string }) => void;
+    const pending = new Promise<{ id: string; projectId: string; projectKey: string }>((resolve) => { finish = resolve; });
+    vi.mocked(issuesApi.resolve).mockReturnValue(pending);
+    const get = mount();
+    await settle();
+    act(() => { history.pushState(null, "", "/p/BB/board?issue=BB-1"); dispatchEvent(new PopStateEvent("popstate")); });
+    await settle();
+    expect(get().data.currentProjectId).toBe(P1);
+    expect(location.pathname + location.search).toBe("/p/BB/board?issue=BB-1");
+    await act(async () => { finish({ id: I1, projectId: P2, projectKey: "BB" }); });
+    await settle();
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(get().ui.issueMode).toBe("panel");
+    expect(location.pathname + location.search).toBe("/p/BB/board?issue=BB-1");
+  });
+
+  test("StrictMode effect replay still applies a direct issue panel", async () => {
+    history.replaceState(null, "", "/p/BB/board?issue=BB-1");
+    install();
+    issueInB();
+    const get = mount(true);
+    await settle();
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(location.pathname + location.search).toBe("/p/BB/board?issue=BB-1");
+  });
+
+  test("a root URL which causes no state change is canonicalized for one project", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    vi.mocked(projectsApi.list).mockResolvedValue([projects[0]] as never);
+    const get = mount();
+    await settle();
+    act(() => { history.pushState(null, "", "/"); dispatchEvent(new PopStateEvent("popstate")); });
+    await settle();
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(location.pathname).toBe("/p/AA/board");
+  });
+
+  test("a missing project URL is retried when the project list arrives", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    vi.mocked(projectsApi.list).mockResolvedValue([projects[0]] as never);
+    const get = mount();
+    await settle();
+    act(() => { history.pushState(null, "", "/p/BB/board"); dispatchEvent(new PopStateEvent("popstate")); });
+    await settle();
+    expect(get().ui.missing).toBe("/p/BB/board");
+    vi.mocked(projectsApi.list).mockResolvedValue(projects as never);
+    await act(async () => { await get().refreshOrg(); });
+    await settle();
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().data.currentProjectId).toBe(P2);
+    expect(get().ui.missing).toBeNull();
+    expect(location.pathname).toBe("/p/BB/board");
+  });
+
+  test("a resolved issue is retried when its project becomes available", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    issueInB();
+    vi.mocked(projectsApi.list).mockResolvedValue([projects[0]] as never);
+    const get = mount();
+    await settle();
+    act(() => { history.pushState(null, "", "/p/BB/issue/BB-1"); dispatchEvent(new PopStateEvent("popstate")); });
+    await settle();
+    expect(get().ui.missing).toBe("/p/BB/issue/BB-1");
+    vi.mocked(projectsApi.list).mockResolvedValue(projects as never);
+    await act(async () => { await get().refreshOrg(); });
+    await settle();
+    await settle();
+    expect(get().data.currentProjectId).toBe(P2);
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(get().ui.issueMode).toBe("page");
+    expect(get().ui.missing).toBeNull();
+    expect(location.pathname).toBe("/p/BB/issue/BB-1");
+  });
+
+  test("a cancelled resolve cannot overwrite the successful retry after access lists refresh", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    issueInB();
+    vi.mocked(projectsApi.list).mockResolvedValue([projects[0]] as never);
+    const get = mount();
+    await settle();
+    act(() => { history.pushState(null, "", "/p/BB/issue/BB-1"); dispatchEvent(new PopStateEvent("popstate")); });
+    await settle();
+    expect(get().ui.missing).toBe("/p/BB/issue/BB-1");
+    let finishOld!: (value: { id: string; projectId: string; projectKey: string }) => void;
+    vi.mocked(issuesApi.resolve).mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }));
+    vi.mocked(projectsApi.list).mockResolvedValue(projects as never);
+    await act(async () => { await get().refreshOrg(); });
+    await settle();
+    expect(get().data.currentProjectId).toBe(P1);
+    await act(async () => { await get().refreshOrg(); });
+    await settle();
+    await settle();
+    expect(get().data.currentProjectId).toBe(P2);
+    expect(get().ui.selectedIssueId).toBe(I1);
+    await act(async () => { finishOld({ id: "stale-issue", projectId: P1, projectKey: "AA" }); });
+    await settle();
+    expect(get().data.currentProjectId).toBe(P2);
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(location.pathname).toBe("/p/BB/issue/BB-1");
+  });
 
   test("home: enter an unloaded project keeps ready and updates the URL without goHome", async () => {
     history.replaceState(null, "", "/");
