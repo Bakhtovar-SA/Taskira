@@ -796,7 +796,7 @@ const ru = {
   "board.personalStorageFailed": "Не удалось прочитать личный фон. Проверьте доступность хранилища браузера и повторите загрузку.",
   "board.personalPhoto": "Фото моей доски",
   "board.personalPhotoHint": "Только для вас, в этом браузере и на этом устройстве. Фото видно лишь на доске этого проекта; очистка данных браузера удалит его.",
-  "board.personalPhotoLimit": "Выберите изображение до 20 МБ",
+  "board.personalPhotoLimit": "Выберите PNG, JPG/JPEG, GIF или WebP до 20 МБ",
   "createIssue.checklistPlaceholder": "Добавить пункт и нажать Enter",
   "createIssue.addChecklistItem": "Добавить пункт чек-листа",
   "createIssue.removeChecklistItem": "Удалить пункт чек-листа",

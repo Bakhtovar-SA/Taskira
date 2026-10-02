@@ -256,7 +256,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "paragraphs": [
           "Администратор задаёт название, знак и цвет бренда для организации. Новые цвета проверены на читаемость во всех темах. Цвет не меняет права, задачи, статусы или их смысл.",
           "Создатель выбирает общее оформление проекта. Личная тема интерфейса выбирается в ваших настройках. На доске кнопка «Фото моей доски» добавляет изображение только за колонками, только для вашего пользователя и проекта в этом браузере.",
-          "Личный фон можно заменить или удалить; поддерживаются читаемые браузером изображения до 20 МБ. Если обработка или сохранение не удалось, показывается ошибка, а прежнее фото сохраняется.",
+          "Личный фон можно заменить или удалить; поддерживаются PNG, JPG/JPEG, GIF и WebP до 20 МБ. Если обработка или сохранение не удалось, показывается ошибка, а прежнее фото сохраняется.",
           "Для аватара разрешены только исходные файлы PNG, JPG/JPEG и GIF. Выбор другого расширения отклоняется до обработки. Фото обрезается до квадрата и отправляется как JPEG; сервер повторно проверяет тип и размер, по умолчанию до 3 МБ."
         ]
       }
@@ -517,7 +517,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "paragraphs": [
           "Administrators choose the organization brand name, logo and accent colour. New colours are checked for readability across themes. Colour does not change permissions, issues, statuses or their meaning.",
           "The creator chooses the project’s shared appearance. Choose your personal interface theme in your settings. My board photo adds an image behind board columns only, for your account and this project in this browser.",
-          "Replace or remove your board photo; browser-readable images up to 20 MB are supported. If processing or saving fails, an error is shown and the previous photo is retained.",
+          "Replace or remove your board photo; PNG, JPG/JPEG, GIF and WebP up to 20 MB are supported. If processing or saving fails, an error is shown and the previous photo is retained.",
           "Profile photos accept original PNG, JPG/JPEG and GIF files only. Other extensions are rejected before processing. Photos are cropped square and sent as JPEG; the server checks type and size again, defaulting to 3 MB."
         ]
       }

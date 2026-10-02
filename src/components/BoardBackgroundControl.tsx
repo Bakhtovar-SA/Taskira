@@ -12,7 +12,7 @@ export default function BoardBackgroundControl({ userId, projectId, hasPhoto }: 
   const run = async (file?: File) => {
     if (busy) return;
     setError("");
-    if (file && (!file.type.startsWith("image/") || file.size > 20 * 1024 * 1024)) {
+    if (file && (!/\.(png|jpe?g|gif|webp)$/i.test(file.name) || !file.type.startsWith("image/") || file.size > 20 * 1024 * 1024)) {
       setError(t("board.personalPhotoLimit")); return;
     }
     setBusy(true);
@@ -25,7 +25,7 @@ export default function BoardBackgroundControl({ userId, projectId, hasPhoto }: 
     } finally { setBusy(false); if (input.current) input.current.value = ""; }
   };
   return <>
-    <input ref={input} type="file" accept="image/*" className="hidden" tabIndex={-1} aria-label={t("look.photo.upload")}
+    <input ref={input} type="file" accept=".png,.jpg,.jpeg,.gif,.webp" className="hidden" tabIndex={-1} aria-label={t("look.photo.upload")}
       onChange={event => { const file = event.target.files?.[0]; if (file) void run(file); }} />
     <Popover label={t("board.personalPhoto")} className="w-[300px] p-3"
     trigger={(props) => <button {...props} type="button" className="ds-btn ds-focus h-8 border border-line text-sub" disabled={busy}>{t("board.personalPhoto")}</button>}>

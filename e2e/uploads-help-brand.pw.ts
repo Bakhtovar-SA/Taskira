@@ -22,6 +22,10 @@ test("unreadable board replacement preserves the actual displayed photo", async 
   const board = page.locator('[data-personal-board-photo="true"]');
   await expect.poll(() => board.evaluate(el => getComputedStyle(el).backgroundImage)).toContain("blob:");
   const previous = await board.evaluate(el => getComputedStyle(el).backgroundImage);
+  await expect(input).toHaveAttribute("accept", ".png,.jpg,.jpeg,.gif,.webp");
+  await input.setInputFiles({ name: "replacement.svg", mimeType: "image/png", buffer: readFileSync("e2e/__screenshots__/tabs-light.png") });
+  await expect(page.getByRole("alert")).toContainText("PNG, JPG/JPEG, GIF или WebP");
+  await expect.poll(() => board.evaluate(el => getComputedStyle(el).backgroundImage)).toBe(previous);
   await input.setInputFiles({ name: "broken.png", mimeType: "image/png", buffer: Buffer.from("broken") });
   await expect(page.getByRole("alert")).toContainText("Файл не открылся");
   await expect.poll(() => board.evaluate(el => getComputedStyle(el).backgroundImage)).toBe(previous);

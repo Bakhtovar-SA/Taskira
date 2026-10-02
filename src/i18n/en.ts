@@ -795,7 +795,7 @@ const en: Record<keyof Dict, string> = {
   "board.personalStorageFailed": "Could not read your board photo. Check browser storage availability and try uploading again.",
   "board.personalPhoto": "My board photo",
   "board.personalPhotoHint": "Just for you, in this browser on this device. The photo appears only on this project's board; clearing browser data removes it.",
-  "board.personalPhotoLimit": "Choose an image up to 20 MB",
+  "board.personalPhotoLimit": "Choose PNG, JPG/JPEG, GIF or WebP up to 20 MB",
   "createIssue.checklistPlaceholder": "Add an item and press Enter",
   "createIssue.addChecklistItem": "Add checklist item",
   "createIssue.removeChecklistItem": "Remove checklist item",
