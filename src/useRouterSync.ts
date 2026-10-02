@@ -59,7 +59,7 @@ export function useRouterSync(): void {
   const search = useSearch();
   const urlIssue = issueParam(search);
   const store = useStore();
-  const { data, ui, bootStatus, switchProject, openIssue, openCollabIssue, setView, goHome, toast, showMissing } = store;
+  const { data, ui, bootStatus, switchProject, enterProject, openIssue, openCollabIssue, setView, goHome, toast, showMissing } = store;
   const { t } = useT();
 
   // Пока «URL → состояние» досчитывает асинхронный резолв (ключ задачи — сетевой
@@ -70,13 +70,25 @@ export function useRouterSync(): void {
   // вообще начнётся — и он же потом читал бы уже испорченный `path` (поймано
   // App.routerSync.test.tsx: прямая ссылка на задачу схлопывалась в путь доски).
   const applyingRef = useRef(false);
+  const seenUrlRef = useRef<Place | null>(null);
+  // Capture before effects update the ref: a changed URL wins over the stale state
+  // in this commit, including synchronous goHome()/setView() branches.
+  const urlChanged = seenUrlRef.current !== null &&
+    (seenUrlRef.current.path !== path || seenUrlRef.current.issue !== urlIssue);
 
   // URL → состояние. Эффект объявлен ПЕРВЫМ специально: React выполняет эффекты
   // одного компонента по порядку объявления в рамках одного коммита, и `applyingRef`
   // должен быть выставлен синхронно до того, как «состояние → URL» (ниже) успеет
   // сверить свой derivePlace() с этим же `path`.
   useEffect(() => {
-    if (bootStatus !== "ready") return; // логин/логаут/ошибка — не наше дело здесь
+    if (bootStatus === "idle" || bootStatus === "unauthenticated" || bootStatus === "error") {
+      seenUrlRef.current = null; // A fresh bootstrap must apply deep-link queries again.
+      return;
+    }
+    if (bootStatus !== "ready" && bootStatus !== "home") return;
+    const seen = seenUrlRef.current;
+    if (seen && seen.path === path && seen.issue === urlIssue) return;
+    seenUrlRef.current = { path, issue: urlIssue };
     const want = derivePlace(data, ui, bootStatus);
     if (want && want.path === path && want.issue === urlIssue) return; // уже в синхроне — нечего применять
     applyingRef.current = true;
@@ -103,6 +115,7 @@ export function useRouterSync(): void {
         if (!target) return showMissing(path);
         if (target.kind === "view") {
           if (target.projectId !== data.currentProjectId) switchProject(target.projectId);
+          else if (bootStatus === "home") enterProject(target.projectId);
           setView(target.view, target.section);
           // `?issue=KEY` — панель задачи поверх представления. Ключ ищем сначала среди
           // загруженных задач, иначе спрашиваем сервер (ключ глобально уникален).
@@ -123,7 +136,10 @@ export function useRouterSync(): void {
           openCollabIssue(target.issueId);
           return;
         }
-        if (target.projectId === data.currentProjectId) openIssue(target.issueId, "page");
+        if (target.projectId === data.currentProjectId) {
+          if (bootStatus === "home") enterProject(target.projectId);
+          openIssue(target.issueId, "page");
+        }
         else if (data.projects.some((p) => p.id === target.projectId)) switchProject(target.projectId, target.issueId, "page");
       } finally {
         if (!cancelled) applyingRef.current = false;
@@ -149,7 +165,7 @@ export function useRouterSync(): void {
 
   // Состояние → URL.
   useEffect(() => {
-    if (applyingRef.current) return; // см. комментарий у applyingRef выше
+    if (applyingRef.current || urlChanged) return; // URL navigation wins in this commit.
     const want = derivePlace(data, ui, bootStatus);
     if (!want || (want.path === path && want.issue === urlIssue)) return;
     // Старый адрес того же места (/p/K/backlog?status=… → /p/K/list?status=…, ADR-0013 §5) и
@@ -160,6 +176,9 @@ export function useRouterSync(): void {
     const replace = legacy || (want.path === path && !!want.issue && !!urlIssue);
     // Другое место — чистый адрес (фильтры одного вида не переезжают в другой).
     const q = withIssue(legacy || want.path === path ? location.search : "", want.issue);
+    // Our own navigation already represents state. Reapplying an intermediate
+    // board URL would close a pending issue opened after switchProject().
+    seenUrlRef.current = { path: want.path, issue: want.issue };
     navigate(`${want.path}${q}`, { replace });
-  }, [data, ui, bootStatus, path, urlIssue, navigate]);
+  }, [data, ui, bootStatus, path, urlIssue, navigate, urlChanged]);
 }
