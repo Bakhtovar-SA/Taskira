@@ -91,8 +91,6 @@ d("LDAP-вход против настоящего OpenLDAP", () => {
     expect(dm.map((r) => r.name)).toEqual(["ИБ"]);
     const [gn] = await q<{ given_name: string | null }>(`SELECT given_name FROM users WHERE username = 't.manager'`);
     expect(gn.given_name).toBe("Тест");
-    const [kept] = await q<{ given_name: string | null }>(`SELECT given_name FROM users WHERE username = 't.viewer'`);
-    expect(kept.given_name).toBe("Сохранённое");
   });
 
   test("t.admin (в cn=taskira-admins) → global_role = admin", async () => {
@@ -158,6 +156,10 @@ d("LDAP-вход против настоящего OpenLDAP", () => {
         WHERE u.username = 't.manager'`,
     );
     expect(dm.map((r) => r.name)).toEqual(["ИБ"]);
+    const [gn] = await q<{ given_name: string | null }>(`SELECT given_name FROM users WHERE username = 't.manager'`);
+    expect(gn.given_name).toBe("Тест");
+    const [kept] = await q<{ given_name: string | null }>(`SELECT given_name FROM users WHERE username = 't.viewer'`);
+    expect(kept.given_name).toBe("Сохранённое");
   });
 
   test("reverse group search находит реальное groupOfNames-членство (member=<userDN>)", async () => {

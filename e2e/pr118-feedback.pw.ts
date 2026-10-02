@@ -13,7 +13,7 @@ test("create form orders the checklist, searches project assignees and dismisses
     workflow: { statuses: [{ id: "s1", sid: "todo", name: "Todo", category: "todo", position: 0 }], transitions: [] }, issueTemplates: [], customFields: [], sprints: [],
   } }));
   await page.goto("/p/TEST/board");
-  await page.getByRole("button", { name: "Создать", exact: true }).click();
+  await page.getByRole("button", { name: /Новая задача/ }).click();
   const dialog = page.getByRole("dialog").filter({ has: page.getByPlaceholder(/Экран восстановления пароля/) });
   const title = dialog.getByPlaceholder(/Экран восстановления пароля/);
   await title.fill("Проверить новый интерфейс");
@@ -22,11 +22,11 @@ test("create form orders the checklist, searches project assignees and dismisses
   expect(checklist!.y).toBeGreaterThan(description!.y + description!.height);
   await dialog.getByRole("button", { name: /Не назначен/, exact: true }).click();
   await page.getByRole("searchbox", { name: "Найти сотрудника проекта" }).fill("АННА");
-  await expect(page.getByRole("button", { name: "Анна Иванова", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Анна из другого проекта", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Анна Иванова", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Анна Иванова/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Анна из другого проекта/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /Анна Иванова/ }).click();
   await title.click();
-  const direction = dialog.getByRole("button", { name: "Без направления", exact: true });
+  const direction = dialog.getByRole("button", { name: "Без направления", exact: true }).and(page.locator("[aria-expanded]"));
   await direction.click(); await expect(direction).toHaveAttribute("aria-expanded", "true");
   await title.click(); await expect(direction).toHaveAttribute("aria-expanded", "false");
   await expect(title).toHaveValue("Проверить новый интерфейс");
