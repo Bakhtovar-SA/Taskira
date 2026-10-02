@@ -2,6 +2,7 @@ import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useEffect } from "react";
 import { StoreProvider, useStore } from "./store";
+import * as storeModule from "./store";
 import { useRouterSync } from "./useRouterSync";
 import { I18nProvider } from "./i18n";
 import { pathForIssue, pathForView } from "./router";
@@ -60,6 +61,7 @@ function install(o: { me?: ReturnType<typeof user> | Error } = {}) {
   vi.spyOn(projectsApi, "list").mockResolvedValue(projects as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
+  vi.spyOn(issuesApi, "assignedToMe").mockResolvedValue({ items: [], truncated: false, limit: 100 });
   vi.spyOn(projectsApi, "get").mockImplementation(async (id: string) => boot(projects.find((p) => p.id === id) ?? proj(id, "ZZ")));
   vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
@@ -104,6 +106,142 @@ afterEach(() => {
 });
 
 describe("useRouterSync — URL → состояние, полный путь (ТЗ 3.1)", () => {
+  function observeHome() {
+    const original = storeModule.useStore;
+    const home = vi.fn();
+    vi.spyOn(storeModule, "useStore").mockImplementation(() => {
+      const api = original();
+      return { ...api, goHome: () => { home(); api.goHome(); } };
+    });
+    return home;
+  }
+
+  function issueInB() {
+    vi.spyOn(issuesApi, "resolve").mockResolvedValue({ id: I1, projectId: P2, projectKey: "BB" });
+    vi.spyOn(issuesApi, "get").mockResolvedValue({
+      id: I1, projectId: P2, num: 1, key: "BB-1", title: "Task B", description: "", typeId: "task", statusId: "s1",
+      priorityId: "medium", assigneeIds: [], reporterId: "u1", epicId: null, parentId: null, sprintId: null,
+      labels: [], dueDate: null, rank: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      doneAt: null, archivedAt: null,
+    } as never);
+    vi.spyOn(commentsApi, "list").mockResolvedValue([]);
+    vi.spyOn(issuesApi, "activity").mockResolvedValue([]);
+  }
+
+  test("home: enter an unloaded project keeps ready and updates the URL without goHome", async () => {
+    history.replaceState(null, "", "/");
+    install();
+    const home = observeHome();
+    const get = mount();
+    await settle();
+    expect(get().bootStatus).toBe("home");
+    act(() => get().enterProject(P2));
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().data.currentProjectId).toBe(P2);
+    expect(location.pathname).toBe("/p/BB/board");
+    expect(home).not.toHaveBeenCalled();
+  });
+
+  test("home: enter the loaded project keeps ready and updates the URL", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    const home = observeHome();
+    const get = mount();
+    await settle();
+    act(() => get().goHome());
+    await settle();
+    expect(get().bootStatus).toBe("home");
+    expect(location.pathname).toBe("/");
+    home.mockClear();
+    act(() => get().enterProject(P1));
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(location.pathname).toBe("/p/AA/board");
+    expect(home).not.toHaveBeenCalled();
+  });
+
+  test("home: open an issue in another project as a page", async () => {
+    history.replaceState(null, "", "/");
+    install();
+    issueInB();
+    const home = observeHome();
+    const get = mount();
+    await settle();
+    act(() => get().switchProject(P2, I1, "page"));
+    await settle();
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(get().ui.issueMode).toBe("page");
+    expect(location.pathname).toBe("/p/BB/issue/BB-1");
+    expect(home).not.toHaveBeenCalled();
+  });
+
+  test("home: an actual URL change to root calls goHome", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    const home = observeHome();
+    const get = mount();
+    await settle();
+    act(() => { history.pushState(null, "", "/"); dispatchEvent(new PopStateEvent("popstate")); });
+    await settle();
+    expect(home).toHaveBeenCalledTimes(1);
+    expect(get().bootStatus).toBe("home");
+    expect(location.pathname).toBe("/");
+  });
+
+  test("home: browser back and forward restore home and the loaded project", async () => {
+    history.replaceState(null, "", "/");
+    install();
+    const get = mount();
+    await settle();
+    act(() => get().enterProject(P2));
+    await settle();
+    expect(location.pathname).toBe("/p/BB/board");
+    act(() => history.back());
+    await settle();
+    expect(get().bootStatus).toBe("home");
+    expect(location.pathname).toBe("/");
+    act(() => history.forward());
+    await settle();
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(location.pathname).toBe("/p/BB/board");
+  });
+
+  test("home: direct board URL with issue query still opens its panel on boot", async () => {
+    history.replaceState(null, "", "/p/BB/board?issue=BB-1");
+    install();
+    issueInB();
+    const get = mount();
+    await settle();
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().data.currentProjectId).toBe(P2);
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(get().ui.issueMode).toBe("panel");
+    expect(location.pathname + location.search).toBe("/p/BB/board?issue=BB-1");
+  });
+
+  test("home: issue query is applied again after logout and a fresh bootstrap", async () => {
+    history.replaceState(null, "", "/p/BB/board?issue=BB-1");
+    install();
+    issueInB();
+    vi.spyOn(authApi, "logout").mockResolvedValue(undefined);
+    const get = mount();
+    await settle();
+    await settle();
+    expect(get().ui.selectedIssueId).toBe(I1);
+    act(() => get().logout());
+    expect(get().bootStatus).toBe("unauthenticated");
+    await act(async () => { await get().bootstrap(); });
+    await settle();
+    await settle();
+    expect(get().bootStatus).toBe("ready");
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(location.pathname + location.search).toBe("/p/BB/board?issue=BB-1");
+  });
   // Ровно тот сценарий, который просили зафиксировать первым перед реализацией
   // роутинга: deep link на задачу, открытый не залогиненным — после входа
   // открывается ИМЕННО эта задача (не просто "верный проект", это уже
