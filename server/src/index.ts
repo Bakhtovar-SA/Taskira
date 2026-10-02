@@ -4,6 +4,7 @@ import { closePool, initPool, migrate } from "./db.js";
 import { runStartupSeeds } from "./seedStartup.js";
 import { buildApp } from "./app.js";
 import { startNotifier, stopNotifier } from "./services/notifier.js";
+import { startDueReminders, stopDueReminders } from "./services/dueReminders.js";
 import { startMaintenance, stopMaintenance } from "./services/maintenance.js";
 import { startLicenseCheck, stopLicenseCheck } from "./services/license.js";
 import { acquireApiLease } from "./services/apiLease.js";
@@ -28,6 +29,7 @@ async function main(): Promise<void> {
     stopping = true;
     console.log(`[taskira] получен ${sig}, останавливаемся…`);
     stopNotifier();
+    stopDueReminders();
     stopMaintenance();
     stopLicenseCheck();
     try {
@@ -47,6 +49,7 @@ async function main(): Promise<void> {
   if (stopping) return;
   console.log(`[taskira] сервер запущен, версия ${cfg.version}`);
   if (cfg.notify.emailEnabled && cfg.notify.workerEnabled) startNotifier();
+  startDueReminders();
   startMaintenance();
   startLicenseCheck();
   process.on("SIGTERM", () => void shutdown("SIGTERM"));

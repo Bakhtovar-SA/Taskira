@@ -67,7 +67,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "paragraphs": [
           "«Входящие» показывают уведомления о назначении, комментариях, упоминаниях, смене статуса, приглашениях и членстве. Свои действия обычно не создают уведомления самому автору.",
           "Получатели зависят от события и доступа к задаче: автор, исполнители, наблюдатели или приглашённые участники. Упоминание @логин уведомляет человека, если ему доступна задача.",
-          "В личных настройках выбираются уведомления, автоматическое наблюдение и email-режим: сразу или сводкой. Почта работает только при настройке отправки администратором сервера и наличии адреса пользователя."
+          "В личных настройках выбираются уведомления, автоматическое наблюдение и email-режим: сразу или сводкой. Для назначенных задач можно выбрать напоминания за 7, 3, 1 день и в день срока; по умолчанию за день и в день. Они появляются утром по времени установки. Сводка может задержать email. Почта работает только при настройке отправки администратором сервера и наличии адреса пользователя."
         ]
       },
       {
@@ -328,7 +328,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "paragraphs": [
           "Inbox shows notifications about assignments, comments, mentions, status changes, invitations and membership. Your own actions normally do not notify you.",
           "Recipients depend on the event and issue access: reporter, assignees, watchers or collaborators. A @username mention notifies a person if they can access the issue.",
-          "Personal settings control notifications, automatic watching and email delivery: instant or digest. Email requires server mail configuration and a user email address."
+          "Personal settings control notifications, automatic watching and email delivery: instant or digest. Choose assigned-issue reminders 7, 3, 1 day before or on the due date; defaults are 1 day before and on the date. Reminders appear in the morning in the installation time zone; digests may delay email. Email requires server mail configuration and a user email address."
         ]
       },
       {

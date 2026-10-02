@@ -503,6 +503,7 @@ export const CustomFieldValueBody = z.object({
 
 /* ---------------- Notifications (миграция 011) ---------------- */
 export const NOTIFY_TYPES = [
+  "issue.dueSoon",
   "issue.assigned",
   "issue.comment",
   "issue.mention",
@@ -519,6 +520,7 @@ export type NotifyType = (typeof NOTIFY_TYPES)[number];
  *  пользователь теперь может выбрать сам — см. NotifyPrefsBody ниже (миграция
  *  028: почтовые уведомления больше нельзя выключить вручную). */
 export const NotifyPrefs = z.object({
+  dueReminderDays: z.array(z.union([z.literal(0), z.literal(1), z.literal(3), z.literal(7)])).max(4).optional(),
   email: z.enum(["instant", "daily", "off"]).optional(),
   selfWatch: z.boolean().optional(),
 });
@@ -529,6 +531,7 @@ export type NotifyPrefs = z.infer<typeof NotifyPrefs>;
  *  выбирает только режим доставки, выключить почту целиком больше нельзя. */
 export const NotifyPrefsBody = z
   .object({
+    dueReminderDays: z.array(z.union([z.literal(0), z.literal(1), z.literal(3), z.literal(7)])).max(4).refine(v => new Set(v).size === v.length, "Повторяющиеся интервалы").optional(),
     email: z.enum(["instant", "daily"]),
     selfWatch: z.boolean(),
   })

@@ -404,6 +404,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `dueReminderDays` | array&lt;`0` \| `1` \| `3` \| `7`&gt; | необязательное; 0…4 эл. |
 | `email` | enum: `instant` \| `daily` | необязательное |
 | `selfWatch` | boolean | необязательное |
 
@@ -923,7 +924,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `id` | string |  |
-| `type` | enum: `issue.assigned` \| `issue.comment` \| `issue.mention` \| `issue.status` \| `issue.collaborator` \| `project.member` |  |
+| `type` | enum: `issue.dueSoon` \| `issue.assigned` \| `issue.comment` \| `issue.mention` \| `issue.status` \| `issue.collaborator` \| `project.member` |  |
 | `actorId` | string | может быть null |
 | `actor` | object | может быть null |
 | `projectId` | string | может быть null |
@@ -943,6 +944,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `dueReminderDays` | array&lt;`0` \| `1` \| `3` \| `7`&gt; | необязательное; 0…4 эл. |
 | `email` | enum: `instant` \| `daily` \| `off` | необязательное |
 | `selfWatch` | boolean | необязательное |
 

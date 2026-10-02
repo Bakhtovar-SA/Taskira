@@ -1,14 +1,14 @@
 import { expect, test } from "vitest";
 import { renderDigest, renderOne, type MailItem } from "../src/services/emailTemplates.js";
 
-const item: MailItem = { type: "issue.status", issueKey: "IB-7", projectId: "p1", issueId: "i1" };
+const item: MailItem = { type: "issue.status", issueKey: "IB-7", projectId: "p1", issueId: "i1", projectKey: "IB" };
 
 test.each(["ru", "en"] as const)("email layout retains safe links, text and an Outlook width constraint (%s)", (lang) => {
   const mail = renderOne("https://taskira.megafon.tj", item, lang);
   expect(mail.html).toContain('<!--[if mso]><table role="presentation" width="600"');
   expect(mail.html).toContain('font-family:Arial,Helvetica,sans-serif');
   expect(mail.html).toContain('padding:12px 22px');
-  expect(mail.html).toContain('href="https://taskira.megafon.tj/#/issue/p1/i1"');
+  expect(mail.html).toContain('href="https://taskira.megafon.tj/p/IB/issue/IB-7"');
   expect(mail.text).toContain("IB-7");
   expect(mail.html).toContain("IB-7");
 });
@@ -25,6 +25,6 @@ test("single and digest emails escape references and URLs", () => {
 test("membership email opens the app and needs no issue content", () => {
   const mail = renderOne("https://t.example/", { type: "project.member", projectId: null, issueId: null }, "en");
   expect(mail.subject).toBe("Taskira · you were added to a project");
-  expect(mail.html).toContain('href="https://t.example/#/"');
+  expect(mail.html).toContain('href="https://t.example/"');
   expect(mail.html).not.toContain("undefined");
 });

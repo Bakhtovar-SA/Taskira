@@ -60,23 +60,18 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
     })();
   }, [handleApiError]);
 
-  const setNotifyPrefs = useCallback(
-    (patch: NotifyPrefs) => {
-      const epoch = sessionEpochRef.current; // SEC-01
-      void (async () => {
-        try {
-          const { notifyPrefs } = await notificationsApi.setPrefs(patch);
-          refreshOnboardingSoon();
-          if (epoch !== sessionEpochRef.current) return;
-          setData((prev) => ({ ...prev, notifyPrefs: notifyPrefs as NotifyPrefsT }));
-          toast("success", local("Настройки уведомлений сохранены", "Notification settings saved"));
-        } catch (err) {
-          handleApiError(err, local("Не удалось сохранить настройки", "Couldn't save settings"));
-        }
-      })();
-    },
-    [toast, handleApiError],
-  );
+  const setNotifyPrefs = useCallback(async (patch: NotifyPrefs) => {
+    const epoch = sessionEpochRef.current; // SEC-01
+    try {
+      const { notifyPrefs } = await notificationsApi.setPrefs(patch);
+      if (epoch !== sessionEpochRef.current) return;
+      refreshOnboardingSoon();
+      setData((prev) => ({ ...prev, notifyPrefs: notifyPrefs as NotifyPrefsT }));
+      toast("success", local("Настройки уведомлений сохранены", "Notification settings saved"));
+    } catch (err) {
+      handleApiError(err, local("Не удалось сохранить настройки", "Couldn't save settings"));
+    }
+  }, [toast, handleApiError]);
 
   /** Патчит avatarUpdatedAt текущего пользователя в data.users — тот же приём,
    *  что setNotifyPrefs выше, только точечно по одному полю одного User. */

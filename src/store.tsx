@@ -58,7 +58,7 @@ interface Api {
   refreshNotifications: () => Promise<void>;
   markNotificationsRead: (ids?: string[]) => void;
   dismissNotifications: (ids?: string[]) => void;
-  setNotifyPrefs: (patch: NotifyPrefsT) => void;
+  setNotifyPrefs: (patch: NotifyPrefsT) => Promise<void>;
   /** Своя аватарка (миграция 027) — самообслуживание, без параметра userId. */
   uploadAvatar: (file: File) => Promise<void>;
   removeAvatar: () => Promise<void>;
