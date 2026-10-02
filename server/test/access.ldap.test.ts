@@ -74,7 +74,7 @@ d("LDAP-вход против настоящего OpenLDAP", () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.token).toBeTruthy();
-    expect(body.user).toMatchObject({ username: "t.manager", authSource: "ldap", globalRole: "member" });
+    expect(body.user).toMatchObject({ username: "t.manager", authSource: "ldap", globalRole: "member", givenName: "Тест" });
 
     const [u] = await q<{ auth_source: string; ldap_dn: string }>(
       `SELECT auth_source, ldap_dn FROM users WHERE username = 't.manager'`,

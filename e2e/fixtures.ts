@@ -4,7 +4,8 @@ import type { Page } from "@playwright/test";
 const project = { id: "p1", key: "TEST", name: "Test project", description: "", departmentId: null, isShared: false, sprintsEnabled: true, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false };
 const user = { id: "u1", username: "admin", name: "Test Admin", initials: "TA", color: "", jobRole: "", globalRole: "admin", isActive: true, authSource: "local", favoriteProjectIds: [], notifyPrefs: {}, onboarding: { hidden: true } };
 const boot = { project, users: [user], members: [{ userId: "u1", role: "admin" }], workflow: { statuses: [{ id: "s1", sid: "todo", name: "Todo", category: "todo", position: 0 }], transitions: [] }, issueTemplates: [], customFields: [], sprints: [] };
-export async function mockApi(page: Page) {
+export async function mockApi(page: Page, userOverrides: Partial<typeof user> & { givenName?: string | null } = {}) {
+  const profile = { ...user, ...userOverrides };
   page.on("pageerror", (error) => console.error("pageerror:", error.message));
   page.on("console", (msg) => { if (msg.type() === "error") console.error("browser:", msg.text()); });
   let brand = { name: null, hue: null, logoUpdatedAt: null, transparencyDefault: "auto" };
@@ -17,11 +18,11 @@ export async function mockApi(page: Page) {
     let body: unknown = [];
     if (path === "/admin/setup") body = { completed: true };
     else if (path === "/me/onboarding") body = { done: [], hints: [], hidden: true };
-    else if (path === "/auth/me") body = user;
+    else if (path === "/auth/me") body = profile;
     else if (path === "/auth/config") body = { authMode: "local" };
     else if (path === "/projects") body = [project];
     else if (path === "/dashboards") body = [{ id: "d1", name: "Empty", kind: "personal", ownerId: "u1", projectId: null, canEdit: true, widgets: [], updatedAt: "2026-10-01" }];
-    else if (path === "/projects/p1") body = boot;
+    else if (path === "/projects/p1") body = { ...boot, users: [profile] };
     else if (path === "/instance/brand") body = brand;
     else if (path === "/roadmap") body = { projects: [], dependencies: [] };
     else if (path === "/admin/brand" && method === "PATCH") {

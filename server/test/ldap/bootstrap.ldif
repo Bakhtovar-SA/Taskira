@@ -28,6 +28,7 @@ userPassword: testpass123
 dn: uid=t.manager,ou=people,dc=taskira,dc=test
 objectClass: inetOrgPerson
 uid: t.manager
+givenName: Тест
 cn: Тест Менеджер
 sn: Менеджер
 mail: t.manager@taskira.test

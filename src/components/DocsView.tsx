@@ -105,7 +105,7 @@ function DocsEnglish() {
         </div>
         <div className="mt-4 grid gap-5 lg:grid-cols-[220px_1fr]">
           <nav className="top-5 h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-2 lg:sticky">
-            {EN_SECTIONS.map(([id, label]) => <Button variant="ghost" size="sm" key={id} aria-current={active === id ? "location" : undefined} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{label}</Button>)}
+            {EN_SECTIONS.map(([id, label]) => <Button variant="ghost" size="sm" key={id} aria-current={active === id ? "location" : undefined} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-right text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{label}</Button>)}
           </nav>
           <div>{sections.map((s) => <section key={s.id} id={`doc-en-${s.id}`} className="mb-4 scroll-mt-5 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5"><H>{s.title}</H><P>{s.body}</P></section>)}</div>
         </div>
@@ -134,14 +134,13 @@ export default function DocsView() {
         <div className="mt-4 grid gap-5 lg:grid-cols-[220px_1fr]">
           {/* навигация */}
           <nav className="top-5 h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-2 lg:sticky">
-            {SECTIONS.map((s, i) => (
+            {SECTIONS.map((s) => (
               <Button variant="ghost" size="sm"
                 key={s.id}
                 aria-current={active === s.id ? "location" : undefined}
                 onClick={() => go(s.id)}
-                className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[12.5px] font-medium transition-colors ${active === s.id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover hover:text-ink"}`}
+                className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-right text-[12.5px] font-medium transition-colors ${active === s.id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover hover:text-ink"}`}
               >
-                <span className={`font-mono text-[10px] font-semibold ${active === s.id ? "text-accent" : "text-faint"}`}>{String(i + 1).padStart(2, "0")}</span>
                 {s.label}
               </Button>
             ))}

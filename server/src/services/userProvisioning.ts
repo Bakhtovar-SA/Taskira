@@ -78,6 +78,7 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
     globalRole,
     principal.title ?? "",
     principal.phone ?? "",
+    principal.givenName?.trim() || null,
   ] as const;
 
   const existing = await one<UserRow>(`SELECT * FROM users WHERE username = $1`, [login]);
@@ -93,7 +94,7 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
         `UPDATE users
             SET auth_source = 'ldap', password_hash = NULL,
                 ldap_dn = $2, email = $3, name = $4, initials = $5,
-                job_role = $7, phone = $8,
+                job_role = $7, phone = $8, given_name = $9,
                 global_role = ${KEEP_LAST_ADMIN("$6", "$1")},
                 session_version = session_version + CASE WHEN global_role IS DISTINCT FROM (${KEEP_LAST_ADMIN("$6", "$1")}) THEN 1 ELSE 0 END
           WHERE id = $1
@@ -109,7 +110,7 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
     const { previous, row } = await updateLdapUser(
         `UPDATE users
             SET ldap_dn = $2, email = $3, name = $4, initials = $5,
-                job_role = $7, phone = $8,
+                job_role = $7, phone = $8, given_name = $9,
                 global_role = ${KEEP_LAST_ADMIN("$6", "$1")},
                 session_version = session_version + CASE WHEN global_role IS DISTINCT FROM (${KEEP_LAST_ADMIN("$6", "$1")}) THEN 1 ELSE 0 END
           WHERE id = $1
@@ -125,8 +126,8 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
   try {
     return (
       await q<UserRow>(
-        `INSERT INTO users (username, name, initials, color, job_role, phone, global_role, is_active, auth_source, ldap_dn, email)
-         VALUES ($1, $4, $5, '#0B5FD9', $7, $8, $6, true, 'ldap', $2, $3)
+        `INSERT INTO users (username, name, initials, color, job_role, phone, global_role, is_active, auth_source, ldap_dn, email, given_name)
+         VALUES ($1, $4, $5, '#0B5FD9', $7, $8, $6, true, 'ldap', $2, $3, $9)
        RETURNING *`,
         [login, ...params],
       )

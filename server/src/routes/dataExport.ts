@@ -78,7 +78,7 @@ const KEYED_TABLES: KeyedTable[] = [
     table: "users",
     columns: [
       "id", "username", "name", "initials", "color", "job_role", "created_at", "is_active", "global_role",
-      "auth_source", "ldap_dn", "email", "phone", "notify_prefs", "avatar_driver", "avatar_key",
+      "auth_source", "ldap_dn", "email", "phone", "given_name", "notify_prefs", "avatar_driver", "avatar_key",
       "avatar_content_type", "avatar_updated_at",
     ],
   },

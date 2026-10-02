@@ -16,6 +16,7 @@ import { UserCardBody, ProjectMark } from "../ui";
 import { Bell, NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
+import { greetingName } from "../greetingName";
 
 const PROJECT_KEY = "taskira.project";
 const readLastProject = (): string => {
@@ -180,7 +181,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
         <div className="mx-auto max-w-[1160px] px-5 py-10 sm:px-8 min-[1536px]:max-w-[1320px]">
           <p className="text-[13px] font-medium text-faint first-letter:uppercase">{dateLine}</p>
           <h1 className="mt-1 font-disp text-[28px] font-semibold tracking-[-0.03em] text-ink">
-            {t(greetingKey(), { name: me?.name?.split(" ")[0] ?? "" })}
+            {t(greetingKey(), { name: greetingName(me) })}
           </h1>
           <p className="mt-1 text-[14px] text-sub">{t("home.subtitle")}</p>
 

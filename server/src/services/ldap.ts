@@ -11,6 +11,8 @@ export interface LdapPrincipal {
   /** Значение логин-атрибута (uid / sAMAccountName) — по нему матчим users.username. */
   login: string;
   name: string;
+  /** Имя отдельно от displayName: порядок слов в ФИО зависит от каталога. */
+  givenName?: string | null;
   email: string | null;
   /** Должность (AD title) — синкается в users.job_role. */
   title: string | null;
@@ -84,7 +86,7 @@ export async function ldapAuthenticate(username: string, password: string): Prom
   if (!password) return null; // пустой пароль → anonymous bind, не пускаем
 
   const client = mkClient(c);
-  const attrs = [c.attrLogin, c.attrName, c.attrMail, c.attrTitle, c.attrPhone, "memberOf"];
+  const attrs = [c.attrLogin, c.attrName, c.attrMail, c.attrTitle, c.attrPhone, "givenName", "memberOf"];
   try {
     if (c.startTls) await client.startTLS(tlsOptions(c));
 
@@ -146,6 +148,7 @@ export async function ldapAuthenticate(username: string, password: string): Prom
       dn: userDn,
       login: firstStr(entry[c.attrLogin]) ?? username,
       name: firstStr(entry[c.attrName]) ?? username,
+      givenName: firstStr(entry.givenName)?.trim() || null,
       email: firstStr(entry[c.attrMail]),
       title: firstStr(entry[c.attrTitle]),
       phone: firstStr(entry[c.attrPhone]),

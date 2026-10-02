@@ -45,6 +45,7 @@ const entries = [
       uid: [uid],
       cn: [p.cn],
       sn: [p.sn],
+      givenname: ["Тест"],
       mail: [p.mail],
       // memberOf для полноты (наш dev-конфиг использует LDAP_GROUP_MEMBERSHIP=search,
       // но пусть будет — вдруг переключат)

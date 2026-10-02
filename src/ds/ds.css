@@ -62,6 +62,17 @@
     color var(--dur-2) var(--ease-standard),
     transform var(--dur-1) var(--ease-standard);
 }
+/* Text navigation fills the button instead of centering its short label. */
+.ds-btn:is(.text-left, .text-right) > .truncate {
+  flex: 1;
+  min-width: 0;
+}
+.ds-btn.text-left > .truncate {
+  display: flex;
+  flex-direction: inherit;
+  align-items: inherit;
+  gap: inherit;
+}
 .ds-btn[data-size="sm"] {
   height: var(--ctl-h-sm);
   padding: 0 var(--ctl-px-sm);
