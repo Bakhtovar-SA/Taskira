@@ -1,0 +1,42 @@
+# Debian: /etc/nginx/conf.d/taskira.megafon.tj.conf, included inside http {}.
+# TLS terminates on the host; rootless Podman continues listening on port 8081.
+map $http_upgrade $taskira_https_connection {
+    default upgrade;
+    '' close;
+}
+
+server {
+    listen 80;
+    server_name taskira.megafon.tj;
+    return 308 https://taskira.megafon.tj$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name taskira.megafon.tj;
+
+    # Copy the existing certificate + intermediate chain and key to these paths.
+    ssl_certificate /etc/nginx/tls/taskira.megafon.tj.fullchain.pem;
+    ssl_certificate_key /etc/nginx/tls/taskira.megafon.tj.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:TaskiraTLS:10m;
+    ssl_session_timeout 10m;
+
+    # The container/API enforce endpoint-specific and multipart limits.
+    # Avoid an extra 1 MB limit at this proxy that breaks attachments/avatars.
+    client_max_body_size 0;
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Host taskira.megafon.tj;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $taskira_https_connection;
+        proxy_request_buffering off;
+        proxy_read_timeout 24h;
+        proxy_send_timeout 24h;
+    }
+}

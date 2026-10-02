@@ -1,0 +1,7 @@
+# Mount the completed file into client at /etc/nginx/taskira-real-ip/trusted.conf.
+# Replace this token with the source IP of the HOST nginx as seen in client logs.
+# Rootless Podman may translate this address; do not guess it from the host's LAN IP.
+# Restrict access to port 8081 to the host proxy before enabling this trust.
+set_real_ip_from TRUSTED_HOST_PROXY_IP;
+real_ip_header X-Forwarded-For;
+real_ip_recursive on;
