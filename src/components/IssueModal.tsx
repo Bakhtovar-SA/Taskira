@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Hint } from "./Hint";
 import { useStore } from "../store";
-import { assignableUsers, canTransition, fmtDate, relTime } from "../store/mappers";
+import { canTransition, fmtDate, relTime } from "../store/mappers";
 import { pathForIssue } from "../router";
 import { denialText } from "../permissions";
 import { LIMITS } from "../validation";
@@ -12,6 +12,7 @@ import { catColor, labelTone } from "../ui";
 import { Button, Checkbox, Combobox, DatePicker, Dialog, Menu, Popover, SidePanel, Tag } from "../ds";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { useT } from "../i18n";
+import AssigneePicker from "./AssigneePicker";
 import IssueSearchBox from "./IssueSearchBox";
 import { freshRows, useIssue, useIssueSet, useIssuesRevision, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { statusTone, workflowStatusName } from "../workflowStatus";
@@ -1040,34 +1041,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 </button>
               )}
             >
-              {(() => {
-                const candidates = assignableUsers(data, issue.assigneeIds);
-                return (
-                  <div className="flex flex-col">
-                    {candidates.map((u) => {
-                      const on = issue.assigneeIds.includes(u.id);
-                      return (
-                        <button
-                          key={u.id}
-                          type="button"
-                          aria-pressed={on}
-                          className="ds-menu-item"
-                          onClick={() =>
-                            updateIssue(issue.id, {
-                              assigneeIds: on ? issue.assigneeIds.filter((id) => id !== u.id) : [...issue.assigneeIds, u.id],
-                            })
-                          }
-                        >
-                          <UserAvatar user={u} size={20} />
-                          <span className="min-w-0 flex-1 truncate">{u.name}</span>
-                          {on && <IcCheck size={12} className="text-accent" />}
-                        </button>
-                      );
-                    })}
-                    {candidates.length === 0 && <p className="px-3 py-2 text-[12px] text-faint">{t("issue.noAssignableUsers")}</p>}
-                  </div>
-                );
-              })()}
+              <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} />
             </Popover>
             ) : (
               <Locked reason={denyMsg}>

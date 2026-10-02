@@ -1,0 +1,55 @@
+import { expect, test } from "@playwright/test";
+import { mockApi } from "./fixtures";
+
+test("create form orders the checklist, searches project assignees and dismisses direction", async ({ page }) => {
+  await mockApi(page);
+  await page.route("**/api/projects/p1", route => route.fulfill({ json: {
+    project: { id: "p1", key: "TEST", name: "Test project", description: "", departmentId: null, isShared: false, sprintsEnabled: true, defaultView: null, suggestedLabels: [], icon: null, color: null, background: null, backgroundPhoto: null, isDemo: false },
+    users: [
+      { id: "u1", username: "admin", name: "Test Admin", initials: "TA", color: "", jobRole: "", phone: "", globalRole: "admin", isActive: true, authSource: "local", avatarUpdatedAt: null },
+      { id: "u2", username: "anna", name: "Анна Иванова", initials: "АИ", color: "", jobRole: "", phone: "", globalRole: "member", isActive: true, authSource: "ldap", avatarUpdatedAt: null },
+      { id: "u3", username: "outside", name: "Анна из другого проекта", initials: "А", color: "", jobRole: "", phone: "", globalRole: "admin", isActive: true, authSource: "local", avatarUpdatedAt: null },
+    ], members: [{ userId: "u1", role: "manager" }, { userId: "u2", role: "employee" }],
+    workflow: { statuses: [{ id: "s1", sid: "todo", name: "Todo", category: "todo", position: 0 }], transitions: [] }, issueTemplates: [], customFields: [], sprints: [],
+  } }));
+  await page.goto("/p/TEST/board");
+  await page.getByRole("button", { name: "Создать", exact: true }).click();
+  const dialog = page.getByRole("dialog").filter({ has: page.getByPlaceholder(/Экран восстановления пароля/) });
+  const title = dialog.getByPlaceholder(/Экран восстановления пароля/);
+  await title.fill("Проверить новый интерфейс");
+  const description = await dialog.getByPlaceholder(/Что нужно сделать/).boundingBox();
+  const checklist = await dialog.getByPlaceholder(/Добавить пункт/).boundingBox();
+  expect(checklist!.y).toBeGreaterThan(description!.y + description!.height);
+  await dialog.getByRole("button", { name: /Не назначен/, exact: true }).click();
+  await page.getByRole("searchbox", { name: "Найти сотрудника проекта" }).fill("АННА");
+  await expect(page.getByRole("button", { name: "Анна Иванова", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Анна из другого проекта", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Анна Иванова", exact: true }).click();
+  await title.click();
+  const direction = dialog.getByRole("button", { name: "Без направления", exact: true });
+  await direction.click(); await expect(direction).toHaveAttribute("aria-expanded", "true");
+  await title.click(); await expect(direction).toHaveAttribute("aria-expanded", "false");
+  await expect(title).toHaveValue("Проверить новый интерфейс");
+  await expect(dialog).toBeVisible();
+});
+
+test("a board photo survives reload and belongs only to this browser account", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/p/TEST/board");
+  await page.getByRole("button", { name: "Фото моей доски", exact: true }).click();
+  await page.getByLabel("Загрузить фото", { exact: true }).setInputFiles("e2e/__screenshots__/tabs-light.png");
+  await expect(page.locator('[data-personal-board-photo="true"]')).toBeVisible();
+  await expect(page.locator("html")).not.toHaveAttribute("data-photo");
+  await page.reload();
+  await expect(page.locator('[data-personal-board-photo="true"]')).toBeVisible();
+  const other = await page.context().newPage();
+  try {
+    await mockApi(other, { id: "u2", username: "another" });
+    await other.goto(new URL("/p/TEST/board", page.url()).href);
+    await expect(other.getByRole("button", { name: "Фото моей доски", exact: true })).toBeVisible();
+    await expect(other.locator('[data-personal-board-photo="true"]')).toHaveCount(0);
+  } finally { await other.close(); }
+  await page.getByRole("button", { name: "Фото моей доски", exact: true }).click();
+  await page.getByRole("button", { name: "Убрать фото", exact: true }).click();
+  await expect(page.locator('[data-personal-board-photo="true"]')).toHaveCount(0);
+});

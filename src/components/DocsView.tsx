@@ -9,6 +9,7 @@ import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { IcBook, PriorityIcon, TypeIcon } from "../icons";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
+import PlanningGuide from "./PlanningGuide";
 
 /** Разделы справки — одинаковые в русской и английской версии (docs.test.ts сверяет). */
 export const SECTIONS = [
@@ -27,6 +28,7 @@ export const SECTIONS = [
   { id: "hotkeys", label: "Горячие клавиши" },
   { id: "model", label: "Модель данных" },
   { id: "storage", label: "Хранение и сессия" },
+  { id: "planning", label: "Планирование: что для чего" },
 ];
 
 const H = ({ children }: { children: React.ReactNode }) => (
@@ -43,6 +45,7 @@ export const EN_SECTIONS = [
   ["notifications", "Notifications"], ["attachments", "Attachments"], ["departments", "Teams and LDAP"],
   ["reports", "Reports"], ["dashboards", "Dashboards"], ["home", "Home"], ["hotkeys", "Keyboard shortcuts"],
   ["model", "Data model"], ["storage", "Storage and sessions"],
+  ["planning", "Planning: which tool to use"],
 ] as const;
 
 function useDocsNavigation(prefix: string, enabled = true) {
@@ -96,6 +99,7 @@ function DocsEnglish() {
     { id: "model", title: "14 · Data model", body: <>Core entities are users, teams (departments in the API), projects, project members, issues, assignees, collaborators, statuses, transitions, comments, activity, checklist items, issue links, templates, custom fields, sprints, notifications, and attachments. Foreign keys and server-side permission checks protect cross-project boundaries.</> },
     { id: "storage", title: "15 · Storage and sessions", body: <>PostgreSQL stores application data; configured object storage stores attachments and avatars. The signed session is sent in an HttpOnly, SameSite cookie and checked against a server-side session version, so logout and role changes revoke older sessions. Local storage contains interface preferences only.</> },
   ];
+  sections.push({ id: "planning", title: "16 · Planning: which tool to use", body: <PlanningGuide lang="en" /> });
   return (
     <div ref={rootRef} className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1060px] px-6 py-5">
@@ -107,7 +111,7 @@ function DocsEnglish() {
           <nav className="top-5 h-fit surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-2 lg:sticky">
             {EN_SECTIONS.map(([id, label]) => <Button variant="ghost" size="sm" key={id} aria-current={active === id ? "location" : undefined} onClick={() => go(id)} className={`flex w-full rounded-md px-3 py-2 text-right text-[12.5px] ${active === id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{label}</Button>)}
           </nav>
-          <div>{sections.map((s) => <section key={s.id} id={`doc-en-${s.id}`} className="mb-4 scroll-mt-5 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5"><H>{s.title}</H><P>{s.body}</P></section>)}</div>
+          <div>{sections.map((s) => <section key={s.id} id={`doc-en-${s.id}`} className="mb-4 scroll-mt-5 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5"><H>{s.title}</H>{s.id === "planning" ? s.body : <P>{s.body}</P>}</section>)}</div>
         </div>
       </div>
     </div>
@@ -494,6 +498,10 @@ export default function DocsView() {
                 локальные настройки интерфейса: язык, выбранный проект, тема и фон. Выход из аккаунта отзывает сессию на сервере;
                 рабочие данные всегда приходят через API.
               </P>
+            </section>
+            <section id="doc-planning" className="mt-4 surface-raised rounded-xl ring-1 ring-inset ring-line/70 p-5">
+              <H>16 · Планирование: что для чего</H>
+              <PlanningGuide lang="ru" />
             </section>
           </div>
         </div>
