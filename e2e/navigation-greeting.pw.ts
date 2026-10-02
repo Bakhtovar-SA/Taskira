@@ -6,7 +6,8 @@ for (const lang of ["ru", "en"]) test(`help labels have no numbers and align rig
   await mockApi(page);
   await page.goto("/help");
   const buttons = page.locator("main nav button");
-  await expect(buttons).toHaveCount(15);
+  await expect(buttons.first()).toBeVisible();
+  await expect(buttons).toHaveCount(await page.locator('main section[id^="doc-"]').count());
   for (const button of await buttons.all()) {
     expect(await button.innerText()).not.toMatch(/^\d/);
     await expect(button).toHaveCSS("text-align", "right");

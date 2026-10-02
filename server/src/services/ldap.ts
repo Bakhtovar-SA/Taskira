@@ -148,7 +148,7 @@ export async function ldapAuthenticate(username: string, password: string): Prom
       dn: userDn,
       login: firstStr(entry[c.attrLogin]) ?? username,
       name: firstStr(entry[c.attrName]) ?? username,
-      givenName: firstStr(entry.givenName)?.trim() || null,
+      givenName: firstStr(Object.entries(entry).find(([key]) => key.toLowerCase() === "givenname")?.[1])?.trim() || null,
       email: firstStr(entry[c.attrMail]),
       title: firstStr(entry[c.attrTitle]),
       phone: firstStr(entry[c.attrPhone]),
