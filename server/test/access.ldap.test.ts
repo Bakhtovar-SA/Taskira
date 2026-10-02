@@ -91,6 +91,8 @@ d("LDAP-вход против настоящего OpenLDAP", () => {
     expect(dm.map((r) => r.name)).toEqual(["ИБ"]);
     const [gn] = await q<{ given_name: string | null }>(`SELECT given_name FROM users WHERE username = 't.manager'`);
     expect(gn.given_name).toBe("Тест");
+    const [kept] = await q<{ given_name: string | null }>(`SELECT given_name FROM users WHERE username = 't.viewer'`);
+    expect(kept.given_name).toBe("Сохранённое");
   });
 
   test("t.admin (в cn=taskira-admins) → global_role = admin", async () => {
@@ -138,6 +140,8 @@ d("LDAP-вход против настоящего OpenLDAP", () => {
     );
     // …и пользователя, вошедшего до появления given_name: ресинк подтягивает имя без повторного входа.
     await q(`UPDATE users SET given_name = NULL WHERE username = 't.manager'`);
+    // У t.viewer в каталоге givenName нет: пустой ответ ресинка не стирает то, что уже сохранено.
+    await q(`UPDATE users SET given_name = 'Сохранённое' WHERE username = 't.viewer'`);
 
     const result = await resyncAllLdapUsers(null);
 
