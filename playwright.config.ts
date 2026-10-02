@@ -21,9 +21,10 @@ export default defineConfig({
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : undefined,
   },
   webServer: {
-    command: `npm run dev -- --port ${process.env.PLAYWRIGHT_PORT || "3000"}`,
+    command: `npm run dev -- --strictPort --port ${process.env.PLAYWRIGHT_PORT || "3000"}`,
     url: `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || "3000"}`,
-    reuseExistingServer: true,
+    // An explicit test port must start this checkout, rather than reuse another worktree's server.
+    reuseExistingServer: !process.env.PLAYWRIGHT_PORT && !process.env.CI,
     timeout: 60_000,
   },
 });

@@ -241,7 +241,7 @@ const Card = memo(function Card({
         </span>
       </div>
 
-      <h4 className="line-clamp-2 text-[13.5px] font-semibold leading-[1.38] tracking-[-0.006em] text-ink">{issue.title}</h4>
+      <h3 className="line-clamp-2 text-[13.5px] font-semibold leading-[1.38] tracking-[-0.006em] text-ink">{issue.title}</h3>
 
       {(epic || issue.labels.length > 0 || issue.dueDate || assignees.length > 0) && (
         <div className="flex min-h-[22px] items-center gap-1">
@@ -638,7 +638,7 @@ const BoardColumn = memo(function BoardColumn({
       {/* Заголовок внутри поверхности колонки и не прокручивается с карточками: глиф статуса, имя, число с сервера. */}
       <header className="group/col flex h-10 shrink-0 items-center gap-2 pl-3 pr-2">
         <StatusGlyph category={st.category} position={statusPos} size={14} />
-        <h3 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h3>
+        <h2 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h2>
         <span className="tabular text-[12.5px] text-faint">{total ?? "…"}</span>
         {canCreate && isFirstTodo && (
           <button

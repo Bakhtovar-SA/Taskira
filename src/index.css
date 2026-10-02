@@ -310,6 +310,8 @@ body {
   scrollbar-width: thin;
 }
 .board-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 110px;
   background: var(--bg-panel);
   box-shadow: var(--highlight-top), var(--elev-1), 0 0 0 1px var(--board-card-line);
   transition: box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
