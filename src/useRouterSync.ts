@@ -12,7 +12,7 @@
  *  Zацикливания нет: как только состояние применено, `derivePlace` при следующем
  *  рендере снова совпадёт с текущим `path`, и оба эффекта замолкают — стандартная
  *  сходимость двунаправленной синхронизации по сравнению, без флагов-заглушек. */
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useStore } from "./store";
 import { issuesApi } from "./api";
@@ -61,6 +61,12 @@ export function useRouterSync(): void {
   const store = useStore();
   const { data, ui, bootStatus, switchProject, enterProject, openIssue, openCollabIssue, setView, goHome, toast, showMissing } = store;
   const { t } = useT();
+  // Only membership/key changes invalidate routing. A refresh may return the
+  // same access lists in a different order without granting or revoking access.
+  const accessSignature = useMemo(() => JSON.stringify([
+    data.projects.map((p) => [p.id, p.key]).sort(),
+    data.collaborations.map((c) => [c.issueId, c.projectId]).sort(),
+  ]), [data.projects, data.collaborations]);
 
   // Пока «URL → состояние» досчитывает асинхронный резолв (ключ задачи — сетевой
   // запрос), «состояние → URL» ниже обязан промолчать: состояние в этот момент ещё
@@ -71,7 +77,7 @@ export function useRouterSync(): void {
   // App.routerSync.test.tsx: прямая ссылка на задачу схлопывалась в путь доски).
   const applyingRef = useRef(false);
   const seenUrlRef = useRef<Place | null>(null);
-  const unavailableSourcesRef = useRef<{ projects: Data["projects"]; collaborations: Data["collaborations"] } | null>(null);
+  const unavailableSourcesRef = useRef<string | null>(null);
   const urlChangedRef = useRef(false);
   const [urlRevision, finishUrlApplication] = useReducer((revision: number) => revision + 1, 0);
   // Capture the URL priority in commit order, never during render. This effect
@@ -94,7 +100,7 @@ export function useRouterSync(): void {
     if (bootStatus !== "ready" && bootStatus !== "home") return;
     const seen = seenUrlRef.current;
     const unavailable = unavailableSourcesRef.current;
-    const sourcesChanged = unavailable && (unavailable.projects !== data.projects || unavailable.collaborations !== data.collaborations);
+    const sourcesChanged = unavailable !== null && unavailable !== accessSignature;
     if (seen && seen.path === path && seen.issue === urlIssue && !sourcesChanged) return;
     const want = derivePlace(data, ui, bootStatus);
     if (want && want.path === path && want.issue === urlIssue) {
@@ -126,7 +132,7 @@ export function useRouterSync(): void {
         if (cancelled) return;
         // Ключ не найден или недоступен — «Не найдено» (ТЗ 5.12 a) вместо тихого «остаёмся как есть».
         if (!target) {
-          if (parsed.kind === "view") unavailableSourcesRef.current = { projects: data.projects, collaborations: data.collaborations };
+          if (parsed.kind === "view" || parsed.kind === "issue") unavailableSourcesRef.current = accessSignature;
           return showMissing(path);
         }
         if (target.kind === "view") {
@@ -139,7 +145,7 @@ export function useRouterSync(): void {
           // committed together, rather than reusing the pre-switch project closure.
           const projectId = res?.projectId ?? target.projectId;
           if (!data.projects.some((p) => p.id === projectId)) {
-            unavailableSourcesRef.current = { projects: data.projects, collaborations: data.collaborations };
+            unavailableSourcesRef.current = accessSignature;
             return showMissing(path);
           }
           if (projectId !== data.currentProjectId) switchProject(projectId, res?.id);
@@ -162,7 +168,7 @@ export function useRouterSync(): void {
         }
         else if (data.projects.some((p) => p.id === target.projectId)) switchProject(target.projectId, target.issueId, "page");
         else {
-          unavailableSourcesRef.current = { projects: data.projects, collaborations: data.collaborations };
+          unavailableSourcesRef.current = accessSignature;
           showMissing(path);
         }
       } finally {
@@ -181,7 +187,7 @@ export function useRouterSync(): void {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- изменения задач/UI не переигрывают URL.
     // Списки доступа нужны для отмены устаревшего резолва и повторного поиска недоступного проекта.
-  }, [path, urlIssue, bootStatus, data.projects, data.collaborations]);
+  }, [path, urlIssue, bootStatus, accessSignature]);
 
   // Спринты при выключенном модуле — на доску с объяснением, а не экран-отказ (ADR-0013 §5).
   // Отдельным эффектом: вид могли выставить и bootstrap() по прямой ссылке, и переход выше.

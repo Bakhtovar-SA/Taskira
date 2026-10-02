@@ -154,6 +154,63 @@ describe("useRouterSync — URL → состояние, полный путь (�
     expect(location.pathname + location.search).toBe("/p/BB/board?issue=BB-1");
   });
 
+  test("a cross-project issue query opens the issue's project and keeps the requested view", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    issueInB();
+    const get = mount();
+    await settle();
+    act(() => { history.pushState(null, "", "/p/AA/timeline?issue=BB-1"); dispatchEvent(new PopStateEvent("popstate")); });
+    await settle();
+    await settle();
+    expect(get().data.currentProjectId).toBe(P2);
+    expect(get().ui.view).toBe("timeline");
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(get().ui.issueMode).toBe("panel");
+    expect(location.pathname + location.search).toBe("/p/BB/timeline?issue=BB-1");
+  });
+
+  test("equal access lists do not cancel or repeat a pending resolve", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    issueInB();
+    let finish!: (value: { id: string; projectId: string; projectKey: string }) => void;
+    vi.mocked(issuesApi.resolve).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    const get = mount();
+    await settle();
+    act(() => { history.pushState(null, "", "/p/BB/issue/BB-1"); dispatchEvent(new PopStateEvent("popstate")); });
+    await settle();
+    vi.mocked(projectsApi.list).mockResolvedValue([...projects].reverse() as never);
+    await act(async () => { await get().refreshOrg(); await get().refreshCollaborations(); });
+    await settle();
+    expect(issuesApi.resolve).toHaveBeenCalledTimes(1);
+    await act(async () => { finish({ id: I1, projectId: P2, projectKey: "BB" }); });
+    await settle();
+    await settle();
+    expect(get().ui.selectedIssueId).toBe(I1);
+    expect(location.pathname).toBe("/p/BB/issue/BB-1");
+  });
+
+  test("a missing invited issue is retried when collaboration access arrives", async () => {
+    history.replaceState(null, "", "/p/AA/board");
+    install();
+    vi.spyOn(issuesApi, "resolve").mockRejectedValue(new ApiError(404, "NOT_FOUND", "нет"));
+    const get = mount();
+    await settle();
+    act(() => { history.pushState(null, "", "/p/CC/issue/CC-5"); dispatchEvent(new PopStateEvent("popstate")); });
+    await settle();
+    expect(get().ui.missing).toBe("/p/CC/issue/CC-5");
+    vi.mocked(issuesApi.resolve).mockResolvedValue({ id: I1, projectId: "p-cc", projectKey: "CC" });
+    vi.mocked(issuesApi.collaborating).mockResolvedValue([{ issueId: I1, projectId: "p-cc", key: "CC-5" }] as never);
+    await act(async () => { await get().refreshCollaborations(); });
+    await settle();
+    await settle();
+    expect(get().ui.view).toBe("collaborating");
+    expect(get().ui.collabOpenIssueId).toBe(I1);
+    expect(get().ui.missing).toBeNull();
+    expect(location.pathname).toBe("/shared");
+  });
+
   test("StrictMode effect replay still applies a direct issue panel", async () => {
     history.replaceState(null, "", "/p/BB/board?issue=BB-1");
     install();
@@ -235,6 +292,7 @@ describe("useRouterSync — URL → состояние, полный путь (�
     await act(async () => { await get().refreshOrg(); });
     await settle();
     expect(get().data.currentProjectId).toBe(P1);
+    vi.mocked(projectsApi.list).mockResolvedValue([...projects, proj("33333333-3333-4333-8333-333333333333", "CC")] as never);
     await act(async () => { await get().refreshOrg(); });
     await settle();
     await settle();
