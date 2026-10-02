@@ -81,7 +81,7 @@ while IFS=$'\t' read -r status file; do
 
   if printf '%s\n' "$code" | perl -0777 -ne '
       for my $statement (split /;/) {
-        if ($statement =~ /\bDROP\s+COLUMN\b|\bDROP\s+TABLE\b|\bALTER\b.*\bTYPE\b|\bRENAME\b|\bTRUNCATE\b/is) {
+        if ($statement =~ /\bDROP\s+COLUMN\b|\bDROP\s+TABLE\b|\bALTER\s+TYPE\b|\bALTER\s+(?:COLUMN\s+)?(?:"(?:[^"]|"")*"|[^\s;]+)\s+(?:SET\s+DATA\s+)?TYPE\b|\bRENAME\b|\bTRUNCATE\b/is) {
           exit 0;
         }
       }

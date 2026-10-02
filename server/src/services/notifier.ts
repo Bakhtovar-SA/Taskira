@@ -16,6 +16,9 @@ import { q, withAdvisoryLock } from "../db.js";
 import { loadConfig } from "../config.js";
 import { renderDigest, renderOne, type MailItem } from "./emailTemplates.js";
 import type { NotifyType, NotifyPrefs } from "../contract.js";
+import { validDueReminderIds } from "./dueReminders.js";
+import { getBrand } from "./brand.js";
+import { mailAccent } from "./mailBrand.js";
 
 interface PendingRow {
   id: string;
@@ -29,6 +32,8 @@ interface PendingRow {
   notify_prefs: NotifyPrefs | null;
   lang: string | null;
   issue_key: string | null;
+  project_key: string | null;
+  due_date: string | null;
 }
 
 let transport: Transporter | null = null;
@@ -70,27 +75,38 @@ export async function runNotifierOnce(): Promise<NotifierStats> {
 
   const rows = await q<PendingRow>(
     `SELECT n.id, n.user_id, n.type, n.project_id, n.issue_id, n.created_at, n.email_tries,
-            u.email, u.notify_prefs, u.lang, i.key AS issue_key
+            u.email, u.notify_prefs, u.lang, i.key AS issue_key, p.key AS project_key, n.payload->>'dueDate' AS due_date
        FROM notifications n
        JOIN users u ON u.id = n.user_id
        LEFT JOIN issues i ON i.id = n.issue_id
+       LEFT JOIN projects p ON p.id = n.project_id
       WHERE n.email_state = 'pending'
       ORDER BY n.created_at
       LIMIT 200`,
   );
   if (rows.length === 0) return stats;
+  const dueIds = rows.filter(row => row.type === "issue.dueSoon").map(row => row.id);
+  const validIds = dueIds.length ? await validDueReminderIds(dueIds) : new Set<string>();
+  const staleIds = dueIds.filter(id => !validIds.has(id));
+  if (staleIds.length) {
+    await q(`UPDATE notifications SET email_state = 'skipped' WHERE id = ANY($1::uuid[])`, [staleIds]);
+    stats.skipped += staleIds.length;
+  }
+  const savedBrand = await getBrand();
+  const mailBrand = { name: savedBrand.name ?? "Taskira", accent: mailAccent(savedBrand.hue) };
 
   const byUser = new Map<string, PendingRow[]>();
   for (const r of rows) {
+    if (r.type === "issue.dueSoon" && !validIds.has(r.id)) continue;
     const arr = byUser.get(r.user_id) ?? [];
     arr.push(r);
     byUser.set(r.user_id, arr);
   }
 
   const now = Date.now();
-  for (const group of byUser.values()) {
+  for (let group of byUser.values()) {
     stats.users += 1;
-    const ids = group.map((r) => r.id);
+    let ids = group.map((r) => r.id);
     const first = group[0];
     const mode = first.notify_prefs?.email ?? (first.email ? "instant" : "off");
 
@@ -110,14 +126,30 @@ export async function runNotifierOnce(): Promise<NotifierStats> {
       }
     }
 
+    // Earlier users/SMTP may have delayed this group: check again immediately before rendering/sending.
+    const groupDueIds = group.filter(r => r.type === "issue.dueSoon").map(r => r.id);
+    if (groupDueIds.length) {
+      const currentIds = await validDueReminderIds(groupDueIds);
+      const stale = groupDueIds.filter(id => !currentIds.has(id));
+      if (stale.length) {
+        await q(`UPDATE notifications SET email_state = 'skipped' WHERE id = ANY($1::uuid[])`, [stale]);
+        stats.skipped += stale.length;
+        group = group.filter(r => r.type !== "issue.dueSoon" || currentIds.has(r.id));
+        ids = group.map(r => r.id);
+        if (!ids.length) continue;
+      }
+    }
+
     const items: MailItem[] = group.map((r) => ({
       type: r.type,
       issueKey: r.issue_key,
+      projectKey: r.project_key,
+      dueDate: r.type === "issue.dueSoon" ? r.due_date : null,
       projectId: r.project_id,
       issueId: r.issue_id,
     }));
     const lang = first.lang === "en" ? "en" : "ru";
-    const mail = items.length === 1 ? renderOne(cfg.appBaseUrl!, items[0], lang) : renderDigest(cfg.appBaseUrl!, items, lang);
+    const mail = items.length === 1 ? renderOne(cfg.appBaseUrl!, items[0], lang, mailBrand) : renderDigest(cfg.appBaseUrl!, items, lang, mailBrand);
 
     try {
       await tx().sendMail({

@@ -92,13 +92,20 @@ function Notifications() {
   const { data, setNotifyPrefs } = useStore();
   const mode = data.notifyPrefs.email ?? "instant";
   const selfWatch = data.notifyPrefs.selfWatch !== false;
+  const days = data.notifyPrefs.dueReminderDays ?? [1, 0];
+  const [saving, setSaving] = useState(false);
+  const save = async (patch: Parameters<typeof setNotifyPrefs>[0]) => {
+    if (saving) return;
+    setSaving(true);
+    try { await setNotifyPrefs(patch); } finally { setSaving(false); }
+  };
   return (
     <SettingsPage title={t("settings.personal.notifications")} desc={t("settings.desc.notifications")}>
       <SettingsCard title={t("topbar.emailNotifications")}>
         <div className="px-5 py-4">
           <RadioGroup
             value={mode}
-            onChange={(v) => setNotifyPrefs({ email: v })}
+            disabled={saving} onChange={(v) => void save({ email: v })}
             options={[
               { value: "instant", label: t("topbar.emailMode.instant"), description: t("settings.notif.instantDesc") },
               { value: "daily", label: t("topbar.emailMode.daily"), description: t("settings.notif.dailyDesc") },
@@ -106,9 +113,15 @@ function Notifications() {
           />
         </div>
       </SettingsCard>
+      <SettingsCard title={t("settings.notif.dueReminders")} footer={t("settings.notif.dueHint")}>
+        <div className="space-y-3 px-5 py-4">
+          {([7, 3, 1, 0] as const).map(day => <Switch key={day} label={t(`settings.notif.due${day}`)} labelFirst
+            disabled={saving} checked={days.includes(day)} onChange={on => void save({ dueReminderDays: on ? [...days, day] : days.filter(value => value !== day) })} />)}
+        </div>
+      </SettingsCard>
       <SettingsCard footer={t("settings.notif.inApp")}>
         <div className="px-5 py-4">
-          <Switch checked={selfWatch} onChange={(v) => setNotifyPrefs({ selfWatch: v })} label={t("topbar.selfWatch")} description={t("settings.notif.selfWatchDesc")} labelFirst />
+          <Switch disabled={saving} checked={selfWatch} onChange={(v) => void save({ selfWatch: v })} label={t("topbar.selfWatch")} description={t("settings.notif.selfWatchDesc")} labelFirst />
         </div>
       </SettingsCard>
     </SettingsPage>

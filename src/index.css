@@ -1070,3 +1070,21 @@ select,
 button {
   font-family: inherit;
 }
+
+/* Navigation uses the organization accent; semantic and project marks retain their colours. */
+.tk-nav > span > .tk-ic, .tk-nav-glyph .tk-ic {
+  color: var(--text-2);
+}
+.tk-nav > span > .tk-ic, .tk-nav-glyph {
+  border-radius: 6px;
+  padding: 3px;
+  box-sizing: content-box;
+}
+.tk-nav-active > span > .tk-ic, .tk-nav-glyph-active {
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+}
+.tk-nav-glyph-active .tk-ic { color: inherit; }
+.tk-nav-glyph { display: inline-flex; align-items: center; justify-content: center; }
+
+.tk-nav-rail > span { justify-content: center; }

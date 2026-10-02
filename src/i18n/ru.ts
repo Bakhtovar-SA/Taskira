@@ -3,6 +3,13 @@
  *  Record<keyof typeof ru, string>, так что несовпадение ключей — ошибка
  *  компиляции, а не молчаливый пропуск строки в одном из языков. */
 const ru = {
+  "notifVerb.issueDueSoon": "Напоминание о сроке задачи",
+  "settings.notif.dueReminders": "Напоминания о сроке",
+  "settings.notif.due7": "За 7 дней",
+  "settings.notif.due3": "За 3 дня",
+  "settings.notif.due1": "За день",
+  "settings.notif.due0": "В день срока",
+  "settings.notif.dueHint": "Для исполнителей, после 09:00 по времени установки. Все интервалы выключены — напоминаний нет. Входящие сразу; сводка задерживает email.",
   "common.save": "Сохранить",
   "common.cancel": "Отмена",
   "common.delete": "Удалить",
@@ -199,9 +206,9 @@ const ru = {
   "settings.profile.managedAdmin": "Имя, должность и телефон меняет администратор.",
   "settings.profile.managedLdap": "Имя, должность и телефон приходят из каталога LDAP — меняются там.",
   "settings.notif.instantDesc": "Письмо на каждое событие по вашим задачам.",
-  "settings.notif.dailyDesc": "Одно письмо в день со всем, что произошло.",
+  "settings.notif.dailyDesc": "Сводка событий после окна доставки сервера.",
   "settings.notif.selfWatchDesc": "Уведомлять о задачах, которые вы создали или взяли на себя.",
-  "settings.notif.inApp": "Во «Входящих» уведомления приходят всегда — отключается только почта.",
+  "settings.notif.inApp": "События задач приходят во входящие; напоминания зависят от выбранных интервалов.",
   "settings.appearance.theme": "Тема",
   "settings.appearance.atmosphere": "Фон",
   "settings.appearance.density": "Плотность",

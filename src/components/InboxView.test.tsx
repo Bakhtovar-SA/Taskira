@@ -1,11 +1,11 @@
 /** Характеризация Входящих (ТЗ 5.12 g, шаг 1 — снята ДО правки): фильтр «Непрочитанные», группы по дням, переход к
  *  задаче полной страницей с отметкой «прочитано», «Прочитать все», убрать одно, клавиши J/K/E/Enter. */
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { I18nProvider } from "../i18n";
 import type { NotificationT } from "../types";
 
-const now = Date.now();
+const now = new Date("2026-10-03T12:00:00Z").getTime();
 const n = (over: Partial<NotificationT>): NotificationT => ({
   id: "n1",
   type: "issue.comment",
@@ -45,7 +45,12 @@ vi.mock("../store", () => ({
 
 import InboxView from "./InboxView";
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(now);
+});
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.clearAllMocks();
   notifications = LIST;
@@ -109,4 +114,13 @@ describe("Входящие", () => {
     fireEvent.click(dismiss[0]);
     expect(store.dismissNotifications).toHaveBeenCalledWith(["n1", "n2"]);
   });
+});
+
+
+test("automatic reminder shows its deadline without inventing an actor", () => {
+  notifications = [n({ type: "issue.dueSoon", payload: { key: "A-1", dueDate: "2026-10-04", leadDays: "1" } })];
+  renderInbox();
+  expect(screen.getByText(/Напоминание о сроке задачи/)).toBeTruthy();
+  expect(screen.getByText(/2026-10-04/)).toBeTruthy();
+  expect(screen.queryByText("Борис Петров")).toBeNull();
 });

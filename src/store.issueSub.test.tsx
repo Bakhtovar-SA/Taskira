@@ -209,7 +209,7 @@ describe("уведомления и аватар (src/store/notifications.ts)", 
     });
     expect(get().notif.notifications.map((n) => n.id)).toEqual(["n9"]);
     vi.spyOn(notificationsApi, "setPrefs").mockResolvedValue({ notifyPrefs: { email: "daily" } } as never);
-    act(() => get().setNotifyPrefs({ email: "daily" }));
+    act(() => { void get().setNotifyPrefs({ email: "daily" }); });
     await settle();
     expect(get().data.notifyPrefs).toEqual({ email: "daily" });
   });

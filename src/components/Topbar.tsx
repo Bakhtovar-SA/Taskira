@@ -268,6 +268,7 @@ export function SearchBox() {
 }
 
 export const NOTIF_VERB: Record<NotificationT["type"], TKey> = {
+  "issue.dueSoon": "notifVerb.issueDueSoon",
   "issue.assigned": "notifVerb.issueAssigned",
   "issue.comment": "notifVerb.issueComment",
   "issue.mention": "notifVerb.issueMention",
@@ -338,7 +339,8 @@ function BellPanel({ close }: { close: () => void }) {
                 )}
               </span>
               <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
-                <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b> {t(NOTIF_VERB[n.type])}{" "}
+                {n.type !== "issue.dueSoon" && <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b>} {t(NOTIF_VERB[n.type])}{" "}
+                {n.type === "issue.dueSoon" && <span className="text-sub">{n.payload.dueDate} · </span>}
                 {n.payload.key && (
                   <span className="font-mono text-[11px] font-medium text-accenttext">{n.payload.key}</span>
                 )}
@@ -610,7 +612,7 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
         {isProjectView ? (
           <div className="md:ml-2">
             <Tabs<ViewId> label={t("topbar.viewsAria")} value={ui.view} onChange={(v) => setView(v)}
-              items={views.map((v) => ({ id: v.id, icon: v.icon({ size: 14, tone: ui.view === v.id ? v.tone : undefined }), label: <span className={ui.view === v.id || v.id === "calendar" ? "max-sm:sr-only" : "max-2xl:sr-only"}>{t(v.labelKey)}</span> }))} />
+              items={views.map((v) => ({ id: v.id, icon: <span className={`tk-nav-glyph ${ui.view === v.id ? "tk-nav-glyph-active" : ""}`}>{v.icon({ size: 14 })}</span>, label: <span className={ui.view === v.id || v.id === "calendar" ? "max-sm:sr-only" : "max-2xl:sr-only"}>{t(v.labelKey)}</span> }))} />
           </div>
         ) : (
           <>

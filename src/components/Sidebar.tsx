@@ -126,9 +126,9 @@ const readOpen = (): Record<string, boolean> => {
 };
 
 // Классы пунктов — общие для всех уровней дерева.
-const navItem = "group relative flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13.5px] font-medium transition-colors duration-150";
+const navItem = "tk-nav group relative flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13.5px] font-medium transition-colors duration-150";
 const navOn =
-  "bg-[linear-gradient(180deg,color-mix(in_oklch,var(--bg-panel)_92%,transparent),color-mix(in_oklch,var(--bg-panel)_70%,transparent))] font-semibold text-ink shadow-[0_1px_2px_oklch(0.2_0.05_288/0.08),0_0_0_1px_var(--border-subtle),var(--highlight-top)] before:absolute before:-left-2 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-accent before:shadow-[0_0_10px_var(--accent-glow)]";
+  "tk-nav-active bg-[linear-gradient(180deg,color-mix(in_oklch,var(--bg-panel)_92%,transparent),color-mix(in_oklch,var(--bg-panel)_70%,transparent))] font-semibold text-ink shadow-[0_1px_2px_oklch(0.2_0.05_288/0.08),0_0_0_1px_var(--border-subtle),var(--highlight-top)] before:absolute before:-left-2 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-accent before:shadow-[0_0_10px_var(--accent-glow)]";
 const navOff = "text-ink/90 hover:bg-hover/70 hover:text-ink";
 const sectionLabel = "flex w-full items-center gap-1 px-2.5 pb-1 pt-3 text-[11.5px] font-semibold tracking-[0.01em] text-faint";
 /** Ветка дерева: отступ + направляющая линия слева — вложенность видна без подписей (ADR-0013 §1). */
@@ -573,7 +573,7 @@ function Rail({
         onClick={onClick}
         aria-label={label}
         aria-current={on ? "page" : undefined}
-        className={(`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${on ? navOn : "text-sub hover:bg-hover/70 hover:text-ink"}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
+        className={(`tk-nav tk-nav-rail relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${on ? navOn : "text-sub hover:bg-hover/70 hover:text-ink"}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
       >
         {icon}
         {extra}

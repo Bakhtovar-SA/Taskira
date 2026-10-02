@@ -795,3 +795,7 @@ typescript, playwright). Корневой `package.json` теперь `"name": "
 Только через env: `JWT_SECRET` (≥ 32 символов), `DATABASE_URL`, `ADMIN_PASSWORD`
 (≥14 символов, 3 из 4 групп, без логина и известных дефолтов).
 `.env`, `server/.env`, `server/dist`, `server/node_modules` — в `.gitignore`.
+
+## Напоминания о сроках
+
+Независимый от SMTP воркер проверяет задачи раз в минуту. `DUE_REMINDER_ENABLED=true`, `DUE_REMINDER_TIMEZONE=Asia/Dushanbe`, `DUE_REMINDER_HOUR=9` — значения по умолчанию. Личные интервалы: 7/3/1/0 дней, по умолчанию 1/0. Дедупликация и запись уведомлений транзакционные; отложенная почта повторно проверяет актуальность. Содержание email ограничено типом события, ключом, ссылкой и датой срока для напоминаний. См. [NOTIFICATIONS_SETUP](../NOTIFICATIONS_SETUP.md).

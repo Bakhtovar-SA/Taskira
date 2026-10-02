@@ -826,7 +826,7 @@ describe("гонки с logout", () => {
     vi.spyOn(notificationsApi, "setPrefs").mockReturnValue(dp.promise as never);
     vi.spyOn(avatarApi, "upload").mockReturnValue(du.promise);
     let up!: Promise<void>;
-    act(() => get().setNotifyPrefs({ email: "daily" }));
+    act(() => { void get().setNotifyPrefs({ email: "daily" }); });
     act(() => { up = get().uploadAvatar(new File(["x"], "a.png", { type: "image/png" })); });
     act(() => get().logout());
     await act(async () => {

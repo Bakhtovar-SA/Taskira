@@ -285,6 +285,7 @@ export interface Data {
 export interface NotificationT {
   id: string;
   type:
+    | "issue.dueSoon"
     | "issue.assigned"
     | "issue.comment"
     | "issue.mention"
@@ -296,6 +297,8 @@ export interface NotificationT {
   issueId: string | null;
   /** Денормализованные поля для показа (ключ/заголовок задачи, статусы…). */
   payload: {
+    dueDate?: string;
+    leadDays?: string;
     key?: string;
     title?: string;
     from?: string;

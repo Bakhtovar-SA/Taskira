@@ -162,6 +162,7 @@ export interface Config {
   ldap: LdapConfig | null;
   storage: StorageConfig;
   notify: NotifyConfig;
+  reminders: { enabled: boolean; timeZone: string; hour: number };
   maintenance: MaintenanceConfig;
   /** Размер пула соединений к Postgres (аудит PERF-07: было зашито в код). */
   pgPoolMax: number;
@@ -445,6 +446,11 @@ function buildConfig(): Config {
   if (sessionRotateAfterSeconds >= sessionTtlSeconds)
     fail("SESSION_ROTATE_AFTER_SECONDS должен быть меньше SESSION_TTL_SECONDS");
 
+  const reminderTimeZone = process.env.DUE_REMINDER_TIMEZONE?.trim() || "Asia/Dushanbe";
+  try { new Intl.DateTimeFormat("en", { timeZone: reminderTimeZone }).format(); }
+  catch { fail("DUE_REMINDER_TIMEZONE: неизвестный часовой пояс"); }
+  const reminderHour = Number(process.env.DUE_REMINDER_HOUR?.trim() || 9);
+  if (!Number.isInteger(reminderHour) || reminderHour < 0 || reminderHour > 23) fail("DUE_REMINDER_HOUR: требуется целый час 0…23");
   return {
     version: process.env.TASKIRA_VERSION?.trim() || "dev",
     port: Number(process.env.PORT ?? 8080),
@@ -465,6 +471,7 @@ function buildConfig(): Config {
     ldap: authMode === "ldap" ? buildLdapConfig() : null,
     storage: buildStorageConfig(),
     notify: buildNotifyConfig(),
+    reminders: { enabled: envBool(process.env.DUE_REMINDER_ENABLED, true), timeZone: reminderTimeZone, hour: reminderHour },
     maintenance: {
       enabled: envBool(process.env.MAINTENANCE_ENABLED, true),
       intervalMs: envPosInt("MAINTENANCE_INTERVAL_MS", 60 * 60_000), // раз в час

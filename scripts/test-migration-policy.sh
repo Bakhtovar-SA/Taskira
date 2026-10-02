@@ -96,4 +96,22 @@ git -C "$TMP_DIR" reset -q --hard "$CUR"
 RENAME_OK_SHA="$(printf -- '-- contract-phase: подтверждено, добавлено в релизе 1.8.0\nALTER TABLE issues RENAME COLUMN title TO name;\n' | commit_file 20260919T1250_rename_ok.sql)"
 (cd "$TMP_DIR" && "$ROOT_DIR/scripts/check-migrations.sh" "$CUR" "$RENAME_OK_SHA")
 
+# A column called type in an additive CHECK is not ALTER COLUMN ... TYPE.
+git -C "$TMP_DIR" reset -q --hard "$CUR"
+CHECK_TYPE_SHA="$(printf -- "ALTER TABLE notifications DROP CONSTRAINT notifications_type_check;\nALTER TABLE notifications ADD CONSTRAINT notifications_type_check CHECK (type IN ('issue.assigned', 'issue.dueSoon'));\n" | commit_file 20260919T1300_notification_check.sql)"
+(cd "$TMP_DIR" && "$ROOT_DIR/scripts/check-migrations.sh" "$CUR" "$CHECK_TYPE_SHA")
+ADD_TYPE_SHA="$(printf 'ALTER TABLE probes ADD COLUMN type text;\n' | commit_file 20260919T1310_add_type_column.sql)"
+(cd "$TMP_DIR" && "$ROOT_DIR/scripts/check-migrations.sh" "$CHECK_TYPE_SHA" "$ADD_TYPE_SHA")
+ALTER_COLUMN_SHA="$(printf 'ALTER TABLE issues ALTER COLUMN priority_id TYPE text;\n' | commit_file 20260919T1320_change_type.sql)"
+expect_reject "ALTER COLUMN TYPE without contract marker" "$ADD_TYPE_SHA" "$ALTER_COLUMN_SHA"
+SET_TYPE_SHA="$(printf 'ALTER TABLE issues ALTER COLUMN "priority_id" SET DATA TYPE text;\n' | commit_file 20260919T1330_set_type.sql)"
+expect_reject "quoted SET DATA TYPE without contract marker" "$ALTER_COLUMN_SHA" "$SET_TYPE_SHA"
+OMITTED_COLUMN_SHA="$(printf 'ALTER TABLE issues ALTER priority_id TYPE text;\n' | commit_file 20260919T1340_implicit_column.sql)"
+expect_reject "ALTER TYPE with optional COLUMN omitted" "$SET_TYPE_SHA" "$OMITTED_COLUMN_SHA"
+ALTER_TYPE_SHA="$(printf 'ALTER TYPE priority ADD ATTRIBUTE note text;\n' | commit_file 20260919T1350_alter_type.sql)"
+expect_reject "ALTER TYPE without contract marker" "$OMITTED_COLUMN_SHA" "$ALTER_TYPE_SHA"
+
+SYMBOL_COLUMN_SHA="$(printf 'ALTER TABLE issues ALTER COLUMN priority$id TYPE text;\n' | commit_file 20260919T1360_symbol_column.sql)"
+expect_reject "identifier containing dollar without contract marker" "$ALTER_TYPE_SHA" "$SYMBOL_COLUMN_SHA"
+
 echo "migration policy checks passed"

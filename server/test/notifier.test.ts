@@ -138,7 +138,7 @@ d("Email-воркер против настоящего SMTP", () => {
     expect(m.to).toContain("emp1@corp.example");
 
     // ЕСТЬ: ключ задачи и прямая ссылка
-    const link = `#/issue/${fx.projects.p1}/${fx.issues.p1issue}`;
+    const link = "/p/CORP/issue/CORP-1";
     expect(m.subject + m.text + m.html).toContain("CORP-1");
     expect(m.text + m.html).toContain(link);
 

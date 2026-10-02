@@ -35,6 +35,9 @@ services:
       INSTANCE_PLAN: ${INSTANCE_PLAN:-default}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
       APP_BASE_URL: ${CORS_ORIGIN:-http://localhost:8081}
+      DUE_REMINDER_ENABLED: ${DUE_REMINDER_ENABLED:-true}
+      DUE_REMINDER_TIMEZONE: ${DUE_REMINDER_TIMEZONE:-Asia/Dushanbe}
+      DUE_REMINDER_HOUR: ${DUE_REMINDER_HOUR:-9}
       # Use the same CIDR for IPAM and the trusted nginx hop.
       TRUST_PROXY: ${TASKIRA_NETWORK_CIDR:-172.30.0.0/24}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
