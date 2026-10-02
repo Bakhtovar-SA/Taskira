@@ -139,6 +139,11 @@ every state change re-rendered the whole tree incl. all board cards; the accepte
 and columns are `memo` (`BoardColumn`), so they don't depend on the context; toasts and notifications live in
 external stores (`src/store/slices.ts`) — read them with `useToasts()` / `useNotifications()` / `useUnreadCount()`,
 they are **not** on `useStore()` anymore. Modal chunks are preloaded via `src/lazyModals.ts`.
+Track K (01.10.2026) measured and reverted the stable `useActions()` experiment: no reliable browser gain.
+There is no public `useActions()` hook. Steps 3–4 remain pending; `useIssue(id)` still reads the
+existing store facade, not a migrated external `byId` store. See `docs/PERFORMANCE.md` for profiles.
+Async issue reads, PATCH and transitions capture both project id and session epoch; ignore stale
+successes and errors after navigation/re-login, even when the project id is unchanged.
 Boot sequence in `App.tsx` → `store.bootstrap()`: call `authApi.me()` with the HttpOnly session cookie;
 401 shows `LoginForm`. An authenticated boot calls `projectsApi.bootstrap(id)` + `issuesApi.list()`
 and populate one flat `Data` object. `bootStatus` drives the shell:
