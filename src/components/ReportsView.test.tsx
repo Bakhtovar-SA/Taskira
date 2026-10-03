@@ -81,7 +81,7 @@ describe("Отчёты", () => {
 
   test("пресет, разбивка и проект уходят в запрос", async () => {
     await renderReports();
-    fireEvent.click(screen.getByRole("tab", { name: "Квартал" }));
+    fireEvent.click(screen.getByRole("button", { name: "Квартал" }));
     await settle();
     expect(lastCall().from).toBe(daysAgo(90));
     fireEvent.change(screen.getByLabelText("Разбивка"), { target: { value: "assignee" } });
@@ -130,7 +130,7 @@ describe("Отчёты", () => {
   test("пустая разбивка: пустое состояние, «Сбросить» возвращает 30 дней и все проекты", async () => {
     summary.mockImplementation(async () => ({ ...REPORT, rows: [] }));
     await renderReports();
-    fireEvent.click(screen.getByRole("tab", { name: "Год" }));
+    fireEvent.click(screen.getByRole("button", { name: "Год" }));
     fireEvent.change(screen.getByLabelText("Проект"), { target: { value: "p1" } });
     await settle();
     expect(screen.getByText("За этот период данных нет")).toBeTruthy();

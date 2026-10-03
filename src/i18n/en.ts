@@ -4,6 +4,13 @@ import type { Dict } from "./ru";
  *  забыть ключ (ошибка "Property missing") и не даст добавить лишний,
  *  которого нет в ru.ts (excess property check на литерале). */
 const en: Record<keyof Dict, string> = {
+  "workspace.filters": "Filters",
+  "workspace.settings": "View settings",
+  "workspace.moreProperties": "Additional properties",
+  "createIssue.moreFields": "Additional fields",
+  "createIssue.draftSaved": "Your draft is kept when you close this form",
+  "createIssue.discardDraft": "Clear draft",
+  "createIssue.failed": "The issue wasn't created. Your entries have been kept.",
   "notifVerb.issueDueSoon": "Issue due-date reminder",
   "settings.notif.dueReminders": "Due-date reminders",
   "settings.notif.due7": "7 days before",
@@ -53,6 +60,7 @@ const en: Record<keyof Dict, string> = {
   "board.quickChip.overdue": "Overdue",
   "board.quickChip.unassigned": "Unassigned",
   "board.filteredOf": "{visible} of {total}",
+  "board.filterConflict": "Conflicting assignee filters",
   "board.loadMore": "Show more",
   "board.loadMoreFailed": "Couldn't load more — retry",
   "board.columnLoadError": "Couldn't load the column — retry",

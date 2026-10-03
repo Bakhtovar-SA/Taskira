@@ -50,7 +50,9 @@ for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] 
     await page.keyboard.press("Escape");
     const before = await page.locator('main [data-issue-id]').evaluateAll(els => els.map(el => (el as HTMLElement).dataset.issueId));
     expect(before.slice(0, 5)).toEqual(["i1", "i3", "i5", "i2", "i4"]);
-    await page.getByRole("tab", { name: lang === "en" ? "Week" : "Неделя", exact: true }).click();
+    const week = page.getByRole("button", { name: lang === "en" ? "Week" : "Неделя", exact: true });
+    await week.click();
+    await expect(week).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('[role="gridcell"]')).toHaveCount(7);
     await expect(day.locator('.calendar-plate:visible')).toHaveCount(5);
     await expect(page.locator('main [data-issue-id]')).toHaveCount(8);
@@ -82,7 +84,9 @@ for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] 
     await expect(page.getByText(lang === "en" ? /Only own issues|Couldn't save|Forbidden|Access denied/ : /Only own issues|Недостаточно|Не удалось|Нет прав|Запрещено/)).toBeVisible();
     const violations = await new AxeBuilder({ page }).analyze(); expect(violations.violations).toEqual([]);
     await page.screenshot({ path: test.info().outputPath(`calendar-week-${theme}-${lang}.png`), fullPage: true });
-    await page.getByRole("tab", { name: lang === "en" ? "Month" : "Месяц", exact: true }).click();
+    const month = page.getByRole("button", { name: lang === "en" ? "Month" : "Месяц", exact: true });
+    await month.click();
+    await expect(month).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('[role="gridcell"]')).toHaveCount(42);
     await page.screenshot({ path: test.info().outputPath(`calendar-month-${theme}-${lang}.png`), fullPage: true });
     await day.focus(); await day.press("ArrowRight"); await expect(page.locator('[data-day="2026-10-02"]')).toBeFocused();
@@ -102,13 +106,15 @@ for (const theme of ["light", "dark"] as const) test(`calendar 300 issues month 
   await page.clock.setFixedTime(new Date("2026-10-01T12:00:00Z"));
   const api = await calendarApi(page, 300);
   await page.goto("/p/TEST/calendar");
-  await expect(page.locator('main [data-issue-id]')).toHaveCount(300);
+  // Wait for all three API pages before measuring interaction time. Loading is
+  // slower when this fixture shares a CI worker with another large board.
+  await expect(page.locator('main [data-issue-id]')).toHaveCount(300, { timeout: 15_000 });
   const start = Date.now();
   await page.getByRole("button", { name: "Следующий период" }).click();
   await expect(page.locator('[data-day="2026-11-30"]')).toHaveCount(1);
   const switching = Date.now() - start;
   await page.getByRole("button", { name: "Предыдущий период" }).click();
-  await expect(page.locator('main [data-issue-id]')).toHaveCount(300);
+  await expect(page.locator('main [data-issue-id]')).toHaveCount(300, { timeout: 15_000 });
   const dragStart = Date.now();
   await page.locator('[data-issue-id="i1"]').dragTo(page.locator('[data-day="2026-10-03"]'));
   await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03" });

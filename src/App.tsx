@@ -303,8 +303,8 @@ function Shell() {
             <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>
           ) : (<div key={ui.view} className="anim-fadeup h-full">
             {ui.view === "overview" && <DashboardView mode="project" />}
-            {ui.view === "board" && <Board />}
-            {ui.view === "backlog" && <Backlog />}
+            {ui.view === "board" && <Board key={data.currentProjectId} />}
+            {ui.view === "backlog" && <Backlog key={data.currentProjectId} />}
             {ui.view === "sprints" && <SprintsView />}
             {ui.view === "timeline" && <TimelineView />}
             {ui.view === "calendar" && <CalendarView />}

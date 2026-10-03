@@ -713,9 +713,9 @@ since any edit touches it. The board shows the last 14 days in its done column
   (`#splash`), removed by `src/splash.ts` right after the first render. Theme and atmosphere preset
   are `<html>` attributes (`data-theme`, `data-atmosphere`) set by `applyTheme()`
   and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg`).
-  ADR-0016 (supersedes parts of 0012): the sidebar (`.glass-side`) and the work sheet (`.glass-sheet`) are glass over
-  the atmosphere glow on `body` (no grain); popovers/menus/toasts use `.glass`; never glass on task cards or forms.
-  **ADR-0023: no `backdrop-filter` on large surfaces** — sidebar and sheet are translucent without blur (blur under
+  ADR-0016/0027: the sidebar (`.glass-side`) is translucent over the atmosphere glow on `body` (no grain);
+  the work sheet (`.glass-sheet`) is opaque `--bg-canvas`. Popovers/menus/toasts use `.glass`; task cards and forms are opaque.
+  **ADR-0023/0027: no `backdrop-filter` on large surfaces** — sidebar is translucent, sheet is opaque (blur under
   ~90% of a 3440 px screen cost 10 fps on the board and 13–27 fps on dialogs); a personal photo is blurred once in
   `body::before`; scrims and sticky headers don't blur. `backdrop-filter` only on small floating `.glass` surfaces.
   Board plates/card edges come from `--board-col-bg/-line` and `--board-card-line` (stronger in light themes).

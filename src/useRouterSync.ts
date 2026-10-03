@@ -18,7 +18,7 @@ import { useStore } from "./store";
 import { issuesApi } from "./api";
 import { useT } from "./i18n";
 import { resolveBootPathTarget } from "./store/mappers";
-import { parsePath, pathForIssue, pathForView, samePlace } from "./router";
+import { parsePath, pathForIssue, pathForView, samePlace, sharesIssueFilters } from "./router";
 import type { Data } from "./types";
 import type { BootStatus, UIState } from "./store/mappers";
 
@@ -209,8 +209,7 @@ export function useRouterSync(): void {
     // «назад» закрывает панель.
     const legacy = want.path !== path && samePlace(path, want.path);
     const replace = legacy || (want.path === path && !!want.issue && !!urlIssue);
-    // Другое место — чистый адрес (фильтры одного вида не переезжают в другой).
-    const q = withIssue(legacy || want.path === path ? location.search : "", want.issue);
+    const q = withIssue(legacy || want.path === path || sharesIssueFilters(path, want.path) ? location.search : "", want.issue);
     // Our own navigation already represents state. Reapplying an intermediate
     // board URL would close a pending issue opened after switchProject().
     seenUrlRef.current = { path: want.path, issue: want.issue };

@@ -1,0 +1,118 @@
+
+[1A[2K[WebServer] (node:1360) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 27 tests using 3 workers
+
+
+
+[1A[2K(node:21020) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:10312) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:22256) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:21020) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:10312) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:22256) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[1/27] [chromium] › e2e\combobox-async.pw.ts:2:1 › combobox Enter uses the current query and Escape stays inside the control
+[1A[2K[2/27] [chromium] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (light)
+[1A[2K[3/27] [chromium] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+
+[1A[2K[chromium] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+[1A[2K[4/27] [chromium] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (light)
+[1A[2K[5/27] [chromium] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (light)
+[1A[2K[6/27] [chromium] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (dark)
+[1A[2K[7/27] [chromium] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+[1A[2K[8/27] [chromium] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (dark)
+
+[1A[2K[chromium] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+[1A[2K[9/27] [chromium] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (dark)
+
+
+[1A[2K(node:1744) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:23324) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:1744) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:23324) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[10/27] [firefox] › e2e\combobox-async.pw.ts:2:1 › combobox Enter uses the current query and Escape stays inside the control
+[1A[2K[11/27] [firefox] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (light)
+
+
+[1A[2K(node:28160) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:28160) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[12/27] [firefox] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+[1A[2K[13/27] [firefox] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (light)
+[1A[2K[14/27] [firefox] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (light)
+[1A[2K[15/27] [firefox] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (dark)
+[1A[2K[16/27] [firefox] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+[1A[2K[17/27] [firefox] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (dark)
+[1A[2K[18/27] [firefox] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (dark)
+
+[1A[2K(node:17184) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:28056) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:17184) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:28056) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[19/27] [webkit] › e2e\combobox-async.pw.ts:2:1 › combobox Enter uses the current query and Escape stays inside the control
+[1A[2K[20/27] [webkit] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (light)
+
+
+[1A[2K(node:16352) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:16352) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[21/27] [webkit] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+[1A[2K[22/27] [webkit] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (light)
+[1A[2K[webkit] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+
+[1A[2K[23/27] [webkit] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (light)
+[1A[2K[24/27] [webkit] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (dark)
+[1A[2K[25/27] [webkit] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+[1A[2K[26/27] [webkit] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (dark)
+[1A[2K[webkit] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+
+[1A[2K[27/27] [webkit] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (dark)
+[1A[2K  27 passed (1.7m)

@@ -1,4 +1,6 @@
-@import "tailwindcss";
+/* Only application templates produce utilities; audit captures contain historical class names. */
+@import "tailwindcss" source("./");
+@source "../index.html";
 @import "./styles/tokens.css";
 @import "./ds/ds.css" layer(components);
 @import "./styles/workspace.css";
@@ -185,21 +187,19 @@ body {
 /* ── Стекло — только хром (поповеры, меню, боковая панель, шапки диалогов).
    Никогда на карточках задач и формах. Отключается при
    data-transparency и где backdrop-filter не поддерживается. */
-/* ADR-0023: размытие фона (backdrop-filter) — только на малых плавающих поверхностях (.glass: поповеры, меню,
-   тосты). Боковая панель и рабочий лист — полупрозрачные БЕЗ размытия: за ними мягкое свечение, размытие его не
-   меняет, а на экране 3440 px оно пересчитывалось на каждом кадре любой анимации (диалог открывался на 13–27 кадрах
-   в секунду вместо 40). Своё фото фона размыто один раз, статически (body::before выше). */
+/* ADR-0023/0027: blur belongs to small floating surfaces. The side panel is translucent;
+   the work sheet is opaque so task content keeps a stable background. Photos blur once in body::before. */
 .glass {
   background: var(--bg-glass);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
   backdrop-filter: blur(24px) saturate(1.6);
 }
-/* Стеклянная боковая панель и рабочий лист (ТЗ 5.14 п.4 — стекло только на хроме). */
+/* Translucent navigation, opaque working area (ADR-0027). */
 .glass-side {
   background: var(--glass-side);
 }
 .glass-sheet {
-  background: var(--glass-sheet);
+  background: var(--bg-canvas);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass {
@@ -232,7 +232,7 @@ body {
 /* Поднятая поверхность карточки/панели: тень уровня + верхний блик. */
 .surface-raised {
   background: var(--bg-panel);
-  box-shadow: var(--highlight-top), var(--elev-1);
+  box-shadow: inset 0 0 0 1px var(--border-default);
 }
 
 /* Дашборд (ADR-0022): сетка на 12 колонок, место виджета — переменные --gc/--gr, которые ставит CSSOM (ADR-0010).
@@ -304,8 +304,8 @@ body {
 /* Плашка колонки и кромка карточки — токены --board-* (tokens.css): в светлых темах плашка тонирована и обведена,
    карточка обведена тонкой линией — раньше доска сливалась с листом (скриншот владельца, часть F). */
 .board-col {
-  background: var(--board-col-bg);
-  box-shadow: inset 0 0 0 1px var(--board-col-line);
+  background: var(--bg-sunken);
+  box-shadow: none;
 }
 .board-col-body {
   scrollbar-width: thin;
@@ -314,7 +314,7 @@ body {
   content-visibility: auto;
   contain-intrinsic-size: auto 110px;
   background: var(--bg-panel);
-  box-shadow: var(--highlight-top), var(--elev-1), 0 0 0 1px var(--board-card-line);
+  box-shadow: 0 0 0 1px var(--board-card-line);
   transition: box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
 }
 .board-card::after {
@@ -350,10 +350,10 @@ body {
   pointer-events: none;
 }
 .board-card:hover {
-  box-shadow: var(--highlight-top), var(--elev-2), 0 0 0 1px var(--board-card-line);
+  box-shadow: var(--elev-1), 0 0 0 1px var(--border-strong);
 }
 .board-card:hover::after {
-  opacity: 1;
+  opacity: 0;
 }
 .board-card:focus-visible {
   outline: none;
@@ -392,14 +392,13 @@ body {
 .meta-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   height: 22px;
-  padding: 0 7px;
+  padding: 0 2px;
   border-radius: 6px;
-  font-size: 11.5px;
+  font-size: 12px;
   white-space: nowrap;
   color: var(--text-2);
-  box-shadow: inset 0 0 0 1px var(--border-default);
 }
 .meta-pill > span {
   overflow: hidden;
@@ -412,6 +411,7 @@ body {
 }
 .meta-pill.is-late {
   color: var(--status-danger-fg);
+  padding-inline: 6px;
   background: color-mix(in oklch, var(--status-danger) 9%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--status-danger) 40%, transparent);
 }
@@ -425,7 +425,7 @@ body {
   height: 7px;
   border-radius: 50%;
   background: var(--c, currentColor);
-  box-shadow: 0 0 0 2px color-mix(in oklch, var(--c, currentColor) 20%, transparent);
+
 }
 
 /* Смена темы через View Transitions (theme.ts): свой клип-круг вместо
@@ -530,15 +530,7 @@ html.vt-theme::view-transition-new(root) {
   /* Без размытия (ADR-0023): липкая шапка списка перерисовывала размытие на каждом кадре прокрутки. */
   background: color-mix(in oklch, var(--bg-panel) 96%, transparent);
 }
-@media (max-width: 639px) {
-  .list-grid {
-    grid-template-columns: var(--list-cols-sm);
-    column-gap: 0.5rem;
-  }
-  .list-grid > [data-col]:not([data-col="status"]):not([data-col="assignee"]) {
-    display: none;
-  }
-}
+
 /* Подсказка при первой встрече с функцией (Hint.tsx, ТЗ 5.11): тихая строка с фиолетовым краем, не баннер. */
 .hint-line {
   background: color-mix(in oklch, var(--accent-solid) 6%, var(--bg-panel));

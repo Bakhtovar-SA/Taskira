@@ -283,16 +283,18 @@ export default function DevUI() {
         <Section id="tabs" title="Tabs" note="Сегменты (вид проекта) и линия (разделы страницы). ←/→, Home/End.">
           <div className="flex flex-col items-start gap-5">
             <Tabs
+              mode="tabs"
               label="Вид"
               value={tab}
               onChange={setTab}
               force={{ id: "timeline", state: "hover" }}
               items={[
-                { id: "board", label: "Доска", icon: <IcBoard size={14} tone="violet" /> },
-                { id: "list", label: "Список", icon: <IcBacklog size={14} /> },
-                { id: "timeline", label: "Таймлайн", icon: <IcTimeline size={14} /> },
+                { id: "board", tabId: "demo-board-tab", panelId: "demo-board-panel", label: "Доска", icon: <IcBoard size={14} tone="violet" /> },
+                { id: "list", tabId: "demo-list-tab", panelId: "demo-list-panel", label: "Список", icon: <IcBacklog size={14} /> },
+                { id: "timeline", tabId: "demo-timeline-tab", panelId: "demo-timeline-panel", label: "Таймлайн", icon: <IcTimeline size={14} /> },
               ]}
             />
+            {["board", "list", "timeline"].map(id => <div key={id} id={`demo-${id}-panel`} role="tabpanel" aria-labelledby={`demo-${id}-tab`} hidden={tab !== id} className="text-[13px] text-sub">{L("Содержимое выбранного вида", "Selected view content")}</div>)}
             <Tabs
               label="Раздел"
               variant="line"

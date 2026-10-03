@@ -1,18 +1,3 @@
-/* Workspace layout uses the existing semantic palette and density preferences. */
-.home-view,
-.project-topbar,
-.board-view {
-  --ctl-h-sm: 32px;
-  --ctl-h-md: 36px;
-  --ctl-h-lg: 40px;
-  --ctl-fs: 14px;
-  --ctl-fs-sm: 13px;
-}
-:root[data-density="compact"] :is(.home-view, .project-topbar, .board-view) {
-  --ctl-h-sm: 28px;
-  --ctl-h-md: 32px;
-  --ctl-h-lg: 36px;
-}
 .home-view .ds-empty {
   padding: 24px 16px;
   border-radius: var(--radius-l);
@@ -37,11 +22,11 @@
 .project-view-tabs {
   scrollbar-width: thin;
 }
-.project-view-tabs [role="tablist"] {
+.project-view-tabs [role="group"] {
   width: max-content;
   min-width: 0;
 }
-.project-view-tabs [role="tab"] {
+.project-view-tabs [data-tab] {
   min-height: 36px;
   flex-shrink: 0;
   white-space: nowrap;
@@ -95,7 +80,7 @@
     width: 44px;
   }
   :is(.home-view, .project-topbar, .board-view, .ds-dialog, .ds-panel) .ds-btn,
-  .project-view-tabs [role="tab"],
+  .project-view-tabs [data-tab],
   .board-tools > button,
   .board-quick-filters > button {
     min-height: 44px;
@@ -172,4 +157,149 @@
   .board-card > div:first-child {
     height: 36px;
   }
+}
+
+/* Composed screens share the same sizing contract as the DS. */
+.workspace-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.workspace-search {
+  flex: 1;
+  height: var(--ctl-h-md);
+  min-height: var(--ctl-h-md);
+  min-width: min(200px, 100%);
+}
+.workspace-search input { min-width: 0; }
+.workspace-controls > details { min-width: 0; }
+.workspace-controls > details[open] {
+  flex-basis: 100%;
+  order: 5;
+}
+.workspace-controls summary,
+.form-disclosure summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--ctl-h-md);
+  padding: 0 12px;
+  border-radius: var(--radius-m);
+  list-style: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.workspace-controls summary {
+  border: 1px solid var(--border-default);
+  background: var(--bg-panel);
+}
+.workspace-controls summary::-webkit-details-marker,
+.form-disclosure summary::-webkit-details-marker { display: none; }
+.workspace-controls summary::after,
+.form-disclosure summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+.workspace-controls details[open] > summary::after,
+.form-disclosure[open] > summary::after { transform: rotate(225deg); }
+.workspace-controls summary:hover,
+.form-disclosure summary:hover { background: var(--bg-hover); }
+.workspace-filters-body,
+.workspace-options-body {
+  padding: 16px 0 4px;
+}
+.workspace-filters-body :is(select, input:not([type="checkbox"])),
+.workspace-options-body > button,
+.workspace-options-body > span,
+.workspace-options-body > div:not(.ds-pop) > button,
+.board-quick-filters > button {
+  min-height: var(--ctl-h-md);
+  font-size: var(--ctl-fs-sm);
+}
+.active-filter-summary > span:not(:last-child) {
+  padding: 4px 8px;
+  background: var(--bg-sunken);
+  border-radius: var(--radius-xs);
+  overflow-wrap: anywhere;
+}
+.list-table { min-width: var(--list-min); }
+.list-row { min-height: var(--row-h); }
+.list-title a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-head { min-height: var(--ctl-h-md); border-radius: var(--radius-m) var(--radius-m) 0 0; }
+.list-actions { min-width: 32px; min-height: 32px; }
+.form-disclosure { border-top: 1px solid var(--border-subtle); padding-top: 8px; }
+.form-disclosure summary { padding-inline: 0; }
+.create-issue-form :is(input:not([type="checkbox"]), select, textarea) {
+  font-size: 14px;
+}
+.create-issue-form :is(input:not([type="checkbox"]), select, button[aria-haspopup]) {
+  min-height: var(--ctl-h-md);
+}
+.create-issue-form .draft-note { border-top: 1px solid var(--border-subtle); padding-top: 8px; }
+.create-issue-form .draft-note button { min-height: 36px; }
+.issue-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-areas: "heading properties" "content properties";
+  grid-template-rows: auto 1fr;
+}
+.issue-heading { grid-area: heading; }
+.issue-properties { grid-area: properties; border-left: 1px solid var(--border-subtle); border-block: 0; }
+.issue-content { grid-area: content; }
+.issue-content :is(p, textarea) { line-height: 1.6; }
+@media (max-width: 767px) {
+  .workspace-search { flex-basis: 100%; height: 44px; }
+  .workspace-search input { font-size: 16px; }
+  .workspace-controls summary,
+  .form-disclosure summary,
+  .workspace-filters-body :is(select, input:not([type="checkbox"])),
+  .workspace-options-body > button,
+  .workspace-options-body > span,
+  .workspace-options-body > div:not(.ds-pop) > button,
+  .board-quick-filters > button { min-height: 44px; }
+  .workspace-filters-body :is(select, input:not([type="checkbox"])) { font-size: 16px; max-width: 100%; }
+  .workspace-options-body { max-width: 100%; }
+  .list-view .ds-btn { min-height: 44px; }
+  .issue-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "heading" "properties" "content"; }
+  .issue-heading { padding: 16px 16px 8px; }
+  .issue-properties { margin: 0 16px; padding: 12px 0; border-left: 0; border-block: 1px solid var(--border-subtle); }
+  .issue-content { padding: 0 16px 16px; }
+  .issue-toolbar { padding: 8px 12px; gap: 8px; }
+  .issue-toolbar > button,
+  .issue-toolbar > div > button { min-width: 44px; min-height: 44px; }
+  .issue-toolbar > div > span:first-child { display: none; }
+  .issue-toolbar > button:first-child,
+  .issue-toolbar > span:first-of-type { flex-shrink: 0; }
+  .create-issue-form :is(input:not([type="checkbox"]), select, textarea) { font-size: 16px; }
+  .create-issue-form :is(input:not([type="checkbox"]), select, button[aria-haspopup]) { min-height: 44px; }
+  .create-issue-form .draft-note button { min-height: 44px; }
+}
+@media (max-width: 639px) {
+  .list-table { min-width: 0; }
+  .list-table .list-grid {
+    grid-template-columns: var(--list-cols-sm);
+    column-gap: 8px;
+    padding-inline: 12px;
+  }
+  .list-grid > [data-col]:not([data-col="title"]):not([data-col="status"]):not([data-col="assignee"]):not([data-col="actions"]):not([data-col="select"]) { display: none; }
+  .list-row { min-height: 88px; padding-block: 12px; row-gap: 6px; }
+  .list-title { grid-column: var(--list-title-start) / -2; grid-row: 1; }
+  .list-title a { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.5; overflow-wrap: anywhere; }
+  .list-row > [data-col="status"] { grid-column: var(--list-title-start) / var(--list-status-end); grid-row: 2; }
+  .list-row > [data-col="assignee"] { grid-column: -3 / -2; grid-row: 2; justify-content: flex-end; }
+  .list-grid > [data-col="actions"] { grid-column: -2 / -1; grid-row: 1 / span 2; }
+  .list-grid > [data-col="select"] { grid-column: 1; grid-row: 1 / span 2; }
+  .list-head { min-height: 44px; }
+  .list-head > [data-col="title"] { grid-column: var(--list-title-start) / -2; }
+  .list-head > [data-col="status"], .list-head > [data-col="assignee"] { display: none; }
+  .list-actions { width: 44px; height: 44px; opacity: 1; }
 }

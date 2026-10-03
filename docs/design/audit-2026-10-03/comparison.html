@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Taskira — результат аудита</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#24232b;background:#f6f6f8;font-size:16px}*{box-sizing:border-box}body{margin:0}header,main,footer{max-width:1560px;margin:auto;padding:24px 32px}header{padding-top:40px}h1{font-size:32px;letter-spacing:-.025em;margin:8px 0 16px}p{line-height:1.6;max-width:960px;margin:12px 0}.eyebrow{color:#66529e;font-weight:600}.lead{font-size:18px;color:#504e5a}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:24px 0}.stats div{padding:20px 24px;background:white;border:1px solid #e0dfe7;border-radius:12px}.stats strong{display:block;font-size:28px;letter-spacing:-.03em}.stats span{display:block;font-size:14px;color:#62606a;line-height:1.5;margin-top:8px}.tools{display:flex;flex-wrap:wrap;align-items:end;gap:16px;margin-bottom:24px}label{display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:600}select,button{font:inherit;min-height:44px;border:1px solid #d3d1dd;border-radius:8px;background:white;padding:8px 16px;color:inherit;cursor:pointer}select{min-width:160px}.modes{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}button[aria-pressed=true]{color:#fff;background:#6652b8;border-color:#6652b8}a{color:#6652b8;text-decoration-thickness:1px;text-underline-offset:3px}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #826acf;outline-offset:3px}.caption{font-size:15px;color:#504e5a;border-left:3px solid #806dc5;padding-left:16px;margin:0 0 24px}.comparison{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}.comparison.single{grid-template-columns:1fr}.frame{min-width:0;background:#fff;border:1px solid #dedce6;border-radius:12px;overflow:hidden}.frame[hidden]{display:none}.frame h2{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;margin:0;font-size:16px;border-bottom:1px solid #e5e4eb}.frame small{font-size:13px;font-weight:400;color:#6f6b79}.image{display:block;overflow:auto;padding:0;text-align:center;background:#eeedf3}.image img{display:block;width:100%;height:auto;margin:0 auto}.comparison.mobile .image{padding:16px}.comparison.mobile .image img{width:auto;max-width:100%}.note{font-size:14px;color:#66616f;margin-top:16px}details{background:white;border:1px solid #e0dfe7;padding:20px 24px;border-radius:12px;margin:32px 0}summary{font-weight:600;cursor:pointer;min-height:32px}ul{line-height:1.7;padding-left:24px}footer{border-top:1px solid #dedce6;font-size:14px;color:#66616f;padding-bottom:40px}footer p{margin:8px 0}@media(max-width:760px){header,main,footer{padding:24px 16px}h1{font-size:28px}.stats{grid-template-columns:1fr 1fr;gap:8px}.stats div{padding:16px}.stats strong{font-size:24px}.tools{gap:12px}.modes{margin-left:0}.comparison{grid-template-columns:1fr}.frame small{max-width:50%;text-align:right}select{min-width:140px}}
+</style>
+</head>
+<body>
+<header>
+<div class="eyebrow">Taskira · 3 октября 2026</div>
+<h1>Результат аудита интерфейса</h1>
+<p class="lead">Больше места для задач, спокойнее оформление, надёжнее рабочие сценарии. Изменения внесены в собственную дизайн-систему и реальные экраны приложения.</p>
+<div class="stats">
+<div><strong>200 → 454 px</strong><span>Название в desktop-списке</span></div>
+<div><strong>691 → 410 px</strong><span>Положение первой строки на 320 px</span></div>
+<div><strong>716</strong><span>Модульных тестов проходят</span></div>
+<div><strong>3 браузера</strong><span>Chromium, Firefox, WebKit</span></div>
+</div>
+</header>
+<main>
+<div class="tools">
+<label>Экран<select id="screen"><option value="list">Список задач</option><option value="board">Доска</option><option value="create">Создание задачи</option><option value="issue">Карточка задачи</option><option value="home">Главная</option><option value="calendar">Календарь</option><option value="timeline">Таймлайн</option><option value="settings">Оформление</option></select></label>
+<label>Тема<select id="theme"><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label>
+<label>Ширина<select id="width"><option value="desktop">1440 px</option><option value="390">390 px</option><option value="320">320 px</option></select></label>
+<div class="modes" role="group" aria-label="Способ сравнения"><button data-mode="pair" aria-pressed="true">Рядом</button><button data-mode="before" aria-pressed="false">До</button><button data-mode="after" aria-pressed="false">После</button></div>
+</div>
+<p id="caption" class="caption" aria-live="polite"></p>
+<div id="comparison" class="comparison">
+<section id="beforeFrame" class="frame"><h2>До <small>a4df7b4 · после PR #122</small></h2><a id="beforeLink" class="image" target="_blank" rel="noopener" aria-label="Открыть исходный скриншот в полном размере"><img id="beforeImage" alt=""></a></section>
+<section id="afterFrame" class="frame"><h2>После <small>codex/design-audit-fixes</small></h2><a id="afterLink" class="image" target="_blank" rel="noopener" aria-label="Открыть итоговый скриншот в полном размере"><img id="afterImage" alt=""></a></section>
+</div>
+<p class="note">Нажмите изображение, чтобы открыть его в полном размере. Данные вымышленные и одинаковые в обоих вариантах. «После» снято на production-сборке под CSP проекта.</p>
+<details><summary>Что исправлено и как проверено</summary>
+<ul><li>Черновик сохраняется после Esc и ошибки сервера; успешное создание очищает форму.</li><li>Поиск Combobox выбирает результат текущего запроса; поздние ответы отбрасываются.</li><li>Названия стали ссылками. Мобильные меню видны сразу, таблица помещается в экран.</li><li>Доска и список сохраняют общие фильтры; компактная строка — 36 px.</li><li>На телефоне свойства задачи идут перед лентой. Дополнительные поля раскрываются отдельно.</li><li>Рабочая область непрозрачна, меньше рамок и декоративных теней, метаданные легче читать.</li><li>Контраст и семантика проверены на формах. 35 итоговых состояний прошли axe.</li><li>Пройдены 27 проверок новых сценариев под production CSP и 36 проверок прежних функций; мобильная сетка дополнительно проверена в трёх браузерах. Полный Linux-набор CI: 105 UI и 36 production-проверок.</li></ul>
+<p><a href="report.html">Исходный аудит с 14 замечаниями</a> · <a href="IMPLEMENTED.md">Подробности внедрения</a> · <a href="after/verification.json">Сводка проверок</a></p>
+</details>
+</main>
+<footer><p>Изменения визуальной иерархии — экспертное решение. Ускорение работы сотрудников ещё нужно проверить на реальных задачах.</p><p>WebKit на Windows не заменяет Safari/iOS. Проверка скринридерами и цели INP/FPS остаются отдельными проверками.</p></footer>
+<script>
+const screen=document.getElementById('screen'),theme=document.getElementById('theme'),width=document.getElementById('width'),comparison=document.getElementById('comparison');let mode='pair';
+const descriptions={list:'Названия получили больше места. Метки и направление доступны в настройках, меню действий остаётся видимым на телефоне.',board:'Колонки и карточки стали спокойнее; поиск доступен сразу, фильтры и настройки раскрываются группами.',create:'Основные поля отделены от дополнительных. Закрытие сохраняет черновик, отправка ждёт ответа сервера.',issue:'На телефоне основные свойства идут перед описанием и лентой. Дополнительные свойства собраны в отдельную группу.',home:'Сохранены полезные изменения PR #122: личные задачи и доступные проекты. Общие размеры контролов задаёт дизайн-система.',calendar:'Сохранены сценарии календаря; переключатели периода имеют семантику кнопок-фильтров. Рабочая область использует общие поверхности.',timeline:'Таймлайн использует общую рабочую поверхность и плотность; переключатель масштаба — группа кнопок-фильтров.',settings:'Manrope и темы сохранены. Плотность управляет высотами и отступами, не уменьшает размер текста.'};
+function update(){const v=screen.value;const mobiles=['list','board','home'].includes(v)?['390','320']:v==='issue'?['390']:[];for(const o of width.options)o.disabled=o.value!=='desktop'&&!mobiles.includes(o.value);if(width.selectedOptions[0].disabled)width.value='desktop';theme.disabled=width.value!=='desktop';if(theme.disabled)theme.value='light';const file=v+'-'+(width.value==='desktop'?theme.value:width.value)+'.png';for(const phase of ['before','after']){const src=(phase==='before'?'screens/':'after/screens/')+file;const img=document.getElementById(phase+'Image');img.src=src;img.alt=(phase==='before'?'Исходный':'Исправленный')+' экран: '+screen.selectedOptions[0].textContent;document.getElementById(phase+'Link').href=src;document.getElementById(phase+'Frame').hidden=mode!=='pair'&&phase!==mode;}comparison.classList.toggle('single',mode!=='pair');comparison.classList.toggle('mobile',width.value!=='desktop');document.getElementById('caption').textContent=descriptions[v];for(const b of document.querySelectorAll('[data-mode]'))b.setAttribute('aria-pressed',String(b.dataset.mode===mode));}
+for(const s of [screen,theme,width])s.addEventListener('change',update);for(const b of document.querySelectorAll('[data-mode]'))b.addEventListener('click',()=>{mode=b.dataset.mode;update()});update();
+</script>
+</body>
+</html>

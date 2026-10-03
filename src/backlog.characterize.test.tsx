@@ -420,6 +420,8 @@ describe("Список задач — характеризующие тесты 
 
     fireEvent.click(screen.getByRole("button", { name: "Колонки" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Метки", hidden: true }));
+    expect(head().some((c) => c.textContent === "Метки")).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Метки", hidden: true }));
     expect(head().some((c) => c.textContent === "Метки")).toBe(false);
     expect(JSON.parse(localStorage.getItem("taskira.list.columns")!)).not.toContain("labels");
     localStorage.removeItem("taskira.list.columns");

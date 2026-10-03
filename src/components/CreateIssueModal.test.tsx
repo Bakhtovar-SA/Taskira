@@ -11,9 +11,11 @@ vi.mock("../store", () => ({ useStore: () => ({ data, ui: { createParentId: null
 vi.mock("../issuePages", () => ({ useIssue: () => null }));
 vi.mock("./IssueSearchBox", () => ({ default: () => <input aria-label="Direction search" /> }));
 import CreateIssueModal from "./CreateIssueModal";
+import { clearCreateDrafts } from "../createDrafts";
 
 afterEach(() => {
   cleanup();
+  clearCreateDrafts();
   vi.clearAllMocks();
   delete (Element.prototype as Partial<Element>).getAnimations;
   delete (Element.prototype as Partial<Element>).scrollIntoView;
@@ -25,13 +27,14 @@ const view = (open: boolean) => (
   </I18nProvider>
 );
 
-test("пока окно уходит с анимацией, второй Enter или клик «Создать задачу» не создают дубль", () => {
+test("пока окно уходит с анимацией, второй Enter или клик «Создать задачу» не создают дубль", async () => {
+  createIssue.mockResolvedValueOnce({ id: "new-issue" });
   // Окно остаётся на экране на время ухода только там, где есть анимации (в jsdom их нет — подставляем).
   (Element.prototype as { getAnimations?: () => Animation[] }).getAnimations = () => [];
   const { rerender } = render(view(true));
   const title = screen.getByPlaceholderText(/Экран восстановления пароля/);
   fireEvent.change(title, { target: { value: "Задача" } });
-  fireEvent.keyDown(title, { key: "Enter" });
+  await act(async () => { fireEvent.keyDown(title, { key: "Enter" }); });
   expect(createIssue).toHaveBeenCalledTimes(1);
   expect(setCreateOpen).toHaveBeenCalledWith(false);
 
@@ -42,13 +45,14 @@ test("пока окно уходит с анимацией, второй Enter �
   expect(createIssue).toHaveBeenCalledTimes(1);
 });
 
-test("чек-лист расположен после описания и перед приоритетом", () => {
+test("частые свойства показаны до дополнительных полей, чек-лист остаётся доступен", () => {
   render(view(true));
   const description = screen.getByPlaceholderText(/Что нужно сделать/);
   const checklist = screen.getByPlaceholderText(/Добавить пункт и нажать Enter/);
   const priority = screen.getByRole("button", { name: /Средний/ });
   expect(description.compareDocumentPosition(checklist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(checklist.compareDocumentPosition(priority) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(priority.compareDocumentPosition(checklist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(checklist.closest("details")).toBeTruthy();
 });
 
 test("направление закрывается кликом снаружи, сохраняя черновик задачи", () => {

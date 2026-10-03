@@ -1,0 +1,992 @@
+
+> contrast:check
+> node scripts/check-contrast.mjs
+
+
+light/transparency=on/contrast=false
+  ok   16.09 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   17.00 ≥ 4.5  --text-1 on --bg-panel
+  ok    7.32 ≥ 4.5  --text-2 on --bg-canvas
+  ok    7.73 ≥ 4.5  --text-2 on --bg-panel
+  ok    6.89 ≥ 4.5  --text-2 on --bg-frame
+  ok    6.73 ≥ 4.5  --text-2 on --bg-hover
+  ok    5.90 ≥ 4.5  --text-3 on --bg-canvas
+  ok    6.23 ≥ 4.5  --text-3 on --bg-panel
+  ok    5.56 ≥ 4.5  --text-3 on --bg-frame
+  ok    5.62 ≥ 4.5  --text-3 on --bg-sunken
+  ok    6.23 ≥ 4.5  --text-3 on --bg-raised
+  ok   15.09 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    6.86 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    5.53 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   16.72 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   16.91 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    7.69 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    6.20 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   15.89 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    5.82 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    5.94 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.68 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.32 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    5.99 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.04 ≥ 3  --status-warn on --bg-panel
+  ok    5.22 ≥ 3  --accent-solid on --bg-panel
+  ok    4.94 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.68 ≥ 3  --status-done on --bg-panel
+  ok    4.57 ≥ 3  --status-danger on --bg-panel
+  ok    1.73 ≥ 1.3  --border-strong on --bg-panel
+
+light/transparency=on/contrast=true
+  ok   16.09 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   17.00 ≥ 4.5  --text-1 on --bg-panel
+  ok    7.32 ≥ 4.5  --text-2 on --bg-canvas
+  ok    7.73 ≥ 4.5  --text-2 on --bg-panel
+  ok    6.89 ≥ 4.5  --text-2 on --bg-frame
+  ok    6.73 ≥ 4.5  --text-2 on --bg-hover
+  ok    7.32 ≥ 4.5  --text-3 on --bg-canvas
+  ok    7.73 ≥ 4.5  --text-3 on --bg-panel
+  ok    6.89 ≥ 4.5  --text-3 on --bg-frame
+  ok    6.98 ≥ 4.5  --text-3 on --bg-sunken
+  ok    7.73 ≥ 4.5  --text-3 on --bg-raised
+  ok   15.09 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    6.86 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    6.86 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   16.72 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   16.91 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    7.69 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    7.69 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   15.89 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    7.23 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    7.37 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.68 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.32 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    5.99 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.04 ≥ 3  --status-warn on --bg-panel
+  ok    5.22 ≥ 3  --accent-solid on --bg-panel
+  ok    4.94 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.68 ≥ 3  --status-done on --bg-panel
+  ok    4.57 ≥ 3  --status-danger on --bg-panel
+  ok    1.73 ≥ 1.3  --border-strong on --bg-panel
+
+light/transparency=off/contrast=false
+  ok   16.09 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   17.00 ≥ 4.5  --text-1 on --bg-panel
+  ok    7.32 ≥ 4.5  --text-2 on --bg-canvas
+  ok    7.73 ≥ 4.5  --text-2 on --bg-panel
+  ok    6.89 ≥ 4.5  --text-2 on --bg-frame
+  ok    6.73 ≥ 4.5  --text-2 on --bg-hover
+  ok    5.90 ≥ 4.5  --text-3 on --bg-canvas
+  ok    6.23 ≥ 4.5  --text-3 on --bg-panel
+  ok    5.56 ≥ 4.5  --text-3 on --bg-frame
+  ok    5.62 ≥ 4.5  --text-3 on --bg-sunken
+  ok    6.23 ≥ 4.5  --text-3 on --bg-raised
+  ok   15.09 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    6.86 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    5.53 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   17.00 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   17.00 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    7.73 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    6.23 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   15.16 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    5.56 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    5.90 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.68 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.32 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    5.99 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.04 ≥ 3  --status-warn on --bg-panel
+  ok    5.22 ≥ 3  --accent-solid on --bg-panel
+  ok    4.94 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.68 ≥ 3  --status-done on --bg-panel
+  ok    4.57 ≥ 3  --status-danger on --bg-panel
+  ok    1.73 ≥ 1.3  --border-strong on --bg-panel
+
+light/transparency=off/contrast=true
+  ok   16.09 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   17.00 ≥ 4.5  --text-1 on --bg-panel
+  ok    7.32 ≥ 4.5  --text-2 on --bg-canvas
+  ok    7.73 ≥ 4.5  --text-2 on --bg-panel
+  ok    6.89 ≥ 4.5  --text-2 on --bg-frame
+  ok    6.73 ≥ 4.5  --text-2 on --bg-hover
+  ok    7.32 ≥ 4.5  --text-3 on --bg-canvas
+  ok    7.73 ≥ 4.5  --text-3 on --bg-panel
+  ok    6.89 ≥ 4.5  --text-3 on --bg-frame
+  ok    6.98 ≥ 4.5  --text-3 on --bg-sunken
+  ok    7.73 ≥ 4.5  --text-3 on --bg-raised
+  ok   15.09 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    6.86 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    6.86 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   17.00 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   17.00 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    7.73 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    7.73 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   15.16 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    6.89 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    7.32 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.68 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.32 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    5.99 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.04 ≥ 3  --status-warn on --bg-panel
+  ok    5.22 ≥ 3  --accent-solid on --bg-panel
+  ok    4.94 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.68 ≥ 3  --status-done on --bg-panel
+  ok    4.57 ≥ 3  --status-danger on --bg-panel
+  ok    1.73 ≥ 1.3  --border-strong on --bg-panel
+
+dark/transparency=on/contrast=false
+  ok   15.96 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.03 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.35 ≥ 4.5  --text-2 on --bg-canvas
+  ok    8.81 ≥ 4.5  --text-2 on --bg-panel
+  ok    9.75 ≥ 4.5  --text-2 on --bg-frame
+  ok    7.88 ≥ 4.5  --text-2 on --bg-hover
+  ok    6.01 ≥ 4.5  --text-3 on --bg-canvas
+  ok    5.66 ≥ 4.5  --text-3 on --bg-panel
+  ok    6.27 ≥ 4.5  --text-3 on --bg-frame
+  ok    6.18 ≥ 4.5  --text-3 on --bg-sunken
+  ok    5.31 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.70 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    9.79 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    6.29 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.59 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.63 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.58 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    5.51 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.14 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    6.08 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    6.17 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.16 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.72 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.17 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    7.77 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.66 ≥ 3  --status-warn on --bg-panel
+  ok    3.43 ≥ 3  --accent-solid on --bg-panel
+  ok    3.64 ≥ 3  --accent-solid on --bg-canvas
+  ok    7.03 ≥ 3  --status-done on --bg-panel
+  ok    5.23 ≥ 3  --status-danger on --bg-panel
+  ok    1.69 ≥ 1.3  --border-strong on --bg-panel
+
+dark/transparency=on/contrast=true
+  ok   15.96 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.03 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.35 ≥ 4.5  --text-2 on --bg-canvas
+  ok    8.81 ≥ 4.5  --text-2 on --bg-panel
+  ok    9.75 ≥ 4.5  --text-2 on --bg-frame
+  ok    7.88 ≥ 4.5  --text-2 on --bg-hover
+  ok    9.35 ≥ 4.5  --text-3 on --bg-canvas
+  ok    8.81 ≥ 4.5  --text-3 on --bg-panel
+  ok    9.75 ≥ 4.5  --text-3 on --bg-frame
+  ok    9.62 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.26 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.70 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    9.79 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    9.79 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.59 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.63 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.58 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    8.58 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.14 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    9.46 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    9.60 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.16 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.72 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.17 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    7.77 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.66 ≥ 3  --status-warn on --bg-panel
+  ok    3.43 ≥ 3  --accent-solid on --bg-panel
+  ok    3.64 ≥ 3  --accent-solid on --bg-canvas
+  ok    7.03 ≥ 3  --status-done on --bg-panel
+  ok    5.23 ≥ 3  --status-danger on --bg-panel
+  ok    1.69 ≥ 1.3  --border-strong on --bg-panel
+
+dark/transparency=off/contrast=false
+  ok   15.96 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.03 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.35 ≥ 4.5  --text-2 on --bg-canvas
+  ok    8.81 ≥ 4.5  --text-2 on --bg-panel
+  ok    9.75 ≥ 4.5  --text-2 on --bg-frame
+  ok    7.88 ≥ 4.5  --text-2 on --bg-hover
+  ok    6.01 ≥ 4.5  --text-3 on --bg-canvas
+  ok    5.66 ≥ 4.5  --text-3 on --bg-panel
+  ok    6.27 ≥ 4.5  --text-3 on --bg-frame
+  ok    6.18 ≥ 4.5  --text-3 on --bg-sunken
+  ok    5.31 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.70 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    9.79 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    6.29 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.10 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.47 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.48 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    5.45 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.64 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    6.27 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    6.01 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.16 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.72 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.17 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    7.77 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.66 ≥ 3  --status-warn on --bg-panel
+  ok    3.43 ≥ 3  --accent-solid on --bg-panel
+  ok    3.64 ≥ 3  --accent-solid on --bg-canvas
+  ok    7.03 ≥ 3  --status-done on --bg-panel
+  ok    5.23 ≥ 3  --status-danger on --bg-panel
+  ok    1.69 ≥ 1.3  --border-strong on --bg-panel
+
+dark/transparency=off/contrast=true
+  ok   15.96 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.03 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.35 ≥ 4.5  --text-2 on --bg-canvas
+  ok    8.81 ≥ 4.5  --text-2 on --bg-panel
+  ok    9.75 ≥ 4.5  --text-2 on --bg-frame
+  ok    7.88 ≥ 4.5  --text-2 on --bg-hover
+  ok    9.35 ≥ 4.5  --text-3 on --bg-canvas
+  ok    8.81 ≥ 4.5  --text-3 on --bg-panel
+  ok    9.75 ≥ 4.5  --text-3 on --bg-frame
+  ok    9.62 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.26 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.70 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    9.79 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    9.79 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.10 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.47 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.48 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    8.48 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.64 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    9.75 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    9.35 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.16 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.72 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.17 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    7.77 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.66 ≥ 3  --status-warn on --bg-panel
+  ok    3.43 ≥ 3  --accent-solid on --bg-panel
+  ok    3.64 ≥ 3  --accent-solid on --bg-canvas
+  ok    7.03 ≥ 3  --status-done on --bg-panel
+  ok    5.23 ≥ 3  --status-danger on --bg-panel
+  ok    1.69 ≥ 1.3  --border-strong on --bg-panel
+
+dusk/transparency=on/contrast=false
+  ok   16.33 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.48 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.89 ≥ 4.5  --text-2 on --bg-canvas
+  ok    9.37 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.28 ≥ 4.5  --text-2 on --bg-frame
+  ok    8.40 ≥ 4.5  --text-2 on --bg-hover
+  ok    6.88 ≥ 4.5  --text-3 on --bg-canvas
+  ok    6.52 ≥ 4.5  --text-3 on --bg-panel
+  ok    7.15 ≥ 4.5  --text-3 on --bg-frame
+  ok    7.07 ≥ 4.5  --text-3 on --bg-sunken
+  ok    6.15 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.98 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.28 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    7.15 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   15.15 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   15.11 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    9.15 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    6.36 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.50 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    6.95 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    7.01 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.43 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.95 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.25 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.91 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    8.00 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.92 ≥ 3  --status-warn on --bg-panel
+  ok    3.53 ≥ 3  --accent-solid on --bg-panel
+  ok    3.72 ≥ 3  --accent-solid on --bg-canvas
+  ok    7.24 ≥ 3  --status-done on --bg-panel
+  ok    5.38 ≥ 3  --status-danger on --bg-panel
+  ok    1.72 ≥ 1.3  --border-strong on --bg-panel
+
+dusk/transparency=on/contrast=true
+  ok   16.33 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.48 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.89 ≥ 4.5  --text-2 on --bg-canvas
+  ok    9.37 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.28 ≥ 4.5  --text-2 on --bg-frame
+  ok    8.40 ≥ 4.5  --text-2 on --bg-hover
+  ok    9.89 ≥ 4.5  --text-3 on --bg-canvas
+  ok    9.37 ≥ 4.5  --text-3 on --bg-panel
+  ok   10.28 ≥ 4.5  --text-3 on --bg-frame
+  ok   10.16 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.85 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.98 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.28 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok   10.28 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   15.15 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   15.11 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    9.15 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    9.15 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.50 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    9.99 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok   10.08 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.43 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.95 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.25 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.91 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    8.00 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.92 ≥ 3  --status-warn on --bg-panel
+  ok    3.53 ≥ 3  --accent-solid on --bg-panel
+  ok    3.72 ≥ 3  --accent-solid on --bg-canvas
+  ok    7.24 ≥ 3  --status-done on --bg-panel
+  ok    5.38 ≥ 3  --status-danger on --bg-panel
+  ok    1.72 ≥ 1.3  --border-strong on --bg-panel
+
+dusk/transparency=off/contrast=false
+  ok   16.33 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.48 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.89 ≥ 4.5  --text-2 on --bg-canvas
+  ok    9.37 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.28 ≥ 4.5  --text-2 on --bg-frame
+  ok    8.40 ≥ 4.5  --text-2 on --bg-hover
+  ok    6.88 ≥ 4.5  --text-3 on --bg-canvas
+  ok    6.52 ≥ 4.5  --text-3 on --bg-panel
+  ok    7.15 ≥ 4.5  --text-3 on --bg-frame
+  ok    7.07 ≥ 4.5  --text-3 on --bg-sunken
+  ok    6.15 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.98 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.28 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    7.15 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.61 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.96 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    9.06 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    6.30 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.98 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    7.15 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    6.88 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.43 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.95 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.25 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.91 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    8.00 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.92 ≥ 3  --status-warn on --bg-panel
+  ok    3.53 ≥ 3  --accent-solid on --bg-panel
+  ok    3.72 ≥ 3  --accent-solid on --bg-canvas
+  ok    7.24 ≥ 3  --status-done on --bg-panel
+  ok    5.38 ≥ 3  --status-danger on --bg-panel
+  ok    1.72 ≥ 1.3  --border-strong on --bg-panel
+
+dusk/transparency=off/contrast=true
+  ok   16.33 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.48 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.89 ≥ 4.5  --text-2 on --bg-canvas
+  ok    9.37 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.28 ≥ 4.5  --text-2 on --bg-frame
+  ok    8.40 ≥ 4.5  --text-2 on --bg-hover
+  ok    9.89 ≥ 4.5  --text-3 on --bg-canvas
+  ok    9.37 ≥ 4.5  --text-3 on --bg-panel
+  ok   10.28 ≥ 4.5  --text-3 on --bg-frame
+  ok   10.16 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.85 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.98 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.28 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok   10.28 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.61 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.96 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    9.06 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    9.06 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.98 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok   10.28 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    9.89 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.43 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.95 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.25 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.91 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    8.00 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.92 ≥ 3  --status-warn on --bg-panel
+  ok    3.53 ≥ 3  --accent-solid on --bg-panel
+  ok    3.72 ≥ 3  --accent-solid on --bg-canvas
+  ok    7.24 ≥ 3  --status-done on --bg-panel
+  ok    5.38 ≥ 3  --status-danger on --bg-panel
+  ok    1.72 ≥ 1.3  --border-strong on --bg-panel
+
+graphite/transparency=on/contrast=false
+  ok   16.11 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.14 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.64 ≥ 4.5  --text-2 on --bg-canvas
+  ok    9.06 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.04 ≥ 4.5  --text-2 on --bg-frame
+  ok    8.08 ≥ 4.5  --text-2 on --bg-hover
+  ok    6.23 ≥ 4.5  --text-3 on --bg-canvas
+  ok    5.85 ≥ 4.5  --text-3 on --bg-panel
+  ok    6.48 ≥ 4.5  --text-3 on --bg-frame
+  ok    6.41 ≥ 4.5  --text-3 on --bg-sunken
+  ok    5.50 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.84 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.08 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    6.51 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.74 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.76 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.83 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    5.71 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.19 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    6.26 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    6.36 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.08 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.66 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.15 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.79 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    7.70 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.58 ≥ 3  --status-warn on --bg-panel
+  ok    3.40 ≥ 3  --accent-solid on --bg-panel
+  ok    3.61 ≥ 3  --accent-solid on --bg-canvas
+  ok    6.97 ≥ 3  --status-done on --bg-panel
+  ok    5.18 ≥ 3  --status-danger on --bg-panel
+  ok    1.75 ≥ 1.3  --border-strong on --bg-panel
+
+graphite/transparency=on/contrast=true
+  ok   16.11 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.14 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.64 ≥ 4.5  --text-2 on --bg-canvas
+  ok    9.06 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.04 ≥ 4.5  --text-2 on --bg-frame
+  ok    8.08 ≥ 4.5  --text-2 on --bg-hover
+  ok    9.64 ≥ 4.5  --text-3 on --bg-canvas
+  ok    9.06 ≥ 4.5  --text-3 on --bg-panel
+  ok   10.04 ≥ 4.5  --text-3 on --bg-frame
+  ok    9.92 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.51 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.84 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.08 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok   10.08 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.74 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.76 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.83 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    8.83 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.19 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    9.69 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    9.84 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.08 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.66 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.15 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.79 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    7.70 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.58 ≥ 3  --status-warn on --bg-panel
+  ok    3.40 ≥ 3  --accent-solid on --bg-panel
+  ok    3.61 ≥ 3  --accent-solid on --bg-canvas
+  ok    6.97 ≥ 3  --status-done on --bg-panel
+  ok    5.18 ≥ 3  --status-danger on --bg-panel
+  ok    1.75 ≥ 1.3  --border-strong on --bg-panel
+
+graphite/transparency=off/contrast=false
+  ok   16.11 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.14 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.64 ≥ 4.5  --text-2 on --bg-canvas
+  ok    9.06 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.04 ≥ 4.5  --text-2 on --bg-frame
+  ok    8.08 ≥ 4.5  --text-2 on --bg-hover
+  ok    6.23 ≥ 4.5  --text-3 on --bg-canvas
+  ok    5.85 ≥ 4.5  --text-3 on --bg-panel
+  ok    6.48 ≥ 4.5  --text-3 on --bg-frame
+  ok    6.41 ≥ 4.5  --text-3 on --bg-sunken
+  ok    5.50 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.84 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.08 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    6.51 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.22 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.60 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.74 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    5.64 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.77 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    6.48 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    6.23 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.08 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.66 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.15 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.79 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    7.70 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.58 ≥ 3  --status-warn on --bg-panel
+  ok    3.40 ≥ 3  --accent-solid on --bg-panel
+  ok    3.61 ≥ 3  --accent-solid on --bg-canvas
+  ok    6.97 ≥ 3  --status-done on --bg-panel
+  ok    5.18 ≥ 3  --status-danger on --bg-panel
+  ok    1.75 ≥ 1.3  --border-strong on --bg-panel
+
+graphite/transparency=off/contrast=true
+  ok   16.11 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.90 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   15.14 ≥ 4.5  --text-1 on --bg-panel
+  ok    9.64 ≥ 4.5  --text-2 on --bg-canvas
+  ok    9.06 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.04 ≥ 4.5  --text-2 on --bg-frame
+  ok    8.08 ≥ 4.5  --text-2 on --bg-hover
+  ok    9.64 ≥ 4.5  --text-3 on --bg-canvas
+  ok    9.06 ≥ 4.5  --text-3 on --bg-panel
+  ok   10.04 ≥ 4.5  --text-3 on --bg-frame
+  ok    9.92 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.51 ≥ 4.5  --text-3 on --bg-raised
+  ok   16.84 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.08 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok   10.08 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   14.22 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   14.60 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.74 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    8.74 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   16.77 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok   10.04 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    9.64 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.00 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    5.70 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    9.08 ≥ 4.5  --accent-text on --bg-panel
+  ok    9.66 ≥ 4.5  --accent-text on --bg-canvas
+  ok    8.15 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    8.32 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    8.60 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    7.79 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    6.56 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    7.70 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    8.58 ≥ 3  --status-warn on --bg-panel
+  ok    3.40 ≥ 3  --accent-solid on --bg-panel
+  ok    3.61 ≥ 3  --accent-solid on --bg-canvas
+  ok    6.97 ≥ 3  --status-done on --bg-panel
+  ok    5.18 ≥ 3  --status-danger on --bg-panel
+  ok    1.75 ≥ 1.3  --border-strong on --bg-panel
+
+dawn/transparency=on/contrast=false
+  ok   15.98 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   16.93 ≥ 4.5  --text-1 on --bg-panel
+  ok    7.61 ≥ 4.5  --text-2 on --bg-canvas
+  ok    8.06 ≥ 4.5  --text-2 on --bg-panel
+  ok    7.15 ≥ 4.5  --text-2 on --bg-frame
+  ok    6.96 ≥ 4.5  --text-2 on --bg-hover
+  ok    6.14 ≥ 4.5  --text-3 on --bg-canvas
+  ok    6.50 ≥ 4.5  --text-3 on --bg-panel
+  ok    5.76 ≥ 4.5  --text-3 on --bg-frame
+  ok    5.82 ≥ 4.5  --text-3 on --bg-sunken
+  ok    6.50 ≥ 4.5  --text-3 on --bg-raised
+  ok   14.89 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    7.09 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    5.71 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   16.58 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   16.83 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.02 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    6.46 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   15.70 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    6.03 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    6.24 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.65 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.28 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.59 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    5.97 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.03 ≥ 3  --status-warn on --bg-panel
+  ok    5.20 ≥ 3  --accent-solid on --bg-panel
+  ok    4.91 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.66 ≥ 3  --status-done on --bg-panel
+  ok    4.55 ≥ 3  --status-danger on --bg-panel
+  ok    1.76 ≥ 1.3  --border-strong on --bg-panel
+
+dawn/transparency=on/contrast=true
+  ok   15.98 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   16.93 ≥ 4.5  --text-1 on --bg-panel
+  ok    7.61 ≥ 4.5  --text-2 on --bg-canvas
+  ok    8.06 ≥ 4.5  --text-2 on --bg-panel
+  ok    7.15 ≥ 4.5  --text-2 on --bg-frame
+  ok    6.96 ≥ 4.5  --text-2 on --bg-hover
+  ok    7.61 ≥ 4.5  --text-3 on --bg-canvas
+  ok    8.06 ≥ 4.5  --text-3 on --bg-panel
+  ok    7.15 ≥ 4.5  --text-3 on --bg-frame
+  ok    7.22 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.06 ≥ 4.5  --text-3 on --bg-raised
+  ok   14.89 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    7.09 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    7.09 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   16.58 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   16.83 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.02 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    8.02 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   15.70 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    7.48 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    7.75 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.65 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.28 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.59 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    5.97 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.03 ≥ 3  --status-warn on --bg-panel
+  ok    5.20 ≥ 3  --accent-solid on --bg-panel
+  ok    4.91 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.66 ≥ 3  --status-done on --bg-panel
+  ok    4.55 ≥ 3  --status-danger on --bg-panel
+  ok    1.76 ≥ 1.3  --border-strong on --bg-panel
+
+dawn/transparency=off/contrast=false
+  ok   15.98 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   16.93 ≥ 4.5  --text-1 on --bg-panel
+  ok    7.61 ≥ 4.5  --text-2 on --bg-canvas
+  ok    8.06 ≥ 4.5  --text-2 on --bg-panel
+  ok    7.15 ≥ 4.5  --text-2 on --bg-frame
+  ok    6.96 ≥ 4.5  --text-2 on --bg-hover
+  ok    6.14 ≥ 4.5  --text-3 on --bg-canvas
+  ok    6.50 ≥ 4.5  --text-3 on --bg-panel
+  ok    5.76 ≥ 4.5  --text-3 on --bg-frame
+  ok    5.82 ≥ 4.5  --text-3 on --bg-sunken
+  ok    6.50 ≥ 4.5  --text-3 on --bg-raised
+  ok   14.89 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    7.09 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    5.71 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   16.93 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   16.93 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.06 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    6.50 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   15.01 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    5.76 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    6.14 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.65 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.28 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.59 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    5.97 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.03 ≥ 3  --status-warn on --bg-panel
+  ok    5.20 ≥ 3  --accent-solid on --bg-panel
+  ok    4.91 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.66 ≥ 3  --status-done on --bg-panel
+  ok    4.55 ≥ 3  --status-danger on --bg-panel
+  ok    1.76 ≥ 1.3  --border-strong on --bg-panel
+
+dawn/transparency=off/contrast=true
+  ok   15.98 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   16.93 ≥ 4.5  --text-1 on --bg-panel
+  ok    7.61 ≥ 4.5  --text-2 on --bg-canvas
+  ok    8.06 ≥ 4.5  --text-2 on --bg-panel
+  ok    7.15 ≥ 4.5  --text-2 on --bg-frame
+  ok    6.96 ≥ 4.5  --text-2 on --bg-hover
+  ok    7.61 ≥ 4.5  --text-3 on --bg-canvas
+  ok    8.06 ≥ 4.5  --text-3 on --bg-panel
+  ok    7.15 ≥ 4.5  --text-3 on --bg-frame
+  ok    7.22 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.06 ≥ 4.5  --text-3 on --bg-raised
+  ok   14.89 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok    7.09 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    7.09 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   16.93 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   16.93 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok    8.06 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    8.06 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   15.01 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    7.15 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    7.61 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.65 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.28 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.59 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    5.97 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.03 ≥ 3  --status-warn on --bg-panel
+  ok    5.20 ≥ 3  --accent-solid on --bg-panel
+  ok    4.91 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.66 ≥ 3  --status-done on --bg-panel
+  ok    4.55 ≥ 3  --status-danger on --bg-panel
+  ok    1.76 ≥ 1.3  --border-strong on --bg-panel
+
+paper/transparency=on/contrast=false
+  ok   19.13 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   19.13 ≥ 4.5  --text-1 on --bg-panel
+  ok   12.24 ≥ 4.5  --text-2 on --bg-canvas
+  ok   12.24 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.96 ≥ 4.5  --text-2 on --bg-frame
+  ok   10.73 ≥ 4.5  --text-2 on --bg-hover
+  ok    8.48 ≥ 4.5  --text-3 on --bg-canvas
+  ok    8.48 ≥ 4.5  --text-3 on --bg-panel
+  ok    7.59 ≥ 4.5  --text-3 on --bg-frame
+  ok    7.82 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.48 ≥ 4.5  --text-3 on --bg-raised
+  ok   17.12 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.96 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    7.59 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   19.13 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   19.13 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok   12.24 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    8.48 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   17.74 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    7.86 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    8.45 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.74 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.74 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    6.05 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.08 ≥ 3  --status-warn on --bg-panel
+  ok    5.27 ≥ 3  --accent-solid on --bg-panel
+  ok    5.27 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.71 ≥ 3  --status-done on --bg-panel
+  ok    4.61 ≥ 3  --status-danger on --bg-panel
+  ok    2.88 ≥ 1.3  --border-strong on --bg-panel
+
+paper/transparency=on/contrast=true
+  ok   19.13 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   19.13 ≥ 4.5  --text-1 on --bg-panel
+  ok   12.24 ≥ 4.5  --text-2 on --bg-canvas
+  ok   12.24 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.96 ≥ 4.5  --text-2 on --bg-frame
+  ok   10.73 ≥ 4.5  --text-2 on --bg-hover
+  ok   12.24 ≥ 4.5  --text-3 on --bg-canvas
+  ok   12.24 ≥ 4.5  --text-3 on --bg-panel
+  ok   10.96 ≥ 4.5  --text-3 on --bg-frame
+  ok   11.28 ≥ 4.5  --text-3 on --bg-sunken
+  ok   12.24 ≥ 4.5  --text-3 on --bg-raised
+  ok   17.12 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.96 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok   10.96 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   19.13 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   19.13 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok   12.24 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok   12.24 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   17.74 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok   11.35 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok   12.20 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.74 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.74 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    6.05 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.08 ≥ 3  --status-warn on --bg-panel
+  ok    5.27 ≥ 3  --accent-solid on --bg-panel
+  ok    5.27 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.71 ≥ 3  --status-done on --bg-panel
+  ok    4.61 ≥ 3  --status-danger on --bg-panel
+  ok    2.88 ≥ 1.3  --border-strong on --bg-panel
+
+paper/transparency=off/contrast=false
+  ok   19.13 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   19.13 ≥ 4.5  --text-1 on --bg-panel
+  ok   12.24 ≥ 4.5  --text-2 on --bg-canvas
+  ok   12.24 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.96 ≥ 4.5  --text-2 on --bg-frame
+  ok   10.73 ≥ 4.5  --text-2 on --bg-hover
+  ok    8.48 ≥ 4.5  --text-3 on --bg-canvas
+  ok    8.48 ≥ 4.5  --text-3 on --bg-panel
+  ok    7.59 ≥ 4.5  --text-3 on --bg-frame
+  ok    7.82 ≥ 4.5  --text-3 on --bg-sunken
+  ok    8.48 ≥ 4.5  --text-3 on --bg-raised
+  ok   17.12 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.96 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok    7.59 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   19.13 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   19.13 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok   12.24 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok    8.48 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   17.12 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok    7.59 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok    8.48 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.74 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.74 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    6.05 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.08 ≥ 3  --status-warn on --bg-panel
+  ok    5.27 ≥ 3  --accent-solid on --bg-panel
+  ok    5.27 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.71 ≥ 3  --status-done on --bg-panel
+  ok    4.61 ≥ 3  --status-danger on --bg-panel
+  ok    2.88 ≥ 1.3  --border-strong on --bg-panel
+
+paper/transparency=off/contrast=true
+  ok   19.13 ≥ 4.5  --text-1 on --bg-canvas
+  ok    5.94 ≥ 4.5  --text-on-accent on --status-danger-strong
+  ok   19.13 ≥ 4.5  --text-1 on --bg-panel
+  ok   12.24 ≥ 4.5  --text-2 on --bg-canvas
+  ok   12.24 ≥ 4.5  --text-2 on --bg-panel
+  ok   10.96 ≥ 4.5  --text-2 on --bg-frame
+  ok   10.73 ≥ 4.5  --text-2 on --bg-hover
+  ok   12.24 ≥ 4.5  --text-3 on --bg-canvas
+  ok   12.24 ≥ 4.5  --text-3 on --bg-panel
+  ok   10.96 ≥ 4.5  --text-3 on --bg-frame
+  ok   11.28 ≥ 4.5  --text-3 on --bg-sunken
+  ok   12.24 ≥ 4.5  --text-3 on --bg-raised
+  ok   17.12 ≥ 4.5  --text-1 on --bg-sidebar (over --bg-frame)
+  ok   10.96 ≥ 4.5  --text-2 on --bg-sidebar (over --bg-frame)
+  ok   10.96 ≥ 4.5  --text-3 on --bg-sidebar (over --bg-frame)
+  ok   19.13 ≥ 4.5  --text-1 on --bg-glass (over --bg-canvas)
+  ok   19.13 ≥ 4.5  --text-1 on --palette-glass (over --bg-canvas)
+  ok   12.24 ≥ 4.5  --text-2 on --palette-glass (over --bg-canvas)
+  ok   12.24 ≥ 4.5  --text-3 on --palette-glass (over --bg-canvas)
+  ok   17.12 ≥ 4.5  --text-1 on --glass-side (over --bg-frame)
+  ok   10.96 ≥ 4.5  --text-3 on --glass-side (over --bg-frame)
+  ok   12.24 ≥ 4.5  --text-3 on --glass-sheet (over --bg-frame)
+  ok    5.11 ≥ 4.5  --text-on-accent on --accent-solid
+  ok    6.22 ≥ 4.5  --text-on-accent on --accent-hover
+  ok    6.74 ≥ 4.5  --accent-text on --bg-panel
+  ok    6.74 ≥ 4.5  --accent-text on --bg-canvas
+  ok    5.88 ≥ 4.5  --accent-text on --accent-subtle (over --bg-panel)
+  ok    5.75 ≥ 4.5  --status-done-fg on --status-done-bg
+  ok    5.56 ≥ 4.5  --status-progress-fg on --status-progress-bg
+  ok    6.64 ≥ 4.5  --status-todo-fg on --status-todo-bg
+  ok    5.30 ≥ 4.5  --status-danger-fg on --status-danger-bg
+  ok    6.05 ≥ 4.5  --status-danger-fg on --bg-panel
+  ok    4.08 ≥ 3  --status-warn on --bg-panel
+  ok    5.27 ≥ 3  --accent-solid on --bg-panel
+  ok    5.27 ≥ 3  --accent-solid on --bg-canvas
+  ok    3.71 ≥ 3  --status-done on --bg-panel
+  ok    4.61 ≥ 3  --status-danger on --bg-panel
+  ok    2.88 ≥ 1.3  --border-strong on --bg-panel
+
+оттенок бренда 255…320: все пары во всех темах, худший текст 4.50
+  light/transparency=on/contrast=false: текст боковой панели над фото/свечениями — худший 4.70
+  light/transparency=on/contrast=true: текст боковой панели над фото/свечениями — худший 5.84
+  light/transparency=off/contrast=false: текст боковой панели над фото/свечениями — худший 5.56
+  light/transparency=off/contrast=true: текст боковой панели над фото/свечениями — худший 6.89
+  dark/transparency=on/contrast=false: текст боковой панели над фото/свечениями — худший 4.57
+  dark/transparency=on/contrast=true: текст боковой панели над фото/свечениями — худший 7.11
+  dark/transparency=off/contrast=false: текст боковой панели над фото/свечениями — худший 6.27
+  dark/transparency=off/contrast=true: текст боковой панели над фото/свечениями — худший 9.75
+  dusk/transparency=on/contrast=false: текст боковой панели над фото/свечениями — худший 5.29
+  dusk/transparency=on/contrast=true: текст боковой панели над фото/свечениями — худший 7.61
+  dusk/transparency=off/contrast=false: текст боковой панели над фото/свечениями — худший 7.15
+  dusk/transparency=off/contrast=true: текст боковой панели над фото/свечениями — худший 10.28
+  graphite/transparency=on/contrast=false: текст боковой панели над фото/свечениями — худший 4.97
+  graphite/transparency=on/contrast=true: текст боковой панели над фото/свечениями — худший 7.70
+  graphite/transparency=off/contrast=false: текст боковой панели над фото/свечениями — худший 6.48
+  graphite/transparency=off/contrast=true: текст боковой панели над фото/свечениями — худший 10.04
+  dawn/transparency=on/contrast=false: текст боковой панели над фото/свечениями — худший 4.91
+  dawn/transparency=on/contrast=true: текст боковой панели над фото/свечениями — худший 6.10
+  dawn/transparency=off/contrast=false: текст боковой панели над фото/свечениями — худший 5.76
+  dawn/transparency=off/contrast=true: текст боковой панели над фото/свечениями — худший 7.15
+  paper/transparency=on/contrast=false: текст боковой панели над фото/свечениями — худший 7.60
+  paper/transparency=on/contrast=true: текст боковой панели над фото/свечениями — худший 10.97
+  paper/transparency=off/contrast=false: текст боковой панели над фото/свечениями — худший 7.59
+  paper/transparency=off/contrast=true: текст боковой панели над фото/свечениями — худший 10.96
+
+all pairs pass

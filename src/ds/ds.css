@@ -10,26 +10,26 @@
    ============================================================ */
 
 :root {
-  --ctl-h-sm: 28px;
-  --ctl-h-md: 32px;
-  --ctl-h-lg: 38px;
+  --ctl-h-sm: 32px;
+  --ctl-h-md: 36px;
+  --ctl-h-lg: 40px;
   --ctl-px-sm: 10px;
   --ctl-px-md: 12px;
   --ctl-px-lg: 16px;
-  --ctl-fs: 13px;
-  --ctl-fs-sm: 12.5px;
+  --ctl-fs: 14px;
+  --ctl-fs-sm: 13px;
   --row-h: 44px;
   --ds-gap: 8px;
 }
 :root[data-density="compact"] {
-  --ctl-h-sm: 24px;
-  --ctl-h-md: 28px;
-  --ctl-h-lg: 34px;
+  --ctl-h-sm: 28px;
+  --ctl-h-md: 32px;
+  --ctl-h-lg: 36px;
   --ctl-px-sm: 8px;
   --ctl-px-md: 10px;
   --ctl-px-lg: 14px;
-  --ctl-fs: 12.5px;
-  --ctl-fs-sm: 12px;
+  --ctl-fs: 14px;
+  --ctl-fs-sm: 13px;
   --row-h: 36px;
   --ds-gap: 6px;
 }
@@ -95,7 +95,7 @@
 .ds-btn[data-variant="primary"] {
   background: var(--accent-solid);
   color: var(--text-on-accent);
-  box-shadow: var(--highlight-accent), var(--elev-accent);
+  box-shadow: var(--highlight-accent);
 }
 .ds-btn[data-variant="primary"]:hover:not([aria-disabled="true"]),
 .ds-btn[data-variant="primary"][data-force~="hover"] {
@@ -430,7 +430,7 @@
 .ds-tab[data-force~="hover"] {
   color: var(--text-1);
 }
-.ds-tabs[data-variant="segmented"] .ds-tab[aria-selected="true"] {
+.ds-tabs[data-variant="segmented"] .ds-tab:is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"]) {
   background: var(--bg-panel);
   color: var(--text-1);
   box-shadow: var(--highlight-top), 0 1px 2px var(--shadow-tint);
@@ -441,10 +441,10 @@
   padding: 0 2px;
   border-radius: 0;
 }
-.ds-tabs[data-variant="line"] .ds-tab[aria-selected="true"] {
+.ds-tabs[data-variant="line"] .ds-tab:is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"]) {
   color: var(--text-1);
 }
-.ds-tabs[data-variant="line"] .ds-tab[aria-selected="true"]::after {
+.ds-tabs[data-variant="line"] .ds-tab:is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"])::after {
   content: "";
   position: absolute;
   left: 0;

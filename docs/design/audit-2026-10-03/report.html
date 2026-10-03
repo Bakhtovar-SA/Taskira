@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taskira — аудит интерфейса, 03.10.2026</title>
+<style>
+:root{color-scheme:light;--ink:#242631;--sub:#555d6b;--line:#dfe3e9;--canvas:#f5f6f8;--accent:#6244cf;--soft:#eee9fc}
+*{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}a{color:#5139aa;text-underline-offset:3px}button,input{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:4px}main{max-width:1440px;margin:auto;padding:48px 32px 64px}header{max-width:1000px;margin-bottom:36px}.eyebrow{font-size:13px;color:var(--sub);letter-spacing:.03em}h1{font-size:clamp(28px,4vw,44px);line-height:1.2;letter-spacing:-.035em;margin:12px 0 24px}h2{font-size:25px;line-height:1.35;letter-spacing:-.015em;margin:0 0 16px}h3{font-size:18px;line-height:1.4;margin:0 0 12px}p{margin:12px 0}.lead{font-size:20px;line-height:1.6}.meta{display:flex;gap:12px;flex-wrap:wrap;color:var(--sub);font-size:13px}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:36px}.card{border:1px solid var(--line);background:white;border-radius:12px;padding:24px}.card p{font-size:15px;color:var(--sub)}.number{font-size:32px;line-height:1.3;font-weight:650}.sub{color:var(--sub)}.section{margin:40px 0}.section-intro{max-width:900px}.tabs,.controls{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.tabs button,.controls button{min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px 16px;background:white;color:var(--ink)}.tabs button[aria-selected=true],.controls button[aria-pressed=true]{border-color:var(--accent);background:var(--soft);color:#432b94}.compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}.compare figure{margin:0;background:white;border:1px solid var(--line);border-radius:12px;overflow:hidden}.compare figcaption{padding:16px 20px;font-size:15px;border-bottom:1px solid var(--line)}.compare img{display:block;width:100%;height:auto}.compare a{display:block;padding:10px 20px;border-top:1px solid var(--line);font-size:13px}.warning{font-size:14px;color:var(--sub);padding:16px 20px;background:#eceef2;border-radius:8px;margin:16px 0}.search{width:min(100%,480px);min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:white}.count{font-size:14px;color:var(--sub)}.finding{background:white;border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}.finding summary{cursor:pointer;padding:18px 20px;list-style-position:inside;line-height:1.5}.finding summary strong{font-size:16px}.badge{display:inline-flex;margin:0 12px 0 4px;border-radius:5px;padding:2px 8px;font-size:12px;font-weight:650}.p1{background:#fbe9e9;color:#862727}.p2{background:#fff0d6;color:#795617}.p3{background:#eef0f3;color:#4b5260}.details{padding:0 24px 24px;border-top:1px solid #eceef2}.details p{font-size:15px}.label{font-weight:650}.gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.gallery figure{margin:0;border:1px solid var(--line);background:white;border-radius:10px;overflow:hidden}.gallery img{width:100%;height:300px;object-fit:contain;background:#e9ebf0;display:block}.gallery figcaption{padding:12px 16px;font-size:14px}.plan{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.plan h3{margin-top:8px}.plan p{font-size:15px}.sources{display:flex;gap:12px 24px;flex-wrap:wrap;font-size:14px}.footer{border-top:1px solid var(--line);padding-top:24px;margin-top:40px;font-size:14px;color:var(--sub)}[hidden]{display:none!important}code{font-size:.9em;background:#eceef4;padding:2px 5px;border-radius:4px}.doclink{display:inline-block;font-weight:600;margin-top:12px}
+@media(max-width:900px){.summary,.plan{grid-template-columns:1fr}.gallery{grid-template-columns:repeat(2,1fr)}.compare{grid-template-columns:1fr}main{padding:24px 16px}.lead{font-size:18px}}@media(max-width:480px){.gallery{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div class="eyebrow">TASKIRA · АУДИТ ПОСЛЕ PR #122</div>
+<h1>Хорошая основа.<br>Интерфейсу нужна согласованность.</h1>
+<p class="lead">Сохранить собственную библиотеку компонентов. Исправить сбои взаимодействий, отдать больше места названиям задач и снизить визуальный вес оформления.</p>
+<div class="meta"><span>3 октября 2026 · Asia/Tashkent</span><span>Версия <code>a4df7b4</code></span><span>Синтетические данные · Chromium / Windows</span></div>
+<a class="doclink" href="REPORT.md">Полный отчёт: доказательства, исходники, критерии исправления →</a>
+</header>
+<div class="summary">
+<div class="card"><div class="number">14</div><h2 style="font-size:18px">Приоритетных пунктов</h2><p>Пять дефектов P1, восемь улучшений P2, один пункт семантики P3. Приоритеты — экспертная оценка риска.</p></div>
+<div class="card"><div class="number">36</div><h2 style="font-size:18px">Скриншотов</h2><p>Светлая и тёмная темы, узкие экраны, пустые состояния и два визуальных эксперимента.</p></div>
+<div class="card"><div class="number">35</div><h2 style="font-size:18px">Успешных тестов</h2><p>26 компонентных и 9 браузерных. На реальных формах дополнительно обнаружены ошибки контраста.</p></div>
+</div>
+<section class="section" aria-labelledby="visual-heading">
+<div class="section-intro"><h2 id="visual-heading">Общий визуальный дизайн</h2><p>Фирменный характер уже есть. Оформление контейнеров и метаданных часто конкурирует с задачами. В текущем списке название получает 200 px при ширине таблицы 1012 px; на телефоне 320 px — только 92 px.</p></div>
+<div class="tabs" role="tablist" aria-label="Сравнение экранов">
+<button type="button" id="board-tab" role="tab" aria-selected="true" aria-controls="board-panel" tabindex="0">Доска</button>
+<button type="button" id="list-tab" role="tab" aria-selected="false" aria-controls="list-panel" tabindex="-1">Список</button>
+</div>
+<div id="board-panel" role="tabpanel" aria-labelledby="board-tab">
+<div class="compare">
+<figure><figcaption><strong>Текущее состояние</strong> · код после PR #122</figcaption><img src="screens/board-light.png" alt="Текущая доска с оттенками фона, округлёнными карточками и рамками метаданных"><a href="screens/board-light.png">Открыть исходный скриншот</a></figure>
+<figure><figcaption><strong>Гипотеза</strong> · спокойнее поверхности и метаданные</figcaption><img src="screens/concept-board.png" alt="Временный вариант доски с более нейтральной оболочкой и меньшим весом плашек"><a href="screens/concept-board.png">Открыть эксперимент в полном размере</a></figure>
+</div></div>
+<div id="list-panel" role="tabpanel" aria-labelledby="list-tab" hidden>
+<div class="compare">
+<figure><figcaption><strong>Текущее состояние</strong> · много колонок, короткое название</figcaption><img src="screens/list-light.png" alt="Текущий список с обрезанными названиями задач"><a href="screens/list-light.png">Открыть исходный скриншот</a></figure>
+<figure><figcaption><strong>Гипотеза</strong> · название получает больше места</figcaption><img src="screens/concept-list.png" alt="Временный вариант списка с меньшим числом колонок и широким названием"><a href="screens/concept-list.png">Открыть эксперимент в полном размере</a></figure>
+</div></div>
+<p class="warning">Эксперименты сделаны временными стилями страницы. Код приложения не изменён. Это направление для обсуждения, без исправления мобильной компоновки и без полного тестирования взаимодействий. Скрытые в примере метки и направления предлагается оставить опциональными колонками.</p>
+</section>
+<section class="section" aria-labelledby="findings-heading">
+<h2 id="findings-heading">Что исправлять</h2>
+<p>Воспроизводимые дефекты и дизайнерские гипотезы отмечены отдельно. Каждый пункт полного отчёта содержит доказательство, рекомендацию и критерий принятия.</p>
+<label for="finding-search" class="sub">Поиск по проблемам</label><br><input class="search" id="finding-search" type="search" placeholder="Например: фильтры, контраст, клавиатура">
+<div class="controls" aria-label="Приоритет проблем"><button type="button" data-priority="all" aria-pressed="true">Все</button><button type="button" data-priority="P1" aria-pressed="false">Сначала исправить · P1</button><button type="button" data-priority="P2" aria-pressed="false">Улучшения · P2</button><button type="button" data-priority="P3" aria-pressed="false">Семантика · P3</button></div>
+<p class="count" id="finding-count" role="status">Показано 14 из 14</p>
+<div id="findings"></div>
+</section>
+<section class="section" aria-labelledby="mobile-heading"><h2 id="mobile-heading">Мобильные сценарии и тёмная тема</h2>
+<div class="gallery">
+<figure><a href="screens/list-320.png"><img src="screens/list-320.png" alt="Мобильный список, 320 px"></a><figcaption>Фильтры отодвигают первую задачу примерно до 691 px.</figcaption></figure>
+<figure><a href="screens/board-320.png"><img src="screens/board-320.png" alt="Мобильная доска, 320 px"></a><figcaption>Адаптивная доска работает, но перед задачами много инструментов.</figcaption></figure>
+<figure><a href="screens/issue-390.png"><img src="screens/issue-390.png" alt="Мобильная карточка задачи, 390 px"></a><figcaption>Статус и срок располагаются после описания и пустой ленты.</figcaption></figure>
+<figure><a href="screens/issue-dark.png"><img src="screens/issue-dark.png" alt="Карточка задачи в тёмной теме"></a><figcaption>Три текстовых действия: контраст 3.64:1 при необходимом 4.5:1.</figcaption></figure>
+</div></section>
+<section class="section" aria-labelledby="plan-heading"><h2 id="plan-heading">Последовательность работы</h2><div class="plan">
+<div class="card"><span class="eyebrow">ЭТАП 1</span><h3>Надёжность</h3><p>Черновики, актуальность поиска, открытие задач с клавиатуры, контраст форм и доступность действий таблицы.</p></div>
+<div class="card"><span class="eyebrow">ЭТАП 2</span><h3>Содержимое и компоновка</h3><p>Ширина названий, мобильные фильтры, перенос условий между видами, плотность и порядок свойств задачи.</p></div>
+<div class="card"><span class="eyebrow">ЭТАП 3</span><h3>Цельный визуальный язык</h3><p>На доске и списке согласовать поверхности, типографику и метаданные. Затем применить правила к остальным экранам.</p></div>
+</div></section>
+<section class="section" aria-labelledby="library-heading"><h2 id="library-heading">Собственная библиотека или UI-кит?</h2><div class="card"><p><strong>Сохранить DS и расширить проверку реального применения.</strong> Токены, темы и нативные поверхности — хорошая основа. Но равенство зрелым UI-китам не доказано: найден дефект асинхронного выбора, размеры применяются неравномерно, семантика и адаптивные экраны требуют доведения.</p><p>Замена библиотеки не решит распределение места в таблице, порядок свойств на телефоне или сохранение рабочего набора между представлениями. Конкретный сложный компонент можно сравнить со сторонней основой отдельно.</p></div></section>
+<section class="section" aria-labelledby="sources-heading"><h2 id="sources-heading">Критерии оценки</h2><div class="sources">
+<a href="https://www.nngroup.com/articles/ten-usability-heuristics/">NN/g · эвристики UX</a>
+<a href="https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html">W3C · контраст</a>
+<a href="https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html">W3C · клавиатура</a>
+<a href="https://www.w3.org/WAI/WCAG22/Understanding/reflow.html">W3C · reflow</a>
+<a href="https://www.w3.org/WAI/ARIA/apg/patterns/combobox/">APG · combobox</a>
+<a href="https://atlassian.design/foundations/typography/">Atlassian · типографика</a>
+<a href="https://atlassian.design/foundations/spacing/">Atlassian · отступы</a>
+<a href="https://linear.app/docs/board-layout">Linear · представления задач</a>
+</div></section>
+<footer class="footer"><p>Экспертный аудит Chromium на синтетических данных. Safari, Firefox, скринридеры и полный production CSP не проверялись. Результат не является сертификацией WCAG или пользовательским исследованием.</p><p><a href="REPORT.md">Полный отчёт</a> · <a href="observations.json">Измерения и результаты axe</a> · <a href="capture.ts">Сценарий воспроизведения</a></p></footer>
+</main>
+<script>
+const findings = [
+['A01','P1','В узком списке нет действия открытия задачи с клавиатуры','Воспроизведено','На 320/390 px строка не фокусируется, название — span, меню скрыто. Tab достигает аватаров, а не открытия задачи.','Сделать название ссылкой и сохранить меню на всех ширинах.','Tab → название → Enter открывает задачу; Esc возвращает фокус.'],
+['A02','P1','Черновик новой задачи теряется после Esc','Воспроизведено в обеих темах','Введённое название после закрытия и повторного открытия пустое.','Сохранять состояние до создания или осознанного удаления черновика.','Название и другие заполненные поля сохраняются после случайного закрытия.'],
+['A03','P1','Combobox выбирает старый вариант нового поиска','Воспроизведено на витрине','Ввод «Игорь» и немедленный Enter выбирает Анну Смирнову из предыдущего списка.','Сразу инвалидировать варианты предыдущего запроса и проверять актуальность выбора.','При задержках ответа нельзя выбрать человека из устаревшего набора.'],
+['A04','P1','Контраст текстового акцента в dark недостаточен','Измерено axe','Три действия в карточке: 3.64:1. Выбранный тип задачи: 3.01:1.','Использовать токен текстового акцента, а не цвет заливки CTA.','Реальные формы, default/hover/selected: ≥4.5:1 для малого текста.'],
+['A05','P1','Правые действия таблицы обрезаются на промежуточных ширинах','Измерена геометрия','На 1065 px действия частично выходят за таблицу; на 768/720 — действия и часть исполнителей. Overflow: clip.','Адаптировать колонки либо добавить доступный горизонтальный скролл с корректным sticky-заголовком.','Действия и их фокус доступны на 1065/768/720 px.'],
+['A06','P2','Название задачи получает слишком мало места','Измерение + визуальная оценка','200 px при ширине таблицы 1012 px; 92 px в окне 320 px.','Уменьшить стандартный набор вторичных колонок; на телефоне дать названию две строки.','Обычные названия различимы без открытия карточки.'],
+['A07','P2','Мобильные инструменты занимают большую часть первого экрана','Измерение + визуальная оценка','Первая строка списка начинается около 691 px на экране 320×844.','Оставить поиск и кнопку фильтров со счётчиком; остальные инструменты раскрывать по запросу.','Первая задача видна без прокрутки; активные условия заметны.'],
+['A08','P2','Условия отбора теряются при смене вида','Воспроизведено; нужно продуктовое решение','После «Мои задачи» на доске переход в список возвращает полный набор: 3 → 21.','Переносить общие условия между видами или явно обозначить независимость наборов.','Смена представления сохраняет ожидаемый рабочий набор.'],
+['A09','P2','Компактная плотность применяется неравномерно','Измерено','Высота строки списка 44 px в обоих режимах; размеры контролов различаются по экранам.','Привязать строки и контролы к общему контракту размеров по ролям.','Compact увеличивает объём видимых данных без ухудшения читаемости.'],
+['A10','P2','Метаданные мелкие и перегружены плашками','Дизайнерская оценка','Ключи и плашки 11.5 px, множество рамок и цветных точек в одной карточке.','Важные метаданные 12–13 px; рамки оставить для значимых состояний; свойства дозировать.','Название, исполнитель и проблемный срок сканируются первыми.'],
+['A11','P2','Оформление контейнеров конкурирует с данными','Дизайнерская гипотеза','Стеклянная оболочка, вложенные округлённые зоны и плашки создают несколько уровней оформления.','Сохранить бренд и снизить вес поверхностей, теней и вложенных рамок.','Сравнить варианты на одинаковых сценариях и задачах.'],
+['A12','P2','Мобильная карточка ставит свойства после пустой ленты','Порядок воспроизведён','Статус начинается после описания, комментариев и пустой активности; срок ещё ниже.','Статус, исполнителя и срок показать сразу под заголовком; редкие свойства раскрывать.','Частые свойства находятся без прокрутки через пустую ленту.'],
+['A13','P2','Создание сразу раскрывает много необязательных свойств','Дизайнерская гипотеза','Чек-лист, направление, сложность и метки занимают место до первого создания.','Выделить минимальный путь и дополнительную секцию; учитывать настройки проекта.','Обычная задача создаётся минимальным вводом; дополнительные свойства обнаружимы.'],
+['A14','P3','Семантика вкладок и заголовков требует доведения','Код + minor axe','У Tabs нет связей с tabpanel; axe отмечает пустой заголовок действий, несмотря на aria-label.','Уточнить паттерны, добавить связи панелей/скрытый текст и проверить скринридером.','NVDA/VoiceOver сообщает выбранный вид, заголовки и смену содержимого.']
+];
+const container=document.getElementById('findings');
+for(const [id,priority,title,evidence,observation,fix,criterion] of findings){
+ const d=document.createElement('details');d.className='finding';d.dataset.priority=priority;d.dataset.search=[id,title,evidence,observation,fix,criterion].join(' ').toLocaleLowerCase('ru');
+ const s=document.createElement('summary');const badge=document.createElement('span');badge.className='badge '+priority.toLowerCase();badge.textContent=id+' · '+priority;const strong=document.createElement('strong');strong.textContent=title;s.append(badge,strong);d.append(s);
+ const body=document.createElement('div');body.className='details';for(const [label,text] of [['Доказательство',evidence],['Наблюдение',observation],['Исправление',fix],['Критерий',criterion]]){const p=document.createElement('p');const b=document.createElement('span');b.className='label';b.textContent=label+': ';p.append(b,document.createTextNode(text));body.append(p)}d.append(body);container.append(d);
+}
+let priority='all';const search=document.getElementById('finding-search');function filter(){const q=search.value.trim().toLocaleLowerCase('ru');let count=0;for(const el of container.children){const show=(priority==='all'||el.dataset.priority===priority)&&el.dataset.search.includes(q);el.hidden=!show;if(show)count++}document.getElementById('finding-count').textContent='Показано '+count+' из '+findings.length;}
+document.querySelectorAll('.controls [data-priority]').forEach(b=>b.addEventListener('click',()=>{priority=b.dataset.priority;document.querySelectorAll('.controls [data-priority]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));filter()}));search.addEventListener('input',filter);
+const tabs=[...document.querySelectorAll('[role=tab]')];function activate(tab){for(const t of tabs){const on=t===tab;t.setAttribute('aria-selected',String(on));t.tabIndex=on?0:-1;document.getElementById(t.getAttribute('aria-controls')).hidden=!on;}}for(const tab of tabs){tab.addEventListener('click',()=>activate(tab));tab.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const i=e.key==='Home'?0:e.key==='End'?tabs.length-1:(tabs.indexOf(tab)+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;activate(tabs[i]);tabs[i].focus();}})}
+</script>
+</body>
+</html>

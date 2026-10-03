@@ -126,11 +126,22 @@ export const parsePath = (pathname: string): ParsedPath => {
  *  возвращает на старый адрес, который тут же снова перепишется. */
 export const samePlace = (a: string, b: string): boolean => JSON.stringify(parsePath(a)) === JSON.stringify(parsePath(b));
 
+/** Board and list are two representations of the same project issue set. */
+export function sharesIssueFilters(a: string, b: string): boolean {
+  const from = parsePath(a), to = parsePath(b);
+  return from.kind === "view" && to.kind === "view" && from.projectKey === to.projectKey
+    && ["board", "backlog"].includes(from.view) && ["board", "backlog"].includes(to.view);
+}
+
+export function projectIssueSearch(projectKey: string, path: string, search: string): string {
+  const place = parsePath(path);
+  return place.kind === "view" && place.projectKey === projectKey && ["board", "backlog"].includes(place.view) ? search : "";
+}
+
 /** ТЗ 3.2 (план v2 Трек 3): условия фильтра в query-параметрах URL — те же имена
  *  полей, что `IssueFilterParams` (`src/api/index.ts`) и `SavedViewFilter` на сервере
- *  (`contract.ts`), без отдельной схемы кодирования. Пока используется только
- *  `Backlog.tsx` («Список задач» — самый богатый набор фильтров сейчас); `Board.tsx`
- *  не подключён в этом релизе — те же функции переиспользуются, когда дойдёт очередь. */
+ *  (`contract.ts`), без отдельной схемы кодирования. Доска и список одного проекта
+ *  разделяют эти условия; переход в другой проект начинает новый набор. */
 export interface FilterState {
   status: string;
   assignee: string;

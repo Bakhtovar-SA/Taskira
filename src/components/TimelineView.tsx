@@ -166,7 +166,7 @@ export default function TimelineView() {
         </div>
         {epics.length > 0 && (
           <div className="mb-0.5 flex shrink-0 items-center gap-2">
-            <Tabs
+            <Tabs mode="filter"
               label={t("timeline.zoom")}
               value={zoom}
               onChange={setZoom}

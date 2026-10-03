@@ -36,7 +36,7 @@ export function Combobox({
   const [id] = useState(() => dsId("cb"));
   const [q, setQ] = useState(value?.label ?? "");
   const [open, setOpen] = useState(false);
-  const [state, setState] = useState<{ status: "idle" | "loading" | "ok" | "error"; items: ComboOption[] }>({ status: "idle", items: [] });
+  const [state, setState] = useState<{ status: "idle" | "loading" | "ok" | "error"; query: string; items: ComboOption[] }>({ status: "idle", query: "", items: [] });
   const [active, setActive] = useState(0);
   const field = useRef<HTMLDivElement>(null);
   const pop = useRef<HTMLDivElement>(null);
@@ -49,29 +49,30 @@ export function Combobox({
   }, [open]);
 
   useEffect(() => {
+    const seq = ++reqSeq.current;
     if (!open) return;
     const s = q.trim();
     if (s.length < minChars) {
-      setState({ status: "idle", items: [] });
+      setState({ status: "idle", query: s, items: [] });
       return;
     }
-    const seq = ++reqSeq.current;
-    setState((st) => ({ status: "loading", items: st.items }));
+    setState({ status: "loading", query: s, items: [] });
     const t = window.setTimeout(() => {
       load(s).then(
-        (items) => seq === reqSeq.current && (setState({ status: "ok", items }), setActive(0)),
-        () => seq === reqSeq.current && setState({ status: "error", items: [] }),
+        (items) => seq === reqSeq.current && (setState({ status: "ok", query: s, items }), setActive(0)),
+        () => seq === reqSeq.current && setState({ status: "error", query: s, items: [] }),
       );
     }, 200);
-    return () => window.clearTimeout(t);
+    return () => { window.clearTimeout(t); reqSeq.current++; };
   }, [q, open, load, minChars]);
 
   const pick = (o: ComboOption) => {
+    if (state.status !== "ok" || state.query !== q.trim()) return;
     onSelect(o);
     setQ(o.label);
     setOpen(false);
   };
-  const items = state.items;
+  const items = state.status === "ok" && state.query === q.trim() ? state.items : [];
   const optId = (i: number) => `${id}-o${i}`;
 
   return (
@@ -103,21 +104,25 @@ export function Combobox({
           onFocus={() => setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onChange={(e) => {
+            reqSeq.current++;
+            setActive(0);
             setQ(e.target.value);
             setOpen(true);
           }}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return;
             if (e.key === "ArrowDown") {
               e.preventDefault();
               setOpen(true);
-              setActive((a) => Math.min(items.length - 1, a + 1));
+              setActive((a) => Math.max(0, Math.min(items.length - 1, a + 1)));
             } else if (e.key === "ArrowUp") {
               e.preventDefault();
               setActive((a) => Math.max(0, a - 1));
-            } else if (e.key === "Enter" && open && items[active]) {
+            } else if (e.key === "Enter" && open) {
               e.preventDefault();
-              pick(items[active]);
-            } else if (e.key === "Escape") {
+              if (items[active]) pick(items[active]);
+            } else if (e.key === "Escape" && open) {
+              e.preventDefault();
               setOpen(false);
             }
           }}
@@ -154,7 +159,8 @@ export function Combobox({
               </div>
             ))}
             {state.status === "ok" && items.length === 0 && <p className="px-2 py-3 text-center text-[12.5px] text-faint">{emptyText}</p>}
-            {state.status === "error" && <p className="px-2 py-3 text-center text-[12.5px] text-[var(--status-danger-fg)]">{errorText}</p>}
+            {state.status === "error" && <p role="status" className="px-2 py-3 text-center text-[12.5px] text-[var(--status-danger-fg)]">{errorText}</p>}
+            {state.status === "loading" && <span role="status" className="sr-only">{t ? t("common.loading") : "Загрузка"}</span>}
             {state.status === "loading" && items.length === 0 && (
               <div className="flex flex-col gap-2 p-2" aria-hidden="true">
                 <div className="ds-sk h-3.5 w-3/4" />

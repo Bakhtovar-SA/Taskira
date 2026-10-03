@@ -33,10 +33,41 @@ describe("Button", () => {
 });
 
 describe("Tabs", () => {
+  test("filters expose pressed buttons and all enabled choices are in the Tab order", () => {
+    render(<Tabs label="Period" value="week" onChange={() => {}} items={[{ id: "week", label: "Week" }, { id: "month", label: "Month" }]} />);
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getByRole("button", { name: "Week" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Month" }).tabIndex).toBe(0);
+  });
+
+  test("navigation preserves URLs and modified clicks; arrows move focus without navigating", () => {
+    const onChange = vi.fn();
+    render(<Tabs mode="navigation" label="Views" value="board" onChange={onChange} items={[{ id: "board", label: "Board", href: "/board?q=one" }, { id: "list", label: "List", href: "/list?q=one" }]} />);
+    const board = screen.getByRole("link", { name: "Board" });
+    const list = screen.getByRole("link", { name: "List" });
+    expect(board.getAttribute("aria-current")).toBe("page");
+    expect(list.getAttribute("href")).toBe("/list?q=one");
+    fireEvent.keyDown(board, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(list);
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(list, { ctrlKey: true });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(list);
+    expect(onChange).toHaveBeenCalledWith("list");
+  });
+
+  test("true tabs link to panels and retain a keyboard entry when the selected item is disabled", () => {
+    render(<><Tabs mode="tabs" label="Details" value="a" onChange={() => {}} items={[{ id: "a", label: "Disabled", disabled: true }, { id: "b", label: "Details", panelId: "details-panel", tabId: "details-tab" }]} /><div id="details-panel" role="tabpanel" aria-labelledby="details-tab">Content</div></>);
+    const tab = screen.getByRole("tab", { name: "Details" });
+    expect(tab.tabIndex).toBe(0);
+    expect(tab.getAttribute("aria-controls")).toBe(screen.getByRole("tabpanel").id);
+    expect(screen.getByRole("tab", { name: "Disabled" }).tabIndex).toBe(-1);
+  });
+
   test("стрелки переключают и переносят фокус, недоступная вкладка пропускается", () => {
     function T() {
       const [v, setV] = useState<"a" | "b" | "c">("a");
-      return <Tabs label="Вид" value={v} onChange={setV} items={[{ id: "a", label: "А" }, { id: "b", label: "Б", disabled: true }, { id: "c", label: "В" }]} />;
+      return <Tabs mode="tabs" label="Вид" value={v} onChange={setV} items={[{ id: "a", label: "А" }, { id: "b", label: "Б", disabled: true }, { id: "c", label: "В" }]} />;
     }
     render(<T />);
     const a = screen.getByRole("tab", { name: "А" });

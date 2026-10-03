@@ -183,9 +183,9 @@
   /* ─── Прочие токены ──────────────────────────────────────────────────── */
   --radius-xs: 4px;
   --radius-s: 6px;
-  --radius-m: 10px;
-  --radius-l: 14px;
-  --radius-xl: 20px;
+  --radius-m: 8px;
+  --radius-l: 12px;
+  --radius-xl: 16px;
 
   --dur-1: 100ms;
   --dur-2: 150ms;

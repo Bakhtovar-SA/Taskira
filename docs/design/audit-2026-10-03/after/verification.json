@@ -1,0 +1,112 @@
+{
+  "date": "2026-10-03",
+  "baseline": "a4df7b4b7f93f7b991b48207b24a286ea6e231f0",
+  "branch": "codex/design-audit-fixes",
+  "fixture": "synthetic, no working database access",
+  "unit": {
+    "command": "npm test -- --maxWorkers=3",
+    "passed": 716,
+    "failed": 0,
+    "additional": {
+      "command": "npm test -- --maxWorkers=3 src/ds/dialog.focus.test.tsx",
+      "passed": 5,
+      "failed": 0
+    }
+  },
+  "browsers": [
+    "Chromium",
+    "Firefox",
+    "WebKit on Windows"
+  ],
+  "playwright": [
+    {
+      "suite": "dev",
+      "passed": 27,
+      "failed": 0,
+      "log": "browser.log"
+    },
+    {
+      "suite": "production",
+      "passed": 27,
+      "failed": 0,
+      "log": "production-final.log",
+      "note": "Final build, including CSP and mobile initial focus/Tab checks in all three engines"
+    },
+    {
+      "suite": "regressions",
+      "passed": 36,
+      "failed": 0,
+      "log": "production-regression.log"
+    },
+    {
+      "suite": "mobile_after_final_css",
+      "passed": 6,
+      "failed": 0,
+      "log": "mobile-final.log"
+    },
+    {
+      "suite": "production_csp",
+      "passed": 3,
+      "failed": 0,
+      "log": "csp-final.log",
+      "note": "Repeated on the final build after scoping disclosure CSS; zero securitypolicyviolation events"
+    },
+    {
+      "suite": "linux_ci_ui",
+      "passed": 105,
+      "failed": 0,
+      "command": "npm run test:ui -- --workers=2 --reporter=line",
+      "log": "linux-ui.log",
+      "environment": "WSL Ubuntu, Node 22.23.3, Playwright 1.56.1 pinned Chromium 141 / build 1194"
+    },
+    {
+      "suite": "linux_ci_production",
+      "passed": 36,
+      "failed": 0,
+      "command": "npm run test:ui:production -- --workers=2 --reporter=line",
+      "log": "linux-production.log",
+      "environment": "WSL Ubuntu, Node 22.23.3, Playwright 1.56.1 pinned Chromium"
+    }
+  ],
+  "axe": {
+    "states": 35,
+    "violations": 0
+  },
+  "commands": {
+    "typecheck": "pass",
+    "colors:check": "pass",
+    "contrast:check": "pass",
+    "motion:check": "pass",
+    "antilist:check": "pass",
+    "docs:check": "pass",
+    "build": "pass",
+    "bundle:check": "pass"
+  },
+  "bundle_gzip_bytes": {
+    "baseline": {
+      "js": 328461,
+      "css": 27654,
+      "entry": 99454,
+      "total": 356115
+    },
+    "after": {
+      "js": 332065,
+      "css": 27800,
+      "entry": 100827,
+      "total": 359865
+    },
+    "delta": 3750
+  },
+  "limitations": [
+    "No real user study or measured improvement in task speed",
+    "No NVDA/VoiceOver or actual Safari/iOS test",
+    "No server suite/live API/working database validation",
+    "Existing INP/FPS targets were not remeasured",
+    "Drafts are in memory and do not survive page reload"
+  ],
+  "visual_baselines": {
+    "platform": "Linux Chromium, Playwright 1.56.1",
+    "updated": 22,
+    "verified": "All 27 ui.visual.pw.ts checks pass inside the full 105-test UI suite"
+  }
+}

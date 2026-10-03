@@ -56,7 +56,8 @@ for (const theme of ["light", "dark"]) test(`all four priorities, single-project
   await page.goto("/p/TEST/board");
   const cards = page.locator("article[data-issue-id]"); await expect(cards).toHaveCount(4);
   for (const [n, label] of [[1, "Низкий"], [2, "Средний"], [3, "Высокий"], [4, "Критичный"]] as const) await expect(page.locator(`article[data-issue-id="i${n}"]`).getByRole("img", { name: label, exact: true })).toBeVisible();
-  const calendar = page.getByRole("tab", { name: "Календарь", exact: true });
+  const calendar = page.getByRole("link", { name: "Календарь", exact: true });
+  await expect(calendar).toHaveAttribute("href", "/p/TEST/calendar");
   await expect.poll(() => calendar.evaluate(el => {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {

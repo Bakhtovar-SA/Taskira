@@ -491,6 +491,23 @@ describe("useRouterSync — URL → состояние, полный путь (�
     expect(get().ui.view).toBe("board");
   });
 
+  test("board and list preserve their shared filters, another project starts clean", async () => {
+    history.pushState(null, "", "/p/AA/board?assignee=u1&overdue=1&q=contract");
+    install();
+    const get = mount();
+    await settle();
+    act(() => get().setView("backlog"));
+    await settle();
+    expect(location.pathname).toBe("/p/AA/list");
+    expect(location.search).toBe("?assignee=u1&overdue=1&q=contract");
+    act(() => get().setView("board"));
+    await settle();
+    expect(location.search).toBe("?assignee=u1&overdue=1&q=contract");
+    act(() => get().switchProject(P2));
+    await settle();
+    expect(location.search).toBe("");
+  });
+
   test("старая ссылка /p/KEY/backlog?фильтры → /p/KEY/list с теми же фильтрами, без лишней записи в истории (ADR-0013 §5)", async () => {
     history.pushState(null, "", "/p/BB/backlog?status=s1&priority=high");
     const before = history.length;

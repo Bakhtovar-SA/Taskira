@@ -1,0 +1,5 @@
+
+> antilist:check
+> node scripts/check-antilist.mjs
+
+анти-список: капс-подписей и стрелок в текстах кнопок нет

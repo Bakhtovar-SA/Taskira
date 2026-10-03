@@ -1,0 +1,115 @@
+
+[1A[2K[WebServer] (node:25844) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 24 tests using 3 workers
+
+
+
+[1A[2K(node:15308) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:28324) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:26860) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:28324) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K(node:15308) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+
+
+[1A[2K(node:26860) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[1/24] [chromium] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (light)
+[1A[2K[2/24] [chromium] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+[1A[2K[3/24] [chromium] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (light)
+[1A[2K[chromium] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+
+[1A[2K[4/24] [chromium] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (light)
+[1A[2K[5/24] [chromium] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (dark)
+[1A[2K[6/24] [chromium] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+
+[1A[2K[chromium] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+[1A[2K[7/24] [chromium] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (dark)
+[1A[2K[8/24] [chromium] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (dark)
+
+
+[1A[2K(node:25692) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:28032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:25692) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:28032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[9/24] [firefox] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (light)
+[1A[2K[10/24] [firefox] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+
+
+[1A[2K(node:2028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:2028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[11/24] [firefox] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (light)
+[1A[2K[12/24] [firefox] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (light)
+[1A[2K[13/24] [firefox] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (dark)
+[1A[2K[14/24] [firefox] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+[1A[2K[15/24] [firefox] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (dark)
+[1A[2K[16/24] [firefox] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (dark)
+
+
+[1A[2K(node:14584) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K(node:17596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+[1A[2K(node:22516) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K(node:14584) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[17/24] [webkit] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (light)
+
+[1A[2K(node:17596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[18/24] [webkit] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+
+[1A[2K(node:22516) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[19/24] [webkit] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (light)
+[1A[2K[webkit] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (light)
+
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+[1A[2K[20/24] [webkit] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (light)
+[1A[2K[21/24] [webkit] › e2e\design-audit.pw.ts:162:3 › task links, actions and table reflow (dark)
+[1A[2K[22/24] [webkit] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+[1A[2K[23/24] [webkit] › e2e\design-audit.pw.ts:276:3 › board and list retain filters and readable density (dark)
+[1A[2K[webkit] › e2e\design-audit.pw.ts:205:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+
+[1A[2K[24/24] [webkit] › e2e\design-audit.pw.ts:306:3 › mobile properties precede activity and actual forms pass axe (dark)
+[1A[2K  24 passed (1.1m)

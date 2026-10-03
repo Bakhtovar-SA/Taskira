@@ -91,7 +91,7 @@ for (const theme of ["light", "dark"]) {
     await expect(page.locator("article[data-issue-id]")).toHaveCount(3);
     for (const width of [1440, 1065, 768, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
-      await expect(page.getByRole("tab", { name: "Доска", exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Доска", exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       const search = page.getByRole("textbox", { name: "Фильтр по доске" });
       const box = (await search.boundingBox())!;
@@ -125,8 +125,8 @@ for (const theme of ["light", "dark"]) {
       }
     }
     await page.setViewportSize({ width: 1065, height: 900 });
-    const tabs = page.getByRole("tablist", { name: "Представления проекта" });
-    for (const tab of await tabs.getByRole("tab").all()) {
+    const tabs = page.getByRole("navigation", { name: "Представления проекта" });
+    for (const tab of await tabs.getByRole("link").all()) {
       const box = (await tab.boundingBox())!;
       expect(box.x + box.width).toBeLessThanOrEqual(1065);
     }

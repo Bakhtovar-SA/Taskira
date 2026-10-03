@@ -1,0 +1,5 @@
+
+> motion:check
+> node scripts/check-motion.mjs
+
+motion: 444 правил CSS, 27 keyframes — длительности из токенов, ≤ 450 мс, reduced-motion покрыт

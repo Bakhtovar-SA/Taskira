@@ -7,7 +7,7 @@ import { denialText } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
-import { IcBell, IcCalendar, IcCheck, IcChevD, IcChevR, IcExpand, IcEye, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { IcBell, IcCalendar, IcCheck, IcChevD, IcChevR, IcExpand, IcEye, IcDots, IcLink, IcLock, IcPencil, IcSend, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { catColor, labelTone } from "../ui";
 import { Button, Checkbox, Combobox, DatePicker, Dialog, Menu, Popover, SidePanel, Tag } from "../ds";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
@@ -36,7 +36,7 @@ export function MentionText({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         /^@[a-z0-9._-]{3,32}$/i.test(p) ? (
-          <span key={i} className="rounded bg-accentsoft px-1 font-semibold text-accent">
+          <span key={i} className="rounded bg-accentsoft px-1 font-semibold text-accenttext">
             {p}
           </span>
         ) : (
@@ -79,7 +79,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
       <Field label={t("issue.collaborators")}>
         <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
           <span>{t("issue.noCollaborators")}</span>
-          <button onClick={() => setExpand(true)} className="font-semibold text-accent hover:underline">{t("issue.invitePlus")}</button>
+          <button onClick={() => setExpand(true)} className="font-semibold text-accenttext hover:underline">{t("issue.invitePlus")}</button>
         </div>
       </Field>
     );
@@ -185,7 +185,7 @@ function AttachmentField({ issue }: { issue: Issue }) {
         {hiddenInput}
         <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
           <span>{t("issue.noFiles")}</span>
-          <button onClick={() => fileRef.current?.click()} className="font-semibold text-accent hover:underline">{t("issue.filePlus")}</button>
+          <button onClick={() => fileRef.current?.click()} className="font-semibold text-accenttext hover:underline">{t("issue.filePlus")}</button>
         </div>
       </Field>
     );
@@ -204,7 +204,7 @@ function AttachmentField({ issue }: { issue: Issue }) {
               <IcLink size={11} className="shrink-0 text-faint" />
               <button
                 onClick={() => downloadAttachment(issue.id, a)}
-                className="min-w-0 flex-1 truncate text-left text-ink transition-colors hover:text-accent"
+                className="min-w-0 flex-1 truncate text-left text-ink transition-colors hover:text-accenttext"
                 title={t("issue.downloadFile", { filename: a.filename })}
               >
                 {a.filename}
@@ -302,7 +302,7 @@ function SubtasksField({ issue }: { issue: Issue }) {
       {canCreate && (
         <button
           onClick={() => openCreateSubtask(issue.id)}
-          className={`flex items-center gap-1 text-[11.5px] font-semibold text-accent hover:underline ${children.length > 0 || archivedCount > 0 ? "mt-1.5" : ""}`}
+          className={`flex items-center gap-1 text-[11.5px] font-semibold text-accenttext hover:underline ${children.length > 0 || archivedCount > 0 ? "mt-1.5" : ""}`}
         >
           {t("issue.addSubtask")}
         </button>
@@ -486,7 +486,7 @@ function LinksField({ issue }: { issue: Issue }) {
       <Field label={t("issue.links")}>
         <div className="flex items-center justify-between rounded-md border border-dashed border-line px-2.5 py-1.5 text-[11.5px] text-faint">
           <span>{t("issue.noLinks")}</span>
-          <button onClick={() => setExpand(true)} className="font-semibold text-accent hover:underline">
+          <button onClick={() => setExpand(true)} className="font-semibold text-accenttext hover:underline">
             {t("issue.linkPlus")}
           </button>
         </div>
@@ -510,7 +510,7 @@ function LinksField({ issue }: { issue: Issue }) {
               <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: c.dot }} title={l.issue.statusCategory} />
               <button
                 onClick={() => openIssue(l.issue.id)}
-                className="shrink-0 font-mono text-[11px] font-semibold text-accent hover:underline"
+                className="shrink-0 font-mono text-[11px] font-semibold text-accenttext hover:underline"
               >
                 {l.issue.key}
               </button>
@@ -543,7 +543,7 @@ function LinksField({ issue }: { issue: Issue }) {
             </select>
             <button
               onClick={() => setPicking((v) => !v)}
-              className="rounded-md border border-line bg-panel px-2.5 py-1 text-[11.5px] font-semibold text-accent transition-colors hover:border-accent"
+              className="rounded-md border border-line bg-panel px-2.5 py-1 text-[11.5px] font-semibold text-accenttext transition-colors hover:border-accent"
             >
               {picking ? t("common.cancel") : t("issue.linkPlus")}
             </button>
@@ -709,7 +709,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   const content = (
     <>
       {/* шапка */}
-      <div data-issue-details={issue.id} className={`flex items-center gap-2 border-b border-linesoft px-5 py-3 ${page ? "sticky top-0 z-10 bg-[color-mix(in_oklch,var(--bg-canvas)_96%,transparent)]" : ""}`}>
+      <div data-issue-details={issue.id} className={`issue-toolbar flex items-center gap-2 border-b border-linesoft px-5 py-3 ${page ? "sticky top-0 z-10 bg-[color-mix(in_oklch,var(--bg-canvas)_96%,transparent)]" : ""}`}>
         {page && (
           <>
             <button onClick={() => openIssue(null)} className="-ml-1.5 flex h-7 items-center gap-1 rounded-md pl-1 pr-2 text-[12.5px] font-semibold text-sub transition-colors hover:bg-hover hover:text-ink">
@@ -722,7 +722,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
         <span title={t(`issueType.${issue.typeId}`)} className="flex items-center">
           <TypeIcon type={issue.typeId} size={16} />
         </span>
-        <span className="font-mono text-[12.5px] text-sub">{issue.key}</span>
+        <span className="shrink-0 whitespace-nowrap font-mono text-[13px] text-sub">{issue.key}</span>
         {/* parentIssue может отсутствовать в загруженном data.issues (родитель
             заархивирован worker'ом после закрытия, или в проекте больше задач,
             чем клиент подгрузил на bootstrap) — тогда бейдж скрываем целиком
@@ -730,7 +730,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
         {issue.parentId && parentIssue && (
           <button
             onClick={() => openIssue(issue.parentId)}
-            className="flex items-center gap-1 rounded bg-linesoft px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:bg-accentsoft hover:text-accent"
+            className="flex items-center gap-1 rounded bg-linesoft px-1.5 py-0.5 text-[10.5px] font-semibold text-sub transition-colors hover:bg-accentsoft hover:text-accenttext"
             title={t("issue.openParent")}
           >
             {t("issue.subtaskOf", { key: parentIssue.key })}
@@ -742,6 +742,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               <IcEye size={11} /> {t("issue.readOnly")}
             </span>
           )}
+          <div className="hidden items-center gap-1 sm:flex">
           {!page && (
             <>
               <button onClick={() => go(-1)} disabled={!hasPrev} className={iconBtn} title={`${t("issue.prev")} · K`} aria-label={t("issue.prev")}>
@@ -756,7 +757,9 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               </button>
             </>
           )}
+          </div>
           <WatchButton projectId={data.currentProjectId} issueId={issue.id} watch={issue.watch ?? null} />
+          <div className="hidden items-center gap-1 sm:flex">
           <button onClick={copyLink} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink" title={t("issue.copyLink")}>
             <IcLink size={15} />
           </button>
@@ -772,191 +775,45 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 <button onClick={() => setConfirmDel(false)} className="text-[11px] font-semibold text-sub hover:text-ink">{t("common.no")}</button>
               </span>
             ))}
+          </div>
+          <div className="sm:hidden">
+            <Menu label={t("common.actions")} placement="bottom-end"
+              trigger={p => <button {...p} type="button" className="ds-focus flex h-11 w-11 items-center justify-center rounded-md text-sub" aria-label={t("common.actions")}><IcDots size={18} /></button>}
+              items={[
+                ...(!page ? [
+                  { id: "prev", label: t("issue.prev"), disabled: !hasPrev, onSelect: () => go(-1) },
+                  { id: "next", label: t("issue.next"), disabled: !hasNext, onSelect: () => go(1) },
+                  { id: "full", label: t("issue.openFull"), onSelect: () => openIssue(issue.id, "page") },
+                ] : []),
+                { id: "copy", label: t("issue.copyLink"), icon: <IcLink size={15} />, onSelect: copyLink },
+                ...(canDelete ? [{ id: "delete", label: t("common.delete"), icon: <IcTrash size={15} />, danger: true, onSelect: () => setConfirmDel(true) }] : []),
+              ]} />
+          </div>
           <button onClick={() => openIssue(null)} className="flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink" aria-label={t("common.close")}>
             <IcX size={15} />
           </button>
         </div>
       </div>
+      {confirmDel && <div className="flex flex-wrap items-center gap-3 bg-dangersoft px-4 py-2 text-[13px] sm:hidden" role="alert">
+        <span>{t("issue.deleteConfirm")}</span>
+        <Button variant="danger" onClick={() => deleteIssue(issue.id)}>{t("common.yes")}</Button>
+        <Button variant="ghost" onClick={() => setConfirmDel(false)}>{t("common.no")}</Button>
+      </div>}
+
 
       {/* Ниже ~720px карточка складывается в одну колонку: именно её открывают
           по ссылке из письма, в том числе с телефона (аудит UX-03). */}
-      <div className="grid min-h-[calc(100%-49px)] grid-cols-1 gap-0 md:grid-cols-[1fr_300px]">
-        {/* основная колонка */}
-        <div className="min-w-0 px-6 py-5">
+      <div className="issue-layout">
+        <section className="issue-heading min-w-0 px-6 pt-5">
           {!page && (hasPrev || hasNext) && (
             <Hint id="issue-nav" className="mb-3">
               {t("hint.issueNav")}
             </Hint>
           )}
           <EditableTitle issue={issue} readOnly={!editOk} />
-
-          {/* описание — сам блок кликабелен для входа в редактирование (отдельной
-              кнопки «Редактировать» нет, как у EditableTitle) */}
-          <div className="mt-4">
-            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("issue.description")}</p>
-            {editingDesc ? (
-              <div className="anim-fadeup">
-                <textarea
-                  autoFocus
-                  value={descDraft}
-                  onChange={(e) => setDescDraft(e.target.value)}
-                  onBlur={saveDesc}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setEditingDesc(false);
-                    }
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (e.target as HTMLTextAreaElement).blur();
-                  }}
-                  rows={5}
-                  placeholder={t("issue.descriptionPlaceholder")}
-                  className="w-full resize-y rounded-md border border-accent bg-panel p-2.5 text-[13px] leading-relaxed outline-none ring-2 ring-accent/15"
-                />
-                <p className="mt-1 text-[11.5px] text-faint">{t("issue.descSaveHint")}</p>
-              </div>
-            ) : issue.description ? (
-              editOk ? (
-                <div
-                  role="button"
-                  tabIndex={0}
-                  // Клик в режим правки — но не мешать выделению текста мышью для копирования:
-                  // если пользователь что-то выделил, click после mouseup режим не переключает.
-                  onClick={() => {
-                    if (window.getSelection()?.toString()) return;
-                    setDescDraft(issue.description);
-                    setEditingDesc(true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setDescDraft(issue.description);
-                      setEditingDesc(true);
-                    }
-                  }}
-                  title={t("issue.clickToEdit")}
-                  className="group cursor-text whitespace-pre-wrap rounded-md bg-sunken p-3 text-[13px] leading-relaxed text-sub transition-colors hover:bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                >
-                  <MentionText text={issue.description} />
-                  <IcPencil size={12} className="ml-1.5 inline align-text-bottom text-faint opacity-0 transition-opacity group-hover:opacity-100" />
-                </div>
-              ) : (
-                <p className="whitespace-pre-wrap rounded-md bg-sunken p-3 text-[13px] leading-relaxed text-sub"><MentionText text={issue.description} /></p>
-              )
-            ) : editOk ? (
-              <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accent">
-                {t("issue.addDescription")}
-              </button>
-            ) : (
-              <p className="rounded-md border border-dashed border-line2 px-3 py-3 text-[12.5px] text-faint">{t("issue.noDescription")}</p>
-            )}
-          </div>
-
-          {/* Лента (ТЗ 5.12 d): комментарии и история — одна лента по времени, переключатель сужает её. */}
-          <div role="group" aria-label={t("issue.feed.label")} className="mt-6 flex items-center gap-1 border-b border-linesoft">
-            {(
-              [
-                ["all", t("issue.feed.all")],
-                ["comments", t("issue.commentsCount", { count: issue.comments.length })],
-                ["history", t("issue.activityCount", { count: issue.activity.length })],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={feed === id}
-                onClick={() => setFeed(id)}
-                className={`relative px-3 py-2 text-[13px] font-medium transition-colors ${feed === id ? "text-ink" : "text-faint hover:text-ink"}`}
-              >
-                {label}
-                {feed === id && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-3.5 space-y-4">
-            {feed !== "history" &&
-              (canComment ? (
-                <div className="flex gap-2.5">
-                  <UserAvatar user={me} size={28} interactive />
-                  <div className="flex-1">
-                    <textarea
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitComment();
-                      }}
-                      rows={2}
-                      maxLength={LIMITS.comment.max}
-                      placeholder={t("issue.commentPlaceholder")}
-                      className="w-full resize-y rounded-md border border-line bg-panel p-2.5 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15"
-                    />
-                    <div className="mt-1.5 flex justify-end">
-                      <button
-                        onClick={submitComment}
-                        disabled={!comment.trim()}
-                        className="flex items-center gap-1.5 rounded-lg btn-primary px-3 py-1.5 text-[12px] font-medium text-onaccent transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <IcSend size={12} /> {t("issue.send")}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="flex items-center gap-2 rounded-md border border-dashed border-line2 bg-sunken px-3 py-2.5 text-[12px] text-faint">
-                  <IcLock size={13} /> {t("issue.commentDenied")}
-                </p>
-              ))}
-
-            {(() => {
-              // Новые сверху. Комментарий — пузырь с текстом; событие истории — тихая строка с аватаром.
-              const items = [
-                ...(feed !== "history" ? issue.comments.map((c) => ({ kind: "comment" as const, ts: c.ts, c })) : []),
-                ...(feed !== "comments" ? issue.activity.map((a) => ({ kind: "event" as const, ts: a.ts, a })) : []),
-              ].sort((x, y) => y.ts - x.ts);
-              if (!items.length)
-                return (
-                  <p className="py-3 text-center text-[12px] text-faint">
-                    {feed === "comments" ? t("issue.noComments") : feed === "history" ? t("issue.noActivity") : t("issue.feedEmpty")}
-                  </p>
-                );
-              return items.map((it) => {
-                if (it.kind === "comment") {
-                  const u = data.users.find((x) => x.id === it.c.authorId);
-                  return (
-                    <div key={`c-${it.c.id}`} className="anim-fadeup flex gap-2.5">
-                      <UserAvatar user={u ?? null} size={28} interactive />
-                      <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
-                        <p className="text-[12px]">
-                          <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(it.c.ts, lang)}</span>
-                        </p>
-                        <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-sub">
-                          <MentionText text={it.c.body} />
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-                // Профиль автора приходит вместе с записью: история переживает вывод человека из проекта.
-                const who = it.a.author;
-                return (
-                  <div key={`a-${it.a.id}`} className="flex items-start gap-2.5 pl-1">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-                      <UserAvatar user={who} size={18} interactive />
-                    </span>
-                    <p className="text-[12.5px] leading-snug text-sub">
-                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {activityLine(it.a.event, it.a.text, t, lang)}
-                      <span className="ml-1.5 text-[11px] text-faint">{relTime(it.a.ts, lang)}</span>
-                    </p>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        </div>
-
+        </section>
         {/* правая панель */}
-        <aside className="space-y-3.5 border-t border-linesoft bg-sunken/80 px-4 py-5 md:border-l md:border-t-0">
+        <aside className="issue-properties space-y-4 border-y border-linesoft bg-panel px-4 py-4">
           {!editOk && (
             <div className="flex items-start gap-2 rounded-md border border-line bg-warnsoft/50 px-2.5 py-2 text-[11.5px] leading-snug text-warn">
               <IcLock size={13} className="mt-0.5 shrink-0" />
@@ -997,7 +854,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                         </Tag>
                       </span>
                     ),
-                    hint: s.id === issue.statusId ? <IcCheck size={12} className="text-accent" /> : !allowed ? <IcLock size={12} /> : undefined,
+                    hint: s.id === issue.statusId ? <IcCheck size={12} className="text-accenttext" /> : !allowed ? <IcLock size={12} /> : undefined,
                     onSelect: () => moveStatus(issue.id, s.id, null),
                   };
                 }),
@@ -1068,7 +925,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     text: t(`priority.${p}`),
                     icon: <PriorityIcon p={p} size={14} />,
                     label: t(`priority.${p}`),
-                    hint: issue.priorityId === p ? <IcCheck size={12} className="text-accent" /> : undefined,
+                    hint: issue.priorityId === p ? <IcCheck size={12} className="text-accenttext" /> : undefined,
                     onSelect: () => updateIssue(issue.id, { priorityId: p }),
                   }))}
                 />
@@ -1093,6 +950,11 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 )}
               </Field>
             </div>
+          </div>
+          <details className="form-disclosure">
+            <summary className="ds-focus">{t("workspace.moreProperties")}</summary>
+            <div className="space-y-4 pt-4">
+              <div>
             <div className="min-w-[104px] flex-1">
               <Field label={t("field.complexity")}>
                 {editOk ? (
@@ -1110,7 +972,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     id: c ?? "none",
                     text: c ? t(`complexity.${c}`) : t("complexity.none"),
                     label: c ? t(`complexity.${c}`) : t("complexity.none"),
-                    hint: issue.complexity === c ? <IcCheck size={12} className="text-accent" /> : undefined,
+                    hint: issue.complexity === c ? <IcCheck size={12} className="text-accenttext" /> : undefined,
                     onSelect: () => updateIssue(issue.id, { complexity: c }),
                   }))}
                 />
@@ -1299,6 +1161,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 {editOk && (
                   <input
                     value={labelInput}
+                    aria-label={t("field.labels")}
                     onChange={(e) => setLabelInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
@@ -1330,17 +1193,12 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               </div>
             </Field>
 
-            <SubtasksField issue={issue} />
-
-            <ChecklistField issue={issue} />
-
             <CustomFieldsSection issue={issue} />
 
             <LinksField issue={issue} />
 
             <CollaboratorField issue={issue} />
 
-            <AttachmentField issue={issue} />
           </div>
 
           <div className="space-y-1.5 border-t border-linesoft pt-3.5 text-[12px] text-faint">
@@ -1348,7 +1206,183 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
             <p className="flex justify-between gap-2"><span>{t("issue.created")}</span><span>{relTime(issue.createdAt, lang)}</span></p>
             <p className="flex justify-between gap-2"><span>{t("issue.updated")}</span><span>{relTime(issue.updatedAt, lang)}</span></p>
           </div>
+            </div>
+          </details>
         </aside>
+        <section className="issue-content min-w-0 px-6 pb-5">
+
+          {/* описание — сам блок кликабелен для входа в редактирование (отдельной
+              кнопки «Редактировать» нет, как у EditableTitle) */}
+          <div className="mt-4">
+            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("issue.description")}</p>
+            {editingDesc ? (
+              <div className="anim-fadeup">
+                <textarea
+                  autoFocus
+                  aria-label={t("issue.description")}
+                  value={descDraft}
+                  onChange={(e) => setDescDraft(e.target.value)}
+                  onBlur={saveDesc}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingDesc(false);
+                    }
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (e.target as HTMLTextAreaElement).blur();
+                  }}
+                  rows={5}
+                  placeholder={t("issue.descriptionPlaceholder")}
+                  className="w-full resize-y rounded-md border border-accent bg-panel p-2.5 text-[13px] leading-relaxed outline-none ring-2 ring-accent/15"
+                />
+                <p className="mt-1 text-[11.5px] text-faint">{t("issue.descSaveHint")}</p>
+              </div>
+            ) : issue.description ? (
+              editOk ? (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  // Клик в режим правки — но не мешать выделению текста мышью для копирования:
+                  // если пользователь что-то выделил, click после mouseup режим не переключает.
+                  onClick={() => {
+                    if (window.getSelection()?.toString()) return;
+                    setDescDraft(issue.description);
+                    setEditingDesc(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setDescDraft(issue.description);
+                      setEditingDesc(true);
+                    }
+                  }}
+                  title={t("issue.clickToEdit")}
+                  className="group cursor-text whitespace-pre-wrap rounded-md bg-sunken p-3 text-[13px] leading-relaxed text-sub transition-colors hover:bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                >
+                  <MentionText text={issue.description} />
+                  <IcPencil size={12} className="ml-1.5 inline align-text-bottom text-faint opacity-0 transition-opacity group-hover:opacity-100" />
+                </div>
+              ) : (
+                <p className="whitespace-pre-wrap rounded-md bg-sunken p-3 text-[13px] leading-relaxed text-sub"><MentionText text={issue.description} /></p>
+              )
+            ) : editOk ? (
+              <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accenttext">
+                {t("issue.addDescription")}
+              </button>
+            ) : (
+              <p className="rounded-md border border-dashed border-line2 px-3 py-3 text-[12.5px] text-faint">{t("issue.noDescription")}</p>
+            )}
+          </div>
+
+          {/* Лента (ТЗ 5.12 d): комментарии и история — одна лента по времени, переключатель сужает её. */}
+          <div className="issue-related mt-5 space-y-4 border-t border-linesoft pt-4">
+            <SubtasksField issue={issue} />
+            <ChecklistField issue={issue} />
+            <AttachmentField issue={issue} />
+          </div>
+
+          <div role="group" aria-label={t("issue.feed.label")} className="mt-6 flex items-center gap-1 border-b border-linesoft">
+            {(
+              [
+                ["all", t("issue.feed.all")],
+                ["comments", t("issue.commentsCount", { count: issue.comments.length })],
+                ["history", t("issue.activityCount", { count: issue.activity.length })],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={feed === id}
+                onClick={() => setFeed(id)}
+                className={`relative px-3 py-2 text-[13px] font-medium transition-colors ${feed === id ? "text-ink" : "text-faint hover:text-ink"}`}
+              >
+                {label}
+                {feed === id && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3.5 space-y-4">
+            {feed !== "history" &&
+              (canComment ? (
+                <div className="flex gap-2.5">
+                  <UserAvatar user={me} size={28} interactive />
+                  <div className="flex-1">
+                    <textarea
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitComment();
+                      }}
+                      rows={2}
+                      maxLength={LIMITS.comment.max}
+                      placeholder={t("issue.commentPlaceholder")}
+                      className="w-full resize-y rounded-md border border-line bg-panel p-2.5 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15"
+                    />
+                    <div className="mt-1.5 flex justify-end">
+                      <button
+                        onClick={submitComment}
+                        disabled={!comment.trim()}
+                        className="flex items-center gap-1.5 rounded-lg btn-primary px-3 py-1.5 text-[12px] font-medium text-onaccent transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <IcSend size={12} /> {t("issue.send")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="flex items-center gap-2 rounded-md border border-dashed border-line2 bg-sunken px-3 py-2.5 text-[12px] text-faint">
+                  <IcLock size={13} /> {t("issue.commentDenied")}
+                </p>
+              ))}
+
+            {(() => {
+              // Новые сверху. Комментарий — пузырь с текстом; событие истории — тихая строка с аватаром.
+              const items = [
+                ...(feed !== "history" ? issue.comments.map((c) => ({ kind: "comment" as const, ts: c.ts, c })) : []),
+                ...(feed !== "comments" ? issue.activity.map((a) => ({ kind: "event" as const, ts: a.ts, a })) : []),
+              ].sort((x, y) => y.ts - x.ts);
+              if (!items.length)
+                return (
+                  <p className="py-3 text-center text-[12px] text-faint">
+                    {feed === "comments" ? t("issue.noComments") : feed === "history" ? t("issue.noActivity") : t("issue.feedEmpty")}
+                  </p>
+                );
+              return items.map((it) => {
+                if (it.kind === "comment") {
+                  const u = data.users.find((x) => x.id === it.c.authorId);
+                  return (
+                    <div key={`c-${it.c.id}`} className="anim-fadeup flex gap-2.5">
+                      <UserAvatar user={u ?? null} size={28} interactive />
+                      <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
+                        <p className="text-[12px]">
+                          <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(it.c.ts, lang)}</span>
+                        </p>
+                        <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-sub">
+                          <MentionText text={it.c.body} />
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                // Профиль автора приходит вместе с записью: история переживает вывод человека из проекта.
+                const who = it.a.author;
+                return (
+                  <div key={`a-${it.a.id}`} className="flex items-start gap-2.5 pl-1">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+                      <UserAvatar user={who} size={18} interactive />
+                    </span>
+                    <p className="text-[12.5px] leading-snug text-sub">
+                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {activityLine(it.a.event, it.a.text, t, lang)}
+                      <span className="ml-1.5 text-[11px] text-faint">{relTime(it.a.ts, lang)}</span>
+                    </p>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </section>
+
       </div>
     </>
   );
@@ -1464,7 +1498,7 @@ function WatchButton({ projectId, issueId, watch }: { projectId: string; issueId
       aria-pressed={state.watching}
       aria-label={label}
       title={`${label} · ${t("issue.watchers", { n: state.watchers })}`}
-      className={`flex h-7 items-center gap-1 rounded-md px-1.5 transition-colors hover:bg-hover ${state.watching ? "text-accent" : "text-faint hover:text-ink"}`}
+      className={`flex h-7 items-center gap-1 rounded-md px-1.5 transition-colors hover:bg-hover ${state.watching ? "text-accenttext" : "text-faint hover:text-ink"}`}
     >
       <IcBell size={15} tone={state.watching ? "violet" : undefined} />
       {state.watchers > 0 && <span className="text-[11px] font-semibold tabular">{state.watchers}</span>}

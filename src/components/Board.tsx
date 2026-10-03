@@ -1,6 +1,9 @@
 import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flipFrom } from "../motion";
+import { useLocation } from "wouter";
+import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { Hint } from "./Hint";
+import { IssueFilterSummary } from "./IssueFilterSummary";
 import { useStore } from "../store";
 import { usePersonalBoardPhoto } from "../personalBoardPhoto";
 import BoardBackgroundControl from "./BoardBackgroundControl";
@@ -8,7 +11,7 @@ import { createExternalStore, useExternalStore, type ExternalStore } from "../st
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, PriorityId, Status, User } from "../types";
-import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcSubtasks, IcUsers, IcX, PriorityIcon, StatusGlyph } from "../icons";
+import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcFilter, IcDisplay, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcSubtasks, IcUsers, IcX, PriorityIcon, StatusGlyph } from "../icons";
 import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor, labelTone } from "../ui";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
@@ -226,7 +229,7 @@ const Card = memo(function Card({
           </span>
         )}
         <PrioMark p={issue.priorityId} />
-        <span className="font-mono text-[11.5px] font-medium tabular tracking-[0.01em]">{issue.key}</span>
+        <span className="font-mono text-[12px] font-medium tabular tracking-[0.01em]">{issue.key}</span>
         <span className="ml-auto flex items-center gap-1.5">
           {!!issue.subtasksSummary?.total && (
             <span
@@ -452,7 +455,7 @@ const ColumnCards = memo(function ColumnCards({
         </div>
       )}
       {set.error && rows.length === 0 && !loading && (
-        <button onClick={set.reload} className="w-full rounded-lg border border-dashed border-danger px-3 py-3 text-[11.5px] font-medium text-danger hover:bg-dangersoft">
+        <button onClick={set.reload} className="w-full rounded-lg border border-dashed border-danger px-3 py-3 text-[12px] font-medium text-danger hover:bg-dangersoft">
           {t("board.columnLoadError")}
         </button>
       )}
@@ -460,13 +463,13 @@ const ColumnCards = memo(function ColumnCards({
       {loadingMore && <BoardSkeletonCard />}
       <div ref={sentinelRef}>
         {set.error && rows.length > 0 ? (
-          <button onClick={loadMore} className="w-full px-3 py-1.5 text-[11.5px] font-medium text-accent hover:underline">
+          <button onClick={loadMore} className="w-full px-3 py-1.5 text-[12px] font-medium text-accent hover:underline">
             {t("board.loadMoreFailed")}
           </button>
         ) : hasMore && !loadingMore ? (
           <button
             onClick={loadMore}
-            className="w-full rounded-lg px-3 py-1.5 text-[11.5px] font-medium text-faint transition-colors hover:text-accent"
+            className="w-full rounded-lg px-3 py-1.5 text-[12px] font-medium text-faint transition-colors hover:text-accent"
           >
             {t("board.loadMore")}
           </button>
@@ -704,7 +707,7 @@ const BoardColumn = memo(function BoardColumn({
         )}
       </div>
       {isOver && !ok && (
-        <p className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 rounded-md bg-dangersoft px-2 py-1 text-center text-[11.5px] font-medium text-[var(--status-danger-fg)]">
+        <p className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 rounded-md bg-dangersoft px-2 py-1 text-center text-[12px] font-medium text-[var(--status-danger-fg)]">
           {t("board.transitionOutOfSchema", {
             from: draggedStatusId ? workflowStatusName(statusById.get(draggedStatusId) ?? { name: "" }, t) : "",
             to: workflowStatusName(st, t),
@@ -733,9 +736,12 @@ export default function Board() {
   const [dragIssue, setDragIssue] = useState<Issue | null>(null);
   const [hoverStore] = useState(() => createExternalStore<string | null>(null));
   const setOverCol = useCallback((id: string | null) => hoverStore.setState(() => id), [hoverStore]);
-  const [filterUser, setFilterUser] = useState<string | null | "none">(null);
-  const [q, setQ] = useState("");
-  const [chips, setChips] = useState<Set<QuickChip>>(new Set());
+  const [path, navigate] = useLocation();
+  const initialSearch = projectIssueSearch(data.project.key, location.pathname, location.search);
+  const [sharedFilters, setSharedFilters] = useState(() => filtersFromSearch(initialSearch));
+  const [filterUser, setFilterUser] = useState<string | null>(() => sharedFilters.assignee || null);
+  const [q, setQ] = useState(() => new URLSearchParams(initialSearch).get("q") ?? "");
+  const [chips, setChips] = useState<Set<QuickChip>>(() => new Set(new URLSearchParams(initialSearch).get("overdue") === "1" ? ["overdue"] : []));
   const [quickFor, setQuickFor] = useState<string | null>(null);
   const dragRef = useRef<string | null>(null);
   // Выделение для массовых действий (ROUTE-03): те же действия и тот же серверный маршрут, что в «Списке задач».
@@ -775,7 +781,17 @@ export default function Board() {
     });
 
   // Показывать ли в «Готово» всё закрытое или только свежее (см. DONE_WINDOW_DAYS).
-  const [showAllDone, setShowAllDone] = useState(false);
+  const [showAllDone, setShowAllDone] = useState(() => new URLSearchParams(initialSearch).get("done") === "1");
+
+  useEffect(() => {
+    const restore = () => {
+      const p = new URLSearchParams(location.search), f = filtersFromSearch(location.search);
+      setSharedFilters(f); setFilterUser(f.assignee || null); setQ(p.get("q") ?? "");
+      setChips(new Set(p.get("overdue") === "1" ? ["overdue"] : [])); setShowAllDone(p.get("done") === "1");
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
 
   const doneStatusId = data.workflow.statuses.find((s) => s.category === "done")?.id;
   const doneIds = useMemo(
@@ -818,8 +834,21 @@ export default function Board() {
     () => ({ filterUser, chips, q: qDebounced, currentUserId: data.currentUserId }),
     [filterUser, chips, qDebounced, data.currentUserId],
   );
-  const baseFilters = useMemo(() => boardFilterParams(fState), [fState]);
-  const filtersOn = hasBoardFilters(fState);
+  const baseFilters = useMemo<IssueFilterParams>(() => ({
+    status: sharedFilters.status || undefined, type: sharedFilters.type || undefined,
+    priority: sharedFilters.priority || undefined, label: sharedFilters.label || undefined,
+    sprintId: data.project.sprintsEnabled ? sharedFilters.sprintId || undefined : undefined,
+    dueFrom: sharedFilters.dueFrom || undefined, dueTo: sharedFilters.dueTo || undefined,
+    ...customFieldCondition(sharedFilters), ...boardFilterParams(fState),
+  }), [fState, sharedFilters, data.project.sprintsEnabled]);
+  const filtersOn = hasBoardFilters(fState) || Object.entries(sharedFilters).some(([k, v]) => k !== "assignee" && !!v);
+  const resetFilters = () => { setSharedFilters(EMPTY_FILTERS); setFilterUser(null); setChips(new Set()); setQ(""); };
+  useEffect(() => {
+    if (path !== pathForView(data.project.key, "board")) return;
+    const next = searchFromFilters(location.search, { ...sharedFilters, assignee: baseFilters.assignee ?? "" },
+      { q: qDebounced, overdue: baseFilters.overdue ?? "", done: showAllDone ? "1" : "" });
+    if (next !== location.search.replace(/^\?/, "")) navigate(`${path}${next ? `?${next}` : ""}`, { replace: true });
+  }, [sharedFilters, baseFilters, qDebounced, showAllDone, path, data.project.key]);
   const projectId = data.currentProjectId || null;
   const moveQueryKey = JSON.stringify([projectId, baseFilters]);
   const [localMoves, setLocalMoves] = useState<{ key: string; moves: ReadonlyMap<string, string> }>({ key: "", moves: NO_MOVES });
@@ -943,35 +972,9 @@ export default function Board() {
           </p>
         </div>
 
-        <div className="board-tools ml-auto flex min-w-0 flex-wrap items-center gap-2 max-sm:w-full">
-          <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />
-          <div className="board-assignees flex min-w-0 max-w-full items-center -space-x-1.5 overflow-x-auto py-1">
-            {assignees.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => setFilterUser(filterUser === u.id ? null : u.id)}
-                title={t("board.filterUserAria", { name: u.name })}
-                className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === u.id ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== u.id ? "opacity-40" : ""}`}
-              >
-                <UserAvatar user={u} size={26} ring />
-              </button>
-            ))}
-            <button
-              onClick={() => setFilterUser(filterUser === "none" ? null : "none")}
-              title={t("board.unassignedFilter")}
-              className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === "none" ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== "none" ? "opacity-40" : ""}`}
-            >
-              <UserAvatar user={null} size={26} ring />
-            </button>
-          </div>
-          <button
-            onClick={() => setSelectMode((v) => !v)}
-            aria-pressed={selectMode}
-            className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-medium transition-colors ${selectMode ? "border-accent text-accent" : "border-line text-sub hover:border-accent hover:text-accent"}`}
-          >
-            {t("backlog.selectMode")}
-          </button>
-          <div className="board-search flex min-h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-sunken px-3 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line max-sm:order-first max-sm:w-full">
+        </div>
+        <div className="board-tools workspace-controls mt-3">
+          <div className="board-search workspace-search flex min-h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-sunken px-3 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
             <IcSearch size={14} className="text-faint" />
             <input aria-label={t("board.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("board.searchPlaceholder")} className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint sm:w-36" />
             {q && (
@@ -980,11 +983,33 @@ export default function Board() {
               </button>
             )}
           </div>
-        </div>
-       </div>
-
-       {/* быстрые фильтры-чипы (round4 §3.3) */}
-       <div className="board-quick-filters mt-3 flex flex-wrap items-center gap-2">
+          <details className="workspace-filters">
+            <summary className="ds-focus"><IcFilter size={14} /> {t("workspace.filters")}{filtersOn && <span className="ds-count">{Object.values(baseFilters).filter(Boolean).length}</span>}</summary>
+            <div className="workspace-filters-body space-y-3">
+          <div className="board-assignees flex min-w-0 max-w-full items-center -space-x-1.5 overflow-x-auto py-1">
+            {assignees.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => setFilterUser(filterUser === u.id ? null : u.id)}
+                aria-label={t("board.filterUserAria", { name: u.name })}
+                aria-pressed={filterUser === u.id}
+                title={t("board.filterUserAria", { name: u.name })}
+                className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === u.id ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== u.id ? "opacity-40" : ""}`}
+              >
+                <UserAvatar user={u} size={26} ring />
+              </button>
+            ))}
+            <button
+              onClick={() => setFilterUser(filterUser === "none" ? null : "none")}
+              aria-label={t("board.unassignedFilter")}
+              aria-pressed={filterUser === "none"}
+              title={t("board.unassignedFilter")}
+              className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === "none" ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== "none" ? "opacity-40" : ""}`}
+            >
+              <UserAvatar user={null} size={26} ring />
+            </button>
+          </div>
+              <div className="board-quick-filters flex flex-wrap items-center gap-2">
          {QUICK_CHIPS.map((c) => {
            const on = chips.has(c.id);
            return (
@@ -1008,16 +1033,29 @@ export default function Board() {
              </button>
            );
          })}
-         {chips.size > 0 && (
-           <button
-             onClick={() => setChips(new Set())}
-             className="flex h-7 items-center gap-1 rounded-lg px-2 text-[12.5px] text-faint hover:text-ink"
-           >
-             <IcX size={11} /> {t("common.reset")}
-           </button>
-         )}
-         <span className="ml-auto text-[12px] tabular text-faint">{t("board.filteredOf", { visible: filtered.counts?.total ?? "…", total: poolTotal ?? "…" })}</span>
-       </div>
+              </div>
+              {canMove && <Hint id="board-move">{t("hint.boardMove")}</Hint>}
+            </div>
+          </details>
+          <details className="workspace-options">
+            <summary className="ds-focus"><IcDisplay size={14} /> {t("workspace.settings")}</summary>
+            <div className="workspace-options-body flex flex-wrap items-center gap-2">
+              <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />
+          <button
+            onClick={() => setSelectMode((v) => !v)}
+            aria-pressed={selectMode}
+            className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-medium transition-colors ${selectMode ? "border-accent text-accenttext" : "border-line text-sub hover:border-accent hover:text-accenttext"}`}
+          >
+            {t("backlog.selectMode")}
+          </button>
+            </div>
+          </details>
+        </div>
+        <IssueFilterSummary filters={baseFilters}>
+          {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
+          {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={12} className="inline" /> {t("common.reset")}</button>}
+          <span className="ml-auto tabular text-faint">{t("board.filteredOf", { visible: filtered.counts?.total ?? "…", total: poolTotal ?? "…" })}</span>
+        </IssueFilterSummary>
        {selectMode && selectedIds.size === 0 && (
          <p className="mt-2.5 text-[12px] text-faint" role="status">
            {t("board.selectHint")}
@@ -1042,7 +1080,7 @@ export default function Board() {
           <p className="flex items-center gap-2 text-[13.5px] font-medium text-[var(--status-done-fg)]">
             <IcCheck size={15} /> {t("board.allClearTitle")}
           </p>
-          <p className="mt-0.5 text-[11.5px] text-sub">
+          <p className="mt-0.5 text-[12px] text-sub">
             {closedRecently > 0
               ? t("board.closedRecently", { n: closedRecently, noun: tn(closedRecently, "noun.issueAcc.one", "noun.issueAcc.few", "noun.issueAcc.many") })
               : t("board.noOpenIssues")}
@@ -1064,11 +1102,7 @@ export default function Board() {
         </div>
       )}
 
-      {canMove && !!poolTotal && !selectMode && (
-        <Hint id="board-move" className="mx-4 mb-2 sm:mx-6">
-          {t("hint.boardMove")}
-        </Hint>
-      )}
+
 
       {/* колонки. Ширина гибкая (BOARD_COLUMN_SHELL). Группа начинается от левого края, под заголовком и фильтрами:
           раньше она стояла по центру, и на широком мониторе доска висела островом посреди пустоты, оторванная от

@@ -1,0 +1,1326 @@
+
+> test:ui
+> playwright test --workers=2 --reporter=line
+
+
+Running 105 tests using 2 workers
+
+[1A[2K[1/105] e2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 390px)
+[1A[2K[2/105] e2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 1280px)
+[1A[2K[2m[WebServer] [22m[2m5:40:31 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:40:31 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 1280px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:33 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:33 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 1280px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:35 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:35 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 1280px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:40 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:40:43 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 1280px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:51 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (light, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[3/105] e2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 1280px)
+[1A[2K[2m[WebServer] [22m[2m5:40:52 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[4/105] e2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 390px)
+[1A[2K[2m[WebServer] [22m[2m5:40:55 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:40:55 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 1280px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:57 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:57 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 1280px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:59 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:40:59 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 1280px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:04 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:41:06 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 1280px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:14 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 390px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:15 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/board-speed.pw.ts:5:73 › 300 board cards: scrolling, keyboard and accessibility (dark, 1280px)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[5/105] e2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · ru
+[1A[2K[6/105] e2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · en
+[1A[2K[2m[WebServer] [22m[2m5:41:20 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:20 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:21 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:22 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:23 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:24 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Kbrowser: Failed to load resource: the server responded with a status of 403 (Forbidden)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · ru
+browser: Failed to load resource: the server responded with a status of 403 (Forbidden)
+
+[1A[2K[2m[WebServer] [22m[2m5:41:28 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:29 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · light · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[7/105] e2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · dark · ru
+[1A[2K[8/105] e2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · dark · en
+[1A[2K[2m[WebServer] [22m[2m5:41:32 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · dark · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:32 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · dark · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:33 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:33 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · dark · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:35 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · dark · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:35 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · dark · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Kbrowser: Failed to load resource: the server responded with a status of 403 (Forbidden)
+
+[1A[2Ke2e/calendar.pw.ts:35:3 › calendar month/week, keyboard, dates, drag and axe · dark · en
+browser: Failed to load resource: the server responded with a status of 403 (Forbidden)
+
+[1A[2K[9/105] e2e/calendar.pw.ts:104:49 › calendar 300 issues month switching and drag performance · light
+[1A[2K[10/105] e2e/calendar.pw.ts:104:49 › calendar 300 issues month switching and drag performance · dark
+[1A[2K[2m[WebServer] [22m[2m5:41:41 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:104:49 › calendar 300 issues month switching and drag performance · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:41 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:104:49 › calendar 300 issues month switching and drag performance · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:42 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:104:49 › calendar 300 issues month switching and drag performance · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:41:43 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:104:49 › calendar 300 issues month switching and drag performance · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/calendar.pw.ts:104:49 › calendar 300 issues month switching and drag performance · light
+calendar light: month switch 310 ms, drag + PATCH + revalidation 716 ms
+
+[1A[2K[11/105] e2e/combobox-async.pw.ts:2:1 › combobox Enter uses the current query and Escape stays inside the control
+[1A[2K[2m[WebServer] [22m[2m5:41:45 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/calendar.pw.ts:104:49 › calendar 300 issues month switching and drag performance · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Kcalendar dark: month switch 343 ms, drag + PATCH + revalidation 757 ms
+
+[1A[2K[12/105] e2e/design-audit.pw.ts:49:1 › composed task screens work without CSP violations
+[1A[2K[13/105] e2e/design-audit.pw.ts:72:3 › task links, actions and table reflow (light)
+[1A[2K[14/105] e2e/design-audit.pw.ts:108:3 › draft survives Esc and failed creation, successful creation clears it (light)
+[1A[2Ke2e/design-audit.pw.ts:108:3 › draft survives Esc and failed creation, successful creation clears it (light)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+
+[1A[2K[15/105] e2e/design-audit.pw.ts:144:3 › board and list retain filters and readable density (light)
+[1A[2K[16/105] e2e/design-audit.pw.ts:164:3 › mobile properties precede activity and actual forms pass axe (light)
+[1A[2K[17/105] e2e/design-audit.pw.ts:72:3 › task links, actions and table reflow (dark)
+[1A[2K[18/105] e2e/design-audit.pw.ts:108:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+[1A[2K[19/105] e2e/design-audit.pw.ts:144:3 › board and list retain filters and readable density (dark)
+[1A[2Ke2e/design-audit.pw.ts:108:3 › draft survives Esc and failed creation, successful creation clears it (dark)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+
+[1A[2K[20/105] e2e/design-audit.pw.ts:164:3 › mobile properties precede activity and actual forms pass axe (dark)
+[1A[2K[21/105] e2e/import.pw.ts:9:3 › import preview and axe · light
+[1A[2K[22/105] e2e/import.pw.ts:9:3 › import preview and axe · dark
+[1A[2K[23/105] e2e/menu-anchor.pw.ts:3:1 › dashboard actions stay next to the ellipsis after repeated opening
+[1A[2K[2m[WebServer] [22m[2m5:42:12 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/menu-anchor.pw.ts:3:1 › dashboard actions stay next to the ellipsis after repeated opening
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:13 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:15 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[24/105] e2e/navigation-greeting.pw.ts:4:34 › help labels have no numbers and align left (ru)
+[1A[2K[25/105] e2e/navigation-greeting.pw.ts:4:34 › help labels have no numbers and align left (en)
+[1A[2K[2m[WebServer] [22m[2m5:42:17 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-greeting.pw.ts:4:34 › help labels have no numbers and align left (ru)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:18 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-greeting.pw.ts:4:34 › help labels have no numbers and align left (en)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:18 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-greeting.pw.ts:4:34 › help labels have no numbers and align left (ru)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[26/105] e2e/navigation-greeting.pw.ts:21:1 › LDAP home greeting uses directory givenName across project switches
+[1A[2K[2m[WebServer] [22m[2m5:42:19 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-greeting.pw.ts:4:34 › help labels have no numbers and align left (en)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[27/105] e2e/navigation-greeting.pw.ts:36:4 › home greeting without givenName (ldap)
+[1A[2K[2m[WebServer] [22m[2m5:42:20 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-greeting.pw.ts:21:1 › LDAP home greeting uses directory givenName across project switches
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:21 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:42:21 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/navigation-greeting.pw.ts:36:4 › home greeting without givenName (ldap)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[28/105] e2e/navigation-greeting.pw.ts:36:4 › home greeting without givenName (local)
+[1A[2K[29/105] e2e/navigation-greeting.pw.ts:44:1 › inbox labels fill the row and retain avatar spacing
+[1A[2K[2m[WebServer] [22m[2m5:42:24 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:42:24 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-greeting.pw.ts:44:1 › inbox labels fill the row and retain avatar spacing
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/navigation-greeting.pw.ts:36:4 › home greeting without givenName (local)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[30/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (light/145)
+[1A[2K[31/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (light/235)
+[1A[2K[2m[WebServer] [22m[2m5:42:27 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:42:27 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (light/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (light/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:28 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (light/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:28 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (light/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[32/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (light/300)
+[1A[2K[33/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dark/145)
+[1A[2K[2m[WebServer] [22m[2m5:42:32 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (light/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:32 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dark/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:34 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (light/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:34 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dark/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[34/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dark/235)
+[1A[2K[35/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dark/300)
+[1A[2K[2m[WebServer] [22m[2m5:42:37 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dark/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:37 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dark/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:39 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dark/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:39 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dark/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[36/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dusk/145)
+[1A[2K[37/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dusk/235)
+[1A[2K[2m[WebServer] [22m[2m5:42:41 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:42:41 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dusk/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dusk/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:43 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dusk/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:43 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dusk/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[38/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dusk/300)
+[1A[2K[39/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (graphite/145)
+[1A[2K[2m[WebServer] [22m[2m5:42:46 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:42:46 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (graphite/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dusk/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:47 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (graphite/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:48 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dusk/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[40/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (graphite/235)
+[1A[2K[41/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (graphite/300)
+[1A[2K[2m[WebServer] [22m[2m5:42:50 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:42:50 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (graphite/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (graphite/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:52 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:52 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (graphite/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[42/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dawn/145)
+[1A[2K[43/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dawn/235)
+[1A[2K[2m[WebServer] [22m[2m5:42:54 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:42:54 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dawn/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dawn/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:55 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dawn/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:55 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dawn/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[44/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dawn/300)
+[1A[2K[45/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (paper/145)
+[1A[2K[2m[WebServer] [22m[2m5:42:57 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:42:57 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dawn/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (paper/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:59 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (dawn/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:42:59 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (paper/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[46/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (paper/235)
+[1A[2K[47/105] e2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (paper/300)
+[1A[2K[2m[WebServer] [22m[2m5:43:01 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:43:01 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (paper/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (paper/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:02 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (paper/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:02 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:6:112 › navigation colours, rail and mobile (paper/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[48/105] e2e/navigation-reminders.pw.ts:52:1 › reminder intervals persist, protect an in-flight save and can all be disabled
+[1A[2K[49/105] e2e/navigation-reminders.pw.ts:79:43 › email previews stay responsive and escape data (ru)
+[1A[2K[50/105] e2e/navigation-reminders.pw.ts:79:43 › email previews stay responsive and escape data (en)
+[1A[2K[2m[WebServer] [22m[2m5:43:04 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:52:1 › reminder intervals persist, protect an in-flight save and can all be disabled
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[51/105] e2e/navigation-reminders.pw.ts:93:1 › saved brand stays applied after the logo returns to home
+[1A[2K[2m[WebServer] [22m[2m5:43:05 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:06 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:93:1 › saved brand stays applied after the logo returns to home
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[52/105] e2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · light · ru
+[1A[2K[2m[WebServer] [22m[2m5:43:07 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/navigation-reminders.pw.ts:52:1 › reminder intervals persist, protect an in-flight save and can all be disabled
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:08 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:43:08 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · light · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[53/105] e2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · light · en
+[1A[2K[2m[WebServer] [22m[2m5:43:09 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:10 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · light · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:11 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · light · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:12 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[54/105] e2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · dark · ru
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · light · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:13 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · dark · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:14 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · light · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[55/105] e2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · dark · en
+[1A[2K[2m[WebServer] [22m[2m5:43:14 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · dark · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:15 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · dark · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:16 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · dark · ru
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:17 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[56/105] e2e/pr118-feedback.pw.ts:4:1 › create form orders the checklist, searches project assignees and dismisses direction
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · dark · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:18 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/pr118-feedback.pw.ts:4:1 › create form orders the checklist, searches project assignees and dismisses direction
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:19 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/portfolio.pw.ts:6:3 › portfolio overview, template and project catalogue · dark · en
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:19 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/pr118-feedback.pw.ts:4:1 › create form orders the checklist, searches project assignees and dismisses direction
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[57/105] e2e/pr118-feedback.pw.ts:37:1 › a board photo survives reload and belongs only to this browser account
+[1A[2K[58/105] e2e/production-feedback.pw.ts:26:1 › home cards, logo, history, palette and assigned tasks across two projects
+[1A[2K[2m[WebServer] [22m[2m5:43:20 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/pr118-feedback.pw.ts:37:1 › a board photo survives reload and belongs only to this browser account
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:22 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:26:1 › home cards, logo, history, palette and assigned tasks across two projects
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:22 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/pr118-feedback.pw.ts:37:1 › a board photo survives reload and belongs only to this browser account
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:23 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:26:1 › home cards, logo, history, palette and assigned tasks across two projects
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:23 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:43:24 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2Ke2e/pr118-feedback.pw.ts:37:1 › a board photo survives reload and belongs only to this browser account
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:24 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:26:1 › home cards, logo, history, palette and assigned tasks across two projects
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:24 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/pr118-feedback.pw.ts:37:1 › a board photo survives reload and belongs only to this browser account
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:25 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:26:1 › home cards, logo, history, palette and assigned tasks across two projects
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[59/105] e2e/production-feedback.pw.ts:53:40 › all four priorities, single-project logo and calendar label (light)
+[1A[2K[2m[WebServer] [22m[2m5:43:26 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[60/105] e2e/production-feedback.pw.ts:53:40 › all four priorities, single-project logo and calendar label (dark)
+[1A[2K[2m[WebServer] [22m[2m5:43:27 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:53:40 › all four priorities, single-project logo and calendar label (light)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:27 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:53:40 › all four priorities, single-project logo and calendar label (dark)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:28 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:53:40 › all four priorities, single-project logo and calendar label (light)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:29 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:53:40 › all four priorities, single-project logo and calendar label (dark)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:29 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:53:40 › all four priorities, single-project logo and calendar label (light)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[61/105] e2e/production-feedback.pw.ts:76:34 › help navigation follows scrolling and clicks (ru)
+[1A[2K[2m[WebServer] [22m[2m5:43:30 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:53:40 › all four priorities, single-project logo and calendar label (dark)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[62/105] e2e/production-feedback.pw.ts:76:34 › help navigation follows scrolling and clicks (en)
+[1A[2K[2m[WebServer] [22m[2m5:43:31 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:76:34 › help navigation follows scrolling and clicks (ru)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:32 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:76:34 › help navigation follows scrolling and clicks (en)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:32 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:76:34 › help navigation follows scrolling and clicks (ru)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[63/105] e2e/track-i.pw.ts:65:3 › track I dates and nested calendar · light
+[1A[2K[2m[WebServer] [22m[2m5:43:33 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/production-feedback.pw.ts:76:34 › help navigation follows scrolling and clicks (en)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[64/105] e2e/track-i.pw.ts:105:3 › track I organization and personal transparency · light
+[1A[2K[2m[WebServer] [22m[2m5:43:35 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:35 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:105:3 › track I organization and personal transparency · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:36 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:36 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:43:37 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:105:3 › track I organization and personal transparency · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:38 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:39 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:105:3 › track I organization and personal transparency · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:40 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:41 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:42 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:43 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:105:3 › track I organization and personal transparency · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[65/105] e2e/track-i.pw.ts:65:3 › track I dates and nested calendar · dark
+[1A[2K[2m[WebServer] [22m[2m5:43:45 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:45 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:46 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:46 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:48 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:49 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:50 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:51 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:52 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · light
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:52 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[66/105] e2e/track-i.pw.ts:105:3 › track I organization and personal transparency · dark
+[1A[2K[2m[WebServer] [22m[2m5:43:55 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:56 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:105:3 › track I organization and personal transparency · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:56 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:57 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:105:3 › track I organization and personal transparency · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:58 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:58 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:43:59 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:44:00 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:44:00 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:105:3 › track I organization and personal transparency · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:44:01 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:44:01 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:105:3 › track I organization and personal transparency · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:44:03 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:65:3 › track I dates and nested calendar · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:44:05 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/track-i.pw.ts:105:3 › track I organization and personal transparency · dark
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[67/105] e2e/ui.visual.pw.ts:12:5 › concepts · light
+[1A[2K[68/105] e2e/ui.visual.pw.ts:12:5 › button · light
+[1A[2K[69/105] e2e/ui.visual.pw.ts:12:5 › iconbutton · light
+[1A[2K[70/105] e2e/ui.visual.pw.ts:12:5 › inputs · light
+[1A[2K[71/105] e2e/ui.visual.pw.ts:12:5 › choice · light
+[1A[2K[72/105] e2e/ui.visual.pw.ts:12:5 › tabs · light
+[1A[2K[73/105] e2e/ui.visual.pw.ts:12:5 › overlays · light
+[1A[2K[74/105] e2e/ui.visual.pw.ts:12:5 › combobox · light
+[1A[2K[75/105] e2e/ui.visual.pw.ts:12:5 › dialogs · light
+[1A[2K[76/105] e2e/ui.visual.pw.ts:12:5 › display · light
+[1A[2K[77/105] e2e/ui.visual.pw.ts:12:5 › empty · light
+[1A[2K[78/105] e2e/ui.visual.pw.ts:22:3 › плотная плотность · light
+[1A[2K[79/105] e2e/ui.visual.pw.ts:29:3 › axe: без serious/critical · light
+[1A[2K[80/105] e2e/ui.visual.pw.ts:12:5 › concepts · dark
+[1A[2K[81/105] e2e/ui.visual.pw.ts:12:5 › button · dark
+[1A[2K[82/105] e2e/ui.visual.pw.ts:12:5 › iconbutton · dark
+[1A[2K[83/105] e2e/ui.visual.pw.ts:12:5 › inputs · dark
+[1A[2K[84/105] e2e/ui.visual.pw.ts:12:5 › choice · dark
+[1A[2K[85/105] e2e/ui.visual.pw.ts:12:5 › tabs · dark
+[1A[2K[86/105] e2e/ui.visual.pw.ts:12:5 › overlays · dark
+[1A[2K[87/105] e2e/ui.visual.pw.ts:12:5 › combobox · dark
+[1A[2K[88/105] e2e/ui.visual.pw.ts:12:5 › dialogs · dark
+[1A[2K[89/105] e2e/ui.visual.pw.ts:12:5 › display · dark
+[1A[2K[90/105] e2e/ui.visual.pw.ts:12:5 › empty · dark
+[1A[2K[91/105] e2e/ui.visual.pw.ts:22:3 › плотная плотность · dark
+[1A[2K[92/105] e2e/ui.visual.pw.ts:29:3 › axe: без serious/critical · dark
+[1A[2K[93/105] e2e/ui.visual.pw.ts:41:1 › клавиатура: меню, вкладки, диалог
+[1A[2K[94/105] e2e/uploads-help-brand.pw.ts:5:1 › unsupported original avatar formats are rejected before any upload
+[1A[2K[2m[WebServer] [22m[2m5:44:51 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/uploads-help-brand.pw.ts:5:1 › unsupported original avatar formats are rejected before any upload
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[95/105] e2e/uploads-help-brand.pw.ts:17:1 › unreadable board replacement preserves the actual displayed photo
+[1A[2K[2m[WebServer] [22m[2m5:44:54 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/uploads-help-brand.pw.ts:17:1 › unreadable board replacement preserves the actual displayed photo
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[96/105] e2e/uploads-help-brand.pw.ts:35:34 › help structure, left alignment and narrow layout (ru)
+[1A[2K[97/105] e2e/uploads-help-brand.pw.ts:35:34 › help structure, left alignment and narrow layout (en)
+[1A[2K[2m[WebServer] [22m[2m5:44:57 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/uploads-help-brand.pw.ts:35:34 › help structure, left alignment and narrow layout (ru)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:44:57 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/uploads-help-brand.pw.ts:35:34 › help structure, left alignment and narrow layout (en)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[98/105] e2e/uploads-help-brand.pw.ts:50:1 › preset brand colour survives reload and switches back to the legacy palette
+[1A[2K[99/105] e2e/uploads-help-brand.pw.ts:62:1 › a corrupt avatar does not upload, then an uppercase PNG is cropped and uploaded as JPEG
+[1A[2K[2m[WebServer] [22m[2m5:44:59 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/uploads-help-brand.pw.ts:62:1 › a corrupt avatar does not upload, then an uppercase PNG is cropped and uploaded as JPEG
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[100/105] e2e/uploads-help-brand.pw.ts:85:1 › saved branding updates a decodable favicon under production CSP
+[1A[2K[101/105] e2e/workspace-ux.pw.ts:5:1 › read-only project retains its permission guard on a narrow screen
+[1A[2K[2m[WebServer] [22m[2m5:45:02 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2K[2m[WebServer] [22m[2m5:45:02 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/workspace-ux.pw.ts:5:1 › read-only project retains its permission guard on a narrow screen
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[102/105] e2e/workspace-ux.pw.ts:59:3 › home search, project choice and mobile empty state (light)
+[1A[2K[103/105] e2e/workspace-ux.pw.ts:86:3 › project toolbar reflows and board remains accessible (light)
+[1A[2K[2m[WebServer] [22m[2m5:45:08 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/workspace-ux.pw.ts:86:3 › project toolbar reflows and board remains accessible (light)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:45:10 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:45:10 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/workspace-ux.pw.ts:59:3 › home search, project choice and mobile empty state (light)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[104/105] e2e/workspace-ux.pw.ts:59:3 › home search, project choice and mobile empty state (dark)
+[1A[2K[2m[WebServer] [22m[2m5:45:12 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/workspace-ux.pw.ts:86:3 › project toolbar reflows and board remains accessible (light)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[105/105] e2e/workspace-ux.pw.ts:86:3 › project toolbar reflows and board remains accessible (dark)
+[1A[2K[2m[WebServer] [22m[2m5:45:14 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/workspace-ux.pw.ts:86:3 › project toolbar reflows and board remains accessible (dark)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:45:15 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:45:18 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K[2m[WebServer] [22m[2m5:45:18 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+[2m[WebServer] [22mError: connect ECONNREFUSED 127.0.0.1:8080
+[2m[WebServer] [22m    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+
+[1A[2Ke2e/workspace-ux.pw.ts:59:3 › home search, project choice and mobile empty state (dark)
+browser: WebSocket connection to 'ws://127.0.0.1:3120/api/ws' failed: Connection closed before receiving a handshake response
+
+[1A[2K  105 passed (5.0m)

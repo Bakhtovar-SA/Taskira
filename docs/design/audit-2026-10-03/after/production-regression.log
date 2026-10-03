@@ -1,0 +1,232 @@
+
+[1A[2K[WebServer] (node:25060) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 36 tests using 2 workers
+
+
+
+[1A[2K(node:21592) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:9956) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:21592) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:9956) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K[1/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (light/235)
+[1A[2K[2/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (light/145)
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (light/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (light/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (light/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (light/235)
+
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2K[3/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (light/300)
+[1A[2K[4/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dark/145)
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (light/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dark/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (light/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dark/145)
+
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2K[5/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dark/235)
+[1A[2K[6/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dark/300)
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dark/235)
+
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dark/300)
+
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dark/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dark/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2K[7/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dusk/145)
+[1A[2K[8/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dusk/235)
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dusk/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dusk/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dusk/145)
+
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dusk/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[9/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dusk/300)
+[1A[2K[10/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (graphite/145)
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dusk/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (graphite/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dusk/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (graphite/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[11/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (graphite/235)
+[1A[2K[12/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (graphite/300)
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (graphite/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (graphite/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (graphite/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (graphite/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[13/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dawn/145)
+[1A[2K[14/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dawn/235)
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dawn/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dawn/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dawn/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dawn/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[15/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dawn/300)
+[1A[2K[16/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (paper/145)
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (dawn/300)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (paper/145)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[17/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (paper/235)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (paper/235)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[18/36] e2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (paper/300)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:5:112 › navigation colours, rail and mobile (paper/300)
+
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2K[19/36] e2e\navigation-reminders.pw.ts:100:1 › reminder intervals persist, protect an in-flight save and can all be disabled
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:100:1 › reminder intervals persist, protect an in-flight save and can all be disabled
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[20/36] e2e\navigation-reminders.pw.ts:163:34 › email previews stay responsive and escape data (ru)
+[1A[2K[21/36] e2e\navigation-reminders.pw.ts:163:34 › email previews stay responsive and escape data (en)
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2K[22/36] e2e\navigation-reminders.pw.ts:197:1 › saved brand stays applied after the logo returns to home
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\navigation-reminders.pw.ts:197:1 › saved brand stays applied after the logo returns to home
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[23/36] e2e\pr118-feedback.pw.ts:3:1 › create form orders the checklist, searches project assignees and dismisses direction
+[1A[2K[24/36] e2e\pr118-feedback.pw.ts:127:1 › a board photo survives reload and belongs only to this browser account
+[1A[2Ke2e\pr118-feedback.pw.ts:3:1 › create form orders the checklist, searches project assignees and dismisses direction
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\pr118-feedback.pw.ts:127:1 › a board photo survives reload and belongs only to this browser account
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\pr118-feedback.pw.ts:3:1 › create form orders the checklist, searches project assignees and dismisses direction
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\pr118-feedback.pw.ts:127:1 › a board photo survives reload and belongs only to this browser account
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[25/36] e2e\uploads-help-brand.pw.ts:4:1 › unsupported original avatar formats are rejected before any upload
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\uploads-help-brand.pw.ts:4:1 › unsupported original avatar formats are rejected before any upload
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\pr118-feedback.pw.ts:127:1 › a board photo survives reload and belongs only to this browser account
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[26/36] e2e\uploads-help-brand.pw.ts:26:1 › unreadable board replacement preserves the actual displayed photo
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\uploads-help-brand.pw.ts:26:1 › unreadable board replacement preserves the actual displayed photo
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[27/36] e2e\uploads-help-brand.pw.ts:55:34 › help structure, left alignment and narrow layout (ru)
+[1A[2K[28/36] e2e\uploads-help-brand.pw.ts:55:34 › help structure, left alignment and narrow layout (en)
+[1A[2Ke2e\uploads-help-brand.pw.ts:55:34 › help structure, left alignment and narrow layout (ru)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Ke2e\uploads-help-brand.pw.ts:55:34 › help structure, left alignment and narrow layout (en)
+
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2K[29/36] e2e\uploads-help-brand.pw.ts:77:1 › preset brand colour survives reload and switches back to the legacy palette
+[1A[2K[30/36] e2e\uploads-help-brand.pw.ts:104:1 › a corrupt avatar does not upload, then an uppercase PNG is cropped and uploaded as JPEG
+[1A[2K[31/36] e2e\uploads-help-brand.pw.ts:146:1 › saved branding updates a decodable favicon under production CSP
+[1A[2Ke2e\uploads-help-brand.pw.ts:104:1 › a corrupt avatar does not upload, then an uppercase PNG is cropped and uploaded as JPEG
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[32/36] e2e\workspace-ux.pw.ts:4:1 › read-only project retains its permission guard on a narrow screen
+[1A[2K[33/36] e2e\workspace-ux.pw.ts:212:3 › home search, project choice and mobile empty state (light)
+
+[1A[2Ke2e\workspace-ux.pw.ts:4:1 › read-only project retains its permission guard on a narrow screen
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2K[34/36] e2e\workspace-ux.pw.ts:274:3 › project toolbar reflows and board remains accessible (light)
+[1A[2Ke2e\workspace-ux.pw.ts:274:3 › project toolbar reflows and board remains accessible (light)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2K[35/36] e2e\workspace-ux.pw.ts:212:3 › home search, project choice and mobile empty state (dark)
+[1A[2Ke2e\workspace-ux.pw.ts:212:3 › home search, project choice and mobile empty state (light)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K[36/36] e2e\workspace-ux.pw.ts:274:3 › project toolbar reflows and board remains accessible (dark)
+[1A[2Ke2e\workspace-ux.pw.ts:274:3 › project toolbar reflows and board remains accessible (dark)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2Kbrowser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+[1A[2Ke2e\workspace-ux.pw.ts:212:3 › home search, project choice and mobile empty state (dark)
+browser: WebSocket connection to 'ws://127.0.0.1:3113/api/ws' failed: Error during WebSocket handshake: Unexpected response code: 200
+
+[1A[2K  36 passed (1.0m)

@@ -3,6 +3,7 @@
  * вынесено из store.tsx без изменений поведения (ТЗ 2.3, шаг 6). Поведение и гонки зафиксированы
  * store.bootNav.test.tsx, ДО выноса. SEC-01 исправлена: sessionEpochRef отсекает ответы после logout/401. */
 import { refreshOnboardingSoon } from "../onboarding";
+import { clearCreateDrafts } from "../createDrafts";
 import { viewTransition } from "../motion";
 import { useCallback, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
@@ -360,6 +361,7 @@ export function useSessionActions(
     // Ответа не ждём: локальный выход должен произойти в любом случае, даже
     // если сеть отвалилась. Ошибку глушим — токен всё равно уже стёрт.
     sessionEpochRef.current++; // SEC-01: отсекаем все запросы, начатые до выхода
+    clearCreateDrafts();
     void authApi.logout().catch(() => undefined);
     clearToken();
     setData(emptyData());

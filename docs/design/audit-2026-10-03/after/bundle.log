@@ -1,0 +1,64 @@
+
+> bundle:check
+> node scripts/check-bundle-size.mjs
+
+Бюджет бандла (gzip), база и допуски — scripts/bundle-budget.json
+
+| метрика | база | сейчас | рост | допуск | итог |
+|---|---|---|---|---|---|
+| JS + CSS | 196.49 KB | 351.36 KB | +154.88 KB | +156.00 KB | ok |
+| JS, все чанки | 183.09 KB | 324.22 KB | +141.13 KB | +142.00 KB | ok |
+| CSS | 13.39 KB | 27.14 KB | +13.75 KB | +20.00 KB | ok |
+| входной чанк (index.js) | 79.14 KB | 98.43 KB | +19.29 KB | +40.00 KB | ok |
+
+Справочно: JS до первого экрана (вход + modulepreload: index-Bx3fwuEw.js, jsx-runtime-CSiekY5k.js, Button-CGKeUeKw.js, icons-DFMGJvcE.js, cssVars-CvX1x3sk.js, ui-D7hzU3n5.js, workflowStatus-DgtDZzZh.js, parts-ri_WyTCu.js, issuePages-CXk-h2eT.js, ids-MsHK8H4t.js, floating-DFQlJdN0.js, Overlay-yncw0Qms.js) — 176.46 KB
+
+Чанки:
+  index-Bx3fwuEw.js                              98.43 KB
+  Button-CGKeUeKw.js                             51.23 KB
+  index-DVJa6u-U.css                             26.40 KB
+  en-BMkt26Ki.js                                 20.84 KB
+  DocsView-B68Nm8Xo.js                           13.78 KB
+  SettingsView-DHsaSW_w.js                       13.68 KB
+  DashboardView-Bb1gDwN_.js                      12.03 KB
+  IssueModal-dUo3Q49x.js                          9.76 KB
+  Backlog-DiH_VIoP.js                             8.71 KB
+  WorkflowView-DJiPBz_C.js                        6.66 KB
+  floating-DFQlJdN0.js                            6.63 KB
+  ui-D7hzU3n5.js                                  5.46 KB
+  icons-DFMGJvcE.js                               4.59 KB
+  CommandPalette-lruh88WC.js                      4.32 KB
+  RoadmapView-D7YO8Fxv.js                         4.16 KB
+  jsx-runtime-CSiekY5k.js                         4.04 KB
+  ImportModal-WsYrjB-j.js                         4.02 KB
+  CreateIssueModal-Cw8hjsuP.js                    3.90 KB
+  ReportsView-CVu0CZiI.js                         3.83 KB
+  CalendarView-DhgQgbBX.js                        3.78 KB
+  ProjectWizard-DHv4ZcY5.js                       3.66 KB
+  HomeView-BBnejxQk.js                            3.61 KB
+  SoloView-Sacgq_GN.js                            3.17 KB
+  TimelineView-DidIo5Wv.js                        3.09 KB
+  DashboardTabs-BcpN3KpU.js                       2.94 KB
+  InboxView-zt3enKA4.js                           2.81 KB
+  SprintsView-DDMllaG-.js                         2.74 KB
+  AdminView-KGAkXdYF.js                           2.63 KB
+  PermissionsView-BIRjfWyL.js                     2.52 KB
+  issuePages-CXk-h2eT.js                          2.14 KB
+  Overlay-yncw0Qms.js                             1.84 KB
+  IssueSearchBox-D640Jam0.js                      1.72 KB
+  MyIssues-CezsSVa6.js                            1.69 KB
+  parts-ri_WyTCu.js                               1.60 KB
+  activityText-CmJuLUF9.js                        1.37 KB
+  MyIssuesView-B2r5xwRl.js                        1.16 KB
+  CollaboratingView-CN8G2CcQ.js                   1.00 KB
+  BulkBar-Bf0TXVLK.js                             0.99 KB
+  ProjectLookPicker-CAFi3AdG.js                   0.90 KB
+  TimeCanvas-Bd59ZrRi.js                          0.80 KB
+  CalendarView-jZW7tl2l.css                       0.74 KB
+  roadmapLayout-DF4wfE79.js                       0.60 KB
+  timeScale-CG0x9olP.js                           0.60 KB
+  workflowStatus-DgtDZzZh.js                      0.31 KB
+  dataColors-LUJKCIj8.js                          0.17 KB
+  cssVars-CvX1x3sk.js                             0.12 KB
+  types-DDPmts3O.js                               0.12 KB
+  ids-MsHK8H4t.js                                 0.07 KB

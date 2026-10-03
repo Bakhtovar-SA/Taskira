@@ -165,7 +165,7 @@ export default function RoadmapView() {
       </div>
       {projects.length > 0 && (
         <div className="mb-0.5 flex shrink-0 items-center gap-2">
-          <Tabs label={t("timeline.zoom")} value={zoom} onChange={setZoom} items={ZOOMS.map((z) => ({ id: z, label: t(`timeline.zoom.${z}`) }))} />
+          <Tabs mode="filter" label={t("timeline.zoom")} value={zoom} onChange={setZoom} items={ZOOMS.map((z) => ({ id: z, label: t(`timeline.zoom.${z}`) }))} />
           <button
             onClick={() => scrollToToday(true)}
             className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-semibold text-sub ring-1 ring-inset ring-line transition-colors duration-150 hover:bg-hover hover:text-ink"

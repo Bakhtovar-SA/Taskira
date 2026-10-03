@@ -64,6 +64,7 @@ export function columnFilterParams(
   return {
     ...base,
     status: statusId,
+    assignee: base.status && base.status !== statusId ? NO_ONE : base.assignee,
     // Колонка «Готово» — только закрытое за окно; остальное за строкой «Ранее закрыто».
     closed: opts.isDone && !opts.showAllDone ? "recent" : undefined,
     closedDays: opts.isDone && !opts.showAllDone ? DONE_WINDOW_DAYS : undefined,

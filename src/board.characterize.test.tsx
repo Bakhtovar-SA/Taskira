@@ -151,6 +151,7 @@ interface Setup {
 }
 
 async function setup({ role = "manager", transitions = [], pageImpl, countsImpl }: Setup) {
+  history.replaceState(null, "", "/p/A21/board");
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(user1 as never);

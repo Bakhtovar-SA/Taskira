@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { viewTransition } from "./motion";
+import { clearCreateDrafts } from "./createDrafts";
 import type {
   AccessRole,
   CustomFieldType,
@@ -74,7 +75,7 @@ interface Api {
   openCreateSubtask: (parentId: string) => void;
   openCreate: (input: { dueDate: string }) => void;
   toast: (kind: Toast["kind"], text: string) => void;
-  createIssue: (input: CreateInput) => void;
+  createIssue: (input: CreateInput) => Promise<Issue | null>;
   importIssues: (
     inputs: CreateInput[],
     onProgress?: (done: number, total: number) => void,
@@ -233,6 +234,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
           sessionEpochRef.current++;
+          clearCreateDrafts();
           clearToken();
           setBootStatus("unauthenticated");
           setData(emptyData());

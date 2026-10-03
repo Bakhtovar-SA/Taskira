@@ -40,7 +40,7 @@ test("DOM issue order and J/K match the days in month and scrolling week cells",
   vi.setSystemTime(new Date("2026-10-01T12:00:00Z")); show();
   expect([...document.querySelectorAll('[data-issue-id]')].map(el => (el as HTMLElement).dataset.issueId)).toEqual(["i1", "i2", "i3", "i4", "i5"]);
   expect(neighborIssue("i3", 1)).toBe("i4"); expect(neighborIssue("i4", 1)).toBe("i5");
-  fireEvent.click(screen.getByRole("tab", { name: "Неделя" }));
+  fireEvent.click(screen.getByRole("button", { name: "Неделя" }));
   expect(screen.getAllByRole("gridcell")).toHaveLength(7);
   expect(neighborIssue("i5", -1)).toBe("i4");
   const card = document.querySelector('[data-issue-id="i1"]')!;

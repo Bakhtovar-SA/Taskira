@@ -1,0 +1,5 @@
+
+> docs:check
+> tsx scripts/generate-docs.ts --check
+
+docs: ok

@@ -15,7 +15,8 @@
   недоступное (`aria-disabled` + причина подсказкой), загрузка (`data-loading`). `data-force` — только для
   `/dev/ui` и снимков.
 - Плотность — `data-density="comfortable|compact"` на `<html>`; размеры — токены `--ctl-h-*`, `--ctl-px-*`,
-  `--row-h`. Переключатель появится в «Личных настройках» (ТЗ 5.9).
+  `--row-h`. Выбор в «Оформлении». По ADR-0027 compact уменьшает отступы и высоту строки (44 → 36 px),
+  сохраняя размер текста; на телефоне область основных действий 44 px.
 - Непрерывные значения (прогресс, размеры скелетона) — кастомным свойством через CSSOM (ADR-0010), не `style`.
 - Поверхности верхнего слоя — Popover API и `<dialog>`. Окно, которое закрывается с анимацией, родитель держит в
   `Presence` (`<Presence show={x}>{(open) => <Окно open={open} />}</Presence>`).
@@ -35,7 +36,7 @@
 | `Modal` (`variant="center"`) | `Dialog` | нативный `<dialog>`; закрытие с анимацией — `Presence` у родителя (G1) |
 | `Modal` (`variant="panel"`), карточка задачи | `SidePanel` (`headless`, `size="xl"`) | адрес `?issue=KEY`, режим «страница», `J`/`K` сохранены (G4) |
 | `Modal` (`variant="palette"`) | `PaletteDialog` | тот же `<dialog>` у верхней трети экрана, стекло; поле поиска — `data-autofocus` (G5) |
-| `Segmented`, вкладки в `Topbar`, чипы фокуса | `Tabs` (`segmented` / `line`) | roving tabindex |
+| `Segmented`, вкладки в `Topbar`, чипы фокуса | `Tabs` (`segmented` / `line`) | `navigation` — ссылки с `aria-current`; `filter` — кнопки с `aria-pressed`; `tabs` — roving tabindex и связь с панелями |
 | `Switch` (`ui.tsx`) | `Switch` (`ds`) | |
 | `<input type="checkbox">` с классами | `Checkbox` | `indeterminate` у «выбрать все» в списке; `labelHidden` в строках |
 | радиокнопки | `RadioGroup` | |

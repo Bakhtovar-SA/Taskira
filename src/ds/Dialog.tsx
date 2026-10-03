@@ -25,6 +25,19 @@ type DialogProps = {
   focusReady?: boolean;
 };
 
+function focusDialogBody(el: HTMLDialogElement) {
+  const preferred = el.querySelector<HTMLElement>("[data-autofocus]");
+  const controls = el.querySelectorAll<HTMLElement>(".ds-dialog-body :is(input, textarea, select, button, [href], [tabindex]):not([disabled], [tabindex='-1'], [aria-disabled='true'])");
+  // Responsive toolbars and collapsed details can contain enabled controls that
+  // cannot receive focus. Let the browser decide and continue to a visible one.
+  for (const candidate of [preferred, ...controls]) {
+    if (!candidate) continue;
+    candidate.focus();
+    if (document.activeElement === candidate) return;
+  }
+  el.focus();
+}
+
 function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean) {
   const ref = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -37,12 +50,7 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
     openerRef.current = back;
     if (el.showModal && !el.open) el.showModal();
     else el.setAttribute("open", ""); // jsdom
-    // Первый доступный элемент тела: выключенная кнопка фокус не принимает, и он оставался на body (карточка задачи:
-    // первая кнопка — «предыдущая задача», выключена без соседей).
-    (el.querySelector<HTMLElement>("[data-autofocus]") ??
-      el.querySelector<HTMLElement>(".ds-dialog-body :is(input, textarea, select, button, [href], [tabindex]):not([disabled], [tabindex='-1'], [aria-disabled='true'])") ??
-      el
-    )?.focus();
+    focusDialogBody(el);
     const onCancel = (e: Event) => {
       e.preventDefault();
       onCloseRef.current();
@@ -58,8 +66,7 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
     const el = ref.current;
     const active = document.activeElement;
     if (!open || !el || el.contains(active) || (active !== document.body && active !== openerRef.current)) return;
-    (el.querySelector<HTMLElement>("[data-autofocus]") ??
-      el.querySelector<HTMLElement>(".ds-dialog-body :is(input, textarea, select, button, [href], [tabindex]):not([disabled], [tabindex='-1'], [aria-disabled='true'])") ?? el).focus();
+    focusDialogBody(el);
   }, [open, focusReady]);
   return ref;
 }

@@ -2,6 +2,7 @@ import { ScreenPopover } from "./settings/parts";
 import { Input } from "../ds/Field";
 import { Button, IconButton } from "../ds/Button";
 import { Tabs } from "../ds/Tabs";
+import { pathForView } from "../router";
 import { Kbd, Skeleton } from "../ds/Display";
 import { PersonAvatar, RoleTag } from "./settings/parts";
 import { useEffect, useRef, useState } from "react";
@@ -641,8 +642,8 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
       </div>
       {isProjectView && (
         <nav aria-label={t("topbar.viewsAria")} className="project-view-tabs overflow-x-auto px-3 pb-2 sm:px-4">
-          <Tabs<ViewId> label={t("topbar.viewsAria")} value={ui.view} onChange={(v) => setView(v)}
-            items={views.map((v) => ({ id: v.id, icon: <span className={`tk-nav-glyph ${ui.view === v.id ? "tk-nav-glyph-active" : ""}`}>{v.icon({ size: 16 })}</span>, label: t(v.labelKey) }))} />
+          <Tabs<ViewId> mode="navigation" label={t("topbar.viewsAria")} value={ui.view} onChange={(v) => setView(v)}
+            items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: <span className={`tk-nav-glyph ${ui.view === v.id ? "tk-nav-glyph-active" : ""}`}>{v.icon({ size: 16 })}</span>, label: t(v.labelKey) }))} />
         </nav>
       )}
     </header>

@@ -33,44 +33,42 @@ export function useIssueCrudActions(
   { withIssue, resolveIssue, refreshIssues, setUi, bumpIssues, bumpEpics, langRef }: IssueCrudDeps,
 ) {
   const createIssue = useCallback(
-    (input: CreateInput) => {
-      if (!requirePerm("create")) return;
+    async (input: CreateInput): Promise<Issue | null> => {
+      if (!requirePerm("create")) return null;
       const payload = buildCreatePayload(input);
-      if (!payload.ok) return toast("error", localizeValidationError(payload.error, langRef.current));
+      if (!payload.ok) { toast("error", localizeValidationError(payload.error, langRef.current)); return null; }
       const requestProjectId = pid();
       const requestWorkflow = dataRef.current.workflow;
+      const epoch = sessionEpochRef.current;
 
-      void (async () => {
-        try {
-          const dto = await issuesApi.create(requestProjectId, payload.body);
-          const issue = mapIssue(dto);
-          const isDone = statusById(requestWorkflow, issue.statusId)?.category === "done";
-          setData((prev) => {
-            if (prev.currentProjectId !== requestProjectId) return prev;
-            return {
-              ...prev,
-              issues: patchParentSubtasksSummary([...prev.issues, issue], issue.parentId, {
+      try {
+        const dto = await issuesApi.create(requestProjectId, payload.body);
+        if (sessionEpochRef.current !== epoch) return null;
+        const issue = mapIssue(dto);
+        const isDone = statusById(requestWorkflow, issue.statusId)?.category === "done";
+        setData((prev) => {
+          if (prev.currentProjectId !== requestProjectId) return prev;
+          return {
+            ...prev,
+            issues: patchParentSubtasksSummary([...prev.issues, issue], issue.parentId, {
               total: 1,
               done: isDone ? 1 : 0,
-              }),
-            };
-          });
-          bumpIssues();
-          if (dto.epicId) bumpEpics();
-          // Закрывать (или нет) модалку — решение вызывающего компонента, не
-          // этого коллбэка: CreateIssueModal сам решает это синхронно, ДО
-          // резолва этого промиса, по чекбоксу «создать ещё одну следом».
-          // Раньше createOpen:false здесь стирал это решение уже ПОСЛЕ
-          // ответа сервера, так что чекбокс не мог удержать модалку открытой
-          // ни при каких обстоятельствах (ревью PR #46).
-          if (dataRef.current.currentProjectId === requestProjectId) {
-            setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() } }));
-          }
-          toast("success", local(`${issue.key} создана`, `${issue.key} created`));
-        } catch (err) {
-          handleApiError(err, local("Не удалось создать задачу", "Couldn't create the issue"));
+            }),
+          };
+        });
+        bumpIssues();
+        if (dto.epicId) bumpEpics();
+        // The caller owns the dialog and clears its draft only after a successful response.
+        if (dataRef.current.currentProjectId === requestProjectId) {
+          setUi((u) => ({ ...u, lastEvent: { issueId: issue.id, ts: Date.now() } }));
         }
-      })();
+        toast("success", local(`${issue.key} создана`, `${issue.key} created`));
+        return issue;
+      } catch (err) {
+        if (sessionEpochRef.current !== epoch) return null;
+        handleApiError(err, local("Не удалось создать задачу", "Couldn't create the issue"));
+        return null;
+      }
     },
     [requirePerm, toast, handleApiError],
   );

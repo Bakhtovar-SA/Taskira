@@ -118,7 +118,7 @@ describe("createIssue", () => {
     const { get } = await boot();
     const create = vi.spyOn(issuesApi, "create").mockResolvedValue(dto("n1", { epicId: "e1" }));
     const rev0 = [get().issuesRevision, get().epicsRevision];
-    act(() => get().createIssue({ title: "Новая", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never));
+    act(() => { void get().createIssue({ title: "Новая", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never); });
     await settle();
     expect(create).toHaveBeenCalledTimes(1);
     expect(find(get, "n1")).toBeTruthy();
@@ -131,7 +131,7 @@ describe("createIssue", () => {
     const { get } = await boot();
     vi.spyOn(issuesApi, "create").mockResolvedValue(dto("n2"));
     const e0 = get().epicsRevision;
-    act(() => get().createIssue({ title: "Ещё", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never));
+    act(() => { void get().createIssue({ title: "Ещё", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never); });
     await settle();
     expect(get().epicsRevision).toBe(e0);
   });
@@ -139,14 +139,14 @@ describe("createIssue", () => {
   test("пустой заголовок — в API не идёт; не-участник (нет права create) — тоже", async () => {
     const { get } = await boot();
     const create = vi.spyOn(issuesApi, "create").mockResolvedValue(dto("x"));
-    act(() => get().createIssue({ title: "   ", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never));
+    act(() => { void get().createIssue({ title: "   ", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never); });
     await settle();
     expect(create).not.toHaveBeenCalled();
     unmountCurrent?.();
     vi.restoreAllMocks();
     const viewer = await boot({ me: employee, members: [{ userId: "u2", role: "viewer" }] });
     const create2 = vi.spyOn(issuesApi, "create").mockResolvedValue(dto("y"));
-    act(() => viewer.get().createIssue({ title: "Нельзя", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never));
+    act(() => { void viewer.get().createIssue({ title: "Нельзя", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never); });
     await settle();
     expect(create2).not.toHaveBeenCalled();
   });
@@ -279,7 +279,7 @@ describe("защита от смены проекта во время запро
     let resolveMove!: (v: ServerIssue) => void;
     vi.spyOn(issuesApi, "create").mockReturnValue(new Promise<ServerIssue>((r) => (resolveCreate = r)));
     vi.spyOn(issuesApi, "transition").mockReturnValue(new Promise<ServerIssue>((r) => (resolveMove = r)));
-    act(() => get().createIssue({ title: "Поздняя", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never));
+    act(() => { void get().createIssue({ title: "Поздняя", description: "", typeId: "task", priorityId: "medium", assigneeIds: [], epicId: null, labels: [], complexity: null } as never); });
     act(() => get().moveStatus("i1", "s2"));
     await settle();
     act(() => get().logout());

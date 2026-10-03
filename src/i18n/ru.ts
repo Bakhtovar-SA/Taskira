@@ -3,6 +3,13 @@
  *  Record<keyof typeof ru, string>, так что несовпадение ключей — ошибка
  *  компиляции, а не молчаливый пропуск строки в одном из языков. */
 const ru = {
+  "workspace.filters": "Фильтры",
+  "workspace.settings": "Настройки вида",
+  "workspace.moreProperties": "Дополнительные свойства",
+  "createIssue.moreFields": "Дополнительные поля",
+  "createIssue.draftSaved": "Черновик сохраняется при закрытии формы",
+  "createIssue.discardDraft": "Очистить черновик",
+  "createIssue.failed": "Задача не создана. Введённые данные сохранены.",
   "notifVerb.issueDueSoon": "Напоминание о сроке задачи",
   "settings.notif.dueReminders": "Напоминания о сроке",
   "settings.notif.due7": "За 7 дней",
@@ -54,6 +61,7 @@ const ru = {
   "board.quickChip.overdue": "Просрочено",
   "board.quickChip.unassigned": "Без исполнителя",
   "board.filteredOf": "{visible} из {total}",
+  "board.filterConflict": "Несовместимые условия исполнителя",
   "board.loadMore": "Показать ещё",
   "board.loadMoreFailed": "Не удалось подгрузить — повторить",
   "board.columnLoadError": "Не удалось загрузить колонку — повторить",

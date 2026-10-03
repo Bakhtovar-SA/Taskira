@@ -230,7 +230,7 @@ export default function ReportsView() {
 
         {/* Фильтры — одна строка: период (готовый или свой), проект, разбивка. */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Tabs label={t("reports.period")} value={preset} onChange={applyPreset} items={PRESETS.map((p) => ({ id: p.id, label: t(p.labelKey) }))} />
+          <Tabs mode="filter" label={t("reports.period")} value={preset} onChange={applyPreset} items={PRESETS.map((p) => ({ id: p.id, label: t(p.labelKey) }))} />
           <span className="flex items-center gap-1.5 text-[12px] text-faint">
             <span>{t("reports.from")}</span>
             <DatePicker label={t("reports.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={from || null} max={to || undefined} onChange={(v) => { setFrom(v ?? ""); setPreset("custom"); }} />

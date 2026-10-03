@@ -128,7 +128,7 @@ export default function CalendarView() {
       <IconButton label={t("calendar.previous")} onClick={() => setDate(d => movePeriod(d, mode, -1))}><IcChevR className="rotate-180" /></IconButton>
       <IconButton label={t("calendar.next")} onClick={() => setDate(d => movePeriod(d, mode, 1))}><IcChevR /></IconButton>
       <h1 className="mr-auto text-base font-semibold">{period}</h1>
-      <Tabs label={t("calendar.scale")} value={mode} onChange={v => { setMode(v); localStorage.setItem("taskira.calendar.mode", v); }} items={[{ id: "month", label: t("calendar.month") }, { id: "week", label: t("calendar.week") }]} />
+      <Tabs mode="filter" label={t("calendar.scale")} value={mode} onChange={v => { setMode(v); localStorage.setItem("taskira.calendar.mode", v); }} items={[{ id: "month", label: t("calendar.month") }, { id: "week", label: t("calendar.week") }]} />
     </div>
     <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
       <Input aria-label={t("calendar.search")} value={search} maxLength={120} placeholder={t("calendar.search")} onChange={e => setSearch(e.target.value)} />
