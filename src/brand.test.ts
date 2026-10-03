@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, test, vi } from "vitest";
 
 const logoBlobUrl = vi.fn(async (v: number) => `blob:logo-${v}`);
 vi.mock("./api", () => ({ brandApi: { get: vi.fn(), logoBlobUrl: (v: number) => logoBlobUrl(v) } }));
@@ -8,6 +8,14 @@ import { TRANSPARENCY_DEFAULTS, readCache, BRAND_EXTRA_HUES, BRAND_HUE, applyHue
 
 const root = document.documentElement;
 const hueVar = () => root.style.getPropertyValue("--brand-h");
+
+beforeEach(() => {
+  if (!document.querySelector('link[rel="icon"]')) {
+    const link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+});
 
 afterEach(() => {
   resetBrand();
@@ -93,4 +101,35 @@ test("additional brand presets match the contract, cache and palette; legacy val
   }
   applyHue(300);
   expect(root.hasAttribute("data-brand-palette")).toBe(false);
+});
+
+
+test("favicon follows saved hue and logo, ignores preview and resets when branding is removed", async () => {
+  const icon = () => document.querySelector<HTMLLinkElement>('link[rel="icon"]')!;
+  setBrand({ transparencyDefault: "auto", name: "Acme", hue: 235, logoUpdatedAt: null });
+  expect(icon().href).toMatch(/^data:image\/svg\+xml,/);
+  expect(decodeURIComponent(icon().href)).toContain("oklch(0.52 0.2 235)");
+  expect(document.querySelectorAll('link[rel="icon"]')).toHaveLength(1);
+  const saved = icon().href;
+  previewHue(345);
+  expect(icon().href).toBe(saved);
+  setBrand({ transparencyDefault: "auto", name: "Acme", hue: 235, logoUpdatedAt: 42 });
+  await Promise.resolve();
+  expect(icon().href).toBe("blob:logo-42");
+  setBrand({ transparencyDefault: "auto", name: null, hue: null, logoUpdatedAt: null });
+  expect(icon().getAttribute("href")).toBe("/favicon.svg");
+});
+
+
+test("a delayed obsolete logo cannot replace the current favicon", async () => {
+  let finish!: (url: string) => void;
+  logoBlobUrl.mockImplementationOnce(() => new Promise<string>(resolve => { finish = resolve; }));
+  setBrand({ transparencyDefault: "auto", name: null, hue: 235, logoUpdatedAt: 50 });
+  setBrand({ transparencyDefault: "auto", name: null, hue: 145, logoUpdatedAt: null });
+  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')!;
+  const current = link.href;
+  finish("blob:obsolete-logo");
+  await Promise.resolve();
+  expect(link.href).toBe(current);
+  expect(decodeURIComponent(link.href)).toContain("oklch(0.52 0.2 145)");
 });

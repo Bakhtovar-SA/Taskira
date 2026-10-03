@@ -6,6 +6,7 @@
  *  (CSSOM, ADR-0010); акцентные токены tokens.css используют оттенок и профиль палитры. Допустимые значения —
  *  contract.ts BRAND_HUE и BRAND_EXTRA_HUES,
  *  его целиком проверяет `npm run contrast:check`, поэтому любой сохранённый оттенок проходит контраст 4.5. */
+import faviconSvg from "./assets/brand-favicon.svg?raw";
 import type { BrandDto } from "../server/src/contract";
 import { setOrgTransparency } from "./theme";
 import { brandApi } from "./api";
@@ -66,6 +67,13 @@ function applyTitle(name: string | null): void {
   document.title = name ?? DEFAULT_BRAND_NAME;
 }
 
+/** The standalone SVG uses the saved brand hue, independently of page CSS. */
+function applyFavicon(brand: Brand): void {
+  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (link) link.href = brand.logoUrl ?? (!isHue(brand.hue) ? "/favicon.svg" :
+    "data:image/svg+xml," + encodeURIComponent(faviconSvg.replace(/BRAND_HUE/g, String(brand.hue))));
+}
+
 /** Применить ответ сервера: оттенок, название, кэш; знак грузится blob-ссылкой только если он сменился. */
 export function setBrand(dto: BrandDto): void {
   const prev = store.getState();
@@ -76,6 +84,7 @@ export function setBrand(dto: BrandDto): void {
   setOrgTransparency(next.transparencyDefault);
   applyHue(dto.hue);
   applyTitle(dto.name);
+  applyFavicon(next);
   writeCache(next);
   if (logoChanged && dto.logoUpdatedAt !== null) {
     const v = dto.logoUpdatedAt;
@@ -84,6 +93,7 @@ export function setBrand(dto: BrandDto): void {
       // Пока грузился, знак могли сменить или убрать — устаревшую ссылку не ставим.
       if (store.getState().logoUpdatedAt !== v) return URL.revokeObjectURL(url);
       store.setState((b) => ({ ...b, logoUrl: url }));
+      applyFavicon(store.getState());
     });
   }
 }
@@ -91,6 +101,7 @@ export function setBrand(dto: BrandDto): void {
 export function loadBrand(): void {
   const cached = store.getState();
   applyTitle(cached.name);
+  applyFavicon(cached);
   brandApi.get().then(setBrand, () => undefined); // без бренда — стандартный вид, ошибка не мешает работе
 }
 
@@ -106,6 +117,7 @@ export const useBrandLogo = () => useExternalStore(store, (b) => b.logoUrl);
 /** Для тестов. */
 export function resetBrand(): void {
   store.setState(() => EMPTY);
+  applyFavicon(EMPTY);
   applyHue(null);
   setOrgTransparency("auto");
 }
