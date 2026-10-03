@@ -324,7 +324,7 @@
   --glass-edge-2: oklch(1 0 0 / 0.03);
   --board-col-bg: color-mix(in oklch, var(--bg-sunken) 55%, transparent);
   --board-col-line: var(--border-subtle);
-  --board-card-line: transparent;
+  --board-card-line: var(--border-default);
 
   --logo: oklch(0.78 0.13 var(--brand-h));
   --ic-l: 0.74;

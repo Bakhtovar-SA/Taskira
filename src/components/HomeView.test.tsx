@@ -18,6 +18,7 @@ const ASSIGNED: AssignedIssue[] = [
 ];
 
 const store = {
+  me: { id: "u1", name: "Анна Соколова", globalRole: "admin" },
   data: {
     currentUserId: "u1",
     users: [{ id: "u1", name: "Анна Соколова" }],
@@ -47,6 +48,7 @@ import HomeView from "./HomeView";
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  store.data.assignedToMe = ASSIGNED;
 });
 const renderHome = () =>
   render(
@@ -77,6 +79,36 @@ describe("Главная", () => {
     expect(titles()).toEqual(["Созвон с клиентом"]);
     fireEvent.change(box, { target: { value: "альфа" } });
     expect(titles().sort()).toEqual(["Просроченный отчёт", "Сдать макет"].sort());
+    expect(screen.queryByRole("button", { name: /Бета/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Альфа/ })).toBeTruthy();
+    fireEvent.change(box, { target: { value: " B " } });
+    expect(screen.getByRole("button", { name: /Бета/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Альфа/ })).toBeNull();
+  });
+
+  test("пустой личный список скрывает нулевые фильтры; создание требует выбора проекта", () => {
+    store.data.assignedToMe = [];
+    renderHome();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Создать задачу" }));
+    const dialog = screen.getByRole("dialog");
+    expect(store.enterProject).not.toHaveBeenCalled();
+    expect(store.setCreateOpen).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Бета" }));
+    expect(store.setCreateOpen).toHaveBeenCalledWith(true);
+    expect(store.enterProject).toHaveBeenCalledWith("p2");
+  });
+
+  test("фильтры доступны с клавиатуры и не называют пустую категорию отсутствием всех задач", () => {
+    renderHome();
+    const tabs = within(screen.getByRole("tablist"));
+    const first = tabs.getByRole("tab", { name: /Все мои/ });
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(tabs.getByRole("tab", { name: /Просрочено/ }));
+    expect(titles()).toEqual(["Просроченный отчёт"]);
+    fireEvent.keyDown(document.activeElement!, { key: "Home" });
+    expect(titles()).toHaveLength(3);
   });
 
   test("задача открывается полной страницей в своём проекте; проект — enterProject", () => {

@@ -1,0 +1,169 @@
+/* Workspace layout uses the existing semantic palette and density preferences. */
+.home-view,
+.project-topbar,
+.board-view {
+  --ctl-h-sm: 32px;
+  --ctl-h-md: 36px;
+  --ctl-h-lg: 40px;
+  --ctl-fs: 14px;
+  --ctl-fs-sm: 13px;
+}
+:root[data-density="compact"] :is(.home-view, .project-topbar, .board-view) {
+  --ctl-h-sm: 28px;
+  --ctl-h-md: 32px;
+  --ctl-h-lg: 36px;
+}
+.home-view .ds-empty {
+  padding: 24px 16px;
+  border-radius: var(--radius-l);
+  background: var(--bg-panel);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+.home-view .ds-empty-art {
+  width: 36px;
+  height: 36px;
+  margin-bottom: 8px;
+}
+.home-view .ds-empty-sub {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.home-view h2 {
+  font-size: 16px;
+}
+.project-topbar {
+  background: var(--bg-canvas);
+}
+.project-view-tabs {
+  scrollbar-width: thin;
+}
+.project-view-tabs [role="tablist"] {
+  width: max-content;
+  min-width: 0;
+}
+.project-view-tabs [role="tab"] {
+  min-height: 36px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.topbar-search:not(.is-expanded) .ds-input {
+  gap: 0;
+}
+.board-tools > button,
+.board-quick-filters > button {
+  min-height: 36px;
+}
+.board-col h2 {
+  font-size: 14px;
+}
+.board-card h3 {
+  font-size: 14px;
+  line-height: 1.5;
+}
+@media (max-width: 1023px) {
+  .topbar-search:not(.is-expanded) .ds-input input {
+    width: 0;
+    flex-basis: 0;
+    opacity: 0;
+  }
+}
+@media (max-width: 767px) {
+  /* Keep search above its own trigger, rather than pushing adjacent actions away. */
+  .topbar-search.is-expanded > div:first-child {
+    position: absolute;
+    right: 0;
+    top: -22px;
+    z-index: 50;
+  }
+  .topbar-search.is-expanded {
+    width: 44px;
+  }
+  .topbar-search.is-expanded > div:last-child:not(:first-child) {
+    left: auto;
+    right: 0;
+    width: min(320px, calc(100vw - 32px));
+    z-index: 50;
+  }
+  .topbar-search:not(.is-expanded) > div:first-child {
+    width: 44px;
+  }
+  :is(.home-view, .project-topbar, .board-view, .ds-dialog, .ds-panel) .ds-btn,
+  .project-view-tabs [role="tab"],
+  .board-tools > button,
+  .board-quick-filters > button {
+    min-height: 44px;
+  }
+  :is(.home-view, .project-topbar) .ds-btn[data-icon],
+  .board-search button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  :is(.home-view, .project-topbar, .ds-dialog, .ds-panel) .ds-input {
+    min-height: 44px;
+  }
+  :is(.home-view, .project-topbar, .ds-dialog, .ds-panel) .ds-input input,
+  :is(.ds-dialog, .ds-panel) .ds-input textarea,
+  .board-search input {
+    font-size: 16px;
+  }
+  .home-view header {
+    min-height: 64px;
+    gap: 8px;
+  }
+  .home-view .focus-chip {
+    min-height: 44px;
+  }
+  .project-topbar .ds-btn[data-icon],
+  .project-topbar .topbar-search {
+    flex-shrink: 0;
+  }
+  .project-topbar .ds-btn[aria-haspopup] {
+    min-width: 44px;
+  }
+  .board-tools {
+    margin-left: 0;
+  }
+  .board-assignees button {
+    display: grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .board-scroll {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .board-columns {
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .board-columns > .board-col {
+    flex: none;
+    height: auto;
+    max-height: none;
+    max-width: none;
+    width: 100%;
+  }
+  .board-col-body {
+    overflow-y: visible;
+  }
+  .board-col header {
+    height: 48px;
+  }
+  .board-col > [aria-hidden="true"] {
+    top: 48px;
+  }
+  .board-col header button,
+  .board-card button[aria-haspopup] {
+    width: 44px;
+    height: 44px;
+  }
+  .board-card button[aria-haspopup] {
+    opacity: 1;
+  }
+  .board-card > div:first-child {
+    height: 36px;
+  }
+}

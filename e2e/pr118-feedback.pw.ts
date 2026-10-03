@@ -41,9 +41,9 @@ test("a board photo survives reload and belongs only to this browser account", a
   });
   await mockApi(page);
   await page.goto("/p/TEST/board");
-  await page.getByRole("button", { name: "Фото моей доски", exact: true }).click();
+  await page.getByRole("button", { name: "Вид доски", exact: true }).click();
   const fileChooser = page.waitForEvent("filechooser");
-  await page.getByRole("dialog", { name: "Фото моей доски", exact: true }).getByRole("button", { name: "Загрузить фото", exact: true }).and(page.locator("button")).click();
+  await page.getByRole("dialog", { name: "Вид доски", exact: true }).getByRole("button", { name: "Загрузить фото", exact: true }).and(page.locator("button")).click();
   await (await fileChooser).setFiles("e2e/__screenshots__/tabs-light.png");
   await expect(page.locator('[data-personal-board-photo="true"]')).toBeVisible();
   await expect.poll(() => page.locator('[data-personal-board-photo="true"]').evaluate(el => getComputedStyle(el).backgroundImage)).toContain("blob:");
@@ -64,10 +64,10 @@ test("a board photo survives reload and belongs only to this browser account", a
   try {
     await mockApi(other, { id: "u2", username: "another" });
     await other.goto(new URL("/p/TEST/board", page.url()).href);
-    await expect(other.getByRole("button", { name: "Фото моей доски", exact: true })).toBeVisible();
+    await expect(other.getByRole("button", { name: "Вид доски", exact: true })).toBeVisible();
     await expect(other.locator('[data-personal-board-photo="true"]')).toHaveCount(0);
   } finally { await other.close(); }
-  await page.getByRole("button", { name: "Фото моей доски", exact: true }).click();
+  await page.getByRole("button", { name: "Вид доски", exact: true }).click();
   await page.getByRole("button", { name: "Убрать фото", exact: true }).click();
   await expect(page.locator('[data-personal-board-photo="true"]')).toHaveCount(0);
   await expect(page.locator("main")).not.toContainText("blob:");

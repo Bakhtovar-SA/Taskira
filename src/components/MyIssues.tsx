@@ -1,7 +1,7 @@
 /** «Мои задачи» — общие куски Главной и страницы `/my-issues` (ADR-0013 §1): строка задачи
  *  и полоса фокуса. Данные — `data.assignedToMe` (GET /api/issues/assigned-to-me, по всем
  *  видимым проектам). */
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import type { lookOf } from "../projectLook";
 import { fmtDate } from "../store/mappers";
 import type { AssignedIssue } from "../types";
@@ -61,8 +61,10 @@ export function useFocusCounts(items: AssignedIssue[]) {
  *  (анти-список трека: «большое число + подпись» только если оно что-то открывает). */
 export function FocusChips({ focus, onFocus, counts, className = "" }: { focus: Focus; onFocus: (f: Focus) => void; counts: Record<Focus, number>; className?: string }) {
   const { t } = useT();
+  const list = useRef<HTMLDivElement>(null);
+  const order: Focus[] = ["all", "overdue", "week", "inprogress"];
   return (
-    <div role="tablist" aria-label={t("home.myTasks")} className={`flex flex-wrap gap-2 ${className}`}>
+    <div ref={list} role="tablist" aria-label={t("home.myTasks")} className={`flex flex-wrap gap-2 ${className}`}>
       {(
         [
           ["all", "home.focus.all", "violet"],
@@ -78,8 +80,17 @@ export function FocusChips({ focus, onFocus, counts, className = "" }: { focus: 
             key={id}
             role="tab"
             aria-selected={on}
+            tabIndex={on ? 0 : -1}
             onClick={() => onFocus(id)}
-            className={`focus-chip tk-tone-${tone} ${on ? "is-on" : ""} flex h-10 items-center gap-2.5 rounded-xl pl-3 pr-3.5 text-[13px] font-medium transition-[background-color,box-shadow,color] duration-150`}
+            onKeyDown={(e) => {
+              const i = order.indexOf(id);
+              const next = e.key === "ArrowRight" ? (i + 1) % order.length : e.key === "ArrowLeft" ? (i + order.length - 1) % order.length : e.key === "Home" ? 0 : e.key === "End" ? order.length - 1 : null;
+              if (next === null) return;
+              e.preventDefault();
+              onFocus(order[next]);
+              list.current?.querySelectorAll<HTMLButtonElement>("[role=tab]")[next]?.focus();
+            }}
+            className={`ds-focus focus-chip tk-tone-${tone} ${on ? "is-on" : ""} flex h-10 items-center gap-2.5 rounded-xl pl-3 pr-3.5 text-[13px] font-medium transition-[background-color,box-shadow,color] duration-150`}
           >
             <span className={`font-disp text-[18px] font-semibold tabular leading-none ${id === "overdue" && n > 0 ? "text-[var(--status-danger-fg)]" : on ? "text-current" : "text-ink"}`}>{n}</span>
             <span className={on ? "text-ink" : "text-sub"}>{t(key)}</span>

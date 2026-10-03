@@ -148,7 +148,7 @@ export function SearchBox() {
         : "";
 
   return (
-    <div className="relative">
+    <div className={`topbar-search relative shrink-0 ${focus ? "is-expanded" : ""}`}>
       {/* До 1024 px в покое — только лупа (место в шапке нужно вкладкам); клик по ней ставит фокус. */}
       <div
         onMouseDown={(e) => {
@@ -157,10 +157,10 @@ export function SearchBox() {
             ref.current?.focus();
           }
         }}
-        className={`flex cursor-text items-center gap-2 rounded-lg border px-2 transition-[width,background-color,border-color,box-shadow] duration-200 ease-out lg:px-2.5 ${focus ? "w-[190px] border-accent bg-panel shadow-focus sm:w-[360px]" : "w-8 border-linesoft bg-sunken hover:border-line lg:w-[240px]"}`}
+        className={`cursor-text ${focus ? "w-[min(320px,calc(100vw-32px))]" : "w-10 lg:w-[220px]"}`}
       >
-        <IcSearch size={14} className="shrink-0 text-faint" />
-        <div className="w-full"><Input
+        <Input iconLeft={<IcSearch size={16} className="shrink-0 text-faint" />}
+          right={!focus ? <span className="hidden lg:block"><Kbd>/</Kbd></span> : undefined}
           id="global-search"
           aria-label={t("topbar.searchPlaceholder")}
           ref={ref}
@@ -170,10 +170,7 @@ export function SearchBox() {
           onBlur={() => setTimeout(() => setFocus(false), 150)}
           placeholder={t("topbar.searchPlaceholder")}
 
-        /></div>
-        {!focus && (
-          <span className="hidden shrink-0 lg:block"><Kbd>/</Kbd></span>
-        )}
+        />
       </div>
       {focus && q.trim() && (
         <div className="glass anim-pop absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-line shadow-e3">
@@ -400,7 +397,7 @@ export function Bell() {
   );
 }
 
-function UserMenu({ onLogout }: { onLogout: () => void }) {
+export function UserMenu({ onLogout, onSettings }: { onLogout: () => void; onSettings?: () => void }) {
   const { t } = useT();
   const { data, me } = useStore();
   const openSettings = useOpenSettings();
@@ -427,16 +424,17 @@ function UserMenu({ onLogout }: { onLogout: () => void }) {
           {/* The profile body shares this popover, so its settings stay in the same focus context. */}
           <div className="border-b border-linesoft">
             <UserCardBody userId={me.id} />
-            <div className="-mt-2 px-4 pb-3">
+            {!onSettings && <div className="-mt-2 px-4 pb-3">
               <p className="text-[11px] text-faint">{data.project.name}</p>
               <div className="mt-2">
                 <RoleTag role={me.accessRole} size="sm" />
               </div>
-            </div>
+            </div>}
           </div>
           <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"
             onClick={() => {
-              openSettings("settings");
+              if (onSettings) onSettings();
+              else openSettings("settings");
               close();
             }}
           >
@@ -588,7 +586,8 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
   const canCreate = can("create");
 
   return (
-    <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-linesoft px-3 sm:px-4">
+    <header className="project-topbar shrink-0 border-b border-linesoft">
+      <div className="flex min-h-[56px] min-w-0 items-center gap-2 px-3 sm:gap-3 sm:px-4">
       {/* Узкий экран (< 1024 px): боковая панель выезжает поверх по этой кнопке (ТЗ 5.8 п.3) —
           там Главная, Входящие, Мои задачи и дерево проектов. */}
       <IconButton variant="ghost" size="sm" label={t("sidebar.menu")}
@@ -602,19 +601,14 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
 
       {/* Шапка проекта (ADR-0013 §2.2): значок и переключатель проекта, рядом —
           вкладки представлений. На экранах вне представлений — крошка раздела. */}
-      <nav aria-label={t("calendar.breadcrumbs")} className="flex min-w-0 items-center gap-0.5 text-[13px] text-faint">
+      <nav aria-label={t("calendar.breadcrumbs")} className="flex min-w-0 flex-1 items-center gap-1 text-[14px] text-faint">
         <span className="hidden sm:flex">
           <ProjectMark projectKey={data.project.key} {...lookOf(data.projects, data.currentProjectId)} size={20} />
         </span>
-        <span className="hidden md:flex">
+        <span className="min-w-0 [&_button]:max-w-full [&_button]:min-w-0">
           <ProjectSwitcher />
         </span>
-        {isProjectView ? (
-          <div className="md:ml-2">
-            <Tabs<ViewId> label={t("topbar.viewsAria")} value={ui.view} onChange={(v) => setView(v)}
-              items={views.map((v) => ({ id: v.id, icon: <span className={`tk-nav-glyph ${ui.view === v.id ? "tk-nav-glyph-active" : ""}`}>{v.icon({ size: 14 })}</span>, label: <span className={ui.view === v.id || v.id === "calendar" ? "max-sm:sr-only" : "max-2xl:sr-only"}>{t(v.labelKey)}</span> }))} />
-          </div>
-        ) : (
+        {!isProjectView && (
           <>
             <span className="hidden px-0.5 text-line2 md:inline">/</span>
             <span className="truncate px-1.5 font-bold tracking-[-0.01em] text-ink">{viewTitle}</span>
@@ -622,21 +616,21 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
         )}
       </nav>
 
-      <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2.5">
         <SearchBox />
         <Bell />
         {canCreate ? (
-          <Button variant="primary" size="sm"
+          <Button variant="primary" size="lg"
             onClick={() => setCreateOpen(true)}
-            className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
+            className="max-sm:w-11 max-sm:px-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
             aria-label={t("topbar.createAria")}
           >
             <IcPlus size={14} /> <span className="hidden sm:inline">{t("topbar.create")}</span>
           </Button>
         ) : (
 
-            <Button disabled={t("topbar.createDeniedTip")} variant="ghost" size="sm" className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
-              <IcLock size={13} /> {t("topbar.create")}
+            <Button aria-label={t("topbar.createAria")} disabled={t("topbar.createDeniedTip")} variant="ghost" size="sm" className="max-sm:w-11 max-sm:px-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
+              <IcLock size={13} /> <span className="hidden sm:inline">{t("topbar.create")}</span>
             </Button>
 
         )}
@@ -644,6 +638,13 @@ export default function Topbar({ onLogout }: { onLogout?: () => void }) {
           <UserMenu onLogout={doLogout} />
         </div>
       </div>
+      </div>
+      {isProjectView && (
+        <nav aria-label={t("topbar.viewsAria")} className="project-view-tabs overflow-x-auto px-3 pb-2 sm:px-4">
+          <Tabs<ViewId> label={t("topbar.viewsAria")} value={ui.view} onChange={(v) => setView(v)}
+            items={views.map((v) => ({ id: v.id, icon: <span className={`tk-nav-glyph ${ui.view === v.id ? "tk-nav-glyph-active" : ""}`}>{v.icon({ size: 16 })}</span>, label: t(v.labelKey) }))} />
+        </nav>
+      )}
     </header>
   );
 }
