@@ -71,18 +71,24 @@
 @media (max-width: 767px) {
   /* Keep search above its own trigger, rather than pushing adjacent actions away. */
   .topbar-search.is-expanded > div:first-child {
-    position: absolute;
-    right: 0;
-    top: -22px;
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: 6px;
+    width: auto;
     z-index: 50;
   }
   .topbar-search.is-expanded {
     width: 44px;
   }
   .topbar-search.is-expanded > div:last-child:not(:first-child) {
-    left: auto;
-    right: 0;
-    width: min(320px, calc(100vw - 32px));
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: 54px;
+    width: auto;
+    max-height: calc(100dvh - 72px);
+    overflow-y: auto;
     z-index: 50;
   }
   .topbar-search:not(.is-expanded) > div:first-child {

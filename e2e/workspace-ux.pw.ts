@@ -106,6 +106,13 @@ for (const theme of ["light", "dark"]) {
         expect(expanded.x).toBeGreaterThanOrEqual(0);
         expect(expanded.y).toBeGreaterThanOrEqual(0);
         expect(expanded.x + expanded.width).toBeLessThanOrEqual(width);
+        await globalSearch.fill("Подготовить");
+        const results = page.locator(".topbar-search > .glass");
+        await expect(results).toBeVisible();
+        const resultsBox = (await results.boundingBox())!;
+        expect(resultsBox.x).toBeGreaterThanOrEqual(0);
+        expect(resultsBox.x + resultsBox.width).toBeLessThanOrEqual(width);
+        await globalSearch.fill("");
         await page.getByRole("heading", { name: "Доска", exact: true }).click();
         await expect(page.locator(".topbar-search")).not.toHaveClass(/is-expanded/);
         const columns = page.locator(".board-col");
