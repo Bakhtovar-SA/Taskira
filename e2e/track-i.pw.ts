@@ -69,7 +69,7 @@ for (const theme of ["light", "dark"] as const) {
     await page.addInitScript((v) => localStorage.setItem("taskira.theme", v), theme);
     const writes = await mockApi(page);
     await page.goto("/p/TEST/list");
-    await page.locator(".workspace-filters > summary").click();
+    await page.getByRole("button", { name: /^Фильтры/ }).click();
     await page.getByRole("button", { name: /^Срок/, exact: false }).click();
     await exerciseDate(page, "С", "Убрать срок");
     await exerciseDate(page, "По", "Убрать срок");

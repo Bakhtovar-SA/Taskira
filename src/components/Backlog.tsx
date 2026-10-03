@@ -14,6 +14,7 @@ import { UserAvatarGroup } from "./UserAvatar";
 import { Button, DatePicker, Checkbox, EmptyState, Menu, Popover, Presence, Skeleton, Tag } from "../ds";
 import BulkBar from "./BulkBar";
 import { IssueFilterSummary } from "./IssueFilterSummary";
+import { WorkspaceControls } from "./WorkspaceControls";
 import { useT } from "../i18n";
 import { statusTone, workflowStatusName } from "../workflowStatus";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, type FilterState, pathForIssue, pathForView } from "../router";
@@ -451,8 +452,9 @@ export default function Backlog() {
           </div>
 
         </div>
-        <div className="workspace-controls mt-3">
-            <div className="workspace-search flex min-w-0 items-center gap-2 rounded-md border border-line bg-panel px-3">
+        <WorkspaceControls selectionMode={selectMode}
+          count={Object.values(filters).filter(Boolean).length + Number(fOverdue) + Number(showDone) + Number(!!q)}
+          search={<div className="workspace-search flex min-w-0 items-center gap-2 rounded-md border border-line bg-panel px-3">
               <IcSearch size={13} className="text-faint" />
               <input
                 value={q}
@@ -466,82 +468,8 @@ export default function Backlog() {
                   <IcX size={12} />
                 </button>
               )}
-            </div>
-          <details className="workspace-options">
-            <summary className="ds-focus"><IcDisplay size={14} /> {t("workspace.settings")}</summary>
-            <div className="workspace-options-body flex flex-wrap items-center gap-2">
-            {/* ТЗ 3.3: режим выделения — чекбоксы появляются в строках только пока он включён. */}
-            <button
-              aria-pressed={selectMode}
-              onClick={() => setSelectMode((v) => !v)}
-              className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium transition-colors ${selectMode ? "border-accent text-accenttext" : "border-line text-sub hover:border-accent hover:text-accenttext"}`}
-            >
-              {t("backlog.selectMode")}
-            </button>
-            {can("create") && (
-              <button
-                onClick={() => setImportOpen(true)}
-                className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-panel shadow-e1 px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:bg-hover hover:text-ink"
-              >
-                <IcInbox size={13} /> {t("import.title")}
-              </button>
-            )}
-
-
-            {/* колонки таблицы (ТЗ 5.12 e) */}
-            <Popover
-              label={t("backlog.columns")}
-              placement="bottom-end"
-              className="w-[230px]"
-              trigger={(p, open) => (
-                <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
-                  <IcDisplay size={12} className="text-faint" />
-                  {t("backlog.columns")}
-                  <IcChevD size={11} className="text-faint" />
-                </button>
-              )}
-            >
-              <div className="flex flex-col gap-0.5 p-1">
-                {COLUMNS.map((c) => (
-                  <Checkbox key={c.id} checked={cols.includes(c.id)} onChange={() => toggleCol(c.id)} label={t(c.label)} />
-                ))}
-                <p className="mt-1 border-t border-linesoft px-1 pb-0.5 pt-1.5 text-[11px] leading-snug text-faint">{t("backlog.columnsHint")}</p>
-              </div>
-            </Popover>
-
-            {/* сортировка */}
-            <Menu
-              label={t("backlog.sort.label")}
-              placement="bottom-end"
-              trigger={(p, open) => (
-                <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
-                  <IcFilter size={12} className="text-faint" />
-                  {sortLabels[sortKey]}
-                  <IcChevD size={11} className="text-faint" />
-                </button>
-              )}
-              items={(Object.keys(sortLabels) as SortKey[]).map((k) => ({
-                id: k,
-                label: sortLabels[k],
-                hint: k === sortKey ? <IcCheck size={12} className="text-accenttext" /> : undefined,
-                onSelect: () => pickSort(k),
-              }))}
-            />
-            <button
-              onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-              title={t(sortDir === "asc" ? "backlog.sort.asc" : "backlog.sort.desc")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-panel shadow-e1 text-sub hover:text-ink"
-              aria-label={t("backlog.sort.direction")}
-            >
-              <IcChevD size={13} className={sortDir === "asc" ? "rotate-180" : ""} />
-            </button>
-            </div>
-          </details>
-
-        {/* фильтры */}
-        <details className="workspace-filters">
-          <summary className="ds-focus"><IcFilter size={14} /> {t("workspace.filters")}{filterActive && <span className="ds-count">{Object.values(filters).filter(Boolean).length + Number(fOverdue) + Number(showDone) + Number(!!q)}</span>}</summary>
-          <div className="workspace-filters-body flex flex-wrap items-center gap-2">
+            </div>}
+          filters={<div className="workspace-filters-body flex flex-wrap items-center gap-2">
           <select aria-label={t("field.status")} value={fStatus} onChange={(e) => setField("status")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.allStatuses")}</option>
             {data.workflow.statuses.map((s) => (
@@ -695,11 +623,76 @@ export default function Backlog() {
               </>
             )}
           </Popover>
-          </div>
-        </details>
-        </div>
-        {filterActive && (
-          <IssueFilterSummary filters={filters}>
+          </div>}
+          options={<div className="workspace-options-body flex flex-wrap items-center gap-2">
+            {/* ТЗ 3.3: режим выделения — чекбоксы появляются в строках только пока он включён. */}
+            <button
+              aria-pressed={selectMode}
+              onClick={() => setSelectMode((v) => !v)}
+              className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium transition-colors ${selectMode ? "border-accent text-accenttext" : "border-line text-sub hover:border-accent hover:text-accenttext"}`}
+            >
+              {t("backlog.selectMode")}
+            </button>
+            {can("create") && (
+              <button
+                onClick={() => setImportOpen(true)}
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-panel shadow-e1 px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:bg-hover hover:text-ink"
+              >
+                <IcInbox size={13} /> {t("import.title")}
+              </button>
+            )}
+
+
+            {/* колонки таблицы (ТЗ 5.12 e) */}
+            <Popover
+              label={t("backlog.columns")}
+              placement="bottom-end"
+              className="w-[230px]"
+              trigger={(p, open) => (
+                <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+                  <IcDisplay size={12} className="text-faint" />
+                  {t("backlog.columns")}
+                  <IcChevD size={11} className="text-faint" />
+                </button>
+              )}
+            >
+              <div className="flex flex-col gap-0.5 p-1">
+                {COLUMNS.map((c) => (
+                  <Checkbox key={c.id} checked={cols.includes(c.id)} onChange={() => toggleCol(c.id)} label={t(c.label)} />
+                ))}
+                <p className="mt-1 border-t border-linesoft px-1 pb-0.5 pt-1.5 text-[11px] leading-snug text-faint">{t("backlog.columnsHint")}</p>
+              </div>
+            </Popover>
+
+            {/* сортировка */}
+            <Menu
+              label={t("backlog.sort.label")}
+              placement="bottom-end"
+              trigger={(p, open) => (
+                <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+                  <IcFilter size={12} className="text-faint" />
+                  {sortLabels[sortKey]}
+                  <IcChevD size={11} className="text-faint" />
+                </button>
+              )}
+              items={(Object.keys(sortLabels) as SortKey[]).map((k) => ({
+                id: k,
+                label: sortLabels[k],
+                hint: k === sortKey ? <IcCheck size={12} className="text-accenttext" /> : undefined,
+                onSelect: () => pickSort(k),
+              }))}
+            />
+            <button
+              onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+              title={t(sortDir === "asc" ? "backlog.sort.asc" : "backlog.sort.desc")}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-panel shadow-e1 text-sub hover:text-ink"
+              aria-label={t("backlog.sort.direction")}
+            >
+              <IcChevD size={13} className={sortDir === "asc" ? "rotate-180" : ""} />
+            </button>
+            </div>}
+        />
+        {filterActive && (<IssueFilterSummary filters={filters}>
             {fOverdue && <span>{t("backlog.overdue")}</span>}
             {showDone && <span>{t("backlog.showClosed")}</span>}
             <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={12} className="inline" /> {t("common.reset")}</button>

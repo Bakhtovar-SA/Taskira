@@ -17,7 +17,7 @@ test("unsupported original avatar formats are rejected before any upload", async
 test("unreadable board replacement preserves the actual displayed photo", async ({ page }) => {
   await mockApi(page);
   await page.goto("/p/TEST/board");
-  await page.locator(".workspace-options > summary").click();
+  await page.getByRole("button", { name: "Настройки вида", exact: true }).click();
   const input = page.getByLabel("Загрузить фото", { exact: true });
   await input.setInputFiles("e2e/__screenshots__/tabs-light.png");
   const board = page.locator('[data-personal-board-photo="true"]');

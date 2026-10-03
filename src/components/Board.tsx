@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { Hint } from "./Hint";
 import { IssueFilterSummary } from "./IssueFilterSummary";
+import { WorkspaceControls } from "./WorkspaceControls";
 import { useStore } from "../store";
 import { usePersonalBoardPhoto } from "../personalBoardPhoto";
 import BoardBackgroundControl from "./BoardBackgroundControl";
@@ -11,7 +12,7 @@ import { createExternalStore, useExternalStore, type ExternalStore } from "../st
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, PriorityId, Status, User } from "../types";
-import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcFilter, IcDisplay, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcSubtasks, IcUsers, IcX, PriorityIcon, StatusGlyph } from "../icons";
+import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcSubtasks, IcUsers, IcX, PriorityIcon, StatusGlyph } from "../icons";
 import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor, labelTone } from "../ui";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
@@ -973,8 +974,9 @@ export default function Board() {
         </div>
 
         </div>
-        <div className="board-tools workspace-controls mt-3">
-          <div className="board-search workspace-search flex min-h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-sunken px-3 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
+        <WorkspaceControls selectionMode={selectMode}
+          count={Object.values(baseFilters).filter(Boolean).length}
+          search={<div className="board-search workspace-search flex min-h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-sunken px-3 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
             <IcSearch size={14} className="text-faint" />
             <input aria-label={t("board.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("board.searchPlaceholder")} className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint sm:w-36" />
             {q && (
@@ -982,10 +984,9 @@ export default function Board() {
                 <IcX size={12} />
               </button>
             )}
-          </div>
-          <details className="workspace-filters">
-            <summary className="ds-focus"><IcFilter size={14} /> {t("workspace.filters")}{filtersOn && <span className="ds-count">{Object.values(baseFilters).filter(Boolean).length}</span>}</summary>
-            <div className="workspace-filters-body space-y-3">
+          </div>}
+          filters={<div className="workspace-filters-body space-y-3">
+          <p className="ds-label">{t("field.assignee")}</p>
           <div className="board-assignees flex min-w-0 max-w-full items-center -space-x-1.5 overflow-x-auto py-1">
             {assignees.map((u) => (
               <button
@@ -1035,11 +1036,8 @@ export default function Board() {
          })}
               </div>
               {canMove && <Hint id="board-move">{t("hint.boardMove")}</Hint>}
-            </div>
-          </details>
-          <details className="workspace-options">
-            <summary className="ds-focus"><IcDisplay size={14} /> {t("workspace.settings")}</summary>
-            <div className="workspace-options-body flex flex-wrap items-center gap-2">
+            </div>}
+          options={<div className="workspace-options-body flex flex-wrap items-center gap-2">
               <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />
           <button
             onClick={() => setSelectMode((v) => !v)}
@@ -1048,9 +1046,8 @@ export default function Board() {
           >
             {t("backlog.selectMode")}
           </button>
-            </div>
-          </details>
-        </div>
+            </div>}
+        />
         <IssueFilterSummary filters={baseFilters}>
           {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
           {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={12} className="inline" /> {t("common.reset")}</button>}

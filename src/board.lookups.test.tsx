@@ -159,7 +159,7 @@ describe("Доска при частичном сторе", () => {
     const h = await setup([{ id: "t1", from: "s2", to: "s1" }]);
     const card = screen.getByRole("article", { name: /A21-i1/ });
     fireEvent.dragStart(card, { dataTransfer: dataTransfer() });
-    const columns = document.querySelectorAll("section");
+    const columns = document.querySelectorAll(".board-col");
     fireEvent.dragOver(columns[1], { dataTransfer: dataTransfer() }); // «Готово»
     await settle();
     expect(screen.getByText(/вне схемы/)).toBeTruthy();
@@ -170,7 +170,7 @@ describe("Доска при частичном сторе", () => {
     const h = await setup([{ id: "t1", from: "s1", to: "s2" }]);
     const card = screen.getByRole("article", { name: /A21-i1/ });
     fireEvent.dragStart(card, { dataTransfer: dataTransfer() });
-    const columns = document.querySelectorAll("section");
+    const columns = document.querySelectorAll(".board-col");
     fireEvent.dragOver(columns[1], { dataTransfer: dataTransfer() });
     await settle();
     expect(screen.queryByText(/вне схемы/)).toBeNull();

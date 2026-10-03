@@ -200,7 +200,14 @@ async function setup({ role = "manager", transitions = [], pageImpl, countsImpl 
     await store.bootstrap();
   });
   await settle();
+  fireEvent.click(screen.getByRole("button", { name: /^Фильтры/ }));
+  await settle();
   return { ui, store: () => store, pageCalls, countsCalls, pageSpy, countsSpy };
+}
+
+function showOptions() {
+  const button = screen.getByRole("button", { name: "Настройки вида" });
+  if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
 }
 
 afterEach(() => {
@@ -317,7 +324,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
         params.closed === "older" ? { total: 0, byStatus: {} as Record<string, number> } : { total: 99, byStatus: { s1: 57, s2: 0, s3: 0 } as Record<string, number> }, // …а счётчик другой
     });
     // Имя стандартного статуса переводится словарём (workflowStatusName) — берём первую колонку (todo).
-    const column = screen.getAllByRole("region")[0];
+    const column = document.querySelector(".board-col") as HTMLElement;
     expect(within(column).getByText("57")).toBeTruthy();
     expect(within(column).getAllByRole("article")).toHaveLength(1);
     h.ui.unmount();
@@ -503,8 +510,10 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const b = screen.getByRole("article", { name: /A21-b1/ });
     expect(a.getAttribute("draggable")).toBe("true");
 
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
     await settle();
+    expect(screen.getByRole("button", { name: "Настройки вида" }).getAttribute("aria-expanded")).toBe("false");
     expect(a.getAttribute("draggable")).toBe("false");
     fireEvent.click(a);
     fireEvent.keyDown(b, { key: "Enter" });

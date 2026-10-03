@@ -144,7 +144,7 @@ for (const theme of ["light", "dark"]) {
   test(`board and list retain filters and readable density (${theme})`, async ({ page }) => {
     await fixture(page, theme);
     await page.goto("/p/TEST/board");
-    await page.locator(".workspace-filters > summary").click();
+    await page.getByRole("button", { name: /^Фильтры/ }).click();
     await page.getByRole("main").getByRole("button", { name: "Мои задачи", exact: true }).click();
     await expect(page).toHaveURL(/assignee=u1/);
     await expect(page.locator("article[data-issue-id]")).toHaveCount(2);

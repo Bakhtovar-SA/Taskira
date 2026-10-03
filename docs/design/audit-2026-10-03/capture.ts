@@ -267,7 +267,8 @@ try {
     results.push({ name: 'list-width-allocation', ...widths });
     await desktop.goto(base + '/p/CORP/board');
     await desktop.locator('article[data-issue-id]').first().waitFor();
-    if (await desktop.locator('.workspace-filters > summary').count()) await desktop.locator('.workspace-filters > summary').click();
+    if (await desktop.locator('.workspace-toggle').count()) await desktop.getByRole('button', { name: /^Фильтры/ }).click();
+    else if (await desktop.locator('.workspace-filters > summary').count()) await desktop.locator('.workspace-filters > summary').click();
     await desktop.getByRole('button', { name: 'Мои задачи', exact: true }).last().click();
     await desktop.waitForTimeout(500);
     const filteredCards = await desktop.locator('article[data-issue-id]').count();

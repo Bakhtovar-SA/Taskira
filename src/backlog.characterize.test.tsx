@@ -249,7 +249,14 @@ async function setup({ role = "manager", pageImpl, countsImpl, views, bulkImpl, 
     await store.bootstrap();
   });
   await settle();
+  fireEvent.click(screen.getByRole("button", { name: /^Фильтры/ }));
+  await settle();
   return { ui, store: () => store, pageCalls, countsCalls, bulkCalls, viewsCreateCalls, viewsRemoveCalls, viewsUpdateCalls };
+}
+
+function showOptions() {
+  const button = screen.getByRole("button", { name: "Настройки вида" });
+  if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
 }
 
 afterEach(() => {
@@ -397,6 +404,7 @@ describe("Список задач — характеризующие тесты 
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
     // по умолчанию отсортировано по приоритету — заголовок кнопки сортировки = «Приоритет»
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Приоритет" }));
     await settle();
     fireEvent.click(screen.getByRole("menuitem", { name: "Ключ", hidden: true }));
@@ -418,6 +426,7 @@ describe("Список задач — характеризующие тесты 
     await settle();
     expect(h.pageCalls[h.pageCalls.length - 1]).toMatchObject({ sort: "due", dir: "desc" });
 
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Колонки" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Метки", hidden: true }));
     expect(head().some((c) => c.textContent === "Метки")).toBe(true);
@@ -431,10 +440,12 @@ describe("Список задач — характеризующие тесты 
   test("2b. переключатель направления меняет dir; выбор «Обновление» сам переключает направление на убывание", async () => {
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Направление сортировки" }));
     await settle();
     expect(h.pageCalls[h.pageCalls.length - 1]).toMatchObject({ sort: "priority", dir: "desc" });
 
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Приоритет" }));
     await settle();
     fireEvent.click(screen.getByRole("menuitem", { name: "Обновление", hidden: true }));
@@ -489,6 +500,7 @@ describe("Список задач — характеризующие тесты 
       pageImpl: async (_p, params) =>
         !params.cursor ? { items: [dto("b1"), dto("b2")], hasMore: false, nextCursor: null } : { items: [], hasMore: false, nextCursor: null },
     });
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
     await settle();
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-b1" }));
@@ -516,6 +528,7 @@ describe("Список задач — характеризующие тесты 
       pageImpl: async (_p, params) =>
         !params.cursor ? { items: [dto("a1"), dto("a2")], hasMore: false, nextCursor: null } : { items: [], hasMore: false, nextCursor: null },
     });
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
     await settle();
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-a1" }));
@@ -537,6 +550,7 @@ describe("Список задач — характеризующие тесты 
       pageImpl: async (_p, params) =>
         !params.cursor ? { items: [dto("p1"), dto("p2")], hasMore: false, nextCursor: null } : { items: [], hasMore: false, nextCursor: null },
     });
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
     await settle();
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-p1" }));
@@ -558,6 +572,7 @@ describe("Список задач — характеризующие тесты 
         !params.cursor ? { items: [dto("d1"), dto("d2")], hasMore: false, nextCursor: null } : { items: [], hasMore: false, nextCursor: null },
       bulkImpl: async () => ({ succeeded: ["d1"], failed: [{ issueId: "d2", reason: "нет прав" }] }),
     });
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
     await settle();
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-d1" }));
@@ -667,6 +682,7 @@ describe("Список задач — характеризующие тесты 
     });
     expect(screen.queryByRole("button", { name: /Импорт из Trello/ })).toBeNull();
 
+    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
     await settle();
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-v1" }));
