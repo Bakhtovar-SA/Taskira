@@ -99,6 +99,15 @@ for (const theme of ["light", "dark"]) {
       expect(box.x + box.width).toBeLessThanOrEqual(width);
       if (width === 390) await page.screenshot({ path: `shots/workspace-board-mobile-${theme}.png` });
       if (width < 768) {
+        const globalSearch = page.getByRole("textbox", { name: "Поиск задач…" });
+        await globalSearch.focus();
+        await expect(page.locator(".topbar-search")).toHaveClass(/is-expanded/);
+        const expanded = (await globalSearch.boundingBox())!;
+        expect(expanded.x).toBeGreaterThanOrEqual(0);
+        expect(expanded.y).toBeGreaterThanOrEqual(0);
+        expect(expanded.x + expanded.width).toBeLessThanOrEqual(width);
+        await page.getByRole("heading", { name: "Доска", exact: true }).click();
+        await expect(page.locator(".topbar-search")).not.toHaveClass(/is-expanded/);
         const columns = page.locator(".board-col");
         const first = (await columns.nth(0).boundingBox())!;
         const second = (await columns.nth(1).boundingBox())!;
