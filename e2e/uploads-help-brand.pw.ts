@@ -79,3 +79,38 @@ test("a corrupt avatar does not upload, then an uppercase PNG is cropped and upl
   await expect.poll(() => uploads).toBe(1);
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
+
+
+test("saved branding updates a decodable favicon under production CSP", async ({ page }) => {
+  await mockApi(page);
+  const violations: string[] = [];
+  await page.addInitScript(() => {
+    (window as unknown as { faviconCspErrors: string[] }).faviconCspErrors = [];
+    document.addEventListener("securitypolicyviolation", event => {
+      (window as unknown as { faviconCspErrors: string[] }).faviconCspErrors.push(event.blockedURI);
+    });
+  });
+  await page.route("**/api/instance/brand", route => route.fulfill({ json: { name: "Acme", hue: 235, logoUpdatedAt: null, transparencyDefault: "auto" } }));
+  await page.goto("/p/TEST/board");
+  const icon = page.locator('link[rel="icon"]');
+  await expect(icon).toHaveCount(1);
+  await expect(icon).toHaveAttribute("href", /^data:image\/svg\+xml,/);
+  expect(decodeURIComponent(await icon.getAttribute("href") ?? "")).toContain("oklch(0.52 0.2 235)");
+  expect(await page.evaluate(async () => {
+    const image = new Image();
+    image.src = document.querySelector<HTMLLinkElement>('link[rel="icon"]')!.href;
+    await image.decode();
+    return image.naturalWidth > 0;
+  })).toBe(true);
+  await page.goto("/help");
+  await expect(icon).toHaveAttribute("href", /^data:image\/svg\+xml,/);
+  await page.route("**/api/instance/brand/logo*", route => route.fulfill({ contentType: "image/png", body: readFileSync("e2e/__screenshots__/tabs-light.png") }));
+  await page.route("**/api/instance/brand", route => route.fulfill({ json: { name: "Acme", hue: 235, logoUpdatedAt: 42, transparencyDefault: "auto" } }));
+  await page.reload();
+  await expect(icon).toHaveAttribute("href", /^blob:/);
+  await page.route("**/api/instance/brand", route => route.fulfill({ json: { name: null, hue: null, logoUpdatedAt: null, transparencyDefault: "auto" } }));
+  await page.reload();
+  await expect(icon).toHaveAttribute("href", "/favicon.svg");
+  violations.push(...await page.evaluate(() => (window as unknown as { faviconCspErrors: string[] }).faviconCspErrors));
+  expect(violations).toEqual([]);
+});

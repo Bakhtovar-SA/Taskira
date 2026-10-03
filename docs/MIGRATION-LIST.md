@@ -70,3 +70,4 @@
 | `20261002T1100_users_given_name.sql` | Имя для приветствия берём из givenName, не угадываем порядок ФИО. |
 | `20261002T1700_project_labels_type.sql` | Repair legacy schema drift: suggested_labels has been text[] since project templates shipped. JSON arrays of strings are converted losslessly; invalid values abort the transaction. contract-phase: подтверждено, добавлено в релизе 20260927T1000_project_templates |
 | `20261002T1900_due_reminders.sql` | Add scheduled due-date notifications and durable, per-recipient delivery marks. |
+| `20261003T0100_avatar_content_type.sql` | Repair installations where the avatar migration was recorded without MIME metadata. Existing avatar objects and metadata remain unchanged; old migrations stay immutable. |
