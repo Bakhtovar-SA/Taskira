@@ -33,9 +33,13 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) for 
   await side.getByRole("button", { name: "Свернуть панель", exact: true }).click();
   await expect(side.getByRole("button", { name: "Входящие", exact: true }).locator("svg").first()).toHaveCSS("color", accent);
   const railInbox = side.getByRole("button", { name: "Входящие", exact: true });
-  const railBox = await railInbox.boundingBox(), iconBox = await railInbox.locator("svg").first().boundingBox();
-  expect(Math.abs(iconBox!.x + iconBox!.width / 2 - railBox!.x - railBox!.width / 2)).toBeLessThanOrEqual(1);
-  expect(iconBox!.width).toBe(22);
+  // Wait for the collapsed tree and measure both boxes in one render.
+  await expect.poll(() => railInbox.evaluate(el => {
+    const icon = el.querySelector("svg");
+    if (!icon) return false;
+    const railBox = el.getBoundingClientRect(), iconBox = icon.getBoundingClientRect();
+    return iconBox.width === 22 && Math.abs(iconBox.x + iconBox.width / 2 - railBox.x - railBox.width / 2) <= 1;
+  })).toBe(true);
   await page.screenshot({ path: `shots/rail-${theme}-${hue}.png` });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Меню", exact: true }).click();

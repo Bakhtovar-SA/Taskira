@@ -2,7 +2,9 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { mockApi } from "./fixtures";
 
-for (const theme of ["light", "dark"]) test(`300 board cards: scrolling, keyboard and accessibility (${theme})`, async ({ page }) => {
+for (const theme of ["light", "dark"]) for (const width of [1280, 390]) test(`300 board cards: scrolling, keyboard and accessibility (${theme}, ${width}px)`, async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width, height: 900 });
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.addInitScript(theme => localStorage.setItem("taskira.theme", theme), theme);

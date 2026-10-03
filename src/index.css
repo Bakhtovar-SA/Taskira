@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
 @import "./ds/ds.css" layer(components);
+@import "./styles/workspace.css";
 
 /* ============================================================
    Шрифт — Manrope (решение владельца 25.09.2026, ADR-0016), локально в
@@ -116,9 +117,9 @@ body {
   /* Слои сверху вниз: геометрия фона (--pattern, ТЗ 5.14 п.1), три свечения, цвет рамки. */
   background:
     var(--pattern),
-    radial-gradient(42vw 60vh at 4% 8%, var(--glow-a), transparent 70%),
-    radial-gradient(45vw 55vh at 96% 100%, var(--glow-b), transparent 70%),
-    radial-gradient(40vw 45vh at 62% -6%, var(--glow-c), transparent 70%) var(--bg-frame);
+    radial-gradient(42vw 60vh at 4% 8%, color-mix(in oklch, var(--glow-a) 45%, transparent), transparent 70%),
+    radial-gradient(45vw 55vh at 96% 100%, color-mix(in oklch, var(--glow-b) 45%, transparent), transparent 70%),
+    radial-gradient(40vw 45vh at 62% -6%, color-mix(in oklch, var(--glow-c) 45%, transparent), transparent 70%) var(--bg-frame);
   background-attachment: fixed;
   isolation: isolate;
 }

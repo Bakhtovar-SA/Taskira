@@ -1,4 +1,3 @@
-import { ScreenPopover } from "./settings/parts";
 import { Input } from "../ds/Field";
 import { PersonAvatar } from "./settings/parts";
 import { useMemo, useState } from "react";
@@ -6,14 +5,14 @@ import { GettingStarted } from "./GettingStarted";
 import { lookOf } from "../projectLook";
 import { FOCUS_TEST, FocusChips, TaskRow, groupByUrgency, useFocusCounts, type Focus } from "./MyIssues";
 import { readRecent } from "../palette/recent";
-import { Button, EmptyState } from "../ds";
+import { Button, Dialog, EmptyState } from "../ds";
 import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ProjectSummary } from "../types";
 import { IcBell, IcChevR, IcComment, IcMyIssues, IcPlus, IcSearch, StatusGlyph } from "../icons";
 import { BrandMark, BrandName } from "./BrandMark";
-import { UserCardBody, ProjectMark } from "../ui";
-import { Bell, NOTIF_VERB } from "./Topbar";
+import { ProjectMark } from "../ui";
+import { Bell, NOTIF_VERB, UserMenu } from "./Topbar";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { greetingName } from "../greetingName";
@@ -38,9 +37,10 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   const me = data.users.find((u) => u.id === data.currentUserId) ?? data.users[0];
   const last = readLastProject();
   const [q, setQ] = useState("");
+  const [choosingProject, setChoosingProject] = useState(false);
+  const hasAssigned = data.assignedToMe.length > 0;
 
-  // «+ Создать задачу» с главного экрана: заходим в проект (последний открытый
-  // или первый) и оставляем модалку создания открытой — она смонтируется в Shell.
+  // Для нескольких проектов показываем выбор; модалка создания живёт в Shell.
   const createTarget = data.projects.find((p) => p.id === last)?.id ?? data.projects[0]?.id;
   // Личные настройки живут в оболочке (ТЗ 5.9): заходим в последний проект сразу на /settings/profile.
   const openPersonalSettings = () => {
@@ -48,10 +48,15 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
     setView("settings", "profile");
     enterProject(createTarget);
   };
+  const createInProject = (projectId: string) => {
+    setChoosingProject(false);
+    setCreateOpen(true);
+    enterProject(projectId);
+  };
   const startCreate = () => {
     if (!createTarget) return;
-    setCreateOpen(true);
-    enterProject(createTarget);
+    if (data.projects.length > 1) setChoosingProject(true);
+    else createInProject(createTarget);
   };
 
   // Полоса фокуса вместо плашек-счётчиков: каждая цифра — фильтр списка ниже
@@ -76,7 +81,9 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
 
   const groups = useMemo(() => {
     const byDept = new Map<string, ProjectSummary[]>();
+    const query = q.trim().toLowerCase();
     for (const p of data.projects) {
+      if (query && !p.name.toLowerCase().includes(query) && !p.key.toLowerCase().includes(query)) continue;
       const arr = byDept.get(p.departmentId) ?? [];
       arr.push(p);
       byDept.set(p.departmentId, arr);
@@ -89,7 +96,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
         projects: [...projects].sort((a, b) => (a.id === last ? -1 : b.id === last ? 1 : a.name.localeCompare(b.name))),
       }))
       .sort((a, b) => a.deptName.localeCompare(b.deptName));
-  }, [data.projects, data.departments, last, t]);
+  }, [data.projects, data.departments, last, q, t]);
 
   // Принимаем только то, что реально нужно навигации — и TaskRow (полный
   // AssignedIssue), и «Недавняя активность» (у уведомления лишь project/issue id)
@@ -108,7 +115,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="home-view flex h-full flex-col overflow-hidden">
       {/* шапка */}
       <header className="glass flex h-[56px] shrink-0 items-center gap-4 border-b border-linesoft px-5 max-sm:gap-2.5 max-sm:px-4">
         <div className="flex items-center gap-2">
@@ -116,84 +123,40 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
           <BrandName className="max-w-[220px] truncate font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink max-sm:hidden" />
         </div>
 
-        <label className="flex h-8 w-full min-w-0 max-w-[340px] items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
-          <IcSearch size={13} className="shrink-0 text-faint" />
-          <div className="min-w-0 flex-1"><Input aria-label={t("home.searchPlaceholder")}
+        <div className="w-full min-w-0 max-w-[380px]"><Input aria-label={t("home.searchPlaceholder")}
+            iconLeft={<IcSearch size={16} className="text-faint" />}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t("home.searchPlaceholder")}
 
           /></div>
-        </label>
 
         <div className="ml-auto flex items-center gap-2.5">
           <Bell />
           <div className="ml-0.5 border-l border-linesoft pl-2">
-            <ScreenPopover
-              placement="bottom-end"
-              className="w-[280px]" label={t("topbar.userMenuAria")}
-              trigger={(props, open) => (
-                <Button {...props} variant="ghost" size="sm" aria-label={t("topbar.userMenuAria")}
-                  className={(`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors ${
-                    open ? "bg-active" : "hover:bg-hover"
-                  }`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
-                >
-                  <PersonAvatar user={me ?? null} size={24} interactive={false} />
-                  <span className="hidden text-left sm:block">
-                    <span className="block text-[12px] font-semibold leading-tight text-ink">{me?.name?.split(" ")[0] ?? "—"}</span>
-                    <span className="block text-[10px] leading-tight text-faint">{me?.role}</span>
-                  </span>
-                </Button>
-              )}
-            >
-              {(close) => (
-                <>
-                  {me && (
-                    <div className="border-b border-linesoft">
-                      <UserCardBody userId={me.id} />
-                    </div>
-                  )}
-                  <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"
-                    onClick={() => {
-                      close();
-                      openPersonalSettings();
-                    }}
-                  >
-                    {t("settings.menu")}
-                  </Button>
-                  <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"
-                    onClick={() => {
-                      onLogout();
-                      close();
-                    }}
-                  >
-                    {t("topbar.logout")}
-                  </Button>
-                </>
-              )}
-            </ScreenPopover>
+            <UserMenu onLogout={onLogout} onSettings={openPersonalSettings} />
           </div>
         </div>
       </header>
 
       {/* тело */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1160px] px-5 py-10 sm:px-8 min-[1536px]:max-w-[1320px]">
+        <main className="mx-auto max-w-[1160px] px-4 py-6 sm:px-8 sm:py-8 min-[1536px]:max-w-[1320px]">
           <p className="text-[13px] font-medium text-faint first-letter:uppercase">{dateLine}</p>
-          <h1 className="mt-1 font-disp text-[28px] font-semibold tracking-[-0.03em] text-ink">
+          <h1 className="mt-1 font-disp text-[24px] font-semibold tracking-[-0.03em] text-ink sm:text-[28px]">
             {t(greetingKey(), { name: greetingName(me) })}
           </h1>
-          <p className="mt-1 text-[14px] text-sub">{t("home.subtitle")}</p>
+          <p className="mt-1 text-[14px] text-sub">{t(hasAssigned ? "home.subtitle" : "home.emptySubtitle")}</p>
 
           {/* полоса фокуса: каждая цифра фильтрует «Мои задачи» */}
-          <FocusChips focus={focus} onFocus={setFocus} counts={focusCounts} className="mt-7" />
+          {hasAssigned && <FocusChips focus={focus} onFocus={setFocus} counts={focusCounts} className="mt-6" />}
 
           {/* две колонки */}
-          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.7fr_1fr]">
+          <div className={`mt-6 grid grid-cols-1 gap-6 ${hasAssigned ? "lg:grid-cols-[1.7fr_1fr]" : "lg:grid-cols-[1fr_1fr]"}`}>
             {/* Мои задачи */}
-            <section>
+            <section className={`min-w-0 ${hasAssigned ? "" : "order-2"}`}>
               <div className="mb-2 flex items-baseline gap-2">
-                <h2 className="text-[14px] font-semibold text-ink">{focus === "all" ? t("home.myTasks") : t(`home.focus.${focus}`)}</h2>
+                <h2 className="text-[16px] font-semibold text-ink">{focus === "all" ? t("home.myTasks") : t(`home.focus.${focus}`)}</h2>
                 <span className="tabular text-[13px] text-faint">{tasks.length}</span>
               </div>
               {tasks.length > 0 ? (
@@ -226,10 +189,10 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
               ) : (
                 <EmptyState
                   icon={<IcMyIssues size={22} tone="violet" />}
-                  title={q ? t("home.searchEmptyTitle") : t("home.noAssignedTitle")}
-                  sub={q ? t("home.searchEmptySub") : t("home.noAssignedSub")}
+                  title={q.trim() ? t("home.searchEmptyTitle") : focus !== "all" ? t("home.filterEmptyTitle") : t("home.noAssignedTitle")}
+                  sub={q.trim() ? t("home.searchEmptySub") : focus !== "all" ? t("home.filterEmptySub") : t("home.noAssignedSub")}
                   action={
-                    q ? (
+                    q.trim() ? (
                       <Button size="sm" variant="secondary" onClick={() => setQ("")}>
                         {t("common.reset")}
                       </Button>
@@ -238,7 +201,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                         {t("common.reset")}
                       </Button>
                     ) : createTarget ? (
-                      <Button size="sm" variant="primary" iconLeft={<IcPlus size={13} />} onClick={startCreate}>
+                      <Button size="lg" variant="primary" iconLeft={<IcPlus size={16} />} onClick={startCreate}>
                         {t("home.createIssue")}
                       </Button>
                     ) : undefined
@@ -248,7 +211,7 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
             </section>
 
             {/* правая колонка: упоминания, проекты, недавно открытые, активность */}
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
             {/* «Начало работы» (ТЗ 5.11) — пока не пройдено и не скрыто; сбоку, чтобы не отодвигать задачи. */}
             <GettingStarted
               navigate={(v, sec) => {
@@ -259,11 +222,12 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
             />
             <Mentions notifications={notifications} onOpen={openTask} />
             <section>
-              <h2 className="mb-2 text-[14px] font-semibold text-ink">{t("home.projects")}</h2>
+              <h2 className="mb-3 text-[16px] font-semibold text-ink">{t("home.projects")}</h2>
+              {groups.length === 0 && <p role="status" className="text-[14px] text-sub">{t("home.noProjectsFound")}</p>}
               <div className="space-y-4">
                 {groups.map((g) => (
                   <div key={g.deptId}>
-                    <p className="mb-1.5 text-[11.5px] font-medium text-faint">{g.deptName}</p>
+                    <p className="mb-2 text-[13px] font-medium text-sub">{g.deptName}</p>
                     <div className="space-y-2">
                       {g.projects.map((p) => {
                         const n = countInProject.get(p.id) ?? 0;
@@ -271,12 +235,12 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
                           <button type="button"
                             key={p.id}
                             onClick={() => enterProject(p.id)}
-                            className="surface-raised group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ring-1 ring-inset ring-line/70 transition-[box-shadow] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2"
+                            className="ds-focus surface-raised group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-inset ring-line/70 transition-[box-shadow] duration-150 hover:shadow-[var(--highlight-top),var(--elev-2)] hover:ring-line2"
                           >
                             <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={32} />
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[13.5px] font-medium text-ink">{p.name}</span>
-                              <span className="block text-[12px] text-faint">
+                              <span className="block truncate text-[14px] font-semibold text-ink">{p.name}</span>
+                              <span className="block text-[13px] text-sub">
                                 {p.id === last ? t("home.continueProject") : p.isShared ? t("home.sharedProject") : t("home.teamProject")}
                                 {n > 0 && ` · ${n} ${tn(n, "noun.issue.one", "noun.issue.few", "noun.issue.many")}`}
                               </span>
@@ -295,8 +259,17 @@ export default function HomeView({ onLogout }: { onLogout: () => void }) {
             <RecentActivity notifications={notifications} onOpen={openTask} />
             </div>
           </div>
-        </div>
+        </main>
       </div>
+      <Dialog open={choosingProject} onClose={() => setChoosingProject(false)} title={t("home.chooseProject")} description={t("home.chooseProjectSub")} size="sm">
+        <div className="space-y-2">
+          {[...data.projects].sort((a, b) => a.id === last ? -1 : b.id === last ? 1 : a.name.localeCompare(b.name)).map((p) => (
+            <Button key={p.id} size="lg" variant="secondary" className="w-full justify-start" onClick={() => createInProject(p.id)} iconLeft={<ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={24} />}>
+              {p.name}
+            </Button>
+          ))}
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -312,11 +285,11 @@ function RecentActivity({
   const items = notifications.slice(0, 5);
   return (
     <section>
-      <h2 className="mb-2 flex items-center gap-1.5 text-[14px] font-semibold text-ink">
+      <h2 className="mb-2 flex items-center gap-1.5 text-[16px] font-semibold text-ink">
         <IcBell size={13} className="text-faint" /> {t("home.recentActivity")}
       </h2>
       {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-[12.5px] text-faint">
+        <p className="text-[13px] leading-relaxed text-sub">
           {t("home.noActivity")}
         </p>
       ) : (

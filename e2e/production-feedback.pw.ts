@@ -57,7 +57,16 @@ for (const theme of ["light", "dark"]) test(`all four priorities, single-project
   const cards = page.locator("article[data-issue-id]"); await expect(cards).toHaveCount(4);
   for (const [n, label] of [[1, "Низкий"], [2, "Средний"], [3, "Высокий"], [4, "Критичный"]] as const) await expect(page.locator(`article[data-issue-id="i${n}"]`).getByRole("img", { name: label, exact: true })).toBeVisible();
   const calendar = page.getByRole("tab", { name: "Календарь", exact: true });
-  await expect(calendar.locator("span").filter({ hasText: "Календарь" }).last()).toHaveCSS("position", "static");
+  await expect.poll(() => calendar.evaluate(el => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.textContent?.trim() !== "Календарь") continue;
+      const range = document.createRange(); range.selectNodeContents(node);
+      const box = range.getBoundingClientRect();
+      return box.width > 20 && box.height > 10;
+    }
+    return false;
+  })).toBe(true);
   await calendar.click(); await expect(page).toHaveURL(/\/calendar$/); await expect(page.getByRole("grid")).toBeVisible();
   await page.getByRole("button", { name: "На главный экран", exact: true }).click(); await expect(page).toHaveURL(/\/$/);
   await page.getByRole("button", { name: /TEST project/ }).first().click(); await expect(page).toHaveURL(/\/p\/TEST\//);

@@ -215,7 +215,7 @@ const Card = memo(function Card({
       onClick={() => (selecting ? onToggleSelect(issue.id) : openIssue(issue.id))}
       data-issue-id={issue.id}
       data-priority={issue.priorityId === "critical" ? "critical" : undefined}
-      className={`board-card group relative flex cursor-pointer flex-col gap-2 rounded-[10px] px-[11px] py-2.5 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
+      className={`board-card group relative flex cursor-pointer flex-col gap-2 rounded-xl p-3 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
       {/* ТЗ 5.12 c — три уровня: ключ; заголовок (две строки); мета — направление, метки, срок, исполнители.
           В строке ключа тонко: приоритет (критичный ещё и красной кромкой слева), и подзадачи «готово/всего». Тип — в просмотре задачи. */}
@@ -930,7 +930,7 @@ export default function Board() {
   }, [setOverCol]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="board-view flex h-full min-w-0 flex-col">
       {/* шапка */}
       <div className="px-4 pb-3 pt-5 sm:px-6">
        <div className="flex flex-wrap items-center gap-3">
@@ -943,9 +943,9 @@ export default function Board() {
           </p>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="board-tools ml-auto flex min-w-0 flex-wrap items-center gap-2 max-sm:w-full">
           <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />
-          <div className="flex items-center -space-x-1.5">
+          <div className="board-assignees flex min-w-0 max-w-full items-center -space-x-1.5 overflow-x-auto py-1">
             {assignees.map((u) => (
               <button
                 key={u.id}
@@ -971,9 +971,9 @@ export default function Board() {
           >
             {t("backlog.selectMode")}
           </button>
-          <div className="flex h-8 items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
+          <div className="board-search flex min-h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-sunken px-3 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line max-sm:order-first max-sm:w-full">
             <IcSearch size={14} className="text-faint" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("board.searchPlaceholder")} className="w-36 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint" />
+            <input aria-label={t("board.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("board.searchPlaceholder")} className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint sm:w-36" />
             {q && (
               <button onClick={() => setQ("")} className="text-faint hover:text-ink" aria-label={t("common.reset")}>
                 <IcX size={12} />
@@ -984,7 +984,7 @@ export default function Board() {
        </div>
 
        {/* быстрые фильтры-чипы (round4 §3.3) */}
-       <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
+       <div className="board-quick-filters mt-3 flex flex-wrap items-center gap-2">
          {QUICK_CHIPS.map((c) => {
            const on = chips.has(c.id);
            return (
@@ -1080,8 +1080,8 @@ export default function Board() {
           if (node) node.style.backgroundImage = personalPhoto ? `linear-gradient(color-mix(in oklch, var(--bg-canvas) 65%, transparent), color-mix(in oklch, var(--bg-canvas) 65%, transparent)), url("${personalPhoto.url}")` : "";
         }}
         style={personalPhoto ? { backgroundSize: "cover", backgroundPosition: "center" } : undefined}
-        className="min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden md:snap-none">
-        <div className="flex h-full min-w-full items-start gap-3 px-4 pb-4 pt-1 sm:px-6">
+        className="board-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="board-columns flex h-full min-w-full items-start gap-4 px-4 pb-4 pt-1 sm:px-6">
           {data.workflow.statuses.map((st) => {
             return (
               <BoardColumn

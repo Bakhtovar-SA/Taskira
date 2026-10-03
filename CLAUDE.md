@@ -758,11 +758,11 @@ since any edit touches it. The board shows the last 14 days in its done column
   instead of `<Logo>`/"Taskira" in the shell.
 - **Responsive layout**: below 1024px the sidebar is a drawer over the content, opened by the
   «Меню» button in `Topbar.tsx` (`openSidebarDrawer()`), closed by navigation / Esc / the scrim; the
-  project view tabs stay in the header, icon-only for inactive tabs, and the search box idles as a
+  project view tabs stay in a separate scrollable header row with their labels, and the search box idles as a
   magnifier. `.glass-edge` sets `position: relative` unlayered, so the drawer's `position: fixed`
   lives in `index.css` (`.side-drawer`), not in a Tailwind utility. Below 768px the issue modal's
   right-hand panel (status, assignee, due date, labels) collapses under the main content, the board
-  scrolls column-by-column with snap, and view side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
+  presents status columns vertically in one scroll container, and view side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
   don't assume mobile parity for anything not explicitly listed here.
 - **Popups are `ds` `Menu`/`Popover`, never local open/close state.** They sit on the Popover API, so closing on an
   outside click, on Escape, and when another popup opens comes from the browser. A real bug shipped from hand-rolling
