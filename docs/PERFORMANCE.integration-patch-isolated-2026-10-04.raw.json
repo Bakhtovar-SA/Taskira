@@ -1,0 +1,1019 @@
+{
+  "baselineCommit": "4dd2c6c",
+  "currentMainCommit": "c629a61",
+  "fixture": {
+    "issues": 50000,
+    "users": 200,
+    "connections": 1
+  },
+  "methodology": "PATCH only; three separate Node server processes, no shared JS heap. Four rotating orders, each variant occupies every position once. Exactly 1000 measured requests per run, 2-second warmup per variant. Existing databases untouched.",
+  "reports": [
+    {
+      "variant": "pre",
+      "round": 1,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:23:20.691Z",
+      "baseUrl": "http://127.0.0.1:65376",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 7.06,
+            "p50": 7.2438,
+            "p95": 10.175,
+            "p99": 13.0641,
+            "max": 33
+          },
+          "requestsPerSecond": 125,
+          "throughputBytesPerSecond": 195184,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_pre",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "main",
+      "round": 1,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:23:31.118Z",
+      "baseUrl": "http://127.0.0.1:65380",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 7.14,
+            "p50": 7.3115,
+            "p95": 10.578,
+            "p99": 14.337,
+            "max": 26
+          },
+          "requestsPerSecond": 125,
+          "throughputBytesPerSecond": 195200,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_main",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "without",
+      "round": 1,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:23:42.276Z",
+      "baseUrl": "http://127.0.0.1:65377",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 7.91,
+            "p50": 7.6882,
+            "p95": 13.2449,
+            "p99": 16.7204,
+            "max": 45
+          },
+          "requestsPerSecond": 111.12,
+          "throughputBytesPerSecond": 173509.34,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_candidate",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "active-3",
+      "round": 1,
+      "outbox": 1000,
+      "generatedAt": "2026-10-04T14:23:52.682Z",
+      "baseUrl": "http://127.0.0.1:65377",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 7.19,
+            "p50": 7.1813,
+            "p95": 11.5117,
+            "p99": 15.4792,
+            "max": 65
+          },
+          "requestsPerSecond": 125,
+          "throughputBytesPerSecond": 195204,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_candidate",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "active-3",
+      "round": 2,
+      "outbox": 1000,
+      "generatedAt": "2026-10-04T14:24:10.835Z",
+      "baseUrl": "http://127.0.0.1:65377",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 14.55,
+            "p50": 10.6407,
+            "p95": 38.8606,
+            "p99": 93.3378,
+            "max": 210
+          },
+          "requestsPerSecond": 62.5,
+          "throughputBytesPerSecond": 97587.82,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_candidate",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "pre",
+      "round": 2,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:24:35.628Z",
+      "baseUrl": "http://127.0.0.1:65376",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 18.75,
+            "p50": 13.5765,
+            "p95": 49.715,
+            "p99": 104.2513,
+            "max": 294
+          },
+          "requestsPerSecond": 50,
+          "throughputBytesPerSecond": 78068,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_pre",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "main",
+      "round": 2,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:24:58.332Z",
+      "baseUrl": "http://127.0.0.1:65380",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 18.02,
+            "p50": 14.3445,
+            "p95": 44.1569,
+            "p99": 76.8783,
+            "max": 227
+          },
+          "requestsPerSecond": 52.64,
+          "throughputBytesPerSecond": 82184,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_main",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "without",
+      "round": 2,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:25:24.294Z",
+      "baseUrl": "http://127.0.0.1:65377",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 21.08,
+            "p50": 14.6433,
+            "p95": 58.0043,
+            "p99": 171.2344,
+            "max": 368
+          },
+          "requestsPerSecond": 45.46,
+          "throughputBytesPerSecond": 70977.82,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_candidate",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "without",
+      "round": 3,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:25:33.600Z",
+      "baseUrl": "http://127.0.0.1:65377",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 5.76,
+            "p50": 5.7861,
+            "p95": 9.5289,
+            "p99": 14.5791,
+            "max": 35
+          },
+          "requestsPerSecond": 142.86,
+          "throughputBytesPerSecond": 223072,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_candidate",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "active-3",
+      "round": 3,
+      "outbox": 1000,
+      "generatedAt": "2026-10-04T14:25:41.948Z",
+      "baseUrl": "http://127.0.0.1:65377",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 5.27,
+            "p50": 5.4823,
+            "p95": 7.5626,
+            "p99": 10.7749,
+            "max": 54
+          },
+          "requestsPerSecond": 166.67,
+          "throughputBytesPerSecond": 260245.34,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_candidate",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "pre",
+      "round": 3,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:25:49.812Z",
+      "baseUrl": "http://127.0.0.1:65376",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 5.2,
+            "p50": 5.2235,
+            "p95": 7.4569,
+            "p99": 11.2344,
+            "max": 138
+          },
+          "requestsPerSecond": 166.67,
+          "throughputBytesPerSecond": 260245.34,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_pre",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "main",
+      "round": 3,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:25:57.726Z",
+      "baseUrl": "http://127.0.0.1:65380",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 5.04,
+            "p50": 5.2998,
+            "p95": 7.3066,
+            "p99": 9.4977,
+            "max": 30
+          },
+          "requestsPerSecond": 166.67,
+          "throughputBytesPerSecond": 260277.34,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_main",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "main",
+      "round": 4,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:26:05.534Z",
+      "baseUrl": "http://127.0.0.1:65380",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 5.2,
+            "p50": 5.5166,
+            "p95": 7.3566,
+            "p99": 10.233,
+            "max": 29
+          },
+          "requestsPerSecond": 166.67,
+          "throughputBytesPerSecond": 260256,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_main",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "without",
+      "round": 4,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:26:13.453Z",
+      "baseUrl": "http://127.0.0.1:65377",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 4.92,
+            "p50": 5.2377,
+            "p95": 6.8463,
+            "p99": 8.4664,
+            "max": 23
+          },
+          "requestsPerSecond": 166.67,
+          "throughputBytesPerSecond": 260240,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_candidate",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "active-3",
+      "round": 4,
+      "outbox": 1000,
+      "generatedAt": "2026-10-04T14:26:22.458Z",
+      "baseUrl": "http://127.0.0.1:65377",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 5.78,
+            "p50": 5.7262,
+            "p95": 9.8082,
+            "p99": 14.052,
+            "max": 26
+          },
+          "requestsPerSecond": 142.86,
+          "throughputBytesPerSecond": 223072,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_candidate",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    },
+    {
+      "variant": "pre",
+      "round": 4,
+      "outbox": 0,
+      "generatedAt": "2026-10-04T14:26:30.267Z",
+      "baseUrl": "http://127.0.0.1:65376",
+      "fixture": {
+        "issues": 50000,
+        "concurrentUsers": 1,
+        "boardColumnCards": 1500
+      },
+      "durationSecondsPerScenario": null,
+      "requestsPerScenario": 1000,
+      "writeKinds": [
+        "patch"
+      ],
+      "timeoutSeconds": 30,
+      "host": {
+        "platform": "win32 10.0.26200 x64",
+        "cpu": "Intel(R) Core(TM) i3-N305",
+        "logicalCpus": 8,
+        "memoryBytes": 8226639872,
+        "node": "v24.20.0"
+      },
+      "scenarios": [
+        {
+          "name": "issue-patch",
+          "latencyMs": {
+            "average": 5.06,
+            "p50": 5.0685,
+            "p95": 6.7216,
+            "p99": 9.2303,
+            "max": 283
+          },
+          "requestsPerSecond": 166.67,
+          "throughputBytesPerSecond": 260266.67,
+          "requests": 1000,
+          "errors": 0,
+          "timeouts": 0,
+          "non2xx": 0
+        }
+      ],
+      "mutation": {
+        "database": "taskira_perf_patch_1791123715201_pre",
+        "schema": "taskira_perf",
+        "issueIds": [
+          "141a02b7-5a16-4b15-868e-967a495e9fca"
+        ],
+        "addedActivity": 1000,
+        "addedAudit": 1000
+      }
+    }
+  ],
+  "triggerProbe": {
+    "main": {
+      "milliseconds": [
+        0.027,
+        0.028,
+        0.028,
+        0.028,
+        0.028,
+        0.029,
+        0.029,
+        0.029,
+        0.029,
+        0.029,
+        0.03,
+        0.03,
+        0.03,
+        0.03,
+        0.03,
+        0.03,
+        0.03,
+        0.031,
+        0.031,
+        0.031,
+        0.031,
+        0.031,
+        0.031,
+        0.032,
+        0.032,
+        0.032,
+        0.032,
+        0.032,
+        0.033,
+        0.033,
+        0.033,
+        0.033,
+        0.033,
+        0.034,
+        0.034,
+        0.035,
+        0.038,
+        0.04,
+        0.042,
+        0.044,
+        0.047,
+        0.066,
+        0.066,
+        0.073,
+        0.074,
+        0.074,
+        0.077,
+        0.077,
+        0.086,
+        0.18
+      ],
+      "p50": 0.032,
+      "p99": 0.18
+    },
+    "without": {
+      "milliseconds": [
+        0.025,
+        0.025,
+        0.026,
+        0.026,
+        0.026,
+        0.026,
+        0.026,
+        0.026,
+        0.026,
+        0.027,
+        0.027,
+        0.027,
+        0.027,
+        0.027,
+        0.028,
+        0.028,
+        0.028,
+        0.028,
+        0.028,
+        0.028,
+        0.028,
+        0.029,
+        0.029,
+        0.029,
+        0.029,
+        0.029,
+        0.03,
+        0.03,
+        0.031,
+        0.031,
+        0.032,
+        0.032,
+        0.032,
+        0.033,
+        0.034,
+        0.035,
+        0.036,
+        0.036,
+        0.037,
+        0.038,
+        0.038,
+        0.038,
+        0.042,
+        0.042,
+        0.043,
+        0.044,
+        0.047,
+        0.062,
+        0.088,
+        0.224
+      ],
+      "p50": 0.029,
+      "p99": 0.224
+    },
+    "active-3": {
+      "milliseconds": [
+        0.104,
+        0.107,
+        0.11,
+        0.112,
+        0.113,
+        0.115,
+        0.115,
+        0.115,
+        0.116,
+        0.116,
+        0.118,
+        0.118,
+        0.118,
+        0.118,
+        0.119,
+        0.119,
+        0.12,
+        0.121,
+        0.121,
+        0.122,
+        0.122,
+        0.122,
+        0.123,
+        0.124,
+        0.124,
+        0.125,
+        0.126,
+        0.127,
+        0.13,
+        0.133,
+        0.135,
+        0.135,
+        0.137,
+        0.137,
+        0.138,
+        0.138,
+        0.14,
+        0.141,
+        0.144,
+        0.145,
+        0.146,
+        0.147,
+        0.16,
+        0.165,
+        0.174,
+        0.192,
+        0.2,
+        0.232,
+        0.303,
+        1.863
+      ],
+      "p50": 0.124,
+      "p99": 1.863
+    }
+  },
+  "cleanup": "All three owned scratch databases dropped, all issue snapshots verified after every run.",
+  "candidateExperiment": {
+    "shipped": false,
+    "description": "Unreleased trigger replacement combined the issue PK lookup and active-hook EXISTS into one SELECT. Type, dedupe and writes were unchanged. Discarded: trigger p50 saved 0.003 ms and HTTP p99 did not improve."
+  }
+}
