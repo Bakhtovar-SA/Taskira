@@ -14,10 +14,16 @@ const boardColumnCards = Number(process.env.PERF_EXPECTED_BOARD_COLUMN ?? 1_500)
 const password = process.env.PERF_USER_PASSWORD ?? "Perf-Load-User-42!";
 const output = resolve(process.env.PERF_OUTPUT ?? "../docs/PERFORMANCE.raw.json");
 const writeMode = process.env.PERF_SCENARIO === "integration-writes";
+const writeRequests = process.env.PERF_REQUESTS_PER_SCENARIO === undefined
+  ? undefined : Number(process.env.PERF_REQUESTS_PER_SCENARIO);
 if (writeMode && process.env.PERF_CONFIRM !== "load-writes") {
   throw new Error("Write workload requires PERF_CONFIRM=load-writes and an isolated taskira_perf schema");
 }
 if (writeMode && !process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for the write workload");
+if (writeMode && writeRequests !== undefined
+  && (!Number.isInteger(writeRequests) || writeRequests < connections * 2 || writeRequests % (connections * 2) !== 0)) {
+  throw new Error("PERF_REQUESTS_PER_SCENARIO must contain an equal, even number of requests per connection");
+}
 
 async function login(number) {
   const username = `perf_${String(number).padStart(3, "0")}`;
@@ -120,6 +126,7 @@ async function runWrites(tokens, fixture) {
     for (const kind of ["patch", "transition"]) {
       let nextClient = 0;
       scenarios.push(await runScenario(`issue-${kind}`, tokens, {
+        ...(writeRequests === undefined ? {} : { amount: writeRequests }),
         setupClient(connection) {
           const index = nextClient++;
           const row = rows[index];
@@ -195,7 +202,8 @@ const report = {
   generatedAt: new Date().toISOString(),
   baseUrl,
   fixture: { issues: issueCount, concurrentUsers: connections, boardColumnCards },
-  durationSecondsPerScenario: duration,
+  durationSecondsPerScenario: writeMode && writeRequests !== undefined ? null : duration,
+  ...(writeMode && writeRequests !== undefined ? { requestsPerScenario: writeRequests } : {}),
   timeoutSeconds: timeout,
   host: {
     platform: `${os.platform()} ${os.release()} ${os.arch()}`,
