@@ -14,6 +14,11 @@ const boardColumnCards = Number(process.env.PERF_EXPECTED_BOARD_COLUMN ?? 1_500)
 const password = process.env.PERF_USER_PASSWORD ?? "Perf-Load-User-42!";
 const output = resolve(process.env.PERF_OUTPUT ?? "../docs/PERFORMANCE.raw.json");
 const writeMode = process.env.PERF_SCENARIO === "integration-writes";
+const writeKinds = (process.env.PERF_WRITE_KINDS ?? "patch,transition").split(",").map((kind) => kind.trim());
+if (writeMode && (writeKinds.some((kind) => !["patch", "transition"].includes(kind))
+  || new Set(writeKinds).size !== writeKinds.length)) {
+  throw new Error("PERF_WRITE_KINDS must select patch and/or transition without duplicates");
+}
 const writeRequests = process.env.PERF_REQUESTS_PER_SCENARIO === undefined
   ? undefined : Number(process.env.PERF_REQUESTS_PER_SCENARIO);
 if (writeMode && process.env.PERF_CONFIRM !== "load-writes") {
@@ -123,7 +128,7 @@ async function runWrites(tokens, fixture) {
     )).rows[0];
     const before = await counts();
     const scenarios = [];
-    for (const kind of ["patch", "transition"]) {
+    for (const kind of writeKinds) {
       let nextClient = 0;
       scenarios.push(await runScenario(`issue-${kind}`, tokens, {
         ...(writeRequests === undefined ? {} : { amount: writeRequests }),
@@ -204,6 +209,7 @@ const report = {
   fixture: { issues: issueCount, concurrentUsers: connections, boardColumnCards },
   durationSecondsPerScenario: writeMode && writeRequests !== undefined ? null : duration,
   ...(writeMode && writeRequests !== undefined ? { requestsPerScenario: writeRequests } : {}),
+  ...(writeMode ? { writeKinds } : {}),
   timeoutSeconds: timeout,
   host: {
     platform: `${os.platform()} ${os.release()} ${os.arch()}`,
