@@ -58,7 +58,12 @@ scope. Административные маршруты для токенов �
    - `verifyToken` → `null` даёт 401 `UNAUTHORIZED` (общая причина);
    - `assertFreshUserNoSession(userId)` — та же проверка `is_active`, без `session_version` (выделить из
      `assertFreshUser`);
-   - `req.user = { sub, globalRole, name }`, `req.authToken = { id, scope }`;
+   - `req.user = { sub, globalRole: "member", name }` — **всегда `member`**, даже если в БД `global_role = 'admin'`
+     (ADR-0029 §3). Это и закрывает власть администратора через токен: `resolveRole()` и все инлайн-проверки
+     `req.user.globalRole === "admin"` (`routes/dashboards.ts` `isAdmin`, `roadmap.ts`, `reports.ts`, `search.ts`,
+     `home.ts`, `projects.ts`, `departments.ts`) видят обычного участника. Не добавлять в эти места отдельную
+     проверку токена: понижение роли — единственный механизм;
+     `req.authToken = { id, scope }`;
    - ротация cookie не выполняется;
    - scope `read` и метод не `GET`/`HEAD` → 403 `TOKEN_SCOPE`, `audit("token.denied", { reason: "scope" })` не чаще
      раза в минуту на токен.
@@ -86,8 +91,17 @@ scope. Административные маршруты для токенов �
   | `POST /api/auth/logout` | 403 `TOKEN_NOT_ALLOWED` | 403 `TOKEN_NOT_ALLOWED` |
   | `POST /api/projects/:id/webhooks` (если INT-05 влит) | 403 `TOKEN_NOT_ALLOWED` | 403 `TOKEN_NOT_ALLOWED` |
 
-- Токен **глобального администратора** со scope `write`: `GET /api/maintenance` → 403 `TOKEN_NOT_ALLOWED`;
-  `PATCH` любой задачи → 200 (права проекта у админа есть).
+- Токен **глобального администратора** (не участник проекта P, участник проекта Q ролью `employee`) со scope `write`:
+  - `GET /api/maintenance` → 403 `TOKEN_NOT_ALLOWED`;
+  - `GET /api/projects` возвращает Q и не возвращает P; `GET /api/projects/P/issues` → 403 или 404, как у чужого;
+  - в Q `PATCH` чужой задачи → 403 (правило сотрудника), `PUT …/members` → 403 (`manageAccess`);
+  - правка общего дашборда организации (`routes/dashboards.ts`) → 403;
+  - `GET /api/roadmap`, `GET /api/reports/summary`, поиск → только видимые как участнику проекты (Q);
+  - та же учётная запись сессией видит P и правит всё — понижение касается только токена.
+- Поиск регрессий: тест обходит все маршруты из `app.printRoutes()` с токеном администратора, не состоящего ни в
+  одном проекте, и проверяет, что ни один не-GET маршрут не отвечает 2xx. Исключения — явный список в тесте с
+  причиной у каждого: личные данные самого пользователя вне проектов (уведомления, избранное, сохранённые виды,
+  онбординг). Новый маршрут вне списка с 2xx роняет тест.
 - Неверный секрет при верном префиксе, неизвестный префикс, истёкший, отозванный → 401, одинаковый ответ.
 - Отзыв (`UPDATE revoked_at` + `invalidateToken`) → следующий запрос 401 без ожидания 30 с.
 - Деактивация пользователя → 401.
