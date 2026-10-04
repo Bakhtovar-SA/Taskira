@@ -857,6 +857,7 @@ export type CommentDto = z.infer<typeof CommentDto>;
  *  Хранится в `activity.kind` + `activity.payload` (миграция 20260929T1500_activity_kind.sql); `activity.text` по-прежнему
  *  пишется — русская фраза для старых клиентов, экспорта и записей до миграции (у них события нет, показывается текст).
  *  Имена людей и статусов — снимок на момент события: переименование позже историю не переписывает.
+ *  Идентификаторы людей и статусов необязательны для совместимости со старыми строками истории (INT-01).
  *  Список закрытый: запись с неизвестным `kind` (от более новой версии сервера) читается как `event: null`. */
 export const ActivityEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("created") }),
@@ -865,14 +866,14 @@ export const ActivityEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("priority"), from: z.enum(PRIORITIES), to: z.enum(PRIORITIES), bulk: z.boolean().optional() }),
   z.object({ kind: z.literal("complexity"), from: z.enum(COMPLEXITIES).nullable(), to: z.enum(COMPLEXITIES).nullable() }),
   z.object({ kind: z.literal("due"), from: z.string().nullable(), to: z.string().nullable() }),
-  z.object({ kind: z.literal("assigneeAdded"), name: z.string() }),
-  z.object({ kind: z.literal("assigneeRemoved"), name: z.string() }),
+  z.object({ kind: z.literal("assigneeAdded"), name: z.string(), userId: z.string().uuid().optional() }),
+  z.object({ kind: z.literal("assigneeRemoved"), name: z.string(), userId: z.string().uuid().optional() }),
   /** Массовая операция: назначен один человек на всю выборку или исполнители сняты. */
-  z.object({ kind: z.literal("assigneeBulk"), cleared: z.boolean() }),
+  z.object({ kind: z.literal("assigneeBulk"), cleared: z.boolean(), userId: z.string().uuid().nullable().optional() }),
   z.object({ kind: z.literal("direction") }),
   z.object({ kind: z.literal("parent"), set: z.boolean() }),
   z.object({ kind: z.literal("labels") }),
-  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), bulk: z.boolean().optional() }),
+  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), fromId: z.string().uuid().optional(), toId: z.string().uuid().optional(), bulk: z.boolean().optional() }),
   z.object({ kind: z.literal("checklistAdded"), text: z.string() }),
   z.object({ kind: z.literal("checklistRemoved") }),
   z.object({ kind: z.literal("link"), type: z.enum(["blocks", "blocked_by", "relates"]), key: z.string() }),

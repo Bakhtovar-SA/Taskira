@@ -63,7 +63,7 @@ async function applyAssignee(projectId: string, row: Row, assigneeId: string, ac
   if (added.length > 0) {
     await emit({ type: "issue.assigned", actorId, projectId, issueId: row.id, recipientIds: added, payload: { key: row.key, title: row.title } });
   }
-  await logActivity(row.id, actorId, { kind: "assigneeBulk", cleared: assigneeId === "none" });
+  await logActivity(row.id, actorId, { kind: "assigneeBulk", cleared: assigneeId === "none", userId: assigneeId === "none" ? null : assigneeId });
   await audit(actorId, "issue.update", "issue", row.id, { key: row.key, fields: ["assigneeIds"], bulk: true });
 }
 

@@ -539,8 +539,8 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
             [...addedAssigneeIds, ...removedAssigneeIds],
           ]);
           const nameOf = new Map(names.map((n) => [n.id, n.name]));
-          for (const uid of addedAssigneeIds) log.push({ kind: "assigneeAdded", name: nameOf.get(uid) ?? "?" });
-          for (const uid of removedAssigneeIds) log.push({ kind: "assigneeRemoved", name: nameOf.get(uid) ?? "?" });
+          for (const uid of addedAssigneeIds) log.push({ kind: "assigneeAdded", name: nameOf.get(uid) ?? "?", userId: uid });
+          for (const uid of removedAssigneeIds) log.push({ kind: "assigneeRemoved", name: nameOf.get(uid) ?? "?", userId: uid });
         }
       }
       if (body.epicId !== undefined && body.epicId !== iss.epic_id) {
