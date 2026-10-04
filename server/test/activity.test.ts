@@ -61,6 +61,18 @@ describe("фраза события — та же, что писалась до 
     expect(activityEventOf("priority", { from: "x", to: "y" })).toBeNull();
     expect(activityEventOf("priority", { from: "low", to: "high" })).toEqual({ kind: "priority", from: "low", to: "high" });
   });
+
+  test.each([
+    { kind: "status", from: "К выполнению", to: "Готово" },
+    { kind: "status", from: "A", to: "B", bulk: true },
+    { kind: "assigneeAdded", name: "Анна" },
+    { kind: "assigneeRemoved", name: "Анна" },
+    { kind: "assigneeBulk", cleared: false },
+    { kind: "assigneeBulk", cleared: true },
+  ] satisfies ActivityEvent[])("старое событие без идентификаторов читается: %o", (event) => {
+    const { kind, ...payload } = event;
+    expect(activityEventOf(kind, payload)).toEqual(event);
+  });
 });
 
 test("правка задачи пишет событие; старая запись без события отдаётся с event: null", async () => {
@@ -76,4 +88,82 @@ test("правка задачи пишет событие; старая запи
   expect(fresh.map((i) => i.event?.kind).sort()).toEqual(["due", "priority"]);
   expect(fresh.find((i) => i.event?.kind === "priority")).toMatchObject({ event: { to: "critical" } });
   expect(fresh.find((i) => i.event?.kind === "due")).toMatchObject({ event: { from: null, to: "2026-10-01" }, text: "изменил(а) срок: — → 2026-10-01" });
+});
+
+test.each([false, true])("переход статуса сохраняет идентификаторы в БД и API (bulk=%s)", async (bulk) => {
+  const mgr = await login(app, "mgr1");
+  const base = `/api/projects/${fx.projects.p1}/issues`;
+  const r = await app.inject({
+    method: bulk ? "PATCH" : "POST",
+    url: bulk ? `${base}/bulk` : `${base}/${fx.issues.p1issue}/transition`,
+    headers: auth(mgr),
+    payload: bulk
+      ? { action: "status", issueIds: [fx.issues.p1issue], statusId: fx.p1status.inprogress }
+      : { to: fx.p1status.inprogress },
+  });
+  expect(r.statusCode).toBe(200);
+  if (bulk) expect(JSON.parse(r.body)).toEqual({ succeeded: [fx.issues.p1issue], failed: [] });
+
+  const rows = await q<{ payload: Record<string, unknown> }>(
+    `SELECT payload FROM activity WHERE issue_id = $1 AND kind = 'status'`, [fx.issues.p1issue],
+  );
+  expect(rows).toHaveLength(1);
+  expect(rows[0].payload).toMatchObject({ fromId: fx.p1status.todo, toId: fx.p1status.inprogress });
+  expect(rows[0].payload.bulk).toBe(bulk ? true : undefined);
+  const history = await app.inject({ url: `${base}/${fx.issues.p1issue}/activity`, headers: auth(mgr) });
+  expect(history.statusCode).toBe(200);
+  expect(JSON.parse(history.body)).toMatchObject([
+    { event: { kind: "status", fromId: fx.p1status.todo, toId: fx.p1status.inprogress } },
+  ]);
+});
+
+test("замена исполнителей сохраняет id добавленного и снятого человека вместе с именами", async () => {
+  const mgr = await login(app, "mgr1");
+  const url = `/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}`;
+  const r = await app.inject({ method: "PATCH", url, headers: auth(mgr), payload: { assigneeIds: [fx.users.mgr1] } });
+  expect(r.statusCode).toBe(200);
+
+  const rows = await q<{ kind: string; payload: Record<string, unknown>; text: string }>(
+    `SELECT kind, payload, text FROM activity WHERE issue_id = $1`, [fx.issues.p1issue],
+  );
+  expect(rows).toHaveLength(2);
+  expect(rows).toEqual(expect.arrayContaining([
+    { kind: "assigneeAdded", payload: { name: "Manager One", userId: fx.users.mgr1 }, text: "назначил(а) исполнителем Manager One" },
+    { kind: "assigneeRemoved", payload: { name: "Employee One", userId: fx.users.emp1 }, text: "снял(а) исполнителя Employee One" },
+  ]));
+  const history = await app.inject({ url: `${url}/activity`, headers: auth(mgr) });
+  expect(history.statusCode).toBe(200);
+  expect(JSON.parse(history.body)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ event: { kind: "assigneeAdded", name: "Manager One", userId: fx.users.mgr1 } }),
+    expect.objectContaining({ event: { kind: "assigneeRemoved", name: "Employee One", userId: fx.users.emp1 } }),
+  ]));
+});
+
+test("массовое назначение сохраняет userId, массовое снятие — null", async () => {
+  const mgr = await login(app, "mgr1");
+  const url = `/api/projects/${fx.projects.p1}/issues/bulk`;
+  for (const assigneeId of [fx.users.mgr1, "none"]) {
+    const r = await app.inject({
+      method: "PATCH", url, headers: auth(mgr),
+      payload: { action: "assignee", issueIds: [fx.issues.p1issue], assigneeId },
+    });
+    expect(r.statusCode).toBe(200);
+    expect(JSON.parse(r.body)).toEqual({ succeeded: [fx.issues.p1issue], failed: [] });
+  }
+  const rows = await q<{ payload: Record<string, unknown>; text: string }>(
+    `SELECT payload, text FROM activity WHERE issue_id = $1 AND kind = 'assigneeBulk'`, [fx.issues.p1issue],
+  );
+  expect(rows).toHaveLength(2);
+  expect(rows).toEqual(expect.arrayContaining([
+    { payload: { cleared: false, userId: fx.users.mgr1 }, text: "назначил(а) исполнителя (массовая операция)" },
+    { payload: { cleared: true, userId: null }, text: "снял(а) исполнителя (массовая операция)" },
+  ]));
+  const history = await app.inject({
+    url: `/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/activity`, headers: auth(mgr),
+  });
+  expect(history.statusCode).toBe(200);
+  expect(JSON.parse(history.body)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ event: { kind: "assigneeBulk", cleared: false, userId: fx.users.mgr1 } }),
+    expect.objectContaining({ event: { kind: "assigneeBulk", cleared: true, userId: null } }),
+  ]));
 });

@@ -442,7 +442,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           `SELECT id FROM issues WHERE status_id = $1 AND project_id = $2 AND archived_at IS NULL ORDER BY rank, id LIMIT 1`,
           [statusId, project.id],
         )).rows[0];
-        insertVals[14] = await computeRank(client, statusId, firstInColumn?.id ?? null);
+        insertVals[14] = await computeRank(client, project.id, statusId, firstInColumn?.id ?? null);
         const res = await client.query<IssueRow>(insertSql, insertVals);
         const created = res.rows[0];
         await setAssignees(created.id, assigneeIds, user.sub, client);
@@ -539,8 +539,8 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
             [...addedAssigneeIds, ...removedAssigneeIds],
           ]);
           const nameOf = new Map(names.map((n) => [n.id, n.name]));
-          for (const uid of addedAssigneeIds) log.push({ kind: "assigneeAdded", name: nameOf.get(uid) ?? "?" });
-          for (const uid of removedAssigneeIds) log.push({ kind: "assigneeRemoved", name: nameOf.get(uid) ?? "?" });
+          for (const uid of addedAssigneeIds) log.push({ kind: "assigneeAdded", name: nameOf.get(uid) ?? "?", userId: uid });
+          for (const uid of removedAssigneeIds) log.push({ kind: "assigneeRemoved", name: nameOf.get(uid) ?? "?", userId: uid });
         }
       }
       if (body.epicId !== undefined && body.epicId !== iss.epic_id) {

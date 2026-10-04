@@ -41,14 +41,17 @@ export async function transitionIssue(
     const from = statuses.find((s) => s.id === previous.status_id)!.name;
     const target = statuses.find((s) => s.id === toStatusId)!;
     if (!changed && !reorder) return { previous, row: previous, changed, from, to: target.name };
-    const rank = await computeRank(client, toStatusId, beforeId, issueId);
+    const rank = await computeRank(client, projectId, toStatusId, beforeId, issueId);
     const row = (await client.query<IssueRow>(
       `UPDATE issues SET status_id = $1, rank = $2, updated_at = now(),
           done_at = CASE WHEN $4 THEN COALESCE(done_at, now()) ELSE NULL END,
           archived_at = CASE WHEN $4 THEN archived_at ELSE NULL END
         WHERE id = $3 RETURNING *`, [toStatusId, rank, issueId, target.category === "done"],
     )).rows[0];
-    if (changed) await logActivity(issueId, actorId, { kind: "status", from, to: target.name, ...(!reorder ? { bulk: true } : {}) }, client);
+    if (changed) await logActivity(issueId, actorId, {
+      kind: "status", from, to: target.name, fromId: previous.status_id, toId: toStatusId,
+      ...(!reorder ? { bulk: true } : {}),
+    }, client);
     return { previous, row, changed, from, to: target.name };
   });
 }
