@@ -25,8 +25,8 @@
     "license:install": "tsx scripts/install-license.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1139.0",
-    "@aws-sdk/lib-storage": "^3.1139.0",
+    "@aws-sdk/client-s3": "^3.1144.0",
+    "@aws-sdk/lib-storage": "^3.1144.0",
     "@fastify/cors": "^11.0.0",
     "@fastify/helmet": "^13.1.1",
     "@fastify/jwt": "^10.2.2",
@@ -36,8 +36,8 @@
     "bcryptjs": "^2.4.3",
     "fastify": "^5.12.5",
     "ldapts": "^9.2.0",
-    "nodemailer": "^10.0.10",
-    "pg": "^8.13.1",
+    "nodemailer": "^10.0.13",
+    "pg": "^8.23.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -48,11 +48,11 @@
     "autocannon": "^8.0.0",
     "cross-env": "^10.1.0",
     "ldapjs": "^3.0.7",
-    "mailparser": "^3.9.28",
-    "smtp-server": "^3.19.13",
+    "mailparser": "^3.9.33",
+    "smtp-server": "^3.19.16",
     "tsx": "^4.23.15",
     "typescript": "^5.7.2",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.3"
   },
   "overrides": {
     "hyperid": { "uuid": "11.1.1" }
