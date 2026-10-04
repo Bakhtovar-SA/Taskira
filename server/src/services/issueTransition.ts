@@ -41,7 +41,7 @@ export async function transitionIssue(
     const from = statuses.find((s) => s.id === previous.status_id)!.name;
     const target = statuses.find((s) => s.id === toStatusId)!;
     if (!changed && !reorder) return { previous, row: previous, changed, from, to: target.name };
-    const rank = await computeRank(client, toStatusId, beforeId, issueId);
+    const rank = await computeRank(client, projectId, toStatusId, beforeId, issueId);
     const row = (await client.query<IssueRow>(
       `UPDATE issues SET status_id = $1, rank = $2, updated_at = now(),
           done_at = CASE WHEN $4 THEN COALESCE(done_at, now()) ELSE NULL END,
