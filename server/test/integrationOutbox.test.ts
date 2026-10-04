@@ -2,6 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { withTransaction } from "../src/db.js";
+import { ActivityEvent } from "../src/contract.js";
 import { logActivity } from "../src/services/activity.js";
 import { auth, getApp, login, newIssue, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
@@ -53,6 +54,35 @@ interface OutboxEvent {
 const events = () => q<OutboxEvent>(`SELECT * FROM integration_events ORDER BY id`);
 const base = () => `/api/projects/${fx.projects.p1}/issues`;
 const issueUrl = () => `${base()}/${fx.issues.p1issue}`;
+
+test("SQL-классификация охватывает весь закрытый контракт истории", async () => {
+  // При добавлении kind контракт требует явного решения о его типе интеграции.
+  const mapping = {
+    created: "issue.created", status: "issue.statusChanged",
+    assigneeAdded: "issue.assigned", assigneeRemoved: "issue.assigned", assigneeBulk: "issue.assigned",
+    renamed: "issue.updated", description: "issue.updated", priority: "issue.updated", complexity: "issue.updated",
+    due: "issue.updated", direction: "issue.updated", parent: "issue.updated", labels: "issue.updated",
+    checklistAdded: "issue.updated", checklistRemoved: "issue.updated", link: "issue.updated",
+  } satisfies Record<ActivityEvent["kind"], string>;
+  expect(Object.keys(mapping).sort()).toEqual(ActivityEvent.options.map((option) => option.shape.kind.value).sort());
+  const rows = await q<{ kind: keyof typeof mapping; type: string }>(
+    `SELECT kind, integration_event_type(kind) AS type FROM unnest($1::text[]) AS kind`, [Object.keys(mapping)],
+  );
+  for (const row of rows) expect(row.type, row.kind).toBe(mapping[row.kind]);
+});
+
+test.each([
+  { eventTypes: ["unknown"] }, { eventTypes: ["ping"] }, { eventTypes: [null] },
+  { eventTypes: ["issue.updated", null] }, { eventTypes: [] },
+])(
+  "подписка отклоняет неизвестные, служебные и пустые типы событий ($eventTypes)", async ({ eventTypes }) => {
+    await expect(q(
+      `INSERT INTO webhooks (project_id, name, url_enc, url_display, secret_enc, events)
+       VALUES ($1, 'Invalid hook', 'test', 'https://example.invalid/hook', 'test', $2::text[])`,
+      [fx.projects.p1, eventTypes],
+    )).rejects.toMatchObject({ code: "23514" });
+  },
+);
 
 const paths = ["create", "rename", "transition", "assignees", "comment", "link", "checklist", "bulk"] as const;
 type WritePath = typeof paths[number];

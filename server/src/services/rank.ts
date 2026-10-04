@@ -26,82 +26,85 @@ interface RankRow {
   rank: number;
 }
 
-async function rebalanceColumn(client: PoolClient, statusId: string): Promise<void> {
+async function rebalanceColumn(client: PoolClient, projectId: string, statusId: string): Promise<void> {
   await client.query(
     `UPDATE issues AS i
-       SET rank = sub.rn * $2
+       SET rank = sub.rn * $3
       FROM (
         SELECT id, ROW_NUMBER() OVER (ORDER BY rank, id) AS rn
           FROM issues
-         WHERE status_id = $1
+         WHERE project_id = $1 AND status_id = $2
       ) AS sub
-     WHERE i.id = sub.id AND i.status_id = $1`,
-    [statusId, STEP],
+     WHERE i.id = sub.id AND i.project_id = $1 AND i.status_id = $2`,
+    [projectId, statusId, STEP],
   );
 }
 
-async function listRanks(client: PoolClient, statusId: string, excludeId?: string): Promise<RankRow[]> {
-  const res = await client.query<RankRow>(
+interface Neighbors {
+  previous?: RankRow;
+  next?: RankRow;
+}
+
+async function neighbors(
+  client: PoolClient, projectId: string, statusId: string, beforeId: string | null, excludeId?: string,
+): Promise<Neighbors> {
+  const params = [projectId, statusId, excludeId ?? null];
+  const next = beforeId ? (await client.query<RankRow>(
     `SELECT id, rank FROM issues
-      WHERE status_id = $1 AND ($2::uuid IS NULL OR id <> $2)
-      ORDER BY rank, id`,
-    [statusId, excludeId ?? null],
-  );
-  return res.rows;
+      WHERE project_id = $1 AND status_id = $2 AND ($3::uuid IS NULL OR id <> $3) AND id = $4`,
+    [...params, beforeId],
+  )).rows[0] : undefined;
+  if (!next) {
+    // project_id нужен для существующего idx_issues_project_status.
+    // Если ориентир исчез/переместился, вставляем в конец, как и раньше.
+    const previous = (await client.query<RankRow>(
+      `SELECT id, rank FROM issues
+        WHERE project_id = $1 AND status_id = $2 AND ($3::uuid IS NULL OR id <> $3)
+        ORDER BY rank DESC LIMIT 1`, params,
+    )).rows[0];
+    return { previous };
+  }
+  const previous = (await client.query<RankRow>(
+    `SELECT id, rank FROM issues
+      WHERE project_id = $1 AND status_id = $2 AND ($3::uuid IS NULL OR id <> $3)
+        AND (rank, id) < ($4::float8, $5::uuid)
+      ORDER BY rank DESC, id DESC LIMIT 1`,
+    [...params, next.rank, next.id],
+  )).rows[0];
+  return { previous, next };
 }
 
 /** Возвращает rank для вставки в колонку statusId перед beforeId (null = в конец). */
 export async function computeRank(
   client: PoolClient,
+  projectId: string,
   statusId: string,
   beforeId: string | null,
   excludeId?: string,
 ): Promise<number> {
-  {
-    // Лок на время транзакции, ключ — статус-колонка. Второй параллельный расчёт
-    // по той же колонке ждёт здесь и увидит уже записанные соседями ранги.
-    await lockRankColumn(client, statusId);
-    const pick = (rows: RankRow[]): number => {
-      if (!beforeId) {
-        const last = rows[rows.length - 1];
-        return last ? last.rank + STEP : STEP;
-      }
-      const idx = rows.findIndex((r) => r.id === beforeId);
-      if (idx < 0) {
-        // beforeId не в этой колонке (удалён/перемещён конкурентом) — встаём в конец
-        const last = rows[rows.length - 1];
-        return last ? last.rank + STEP : STEP;
-      }
-      const target = rows[idx];
-      const prev = rows[idx - 1];
-      return prev ? (prev.rank + target.rank) / 2 : target.rank - STEP;
-    };
+  // Лок на время транзакции, ключ — статус-колонка. Второй параллельный расчёт
+  // по той же колонке ждёт здесь и увидит уже записанные соседями ранги.
+  await lockRankColumn(client, statusId);
+  const pick = ({ previous, next }: Neighbors): number => {
+    if (!next) return previous ? previous.rank + STEP : STEP;
+    return previous ? (previous.rank + next.rank) / 2 : next.rank - STEP;
+  };
 
-    let rows = await listRanks(client, statusId, excludeId);
-    let rank = pick(rows);
+  let bounds = await neighbors(client, projectId, statusId, beforeId, excludeId);
+  let rank = pick(bounds);
 
-    // Проверяем зазор с соседями; при вырождении — rebalance и пересчёт (однократно)
-    const gapOk = (r: number, rs: RankRow[]): boolean => {
-      if (!beforeId) {
-        const last = rs[rs.length - 1];
-        return !last || Math.abs(r - last.rank) >= MIN_GAP;
-      }
-      const idx = rs.findIndex((x) => x.id === beforeId);
-      if (idx < 0) return true;
-      const next = rs[idx];
-      const prev = rs[idx - 1];
-      return (
-        Math.abs(next.rank - r) >= MIN_GAP && (!prev || Math.abs(r - prev.rank) >= MIN_GAP)
-      );
-    };
+  // Проверяем зазор с соседями; при вырождении — rebalance и пересчёт (однократно)
+  const gapOk = (r: number, { previous, next }: Neighbors): boolean => (
+    (!next || Math.abs(next.rank - r) >= MIN_GAP) &&
+    (!previous || Math.abs(r - previous.rank) >= MIN_GAP)
+  );
 
-    if (!gapOk(rank, rows)) {
-      await rebalanceColumn(client, statusId);
-      rows = await listRanks(client, statusId, excludeId);
-      rank = pick(rows);
-    }
-    return rank;
+  if (!gapOk(rank, bounds)) {
+    await rebalanceColumn(client, projectId, statusId);
+    bounds = await neighbors(client, projectId, statusId, beforeId, excludeId);
+    rank = pick(bounds);
   }
+  return rank;
 }
 
 /** Acquire before issue row locks; retain through the caller's INSERT/UPDATE and COMMIT. */

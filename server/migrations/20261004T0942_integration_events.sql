@@ -12,7 +12,10 @@ CREATE TABLE webhooks (
   secret_enc        text NOT NULL,            -- secretBox(whsec_…)
   prev_secret_enc   text,
   prev_secret_until timestamptz,
-  events            text[] NOT NULL CHECK (cardinality(events) BETWEEN 1 AND 6),
+  events            text[] NOT NULL CHECK (cardinality(events) BETWEEN 1 AND 6)
+                    CHECK (events <@ ARRAY['issue.created', 'issue.updated', 'issue.statusChanged',
+                      'issue.assigned', 'issue.commented', 'issue.due']::text[]
+                      AND array_position(events, NULL) IS NULL),
   state             text NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'paused', 'disabled')),
   disabled_reason   text CHECK (disabled_reason IN ('failing', 'gone', 'secret_unavailable')),
   failure_streak    integer NOT NULL DEFAULT 0,
@@ -26,6 +29,10 @@ CREATE TABLE webhooks (
 );
 CREATE INDEX idx_webhooks_project_active ON webhooks (project_id) WHERE state = 'active';
 
+-- INT-04: пакетная очистка по occurred_at (webhookLogRetentionDays, по умолчанию 30 дней);
+-- webhook_deliveries удаляются каскадом. Обязательна до включения API подписок в INT-05.
+-- id — sequence, не порядок COMMIT: диспетчер выбирает dispatched_at IS NULL,
+-- а не id > last_id, иначе поздний COMMIT более ранней транзакции потеряется.
 CREATE TABLE integration_events (
   id            bigserial PRIMARY KEY,         -- "sequence" в теле
   event_id      uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
