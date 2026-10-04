@@ -120,8 +120,8 @@ export class TargetBlockedError extends Error { reason: "shape" | "scheme" | "no
 
 ## Не входит
 
-HTTP-отправка (INT-04); маршруты (INT-05); ротация `WEBHOOK_SECRET_KEY` (открытый вопрос, формат `v1.` оставляет
-место для `kid`).
+HTTP-отправка (INT-04); маршруты (INT-05); ротация `WEBHOOK_SECRET_KEY` — не в треке L. Формат `v1.` оставляет место
+для `kid`; до тех пор смена ключа = смена секретов подписок администратором.
 
 ## Риски и откат
 
