@@ -30,7 +30,7 @@ const children = [];
 let client, created = false;
 const report = { fixture: { issues: 50000, users: 200, patchConnections: 1, patchRequests: 4000,
   subscriptions: 4, deliveries: 10000, receiverDelayMs: 50 }, reports: [], plans: {},
-  resultPersistence: 'At most four transactions; serial results per subscription; reserve two pool slots where possible',
+  resultPersistence: 'At most two transactions; up to four results share one transaction per subscription; round-robin selection; reserve two pool slots where possible',
   methodology: 'API/worker, receiver and performance-load each have a separate Node process. Three paired rounds; PATCH is measured by performance-load.mjs. Every loaded window finishes while the seeded queue is nonempty. Same source and active subscriptions in idle/dispatch variants. All scratch objects are deleted.' };
 const output = resolve(process.env.PERF_OUTPUT ?? join(dir, 'report.json'));
 async function save() { await writeFile(output, JSON.stringify(report, null, 2) + '\n'); }
@@ -95,20 +95,20 @@ try {
   await client.query('TRUNCATE integration_events RESTART IDENTITY CASCADE');
   await client.query(`INSERT INTO integration_events (type,project_id,dedupe_key,payload,dispatched_at)
     SELECT 'issue.created',$1,'plan:'||n,'{}',CASE WHEN n<=99900 THEN now() ELSE NULL END FROM generate_series(1,100000)n`,[project]);
-  const hook = (await client.query('SELECT id FROM webhooks LIMIT 1')).rows[0].id;
   await client.query(`INSERT INTO webhook_deliveries (webhook_id,event_id,state)
-    SELECT $1,id,CASE WHEN id<=99900 THEN 'succeeded' ELSE 'pending' END FROM integration_events`,[hook]);
+    SELECT w.id,e.id,CASE WHEN e.id<=99900 THEN 'succeeded' ELSE 'pending' END FROM integration_events e
+    JOIN (SELECT id,row_number() OVER(ORDER BY id) AS n FROM webhooks) w ON (e.id-1)%4+1=w.n`);
   await client.query('ANALYZE integration_events'); await client.query('ANALYZE webhook_deliveries');
   const source = await readFile(join(repo,'server/src/services/webhookDispatch.ts'),'utf8');
-  for (const [kind,regexp] of [['fanout',/client\.query<FanOutRow>\(`([\s\S]*?)`\)/],['claim',/client\.query<ClaimedDelivery>\(`([\s\S]*?)`\)/]]) {
+  for (const [kind,regexp] of [['fanout',/client\.query<FanOutRow>\(`([\s\S]*?)`/],['claim',/client\.query<ClaimedDelivery>\(`([\s\S]*?)`/]]) {
     const sql = source.match(regexp)?.[1]; assert.ok(sql,kind);
     await client.query('BEGIN');
-    try { report.plans[kind]=(await client.query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) '+sql)).rows[0]['QUERY PLAN'][0]; }
+    try { report.plans[kind]=(await client.query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) '+sql, kind==='claim' ? [null] : [])).rows[0]['QUERY PLAN'][0]; }
     finally { await client.query('ROLLBACK'); }
   }
   await client.query("UPDATE webhook_deliveries SET state='pending'"); await client.query('ANALYZE webhook_deliveries');
   await client.query('BEGIN');
-  try { report.plans.claimDense=(await client.query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) '+source.match(/client\.query<ClaimedDelivery>\(`([\s\S]*?)`\)/)[1])).rows[0]['QUERY PLAN'][0]; }
+  try { report.plans.claimDense=(await client.query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) '+source.match(/client\.query<ClaimedDelivery>\(`([\s\S]*?)`/)[1], [null])).rows[0]['QUERY PLAN'][0]; }
   finally { await client.query('ROLLBACK'); }
   report.plans.eventLookup=(await client.query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT id FROM webhook_deliveries WHERE event_id=99999')).rows[0]['QUERY PLAN'][0];
   await save();

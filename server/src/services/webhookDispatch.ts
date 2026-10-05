@@ -1,5 +1,6 @@
 /** Durable fan-out and bounded delivery. HTTP runs outside database transactions. */
 import { withAdvisoryLock, withTransaction } from "../db.js";
+import type pg from "pg";
 import { audit } from "../audit.js";
 import { loadConfig } from "../config.js";
 import { addIntegrationEvents, recordWebhookDelivery, recordWebhookTargetBlocked, recordBackgroundJob } from "../metrics.js";
@@ -41,27 +42,26 @@ export interface ClaimedDelivery {
   public_event_id: string; type: string; payload: unknown;
   url_enc: string; secret_enc: string; prev_secret_enc: string | null; prev_secret_until: Date | null;
 }
+let lastClaimedHook: string | null = null;
 export async function claimDeliveries(): Promise<ClaimedDelivery[]> {
-  return withTransaction(async client => {
-    const { rows } = await client.query<ClaimedDelivery>(`SELECT d.id, d.webhook_id, d.event_id, d.attempts,
-        e.event_id AS public_event_id, e.type, e.payload, w.url_enc, w.secret_enc, w.prev_secret_enc, w.prev_secret_until
-      FROM webhook_deliveries d JOIN webhooks w ON w.id = d.webhook_id JOIN integration_events e ON e.id = d.event_id
-      WHERE d.state IN ('pending', 'sending') AND (d.state = 'pending' OR d.locked_until < now())
-        AND d.next_attempt_at <= now() AND w.state = 'active' AND e.payload IS NOT NULL
-      ORDER BY d.next_attempt_at, d.id LIMIT 16 FOR UPDATE OF d SKIP LOCKED`);
-    const perHook = new Map<string, number>();
-    const chosen: ClaimedDelivery[] = [], deferred: string[] = [];
-    for (const row of rows) {
-      const count = perHook.get(row.webhook_id) ?? 0;
-      if (count >= 4) { deferred.push(row.id); continue; }
-      perHook.set(row.webhook_id, count + 1); chosen.push({ ...row, attempts: row.attempts + 1 });
-    }
-    if (deferred.length) await client.query(`UPDATE webhook_deliveries SET state = 'pending', locked_until = NULL
-      WHERE id = ANY($1::uuid[])`, [deferred]);
-    if (chosen.length) await client.query(`UPDATE webhook_deliveries SET state = 'sending', locked_until = now() + interval '60 seconds',
-      attempts = attempts + 1, updated_at = now() WHERE id = ANY($1::uuid[])`, [chosen.map(row => row.id)]);
-    return chosen;
+  const chosen = await withTransaction(async client => {
+    const { rows } = await client.query<ClaimedDelivery>(`SELECT due.id, w.id AS webhook_id, due.event_id, due.attempts,
+        due.public_event_id, due.type, due.payload, w.url_enc, w.secret_enc, w.prev_secret_enc, w.prev_secret_until
+      FROM webhooks w CROSS JOIN LATERAL (
+        SELECT d.id, d.event_id, d.attempts, d.next_attempt_at, e.event_id AS public_event_id, e.type, e.payload
+          FROM webhook_deliveries d JOIN integration_events e ON e.id = d.event_id
+         WHERE d.webhook_id = w.id AND d.state IN ('pending', 'sending')
+           AND (d.state = 'pending' OR d.locked_until < now()) AND d.next_attempt_at <= now() AND e.payload IS NOT NULL
+         ORDER BY d.next_attempt_at, d.id LIMIT 4 FOR UPDATE OF d SKIP LOCKED
+      ) due WHERE w.state = 'active'
+      ORDER BY CASE WHEN $1::uuid IS NULL OR w.id > $1::uuid THEN 0 ELSE 1 END, w.id, due.next_attempt_at, due.id LIMIT 16`, [lastClaimedHook]);
+    if (rows.length) await client.query(`UPDATE webhook_deliveries SET state = 'sending', locked_until = now() + interval '60 seconds',
+      attempts = attempts + 1, updated_at = now() WHERE id = ANY($1::uuid[])`, [rows.map(row => row.id)]);
+    return rows.map(row => ({ ...row, attempts: row.attempts + 1 }));
   });
+  // Циклическое очередование: даже четыре старых очереди не вытесняют пятую.
+  if (chosen.length) lastClaimedHook = chosen[chosen.length - 1].webhook_id;
+  return chosen;
 }
 
 const RETRY_MS = [60_000, 300_000, 1_800_000, 7_200_000, 21_600_000, 43_200_000, 86_400_000];
@@ -73,14 +73,12 @@ export function retryDelay(attempts: number, retryAfter: string | null, now = Da
   return Math.round(RETRY_MS[Math.min(Math.max(attempts - 1, 0), RETRY_MS.length - 1)] * (0.8 + Math.random() * 0.4));
 }
 
-export async function recordResult(row: ClaimedDelivery, result: SendResult): Promise<"succeeded" | "retry" | "failed" | "cancelled" | null> {
-  const stored = await withTransaction(async client => {
-    // Согласованный порядок блокировок с pause/delete: сначала подписка, затем доставка.
-    const hook = (await client.query<{ state: string; project_id: string; url_display: string }>(
-      `SELECT state, project_id, url_display FROM webhooks WHERE id = $1 FOR UPDATE`, [row.webhook_id])).rows[0];
-    if (!hook) return null;
+type Outcome = "succeeded" | "retry" | "failed" | "cancelled";
+interface HookResultRow { state: string; project_id: string; url_display: string }
+interface ResultEntry { row: ClaimedDelivery; result: SendResult }
+async function storeResult(client: pg.PoolClient, hook: HookResultRow, { row, result }: ResultEntry) {
     const current = (await client.query<{ state: string; attempts: number }>(
-      `SELECT state, attempts FROM webhook_deliveries WHERE id = $1 FOR UPDATE`, [row.id])).rows[0];
+      `SELECT state, attempts FROM webhook_deliveries WHERE id = $1 AND webhook_id = $2 FOR UPDATE`, [row.id, row.webhook_id])).rows[0];
     if (!current || current.state !== "sending" || current.attempts !== row.attempts) return null;
     if (hook.state !== "active") {
       await client.query(`UPDATE webhook_deliveries SET state = 'cancelled', locked_until = NULL, updated_at = now() WHERE id = $1`, [row.id]);
@@ -89,7 +87,7 @@ export async function recordResult(row: ClaimedDelivery, result: SendResult): Pr
     const success = result.error === null && result.status !== null && result.status >= 200 && result.status < 300;
     const retryable = ["timeout", "dns", "connect", "tls", "internal"].includes(result.error ?? "")
       || (result.error === "http_status" && (result.status === 408 || result.status === 429 || ((result.status ?? 0) >= 500 && (result.status ?? 0) < 600)));
-    const outcome = success ? "succeeded" : retryable && row.attempts < 8 ? "retry" : "failed";
+    const outcome: Outcome = success ? "succeeded" : retryable && row.attempts < 8 ? "retry" : "failed";
     const next = outcome === "retry" ? new Date(Date.now() + retryDelay(row.attempts, result.status === 429 ? result.retryAfter : null)) : null;
     await client.query(`UPDATE webhook_deliveries SET state = $2, next_attempt_at = COALESCE($3, next_attempt_at), locked_until = NULL,
       last_status = $4, last_error = $5, last_duration_ms = $6, response_excerpt = $7, updated_at = now() WHERE id = $1`,
@@ -105,18 +103,41 @@ export async function recordResult(row: ClaimedDelivery, result: SendResult): Pr
         disabled_reason = CASE WHEN $2::text IS NOT NULL THEN $2 WHEN failure_streak + 1 >= 20 AND failing_since <= now() - interval '24 hours' THEN 'failing' ELSE NULL END
         WHERE id = $1 RETURNING disabled_reason`, [row.webhook_id, explicit])).rows[0];
       disabled = updated.disabled_reason;
-      if (disabled) cancelled = (await client.query(`UPDATE webhook_deliveries SET state = 'cancelled', locked_until = NULL, updated_at = now()
-        WHERE webhook_id = $1 AND state IN ('pending', 'sending')`, [row.webhook_id])).rowCount ?? 0;
+      if (disabled) {
+        hook.state = "disabled";
+        cancelled = (await client.query(`UPDATE webhook_deliveries SET state = 'cancelled', locked_until = NULL, updated_at = now()
+          WHERE webhook_id = $1 AND state IN ('pending', 'sending')`, [row.webhook_id])).rowCount ?? 0;
+      }
     }
     return { outcome, cancelled, disabled, hook } as const;
+}
+
+/** До четырёх результатов одной подписки атомарно; общий лок подписки и один COMMIT. */
+export async function recordResults(entries: ResultEntry[]): Promise<(Outcome | null)[]> {
+  if (!entries.length) return [];
+  if (entries.length > 4 || entries.some(entry => entry.row.webhook_id !== entries[0].row.webhook_id))
+    throw new Error("Результаты должны относиться к одной подписке, не более четырёх");
+  const stored = await withTransaction(async client => {
+    // Согласованный порядок блокировок с pause/delete: сначала подписка, затем доставки.
+    const hook = (await client.query<HookResultRow>(
+      `SELECT state, project_id, url_display FROM webhooks WHERE id = $1 FOR UPDATE`, [entries[0].row.webhook_id])).rows[0];
+    if (!hook) return entries.map(() => null);
+    const results = [];
+    for (const entry of entries) results.push(await storeResult(client, hook, entry));
+    return results;
   });
-  if (!stored) return null;
-  recordWebhookDelivery(stored.outcome, result.durationMs / 1000);
-  if (stored.cancelled) recordWebhookDelivery("cancelled", undefined, stored.cancelled);
-  // audit берёт соединение из пула; транзакция результата уже завершена, чтобы не исчерпать пул параллельными попытками.
-  if (stored.disabled) await audit(null, "webhook.disabled", "webhook", row.webhook_id,
-    { reason: stored.disabled, projectId: stored.hook.project_id, urlDisplay: stored.hook.url_display });
-  return stored.outcome;
+  // Метрики и аудит только после COMMIT; audit берёт отдельное соединение.
+  for (let index = 0; index < stored.length; index++) {
+    const value = stored[index]; if (!value) continue;
+    recordWebhookDelivery(value.outcome, entries[index].result.durationMs / 1000);
+    if (value.cancelled) recordWebhookDelivery("cancelled", undefined, value.cancelled);
+    if (value.disabled) await audit(null, "webhook.disabled", "webhook", entries[index].row.webhook_id,
+      { reason: value.disabled, projectId: value.hook.project_id, urlDisplay: value.hook.url_display });
+  }
+  return stored.map(value => value?.outcome ?? null);
+}
+export async function recordResult(row: ClaimedDelivery, result: SendResult): Promise<Outcome | null> {
+  return (await recordResults([{ row, result }]))[0];
 }
 
 export interface DispatchOptions {
@@ -192,21 +213,19 @@ export function runWebhookDispatchWork(opts: DispatchOptions = {}): Promise<Disp
       const rows = await claimDeliveries();
       if (!rows.length && !events) break;
       const sent = await Promise.all(rows.map(row => attempt(row, opts, controller.signal)));
-      // HTTP — до 16 параллельных запросов; БД — до 4 транзакций, последовательно на подписку.
+      // HTTP — до 16 параллельных запросов; БД — до 2 транзакций, пакет до 4 результатов на подписку.
       // Ожидание одной строки webhooks не должно занимать весь пул и задерживать пользовательский PATCH.
       const byHook = new Map<string, number[]>();
       rows.forEach((row, index) => byHook.set(row.webhook_id, [...(byHook.get(row.webhook_id) ?? []), index]));
       const groups = [...byHook.values()]; let nextGroup = 0;
-      const writers = Math.min(groups.length, Math.max(1, Math.min(4, loadConfig().pgPoolMax - 3)));
+      const writers = Math.min(groups.length, Math.max(1, Math.min(2, loadConfig().pgPoolMax - 3)));
       const results = await Promise.allSettled(Array.from({ length: writers }, async () => {
         for (;;) {
           const group = groups[nextGroup++];
           if (!group) return;
-          for (const index of group) {
-            if (controller.signal.aborted) return; // аренда сохранится, следующий процесс подберёт работу
-            const outcome = await recordResult(rows[index], sent[index]);
-            if (outcome) { stats.sent++; stats[outcome]++; }
-          }
+          if (controller.signal.aborted) return; // аренда сохранится, следующий процесс подберёт работу
+          const outcomes = await recordResults(group.map(index => ({ row: rows[index], result: sent[index] })));
+          for (const outcome of outcomes) if (outcome) { stats.sent++; stats[outcome]++; }
         }
       }));
       // Не освобождаем advisory-лок и регистрацию shutdown, пока остальные попытки ещё выполняются.

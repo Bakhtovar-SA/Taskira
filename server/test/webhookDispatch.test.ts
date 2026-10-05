@@ -6,7 +6,7 @@ import { webhookReceiver } from "./helpers/webhookReceiver.js";
 import { loadConfig } from "../src/config.js";
 import { _allowLoopbackForTests, parseTargetRules, redactUrl } from "../src/services/egress.js";
 import { seal, webhookSecretContext } from "../src/services/secretBox.js";
-import { claimDeliveries, fanOut, recordResult, resumeWebhookDispatch, retryDelay, runWebhookDispatchOnce, stopWebhookDispatch, type DispatchOptions } from "../src/services/webhookDispatch.js";
+import { claimDeliveries, fanOut, recordResult, recordResults, resumeWebhookDispatch, retryDelay, runWebhookDispatchOnce, stopWebhookDispatch, type DispatchOptions } from "../src/services/webhookDispatch.js";
 import { send, signedHeaders } from "../src/services/webhookHttp.js";
 import { runDueEventsOnce } from "../src/services/dueEvents.js";
 import { getMaintenanceStatus, runMaintenanceOnce, startMaintenance, stopMaintenance } from "../src/services/maintenance.js";
@@ -141,6 +141,17 @@ test("a stale attempt result cannot overwrite a newer claim", async () => {
   expect(await recordResult(row, { status: 200, error: null, durationMs: 1, excerpt: "ok", retryAfter: null })).toBeNull();
   expect((await deliveries())[0]).toMatchObject({ state: "sending", attempts: 2 });
 });
+test("a failed result batch rolls back earlier updates and leaves every lease recoverable", async () => {
+  await hook(); await event(); await event(); await fanOut(); const rows = await claimDeliveries();
+  const success = { status: 200, error: null, durationMs: 1, excerpt: "ok", retryAfter: null };
+  await expect(recordResults([{ row: rows[0], result: success },
+    { row: rows[1], result: { ...success, excerpt: "x".repeat(513) } }])).rejects.toMatchObject({ code: "23514" });
+  expect((await deliveries()).every(row => row.state === "sending" && row.attempts === 1)).toBe(true);
+  const metrics = await app.inject({ method: "GET", url: "/metrics" });
+  expect(metrics.body).not.toContain('taskira_webhook_deliveries_total{result="succeeded"}');
+  await q(`UPDATE webhook_deliveries SET locked_until=now()-interval '1 second'`); await tick();
+  expect((await deliveries()).every(row => row.state === "succeeded" && row.attempts === 2)).toBe(true);
+});
 test("concurrent fan-outs create one automatic delivery", async () => {
   await hook(); await event(); await Promise.all([fanOut(), fanOut()]); expect(await deliveries()).toHaveLength(1);
 });
@@ -157,6 +168,20 @@ test("a batch sends at most four requests per subscription and leaves excess att
 test("a batch sends no more than sixteen requests overall", async () => {
   for (let i = 0; i < 4; i++) await hook(); for (let i = 0; i < 4; i++) await event();
   receiver.setReply({ delayMs: 50 }); await tick(); expect(receiver.received).toHaveLength(16); expect(receiver.peak).toBeLessThanOrEqual(16);
+});
+test("one older backlog does not prevent a fresh subscription from receiving its event", async () => {
+  await hook(); for (let i = 0; i < 32; i++) await event(); await fanOut();
+  await q(`UPDATE webhook_deliveries SET next_attempt_at=now()-interval '1 hour'`);
+  const fresh = await hook(["issue.updated"]); await event("issue.updated"); await tick();
+  expect((await q(`SELECT state FROM webhook_deliveries WHERE webhook_id=$1`, [fresh]))[0]).toEqual({ state: "succeeded" });
+});
+test("round-robin grants a fifth subscription a slot even while four older backlogs remain", async () => {
+  const ids = []; for (let i = 0; i < 5; i++) ids.push(await hook());
+  for (let i = 0; i < 8; i++) await event(); await fanOut();
+  for (let i = 0; i < ids.length; i++) await q(`UPDATE webhook_deliveries SET next_attempt_at=now()-make_interval(mins=>$2::int) WHERE webhook_id=$1`, [ids[i], 10-i]);
+  await tick(); await tick();
+  const delivered = await q<{ webhook_id: string }>(`SELECT DISTINCT webhook_id FROM webhook_deliveries WHERE state='succeeded'`);
+  expect(delivered.map(row => row.webhook_id).sort()).toEqual(ids.sort());
 });
 test("the sender pins the checked address and preserves Host without environment proxies", async () => {
   const original = { HTTP_PROXY: process.env.HTTP_PROXY, HTTPS_PROXY: process.env.HTTPS_PROXY };
