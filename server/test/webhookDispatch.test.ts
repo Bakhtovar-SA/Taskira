@@ -86,6 +86,15 @@ test("500 reschedules within 48–72 seconds and a subsequent attempt succeeds",
   receiver.setReply({ status: 200 }); await retryNow(); await tick(); row = (await deliveries())[0];
   expect(row).toMatchObject({ state: "succeeded", attempts: 2 });
 });
+test.each(["0",new Date(0).toUTCString()])("Retry-After %s cannot burn retry attempts in one tick", async retryAfter => {
+  await hook(); await event(); receiver.setReply({ status: 429,headers: { "Retry-After": retryAfter } });
+  const started = Date.now(); await runWebhookDispatchOnce({ maxBatches: 3 });
+  const [row] = await deliveries();
+  expect(row).toMatchObject({ state: "pending",attempts: 1,last_status: 429 });
+  expect(row.next_attempt_at.getTime()).toBeGreaterThanOrEqual(started+60_000);
+  expect(receiver.received).toHaveLength(1);
+});
+
 test("eight failed attempts end the delivery", async () => {
   await hook(); await event(); receiver.setReply({ status: 500 });
   for (let attempt = 1; attempt <= 8; attempt++) { await retryNow(); await tick(); expect((await deliveries())[0].attempts).toBe(attempt); }

@@ -74,7 +74,7 @@ const RETRY_MS = [60_000, 300_000, 1_800_000, 7_200_000, 21_600_000, 43_200_000,
 export function retryDelay(attempts: number, retryAfter: string | null, now = Date.now()): number {
   if (retryAfter !== null) {
     const delay = /^\d+$/.test(retryAfter.trim()) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - now;
-    if (Number.isFinite(delay)) return Math.min(3_600_000, Math.max(0, delay));
+    if (Number.isFinite(delay)) return Math.min(3_600_000, Math.max(RETRY_MS[0], delay));
   }
   return Math.round(RETRY_MS[Math.min(Math.max(attempts - 1, 0), RETRY_MS.length - 1)] * (0.8 + Math.random() * 0.4));
 }
