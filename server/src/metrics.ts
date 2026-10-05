@@ -23,6 +23,25 @@ let maintenanceArchived = 0;
 let maintenanceAuditPurged = 0;
 let backgroundQueueSize = 0;
 let collectionErrors = 0;
+const integrationEvents = new Map<string, number>();
+const webhookDeliveries = new Map<string, number>();
+const webhookBlocked = new Map<string, number>();
+const webhookDurations = new Map<string, HistogramValue>();
+const WEBHOOK_BUCKETS = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
+let webhookQueueSize = 0, webhookQueueOldest = 0, integrationOutbox = 0;
+let webhooksByState = new Map<string, number>();
+
+export function addIntegrationEvents(type: string): void {
+  if (!["issue.created", "issue.updated", "issue.statusChanged", "issue.assigned", "issue.commented", "issue.due", "ping"].includes(type)) return;
+  integrationEvents.set(type, (integrationEvents.get(type) ?? 0) + 1);
+}
+export function recordWebhookDelivery(result: "succeeded" | "retry" | "failed" | "cancelled", seconds?: number, count = 1): void {
+  webhookDeliveries.set(result, (webhookDeliveries.get(result) ?? 0) + count);
+  if (seconds !== undefined) observe(webhookDurations, WEBHOOK_BUCKETS, {}, seconds);
+}
+export function recordWebhookTargetBlocked(reason: "not_allowed" | "denied_range" | "dns"): void {
+  webhookBlocked.set(reason, (webhookBlocked.get(reason) ?? 0) + 1);
+}
 
 function labelsKey(labels: Record<string, string>): string {
   return Object.entries(labels)
@@ -32,6 +51,7 @@ function labelsKey(labels: Record<string, string>): string {
 }
 
 function parseLabels(key: string): Record<string, string> {
+  if (!key) return {};
   return Object.fromEntries(key.split("\u0000").map((part) => {
     const at = part.indexOf("=");
     return [part.slice(0, at), part.slice(at + 1)];
@@ -90,7 +110,7 @@ function labelSet(labels: Record<string, string>): string {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}="${escapeLabel(value)}"`)
     .join(",");
-  return `{${body}}`;
+  return body ? `{${body}}` : "";
 }
 
 function renderHistogram(name: string, help: string, store: Map<string, HistogramValue>, buckets: number[]): string[] {
@@ -117,6 +137,17 @@ export async function refreshBackgroundQueueMetrics(): Promise<void> {
   } catch {
     collectionErrors += 1;
   }
+  try {
+    const [queue, states] = await Promise.all([
+      q<{ size: string; oldest: number; outbox: string }>(`SELECT count(*)::text AS size,
+        COALESCE(GREATEST(0, extract(epoch FROM now() - min(created_at))), 0)::double precision AS oldest,
+        (SELECT count(*)::text FROM integration_events WHERE dispatched_at IS NULL) AS outbox
+        FROM webhook_deliveries WHERE state IN ('pending', 'sending')`),
+      q<{ state: string; count: string }>(`SELECT state, count(*)::text FROM webhooks GROUP BY state`),
+    ]);
+    webhookQueueSize = Number(queue[0].size); webhookQueueOldest = queue[0].oldest; integrationOutbox = Number(queue[0].outbox);
+    webhooksByState = new Map(states.map(row => [row.state, Number(row.count)]));
+  } catch { collectionErrors += 1; }
 }
 
 export function renderMetrics(activeWsConnections: number): string {
@@ -185,6 +216,22 @@ export function renderMetrics(activeWsConnections: number): string {
     "# TYPE taskira_metrics_collection_errors_total counter",
     `taskira_metrics_collection_errors_total ${collectionErrors}`,
   );
+  for (const [name, help, label, values] of [
+    ["taskira_integration_events_total", "Integration events processed by fan-out in this process.", "type", integrationEvents],
+    ["taskira_webhook_deliveries_total", "Delivery outcomes in this process.", "result", webhookDeliveries],
+    ["taskira_webhook_target_blocked_total", "Rejected destinations in this process.", "reason", webhookBlocked],
+  ] as const) {
+    lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} counter`);
+    for (const [value, count] of [...values.entries()].sort(([a], [b]) => a.localeCompare(b))) lines.push(`${name}${labelSet({ [label]: value })} ${count}`);
+  }
+  lines.push(...renderHistogram("taskira_webhook_delivery_duration_seconds", "Duration of webhook attempts including DNS and connection fallback.", webhookDurations, WEBHOOK_BUCKETS));
+  for (const [name, help, value] of [
+    ["taskira_webhook_queue_size", "Pending and leased deliveries.", webhookQueueSize],
+    ["taskira_webhook_queue_oldest_age_seconds", "Age of the oldest queued delivery.", webhookQueueOldest],
+    ["taskira_integration_outbox_undispatched", "Integration events awaiting fan-out.", integrationOutbox],
+  ] as const) lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} gauge`, `${name} ${value}`);
+  lines.push("# HELP taskira_webhooks Subscriptions by state.", "# TYPE taskira_webhooks gauge");
+  for (const state of ["active", "paused", "disabled"]) lines.push(`taskira_webhooks${labelSet({ state })} ${webhooksByState.get(state) ?? 0}`);
   return `${lines.join("\n")}\n`;
 }
 
@@ -202,4 +249,6 @@ export function _resetMetrics(): void {
   maintenanceAuditPurged = 0;
   backgroundQueueSize = 0;
   collectionErrors = 0;
+  integrationEvents.clear(); webhookDeliveries.clear(); webhookBlocked.clear(); webhookDurations.clear();
+  webhooksByState.clear(); webhookQueueSize = 0; webhookQueueOldest = 0; integrationOutbox = 0;
 }
