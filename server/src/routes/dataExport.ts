@@ -41,7 +41,7 @@ import { Readable } from "node:stream";
 import type { PoolClient } from "pg";
 import { acquireClient } from "../db.js";
 import { requireGlobalAdmin, type JwtPayload } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 
 // Экспортируется исключительно для теста границы пагинации (вставить BATCH+N
 // строк и убедиться, что все страницы отдаются без дублей/пропусков) — не
@@ -181,7 +181,7 @@ export async function dataExportRoutes(app: FastifyInstance): Promise<void> {
     const user: JwtPayload = req.user;
     // Аудит ДО начала передачи (не после) — экспорт всей инсталляции стоит
     // записать как намерение, даже если скачивание потом прервётся на середине.
-    await audit(user.sub, "admin.export", "installation", null, {});
+    await auditFromRequest(req, "admin.export", "installation", null, {});
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     reply.type("application/x-ndjson; charset=utf-8");
     reply.header("Content-Disposition", `attachment; filename="taskira-export-${stamp}.jsonl"`);

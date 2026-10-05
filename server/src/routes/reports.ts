@@ -16,7 +16,7 @@ import { requireAuth, zquery, badRequest, type JwtPayload } from "../middleware.
 import { ReportQuery, ReportExportQuery } from "../contract.js";
 import { buildReport, exportRows, resolveReportScope } from "../services/reports.js";
 import { csvDocument, csvDateTime } from "../services/csv.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import type { ReportSummaryDto } from "../contract.js";
 
 const TYPE_NAMES: Record<string, string> = { task: "Задача", bug: "Ошибка", request: "Запрос" };
@@ -117,7 +117,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       );
 
       // Выгрузка данных — событие для аудита: кто, когда и какой срез забрал.
-      await audit(user.sub, "report.export", "report", null, {
+      await auditFromRequest(req, "report.export", "report", null, {
         scope: f.scope,
         from: f.from,
         to: f.to,

@@ -83,6 +83,9 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
 
   const existing = await one<UserRow>(`SELECT * FROM users WHERE username = $1`, [login]);
 
+  if (existing?.auth_source === "service")
+    throw new ApiHttpError(409,"CONFLICT","Сервисная учётная запись не может входить через LDAP");
+
   if (existing && existing.auth_source === "local") {
     if (cfg.admin && login === cfg.admin.username) {
       // защита break-glass: не трогаем его локальный пароль

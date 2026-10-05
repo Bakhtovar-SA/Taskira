@@ -12,7 +12,7 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { notFound, requireAuth, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import {
   DependencyCreateBody,
   DependencyParams,
@@ -43,7 +43,7 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
     const { projectId } = req.params as z.infer<typeof ProjectParams>;
     const body = req.body as z.infer<typeof ProjectRoadmapBody>;
     await patchRoadmapDates(projectId, body);
-    await audit(actor.sub, "project.roadmap", "project", projectId, body);
+    await auditFromRequest(req, "project.roadmap", "project", projectId, body);
     return reply.code(204).send();
   });
 
@@ -51,7 +51,7 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
     const actor: JwtPayload = req.user;
     const { projectId } = req.params as z.infer<typeof ProjectParams>;
     const m = await addMilestone(projectId, req.body as z.infer<typeof MilestoneCreateBody>);
-    await audit(actor.sub, "project.milestone.create", "project", projectId, m);
+    await auditFromRequest(req, "project.milestone.create", "project", projectId, m);
     return reply.code(201).send(m);
   });
 
@@ -62,7 +62,7 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
       const actor: JwtPayload = req.user;
       const { projectId, milestoneId } = req.params as z.infer<typeof MilestoneParams>;
       const m = await patchMilestone(projectId, milestoneId, req.body as z.infer<typeof MilestonePatchBody>);
-      await audit(actor.sub, "project.milestone.update", "project", projectId, m);
+      await auditFromRequest(req, "project.milestone.update", "project", projectId, m);
       return m;
     },
   );
@@ -71,7 +71,7 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
     const actor: JwtPayload = req.user;
     const { projectId, milestoneId } = req.params as z.infer<typeof MilestoneParams>;
     await removeMilestone(projectId, milestoneId);
-    await audit(actor.sub, "project.milestone.delete", "project", projectId, { milestoneId });
+    await auditFromRequest(req, "project.milestone.delete", "project", projectId, { milestoneId });
     return reply.code(204).send();
   });
 
@@ -82,7 +82,7 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
     // Невидимый проект неотличим от несуществующего — 404, а не 403.
     if (!(await isProjectVisible(actor.sub, req.user.globalRole === "admin", sourceProjectId))) throw notFound("Проект не найден");
     const r = await addDependency(projectId, sourceProjectId);
-    if (r === "added") await audit(actor.sub, "project.dependency.add", "project", projectId, { sourceProjectId });
+    if (r === "added") await auditFromRequest(req, "project.dependency.add", "project", projectId, { sourceProjectId });
     return reply.code(r === "added" ? 201 : 200).send({ sourceId: sourceProjectId, dependentId: projectId });
   });
 
@@ -93,7 +93,7 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
       const actor: JwtPayload = req.user;
       const { projectId, sourceProjectId } = req.params as z.infer<typeof DependencyParams>;
       await removeDependency(projectId, sourceProjectId);
-      await audit(actor.sub, "project.dependency.remove", "project", projectId, { sourceProjectId });
+      await auditFromRequest(req, "project.dependency.remove", "project", projectId, { sourceProjectId });
       return reply.code(204).send();
     },
   );

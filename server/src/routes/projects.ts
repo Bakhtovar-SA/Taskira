@@ -25,7 +25,7 @@ import { applyProjectTemplate, getProjectTemplate } from "../services/projectTem
 import { listCustomFields } from "../services/customFields.js";
 import { listSprints } from "../services/sprints.js";
 import { addFavoriteProject, removeFavoriteProject } from "../services/favorites.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
 import { invalidateProjectCache, projectById } from "../services/project.js";
 import { listVisibleProjects, projectRowToDto, type ProjectDto } from "../services/projects.js";
@@ -94,7 +94,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
         if ((e as { code?: string }).code === "23503") throw badRequest("Участник не найден");
         throw e;
       }
-      await audit(actor.sub, "project.create", "project", projectId, { key: body.key, template: template?.id ?? null, members: body.members.length });
+      await auditFromRequest(req, "project.create", "project", projectId, { key: body.key, template: template?.id ?? null, members: body.members.length });
       reply.code(201).send(await projectDtoById(projectId));
     },
   );
@@ -175,7 +175,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       await q(`UPDATE projects SET ${sets.join(", ")} WHERE id = $${vals.length}`, vals);
 
       invalidateProjectCache(projectId);
-      await audit(actor.sub, "project.update", "project", projectId, { fields: Object.keys(body) });
+      await auditFromRequest(req, "project.update", "project", projectId, { fields: Object.keys(body) });
       return projectDtoById(projectId);
     },
   );
@@ -200,7 +200,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       vals.push(projectId);
       await q(`UPDATE projects SET ${sets.join(", ")} WHERE id = $${vals.length}`, vals);
       invalidateProjectCache(projectId);
-      await audit(actor.sub, "project.appearance", "project", projectId, body);
+      await auditFromRequest(req, "project.appearance", "project", projectId, body);
       return projectDtoById(projectId);
     },
   );
@@ -232,7 +232,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       if (!files.full || !files.small) throw badRequest("Нужны оба размера фото: full и small");
       await setProjectPhoto(projectId, { full: files.full, small: files.small }, luma);
       invalidateProjectCache(projectId);
-      await audit(actor.sub, "project.appearance", "project", projectId, { backgroundPhoto: "set" });
+      await auditFromRequest(req, "project.appearance", "project", projectId, { backgroundPhoto: "set" });
       return projectDtoById(projectId);
     },
   );
@@ -245,7 +245,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       const { projectId } = req.params as z.infer<typeof ProjectParams>;
       await removeProjectPhoto(projectId);
       invalidateProjectCache(projectId);
-      await audit(actor.sub, "project.appearance", "project", projectId, { backgroundPhoto: "removed" });
+      await auditFromRequest(req, "project.appearance", "project", projectId, { backgroundPhoto: "removed" });
       return projectDtoById(projectId);
     },
   );
@@ -288,7 +288,7 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
       await q(`DELETE FROM projects WHERE id = $1`, [projectId]);
       await deleteStorageObjects(attachKeys); // best-effort уборка хранилища
       invalidateProjectCache(projectId);
-      await audit(actor.sub, "project.delete", "project", projectId, { key: proj.key });
+      await auditFromRequest(req, "project.delete", "project", projectId, { key: proj.key });
       reply.code(204).send();
     },
   );

@@ -22,7 +22,7 @@ export async function resolveVisibleMentions(projectId: string, issueId: string,
   if (logins.length === 0) return [];
   const rows = await q<{ id: string }>(
     `SELECT u.id FROM users u
-      WHERE lower(u.username) = ANY($1) AND u.is_active
+      WHERE lower(u.username) = ANY($1) AND u.is_active AND u.auth_source <> 'service'
         AND ( u.global_role = 'admin'
               OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id)
               OR EXISTS (SELECT 1 FROM issue_collaborators ic WHERE ic.issue_id = $3 AND ic.user_id = u.id) )`,

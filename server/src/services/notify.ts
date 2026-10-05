@@ -47,7 +47,7 @@ export async function emit(ev: NotifyEvent): Promise<void> {
     if (rawIds.length === 0) return;
 
     const users = await q<{ id: string; is_active: boolean; email: string | null; notify_prefs: NotifyPrefs | null }>(
-      `SELECT id, is_active, email, notify_prefs FROM users WHERE id = ANY($1)`,
+      `SELECT id, is_active, email, notify_prefs FROM users WHERE id = ANY($1) AND auth_source <> 'service'`,
       [rawIds],
     );
     const emailEnabled = loadConfig().notify.emailEnabled;

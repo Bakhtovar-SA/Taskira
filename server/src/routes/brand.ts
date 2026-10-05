@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { badRequest, notFound, requireGlobalAdmin, zbody, type JwtPayload } from "../middleware.js";
 import { ApiHttpError } from "../errors.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { BrandPatchBody } from "../contract.js";
 import { getBrand, openBrandLogo, patchBrand, removeBrandLogo, setBrandLogo } from "../services/brand.js";
 
@@ -27,7 +27,7 @@ export async function brandRoutes(app: FastifyInstance): Promise<void> {
     const actor: JwtPayload = req.user;
     const body = req.body as z.infer<typeof BrandPatchBody>;
     const out = await patchBrand(body);
-    await audit(actor.sub, "instance.brand", "instance", null, body);
+    await auditFromRequest(req, "instance.brand", "instance", null, body);
     return out;
   });
 
@@ -45,14 +45,14 @@ export async function brandRoutes(app: FastifyInstance): Promise<void> {
       throw e;
     }
     const out = await setBrandLogo(buf);
-    await audit(actor.sub, "instance.brand", "instance", null, { logo: "set" });
+    await auditFromRequest(req, "instance.brand", "instance", null, { logo: "set" });
     return out;
   });
 
   app.delete("/admin/brand/logo", { preHandler: requireGlobalAdmin }, async (req) => {
     const actor: JwtPayload = req.user;
     const out = await removeBrandLogo();
-    await audit(actor.sub, "instance.brand", "instance", null, { logo: "removed" });
+    await auditFromRequest(req, "instance.brand", "instance", null, { logo: "removed" });
     return out;
   });
 }

@@ -4,7 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { badRequest, notFound, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import {
   createCustomField,
   deleteCustomField,
@@ -39,7 +39,7 @@ export async function customFieldsRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const field = await createCustomField(project.id, body);
-      await audit(user.sub, "customField.add", "project", project.id, { fieldId: field.id, name: field.name });
+      await auditFromRequest(req, "customField.add", "project", project.id, { fieldId: field.id, name: field.name });
       reply.code(201).send(field);
     },
   );
@@ -69,7 +69,7 @@ export async function customFieldsRoutes(app: FastifyInstance): Promise<void> {
       const field = await getCustomFieldInProject(project.id, fieldId);
       if (!field) throw notFound("Поле не найдено");
       await deleteCustomField(fieldId);
-      await audit(user.sub, "customField.remove", "project", project.id, { fieldId, name: field.name });
+      await auditFromRequest(req, "customField.remove", "project", project.id, { fieldId, name: field.name });
       reply.code(204).send();
     },
   );

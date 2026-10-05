@@ -4,16 +4,16 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { MultipartFile } from "@fastify/multipart";
-import { badRequest, notFound, requireAuth, type JwtPayload } from "../middleware.js";
+import { badRequest, notFound, requireAuth, requireSession, type JwtPayload } from "../middleware.js";
 import { ApiHttpError } from "../errors.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { uploadAvatar, removeAvatar, getAvatarMeta, openAvatar } from "../services/avatars.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function avatarRoutes(app: FastifyInstance): Promise<void> {
   /* ---- своя аватарка: загрузить/заменить (multipart/form-data, поле file) ---- */
-  app.post("/me/avatar", { preHandler: requireAuth }, async (req, reply) => {
+  app.post("/me/avatar", { preHandler: requireSession }, async (req, reply) => {
     const user: JwtPayload = req.user;
 
     let part: MultipartFile | undefined;
@@ -28,15 +28,15 @@ export async function avatarRoutes(app: FastifyInstance): Promise<void> {
     if (!part) throw badRequest("Файл не приложен (поле file)");
 
     const { avatarUpdatedAt } = await uploadAvatar({ userId: user.sub, part });
-    await audit(user.sub, "user.avatar.set", "user", user.sub, {});
+    await auditFromRequest(req, "user.avatar.set", "user", user.sub, {});
     reply.code(200).send({ avatarUpdatedAt });
   });
 
   /* ---- своя аватарка: снять ---- */
-  app.delete("/me/avatar", { preHandler: requireAuth }, async (req, reply) => {
+  app.delete("/me/avatar", { preHandler: requireSession }, async (req, reply) => {
     const user: JwtPayload = req.user;
     await removeAvatar(user.sub);
-    await audit(user.sub, "user.avatar.remove", "user", user.sub, {});
+    await auditFromRequest(req, "user.avatar.remove", "user", user.sub, {});
     reply.code(204).send();
   });
 

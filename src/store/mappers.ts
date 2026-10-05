@@ -18,7 +18,7 @@ export const statusById = (wf: Workflow, id: string) => wf.statuses.find((s) => 
  *  вывели из проекта (иначе они пропали бы из списка молча). Сервер применяет
  *  то же правило членства при создании/патче issue. */
 export const assignableUsers = (data: Pick<Data, "users" | "members">, currentAssigneeIds: string[] = []) =>
-  data.users.filter((u) => u.id in data.members || currentAssigneeIds.includes(u.id));
+  data.users.filter((u) => u.authSource !== "service" && (u.id in data.members || currentAssigneeIds.includes(u.id)));
 
 export const relTime = (ts: number, lang: "ru" | "en" = "ru") => {
   const diff = Date.now() - ts;

@@ -13,7 +13,7 @@ import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { one } from "../db.js";
 import { badRequest, notFound, requireIssuePerm, zparams, type JwtPayload } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { addCollaborator, listCollaborators, removeCollaborator } from "../services/collaborators.js";
 import { emit } from "../services/notify.js";
 import { CollaboratorParams } from "../contract.js";
@@ -40,7 +40,7 @@ export async function collaboratorRoutes(app: FastifyInstance): Promise<void> {
       if (!target.is_active) throw badRequest("Пользователь деактивирован");
 
       const dto = await addCollaborator(id, userId, actor.sub);
-      await audit(actor.sub, "issue.collaborator.add", "issue", id, { userId, projectId: req.project!.id });
+      await auditFromRequest(req, "issue.collaborator.add", "issue", id, { userId, projectId: req.project!.id });
 
       const meta = await one<{ key: string; title: string }>(`SELECT key, title FROM issues WHERE id = $1`, [id]);
       await emit({
@@ -65,7 +65,7 @@ export async function collaboratorRoutes(app: FastifyInstance): Promise<void> {
 
       const removed = await removeCollaborator(id, userId);
       if (!removed) throw notFound("Пользователь не подключён к задаче");
-      await audit(actor.sub, "issue.collaborator.remove", "issue", id, { userId, projectId: req.project!.id });
+      await auditFromRequest(req, "issue.collaborator.remove", "issue", id, { userId, projectId: req.project!.id });
       reply.code(204).send();
     },
   );

@@ -3,7 +3,7 @@ import { loadConfig } from "../config.js";
 import { pushToUser } from "./wsHub.js";
 
 /** Shared by enqueue and mail revalidation. Read access is checked from current DB rows. */
-const ELIGIBLE = `u.is_active AND i.archived_at IS NULL AND s.category <> 'done'
+const ELIGIBLE = `u.is_active AND u.auth_source <> 'service' AND i.archived_at IS NULL AND s.category <> 'done'
   AND EXISTS (SELECT 1 FROM issue_assignees a WHERE a.issue_id = i.id AND a.user_id = u.id)
   AND (u.global_role = 'admin' OR p.is_shared
     OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = u.id)

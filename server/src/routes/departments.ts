@@ -13,7 +13,7 @@ import type { z } from "zod";
 import { one, q } from "../db.js";
 import { badRequest, invalidateDeptMembership, notFound, requireAuth, requireGlobalAdmin, zparams, zbody, type JwtPayload } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { addDepartmentMember, getDepartment, listDepartmentMembers, listDepartments, removeDepartmentMember } from "../services/departments.js";
 import { DepartmentBody, DepartmentMemberParams, DepartmentParams, DepartmentPatchBody } from "../contract.js";
 
@@ -48,7 +48,7 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
       } catch (e) {
         deptConflict(e);
       }
-      await audit(actor.sub, "department.create", "department", id, { name, ldapGroupDn });
+      await auditFromRequest(req, "department.create", "department", id, { name, ldapGroupDn });
       reply.code(201).send(await getDepartment(id));
     },
   );
@@ -76,7 +76,7 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
       if (rows.length === 0) throw notFound("Команда не найдена");
       // логируем сами значения (не только имена полей) — чтобы по аудиту можно было
       // восстановить, кто и когда привязал отдел к какой LDAP-группе.
-      await audit(actor.sub, "department.update", "department", id, { fields: body });
+      await auditFromRequest(req, "department.update", "department", id, { fields: body });
       return getDepartment(id);
     },
   );
@@ -92,7 +92,7 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
       const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM projects WHERE department_id = $1`, [id]))!;
       if (Number(n.n) > 0) throw conflict("В команде есть проекты — сначала перенесите или удалите их");
       await q(`DELETE FROM departments WHERE id = $1`, [id]);
-      await audit(actor.sub, "department.delete", "department", id, {});
+      await auditFromRequest(req, "department.delete", "department", id, {});
       reply.code(204).send();
     },
   );
@@ -120,7 +120,7 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
 
       const dto = await addDepartmentMember(id, userId);
       invalidateDeptMembership(userId, id);
-      await audit(actor.sub, "department.member.add", "department", id, { userId });
+      await auditFromRequest(req, "department.member.add", "department", id, { userId });
       return dto;
     },
   );
@@ -138,7 +138,7 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
       if (result === "ldap")
         throw conflict("Членство пришло из LDAP-группы — уберите человека из группы в директории, а не здесь");
       invalidateDeptMembership(userId, id);
-      await audit(actor.sub, "department.member.remove", "department", id, { userId });
+      await auditFromRequest(req, "department.member.remove", "department", id, { userId });
       reply.code(204).send();
     },
   );

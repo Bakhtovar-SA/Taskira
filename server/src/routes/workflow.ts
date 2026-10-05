@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { one, q, withTransaction } from "../db.js";
 import { badRequest, notFound, requirePerm, zbody, type JwtPayload } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { conflict, DEFAULT_STATUSES, DEFAULT_TRANSITIONS, getWorkflow, mapTransition, statusName } from "../services/workflow.js";
 import { TransitionCreateBody } from "../contract.js";
 
@@ -49,7 +49,7 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
       )[0];
 
       const [from, to] = [await statusName(body.from), await statusName(body.to)];
-      await audit(user.sub, "workflow.transition.add", "workflow", row.id, { from, to });
+      await auditFromRequest(req, "workflow.transition.add", "workflow", row.id, { from, to });
       reply.code(201).send(mapTransition(row));
     },
   );
@@ -67,7 +67,7 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
     await q(`DELETE FROM workflow_transitions WHERE id = $1`, [row.id]);
 
     const [from, to] = [await statusName(row.from_status_id), await statusName(row.to_status_id)];
-    await audit(user.sub, "workflow.transition.remove", "workflow", row.id, { from, to });
+    await auditFromRequest(req, "workflow.transition.remove", "workflow", row.id, { from, to });
     reply.code(204).send();
   });
 
@@ -101,7 +101,7 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
       }
     });
 
-    await audit(user.sub, "workflow.reset", "workflow", null, {});
+    await auditFromRequest(req, "workflow.reset", "workflow", null, {});
     return getWorkflow(project.id);
   });
 }

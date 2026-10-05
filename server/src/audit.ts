@@ -1,5 +1,15 @@
 /** Журнал действий: кто, что, когда. Ошибка журнала не роняет бизнес-запрос. */
 import { q } from "./db.js";
+import type { FastifyRequest } from "fastify";
+
+/** Preserve the user actor while identifying actions made through an API credential. */
+export function auditFromRequest(
+  req: FastifyRequest, action: string, entity: string, entityId: string | null = null,
+  details: Record<string,unknown> = {}, result: "success" | "denied" | "error" = "success",
+): Promise<void> {
+  return audit(req.user.sub,action,entity,entityId,req.authToken
+    ? { ...details, via: "token", tokenId: req.authToken.id } : details,result);
+}
 
 export async function audit(
   actorId: string | null,

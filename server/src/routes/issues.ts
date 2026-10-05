@@ -18,7 +18,7 @@ import {
   zquery,
   type JwtPayload,
 } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { computeRank, lockRankColumn } from "../services/rank.js";
 import { transitionIssue } from "../services/issueTransition.js";
 import {
@@ -461,7 +461,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         ? await assignParentLocked(project.id, body.parentId, null, createInTransaction)
         : await withTransaction(createInTransaction);
 
-      await audit(user.sub, "issue.create", "issue", row.id, { key });
+      await auditFromRequest(req, "issue.create", "issue", row.id, { key });
       const checklist = body.checklistItems.length > 0 ? await listChecklistItems(row.id) : [];
       reply.code(201).send({ ...maskSprintId(mapIssue(row, assigneeIds), project.sprintsEnabled), checklist });
     },
@@ -602,7 +602,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           ? await withIssueParentLock(iss.id, mutate)
           : await withTransaction(mutate);
 
-      await audit(user.sub, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body) });
+      await auditFromRequest(req, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body) });
 
       // Уведомления (NOTIFICATIONS_MIGRATION.md D2) — только новым исполнителям,
       // не всему списку: снятие или уже назначенных повторно пинговать не за что.
@@ -651,7 +651,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       // Каскады: комментарии/activity/watchers/attachments; epic_id дочерних обнулится FK
       await q(`DELETE FROM issues WHERE id = $1`, [iss.id]);
       await deleteStorageObjects(attachKeys); // best-effort уборка хранилища (FILES_MIGRATION.md §5)
-      await audit(user.sub, "issue.delete", "issue", iss.id, { key: iss.key });
+      await auditFromRequest(req, "issue.delete", "issue", iss.id, { key: iss.key });
       reply.code(204).send();
     },
   );
@@ -680,7 +680,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         });
         await markStep(user.sub, "change_status");
       }
-      await audit(user.sub, "issue.transition", "issue", iss.id, { key: iss.key, from: iss.status_id, to: body.to });
+      await auditFromRequest(req, "issue.transition", "issue", iss.id, { key: iss.key, from: iss.status_id, to: body.to });
       return maskSprintId(mapIssue(row, await listAssigneeIds(iss.id)), project.sprintsEnabled);
     },
   );
@@ -694,7 +694,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     const iss = await loadIssue(project.id, id);
     await q(`INSERT INTO issue_watchers (issue_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [iss.id, user.sub]);
     const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM issue_watchers WHERE issue_id = $1`, [iss.id]))!;
-    await audit(user.sub, "watcher.add", "issue", iss.id, { key: iss.key, viaCollaborator: req.isCollaborator || undefined });
+    await auditFromRequest(req, "watcher.add", "issue", iss.id, { key: iss.key, viaCollaborator: req.isCollaborator || undefined });
     return { watching: true, watchers: Number(n.n) };
   });
 
@@ -705,7 +705,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     const iss = await loadIssue(project.id, id);
     await q(`DELETE FROM issue_watchers WHERE issue_id = $1 AND user_id = $2`, [iss.id, user.sub]);
     const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM issue_watchers WHERE issue_id = $1`, [iss.id]))!;
-    await audit(user.sub, "watcher.remove", "issue", iss.id, { key: iss.key, viaCollaborator: req.isCollaborator || undefined });
+    await auditFromRequest(req, "watcher.remove", "issue", iss.id, { key: iss.key, viaCollaborator: req.isCollaborator || undefined });
     return { watching: false, watchers: Number(n.n) };
   });
 
@@ -742,7 +742,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
       const linkId = await insertIssueLink(fromId, toId, stored, user.sub);
       await logActivity(iss.id, user.sub, { kind: "link", type: body.type, key: other.key });
-      await audit(user.sub, "issue.link.add", "issue", iss.id, { key: iss.key, to: other.key, type: body.type });
+      await auditFromRequest(req, "issue.link.add", "issue", iss.id, { key: iss.key, to: other.key, type: body.type });
       return { id: linkId, links: await listIssueLinks(iss.id) };
     },
   );
@@ -763,7 +763,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         [linkId, iss.id],
       );
       if (!del) throw notFound("Связь не найдена");
-      await audit(user.sub, "issue.link.remove", "issue", iss.id, { key: iss.key, linkId });
+      await auditFromRequest(req, "issue.link.remove", "issue", iss.id, { key: iss.key, linkId });
       return { links: await listIssueLinks(iss.id) };
     },
   );
@@ -787,7 +787,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       }
       const item = await createChecklistItem(iss.id, body.text);
       await logActivity(iss.id, user.sub, { kind: "checklistAdded", text: body.text });
-      await audit(user.sub, "issue.checklist.add", "issue", iss.id, { key: iss.key, itemId: item.id });
+      await auditFromRequest(req, "issue.checklist.add", "issue", iss.id, { key: iss.key, itemId: item.id });
       return { item, checklist: await listChecklistItems(iss.id) };
     },
   );
@@ -819,7 +819,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (!existing) throw notFound("Пункт чек-листа не найден");
       await deleteChecklistItem(itemId);
       await logActivity(iss.id, user.sub, { kind: "checklistRemoved" });
-      await audit(user.sub, "issue.checklist.remove", "issue", iss.id, { key: iss.key, itemId });
+      await auditFromRequest(req, "issue.checklist.remove", "issue", iss.id, { key: iss.key, itemId });
       return { checklist: await listChecklistItems(iss.id) };
     },
   );
@@ -904,7 +904,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         // как и withIssueParentLock не нужен для снятия parentId.
         row = (await q<IssueRow>(`UPDATE issues SET sprint_id = NULL WHERE id = $1 RETURNING *`, [iss.id]))[0];
       }
-      await audit(user.sub, "issue.sprint.move", "issue", iss.id, { key: iss.key, sprintId: body.sprintId });
+      await auditFromRequest(req, "issue.sprint.move", "issue", iss.id, { key: iss.key, sprintId: body.sprintId });
       return mapIssue(row, await listAssigneeIds(iss.id));
     },
   );

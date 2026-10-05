@@ -12,7 +12,7 @@ import type { z } from "zod";
 import { one, q } from "../db.js";
 import { invalidateMembership, notFound, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { emit } from "../services/notify.js";
 import { MemberParams, SetMemberBody } from "../contract.js";
 import type { ProjectRole } from "../permissions.js";
@@ -63,7 +63,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       if (rows.length === 0) throw conflict(LAST_MANAGER_MSG);
 
       invalidateMembership(userId, project.id);
-      await audit(actor.sub, before ? "member.role.change" : "member.add", "user", userId, {
+      await auditFromRequest(req, before ? "member.role.change" : "member.add", "user", userId, {
         projectId: project.id,
         from: before?.role ?? null,
         to: rows[0].role,
@@ -115,7 +115,7 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
       }
 
       invalidateMembership(userId, project.id);
-      await audit(actor.sub, "member.remove", "user", userId, { projectId: project.id, was: deleted[0].role });
+      await auditFromRequest(req, "member.remove", "user", userId, { projectId: project.id, was: deleted[0].role });
       reply.code(204).send();
     },
   );
