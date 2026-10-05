@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { WebhookDto, WebhookDeliveryDto } from "../../../server/src/contract";
-import { I18nProvider, loadLang } from "../../i18n";
+import type { WebhookDto, WebhookDeliveryDto, WebhookDeliveryDetailDto } from "../../../server/src/contract";
+import { I18nProvider, loadLang, useT } from "../../i18n";
 import en from "../../i18n/en";
 import { allowedSections } from "../../settings/access";
 import { ApiError, integrationsApi, webhooksApi } from "../../api";
@@ -106,10 +106,14 @@ test("editing preserves a secret-bearing URL when the URL field is empty",async 
   await waitFor(() => expect(webhooksApi.update).toHaveBeenCalledWith("p1","h1",{ name: "CRM",events: ["issue.created"] }));
 });
 
-async function startPing() {
+function LanguageToggle() {
+  const { setLang } = useT();
+  return <button onClick={() => setLang("en")}>English</button>;
+}
+async function startPing(component = <ProjectIntegrations />) {
   vi.mocked(webhooksApi.list).mockResolvedValue([hook]);
   vi.mocked(webhooksApi.ping).mockResolvedValue({ deliveryId: "d1" });
-  const view = show();
+  const view = show(component);
   fireEvent.click(await screen.findByRole("button",{ name: "Действия: CRM" }));
   vi.useFakeTimers();
   await act(async () => fireEvent.click(screen.getByRole("menuitem",{ name: "Проверить связь",hidden: true })));
@@ -146,6 +150,19 @@ test("leaving integrations aborts the pending ping without a stale error toast",
   await act(async () => view.unmount());
   expect(signal.aborted).toBe(true); expect(toast).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
 });
+test("changing language preserves a pending ping and translates its terminal result",async () => {
+  await loadLang("en"); let signal!: AbortSignal, finish!: (value: WebhookDeliveryDetailDto) => void;
+  vi.mocked(webhooksApi.delivery).mockImplementation((_project,_hook,_delivery,requestSignal) => {
+    signal = requestSignal!; return new Promise(resolve => { finish = resolve; });
+  });
+  await startPing(<><LanguageToggle /><ProjectIntegrations /></>);
+  await act(async () => vi.advanceTimersByTimeAsync(1000));
+  await act(async () => fireEvent.click(screen.getByRole("button",{ name: "English" })));
+  expect(signal.aborted).toBe(false); expect(webhooksApi.list).toHaveBeenCalledTimes(1);
+  await act(async () => finish({ ...delivery,state: "succeeded",lastStatus: 200,lastError: null,payload: {},headers: {},responseExcerpt: null }));
+  expect(screen.getByRole("status").textContent).toMatch(/Delivered: response 200/);
+  expect(screen.getByRole("button",{ name: "Actions: CRM" }).getAttribute("aria-disabled")).not.toBe("true");
+});
 test("acknowledging one secret does not acknowledge a replacement credential",async () => {
   const close = vi.fn(); const view = show(<SecretOnceDialog secret={secret} onClose={close} />);
   fireEvent.click(screen.getByRole("checkbox",{ name: "Я сохранил(а) секрет" }));
@@ -177,7 +194,7 @@ test("journal cursor pagination and bulk retry confirmation use the returned cou
   expect(webhooksApi.redeliverFailed).not.toHaveBeenCalled();
   fireEvent.click(within(confirm).getByRole("button",{ name: "Повторить доставку" }));
   expect(await screen.findByText("Создано новых доставок: 2")).toBeTruthy();
-  expect(webhooksApi.redeliverFailed).toHaveBeenCalledWith("p1","h1",expect.any(String));
+  expect(webhooksApi.redeliverFailed).toHaveBeenCalledWith("p1","h1");
 });
 test("late responses from an old delivery filter cannot replace the current list",async () => {
   let finish!: (value: { items: WebhookDeliveryDto[]; nextCursor: null }) => void;
@@ -187,6 +204,16 @@ test("late responses from an old delivery filter cannot replace the current list
   expect(await screen.findByText("TEST-1")).toBeTruthy();
   await act(async () => finish({ items: [{ ...delivery,id: "old",issueKey: "TEST-OLD" }],nextCursor: null }));
   expect(screen.queryByText("TEST-OLD")).toBeNull();
+});
+test("changing language retains the journal filter and expanded response without refetching",async () => {
+  await loadLang("en"); show(<><LanguageToggle /><WebhookDeliveries projectId="p1" hook={hook} enabled onClose={() => {}} /></>);
+  fireEvent.click(screen.getByRole("button",{ name: "Неудачные" }));
+  const table = await screen.findByRole("table"); fireEvent.click(within(table).getAllByRole("button")[0]);
+  expect(await screen.findByText("Retry later")).toBeTruthy();
+  await act(async () => fireEvent.click(screen.getByRole("button",{ name: "English" })));
+  expect(screen.getByText("Retry later")).toBeTruthy(); expect(screen.getByText("Request payload")).toBeTruthy();
+  expect(webhooksApi.deliveries).toHaveBeenCalledTimes(2); expect(webhooksApi.delivery).toHaveBeenCalledTimes(1);
+  expect(webhooksApi.deliveries).toHaveBeenLastCalledWith("p1","h1",{ state: "failed" });
 });
 test("integration settings are visible only to a global administrator with a project",() => {
   expect(allowedSections("projectSettings",{ isAdmin: false,hasProject: true })).not.toContain("integrations");

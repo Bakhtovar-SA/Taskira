@@ -1523,7 +1523,7 @@ export const WebhookDeliveryParams = WebhookParams.extend({ deliveryId: uuid });
 export const WebhookDeliveryState = z.enum(["pending", "sending", "succeeded", "failed", "cancelled"]);
 export const WebhookDeliveryQuery = z.object({ state: WebhookDeliveryState.optional(), cursor: z.string().max(512).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50) });
-export const WebhookRedeliverFailedBody = z.object({ since: z.string().max(64).datetime({ offset: true }) }).strict();
+export const WebhookRedeliverFailedBody = z.object({ since: z.string().max(64).datetime({ offset: true }).optional() }).strict();
 export const WebhookDto = z.object({ id: uuid, projectId: uuid, name: z.string(), urlDisplay: z.string(), events: z.array(WebhookEventType),
   state: z.enum(["active", "paused", "disabled"]), disabledReason: z.enum(["failing", "gone", "secret_unavailable"]).nullable(),
   failureStreak: z.number().int(), lastSuccessAt: z.string().nullable(), lastFailureAt: z.string().nullable(),

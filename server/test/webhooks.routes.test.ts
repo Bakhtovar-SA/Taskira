@@ -158,6 +158,18 @@ test("bulk redelivery rejects old timestamps and creates at most one thousand ma
   expect((await q<{ n: number }>(`SELECT count(*)::int n FROM webhook_deliveries WHERE manual AND state='pending'`))[0].n).toBe(1000);
 });
 
+test("bulk redelivery without since uses the database's last 24 hours",async () => {
+  const { webhook } = await create(), deliveryId = await ping(webhook.id);
+  await q(`UPDATE webhook_deliveries SET state='failed' WHERE id=$1`,[deliveryId]);
+  await q(`INSERT INTO webhook_deliveries(webhook_id,event_id,state,manual,created_at)
+    SELECT webhook_id,event_id,'cancelled',true,now()-interval '23 hours' FROM webhook_deliveries WHERE id=$1`,[deliveryId]);
+  await q(`INSERT INTO webhook_deliveries(webhook_id,event_id,state,manual,created_at)
+    SELECT webhook_id,event_id,'failed',true,now()-interval '25 hours' FROM webhook_deliveries WHERE id=$1`,[deliveryId]);
+  const response = await request("POST",base()+`/${webhook.id}/redeliver-failed`,{});
+  expect(response.statusCode).toBe(202); expect(response.json()).toEqual({ count: 2 });
+  expect((await q<{ n: number }>(`SELECT count(*)::int n FROM webhook_deliveries WHERE manual AND state='pending'`))[0].n).toBe(2);
+});
+
 test("cursor preserves microseconds and UUID ties without duplicates or gaps",async () => {
   const { webhook } = await create(), deliveryId = await ping(webhook.id), path=base()+`/${webhook.id}/deliveries`;
   await q(`UPDATE webhook_deliveries SET created_at='2026-10-05T00:00:00.000004Z' WHERE id=$1`,[deliveryId]);

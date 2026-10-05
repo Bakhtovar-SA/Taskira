@@ -304,27 +304,27 @@
   },
   "featureMeasurement": {
     "current": {
-      "js": 342434,
+      "js": 342466,
       "css": 28051,
-      "entry": 101174,
-      "total": 370485
+      "entry": 101165,
+      "total": 370517
     },
-    "initialJs": 183456,
+    "initialJs": 183447,
     "files": [
       {
-        "name": "AdminView-8Xarb-px.js",
+        "name": "AdminView-CL7GQxAa.js",
         "kind": "js",
-        "gzip": 2703
+        "gzip": 2702
       },
       {
-        "name": "Backlog-Bo_J8IwD.js",
+        "name": "Backlog-B3UfHD5y.js",
         "kind": "js",
-        "gzip": 8866
+        "gzip": 8865
       },
       {
-        "name": "BulkBar-BgkPPBX7.js",
+        "name": "BulkBar-dygh72FU.js",
         "kind": "js",
-        "gzip": 1012
+        "gzip": 1013
       },
       {
         "name": "Button-DGLCJRVk.js",
@@ -332,9 +332,9 @@
         "gzip": 54830
       },
       {
-        "name": "CalendarView-Cbw9-cXX.js",
+        "name": "CalendarView-Dp-4ocsO.js",
         "kind": "js",
-        "gzip": 3865
+        "gzip": 3864
       },
       {
         "name": "CalendarView-jZW7tl2l.css",
@@ -342,19 +342,19 @@
         "gzip": 760
       },
       {
-        "name": "CollaboratingView-BLXym2Ys.js",
+        "name": "CollaboratingView-UAJhDgWo.js",
         "kind": "js",
-        "gzip": 1028
+        "gzip": 1027
       },
       {
-        "name": "CommandPalette-Dg7jKaay.js",
+        "name": "CommandPalette-B7tVRDSq.js",
         "kind": "js",
         "gzip": 4424
       },
       {
-        "name": "CreateIssueModal-BtFY-L_Q.js",
+        "name": "CreateIssueModal-PiuPqszb.js",
         "kind": "js",
-        "gzip": 3990
+        "gzip": 3991
       },
       {
         "name": "DashboardTabs-c3164vHF.js",
@@ -362,9 +362,9 @@
         "gzip": 3008
       },
       {
-        "name": "DashboardView-D-w8VqJO.js",
+        "name": "DashboardView-Bm_PzK3U.js",
         "kind": "js",
-        "gzip": 12329
+        "gzip": 12328
       },
       {
         "name": "DocsView-DpR48okd.js",
@@ -372,29 +372,29 @@
         "gzip": 14104
       },
       {
-        "name": "HomeView-Jn9JybyG.js",
+        "name": "HomeView-C1Pb2vkR.js",
         "kind": "js",
-        "gzip": 3698
+        "gzip": 3697
       },
       {
-        "name": "ImportModal-BtFrmJ0N.js",
+        "name": "ImportModal-DJbo-sxz.js",
         "kind": "js",
         "gzip": 4118
       },
       {
-        "name": "InboxView-DNA_S4Od.js",
+        "name": "InboxView-DpbwHzMQ.js",
         "kind": "js",
-        "gzip": 2874
+        "gzip": 2873
       },
       {
-        "name": "IssueModal-D3hlstfU.js",
+        "name": "IssueModal-EWLPPyXh.js",
         "kind": "js",
         "gzip": 9995
       },
       {
-        "name": "IssueSearchBox-DDXivOw4.js",
+        "name": "IssueSearchBox-HhJBPc6Q.js",
         "kind": "js",
-        "gzip": 1762
+        "gzip": 1761
       },
       {
         "name": "MyIssues-C93LqyBb.js",
@@ -402,7 +402,7 @@
         "gzip": 1728
       },
       {
-        "name": "MyIssuesView-UJNWjgI5.js",
+        "name": "MyIssuesView-DEBjCCnH.js",
         "kind": "js",
         "gzip": 1196
       },
@@ -417,9 +417,9 @@
         "gzip": 2576
       },
       {
-        "name": "ProjectIntegrations-Bkc3DUkq.js",
+        "name": "ProjectIntegrations-C2IqDe0t.js",
         "kind": "js",
-        "gzip": 3963
+        "gzip": 3997
       },
       {
         "name": "ProjectLookPicker-Bu-wmOng.js",
@@ -427,34 +427,34 @@
         "gzip": 922
       },
       {
-        "name": "ProjectWizard-s39C9_5O.js",
+        "name": "ProjectWizard-B5NTn533.js",
         "kind": "js",
         "gzip": 3750
       },
       {
-        "name": "ReportsView-Bw9ljAy_.js",
+        "name": "ReportsView-CVfbHi23.js",
         "kind": "js",
         "gzip": 3929
       },
       {
-        "name": "RoadmapView-D6FASjXi.js",
+        "name": "RoadmapView-D2jRJYUm.js",
         "kind": "js",
         "gzip": 4257
       },
       {
-        "name": "SettingsView-CQtrHmV0.js",
+        "name": "SettingsView-BPNj48Pf.js",
         "kind": "js",
-        "gzip": 14076
+        "gzip": 14080
       },
       {
-        "name": "SoloView-smjDWJ-M.js",
+        "name": "SoloView-Bsd5aRrn.js",
         "kind": "js",
-        "gzip": 3248
+        "gzip": 3250
       },
       {
-        "name": "SprintsView-CZwN1-yj.js",
+        "name": "SprintsView-BNI0UYbi.js",
         "kind": "js",
-        "gzip": 2809
+        "gzip": 2810
       },
       {
         "name": "TimeCanvas-Bd59ZrRi.js",
@@ -462,19 +462,19 @@
         "gzip": 817
       },
       {
-        "name": "TimelineView-DzKTRFP-.js",
+        "name": "TimelineView-D6GSoV9_.js",
         "kind": "js",
         "gzip": 3163
       },
       {
-        "name": "WebhookDeliveries-D3V1SoRa.js",
+        "name": "WebhookDeliveries-CRT5AKk8.js",
         "kind": "js",
-        "gzip": 2081
+        "gzip": 2088
       },
       {
-        "name": "WorkflowView-C4ECapoB.js",
+        "name": "WorkflowView-XLMklL4S.js",
         "kind": "js",
-        "gzip": 6822
+        "gzip": 6821
       },
       {
         "name": "activityText-moIn6AYb.js",
@@ -517,9 +517,9 @@
         "gzip": 27291
       },
       {
-        "name": "index-CQT4BDvl.js",
+        "name": "index-DMVwObxh.js",
         "kind": "js",
-        "gzip": 101174
+        "gzip": 101165
       },
       {
         "name": "issuePages-Bl2xZTxR.js",
@@ -569,8 +569,8 @@
         "base": 201204,
         "allowed": 169984,
         "limit": 371188,
-        "current": 370485,
-        "growth": 169281,
+        "current": 370517,
+        "growth": 169313,
         "ok": true
       },
       {
@@ -579,8 +579,8 @@
         "base": 187489,
         "allowed": 155648,
         "limit": 343137,
-        "current": 342434,
-        "growth": 154945,
+        "current": 342466,
+        "growth": 154977,
         "ok": true
       },
       {
@@ -599,8 +599,8 @@
         "base": 81035,
         "allowed": 40960,
         "limit": 121995,
-        "current": 101174,
-        "growth": 20139,
+        "current": 101165,
+        "growth": 20130,
         "ok": true
       }
     ],

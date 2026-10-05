@@ -196,18 +196,21 @@ export async function redeliverWebhook(projectId: string,id: string,deliveryId: 
   });
   await audit(actor,"webhook.redeliver","webhook",result.hook.id,auditDetails(result.hook)); return { deliveryId: result.deliveryId };
 }
-export async function redeliverFailedWebhooks(projectId: string,id: string,since: string,actor: string): Promise<WebhookRedeliveredDto> {
+export async function redeliverFailedWebhooks(projectId: string,id: string,since: string | undefined,actor: string): Promise<WebhookRedeliveredDto> {
   enabledKey();
-  const from = new Date(since);
-  if (!Number.isFinite(from.getTime()) || from.getTime()<Date.now()-7*86400_000)
-    throw new ApiHttpError(400,"VALIDATION","Повтор разрешён за последние семь суток");
-  // Нормализуем смещение для PostgreSQL, сохраняя исходную точность дробной части.
-  const timestamp = from.toISOString().replace(/\.\d{3}Z$/, "."+(since.match(/\.(\d+)/)?.[1] ?? "000")+"Z");
+  let timestamp: string | null = null;
+  if (since !== undefined) {
+    const from = new Date(since);
+    if (!Number.isFinite(from.getTime()) || from.getTime()<Date.now()-7*86400_000)
+      throw new ApiHttpError(400,"VALIDATION","Повтор разрешён за последние семь суток");
+    // Нормализуем смещение для PostgreSQL, сохраняя исходную точность дробной части.
+    timestamp = from.toISOString().replace(/\.\d{3}Z$/, "."+(since.match(/\.(\d+)/)?.[1] ?? "000")+"Z");
+  }
   const result = await lockedHook(projectId,id,async (client,hook) => {
     requireActive(hook);
     const rows = await client.query(`INSERT INTO webhook_deliveries(webhook_id,event_id,manual)
       SELECT webhook_id,event_id,true FROM webhook_deliveries WHERE webhook_id=$1 AND state IN ('failed','cancelled')
-        AND created_at>=$2::timestamptz ORDER BY created_at DESC,id DESC LIMIT 1000`,[hook.id,timestamp]);
+        AND created_at>=COALESCE($2::timestamptz,now()-interval '24 hours') ORDER BY created_at DESC,id DESC LIMIT 1000`,[hook.id,timestamp]);
     return { hook, count: rows.rowCount ?? 0 };
   });
   await audit(actor,"webhook.redeliver","webhook",result.hook.id,auditDetails(result.hook)); return { count: result.count };

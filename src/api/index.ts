@@ -294,7 +294,7 @@ export const webhooksApi = {
   },
   delivery: (projectId: string,id: string,deliveryId: string,signal?: AbortSignal) => api<WebhookDeliveryDetailDto>(H(projectId,id)+"/deliveries/"+encodeURIComponent(deliveryId),{ signal }),
   redeliver: (projectId: string,id: string,deliveryId: string) => api<WebhookQueuedDto>(H(projectId,id)+"/deliveries/"+encodeURIComponent(deliveryId)+"/redeliver",{ method: "POST" }),
-  redeliverFailed: (projectId: string,id: string,since: string) => api<WebhookRedeliveredDto>(H(projectId,id)+"/redeliver-failed",{ method: "POST",body: { since } }),
+  redeliverFailed: (projectId: string,id: string,since?: string) => api<WebhookRedeliveredDto>(H(projectId,id)+"/redeliver-failed",{ method: "POST",body: { since } }),
 };
 
 export const authApi = {

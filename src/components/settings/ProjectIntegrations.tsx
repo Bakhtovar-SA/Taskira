@@ -40,12 +40,13 @@ export default function ProjectIntegrations() {
   const [secret,setSecret] = useState<{ secret: string; previousValidUntil?: string } | null>(null);
   const [busy,setBusy] = useState<string | null>(null), [messages,setMessages] = useState<Record<string,string>>({});
   const epoch = useRef(0), abort = useRef(new AbortController());
+  const text = useRef({ t,errText }); text.current = { t,errText };
   const reload = useCallback(() => {
     const current = ++epoch.current; setLoading(true); setError(null);
     Promise.all([integrationsApi.config(),webhooksApi.list(projectId)]).then(([cfg,rows]) => {
       if (current === epoch.current) { setConfig(cfg); setHooks(rows); setLoading(false); }
-    },failure => { if (current === epoch.current) { setError(errText(failure,t("integrations.loadFailed"))); setLoading(false); } });
-  },[projectId,errText,t]);
+    },failure => { if (current === epoch.current) { setError(text.current.errText(failure,text.current.t("integrations.loadFailed"))); setLoading(false); } });
+  },[projectId]);
   useEffect(() => {
     abort.current = new AbortController(); setBusy(null); setMessages({}); reload();
     return () => { ++epoch.current; abort.current.abort(); };
@@ -54,7 +55,7 @@ export default function ProjectIntegrations() {
   const run = async <T,>(id: string,fn: () => Promise<T>,done: (result: T) => void) => {
     const current = epoch.current; setBusy(id);
     try { const result = await fn(); if (current === epoch.current) done(result); }
-    catch (failure) { if (current === epoch.current) toast("error",errText(failure,t("integrations.actionFailed"))); }
+    catch (failure) { if (current === epoch.current) toast("error",text.current.errText(failure,text.current.t("integrations.actionFailed"))); }
     finally { if (current === epoch.current) setBusy(null); }
   };
   const ping = (hook: WebhookDto) => run(hook.id,async () => {
@@ -72,15 +73,16 @@ export default function ProjectIntegrations() {
         const delivery = await webhooksApi.delivery(projectId,hook.id,queued.deliveryId,signal);
         if (current !== epoch.current || signal.aborted) break;
         if (["succeeded","failed","cancelled"].includes(delivery.state)) {
-          const message = delivery.state === "succeeded" ? t("integrations.pingOk",{ status: delivery.lastStatus ?? 200,ms: delivery.lastDurationMs ?? 0 })
-            : t("integrations.pingFailed",{ error: delivery.lastError ? webhookErrorName(t,delivery.lastError) : delivery.lastStatus ?? t("integrations.unknown") });
+          const translate = text.current.t;
+          const message = delivery.state === "succeeded" ? translate("integrations.pingOk",{ status: delivery.lastStatus ?? 200,ms: delivery.lastDurationMs ?? 0 })
+            : translate("integrations.pingFailed",{ error: delivery.lastError ? webhookErrorName(translate,delivery.lastError) : delivery.lastStatus ?? translate("integrations.unknown") });
           setMessages(rows => ({ ...rows,[hook.id]: message })); return;
         }
       }
     } catch (failure) { if (!signal.aborted) throw failure; }
     finally { clearTimeout(timer); parent.removeEventListener("abort",cancel); }
     if (timedOut && current === epoch.current) {
-      setMessages(rows => ({ ...rows,[hook.id]: t("integrations.pingTimeout") }));
+      setMessages(rows => ({ ...rows,[hook.id]: text.current.t("integrations.pingTimeout") }));
     }
   },() => {});
   const enabled = config?.webhooksEnabled === true;

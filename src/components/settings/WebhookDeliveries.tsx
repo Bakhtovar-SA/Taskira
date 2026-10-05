@@ -20,6 +20,7 @@ export default function WebhookDeliveries({ projectId,hook,enabled,onClose }: {
   const [expanded,setExpanded] = useState<string | null>(null), [detail,setDetail] = useState<WebhookDeliveryDetailDto | null>(null);
   const [detailError,setDetailError] = useState<string | null>(null), [confirm,setConfirm] = useState(false);
   const [count,setCount] = useState<number | null>(null); const epoch = useRef(0), detailEpoch = useRef(0);
+  const text = useRef({ t,errText }); text.current = { t,errText };
   const load = useCallback((next?: string) => {
     const current = ++epoch.current; setLoading(true); setError(null);
     webhooksApi.deliveries(projectId,hook.id,{ ...(filter === "all" ? {} : { state: filter }),...(next ? { cursor: next } : {}) }).then(page => {
@@ -27,8 +28,8 @@ export default function WebhookDeliveries({ projectId,hook,enabled,onClose }: {
         setRows(old => next ? [...old,...page.items.filter(row => !old.some(existing => existing.id === row.id))] : page.items);
         setCursor(page.nextCursor); setLoading(false);
       }
-    },failure => { if (current === epoch.current) { setError(errText(failure,t("integrations.loadFailed"))); setLoading(false); } });
-  },[projectId,hook.id,filter,errText,t]);
+    },failure => { if (current === epoch.current) { setError(text.current.errText(failure,text.current.t("integrations.loadFailed"))); setLoading(false); } });
+  },[projectId,hook.id,filter]);
   useEffect(() => {
     setBusy(false); setRows([]); setCursor(null); setExpanded(null); setDetail(null); ++detailEpoch.current; load();
     return () => { ++epoch.current; ++detailEpoch.current; };
@@ -38,20 +39,20 @@ export default function WebhookDeliveries({ projectId,hook,enabled,onClose }: {
     if (expanded === id) { setExpanded(null); return; }
     setExpanded(id);
     webhooksApi.delivery(projectId,hook.id,id).then(result => { if (current === detailEpoch.current) setDetail(result); },failure => {
-      if (current === detailEpoch.current) setDetailError(errText(failure,t("integrations.loadFailed")));
+      if (current === detailEpoch.current) setDetailError(text.current.errText(failure,text.current.t("integrations.loadFailed")));
     });
   };
   const resend = async (id?: string) => {
     const current = epoch.current; setBusy(true);
     try {
-      if (id) { await webhooksApi.redeliver(projectId,hook.id,id); if (current === epoch.current) toast("success",t("integrations.redelivered")); }
+      if (id) { await webhooksApi.redeliver(projectId,hook.id,id); if (current === epoch.current) toast("success",text.current.t("integrations.redelivered")); }
       else {
-        const result = await webhooksApi.redeliverFailed(projectId,hook.id,new Date(Date.now()-86400_000).toISOString());
+        const result = await webhooksApi.redeliverFailed(projectId,hook.id);
         if (current === epoch.current) { setCount(result.count); setConfirm(false); }
       }
       if (current === epoch.current) { setBusy(false); load(); }
     } catch (failure) {
-      if (current === epoch.current) { setBusy(false); toast("error",errText(failure,t("integrations.actionFailed"))); }
+      if (current === epoch.current) { setBusy(false); toast("error",text.current.errText(failure,text.current.t("integrations.actionFailed"))); }
     }
   };
   const issue = async (key: string) => {
