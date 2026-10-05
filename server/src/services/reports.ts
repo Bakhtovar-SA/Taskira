@@ -35,7 +35,10 @@ export async function resolveReportScope(
   let list = visible;
   if (filter.departmentId) list = list.filter((p) => p.departmentId === filter.departmentId);
   if (filter.projectId) list = list.filter((p) => p.id === filter.projectId);
-  if (filter.projectIds) list = list.filter(p => filter.projectIds!.includes(p.id));
+  if (filter.projectIds) {
+    const wanted = new Set(filter.projectIds);
+    list = list.filter(p => wanted.has(p.id));
+  }
   return list.map((p) => p.id);
 }
 

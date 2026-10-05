@@ -5,8 +5,10 @@
  *  тише, чем сама задача, и заметить это было бы некому.
  */
 import type { FastifyInstance } from "fastify";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import * as db from "../src/db.js";
+import { buildReport } from "../src/services/reports.js";
 
 let app: FastifyInstance;
 let fx: Fixture;
@@ -147,6 +149,7 @@ describe("период", () => {
   test("слишком длинный период — 400", async () => {
     const adm = await login(app, "admin");
     expect((await g(`/api/reports/summary?from=2000-01-01&to=${TODAY}`, adm)).statusCode).toBe(400);
+    expect((await g(`/api/reports/issues.csv?from=1900-01-01&to=${TODAY}`, adm)).statusCode).toBe(400);
   });
 });
 
@@ -198,6 +201,30 @@ describe("GET /api/reports/issues.csv", () => {
 });
 
 describe("UI refresh report data", () => {
+  test("weekly labels, event buckets and totals share the PostgreSQL session calendar", async () => {
+    const client = await db.acquireClient();
+    await client.query("BEGIN");
+    const query = vi.spyOn(db, "q");
+    try {
+      await client.query(`UPDATE issues SET created_at = '2026-06-07T20:30:00Z', done_at = '2026-06-08T00:30:00Z' WHERE id = $1`, [fx.issues.p1issue]);
+      // Bind the service's separate queries to one test session; do not change pool defaults.
+      query.mockImplementation(async (sql, params = []) => (await client.query(sql, params)).rows);
+      for (const zone of ["UTC", "Asia/Tashkent", "America/New_York"]) {
+        await client.query("SELECT set_config('TimeZone', $1, true)", [zone]);
+        const report = await buildReport([fx.projects.p1], "2026-06-07", "2026-06-08", "project");
+        expect(report.totals).toMatchObject({ created: 1, closed: 1 });
+        expect(report.trend).toEqual([
+          { week: "2026-06-01", created: zone === "Asia/Tashkent" ? 0 : 1, closed: zone === "America/New_York" ? 1 : 0 },
+          { week: "2026-06-08", created: zone === "Asia/Tashkent" ? 1 : 0, closed: zone === "America/New_York" ? 0 : 1 },
+        ]);
+      }
+    } finally {
+      query.mockRestore();
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
   test("weekly created and closed series agree with totals and include zero weeks", async () => {
     const adm = await login(app, "admin");
     await closeIssue(fx.issues.p1issue);

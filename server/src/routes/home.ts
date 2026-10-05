@@ -62,7 +62,7 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
                            WHERE dm.department_id = p.department_id AND dm.user_id = $1)
                OR p.is_shared)
         ORDER BY array_position(ARRAY['critical','high','medium','low']::text[], i.priority_id),
-                 i.updated_at DESC
+                 i.updated_at DESC, i.id ASC
         LIMIT $3
        )
        SELECT i.*,
@@ -73,7 +73,7 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
            SELECT payload FROM activity WHERE issue_id = i.issue_id AND kind = 'status'
            ORDER BY created_at DESC, id DESC LIMIT 1
          ) last_status ON true
-        ORDER BY i.priority_order, i.updated_at DESC`,
+        ORDER BY i.priority_order, i.updated_at DESC, i.issue_id ASC`,
       [user.sub, isGlobalAdmin, HOME_LIMIT + 1],
     );
 

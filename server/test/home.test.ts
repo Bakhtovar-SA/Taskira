@@ -120,6 +120,10 @@ describe("GET /api/issues/assigned-to-me", () => {
     expect(body.items[1].key).toBe("CORP-1");
     expect(body.items[2].key).toBe("CORP-1109");
     expect(body.items.some((i: { key: string }) => i.key === "CORP-1001")).toBe(false);
+    await q("UPDATE issues SET updated_at = '2026-10-01' WHERE num >= 1000 AND priority_id = 'low'");
+    const tied = (await g("/api/issues/assigned-to-me", emp)).json();
+    const expectedLow = inserted.filter(i => i.id !== critical.id).sort((a, b) => a.id.localeCompare(b.id)).slice(0, 98);
+    expect(tied.items.slice(2).map((i: { key: string }) => i.key)).toEqual(expectedLow.map(i => i.key));
   });
 
   test("сортировка: critical раньше low, затем по updated_at", async () => {
