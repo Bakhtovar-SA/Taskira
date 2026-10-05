@@ -57,8 +57,15 @@ async function exerciseDate(page: Page, label: string, clear: string, scope: Pag
   }
   await trigger.click();
   // Move through the calendar with a keyboard and choose the focused day.
-  await page.locator('[role="gridcell"][tabindex="0"]').focus();
+  const current = page.locator('[role="gridcell"][tabindex="0"]');
+  const nextDate = new Date(`${await current.getAttribute("data-iso")}T00:00:00Z`);
+  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  const next = page.locator(`[role="gridcell"][data-iso="${nextDate.toISOString().slice(0, 10)}"]`);
+  await current.focus();
   await page.keyboard.press("ArrowRight");
+  // DatePicker moves focus on the next animation frame; Enter must select that day.
+  await expect(next).toBeFocused();
+  await expect(next).not.toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Enter");
   await expect(trigger).toBeFocused();
   await trigger.click();

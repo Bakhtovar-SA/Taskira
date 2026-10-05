@@ -12,6 +12,7 @@ for (const view of ["board", "list"]) for (const theme of ["light", "dark"]) for
     const filters = page.getByRole("button", { name: /^Фильтры/ });
     const options = page.getByRole("button", { name: "Настройки вида", exact: true });
     await expect(filters).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
     const before = await filters.boundingBox();
     await filters.click();
     await expect(filters).toHaveAttribute("aria-expanded", "true");
