@@ -12,13 +12,14 @@ test("list refresh: default grouping, dimensions, density and header", async ({ 
   await expect(page.locator(".list-group-head")).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Группировка: статус" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Исполнитель" })).toHaveText("Исполнитель");
-  expect((await page.locator(".list-head").boundingBox())!.height).toBe(34);
-  expect((await page.locator(".list-group-head").first().boundingBox())!.height).toBe(36);
-  expect((await page.locator(".list-row").first().boundingBox())!.height).toBe(40);
+  // DOMRect coordinates can contain floating-point rounding from the sheet transform.
+  expect((await page.locator(".list-head").boundingBox())!.height).toBeCloseTo(34, 2);
+  expect((await page.locator(".list-group-head").first().boundingBox())!.height).toBeCloseTo(36, 2);
+  expect((await page.locator(".list-row").first().boundingBox())!.height).toBeCloseTo(40, 2);
   await page.evaluate(() => document.documentElement.dataset.density = "compact");
-  expect((await page.locator(".list-row").first().boundingBox())!.height).toBe(36);
+  expect((await page.locator(".list-row").first().boundingBox())!.height).toBeCloseTo(36, 2);
   for (const [col, width] of [["priority", 28], ["key", 76], ["direction", 230], ["due", 110], ["assignee", 74]] as const) {
-    expect((await page.locator(`.list-row [data-col=${col}]`).first().boundingBox())!.width).toBe(width);
+    expect((await page.locator(`.list-row [data-col=${col}]`).first().boundingBox())!.width).toBeCloseTo(width, 2);
   }
 });
 
