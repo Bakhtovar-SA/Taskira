@@ -122,7 +122,7 @@ function listsFor(cfg: TargetConfig) {
 }
 const denied = blockList(["0.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "240.0.0.0/4",
   // Переходные формы IPv6 могут маршрутизироваться в IPv4 в обход его запретов.
-  "::/96", "fe80::/10", "ff00::/8", "64:ff9b::/96", "64:ff9b:1::/48", "2002::/16", "2001::/32"].map(cidrOf));
+  "::/96", "::ffff:0:0:0/96", "fe80::/10", "ff00::/8", "64:ff9b::/96", "64:ff9b:1::/48", "2002::/16", "2001::/32"].map(cidrOf));
 const loopback = blockList(["127.0.0.0/8", "::1/128"].map(cidrOf));
 let allowLoopback = false;
 export function _allowLoopbackForTests(on: boolean): void {

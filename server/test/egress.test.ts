@@ -85,13 +85,13 @@ describe("resolved destinations", () => {
     await expect(resolve("https://10.1.2.3", config(""))).rejects.toMatchObject({ reason: "not_allowed" });
   });
   test.each(["0.0.0.0", "0.1.2.3", "127.0.0.1", "127.9.8.7", "169.254.169.254", "224.0.0.1", "239.255.255.255", "240.0.0.1", "255.255.255.255", "::", "::1", "fe80::1", "febf::1", "ff02::1", "64:ff9b::a00:1", "::ffff:127.0.0.1", "::ffff:7f00:1", "::ffff:169.254.169.254",
-    "::127.0.0.1", "2002:7f00:1::", "2002:a9fe:a9fe::", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "64:ff9b:1::a9fe:a9fe"])("never permits hard-denied DNS answer %s", address => {
+    "::127.0.0.1", "::ffff:0:127.0.0.1", "2002:7f00:1::", "2002:a9fe:a9fe::", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "64:ff9b:1::a9fe:a9fe"])("never permits hard-denied DNS answer %s", address => {
     return expect(resolve("https://hooks.corp.local", config("hooks.corp.local,0.0.0.0/0,::/0"), [address])).rejects.toMatchObject({ reason: "denied_range" });
   });
   test.each(["https://127.1", "https://2130706433", "https://0x7f000001", "https://[::ffff:127.0.0.1]"])("denies normalized loopback literal %s", url => {
     return expect(resolve(url, config("0.0.0.0/0,::/0"))).rejects.toMatchObject({ reason: "denied_range" });
   });
-  test.each(["::127.0.0.1", "2002:7f00:1::", "2002:a9fe:a9fe::", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "64:ff9b:1::a9fe:a9fe"])("denies transitional IPv6 literals %s", address => {
+  test.each(["::127.0.0.1", "::ffff:0:127.0.0.1", "2002:7f00:1::", "2002:a9fe:a9fe::", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "64:ff9b:1::a9fe:a9fe"])("denies transitional IPv6 literals %s", address => {
     return expect(resolve("https://[" + address + "]", config("::/0"))).rejects.toMatchObject({ reason: "denied_range" });
   });
   test("checks all answers even after an allowed first result", async () => {
