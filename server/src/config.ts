@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { passwordPolicyError } from "./passwordPolicy.js";
+import { parseDenyCidrs, parseTargetRules, type TargetRule } from "./services/egress.js";
 
 /** Настройки LDAP/AD — заполнены только при authMode === "ldap".
  *  Подробности и примеры для реального AD — LDAP_SETUP.md (Фаза 6). */
@@ -143,6 +144,16 @@ export interface MaintenanceConfig {
   storageSweepGraceMs: number;
 }
 
+export interface WebhooksConfig {
+  enabled: boolean;
+  allowedTargets: TargetRule[];
+  denyCidrs: string[];
+  allowHttp: boolean;
+  secretKey: Buffer | null;
+  pollMs: number;
+  logRetentionDays: number;
+}
+
 export interface Config {
   version: string;
   port: number;
@@ -164,6 +175,7 @@ export interface Config {
   notify: NotifyConfig;
   reminders: { enabled: boolean; timeZone: string; hour: number };
   maintenance: MaintenanceConfig;
+  webhooks: WebhooksConfig;
   /** Размер пула соединений к Postgres (аудит PERF-07: было зашито в код). */
   pgPoolMax: number;
   /** Через сколько мс закрывать простаивающее соединение; 0 — не закрывать (умолчание). */
@@ -421,6 +433,37 @@ export function loadConfig(): Config {
   return cached;
 }
 
+function buildWebhooksConfig(): WebhooksConfig {
+  const enabled = envBool(process.env.WEBHOOKS_ENABLED, false);
+  const rawKey = process.env.WEBHOOK_SECRET_KEY?.trim() || "";
+  let secretKey: Buffer | null = null;
+  if (rawKey) {
+    if (/^[a-fA-F0-9]{64}$/.test(rawKey)) secretKey = Buffer.from(rawKey, "hex");
+    else if (/^[A-Za-z0-9+/]{43}=$/.test(rawKey)) {
+      const decoded = Buffer.from(rawKey, "base64");
+      if (decoded.length === 32 && decoded.toString("base64") === rawKey) secretKey = decoded;
+    }
+    if (!secretKey) throw new Error("WEBHOOK_SECRET_KEY: требуется ключ из 32 байт в hex или base64");
+  }
+  if (enabled && !secretKey) throw new Error("WEBHOOK_SECRET_KEY: ключ обязателен при WEBHOOKS_ENABLED");
+  const boundedInt = (name: string, fallback: number, min: number, max: number): number => {
+    const raw = process.env[name]?.trim() || String(fallback);
+    const value = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isInteger(value) || value < min || value > max)
+      throw new Error(`${name}: требуется целое число ${min}…${max}`);
+    return value;
+  };
+  return {
+    enabled,
+    allowedTargets: parseTargetRules(process.env.WEBHOOK_ALLOWED_TARGETS ?? ""),
+    denyCidrs: parseDenyCidrs(process.env.WEBHOOK_DENY_CIDRS ?? ""),
+    allowHttp: envBool(process.env.WEBHOOK_ALLOW_HTTP, false),
+    secretKey,
+    pollMs: boundedInt("WEBHOOK_POLL_MS", 2000, 500, 60_000),
+    logRetentionDays: boundedInt("WEBHOOK_LOG_RETENTION_DAYS", 30, 3, 365),
+  };
+}
+
 function buildConfig(): Config {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) fail("Не задан DATABASE_URL (например postgresql://user:pass@db:5432/taskira)");
@@ -472,6 +515,7 @@ function buildConfig(): Config {
     storage: buildStorageConfig(),
     notify: buildNotifyConfig(),
     reminders: { enabled: envBool(process.env.DUE_REMINDER_ENABLED, true), timeZone: reminderTimeZone, hour: reminderHour },
+    webhooks: buildWebhooksConfig(),
     maintenance: {
       enabled: envBool(process.env.MAINTENANCE_ENABLED, true),
       intervalMs: envPosInt("MAINTENANCE_INTERVAL_MS", 60 * 60_000), // раз в час
