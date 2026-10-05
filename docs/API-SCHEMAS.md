@@ -8,6 +8,27 @@
 
 ## Запросы (тела, query, params)
 
+### ApiTokenAdminQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `userId` | string (uuid) | необязательное |
+| `active` | `"1"` | необязательное |
+
+### ApiTokenCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…80 |
+| `scope` | enum: `read` \| `write` |  |
+| `expiresInDays` | integer | необязательное; по умолчанию 90; 1…365 |
+
+### ApiTokenParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+
 ### BrandPatchBody
 
 | Поле | Тип | Замечания |
@@ -531,6 +552,33 @@
 |---|---|---|
 | `q` | string | длина 1…120 |
 
+### ServiceAccountCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `username` | string | длина 3…32 |
+| `name` | string | длина 1…80 |
+
+### ServiceAccountParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+
+### ServiceAccountPatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | необязательное; длина 1…80 |
+| `isActive` | boolean | необязательное |
+
+### ServiceAccountTokenParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+| `tokenId` | string (uuid) |  |
+
 ### SetMemberBody
 
 | Поле | Тип | Замечания |
@@ -634,6 +682,40 @@
 ### ActivityEvent
 
 `discriminatedunion`
+
+### ApiTokenAdminDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `prefix` | string |  |
+| `scope` | enum: `read` \| `write` |  |
+| `createdAt` | string |  |
+| `expiresAt` | string |  |
+| `lastUsedAt` | string | может быть null |
+| `revokedAt` | string | может быть null |
+| `owner` | object |  |
+
+### ApiTokenCreatedDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `token` | object |  |
+| `secret` | string |  |
+
+### ApiTokenDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `prefix` | string |  |
+| `scope` | enum: `read` \| `write` |  |
+| `createdAt` | string |  |
+| `expiresAt` | string |  |
+| `lastUsedAt` | string | может быть null |
+| `revokedAt` | string | может быть null |
 
 ### AssignedIssueDto
 
@@ -1258,6 +1340,18 @@
 | `statusCategory` | enum: `todo` \| `inprogress` \| `done` |  |
 | `projectKey` | string |  |
 | `projectName` | string |  |
+
+### ServiceAccountDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `username` | string |  |
+| `name` | string |  |
+| `isActive` | boolean |  |
+| `createdAt` | string |  |
+| `projects` | array&lt;object&gt; |  |
+| `activeTokens` | number |  |
 
 ### SetupStatusDto
 

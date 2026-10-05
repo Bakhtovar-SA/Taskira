@@ -46,6 +46,8 @@ import { activeSocketCount } from "./services/wsHub.js";
 import { licenseRoutes } from "./routes/license.js";
 import { projectTemplateRoutes } from "./routes/projectTemplates.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { apiTokenRoutes } from "./routes/apiTokens.js";
+import { serviceAccountRoutes } from "./routes/serviceAccounts.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
 import { brandRoutes } from "./routes/brand.js";
 import { roadmapRoutes } from "./routes/roadmap.js";
@@ -242,6 +244,8 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       await api.register(licenseRoutes); // /admin/license (global admin, только чтение) — ТЗ 5.9
       await api.register(projectTemplateRoutes); // /project-templates, /projects/:id/save-as-template — ТЗ 5.10
       await api.register(webhookRoutes); // /integrations/config, /projects/:projectId/webhooks — INT-05
+      await api.register(apiTokenRoutes); // /me/tokens*, /admin/tokens* — INT-07
+      await api.register(serviceAccountRoutes); // /admin/service-accounts* — INT-07
       await api.register(onboardingRoutes); // /me/onboarding*, /me/hints/*, /admin/setup*, /admin/demo-project — ТЗ 5.11
       await api.register(brandRoutes); // /instance/brand* (публично), /admin/brand* — ТЗ 5.14 п.5
       await api.register(roadmapRoutes); // /roadmap, /projects/:id/{roadmap,milestones,dependencies} — ТЗ 5.15
