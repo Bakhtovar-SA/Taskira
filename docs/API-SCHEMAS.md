@@ -565,6 +565,52 @@
 | `from` | string (uuid) |  |
 | `to` | string (uuid) |  |
 
+### WebhookCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…80 |
+| `url` | string | длина 1…2048 |
+| `events` | array&lt;enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.assigned` \| `issue.commented` \| `issue.due`&gt; | 1…6 эл. |
+
+### WebhookDeliveryParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `projectId` | string (uuid) |  |
+| `id` | string (uuid) |  |
+| `deliveryId` | string (uuid) |  |
+
+### WebhookDeliveryQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `state` | enum: `pending` \| `sending` \| `succeeded` \| `failed` \| `cancelled` | необязательное |
+| `cursor` | string | необязательное; длина 0…512 |
+| `limit` | integer | необязательное; по умолчанию 50; 1…100 |
+
+### WebhookParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `projectId` | string (uuid) |  |
+| `id` | string (uuid) |  |
+
+### WebhookPatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | необязательное; длина 1…80 |
+| `url` | string | необязательное; длина 1…2048 |
+| `events` | array&lt;enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.assigned` \| `issue.commented` \| `issue.due`&gt; | необязательное; 1…6 эл. |
+| `state` | enum: `active` \| `paused` | необязательное |
+
+### WebhookRedeliverFailedBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `since` | string (datetime) | длина 0…64 |
+
 ## Ответы
 
 ### ActivityDto
@@ -749,6 +795,14 @@
 | `color` | string |  |
 | `jobRole` | string |  |
 | `source` | enum: `ldap` \| `manual` |  |
+
+### IntegrationsConfigDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `webhooksEnabled` | boolean |  |
+| `allowHttp` | boolean |  |
+| `allowedTargets` | array&lt;string&gt; |  |
 
 ### IssueAssigneesDto
 
@@ -1249,6 +1303,71 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `count` | number |  |
+
+### WebhookDeliveryDetailDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+| `eventId` | string (uuid) |  |
+| `eventType` | string |  |
+| `issueKey` | string | может быть null |
+| `state` | enum: `pending` \| `sending` \| `succeeded` \| `failed` \| `cancelled` |  |
+| `attempts` | integer |  |
+| `nextAttemptAt` | string |  |
+| `lastStatus` | number | может быть null |
+| `lastError` | string | может быть null |
+| `lastDurationMs` | number | может быть null |
+| `manual` | boolean |  |
+| `createdAt` | string |  |
+| `updatedAt` | string |  |
+| `payload` | record&lt;string, any&gt; | может быть null |
+| `headers` | record&lt;string, string&gt; |  |
+| `responseExcerpt` | string | может быть null |
+
+### WebhookDeliveryDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+| `eventId` | string (uuid) |  |
+| `eventType` | string |  |
+| `issueKey` | string | может быть null |
+| `state` | enum: `pending` \| `sending` \| `succeeded` \| `failed` \| `cancelled` |  |
+| `attempts` | integer |  |
+| `nextAttemptAt` | string |  |
+| `lastStatus` | number | может быть null |
+| `lastError` | string | может быть null |
+| `lastDurationMs` | number | может быть null |
+| `manual` | boolean |  |
+| `createdAt` | string |  |
+| `updatedAt` | string |  |
+
+### WebhookDeliveryState
+
+`enum: `pending` \| `sending` \| `succeeded` \| `failed` \| `cancelled``
+
+### WebhookDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+| `projectId` | string (uuid) |  |
+| `name` | string |  |
+| `urlDisplay` | string |  |
+| `events` | array&lt;enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.assigned` \| `issue.commented` \| `issue.due`&gt; |  |
+| `state` | enum: `active` \| `paused` \| `disabled` |  |
+| `disabledReason` | enum: `failing` \| `gone` \| `secret_unavailable` | может быть null |
+| `failureStreak` | integer |  |
+| `lastSuccessAt` | string | может быть null |
+| `lastFailureAt` | string | может быть null |
+| `secretRotatedUntil` | string | может быть null |
+| `createdAt` | string |  |
+| `updatedAt` | string |  |
+
+### WebhookEventType
+
+`enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.assigned` \| `issue.commented` \| `issue.due``
 
 ### WidgetDataDto
 

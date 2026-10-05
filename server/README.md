@@ -802,7 +802,7 @@ typescript, playwright). Корневой `package.json` теперь `"name": "
 
 ## Настройки вебхуков (трек L)
 
-INT-03/04 добавляют конфигурацию, проверку целей, шифрование и доставку; API подписок следует в INT-05.
+INT-03/04/05 добавляют конфигурацию, проверку целей, шифрование, доставку и API подписок.
 `WEBHOOKS_ENABLED=false` по умолчанию. `WEBHOOK_ALLOWED_TARGETS` — список точных имён, суффиксов `*.corp.local`
 или IP/CIDR через запятую; пустой список запрещает все цели. Правило имени разрешает все его DNS-адреса,
 включая внутренние, кроме обязательных запретов и `WEBHOOK_DENY_CIDRS`. Разрешение действует на все порты:
@@ -837,3 +837,52 @@ CIDR. Частные и CGNAT-сети не запрещаются целико�
 Задания требуют `MAINTENANCE_ENABLED=true`: доставка начинает работу через `MAINTENANCE_START_DELAY_MS + 20 с`,
 проверка сроков — через задержку + 25 с и затем каждые 10 минут в часовом поясе напоминаний. Обычная очистка
 maintenance удаляет просроченные события и доставки пачками даже при выключенных вебхуках.
+API подписок доступен только глобальному администратору. Все пути начинаются с `/api`:
+
+| Метод и путь | Тело / ответ |
+|---|---|
+| `GET /integrations/config` | `{ webhooksEnabled, allowHttp, allowedTargets }` — правила оператора |
+| `GET /projects/:projectId/webhooks` | `WebhookDto[]`, URL только в виде `urlDisplay` |
+| `POST /projects/:projectId/webhooks` | `{ name, url, events }` → 201 `{ webhook, secret }` |
+| `PATCH …/webhooks/:id` | `{ name?, url?, events?, state?: "active" \| "paused" }` → `WebhookDto` |
+| `DELETE …/webhooks/:id` | 204; доставки подписки удаляются каскадом |
+| `POST …/webhooks/:id/rotate-secret` | `{ secret, previousValidUntil }`, предыдущий секрет действует 24 ч |
+| `POST …/webhooks/:id/ping` | 202 `{ deliveryId }`, событие только для этой активной подписки |
+| `GET …/webhooks/:id/deliveries` | `?state=&cursor=&limit=` → `{ items, nextCursor }`, limit 1–100, по умолчанию 50 |
+| `GET …/webhooks/:id/deliveries/:deliveryId` | метаданные, `payload`, заголовки без подписи, `responseExcerpt` |
+| `POST …/webhooks/:id/deliveries/:deliveryId/redeliver` | 202 `{ deliveryId }`, новая ручная доставка того же события |
+| `POST …/webhooks/:id/redeliver-failed` | `{ since: ISO }` → 202 `{ count }`, до 1000 failed/cancelled за последние 7 суток |
+
+События: `issue.created`, `issue.updated`, `issue.statusChanged`, `issue.assigned`, `issue.commented`, `issue.due`.
+Название — до 80 символов, URL — до 2048; до 10 подписок проекта и 100 на инсталляцию, включая paused/disabled.
+Секрет `whsec_…` возвращается один раз при создании и при ротации (`Cache-Control: no-store`); в списках,
+журнале и аудите его нет. Полный URL зашифрован, `urlDisplay` исключает query и userinfo. Новая цель проверяется
+через DNS перед сохранением и повторно перед каждой отправкой. Ошибки цели не раскрывают разрешённые IP.
+
+`active` сбрасывает причину отключения и счётчик ошибок. Пауза отменяет ожидающие доставки; уже отправленный
+сетевой запрос может завершиться. Ручной повтор создаёт новый ID доставки, сохраняя ID события и тело.
+Список доставок идёт по `(created_at, id)` по убыванию; `nextCursor` передаётся без изменений, без offset.
+При выключенных вебхуках список, журнал и удаление доступны; создание, изменение, ротация и отправка — 409
+`WEBHOOKS_DISABLED`. Неактивная подписка — 409 `WEBHOOK_NOT_ACTIVE`, лимит — 409 `WEBHOOK_LIMIT`,
+запрещённая цель — 400 `WEBHOOK_TARGET_NOT_ALLOWED`, чужой проект/подписка/доставка — 404.
+
+Получатель проверяет исходные байты тела, без повторной сериализации JSON. Пример на Node.js:
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+function verifyWebhook(rawBody: Buffer, header: string, secret: string): boolean {
+  const [time, ...signatures] = header.split(",");
+  if (!/^t=\d+$/.test(time)) return false;
+  const timestamp = Number(time.slice(2));
+  if (!Number.isSafeInteger(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > 300) return false;
+  const expected = createHmac("sha256", secret).update(time.slice(2) + ".").update(rawBody).digest();
+  return signatures.some(value => /^v1=[0-9a-f]{64}$/.test(value)
+    && timingSafeEqual(expected, Buffer.from(value.slice(3), "hex")));
+}
+```
+
+Секрет используется целиком как UTF-8 строка, включая `whsec_`. После проверки подписи получатель
+дедуплицирует `X-Taskira-Event-Id`. Заголовки: `Content-Type`, `User-Agent: Taskira-Webhooks/<version>`,
+`X-Taskira-Event`, `X-Taskira-Event-Id`, `X-Taskira-Delivery`, `X-Taskira-Webhook-Version: 1`, `X-Taskira-Signature`.
+Детали журнала восстанавливают служебные заголовки с текущей версией сервера; подпись в БД не сохраняется.
