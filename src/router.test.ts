@@ -2,6 +2,10 @@ import { describe, expect, test } from "vitest";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, parsePath, pathForIssue, pathForView, samePlace, searchFromFilters } from "./router";
 
 describe("pathForView / pathForIssue", () => {
+  test("project integrations have a settings URL",() => {
+    expect(pathForView("CORP","projectSettings","integrations")).toBe("/p/CORP/settings/integrations");
+    expect(parsePath("/p/CORP/settings/integrations")).toEqual({ kind: "view",projectKey: "CORP",view: "projectSettings",section: "integrations" });
+  });
   test("calendar has a project URL and preserves same-place navigation", () => {
     expect(pathForView("CORP", "calendar")).toBe("/p/CORP/calendar");
     expect(parsePath("/p/CORP/calendar")).toEqual({ kind: "view", projectKey: "CORP", view: "calendar" });

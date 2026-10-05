@@ -7,7 +7,8 @@ import { audit } from "../audit.js";
 import { loadConfig } from "../config.js";
 import { ApiHttpError } from "../errors.js";
 import { LIMITS, type WebhookCreateBody, type WebhookPatchBody, type WebhookDto, type WebhookEventType,
-  type WebhookDeliveryDto, type WebhookDeliveryDetailDto, type WebhookDeliveryQuery, type IntegrationsConfigDto } from "../contract.js";
+  type WebhookDeliveryDto, type WebhookDeliveryDetailDto, type WebhookDeliveryQuery, type IntegrationsConfigDto,
+  type WebhookCreatedDto, type WebhookSecretRotatedDto, type WebhookQueuedDto, type WebhookDeliveryPageDto, type WebhookRedeliveredDto } from "../contract.js";
 import { checkUrlShape, redactUrl, resolveTarget, TargetBlockedError, type TargetReason } from "./egress.js";
 import { seal, webhookSecretContext } from "./secretBox.js";
 import { fanOut } from "./webhookDispatch.js";
@@ -65,7 +66,7 @@ const auditDetails = (row: HookRow) => ({ name: row.name, events: row.events, ur
 export async function listWebhooks(projectId: string): Promise<WebhookDto[]> {
   return (await q<HookRow>(`SELECT * FROM webhooks WHERE project_id=$1 ORDER BY created_at,id`, [projectId])).map(webhookDto);
 }
-export async function createWebhook(projectId: string, actor: string, body: z.infer<typeof WebhookCreateBody>) {
+export async function createWebhook(projectId: string, actor: string, body: z.infer<typeof WebhookCreateBody>): Promise<WebhookCreatedDto> {
   const key = enabledKey(), url = await validatedUrl(body.url), id = randomUUID(), secret = newSecret();
   const row = await withTransaction(async client => {
     await client.query(`SELECT pg_advisory_xact_lock(hashtext('taskira:webhooks:create'))`);
@@ -102,7 +103,7 @@ export async function deleteWebhook(projectId: string, id: string, actor: string
   const row = await lockedHook(projectId,id,async (client, row) => { await client.query(`DELETE FROM webhooks WHERE id=$1`,[row.id]); return row; });
   await audit(actor,"webhook.delete","webhook",row.id,auditDetails(row));
 }
-export async function rotateWebhookSecret(projectId: string, id: string, actor: string) {
+export async function rotateWebhookSecret(projectId: string, id: string, actor: string): Promise<WebhookSecretRotatedDto> {
   const key = enabledKey(), secret = newSecret();
   const row = await lockedHook(projectId,id,async (client, previous) => (await client.query<HookRow>(`UPDATE webhooks
     SET prev_secret_enc=secret_enc,prev_secret_until=now()+interval '24 hours',secret_enc=$2,updated_at=now() WHERE id=$1 RETURNING *`,
@@ -117,7 +118,7 @@ export function integrationsConfig(): IntegrationsConfigDto {
     rule.kind === "host" ? rule.host : rule.kind === "suffix" ? "*." + rule.suffix : `${rule.net}/${rule.prefix}`) };
 }
 
-export async function pingWebhook(projectId: string, id: string, actor: string): Promise<{ deliveryId: string }> {
+export async function pingWebhook(projectId: string, id: string, actor: string): Promise<WebhookQueuedDto> {
   enabledKey();
   const { hook, eventId } = await lockedHook(projectId,id,async (client, hook) => {
     requireActive(hook);
@@ -167,7 +168,7 @@ async function existingHook(projectId: string,id: string): Promise<HookRow> {
   const row = await one<HookRow>(`SELECT * FROM webhooks WHERE project_id=$1 AND id=$2`,[projectId,id]);
   if (!row) throw missing(); return row;
 }
-export async function listWebhookDeliveries(projectId: string,id: string,query: z.infer<typeof WebhookDeliveryQuery>) {
+export async function listWebhookDeliveries(projectId: string,id: string,query: z.infer<typeof WebhookDeliveryQuery>): Promise<WebhookDeliveryPageDto> {
   const hook = await existingHook(projectId,id), cursor = readCursor(query.cursor);
   const rows = await q<DeliveryRow>(`${deliverySelect} WHERE d.webhook_id=$1 AND ($2::text IS NULL OR d.state=$2)
     AND ($3::timestamptz IS NULL OR (d.created_at,d.id)<($3::timestamptz,$4::uuid))
@@ -184,7 +185,7 @@ export async function getWebhookDelivery(projectId: string,id: string,deliveryId
   delete headers["X-Taskira-Signature"];
   return { ...deliveryDto(row), payload: row.payload, headers, responseExcerpt: row.response_excerpt };
 }
-export async function redeliverWebhook(projectId: string,id: string,deliveryId: string,actor: string): Promise<{ deliveryId: string }> {
+export async function redeliverWebhook(projectId: string,id: string,deliveryId: string,actor: string): Promise<WebhookQueuedDto> {
   enabledKey();
   const result = await lockedHook(projectId,id,async (client,hook) => {
     requireActive(hook);
@@ -195,7 +196,7 @@ export async function redeliverWebhook(projectId: string,id: string,deliveryId: 
   });
   await audit(actor,"webhook.redeliver","webhook",result.hook.id,auditDetails(result.hook)); return { deliveryId: result.deliveryId };
 }
-export async function redeliverFailedWebhooks(projectId: string,id: string,since: string,actor: string): Promise<{ count: number }> {
+export async function redeliverFailedWebhooks(projectId: string,id: string,since: string,actor: string): Promise<WebhookRedeliveredDto> {
   enabledKey();
   const from = new Date(since);
   if (!Number.isFinite(from.getTime()) || from.getTime()<Date.now()-7*86400_000)

@@ -1413,6 +1413,13 @@
 |---|---|---|
 | `count` | number |  |
 
+### WebhookCreatedDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `webhook` | object |  |
+| `secret` | string |  |
+
 ### WebhookDeliveryDetailDto
 
 | Поле | Тип | Замечания |
@@ -1452,6 +1459,13 @@
 | `createdAt` | string |  |
 | `updatedAt` | string |  |
 
+### WebhookDeliveryPageDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `items` | array&lt;object&gt; |  |
+| `nextCursor` | string | может быть null |
+
 ### WebhookDeliveryState
 
 `enum: `pending` \| `sending` \| `succeeded` \| `failed` \| `cancelled``
@@ -1477,6 +1491,25 @@
 ### WebhookEventType
 
 `enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.assigned` \| `issue.commented` \| `issue.due``
+
+### WebhookQueuedDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `deliveryId` | string |  |
+
+### WebhookRedeliveredDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `count` | number |  |
+
+### WebhookSecretRotatedDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `secret` | string |  |
+| `previousValidUntil` | string |  |
 
 ### WidgetDataDto
 
