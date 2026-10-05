@@ -11,13 +11,17 @@ import { open, SecretUnavailableError, webhookSecretContext } from "./secretBox.
 import { send, signedHeaders, type SendResult } from "./webhookHttp.js";
 
 interface FanOutRow extends IntegrationEventRow { project_key: string; username: string | null; auth_source: string | null }
-export async function fanOut(): Promise<number> {
+export async function fanOut(eventIds?: readonly string[]): Promise<number> {
+  if (eventIds && !eventIds.length) return 0;
   // Не берём второе соединение, удерживая транзакцию: тик уже занимает соединение advisory-локом.
   const brand = await getBrand();
   const done = await withTransaction(async client => {
-    const { rows } = await client.query<FanOutRow>(`SELECT e.*, p.key AS project_key, u.username, u.auth_source
+    const { rows } = eventIds === undefined ? await client.query<FanOutRow>(`SELECT e.*, p.key AS project_key, u.username, u.auth_source
       FROM integration_events e JOIN projects p ON p.id = e.project_id LEFT JOIN users u ON u.id = e.actor_id
-      WHERE e.dispatched_at IS NULL ORDER BY e.id LIMIT 500 FOR UPDATE OF e SKIP LOCKED`);
+      WHERE e.dispatched_at IS NULL ORDER BY e.id LIMIT 500 FOR UPDATE OF e SKIP LOCKED`)
+      : await client.query<FanOutRow>(`SELECT e.*, p.key AS project_key, u.username, u.auth_source
+        FROM integration_events e JOIN projects p ON p.id = e.project_id LEFT JOIN users u ON u.id = e.actor_id
+        WHERE e.dispatched_at IS NULL AND e.id=ANY($1::bigint[]) ORDER BY e.id FOR UPDATE OF e`,[eventIds]);
     if (!rows.length) return rows;
     const base = loadConfig().notify.appBaseUrl;
     const ids = rows.map(row => row.id);

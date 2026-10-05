@@ -48,6 +48,7 @@ export const LIMITS = {
   dashboard: { name: { min: 1, max: 80 }, widgetTitle: { max: 60 } },
   widgetsPerDashboard: 24,
   dashboardsPerUser: 20,
+  webhook: { name: 80, url: 2048, perProject: 10, total: 100 },
 } as const;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };

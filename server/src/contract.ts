@@ -79,6 +79,7 @@ export const LIMITS = {
   dashboard: { name: { min: 1, max: 80 }, widgetTitle: { max: 60 } },
   widgetsPerDashboard: 24,
   dashboardsPerUser: 20,
+  webhook: { name: 80, url: 2048, perProject: 10, total: 100 },
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -1498,3 +1499,31 @@ export const WidgetDataDto = z.discriminatedUnion("type", [
 export type WidgetDataDto = z.infer<typeof WidgetDataDto>;
 export const DashboardDataDto = z.object({ results: z.record(z.string(), WidgetDataDto) });
 export type DashboardDataDto = z.infer<typeof DashboardDataDto>;
+/* ---------------- Вебхуки (INT-05, ADR-0028) ---------------- */
+export const WebhookEventType = z.enum(["issue.created", "issue.updated", "issue.statusChanged", "issue.assigned", "issue.commented", "issue.due"]);
+export type WebhookEventType = z.infer<typeof WebhookEventType>;
+const webhookEvents = z.array(WebhookEventType).min(1).max(6).refine(values => new Set(values).size === values.length, "Типы событий не должны повторяться");
+export const WebhookCreateBody = z.object({ name: requiredLine(LIMITS.webhook.name, "Название не может быть пустым"),
+  url: z.string().min(1).max(LIMITS.webhook.url), events: webhookEvents }).strict();
+export const WebhookPatchBody = WebhookCreateBody.partial().extend({ state: z.enum(["active", "paused"]).optional() })
+  .refine(value => Object.keys(value).length > 0, "Пустой патч");
+export const WebhookParams = ProjectParams.extend({ id: uuid });
+export const WebhookDeliveryParams = WebhookParams.extend({ deliveryId: uuid });
+export const WebhookDeliveryState = z.enum(["pending", "sending", "succeeded", "failed", "cancelled"]);
+export const WebhookDeliveryQuery = z.object({ state: WebhookDeliveryState.optional(), cursor: z.string().max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50) });
+export const WebhookRedeliverFailedBody = z.object({ since: z.string().max(64).datetime({ offset: true }) }).strict();
+export const WebhookDto = z.object({ id: uuid, projectId: uuid, name: z.string(), urlDisplay: z.string(), events: z.array(WebhookEventType),
+  state: z.enum(["active", "paused", "disabled"]), disabledReason: z.enum(["failing", "gone", "secret_unavailable"]).nullable(),
+  failureStreak: z.number().int(), lastSuccessAt: z.string().nullable(), lastFailureAt: z.string().nullable(),
+  secretRotatedUntil: z.string().nullable(), createdAt: z.string(), updatedAt: z.string() });
+export type WebhookDto = z.infer<typeof WebhookDto>;
+export const WebhookDeliveryDto = z.object({ id: uuid, eventId: uuid, eventType: z.string(), issueKey: z.string().nullable(),
+  state: WebhookDeliveryState, attempts: z.number().int(), nextAttemptAt: z.string(), lastStatus: z.number().nullable(),
+  lastError: z.string().nullable(), lastDurationMs: z.number().nullable(), manual: z.boolean(), createdAt: z.string(), updatedAt: z.string() });
+export type WebhookDeliveryDto = z.infer<typeof WebhookDeliveryDto>;
+export const WebhookDeliveryDetailDto = WebhookDeliveryDto.extend({ payload: z.record(z.string(), z.unknown()).nullable(),
+  headers: z.record(z.string(), z.string()), responseExcerpt: z.string().nullable() });
+export type WebhookDeliveryDetailDto = z.infer<typeof WebhookDeliveryDetailDto>;
+export const IntegrationsConfigDto = z.object({ webhooksEnabled: z.boolean(), allowHttp: z.boolean(), allowedTargets: z.array(z.string()) });
+export type IntegrationsConfigDto = z.infer<typeof IntegrationsConfigDto>;
