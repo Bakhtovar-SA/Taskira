@@ -690,7 +690,7 @@ export type ReportFilter = {
   to: string;
   projectId?: string;
   departmentId?: string;
-  /** Wire format: up to 1000 comma-separated UUIDs; the server parses an array and intersects visibility. */
+  /** Wire format: up to 150 comma-separated UUIDs; absence means all visible projects. */
   projectIds?: string;
 };
 

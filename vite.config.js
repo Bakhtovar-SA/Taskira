@@ -10,7 +10,7 @@ export default defineConfig({
         // These primitives already load with the shell. One shared chunk compresses
         // their repeated JSX better; screen and overlay imports remain lazy.
         codeSplitting: { groups: [
-          { name: "ui-core", test: /[\\/]src[\\/](?:icons\.tsx|ui\.tsx|cssVars\.ts|workflowStatus\.ts|ds[\\/](?:Button|Display|Field|Overlay|floating)\.tsx?)$/ },
+          { name: "ui-core", test: /[\\/]src[\\/](?:icons\.tsx|ui\.tsx|cssVars\.ts|workflowStatus\.ts|components[\\/](?:BrandMark|settings[\\/]parts)\.tsx|ds[\\/](?:Button|Display|Field|Overlay|floating|DatePicker|dateParse)\.tsx?)$/ },
           // Both time views share the scale and canvas. Keep this family lazy,
           // but compress their similar markup together instead of tiny chunks.
           { name: "time-views", includeDependenciesRecursively: false, test: /[\\/]src[\\/]components[\\/](?:RoadmapView|TimelineView|TimeCanvas)\.tsx$/ },

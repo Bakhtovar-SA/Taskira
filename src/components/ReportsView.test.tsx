@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { I18nProvider } from "../i18n";
 import type { ReportSummary } from "../api";
+import { selectReportProject } from "../reportProjectSelection";
 
 const REPORT: ReportSummary = {
   from: "2026-09-06", to: "2026-10-05", groupBy: "project", projectCount: 2,
@@ -55,6 +56,31 @@ describe("Reports refresh", () => {
     await choose("Экспорт", "открытые сейчас · CSV");
     expect(downloadReportCsv).toHaveBeenLastCalledWith(expect.objectContaining({ departmentId: "d2", scope: "open" }));
     expect(store.toast).toHaveBeenCalledWith("success", "Выгрузка скачана");
+  });
+  test("large portfolios use all without IDs or a URL-safe subset of 150", async () => {
+    const before = store.data.projects;
+    store.data.projects = Array.from({ length: 151 }, (_, n) => ({ id: `00000000-0000-4000-8000-${String(n + 1).padStart(12, "0")}`, key: `P${n}`, name: `Project ${n}`, departmentId: "d1" }));
+    try {
+      await renderReports();
+      expect(currentCall().projectIds).toBeUndefined();
+      open("151 проект");
+      const all = screen.getByRole("checkbox", { hidden: true, name: "Все доступные проекты" });
+      const choices = screen.getAllByRole("checkbox", { hidden: true }).filter(el => el !== all) as HTMLInputElement[];
+      expect(choices.every(el => el.disabled)).toBe(true);
+      fireEvent.click(all);
+      fireEvent.click(choices[0]); await settle();
+      expect(currentCall().projectIds).toBe(store.data.projects[0].id);
+      const available = store.data.projects.map(p => p.id);
+      let selection: string[] | null = [];
+      for (const id of available.slice(0, 150)) selection = selectReportProject(selection, available, id, true);
+      expect(selection).toHaveLength(150);
+      expect(selectReportProject(selection, available, available[150], true)).toBe(selection);
+      const ids = selection!.join(",");
+      const url = `/api/reports/summary?${new URLSearchParams({ from: "2026-09-01", to: "2026-10-01", groupBy: "project", departmentId: store.data.projects[0].id, projectIds: ids })}`;
+      expect(url.length).toBeLessThan(6144);
+      fireEvent.click(all); await settle();
+      expect(currentCall().projectIds).toBeUndefined();
+    } finally { store.data.projects = before; }
   });
   test("load failure can be retried", async () => {
     summary.mockRejectedValueOnce(new Error("сеть")); await renderReports();

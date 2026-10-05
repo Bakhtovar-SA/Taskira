@@ -263,8 +263,11 @@ describe("UI refresh report data", () => {
   });
   test("invalid comma-separated project ids are rejected", async () => {
     const adm = await login(app, "admin");
-    for (const ids of ["", "bad-id", `${fx.projects.p1},`]) {
+    for (const ids of ["", "bad-id", `${fx.projects.p1},`, Array(151).fill(fx.projects.p1).join(",")]) {
       expect((await g(`/api/reports/summary?${period}&projectIds=${ids}`, adm)).statusCode).toBe(400);
     }
+    const allowed = await g(`/api/reports/summary?${period}&projectIds=${Array(150).fill(fx.projects.p1).join(",")}`, adm);
+    expect(allowed.statusCode).toBe(200);
+    expect(allowed.json().projectCount).toBe(1);
   });
 });

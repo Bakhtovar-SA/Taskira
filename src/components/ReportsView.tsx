@@ -11,6 +11,7 @@ import { Tabs } from "../ds/Tabs";
 import { IcChevD, IcDownload, IcReport } from "../icons";
 import { DashboardTabs, useDashboardList } from "../dashboards/DashboardTabs";
 import { cssVars } from "../cssVars";
+import { REPORT_PROJECT_LIMIT, selectReportProject } from "../reportProjectSelection";
 
 const DAY = 86_400_000;
 const date = (s: string) => new Date(`${s}T00:00:00Z`);
@@ -121,8 +122,9 @@ export default function ReportsView() {
       <div className="reports-date-range"><DatePicker label={t("reports.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={range.from} max={range.to} onChange={v => { if (v) { setRange(r => ({ ...r, from: v })); setPreset("custom"); } }}/><span aria-hidden="true">—</span><DatePicker label={t("reports.to")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={range.to} min={range.from} onChange={v => { if (v) { setRange(r => ({ ...r, to: v })); setPreset("custom"); } }}/></div>
       <Menu label={t("reports.department")} trigger={p => <Button {...p} size="sm" variant="secondary" iconRight={<IcChevD size={12} />}>{departments.find(d => d.id === departmentId)?.name ?? t("reports.allDepartments")}</Button>} items={[{ id: "all", label: t("reports.allDepartments"), onSelect: () => { setDepartmentId(""); setSelected(null); } }, ...departments.map(d => ({ id: d.id, label: d.name, onSelect: () => { setDepartmentId(d.id); setSelected(null); } }))]} />
       <Popover label={t("reports.project")} className="reports-project-picker" trigger={p => <Button {...p} size="sm" variant="secondary" iconRight={<IcChevD size={12} />}>{t("reports.projectsSelected", { count, noun: tn(count, "noun.project.one", "noun.project.few", "noun.project.many").toLocaleLowerCase(lang) })}</Button>}>
+        {projects.length > REPORT_PROJECT_LIMIT && <p className="px-2 py-1 text-[12px] text-sub">{t("reports.projectLimit", { count: REPORT_PROJECT_LIMIT })}</p>}
         <Checkbox label={t("reports.allProjects")} checked={count === projects.length && count > 0} indeterminate={count > 0 && count < projects.length} onChange={checked => setSelected(checked ? null : [])}/>
-        {projects.map(p => <Checkbox key={p.id} label={`${p.key} · ${p.name}`} checked={selected === null || selected.includes(p.id)} onChange={checked => setSelected(cur => { const ids = cur ?? projects.map(x => x.id); return checked ? [...ids, p.id] : ids.filter(id => id !== p.id); })}/>)}
+        {projects.map(p => <Checkbox key={p.id} label={`${p.key} · ${p.name}`} checked={selected === null || selected.includes(p.id)} disabled={selected === null ? projects.length > REPORT_PROJECT_LIMIT : selected.length >= REPORT_PROJECT_LIMIT && !selected.includes(p.id)} onChange={checked => setSelected(cur => selectReportProject(cur, projects.map(x => x.id), p.id, checked))}/>)}
       </Popover>
       <span className="reports-comparison">{t("reports.comparison", { from: formatDate(comparison.from), to: formatDate(comparison.to) })}</span>
     </div>

@@ -1021,6 +1021,7 @@ const en: Record<keyof Dict, string> = {
   "reports.to": "to",
   "reports.project": "Project",
   "reports.allProjects": "All available projects",
+  "reports.projectLimit": "Clear “All available projects” to select up to {count} projects.",
   "reports.department": "Department",
   "reports.allDepartments": "All departments",
   "reports.grouping": "Grouping",

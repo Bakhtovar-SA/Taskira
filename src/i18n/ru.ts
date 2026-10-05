@@ -1022,6 +1022,7 @@ const ru = {
   "reports.to": "по",
   "reports.project": "Проект",
   "reports.allProjects": "Все доступные проекты",
+  "reports.projectLimit": "Снимите «Все доступные проекты», чтобы выбрать до {count} проектов.",
   "reports.department": "Отдел",
   "reports.allDepartments": "Все отделы",
   "reports.grouping": "Разбивка",

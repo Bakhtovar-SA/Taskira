@@ -733,9 +733,9 @@ export const ReportQuery = z.object({
   projectId: uuid.optional(),
   departmentId: uuid.optional(),
   groupBy: z.enum(REPORT_GROUPS).default("project"),
-  /** Wire / z.input: до 1000 UUID через запятую; z.infer: string[] после transform.
+  /** Wire / z.input: до 150 UUID через запятую; z.infer: string[] после transform.
    *  Пересекается с видимыми проектами. Период дополнительно ограничен в routes/reports.ts. */
-  projectIds: z.string().max(37000).transform(v => v.split(",")).pipe(z.array(uuid).min(1).max(1000)).optional(),
+  projectIds: z.string().max(5550).transform(v => v.split(",")).pipe(z.array(uuid).min(1).max(150)).optional(),
 });
 
 /** GET /api/reports/issues.csv — выгрузка построчного среза за период.
