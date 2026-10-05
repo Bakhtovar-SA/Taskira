@@ -9,6 +9,7 @@ import { startMaintenance, stopMaintenance } from "./services/maintenance.js";
 import { startLicenseCheck, stopLicenseCheck } from "./services/license.js";
 import { acquireApiLease } from "./services/apiLease.js";
 import { closeWithDeadline } from "./services/shutdown.js";
+import { stopWebhookDispatch } from "./services/webhookDispatch.js";
 
 async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
@@ -31,9 +32,11 @@ async function main(): Promise<void> {
     stopNotifier();
     stopDueReminders();
     stopMaintenance();
+    const webhookStopped = stopWebhookDispatch();
     stopLicenseCheck();
     try {
       await closeWithDeadline(async () => {
+        await webhookStopped;
         await app.close();
         await closePool();
         await releaseApiLease();

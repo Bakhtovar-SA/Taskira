@@ -72,3 +72,5 @@
 | `20261002T1900_due_reminders.sql` | Add scheduled due-date notifications and durable, per-recipient delivery marks. |
 | `20261003T0100_avatar_content_type.sql` | Repair installations where the avatar migration was recorded without MIME metadata. Existing avatar objects and metadata remain unchanged; old migrations stay immutable. |
 | `20261004T0942_integration_events.sql` | Вебхуки: подписки проекта, outbox событий интеграций и журнал доставок. Триггеры охватывают любой путь записи истории, как счётчики направлений в EPIC-01. Правки одной задачи и типа в одной транзакции склеиваются по pg_current_xact_id(). Без активной подписки в проекте триггеры ничего не пишут. |
+| `20261005T0539_index_webhook_deliveries_event.sql` | INT-04: ON DELETE CASCADE при очистке событий ищет доставки по event_id. Составной уникальный индекс (webhook_id, event_id) не покрывает этот поиск. |
+| `20261005T0539_index_webhook_deliveries_queue.sql` | INT-04: LIMIT 16 должен читать очередь по индексу, включая одинаковое next_attempt_at у всей пачки. Старый индекс оставлен для совместимости; удаление — отдельный contract. |

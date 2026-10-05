@@ -1,6 +1,6 @@
 /** Фоновое обслуживание (аудит LIFE-03 / PERF-05, MAINT-01).
  *
- *  Три независимых джоба на общем таймер-хелпере (startJob ниже):
+ *  Независимые джобы на общем таймер-хелпере (startJob ниже):
  *   1) архив + audit_log, каждый intervalMs (по умолчанию раз в час):
  *      - автоархив — задачам с done_at старше config.maintenance.archiveAfterDays
  *        проставляется archived_at. Это НЕ удаление: строка остаётся, задача
@@ -9,7 +9,8 @@
  *        «Список задач» не росли бесконечно.
  *      - уборка audit_log — строки старше auditRetentionDays удаляются
  *        (0 = хранить вечно).
- *      Обе части идут ПАЧКАМИ (batchSize строк, пауза batchPauseMs, потолок maxPerRun за проход): каждая пачка —
+ *      - очистка событий интеграций и каскадная очистка доставок по сроку хранения, даже при выключенных вебхуках.
+ *      Части идут ПАЧКАМИ (batchSize строк, пауза batchPauseMs, потолок maxPerRun за проход): каждая пачка —
  *      отдельный оператор в своей транзакции, поэтому блокировка строк держится на время пачки, а не всего прохода;
  *      id в память не читаются, считается только число строк.
  *   2) сборщик осиротевших объектов Storage (storageSweeper.ts), каждый
@@ -21,6 +22,8 @@
  *      членство обновлялось только JIT при логине и вручную (POST
  *      /api/ldap/resync); без периодического прохода уволенный/переведённый
  *      сотрудник держал старый доступ до следующего входа.
+ *   4) доставка вебхуков: webhooks.pollMs, при WEBHOOKS_ENABLED=true; HTTP вне транзакций.
+ *   5) события срока задач: каждые 10 минут, при WEBHOOKS_ENABLED=true.
  *
  *  Каждый — отдельный таймер, а не дополнительная ветка в одном тике: разная
  *  стоимость и каданс, и ни один не должен запускаться на каждый прогон
@@ -28,14 +31,14 @@
  *
  *  Первый проход — НЕ сразу при старте, а через maintenance.startDelayMs (по умолчанию 5 минут): рестарт или
  *  деплой в час пик не должен запускать работу. sweep и LDAP идут после этой задержки со своим сдвигом (+15 с,
- *  +30 с), чтобы не стартовать залпом в одну секунду.
+ *  +30 с), вебхуки и сроки — +20 с и +25 с, чтобы не стартовать залпом в одну секунду.
  *
  *  Один исполнитель на кластер: каждый тик берёт pg_try_advisory_lock джоба (runJobLocked); процесс, не получивший
  *  лок, пропускает тик (метрика result="skipped"). Ручной запуск (POST /api/maintenance/run) берёт тот же лок.
  *  Каждый тик виден в /metrics (taskira_background_job_*) и в getMaintenanceStatus(); реальный проход с работой
  *  оставляет запись audit_log `maintenance.run`. Метрики и статус — по процессу, не по кластеру.
  *
- *  Все три стартуют вместе, но независимо, а не второй проход в notifier:
+ *  Задания регистрируются вместе, но стартуют независимо от notifier:
  *  тот стартует только при включённом email (NOTIFY_EMAIL_ENABLED), а архив
  *  нужен всегда. MAINTENANCE_ENABLED=false отключает джобы в этом процессе.
  */
@@ -48,6 +51,8 @@ import { addMaintenanceWork, recordBackgroundJob, setBackgroundJobRunning } from
 import { getStorage } from "./storage.js";
 import { runStorageSweepOnce } from "./storageSweeper.js";
 import { resyncAllLdapUsers } from "./departmentSync.js";
+import { resumeWebhookDispatch, runWebhookDispatchWork } from "./webhookDispatch.js";
+import { runDueEventsOnce } from "./dueEvents.js";
 
 export interface MaintenanceStats {
   archived: number;
@@ -143,23 +148,28 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
         : { count: 0, capped: false };
     // Остатки лимитера входа по IP (сам лимитер чистит только «свой» IP при следующей попытке).
     await client.query(`DELETE FROM login_attempts WHERE attempted_at < now() - interval '1 day'`);
-    return { archived, purged };
+    // Очистка работает и при WEBHOOKS_ENABLED=false: SQL-триггеры не видят env и могут продолжать копить outbox.
+    const eventsPurged = await inBatches(client, `DELETE FROM integration_events WHERE id IN (
+      SELECT id FROM integration_events WHERE occurred_at < now() - make_interval(days => $1::int)
+      ORDER BY occurred_at LIMIT $2 FOR UPDATE SKIP LOCKED)`, loadConfig().webhooks.logRetentionDays, cfg);
+    return { archived, purged, eventsPurged };
   });
 
   const stats: MaintenanceStats = {
     archived: done.archived.count,
     auditPurged: done.purged.count,
-    capped: done.archived.capped || done.purged.capped,
+    capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped,
     dryRun: false,
   };
   addMaintenanceWork(stats.archived, stats.auditPurged);
   // След в данных: массовая архивация не должна быть заметна только по пропавшим с доски задачам.
-  if (stats.archived > 0 || stats.auditPurged > 0) {
+  if (stats.archived > 0 || stats.auditPurged > 0 || done.eventsPurged.count > 0) {
     await audit(opts.actorId ?? null, "maintenance.run", "system", null, {
       archived: stats.archived,
       auditPurged: stats.auditPurged,
       capped: stats.capped,
       trigger: opts.actorId ? "manual" : "schedule",
+      ...(done.eventsPurged.count > 0 ? { integrationEventsPurged: done.eventsPurged.count } : {}),
     });
   }
   return stats;
@@ -314,6 +324,12 @@ export function startMaintenance(): void {
       return s;
     }),
   );
+
+  if (full.webhooks.enabled) {
+    resumeWebhookDispatch();
+    jobs.push(startJob("webhook-dispatch", full.webhooks.pollMs, cfg.startDelayMs + 20_000, () => runWebhookDispatchWork()));
+    jobs.push(startJob("due-events", 600_000, cfg.startDelayMs + 25_000, () => runDueEventsOnce()));
+  }
 
   if (cfg.storageSweepEnabled) {
     jobs.push(
