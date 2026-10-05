@@ -52,7 +52,8 @@ describe("resolved destinations", () => {
   test("pins the first address while preserving hostname for Host/SNI", async () => {
     const dns = lookup(["10.1.2.3", "fd00::2"]);
     expect(await resolveTarget(new URL("https://Hooks.Corp.Local:8443/x"), config(), dns))
-      .toEqual({ address: "10.1.2.3", family: 4, hostname: "hooks.corp.local", port: 8443, protocol: "https:" });
+      .toEqual({ address: "10.1.2.3", family: 4, hostname: "hooks.corp.local", port: 8443, protocol: "https:",
+        addresses: [{ address: "10.1.2.3", family: 4 }, { address: "fd00:0:0:0:0:0:0:2", family: 6 }] });
     expect(dns).toHaveBeenCalledWith("hooks.corp.local", { all: true, verbatim: true });
   });
   test("suffixes match subdomains but not the root or lookalike names", async () => {

@@ -135,6 +135,7 @@ export function redactUrl(raw: string): string {
 
 export async function resolveTarget(url: URL, cfg: TargetConfig, lookup: Lookup = dnsLookup): Promise<{
   address: string; family: 4 | 6; hostname: string; port: number; protocol: "https:" | "http:";
+  addresses: { address: string; family: 4 | 6 }[];
 }> {
   const checked = checkUrlShape(url.href, cfg);
   const hostname = unbracket(checked.hostname).toLowerCase().replace(/\.$/, "");
@@ -165,5 +166,5 @@ export async function resolveTarget(url: URL, cfg: TargetConfig, lookup: Lookup 
     return ip;
   });
   return { ...normalized[0], hostname, port: Number(checked.port || (checked.protocol === "https:" ? 443 : 80)),
-    protocol: checked.protocol as "https:" | "http:" };
+    protocol: checked.protocol as "https:" | "http:", addresses: normalized };
 }
