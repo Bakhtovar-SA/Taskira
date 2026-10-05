@@ -108,7 +108,8 @@ function blockList(cidrs: readonly CidrRule[]): BlockList {
   return list;
 }
 const denied = blockList(["0.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "240.0.0.0/4",
-  "::/128", "fe80::/10", "ff00::/8", "64:ff9b::/96"].map(cidrOf));
+  // Переходные формы IPv6 могут маршрутизироваться в IPv4 в обход его запретов.
+  "::/96", "fe80::/10", "ff00::/8", "64:ff9b::/96", "64:ff9b:1::/48", "2002::/16", "2001::/32"].map(cidrOf));
 const loopback = blockList(["127.0.0.0/8", "::1/128"].map(cidrOf));
 let allowLoopback = false;
 export function _allowLoopbackForTests(on: boolean): void {
@@ -155,8 +156,10 @@ export async function resolveTarget(url: URL, cfg: TargetConfig, lookup: Lookup 
     const ip = addressOf(answer.address);
     if (!ip || isIP(unbracket(answer.address)) !== answer.family) throw new TargetBlockedError("dns");
     const family = ip.family === 4 ? "ipv4" : "ipv6";
-    if (denied.check(ip.address, family) || operatorDenied.check(ip.address, family)
-      || (!(allowLoopback && process.env.NODE_ENV === "test") && loopback.check(ip.address, family)))
+    const isLoopback = loopback.check(ip.address, family);
+    const testLoopback = allowLoopback && process.env.NODE_ENV === "test" && isLoopback;
+    if ((denied.check(ip.address, family) && !testLoopback) || operatorDenied.check(ip.address, family)
+      || (isLoopback && !testLoopback))
       throw new TargetBlockedError("denied_range");
     if (!hostAllowed && !allowedCidrs.check(ip.address, family)) throw new TargetBlockedError("not_allowed");
     return ip;
