@@ -23,7 +23,9 @@ async function mockApi(page: Page,enabled = true) {
     else if (path === "/projects") body = [project];
     else if (path === "/projects/p1") body = { project,users: [user],members: [{ userId: "u1",role: "manager" }],workflow: { statuses: [{ id: "s1",sid: "todo",name: "Todo",category: "todo",position: 0 }],transitions: [] },issueTemplates: [],customFields: [],sprints: [] };
     else if (path === "/projects/p1/issues") body = { items: [],hasMore: false,nextCursor: null };
-    else if (path === "/projects/p1/issues/counts") body = { total: 0,byStatus: {},unassigned: 0 };
+    else if (path === "/projects/p1/issues/counts") body = { total: 0,byStatus: {},byPriority: {},overdue: 0 };
+    else if (path === "/issues/assigned-to-me") body = { items: [],truncated: false,limit: 100 };
+    else if (path === "/issues/search") body = { items: [],truncated: false };
     else if (path.endsWith("/issues/epics") || path.endsWith("/issues/assignees")) body = { items: [],truncated: false,limit: 200 };
     else if (path === "/instance/brand") body = { name: null,hue: null,logoUpdatedAt: null,transparencyDefault: "auto" };
     else if (path === "/me/onboarding") body = { done: [],hints: [],hidden: true };
