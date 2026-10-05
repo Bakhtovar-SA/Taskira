@@ -246,12 +246,15 @@ for (const theme of ["light", "dark"]) {
     expect(await properties.evaluate(el => !!(el.compareDocumentPosition(document.querySelector(".issue-content")!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
     if (browserName === "chromium") {
+      // Check the rendered form after its entrance fade, rather than a transient blended background.
+      await expect(dialog).toHaveCSS("opacity", "1");
       const issueAxe = await new AxeBuilder({ page }).include("dialog").exclude("[aria-disabled=true]").analyze();
       expect(issueAxe.violations).toEqual([]);
     }
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Создать задачу", exact: true }).click();
     if (browserName === "chromium") {
+      await expect(dialog).toHaveCSS("opacity", "1");
       const createAxe = await new AxeBuilder({ page }).include("dialog").exclude("[aria-disabled=true]").analyze();
       expect(createAxe.violations).toEqual([]);
       await page.getByText("Дополнительные поля", { exact: true }).click();
