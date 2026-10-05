@@ -10,6 +10,9 @@ const lookup = (addresses: string[]) => vi.fn(async () => addresses.map(address 
 const resolve = (raw: string, cfg = config(), addresses = ["10.1.2.3"]) => resolveTarget(new URL(raw), cfg, lookup(addresses));
 
 describe("target rules", () => {
+  test.each([["127.1", "127.0.0.1"], ["0x0a000001", "10.0.0.1"], ["167772161", "10.0.0.1"]])("normalizes legacy IPv4 rule %s to CIDR", (raw, address) => {
+    expect(parseTargetRules(raw)).toEqual([{ kind: "cidr", net: address, family: 4, prefix: 32 }]);
+  });
   test("normalizes hosts, suffixes, literals, IDNs and mapped IPv6", () => {
     expect(parseTargetRules(" Hooks.Corp.Local., *.CORP.local, 10.20.30.40, 10.20.0.0/16, fd00::/8, ::ffff:10.20.0.0/112, пример.рф "))
       .toEqual([
@@ -98,6 +101,12 @@ describe("resolved destinations", () => {
   test("operator-denied ranges override hostname and CIDR grants, including mapped addresses", async () => {
     await expect(resolve("https://hooks.corp.local", config("hooks.corp.local,10.0.0.0/8", "10.1.0.0/16"), ["::ffff:10.1.2.3"])).rejects.toMatchObject({ reason: "denied_range" });
     await expect(resolve("https://[fd00::1]", config("fd00::/8", "fd00::/64"))).rejects.toMatchObject({ reason: "denied_range" });
+  });
+  test("replacing an operator policy does not keep a cached grant", async () => {
+    const cfg = config();
+    await resolve("https://hooks.corp.local", cfg);
+    cfg.denyCidrs = parseDenyCidrs("10.0.0.0/8");
+    await expect(resolve("https://hooks.corp.local", cfg)).rejects.toMatchObject({ reason: "denied_range" });
   });
   test("normalizes allowed mapped addresses to IPv4", async () => {
     expect(await resolve("https://hooks.corp.local", config("10.0.0.0/8"), ["::ffff:10.1.2.3"]))

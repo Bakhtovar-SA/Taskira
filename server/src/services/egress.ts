@@ -107,6 +107,19 @@ function blockList(cidrs: readonly CidrRule[]): BlockList {
   for (const cidr of cidrs) list.addSubnet(cidr.net, cidr.prefix, cidr.family === 4 ? "ipv4" : "ipv6");
   return list;
 }
+const configuredLists = new WeakMap<TargetConfig, {
+  targets: TargetConfig["allowedTargets"]; cidrs: TargetConfig["denyCidrs"]; allowed: BlockList; denied: BlockList;
+}>();
+function listsFor(cfg: TargetConfig) {
+  let lists = configuredLists.get(cfg);
+  if (!lists || lists.targets !== cfg.allowedTargets || lists.cidrs !== cfg.denyCidrs) {
+    lists = { targets: cfg.allowedTargets, cidrs: cfg.denyCidrs,
+      allowed: blockList(cfg.allowedTargets.filter((rule): rule is CidrRule => rule.kind === "cidr")),
+      denied: blockList(cfg.denyCidrs.map(cidrOf)) };
+    configuredLists.set(cfg, lists);
+  }
+  return lists;
+}
 const denied = blockList(["0.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "240.0.0.0/4",
   // Переходные формы IPv6 могут маршрутизироваться в IPv4 в обход его запретов.
   "::/96", "fe80::/10", "ff00::/8", "64:ff9b::/96", "64:ff9b:1::/48", "2002::/16", "2001::/32"].map(cidrOf));
@@ -151,8 +164,7 @@ export async function resolveTarget(url: URL, cfg: TargetConfig, lookup: Lookup 
     catch { throw new TargetBlockedError("dns"); }
   }
   if (answers.length === 0) throw new TargetBlockedError("dns");
-  const allowedCidrs = blockList(cfg.allowedTargets.filter((rule): rule is CidrRule => rule.kind === "cidr"));
-  const operatorDenied = blockList(cfg.denyCidrs.map(cidrOf));
+  const { allowed: allowedCidrs, denied: operatorDenied } = listsFor(cfg);
   const normalized = answers.map(answer => {
     const ip = addressOf(answer.address);
     if (!ip || isIP(unbracket(answer.address)) !== answer.family) throw new TargetBlockedError("dns");
