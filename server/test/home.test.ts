@@ -99,6 +99,29 @@ describe("GET /api/issues/assigned-to-me", () => {
     expect(body.limit).toBe(100);
   });
 
+  test("bounded history lookup preserves the top 100, truncation and legacy status payloads", async () => {
+    const emp = await login(app, "emp1");
+    const inserted = await q<{ id: string; key: string }>(
+      `INSERT INTO issues (project_id, num, key, title, type_id, status_id, priority_id, reporter_id, updated_at)
+       SELECT project_id, 1000 + n, 'CORP-' || (1000 + n), 'Window test', type_id, status_id,
+              CASE WHEN n = 110 THEN 'critical' ELSE 'low' END, reporter_id,
+              '2026-10-01'::timestamptz + n * interval '1 second'
+         FROM issues CROSS JOIN generate_series(1, 110) n WHERE id = $1
+       RETURNING id, key`, [fx.issues.p1issue],
+    );
+    await q(`INSERT INTO issue_assignees (issue_id, user_id) SELECT id, $1 FROM issues WHERE num >= 1000`, [fx.users.emp1]);
+    const critical = inserted.find(i => i.key === "CORP-1110")!;
+    await q(`INSERT INTO activity (issue_id, actor_id, text, kind, payload)
+             VALUES ($1, $2, 'Legacy transition', 'status', '{"from":"На ревью","to":"К выполнению"}')`, [critical.id, fx.users.admin]);
+    const body = (await g("/api/issues/assigned-to-me", emp)).json();
+    expect(body).toMatchObject({ truncated: true, limit: 100 });
+    expect(body.items).toHaveLength(100);
+    expect(body.items[0]).toMatchObject({ key: critical.key, returnedForRework: false });
+    expect(body.items[1].key).toBe("CORP-1");
+    expect(body.items[2].key).toBe("CORP-1109");
+    expect(body.items.some((i: { key: string }) => i.key === "CORP-1001")).toBe(false);
+  });
+
   test("сортировка: critical раньше low, затем по updated_at", async () => {
     const adm = await login(app, "admin");
     const emp = await login(app, "emp1");

@@ -2,6 +2,35 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { mockApi } from "./fixtures";
 
+for (const path of ["reports", "dashboards/overview", "dashboards/personal"]) for (const width of [1440, 390]) {
+  test(`sidebar logout remains reachable (${path}, ${width})`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    await mockApi(page);
+    // Supply valid empty widget data for the built-in overview and a personal layout.
+    await page.route("**/api/dashboards", route => route.fulfill({ json: [{ id: "personal", name: "My dashboard", kind: "personal", ownerId: "u1", projectId: null, canEdit: true, widgets: [], updatedAt: "2026-10-01" }] }));
+    await page.route("**/api/dashboards/data", route => {
+      const { widgets } = route.request().postDataJSON();
+      return route.fulfill({ json: { results: Object.fromEntries(widgets.map((w: { id: string; type: string }) => [w.id, { type: w.type, items: [], weeks: [], total: 0, value: 0, truncated: false }])) } });
+    });
+    let loggedOut = false;
+    await page.route("**/api/auth/logout", async route => {
+      loggedOut = route.request().method() === "POST";
+      await route.fulfill({ json: { ok: true } });
+    });
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/${path}`);
+    await expect(page.getByRole("heading", { name: "Отчёты и дашборды", exact: true })).toBeVisible();
+    await expect(page.locator(".project-topbar")).toHaveCount(0);
+    if (width < 768) await page.getByRole("button", { name: "Меню", exact: true }).click();
+    await page.getByRole("button", { name: "Меню пользователя", exact: true }).click();
+    await page.getByRole("button", { name: "Выйти", exact: true }).click();
+    await expect.poll(() => loggedOut).toBe(true);
+    await expect(page.getByRole("button", { name: "Войти", exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
+
 test("read-only project retains its permission guard on a narrow screen", async ({ page }) => {
   await workspace(page, "dark");
   const profile = { id: "u1", username: "viewer", name: "Test Viewer", initials: "TV", color: "", jobRole: "", globalRole: "member", isActive: true, authSource: "local" };

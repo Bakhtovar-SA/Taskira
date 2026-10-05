@@ -62,8 +62,9 @@ async function exerciseDate(page: Page, label: string, clear: string, scope: Pag
   nextDate.setUTCDate(nextDate.getUTCDate() + 1);
   const next = page.locator(`[role="gridcell"][data-iso="${nextDate.toISOString().slice(0, 10)}"]`);
   await current.focus();
+  await expect(current).toBeFocused();
   await page.keyboard.press("ArrowRight");
-  // DatePicker moves focus on the next animation frame; Enter must select that day.
+  // Check the requested day rather than allowing Enter to select the previous one.
   await expect(next).toBeFocused();
   await expect(next).not.toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Enter");

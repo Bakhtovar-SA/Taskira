@@ -209,8 +209,7 @@ function Shell() {
       }
       if (e.key === "/" || e.code === "Slash") {
         const filter = document.querySelector<HTMLInputElement>("main .workspace-search input");
-        if (filter) { e.preventDefault(); filter.focus(); }
-        return;
+        if (filter) { e.preventDefault(); filter.focus(); return; }
       }
       if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") {
         e.preventDefault();
@@ -289,8 +288,6 @@ function Shell() {
 
   // Приглашённый без единого видимого проекта — одиночный режим (COLLAB_MIGRATION.md Фаза 6).
   if (bootStatus === "solo") return <Suspense fallback={<BootSkeleton />}><SoloView onLogout={logout} /></Suspense>;
-
-  // ≥ 2 доступных проектов, до выбора проекта — главный экран (UI_RESTRUCTURE.md D4).
 
   return (
     <div className="flex h-full overflow-hidden">

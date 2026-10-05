@@ -107,6 +107,9 @@ describe("homeGroup", () => {
   test("rework belongs to an employee; urgent tasks appear once", () => {
     expect(homeGroup(issue({ statusSid: "rework", projectRole: "employee" }), false)).toBe("rework");
     expect(homeGroup(issue({ statusSid: "rework", projectRole: "manager" }), false)).toBe("other");
+    expect(homeGroup(issue({ statusSid: "inprogress", returnedForRework: true, projectRole: "employee" }), false)).toBe("rework");
+    expect(homeGroup(issue({ statusSid: "inprogress", returnedForRework: false, projectRole: "employee" }), false)).toBe("other");
+    expect(homeGroup(issue({ statusSid: "inprogress", returnedForRework: true, projectRole: "employee" }), true)).toBe("other");
     expect(homeGroup(issue({ statusSid: "review", projectRole: "manager", dueDate: "2026-10-01" }), false, "2026-10-04")).toBe("overdue");
   });
 });
