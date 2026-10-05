@@ -194,7 +194,7 @@ export async function redeliverWebhook(projectId: string,id: string,deliveryId: 
     if (!row) throw new ApiHttpError(404,"NOT_FOUND","Доставка вебхука не найдена");
     return { hook, deliveryId: row.id };
   });
-  await audit(actor,"webhook.redeliver","webhook",result.hook.id,auditDetails(result.hook)); return { deliveryId: result.deliveryId };
+  await audit(actor,"webhook.redeliver","webhook",result.hook.id,{ ...auditDetails(result.hook),mode: "single",sourceDeliveryId: deliveryId,deliveryId: result.deliveryId }); return { deliveryId: result.deliveryId };
 }
 export async function redeliverFailedWebhooks(projectId: string,id: string,since: string | undefined,actor: string): Promise<WebhookRedeliveredDto> {
   enabledKey();
@@ -208,10 +208,17 @@ export async function redeliverFailedWebhooks(projectId: string,id: string,since
   }
   const result = await lockedHook(projectId,id,async (client,hook) => {
     requireActive(hook);
+    // lockedHook serializes both retry endpoints. Group original and failed manual attempts
+    // by event, and keep a repeated batch from duplicating queued or completed retries.
     const rows = await client.query(`INSERT INTO webhook_deliveries(webhook_id,event_id,manual)
-      SELECT webhook_id,event_id,true FROM webhook_deliveries WHERE webhook_id=$1 AND state IN ('failed','cancelled')
-        AND created_at>=COALESCE($2::timestamptz,now()-interval '24 hours') ORDER BY created_at DESC,id DESC LIMIT 1000`,[hook.id,timestamp]);
+      SELECT d.webhook_id,d.event_id,true FROM webhook_deliveries d
+      WHERE d.webhook_id=$1 AND d.state IN ('failed','cancelled')
+        AND d.created_at>=COALESCE($2::timestamptz,now()-interval '24 hours')
+        AND NOT EXISTS (SELECT 1 FROM webhook_deliveries retried
+          WHERE retried.webhook_id=d.webhook_id AND retried.event_id=d.event_id AND retried.manual
+            AND retried.state IN ('pending','sending','succeeded'))
+      GROUP BY d.webhook_id,d.event_id ORDER BY max(d.created_at) DESC,d.event_id DESC LIMIT 1000`,[hook.id,timestamp]);
     return { hook, count: rows.rowCount ?? 0 };
   });
-  await audit(actor,"webhook.redeliver","webhook",result.hook.id,auditDetails(result.hook)); return { count: result.count };
+  await audit(actor,"webhook.redeliver","webhook",result.hook.id,{ ...auditDetails(result.hook),mode: "bulk",count: result.count,since: timestamp ?? "last24h" }); return { count: result.count };
 }

@@ -942,7 +942,7 @@ API подписок доступен только глобальному адм
 | `GET …/webhooks/:id/deliveries` | `?state=&cursor=&limit=` → `{ items, nextCursor }`, limit 1–100, по умолчанию 50 |
 | `GET …/webhooks/:id/deliveries/:deliveryId` | метаданные, `payload`, заголовки без подписи, `responseExcerpt` |
 | `POST …/webhooks/:id/deliveries/:deliveryId/redeliver` | 202 `{ deliveryId }`, новая ручная доставка того же события |
-| `POST …/webhooks/:id/redeliver-failed` | `{ since?: ISO }` → 202 `{ count }`, до 1000 failed/cancelled; без `since` — последние 24 ч по часам БД, явно заданный срок не раньше 7 суток |
+| `POST …/webhooks/:id/redeliver-failed` | `{ since?: ISO }` → 202 `{ count }`, до 1000 разных событий с failed/cancelled; без `since` — последние 24 ч по часам БД, явно заданный срок не раньше 7 суток. Пропускает события с ручной pending/sending/succeeded доставкой, повторный/параллельный запрос не дублирует очередь |
 
 События: `issue.created`, `issue.updated`, `issue.statusChanged`, `issue.assigned`, `issue.commented`, `issue.due`.
 Название — до 80 символов, URL — до 2048; до 10 подписок проекта и 100 на инсталляцию, включая paused/disabled.

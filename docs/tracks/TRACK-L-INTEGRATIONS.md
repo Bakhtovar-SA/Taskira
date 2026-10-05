@@ -321,7 +321,7 @@ CREATE INDEX idx_ops_runs_kind ON ops_runs (kind, started_at DESC);
 | `GET …/webhooks/:id/deliveries` | `?state=&cursor=&limit≤100` | `{ items: WebhookDeliveryDto[], nextCursor }` | 404 |
 | `GET …/webhooks/:id/deliveries/:deliveryId` | — | `WebhookDeliveryDetailDto` (тело запроса, заголовки без подписи, выдержка ответа) | 404 |
 | `POST …/webhooks/:id/deliveries/:deliveryId/redeliver` | — | 202 `{ deliveryId }` | `WEBHOOK_NOT_ACTIVE` 409 |
-| `POST …/webhooks/:id/redeliver-failed` | `{ since?: ISO }` (не раньше 7 суток; без поля — 24 ч по часам БД) | 202 `{ count }` (≤ 1000) | `WEBHOOK_NOT_ACTIVE` 409 |
+| `POST …/webhooks/:id/redeliver-failed` | `{ since?: ISO }` (не раньше 7 суток; без поля — 24 ч по часам БД) | 202 `{ count }` (≤ 1000 разных событий; ручные pending/sending/succeeded пропускаются) | `WEBHOOK_NOT_ACTIVE` 409 |
 
 ```ts
 WebhookDto = { id, projectId, name, urlDisplay, events: WebhookEventType[], state: "active"|"paused"|"disabled",
