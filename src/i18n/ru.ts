@@ -1281,6 +1281,7 @@ const ru = {
   "apiError.WEBHOOK_NOT_ACTIVE": "Подписка вебхука должна быть активной",
   "apiError.TOKEN_NOT_ALLOWED": "Для этого действия требуется сессия пользователя",
   "apiError.TOKEN_SCOPE": "Токен разрешает только чтение",
+  "apiError.TOKEN_LIMIT": "Достигнут лимит активных токенов",
   "apiError.PLAN_REQUIRED": "Функция недоступна по текущей лицензии",
   "apiError.DEPENDENCY_CYCLE": "Такая зависимость образует цикл",
   "apiError.ATTACHMENT_TOO_LARGE": "Файл слишком большой",

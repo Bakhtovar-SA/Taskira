@@ -80,6 +80,7 @@ export const LIMITS = {
   widgetsPerDashboard: 24,
   dashboardsPerUser: 20,
   webhook: { name: 80, url: 2048, perProject: 10, total: 100 },
+  apiToken: { name: 80, perUser: 10, perService: 5, maxDays: 365 },
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -1527,5 +1528,40 @@ export type WebhookDeliveryDto = z.infer<typeof WebhookDeliveryDto>;
 export const WebhookDeliveryDetailDto = WebhookDeliveryDto.extend({ payload: z.record(z.string(), z.unknown()).nullable(),
   headers: z.record(z.string(), z.string()), responseExcerpt: z.string().nullable() });
 export type WebhookDeliveryDetailDto = z.infer<typeof WebhookDeliveryDetailDto>;
+
+/* ---------------- API-токены и сервисные записи (INT-07, ADR-0029) ---------------- */
+export const ApiTokenCreateBody = z.object({
+  name: requiredLine(LIMITS.apiToken.name, "Название не может быть пустым"),
+  scope: z.enum(["read", "write"]),
+  expiresInDays: z.number().int().min(1).max(LIMITS.apiToken.maxDays).default(90),
+}).strict();
+export const ApiTokenParams = z.object({ id: uuid });
+export const ServiceAccountParams = z.object({ id: uuid });
+export const ServiceAccountTokenParams = ServiceAccountParams.extend({ tokenId: uuid });
+export const ApiTokenAdminQuery = z.object({ userId: uuid.optional(), active: z.literal("1").optional() }).strict();
+export const ApiTokenDto = z.object({
+  id: z.string(), name: z.string(), prefix: z.string(), scope: z.enum(["read", "write"]),
+  createdAt: z.string(), expiresAt: z.string(), lastUsedAt: z.string().nullable(), revokedAt: z.string().nullable(),
+});
+export type ApiTokenDto = z.infer<typeof ApiTokenDto>;
+export const ApiTokenCreatedDto = z.object({ token: ApiTokenDto, secret: z.string() });
+export type ApiTokenCreatedDto = z.infer<typeof ApiTokenCreatedDto>;
+export const ApiTokenAdminDto = ApiTokenDto.extend({ owner: z.object({
+  id: z.string(), username: z.string(), name: z.string(), authSource: z.enum(["local", "ldap", "service"]),
+}) });
+export type ApiTokenAdminDto = z.infer<typeof ApiTokenAdminDto>;
+export const ServiceAccountCreateBody = z.object({
+  username: z.string().min(LIMITS.username.min).max(LIMITS.username.max)
+    .regex(/^[a-z0-9._-]+$/i, "Латиница, цифры, точки и дефисы"),
+  name: requiredLine(80, "Имя не может быть пустым"),
+}).strict();
+export const ServiceAccountPatchBody = z.object({
+  name: requiredLine(80, "Имя не может быть пустым").optional(), isActive: z.boolean().optional(),
+}).strict().refine(value => Object.keys(value).length > 0, "Пустой патч");
+export const ServiceAccountDto = z.object({
+  id: z.string(), username: z.string(), name: z.string(), isActive: z.boolean(), createdAt: z.string(),
+  projects: z.array(z.object({ projectId: z.string(), role: z.enum(PROJECT_ROLES) })), activeTokens: z.number(),
+});
+export type ServiceAccountDto = z.infer<typeof ServiceAccountDto>;
 export const IntegrationsConfigDto = z.object({ webhooksEnabled: z.boolean(), allowHttp: z.boolean(), allowedTargets: z.array(z.string()) });
 export type IntegrationsConfigDto = z.infer<typeof IntegrationsConfigDto>;
