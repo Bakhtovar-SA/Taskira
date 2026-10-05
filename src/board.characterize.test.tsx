@@ -32,7 +32,7 @@ import "./ds/Overlay";
  *     карточек;
  *  3. серверные фильтры доски (чипы «Мои»/«Просрочено», поиск с debounce) —
  *     параметры запроса, а не фильтрация загруженного;
- *  4. карточка показывает ключ/заголовок/исполнителя/метки и открывает задачу
+ *  4. карточка показывает заголовок/ключ/исполнителя без меток и открывает задачу
  *     по клику (ui.selectedIssueId стора);
  *  5. просроченная открытая задача помечена доступным сигналом (title на
  *     пилюле срока), не только цветом;
@@ -353,7 +353,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
   test("4c. текст поиска уходит в q после задержки (debounce), не на каждый ввод", async () => {
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
-    const input = screen.getByPlaceholderText("Фильтр по доске");
+    const input = screen.getByPlaceholderText("Фильтр задач");
     fireEvent.change(input, { target: { value: "billing" } });
     // сразу после ввода — ещё ничего не ушло с текстом (debounce не истёк)
     await settle();
@@ -363,7 +363,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
-  test("5. карточка показывает ключ, заголовок, исполнителя и метки; клик по карточке открывает задачу", async () => {
+  test("5. карточка показывает название, ключ и исполнителя, скрывает метки; клик по карточке открывает задачу", async () => {
     const h = await setup({
       pageImpl: async (_p, params) =>
         params.status === "s1"
@@ -376,7 +376,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     });
     const card = screen.getByRole("article", { name: /A21-k1: Починить биллинг/ });
     expect(within(card).getByText("Починить биллинг")).toBeTruthy();
-    expect(within(card).getByText("billing")).toBeTruthy();
+    expect(within(card).queryByText("billing")).toBeNull();
     // исполнитель — доступное имя через title на аватаре (initials видимый текст "БП")
     expect(within(card).getByTitle("Борис Петров")).toBeTruthy();
     expect(within(card).getByText("БП")).toBeTruthy();

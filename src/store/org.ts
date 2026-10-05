@@ -1,6 +1,7 @@
 /* Участники проекта, департаменты, проекты и LDAP-ресинк (админские действия): действия стора. Вынесено из
  * store.tsx без изменений поведения (ТЗ 2.3, шаг 3). `bootstrap` нужен deleteProject — приходит из провайдера. */
 import { useCallback } from "react";
+import { markHomeStep } from "../homeSteps";
 import type { ProjectRole } from "../types";
 import { ldapApi, departmentsApi, membersApi, projectsApi, type CreateProjectInput, type ProjectLookInput, type ProjectPatchInput } from "../api";
 import { mapUser, readLastProject, writeLastProject } from "./mappers";
@@ -15,7 +16,10 @@ export function useOrgActions(
       if (!requirePerm("manageAccess")) return;
       void (async () => {
         try {
+          const added = !dataRef.current.members[userId];
+          const actor = dataRef.current.currentUserId;
           const res = await membersApi.set(pid(), userId, role);
+          if (added && userId !== actor) markHomeStep(actor, "invite");
           setData((prev) => ({ ...prev, members: { ...prev.members, [res.userId]: res.role } }));
           toast("success", local("Роль участника обновлена", "Member role updated"));
         } catch (err) {
@@ -69,7 +73,10 @@ export function useOrgActions(
     async (projectId: string, userId: string, role: ProjectRole): Promise<void> => {
       if (!requirePerm("manageAccess")) return;
       try {
+        const added = projectId === dataRef.current.currentProjectId && !dataRef.current.members[userId];
+        const actor = dataRef.current.currentUserId;
         await membersApi.set(projectId, userId, role);
+        if (added && userId !== actor) markHomeStep(actor, "invite");
         if (projectId === dataRef.current.currentProjectId) await syncCurrentMembers(projectId);
         toast("success", local("Роль участника обновлена", "Member role updated"));
       } catch (err) {

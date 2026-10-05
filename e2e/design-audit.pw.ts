@@ -1,6 +1,72 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { mockApi } from "./fixtures";
+import { shellFixture } from "./shell-fixture";
+import { reportsFixture } from "./reports-fixture";
+
+test("reports refresh: organization header and accessible charts", async ({ page }) => {
+  await reportsFixture(page); await page.goto("/reports");
+  await expect(page.locator(".reports-metric")).toHaveCount(5);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Отчёты и дашборды");
+  const axe = await new AxeBuilder({ page }).include(".reports-view").analyze();
+  expect(axe.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
+});
+
+test("shell refresh: navigation, favorites, shortcuts and profile", async ({ page }) => {
+  const writes = await shellFixture(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/p/CORP/board");
+  const header = page.locator(".project-topbar"), sidebar = page.locator("aside");
+  await expect(header).toBeVisible();
+  expect((await header.boundingBox())!.height).toBe(52);
+  expect((await sidebar.boundingBox())!.width).toBe(256);
+  await expect(header.locator("input")).toHaveCount(0);
+  await expect(header.getByRole("button", { name: "Меню пользователя" })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("heading", { name: "Доска", exact: true })).toHaveCount(0);
+  const favorite = header.getByRole("button", { name: "Убрать из избранного" });
+  await favorite.click();
+  await expect(header.getByRole("button", { name: "Добавить в избранное" })).toHaveAttribute("aria-pressed", "false");
+  await expect.poll(() => writes).toEqual(["DELETE"]);
+  await expect(sidebar.getByText("Избранное", { exact: true })).toHaveCount(0);
+  await expect(sidebar.getByText("Открытых задач", { exact: true })).toHaveCount(0);
+  await page.keyboard.press("/");
+  await expect(page.locator("main .workspace-search input")).toBeFocused();
+  await page.keyboard.press("Control+k");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await header.getByRole("link", { name: "Список", exact: true }).click();
+  await expect(page).toHaveURL(/\/list$/);
+  await expect(header.getByRole("link", { name: "Список", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("main").getByRole("heading", { name: "Список задач", exact: true })).toHaveCount(0);
+  await sidebar.getByRole("button", { name: "Меню пользователя" }).click();
+  await expect(page.getByRole("button", { name: "Выйти", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await sidebar.getByRole("button", { name: "Настройки", exact: true }).click();
+  await expect(sidebar.getByRole("button", { name: "Личные", exact: true })).toBeVisible();
+  await page.keyboard.press("[");
+  await sidebar.getByRole("button", { name: "Меню пользователя" }).click();
+  await expect(page.getByRole("button", { name: "Выйти", exact: true })).toBeVisible();
+});
+
+test("shell refresh: mobile tabs stay in the header and drawer actions remain reachable", async ({ page }) => {
+  await shellFixture(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/p/CORP/board");
+  const header = page.locator(".project-topbar");
+  await expect(header).toBeVisible();
+  expect((await header.boundingBox())!.height).toBe(52);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  const calendar = header.getByRole("link", { name: "Календарь", exact: true });
+  await calendar.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/calendar$/);
+  await header.getByRole("button", { name: "Меню", exact: true }).click();
+  const sidebar = page.locator("aside");
+  await expect(sidebar.getByRole("button", { name: "Поиск и команды", exact: true })).toBeVisible();
+  expect((await sidebar.getByRole("button", { name: "Новая задача", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await sidebar.getByRole("button", { name: "Меню пользователя" }).click();
+  await expect(page.getByRole("button", { name: "Выйти", exact: true })).toBeVisible();
+});
 
 const users = [
   { id: "u1", username: "admin", name: "Анна Смирнова", initials: "АС", color: "", jobRole: "", globalRole: "admin", isActive: true, authSource: "local" },
@@ -56,7 +122,6 @@ test("composed task screens work without CSP violations", async ({ page }) => {
   const response = await page.goto("/p/TEST/list");
   if (process.env.AUDIT_PRODUCTION === "1") expect(response?.headers()["content-security-policy"]).toContain("style-src-attr 'none'");
   await page.getByRole("link", { name: issues[0].title }).click();
-  await page.getByText("Дополнительные свойства", { exact: true }).click();
   await expect(page.getByRole("dialog").getByLabel("Метки", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Создать задачу", exact: true }).click();
@@ -173,7 +238,7 @@ for (const theme of ["light", "dark"]) {
     await expect.poll(() => dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
     const properties = page.locator(".issue-properties");
     await expect(properties).toBeVisible();
-    const activity = page.getByRole("group", { name: "Лента задачи" });
+    const activity = page.getByRole("tablist", { name: "Лента задачи" });
     expect((await properties.boundingBox())!.y).toBeLessThan((await activity.boundingBox())!.y);
     expect((await properties.boundingBox())!.y).toBeLessThan(300);
     expect(await properties.evaluate(el => !!(el.compareDocumentPosition(document.querySelector(".issue-content")!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
@@ -181,8 +246,6 @@ for (const theme of ["light", "dark"]) {
     if (browserName === "chromium") {
       const issueAxe = await new AxeBuilder({ page }).include("dialog").exclude("[aria-disabled=true]").analyze();
       expect(issueAxe.violations).toEqual([]);
-      await page.getByText("Дополнительные свойства", { exact: true }).click();
-      expect((await new AxeBuilder({ page }).include("dialog").exclude("[aria-disabled=true]").analyze()).violations).toEqual([]);
     }
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Создать задачу", exact: true }).click();

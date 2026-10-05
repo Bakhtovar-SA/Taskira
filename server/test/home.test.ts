@@ -32,6 +32,23 @@ const doneStatus = async (projectId: string) =>
   (await q<{ id: string }>(`SELECT id FROM workflow_statuses WHERE project_id = $1 AND category = 'done'`, [projectId]))[0].id;
 
 describe("GET /api/issues/assigned-to-me", () => {
+  test("stable status identity and project role survive a renamed review; returning from review is explicit", async () => {
+    const adm = await login(app, "admin");
+    const emp = await login(app, "emp1");
+    const statuses = await q<{ id: string; sid: string }>("SELECT id, sid FROM workflow_statuses WHERE project_id = $1", [fx.projects.p1]);
+    const review = statuses.find(s => s.sid === "review")!;
+    const work = statuses.find(s => s.sid === "inprogress")!;
+    expect((await post(`/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/transition`, adm, { to: work.id })).statusCode).toBe(200);
+    await q("UPDATE workflow_statuses SET name = 'Проверить результат' WHERE id = $1", [review.id]);
+    expect((await post(`/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/transition`, adm, { to: review.id })).statusCode).toBe(200);
+    const reviewed = (await g("/api/issues/assigned-to-me", emp)).json().items[0];
+    expect(reviewed).toMatchObject({ statusSid: "review", statusName: "Проверить результат", projectRole: "employee", returnedForRework: false });
+    expect((await post(`/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/transition`, adm, { to: work.id })).statusCode).toBe(200);
+    expect((await g("/api/issues/assigned-to-me", emp)).json().items[0]).toMatchObject({ statusSid: "inprogress", returnedForRework: true });
+    const todo = statuses.find(s => s.sid === "todo")!;
+    expect((await post(`/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/transition`, adm, { to: todo.id })).statusCode).toBe(200);
+    expect((await g("/api/issues/assigned-to-me", emp)).json().items[0].returnedForRework).toBe(false);
+  });
   test("emp1 видит свою открытую задачу в P1, но не чужую задачу P2", async () => {
     const emp = await login(app, "emp1");
     // fixture: CORP-1 назначена emp1 (todo); SEC-1 назначена mgr2.

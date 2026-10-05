@@ -57,19 +57,6 @@ export const applyNotificationAction = <T extends NotificationsState>(prev: T, i
 
 export type BootStatus = "idle" | "loading" | "ready" | "unauthenticated" | "error" | "solo" | "home";
 
-/** Одноразовое пояснение к главному экрану — показывается, когда пользователь
- *  впервые видит `<HomeView>` (стало ≥ 2 проектов). Флаг только в localStorage
- *  (UI_RESTRUCTURE.md D4-transition), на сервере не хранится. */
-export const HOME_INTRO_KEY = "taskira.homeIntro";
-export const takeHomeIntro = (): boolean => {
-  try {
-    if (localStorage.getItem(HOME_INTRO_KEY)) return false;
-    localStorage.setItem(HOME_INTRO_KEY, "1");
-    return true;
-  } catch {
-    return false;
-  }
-};
 
 /** Режим одиночного просмотра: пользователь без единого видимого проекта, но
  *  приглашённый к каким-то задачам (issue collaborators). Урезанная оболочка —

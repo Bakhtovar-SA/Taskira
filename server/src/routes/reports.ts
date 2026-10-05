@@ -70,6 +70,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       const projectIds = await resolveReportScope(user.sub, user.globalRole === "admin", {
         projectId: f.projectId,
         departmentId: f.departmentId,
+        projectIds: f.projectIds,
       });
       const report = await buildReport(projectIds, f.from, f.to, f.groupBy);
       return {
@@ -91,6 +92,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       const projectIds = await resolveReportScope(user.sub, user.globalRole === "admin", {
         projectId: f.projectId,
         departmentId: f.departmentId,
+        projectIds: f.projectIds,
       });
       const rows = await exportRows(projectIds, f.from, f.to, f.scope, f.limit);
 

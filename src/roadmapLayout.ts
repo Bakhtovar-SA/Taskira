@@ -57,11 +57,11 @@ export function roadmapRange(projects: RoadmapProjectDto[], today: Date): { orig
 }
 
 /** Высоты строк — одна константа для разметки и для линий зависимостей (SVG рисуется по тем же числам). */
-export const ROW_H = 84;
-export const GROUP_H = 36;
-/** Центр полосы от верха строки: полоса на 40 px, высота 22. */
-export const BAR_TOP = 40;
-export const BAR_H = 22;
+export const ROW_H = 56;
+export const GROUP_H = 40;
+/** Геометрия полосы совпадает с CSS роадмапа. */
+export const BAR_TOP = 15;
+export const BAR_H = 26;
 
 export interface Group<T> {
   id: string;
@@ -87,7 +87,7 @@ export function rowPositions<T extends { id: string }>(groups: Group<T>[]): { y:
 export function isLate(dep: RoadmapDto["dependencies"][number], spans: Map<string, BarSpan | null>): boolean {
   const s = spans.get(dep.sourceId);
   const d = spans.get(dep.dependentId);
-  return !!s && !!d && daysBetween(d.from, s.to) >= 0;
+  return !!s && !!d && daysBetween(d.from, s.to) > 0;
 }
 
 export type LayoutItem<T> = { kind: "group"; group: Group<T>; y: number } | { kind: "row"; item: T; y: number };

@@ -29,12 +29,13 @@ export interface ReportScope {
 export async function resolveReportScope(
   userId: string,
   isGlobalAdmin: boolean,
-  filter: { projectId?: string; departmentId?: string },
+  filter: { projectId?: string; departmentId?: string; projectIds?: string[] },
 ): Promise<string[]> {
   const visible = await listVisibleProjects(userId, isGlobalAdmin);
   let list = visible;
   if (filter.departmentId) list = list.filter((p) => p.departmentId === filter.departmentId);
   if (filter.projectId) list = list.filter((p) => p.id === filter.projectId);
+  if (filter.projectIds) list = list.filter(p => filter.projectIds!.includes(p.id));
   return list.map((p) => p.id);
 }
 
@@ -121,6 +122,7 @@ export async function buildReport(
             count(*) FILTER (WHERE i.done_at >= $2 AND i.done_at < $3::timestamptz + interval '1 day')       AS closed,
             count(*) FILTER (WHERE i.created_at >= $2 AND i.created_at < $3::timestamptz + interval '1 day') AS created,
             count(*) FILTER (WHERE ws.category <> 'done')                                                    AS open,
+            count(*) FILTER (WHERE ws.category <> 'done' AND i.due_date < CURRENT_DATE) AS overdue,
             avg(EXTRACT(EPOCH FROM (i.done_at - i.created_at)) / 86400)
               FILTER (WHERE i.done_at >= $2 AND i.done_at < $3::timestamptz + interval '1 day')               AS avg_lead
        FROM issues i
@@ -129,18 +131,25 @@ export async function buildReport(
       WHERE i.project_id = ANY($1)
       GROUP BY ${g.key}, ${g.label}
       HAVING count(*) FILTER (WHERE i.done_at >= $2 AND i.done_at < $3::timestamptz + interval '1 day') > 0
+          OR count(*) FILTER (WHERE i.created_at >= $2 AND i.created_at < $3::timestamptz + interval '1 day') > 0
           OR count(*) FILTER (WHERE ws.category <> 'done') > 0
       ORDER BY closed DESC, label ASC`,
     p,
   );
 
   const trend = await q<Record<string, unknown>>(
-    `SELECT to_char(date_trunc('week', i.done_at), 'YYYY-MM-DD') AS week, count(*) AS closed
-       FROM issues i
-      WHERE i.project_id = ANY($1)
-        AND i.done_at >= $2 AND i.done_at < $3::timestamptz + interval '1 day'
-      GROUP BY 1
-      ORDER BY 1`,
+    `WITH events AS (
+       SELECT created_at AS at, 1 AS created, 0 AS closed FROM issues
+        WHERE project_id = ANY($1) AND created_at >= $2 AND created_at < $3::timestamptz + interval '1 day'
+       UNION ALL
+       SELECT done_at AS at, 0 AS created, 1 AS closed FROM issues
+        WHERE project_id = ANY($1) AND done_at >= $2 AND done_at < $3::timestamptz + interval '1 day'
+     ), weeks AS (
+       SELECT generate_series(date_trunc('week', $2::timestamptz), date_trunc('week', $3::timestamptz), interval '1 week') AS week
+     )
+     SELECT to_char(w.week, 'YYYY-MM-DD') AS week, COALESCE(sum(e.created), 0) AS created, COALESCE(sum(e.closed), 0) AS closed
+       FROM weeks w LEFT JOIN events e ON date_trunc('week', e.at) = w.week
+      GROUP BY w.week ORDER BY w.week`,
     p,
   );
 
@@ -155,9 +164,10 @@ export async function buildReport(
       closed: num(r.closed),
       created: num(r.created),
       open: num(r.open),
+      overdue: num(r.overdue),
       avgLeadDays: round1(numOrNull(r.avg_lead)),
     })),
-    trend: trend.map((t) => ({ week: String(t.week), closed: num(t.closed) })),
+    trend: trend.map((t) => ({ week: String(t.week), closed: num(t.closed), created: num(t.created) })),
   };
 }
 

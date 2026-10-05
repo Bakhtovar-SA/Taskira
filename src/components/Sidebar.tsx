@@ -1,11 +1,9 @@
 import { Kbd } from "../ds/Display";
 import { Button, IconButton } from "../ds/Button";
-import { PersonAvatar } from "./settings/parts";
+import { UserMenu } from "./UserMenu";
 import { useStore, useUnreadCount } from "../store";
 import { GettingStarted } from "./GettingStarted";
 import { Tag } from "../ds/Display";
-import { NO_ISSUE_FILTERS, useIssueCounts, useIssuesRevision } from "../issuePages";
-import { openTotal } from "../boardFilters";
 import type { ProjectSummary, ViewId } from "../types";
 import {
   IcBacklog,
@@ -26,6 +24,7 @@ import {
   IcDashboard,
   IcSearch,
   IcSettings,
+  IcStar,
   IcTimeline,
   IcCalendar,
   IcUsers,
@@ -36,7 +35,7 @@ import { useBrandName } from "../brand";
 import { ProjectMark } from "../ui";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useT, type TKey } from "../i18n";
-import { openPalette, openProjectWizard, paletteShortcut } from "../palette/events";
+import { openPalette, openProjectWizard, paletteShortcut, openHomeCreate } from "../palette/events";
 import { useOpenSettings } from "../settings/useOpenSettings";
 
 const RailTooltip = lazy(() => import("../ds/Overlay").then((m) => ({ default: m.Tooltip })));
@@ -126,11 +125,10 @@ const readOpen = (): Record<string, boolean> => {
 };
 
 // Классы пунктов — общие для всех уровней дерева.
-const navItem = "tk-nav group relative flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13.5px] font-medium transition-colors duration-150";
-const navOn =
-  "tk-nav-active bg-[linear-gradient(180deg,color-mix(in_oklch,var(--bg-panel)_92%,transparent),color-mix(in_oklch,var(--bg-panel)_70%,transparent))] font-semibold text-ink shadow-[0_1px_2px_oklch(0.2_0.05_288/0.08),0_0_0_1px_var(--border-subtle),var(--highlight-top)] before:absolute before:-left-2 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-accent before:shadow-[0_0_10px_var(--accent-glow)]";
+const navItem = "tk-nav group relative flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] font-medium transition-colors duration-150";
+const navOn = "tk-nav-active bg-[var(--sidebar-item-active)] font-semibold text-accenttext";
 const navOff = "text-ink/90 hover:bg-hover/70 hover:text-ink";
-const sectionLabel = "flex w-full items-center gap-1 px-2.5 pb-1 pt-3 text-[11.5px] font-semibold tracking-[0.01em] text-faint";
+const sectionLabel = "flex w-full items-center gap-1 px-2.5 pb-1 pt-3 text-[12px] font-semibold tracking-[0.01em] text-faint";
 /** Ветка дерева: отступ + направляющая линия слева — вложенность видна без подписей (ADR-0013 §1). */
 const branch = "relative ml-[17px] flex flex-col gap-px border-l border-linesoft pl-2";
 
@@ -144,16 +142,16 @@ function Chevron({ open }: { open: boolean }) {
 
 export default function Sidebar() {
   const { t } = useT();
-  const { data, ui, setView, me, goHome, switchProject, setCreateOpen, can } = useStore();
+  const { data, ui: storedUi, setView: storeSetView, me, goHome, switchProject, enterProject, bootStatus, setCreateOpen, can, logout, refreshAssignedToMe } = useStore();
+  const home = bootStatus === "home";
+  const ui = home ? { ...storedUi, view: undefined } : storedUi;
+  const setView: typeof storeSetView = (view, section) => {
+    storeSetView(view, section);
+    if (home) enterProject(data.currentProjectId || data.projects[0]?.id);
+  };
   const openSettings = useOpenSettings();
-  const doneIds = new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id));
-  // «Открытых задач» и полоса прогресса — агрегат по всему проекту: одним
-  // запросом счётчиков, а не обходом всех задач на клиенте (PERF-06).
-  const { counts } = useIssueCounts(data.currentProjectId || null, NO_ISSUE_FILTERS, useIssuesRevision());
-  const openCount = openTotal(counts, doneIds);
-  const totalCount = counts?.total ?? 0;
   const homeAvailable = data.projects.length > 0;
-  const closedPct = openCount === null ? 0 : Math.round((1 - openCount / Math.max(1, totalCount)) * 100);
+  useEffect(() => { void refreshAssignedToMe(); }, [refreshAssignedToMe, data.currentProjectId]);
 
   // Раскрытые узлы дерева (секции, отделы, проекты) — удобство, помним локально.
   const [open, setOpen] = useState<Record<string, boolean>>(readOpen);
@@ -192,7 +190,7 @@ export default function Sidebar() {
     window.addEventListener(SIDEBAR_DRAWER_EVT, on);
     return () => window.removeEventListener(SIDEBAR_DRAWER_EVT, on);
   }, []);
-  useEffect(() => setDrawer(false), [ui.view, data.currentProjectId, wide]);
+  useEffect(() => setDrawer(false), [ui.view, data.currentProjectId, wide, home]);
   const asideRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (drawer) asideRef.current?.querySelector<HTMLElement>("button")?.focus();
@@ -230,7 +228,6 @@ export default function Sidebar() {
   const deptGroups = [...byDept.entries()]
     .map(([id, ps]) => ({ id, name: deptName(id), projects: [...ps].sort((a, b) => a.name.localeCompare(b.name)) }))
     .sort((a, b) => a.name.localeCompare(b.name));
-  const favorites = data.projects.filter((p) => data.favoriteProjectIds.includes(p.id));
 
   const inSettings = SETTINGS_VIEWS.some((s) => s.id === ui.view);
   const settingsItems = SETTINGS_VIEWS.filter((s) => !s.adminOnly || me.globalRole === "admin");
@@ -239,14 +236,14 @@ export default function Sidebar() {
    *  то же представление в новом проекте; иначе — Доска. switchProject сохраняет ui.view. */
   const openProject = (p: ProjectSummary) => {
     const keep = PROJECT_VIEWS.some((v) => v.id === ui.view) && (ui.view !== "sprints" || p.sprintsEnabled);
-    if (!keep) setView(p.defaultView ?? "board");
+    if (!keep || home) storeSetView(p.defaultView ?? "board");
     switchProject(p.id);
   };
 
   // Проект в дереве — одна строка: представления (Доска, Список, Таймлайн, Спринты) живут
   // вкладками в шапке проекта, не в панели (уточнение владельца к ADR-0013).
   const projectNode = (p: ProjectSummary) => {
-    const cur = p.id === data.currentProjectId;
+    const cur = !home && p.id === data.currentProjectId;
     const active = cur && PROJECT_VIEWS.some((v) => v.id === ui.view);
     return (
       <Button variant="ghost" size="sm"
@@ -258,15 +255,16 @@ export default function Sidebar() {
       >
         <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />
         <span className="flex-1 truncate">{p.name}</span>
+        {data.favoriteProjectIds.includes(p.id) && <span className="flex shrink-0 text-[var(--amber-solid)]"><IcStar size={12} filled /></span>}
         {p.isDemo && <Tag tone="amber" size="sm">{t("setup.demoTag")}</Tag>}
         {cur && !active && <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />}
       </Button>
     );
   };
 
-  const shell = `glass-side glass-edge flex shrink-0 flex-col overflow-hidden rounded-xl text-ink shadow-[0_1px_2px_oklch(0.2_0.05_288/0.06),0_12px_40px_-16px_oklch(0.2_0.08_288/0.3)]
+  const shell = `glass-side glass-edge flex shrink-0 flex-col overflow-hidden rounded-[16px] text-ink shadow-[0_1px_2px_oklch(0.2_0.05_288/0.06),0_12px_40px_-16px_oklch(0.2_0.08_288/0.3)]
     lg:relative lg:my-2 lg:ml-2 lg:transition-[width] lg:duration-200 lg:ease-out
-    side-drawer max-lg:fixed max-lg:inset-y-2 max-lg:left-2 max-lg:z-50 max-lg:w-[272px] max-lg:max-w-[calc(100vw-48px)] max-lg:transition-[transform,visibility] max-lg:duration-300 max-lg:ease-out
+    side-drawer max-lg:fixed max-lg:inset-y-2 max-lg:left-2 max-lg:z-50 max-lg:w-[256px] max-lg:max-w-[calc(100vw-48px)] max-lg:transition-[transform,visibility] max-lg:duration-300 max-lg:ease-out
     ${drawer ? "" : "max-lg:invisible max-lg:-translate-x-[calc(100%+16px)]"}`;
 
   if (rail)
@@ -314,39 +312,29 @@ export default function Sidebar() {
         </IconButton>
       </div>
 
-      {/* Поиск и команды, новая задача (ADR-0013 §2.1). */}
-      <div className="mx-2 mb-1 mt-1 flex flex-col gap-1">
-        <Button variant="ghost" size="sm"
-          type="button"
-          onClick={openPalette}
-          className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
-        >
-          <IcSearch size={14} />
-          <span className="flex-1 text-left">{t("sidebar.search")}</span>
-          <span className="font-mono text-[11px] tabular">{paletteShortcut()}</span>
+      {/* Command palette and creation share one compact row. */}
+      <div className="sidebar-quick-actions mx-2 mb-1 mt-1 flex min-w-0 gap-1.5">
+        <Button variant="secondary" size="sm" onClick={openPalette} aria-label={t("sidebar.search")} className="sidebar-search min-w-0 flex-1"
+          iconLeft={<IcSearch size={14} />} iconRight={<Kbd>{paletteShortcut()}</Kbd>}>
+          {t("sidebar.search")}
         </Button>
-        {can("create") && (
-          <Button variant="ghost" size="sm" type="button" onClick={() => setCreateOpen(true)} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
-            <IcCompose size={16} tone="violet" />
-            <span className="flex-1 truncate">{t("sidebar.newIssue")}</span>
-            <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
-              <Kbd>C</Kbd>
-            </span>
-          </Button>
-        )}
+        {(home || can("create")) && <IconButton variant="secondary" size="sm" label={t("sidebar.newIssue")} kbd="C"
+          onClick={() => home ? openHomeCreate() : setCreateOpen(true)} className="sidebar-compose shrink-0 text-accenttext">
+          <IcCompose size={16} />
+        </IconButton>}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 [scrollbar-width:none]">
         {/* Личный слой */}
         <nav aria-label={t("calendar.personalNav")} className="flex flex-col gap-px pt-1">
             {homeAvailable && (
-              <Button variant="ghost" size="sm" type="button" onClick={goHome} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
+              <Button variant="ghost" size="sm" type="button" onClick={goHome} aria-current={home ? "page" : undefined} className={(`${navItem} ${home ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
                 <IcHome size={16} tone="violet" />
                 <span className="flex-1 truncate">{t("sidebar.nav.home")}</span>
               </Button>
             )}
             {PERSONAL_VIEWS.map((v) => {
-              const on = ui.view === v.id;
+              const on = !home && ui.view === v.id;
               return (
                 <Button variant="ghost" size="sm"
                   key={v.id}
@@ -357,8 +345,9 @@ export default function Sidebar() {
                 >
                   {v.icon({ size: 16, tone: v.tone })}
                   <span className="flex-1 truncate">{t(v.labelKey)}</span>
+                  {v.id === "my" && <span className="text-[12px] font-semibold tabular text-faint">{data.assignedToMe.length}{data.assignedTruncated ? "+" : ""}</span>}
                   {v.id === "inbox" && unread > 0 && (
-                    <span className="rounded-full bg-accent px-1.5 py-px text-[10.5px] font-semibold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
+                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[12px] font-bold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
                       {unread > 99 ? "99+" : unread}
                     </span>
                   )}
@@ -381,26 +370,6 @@ export default function Sidebar() {
             )}
         </nav>
 
-        {/* Избранное */}
-        {favorites.length > 0 && (
-          <div>
-            <Button variant="ghost" size="sm" type="button" onClick={() => toggle("s:fav")} aria-expanded={isOpen("s:fav")} className={(`${sectionLabel} hover:text-sub`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
-              <Chevron open={isOpen("s:fav")} />
-              {t("sidebar.group.favorites")}
-            </Button>
-            {isOpen("s:fav") && (
-              <div className="flex flex-col gap-px">
-                {favorites.map((p) => (
-                  <Button variant="ghost" size="sm" key={p.id} type="button" onClick={() => p.id !== data.currentProjectId && openProject(p)} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
-                    <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />
-                    <span className="flex-1 truncate">{p.name}</span>
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Проекты: отдел → проект → представления */}
         <div>
           <div className="group/proj flex items-center">
@@ -414,7 +383,7 @@ export default function Sidebar() {
                 onClick={() => openProjectWizard()}
 
 
-                className="mr-1 mt-2 h-6 w-6 shrink-0 opacity-0 group-hover/proj:opacity-100 focus-visible:opacity-100"
+                className="mr-1 mt-2 h-6 w-6 shrink-0 "
               >
                 <IcPlus size={13} />
               </IconButton>
@@ -469,28 +438,7 @@ export default function Sidebar() {
       </div>
 
       {/* «Начало работы» (ТЗ 5.11) — тем, у кого нет главной (один проект): свёрнутая строка с прогрессом. */}
-      {data.projects.length < 2 && !collapsed && <GettingStarted compact className="mx-3 mb-2" />}
-
-      {/* Прогресс проекта: доля закрытых — тонкая полоса, цифра открытых. */}
-      <div className="mx-4 mb-2 mt-1">
-        <div className="flex items-baseline justify-between">
-          <p className="text-[12px] font-medium text-faint">{t("sidebar.openIssues")}</p>
-          <span className="tabular text-[13px] font-bold text-ink">{openCount ?? "…"}</span>
-        </div>
-        <div
-          className="mt-1.5 h-1 overflow-hidden rounded-full bg-active"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={closedPct}
-          aria-label={t("sidebar.closedShare")}
-        >
-          <div
-            ref={(el) => el?.style.setProperty("--pct", `${closedPct}%`)}
-            className="h-full w-[var(--pct)] rounded-full bg-[linear-gradient(90deg,var(--accent-solid),var(--status-done))] transition-[width] duration-300 ease-out"
-          />
-        </div>
-      </div>
+      {!home && data.projects.length < 2 && !collapsed && <GettingStarted compact className="mx-3 mb-2" />}
 
       {/* Низ: Справка и Настройки (до 5.9 — прежние экраны под одним узлом), профиль. */}
       <div className="mx-2 flex flex-col gap-px border-t border-linesoft/70 pt-2">
@@ -502,17 +450,11 @@ export default function Sidebar() {
         >
           <IcBook size={16} tone="orange" />
           <span className="flex-1 truncate">{t("sidebar.nav.docs")}</span>
-          <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+          <span className="text-faint">
             <Kbd>?</Kbd>
           </span>
         </Button>
-        <Button variant="ghost" size="sm" type="button" onClick={() => toggle("s:settings", false)} aria-expanded={isOpen("s:settings", inSettings)} className={(`${navItem} ${navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
-          <IcSettings size={16} tone="gray" />
-          <span className="flex-1 truncate">{t("sidebar.settings")}</span>
-          <Chevron open={isOpen("s:settings", inSettings)} />
-        </Button>
-        {isOpen("s:settings", inSettings) && (
-          <div className={`${branch} mb-1`}>
+          <div id="sidebar-settings" hidden={!isOpen("s:settings", inSettings)} className={`${branch} mb-1`}>
             {settingsItems.map((v) => {
               const active = ui.view === v.id;
               return (
@@ -529,15 +471,14 @@ export default function Sidebar() {
               );
             })}
           </div>
-        )}
       </div>
 
-      <div className="mx-2 mb-2 mt-1 flex items-center gap-2.5 px-2.5 pb-1 pt-2">
-        <PersonAvatar user={me} size={28} interactive />
-        <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-[13px] font-semibold text-ink">{me?.name}</p>
-          <p className="mt-0.5 truncate text-[11.5px] text-faint">{me?.role}</p>
-        </div>
+      <div className="mx-2 mb-2 mt-1 flex min-w-0 items-center gap-1 border-t border-linesoft pt-2">
+        <UserMenu onLogout={logout} sidebar />
+        <IconButton variant="ghost" size="sm" label={t("sidebar.settings")} aria-expanded={isOpen("s:settings", inSettings)}
+          aria-controls="sidebar-settings" onClick={() => toggle("s:settings", inSettings)} className="shrink-0">
+          <IcSettings size={16} />
+        </IconButton>
       </div>
     </aside>
     </>
@@ -562,7 +503,13 @@ function Rail({
   onExpand: () => void;
 }) {
   const { t } = useT();
-  const { data, ui, me, setView, goHome, setCreateOpen, can } = useStore();
+  const { data, ui: storedUi, me, setView: storeSetView, goHome, enterProject, bootStatus, setCreateOpen, can, logout } = useStore();
+  const home = bootStatus === "home";
+  const ui = home ? { ...storedUi, view: undefined } : storedUi;
+  const setView: typeof storeSetView = (view, section) => {
+    storeSetView(view, section);
+    if (home) enterProject(data.currentProjectId || data.projects[0]?.id);
+  };
   const openSettings = useOpenSettings();
   const brandName = useBrandName();
   const btn = (key: string, label: string, icon: React.ReactNode, onClick: () => void, on = false, extra?: React.ReactNode) => {
@@ -588,13 +535,13 @@ function Rail({
       {btn("logo", homeAvailable ? t("sidebar.homeAria") : brandName, <BrandMark size={22} />, () => homeAvailable && goHome())}
       <div className="mt-1.5 flex flex-col items-center gap-1">
         {btn("search", `${t("sidebar.search")} · ${paletteShortcut()}`, <IcSearch size={16} />, openPalette)}
-        {can("create") && btn("new", `${t("sidebar.newIssue")} · C`, <IcCompose size={16} tone="violet" />, () => setCreateOpen(true))}
+        {(home || can("create")) && btn("new", `${t("sidebar.newIssue")} · C`, <IcCompose size={16} tone="violet" />, () => home ? openHomeCreate() : setCreateOpen(true))}
       </div>
       {sep}
       <div className="flex flex-col items-center gap-1">
-        {homeAvailable && btn("home", t("sidebar.nav.home"), <IcHome size={16} tone="violet" />, goHome)}
+        {homeAvailable && btn("home", t("sidebar.nav.home"), <IcHome size={16} tone="violet" />, goHome, home)}
         {PERSONAL_VIEWS.map((v) =>
-          btn(v.id, t(v.labelKey), v.icon({ size: 16, tone: v.tone }), () => setView(v.id), ui.view === v.id,
+          btn(v.id, t(v.labelKey), v.icon({ size: 16, tone: v.tone }), () => setView(v.id), !home && ui.view === v.id,
             v.id === "inbox" && unread > 0 ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] ring-2 ring-[var(--bg-frame)]" /> : undefined,
           ),
         )}
@@ -604,7 +551,7 @@ function Rail({
       {sep}
       <div className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none]">
         {projects.map((p) => {
-          const cur = p.id === data.currentProjectId;
+          const cur = !home && p.id === data.currentProjectId;
           const active = cur && PROJECT_VIEWS.some((v) => v.id === ui.view);
           return btn(
             `p:${p.id}`,
@@ -625,7 +572,7 @@ function Rail({
         {btn("settings", t("sidebar.settings"), <IcSettings size={16} tone="gray" />, () => openSettings("projectSettings"), SETTINGS_VIEWS.some((s) => s.id === ui.view))}
         {btn("expand", `${t("sidebar.expand")} · [`, <IcPanel size={16} />, onExpand)}
         <span className="mt-1">
-          <PersonAvatar user={me} size={28} interactive />
+          <UserMenu onLogout={logout} sidebar compact />
         </span>
       </div>
     </aside>

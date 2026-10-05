@@ -196,3 +196,48 @@ describe("GET /api/reports/issues.csv", () => {
     expect(body).toContain('"от; и ""кавычка"""');
   });
 });
+
+describe("UI refresh report data", () => {
+  test("weekly created and closed series agree with totals and include zero weeks", async () => {
+    const adm = await login(app, "admin");
+    await closeIssue(fx.issues.p1issue);
+    const body = JSON.parse((await g(`/api/reports/summary?${period}`, adm)).body);
+    expect(body.trend.reduce((sum: number, p: { created: number }) => sum + p.created, 0)).toBe(body.totals.created);
+    expect(body.trend.reduce((sum: number, p: { closed: number }) => sum + p.closed, 0)).toBe(body.totals.closed);
+    expect(body.trend.some((p: { created: number; closed: number }) => p.created === 0 && p.closed === 0)).toBe(true);
+    expect(body.trend.map((p: { week: string }) => p.week)).toEqual([...body.trend.map((p: { week: string }) => p.week)].sort());
+  });
+  test("a created-only closed project remains in the breakdown", async () => {
+    const adm = await login(app, "admin");
+    await closeIssue(fx.issues.p1issue, 200);
+    const from = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+    const body = JSON.parse((await g(`/api/reports/summary?from=${from}&to=${TODAY}&projectId=${fx.projects.p1}`, adm)).body);
+    expect(body.rows).toHaveLength(1);
+    expect(body.rows[0]).toMatchObject({ created: 1, closed: 0, open: 0, overdue: 0 });
+  });
+  test("overdue project counts equal the current total", async () => {
+    const adm = await login(app, "admin");
+    await q(`UPDATE issues SET due_date = CURRENT_DATE - 1 WHERE id = $1`, [fx.issues.p1issue]);
+    const body = JSON.parse((await g(`/api/reports/summary?${period}`, adm)).body);
+    expect(body.rows.find((r: { key: string }) => r.key === fx.projects.p1).overdue).toBe(1);
+    expect(body.rows.reduce((sum: number, r: { overdue: number }) => sum + r.overdue, 0)).toBe(body.totals.overdue);
+  });
+  test("multiple project selection is intersected with visibility in JSON and CSV", async () => {
+    const emp = await login(app, "emp1");
+    const adm = await login(app, "admin");
+    const filter = `projectIds=${fx.projects.p1},${fx.projects.p2},${fx.projects.p1}`;
+    const body = JSON.parse((await g(`/api/reports/summary?${period}&${filter}`, emp)).body);
+    expect(body.projectCount).toBe(1);
+    expect(body.rows.map((r: { label: string }) => r.label)).toEqual(["Corp"]);
+    const csv = await g(`/api/reports/issues.csv?${period}&scope=open&${filter}`, emp);
+    expect(csv.statusCode).toBe(200); expect(csv.body).toContain("CORP-1"); expect(csv.body).not.toContain("SEC-1");
+    const filtered = JSON.parse((await g(`/api/reports/summary?${period}&projectIds=${fx.projects.p2}`, adm)).body);
+    expect(filtered.projectCount).toBe(1); expect(filtered.rows.map((r: { key: string }) => r.key)).toEqual([fx.projects.p2]);
+  });
+  test("invalid comma-separated project ids are rejected", async () => {
+    const adm = await login(app, "admin");
+    for (const ids of ["", "bad-id", `${fx.projects.p1},`]) {
+      expect((await g(`/api/reports/summary?${period}&projectIds=${ids}`, adm)).statusCode).toBe(400);
+    }
+  });
+});

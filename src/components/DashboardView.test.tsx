@@ -117,11 +117,13 @@ describe("обзор проекта", () => {
 });
 
 describe("раздел «Дашборды»", () => {
-  test("без id — встроенный «Обзор организации» по всем видимым проектам; «Отчёты» рядом; правки нет", async () => {
+  test("без id — встроенный обзор; общий заголовок и ссылка на периодный отчёт; правки нет", async () => {
     await show("org");
     expect(store.setView).toHaveBeenCalledWith("dashboards", "overview");
     expect(screen.getByRole("heading", { name: "Обзор организации" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Отчёты/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Отчёты и дашборды" })).toBeTruthy();
+    const reports = screen.getByRole("link", { name: "Задачи за период" });
+    expect(reports.getAttribute("href")).toBe("/reports");
     expect(api.data).toHaveBeenCalledWith(expect.any(Array), undefined);
     expect(screen.queryByRole("button", { name: "Изменить" })).toBeNull();
   });
@@ -136,9 +138,9 @@ describe("раздел «Дашборды»", () => {
     expect(store.setView).toHaveBeenCalledWith("dashboards", "n1");
   });
 
-  test("«Новый» создаёт из шаблона и открывает", async () => {
+  test("«+ Дашборд» создаёт из шаблона и открывает", async () => {
     await show("org");
-    fireEvent.click(screen.getAllByRole("button", { name: /Новый/ })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Дашборд" }));
     fireEvent.click(screen.getByRole("button", { name: "Создать" }));
     await settle();
     const body = api.create.mock.calls[0][0];

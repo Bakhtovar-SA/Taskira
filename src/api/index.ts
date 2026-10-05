@@ -690,6 +690,7 @@ export type ReportFilter = {
   to: string;
   projectId?: string;
   departmentId?: string;
+  projectIds?: string;
 };
 
 export const reportsApi = {

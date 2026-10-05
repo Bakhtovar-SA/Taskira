@@ -2,6 +2,10 @@
  *  window, а не поле стора: изменение стора перерисовало бы всё дерево. */
 export const OPEN_PALETTE_EVT = "taskira:palette";
 export const openPalette = () => window.dispatchEvent(new Event(OPEN_PALETTE_EVT));
+export const OPEN_HOME_CREATE_EVT = "taskira:home-create";
+export const openHomeCreate = () => window.dispatchEvent(new Event(OPEN_HOME_CREATE_EVT));
+export const OPEN_SHORTCUTS_EVT = "taskira:shortcuts";
+export const openShortcuts = () => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVT));
 
 /** «⌘K» на Mac, «Ctrl K» на остальных — подпись в подсказках. */
 export const paletteShortcut = () =>

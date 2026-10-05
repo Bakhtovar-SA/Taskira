@@ -4,7 +4,7 @@ const production = process.env.AUDIT_PRODUCTION === "1";
 const port = process.env.PLAYWRIGHT_PORT || "3111";
 export default defineConfig({
   ...base,
-  testMatch: production ? ["design-audit.pw.ts", "workspace-controls.pw.ts", "appearance-layout.pw.ts"] : ["design-audit.pw.ts", "combobox-async.pw.ts", "workspace-controls.pw.ts", "appearance-layout.pw.ts"],
+  testMatch: production ? ["design-audit.pw.ts", "workspace-controls.pw.ts", "appearance-layout.pw.ts", "board-refresh.pw.ts", "issue-refresh.pw.ts", "list-refresh.pw.ts", "home-refresh.pw.ts", "roadmap-refresh.pw.ts", "reports-refresh.pw.ts"] : ["design-audit.pw.ts", "combobox-async.pw.ts", "workspace-controls.pw.ts", "appearance-layout.pw.ts", "board-refresh.pw.ts", "issue-refresh.pw.ts", "list-refresh.pw.ts", "home-refresh.pw.ts", "roadmap-refresh.pw.ts", "reports-refresh.pw.ts"],
   timeout: 60_000,
   expect: { ...base.expect, timeout: 10_000 },
   use: { ...base.use, baseURL: `http://127.0.0.1:${port}`, reducedMotion: "reduce" },

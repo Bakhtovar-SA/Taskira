@@ -15,10 +15,10 @@ type FrameProps = {
   today: { x: number; label: string } | null;
 };
 
-export function TimeCanvas({ scale, ticks, today, children }: FrameProps & { children: ReactNode }) {
+export function TimeCanvas({ scale, ticks, today, children, header = true, compact = false }: FrameProps & { children: ReactNode; header?: boolean; compact?: boolean }) {
   return (
     <div className="relative min-h-full w-[var(--canvas-w)]" ref={cssVars({ "--canvas-w": TIME_PAD + scale.width + 48 })}>
-      <Frame ticks={ticks} today={today} />
+      <Frame ticks={ticks} today={today} header={header} compact={compact} />
       {children}
     </div>
   );
@@ -27,20 +27,28 @@ export function TimeCanvas({ scale, ticks, today, children }: FrameProps & { chi
 /** Сетка, «сегодня» и шапка — memo: строки под ними (children) меняются чаще (прокрутка роадмапа рисует только
  *  видимые строки), а делений сотни — их перерисовка на каждый шаг прокрутки стоила кадров. Вызывающий держит
  *  ticks и today стабильными (useMemo). */
-const Frame = memo(function Frame({ ticks, today }: Omit<FrameProps, "scale">) {
+const Frame = memo(function Frame({ ticks, today, header, compact }: Omit<FrameProps, "scale"> & { header: boolean; compact: boolean }) {
+  return <>
+    <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 left-[24px]">
+      {ticks.minor.map((t) => t.x > 0 && <span key={`n${t.x}`} ref={cssVars({ "--x": t.x })} className="time-line absolute inset-y-0 left-[var(--x)]" />)}
+      {ticks.major.map((t) => t.x > 0 && <span key={`j${t.x}`} ref={cssVars({ "--x": t.x })} className="absolute inset-y-0 left-[var(--x)] border-l border-dashed border-line" />)}
+    </div>
+    {today && <span aria-hidden ref={cssVars({ "--x": TIME_PAD + today.x })} className={compact ? "rm-today-line" : "pointer-events-none absolute inset-y-0 left-[var(--x)] z-20 w-px bg-accent shadow-[0_0_12px_var(--accent-glow)]"} />}
+    {header && <TimeHeader ticks={ticks} today={today} />}
+  </>;
+});
+
+/** Шапка может прокручиваться отдельно от фиксированных подписей проектов. */
+export const TimeHeader = memo(function TimeHeader({ ticks, today, compact = false, monthYears = false }: Omit<FrameProps, "scale"> & { compact?: boolean; monthYears?: boolean }) {
   const todayAt = today ? TIME_PAD + today.x : -1;
   // Подпись первого крупного деления не прячется под плашкой «сегодня».
   const firstMajorAt = (t: Tick) => (t.x === 0 && today && today.x < 80 ? Math.max(6, today.x + 34) : 6);
+  if (compact) return <div className="rm-time-header">
+    {(monthYears ? ticks.minor : ticks.major).map(t => <span key={`y${t.x}`} ref={cssVars({ "--x": TIME_PAD + t.x, "--w": t.w, "--in": today && Math.abs(t.x + 6 - today.x) < 50 ? today.x - t.x + 38 : 6 })} className="rm-year">{t.w >= 28 && (monthYears ? t.date.getFullYear() : t.label)}</span>)}
+    {ticks.minor.map(t => <span key={t.x} ref={cssVars({ "--x": TIME_PAD + t.x, "--w": t.w })} className="rm-month">{t.w >= 28 && t.label}</span>)}
+    {today && <em ref={cssVars({ "--x": todayAt })} className="rm-today-chip">{today.label}</em>}
+  </div>;
   return (
-    <>
-      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 left-[24px]">
-        {ticks.minor.map((t) => t.x > 0 && <span key={`n${t.x}`} ref={cssVars({ "--x": t.x })} className="time-line absolute inset-y-0 left-[var(--x)]" />)}
-        {ticks.major.map((t) => t.x > 0 && <span key={`j${t.x}`} ref={cssVars({ "--x": t.x })} className="absolute inset-y-0 left-[var(--x)] border-l border-dashed border-line" />)}
-      </div>
-      {today && (
-        <span aria-hidden ref={cssVars({ "--x": todayAt })} className="pointer-events-none absolute inset-y-0 left-[var(--x)] z-20 w-px bg-accent shadow-[0_0_12px_var(--accent-glow)]" />
-      )}
-
       <div className="glass sticky top-0 z-10 border-b border-linesoft">
         <div className="relative h-6">
           {ticks.major.map((t) => (
@@ -74,6 +82,5 @@ const Frame = memo(function Frame({ ticks, today }: Omit<FrameProps, "scale">) {
           )}
         </div>
       </div>
-    </>
   );
 });

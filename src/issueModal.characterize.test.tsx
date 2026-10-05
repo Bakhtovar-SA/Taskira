@@ -12,7 +12,7 @@
  * рендерим фиктивный `<main>` рядом с карточкой).
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { within, act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { StoreProvider, useStore, useToasts } from "./store";
 import {
   authApi,
@@ -312,7 +312,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     });
     await settle();
 
-    fireEvent.click(screen.getByRole("button", { name: /К выполнению/ }));
+    fireEvent.click(within(document.querySelector(".issue-properties") as HTMLElement).getByRole("button", { name: /К выполнению/ }));
     // «Готово» — переход s1→s3 не в списке transitions, пункт задизейблен.
     // Пункты меню в всплывающем слое: jsdom скрывает любой [popover] (показать не умеет) — ищем с hidden: true.
     const forbidden = screen.getByRole("menuitem", { name: /Готово/, hidden: true });
@@ -416,11 +416,11 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
 
     const sendBtn = screen.getByRole("button", { name: /Отправить/ });
     // Пустой комментарий: кнопка недоступна, запрос не уходит.
-    expect((sendBtn as HTMLButtonElement).disabled).toBe(true);
+    expect(sendBtn.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(sendBtn);
     expect(create).not.toHaveBeenCalled();
 
-    const textarea = screen.getByPlaceholderText("Добавить комментарий… (Ctrl+Enter — отправить)");
+    const textarea = screen.getByPlaceholderText("Комментарий, @ — упомянуть");
     fireEvent.change(textarea, { target: { value: "Привет команда" } });
     fireEvent.click(screen.getByRole("button", { name: /Отправить/ }));
     await settle();
@@ -458,11 +458,11 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     expect(screen.getByText("Видимый комментарий")).toBeTruthy();
     expect(screen.getByText(/переименовал\(а\) задачу/)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /Комментарии/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Комментарии/ }));
     expect(screen.getByText("Видимый комментарий")).toBeTruthy();
     expect(screen.queryByText("переименовал(а) задачу", { exact: false })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /История/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /История/ }));
 
     expect(screen.queryByText("Видимый комментарий")).toBeNull();
     expect(screen.getByText(/переименовал\(а\) задачу/)).toBeTruthy();
@@ -490,7 +490,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     expect(screen.getByText("Средний")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Средний/ })).toBeNull();
     // Комментировать нельзя: вместо поля ввода — сообщение об отказе.
-    expect(screen.queryByPlaceholderText("Добавить комментарий… (Ctrl+Enter — отправить)")).toBeNull();
+    expect(screen.queryByPlaceholderText("Комментарий, @ — упомянуть")).toBeNull();
     expect(screen.getByText("Ваша роль не позволяет оставлять комментарии")).toBeTruthy();
     h.ui.unmount();
   });
@@ -541,8 +541,8 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     const prevBtn = screen.getByRole("button", { name: "Предыдущая задача" });
     const nextBtn = screen.getByRole("button", { name: "Следующая задача" });
     // i1 — первый элемент фиктивного <main>: нет предыдущей, есть следующая.
-    expect((prevBtn as HTMLButtonElement).disabled).toBe(true);
-    expect((nextBtn as HTMLButtonElement).disabled).toBe(false);
+    expect(prevBtn.getAttribute("aria-disabled")).toBe("true");
+    expect(nextBtn.getAttribute("aria-disabled")).toBeNull();
 
     fireEvent.click(nextBtn);
     await settle();

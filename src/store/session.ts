@@ -27,7 +27,6 @@ import {
   mapUser,
   readLastProject,
   resolveBootPathTarget,
-  takeHomeIntro,
   upsertIssue,
   writeLastProject,
 } from "./mappers";
@@ -212,15 +211,6 @@ export function useSessionActions(
         });
         resetNotifications();
         void refreshNotifications();
-        if (takeHomeIntro()) {
-          toast(
-            "info",
-            local(
-              "Теперь при входе — список ваших проектов и задач. Открыть проект напрямую можно здесь.",
-              "Sign-in now opens a list of your projects and issues. You can open a project directly from here.",
-            ),
-          );
-        }
         setBootStatus("home");
         return;
       }

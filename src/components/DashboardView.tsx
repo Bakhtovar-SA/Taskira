@@ -397,12 +397,13 @@ function OrgDashboards() {
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [copying, setCopying] = useState(false);
-  const builtin = !ui.section || ui.section === ORG_OVERVIEW_ID;
+  const builtin = !ui.section || ui.section === ORG_OVERVIEW_ID || ui.section === "new";
   const current = list && !builtin ? list.find((d) => d.id === ui.section) : undefined;
 
   // /dashboards без id — встроенный «Обзор организации»; адрес обновится сам (useRouterSync).
   useEffect(() => {
     if (!ui.section) setView("dashboards", ORG_OVERVIEW_ID);
+    if (ui.section === "new") { setCreating(true); setView("dashboards", ORG_OVERVIEW_ID); }
   }, [ui.section, setView]);
 
   /** Встроенный обзор не правится; «Сохранить как свой» — личная копия, которую можно менять. */
@@ -511,7 +512,7 @@ function OrgDashboards() {
             emptyHint=""
             head={
               <>
-                <h1 className="font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{t("dash.orgOverview")}</h1>
+                <h2 className="font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{t("dash.orgOverview")}</h2>
                 <p className="mt-0.5 text-[12.5px] text-faint">{t("dash.orgOverviewSub")}</p>
               </>
             }
@@ -561,7 +562,7 @@ function OrgDashboards() {
           emptyHint={t(current.canEdit ? "dash.emptyEditable" : "dash.emptyReadonly")}
           head={
             <>
-              <h1 className="truncate font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{current.name}</h1>
+              <h2 className="truncate font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{current.name}</h2>
               <p className="mt-0.5 text-[12.5px] text-faint">{t(kindLabel)}</p>
             </>
           }

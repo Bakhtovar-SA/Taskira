@@ -120,6 +120,9 @@ const PAIRS = [
   ["--text-1", "--bg-panel", TEXT],
   ["--text-2", "--bg-canvas", TEXT],
   ["--text-2", "--bg-panel", TEXT],
+  ["--text-1", "--bg-group", TEXT],
+  ["--text-2", "--bg-group", TEXT],
+  ["--text-3", "--bg-group", TEXT],
   ["--text-2", "--bg-frame", TEXT],
   ["--text-2", "--bg-hover", TEXT],
   ["--text-3", "--bg-canvas", TEXT],
@@ -225,6 +228,24 @@ for (const [name, vars, isDark] of variants) {
     }
   }
   console.log(`  ${name}: текст боковой панели над фото/свечениями — худший ${worst.toFixed(2)}`);
+}
+
+// Small white roadmap keys: sample the full gradient, including the hue shift,
+// rather than trusting axe's handling of gradient backgrounds.
+for (const [name, vars] of variants) {
+  const start = +vars["--roadmap-fill-start-l"], end = +vars["--roadmap-fill-end-l"];
+  let worst = Infinity;
+  for (let i = 1; i <= 8; i++) {
+    const h = +/oklch\([\d.]+ [\d.]+ ([\d.]+)/.exec(vars[`--project-${i}`])[1];
+    for (let step = 0; step <= 10; step++) {
+      const f = step / 10;
+      const bg = oklch(`oklch(${start + (end-start)*f} ${0.17-0.03*f} ${h+20*f})`).rgb;
+      const r = ratio(over(oklch(resolve(vars, vars["--text-on-accent"])), bg), bg);
+      worst = Math.min(worst, r);
+      if (r < TEXT) { failed++; console.log(`  FAIL ${r.toFixed(2)} ≥ ${TEXT} ${name}: roadmap project ${i}, gradient ${step}`); }
+    }
+  }
+  console.log(`  ${name}: roadmap keys — worst ${worst.toFixed(2)}`);
 }
 
 if (failed) {

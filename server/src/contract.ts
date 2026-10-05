@@ -733,6 +733,8 @@ export const ReportQuery = z.object({
   projectId: uuid.optional(),
   departmentId: uuid.optional(),
   groupBy: z.enum(REPORT_GROUPS).default("project"),
+  /** Список проектов через запятую; пересекается с видимыми проектами. */
+  projectIds: z.string().max(37000).transform(v => v.split(",")).pipe(z.array(uuid).min(1).max(1000)).optional(),
 });
 
 /** GET /api/reports/issues.csv — выгрузка построчного среза за период.
@@ -874,7 +876,7 @@ export const ActivityEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("direction") }),
   z.object({ kind: z.literal("parent"), set: z.boolean() }),
   z.object({ kind: z.literal("labels") }),
-  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), fromId: z.string().uuid().optional(), toId: z.string().uuid().optional(), bulk: z.boolean().optional() }),
+  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), fromId: z.string().uuid().optional(), toId: z.string().uuid().optional(), fromSid: z.string().optional(), toSid: z.string().optional(), bulk: z.boolean().optional() }),
   z.object({ kind: z.literal("checklistAdded"), text: z.string() }),
   z.object({ kind: z.literal("checklistRemoved") }),
   z.object({ kind: z.literal("link"), type: z.enum(["blocks", "blocked_by", "relates"]), key: z.string() }),
@@ -1139,6 +1141,9 @@ export const AssignedIssueDto = z.object({
   statusId: z.string(),
   statusName: z.string(),
   statusCategory: z.enum(STATUS_CATEGORIES),
+  statusSid: z.string().optional(),
+  projectRole: z.enum(PROJECT_ROLES).nullable().optional(),
+  returnedForRework: z.boolean().optional(),
   dueDate: z.string().nullable(),
   projectKey: z.string(),
   projectName: z.string(),
@@ -1225,13 +1230,15 @@ export const ReportRow = z.object({
   created: z.number(),
   open: z.number(),
   avgLeadDays: z.number().nullable(),
+  overdue: z.number().optional(),
 });
 export type ReportRow = z.infer<typeof ReportRow>;
 
 export const ReportPoint = z.object({
-  /** Неделя закрытия, понедельник, ГГГГ-ММ-ДД. */
+  /** Неделя создания/закрытия, понедельник, ГГГГ-ММ-ДД. */
   week: z.string(),
   closed: z.number(),
+  created: z.number().optional(),
 });
 export type ReportPoint = z.infer<typeof ReportPoint>;
 

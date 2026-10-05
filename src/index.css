@@ -304,66 +304,43 @@ body {
 /* Плашка колонки и кромка карточки — токены --board-* (tokens.css): в светлых темах плашка тонирована и обведена,
    карточка обведена тонкой линией — раньше доска сливалась с листом (скриншот владельца, часть F). */
 .board-col {
-  background: var(--bg-sunken);
-  box-shadow: none;
+  background: var(--board-col-bg);
+  box-shadow: inset 0 0 0 1px var(--board-col-line);
+  border-radius: 14px;
+  padding: 4px 6px 6px;
+  gap: 6px;
 }
 .board-col-body {
   scrollbar-width: thin;
 }
 .board-card {
+  --board-priority-inset: inset 0 0 0 transparent;
   content-visibility: auto;
   contain-intrinsic-size: auto 110px;
   background: var(--bg-panel);
-  box-shadow: 0 0 0 1px var(--board-card-line);
+  border: 1px solid var(--board-card-line);
+  border-radius: 10px;
+  padding: 10px 12px 10px 13px;
+  gap: 7px;
+  box-shadow: var(--board-priority-inset), var(--elev-1);
   transition: box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
 }
-.board-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  pointer-events: none;
-  opacity: 0;
-  background: linear-gradient(
-    140deg,
-    color-mix(in oklch, var(--accent-solid) 65%, transparent),
-    transparent 40%,
-    transparent 65%,
-    color-mix(in oklch, var(--accent-solid) 30%, transparent)
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  transition: opacity var(--dur-2, 180ms) ease-out;
-}
-/* Критичный приоритет — тонкая красная кромка слева (ТЗ 5.12 c, уточнение владельца: приоритет виден на карточке). */
-.board-card[data-priority="critical"]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 2.5px;
-  border-radius: 0 2px 2px 0;
-  background: var(--c-prio-critical);
-  pointer-events: none;
+.board-card[data-priority="critical"] {
+  --board-priority-inset: inset 3px 0 0 var(--status-danger);
 }
 .board-card:hover {
-  box-shadow: var(--elev-1), 0 0 0 1px var(--border-strong);
-}
-.board-card:hover::after {
-  opacity: 0;
+  box-shadow: var(--board-priority-inset), var(--elev-1), 0 0 0 1px var(--border-strong);
 }
 .board-card:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 1.5px var(--accent-solid), 0 6px 20px -8px var(--accent-glow);
+  outline: 2px solid var(--accent-solid);
+  outline-offset: 2px;
+  box-shadow: var(--board-priority-inset), 0 0 0 1.5px var(--accent-solid), 0 6px 20px -8px var(--accent-glow);
 }
 
 /* Режим выделения доски (ROUTE-03): отмеченная карточка — акцентная рамка и лёгкая подложка. */
 .board-card[data-selected] {
   background: color-mix(in oklch, var(--accent-subtle) 70%, var(--bg-panel));
-  box-shadow: 0 0 0 1.5px var(--accent-solid), var(--elev-1);
+  box-shadow: var(--board-priority-inset), 0 0 0 1.5px var(--accent-solid), var(--elev-1);
 }
 
 /* Перетаскивание (Board.tsx setDragGhost): силуэт на месте и «карточка в руке». */
@@ -971,34 +948,17 @@ html.vt-theme::view-transition-new(root) {
   transition: width var(--dur-4) var(--ease-out);
 }
 
-/* Роадмап проектов (ТЗ 5.15): полоса того же вида, что у Таймлайна, цвет — тон проекта из палитры (5.3, как
-   .tk-tone-*; --ic-l/--ic-c свои у каждой темы). Штриховка — предварительная часть полосы (даты нет, нарисовано
-   «на глаз»); подтверждённая часть и заливка прогресса лежат поверх. Прошедшая веха — приглушённая. */
-.rm-row { --bar: oklch(var(--ic-l) var(--ic-c) var(--tone-h, 288)); }
-.rm-row[data-tone="violet"] { --tone-h: 288; }
-.rm-row[data-tone="indigo"] { --tone-h: 268; }
-.rm-row[data-tone="blue"] { --tone-h: 250; }
-.rm-row[data-tone="sky"] { --tone-h: 225; }
-.rm-row[data-tone="teal"] { --tone-h: 195; }
-.rm-row[data-tone="green"] { --tone-h: 158; }
-.rm-row[data-tone="amber"] { --tone-h: 75; }
-.rm-row[data-tone="orange"] { --tone-h: 50; }
-.rm-row[data-tone="red"] { --tone-h: 25; }
-.rm-row[data-tone="pink"] { --tone-h: 340; }
-/* Смена масштаба двигает сотню полос сразу: анимация ширины на каждой — раскладка каждый кадр (бюджет 5.2). */
-.rm-row .timeline-bar,
-.rm-row .timeline-bar-fill { transition: none; }
-.rm-hatch {
-  background:
-    repeating-linear-gradient(-45deg, color-mix(in oklch, var(--bar) 26%, transparent) 0 3px, transparent 3px 7px),
-    color-mix(in oklch, var(--bar) 7%, var(--bg-panel));
-}
-.rm-milestone {
-  background: var(--bar);
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--bar) 60%, transparent);
-}
-.rm-milestone[data-done] { background: color-mix(in oklch, var(--bar) 35%, var(--bg-panel)); }
-
+/* Цвет роадмапа берётся из общей палитры проектов. */
+.rm-row { --bar:var(--project-2); }
+.rm-row[data-tone="blue"],.rm-row[data-tone="indigo"] { --bar:var(--project-1); }
+.rm-row[data-tone="sky"] { --bar:var(--project-8); }
+.rm-row[data-tone="teal"] { --bar:var(--project-7); }
+.rm-row[data-tone="green"] { --bar:var(--project-6); }
+.rm-row[data-tone="amber"],.rm-row[data-tone="orange"] { --bar:var(--project-5); }
+.rm-row[data-tone="red"] { --bar:var(--project-4); }
+.rm-row[data-tone="pink"] { --bar:var(--project-3); }
+.rm-hatch { background:repeating-linear-gradient(135deg,color-mix(in oklch,var(--bar) 26%,transparent) 0 3px,transparent 3px 7px); }
+.rm-milestone { background:var(--bg-panel); box-shadow:inset 0 0 0 2px var(--bar); border-radius:2px; }
 /* Скелет-заглушка (round4 §1): серый плейсхолдер с бегущим бликом.
    Уважает prefers-reduced-motion — без анимации, просто ровная заливка. */
 .skeleton {

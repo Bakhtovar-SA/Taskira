@@ -15,7 +15,8 @@ import type { ViewId } from "./types";
 import { useT } from "./i18n";
 import { CreateIssueModal, IssueModal, preloadModalsWhenIdle } from "./lazyModals";
 import { Presence } from "./ds/Presence";
-import { OPEN_PALETTE_EVT, OPEN_PROJECT_WIZARD_EVT } from "./palette/events";
+import { OPEN_PALETTE_EVT, OPEN_PROJECT_WIZARD_EVT, OPEN_SHORTCUTS_EVT, openHomeCreate } from "./palette/events";
+import { markHomeStep } from "./homeSteps";
 import { isSettingsHome } from "./settings/sections";
 import { useOpenSettings } from "./settings/useOpenSettings";
 import { pushRecent } from "./palette/recent";
@@ -90,6 +91,12 @@ function Shell() {
   const openProjectSettings = () => openSettings("projectSettings");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setHelpOpen(true);
+    window.addEventListener(OPEN_SHORTCUTS_EVT, open);
+    return () => window.removeEventListener(OPEN_SHORTCUTS_EVT, open);
+  }, []);
+  useEffect(() => { if (helpOpen) markHomeStep(me.id, "shortcuts"); }, [helpOpen, me.id]);
 
   useEffect(() => {
     const open = () => setPaletteOpen(true);
@@ -196,7 +203,15 @@ function Shell() {
         setHelpOpen(true);
         return;
       }
-      if (bootStatus === "home") return;
+      if (bootStatus === "home") {
+        if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") { e.preventDefault(); openHomeCreate(); }
+        return;
+      }
+      if (e.key === "/" || e.code === "Slash") {
+        const filter = document.querySelector<HTMLInputElement>("main .workspace-search input");
+        if (filter) { e.preventDefault(); filter.focus(); }
+        return;
+      }
       if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") {
         e.preventDefault();
         if (can("create")) setCreateOpen(true);
@@ -276,7 +291,6 @@ function Shell() {
   if (bootStatus === "solo") return <Suspense fallback={<BootSkeleton />}><SoloView onLogout={logout} /></Suspense>;
 
   // ≥ 2 доступных проектов, до выбора проекта — главный экран (UI_RESTRUCTURE.md D4).
-  if (bootStatus === "home") return <><Suspense fallback={<BootSkeleton />}><HomeView onLogout={logout} /></Suspense>{overlays}</>;
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -285,19 +299,19 @@ function Shell() {
           своя поверхность, скругление и мягкая тень поверх атмосферы. */}
       <div className="flex min-w-0 flex-1 flex-col md:p-2">
        <div className="glass-sheet glass-edge flex min-h-0 flex-1 flex-col overflow-hidden shadow-e2 md:rounded-xl">
-        <Topbar onLogout={logout} />
+        {bootStatus !== "home" && (issuePage || ui.missing || !["reports", "dashboards"].includes(ui.view)) && <Topbar />}
         <OfflineBanner />
         <main className="min-h-0 flex-1">
           {/* Граница вокруг контента, а не всего приложения: сайдбар и шапка
               переживают падение раздела, и из него можно уйти. */}
-          <ErrorBoundary resetKey={issuePage ? `issue:${ui.selectedIssueId}` : ui.view} copy={{
+          <ErrorBoundary resetKey={bootStatus === "home" ? "home" : issuePage ? `issue:${ui.selectedIssueId}` : ui.view} copy={{
             title: t("errorBoundary.title"),
             body: t("errorBoundary.body"),
             retry: t("errorBoundary.retry"),
             reload: t("errorBoundary.reload"),
             details: t("errorBoundary.details"),
           }}>
-          <Suspense fallback={<BootSkeleton />}>{ui.missing ? (
+          <Suspense fallback={<BootSkeleton />}>{bootStatus === "home" ? <HomeView /> : ui.missing ? (
             <NotFoundPage path={ui.missing} onHome={() => (data.projects.length >= 2 ? goHome() : setView("board"))} onBack={() => history.back()} />
           ) : issuePage ? (
             <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>

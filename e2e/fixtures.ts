@@ -21,7 +21,7 @@ export async function mockApi(page: Page, userOverrides: Partial<typeof user> & 
     else if (path === "/auth/me") body = profile;
     else if (path === "/auth/config") body = { authMode: "local" };
     else if (path === "/projects") body = [project];
-    else if (path === "/dashboards") body = [{ id: "d1", name: "Empty", kind: "personal", ownerId: "u1", projectId: null, canEdit: true, widgets: [], updatedAt: "2026-10-01" }];
+    else if (path === "/dashboards") body = [];
     else if (path === "/projects/p1") body = { ...boot, users: [profile] };
     else if (path === "/instance/brand") body = brand;
     else if (path === "/roadmap") body = { projects: [], dependencies: [] };
