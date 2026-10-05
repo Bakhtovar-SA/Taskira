@@ -220,7 +220,9 @@ for (const theme of ["light", "dark"]) {
     const comfortable = (await row.boundingBox())!.height;
     await page.evaluate(() => document.documentElement.setAttribute("data-density", "compact"));
     expect((await row.boundingBox())!.height).toBeLessThan(comfortable);
-    expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(36);
+    // CDP coordinates can differ by a few millionths of a pixel after subtraction.
+    const compactHeight = (await row.boundingBox())!.height;
+    expect(Math.round(compactHeight * 1000) / 1000).toBeGreaterThanOrEqual(36);
     await page.getByRole("link", { name: "Доска", exact: true }).click();
     await expect(page).toHaveURL(/\/board\?assignee=u1/);
     await expect(page.locator("article[data-issue-id]")).toHaveCount(2);
