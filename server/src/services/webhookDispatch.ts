@@ -45,16 +45,22 @@ export interface ClaimedDelivery {
 let lastClaimedHook: string | null = null;
 export async function claimDeliveries(): Promise<ClaimedDelivery[]> {
   const chosen = await withTransaction(async client => {
-    const { rows } = await client.query<ClaimedDelivery>(`SELECT due.id, w.id AS webhook_id, due.event_id, due.attempts,
+    const { rows } = await client.query<ClaimedDelivery>(`SELECT chosen.* FROM (
+      SELECT due.id, w.id AS webhook_id, due.event_id, due.attempts, due.next_attempt_at AS queue_at,
         due.public_event_id, due.type, due.payload, w.url_enc, w.secret_enc, w.prev_secret_enc, w.prev_secret_until
       FROM webhooks w CROSS JOIN LATERAL (
         SELECT d.id, d.event_id, d.attempts, d.next_attempt_at, e.event_id AS public_event_id, e.type, e.payload
           FROM webhook_deliveries d JOIN integration_events e ON e.id = d.event_id
          WHERE d.webhook_id = w.id AND d.state IN ('pending', 'sending')
            AND (d.state = 'pending' OR d.locked_until < now()) AND d.next_attempt_at <= now() AND e.payload IS NOT NULL
-         ORDER BY d.next_attempt_at, d.id LIMIT 4 FOR UPDATE OF d SKIP LOCKED
+         ORDER BY d.next_attempt_at, d.id LIMIT 4
       ) due WHERE w.state = 'active'
-      ORDER BY CASE WHEN $1::uuid IS NULL OR w.id > $1::uuid THEN 0 ELSE 1 END, w.id, due.next_attempt_at, due.id LIMIT 16`, [lastClaimedHook]);
+      ORDER BY CASE WHEN $1::uuid IS NULL OR w.id > $1::uuid THEN 0 ELSE 1 END, w.id, due.next_attempt_at, due.id LIMIT 16
+      ) chosen JOIN webhook_deliveries locked ON locked.id = chosen.id
+      WHERE locked.state IN ('pending', 'sending') AND (locked.state = 'pending' OR locked.locked_until < now())
+        AND locked.next_attempt_at <= now()
+      ORDER BY CASE WHEN $1::uuid IS NULL OR chosen.webhook_id > $1::uuid THEN 0 ELSE 1 END,
+        chosen.webhook_id, chosen.queue_at, chosen.id FOR UPDATE OF locked SKIP LOCKED`, [lastClaimedHook]);
     if (rows.length) await client.query(`UPDATE webhook_deliveries SET state = 'sending', locked_until = now() + interval '60 seconds',
       attempts = attempts + 1, updated_at = now() WHERE id = ANY($1::uuid[])`, [rows.map(row => row.id)]);
     return rows.map(row => ({ ...row, attempts: row.attempts + 1 }));
@@ -115,13 +121,29 @@ async function storeResult(client: pg.PoolClient, hook: HookResultRow, { row, re
 /** До четырёх результатов одной подписки атомарно; общий лок подписки и один COMMIT. */
 export async function recordResults(entries: ResultEntry[]): Promise<(Outcome | null)[]> {
   if (!entries.length) return [];
-  if (entries.length > 4 || entries.some(entry => entry.row.webhook_id !== entries[0].row.webhook_id))
+  if (entries.length > 4 || new Set(entries.map(entry => entry.row.id)).size !== entries.length
+    || entries.some(entry => entry.row.webhook_id !== entries[0].row.webhook_id))
     throw new Error("Результаты должны относиться к одной подписке, не более четырёх");
   const stored = await withTransaction(async client => {
     // Согласованный порядок блокировок с pause/delete: сначала подписка, затем доставки.
     const hook = (await client.query<HookResultRow>(
       `SELECT state, project_id, url_display FROM webhooks WHERE id = $1 FOR UPDATE`, [entries[0].row.webhook_id])).rows[0];
     if (!hook) return entries.map(() => null);
+    // Обычный успешный ответ: один UPDATE группы вместо SELECT/UPDATE каждой доставки.
+    // UPDATE сам блокирует строки и сверяет аренду; неактивные и смешанные исходы идут общим путём.
+    if (hook.state === "active" && entries.every(({ result }) => result.error === null
+      && result.status !== null && result.status >= 200 && result.status < 300)) {
+      const updated = await client.query<{ id: string }>(`UPDATE webhook_deliveries d SET state='succeeded',locked_until=NULL,
+        last_status=v.status,last_error=NULL,last_duration_ms=v.duration,response_excerpt=v.excerpt,updated_at=now()
+        FROM unnest($1::uuid[],$2::smallint[],$3::smallint[],$4::int[],$5::text[]) AS v(id,attempts,status,duration,excerpt)
+        WHERE d.id=v.id AND d.webhook_id=$6 AND d.state='sending' AND d.attempts=v.attempts RETURNING d.id`,
+        [entries.map(entry => entry.row.id),entries.map(entry => entry.row.attempts),entries.map(entry => entry.result.status),
+          entries.map(entry => entry.result.durationMs),entries.map(entry => entry.result.excerpt),entries[0].row.webhook_id]);
+      if (updated.rowCount) await client.query(`UPDATE webhooks SET failure_streak=0,failing_since=NULL,
+        last_success_at=now(),updated_at=now() WHERE id=$1`,[entries[0].row.webhook_id]);
+      const ids = new Set(updated.rows.map(row => row.id));
+      return entries.map(entry => ids.has(entry.row.id) ? { outcome: "succeeded" as const,cancelled: 0,disabled: null,hook } : null);
+    }
     const results = [];
     for (const entry of entries) results.push(await storeResult(client, hook, entry));
     return results;
@@ -213,24 +235,15 @@ export function runWebhookDispatchWork(opts: DispatchOptions = {}): Promise<Disp
       const rows = await claimDeliveries();
       if (!rows.length && !events) break;
       const sent = await Promise.all(rows.map(row => attempt(row, opts, controller.signal)));
-      // HTTP — до 16 параллельных запросов; БД — до 2 транзакций, пакет до 4 результатов на подписку.
-      // Ожидание одной строки webhooks не должно занимать весь пул и задерживать пользовательский PATCH.
+      // HTTP — до 16 параллельных запросов; БД — одна транзакция, до 4 результатов на подписку.
+      // Последовательная запись ограничивает конкуренцию с пользовательским PATCH.
       const byHook = new Map<string, number[]>();
       rows.forEach((row, index) => byHook.set(row.webhook_id, [...(byHook.get(row.webhook_id) ?? []), index]));
-      const groups = [...byHook.values()]; let nextGroup = 0;
-      const writers = Math.min(groups.length, Math.max(1, Math.min(2, loadConfig().pgPoolMax - 3)));
-      const results = await Promise.allSettled(Array.from({ length: writers }, async () => {
-        for (;;) {
-          const group = groups[nextGroup++];
-          if (!group) return;
-          if (controller.signal.aborted) return; // аренда сохранится, следующий процесс подберёт работу
-          const outcomes = await recordResults(group.map(index => ({ row: rows[index], result: sent[index] })));
-          for (const outcome of outcomes) if (outcome) { stats.sent++; stats[outcome]++; }
-        }
-      }));
-      // Не освобождаем advisory-лок и регистрацию shutdown, пока остальные попытки ещё выполняются.
-      const failed = results.find(result => result.status === "rejected");
-      if (failed?.status === "rejected") throw failed.reason;
+      for (const group of byHook.values()) {
+        if (controller.signal.aborted) break; // аренда сохранится, следующий процесс подберёт работу
+        const outcomes = await recordResults(group.map(index => ({ row: rows[index], result: sent[index] })));
+        for (const outcome of outcomes) if (outcome) { stats.sent++; stats[outcome]++; }
+      }
     }
     return stats;
   })();

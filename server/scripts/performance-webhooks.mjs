@@ -30,7 +30,7 @@ const children = [];
 let client, created = false;
 const report = { fixture: { issues: 50000, users: 200, patchConnections: 1, patchRequests: 4000,
   subscriptions: 4, deliveries: 10000, receiverDelayMs: 50 }, reports: [], plans: {},
-  resultPersistence: 'At most two transactions; up to four results share one transaction per subscription; round-robin selection; reserve two pool slots where possible',
+  resultPersistence: 'One transaction at a time; up to four successful results use one bulk UPDATE per subscription; round-robin selection; lock only the selected sixteen deliveries',
   methodology: 'API/worker, receiver and performance-load each have a separate Node process. Three paired rounds; PATCH is measured by performance-load.mjs. Every loaded window finishes while the seeded queue is nonempty. Same source and active subscriptions in idle/dispatch variants. All scratch objects are deleted.' };
 const output = resolve(process.env.PERF_OUTPUT ?? join(dir, 'report.json'));
 async function save() { await writeFile(output, JSON.stringify(report, null, 2) + '\n'); }

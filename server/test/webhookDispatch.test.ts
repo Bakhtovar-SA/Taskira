@@ -11,6 +11,7 @@ import { send, signedHeaders } from "../src/services/webhookHttp.js";
 import { runDueEventsOnce } from "../src/services/dueEvents.js";
 import { getMaintenanceStatus, runMaintenanceOnce, startMaintenance, stopMaintenance } from "../src/services/maintenance.js";
 import { _resetMetrics } from "../src/metrics.js";
+import * as db from "../src/db.js";
 
 let app: FastifyInstance, fx: Fixture;
 let receiver: Awaited<ReturnType<typeof webhookReceiver>>;
@@ -152,6 +153,17 @@ test("a failed result batch rolls back earlier updates and leaves every lease re
   await q(`UPDATE webhook_deliveries SET locked_until=now()-interval '1 second'`); await tick();
   expect((await deliveries()).every(row => row.state === "succeeded" && row.attempts === 2)).toBe(true);
 });
+test.each([true,false])("mixed result group preserves success/failure order (success first: %s)", async successFirst => {
+  const id = await hook(); await event(); await event(); await fanOut(); const rows = await claimDeliveries();
+  const success = { status: 200,error: null,durationMs: 1,excerpt: "ok",retryAfter: null } as const;
+  const failure = { status: 500,error: "http_status",durationMs: 1,excerpt: "fail",retryAfter: null } as const;
+  expect(await recordResults(rows.map((row,index) => ({ row,result: (index===0)===successFirst ? success : failure }))))
+    .toEqual(successFirst ? ["succeeded","retry"] : ["retry","succeeded"]);
+  const [result] = await q(`SELECT failure_streak,last_success_at,last_failure_at FROM webhooks WHERE id=$1`,[id]);
+  expect(result.failure_streak).toBe(successFirst ? 1 : 0);
+  expect(result.last_success_at).not.toBeNull(); expect(result.last_failure_at).not.toBeNull();
+});
+
 test("concurrent fan-outs create one automatic delivery", async () => {
   await hook(); await event(); await Promise.all([fanOut(), fanOut()]); expect(await deliveries()).toHaveLength(1);
 });
@@ -183,6 +195,19 @@ test("round-robin grants a fifth subscription a slot even while four older backl
   const delivered = await q<{ webhook_id: string }>(`SELECT DISTINCT webhook_id FROM webhook_deliveries WHERE state='succeeded'`);
   expect(delivered.map(row => row.webhook_id).sort()).toEqual(ids.sort());
 });
+test("claim locks only the selected sixteen deliveries while the transaction is open", async () => {
+  for (let i = 0; i < 10; i++) await hook();
+  for (let i = 0; i < 4; i++) await event(); await fanOut();
+  const transaction = db.withTransaction;
+  const spy = vi.spyOn(db,"withTransaction").mockImplementationOnce(fn => transaction(async client => {
+    const claimed = await fn(client);
+    // Другое соединение может блокировать все 24 невыбранные строки до COMMIT захвата.
+    const unlocked = await q(`SELECT id FROM webhook_deliveries WHERE state='pending' FOR UPDATE SKIP LOCKED`);
+    expect(unlocked).toHaveLength(24); return claimed;
+  }));
+  try { expect(await claimDeliveries()).toHaveLength(16); } finally { spy.mockRestore(); }
+});
+
 test("the sender pins the checked address and preserves Host without environment proxies", async () => {
   const original = { HTTP_PROXY: process.env.HTTP_PROXY, HTTPS_PROXY: process.env.HTTPS_PROXY };
   try {
