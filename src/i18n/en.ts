@@ -1534,6 +1534,7 @@ const en: Record<keyof Dict, string> = {
   "integrations.loadFailed": "Could not load integrations",
   "integrations.actionFailed": "Could not complete the action",
   "integrations.saveFailed": "Could not save the webhook",
+  "integrations.createdAway": "Webhook created. Open it in the original project's settings and rotate its secret to obtain a new one.",
   "integrations.disabled": "Webhooks are disabled",
   "integrations.disabledHint": "The server administrator can enable webhooks and configure allowed destinations. Existing subscriptions are read-only.",
   "integrations.help": "Open help",

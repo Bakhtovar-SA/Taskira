@@ -133,6 +133,7 @@ function WebhookForm({ projectId,hook,config,onClose,onSaved }: {
   onSaved: (value: WebhookDto | WebhookCreatedDto) => void;
 }) {
   const { t,errText } = useT(); const [name,setName] = useState(hook?.name ?? ""), [url,setUrl] = useState("");
+  const { toast } = useStore();
   const [events,setEvents] = useState<WebhookEventType[]>(hook?.events ?? ["issue.created"]);
   const [busy,setBusy] = useState(false), [error,setError] = useState<string | null>(null), [urlError,setUrlError] = useState<string | null>(null);
   const live = useRef(true); useEffect(() => { live.current = true; return () => { live.current = false; }; },[]);
@@ -142,6 +143,7 @@ function WebhookForm({ projectId,hook,config,onClose,onSaved }: {
       const result = hook ? await webhooksApi.update(projectId,hook.id,{ name: name.trim(),events,...(url.trim() ? { url: url.trim() } : {}) })
         : await webhooksApi.create(projectId,{ name: name.trim(),url: url.trim(),events });
       if (live.current) onSaved(result);
+      else if ("webhook" in result) toast("success",t("integrations.createdAway"));
     } catch (failure) {
       if (live.current) { const message = errText(failure,t("integrations.saveFailed"));
         if (failure instanceof ApiError && failure.code === "WEBHOOK_TARGET_NOT_ALLOWED") setUrlError(message); else setError(message); }

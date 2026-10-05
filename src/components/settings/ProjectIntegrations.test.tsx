@@ -71,6 +71,14 @@ test("creation shows a secret once and close/Escape require acknowledgement, the
   expect(screen.queryByRole("textbox",{ name: "Секрет" })).toBeNull(); expect(document.activeElement).toBe(add);
   expect(webhooksApi.create).toHaveBeenCalledWith("p1",{ name: "CRM",url: "https://crm.example/hook?token=example",events: ["issue.created"] });
 });
+test("creation completed after leaving the page gives recovery guidance without exposing the credential",async () => {
+  let finish!: (value: { webhook: WebhookDto; secret: string }) => void;
+  vi.mocked(webhooksApi.create).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const page = show(); await createForm(); fireEvent.click(screen.getByRole("button",{ name: "Сохранить" }));
+  page.unmount(); await act(async () => finish({ webhook: hook,secret }));
+  expect(toast).toHaveBeenCalledWith("success","Вебхук создан. Откройте его в настройках исходного проекта и замените секрет, чтобы получить новый.");
+  expect(JSON.stringify(toast.mock.calls)).not.toContain(secret); expect(screen.queryByRole("textbox",{ name: "Секрет" })).toBeNull();
+});
 test("copy uses the clipboard and a rotation shows the previous-secret deadline",async () => {
   const copy = vi.fn().mockResolvedValue(undefined); Object.defineProperty(navigator,"clipboard",{ configurable: true,value: { writeText: copy } });
   show(<SecretOnceDialog secret={secret} previousValidUntil="2026-10-05T12:00:00Z" onClose={() => {}} />);
