@@ -4,7 +4,7 @@
  */
 import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler, preValidationHookHandler } from "fastify";
 import { ZodError, type ZodType } from "zod";
-import { audit } from "./audit.js";
+import { auditFromRequest } from "./audit.js";
 import { one } from "./db.js";
 import { ApiHttpError } from "./errors.js";
 import { projectById, type ProjectRow } from "./services/project.js";
@@ -13,6 +13,8 @@ import { getLicenseStatus, licenseHasFeature } from "./services/license.js";
 import { closeUserSockets } from "./services/wsHub.js";
 import { loadConfig } from "./config.js";
 import { SESSION_COOKIE, sessionCookie } from "./sessionCookie.js";
+import { AUTH_CACHE_TTL_MS, boundedSet } from "./services/authCache.js";
+import { verifyToken, verifiedRequest, recordTokenUse, auditScopeDenial } from "./services/apiTokens.js";
 import {
   resolveRole,
   roleCan,
@@ -56,6 +58,7 @@ declare module "@fastify/jwt" {
 
 declare module "fastify" {
   interface FastifyRequest {
+    authToken?: { id: string; scope: "read" | "write" };
     issueRef?: IssueRef;
     /** Проект запроса (из :projectId), загружен requirePerm/requireIssuePerm. */
     project?: ProjectRow;
@@ -117,19 +120,12 @@ export function zparams<T extends ZodType>(schema: T): preValidationHookHandler 
    JWT подтверждает личность, но роль и активность берём из БД (fix 3a):
    смена роли админом или деактивация аккаунта действуют без ожидания
    истечения токена (12h). Лёгкий кэш на 30 секунд бережёт БД на внутренней сети. */
-const FRESH_TTL_MS = 30_000;
-const AUTH_CACHE_MAX = 10_000;
-function boundedSet<K, V>(map: Map<K, V>, key: K, value: V): void {
-  if (!map.has(key) && map.size >= AUTH_CACHE_MAX) {
-    const oldest = map.keys().next().value as K | undefined;
-    if (oldest !== undefined) map.delete(oldest);
-  }
-  map.set(key, value);
-}
+const FRESH_TTL_MS = AUTH_CACHE_TTL_MS;
 const freshUsers = new Map<
   string,
-  { globalRole: GlobalRole; active: boolean; sessionVersion: number; at: number }
+  { globalRole: GlobalRole; active: boolean; sessionVersion: number; name: string; at: number }
 >();
+let freshGeneration = 0;
 
 /** Сбрасывает 30-секундный кэш свежести — безопасно вызывать при ЛЮБОЙ записи
  *  в строку users, даже если по факту ничего не поменялось (JIT-логин при
@@ -138,6 +134,7 @@ const freshUsers = new Map<
  *  на 30 секунд раньше срока — дёшево. НЕ рвёт WS-соединения — для этого
  *  revokeUserSessions() ниже, вызывать только при настоящем отзыве доступа. */
 export function invalidateUserCache(userId: string): void {
+  freshGeneration++;
   freshUsers.delete(userId);
 }
 
@@ -153,7 +150,7 @@ export function invalidateUserCache(userId: string): void {
  *  invalidateUserCache сама рвала сокеты и вызывалась в т.ч. из мест, где
  *  ничего не отзывалось). */
 export function revokeUserSessions(userId: string, reason: string): void {
-  freshUsers.delete(userId);
+  invalidateUserCache(userId);
   closeUserSockets(userId, reason);
 }
 
@@ -163,23 +160,36 @@ export function revokeUserSessions(userId: string, reason: string): void {
  * токенов — по БД. Бросает unauthorized(), иначе отдаёт актуальную
  * global_role (из БД, не из токена — тот мог устареть).
  */
-export async function assertFreshUser(userId: string, sessionVersion: number | undefined): Promise<GlobalRole> {
+async function freshActiveUser(userId: string) {
   let fresh = freshUsers.get(userId);
   if (!fresh || Date.now() - fresh.at > FRESH_TTL_MS) {
-    const row = await one<{ global_role: GlobalRole; is_active: boolean; session_version: string | number }>(
-      `SELECT global_role, is_active, session_version FROM users WHERE id = $1`,
+    const generation = freshGeneration;
+    const row = await one<{ global_role: GlobalRole; is_active: boolean; session_version: string | number; name: string }>(
+      `SELECT global_role, is_active, session_version, name FROM users WHERE id = $1`,
       [userId],
     );
+    // A lookup started before deactivation must not restore stale active state after invalidation.
+    if (generation !== freshGeneration) return freshActiveUser(userId);
     if (!row) throw unauthorized("Пользователь больше не существует");
     fresh = {
       globalRole: row.global_role,
       active: row.is_active,
       sessionVersion: Number(row.session_version),
+      name: row.name,
       at: Date.now(),
     };
     boundedSet(freshUsers, userId, fresh);
   }
   if (!fresh.active) throw unauthorized("Аккаунт деактивирован администратором");
+  return fresh;
+}
+
+export async function assertFreshUserNoSession(userId: string): Promise<{ name: string }> {
+  const fresh = await freshActiveUser(userId); return { name: fresh.name };
+}
+
+export async function assertFreshUser(userId: string, sessionVersion: number | undefined): Promise<GlobalRole> {
+  const fresh = await freshActiveUser(userId);
 
   if (sessionVersion === undefined || sessionVersion !== fresh.sessionVersion) {
     throw unauthorized("Сессия завершена — войдите заново");
@@ -188,7 +198,22 @@ export async function assertFreshUser(userId: string, sessionVersion: number | u
   return fresh.globalRole;
 }
 
-export const requireAuth: preHandlerAsyncHookHandler = async (req, reply) => {
+async function authenticate(req: FastifyRequest, reply: FastifyReply, enforceScope: boolean): Promise<void> {
+  const authorization = req.headers.authorization;
+  if (authorization?.startsWith("Bearer tsk_")) {
+    const token = verifiedRequest(req) ?? await verifyToken(authorization.slice(7));
+    if (!token) throw unauthorized();
+    const fresh = await assertFreshUserNoSession(token.userId);
+    // ADR-0029: global administrator authority never travels with an API token.
+    req.user = { sub: token.userId, globalRole: "member", name: fresh.name };
+    req.authToken = { id: token.tokenId, scope: token.scope };
+    recordTokenUse(token.tokenId, req.ip);
+    if (enforceScope && token.scope === "read" && req.method !== "GET" && req.method !== "HEAD") {
+      await auditScopeDenial(token);
+      throw new ApiHttpError(403,"TOKEN_SCOPE","Токен разрешает только чтение");
+    }
+    return;
+  }
   try {
     await req.jwtVerify();
   } catch {
@@ -227,6 +252,12 @@ export const requireAuth: preHandlerAsyncHookHandler = async (req, reply) => {
     );
     reply.header("Set-Cookie", sessionCookie(token, remainingSeconds));
   }
+}
+
+export const requireAuth: preHandlerAsyncHookHandler = async (req, reply) => authenticate(req,reply,true);
+export const requireSession: preHandlerAsyncHookHandler = async (req, reply) => {
+  await authenticate(req,reply,false);
+  if (req.authToken) throw new ApiHttpError(403,"TOKEN_NOT_ALLOWED","Для этого действия требуется сессия пользователя");
 };
 
 const serverUser = (req: FastifyRequest): ServerUser => ({ id: req.user.sub, globalRole: req.user.globalRole });
@@ -293,9 +324,10 @@ async function effectiveRole(u: ServerUser, membership: Membership, project: Pro
 /* -------- глобальный admin (без контекста проекта) --------
    Для CRUD департаментов/проектов и управления пользователями. */
 export const requireGlobalAdmin: preHandlerAsyncHookHandler = async (req, reply: FastifyReply) => {
-  await requireAuth.call(req.server, req, reply);
+  await authenticate(req,reply,false);
+  if (req.authToken) throw new ApiHttpError(403,"TOKEN_NOT_ALLOWED","Для этого действия требуется сессия администратора");
   if (req.user.globalRole === "admin") return;
-  await audit(req.user.sub, "access.denied", "globalAdmin", null, { path: req.url, method: req.method }, "denied");
+  await auditFromRequest(req, "access.denied", "globalAdmin", null, { path: req.url, method: req.method }, "denied");
   throw forbidden("Действие доступно только администратору ресурса");
 };
 
@@ -312,7 +344,7 @@ export function requiresPlan(feature: string): preHandlerAsyncHookHandler {
     await requireAuth.call(req.server, req, reply);
     const status = await getLicenseStatus();
     if (licenseHasFeature(status, feature)) return;
-    await audit(req.user.sub, "access.denied", "plan", null, { feature, path: req.url, method: req.method }, "denied");
+    await auditFromRequest(req, "access.denied", "plan", null, { feature, path: req.url, method: req.method }, "denied");
     throw new ApiHttpError(403, "PLAN_REQUIRED", `Функция «${feature}» недоступна на текущем плане лицензии`);
   };
 }
@@ -355,7 +387,7 @@ export function requirePerm(perm: PermId, gate?: (project: ProjectRow) => void):
     req.projectRole = role;
     req.impliedViewer = !membership && role === "viewer";
     if (roleCan(role, perm)) return;
-    await audit(u.id, "access.denied", perm, null, { path: req.url, method: req.method, projectId }, "denied");
+    await auditFromRequest(req, "access.denied", perm, null, { path: req.url, method: req.method, projectId }, "denied");
     throw forbidden(roleDenialReason(role, perm));
   };
 }
@@ -410,7 +442,7 @@ export function requireIssuePerm(perm: PermId, gate?: (project: ProjectRow) => v
       req.isCollaborator = true;
       return;
     }
-    await audit(u.id, "access.denied", perm, issueRef.id, { path: req.url, method: req.method, projectId }, "denied");
+    await auditFromRequest(req, "access.denied", perm, issueRef.id, { path: req.url, method: req.method, projectId }, "denied");
     const ownViolation =
       (perm === "edit" || perm === "transition") &&
       !!role &&

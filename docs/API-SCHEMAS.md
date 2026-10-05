@@ -414,6 +414,13 @@
 |---|---|---|
 | `step` | enum: `theme` |  |
 
+### PickableUsersQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `q` | string | необязательное |
+| `includeService` | `"1"` | необязательное |
+
 ### ProjectAppearanceBody
 
 | Поле | Тип | Замечания |
@@ -959,7 +966,7 @@
 | `phone` | string |  |
 | `globalRole` | enum: `admin` \| `member` |  |
 | `isActive` | boolean |  |
-| `authSource` | enum: `local` \| `ldap` |  |
+| `authSource` | enum: `local` \| `ldap` \| `service` |  |
 | `avatarUpdatedAt` | number | может быть null |
 | `notifyPrefs` | object |  |
 | `favoriteProjectIds` | array&lt;string&gt; |  |
@@ -1035,6 +1042,7 @@
 | `initials` | string |  |
 | `color` | string |  |
 | `jobRole` | string |  |
+| `authSource` | enum: `local` \| `ldap` \| `service` | необязательное |
 
 ### ProjectBootstrapDto
 
@@ -1195,7 +1203,7 @@
 | `phone` | string |  |
 | `globalRole` | enum: `admin` \| `member` |  |
 | `isActive` | boolean |  |
-| `authSource` | enum: `local` \| `ldap` |  |
+| `authSource` | enum: `local` \| `ldap` \| `service` |  |
 | `avatarUpdatedAt` | number | может быть null |
 
 ### SavedViewDto

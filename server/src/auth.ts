@@ -18,7 +18,7 @@ export interface UserRow {
   global_role: GlobalRole; // admin | member (миграция 004) — источник прав
   is_active: boolean;
   password_hash: string | null; // NULL у LDAP-пользователей (миграция 009)
-  auth_source: "local" | "ldap"; // миграция 009
+  auth_source: "local" | "ldap" | "service";
   ldap_dn: string | null;
   email: string | null;
   notify_prefs: NotifyPrefs | null; // миграция 011 (jsonb; node-postgres отдаёт объектом)

@@ -16,7 +16,7 @@ import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { ApiHttpError, notFound, requireAuth, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
 import { roleCan } from "../permissions.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import {
   DashboardCreateBody,
   DashboardDataBody,
@@ -71,7 +71,7 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
   app.post("/dashboards", { preHandler: requireAuth, preValidation: zbody(DashboardCreateBody) }, async (req, reply) => {
     const u: JwtPayload = req.user;
     const d = await createDashboard(u.sub, isAdmin(u), req.body as z.infer<typeof DashboardCreateBody>);
-    await audit(u.sub, "dashboard.create", "dashboard", d.id, { name: d.name, kind: d.kind });
+    await auditFromRequest(req, "dashboard.create", "dashboard", d.id, { name: d.name, kind: d.kind });
     return reply.code(201).send(d);
   });
 
@@ -133,7 +133,7 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
       const { dashboardId } = req.params as z.infer<typeof DashboardParams>;
       const patch = req.body as z.infer<typeof DashboardPatchBody>;
       const d = await patchDashboard(dashboardId, u.sub, isAdmin(u), patch);
-      await audit(u.sub, "dashboard.update", "dashboard", d.id, { fields: Object.keys(patch), kind: d.kind });
+      await auditFromRequest(req, "dashboard.update", "dashboard", d.id, { fields: Object.keys(patch), kind: d.kind });
       return d;
     },
   );
@@ -142,7 +142,7 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
     const u: JwtPayload = req.user;
     const { dashboardId } = req.params as z.infer<typeof DashboardParams>;
     const d = await deleteDashboard(dashboardId, u.sub, isAdmin(u));
-    await audit(u.sub, "dashboard.delete", "dashboard", d.id, { name: d.name, kind: d.kind });
+    await auditFromRequest(req, "dashboard.delete", "dashboard", d.id, { name: d.name, kind: d.kind });
     return reply.code(204).send();
   });
 
@@ -168,7 +168,7 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
       const { projectId } = req.params as z.infer<typeof ProjectParams>;
       const { widgets } = req.body as z.infer<typeof ProjectOverviewBody>;
       const d = await saveProjectOverview(projectId, u.sub, widgets);
-      await audit(u.sub, "project.overview.update", "project", projectId, { widgets: widgets.length });
+      await auditFromRequest(req, "project.overview.update", "project", projectId, { widgets: widgets.length });
       return d;
     },
   );
@@ -176,7 +176,7 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
   app.delete("/projects/:projectId/overview", { preHandler: manage, preValidation: zparams(ProjectParams) }, async (req, reply) => {
     const u: JwtPayload = req.user;
     const { projectId } = req.params as z.infer<typeof ProjectParams>;
-    if (await resetProjectOverview(projectId)) await audit(u.sub, "project.overview.reset", "project", projectId, {});
+    if (await resetProjectOverview(projectId)) await auditFromRequest(req, "project.overview.reset", "project", projectId, {});
     return reply.code(204).send();
   });
 }

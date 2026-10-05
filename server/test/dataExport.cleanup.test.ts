@@ -5,7 +5,7 @@ import { afterEach, expect, test, vi } from "vitest";
 
 const { connect } = vi.hoisted(() => ({ connect: vi.fn() }));
 vi.mock("../src/db.js", () => ({ acquireClient: connect }));
-vi.mock("../src/audit.js", () => ({ audit: vi.fn() }));
+vi.mock("../src/audit.js", () => ({ auditFromRequest: vi.fn() }));
 vi.mock("../src/middleware.js", () => ({ requireGlobalAdmin: vi.fn() }));
 import { dataExportRoutes } from "../src/routes/dataExport.js";
 

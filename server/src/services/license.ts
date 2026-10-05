@@ -125,7 +125,7 @@ export function verifyLicenseToken(token: string, trustedKeys: Record<string, st
 export async function countActiveSeats(windowDays: number): Promise<number> {
   const row = await one<{ n: number }>(
     `SELECT count(*)::int AS n FROM users
-      WHERE is_active AND last_login_at >= now() - make_interval(days => $1::int)`,
+      WHERE is_active AND auth_source <> 'service' AND last_login_at >= now() - make_interval(days => $1::int)`,
     [windowDays],
   );
   return row?.n ?? 0;

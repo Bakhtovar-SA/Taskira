@@ -6,12 +6,13 @@ import type { z } from "zod";
 import bcrypt from "bcryptjs";
 import { one, q, withTransaction } from "../db.js";
 import { loadConfig } from "../config.js";
-import { invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, revokeUserSessions, zbody, type JwtPayload } from "../middleware.js";
+import { forbidden, invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, revokeUserSessions, zbody, zquery, type JwtPayload } from "../middleware.js";
+import { invalidateUserTokens } from "../services/apiTokens.js";
 import { conflict } from "../services/workflow.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { safeUser, type UserRow } from "../auth.js";
 import type { PickableUserDto } from "../contract.js";
-import { ChangeRoleBody, CreateUserBody } from "../contract.js";
+import { ChangeRoleBody, CreateUserBody, PickableUsersQuery } from "../contract.js";
 
 /** Пикер сотрудников: минимум символов для поиска и потолок выдачи. */
 const PICKABLE_MIN_QUERY = 2;
@@ -27,23 +28,24 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   /** Тонкий справочник для пикеров (подключение к задаче и т.п.) — любой
    *  аутентифицированный, только активные, без globalRole/username
    *  (COLLAB_MIGRATION.md D7). */
-  app.get("/users/pickable", { preHandler: requireAuth }, async (req): Promise<PickableUserDto[]> => {
+  app.get("/users/pickable", { preHandler: requireAuth, preValidation: zquery(PickableUsersQuery) }, async (req): Promise<PickableUserDto[]> => {
     // Поиск, а не выгрузка всего справочника (аудит SEC-04): раньше любой
     // залогиненный одним запросом получал всю оргструктуру — на 1000 сотрудников
     // это и утечка данных, и мегабайт трафика на каждое открытие пикера.
-    const { q: search } = (req.query ?? {}) as { q?: string };
+    const { q: search, includeService } = req.query as z.infer<typeof PickableUsersQuery>;
+    if (includeService && req.user.globalRole !== "admin") throw forbidden("Сервисные записи доступны только администратору");
     const term = typeof search === "string" ? search.trim() : "";
     if (term.length < PICKABLE_MIN_QUERY) return [];
     const esc = term.replace(/[%_\\]/g, "\\$&");
-    const rows = await q<{ id: string; name: string; initials: string; color: string; job_role: string }>(
-      `SELECT id, name, initials, color, job_role
+    const rows = await q<{ id: string; name: string; initials: string; color: string; job_role: string; auth_source: PickableUserDto["authSource"] }>(
+      `SELECT id, name, initials, color, job_role, auth_source
          FROM users
-        WHERE is_active AND (name ILIKE $1 OR job_role ILIKE $1)
+        WHERE is_active AND ($3::boolean OR auth_source <> 'service') AND (name ILIKE $1 OR job_role ILIKE $1)
         ORDER BY name
         LIMIT $2`,
-      [`%${esc}%`, PICKABLE_LIMIT],
+      [`%${esc}%`, PICKABLE_LIMIT, includeService === "1"],
     );
-    return rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role }));
+    return rows.map((r) => ({ id: r.id, name: r.name, initials: r.initials, color: r.color, jobRole: r.job_role, authSource: r.auth_source }));
   });
 
   app.post(
@@ -72,7 +74,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         throw e;
       }
 
-      await audit(actor.sub, "user.create", "user", row.id, { username: row.username, globalRole: row.global_role });
+      await auditFromRequest(req, "user.create", "user", row.id, { username: row.username, globalRole: row.global_role });
       reply.code(201).send(safeUser(row));
     },
   );
@@ -89,6 +91,8 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         await client.query(`SELECT pg_advisory_xact_lock(hashtext('taskira:active-admins'))`);
         const user = (await client.query<UserRow>(`SELECT * FROM users WHERE id = $1 FOR UPDATE`, [id])).rows[0];
         if (!user) throw notFound("Пользователь не найден");
+        if (user.auth_source === "service" && body.globalRole !== "member")
+          throw conflict("Сервисная запись может иметь только роль участника");
 
         // В режиме LDAP глобальная роль LDAP-пользователя приходит из группы
         // (LDAP_ADMIN_GROUP_DN) и пересчитывается на каждом входе — ручная смена
@@ -138,11 +142,12 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       // смена роли) — иначе admin, пересохранивший форму без изменений,
       // без причины отключал бы чужую живую вкладку с уведомлениями (Этап 3c).
       if (row.global_role !== user.global_role || row.is_active !== user.is_active) {
+        if (!row.is_active) invalidateUserTokens(user.id);
         revokeUserSessions(user.id, "role or activity changed");
       } else {
         invalidateUserCache(user.id);
       }
-      await audit(actor.sub, "user.role.change", "user", user.id, {
+      await auditFromRequest(req, "user.role.change", "user", user.id, {
         username: user.username,
         from: user.global_role,
         to: row.global_role,

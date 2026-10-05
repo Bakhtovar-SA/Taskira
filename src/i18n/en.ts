@@ -1278,6 +1278,8 @@ const en: Record<keyof Dict, string> = {
   "apiError.WEBHOOK_TARGET_NOT_ALLOWED": "The webhook destination is not allowed by the operator",
   "apiError.WEBHOOK_LIMIT": "The webhook subscription limit has been reached",
   "apiError.WEBHOOK_NOT_ACTIVE": "The webhook subscription must be active",
+  "apiError.TOKEN_NOT_ALLOWED": "This action requires a user session",
+  "apiError.TOKEN_SCOPE": "This token allows read access only",
   "apiError.PLAN_REQUIRED": "Not available under the current license",
   "apiError.DEPENDENCY_CYCLE": "This dependency would create a cycle",
   "apiError.ATTACHMENT_TOO_LARGE": "The file is too large",

@@ -152,24 +152,29 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
     const eventsPurged = await inBatches(client, `DELETE FROM integration_events WHERE id IN (
       SELECT id FROM integration_events WHERE occurred_at < now() - make_interval(days => $1::int)
       ORDER BY occurred_at LIMIT $2 FOR UPDATE SKIP LOCKED)`, loadConfig().webhooks.logRetentionDays, cfg);
-    return { archived, purged, eventsPurged };
+    const tokensPurged = await inBatches(client, `DELETE FROM api_tokens WHERE id IN (
+      SELECT id FROM api_tokens WHERE revoked_at < now()-make_interval(days => $1::int)
+        OR expires_at < now()-make_interval(days => $1::int)
+      ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)`, 90, cfg);
+    return { archived, purged, eventsPurged, tokensPurged };
   });
 
   const stats: MaintenanceStats = {
     archived: done.archived.count,
     auditPurged: done.purged.count,
-    capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped,
+    capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped || done.tokensPurged.capped,
     dryRun: false,
   };
   addMaintenanceWork(stats.archived, stats.auditPurged);
   // След в данных: массовая архивация не должна быть заметна только по пропавшим с доски задачам.
-  if (stats.archived > 0 || stats.auditPurged > 0 || done.eventsPurged.count > 0) {
+  if (stats.archived > 0 || stats.auditPurged > 0 || done.eventsPurged.count > 0 || done.tokensPurged.count > 0) {
     await audit(opts.actorId ?? null, "maintenance.run", "system", null, {
       archived: stats.archived,
       auditPurged: stats.auditPurged,
       capped: stats.capped,
       trigger: opts.actorId ? "manual" : "schedule",
       ...(done.eventsPurged.count > 0 ? { integrationEventsPurged: done.eventsPurged.count } : {}),
+      ...(done.tokensPurged.count > 0 ? { apiTokensPurged: done.tokensPurged.count } : {}),
     });
   }
   return stats;

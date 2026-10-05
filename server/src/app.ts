@@ -1,5 +1,5 @@
 /** Сборка Fastify: плагины, обработчики ошибок, маршруты. */
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import { randomUUID } from "node:crypto";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
@@ -40,6 +40,7 @@ import { pendingMigrations, q } from "./db.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
 import { requestToken } from "./sessionCookie.js";
+import { peekVerified, rememberVerifiedRequest } from "./services/apiTokens.js";
 import { getStorage } from "./services/storage.js";
 import { activeSocketCount } from "./services/wsHub.js";
 import { licenseRoutes } from "./routes/license.js";
@@ -53,11 +54,11 @@ import { searchIndexWarnings, type HealthWarning } from "./services/healthWarnin
 import { createTtlCache } from "./services/ttlCache.js";
 import { observeHttpRequest, refreshBackgroundQueueMetrics, renderMetrics } from "./metrics.js";
 
-export function buildApp(): FastifyInstance {
+export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstance {
   const cfg = loadConfig();
 
   const app = Fastify({
-    logger: process.env.NODE_ENV === "test" ? false : { level: "info" },
+    logger: logger ?? (process.env.NODE_ENV === "test" ? false : { level: "info" }),
     requestIdHeader: "x-request-id",
     genReqId: () => randomUUID(),
     // За nginx/LB: без этого `req.ip` = адрес прокси — ломает rate-limit логина
@@ -109,6 +110,13 @@ export function buildApp(): FastifyInstance {
       max: cfg.rateLimit.max,
       timeWindow: cfg.rateLimit.windowMs,
       keyGenerator: (req) => {
+        const authorization = req.headers.authorization;
+        if (authorization?.startsWith("Bearer tsk_")) {
+          const raw = authorization.slice(7), token = peekVerified(raw);
+          if (!token) return `ip:${req.ip}`;
+          rememberVerifiedRequest(req,token);
+          return `token:${raw.slice(4,12)}`;
+        }
         const token = requestToken(req);
         if (token) {
           try {
@@ -121,9 +129,7 @@ export function buildApp(): FastifyInstance {
         }
         return `ip:${req.ip}`;
       },
-      errorResponseBuilder: () => ({
-        error: { code: "RATE_LIMITED", reason: "Слишком много запросов — подождите немного" },
-      }),
+      errorResponseBuilder: (_req,context) => new ApiHttpError(context.statusCode,"RATE_LIMITED","Слишком много запросов — подождите немного"),
     });
   }
 

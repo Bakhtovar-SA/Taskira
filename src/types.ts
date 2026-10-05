@@ -43,7 +43,7 @@ export interface User {
   id: string;
   name: string;
   givenName?: string | null;
-  authSource?: "local" | "ldap";
+  authSource?: "local" | "ldap" | "service";
   initials: string;
   color: string;
   /** Должность / job role — НЕ роль доступа. */

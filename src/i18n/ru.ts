@@ -1279,6 +1279,8 @@ const ru = {
   "apiError.WEBHOOK_TARGET_NOT_ALLOWED": "Адрес вебхука не разрешён оператором",
   "apiError.WEBHOOK_LIMIT": "Достигнут лимит подписок вебхуков",
   "apiError.WEBHOOK_NOT_ACTIVE": "Подписка вебхука должна быть активной",
+  "apiError.TOKEN_NOT_ALLOWED": "Для этого действия требуется сессия пользователя",
+  "apiError.TOKEN_SCOPE": "Токен разрешает только чтение",
   "apiError.PLAN_REQUIRED": "Функция недоступна по текущей лицензии",
   "apiError.DEPENDENCY_CYCLE": "Такая зависимость образует цикл",
   "apiError.ATTACHMENT_TOO_LARGE": "Файл слишком большой",

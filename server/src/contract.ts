@@ -960,8 +960,8 @@ export const SafeUser = z.object({
   /** Глобальная роль ресурса (users.global_role) — источник прав. Проектная роль — в bootstrap `members`. */
   globalRole: z.enum(GLOBAL_ROLES),
   isActive: z.boolean(),
-  /** local | ldap (миграция 009) — у ldap-юзеров роль/профиль из директории. */
-  authSource: z.enum(["local", "ldap"]),
+  /** local | ldap | service: профиль LDAP из директории, сервисная запись без входа. */
+  authSource: z.enum(["local", "ldap", "service"]),
   /** мс эпохи последней загрузки аватарки (миграция 027) — null, если её нет; cache-buster для /users/:id/avatar. */
   avatarUpdatedAt: z.number().nullable(),
 });
@@ -1111,8 +1111,10 @@ export const PickableUserDto = z.object({
   initials: z.string(),
   color: z.string(),
   jobRole: z.string(),
+  authSource: z.enum(["local", "ldap", "service"]).optional(),
 });
 export type PickableUserDto = z.infer<typeof PickableUserDto>;
+export const PickableUsersQuery = z.object({ q: z.string().optional(), includeService: z.literal("1").optional() });
 
 /** Элемент «Моих подключений» (GET /api/issues/collaborating). */
 export const CollaboratingItemDto = z.object({

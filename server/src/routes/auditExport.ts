@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { q } from "../db.js";
 import { requireGlobalAdmin, zquery } from "../middleware.js";
 
@@ -51,7 +51,7 @@ export async function auditExportRoutes(app: FastifyInstance): Promise<void> {
       reply.header("X-Taskira-Limit", String(query.limit));
 
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      await audit(req.user.sub, "audit.export", "audit", null, {
+      await auditFromRequest(req, "audit.export", "audit", null, {
         format: query.format,
         from: query.from ?? null,
         to: query.to ?? null,

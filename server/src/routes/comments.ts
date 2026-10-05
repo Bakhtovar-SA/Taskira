@@ -4,7 +4,7 @@ import { markStep } from "../services/onboarding.js";
 import type { z } from "zod";
 import { q } from "../db.js";
 import { requireIssuePerm, zbody, type JwtPayload } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { loadIssue } from "../services/issues.js";
 import { emit, autoWatch } from "../services/notify.js";
 import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
@@ -83,7 +83,7 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
 
       // viaCollaborator — комментарий оставил приглашённый (не участник проекта),
       // чтобы это было видно в аудите (auto-review PR #13 C2).
-      await audit(user.sub, "comment.create", "issue", iss.id, {
+      await auditFromRequest(req, "comment.create", "issue", iss.id, {
         key: iss.key,
         viaCollaborator: req.isCollaborator || undefined,
       });

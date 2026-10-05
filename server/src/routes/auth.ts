@@ -7,10 +7,10 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { LoginBody } from "../contract.js";
 import type { MeDto } from "../contract.js";
-import { audit } from "../audit.js";
+import { audit, auditFromRequest } from "../audit.js";
 import { one, q } from "../db.js";
 import { loadConfig } from "../config.js";
-import { ApiHttpError, requireAuth, revokeUserSessions, unauthorized, forbidden, zbody } from "../middleware.js";
+import { ApiHttpError, requireSession, revokeUserSessions, unauthorized, forbidden, zbody } from "../middleware.js";
 import { safeUser, signToken, type UserRow } from "../auth.js";
 import { loginRateLimited } from "../services/loginRateLimit.js";
 import { ldapAuthenticate, LdapUnavailableError } from "../services/ldap.js";
@@ -30,7 +30,7 @@ async function rateLimited(ip: string): Promise<boolean> {
   return loginRateLimited(ip, rl.loginMax, rl.loginWindowMs);
 }
 
-type LoginAccount = { id: string; auth_source: "local" | "ldap"; locked_until: Date | null };
+type LoginAccount = { id: string; auth_source: "local" | "ldap" | "service"; locked_until: Date | null };
 
 async function loginAccount(username: string): Promise<LoginAccount | null> {
   return one<LoginAccount>(`SELECT id, auth_source, locked_until FROM users WHERE username = $1`, [username]);
@@ -151,7 +151,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.get(
     "/me",
-    { preHandler: requireAuth }, // requireAuth сам подтягивает is_active/роль из БД
+    { preHandler: requireSession }, // свежая сессия: is_active/роль из БД, API-токены запрещены
     async (req, reply) => {
       const row = await one<UserRow>(`SELECT * FROM users WHERE id = $1`, [req.user.sub]);
       if (!row) throw unauthorized("Пользователь больше не существует");
@@ -165,18 +165,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  /** Выход: помечаем все ранее выданные токены недействительными.
+  /** Выход: помечаем все ранее выданные сессионные JWT недействительными.
    *  Без этого «Выйти» стирало токен только в браузере, а сам JWT оставался
    *  рабочим ещё до 12 часов (аудит SEC-01). */
-  app.post("/logout", { preHandler: requireAuth }, async (req, reply) => {
+  app.post("/logout", { preHandler: requireSession }, async (req, reply) => {
     await q(`UPDATE users SET session_version = session_version + 1 WHERE id = $1`, [req.user.sub]);
     revokeUserSessions(req.user.sub, "logout"); // иначе отзыв ждал бы до 30 секунд, а WS — до закрытия вкладки
-    await audit(req.user.sub, "auth.logout", "user", req.user.sub, {});
+    await auditFromRequest(req, "auth.logout", "user", req.user.sub, {});
     reply.header("Set-Cookie", clearSessionCookie());
     reply.code(204).send();
   });
 
   /** Режим аутентификации ресурса — клиент по нему показывает/прячет LDAP-поля
    *  и правку глобальной роли в AdminView (LDAP_MIGRATION.md Фаза 4). */
-  app.get("/config", { preHandler: requireAuth }, async () => ({ authMode: loadConfig().authMode }));
+  app.get("/config", { preHandler: requireSession }, async () => ({ authMode: loadConfig().authMode }));
 }

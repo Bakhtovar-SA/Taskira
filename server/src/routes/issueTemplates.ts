@@ -4,7 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { badRequest, notFound, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { conflict } from "../services/workflow.js";
 import {
   createIssueTemplate,
@@ -65,7 +65,7 @@ export async function issueTemplatesRoutes(app: FastifyInstance): Promise<void> 
       } catch (e) {
         templateConflict(e);
       }
-      await audit(user.sub, "issueTemplate.add", "project", project.id, { templateId: template.id, name: template.name });
+      await auditFromRequest(req, "issueTemplate.add", "project", project.id, { templateId: template.id, name: template.name });
       reply.code(201).send(template);
     },
   );
@@ -107,7 +107,7 @@ export async function issueTemplatesRoutes(app: FastifyInstance): Promise<void> 
       const existing = await getIssueTemplateInProject(project.id, templateId);
       if (!existing) throw notFound("Шаблон не найден");
       await deleteIssueTemplate(templateId);
-      await audit(user.sub, "issueTemplate.remove", "project", project.id, { templateId, name: existing.name });
+      await auditFromRequest(req, "issueTemplate.remove", "project", project.id, { templateId, name: existing.name });
       reply.code(204).send();
     },
   );

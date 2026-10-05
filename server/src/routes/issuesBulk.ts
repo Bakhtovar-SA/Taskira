@@ -5,12 +5,12 @@
  *  ниже) и проверяется на КАЖДУЮ задачу отдельно через roleCan() напрямую (тот же
  *  примитив, которым requireIssuePerm пользуется внутри) — частичный успех, а не отказ
  *  по всему батчу из-за одной чужой задачи. */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { z } from "zod";
 import { q } from "../db.js";
 import { badRequest, requirePerm, zbody, type JwtPayload } from "../middleware.js";
 import { ApiHttpError } from "../errors.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { roleCan, type IssueRef } from "../permissions.js";
 import { transitionIssue } from "../services/issueTransition.js";
 import { listAssigneeIdsBatch, logActivity, setAssignees, validateAssigneesInProject } from "../services/issues.js";
@@ -40,20 +40,22 @@ interface Row {
 /** Зеркалит POST /:id/transition (routes/issues.ts) — та же схема-проверка, тот же
  *  done_at/archived_at, тот же rank (в конец колонки — у массового переноса нет
  *  единой позиции "перед X", в отличие от drag&drop одной карточки). */
-async function applyStatus(projectId: string, row: Row, toStatusId: string, actorId: string): Promise<void> {
+async function applyStatus(projectId: string, row: Row, toStatusId: string, req: FastifyRequest): Promise<void> {
+  const actorId = req.user.sub;
   const { previous, changed, from, to } = await transitionIssue(projectId, row.id, toStatusId, null, actorId, false);
   if (!changed) return;
   await autoWatch(row.id, actorId);
   await emit({ type: "issue.status", actorId, projectId, issueId: row.id, payload: { key: row.key, title: row.title, from, to } });
   // Тот же тип события, что у одиночного POST /:id/transition — обзор audit_log
   // не должен зависеть от того, каким путём задача сменила статус.
-  await audit(actorId, "issue.transition", "issue", row.id, { key: row.key, from: previous.status_id, to: toStatusId, bulk: true });
+  await auditFromRequest(req, "issue.transition", "issue", row.id, { key: row.key, from: previous.status_id, to: toStatusId, bulk: true });
 }
 
 /** Зеркалит PATCH /:id assigneeIds-ветку — но всегда ЗАМЕНА списка одним значением
  *  (или пустым при "none"), не слияние: кнопка "назначить X" — предсказуемое действие
  *  для выборки из N задач с разными текущими исполнителями. */
-async function applyAssignee(projectId: string, row: Row, assigneeId: string, actorId: string): Promise<void> {
+async function applyAssignee(projectId: string, row: Row, assigneeId: string, req: FastifyRequest): Promise<void> {
+  const actorId = req.user.sub;
   const before = await listAssigneeIdsBatch([row.id]);
   const beforeIds = before.get(row.id) ?? [];
   const afterIds = assigneeId === "none" ? [] : [assigneeId];
@@ -64,22 +66,23 @@ async function applyAssignee(projectId: string, row: Row, assigneeId: string, ac
     await emit({ type: "issue.assigned", actorId, projectId, issueId: row.id, recipientIds: added, payload: { key: row.key, title: row.title } });
   }
   await logActivity(row.id, actorId, { kind: "assigneeBulk", cleared: assigneeId === "none", userId: assigneeId === "none" ? null : assigneeId });
-  await audit(actorId, "issue.update", "issue", row.id, { key: row.key, fields: ["assigneeIds"], bulk: true });
+  await auditFromRequest(req, "issue.update", "issue", row.id, { key: row.key, fields: ["assigneeIds"], bulk: true });
 }
 
-async function applyPriority(row: Row, priorityId: string, actorId: string): Promise<void> {
+async function applyPriority(row: Row, priorityId: string, req: FastifyRequest): Promise<void> {
+  const actorId = req.user.sub;
   if (row.priority_id === priorityId) return; // no-op
   await q(`UPDATE issues SET priority_id = $1, updated_at = now() WHERE id = $2`, [priorityId, row.id]);
   await logActivity(row.id, actorId, { kind: "priority", from: row.priority_id as PriorityId, to: priorityId as PriorityId, bulk: true });
-  await audit(actorId, "issue.update", "issue", row.id, { key: row.key, fields: ["priorityId"], bulk: true });
+  await auditFromRequest(req, "issue.update", "issue", row.id, { key: row.key, fields: ["priorityId"], bulk: true });
 }
 
 /** Зеркалит DELETE /:id — вложения собираются ДО каскадного удаления строки. */
-async function applyDelete(row: Row, actorId: string): Promise<void> {
+async function applyDelete(row: Row, req: FastifyRequest): Promise<void> {
   const attachKeys = await storageKeysForIssue(row.id);
   await q(`DELETE FROM issues WHERE id = $1`, [row.id]);
   await deleteStorageObjects(attachKeys);
-  await audit(actorId, "issue.delete", "issue", row.id, { key: row.key, bulk: true });
+  await auditFromRequest(req, "issue.delete", "issue", row.id, { key: row.key, bulk: true });
 }
 
 export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
@@ -131,10 +134,10 @@ export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
           continue;
         }
         try {
-          if (body.action === "status") await applyStatus(project.id, row, body.statusId, user.sub);
-          else if (body.action === "assignee") await applyAssignee(project.id, row, body.assigneeId, user.sub);
-          else if (body.action === "priority") await applyPriority(row, body.priorityId, user.sub);
-          else await applyDelete(row, user.sub);
+          if (body.action === "status") await applyStatus(project.id, row, body.statusId, req);
+          else if (body.action === "assignee") await applyAssignee(project.id, row, body.assigneeId, req);
+          else if (body.action === "priority") await applyPriority(row, body.priorityId, req);
+          else await applyDelete(row, req);
           succeeded.push(issueId);
         } catch (e) {
           // Недопустимый переход (assertTransition — 409) — самый вероятный "живой"
@@ -145,7 +148,7 @@ export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
         }
       }
 
-      await audit(user.sub, "issue.bulkAction", "project", project.id, {
+      await auditFromRequest(req, "issue.bulkAction", "project", project.id, {
         action: body.action,
         requested: dedupIds.length,
         succeeded: succeeded.length,

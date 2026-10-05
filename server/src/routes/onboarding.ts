@@ -4,31 +4,31 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { one, q } from "../db.js";
-import { requireAuth, requireGlobalAdmin, zbody, zparams, type JwtPayload } from "../middleware.js";
+import { requireSession, requireGlobalAdmin, zbody, zparams, type JwtPayload } from "../middleware.js";
 import { HintParams, OnboardingStepBody, SetupPatchBody, type OnboardingDto, type SetupStatusDto } from "../contract.js";
 import { dismissHint, getOnboarding, hideOnboarding, markStep } from "../services/onboarding.js";
 import { createDemoProject, deleteDemoProject, demoProjectId } from "../services/demoProject.js";
 import { invalidateInstanceCache } from "../services/instance.js";
 import { loadConfig } from "../config.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 
 export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
   const uid = (req: { user: unknown }) => (req.user as JwtPayload).sub;
 
-  app.get("/me/onboarding", { preHandler: requireAuth }, async (req): Promise<OnboardingDto> => getOnboarding(uid(req)));
+  app.get("/me/onboarding", { preHandler: requireSession }, async (req): Promise<OnboardingDto> => getOnboarding(uid(req)));
 
   /** Только шаги, которые сервер не видит сам (тема), — остальные отмечаются от действий. */
-  app.post("/me/onboarding/steps", { preHandler: requireAuth, preValidation: zbody(OnboardingStepBody) }, async (req): Promise<OnboardingDto> => {
+  app.post("/me/onboarding/steps", { preHandler: requireSession, preValidation: zbody(OnboardingStepBody) }, async (req): Promise<OnboardingDto> => {
     await markStep(uid(req), (req.body as z.infer<typeof OnboardingStepBody>).step);
     return getOnboarding(uid(req));
   });
 
-  app.post("/me/onboarding/hide", { preHandler: requireAuth }, async (req, reply) => {
+  app.post("/me/onboarding/hide", { preHandler: requireSession }, async (req, reply) => {
     await hideOnboarding(uid(req));
     reply.code(204).send();
   });
 
-  app.post("/me/hints/:hintId/dismiss", { preHandler: requireAuth, preValidation: zparams(HintParams) }, async (req, reply) => {
+  app.post("/me/hints/:hintId/dismiss", { preHandler: requireSession, preValidation: zparams(HintParams) }, async (req, reply) => {
     await dismissHint(uid(req), (req.params as z.infer<typeof HintParams>).hintId);
     reply.code(204).send();
   });
@@ -57,13 +57,13 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
     const { instanceName } = req.body as z.infer<typeof SetupPatchBody>;
     await q(`UPDATE instance SET name = $1 WHERE id = 1`, [instanceName]);
     invalidateInstanceCache();
-    await audit(uid(req), "instance.rename", "instance", null, { name: instanceName });
+    await auditFromRequest(req, "instance.rename", "instance", null, { name: instanceName });
     return setupStatus();
   });
 
   app.post("/admin/setup/complete", { preHandler: requireGlobalAdmin }, async (req) => {
     await q(`UPDATE instance SET setup_completed_at = COALESCE(setup_completed_at, now()) WHERE id = 1`);
-    await audit(uid(req), "instance.setup_complete", "instance", null, {});
+    await auditFromRequest(req, "instance.setup_complete", "instance", null, {});
     return setupStatus();
   });
 

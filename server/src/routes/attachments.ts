@@ -7,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 import type { MultipartFile } from "@fastify/multipart"; // подтягивает типы req.file()
 import { forbidden, notFound, badRequest, requireIssuePerm, type JwtPayload } from "../middleware.js";
 import { ApiHttpError } from "../errors.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import {
   listAttachments,
   createAttachment,
@@ -50,7 +50,7 @@ export async function attachmentRoutes(app: FastifyInstance): Promise<void> {
     if (!part) throw badRequest("Файл не приложен (поле file)");
 
     const dto = await createAttachment({ issueId: issue.id, userId: user.sub, part });
-    await audit(user.sub, "attachment.add", "issue", issue.id, {
+    await auditFromRequest(req, "attachment.add", "issue", issue.id, {
       projectId: project.id,
       attId: dto.id,
       filename: dto.filename,
@@ -97,7 +97,7 @@ export async function attachmentRoutes(app: FastifyInstance): Promise<void> {
       throw forbidden("Удалять чужие вложения может только менеджер или администратор проекта");
     }
     await deleteAttachment(row);
-    await audit(req.user.sub, "attachment.remove", "issue", issue.id, {
+    await auditFromRequest(req, "attachment.remove", "issue", issue.id, {
       projectId: project.id,
       attId,
       filename: row.filename,

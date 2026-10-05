@@ -10,7 +10,7 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { badRequest, notFound, requirePerm, zbody, zparams } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import { conflict } from "../services/workflow.js";
 import {
   activateSprint,
@@ -44,7 +44,7 @@ export async function sprintsRoutes(app: FastifyInstance): Promise<void> {
         startDate: body.startDate ?? null,
         endDate: body.endDate ?? null,
       });
-      await audit(req.user.sub, "sprint.create", "project", project.id, { sprintId: sprint.id, name: sprint.name });
+      await auditFromRequest(req, "sprint.create", "project", project.id, { sprintId: sprint.id, name: sprint.name });
       reply.code(201).send(sprint);
     },
   );
@@ -63,7 +63,7 @@ export async function sprintsRoutes(app: FastifyInstance): Promise<void> {
       try {
         const activated = await activateSprint(sprintId);
         if (!activated) throw conflict("Статус спринта уже изменился — обновите страницу");
-        await audit(req.user.sub, "sprint.start", "project", project.id, { sprintId });
+        await auditFromRequest(req, "sprint.start", "project", project.id, { sprintId });
         return activated;
       } catch (e) {
         // uq_sprints_one_active_per_project (миграция 023) — источник истины
@@ -89,7 +89,7 @@ export async function sprintsRoutes(app: FastifyInstance): Promise<void> {
 
       const result = await completeSprint(sprintId);
       if (!result) throw conflict("Статус спринта уже изменился — обновите страницу");
-      await audit(req.user.sub, "sprint.complete", "project", project.id, {
+      await auditFromRequest(req, "sprint.complete", "project", project.id, {
         sprintId,
         movedToBacklog: result.movedToBacklog,
       });

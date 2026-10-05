@@ -75,6 +75,10 @@ describe("assignableUsers", () => {
   test("не дублирует исполнителя, который и так участник", () => {
     expect(assignableUsers(data, ["a"]).map((u) => u.id)).toEqual(["a", "b"]);
   });
+  test("сервисная запись не предлагается даже при членстве и текущем назначении", () => {
+    const service: User = { ...mkUser("robot"), authSource: "service" };
+    expect(assignableUsers({ users:[...data.users,service],members:{ ...data.members,robot:"employee" } },["robot"]).map(u => u.id)).toEqual(["a","b"]);
+  });
 });
 
 describe("relTime", () => {

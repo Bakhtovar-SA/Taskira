@@ -6,7 +6,7 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { badRequest, notFound, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
-import { audit } from "../audit.js";
+import { auditFromRequest } from "../audit.js";
 import {
   countSavedViews,
   createSavedView,
@@ -33,7 +33,7 @@ export async function savedViewsRoutes(app: FastifyInstance): Promise<void> {
       throw badRequest(`Нельзя сохранить больше ${LIMITS.savedViewsPerUserProject} фильтров в проекте`);
     }
     const view = await createSavedView(user.sub, project.id, { name: body.name, filter: body.filter, isDefault: body.isDefault });
-    await audit(user.sub, "savedView.add", "project", project.id, { viewId: view.id, name: view.name });
+    await auditFromRequest(req, "savedView.add", "project", project.id, { viewId: view.id, name: view.name });
     reply.code(201).send(view);
   });
 
@@ -60,7 +60,7 @@ export async function savedViewsRoutes(app: FastifyInstance): Promise<void> {
     const existing = await getSavedViewForUser(user.sub, project.id, viewId);
     if (!existing) throw notFound("Сохранённый фильтр не найден");
     await deleteSavedView(user.sub, project.id, viewId);
-    await audit(user.sub, "savedView.remove", "project", project.id, { viewId, name: existing.name });
+    await auditFromRequest(req, "savedView.remove", "project", project.id, { viewId, name: existing.name });
     reply.code(204).send();
   });
 }
