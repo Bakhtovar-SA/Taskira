@@ -5,8 +5,10 @@
  *  тише, чем сама задача, и заметить это было бы некому.
  */
 import type { FastifyInstance } from "fastify";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import * as db from "../src/db.js";
+import { buildReport } from "../src/services/reports.js";
 
 let app: FastifyInstance;
 let fx: Fixture;
@@ -147,6 +149,7 @@ describe("период", () => {
   test("слишком длинный период — 400", async () => {
     const adm = await login(app, "admin");
     expect((await g(`/api/reports/summary?from=2000-01-01&to=${TODAY}`, adm)).statusCode).toBe(400);
+    expect((await g(`/api/reports/issues.csv?from=1900-01-01&to=${TODAY}`, adm)).statusCode).toBe(400);
   });
 });
 
@@ -194,5 +197,77 @@ describe("GET /api/reports/issues.csv", () => {
     await closeIssue(fx.issues.p1issue);
     const body = (await g(`/api/reports/issues.csv?${period}`, adm)).body;
     expect(body).toContain('"от; и ""кавычка"""');
+  });
+});
+
+describe("UI refresh report data", () => {
+  test("weekly labels, event buckets and totals share the PostgreSQL session calendar", async () => {
+    const client = await db.acquireClient();
+    await client.query("BEGIN");
+    const query = vi.spyOn(db, "q");
+    try {
+      await client.query(`UPDATE issues SET created_at = '2026-06-07T20:30:00Z', done_at = '2026-06-08T00:30:00Z' WHERE id = $1`, [fx.issues.p1issue]);
+      // Bind the service's separate queries to one test session; do not change pool defaults.
+      query.mockImplementation(async (sql, params = []) => (await client.query(sql, params)).rows);
+      for (const zone of ["UTC", "Asia/Tashkent", "America/New_York"]) {
+        await client.query("SELECT set_config('TimeZone', $1, true)", [zone]);
+        const report = await buildReport([fx.projects.p1], "2026-06-07", "2026-06-08", "project");
+        expect(report.totals).toMatchObject({ created: 1, closed: 1 });
+        expect(report.trend).toEqual([
+          { week: "2026-06-01", created: zone === "Asia/Tashkent" ? 0 : 1, closed: zone === "America/New_York" ? 1 : 0 },
+          { week: "2026-06-08", created: zone === "Asia/Tashkent" ? 1 : 0, closed: zone === "America/New_York" ? 0 : 1 },
+        ]);
+      }
+    } finally {
+      query.mockRestore();
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
+  test("weekly created and closed series agree with totals and include zero weeks", async () => {
+    const adm = await login(app, "admin");
+    await closeIssue(fx.issues.p1issue);
+    const body = JSON.parse((await g(`/api/reports/summary?${period}`, adm)).body);
+    expect(body.trend.reduce((sum: number, p: { created: number }) => sum + p.created, 0)).toBe(body.totals.created);
+    expect(body.trend.reduce((sum: number, p: { closed: number }) => sum + p.closed, 0)).toBe(body.totals.closed);
+    expect(body.trend.some((p: { created: number; closed: number }) => p.created === 0 && p.closed === 0)).toBe(true);
+    expect(body.trend.map((p: { week: string }) => p.week)).toEqual([...body.trend.map((p: { week: string }) => p.week)].sort());
+  });
+  test("a created-only closed project remains in the breakdown", async () => {
+    const adm = await login(app, "admin");
+    await closeIssue(fx.issues.p1issue, 200);
+    const from = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+    const body = JSON.parse((await g(`/api/reports/summary?from=${from}&to=${TODAY}&projectId=${fx.projects.p1}`, adm)).body);
+    expect(body.rows).toHaveLength(1);
+    expect(body.rows[0]).toMatchObject({ created: 1, closed: 0, open: 0, overdue: 0 });
+  });
+  test("overdue project counts equal the current total", async () => {
+    const adm = await login(app, "admin");
+    await q(`UPDATE issues SET due_date = CURRENT_DATE - 1 WHERE id = $1`, [fx.issues.p1issue]);
+    const body = JSON.parse((await g(`/api/reports/summary?${period}`, adm)).body);
+    expect(body.rows.find((r: { key: string }) => r.key === fx.projects.p1).overdue).toBe(1);
+    expect(body.rows.reduce((sum: number, r: { overdue: number }) => sum + r.overdue, 0)).toBe(body.totals.overdue);
+  });
+  test("multiple project selection is intersected with visibility in JSON and CSV", async () => {
+    const emp = await login(app, "emp1");
+    const adm = await login(app, "admin");
+    const filter = `projectIds=${fx.projects.p1},${fx.projects.p2},${fx.projects.p1}`;
+    const body = JSON.parse((await g(`/api/reports/summary?${period}&${filter}`, emp)).body);
+    expect(body.projectCount).toBe(1);
+    expect(body.rows.map((r: { label: string }) => r.label)).toEqual(["Corp"]);
+    const csv = await g(`/api/reports/issues.csv?${period}&scope=open&${filter}`, emp);
+    expect(csv.statusCode).toBe(200); expect(csv.body).toContain("CORP-1"); expect(csv.body).not.toContain("SEC-1");
+    const filtered = JSON.parse((await g(`/api/reports/summary?${period}&projectIds=${fx.projects.p2}`, adm)).body);
+    expect(filtered.projectCount).toBe(1); expect(filtered.rows.map((r: { key: string }) => r.key)).toEqual([fx.projects.p2]);
+  });
+  test("invalid comma-separated project ids are rejected", async () => {
+    const adm = await login(app, "admin");
+    for (const ids of ["", "bad-id", `${fx.projects.p1},`, Array(151).fill(fx.projects.p1).join(",")]) {
+      expect((await g(`/api/reports/summary?${period}&projectIds=${ids}`, adm)).statusCode).toBe(400);
+    }
+    const allowed = await g(`/api/reports/summary?${period}&projectIds=${Array(150).fill(fx.projects.p1).join(",")}`, adm);
+    expect(allowed.statusCode).toBe(200);
+    expect(allowed.json().projectCount).toBe(1);
   });
 });

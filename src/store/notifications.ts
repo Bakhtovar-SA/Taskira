@@ -1,6 +1,7 @@
 /* Уведомления (миграция 011), настройки уведомлений и аватар текущего пользователя — действия стора. Вынесено из
  * store.tsx без изменений поведения (ТЗ 2.3, шаг 4). */
 import { refreshOnboardingSoon } from "../onboarding";
+import { markHomeStep } from "../homeSteps";
 import { useCallback } from "react";
 import type { NotifyPrefsT, User } from "../types";
 import { avatarApi, invalidateAvatarBlobUrl, notificationsApi, type NotifyPrefs } from "../api";
@@ -90,6 +91,7 @@ export function useNotificationActions({ setData, dataRef, toast, handleApiError
         const { avatarUpdatedAt } = await avatarApi.upload(file);
         if (epoch !== sessionEpochRef.current) return;
         patchMyAvatar(avatarUpdatedAt);
+        markHomeStep(dataRef.current.currentUserId, "profile");
         toast("success", local("Аватарка обновлена", "Profile photo updated"));
       } catch (err) {
         handleApiError(err, local("Не удалось загрузить аватарку", "Couldn't upload the profile photo"));

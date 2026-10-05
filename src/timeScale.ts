@@ -24,8 +24,14 @@ export interface TimeScale {
   x(d: Date): number;
 }
 
-export function timeScale(origin: Date, days: number, zoom: Zoom): TimeScale {
+/** monthWidth включает календарные месяцы одинаковой ширины; обычный Таймлайн сохраняет px/день. */
+export function timeScale(origin: Date, days: number, zoom: Zoom, monthWidth?: number): TimeScale {
   const o = startOfDay(origin);
+  if (zoom === "month" && monthWidth) {
+    const month = (d: Date) => d.getFullYear() * 12 + d.getMonth() + (d.getDate() - 1) / new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const x = (d: Date) => (month(d) - month(o)) * monthWidth;
+    return { origin: o, days, pxPerDay: monthWidth / 30, width: x(addDays(o, days)), x };
+  }
   const pxPerDay = PX_PER_DAY[zoom];
   return { origin: o, days, pxPerDay, width: days * pxPerDay, x: (d) => daysBetween(o, d) * pxPerDay };
 }

@@ -1,353 +1,145 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { downloadReportCsv, reportsApi, type ReportGroup, type ReportScope, type ReportSummary } from "../api";
 import { useStore } from "../store";
-import {
-  downloadReportCsv,
-  reportsApi,
-  type ReportGroup,
-  type ReportScope,
-  type ReportSummary,
-} from "../api";
-import { IcDownload, IcReport, IcSearch } from "../icons";
-import { DatePicker } from "../ds/DatePicker";
+import { useT, type TKey } from "../i18n";
 import { Button } from "../ds/Button";
-import { DashboardTabs, useDashboardList } from "../dashboards/DashboardTabs";
+import { Checkbox } from "../ds/Field";
+import { DatePicker } from "../ds/DatePicker";
 import { EmptyState } from "../ds/Display";
+import { Menu, Popover } from "../ds/Overlay";
 import { Tabs } from "../ds/Tabs";
+import { IcChevD, IcDownload, IcReport } from "../icons";
+import { DashboardTabs, useDashboardList } from "../dashboards/DashboardTabs";
 import { cssVars } from "../cssVars";
-import { useT } from "../i18n";
+import { REPORT_PROJECT_LIMIT, selectReportProject } from "../reportProjectSelection";
 
-/** Готовые периоды — закрывают почти все реальные запросы «что сделали за…». */
-type PresetId = "month" | "quarter" | "year" | "custom";
-
-const iso = (d: Date) => d.toISOString().slice(0, 10);
-const daysAgo = (n: number) => iso(new Date(Date.now() - n * 86_400_000));
-
-const PRESETS: { id: PresetId; labelKey: "reports.preset.month" | "reports.preset.quarter" | "reports.preset.year"; from: () => string }[] = [
-  { id: "month", labelKey: "reports.preset.month", from: () => daysAgo(30) },
-  { id: "quarter", labelKey: "reports.preset.quarter", from: () => daysAgo(90) },
-  { id: "year", labelKey: "reports.preset.year", from: () => daysAgo(365) },
-];
-
-const GROUPS: ReportGroup[] = ["project", "assignee", "type", "priority"];
-const SCOPES: ReportScope[] = ["closed", "created", "open"];
-
-/** Одна цифра сводки. Все цифры — в одной полосе (ТЗ 5.12 h): это суть экрана, но шесть отдельных карточек
- *  спорили бы друг с другом; цвет — только у «закрыто» и у ненулевой просрочки. */
-function Metric({ n, label, hint, tone }: { n: string; label: string; hint?: string; tone?: "ok" | "warn" }) {
-  const color = tone === "ok" ? "text-ok" : tone === "warn" ? "text-danger" : "text-ink";
-  return (
-    <div className="min-w-0 px-4 py-3.5">
-      <p className="truncate text-[12px] font-medium text-faint">{label}</p>
-      <p className={`mt-1.5 font-disp text-[24px] font-semibold leading-none tracking-tight tabular-nums ${color}`}>{n}</p>
-      {hint && <p className="mt-1 truncate text-[11px] text-faint" title={hint}>{hint}</p>}
-    </div>
-  );
+const DAY = 86_400_000;
+const date = (s: string) => new Date(`${s}T00:00:00Z`);
+const shift = (s: string, days: number) => new Date(date(s).getTime() + days * DAY).toISOString().slice(0, 10);
+export function previousPeriod(from: string, to: string) {
+  const length = Math.round((date(to).getTime() - date(from).getTime()) / DAY) + 1;
+  return { from: shift(from, -length), to: shift(from, -1) };
 }
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const presets = [{ id: "month", days: 30 }, { id: "quarter", days: 90 }, { id: "year", days: 365 }] as const;
+const groups: ReportGroup[] = ["project", "assignee", "type", "priority"];
+const scopes: ReportScope[] = ["closed", "created", "open"];
 
-/** Недельный тренд закрытий: площадь с градиентом и линия, без библиотеки
- *  (данных — десяток точек, чарт-пакет был бы лишним весом). Всё — атрибуты
- *  SVG из данных, а не инлайн-стили: под CSP не плодит динамических правил
- *  (ADR-0010). Наведение на неделю подсвечивает её и показывает число. */
-function Trend({ points }: { points: { week: string; closed: number }[] }) {
+function Trend({ report }: { report: ReportSummary }) {
   const { t, lang } = useT();
-  const [hover, setHover] = useState<number | null>(null);
-  const gid = useId().replace(/:/g, "");
-  if (points.length < 2) return null;
-  const W = 600;
-  const H = 120;
-  const PAD = 10;
-  const max = Math.max(...points.map((p) => p.closed), 1);
-  const x = (i: number) => (i / (points.length - 1)) * W;
-  const y = (v: number) => PAD + (1 - v / max) * (H - PAD * 2);
-  // Сглаженная кривая: кубические Безье через середины отрезков.
-  let line = `M${x(0)},${y(points[0].closed)}`;
-  for (let i = 1; i < points.length; i++) {
-    const mx = (x(i - 1) + x(i)) / 2;
-    line += ` C${mx},${y(points[i - 1].closed)} ${mx},${y(points[i].closed)} ${x(i)},${y(points[i].closed)}`;
-  }
-  const area = `${line} L${W},${H} L0,${H}Z`;
-  const fmt = (w: string) => new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "short" }).format(new Date(w));
-  const hi = hover ?? points.length - 1;
-  return (
-    <section className="mt-5">
-      <div className="flex items-baseline gap-2">
-        <h2 className="text-[13px] font-medium text-sub">{t("reports.trend.title")}</h2>
-        <span className="ml-auto text-[12px] tabular text-faint">
-          {t("reports.trend.week", { week: fmt(points[hi].week), count: points[hi].closed })}
-        </span>
-      </div>
-      <div className="surface-raised relative mt-2.5 overflow-hidden rounded-xl px-0 pb-2 pt-3 ring-1 ring-inset ring-line/70">
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block h-32 w-full" onMouseLeave={() => setHover(null)}>
-          <defs>
-            <linearGradient id={`tr-fill-${gid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="var(--accent-solid)" stopOpacity="0.32" />
-              <stop offset="1" stopColor="var(--accent-solid)" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id={`tr-line-${gid}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stopColor="var(--status-todo)" />
-              <stop offset="1" stopColor="var(--accent-solid)" />
-            </linearGradient>
-          </defs>
-          {[0.25, 0.5, 0.75].map((f) => (
-            <line key={f} x1="0" x2={W} y1={PAD + f * (H - PAD * 2)} y2={PAD + f * (H - PAD * 2)} stroke="var(--border-subtle)" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
-          ))}
-          <path d={area} fill={`url(#tr-fill-${gid})`} />
-          <path d={line} fill="none" stroke={`url(#tr-line-${gid})`} strokeWidth="2.25" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          <line x1={x(hi)} x2={x(hi)} y1="0" y2={H} stroke="var(--accent-solid)" strokeOpacity="0.35" vectorEffect="non-scaling-stroke" />
-          {points.map((p, i) => (
-            <rect
-              key={p.week}
-              x={x(i) - W / (points.length - 1) / 2}
-              y="0"
-              width={W / (points.length - 1)}
-              height={H}
-              fill="transparent"
-              onMouseEnter={() => setHover(i)}
-            >
-              <title>{t("reports.trend.week", { week: fmt(p.week), count: p.closed })}</title>
-            </rect>
-          ))}
-        </svg>
-        <div className="mt-1 flex justify-between px-3 text-[10.5px] tabular text-faint">
-          <span>{fmt(points[0].week)}</span>
-          <span>{fmt(points[points.length - 1].week)}</span>
-        </div>
-      </div>
-      <p className="mt-1 text-[11px] text-faint">{t("reports.trend.hint", { max })}</p>
-    </section>
-  );
+  const points = report.trend;
+  const max = Math.max(1, ...points.flatMap(p => [p.created ?? 0, p.closed]));
+  const W = Math.max(520, points.length * 68), H = 256, base = 218;
+  const slot = (W - 36) / Math.max(1, points.length);
+  const fmt = (s: string) => date(s).toLocaleDateString(lang, { day: "numeric", month: "short", timeZone: "UTC" });
+  return <section className="reports-panel reports-chart">
+    <div className="reports-panel-head"><h2>{t("reports.trend.title")}</h2><span className="reports-legend"><i data-series="created" />{t("reports.table.created")}<i data-series="closed" />{t("reports.table.closed")}</span></div>
+    <div className="reports-chart-scroll ds-focus" tabIndex={0} role="region" aria-label={t("reports.trend.title")} ref={cssVars({ "--report-chart-width": `${W}px` })}>
+      <svg role="img" aria-label={t("reports.trend.title")} viewBox={`0 0 ${W} ${H}`} width={W} height={H}>
+        <title>{t("reports.trend.title")}</title>
+        {[0, 1, 2, 3].map(i => <line key={i} x1={18} x2={W - 18} y1={base - i * 60} y2={base - i * 60} className="reports-gridline" />)}
+        {points.map((p, i) => {
+          const x = 18 + slot * (i + .5), bw = Math.min(22, slot * .28);
+          return <g key={p.week}>
+            <title>{`${fmt(p.week)}: ${t("reports.table.created")} ${p.created ?? "—"}, ${t("reports.table.closed")} ${p.closed}`}</title>
+            {(["created", "closed"] as const).map((series, j) => {
+              const value = p[series], h = ((value ?? 0) / max) * 174, bx = x + (j ? 3 : -bw - 3);
+              return <g key={series}><rect data-series={series} x={bx} y={base - h} width={bw} height={h} rx={3} /><text x={bx + bw / 2} y={base - h - 8} textAnchor="middle">{value ?? "—"}</text></g>;
+            })}
+            <text x={x} y={base + 25} textAnchor="middle">{fmt(p.week)}</text>
+          </g>;
+        })}
+      </svg>
+    </div>
+    <details className="reports-chart-data"><summary>{t("reports.chartData")}</summary><table><caption className="sr-only">{t("reports.trend.title")}</caption><thead><tr><th>{t("reports.period")}</th><th>{t("reports.table.created")}</th><th>{t("reports.table.closed")}</th></tr></thead><tbody>{points.map(p => <tr key={p.week}><th>{fmt(p.week)}</th><td>{p.created ?? "—"}</td><td>{p.closed}</td></tr>)}</tbody></table></details>
+  </section>;
 }
 
 export default function ReportsView() {
-  const { t, tn, errText, lang } = useT();
+  const { t, tn, lang, errText } = useT();
   const { data, toast } = useStore();
   const dashboards = useDashboardList();
-
-  const [preset, setPreset] = useState<PresetId>("month");
-  const [from, setFrom] = useState(daysAgo(30));
-  const [to, setTo] = useState(iso(new Date()));
-  const [groupBy, setGroupBy] = useState<ReportGroup>("project");
-  const [scope, setScope] = useState<ReportScope>("closed");
-  /** "" — по всем видимым проектам (свод), иначе конкретный проект. */
-  const [projectId, setProjectId] = useState("");
-  /** "" — все отделы. Показываем только отделы, у которых есть видимые проекты. */
+  const [preset, setPreset] = useState<string>("month");
+  const [range, setRange] = useState(() => { const to = today(); return { from: shift(to, -29), to }; });
   const [departmentId, setDepartmentId] = useState("");
+  // null means all available projects; [] is an explicit empty selection.
+  const [selected, setSelected] = useState<string[] | null>(null);
+  const [groupBy, setGroupBy] = useState<ReportGroup>("project");
   const [report, setReport] = useState<ReportSummary | null>(null);
+  const [previous, setPrevious] = useState<ReportSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
   const [exporting, setExporting] = useState(false);
-
-  const applyPreset = (id: PresetId) => {
-    setPreset(id);
-    const p = PRESETS.find((x) => x.id === id);
-    if (!p) return;
-    setFrom(p.from());
-    setTo(iso(new Date()));
-  };
-
-  // Единственное действие пустого состояния разбивки (ТЗ 5.11 п.4): свести
-  // период и проект к значениям по умолчанию, а не только сообщить, что пусто.
-  const resetReportFilters = () => {
-    applyPreset("month");
-    setProjectId("");
-    setDepartmentId("");
-  };
-
-  const departments = useMemo(() => {
-    const withProjects = new Set(data.projects.map((p) => p.departmentId));
-    return data.departments.filter((d) => withProjects.has(d.id));
-  }, [data.projects, data.departments]);
-  const projectOptions = departmentId ? data.projects.filter((p) => p.departmentId === departmentId) : data.projects;
-  const chooseDepartment = (id: string) => {
-    setDepartmentId(id);
-    if (id && projectId && !data.projects.some((p) => p.id === projectId && p.departmentId === id)) setProjectId("");
-  };
-  const scopeFilter = { projectId: projectId || undefined, departmentId: departmentId || undefined };
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setReport(await reportsApi.summary({ from, to, groupBy, projectId: projectId || undefined, departmentId: departmentId || undefined }));
-    } catch (e) {
-      setError(errText(e, t("reports.loadFailed")));
-      setReport(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [from, to, groupBy, projectId, departmentId, t, errText]);
-
+  const departments = data.departments.filter(d => data.projects.some(p => p.departmentId === d.id));
+  const projects = data.projects.filter(p => !departmentId || p.departmentId === departmentId);
+  const projectIds = selected === null ? undefined : selected.filter(id => projects.some(p => p.id === id)).join(",");
+  const count = selected === null ? projects.length : projectIds!.split(",").filter(Boolean).length;
+  const comparison = useMemo(() => previousPeriod(range.from, range.to), [range]);
+  const filter = { projectIds, departmentId: departmentId || undefined };
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  const exportCsv = async () => {
-    setExporting(true);
-    try {
-      await downloadReportCsv({ from, to, scope, ...scopeFilter });
-      toast("success", t("reports.exported"));
-    } catch (e) {
-      toast("error", errText(e, t("reports.exportFailed")));
-    } finally {
-      setExporting(false);
-    }
+    let alive = true;
+    setLoading(true); setError(null); setReport(null); setPrevious(null);
+    if (projectIds === "") { setLoading(false); return; }
+    const f = { projectIds, departmentId: departmentId || undefined, groupBy };
+    void Promise.all([reportsApi.summary({ ...range, ...f }), reportsApi.summary({ ...comparison, ...f }).catch(() => null)])
+      .then(([current, prev]) => { if (alive) { setReport(current); setPrevious(prev); } }, e => { if (alive) setError(errText(e, t("reports.loadFailed"))); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [range, comparison, projectIds, departmentId, groupBy, tick, t, errText]);
+  const applyPreset = (id: string) => {
+    const p = presets.find(x => x.id === id); if (!p) return;
+    const to = today(); setPreset(id); setRange({ from: shift(to, 1 - p.days), to });
   };
-
+  const reset = () => { applyPreset("month"); setDepartmentId(""); setSelected(null); };
+  const exportCsv = async (scope: ReportScope) => {
+    setExporting(true);
+    try { await downloadReportCsv({ ...range, ...filter, scope }); toast("success", t("reports.exported")); }
+    catch (e) { toast("error", errText(e, t("reports.exportFailed"))); }
+    finally { setExporting(false); }
+  };
+  const formatDate = (s: string) => date(s).toLocaleDateString(lang, { day: "numeric", month: "short", timeZone: "UTC" });
+  const days = (n: number | null) => n === null ? "—" : t("reports.days", { count: n.toLocaleString(lang) });
+  const delta = (n: number | null, old: number | null | undefined) => {
+    if (n === null || old == null) return t("reports.noComparison");
+    if (old === 0) return t("reports.previousValue", { count: old });
+    const change = Math.round((n - old) / old * 100);
+    return t("reports.change", { change: `${change > 0 ? "+" : ""}${change}%` });
+  };
   const totals = report?.totals;
-  const maxRow = useMemo(() => Math.max(1, ...(report?.rows ?? []).map((r) => r.closed)), [report]);
-
-  const field =
-    "h-8 rounded-lg border border-linesoft bg-sunken px-2 text-[12.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
-  const days = (v: number | null) => (v === null ? "—" : t("reports.days", { count: v }));
-
-  return (
-    <div className="flex h-full flex-col overflow-y-auto">
-      {/* Отчёты — первый встроенный дашборд (ADR-0022): та же полоса, что и в разделе «Дашборды». */}
-      <DashboardTabs current="reports" dashboards={dashboards.list} />
-      <div className="px-4 pb-3 pt-4 sm:px-6">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="mr-auto min-w-0">
-            <h1 className="font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{t("reports.title")}</h1>
-            <p className="mt-0.5 text-[12.5px] text-faint">
-              {report
-                ? t("reports.projectCount", { count: report.projectCount, noun: tn(report.projectCount, "noun.project.one", "noun.project.few", "noun.project.many").toLowerCase() })
-                : t("common.loading")}
-            </p>
-          </div>
-          <span className="flex items-center gap-2">
-            <select id="report-scope" value={scope} onChange={(e) => setScope(e.target.value as ReportScope)} aria-label={t("reports.exportScope")} className={field}>
-              {SCOPES.map((sc) => (
-                <option key={sc} value={sc}>
-                  {t("reports.exportOption", { scope: t(`reports.scope.${sc}`) })}
-                </option>
-              ))}
-            </select>
-            <Button size="sm" variant="secondary" onClick={exportCsv} disabled={exporting || loading} iconLeft={<IcDownload size={13} />}>
-              {t(exporting ? "reports.preparing" : "reports.downloadCsv")}
-            </Button>
-          </span>
-        </div>
-
-        {/* Фильтры — одна строка: период (готовый или свой), проект, разбивка. */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Tabs mode="filter" label={t("reports.period")} value={preset} onChange={applyPreset} items={PRESETS.map((p) => ({ id: p.id, label: t(p.labelKey) }))} />
-          <span className="flex items-center gap-1.5 text-[12px] text-faint">
-            <span>{t("reports.from")}</span>
-            <DatePicker label={t("reports.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={from || null} max={to || undefined} onChange={(v) => { setFrom(v ?? ""); setPreset("custom"); }} />
-            <span>{t("reports.to")}</span>
-            <DatePicker label={t("reports.to")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={to || null} min={from || undefined} onChange={(v) => { setTo(v ?? ""); setPreset("custom"); }} />
-          </span>
-          {departments.length > 1 && (
-            <select id="report-department" value={departmentId} onChange={(e) => chooseDepartment(e.target.value)} aria-label={t("reports.department")} className={`${field} max-w-[200px]`}>
-              <option value="">{t("reports.allDepartments")}</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <select id="report-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label={t("reports.project")} className={`${field} max-w-[240px]`}>
-            <option value="">{t(departmentId ? "reports.allDepartmentProjects" : "reports.allProjects")}</option>
-            {projectOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.key} · {p.name}
-              </option>
-            ))}
-          </select>
-          <select id="report-group" value={groupBy} onChange={(e) => setGroupBy(e.target.value as ReportGroup)} aria-label={t("reports.grouping")} className={field}>
-            {GROUPS.map((g) => (
-              <option key={g} value={g}>
-                {t(`reports.group.${g}`)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 px-4 pb-6 pt-1 sm:px-6">
-        {error && (
-          <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl bg-dangersoft px-4 py-3 text-[13px] text-danger ring-1 ring-inset ring-danger/30">
-            <span className="min-w-0 flex-1">{error}</span>
-            <Button size="sm" variant="secondary" onClick={() => void load()}>
-              {t("reports.retry")}
-            </Button>
-          </div>
-        )}
-
-        {loading && !report && (
-          <div aria-busy="true" aria-label={t("common.loading")}>
-            <div className="skeleton h-[86px] rounded-xl" />
-            <div className="skeleton mt-5 h-[168px] rounded-xl" />
-            <div className="skeleton mt-5 h-[132px] rounded-xl" />
-          </div>
-        )}
-
-        {report && totals && (
-          <>
-            <div className="surface-raised grid grid-cols-2 divide-linesoft rounded-xl ring-1 ring-inset ring-line/70 sm:grid-cols-3 sm:divide-x xl:grid-cols-6 [&>*]:border-linesoft max-sm:[&>*:nth-child(n+3)]:border-t max-sm:[&>*:nth-child(even)]:border-l sm:max-xl:[&>*:nth-child(n+4)]:border-t">
-              <Metric n={String(totals.closed)} label={t("reports.closedPeriod")} tone="ok" />
-              <Metric n={String(totals.created)} label={t("reports.createdPeriod")} />
-              <Metric n={String(totals.open)} label={t("reports.openNow")} />
-              <Metric n={String(totals.overdue)} label={t("reports.overdue")} tone={totals.overdue > 0 ? "warn" : undefined} />
-              <Metric n={days(totals.avgLeadDays)} label={t("reports.avgLead")} hint={t("reports.avgLeadHint")} />
-              <Metric n={days(totals.medianLeadDays)} label={t("reports.median")} hint={t("reports.medianHint")} />
-            </div>
-
-            <Trend points={report.trend} />
-
-            <section className="mt-6">
-              <h2 className="text-[13px] font-semibold text-sub">{t(`reports.group.${groupBy}`)}</h2>
-              {report.rows.length === 0 ? (
-                <div className="mt-2.5">
-                  <EmptyState
-                    icon={<IcReport size={22} tone="sky" />}
-                    title={t("reports.emptyTitle")}
-                    sub={t("reports.emptySub")}
-                    action={<Button size="sm" variant="secondary" onClick={resetReportFilters}>{t("common.reset")}</Button>}
-                  />
-                </div>
-              ) : (
-                <div className="surface-raised mt-2.5 overflow-x-auto rounded-xl ring-1 ring-inset ring-line/70">
-                  <table className="w-full min-w-[520px] text-[13px]">
-                    <thead>
-                      <tr className="h-9 border-b border-linesoft text-[11.5px] text-faint">
-                        <th className="px-4 text-left font-semibold">{t("reports.table.name")}</th>
-                        <th className="w-24 px-4 text-right font-semibold">{t("reports.table.closed")}</th>
-                        <th className="w-24 px-4 text-right font-semibold">{t("reports.table.created")}</th>
-                        <th className="w-24 px-4 text-right font-semibold">{t("reports.table.open")}</th>
-                        <th className="w-24 px-4 text-right font-semibold">{t("reports.table.avgDays")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {report.rows.map((r) => (
-                        <tr key={r.key} className="h-12 border-b border-linesoft/80 transition-colors last:border-0 hover:bg-hover/60">
-                          <td className="px-4">
-                            <span className="block truncate font-medium text-ink">{r.label}</span>
-                            {/* Доля закрытого от лидера: сравнивать строки глазами быстрее, чем цифры. */}
-                            <span className="mt-1.5 block h-1 max-w-[320px] rounded-full bg-sunken">
-                              <span ref={cssVars({ "--share": `${(r.closed / maxRow) * 100}%` })} className="block h-1 w-[var(--share)] rounded-full bg-accent" />
-                            </span>
-                          </td>
-                          <td className="px-4 text-right font-semibold tabular-nums text-ok">{r.closed}</td>
-                          <td className="px-4 text-right tabular-nums text-sub">{r.created}</td>
-                          <td className="px-4 text-right tabular-nums text-sub">{r.open}</td>
-                          <td className="px-4 text-right tabular-nums text-sub">{r.avgLeadDays === null ? "—" : r.avgLeadDays}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <p className="mt-4 flex max-w-[720px] items-start gap-1.5 text-[11.5px] leading-relaxed text-faint">
-              <IcSearch size={12} className="mt-0.5 shrink-0" />
-              <span>{t("reports.footnote")}</span>
-            </p>
-          </>
-        )}
-      </div>
+  const empty = !loading && !error && (!totals || (!totals.created && !totals.closed));
+  const metrics: { label: TKey; value: string; hint: string; tone?: string }[] = totals ? [
+    { label: "reports.closedPeriod", value: String(totals.closed), hint: delta(totals.closed, previous?.totals.closed), tone: "done" },
+    { label: "reports.createdPeriod", value: String(totals.created), hint: delta(totals.created, previous?.totals.created) },
+    { label: "reports.openNow", value: String(totals.open), hint: t("reports.currentSnapshot") },
+    { label: "reports.overdue", value: String(totals.overdue), hint: t("reports.currentSnapshot"), tone: "danger" },
+    { label: "reports.avgLead", value: days(totals.avgLeadDays), hint: `${t("reports.median").toLocaleLowerCase(lang)} ${days(totals.medianLeadDays)} · ${delta(totals.avgLeadDays, previous?.totals.avgLeadDays)}` },
+  ] : [];
+  return <div className="reports-view">
+    <DashboardTabs current="reports" dashboards={dashboards.list} actions={<Menu label={t("reports.exportScope")} placement="bottom-end" trigger={p => <Button {...p} size="sm" variant="secondary" disabled={loading || exporting || count === 0} iconLeft={<IcDownload size={14} />} iconRight={<IcChevD size={12} />}>{t(exporting ? "reports.preparing" : "reports.export")}</Button>} items={scopes.map(scope => ({ id: scope, label: `${t("reports.scope." + scope as TKey)} · CSV`, onSelect: () => void exportCsv(scope) }))} />}/>
+    <div className="reports-filters">
+      <Tabs label={t("reports.period")} mode="filter" value={preset} onChange={applyPreset} items={presets.map(p => ({ id: p.id, label: t(`reports.preset.${p.id}`) }))} />
+      <div className="reports-date-range"><DatePicker label={t("reports.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={range.from} max={range.to} onChange={v => { if (v) { setRange(r => ({ ...r, from: v })); setPreset("custom"); } }}/><span aria-hidden="true">—</span><DatePicker label={t("reports.to")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={range.to} min={range.from} onChange={v => { if (v) { setRange(r => ({ ...r, to: v })); setPreset("custom"); } }}/></div>
+      <Menu label={t("reports.department")} trigger={p => <Button {...p} size="sm" variant="secondary" iconRight={<IcChevD size={12} />}>{departments.find(d => d.id === departmentId)?.name ?? t("reports.allDepartments")}</Button>} items={[{ id: "all", label: t("reports.allDepartments"), onSelect: () => { setDepartmentId(""); setSelected(null); } }, ...departments.map(d => ({ id: d.id, label: d.name, onSelect: () => { setDepartmentId(d.id); setSelected(null); } }))]} />
+      <Popover label={t("reports.project")} className="reports-project-picker" trigger={p => <Button {...p} size="sm" variant="secondary" iconRight={<IcChevD size={12} />}>{t("reports.projectsSelected", { count, noun: tn(count, "noun.project.one", "noun.project.few", "noun.project.many").toLocaleLowerCase(lang) })}</Button>}>
+        {projects.length > REPORT_PROJECT_LIMIT && <p className="px-2 py-1 text-[12px] text-sub">{t("reports.projectLimit", { count: REPORT_PROJECT_LIMIT })}</p>}
+        <Checkbox label={t("reports.allProjects")} checked={count === projects.length && count > 0} indeterminate={count > 0 && count < projects.length} onChange={checked => setSelected(checked ? null : [])}/>
+        {projects.map(p => <Checkbox key={p.id} label={`${p.key} · ${p.name}`} checked={selected === null || selected.includes(p.id)} disabled={selected === null ? projects.length > REPORT_PROJECT_LIMIT : selected.length >= REPORT_PROJECT_LIMIT && !selected.includes(p.id)} onChange={checked => setSelected(cur => selectReportProject(cur, projects.map(x => x.id), p.id, checked))}/>)}
+      </Popover>
+      <span className="reports-comparison">{t("reports.comparison", { from: formatDate(comparison.from), to: formatDate(comparison.to) })}</span>
     </div>
-  );
+    <div className="reports-content" aria-busy={loading}>
+      {error && <div role="alert" className="reports-error"><span>{error}</span><Button size="sm" variant="secondary" onClick={() => setTick(n => n + 1)}>{t("reports.retry")}</Button></div>}
+      {loading && <div className="skeleton reports-loading" aria-label={t("common.loading")} />}
+      {empty && <EmptyState icon={<IcReport size={24} />} title={t("reports.emptyTitle")} sub={t("reports.emptySub")} action={<Button size="sm" variant="secondary" onClick={reset}>{t("common.reset")}</Button>} />}
+      {!loading && !empty && report && totals && <>
+        <div className="reports-metrics">{metrics.map(m => <section key={m.label} className="reports-metric" data-tone={m.tone}><h2>{t(m.label)}</h2><strong>{m.value}</strong><p>{m.hint}</p></section>)}</div>
+        <div className="reports-panels"><Trend report={report}/><section className="reports-panel reports-breakdown">
+          <div className="reports-panel-head"><h2>{t(`reports.group.${groupBy}`)}</h2><Menu label={t("reports.grouping")} placement="bottom-end" trigger={p => <Button {...p} size="sm" variant="ghost" iconRight={<IcChevD size={12} />}>{t("reports.grouping")}</Button>} items={groups.map(g => ({ id: g, label: t(`reports.group.${g}`), onSelect: () => setGroupBy(g) }))}/></div>
+          <div className="reports-table-scroll ds-focus" tabIndex={0} role="region" aria-label={t(`reports.group.${groupBy}`)}><table><caption className="sr-only">{t(`reports.group.${groupBy}`)}</caption><thead><tr><th>{t("reports.table.name")}</th><th>{t("reports.table.created")}</th><th>{t("reports.table.closed")}</th><th>{t("reports.overdue")}</th></tr></thead><tbody>{report.rows.map(r => <tr key={r.key}><th scope="row">{r.label}</th><td>{r.created}</td><td data-tone="done">{r.closed}</td><td data-tone="danger">{r.overdue ?? "—"}</td></tr>)}</tbody></table></div>
+        </section></div>
+        <p className="reports-footnote">{t("reports.footnote")}</p>
+      </>}
+    </div>
+  </div>;
 }

@@ -1,25 +1,28 @@
+import QuickCreate from "./QuickCreateIssue";
 import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { cssVars } from "../cssVars";
+import { localToday } from "../calendarLayout";
 import { flipFrom } from "../motion";
 import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { Hint } from "./Hint";
 import { IssueFilterSummary } from "./IssueFilterSummary";
-import { WorkspaceControls } from "./WorkspaceControls";
+import { WorkspaceControls, WorkspaceSearch, WorkspaceQuickFilters } from "./WorkspaceControls";
 import { useStore } from "../store";
 import { usePersonalBoardPhoto } from "../personalBoardPhoto";
 import BoardBackgroundControl from "./BoardBackgroundControl";
 import { createExternalStore, useExternalStore, type ExternalStore } from "../store/external";
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
-import type { Issue, PriorityId, Status, User } from "../types";
-import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcInbox, IcMove, IcMyIssues, IcPlus, IcSearch, IcSubtasks, IcUsers, IcX, PriorityIcon, StatusGlyph } from "../icons";
-import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor, labelTone } from "../ui";
+import type { Issue, Status, User } from "../types";
+import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcChevD, IcPlus, IcSubtasks, IcX, PriorityIcon, StatusGlyph } from "../icons";
+import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor } from "../ui";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
 import { Menu } from "../ds/LazyOverlay";
 import { Button } from "../ds/Button";
 import { EmptyState, Skeleton } from "../ds/Display";
-import { useT, type TKey } from "../i18n";
+import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { preloadIssueModal } from "../lazyModals";
 import { boardMoveRows } from "../boardMoves";
@@ -56,11 +59,7 @@ const isEmptyText = (v: string) => v === "";
 // (`boardFilters.ts`): окно «Готово» (DONE_WINDOW_DAYS) — там же; закрытое
 // дальше окна прячется за строку «Ранее закрыто», а через ARCHIVE_AFTER_DAYS
 // (настройка сервера) уходит в архив и перестаёт грузиться вовсе.
-const QUICK_CHIPS: { id: QuickChip; labelKey: TKey }[] = [
-  { id: "mine", labelKey: "board.quickChip.mine" },
-  { id: "overdue", labelKey: "board.quickChip.overdue" },
-  { id: "unassigned", labelKey: "board.quickChip.unassigned" },
-];
+
 
 /** Карточка доски.
  *
@@ -133,7 +132,8 @@ const Card = memo(function Card({
     flipFrom(cardRef.current, l.left, l.top);
   }, [issue.id, issue.statusId, issue.rank]);
   const doneCat = status?.category === "done";
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
+  const dueDays = issue.dueDate ? Math.round((Date.parse(issue.dueDate) - Date.parse(today)) / 864e5) : null;
   const overdue = !!issue.dueDate && !doneCat && issue.dueDate < today;
 
   // Перемещение без мыши (UX-02): меню открывается кнопкой и клавишей M на карточке, поэтому управляемое. Клик мимо,
@@ -218,111 +218,59 @@ const Card = memo(function Card({
       onFocus={preloadIssueModal}
       onClick={() => (selecting ? onToggleSelect(issue.id) : openIssue(issue.id))}
       data-issue-id={issue.id}
-      data-priority={issue.priorityId === "critical" ? "critical" : undefined}
-      className={`board-card group relative flex cursor-pointer flex-col gap-2 rounded-xl p-3 ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
+      data-priority={!doneCat && issue.priorityId === "critical" ? "critical" : undefined}
+      data-done={doneCat || undefined}
+      className={`board-card group relative flex cursor-pointer flex-col ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
-      {/* ТЗ 5.12 c — три уровня: ключ; заголовок (две строки); мета — направление, метки, срок, исполнители.
-          В строке ключа тонко: приоритет (критичный ещё и красной кромкой слева), и подзадачи «готово/всего». Тип — в просмотре задачи. */}
-      <div className="flex h-5 items-center gap-1.5 text-faint">
+      <div className="board-card-title-row flex items-start gap-2">
         {selecting && (
           <span className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
             <Checkbox checked={selected} onChange={() => onToggleSelect(issue.id)} label={t("backlog.selectRow", { key: issue.key })} labelHidden tabIndex={-1} />
           </span>
         )}
-        <PrioMark p={issue.priorityId} />
-        <span className="font-mono text-[12px] font-medium tabular tracking-[0.01em]">{issue.key}</span>
-        <span className="ml-auto flex items-center gap-1.5">
-          {!!issue.subtasksSummary?.total && (
-            <span
-              className={`flex items-center gap-1 text-[11px] font-semibold tabular ${issue.subtasksSummary.done === issue.subtasksSummary.total ? "text-[var(--status-done-fg)]" : ""}`}
-              title={t("board.subtasksTip", { done: issue.subtasksSummary.done, total: issue.subtasksSummary.total })}
-              aria-label={t("board.subtasksTip", { done: issue.subtasksSummary.done, total: issue.subtasksSummary.total })}
-            >
-              <IcSubtasks size={12} />
-              {issue.subtasksSummary.done}/{issue.subtasksSummary.total}
-            </span>
-          )}
-          {moveButton}
+        <h3 className="min-w-0 flex-1">{issue.title}</h3>
+        {moveButton}
+      </div>
+      {epic && <div className="board-card-direction" title={epic.title}>
+        <i ref={cssVars({ "--direction-color": directionColor(epic.id, epic.color) })} />
+        <span>{epic.title}</span>
+      </div>}
+      <div className="board-card-meta">
+        <PriorityIcon p={issue.priorityId} size={15} />
+        <span className="board-card-key tabular">{issue.key}</span>
+        {issue.dueDate && <span className="board-card-due tabular"
+          data-urgency={doneCat ? "done" : overdue ? "late" : dueDays !== null && dueDays <= 3 ? "soon" : "later"}
+          title={overdue ? t("board.quickChip.overdue") : undefined}
+          aria-label={overdue ? t("board.overdueDate", { date: fmtDate(issue.dueDate, lang) }) : undefined}>
+          <DueRing due={issue.dueDate} today={today} done={doneCat} size={12} />
+          <span>{fmtDate(issue.dueDate, lang)}</span>
+        </span>}
+        <span className="board-card-assignees ml-auto flex items-center gap-2">
+          {!!issue.subtasksSummary?.total && <span
+            className="board-card-subtasks flex items-center gap-1 tabular"
+            data-complete={issue.subtasksSummary.done === issue.subtasksSummary.total || undefined}
+            title={t("board.subtasksTip", { done: issue.subtasksSummary.done, total: issue.subtasksSummary.total })}
+            aria-label={t("board.subtasksTip", { done: issue.subtasksSummary.done, total: issue.subtasksSummary.total })}>
+            <IcSubtasks size={12} />{issue.subtasksSummary.done}/{issue.subtasksSummary.total}
+          </span>}
+          {assignees.length > 0 && <UserAvatarGroup users={assignees} size={22} interactive />}
         </span>
       </div>
-
-      <h3 className="line-clamp-2 text-[13.5px] font-semibold leading-[1.38] tracking-[-0.006em] text-ink">{issue.title}</h3>
-
-      {(epic || issue.labels.length > 0 || issue.dueDate || assignees.length > 0) && (
-        <div className="flex min-h-[22px] items-center gap-1">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-            {epic && (
-              <span className="meta-pill min-w-0 max-w-[160px]" title={epic.title}>
-                <i className="meta-dot" style={{ "--c": directionColor(epic.id, epic.color) } as React.CSSProperties} />
-                <span>{epic.title}</span>
-              </span>
-            )}
-            {issue.labels.slice(0, 2).map((l) => (
-              <span key={l} className="meta-pill min-w-0 max-w-[120px]">
-                <i className={`meta-dot tk-tone-${labelTone(l)}`} />
-                <span>{l}</span>
-              </span>
-            ))}
-            {issue.labels.length > 2 && <span className="meta-pill tabular">+{issue.labels.length - 2}</span>}
-            {issue.dueDate && (
-              <span className={`meta-pill tabular ${overdue ? "is-late" : ""}`} title={overdue ? t("board.quickChip.overdue") : undefined}>
-                <DueRing due={issue.dueDate} today={today} done={doneCat} />
-                <span>{fmtDate(issue.dueDate, lang)}</span>
-              </span>
-            )}
-          </div>
-          {assignees.length > 0 && <UserAvatarGroup users={assignees} size={20} interactive />}
-        </div>
-      )}
     </article>
   );
 });
 
-/** Заглушка карточки на время загрузки колонки — той же формы, что карточка (ТЗ 5.12 c): ключ; две строки заголовка;
- *  мета — метки слева, исполнитель справа. Из ds-примитивов, в оболочке самой карточки (board-card). */
+/** Заглушка повторяет порядок и размеры карточки. */
 function BoardSkeletonCard() {
-  return (
-    <div className="board-card flex flex-col gap-2 rounded-[10px] px-[11px] py-2.5" aria-hidden="true">
-      <div className="flex h-5 items-center">
-        <Skeleton.Line w="48px" h={10} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Skeleton.Line h={12} />
-        <Skeleton.Line w="66%" h={12} />
-      </div>
-      <div className="flex h-[22px] items-center gap-1">
-        <Skeleton.Line w="64px" h={22} />
-        <Skeleton.Line w="56px" h={22} />
-        <span className="ml-auto">
-          <Skeleton.Circle size={20} />
-        </span>
-      </div>
+  return <div className="board-card flex flex-col" aria-hidden="true">
+    <Skeleton.Line h={14} /><Skeleton.Line w="66%" h={14} />
+    <div className="flex h-[22px] items-center gap-2">
+      <Skeleton.Line w="64px" h={12} /><Skeleton.Line w="56px" h={20} />
+      <span className="ml-auto"><Skeleton.Circle size={22} /></span>
     </div>
-  );
+  </div>;
 }
 
-/** Приоритет на карточке — маленький знак без подписи (подпись — aria-label и подсказка): три столбика, заполнено по
- *  уровню; высокий — оранжевым, низкий — приглушённо; критичный — красная плашка «!» (тот же знак, что в задаче). */
-function PrioMark({ p }: { p: PriorityId }) {
-  const { t } = useT();
-  const label = t(`priority.${p}`);
-  if (p === "critical")
-    return (
-      <span title={label} className="flex">
-        <PriorityIcon p="critical" size={12} />
-      </span>
-    );
-  const lvl = p === "high" ? 3 : p === "medium" ? 2 : 1;
-  const fill = p === "high" ? "var(--c-prio-high)" : p === "medium" ? "var(--c-prio-medium)" : "var(--text-3)";
-  return (
-    <svg width={12} height={12} viewBox="0 0 16 16" role="img" aria-label={label} className="shrink-0">
-      <title>{label}</title>
-      {[0, 1, 2].map((i) => (
-        <rect key={i} x={2 + i * 4.5} y={10 - i * 3.5} width="3" height={4 + i * 3.5} rx="1" fill={fill} opacity={i < lvl ? 1 : 0.3} />
-      ))}
-    </svg>
-  );
-}
 
 /**
  * Своё изображение перетаскиваемой карточки (ТЗ 5.13 п.3, ADR-0007 — нативный DnD):
@@ -358,53 +306,6 @@ function setDragGhost(e: React.DragEvent<HTMLElement>) {
   requestAnimationFrame(() => wrap.remove());
 }
 
-function QuickCreate({ status, onDone }: { status: Status; onDone: () => void }) {
-  const { t } = useT();
-  const { createIssue } = useStore();
-  const [text, setText] = useState("");
-  const submit = () => {
-    if (!text.trim()) return onDone();
-    createIssue({
-      title: text,
-      description: "",
-      typeId: "task",
-      priorityId: "medium",
-      assigneeIds: [],
-      epicId: null,
-      labels: [],
-      complexity: null,
-      statusId: status.id,
-    });
-    setText("");
-  };
-  return (
-    <div className="anim-fadeup rounded-lg border border-accent bg-panel p-2.5 shadow-focus">
-      <textarea
-        autoFocus
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            submit();
-          }
-          if (e.key === "Escape") onDone();
-        }}
-        placeholder={t("board.quickCreatePlaceholder", { status: workflowStatusName(status, t) })}
-        rows={2}
-        className="w-full resize-none bg-transparent text-[13.5px] text-ink outline-none placeholder:text-faint"
-      />
-      <div className="flex items-center gap-1.5">
-        <button onClick={submit} className="btn-primary flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-medium">
-          <IcCheck size={12} /> {t("board.addButton")}
-        </button>
-        <button onClick={onDone} className="flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-hover hover:text-ink" aria-label={t("common.cancel")}>
-          <IcX size={13} />
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /**
  * Карточки одной колонки: собственный постраничный набор (первые
@@ -505,7 +406,6 @@ const BoardColumn = memo(function BoardColumn({
   ok,
   draggedStatusId,
   isDone,
-  isDoneStatus,
   showAllDone,
   setShowAllDone,
   canCreate,
@@ -544,7 +444,6 @@ const BoardColumn = memo(function BoardColumn({
   /** Статус перетаскиваемой задачи — только колонке под курсором (текст «переход вне схемы»). */
   draggedStatusId: string | null;
   isDone: boolean;
-  isDoneStatus: boolean;
   showAllDone: boolean;
   setShowAllDone: (v: boolean) => void;
   canCreate: boolean;
@@ -641,11 +540,12 @@ const BoardColumn = memo(function BoardColumn({
       }}
     >
       {/* Заголовок внутри поверхности колонки и не прокручивается с карточками: глиф статуса, имя, число с сервера. */}
-      <header className="group/col flex h-10 shrink-0 items-center gap-2 pl-3 pr-2">
+      <header className="board-col-header group/col flex shrink-0 items-center gap-2 px-1.5">
         <StatusGlyph category={st.category} position={statusPos} size={14} />
-        <h2 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h2>
+        <h2 className="min-w-0 truncate text-[14px] font-bold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h2>
         <span className="tabular text-[12.5px] text-faint">{total ?? "…"}</span>
-        {canCreate && isFirstTodo && (
+        {isDone && !showAllDone && <span className="board-done-window text-[12px] text-faint">{t("board.doneWindow", { days: DONE_WINDOW_DAYS })}</span>}
+        {canCreate && (
           <button
             onClick={() => setQuickFor(st.id)}
             className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink"
@@ -659,7 +559,7 @@ const BoardColumn = memo(function BoardColumn({
       {/* Highlight a separate leaf: changing the scroll container invalidates styles for every card. */}
       <div
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-x-0 top-10 ${isDoneStatus && total !== null && total > 0 ? "bottom-6" : "bottom-0"} rounded-b-xl ${isOver ? (ok ? "bg-accentsoft/60 shadow-[inset_0_0_0_1px_var(--accent-muted)]" : "bg-dangersoft/60 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--status-danger)_40%,transparent)]") : ""}`}
+        className={`pointer-events-none board-col-highlight absolute inset-x-0 bottom-0 rounded-b-xl ${isOver ? (ok ? "bg-accentsoft/60 shadow-[inset_0_0_0_1px_var(--accent-muted)]" : "bg-dangersoft/60 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--status-danger)_40%,transparent)]") : ""}`}
       />
       <div className={`${BOARD_COLUMN_BODY} relative`}>
         {quickOpen && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
@@ -715,11 +615,7 @@ const BoardColumn = memo(function BoardColumn({
           })}
         </p>
       )}
-      {isDoneStatus && total !== null && total > 0 && (
-        <p className="mt-1 flex items-center gap-1.5 px-2 pb-0.5 text-[12px] text-faint">
-          <IcInbox size={13} /> {t("board.closedCount", { n: total })}
-        </p>
-      )}
+
     </section>
   );
 });
@@ -774,12 +670,18 @@ export default function Board() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectMode]);
 
-  const toggleChip = (id: QuickChip) =>
+  const toggleChip = (id: QuickChip) => {
+    if (id !== "overdue") {
+      const assignee = id === "mine" ? data.currentUserId : "none";
+      setFilterUser(filterUser === assignee ? null : assignee);
+      return;
+    }
     setChips((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
 
   // Показывать ли в «Готово» всё закрытое или только свежее (см. DONE_WINDOW_DAYS).
   const [showAllDone, setShowAllDone] = useState(() => new URLSearchParams(initialSearch).get("done") === "1");
@@ -794,7 +696,6 @@ export default function Board() {
     return () => window.removeEventListener("popstate", restore);
   }, []);
 
-  const doneStatusId = data.workflow.statuses.find((s) => s.category === "done")?.id;
   const doneIds = useMemo(
     () => new Set(data.workflow.statuses.filter((s) => s.category === "done").map((s) => s.id)),
     [data.workflow.statuses],
@@ -824,8 +725,7 @@ export default function Board() {
       ),
     [data.workflow],
   );
-  // Быстрое создание («+») — только у первого столбца категории «todo» (по позиции):
-  // накидывать задачи имеет смысл в начало потока, не в «В работе»/«Готово» (D3).
+  // Нижняя кнопка быстрого создания остаётся у первого todo; «+» в шапке есть у каждого статуса.
   const firstTodoId = data.workflow.statuses.find((s) => s.category === "todo")?.id;
 
   // Фильтры доски — на сервере (PERF-05): колонки видят только свои первые
@@ -889,6 +789,8 @@ export default function Board() {
 
   // Счётчики: один запрос на набор фильтров, а не на колонку и не на рендер.
   const filtered = useIssueCounts(projectId, baseFilters, revision);
+  const overdueFilters = useMemo(() => ({ ...baseFilters, overdue: "1" as const }), [baseFilters]);
+  const overdueCounts = useIssueCounts(projectId, overdueFilters, revision);
   const unfiltered = useIssueCounts(projectId, filtersOn ? NO_ISSUE_FILTERS : null, revision);
   const olderFilters = useMemo(
     () => (hasDoneColumn && !showAllDone ? { ...baseFilters, closed: "older" as const, closedDays: DONE_WINDOW_DAYS } : null),
@@ -962,29 +864,18 @@ export default function Board() {
   return (
     <div className="board-view flex h-full min-w-0 flex-col">
       {/* шапка */}
-      <div className="px-4 pb-3 pt-5 sm:px-6">
-       <div className="flex flex-wrap items-center gap-3">
-        <div className="mr-2">
-          <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("board.title")}</h1>
-          <p className="mt-0.5 flex items-center gap-2 text-[12.5px] text-faint">
-            <span>{data.project.name}</span>
-            <span>·</span>
-            <span>{poolTotal ?? "…"} {tn(poolTotal ?? 0, "noun.issue.one", "noun.issue.few", "noun.issue.many")}</span>
-          </p>
-        </div>
-
-        </div>
+      <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
         <WorkspaceControls selectionMode={selectMode}
+          compact
+          summary={t("board.filteredOf", { visible: data.workflow.statuses.reduce<number | null>((sum, st) => { const n = totalOf(st.id); return sum === null || n === null ? null : sum + n; }, 0) ?? "…", total: poolTotal ?? "…" })}
+          quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? chips.has(id) : baseFilters.assignee === (id === "mine" ? data.currentUserId : "none")} onToggle={toggleChip} overdue={overdueCounts.counts?.total} />}
+          grouping={<Menu label={t("workspace.groupingNone")} placement="bottom-end"
+            trigger={p => <Button {...p} size="sm" className="workspace-grouping" iconRight={<IcChevD size={12} />}>{t("workspace.groupingNone")}</Button>}
+            items={[{ id: "none", label: t("workspace.noGrouping"), icon: <IcCheck size={13} />, onSelect: () => {
+              const params = new URLSearchParams(location.search); params.set("group", "none"); navigate(path + "?" + params, { replace: true });
+            } }]} />}
           count={Object.values(baseFilters).filter(Boolean).length}
-          search={<div className="board-search workspace-search flex min-h-10 min-w-0 items-center gap-2 rounded-lg border border-line bg-sunken px-3 transition-colors focus-within:border-accent focus-within:bg-panel focus-within:shadow-focus hover:border-line">
-            <IcSearch size={14} className="text-faint" />
-            <input aria-label={t("board.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("board.searchPlaceholder")} className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint sm:w-36" />
-            {q && (
-              <button onClick={() => setQ("")} className="text-faint hover:text-ink" aria-label={t("common.reset")}>
-                <IcX size={12} />
-              </button>
-            )}
-          </div>}
+          search={<WorkspaceSearch value={q} onChange={setQ} />}
           filters={<div className="workspace-filters-body space-y-3">
           <p className="ds-label">{t("field.assignee")}</p>
           <div className="board-assignees flex min-w-0 max-w-full items-center -space-x-1.5 overflow-x-auto py-1">
@@ -1010,31 +901,6 @@ export default function Board() {
               <UserAvatar user={null} size={26} ring />
             </button>
           </div>
-              <div className="board-quick-filters flex flex-wrap items-center gap-2">
-         {QUICK_CHIPS.map((c) => {
-           const on = chips.has(c.id);
-           return (
-             <button
-               key={c.id}
-               onClick={() => toggleChip(c.id)}
-               aria-pressed={on}
-               className={`flex h-[26px] items-center gap-1.5 rounded-[7px] px-[9px] text-[12.5px] font-medium transition-colors duration-150 ${
-                 on ? "bg-accentsoft text-accenttext ring-1 ring-inset ring-accentmuted" : "text-sub ring-1 ring-inset ring-line hover:bg-hover hover:text-ink"
-               }`}
-             >
-               {c.id === "mine" ? (
-                 <IcMyIssues size={14} tone={on ? undefined : "violet"} />
-               ) : c.id === "overdue" ? (
-                 <DueRing due="2000-01-01" today="2000-01-02" size={14} />
-               ) : (
-                 <IcUsers size={14} tone={on ? undefined : "gray"} />
-               )}
-               {t(c.labelKey)}
-               {on && <IcX size={11} className="-mr-0.5 opacity-60" />}
-             </button>
-           );
-         })}
-              </div>
               {canMove && <Hint id="board-move">{t("hint.boardMove")}</Hint>}
             </div>}
           options={<div className="workspace-options-body flex flex-wrap items-center gap-2">
@@ -1048,11 +914,10 @@ export default function Board() {
           </button>
             </div>}
         />
-        <IssueFilterSummary filters={baseFilters}>
+        {filtersOn && <IssueFilterSummary filters={baseFilters}>
           {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
           {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={12} className="inline" /> {t("common.reset")}</button>}
-          <span className="ml-auto tabular text-faint">{t("board.filteredOf", { visible: filtered.counts?.total ?? "…", total: poolTotal ?? "…" })}</span>
-        </IssueFilterSummary>
+        </IssueFilterSummary>}
        {selectMode && selectedIds.size === 0 && (
          <p className="mt-2.5 text-[12px] text-faint" role="status">
            {t("board.selectHint")}
@@ -1110,9 +975,8 @@ export default function Board() {
           // Trusted object URL from IndexedDB: set via CSSOM, preserving the generic style URL guard.
           if (node) node.style.backgroundImage = personalPhoto ? `linear-gradient(color-mix(in oklch, var(--bg-canvas) 65%, transparent), color-mix(in oklch, var(--bg-canvas) 65%, transparent)), url("${personalPhoto.url}")` : "";
         }}
-        style={personalPhoto ? { backgroundSize: "cover", backgroundPosition: "center" } : undefined}
         className="board-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="board-columns flex h-full min-w-full items-start gap-4 px-4 pb-4 pt-1 sm:px-6">
+        <div className="board-columns" ref={cssVars({ "--board-columns": String(Math.max(1, data.workflow.statuses.length)) })} data-overflow={data.workflow.statuses.length >= 6 || undefined}>
           {data.workflow.statuses.map((st) => {
             return (
               <BoardColumn
@@ -1125,7 +989,6 @@ export default function Board() {
                 ok={canDropTo(st.id)}
                 draggedStatusId={dragged?.statusId ?? null}
                 isDone={doneIds.has(st.id)}
-                isDoneStatus={st.id === doneStatusId}
                 showAllDone={showAllDone}
                 setShowAllDone={setShowAllDone}
                 canCreate={canCreate}

@@ -273,7 +273,7 @@ describe("Список задач — характеризующие тесты 
       pageImpl: async () => ({ items: [dto("h1")], hasMore: false, nextCursor: null }),
       countsImpl: async () => ({ total: 42, byStatus: {} }),
     });
-    expect(screen.getByText("1 из 42 активных задач")).toBeTruthy();
+    expect(screen.getByText("1 из 42")).toBeTruthy();
     h.ui.unmount();
   });
 
@@ -372,7 +372,7 @@ describe("Список задач — характеризующие тесты 
   test("1d. текст поиска уходит в q после задержки (debounce), не на каждый ввод", async () => {
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
-    const input = screen.getByPlaceholderText("Поиск по названию или ключу");
+    const input = screen.getByPlaceholderText("Фильтр задач");
     fireEvent.change(input, { target: { value: "billing" } });
     await settle();
     expect(h.pageCalls.some((c) => c.q === "billing")).toBe(false);

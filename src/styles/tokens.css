@@ -18,6 +18,11 @@
    ========================================================================== */
 
 :root {
+  /* Роадмап: палитра проектов и контрастная заливка для небольшого белого ключа. */
+  --roadmap-panel: color-mix(in oklch, var(--bg-panel) 60%, transparent);
+  --roadmap-fill-start-l: 0.5;
+  --roadmap-fill-end-l: 0.52;
+  --roadmap-highlight: inset 0 1px 0 oklch(1 0 0 / 0.35);
   /* ─── 1. Примитивы: светлая тема ─────────────────────────────────────── */
   /* Оттенок бренда (ТЗ 5.14 п.5): 288 — фирменный фиолетовый; инсталляция может сдвинуть его в проверенном
      диапазоне contract.ts BRAND_HUE (src/brand.ts ставит --brand-h на <html> через CSSOM). Серые — всегда 288. */
@@ -39,6 +44,8 @@
   --gray-2: oklch(0.982 0.004 288);
   --gray-3: oklch(0.962 0.006 288);
   --gray-4: oklch(0.945 0.006 288);
+  --workspace-filter-line: var(--violet-6);
+  --project-tabs-bg: var(--gray-4);
   --gray-5: oklch(0.928 0.006 288);
   --gray-6: oklch(0.905 0.007 288);
   --gray-7: oklch(0.872 0.008 288);
@@ -81,6 +88,7 @@
   --bg-frame: oklch(0.958 0.009 288);
   --bg-canvas: oklch(0.978 0.004 288);
   --bg-sunken: oklch(0.962 0.006 288);
+  --bg-group: oklch(0.975 0.005 288);
   --bg-panel: oklch(0.997 0.0015 288);
   --bg-raised: oklch(0.997 0.0015 288);
   --bg-overlay: oklch(0.997 0.0015 288);
@@ -205,6 +213,7 @@
 
 /* ─── 2'. Семантика: тёмная тема ──────────────────────────────────────── */
 :root[data-theme="dark"] {
+  --bg-group: var(--bg-sunken);
   color-scheme: dark;
 
   --violet-1: oklch(0.18 0.02 var(--brand-h));
@@ -349,6 +358,7 @@
 
 /* «Сумерки» — тёмная, глубже и фиолетовее базовой. */
 :root[data-skin="dusk"] {
+  --bg-group: var(--bg-sunken);
   --bg-frame: oklch(0.14 0.03 292);
   --bg-canvas: oklch(0.17 0.032 292);
   --bg-sunken: oklch(0.15 0.03 292);
@@ -378,6 +388,7 @@
 
 /* «Графит» — тёмная нейтральная: серые без фиолетового подтона, свечение почти погашено. */
 :root[data-skin="graphite"] {
+  --bg-group: var(--bg-sunken);
   --bg-frame: oklch(0.16 0.003 260);
   --bg-canvas: oklch(0.185 0.003 260);
   --bg-sunken: oklch(0.168 0.003 260);
@@ -410,6 +421,7 @@
 
 /* «Рассвет» — светлая с тёплым подтоном поверхностей и тёплым свечением. */
 :root[data-skin="dawn"] {
+  --bg-group: var(--bg-sunken);
   --bg-frame: oklch(0.955 0.016 62);
   --bg-canvas: oklch(0.976 0.01 62);
   --bg-sunken: oklch(0.958 0.013 62);
@@ -439,6 +451,7 @@
 
 /* «Бумага» — светлая высококонтрастная: белые поверхности, текст темнее, границы заметнее, стекло почти глухое. */
 :root[data-skin="paper"] {
+  --bg-group: var(--bg-sunken);
   --bg-frame: oklch(0.962 0.002 288);
   --bg-canvas: oklch(1 0 0);
   --bg-sunken: oklch(0.972 0.002 288);
@@ -659,6 +672,14 @@
   --c-prio-high: var(--orange-solid);
   --c-prio-medium: var(--amber-solid);
   --c-prio-low: var(--gray-9);
+}
+
+/* Формулы вычисляются на носителе цвета проекта, а не на :root. */
+.rm-row, .roadmap-legend i {
+  --roadmap-fill: linear-gradient(90deg, oklch(from var(--bar) var(--roadmap-fill-start-l) 0.17 h), oklch(from var(--bar) var(--roadmap-fill-end-l) 0.14 calc(h + 20)));
+  --roadmap-rest: linear-gradient(90deg, color-mix(in oklch, var(--bar) 32%, transparent), color-mix(in oklch, var(--bar) 4%, transparent));
+  --roadmap-edge: color-mix(in oklch, var(--bar) 55%, transparent);
+  --roadmap-shadow: drop-shadow(0 6px 10px color-mix(in oklch, var(--bar) 30%, transparent));
 }
 
 /* Additional brand presets use a slightly darker solid so white labels keep WCAG AA in every theme. */

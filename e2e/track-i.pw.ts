@@ -19,6 +19,8 @@ async function mockApi(page: Page) {
     else if (path === "/me/onboarding") body = { done: [], hints: [], hidden: true };
     else if (path === "/auth/me") body = user;
     else if (path === "/auth/config") body = { authMode: "local" };
+    else if (path === "/issues/assigned-to-me") body = { items: [], truncated: false, limit: 100 };
+    else if (path === "/roadmap") body = { projects: [], dependencies: [] };
     else if (path === "/projects") body = [project];
     else if (path === "/projects/p1") body = boot;
     else if (path === "/instance/brand") body = brand;
@@ -40,7 +42,7 @@ async function mockApi(page: Page) {
   });
   return writes;
 }
-async function exerciseDate(page: Page, label: string, clear: string, scope: Page | Locator = page) {
+async function exerciseDate(page: Page, label: string, clear: string, scope: Page | Locator = page, clearable = true) {
   const trigger = scope.getByRole("button", { name: new RegExp(`^${label}:`) });
   await trigger.click();
   const input = page.getByRole("textbox", { name: label, exact: true });
@@ -48,13 +50,23 @@ async function exerciseDate(page: Page, label: string, clear: string, scope: Pag
   await input.fill("15 окт 2026");
   await input.press("Enter");
   await expect(trigger).toHaveAccessibleName(new RegExp("15"));
-  await trigger.click();
-  await page.getByRole("button", { name: clear, exact: true }).click();
-  await expect(trigger).toHaveAccessibleName(new RegExp("Без даты|Без срока"));
+  if (clearable) {
+    await trigger.click();
+    await page.getByRole("button", { name: clear, exact: true }).click();
+    await expect(trigger).toHaveAccessibleName(new RegExp("Без даты|Без срока"));
+  }
   await trigger.click();
   // Move through the calendar with a keyboard and choose the focused day.
-  await page.locator('[role="gridcell"][tabindex="0"]').focus();
+  const current = page.locator('[role="gridcell"][tabindex="0"]');
+  const nextDate = new Date(`${await current.getAttribute("data-iso")}T00:00:00Z`);
+  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  const next = page.locator(`[role="gridcell"][data-iso="${nextDate.toISOString().slice(0, 10)}"]`);
+  await current.focus();
+  await expect(current).toBeFocused();
   await page.keyboard.press("ArrowRight");
+  // Check the requested day rather than allowing Enter to select the previous one.
+  await expect(next).toBeFocused();
+  await expect(next).not.toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Enter");
   await expect(trigger).toBeFocused();
   await trigger.click();
@@ -91,10 +103,9 @@ for (const theme of ["light", "dark"] as const) {
     await exerciseDate(page, "Конец", "Убрать срок");
     await page.keyboard.press("Escape");
     await page.goto("/reports");
-    await page.getByRole("button", { name: /^по:/ }).click();
-    await page.getByRole("button", { name: "Убрать срок", exact: true }).click();
-    await exerciseDate(page, "с", "Убрать срок");
-    await exerciseDate(page, "по", "Убрать срок");
+    // Reports require both dates; extend the end before moving the start into October.
+    await exerciseDate(page, "по", "Убрать срок", page, false);
+    await exerciseDate(page, "с", "Убрать срок", page, false);
     await page.goto("/admin/audit");
     await exerciseDate(page, "С", "Убрать срок");
     await exerciseDate(page, "По", "Убрать срок");

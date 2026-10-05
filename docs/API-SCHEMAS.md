@@ -512,6 +512,7 @@
 | `to` | string |  |
 | `projectId` | string (uuid) | необязательное |
 | `departmentId` | string (uuid) | необязательное |
+| `projectIds` | pipeline | необязательное |
 | `scope` | enum: `closed` \| `created` \| `open` | необязательное; по умолчанию "closed" |
 | `limit` | integer | необязательное; по умолчанию 5000; 1…10000 |
 
@@ -524,6 +525,7 @@
 | `projectId` | string (uuid) | необязательное |
 | `departmentId` | string (uuid) | необязательное |
 | `groupBy` | enum: `project` \| `assignee` \| `type` \| `priority` | необязательное; по умолчанию "project" |
+| `projectIds` | pipeline | необязательное |
 
 ### SaveProjectTemplateBody
 
@@ -730,6 +732,9 @@
 | `statusId` | string |  |
 | `statusName` | string |  |
 | `statusCategory` | enum: `todo` \| `inprogress` \| `done` |  |
+| `statusSid` | string | необязательное |
+| `projectRole` | enum: `manager` \| `employee` \| `viewer` | необязательное, может быть null |
+| `returnedForRework` | boolean | необязательное |
 | `dueDate` | string | может быть null |
 | `projectKey` | string |  |
 | `projectName` | string |  |
@@ -1200,6 +1205,7 @@
 |---|---|---|
 | `week` | string |  |
 | `closed` | number |  |
+| `created` | number | необязательное |
 
 ### ReportResult
 
@@ -1222,6 +1228,7 @@
 | `created` | number |  |
 | `open` | number |  |
 | `avgLeadDays` | number | может быть null |
+| `overdue` | number | необязательное |
 
 ### ReportSummaryDto
 

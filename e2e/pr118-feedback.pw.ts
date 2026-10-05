@@ -22,10 +22,11 @@ test("create form orders the checklist, searches project assignees and dismisses
   const checklist = await dialog.getByPlaceholder(/Добавить пункт/).boundingBox();
   expect(checklist!.y).toBeGreaterThan(description!.y + description!.height);
   await dialog.getByRole("button", { name: /Не назначен/, exact: true }).click();
-  await page.getByRole("searchbox", { name: "Найти сотрудника проекта" }).fill("АННА");
-  await expect(page.getByRole("button", { name: /Анна Иванова/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Анна из другого проекта/ })).toHaveCount(0);
-  await page.getByRole("button", { name: /Анна Иванова/ }).click();
+  const picker = page.getByRole("dialog", { name: "Исполнитель", exact: true });
+  await picker.getByRole("searchbox", { name: "Найти сотрудника проекта" }).fill("АННА");
+  await expect(picker.locator(".ds-menu-item").filter({ hasText: "Анна Иванова" })).toBeVisible();
+  await expect(picker.locator(".ds-menu-item").filter({ hasText: "Анна из другого проекта" })).toHaveCount(0);
+  await picker.locator(".ds-menu-item").filter({ hasText: "Анна Иванова" }).click();
   await title.click();
   const direction = dialog.getByRole("button", { name: "Без направления", exact: true }).and(page.locator("[aria-expanded]"));
   await direction.click(); await expect(direction).toHaveAttribute("aria-expanded", "true");

@@ -32,6 +32,23 @@ const doneStatus = async (projectId: string) =>
   (await q<{ id: string }>(`SELECT id FROM workflow_statuses WHERE project_id = $1 AND category = 'done'`, [projectId]))[0].id;
 
 describe("GET /api/issues/assigned-to-me", () => {
+  test("stable status identity and project role survive a renamed review; returning from review is explicit", async () => {
+    const adm = await login(app, "admin");
+    const emp = await login(app, "emp1");
+    const statuses = await q<{ id: string; sid: string }>("SELECT id, sid FROM workflow_statuses WHERE project_id = $1", [fx.projects.p1]);
+    const review = statuses.find(s => s.sid === "review")!;
+    const work = statuses.find(s => s.sid === "inprogress")!;
+    expect((await post(`/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/transition`, adm, { to: work.id })).statusCode).toBe(200);
+    await q("UPDATE workflow_statuses SET name = 'Проверить результат' WHERE id = $1", [review.id]);
+    expect((await post(`/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/transition`, adm, { to: review.id })).statusCode).toBe(200);
+    const reviewed = (await g("/api/issues/assigned-to-me", emp)).json().items[0];
+    expect(reviewed).toMatchObject({ statusSid: "review", statusName: "Проверить результат", projectRole: "employee", returnedForRework: false });
+    expect((await post(`/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/transition`, adm, { to: work.id })).statusCode).toBe(200);
+    expect((await g("/api/issues/assigned-to-me", emp)).json().items[0]).toMatchObject({ statusSid: "inprogress", returnedForRework: true });
+    const todo = statuses.find(s => s.sid === "todo")!;
+    expect((await post(`/api/projects/${fx.projects.p1}/issues/${fx.issues.p1issue}/transition`, adm, { to: todo.id })).statusCode).toBe(200);
+    expect((await g("/api/issues/assigned-to-me", emp)).json().items[0].returnedForRework).toBe(false);
+  });
   test("emp1 видит свою открытую задачу в P1, но не чужую задачу P2", async () => {
     const emp = await login(app, "emp1");
     // fixture: CORP-1 назначена emp1 (todo); SEC-1 назначена mgr2.
@@ -80,6 +97,33 @@ describe("GET /api/issues/assigned-to-me", () => {
     const body = JSON.parse((await g("/api/issues/assigned-to-me", emp)).body);
     expect(body.truncated).toBe(false);
     expect(body.limit).toBe(100);
+  });
+
+  test("bounded history lookup preserves the top 100, truncation and legacy status payloads", async () => {
+    const emp = await login(app, "emp1");
+    const inserted = await q<{ id: string; key: string }>(
+      `INSERT INTO issues (project_id, num, key, title, type_id, status_id, priority_id, reporter_id, updated_at)
+       SELECT project_id, 1000 + n, 'CORP-' || (1000 + n), 'Window test', type_id, status_id,
+              CASE WHEN n = 110 THEN 'critical' ELSE 'low' END, reporter_id,
+              '2026-10-01'::timestamptz + n * interval '1 second'
+         FROM issues CROSS JOIN generate_series(1, 110) n WHERE id = $1
+       RETURNING id, key`, [fx.issues.p1issue],
+    );
+    await q(`INSERT INTO issue_assignees (issue_id, user_id) SELECT id, $1 FROM issues WHERE num >= 1000`, [fx.users.emp1]);
+    const critical = inserted.find(i => i.key === "CORP-1110")!;
+    await q(`INSERT INTO activity (issue_id, actor_id, text, kind, payload)
+             VALUES ($1, $2, 'Legacy transition', 'status', '{"from":"На ревью","to":"К выполнению"}')`, [critical.id, fx.users.admin]);
+    const body = (await g("/api/issues/assigned-to-me", emp)).json();
+    expect(body).toMatchObject({ truncated: true, limit: 100 });
+    expect(body.items).toHaveLength(100);
+    expect(body.items[0]).toMatchObject({ key: critical.key, returnedForRework: false });
+    expect(body.items[1].key).toBe("CORP-1");
+    expect(body.items[2].key).toBe("CORP-1109");
+    expect(body.items.some((i: { key: string }) => i.key === "CORP-1001")).toBe(false);
+    await q("UPDATE issues SET updated_at = '2026-10-01' WHERE num >= 1000 AND priority_id = 'low'");
+    const tied = (await g("/api/issues/assigned-to-me", emp)).json();
+    const expectedLow = inserted.filter(i => i.id !== critical.id).sort((a, b) => a.id.localeCompare(b.id)).slice(0, 98);
+    expect(tied.items.slice(2).map((i: { key: string }) => i.key)).toEqual(expectedLow.map(i => i.key));
   });
 
   test("сортировка: critical раньше low, затем по updated_at", async () => {

@@ -66,14 +66,16 @@ test("вертикаль строк: заголовок отдела, затем
   expect(height).toBe(2 * GROUP_H + 3 * ROW_H);
 });
 
-test("зависимость опаздывает, если источник заканчивается в день начала зависимого или позже", () => {
+test("зависимость опаздывает строго после начала зависимого; совпадение дат допустимо", () => {
   const spans = new Map([
     ["src", barSpan({ startDate: "2026-10-01", targetDate: "2026-11-01" }, today)],
     ["ok", barSpan({ startDate: "2026-11-02", targetDate: "2026-12-01" }, today)],
-    ["late", barSpan({ startDate: "2026-11-01", targetDate: "2026-12-01" }, today)],
+    ["same", barSpan({ startDate: "2026-11-01", targetDate: "2026-12-01" }, today)],
+    ["late", barSpan({ startDate: "2026-10-31", targetDate: "2026-12-01" }, today)],
     ["none", null],
   ]);
   expect(isLate({ sourceId: "src", dependentId: "ok" }, spans)).toBe(false);
+  expect(isLate({ sourceId: "src", dependentId: "same" }, spans)).toBe(false);
   expect(isLate({ sourceId: "src", dependentId: "late" }, spans)).toBe(true);
   expect(isLate({ sourceId: "src", dependentId: "none" }, spans)).toBe(false);
 });
@@ -91,7 +93,7 @@ test("в DOM — только строки в окне прокрутки с з�
   ];
   const top = visibleItems(groups, 0, 800, 0);
   expect(top[0]).toMatchObject({ kind: "group", y: 0 });
-  expect(top.filter((x) => x.kind === "row").length).toBe(10); // (800 − 36) / 84 → 10 строк
+  expect(top.filter((x) => x.kind === "row").length).toBe(Math.ceil((800 - GROUP_H) / ROW_H));
   // Середина второго отдела: его заголовок далеко вверху — не рисуется, строки — с правильным y.
   const mid = visibleItems(groups, 2 * GROUP_H + 70 * ROW_H, 400, 0);
   expect(mid.some((x) => x.kind === "group")).toBe(false);

@@ -1,7 +1,7 @@
 /** DatePicker (ТЗ 5.7): кнопка-поле → поповер с вводом словами (concept: `parseDateInput`), быстрыми
  *  пресетами и календарём-сеткой (APG date picker dialog: стрелки ±день/неделя, PageUp/PageDown — месяц,
  *  Home/End — начало/конец недели, Enter — выбрать). Значение — ISO `YYYY-MM-DD` или null. */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Popover } from "./Overlay";
 import { parseDateInput } from "./dateParse";
 import { dsId } from "./ids";
@@ -72,13 +72,22 @@ export function DatePicker({
   const [cursor, setCursor] = useState(start);
   const [cy, cm] = parts(cursor);
   const grid = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (open) {
+      pendingFocus.current = null;
       setCursor(start);
       setText("");
     }
   }, [open, start]);
+
+  // Finish keyboard navigation with the grid render, before another key can select the old day.
+  useLayoutEffect(() => {
+    if (!open || !pendingFocus.current) return;
+    const day = grid.current?.querySelector<HTMLElement>(`[data-iso="${pendingFocus.current}"]`);
+    if (day) { day.focus(); pendingFocus.current = null; }
+  }, [cursor, open]);
 
   const typed = text ? parseDateInput(text, today) : null;
   const parsed = typed && inRange(typed) ? typed : null;
@@ -96,8 +105,8 @@ export function DatePicker({
   const dows = useMemo(() => Array.from({ length: 7 }, (_, i) => fmt(isoOf(2026, 8, 21 + i), { weekday: "short" })), [loc]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const moveTo = (s: string) => {
+    pendingFocus.current = s;
     setCursor(s);
-    requestAnimationFrame(() => grid.current?.querySelector<HTMLElement>(`[data-iso="${s}"]`)?.focus());
   };
   const monthShift = (n: number) => {
     const [y, m, d] = parts(cursor);

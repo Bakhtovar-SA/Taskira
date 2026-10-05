@@ -34,11 +34,12 @@ export async function transitionIssue(
       if (anchor.status_id !== toStatusId) throw badRequest("Позиция «перед» указывает на задачу из другой колонки");
     }
     const changed = previous.status_id !== toStatusId;
-    const statuses = (await client.query<{ id: string; name: string; category: string }>(
-      `SELECT id, name, category FROM workflow_statuses WHERE id = ANY($1::uuid[])`,
+    const statuses = (await client.query<{ id: string; name: string; sid: string; category: string }>(
+      `SELECT id, name, sid, category FROM workflow_statuses WHERE id = ANY($1::uuid[])`,
       [[previous.status_id, toStatusId]],
     )).rows;
-    const from = statuses.find((s) => s.id === previous.status_id)!.name;
+    const source = statuses.find((s) => s.id === previous.status_id)!;
+    const from = source.name;
     const target = statuses.find((s) => s.id === toStatusId)!;
     if (!changed && !reorder) return { previous, row: previous, changed, from, to: target.name };
     const rank = await computeRank(client, projectId, toStatusId, beforeId, issueId);
@@ -50,6 +51,7 @@ export async function transitionIssue(
     )).rows[0];
     if (changed) await logActivity(issueId, actorId, {
       kind: "status", from, to: target.name, fromId: previous.status_id, toId: toStatusId,
+      fromSid: source.sid, toSid: target.sid,
       ...(!reorder ? { bulk: true } : {}),
     }, client);
     return { previous, row, changed, from, to: target.name };

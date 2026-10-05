@@ -9,7 +9,7 @@ import { setThemeMode } from "../theme";
 import { NAV_GROUPS } from "./Sidebar";
 import { matchScore, fuzzyScore, swapLayout } from "../palette/fuzzy";
 import { readRecent, type RecentIssue } from "../palette/recent";
-import { openProjectWizard, paletteShortcut } from "../palette/events";
+import { openProjectWizard, paletteShortcut, openHomeCreate } from "../palette/events";
 import { useIssueSearch } from "../issueSearch";
 import { isSettingsHome } from "../settings/sections";
 import { useOpenSettings } from "../settings/useOpenSettings";
@@ -125,7 +125,6 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
       rows.push({ id: "home", group: "nav", label: t("sidebar.nav.home"), keywords: ["home"], icon: <IcHome size={16} tone="violet" />, run: goHome });
     for (const g of NAV_GROUPS)
       for (const item of g.items) {
-        if (bootStatus === "home" && !data.currentProjectId) continue;
         if (item.adminOnly && me.globalRole !== "admin") continue;
         if (item.collabOnly && data.collaborations.length === 0) continue;
         if (item.sprintsOnly && !data.project.sprintsEnabled) continue;
@@ -137,7 +136,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
           icon: item.icon({ size: 16, tone: item.tone }),
           hint: item.kbd ? <Kbd>{item.kbd}</Kbd> : undefined,
           run: () => {
-            if (bootStatus === "home") enterProject(data.currentProjectId);
+            if (bootStatus === "home") enterProject(data.currentProjectId || data.projects[0]?.id);
             if (isSettingsHome(item.id)) openSettings(item.id);
             else setView(item.id);
           },
@@ -145,8 +144,8 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
       }
     if (me.globalRole === "admin")
       rows.push({ id: "newProject", group: "actions", label: t("wizard.title"), keywords: ["new project", "создать проект", "шаблон"], icon: <IcPlus size={16} tone="violet" />, run: () => openProjectWizard() });
-    if (bootStatus !== "home" && can("create"))
-      rows.push({ id: "create", group: "actions", label: t("palette.newIssue"), keywords: ["new issue", "create"], icon: <IcCompose size={16} tone="violet" />, hint: <Kbd>C</Kbd>, run: () => setCreateOpen(true) });
+    if (bootStatus === "home" || can("create"))
+      rows.push({ id: "create", group: "actions", label: t("palette.newIssue"), keywords: ["new issue", "create"], icon: <IcCompose size={16} tone="violet" />, hint: <Kbd>C</Kbd>, run: () => bootStatus === "home" ? openHomeCreate() : setCreateOpen(true) });
     rows.push(
       { id: "theme:light", group: "actions", label: t("palette.themeLight"), keywords: ["light theme"], icon: <IcSun size={16} tone="amber" />, run: () => setThemeMode("light") },
       { id: "theme:dark", group: "actions", label: t("palette.themeDark"), keywords: ["dark theme"], icon: <IcMoon size={16} tone="indigo" />, run: () => setThemeMode("dark") },

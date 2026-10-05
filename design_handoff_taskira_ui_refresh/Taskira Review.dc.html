@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>
+@font-face{font-family:Manrope;src:url("src/assets/fonts/manrope-cyrillic-wght-normal.woff2") format("woff2");font-weight:200 800;unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:Manrope;src:url("src/assets/fonts/manrope-latin-wght-normal.woff2") format("woff2");font-weight:200 800}
+body{margin:0;background:oklch(0.94 0.005 288);font-family:Manrope,sans-serif;color:oklch(0.225 0.02 288);-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 0}
+a{color:oklch(0.49 0.175 288);text-decoration:none}
+a:hover{color:oklch(0.3 0.1 288);text-decoration:underline}
+</style>
+</helmet>
+<div style="padding:96px 96px 160px;display:flex;flex-direction:column;gap:120px;width:max-content">
+
+  <!-- Summary -->
+  <section data-screen-label="00 Итоги" style="width:1800px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:72px">
+    <div style="display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;color:oklch(0.44 0.018 288)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="oklch(0.52 0.2 288)" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.05h18"></path><path d="M5.86 14.6 9.68 18.94 15.08 5.05"></path></svg>
+        <span>Taskira · ревью интерфейса · main @ 34a0943 · 4 октября 2026</span>
+      </div>
+      <h1 style="margin:0;font-size:64px;line-height:1.05;font-weight:700;letter-spacing:-0.035em;text-wrap:balance">Фундамент сильный, недоделанность — на стыках</h1>
+      <p style="margin:0;font-size:21px;line-height:1.55;color:oklch(0.36 0.018 288);max-width:900px;text-wrap:pretty">Токены в OKLCH, проверки контраста и движения в CI, собственные иконки, работа с клавиатурой и мобильной версией — это уровень хорошего продукта. Ощущение «чего-то не хватает» создают стыки: одна функция живёт в двух-трёх местах, служебные подсказки занимают место контента, а Главная, Отчёты и Роадмап собраны по другим правилам, чем Доска и Список.</p>
+      <p style="margin:0;font-size:16px;line-height:1.55;color:oklch(0.44 0.018 288);max-width:900px">Ниже шесть экранов. Слева — текущее состояние (скриншоты аудита 3 октября из <span style="font-weight:600">docs/design/audit-2026-10-03/after</span>), справа — предложение на тех же токенах, шрифте и иконках. Под каждой парой — что не так и что изменено.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:15px;font-weight:600">
+        <a href="#s1">01 Доска и оболочка</a><span style="color:oklch(0.8 0.01 288)">·</span>
+        <a href="#s2">02 Карточка задачи</a><span style="color:oklch(0.8 0.01 288)">·</span>
+        <a href="#s3">03 Список</a><span style="color:oklch(0.8 0.01 288)">·</span>
+        <a href="#s4">04 Главная</a><span style="color:oklch(0.8 0.01 288)">·</span>
+        <a href="#s5">05 Роадмап</a><span style="color:oklch(0.8 0.01 288)">·</span>
+        <a href="#s6">06 Отчёты</a>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:36px">
+      <div style="background:oklch(0.997 0.0015 288);border-radius:20px;padding:28px 32px;box-shadow:0 0 0 1px oklch(0.895 0.009 288)">
+        <div style="font-size:15px;font-weight:700;margin-bottom:14px">Оценка по направлениям, из 10</div>
+        <sc-for list="{{ grades }}" as="g" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:230px 40px minmax(0,1fr);align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid oklch(0.925 0.007 288)">
+            <span style="font-size:15px;font-weight:600">{{ g.n }}</span>
+            <span style="font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:{{ g.c }}">{{ g.v }}</span>
+            <span style="font-size:14px;line-height:1.45;color:oklch(0.44 0.018 288)">{{ g.d }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:12px">Главное, по порядку</div>
+        <ol style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px;font-size:16px;line-height:1.5">
+          <li><b>Одна шапка вместо двух.</b> Поиск, «Создать» и профиль есть и в панели, и в шапке; вкладки проекта занимают отдельную строку. Одна строка 52 px — +60 px под работу на каждом экране проекта.</li>
+          <li><b>Карточка задачи показывает все свойства</b> и предлагает следующий шаг по процессу: «Взять в работу» в один клик.</li>
+          <li><b>Доска помещается в ширину</b> — четыре колонки на 1440 px, карточка короче примерно на треть.</li>
+          <li><b>Список группируется по статусу</b> и занимает всю ширину.</li>
+          <li><b>Главная — в той же оболочке</b>, что и остальное приложение.</li>
+          <li><b>Подсказки-баннеры</b> (J/K, перетаскивание) уходят из контента в подписи кнопок и Справку.</li>
+          <li><b>Мелкие баги:</b> вкладка «Empty» в Отчётах, обрезанный заголовок «Исполните…», названия на роадмапе поверх линии «сегодня», значок поиска вплотную к тексту в шапке, пункт «Дашборды» открывает экран «Отчёты».</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01 Board -->
+  <section id="s1" data-screen-label="01 Доска" style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:baseline;gap:16px"><span style="font-size:20px;font-weight:700;color:oklch(0.49 0.175 288)">01</span><h2 style="margin:0;font-size:40px;font-weight:700;letter-spacing:-0.03em">Доска и оболочка</h2></div>
+    <div style="display:flex;gap:48px;align-items:flex-start">
+      <sc-if value="{{ showBefore }}" hint-placeholder-val="{{ true }}">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.44 0.018 288)">Было</figcaption><img src="docs/design/audit-2026-10-03/after/screens/board-light.png" alt="Доска сейчас" style="width:1440px;height:900px;display:block;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16)"></figure>
+      </sc-if>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288)">Стало</figcaption>
+        <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16);background:radial-gradient(55% 60% at 0% 0%, oklch(0.78 0.13 288 / 0.32), transparent 70%), radial-gradient(50% 55% at 100% 100%, oklch(0.86 0.1 20 / 0.32), transparent 70%), radial-gradient(40% 50% at 60% 0%, oklch(0.86 0.09 220 / 0.3), transparent 70%), oklch(0.958 0.009 288)">
+          <dc-import name="Taskira Sidebar" active="project" hint-size="256px,884px" style="position:absolute;left:8px;top:8px;bottom:8px"></dc-import>
+          <div style="position:absolute;left:272px;top:8px;right:8px;bottom:8px;border-radius:16px;background:oklch(0.978 0.004 288);box-shadow:0 0 0 1px oklch(0.925 0.007 288), 0 1px 2px oklch(0.3 0.04 288 / 0.05);display:flex;flex-direction:column;overflow:hidden">
+            <div style="height:52px;flex:none;display:flex;align-items:center;gap:14px;padding:0 14px 0 18px;border-bottom:1px solid oklch(0.925 0.007 288)">
+              <div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:-0.01em"><span style="width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700;background:oklch(0.94 0.04 288);color:oklch(0.5 0.14 288)">C</span>Корпоративные задачи<svg width="12" height="12" viewBox="0 0 16 16" style="color:oklch(0.49 0.016 288)"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg><svg width="14" height="14" viewBox="0 0 16 16" style="color:oklch(0.76 0.14 78)"><path fill="currentColor" d="m8 1.5 1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.3l-3.8 2 .7-4.3-3.1-3 4.3-.6z"></path></svg></div>
+              <div style="width:1px;height:20px;background:oklch(0.895 0.009 288)"></div>
+              <nav style="display:flex;gap:2px;padding:3px;border-radius:11px;background:oklch(0.945 0.006 288);box-shadow:inset 0 0 0 1px oklch(0.925 0.007 288);font-size:13.5px;font-weight:500;color:oklch(0.44 0.018 288)"><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px"><span style="display:flex;color:oklch(0.49 0.016 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" opacity="0.26"></rect><rect x="3" y="3" width="5" height="4" rx="0.75" fill="currentColor"></rect><rect x="9" y="3" width="4" height="7" rx="0.75" fill="currentColor"></rect><rect x="3" y="8" width="5" height="5" rx="0.75" fill="currentColor"></rect><rect x="9" y="11" width="4" height="2" rx="0.75" fill="currentColor"></rect></svg></span>Обзор</span><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px;background:oklch(0.997 0.0015 288);color:oklch(0.225 0.02 288);font-weight:700;box-shadow:0 1px 2px oklch(0.3 0.04 288 / 0.08), 0 0 0 1px oklch(0.925 0.007 288)"><span style="display:flex;color:oklch(0.55 0.2 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" opacity="0.26"></rect><rect x="3" y="3" width="3" height="10" rx="1" fill="currentColor"></rect><rect x="7" y="3" width="3" height="6" rx="1" fill="currentColor"></rect><rect x="11" y="3" width="2" height="8" rx="1" fill="currentColor"></rect></svg></span>Доска</span><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px"><span style="display:flex;color:oklch(0.49 0.016 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" opacity="0.26"></rect><rect x="3" y="4" width="2" height="2" rx="1" fill="currentColor"></rect><rect x="6" y="4" width="7" height="2" rx="1" fill="currentColor"></rect><rect x="3" y="7" width="2" height="2" rx="1" fill="currentColor"></rect><rect x="6" y="7" width="7" height="2" rx="1" fill="currentColor"></rect><rect x="3" y="10" width="2" height="2" rx="1" fill="currentColor"></rect><rect x="6" y="10" width="5" height="2" rx="1" fill="currentColor"></rect></svg></span>Список</span><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px"><span style="display:flex;color:oklch(0.49 0.016 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" opacity="0.26"></rect><rect x="3" y="4" width="6" height="2" rx="1" fill="currentColor"></rect><rect x="6" y="7" width="7" height="2" rx="1" fill="currentColor"></rect><rect x="4" y="10" width="5" height="2" rx="1" fill="currentColor"></rect></svg></span>Таймлайн</span><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px"><span style="display:flex;color:oklch(0.49 0.016 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="3" width="14" height="12" rx="2.5" fill="currentColor" opacity="0.26"></rect><path fill="currentColor" d="M1 5.5A2.5 2.5 0 0 1 3.5 3h9A2.5 2.5 0 0 1 15 5.5V7H1z"></path><rect x="4" y="1" width="2" height="4" rx="1" fill="currentColor"></rect><rect x="10" y="1" width="2" height="4" rx="1" fill="currentColor"></rect><rect x="4" y="9" width="2" height="2" rx="0.5" fill="currentColor"></rect><rect x="7" y="9" width="2" height="2" rx="0.5" fill="currentColor"></rect><rect x="10" y="9" width="2" height="2" rx="0.5" fill="currentColor"></rect></svg></span>Календарь</span></nav>
+              <span style="flex:1"></span>
+              <div style="display:flex;padding-left:6px"><sc-for list="{{ team }}" as="u" hint-placeholder-count="5"><span style="width:26px;height:26px;border-radius:50%;margin-left:-6px;box-shadow:0 0 0 2px oklch(0.978 0.004 288);background:{{ u.c }};color:oklch(0.99 0.006 288);font-size:10px;font-weight:700;display:grid;place-items:center">{{ u.i }}</span></sc-for></div>
+              <span style="width:32px;height:32px;border-radius:8px;display:grid;place-items:center;position:relative;color:oklch(0.44 0.018 288)"><svg width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" opacity="0.26" d="M3.5 11V7a4.5 4.5 0 0 1 9 0v4l1.5 1.5v.5H2v-.5z"></path><rect x="1" y="11" width="14" height="2" rx="1" fill="currentColor"></rect><path fill="currentColor" d="M6.25 14h3.5a1.75 1.75 0 0 1-3.5 0z"></path></svg><span style="position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:oklch(0.55 0.2 288);box-shadow:0 0 0 2px oklch(0.978 0.004 288)"></span></span>
+              <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:oklch(0.55 0.2 288);color:oklch(0.99 0.006 288);font-size:14px;font-weight:600;box-shadow:inset 0 1px 0 oklch(1 0 0 / 0.22), 0 1px 2px oklch(0.4 0.18 288 / 0.3)"><svg width="14" height="14" viewBox="0 0 16 16"><rect x="7" y="2" width="2" height="12" rx="1" fill="currentColor"></rect><rect x="2" y="7" width="12" height="2" rx="1" fill="currentColor"></rect></svg>Задача<span style="font-size:11px;font-weight:700;padding:0 5px;border-radius:4px;background:oklch(1 0 0 / 0.2)">C</span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:14px 18px 12px;font-size:13.5px;font-weight:500">
+              <div style="width:240px;height:32px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 8px 0 10px;border-radius:8px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288);color:oklch(0.49 0.016 288)"><svg width="14" height="14" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M7 1.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11zm0 2a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"></path><path fill="currentColor" d="m10.4 11.8 1.4-1.4 3 3a1 1 0 0 1-1.4 1.4z"></path></svg><span style="flex:1">Фильтр задач</span><span style="font-size:11px;font-weight:700;padding:0 5px;border-radius:4px;box-shadow:0 0 0 1px oklch(0.895 0.009 288)">/</span></div>
+              <span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;background:oklch(0.955 0.024 288);color:oklch(0.49 0.175 288);font-weight:600;box-shadow:0 0 0 1px oklch(0.865 0.078 288)"><svg width="14" height="14" viewBox="0 0 16 16"><path d="m3 8.5 3.25 3.25L13 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Мои</span>
+              <span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288)">Просрочено<span style="font-weight:700;color:oklch(0.52 0.18 25)">3</span></span>
+              <span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288)">Без исполнителя</span>
+              <span style="flex:1"></span>
+              <span style="color:oklch(0.49 0.016 288);font-variant-numeric:tabular-nums">8 из 21</span>
+              <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)">Группировка: нет<svg width="12" height="12" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+              <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)">Вид<svg width="12" height="12" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+            </div>
+            <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:0 18px 18px">
+              <sc-for list="{{ cols }}" as="col" hint-placeholder-count="4">
+                <div style="min-height:0;display:flex;flex-direction:column;gap:6px;padding:4px 6px 6px;border-radius:14px;background:oklch(0.925 0.007 288 / 0.55);box-shadow:inset 0 0 0 1px oklch(0.895 0.009 288);overflow:hidden">
+                  <div style="height:36px;flex:none;display:flex;align-items:center;gap:8px;padding:0 6px 0 8px;font-size:14px;font-weight:700">
+                    <sc-if value="{{ col.isTodo }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="oklch(0.6 0.02 288)" stroke-width="1.5"></circle></svg></sc-if>
+                    <sc-if value="{{ col.isProg }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="oklch(0.76 0.14 78)" stroke-width="1.5"></circle><path d="M7 7 7 3.75 A3.25 3.25 0 0 1 8.91 9.63Z" fill="oklch(0.76 0.14 78)"></path></svg></sc-if>
+                    <sc-if value="{{ col.isRev }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="oklch(0.76 0.14 78)" stroke-width="1.5"></circle><path d="M7 7 7 3.75 A3.25 3.25 0 1 1 3.91 8Z" fill="oklch(0.76 0.14 78)"></path></svg></sc-if>
+                    <sc-if value="{{ col.isDone }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6.5" fill="oklch(0.6 0.13 158)"></circle><path d="m4.3 7.2 1.9 1.9 3.5-3.7" fill="none" stroke="oklch(0.997 0.0015 288)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if>
+                    <span>{{ col.name }}</span><span style="font-weight:500;color:oklch(0.49 0.016 288)">{{ col.count }}</span>
+                    <span style="flex:1"></span>
+                    <span style="font-size:12px;font-weight:500;color:oklch(0.49 0.016 288)">{{ col.note }}</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" style="color:oklch(0.49 0.016 288)"><rect x="7" y="2" width="2" height="12" rx="1" fill="currentColor"></rect><rect x="2" y="7" width="12" height="2" rx="1" fill="currentColor"></rect></svg>
+                  </div>
+                  <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="3">
+                    <div style="flex:none;background:oklch(0.997 0.0015 288);border:1px solid oklch(0.3 0.04 288 / 0.1);border-radius:10px;padding:10px 12px 10px 13px;display:flex;flex-direction:column;gap:7px;box-shadow:inset 3px 0 0 {{ c.edge }}, 0 1px 2px oklch(0.3 0.04 288 / 0.04)">
+                      <div style="font-size:14px;font-weight:600;line-height:1.38;text-wrap:pretty;color:{{ c.tc }}">{{ c.t }}</div>
+                      <sc-if value="{{ c.hasE }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:oklch(0.44 0.018 288);min-width:0"><span style="width:8px;height:8px;border-radius:2px;flex:none;background:{{ c.ec }}"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.en }}</span></div></sc-if>
+                      <div style="display:flex;align-items:center;gap:8px;height:22px">
+                        <sc-if value="{{ c.crit }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="4" fill="oklch(0.585 0.19 25)"></rect><rect x="7" y="4" width="2" height="5" rx="1" fill="oklch(0.99 0.006 288)"></rect><rect x="7" y="10.5" width="2" height="2" rx="1" fill="oklch(0.99 0.006 288)"></rect></svg></sc-if>
+                        <sc-if value="{{ c.bars }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="2" y="10" width="3" height="4" rx="1" fill="oklch(0.44 0.018 288)"></rect><rect x="6.5" y="6.5" width="3" height="7.5" rx="1" fill="oklch(0.44 0.018 288)" opacity="{{ c.o2 }}"></rect><rect x="11" y="3" width="3" height="11" rx="1" fill="oklch(0.44 0.018 288)" opacity="{{ c.o3 }}"></rect></svg></sc-if>
+                        <span style="font-size:12px;font-weight:500;color:oklch(0.49 0.016 288);font-variant-numeric:tabular-nums">{{ c.k }}</span>
+                        <sc-if value="{{ c.hasDue }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:6px;font-size:12px;font-weight:600;background:{{ c.db }};color:{{ c.dc }}"><svg width="12" height="12" viewBox="0 0 14 14"><circle cx="7" cy="7" r="4.75" fill="none" stroke="oklch(0.82 0.012 288)" stroke-width="1.5"></circle><circle cx="7" cy="7" r="4.75" fill="none" stroke="{{ c.rc }}" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="{{ c.ra }}" transform="rotate(-90 7 7)"></circle></svg>{{ c.due }}</span></sc-if>
+                        <span style="flex:1"></span>
+                        <div style="display:flex;padding-left:5px"><sc-for list="{{ c.av }}" as="u" hint-placeholder-count="1"><span style="width:22px;height:22px;border-radius:50%;margin-left:-5px;box-shadow:0 0 0 2px oklch(0.997 0.0015 288);background:{{ u.c }};color:oklch(0.99 0.006 288);font-size:9.5px;font-weight:700;display:grid;place-items:center">{{ u.i }}</span></sc-for></div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+      <div style="width:2928px;display:grid;grid-template-columns:1440px 1440px;gap:48px;font-size:17px;line-height:1.55">
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.52 0.18 25);margin-bottom:10px">Что не так</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Три поля поиска на одном экране: «Поиск и команды» в панели, «Поиск задач…» в шапке, «Фильтр по доске» на странице. Разница между ними не очевидна.</li>
+          <li>«Новая задача» в панели и «Создать» в шапке; профиль — справа вверху и внизу панели.</li>
+          <li>До первой карточки 290 px: шапка, строка вкладок, заголовок «Доска» (повторяет активную вкладку), строка поиска и счётчик «21 из 21» отдельной строкой.</li>
+          <li>Колонка «Готово» обрезана на 1440 px: у колонок фиксированная ширина.</li>
+          <li>Ключ и приоритет стоят над названием, хотя читают сначала название. Направление и метки — до двух строк обрезанных подписей («Запуск клиентского пор…»).</li>
+          <li>Аватары 16 px с инициалами ~8 px не читаются.</li>
+          <li>«Открытых задач 18» внизу панели — прогресс без контекста (в IA.md он уже запланирован к удалению).</li>
+        </ul></div>
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288);margin-bottom:10px">Что предлагаю</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Шапка в одну строку: проект ▾ ★ · вкладки в прежнем сегментированном виде с иконками (поднята в шапку, активная — с фирменной иконкой) · участники · колокол · «+ Задача». Глобальный поиск — только Ctrl K в панели; «/» фильтрует текущее представление.</li>
+          <li>Создание задачи — значок рядом с поиском в панели и кнопка в шапке проекта с подсказкой клавиши C. Профиль — только внизу панели.</li>
+          <li>Строка инструментов: фильтр, переключатели «Мои / Просрочено / Без исполнителя» со счётчиком, «Группировка» и «Вид». Активный фильтр подсвечен, счётчик «8 из 21» рядом.</li>
+          <li>Колонки <span style="font-weight:600">minmax(0, 1fr)</span>: все четыре видны, прокрутка только при 6+ статусах.</li>
+          <li>Карточка: название → направление одной строкой → приоритет, ключ, срок, исполнители 22 px. Метки — в задаче и фильтре. Закрытые — приглушённым текстом.</li>
+          <li>Смелая идея: группировка доски дорожками по направлению или исполнителю. Менеджер видит загрузку людей без отдельного отчёта.</li>
+        </ul></div>
+      </div>
+    </sc-if>
+  </section>
+
+  <!-- 02 Issue -->
+  <section id="s2" data-screen-label="02 Карточка задачи" style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:baseline;gap:16px"><span style="font-size:20px;font-weight:700;color:oklch(0.49 0.175 288)">02</span><h2 style="margin:0;font-size:40px;font-weight:700;letter-spacing:-0.03em">Карточка задачи</h2></div>
+    <div style="display:flex;gap:48px;align-items:flex-start">
+      <sc-if value="{{ showBefore }}" hint-placeholder-val="{{ true }}">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.44 0.018 288)">Было</figcaption><img src="docs/design/audit-2026-10-03/after/screens/issue-light.png" alt="Задача сейчас" style="width:1440px;height:900px;display:block;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16)"></figure>
+      </sc-if>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288)">Стало</figcaption>
+        <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16);background:radial-gradient(55% 60% at 0% 0%, oklch(0.78 0.13 288 / 0.32), transparent 70%), radial-gradient(50% 55% at 100% 100%, oklch(0.86 0.1 20 / 0.32), transparent 70%), oklch(0.958 0.009 288)">
+          <dc-import name="Taskira Sidebar" active="project" hint-size="256px,884px" style="position:absolute;left:8px;top:8px;bottom:8px"></dc-import>
+          <div style="position:absolute;left:272px;top:8px;right:8px;bottom:8px;border-radius:16px;background:oklch(0.978 0.004 288);box-shadow:0 0 0 1px oklch(0.925 0.007 288);display:flex;flex-direction:column;overflow:hidden">
+            <div style="height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 18px;border-bottom:1px solid oklch(0.925 0.007 288);font-size:15px;font-weight:700"><span style="width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;background:oklch(0.94 0.04 288);color:oklch(0.5 0.14 288)">C</span>Корпоративные задачи</div>
+            <div style="flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:62px 18px 18px">
+              <div style="border-radius:14px;background:oklch(0.925 0.007 288 / 0.55)"></div><div style="border-radius:14px;background:oklch(0.925 0.007 288 / 0.55)"></div><div style="border-radius:14px;background:oklch(0.925 0.007 288 / 0.55)"></div><div style="border-radius:14px;background:oklch(0.925 0.007 288 / 0.55)"></div>
+            </div>
+          </div>
+          <div style="position:absolute;inset:0;background:oklch(0.24 0.03 288 / 0.34)"></div>
+          <div style="position:absolute;top:8px;right:8px;bottom:8px;width:980px;border-radius:16px;background:oklch(0.997 0.0015 288);box-shadow:0 4px 8px oklch(0.3 0.04 288 / 0.06), 0 28px 64px -12px oklch(0.25 0.07 288 / 0.28);display:flex;flex-direction:column;overflow:hidden">
+            <div style="height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px 0 20px;border-bottom:1px solid oklch(0.925 0.007 288);font-size:14px">
+              <svg width="15" height="15" viewBox="0 0 16 16" style="color:oklch(0.55 0.2 288)"><rect x="1" y="1" width="14" height="14" rx="4" fill="currentColor" opacity="0.26"></rect><path d="M4.75 8.25 7 10.5l4.25-4.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              <span style="color:oklch(0.44 0.018 288);font-weight:500">Корпоративные задачи</span><span style="color:oklch(0.8 0.01 288)">/</span><span style="font-weight:700;font-variant-numeric:tabular-nums">CORP-1</span>
+              <span style="flex:1"></span>
+              <span style="height:30px;padding:0 8px;border-radius:8px;display:flex;align-items:center;gap:6px;color:oklch(0.44 0.018 288);font-size:12.5px;font-weight:600;box-shadow:0 0 0 1px oklch(0.895 0.009 288)">Предыдущая<span style="font-size:11px;padding:0 4px;border-radius:4px;background:oklch(0.962 0.006 288)">K</span></span>
+              <span style="height:30px;padding:0 8px;border-radius:8px;display:flex;align-items:center;gap:6px;color:oklch(0.44 0.018 288);font-size:12.5px;font-weight:600;box-shadow:0 0 0 1px oklch(0.895 0.009 288)">Следующая<span style="font-size:11px;padding:0 4px;border-radius:4px;background:oklch(0.962 0.006 288)">J</span></span>
+              <span style="width:1px;height:20px;background:oklch(0.895 0.009 288);margin:0 4px"></span>
+              <span style="width:30px;height:30px;display:grid;place-items:center;color:oklch(0.44 0.018 288)"><svg width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" opacity="0.26"></rect><path d="M9 3.75h3.25V7M7 12.25H3.75V9M12 4 8.75 7.25M4 12l3.25-3.25" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="width:30px;height:30px;display:grid;place-items:center;color:oklch(0.44 0.018 288)"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M6.75 9.25a3 3 0 0 0 4.25 0l2-2A3 3 0 0 0 8.75 3l-.5.5M9.25 6.75a3 3 0 0 0-4.25 0l-2 2A3 3 0 0 0 7.25 13l.5-.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+              <span style="width:30px;height:30px;display:grid;place-items:center;color:oklch(0.44 0.018 288)"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="3" cy="8" r="1.5" fill="currentColor"></circle><circle cx="8" cy="8" r="1.5" fill="currentColor"></circle><circle cx="13" cy="8" r="1.5" fill="currentColor"></circle></svg></span>
+              <span style="width:30px;height:30px;display:grid;place-items:center;color:oklch(0.44 0.018 288)"><svg width="16" height="16" viewBox="0 0 16 16"><g transform="rotate(45 8 8)" fill="currentColor"><rect x="7" y="1.5" width="2" height="13" rx="1"></rect><rect x="1.5" y="7" width="13" height="2" rx="1"></rect></g></svg></span>
+            </div>
+            <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 320px">
+              <div style="padding:28px 36px;display:flex;flex-direction:column;gap:22px;overflow:hidden">
+                <h3 style="margin:0;font-size:26px;line-height:1.25;font-weight:700;letter-spacing:-0.02em;text-wrap:balance">Собрать требования отдела продаж к личному кабинету</h3>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:-6px">
+                  <span style="height:32px;padding:0 10px;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;box-shadow:0 0 0 1px oklch(0.895 0.009 288)"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="oklch(0.6 0.02 288)" stroke-width="1.5"></circle></svg>К выполнению<svg width="12" height="12" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+                  <span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;background:oklch(0.55 0.2 288);color:oklch(0.99 0.006 288);box-shadow:inset 0 1px 0 oklch(1 0 0 / 0.22)"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M7 7 7 3.75 A3.25 3.25 0 0 1 8.91 9.63Z" fill="currentColor"></path></svg>Взять в работу</span>
+                  <span style="flex:1"></span>
+                  <span style="font-size:13px;color:oklch(0.49 0.016 288)">Создала Анна Смирнова · 1 окт.</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;font-size:14.5px;line-height:1.6">
+                  <span style="font-size:13px;font-weight:700;color:oklch(0.44 0.018 288)">Описание</span>
+                  <p style="margin:0">Собрать требования от руководителей отделов и согласовать их перед началом разработки.</p>
+                  <div><span style="font-weight:600">Критерии готовности:</span>
+                    <ul style="margin:4px 0 0;padding-left:20px"><li>описаны основные рабочие сценарии;</li><li>согласованы роли участников;</li><li>утверждён список обязательных полей.</li></ul></div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+                  <div style="border-radius:10px;padding:12px 14px;box-shadow:0 0 0 1px oklch(0.925 0.007 288);display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700"><span>Подзадачи</span><span style="color:oklch(0.49 0.175 288)">+ Добавить</span></div><span style="font-size:13px;color:oklch(0.44 0.018 288)">Нет подзадач</span></div>
+                  <div style="border-radius:10px;padding:12px 14px;box-shadow:0 0 0 1px oklch(0.925 0.007 288);display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700"><span>Чек-лист <span style="font-weight:500;color:oklch(0.49 0.016 288)">0 из 1</span></span><span style="color:oklch(0.49 0.175 288)">+ Пункт</span></div><div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:14px;height:14px;border-radius:4px;box-shadow:inset 0 0 0 1.5px oklch(0.82 0.012 288);flex:none"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Получить обратную связь от отдела продаж</span></div></div>
+                  <div style="border-radius:10px;padding:12px 14px;box-shadow:0 0 0 1px oklch(0.925 0.007 288);display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700"><span>Вложения</span><span style="color:oklch(0.49 0.175 288)">+ Файл</span></div><span style="font-size:13px;color:oklch(0.44 0.018 288)">Перетащите файлы в панель</span></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:14px;flex:1;min-height:0">
+                  <div style="display:flex;gap:18px;font-size:13.5px;font-weight:600;color:oklch(0.44 0.018 288);border-bottom:1px solid oklch(0.925 0.007 288)"><span style="padding:0 0 8px;color:oklch(0.225 0.02 288);box-shadow:inset 0 -2px 0 oklch(0.55 0.2 288)">Всё</span><span>Комментарии 1</span><span>История 2</span></div>
+                  <div style="display:flex;gap:10px;font-size:13.5px;color:oklch(0.44 0.018 288);align-items:center"><span style="width:22px;height:22px;border-radius:50%;background:oklch(0.62 0.15 350);color:oklch(0.99 0.006 288);font-size:9.5px;font-weight:700;display:grid;place-items:center">АС</span><span><b style="color:oklch(0.225 0.02 288)">Анна Смирнова</b> создала задачу и назначила Марину Ким · 2 дня назад</span></div>
+                  <div style="display:flex;gap:10px"><span style="width:22px;height:22px;flex:none;border-radius:50%;background:oklch(0.62 0.15 262);color:oklch(0.99 0.006 288);font-size:9.5px;font-weight:700;display:grid;place-items:center">МК</span><div style="display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.5"><span style="font-size:13.5px"><b>Марина Ким</b> <span style="color:oklch(0.49 0.016 288)">· вчера</span></span><span>Добавила критерии готовности. Анна, проверьте список обязательных полей — продажи просят ещё ИНН клиента.</span></div></div>
+                  <span style="flex:1"></span>
+                  <div style="display:flex;gap:10px;align-items:flex-end"><span style="width:28px;height:28px;flex:none;border-radius:50%;background:oklch(0.62 0.15 350);color:oklch(0.99 0.006 288);font-size:10.5px;font-weight:700;display:grid;place-items:center">АС</span><div style="flex:1;min-height:44px;box-sizing:border-box;border-radius:10px;padding:0 6px 0 14px;display:flex;align-items:center;gap:10px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);font-size:14px;color:oklch(0.49 0.016 288)"><span style="flex:1">Комментарий, @ — упомянуть</span><span style="font-size:12px">Ctrl+Enter</span><span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;font-size:13.5px;font-weight:600;background:oklch(0.955 0.024 288);color:oklch(0.49 0.175 288)">Отправить</span></div></div>
+                </div>
+              </div>
+              <div style="background:oklch(0.975 0.005 288);border-left:1px solid oklch(0.925 0.007 288);padding:20px 20px;display:flex;flex-direction:column;gap:2px;font-size:13.5px">
+                <sc-for list="{{ props }}" as="r" hint-placeholder-count="7">
+                  <div style="display:grid;grid-template-columns:104px minmax(0,1fr);align-items:center;min-height:36px;gap:8px"><span style="color:oklch(0.44 0.018 288);font-weight:500">{{ r.l }}</span><span style="font-weight:600;color:{{ r.c }};min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.v }}</span></div>
+                </sc-for>
+                <div style="display:grid;grid-template-columns:104px minmax(0,1fr);align-items:center;min-height:36px;gap:8px"><span style="color:oklch(0.44 0.018 288);font-weight:500">Метки</span><span style="display:flex;gap:4px;flex-wrap:wrap"><span style="font-size:12.5px;font-weight:600;padding:2px 7px;border-radius:6px;background:oklch(0.945 0.006 288)">аналитика</span><span style="font-size:12.5px;font-weight:600;padding:2px 7px;border-radius:6px;background:oklch(0.945 0.006 288)">клиентский портал</span></span></div>
+                <div style="height:1px;background:oklch(0.925 0.007 288);margin:10px 0"></div>
+                <div style="display:grid;grid-template-columns:104px minmax(0,1fr);align-items:center;min-height:36px;gap:8px"><span style="color:oklch(0.44 0.018 288);font-weight:500">Связи</span><span style="font-weight:600;color:oklch(0.49 0.175 288)">+ Связать</span></div>
+                <div style="display:grid;grid-template-columns:104px minmax(0,1fr);align-items:center;min-height:36px;gap:8px"><span style="color:oklch(0.44 0.018 288);font-weight:500">Гости</span><span style="font-weight:600;color:oklch(0.49 0.175 288)">+ Пригласить</span></div>
+                <span style="flex:1"></span>
+                <span style="font-size:12.5px;line-height:1.5;color:oklch(0.49 0.016 288)">Пустые поля приглушены и заполняются по клику. Вы подписаны на задачу · <span style="color:oklch(0.49 0.175 288);font-weight:600">Отписаться</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+      <div style="width:2928px;display:grid;grid-template-columns:1440px 1440px;gap:48px;font-size:17px;line-height:1.55">
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.52 0.18 25);margin-bottom:10px">Что не так</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Подсказка «J и K…» занимает первую строку панели при каждом открытии, пока её не закроют.</li>
+          <li>Сложность, направление, метки, связи и участники спрятаны за «Дополнительные свойства», а правая колонка при этом на две трети пуста.</li>
+          <li>Сменить статус можно только выпадающим списком — нет подсказки, какой шаг следующий.</li>
+          <li>Описание в серой плашке выглядит как неактивное поле. Подзадачи, чек-лист и вложения — три разных вида пустого состояния (ссылка, пунктирное поле, рамка).</li>
+          <li>Бледная кнопка «Отправить» читается как сломанная, а не как «введите текст».</li>
+        </ul></div>
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288);margin-bottom:10px">Что предлагаю</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Правая колонка — строки «подпись — значение», все свойства видны. Пустые — приглушены и редактируются по клику. Просрочка — текстом: «1 окт. · просрочено 2 дня».</li>
+          <li>Рядом со статусом — кнопка следующего перехода по workflow («Взять в работу», «На ревью», «Готово»); остальные переходы в меню статуса. Самый частый сценарий — один клик.</li>
+          <li>Шапка панели: хлебные крошки «Проект / CORP-1», кнопки «Предыдущая K / Следующая J» вместо баннера.</li>
+          <li>Подзадачи, чек-лист, вложения — три одинаковые компактные плитки со счётчиком и «+». Файлы принимаются перетаскиванием на всю панель.</li>
+          <li>Поле комментария внизу ленты, с подсказкой про @-упоминание; кнопка в мягком акценте, а не в «отключённом».</li>
+        </ul></div>
+      </div>
+    </sc-if>
+  </section>
+
+  <!-- 03 List -->
+  <section id="s3" data-screen-label="03 Список" style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:baseline;gap:16px"><span style="font-size:20px;font-weight:700;color:oklch(0.49 0.175 288)">03</span><h2 style="margin:0;font-size:40px;font-weight:700;letter-spacing:-0.03em">Список</h2></div>
+    <div style="display:flex;gap:48px;align-items:flex-start">
+      <sc-if value="{{ showBefore }}" hint-placeholder-val="{{ true }}">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.44 0.018 288)">Было</figcaption><img src="docs/design/audit-2026-10-03/after/screens/list-light.png" alt="Список сейчас" style="width:1440px;height:900px;display:block;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16)"></figure>
+      </sc-if>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288)">Стало</figcaption>
+        <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16);background:radial-gradient(55% 60% at 0% 0%, oklch(0.78 0.13 288 / 0.32), transparent 70%), radial-gradient(50% 55% at 100% 100%, oklch(0.86 0.1 20 / 0.32), transparent 70%), oklch(0.958 0.009 288)">
+          <dc-import name="Taskira Sidebar" active="project" hint-size="256px,884px" style="position:absolute;left:8px;top:8px;bottom:8px"></dc-import>
+          <div style="position:absolute;left:272px;top:8px;right:8px;bottom:8px;border-radius:16px;background:oklch(0.978 0.004 288);box-shadow:0 0 0 1px oklch(0.925 0.007 288);display:flex;flex-direction:column;overflow:hidden">
+            <div style="height:52px;flex:none;display:flex;align-items:center;gap:14px;padding:0 14px 0 18px;border-bottom:1px solid oklch(0.925 0.007 288)">
+              <div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700"><span style="width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;background:oklch(0.94 0.04 288);color:oklch(0.5 0.14 288)">C</span>Корпоративные задачи<svg width="12" height="12" viewBox="0 0 16 16" style="color:oklch(0.49 0.016 288)"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></div>
+              <div style="width:1px;height:20px;background:oklch(0.895 0.009 288)"></div>
+              <nav style="display:flex;gap:2px;padding:3px;border-radius:11px;background:oklch(0.945 0.006 288);box-shadow:inset 0 0 0 1px oklch(0.925 0.007 288);font-size:13.5px;font-weight:500;color:oklch(0.44 0.018 288)"><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px"><span style="display:flex;color:oklch(0.49 0.016 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" opacity="0.26"></rect><rect x="3" y="3" width="5" height="4" rx="0.75" fill="currentColor"></rect><rect x="9" y="3" width="4" height="7" rx="0.75" fill="currentColor"></rect><rect x="3" y="8" width="5" height="5" rx="0.75" fill="currentColor"></rect><rect x="9" y="11" width="4" height="2" rx="0.75" fill="currentColor"></rect></svg></span>Обзор</span><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px"><span style="display:flex;color:oklch(0.49 0.016 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" opacity="0.26"></rect><rect x="3" y="3" width="3" height="10" rx="1" fill="currentColor"></rect><rect x="7" y="3" width="3" height="6" rx="1" fill="currentColor"></rect><rect x="11" y="3" width="2" height="8" rx="1" fill="currentColor"></rect></svg></span>Доска</span><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px;background:oklch(0.997 0.0015 288);color:oklch(0.225 0.02 288);font-weight:700;box-shadow:0 1px 2px oklch(0.3 0.04 288 / 0.08), 0 0 0 1px oklch(0.925 0.007 288)"><span style="display:flex;color:oklch(0.55 0.2 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" opacity="0.26"></rect><rect x="3" y="4" width="2" height="2" rx="1" fill="currentColor"></rect><rect x="6" y="4" width="7" height="2" rx="1" fill="currentColor"></rect><rect x="3" y="7" width="2" height="2" rx="1" fill="currentColor"></rect><rect x="6" y="7" width="7" height="2" rx="1" fill="currentColor"></rect><rect x="3" y="10" width="2" height="2" rx="1" fill="currentColor"></rect><rect x="6" y="10" width="5" height="2" rx="1" fill="currentColor"></rect></svg></span>Список</span><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px"><span style="display:flex;color:oklch(0.49 0.016 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" opacity="0.26"></rect><rect x="3" y="4" width="6" height="2" rx="1" fill="currentColor"></rect><rect x="6" y="7" width="7" height="2" rx="1" fill="currentColor"></rect><rect x="4" y="10" width="5" height="2" rx="1" fill="currentColor"></rect></svg></span>Таймлайн</span><span style="height:30px;padding:0 11px;display:flex;align-items:center;gap:7px;border-radius:8px"><span style="display:flex;color:oklch(0.49 0.016 288)"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="3" width="14" height="12" rx="2.5" fill="currentColor" opacity="0.26"></rect><path fill="currentColor" d="M1 5.5A2.5 2.5 0 0 1 3.5 3h9A2.5 2.5 0 0 1 15 5.5V7H1z"></path><rect x="4" y="1" width="2" height="4" rx="1" fill="currentColor"></rect><rect x="10" y="1" width="2" height="4" rx="1" fill="currentColor"></rect><rect x="4" y="9" width="2" height="2" rx="0.5" fill="currentColor"></rect><rect x="7" y="9" width="2" height="2" rx="0.5" fill="currentColor"></rect><rect x="10" y="9" width="2" height="2" rx="0.5" fill="currentColor"></rect></svg></span>Календарь</span></nav>
+              <span style="flex:1"></span>
+              <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:oklch(0.55 0.2 288);color:oklch(0.99 0.006 288);font-size:14px;font-weight:600"><svg width="14" height="14" viewBox="0 0 16 16"><rect x="7" y="2" width="2" height="12" rx="1" fill="currentColor"></rect><rect x="2" y="7" width="12" height="2" rx="1" fill="currentColor"></rect></svg>Задача<span style="font-size:11px;font-weight:700;padding:0 5px;border-radius:4px;background:oklch(1 0 0 / 0.2)">C</span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:14px 18px 12px;font-size:13.5px;font-weight:500">
+              <div style="width:240px;height:32px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 8px 0 10px;border-radius:8px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288);color:oklch(0.49 0.016 288)"><svg width="14" height="14" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M7 1.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11zm0 2a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"></path><path fill="currentColor" d="m10.4 11.8 1.4-1.4 3 3a1 1 0 0 1-1.4 1.4z"></path></svg><span style="flex:1">Фильтр задач</span><span style="font-size:11px;font-weight:700;padding:0 5px;border-radius:4px;box-shadow:0 0 0 1px oklch(0.895 0.009 288)">/</span></div>
+              <span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288)">Мои</span>
+              <span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288)">Просрочено<span style="font-weight:700;color:oklch(0.52 0.18 25)">3</span></span>
+              <span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288)">Без исполнителя</span>
+              <span style="flex:1"></span>
+              <span style="color:oklch(0.49 0.016 288)">21 задача</span>
+              <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)">Группировка: статус<svg width="12" height="12" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+              <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)">Вид<svg width="12" height="12" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+            </div>
+            <div style="margin:0 18px;flex:1;min-height:0;border-radius:12px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288);overflow:hidden">
+              <div style="display:grid;grid-template-columns:28px 76px minmax(0,1fr) 230px 110px 74px;align-items:center;height:34px;padding:0 14px;gap:8px;font-size:12.5px;font-weight:600;color:oklch(0.44 0.018 288);border-bottom:1px solid oklch(0.925 0.007 288)"><span></span><span>Ключ</span><span>Название</span><span>Направление</span><span>Срок</span><span>Исполнитель</span></div>
+              <sc-for list="{{ cols }}" as="g" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 14px 0 20px;background:oklch(0.975 0.005 288);border-bottom:1px solid oklch(0.925 0.007 288);font-size:13.5px;font-weight:700">
+                  <sc-if value="{{ g.isTodo }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="oklch(0.6 0.02 288)" stroke-width="1.5"></circle></svg></sc-if>
+                  <sc-if value="{{ g.isProg }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="oklch(0.76 0.14 78)" stroke-width="1.5"></circle><path d="M7 7 7 3.75 A3.25 3.25 0 0 1 8.91 9.63Z" fill="oklch(0.76 0.14 78)"></path></svg></sc-if>
+                  <sc-if value="{{ g.isRev }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="oklch(0.76 0.14 78)" stroke-width="1.5"></circle><path d="M7 7 7 3.75 A3.25 3.25 0 1 1 3.91 8Z" fill="oklch(0.76 0.14 78)"></path></svg></sc-if>
+                  <sc-if value="{{ g.isDone }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6.5" fill="oklch(0.6 0.13 158)"></circle><path d="m4.3 7.2 1.9 1.9 3.5-3.7" fill="none" stroke="oklch(0.997 0.0015 288)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if>
+                  <span>{{ g.name }}</span><span style="font-weight:500;color:oklch(0.49 0.016 288)">{{ g.count }}</span><span style="flex:1"></span><svg width="14" height="14" viewBox="0 0 16 16" style="color:oklch(0.49 0.016 288)"><rect x="7" y="2" width="2" height="12" rx="1" fill="currentColor"></rect><rect x="2" y="7" width="12" height="2" rx="1" fill="currentColor"></rect></svg>
+                </div>
+                <sc-for list="{{ g.cards }}" as="c" hint-placeholder-count="3">
+                  <div style="display:grid;grid-template-columns:28px 76px minmax(0,1fr) 230px 110px 74px;align-items:center;height:40px;padding:0 14px;gap:8px;border-bottom:1px solid oklch(0.94 0.006 288);font-size:14px;background:{{ c.rowBg }}">
+                    <span style="display:grid;place-items:center">
+                      <sc-if value="{{ c.crit }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="4" fill="oklch(0.585 0.19 25)"></rect><rect x="7" y="4" width="2" height="5" rx="1" fill="oklch(0.99 0.006 288)"></rect><rect x="7" y="10.5" width="2" height="2" rx="1" fill="oklch(0.99 0.006 288)"></rect></svg></sc-if>
+                      <sc-if value="{{ c.bars }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 16 16"><rect x="2" y="10" width="3" height="4" rx="1" fill="oklch(0.44 0.018 288)"></rect><rect x="6.5" y="6.5" width="3" height="7.5" rx="1" fill="oklch(0.44 0.018 288)" opacity="{{ c.o2 }}"></rect><rect x="11" y="3" width="3" height="11" rx="1" fill="oklch(0.44 0.018 288)" opacity="{{ c.o3 }}"></rect></svg></sc-if>
+                    </span>
+                    <span style="font-size:12.5px;font-weight:500;color:oklch(0.49 0.016 288);font-variant-numeric:tabular-nums">{{ c.k }}</span>
+                    <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.t }}</span>
+                    <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:oklch(0.44 0.018 288);min-width:0"><span style="width:8px;height:8px;border-radius:2px;flex:none;background:{{ c.ec }}"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.en }}</span></span>
+                    <span style="font-size:13px;font-weight:600;color:{{ c.dc }}">{{ c.due }}</span>
+                    <div style="display:flex;padding-left:5px"><sc-for list="{{ c.av }}" as="u" hint-placeholder-count="1"><span style="width:22px;height:22px;border-radius:50%;margin-left:-5px;box-shadow:0 0 0 2px oklch(0.997 0.0015 288);background:{{ u.c }};color:oklch(0.99 0.006 288);font-size:9.5px;font-weight:700;display:grid;place-items:center">{{ u.i }}</span></sc-for></div>
+                  </div>
+                </sc-for>
+              </sc-for>
+            </div>
+            <div style="height:18px;flex:none"></div>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+      <div style="width:2928px;display:grid;grid-template-columns:1440px 1440px;gap:48px;font-size:17px;line-height:1.55">
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.52 0.18 25);margin-bottom:10px">Что не так</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Таблица шириной около 1010 px оставляет справа пустую полосу ~100 px, при этом заголовок «Исполните…» обрезан.</li>
+          <li>Статус — колонка одинаковых плашек 11 px: границы между статусами приходится искать глазами.</li>
+          <li>Заголовок «Список задач» не совпадает с вкладкой «Список»; порядок «Настройки вида / Фильтры» обратный доске.</li>
+          <li>Нет быстрых действий в строке: чтобы сменить исполнителя, нужно открыть задачу.</li>
+        </ul></div>
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288);margin-bottom:10px">Что предлагаю</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Группы по статусу (или по любому полю из «Группировки») со счётчиком и «+» для создания задачи прямо в группе.</li>
+          <li>Таблица на всю ширину, название — самая широкая колонка, направление — приглушённым текстом с цветной меткой. Закрытые строки — на тоне подложки.</li>
+          <li>Та же строка инструментов, что на доске, в том же порядке: переключение Доска ↔ Список не меняет раскладку.</li>
+          <li>При наведении в строке — статус, исполнитель и меню; выбор нескольких строк — по чекбоксу слева от приоритета.</li>
+        </ul></div>
+      </div>
+    </sc-if>
+  </section>
+
+  <!-- 04 Home -->
+  <section id="s4" data-screen-label="04 Главная" style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:baseline;gap:16px"><span style="font-size:20px;font-weight:700;color:oklch(0.49 0.175 288)">04</span><h2 style="margin:0;font-size:40px;font-weight:700;letter-spacing:-0.03em">Главная / Мои задачи</h2></div>
+    <div style="display:flex;gap:48px;align-items:flex-start">
+      <sc-if value="{{ showBefore }}" hint-placeholder-val="{{ true }}">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.44 0.018 288)">Было</figcaption><img src="docs/design/audit-2026-10-03/after/screens/home-light.png" alt="Главная сейчас" style="width:1440px;height:900px;display:block;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16)"></figure>
+      </sc-if>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288)">Стало</figcaption>
+        <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16);background:radial-gradient(55% 60% at 0% 0%, oklch(0.78 0.13 288 / 0.32), transparent 70%), radial-gradient(50% 55% at 100% 100%, oklch(0.86 0.1 20 / 0.32), transparent 70%), oklch(0.958 0.009 288)">
+          <dc-import name="Taskira Sidebar" active="home" hint-size="256px,884px" style="position:absolute;left:8px;top:8px;bottom:8px"></dc-import>
+          <div style="position:absolute;left:272px;top:8px;right:8px;bottom:8px;border-radius:16px;background:oklch(0.978 0.004 288);box-shadow:0 0 0 1px oklch(0.925 0.007 288);overflow:hidden;padding:44px 56px;box-sizing:border-box;display:flex;flex-direction:column;gap:28px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:14px;font-weight:500;color:oklch(0.44 0.018 288)">Суббота, 3 октября</span>
+              <h3 style="margin:0;font-size:30px;font-weight:700;letter-spacing:-0.025em">Добрый день, Анна</h3>
+              <p style="margin:2px 0 0;font-size:15.5px;color:oklch(0.44 0.018 288)"><b style="color:oklch(0.52 0.18 25)">1 задача просрочена</b>, 1 со сроком на этой неделе, 2 ждут вашего ревью.</p>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:24px;flex:1;min-height:0">
+              <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+                <div style="border-radius:14px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288);overflow:hidden">
+                  <div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 18px;font-size:15px;font-weight:700;border-bottom:1px solid oklch(0.925 0.007 288)"><span>Мои задачи</span><span style="flex:1"></span><span style="font-size:13px;font-weight:600;color:oklch(0.49 0.175 288)">Все мои задачи</span></div>
+                  <sc-for list="{{ homeGroups }}" as="hg" hint-placeholder-count="3">
+                    <div style="padding:10px 18px 4px;font-size:12.5px;font-weight:700;color:{{ hg.c }}">{{ hg.n }} <span style="font-weight:500;color:oklch(0.49 0.016 288)">{{ hg.count }}</span></div>
+                    <sc-for list="{{ hg.items }}" as="it" hint-placeholder-count="1">
+                      <div style="display:grid;grid-template-columns:20px minmax(0,1fr) auto 70px 22px;align-items:center;gap:10px;height:42px;padding:0 18px;font-size:14px;border-bottom:1px solid oklch(0.94 0.006 288)">
+                        <sc-if value="{{ it.isTodo }}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="oklch(0.6 0.02 288)" stroke-width="1.5"></circle></svg></sc-if>
+                        <sc-if value="{{ it.isProg }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.75" fill="none" stroke="oklch(0.76 0.14 78)" stroke-width="1.5"></circle><path d="M7 7 7 3.75 A3.25 3.25 0 1 1 3.91 8Z" fill="oklch(0.76 0.14 78)"></path></svg></sc-if>
+                        <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.t }}</span>
+                        <span style="font-size:12.5px;font-weight:500;color:oklch(0.49 0.016 288);font-variant-numeric:tabular-nums">{{ it.k }}</span>
+                        <span style="font-size:13px;font-weight:600;text-align:right;color:{{ it.dc }}">{{ it.due }}</span>
+                        <span style="width:22px;height:22px;border-radius:50%;background:{{ it.ac }};color:oklch(0.99 0.006 288);font-size:9.5px;font-weight:700;display:grid;place-items:center">{{ it.ai }}</span>
+                      </div>
+                    </sc-for>
+                  </sc-for>
+                </div>
+                <div style="border-radius:14px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288);padding:6px 18px 10px">
+                  <div style="height:42px;display:flex;align-items:center;font-size:15px;font-weight:700">Недавняя активность</div>
+                  <sc-for list="{{ activity }}" as="ac" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:10px;min-height:36px;font-size:14px;color:oklch(0.44 0.018 288)"><span style="width:22px;height:22px;flex:none;border-radius:50%;background:{{ ac.c }};color:oklch(0.99 0.006 288);font-size:9.5px;font-weight:700;display:grid;place-items:center">{{ ac.i }}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="color:oklch(0.225 0.02 288)">{{ ac.who }}</b> {{ ac.what }} <b style="color:oklch(0.225 0.02 288)">{{ ac.k }}</b></span><span style="font-size:12.5px;color:oklch(0.49 0.016 288)">{{ ac.when }}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+                <div style="border-radius:14px;background:oklch(0.955 0.024 288 / 0.6);box-shadow:0 0 0 1px oklch(0.905 0.058 288);padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;align-items:center;font-size:15px;font-weight:700"><span style="flex:1">Первые шаги</span><span style="font-size:13px;font-weight:600;color:oklch(0.49 0.175 288)">2 из 4</span></div>
+                  <div style="height:4px;border-radius:2px;background:oklch(0.905 0.058 288)"><div style="width:50%;height:100%;border-radius:2px;background:oklch(0.55 0.2 288)"></div></div>
+                  <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;color:{{ s.c }}"><span style="width:16px;height:16px;border-radius:50%;flex:none;display:grid;place-items:center;background:{{ s.bg }};box-shadow:{{ s.sh }}"><sc-if value="{{ s.done }}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 16 16"><path d="m3 8.5 3.25 3.25L13 4.5" fill="none" stroke="oklch(0.99 0.006 288)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if></span>{{ s.t }}</div>
+                  </sc-for>
+                </div>
+                <div style="border-radius:14px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288);padding:6px 18px 12px">
+                  <div style="height:42px;display:flex;align-items:center;font-size:15px;font-weight:700">Проекты</div>
+                  <sc-for list="{{ homeProjects }}" as="hp" hint-placeholder-count="4">
+                    <div style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 0;border-top:1px solid oklch(0.94 0.006 288)">
+                      <span style="width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:12.5px;font-weight:700;background:{{ hp.soft }};color:{{ hp.c }}">{{ hp.l }}</span>
+                      <div style="min-width:0;display:flex;flex-direction:column;gap:5px"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ hp.n }}</span><div style="height:4px;border-radius:2px;background:oklch(0.94 0.006 288)"><div style="height:100%;border-radius:2px;width:{{ hp.pct }};background:{{ hp.bar }}"></div></div></div>
+                      <span style="font-size:12.5px;font-weight:500;color:oklch(0.44 0.018 288);text-align:right;line-height:1.35">{{ hp.mine }}<br>{{ hp.open }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+      <div style="width:2928px;display:grid;grid-template-columns:1440px 1440px;gap:48px;font-size:17px;line-height:1.55">
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.52 0.18 25);margin-bottom:10px">Что не так</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Экран собран в другой оболочке: нет боковой панели, своя шапка с отдельным поиском. Переход Главная → проект выглядит как переход в другое приложение.</li>
+          <li>Четыре чипа с цифрами дублируют группы списка ниже.</li>
+          <li>Подпись «проект команды» у каждого проекта одинаковая и ничего не сообщает; нет прогресса и числа моих задач.</li>
+          <li>Пустая «Недавняя активность» и тост «Теперь при входе — список…» объясняют изменения продукта, а не помогают работать.</li>
+          <li>Менеджеру не видно, что ждёт его решения (задачи на ревью).</li>
+        </ul></div>
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288);margin-bottom:10px">Что предлагаю</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Та же оболочка, что на остальных экранах; «Главная» активна в панели.</li>
+          <li>Сводка одной фразой под приветствием; просрочка — красным текстом.</li>
+          <li>Мои задачи по срочности: «Просрочено», «На этой неделе», «Ждут вашего ревью». Для исполнителя третья группа — «Вернули на доработку».</li>
+          <li>Проекты — с прогрессом и числом моих и открытых задач.</li>
+          <li>«Первые шаги» для новых пользователей: 4 пункта (профиль, первая задача, пригласить коллегу, горячие клавиши), исчезает после выполнения. Заменяет баннеры-подсказки на доске и в задаче.</li>
+        </ul></div>
+      </div>
+    </sc-if>
+  </section>
+
+  <!-- 05 Roadmap -->
+  <section id="s5" data-screen-label="05 Роадмап" style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:baseline;gap:16px"><span style="font-size:20px;font-weight:700;color:oklch(0.49 0.175 288)">05</span><h2 style="margin:0;font-size:40px;font-weight:700;letter-spacing:-0.03em">Роадмап</h2></div>
+    <div style="display:flex;gap:48px;align-items:flex-start">
+      <sc-if value="{{ showBefore }}" hint-placeholder-val="{{ true }}">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.44 0.018 288)">Было</figcaption><img src="docs/design/audit-2026-10-03/after/screens/roadmap-light.png" alt="Роадмап сейчас" style="width:1440px;height:900px;display:block;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16)"></figure>
+      </sc-if>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288)">Стало</figcaption>
+        <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16);background:radial-gradient(55% 60% at 0% 0%, oklch(0.78 0.13 288 / 0.32), transparent 70%), radial-gradient(50% 55% at 100% 100%, oklch(0.86 0.1 20 / 0.32), transparent 70%), oklch(0.958 0.009 288)">
+          <dc-import name="Taskira Sidebar" active="roadmap" hint-size="256px,884px" style="position:absolute;left:8px;top:8px;bottom:8px"></dc-import>
+          <div style="position:absolute;left:272px;top:8px;right:8px;bottom:8px;border-radius:16px;background:oklch(0.978 0.004 288);box-shadow:0 0 0 1px oklch(0.925 0.007 288);display:flex;flex-direction:column;overflow:hidden">
+            <div style="height:52px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px 0 20px;border-bottom:1px solid oklch(0.925 0.007 288);font-size:13.5px;font-weight:500">
+              <span style="font-size:15px;font-weight:700">Роадмап</span>
+              <span style="color:oklch(0.44 0.018 288)">5 проектов · 2 отдела</span>
+              <span style="flex:1"></span>
+              <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)">Все отделы<svg width="12" height="12" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+              <div style="display:flex;padding:3px;border-radius:9px;background:oklch(0.945 0.006 288)"><span style="height:26px;padding:0 10px;display:flex;align-items:center;border-radius:7px">Недели</span><span style="height:26px;padding:0 10px;display:flex;align-items:center;border-radius:7px;background:oklch(0.997 0.0015 288);font-weight:700;box-shadow:0 1px 2px oklch(0.3 0.04 288 / 0.08)">Месяцы</span><span style="height:26px;padding:0 10px;display:flex;align-items:center;border-radius:7px">Кварталы</span></div>
+              <span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)">Сегодня</span>
+            </div>
+            <div style="flex:1;min-height:0;display:grid;grid-template-columns:300px minmax(0,1fr);position:relative">
+              <div style="border-right:1px solid oklch(0.925 0.007 288);background:oklch(0.997 0.0015 288 / 0.6)">
+                <div style="height:44px;display:flex;align-items:center;padding:0 20px;font-size:12.5px;font-weight:600;color:oklch(0.44 0.018 288);border-bottom:1px solid oklch(0.925 0.007 288)">Проект · закрыто задач</div>
+                <sc-for list="{{ rm }}" as="r" hint-placeholder-count="7">
+                  <sc-if value="{{ r.group }}" hint-placeholder-val="{{ false }}"><div style="height:40px;display:flex;align-items:flex-end;padding:0 20px 6px;font-size:12.5px;font-weight:700;color:oklch(0.44 0.018 288)">{{ r.n }}</div></sc-if>
+                  <sc-if value="{{ r.proj }}" hint-placeholder-val="{{ true }}"><div style="height:56px;display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:10px;padding:0 16px 0 20px">
+                    <span style="width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:11px;font-weight:700;background:{{ r.soft }};color:{{ r.c }}">{{ r.l }}</span>
+                    <div style="min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.n }}</span><span style="font-size:12.5px;color:oklch(0.44 0.018 288)">{{ r.sub }}</span></div>
+                    <span style="font-size:12.5px;font-weight:600;color:oklch(0.44 0.018 288);font-variant-numeric:tabular-nums">{{ r.prog }}</span>
+                  </div></sc-if>
+                </sc-for>
+              </div>
+              <div style="position:relative;overflow:hidden">
+                <div style="height:44px;display:grid;grid-template-columns:repeat(9,96px);border-bottom:1px solid oklch(0.925 0.007 288);font-size:12.5px;font-weight:600;color:oklch(0.44 0.018 288)">
+                  <sc-for list="{{ months }}" as="m" hint-placeholder-count="9"><span style="display:flex;flex-direction:column;justify-content:flex-end;padding:0 0 6px 8px;border-left:1px solid oklch(0.925 0.007 288);line-height:1.2"><span style="font-size:11px;min-height:14px;color:oklch(0.49 0.016 288)">{{ m.y }}</span>{{ m.n }}</span></sc-for>
+                </div>
+                <div style="position:absolute;top:44px;bottom:0;left:0;display:grid;grid-template-columns:repeat(9,96px);pointer-events:none"><sc-for list="{{ months }}" as="m" hint-placeholder-count="9"><span style="border-left:1px solid oklch(0.94 0.006 288)"></span></sc-for></div>
+                <div style="position:absolute;top:0;bottom:0;left:102px;width:2px;background:oklch(0.55 0.2 288)"></div>
+                <svg width="760" height="360" viewBox="0 0 760 360" style="position:absolute;left:0;top:0;pointer-events:none;overflow:visible"><path d="M672 224 C 716 224 716 268 660 268 L 270 268 C 222 268 214 318 236 318" fill="none" stroke="oklch(0.585 0.19 25)" stroke-width="1.5"></path><path d="M230 313 L 240 318 L 231 324 Z" fill="oklch(0.585 0.19 25)"></path></svg>
+                <span style="position:absolute;top:4px;left:108px;height:16px;padding:0 5px;border-radius:6px;background:oklch(0.55 0.2 288);color:oklch(0.99 0.006 288);font-size:11.5px;font-weight:700;display:flex;align-items:center">3 окт</span>
+                <sc-for list="{{ rm }}" as="r" hint-placeholder-count="7">
+                  <sc-if value="{{ r.group }}" hint-placeholder-val="{{ false }}"><div style="height:40px"></div></sc-if>
+                  <sc-if value="{{ r.proj }}" hint-placeholder-val="{{ true }}"><div style="height:56px;position:relative">
+                    <sc-if value="{{ r.hasBar }}" hint-placeholder-val="{{ true }}">
+                      <div style="position:absolute;top:15px;height:26px;display:flex;left:{{ r.x }};width:{{ r.w }};filter:drop-shadow(0 6px 10px {{ r.glow }})">
+                        <div style="flex:none;height:100%;border-radius:7px 0 0 7px;width:{{ r.aw }};background:{{ r.gradA }};box-shadow:inset 0 1px 0 oklch(1 0 0 / 0.35);display:flex;align-items:center;padding-left:8px;box-sizing:border-box;font-size:11.5px;font-weight:700;color:oklch(0.99 0.006 288);letter-spacing:0.02em">{{ r.key }}</div>
+                        <div style="flex:1;height:100%;box-sizing:border-box;border-radius:0 7px 7px 0;border:1px dashed {{ r.line }};border-left:none;background:{{ r.gradB }}"></div>
+                      </div>
+                      <sc-if value="{{ r.hasMs }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:22px;display:flex;align-items:center;gap:7px;left:{{ r.mx }}"><span style="width:10px;height:10px;transform:rotate(45deg);border-radius:2px;background:oklch(0.997 0.0015 288);box-shadow:inset 0 0 0 2px {{ r.c }}"></span><span style="font-size:12px;font-weight:600;color:oklch(0.225 0.02 288);white-space:nowrap;text-shadow:0 0 4px oklch(0.997 0.0015 288)">{{ r.ms }}</span></div></sc-if>
+                    </sc-if>
+                    <sc-if value="{{ r.noBar }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:15px;left:120px;height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:oklch(0.49 0.175 288);box-shadow:inset 0 0 0 1px oklch(0.865 0.078 288);background:oklch(0.997 0.0015 288)">+ Задать сроки</span></sc-if>
+                  </div></sc-if>
+                </sc-for>
+              </div>
+            </div>
+            <div style="height:40px;flex:none;display:flex;align-items:center;gap:20px;padding:0 20px;border-top:1px solid oklch(0.925 0.007 288);font-size:12.5px;color:oklch(0.44 0.018 288)">
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:10px;border-radius:3px;background:linear-gradient(90deg, oklch(0.6 0.16 288), oklch(0.68 0.13 288))"></span>закрыто задач</span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:10px;border-radius:3px;border:1px dashed oklch(0.62 0.15 288 / 0.55);box-sizing:border-box;background:linear-gradient(90deg, oklch(0.62 0.15 288 / 0.3), oklch(0.62 0.15 288 / 0.04))"></span>осталось</span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:2px;background:oklch(0.585 0.19 25)"></span>зависимость не успевает к началу</span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:10px;border-radius:3px;background:repeating-linear-gradient(135deg, oklch(0.62 0.15 288 / 0.25) 0 3px, transparent 3px 6px);box-shadow:inset 0 0 0 1px oklch(0.62 0.15 288 / 0.4)"></span>предварительно — дата окончания не задана</span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;transform:rotate(45deg);border-radius:2px;background:oklch(0.5 0.14 288)"></span>веха</span>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+      <div style="width:2928px;display:grid;grid-template-columns:1440px 1440px;gap:48px;font-size:17px;line-height:1.55">
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.52 0.18 25);margin-bottom:10px">Что не так</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Названия проектов лежат на шкале и пересекаются с линией «сегодня»; длинное название («Договоры с поставщиками и согласование юридических доку…») сдвигает счётчик и шестерёнку.</li>
+          <li>Ключ проекта внутри полосы перечёркнут линией «сегодня» (PO|RTAL, CO|RP).</li>
+          <li>Подписи вех под полосой; при близких датах они накладываются друг на друга.</li>
+          <li>Пять одинаковых шестерёнок подряд и счётчик «3/21» без подписи.</li>
+          <li>У проекта без сроков нет действия — только надпись «Сроки не заданы» (в тёмной версии).</li>
+        </ul></div>
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288);margin-bottom:10px">Что предлагаю</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Закреплённая левая колонка: значок, название, ближайшая веха, «закрыто 3 из 21». Шкала прокручивается отдельно.</li>
+          <li>Градиентные полосы сохранены: закрытая часть — насыщенный градиент цвета проекта со свечением, оставшаяся — затухающий градиент с пунктирной кромкой. Веха — контурный ромб с подписью справа, в той же строке.</li>
+          <li>Зависимости — тонкая кривая; красная, если проект не успевает к началу следующего.</li>
+          <li>Метка «сегодня» над шкалой, линия не перекрывает текст.</li>
+          <li>Настройки проекта — в меню строки при наведении. У проекта без сроков — кнопка «Задать сроки» прямо на шкале.</li>
+        </ul></div>
+      </div>
+    </sc-if>
+  </section>
+
+  <!-- 06 Reports -->
+  <section id="s6" data-screen-label="06 Отчёты" style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:baseline;gap:16px"><span style="font-size:20px;font-weight:700;color:oklch(0.49 0.175 288)">06</span><h2 style="margin:0;font-size:40px;font-weight:700;letter-spacing:-0.03em">Отчёты и дашборды</h2></div>
+    <div style="display:flex;gap:48px;align-items:flex-start">
+      <sc-if value="{{ showBefore }}" hint-placeholder-val="{{ true }}">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.44 0.018 288)">Было</figcaption><img src="docs/design/audit-2026-10-03/after/screens/reports-light.png" alt="Отчёты сейчас" style="width:1440px;height:900px;display:block;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16)"></figure>
+      </sc-if>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:12px"><figcaption style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288)">Стало</figcaption>
+        <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:14px;box-shadow:0 0 0 1px oklch(0.895 0.009 288), 0 12px 32px -6px oklch(0.3 0.06 288 / 0.16);background:radial-gradient(55% 60% at 0% 0%, oklch(0.78 0.13 288 / 0.32), transparent 70%), radial-gradient(50% 55% at 100% 100%, oklch(0.86 0.1 20 / 0.32), transparent 70%), oklch(0.958 0.009 288)">
+          <dc-import name="Taskira Sidebar" active="reports" hint-size="256px,884px" style="position:absolute;left:8px;top:8px;bottom:8px"></dc-import>
+          <div style="position:absolute;left:272px;top:8px;right:8px;bottom:8px;border-radius:16px;background:oklch(0.978 0.004 288);box-shadow:0 0 0 1px oklch(0.925 0.007 288);display:flex;flex-direction:column;overflow:hidden">
+            <div style="height:52px;flex:none;display:flex;align-items:center;gap:14px;padding:0 14px 0 20px;border-bottom:1px solid oklch(0.925 0.007 288);font-size:14px;font-weight:500">
+              <span style="font-size:15px;font-weight:700">Отчёты и дашборды</span>
+              <div style="width:1px;height:20px;background:oklch(0.895 0.009 288)"></div>
+              <nav style="display:flex;gap:2px;align-self:stretch;color:oklch(0.44 0.018 288)"><span style="display:flex;align-items:center;padding:0 10px">Обзор организации</span><span style="display:flex;align-items:center;padding:0 10px;color:oklch(0.225 0.02 288);font-weight:700;box-shadow:inset 0 -2px 0 oklch(0.55 0.2 288)">Задачи за период</span><span style="display:flex;align-items:center;padding:0 10px;color:oklch(0.49 0.175 288);font-weight:600">+ Дашборд</span></nav>
+              <span style="flex:1"></span>
+              <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;font-size:13.5px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)"><svg width="14" height="14" viewBox="0 0 16 16"><path fill="currentColor" d="M7 1.5h2V8h2.5L8 11.5 4.5 8H7z"></path><rect x="1.5" y="12.5" width="13" height="2" rx="1" fill="currentColor" opacity="0.26"></rect></svg>Экспорт<svg width="12" height="12" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+            </div>
+            <div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0">
+              <div style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:500">
+                <div style="display:flex;padding:3px;border-radius:9px;background:oklch(0.945 0.006 288)"><span style="height:26px;padding:0 10px;display:flex;align-items:center;border-radius:7px;background:oklch(0.997 0.0015 288);font-weight:700;box-shadow:0 1px 2px oklch(0.3 0.04 288 / 0.08)">30 дней</span><span style="height:26px;padding:0 10px;display:flex;align-items:center">Квартал</span><span style="height:26px;padding:0 10px;display:flex;align-items:center">Год</span></div>
+                <span style="height:32px;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)"><svg width="14" height="14" viewBox="0 0 16 16" style="color:oklch(0.44 0.018 288)"><rect x="1" y="3" width="14" height="12" rx="2.5" fill="currentColor" opacity="0.26"></rect><path fill="currentColor" d="M1 5.5A2.5 2.5 0 0 1 3.5 3h9A2.5 2.5 0 0 1 15 5.5V7H1z"></path></svg>3 сент. — 3 окт.</span>
+                <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)">Все отделы<svg width="12" height="12" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+                <span style="height:32px;padding:0 10px 0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 1px oklch(0.895 0.009 288);background:oklch(0.997 0.0015 288)">5 проектов<svg width="12" height="12" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+                <span style="flex:1"></span>
+                <span style="color:oklch(0.44 0.018 288)">Сравнение с 4 авг. — 2 сент.</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+                <sc-for list="{{ kpi }}" as="k" hint-placeholder-count="5">
+                  <div style="border-radius:12px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288);padding:14px 16px;display:flex;flex-direction:column;gap:4px">
+                    <span style="font-size:13px;font-weight:600;color:oklch(0.44 0.018 288)">{{ k.n }}</span>
+                    <span style="font-size:30px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:{{ k.c }}">{{ k.v }}</span>
+                    <span style="font-size:12.5px;font-weight:500;color:oklch(0.44 0.018 288)">{{ k.d }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:12px;flex:1;min-height:0">
+                <div style="border-radius:12px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288);padding:16px 20px;display:flex;flex-direction:column;gap:14px">
+                  <div style="display:flex;align-items:center;gap:16px;font-size:13px;font-weight:600;color:oklch(0.44 0.018 288)"><span style="font-size:15px;font-weight:700;color:oklch(0.225 0.02 288);flex:1">Создано и закрыто по неделям</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#4a3aa7"></span>создано</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#1baf7a"></span>закрыто</span></div>
+                  <div style="flex:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:20px;align-items:end;border-bottom:1px solid oklch(0.895 0.009 288);padding:0 10px">
+                    <sc-for list="{{ weeks }}" as="w" hint-placeholder-count="5">
+                      <div style="display:flex;gap:6px;align-items:flex-end;justify-content:center">
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:12px;font-weight:700">{{ w.c }}</span><div style="width:30px;border-radius:5px 5px 0 0;background:#4a3aa7;height:{{ w.ch }}"></div></div>
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:12px;font-weight:700">{{ w.d }}</span><div style="width:30px;border-radius:5px 5px 0 0;background:#1baf7a;height:{{ w.dh }}"></div></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:20px;padding:0 10px;font-size:12.5px;font-weight:500;color:oklch(0.44 0.018 288);text-align:center"><sc-for list="{{ weeks }}" as="w" hint-placeholder-count="5"><span>{{ w.n }}</span></sc-for></div>
+                </div>
+                <div style="border-radius:12px;background:oklch(0.997 0.0015 288);box-shadow:0 0 0 1px oklch(0.895 0.009 288);padding:6px 0 8px;display:flex;flex-direction:column">
+                  <div style="height:44px;display:flex;align-items:center;padding:0 18px;font-size:15px;font-weight:700">По проектам</div>
+                  <div style="display:grid;grid-template-columns:minmax(0,1fr) 72px 72px 90px;gap:8px;padding:0 18px;height:30px;align-items:center;font-size:12.5px;font-weight:600;color:oklch(0.44 0.018 288);border-bottom:1px solid oklch(0.925 0.007 288)"><span>Проект</span><span style="text-align:right">Создано</span><span style="text-align:right">Закрыто</span><span style="text-align:right">Просрочено</span></div>
+                  <sc-for list="{{ byProject }}" as="b" hint-placeholder-count="5">
+                    <div style="display:grid;grid-template-columns:minmax(0,1fr) 72px 72px 90px;gap:8px;padding:0 18px;height:44px;align-items:center;font-size:14px;border-bottom:1px solid oklch(0.94 0.006 288);font-variant-numeric:tabular-nums">
+                      <span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:20px;height:20px;flex:none;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;background:{{ b.soft }};color:{{ b.c }}">{{ b.l }}</span><span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.n }}</span></span>
+                      <span style="text-align:right">{{ b.cr }}</span><span style="text-align:right">{{ b.cl }}</span><span style="text-align:right;font-weight:600;color:{{ b.oc }}">{{ b.ov }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+      <div style="width:2928px;display:grid;grid-template-columns:1440px 1440px;gap:48px;font-size:17px;line-height:1.55">
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.52 0.18 25);margin-bottom:10px">Что не так</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Во вкладках видна вкладка «Empty» — похоже на тестовый дашборд, попавший к пользователю.</li>
+          <li>Пункт «Дашборды» в панели ведёт на экран с заголовком «Отчёты»; в шапке крошка «Корпоративные задачи / Отчёты», хотя отчёт не про проект.</li>
+          <li>Нативные select рядом с компонентами DS: разные высота, стрелка и шрифт. Фильтры в два ряда, экспорт — в третьем месте.</li>
+          <li>Шесть плиток с нулями и пустое состояние внизу страницы: экран выглядит сломанным, а не пустым.</li>
+          <li>Нет сравнения с прошлым периодом — непонятно, хорошо ли «12 закрыто».</li>
+        </ul></div>
+        <div><div style="font-size:15px;font-weight:700;color:oklch(0.49 0.175 288);margin-bottom:10px">Что предлагаю</div><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px">
+          <li>Одно название — «Отчёты и дашборды» — в панели и в шапке; вкладки: «Обзор организации», «Задачи за период», «+ Дашборд».</li>
+          <li>Один ряд фильтров на компонентах DS; экспорт (CSV закрытых, CSV всех) — меню справа в шапке.</li>
+          <li>Пять плиток с изменением к прошлому периоду; среднее и медиана времени в работе — одна плитка.</li>
+          <li>Недельный график «создано / закрыто» на цветах --chart-1 и --chart-3 и таблица по проектам. При пустом периоде — одно пустое состояние на месте графика, плитки скрыты.</li>
+        </ul></div>
+      </div>
+    </sc-if>
+  </section>
+
+  <!-- Copy & a11y -->
+  <section data-screen-label="07 Тексты и доступность" style="width:2928px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:48px">
+    <div style="display:flex;flex-direction:column;gap:14px"><h2 style="margin:0;font-size:32px;font-weight:700;letter-spacing:-0.03em">Тексты</h2><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;font-size:17px;line-height:1.55">
+      <li>Одно понятие — одно слово: «Список» (вкладка) и «Список задач» (заголовок), «Дашборды» (панель) и «Отчёты» (экран), «Направление» и «Эпик» в разных местах.</li>
+      <li>Подписи кнопок — глаголом действия: «Взять в работу», «Задать сроки», вместо общих «Создать» / шестерёнки.</li>
+      <li>Пустые состояния говорят, что сделать: «Перетащите файлы в панель» вместо «Файлов нет».</li>
+      <li>Убрать объяснения изменений продукта из интерфейса («Теперь при входе…») — для этого есть Справка и список изменений.</li>
+    </ul></div>
+    <div style="display:flex;flex-direction:column;gap:14px"><h2 style="margin:0;font-size:32px;font-weight:700;letter-spacing:-0.03em">Доступность и плотность</h2><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;font-size:17px;line-height:1.55">
+      <li>Нижний предел текста — 12 px; сейчас 11 px у плашек статуса в списке и 8–9 px у инициалов в аватарах.</li>
+      <li>Аватары от 22 px, у групп — цветное кольцо-разделитель, а не наложение «АС|МК».</li>
+      <li>Цвет срока дублируется текстом («просрочено 2 дня») — сигнал не только цветом.</li>
+      <li>Правильные вкладки, aria-pressed и фокус уже сделаны хорошо — новые экраны (роадмап, отчёты) стоит прогнать тем же e2e-набором.</li>
+    </ul></div>
+    <div style="display:flex;flex-direction:column;gap:14px"><h2 style="margin:0;font-size:32px;font-weight:700;letter-spacing:-0.03em">Что ещё стоит сделать</h2><ul style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;font-size:17px;line-height:1.55">
+      <li>Экран загрузки людей для менеджера: исполнители × статусы, перегруженные подсвечены. Строится из тех же данных, что дорожки доски.</li>
+      <li>Быстрый ввод в палитре Ctrl K: «Задача Позвонить в 1С @мк до пт !высокий» — создаёт задачу с полями.</li>
+      <li>Сохранённые представления («Мои просроченные», «Ревью на этой неделе») в избранном панели.</li>
+      <li>Тёмная тема для новых макетов — те же токены, отдельная проверка после согласования направления.</li>
+    </ul></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showBefore&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Вид&quot;},&quot;showNotes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Вид&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const UH = { "АС": 350, "МК": 262, "ИП": 312, "ЕВ": 190, "ДВ": 150 };
+    const uc = (i) => ({ i, c: `oklch(0.6 0.14 ${UH[i]})` });
+    const EP = { portal: ["Запуск клиентского портала", 60], edo: ["Переход на электронный документооборот", 150], hr: ["Найм и адаптация", 312] };
+    const DUE = {
+      late: { db: "oklch(0.96 0.025 20)", dc: "oklch(0.52 0.18 25)", rc: "oklch(0.585 0.19 25)", ra: "29.85 29.85" },
+      soon: { db: "oklch(0.965 0.035 85)", dc: "oklch(0.5 0.1 65)", rc: "oklch(0.66 0.16 48)", ra: "20 29.85" },
+      ok: { db: "oklch(0.962 0.006 288)", dc: "oklch(0.44 0.018 288)", rc: "oklch(0.49 0.016 288)", ra: "10 29.85" },
+      done: { db: "oklch(0.955 0.03 158)", dc: "oklch(0.47 0.1 158)", rc: "oklch(0.6 0.13 158)", ra: "29.85 29.85" },
+    };
+    const mk = (k, t, p, due, dt, e, av, done) => {
+      const lvl = { low: 1, medium: 2, high: 3 }[p] || 0;
+      const d = DUE[dt] || {};
+      return {
+        k, t, crit: p === "critical", bars: p !== "critical", o2: lvl >= 2 ? 1 : 0.25, o3: lvl >= 3 ? 1 : 0.25,
+        hasDue: !!due, due: due || "—", ...d, dc: d.dc || "oklch(0.49 0.016 288)",
+        hasE: !!e, en: e ? EP[e][0] : "—", ec: e ? `oklch(0.62 0.15 ${EP[e][1]})` : "oklch(0.82 0.012 288)",
+        edge: p === "critical" && !done ? "oklch(0.585 0.19 25)" : "transparent",
+        av: av.map(uc), tc: done ? "oklch(0.44 0.018 288)" : "oklch(0.225 0.02 288)", rowBg: done ? "oklch(0.985 0.003 288)" : "transparent",
+      };
+    };
+    const cols = [
+      { name: "К выполнению", isTodo: true, note: "", cards: [
+        mk("CORP-1", "Собрать требования отдела продаж к личному кабинету", "high", "1 окт.", "late", "portal", ["АС", "МК"]),
+        mk("CORP-5", "Проверить права доступа внешних участников", "critical", "1 окт.", "late", null, ["АС"]),
+        mk("CORP-2", "Согласовать макет главной страницы портала", "medium", "5 окт.", "soon", "edo", ["ИП"]),
+        mk("CORP-6", "Настроить маршрут согласования счетов", "high", "5 окт.", "soon", "edo", ["ДВ"]),
+        mk("CORP-3", "Подготовить шаблон договора поставки", "low", "9 окт.", "ok", null, []),
+        mk("CORP-4", "Обновить инструкции для новых сотрудников", "medium", null, "", "hr", ["ЕВ"]),
+      ] },
+      { name: "В работе", isProg: true, note: "", cards: [
+        mk("CORP-7", "Интеграция с 1С: выгрузка контрагентов", "medium", "9 окт.", "ok", "portal", ["АС"]),
+        mk("CORP-10", "Утвердить график запуска нового клиентского портала", "critical", "5 окт.", "soon", "portal", ["ЕВ"]),
+        mk("CORP-9", "Исправить экспорт отчёта в PDF", "medium", "1 окт.", "late", null, ["МК"]),
+        mk("CORP-8", "Чек-лист первого рабочего дня", "low", null, "", "hr", []),
+        mk("CORP-11", "Проверить доступность интерфейса с клавиатуры", "medium", "9 окт.", "ok", null, ["АС"]),
+      ] },
+      { name: "На ревью", isRev: true, note: "", cards: [
+        mk("CORP-13", "Согласовать подробные требования по обработке заявок от регионов", "low", "1 окт.", "late", "portal", []),
+        mk("CORP-14", "Прототип онбординга в мобильном браузере", "medium", "5 окт.", "soon", "edo", ["ИП"]),
+        mk("CORP-15", "Подготовить отчёт по воронке найма", "critical", "9 окт.", "ok", "hr", ["МК"]),
+        mk("CORP-16", "Документировать процесс обработки обращений", "medium", null, "", "portal", ["ЕВ"]),
+      ] },
+      { name: "Готово", isDone: true, note: "за 14 дней", cards: [
+        mk("CORP-19", "Проверить уведомления о просроченных задачах", "medium", "29 сент.", "done", "portal", ["АС"], true),
+        mk("CORP-20", "Добавить инструкции в базу знаний", "critical", null, "", "edo", ["МК"], true),
+        mk("CORP-21", "Закрыть замечания пилотной группы", "high", "1 окт.", "done", null, ["ИП"], true),
+      ] },
+    ].map((c) => ({ isTodo: false, isProg: false, isRev: false, isDone: false, ...c, count: c.cards.length }));
+
+    const G = (v) => (v >= 8 ? "oklch(0.47 0.1 158)" : v >= 6 ? "oklch(0.5 0.1 65)" : "oklch(0.52 0.18 25)");
+    const grades = [
+      ["Визуальный язык", 8, "Токены, Manrope, двухтоновые иконки, свечение — узнаваемо и аккуратно."],
+      ["Иерархия экранов", 6, "Хром съедает до 290 px высоты; заголовки повторяют вкладки."],
+      ["Скорость сценариев", 6, "Нет следующего шага в задаче, нет действий в строке списка."],
+      ["Навигация и ИА", 6, "Поиск ×3, «Создать» ×2, профиль ×2; Главная в другой оболочке."],
+      ["Тексты", 7, "Спокойные, без жаргона; расходятся названия разделов, есть «Empty»."],
+      ["Доступность", 8, "Контраст в CI, клавиатура, aria; мелкий текст 8–11 px в метаданных."],
+      ["Плотность", 6, "Карточки доски высокие, список узкий, колонка «Готово» обрезана."],
+      ["Онбординг и пустые состояния", 5, "Баннеры поверх контента, нулевые плитки, пустые блоки без действия."],
+    ].map(([n, v, d]) => ({ n, v, d, c: G(v) }));
+
+    const props = [
+      { l: "Статус", v: "К выполнению" },
+      { l: "Исполнители", v: "Анна Смирнова, Марина Ким" },
+      { l: "Приоритет", v: "Высокий" },
+      { l: "Срок", v: "1 окт. · просрочено 2 дня", c: "oklch(0.52 0.18 25)" },
+      { l: "Сложность", v: "Не задана", c: "oklch(0.49 0.016 288)" },
+      { l: "Направление", v: "Запуск клиентского портала" },
+      { l: "Спринт", v: "Модуль выключен", c: "oklch(0.49 0.016 288)" },
+    ].map((p) => ({ c: "oklch(0.225 0.02 288)", ...p }));
+
+    const red = "oklch(0.52 0.18 25)", amb = "oklch(0.5 0.1 65)", mute = "oklch(0.44 0.018 288)";
+    const homeGroups = [
+      { n: "Просрочено", c: red, items: [{ t: "Собрать требования отдела продаж к личному кабинету", k: "CORP-1", due: "1 окт.", dc: red, isTodo: true, ai: "АС", ac: uc("АС").c }] },
+      { n: "На этой неделе", c: mute, items: [{ t: "Интеграция с 1С: выгрузка контрагентов", k: "CORP-7", due: "9 окт.", dc: mute, isProg: true, ai: "АС", ac: uc("АС").c }] },
+      { n: "Ждут вашего ревью", c: mute, items: [
+        { t: "Прототип онбординга в мобильном браузере", k: "CORP-14", due: "5 окт.", dc: amb, isProg: true, ai: "ИП", ac: uc("ИП").c },
+        { t: "Согласовать подробные требования по обработке заявок от регионов", k: "CORP-13", due: "1 окт.", dc: red, isProg: true, ai: "МК", ac: uc("МК").c },
+      ] },
+    ].map((g) => ({ ...g, count: g.items.length, items: g.items.map((i) => ({ isTodo: false, isProg: false, ...i })) }));
+
+    const activity = [
+      { ...uc("МК"), who: "Марина Ким", what: "прокомментировала", k: "CORP-1", when: "вчера" },
+      { ...uc("ИП"), who: "Илья Петров", what: "отправил на ревью", k: "CORP-14", when: "вчера" },
+      { ...uc("ЕВ"), who: "Елена Волкова", what: "назначила вам", k: "CORP-7", when: "2 окт." },
+    ];
+    const steps = [
+      { t: "Заполнить профиль", done: true }, { t: "Создать первую задачу", done: true },
+      { t: "Пригласить коллегу в проект" }, { t: "Посмотреть горячие клавиши" },
+    ].map((s) => ({ done: !!s.done, ...s, c: s.done ? "oklch(0.44 0.018 288)" : "oklch(0.225 0.02 288)", bg: s.done ? "oklch(0.55 0.2 288)" : "oklch(0.997 0.0015 288)", sh: s.done ? "none" : "inset 0 0 0 1.5px oklch(0.805 0.102 288)" }));
+    const pj = (l, n, h, pct, mine, open) => ({ l, n, c: `oklch(0.5 0.14 ${h})`, soft: `oklch(0.94 0.04 ${h})`, bar: `oklch(0.62 0.15 ${h})`, pct: pct + "%", mine, open });
+    const homeProjects = [
+      pj("C", "Корпоративные задачи", 288, 14, "мои: 2", "открыто 18"),
+      pj("P", "Запуск клиентского портала", 190, 30, "мои: 0", "открыто 14"),
+      pj("D", "Переход на электронный документооборот", 60, 52, "мои: 1", "открыто 9"),
+      pj("H", "Найм и адаптация сотрудников", 312, 8, "мои: 0", "открыто 20"),
+    ];
+
+    const M = 96;
+    const rp = (l, n, h, key, sub, prog, x, w, pct, ms, mx, tentative) => {
+      const hasBar = x != null;
+      return { proj: true, group: false, l, n, key, sub, prog, c: `oklch(0.5 0.14 ${h})`, soft: `oklch(0.94 0.04 ${h})`,
+        hasBar, noBar: !hasBar, x: (x || 0) + "px", w: (w || 0) + "px",
+        aw: Math.max(68, Math.round((w || 0) * pct / 100)) + "px",
+        gradA: `linear-gradient(90deg, oklch(0.56 0.17 ${h}), oklch(0.66 0.14 ${h + 20}))`,
+        gradB: tentative ? `repeating-linear-gradient(135deg, oklch(0.62 0.15 ${h} / 0.22) 0 4px, oklch(0.62 0.15 ${h} / 0.06) 4px 8px)` : `linear-gradient(90deg, oklch(0.62 0.15 ${h} / 0.32), oklch(0.62 0.15 ${h} / 0.04))`,
+        glow: `oklch(0.6 0.16 ${h} / 0.3)`, line: `oklch(0.62 0.15 ${h} / 0.55)`, hasMs: !!ms, ms: ms || "", mx: (mx || 0) + "px" };
+    };
+    const rm = [
+      { group: true, proj: false, n: "Общий отдел · 3" },
+      rp("P", "Запуск клиентского портала", 190, "PORTAL", "Пилотный запуск · 12 окт.", "3 / 21", 48, 288, 14, "Пилотный запуск", M + 36),
+      rp("C", "Корпоративные задачи", 288, "CORP", "Релиз шаблонов · 15 нояб.", "3 / 21", 0, 480, 14, "Релиз шаблонов", 2 * M + 46),
+      rp("D", "Переход на электронный документооборот", 60, "DOC", "Шаблоны готовы · 1 дек.", "11 / 21", M, 576, 52, "Шаблоны готовы", 3 * M - 6),
+      { group: true, proj: false, n: "Отдел персонала и поддержки · 2" },
+      rp("L", "Договоры с поставщиками и согласование юридических документов", 25, "LEGAL", "Дата окончания не задана", "0 / 12", 2 * M + 48, 480, 0, null, null, true),
+      rp("H", "Найм и адаптация сотрудников", 312, "HR", "Сроки не заданы", "2 / 22", null),
+    ];
+    const months = [["2026", "сент"], ["", "окт"], ["", "нояб"], ["", "дек"], ["2027", "янв"], ["", "февр"], ["", "март"], ["", "апр"], ["", "май"]].map(([y, n]) => ({ y, n }));
+
+    const kpi = [
+      { n: "Закрыто", v: "12", d: "+4 к прошлому периоду", c: "oklch(0.47 0.1 158)" },
+      { n: "Создано", v: "18", d: "+6 к прошлому периоду" },
+      { n: "Открыто сейчас", v: "18", d: "в 5 проектах" },
+      { n: "Просрочено", v: "3", d: "−1 к прошлому периоду", c: "oklch(0.52 0.18 25)" },
+      { n: "Время в работе", v: "4,2 дн", d: "медиана 3 дн" },
+    ].map((k) => ({ c: "oklch(0.225 0.02 288)", ...k }));
+    const weeks = [["1–7 сент.", 3, 1], ["8–14 сент.", 4, 2], ["15–21 сент.", 5, 3], ["22–28 сент.", 4, 4], ["29 сент.–3 окт.", 2, 2]].map(([n, c, d]) => ({ n, c, d, ch: c * 38 + "px", dh: d * 38 + "px" }));
+    const bp = (l, n, h, cr, cl, ov) => ({ l, n, c: `oklch(0.5 0.14 ${h})`, soft: `oklch(0.94 0.04 ${h})`, cr, cl, ov, oc: ov > 0 ? "oklch(0.52 0.18 25)" : "oklch(0.49 0.016 288)" });
+    const byProject = [
+      bp("C", "Корпоративные задачи", 288, 6, 4, 2), bp("P", "Запуск клиентского портала", 190, 4, 3, 1),
+      bp("D", "Переход на электронный документооборот", 60, 4, 3, 0), bp("L", "Договоры с поставщиками", 25, 2, 0, 0),
+      bp("H", "Найм и адаптация сотрудников", 312, 2, 2, 0),
+    ];
+
+    return {
+      showBefore: this.props.showBefore ?? true, showNotes: this.props.showNotes ?? true,
+      grades, cols, team: ["АС", "МК", "ИП", "ЕВ", "ДВ"].map(uc), props, homeGroups, activity, steps, homeProjects,
+      rm, months, kpi, weeks, byProject,
+    };
+  }
+}
+</script>
+</body>
+</html>

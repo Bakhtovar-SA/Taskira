@@ -4,19 +4,19 @@ import { Button, IconButton } from "../ds/Button";
 import { Tabs } from "../ds/Tabs";
 import { pathForView } from "../router";
 import { Kbd, Skeleton } from "../ds/Display";
-import { PersonAvatar, RoleTag } from "./settings/parts";
+import { PersonAvatar } from "./settings/parts";
 import { useEffect, useRef, useState } from "react";
 import { lookOf } from "../projectLook";
 import { useNotifications, useStore, useUnreadCount } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPanel, IcPlus, IcSettings, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
-import { ProjectMark, UserCardBody } from "../ui";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPanel, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { ProjectMark } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
 import { PROJECT_VIEWS, openSidebarDrawer } from "./Sidebar";
-import { useOpenSettings } from "../settings/useOpenSettings";
+import { UserAvatarGroup } from "./UserAvatar";
 
 export const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
@@ -386,9 +386,7 @@ export function Bell() {
         >
           <IcBell size={16} />
           {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9.5px] font-semibold tabular text-onaccent ring-2 ring-canvas">
-              {unread > 99 ? "99+" : unread}
-            </span>
+            <span aria-hidden="true" className="absolute right-1 top-1 h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-canvas" />
           )}
         </IconButton>
       )}
@@ -398,67 +396,7 @@ export function Bell() {
   );
 }
 
-export function UserMenu({ onLogout, onSettings }: { onLogout: () => void; onSettings?: () => void }) {
-  const { t } = useT();
-  const { data, me } = useStore();
-  const openSettings = useOpenSettings();
-  return (
-    <ScreenPopover
-      className="w-[280px]" label={t("topbar.userMenuAria")}
-      placement="bottom-end"
-      trigger={(props, open) => (
-        <Button {...props} variant="ghost" size="sm" className={(`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors duration-150 ${open ? "bg-active" : "hover:bg-hover"}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"} aria-label={t("topbar.userMenuAria")}>
-          {/* interactive=false: клик по аватарке здесь должен открывать это же
-              меню (логаут/настройки), а не всплывающую карточку профиля —
-              её показывает сам заголовок открытого меню ниже. */}
-          <PersonAvatar user={me} size={26} interactive={false} />
-          <span className="hidden max-w-[120px] truncate text-left md:block">
-            <span className="block truncate text-[12.5px] font-medium leading-tight text-ink">{me.name.split(" ")[0]}</span>
-            <span className="block text-[10px] leading-tight text-faint">{me.role}</span>
-          </span>
-          <IcChevD size={11} className="text-faint" />
-        </Button>
-      )}
-    >
-      {(close) => (
-        <>
-          {/* The profile body shares this popover, so its settings stay in the same focus context. */}
-          <div className="border-b border-linesoft">
-            <UserCardBody userId={me.id} />
-            {!onSettings && <div className="-mt-2 px-4 pb-3">
-              <p className="text-[11px] text-faint">{data.project.name}</p>
-              <div className="mt-2">
-                <RoleTag role={me.accessRole} size="sm" />
-              </div>
-            </div>}
-          </div>
-          <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"
-            onClick={() => {
-              if (onSettings) onSettings();
-              else openSettings("settings");
-              close();
-            }}
-          >
-            <span className="flex items-center gap-2">
-              <IcSettings size={14} tone="gray" /> {t("settings.menu")}
-            </span>
-          </Button>
-          <p className="border-t border-linesoft px-4 py-2 tabular text-[11px] text-faint">
-            Taskira {import.meta.env.VITE_APP_VERSION || "dev"}
-          </p>
-          <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"
-            onClick={() => {
-              onLogout();
-              close();
-            }}
-          >
-            {t("topbar.logout")}
-          </Button>
-        </>
-      )}
-    </ScreenPopover>
-  );
-}
+export { UserMenu } from "./UserMenu";
 
 /** Строка проекта в переключателе — отдельно от MenuItem: нужен второй
  *  интерактивный элемент (звезда избранного) внутри одной строки, у MenuItem
@@ -499,7 +437,11 @@ function ProjectSwitcher() {
   const { t } = useT();
   const { data, switchProject } = useStore();
   const [filter, setFilter] = useState("");
-  if (data.projects.length <= 1) return <span className="font-semibold text-sub">{data.project.name}</span>;
+  const projectLabel = <>
+    <ProjectMark projectKey={data.project.key} {...lookOf(data.projects, data.currentProjectId)} size={22} />
+    <span className="project-switcher-name truncate">{data.project.name}</span>
+  </>;
+  if (data.projects.length <= 1) return <span className="project-switcher-label">{projectLabel}</span>;
 
   const q = filter.trim().toLowerCase();
   const matches = (p: ProjectSummary) => !q || p.name.toLowerCase().includes(q) || p.key.toLowerCase().includes(q);
@@ -523,12 +465,12 @@ function ProjectSwitcher() {
       className="w-[300px]" label={t("topbar.findProjectPlaceholder")}
       trigger={(props, open) => (
         <Button {...props} variant="ghost" size="sm"
-          className={(`flex items-center gap-1 rounded-md px-1.5 py-1 font-medium transition-colors duration-150 ${
+          className={(`project-switcher flex items-center gap-1 rounded-md px-0 py-1 font-medium transition-colors duration-150 ${
             open ? "bg-active text-ink" : "text-sub hover:bg-hover hover:text-ink"
           }`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
         >
-          <span className="max-w-[180px] truncate">{data.project.name}</span>
-          <IcChevD size={11} className="opacity-70" />
+          {projectLabel}
+          <IcChevD size={12} className="shrink-0 text-faint" />
         </Button>
       )}
     >
@@ -577,75 +519,48 @@ function ProjectSwitcher() {
   );
 }
 
-export default function Topbar({ onLogout }: { onLogout?: () => void }) {
+export default function Topbar() {
   const { t } = useT();
-  const { data, ui, setCreateOpen, can, logout, setView } = useStore();
-  const doLogout = onLogout ?? logout;
+  const { data, ui, idx, setCreateOpen, can, setView, toggleFavoriteProject } = useStore();
   const views = PROJECT_VIEWS.filter((v) => !v.sprintsOnly || data.project.sprintsEnabled);
   const isProjectView = views.some((v) => v.id === ui.view);
-  const viewTitle = t(VIEW_LABEL[ui.view]);
-  const canCreate = can("create");
+  const isFavorite = data.favoriteProjectIds.includes(data.currentProjectId);
+  const members = Object.keys(data.members).flatMap(id => { const user = idx.users.get(id); return user ? [user] : []; });
 
   return (
     <header className="project-topbar shrink-0 border-b border-linesoft">
-      <div className="flex min-h-[56px] min-w-0 items-center gap-2 px-3 sm:gap-3 sm:px-4">
-      {/* Узкий экран (< 1024 px): боковая панель выезжает поверх по этой кнопке (ТЗ 5.8 п.3) —
-          там Главная, Входящие, Мои задачи и дерево проектов. */}
-      <IconButton variant="ghost" size="sm" label={t("sidebar.menu")}
-        type="button"
-        onClick={openSidebarDrawer}
-
-        className="h-8 w-8 shrink-0 lg:hidden"
-      >
-        <IcPanel size={16} />
-      </IconButton>
-
-      {/* Шапка проекта (ADR-0013 §2.2): значок и переключатель проекта, рядом —
-          вкладки представлений. На экранах вне представлений — крошка раздела. */}
-      <nav aria-label={t("calendar.breadcrumbs")} className="flex min-w-0 flex-1 items-center gap-1 text-[14px] text-faint">
-        <span className="hidden sm:flex">
-          <ProjectMark projectKey={data.project.key} {...lookOf(data.projects, data.currentProjectId)} size={20} />
-        </span>
-        <span className="min-w-0 [&_button]:max-w-full [&_button]:min-w-0">
-          <ProjectSwitcher />
-        </span>
-        {!isProjectView && (
-          <>
-            <span className="hidden px-0.5 text-line2 md:inline">/</span>
-            <span className="truncate px-1.5 font-bold tracking-[-0.01em] text-ink">{viewTitle}</span>
-          </>
-        )}
-      </nav>
-
-      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2.5">
-        <SearchBox />
-        <Bell />
-        {canCreate ? (
-          <Button variant="primary" size="lg"
-            onClick={() => setCreateOpen(true)}
-            className="max-sm:w-11 max-sm:px-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
-            aria-label={t("topbar.createAria")}
-          >
-            <IcPlus size={14} /> <span className="hidden sm:inline">{t("topbar.create")}</span>
+      <div className="project-topbar-row">
+        <IconButton variant="ghost" size="sm" label={t("sidebar.menu")} onClick={openSidebarDrawer} className="project-menu-button shrink-0 lg:hidden">
+          <IcPanel size={16} />
+        </IconButton>
+        {isProjectView ? <>
+          <div className="project-identity">
+            <ProjectSwitcher />
+            <IconButton variant="ghost" size="sm" label={t(isFavorite ? "topbar.removeFavorite" : "topbar.addFavorite")}
+              aria-pressed={isFavorite} onClick={() => toggleFavoriteProject(data.currentProjectId)}
+              className={`project-favorite ${isFavorite ? "text-[var(--amber-solid)]" : "text-faint"}`}>
+              <IcStar size={14} filled={isFavorite} />
+            </IconButton>
+          </div>
+          <span className="project-topbar-divider" aria-hidden="true" />
+          <nav aria-label={t("topbar.viewsAria")} className="project-view-tabs">
+            <Tabs<ViewId> mode="navigation" label={t("topbar.viewsAria")} value={ui.view} onChange={setView}
+              items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 15 }), label: t(v.labelKey) }))} />
+          </nav>
+        </> : <h1 className="min-w-0 flex-1 truncate text-[15px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
+        <div className="project-topbar-actions">
+          {isProjectView && members.length > 0 && <span className="project-members" role="group" aria-label={t("topbar.membersAria")}>
+            <UserAvatarGroup users={members} size={26} max={4} interactive />
+          </span>}
+          <Bell />
+          <Button variant={can("create") ? "primary" : "ghost"} size="sm"
+            disabled={can("create") ? false : t("topbar.createDeniedTip")}
+            onClick={() => setCreateOpen(true)} className="project-create"
+            aria-label={t("topbar.createAria")} iconLeft={can("create") ? <IcPlus size={14} /> : <IcLock size={14} />} kbd="C">
+            <span className="hidden sm:inline">{t("topbar.task")}</span>
           </Button>
-        ) : (
-
-            <Button aria-label={t("topbar.createAria")} disabled={t("topbar.createDeniedTip")} variant="ghost" size="sm" className="max-sm:w-11 max-sm:px-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
-              <IcLock size={13} /> <span className="hidden sm:inline">{t("topbar.create")}</span>
-            </Button>
-
-        )}
-        <div className="ml-0.5 border-l border-linesoft pl-2">
-          <UserMenu onLogout={doLogout} />
         </div>
       </div>
-      </div>
-      {isProjectView && (
-        <nav aria-label={t("topbar.viewsAria")} className="project-view-tabs overflow-x-auto px-3 pb-2 sm:px-4">
-          <Tabs<ViewId> mode="navigation" label={t("topbar.viewsAria")} value={ui.view} onChange={(v) => setView(v)}
-            items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: <span className={`tk-nav-glyph ${ui.view === v.id ? "tk-nav-glyph-active" : ""}`}>{v.icon({ size: 16 })}</span>, label: t(v.labelKey) }))} />
-        </nav>
-      )}
     </header>
   );
 }

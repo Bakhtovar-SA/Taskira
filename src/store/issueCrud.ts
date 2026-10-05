@@ -2,6 +2,7 @@
  * изменений поведения (ТЗ 2.3, шаг 5). Действия не оптимистичны: сначала запрос, затем применение ответа сервера;
  * откат с перечитыванием задач — только у moveStatus. Поведение зафиксировано store.issueCrud.test.tsx. */
 import { refreshOnboardingSoon } from "../onboarding";
+import { markHomeStep } from "../homeSteps";
 import { useCallback } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { Issue } from "../types";
@@ -45,6 +46,7 @@ export function useIssueCrudActions(
         const dto = await issuesApi.create(requestProjectId, payload.body);
         if (sessionEpochRef.current !== epoch) return null;
         const issue = mapIssue(dto);
+        markHomeStep(dataRef.current.currentUserId, "create");
         const isDone = statusById(requestWorkflow, issue.statusId)?.category === "done";
         setData((prev) => {
           if (prev.currentProjectId !== requestProjectId) return prev;

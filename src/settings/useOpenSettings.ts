@@ -6,11 +6,14 @@ import { firstSection } from "./access";
 import { DEFAULT_SECTION, type SettingsHome } from "./sections";
 
 export function useOpenSettings(): (home: SettingsHome) => void {
-  const { me, data, setView } = useStore();
+  const { me, data, setView, bootStatus, enterProject } = useStore();
   const isAdmin = me.globalRole === "admin";
   const hasProject = !!data.currentProjectId;
   return useCallback(
-    (home: SettingsHome) => setView(home, firstSection(home, { isAdmin, hasProject }) ?? DEFAULT_SECTION[home]),
-    [isAdmin, hasProject, setView],
+    (home: SettingsHome) => {
+      setView(home, firstSection(home, { isAdmin, hasProject: hasProject || data.projects.length > 0 }) ?? DEFAULT_SECTION[home]);
+      if (bootStatus === "home") enterProject(data.currentProjectId || data.projects[0]?.id);
+    },
+    [isAdmin, hasProject, setView, bootStatus, enterProject, data.currentProjectId, data.projects],
   );
 }

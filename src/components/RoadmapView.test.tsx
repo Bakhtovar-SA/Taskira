@@ -1,5 +1,5 @@
 /** Роадмап проектов (ТЗ 5.15): группы по отделам, полосы с датами и без, вехи, линии зависимостей (красная —
- *  источник не успевает), клик — в проект его представлением по умолчанию, шестерёнка — к «Срокам и вехам». */
+ *  источник не успевает), клик — представление проекта, меню строки — к «Срокам и вехам». */
 import { afterEach, expect, test, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { I18nProvider } from "../i18n";
@@ -41,6 +41,7 @@ vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect()
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 const settle = () => act(async () => { for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0)); });
 const renderIt = async () => {
@@ -60,22 +61,37 @@ test("отделы, полосы, «сроки не заданы», вехи и 
   expect(screen.getByRole("button", { name: /^Альфа · .* · закрыто 3 из 4 задач$/ })).toBeTruthy();
   expect(screen.getByRole("button", { name: /^Бета · .* ждёт: Альфа$/ })).toBeTruthy();
   expect(screen.getByText("Сроки не заданы")).toBeTruthy();
-  expect(screen.getByText("Бета-релиз")).toBeTruthy();
+  expect(screen.getByText("Бета-релиз", { exact: true })).toBeTruthy();
   // Альфа заканчивается 31.10, Бета начинается 15.10 — линия красная.
   const path = document.querySelector("svg path.stroke-\\[var\\(--status-danger\\)\\]");
   expect(path?.getAttribute("marker-end")).toBe("url(#rm-arrow-late)");
 });
 
-test("клик по полосе — в проект его представлением по умолчанию; шестерёнка — только с правом", async () => {
+test("клик по полосе — представление проекта; меню сроков — только с правом", async () => {
   await renderIt();
   fireEvent.click(screen.getByRole("button", { name: /^Бета · / }));
   expect(store.setView).toHaveBeenCalledWith("backlog");
   expect(store.switchProject).toHaveBeenCalledWith("b");
 
-  const edit = screen.getAllByRole("button", { name: /^Сроки и вехи проекта/ });
-  expect(edit).toHaveLength(1);
-  fireEvent.click(edit[0]!);
+  const menu = screen.getAllByRole("button", { name: /^Меню проекта/ });
+  expect(menu).toHaveLength(1);
+  fireEvent.click(menu[0]!);
+  fireEvent.click(await screen.findByRole("menuitem", { name: /^Сроки и вехи проекта/, hidden: true }));
   expect(store.setView).toHaveBeenLastCalledWith("projectSettings", "roadmap");
+});
+
+test("фильтр отдела скрывает другие строки и связи, сброс восстанавливает их", async () => {
+  await renderIt();
+  fireEvent.click(screen.getByRole("button", { name: "Все отделы" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Маркетинг", hidden: true }));
+  expect(screen.queryByText("Разработка · 2")).toBeNull();
+  expect(screen.getByText("Маркетинг · 1")).toBeTruthy();
+  expect(document.querySelectorAll(".roadmap-dependencies > path")).toHaveLength(0);
+  const dates = screen.getByRole("button", { name: "+ Задать сроки" });
+  expect(dates.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Маркетинг" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Все отделы", hidden: true }));
+  expect(screen.getByText("Разработка · 2")).toBeTruthy();
 });
 
 test("ошибка загрузки — «Повторить»", async () => {
@@ -85,4 +101,16 @@ test("ошибка загрузки — «Повторить»", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
   await settle();
   expect(screen.getByText("Разработка · 2")).toBeTruthy();
+});
+
+test("под названием — ближайшая будущая веха, независимо от порядка в API", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 9, 5));
+  get.mockResolvedValueOnce({ ...ROADMAP, projects: [{ ...ROADMAP.projects[0]!, milestones: [
+    { id: "later", name: "Запуск", date: "2026-10-21" },
+    { id: "past", name: "Подготовка", date: "2026-10-01" },
+    { id: "next", name: "Пилот", date: "2026-10-10" },
+  ] }] });
+  await renderIt();
+  expect(document.querySelector(".roadmap-project-copy small")?.textContent).toBe("Пилот · 10 окт");
 });

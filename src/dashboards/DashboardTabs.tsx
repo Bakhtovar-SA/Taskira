@@ -1,40 +1,34 @@
-/** Полоса дашбордов организации (ADR-0022): встроенные «Обзор организации» и «Отчёты», затем общие, затем свои,
- *  «+» — новый. Её показывают и раздел «Дашборды», и «Отчёты» — чтобы между ними был один переход. */
+/** Общая шапка организации (ADR-0033): обзор, отчёт за период и пользовательские дашборды. */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
 import { dashboardsApi, type DashboardDto } from "../api";
-import { IcDashboard, IcLock, IcPlus, IcReport, IcUsers } from "../icons";
+import { IcLock, IcPanel, IcPlus, IcUsers } from "../icons";
+import { Button, IconButton } from "../ds/Button";
+import { Tabs } from "../ds/Tabs";
+import { openSidebarDrawer } from "../components/Sidebar";
+import "../styles/reports.css";
 import { ORG_OVERVIEW_ID } from "./catalog";
 
-export function DashboardTabs({ current, dashboards, onNew }: { current: string; dashboards: DashboardDto[] | null; onNew?: () => void }) {
+export function DashboardTabs({ current, dashboards, onNew, actions }: { current: string; dashboards: DashboardDto[] | null; onNew?: () => void; actions?: ReactNode }) {
   const { t } = useT();
   const { setView } = useStore();
-  const tab = (id: string, label: string, icon: ReactNode, onClick: () => void) => (
-    <button
-      key={id}
-      type="button"
-      onClick={onClick}
-      aria-current={current === id ? "page" : undefined}
-      className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition-colors ${current === id ? "bg-accentsoft text-accent" : "text-sub hover:bg-hover hover:text-ink"}`}
-    >
-      {icon}
-      <span className="max-w-[180px] truncate">{label}</span>
-    </button>
-  );
   return (
-    <nav aria-label={t("dash.title")} className="flex items-center gap-1 overflow-x-auto px-4 pt-4 sm:px-6">
-      {tab(ORG_OVERVIEW_ID, t("dash.orgOverview"), <IcDashboard size={14} tone="violet" />, () => setView("dashboards", ORG_OVERVIEW_ID))}
-      {tab("reports", t("sidebar.nav.reports"), <IcReport size={14} tone="sky" />, () => setView("reports"))}
-      {(dashboards ?? []).map((d) =>
-        tab(d.id, d.name, d.kind === "org" ? <IcUsers size={13} className="text-faint" /> : <IcLock size={12} className="text-faint" />, () => setView("dashboards", d.id)),
-      )}
-      {onNew && (
-        <button type="button" onClick={onNew} className="flex h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-medium text-faint hover:bg-hover hover:text-ink">
-          <IcPlus size={13} /> {t("dash.new")}
-        </button>
-      )}
-    </nav>
+    <header className="reports-header">
+      <IconButton size="sm" className="lg:hidden" label={t("sidebar.menu")} onClick={openSidebarDrawer}><IcPanel size={18} /></IconButton>
+      <h1>{t("sidebar.nav.dashboards")}</h1>
+      <nav aria-label={t("sidebar.nav.dashboards")}>
+        <Tabs mode="navigation" variant="line" label={t("dash.title")} value={current}
+          onChange={id => id === "reports" ? setView("reports") : setView("dashboards", id)}
+          items={[
+            { id: ORG_OVERVIEW_ID, label: t("dash.orgOverview"), href: "/dashboards/overview" },
+            { id: "reports", label: t("reports.tasksPeriod"), href: "/reports" },
+            ...(dashboards ?? []).map(d => ({ id: d.id, label: d.name, href: `/dashboards/${encodeURIComponent(d.id)}`, icon: d.kind === "org" ? <IcUsers size={13} /> : <IcLock size={12} /> })),
+          ]} />
+        <Button size="sm" variant="ghost" iconLeft={<IcPlus size={13} />} onClick={onNew ?? (() => setView("dashboards", "new"))}>{t("dash.new")}</Button>
+      </nav>
+      {actions && <div className="reports-header-actions">{actions}</div>}
+    </header>
   );
 }
 

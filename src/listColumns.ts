@@ -8,16 +8,16 @@ export type SortKey = "priority" | "due" | "updated" | "key";
 export const COLUMNS: { id: ColumnId; label: TKey; width: string; sort?: SortKey }[] = [
   { id: "priority", label: "field.priority", width: "28px", sort: "priority" },
   { id: "type", label: "field.type", width: "24px" },
-  { id: "direction", label: "field.direction", width: "160px" },
+  { id: "direction", label: "field.direction", width: "230px" },
   { id: "labels", label: "field.labels", width: "160px" },
-  { id: "due", label: "field.dueDate", width: "92px", sort: "due" },
+  { id: "due", label: "field.dueDate", width: "110px", sort: "due" },
   { id: "status", label: "field.status", width: "136px" },
-  { id: "assignee", label: "field.assignee", width: "76px" },
+  { id: "assignee", label: "field.assignee", width: "74px" },
   { id: "updated", label: "backlog.sort.updated", width: "96px", sort: "updated" },
 ];
 /** Порядок в строке: приоритет и тип — слева от ключа, остальное — справа от названия. */
 export const LEFT: ColumnId[] = ["priority", "type"];
-export const DEFAULT_COLUMNS: ColumnId[] = ["priority", "due", "status", "assignee"];
+export const DEFAULT_COLUMNS: ColumnId[] = ["priority", "direction", "due", "assignee"];
 
 const KEY = "taskira.list.columns";
 const known = new Set<string>(COLUMNS.map((c) => c.id));
@@ -55,7 +55,7 @@ export function gridTemplate(visible: ColumnId[], selectMode: boolean, compact =
     selectMode ? "28px" : null,
     ...LEFT.filter((id) => on.has(id)).map(w),
     compact ? null : "76px",
-    "minmax(320px,1fr)",
+    "minmax(0,1fr)",
     ...COLUMNS.filter((c) => !LEFT.includes(c.id) && on.has(c.id)).map((c) => w(c.id)),
     "44px",
   ]

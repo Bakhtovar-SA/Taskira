@@ -10,6 +10,14 @@ const f = {
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 describe("timeScale", () => {
+  test("календарный режим: каждый полный месяц 96 px, включая февраль и смену года", () => {
+    const s = timeScale(new Date(2027, 11, 15), 160, "month", 96);
+    const ticks = scaleTicks(s, "month", f).minor;
+    for (const tick of ticks.slice(1, -1)) expect(tick.w).toBeCloseTo(96, 7);
+    expect(s.x(s.origin)).toBe(0);
+    expect(s.x(addDays(s.origin, s.days))).toBe(s.width);
+    expect(s.x(new Date(2028, 1, 29)) - s.x(new Date(2028, 1, 28))).toBeCloseTo(96 / 29);
+  });
   test("дни и понедельник — календарные, переход на летнее время не сбивает счёт", () => {
     expect(daysBetween(new Date(2026, 2, 28), new Date(2026, 2, 30))).toBe(2);
     expect(ymd(startOfWeek(new Date(2026, 8, 27)))).toBe("2026-09-21"); // воскресенье → понедельник той же недели

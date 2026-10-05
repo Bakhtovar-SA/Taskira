@@ -1,21 +1,30 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Hint } from "./Hint";
+import { cssVars } from "../cssVars";
+import { localToday } from "../calendarLayout";
+import QuickCreate from "./QuickCreateIssue";
+import AssigneePicker from "./AssigneePicker";
+import { GROUP_MODES, groupListRows, readListGroup, type GroupMode } from "../listGroups";
 import { useLocation } from "wouter";
 import { useStore } from "../store";
-import { fmtDate, relTime } from "../store/mappers";
+import { canTransition, fmtDate, relTime } from "../store/mappers";
 import type { CustomFieldDef, Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
-import { freshRows, useDebounced, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
+import { NO_ISSUE_FILTERS, freshRows, useDebounced, useEpics, useIssueCounts, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { LIMITS } from "../validation";
 import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcSearch, IcStar, IcTrash, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcPlus, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { directionColor, labelTone } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
-import { Button, DatePicker, Checkbox, EmptyState, Menu, Popover, Presence, Skeleton, Tag } from "../ds";
+import { Button } from "../ds/Button";
+import { DatePicker } from "../ds/DatePicker";
+import { Checkbox } from "../ds/Field";
+import { EmptyState, Skeleton, Tag } from "../ds/Display";
+import { Menu, Popover } from "../ds/Overlay";
+import { Presence } from "../ds/Presence";
 import BulkBar from "./BulkBar";
 import { IssueFilterSummary } from "./IssueFilterSummary";
-import { WorkspaceControls } from "./WorkspaceControls";
-import { useT } from "../i18n";
+import { WorkspaceControls, WorkspaceSearch, WorkspaceQuickFilters } from "./WorkspaceControls";
+import { useT, type TKey } from "../i18n";
 import { statusTone, workflowStatusName } from "../workflowStatus";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, type FilterState, pathForIssue, pathForView } from "../router";
 import { COLUMNS, LEFT, gridTemplate, tableMinWidth, readColumns, writeColumns, type ColumnId, type SortKey } from "../listColumns";
@@ -36,7 +45,7 @@ function HeadCell({ id, sortKey, sortDir, onSort, compact }: { id: ColumnId | "k
   const def = id === "key" ? { label: "backlog.sort.key" as const, sort: "key" as SortKey } : COLUMNS.find((c) => c.id === id)!;
   const label = t(def.label);
   const on = def.sort && def.sort === sortKey;
-  const text = compact ? <span className="sr-only">{label}</span> : <span className="truncate">{label}</span>;
+  const text = compact ? <span className="sr-only">{label}</span> : <span>{label}</span>;
   return (
     <span role="columnheader" data-col={id} aria-sort={on ? (sortDir === "asc" ? "ascending" : "descending") : undefined} className="flex min-w-0 items-center">
       {def.sort ? (
@@ -68,13 +77,21 @@ function Row({
   onToggleSelect: (id: string) => void;
 }) {
   const { t, lang } = useT();
-  const { data, idx, openIssue, deleteIssue, can } = useStore();
+  const { data, idx, openIssue, deleteIssue, updateIssue, moveStatus, can } = useStore();
   // Ассоциированные сущности ищем по индексам из контекста, а не линейным
   // проходом по массивам в каждой строке списка (аудит PERF-02).
   const assignees = issue.assigneeIds.map((id) => idx.users.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
   const status = idx.statuses.get(issue.statusId);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const overdue = !!issue.dueDate && status?.category !== "done" && issue.dueDate < today;
+  const days = issue.dueDate ? Math.round((Date.parse(issue.dueDate) - Date.parse(today)) / 864e5) : Infinity;
+  const urgency = status?.category === "done" ? "done" : overdue ? "late" : days <= 3 ? "soon" : "normal";
+  const statusAction = (iconOnly = false) => status && (can("transition", issue) ? <Menu
+    label={t("field.status")} placement="bottom-end"
+    trigger={p => <Button {...p} variant="ghost" size="sm" className="list-status-action" aria-label={t("backlog.changeStatus", { key: issue.key })}
+      iconLeft={<StatusGlyph category={status.category} size={14} />}>{iconOnly ? <IcChevD size={10} /> : workflowStatusName(status, t)}</Button>}
+    items={data.workflow.statuses.map(target => ({ id: target.id, label: workflowStatusName(target, t), icon: <StatusGlyph category={target.category} size={14} />,
+      disabled: !canTransition(data.workflow, issue.statusId, target.id), onSelect: () => moveStatus(issue.id, target.id, null) }))} /> : <Tag size="sm" tone={statusTone(status.category)} dot strong>{workflowStatusName(status, t)}</Tag>);
 
   const cell = (id: ColumnId) => {
     switch (id) {
@@ -84,8 +101,8 @@ function Row({
         return <TypeIcon type={issue.typeId} size={14} />;
       case "direction":
         return epic ? (
-          <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md px-1.5 py-px text-[11.5px] text-sub ring-1 ring-inset ring-linesoft">
-            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: directionColor(epic.id, epic.color) }} />
+          <span className="list-direction">
+            <i ref={cssVars({ "--direction-color": directionColor(epic.id, epic.color) })} />
             <span className="truncate">{epic.title}</span>
           </span>
         ) : null;
@@ -102,19 +119,18 @@ function Row({
         );
       case "due":
         return issue.dueDate ? (
-          <span className={`inline-flex items-center gap-1 text-[12px] tabular ${overdue ? "font-medium text-[var(--status-danger-fg)]" : "text-faint"}`} title={overdue ? t("board.quickChip.overdue") : undefined}>
+          <span className="list-due tabular" data-urgency={urgency} title={overdue ? t("board.quickChip.overdue") : undefined}>
             <DueRing due={issue.dueDate} today={today} done={status?.category === "done"} />
             {fmtDate(issue.dueDate, lang)}
           </span>
         ) : null;
       case "status":
-        return status ? (
-          <Tag size="sm" tone={statusTone(status.category)} dot strong>
-            {workflowStatusName(status, t)}
-          </Tag>
-        ) : null;
+        return statusAction();
       case "assignee":
-        return <UserAvatarGroup users={assignees} size={22} interactive />;
+        return can("edit", issue) ? <Popover label={t("field.assignee")} placement="bottom-end" className="w-[260px]"
+          trigger={p => <button {...p} type="button" className="list-assignee-action ds-focus" aria-label={t("backlog.changeAssignees", { key: issue.key })}><UserAvatarGroup users={assignees} size={22} /></button>}>
+          <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} />
+        </Popover> : <UserAvatarGroup users={assignees} size={22} interactive />;
       case "updated":
         return <span className="text-[12px] tabular text-faint">{relTime(issue.updatedAt, lang)}</span>;
     }
@@ -125,6 +141,7 @@ function Row({
       role="row"
       onClick={() => openIssue(issue.id)}
       data-issue-id={issue.id}
+      data-done={status?.category === "done" || undefined}
       aria-selected={selectMode ? selected : undefined}
       className={`list-grid group list-row cursor-pointer items-center gap-x-3 border-b border-linesoft/80 px-4 transition-colors last:border-0 hover:bg-hover/60 ${selected ? "bg-accentsoft/50" : "bg-panel"}`}
     >
@@ -143,7 +160,7 @@ function Row({
       <span role="cell" data-col="key" className="truncate font-mono text-[12px] tabular text-faint">
         {issue.key}
       </span>
-      <span role="cell" data-col="title" className="list-title min-w-0 text-[14px] font-medium text-ink">
+      <span role="cell" data-col="title" className="list-title min-w-0 text-[14px] font-semibold text-ink">
         {/* На телефоне колонки ключа нет — ключ мелко над названием. */}
         <span aria-hidden className="block truncate font-mono text-[11px] font-normal leading-tight tabular text-faint sm:hidden">
           {issue.key}
@@ -154,12 +171,14 @@ function Row({
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
             e.preventDefault(); openIssue(issue.id);
           }}>{issue.title}</a>
+        {!cols.includes("status") && can("transition", issue) && <span className="list-inline-status" onClick={e => e.stopPropagation()}>{statusAction(true)}</span>}
       </span>
       {COLUMNS.filter((c) => !LEFT.includes(c.id) && cols.includes(c.id)).map((c) => (
-        <span key={c.id} role="cell" data-col={c.id} className="flex min-w-0 items-center">
+        <span key={c.id} role="cell" data-col={c.id} className="flex min-w-0 items-center" onClick={c.id === "status" || c.id === "assignee" ? e => e.stopPropagation() : undefined}>
           {cell(c.id)}
         </span>
       ))}
+      {!cols.includes("status") && <span role="cell" data-col="status" className="list-mobile-status" onClick={e => e.stopPropagation()}>{statusAction()}</span>}
       <span role="cell" data-col="actions" className="flex justify-end" onClick={(e) => e.stopPropagation()}>
         <Menu
           label={t("common.actions")}
@@ -176,7 +195,7 @@ function Row({
           )}
           items={[
             { id: "open", label: t("backlog.openIssue"), onSelect: () => openIssue(issue.id) },
-            ...(can("delete")
+            ...(can("delete", issue)
               ? [
                   { kind: "sep" as const, id: "sep" },
                   { id: "delete", label: t("common.delete"), icon: <IcTrash size={13} />, danger: true, onSelect: () => deleteIssue(issue.id) },
@@ -208,6 +227,10 @@ export default function Backlog() {
   const [showDone, setShowDone] = useState(() => new URLSearchParams(initialSearch).get("done") === "1");
   const [sortKey, setSortKey] = useState<SortKey>("priority");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [group, setGroup] = useState(() => readListGroup(initialSearch));
+  const [createGroup, setCreateGroup] = useState<string | null>(null);
+  const groupKeys: Record<GroupMode, TKey> = { none: "workspace.noGrouping", status: "field.status", epic: "field.direction", assignee: "field.assignee" };
+  const groupLabel = t("workspace.grouping", { name: t(groupKeys[group]).toLocaleLowerCase(lang) });
   const { status: fStatus, assignee: fAssignee, type: fType, priority: fPriority, label: fLabel, sprintId: fSprint, dueFrom: fDueFrom, dueTo: fDueTo } = filters;
   const sprintsOn = !!data.projects.find((pr) => pr.id === data.currentProjectId)?.sprintsEnabled;
   const setField = (k: keyof FilterState) => (v: string) => setFilters((cur) => ({ ...cur, [k]: v }));
@@ -220,6 +243,7 @@ export default function Backlog() {
       const p = new URLSearchParams(location.search);
       setFilters(filtersFromSearch(location.search)); setQ(p.get("q") ?? "");
       setFOverdue(p.get("overdue") === "1"); setShowDone(p.get("done") === "1");
+      setGroup(readListGroup(location.search)); setCreateGroup(null);
     };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
@@ -246,13 +270,13 @@ export default function Backlog() {
   // задержкой (qDebounced ниже уже есть для запроса; для URL берём то же).
   useEffect(() => {
     if (path !== pathForView(data.project.key, "backlog")) return;
-    const next = searchFromFilters(location.search, filters, { overdue: fOverdue ? "1" : "", done: showDone ? "1" : "", q: qDebounced });
+    const next = searchFromFilters(location.search, filters, { overdue: fOverdue ? "1" : "", done: showDone ? "1" : "", q: qDebounced, group });
     if (next !== location.search.replace(/^\?/, "")) {
       navigate(`${path}${next ? `?${next}` : ""}`, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- path/navigate стабильны для текущего вида; включать их
     // пересоздавало бы эффект на каждый чужой навигационный пуш и гоняло бы сравнение впустую.
-  }, [filters, fOverdue, showDone, qDebounced, path, data.project.key]);
+  }, [filters, fOverdue, showDone, qDebounced, group, path, data.project.key]);
 
   // Фильтры, сортировка и поиск — на сервере (PERF-05): клиент видит лишь часть
   // набора, и фильтр «по загруженному» искал бы только в ней. Явно выбранный
@@ -284,7 +308,12 @@ export default function Backlog() {
   // версию оттуда, а набор перечитывается, чтобы состав (фильтр, удаление,
   // новые задачи) не устарел. Пока стор держит все задачи, это дёшево.
   const rows = useMemo(() => freshRows(set.items, idx.issues), [set.items, idx.issues]);
-  useOnRevision(useIssuesRevision(), set.revalidate);
+  const revision = useIssuesRevision();
+  useOnRevision(revision, set.revalidate);
+  const pool = useIssueCounts(data.currentProjectId || null, NO_ISSUE_FILTERS, revision);
+  const overdueFilters = useMemo(() => query ? { ...query.filters, overdue: "1" as const } : null, [query]);
+  const overdueCounts = useIssueCounts(data.currentProjectId || null, overdueFilters, revision);
+  const groups = useMemo(() => groupListRows(rows, group, data.workflow.statuses.map(st => st.id)), [rows, group, data.workflow.statuses]);
 
   // Подгрузка при прокрутке к концу списка; кнопка «Показать ещё» — запасной путь.
   const { hasMore, loading, loadingMore, loadMore } = set;
@@ -440,35 +469,14 @@ export default function Backlog() {
   return (
     <div className="list-view flex h-full min-w-0 flex-col">
       {/* шапка */}
-      <div className="px-4 pb-3 pt-5 sm:px-6">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="mr-2">
-            <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("backlog.title")}</h1>
-            <p className="mt-0.5 text-[11.5px] text-faint">
-              {set.total === null
-                ? t("common.loading")
-                : t(showDone || fStatus ? "backlog.countAll" : "backlog.countActive", { shown: rows.length, total: set.total })}
-            </p>
-          </div>
-
-        </div>
-        <WorkspaceControls selectionMode={selectMode}
+      <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
+        <WorkspaceControls selectionMode={selectMode} compact
+          summary={t("board.filteredOf", { visible: rows.length, total: pool.counts?.total ?? "…" })}
+          quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? fOverdue : fAssignee === (id === "mine" ? data.currentUserId : "none")} onToggle={id => id === "overdue" ? setFOverdue(!fOverdue) : setField("assignee")(fAssignee === (id === "mine" ? data.currentUserId : "none") ? "" : id === "mine" ? data.currentUserId : "none")} overdue={overdueCounts.counts?.total} />}
+          grouping={<Menu label={groupLabel} placement="bottom-end" trigger={p => <Button {...p} size="sm" className="workspace-grouping" iconRight={<IcChevD size={12} />}>{groupLabel}</Button>}
+            items={GROUP_MODES.map(id => ({ id, label: t(groupKeys[id]), icon: group === id ? <IcCheck size={13} /> : undefined, onSelect: () => { setGroup(id); setCreateGroup(null); } }))} />}
           count={Object.values(filters).filter(Boolean).length + Number(fOverdue) + Number(showDone) + Number(!!q)}
-          search={<div className="workspace-search flex min-w-0 items-center gap-2 rounded-md border border-line bg-panel px-3">
-              <IcSearch size={13} className="text-faint" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder={t("backlog.searchPlaceholder")}
-                aria-label={t("backlog.searchPlaceholder")}
-                className="min-w-0 w-full bg-transparent text-[14px] outline-none placeholder:text-faint"
-              />
-              {q && (
-                <button onClick={() => setQ("")} className="text-faint hover:text-ink" aria-label={t("common.clear")}>
-                  <IcX size={12} />
-                </button>
-              )}
-            </div>}
+          search={<WorkspaceSearch value={q} onChange={setQ} />}
           filters={<div className="workspace-filters-body flex flex-wrap items-center gap-2">
           <select aria-label={t("field.status")} value={fStatus} onChange={(e) => setField("status")(e.target.value)} className={`${selectCls} cursor-pointer`}>
             <option value="">{t("backlog.allStatuses")}</option>
@@ -536,12 +544,12 @@ export default function Backlog() {
             label={t("backlog.savedViews")}
             className="w-[240px]"
             trigger={(p, open) => (
-              <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+              <Button size="sm" {...p} type="button" className={open ? "border-accent" : undefined}>
                 <IcStar size={12} className="text-faint" />
                 {t("backlog.savedViews")}
                 {views.length > 0 && <span className="text-[10.5px] text-faint">({views.length})</span>}
                 <IcChevD size={11} className="text-faint" />
-              </button>
+              </Button>
             )}
           >
             {(close) => (
@@ -626,20 +634,19 @@ export default function Backlog() {
           </div>}
           options={<div className="workspace-options-body flex flex-wrap items-center gap-2">
             {/* ТЗ 3.3: режим выделения — чекбоксы появляются в строках только пока он включён. */}
-            <button
+            <Button size="sm"
               aria-pressed={selectMode}
               onClick={() => setSelectMode((v) => !v)}
-              className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium transition-colors ${selectMode ? "border-accent text-accenttext" : "border-line text-sub hover:border-accent hover:text-accenttext"}`}
+              className={selectMode ? "border-accent text-accenttext" : undefined}
             >
               {t("backlog.selectMode")}
-            </button>
+            </Button>
             {can("create") && (
-              <button
+              <Button size="sm"
                 onClick={() => setImportOpen(true)}
-                className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-panel shadow-e1 px-2.5 text-[12.5px] font-medium text-sub transition-colors hover:bg-hover hover:text-ink"
               >
                 <IcInbox size={13} /> {t("import.title")}
-              </button>
+              </Button>
             )}
 
 
@@ -649,11 +656,11 @@ export default function Backlog() {
               placement="bottom-end"
               className="w-[230px]"
               trigger={(p, open) => (
-                <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+                <Button size="sm" {...p} type="button" className={open ? "border-accent" : undefined}>
                   <IcDisplay size={12} className="text-faint" />
                   {t("backlog.columns")}
                   <IcChevD size={11} className="text-faint" />
-                </button>
+                </Button>
               )}
             >
               <div className="flex flex-col gap-0.5 p-1">
@@ -669,11 +676,11 @@ export default function Backlog() {
               label={t("backlog.sort.label")}
               placement="bottom-end"
               trigger={(p, open) => (
-                <button {...p} type="button" className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open ? "border-accent" : "border-line"} bg-panel text-sub`}>
+                <Button size="sm" {...p} type="button" className={open ? "border-accent" : undefined}>
                   <IcFilter size={12} className="text-faint" />
                   {sortLabels[sortKey]}
                   <IcChevD size={11} className="text-faint" />
-                </button>
+                </Button>
               )}
               items={(Object.keys(sortLabels) as SortKey[]).map((k) => ({
                 id: k,
@@ -703,10 +710,9 @@ export default function Backlog() {
         {selectMode && selectedIds.size > 0 && <BulkBar selectedIds={selectedIds} onDone={clearSelection} className="mt-2.5" />}
       </div>
 
-      {/* список. Начинается от левого края, как заголовок и фильтры над ним (часть F): по центру таблица на широком
-          мониторе висела отдельно от своей шапки. Предел ширины оставлен, чтобы строка читалась одним взглядом. */}
+      {/* Full-width table; intermediate desktop widths scroll within the list. */}
       <div className="list-scroll min-h-0 flex-1 overflow-auto">
-        <div className="max-w-[1060px] min-[1536px]:max-w-[1320px] min-[1920px]:max-w-[1600px] min-[2560px]:max-w-[2000px] px-4 py-3 sm:px-6">
+        <div className="list-table-wrap">
           {set.loading ? (
             <div
               className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70"
@@ -727,7 +733,7 @@ export default function Backlog() {
           ) : rows.length > 0 ? (
             <>
               {/* One grid for the header and rows; the list-scroll container owns both scroll axes. */}
-              <div role="table" ref={tableRef} aria-label={t("backlog.title")} aria-rowcount={set.total ?? undefined} className="list-table rounded-lg border border-line bg-panel">
+              <div role="table" ref={tableRef} aria-label={t("backlog.title")} className="list-table rounded-lg border border-line bg-panel">
                 <div role="row" className="list-grid list-head sticky top-0 z-10 items-center gap-x-3 border-b border-linesoft px-4 text-[12px] font-semibold text-faint">
                   {selectMode && (
                     <span role="columnheader" data-col="select" className="flex">
@@ -750,7 +756,22 @@ export default function Backlog() {
                   ))}
                   <span role="columnheader" data-col="actions"><span className="sr-only">{t("common.actions")}</span></span>
                 </div>
-                {rows.map((i) => (
+                {groups.map(section => {
+                  const st = group === "status" ? idx.statuses.get(section.id) : undefined;
+                  const epic = group === "epic" ? epics.byId.get(section.id) : undefined;
+                  const name = group === "status" ? st ? workflowStatusName(st, t) : t("field.status") : group === "epic" ? epic?.title ?? t("createIssue.noDirection") : section.id ? section.id.split("|").map(id => idx.users.get(id)?.name ?? t("createIssue.unassigned")).join(", ") : t("createIssue.unassigned");
+                  const total = st ? set.counts?.byStatus[st.id] ?? section.items.length : section.items.length;
+                  return <div key={section.id} role="rowgroup" aria-label={group === "none" ? undefined : name}>
+                    {group !== "none" && <div role="row" className="list-group-head">
+                      <div role="cell" aria-colspan={cols.length + 3 + Number(selectMode)} className="list-group-label">
+                        {st && <StatusGlyph category={st.category} size={14} />}
+                        <span className="truncate" title={name}>{name}</span>
+                        <span className="list-group-count tabular" title={t("backlog.groupLoaded", { n: section.items.length })}>{section.items.length < total ? `${section.items.length}/${total}` : total}</span>
+                        {st && can("create") && <button type="button" className="ds-focus list-group-add" data-create-status={st.id} aria-label={t("board.addToStatusAria", { name })} onClick={() => setCreateGroup(createGroup === st.id ? null : st.id)}><IcPlus size={14} /></button>}
+                      </div>
+                    </div>}
+                    {st && createGroup === st.id && <div role="row" className="list-group-create"><div role="cell" aria-colspan={cols.length + 3 + Number(selectMode)}><QuickCreate status={st} onDone={() => { setCreateGroup(null); tableRef.current?.querySelector<HTMLButtonElement>(`[data-create-status="${CSS.escape(st.id)}"]`)?.focus(); }} /></div></div>}
+                    {section.items.map(i => (
                   <Row
                     key={i.id}
                     issue={i}
@@ -760,7 +781,9 @@ export default function Backlog() {
                     selected={selectedIds.has(i.id)}
                     onToggleSelect={toggleSelect}
                   />
-                ))}
+                    ))}
+                  </div>;
+                })}
                 {loadingMore && (
                   <div className="border-t border-linesoft" aria-busy="true" aria-label={t("backlog.loadingMore")}>
                     <ListSkeletonRow />
@@ -831,16 +854,16 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
       label={t("field.dueDate")}
       className="w-[250px]"
       trigger={(p, open) => (
-        <button
+        <Button size="sm"
           {...p}
           type="button"
           aria-label={`${t("field.dueDate")}: ${label}`}
-          className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open || active ? "border-accent" : "border-line"} bg-panel ${active ? "text-ink" : "text-sub"}`}
+          className={(open || active) ? "border-accent" : undefined}
         >
           <IcCalendar size={12} className="text-faint" />
           <span className="tabular">{active ? label : t("field.dueDate")}</span>
           <IcChevD size={11} className="text-faint" />
-        </button>
+        </Button>
       )}
     >
       {(close) => (
@@ -930,16 +953,16 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
       label={t("backlog.cf.button")}
       className="w-[250px]"
       trigger={(p, open) => (
-        <button
+        <Button size="sm"
           {...p}
           type="button"
           aria-label={active ? `${field!.name}: ${summary}` : t("backlog.cf.button")}
-          className={`flex h-8 max-w-[240px] items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium ${open || active ? "border-accent" : "border-line"} bg-panel ${active ? "text-ink" : "text-sub"}`}
+          className={(open || active) ? "border-accent" : undefined}
         >
           <IcFilter size={12} className="shrink-0 text-faint" />
           <span className="truncate">{active ? `${field!.name}: ${summary}` : t("backlog.cf.button")}</span>
           <IcChevD size={11} className="shrink-0 text-faint" />
-        </button>
+        </Button>
       )}
     >
       {(close) =>

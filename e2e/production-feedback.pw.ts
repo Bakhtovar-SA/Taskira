@@ -70,7 +70,7 @@ for (const theme of ["light", "dark"]) test(`all four priorities, single-project
   })).toBe(true);
   await calendar.click(); await expect(page).toHaveURL(/\/calendar$/); await expect(page.getByRole("grid")).toBeVisible();
   await page.getByRole("button", { name: "На главный экран", exact: true }).click(); await expect(page).toHaveURL(/\/$/);
-  await page.getByRole("button", { name: /TEST project/ }).first().click(); await expect(page).toHaveURL(/\/p\/TEST\//);
+  await page.locator(".home-project").filter({ hasText: "Test project" }).click(); await expect(page).toHaveURL(/\/p\/TEST\//);
 });
 
 for (const lang of ["ru", "en"]) test(`help navigation follows scrolling and clicks (${lang})`, async ({ page }) => {

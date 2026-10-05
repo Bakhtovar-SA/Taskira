@@ -2,6 +2,35 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { mockApi } from "./fixtures";
 
+for (const path of ["reports", "dashboards/overview", "dashboards/personal"]) for (const width of [1440, 390]) {
+  test(`sidebar logout remains reachable (${path}, ${width})`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    await mockApi(page);
+    // Supply valid empty widget data for the built-in overview and a personal layout.
+    await page.route("**/api/dashboards", route => route.fulfill({ json: [{ id: "personal", name: "My dashboard", kind: "personal", ownerId: "u1", projectId: null, canEdit: true, widgets: [], updatedAt: "2026-10-01" }] }));
+    await page.route("**/api/dashboards/data", route => {
+      const { widgets } = route.request().postDataJSON();
+      return route.fulfill({ json: { results: Object.fromEntries(widgets.map((w: { id: string; type: string }) => [w.id, { type: w.type, items: [], weeks: [], total: 0, value: 0, truncated: false }])) } });
+    });
+    let loggedOut = false;
+    await page.route("**/api/auth/logout", async route => {
+      loggedOut = route.request().method() === "POST";
+      await route.fulfill({ json: { ok: true } });
+    });
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/${path}`);
+    await expect(page.getByRole("heading", { name: "Отчёты и дашборды", exact: true })).toBeVisible();
+    await expect(page.locator(".project-topbar")).toHaveCount(0);
+    if (width < 768) await page.getByRole("button", { name: "Меню", exact: true }).click();
+    await page.getByRole("button", { name: "Меню пользователя", exact: true }).click();
+    await page.getByRole("button", { name: "Выйти", exact: true }).click();
+    await expect.poll(() => loggedOut).toBe(true);
+    await expect(page.getByRole("button", { name: "Войти", exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
+
 test("read-only project retains its permission guard on a narrow screen", async ({ page }) => {
   await workspace(page, "dark");
   const profile = { id: "u1", username: "viewer", name: "Test Viewer", initials: "TV", color: "", jobRole: "", globalRole: "member", isActive: true, authSource: "local" };
@@ -56,20 +85,22 @@ async function workspace(page: Page, theme: string) {
 }
 
 for (const theme of ["light", "dark"]) {
-  test(`home search, project choice and mobile empty state (${theme})`, async ({ page }) => {
+  test(`home command search, project choice and mobile empty state (${theme})`, async ({ page }) => {
     const writes = await workspace(page, theme);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    await expect(page.getByRole("button", { name: /Sales/ })).toBeVisible();
+    const projectRows = page.locator(".home-project");
+    await expect(projectRows).toHaveCount(2);
     await expect(page.getByRole("tablist")).toHaveCount(0);
-    expect((await page.getByRole("button", { name: /Sales/ }).boundingBox())!.y).toBeLessThan(450);
-    const search = page.getByRole("textbox", { name: "Поиск моих задач и проектов…" });
+    await page.keyboard.press("Control+k");
+    const palette = page.getByRole("dialog");
+    const search = palette.getByRole("combobox");
     await search.fill("sales");
-    await expect(page.getByRole("button", { name: /Sales/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Корпоративные задачи/ })).toHaveCount(0);
+    await expect(palette.getByRole("option", { name: /Sales/ })).toBeVisible();
+    await expect(palette.getByRole("option", { name: /Корпоративные задачи/ })).toHaveCount(0);
     await search.fill("  ");
-    await expect(page.getByRole("button", { name: /Корпоративные задачи/ })).toBeVisible();
-    await search.fill("");
+    await expect(palette.getByRole("option", { name: /Корпоративные задачи/ })).toBeVisible();
+    await page.keyboard.press("Escape");
     await page.getByRole("heading", { level: 1 }).click();
     await expect(page.getByText("Теперь при входе — список ваших проектов и задач.", { exact: false })).toBeHidden({ timeout: 10000 });
     await page.screenshot({ path: `shots/workspace-home-mobile-${theme}.png` });
@@ -93,28 +124,28 @@ for (const theme of ["light", "dark"]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(page.getByRole("link", { name: "Доска", exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-      const search = page.getByRole("textbox", { name: "Фильтр по доске" });
+      const search = page.getByRole("textbox", { name: "Фильтр задач" });
       const box = (await search.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(width);
       if (width === 390) await page.screenshot({ path: `shots/workspace-board-mobile-${theme}.png` });
       if (width < 768) {
-        const globalSearch = page.getByRole("textbox", { name: "Поиск задач…" });
-        await globalSearch.focus();
-        await expect(page.locator(".topbar-search")).toHaveClass(/is-expanded/);
-        const expanded = (await globalSearch.boundingBox())!;
+        await page.keyboard.press("Control+k");
+        const palette = page.getByRole("dialog");
+        const globalSearch = palette.getByRole("combobox");
+        await expect(globalSearch).toBeFocused();
+        const expanded = (await palette.boundingBox())!;
         expect(expanded.x).toBeGreaterThanOrEqual(0);
         expect(expanded.y).toBeGreaterThanOrEqual(0);
         expect(expanded.x + expanded.width).toBeLessThanOrEqual(width);
         await globalSearch.fill("Подготовить");
-        const results = page.locator(".topbar-search > .glass");
+        const results = palette.getByRole("listbox");
         await expect(results).toBeVisible();
         const resultsBox = (await results.boundingBox())!;
         expect(resultsBox.x).toBeGreaterThanOrEqual(0);
         expect(resultsBox.x + resultsBox.width).toBeLessThanOrEqual(width);
-        await globalSearch.fill("");
-        await page.getByRole("heading", { name: "Доска", exact: true }).click();
-        await expect(page.locator(".topbar-search")).not.toHaveClass(/is-expanded/);
+        await page.keyboard.press("Escape");
+        await expect(palette).toHaveCount(0);
         const columns = page.locator(".board-col");
         const first = (await columns.nth(0).boundingBox())!;
         const second = (await columns.nth(1).boundingBox())!;
@@ -130,9 +161,9 @@ for (const theme of ["light", "dark"]) {
       const box = (await tab.boundingBox())!;
       expect(box.x + box.width).toBeLessThanOrEqual(1065);
     }
-    await page.getByRole("textbox", { name: "Поиск задач…" }).focus();
-    await expect(page.locator(".topbar-search")).toHaveClass(/is-expanded/);
-    await page.keyboard.press("Tab");
+    await page.keyboard.press("Control+k");
+    await expect(page.getByRole("dialog").getByRole("combobox")).toBeFocused();
+    await page.keyboard.press("Escape");
     await page.screenshot({ path: `shots/workspace-board-${theme}.png` });
     const axe = await new AxeBuilder({ page }).include("main").analyze();
     expect(axe.violations).toEqual([]);

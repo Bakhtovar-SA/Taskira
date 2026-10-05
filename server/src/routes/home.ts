@@ -15,6 +15,9 @@ interface Row {
   status_id: string;
   status_name: string;
   status_category: AssignedIssueDto["statusCategory"];
+  status_sid: string;
+  project_role: AssignedIssueDto["projectRole"];
+  returned_for_rework: boolean;
   due_date: string | null;
   type_id: AssignedIssueDto["typeId"];
   project_key: string;
@@ -37,13 +40,19 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
     // (участник ∪ департамент ∪ is_shared ∪ глобальный admin), иначе экран
     // покажет задачи из проектов, которые потом не открыть.
     const rows = await q<Row>(
-      `SELECT i.id AS issue_id, i.project_id, i.key, i.title, i.priority_id, i.status_id,
-              ws.name AS status_name, ws.category AS status_category,
+      // Bound history lookups to the response window before joining activity.
+      `WITH assigned AS MATERIALIZED (
+       SELECT i.id AS issue_id, i.project_id, i.key, i.title, i.priority_id, i.status_id,
+              ws.name AS status_name, ws.category AS status_category, ws.sid AS status_sid,
+              pm.role AS project_role,
               i.due_date, i.type_id,
-              p.key AS project_key, p.name AS project_name
+              p.key AS project_key, p.name AS project_name,
+              array_position(ARRAY['critical','high','medium','low']::text[], i.priority_id) AS priority_order,
+              i.updated_at
          FROM issues i
          JOIN projects p ON p.id = i.project_id
          JOIN workflow_statuses ws ON ws.id = i.status_id
+         LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1
         WHERE EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = $1)
           AND ws.category <> 'done'
           AND ($2
@@ -53,8 +62,18 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
                            WHERE dm.department_id = p.department_id AND dm.user_id = $1)
                OR p.is_shared)
         ORDER BY array_position(ARRAY['critical','high','medium','low']::text[], i.priority_id),
-                 i.updated_at DESC
-        LIMIT $3`,
+                 i.updated_at DESC, i.id ASC
+        LIMIT $3
+       )
+       SELECT i.*,
+              COALESCE(last_status.payload->>'fromSid' = 'review'
+                AND last_status.payload->>'toSid' = i.status_sid AND i.status_sid <> 'review', false) AS returned_for_rework
+         FROM assigned i
+         LEFT JOIN LATERAL (
+           SELECT payload FROM activity WHERE issue_id = i.issue_id AND kind = 'status'
+           ORDER BY created_at DESC, id DESC LIMIT 1
+         ) last_status ON true
+        ORDER BY i.priority_order, i.updated_at DESC, i.issue_id ASC`,
       [user.sub, isGlobalAdmin, HOME_LIMIT + 1],
     );
 
@@ -72,6 +91,9 @@ export async function homeRoutes(app: FastifyInstance): Promise<void> {
       statusId: r.status_id,
       statusName: r.status_name,
       statusCategory: r.status_category,
+      statusSid: r.status_sid,
+      projectRole: r.project_role,
+      returnedForRework: r.returned_for_rework,
       dueDate: r.due_date,
       projectKey: r.project_key,
       projectName: r.project_name,

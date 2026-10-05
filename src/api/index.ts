@@ -690,6 +690,8 @@ export type ReportFilter = {
   to: string;
   projectId?: string;
   departmentId?: string;
+  /** Wire format: up to 150 comma-separated UUIDs; absence means all visible projects. */
+  projectIds?: string;
 };
 
 export const reportsApi = {
