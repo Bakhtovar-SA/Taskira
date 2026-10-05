@@ -25,7 +25,7 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) for 
   const side = page.getByRole("complementary", { name: "Меню", exact: true });
   const inbox = side.getByRole("button", { name: "Входящие", exact: true });
   await expect(inbox.locator("svg").first()).toHaveCSS("color", neutral);
-  await expect(page.locator(".tk-nav-glyph-active svg").first()).toHaveCSS("color", accent);
+  await expect(side.getByRole("button", { name: "Test project", exact: true })).toHaveAttribute("aria-current", "true");
   await inbox.focus(); await expect(inbox).toBeFocused();
   await inbox.click(); await expect(inbox).toHaveAttribute("aria-current", "page");
   await expect(inbox.locator("svg").first()).toHaveCSS("color", accent);

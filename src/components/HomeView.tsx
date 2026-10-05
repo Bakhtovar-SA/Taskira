@@ -16,7 +16,7 @@ import { greetingName } from "../greetingName";
 import { homeGroup, type HomeGroup } from "../homeGroups";
 import { localToday, dateOf } from "../calendarLayout";
 import { markHomeStep, useHomeSteps, type HomeStep } from "../homeSteps";
-import { OPEN_HOME_CREATE_EVT, openShortcuts } from "../palette/events";
+import { OPEN_HOME_CREATE_EVT, takeHomeCreate, openShortcuts } from "../palette/events";
 import { openSidebarDrawer } from "./Sidebar";
 import { pathForIssue } from "../router";
 import { readRecent } from "../palette/recent";
@@ -49,8 +49,10 @@ export default function HomeView() {
     else if (target) createInProject(target.id);
   };
   useEffect(() => {
-    window.addEventListener(OPEN_HOME_CREATE_EVT, startCreate);
-    return () => window.removeEventListener(OPEN_HOME_CREATE_EVT, startCreate);
+    const create = () => { if (takeHomeCreate()) startCreate(); };
+    window.addEventListener(OPEN_HOME_CREATE_EVT, create);
+    create();
+    return () => window.removeEventListener(OPEN_HOME_CREATE_EVT, create);
   });
   useEffect(() => {
     let live = true;

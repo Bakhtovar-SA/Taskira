@@ -3,7 +3,10 @@
 export const OPEN_PALETTE_EVT = "taskira:palette";
 export const openPalette = () => window.dispatchEvent(new Event(OPEN_PALETTE_EVT));
 export const OPEN_HOME_CREATE_EVT = "taskira:home-create";
-export const openHomeCreate = () => window.dispatchEvent(new Event(OPEN_HOME_CREATE_EVT));
+// The sidebar is ready before the lazy Home view; retain an early click until Home mounts.
+let homeCreatePending = false;
+export const takeHomeCreate = () => { const pending = homeCreatePending; homeCreatePending = false; return pending; };
+export const openHomeCreate = () => { homeCreatePending = true; window.dispatchEvent(new Event(OPEN_HOME_CREATE_EVT)); };
 export const OPEN_SHORTCUTS_EVT = "taskira:shortcuts";
 export const openShortcuts = () => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVT));
 

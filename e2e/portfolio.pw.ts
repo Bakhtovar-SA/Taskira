@@ -34,7 +34,7 @@ for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] 
     await expect(page.getByRole("cell", { name: lang === "en" ? "On track" : "По плану" })).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     await page.screenshot({ path: test.info().outputPath(`portfolio-${theme}-${lang}.png`), fullPage: true });
-    await page.getByRole("button", { name: lang === "en" ? "New" : "Новый", exact: true }).click();
+    await page.getByRole("button", { name: lang === "en" ? "Dashboard" : "Дашборд", exact: true }).click();
     await expect(page.getByText(lang === "en" ? "Project portfolio" : "Портфель проектов", { exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
     await page.getByRole("table").getByRole("button", { name: "Test project", exact: true }).click();

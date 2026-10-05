@@ -39,7 +39,14 @@ test("home refresh: real issue links open the full issue page", async ({ page })
 test("home refresh: sidebar creation chooses a project and records successful creation", async ({ page }) => {
   await homeFixture(page);
   await page.addInitScript(() => localStorage.setItem("taskira.home.steps.u1", JSON.stringify({ profile: true })));
-  await page.goto("/"); await page.locator(".sidebar-compose").click();
+  // The sidebar can receive the click before the lazy Home view has installed its listener.
+  let releaseHome!: () => void;
+  const homeReady = new Promise<void>(resolve => { releaseHome = resolve; });
+  await page.route(/\/(?:src\/components\/HomeView\.tsx|assets\/HomeView-[^/]+\.js)(?:\?.*)?$/, async route => { await homeReady; await route.continue(); });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".sidebar-compose")).toBeVisible();
+  await expect(page.locator(".home-view")).toHaveCount(0);
+  await page.locator(".sidebar-compose").click(); releaseHome();
   const choose = page.getByRole("dialog", { name: "В каком проекте создать задачу?" });
   await expect(choose).toBeVisible();
   await choose.getByRole("button", { name: "Корпоративные задачи", exact: true }).click();

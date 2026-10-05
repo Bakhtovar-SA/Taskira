@@ -26,6 +26,7 @@ export async function mockApi(page: Page, userOverrides: Partial<typeof user> & 
     else if (path === "/instance/brand") body = brand;
     else if (path === "/roadmap") body = { projects: [], dependencies: [] };
     else if (path === "/issues/assigned-to-me") body = { items: [], truncated: false, limit: 100 };
+    else if (path === "/issues/search") body = { items: [], truncated: false };
     else if (path === "/admin/brand" && method === "PATCH") {
       const patch = route.request().postDataJSON();
       writes.push({ path, body: patch });
