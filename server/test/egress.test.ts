@@ -13,6 +13,11 @@ describe("target rules", () => {
   test.each([["127.1", "127.0.0.1"], ["0x0a000001", "10.0.0.1"], ["167772161", "10.0.0.1"]])("normalizes legacy IPv4 rule %s to CIDR", (raw, address) => {
     expect(parseTargetRules(raw)).toEqual([{ kind: "cidr", net: address, family: 4, prefix: 32 }]);
   });
+  test("permits internal DNS labels and consistently ignores empty comma-separated items", () => {
+    expect(parseTargetRules(",_svc.corp.local, ,")).toEqual([{ kind: "host", host: "_svc.corp.local" }]);
+    expect(parseTargetRules(", ,")).toEqual([]);
+    expect(parseDenyCidrs(", ,")).toEqual([]);
+  });
   test("normalizes hosts, suffixes, literals, IDNs and mapped IPv6", () => {
     expect(parseTargetRules(" Hooks.Corp.Local., *.CORP.local, 10.20.30.40, 10.20.0.0/16, fd00::/8, ::ffff:10.20.0.0/112, пример.рф "))
       .toEqual([
@@ -24,7 +29,7 @@ describe("target rules", () => {
     expect(parseTargetRules("  ")).toEqual([]);
     expect(parseDenyCidrs(" 172.30.0.0/24, , fd00::/8 ")).toEqual(["172.30.0.0/24", "fd00:0:0:0:0:0:0:0/8"]);
   });
-  test.each(["10.0.0.0/33", "fd00::/129", "10.0.0.0/-1", "10.0.0.0/", "not-a-cidr/8", "::ffff:10.0.0.0/95", "fe80::1%eth0", "https://secret.example", "secret.example:443", "user@secret.example", "secret.example?key=private", "foo\\bar", "foo bar", "*corp.local", "*.127.0.0.1", "-host.local", "a..local", ""])("rejects rule %s without echoing its value", raw => {
+  test.each(["10.0.0.0/33", "fd00::/129", "10.0.0.0/-1", "10.0.0.0/", "not-a-cidr/8", "::ffff:10.0.0.0/95", "fe80::1%eth0", "https://secret.example", "secret.example:443", "user@secret.example", "secret.example?key=private", "foo\\bar", "foo bar", "*corp.local", "*.127.0.0.1", "-host.local", "a..local"])("rejects rule %s without echoing its value", raw => {
     expect(() => parseTargetRules("valid.local," + raw)).toThrow("WEBHOOK_ALLOWED_TARGETS: неверное правило в позиции 2");
   });
   test.each(["host.local", "10.0.0.0/33", "fd00::/129"])("rejects invalid deny CIDR %s", raw => {
@@ -84,7 +89,7 @@ describe("resolved destinations", () => {
     expect(dns).not.toHaveBeenCalled();
     await expect(resolve("https://10.1.2.3", config(""))).rejects.toMatchObject({ reason: "not_allowed" });
   });
-  test.each(["0.0.0.0", "0.1.2.3", "127.0.0.1", "127.9.8.7", "169.254.169.254", "224.0.0.1", "239.255.255.255", "240.0.0.1", "255.255.255.255", "::", "::1", "fe80::1", "febf::1", "ff02::1", "64:ff9b::a00:1", "::ffff:127.0.0.1", "::ffff:7f00:1", "::ffff:169.254.169.254",
+  test.each(["0.0.0.0", "0.1.2.3", "127.0.0.1", "127.9.8.7", "169.254.169.254", "100.100.100.200", "fd00:ec2::254", "224.0.0.1", "239.255.255.255", "240.0.0.1", "255.255.255.255", "::", "::1", "fe80::1", "febf::1", "ff02::1", "64:ff9b::a00:1", "::ffff:127.0.0.1", "::ffff:7f00:1", "::ffff:169.254.169.254",
     "::127.0.0.1", "::ffff:0:127.0.0.1", "2002:7f00:1::", "2002:a9fe:a9fe::", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "64:ff9b:1::a9fe:a9fe"])("never permits hard-denied DNS answer %s", address => {
     return expect(resolve("https://hooks.corp.local", config("hooks.corp.local,0.0.0.0/0,::/0"), [address])).rejects.toMatchObject({ reason: "denied_range" });
   });

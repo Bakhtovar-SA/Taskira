@@ -69,23 +69,24 @@ function hostnameOf(raw: string): string {
   if (/[\s/:@?#\[\]\\%]/.test(raw)) throw new Error("Неверное имя цели");
   const host = domainToASCII(raw.toLowerCase().replace(/\.$/, ""));
   if (!host || host.length > 253 || host.split(".").some(label =>
-    !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) throw new Error("Неверное имя цели");
+    !/^[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?$/.test(label))) throw new Error("Неверное имя цели");
   return host;
 }
 
 export function parseTargetRules(raw: string): TargetRule[] {
   if (!raw.trim()) return [];
-  return raw.split(",").map((item, index) => {
+  return raw.split(",").flatMap((item, index): TargetRule[] => {
     try {
       const rule = item.trim();
-      if (rule.includes("/") || isIP(unbracket(rule))) return cidrOf(rule);
+      if (!rule) return [];
+      if (rule.includes("/") || isIP(unbracket(rule))) return [cidrOf(rule)];
       if (rule.startsWith("*.")) {
         const suffix = hostnameOf(rule.slice(2));
         if (isIP(suffix)) throw new Error("Неверный суффикс");
-        return { kind: "suffix", suffix };
+        return [{ kind: "suffix", suffix }];
       }
       const host = hostnameOf(rule);
-      return isIP(host) ? cidrOf(host) : { kind: "host", host };
+      return [isIP(host) ? cidrOf(host) : { kind: "host", host }];
     } catch { throw new Error(`WEBHOOK_ALLOWED_TARGETS: неверное правило в позиции ${index + 1}`); }
   });
 }
@@ -121,6 +122,7 @@ function listsFor(cfg: TargetConfig) {
   return lists;
 }
 const denied = blockList(["0.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "240.0.0.0/4",
+  "100.100.100.200/32", "fd00:ec2::254/128", // metadata Alibaba / AWS, включая IPv6
   // Переходные формы IPv6 могут маршрутизироваться в IPv4 в обход его запретов.
   "::/96", "::ffff:0:0:0/96", "fe80::/10", "ff00::/8", "64:ff9b::/96", "64:ff9b:1::/48", "2002::/16", "2001::/32"].map(cidrOf));
 const loopback = blockList(["127.0.0.0/8", "::1/128"].map(cidrOf));

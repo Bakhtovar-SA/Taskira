@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { expect, test, vi } from "vitest";
-import { open, seal, SecretUnavailableError } from "../src/services/secretBox.js";
+import { open, seal, SecretUnavailableError, webhookSecretContext } from "../src/services/secretBox.js";
 
 test.each(["", "subscription-secret", "Секрет 🔒\n東京"])("authenticated encryption round-trips %j with fresh IVs", plain => {
   const key = randomBytes(32);
@@ -30,4 +30,12 @@ test.each(["", "v2.a.b.c", "v1.a.b", "v1.a.b.c.extra", "v1.!.b.c", "v1.a=.b.c", 
 test.each([0, 16, 31, 33, 64])("rejects key length %i for encryption and decryption", length => {
   expect(() => seal("private", Buffer.alloc(length))).toThrow(SecretUnavailableError);
   expect(() => open("v1.private.private.private", Buffer.alloc(length))).toThrow("Секрет недоступен");
+});
+test("AAD binds ciphertext to the subscription and field, and cannot be dropped", () => {
+  const key = randomBytes(32), context = webhookSecretContext("subscription-a", "secret");
+  const sealed = seal("private", key, context);
+  expect(open(sealed, key, context)).toBe("private");
+  expect(() => open(sealed, key, webhookSecretContext("subscription-b", "secret"))).toThrow(SecretUnavailableError);
+  expect(() => open(sealed, key, webhookSecretContext("subscription-a", "url"))).toThrow(SecretUnavailableError);
+  expect(() => open(sealed, key)).toThrow(SecretUnavailableError);
 });
