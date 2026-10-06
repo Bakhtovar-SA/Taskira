@@ -8,7 +8,7 @@ on:
 jobs:
   security:
     name: dependency and image security
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux]
     permissions:
       contents: read
     steps:
