@@ -1,5 +1,7 @@
 /** Минимальный реестр Prometheus без внешнего collector/sidecar. */
 import { q } from "./db.js";
+import type { OpsKind } from "./contract.js";
+import { getOpsSnapshot } from "./services/opsStatus.js";
 
 const HTTP_BUCKETS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 const LDAP_BUCKETS = [0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300];
@@ -32,6 +34,8 @@ let webhookQueueSize = 0, webhookQueueOldest = 0, integrationOutbox = 0;
 let webhooksByState = new Map<string, number>();
 const recurringRuns = new Map<string, number>();
 let recurringLagSeconds = 0;
+const opsLastSuccess = new Map<OpsKind, number>();
+const opsLastRunSuccess = new Map<OpsKind, number>();
 
 export function recordRecurringRun(result: "created" | "skipped_open" | "failed"): void {
   recurringRuns.set(result, (recurringRuns.get(result) ?? 0) + 1);
@@ -159,6 +163,15 @@ export async function refreshBackgroundQueueMetrics(): Promise<void> {
       ::double precision AS lag FROM recurring_rules WHERE state = 'active'`);
     recurringLagSeconds = rows[0].lag;
   } catch { collectionErrors += 1; }
+  await Promise.all((["backup", "restore_drill"] as const).map(async kind => {
+    // Не отдаём старые зелёные значения при ошибке текущего чтения.
+    opsLastSuccess.delete(kind); opsLastRunSuccess.delete(kind);
+    try {
+      const snapshot = await getOpsSnapshot(kind);
+      if (snapshot.facts.lastSuccessAt !== null) opsLastSuccess.set(kind, Date.parse(snapshot.facts.lastSuccessAt) / 1000);
+      if (snapshot.lastCompletedSuccess !== null) opsLastRunSuccess.set(kind, snapshot.lastCompletedSuccess);
+    } catch { collectionErrors += 1; }
+  }));
 }
 
 export function renderMetrics(activeWsConnections: number): string {
@@ -248,6 +261,16 @@ export function renderMetrics(activeWsConnections: number): string {
     lines.push(`taskira_recurring_runs_total${labelSet({ result })} ${recurringRuns.get(result) ?? 0}`);
   lines.push("# HELP taskira_recurring_lag_seconds Delay of the oldest active rule awaiting its scheduled run.",
     "# TYPE taskira_recurring_lag_seconds gauge", `taskira_recurring_lag_seconds ${recurringLagSeconds}`);
+  for (const [name, help, values] of [
+    ["taskira_ops_last_success_timestamp_seconds", "Unix time of the last successful host operation, collected at scrape time.", opsLastSuccess],
+    ["taskira_ops_last_run_success", "1 for a successful last completed host operation; 0 for failure or a run interrupted after six hours. A current run preserves the previous completed result.", opsLastRunSuccess],
+  ] as const) {
+    lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} gauge`);
+    for (const kind of ["backup", "restore_drill"] as const) {
+      const value = values.get(kind);
+      if (value !== undefined) lines.push(`${name}${labelSet({ kind })} ${value}`);
+    }
+  }
   return `${lines.join("\n")}\n`;
 }
 
@@ -268,4 +291,5 @@ export function _resetMetrics(): void {
   integrationEvents.clear(); webhookDeliveries.clear(); webhookBlocked.clear(); webhookDurations.clear();
   webhooksByState.clear(); webhookQueueSize = 0; webhookQueueOldest = 0; integrationOutbox = 0;
   recurringRuns.clear(); recurringLagSeconds = 0;
+  opsLastSuccess.clear(); opsLastRunSuccess.clear();
 }
