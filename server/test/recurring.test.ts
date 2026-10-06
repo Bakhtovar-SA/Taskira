@@ -80,6 +80,28 @@ test("частичный PATCH сохраняет остальные поля, p
   expect(Date.parse(resumed.json().nextRunAt)).toBeGreaterThan(Date.now());
 });
 
+test("переименование старого правила допускает выпавшего исполнителя, новые значения проверяются", async () => {
+  const rule = await create();
+  const oldStart = day(daysAgo(1200));
+  await q(`UPDATE recurring_rules SET start_date = $2 WHERE id = $1`, [rule.id, oldStart]);
+  await q(`DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`, [fx.projects.p1, fx.users.emp1]);
+  const renamed = await call("PATCH", `${url()}/${rule.id}`, admin, { name: "Renamed" });
+  expect(renamed.statusCode, renamed.body).toBe(200);
+  expect(renamed.json()).toMatchObject({ startDate: oldStart, assigneeIds: [fx.users.emp1], ownerId: fx.users.admin });
+  expect((await call("PATCH", `${url()}/${rule.id}`, manager, { assigneeIds: [fx.users.emp1] })).statusCode).toBe(400);
+  expect((await call("PATCH", `${url()}/${rule.id}`, manager, { startDate: oldStart })).statusCode).toBe(200);
+  expect((await call("PATCH", `${url()}/${rule.id}`, manager, { startDate: day(daysAgo(1201)) })).statusCode).toBe(400);
+  const preview = await call("POST", `${url()}/preview`, manager, body({ startDate: oldStart }));
+  expect(preview.statusCode).toBe(200); expect(preview.json().next).toHaveLength(5);
+  const other = (await q<{ id: string }>(`INSERT INTO issue_templates (project_id, name, type_id, priority_id, position)
+    VALUES ($1, 'Other', 'task', 'medium', 0) RETURNING id`, [fx.projects.p2]))[0].id;
+  expect((await call("PATCH", `${url()}/${rule.id}`, manager, { templateId: other })).statusCode).toBe(404);
+  await due(rule.id);
+  expect((await runRecurringOnce(clock())).created).toBe(1);
+  const history = (await call("GET", `${url()}/${rule.id}/runs`)).json();
+  expect(history[0].details.droppedAssignees).toEqual([fx.users.emp1]);
+});
+
 test("один тик создаёт задачу с датой, сроком, исполнителем, автором и событием правила", async () => {
   const rule = await create(), scheduled = await due(rule.id);
   expect(await runRecurringOnce(clock())).toMatchObject({ created: 1, processed: 1 });

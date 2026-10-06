@@ -108,8 +108,10 @@ function shiftYears(date: number, years: number): number {
   return d.getTime();
 }
 
-export function assertValidTiming(t: RuleTiming): void {
+export function assertValidTiming(t: RuleTiming, options: { checkStartWindow?: boolean } = {}): void {
   assertShape(t);
+  // Окно ограничивает новую дату; неизменённая дата старого правила не протухает.
+  if (options.checkStartWindow === false) return;
   const today = civilDate(localDateOf(new Date(), t.timeZone));
   const start = civilDate(t.startDate);
   if (start < shiftYears(today, -1) || start > shiftYears(today, 5))

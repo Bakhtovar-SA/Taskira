@@ -51,12 +51,16 @@ function nameConflict(error: unknown): never {
   throw error;
 }
 
-async function validateRule(client: PoolClient, project: ProjectRow, body: RecurringRuleBody): Promise<void> {
-  assertValidTiming(body);
-  const template = (await client.query<{ id: string }>(
-    `SELECT id FROM issue_templates WHERE id = $1 AND project_id = $2 FOR KEY SHARE`, [body.templateId, project.id],
-  )).rows[0];
-  if (!template) throw notFound("Шаблон задачи не найден в проекте");
+async function validateRule(client: PoolClient, project: ProjectRow, body: RecurringRuleBody,
+  changed?: RecurringRulePatchBody, oldStartDate?: string): Promise<void> {
+  assertValidTiming(body, { checkStartWindow: !changed || (changed.startDate !== undefined && changed.startDate !== oldStartDate) });
+  if (!changed || changed.templateId !== undefined) {
+    const template = (await client.query<{ id: string }>(
+      `SELECT id FROM issue_templates WHERE id = $1 AND project_id = $2 FOR KEY SHARE`, [body.templateId, project.id],
+    )).rows[0];
+    if (!template) throw notFound("Шаблон задачи не найден в проекте");
+  }
+  if (changed && changed.assigneeIds === undefined) return;
   await validateAssigneesInProject(project.id, body.assigneeIds, client);
   const service = (await client.query(`SELECT id FROM users WHERE id = ANY($1::uuid[]) AND auth_source = 'service' LIMIT 1`,
     [body.assigneeIds])).rows[0];
@@ -102,7 +106,8 @@ export async function updateRecurringRule(project: ProjectRow, id: string, patch
     return await withTransaction(async client => {
       const old = await loadRule(client, project.id, id, true);
       const body: RecurringRuleBody = { ...toDto(old), ...patch };
-      await validateRule(client, project, body);
+      await validateRule(client, project, body, patch, old.start_date);
+      // ADR-0030: последний сохранивший правило становится владельцем и автором будущих задач.
       const nextAt = old.state === "active" ? nextOccurrence(body, new Date()) : null;
       await client.query(`UPDATE recurring_rules SET template_id = $3, name = $4, title = $5, schedule = $6::jsonb,
         time_of_day = $7, time_zone = $8, start_date = $9, due_in_days = $10, skip_if_open = $11,

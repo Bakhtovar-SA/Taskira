@@ -1121,7 +1121,7 @@ const en: Record<keyof Dict, string> = {
   "permission.editRoadmap.desc": "Start and target dates, milestones and dependencies on other projects on the roadmap. Everyone who can see the project sees the roadmap.",
   "permission.manageDashboards.name": "Project overview",
   "permission.manageRecurring.name": "Recurring issues",
-  "permission.manageRecurring.desc": "Create, change and pause rules that create issues on a schedule. All members can view rules and run history.",
+  "permission.manageRecurring.desc": "Create, change and pause recurring rules. All members can view rules and history.",
   "permission.manageDashboards.desc": "Build and change the Overview tab — the project's shared dashboard. All members can view it; everyone sees data within their own access.",
   "access.matrixHint": "* Employees can edit and move only issues where they are the assignee or reporter. Access and workflow management are restricted to resource administrators. Your current role column is highlighted.",
   "access.card.server": "Server enforcement",

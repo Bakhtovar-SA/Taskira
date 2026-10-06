@@ -21,7 +21,8 @@ export async function recurringRoutes(app: FastifyInstance): Promise<void> {
 
   app.post("/preview", { preHandler: requirePerm("browse"), preValidation: zbody(RecurringPreviewBody) }, async req => {
     const body = req.body as z.infer<typeof RecurringPreviewBody>;
-    assertValidTiming(body);
+    // Предпросмотр работает и с неизменённой датой давно созданного правила.
+    assertValidTiming(body, { checkStartWindow: false });
     const next: string[] = [];
     let after = new Date();
     for (let i = 0; i < 5; i++) { after = nextOccurrence(body, after); next.push(after.toISOString()); }
