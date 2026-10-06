@@ -382,7 +382,8 @@ RecurringRuleBody = { name, templateId, title?: string|null, schedule, timeOfDay
   startDate: "YYYY-MM-DD", assigneeIds: string[] (≤ 10), dueInDays: number|null, skipIfOpen: boolean }
 RecurringRuleDto = RecurringRuleBody & { id, projectId, ownerId, state, pausedReason, nextRunAt, lastRunAt,
   lastResult: "created"|"skipped_open"|"failed"|null, createdAt, updatedAt }
-RecurringRunDto = { id, scheduledFor, ranAt, result, manual, missedCount, issueId, issueKey, errorCode }
+RecurringRunDto = { id, scheduledFor, ranAt, result, manual, missedCount, issueId, issueKey, errorCode,
+  details: { droppedAssignees: string[] } }
 ```
 
 `LIMITS.recurring = { name: 80, perProject: 50, assignees: 10 }`.

@@ -6,11 +6,11 @@ export type SettingsHome = "settings" | "projectSettings" | "orgSettings";
 
 export const SETTINGS_SECTIONS = {
   /** Личные — `/settings/…`, любой пользователь. */
-  settings: ["profile", "notifications", "appearance", "language"],
+  settings: ["profile", "notifications", "appearance", "language", "tokens"],
   /** Проект — `/p/:key/settings/…`, по правам проекта. */
   projectSettings: ["general", "appearance", "roadmap", "workflow", "fields", "templates", "access", "modules", "integrations", "archive"],
   /** Организация — `/admin/…`, глобальный администратор. */
-  orgSettings: ["users", "departments", "project-templates", "brand", "ldap", "license", "export", "audit", "maintenance", "health", "setup"],
+  orgSettings: ["users", "service-accounts", "departments", "project-templates", "brand", "ldap", "license", "export", "audit", "maintenance", "health", "setup"],
 } as const satisfies Record<SettingsHome, readonly string[]>;
 
 export type SettingsSection<H extends SettingsHome = SettingsHome> = (typeof SETTINGS_SECTIONS)[H][number];

@@ -1,6 +1,8 @@
 import type {
   ACCESS_ROLES,
   ActivityEvent,
+  ActivityDto,
+  CommentDto,
   AssignedIssueDto,
   COMPLEXITIES,
   CollaboratingItemDto,
@@ -70,6 +72,7 @@ export interface Workflow {
 }
 
 export interface CommentT {
+  author?: CommentDto["author"];
   id: string;
   authorId: string;
   body: string;
@@ -80,7 +83,7 @@ export interface Activity {
   id: string;
   authorId: string | null;
   /** Денормализованный профиль автора: история переживает удаление пользователя. */
-  author: { id: string; name: string; initials: string; color: string } | null;
+  author: ActivityDto["actor"];
   ts: number;
   text: string;
   /** Событие данными (трек E); null — запись до трека E, показывается по text. */

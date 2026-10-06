@@ -130,7 +130,7 @@ test("home refresh: C and palette navigation are available before choosing a pro
 });
 test("home refresh: invitations complete only after confirmed membership", async ({ page }) => {
   const fixture = await homeFixture(page);
-  await page.route("**/api/users", route => route.fulfill({ json: [...fixture.users, { ...fixture.users[1], id: "u3", name: "Ольга Иванова", isActive: true }] }));
+  await page.route("**/api/users/pickable**", route => route.fulfill({ json: [{ ...fixture.users[1], id: "u3", name: "Ольга Иванова", authSource: "local" }] }));
   let fail = true;
   await page.route("**/api/projects/p1/members/u3", route => fail
     ? route.fulfill({ status: 503, json: { error: "unavailable" } })
@@ -139,11 +139,13 @@ test("home refresh: invitations complete only after confirmed membership", async
   await page.getByRole("button", { name: "Пригласить коллегу в проект", exact: true }).click();
   await expect(page).toHaveURL(/\/p\/CORP\/settings\/access$/);
   const pick = page.getByRole("combobox", { name: "Добавить участника", exact: true });
-  await pick.selectOption("u3");
+  await pick.fill("Оль");
+  await page.getByRole("option", { name: /Ольга Иванова/ }).click();
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page.locator(".anim-toast")).toBeVisible();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("taskira.home.steps.u1")!).invite)).toBeUndefined();
-  fail = false; await pick.selectOption("u3");
+  fail = false; await pick.fill("Оль");
+  await page.getByRole("option", { name: /Ольга Иванова/ }).click();
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("taskira.home.steps.u1")!).invite)).toBe(true);
   await page.getByRole("button", { name: "Главная", exact: true }).click();
