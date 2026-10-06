@@ -25,7 +25,7 @@ jobs:
           curl --silent --show-error --head --max-time 20 "https://$oidc_host/" >/dev/null
           curl --silent --show-error --head --max-time 20 https://registry.npmjs.org/ >/dev/null
           mkdir -p "$RUNNER_TOOL_CACHE/taskira-trust"
-          cp /etc/ssl/certs/ca-certificates.crt "$RUNNER_TOOL_CACHE/taskira-trust/ca-certificates.crt"
+          cp --remove-destination /etc/ssl/certs/ca-certificates.crt "$RUNNER_TOOL_CACHE/taskira-trust/ca-certificates.crt"
           chmod 444 "$RUNNER_TOOL_CACHE/taskira-trust/ca-certificates.crt"
   claude-review:
     needs: prepare-runner-trust
