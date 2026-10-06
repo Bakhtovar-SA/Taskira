@@ -8,6 +8,7 @@ import { ApiError, authApi } from "../api";
 import { useT } from "../i18n";
 import { Button } from "../ds/Button";
 import { Input } from "../ds/Field";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 
 type Props = {
   onSuccess: () => void;
@@ -22,6 +23,7 @@ export default function LoginForm({ onSuccess }: Props) {
   const [show, setShow] = useState(false);
   const [caps, setCaps] = useState(false);
   const [ldap, setLdap] = useState(false);
+  const [mustChange, setMustChange] = useState<string | null>(null);
   const busyRef = useRef(false);
   const brandName = useBrandName();
 
@@ -36,8 +38,11 @@ export default function LoginForm({ onSuccess }: Props) {
     setError(null);
     setBusy(true);
     try {
-      await authApi.login(username.trim(), password);
-      onSuccess();
+      const res = await authApi.login(username.trim(), password);
+      // SEC-PWD-01: вход временным (или начальным, заданным администратором) паролем — сначала свой пароль.
+      // Введённый пароль и есть текущий: второй раз его не спрашиваем.
+      if (res.mustChangePassword) setMustChange(password);
+      else onSuccess();
     } catch (err) {
       // Что случилось и что делать. 401 здесь — неверный логин или пароль, а не «сессия закончилась»,
       // поэтому по-английски — свой текст формы, а не общий перевод кода UNAUTHORIZED.
@@ -68,6 +73,27 @@ export default function LoginForm({ onSuccess }: Props) {
           </div>
         </div>
 
+        {mustChange !== null ? (
+          <div className="flex flex-col gap-4">
+            <div>
+              <h2 className="text-[15px] font-semibold text-ink">{t("login.mustChangeTitle")}</h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-faint">{t("login.mustChangeSub")}</p>
+            </div>
+            <ChangePasswordForm currentPassword={mustChange} submitLabel={t("login.mustChangeSubmit")} onDone={onSuccess} />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="self-start"
+              onClick={() => {
+                setMustChange(null);
+                setPassword("");
+                void authApi.logout().catch(() => undefined);
+              }}
+            >
+              {t("login.signOut")}
+            </Button>
+          </div>
+        ) : (
         <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
           <Input
             label={ldap ? t("login.usernameLdap") : t("login.username")}
@@ -112,6 +138,7 @@ export default function LoginForm({ onSuccess }: Props) {
             {busy ? t("login.submitting") : t("login.submit")}
           </Button>
         </form>
+        )}
       </main>
       <p className="relative mt-6 text-center text-[12px] text-faint">{t("login.forgot")}</p>
     </div>

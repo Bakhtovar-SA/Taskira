@@ -11,7 +11,8 @@ import { BRAND_EXTRA_HUES, BRAND_HUE, DEFAULT_BRAND_NAME, previewHue, setBrand, 
 import { cssVars } from "../../cssVars";
 import { BrandMark } from "../BrandMark";
 import { adminApi, brandApi, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
-import { Avatar, Button, DatePicker, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
+import { Avatar, Button, Checkbox, DatePicker, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
+import { SecretOnceDialog } from "./SecretOnceDialog";
 import { IcCompose, IcDiamond, IcDownload, IcLink, IcPlus, IcSearch, IcTrash } from "../../icons";
 import { openProjectWizard } from "../../palette/events";
 import { LIMITS } from "../../validation";
@@ -95,6 +96,7 @@ function Users() {
   const [list, reload, setList] = useLoad(() => usersApi.list());
   const [q, setQ] = useState("");
   const [create, setCreate] = useState(false);
+  const [resetFor, setResetFor] = useState<SafeUser | null>(null);
   const ldap = authMode === "ldap";
 
   const users = list instanceof Array ? list : [];
@@ -161,6 +163,11 @@ function Users() {
                   <option value="admin">{t("settings.profile.roleAdmin")}</option>
                 </select>
                 <Switch checked={u.isActive} onChange={(v) => void patch(u, { globalRole: u.globalRole, isActive: v })} label={t("settings.org.active")} labelFirst />
+                {u.authSource === "local" && u.id !== me.id && (
+                  <Button size="sm" variant="ghost" aria-label={t("settings.org.resetPasswordFor", { name: u.name })} onClick={() => setResetFor(u)}>
+                    {t("settings.org.resetPassword")}
+                  </Button>
+                )}
               </div>
             );
           })
@@ -175,18 +182,74 @@ function Users() {
           toast("success", t("settings.org.userCreated", { name: u.name }));
         }}
       />
+      {resetFor && <ResetPassword user={resetFor} onClose={() => setResetFor(null)} />}
     </SettingsPage>
+  );
+}
+
+/** SEC-PWD-01: административный сброс — подтверждение, затем временный пароль один раз (SecretOnceDialog). */
+export function ResetPassword({ user, onClose }: { user: SafeUser; onClose: () => void }) {
+  const { t, lang, errText } = useT();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<{ temporaryPassword: string; expiresAt: string } | null>(null);
+  if (result)
+    return (
+      <SecretOnceDialog
+        secret={result.temporaryPassword}
+        onClose={onClose}
+        text={{
+          title: t("settings.org.tempTitle", { name: user.name }),
+          warning: t("settings.org.tempWarning", { time: dt(result.expiresAt, lang) }),
+          label: t("settings.org.tempLabel"),
+          saved: t("settings.org.tempSaved"),
+        }}
+      />
+    );
+  const run = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      setResult(await usersApi.resetPassword(user.id));
+    } catch (e) {
+      setErr(errText(e, t("settings.org.resetFailed")));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={t("settings.org.resetTitle")}
+      description={t("settings.org.resetDesc", { name: user.name })}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="danger" loading={busy} onClick={() => void run()}>
+            {t("settings.org.resetConfirm")}
+          </Button>
+        </>
+      }
+    >
+      {err && <p role="alert" className="text-[12.5px] text-[var(--status-danger-fg)]">{err}</p>}
+    </Dialog>
   );
 }
 
 function CreateUser({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (u: SafeUser) => void }) {
   const { t, errText } = useT();
   const [f, setF] = useState({ username: "", name: "", jobRole: "", phone: "", password: "", globalRole: "member" as SafeUser["globalRole"] });
+  // SEC-PWD-01: начальный пароль знает администратор — по умолчанию пользователь заменит его при первом входе.
+  const [mustChange, setMustChange] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (open) {
       setF({ username: "", name: "", jobRole: "", phone: "", password: "", globalRole: "member" });
+      setMustChange(true);
       setErr(null);
     }
   }, [open]);
@@ -214,6 +277,7 @@ function CreateUser({ open, onClose, onCreated }: { open: boolean; onClose: () =
         jobRole: f.jobRole.trim(),
         phone: f.phone.trim() || undefined,
         globalRole: f.globalRole,
+        mustChangePassword: mustChange,
       });
       onCreated(u);
     } catch (e) {
@@ -254,6 +318,9 @@ function CreateUser({ open, onClose, onCreated }: { open: boolean; onClose: () =
         <Input label={t("userCard.phone")} value={f.phone} onChange={set("phone")} type="tel" />
         <div className="sm:col-span-2">
           <Input label={t("settings.org.password")} value={f.password} onChange={set("password")} type="password" autoComplete="new-password" required hint={t("settings.org.passwordHint")} error={err ?? undefined} />
+        </div>
+        <div className="sm:col-span-2">
+          <Checkbox checked={mustChange} onChange={setMustChange} label={t("settings.org.mustChange")} description={t("settings.org.mustChangeDesc")} />
         </div>
         <div className="sm:col-span-2">
           <RadioGroup

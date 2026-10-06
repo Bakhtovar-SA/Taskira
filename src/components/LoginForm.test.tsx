@@ -31,7 +31,7 @@ const submit = () => act(async () => {
 
 describe("вход", () => {
   test("логин обрезается по краям, пароль — нет; после успеха — onSuccess", async () => {
-    const login = vi.spyOn(authApi, "login").mockResolvedValue({ token: "t", user: {} as never });
+    const login = vi.spyOn(authApi, "login").mockResolvedValue({ token: "t", user: {} as never, mustChangePassword: false });
     const onSuccess = renderForm();
     fill("  admin ", " pass word ");
     await submit();
@@ -50,12 +50,28 @@ describe("вход", () => {
 
   test("пока идёт запрос — повторно не отправляется", async () => {
     let resolve!: () => void;
-    const login = vi.spyOn(authApi, "login").mockImplementation(() => new Promise((r) => (resolve = () => r({ token: "t", user: {} as never }))));
+    const login = vi.spyOn(authApi, "login").mockImplementation(() => new Promise((r) => (resolve = () => r({ token: "t", user: {} as never, mustChangePassword: false }))));
     renderForm();
     fill("admin", "x");
     await submit();
     await submit();
     expect(login).toHaveBeenCalledTimes(1);
     await act(async () => resolve());
+  });
+
+  test("SEC-PWD-01: вход временным паролем — сначала свой пароль, временный второй раз не спрашивается", async () => {
+    vi.spyOn(authApi, "login").mockResolvedValue({ token: "t", user: {} as never, mustChangePassword: true });
+    const change = vi.spyOn(authApi, "changePassword").mockResolvedValue({ token: "t2", user: {} as never, mustChangePassword: false });
+    const onSuccess = renderForm();
+    fill("emp1", "Temp1-Temp2-Temp3-Temp4");
+    await submit();
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText("Задайте свой пароль")).toBeTruthy();
+    expect(screen.queryByLabelText("Текущий пароль")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Новый пароль"), { target: { value: "violet lantern quietly orbits" } });
+    fireEvent.change(screen.getByLabelText("Повторите новый пароль"), { target: { value: "violet lantern quietly orbits" } });
+    await submit();
+    expect(change).toHaveBeenCalledWith("Temp1-Temp2-Temp3-Temp4", "violet lantern quietly orbits");
+    expect(onSuccess).toHaveBeenCalledTimes(1);
   });
 });

@@ -113,6 +113,17 @@ export function useSessionActions(
     try {
       const user = await authApi.me();
       if (stale()) return;
+      // SEC-PWD-01: сессия после входа временным паролем годится только для смены пароля (сервер отвечает 403 на
+      // остальное). Форму смены показывает экран входа сразу после логина — сюда попадает только перезагрузка
+      // посреди этого шага: закрываем такую сессию и просим войти временным паролем ещё раз.
+      if (user.mustChangePassword) {
+        sessionEpochRef.current++;
+        await authApi.logout().catch(() => undefined);
+        clearToken();
+        toast("info", local("Войдите временным паролем ещё раз, чтобы задать свой", "Sign in with the temporary password again to set your own"));
+        setBootStatus("unauthenticated");
+        return;
+      }
       const [list, deps, collabs, cfg] = await Promise.all([
         projectsApi.list(),
         departmentsApi.list().catch(() => []),

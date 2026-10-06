@@ -24,6 +24,8 @@ import type {
   IssueListPageMeta,
   IssueTemplateDto,
   MeDto,
+  LoginResultDto,
+  PasswordResetResultDto,
   NotifyPrefs as NotifyPrefsDto,
   ParticipantDto,
   PROJECT_ROLES,
@@ -237,6 +239,8 @@ export type NotifyPrefs = NotifyPrefsDto;
 /** Профиль пользователя. `notifyPrefs`/`favoriteProjectIds` приходят только в GET /api/auth/me (`MeDto`), поэтому
  *  у клиента необязательны: общий список пользователей отдаёт `SafeUser` без них. */
 export type SafeUser = SafeUserDto & Partial<Pick<MeDto, "notifyPrefs" | "favoriteProjectIds">>;
+/** GET /api/auth/me: mustChangePassword (SEC-PWD-01) — сессия годится только для смены пароля. */
+export type MeUser = SafeUser & Pick<MeDto, "mustChangePassword">;
 
 export type Project = ProjectDto;
 export type Department = DepartmentDto;
@@ -324,12 +328,15 @@ export const authApi = {
    *  а сам JWT продолжал работать до истечения срока. */
   logout: () => api<void>("/api/auth/logout", { method: "POST" }),
   login: (username: string, password: string) =>
-    api<{ token: string; user: SafeUser }>("/api/auth/login", {
+    api<LoginResultDto>("/api/auth/login", {
       method: "POST",
       body: { username, password },
       auth: false,
     }),
-  me: () => api<SafeUser>("/api/auth/me"),
+  me: () => api<MeUser>("/api/auth/me"),
+  /** SEC-PWD-01: смена своего пароля. Сервер завершает остальные сеансы и выдаёт этой вкладке новую cookie. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api<LoginResultDto>("/api/me/password", { method: "POST", body: { currentPassword, newPassword } }),
   /** Язык писем и сводок (трек E): интерфейс живёт в браузере, серверу язык нужен только почте. */
   setLang: (lang: "ru" | "en") => api<void>("/api/me/lang", { method: "PUT", body: { lang } }),
   /** Режим аутентификации ресурса (local | ldap). */
@@ -507,7 +514,11 @@ export const usersApi = {
     jobRole: string;
     phone?: string;
     globalRole?: GlobalRole;
+    /** SEC-PWD-01: начальный пароль знает администратор — потребовать смену при первом входе. */
+    mustChangePassword?: boolean;
   }) => api<SafeUser>("/api/admin/users", { method: "POST", body }),
+  /** SEC-PWD-01: временный пароль локальной учётки — показывается один раз; сеансы пользователя завершаются. */
+  resetPassword: (id: string) => api<PasswordResetResultDto>(`/api/admin/users/${id}/password-reset`, { method: "POST" }),
   /** Глобальная роль и активность (PATCH /api/users/:id); последнего активного админа сервер не отпустит — 409. */
   patch: (id: string, body: { globalRole: GlobalRole; isActive?: boolean }) => api<SafeUser>(`/api/users/${id}`, { method: "PATCH", body }),
 };

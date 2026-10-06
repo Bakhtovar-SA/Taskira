@@ -147,3 +147,33 @@ describe("bootstrap → один проект (single-project path)", () => {
     unmount();
   });
 });
+
+/** SEC-PWD-01: перезагрузка посреди обязательной смены пароля. Сервер на такую сессию отвечает 403
+ *  PASSWORD_CHANGE_REQUIRED везде, кроме /auth/me и смены пароля, — без этой ветки projectsApi.list() упал бы,
+ *  и вместо формы входа человек увидел бы экран «не удалось загрузить». */
+describe("bootstrap → сессия только для смены пароля", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  test("закрывает сессию и показывает вход, не трогая данные проектов", async () => {
+    vi.spyOn(authApi, "me").mockResolvedValue({ ...baseUser, mustChangePassword: true } as never);
+    const logout = vi.spyOn(authApi, "logout").mockResolvedValue(undefined);
+    const list = vi.spyOn(projectsApi, "list");
+
+    let latest: ReturnType<typeof useStore> | null = null;
+    render(
+      <StoreProvider>
+        <Probe onSnapshot={(api) => { latest = api; }} />
+      </StoreProvider>,
+    );
+    await act(async () => {
+      await latest!.bootstrap();
+    });
+
+    expect(latest!.bootStatus).toBe("unauthenticated");
+    expect(logout).toHaveBeenCalledTimes(1);
+    expect(list).not.toHaveBeenCalled();
+  });
+});
