@@ -20,11 +20,18 @@ jobs:
         working-directory: /tmp
         run: npm install --global bun@1.3.14
       - name: Check GitHub TLS trust
+        if: always()
+        continue-on-error: true
         run: |
-          host=$(node -p 'new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL).hostname')
-          openssl s_client -connect "$host:443" -servername "$host" </dev/null 2>/dev/null |
-            openssl x509 -noout -subject -issuer -fingerprint -sha256
-          curl --silent --show-error --head --max-time 20 "https://$host/" >/dev/null
+          oidc_host=$(node -p 'new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL).hostname')
+          failed=0
+          for host in "$oidc_host" registry.npmjs.org github.com; do
+            echo "TLS certificate: $host"
+            openssl s_client -connect "$host:443" -servername "$host" </dev/null 2>/dev/null |
+              openssl x509 -noout -subject -issuer -fingerprint -sha256
+            curl --silent --show-error --head --max-time 20 "https://$host/" >/dev/null || failed=1
+          done
+          exit "$failed"
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
