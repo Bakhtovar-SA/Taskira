@@ -202,3 +202,20 @@ test("creation and revocation audit contains identifiers but no credential",asyn
   for (const row of rows) expect(row.details).toEqual({ tokenId: issued.token.id,prefix: issued.token.prefix,scope: "write",ownerId: fx.users.emp1 });
   expect(JSON.stringify(rows)).not.toContain(issued.secret); expect(JSON.stringify(rows)).not.toContain(parseToken(issued.secret)!.secret);
 });
+
+test("service author profiles in comments and history survive leaving the project",async () => {
+  const account = await service();
+  const root = `/api/projects/${fx.projects.p1}`;
+  expect((await request(admin,"PUT",`${root}/members/${account.id}`,{ role: "employee" })).statusCode).toBe(200);
+  const issued = (await request(admin,"POST",servicePath(account.id)+"/tokens",tokenBody)).json() as ApiTokenCreatedDto;
+  const created = await request(issued.secret,"POST",root+"/issues",newIssue());
+  expect(created.statusCode).toBe(201); const issuePath = root+"/issues/"+created.json().id;
+  const comment = await request(issued.secret,"POST",issuePath+"/comments",{ body: "Synced by service" });
+  expect(comment.statusCode).toBe(201); expect(comment.json().author.authSource).toBe("service");
+  expect((await request(admin,"DELETE",`${root}/members/${account.id}`)).statusCode).toBe(204);
+  const comments = await request(admin,"GET",issuePath+"/comments");
+  expect(comments.statusCode).toBe(200); expect(comments.json()[0].author).toMatchObject({ id: account.id,authSource: "service",name: account.name });
+  const activity = await request(admin,"GET",issuePath+"/activity");
+  expect(activity.statusCode).toBe(200);
+  expect(activity.json().find((entry: { actorId: string }) => entry.actorId === account.id).actor).toMatchObject({ id: account.id,authSource: "service" });
+});

@@ -15,7 +15,7 @@ const BULK = " (массовая операция)";
 export function activityText(e: ActivityEvent): string {
   switch (e.kind) {
     case "created":
-      return "создал(а) задачу";
+      return e.ruleName ? `создал(а) задачу по расписанию «${e.ruleName}»` : "создал(а) задачу";
     case "renamed":
       return "переименовал(а) задачу";
     case "description":
