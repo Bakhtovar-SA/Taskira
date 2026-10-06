@@ -166,11 +166,16 @@ jobs:
         run: bash scripts/check-migrations.sh "$BASE_SHA" "$HEAD_SHA"
 
   server:
+    name: server (postgres ${{ matrix.pg }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: ["14", "16", "17"] # мин. и макс. из server/src/services/pgVersion.ts; 16 — версия поставки (compose)
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:${{ matrix.pg }}
         env:
           POSTGRES_USER: taskira
           POSTGRES_PASSWORD: taskira
