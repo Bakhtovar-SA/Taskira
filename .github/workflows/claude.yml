@@ -18,7 +18,16 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: [self-hosted, Linux]
-    container: node:22-bookworm
+    container:
+      image: node:22-bookworm
+      volumes:
+        - /etc/ssl/certs/ca-certificates.crt:/opt/taskira-runner-ca.pem:ro
+    env:
+      NODE_EXTRA_CA_CERTS: /opt/taskira-runner-ca.pem
+      NODE_USE_SYSTEM_CA: '1'
+      SSL_CERT_FILE: /opt/taskira-runner-ca.pem
+      CURL_CA_BUNDLE: /opt/taskira-runner-ca.pem
+      GIT_SSL_CAINFO: /opt/taskira-runner-ca.pem
     permissions:
       contents: read
       pull-requests: read
@@ -39,9 +48,6 @@ jobs:
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
-        env:
-          NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca-certificates.crt
-          NODE_USE_SYSTEM_CA: '1'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           path_to_bun_executable: /usr/local/bin/bun
