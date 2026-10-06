@@ -65,6 +65,87 @@ preflight_rootless() {
   fi
 }
 
+# Compose names the project (and so its volumes and network) after the install
+# directory, lower-cased, keeping only [a-z0-9_-] — docker compose and
+# podman-compose agree on this. COMPOSE_PROJECT_NAME from the environment wins.
+compose_project_name() {
+  name="${COMPOSE_PROJECT_NAME:-$(basename -- "$1")}"
+  printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-'
+}
+
+# Two installations whose directories share a name share one project: the second
+# one attaches to the first one's database (and fails with "password authentication
+# failed"), and its `down -v` would delete the first one's data. Found on Rocky 10.2
+# (OPS-PODMAN-01). Volumes count as ours when this directory started them before
+# (marker) or when their containers were created from this directory.
+INSTALL_MARKER=".taskira-installed"
+preflight_project_volumes() {
+  dir="$1"
+  adopt="$2"
+  project="$(compose_project_name "$dir")"
+  volume="${project}_pgdata"
+  "$ENGINE" volume inspect "$volume" >/dev/null 2>&1 || return 0
+  [ -f "$dir/$INSTALL_MARKER" ] && return 0
+  [ "$adopt" = "1" ] && return 0
+  owners=""
+  for id in $("$ENGINE" ps -aq --filter "label=com.docker.compose.project=$project" 2>/dev/null || true); do
+    owner="$("$ENGINE" inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$id" 2>/dev/null || true)"
+    case "$owner" in
+      "$dir"|"$(cd "$dir" && pwd -P)") return 0 ;;
+      "") ;;
+      *) case " $owners " in *" $owner "*) ;; *) owners="$owners $owner" ;; esac ;;
+    esac
+  done
+  echo "ERROR: volume $volume already exists and does not belong to this installation ($dir)." >&2
+  echo "       Compose names volumes after the directory name (project \"$project\")." >&2
+  if [ -n "$owners" ]; then
+    echo "       It is used by the installation in:$owners" >&2
+  else
+    echo "       No container uses it: a leftover of an installation in a directory with the same name." >&2
+  fi
+  echo "       Starting here would attach to that database, and 'down -v' here would delete it." >&2
+  echo "       Extract this release into a directory with another name, or, if these volumes are" >&2
+  echo "       this installation's own data, rerun with --adopt-existing-volumes." >&2
+  return 1
+}
+
+ipv4_to_int() {
+  local IFS=.
+  set -- $1
+  echo $(( ($1 << 24) + ($2 << 16) + ($3 << 8) + $4 ))
+}
+
+cidrs_overlap() {
+  a_bits="${1#*/}"
+  b_bits="${2#*/}"
+  bits=$(( a_bits < b_bits ? a_bits : b_bits ))
+  mask=$(( bits == 0 ? 0 : (0xFFFFFFFF << (32 - bits)) & 0xFFFFFFFF ))
+  [ $(( $(ipv4_to_int "${1%/*}") & mask )) -eq $(( $(ipv4_to_int "${2%/*}") & mask )) ]
+}
+
+# The project network uses a fixed subnet (TASKIRA_NETWORK_CIDR, default
+# 172.30.0.0/24). Another network on the same subnet — typically a second
+# installation, even a stopped one — makes `up` die inside the provider with a
+# traceback; say what to change instead.
+preflight_network() {
+  dir="$1"
+  cidr="$(env_file_value "$dir/.env" TASKIRA_NETWORK_CIDR)"
+  [ -n "$cidr" ] || cidr="172.30.0.0/24"
+  [[ "$cidr" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$ ]] || return 0
+  own="$(compose_project_name "$dir")_default"
+  while IFS= read -r net; do
+    [ -n "$net" ] && [ "$net" != "$own" ] || continue
+    for subnet in $("$ENGINE" network inspect "$net" 2>/dev/null | grep -oiE '"subnet": *"[0-9.]+/[0-9]+"' | grep -oE '[0-9.]+/[0-9]+' || true); do
+      if cidrs_overlap "$cidr" "$subnet"; then
+        echo "ERROR: network $net already uses $subnet, which overlaps TASKIRA_NETWORK_CIDR=$cidr." >&2
+        echo "       Set another free private subnet in .env, for example TASKIRA_NETWORK_CIDR=172.31.0.0/24," >&2
+        echo "       or remove that network if it is a leftover: $ENGINE network rm $net" >&2
+        return 1
+      fi
+    done
+  done < <("$ENGINE" network ls --format '{{.Name}}' 2>/dev/null || true)
+}
+
 compose_run() {
   if [ "$ENGINE" = "docker" ]; then
     docker compose "$@"

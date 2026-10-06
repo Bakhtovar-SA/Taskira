@@ -59,6 +59,23 @@ case "${1:-}" in
     image="$3"
     printf 'saved image: %s\n' "$image" > "$output"
     exit 0 ;;
+  # Install preflight fixtures: FAKE_VOLUMES="name ...", FAKE_CONTAINERS="id ...",
+  # FAKE_WORKDIR=<compose working_dir label>, FAKE_NETWORKS="name=cidr ...".
+  volume)
+    [ "${2:-}" = "inspect" ] || exit 2
+    for v in ${FAKE_VOLUMES:-}; do [ "$v" = "${3:-}" ] && exit 0; done
+    exit 1 ;;
+  ps) printf '%s\n' ${FAKE_CONTAINERS:-}; exit 0 ;;
+  inspect) printf '%s\n' "${FAKE_WORKDIR:-}"; exit 0 ;;
+  network)
+    case "${2:-}" in
+      ls) for n in ${FAKE_NETWORKS:-}; do printf '%s\n' "${n%%=*}"; done ;;
+      inspect) for n in ${FAKE_NETWORKS:-}; do
+          [ "${n%%=*}" = "${3:-}" ] && printf '[{"subnets": [{"subnet": "%s"}]}]\n' "${n#*=}"
+        done ;;
+      *) exit 2 ;;
+    esac
+    exit 0 ;;
   *) echo "unexpected fake podman command: $*" >&2; exit 2 ;;
 esac
 EOF
@@ -156,6 +173,44 @@ printf '%s' "$rootless_out" | grep -q 'no subordinate UID range'
 printf '80\n' > "$TMP_DIR/proc/net/ipv4/ip_unprivileged_port_start"
 (cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" TASKIRA_PROC_SYS="$TMP_DIR/proc" \
   bash install.sh --engine podman --start >/dev/null)
+
+# Existing volumes of the same project (a second installation in a directory with
+# the same name, OPS-PODMAN-01) must not be silently shared.
+fake_start() {
+  (cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" bash install.sh --engine podman --start "$@" 2>&1)
+}
+[ -f "$RELEASE_DIR/.taskira-installed" ]   # written by the successful starts above
+rm -f "$RELEASE_DIR/.taskira-installed"
+export FAKE_VOLUMES="taskira-987-test_pgdata" FAKE_CONTAINERS="c1" FAKE_WORKDIR="/srv/other/taskira-9.8.7-test"
+if out="$(fake_start)"; then
+  echo "install.sh started on volumes of another installation" >&2
+  exit 1
+fi
+printf '%s' "$out" | grep -q 'does not belong to this installation'
+printf '%s' "$out" | grep -q '/srv/other/taskira-9.8.7-test'
+FAKE_WORKDIR="$RELEASE_DIR" fake_start >/dev/null      # containers created from this directory
+rm -f "$RELEASE_DIR/.taskira-installed"
+export FAKE_CONTAINERS=""                              # leftover volume, no containers
+if out="$(fake_start)"; then
+  echo "install.sh started on a leftover volume" >&2
+  exit 1
+fi
+printf '%s' "$out" | grep -q 'No container uses it'
+fake_start --adopt-existing-volumes >/dev/null
+[ -f "$RELEASE_DIR/.taskira-installed" ]
+fake_start >/dev/null                                  # adopted once, no flag needed again
+unset FAKE_VOLUMES FAKE_CONTAINERS FAKE_WORKDIR
+
+# A network on an overlapping subnet fails early with the variable to change.
+if out="$(FAKE_NETWORKS="podman=10.88.0.0/16 other_default=172.30.0.0/16" fake_start)"; then
+  echo "install.sh ignored an overlapping network subnet" >&2
+  exit 1
+fi
+printf '%s' "$out" | grep -q 'other_default already uses 172.30.0.0/16, which overlaps TASKIRA_NETWORK_CIDR=172.30.0.0/24'
+FAKE_NETWORKS="taskira-987-test_default=172.30.0.0/24 lan=172.31.0.0/24" fake_start >/dev/null
+printf 'TASKIRA_NETWORK_CIDR=172.31.8.0/24\n' >> "$RELEASE_DIR/.env"
+FAKE_NETWORKS="other_default=172.30.0.0/24" fake_start >/dev/null
+sed -i '/^TASKIRA_NETWORK_CIDR=/d' "$RELEASE_DIR/.env"
 
 # SELinux: the bind-mounted storage directory must carry :z.
 grep -q 'backup/storage:z' scripts/operations-common.sh
