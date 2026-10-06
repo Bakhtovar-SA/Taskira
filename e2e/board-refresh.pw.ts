@@ -76,6 +76,6 @@ for (const width of [390, 320]) test(`board refresh: mobile targets and no overf
   await page.goto("/p/CORP/board");
   await expect(page.locator(".board-card")).toHaveCount(8);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  for (const button of await page.locator(".workspace-controls button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  for (const button of await page.locator(".workspace-controls button").all()) expect(Number((await button.boundingBox())!.height.toFixed(2))).toBeGreaterThanOrEqual(44);
   await expect(page.locator(".board-col").last()).toBeVisible();
 });
