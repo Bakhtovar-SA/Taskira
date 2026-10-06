@@ -51,7 +51,9 @@ let cached: PgVersionInfo | null = null;
 
 export async function getPgVersionInfo(): Promise<PgVersionInfo> {
   if (cached) return cached;
-  const [row] = await q<{ v: string }>(`SHOW server_version_num`);
+  // Алиас обязателен: `SHOW server_version_num` отдаёт колонку `server_version_num`, а не `v` (из-за этого сервер
+  // отказывался стартовать на любой версии PostgreSQL).
+  const [row] = await q<{ v: string }>(`SELECT current_setting('server_version_num') AS v`);
   const info = assessPgVersion(row?.v ?? "");
   cached = info;
   return info;
