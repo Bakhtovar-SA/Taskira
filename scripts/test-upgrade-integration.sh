@@ -264,7 +264,7 @@ assert_rolled_back_to_old() {
   grep -Fq 'Starting automatic rollback' "$log"
   grep -Fq 'Automatic rollback complete' "$log"
   [ "$(cat "$INSTALL_DIR/VERSION")" = "$OLD_VERSION" ]
-  [ "$(installed_db 'SELECT value FROM upgrade_snapshot_probe')" = "023_sprints.sql" ]
+  [ "$(installed_db 'SELECT value FROM upgrade_snapshot_probe')" = "$OLD_LAST_MIGRATION" ]
   [ "$(installed_db 'SELECT name FROM schema_migrations ORDER BY name DESC LIMIT 1')" = "$before_upgrade" ]
   curl --fail --silent "http://127.0.0.1:18081/api/health" | grep -Fq "\"version\":\"$OLD_VERSION\""
 }
