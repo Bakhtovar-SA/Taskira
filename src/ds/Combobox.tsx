@@ -45,6 +45,7 @@ export function Combobox({
   const pop = useRef<HTMLDivElement>(null);
   const reqSeq = useRef(0);
   useAnchored(field, pop, open, { matchWidth: true, gap: 4 });
+  useEffect(() => { if (value) setQ(value.label); }, [value?.id, value?.label]);
 
   useLayoutEffect(() => {
     if (open) showPop(pop.current);
@@ -105,7 +106,7 @@ export function Combobox({
           value={q}
           placeholder={placeholder}
           onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          onBlur={() => { if (value) setQ(value.label); window.setTimeout(() => setOpen(false), 120); }}
           onChange={(e) => {
             reqSeq.current++;
             setActive(0);

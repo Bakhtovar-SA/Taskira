@@ -35,7 +35,7 @@ beforeEach(() => {
   vi.mocked(recurringApi.runs).mockResolvedValue([run]); vi.mocked(recurringApi.runNow).mockResolvedValue(run);
   vi.mocked(usersApi.pickable).mockResolvedValue(store.data.users as never);
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear(); });
 const show = (component = <ProjectRecurring />) => render(<I18nProvider>{component}</I18nProvider>);
 const form = (props: Partial<Parameters<typeof RecurringRuleForm>[0]> = {}) => show(<RecurringRuleForm projectId="p1" defaultTimeZone="Asia/Tashkent" onClose={vi.fn()} onSaved={vi.fn()} {...props} />);
 async function menu(item: string) {
@@ -70,6 +70,13 @@ test("new weekly rule saves schema fields, numeric weekdays and null due date", 
   expect(vi.mocked(recurringApi.create).mock.calls[0]).toEqual(["p1", expect.objectContaining({ name: "Inspection", templateId: "t1", title: null,
     schedule: { kind: "weekly", every: 1, weekdays: [1, 3] }, timeOfDay: "09:00", timeZone: "Asia/Tashkent", assigneeIds: [], dueInDays: null, skipIfOpen: false })]);
 });
+test.each([[1, "Каждый месяц"], [3, "Раз в квартал"], [6, "Раз в полгода"], [12, "Раз в год"]] as const)("monthly preset %i saves a calendar interval", async (every, label) => {
+  form(); fireEvent.change(screen.getByRole("textbox", { name: "Название правила" }), { target: { value: "Report" } });
+  fireEvent.click(screen.getByRole("button", { name: "Ежемесячно" })); fireEvent.click(screen.getByRole("button", { name: label }));
+  expect((screen.getByRole("spinbutton", { name: "Каждые N" }) as HTMLInputElement).value).toBe(String(every));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Последний день месяца" })); fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+  await waitFor(() => expect(recurringApi.create).toHaveBeenCalledWith("p1", expect.objectContaining({ schedule: { kind: "monthly", every, day: "last" } })));
+});
 test("preview debounces schedule changes and ignores aborted responses", async () => {
   vi.useFakeTimers(); const pending: ((value: { next: string[] }) => void)[] = [];
   vi.mocked(recurringApi.preview).mockImplementation(() => new Promise(resolve => pending.push(resolve)));
@@ -87,6 +94,14 @@ test("preview debounces schedule changes and ignores aborted responses", async (
 test("preview validation appears inline without a toast", async () => {
   vi.useFakeTimers(); vi.mocked(recurringApi.preview).mockRejectedValue(new ApiError(400, "VALIDATION", "Неверный пояс")); form();
   await act(async () => { await vi.advanceTimersByTimeAsync(300); }); expect(screen.getByRole("alert").textContent).toBe("Неверный пояс"); expect(store.toast).not.toHaveBeenCalled();
+});
+test("without supportedValuesOf, the rule zone and UTC are still selectable", async () => {
+  vi.useFakeTimers(); vi.stubGlobal("Intl", Object.assign(Object.create(Intl), { supportedValuesOf: undefined }));
+  form(); fireEvent.focus(screen.getByRole("combobox", { name: "Часовой пояс" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "Часовой пояс" }), { target: { value: "" } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+  expect(screen.getByRole("option", { name: "UTC", hidden: true })).toBeTruthy();
+  expect(screen.getByRole("option", { name: "Asia/Tashkent", hidden: true })).toBeTruthy();
 });
 test("unrelated edits omit old start dates and departed assignees; unchanged save can transfer ownership", async () => {
   const saved = vi.fn(); form({ rule: { ...rule, assigneeIds: ["departed"] }, onSaved: saved });

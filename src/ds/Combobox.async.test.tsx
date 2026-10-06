@@ -3,6 +3,15 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { Combobox, type ComboOption } from "./Combobox";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
+test("controlled selection updates its label and restores unselected text on blur", () => {
+  const load = vi.fn(async () => []), selected = vi.fn();
+  const view = render(<Combobox label="Zone" load={load} onSelect={selected} value={{ id: "UTC", label: "UTC" }} />);
+  const input = screen.getByRole("combobox") as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "Unselected zone" } }); expect(input.value).toBe("Unselected zone");
+  fireEvent.blur(input); expect(input.value).toBe("UTC"); expect(selected).not.toHaveBeenCalled();
+  view.rerender(<Combobox label="Zone" load={load} onSelect={selected} value={{ id: "Asia/Tashkent", label: "Asia/Tashkent" }} />);
+  expect(input.value).toBe("Asia/Tashkent");
+});
 
 test.each([0, 200, 1000])("Enter cannot select previous results during a new search (%i ms)", async latency => {
   vi.useFakeTimers();

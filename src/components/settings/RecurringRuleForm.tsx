@@ -52,7 +52,7 @@ export default function RecurringRuleForm({ projectId, rule, defaultTimeZone, on
     }, 300);
     return () => { ++seq.current; window.clearTimeout(timer); controller.abort(); };
   }, [projectId, timing]);
-  const zones = useMemo(() => [...new Set(["UTC", zone, ...Intl.supportedValuesOf("timeZone")])], [zone]);
+  const zones = useMemo(() => [...new Set(["UTC", zone, ...(typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [])])], [zone]);
   const zoneValue = useMemo(() => ({ id: zone, label: zone }), [zone]);
   const loadZones = useCallback(async (query: string) => zones.filter(value => value.toLowerCase().includes(query.toLowerCase())).map(value => ({ id: value, label: value })), [zones]);
   const loadPeople = useCallback(async (query: string) => {
@@ -93,6 +93,11 @@ export default function RecurringRuleForm({ projectId, rule, defaultTimeZone, on
         <Tabs label={t("recurring.schedule")} value={kind} onChange={value => { setKind(value); setEvery("1"); }} items={[
           { id: "daily", label: t("recurring.daily") }, { id: "weekly", label: t("recurring.weekly") }, { id: "monthly", label: t("recurring.monthly") },
         ]} />
+        {kind === "monthly" && <div role="group" aria-label={t("recurring.interval")} className="flex flex-wrap gap-1">
+          {([[1, "month"], [3, "quarter"], [6, "halfYear"], [12, "year"]] as const).map(([count, label]) =>
+            <Button key={count} size="sm" aria-pressed={every === String(count)} variant={every === String(count) ? "secondary" : "ghost"}
+              onClick={() => setEvery(String(count))}>{t(`recurring.interval.${label}`)}</Button>)}
+        </div>}
         <Input type="number" min={1} max={kind === "daily" ? 30 : 12} label={t("recurring.every")} value={every} onChange={event => setEvery(event.target.value)} />
         {kind === "weekly" && <div role="group" aria-label={t("recurring.weekdays")} className="flex flex-wrap gap-1">
           {[1, 2, 3, 4, 5, 6, 7].map(day => <Button key={day} size="sm" aria-pressed={weekdays.includes(day)} variant={weekdays.includes(day) ? "secondary" : "ghost"}

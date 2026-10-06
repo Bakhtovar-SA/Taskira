@@ -86,3 +86,18 @@ test("viewers only get history; operators can disable automatic runs", async ({ 
   await page.getByRole("button", { name: "Действия: Еженедельная проверка" }).click();
   await expect(page.getByRole("menuitem")).toHaveCount(1); await expect(page.getByRole("menuitem", { name: "История запусков" })).toBeVisible();
 });
+test("monthly, quarterly, half-year and annual presets use calendar months", async ({ page }) => {
+  const state = await mockApi(page); await page.goto("/p/TEST/settings/recurring");
+  await page.getByRole("button", { name: "Добавить правило" }).click();
+  const dialog = page.getByRole("dialog", { name: "Добавить правило" });
+  await dialog.getByRole("textbox", { name: "Название правила" }).fill("Годовой отчёт");
+  await dialog.getByRole("button", { name: "Ежемесячно", exact: true }).click();
+  for (const [every, label] of [[1, "Каждый месяц"], [3, "Раз в квартал"], [6, "Раз в полгода"], [12, "Раз в год"]] as const) {
+    await dialog.getByRole("button", { name: label, exact: true }).click();
+    await expect(dialog.getByRole("spinbutton", { name: "Каждые N" })).toHaveValue(String(every));
+    await expect.poll(() => state.previews.at(-1)?.schedule).toEqual({ kind: "monthly", every, day: 31 });
+  }
+  await dialog.getByRole("checkbox", { name: "Последний день месяца", exact: true }).check();
+  await dialog.getByRole("button", { name: "Сохранить", exact: true }).click();
+  await expect(dialog).not.toBeVisible(); expect(state.writes[0].schedule).toEqual({ kind: "monthly", every: 12, day: "last" });
+});

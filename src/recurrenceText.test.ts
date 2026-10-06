@@ -15,6 +15,9 @@ const examples: [RecurrenceSchedule, string, string][] = [
   [{ kind: "weekly", every: 2, weekdays: [3, 1] }, "Каждые 2 недели: пн, ср", "Every 2 weeks: Mon, Wed"],
   [{ kind: "monthly", every: 1, day: 15 }, "15-го числа каждого месяца", "Day 15 of every month"],
   [{ kind: "monthly", every: 1, day: "last" }, "Последний день каждого месяца", "Last day of every month"],
+  [{ kind: "monthly", every: 3, day: "last" }, "Последний день месяца каждые 3 месяца", "Last day every 3 months"],
+  [{ kind: "monthly", every: 6, day: 15 }, "15-го числа каждые 6 месяцев", "Day 15 every 6 months"],
+  [{ kind: "monthly", every: 12, day: 15 }, "15-го числа каждые 12 месяцев", "Day 15 every 12 months"],
   [{ kind: "monthly", every: 5, day: 31 }, "31-го числа каждые 5 месяцев", "Day 31 every 5 months"],
 ];
 for (const lang of ["ru", "en"] as const) test.each(examples)(`schedule in ${lang}: %j`, (schedule, russian, english) => {
