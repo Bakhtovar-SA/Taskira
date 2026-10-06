@@ -63,6 +63,23 @@ const archivedCount = async () =>
 const auditRuns = () => q<{ details: Record<string, unknown> }>(`SELECT details FROM audit_log WHERE action = 'maintenance.run'`);
 
 describe("пачки и потолок за проход", () => {
+  test("отчёты хоста: по 200 новейших на вид операции, пачки, аудит и resetDb без FK", async () => {
+    await q(`INSERT INTO ops_runs (kind, started_at, result, details)
+      SELECT kind, now()-make_interval(secs => position), 'success', jsonb_build_object('position', position)
+      FROM unnest(ARRAY['backup','restore_drill']) kind CROSS JOIN generate_series(1,215) position`);
+    cfg().maxPerRun = 20;
+    expect((await runMaintenanceOnce()).capped).toBe(true);
+    expect(Number((await q<{ n: string }>(`SELECT count(*) AS n FROM ops_runs`))[0].n)).toBe(410);
+    expect((await runMaintenanceOnce()).capped).toBe(false);
+    expect(await q(`SELECT kind, count(*)::int AS n, max((details->>'position')::int) AS oldest
+      FROM ops_runs GROUP BY kind ORDER BY kind`)).toEqual([
+      { kind: 'backup', n: 200, oldest: 200 }, { kind: 'restore_drill', n: 200, oldest: 200 },
+    ]);
+    expect((await auditRuns()).map((row) => row.details.opsRunsPurged)).toEqual([20, 10]);
+    await resetDb();
+    expect(Number((await q<{ n: string }>(`SELECT count(*) AS n FROM ops_runs`))[0].n)).toBe(0);
+  });
+
   test("60 подходящих при потолке 25: 25 → 25 → 10, capped только пока остаток мог остаться", async () => {
     await oldClosed(60);
     cfg().maxPerRun = 25;
