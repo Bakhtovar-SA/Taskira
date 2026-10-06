@@ -1199,6 +1199,10 @@
 | `sprintsEnabled` | boolean | необязательное; по умолчанию false |
 | `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное |
 
+### RecurrenceSchedule
+
+`discriminatedunion`
+
 ### ReportPoint
 
 | Поле | Тип | Замечания |
