@@ -122,14 +122,13 @@ export async function subtasksSummaryBatch(issueIds: string[]): Promise<Map<stri
 /** Каждый исполнитель должен реально быть участником проекта — то же правило,
  *  что раньше применялось к единственному assigneeId (глобальный admin не
  *  проходит мимо неё, если не состоит в проекте — см. историю в routes/issues.ts). */
-export async function validateAssigneesInProject(projectId: string, userIds: string[]): Promise<void> {
+export async function validateAssigneesInProject(projectId: string, userIds: string[], client?: PoolClient): Promise<void> {
   if (userIds.length === 0) return;
-  const rows = await q<{ id: string }>(
-    `SELECT u.id FROM users u
+  const sql = `SELECT u.id FROM users u
       WHERE u.id = ANY($1) AND u.is_active
-        AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id)`,
-    [userIds, projectId],
-  );
+        AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id)`;
+  const params = [userIds, projectId];
+  const rows = client ? (await client.query<{ id: string }>(sql, params)).rows : await q<{ id: string }>(sql, params);
   if (rows.length !== new Set(userIds).size) throw badRequest("Все исполнители должны быть участниками проекта");
 }
 
@@ -364,15 +363,13 @@ export async function getIssueDto(projectId: string, issueId: string, viewerId: 
 /** Атомарный следующий номер задачи: UPSERT счётчика (миграция 003).
     Первое обращение к счётчику проекта стартует с MAX(num)+1 — защита от
     расхождения, если задачи уже создавались до появления счётчика. */
-export async function nextIssueNum(projectId: string): Promise<number> {
-  const row = await one<{ num: number }>(
-    `INSERT INTO project_counters (project_id, next_num)
+export async function nextIssueNum(projectId: string, client?: PoolClient): Promise<number> {
+  const sql = `INSERT INTO project_counters (project_id, next_num)
        SELECT $1, COALESCE((SELECT MAX(num) FROM issues WHERE project_id = $1), 0) + 2
        ON CONFLICT (project_id)
        DO UPDATE SET next_num = project_counters.next_num + 1
-     RETURNING next_num - 1 AS num`,
-    [projectId],
-  );
+     RETURNING next_num - 1 AS num`;
+  const row = client ? (await client.query<{ num: number }>(sql, [projectId])).rows[0] : await one<{ num: number }>(sql, [projectId]);
   if (!row) throw new Error("Счётчик задач не вернул номер");
   return row.num;
 }

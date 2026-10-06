@@ -444,6 +444,21 @@ export const ChecklistItemPatchBody = z
 
 export const ChecklistItemParams = z.object({ itemId: uuid });
 
+/* ---------------- Повторяющиеся задачи ---------------- */
+export const RecurrenceSchedule = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("daily"), every: z.number().int().min(1).max(30) }),
+  z.object({
+    kind: z.literal("weekly"), every: z.number().int().min(1).max(12),
+    weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7)
+      .refine(days => new Set(days).size === days.length, "Дни недели должны быть уникальны"),
+  }),
+  z.object({
+    kind: z.literal("monthly"), every: z.number().int().min(1).max(12),
+    day: z.union([z.number().int().min(1).max(31), z.literal("last")]),
+  }),
+]);
+export type RecurrenceSchedule = z.infer<typeof RecurrenceSchedule>;
+
 /* ---------------- Issue templates (миграция 022) ---------------- */
 /** statusId — необязательная подсказка стартового статуса; отсутствует/null —
  *  «как обычно» (сервер сам выбирает первый статус категории todo). */
