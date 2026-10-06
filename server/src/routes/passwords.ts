@@ -1,6 +1,8 @@
 /** SEC-PWD-01 (ADR-0034): смена своего пароля и административный сброс — только для локальных учёток.
  *   POST /api/me/password                      — сессия (не API-токен): текущий + новый пароль;
- *   POST /api/admin/users/:id/password-reset   — глобальный админ: одноразовый временный пароль.
+ *   POST /api/admin/users/:id/password-reset   — глобальный админ: временный пароль (действует до смены или
+ *                                                истечения срока), API-токены пользователя отзываются;
+ *                                                администраторов и break-glass не сбрасывает (409 PASSWORD_RESET_ADMIN).
  *  LDAP-учётки (и сервисные записи) получают 409 PASSWORD_NOT_LOCAL: их пароль живёт в каталоге. */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
@@ -11,8 +13,11 @@ import { loadConfig } from "../config.js";
 import { ChangePasswordBody, UserIdParams, type LoginResultDto, type PasswordResetResultDto } from "../contract.js";
 import { ApiHttpError, notFound, requireGlobalAdmin, requireSession, revokeUserSessions, unauthorized, zbody, zparams } from "../middleware.js";
 import { hashPassword, verifyPassword } from "../services/passwordHash.js";
-import { assertPasswordAllowed, generateTemporaryPassword, passwordRouteLimit, recordPasswordFailure } from "../services/passwords.js";
+import { assertPasswordAllowed, passwordRouteLimit, recordPasswordFailure, resetLocalPassword } from "../services/passwords.js";
 import { sessionCookie } from "../sessionCookie.js";
+
+const adminTarget = () =>
+  new ApiHttpError(409, "PASSWORD_RESET_ADMIN", "Пароль администратора не сбрасывается из интерфейса — восстановление описано в docs/OPERATIONS.md");
 
 const notLocal = () =>
   new ApiHttpError(409, "PASSWORD_NOT_LOCAL", "Пароль этой учётной записи управляется в каталоге (LDAP) — сменить его в Taskira нельзя");
@@ -39,6 +44,14 @@ export async function passwordRoutes(app: FastifyInstance): Promise<void> {
       if (!check.ok) {
         const locked = await recordPasswordFailure(row.id);
         await auditFromRequest(req, "auth.password.change", "user", row.id, { reason: "wrong_current", locked }, "denied");
+        if (locked) {
+          // Перебор текущего пароля из чужой (украденной) сессии: блокировка учётки завершает и эту сессию, и все
+          // остальные — иначе сессия пережила бы блокировку, которая её же и остановила.
+          await q(`UPDATE users SET session_version = session_version + 1 WHERE id = $1`, [row.id]);
+          revokeUserSessions(row.id, "account locked by wrong current password");
+          reply.removeHeader("set-cookie");
+          throw new ApiHttpError(401, "ACCOUNT_LOCKED", "Слишком много неверных паролей — учётная запись заблокирована, сеанс завершён");
+        }
         // 403, а не 401: 401 клиент понимает как «сессия кончилась» и выкидывает на форму входа.
         throw new ApiHttpError(403, "CURRENT_PASSWORD_INVALID", "Текущий пароль указан неверно");
       }
@@ -85,25 +98,25 @@ export async function passwordRoutes(app: FastifyInstance): Promise<void> {
       const row = await one<UserRow>(`SELECT * FROM users WHERE id = $1`, [id]);
       if (!row) throw notFound("Пользователь не найден");
       if (row.auth_source !== "local") throw notLocal();
+      // Администратора и break-glass учётку из интерфейса не сбрасываем (захват чужого администратора; в LDAP-режиме —
+      // постоянный администратор вне каталога через break-glass). Восстановление — консольное, docs/OPERATIONS.md.
+      if (row.global_role === "admin" || row.username === loadConfig().admin?.username) {
+        await auditFromRequest(req, "user.password.reset", "user", id, { username: row.username, reason: "admin_target" }, "denied");
+        throw adminTarget();
+      }
 
-      const temporaryPassword = await generateTemporaryPassword(row);
-      const hash = await hashPassword(temporaryPassword);
-      const updated = await one<{ password_expires_at: Date }>(
-        `UPDATE users
-            SET password_hash = $2, must_change_password = true,
-                password_expires_at = now() + ($3 * interval '1 hour'),
-                session_version = session_version + 1, failed_login_attempts = 0, locked_until = NULL
-          WHERE id = $1 AND auth_source = 'local'
-          RETURNING password_expires_at`,
-        [id, hash, loadConfig().passwords.resetTtlHours],
-      );
-      if (!updated) throw notLocal();
-      // Сброс — реальный отзыв: старый пароль мог быть скомпрометирован, все сессии пользователя закрываются.
+      const outcome = await resetLocalPassword(row, req.user.sub, { allowAdmin: false });
+      if (!outcome) throw adminTarget(); // строка изменилась между SELECT и UPDATE (стала администратором/не локальной)
+      // Сброс — реальный отзыв: старый пароль мог быть скомпрометирован, все сессии пользователя закрываются,
+      // API-токены отозваны в той же транзакции (resetLocalPassword).
       revokeUserSessions(id, "password reset by admin");
-      const expiresAt = updated.password_expires_at.toISOString();
       // В журнал — только факт и срок, никакого материала пароля.
-      await auditFromRequest(req, "user.password.reset", "user", id, { username: row.username, expiresAt });
-      const result: PasswordResetResultDto = { temporaryPassword, expiresAt };
+      await auditFromRequest(req, "user.password.reset", "user", id, {
+        username: row.username,
+        expiresAt: outcome.expiresAt,
+        revokedTokens: outcome.revokedTokens,
+      });
+      const result: PasswordResetResultDto = outcome;
       return reply.header("Cache-Control", "no-store").send(result);
     },
   );

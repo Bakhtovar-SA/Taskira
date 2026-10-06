@@ -1200,6 +1200,7 @@
 |---|---|---|
 | `temporaryPassword` | string |  |
 | `expiresAt` | string |  |
+| `revokedTokens` | number |  |
 
 ### PickableUserDto
 

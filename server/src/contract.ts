@@ -1074,9 +1074,10 @@ export type MeDto = z.infer<typeof MeDto>;
 export const LoginResultDto = z.object({ token: z.string(), user: SafeUser, mustChangePassword: z.boolean() });
 export type LoginResultDto = z.infer<typeof LoginResultDto>;
 
-/** POST /api/admin/users/:id/password-reset: одноразовый временный пароль показывается ОДИН раз (Cache-Control:
- *  no-store), хранится только его хэш; expiresAt — ISO-время, после которого им не войти. */
-export const PasswordResetResultDto = z.object({ temporaryPassword: z.string(), expiresAt: z.string() });
+/** POST /api/admin/users/:id/password-reset: временный пароль показывается ОДИН раз (Cache-Control: no-store),
+ *  хранится только его хэш. Действует до смены пароля пользователем или до expiresAt (ISO), и вход с ним разрешает
+ *  только смену пароля. revokedTokens — сколько API-токенов пользователя отозвано вместе со сбросом. */
+export const PasswordResetResultDto = z.object({ temporaryPassword: z.string(), expiresAt: z.string(), revokedTokens: z.number() });
 export type PasswordResetResultDto = z.infer<typeof PasswordResetResultDto>;
 
 export const ProjectDto = z.object({

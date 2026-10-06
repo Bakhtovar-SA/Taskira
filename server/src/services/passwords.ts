@@ -3,10 +3,68 @@
  * Маршруты — routes/passwords.ts; решение и его границы — docs/adr/0034-local-password-change-reset.md.
  */
 import { randomInt } from "node:crypto";
+import { audit } from "../audit.js";
 import { loadConfig } from "../config.js";
-import { one, q } from "../db.js";
+import { one, q, withTransaction } from "../db.js";
 import { ApiHttpError } from "../errors.js";
 import { passwordPolicyViolation, type PasswordPolicyViolation } from "../passwordPolicy.js";
+import { invalidateUserTokens } from "./apiTokens.js";
+import { hashPassword } from "./passwordHash.js";
+
+export interface PasswordResetOutcome {
+  temporaryPassword: string;
+  expiresAt: string;
+  revokedTokens: number;
+}
+
+/**
+ * Сброс пароля локальной учётки одной транзакцией: временный пароль + `must_change_password` + срок, блокировка
+ * снята, `session_version + 1`, и ВСЕ активные API-токены пользователя отозваны (сброс — реакция на возможную
+ * компрометацию; токен, выпущенный злоумышленником до сброса, не должен его пережить).
+ *
+ * allowAdmin=false (маршрут администратора): администратора и break-glass учётку (`ADMIN_USERNAME`) сбросить нельзя —
+ * иначе администратор из LDAP-группы через сброс break-glass получал бы постоянного администратора вне каталога,
+ * а в local-режиме один администратор захватывал бы учётку другого. Условие стоит в самом UPDATE, а не только в
+ * проверке маршрута: повышение до администратора между SELECT и UPDATE не проскочит. allowAdmin=true — только
+ * консольное восстановление (src/resetPassword.ts), для которого нужен доступ к серверу и БД.
+ *
+ * Возвращает null, если строка не подошла (не локальная, администратор при allowAdmin=false, удалена).
+ * Сессии в памяти процесса (WS, кэш свежести) вызывающий отзывает сам — revokeUserSessions() живёт в middleware.
+ */
+export async function resetLocalPassword(
+  target: PasswordOwner & { id: string },
+  actorId: string | null,
+  opts: { allowAdmin: boolean },
+): Promise<PasswordResetOutcome | null> {
+  const cfg = loadConfig();
+  const temporaryPassword = await generateTemporaryPassword(target);
+  const hash = await hashPassword(temporaryPassword);
+  const result = await withTransaction(async (client) => {
+    const { rows } = await client.query<{ password_expires_at: Date }>(
+      `UPDATE users
+          SET password_hash = $2, must_change_password = true,
+              password_expires_at = now() + ($3 * interval '1 hour'),
+              session_version = session_version + 1, failed_login_attempts = 0, locked_until = NULL
+        WHERE id = $1 AND auth_source = 'local'
+          AND ($4::boolean OR (global_role <> 'admin' AND username IS DISTINCT FROM $5))
+        RETURNING password_expires_at`,
+      [target.id, hash, cfg.passwords.resetTtlHours, opts.allowAdmin, cfg.admin?.username ?? null],
+    );
+    if (!rows[0]) return null;
+    const tokens = await client.query<{ id: string; prefix: string; scope: string }>(
+      `UPDATE api_tokens SET revoked_at = now(), revoked_by = $2
+        WHERE user_id = $1 AND revoked_at IS NULL
+        RETURNING id, prefix, scope`,
+      [target.id, actorId],
+    );
+    return { expiresAt: rows[0].password_expires_at, tokens: tokens.rows };
+  });
+  if (!result) return null;
+  invalidateUserTokens(target.id); // кэш проверенных токенов (≤30 с) — сразу
+  for (const t of result.tokens)
+    await audit(actorId, "token.revoke", "apiToken", t.id, { tokenId: t.id, prefix: t.prefix, scope: t.scope, ownerId: target.id, reason: "password_reset" });
+  return { temporaryPassword, expiresAt: result.expiresAt.toISOString(), revokedTokens: result.tokens.length };
+}
 
 /** Кто ставит пароль — для запрета логина и имени в пароле. */
 export interface PasswordOwner {
