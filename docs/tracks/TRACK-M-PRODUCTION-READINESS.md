@@ -11,7 +11,7 @@
 
 | Область | Что есть |
 |---|---|
-| Обновление | `scripts/upgrade.sh`, `backup.sh`, `restore.sh`, `release/install.sh`, `release/container-engine.sh` (Docker/Podman) |
+| Обновление | `scripts/upgrade.sh`, `backup.sh`, `restore.sh`, `scripts/release/install.sh`, `scripts/release/container-engine.sh` (Docker/Podman) |
 | Тесты обновления | CI-job `offline upgrade and rollback` (`scripts/test-upgrade-integration.sh`: собирает старую версию из `OLD_REF` через `git archive`, обновляет снапшот данных, откатывает), `test-backup-restore-integration.sh`, `server/scripts/upgrade-snapshot-smoke.mjs` |
 | Миграции | `docs/MIGRATIONS.md`, `scripts/check-migrations.sh`, `test-migration-policy.sh` (expand/contract в CI) |
 | Права | `shared/permissions.matrix.json` → генерация, `server/test/access.*.test.ts`, `permissions-sync.test.ts` |
@@ -68,9 +68,9 @@ V9 (токены), V12 (файлы), V13 (API), V14 (конфигурация) �
 **Сделать:**
 1. `check-trivy-ignore.sh`: падать, если `expired_at` уже в прошлом (сейчас проверяется только наличие даты).
 2. gitleaks по всей истории — новый шаг в CI.
-3. `npm audit`: оставить с dev-зависимостями (сборочные пакеты тоже попадают в цепочку поставки), но описать в
+3. `npm audit` уже включает dev-зависимости — не менять; только описать в
    SECURITY_OVERVIEW, как временно принять уязвимость в dev-зависимости, если исправления нет.
-**Критерии:** просроченное исключение валит CI (тест в `test-release-scripts.sh` или отдельный); gitleaks зелёный на `main`.
+**Критерии:** просроченное исключение валит CI (тест в `test-release-scripts.sh` или отдельный); gitleaks зелёный на `main`, checkout с `fetch-depth: 0` (иначе сканируется один коммит).
 
 ### SEC-SSRF-01. Ревизия SSRF вебхуков
 **Проверить тестами:** DNS rebinding (резолв на этапе проверки ≠ на этапе соединения — соединяться по уже проверенному IP),
@@ -91,14 +91,14 @@ scope. Результат аудита — `docs/AUDIT-<дата>-external.md` +
 **Проверить на чистой машине (RHEL 9 / Rocky 9 или Astra/РЕД ОС — что реально у клиентов):**
 rootless запуск через `install.sh`; права на тома (UID mapping, `:Z`/`:z` под SELinux); `podman-compose` vs `podman kube`/quadlet;
 автостарт после перезагрузки (`systemd --user` + `loginctl enable-linger`); порты < 1024 в rootless.
-**Результат:** раздел в `README_INSTALL.md.in` «Podman rootless» + известные проблемы; при необходимости quadlet-юниты в релизе.
+**Результат:** раздел в `scripts/release/README_INSTALL.md.in` «Podman rootless» + известные проблемы; при необходимости quadlet-юниты в релизе.
 **Критерии:** прогон зафиксирован в `docs/MANUAL-CHECK-TRACK-M.md` (команды + вывод); CI-job с `podman` (ubuntu-runner
 поддерживает) выполняет `install.sh` → health → `upgrade.sh`.
 
 ### OPS-UPG-01. «Обновление с N-1» от настоящего релиза
 **Уже есть:** job `offline upgrade and rollback` на каждом PR; `test-upgrade-integration.sh` собирает старую версию из
 `OLD_REF` (`git archive`), а не переиспользует текущий код.
-**Что не так:** `OLD_REF` захардкожен коммитом (`d6c3966`) и устаревает с каждым релизом.
+**Что не так:** `OLD_REF` захардкожен коммитом (`d6c3966`), версии тоже зашиты (`1.0.0` / `1.1.0`) — всё это устаревает с каждым релизом.
 **Сделать:** брать `OLD_REF` из последнего опубликованного тега релиза (`git describe --tags --abbrev=0` или список
 релизов), с явным переопределением через переменную; добавить ночной запуск на `main` (`schedule`), если job станет
 тяжёлым — ограничить PR-запуски путями `server/migrations/**`, `scripts/**`, `Dockerfile*`, compose.
