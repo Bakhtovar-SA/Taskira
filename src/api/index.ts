@@ -1,6 +1,9 @@
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
 import type {
+  WebhookCreateBody, WebhookPatchBody, WebhookDeliveryQuery, WebhookDto, WebhookDeliveryDetailDto,
+  WebhookCreatedDto, WebhookSecretRotatedDto, WebhookDeliveryPageDto, WebhookQueuedDto,
+  WebhookRedeliveredDto, IntegrationsConfigDto,
   OnboardingDto,
   SetupStatusDto,
   ActivityDto,
@@ -58,6 +61,7 @@ import type {
   ProjectOverviewDto,
   WidgetDataDto,
 } from "../../server/src/contract";
+import type { z } from "zod";
 
 let legacyBearerToken: string | null = null;
 
@@ -97,6 +101,7 @@ type ApiOptions = {
   body?: unknown;
   query?: Record<string, string | number | boolean | null | undefined>;
   auth?: boolean;
+  signal?: AbortSignal;
 };
 
 function buildUrl(path: string, query?: ApiOptions["query"]): string {
@@ -126,6 +131,7 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
       headers,
       credentials: "include",
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      ...(opts.signal ? { signal: opts.signal } : {}),
     });
   } catch {
     throw new ApiError(0, "NETWORK", "Нет связи с сервером — проверьте, что API запущен");
@@ -273,6 +279,23 @@ export type ServerIssue = IssueDto & Partial<Omit<IssueDetailDto, keyof IssueDto
 
 /** Префикс ресурсов проекта. */
 const P = (projectId: string) => `/api/projects/${projectId}`;
+const H = (projectId: string, id: string) => `${P(projectId)}/webhooks/${encodeURIComponent(id)}`;
+export const integrationsApi = { config: () => api<IntegrationsConfigDto>("/api/integrations/config") };
+export const webhooksApi = {
+  list: (projectId: string) => api<WebhookDto[]>(`${P(projectId)}/webhooks`),
+  create: (projectId: string,body: z.infer<typeof WebhookCreateBody>) => api<WebhookCreatedDto>(`${P(projectId)}/webhooks`,{ method: "POST",body }),
+  update: (projectId: string,id: string,body: z.infer<typeof WebhookPatchBody>) => api<WebhookDto>(H(projectId,id),{ method: "PATCH",body }),
+  remove: (projectId: string,id: string) => api<void>(H(projectId,id),{ method: "DELETE" }),
+  rotateSecret: (projectId: string,id: string) => api<WebhookSecretRotatedDto>(H(projectId,id)+"/rotate-secret",{ method: "POST" }),
+  ping: (projectId: string,id: string,signal?: AbortSignal) => api<WebhookQueuedDto>(H(projectId,id)+"/ping",{ method: "POST",signal }),
+  deliveries: (projectId: string,id: string,query: Partial<z.infer<typeof WebhookDeliveryQuery>> = {}) => {
+    const search = new URLSearchParams(Object.entries(query).filter(([,value]) => value !== undefined).map(([key,value]) => [key,String(value)]));
+    return api<WebhookDeliveryPageDto>(H(projectId,id)+"/deliveries?"+search);
+  },
+  delivery: (projectId: string,id: string,deliveryId: string,signal?: AbortSignal) => api<WebhookDeliveryDetailDto>(H(projectId,id)+"/deliveries/"+encodeURIComponent(deliveryId),{ signal }),
+  redeliver: (projectId: string,id: string,deliveryId: string) => api<WebhookQueuedDto>(H(projectId,id)+"/deliveries/"+encodeURIComponent(deliveryId)+"/redeliver",{ method: "POST" }),
+  redeliverFailed: (projectId: string,id: string,since?: string) => api<WebhookRedeliveredDto>(H(projectId,id)+"/redeliver-failed",{ method: "POST",body: { since } }),
+};
 
 export const authApi = {
   /** Завершить сессию на сервере: все ранее выданные токены становятся

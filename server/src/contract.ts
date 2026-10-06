@@ -1523,7 +1523,7 @@ export const WebhookDeliveryParams = WebhookParams.extend({ deliveryId: uuid });
 export const WebhookDeliveryState = z.enum(["pending", "sending", "succeeded", "failed", "cancelled"]);
 export const WebhookDeliveryQuery = z.object({ state: WebhookDeliveryState.optional(), cursor: z.string().max(512).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50) });
-export const WebhookRedeliverFailedBody = z.object({ since: z.string().max(64).datetime({ offset: true }) }).strict();
+export const WebhookRedeliverFailedBody = z.object({ since: z.string().max(64).datetime({ offset: true }).optional() }).strict();
 export const WebhookDto = z.object({ id: uuid, projectId: uuid, name: z.string(), urlDisplay: z.string(), events: z.array(WebhookEventType),
   state: z.enum(["active", "paused", "disabled"]), disabledReason: z.enum(["failing", "gone", "secret_unavailable"]).nullable(),
   failureStreak: z.number().int(), lastSuccessAt: z.string().nullable(), lastFailureAt: z.string().nullable(),
@@ -1536,6 +1536,16 @@ export type WebhookDeliveryDto = z.infer<typeof WebhookDeliveryDto>;
 export const WebhookDeliveryDetailDto = WebhookDeliveryDto.extend({ payload: z.record(z.string(), z.unknown()).nullable(),
   headers: z.record(z.string(), z.string()), responseExcerpt: z.string().nullable() });
 export type WebhookDeliveryDetailDto = z.infer<typeof WebhookDeliveryDetailDto>;
+export const WebhookCreatedDto = z.object({ webhook: WebhookDto, secret: z.string() });
+export type WebhookCreatedDto = z.infer<typeof WebhookCreatedDto>;
+export const WebhookSecretRotatedDto = z.object({ secret: z.string(), previousValidUntil: z.string() });
+export type WebhookSecretRotatedDto = z.infer<typeof WebhookSecretRotatedDto>;
+export const WebhookDeliveryPageDto = z.object({ items: z.array(WebhookDeliveryDto), nextCursor: z.string().nullable() });
+export type WebhookDeliveryPageDto = z.infer<typeof WebhookDeliveryPageDto>;
+export const WebhookQueuedDto = z.object({ deliveryId: z.string() });
+export type WebhookQueuedDto = z.infer<typeof WebhookQueuedDto>;
+export const WebhookRedeliveredDto = z.object({ count: z.number() });
+export type WebhookRedeliveredDto = z.infer<typeof WebhookRedeliveredDto>;
 
 /* ---------------- API-токены и сервисные записи (INT-07, ADR-0029) ---------------- */
 export const ApiTokenCreateBody = z.object({

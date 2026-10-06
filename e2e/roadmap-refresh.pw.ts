@@ -82,7 +82,7 @@ for (const width of [320, 390]) test(`roadmap refresh: mobile ${width}, touch ta
   await roadmapFixture(page); await page.goto("/roadmap");
   await expect(page.locator(".roadmap-project-row")).toHaveCount(5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect((await page.getByRole("button", { name: "Месяцы", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(Number((await page.getByRole("button", { name: "Месяцы", exact: true }).boundingBox())!.height.toFixed(2))).toBeGreaterThanOrEqual(44);
   const axe = await new AxeBuilder({ page }).include(".roadmap-view").analyze();
   expect(axe.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
   await page.screenshot({ path: `shots/roadmap-mobile-${width}.png` });

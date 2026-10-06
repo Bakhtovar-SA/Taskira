@@ -147,15 +147,54 @@ test("paused and disabled subscriptions cannot send; resume clears failure state
   await ping(webhook.id);
 });
 
+async function failedEvents(hookId: string,count: number,ageHours = 0) {
+  await q(`WITH events AS (INSERT INTO integration_events(project_id,type,dedupe_key,payload,dispatched_at)
+    SELECT $1,'ping',gen_random_uuid()::text,'{"type":"ping"}'::jsonb,now() FROM generate_series(1,$3::int) RETURNING id)
+    INSERT INTO webhook_deliveries(webhook_id,event_id,state,created_at)
+    SELECT $2,id,'failed',now()+$4::int*interval '1 hour' FROM events`,[fx.projects.p1,hookId,count,ageHours]);
+}
 test("bulk redelivery rejects old timestamps and creates at most one thousand manual rows",async () => {
   const { webhook } = await create(), path = base()+`/${webhook.id}`, deliveryId = await ping(webhook.id);
   await q(`UPDATE webhook_deliveries SET state='failed' WHERE id=$1`,[deliveryId]);
-  await q(`INSERT INTO webhook_deliveries(webhook_id,event_id,state,manual)
-    SELECT webhook_id,event_id,'cancelled',true FROM webhook_deliveries CROSS JOIN generate_series(1,1499) WHERE id=$1`,[deliveryId]);
+  await failedEvents(webhook.id,1499);
   expect((await request("POST",path+"/redeliver-failed",{ since: new Date(Date.now()-8*86400_000).toISOString() })).statusCode).toBe(400);
   const response = await request("POST",path+"/redeliver-failed",{ since: new Date(Date.now()-86400_000).toISOString() });
   expect(response.statusCode).toBe(202); expect(response.json()).toEqual({ count: 1000 });
   expect((await q<{ n: number }>(`SELECT count(*)::int n FROM webhook_deliveries WHERE manual AND state='pending'`))[0].n).toBe(1000);
+});
+
+test("bulk redelivery without since uses the database's last 24 hours",async () => {
+  const { webhook } = await create(), deliveryId = await ping(webhook.id);
+  await q(`UPDATE webhook_deliveries SET state='failed' WHERE id=$1`,[deliveryId]);
+  await failedEvents(webhook.id,1,-23); await failedEvents(webhook.id,1,-25);
+  const response = await request("POST",base()+`/${webhook.id}/redeliver-failed`,{});
+  expect(response.statusCode).toBe(202); expect(response.json()).toEqual({ count: 2 });
+  expect((await q<{ n: number }>(`SELECT count(*)::int n FROM webhook_deliveries WHERE manual AND state='pending'`))[0].n).toBe(2);
+});
+test("concurrent bulk retries group failed attempts and skip queued, sending or succeeded manual retries",async () => {
+  const { webhook } = await create(), path = base()+`/${webhook.id}/redeliver-failed`, first = await ping(webhook.id);
+  await q(`UPDATE webhook_deliveries SET state='failed' WHERE id=$1`,[first]);
+  await q(`INSERT INTO webhook_deliveries(webhook_id,event_id,state,manual)
+    SELECT webhook_id,event_id,'cancelled',true FROM webhook_deliveries CROSS JOIN generate_series(1,3) WHERE id=$1`,[first]);
+  for (const state of ["pending","sending","succeeded"]) {
+    const original = await ping(webhook.id);
+    await q(`UPDATE webhook_deliveries SET state='failed' WHERE id=$1`,[original]);
+    await q(`INSERT INTO webhook_deliveries(webhook_id,event_id,state,manual)
+      SELECT webhook_id,event_id,$2,true FROM webhook_deliveries WHERE id=$1`,[original,state]);
+  }
+  const responses = await Promise.all([request("POST",path,{}),request("POST",path,{})]);
+  expect(responses.map(value => value.statusCode)).toEqual([202,202]);
+  expect(responses.map(value => value.json().count).sort()).toEqual([0,1]);
+  const [event] = await q<{ event_id: string }>(`SELECT event_id FROM webhook_deliveries WHERE id=$1`,[first]);
+  const [queued] = await q<{ n: number }>(`SELECT count(*)::int n FROM webhook_deliveries WHERE webhook_id=$1 AND event_id=$2 AND manual AND state='pending'`,[webhook.id,event.event_id]);
+  expect(queued.n).toBe(1);
+  const audits = await q<{ details: { mode: string; count: number } }>(`SELECT details FROM audit_log WHERE action='webhook.redeliver' AND entity_id=$1`,[webhook.id]);
+  expect(audits.map(value => value.details.mode)).toEqual(["bulk","bulk"]);
+  expect(audits.map(value => value.details.count).sort()).toEqual([0,1]);
+  await q(`UPDATE webhook_deliveries SET state='failed' WHERE webhook_id=$1 AND event_id=$2 AND manual AND state='pending'`,[webhook.id,event.event_id]);
+  expect((await request("POST",path,{})).json()).toEqual({ count: 1 });
+  await q(`UPDATE webhook_deliveries SET state='succeeded' WHERE webhook_id=$1 AND event_id=$2 AND manual AND state='pending'`,[webhook.id,event.event_id]);
+  expect((await request("POST",path,{})).json()).toEqual({ count: 0 });
 });
 
 test("cursor preserves microseconds and UUID ties without duplicates or gaps",async () => {

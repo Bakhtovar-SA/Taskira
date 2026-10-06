@@ -40,6 +40,7 @@ import { OrgSection } from "./OrgSettings";
 const WorkflowView = lazy(() => import("../WorkflowView"));
 const PermissionsView = lazy(() => import("../PermissionsView"));
 const AdminView = lazy(() => import("../AdminView"));
+const ProjectIntegrations = lazy(() => import("./ProjectIntegrations"));
 
 type Meta = { icon: (p: { size?: number; tone?: IconTone }) => ReactNode; tone: IconTone };
 const META: Record<string, Meta> = {
@@ -55,6 +56,7 @@ const META: Record<string, Meta> = {
   templates: { icon: (p) => <IcCompose {...p} />, tone: "violet" },
   access: { icon: (p) => <IcShield {...p} />, tone: "green" },
   modules: { icon: (p) => <IcFlag {...p} />, tone: "amber" },
+  integrations: { icon: (p) => <IcLink {...p} />, tone: "teal" },
   archive: { icon: (p) => <IcArchive {...p} />, tone: "gray" },
   setup: { icon: (p) => <IcSparkle {...p} />, tone: "violet" },
   users: { icon: (p) => <IcUsers {...p} />, tone: "blue" },
@@ -103,7 +105,9 @@ export default function SettingsView() {
   } else if (home === "settings") page = <PersonalSection section={section} />;
   else if (home === "projectSettings") {
     page =
-      section === "access" ? (
+      section === "integrations" ? (
+        <ProjectIntegrations key={data.currentProjectId} />
+      ) : section === "access" ? (
         <PermissionsView />
       ) : section === "workflow" || section === "templates" || section === "fields" ? (
         <WorkflowView part={section} />
