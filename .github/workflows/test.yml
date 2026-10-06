@@ -171,7 +171,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pg: ["14", "16", "17"] # мин. и макс. из server/src/services/pgVersion.ts; 16 — версия поставки (compose)
+        pg: ["14", "15", "16", "17"] # все заявленные: 14 = PG_MIN_MAJOR, 17 = PG_MAX_TESTED_MAJOR (server/src/services/pgVersion.ts); 16 — версия поставки (compose)
 
     services:
       postgres:
