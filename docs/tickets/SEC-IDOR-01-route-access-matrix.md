@@ -6,6 +6,7 @@
 - **Факт (по самопроверке, код `main` на `4b2736d`):**
   - Статический скан `server/src/routes/*.ts`: все маршруты, кроме `POST /api/auth/login`, `GET /api/instance/brand`, `GET /api/instance/brand/logo` (публичны намеренно) и WebSocket (аутентификация сообщением/кукой, `routes/ws.ts`), имеют `preHandler` с `requireAuth`/`requireSession`/`requirePerm`/`requireIssuePerm`/`requireGlobalAdmin`.
   - Наличие guard проверено, правильность роли и объекта на каждом маршруте — только выборочно (`server/test/access.multiproject.test.ts`, `access.attachments.test.ts`, `access.roles.test.ts`); манифеста «маршрут × сценарий доступа» на `main` нет.
+- **Решение:** чинить до внешнего аудита — по плану Трека M (SEC-EXT-01 идёт после SEC-IDOR-01), работа уже идёт.
 - **Что сделать:** по Треку M — тест-манифест всех зарегистрированных маршрутов (`server/test/access/routes.manifest.ts`) и табличный прогон сценариев `anon`, `outsider`, `employee-foreign-issue`, `collaborator-other-issue`, `deactivated`, `api-token-out-of-scope`; единое правило 404/403 в SECURITY_OVERVIEW.
 - **Критерий готовности:** по Треку M; после слияния строки V8.2.1, V8.2.2 в ASVS-L2.md пересмотрены со ссылкой на манифест.
 - **Не сделано (на `main`):** манифест и табличный тест не слиты.

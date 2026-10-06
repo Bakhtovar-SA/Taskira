@@ -9,6 +9,7 @@
   - PostgreSQL без TLS (`DATABASE_URL` без `sslmode`), клиентский nginx → API по HTTP внутри сети Compose; допущения не оформлены как модель угроз.
   - Образец nginx не задаёт `ssl_ciphers`.
 - **Почему важно:** самое вероятное боевое несоответствие: инсталляция по HTTP с куки без `Secure` и LDAP с открытым паролем работает «из коробки» без предупреждений.
+- **Решение:** чинить до внешнего аудита пп. 1, 2 и 4 (предупреждения и отказ запуска для LDAP без TLS, умолчание `Secure`, шифронаборы в образце) — самое вероятное боевое несоответствие при небольших правках конфигурации; п. 3 (TLS к PostgreSQL и nginx → API внутри сети Compose) — принять риск: эти порты не публикуются за пределы сети Compose, модель угроз записать в SECURITY_OVERVIEW.
 - **Что сделать:**
   1. Старт API: предупреждение (и `health warning`) при `SESSION_COOKIE_SECURE=false`, `ldap://` без StartTLS, `CORS_ORIGIN` с `http://` вне localhost; для LDAP — отказ запуска без явного `LDAP_ALLOW_INSECURE=true`.
   2. Убрать `SESSION_COOKIE_SECURE=false` из умолчаний `render-compose.sh`/`docker-compose.yml` и `.env.example` (оставить умолчание кода), для HTTP-стенда — явное `false` с комментарием; это же условие для префикса `__Host-` (SEC-WEB-01).
