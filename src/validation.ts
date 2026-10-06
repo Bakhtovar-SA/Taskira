@@ -50,6 +50,8 @@ export const LIMITS = {
   dashboardsPerUser: 20,
   webhook: { name: 80, url: 2048, perProject: 10, total: 100 },
   apiToken: { name: 80, perUser: 10, perService: 5, maxDays: 365 },
+  serviceAccount: { name: 80 },
+  recurring: { name: 80, perProject: 50, assignees: 10 },
 } as const;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };

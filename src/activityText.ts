@@ -22,7 +22,7 @@ function eventLine(e: ActivityEvent, t: T, lang: "ru" | "en"): string {
   const status = (name: string) => workflowStatusName({ name }, t);
   switch (e.kind) {
     case "created":
-      return t("activity.created");
+      return e.ruleName ? t("activity.createdByRule", { name: e.ruleName }) : t("activity.created");
     case "renamed":
       return t("activity.renamed");
     case "description":

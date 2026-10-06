@@ -10,6 +10,13 @@ const tRu = make(ru);
 const tEn = make(en);
 
 describe("событие рисуется через словарь", () => {
+  test("создание правилом сохраняет имя в обоих языках и обычную историю", () => {
+    const event = { kind: "created", ruleName: "Проверка договора" } as const;
+    expect(activityLine(event, "x", tRu, "ru")).toBe("создал(а) задачу по расписанию «Проверка договора»");
+    expect(activityLine(event, "x", tEn, "en")).toBe("created the issue from the recurring rule “Проверка договора”");
+    expect(activityLine({ kind: "created" }, "x", tEn, "en")).toBe("created the issue");
+  });
+
   test("приоритет, статус, массовая операция — на обоих языках", () => {
     expect(activityLine({ kind: "priority", from: "medium", to: "critical" }, "x", tEn, "en")).toBe("changed priority: Medium → Critical");
     expect(activityLine({ kind: "priority", from: "medium", to: "critical" }, "x", tRu, "ru")).toBe("изменил(а) приоритет: Средний → Критичный");

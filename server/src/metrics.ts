@@ -30,6 +30,12 @@ const webhookDurations = new Map<string, HistogramValue>();
 const WEBHOOK_BUCKETS = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 let webhookQueueSize = 0, webhookQueueOldest = 0, integrationOutbox = 0;
 let webhooksByState = new Map<string, number>();
+const recurringRuns = new Map<string, number>();
+let recurringLagSeconds = 0;
+
+export function recordRecurringRun(result: "created" | "skipped_open" | "failed"): void {
+  recurringRuns.set(result, (recurringRuns.get(result) ?? 0) + 1);
+}
 
 export function addIntegrationEvents(type: string): void {
   if (!["issue.created", "issue.updated", "issue.statusChanged", "issue.assigned", "issue.commented", "issue.due", "ping"].includes(type)) return;
@@ -148,6 +154,11 @@ export async function refreshBackgroundQueueMetrics(): Promise<void> {
     webhookQueueSize = Number(queue[0].size); webhookQueueOldest = queue[0].oldest; integrationOutbox = Number(queue[0].outbox);
     webhooksByState = new Map(states.map(row => [row.state, Number(row.count)]));
   } catch { collectionErrors += 1; }
+  try {
+    const rows = await q<{ lag: number }>(`SELECT COALESCE(GREATEST(0, extract(epoch FROM now() - min(next_run_at))), 0)
+      ::double precision AS lag FROM recurring_rules WHERE state = 'active'`);
+    recurringLagSeconds = rows[0].lag;
+  } catch { collectionErrors += 1; }
 }
 
 export function renderMetrics(activeWsConnections: number): string {
@@ -232,6 +243,11 @@ export function renderMetrics(activeWsConnections: number): string {
   ] as const) lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} gauge`, `${name} ${value}`);
   lines.push("# HELP taskira_webhooks Subscriptions by state.", "# TYPE taskira_webhooks gauge");
   for (const state of ["active", "paused", "disabled"]) lines.push(`taskira_webhooks${labelSet({ state })} ${webhooksByState.get(state) ?? 0}`);
+  lines.push("# HELP taskira_recurring_runs_total Recurring rule outcomes committed in this process.", "# TYPE taskira_recurring_runs_total counter");
+  for (const result of ["created", "skipped_open", "failed"])
+    lines.push(`taskira_recurring_runs_total${labelSet({ result })} ${recurringRuns.get(result) ?? 0}`);
+  lines.push("# HELP taskira_recurring_lag_seconds Delay of the oldest active rule awaiting its scheduled run.",
+    "# TYPE taskira_recurring_lag_seconds gauge", `taskira_recurring_lag_seconds ${recurringLagSeconds}`);
   return `${lines.join("\n")}\n`;
 }
 
@@ -251,4 +267,5 @@ export function _resetMetrics(): void {
   collectionErrors = 0;
   integrationEvents.clear(); webhookDeliveries.clear(); webhookBlocked.clear(); webhookDurations.clear();
   webhooksByState.clear(); webhookQueueSize = 0; webhookQueueOldest = 0; integrationOutbox = 0;
+  recurringRuns.clear(); recurringLagSeconds = 0;
 }

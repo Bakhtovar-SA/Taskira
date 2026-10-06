@@ -21,6 +21,7 @@ interface CommentRow {
   author_name: string;
   author_initials: string;
   author_color: string;
+  author_auth_source: "local" | "ldap" | "service";
 }
 
 
@@ -28,7 +29,7 @@ const mapComment = (r: CommentRow): CommentDto => ({
   id: r.id,
   issueId: r.issue_id,
   authorId: r.author_id,
-  author: { id: r.author_id, name: r.author_name, initials: r.author_initials, color: r.author_color },
+  author: { id: r.author_id, name: r.author_name, initials: r.author_initials, color: r.author_color, authSource: r.author_auth_source },
   body: r.body,
   createdAt: new Date(r.created_at).toISOString(),
 });
@@ -46,7 +47,7 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
     const iss = await loadIssue(project.id, id);
     const rows = await q<CommentRow>(
       `SELECT c.id, c.issue_id, c.author_id, c.body, c.created_at,
-              u.name AS author_name, u.initials AS author_initials, u.color AS author_color
+              u.name AS author_name, u.initials AS author_initials, u.color AS author_color, u.auth_source AS author_auth_source
          FROM comments c
          JOIN users u ON u.id = c.author_id
         WHERE c.issue_id = $1
@@ -76,7 +77,8 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
            RETURNING id, issue_id, author_id, body, created_at,
                      (SELECT name FROM users WHERE id = $2) AS author_name,
                      (SELECT initials FROM users WHERE id = $2) AS author_initials,
-                     (SELECT color FROM users WHERE id = $2) AS author_color`,
+                     (SELECT color FROM users WHERE id = $2) AS author_color,
+                     (SELECT auth_source FROM users WHERE id = $2) AS author_auth_source`,
           [iss.id, user.sub, body.body],
         )
       )[0];
