@@ -20,7 +20,7 @@ ops_init() {
   [[ "$CLIENT_PORT" =~ ^[0-9]+$ ]] || fail "invalid CLIENT_PORT"
 }
 
-fail() { echo "ERROR: $*" >&2; exit 1; }
+fail() { OPS_LAST_ERROR="$*"; echo "ERROR: $*" >&2; exit 1; }
 require_file() { [ -f "$1" ] || fail "required file is missing: $1"; }
 
 compose() {
@@ -59,7 +59,7 @@ redact_stream() {
   [ ! -f "${OPS_EXTRA_REDACT_ENV:-}" ] || files+=("$OPS_EXTRA_REDACT_ENV")
   awk 'FILENAME != "-" {
          line=$0; sub(/\r$/, "", line); p=index(line,"="); key=substr(line,1,p-1);
-         if (key ~ /^(POSTGRES_PASSWORD|JWT_SECRET|ADMIN_PASSWORD|LDAP_BIND_PASSWORD|STORAGE_S3_ACCESS_KEY|STORAGE_S3_SECRET_KEY|SMTP_PASSWORD|OIDC_CLIENT_SECRET|WEBHOOK_SECRET_KEY)$/) {
+         if (key ~ /^(POSTGRES_PASSWORD|JWT_SECRET|ADMIN_PASSWORD|LDAP_BIND_PASSWORD|STORAGE_S3_ACCESS_KEY|STORAGE_S3_SECRET_KEY|SMTP_PASS|SMTP_PASSWORD|OIDC_CLIENT_SECRET|WEBHOOK_SECRET_KEY)$/) {
            value=substr(line,p+1); if (length(value)) secret[++n]=value;
          } next
        }

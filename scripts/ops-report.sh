@@ -37,7 +37,7 @@ ops_run_finish() {
       -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1 <<'SQL'
 UPDATE ops_runs SET finished_at = now(), result = :'result', details = :'details'::jsonb,
   archive = NULLIF(:'archive', 'unknown'), error = NULLIF(left(:'error', 2000), '')
-WHERE id = :'id'::uuid AND result = 'running';
+WHERE id = :'id'::uuid;
 SQL
   then
     echo 'WARNING: operation result could not be recorded; continuing.' >&2
