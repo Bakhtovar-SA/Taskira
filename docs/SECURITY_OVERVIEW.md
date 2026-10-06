@@ -105,6 +105,8 @@ CIDR-правила применяются и к IP-литералам, и к и
 | `POST /me/tokens` | 10 / мин | user | `routes/apiTokens.ts`; `RATE_LIMIT_SENSITIVE_MAX` |
 | `POST /admin/service-accounts/:id/tokens` | 10 / мин | user | `routes/serviceAccounts.ts`; `RATE_LIMIT_SENSITIVE_MAX` |
 | `POST …/webhooks/:id/ping`, `/rotate-secret`, `/deliveries/:id/redeliver`, `/redeliver-failed` | 10 / мин, у каждого маршрута своя корзина | user | `routes/webhooks.ts`; `RATE_LIMIT_SENSITIVE_MAX` |
+| `POST …/recurring/:id/run-now` (ручной запуск правила, создаёт задачу) | 10 / мин | user/token | `routes/recurring.ts`; `RATE_LIMIT_SENSITIVE_MAX` |
+| `POST …/recurring/preview` (предпросмотр расписания, вызывается формой с debounce) | 120 / мин, корзина `search` (10 / мин сломало бы живой предпросмотр) | user/token | `routes/recurring.ts`; `RATE_LIMIT_SEARCH_MAX` |
 | `GET /admin/export` (полный экспорт) | 10 / мин | user | `routes/dataExport.ts`; `RATE_LIMIT_EXPORT_MAX` |
 | `GET /admin/audit-log/export` | 10 / мин | user | `routes/auditExport.ts`; `RATE_LIMIT_EXPORT_MAX` |
 | `GET /reports/issues.csv` | 10 / мин | user/token | `routes/reports.ts`; `RATE_LIMIT_EXPORT_MAX` |
