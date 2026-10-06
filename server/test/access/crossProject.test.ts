@@ -12,7 +12,10 @@
  *   - «соседняя задача» — путь задачи A, объект задачи B того же проекта → 404 (для вложений, пунктов чеклиста, связей);
  *   - контроль         — тот же запрос с объектами P1 НЕ даёт 401/403/404/5xx: иначе 404 выше ничего не доказывает
  *                        (выключенный модуль, неверный URL, сломанная фикстура тоже отвечают 404).
- * После каждого маршрута объекты P2 и задачи B побайтно те же, что до него: ловит «изменили, потом ответили 404».
+ * Каждый вариант выполняют глобальный админ (видит P2 — 404 ему даёт только привязка к пути) и mgr1, менеджер P1 без
+ * доступа к P2 (403, если у менеджера нет права на маршрут). Ответ совпадает с ответом на несуществующий id с теми же
+ * родителями. После каждого запроса объекты P2 и задачи B побайтно те же, что до него: так ловится «изменили, потом
+ * ответили 404».
  *
  * Отдельно — идентификаторы чужого проекта в ТЕЛЕ запроса (связь, переход, спринт, родитель, эпик, шаблон…) и
  * сквозной инвариант «в данных P1 нет ссылок на объекты P2».
@@ -55,7 +58,8 @@ const OWNED: Readonly<Record<string, Kind>> = {
 const NOT_OWNED: Readonly<Record<string, string>> = {
   "background-photo/:size": "размер превью, не объект",
   "collaborators/:userId": "пользователь — глобальная сущность; кого можно пригласить — access.collaborators.test.ts",
-  "dependencies/:sourceProjectId": "ссылка на другой проект — межпроектная зависимость по замыслу (ТЗ 5.15)",
+  "dependencies/:sourceProjectId":
+    "ссылка на другой проект — межпроектная зависимость по замыслу (ТЗ 5.15); невидимый источник — 404 (roadmap.test.ts и тело ниже)",
   "members/:userId": "пользователь — глобальная сущность; состав проекта — access.roles.test.ts",
 };
 
@@ -284,6 +288,9 @@ async function crossReferences(): Promise<Array<{ what: string; n: number }>> {
        UNION ALL
        SELECT 'recurring_rules.template_id', count(*)::int FROM recurring_rules
         WHERE project_id = $1 AND template_id IN (SELECT id FROM issue_templates WHERE project_id = $2)
+       UNION ALL
+       SELECT 'project_dependencies', count(*)::int FROM project_dependencies
+        WHERE dependent_project_id = $1 AND source_project_id = $2
      ) x WHERE n > 0`,
     [fx.projects.p1, fx.projects.p2],
   );
@@ -298,8 +305,8 @@ const CASES: Case[] = Object.keys(ROUTES)
   .map((key) => {
     const [method, template] = key.split(" ", 2) as [string, string];
     const params = nestedParams(template).filter((p) => p.key in OWNED);
-    // Глобальный админ видит и P2, поэтому 404 ему может дать только привязка объекта к пути — строже, чем проверка от
-    // участника P1 без доступа к P2. Исключение — личные сохранённые фильтры: их видит только владелец (mgr1).
+    // Основной исполнитель и контроль — глобальный админ: у mgr1 нет editWorkflow и прав на вебхуки, а контроль
+    // должен пройти. Исключение — личные сохранённые фильтры: их видит только владелец (mgr1).
     const actor = params.some((p) => OWNED[p.key] === "savedView") ? "mgr1" as const : "admin" as const;
     return { key, method, template, params, actor };
   })
@@ -360,30 +367,44 @@ describe("межпроектный IDOR: вложенные объекты по 
 
   test.each(CASES.map((c) => [c.key, c] as const))("%s", async (_key, c) => {
     // Тело собирается заново на каждый запрос: multipart-буфер одноразовый.
-    const send = (url: string) => {
+    const send = (actor: keyof typeof tokens, url: string) => {
       const custom = CASE_BODIES[c.key]?.();
-      return call(tokens[c.actor], c.method, url, custom ? custom.payload : fill(BODIES[c.key]), custom?.headers);
+      return call(tokens[actor], c.method, url, custom ? custom.payload : fill(BODIES[c.key]), custom?.headers);
     };
+    type Pick = (param: Param, index: number) => string;
     const last = c.params.length - 1;
-    const variants: Array<[string, string]> = [
-      ["чужой проект (родители P1, объект P2)", urlFor(c, (p, i) => (i === last ? objs.p2 : objs.p1)[OWNED[p.key]])],
-    ];
-    if (c.params.length > 1) variants.push(["все вложенные объекты из P2", urlFor(c, (p) => objs.p2[OWNED[p.key]])]);
+    const variants: Array<[string, Pick]> = [["чужой проект (родители P1, объект P2)", (p, i) => (i === last ? objs.p2 : objs.p1)[OWNED[p.key]]]];
+    if (c.params.length > 1) variants.push(["все вложенные объекты из P2", (p) => objs.p2[OWNED[p.key]]]);
     const leafKind = OWNED[c.params[last].key];
     if (ISSUE_CHILDREN.has(leafKind)) {
-      variants.push(["соседняя задача (путь задачи A, объект задачи B)", urlFor(c, (p, i) => (i === last ? objs.p1b[leafKind as "link"] : objs.p1[OWNED[p.key]]))]);
+      variants.push(["соседняя задача (путь задачи A, объект задачи B)", (p, i) => (i === last ? objs.p1b[leafKind as "link"] : objs.p1[OWNED[p.key]])]);
     }
+    // Злоумышленник из тикета — участник P1 без доступа к P2 (mgr1). Админ дополнительно: он видит P2, поэтому 404 ему
+    // может дать только привязка объекта к пути. mgr1 без нужного права получает 403 раньше поиска объекта — это не утечка,
+    // но ответ всё равно обязан совпасть с ответом на несуществующий id.
+    const actors: Array<keyof typeof tokens> = c.actor === "admin" ? ["admin", "mgr1"] : [c.actor];
+    const missingId = randomUUID();
+    const shape = (res: Awaited<ReturnType<typeof send>>, id: string) => ({ status: res.statusCode, body: res.body.split(id).join("<id>") });
 
     const before = await foreignState();
-    for (const [label, url] of variants) {
-      const res = await send(url);
-      expect(res.statusCode, `${label}: ${c.method} ${url} → ${res.statusCode} ${res.body.slice(0, 200)}`).toBe(404);
-      expect(await foreignState(), `${label}: ${c.method} ${url} изменил чужие данные, хотя ответил ${res.statusCode}`).toEqual(before);
+    for (const actor of actors) {
+      for (const [label, pick] of variants) {
+        const url = urlFor(c, pick);
+        const leafId = pick(c.params[last], last);
+        const res = await send(actor, url);
+        const where = `${label} [${actor}]: ${c.method} ${url} → ${res.statusCode} ${res.body.slice(0, 200)}`;
+        if (actor === c.actor) expect(res.statusCode, where).toBe(404);
+        else expect([403, 404], where).toContain(res.statusCode);
+        expect(await foreignState(), `${where}: изменены чужие данные`).toEqual(before);
+        // Ответ неотличим от ответа на несуществующий объект с теми же родителями.
+        const missing = await send(actor, urlFor(c, (p, i) => (i === last ? missingId : pick(p, i))));
+        expect(shape(res, leafId), `${where}: ответ отличается от ответа на несуществующий id`).toEqual(shape(missing, missingId));
+      }
     }
 
     // Контроль: с объектами P1 маршрут доходит до обработчика — 404 выше означал «не ваш объект», а не «маршрута нет».
     const controlUrl = urlFor(c, (p) => objs.p1[OWNED[p.key]]);
-    const control = await send(controlUrl);
+    const control = await send(c.actor, controlUrl);
     const where = `контроль: ${c.method} ${controlUrl} → ${control.statusCode} ${control.body.slice(0, 200)}`;
     expect([401, 403, 404], where).not.toContain(control.statusCode);
     expect(control.statusCode, where).toBeLessThan(500);
@@ -412,6 +433,7 @@ describe("межпроектный IDOR: идентификаторы P2 в те
     ["новая задача с родителем из P2", "mgr1", "POST", () => `${p1()}/issues`, (id) => newIssue({ parentId: id }), () => fx.issues.p2issue],
     ["новая задача с эпиком из P2", "mgr1", "POST", () => `${p1()}/issues`, (id) => newIssue({ epicId: id }), () => fx.issues.p2issue],
     ["правило повтора по шаблону P2", "mgr1", "POST", () => `${p1()}/recurring`, recurringBody, () => objs.p2.issueTemplate],
+    ["зависимость от невидимого проекта P2", "mgr1", "POST", () => `${p1()}/dependencies`, (id) => ({ sourceProjectId: id }), () => fx.projects.p2],
     ["переход workflow в статус P2", "admin", "POST", () => `${p1()}/workflow/transitions`, (id) => ({ from: fx.p1status.todo, to: id }), () => p2Status],
     ["переход workflow из статуса P2", "admin", "POST", () => `${p1()}/workflow/transitions`, (id) => ({ from: id, to: fx.p1status.inprogress }), () => p2Status],
     ["шаблон задачи со статусом P2", "admin", "POST", () => `${p1()}/issue-templates`,
