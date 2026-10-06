@@ -6,13 +6,16 @@ on:
 
 jobs:
   claude-review:
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux]
+    container: node:22-bookworm
     permissions:
       contents: read
       pull-requests: write
       issues: read
       id-token: write
     steps:
+      - name: Install review tools
+        run: apt-get update -qq && apt-get install -y --no-install-recommends unzip gh ripgrep
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
