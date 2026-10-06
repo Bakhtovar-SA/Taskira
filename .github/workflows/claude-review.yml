@@ -5,19 +5,40 @@ on:
     types: [opened, synchronize]
 
 jobs:
+  prepare-runner-trust:
+    runs-on: [self-hosted, Linux]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Verify WSL trust and prepare local CA bundle
+        run: |
+          set -eu
+          if openssl crl2pkcs7 -nocrl -certfile /etc/ssl/certs/ca-certificates.crt |
+            openssl pkcs7 -print_certs -noout | grep 'InfoWatch Transparent Proxy Root' >/dev/null; then
+            echo 'InfoWatch root is present in the runner host trust store'
+          else
+            echo 'InfoWatch root is absent from the runner host trust store'
+          fi
+          oidc_host=${ACTIONS_ID_TOKEN_REQUEST_URL#https://}
+          oidc_host=${oidc_host%%/*}
+          curl --silent --show-error --head --max-time 20 "https://$oidc_host/" >/dev/null
+          curl --silent --show-error --head --max-time 20 https://registry.npmjs.org/ >/dev/null
+          mkdir -p "$RUNNER_TOOL_CACHE/taskira-trust"
+          cp --remove-destination /etc/ssl/certs/ca-certificates.crt "$RUNNER_TOOL_CACHE/taskira-trust/ca-certificates.crt"
+          chmod 444 "$RUNNER_TOOL_CACHE/taskira-trust/ca-certificates.crt"
   claude-review:
+    needs: prepare-runner-trust
     runs-on: [self-hosted, Linux]
     container:
       image: node:22-bookworm
-      # Trust the operator-managed host bundle; corporate CA stays on the runner.
-      volumes:
-        - /etc/ssl/certs/ca-certificates.crt:/opt/taskira-runner-ca.pem:ro
+      # GitHub already mounts the host tool cache at /__w/_tool in this container.
     env:
-      NODE_EXTRA_CA_CERTS: /opt/taskira-runner-ca.pem
+      NODE_EXTRA_CA_CERTS: /__w/_tool/taskira-trust/ca-certificates.crt
       NODE_USE_SYSTEM_CA: '1'
-      SSL_CERT_FILE: /opt/taskira-runner-ca.pem
-      CURL_CA_BUNDLE: /opt/taskira-runner-ca.pem
-      GIT_SSL_CAINFO: /opt/taskira-runner-ca.pem
+      SSL_CERT_FILE: /__w/_tool/taskira-trust/ca-certificates.crt
+      CURL_CA_BUNDLE: /__w/_tool/taskira-trust/ca-certificates.crt
+      GIT_SSL_CAINFO: /__w/_tool/taskira-trust/ca-certificates.crt
     permissions:
       contents: read
       pull-requests: write
