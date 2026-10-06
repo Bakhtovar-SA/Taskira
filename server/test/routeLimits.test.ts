@@ -105,12 +105,13 @@ describe("SEC-RATE-01", () => {
     await expectLimit(a, employee, 2, "POST", "/api/dashboards/data", { widgets: [] });
   });
 
-  test("recurring: run-now (sensitive) и preview (search) — отдельные корзины", async () => {
-    const a = await limited();
+  test("recurring: run-now — корзина sensitive, preview — корзина search", async () => {
+    // Пороги разные (sensitive=2, search=3): по числу пропущенных запросов видно, какая корзина у маршрута.
+    const a = await limited({ sensitiveMax: 2, searchMax: 3 });
     const base = `/api/projects/${nobody}/recurring`;
     await expectLimit(a, admin, 2, "POST", `${base}/${nobody}/run-now`);
-    // preview — в корзине search, исчерпанный run-now его не затрагивает; тело невалидно, но лимит срабатывает раньше
-    await expectLimit(a, admin, 2, "POST", `${base}/preview`, {});
+    // preview в корзине search (3), а не sensitive (2); тело невалидно, но лимит срабатывает раньше
+    await expectLimit(a, admin, 3, "POST", `${base}/preview`, {});
   });
 
   test("окно истекает: после него запросы снова проходят", async () => {
