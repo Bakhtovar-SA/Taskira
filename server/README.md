@@ -895,7 +895,8 @@ typescript, playwright). Корневой `package.json` теперь `"name": "
 ## Секреты
 
 Только через env: `JWT_SECRET` (≥ 32 символов), `DATABASE_URL`, `ADMIN_PASSWORD`
-(≥14 символов, 3 из 4 групп, без логина и известных дефолтов).
+(14–128 символов любого состава, без логина и известных дефолтов; при создании администратора — ещё и не из
+списка частых паролей и без слова Taskira, см. `docs/SECURITY_OVERVIEW.md` §«Политика паролей»).
 `.env`, `server/.env`, `server/dist`, `server/node_modules` — в `.gitignore`.
 
 ## Напоминания о сроках
