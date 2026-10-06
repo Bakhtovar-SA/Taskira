@@ -446,25 +446,132 @@ host:ctr:z --user 0` (используется в `backup.sh`/`restore.sh`), (в
 
 | Provider | Версия | install/start | service_healthy | backup/restore | Вывод |
 |---|---|---|---|---|---|
-| docker-compose | | | | | |
-| podman-compose | | | | | |
+| docker-compose | v5.6.0 (бинарник с GitHub в `~/.local/bin`, sha256 сверен; `podman.socket` включён) | да, 3× healthy | соблюдается: postgres healthy 15:35:10, server start 15:35:11 | да | ниже |
+| podman-compose | 1.6.0 (pip `--user`) | да, 3× healthy | соблюдается: postgres healthy 15:38:02, server start 15:38:03 | да | ниже |
+| podman-compose | 1.0.6 (pip в venv, для проверки утверждения README) | да | **не соблюдается**: server start 15:39:23, postgres healthy 15:39:27 | да | ниже |
+
+Каждый provider: чистая установка релиза `1.0.1-check.2` в отдельный каталог (`PODMAN_COMPOSE_PROVIDER=…`),
+backup → restore → `down -v`. Основной стек `check.1` на это время остановлен (`systemctl --user stop taskira.service`).
+(б) `run --rm --no-deps -T -v host:ctr:z --user 0` — принимают все три (через `backup.sh`/`restore.sh`).
+(в) минимально рабочая версия: 1.6.0 работает, 1.0.6 — нет (не ждёт healthy); версии между ними не проверялись,
+граница «1.1 и новее» в README остаётся непроверенной.
+
+```
+=== provider docker-compose-5.6.0: /home/test/.local/bin/docker-compose
+Docker Compose version v5.6.0
+$ ./install.sh --engine podman --start
+ Container taskira-101-check2-client-1 Started
+Taskira 1.0.1-check.2 is healthy: {...,"version":"1.0.1-check.2","ts":"2026-10-06T10:35:22.436Z"}
+taskira-101-check2-postgres-1 Up 37 seconds (healthy)
+taskira-101-check2-server-1 Up 31 seconds (healthy)
+taskira-101-check2-client-1 Up 20 seconds (healthy)
+volumes: taskira-101-check2_attachments, taskira-101-check2_pgdata
+postgres started: 15:35:05; health events: 15:35:05 starting, 15:35:10 healthy; server started: 15:35:11
+Backup complete: /tmp/p8-docker-compose-5.6.0.tar.gz          backup exit=0
+Restore complete from: /tmp/p8-docker-compose-5.6.0.tar.gz    restore exit=0
+
+=== provider podman-compose-1.6.0: /home/test/.local/bin/podman-compose
+podman-compose version 1.6.0
+Taskira 1.0.1-check.2 is healthy: {...,"ts":"2026-10-06T10:38:14.507Z"}
+taskira-101-check2_postgres_1 Up 38 seconds (healthy)
+taskira-101-check2_server_1 Up 32 seconds (healthy)
+taskira-101-check2_client_1 Up 21 seconds (healthy)
+postgres started: 15:37:57; health events: 15:37:57 starting, 15:38:02 healthy; server started: 15:38:03; server restarts: 0
+Backup complete / Restore complete (прогон 15:33–15:35)        exit=0 / exit=0
+
+=== provider podman-compose-1.0.6: /home/test/pc106/bin/podman-compose
+podman-compose version 1.0.6
+Taskira was started. Open http://192.168.141.132:8081      exit=0
+taskira-101-check2_postgres_1 Up 26 seconds (healthy)
+taskira-101-check2_server_1 Up 24 seconds (starting)
+taskira-101-check2_client_1 Up 23 seconds (healthy)
+postgres started: 15:39:21; health events: 15:39:22 starting, 15:39:27 healthy; server started: 15:39:23; server restarts: 0
+Backup complete / Restore complete (прогон 15:36–15:37)        exit=0 / exit=0
+```
+
+Попутно найдено:
+- Вторая установка на том же хосте не стартует, пока существует сеть первой (даже остановленной):
+  `podman network create ... --subnet 172.30.0.0/24 taskira-101-check2_default` → exit 125. Подсеть фиксирована
+  по умолчанию; обход — `TASKIRA_NETWORK_CIDR` в `.env` (так и сделано для этих прогонов).
+- docker-compose называет контейнеры `taskira-101-check2-postgres-1`, podman-compose — `..._postgres_1`;
+  имена томов у обоих одинаковые (`taskira-101-check2_pgdata`), так что смена provider данные не теряет.
 
 ### 9. Работа без сети
 
 Отключить сеть до шага 1 и повторить шаги 1 и 5. Ожидается: ни одна команда не
 обращается к registry.
 
-- [ ] Выполнено, результат соответствует ожиданию
+- [x] Выполнено, результат соответствует ожиданию
+
+Как отключалась сеть: интерфейс не выключался (иначе пропал бы ssh). Вместо этого nftables
+отбрасывал весь исходящий трафик, кроме `lo` и `192.168.141.0/24` (локальная сеть VM, ssh),
+с `counter log`. Это эквивалент изолированного контура: registry недоступен. Перед установкой
+удалены все образы taskira/postgres, кроме двух, которые `podman rmi -f` не снял
+(`localhost/taskira-server:1.0.1-check.1`, `docker.io/library/postgres:16-alpine`). Установка
+сделана в отдельный каталог `offline-check`, основной стек на это время остановлен.
 
 Вывод:
 
 ```
+table inet taskira_offline { chain output { type filter hook output priority filter; policy accept;
+    oif "lo" accept; ip daddr 192.168.141.0/24 accept; counter packets 0 bytes 0 log prefix "TASKIRA-OFFLINE " drop } }
+$ curl -m 5 https://registry-1.docker.io/v2/
+curl: (28) Connection timed out after 5001 milliseconds
+install/upgrade start: 15:46:41
+$ ./install.sh --engine podman
+[3/4] Loading offline images
+Loaded image: localhost/taskira-postgres:1.0.1-check.1
+Loaded image: localhost/taskira-client:1.0.1-check.1
+Loaded image: localhost/taskira-server:1.0.1-check.1
+$ ./install.sh --engine podman --start
+offline-check_postgres_1
+offline-check_server_1
+offline-check_client_1
+Taskira 1.0.1-check.1 is healthy: {...,"version":"1.0.1-check.1","ts":"2026-10-06T10:47:03.466Z"}
+exit=0
+$ ./upgrade.sh --install-dir .../p9/offline-check --engine podman
+Upgrade plan: Taskira 1.0.1-check.1 -> 1.0.1-check.2
+Loaded image: localhost/taskira-postgres:1.0.1-check.2
+Loaded image: localhost/taskira-client:1.0.1-check.2
+Loaded image: localhost/taskira-server:1.0.1-check.2
+Taskira 1.0.1-check.2 is healthy: {...,"version":"1.0.1-check.2","ts":"2026-10-06T10:47:28.500Z"}
+Upgrade complete: Taskira 1.0.1-check.1 -> 1.0.1-check.2
+exit=0
+offline-check_postgres_1 localhost/taskira-postgres:1.0.1-check.2 Up 29 seconds (healthy)
+offline-check_server_1 localhost/taskira-server:1.0.1-check.2 Up 27 seconds (healthy)
+offline-check_client_1 localhost/taskira-client:1.0.1-check.2 Up 15 seconds (healthy)
+install/upgrade end: 15:47:43
+отброшенные пакеты (время, адрес, порт):
+15:46:29–15:46:33  35.171.80.220, 100.57.240.195, 44.212.230.82, 98.89.109.200, 98.86.122.62  443/TCP   <- проверочный curl выше, до начала установки
+15:46:47 125.229.191.132 123/UDP;  15:46:51 142.91.108.61 123/UDP;  15:46:52 103.186.118.214 123/UDP  <- chronyd (NTP), адреса = `chronyc sources`
+(других пакетов в окне 15:46:41–15:47:43 нет)
 ```
+
+Первый прогон этого шага (15:41) упал, и это отдельная находка, не связанная с сетью.
+Каталог назывался так же, как у основной установки (`taskira-1.0.1-check.1`). Поэтому compose
+выбрал тот же проект `taskira-101-check1` и **те же тома**. Новый случайный пароль не подошёл к
+существующей базе, и `upgrade.sh` остановился на `current installation health check`:
+
+```
+server-1  | [taskira] фатальная ошибка при запуске: error: password authentication failed for user "taskira"
+ERROR: upgrade failed during: current installation health check
+No installation changes were made; rollback is not required.
+```
+
+Имя проекта compose берёт из имени каталога, а `name:` в compose-файле не задан. Две установки
+одного релиза в разных путях с одинаковым последним компонентом делят тома, и `down -v` из одной
+удалит данные другой. Основная установка в этот раз не пострадала: проверено скачиванием вложения
+из шага 3, sha256 совпал.
 
 ### Итог
 
 | Вопрос | Ответ |
 |---|---|
-| Что не сработало | |
-| Что исправлено в скриптах/README по итогам | |
-| Нужны ли Quadlet-юниты (да/нет, почему) | |
+| Что не сработало | 1) healthcheck `client` под Podman: вечный `unhealthy` (localhost → `::1`, nginx слушает только IPv4). 2) Юнит из README_INSTALL падает, если podman-compose стоит через pip: `~/.local/bin` нет в PATH у `systemd --user`. 3) firewalld на Rocky закрывает `CLIENT_PORT`, а README об этом не говорил. 4) podman-compose 1.0.6 не ждёт `service_healthy` (подтверждает README). 5) Вторая установка на том же хосте: фиксированная подсеть 172.30.0.0/24 занята сетью первой, обход — `TASKIRA_NETWORK_CIDR`. 6) Одинаковое имя каталога у двух установок = общий compose-проект и общие тома. 7) `sudo ausearch` без tty висит без `--input-logs`. |
+| Что исправлено в скриптах/README по итогам | 1) `render-compose.sh` + `docker-compose.yml`: healthcheck на `http://127.0.0.1/healthz`, проверка в `test-release-scripts.sh` (9ff5a7b), подтверждено на `1.0.1-check.2`. 2) README_INSTALL, раздел 6: `Environment=PATH=%h/.local/bin:…` в юните и пояснение, подтверждено перезагрузкой. 3) README_INSTALL, раздел 6: абзац про firewalld. 7) чек-лист: `--input-logs`. Пункты 5 и 6 **не исправлены**: нужно решение (задать `name:`/`COMPOSE_PROJECT_NAME` при установке или защита в `install.sh`, которая не даёт стартовать поверх чужого тома). |
+| Нужны ли Quadlet-юниты (да/нет, почему) | Пока нет. Юнит с `podman compose up -d` после правки PATH пережил перезагрузку без входа, и `podman-restart.service` на Podman 5.8.2 тоже поднимает `unless-stopped`. Quadlet имеет смысл, только если отказываться от compose provider как внешней зависимости: тогда пропадают проблемы 2 и 4. |
+
+Стенд после прогона: основная установка `check.1` работает через `taskira.service`. В firewalld
+открыт порт 8081/tcp. docker-compose и `podman.socket` после шага 8 убраны, provider по умолчанию
+снова podman-compose 1.6.0. Порог портов возвращён на 1024. Файл `/etc/sysctl.d/99-taskira.conf`
+удалён, nft-таблица удалена.
