@@ -63,12 +63,18 @@ redact_stream() {
            value=substr(line,p+1); if (length(value)) secret[++n]=value;
          } next
        }
-       { for (i=1;i<=n;i++) {
-           rest=$0; out="";
-           while ((p=index(rest,secret[i]))>0) {
-             out=out substr(rest,1,p-1) "[REDACTED]"; rest=substr(rest,p+length(secret[i]));
-           } $0=out rest;
-         }
+       { rest=$0; out="";
+         while (1) {
+           first=0; size=0;
+           for (i=1;i<=n;i++) {
+             p=index(rest,secret[i]);
+             if (p>0 && (first==0 || p<first || (p==first && length(secret[i])>size))) {
+               first=p; size=length(secret[i]);
+             }
+           }
+           if (first==0) break;
+           out=out substr(rest,1,first-1) "[REDACTED]"; rest=substr(rest,first+size);
+         } $0=out rest;
          gsub(/Bearer [A-Za-z0-9._~-]+/, "Bearer [REDACTED]");
          gsub(/tsk_[a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9]_[A-Za-z0-9_-]+/, "[REDACTED]");
          gsub(/whsec_[A-Za-z0-9_-]+/, "[REDACTED]");
