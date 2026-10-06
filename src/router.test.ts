@@ -2,6 +2,12 @@ import { describe, expect, test } from "vitest";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, parsePath, pathForIssue, pathForView, samePlace, searchFromFilters } from "./router";
 
 describe("pathForView / pathForIssue", () => {
+  test("personal tokens and service accounts have stable projectless settings URLs",() => {
+    expect(pathForView("CORP","settings","tokens")).toBe("/settings/tokens");
+    expect(parsePath("/settings/tokens")).toEqual({ kind: "global",view: "settings",section: "tokens" });
+    expect(pathForView("CORP","orgSettings","service-accounts")).toBe("/admin/service-accounts");
+    expect(parsePath("/admin/service-accounts")).toEqual({ kind: "global",view: "orgSettings",section: "service-accounts" });
+  });
   test("project integrations have a settings URL",() => {
     expect(pathForView("CORP","projectSettings","integrations")).toBe("/p/CORP/settings/integrations");
     expect(parsePath("/p/CORP/settings/integrations")).toEqual({ kind: "view",projectKey: "CORP",view: "projectSettings",section: "integrations" });

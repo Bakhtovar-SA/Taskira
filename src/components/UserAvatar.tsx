@@ -10,7 +10,7 @@ import { IcBriefcase, IcCamera, IcPhone, IcTrash } from "../icons";
 import { useT } from "../i18n";
 import { cropAndResizeAvatar } from "../avatarCrop";
 import { cssVars } from "../cssVars";
-import { toneOf } from "../ds/Display";
+import { Tag, toneOf } from "../ds/Display";
 import { Popover } from "../ds/LazyOverlay";
 
 /** Аватару достаточно имени — любой объект с ним (не только полный User: напр. `actor` в уведомлениях). С id аватар
@@ -185,7 +185,7 @@ export function UserCardBody({ userId }: { userId: string }) {
       <div className="flex items-center gap-3">
         <UserAvatar user={user} size={56} />
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-semibold text-ink">{user.name}</p>
+          <p className="flex items-center gap-2 text-[14px] font-semibold text-ink"><span className="truncate">{user.name}</span>{user.authSource === "service" && <Tag size="sm">{t("tokens.serviceTag")}</Tag>}</p>
           {user.username && <p className="truncate text-[11.5px] text-faint">@{user.username}</p>}
         </div>
       </div>

@@ -465,10 +465,11 @@ export function useSessionActions(
           setData((prev) => {
             if (prev.currentProjectId !== requestProjectId) return prev;
             const mapped = mapIssue(dto, prev.issues.find((x) => x.id === id));
-            mapped.comments = (comments as { id: string; authorId: string; body: string; createdAt: string }[]).map(
+            mapped.comments = comments.map(
               (c) => ({
                 id: c.id,
                 authorId: c.authorId,
+                author: c.author,
                 body: c.body,
                 ts: Date.parse(c.createdAt) || Date.now(),
               }),
