@@ -54,7 +54,7 @@ import { brandRoutes } from "./routes/brand.js";
 import { roadmapRoutes } from "./routes/roadmap.js";
 import { dashboardRoutes } from "./routes/dashboards.js";
 import { getPgVersionInfo, unsupportedVersionMessage } from "./services/pgVersion.js";
-import { searchIndexWarnings,type HealthWarning } from "./services/healthWarnings.js";
+import { searchIndexWarnings, type HealthWarning } from "./services/healthWarnings.js";
 import { createTtlCache } from "./services/ttlCache.js";
 import { observeHttpRequest, refreshBackgroundQueueMetrics, renderMetrics } from "./metrics.js";
 
