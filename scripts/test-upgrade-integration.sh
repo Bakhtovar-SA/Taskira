@@ -36,6 +36,10 @@ if [ -z "${OLD_REF:-}" ]; then
   if [ -z "$OLD_REF" ]; then
     # No release has been published yet. Keep the historical behaviour so CI
     # still exercises a real upgrade, and say loudly that this is a stand-in.
+    if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+      # Workflow command: shows as a yellow annotation on the run summary, not only in the step log.
+      echo "::warning title=Upgrade test fallback::No release tag (vX.Y.Z) found; upgrading from legacy commit $LEGACY_REF, not from a published release."
+    fi
     echo "WARNING: no release tag (vX.Y.Z) found; falling back to legacy commit $LEGACY_REF with its DB snapshot." >&2
     echo "         After the first release is tagged this fallback is never used. If CI shows this, the checkout" >&2
     echo "         lacks tags (needs fetch-depth: 0) or nothing has been tagged. Override with OLD_REF=<ref>." >&2
@@ -269,13 +273,20 @@ assert_rolled_back_to_old() {
   curl --fail --silent "http://127.0.0.1:18081/api/health" | grep -Fq "\"version\":\"$OLD_VERSION\""
 }
 
+# Versions of the throw-away "broken release" candidates are derived from NEW_VERSION, so no published
+# tag can collide with them: both are above NEW_VERSION (not a downgrade of the installed OLD_VERSION,
+# and distinct from the real candidate) whatever OLD_REF / NEW_VERSION are.
+[[ "$NEW_VERSION" =~ $SEMVER_RELEASE_RE ]] || { echo "ERROR: NEW_VERSION '$NEW_VERSION' is not plain SemVer (X.Y.Z)" >&2; exit 1; }
+BROKEN_MIGRATION_VERSION="${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0"
+UNHEALTHY_VERSION="${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 2)).0"
+
 # (a) A broken migration: a server image carrying one extra, invalid migration.
 BROKEN_NAME="99991231T2359_broken_for_rollback_test.sql"
 BROKEN_SRC="$TMP_DIR/broken-server"
 mkdir -p "$BROKEN_SRC"
 tar -C "$ROOT_DIR/server" --exclude=./node_modules --exclude=./dist -cf - . | tar -x -C "$BROKEN_SRC"
 printf 'THIS IS NOT VALID SQL;\n' > "$BROKEN_SRC/migrations/$BROKEN_NAME"
-make_failing_release "1.2.0" "$BROKEN_SRC" "$BROKEN_NAME"
+make_failing_release "$BROKEN_MIGRATION_VERSION" "$BROKEN_SRC" "$BROKEN_NAME"
 if "$RELEASE_UNDER_TEST/upgrade.sh" --install-dir "$INSTALL_DIR" --engine docker > "$TMP_DIR/broken-migration.log" 2>&1; then
   echo "upgrade.sh succeeded with a broken migration" >&2
   exit 1
@@ -285,12 +296,12 @@ assert_rolled_back_to_old "$TMP_DIR/broken-migration.log"
 
 # (b) The migrations apply but the new version never reports healthy: the server image is
 # NEW_VERSION's retagged, so /api/health keeps answering NEW_VERSION, never the target.
-make_failing_release "1.3.0" "" ""
+make_failing_release "$UNHEALTHY_VERSION" "" ""
 if "$RELEASE_UNDER_TEST/upgrade.sh" --install-dir "$INSTALL_DIR" --engine docker > "$TMP_DIR/unhealthy.log" 2>&1; then
   echo "upgrade.sh succeeded although the new version never became healthy" >&2
   exit 1
 fi
-grep -Fq 'upgrade failed during: health-checking Taskira 1.3.0' "$TMP_DIR/unhealthy.log"
+grep -Fq "upgrade failed during: health-checking Taskira $UNHEALTHY_VERSION" "$TMP_DIR/unhealthy.log"
 assert_rolled_back_to_old "$TMP_DIR/unhealthy.log"
 
 echo "automatic rollback integration (broken migration, failed health-check) passed"
