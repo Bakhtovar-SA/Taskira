@@ -24,7 +24,16 @@ jobs:
   ui-visual:
     runs-on: [self-hosted, Linux]
     # Match the pinned Playwright version and the Linux screenshot environment.
-    container: mcr.microsoft.com/playwright:v1.56.1-noble
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      volumes:
+        - /etc/ssl/certs/ca-certificates.crt:/opt/taskira-runner-ca.pem:ro
+    env:
+      NODE_EXTRA_CA_CERTS: /opt/taskira-runner-ca.pem
+      NODE_USE_SYSTEM_CA: '1'
+      SSL_CERT_FILE: /opt/taskira-runner-ca.pem
+      CURL_CA_BUNDLE: /opt/taskira-runner-ca.pem
+      GIT_SSL_CAINFO: /opt/taskira-runner-ca.pem
     permissions:
       contents: read
     steps:
