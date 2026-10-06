@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
 import { loadConfig } from "../src/config.js";
+import { LIMITS } from "../src/contract.js";
 import { _resetMetrics, refreshBackgroundQueueMetrics, renderMetrics } from "../src/metrics.js";
 import { runMaintenanceOnce } from "../src/services/maintenance.js";
 import { runRecurringOnce } from "../src/services/recurring.js";
@@ -193,6 +194,24 @@ test("испорченное расписание останавливает т�
   await due(broken.id); await due(good.id);
   await q(`UPDATE recurring_rules SET time_zone = 'Unknown/Zone' WHERE id = $1`, [broken.id]);
   expect(await runRecurringOnce(clock())).toMatchObject({ created: 1, failed: 1, paused: 1, processed: 2 });
+  const rules = (await call("GET", url())).json();
+  expect(rules.find((rule: { id: string }) => rule.id === broken.id))
+    .toMatchObject({ state: "paused", pausedReason: "invalid_timing", lastResult: "failed" });
+});
+
+test("длина заголовка проверяется после подстановки даты, включая изменение шаблона", async () => {
+  const long = "X".repeat(LIMITS.title.max - 6) + "{date}";
+  expect((await call("POST", url(), manager, body({ title: long }))).statusCode).toBe(400);
+  await q(`UPDATE issue_templates SET title = $2 WHERE id = $1`, [templateId, long]);
+  expect((await call("POST", url(), manager, body())).statusCode).toBe(400);
+  const override = await create({ title: "Valid", name: "Override" });
+  expect((await call("PATCH", `${url()}/${override.id}`, manager, { title: long })).statusCode).toBe(400);
+  await q(`UPDATE issue_templates SET title = 'Report {date}' WHERE id = $1`, [templateId]);
+  const rule = await create(); await due(rule.id);
+  await q(`UPDATE issue_templates SET title = $2 WHERE id = $1`, [templateId, long]);
+  expect((await runRecurringOnce(clock())).failed).toBe(1);
+  expect((await call("GET", `${url()}/${rule.id}/runs`)).json()[0])
+    .toMatchObject({ result: "failed", errorCode: "VALIDATION", issueId: null });
 });
 
 test("run-now уникален по минуте и сохраняет next_run_at", async () => {

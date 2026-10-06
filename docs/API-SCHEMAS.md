@@ -1279,7 +1279,7 @@
 | `projectId` | string (uuid) |  |
 | `ownerId` | string (uuid) | может быть null |
 | `state` | enum: `active` \| `paused` |  |
-| `pausedReason` | enum: `manual` \| `owner_lost_access` | может быть null |
+| `pausedReason` | enum: `manual` \| `owner_lost_access` \| `invalid_timing` | может быть null |
 | `nextRunAt` | string | может быть null |
 | `lastRunAt` | string | может быть null |
 | `lastResult` | enum: `created` \| `skipped_open` \| `failed` | может быть null |

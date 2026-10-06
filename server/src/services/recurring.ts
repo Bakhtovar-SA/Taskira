@@ -18,7 +18,7 @@ interface RuleRow {
   id: string; project_id: string; template_id: string; name: string; title: string | null;
   schedule: RecurrenceSchedule; time_of_day: string; time_zone: string; start_date: string;
   due_in_days: number | null; skip_if_open: boolean; owner_id: string | null;
-  state: "active" | "paused"; paused_reason: "manual" | "owner_lost_access" | null;
+  state: "active" | "paused"; paused_reason: "manual" | "owner_lost_access" | "invalid_timing" | null;
   next_run_at: Date | null; last_run_at: Date | null; created_at: Date; updated_at: Date;
   assignee_ids: string[]; last_result: RecurringRunDto["result"] | null;
 }
@@ -51,14 +51,22 @@ function nameConflict(error: unknown): never {
   throw error;
 }
 
+function expandedTitle(title: string, date: string): string {
+  const expanded = title.replace(/\{date\}/g, date);
+  if (expanded.length > LIMITS.title.max)
+    throw badRequest("Название задачи после подстановки даты превышает допустимую длину");
+  return expanded;
+}
+
 async function validateRule(client: PoolClient, project: ProjectRow, body: RecurringRuleBody,
   changed?: RecurringRulePatchBody, oldStartDate?: string): Promise<void> {
   assertValidTiming(body, { checkStartWindow: !changed || (changed.startDate !== undefined && changed.startDate !== oldStartDate) });
-  if (!changed || changed.templateId !== undefined) {
-    const template = (await client.query<{ id: string }>(
-      `SELECT id FROM issue_templates WHERE id = $1 AND project_id = $2 FOR KEY SHARE`, [body.templateId, project.id],
+  if (!changed || changed.templateId !== undefined || changed.title !== undefined) {
+    const template = (await client.query<{ id: string; title: string }>(
+      `SELECT id, title FROM issue_templates WHERE id = $1 AND project_id = $2 FOR KEY SHARE`, [body.templateId, project.id],
     )).rows[0];
     if (!template) throw notFound("Шаблон задачи не найден в проекте");
+    expandedTitle((body.title ?? template.title) || body.name, "2000-01-01");
   }
   if (changed && changed.assigneeIds === undefined) return;
   await validateAssigneesInProject(project.id, body.assigneeIds, client);
@@ -247,7 +255,7 @@ export async function runRule(client: PoolClient, project: ProjectRow, rule: Rul
     const dueDate = rule.due_in_days === null ? null
       : new Date(Date.parse(`${date}T00:00:00Z`) + rule.due_in_days * 86_400_000).toISOString().slice(0, 10);
     const issue = await createIssueInTx(client, project, {
-      title: title.replace(/\{date\}/g, date), description: template.description, typeId: template.type_id,
+      title: expandedTitle(title, date), description: template.description, typeId: template.type_id,
       priorityId: template.priority_id, statusId: template.status_id, assigneeIds,
       epicId: null, labels: [], complexity: null, dueDate, checklistItems: [],
       activity: { kind: "created", ruleId: rule.id, ruleName: rule.name },
@@ -326,7 +334,7 @@ export async function runRecurringWork(now = new Date()): Promise<RecurringStats
         const failed = (await client.query<{ id: string }>(`INSERT INTO recurring_runs (rule_id, scheduled_for, result, error_code)
           VALUES ($1, $2, 'failed', $3) ON CONFLICT (rule_id, scheduled_for) DO NOTHING RETURNING id`,
           [rule.id, rule.next_run_at, code])).rows[0];
-        await client.query(`UPDATE recurring_rules SET state = 'paused', paused_reason = 'manual', next_run_at = NULL,
+        await client.query(`UPDATE recurring_rules SET state = 'paused', paused_reason = 'invalid_timing', next_run_at = NULL,
           updated_at = now(), last_run_at = $2 WHERE id = $1`, [rule.id, now]);
         await auditTx(client, "recurring.auto_pause", rule.id, { reason: "invalid_timing", code });
         await auditTx(client, "recurring.run_failed", rule.id, { code });
