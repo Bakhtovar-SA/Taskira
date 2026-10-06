@@ -21,12 +21,18 @@ SEMVER_RELEASE_RE='^v?([0-9]+)\.([0-9]+)\.([0-9]+)$'
 # Latest plain-SemVer release tag, skipping a tag that points at HEAD itself
 # (when HEAD is the release being built, N-1 is the release before it).
 latest_release_tag() {
+  local head_sha tags tag
+  local -a tag_list
   head_sha="$(git -C "$ROOT_DIR" rev-parse HEAD)"
-  git -C "$ROOT_DIR" tag --list --sort=-v:refname | while IFS= read -r tag; do
+  # Read the whole listing first: a `git tag | while ...; break` pipe closes early and, with many tags,
+  # git can die from SIGPIPE (141), which aborts the script under `set -o pipefail`.
+  tags="$(git -C "$ROOT_DIR" tag --list --sort=-v:refname)"
+  mapfile -t tag_list <<< "$tags"
+  for tag in "${tag_list[@]}"; do
     [[ "$tag" =~ $SEMVER_RELEASE_RE ]] || continue
     [ "$(git -C "$ROOT_DIR" rev-list -n 1 "$tag")" = "$head_sha" ] && continue
     printf '%s\n' "$tag"
-    break
+    return 0
   done
 }
 
