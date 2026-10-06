@@ -184,6 +184,14 @@ sudo sysctl --system
 `CLIENT_PORT` меньше порога, `install.sh --start` завершится ошибкой до запуска
 контейнеров. Не забудьте изменить порт и в `CORS_ORIGIN`.
 
+**Firewall.** На RHEL/Rocky/Alma `firewalld` включён по умолчанию и закрывает
+`CLIENT_PORT` для других машин: с самого сервера `curl` отвечает, из браузера
+пользователя — таймаут. Откройте порт (от root):
+
+```bash
+sudo firewall-cmd --permanent --add-port=8081/tcp && sudo firewall-cmd --reload
+```
+
 **Автозапуск после перезагрузки.** `restart: unless-stopped` в rootless Podman
 сам по себе контейнеры после перезагрузки сервера не поднимает: нет системного
 демона, который это сделал бы. Нужны (а) lingering, чтобы пользовательский
@@ -199,6 +207,8 @@ Description=Taskira (podman compose)
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+# systemd --user не видит ~/.local/bin, куда pip ставит podman-compose
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 WorkingDirectory=/opt/taskira/current
 ExecStart=/usr/bin/podman compose --env-file .env -f docker-compose.yml up -d
 ExecStop=/usr/bin/podman compose --env-file .env -f docker-compose.yml stop
@@ -213,6 +223,10 @@ systemctl --user enable --now taskira.service
 ```
 
 Подставьте свой каталог установки и путь к `podman` (`command -v podman`).
+Строка `Environment=PATH=…` обязательна, если compose provider лежит не в
+`/usr/bin` (например, `pip install --user podman-compose`): без неё юнит падает
+с `podman-compose: executable file not found in $PATH`, хотя из shell
+`podman compose` работает.
 Проверьте автозапуск реальной перезагрузкой: `loginctl show-user $USER -p
 Linger` должно показать `Linger=yes`, а после `reboot` — `curl -f
 http://127.0.0.1:8081/api/health` без входа в систему. Альтернатива —

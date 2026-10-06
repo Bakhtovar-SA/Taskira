@@ -370,14 +370,70 @@ podman ps
 Дополнительно проверить, что без юнита (только `restart: unless-stopped`) стек после
 перезагрузки НЕ поднимается — это подтверждает необходимость юнита:
 
-- [ ] Автозапуск с юнитом работает
-- [ ] Без юнита стек не поднимается (подтверждает документацию)
-- [ ] `systemctl --user enable podman-restart.service` — поведение зафиксировано (поднимает ли `unless-stopped`)
+- [x] Автозапуск с юнитом работает — **после исправления юнита** (см. ниже)
+- [x] Без юнита стек не поднимается (подтверждает документацию)
+- [x] `systemctl --user enable podman-restart.service` — поведение зафиксировано (поднимает ли `unless-stopped`) — **поднимает** на Podman 5.8.2
+
+Health после каждой перезагрузки проверялся с другой машины (Windows-хост,
+`http://192.168.141.132:8081/api/health`) до входа по ssh. Перед этим пришлось открыть порт
+в firewalld — без этого с другой машины таймаут (добавлено в README_INSTALL, раздел 6).
 
 Вывод:
 
 ```
+$ loginctl show-user "$USER" -p Linger
+Linger=yes            # было включено на VM ещё до прогона
+
+## Перезагрузка 1 — без юнита, podman-restart.service disabled
+ls: невозможно получить доступ к '/home/test/.config/systemd/user/': Нет такого файла или каталога
+podman-restart.service: disabled; taskira.service: not-found
+$ sudo systemctl reboot            # 15:18:33, загрузка 15:18:42
+health с Windows (3 попытки через ~2 мин): ERR Базовое соединение закрыто: Непредвиденная ошибка при приеме.
+$ podman ps -a
+taskira-101-check1_postgres_1 Exited (0) 2 minutes ago
+taskira-101-check1_server_1 Exited (1) 2 minutes ago
+taskira-101-check1_client_1 Exited (0) 2 minutes ago
+
+## Перезагрузка 2 — только podman-restart.service
+restart=unless-stopped
+$ systemctl --user enable podman-restart.service
+ExecStart=/usr/bin/podman $LOGGING start --all --filter should-start-on-boot=true
+$ sudo systemctl reboot            # загрузка 15:21:33
+health с Windows: {"ok":true,"db":true,"checks":{"db":true,"migrations":true,"storage":true},"version":"1.0.1-check.1","ts":"2026-10-06T10:23:41.960Z"}  (x3)
+taskira-101-check1_postgres_1 Up 2 minutes (healthy)
+taskira-101-check1_server_1 Up 2 minutes (healthy)
+taskira-101-check1_client_1 Up 2 minutes (unhealthy)     # старый healthcheck образа check.1, см. шаг 1
+postgres: database system was shut down at 2026-10-06 10:18:35 UTC
+postgres: database system is ready to accept connections
+
+## Юнит из README_INSTALL (раздел 6) дословно, podman-restart.service disabled
+$ systemctl --user daemon-reload && systemctl --user enable --now taskira.service
+Job for taskira.service failed because the control process exited with error code.
+× taskira.service - Taskira (podman compose)
+    Process: 4509 ExecStart=/usr/bin/podman compose --env-file .env -f docker-compose.yml up -d (code=exited, status=125)
+podman[4509]:         * exec: "docker-compose": executable file not found in $PATH
+podman[4509]:         * exec: "podman-compose": executable file not found in $PATH
+# podman-compose установлен через pip в ~/.local/bin, которого нет в PATH systemd --user.
+# В юнит добавлено: Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+$ systemctl --user daemon-reload && systemctl --user restart taskira.service
+● taskira.service - Taskira (podman compose)
+     Active: active (exited) since Tue 2026-10-06 15:24:43 +05
+    Process: 4725 ExecStart=/usr/bin/podman compose ... up -d (code=exited, status=0/SUCCESS)
+
+## Перезагрузка 3 — только taskira.service (исправленный)
+$ sudo systemctl reboot            # загрузка 15:24:57
+health с Windows: {"ok":true,"db":true,"checks":{"db":true,"migrations":true,"storage":true},"version":"1.0.1-check.1","ts":"2026-10-06T10:27:05.569Z"}  (x3)
+taskira-101-check1_postgres_1 Up 2 minutes (healthy)
+taskira-101-check1_server_1 Up 2 minutes (healthy)
+taskira-101-check1_client_1 Up 2 minutes (starting)
+● taskira.service - Taskira (podman compose)
+     Active: active (exited) since Tue 2026-10-06 15:25:27 +05; 2min 8s ago
+    Process: 1468 ExecStart=/usr/bin/podman compose --env-file .env -f docker-compose.yml up -d (code=exited, status=0/SUCCESS)
+postgres: database system was shut down at 2026-10-06 10:24:50 UTC
+postgres: database system is ready to accept connections
 ```
+
+Recovery-ошибок PostgreSQL нет ни в одной перезагрузке: каждый раз чистое завершение.
 
 ### 8. Compose provider
 
