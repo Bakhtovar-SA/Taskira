@@ -13,7 +13,7 @@
  *   - контроль         — тот же запрос с объектами P1 НЕ даёт 401/403/404/5xx: иначе 404 выше ничего не доказывает
  *                        (выключенный модуль, неверный URL, сломанная фикстура тоже отвечают 404).
  * Каждый вариант выполняют глобальный админ (видит P2 — 404 ему даёт только привязка к пути) и mgr1, менеджер P1 без
- * доступа к P2 (403, если у менеджера нет права на маршрут). Ответ совпадает с ответом на несуществующий id с теми же
+ * доступа к P2 (ровно 403, если у менеджера нет права на маршрут — список MGR1_FORBIDDEN; иначе ровно 404). Ответ совпадает с ответом на несуществующий id с теми же
  * родителями. После каждого запроса объекты P2 и задачи B побайтно те же, что до него: так ловится «изменили, потом
  * ответили 404».
  *
@@ -321,6 +321,27 @@ const CASES: Case[] = Object.keys(ROUTES)
     return depth !== 0 ? depth : a.key < b.key ? 1 : -1;
   });
 
+/** Маршруты, на которые у менеджера P1 (mgr1) НЕТ права: ему — 403 до поиска объекта. Остальным маршрутам из CASES
+ *  с исполнителем admin mgr1 обязан получить ровно 404 (право есть — решает привязка объекта к пути). Причина —
+ *  проверка прав маршрута против столбца manager в permissions.matrix.ts. */
+const EDIT_WORKFLOW = "requirePerm(editWorkflow) — у manager нет editWorkflow";
+const GLOBAL_ADMIN = "requireGlobalAdmin — вебхуки только для глобального администратора";
+const MGR1_FORBIDDEN: Readonly<Record<string, string>> = {
+  "DELETE /api/projects/:projectId/custom-fields/:fieldId": EDIT_WORKFLOW,
+  "DELETE /api/projects/:projectId/issue-templates/:templateId": EDIT_WORKFLOW,
+  "DELETE /api/projects/:projectId/webhooks/:id": GLOBAL_ADMIN,
+  "DELETE /api/projects/:projectId/workflow/transitions/:id": EDIT_WORKFLOW,
+  "GET /api/projects/:projectId/webhooks/:id/deliveries": GLOBAL_ADMIN,
+  "GET /api/projects/:projectId/webhooks/:id/deliveries/:deliveryId": GLOBAL_ADMIN,
+  "PATCH /api/projects/:projectId/custom-fields/:fieldId": EDIT_WORKFLOW,
+  "PATCH /api/projects/:projectId/issue-templates/:templateId": EDIT_WORKFLOW,
+  "PATCH /api/projects/:projectId/webhooks/:id": GLOBAL_ADMIN,
+  "POST /api/projects/:projectId/webhooks/:id/deliveries/:deliveryId/redeliver": GLOBAL_ADMIN,
+  "POST /api/projects/:projectId/webhooks/:id/ping": GLOBAL_ADMIN,
+  "POST /api/projects/:projectId/webhooks/:id/redeliver-failed": GLOBAL_ADMIN,
+  "POST /api/projects/:projectId/webhooks/:id/rotate-secret": GLOBAL_ADMIN,
+};
+
 /** Тела вместо BODIES: где тело ссылается на объект (контролю нужен настоящий объект P1) или это файл. */
 const CASE_BODIES: Readonly<Record<string, () => { payload: unknown; headers?: Record<string, string> }>> = {
   "POST /api/projects/:projectId/issues/:id/attachments": () => mpText("control.txt", "control\n"),
@@ -365,6 +386,11 @@ describe("межпроектный IDOR: вложенные объекты по 
     expect(CASES.length).toBeGreaterThan(40);
   });
 
+  test("MGR1_FORBIDDEN не устарел: каждый ключ — маршрут из CASES, который mgr1 выполняет вторым исполнителем", () => {
+    const withMgr1 = new Set(CASES.filter((c) => c.actor === "admin").map((c) => c.key));
+    expect(Object.keys(MGR1_FORBIDDEN).filter((key) => !withMgr1.has(key))).toEqual([]);
+  });
+
   test.each(CASES.map((c) => [c.key, c] as const))("%s", async (_key, c) => {
     // Тело собирается заново на каждый запрос: multipart-буфер одноразовый.
     const send = (actor: keyof typeof tokens, url: string) => {
@@ -380,8 +406,8 @@ describe("межпроектный IDOR: вложенные объекты по 
       variants.push(["соседняя задача (путь задачи A, объект задачи B)", (p, i) => (i === last ? objs.p1b[leafKind as "link"] : objs.p1[OWNED[p.key]])]);
     }
     // Злоумышленник из тикета — участник P1 без доступа к P2 (mgr1). Админ дополнительно: он видит P2, поэтому 404 ему
-    // может дать только привязка объекта к пути. mgr1 без нужного права получает 403 раньше поиска объекта — это не утечка,
-    // но ответ всё равно обязан совпасть с ответом на несуществующий id.
+    // может дать только привязка объекта к пути. mgr1 без нужного права (MGR1_FORBIDDEN) получает 403 раньше поиска
+    // объекта — это не утечка, но ответ всё равно обязан совпасть с ответом на несуществующий id.
     const actors: Array<keyof typeof tokens> = c.actor === "admin" ? ["admin", "mgr1"] : [c.actor];
     const missingId = randomUUID();
     const shape = (res: Awaited<ReturnType<typeof send>>, id: string) => ({ status: res.statusCode, body: res.body.split(id).join("<id>") });
@@ -393,8 +419,9 @@ describe("межпроектный IDOR: вложенные объекты по 
         const leafId = pick(c.params[last], last);
         const res = await send(actor, url);
         const where = `${label} [${actor}]: ${c.method} ${url} → ${res.statusCode} ${res.body.slice(0, 200)}`;
-        if (actor === c.actor) expect(res.statusCode, where).toBe(404);
-        else expect([403, 404], where).toContain(res.statusCode);
+        // mgr1 без права на маршрут — ровно 403 (проверка прав раньше поиска объекта), с правом — ровно 404.
+        const expected = actor === "mgr1" && c.key in MGR1_FORBIDDEN ? 403 : 404;
+        expect(res.statusCode, where).toBe(expected);
         expect(await foreignState(), `${where}: изменены чужие данные`).toEqual(before);
         // Ответ неотличим от ответа на несуществующий объект с теми же родителями.
         const missing = await send(actor, urlFor(c, (p, i) => (i === last ? missingId : pick(p, i))));
@@ -466,6 +493,105 @@ describe("межпроектный IDOR: идентификаторы P2 в те
       expect([200, 400, 404], `${payload.action}: ${res.statusCode}`).toContain(res.statusCode);
       expect(await foreignState(), `bulk ${payload.action}: изменились данные P2`).toEqual(before);
     }
+  });
+
+  /* Идентификатор P2 в теле там, где цель запроса — СУЩЕСТВУЮЩИЙ объект P1 (созданный здесь же: объекты P1 из
+   * seedProject к этому моменту удалены контрольными DELETE выше, и 404 «шаблон не найден» ничего бы не доказал).
+   * Каждый случай: точный код; ответ совпадает с ответом на несуществующий id; не изменились ни данные P2, ни данные
+   * P1 (весь PROJECT_SCOPE P1 — задача, шаблон, правило повтора); положительный контроль с id из P1 проходит. */
+  interface Pinned {
+    label: string; actor: keyof typeof tokens; method: string; url: string; body: (id: string) => unknown;
+    p2Id: string; p2Table: string; status: number;
+  }
+  async function pinForeignBodyId({ label, actor, method, url, body, p2Id, p2Table, status }: Pinned) {
+    // Объект P2 существует — иначе сравнение с несуществующим id ничего не проверяет.
+    expect(await q(`SELECT 1 FROM ${p2Table} WHERE id = $1 AND project_id = $2`, [p2Id, fx.projects.p2]), `${label}: нет объекта P2`).toHaveLength(1);
+    const before = await foreignState();
+    const p1Before = await digest(PROJECT_SCOPE, fx.projects.p1);
+    const foreign = await call(tokens[actor], method, url, body(p2Id));
+    const where = `${label}: ${method} ${url} → ${foreign.statusCode} ${foreign.body.slice(0, 200)}`;
+    expect(foreign.statusCode, where).toBe(status);
+    expect(await foreignState(), `${where}: изменились данные P2`).toEqual(before);
+    expect(await digest(PROJECT_SCOPE, fx.projects.p1), `${where}: изменились данные P1`).toEqual(p1Before);
+    expect(await crossReferences(), `${where}: в данных P1 появилась ссылка на объект P2`).toEqual([]);
+    const missingId = randomUUID();
+    const missing = await call(tokens[actor], method, url, body(missingId));
+    const shape = (res: typeof foreign, id: string) => ({ status: res.statusCode, body: res.body.split(id).join("<id>") });
+    expect(shape(foreign, p2Id), `${where}: ответ отличается от ответа на несуществующий id`).toEqual(shape(missing, missingId));
+    expect(await digest(PROJECT_SCOPE, fx.projects.p1), `${where}: несуществующий id изменил данные P1`).toEqual(p1Before);
+    return foreign;
+  }
+  const freshIssue = async (title: string) =>
+    (await ok(tokens.mgr1, "POST", `${p1()}/issues`, newIssue({ title }))).json<{ id: string; statusId: string }>();
+  const p2IssueTemplate = () => objs.p2.issueTemplate;
+
+  test("новая задача в статусе P2 — 400 как на несуществующий статус, задача не создаётся", async () => {
+    const res = await pinForeignBodyId({
+      label: "POST issues statusId=P2", actor: "mgr1", method: "POST", url: `${p1()}/issues`,
+      body: (id) => newIssue({ title: "status from P2", statusId: id }), p2Id: p2Status, p2Table: "workflow_statuses", status: 400,
+    });
+    expect(res.body).toContain("Статус не найден в проекте");
+    // Контроль: статус P1 принимается.
+    const created = await ok(tokens.mgr1, "POST", `${p1()}/issues`, newIssue({ title: "status from P1", statusId: fx.p1status.inprogress }));
+    expect(created.json<{ statusId: string }>().statusId).toBe(fx.p1status.inprogress);
+  });
+
+  test("массовая смена статуса на статус P2 — 200 с отказом по задаче, как на несуществующий статус; задача P1 не тронута", async () => {
+    const issue = await freshIssue("bulk target");
+    const res = await pinForeignBodyId({
+      label: "PATCH issues/bulk status=P2", actor: "mgr1", method: "PATCH", url: `${p1()}/issues/bulk`,
+      body: (id) => ({ action: "status", issueIds: [issue.id], statusId: id }), p2Id: p2Status, p2Table: "workflow_statuses", status: 200,
+    });
+    expect(res.json()).toEqual({ succeeded: [], failed: [{ issueId: issue.id, reason: "Целевой статус не принадлежит проекту" }] });
+    // Контроль: статус P1 применяется. Цель — по существующему ребру: контрольный DELETE workflow/transitions/:id выше
+    // удаляет случайный переход P1.
+    const to = await latest(`SELECT to_status_id AS id FROM workflow_transitions WHERE project_id = $1 AND from_status_id = $2 LIMIT 1`,
+      [fx.projects.p1, issue.statusId]);
+    const control = await ok(tokens.mgr1, "PATCH", `${p1()}/issues/bulk`, { action: "status", issueIds: [issue.id], statusId: to });
+    expect(control.json()).toEqual({ succeeded: [issue.id], failed: [] });
+  });
+
+  test("PATCH шаблона задачи P1 со статусом P2 — 404 как на несуществующий статус, шаблон не изменён", async () => {
+    const tpl = { name: "IDOR tpl", typeId: "task", priorityId: "medium", title: "t" };
+    const template = (await ok(tokens.admin, "POST", `${p1()}/issue-templates`, tpl)).json<{ id: string }>().id;
+    const url = `${p1()}/issue-templates/${template}`;
+    await pinForeignBodyId({
+      label: "PATCH issue-templates/:templateId statusId=P2", actor: "admin", method: "PATCH", url,
+      body: (id) => ({ ...tpl, statusId: id }), p2Id: p2Status, p2Table: "workflow_statuses", status: 404,
+    });
+    // Контроль: статус P1 сохраняется.
+    const control = await ok(tokens.admin, "PATCH", url, { ...tpl, statusId: fx.p1status.inprogress });
+    expect(control.json<{ statusId: string }>().statusId).toBe(fx.p1status.inprogress);
+  });
+
+  test("PATCH правила повтора P1 с шаблоном P2 — 404 как на несуществующий шаблон, правило не изменено", async () => {
+    const tplBody = (name: string) => ({ name, typeId: "task", priorityId: "medium", title: "t" });
+    const templateA = (await ok(tokens.admin, "POST", `${p1()}/issue-templates`, tplBody("IDOR rule tpl A"))).json<{ id: string }>().id;
+    const templateB = (await ok(tokens.admin, "POST", `${p1()}/issue-templates`, tplBody("IDOR rule tpl B"))).json<{ id: string }>().id;
+    const rule = (await ok(tokens.mgr1, "POST", `${p1()}/recurring`, { ...recurringBody(templateA), name: "IDOR rule" })).json<{ id: string }>().id;
+    const url = `${p1()}/recurring/${rule}`;
+    // Менеджер P1 держит manageRecurring — до поиска шаблона его пропускает проверка прав.
+    await pinForeignBodyId({
+      label: "PATCH recurring/:id templateId=P2", actor: "mgr1", method: "PATCH", url,
+      body: (id) => ({ templateId: id }), p2Id: p2IssueTemplate(), p2Table: "issue_templates", status: 404,
+    });
+    // Контроль: шаблон P1 принимается.
+    const control = await ok(tokens.mgr1, "PATCH", url, { templateId: templateB });
+    expect(control.json<{ templateId: string }>().templateId).toBe(templateB);
+  });
+
+  test("переход с beforeId = задача P2 — 404 как на несуществующую задачу-ориентир, порядок не изменён", async () => {
+    const moved = await freshIssue("moved");
+    const anchor = await freshIssue("anchor");
+    expect(anchor.statusId).toBe(moved.statusId);
+    // to = текущий статус: проверка ребра workflow пропускается, и до ответа доходит именно поиск beforeId.
+    const url = `${p1()}/issues/${moved.id}/transition`;
+    await pinForeignBodyId({
+      label: "POST transition beforeId=P2", actor: "mgr1", method: "POST", url,
+      body: (id) => ({ to: moved.statusId, beforeId: id }), p2Id: fx.issues.p2issue, p2Table: "issues", status: 404,
+    });
+    // Контроль: ориентир из той же колонки P1 принимается.
+    await ok(tokens.mgr1, "POST", url, { to: moved.statusId, beforeId: anchor.id });
   });
 
   test("инвариант: после всех запросов файла в данных P1 нет ссылок на объекты P2", async () => {
