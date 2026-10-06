@@ -267,6 +267,8 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `GET /api/reports/issues.csv` | query `ReportExportQuery` | requireAuth; scope = **видимые проекты** | построчная выгрузка (`scope`: `closed`\|`created`\|`open`); CSV с `;` и BOM для русского Excel; пишется в `audit_log` |
 | `GET /api/admin/audit-log/export` | `format=jsonl\|csv`, `from?`, `to?`, `limit<=100000` | global admin | SIEM-выгрузка: одна запись на строку, стабильные `timestamp/actor/action/object/result/details` |
 | `GET /api/admin/license` | — | global admin | статус офлайн-лицензии (`getLicenseStatus`): `unset` / `invalid` (причина) / `active` / `expired` с `claims` и занятыми местами; сам токен не отдаётся. Только чтение — установка по-прежнему CLI |
+| `GET /api/admin/status` | — | global admin, сессия | `SystemStatusDto`: 11 независимых проверок инсталляции; кэш 15 с, общий дедлайн 5 с |
+| `GET /api/admin/ops-runs` | `kind=backup\|restore_drill`, `limit=1…50` (по умолчанию 5) | global admin, сессия | `OpsRunDto[]`: новейшие отчёты хоста; имена архивов без пути; `running` старше 6 ч представлен как `interrupted` |
 | `GET /api/project-templates` | — | global admin | шаблоны проектов (ТЗ 5.10): 5 встроенных (`id = builtin:<id>`, `server/src/templates/builtin.json`) + шаблоны организации (`project_templates`) |
 | `POST /api/projects/:projectId/save-as-template` | `{name ≤80, description ≤300}` | `saveProjectTemplate` (роль admin в проекте = глобальный admin); занятое имя — `409`; конфигурация не проходит `ProjectTemplateSpec` — `400` | снимок статусов, переходов, полей, шаблонов задач, меток и представления по умолчанию |
 | `DELETE /api/project-templates/:templateId` | — | global admin | удалить шаблон организации; встроенные не удаляются |

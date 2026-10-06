@@ -11,12 +11,20 @@ import { OpsRunDto, SystemStatusDto, type SystemCheck } from "../src/contract.js
 import { clearSystemStatusCache, getSystemStatus, systemChecks } from "../src/services/systemStatus.js";
 import { opsState } from "../src/services/opsStatus.js";
 import { generateToken, invalidateUserTokens } from "../src/services/apiTokens.js";
+import { _setTransport, runNotifierOnce } from "../src/services/notifier.js";
 import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
+vi.mock("node:fs/promises", async importOriginal => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, statfs: vi.fn(actual.statfs) };
+});
 let app: FastifyInstance, fx: Fixture, adm: string;
-const cfg = loadConfig();
-const saved = { notify: { ...cfg.notify }, webhooks: { ...cfg.webhooks }, recurring: { ...cfg.recurring }, authMode: cfg.authMode, ldap: cfg.ldap };
-beforeAll(async () => { app = await getApp(); });
+let cfg: ReturnType<typeof loadConfig>;
+let saved: Pick<typeof cfg, "notify" | "webhooks" | "recurring" | "authMode" | "ldap">;
+beforeAll(async () => {
+  app = await getApp(); cfg = loadConfig();
+  saved = { notify: { ...cfg.notify }, webhooks: { ...cfg.webhooks }, recurring: { ...cfg.recurring }, authMode: cfg.authMode, ldap: cfg.ldap };
+});
 afterAll(async () => { await stopApp(); });
 beforeEach(async () => {
   await resetDb(); fx = await seedFixture(); adm = await login(app, "admin"); clearSystemStatusCache();
@@ -27,6 +35,7 @@ afterEach(() => {
   Object.assign(cfg.notify, saved.notify); Object.assign(cfg.webhooks, saved.webhooks); Object.assign(cfg.recurring, saved.recurring);
   cfg.authMode = saved.authMode; cfg.ldap = saved.ldap;
   invalidateUserTokens(fx.users.admin);
+  _setTransport(null);
 });
 const status = () => app.inject({ method: "GET", url: "/api/admin/status", headers: auth(adm) });
 async function record(kind: "backup" | "restore_drill", result: "running" | "success" | "failure", hours: number, archive = "/private/backups/fixture.tar.gz") {
@@ -115,9 +124,24 @@ test("вебхуки: выключенная пустая функция off; di
       ($1,$2,true,'failed',now(),now()-interval '2 days')`, [hook.id, event.id]);
   expect(await systemChecks.webhooks()).toMatchObject({ state: "warn", facts: { active: 1, pending: 1, failed24h: 1 } });
 });
+test("время почтового отказа записывается только при исчерпании ретраев", async () => {
+  cfg.notify.emailEnabled = true; cfg.notify.emailMaxTries = 2;
+  cfg.notify.appBaseUrl = "https://fixture.example";
+  cfg.notify.smtp = { host: "fixture", port: 25, user: null, pass: null, from: "fixture@example.test", secure: false, tlsRejectUnauthorized: true };
+  await q(`UPDATE users SET email='recipient@example.test',notify_prefs='{"email":"instant"}' WHERE id=$1`, [fx.users.emp1]);
+  await q(`INSERT INTO notifications(user_id,type,project_id,issue_id,actor_id,created_at)
+    VALUES($1,'issue.assigned',$2,$3,$4,now()-interval '3 days')`, [fx.users.emp1, fx.projects.p1, fx.issues.p1issue, fx.users.admin]);
+  _setTransport({ sendMail: vi.fn().mockRejectedValue(new Error("fixture SMTP failure")) });
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const row = async () => (await q<{ email_state: string; email_failed_at: Date | null }>(`SELECT email_state,email_failed_at FROM notifications WHERE user_id=$1`, [fx.users.emp1]))[0];
+  await runNotifierOnce(); expect(await row()).toMatchObject({ email_state: "pending", email_failed_at: null });
+  await runNotifierOnce(); const failed = await row(); expect(failed.email_state).toBe("failed");
+  expect(failed.email_failed_at!.getTime()).toBeGreaterThan(Date.now() - 10_000);
+  expect((await systemChecks.mail()).facts.failed24h).toBe(1);
+});
 test("повторы: пусто/off, потерявший доступ владелец, суточные ошибки", async () => {
   expect((await systemChecks.recurring()).state).toBe("off");
-  const [template] = await q<{ id: string }>(`INSERT INTO issue_templates(project_id,name,fields) VALUES($1,'Status','{}') RETURNING id`, [fx.projects.p1]);
+  const [template] = await q<{ id: string }>(`INSERT INTO issue_templates(project_id,name,type_id,priority_id,position) VALUES($1,'Status','task','medium',0) RETURNING id`, [fx.projects.p1]);
   const [rule] = await q<{ id: string }>(`INSERT INTO recurring_rules(project_id,template_id,name,schedule,time_of_day,time_zone,start_date,state,paused_reason)
     VALUES($1,$2,'Status','{"freq":"daily","every":1}','09:00','UTC',current_date,'paused','owner_lost_access') RETURNING id`, [fx.projects.p1, template.id]);
   await q(`INSERT INTO recurring_runs(rule_id,scheduled_for,ran_at,result) VALUES
@@ -146,11 +170,11 @@ test("диск: абсолютные и относительные пороги;
 });
 test("LDAP: ручной успешный ресинк, старый успех и ошибки без DN и текста исключения", async () => {
   cfg.authMode = "ldap"; cfg.ldap = { bindDn: "fixture", resyncIntervalMs: 3600_000 } as NonNullable<typeof cfg.ldap>;
-  await q(`INSERT INTO audit_log(action,created_at,details) VALUES('ldap.resync',now()-interval '1 hour','{"errors":0,"notFound":0}')`);
+  await q(`INSERT INTO audit_log(action,entity,created_at,details) VALUES('ldap.resync','users',now()-interval '1 hour','{"errors":0,"notFound":0}')`);
   expect((await systemChecks.ldap()).state).toBe("ok");
   await q(`UPDATE audit_log SET created_at=now()-interval '4 hours' WHERE action='ldap.resync'`);
   expect((await systemChecks.ldap()).state).toBe("warn");
-  await q(`INSERT INTO audit_log(action,details) VALUES('ldap.resync','{"errors":1,"notFound":0}')`);
+  await q(`INSERT INTO audit_log(action,entity,details) VALUES('ldap.resync','users','{"errors":1,"notFound":0}')`);
   expect(await systemChecks.ldap()).toMatchObject({ state: "warn", facts: { lastError: "resync_failed" } });
 });
 test("задания: последний успех сохраняется после ошибки; стартовая задержка и три интервала", async () => {

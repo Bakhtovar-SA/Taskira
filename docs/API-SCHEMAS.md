@@ -435,6 +435,13 @@
 |---|---|---|
 | `step` | enum: `theme` |  |
 
+### OpsRunsQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `kind` | enum: `backup` \| `restore_drill` |  |
+| `limit` | integer | необязательное; по умолчанию 5; 1…50 |
+
 ### PickableUsersQuery
 
 | Поле | Тип | Замечания |
@@ -1161,6 +1168,34 @@
 | `hidden` | boolean |  |
 | `hints` | array&lt;string&gt; |  |
 
+### OpsFacts
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `lastSuccessAt` | string | может быть null |
+| `lastRunAt` | string | может быть null |
+| `lastResult` | enum: `running` \| `success` \| `failure` \| `interrupted` | может быть null |
+| `archive` | string | может быть null |
+
+### OpsKind
+
+`enum: `backup` \| `restore_drill``
+
+### OpsRunDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+| `kind` | enum: `backup` \| `restore_drill` |  |
+| `startedAt` | string |  |
+| `finishedAt` | string | может быть null |
+| `result` | enum: `running` \| `success` \| `failure` \| `interrupted` |  |
+| `host` | string | может быть null |
+| `archive` | string | может быть null |
+| `appVersion` | string | может быть null |
+| `details` | record&lt;string, any&gt; |  |
+| `error` | string | может быть null |
+
 ### ParticipantDto
 
 | Поле | Тип | Замечания |
@@ -1494,12 +1529,28 @@
 | `category` | enum: `todo` \| `inprogress` \| `done` |  |
 | `position` | number |  |
 
+### StatusState
+
+`enum: `ok` \| `warn` \| `fail` \| `off` \| `unknown``
+
 ### SubtasksSummaryDto
 
 | Поле | Тип | Замечания |
 |---|---|---|
 | `total` | number |  |
 | `done` | number |  |
+
+### SystemCheck
+
+`discriminatedunion`
+
+### SystemStatusDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `version` | string |  |
+| `checkedAt` | string |  |
+| `checks` | array&lt;discriminatedunion&gt; |  |
 
 ### TransitionDto
 
