@@ -105,7 +105,7 @@ describe("POST /api/me/password", () => {
   });
 
   test("passwords longer than 72 bytes are significant in full (no bcrypt truncation)", async () => {
-    const head = "плавный зелёный трамвай гудит у моста"; // первые 72+ байта общие
+    const head = "плавный зелёный трамвай гудит у старого моста"; // первые 72+ байта общие
     expect(Buffer.byteLength(head)).toBeGreaterThanOrEqual(72);
     const long = `${head} ночью`;
     const token = await login(app, "emp1");
