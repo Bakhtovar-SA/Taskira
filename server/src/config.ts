@@ -176,6 +176,7 @@ export interface Config {
   reminders: { enabled: boolean; timeZone: string; hour: number };
   maintenance: MaintenanceConfig;
   webhooks: WebhooksConfig;
+  recurring: { enabled: boolean; pollMs: number };
   /** Размер пула соединений к Postgres (аудит PERF-07: было зашито в код). */
   pgPoolMax: number;
   /** Через сколько мс закрывать простаивающее соединение; 0 — не закрывать (умолчание). */
@@ -464,6 +465,14 @@ function buildWebhooksConfig(): WebhooksConfig {
   };
 }
 
+function buildRecurringConfig(): Config["recurring"] {
+  const raw = process.env.RECURRING_POLL_MS?.trim() || "60000";
+  const pollMs = Number(raw);
+  if (!/^\d+$/.test(raw) || !Number.isInteger(pollMs) || pollMs < 1000 || pollMs > 86_400_000)
+    throw new Error("RECURRING_POLL_MS: требуется целое число 1000…86400000");
+  return { enabled: envBool(process.env.RECURRING_ENABLED, true), pollMs };
+}
+
 function buildConfig(): Config {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) fail("Не задан DATABASE_URL (например postgresql://user:pass@db:5432/taskira)");
@@ -516,6 +525,7 @@ function buildConfig(): Config {
     notify: buildNotifyConfig(),
     reminders: { enabled: envBool(process.env.DUE_REMINDER_ENABLED, true), timeZone: reminderTimeZone, hour: reminderHour },
     webhooks: buildWebhooksConfig(),
+    recurring: buildRecurringConfig(),
     maintenance: {
       enabled: envBool(process.env.MAINTENANCE_ENABLED, true),
       intervalMs: envPosInt("MAINTENANCE_INTERVAL_MS", 60 * 60_000), // раз в час

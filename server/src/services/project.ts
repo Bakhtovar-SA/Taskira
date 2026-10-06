@@ -1,6 +1,7 @@
 /** Проекты: резолв по id с кэшем. Multi-project (миграция 007) — проект
  *  берётся из :projectId роута, не «единственный». */
 import { one } from "../db.js";
+import type { PoolClient } from "pg";
 // ApiHttpError из ./errors.js, не из middleware.js: middleware импортирует
 // этот модуль (Фаза 2 ролей), импорт notFound обратно создал бы цикл.
 import { ApiHttpError } from "../errors.js";
@@ -78,7 +79,11 @@ const CACHE_TTL_MS = 30_000;
 const CACHE_MAX = 10_000;
 const cache = new Map<string, { row: ProjectRow; at: number }>();
 
-export async function projectById(id: string): Promise<ProjectRow | null> {
+export async function projectById(id: string, client?: PoolClient): Promise<ProjectRow | null> {
+  if (client) {
+    const row = (await client.query<ProjectDbRow>(`SELECT ${SELECT_COLS} FROM projects WHERE id = $1`, [id])).rows[0];
+    return row ? toRow(row) : null;
+  }
   const hit = cache.get(id);
   if (hit && Date.now() - hit.at <= CACHE_TTL_MS) return hit.row;
   const row = await one<ProjectDbRow>(`SELECT ${SELECT_COLS} FROM projects WHERE id = $1`, [id]);

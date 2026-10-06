@@ -504,6 +504,57 @@
 |---|---|---|
 | `templateId` | string (uuid) |  |
 
+### RecurringPreviewBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `schedule` | discriminatedunion |  |
+| `timeOfDay` | string |  |
+| `timeZone` | string | длина 1…100 |
+| `startDate` | string |  |
+
+### RecurringRuleBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `schedule` | discriminatedunion |  |
+| `timeOfDay` | string |  |
+| `timeZone` | string | длина 1…100 |
+| `startDate` | string |  |
+| `name` | string | длина 1…80 |
+| `templateId` | string (uuid) |  |
+| `title` | string | необязательное, может быть null; по умолчанию null; длина 0…250 |
+| `assigneeIds` | array&lt;string (uuid)&gt; | необязательное; по умолчанию []; 0…10 эл. |
+| `dueInDays` | integer | необязательное, может быть null; по умолчанию null; 0…365 |
+| `skipIfOpen` | boolean | необязательное; по умолчанию false |
+
+### RecurringRuleParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+
+### RecurringRulePatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `schedule` | discriminatedunion | необязательное |
+| `timeOfDay` | string | необязательное |
+| `timeZone` | string | необязательное; длина 1…100 |
+| `startDate` | string | необязательное |
+| `name` | string | необязательное; длина 1…80 |
+| `templateId` | string (uuid) | необязательное |
+| `title` | string | необязательное, может быть null; длина 0…250 |
+| `assigneeIds` | array&lt;string (uuid)&gt; | необязательное; 0…10 эл. |
+| `dueInDays` | integer | необязательное, может быть null; 0…365 |
+| `skipIfOpen` | boolean | необязательное |
+
+### RecurringRunsQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `limit` | integer | необязательное; по умолчанию 20; 1…100 |
+
 ### ReportExportQuery
 
 | Поле | Тип | Замечания |
@@ -1202,6 +1253,53 @@
 ### RecurrenceSchedule
 
 `discriminatedunion`
+
+### RecurringConfigDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `enabled` | boolean |  |
+| `defaultTimeZone` | string |  |
+
+### RecurringRuleDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `schedule` | discriminatedunion |  |
+| `timeOfDay` | string |  |
+| `timeZone` | string | длина 1…100 |
+| `startDate` | string |  |
+| `name` | string | длина 1…80 |
+| `templateId` | string (uuid) |  |
+| `title` | string | необязательное, может быть null; по умолчанию null; длина 0…250 |
+| `assigneeIds` | array&lt;string (uuid)&gt; | необязательное; по умолчанию []; 0…10 эл. |
+| `dueInDays` | integer | необязательное, может быть null; по умолчанию null; 0…365 |
+| `skipIfOpen` | boolean | необязательное; по умолчанию false |
+| `id` | string (uuid) |  |
+| `projectId` | string (uuid) |  |
+| `ownerId` | string (uuid) | может быть null |
+| `state` | enum: `active` \| `paused` |  |
+| `pausedReason` | enum: `manual` \| `owner_lost_access` | может быть null |
+| `nextRunAt` | string | может быть null |
+| `lastRunAt` | string | может быть null |
+| `lastResult` | enum: `created` \| `skipped_open` \| `failed` | может быть null |
+| `createdAt` | string |  |
+| `updatedAt` | string |  |
+
+### RecurringRunDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+| `scheduledFor` | string |  |
+| `ranAt` | string |  |
+| `result` | enum: `created` \| `skipped_open` \| `failed` |  |
+| `manual` | boolean |  |
+| `missedCount` | integer | 0…∞ |
+| `issueId` | string (uuid) | может быть null |
+| `issueKey` | string | может быть null |
+| `errorCode` | string | может быть null |
+| `details` | object |  |
 
 ### ReportPoint
 
