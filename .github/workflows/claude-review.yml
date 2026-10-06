@@ -5,6 +5,39 @@ on:
     types: [opened, synchronize]
 
 jobs:
+  diagnose-windows-trust:
+    if: github.event.pull_request.number == 141 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Inspect trusted Windows certificate chains
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($targetHost in @('registry.npmjs.org', 'github.com')) {
+            Write-Output "Windows TLS chain: $targetHost"
+            $request = [System.Net.WebRequest]::Create("https://$targetHost/")
+            $request.Method = 'HEAD'
+            $request.Timeout = 20000
+            $response = $request.GetResponse()
+            $response.Close()
+            $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($request.ServicePoint.Certificate)
+            $chain = New-Object System.Security.Cryptography.X509Certificates.X509Chain
+            $chain.ChainPolicy.UrlRetrievalTimeout = [TimeSpan]::FromSeconds(10)
+            $trusted = $chain.Build($certificate)
+            Write-Output "Windows chain trusted: $trusted"
+            foreach ($element in $chain.ChainElements) {
+              Write-Output "subject=$($element.Certificate.Subject)"
+              Write-Output "issuer=$($element.Certificate.Issuer)"
+              Write-Output "thumbprint=$($element.Certificate.Thumbprint)"
+            }
+            if (!$trusted) {
+              $chain.ChainStatus | ForEach-Object { Write-Output $_.StatusInformation }
+            }
+            $chain.Dispose()
+            $certificate.Dispose()
+          }
   claude-review:
     runs-on: [self-hosted, Linux]
     container: node:22-bookworm
