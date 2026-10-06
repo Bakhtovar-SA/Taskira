@@ -6,6 +6,7 @@ import * as db from "../src/db.js";
 import * as readiness from "../src/services/readiness.js";
 import * as maintenance from "../src/services/maintenance.js";
 import * as license from "../src/services/license.js";
+import * as search from "../src/services/healthWarnings.js";
 import { loadConfig } from "../src/config.js";
 import { OpsRunDto, SystemStatusDto, type SystemCheck } from "../src/contract.js";
 import { clearSystemStatusCache, getSystemStatus, systemChecks } from "../src/services/systemStatus.js";
@@ -158,6 +159,13 @@ test("БД: задержка, неприменённая миграция и н�
   probe.mockResolvedValue({ db: false, migrations: false, pending: [], latencyMs: null });
   expect((await systemChecks.database()).state).toBe("fail");
 });
+test("поиск: отсутствующие индексы представлены именами; выключенные ещё не созданные модули off", async () => {
+  vi.spyOn(search, "searchIndexStatus").mockResolvedValue({ missing: ["idx_issues_active_title_trgm"], ext: true });
+  expect(await systemChecks.search()).toMatchObject({ state: "warn", facts: { missingIndexes: ["idx_issues_active_title_trgm"] } });
+  const original = db.q;
+  vi.spyOn(db, "q").mockImplementation(async (text, params) => text.startsWith("SELECT to_regclass") ? [{ present: false }] : original(text, params));
+  expect((await systemChecks.webhooks()).state).toBe("off"); expect((await systemChecks.recurring()).state).toBe("off");
+});
 test("диск: абсолютные и относительные пороги; неготовность fail", async () => {
   vi.spyOn(readiness, "checkStorageReadiness").mockResolvedValue(true);
   const probe = vi.spyOn(fs, "statfs");
@@ -235,7 +243,12 @@ test("scrape читает операции напрямую, текущий за
 test("точные пороги операций и пустая история", () => {
   const now = Date.now(), facts = { lastSuccessAt: null, lastRunAt: null, lastResult: null, archive: null };
   expect(opsState(facts, "backup", now)).toBe("unknown");
-  for (const [hours, expected] of [[25.99, "ok"], [26, "warn"], [50, "fail"]] as const) {
+  for (const [hours, expected] of [[25.99, "ok"], [26, "warn"], [50, "warn"], [50.01, "fail"]] as const) {
     expect(opsState({ ...facts, lastSuccessAt: new Date(now - hours * 3600_000).toISOString() }, "backup", now)).toBe(expected);
   }
+});
+test("время последнего успеха — завершение, даже если более ранний запуск завершился позже", async () => {
+  await record("backup", "success", 8); await record("backup", "success", 7);
+  await q(`UPDATE ops_runs SET finished_at=now() WHERE started_at=(SELECT min(started_at) FROM ops_runs)`);
+  expect(Date.parse((await systemChecks.backup()).facts.lastSuccessAt!)).toBeGreaterThan(Date.now() - 10_000);
 });

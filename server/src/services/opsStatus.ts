@@ -26,8 +26,8 @@ export async function getOpsRuns(kind: OpsKind, limit: number): Promise<OpsRunDt
 export async function getOpsSnapshot(kind: OpsKind): Promise<{ facts: OpsFacts; lastCompletedSuccess: number | null }> {
   const [latest, successful, completed] = await Promise.all([
     getOpsRuns(kind, 1),
-    q<{ at: Date }>(`SELECT finished_at AS at FROM ops_runs WHERE kind = $1 AND result = 'success'
-      ORDER BY started_at DESC, id DESC LIMIT 1`, [kind]),
+    q<{ at: Date }>(`SELECT finished_at AS at FROM ops_runs WHERE kind = $1 AND result = 'success' AND finished_at IS NOT NULL
+      ORDER BY finished_at DESC, id DESC LIMIT 1`, [kind]),
     q<{ result: string }>(`SELECT result FROM ops_runs WHERE kind = $1 AND result <> 'running'
       ORDER BY started_at DESC, id DESC LIMIT 1`, [kind]),
   ]);
@@ -41,5 +41,5 @@ export function opsState(facts: OpsFacts, kind: OpsKind, now = Date.now()): Stat
   if (facts.lastSuccessAt === null) return "unknown";
   const age = Math.max(0, now - Date.parse(facts.lastSuccessAt));
   const [warning, failure] = kind === "backup" ? [26 * 3600_000, 50 * 3600_000] : [8 * 86400_000, 15 * 86400_000];
-  return age >= failure ? "fail" : age >= warning ? "warn" : "ok";
+  return age > failure ? "fail" : age >= warning ? "warn" : "ok";
 }
