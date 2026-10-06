@@ -66,9 +66,9 @@ export function ScreenSkeletonRow() {
 }
 
 /** Каркас новой страницы настроек: заголовок, пояснение, карточки. */
-export function SettingsPage({ title, desc, children }: { title: ReactNode; desc?: ReactNode; children: ReactNode }) {
+export function SettingsPage({ title, desc, children, wide = false }: { title: ReactNode; desc?: ReactNode; children: ReactNode; wide?: boolean }) {
   return (
-    <div className="mx-auto max-w-[760px] px-5 py-6 sm:px-8">
+    <div className={`mx-auto ${wide ? "max-w-[1060px]" : "max-w-[760px]"} px-5 py-6 sm:px-8`}>
       <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{title}</h1>
       {desc && <p className="mt-1 max-w-[62ch] text-[12.5px] leading-relaxed text-sub">{desc}</p>}
       <div className="mt-6 flex flex-col gap-5">{children}</div>

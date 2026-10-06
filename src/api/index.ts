@@ -1,6 +1,8 @@
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
 import type {
+  ApiTokenCreateBody, ApiTokenDto, ApiTokenCreatedDto, ApiTokenAdminDto, ApiTokenAdminQuery,
+  ServiceAccountCreateBody, ServiceAccountPatchBody, ServiceAccountDto,
   WebhookCreateBody, WebhookPatchBody, WebhookDeliveryQuery, WebhookDto, WebhookDeliveryDetailDto,
   WebhookCreatedDto, WebhookSecretRotatedDto, WebhookDeliveryPageDto, WebhookQueuedDto,
   WebhookRedeliveredDto, IntegrationsConfigDto,
@@ -297,6 +299,25 @@ export const webhooksApi = {
   redeliverFailed: (projectId: string,id: string,since?: string) => api<WebhookRedeliveredDto>(H(projectId,id)+"/redeliver-failed",{ method: "POST",body: { since } }),
 };
 
+export const tokensApi = {
+  list: () => api<ApiTokenDto[]>("/api/me/tokens"),
+  create: (body: z.input<typeof ApiTokenCreateBody>) => api<ApiTokenCreatedDto>("/api/me/tokens",{ method: "POST",body }),
+  revoke: (id: string) => api<void>("/api/me/tokens/"+encodeURIComponent(id),{ method: "DELETE" }),
+};
+const serviceAccountPath = (id: string) => "/api/admin/service-accounts/"+encodeURIComponent(id);
+export const serviceAccountsApi = {
+  list: () => api<ServiceAccountDto[]>("/api/admin/service-accounts"),
+  create: (body: z.input<typeof ServiceAccountCreateBody>) => api<ServiceAccountDto>("/api/admin/service-accounts",{ method: "POST",body }),
+  update: (id: string,body: z.input<typeof ServiceAccountPatchBody>) => api<ServiceAccountDto>(serviceAccountPath(id),{ method: "PATCH",body }),
+  tokens: (id: string) => api<ApiTokenDto[]>(serviceAccountPath(id)+"/tokens"),
+  createToken: (id: string,body: z.input<typeof ApiTokenCreateBody>) => api<ApiTokenCreatedDto>(serviceAccountPath(id)+"/tokens",{ method: "POST",body }),
+  revokeToken: (id: string,tokenId: string) => api<void>(serviceAccountPath(id)+"/tokens/"+encodeURIComponent(tokenId),{ method: "DELETE" }),
+};
+export const adminTokensApi = {
+  list: (query: z.input<typeof ApiTokenAdminQuery> = {}) => api<ApiTokenAdminDto[]>("/api/admin/tokens",{ query }),
+  revoke: (id: string) => api<void>("/api/admin/tokens/"+encodeURIComponent(id),{ method: "DELETE" }),
+};
+
 export const authApi = {
   /** Завершить сессию на сервере: все ранее выданные токены становятся
    *  недействительными. Без этого «Выйти» стирало токен только в браузере,
@@ -476,7 +497,7 @@ export const usersApi = {
   list: () => api<SafeUser[]>("/api/users"),
   /** Поиск сотрудников для пикеров. Сервер требует минимум 2 символа и отдаёт
    *  до 20 совпадений — справочник больше не выгружается целиком. */
-  pickable: (search: string) => api<PickableUser[]>("/api/users/pickable", { query: { q: search } }),
+  pickable: (search: string,includeService = false) => api<PickableUser[]>("/api/users/pickable", { query: { q: search,...(includeService ? { includeService: "1" } : {}) } }),
   create: (body: {
     username: string;
     password: string;

@@ -1,13 +1,15 @@
 import { Button } from "../ds/Button";
 import { PersonAvatar, RoleTag, ROLE_TONE } from "./settings/parts";
 import { Tag } from "../ds/Display";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
-import { ApiError, usersApi } from "../api";
+import { usersApi } from "../api";
 import { PERMISSIONS, ROLE_ORDER, roleHas } from "../permissions";
 import type { AccessRole, ProjectRole } from "../types";
 import { IcCheck, IcEye, IcShield, IcX } from "../icons";
 import { useT } from "../i18n";
+
+import { Combobox, type ComboOption } from "../ds/Combobox";
 
 const PROJECT_ROLES: ProjectRole[] = ["manager", "employee", "viewer"];
 
@@ -31,29 +33,12 @@ export default function PermissionsView() {
     [data.users],
   );
 
-  // Полный список пользователей ресурса (для «добавить участника») — только у
-  // админа ресурса; в bootstrap приходят лишь участники проекта.
-  const [allUsers, setAllUsers] = useState<{ id: string; name: string; globalRole: string }[]>([]);
-  useEffect(() => {
-    if (!canManage) return;
-    let cancelled = false;
-    usersApi
-      .list()
-      .then((us) => {
-        if (!cancelled) setAllUsers(us.filter((u) => u.isActive).map((u) => ({ id: u.id, name: u.name, globalRole: u.globalRole })));
-      })
-      .catch((e) => {
-        if (!(e instanceof ApiError)) throw e;
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canManage]);
-
-  const nonMembers = useMemo(
-    () => allUsers.filter((u) => u.globalRole !== "admin" && !(u.id in data.members)),
-    [allUsers, data.members],
-  );
+  const loadPeople = useCallback(async (query: string): Promise<ComboOption[]> => {
+    const users = await usersApi.pickable(query,me.globalRole === "admin");
+    return users.filter(user => !(user.id in data.members) && !data.users.some(known => known.id === user.id && known.globalRole === "admin"))
+      .map(user => ({ id: user.id,label: user.name,description: user.jobRole || undefined,
+        icon: user.authSource === "service" ? <Tag size="sm">{t("tokens.serviceTag")}</Tag> : undefined }));
+  },[me.globalRole,data.members,data.users,t]);
 
   const counts = useMemo(() => {
     const byRole: Record<AccessRole, number> = { admin: globalAdmins.length, manager: 0, employee: 0, viewer: 0 };
@@ -61,13 +46,16 @@ export default function PermissionsView() {
     return ROLE_ORDER.map((r) => ({ role: r, n: byRole[r] }));
   }, [data.members, globalAdmins.length]);
 
-  const [addUser, setAddUser] = useState("");
+  const [addUser, setAddUser] = useState<ComboOption | null>(null);
+  const [adderReset,setAdderReset] = useState(0);
+  useEffect(() => { setAddUser(null); },[data.currentProjectId,me.id]);
   const [addRole, setAddRole] = useState<ProjectRole>("employee");
   const roleName = (role: AccessRole) => t(`role.${role}.name`);
   const doAdd = () => {
     if (!addUser) return;
-    setMemberRole(addUser, addRole);
-    setAddUser("");
+    setMemberRole(addUser.id, addRole);
+    setAddUser(null);
+    setAdderReset(value => value+1);
     setAddRole("employee");
   };
 
@@ -115,6 +103,7 @@ export default function PermissionsView() {
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-2 text-[13px] font-semibold text-ink">
                         {u?.name ?? id}
+                        {u?.authSource === "service" && <Tag size="sm">{t("tokens.serviceTag")}</Tag>}
                         {mine && <span className="rounded bg-accent px-1.5 py-px text-[11px] font-medium text-onaccent">{t("access.you")}</span>}
                         {u?.globalRole === "admin" && <span className="rounded bg-danger px-1.5 py-px text-[11px] font-medium text-onaccent">{t("access.resourceAdmin")}</span>}
                       </p>
@@ -150,20 +139,12 @@ export default function PermissionsView() {
               )}
             </div>
 
-            {canManage && nonMembers.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 border-t border-linesoft bg-sunken px-4 py-2.5">
-                <span className="text-[12px] font-medium text-faint">{t("access.addMember")}</span>
-                <select
-                  aria-label={t("access.addMember")}
-                  value={addUser}
-                  onChange={(e) => setAddUser(e.target.value)}
-                  className="rounded-md border border-line bg-panel px-2 py-1 text-[11.5px] text-sub focus:border-accent focus:shadow-focus focus:outline-none"
-                >
-                  <option value="">{t("access.select")}</option>
-                  {nonMembers.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
+            {canManage && (
+              <div className="flex flex-wrap items-end gap-2 border-t border-linesoft bg-sunken px-4 py-2.5">
+                <div className="min-w-[220px] flex-1" onInput={() => setAddUser(null)}>
+                  <Combobox key={me.id+":"+data.currentProjectId+":"+adderReset} label={t("access.addMember")} placeholder={t("access.select")}
+                    minChars={2} load={loadPeople} value={addUser} onSelect={setAddUser} />
+                </div>
                 <select
                   aria-label={t("access.newRole")}
                   value={addRole}
