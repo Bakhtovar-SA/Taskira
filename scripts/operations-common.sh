@@ -24,7 +24,56 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 require_file() { [ -f "$1" ] || fail "required file is missing: $1"; }
 
 compose() {
-  (cd "$INSTALL_DIR" && compose_run --env-file .env -f docker-compose.yml "$@")
+  local extra=() project
+  project="$(env_file_value "$INSTALL_DIR/.env" COMPOSE_PROJECT_NAME)"
+  [ -z "$project" ] || extra+=(--project-name "$project")
+  if [ -n "${TASKIRA_COMPOSE_OVERRIDE:-}" ]; then
+    require_file "$INSTALL_DIR/$TASKIRA_COMPOSE_OVERRIDE"
+    extra+=(-f "$TASKIRA_COMPOSE_OVERRIDE")
+  fi
+  (cd "$INSTALL_DIR" && compose_run --env-file .env -f docker-compose.yml "${extra[@]}" "$@")
+}
+
+# The drill has no published ports. Probe inside the server container instead.
+ops_wait_for_application() {
+  if [ "${TASKIRA_INTERNAL_HEALTH:-0}" != 1 ]; then
+    wait_until_healthy "$1" "$CLIENT_PORT" "$INSTALL_DIR"
+    return
+  fi
+  local attempt
+  for attempt in $(seq 1 60); do
+    if compose exec -T server node -e \
+      "fetch('http://127.0.0.1:8080/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo 'ERROR: isolated Taskira did not become ready within 120 seconds' >&2
+  return 1
+}
+
+# Shared by support bundles and host-operation reports. Replace only the
+# unprocessed input tail, so a secret such as RED cannot match [REDACTED] again.
+redact_stream() {
+  local files=("$INSTALL_DIR/.env")
+  [ ! -f "${OPS_EXTRA_REDACT_ENV:-}" ] || files+=("$OPS_EXTRA_REDACT_ENV")
+  awk 'FILENAME != "-" {
+         line=$0; sub(/\r$/, "", line); p=index(line,"="); key=substr(line,1,p-1);
+         if (key ~ /^(POSTGRES_PASSWORD|JWT_SECRET|ADMIN_PASSWORD|LDAP_BIND_PASSWORD|STORAGE_S3_ACCESS_KEY|STORAGE_S3_SECRET_KEY|SMTP_PASSWORD|OIDC_CLIENT_SECRET|WEBHOOK_SECRET_KEY)$/) {
+           value=substr(line,p+1); if (length(value)) secret[++n]=value;
+         } next
+       }
+       { for (i=1;i<=n;i++) {
+           rest=$0; out="";
+           while ((p=index(rest,secret[i]))>0) {
+             out=out substr(rest,1,p-1) "[REDACTED]"; rest=substr(rest,p+length(secret[i]));
+           } $0=out rest;
+         }
+         gsub(/Bearer [A-Za-z0-9._~-]+/, "Bearer [REDACTED]");
+         gsub(/tsk_[a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9]_[A-Za-z0-9_-]+/, "[REDACTED]");
+         gsub(/whsec_[A-Za-z0-9_-]+/, "[REDACTED]");
+         gsub(/taskira_session=[^ ;"]+/, "taskira_session=[REDACTED]"); print
+       }' "${files[@]}" -
 }
 
 wait_for_database() {
@@ -72,6 +121,7 @@ storage_command() {
   host_dir="$2"
   user_args=()
   [ "$mode" != "export" ] || user_args=(--user 0)
+  [ "${OPS_STORAGE_DRIVER:-}" != local ] || user_args+=(-e STORAGE_DRIVER=local)
   compose run --rm --no-deps -T "${user_args[@]}" -v "$host_dir:/backup/storage" \
     server node dist/ops-storage.js "$mode" /backup/storage
 }

@@ -164,18 +164,23 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
         FROM recurring_runs
       ) history WHERE ran_at < now() - make_interval(days => $1::int) OR position > 200
       LIMIT $2)`, 365, cfg);
-    return { archived, purged, eventsPurged, tokensPurged, recurringPurged };
+    const opsPurged = await inBatches(client, `DELETE FROM ops_runs WHERE id IN (
+      SELECT id FROM (
+        SELECT id, row_number() OVER (PARTITION BY kind ORDER BY started_at DESC, id DESC) AS position
+        FROM ops_runs
+      ) history WHERE position > $1 LIMIT $2)`, 200, cfg);
+    return { archived, purged, eventsPurged, tokensPurged, recurringPurged, opsPurged };
   });
 
   const stats: MaintenanceStats = {
     archived: done.archived.count,
     auditPurged: done.purged.count,
-    capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped || done.tokensPurged.capped || done.recurringPurged.capped,
+    capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped || done.tokensPurged.capped || done.recurringPurged.capped || done.opsPurged.capped,
     dryRun: false,
   };
   addMaintenanceWork(stats.archived, stats.auditPurged);
   // След в данных: массовая архивация не должна быть заметна только по пропавшим с доски задачам.
-  if (stats.archived > 0 || stats.auditPurged > 0 || done.eventsPurged.count > 0 || done.tokensPurged.count > 0 || done.recurringPurged.count > 0) {
+  if (stats.archived > 0 || stats.auditPurged > 0 || done.eventsPurged.count > 0 || done.tokensPurged.count > 0 || done.recurringPurged.count > 0 || done.opsPurged.count > 0) {
     await audit(opts.actorId ?? null, "maintenance.run", "system", null, {
       archived: stats.archived,
       auditPurged: stats.auditPurged,
@@ -184,6 +189,7 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
       ...(done.eventsPurged.count > 0 ? { integrationEventsPurged: done.eventsPurged.count } : {}),
       ...(done.tokensPurged.count > 0 ? { apiTokensPurged: done.tokensPurged.count } : {}),
       ...(done.recurringPurged.count > 0 ? { recurringRunsPurged: done.recurringPurged.count } : {}),
+      ...(done.opsPurged.count > 0 ? { opsRunsPurged: done.opsPurged.count } : {}),
     });
   }
   return stats;
