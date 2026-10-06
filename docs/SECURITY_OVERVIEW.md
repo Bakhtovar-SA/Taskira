@@ -89,6 +89,33 @@ CIDR-правила применяются и к IP-литералам, и к и
 проверку TLS для исходного имени, не использует прокси окружения и не выполняет редиректы; это покрыто
 проверками доставки. Ответ ограничен 64 КБ, фрагмент журнала — 512 байт с маскированием query, подписей и секретов.
 
+## Лимиты запросов (SEC-RATE-01)
+
+Один механизм — `@fastify/rate-limit` из `app.ts` (хранилище в памяти процесса, ADR-0024: один серверный процесс на БД;
+при перезапуске счётчики обнуляются). Ключ глобального лимитера: `token:<префикс>` для проверенного API-токена,
+`user:<id>` для сессии, иначе `ip:<адрес>` (за прокси нужен `TRUST_PROXY`). Чувствительные маршруты переопределяют
+порог через `routeLimit()` (`server/src/routeLimits.ts`); у каждого маршрута своя корзина, общий лимит на них не
+накладывается. Ответ при превышении — 429 `RATE_LIMITED`. `RATE_LIMIT_ENABLED=false` отключает всё (так делают
+`performance-*.mjs` и CI).
+
+| Маршрут | Лимит по умолчанию | Ключ | Где реализовано / env |
+|---|---|---|---|
+| `POST /auth/login` | 10 попыток / 5 мин на IP (+ блокировка учётной записи после 5 неудач на 15 мин) | ip (счёт в БД) | `routes/auth.ts`, `services/loginRateLimit.ts`; `RATE_LIMIT_LOGIN_*`, `ACCOUNT_LOCK_*` |
+| Смена и сброс пароля | маршрутов нет: пароли LDAP-пользователей живут в каталоге, локальные задаёт администратор при создании (`POST /admin/users`) | — | нечего ограничивать; при появлении маршрута добавить `routeLimit("sensitive")` |
+| `POST /me/tokens` | 10 / мин | user | `routes/apiTokens.ts`; `RATE_LIMIT_SENSITIVE_MAX` |
+| `POST /admin/service-accounts/:id/tokens` | 10 / мин | user | `routes/serviceAccounts.ts`; `RATE_LIMIT_SENSITIVE_MAX` |
+| `POST …/webhooks/:id/ping`, `/rotate-secret`, `/deliveries/:id/redeliver`, `/redeliver-failed` | 10 / мин, у каждого маршрута своя корзина | user | `routes/webhooks.ts`; `RATE_LIMIT_SENSITIVE_MAX` |
+| `GET /admin/export` (полный экспорт) | 10 / мин | user | `routes/dataExport.ts`; `RATE_LIMIT_EXPORT_MAX` |
+| `GET /admin/audit-log/export` | 10 / мин | user | `routes/auditExport.ts`; `RATE_LIMIT_EXPORT_MAX` |
+| `GET /reports/issues.csv` | 10 / мин | user/token | `routes/reports.ts`; `RATE_LIMIT_EXPORT_MAX` |
+| `GET /issues/search` | 120 / мин | user/token | `routes/search.ts`; `RATE_LIMIT_SEARCH_MAX` |
+| `POST /dashboards/data` | 60 / мин и не более 2 одновременных расчётов на человека | user/token | `routes/dashboards.ts` (`acquireDataSlot`); `RATE_LIMIT_DASHBOARD_DATA_MAX` |
+| Остальной `/api` | 600 / мин | user/token/ip | `app.ts`; `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS` |
+
+Окно для всех маршрутных лимитов, кроме логина, — `RATE_LIMIT_ACTION_WINDOW_MS` (60 с). Не покрыто: `GET /issues/resolve`
+и `GET /reports/summary` остаются под общим лимитом; лимиты не общие на кластер (одна реплика по ADR-0024).
+Тесты: `server/test/routeLimits.test.ts` (каждый тест — свой экземпляр приложения, поэтому счётчики изолированы).
+
 ## Audit log и SIEM
 
 Журнал содержит ISO-время, actor, action, object, result (`success`, `denied`,

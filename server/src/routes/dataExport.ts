@@ -42,6 +42,7 @@ import type { PoolClient } from "pg";
 import { acquireClient } from "../db.js";
 import { requireGlobalAdmin, type JwtPayload } from "../middleware.js";
 import { auditFromRequest } from "../audit.js";
+import { routeLimit } from "../routeLimits.js";
 
 // Экспортируется исключительно для теста границы пагинации (вставить BATCH+N
 // строк и убедиться, что все страницы отдаются без дублей/пропусков) — не
@@ -177,7 +178,7 @@ async function* generateExport(client: PoolClient): AsyncGenerator<string> {
 }
 
 export async function dataExportRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/admin/export", { preHandler: requireGlobalAdmin }, async (req, reply) => {
+  app.get("/admin/export", { ...routeLimit("export"), preHandler: requireGlobalAdmin }, async (req, reply) => {
     const user: JwtPayload = req.user;
     // Аудит ДО начала передачи (не после) — экспорт всей инсталляции стоит
     // записать как намерение, даже если скачивание потом прервётся на середине.
