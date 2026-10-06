@@ -8,12 +8,13 @@ import { DEFAULT_SECTION, type SettingsHome } from "./sections";
 export function useOpenSettings(): (home: SettingsHome) => void {
   const { me, data, setView, bootStatus, enterProject } = useStore();
   const isAdmin = me.globalRole === "admin";
+  const isService = me.authSource === "service";
   const hasProject = !!data.currentProjectId;
   return useCallback(
     (home: SettingsHome) => {
-      setView(home, firstSection(home, { isAdmin, hasProject: hasProject || data.projects.length > 0 }) ?? DEFAULT_SECTION[home]);
+      setView(home, firstSection(home, { isAdmin, isService, hasProject: hasProject || data.projects.length > 0 }) ?? DEFAULT_SECTION[home]);
       if (bootStatus === "home") enterProject(data.currentProjectId || data.projects[0]?.id);
     },
-    [isAdmin, hasProject, setView, bootStatus, enterProject, data.currentProjectId, data.projects],
+    [isAdmin, isService, hasProject, setView, bootStatus, enterProject, data.currentProjectId, data.projects],
   );
 }

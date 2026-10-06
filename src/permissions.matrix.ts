@@ -5,7 +5,7 @@
 export const ROLE_IDS = ["admin", "manager", "employee", "viewer"] as const;
 export type AccessRole = (typeof ROLE_IDS)[number];
 
-export const PERM_IDS = ["browse", "create", "edit", "transition", "delete", "comment", "editWorkflow", "manageAccess", "manageCollaborators", "manageSprints", "saveProjectTemplate", "editAppearance", "editRoadmap", "manageDashboards"] as const;
+export const PERM_IDS = ["browse", "create", "edit", "transition", "delete", "comment", "editWorkflow", "manageAccess", "manageCollaborators", "manageSprints", "saveProjectTemplate", "editAppearance", "editRoadmap", "manageDashboards", "manageRecurring"] as const;
 export type PermId = (typeof PERM_IDS)[number];
 
 /** Разрешение → роли, которым оно доступно (уровень задачи для employee сужается в permissions.ts). */
@@ -24,6 +24,7 @@ export const MATRIX: Record<PermId, readonly AccessRole[]> = {
   editAppearance: ["admin", "manager"],
   editRoadmap: ["admin", "manager"],
   manageDashboards: ["admin", "manager"],
+  manageRecurring: ["admin", "manager"],
 };
 
 export const ROLE_NAMES: Record<AccessRole, string> = {
@@ -57,4 +58,5 @@ export const PERM_META: Record<PermId, { name: string; desc: string; scope: Perm
   editAppearance: { name: "Внешний вид проекта", desc: "Иконка, цвет и фон проекта (ТЗ 5.14 п.7). Видят все участники; фон действует, пока проект открыт.", scope: "Проект" },
   editRoadmap: { name: "Сроки и вехи проекта", desc: "Даты начала и цели, вехи и зависимости от других проектов на роадмапе (ТЗ 5.15). Роадмап видят все, кому виден проект.", scope: "Проект" },
   manageDashboards: { name: "Обзор проекта", desc: "Собрать и изменить вкладку «Обзор» — общий дашборд проекта (ADR-0022). Смотрят все участники; данные каждый видит в пределах своих прав.", scope: "Проект" },
+  manageRecurring: { name: "Повторяющиеся задачи", desc: "Создать, изменить и остановить правила, которые создают задачи по расписанию из шаблонов задач (ADR-0030). Правила и историю запусков видят все участники.", scope: "Проект" },
 };

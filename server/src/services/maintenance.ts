@@ -24,6 +24,7 @@
  *      сотрудник держал старый доступ до следующего входа.
  *   4) доставка вебхуков: webhooks.pollMs, при WEBHOOKS_ENABLED=true; HTTP вне транзакций.
  *   5) события срока задач: каждые 10 минут, при WEBHOOKS_ENABLED=true.
+ *   6) повторяющиеся задачи: recurring.pollMs, при RECURRING_ENABLED=true.
  *
  *  Каждый — отдельный таймер, а не дополнительная ветка в одном тике: разная
  *  стоимость и каданс, и ни один не должен запускаться на каждый прогон
@@ -52,6 +53,7 @@ import { getStorage } from "./storage.js";
 import { runStorageSweepOnce } from "./storageSweeper.js";
 import { resyncAllLdapUsers } from "./departmentSync.js";
 import { resumeWebhookDispatch, runWebhookDispatchWork } from "./webhookDispatch.js";
+import { runRecurringWork } from "./recurring.js";
 import { runDueEventsOnce } from "./dueEvents.js";
 
 export interface MaintenanceStats {
@@ -156,18 +158,24 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
       SELECT id FROM api_tokens WHERE revoked_at < now()-make_interval(days => $1::int)
         OR expires_at < now()-make_interval(days => $1::int)
       ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)`, 90, cfg);
-    return { archived, purged, eventsPurged, tokensPurged };
+    const recurringPurged = await inBatches(client, `DELETE FROM recurring_runs WHERE id IN (
+      SELECT id FROM (
+        SELECT id, ran_at, row_number() OVER (PARTITION BY rule_id ORDER BY ran_at DESC, id DESC) AS position
+        FROM recurring_runs
+      ) history WHERE ran_at < now() - make_interval(days => $1::int) OR position > 200
+      LIMIT $2)`, 365, cfg);
+    return { archived, purged, eventsPurged, tokensPurged, recurringPurged };
   });
 
   const stats: MaintenanceStats = {
     archived: done.archived.count,
     auditPurged: done.purged.count,
-    capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped || done.tokensPurged.capped,
+    capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped || done.tokensPurged.capped || done.recurringPurged.capped,
     dryRun: false,
   };
   addMaintenanceWork(stats.archived, stats.auditPurged);
   // След в данных: массовая архивация не должна быть заметна только по пропавшим с доски задачам.
-  if (stats.archived > 0 || stats.auditPurged > 0 || done.eventsPurged.count > 0 || done.tokensPurged.count > 0) {
+  if (stats.archived > 0 || stats.auditPurged > 0 || done.eventsPurged.count > 0 || done.tokensPurged.count > 0 || done.recurringPurged.count > 0) {
     await audit(opts.actorId ?? null, "maintenance.run", "system", null, {
       archived: stats.archived,
       auditPurged: stats.auditPurged,
@@ -175,6 +183,7 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
       trigger: opts.actorId ? "manual" : "schedule",
       ...(done.eventsPurged.count > 0 ? { integrationEventsPurged: done.eventsPurged.count } : {}),
       ...(done.tokensPurged.count > 0 ? { apiTokensPurged: done.tokensPurged.count } : {}),
+      ...(done.recurringPurged.count > 0 ? { recurringRunsPurged: done.recurringPurged.count } : {}),
     });
   }
   return stats;
@@ -293,9 +302,11 @@ function startJob(name: string, intervalMs: number, startDelayMs: number, run: (
       });
   };
 
-  timer = setInterval(tick, intervalMs);
-  if (typeof timer.unref === "function") timer.unref();
-  startTimer = setTimeout(tick, startDelayMs);
+  startTimer = setTimeout(() => {
+    tick();
+    timer = setInterval(tick, intervalMs);
+    if (typeof timer.unref === "function") timer.unref();
+  }, startDelayMs);
   if (typeof startTimer.unref === "function") startTimer.unref();
 
   return {
@@ -335,6 +346,9 @@ export function startMaintenance(): void {
     jobs.push(startJob("webhook-dispatch", full.webhooks.pollMs, cfg.startDelayMs + 20_000, () => runWebhookDispatchWork()));
     jobs.push(startJob("due-events", 600_000, cfg.startDelayMs + 25_000, () => runDueEventsOnce()));
   }
+
+  if (full.recurring.enabled)
+    jobs.push(startJob("recurring", full.recurring.pollMs, cfg.startDelayMs + 25_000, () => runRecurringWork()));
 
   if (cfg.storageSweepEnabled) {
     jobs.push(

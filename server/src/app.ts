@@ -46,6 +46,7 @@ import { activeSocketCount } from "./services/wsHub.js";
 import { licenseRoutes } from "./routes/license.js";
 import { projectTemplateRoutes } from "./routes/projectTemplates.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { recurringConfigRoutes, recurringRoutes } from "./routes/recurring.js";
 import { apiTokenRoutes } from "./routes/apiTokens.js";
 import { serviceAccountRoutes } from "./routes/serviceAccounts.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
@@ -244,6 +245,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       await api.register(licenseRoutes); // /admin/license (global admin, только чтение) — ТЗ 5.9
       await api.register(projectTemplateRoutes); // /project-templates, /projects/:id/save-as-template — ТЗ 5.10
       await api.register(webhookRoutes); // /integrations/config, /projects/:projectId/webhooks — INT-05
+      await api.register(recurringConfigRoutes);
       await api.register(apiTokenRoutes); // /me/tokens*, /admin/tokens* — INT-07
       await api.register(serviceAccountRoutes); // /admin/service-accounts* — INT-07
       await api.register(onboardingRoutes); // /me/onboarding*, /me/hints/*, /admin/setup*, /admin/demo-project — ТЗ 5.11
@@ -267,6 +269,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
           await proj.register(collaboratorRoutes, { prefix: "/issues" }); // /:id/collaborators[/:userId]
           await proj.register(workflowRoutes, { prefix: "/workflow" });
           await proj.register(issueTemplatesRoutes, { prefix: "/issue-templates" });
+          await proj.register(recurringRoutes, { prefix: "/recurring" });
           await proj.register(customFieldsRoutes, { prefix: "/custom-fields" });
           await proj.register(sprintsRoutes, { prefix: "/sprints" }); // опциональный модуль, см. SPRINTS_MIGRATION.md
           await proj.register(savedViewsRoutes, { prefix: "/saved-views" }); // личные, ТЗ 3.2

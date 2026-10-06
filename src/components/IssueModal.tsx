@@ -696,7 +696,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           <div className="issue-action-row">
             {statusControl}
             {transitionOk && nextStatus && <Button variant="primary" size="sm" onClick={() => moveStatus(issue.id, nextStatus.id, null)}>{status.category === "todo" && nextStatus.sid === "inprogress" ? t("issue.startWork") : workflowStatusName(nextStatus, t)}</Button>}
-            <span className="issue-creator">{t("issue.createdBy", { name: reporter?.name ?? t("issue.system"), date: fmtDate(new Date(issue.createdAt).toISOString().slice(0, 10), lang) })}</span>
+            <span className="issue-creator">{t("issue.createdBy", { name: reporter?.name ?? t("issue.system"), date: fmtDate(new Date(issue.createdAt).toISOString().slice(0, 10), lang) })}{reporter?.authSource === "service" && <span className="ml-1 inline-flex"><Tag size="sm">{t("tokens.serviceTag")}</Tag></span>}</span>
           </div>
           {issue.parentId && parentIssue && <button className="ds-focus text-[12px] text-accenttext" onClick={() => openIssue(issue.parentId)}>{t("issue.subtaskOf", { key: parentIssue.key })}</button>}
         </section>
@@ -1126,13 +1126,13 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 );
               return items.map((it) => {
                 if (it.kind === "comment") {
-                  const u = data.users.find((x) => x.id === it.c.authorId);
+                  const u = it.c.author ?? data.users.find((x) => x.id === it.c.authorId);
                   return (
                     <div key={`c-${it.c.id}`} className="anim-fadeup flex gap-2.5">
                       <UserAvatar user={u ?? null} size={28} interactive />
                       <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
                         <p className="text-[12px]">
-                          <b className="font-semibold text-ink">{u?.name}</b> <span className="text-faint">· {relTime(it.c.ts, lang)}</span>
+                          <b className="font-semibold text-ink">{u?.name}</b>{u?.authSource === "service" && <span className="ml-1 inline-flex"><Tag size="sm">{t("tokens.serviceTag")}</Tag></span>} <span className="text-faint">· {relTime(it.c.ts, lang)}</span>
                         </p>
                         <p className="mt-0.5 whitespace-pre-wrap text-[14px] leading-[1.5] text-sub">
                           <MentionText text={it.c.body} />
@@ -1149,7 +1149,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                       <UserAvatar user={who} size={22} interactive />
                     </span>
                     <p className="text-[13.5px] leading-snug text-sub">
-                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b> {activityLine(it.a.event, it.a.text, t, lang)}
+                      <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b>{who?.authSource === "service" && <span className="ml-1 inline-flex"><Tag size="sm">{t("tokens.serviceTag")}</Tag></span>} {activityLine(it.a.event, it.a.text, t, lang)}
                       <span className="ml-1.5 text-[12px] text-faint">{relTime(it.a.ts, lang)}</span>
                     </p>
                   </div>

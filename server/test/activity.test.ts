@@ -23,6 +23,7 @@ beforeEach(async () => {
 describe("фраза события — та же, что писалась до трека E", () => {
   const cases: [ActivityEvent, string][] = [
     [{ kind: "created" }, "создал(а) задачу"],
+    [{ kind: "created", ruleName: "Проверка договора" }, "создал(а) задачу по расписанию «Проверка договора»"],
     [{ kind: "renamed" }, "переименовал(а) задачу"],
     [{ kind: "description" }, "обновил(а) описание"],
     [{ kind: "priority", from: "medium", to: "critical" }, "изменил(а) приоритет: Средний → Критичный"],
