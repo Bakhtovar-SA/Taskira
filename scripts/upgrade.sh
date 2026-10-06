@@ -341,6 +341,7 @@ STAGE="current installation health check"
 wait_for_database
 wait_for_health "$current_version"
 
+STAGE="preflight checks"
 TMP_DIR="$(mktemp -d)"
 compose exec -T postgres psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   -c 'SELECT name FROM schema_migrations ORDER BY name' > "$TMP_DIR/applied.txt"
@@ -363,17 +364,24 @@ if [ "$ENGINE" = "docker" ]; then
 else
   engine_root="$(podman info --format '{{.Store.GraphRoot}}')"
 fi
-engine_available_kb="$(df -Pk "$engine_root" 2>/dev/null | awk 'NR==2 {print $4}')"
-[[ "$engine_available_kb" =~ ^[0-9]+$ ]] || { echo "ERROR: cannot determine free space for container storage: $engine_root" >&2; exit 1; }
-engine_required_kb=$((images_kb * 3 + 524288))
-[ "$engine_available_kb" -ge "$engine_required_kb" ] || {
-  echo "ERROR: insufficient container storage: need ${engine_required_kb} KiB, have ${engine_available_kb} KiB" >&2
-  exit 1
-}
+engine_available_kb=""
+if [ -d "$engine_root" ]; then
+  engine_available_kb="$(df -Pk "$engine_root" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
+  [[ "$engine_available_kb" =~ ^[0-9]+$ ]] || { echo "ERROR: cannot determine free space for container storage: $engine_root" >&2; exit 1; }
+  engine_required_kb=$((images_kb * 3 + 524288))
+  [ "$engine_available_kb" -ge "$engine_required_kb" ] || {
+    echo "ERROR: insufficient container storage: need ${engine_required_kb} KiB, have ${engine_available_kb} KiB" >&2
+    exit 1
+  }
+else
+  # Docker Desktop (Windows/macOS) and remote engines keep their storage in a VM or on another
+  # host, so the path reported by the engine does not exist here and df cannot measure it.
+  echo "WARNING: container storage $engine_root is not visible on this host; skipping the free-space check" >&2
+fi
 
 echo "Upgrade plan: Taskira $current_version -> $target_version"
 echo "Database: $POSTGRES_DB ($db_bytes bytes); install filesystem free: ${available_kb} KiB"
-echo "Container storage: $engine_root; free: ${engine_available_kb} KiB"
+echo "Container storage: $engine_root; free: ${engine_available_kb:-unknown} KiB"
 if [ -s "$TMP_DIR/pending.txt" ]; then
   echo "Pending migrations:"
   sed 's/^/  - /' "$TMP_DIR/pending.txt"
