@@ -13,6 +13,36 @@ bash -n scripts/restore.sh
 bash -n scripts/support-bundle.sh
 bash -n scripts/operations-common.sh
 bash -n scripts/release/install.sh
+bash -n scripts/check-trivy-ignore.sh
+
+# SEC-DEPS-01: an expired Trivy exception must fail; a future/today one passes.
+TRIVY_FIX="$(mktemp -d)"
+write_trivy_fixture() { # $1 = expired_at
+  cat > "$TRIVY_FIX/ignore.yaml" <<EOF2
+vulnerabilities:
+  - id: CVE-2099-0001
+    statement: "owner=platform; no upstream fix, not reachable"
+    expired_at: $1
+EOF2
+}
+write_trivy_fixture 2026-06-01
+if TRIVY_IGNORE_TODAY=2026-10-06 bash scripts/check-trivy-ignore.sh "$TRIVY_FIX/ignore.yaml" >/dev/null 2>&1; then
+  echo "check-trivy-ignore.sh accepted an expired exception" >&2
+  rm -rf -- "$TRIVY_FIX"
+  exit 1
+fi
+write_trivy_fixture 2026-12-31
+TRIVY_IGNORE_TODAY=2026-10-06 bash scripts/check-trivy-ignore.sh "$TRIVY_FIX/ignore.yaml" >/dev/null
+write_trivy_fixture 2026-10-06
+TRIVY_IGNORE_TODAY=2026-10-06 bash scripts/check-trivy-ignore.sh "$TRIVY_FIX/ignore.yaml" >/dev/null
+printf 'vulnerabilities:\n  - id: CVE-2099-0002\n    expired_at: 2099-01-01\n' > "$TRIVY_FIX/noowner.yaml"
+if bash scripts/check-trivy-ignore.sh "$TRIVY_FIX/noowner.yaml" >/dev/null 2>&1; then
+  echo "check-trivy-ignore.sh accepted an exception without owner" >&2
+  rm -rf -- "$TRIVY_FIX"
+  exit 1
+fi
+rm -rf -- "$TRIVY_FIX"
+bash scripts/check-trivy-ignore.sh >/dev/null
 
 scripts/render-compose.sh source | cmp - docker-compose.yml
 scripts/render-compose.sh release 9.8.7-test | grep -F "localhost:8080/api/health" >/dev/null
