@@ -18,6 +18,7 @@ export function Combobox({
   emptyText,
   errorText,
   hint,
+  clearOnSelect = false,
 }: {
   label: ReactNode;
   placeholder?: string;
@@ -29,6 +30,8 @@ export function Combobox({
   emptyText?: string;
   errorText?: string;
   hint?: ReactNode;
+  /** Multiple selection: clear the search after adding an option. */
+  clearOnSelect?: boolean;
 }) {
   const t = useOptionalT()?.t;
   emptyText ??= t ? t("ds.nothingFound") : "Ничего не найдено";
@@ -69,7 +72,7 @@ export function Combobox({
   const pick = (o: ComboOption) => {
     if (state.status !== "ok" || state.query !== q.trim()) return;
     onSelect(o);
-    setQ(o.label);
+    setQ(clearOnSelect ? "" : o.label);
     setOpen(false);
   };
   const items = state.status === "ok" && state.query === q.trim() ? state.items : [];
