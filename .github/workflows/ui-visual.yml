@@ -23,6 +23,8 @@ on:
 jobs:
   ui-visual:
     runs-on: [self-hosted, Linux]
+    # Match the pinned Playwright version and the Linux screenshot environment.
+    container: mcr.microsoft.com/playwright:v1.56.1-noble
     permissions:
       contents: read
     steps:
@@ -32,7 +34,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
       - run: npm run test:ui
       - run: npm run test:ui:production
       - if: failure()
