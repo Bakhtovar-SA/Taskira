@@ -19,6 +19,12 @@ jobs:
       - name: Install pinned Bun runtime
         working-directory: /tmp
         run: npm install --global bun@1.3.14
+      - name: Check GitHub TLS trust
+        run: |
+          host=$(node -p 'new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL).hostname')
+          openssl s_client -connect "$host:443" -servername "$host" </dev/null 2>/dev/null |
+            openssl x509 -noout -subject -issuer -fingerprint -sha256
+          curl --silent --show-error --head --max-time 20 "https://$host/" >/dev/null
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
@@ -28,6 +34,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         env:
           NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca-certificates.crt
+          NODE_USE_SYSTEM_CA: '1'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           path_to_bun_executable: /usr/local/bin/bun
