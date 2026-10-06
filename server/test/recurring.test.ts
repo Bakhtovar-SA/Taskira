@@ -73,6 +73,8 @@ test("частичный PATCH сохраняет остальные поля, p
   expect(renamed.statusCode).toBe(200);
   expect(renamed.json()).toMatchObject({ name: "Renamed", ownerId: fx.users.admin, skipIfOpen: true,
     title: "Own {date}", assigneeIds: [fx.users.emp1], dueInDays: 2, schedule: { kind: "daily", every: 1 } });
+  expect((await q<{ details: unknown }>(`SELECT details FROM audit_log WHERE action = 'recurring.update' AND entity_id = $1`, [rule.id]))[0].details)
+    .toMatchObject({ previousOwnerId: fx.users.mgr1, ownerId: fx.users.admin });
   expect((await call("PATCH", `${url()}/${rule.id}`, manager, {})).statusCode).toBe(400);
   const paused = await call("POST", `${url()}/${rule.id}/pause`);
   expect(paused.json()).toMatchObject({ state: "paused", pausedReason: "manual", nextRunAt: null });
@@ -212,6 +214,28 @@ test("длина заголовка проверяется после подст
   expect((await runRecurringOnce(clock())).failed).toBe(1);
   expect((await call("GET", `${url()}/${rule.id}/runs`)).json()[0])
     .toMatchObject({ result: "failed", errorCode: "VALIDATION", issueId: null });
+});
+
+test("ошибка вне создания задачи останавливает одно правило и не блокирует следующие", async () => {
+  const broken = await create({ skipIfOpen: true }); await due(broken.id, 2);
+  await runRecurringOnce(daysAgo(2));
+  const good = await create({ name: "Good" });
+  await due(broken.id, 1); await due(good.id);
+  await q(`CREATE FUNCTION test_recurring_skip_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF NEW.result = 'skipped_open' THEN RAISE EXCEPTION 'test skip failure'; END IF; RETURN NEW; END $$`);
+  await q(`CREATE TRIGGER test_recurring_skip_failure BEFORE INSERT ON recurring_runs
+    FOR EACH ROW EXECUTE FUNCTION test_recurring_skip_failure()`);
+  try {
+    expect(await runRecurringOnce(clock())).toMatchObject({ processed: 2, created: 1, failed: 1, paused: 1 });
+    const rows = (await call("GET", url())).json();
+    expect(rows.find((rule: { id: string }) => rule.id === broken.id))
+      .toMatchObject({ state: "paused", pausedReason: "run_failed" });
+    expect((await call("GET", `${url()}/${broken.id}/runs`)).json()[0])
+      .toMatchObject({ result: "failed", errorCode: "internal", scheduledFor: day(clock()) + "T09:00:00.000Z" });
+  } finally {
+    await q(`DROP TRIGGER test_recurring_skip_failure ON recurring_runs`);
+    await q(`DROP FUNCTION test_recurring_skip_failure()`);
+  }
 });
 
 test("run-now уникален по минуте и сохраняет next_run_at", async () => {

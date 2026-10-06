@@ -18,7 +18,7 @@ interface RuleRow {
   id: string; project_id: string; template_id: string; name: string; title: string | null;
   schedule: RecurrenceSchedule; time_of_day: string; time_zone: string; start_date: string;
   due_in_days: number | null; skip_if_open: boolean; owner_id: string | null;
-  state: "active" | "paused"; paused_reason: "manual" | "owner_lost_access" | "invalid_timing" | null;
+  state: "active" | "paused"; paused_reason: "manual" | "owner_lost_access" | "invalid_timing" | "run_failed" | null;
   next_run_at: Date | null; last_run_at: Date | null; created_at: Date; updated_at: Date;
   assignee_ids: string[]; last_result: RecurringRunDto["result"] | null;
 }
@@ -109,7 +109,7 @@ export async function createRecurringRule(project: ProjectRow, body: RecurringRu
   } catch (error) { return nameConflict(error); }
 }
 
-export async function updateRecurringRule(project: ProjectRow, id: string, patch: RecurringRulePatchBody, actorId: string): Promise<RecurringRuleDto> {
+export async function updateRecurringRule(project: ProjectRow, id: string, patch: RecurringRulePatchBody, actorId: string): Promise<{ rule: RecurringRuleDto; previousOwnerId: string | null }> {
   try {
     return await withTransaction(async client => {
       const old = await loadRule(client, project.id, id, true);
@@ -123,7 +123,7 @@ export async function updateRecurringRule(project: ProjectRow, id: string, patch
         [id, project.id, body.templateId, body.name, body.title, JSON.stringify(body.schedule), body.timeOfDay, body.timeZone,
           body.startDate, body.dueInDays, body.skipIfOpen, actorId, nextAt]);
       await replaceAssignees(client, id, body.assigneeIds);
-      return toDto(await loadRule(client, project.id, id));
+      return { rule: toDto(await loadRule(client, project.id, id)), previousOwnerId: old.owner_id };
     });
   } catch (error) { return nameConflict(error); }
 }
@@ -303,51 +303,84 @@ export async function runRecurringNow(project: ProjectRow, id: string): Promise<
 export interface RecurringStats { processed: number; created: number; skippedOpen: number; failed: number; paused: number; skipped: boolean }
 const emptyStats = (skipped: boolean): RecurringStats => ({ processed: 0, created: 0, skippedOpen: 0, failed: 0, paused: 0, skipped });
 
+interface RunAttempt { rule?: RuleRow; scheduledFor?: Date; missedCount?: number }
+/** После отката изолируем неисправное правило. Изменённое параллельно правило не останавливаем. */
+async function parkFailedRule(attempt: RunAttempt & { rule: RuleRow }, now: Date, error: unknown): Promise<{ ruleId: string; outcome: RunOutcome } | null> {
+  const old = attempt.rule;
+  return withTransaction(async client => {
+    const rule = (await client.query<RuleRow>(`${RULE_SELECT} WHERE r.id = $1 FOR UPDATE OF r`, [old.id])).rows[0];
+    if (!rule || rule.state !== "active" || !rule.next_run_at || rule.next_run_at.getTime() > now.getTime()
+      || rule.updated_at.getTime() !== old.updated_at.getTime()
+      || rule.next_run_at.getTime() !== old.next_run_at?.getTime()) return null;
+    const code = error instanceof ApiHttpError ? error.code : "internal";
+    const run = (await client.query<{ id: string }>(`INSERT INTO recurring_runs
+      (rule_id, scheduled_for, result, missed_count, error_code) VALUES ($1, $2, 'failed', $3, $4)
+      ON CONFLICT (rule_id, scheduled_for) DO NOTHING RETURNING id`,
+      [rule.id, attempt.scheduledFor ?? rule.next_run_at, attempt.missedCount ?? 0, code])).rows[0];
+    await client.query(`UPDATE recurring_rules SET state = 'paused', paused_reason = 'run_failed', next_run_at = NULL,
+      last_run_at = $2, updated_at = now() WHERE id = $1`, [rule.id, now]);
+    await auditTx(client, "recurring.auto_pause", rule.id, { reason: "run_failed", code });
+    await auditTx(client, "recurring.run_failed", rule.id, { code });
+    return { ruleId: rule.id, outcome: { run: run ? await insertedRun(client, run.id) : null,
+      issue: null, paused: true, actorId: rule.owner_id } };
+  });
+}
+
 /** Уже под локом тика: maintenance вызывает эту функцию без второго advisory-лока. */
 export async function runRecurringWork(now = new Date()): Promise<RecurringStats> {
   if (!loadConfig().recurring.enabled) return emptyStats(true);
   const stats = emptyStats(false);
   for (let processed = 0; processed < 20; processed++) {
-    const result = await withTransaction(async client => {
-      const rule = (await client.query<RuleRow>(`${RULE_SELECT}
-        WHERE r.state = 'active' AND r.next_run_at <= $1 ORDER BY r.next_run_at, r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`, [now])).rows[0];
-      if (!rule) return null;
-      const project = await projectById(rule.project_id, client);
-      if (!project) throw notFound("Проект не найден");
-      const timing = toDto(rule);
-      let scheduledFor: Date | null = null, count = 0, nextAt: Date;
-      try {
-        nextAt = nextOccurrence(timing, now);
-        let from = rule.next_run_at!;
-        // Короткие порции уступают event loop после простоя; задача за последнее наступление.
-        const catchUpBatch = 64;
-        for (;;) {
-          const due = occurrencesBetween(timing, from, now, catchUpBatch);
-          if (due.length === 0) break;
-          count += due.length; scheduledFor = due[due.length - 1];
-          if (due.length < catchUpBatch) break;
-          from = new Date(scheduledFor.getTime() + 1);
-          await new Promise<void>(resolve => setImmediate(resolve));
+    const attempt: RunAttempt = {};
+    let result: { ruleId: string; outcome: RunOutcome } | null;
+    try {
+      result = await withTransaction(async client => {
+        const rule = (await client.query<RuleRow>(`${RULE_SELECT}
+          WHERE r.state = 'active' AND r.next_run_at <= $1 ORDER BY r.next_run_at, r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`, [now])).rows[0];
+        if (!rule) return null;
+        attempt.rule = rule;
+        const project = await projectById(rule.project_id, client);
+        if (!project) throw notFound("Проект не найден");
+        const timing = toDto(rule);
+        let scheduledFor: Date | null = null, count = 0, nextAt: Date;
+        try {
+          nextAt = nextOccurrence(timing, now);
+          let from = rule.next_run_at!;
+          // Короткие порции уступают event loop после простоя; задача за последнее наступление.
+          const catchUpBatch = 64;
+          for (;;) {
+            const due = occurrencesBetween(timing, from, now, catchUpBatch);
+            if (due.length === 0) break;
+            count += due.length; scheduledFor = due[due.length - 1];
+            if (due.length < catchUpBatch) break;
+            from = new Date(scheduledFor.getTime() + 1);
+            await new Promise<void>(resolve => setImmediate(resolve));
+          }
+        } catch (error) {
+          const code = error instanceof ApiHttpError ? error.code : "internal";
+          const failed = (await client.query<{ id: string }>(`INSERT INTO recurring_runs (rule_id, scheduled_for, result, error_code)
+            VALUES ($1, $2, 'failed', $3) ON CONFLICT (rule_id, scheduled_for) DO NOTHING RETURNING id`,
+            [rule.id, rule.next_run_at, code])).rows[0];
+          await client.query(`UPDATE recurring_rules SET state = 'paused', paused_reason = 'invalid_timing', next_run_at = NULL,
+            updated_at = now(), last_run_at = $2 WHERE id = $1`, [rule.id, now]);
+          await auditTx(client, "recurring.auto_pause", rule.id, { reason: "invalid_timing", code });
+          await auditTx(client, "recurring.run_failed", rule.id, { code });
+          return { ruleId: rule.id, outcome: { run: failed ? await insertedRun(client, failed.id) : null,
+            issue: null, paused: true, actorId: rule.owner_id } as RunOutcome };
         }
-      } catch (error) {
-        const code = error instanceof ApiHttpError ? error.code : "internal";
-        const failed = (await client.query<{ id: string }>(`INSERT INTO recurring_runs (rule_id, scheduled_for, result, error_code)
-          VALUES ($1, $2, 'failed', $3) ON CONFLICT (rule_id, scheduled_for) DO NOTHING RETURNING id`,
-          [rule.id, rule.next_run_at, code])).rows[0];
-        await client.query(`UPDATE recurring_rules SET state = 'paused', paused_reason = 'invalid_timing', next_run_at = NULL,
-          updated_at = now(), last_run_at = $2 WHERE id = $1`, [rule.id, now]);
-        await auditTx(client, "recurring.auto_pause", rule.id, { reason: "invalid_timing", code });
-        await auditTx(client, "recurring.run_failed", rule.id, { code });
-        return { ruleId: rule.id, outcome: { run: failed ? await insertedRun(client, failed.id) : null,
-          issue: null, paused: true, actorId: rule.owner_id } as RunOutcome };
-      }
-      if (!scheduledFor) {
-        await advanceRule(client, rule, { scheduledFor: now, now, manual: false, missedCount: 0, nextAt });
-        return { ruleId: rule.id, outcome: { run: null, issue: null, paused: false, actorId: rule.owner_id } as RunOutcome };
-      }
-      return { ruleId: rule.id, outcome: await runRule(client, project, rule,
-        { scheduledFor, now, manual: false, missedCount: count - 1, nextAt }) };
-    });
+        if (!scheduledFor) {
+          await advanceRule(client, rule, { scheduledFor: now, now, manual: false, missedCount: 0, nextAt });
+          return { ruleId: rule.id, outcome: { run: null, issue: null, paused: false, actorId: rule.owner_id } as RunOutcome };
+        }
+        attempt.scheduledFor = scheduledFor; attempt.missedCount = count - 1;
+        return { ruleId: rule.id, outcome: await runRule(client, project, rule,
+          { scheduledFor, now, manual: false, missedCount: count - 1, nextAt }) };
+      });
+    } catch (error) {
+      if (!attempt.rule) throw error; // Сбой выбора/соединения: правило ещё не определено.
+      result = await parkFailedRule({ ...attempt, rule: attempt.rule }, now, error);
+      if (!result) continue; // Правило успели изменить или удалить после отката.
+    }
     if (!result) break;
     stats.processed += 1;
     await afterRun(result.ruleId, result.outcome);

@@ -494,7 +494,7 @@ export const RecurringRunsQuery = z.object({ limit: z.coerce.number().int().min(
 const recurringResult = z.enum(["created", "skipped_open", "failed"]);
 export const RecurringRuleDto = RecurringRuleBody.extend({
   id: uuid, projectId: uuid, ownerId: uuid.nullable(),
-  state: z.enum(["active", "paused"]), pausedReason: z.enum(["manual", "owner_lost_access", "invalid_timing"]).nullable(),
+  state: z.enum(["active", "paused"]), pausedReason: z.enum(["manual", "owner_lost_access", "invalid_timing", "run_failed"]).nullable(),
   nextRunAt: z.string().nullable(), lastRunAt: z.string().nullable(), lastResult: recurringResult.nullable(),
   createdAt: z.string(), updatedAt: z.string(),
 });

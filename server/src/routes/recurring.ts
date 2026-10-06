@@ -37,8 +37,8 @@ export async function recurringRoutes(app: FastifyInstance): Promise<void> {
 
   app.patch("/:id", { preHandler: requirePerm("manageRecurring"), preValidation: [zparams(RecurringRuleParams), zbody(RecurringRulePatchBody)] }, async req => {
     const { id } = req.params as z.infer<typeof RecurringRuleParams>;
-    const rule = await updateRecurringRule(req.project!, id, req.body as z.infer<typeof RecurringRulePatchBody>, req.user.sub);
-    await auditFromRequest(req, "recurring.update", "recurring_rule", id, { projectId: rule.projectId });
+    const { rule, previousOwnerId } = await updateRecurringRule(req.project!, id, req.body as z.infer<typeof RecurringRulePatchBody>, req.user.sub);
+    await auditFromRequest(req, "recurring.update", "recurring_rule", id, { projectId: rule.projectId, previousOwnerId, ownerId: rule.ownerId });
     return rule;
   });
 
