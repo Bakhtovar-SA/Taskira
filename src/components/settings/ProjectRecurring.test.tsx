@@ -104,7 +104,7 @@ test("without supportedValuesOf, the rule zone and UTC are still selectable", as
   expect(screen.getByRole("option", { name: "Asia/Tashkent", hidden: true })).toBeTruthy();
 });
 test("unrelated edits omit old start dates and departed assignees; unchanged save can transfer ownership", async () => {
-  const saved = vi.fn(); form({ rule: { ...rule, assigneeIds: ["departed"] }, onSaved: saved });
+  const saved = vi.fn(); form({ rule: { ...rule, schedule: { weekdays: [1], every: 1, kind: "weekly" }, assigneeIds: ["departed"] }, onSaved: saved });
   fireEvent.change(screen.getByRole("textbox", { name: "Название правила" }), { target: { value: "Renamed" } });
   fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
   await waitFor(() => expect(recurringApi.update).toHaveBeenCalledWith("p1", "r1", { name: "Renamed" }));

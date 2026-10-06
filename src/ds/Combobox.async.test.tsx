@@ -12,6 +12,26 @@ test("controlled selection updates its label and restores unselected text on blu
   view.rerender(<Combobox label="Zone" load={load} onSelect={selected} value={{ id: "Asia/Tashkent", label: "Asia/Tashkent" }} />);
   expect(input.value).toBe("Asia/Tashkent");
 });
+test("opening a selected picker browses all options, then filters typed text", async () => {
+  vi.useFakeTimers(); const load = vi.fn(async () => [{ id: "UTC", label: "UTC" }, { id: "Asia/Tashkent", label: "Asia/Tashkent" }]);
+  const selected = vi.fn(); render(<Combobox label="Zone" load={load} onSelect={selected} value={{ id: "Asia/Tashkent", label: "Asia/Tashkent" }} />);
+  const input = screen.getByRole("combobox"); fireEvent.focus(input);
+  await act(async () => { await vi.advanceTimersByTimeAsync(200); }); expect(load).toHaveBeenLastCalledWith("");
+  expect(screen.getByRole("option", { name: "Asia/Tashkent", hidden: true })).toBeTruthy();
+  fireEvent.keyDown(input, { key: "Enter" }); expect(selected).toHaveBeenCalledWith({ id: "Asia/Tashkent", label: "Asia/Tashkent" });
+  selected.mockClear(); fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: "Asia" } }); fireEvent.keyDown(input, { key: "Enter" }); expect(selected).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(200); }); expect(load).toHaveBeenLastCalledWith("Asia");
+});
+test("adding whitespace while a request is pending still supplies current options", async () => {
+  vi.useFakeTimers(); const load = vi.fn(async () => [{ id: "anna", label: "Anna" }]);
+  render(<Combobox label="Assignee" load={load} onSelect={vi.fn()} />); const input = screen.getByRole("combobox");
+  fireEvent.focus(input); fireEvent.change(input, { target: { value: "Anna" } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+  fireEvent.change(input, { target: { value: "Anna " } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+  expect(load).toHaveBeenLastCalledWith("Anna"); expect(screen.getByRole("option", { name: "Anna", hidden: true })).toBeTruthy();
+});
 
 test.each([0, 200, 1000])("Enter cannot select previous results during a new search (%i ms)", async latency => {
   vi.useFakeTimers();

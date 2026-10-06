@@ -61,7 +61,12 @@ export default function RecurringRuleForm({ projectId, rule, defaultTimeZone, on
       .filter(user => !query || user.name.toLowerCase().includes(query.toLowerCase())).slice(0, 20).map(user => ({ id: user.id, label: user.name }));
   }, [data.users, data.members, assignees]);
   const body: RecurringRuleBody = { ...timing, name: name.trim(), templateId, title: title.trim() || null, assigneeIds: assignees, dueInDays: due === "" ? null : Number(due), skipIfOpen: skip };
-  const patch: RecurringRulePatchBody = Object.fromEntries(Object.entries(body).filter(([key, value]) => !rule || JSON.stringify(value) !== JSON.stringify(rule[key as keyof RecurringRuleDto])));
+  const sameSchedule = rule?.schedule?.kind === schedule.kind && rule.schedule.every === schedule.every
+    && (schedule.kind !== "monthly" || rule.schedule.kind === "monthly" && schedule.day === rule.schedule.day)
+    && (schedule.kind !== "weekly" || rule.schedule.kind === "weekly" && Array.isArray(rule.schedule.weekdays)
+      && schedule.weekdays.join() === [...rule.schedule.weekdays].sort((a, b) => a - b).join());
+  const patch: RecurringRulePatchBody = Object.fromEntries(Object.entries(body).filter(([key, value]) => key === "schedule"
+    ? !sameSchedule : !rule || JSON.stringify(value) !== JSON.stringify(rule[key as keyof RecurringRuleDto])));
   const template = data.issueTemplates.find(value => value.id === templateId);
   const expanded = (body.title ?? template?.title ?? body.name).replace(/\{date\}/g, "2000-01-01");
   const valid = !!body.name && !!template && integer(every, 1, kind === "daily" ? 30 : 12)
