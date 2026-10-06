@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../ds/Button";
 import { RoleTag } from "./settings/parts";
 import { IcBook, PriorityIcon, TypeIcon } from "../icons";
@@ -14,6 +14,15 @@ export const EN_SECTIONS = helpCopy.en.sections.map(({ id, label }) => [id, labe
 function useDocsNavigation(prefix: string, enabled = true) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState("overview");
+  const go = useCallback((id: string) => {
+    const section = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("section[id]") ?? [])
+      .find(value => value.id === `${prefix}${id}`);
+    if (!section) return;
+    setActive(id);
+    section.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start",
+    });
+  }, [prefix]);
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !enabled) return;
@@ -35,11 +44,14 @@ function useDocsNavigation(prefix: string, enabled = true) {
       window.removeEventListener("resize", update);
     };
   }, [prefix, enabled]);
-  const go = (id: string) => {
-    rootRef.current?.querySelector<HTMLElement>(`#${prefix}${id}`)?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start",
-    });
-  };
+  useEffect(() => {
+    if (!enabled) return;
+    const fromHash = () => {
+      try { go(decodeURIComponent(window.location.hash.slice(1))); } catch { /* Malformed URL fragment. */ }
+    };
+    fromHash(); window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
+  }, [go, enabled]);
   return { rootRef, active, go };
 }
 
@@ -64,6 +76,8 @@ export default function DocsView() {
           {copy.sections.map((section, index) => <section key={section.id} id={`${prefix}${section.id}`} className="scroll-mt-5 rounded-xl surface-raised p-5 ring-1 ring-inset ring-line/70">
             <h2 className="font-disp text-[15px] font-semibold tracking-tight text-ink">{index + 1} · {section.label}</h2>
             {section.paragraphs.map(paragraph => <p key={paragraph} className="mt-2 text-[13px] leading-relaxed text-sub">{paragraph}</p>)}
+            {section.code && <pre className="mt-3 overflow-x-auto rounded-lg bg-sunken p-3 font-code text-[12px] leading-relaxed text-ink"><code>{section.code}</code></pre>}
+            {section.links && <ul className="mt-3 space-y-1">{section.links.map(link => <li key={link.href}><a href={link.href} className="ds-focus rounded text-[12px] text-accent underline underline-offset-4">{link.label}</a></li>)}</ul>}
             {section.id === "roles" && <>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">{ROLE_ORDER.map(role => <div key={role} className="rounded-lg border border-linesoft bg-sunken p-3"><RoleTag role={role} size="sm" /><p className="mt-2 text-[12px] leading-relaxed text-sub">{t(`role.${role}.desc`)}</p></div>)}</div>
               <div className="mt-4 overflow-x-auto"><table className="w-full border-collapse text-[12px]"><thead><tr className="border-b border-line text-left"><th className="px-2 py-2 text-faint">{copy.permission}</th>{ROLE_ORDER.map(role => <th key={role} className="px-2 py-2"><RoleTag role={role} size="sm" /></th>)}</tr></thead><tbody>{PERMISSIONS.map(permission => <tr key={permission.id} className="border-b border-linesoft"><td className="px-2 py-2 text-ink">{t(`permission.${permission.id}.name`)}</td>{ROLE_ORDER.map(role => <td key={role} className="px-2 py-2 text-center">{roleHas(role, permission.id) ? <span className="text-ok">✓</span> : <span className="text-faint">—</span>}</td>)}</tr>)}</tbody></table></div>

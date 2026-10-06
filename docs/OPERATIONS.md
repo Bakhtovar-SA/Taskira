@@ -309,8 +309,128 @@ journalctl -u taskira-restore-drill.service
 30 3 * * 0 /opt/taskira/current/restore-drill.sh --install-dir /opt/taskira/current --backup-dir /var/backups/taskira >>/var/log/taskira-restore-drill.log 2>&1
 ```
 
-Мониторьте код возврата, состояние service и записи `ops_runs`; метрика
-`taskira_ops_last_success_timestamp_seconds` и сводный экран добавляются в INT-14/INT-15.
+Мониторьте код возврата, состояние service и записи `ops_runs`; метрики
+`taskira_ops_last_success_timestamp_seconds`, `taskira_ops_last_run_success` и экран `/admin/health`
+показывают результаты бэкапа и репетиции.
+
+## Вебхуки
+
+Глобальный администратор настраивает подписки в проекте → «Интеграции». Оператор сначала задаёт:
+
+```dotenv
+WEBHOOKS_ENABLED=true
+WEBHOOK_ALLOWED_TARGETS=receiver.corp.local,*.integrations.corp.local,10.40.0.0/16
+WEBHOOK_DENY_CIDRS=10.40.10.0/24
+WEBHOOK_ALLOW_HTTP=false
+WEBHOOK_POLL_MS=2000
+WEBHOOK_LOG_RETENTION_DAYS=30
+```
+
+Правило имени разрешает все его DNS-адреса и порты, кроме запретов. Суффикс `*.integrations.corp.local`
+разрешает поддомены; само имя добавляйте отдельно. Пустой allowlist запрещает всё. Контролируйте DNS разрешённых
+имён и дополняйте deny CIDR адресами служебных систем. Loopback, link-local, multicast и известные metadata IP
+запрещены всегда; Compose добавляет свою подсеть. Перед каждой попыткой адрес проверяется заново и закрепляется
+для соединения. Редиректы и прокси окружения не используются. HTTP требует явного разрешения оператора.
+
+Сгенерируйте `WEBHOOK_SECRET_KEY` командой `openssl rand -hex 32`. Сохраните рядом с `JWT_SECRET` в защищённом
+хранилище секретов, отдельно от backup. Ключ шифрует URL и секреты подписок; изменение ключа требует смены секретов.
+Архив БД содержит зашифрованные данные, но ключ в whitelist backup не входит. Без исходного ключа восстановленные
+подписки отключаются с `secret_unavailable`: восстановите штатный ключ либо смените секрет каждой подписки.
+
+Получатель проверяет HMAC исходных байтов тела и время ±5 минут, дедуплицирует по `X-Taskira-Event-Id`.
+Смена секрета подписки сохраняет прежнюю подпись на 24 часа. Доставка может повториться после падения или истечения
+аренды; разбор всех условий — [контракт вебхуков](../server/README.md#настройки-вебхуков-трек-l).
+
+### Аварийная остановка
+
+`WEBHOOKS_ENABLED=false` и stop-first перезапуск API прекращают отправку. Триггеры БД продолжают записывать
+outbox для активных подписок. Если причина инцидента требует остановить и запись, оператор БД выполняет:
+
+```sql
+ALTER TABLE activity DISABLE TRIGGER trg_activity_integration_event;
+ALTER TABLE comments DISABLE TRIGGER trg_comments_integration_event;
+```
+
+После устранения причины:
+
+```sql
+ALTER TABLE activity ENABLE TRIGGER trg_activity_integration_event;
+ALTER TABLE comments ENABLE TRIGGER trg_comments_integration_event;
+```
+
+История задач и комментарии остаются; события за период отключённых триггеров автоматически не восстанавливаются.
+До включения отправки проверьте накопленную очередь и цели. Для автоматических повторов отдельный выключатель
+`RECURRING_ENABLED=false`; `MAINTENANCE_ENABLED=false` отключает также диспетчер, события сроков и обслуживание.
+
+## Повторяющиеся задачи
+
+`RECURRING_ENABLED=true` и `MAINTENANCE_ENABLED=true` включают автоматические правила; опрос по умолчанию
+раз в минуту (`RECURRING_POLL_MS=60000`). В настройках проекта выберите шаблон, владельца, исполнителей,
+дневной/недельный/месячный интервал, время и IANA-пояс. Месячные варианты 1, 3, 6, 12 — ежемесячно,
+ежеквартально, каждые полгода и ежегодно; доступны свои интервалы 1–12. «Последний день» использует длину месяца.
+
+Расчёт идёт по календарю правила; начальный пояс берётся из `DUE_REMINDER_TIMEZONE`. Несуществующий час DST
+сдвигается вперёд, повторяющийся час исполняется один раз. После простоя создаётся одна догоняющая задача,
+остальные пропуски считаются в истории. Уникальность `(rule_id, scheduled_for)` защищает от дубля.
+Право `create` владельца проверяется при каждом запуске: потеря доступа автоматически ставит правило на паузу,
+возобновление подтверждает администратор. Недоступные исполнители исключаются и отмечаются в истории.
+
+## Экран состояния
+
+`/admin/health` доступен глобальному администратору с сессией. Ручное обновление получает снимок 11 проверок:
+`ok` — в порядке, `warn` — требует внимания, `fail` — сбой, `off` — функция выключена,
+`unknown` — проверка не завершилась или данных нет. Сбои и предупреждения идут первыми. Общий дедлайн 5 секунд,
+кэш 15 секунд; автоматического опроса нет. История последних пяти операций хоста загружается при раскрытии.
+
+| Проверка | Порог / действие |
+|---|---|
+| БД | >200 мс — warn; недоступность или неприменённые миграции — fail |
+| Хранилище | local: <10% или <2 ГиБ — warn; <2% или <500 МиБ — fail. Недоступность — fail; свободное место S3 неизвестно |
+| Почта | off при отключении; отсутствует SMTP — fail; очередь >30 минут или окончательные отказы за сутки — warn |
+| LDAP | local/нет bind DN — off; ошибка, отсутствие успеха или успех старше 3 интервалов — warn |
+| Фоновые задания | ошибка или успех старше 3 интервалов — warn; первый успех ожидается до startDelayMs + intervalMs |
+| Лицензия | неверная — fail; отсутствует/grace/≤30 дней/превышены места — warn |
+| Поиск | отсутствует триграммный индекс — warn; предупреждение и имена индексов сохранены |
+| Бэкап | без успеха 26–50 часов — warn, >50 — fail |
+| Репетиция | без успеха 8–15 суток — warn, >15 — fail |
+| Вебхуки | выключены и нет подписок — off; отключённая подписка, очередь >15 минут или окончательный отказ за сутки — warn |
+| Повторы | выключены/нет правил — off; потеря доступа владельца или ошибка за сутки — warn |
+
+Последняя ошибка бэкапа/репетиции даёт fail независимо от возраста предыдущего успеха. `running` дольше 6 часов
+считается `interrupted`; отсутствие успеха/истории — unknown. Отказы почты считаются по `email_failed_at`,
+исторические NULL не входят в сутки. Задания относятся к одному API-процессу, а ops — к скриптам хоста.
+
+## Оповещения Prometheus трека L
+
+Добавьте правила в ваш Prometheus и настройте Alertmanager по политике эксплуатации:
+
+```yaml
+groups:
+  - name: taskira-integrations
+    rules:
+      - alert: TaskiraWebhookQueueStalled
+        expr: taskira_webhook_queue_oldest_age_seconds > 900
+        for: 5m
+      - alert: TaskiraBackupOverdue
+        expr: time() - taskira_ops_last_success_timestamp_seconds{kind="backup"} > 93600
+        for: 5m
+      - alert: TaskiraRestoreDrillOverdue
+        expr: time() - taskira_ops_last_success_timestamp_seconds{kind="restore_drill"} > 691200
+        for: 5m
+      - alert: TaskiraOpsFailed
+        expr: taskira_ops_last_run_success == 0
+        for: 5m
+      - alert: TaskiraBackupHistoryMissing
+        expr: absent(taskira_ops_last_success_timestamp_seconds{kind="backup"})
+        for: 1h
+      - alert: TaskiraRestoreDrillHistoryMissing
+        expr: absent(taskira_ops_last_success_timestamp_seconds{kind="restore_drill"})
+        for: 1h
+```
+
+При scrape без истории или ошибке сбора ops gauge отсутствует; нуль не подменяет отсутствие данных.
+При нескольких инсталляциях ограничьте `absent` селектором своего `job`/`instance`.
+Также мониторьте `up` и `taskira_metrics_collection_errors_total`, чтобы отличать пропавшую проверку от успеха.
 
 История первоначальной репетиции:
 

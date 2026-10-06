@@ -420,6 +420,29 @@ who typed them used — there is no dictionary key for someone's actual data.
   `Storage.delete()` or one `pushToUser()` throw aborted every later item in the same run —
   each is now try/catch'd per-item so one failure doesn't take down the rest.
 
+### Integrations (track L)
+
+- `integration_events` is the transactional outbox; PostgreSQL triggers on `activity` and `comments` emit events
+  only for eligible active subscriptions. An event requires a committed history row or comment; rollback removes both.
+- Changes to one issue in one transaction coalesce into one event; never emit webhooks from route handlers.
+- New history behavior needs a member of `ActivityEvent` in `contract.ts` and an explicit thin-body mapping in
+  `services/webhookPayload.ts`; unknown history is ignored, never forwarded wholesale.
+- `webhook-dispatch`, `due-events` and `recurring` use `startJob` with the existing maintenance lifecycle.
+  `MAINTENANCE_ENABLED=false` stops these loops; reminders and notifier have their own switches.
+- Operator env defines the SSRF allowlist/deny ranges. Check and pin every attempt's DNS result; no redirects/proxies.
+- `secretBox` encrypts subscription URL/signing secrets with `WEBHOOK_SECRET_KEY`; store that key outside backups.
+- API tokens start with `tsk_`, store only a hash, and act as project members. `requireSession` excludes tokens;
+  `requireAuth` accepts scoped tokens. `requireGlobalAdmin` rejects every API token, including an admin owner's token.
+- Service accounts have `auth_source='service'`: no password/LDAP login, notifications or human pickers.
+  Assign explicit project membership before using their tokens; do not grant global admin.
+- Recurring uses `createIssueInTx`; `(rule_id, scheduled_for)` prevents duplicate occurrences and downtime yields one
+  catch-up issue. Rules use calendar time in their own zone; monthly intervals include 1, 3, 6 and 12 months.
+- Owner access is rechecked at execution; loss of `create` pauses the rule until an administrator confirms resuming.
+- Host scripts write `ops_runs`; the API is read-only. Backup/drill reports include redacted failures, never secrets.
+- `GET /api/admin/status` is a global-admin session snapshot of 11 independent checks (5 s deadline, 15 s cache).
+  `/ready` and `/api/health` keep their readiness response; UI refresh is manual, history loads on disclosure.
+- Operator procedures: [OPERATIONS](docs/OPERATIONS.md); contracts/thresholds: [server README](server/README.md).
+
 ### Data model notes
 
 Workflow is a DB-backed directed graph: `workflow_statuses` (with stable `sid`:
@@ -652,6 +675,11 @@ since any edit touches it. The board shows the last 14 days in its done column
 (`DONE_WINDOW_DAYS` in `Board.tsx`) and collapses the rest behind "Ранее закрыто".
 
 ## Gotchas
+
+- **Emergency outbox stop**: `WEBHOOKS_ENABLED=false` stops delivery after restart, but database triggers can still
+  record events for active subscriptions. Only during an incident disable `trg_activity_integration_event` on
+  `activity` and `trg_comments_integration_event` on `comments` (`ALTER TABLE … DISABLE TRIGGER …`), then re-enable
+  both after recovery. Events missed while disabled are not replayed automatically; see `docs/OPERATIONS.md`.
 
 - **`server npm test` used to flake with "обнаружена взаимоблокировка" (Postgres 40P01)**
   in `resetDb()`'s `TRUNCATE`, on a different test file each run — root-caused and fixed:
