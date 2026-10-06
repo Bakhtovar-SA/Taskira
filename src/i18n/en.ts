@@ -1309,6 +1309,7 @@ const en: Record<keyof Dict, string> = {
   "apiError.TOKEN_NOT_ALLOWED": "This action requires a user session",
   "apiError.TOKEN_SCOPE": "This token allows read access only",
   "apiError.TOKEN_LIMIT": "The active token limit has been reached",
+  "apiError.TEMPLATE_IN_USE": "This template is used by recurring issues",
   "apiError.PLAN_REQUIRED": "Not available under the current license",
   "apiError.DEPENDENCY_CYCLE": "This dependency would create a cycle",
   "apiError.ATTACHMENT_TOO_LARGE": "The file is too large",

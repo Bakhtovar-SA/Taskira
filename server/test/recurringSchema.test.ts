@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
-import { getApp, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
 let fx: Fixture, templateId: string;
 beforeAll(async () => { await getApp(); });
@@ -35,6 +35,16 @@ test("active требует следующего запуска, paused — пр
 test("используемый шаблон нельзя удалить", async () => {
   await rule();
   await expect(q(`DELETE FROM issue_templates WHERE id = $1`, [templateId])).rejects.toMatchObject({ code: "23001" });
+});
+
+test("HTTP-удаление используемого шаблона возвращает 409 TEMPLATE_IN_USE", async () => {
+  await rule();
+  const app = await getApp(), token = await login(app, "admin");
+  const response = await app.inject({ method: "DELETE",
+    url: `/api/projects/${fx.projects.p1}/issue-templates/${templateId}`, headers: auth(token) });
+  expect(response.statusCode).toBe(409);
+  expect(response.json().error).toMatchObject({ code: "TEMPLATE_IN_USE", reason: expect.stringContaining("Weekly") });
+  expect(await q(`SELECT id FROM issue_templates WHERE id = $1`, [templateId])).toEqual([{ id: templateId }]);
 });
 
 test("удаление проекта убирает правила, исполнителей и запуски", async () => {

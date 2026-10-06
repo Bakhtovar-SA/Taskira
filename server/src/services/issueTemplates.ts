@@ -2,6 +2,7 @@
  *  customFields.ts: определения — уровень проекта, применение — чистый
  *  client-side prefill формы создания, никакой связи с созданной задачей. */
 import { one, q } from "../db.js";
+import { ApiHttpError } from "../errors.js";
 import type { IssueTemplateDto } from "../contract.js";
 export type { IssueTemplateDto };
 
@@ -74,5 +75,17 @@ export async function updateIssueTemplate(templateId: string, args: IssueTemplat
 }
 
 export async function deleteIssueTemplate(templateId: string): Promise<void> {
-  await q(`DELETE FROM issue_templates WHERE id = $1`, [templateId]);
+  try {
+    await q(`DELETE FROM issue_templates WHERE id = $1`, [templateId]);
+  } catch (error) {
+    const pg = error as { code?: string; constraint?: string };
+    if ((pg.code === "23001" || pg.code === "23503") && pg.constraint === "recurring_rules_template_id_fkey") {
+      const rules = await q<{ name: string }>(
+        `SELECT name FROM recurring_rules WHERE template_id = $1 ORDER BY name`, [templateId],
+      );
+      const names = rules.map(rule => rule.name).join(", ");
+      throw new ApiHttpError(409, "TEMPLATE_IN_USE", `Шаблон используется в повторяющихся задачах${names ? `: ${names}` : ""}`);
+    }
+    throw error;
+  }
 }
