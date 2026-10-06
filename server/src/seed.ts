@@ -1,6 +1,7 @@
 /** Создание первого администратора из env (если таблица users пуста). Идемпотентно. */
-import bcrypt from "bcryptjs";
 import { loadConfig } from "./config.js";
+import { passwordPolicyError } from "./passwordPolicy.js";
+import { hashPassword } from "./services/passwordHash.js";
 import { one, q } from "./db.js";
 
 export async function seedAdmin(): Promise<void> {
@@ -14,7 +15,11 @@ export async function seedAdmin(): Promise<void> {
     console.log("[seed] пользователи уже есть — первый администратор не создаётся");
     return;
   }
-  const hash = await bcrypt.hash(cfg.admin.password, 10);
+  // Полная политика (список частых паролей, контекстные слова) — только здесь, при настоящем создании: проверка
+  // ADMIN_PASSWORD в config.ts базовая, чтобы обновление не роняло работающую установку (SEC-PWD-02).
+  const policy = passwordPolicyError(cfg.admin.password, cfg.admin.username);
+  if (policy) throw new Error(`ADMIN_PASSWORD: ${policy}`);
+  const hash = await hashPassword(cfg.admin.password);
   const initials = cfg.admin.name
     .split(/\s+/)
     .slice(0, 2)
