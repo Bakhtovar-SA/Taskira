@@ -81,6 +81,7 @@ export const LIMITS = {
   dashboardsPerUser: 20,
   webhook: { name: 80, url: 2048, perProject: 10, total: 100 },
   apiToken: { name: 80, perUser: 10, perService: 5, maxDays: 365 },
+  serviceAccount: { name: 80 },
 } as const;
 
 /* ---------------- справочники ---------------- */
@@ -780,7 +781,7 @@ export type WsAuthMessage = { type: "auth"; token: string };
  * добавлен. Поля с CHECK в БД (typeId, priorityId, complexity, статус-категория, dir) описаны как z.enum: JSON на
  * проводе тот же, но опечатку "hgih" ловит typecheck.
  */
-const ActorMini = z.object({ id: z.string(), name: z.string(), initials: z.string(), color: z.string() });
+const ActorMini = z.object({ id: z.string(), name: z.string(), initials: z.string(), color: z.string(), authSource: z.enum(["local", "ldap", "service"]).optional() });
 
 /** Мини-профиль участника задачи — чтобы карточку можно было отрисовать без bootstrap проекта
  *  (одиночный просмотр приглашённого, COLLAB_MIGRATION.md Фаза 6). */
@@ -1571,10 +1572,10 @@ export type ApiTokenAdminDto = z.infer<typeof ApiTokenAdminDto>;
 export const ServiceAccountCreateBody = z.object({
   username: z.string().min(LIMITS.username.min).max(LIMITS.username.max)
     .regex(/^[a-z0-9._-]+$/i, "Латиница, цифры, точки и дефисы"),
-  name: requiredLine(80, "Имя не может быть пустым"),
+  name: requiredLine(LIMITS.serviceAccount.name, "Имя не может быть пустым"),
 }).strict();
 export const ServiceAccountPatchBody = z.object({
-  name: requiredLine(80, "Имя не может быть пустым").optional(), isActive: z.boolean().optional(),
+  name: requiredLine(LIMITS.serviceAccount.name, "Имя не может быть пустым").optional(), isActive: z.boolean().optional(),
 }).strict().refine(value => Object.keys(value).length > 0, "Пустой патч");
 export const ServiceAccountDto = z.object({
   id: z.string(), username: z.string(), name: z.string(), isActive: z.boolean(), createdAt: z.string(),

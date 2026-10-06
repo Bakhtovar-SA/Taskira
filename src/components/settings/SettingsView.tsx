@@ -41,6 +41,8 @@ const WorkflowView = lazy(() => import("../WorkflowView"));
 const PermissionsView = lazy(() => import("../PermissionsView"));
 const AdminView = lazy(() => import("../AdminView"));
 const ProjectIntegrations = lazy(() => import("./ProjectIntegrations"));
+const PersonalTokens = lazy(() => import("./PersonalTokens"));
+const ServiceAccounts = lazy(() => import("./ServiceAccounts"));
 
 type Meta = { icon: (p: { size?: number; tone?: IconTone }) => ReactNode; tone: IconTone };
 const META: Record<string, Meta> = {
@@ -48,6 +50,8 @@ const META: Record<string, Meta> = {
   notifications: { icon: (p) => <IcBell {...p} />, tone: "amber" },
   appearance: { icon: (p) => <IcSun {...p} />, tone: "orange" },
   language: { icon: (p) => <IcGlobe {...p} />, tone: "sky" },
+  tokens: { icon: (p) => <IcLock {...p} />, tone: "teal" },
+  "service-accounts": { icon: (p) => <IcBolt {...p} />, tone: "teal" },
   general: { icon: (p) => <IcSettings {...p} />, tone: "gray" },
   // ключ appearance у личных и проектных настроек общий — та же иконка «Внешний вид»
   roadmap: { icon: (p) => <IcFlag {...p} />, tone: "teal" },
@@ -82,13 +86,13 @@ const sectionKey = (home: SettingsHome, s: string) =>
 
 export function useSettingsNav() {
   const { me, data } = useStore();
-  const ctx = { isAdmin: me.globalRole === "admin", hasProject: !!data.currentProjectId };
+  const ctx = { isAdmin: me.globalRole === "admin", isService: me.authSource === "service", hasProject: !!data.currentProjectId };
   return (home: SettingsHome) => allowedSections(home, ctx);
 }
 
 export default function SettingsView() {
   const { t } = useT();
-  const { ui, data, setView } = useStore();
+  const { ui, data, me, setView } = useStore();
   const nav = useSettingsNav();
   const home = ui.view as SettingsHome;
   const allowed = nav(home);
@@ -102,7 +106,7 @@ export default function SettingsView() {
         <EmptyState icon={<IcLock size={22} tone="gray" />} title={t("settings.denied")} sub={t(home === "orgSettings" ? "settings.deniedOrg" : "settings.deniedProject")} />
       </div>
     );
-  } else if (home === "settings") page = <PersonalSection section={section} />;
+  } else if (home === "settings") page = section === "tokens" ? <PersonalTokens key={me.id} /> : <PersonalSection section={section} />;
   else if (home === "projectSettings") {
     page =
       section === "integrations" ? (
@@ -114,7 +118,7 @@ export default function SettingsView() {
       ) : (
         <ProjectSection section={section} />
       );
-  } else page = section === "departments" ? <AdminView /> : <OrgSection section={section} />;
+  } else page = section === "service-accounts" ? <ServiceAccounts key={me.id} /> : section === "departments" ? <AdminView /> : <OrgSection section={section} />;
 
   return (
     <div className="flex h-full min-h-0 max-md:flex-col">

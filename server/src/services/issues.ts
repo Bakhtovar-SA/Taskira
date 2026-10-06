@@ -394,8 +394,9 @@ export async function listActivity(issueId: string, limit = 100): Promise<Activi
     name: string | null;
     initials: string | null;
     color: string | null;
+    auth_source: "local" | "ldap" | "service" | null;
   }>(
-    `SELECT a.id, a.actor_id, a.text, a.kind, a.payload, a.created_at, u.name, u.initials, u.color
+    `SELECT a.id, a.actor_id, a.text, a.kind, a.payload, a.created_at, u.name, u.initials, u.color, u.auth_source
        FROM activity a
        LEFT JOIN users u ON u.id = a.actor_id
       WHERE a.issue_id = $1
@@ -407,7 +408,7 @@ export async function listActivity(issueId: string, limit = 100): Promise<Activi
     .map((r) => ({
       id: r.id,
       actorId: r.actor_id,
-      actor: r.actor_id && r.name ? { id: r.actor_id, name: r.name, initials: r.initials ?? "", color: r.color ?? "#888" } : null,
+      actor: r.actor_id && r.name ? { id: r.actor_id, name: r.name, initials: r.initials ?? "", color: r.color ?? "#888", authSource: r.auth_source ?? undefined } : null,
       text: r.text,
       event: activityEventOf(r.kind, r.payload),
       createdAt: new Date(r.created_at).toISOString(),
