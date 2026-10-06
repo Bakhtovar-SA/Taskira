@@ -222,4 +222,77 @@ after_rollback="$(cd "$INSTALL_DIR" && docker compose --env-file .env -f docker-
   psql -At -U taskira -d taskira -c 'SELECT name FROM schema_migrations ORDER BY name DESC LIMIT 1')"
 [ "$after_rollback" = "$before_upgrade" ]
 
+# --- OPS-UPG-02: automatic rollback on a failed upgrade (additive scenarios) -----------------
+# Starting point: the install was just rolled back and runs OLD_VERSION on the snapshot DB.
+installed_db() {
+  (cd "$INSTALL_DIR" && docker compose --env-file .env -f docker-compose.yml exec -T postgres \
+    psql -At -U taskira -d taskira -c "$1")
+}
+
+# make_failing_release VERSION SERVER_IMAGE_SOURCE_DIR_OR_EMPTY EXTRA_MIGRATION_OR_EMPTY
+# Reuses the already-built NEW_VERSION client/postgres images under a new tag. With a
+# source dir the server image is built from it; otherwise NEW_VERSION's server is retagged.
+make_failing_release() {
+  version="$1"; server_src="$2"; extra_migration="$3"
+  dir="$TMP_DIR/release-$version"
+  mkdir -p "$dir/images"
+  docker tag "localhost/taskira-client:$NEW_VERSION" "localhost/taskira-client:$version"
+  docker tag "localhost/taskira-postgres:$NEW_VERSION" "localhost/taskira-postgres:$version"
+  if [ -n "$server_src" ]; then
+    docker build --build-arg "TASKIRA_VERSION=$version" -t "localhost/taskira-server:$version" "$server_src"
+  else
+    docker tag "localhost/taskira-server:$NEW_VERSION" "localhost/taskira-server:$version"
+  fi
+  "$ROOT_DIR/scripts/render-compose.sh" release "$version" > "$dir/docker-compose.yml"
+  printf '%s\n' "$version" > "$dir/VERSION"
+  printf 'localhost/taskira-client:%s\nlocalhost/taskira-server:%s\nlocalhost/taskira-postgres:%s\n' \
+    "$version" "$version" "$version" > "$dir/IMAGES.txt"
+  { cat "$RELEASE_DIR/MIGRATIONS.txt"; [ -z "$extra_migration" ] || printf '%s\n' "$extra_migration"; } \
+    | LC_ALL=C sort > "$dir/MIGRATIONS.txt"
+  cp "$ROOT_DIR/scripts/upgrade.sh" "$dir/upgrade.sh"
+  cp "$ROOT_DIR/scripts/release/container-engine.sh" "$dir/container-engine.sh"
+  chmod +x "$dir/upgrade.sh"
+  docker save --output "$dir/images/client.tar" "localhost/taskira-client:$version"
+  docker save --output "$dir/images/server.tar" "localhost/taskira-server:$version"
+  docker save --output "$dir/images/postgres.tar" "localhost/taskira-postgres:$version"
+  (cd "$dir" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS)
+  RELEASE_UNDER_TEST="$dir"
+}
+
+assert_rolled_back_to_old() {
+  log="$1"
+  grep -Fq 'Starting automatic rollback' "$log"
+  grep -Fq 'Automatic rollback complete' "$log"
+  [ "$(cat "$INSTALL_DIR/VERSION")" = "$OLD_VERSION" ]
+  [ "$(installed_db 'SELECT value FROM upgrade_snapshot_probe')" = "023_sprints.sql" ]
+  [ "$(installed_db 'SELECT name FROM schema_migrations ORDER BY name DESC LIMIT 1')" = "$before_upgrade" ]
+  curl --fail --silent "http://127.0.0.1:18081/api/health" | grep -Fq "\"version\":\"$OLD_VERSION\""
+}
+
+# (a) A broken migration: a server image carrying one extra, invalid migration.
+BROKEN_NAME="99991231T2359_broken_for_rollback_test.sql"
+BROKEN_SRC="$TMP_DIR/broken-server"
+mkdir -p "$BROKEN_SRC"
+tar -C "$ROOT_DIR/server" --exclude=./node_modules --exclude=./dist -cf - . | tar -x -C "$BROKEN_SRC"
+printf 'THIS IS NOT VALID SQL;\n' > "$BROKEN_SRC/migrations/$BROKEN_NAME"
+make_failing_release "1.2.0" "$BROKEN_SRC" "$BROKEN_NAME"
+if "$RELEASE_UNDER_TEST/upgrade.sh" --install-dir "$INSTALL_DIR" --engine docker > "$TMP_DIR/broken-migration.log" 2>&1; then
+  echo "upgrade.sh succeeded with a broken migration" >&2
+  exit 1
+fi
+grep -Fq 'upgrade failed during: applying database migrations' "$TMP_DIR/broken-migration.log"
+assert_rolled_back_to_old "$TMP_DIR/broken-migration.log"
+
+# (b) The migrations apply but the new version never reports healthy: the server image is
+# NEW_VERSION's retagged, so /api/health keeps answering NEW_VERSION, never the target.
+make_failing_release "1.3.0" "" ""
+if "$RELEASE_UNDER_TEST/upgrade.sh" --install-dir "$INSTALL_DIR" --engine docker > "$TMP_DIR/unhealthy.log" 2>&1; then
+  echo "upgrade.sh succeeded although the new version never became healthy" >&2
+  exit 1
+fi
+grep -Fq 'upgrade failed during: health-checking Taskira 1.3.0' "$TMP_DIR/unhealthy.log"
+assert_rolled_back_to_old "$TMP_DIR/unhealthy.log"
+
+echo "automatic rollback integration (broken migration, failed health-check) passed"
+
 echo "offline upgrade and rollback integration passed"
