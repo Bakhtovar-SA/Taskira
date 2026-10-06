@@ -29,6 +29,7 @@ import { savedViewsRoutes } from "./routes/savedViews.js";
 import { userRoutes } from "./routes/users.js";
 import { avatarRoutes } from "./routes/avatar.js";
 import { meRoutes } from "./routes/me.js";
+import { passwordRoutes } from "./routes/passwords.js";
 import { ldapRoutes } from "./routes/ldap.js";
 import { maintenanceRoutes } from "./routes/maintenance.js";
 import { notificationRoutes } from "./routes/notifications.js";
@@ -236,6 +237,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       await api.register(userRoutes); // /users, /admin/users (global admin) + /users/pickable
       await api.register(avatarRoutes); // /me/avatar (самообслуживание) + /users/:id/avatar (отдача)
       await api.register(meRoutes); // /me/lang — язык писем (трек E)
+      await api.register(passwordRoutes); // /me/password, /admin/users/:id/password-reset — SEC-PWD-01
       await api.register(ldapRoutes, { prefix: "/ldap" }); // /ldap/ping (global admin)
       await api.register(maintenanceRoutes, { prefix: "/maintenance" }); // статус и ручной запуск (global admin)
       await api.register(notificationRoutes); // /notifications* (project-less, requireAuth)
