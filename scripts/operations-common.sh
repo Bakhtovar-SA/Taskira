@@ -72,7 +72,8 @@ storage_command() {
   host_dir="$2"
   user_args=()
   [ "$mode" != "export" ] || user_args=(--user 0)
-  compose run --rm --no-deps -T "${user_args[@]}" -v "$host_dir:/backup/storage" \
+  # :z relabels the host dir for the container (SELinux on RHEL/Rocky/RED OS); no-op without SELinux.
+  compose run --rm --no-deps -T "${user_args[@]}" -v "$host_dir:/backup/storage:z" \
     server node dist/ops-storage.js "$mode" /backup/storage
 }
 

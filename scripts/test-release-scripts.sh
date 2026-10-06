@@ -13,6 +13,7 @@ bash -n scripts/restore.sh
 bash -n scripts/support-bundle.sh
 bash -n scripts/operations-common.sh
 bash -n scripts/release/install.sh
+bash -n scripts/release/container-engine.sh
 
 scripts/render-compose.sh source | cmp - docker-compose.yml
 scripts/render-compose.sh release 9.8.7-test | grep -F "localhost:8080/api/health" >/dev/null
@@ -107,6 +108,53 @@ fi
 # Windows-edited CRLF env files must not append carriage returns to secrets.
 printf 'POSTGRES_PASSWORD=dbsecret\r\nJWT_SECRET=12345678901234567890123456789012\r\nADMIN_PASSWORD=Release-Secure-42!\r\nCORS_ORIGIN=http://10.20.30.40:8081\r\nCLIENT_PORT=8081\r\n' > "$RELEASE_DIR/.env"
 (cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" bash install.sh --engine podman --start >/dev/null)
+
+# Rootless Podman preflight (OPS-PODMAN-01): a fake rootless podman plus fixture
+# sysctls must turn the usual rootless traps into early, readable failures.
+mkdir -p "$TMP_DIR/rootless-bin" "$TMP_DIR/proc/user" "$TMP_DIR/proc/net/ipv4"
+cat > "$TMP_DIR/rootless-bin/podman" <<EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = "info" ] && [ "\${2:-}" = "--format" ]; then echo true; exit 0; fi
+exec "$TMP_DIR/bin/podman" "\$@"
+EOF
+chmod +x "$TMP_DIR/rootless-bin/podman"
+cp "$TMP_DIR/bin/curl" "$TMP_DIR/rootless-bin/curl"
+printf '15000\n' > "$TMP_DIR/proc/user/max_user_namespaces"
+printf '1024\n' > "$TMP_DIR/proc/net/ipv4/ip_unprivileged_port_start"
+rootless_install() {
+  (cd "$RELEASE_DIR" && PATH="$TMP_DIR/rootless-bin:$PATH" TASKIRA_PROC_SYS="$TMP_DIR/proc" \
+    TASKIRA_SUBUID_FILE="${SUBUID_FIXTURE:-/nonexistent}" XDG_RUNTIME_DIR=/run/user/1000 \
+    bash install.sh --engine podman --start 2>&1)
+}
+rootless_out="$(rootless_install)"
+printf '%s' "$rootless_out" | grep -q 'Rootless Podman detected'
+sed -i 's/^CLIENT_PORT=.*/CLIENT_PORT=80/' "$RELEASE_DIR/.env"
+if rootless_out="$(rootless_install)"; then
+  echo "install.sh accepted a privileged port under rootless Podman" >&2
+  exit 1
+fi
+printf '%s' "$rootless_out" | grep -q 'cannot publish port 80'
+sed -i 's/^CLIENT_PORT=.*/CLIENT_PORT=8081/' "$RELEASE_DIR/.env"
+printf '0\n' > "$TMP_DIR/proc/user/max_user_namespaces"
+if rootless_out="$(rootless_install)"; then
+  echo "install.sh ignored disabled user namespaces" >&2
+  exit 1
+fi
+printf '%s' "$rootless_out" | grep -q 'user namespaces are disabled'
+printf '15000\n' > "$TMP_DIR/proc/user/max_user_namespaces"
+printf 'nobody-else:100000:65536\n' > "$TMP_DIR/subuid"
+if SUBUID_FIXTURE="$TMP_DIR/subuid" rootless_out="$(SUBUID_FIXTURE="$TMP_DIR/subuid" rootless_install)"; then
+  echo "install.sh ignored a missing subuid range" >&2
+  exit 1
+fi
+printf '%s' "$rootless_out" | grep -q 'no subordinate UID range'
+# Rootful/Docker-like fake (info prints nothing) must skip the checks entirely.
+printf '80\n' > "$TMP_DIR/proc/net/ipv4/ip_unprivileged_port_start"
+(cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" TASKIRA_PROC_SYS="$TMP_DIR/proc" \
+  bash install.sh --engine podman --start >/dev/null)
+
+# SELinux: the bind-mounted storage directory must carry :z.
+grep -q 'backup/storage:z' scripts/operations-common.sh
 
 # A relative --output is relative to the caller, not to the repository.
 (cd "$TMP_DIR" && PATH="$TMP_DIR/bin:$PATH" ALLOW_DIRTY_RELEASE=1 CONTAINER_ENGINE=podman \

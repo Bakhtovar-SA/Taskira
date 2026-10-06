@@ -74,6 +74,11 @@ verify_release
 echo "[2/4] Detecting container engine"
 detect_engine
 echo "Using $ENGINE"
+if [ "$MODE" = "start" ] && [ -f .env ]; then
+  preflight_rootless "$(env_value CLIENT_PORT)"
+else
+  preflight_rootless
+fi
 
 echo "[3/4] Loading offline images"
 while IFS= read -r archive; do

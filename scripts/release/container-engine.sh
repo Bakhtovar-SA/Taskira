@@ -19,6 +19,52 @@ detect_engine() {
   fi
 }
 
+# Rootless Podman preflight. Each failure names the cause and the fix, instead of
+# letting podman/compose die later with an unrelated message. Docker and rootful
+# Podman pass through untouched. TASKIRA_PROC_SYS / TASKIRA_SUBUID_FILE exist only
+# so tests can point the reads at fixtures.
+podman_is_rootless() {
+  [ "$ENGINE" = "podman" ] || return 1
+  [ "$(podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null || true)" = "true" ]
+}
+
+preflight_rootless() {
+  port="${1:-}"
+  podman_is_rootless || return 0
+  proc_sys="${TASKIRA_PROC_SYS:-/proc/sys}"
+  echo "Rootless Podman detected (user $(id -un))"
+
+  if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
+    echo "WARNING: XDG_RUNTIME_DIR is not set (typical after 'su' or 'sudo -u'). Health checks and" >&2
+    echo "         'podman compose' depend on the user's systemd session; log in directly (ssh/console)." >&2
+  fi
+
+  userns="$(cat "$proc_sys/user/max_user_namespaces" 2>/dev/null || true)"
+  if [ "$userns" = "0" ]; then
+    echo "ERROR: user namespaces are disabled (user.max_user_namespaces=0); rootless Podman cannot run." >&2
+    echo "       As root: sysctl -w user.max_user_namespaces=15000 and persist it in /etc/sysctl.d/." >&2
+    return 1
+  fi
+
+  subuid_file="${TASKIRA_SUBUID_FILE:-/etc/subuid}"
+  if [ -r "$subuid_file" ] && ! grep -Eq "^($(id -un)|$(id -u)):" "$subuid_file"; then
+    echo "ERROR: no subordinate UID range for $(id -un) in /etc/subuid (and /etc/subgid)." >&2
+    echo "       As root: usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $(id -un)" >&2
+    echo "       then run 'podman system migrate' as that user." >&2
+    return 1
+  fi
+
+  if [ -n "$port" ]; then
+    first="$(cat "$proc_sys/net/ipv4/ip_unprivileged_port_start" 2>/dev/null || true)"
+    if [[ "$port" =~ ^[0-9]+$ ]] && [[ "$first" =~ ^[0-9]+$ ]] && [ "$port" -lt "$first" ]; then
+      echo "ERROR: rootless Podman cannot publish port $port (net.ipv4.ip_unprivileged_port_start=$first)." >&2
+      echo "       Use CLIENT_PORT >= $first (and the same port in CORS_ORIGIN), put a reverse proxy on" >&2
+      echo "       $port, or as root: sysctl -w net.ipv4.ip_unprivileged_port_start=$port (persist in /etc/sysctl.d/)." >&2
+      return 1
+    fi
+  fi
+}
+
 compose_run() {
   if [ "$ENGINE" = "docker" ]; then
     docker compose "$@"
