@@ -298,7 +298,14 @@ $ sudo ausearch -m avc -ts recent --input-logs
 ```
 
 Заметка: проверка «current installation health check» прошла — сбой из Docker-прогона
-upgrade-теста на старом ПК здесь не воспроизвёлся. Клиент `1.0.1-check.2` стал `healthy`
+upgrade-теста на старом ПК здесь не воспроизвёлся. Причину позже нашли на Windows-хосте (Docker
+Desktop + WSL): на `main` `upgrade.sh` делает `df -Pk /var/lib/docker`, а корень движка Docker
+Desktop живёт в его собственной VM и на хосте не виден (`df: /var/lib/docker: No such file or
+directory`). `set -e` обрывает скрипт, а ошибка выходит со старой меткой этапа «current installation
+health check», хотя health к этому моменту уже прошёл. У Podman `GraphRoot` лежит на хосте, поэтому
+на Rocky сбоя нет. Исправлено коммитом 1278d46: проверка пропускается, если корня не видно, и этап
+получает правильную метку. Коммит есть в `m-ops-upg-02`, `upg-combined` и `podman-01`, в `m-ops-upg-01`
+его нет. Клиент `1.0.1-check.2` стал `healthy`
 сразу (исправленный healthcheck); после отката снова образ `check.1` со старым healthcheck.
 
 ### 6. Порты ниже 1024
