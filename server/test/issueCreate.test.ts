@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
 import { withTransaction } from "../src/db.js";
 import { createIssueInTx, type CreateIssueInput } from "../src/services/issueCreate.js";
 import { projectById } from "../src/services/project.js";
-import { getApp, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
+import { auth, getApp, login, newIssue, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
 let fx: Fixture;
 beforeAll(async () => { await getApp(); });
@@ -67,6 +67,28 @@ test("откат внешней транзакции убирает задачу
     .toEqual([{ next_num: 2 }]);
   const next = await withTransaction(client => createIssueInTx(client, project, input(), fx.users.mgr1));
   expect(next.key).toBe("CORP-2");
+});
+
+test("HTTP-подзадача передаёт parentId сразу в INSERT", async () => {
+  const app = await getApp(), token = await login(app, "mgr1");
+  await q(`CREATE FUNCTION int10_parent_at_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      IF NEW.title = 'INT-10 subtask probe' AND NEW.parent_id IS NULL THEN
+        RAISE EXCEPTION 'parent_id must be present at INSERT';
+      END IF;
+      RETURN NEW;
+    END $$`);
+  await q(`CREATE TRIGGER int10_parent_at_insert AFTER INSERT ON issues
+    FOR EACH ROW EXECUTE FUNCTION int10_parent_at_insert()`);
+  try {
+    const response = await app.inject({ method: "POST", url: `/api/projects/${fx.projects.p1}/issues`,
+      headers: auth(token), payload: newIssue({ title: "INT-10 subtask probe", parentId: fx.issues.p1issue }) });
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ parentId: fx.issues.p1issue, key: "CORP-2" });
+  } finally {
+    await q(`DROP TRIGGER int10_parent_at_insert ON issues`);
+    await q(`DROP FUNCTION int10_parent_at_insert()`);
+  }
 });
 
 test.each(["status", "assignee", "epic"])("невалидный %s отклоняется до резервирования номера", async field => {

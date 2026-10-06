@@ -59,7 +59,7 @@ export async function createIssueInTx(
   input: CreateIssueInput,
   actorId: string,
   // Только маршрут: прежние проверки и номер уже выполнены вне транзакции.
-  reserved?: { num: number; prepared: PreparedIssueCreate },
+  reserved?: { num: number; prepared: PreparedIssueCreate; parentId?: string | null },
 ): Promise<IssueRow> {
   const prepared = reserved?.prepared ?? await prepareIssueCreate(project, input, client);
   if (prepared.projectId !== project.id) throw new Error("Подготовка задачи относится к другому проекту");
@@ -75,10 +75,11 @@ export async function createIssueInTx(
   const created = (await client.query<IssueRow>(
     `INSERT INTO issues
       (project_id, num, key, title, description, type_id, status_id, priority_id,
-       reporter_id, epic_id, labels, complexity, due_date, rank)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
+       reporter_id, epic_id, parent_id, labels, complexity, due_date, rank)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
     [project.id, num, `${project.key}-${num}`, input.title, input.description, input.typeId, statusId,
-      input.priorityId, actorId, input.epicId ?? null, input.labels, input.complexity, input.dueDate ?? null, rank],
+      input.priorityId, actorId, input.epicId ?? null, reserved?.parentId ?? null,
+      input.labels, input.complexity, input.dueDate ?? null, rank],
   )).rows[0];
   await setAssignees(created.id, assigneeIds, actorId, client);
   if (input.checklistItems.length > 0) {

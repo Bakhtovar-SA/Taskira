@@ -392,15 +392,9 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (body.parentId) await precheckParentAssignment(project.id, body.parentId);
       const num = await nextIssueNum(project.id);
       const key = `${project.key}-${num}`;
-      const createInTransaction = async (client: PoolClient) => {
-        const created = await createIssueInTx(client, project, body, user.sub, { num, prepared });
-        // Связь с родителем остаётся в маршруте под локом assignParentLocked.
-        // Она записывается до COMMIT той же транзакции, что задача и её история.
-        if (!body.parentId) return created;
-        return (await client.query<IssueRow>(
-          `UPDATE issues SET parent_id = $1 WHERE id = $2 RETURNING *`, [body.parentId, created.id],
-        )).rows[0];
-      };
+      // Проверка родителя остаётся в assignParentLocked; INSERT сразу содержит связь.
+      const createInTransaction = (client: PoolClient) =>
+        createIssueInTx(client, project, body, user.sub, { num, prepared, parentId: body.parentId });
       const row = body.parentId
         ? await assignParentLocked(project.id, body.parentId, null, createInTransaction)
         : await withTransaction(createInTransaction);
