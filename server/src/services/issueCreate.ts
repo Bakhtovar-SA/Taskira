@@ -63,6 +63,7 @@ export async function createIssueInTx(
 ): Promise<IssueRow> {
   const prepared = reserved?.prepared ?? await prepareIssueCreate(project, input, client);
   if (prepared.projectId !== project.id) throw new Error("Подготовка задачи относится к другому проекту");
+  // Счётчик держит лок до COMMIT: фоновый запуск — одна задача/правило на транзакцию.
   const num = reserved?.num ?? await nextIssueNum(project.id, client);
   const { statusId, assigneeIds } = prepared;
   // Новая задача встаёт в начало живой колонки, как при ручном создании.

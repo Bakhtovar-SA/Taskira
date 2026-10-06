@@ -139,6 +139,7 @@ export function nextOccurrence(t: RuleTiming, after: Date): Date {
   assertShape(t);
   const afterMs = instantMs(after), start = civilDate(t.startDate);
   const firstDate = Math.max(start, civilDate(localDateOf(after, t.timeZone)));
+  // Покрывает максимальный текущий интервал monthly.every=12 с ограничением дня месяца.
   for (let day = 0; day < 800; day++) {
     const date = firstDate + day * DAY;
     if (!eligible(t.schedule, start, date)) continue;

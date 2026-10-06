@@ -38,6 +38,13 @@ describe("календарные наступления", () => {
     expect(next(timing({ kind: "monthly", every: 1, day: "last" }), "2028-02-01T00:00Z"))
       .toBe("2028-02-29T06:00:00.000Z");
   });
+  test.each([
+    [31, "2026-02-01", "2026-02-28T06:00Z", "2027-02-28T06:00:00.000Z"],
+    [29, "2027-02-01", "2027-02-28T06:00Z", "2028-02-29T06:00:00.000Z"],
+  ] as const)("максимальный месячный интервал: день %s в коротком месяце", (day, startDate, after, expected) => {
+    expect(next(timing({ kind: "monthly", every: 12, day }, { startDate }), after)).toBe(expected);
+    expect(RecurrenceSchedule.safeParse({ kind: "monthly", every: 13, day }).success).toBe(false);
+  });
   test("месяцы отсчитываются от старта через границу года", () => {
     expect(between(timing({ kind: "monthly", every: 3, day: 1 }, { startDate: "2026-11-01" }),
       "2026-11-01T00:00Z", "2027-03-01T00:00Z"))
