@@ -63,18 +63,18 @@ API/WebSocket — **V4**. Проверены главы **по номерам и
 |---|---:|---:|---:|---:|---:|---:|
 | V1 Encoding and Sanitization | 15 | 2 | 0 | 10 | 0 | 27 |
 | V2 Validation and Business Logic | 7 | 4 | 0 | 0 | 0 | 11 |
-| V6 Authentication | 7 | 6 | 10 | 12 | 0 | 35 |
+| V6 Authentication | 6 | 7 | 10 | 12 | 0 | 35 |
 | V7 Session Management | 7 | 3 | 4 | 3 | 1 | 18 |
 | V8 Authorization | 2 | 4 | 0 | 1 | 0 | 7 |
 | V9 Self-contained Tokens | 4 | 1 | 0 | 2 | 0 | 7 |
 | V12 Secure Communication | 1 | 5 | 0 | 3 | 0 | 9 |
 | V13 Configuration | 5 | 6 | 2 | 0 | 0 | 13 |
 | V14 Data Protection | 3 | 3 | 3 | 0 | 0 | 9 |
-| **Итого V1, V2, V6–V9, V12–V14** | **51** | **34** | **19** | **31** | **1** | **136** |
+| **Итого V1, V2, V6–V9, V12–V14** | **50** | **35** | **19** | **31** | **1** | **136** |
 | (доп.) V4 API and Web Service | 4 | 1 | 1 | 3 | 1 | 10 |
 | (доп.) V5 File Handling | 6 | 1 | 1 | 1 | 0 | 9 |
 
-Из 104 применимых проверенных требований полностью выполнено 51 (49 %). Не выполнено или выполнено частично — 53; на них заведено 13 тикетов в `docs/tickets/` (раздел 7) плюс четыре строки, закрываемые существующими тикетами Трека M (**SEC-RATE-01**, **SEC-SSRF-01**, **SEC-IDOR-01**).
+Из 104 применимых проверенных требований полностью выполнено 50 (48 %). Не выполнено или выполнено частично — 54; на них заведено 13 тикетов в `docs/tickets/` (раздел 7) плюс четыре строки, закрываемые существующими тикетами Трека M (**SEC-RATE-01**, **SEC-SSRF-01**, **SEC-IDOR-01**).
 
 ## 4. Самые серьёзные находки
 
@@ -86,7 +86,8 @@ API/WebSocket — **V4**. Проверены главы **по номерам и
    Три группы символов обязательны (ASVS это запрещает), списка топ-3000 нет, `bcryptjs` учитывает 72 байта (проба: 40 кириллических символов совпадают с первыми 36 + «x»).
 4. **Загрузка файлов: центральный guard без автотестов, нет антивирусной проверки** (V5.2.2, V5.4.3) — **medium**, [SEC-FILE-01](../tickets/SEC-FILE-01-attachment-guard-tests-av-hook.md).
 5. **Сессии без тайм-аута неактивности, без списка и принудительного завершения** (V7.3.1, V7.4.5, V7.5.2) и JWT в теле ответа входа — **medium**, [SEC-SESS-01](../tickets/SEC-SESS-01-session-lifecycle-controls.md).
-6. **Нет второго фактора для локального режима и защиты аварийного входа от блокировки** (V6.3.3, V6.1.1) — **medium**, [SEC-AUTH-01](../tickets/SEC-AUTH-01-second-factor-local-mode.md), [SEC-AUTH-02](../tickets/SEC-AUTH-02-auth-pathways-lockout-identity.md).
+6. **Нет второго фактора для локального режима и защиты аварийного входа от блокировки** (V6.3.3, V6.1.1, V6.3.2) — **medium**, [SEC-AUTH-01](../tickets/SEC-AUTH-01-second-factor-local-mode.md), [SEC-AUTH-02](../tickets/SEC-AUTH-02-auth-pathways-lockout-identity.md).
+   Break-glass администратор по умолчанию называется `admin` (compose и все `.env.example`), поэтому его имя известно заранее, а заблокировать его может любой, кто видит форму входа.
 7. **Секреты — открытым текстом в `.env`, одна роль БД на миграции и рантайм** (V13.2.2, V13.3.1) — **medium**, [SEC-CFG-02](../tickets/SEC-CFG-02-secrets-db-privileges-egress.md).
 8. **Доступ по объектам подтверждён выборочно** (V8.2.1, V8.2.2): все маршруты, кроме трёх публичных, имеют guard (статический скан), но полного манифеста «маршрут × роль» нет — **SEC-IDOR-01** (Трек M, в работе у другого исполнителя).
 
@@ -167,7 +168,7 @@ API/WebSocket — **V4**. Проверены главы **по номерам и
 | V6.2.11 (L2) | The documented list of context specific words is used to prevent easy to guess passwords being created. | нет | Список контекстных слов не ведётся и не применяется (есть только запрет подстроки логина, `passwordPolicy.ts:21-22`). | [SEC-PWD-02](../tickets/SEC-PWD-02-password-policy-vs-asvs.md) |
 | V6.2.12 (L2) | Passwords submitted during account registration or password changes are checked against a set of breached passwords. | нет | Проверки по базе скомпрометированных паролей нет. | [SEC-PWD-02](../tickets/SEC-PWD-02-password-policy-vs-asvs.md) |
 | V6.3.1 (L1) | Controls to prevent attacks such as credential stuffing and password brute force are implemented according to the application's security documentation. | выполнено | Лимит IP в БД, скользящее окно (`server/src/services/loginRateLimit.ts:14-25`, тесты `server/test/loginRateLimit.test.ts:30-62`); блокировка аккаунта 5 ошибок/15 мин (`routes/auth.ts:39-53,83-91`, тесты `server/test/security.auth.test.ts:12-76`); общий лимит `app.ts:109-135`. Ограничение — V6.1.1. |  |
-| V6.3.2 (L1) | Default user accounts (e.g., "root", "admin", or "sa") are not present in the application or are disabled. | выполнено | Дефолтных учёток и паролей нет: `ADMIN_PASSWORD` обязателен и проверяется политикой, известные дефолты отвергаются (`server/src/config.ts:477-485`, тесты `server/test/config.security.test.ts:27-35`); `POSTGRES_PASSWORD`, `JWT_SECRET`, `ADMIN_PASSWORD` обязательны в `docker-compose.yml:8,30,32`. Имя `admin` — значение по умолчанию в `.env.example:28`, угадываемо. |  |
+| V6.3.2 (L1) | Default user accounts (e.g., "root", "admin", or "sa") are not present in the application or are disabled. | частично | Пароля по умолчанию нет: `ADMIN_PASSWORD` обязателен и проверяется политикой, известные дефолты отвергаются (`server/src/config.ts:485-494`, тесты `server/test/config.security.test.ts:27-35`); `POSTGRES_PASSWORD`, `JWT_SECRET`, `ADMIN_PASSWORD` обязательны в `docker-compose.yml:8,30,32`. Но **имя** первого администратора по умолчанию — `admin`: `docker-compose.yml:31` (`${ADMIN_USERNAME:-admin}`, генерируется `scripts/render-compose.sh:61`), `.env.example:28`, `scripts/release/.env.example:10`, `server/.env.example:25`; `config.ts:485-492` принимает любое непустое имя. Эта учётка создаётся с `global_role='admin'` при первом запуске (`server/src/seed.ts:26-29`), в LDAP-режиме остаётся break-glass входом и отключается, только если есть другой активный администратор (`routes/users.ts:122-130`). Итог: штатная поставка создаёт учётку с предсказуемым именем `admin`, которую к тому же можно заблокировать пятью неверными паролями (V6.1.1). | [SEC-AUTH-02](../tickets/SEC-AUTH-02-auth-pathways-lockout-identity.md) |
 | V6.3.3 (L2) | Either a multi-factor authentication mechanism or a combination of single-factor authentication mechanisms, must be used in order to access the application. For L3, one… | нет | Второго фактора нет (`docs/SECURITY_OVERVIEW.md`: «2FA в Taskira отсутствует»); локальный режим — один пароль. Для LDAP фактор определяется политиками AD. | [SEC-AUTH-01](../tickets/SEC-AUTH-01-second-factor-local-mode.md) |
 | V6.3.4 (L2) | That, if the application includes multiple authentication pathways, there are no undocumented pathways and that security controls and authentication strength are… | частично | Недокументированных путей входа при чтении кода не найдено (см. V6.1.3), но стойкость путей не нормирована и не проверена на единообразие (статический `tsk_`-секрет против пароля). | [SEC-AUTH-02](../tickets/SEC-AUTH-02-auth-pathways-lockout-identity.md) |
 | V6.4.1 (L1) | System generated initial passwords or activation codes are securely randomly generated, follow the existing password policy, and expire after a short period of time or… | нет | Начальный пароль задаёт администратор вручную (`routes/users.ts:61`), он не генерируется, не истекает и остаётся постоянным, так как сменить его нельзя (V6.2.2). | [SEC-PWD-01](../tickets/SEC-PWD-01-local-password-change-reset.md) |
@@ -324,7 +325,7 @@ API/WebSocket — **V4**. Проверены главы **по номерам и
 | [SEC-PWD-02](../tickets/SEC-PWD-02-password-policy-vs-asvs.md) | medium | V6.1.2, V6.2.4, V6.2.5, V6.2.8, V6.2.9, V6.2.11, V6.2.12 | политика паролей расходится с ASVS 5.0 (составные правила, нет списков, усечение bcrypt) |
 | [SEC-SESS-01](../tickets/SEC-SESS-01-session-lifecycle-controls.md) | medium | V7.1.1, V7.1.2, V7.2.4, V7.3.1, V7.4.5, V7.5.2 | жизненный цикл сессий: нет тайм-аута неактивности, списка и завершения сессий |
 | [SEC-AUTH-01](../tickets/SEC-AUTH-01-second-factor-local-mode.md) | medium | V6.3.3 | второго фактора для локального режима нет |
-| [SEC-AUTH-02](../tickets/SEC-AUTH-02-auth-pathways-lockout-identity.md) | medium | V6.1.1, V6.1.3, V6.3.4, V6.8.1 | пути входа, блокировка аккаунта как DoS и привязка идентичности LDAP/локальный |
+| [SEC-AUTH-02](../tickets/SEC-AUTH-02-auth-pathways-lockout-identity.md) | medium | V6.1.1, V6.1.3, V6.3.2, V6.3.4, V6.8.1 | пути входа, блокировка аккаунта как DoS, имя администратора `admin` по умолчанию и привязка идентичности LDAP/локальный |
 | [SEC-TLS-01](../tickets/SEC-TLS-01-transport-security-defaults.md) | medium | V12.1.1, V12.1.2, V12.2.1, V12.3.1, V12.3.3 | транспорт: штатно HTTP, LDAP без TLS допускается, БД и внутренние связи без TLS |
 | [SEC-CACHE-01](../tickets/SEC-CACHE-01-api-cache-headers-client-storage.md) | low | V14.3.1, V14.3.2, V14.3.3 | ответы API без `Cache-Control`, данные в `localStorage` после выхода |
 | [SEC-CFG-01](../tickets/SEC-CFG-01-exposed-endpoints-ws-origin-trace.md) | low | V13.4.4, V13.4.5, V4.4.2 | служебные эндпоинты без аутентификации, нет проверки Origin у WebSocket, TRACE не покрыт тестом |
