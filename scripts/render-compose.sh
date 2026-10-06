@@ -126,7 +126,7 @@ cat <<'EOF'
     ports:
       - "${CLIENT_PORT:-8081}:80"
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/healthz"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
       interval: 10s
       timeout: 5s
       retries: 12
