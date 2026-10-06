@@ -34,7 +34,9 @@ test("active требует следующего запуска, paused — пр
 
 test("используемый шаблон нельзя удалить", async () => {
   await rule();
-  await expect(q(`DELETE FROM issue_templates WHERE id = $1`, [templateId])).rejects.toMatchObject({ code: "23001" });
+  await expect(q(`DELETE FROM issue_templates WHERE id = $1`, [templateId])).rejects.toMatchObject({
+    code: expect.stringMatching(/^(23001|23503)$/), constraint: "recurring_rules_template_id_fkey",
+  });
 });
 
 test("HTTP-удаление используемого шаблона возвращает 409 TEMPLATE_IN_USE", async () => {
