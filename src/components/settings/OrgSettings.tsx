@@ -163,7 +163,9 @@ function Users() {
                   <option value="admin">{t("settings.profile.roleAdmin")}</option>
                 </select>
                 <Switch checked={u.isActive} onChange={(v) => void patch(u, { globalRole: u.globalRole, isActive: v })} label={t("settings.org.active")} labelFirst />
-                {u.authSource === "local" && u.id !== me.id && (
+                {/* Администратора (и break-glass — он тоже администратор) сервер не сбрасывает: 409 PASSWORD_RESET_ADMIN,
+                    восстановление консольное (ADR-0034). Кнопку не показываем. */}
+                {u.authSource === "local" && u.id !== me.id && u.globalRole !== "admin" && (
                   <Button size="sm" variant="ghost" aria-label={t("settings.org.resetPasswordFor", { name: u.name })} onClick={() => setResetFor(u)}>
                     {t("settings.org.resetPassword")}
                   </Button>
