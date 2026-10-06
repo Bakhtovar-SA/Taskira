@@ -19,7 +19,7 @@ import {
   type JwtPayload,
 } from "../middleware.js";
 import { auditFromRequest } from "../audit.js";
-import { computeRank, lockRankColumn } from "../services/rank.js";
+import { createIssueInTx, prepareIssueCreate } from "../services/issueCreate.js";
 import { transitionIssue } from "../services/issueTransition.js";
 import {
   assignParentLocked,
@@ -376,35 +376,9 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as z.infer<typeof IssueCreateBody>;
       const user = me(req);
 
-      // Статус: заданный клиентом (с проверкой) или первый из категории todo
-      let statusId = body.statusId ?? null;
-      if (statusId) {
-        const known = await one<{ id: string }>(
-          `SELECT id FROM workflow_statuses WHERE id = $1 AND project_id = $2`,
-          [statusId, project.id],
-        );
-        if (!known) throw badRequest("Статус не найден в проекте");
-      } else {
-        const first = await one<{ id: string }>(
-          `SELECT id FROM workflow_statuses
-            WHERE project_id = $1 AND category = 'todo'
-            ORDER BY position LIMIT 1`,
-          [project.id],
-        );
-        if (!first) throw notFound("В проекте нет статуса категории «todo» — проверьте workflow");
-        statusId = first.id;
-      }
-
-      // Исполнители должны быть реальными участниками проекта — глобальный admin
-      // больше не проходит "мимо" этой проверки (было: назначать можно было любого
-      // admin'а даже без членства в проекте; см. ROLE_MIGRATION.md/аудит деплоя).
-      const assigneeIds = [...new Set(body.assigneeIds)];
-      await validateAssigneesInProject(project.id, assigneeIds);
-      if (body.epicId) {
-        const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
-        if (!e) throw notFound("Задача-группа (epicId) не найдена в проекте");
-      }
-      // Как и epicId выше — проверяем ДО nextIssueNum(), чтобы неверный
+      const prepared = await prepareIssueCreate(project, body);
+      const assigneeIds = prepared.assigneeIds;
+      // Как и epicId в prepareIssueCreate — проверяем ДО nextIssueNum(), чтобы неверный
       // parentId не сжигал номер CORP-N понапрасну в общем случае (ревью PR
       // #46). Не заменяет повторную проверку под локом в assignParentLocked
       // ниже — та остаётся единственным источником истины против гонки, эта
@@ -416,47 +390,11 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       // никогда не сохраняется, но номер в этом узком случае теряется
       // (ревью PR #46, второй раунд).
       if (body.parentId) await precheckParentAssignment(project.id, body.parentId);
-      // Новая задача встаёт В НАЧАЛО колонки, а не в конец (аудит LIFE-05):
-      // кнопка быстрого создания и поле ввода — вверху колонки, и задача,
-      // упавшая вниз за экран, читается как «не создалась». beforeId = первая
-      // живая задача колонки; её нет — computeRank сам вернёт стартовый ранг.
       const num = await nextIssueNum(project.id);
       const key = `${project.key}-${num}`;
-
-      const insertSql = `INSERT INTO issues
-             (project_id, num, key, title, description, type_id, status_id, priority_id,
-              reporter_id, epic_id, parent_id, labels, complexity, due_date, rank)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-           RETURNING *`;
-      const insertVals = [
-        project.id, num, key, body.title, body.description, body.typeId, statusId, body.priorityId,
-        user.sub, body.epicId, body.parentId ?? null, body.labels, body.complexity,
-        body.dueDate ?? null, 0,
-      ];
-      // parentId задан — валидация и INSERT идут одной транзакцией под
-      // advisory-локом (см. assignParentLocked): иначе конкурентный запрос мог
-      // бы протиснуться между проверкой «родитель — не подзадача» и записью.
-      const createInTransaction = async (client: PoolClient) => {
-        await lockRankColumn(client, statusId);
-        const firstInColumn = (await client.query<{ id: string }>(
-          `SELECT id FROM issues WHERE status_id = $1 AND project_id = $2 AND archived_at IS NULL ORDER BY rank, id LIMIT 1`,
-          [statusId, project.id],
-        )).rows[0];
-        insertVals[14] = await computeRank(client, project.id, statusId, firstInColumn?.id ?? null);
-        const res = await client.query<IssueRow>(insertSql, insertVals);
-        const created = res.rows[0];
-        await setAssignees(created.id, assigneeIds, user.sub, client);
-        if (body.checklistItems.length > 0) {
-          await client.query(
-            `INSERT INTO checklist_items (issue_id, text, position)
-             SELECT $1, item, ord::integer - 1
-               FROM unnest($2::text[]) WITH ORDINALITY AS input(item, ord)`,
-            [created.id, body.checklistItems],
-          );
-        }
-        await logActivity(created.id, user.sub, { kind: "created" }, client);
-        return created;
-      };
+      // Проверка родителя остаётся в assignParentLocked; INSERT сразу содержит связь.
+      const createInTransaction = (client: PoolClient) =>
+        createIssueInTx(client, project, body, user.sub, { num, prepared, parentId: body.parentId });
       const row = body.parentId
         ? await assignParentLocked(project.id, body.parentId, null, createInTransaction)
         : await withTransaction(createInTransaction);

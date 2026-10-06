@@ -42,6 +42,7 @@ export function useIssueSubActions(
                       {
                         id: c.id,
                         authorId: c.authorId,
+                        author: c.author,
                         body: c.body,
                         ts: Date.parse(c.createdAt) || Date.now(),
                       },

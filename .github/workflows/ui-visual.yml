@@ -22,7 +22,7 @@ on:
 
 jobs:
   ui-visual:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     permissions:
       contents: read
     steps:
