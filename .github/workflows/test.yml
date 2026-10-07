@@ -52,6 +52,15 @@ jobs:
           release_compose="$(mktemp)"
           scripts/render-compose.sh release 9.8.7-test > "$release_compose"
           docker compose -f "$release_compose" config >/dev/null
+          for fixture in ldap storage mail; do
+            docker compose -f "server/docker-compose.$fixture.yml" config >/dev/null
+          done
+          env TASKIRA_LDAP_CONTAINER_NAME=taskira-ci-ldap-config TASKIRA_LDAP_PORT_BINDING=127.0.0.1::389 \
+            docker compose -f server/docker-compose.ldap.yml config >/dev/null
+          env TASKIRA_S3_CONTAINER_NAME=taskira-ci-s3-config TASKIRA_S3_BUCKET_CONTAINER_NAME=taskira-ci-bucket-config TASKIRA_S3_PORT_BINDING=127.0.0.1::9000 \
+            docker compose -f server/docker-compose.storage.yml config >/dev/null
+          env TASKIRA_MAIL_CONTAINER_NAME=taskira-ci-mail-config TASKIRA_SMTP_PORT_BINDING=127.0.0.1::1025 TASKIRA_MAIL_API_PORT_BINDING=127.0.0.1::8025 \
+            docker compose -f server/docker-compose.mail.yml config >/dev/null
       - name: Build images for scanning
         run: |
           docker build -t taskira-client:security .
@@ -447,6 +456,9 @@ jobs:
       DATABASE_URL_TEST: postgresql://taskira:taskira@localhost:5432/taskira_test
       JWT_SECRET: ci-ldap-job-jwt-secret-0000000000000000
       AUTH_MODE: ldap
+      COMPOSE_PROJECT_NAME: taskira-ldap-${{ github.run_id }}-${{ github.run_attempt }}
+      TASKIRA_LDAP_CONTAINER_NAME: taskira-ldap-${{ github.run_id }}-${{ github.run_attempt }}
+      TASKIRA_LDAP_PORT_BINDING: '127.0.0.1::389'
       LDAP_URL: ldap://localhost:389
       LDAP_BIND_DN: cn=admin,dc=taskira,dc=test
       LDAP_BIND_PASSWORD: admin
@@ -488,7 +500,11 @@ jobs:
       - run: npm rebuild esbuild
 
       - name: Start OpenLDAP (osixia/openldap:1.5.0)
-        run: docker compose -f docker-compose.ldap.yml up -d
+        run: |
+          docker compose -f docker-compose.ldap.yml up -d
+          address="$(docker compose -f docker-compose.ldap.yml port openldap 389)"
+          [[ "$address" =~ ^127\.0\.0\.1:[0-9]+$ ]] || { echo '::error::LDAP published port is unavailable'; exit 1; }
+          printf 'LDAP_URL=ldap://%s\n' "$address" >> "$GITHUB_ENV"
 
       - name: Wait for slapd
         run: |
@@ -528,6 +544,9 @@ jobs:
       - name: OpenLDAP logs
         if: always()
         run: docker compose -f docker-compose.ldap.yml logs openldap
+      - name: Remove this LDAP fixture
+        if: always()
+        run: docker compose -f docker-compose.ldap.yml down -v
 
   # Отдельный job: драйвер вложений STORAGE_DRIVER=s3 против НАСТОЯЩЕГО S3-сервера
   # (SeaweedFS, не заглушки; образы MinIO с 28.09.2026 недоступны без авторизации —
@@ -558,6 +577,10 @@ jobs:
       DATABASE_URL_TEST: postgresql://taskira:taskira@localhost:5432/taskira_test
       JWT_SECRET: ci-storage-job-jwt-secret-0000000000000000
       STORAGE_DRIVER: s3
+      COMPOSE_PROJECT_NAME: taskira-s3-${{ github.run_id }}-${{ github.run_attempt }}
+      TASKIRA_S3_CONTAINER_NAME: taskira-s3-${{ github.run_id }}-${{ github.run_attempt }}
+      TASKIRA_S3_BUCKET_CONTAINER_NAME: taskira-s3-bucket-${{ github.run_id }}-${{ github.run_attempt }}
+      TASKIRA_S3_PORT_BINDING: '127.0.0.1::9000'
       STORAGE_S3_ENDPOINT: http://localhost:9000
       STORAGE_S3_BUCKET: taskira-attachments
       STORAGE_S3_REGION: us-east-1
@@ -592,7 +615,11 @@ jobs:
       - run: npm rebuild esbuild
 
       - name: Start S3 (SeaweedFS) + create bucket
-        run: docker compose -f docker-compose.storage.yml up -d
+        run: |
+          docker compose -f docker-compose.storage.yml up -d
+          address="$(docker compose -f docker-compose.storage.yml port s3 9000)"
+          [[ "$address" =~ ^127\.0\.0\.1:[0-9]+$ ]] || { echo '::error::S3 published port is unavailable'; exit 1; }
+          printf 'STORAGE_S3_ENDPOINT=http://%s\n' "$address" >> "$GITHUB_ENV"
 
       - name: Wait for bucket (createbucket exits 0)
         run: docker compose -f docker-compose.storage.yml wait createbucket
@@ -605,6 +632,9 @@ jobs:
       - name: S3 server logs
         if: always()
         run: docker compose -f docker-compose.storage.yml logs s3
+      - name: Remove this S3 fixture and its volume
+        if: always()
+        run: docker compose -f docker-compose.storage.yml down -v
 
   # Отдельный job: email-воркер уведомлений против НАСТОЯЩЕГО SMTP (Mailpit).
   # Основной `server` job идёт с NOTIFY_EMAIL_ENABLED unset — воркер не стартует.
@@ -634,6 +664,10 @@ jobs:
       DATABASE_URL_TEST: postgresql://taskira:taskira@localhost:5432/taskira_test
       JWT_SECRET: ci-mail-job-jwt-secret-00000000000000000
       NOTIFY_EMAIL_ENABLED: "true"
+      COMPOSE_PROJECT_NAME: taskira-mail-${{ github.run_id }}-${{ github.run_attempt }}
+      TASKIRA_MAIL_CONTAINER_NAME: taskira-mail-${{ github.run_id }}-${{ github.run_attempt }}
+      TASKIRA_SMTP_PORT_BINDING: '127.0.0.1::1025'
+      TASKIRA_MAIL_API_PORT_BINDING: '127.0.0.1::8025'
       SMTP_HOST: localhost
       SMTP_PORT: "1025"
       SMTP_FROM: Taskira <noreply@taskira.test>
@@ -668,12 +702,19 @@ jobs:
       - run: npm rebuild esbuild
 
       - name: Start Mailpit
-        run: docker compose -f docker-compose.mail.yml up -d
+        run: |
+          docker compose -f docker-compose.mail.yml up -d
+          smtp="$(docker compose -f docker-compose.mail.yml port mailpit 1025)"
+          api="$(docker compose -f docker-compose.mail.yml port mailpit 8025)"
+          for address in "$smtp" "$api"; do
+            [[ "$address" =~ ^127\.0\.0\.1:[0-9]+$ ]] || { echo '::error::Mailpit published port is unavailable'; exit 1; }
+          done
+          printf 'SMTP_PORT=%s\nMAIL_API=http://%s\n' "${smtp##*:}" "$api" >> "$GITHUB_ENV"
 
       - name: Wait for Mailpit API
         run: |
           for i in $(seq 1 40); do
-            curl -sf http://localhost:8025/api/v1/messages >/dev/null 2>&1 && { echo "mailpit up ($i)"; exit 0; }
+            curl -sf "$MAIL_API/api/v1/messages" >/dev/null 2>&1 && { echo "mailpit up ($i)"; exit 0; }
             sleep 2
           done
           echo "::error::Mailpit не поднялся"
@@ -685,3 +726,6 @@ jobs:
       - name: Mailpit logs
         if: always()
         run: docker compose -f docker-compose.mail.yml logs mailpit
+      - name: Remove this Mailpit fixture
+        if: always()
+        run: docker compose -f docker-compose.mail.yml down -v

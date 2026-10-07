@@ -25,10 +25,10 @@ services:
   s3:
     # mirror.gcr.io — зеркало Docker Hub без лимита анонимных запросов (тот же образ chrislusf/seaweedfs).
     image: mirror.gcr.io/chrislusf/seaweedfs:3.80
-    container_name: taskira-s3
+    container_name: ${TASKIRA_S3_CONTAINER_NAME:-taskira-s3}
     command: server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json -volume.max=10
     ports:
-      - "9000:9000"
+      - "${TASKIRA_S3_PORT_BINDING:-9000:9000}"
     volumes:
       - ./ci/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
       - taskira-s3-data:/data
@@ -37,7 +37,7 @@ services:
   # `docker compose wait createbucket` в CI блокируется до его выхода с кодом 0.
   createbucket:
     image: mirror.gcr.io/amazon/aws-cli:2.22.0
-    container_name: taskira-s3-createbucket
+    container_name: ${TASKIRA_S3_BUCKET_CONTAINER_NAME:-taskira-s3-createbucket}
     depends_on:
       - s3
     restart: "no"
