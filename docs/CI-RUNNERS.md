@@ -15,9 +15,23 @@ GitHub распределяет jobs между свободными ранне�
 Скрипты обновления и репетиции восстановления учитывают Docker Desktop: если путь хранилища
 движка недоступен в WSL, свободное место проверяется внутри уже загруженного образа PostgreSQL.
 Образ не скачивается, контейнер не получает сеть или host mounts; проверка объёма не пропускается.
+Прогон upgrade/rollback получает отдельное имя Compose-проекта на каждый запуск. Оставшийся после
+перезапуска Desktop тестовый том не используется следующей проверкой; удаляются только тома её
+собственного проекта. Постоянные тома установки Taskira не затрагиваются.
 
 Все jobs во всех workflow выполняются на собственных Linux-раннерах; `ubuntu-latest` не используется.
-Перед checkout каждый host job восстанавливает владельца root-owned файлов только в своём
+Задания без контейнеров выбирают `runs-on: [self-hosted, Linux, light]`: `types`, `client`,
+`migration-policy` и `snapshot-list`. Для них доступны `linux-2`, `linux-3` и `linux-4`.
+Эти раннеры используют отдельные рабочие каталоги; контейнерные jobs не должны получать метку `light`.
+Лёгкие задания не вызывают Docker даже при подготовке checkout и общих утилит. Проверка конфигурации
+Compose перенесена из `client` в `dependency and image security`.
+Задания с `container:`, `services:` или запуском Docker/Compose остаются в пуле
+`runs-on: [self-hosted, Linux, docker]`, включая `prepare-runner-trust`. Текущий `server`
+поднимает PostgreSQL через `services:`, поэтому использует `docker`; серверное задание без
+контейнерных сервисов должно выбирать `light`. `runner readiness` дополнительно выбирает
+конкретный Docker-хост через метку `taskira-a` или `taskira-b`.
+
+Перед checkout каждый host job в пуле `docker` восстанавливает владельца root-owned файлов только в своём
 `GITHUB_WORKSPACE`. Контейнерные actions пишут туда от root; на файловой системе Linux это иначе
 мешает следующему host job обновить `.git/FETCH_HEAD` и очистить рабочие файлы. Подготовка запускает
 изолированный контейнер без сети и с read-only root filesystem; меняются только root-owned файлы
@@ -39,7 +53,8 @@ sudo chown -hRP --from=0 -- "$(id -u):$(id -g)" /home/bakhtovar/actions-runner/T
 выбирают клиентские инструменты 16 из `/usr/lib/postgresql/16/bin`; сервер PostgreSQL 16 запускается только
 в контейнере job. Сервис получает отдельный свободный порт, который передаётся тестам через `GITHUB_ENV`.
 
-На каждом из двух раннеров нужны `jq`, Python 3, curl, Git, OpenSSL, iproute2, Docker Compose и
+На раннерах `light` нужны `jq`, Python 3, curl, Git и OpenSSL; Docker и клиент PostgreSQL не требуются.
+На каждом из двух Docker-раннеров дополнительно нужны iproute2, Docker Compose и
 `postgresql-client-16`. Node 22 устанавливается через `actions/setup-node`. PostgreSQL-сервер на хосте
 не требуется. Для Ubuntu 22.04/24.04/26.04 клиент 16 доступен в
 [официальном репозитории PostgreSQL](https://www.postgresql.org/download/linux/ubuntu/):
