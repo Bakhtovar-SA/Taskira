@@ -1,7 +1,7 @@
 {
-  "measuredAt": "2026-10-06",
+  "measuredAt": "2026-10-07",
   "controlCommit": "59747d228cc5d97f4bada13357a4642e48cd96d7",
-  "featureCommit": "45c6607",
+  "featureCommit": "7a45e8d61acd7808fc9c0d2d4688a7572c42a523",
   "nodeVersion": "v24.20.0",
   "control": {
     "current": {
@@ -309,17 +309,17 @@
   },
   "feature": {
     "current": {
-      "js": 360392,
+      "js": 360309,
       "css": 32978,
-      "entry": 95004,
-      "total": 393370
+      "entry": 95001,
+      "total": 393287
     },
-    "initialJs": 184826,
+    "initialJs": 184823,
     "files": [
       {
-        "name": "AdminView-_UQCaUe5.js",
+        "name": "AdminView-BaulxvpL.js",
         "kind": "js",
-        "gzip": 2682
+        "gzip": 2679
       },
       {
         "name": "AssigneePicker-DLS1qbND.js",
@@ -327,19 +327,19 @@
         "gzip": 704
       },
       {
-        "name": "Backlog-GXmbNpEW.js",
+        "name": "Backlog-BnnA343O.js",
         "kind": "js",
-        "gzip": 9783
+        "gzip": 9779
       },
       {
-        "name": "BulkBar-D0FMpN8c.js",
+        "name": "BulkBar-Xvvd-tV7.js",
         "kind": "js",
-        "gzip": 979
+        "gzip": 977
       },
       {
-        "name": "CalendarView-BDf7dCxZ.js",
+        "name": "CalendarView-CXshnx22.js",
         "kind": "js",
-        "gzip": 3513
+        "gzip": 3510
       },
       {
         "name": "CalendarView-jZW7tl2l.css",
@@ -347,17 +347,17 @@
         "gzip": 760
       },
       {
-        "name": "CollaboratingView-9Sh5ptso.js",
+        "name": "CollaboratingView-kVE8LP6W.js",
         "kind": "js",
-        "gzip": 1001
+        "gzip": 1002
       },
       {
-        "name": "CommandPalette-BfRLcOg_.js",
+        "name": "CommandPalette-BAgXARyL.js",
         "kind": "js",
-        "gzip": 4419
+        "gzip": 4417
       },
       {
-        "name": "CreateIssueModal-DiIfybvA.js",
+        "name": "CreateIssueModal-D_8x6yyD.js",
         "kind": "js",
         "gzip": 3988
       },
@@ -367,14 +367,14 @@
         "gzip": 1253
       },
       {
-        "name": "DashboardTabs-nvQ6WWEq.js",
+        "name": "DashboardTabs-DQ4rQ3En.js",
         "kind": "js",
-        "gzip": 2969
+        "gzip": 2967
       },
       {
-        "name": "DashboardView-DqI5sW5Q.js",
+        "name": "DashboardView-FGeGy9P6.js",
         "kind": "js",
-        "gzip": 12261
+        "gzip": 12258
       },
       {
         "name": "DocsView-BMp4A6gN.js",
@@ -382,49 +382,49 @@
         "gzip": 14092
       },
       {
-        "name": "HomeView-CoTj-c5n.js",
+        "name": "HomeView-DiksXj3V.js",
         "kind": "js",
-        "gzip": 3431
+        "gzip": 3429
       },
       {
-        "name": "ImportModal-Ah67R7w8.js",
+        "name": "ImportModal-B6mhbJb5.js",
         "kind": "js",
-        "gzip": 4132
+        "gzip": 4130
       },
       {
-        "name": "InboxView-myCW-_xk.js",
+        "name": "InboxView-DVDQmapj.js",
         "kind": "js",
-        "gzip": 2823
+        "gzip": 2822
       },
       {
-        "name": "IssueModal-D8Qa0LQl.js",
+        "name": "IssueModal-Cua3aoFS.js",
         "kind": "js",
-        "gzip": 9828
+        "gzip": 9825
       },
       {
-        "name": "IssueSearchBox-DDw3mE2U.js",
+        "name": "IssueSearchBox-7fFVk9H7.js",
         "kind": "js",
-        "gzip": 1368
+        "gzip": 1364
       },
       {
-        "name": "MyIssuesView-CC8tqsP0.js",
+        "name": "MyIssuesView-CpKXnvEF.js",
         "kind": "js",
-        "gzip": 2269
+        "gzip": 2265
       },
       {
-        "name": "PermissionsView-BxL-hF0r.js",
+        "name": "PermissionsView-m57NNJrh.js",
         "kind": "js",
-        "gzip": 2654
+        "gzip": 2650
       },
       {
-        "name": "PersonalTokens-DIuukttY.js",
+        "name": "PersonalTokens-Z4sdPAsn.js",
         "kind": "js",
-        "gzip": 215
+        "gzip": 217
       },
       {
-        "name": "ProjectIntegrations-CTT6lh2V.js",
+        "name": "ProjectIntegrations-B50OY9pt.js",
         "kind": "js",
-        "gzip": 3554
+        "gzip": 3551
       },
       {
         "name": "ProjectLookPicker-CyURljoc.js",
@@ -432,27 +432,27 @@
         "gzip": 886
       },
       {
-        "name": "ProjectRecurring-DRsXEQPl.js",
+        "name": "ProjectRecurring-Bk-p8Q7E.js",
         "kind": "js",
-        "gzip": 3466
+        "gzip": 3463
       },
       {
-        "name": "ProjectWizard-B0iI1cRU.js",
+        "name": "ProjectWizard-C8M1IvEf.js",
         "kind": "js",
-        "gzip": 3731
+        "gzip": 3729
       },
       {
-        "name": "RecurringRuleForm-_pXMBYpA.js",
+        "name": "RecurringRuleForm-BVENb-TO.js",
         "kind": "js",
-        "gzip": 3175
+        "gzip": 3174
       },
       {
-        "name": "ReportsView-CYMfVFgR.js",
+        "name": "ReportsView-BV7-M6DS.js",
         "kind": "js",
-        "gzip": 3444
+        "gzip": 3442
       },
       {
-        "name": "RoadmapView-BU6Ic7bR.js",
+        "name": "RoadmapView-B8c3B-Wm.js",
         "kind": "js",
         "gzip": 81
       },
@@ -462,42 +462,42 @@
         "gzip": 1882
       },
       {
-        "name": "SecretOnceDialog-Bkl-MgpC.js",
+        "name": "SecretOnceDialog-jLprl8s5.js",
         "kind": "js",
-        "gzip": 798
+        "gzip": 794
       },
       {
-        "name": "ServiceAccounts-BsyXKHKu.js",
+        "name": "ServiceAccounts-BkNLvE5y.js",
         "kind": "js",
         "gzip": 2360
       },
       {
-        "name": "SettingsView-wmB7UWAM.js",
+        "name": "SettingsView-Cp7QsEBh.js",
         "kind": "js",
-        "gzip": 13981
+        "gzip": 13980
       },
       {
-        "name": "SoloView-DYanyTOK.js",
+        "name": "SoloView-B0WbORJl.js",
         "kind": "js",
-        "gzip": 3215
+        "gzip": 3211
       },
       {
-        "name": "SprintsView-D7sN9iCc.js",
+        "name": "SprintsView-CYgFl7Si.js",
         "kind": "js",
-        "gzip": 2776
+        "gzip": 2773
       },
       {
-        "name": "SystemStatus-Djt6HChP.js",
+        "name": "SystemStatus-BRUV7GsN.js",
         "kind": "js",
-        "gzip": 3273
+        "gzip": 3256
       },
       {
-        "name": "TokenControls-Dedp18ei.js",
+        "name": "TokenControls-BlFNNZH8.js",
         "kind": "js",
-        "gzip": 2446
+        "gzip": 2444
       },
       {
-        "name": "WebhookDeliveries-BtXs9gs8.js",
+        "name": "WebhookDeliveries-DGKy8Upt.js",
         "kind": "js",
         "gzip": 2094
       },
@@ -527,14 +527,14 @@
         "gzip": 26378
       },
       {
-        "name": "index-BJZz_ECH.js",
-        "kind": "js",
-        "gzip": 95004
-      },
-      {
         "name": "index-CSK3Owdi.css",
         "kind": "css",
         "gzip": 29083
+      },
+      {
+        "name": "index-Crejs_Nw.js",
+        "kind": "js",
+        "gzip": 95001
       },
       {
         "name": "issuePages-1mtf7wd3.js",
@@ -552,9 +552,9 @@
         "gzip": 428
       },
       {
-        "name": "time-views-pq2ECl1b.js",
+        "name": "time-views-CjNqsGdh.js",
         "kind": "js",
-        "gzip": 7022
+        "gzip": 7020
       },
       {
         "name": "timeScale-CNGCh8hY.js",
@@ -579,8 +579,8 @@
         "base": 201204,
         "allowed": 192512,
         "limit": 393716,
-        "current": 393370,
-        "growth": 192166,
+        "current": 393287,
+        "growth": 192083,
         "ok": true
       },
       {
@@ -589,8 +589,8 @@
         "base": 187489,
         "allowed": 173056,
         "limit": 360545,
-        "current": 360392,
-        "growth": 172903,
+        "current": 360309,
+        "growth": 172820,
         "ok": true
       },
       {
@@ -609,19 +609,19 @@
         "base": 81035,
         "allowed": 40960,
         "limit": 121995,
-        "current": 95004,
-        "growth": 13969,
+        "current": 95001,
+        "growth": 13966,
         "ok": true
       }
     ],
     "ok": true
   },
   "delta": {
-    "js": 5790,
+    "js": 5707,
     "css": 21,
-    "entry": 38,
-    "total": 5811,
-    "initialJs": 1568
+    "entry": 35,
+    "total": 5728,
+    "initialJs": 1565
   },
   "limitations": "Same machine and dependency installation. Gzip sizes only; INP/FPS not measured."
 }
