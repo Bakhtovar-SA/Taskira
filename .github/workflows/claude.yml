@@ -11,7 +11,22 @@ on:
     types: [submitted]
 
 jobs:
+  prepare-runner-trust:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: [self-hosted, Linux]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prepare local Linux and WSL CA bundle
+        run: bash .github/scripts/prepare-runner-trust.sh
   claude:
+    needs: prepare-runner-trust
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -20,14 +35,12 @@ jobs:
     runs-on: [self-hosted, Linux]
     container:
       image: node:22-bookworm
-      volumes:
-        - /etc/ssl/certs/ca-certificates.crt:/opt/taskira-runner-ca.pem:ro
     env:
-      NODE_EXTRA_CA_CERTS: /opt/taskira-runner-ca.pem
+      NODE_EXTRA_CA_CERTS: /__w/_tool/taskira-trust/ca-certificates.crt
       NODE_USE_SYSTEM_CA: '1'
-      SSL_CERT_FILE: /opt/taskira-runner-ca.pem
-      CURL_CA_BUNDLE: /opt/taskira-runner-ca.pem
-      GIT_SSL_CAINFO: /opt/taskira-runner-ca.pem
+      SSL_CERT_FILE: /__w/_tool/taskira-trust/ca-certificates.crt
+      CURL_CA_BUNDLE: /__w/_tool/taskira-trust/ca-certificates.crt
+      GIT_SSL_CAINFO: /__w/_tool/taskira-trust/ca-certificates.crt
     permissions:
       contents: read
       pull-requests: read
@@ -44,6 +57,11 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
+
+      - name: Verify TLS in both action runtimes
+        run: |
+          node .github/scripts/check-runner-tls.mjs
+          bun .github/scripts/check-runner-tls.mjs
 
       - name: Run Claude Code
         id: claude
