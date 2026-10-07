@@ -61,6 +61,9 @@ jobs:
       - name: Trivy client image (HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          # The self-hosted runner retains this cache; avoid slow tar uploads from WSL/NTFS.
+          cache: "false"
+          cache-dir: ${{ runner.tool_cache }}/taskira-trivy
           image-ref: taskira-client:security
           format: table
           exit-code: "1"
@@ -70,6 +73,9 @@ jobs:
       - name: Trivy server image (HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          cache: "false"
+          cache-dir: ${{ runner.tool_cache }}/taskira-trivy
+          skip-setup-trivy: "true"
           image-ref: taskira-server:security
           format: table
           exit-code: "1"
