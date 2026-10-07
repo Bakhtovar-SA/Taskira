@@ -18,6 +18,7 @@ export function Combobox({
   emptyText,
   errorText,
   hint,
+  clearOnSelect = false,
 }: {
   label: ReactNode;
   placeholder?: string;
@@ -29,12 +30,15 @@ export function Combobox({
   emptyText?: string;
   errorText?: string;
   hint?: ReactNode;
+  /** Multiple selection: clear the search after adding an option. */
+  clearOnSelect?: boolean;
 }) {
   const t = useOptionalT()?.t;
   emptyText ??= t ? t("ds.nothingFound") : "Ничего не найдено";
   errorText ??= t ? t("ds.loadFailed") : "Не удалось загрузить";
   const [id] = useState(() => dsId("cb"));
   const [q, setQ] = useState(value?.label ?? "");
+  const query = value && q === value.label ? "" : q.trim();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<{ status: "idle" | "loading" | "ok" | "error"; query: string; items: ComboOption[] }>({ status: "idle", query: "", items: [] });
   const [active, setActive] = useState(0);
@@ -42,6 +46,7 @@ export function Combobox({
   const pop = useRef<HTMLDivElement>(null);
   const reqSeq = useRef(0);
   useAnchored(field, pop, open, { matchWidth: true, gap: 4 });
+  useEffect(() => { if (value) setQ(value.label); }, [value?.id, value?.label]);
 
   useLayoutEffect(() => {
     if (open) showPop(pop.current);
@@ -51,7 +56,7 @@ export function Combobox({
   useEffect(() => {
     const seq = ++reqSeq.current;
     if (!open) return;
-    const s = q.trim();
+    const s = query;
     if (s.length < minChars) {
       setState({ status: "idle", query: s, items: [] });
       return;
@@ -59,20 +64,20 @@ export function Combobox({
     setState({ status: "loading", query: s, items: [] });
     const t = window.setTimeout(() => {
       load(s).then(
-        (items) => seq === reqSeq.current && (setState({ status: "ok", query: s, items }), setActive(0)),
+        (items) => seq === reqSeq.current && (setState({ status: "ok", query: s, items }), setActive(s === "" && value ? Math.max(0, items.findIndex(item => item.id === value.id)) : 0)),
         () => seq === reqSeq.current && setState({ status: "error", query: s, items: [] }),
       );
     }, 200);
     return () => { window.clearTimeout(t); reqSeq.current++; };
-  }, [q, open, load, minChars]);
+  }, [q, query, open, load, minChars, value?.id]);
 
   const pick = (o: ComboOption) => {
-    if (state.status !== "ok" || state.query !== q.trim()) return;
+    if (state.status !== "ok" || state.query !== query) return;
     onSelect(o);
-    setQ(o.label);
+    setQ(clearOnSelect ? "" : o.label);
     setOpen(false);
   };
-  const items = state.status === "ok" && state.query === q.trim() ? state.items : [];
+  const items = state.status === "ok" && state.query === query ? state.items : [];
   const optId = (i: number) => `${id}-o${i}`;
 
   return (
@@ -102,7 +107,7 @@ export function Combobox({
           value={q}
           placeholder={placeholder}
           onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          onBlur={() => { if (value) setQ(value.label); window.setTimeout(() => setOpen(false), 120); }}
           onChange={(e) => {
             reqSeq.current++;
             setActive(0);
