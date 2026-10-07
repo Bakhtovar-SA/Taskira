@@ -6,7 +6,7 @@ on:
 
 jobs:
   prepare-runner-trust:
-    runs-on: [self-hosted, Linux]
+    runs-on: [self-hosted, Linux, docker]
     permissions:
       contents: read
       id-token: write
@@ -16,7 +16,7 @@ jobs:
         run: bash .github/scripts/prepare-runner-trust.sh
   claude-review:
     needs: prepare-runner-trust
-    runs-on: [self-hosted, Linux]
+    runs-on: [self-hosted, Linux, docker]
     container:
       image: node:22-bookworm
       # GitHub already mounts the host tool cache at /__w/_tool in this container.
@@ -46,6 +46,11 @@ jobs:
         run: |
           node .github/scripts/check-runner-tls.mjs
           bun .github/scripts/check-runner-tls.mjs
+
+      - name: Verify repository in both action runtimes
+        run: |
+          node .github/scripts/check-runner-repository.mjs
+          bun .github/scripts/check-runner-repository.mjs
 
       - name: Automated PR review
         uses: anthropics/claude-code-action@v1
