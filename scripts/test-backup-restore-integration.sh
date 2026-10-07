@@ -95,10 +95,16 @@ attachment_json="$(curl --fail --silent --show-error -b "$COOKIE" \
 attachment_id="$(printf '%s' "$attachment_json" | jq -r '.id')"
 [ -n "$attachment_id" ] && [ "$attachment_id" != null ]
 
-"$INSTALL_DIR/backup.sh" --install-dir "$INSTALL_DIR" --engine docker --output "$BACKUP_ARCHIVE"
 working_compose() { (cd "$INSTALL_DIR" && docker compose --env-file .env -f docker-compose.yml "$@"); }
 working_sql() { working_compose exec -T postgres psql -qAt -v ON_ERROR_STOP=1 -U taskira -d taskira "$@"; }
+working_sql -c "INSERT INTO ops_runs (kind, started_at, finished_at, result, archive) VALUES ('backup', now() - interval '1 day', now() - interval '1 day', 'success', 'historical-backup.tar.gz')" >/dev/null
+"$INSTALL_DIR/backup.sh" --install-dir "$INSTALL_DIR" --engine docker --output "$BACKUP_ARCHIVE"
 [ "$(working_sql -c "SELECT count(*) FROM ops_runs WHERE kind='backup' AND result='success' AND (details->>'bytes')::bigint > 0")" = 1 ]
+# A failure before pg_dump must also be reported; the valid archive stays intact.
+if "$INSTALL_DIR/backup.sh" --install-dir "$INSTALL_DIR" --engine docker --output "$BACKUP_ARCHIVE" > "$TMP_DIR/duplicate-backup.log" 2>&1; then
+  echo 'backup overwrote an existing archive' >&2; exit 1
+fi
+[ "$(working_sql -c "SELECT count(*) FROM ops_runs WHERE kind='backup' AND result='failure'")" = 1 ]
 
 # Observe real outgoing connections on the host. The restored stack must not
 # inherit the working SMTP endpoint, even with queued historical work.
@@ -245,6 +251,9 @@ assert_bundle_excludes "attachment content" "$ATTACHMENT_CONTENT"
 # Disaster rehearsal: remove both persistent volumes, not merely containers.
 (cd "$INSTALL_DIR" && docker compose --env-file .env -f docker-compose.yml down -v)
 "$INSTALL_DIR/restore.sh" --install-dir "$INSTALL_DIR" --engine docker --archive "$BACKUP_ARCHIVE" --yes
+# Preserve completed history, without restoring this archive's own running row.
+[ "$(working_sql -c "SELECT count(*) FROM ops_runs WHERE kind='backup'")" = 1 ]
+[ "$(working_sql -c "SELECT count(*) FROM ops_runs WHERE kind='backup' AND result='success' AND archive='historical-backup.tar.gz'")" = 1 ]
 
 rm -f "$COOKIE"
 curl --fail --silent --show-error -c "$COOKIE" -H 'content-type: application/json' \
