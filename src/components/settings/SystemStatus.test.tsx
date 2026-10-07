@@ -57,7 +57,7 @@ test("прерванный бэкап, unknown и ссылки на источн
   show(); await screen.findByText(/Последний запуск: прервано/);
   expect(card("Репетиция восстановления").getByText("Не удалось проверить")).toBeTruthy();
   expect(card("Фоновые задания").getByRole("link", { name: "Обслуживание" }).getAttribute("href")).toBe("/admin/maintenance");
-  expect(card("Вебхуки").getByRole("link").getAttribute("href")).toBe("/help#webhooks");
+  expect(card("Вебхуки").getByRole("link").getAttribute("href")).toBe("/help");
 });
 test("предупреждение поиска сохраняет имена отсутствующих индексов и последствия", async () => {
   update("search", check => check.id === "search" ? { ...check, state: "warn", facts: { missingIndexes: ["idx_issues_active_title_trgm"] } } : check);
