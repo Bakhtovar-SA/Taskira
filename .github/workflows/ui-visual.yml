@@ -71,3 +71,13 @@ jobs:
           name: ui-visual-diff
           path: test-results/
           retention-days: 7
+      - name: Return cached actions to the runner owner
+        if: always()
+        shell: bash
+        working-directory: /tmp
+        run: |
+          # Composite actions install dependencies into the shared action cache.
+          # Restore root-owned files before the next host job cleans this cache.
+          owner="$(stat -c '%u:%g' /__w/_actions)"
+          [[ "$owner" =~ ^[1-9][0-9]*:[0-9]+$ ]] || { echo '::error::Cannot determine the host action-cache owner'; exit 1; }
+          chown -hRP --from=0 -- "$owner" /__w/_actions
