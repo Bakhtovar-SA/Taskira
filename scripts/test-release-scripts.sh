@@ -16,6 +16,7 @@ bash -n scripts/ops-report.sh
 bash -n scripts/restore-drill.sh
 node --check scripts/restore-drill-probe.cjs
 bash scripts/test-ops-report.sh
+bash scripts/test-container-storage-space.sh
 bash -n scripts/release/install.sh
 
 scripts/render-compose.sh source | cmp - docker-compose.yml
