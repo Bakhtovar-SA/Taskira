@@ -1,5 +1,9 @@
 # Трек L — интеграции: вебхуки, API-токены, повторяющиеся задачи, состояние системы
 
+Статус на 07.10.2026: INT-01–INT-11 в `main`; INT-12–INT-15 проходят CI/ревью в PR
+[#141](https://github.com/Bakhtovar-SA/Taskira/pull/141)–[#144](https://github.com/Bakhtovar-SA/Taskira/pull/144).
+INT-16 готовится поверх них. Завершение фиксируется после последовательного merge и проверок всех частей.
+
 Постановка — [TZ-ARCHITECTURE-BRIEF.md](TZ-ARCHITECTURE-BRIEF.md). Решения — ADR
 [0028](../adr/0028-integration-events-webhooks.md) (события и вебхуки), [0029](../adr/0029-api-tokens-service-accounts.md)
 (API-токены), [0030](../adr/0030-recurring-issues.md) (повторяющиеся задачи), [0031](../adr/0031-ops-status-restore-drill.md)

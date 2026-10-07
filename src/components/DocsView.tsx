@@ -76,7 +76,7 @@ export default function DocsView() {
           {copy.sections.map((section, index) => <section key={section.id} id={`${prefix}${section.id}`} className="scroll-mt-5 rounded-xl surface-raised p-5 ring-1 ring-inset ring-line/70">
             <h2 className="font-disp text-[15px] font-semibold tracking-tight text-ink">{index + 1} · {section.label}</h2>
             {section.paragraphs.map(paragraph => <p key={paragraph} className="mt-2 text-[13px] leading-relaxed text-sub">{paragraph}</p>)}
-            {section.code && <pre className="mt-3 overflow-x-auto rounded-lg bg-sunken p-3 font-code text-[12px] leading-relaxed text-ink"><code>{section.code}</code></pre>}
+            {section.code && <pre className="mt-3 overflow-x-auto rounded-lg bg-sunken p-3 font-code text-[12px] leading-relaxed text-ink"><code className="font-code">{section.code}</code></pre>}
             {section.links && <ul className="mt-3 space-y-1">{section.links.map(link => <li key={link.href}><a href={link.href} className="ds-focus rounded text-[12px] text-accent underline underline-offset-4">{link.label}</a></li>)}</ul>}
             {section.id === "roles" && <>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">{ROLE_ORDER.map(role => <div key={role} className="rounded-lg border border-linesoft bg-sunken p-3"><RoleTag role={role} size="sm" /><p className="mt-2 text-[12px] leading-relaxed text-sub">{t(`role.${role}.desc`)}</p></div>)}</div>
