@@ -22,24 +22,50 @@ sudo update-ca-certificates
 curl --fail --silent --show-error --head https://registry.npmjs.org/
 ```
 
-В workflows файл `/etc/ssl/certs/ca-certificates.crt` хоста монтируется только для чтения в
-`/opt/taskira-runner-ca.pem` контейнера. Node/Bun/npm используют `NODE_EXTRA_CA_CERTS`, Git —
-`GIT_SSL_CAINFO`, curl — `CURL_CA_BUNDLE`, OpenSSL — `SSL_CERT_FILE`. Проверка TLS остаётся включённой.
-Сертификат хранится на ПК раннера и не добавляется в репозиторий, GitHub secrets или логи.
+Jobs ревью и браузерных тестов сначала выполняют `prepare-runner-trust` непосредственно в Linux/WSL.
+Job безопасности также готовит bundle на хосте до запуска npm/Trivy и передаёт переменные доверия
+в следующие шаги, включая сохранение кеша после проверок.
+Скрипт `.github/scripts/prepare-runner-trust.sh` копирует системный CA bundle в локальный tool cache раннера.
+В WSL он также читает из доверенных корневых хранилищ Windows (`LocalMachine/Root`, `CurrentUser/Root`)
+действующие самоподписанные CA с точным именем `InfoWatch Transparent Proxy Root` и добавляет их
+публичные сертификаты в этот локальный файл. Windows interop должен быть доступен пользователю раннера.
+Глобальные хранилища Windows/WSL и политика выполнения PowerShell не изменяются.
 
-Проверьте доступность того же файла для Docker-daemon и доверие внутри контейнера:
+GitHub Actions уже передаёт tool cache в контейнер как `/__w/_tool`; подготовленный bundle доступен
+по пути `/__w/_tool/taskira-trust/ca-certificates.crt`. Это устраняет неоднозначность абсолютного
+пути `/etc/ssl` при Docker Desktop: Docker-daemon может иметь своё хранилище, отличное от WSL раннера.
+Node/Bun/npm используют `NODE_EXTRA_CA_CERTS`, Git — `GIT_SSL_CAINFO`, curl — `CURL_CA_BUNDLE`,
+OpenSSL — `SSL_CERT_FILE`. Проверка TLS остаётся включённой.
+Сертификат хранится на ПК раннера и не добавляется в репозиторий, GitHub secrets, artifacts или логи.
 
-```bash
-docker run --rm --pull never \
-  -v /etc/ssl/certs/ca-certificates.crt:/opt/taskira-runner-ca.pem:ro \
-  -e NODE_EXTRA_CA_CERTS=/opt/taskira-runner-ca.pem node:22-bookworm \
-  node -e "fetch('https://registry.npmjs.org/',{method:'HEAD'}).then(r=>{console.log(r.status);if(!r.ok)process.exitCode=1}).catch(e=>{console.error(e.message);process.exitCode=1})"
-```
+Перед ревью отдельная проверка запускается в Node и Bun внутри контейнера. Она выводит только число CA,
+наличие InfoWatch, SHA256 bundle и результат TLS к npm/GitHub OIDC. В запросах нет токена или заголовка
+авторизации; используется только корень адреса, без параметров OIDC. Одного успешного curl в WSL
+недостаточно, чтобы подтвердить доверие среды ревью.
+
+Если Windows interop отключён или корень InfoWatch отсутствует в доверенном Windows Root,
+скрипт использует Linux bundle. В этом случае установите согласованный сертификат в WSL по инструкции
+выше. Если проверка продолжает падать, сопоставьте SHA256 bundle в host/container jobs и проверьте,
+что сертификат установлен именно в дистрибутиве WSL, где работает раннер.
 
 Для Docker Desktop включите WSL integration для дистрибутива раннера. Если TLS не проходит при
 загрузке образов, настройте доверие CA в самом Docker согласно инструкции ниже.
 После завершения текущих jobs перезапустите Linux-раннер и повторите упавшие проверки GitHub Actions.
 При смене корпоративного CA обновляйте доверенное хранилище на этом хосте.
 
+## Кеш сканера безопасности
+
+Trivy использует постоянный каталог `${RUNNER_TOOL_CACHE}/taskira-trivy` на self-hosted раннере.
+Удалённое кеширование action выключено: 07.10.2026 упаковка DB-кеша через tar/gzip в `/mnt/d`
+задержала завершение job на 13 минут. Проверка обновлений базы Trivy и High/Critical сохраняется;
+вторая проверка использует установленный первой проверкой бинарник. Кеш можно удалить локально,
+следующий запуск загрузит базу заново. Он не содержит данных приложения.
+
+Все метки в `runs-on: [self-hosted, Linux]` должны присутствовать у раннера. `ubuntu-latest` выбирает
+GitHub-hosted среду только как отдельное значение; добавление его в этот список требует одноимённую
+метку на self-hosted раннере и не переключает его на Ubuntu.
+
 Источники: [Docker: доверенные CA хоста и контейнеров](https://docs.docker.com/engine/network/ca-certs/),
-[GitHub: прокси для self-hosted runners](https://docs.github.com/en/actions/how-tos/manage-runners/use-proxy-servers).
+[GitHub: прокси для self-hosted runners](https://docs.github.com/en/actions/how-tos/manage-runners/use-proxy-servers),
+[Microsoft: Certificate provider](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/about/about_certificate_provider),
+[Microsoft: запуск Windows-инструментов из WSL](https://learn.microsoft.com/en-us/windows/wsl/filesystems#run-windows-tools-from-linux).
