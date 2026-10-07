@@ -14,6 +14,7 @@ bash -n scripts/support-bundle.sh
 bash -n scripts/operations-common.sh
 bash -n scripts/test-upgrade-rollback-mock.sh
 bash scripts/test-upgrade-rollback-mock.sh
+bash scripts/test-container-storage-space.sh
 bash -n scripts/release/install.sh
 
 scripts/render-compose.sh source | cmp - docker-compose.yml

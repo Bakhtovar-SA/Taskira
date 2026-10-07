@@ -351,6 +351,7 @@ comm -23 "$TMP_DIR/release.txt" "$TMP_DIR/applied-sorted.txt" > "$TMP_DIR/pendin
 
 db_bytes="$(compose exec -T postgres psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'SELECT pg_database_size(current_database())' | tr -d '\r')"
 [[ "$db_bytes" =~ ^[0-9]+$ ]] || { echo "ERROR: cannot determine database size" >&2; exit 1; }
+STAGE="checking free storage space"
 images_kb="$(du -sk "$RELEASE_DIR/images" | awk '{print $1}')"
 required_kb=$(((db_bytes / 1024) * 2 + 1048576))
 available_kb="$(df -Pk "$INSTALL_DIR" | awk 'NR==2 {print $4}')"
@@ -364,20 +365,13 @@ if [ "$ENGINE" = "docker" ]; then
 else
   engine_root="$(podman info --format '{{.Store.GraphRoot}}')"
 fi
-engine_available_kb=""
-if [ -d "$engine_root" ]; then
-  engine_available_kb="$(df -Pk "$engine_root" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
-  [[ "$engine_available_kb" =~ ^[0-9]+$ ]] || { echo "ERROR: cannot determine free space for container storage: $engine_root" >&2; exit 1; }
-  engine_required_kb=$((images_kb * 3 + 524288))
-  [ "$engine_available_kb" -ge "$engine_required_kb" ] || {
-    echo "ERROR: insufficient container storage: need ${engine_required_kb} KiB, have ${engine_available_kb} KiB" >&2
-    exit 1
-  }
-else
-  # Docker Desktop (Windows/macOS) and remote engines keep their storage in a VM or on another
-  # host, so the path reported by the engine does not exist here and df cannot measure it.
-  echo "WARNING: container storage $engine_root is not visible on this host; skipping the free-space check" >&2
-fi
+engine_available_kb="$(container_storage_available_kb "$engine_root")"
+[[ "$engine_available_kb" =~ ^[0-9]+$ ]] || { echo "ERROR: cannot determine free space for container storage: $engine_root" >&2; exit 1; }
+engine_required_kb=$((images_kb * 3 + 524288))
+[ "$engine_available_kb" -ge "$engine_required_kb" ] || {
+  echo "ERROR: insufficient container storage: need ${engine_required_kb} KiB, have ${engine_available_kb} KiB" >&2
+  exit 1
+}
 
 echo "Upgrade plan: Taskira $current_version -> $target_version"
 echo "Database: $POSTGRES_DB ($db_bytes bytes); install filesystem free: ${available_kb} KiB"

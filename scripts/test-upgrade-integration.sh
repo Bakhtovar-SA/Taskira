@@ -2,7 +2,10 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-TMP_DIR="$(mktemp -d)"
+TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/taskira-upgrade-ci.XXXXXXXX")"
+# A stopped runner or Desktop restart can interrupt cleanup. Each invocation
+# owns a fresh Compose project so an old fixture database is never reused.
+export COMPOSE_PROJECT_NAME="taskira-upgrade-$(printf '%s' "${TMP_DIR##*.}" | tr '[:upper:]' '[:lower:]')"
 INSTALL_DIR="$TMP_DIR/install"
 RELEASE_DIR="$TMP_DIR/release"
 DOWNGRADE_DIR="$TMP_DIR/downgrade-release"
@@ -81,7 +84,7 @@ cleanup() {
   if [ -f "$INSTALL_DIR/docker-compose.yml" ] && [ -f "$INSTALL_DIR/.env" ]; then
     (cd "$INSTALL_DIR" && docker compose --env-file .env -f docker-compose.yml down -v) >/dev/null 2>&1 || true
   fi
-  rm -rf -- "$TMP_DIR"
+  case "$TMP_DIR" in "${TMPDIR:-/tmp}"/taskira-upgrade-ci.*) rm -rf -- "$TMP_DIR" ;; *) return 1 ;; esac
 }
 trap cleanup EXIT INT TERM
 
@@ -125,6 +128,7 @@ CORS_ORIGIN=http://127.0.0.1:18081
 CLIENT_PORT=18081
 SESSION_COOKIE_SECURE=false
 EOF
+printf 'COMPOSE_PROJECT_NAME=%s\n' "$COMPOSE_PROJECT_NAME" >> "$INSTALL_DIR/.env"
 
 "$ROOT_DIR/scripts/render-compose.sh" release "$NEW_VERSION" > "$RELEASE_DIR/docker-compose.yml"
 printf '%s\n' "$NEW_VERSION" > "$RELEASE_DIR/VERSION"
