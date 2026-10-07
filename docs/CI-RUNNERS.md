@@ -46,6 +46,39 @@ sudo apt update && sudo apt install -y postgresql-client-16
 Версии среды закреплены: Node 22 Debian Bookworm и Playwright 1.56.1 Ubuntu Noble.
 Windows-раннер не выбирается этими метками.
 
+## Docker Desktop credential helper в WSL
+
+Проверка `docker info` и запуск уже загруженного образа могут проходить, хотя загрузка образов
+падает с `docker-credential-desktop.exe: exec format error`. Это обнаружено на `ubuntu` 07.10.2026:
+процесс раннера не мог запустить Windows credential helper. `runner readiness` отдельно загружает
+Node, Playwright и PostgreSQL тем же Docker CLI, которым GitHub запускает контейнеры заданий.
+
+Для публичных образов CI можно выделить отдельный Docker config без Windows credential helper.
+Личный `~/.docker/config.json` остаётся прежним. В папке раннера, содержащей `.runner` и `run.sh`,
+под тем же пользователем выполните:
+
+```bash
+(
+  set -e
+  test -f .runner && test -f run.sh
+  mkdir -p "$HOME/.config/taskira-runner/docker"
+  chmod 700 "$HOME/.config/taskira-runner/docker"
+  test -f "$HOME/.config/taskira-runner/docker/config.json" || printf '{}\n' > "$HOME/.config/taskira-runner/docker/config.json"
+  docker --config "$HOME/.config/taskira-runner/docker" pull node:22-bookworm
+  touch .env
+  cp -p .env ".env.before-docker-fix.$(date +%s)"
+  sed -i '/^DOCKER_CONFIG=/d' .env
+  printf 'DOCKER_CONFIG=%s\n' "$HOME/.config/taskira-runner/docker" >> .env
+)
+```
+
+После успешной загрузки перезапустите процесс или службу раннера и повторите `runner readiness`.
+Переменная должна находиться в `.env` самого раннера: GitHub запускает Docker для job/service
+контейнеров до шагов workflow. Обычный шаг с `export DOCKER_CONFIG` не исправляет этот этап.
+Для отката восстановите сохранённую `.env` и перезапустите раннер.
+Источники: [Docker: каталог CLI config](https://docs.docker.com/reference/cli/docker/#change-the-docker-directory),
+[GitHub runner: загрузка переменных из .env](https://github.com/actions/runner/blob/main/src/Runner.Listener/Program.cs).
+
 При проверке HTTPS корпоративным прокси сертификат сервера выпускается корпоративным CA.
 Windows, Linux и контейнеры имеют отдельные хранилища доверия. 06.10.2026 диагностика Linux CI
 для npm и GitHub OIDC показала издателя `InfoWatch Transparent Proxy Root` и ошибки проверки цепочки.
