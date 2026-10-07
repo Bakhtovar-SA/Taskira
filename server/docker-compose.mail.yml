@@ -17,13 +17,13 @@
 services:
   mailpit:
     image: axllent/mailpit:v1.20.0
-    container_name: taskira-mailpit
+    container_name: ${TASKIRA_MAIL_CONTAINER_NAME:-taskira-mailpit}
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: "true"       # принимать любой AUTH (или без него)
       MP_SMTP_AUTH_ALLOW_INSECURE: "true"   # без TLS — тесту не нужен
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # веб-UI + REST API (/api/v1/messages)
+      - "${TASKIRA_SMTP_PORT_BINDING:-1025:1025}"   # SMTP
+      - "${TASKIRA_MAIL_API_PORT_BINDING:-8025:8025}"   # веб-UI + REST API (/api/v1/messages)
     healthcheck:
       test: ["CMD", "/mailpit", "readyz"]
       interval: 3s

@@ -8,10 +8,114 @@ Docker Desktop WSL integration. Для двух раннеров настрое�
 Docker socket, запуск контейнера, доступ к отдельным workspace/tool cache, TLS и Git.
 Метка `docker` добавляется после успешной проверки, включая подготовку CA bundle на каждом хосте.
 GitHub распределяет jobs между свободными раннерами с этой меткой. Проверки образов сериализованы
-через `taskira-image-security`, поскольку используют фиксированные имена контейнеров и порты;
-браузерные tests и ревью могут идти параллельно с ними и друг с другом.
+через `taskira-image-security`, поскольку используют фиксированные имена контейнеров и порты.
+`queue: max` сохраняет несколько ожидающих проверок в очереди: новая проверка другого PR
+не отменяет предыдущую ([правила очереди GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)).
+Браузерные tests и ревью могут идти параллельно с ними и друг с другом.
+Скрипты обновления и репетиции восстановления учитывают Docker Desktop: если путь хранилища
+движка недоступен в WSL, свободное место проверяется внутри уже загруженного образа PostgreSQL.
+Образ не скачивается, контейнер не получает сеть или host mounts; проверка объёма не пропускается.
+Прогон upgrade/rollback получает отдельное имя Compose-проекта на каждый запуск. Оставшийся после
+перезапуска Desktop тестовый том не используется следующей проверкой; удаляются только тома её
+собственного проекта. Постоянные тома установки Taskira не затрагиваются.
+LDAP, S3 и Mailpit также получают отдельные Compose-проекты и имена контейнеров по ID/попытке
+запуска CI. Порты назначаются Docker автоматически на `127.0.0.1` и передаются тестам через
+`GITHUB_ENV`. Последний шаг с `always()` удаляет только контейнеры и тома текущего тестового
+проекта. Следующий прогон не использует уже загруженное LDAP-дерево или прежние S3-данные.
+
+Все jobs во всех workflow выполняются на собственных Linux-раннерах; `ubuntu-latest` не используется.
+Задания без контейнеров выбирают `runs-on: [self-hosted, Linux, light]`: `types`, `client`,
+`migration-policy` и `snapshot-list`. Для них доступны `linux-2`, `linux-3` и `linux-4`.
+Эти раннеры используют отдельные рабочие каталоги; контейнерные jobs не должны получать метку `light`.
+Лёгкие задания не вызывают Docker даже при подготовке checkout и общих утилит. Проверка конфигурации
+Compose перенесена из `client` в `dependency and image security`.
+Задания с `container:`, `services:` или запуском Docker/Compose остаются в пуле
+`runs-on: [self-hosted, Linux, docker]`, включая `prepare-runner-trust`. Текущий `server`
+поднимает PostgreSQL через `services:`, поэтому использует `docker`; серверное задание без
+контейнерных сервисов должно выбирать `light`. `runner readiness` дополнительно выбирает
+конкретный Docker-хост через метку `taskira-a` или `taskira-b`.
+
+Перед checkout каждый host job в пуле `docker` восстанавливает владельца root-owned файлов только в своём
+`GITHUB_WORKSPACE`. Контейнерные actions пишут туда от root; на файловой системе Linux это иначе
+мешает следующему host job обновить `.git/FETCH_HEAD` и очистить рабочие файлы. Подготовка запускает
+изолированный контейнер без сети и с read-only root filesystem; меняются только root-owned файлы
+в bind mount checkout, симлинки не разыменовываются. Другие каталоги ПК и права доступа не меняются.
+В конце каждого контейнерного job отдельный шаг с `always()` также возвращает владельца root-owned
+файлов в `/__w/_actions`: composite action ревью устанавливает зависимости прямо в кеш Actions.
+Каталог кеша принадлежит пользователю раннера; его UID/GID берутся из самого каталога, симлинки
+не разыменовываются. Уже накопленные файлы на `linux` мешают даже `Set up job`, до любых шагов:
+один раз под пользователем `bakhtovar` в WSL исправьте только этот кеш:
+
+```bash
+sudo chown -hRP --from=0 -- "$(id -u):$(id -g)" /home/bakhtovar/actions-runner/Taskira/_actions
+```
+
+Путь соответствует текущей рабочей папке раннера `linux`. Для другого расположения возьмите
+точный каталог `_actions` из журнала ошибки; не применяйте команду ко всему домашнему каталогу.
+Тестовые jobs на хосте вызывают общий action `.github/actions/prepare-test-runner`: он обновляет CA bundle,
+передаёт его Node/npm/Git/curl и проверяет общие утилиты до установки зависимостей. Jobs с PostgreSQL
+выбирают клиентские инструменты 16 из `/usr/lib/postgresql/16/bin`; сервер PostgreSQL 16 запускается только
+в контейнере job. Сервис получает отдельный свободный порт, который передаётся тестам через `GITHUB_ENV`.
+
+На раннерах `light` нужны `jq`, Python 3, curl, Git и OpenSSL; Docker и клиент PostgreSQL не требуются.
+На каждом из двух Docker-раннеров дополнительно нужны iproute2, Docker Compose и
+`postgresql-client-16`. Node 22 устанавливается через `actions/setup-node`. PostgreSQL-сервер на хосте
+не требуется. Для Ubuntu 22.04/24.04/26.04 клиент 16 доступен в
+[официальном репозитории PostgreSQL](https://www.postgresql.org/download/linux/ubuntu/):
+
+```bash
+sudo apt update
+sudo apt install -y jq postgresql-common
+sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+sudo apt update && sudo apt install -y postgresql-client-16
+```
+
+`runner readiness` показывает отсутствующие утилиты и проверяет Compose на каждом хосте. Если версия
+клиента отличается или инструменты отсутствуют, тестовые jobs завершаются с явной диагностикой,
+а не используют случайную версию PostgreSQL из `PATH`.
+В восьми host jobs отключено удалённое кеширование npm в `actions/setup-node`
+(`package-manager-cache: false`). Постоянный npm-кеш пользователя раннера используется между
+запусками; `npm ci` продолжает устанавливать зависимости по lock-файлу. На `linux` 07.10.2026
+сохранение удалённого кеша после успешного серверного набора заняло 3 минуты 11 секунд
+(job 112744327367), всё это время раннер не мог взять следующее задание. Контейнерный job UI
+сохраняет удалённый кеш, поскольку его домашняя папка временная. Кеш установки самого Node
+в tool cache раннера не меняется.
+
 Версии среды закреплены: Node 22 Debian Bookworm и Playwright 1.56.1 Ubuntu Noble.
 Windows-раннер не выбирается этими метками.
+
+## Docker Desktop credential helper в WSL
+
+Проверка `docker info` и запуск уже загруженного образа могут проходить, хотя загрузка образов
+падает с `docker-credential-desktop.exe: exec format error`. Это обнаружено на `ubuntu` 07.10.2026:
+процесс раннера не мог запустить Windows credential helper. `runner readiness` отдельно загружает
+Node, Playwright и PostgreSQL тем же Docker CLI, которым GitHub запускает контейнеры заданий.
+
+Для публичных образов CI можно выделить отдельный Docker config без Windows credential helper.
+Личный `~/.docker/config.json` остаётся прежним. В папке раннера, содержащей `.runner` и `run.sh`,
+под тем же пользователем выполните:
+
+```bash
+(
+  set -e
+  test -f .runner && test -f run.sh
+  mkdir -p "$HOME/.config/taskira-runner/docker"
+  chmod 700 "$HOME/.config/taskira-runner/docker"
+  test -f "$HOME/.config/taskira-runner/docker/config.json" || printf '{}\n' > "$HOME/.config/taskira-runner/docker/config.json"
+  docker --config "$HOME/.config/taskira-runner/docker" pull node:22-bookworm
+  touch .env
+  cp -p .env ".env.before-docker-fix.$(date +%s)"
+  sed -i '/^DOCKER_CONFIG=/d' .env
+  printf 'DOCKER_CONFIG=%s\n' "$HOME/.config/taskira-runner/docker" >> .env
+)
+```
+
+После успешной загрузки перезапустите процесс или службу раннера и повторите `runner readiness`.
+Переменная должна находиться в `.env` самого раннера: GitHub запускает Docker для job/service
+контейнеров до шагов workflow. Обычный шаг с `export DOCKER_CONFIG` не исправляет этот этап.
+Для отката восстановите сохранённую `.env` и перезапустите раннер.
+Источники: [Docker: каталог CLI config](https://docs.docker.com/reference/cli/docker/#change-the-docker-directory),
+[GitHub runner: загрузка переменных из .env](https://github.com/actions/runner/blob/main/src/Runner.Listener/Program.cs).
 
 При проверке HTTPS корпоративным прокси сертификат сервера выпускается корпоративным CA.
 Windows, Linux и контейнеры имеют отдельные хранилища доверия. 06.10.2026 диагностика Linux CI
