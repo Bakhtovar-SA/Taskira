@@ -16,7 +16,7 @@
 services:
   openldap:
     image: osixia/openldap:1.5.0
-    container_name: taskira-openldap
+    container_name: ${TASKIRA_LDAP_CONTAINER_NAME:-taskira-openldap}
     environment:
       LDAP_ORGANISATION: "Taskira Test"
       LDAP_DOMAIN: "taskira.test"            # ⇒ суффикс dc=taskira,dc=test
@@ -26,7 +26,7 @@ services:
     volumes:
       - ./test/ldap:/ldifs:ro
     ports:
-      - "389:389"
+      - "${TASKIRA_LDAP_PORT_BINDING:-389:389}"
     healthcheck:
       test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost:389", "-b", "dc=taskira,dc=test", "-s", "base", "dn"]
       interval: 5s
