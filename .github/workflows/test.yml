@@ -33,10 +33,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            server/package-lock.json
+          package-manager-cache: false
       - name: Fail on high or critical npm advisories (client)
         run: npm audit --audit-level=high
       - name: Fail on high or critical npm advisories (server)
@@ -168,8 +165,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+          package-manager-cache: false
       - run: npm ci
         working-directory: server
       - run: npm run build
@@ -297,8 +293,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+          package-manager-cache: false
 
       - run: npm ci
 
@@ -335,10 +330,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            server/package-lock.json
+          package-manager-cache: false
 
       - run: npm ci
       - run: npm ci
@@ -400,8 +392,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
+          package-manager-cache: false
 
       - run: npm ci
 
@@ -504,8 +495,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+          package-manager-cache: false
 
       - run: npm ci
       - run: npm rebuild esbuild
@@ -609,8 +599,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+          package-manager-cache: false
 
       - run: npm ci
       - run: npm rebuild esbuild
@@ -686,8 +675,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+          package-manager-cache: false
 
       - run: npm ci
       - run: npm rebuild esbuild
