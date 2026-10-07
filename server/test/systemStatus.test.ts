@@ -168,6 +168,26 @@ test("поиск: отсутствующие индексы представле
   vi.spyOn(db, "q").mockImplementation(async (text, params) => text.startsWith("SELECT to_regclass") ? [{ present: false }] : original(text, params));
   expect((await systemChecks.webhooks()).state).toBe("off"); expect((await systemChecks.recurring()).state).toBe("off");
 });
+
+test("/ready сохраняет безопасный код причины в настроенном журнале приложения", async () => {
+  const warn = vi.spyOn(app.log, "warn");
+  vi.spyOn(db, "q").mockRejectedValue(Object.assign(new Error("postgresql://private-user:secret-password@private-host/db"), { code: "ECONNREFUSED" }));
+  const response = await app.inject({ method: "GET", url: "/ready" });
+  expect(response.statusCode).toBe(503);
+  expect(warn).toHaveBeenCalledWith({ check: "database", code: "ECONNREFUSED", name: "Error" }, "readiness database check failed");
+  expect(JSON.stringify(warn.mock.calls)).not.toMatch(/private|secret|postgresql/);
+});
+
+test.each([{ errors: "bad", notFound: 0 }, { errors: 2147483648, notFound: 0 }, { errors: 0, notFound: [] }, {}, null])(
+  "LDAP: некорректные счётчики %j не ломают запрос и не становятся успешным ресинком", async details => {
+    cfg.authMode = "ldap"; cfg.ldap = { bindDn: "fixture", resyncIntervalMs: 3600_000 } as NonNullable<typeof cfg.ldap>;
+    await q(`INSERT INTO audit_log(action,entity,created_at,details) VALUES('ldap.resync','users',now()-interval '1 hour','{"errors":0,"notFound":0}')`);
+    await q(`INSERT INTO audit_log(action,entity,details) VALUES('ldap.resync','users',$1::jsonb)`, [JSON.stringify(details)]);
+    const check = await systemChecks.ldap();
+    expect(check).toMatchObject({ state: "warn", facts: { lastError: "resync_failed" } });
+    expect(Date.parse(check.facts.lastSuccessAt!)).toBeLessThan(Date.now() - 3500_000);
+  },
+);
 test("диск: абсолютные и относительные пороги; неготовность fail", async () => {
   vi.spyOn(readiness, "checkStorageReadiness").mockResolvedValue(true);
   const probe = vi.spyOn(fs, "statfs");
@@ -232,6 +252,24 @@ test("кэш и одновременные запросы используют �
   const [first, parallel] = await Promise.all([getSystemStatus(), getSystemStatus()]); const count = spy.mock.calls.length;
   expect(count).toBeGreaterThan(5); expect(parallel).toBe(first);
   expect(await getSystemStatus()).toBe(first); expect(spy).toHaveBeenCalledTimes(count);
+});
+
+test("истёкший кэш не запускает повторную проверку, пока предыдущая ещё зависла", async () => {
+  const initial = await getSystemStatus(); clearSystemStatusCache();
+  for (const check of initial.checks) vi.spyOn(systemChecks, check.id).mockResolvedValue(check as never);
+  let release!: (check: Extract<SystemCheck, { id: "mail" }>) => void;
+  const waiting = new Promise<Extract<SystemCheck, { id: "mail" }>>(resolve => { release = resolve; });
+  vi.mocked(systemChecks.mail).mockReturnValue(waiting);
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+  const first = getSystemStatus(); await vi.advanceTimersByTimeAsync(5000);
+  expect((await first).checks.find(check => check.id === "mail")?.state).toBe("unknown");
+  await vi.advanceTimersByTimeAsync(15001);
+  const second = getSystemStatus(); await vi.advanceTimersByTimeAsync(5000);
+  expect((await second).checks.find(check => check.id === "mail")?.state).toBe("unknown");
+  expect(systemChecks.mail).toHaveBeenCalledTimes(1);
+  release(initial.checks.find(check => check.id === "mail") as Extract<SystemCheck, { id: "mail" }>);
+  await waiting;
 });
 test("scrape читает операции напрямую, текущий запуск сохраняет завершённый результат, зависший даёт 0", async () => {
   await record("backup", "success", 8);

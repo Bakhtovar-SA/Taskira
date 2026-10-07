@@ -14,6 +14,7 @@ type Id = SystemCheck["id"];
 type Check<K extends Id> = Extract<SystemCheck, { id: K }>;
 const ids = ["database", "storage", "mail", "ldap", "jobs", "license", "search", "backup", "restoreDrill", "webhooks", "recurring"] as const;
 const cache = createTtlCache<SystemStatusDto>(15_000);
+const checksInFlight = new Map<Id, Promise<SystemCheck>>();
 const age = (at: string): number => Math.max(0, Date.now() - Date.parse(at));
 
 function unknownCheck(id: Id): SystemCheck {
@@ -70,10 +71,10 @@ export const systemChecks: { [K in Id]: () => Promise<Check<K>> } = {
     if (cfg.authMode === "local" || !cfg.ldap?.bindDn) return { id: "ldap", state: "off", facts };
     const [latest, successes] = await Promise.all([
       q<{ at: Date; failed: boolean }>(`SELECT created_at AS at,
-        COALESCE((details->>'errors')::int, 0) > 0 OR COALESCE((details->>'notFound')::int, 0) > 0 AS failed
+        NOT COALESCE(details @> '{"errors":0,"notFound":0}'::jsonb, false) AS failed
         FROM audit_log WHERE action = 'ldap.resync' ORDER BY created_at DESC, id DESC LIMIT 1`),
       q<{ at: Date }>(`SELECT created_at AS at FROM audit_log WHERE action = 'ldap.resync'
-        AND COALESCE((details->>'errors')::int, 0) = 0 AND COALESCE((details->>'notFound')::int, 0) = 0
+        AND details @> '{"errors":0,"notFound":0}'::jsonb
         ORDER BY created_at DESC, id DESC LIMIT 1`),
     ]);
     facts.lastSuccessAt = successes[0]?.at.toISOString() ?? null;
@@ -144,17 +145,28 @@ export const systemChecks: { [K in Id]: () => Promise<Check<K>> } = {
   },
 };
 
+function checkOnce(id: Id): Promise<SystemCheck> {
+  const existing = checksInFlight.get(id);
+  if (existing) return existing;
+  const pending = Promise.resolve().then<SystemCheck>(() => systemChecks[id]()).catch(() => {
+    console.error(`[system-status] ${id} check failed`);
+    return unknownCheck(id);
+  }).finally(() => {
+    if (checksInFlight.get(id) === pending) checksInFlight.delete(id);
+  });
+  checksInFlight.set(id, pending);
+  return pending;
+}
+
 export async function getSystemStatus(): Promise<SystemStatusDto> {
   return cache.get("status", async () => {
     let timer: NodeJS.Timeout | undefined;
     const deadline = new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), 5000); timer.unref(); });
     try {
       const checks = await Promise.all(ids.map(async id => {
-        // Обработчик отказа остаётся на запоздавшем promise: после таймаута нет unhandled rejection.
-        const check = Promise.resolve().then<SystemCheck>(() => systemChecks[id]()).catch(() => {
-          console.error(`[system-status] ${id} check failed`);
-          return unknownCheck(id);
-        });
+        // A timed-out probe keeps its slot until it settles. Later snapshots
+        // reuse it instead of starting more reads against a slow dependency.
+        const check = checkOnce(id);
         const result = await Promise.race([check, deadline]);
         if (result !== null) return result;
         console.error(`[system-status] ${id} check timed out`);
@@ -166,4 +178,4 @@ export async function getSystemStatus(): Promise<SystemStatusDto> {
 }
 
 /** Сброс используется только проверками и локальным измерением некэшированного снимка. */
-export function clearSystemStatusCache(): void { cache.clear(); }
+export function clearSystemStatusCache(): void { cache.clear(); checksInFlight.clear(); }
