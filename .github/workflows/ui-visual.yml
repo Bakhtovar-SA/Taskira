@@ -27,6 +27,17 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - name: Prepare local Linux and WSL CA bundle
         run: bash .github/scripts/prepare-runner-trust.sh

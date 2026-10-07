@@ -17,6 +17,17 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
       - uses: actions/setup-node@v7
@@ -86,6 +97,17 @@ jobs:
     outputs:
       snapshots: ${{ steps.snapshots.outputs.json }}
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
       - id: snapshots
@@ -127,6 +149,17 @@ jobs:
       NOTIFY_WORKER_ENABLED: "false"
       MAINTENANCE_ENABLED: "false"
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
@@ -152,6 +185,17 @@ jobs:
     name: offline upgrade and rollback
     runs-on: [self-hosted, Linux, docker]
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -163,6 +207,17 @@ jobs:
     name: backup, destroy volumes, and restore
     runs-on: [self-hosted, Linux, docker]
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
       - name: Back up data, remove volumes, restore, and verify login/task/attachment
@@ -171,6 +226,17 @@ jobs:
   migration-policy:
     runs-on: [self-hosted, Linux, docker]
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -211,6 +277,17 @@ jobs:
       DATABASE_URL_TEST: postgresql://taskira:taskira@localhost:5432/taskira_test
 
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
@@ -241,6 +318,17 @@ jobs:
     runs-on: [self-hosted, Linux, docker]
 
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare-test-runner
 
@@ -291,6 +379,17 @@ jobs:
     runs-on: [self-hosted, Linux, docker]
 
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
         with:
           # build-release.sh deliberately rejects shallow history because it
@@ -385,6 +484,17 @@ jobs:
       ADMIN_PASSWORD: Emergency-Access-42!
 
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
@@ -479,6 +589,17 @@ jobs:
       STORAGE_S3_FORCE_PATH_STYLE: "true"
 
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
@@ -545,6 +666,17 @@ jobs:
       MAIL_API: http://localhost:8025
 
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
