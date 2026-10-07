@@ -8,8 +8,10 @@ Docker Desktop WSL integration. Для двух раннеров настрое�
 Docker socket, запуск контейнера, доступ к отдельным workspace/tool cache, TLS и Git.
 Метка `docker` добавляется после успешной проверки, включая подготовку CA bundle на каждом хосте.
 GitHub распределяет jobs между свободными раннерами с этой меткой. Проверки образов сериализованы
-через `taskira-image-security`, поскольку используют фиксированные имена контейнеров и порты;
-браузерные tests и ревью могут идти параллельно с ними и друг с другом.
+через `taskira-image-security`, поскольку используют фиксированные имена контейнеров и порты.
+`queue: max` сохраняет несколько ожидающих проверок в очереди: новая проверка другого PR
+не отменяет предыдущую ([правила очереди GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)).
+Браузерные tests и ревью могут идти параллельно с ними и друг с другом.
 Версии среды закреплены: Node 22 Debian Bookworm и Playwright 1.56.1 Ubuntu Noble.
 Windows-раннер не выбирается этими метками.
 
