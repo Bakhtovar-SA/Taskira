@@ -27,6 +27,28 @@ jobs:
           if [ -e /var/run/docker.sock ]; then stat -Lc 'Docker socket: %U %G %a' /var/run/docker.sock; fi
           timeout 30 docker version
           timeout 30 docker info --format 'Daemon ID={{.ID}}; version={{.ServerVersion}}; OS={{.OSType}}'
+      - name: Inspect tools required by the test jobs
+        run: |
+          cat /etc/os-release
+          missing=0
+          for tool in jq python3 curl git openssl ip; do
+            if command -v "$tool" >/dev/null; then
+              printf '%s: %s\n' "$tool" "$(command -v "$tool")"
+            else
+              printf '%s: missing\n' "$tool"
+              missing=1
+            fi
+          done
+          for tool in psql pg_dump pg_restore; do
+            if [ -x "/usr/lib/postgresql/16/bin/$tool" ]; then
+              "/usr/lib/postgresql/16/bin/$tool" --version
+            else
+              printf 'PostgreSQL 16 %s: missing\n' "$tool"
+              missing=1
+            fi
+          done
+          docker compose version
+          [ "$missing" = 0 ] || { echo '::error::Install the missing test tools as described in docs/CI-RUNNERS.md'; exit 1; }
       - uses: actions/checkout@v7
       - name: Prepare trusted CA bundle on this host
         run: bash .github/scripts/prepare-runner-trust.sh
