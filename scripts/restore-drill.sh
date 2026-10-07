@@ -132,9 +132,12 @@ if [ "$ENGINE" = docker ]; then
 else
   image_root="$(podman info --format '{{.Store.GraphRoot}}')"
 fi
-for directory in "${TMPDIR:-/tmp}" "$image_root"; do
-  [ -d "$directory" ] || fail "image or temporary storage is not accessible on this host: $directory"
-  free_bytes="$(df -Pk "$directory" | awk 'END {printf "%.0f", $4 * 1024}')"
+temporary_directory="${TMPDIR:-/tmp}"
+[ -d "$temporary_directory" ] || fail "temporary storage is not accessible on this host: $temporary_directory"
+temporary_free_bytes="$(df -Pk "$temporary_directory" | awk 'END {printf "%.0f", $4 * 1024}')"
+engine_available_kb="$(container_storage_available_kb "$image_root")"
+[[ "$engine_available_kb" =~ ^[0-9]+$ ]] || fail 'cannot determine free space for container storage'
+for free_bytes in "$temporary_free_bytes" "$((engine_available_kb * 1024))"; do
   [[ "$free_bytes" =~ ^[0-9]+$ ]] && [ "$free_bytes" -ge "$required_bytes" ] || fail 'insufficient_space'
 done
 echo 'Preparing an isolated restore stack...'
