@@ -218,6 +218,7 @@ if run_drill --archive "$TMP_DIR/corrupt.tar.gz"; then
   echo 'restore drill accepted a corrupt archive' >&2; exit 1
 fi
 [ "$(working_sql -c "SELECT result FROM ops_runs WHERE kind='restore_drill' ORDER BY started_at DESC LIMIT 1")" = failure ]
+[ "$(working_sql -c "SELECT error LIKE '%unexpected end of file%' OR error LIKE '%Unexpected EOF%' OR error LIKE '%not in gzip format%' FROM ops_runs WHERE kind='restore_drill' ORDER BY started_at DESC LIMIT 1")" = t ]
 assert_drill_cleanup
 
 # Restore the original local fixture before the existing disaster scenario.
