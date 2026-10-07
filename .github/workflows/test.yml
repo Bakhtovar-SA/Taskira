@@ -8,11 +8,23 @@ on:
 jobs:
   security:
     name: dependency and image security
-    runs-on: [self-hosted, Linux]
+    runs-on: [self-hosted, Linux, docker]
+    # Image tests use fixed container names and ports, including on a shared Desktop daemon.
+    concurrency:
+      group: taskira-image-security
+      cancel-in-progress: false
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - name: Prepare trusted CA bundle for host tools and post-steps
+        run: |
+          bash .github/scripts/prepare-runner-trust.sh
+          bundle="$RUNNER_TOOL_CACHE/taskira-trust/ca-certificates.crt"
+          for variable in NODE_EXTRA_CA_CERTS SSL_CERT_FILE CURL_CA_BUNDLE GIT_SSL_CAINFO; do
+            printf '%s=%s\n' "$variable" "$bundle" >> "$GITHUB_ENV"
+          done
+          echo 'NODE_USE_SYSTEM_CA=1' >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -53,6 +65,9 @@ jobs:
       - name: Trivy client image (HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          # The self-hosted runner retains this cache; avoid slow tar uploads from WSL/NTFS.
+          cache: "false"
+          cache-dir: ${{ runner.tool_cache }}/taskira-trivy
           image-ref: taskira-client:security
           format: table
           exit-code: "1"
@@ -62,6 +77,9 @@ jobs:
       - name: Trivy server image (HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
+          cache: "false"
+          cache-dir: ${{ runner.tool_cache }}/taskira-trivy
+          skip-setup-trivy: "true"
           image-ref: taskira-server:security
           format: table
           exit-code: "1"
