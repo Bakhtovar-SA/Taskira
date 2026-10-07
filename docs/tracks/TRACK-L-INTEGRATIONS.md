@@ -4,7 +4,7 @@
 [#142](https://github.com/Bakhtovar-SA/Taskira/pull/142)–[#144](https://github.com/Bakhtovar-SA/Taskira/pull/144).
 INT-16 реализован и проверен локально в [#154](https://github.com/Bakhtovar-SA/Taskira/pull/154).
 Все CI jobs переведены на собственные Linux-раннеры в [#156](https://github.com/Bakhtovar-SA/Taskira/pull/156);
-полный запуск требует установки `jq` и клиента PostgreSQL 16 на обоих хостах.
+Инструменты установлены; проверяются оба хоста и полный CI.
 Завершение фиксируется после последовательного merge и проверок всех частей.
 
 Постановка — [TZ-ARCHITECTURE-BRIEF.md](TZ-ARCHITECTURE-BRIEF.md). Решения — ADR
