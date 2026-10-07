@@ -240,6 +240,17 @@ test("scrape читает операции напрямую, текущий за
   await record("backup", "running", 0.1); expect(await scrape()).toContain('taskira_ops_last_run_success{kind="backup"} 1');
   await record("backup", "failure", 0); expect(await scrape()).toContain('taskira_ops_last_run_success{kind="backup"} 0');
 });
+test.each(["backup", "restore_drill"] as const)("%s: scrape учитывает порядок завершения перекрывающихся операций", async kind => {
+  await record(kind, "failure", 8); await record(kind, "success", 7);
+  const scrape = async () => (await app.inject({ method: "GET", url: "/metrics" })).body;
+  const gauge = `taskira_ops_last_run_success{kind="${kind}"}`;
+  expect(await scrape()).toContain(`${gauge} 1`);
+  // The older operation finishes last; its failure must replace the newer success.
+  await q(`UPDATE ops_runs SET finished_at=now() WHERE kind=$1 AND result='failure'`, [kind]);
+  expect(await scrape()).toContain(`${gauge} 0`);
+  await record(kind, "running", 0.1);
+  expect(await scrape()).toContain(`${gauge} 0`);
+});
 test("точные пороги операций и пустая история", () => {
   const now = Date.now(), facts = { lastSuccessAt: null, lastRunAt: null, lastResult: null, archive: null };
   expect(opsState(facts, "backup", now)).toBe("unknown");

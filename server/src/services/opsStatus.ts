@@ -28,8 +28,8 @@ export async function getOpsSnapshot(kind: OpsKind): Promise<{ facts: OpsFacts; 
     getOpsRuns(kind, 1),
     q<{ at: Date }>(`SELECT finished_at AS at FROM ops_runs WHERE kind = $1 AND result = 'success' AND finished_at IS NOT NULL
       ORDER BY finished_at DESC, id DESC LIMIT 1`, [kind]),
-    q<{ result: string }>(`SELECT result FROM ops_runs WHERE kind = $1 AND result <> 'running'
-      ORDER BY started_at DESC, id DESC LIMIT 1`, [kind]),
+    q<{ result: string }>(`SELECT result FROM ops_runs WHERE kind = $1 AND result <> 'running' AND finished_at IS NOT NULL
+      ORDER BY finished_at DESC, id DESC LIMIT 1`, [kind]),
   ]);
   const run = latest[0];
   if (!run) return { facts: emptyOpsFacts(), lastCompletedSuccess: null };
