@@ -180,7 +180,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
 
   const healthWarningsCache = createTtlCache<HealthWarning[]>(60_000);
   const readiness = async (_req: unknown, reply: { code(status: number): { send(body: unknown): void } }) => {
-    const [database, storage] = await Promise.all([checkDatabaseReadiness(), checkStorageReadiness()]);
+    const [database, storage] = await Promise.all([checkDatabaseReadiness(app.log), checkStorageReadiness(app.log)]);
     const checks = { db: database.db, migrations: database.migrations, storage };
     const pending = database.pending;
     const ok = checks.db && checks.migrations && checks.storage;
