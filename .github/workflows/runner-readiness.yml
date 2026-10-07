@@ -14,7 +14,7 @@ jobs:
             label: taskira-a
           - name: ubuntu
             label: taskira-b
-    runs-on: [self-hosted, Linux, "${{ matrix.label }}"]
+    runs-on: [self-hosted, Linux, docker, "${{ matrix.label }}"]
     timeout-minutes: 10
     permissions:
       contents: read

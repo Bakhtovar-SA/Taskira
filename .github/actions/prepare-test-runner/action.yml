@@ -1,6 +1,9 @@
 name: Prepare self-hosted test runner
 description: Prepare strict TLS trust and the tools used by Linux test jobs.
 inputs:
+  docker:
+    description: Require Docker Compose and container test utilities.
+    default: 'true'
   postgres:
     description: Require PostgreSQL 16 client tools and configure the service port.
     default: 'false'
@@ -24,9 +27,15 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}
       run: |
-        for tool in jq python3 curl git openssl ip; do
+        for tool in jq python3 curl git openssl; do
           command -v "$tool" >/dev/null || { echo "::error::Install the missing runner utility: $tool (docs/CI-RUNNERS.md)"; exit 1; }
         done
+    - name: Check container utilities
+      if: inputs.docker == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        command -v ip >/dev/null || { echo '::error::Install iproute2 on this Docker runner (docs/CI-RUNNERS.md)'; exit 1; }
         docker compose version
     - name: Configure PostgreSQL 16 client and isolated service port
       if: inputs.postgres == 'true'

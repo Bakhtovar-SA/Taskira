@@ -41,6 +41,17 @@ jobs:
         working-directory: server
       - name: Validate vulnerability exception policy
         run: bash scripts/check-trivy-ignore.sh
+      - name: Validate source and release Compose files with Docker Compose
+        env:
+          POSTGRES_PASSWORD: compose-check
+          JWT_SECRET: compose-check-12345678901234567890123456789012
+          ADMIN_PASSWORD: Compose-Check-42!Secure
+          CORS_ORIGIN: http://127.0.0.1:8081
+        run: |
+          docker compose -f docker-compose.yml config >/dev/null
+          release_compose="$(mktemp)"
+          scripts/render-compose.sh release 9.8.7-test > "$release_compose"
+          docker compose -f "$release_compose" config >/dev/null
       - name: Build images for scanning
         run: |
           docker build -t taskira-client:security .
@@ -90,23 +101,14 @@ jobs:
           trivyignores: .trivyignore.yaml
 
   snapshot-list:
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: [self-hosted, Linux, light]
     outputs:
       snapshots: ${{ steps.snapshots.outputs.json }}
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
+        with:
+          docker: 'false'
       - id: snapshots
         name: Discover database snapshots
         run: |
@@ -220,23 +222,14 @@ jobs:
         run: bash scripts/test-backup-restore-integration.sh
 
   migration-policy:
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: [self-hosted, Linux, light]
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: ./.github/actions/prepare-test-runner
+        with:
+          docker: 'false'
 
       - name: Self-test migration policy guard
         run: bash scripts/test-migration-policy.sh
@@ -310,22 +303,13 @@ jobs:
   # которые можно смёржить по отдельности. Чтобы он реально блокировал мерж, джоба должна быть required check в
   # настройках ветки (на бесплатном приватном репозитории GitHub эту настройку не даёт — см. docs/tickets/UI-02).
   types:
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: [self-hosted, Linux, light]
 
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare-test-runner
+        with:
+          docker: 'false'
 
       - uses: actions/setup-node@v4
         with:
@@ -368,26 +352,17 @@ jobs:
   # В CI клиент раньше не проверялся вообще — единственный барьер против
   # красной сборки перед тяжёлой работой над UI.
   client:
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: [self-hosted, Linux, light]
 
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
         with:
           # build-release.sh deliberately rejects shallow history because it
           # cannot generate a trustworthy CHANGELOG.md from an incomplete log.
           fetch-depth: 0
       - uses: ./.github/actions/prepare-test-runner
+        with:
+          docker: 'false'
 
       - uses: actions/setup-node@v7
         with:
@@ -419,18 +394,6 @@ jobs:
 
       - name: Validate offline release scripts
         run: bash scripts/test-release-scripts.sh
-
-      - name: Validate source and release Compose files with Docker Compose
-        env:
-          POSTGRES_PASSWORD: compose-check
-          JWT_SECRET: compose-check-12345678901234567890123456789012
-          ADMIN_PASSWORD: Compose-Check-42!Secure
-          CORS_ORIGIN: http://127.0.0.1:8081
-        run: |
-          docker compose -f docker-compose.yml config >/dev/null
-          release_compose="$(mktemp)"
-          scripts/render-compose.sh release 9.8.7-test > "$release_compose"
-          docker compose -f "$release_compose" config >/dev/null
 
   # Отдельный job: LDAP-путь против НАСТОЯЩЕГО OpenLDAP (не мока).
   # AUTH_MODE=ldap здесь только для этого job — основной `server` job идёт в local.
