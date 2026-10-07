@@ -36,6 +36,24 @@ env_file_value() {
   sed -n "s/^${key}=//p" "$file" | tail -n 1 | sed 's/\r$//'
 }
 
+# Docker Desktop keeps DockerRootDir in its VM, outside the caller's WSL
+# filesystem. Use an already-loaded installation image to query that same
+# container-storage filesystem; no image download or host mount is needed.
+container_storage_available_kb() {
+  local image
+  if [ -d "$1" ]; then
+    df -Pk "$1" | awk 'END {print $4}'
+    return
+  fi
+  image="$(compose config --images postgres)" || return $?
+  [ -n "$image" ] && [[ "$image" != *$'\n'* ]] || {
+    echo 'ERROR: cannot determine the installed PostgreSQL image for the storage check' >&2
+    return 1
+  }
+  "$ENGINE" run --rm --pull=never --network none --read-only --cap-drop ALL \
+    --entrypoint df "$image" -Pk / | awk 'END {print $4}'
+}
+
 wait_until_healthy() {
   expected="$1"
   port="$2"
