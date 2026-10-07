@@ -12,6 +12,7 @@ jobs:
     # Image tests use fixed container names and ports, including on a shared Desktop daemon.
     concurrency:
       group: taskira-image-security
+      queue: max
       cancel-in-progress: false
     permissions:
       contents: read
