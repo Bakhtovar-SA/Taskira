@@ -247,22 +247,37 @@ jobs:
 
   podman-rootless:
     name: rootless Podman install, health and upgrade
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, docker]
     timeout-minutes: 45
     env:
       CONTAINER_ENGINE: podman
       PODMAN_COMPOSE_PROVIDER: podman-compose
       PODMAN_COMPOSE_WARNING_LOGS: "false"
     steps:
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
+      - uses: ./.github/actions/prepare-test-runner
       - name: Install the podman-compose provider and confirm rootless mode
         run: |
-          python3 -m pip install --user 'podman-compose>=1.3,<2'
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          export PATH="$HOME/.local/bin:$PATH"
+          command -v podman >/dev/null || { echo '::error::Install Podman with rootless support on this Docker-pool runner'; exit 1; }
+          provider="$RUNNER_TEMP/taskira-podman-provider"
+          python3 -m venv "$provider" || { echo '::error::Install python3-venv on this Docker-pool runner'; exit 1; }
+          "$provider/bin/python" -m pip install 'podman-compose>=1.3,<2'
+          echo "$provider/bin" >> "$GITHUB_PATH"
+          export PATH="$provider/bin:$PATH"
           podman --version
           podman-compose --version
           test "$(id -u)" != 0
