@@ -13,6 +13,14 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - name: Prepare trusted CA bundle for host tools and post-steps
+        run: |
+          bash .github/scripts/prepare-runner-trust.sh
+          bundle="$RUNNER_TOOL_CACHE/taskira-trust/ca-certificates.crt"
+          for variable in NODE_EXTRA_CA_CERTS SSL_CERT_FILE CURL_CA_BUNDLE GIT_SSL_CAINFO; do
+            printf '%s=%s\n' "$variable" "$bundle" >> "$GITHUB_ENV"
+          done
+          echo 'NODE_USE_SYSTEM_CA=1' >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:
           node-version: 22

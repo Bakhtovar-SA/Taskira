@@ -23,6 +23,8 @@ curl --fail --silent --show-error --head https://registry.npmjs.org/
 ```
 
 Jobs ревью и браузерных тестов сначала выполняют `prepare-runner-trust` непосредственно в Linux/WSL.
+Job безопасности также готовит bundle на хосте до запуска npm/Trivy и передаёт переменные доверия
+в следующие шаги, включая сохранение кеша после проверок.
 Скрипт `.github/scripts/prepare-runner-trust.sh` копирует системный CA bundle в локальный tool cache раннера.
 В WSL он также читает из доверенных корневых хранилищ Windows (`LocalMachine/Root`, `CurrentUser/Root`)
 действующие самоподписанные CA с точным именем `InfoWatch Transparent Proxy Root` и добавляет их
