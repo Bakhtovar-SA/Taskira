@@ -14,6 +14,7 @@ on:
       - "vite.config.js"
       - "tsconfig.json"
       - ".github/workflows/ui-visual.yml"
+      - ".github/scripts/**"
       - "e2e/**"
       - "playwright.config.ts"
       - "playwright.production.config.ts"
@@ -21,23 +22,31 @@ on:
       - "nginx.conf"
 
 jobs:
-  ui-visual:
+  prepare-runner-trust:
     runs-on: [self-hosted, Linux]
-    # Match the pinned Playwright version and the Linux screenshot environment.
-    container:
-      image: mcr.microsoft.com/playwright:v1.56.1-noble
-      volumes:
-        - /etc/ssl/certs/ca-certificates.crt:/opt/taskira-runner-ca.pem:ro
-    env:
-      NODE_EXTRA_CA_CERTS: /opt/taskira-runner-ca.pem
-      NODE_USE_SYSTEM_CA: '1'
-      SSL_CERT_FILE: /opt/taskira-runner-ca.pem
-      CURL_CA_BUNDLE: /opt/taskira-runner-ca.pem
-      GIT_SSL_CAINFO: /opt/taskira-runner-ca.pem
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - name: Prepare local Linux and WSL CA bundle
+        run: bash .github/scripts/prepare-runner-trust.sh
+  ui-visual:
+    needs: prepare-runner-trust
+    runs-on: [self-hosted, Linux]
+    # Match the pinned Playwright version and the Linux screenshot environment.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+    env:
+      NODE_EXTRA_CA_CERTS: /__w/_tool/taskira-trust/ca-certificates.crt
+      NODE_USE_SYSTEM_CA: '1'
+      SSL_CERT_FILE: /__w/_tool/taskira-trust/ca-certificates.crt
+      CURL_CA_BUNDLE: /__w/_tool/taskira-trust/ca-certificates.crt
+      GIT_SSL_CAINFO: /__w/_tool/taskira-trust/ca-certificates.crt
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - run: node .github/scripts/check-runner-tls.mjs
       - uses: actions/setup-node@v7
         with:
           node-version: 22
