@@ -23,6 +23,12 @@ on:
 jobs:
   ui-visual:
     runs-on: [self-hosted, Linux]
+    # Хост раннера — Ubuntu 26.04, для неё Playwright 1.56.1 браузеры не ставит. Официальный образ Playwright
+    # той же версии содержит Chromium и системные библиотеки — та же среда, в которой сняты эталоны.
+    # Версию образа меняют вместе с @playwright/test в package.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-jammy
+      options: --ipc=host
     permissions:
       contents: read
     steps:
@@ -32,7 +38,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
       - run: npm run test:ui
       - run: npm run test:ui:production
       - if: failure()
