@@ -1,6 +1,7 @@
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
 import type {
+  RecurringConfigDto, RecurringRuleBody, RecurringRulePatchBody, RecurringRuleDto, RecurringRunDto, RecurringPreviewBody,
   ApiTokenCreateBody, ApiTokenDto, ApiTokenCreatedDto, ApiTokenAdminDto, ApiTokenAdminQuery,
   ServiceAccountCreateBody, ServiceAccountPatchBody, ServiceAccountDto,
   WebhookCreateBody, WebhookPatchBody, WebhookDeliveryQuery, WebhookDto, WebhookDeliveryDetailDto,
@@ -285,6 +286,19 @@ export type ServerIssue = IssueDto & Partial<Omit<IssueDetailDto, keyof IssueDto
 
 /** Префикс ресурсов проекта. */
 const P = (projectId: string) => `/api/projects/${projectId}`;
+
+export const recurringApi = {
+  config: () => api<RecurringConfigDto>("/api/recurring/config"),
+  list: (pid: string) => api<RecurringRuleDto[]>(`${P(pid)}/recurring`),
+  create: (pid: string, body: RecurringRuleBody) => api<RecurringRuleDto>(`${P(pid)}/recurring`, { method: "POST", body }),
+  update: (pid: string, id: string, body: RecurringRulePatchBody) => api<RecurringRuleDto>(`${P(pid)}/recurring/${id}`, { method: "PATCH", body }),
+  remove: (pid: string, id: string) => api<void>(`${P(pid)}/recurring/${id}`, { method: "DELETE" }),
+  pause: (pid: string, id: string) => api<RecurringRuleDto>(`${P(pid)}/recurring/${id}/pause`, { method: "POST" }),
+  resume: (pid: string, id: string) => api<RecurringRuleDto>(`${P(pid)}/recurring/${id}/resume`, { method: "POST" }),
+  runNow: (pid: string, id: string) => api<RecurringRunDto>(`${P(pid)}/recurring/${id}/run-now`, { method: "POST" }),
+  preview: (pid: string, body: RecurringPreviewBody, signal?: AbortSignal) => api<{ next: string[] }>(`${P(pid)}/recurring/preview`, { method: "POST", body, signal }),
+  runs: (pid: string, id: string, limit = 100) => api<RecurringRunDto[]>(`${P(pid)}/recurring/${id}/runs`, { query: { limit: String(limit) } }),
+};
 const H = (projectId: string, id: string) => `${P(projectId)}/webhooks/${encodeURIComponent(id)}`;
 export const integrationsApi = { config: () => api<IntegrationsConfigDto>("/api/integrations/config") };
 export const webhooksApi = {
