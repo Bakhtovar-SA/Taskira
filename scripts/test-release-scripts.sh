@@ -12,6 +12,7 @@ bash -n scripts/backup.sh
 bash -n scripts/restore.sh
 bash -n scripts/support-bundle.sh
 bash -n scripts/operations-common.sh
+bash scripts/test-container-storage-space.sh
 bash -n scripts/release/install.sh
 bash -n scripts/check-trivy-ignore.sh
 
