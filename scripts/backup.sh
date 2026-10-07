@@ -29,14 +29,16 @@ timestamp="$(date -u +'%Y%m%dT%H%M%SZ')"
 [ -n "$OUTPUT" ] || OUTPUT="$PWD/taskira-backup-${timestamp}.tar.gz"
 case "$OUTPUT" in /*) ;; *) OUTPUT="$PWD/$OUTPUT" ;; esac
 OPS_ARCHIVE="$OUTPUT"
-OPS_RUN_ID="$(ops_run_start backup)"
 STARTED_AT="$(date +%s)"
+OPS_RUN_ID=""
 WORK_DIR=""
 STACK_STOPPED=0
 cleanup() {
   local code=$?
   trap - EXIT ERR
   if [ "$code" != 0 ]; then
+    # Failures before the dump still get a report with the original start time.
+    [ -n "$OPS_RUN_ID" ] || OPS_RUN_ID="$(ops_run_start backup "$STARTED_AT")"
     ops_run_finish "$OPS_RUN_ID" failure '{}' "${OPS_LAST_ERROR:-backup failed (exit $code)}"
   fi
   if [ "$STACK_STOPPED" = "1" ]; then
@@ -71,6 +73,8 @@ compose exec -T postgres pg_dump --format=custom --no-owner --no-privileges \
   -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$WORK_DIR/bundle/database.dump"
 verify_database_dump "$WORK_DIR/bundle/database.dump"
 schema_migrations > "$WORK_DIR/bundle/schema-migrations.txt"
+# The snapshot must not contain its own unfinished backup report.
+OPS_RUN_ID="$(ops_run_start backup "$STARTED_AT")"
 
 echo "Exporting attachment storage..."
 storage_command export "$WORK_DIR/bundle/storage"

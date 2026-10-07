@@ -31,11 +31,15 @@ compose() {
     success) printf '01234567-89ab-cdef-0123-456789abcdef\n' ;;
   esac
 }
-id="$(ops_run_start "backup'); DELETE FROM users; --")"
+STARTED_AT=1700000123
+id="$(ops_run_start "backup'); DELETE FROM users; --" "$STARTED_AT")"
 [ "$id" = 01234567-89ab-cdef-0123-456789abcdef ]
 grep -Fq "VALUES (:'kind', :'host'" "$TEST_DIR/sql"
 ! grep -Fq 'DELETE FROM users' "$TEST_DIR/sql"
 grep -Fq 'archive\ with\ spaces.tar.gz' "$TEST_DIR/arguments"
+grep -Fq 'started_epoch=1700000123' "$TEST_DIR/arguments"
+grep -Fq "to_timestamp(NULLIF(:'started_epoch', '')::double precision)" "$TEST_DIR/sql"
+unset STARTED_AT
 
 ops_run_finish "$id" failure '{"quote":"SQL '\'' and newline"}' $'fixture-mail-secret\nпроверка ошибки RED'
 grep -Fq "NULLIF(left(:'error', 2000), '')" "$TEST_DIR/sql"
