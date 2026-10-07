@@ -34,7 +34,8 @@ export interface PasswordResetOutcome {
 export async function resetLocalPassword(
   target: PasswordOwner & { id: string },
   actorId: string | null,
-  opts: { allowAdmin: boolean },
+  /** auditInTx — записать `user.password.reset` в той же транзакции (консольный сброс): нет записи — нет сброса. */
+  opts: { allowAdmin: boolean; auditInTx?: Record<string, unknown> },
 ): Promise<PasswordResetOutcome | null> {
   const cfg = loadConfig();
   const temporaryPassword = await generateTemporaryPassword(target);
@@ -57,6 +58,18 @@ export async function resetLocalPassword(
         RETURNING id, prefix, scope`,
       [target.id, actorId],
     );
+    if (opts.auditInTx) {
+      // Не через audit(): тот глотает ошибки. Здесь сбой INSERT откатывает сброс целиком.
+      await client.query(
+        `INSERT INTO audit_log (actor_id, action, entity, entity_id, details, result)
+         VALUES ($1, 'user.password.reset', 'user', $2, $3::jsonb, 'success')`,
+        [actorId, target.id, JSON.stringify({
+          ...opts.auditInTx,
+          expiresAt: rows[0].password_expires_at.toISOString(),
+          revokedTokens: tokens.rows.length,
+        })],
+      );
+    }
     return { expiresAt: rows[0].password_expires_at, tokens: tokens.rows };
   });
   if (!result) return null;

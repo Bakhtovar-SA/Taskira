@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { buildApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
+import { resetLocalPassword } from "../src/services/passwords.js";
 import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
 let app: FastifyInstance;
@@ -303,8 +304,24 @@ describe("POST /api/admin/users/:id/password-reset", () => {
 
     expect(run("nobody-here").status).toBe(1);
     await q(`UPDATE users SET auth_source = 'ldap', password_hash = NULL WHERE id = $1`, [fx.users.mgr1]);
-    expect(run("mgr1").status).toBe(1);
+    const ldap = run("mgr1");
+    expect(ldap.status).toBe(1);
+    expect(ldap.stderr).toContain("LDAP");
+    await q(`UPDATE users SET auth_source = 'service', password_hash = NULL WHERE id = $1`, [fx.users.viw1]);
+    const service = run("viw1");
+    expect(service.status).toBe(1);
+    expect(service.stderr).toContain("сервисная запись");
+    expect(await auditRows("user.password.reset")).toHaveLength(1); // отказы не пишутся как сброс
   }, 120_000);
+
+  test("console reset is atomic with its audit row: a failing audit insert rolls the reset back", async () => {
+    const [row] = await q<{ id: string; username: string; password_hash: string }>(`SELECT id, username, password_hash FROM users WHERE id = $1`, [fx.users.admin]);
+    // \u0000 в jsonb Postgres не принимает — INSERT в audit_log падает внутри транзакции сброса
+    await expect(resetLocalPassword(row, null, { allowAdmin: true, auditInTx: { bad: "\u0000" } })).rejects.toThrow();
+    const [after] = await q<{ password_hash: string; must_change_password: boolean }>(`SELECT password_hash, must_change_password FROM users WHERE id = $1`, [fx.users.admin]);
+    expect(after).toEqual({ password_hash: row.password_hash, must_change_password: false });
+    expect(await auditRows("user.password.reset")).toHaveLength(0);
+  });
 
   test("a user created with mustChangePassword must change it on first login", async () => {
     const admin = await login(app, "admin");
