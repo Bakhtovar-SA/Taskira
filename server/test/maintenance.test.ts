@@ -75,7 +75,8 @@ describe("пачки и потолок за проход", () => {
       FROM ops_runs GROUP BY kind ORDER BY kind`)).toEqual([
       { kind: 'backup', n: 200, oldest: 200 }, { kind: 'restore_drill', n: 200, oldest: 200 },
     ]);
-    expect((await auditRuns()).map((row) => row.details.opsRunsPurged)).toEqual([20, 10]);
+    // This query has no ordering contract; both purge counts must be audited exactly once.
+    expect((await auditRuns()).map((row) => Number(row.details.opsRunsPurged)).sort((a, b) => a - b)).toEqual([10, 20]);
     await resetDb();
     expect(Number((await q<{ n: string }>(`SELECT count(*) AS n FROM ops_runs`))[0].n)).toBe(0);
   });
