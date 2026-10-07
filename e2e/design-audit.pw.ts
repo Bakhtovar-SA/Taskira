@@ -35,7 +35,7 @@ test("shell refresh: navigation, favorites, shortcuts and profile", async ({ pag
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await header.getByRole("link", { name: "Список", exact: true }).click();
-  await expect(page).toHaveURL(/\/list$/);
+  await expect(page).toHaveURL(url => url.pathname === "/p/CORP/list");
   await expect(header.getByRole("link", { name: "Список", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("main").getByRole("heading", { name: "Список задач", exact: true })).toHaveCount(0);
   await sidebar.getByRole("button", { name: "Меню пользователя" }).click();

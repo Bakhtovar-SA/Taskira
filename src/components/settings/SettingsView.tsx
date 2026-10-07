@@ -12,6 +12,7 @@ import {
   IcBell,
   IcBolt,
   IcBriefcase,
+  IcCalendar,
   IcCompose,
   IcDiamond,
   IcDownload,
@@ -41,6 +42,7 @@ const WorkflowView = lazy(() => import("../WorkflowView"));
 const PermissionsView = lazy(() => import("../PermissionsView"));
 const AdminView = lazy(() => import("../AdminView"));
 const ProjectIntegrations = lazy(() => import("./ProjectIntegrations"));
+const ProjectRecurring = lazy(() => import("./ProjectRecurring"));
 const PersonalTokens = lazy(() => import("./PersonalTokens"));
 const ServiceAccounts = lazy(() => import("./ServiceAccounts"));
 
@@ -58,6 +60,7 @@ const META: Record<string, Meta> = {
   workflow: { icon: (p) => <IcFlow {...p} />, tone: "pink" },
   fields: { icon: (p) => <IcFilter {...p} />, tone: "indigo" },
   templates: { icon: (p) => <IcCompose {...p} />, tone: "violet" },
+  recurring: { icon: (p) => <IcCalendar {...p} />, tone: "teal" },
   access: { icon: (p) => <IcShield {...p} />, tone: "green" },
   modules: { icon: (p) => <IcFlag {...p} />, tone: "amber" },
   integrations: { icon: (p) => <IcLink {...p} />, tone: "teal" },
@@ -109,7 +112,7 @@ export default function SettingsView() {
   } else if (home === "settings") page = section === "tokens" ? <PersonalTokens key={me.id} /> : <PersonalSection section={section} />;
   else if (home === "projectSettings") {
     page =
-      section === "integrations" ? (
+      section === "recurring" ? (<ProjectRecurring key={`${data.currentProjectId}:${me.id}`} />) : section === "integrations" ? (
         <ProjectIntegrations key={data.currentProjectId} />
       ) : section === "access" ? (
         <PermissionsView />
