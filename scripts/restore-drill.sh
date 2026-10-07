@@ -35,6 +35,8 @@ DRILL_DIR=""
 DRILL_PROJECT=""
 DRILL_CONFIGURED=0
 ERROR_CAPTURED=0
+ERROR_LOG=""
+ERROR_TEE_PID=""
 DETAILS='{}'
 OPS_LAST_ERROR='restore drill failed'
 
@@ -55,9 +57,12 @@ cleanup() {
   trap - EXIT ERR
   if [ "$ERROR_CAPTURED" = 1 ]; then
     exec 2>&3
+    wait "$ERROR_TEE_PID" || true
     if [ "$code" != 0 ]; then
-      OPS_LAST_ERROR+=$'\n'"$(tail -n 20 "$DRILL_DIR/error.log" 2>/dev/null || true)"
+      OPS_LAST_ERROR+=$'\n'"$(tail -n 20 "$ERROR_LOG" 2>/dev/null || true)"
+      if [ -n "$DRILL_DIR" ]; then redact_stream < "$ERROR_LOG" > "$DRILL_DIR/error.log"; fi
     fi
+    rm -f -- "$ERROR_LOG"
   fi
   OPS_LAST_ERROR="$(printf '%s\n' "$OPS_LAST_ERROR" | redact_stream)"
   if [ -n "$DRILL_DIR" ] && [ "$KEEP_ON_FAILURE" = 1 ] && [ "$code" != 0 ]; then
@@ -101,6 +106,14 @@ trap 'OPS_LAST_ERROR="restore drill terminated"; exit 143' TERM
 for command_name in tar sha256sum mktemp date df awk jq openssl ip stat find tee tail; do
   command -v "$command_name" >/dev/null || fail "$command_name is required"
 done
+# Capture errors before archive selection and Docker inspection, including
+# failures inside command substitutions. The private file exists before the
+# drill directory and is always removed by cleanup.
+ERROR_LOG="$(mktemp "${TMPDIR:-/tmp}/taskira-drill-error.XXXXXXXX")"
+exec 3>&2
+exec 2> >(tee "$ERROR_LOG" >&3)
+ERROR_TEE_PID=$!
+ERROR_CAPTURED=1
 if [ -n "$BACKUP_DIR" ]; then
   [ -d "$BACKUP_DIR" ] || fail "backup directory is missing"
   latest_time=0
@@ -170,9 +183,6 @@ DUE_REMINDER_ENABLED=false
 MAINTENANCE_ENABLED=false
 EOF
 OPS_EXTRA_REDACT_ENV="$DRILL_DIR/.env"
-exec 3>&2
-exec 2> >(tee "$DRILL_DIR/error.log" >&3)
-ERROR_CAPTURED=1
 
 # Reject overlaps with all engine networks and the host's routed CIDRs.
 reserved="$(ip -4 route show | awk '$1 ~ /^[0-9.]+\// {print $1}')"
