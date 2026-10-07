@@ -30,15 +30,25 @@ jobs:
       - name: Inspect tools required by the test jobs
         run: |
           cat /etc/os-release
-          for tool in jq psql pg_dump pg_restore python3 unzip zip curl git openssl ip; do
+          missing=0
+          for tool in jq python3 curl git openssl ip; do
             if command -v "$tool" >/dev/null; then
               printf '%s: %s\n' "$tool" "$(command -v "$tool")"
             else
               printf '%s: missing\n' "$tool"
+              missing=1
+            fi
+          done
+          for tool in psql pg_dump pg_restore; do
+            if [ -x "/usr/lib/postgresql/16/bin/$tool" ]; then
+              "/usr/lib/postgresql/16/bin/$tool" --version
+            else
+              printf 'PostgreSQL 16 %s: missing\n' "$tool"
+              missing=1
             fi
           done
           docker compose version
-          if command -v pg_restore >/dev/null; then pg_restore --version; fi
+          [ "$missing" = 0 ] || { echo '::error::Install the missing test tools as described in docs/CI-RUNNERS.md'; exit 1; }
       - uses: actions/checkout@v7
       - name: Prepare trusted CA bundle on this host
         run: bash .github/scripts/prepare-runner-trust.sh
