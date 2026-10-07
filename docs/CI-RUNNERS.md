@@ -12,6 +12,29 @@ GitHub распределяет jobs между свободными ранне�
 `queue: max` сохраняет несколько ожидающих проверок в очереди: новая проверка другого PR
 не отменяет предыдущую ([правила очереди GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)).
 Браузерные tests и ревью могут идти параллельно с ними и друг с другом.
+
+Все jobs во всех workflow выполняются на собственных Linux-раннерах; `ubuntu-latest` не используется.
+Тестовые jobs на хосте вызывают общий action `.github/actions/prepare-test-runner`: он обновляет CA bundle,
+передаёт его Node/npm/Git/curl и проверяет общие утилиты до установки зависимостей. Jobs с PostgreSQL
+выбирают клиентские инструменты 16 из `/usr/lib/postgresql/16/bin`; сервер PostgreSQL 16 запускается только
+в контейнере job. Сервис получает отдельный свободный порт, который передаётся тестам через `GITHUB_ENV`.
+
+На каждом из двух раннеров нужны `jq`, Python 3, curl, Git, OpenSSL, iproute2, Docker Compose и
+`postgresql-client-16`. Node 22 устанавливается через `actions/setup-node`. PostgreSQL-сервер на хосте
+не требуется. Для Ubuntu 22.04/24.04/26.04 клиент 16 доступен в
+[официальном репозитории PostgreSQL](https://www.postgresql.org/download/linux/ubuntu/):
+
+```bash
+sudo apt update
+sudo apt install -y jq postgresql-common
+sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+sudo apt update && sudo apt install -y postgresql-client-16
+```
+
+`runner readiness` показывает отсутствующие утилиты и проверяет Compose на каждом хосте. Если версия
+клиента отличается или инструменты отсутствуют, тестовые jobs завершаются с явной диагностикой,
+а не используют случайную версию PostgreSQL из `PATH`.
+
 Версии среды закреплены: Node 22 Debian Bookworm и Playwright 1.56.1 Ubuntu Noble.
 Windows-раннер не выбирается этими метками.
 
