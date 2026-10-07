@@ -68,14 +68,19 @@ describe("пачки и потолок за проход", () => {
       SELECT kind, now()-make_interval(secs => position), 'success', jsonb_build_object('position', position)
       FROM unnest(ARRAY['backup','restore_drill']) kind CROSS JOIN generate_series(1,215) position`);
     cfg().maxPerRun = 20;
+    expect(await runMaintenanceOnce({ dryRun: true })).toMatchObject({ opsRunsPurged: 30, capped: true, dryRun: true });
+    expect(Number((await q<{ n: string }>(`SELECT count(*) AS n FROM ops_runs`))[0].n)).toBe(430);
+    expect(await auditRuns()).toHaveLength(0);
     expect((await runMaintenanceOnce()).capped).toBe(true);
     expect(Number((await q<{ n: string }>(`SELECT count(*) AS n FROM ops_runs`))[0].n)).toBe(410);
+    expect(await runMaintenanceOnce({ dryRun: true })).toMatchObject({ opsRunsPurged: 10, capped: false });
     expect((await runMaintenanceOnce()).capped).toBe(false);
     expect(await q(`SELECT kind, count(*)::int AS n, max((details->>'position')::int) AS oldest
       FROM ops_runs GROUP BY kind ORDER BY kind`)).toEqual([
       { kind: 'backup', n: 200, oldest: 200 }, { kind: 'restore_drill', n: 200, oldest: 200 },
     ]);
     // This query has no ordering contract; both purge counts must be audited exactly once.
+    expect(await runMaintenanceOnce({ dryRun: true })).toMatchObject({ opsRunsPurged: 0, capped: false });
     expect((await auditRuns()).map((row) => Number(row.details.opsRunsPurged)).sort((a, b) => a - b)).toEqual([10, 20]);
     await resetDb();
     expect(Number((await q<{ n: string }>(`SELECT count(*) AS n FROM ops_runs`))[0].n)).toBe(0);

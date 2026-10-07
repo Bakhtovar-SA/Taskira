@@ -55,4 +55,33 @@ MODE=failure
 [ -z "$(ops_run_start backup 2> "$TEST_DIR/warning")" ]
 ops_run_finish "$id" success '{}' '' 2> "$TEST_DIR/warning"
 grep -Fq 'could not be recorded' "$TEST_DIR/warning"
+# Docker inspection fails inside a command substitution before the drill
+# directory exists. Its diagnostic must still reach the redacted report.
+mkdir "$TEST_DIR/bin"
+printf 'services: {}\n' > "$INSTALL_DIR/docker-compose.yml"
+touch "$TEST_DIR/archive.tar.gz"
+cat > "$TEST_DIR/bin/docker" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = info ]; then
+  [ "${2:-}" = --format ] || exit 0
+  echo 'fixture DockerRootDir failure fixture-mail-secret' >&2
+  exit 42
+fi
+printf '%q\n' "$@" >> "$OPS_REPORT_TEST_DIR/drill-arguments"
+cat > "$OPS_REPORT_TEST_DIR/drill-sql"
+printf '01234567-89ab-cdef-0123-456789abcdef\n'
+SH
+# These tools are checked but are not used by this failing path.
+for tool in jq ip openssl; do printf '#!/usr/bin/env bash\nexit 0\n' > "$TEST_DIR/bin/$tool"; done
+chmod +x "$TEST_DIR/bin/"*
+if OPS_REPORT_TEST_DIR="$TEST_DIR" TMPDIR="$TEST_DIR" PATH="$TEST_DIR/bin:$PATH" \
+  bash "$ROOT_DIR/scripts/restore-drill.sh" --install-dir "$INSTALL_DIR" --engine docker \
+    --archive "$TEST_DIR/archive.tar.gz" > "$TEST_DIR/drill-output" 2>&1; then
+  echo 'restore drill accepted a failed Docker inspection' >&2; exit 1
+fi
+grep -Fq 'fixture DockerRootDir failure' "$TEST_DIR/drill-arguments"
+! grep -Fq 'fixture-mail-secret' "$TEST_DIR/drill-arguments"
+grep -Fq 'REDACTED' "$TEST_DIR/drill-arguments"
+[ -z "$(find "$TEST_DIR" -maxdepth 1 -name 'taskira-drill-error.*' -print)" ]
+
 echo 'host operation reporting and redaction checks passed'

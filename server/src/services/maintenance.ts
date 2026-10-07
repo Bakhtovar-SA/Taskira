@@ -59,6 +59,7 @@ import { runDueEventsOnce } from "./dueEvents.js";
 export interface MaintenanceStats {
   archived: number;
   auditPurged: number;
+  opsRunsPurged: number;
   /** Упёрлись в MAINTENANCE_MAX_PER_RUN: остаток обработают следующие проходы. При dryRun — «столько строк не
    *  поместится в один проход». */
   capped: boolean;
@@ -77,6 +78,7 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 /** Условия «пора» — одни и те же для пачек и для dry-run, чтобы они не разошлись. */
 const ARCHIVE_WHERE = `done_at IS NOT NULL AND archived_at IS NULL AND done_at < now() - make_interval(days => $1::int)`;
 const PURGE_WHERE = `created_at < now() - make_interval(days => $1::int)`;
+const OPS_HISTORY = `SELECT id, row_number() OVER (PARTITION BY kind ORDER BY started_at DESC, id DESC) AS position FROM ops_runs`;
 
 /**
  * Выполняет пачки одного оператора, пока пачка полная и не достигнут потолок за проход. Каждая пачка — отдельный
@@ -110,7 +112,9 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
       cfg.auditRetentionDays > 0
         ? await q<{ n: number }>(`SELECT count(*)::int AS n FROM audit_log WHERE ${PURGE_WHERE}`, [cfg.auditRetentionDays])
         : [{ n: 0 }];
-    return { archived: a.n, auditPurged: p.n, capped: a.n > cfg.maxPerRun || p.n > cfg.maxPerRun, dryRun: true };
+    const [ops] = await q<{ n: number }>(`SELECT count(*)::int AS n FROM (${OPS_HISTORY}) history WHERE position > $1`, [200]);
+    return { archived: a.n, auditPurged: p.n, opsRunsPurged: ops.n,
+      capped: a.n > cfg.maxPerRun || p.n > cfg.maxPerRun || ops.n > cfg.maxPerRun, dryRun: true };
   }
 
   const done = await withClient(async (client) => {
@@ -165,16 +169,14 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
       ) history WHERE ran_at < now() - make_interval(days => $1::int) OR position > 200
       LIMIT $2)`, 365, cfg);
     const opsPurged = await inBatches(client, `DELETE FROM ops_runs WHERE id IN (
-      SELECT id FROM (
-        SELECT id, row_number() OVER (PARTITION BY kind ORDER BY started_at DESC, id DESC) AS position
-        FROM ops_runs
-      ) history WHERE position > $1 LIMIT $2)`, 200, cfg);
+      SELECT id FROM (${OPS_HISTORY}) history WHERE position > $1 LIMIT $2)`, 200, cfg);
     return { archived, purged, eventsPurged, tokensPurged, recurringPurged, opsPurged };
   });
 
   const stats: MaintenanceStats = {
     archived: done.archived.count,
     auditPurged: done.purged.count,
+    opsRunsPurged: done.opsPurged.count,
     capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped || done.tokensPurged.capped || done.recurringPurged.capped || done.opsPurged.capped,
     dryRun: false,
   };
