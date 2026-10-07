@@ -9,6 +9,10 @@ jobs:
   security:
     name: dependency and image security
     runs-on: [self-hosted, Linux, docker]
+    # Image tests use fixed container names and ports, including on a shared Desktop daemon.
+    concurrency:
+      group: taskira-image-security
+      cancel-in-progress: false
     permissions:
       contents: read
     steps:
