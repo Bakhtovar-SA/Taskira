@@ -11,6 +11,8 @@ import { loadConfig } from "../src/config.js";
 import { OpsRunDto, SystemStatusDto, type SystemCheck } from "../src/contract.js";
 import { clearSystemStatusCache, getSystemStatus, systemChecks } from "../src/services/systemStatus.js";
 import { opsState } from "../src/services/opsStatus.js";
+import * as opsStatus from "../src/services/opsStatus.js";
+import { refreshBackgroundQueueMetrics, renderMetrics } from "../src/metrics.js";
 import { generateToken, invalidateUserTokens } from "../src/services/apiTokens.js";
 import { _setTransport, runNotifierOnce } from "../src/services/notifier.js";
 import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
@@ -250,6 +252,40 @@ test.each(["backup", "restore_drill"] as const)("%s: scrape учитывает �
   expect(await scrape()).toContain(`${gauge} 0`);
   await record(kind, "running", 0.1);
   expect(await scrape()).toContain(`${gauge} 0`);
+});
+test.each([
+  ["backup", false], ["restore_drill", false], ["backup", true], ["restore_drill", true],
+] as const)("%s: сохраняет метрики во время чтения, ошибка=%s", async (kind, fail) => {
+  await record(kind, "success", 8); await refreshBackgroundQueueMetrics();
+  const gauge = `taskira_ops_last_run_success{kind="${kind}"}`;
+  const timestamp = `taskira_ops_last_success_timestamp_seconds{kind="${kind}"}`;
+  const previousTime = renderMetrics(0).split("\n").find(line => line.startsWith(`${timestamp} `))!;
+  expect(previousTime).toBeDefined(); expect(renderMetrics(0)).toContain(`${gauge} 1`);
+  await record(kind, "failure", 0);
+  let entered!: () => void, release!: () => void;
+  const reading = new Promise<void>(resolve => { entered = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const original = opsStatus.getOpsSnapshot;
+  vi.spyOn(opsStatus, "getOpsSnapshot").mockImplementation(async requested => {
+    if (requested === kind) {
+      entered(); await gate;
+      if (fail) throw new Error("operation snapshot unavailable");
+    }
+    return original(requested);
+  });
+  const updating = refreshBackgroundQueueMetrics();
+  await reading;
+  try {
+    expect(renderMetrics(0)).toContain(`${gauge} 1`);
+    expect(renderMetrics(0)).toContain(previousTime);
+  } finally { release(); await updating; }
+  if (fail) {
+    expect(renderMetrics(0)).not.toContain(`${gauge} `);
+    expect(renderMetrics(0)).not.toContain(`${timestamp} `);
+  } else {
+    expect(renderMetrics(0)).toContain(`${gauge} 0`);
+    expect(renderMetrics(0)).toContain(previousTime);
+  }
 });
 test("точные пороги операций и пустая история", () => {
   const now = Date.now(), facts = { lastSuccessAt: null, lastRunAt: null, lastResult: null, archive: null };

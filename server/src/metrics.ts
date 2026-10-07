@@ -164,13 +164,16 @@ export async function refreshBackgroundQueueMetrics(): Promise<void> {
     recurringLagSeconds = rows[0].lag;
   } catch { collectionErrors += 1; }
   await Promise.all((["backup", "restore_drill"] as const).map(async kind => {
-    // Не отдаём старые зелёные значения при ошибке текущего чтения.
-    opsLastSuccess.delete(kind); opsLastRunSuccess.delete(kind);
     try {
       const snapshot = await getOpsSnapshot(kind);
+      // Меняем пару синхронно после чтения, сохраняя её во время ожидания БД.
+      opsLastSuccess.delete(kind); opsLastRunSuccess.delete(kind);
       if (snapshot.facts.lastSuccessAt !== null) opsLastSuccess.set(kind, Date.parse(snapshot.facts.lastSuccessAt) / 1000);
       if (snapshot.lastCompletedSuccess !== null) opsLastRunSuccess.set(kind, snapshot.lastCompletedSuccess);
-    } catch { collectionErrors += 1; }
+    } catch {
+      // Не отдаём старые зелёные значения при ошибке текущего чтения.
+      opsLastSuccess.delete(kind); opsLastRunSuccess.delete(kind); collectionErrors += 1;
+    }
   }));
 }
 
