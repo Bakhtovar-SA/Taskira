@@ -1,0 +1,59 @@
+name: Prepare self-hosted test runner
+description: Prepare strict TLS trust and the tools used by Linux test jobs.
+inputs:
+  docker:
+    description: Require Docker Compose and container test utilities.
+    default: 'true'
+  postgres:
+    description: Require PostgreSQL 16 client tools and configure the service port.
+    default: 'false'
+  postgres-port:
+    description: Random host port published by the PostgreSQL service.
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Prepare host TLS trust
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        bash .github/scripts/prepare-runner-trust.sh
+        bundle="$RUNNER_TOOL_CACHE/taskira-trust/ca-certificates.crt"
+        for variable in NODE_EXTRA_CA_CERTS SSL_CERT_FILE CURL_CA_BUNDLE GIT_SSL_CAINFO; do
+          printf '%s=%s\n' "$variable" "$bundle" >> "$GITHUB_ENV"
+        done
+        echo 'NODE_USE_SYSTEM_CA=1' >> "$GITHUB_ENV"
+    - name: Check host utilities
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        for tool in jq python3 curl git openssl; do
+          command -v "$tool" >/dev/null || { echo "::error::Install the missing runner utility: $tool (docs/CI-RUNNERS.md)"; exit 1; }
+        done
+    - name: Check container utilities
+      if: inputs.docker == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        command -v ip >/dev/null || { echo '::error::Install iproute2 on this Docker runner (docs/CI-RUNNERS.md)'; exit 1; }
+        docker compose version
+    - name: Configure PostgreSQL 16 client and isolated service port
+      if: inputs.postgres == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        POSTGRES_SERVICE_PORT: ${{ inputs.postgres-port }}
+      run: |
+        pg_bin=/usr/lib/postgresql/16/bin
+        for tool in psql pg_dump pg_restore; do
+          [ -x "$pg_bin/$tool" ] || { echo '::error::Install postgresql-client-16 on this runner (docs/CI-RUNNERS.md)'; exit 1; }
+        done
+        [[ "$POSTGRES_SERVICE_PORT" =~ ^[0-9]{1,5}$ ]] && (( POSTGRES_SERVICE_PORT > 0 && POSTGRES_SERVICE_PORT <= 65535 )) || { echo '::error::PostgreSQL service port is unavailable'; exit 1; }
+        printf '%s\n' "$pg_bin" >> "$GITHUB_PATH"
+        for variable in DATABASE_URL DATABASE_URL_TEST; do
+          value="${!variable:-}"
+          [ -n "$value" ] || continue
+          [[ "$value" == postgresql://taskira:taskira@localhost:5432/* ]] || { echo "::error::Unexpected CI database URL for $variable"; exit 1; }
+          printf '%s=%s\n' "$variable" "${value/@localhost:5432/@localhost:$POSTGRES_SERVICE_PORT}" >> "$GITHUB_ENV"
+        done
+        "$pg_bin/pg_restore" --version

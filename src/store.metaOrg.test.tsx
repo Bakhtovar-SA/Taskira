@@ -1,8 +1,11 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider, useStore, useToasts } from "./store";
+import { I18nProvider, loadLang } from "./i18n";
 import {
   authApi,
+  ApiError,
+  issueTemplatesApi,
   customFieldsApi,
   departmentsApi,
   issuesApi,
@@ -55,8 +58,9 @@ class FakeWebSocket {
 }
 
 let unmountCurrent: (() => void) | null = null;
+let latestMessages: ReturnType<typeof useToasts> = [];
 
-async function bootAs(me: typeof admin | typeof viewerUser) {
+async function bootAs(me: typeof admin | typeof viewerUser, templates: ProjectBootstrap["issueTemplates"] = []) {
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
   vi.spyOn(authApi, "me").mockResolvedValue(me as never);
@@ -64,19 +68,20 @@ async function bootAs(me: typeof admin | typeof viewerUser) {
   vi.spyOn(projectsApi, "list").mockResolvedValue([project] as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-  vi.spyOn(projectsApi, "get").mockResolvedValue(bootPayload([admin, viewerUser]));
+  vi.spyOn(projectsApi, "get").mockResolvedValue({ ...bootPayload([admin, viewerUser]), issueTemplates: templates });
   vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
   let latest: ReturnType<typeof useStore> | null = null;
   function Probe() {
     latest = useStore();
+    latestMessages = useToasts();
     return null;
   }
   const { unmount } = render(
-    <StoreProvider>
+    <I18nProvider><StoreProvider>
       <Probe />
-    </StoreProvider>,
+    </StoreProvider></I18nProvider>,
   );
   unmountCurrent = unmount;
   await act(async () => {
@@ -96,6 +101,15 @@ afterEach(() => {
 });
 
 describe("workflow / поля (src/store/meta.ts)", () => {
+  test.each(["ru", "en"] as const)("TEMPLATE_IN_USE preserves the template and translates deletion errors (%s)", async lang => {
+    await loadLang(lang); localStorage.setItem("taskira.lang", lang);
+    const get = await bootAs(admin, [{ id: "template-used", name: "Inspection", title: "Inspect", description: "", kind: "task", priority: "medium", position: 0 }] as never);
+    const remove = vi.spyOn(issueTemplatesApi, "remove").mockRejectedValue(new ApiError(409, "TEMPLATE_IN_USE", "Шаблон используется"));
+    act(() => get().removeIssueTemplate("template-used")); await settle();
+    expect(remove).toHaveBeenCalledWith("p1", "template-used");
+    expect(get().data.issueTemplates.map(value => value.id)).toContain("template-used");
+    expect(latestMessages[latestMessages.length - 1]?.text).toBe(lang === "en" ? "This template is used by recurring issues" : "Шаблон используется");
+  });
   test("addTransition: переход из ответа API попадает в data.workflow.transitions; одинаковые статусы — сообщение без запроса", async () => {
     const get = await bootAs(admin);
     const spy = vi.spyOn(workflowApi, "addTransition").mockResolvedValue({ id: "t1", from: "s1", to: "s2" });
