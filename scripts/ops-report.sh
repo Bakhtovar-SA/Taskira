@@ -6,11 +6,13 @@ ops_run_start() {
   local result
   if ! result="$(compose exec -T postgres psql -qAt -v ON_ERROR_STOP=1 \
       -v kind="$1" -v host="$(hostname)" -v archive="$(basename -- "${OPS_ARCHIVE:-unknown}")" \
+      -v started_epoch="${2:-}" \
       -v version="$(current_version)" -U "$POSTGRES_USER" -d "$POSTGRES_DB" 2>/dev/null <<'SQL'
 SELECT to_regclass('public.ops_runs') IS NOT NULL AS has_ops \gset
 \if :has_ops
-INSERT INTO ops_runs (kind, host, archive, app_version)
-VALUES (:'kind', :'host', NULLIF(:'archive', 'unknown'), :'version') RETURNING id;
+INSERT INTO ops_runs (kind, host, archive, app_version, started_at)
+VALUES (:'kind', :'host', NULLIF(:'archive', 'unknown'), :'version',
+  COALESCE(to_timestamp(NULLIF(:'started_epoch', '')::double precision), now())) RETURNING id;
 \else
 \echo ops_runs_missing
 \endif
