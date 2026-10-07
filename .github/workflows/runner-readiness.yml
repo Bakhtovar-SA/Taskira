@@ -14,7 +14,7 @@ jobs:
             label: taskira-a
           - name: ubuntu
             label: taskira-b
-    runs-on: [self-hosted, Linux, "${{ matrix.label }}"]
+    runs-on: [self-hosted, Linux, docker, "${{ matrix.label }}"]
     timeout-minutes: 10
     permissions:
       contents: read
@@ -27,6 +27,46 @@ jobs:
           if [ -e /var/run/docker.sock ]; then stat -Lc 'Docker socket: %U %G %a' /var/run/docker.sock; fi
           timeout 30 docker version
           timeout 30 docker info --format 'Daemon ID={{.ID}}; version={{.ServerVersion}}; OS={{.OSType}}'
+      - name: Verify image pulls in the runner environment
+        run: |
+          # Cached docker run does not exercise registry TLS or credential helpers.
+          # Match the public images pulled during job/service initialization.
+          for image in node:22-bookworm mcr.microsoft.com/playwright:v1.56.1-noble postgres:16; do
+            timeout 120 docker pull "$image"
+          done
+      - name: Inspect tools required by the test jobs
+        run: |
+          cat /etc/os-release
+          missing=0
+          for tool in jq python3 curl git openssl ip; do
+            if command -v "$tool" >/dev/null; then
+              printf '%s: %s\n' "$tool" "$(command -v "$tool")"
+            else
+              printf '%s: missing\n' "$tool"
+              missing=1
+            fi
+          done
+          for tool in psql pg_dump pg_restore; do
+            if [ -x "/usr/lib/postgresql/16/bin/$tool" ]; then
+              "/usr/lib/postgresql/16/bin/$tool" --version
+            else
+              printf 'PostgreSQL 16 %s: missing\n' "$tool"
+              missing=1
+            fi
+          done
+          docker compose version
+          [ "$missing" = 0 ] || { echo '::error::Install the missing test tools as described in docs/CI-RUNNERS.md'; exit 1; }
+      - name: Prepare checkout ownership
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          # Container actions can leave root-owned Git files on a persistent runner.
+          # Repair only this checkout; never follow symlinks outside its bind mount.
+          owner="$(id -u):$(id -g)"
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - name: Prepare trusted CA bundle on this host
         run: bash .github/scripts/prepare-runner-trust.sh
