@@ -5,23 +5,53 @@ on:
     types: [opened, synchronize]
 
 jobs:
+  prepare-runner-trust:
+    runs-on: [self-hosted, Linux]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prepare local Linux and WSL CA bundle
+        run: bash .github/scripts/prepare-runner-trust.sh
   claude-review:
-    runs-on: [self-hosted, Linux, ubuntu-latest]
+    needs: prepare-runner-trust
+    runs-on: [self-hosted, Linux]
+    container:
+      image: node:22-bookworm
+      # GitHub already mounts the host tool cache at /__w/_tool in this container.
+    env:
+      NODE_EXTRA_CA_CERTS: /__w/_tool/taskira-trust/ca-certificates.crt
+      NODE_USE_SYSTEM_CA: '1'
+      SSL_CERT_FILE: /__w/_tool/taskira-trust/ca-certificates.crt
+      CURL_CA_BUNDLE: /__w/_tool/taskira-trust/ca-certificates.crt
+      GIT_SSL_CAINFO: /__w/_tool/taskira-trust/ca-certificates.crt
     permissions:
       contents: read
       pull-requests: write
       issues: read
       id-token: write
     steps:
+      - name: Install review tools
+        run: apt-get update -qq && apt-get install -y --no-install-recommends unzip gh ripgrep
+      - name: Install pinned Bun runtime
+        working-directory: /tmp
+        run: npm install --global bun@1.3.14
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
+      - name: Verify TLS in both action runtimes
+        run: |
+          node .github/scripts/check-runner-tls.mjs
+          bun .github/scripts/check-runner-tls.mjs
+
       - name: Automated PR review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          path_to_bun_executable: /usr/local/bin/bun
           allowed_bots: dependabot
           prompt: |
             REPO: ${{ github.repository }}
