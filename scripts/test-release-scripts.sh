@@ -20,6 +20,7 @@ node --check scripts/restore-drill-probe.cjs
 bash scripts/test-ops-report.sh
 bash scripts/test-container-storage-space.sh
 bash -n scripts/release/install.sh
+bash -n scripts/release/container-engine.sh
 bash -n scripts/check-trivy-ignore.sh
 
 # SEC-DEPS-01: an expired Trivy exception must fail; a future/today one passes.
@@ -53,6 +54,8 @@ bash scripts/check-trivy-ignore.sh >/dev/null
 
 scripts/render-compose.sh source | cmp - docker-compose.yml
 scripts/render-compose.sh release 9.8.7-test | grep -F "localhost:8080/api/health" >/dev/null
+# Podman maps localhost to ::1 first; nginx in the client image listens on IPv4 only.
+scripts/render-compose.sh release 9.8.7-test | grep -F '"http://127.0.0.1/healthz"' >/dev/null
 
 if scripts/build-release.sh invalid-version >/dev/null 2>&1; then
   echo "build-release.sh accepted an invalid version" >&2
@@ -75,7 +78,9 @@ cat > "$TMP_DIR/bin/podman" <<'EOF'
 set -eu
 case "${1:-}" in
   info|pull|build|tag|load) exit 0 ;;
-  compose) exit 0 ;;
+  compose)
+    case " $* " in *" up "*) [ "${FAKE_UP_FAIL:-0}" != 1 ] || exit 1 ;; esac
+    exit 0 ;;
   image)
     if [ "${2:-}" = "inspect" ] && [ "${3:-}" = "--format" ]; then
       case "${4:-}" in
@@ -90,6 +95,23 @@ case "${1:-}" in
     output="$2"
     image="$3"
     printf 'saved image: %s\n' "$image" > "$output"
+    exit 0 ;;
+  # Install preflight fixtures: FAKE_VOLUMES="name ...", FAKE_CONTAINERS="id ...",
+  # FAKE_WORKDIR=<compose working_dir label>, FAKE_NETWORKS="name=cidr ...".
+  volume)
+    [ "${2:-}" = "inspect" ] || exit 2
+    for v in ${FAKE_VOLUMES:-}; do [ "$v" = "${3:-}" ] && exit 0; done
+    exit 1 ;;
+  ps) printf '%s\n' ${FAKE_CONTAINERS:-}; exit 0 ;;
+  inspect) printf '%s\n' "${FAKE_WORKDIR:-}"; exit 0 ;;
+  network)
+    case "${2:-}" in
+      ls) for n in ${FAKE_NETWORKS:-}; do printf '%s\n' "${n%%=*}"; done ;;
+      inspect) for n in ${FAKE_NETWORKS:-}; do
+          [ "${n%%=*}" = "${3:-}" ] && printf '[{"subnets": [{"subnet": "%s"}]}]\n' "${n#*=}"
+        done ;;
+      *) exit 2 ;;
+    esac
     exit 0 ;;
   *) echo "unexpected fake podman command: $*" >&2; exit 2 ;;
 esac
@@ -149,6 +171,139 @@ fi
 # Windows-edited CRLF env files must not append carriage returns to secrets.
 printf 'POSTGRES_PASSWORD=dbsecret\r\nJWT_SECRET=12345678901234567890123456789012\r\nADMIN_PASSWORD=Release-Secure-42!\r\nCORS_ORIGIN=http://10.20.30.40:8081\r\nCLIENT_PORT=8081\r\n' > "$RELEASE_DIR/.env"
 (cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" bash install.sh --engine podman --start >/dev/null)
+
+# Rootless Podman preflight (OPS-PODMAN-01): a fake rootless podman plus fixture
+# sysctls must turn the usual rootless traps into early, readable failures.
+mkdir -p "$TMP_DIR/rootless-bin" "$TMP_DIR/proc/user" "$TMP_DIR/proc/net/ipv4"
+cat > "$TMP_DIR/rootless-bin/podman" <<EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = "info" ] && [ "\${2:-}" = "--format" ]; then echo true; exit 0; fi
+exec "$TMP_DIR/bin/podman" "\$@"
+EOF
+chmod +x "$TMP_DIR/rootless-bin/podman"
+cp "$TMP_DIR/bin/curl" "$TMP_DIR/rootless-bin/curl"
+printf '15000\n' > "$TMP_DIR/proc/user/max_user_namespaces"
+printf '1024\n' > "$TMP_DIR/proc/net/ipv4/ip_unprivileged_port_start"
+rootless_install() {
+  (cd "$RELEASE_DIR" && PATH="$TMP_DIR/rootless-bin:$PATH" TASKIRA_PROC_SYS="$TMP_DIR/proc" \
+    TASKIRA_SUBUID_FILE="${SUBUID_FIXTURE:-/nonexistent}" XDG_RUNTIME_DIR=/run/user/1000 \
+    TASKIRA_SUBGID_FILE="${SUBGID_FIXTURE:-/nonexistent}" \
+    bash install.sh --engine podman --start 2>&1)
+}
+rootless_out="$(rootless_install)"
+printf '%s' "$rootless_out" | grep -q 'Rootless Podman detected'
+sed -i 's/^CLIENT_PORT=.*/CLIENT_PORT=80/' "$RELEASE_DIR/.env"
+if rootless_out="$(rootless_install)"; then
+  echo "install.sh accepted a privileged port under rootless Podman" >&2
+  exit 1
+fi
+printf '%s' "$rootless_out" | grep -q 'cannot publish port 80'
+sed -i 's/^CLIENT_PORT=.*/CLIENT_PORT=8081/' "$RELEASE_DIR/.env"
+printf '0\n' > "$TMP_DIR/proc/user/max_user_namespaces"
+if rootless_out="$(rootless_install)"; then
+  echo "install.sh ignored disabled user namespaces" >&2
+  exit 1
+fi
+printf '%s' "$rootless_out" | grep -q 'user namespaces are disabled'
+printf '15000\n' > "$TMP_DIR/proc/user/max_user_namespaces"
+printf 'nobody-else:100000:65536\n' > "$TMP_DIR/subuid"
+rootless_out="$(SUBUID_FIXTURE="$TMP_DIR/subuid" rootless_install)"
+printf '%s' "$rootless_out" | grep -q 'WARNING: no local subordinate UID range'
+printf '%s:100000:65536\n' "$(id -un)" > "$TMP_DIR/subuid"
+printf 'nobody-else:100000:65536\n' > "$TMP_DIR/subgid"
+rootless_out="$(SUBUID_FIXTURE="$TMP_DIR/subuid" SUBGID_FIXTURE="$TMP_DIR/subgid" rootless_install)"
+printf '%s' "$rootless_out" | grep -q 'WARNING: no local subordinate GID range'
+if printf '%s' "$rootless_out" | grep -q 'WARNING: no local subordinate UID range'; then
+  echo 'install.sh missed the configured local UID mapping' >&2; exit 1
+fi
+# Rootful/Docker-like fake (info prints nothing) must skip the checks entirely.
+printf '80\n' > "$TMP_DIR/proc/net/ipv4/ip_unprivileged_port_start"
+(cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" TASKIRA_PROC_SYS="$TMP_DIR/proc" \
+  bash install.sh --engine podman --start >/dev/null)
+
+# Existing volumes of the same project (a second installation in a directory with
+# the same name, OPS-PODMAN-01) must not be silently shared.
+fake_start() {
+  (cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" bash install.sh --engine podman --start "$@" 2>&1)
+}
+[ -f "$RELEASE_DIR/.taskira-installed" ]   # written by the successful starts above
+rm -f "$RELEASE_DIR/.taskira-installed"
+if FAKE_UP_FAIL=1 fake_start >/dev/null; then
+  echo 'install.sh ignored compose up failure' >&2; exit 1
+fi
+[ -f "$RELEASE_DIR/.taskira-installed" ]
+FAKE_VOLUMES="taskira-987-test_pgdata" FAKE_CONTAINERS='' fake_start >/dev/null
+rm -f "$RELEASE_DIR/.taskira-installed"
+printf '\nCOMPOSE_PROJECT_NAME=pinned-project\n' >> "$RELEASE_DIR/.env"
+if out="$(FAKE_VOLUMES=pinned-project_pgdata FAKE_CONTAINERS='' fake_start)"; then
+  echo "install.sh ignored the project pinned in .env" >&2
+  exit 1
+fi
+printf '%s' "$out" | grep -q 'pinned-project_pgdata'
+sed -i '/^COMPOSE_PROJECT_NAME=/d' "$RELEASE_DIR/.env"
+(
+  . "$ROOT_DIR/scripts/release/container-engine.sh"
+  mkdir "$TMP_DIR/project-env"
+  printf 'COMPOSE_PROJECT_NAME="quoted-project"\n' > "$TMP_DIR/project-env/.env"
+  unset COMPOSE_PROJECT_NAME
+  [ "$(compose_project_name "$TMP_DIR/project-env")" = quoted-project ]
+  COMPOSE_PROJECT_NAME=process-project
+  [ "$(compose_project_name "$TMP_DIR/project-env")" = process-project ]
+)
+export FAKE_VOLUMES="taskira-987-test_pgdata" FAKE_CONTAINERS="c1" FAKE_WORKDIR="/srv/other/taskira-9.8.7-test"
+if out="$(fake_start)"; then
+  echo "install.sh started on volumes of another installation" >&2
+  exit 1
+fi
+printf '%s' "$out" | grep -q 'does not belong to this installation'
+printf '%s' "$out" | grep -q '/srv/other/taskira-9.8.7-test'
+FAKE_WORKDIR="$RELEASE_DIR" fake_start >/dev/null      # containers created from this directory
+rm -f "$RELEASE_DIR/.taskira-installed"
+export FAKE_CONTAINERS=""                              # leftover volume, no containers
+if out="$(fake_start)"; then
+  echo "install.sh started on a leftover volume" >&2
+  exit 1
+fi
+printf '%s' "$out" | grep -q 'No container uses it'
+fake_start --adopt-existing-volumes >/dev/null
+[ -f "$RELEASE_DIR/.taskira-installed" ]
+fake_start >/dev/null                                  # adopted once, no flag needed again
+unset FAKE_VOLUMES FAKE_CONTAINERS FAKE_WORKDIR
+
+# A network on an overlapping subnet fails early with the variable to change.
+if out="$(FAKE_NETWORKS="podman=10.88.0.0/16 other_default=172.30.0.0/16" fake_start)"; then
+  echo "install.sh ignored an overlapping network subnet" >&2
+  exit 1
+fi
+printf '%s' "$out" | grep -q 'other_default already uses 172.30.0.0/16, which overlaps TASKIRA_NETWORK_CIDR=172.30.0.0/24'
+FAKE_NETWORKS="taskira-987-test_default=172.30.0.0/24 lan=172.31.0.0/24" fake_start >/dev/null
+if out="$(FAKE_NETWORKS="taskira-987-test_default=172.31.0.0/24" fake_start)"; then
+  echo 'install.sh ignored a changed subnet on its own stale network' >&2; exit 1
+fi
+printf '%s' "$out" | grep -q 'own network .* has changed'
+printf 'TASKIRA_NETWORK_CIDR=172.31.8.0/24\n' >> "$RELEASE_DIR/.env"
+FAKE_NETWORKS="other_default=172.30.0.0/24" fake_start >/dev/null
+sed -i '/^TASKIRA_NETWORK_CIDR=/d' "$RELEASE_DIR/.env"
+
+# Decimal parsing accepts leading zeroes without octal arithmetic, and invalid
+# configured CIDRs fail before asking the provider to create any network.
+printf 'TASKIRA_NETWORK_CIDR=172.030.008.009/24\n' >> "$RELEASE_DIR/.env"
+if out="$(FAKE_NETWORKS="other_default=172.30.8.0/24" fake_start)"; then
+  echo "install.sh missed an overlapping zero-padded CIDR" >&2; exit 1
+fi
+printf '%s' "$out" | grep -q 'overlaps TASKIRA_NETWORK_CIDR'
+sed -i '/^TASKIRA_NETWORK_CIDR=/d' "$RELEASE_DIR/.env"
+for invalid_cidr in 172.256.0.0/24 172.30.0.0/33 172.30.0.0/-1 172.30.0.0/9999999999999999; do
+  printf 'TASKIRA_NETWORK_CIDR=%s\n' "$invalid_cidr" >> "$RELEASE_DIR/.env"
+  if out="$(fake_start)"; then
+    echo "install.sh accepted invalid CIDR $invalid_cidr" >&2; exit 1
+  fi
+  printf '%s' "$out" | grep -q 'invalid TASKIRA_NETWORK_CIDR'
+  sed -i '/^TASKIRA_NETWORK_CIDR=/d' "$RELEASE_DIR/.env"
+done
+
+# SELinux: the private temporary storage mount gets a private label.
+grep -q 'backup/storage:Z' scripts/operations-common.sh
 
 # A relative --output is relative to the caller, not to the repository.
 (cd "$TMP_DIR" && PATH="$TMP_DIR/bin:$PATH" ALLOW_DIRTY_RELEASE=1 CONTAINER_ENGINE=podman \

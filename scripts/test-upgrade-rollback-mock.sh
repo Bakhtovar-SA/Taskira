@@ -182,6 +182,7 @@ run_scenario success
 expect "success: exits zero" [ "$EXIT_CODE" -eq 0 ]
 expect_not "success: no rollback" grep -Fq 'automatic rollback' "$OUT"
 expect "success: VERSION is the new one" [ "$(tr -d '\r\n' < "$FAKE_INSTALL/VERSION")" = "1.1.0" ]
+expect "success: installation ownership remembered" [ -f "$FAKE_INSTALL/.taskira-installed" ]
 
 # (f) failure before any change (downgrade refused): nothing to roll back.
 run_scenario refuse-downgrade
