@@ -12,6 +12,7 @@ import { useBrand } from "../../brand";
 import { readTransparency, setTransparency } from "../../theme";
 import { systemTransparency, watchSystemTransparency, type Transparency } from "../../transparency";
 import { BgSwatch } from "../ProjectLookPicker";
+import { ChangePasswordForm } from "../ChangePasswordForm";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 
 export function PersonalSection({ section }: { section: string }) {
@@ -83,7 +84,28 @@ function Profile() {
         <SettingRow label={t("userCard.phone")}>{ro(me.phone)}</SettingRow>
         <SettingRow label={t("settings.profile.username")}>{ro(me.username)}</SettingRow>
       </SettingsCard>
+      <PasswordCard />
     </SettingsPage>
+  );
+}
+
+/** SEC-PWD-01: смена пароля — только у локальной учётки; пароль LDAP меняется в каталоге. */
+export function PasswordCard() {
+  const { t } = useT();
+  const { me, toast } = useStore();
+  if (me.authSource === "ldap")
+    return (
+      <SettingsCard title={t("password.title")}>
+        <p className="px-5 py-4 text-[13px] text-faint">{t("password.ldap")}</p>
+      </SettingsCard>
+    );
+  if (me.authSource !== "local") return null;
+  return (
+    <SettingsCard title={t("password.title")} footer={t("password.desc")}>
+      <div className="max-w-[420px] px-5 py-4">
+        <ChangePasswordForm onDone={() => toast("success", t("password.changed"))} />
+      </div>
+    </SettingsCard>
   );
 }
 

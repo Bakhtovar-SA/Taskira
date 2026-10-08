@@ -22,7 +22,8 @@
     "perf:run": "node scripts/performance-load.mjs",
     "perf:tool:check": "node scripts/test-load-tool.mjs",
     "license:generate": "tsx scripts/generate-license.ts",
-    "license:install": "tsx scripts/install-license.ts"
+    "license:install": "tsx scripts/install-license.ts",
+    "password:reset": "tsx src/resetPassword.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1144.0",

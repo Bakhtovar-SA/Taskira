@@ -321,10 +321,13 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `DELETE …/workflow/transitions/:id` | — | **admin** | удалить переход |
 | `POST …/workflow/reset` | — | **admin** | дефолтные 8 переходов; статусы не удаляются никогда |
 | `POST /api/auth/logout` | — | requireAuth | завершает сессию: `users.tokens_valid_from = now()`, все ранее выданные токены становятся недействительными (миграция 017) |
+| `POST /api/auth/login` | `LoginBody` | — | `LoginResultDto {token, user, mustChangePassword}` + cookie. `mustChangePassword: true` (временный или начальный пароль, SEC-PWD-01) — сессия годится только для `GET /api/auth/me`, `GET /api/auth/config`, `POST /api/auth/logout`, `PUT /api/me/lang`, `POST /api/me/password`; остальное — `403 PASSWORD_CHANGE_REQUIRED`. Истёкший временный пароль — обычный `401`. `GET /api/auth/me` тоже отдаёт `mustChangePassword` |
 | `GET /api/users` | — | **admin** | все, включая деактивированных; DTO с `globalRole` |
 | `GET /api/users/pickable?q=` | — | requireAuth | **поиск** по имени/должности: минимум 2 символа, до 20 совпадений. Справочник целиком не отдаётся |
 | `POST /api/projects` | `ProjectCreateBody` (+ `templateId?`, `members?[{userId, role}]`, `icon?`, `color?`, `background?` — ADR-0018) | global admin | создать проект; шаблон и участники применяются в той же транзакции — при сбое проекта нет |
-| `POST /api/admin/users` | `CreateUserBody` (bcrypt, `globalRole`) | **admin**; занятый username — `409` | создать пользователя; членство в проекте — отдельно |
+| `POST /api/admin/users` | `CreateUserBody` (`globalRole`, `mustChangePassword?`) | **admin**; занятый username — `409`; нарушение политики пароля — `400 PASSWORD_*` | создать пользователя; членство в проекте — отдельно. `mustChangePassword: true` — при первом входе доступна только смена пароля (по умолчанию `false`, UI отправляет `true`) |
+| `POST /api/me/password` | `ChangePasswordBody` `{currentPassword, newPassword}` | requireSession (API-токен — `403 TOKEN_NOT_ALLOWED`); лимит запросов | SEC-PWD-01: смена своего пароля **локальной** учёткой. `200 LoginResultDto {token, user, mustChangePassword:false}` + новая cookie, `Cache-Control: no-store`; `session_version + 1` — остальные сессии и WS отозваны. API-токены владельца сохраняются. Ошибки: `403 CURRENT_PASSWORD_INVALID` (засчитывается в блокировку, как неудачный вход), `401 ACCOUNT_LOCKED` (эта ошибка заблокировала учётку — завершены все сессии, включая вызывающую), `429 ACCOUNT_LOCKED` (учётка уже заблокирована), `403 TEMP_PASSWORD_EXPIRED`, `400 PASSWORD_REUSED`, `400 PASSWORD_TOO_SHORT/TOO_LONG/COMMON/CONTAINS_USERNAME/CONTEXT_WORD`, `409 PASSWORD_NOT_LOCAL` (LDAP). Аудит `auth.password.change` |
+| `POST /api/admin/users/:id/password-reset` | — (`UserIdParams`) | **admin** (сессия); лимит запросов | SEC-PWD-01: `200 PasswordResetResultDto {temporaryPassword, expiresAt, revokedTokens}`, `Cache-Control: no-store`, показывается один раз; действует до смены пароля или срока `PASSWORD_RESET_TTL_HOURS` (24 ч). Ставит `must_change_password`, снимает блокировку, отзывает сессии и все API-токены пользователя (аудит `token.revoke`, `reason: password_reset`). `409 PASSWORD_NOT_LOCAL` (LDAP/сервисная), `409 PASSWORD_RESET_SELF`, `409 PASSWORD_RESET_ADMIN` (цель — глобальный admin или break-glass `ADMIN_USERNAME`; восстановление — `node dist/resetPassword.js`, docs/OPERATIONS.md), `404`. Аудит `user.password.reset` без пароля |
 | `PATCH /api/users/:id` | `{globalRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена **глобальной** роли; `invalidateUserCache` — действует сразу |
 | `PUT /api/project/members/:userId` | `SetMemberBody` `{role}` | **admin** (`manageAccess`) | добавить участника / сменить проектную роль; upsert; `invalidateMembership` |
 | `DELETE /api/project/members/:userId` | — | **admin** (`manageAccess`) | убрать из проекта; `404` если не участник; `409` — последний активный менеджер |
@@ -478,7 +481,7 @@ cd server
 npm i
 cp .env.example .env
 # Заполните: DATABASE_URL, JWT_SECRET (>=32 симв.), ADMIN_USERNAME/ADMIN_PASSWORD
-# (пароль: >=14 символов, минимум 3 из 4 групп, без имени пользователя)
+# (пароль: 14–128 символов любого состава, не из списка частых, без имени пользователя и слова Taskira)
 # JWT_SECRET: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 npm run dev        # tsx watch (chokidar polling): миграции → seed админа → listen :8080
@@ -922,7 +925,8 @@ typescript, playwright). Корневой `package.json` теперь `"name": "
 ## Секреты
 
 Только через env: `JWT_SECRET` (≥ 32 символов), `DATABASE_URL`, `ADMIN_PASSWORD`
-(≥14 символов, 3 из 4 групп, без логина и известных дефолтов).
+(14–128 символов любого состава, без логина и известных дефолтов; при создании администратора — ещё и не из
+списка частых паролей и без слова Taskira, см. `docs/SECURITY_OVERVIEW.md` §«Политика паролей»).
 `.env`, `server/.env`, `server/dist`, `server/node_modules` — в `.gitignore`.
 
 ## Напоминания о сроках
