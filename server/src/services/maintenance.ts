@@ -202,8 +202,10 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
 export interface JobStatus {
   name: string;
   intervalMs: number;
+  startDelayMs: number;
   running: boolean;
   lastRunAt: string | null;
+  lastSuccessAt: string | null;
   lastResult: "success" | "error" | "skipped" | null;
   lastDurationMs: number | null;
   lastError: string | null;
@@ -216,7 +218,7 @@ const jobStatus = new Map<string, JobStatus>();
 function statusOf(name: string, intervalMs = 0): JobStatus {
   let s = jobStatus.get(name);
   if (!s) {
-    s = { name, intervalMs, running: false, lastRunAt: null, lastResult: null, lastDurationMs: null, lastError: null, lastDetail: null, nextRunAt: null };
+    s = { name, intervalMs, startDelayMs: 0, running: false, lastRunAt: null, lastSuccessAt: null, lastResult: null, lastDurationMs: null, lastError: null, lastDetail: null, nextRunAt: null };
     jobStatus.set(name, s);
   }
   return s;
@@ -251,6 +253,7 @@ export async function trackedTick(name: string, run: () => Promise<unknown>): Pr
     }
     const sec = (performance.now() - t0) / 1000;
     st.lastResult = "success";
+    st.lastSuccessAt = st.lastRunAt;
     st.lastDurationMs = Math.round(sec * 1000);
     st.lastError = null;
     st.lastDetail = detail;
@@ -298,6 +301,7 @@ function startJob(name: string, intervalMs: number, startDelayMs: number, run: (
   let startTimer: NodeJS.Timeout | null = null;
   const st = statusOf(name, intervalMs);
   st.intervalMs = intervalMs;
+  st.startDelayMs = startDelayMs;
   st.nextRunAt = new Date(Date.now() + startDelayMs).toISOString();
 
   const tick = (): void => {

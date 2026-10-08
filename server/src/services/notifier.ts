@@ -166,7 +166,8 @@ export async function runNotifierOnce(): Promise<NotifierStats> {
       await q(
         `UPDATE notifications
             SET email_tries = email_tries + 1,
-                email_state = CASE WHEN email_tries + 1 >= $2 THEN 'failed' ELSE 'pending' END
+                email_state = CASE WHEN email_tries + 1 >= $2 THEN 'failed' ELSE 'pending' END,
+                email_failed_at = CASE WHEN email_tries + 1 >= $2 THEN now() ELSE email_failed_at END
           WHERE id = ANY($1)`,
         [ids, cfg.emailMaxTries],
       );

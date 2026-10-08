@@ -19,14 +19,19 @@ const SEARCH_INDEXES = ["idx_issues_active_title_trgm", "idx_issues_active_key_t
  * индексы всех схем без единой ошибки (TEST-01). Индексы ищутся по имени через search_path соединения,
  * то есть в схеме приложения.
  */
-export async function searchIndexWarnings(): Promise<HealthWarning[]> {
+export async function searchIndexStatus(): Promise<{ missing: string[]; ext: boolean }> {
   const [row] = await q<{ missing: string[]; ext: boolean }>(
     `SELECT COALESCE(array_agg(n) FILTER (WHERE to_regclass(n) IS NULL), '{}') AS missing,
             EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') AS ext
        FROM unnest($1::text[]) AS n`,
     [SEARCH_INDEXES],
   );
-  if (!row || row.missing.length === 0) return [];
+  return row ?? { missing: [], ext: false };
+}
+
+export async function searchIndexWarnings(): Promise<HealthWarning[]> {
+  const row = await searchIndexStatus();
+  if (row.missing.length === 0) return [];
   const why = row.ext
     ? "расширение pg_trgm установлено, индексы нужно создать (команды — в комментарии миграции 20260920T1420)"
     : "расширение pg_trgm не установлено: если contrib недоступен, это ожидаемо; если оно было и пропало — установите его и создайте индексы (миграция 20260920T1420)";

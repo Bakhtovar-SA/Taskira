@@ -32,17 +32,17 @@ import { meRoutes } from "./routes/me.js";
 import { passwordRoutes } from "./routes/passwords.js";
 import { ldapRoutes } from "./routes/ldap.js";
 import { maintenanceRoutes } from "./routes/maintenance.js";
+import { adminStatusRoutes } from "./routes/adminStatus.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { reportRoutes } from "./routes/reports.js";
 import { auditExportRoutes } from "./routes/auditExport.js";
 import { dataExportRoutes } from "./routes/dataExport.js";
 import { wsRoutes } from "./routes/ws.js";
-import { pendingMigrations, q } from "./db.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
 import { requestToken } from "./sessionCookie.js";
 import { peekVerified, rememberVerifiedRequest } from "./services/apiTokens.js";
-import { getStorage } from "./services/storage.js";
+import { checkDatabaseReadiness, checkStorageReadiness } from "./services/readiness.js";
 import { activeSocketCount } from "./services/wsHub.js";
 import { licenseRoutes } from "./routes/license.js";
 import { projectTemplateRoutes } from "./routes/projectTemplates.js";
@@ -182,23 +182,9 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
 
   const healthWarningsCache = createTtlCache<HealthWarning[]>(60_000);
   const readiness = async (_req: unknown, reply: { code(status: number): { send(body: unknown): void } }) => {
-    const checks = { db: false, migrations: false, storage: false };
-    let pending: string[] = [];
-    try {
-      await q(`SELECT 1`);
-      checks.db = true;
-      pending = await pendingMigrations();
-      checks.migrations = pending.length === 0;
-    } catch (error) {
-      app.log.warn({ err: error }, "readiness database check failed");
-    }
-    try {
-      const storage = await getStorage(cfg);
-      await storage.checkReady();
-      checks.storage = true;
-    } catch (error) {
-      app.log.warn({ err: error }, "readiness storage check failed");
-    }
+    const [database, storage] = await Promise.all([checkDatabaseReadiness(app.log), checkStorageReadiness(app.log)]);
+    const checks = { db: database.db, migrations: database.migrations, storage };
+    const pending = database.pending;
     const ok = checks.db && checks.migrations && checks.storage;
     // Деградация без ошибки (пока — поиск без индексов): видна в ответе, но не роняет readiness.
     // Кэш на минуту: healthcheck оркестратора приходит каждые несколько секунд.
@@ -262,6 +248,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       await api.register(passwordRoutes); // /me/password, /admin/users/:id/password-reset — SEC-PWD-01
       await api.register(ldapRoutes, { prefix: "/ldap" }); // /ldap/ping (global admin)
       await api.register(maintenanceRoutes, { prefix: "/maintenance" }); // статус и ручной запуск (global admin)
+      await api.register(adminStatusRoutes);
       await api.register(notificationRoutes); // /notifications* (project-less, requireAuth)
       await api.register(reportRoutes); // /reports/* (project-less, scope = видимые проекты)
       await api.register(auditExportRoutes); // /admin/audit-log/export (global admin, JSONL/CSV)

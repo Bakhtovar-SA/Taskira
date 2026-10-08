@@ -1684,3 +1684,33 @@ export const ServiceAccountDto = z.object({
 export type ServiceAccountDto = z.infer<typeof ServiceAccountDto>;
 export const IntegrationsConfigDto = z.object({ webhooksEnabled: z.boolean(), allowHttp: z.boolean(), allowedTargets: z.array(z.string()) });
 export type IntegrationsConfigDto = z.infer<typeof IntegrationsConfigDto>;
+
+/* ---------------- Состояние инсталляции (INT-14, ADR-0031) ---------------- */
+export const StatusState = z.enum(["ok", "warn", "fail", "off", "unknown"]);
+export type StatusState = z.infer<typeof StatusState>;
+export const OpsKind = z.enum(["backup", "restore_drill"]);
+export type OpsKind = z.infer<typeof OpsKind>;
+export const OpsFacts = z.object({ lastSuccessAt: z.string().nullable(), lastRunAt: z.string().nullable(),
+  lastResult: z.enum(["running", "success", "failure", "interrupted"]).nullable(), archive: z.string().nullable() });
+export type OpsFacts = z.infer<typeof OpsFacts>;
+export const SystemCheck = z.discriminatedUnion("id", [
+  z.object({ id: z.literal("database"), state: StatusState, facts: z.object({ latencyMs: z.number().nullable(), pendingMigrations: z.array(z.string()) }) }),
+  z.object({ id: z.literal("storage"), state: StatusState, facts: z.object({ driver: z.enum(["local", "s3"]), freeBytes: z.number().nullable(), totalBytes: z.number().nullable() }) }),
+  z.object({ id: z.literal("mail"), state: StatusState, facts: z.object({ enabled: z.boolean(), pending: z.number(), oldestPendingSec: z.number().nullable(), failed24h: z.number() }) }),
+  z.object({ id: z.literal("ldap"), state: StatusState, facts: z.object({ mode: z.enum(["local", "ldap"]), lastSuccessAt: z.string().nullable(), lastError: z.string().nullable(), notFound: z.number().nullable().optional() }) }),
+  z.object({ id: z.literal("jobs"), state: StatusState, facts: z.object({ jobs: z.array(z.object({ name: z.string(), lastSuccessAt: z.string().nullable(), lastResult: z.string().nullable(), intervalMs: z.number() })) }) }),
+  z.object({ id: z.literal("license"), state: StatusState, facts: z.object({ status: z.string(), expiresAt: z.string().nullable(), seatsUsed: z.number().nullable(), seatsLimit: z.number().nullable() }) }),
+  z.object({ id: z.literal("search"), state: StatusState, facts: z.object({ missingIndexes: z.array(z.string()) }) }),
+  z.object({ id: z.literal("backup"), state: StatusState, facts: OpsFacts }),
+  z.object({ id: z.literal("restoreDrill"), state: StatusState, facts: OpsFacts }),
+  z.object({ id: z.literal("webhooks"), state: StatusState, facts: z.object({ enabled: z.boolean(), active: z.number(), disabled: z.number(), paused: z.number().optional(), pending: z.number(), oldestPendingSec: z.number().nullable(), failed24h: z.number() }) }),
+  z.object({ id: z.literal("recurring"), state: StatusState, facts: z.object({ active: z.number(), paused: z.number(), ownerLostAccess: z.number(), failed24h: z.number() }) }),
+]);
+export type SystemCheck = z.infer<typeof SystemCheck>;
+export const SystemStatusDto = z.object({ version: z.string(), checkedAt: z.string(), checks: z.array(SystemCheck) });
+export type SystemStatusDto = z.infer<typeof SystemStatusDto>;
+export const OpsRunDto = z.object({ id: uuid, kind: OpsKind, startedAt: z.string(), finishedAt: z.string().nullable(),
+  result: z.enum(["running", "success", "failure", "interrupted"]), host: z.string().nullable(), archive: z.string().nullable(),
+  appVersion: z.string().nullable(), details: z.record(z.string(), z.unknown()), error: z.string().nullable() });
+export type OpsRunDto = z.infer<typeof OpsRunDto>;
+export const OpsRunsQuery = z.object({ kind: OpsKind, limit: z.coerce.number().int().min(1).max(50).default(5) }).strict();
