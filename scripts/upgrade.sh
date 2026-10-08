@@ -6,22 +6,29 @@ RELEASE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 INSTALL_DIR="${TASKIRA_INSTALL_DIR:-}"
 ENGINE="${CONTAINER_ENGINE:-}"
 MODE="upgrade"
+AUTO_ROLLBACK=1
 ROLLBACK_DIR=""
 BACKUP_DIR=""
 ROLLBACK_READY=0
 STAGE="initialization"
 TMP_DIR=""
+MAIN_PID="$$"
 
 usage() {
   cat <<'EOF'
 Upgrade an existing single-host Taskira installation from an offline release.
 
 Usage:
-  ./upgrade.sh --install-dir DIR [--engine docker|podman] [--dry-run]
+  ./upgrade.sh --install-dir DIR [--engine docker|podman] [--dry-run] [--no-auto-rollback]
   ./upgrade.sh --install-dir DIR [--engine docker|podman] --rollback BACKUP_DIR
 
 Run this script from the NEW extracted release. DIR is the existing Taskira
 installation directory containing .env, VERSION and docker-compose.yml.
+
+Once the pre-upgrade backup is verified, any failure of the upgrade itself
+(image load, migration, startup, health check) triggers an automatic rollback to
+the previous version and database. --no-auto-rollback disables that and only
+prints the manual rollback command (for inspecting a failed upgrade).
 EOF
 }
 
@@ -30,6 +37,7 @@ while [ "$#" -gt 0 ]; do
     --install-dir) [ "$#" -ge 2 ] || { echo "--install-dir requires DIR" >&2; exit 2; }; INSTALL_DIR="$2"; shift 2 ;;
     --engine) [ "$#" -ge 2 ] || { echo "--engine requires docker or podman" >&2; exit 2; }; ENGINE="$2"; shift 2 ;;
     --dry-run) MODE="dry-run"; shift ;;
+    --no-auto-rollback) AUTO_ROLLBACK=0; shift ;;
     --rollback) [ "$#" -ge 2 ] || { echo "--rollback requires BACKUP_DIR" >&2; exit 2; }; MODE="rollback"; ROLLBACK_DIR="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -49,8 +57,13 @@ rollback_command() {
 }
 
 on_error() {
-  code=$?
+  local code="${1:-$?}"
+  # `set -E` makes subshells (e.g. compose()'s `cd && ...`) inherit this trap.
+  # Only the main shell handles the failure; otherwise the rollback would run twice.
+  [ "$BASHPID" = "$MAIN_PID" ] || exit "$code"
   trap - ERR
+  # Let the rollback finish even if the caller sends another termination signal.
+  trap '' INT TERM HUP
   echo >&2
   echo "ERROR: upgrade failed during: $STAGE" >&2
   if [ "$ROLLBACK_READY" = "1" ]; then
@@ -58,6 +71,17 @@ on_error() {
     if [ "$MODE" = "rollback" ]; then
       echo "The rollback is incomplete. The original dump is unchanged." >&2
       echo "Fix the reported cause, then retry this exact restore command:" >&2
+    elif [ "$AUTO_ROLLBACK" = "1" ]; then
+      echo "Starting automatic rollback to the previous version and database..." >&2
+      # A separate process: the rollback keeps its own `set -e` semantics (inside
+      # an `if` condition in this handler errexit would be suppressed).
+      if "$RELEASE_DIR/upgrade.sh" --install-dir "$INSTALL_DIR" --engine "$ENGINE" --rollback "$BACKUP_DIR"; then
+        echo "Automatic rollback complete: the previous version and database are running again." >&2
+        echo "The upgrade did NOT happen. Fix the cause above before trying again." >&2
+        exit "$code"
+      fi
+      echo "ERROR: automatic rollback failed. The pre-upgrade dump is unchanged." >&2
+      echo "Fix the reported cause, then run this exact command to restore manually:" >&2
     else
       echo "Run this exact command to restore the previous version and database:" >&2
     fi
@@ -69,6 +93,9 @@ on_error() {
 }
 trap cleanup EXIT
 trap on_error ERR
+trap 'on_error 130' INT
+trap 'on_error 143' TERM
+trap 'on_error 129' HUP
 
 require_file() {
   [ -f "$1" ] || { echo "ERROR: required file is missing: $1" >&2; return 1; }
@@ -319,6 +346,7 @@ STAGE="current installation health check"
 wait_for_database
 wait_for_health "$current_version"
 
+STAGE="preflight checks"
 TMP_DIR="$(mktemp -d)"
 compose exec -T postgres psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   -c 'SELECT name FROM schema_migrations ORDER BY name' > "$TMP_DIR/applied.txt"
@@ -352,7 +380,7 @@ engine_required_kb=$((images_kb * 3 + 524288))
 
 echo "Upgrade plan: Taskira $current_version -> $target_version"
 echo "Database: $POSTGRES_DB ($db_bytes bytes); install filesystem free: ${available_kb} KiB"
-echo "Container storage: $engine_root; free: ${engine_available_kb} KiB"
+echo "Container storage: $engine_root; free: ${engine_available_kb:-unknown} KiB"
 if [ -s "$TMP_DIR/pending.txt" ]; then
   echo "Pending migrations:"
   sed 's/^/  - /' "$TMP_DIR/pending.txt"

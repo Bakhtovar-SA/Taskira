@@ -113,6 +113,13 @@ Enforcement points:
   themselves, so a route lists only the permission hook.
 - Task-level rule: `employee` may `edit` an issue only if `assigneeId === me || reporterId === me`.
   `admin`/`manager` edit anything.
+- **Every new API route needs a row in `server/test/access/routes.manifest.ts`, or CI fails.**
+  `routes.manifest.test.ts` diffs the manifest against the routes `buildApp()` really serves. Pick the policy from `P`
+  by the hook the route uses, and add a `BODIES`/`QUERIES` row when zod validation would otherwise answer 400 before
+  the permission check. Keep one sorted line per route. A new nested path param under `/projects/:projectId`, such as
+  `/things/:thingId`, must also be mapped in `OWNED` or `NOT_OWNED` in `server/test/access/crossProject.test.ts`.
+  An `OWNED` object is seeded in P2. Looking it up through a P1 path must return 404: scope the lookup by the parent
+  from the path, not by the id alone. The 404/403 rule is in `docs/SECURITY_OVERVIEW.md`.
 
 ### Validation limits are also mirrored
 
