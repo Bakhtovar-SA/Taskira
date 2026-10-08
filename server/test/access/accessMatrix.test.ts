@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { auth, getApp, login, newIssue, q, resetDb, seedFixture, stopApp, type Fixture } from "../helpers.js";
 import { invalidateUserCache } from "../../src/middleware.js";
 import { generateToken } from "../../src/services/apiTokens.js";
-import { BODIES, QUERIES, RELOGIN_AFTER, ROUTES, SCENARIOS, type Scenario } from "./routes.manifest.js";
+import { ALLOW_ERRORS, BODIES, QUERIES, RELOGIN_AFTER, ROUTES, SCENARIOS, type Scenario } from "./routes.manifest.js";
 
 let app: FastifyInstance;
 let fx: Fixture;
@@ -145,10 +145,15 @@ describe.each(SCENARIOS)("матрица доступа: %s", (scenario) => {
       ...(body === undefined ? {} : { payload: fill(body, c) as object }),
     });
     const where = `${method} ${url} [${scenario}] → ${res.statusCode} ${res.body.slice(0, 200)}`;
-    const denied = res.statusCode === 401 || res.statusCode === 403;
     if (expected === "ALLOW") {
-      expect(denied, `ожидался доступ, получен отказ: ${where}`).toBe(false);
-      expect(res.statusCode, `ожидался доступ, получена ошибка сервера: ${where}`).toBeLessThan(500);
+      const fixtureError = ALLOW_ERRORS[key];
+      if (fixtureError) {
+        expect(res.statusCode, where).toBe(fixtureError.status);
+        expect(res.json().error, where).toEqual({ code: fixtureError.code, reason: fixtureError.reason });
+      } else {
+        expect(res.statusCode, `ожидался успешный доступ: ${where}`).toBeGreaterThanOrEqual(200);
+        expect(res.statusCode, `ожидался успешный доступ: ${where}`).toBeLessThan(300);
+      }
     } else {
       const hint =
         res.statusCode === 400

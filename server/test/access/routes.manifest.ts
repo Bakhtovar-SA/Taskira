@@ -24,8 +24,8 @@
  *   tokenOutOfScope — API-токен scope=read пользователя emp1 (employee P1) против ресурсов проекта P2: проект вне
  *                   его членства, а метод записи вдобавок вне scope токена.
  *
- * ОЖИДАНИЯ: число — точный HTTP-статус; "ALLOW" — доступ открыт (любой статус, кроме 401/403, — тело/идентификаторы
- * подставляются условные, поэтому 400/404 уже «после» проверки прав); "N/A" — сценарий к маршруту неприменим (причина
+ * ОЖИДАНИЯ: число — точный HTTP-статус; "ALLOW" — успешный 2xx. Только ALLOW_ERRORS ниже явно разрешает
+ * точный статус и ошибку отсутствующей фикстуры или multipart; "N/A" — сценарий к маршруту неприменим (причина
  * в имени политики).
  *
  * ПРАВИЛО 404 vs 403 — docs/SECURITY_OVERVIEW.md, «Правило 404 / 403».
@@ -134,7 +134,7 @@ export const ROUTES: Readonly<Record<string, Policy>> = {
   "GET /api/integrations/config": P.adminOnly,
   "GET /api/issues/assigned-to-me": P.userRead,
   "GET /api/issues/collaborating": P.userRead,
-  "GET /api/issues/resolve": P.userRead,
+  "GET /api/issues/resolve": { ...P.userRead, outsider: 404, collabOther: 404 },
   "GET /api/issues/search": P.userRead,
   "GET /api/maintenance": P.adminOnly,
   "GET /api/me/onboarding": P.sessionOnly,
@@ -322,4 +322,18 @@ export const QUERIES: Readonly<Record<string, string>> = {
   "GET /api/reports/issues.csv": "from=2026-01-01&to=2026-12-31",
   "GET /api/reports/summary": "from=2026-01-01&to=2026-12-31",
   "POST /api/maintenance/run": "dryRun=true",
+};
+
+/** These fixtures deliberately omit binary assets, multipart bodies and a recurring rule.
+ * Exact error messages distinguish an expected missing fixture from a broken route (generic NOT_FOUND).
+ * Every other ALLOW cell must succeed; never add a generic 400/404 allowance. */
+export const ALLOW_ERRORS: Readonly<Record<string, { status: number; code: string; reason: string }>> = {
+  "DELETE /api/projects/:projectId/issues/:id/attachments/:attId": { status: 404, code: "NOT_FOUND", reason: "Вложение не найдено" },
+  "GET /api/instance/brand/logo": { status: 404, code: "NOT_FOUND", reason: "Знака нет" },
+  "GET /api/projects/:projectId/background-photo/:size": { status: 404, code: "NOT_FOUND", reason: "Фото не найдено" },
+  "GET /api/projects/:projectId/issues/:id/attachments/:attId": { status: 404, code: "NOT_FOUND", reason: "Вложение не найдено" },
+  "GET /api/projects/:projectId/recurring/:id/runs": { status: 404, code: "NOT_FOUND", reason: "Правило повторяющихся задач не найдено" },
+  "GET /api/users/:id/avatar": { status: 404, code: "NOT_FOUND", reason: "Аватарка не найдена" },
+  "POST /api/me/avatar": { status: 400, code: "VALIDATION", reason: "Ожидается multipart/form-data с полем file" },
+  "POST /api/projects/:projectId/issues/:id/attachments": { status: 400, code: "VALIDATION", reason: "Ожидается multipart/form-data с полем file" },
 };
