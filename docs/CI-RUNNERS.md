@@ -5,12 +5,13 @@
 Контейнерные jobs ревью и браузерных тестов и проверки образов используют Linux-раннер
 (`self-hosted`, `Linux`, `docker`). Метка `docker` назначается только после успешной проверки
 `docker version` под пользователем раннера; в WSL для этого дистрибутива должна быть включена
-Docker Desktop WSL integration. Для двух раннеров настроены отдельные метки `taskira-a` (`linux`)
-и `taskira-b` (`ubuntu`). Ручной workflow `runner readiness` проверяет оба: права аккаунта на
+Docker Desktop WSL integration. Для трёх Docker-раннеров настроены отдельные метки `taskira-a` (`linux`),
+`taskira-b` (`linux-2`) и `taskira-c` (`linux-3`). Ручной workflow `runner readiness` проверяет все три: права аккаунта на
 Docker socket, запуск контейнера, доступ к отдельным workspace/tool cache, TLS и Git.
 Метка `docker` добавляется после успешной проверки, включая подготовку CA bundle на каждом хосте.
 GitHub распределяет jobs между свободными раннерами с этой меткой. Проверки образов сериализованы
-через `taskira-image-security`, поскольку используют фиксированные имена контейнеров и порты.
+через `taskira-image-integration` вместе с upgrade/rollback и backup/restore, поскольку используют
+фиксированные теги образов, порты и подсети одного Docker daemon.
 `queue: max` сохраняет несколько ожидающих проверок в очереди: новая проверка другого PR
 не отменяет предыдущую ([правила очереди GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)).
 Браузерные tests и ревью могут идти параллельно с ними и друг с другом.
@@ -27,7 +28,8 @@ LDAP, S3 и Mailpit также получают отдельные Compose-пр�
 
 Все jobs во всех workflow выполняются на собственных Linux-раннерах; `ubuntu-latest` не используется.
 Задания без контейнеров выбирают `runs-on: [self-hosted, Linux, light]`: `types`, `client`,
-`migration-policy` и `snapshot-list`. Для них доступны `linux-2`, `linux-3` и `linux-4`.
+`migration-policy` и `snapshot-list`. Текущее распределение: `linux-4` — только `light`,
+`linux`, `linux-2`, `linux-3` — только `docker`.
 Эти раннеры используют отдельные рабочие каталоги; контейнерные jobs не должны получать метку `light`.
 Лёгкие задания не вызывают Docker даже при подготовке checkout и общих утилит. Проверка конфигурации
 Compose перенесена из `client` в `dependency and image security`.
@@ -35,7 +37,7 @@ Compose перенесена из `client` в `dependency and image security`.
 `runs-on: [self-hosted, Linux, docker]`, включая `prepare-runner-trust`. Текущий `server`
 поднимает PostgreSQL через `services:`, поэтому использует `docker`; серверное задание без
 контейнерных сервисов должно выбирать `light`. `runner readiness` дополнительно выбирает
-конкретный Docker-хост через метку `taskira-a` или `taskira-b`.
+конкретный раннер через метку `taskira-a`, `taskira-b` или `taskira-c`.
 
 Перед checkout каждый host job в пуле `docker` восстанавливает владельца root-owned файлов только в своём
 `GITHUB_WORKSPACE`. Контейнерные actions пишут туда от root; на файловой системе Linux это иначе
@@ -43,7 +45,8 @@ Compose перенесена из `client` в `dependency and image security`.
 изолированный контейнер без сети и с read-only root filesystem; меняются только root-owned файлы
 в bind mount checkout, симлинки не разыменовываются. Другие каталоги ПК и права доступа не меняются.
 В конце каждого контейнерного job отдельный шаг с `always()` также возвращает владельца root-owned
-файлов в `/__w/_actions`: composite action ревью устанавливает зависимости прямо в кеш Actions.
+файлов в рабочей папке и `/__w/_actions`: браузерные тесты создают сборки и снимки в workspace,
+а composite action ревью устанавливает зависимости прямо в кеш Actions.
 Каталог кеша принадлежит пользователю раннера; его UID/GID берутся из самого каталога, симлинки
 не разыменовываются. Уже накопленные файлы на `linux` мешают даже `Set up job`, до любых шагов:
 один раз под пользователем `bakhtovar` в WSL исправьте только этот кеш:
@@ -75,6 +78,7 @@ sudo apt update && sudo apt install -y postgresql-client-16
 `runner readiness` показывает отсутствующие утилиты и проверяет Compose на каждом хосте. Если версия
 клиента отличается или инструменты отсутствуют, тестовые jobs завершаются с явной диагностикой,
 а не используют случайную версию PostgreSQL из `PATH`.
+
 В восьми host jobs отключено удалённое кеширование npm в `actions/setup-node`
 (`package-manager-cache: false`). Постоянный npm-кеш пользователя раннера используется между
 запусками; `npm ci` продолжает устанавливать зависимости по lock-файлу. На `linux` 07.10.2026
