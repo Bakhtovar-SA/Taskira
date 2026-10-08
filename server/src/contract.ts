@@ -1661,13 +1661,13 @@ export const SystemCheck = z.discriminatedUnion("id", [
   z.object({ id: z.literal("database"), state: StatusState, facts: z.object({ latencyMs: z.number().nullable(), pendingMigrations: z.array(z.string()) }) }),
   z.object({ id: z.literal("storage"), state: StatusState, facts: z.object({ driver: z.enum(["local", "s3"]), freeBytes: z.number().nullable(), totalBytes: z.number().nullable() }) }),
   z.object({ id: z.literal("mail"), state: StatusState, facts: z.object({ enabled: z.boolean(), pending: z.number(), oldestPendingSec: z.number().nullable(), failed24h: z.number() }) }),
-  z.object({ id: z.literal("ldap"), state: StatusState, facts: z.object({ mode: z.enum(["local", "ldap"]), lastSuccessAt: z.string().nullable(), lastError: z.string().nullable() }) }),
+  z.object({ id: z.literal("ldap"), state: StatusState, facts: z.object({ mode: z.enum(["local", "ldap"]), lastSuccessAt: z.string().nullable(), lastError: z.string().nullable(), notFound: z.number().nullable().optional() }) }),
   z.object({ id: z.literal("jobs"), state: StatusState, facts: z.object({ jobs: z.array(z.object({ name: z.string(), lastSuccessAt: z.string().nullable(), lastResult: z.string().nullable(), intervalMs: z.number() })) }) }),
   z.object({ id: z.literal("license"), state: StatusState, facts: z.object({ status: z.string(), expiresAt: z.string().nullable(), seatsUsed: z.number().nullable(), seatsLimit: z.number().nullable() }) }),
   z.object({ id: z.literal("search"), state: StatusState, facts: z.object({ missingIndexes: z.array(z.string()) }) }),
   z.object({ id: z.literal("backup"), state: StatusState, facts: OpsFacts }),
   z.object({ id: z.literal("restoreDrill"), state: StatusState, facts: OpsFacts }),
-  z.object({ id: z.literal("webhooks"), state: StatusState, facts: z.object({ enabled: z.boolean(), active: z.number(), disabled: z.number(), pending: z.number(), oldestPendingSec: z.number().nullable(), failed24h: z.number() }) }),
+  z.object({ id: z.literal("webhooks"), state: StatusState, facts: z.object({ enabled: z.boolean(), active: z.number(), disabled: z.number(), paused: z.number().optional(), pending: z.number(), oldestPendingSec: z.number().nullable(), failed24h: z.number() }) }),
   z.object({ id: z.literal("recurring"), state: StatusState, facts: z.object({ active: z.number(), paused: z.number(), ownerLostAccess: z.number(), failed24h: z.number() }) }),
 ]);
 export type SystemCheck = z.infer<typeof SystemCheck>;

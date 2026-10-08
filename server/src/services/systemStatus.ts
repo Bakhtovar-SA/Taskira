@@ -16,6 +16,9 @@ const ids = ["database", "storage", "mail", "ldap", "jobs", "license", "search",
 const cache = createTtlCache<SystemStatusDto>(15_000);
 const checksInFlight = new Map<Id, Promise<SystemCheck>>();
 const age = (at: string): number => Math.max(0, Date.now() - Date.parse(at));
+// Missing directory users are a completed partial sync, not a transport failure.
+const ldapSuccess = `details @> '{"errors":0}'::jsonb
+  AND jsonb_typeof(details->'notFound') = 'number' AND details->>'notFound' ~ '^(0|[1-9][0-9]{0,8})$'`;
 
 function unknownCheck(id: Id): SystemCheck {
   const cfg = loadConfig();
@@ -67,17 +70,19 @@ export const systemChecks: { [K in Id]: () => Promise<Check<K>> } = {
   },
   async ldap() {
     const cfg = loadConfig();
-    const facts = { mode: cfg.authMode, lastSuccessAt: null as string | null, lastError: null as string | null };
+    const facts = { mode: cfg.authMode, lastSuccessAt: null as string | null, lastError: null as string | null, notFound: null as number | null };
     if (cfg.authMode === "local" || !cfg.ldap?.bindDn) return { id: "ldap", state: "off", facts };
     const [latest, successes] = await Promise.all([
-      q<{ at: Date; failed: boolean }>(`SELECT created_at AS at,
-        NOT COALESCE(details @> '{"errors":0,"notFound":0}'::jsonb, false) AS failed
+      q<{ at: Date; failed: boolean; not_found: number | null }>(`SELECT created_at AS at,
+        NOT COALESCE(${ldapSuccess}, false) AS failed,
+        CASE WHEN ${ldapSuccess} THEN (details->>'notFound')::int ELSE NULL END AS not_found
         FROM audit_log WHERE action = 'ldap.resync' ORDER BY created_at DESC, id DESC LIMIT 1`),
       q<{ at: Date }>(`SELECT created_at AS at FROM audit_log WHERE action = 'ldap.resync'
-        AND details @> '{"errors":0,"notFound":0}'::jsonb
+        AND ${ldapSuccess}
         ORDER BY created_at DESC, id DESC LIMIT 1`),
     ]);
     facts.lastSuccessAt = successes[0]?.at.toISOString() ?? null;
+    facts.notFound = latest[0]?.not_found ?? null;
     const job = getMaintenanceStatus().jobs.find(job => job.name === "ldap-resync");
     const jobFailed = job?.lastResult === "error" && job.lastRunAt !== null
       && (!latest[0] || Date.parse(job.lastRunAt) >= latest[0].at.getTime());
@@ -112,21 +117,22 @@ export const systemChecks: { [K in Id]: () => Promise<Check<K>> } = {
   },
   async webhooks() {
     const enabled = loadConfig().webhooks?.enabled ?? false;
-    const facts = { enabled, active: 0, disabled: 0, pending: 0, oldestPendingSec: null as number | null, failed24h: 0 };
+    const facts = { enabled, active: 0, disabled: 0, paused: 0, pending: 0, oldestPendingSec: null as number | null, failed24h: 0 };
     const [tables] = await q<{ present: boolean }>(`SELECT to_regclass('webhooks') IS NOT NULL AND to_regclass('webhook_deliveries') IS NOT NULL AS present`);
     if (!tables.present) return { id: "webhooks", state: "off", facts };
     const [subscriptions, deliveries] = await Promise.all([
-      q<{ total: number; active: number; disabled: number }>(`SELECT count(*)::int AS total,
-        count(*) FILTER (WHERE state = 'active')::int AS active, count(*) FILTER (WHERE state = 'disabled')::int AS disabled FROM webhooks`),
+      q<{ total: number; active: number; disabled: number; paused: number }>(`SELECT count(*)::int AS total,
+        count(*) FILTER (WHERE state = 'active')::int AS active, count(*) FILTER (WHERE state = 'disabled')::int AS disabled,
+        count(*) FILTER (WHERE state = 'paused')::int AS paused FROM webhooks`),
       q<{ pending: number; oldest: number | null; failed: number }>(`SELECT count(*)::int AS pending,
         GREATEST(0, extract(epoch FROM now() - min(created_at)))::double precision AS oldest,
         (SELECT count(*)::int FROM webhook_deliveries WHERE state = 'failed' AND updated_at >= now() - interval '1 day') AS failed
         FROM webhook_deliveries WHERE state IN ('pending', 'sending')`),
     ]);
-    Object.assign(facts, { active: subscriptions[0].active, disabled: subscriptions[0].disabled, pending: deliveries[0].pending,
+    Object.assign(facts, { active: subscriptions[0].active, disabled: subscriptions[0].disabled, paused: subscriptions[0].paused, pending: deliveries[0].pending,
       oldestPendingSec: deliveries[0].pending === 0 ? null : deliveries[0].oldest, failed24h: deliveries[0].failed });
     const state = !enabled && subscriptions[0].total === 0 ? "off"
-      : facts.disabled > 0 || (facts.oldestPendingSec ?? 0) > 900 || facts.failed24h > 0 ? "warn" : "ok";
+      : facts.disabled > 0 || facts.paused > 0 || (facts.oldestPendingSec ?? 0) > 900 || facts.failed24h > 0 ? "warn" : "ok";
     return { id: "webhooks", state, facts };
   },
   async recurring() {

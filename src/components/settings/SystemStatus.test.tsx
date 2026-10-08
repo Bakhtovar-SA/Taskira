@@ -65,10 +65,12 @@ test("предупреждение поиска сохраняет имена о
   expect(card("Поиск").getByText(/Поиск может замедлиться/)).toBeTruthy();
 });
 test("история загружается один раз при первом раскрытии каждого вида", async () => {
+  vi.mocked(adminApi.opsRuns).mockResolvedValue([{ ...run, result: "failure", error: "operation_failed" }]);
   show();
   await screen.findByRole("heading", { name: "Резервные копии" }); expect(adminApi.opsRuns).not.toHaveBeenCalled();
   const backup = card("Резервные копии").getByText("Последние 5 запусков");
   fireEvent.click(backup); await screen.findByText("history-backup.tar.gz");
+  expect(document.body.textContent).not.toContain("operation_failed");
   expect(adminApi.opsRuns).toHaveBeenCalledExactlyOnceWith("backup");
   fireEvent.click(backup); fireEvent.click(backup); await waitFor(() => expect(adminApi.opsRuns).toHaveBeenCalledTimes(1));
   fireEvent.click(card("Репетиция восстановления").getByText("Последние 5 запусков"));

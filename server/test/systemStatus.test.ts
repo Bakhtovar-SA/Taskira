@@ -100,6 +100,18 @@ test("история: только нужный вид, последние пя�
   const interrupted = await app.inject({ method: "GET", url: "/api/admin/ops-runs?kind=restore_drill", headers: auth(adm) });
   expect(interrupted.json()[0].result).toBe("interrupted");
 });
+test("история операций не возвращает произвольные details и текст исключения", async () => {
+  await q(`INSERT INTO ops_runs(kind,result,details,error) VALUES('backup','failure',$1::jsonb,$2)`,
+    [JSON.stringify({ bytes: 42, durationSec: 3, projects: 2, storageDriver: "local", countsSkipped: false,
+      checks: ["ready", "/private/secret"], path: "/private/secret", token: "secret", issues: "secret" }),
+      "postgresql://private:secret@host/db /private/backup"]);
+  const response = await app.inject({ method: "GET", url: "/api/admin/ops-runs?kind=backup", headers: auth(adm) });
+  expect(response.statusCode).toBe(200);
+  expect(response.json()[0]).toMatchObject({ error: "operation_failed", details: { bytes: 42, durationSec: 3,
+    projects: 2, storageDriver: "local", countsSkipped: false, checks: ["ready"] } });
+  expect(response.body).not.toMatch(/private|secret|postgresql/);
+});
+
 test("почта: off, нет SMTP, старое ожидание и реальное время окончательного отказа", async () => {
   expect((await systemChecks.mail()).state).toBe("off");
   cfg.notify.emailEnabled = true; cfg.notify.smtp = null;
@@ -118,6 +130,8 @@ test("вебхуки: выключенная пустая функция off; di
   const [hook] = await q<{ id: string }>(`INSERT INTO webhooks(project_id,name,url_enc,url_display,secret_enc,events,state,disabled_reason)
     VALUES($1,'Fixture','sealed','https://fixture.example','sealed',ARRAY['issue.created'],'disabled','failing') RETURNING id`, [fx.projects.p1]);
   expect(await systemChecks.webhooks()).toMatchObject({ state: "warn", facts: { disabled: 1 } });
+  await q(`UPDATE webhooks SET state='paused',disabled_reason=NULL WHERE id=$1`, [hook.id]);
+  expect(await systemChecks.webhooks()).toMatchObject({ state: "warn", facts: { active: 0, disabled: 0, paused: 1 } });
   await q(`UPDATE webhooks SET state='active',disabled_reason=NULL WHERE id=$1`, [hook.id]); cfg.webhooks.enabled = true;
   const [event] = await q<{ id: string }>(`INSERT INTO integration_events(type,project_id,dedupe_key)
     VALUES('issue.created',$1,'status-fixture') RETURNING id`, [fx.projects.p1]);
@@ -202,6 +216,8 @@ test("LDAP: ручной успешный ресинк, старый успех 
   cfg.authMode = "ldap"; cfg.ldap = { bindDn: "fixture", resyncIntervalMs: 3600_000 } as NonNullable<typeof cfg.ldap>;
   await q(`INSERT INTO audit_log(action,entity,created_at,details) VALUES('ldap.resync','users',now()-interval '1 hour','{"errors":0,"notFound":0}')`);
   expect((await systemChecks.ldap()).state).toBe("ok");
+  await q(`UPDATE audit_log SET details='{"errors":0,"notFound":2}' WHERE action='ldap.resync'`);
+  expect(await systemChecks.ldap()).toMatchObject({ state: "ok", facts: { notFound: 2, lastError: null } });
   await q(`UPDATE audit_log SET created_at=now()-interval '4 hours' WHERE action='ldap.resync'`);
   expect((await systemChecks.ldap()).state).toBe("warn");
   await q(`INSERT INTO audit_log(action,entity,details) VALUES('ldap.resync','users','{"errors":1,"notFound":0}')`);
