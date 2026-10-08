@@ -318,6 +318,7 @@ if [ "$MODE" = "rollback" ]; then
   STAGE="starting previous Taskira version"
   compose up -d
   wait_for_health "$old_version"
+  : > "$INSTALL_DIR/${INSTALL_MARKER:-.taskira-installed}"
   echo "Rollback complete. Taskira $old_version and its database were restored."
   exit 0
 fi
@@ -423,6 +424,7 @@ STAGE="starting Taskira $target_version"
 compose up -d
 STAGE="health-checking Taskira $target_version"
 wait_for_health "$target_version"
+: > "$INSTALL_DIR/${INSTALL_MARKER:-.taskira-installed}"
 
 echo "Upgrade complete: Taskira $current_version -> $target_version"
 echo "Backup: $BACKUP_DIR/database.dump"

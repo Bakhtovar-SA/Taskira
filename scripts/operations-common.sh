@@ -128,8 +128,10 @@ storage_command() {
   user_args=()
   [ "$mode" != "export" ] || user_args=(--user 0)
   [ "${OPS_STORAGE_DRIVER:-}" != local ] || user_args+=(-e STORAGE_DRIVER=local)
-  # :z relabels the host dir for the container (SELinux on RHEL/Rocky/RED OS); no-op without SELinux.
-  compose run --rm --no-deps -T "${user_args[@]}" -v "$host_dir:/backup/storage:z"     server node dist/ops-storage.js "$mode" /backup/storage
+  # All callers pass a private backup/restore/drill temporary directory.
+  # :Z gives this container a private SELinux label; never pass a user home.
+  compose run --rm --no-deps -T ${user_args[@]+"${user_args[@]}"} -v "$host_dir:/backup/storage:Z" \
+    server node dist/ops-storage.js "$mode" /backup/storage
 }
 
 drop_database() {

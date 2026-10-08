@@ -110,17 +110,27 @@ preflight_project_volumes() {
 }
 
 ipv4_to_int() {
-  local IFS=.
+  [[ "$1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 2
+  local IFS=. octet value=0
   set -- $1
-  echo $(( ($1 << 24) + ($2 << 16) + ($3 << 8) + $4 ))
+  for octet in "$@"; do
+    octet=$((10#$octet))
+    [ "$octet" -le 255 ] || return 2
+    value=$(((value << 8) + octet))
+  done
+  printf '%s\n' "$value"
 }
 
 cidrs_overlap() {
-  a_bits="${1#*/}"
-  b_bits="${2#*/}"
-  bits=$(( a_bits < b_bits ? a_bits : b_bits ))
-  mask=$(( bits == 0 ? 0 : (0xFFFFFFFF << (32 - bits)) & 0xFFFFFFFF ))
-  [ $(( $(ipv4_to_int "${1%/*}") & mask )) -eq $(( $(ipv4_to_int "${2%/*}") & mask )) ]
+  local a_bits="${1#*/}" b_bits="${2#*/}" a_ip b_ip bits mask
+  [[ "$a_bits" =~ ^[0-9]{1,2}$ && "$b_bits" =~ ^[0-9]{1,2}$ ]] || return 2
+  a_bits=$((10#$a_bits)); b_bits=$((10#$b_bits))
+  [ "$a_bits" -le 32 ] && [ "$b_bits" -le 32 ] || return 2
+  a_ip="$(ipv4_to_int "${1%/*}")" || return 2
+  b_ip="$(ipv4_to_int "${2%/*}")" || return 2
+  bits=$((a_bits < b_bits ? a_bits : b_bits))
+  mask=$((bits == 0 ? 0 : (0xFFFFFFFF << (32 - bits)) & 0xFFFFFFFF))
+  [ $((a_ip & mask)) -eq $((b_ip & mask)) ]
 }
 
 # The project network uses a fixed subnet (TASKIRA_NETWORK_CIDR, default
@@ -131,7 +141,10 @@ preflight_network() {
   dir="$1"
   cidr="$(env_file_value "$dir/.env" TASKIRA_NETWORK_CIDR)"
   [ -n "$cidr" ] || cidr="172.30.0.0/24"
-  [[ "$cidr" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$ ]] || return 0
+  if ! cidrs_overlap "$cidr" "$cidr"; then
+    echo "ERROR: invalid TASKIRA_NETWORK_CIDR=$cidr; use four octets 0-255 and a prefix 0-32." >&2
+    return 1
+  fi
   own="$(compose_project_name "$dir")_default"
   while IFS= read -r net; do
     [ -n "$net" ] && [ "$net" != "$own" ] || continue

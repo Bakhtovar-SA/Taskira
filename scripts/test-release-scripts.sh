@@ -222,8 +222,25 @@ printf 'TASKIRA_NETWORK_CIDR=172.31.8.0/24\n' >> "$RELEASE_DIR/.env"
 FAKE_NETWORKS="other_default=172.30.0.0/24" fake_start >/dev/null
 sed -i '/^TASKIRA_NETWORK_CIDR=/d' "$RELEASE_DIR/.env"
 
-# SELinux: the bind-mounted storage directory must carry :z.
-grep -q 'backup/storage:z' scripts/operations-common.sh
+# Decimal parsing accepts leading zeroes without octal arithmetic, and invalid
+# configured CIDRs fail before asking the provider to create any network.
+printf 'TASKIRA_NETWORK_CIDR=172.030.008.009/24\n' >> "$RELEASE_DIR/.env"
+if out="$(FAKE_NETWORKS="other_default=172.30.8.0/24" fake_start)"; then
+  echo "install.sh missed an overlapping zero-padded CIDR" >&2; exit 1
+fi
+printf '%s' "$out" | grep -q 'overlaps TASKIRA_NETWORK_CIDR'
+sed -i '/^TASKIRA_NETWORK_CIDR=/d' "$RELEASE_DIR/.env"
+for invalid_cidr in 172.256.0.0/24 172.30.0.0/33 172.30.0.0/-1 172.30.0.0/9999999999999999; do
+  printf 'TASKIRA_NETWORK_CIDR=%s\n' "$invalid_cidr" >> "$RELEASE_DIR/.env"
+  if out="$(fake_start)"; then
+    echo "install.sh accepted invalid CIDR $invalid_cidr" >&2; exit 1
+  fi
+  printf '%s' "$out" | grep -q 'invalid TASKIRA_NETWORK_CIDR'
+  sed -i '/^TASKIRA_NETWORK_CIDR=/d' "$RELEASE_DIR/.env"
+done
+
+# SELinux: the private temporary storage mount gets a private label.
+grep -q 'backup/storage:Z' scripts/operations-common.sh
 
 # A relative --output is relative to the caller, not to the repository.
 (cd "$TMP_DIR" && PATH="$TMP_DIR/bin:$PATH" ALLOW_DIRTY_RELEASE=1 CONTAINER_ENGINE=podman \

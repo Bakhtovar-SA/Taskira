@@ -130,10 +130,10 @@ curl -f "$(sed -n 's/^CORS_ORIGIN=//p' .env)/api/health"
 
 ## 6. Podman rootless
 
-Раздел составлен по документации Podman и по статическому разбору скриптов
-установки. Прогон на RHEL/Rocky 9, Astra Linux и РЕД ОС фиксируется отдельно
-(в репозитории — `docs/MANUAL-CHECK-TRACK-M.md`); до тех пор считайте пункты
-«проверить» ниже обязательными для вашей ОС.
+Установка проверена на Rocky Linux 10.2 с Podman 5.8.2 и podman-compose 1.6.0;
+результаты записаны в `docs/MANUAL-CHECK-TRACK-M.md` репозитория. Другие версии
+RHEL/Rocky, Astra Linux и РЕД ОС этим прогоном не проверены: выполните проверки
+ниже на вашей ОС.
 
 **Общие правила.** Выполняйте все команды от одного обычного пользователя,
 зашедшего напрямую (ssh или консоль), а не через `su`/`sudo -u`: Podman
@@ -155,7 +155,8 @@ podman system migrate                            # от этого пользо�
 **Compose provider.** `podman compose` — лишь обёртка. Нужен один из:
 `docker-compose` v2 (тогда включите пользовательский сокет:
 `systemctl --user enable --now podman.socket`) или `podman-compose` версии
-1.1 и новее. Более старые `podman-compose` (в частности 1.0.x из некоторых
+1.6.0 (проверен). Диапазон 1.1+ — рекомендация по совместимости, отдельные версии
+между 1.1 и 1.6.0 не проверены. Более старые `podman-compose` (в частности 1.0.x из некоторых
 репозиториев ОС) не гарантируют ожидание `depends_on: condition:
 service_healthy`: `server` может стартовать раньше PostgreSQL. Проверьте:
 `podman compose version`. Taskira не скачивает эту зависимость — положите её
@@ -167,7 +168,7 @@ service_healthy`: `server` может стартовать раньше PostgreS
 файлы томов принадлежат «субпользователям» из `/etc/subuid`, а не вам — это
 нормально. Не делайте `chown`/`chmod` на содержимое томов снаружи; посмотреть
 файлы можно через `podman unshare` или `podman volume inspect`. Единственный
-bind-mount — временный каталог `backup.sh`/`restore.sh`; он монтируется с `:z`
+bind-mount — закрытый временный каталог `backup.sh`/`restore.sh`; он монтируется с приватной меткой `:Z`
 (иначе под SELinux — «permission denied»).
 
 **Порты ниже 1024.** По умолчанию порт 8081, он публикуется без прав root.
@@ -230,8 +231,9 @@ systemctl --user enable --now taskira.service
 Проверьте автозапуск реальной перезагрузкой: `loginctl show-user $USER -p
 Linger` должно показать `Linger=yes`, а после `reboot` — `curl -f
 http://127.0.0.1:8081/api/health` без входа в систему. Альтернатива —
-`systemctl --user enable podman-restart.service`; она зависит от версии Podman
-(политика `unless-stopped` учитывается не везде), поэтому юнит выше надёжнее.
+`systemctl --user enable podman-restart.service`: на проверенном Podman 5.8.2
+он поднимает контейнеры с `unless-stopped`. Для других версий подтвердите это
+перезагрузкой; compose-юнит выше явно управляет запуском всего стека.
 Quadlet-юниты (`.container`) в комплект пока не входят: стек описан compose-файлом,
 и перенос на Quadlet — отдельная задача.
 
@@ -242,7 +244,7 @@ Quadlet-юниты (`.container`) в комплект пока не входят
 - `install.sh` сообщает «Rootless Podman detected», но контейнеры не становятся
   healthy после `su - user`: нет `XDG_RUNTIME_DIR`; зайдите по ssh/консоли.
 - `permission denied` в `backup.sh`/`restore.sh` на SELinux — используйте
-  скрипты из этого релиза (в них есть `:z`), не копируйте старые версии.
+  скрипты из этого релиза (в них есть `:Z`), не копируйте старые версии.
 - Образы загружаются в хранилище пользователя: после `sudo podman load`
   Compose их не увидит (`image ... not known`).
 - Диск хранилища образов rootless-пользователя — `~/.local/share/containers`;
