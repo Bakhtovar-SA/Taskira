@@ -13,11 +13,26 @@ const SIX_HOURS = 6 * 60 * 60_000;
 const iso = (date: Date | null): string | null => date?.toISOString() ?? null;
 export const emptyOpsFacts = (): OpsFacts => ({ lastSuccessAt: null, lastRunAt: null, lastResult: null, archive: null });
 
+function safeDetails(raw: Record<string, unknown> | null): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const details: Record<string, unknown> = {};
+  for (const key of ["bytes", "durationSec", "projects", "issues"]) {
+    const value = raw[key];
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) details[key] = value;
+  }
+  for (const key of ["countsSkipped", "attachmentSkipped"]) {
+    if (typeof raw[key] === "boolean") details[key] = raw[key];
+  }
+  if (raw.storageDriver === "local" || raw.storageDriver === "s3") details.storageDriver = raw.storageDriver;
+  if (Array.isArray(raw.checks)) details.checks = raw.checks.filter(value => ["ready", "login", "projects", "counts", "attachment"].includes(value));
+  return details;
+}
+
 function mapRun(row: OpsRow, now = Date.now()): OpsRunDto {
   return { id: row.id, kind: row.kind, startedAt: row.started_at.toISOString(), finishedAt: iso(row.finished_at),
     result: row.result === "running" && now - row.started_at.getTime() > SIX_HOURS ? "interrupted" : row.result,
     host: row.host, archive: row.archive === null ? null : basename(row.archive.replaceAll("\\", "/")),
-    appVersion: row.app_version, details: row.details, error: row.error };
+    appVersion: row.app_version, details: safeDetails(row.details), error: row.error ? "operation_failed" : null };
 }
 export async function getOpsRuns(kind: OpsKind, limit: number): Promise<OpsRunDto[]> {
   const rows = await q<OpsRow>(`SELECT ${COLUMNS} FROM ops_runs WHERE kind = $1 ORDER BY started_at DESC, id DESC LIMIT $2`, [kind, limit]);

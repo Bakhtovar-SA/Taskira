@@ -1124,9 +1124,12 @@ function verifyWebhook(rawBody: Buffer, header: string, secret: string): boolean
 транзакционно, поэтому на больших журналах её следует применять в окно обслуживания.
 
 `GET /api/admin/ops-runs?kind=backup|restore_drill&limit=5` возвращает новейшие `OpsRunDto[]`, максимум 50.
-`error` — уже очищенный от секретов отчёт INT-13. Записи не изменяются при вычислении `interrupted`.
+`error` — безопасный код `operation_failed` при наличии ошибки; подробности остаются в локальном журнале скрипта.
+API не возвращает произвольный текст `ops_runs.error`. Записи не изменяются при вычислении `interrupted`.
 Отчёты `ops_runs` создают доверенные скрипты INT-13: они гарантируют безопасные `details`, hostname
-в `host` и версию приложения в `appVersion`. API возвращает эти поля как записаны, без повторной очистки.
+в `host` и версию приложения в `appVersion`. API возвращает hostname и версию как записаны.
+Из `details` возвращаются только несекретные числовые счётчики `bytes`, `durationSec`, `projects`, `issues`,
+булевы `countsSkipped`/`attachmentSkipped`, `storageDriver` (`local`/`s3`) и известные имена `checks`.
 Сторонний writer обязан соблюдать тот же контракт: не писать секреты, абсолютные пути или произвольные
 тексты команд в `details`, `host` и `appVersion`; `error` предварительно редактируется writer-ом.
 Полный путь допускается только в `archive`, который API сокращает до basename.
