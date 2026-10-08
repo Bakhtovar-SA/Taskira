@@ -1125,6 +1125,11 @@ function verifyWebhook(rawBody: Buffer, header: string, secret: string): boolean
 
 `GET /api/admin/ops-runs?kind=backup|restore_drill&limit=5` возвращает новейшие `OpsRunDto[]`, максимум 50.
 `error` — уже очищенный от секретов отчёт INT-13. Записи не изменяются при вычислении `interrupted`.
+Отчёты `ops_runs` создают доверенные скрипты INT-13: они гарантируют безопасные `details`, hostname
+в `host` и версию приложения в `appVersion`. API возвращает эти поля как записаны, без повторной очистки.
+Сторонний writer обязан соблюдать тот же контракт: не писать секреты, абсолютные пути или произвольные
+тексты команд в `details`, `host` и `appVersion`; `error` предварительно редактируется writer-ом.
+Полный путь допускается только в `archive`, который API сокращает до basename.
 При каждом scrape `/metrics` читает БД и обновляет
 `taskira_ops_last_success_timestamp_seconds{kind="backup|restore_drill"}` и
 `taskira_ops_last_run_success{kind="backup|restore_drill"}`. Второй показатель относится к последней
