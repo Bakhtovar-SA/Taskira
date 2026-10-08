@@ -30,10 +30,10 @@ for (const theme of ["light", "dark"]) for (const width of [1280, 390]) test(`30
   await page.goto("/p/TEST/board");
   const cards = page.locator("article[data-issue-id]");
   await expect(cards).toHaveCount(100);
-  // Scroll each loaded range to its sentinel, preserving native paging.
+  // Scroll each loaded range to its sentinel. Prefetch may pass an intermediate page before polling observes it.
   for (const count of [200, 300]) {
     await cards.last().scrollIntoViewIfNeeded();
-    await expect(cards).toHaveCount(count);
+    await expect.poll(() => cards.count()).toBeGreaterThanOrEqual(count);
   }
   const last = cards.last();
   await last.scrollIntoViewIfNeeded();
