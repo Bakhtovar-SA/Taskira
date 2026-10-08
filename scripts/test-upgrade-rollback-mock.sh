@@ -59,11 +59,18 @@ case "$action" in
       *pg_database_size*) echo 4096 ;;
       *"FROM pg_database"*) echo 1 ;;
       *"count(*) FROM pg_stat_activity"*) echo 0 ;;
-      *pg_dump*) printf 'fake-dump' ;;
+      *pg_dump*)
+        if [ -n "${FAKE_EARLY_SIGNAL:-}" ]; then
+          kill -s "$FAKE_EARLY_SIGNAL" "$(cat "$FAKE_STATE/upgrade.pid")"
+        fi
+        printf 'fake-dump' ;;
       *pg_restore*)
         cat > /dev/null
         echo "pg_restore $all" >> "$FAKE_STATE/db-events.log"
         n="$(grep -c '^pg_restore' "$FAKE_STATE/db-events.log")"
+        if [ "$n" = 2 ] && [ -n "${FAKE_PARENT_ROLLBACK_SIGNAL:-}" ]; then
+          kill -s "$FAKE_PARENT_ROLLBACK_SIGNAL" "$(cat "$FAKE_STATE/upgrade.pid")"
+        fi
         [ "$n" != "${FAKE_FAIL_RESTORE_AT:-0}" ] || { echo "pg_restore: simulated failure" >&2; exit 1; } ;;
     esac ;;
 esac
@@ -123,6 +130,17 @@ expect "broken migration: database restored from the dump (after the test restor
 expect "broken migration: previous version is up again" [ -f "$FAKE_STATE/up" ]
 
 # Interruptions after the verified backup have the same recovery behavior.
+FAKE_EARLY_SIGNAL=INT run_scenario early-interrupt
+expect "early INT: signal exit code" [ "$EXIT_CODE" -eq 130 ]
+expect_not "early INT: no rollback without verified backup" grep -Fq 'Starting automatic rollback' "$OUT"
+expect "early INT: version unchanged" [ "$(tr -d '\r\n' < "$FAKE_INSTALL/VERSION")" = "1.0.0" ]
+expect "early INT: previous stack still running" [ -f "$FAKE_STATE/up" ]
+
+FAKE_BREAK_MIGRATION=1 FAKE_PARENT_ROLLBACK_SIGNAL=TERM run_scenario interrupted-parent-during-rollback
+expect "second signal: original failure retained" [ "$EXIT_CODE" -ne 0 ]
+expect "second signal: rollback completes under parent supervision" grep -Fq 'Automatic rollback complete' "$OUT"
+expect "second signal: previous stack restored" [ -f "$FAKE_STATE/up" ]
+
 for signal in INT TERM HUP; do
   FAKE_UPGRADE_SIGNAL="$signal" run_scenario "signal-$signal"
   case "$signal" in INT) expected=130 ;; TERM) expected=143 ;; HUP) expected=129 ;; esac

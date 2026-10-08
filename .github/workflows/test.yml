@@ -194,6 +194,8 @@ jobs:
             'docker-compose*.yml' '**/docker-compose*.yml' 'compose*.yml' 'nginx.conf' \
             'fixtures/db-snapshots/**' '.github/workflows/test.yml' \
             'server/src/**' 'src/**' 'deploy/**' '.dockerignore' 'vite.config.*' \
+            'shared/**' 'public/**' 'index.html' 'tsconfig*.json' 'server/tsconfig*.json' \
+            'tailwind.config.*' 'postcss.config.*' \
             'server/package*.json' 'package*.json' \
             '.github/actions/prepare-test-runner/**' '.github/scripts/**' \
             '.github/workflows/upgrade-nightly.yml')"; then
