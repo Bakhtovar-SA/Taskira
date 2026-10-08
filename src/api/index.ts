@@ -542,7 +542,7 @@ export type HealthDto = { ok: boolean; db: boolean; checks: Record<string, boole
 export const adminApi = {
   license: () => api<LicenseStatusDto>("/api/admin/license"),
   maintenance: () => api<MaintenanceStatusDto>("/api/maintenance"),
-  runMaintenance: (dryRun: boolean) => api<{ archived: number; auditPurged: number; capped: boolean; dryRun: boolean }>("/api/maintenance/run", { method: "POST", query: { dryRun: String(dryRun) } }),
+  runMaintenance: (dryRun: boolean) => api<{ archived: number; auditPurged: number; opsRunsPurged: number; capped: boolean; dryRun: boolean }>("/api/maintenance/run", { method: "POST", query: { dryRun: String(dryRun) } }),
   health: () => api<HealthDto>("/api/health"),
   /** Прямые ссылки для скачивания (сессия — HttpOnly-cookie, браузер приложит её сам; см. AdminView). */
   exportUrl: () => `${API_BASE}/api/admin/export`,

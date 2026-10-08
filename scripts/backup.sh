@@ -22,22 +22,38 @@ done
 [ -n "$INSTALL_DIR" ] || { usage >&2; exit 2; }
 . "$OPS_SCRIPT_DIR/operations-common.sh"
 ops_init "$INSTALL_DIR"
+. "$OPS_SCRIPT_DIR/ops-report.sh"
 for command_name in tar sha256sum mktemp date; do command -v "$command_name" >/dev/null || fail "$command_name is required"; done
 
 timestamp="$(date -u +'%Y%m%dT%H%M%SZ')"
 [ -n "$OUTPUT" ] || OUTPUT="$PWD/taskira-backup-${timestamp}.tar.gz"
 case "$OUTPUT" in /*) ;; *) OUTPUT="$PWD/$OUTPUT" ;; esac
-[ ! -e "$OUTPUT" ] || fail "output already exists: $OUTPUT"
-mkdir -p "$(dirname -- "$OUTPUT")"
-WORK_DIR="$(mktemp -d)"
+OPS_ARCHIVE="$OUTPUT"
+STARTED_AT="$(date +%s)"
+OPS_RUN_ID=""
+WORK_DIR=""
 STACK_STOPPED=0
 cleanup() {
+  local code=$?
+  trap - EXIT ERR
+  if [ "$code" != 0 ]; then
+    # Failures before the dump still get a report with the original start time.
+    [ -n "$OPS_RUN_ID" ] || OPS_RUN_ID="$(ops_run_start backup "$STARTED_AT")"
+    ops_run_finish "$OPS_RUN_ID" failure '{}' "${OPS_LAST_ERROR:-backup failed (exit $code)}"
+  fi
   if [ "$STACK_STOPPED" = "1" ]; then
     compose up -d >/dev/null 2>&1 || echo "WARNING: could not restart Taskira; run compose up -d" >&2
   fi
-  rm -rf -- "$WORK_DIR"
+  [ -z "$WORK_DIR" ] || rm -rf -- "$WORK_DIR"
+  exit "$code"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'OPS_LAST_ERROR="backup failed at line $LINENO (exit $?): $BASH_COMMAND"' ERR
+trap 'exit 130' INT
+trap 'exit 143' TERM
+[ ! -e "$OUTPUT" ] || fail "output already exists: $OUTPUT"
+mkdir -p "$(dirname -- "$OUTPUT")"
+WORK_DIR="$(mktemp -d)"
 mkdir -p "$WORK_DIR/bundle/storage"
 chmod 0777 "$WORK_DIR/bundle/storage"
 
@@ -49,12 +65,16 @@ schema="$(latest_schema)"
 echo "Stopping application writes for a consistent backup..."
 STACK_STOPPED=1
 compose stop client server
+counts="$(compose exec -T postgres psql -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "SELECT json_build_object('projects', (SELECT count(*) FROM projects), 'issues', (SELECT count(*) FROM issues))")"
 
 echo "Creating PostgreSQL dump..."
 compose exec -T postgres pg_dump --format=custom --no-owner --no-privileges \
   -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$WORK_DIR/bundle/database.dump"
 verify_database_dump "$WORK_DIR/bundle/database.dump"
 schema_migrations > "$WORK_DIR/bundle/schema-migrations.txt"
+# The snapshot must not contain its own unfinished backup report.
+OPS_RUN_ID="$(ops_run_start backup "$STARTED_AT")"
 
 echo "Exporting attachment storage..."
 storage_command export "$WORK_DIR/bundle/storage"
@@ -67,7 +87,8 @@ cat > "$WORK_DIR/bundle/manifest.json" <<EOF
   "created_at": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
   "application_version": "$version",
   "schema_version": "$schema",
-  "storage_driver": "$storage_driver"
+  "storage_driver": "$storage_driver",
+  "counts": $counts
 }
 EOF
 (
@@ -76,8 +97,10 @@ EOF
   tar -czf "$OUTPUT" .
 )
 chmod 0600 "$OUTPUT"
-
+bytes="$(wc -c < "$OUTPUT" | tr -d ' ')"
 compose up -d
-wait_until_healthy "$version" "$CLIENT_PORT" "$INSTALL_DIR"
+ops_wait_for_application "$version"
 STACK_STOPPED=0
+ops_run_finish "$OPS_RUN_ID" success \
+  "{\"bytes\":$bytes,\"durationSec\":$(($(date +%s) - STARTED_AT)),\"storageDriver\":\"$storage_driver\"}" ''
 echo "Backup complete: $OUTPUT"

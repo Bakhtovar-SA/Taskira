@@ -7,15 +7,20 @@ INSTALL_DIR="${TASKIRA_INSTALL_DIR:-}"
 ENGINE="${CONTAINER_ENGINE:-}"
 ARCHIVE=""
 ASSUME_YES=0
+OPS_STORAGE_DRIVER=""
 
 usage() {
-  echo "Usage: ./restore.sh --install-dir DIR --archive FILE.tar.gz [--yes] [--engine docker|podman]"
+  echo "Usage: ./restore.sh --install-dir DIR --archive FILE.tar.gz [--yes] [--storage-driver local] [--engine docker|podman]"
 }
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --install-dir) INSTALL_DIR="$2"; shift 2 ;;
     --archive) ARCHIVE="$2"; shift 2 ;;
     --yes) ASSUME_YES=1; shift ;;
+    --storage-driver)
+      [ -n "${2:-}" ] || { usage >&2; exit 2; }
+      [ "$2" = local ] || { echo 'Only --storage-driver local is supported' >&2; exit 2; }
+      OPS_STORAGE_DRIVER=local; shift 2 ;;
     --engine) ENGINE="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -76,6 +81,6 @@ restore_database "$WORK_DIR/database.dump"
 storage_command import "$WORK_DIR/storage"
 version="$(current_version)"
 compose up -d
-wait_until_healthy "$version" "$CLIENT_PORT" "$INSTALL_DIR"
+ops_wait_for_application "$version"
 RESTORE_STARTED=0
 echo "Restore complete from: $ARCHIVE"
