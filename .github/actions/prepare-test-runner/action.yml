@@ -1,5 +1,5 @@
-name: Prepare self-hosted test runner
-description: Prepare strict TLS trust and the tools used by Linux test jobs.
+name: Prepare test runner
+description: Check the tools used by Linux test jobs.
 inputs:
   docker:
     description: Require Docker Compose and container test utilities.
@@ -13,29 +13,19 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Prepare host TLS trust
-      shell: bash
-      working-directory: ${{ github.workspace }}
-      run: |
-        bash .github/scripts/prepare-runner-trust.sh
-        bundle="$RUNNER_TOOL_CACHE/taskira-trust/ca-certificates.crt"
-        for variable in NODE_EXTRA_CA_CERTS SSL_CERT_FILE CURL_CA_BUNDLE GIT_SSL_CAINFO; do
-          printf '%s=%s\n' "$variable" "$bundle" >> "$GITHUB_ENV"
-        done
-        echo 'NODE_USE_SYSTEM_CA=1' >> "$GITHUB_ENV"
     - name: Check host utilities
       shell: bash
       working-directory: ${{ github.workspace }}
       run: |
         for tool in jq python3 curl git openssl; do
-          command -v "$tool" >/dev/null || { echo "::error::Install the missing runner utility: $tool (docs/CI-RUNNERS.md)"; exit 1; }
+          command -v "$tool" >/dev/null || { echo "::error::Missing required utility: $tool"; exit 1; }
         done
     - name: Check container utilities
       if: inputs.docker == 'true'
       shell: bash
       working-directory: ${{ github.workspace }}
       run: |
-        command -v ip >/dev/null || { echo '::error::Install iproute2 on this Docker runner (docs/CI-RUNNERS.md)'; exit 1; }
+        command -v ip >/dev/null || { echo '::error::iproute2 (ip) is missing on this runner'; exit 1; }
         docker compose version
     - name: Configure PostgreSQL 16 client and isolated service port
       if: inputs.postgres == 'true'
@@ -46,7 +36,7 @@ runs:
       run: |
         pg_bin=/usr/lib/postgresql/16/bin
         for tool in psql pg_dump pg_restore; do
-          [ -x "$pg_bin/$tool" ] || { echo '::error::Install postgresql-client-16 on this runner (docs/CI-RUNNERS.md)'; exit 1; }
+          [ -x "$pg_bin/$tool" ] || { echo '::error::postgresql-client-16 is missing on this runner'; exit 1; }
         done
         [[ "$POSTGRES_SERVICE_PORT" =~ ^[0-9]{1,5}$ ]] && (( POSTGRES_SERVICE_PORT > 0 && POSTGRES_SERVICE_PORT <= 65535 )) || { echo '::error::PostgreSQL service port is unavailable'; exit 1; }
         printf '%s\n' "$pg_bin" >> "$GITHUB_PATH"

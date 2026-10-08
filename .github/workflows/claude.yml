@@ -11,47 +11,15 @@ on:
     types: [submitted]
 
 jobs:
-  prepare-runner-trust:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-    runs-on: [self-hosted, Linux, docker]
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
-      - uses: actions/checkout@v7
-      - name: Prepare local Linux and WSL CA bundle
-        run: bash .github/scripts/prepare-runner-trust.sh
   claude:
-    needs: prepare-runner-trust
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: ubuntu-24.04
     container:
       image: node:22-bookworm
-    env:
-      NODE_EXTRA_CA_CERTS: /__w/_tool/taskira-trust/ca-certificates.crt
-      NODE_USE_SYSTEM_CA: '1'
-      SSL_CERT_FILE: /__w/_tool/taskira-trust/ca-certificates.crt
-      CURL_CA_BUNDLE: /__w/_tool/taskira-trust/ca-certificates.crt
-      GIT_SSL_CAINFO: /__w/_tool/taskira-trust/ca-certificates.crt
     permissions:
       contents: read
       pull-requests: read
@@ -68,11 +36,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
-
-      - name: Verify TLS in both action runtimes
-        run: |
-          node .github/scripts/check-runner-tls.mjs
-          bun .github/scripts/check-runner-tls.mjs
 
       - name: Verify repository in both action runtimes
         run: |
@@ -97,14 +60,3 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
           # claude_args: '--allowed-tools Bash(gh pr *)'
-      - name: Return cached actions to the runner owner
-        if: always()
-        shell: bash
-        working-directory: /tmp
-        run: |
-          # Composite actions install dependencies into the shared action cache.
-          # Restore root-owned files before the next host job cleans this cache.
-          owner="$(stat -c '%u:%g' /__w/_actions)"
-          [[ "$owner" =~ ^[1-9][0-9]*:[0-9]+$ ]] || { echo '::error::Cannot determine the host action-cache owner'; exit 1; }
-          chown -hRP --from=0 -- "$owner" /__w/_actions
-
