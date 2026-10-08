@@ -264,11 +264,16 @@ jobs:
         run: bash scripts/check-migrations.sh "$BASE_SHA" "$HEAD_SHA"
 
   server:
+    name: server (postgres ${{ matrix.pg }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: ["14", "15", "16", "17"] # все заявленные: 14 = PG_MIN_MAJOR, 17 = PG_MAX_TESTED_MAJOR (server/src/services/pgVersion.ts); 16 — версия поставки (compose)
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:${{ matrix.pg }}
         env:
           POSTGRES_USER: taskira
           POSTGRES_PASSWORD: taskira
@@ -310,6 +315,18 @@ jobs:
       - run: npm run typecheck
 
       - run: npm test
+
+  server-summary:
+    # Keep the stable check name even when PostgreSQL matrix members change.
+    name: server
+    needs: server
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every PostgreSQL suite to pass
+        env:
+          MATRIX_RESULT: ${{ needs.server.result }}
+        run: test "$MATRIX_RESULT" = success
 
   # Контракт клиент↔сервер (ТЗ 2.1): клиентские типы выводятся из server/src/contract.ts, поэтому правка серверных
   # типов может сломать клиент и наоборот. Оба typecheck в ОДНОЙ джобе — один статус проверки на PR, а не два,
