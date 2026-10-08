@@ -103,7 +103,7 @@ function OpsHistory({ kind, checkedAt }: { kind: OpsKind; checkedAt: string }) {
           <div className="flex flex-wrap items-center justify-between gap-2"><time dateTime={run.startedAt} className="text-sub">{date(run.startedAt)}</time>
             <Tag size="sm" tone={run.result === "success" ? "green" : run.result === "failure" || run.result === "interrupted" ? "red" : "gray"}>{t(`status.ops.result.${run.result}`)}</Tag></div>
           {run.archive && <p className="mt-1 break-words text-ink">{run.archive}</p>}
-          {run.error && <p className="mt-1 whitespace-pre-wrap break-words text-danger">{run.error}</p>}
+          {run.error && <p className="mt-1 whitespace-pre-wrap break-words text-danger">{run.error === "operation_failed" ? t("status.ops.result.failure") : run.error}</p>}
         </li>)}</ol>}
     </div>
   </details>;
