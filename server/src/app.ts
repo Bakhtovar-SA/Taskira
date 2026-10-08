@@ -210,11 +210,12 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       }
     }
     // OPS-PG-01: версия PostgreSQL для экрана состояния; предупреждение, если она новее проверенных.
-    let postgres: { major: number; status: string; minMajor: number; maxTestedMajor: number } | undefined;
+    let postgres: { major: number; status: "supported" | "newer_than_tested"; minMajor: number; maxTestedMajor: number } | undefined;
     if (checks.db) {
       try {
         const pv = await getPgVersionInfo();
-        postgres = { major: pv.major, status: pv.status, minMajor: pv.minMajor, maxTestedMajor: pv.maxTestedMajor };
+        // Unsupported versions fail startup before readiness routes are served.
+        if (pv.status !== "unsupported") postgres = { major: pv.major, status: pv.status, minMajor: pv.minMajor, maxTestedMajor: pv.maxTestedMajor };
         if (pv.status === "newer_than_tested") {
           warnings = [
             ...warnings,

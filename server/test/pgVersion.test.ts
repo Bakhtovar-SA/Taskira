@@ -9,12 +9,13 @@ import {
 
 describe("разбор server_version_num", () => {
   test("10+ : major*10000 + minor", () => {
-    expect(parseServerVersionNum("160004")).toEqual({ major: 16, minor: 4 });
-    expect(parseServerVersionNum(140000)).toEqual({ major: 14, minor: 0 });
-    expect(parseServerVersionNum(" 170002 ")).toEqual({ major: 17, minor: 2 });
+    expect(parseServerVersionNum("160004")).toEqual({ versionNum: 160004, major: 16, minor: 4 });
+    expect(parseServerVersionNum(140000)).toEqual({ versionNum: 140000, major: 14, minor: 0 });
+    expect(parseServerVersionNum(" 170002 ")).toEqual({ versionNum: 170002, major: 17, minor: 2 });
+    expect(assessPgVersion(" 170002 ")).toMatchObject({ versionNum: 170002, major: 17, minor: 2, status: "supported" });
   });
   test("до 10 — старая схема", () => {
-    expect(parseServerVersionNum("090624")).toEqual({ major: 9, minor: 6 });
+    expect(parseServerVersionNum("090624")).toEqual({ versionNum: 90624, major: 9, minor: 6 });
   });
   test("мусор — ошибка", () => {
     expect(() => parseServerVersionNum("")).toThrow();

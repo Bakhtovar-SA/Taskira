@@ -25,16 +25,15 @@ export interface PgVersionInfo {
  * `server_version_num`: с 10-й версии это major*10000 + minor (160004 = 16.4); до 10 — другая схема
  * (090624 = 9.6.24), её мы не поддерживаем, и major там считается как 9.
  */
-export function parseServerVersionNum(raw: string | number): { major: number; minor: number } {
+export function parseServerVersionNum(raw: string | number): { versionNum: number; major: number; minor: number } {
   const n = typeof raw === "number" ? raw : Number(String(raw).trim());
   if (!Number.isInteger(n) || n <= 0) throw new Error(`Не удалось разобрать server_version_num: ${JSON.stringify(raw)}`);
-  if (n < 100000) return { major: Math.floor(n / 10000), minor: Math.floor(n / 100) % 100 };
-  return { major: Math.floor(n / 10000), minor: n % 10000 };
+  if (n < 100000) return { versionNum: n, major: Math.floor(n / 10000), minor: Math.floor(n / 100) % 100 };
+  return { versionNum: n, major: Math.floor(n / 10000), minor: n % 10000 };
 }
 
 export function assessPgVersion(raw: string | number): PgVersionInfo {
-  const { major, minor } = parseServerVersionNum(raw);
-  const versionNum = Number(raw);
+  const { versionNum, major, minor } = parseServerVersionNum(raw);
   const status: PgVersionStatus =
     major < PG_MIN_MAJOR ? "unsupported" : major > PG_MAX_TESTED_MAJOR ? "newer_than_tested" : "supported";
   return { versionNum, major, minor, status, minMajor: PG_MIN_MAJOR, maxTestedMajor: PG_MAX_TESTED_MAJOR };
