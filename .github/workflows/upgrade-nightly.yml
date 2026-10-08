@@ -1,0 +1,33 @@
+name: upgrade-nightly
+
+# OPS-UPG-01: nightly "upgrade from the latest release (N-1)" on main, independent of
+# which paths a PR touched. OLD_REF defaults to the latest vX.Y.Z tag; run it by hand
+# with an explicit ref via workflow_dispatch.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      old_ref:
+        description: "Git ref to upgrade from (default: latest vX.Y.Z tag)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade-from-latest-release:
+    name: offline upgrade and rollback (from latest release)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: ./.github/actions/prepare-test-runner
+      - name: Build versioned images, upgrade from the latest release tag, and roll back
+        env:
+          OLD_REF: ${{ inputs.old_ref }}
+        run: bash scripts/test-upgrade-integration.sh

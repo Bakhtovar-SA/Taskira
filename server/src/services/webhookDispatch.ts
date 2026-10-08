@@ -100,7 +100,8 @@ async function storeResult(client: pg.PoolClient, hook: HookResultRow, { row, re
     const outcome: Outcome = success ? "succeeded" : retryable && row.attempts < 8 ? "retry" : "failed";
     const next = outcome === "retry" ? new Date(Date.now() + retryDelay(row.attempts, result.status === 429 ? result.retryAfter : null)) : null;
     await client.query(`UPDATE webhook_deliveries SET state = $2, next_attempt_at = COALESCE($3, next_attempt_at), locked_until = NULL,
-      last_status = $4, last_error = $5, last_duration_ms = $6, response_excerpt = $7, updated_at = now() WHERE id = $1`,
+      last_status = $4, last_error = $5, last_duration_ms = $6, response_excerpt = $7,
+      failed_at = CASE WHEN $2 = 'failed' THEN now() ELSE failed_at END, updated_at = now() WHERE id = $1`,
       [row.id, outcome === "retry" ? "pending" : outcome, next, result.status, result.error, result.durationMs, result.excerpt]);
     let disabled: string | null = null, cancelled = 0;
     if (success) {

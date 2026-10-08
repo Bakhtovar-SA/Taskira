@@ -45,7 +45,7 @@ async function event(type = "issue.created", data: Record<string, unknown> = {})
     VALUES ($1,$2,$3,'CORP-1',$4,$5,$6::jsonb) RETURNING id`, [type, fx.projects.p1, fx.issues.p1issue, fx.users.emp1, "test:" + randomUUID(), JSON.stringify(data)]))[0].id;
 }
 const tick = (options: DispatchOptions = {}) => runWebhookDispatchOnce({ maxBatches: 1, ...options });
-const deliveries = () => q<{ id: string; state: string; attempts: number; last_error: string | null; last_status: number | null; next_attempt_at: Date; response_excerpt: string }>(`SELECT * FROM webhook_deliveries ORDER BY created_at, id`);
+const deliveries = () => q<{ id: string; state: string; attempts: number; failed_at: Date | null; last_error: string | null; last_status: number | null; next_attempt_at: Date; response_excerpt: string }>(`SELECT * FROM webhook_deliveries ORDER BY created_at, id`);
 const retryNow = () => q(`UPDATE webhook_deliveries SET next_attempt_at = now() - interval '1 second' WHERE state = 'pending'`);
 const signature = (header: string, body: Buffer, signingSecret: string) => {
   const [time, ...signatures] = header.split(","), timestamp = Number(time.slice(2));
@@ -80,7 +80,7 @@ test("500 reschedules within 48–72 seconds and a subsequent attempt succeeds",
   await hook(); await event(); receiver.setReply({ status: 500 });
   const started = Date.now(); await tick();
   let row = (await deliveries())[0];
-  expect(row).toMatchObject({ state: "pending", attempts: 1, last_error: "http_status", last_status: 500 });
+  expect(row).toMatchObject({ state: "pending", attempts: 1, failed_at: null, last_error: "http_status", last_status: 500 });
   expect(row.next_attempt_at.getTime() - started).toBeGreaterThanOrEqual(48_000);
   expect(row.next_attempt_at.getTime() - Date.now()).toBeLessThanOrEqual(72_000);
   receiver.setReply({ status: 200 }); await retryNow(); await tick(); row = (await deliveries())[0];
@@ -99,10 +99,12 @@ test("eight failed attempts end the delivery", async () => {
   await hook(); await event(); receiver.setReply({ status: 500 });
   for (let attempt = 1; attempt <= 8; attempt++) { await retryNow(); await tick(); expect((await deliveries())[0].attempts).toBe(attempt); }
   expect((await deliveries())[0].state).toBe("failed"); expect(receiver.received).toHaveLength(8);
+  expect((await deliveries())[0].failed_at!.getTime()).toBeGreaterThan(Date.now() - 10_000);
 });
 test.each([400, 403, 404])("HTTP %i is terminal", async status => {
   await hook(); await event(); receiver.setReply({ status }); await tick();
   expect((await deliveries())[0]).toMatchObject({ state: "failed", attempts: 1, last_status: status });
+  expect((await deliveries())[0].failed_at!.getTime()).toBeGreaterThan(Date.now() - 10_000);
 });
 test("429 respects Retry-After capped at an hour", async () => {
   await hook(); await event(); receiver.setReply({ status: 429, headers: { "Retry-After": "999999" } });

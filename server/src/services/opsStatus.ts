@@ -11,6 +11,8 @@ interface OpsRow {
 const COLUMNS = "id, kind, started_at, finished_at, result, host, archive, app_version, details, error";
 const SIX_HOURS = 6 * 60 * 60_000;
 const iso = (date: Date | null): string | null => date?.toISOString() ?? null;
+const safeLabel = (value: string | null, maxLength: number): string | null =>
+  value !== null && value.length <= maxLength && /^[A-Za-z0-9._:+-]+$/.test(value) ? value : null;
 export const emptyOpsFacts = (): OpsFacts => ({ lastSuccessAt: null, lastRunAt: null, lastResult: null, archive: null });
 
 function safeDetails(raw: Record<string, unknown> | null): Record<string, unknown> {
@@ -31,8 +33,8 @@ function safeDetails(raw: Record<string, unknown> | null): Record<string, unknow
 function mapRun(row: OpsRow, now = Date.now()): OpsRunDto {
   return { id: row.id, kind: row.kind, startedAt: row.started_at.toISOString(), finishedAt: iso(row.finished_at),
     result: row.result === "running" && now - row.started_at.getTime() > SIX_HOURS ? "interrupted" : row.result,
-    host: row.host, archive: row.archive === null ? null : basename(row.archive.replaceAll("\\", "/")),
-    appVersion: row.app_version, details: safeDetails(row.details), error: row.error ? "operation_failed" : null };
+    host: safeLabel(row.host, 253), archive: row.archive === null ? null : basename(row.archive.replaceAll("\\", "/")),
+    appVersion: safeLabel(row.app_version, 64), details: safeDetails(row.details), error: row.error ? "operation_failed" : null };
 }
 export async function getOpsRuns(kind: OpsKind, limit: number): Promise<OpsRunDto[]> {
   const rows = await q<OpsRow>(`SELECT ${COLUMNS} FROM ops_runs WHERE kind = $1 ORDER BY started_at DESC, id DESC LIMIT $2`, [kind, limit]);

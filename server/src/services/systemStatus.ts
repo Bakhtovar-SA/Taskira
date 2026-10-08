@@ -126,7 +126,7 @@ export const systemChecks: { [K in Id]: () => Promise<Check<K>> } = {
         count(*) FILTER (WHERE state = 'paused')::int AS paused FROM webhooks`),
       q<{ pending: number; oldest: number | null; failed: number }>(`SELECT count(*)::int AS pending,
         GREATEST(0, extract(epoch FROM now() - min(created_at)))::double precision AS oldest,
-        (SELECT count(*)::int FROM webhook_deliveries WHERE state = 'failed' AND updated_at >= now() - interval '1 day') AS failed
+        (SELECT count(*)::int FROM webhook_deliveries WHERE state = 'failed' AND failed_at >= now() - interval '1 day') AS failed
         FROM webhook_deliveries WHERE state IN ('pending', 'sending')`),
     ]);
     Object.assign(facts, { active: subscriptions[0].active, disabled: subscriptions[0].disabled, paused: subscriptions[0].paused, pending: deliveries[0].pending,
@@ -165,7 +165,8 @@ function checkOnce(id: Id): Promise<SystemCheck> {
 }
 
 export async function getSystemStatus(): Promise<SystemStatusDto> {
-  return cache.get("status", async () => {
+  let timedOut = false;
+  const snapshot = await cache.get("status", async () => {
     let timer: NodeJS.Timeout | undefined;
     const deadline = new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), 5000); timer.unref(); });
     try {
@@ -175,12 +176,16 @@ export async function getSystemStatus(): Promise<SystemStatusDto> {
         const check = checkOnce(id);
         const result = await Promise.race([check, deadline]);
         if (result !== null) return result;
+        timedOut = true;
         console.error(`[system-status] ${id} check timed out`);
         return unknownCheck(id);
       }));
       return { version: loadConfig().version, checkedAt: new Date().toISOString(), checks };
     } finally { clearTimeout(timer); }
   });
+  // Keep sharing unfinished probes, but let the next poll observe their recovery.
+  if (timedOut) cache.clear();
+  return snapshot;
 }
 
 /** Сброс используется только проверками и локальным измерением некэшированного снимка. */
