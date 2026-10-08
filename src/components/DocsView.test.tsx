@@ -62,6 +62,8 @@ test.each(["ru", "en"] as const)("help follows initial and changed hashes in %s"
   await waitFor(() => expect(scroll.mock.contexts.at(-1)).toBe(document.getElementById(`${prefix}webhooks`)));
   window.history.replaceState(null, "", "/help#backup"); window.dispatchEvent(new HashChangeEvent("hashchange"));
   await waitFor(() => expect(scroll.mock.contexts.at(-1)).toBe(document.getElementById(`${prefix}backup`)));
+  window.history.pushState(null, "", "/help#tokens");
+  await waitFor(() => expect(scroll.mock.contexts.at(-1)).toBe(document.getElementById(`${prefix}tokens`)));
   const calls = scroll.mock.calls.length;
   for (const hash of ["#%", "#%22%5D", "#missing"]) {
     window.history.replaceState(null, "", `/help${hash}`); window.dispatchEvent(new HashChangeEvent("hashchange"));

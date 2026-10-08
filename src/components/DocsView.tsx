@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocationProperty } from "wouter/use-browser-location";
 import { Button } from "../ds/Button";
 import { RoleTag } from "./settings/parts";
 import { IcBook, PriorityIcon, TypeIcon } from "../icons";
@@ -10,8 +11,10 @@ import PlanningGuide from "./PlanningGuide";
 
 export const SECTIONS = helpCopy.ru.sections.map(({ id, label }) => ({ id, label }));
 export const EN_SECTIONS = helpCopy.en.sections.map(({ id, label }) => [id, label] as const);
+const currentHash = () => window.location.hash;
 
 function useDocsNavigation(prefix: string, enabled = true) {
+  const hash = useLocationProperty(currentHash, () => "");
   const rootRef = useRef<HTMLDivElement>(null);
   const requested = useRef<string | null>(null);
   const [active, setActive] = useState("overview");
@@ -62,12 +65,8 @@ function useDocsNavigation(prefix: string, enabled = true) {
   }, [prefix, enabled]);
   useEffect(() => {
     if (!enabled) return;
-    const fromHash = () => {
-      try { go(decodeURIComponent(window.location.hash.slice(1))); } catch { /* Malformed URL fragment. */ }
-    };
-    fromHash(); window.addEventListener("hashchange", fromHash);
-    return () => window.removeEventListener("hashchange", fromHash);
-  }, [go, enabled]);
+    try { go(decodeURIComponent(hash.slice(1))); } catch { /* Malformed URL fragment. */ }
+  }, [hash, go, enabled]);
   return { rootRef, active, go };
 }
 
