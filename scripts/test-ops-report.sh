@@ -19,6 +19,14 @@ printf '9.8.7-test\n' > "$INSTALL_DIR/VERSION"
 actual="$(printf 'RED RED fixture-mail-secret Bearer abc123 whsec_sample taskira_session=sample\n' | redact_stream)"
 [ "$actual" = '[REDACTED] [REDACTED] [REDACTED] Bearer [REDACTED] [REDACTED] taskira_session=[REDACTED]' ]
 
+# The normal host path has no optional Compose arguments.
+(
+  . "$ROOT_DIR/scripts/release/container-engine.sh"
+  compose_run() { printf '%s\n' "$@" > "$TEST_DIR/compose-arguments"; }
+  compose version
+)
+[ "$(cat "$TEST_DIR/compose-arguments")" = $'--env-file\n.env\n-f\ndocker-compose.yml\nversion' ]
+
 # Substitute only the transport. SQL is still passed on stdin, and caller
 # values must remain psql variables, including quotes, newlines and secrets.
 MODE=success
@@ -148,5 +156,27 @@ bash "$ROOT_DIR/scripts/restore.sh" --storage-driver > "$TEST_DIR/restore-output
 [ "$status" = 2 ]
 grep -Fq 'Usage:' "$TEST_DIR/restore-output"
 ! grep -Fq 'unbound variable' "$TEST_DIR/restore-output"
+
+# Exercise the drill's environment boundary without starting containers.
+# Compose may reference host variables; clearing application credentials must
+# not erase the PATH needed to invoke the engine or the host HOME.
+(
+  DRILL_DIR="$TEST_DIR/drill-env"
+  mkdir "$DRILL_DIR"
+  printf 'POSTGRES_PASSWORD=fresh-drill-secret\n' > "$DRILL_DIR/.env"
+  printf 'environment: [${PATH}, ${HOME}, ${POSTGRES_PASSWORD}, ${SMTP_HOST}]\n' > "$INSTALL_DIR/docker-compose.yml"
+  export POSTGRES_PASSWORD=working-secret SMTP_HOST=working-mail
+  expected_path="$PATH"; expected_home="$HOME"
+  ops_init() { INSTALL_DIR="$1"; }
+  compose() {
+    [ "$PATH" = "$expected_path" ] && [ "$HOME" = "$expected_home" ]
+    [ -z "${POSTGRES_PASSWORD+x}" ] && [ -z "${SMTP_HOST+x}" ]
+    [ "$TASKIRA_COMPOSE_OVERRIDE" = drill.override.yml ]
+  }
+  # Load the production function only; the script's top-level code runs hosts.
+  eval "$(sed -n '/^drill_compose() (/ , /^)$/p' "$ROOT_DIR/scripts/restore-drill.sh")"
+  drill_compose config
+  [ "$POSTGRES_PASSWORD" = working-secret ] && [ "$SMTP_HOST" = working-mail ]
+)
 
 echo 'host operation reporting and redaction checks passed'

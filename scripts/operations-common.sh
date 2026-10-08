@@ -31,7 +31,7 @@ compose() {
     require_file "$INSTALL_DIR/$TASKIRA_COMPOSE_OVERRIDE"
     extra+=(-f "$TASKIRA_COMPOSE_OVERRIDE")
   fi
-  (cd "$INSTALL_DIR" && compose_run --env-file .env -f docker-compose.yml "${extra[@]}" "$@")
+  (cd "$INSTALL_DIR" && compose_run --env-file .env -f docker-compose.yml ${extra[@]+"${extra[@]}"} "$@")
 }
 
 # The drill has no published ports. Probe inside the server container instead.
