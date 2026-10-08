@@ -57,7 +57,8 @@ function CheckFacts({ check, checkedAt }: { check: SystemCheck; checkedAt: strin
       : [t("status.fact.pending", { count: number(check.facts.pending) }), t("status.fact.failed24h", { count: number(check.facts.failed24h) })];
       if (check.facts.oldestPendingSec !== null) facts.push(t("status.fact.oldest", { age: relative(new Date(Date.parse(checkedAt) - check.facts.oldestPendingSec * 1000).toISOString()) })); break;
     case "ldap": facts = check.state === "off" ? [t(check.facts.mode === "local" ? "status.fact.localAuth" : "status.fact.ldapOff")]
-      : [t("status.fact.lastSuccess", { age: relative(check.facts.lastSuccessAt) }), ...(check.facts.lastError ? [t("status.fact.ldapError")] : [])]; break;
+      : [t("status.fact.lastSuccess", { age: relative(check.facts.lastSuccessAt) }), ...(check.facts.lastError ? [t("status.fact.ldapError")] : [])];
+      if (check.state !== "off" && check.facts.notFound != null) facts.push(t("status.fact.ldapNotFound", { count: number(check.facts.notFound) })); break;
     case "jobs": {
       facts = [t("status.fact.jobs", { count: number(check.facts.jobs.length) })];
       const errors = check.facts.jobs.filter(job => job.lastResult === "error");

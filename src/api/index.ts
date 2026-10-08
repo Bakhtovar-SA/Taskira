@@ -555,7 +555,6 @@ export const adminApi = {
   license: () => api<LicenseStatusDto>("/api/admin/license"),
   maintenance: () => api<MaintenanceStatusDto>("/api/maintenance"),
   runMaintenance: (dryRun: boolean) => api<{ archived: number; auditPurged: number; opsRunsPurged: number; capped: boolean; dryRun: boolean }>("/api/maintenance/run", { method: "POST", query: { dryRun: String(dryRun) } }),
-  health: () => api<HealthDto>("/api/health"),
   status: () => api<SystemStatusDto>("/api/admin/status"),
   opsRuns: (kind: OpsKind) => api<OpsRunDto[]>("/api/admin/ops-runs", { query: { kind, limit: "5" } }),
   /** Прямые ссылки для скачивания (сессия — HttpOnly-cookie, браузер приложит её сам; см. AdminView). */

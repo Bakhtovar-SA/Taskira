@@ -64,6 +64,17 @@ test("предупреждение поиска сохраняет имена о
   show(); await screen.findByText(/idx_issues_active_title_trgm/);
   expect(card("Поиск").getByText(/Поиск может замедлиться/)).toBeTruthy();
 });
+
+test.each(["ru", "en"] as const)("LDAP: число отсутствующих пользователей и безопасная ошибка на языке %s", async lang => {
+  await loadLang(lang); localStorage.setItem("taskira.lang", lang);
+  update("ldap", check => check.id === "ldap" ? { ...check, state: "warn", facts: {
+    mode: "ldap", lastSuccessAt: checkedAt, lastError: "resync_failed", notFound: 2,
+  } } : check);
+  show();
+  await screen.findByText(lang === "ru" ? "Не найдены в LDAP: 2" : "Not found in LDAP: 2");
+  expect(card("LDAP").getByText(lang === "ru" ? "Синхронизация с LDAP завершилась с ошибкой." : "LDAP synchronization failed.")).toBeTruthy();
+  expect(document.body.textContent).not.toContain("resync_failed");
+});
 test("история загружается один раз при первом раскрытии каждого вида", async () => {
   vi.mocked(adminApi.opsRuns).mockResolvedValue([{ ...run, result: "failure", error: "operation_failed" }]);
   show();
