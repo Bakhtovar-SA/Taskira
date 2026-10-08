@@ -61,6 +61,8 @@ export const P = {
   userWrite: pol(401, A, A, A, 401, 403),
   /** requireSession: любой вошедший, но не API-токен (403 TOKEN_NOT_ALLOWED). */
   sessionOnly: pol(401, A, A, A, 401, 403),
+  /** Session route with a deliberately wrong current password; credentials remain unchanged. */
+  passwordWrongCurrent: pol(401, 403, 403, 403, 401, 403),
   /** Чужой личный ресурс (дашборд) по id: 404 «не существует для вас»; токен-запись — 403 раньше. */
   foreignPersonalRead: pol(401, 404, 404, 404, 401, 404),
   foreignPersonalWrite: pol(401, 404, 404, 404, 401, 403),
@@ -205,6 +207,7 @@ export const ROUTES: Readonly<Record<string, Policy>> = {
   "POST /api/admin/service-accounts/:id/tokens": P.adminOnly,
   "POST /api/admin/setup/complete": P.adminOnly,
   "POST /api/admin/users": P.adminOnly,
+  "POST /api/admin/users/:id/password-reset": P.adminOnly,
   "POST /api/auth/login": P.loginFailure,
   "POST /api/auth/logout": P.sessionOnly,
   "POST /api/dashboards": P.userWrite,
@@ -217,6 +220,7 @@ export const ROUTES: Readonly<Record<string, Policy>> = {
   "POST /api/me/hints/:hintId/dismiss": P.sessionOnly,
   "POST /api/me/onboarding/hide": P.sessionOnly,
   "POST /api/me/onboarding/steps": P.sessionOnly,
+  "POST /api/me/password": P.passwordWrongCurrent,
   "POST /api/me/tokens": P.sessionOnly,
   "POST /api/notifications/dismiss": P.userWrite,
   "POST /api/notifications/read": P.userWrite,
@@ -292,6 +296,7 @@ export const BODIES: Readonly<Record<string, unknown>> = {
   "POST /api/dashboards/data": { widgets: [] },
   "POST /api/departments": { name: "Team X" },
   "POST /api/me/onboarding/steps": { step: "theme" },
+  "POST /api/me/password": { currentPassword: "incorrect-current-password", newPassword: "lantern river orbit quietly" },
   "POST /api/me/tokens": { name: "x", scope: "read" },
   "POST /api/projects": { key: "ZZZ", name: "Z", departmentId: "$uuid" },
   "POST /api/projects/:projectId/custom-fields": { name: "f", fieldType: "text" },
