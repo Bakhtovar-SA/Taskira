@@ -118,9 +118,11 @@ export const ROUTES: Readonly<Record<string, Policy>> = {
   "GET /api/admin/audit-log/export": P.adminOnly,
   "GET /api/admin/export": P.adminOnly,
   "GET /api/admin/license": P.adminOnly,
+  "GET /api/admin/ops-runs": P.adminOnly,
   "GET /api/admin/service-accounts": P.adminOnly,
   "GET /api/admin/service-accounts/:id/tokens": P.adminOnly,
   "GET /api/admin/setup": P.adminOnly,
+  "GET /api/admin/status": P.adminOnly,
   "GET /api/admin/tokens": P.adminOnly,
   "GET /api/auth/config": P.sessionOnly,
   "GET /api/auth/me": P.sessionOnly,
@@ -317,6 +319,7 @@ export const BODIES: Readonly<Record<string, unknown>> = {
 
 /** Обязательные query-параметры (тоже валидируются до прав). Одна строка — один маршрут, по алфавиту. */
 export const QUERIES: Readonly<Record<string, string>> = {
+  "GET /api/admin/ops-runs": "kind=backup",
   "GET /api/issues/resolve": "key=CORP-1",
   "GET /api/issues/search": "q=test",
   "GET /api/reports/issues.csv": "from=2026-01-01&to=2026-12-31",
