@@ -53,8 +53,9 @@ export async function getOpsSnapshot(kind: OpsKind): Promise<{ facts: OpsFacts; 
   return { facts: { lastSuccessAt: iso(successful[0]?.at ?? null), lastRunAt: run.startedAt, lastResult: run.result, archive: run.archive },
     lastCompletedSuccess: run.result === "interrupted" ? 0 : completed[0] ? Number(completed[0].result === "success") : null };
 }
-export function opsState(facts: OpsFacts, kind: OpsKind, now = Date.now()): StatusState {
-  if (facts.lastResult === "failure" || facts.lastResult === "interrupted") return "fail";
+export function opsState(facts: OpsFacts, kind: OpsKind, lastCompletedSuccess: number | null = null, now = Date.now()): StatusState {
+  if (facts.lastResult === "failure" || facts.lastResult === "interrupted"
+    || (facts.lastResult === "running" && lastCompletedSuccess === 0)) return "fail";
   if (facts.lastSuccessAt === null) return "unknown";
   const age = Math.max(0, now - Date.parse(facts.lastSuccessAt));
   const [warning, failure] = kind === "backup" ? [26 * 3600_000, 50 * 3600_000] : [8 * 86400_000, 15 * 86400_000];

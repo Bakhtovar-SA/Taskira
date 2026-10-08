@@ -108,12 +108,12 @@ export const systemChecks: { [K in Id]: () => Promise<Check<K>> } = {
     return { id: "search", state: missing.length > 0 ? "warn" : "ok", facts: { missingIndexes: missing } };
   },
   async backup() {
-    const { facts } = await getOpsSnapshot("backup");
-    return { id: "backup", state: opsState(facts, "backup"), facts };
+    const { facts, lastCompletedSuccess } = await getOpsSnapshot("backup");
+    return { id: "backup", state: opsState(facts, "backup", lastCompletedSuccess), facts };
   },
   async restoreDrill() {
-    const { facts } = await getOpsSnapshot("restore_drill");
-    return { id: "restoreDrill", state: opsState(facts, "restore_drill"), facts };
+    const { facts, lastCompletedSuccess } = await getOpsSnapshot("restore_drill");
+    return { id: "restoreDrill", state: opsState(facts, "restore_drill", lastCompletedSuccess), facts };
   },
   async webhooks() {
     const enabled = loadConfig().webhooks?.enabled ?? false;

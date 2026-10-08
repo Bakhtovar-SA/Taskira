@@ -84,7 +84,9 @@ test.each(["backup", "restore_drill"] as const)("%s: последняя ошиб
   await record(kind, "running", 7);
   expect(await check()).toMatchObject({ state: "fail", facts: { lastResult: "interrupted" } });
   await record(kind, "running", 0.1);
-  expect(await check()).toMatchObject({ state: "ok", facts: { lastResult: "running" } });
+  expect(await check()).toMatchObject({ state: "fail", facts: { lastResult: "running" } });
+  await q(`UPDATE ops_runs SET result='success',finished_at=now() WHERE kind=$1 AND result='running' AND started_at >= now()-interval '1 hour'`, [kind]);
+  expect(await check()).toMatchObject({ state: "ok", facts: { lastResult: "success" } });
 });
 test("история: только нужный вид, последние пять, ограничение 50 и basename", async () => {
   for (let n = 1; n <= 6; n++) await record("backup", "success", n);
@@ -355,9 +357,9 @@ test.each([
 });
 test("точные пороги операций и пустая история", () => {
   const now = Date.now(), facts = { lastSuccessAt: null, lastRunAt: null, lastResult: null, archive: null };
-  expect(opsState(facts, "backup", now)).toBe("unknown");
+  expect(opsState(facts, "backup", null, now)).toBe("unknown");
   for (const [hours, expected] of [[25.99, "ok"], [26, "warn"], [50, "warn"], [50.01, "fail"]] as const) {
-    expect(opsState({ ...facts, lastSuccessAt: new Date(now - hours * 3600_000).toISOString() }, "backup", now)).toBe(expected);
+    expect(opsState({ ...facts, lastSuccessAt: new Date(now - hours * 3600_000).toISOString() }, "backup", null, now)).toBe(expected);
   }
 });
 test("время последнего успеха — завершение, даже если более ранний запуск завершился позже", async () => {
