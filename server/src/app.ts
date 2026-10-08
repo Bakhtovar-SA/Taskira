@@ -54,6 +54,7 @@ import { onboardingRoutes } from "./routes/onboarding.js";
 import { brandRoutes } from "./routes/brand.js";
 import { roadmapRoutes } from "./routes/roadmap.js";
 import { dashboardRoutes } from "./routes/dashboards.js";
+import { getPgVersionInfo } from "./services/pgVersion.js";
 import { searchIndexWarnings, type HealthWarning } from "./services/healthWarnings.js";
 import { createTtlCache } from "./services/ttlCache.js";
 import { observeHttpRequest, refreshBackgroundQueueMetrics, renderMetrics } from "./metrics.js";
@@ -195,8 +196,29 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
         app.log.warn({ err: error }, "readiness warnings check failed");
       }
     }
+    // OPS-PG-01: версия PostgreSQL для экрана состояния; предупреждение, если она новее проверенных.
+    let postgres: { major: number; status: "supported" | "newer_than_tested"; minMajor: number; maxTestedMajor: number } | undefined;
+    if (checks.db) {
+      try {
+        const pv = await getPgVersionInfo();
+        // Unsupported versions fail startup before readiness routes are served.
+        if (pv.status !== "unsupported") postgres = { major: pv.major, status: pv.status, minMajor: pv.minMajor, maxTestedMajor: pv.maxTestedMajor };
+        if (pv.status === "newer_than_tested") {
+          warnings = [
+            ...warnings,
+            {
+              code: "postgres_version_untested",
+              reason: `PostgreSQL ${pv.major} новее проверенных версий (${pv.minMajor}–${pv.maxTestedMajor}): работа не гарантирована.`,
+            },
+          ];
+        }
+      } catch (error) {
+        app.log.warn({ err: error }, "readiness postgres version check failed");
+      }
+    }
     reply.code(ok ? 200 : 503).send({
       ok,
+      ...(postgres ? { postgres } : {}),
       // legacy /api/health consumers read this top-level field; /ready clients
       // should prefer the complete checks object below.
       db: checks.db,

@@ -313,6 +313,7 @@ if [ "$MODE" = "rollback" ]; then
   load_install_settings
 
   STAGE="starting PostgreSQL for restore"
+  : > "$INSTALL_DIR/${INSTALL_MARKER:-.taskira-installed}"
   compose up -d postgres
   wait_for_database
   STAGE="restoring the database dump with a safety database"
@@ -417,6 +418,7 @@ load_release_images
 STAGE="installing new release metadata"
 restore_release_files "$RELEASE_DIR"
 STAGE="starting PostgreSQL"
+: > "$INSTALL_DIR/${INSTALL_MARKER:-.taskira-installed}"
 compose up -d postgres
 wait_for_database
 STAGE="applying database migrations"

@@ -11,8 +11,9 @@
 
 - Linux __ARCH__, минимум 2 ядра CPU, 4 ГБ RAM и 20 ГБ свободного места.
 - Docker Engine 24+ с Compose v2 либо Podman 4+ с доступной командой
-  `podman compose`. Отдельный вызов устаревшей команды `podman-compose`
-  установщиком не поддерживается.
+  `podman compose`. Установщик вызывает только `podman compose`; эта команда
+  сама делегирует работу внешнему провайдеру (`docker-compose` v2 или
+  `podman-compose` 1.1+), который должен быть установлен — см. раздел 6.
 - Команды `bash`, `sha256sum` (обычно пакет coreutils) и `curl`.
 - Доступный пользователям TCP-порт 8081 либо другой непривилегированный порт,
   выбранный в `.env`.
@@ -127,24 +128,140 @@ curl -f "$(sed -n 's/^CORS_ORIGIN=//p' .env)/api/health"
 Для выхода из
 просмотра логов нажмите `Ctrl+C`: контейнеры продолжат работу.
 
-## 6. Отдельно о rootless Podman
+## 6. Podman rootless
 
-Выполняйте все команды от одного обычного пользователя. Не используйте
-`sudo podman`: root и rootless Podman имеют разные хранилища образов и томов.
-Порт 8081 выше 1024, поэтому публикуется без root-прав.
+Установка проверена на Rocky Linux 10.2 с Podman 5.8.2 и podman-compose 1.6.0;
+результаты записаны в `docs/MANUAL-CHECK-TRACK-M.md` репозитория. Другие версии
+RHEL/Rocky, Astra Linux и РЕД ОС этим прогоном не проверены: выполните проверки
+ниже на вашей ОС.
 
-Чтобы пользовательские сервисы продолжали работать после выхода из сессии и
-после перезагрузки, администратор ОС может один раз включить lingering:
+**Общие правила.** Выполняйте все команды от одного обычного пользователя,
+зашедшего напрямую (ssh или консоль), а не через `su`/`sudo -u`: Podman
+использует его systemd-сессию (`XDG_RUNTIME_DIR`), а проверки здоровья
+контейнеров работают через systemd-таймеры. Не используйте `sudo podman`: у
+root и rootless разные хранилища образов и томов.
+
+**Предварительные условия (от root, один раз).** `install.sh` проверяет их
+и останавливается с понятным сообщением, если что-то не выполнено:
 
 ```bash
-sudo loginctl enable-linger "$USER"
-systemctl --user enable podman-restart.service
+sysctl user.max_user_namespaces                  # должно быть > 0
+grep "^$(id -un):" /etc/subuid /etc/subgid       # диапазон для пользователя
+# если пусто:
+sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 <пользователь>
+podman system migrate                            # от этого пользователя
 ```
 
-Если `podman compose` сообщает, что провайдер не найден, установите совместимый
-Compose provider с установочного носителя или из внутреннего репозитория ОС до
-отключения сети. После установки команда `podman compose version` должна
-выполняться успешно. Taskira не скачивает эту зависимость.
+**Compose provider.** `podman compose` — лишь обёртка. Нужен один из:
+`docker-compose` v2 (тогда включите пользовательский сокет:
+`systemctl --user enable --now podman.socket`) или `podman-compose` версии
+1.6.0 (проверен). Диапазон 1.1+ — рекомендация по совместимости, отдельные версии
+между 1.1 и 1.6.0 не проверены. Более старые `podman-compose` (в частности 1.0.x из некоторых
+репозиториев ОС) не гарантируют ожидание `depends_on: condition:
+service_healthy`: `server` может стартовать раньше PostgreSQL. Проверьте:
+`podman compose version`. Taskira не скачивает эту зависимость — положите её
+в комплект или внутренний репозиторий заранее.
+
+**Тома и UID mapping.** Данные хранятся в именованных томах `pgdata` и
+`attachments`, не в каталогах хоста: Podman сам назначает им владельца из
+образа и SELinux-метку, поэтому `:Z`/`:z` для них не нужны. В хост-системе
+файлы томов принадлежат «субпользователям» из `/etc/subuid`, а не вам — это
+нормально. Не делайте `chown`/`chmod` на содержимое томов снаружи; посмотреть
+файлы можно через `podman unshare` или `podman volume inspect`. Единственный
+bind-mount — закрытый временный каталог `backup.sh`/`restore.sh`; он монтируется с приватной меткой `:Z`
+(иначе под SELinux — «permission denied»).
+
+Для предпроверки владельца томов имя Compose-проекта берётся из `COMPOSE_PROJECT_NAME`
+окружения, затем из `.env`, затем из имени каталога. После проверки владельца томов,
+сети и конфигурации установщик записывает `.taskira-installed` перед `up -d`:
+частично выполненный запуск и последующий отказ healthcheck не мешают повторному запуску.
+Обновление и откат записывают маркер перед запуском PostgreSQL.
+Если `TASKIRA_NETWORK_CIDR` изменён, а старая сеть этого проекта сохранилась,
+предпроверка просит вернуть исходную подсеть или остановить установку и удалить её сеть.
+Отсутствие локальных записей `/etc/subuid` или `/etc/subgid` даёт предупреждение:
+диапазоны могут предоставляться внешней службой учётных записей.
+
+**Порты ниже 1024.** По умолчанию порт 8081, он публикуется без прав root.
+Чтобы слушать 80/443 напрямую, нужно (от root) понизить порог и сохранить
+настройку, либо поставить перед Taskira reverse proxy, которому разрешено
+слушать привилегированный порт, и оставить `CLIENT_PORT` ≥ 1024:
+
+```bash
+echo 'net.ipv4.ip_unprivileged_port_start=80' | sudo tee /etc/sysctl.d/99-taskira.conf
+sudo sysctl --system
+```
+
+Порог действует на все непривилегированные процессы сервера. Если
+`CLIENT_PORT` меньше порога, `install.sh --start` завершится ошибкой до запуска
+контейнеров. Не забудьте изменить порт и в `CORS_ORIGIN`.
+
+**Firewall.** На RHEL/Rocky/Alma `firewalld` включён по умолчанию и закрывает
+`CLIENT_PORT` для других машин: с самого сервера `curl` отвечает, из браузера
+пользователя — таймаут. Откройте порт (от root):
+
+```bash
+sudo firewall-cmd --permanent --add-port=8081/tcp && sudo firewall-cmd --reload
+```
+
+**Автозапуск после перезагрузки.** `restart: unless-stopped` в rootless Podman
+сам по себе контейнеры после перезагрузки сервера не поднимает: нет системного
+демона, который это сделал бы. Нужны (а) lingering, чтобы пользовательский
+systemd запускался без входа в систему, и (б) пользовательский юнит:
+
+```bash
+sudo loginctl enable-linger <пользователь>
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/taskira.service <<'EOF'
+[Unit]
+Description=Taskira (podman compose)
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# systemd --user не видит ~/.local/bin, куда pip ставит podman-compose
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=/opt/taskira/current
+ExecStart=/usr/bin/podman compose --env-file .env -f docker-compose.yml up -d
+ExecStop=/usr/bin/podman compose --env-file .env -f docker-compose.yml stop
+TimeoutStartSec=300
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target
+EOF
+systemctl --user daemon-reload
+systemctl --user enable --now taskira.service
+```
+
+Подставьте свой каталог установки и путь к `podman` (`command -v podman`).
+Строка `Environment=PATH=…` обязательна, если compose provider лежит не в
+`/usr/bin` (например, `pip install --user podman-compose`): без неё юнит падает
+с `podman-compose: executable file not found in $PATH`, хотя из shell
+`podman compose` работает.
+Проверьте автозапуск реальной перезагрузкой: `loginctl show-user $USER -p
+Linger` должно показать `Linger=yes`, а после `reboot` — `curl -f
+http://127.0.0.1:8081/api/health` без входа в систему. Альтернатива —
+`systemctl --user enable podman-restart.service`: на проверенном Podman 5.8.2
+он поднимает контейнеры с `unless-stopped`. Для других версий подтвердите это
+перезагрузкой; compose-юнит выше явно управляет запуском всего стека.
+Quadlet-юниты (`.container`) в комплект пока не входят: стек описан compose-файлом,
+и перенос на Quadlet — отдельная задача.
+
+**Известные проблемы.**
+
+- `podman compose` печатает «Executing external compose provider» — это
+  предупреждение, а не ошибка.
+- `install.sh` сообщает «Rootless Podman detected», но контейнеры не становятся
+  healthy после `su - user`: нет `XDG_RUNTIME_DIR`; зайдите по ssh/консоли.
+- `permission denied` в `backup.sh`/`restore.sh` на SELinux — используйте
+  скрипты из этого релиза (в них есть `:Z`), не копируйте старые версии.
+- Образы загружаются в хранилище пользователя: после `sudo podman load`
+  Compose их не увидит (`image ... not known`).
+- Диск хранилища образов rootless-пользователя — `~/.local/share/containers`;
+  `upgrade.sh` проверяет свободное место именно там.
+- Пользователь с домашним каталогом на NFS/без xattr: хранилище контейнеров
+  работает неустойчиво; перенесите `graphroot` на локальный диск
+  (`~/.config/containers/storage.conf`).
 
 ## 7. Обновление существующей инсталляции
 
@@ -237,6 +354,8 @@ docker compose --env-file .env -f docker-compose.yml down
 - ошибка CORS в браузере: `CORS_ORIGIN` должен в точности совпадать с origin в
   адресной строке, включая схему и порт, без завершающего `/`.
 - порт занят: поменяйте `CLIENT_PORT` и тот же порт в `CORS_ORIGIN`.
+- rootless Podman: `cannot publish port N` — порт ниже
+  `net.ipv4.ip_unprivileged_port_start`, см. раздел 6.
 
 ## 10. Приёмочная проверка полностью без сети
 
