@@ -43,10 +43,15 @@ OPS_LAST_ERROR='restore drill failed'
 # All changes of INSTALL_DIR and compose options stay in this subshell.
 drill_compose() (
   unset COMPOSE_PROJECT_NAME TASKIRA_COMPOSE_OVERRIDE
-  # Shell env has precedence over --env-file. Remove every interpolated key
-  # from the working compose before resolving fresh drill credentials.
+  # Shell env has precedence over --env-file. Clear application settings,
+  # preserving host variables such as PATH/HOME even if Compose uses them.
   while IFS= read -r variable; do unset "$variable"; done < <(
-    grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*' "$INSTALL_DIR/docker-compose.yml" | sed 's/^\${//' | sort -u
+    {
+      sed -nE 's/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p' "$DRILL_DIR/.env"
+      grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*' "$INSTALL_DIR/docker-compose.yml" |
+        sed 's/^\${//' |
+        grep -E '^(POSTGRES_|JWT_|ADMIN_|TASKIRA_|STORAGE_|SMTP_|LDAP_|AUTH_|OIDC_|SESSION_|ACCOUNT_|CLIENT_|CORS_|INSTANCE_|ATTACH_|VITE_|DUE_|NOTIFY_|MAINTENANCE_|WEBHOOKS?_|RECURRING_)'
+    } | sort -u
   )
   ops_init "$DRILL_DIR"
   TASKIRA_COMPOSE_OVERRIDE=drill.override.yml
