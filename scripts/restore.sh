@@ -17,7 +17,10 @@ while [ "$#" -gt 0 ]; do
     --install-dir) INSTALL_DIR="$2"; shift 2 ;;
     --archive) ARCHIVE="$2"; shift 2 ;;
     --yes) ASSUME_YES=1; shift ;;
-    --storage-driver) [ "$2" = local ] || { echo 'Only --storage-driver local is supported' >&2; exit 2; }; OPS_STORAGE_DRIVER=local; shift 2 ;;
+    --storage-driver)
+      [ -n "${2:-}" ] || { usage >&2; exit 2; }
+      [ "$2" = local ] || { echo 'Only --storage-driver local is supported' >&2; exit 2; }
+      OPS_STORAGE_DRIVER=local; shift 2 ;;
     --engine) ENGINE="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;

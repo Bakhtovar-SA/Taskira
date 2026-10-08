@@ -98,10 +98,9 @@ EOF
 )
 chmod 0600 "$OUTPUT"
 bytes="$(wc -c < "$OUTPUT" | tr -d ' ')"
-ops_run_finish "$OPS_RUN_ID" success \
-  "{\"bytes\":$bytes,\"durationSec\":$(($(date +%s) - STARTED_AT)),\"storageDriver\":\"$storage_driver\"}" ''
-
 compose up -d
 ops_wait_for_application "$version"
 STACK_STOPPED=0
+ops_run_finish "$OPS_RUN_ID" success \
+  "{\"bytes\":$bytes,\"durationSec\":$(($(date +%s) - STARTED_AT)),\"storageDriver\":\"$storage_driver\"}" ''
 echo "Backup complete: $OUTPUT"

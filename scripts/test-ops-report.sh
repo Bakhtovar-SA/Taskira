@@ -19,6 +19,14 @@ printf '9.8.7-test\n' > "$INSTALL_DIR/VERSION"
 actual="$(printf 'RED RED fixture-mail-secret Bearer abc123 whsec_sample taskira_session=sample\n' | redact_stream)"
 [ "$actual" = '[REDACTED] [REDACTED] [REDACTED] Bearer [REDACTED] [REDACTED] taskira_session=[REDACTED]' ]
 
+# The normal host path has no optional Compose arguments.
+(
+  . "$ROOT_DIR/scripts/release/container-engine.sh"
+  compose_run() { printf '%s\n' "$@" > "$TEST_DIR/compose-arguments"; }
+  compose version
+)
+[ "$(cat "$TEST_DIR/compose-arguments")" = $'--env-file\n.env\n-f\ndocker-compose.yml\nversion' ]
+
 # Substitute only the transport. SQL is still passed on stdin, and caller
 # values must remain psql variables, including quotes, newlines and secrets.
 MODE=success
@@ -83,5 +91,92 @@ grep -Fq 'fixture DockerRootDir failure' "$TEST_DIR/drill-arguments"
 ! grep -Fq 'fixture-mail-secret' "$TEST_DIR/drill-arguments"
 grep -Fq 'REDACTED' "$TEST_DIR/drill-arguments"
 [ -z "$(find "$TEST_DIR" -maxdepth 1 -name 'taskira-drill-error.*' -print)" ]
+
+# Run the real backup orchestration with a simulated host, including a valid
+# archive, to check that restart/health failures never follow a success report.
+mkdir "$TEST_DIR/backup-scripts"
+cp "$ROOT_DIR/scripts/backup.sh" "$TEST_DIR/backup-scripts/backup.sh"
+cat > "$TEST_DIR/backup-scripts/operations-common.sh" <<'SH'
+ops_init() { POSTGRES_USER=taskira; POSTGRES_DB=taskira; }
+fail() { echo "ERROR: $*" >&2; exit 1; }
+wait_for_database() { :; }
+current_version() { echo 9.8.7-test; }
+latest_schema() { echo fixture.sql; }
+schema_migrations() { echo fixture.sql; }
+verify_database_dump() { test -s "$1"; }
+storage_command() { echo '{}' > "$2/objects.json"; }
+write_public_env() { echo 'STORAGE_DRIVER=local' > "$2"; }
+env_file_value() { echo local; }
+compose() {
+  case "$1:$2" in
+    stop:*) : ;;
+    up:-d)
+      echo restart >> "$OPS_REPORT_TEST_DIR/events"
+      [ "$BACKUP_TEST_MODE" != restart ] ;;
+    exec:-T)
+      case "$4" in
+        psql) echo '{"projects":1,"issues":2}' ;;
+        pg_dump) echo fixture-dump ;;
+        *) return 2 ;;
+      esac ;;
+    *) return 2 ;;
+  esac
+}
+ops_wait_for_application() {
+  echo health >> "$OPS_REPORT_TEST_DIR/events"
+  [ "$BACKUP_TEST_MODE" != health ]
+}
+SH
+cat > "$TEST_DIR/backup-scripts/ops-report.sh" <<'SH'
+ops_run_start() { echo fixture-id; }
+ops_run_finish() { echo "finish:$2" >> "$OPS_REPORT_TEST_DIR/events"; }
+SH
+for mode in success restart health; do
+  : > "$TEST_DIR/events"
+  status=0
+  OPS_REPORT_TEST_DIR="$TEST_DIR" BACKUP_TEST_MODE="$mode" \
+    bash "$TEST_DIR/backup-scripts/backup.sh" --install-dir "$INSTALL_DIR" \
+      --output "$TEST_DIR/backup-$mode.tar.gz" > "$TEST_DIR/backup-output" 2>&1 || status=$?
+  mkdir "$TEST_DIR/verify-$mode"
+  tar -xzf "$TEST_DIR/backup-$mode.tar.gz" -C "$TEST_DIR/verify-$mode"
+  (cd "$TEST_DIR/verify-$mode" && sha256sum --check --strict SHA256SUMS >/dev/null)
+  [ "$(grep -c '^finish:' "$TEST_DIR/events")" = 1 ]
+  if [ "$mode" = success ]; then
+    [ "$status" = 0 ]
+    [ "$(cat "$TEST_DIR/events")" = $'restart\nhealth\nfinish:success' ]
+  else
+    [ "$status" != 0 ]
+    grep -Fxq 'finish:failure' "$TEST_DIR/events"
+    ! grep -Fxq 'finish:success' "$TEST_DIR/events"
+  fi
+done
+
+status=0
+bash "$ROOT_DIR/scripts/restore.sh" --storage-driver > "$TEST_DIR/restore-output" 2>&1 || status=$?
+[ "$status" = 2 ]
+grep -Fq 'Usage:' "$TEST_DIR/restore-output"
+! grep -Fq 'unbound variable' "$TEST_DIR/restore-output"
+
+# Exercise the drill's environment boundary without starting containers.
+# Compose may reference host variables; clearing application credentials must
+# not erase the PATH needed to invoke the engine or the host HOME.
+(
+  DRILL_DIR="$TEST_DIR/drill-env"
+  mkdir "$DRILL_DIR"
+  printf 'POSTGRES_PASSWORD=fresh-drill-secret\n' > "$DRILL_DIR/.env"
+  printf 'environment: [${PATH}, ${HOME}, ${POSTGRES_PASSWORD}, ${SMTP_HOST}]\n' > "$INSTALL_DIR/docker-compose.yml"
+  export POSTGRES_PASSWORD=working-secret SMTP_HOST=working-mail
+  expected_path="$PATH"; expected_home="$HOME"
+  ops_init() { INSTALL_DIR="$1"; }
+  compose() {
+    [ "$PATH" = "$expected_path" ] && [ "$HOME" = "$expected_home" ]
+    [ -z "${POSTGRES_PASSWORD+x}" ] && [ -z "${SMTP_HOST+x}" ]
+    [ "$TASKIRA_COMPOSE_OVERRIDE" = drill.override.yml ]
+  }
+  # Load the production function only; the script's top-level code runs hosts.
+  eval "$(sed -n '/^drill_compose() (/ , /^)$/p' "$ROOT_DIR/scripts/restore-drill.sh")"
+  drill_compose config
+  [ "$POSTGRES_PASSWORD" = working-secret ] && [ "$SMTP_HOST" = working-mail ]
+)
 
 echo 'host operation reporting and redaction checks passed'
