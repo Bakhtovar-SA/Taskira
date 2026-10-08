@@ -79,3 +79,4 @@
 | `20261006T0646_recurring_pause_reasons.sql` | Причины автоматической паузы; прежние значения и данные сохраняются. |
 | `20261006T1008_ops_runs.sql` | Отчёты операций хоста: бэкап и репетиция восстановления. |
 | `20261006T1057_status_failure_times.sql` | Время окончательного почтового отказа и индексы суточных ошибок состояния системы. |
+| `20261008T0931_webhook_failure_time.sql` | Historical failure times are unknown; do not infer them from mutable updated_at. |

@@ -135,11 +135,14 @@ test("вебхуки: выключенная пустая функция off; di
   await q(`UPDATE webhooks SET state='active',disabled_reason=NULL WHERE id=$1`, [hook.id]); cfg.webhooks.enabled = true;
   const [event] = await q<{ id: string }>(`INSERT INTO integration_events(type,project_id,dedupe_key)
     VALUES('issue.created',$1,'status-fixture') RETURNING id`, [fx.projects.p1]);
-  await q(`INSERT INTO webhook_deliveries(webhook_id,event_id,manual,state,created_at,updated_at)
-    VALUES($1,$2,true,'pending',now()-interval '20 minutes',now()),
+  await q(`INSERT INTO webhook_deliveries(webhook_id,event_id,manual,state,created_at,failed_at)
+    VALUES($1,$2,true,'pending',now()-interval '20 minutes',NULL),
       ($1,$2,true,'failed',now()-interval '2 days',now()),
-      ($1,$2,true,'failed',now(),now()-interval '2 days')`, [hook.id, event.id]);
+      ($1,$2,true,'failed',now(),now()-interval '2 days'),
+      ($1,$2,true,'failed',now(),NULL)`, [hook.id, event.id]);
   expect(await systemChecks.webhooks()).toMatchObject({ state: "warn", facts: { active: 1, pending: 1, failed24h: 1 } });
+  await q(`UPDATE webhook_deliveries SET updated_at=now() WHERE state='failed'`);
+  expect((await systemChecks.webhooks()).facts.failed24h).toBe(1);
 });
 test("время почтового отказа записывается только при исчерпании ретраев", async () => {
   cfg.notify.emailEnabled = true; cfg.notify.emailMaxTries = 2;
@@ -270,7 +273,7 @@ test("кэш и одновременные запросы используют �
   expect(await getSystemStatus()).toBe(first); expect(spy).toHaveBeenCalledTimes(count);
 });
 
-test("истёкший кэш не запускает повторную проверку, пока предыдущая ещё зависла", async () => {
+test("таймаут не кэшируется: зависшая проверка общая, восстановление видно сразу", async () => {
   const initial = await getSystemStatus(); clearSystemStatusCache();
   for (const check of initial.checks) vi.spyOn(systemChecks, check.id).mockResolvedValue(check as never);
   let release!: (check: Extract<SystemCheck, { id: "mail" }>) => void;
@@ -280,12 +283,12 @@ test("истёкший кэш не запускает повторную про�
   vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
   const first = getSystemStatus(); await vi.advanceTimersByTimeAsync(5000);
   expect((await first).checks.find(check => check.id === "mail")?.state).toBe("unknown");
-  await vi.advanceTimersByTimeAsync(15001);
   const second = getSystemStatus(); await vi.advanceTimersByTimeAsync(5000);
   expect((await second).checks.find(check => check.id === "mail")?.state).toBe("unknown");
   expect(systemChecks.mail).toHaveBeenCalledTimes(1);
   release(initial.checks.find(check => check.id === "mail") as Extract<SystemCheck, { id: "mail" }>);
   await waiting;
+  expect((await getSystemStatus()).checks.find(check => check.id === "mail")).toEqual(initial.checks.find(check => check.id === "mail"));
 });
 test("scrape читает операции напрямую, текущий запуск сохраняет завершённый результат, зависший даёт 0", async () => {
   await record("backup", "success", 8);
