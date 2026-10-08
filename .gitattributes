@@ -1,5 +1,6 @@
 # Shell-скрипты всегда с LF — иначе не запустятся на Linux-сервере.
 *.sh text eol=lf
+deploy/systemd/* text eol=lf
 # Generated Compose is compared byte-for-byte with render-compose.sh output.
 docker-compose.yml text eol=lf
 # LDIF монтируется в Linux-контейнер OpenLDAP; CR в значениях ломает парсер.

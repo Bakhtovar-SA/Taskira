@@ -276,6 +276,8 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `POST /api/me/onboarding/hide` | — | requireAuth | скрыть карточку навсегда |
 | `POST /api/me/hints/:hintId/dismiss` | — | requireAuth | закрыть подсказку навсегда (id `^[a-z][a-z0-9.-]{0,39}$`, хранится не больше 100) |
 | `GET/PATCH /api/admin/setup`, `POST /api/admin/setup/complete` | `{instanceName}` | global admin | первичная настройка: статус, название инсталляции, «завершить» |
+| `GET /api/maintenance` | — | global admin (сессия) | состояние фоновых заданий этого процесса и действующие настройки обслуживания |
+| `POST /api/maintenance/run?dryRun=true\|false` | обязательный query `dryRun` | global admin (сессия) | `{archived, auditPurged, opsRunsPurged, capped, dryRun}`: задачи в архив, удалённые записи аудита и отчёты операций; `true` считает без изменений, `false` выполняет проход; `409 maintenance_busy`, если проход уже идёт |
 | `POST/DELETE /api/admin/demo-project` | — | global admin | демо-проект (один; `409`, если уже есть); удаление не оставляет строк в БД, в т.ч. в `audit_log` |
 | `PATCH /api/projects/:projectId/appearance` | `ProjectAppearanceBody` `{icon?, color?, background?}` | `editAppearance` (admin, manager) | внешний вид проекта (ТЗ 5.14 п.7); `audit_log: project.appearance` |
 | `POST/DELETE /api/projects/:projectId/background-photo`, `GET …/background-photo/:size` | multipart `full`, `small` (WebP) + `luma` | `editAppearance` · `browse` | своё фото фона проекта (ТЗ 5.14 п.2): сервер проверяет WebP и габариты, `size = full\|small` |
@@ -306,6 +308,11 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `PATCH /api/users/:id` | `{globalRole, isActive?}` | **admin**; защита последнего активного админа — `409` | смена **глобальной** роли; `invalidateUserCache` — действует сразу |
 | `PUT /api/project/members/:userId` | `SetMemberBody` `{role}` | **admin** (`manageAccess`) | добавить участника / сменить проектную роль; upsert; `invalidateMembership` |
 | `DELETE /api/project/members/:userId` | — | **admin** (`manageAccess`) | убрать из проекта; `404` если не участник; `409` — последний активный менеджер |
+
+В ответе ручного обслуживания три счётчика — целые числа: при `dryRun=true` это количество подходящих строк,
+при `false` — обработанных за проход. `opsRunsPurged` относится к истории операций хоста: сохраняются последние
+200 отчётов каждого вида. `capped=true` означает, что достигнут лимит прохода (в предварительном подсчёте —
+что подходящих строк больше лимита); последующие проходы продолжат обработку.
 
 **Seed проекта** (`seedProject`, идемпотентно): при пустой `projects` создаёт `CORP «Корпоративные задачи»`
 (или `PROJECT_KEY/PROJECT_NAME` из env) в отделе `DEFAULT_DEPARTMENT`, статусы `todo / inprogress / review / done`

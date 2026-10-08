@@ -49,20 +49,6 @@ if [ -f "$INSTALL_DIR/IMAGES.txt" ]; then
   done < "$INSTALL_DIR/IMAGES.txt" > "$BUNDLE/image-details.txt" 2>&1 || true
 fi
 
-SECRET_FILE="$WORK_DIR/secrets"
-printf '%s\n' '__TASKIRA_NO_SECRET_SENTINEL__' > "$SECRET_FILE"
-for key in POSTGRES_PASSWORD JWT_SECRET ADMIN_PASSWORD LDAP_BIND_PASSWORD STORAGE_S3_ACCESS_KEY STORAGE_S3_SECRET_KEY SMTP_PASSWORD OIDC_CLIENT_SECRET WEBHOOK_SECRET_KEY; do
-  value="$(env_file_value "$INSTALL_DIR/.env" "$key")"
-  [ -z "$value" ] || printf '%s\n' "$value" >> "$SECRET_FILE"
-done
-redact_stream() {
-  awk 'NR==FNR { if ($0 != "__TASKIRA_NO_SECRET_SENTINEL__") secret[++n]=$0; next }
-       { for (i=1;i<=n;i++) while ((p=index($0,secret[i]))>0) $0=substr($0,1,p-1) "[REDACTED]" substr($0,p+length(secret[i]));
-         gsub(/Bearer [A-Za-z0-9._~-]+/, "Bearer [REDACTED]");
-         gsub(/tsk_[a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9]_[A-Za-z0-9_-]+/, "[REDACTED]");
-         gsub(/whsec_[A-Za-z0-9_-]+/, "[REDACTED]");
-         gsub(/taskira_session=[^ ;"]+/, "taskira_session=[REDACTED]"); print }' "$SECRET_FILE" -
-}
 for service in server client postgres; do
   compose logs --no-color --tail="$LOG_LINES" "$service" 2>&1 | redact_stream > "$BUNDLE/logs/$service.log" || true
 done
