@@ -36,13 +36,14 @@ STACK_STOPPED=0
 cleanup() {
   local code=$?
   trap - EXIT ERR
+  trap '' INT TERM HUP
+  if [ "$STACK_STOPPED" = "1" ]; then
+    compose up -d >/dev/null 2>&1 || echo "WARNING: could not restart Taskira; run compose up -d" >&2
+  fi
   if [ "$code" != 0 ]; then
     # Failures before the dump still get a report with the original start time.
     [ -n "$OPS_RUN_ID" ] || OPS_RUN_ID="$(ops_run_start backup "$STARTED_AT")"
     ops_run_finish "$OPS_RUN_ID" failure '{}' "${OPS_LAST_ERROR:-backup failed (exit $code)}"
-  fi
-  if [ "$STACK_STOPPED" = "1" ]; then
-    compose up -d >/dev/null 2>&1 || echo "WARNING: could not restart Taskira; run compose up -d" >&2
   fi
   [ -z "$WORK_DIR" ] || rm -rf -- "$WORK_DIR"
   exit "$code"
