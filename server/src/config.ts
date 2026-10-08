@@ -192,6 +192,12 @@ export interface Config {
     loginWindowMs: number;
     accountMaxFailures: number;
     accountLockSeconds: number;
+    /** SEC-RATE-01: лимиты чувствительных маршрутов на пользователя/токен/IP в окне `actionWindowMs` (routeLimits.ts). */
+    actionWindowMs: number;
+    sensitiveMax: number;
+    exportMax: number;
+    searchMax: number;
+    dashboardDataMax: number;
   };
 }
 
@@ -552,6 +558,11 @@ function buildConfig(): Config {
       loginWindowMs: envPosInt("RATE_LIMIT_LOGIN_WINDOW_MS", 5 * 60_000),
       accountMaxFailures: envPosInt("ACCOUNT_LOCK_MAX_FAILURES", 5),
       accountLockSeconds: envPosInt("ACCOUNT_LOCK_SECONDS", 15 * 60),
+      actionWindowMs: envPosInt("RATE_LIMIT_ACTION_WINDOW_MS", 60_000),
+      sensitiveMax: envPosInt("RATE_LIMIT_SENSITIVE_MAX", 10),
+      exportMax: envPosInt("RATE_LIMIT_EXPORT_MAX", 10),
+      searchMax: envPosInt("RATE_LIMIT_SEARCH_MAX", 120),
+      dashboardDataMax: envPosInt("RATE_LIMIT_DASHBOARD_DATA_MAX", 60),
     },
   };
 }
