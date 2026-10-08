@@ -21,7 +21,7 @@ detect_engine() {
 
 # Rootless Podman preflight. Each failure names the cause and the fix, instead of
 # letting podman/compose die later with an unrelated message. Docker and rootful
-# Podman pass through untouched. TASKIRA_PROC_SYS / TASKIRA_SUBUID_FILE exist only
+# Podman pass through untouched. TASKIRA_PROC_SYS / TASKIRA_SUBUID_FILE / TASKIRA_SUBGID_FILE exist only
 # so tests can point the reads at fixtures.
 podman_is_rootless() {
   [ "$ENGINE" = "podman" ] || return 1
@@ -46,13 +46,18 @@ preflight_rootless() {
     return 1
   fi
 
-  subuid_file="${TASKIRA_SUBUID_FILE:-/etc/subuid}"
-  if [ -r "$subuid_file" ] && ! grep -Eq "^($(id -un)|$(id -u)):" "$subuid_file"; then
-    echo "ERROR: no subordinate UID range for $(id -un) in /etc/subuid (and /etc/subgid)." >&2
-    echo "       As root: usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $(id -un)" >&2
-    echo "       then run 'podman system migrate' as that user." >&2
-    return 1
-  fi
+  local account="$(id -un)" account_id="$(id -u)" kind range_file
+  for kind in UID GID; do
+    if [ "$kind" = UID ]; then range_file="${TASKIRA_SUBUID_FILE:-/etc/subuid}"
+    else range_file="${TASKIRA_SUBGID_FILE:-/etc/subgid}"; fi
+    if [ ! -r "$range_file" ] || ! awk -F: -v name="$account" -v uid="$account_id" \
+      '$1 == name || $1 == uid { found=1 } END { exit !found }' "$range_file"; then
+      # NSS providers may supply working mappings without local file entries.
+      echo "WARNING: no local subordinate $kind range for $account in $range_file." >&2
+      echo "         An external mapping provider may supply it; if containers fail, check 'podman unshare true'" >&2
+      echo "         and configure UID/GID ranges with your system administrator." >&2
+    fi
+  done
 
   if [ -n "$port" ]; then
     first="$(cat "$proc_sys/net/ipv4/ip_unprivileged_port_start" 2>/dev/null || true)"
@@ -138,6 +143,15 @@ cidrs_overlap() {
   [ $((a_ip & mask)) -eq $((b_ip & mask)) ]
 }
 
+cidrs_equal() {
+  local a_bits=$((10#${1#*/})) b_bits=$((10#${2#*/})) a_ip b_ip mask
+  [ "$a_bits" -eq "$b_bits" ] || return 1
+  a_ip="$(ipv4_to_int "${1%/*}")" || return 2
+  b_ip="$(ipv4_to_int "${2%/*}")" || return 2
+  mask=$((a_bits == 0 ? 0 : (0xFFFFFFFF << (32 - a_bits)) & 0xFFFFFFFF))
+  [ $((a_ip & mask)) -eq $((b_ip & mask)) ]
+}
+
 # The project network uses a fixed subnet (TASKIRA_NETWORK_CIDR, default
 # 172.30.0.0/24). Another network on the same subnet — typically a second
 # installation, even a stopped one — makes `up` die inside the provider with a
@@ -152,8 +166,17 @@ preflight_network() {
   fi
   own="$(compose_project_name "$dir")_default"
   while IFS= read -r net; do
-    [ -n "$net" ] && [ "$net" != "$own" ] || continue
+    [ -n "$net" ] || continue
+    # TASKIRA_NETWORK_CIDR is IPv4; IPv6 ranges do not overlap its address family.
     for subnet in $("$ENGINE" network inspect "$net" 2>/dev/null | grep -oiE '"subnet": *"[0-9.]+/[0-9]+"' | grep -oE '[0-9.]+/[0-9]+' || true); do
+      if [ "$net" = "$own" ]; then
+        if ! cidrs_equal "$cidr" "$subnet"; then
+          echo "ERROR: own network $net uses $subnet, but TASKIRA_NETWORK_CIDR=$cidr has changed." >&2
+          echo "       Restore the original CIDR, or stop this installation and remove its network before restarting." >&2
+          return 1
+        fi
+        continue
+      fi
       if cidrs_overlap "$cidr" "$subnet"; then
         echo "ERROR: network $net already uses $subnet, which overlaps TASKIRA_NETWORK_CIDR=$cidr." >&2
         echo "       Set another free private subnet in .env, for example TASKIRA_NETWORK_CIDR=172.31.0.0/24," >&2

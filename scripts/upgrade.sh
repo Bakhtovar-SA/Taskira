@@ -313,6 +313,7 @@ if [ "$MODE" = "rollback" ]; then
   load_install_settings
 
   STAGE="starting PostgreSQL for restore"
+  : > "$INSTALL_DIR/${INSTALL_MARKER:-.taskira-installed}"
   compose up -d postgres
   wait_for_database
   STAGE="restoring the database dump with a safety database"
@@ -320,7 +321,6 @@ if [ "$MODE" = "rollback" ]; then
   STAGE="starting previous Taskira version"
   compose up -d
   wait_for_health "$old_version"
-  : > "$INSTALL_DIR/${INSTALL_MARKER:-.taskira-installed}"
   echo "Rollback complete. Taskira $old_version and its database were restored."
   exit 0
 fi
@@ -418,6 +418,7 @@ load_release_images
 STAGE="installing new release metadata"
 restore_release_files "$RELEASE_DIR"
 STAGE="starting PostgreSQL"
+: > "$INSTALL_DIR/${INSTALL_MARKER:-.taskira-installed}"
 compose up -d postgres
 wait_for_database
 STAGE="applying database migrations"
@@ -426,7 +427,6 @@ STAGE="starting Taskira $target_version"
 compose up -d
 STAGE="health-checking Taskira $target_version"
 wait_for_health "$target_version"
-: > "$INSTALL_DIR/${INSTALL_MARKER:-.taskira-installed}"
 
 echo "Upgrade complete: Taskira $current_version -> $target_version"
 echo "Backup: $BACKUP_DIR/database.dump"

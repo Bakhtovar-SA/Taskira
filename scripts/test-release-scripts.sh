@@ -78,7 +78,9 @@ cat > "$TMP_DIR/bin/podman" <<'EOF'
 set -eu
 case "${1:-}" in
   info|pull|build|tag|load) exit 0 ;;
-  compose) exit 0 ;;
+  compose)
+    case " $* " in *" up "*) [ "${FAKE_UP_FAIL:-0}" != 1 ] || exit 1 ;; esac
+    exit 0 ;;
   image)
     if [ "${2:-}" = "inspect" ] && [ "${3:-}" = "--format" ]; then
       case "${4:-}" in
@@ -185,6 +187,7 @@ printf '1024\n' > "$TMP_DIR/proc/net/ipv4/ip_unprivileged_port_start"
 rootless_install() {
   (cd "$RELEASE_DIR" && PATH="$TMP_DIR/rootless-bin:$PATH" TASKIRA_PROC_SYS="$TMP_DIR/proc" \
     TASKIRA_SUBUID_FILE="${SUBUID_FIXTURE:-/nonexistent}" XDG_RUNTIME_DIR=/run/user/1000 \
+    TASKIRA_SUBGID_FILE="${SUBGID_FIXTURE:-/nonexistent}" \
     bash install.sh --engine podman --start 2>&1)
 }
 rootless_out="$(rootless_install)"
@@ -204,11 +207,15 @@ fi
 printf '%s' "$rootless_out" | grep -q 'user namespaces are disabled'
 printf '15000\n' > "$TMP_DIR/proc/user/max_user_namespaces"
 printf 'nobody-else:100000:65536\n' > "$TMP_DIR/subuid"
-if SUBUID_FIXTURE="$TMP_DIR/subuid" rootless_out="$(SUBUID_FIXTURE="$TMP_DIR/subuid" rootless_install)"; then
-  echo "install.sh ignored a missing subuid range" >&2
-  exit 1
+rootless_out="$(SUBUID_FIXTURE="$TMP_DIR/subuid" rootless_install)"
+printf '%s' "$rootless_out" | grep -q 'WARNING: no local subordinate UID range'
+printf '%s:100000:65536\n' "$(id -un)" > "$TMP_DIR/subuid"
+printf 'nobody-else:100000:65536\n' > "$TMP_DIR/subgid"
+rootless_out="$(SUBUID_FIXTURE="$TMP_DIR/subuid" SUBGID_FIXTURE="$TMP_DIR/subgid" rootless_install)"
+printf '%s' "$rootless_out" | grep -q 'WARNING: no local subordinate GID range'
+if printf '%s' "$rootless_out" | grep -q 'WARNING: no local subordinate UID range'; then
+  echo 'install.sh missed the configured local UID mapping' >&2; exit 1
 fi
-printf '%s' "$rootless_out" | grep -q 'no subordinate UID range'
 # Rootful/Docker-like fake (info prints nothing) must skip the checks entirely.
 printf '80\n' > "$TMP_DIR/proc/net/ipv4/ip_unprivileged_port_start"
 (cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" TASKIRA_PROC_SYS="$TMP_DIR/proc" \
@@ -220,6 +227,12 @@ fake_start() {
   (cd "$RELEASE_DIR" && PATH="$TMP_DIR/bin:$PATH" bash install.sh --engine podman --start "$@" 2>&1)
 }
 [ -f "$RELEASE_DIR/.taskira-installed" ]   # written by the successful starts above
+rm -f "$RELEASE_DIR/.taskira-installed"
+if FAKE_UP_FAIL=1 fake_start >/dev/null; then
+  echo 'install.sh ignored compose up failure' >&2; exit 1
+fi
+[ -f "$RELEASE_DIR/.taskira-installed" ]
+FAKE_VOLUMES="taskira-987-test_pgdata" FAKE_CONTAINERS='' fake_start >/dev/null
 rm -f "$RELEASE_DIR/.taskira-installed"
 printf '\nCOMPOSE_PROJECT_NAME=pinned-project\n' >> "$RELEASE_DIR/.env"
 if out="$(FAKE_VOLUMES=pinned-project_pgdata FAKE_CONTAINERS='' fake_start)"; then
@@ -264,6 +277,10 @@ if out="$(FAKE_NETWORKS="podman=10.88.0.0/16 other_default=172.30.0.0/16" fake_s
 fi
 printf '%s' "$out" | grep -q 'other_default already uses 172.30.0.0/16, which overlaps TASKIRA_NETWORK_CIDR=172.30.0.0/24'
 FAKE_NETWORKS="taskira-987-test_default=172.30.0.0/24 lan=172.31.0.0/24" fake_start >/dev/null
+if out="$(FAKE_NETWORKS="taskira-987-test_default=172.31.0.0/24" fake_start)"; then
+  echo 'install.sh ignored a changed subnet on its own stale network' >&2; exit 1
+fi
+printf '%s' "$out" | grep -q 'own network .* has changed'
 printf 'TASKIRA_NETWORK_CIDR=172.31.8.0/24\n' >> "$RELEASE_DIR/.env"
 FAKE_NETWORKS="other_default=172.30.0.0/24" fake_start >/dev/null
 sed -i '/^TASKIRA_NETWORK_CIDR=/d' "$RELEASE_DIR/.env"

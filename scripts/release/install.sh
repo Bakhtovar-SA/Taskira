@@ -107,8 +107,9 @@ if [ "$MODE" = "start" ]; then
   preflight_project_volumes "$ROOT_DIR" "$ADOPT_VOLUMES"
   preflight_network "$ROOT_DIR"
   compose_run --env-file .env -f docker-compose.yml config >/dev/null
-  compose_run --env-file .env -f docker-compose.yml up -d
+  # Claim only after ownership/preflight/config validation, before partial creation.
   : > "$INSTALL_MARKER"
+  compose_run --env-file .env -f docker-compose.yml up -d
   wait_for_install_health
   compose_run --env-file .env -f docker-compose.yml ps
   echo "Taskira was started. Open $(env_value CORS_ORIGIN)"
