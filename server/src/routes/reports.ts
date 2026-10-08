@@ -18,6 +18,7 @@ import { buildReport, exportRows, resolveReportScope } from "../services/reports
 import { csvDocument, csvDateTime } from "../services/csv.js";
 import { auditFromRequest } from "../audit.js";
 import type { ReportSummaryDto } from "../contract.js";
+import { routeLimit } from "../routeLimits.js";
 
 const TYPE_NAMES: Record<string, string> = { task: "Задача", bug: "Ошибка", request: "Запрос" };
 const PRIORITY_NAMES: Record<string, string> = {
@@ -83,7 +84,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
   app.get(
     "/reports/issues.csv",
-    { preHandler: requireAuth, preValidation: zquery(ReportExportQuery) },
+    { ...routeLimit("export"), preHandler: requireAuth, preValidation: zquery(ReportExportQuery) },
     async (req, reply) => {
       const user: JwtPayload = req.user;
       const f = req.query as z.infer<typeof ReportExportQuery>;
