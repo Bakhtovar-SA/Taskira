@@ -41,7 +41,7 @@ function migrationList(): string {
         parts.push(l);
       }
     }
-    const text = parts.join(" ").replace(/\|/g, "\\|");
+    const text = parts.join(" ").replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
     return text.length > 300 ? `${text.slice(0, 297)}…` : text;
   };
   const legacy = files.filter((f) => /^\d{3}_/.test(f));
