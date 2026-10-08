@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { auditFromRequest } from "../audit.js";
 import { loadConfig } from "../config.js";
+import { routeLimit } from "../routeLimits.js";
 import { requireAuth, requirePerm, zbody, zparams, zquery } from "../middleware.js";
 import { RecurringPreviewBody, RecurringRuleBody, RecurringRulePatchBody, RecurringRuleParams, RecurringRunsQuery, type RecurringConfigDto } from "../contract.js";
 import { assertValidTiming, nextOccurrence } from "../services/recurrence.js";
@@ -19,7 +20,7 @@ export async function recurringConfigRoutes(app: FastifyInstance): Promise<void>
 export async function recurringRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", { preHandler: requirePerm("browse") }, req => listRecurringRules(req.project!.id));
 
-  app.post("/preview", { preHandler: requirePerm("browse"), preValidation: zbody(RecurringPreviewBody) }, async req => {
+  app.post("/preview", { ...routeLimit("search"), preHandler: requirePerm("browse"), preValidation: zbody(RecurringPreviewBody) }, async req => {
     const body = req.body as z.infer<typeof RecurringPreviewBody>;
     // Предпросмотр работает и с неизменённой датой давно созданного правила.
     assertValidTiming(body, { checkStartWindow: false });
@@ -59,7 +60,7 @@ export async function recurringRoutes(app: FastifyInstance): Promise<void> {
     });
   }
 
-  app.post("/:id/run-now", { preHandler: requirePerm("manageRecurring"), preValidation: zparams(RecurringRuleParams) }, async (req, reply) => {
+  app.post("/:id/run-now", { ...routeLimit("sensitive"), preHandler: requirePerm("manageRecurring"), preValidation: zparams(RecurringRuleParams) }, async (req, reply) => {
     const { id } = req.params as z.infer<typeof RecurringRuleParams>;
     const run = await runRecurringNow(req.project!, id);
     await auditFromRequest(req, "recurring.run_now", "recurring_rule", id, { projectId: req.project!.id, runId: run.id });
