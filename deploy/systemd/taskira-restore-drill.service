@@ -1,0 +1,9 @@
+[Unit]
+Description=Taskira isolated restore rehearsal
+After=docker.service
+# Add OnFailure=your-operator-alert.service to connect local monitoring.
+
+[Service]
+Type=oneshot
+ExecStart=/opt/taskira/current/restore-drill.sh --install-dir /opt/taskira/current --backup-dir /var/backups/taskira
+UMask=0077

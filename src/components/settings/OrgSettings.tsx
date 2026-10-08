@@ -483,7 +483,7 @@ function Maintenance() {
   const { t, lang, errText } = useT();
   const { toast } = useStore();
   const [st, reload] = useLoad<MaintenanceStatusDto>(() => adminApi.maintenance());
-  const [dry, setDry] = useState<{ archived: number; auditPurged: number; capped: boolean } | null>(null);
+  const [dry, setDry] = useState<Awaited<ReturnType<typeof adminApi.runMaintenance>> | null>(null);
   const [busy, setBusy] = useState<"dry" | "run" | null>(null);
   const [confirm, setConfirm] = useState(false);
 
@@ -493,7 +493,7 @@ function Maintenance() {
       const r = await adminApi.runMaintenance(dryRun);
       if (dryRun) setDry(r);
       else {
-        toast("success", t("settings.org.maintDone", { archived: r.archived, purged: r.auditPurged }));
+        toast("success", t("settings.org.maintDone", { archived: r.archived, purged: r.auditPurged, ops: r.opsRunsPurged }));
         setDry(null);
         reload();
       }
@@ -513,7 +513,7 @@ function Maintenance() {
           hint={
             dry ? (
               <span className="font-medium text-ink">
-                {t("settings.org.maintDryResult", { archived: dry.archived, purged: dry.auditPurged })}
+                {t("settings.org.maintDryResult", { archived: dry.archived, purged: dry.auditPurged, ops: dry.opsRunsPurged })}
                 {dry.capped && ` ${t("settings.org.maintCapped")}`}
               </span>
             ) : (

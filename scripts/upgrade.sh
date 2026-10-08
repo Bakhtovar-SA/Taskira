@@ -57,11 +57,11 @@ rollback_command() {
 }
 
 on_error() {
-  code=$?
+  local code="${1:-$?}"
   # `set -E` makes subshells (e.g. compose()'s `cd && ...`) inherit this trap.
   # Only the main shell handles the failure; otherwise the rollback would run twice.
   [ "$BASHPID" = "$MAIN_PID" ] || exit "$code"
-  trap - ERR
+  trap - ERR INT TERM HUP
   echo >&2
   echo "ERROR: upgrade failed during: $STAGE" >&2
   if [ "$ROLLBACK_READY" = "1" ]; then
@@ -91,6 +91,9 @@ on_error() {
 }
 trap cleanup EXIT
 trap on_error ERR
+trap 'on_error 130' INT
+trap 'on_error 143' TERM
+trap 'on_error 129' HUP
 
 require_file() {
   [ -f "$1" ] || { echo "ERROR: required file is missing: $1" >&2; return 1; }

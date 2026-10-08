@@ -59,6 +59,7 @@ import { runDueEventsOnce } from "./dueEvents.js";
 export interface MaintenanceStats {
   archived: number;
   auditPurged: number;
+  opsRunsPurged: number;
   /** Упёрлись в MAINTENANCE_MAX_PER_RUN: остаток обработают следующие проходы. При dryRun — «столько строк не
    *  поместится в один проход». */
   capped: boolean;
@@ -77,6 +78,8 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 /** Условия «пора» — одни и те же для пачек и для dry-run, чтобы они не разошлись. */
 const ARCHIVE_WHERE = `done_at IS NOT NULL AND archived_at IS NULL AND done_at < now() - make_interval(days => $1::int)`;
 const PURGE_WHERE = `created_at < now() - make_interval(days => $1::int)`;
+const OPS_HISTORY = `SELECT id, row_number() OVER (PARTITION BY kind ORDER BY started_at DESC, id DESC) AS position FROM ops_runs`;
+const OPS_RUNS_KEEP = 200;
 
 /**
  * Выполняет пачки одного оператора, пока пачка полная и не достигнут потолок за проход. Каждая пачка — отдельный
@@ -110,7 +113,9 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
       cfg.auditRetentionDays > 0
         ? await q<{ n: number }>(`SELECT count(*)::int AS n FROM audit_log WHERE ${PURGE_WHERE}`, [cfg.auditRetentionDays])
         : [{ n: 0 }];
-    return { archived: a.n, auditPurged: p.n, capped: a.n > cfg.maxPerRun || p.n > cfg.maxPerRun, dryRun: true };
+    const [ops] = await q<{ n: number }>(`SELECT count(*)::int AS n FROM (${OPS_HISTORY}) history WHERE position > $1`, [OPS_RUNS_KEEP]);
+    return { archived: a.n, auditPurged: p.n, opsRunsPurged: ops.n,
+      capped: a.n > cfg.maxPerRun || p.n > cfg.maxPerRun || ops.n > cfg.maxPerRun, dryRun: true };
   }
 
   const done = await withClient(async (client) => {
@@ -164,18 +169,21 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
         FROM recurring_runs
       ) history WHERE ran_at < now() - make_interval(days => $1::int) OR position > 200
       LIMIT $2)`, 365, cfg);
-    return { archived, purged, eventsPurged, tokensPurged, recurringPurged };
+    const opsPurged = await inBatches(client, `DELETE FROM ops_runs WHERE id IN (
+      SELECT id FROM (${OPS_HISTORY}) history WHERE position > $1 LIMIT $2)`, OPS_RUNS_KEEP, cfg);
+    return { archived, purged, eventsPurged, tokensPurged, recurringPurged, opsPurged };
   });
 
   const stats: MaintenanceStats = {
     archived: done.archived.count,
     auditPurged: done.purged.count,
-    capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped || done.tokensPurged.capped || done.recurringPurged.capped,
+    opsRunsPurged: done.opsPurged.count,
+    capped: done.archived.capped || done.purged.capped || done.eventsPurged.capped || done.tokensPurged.capped || done.recurringPurged.capped || done.opsPurged.capped,
     dryRun: false,
   };
   addMaintenanceWork(stats.archived, stats.auditPurged);
   // След в данных: массовая архивация не должна быть заметна только по пропавшим с доски задачам.
-  if (stats.archived > 0 || stats.auditPurged > 0 || done.eventsPurged.count > 0 || done.tokensPurged.count > 0 || done.recurringPurged.count > 0) {
+  if (stats.archived > 0 || stats.auditPurged > 0 || done.eventsPurged.count > 0 || done.tokensPurged.count > 0 || done.recurringPurged.count > 0 || done.opsPurged.count > 0) {
     await audit(opts.actorId ?? null, "maintenance.run", "system", null, {
       archived: stats.archived,
       auditPurged: stats.auditPurged,
@@ -184,6 +192,7 @@ export async function runMaintenanceOnce(opts: MaintenanceOptions = {}): Promise
       ...(done.eventsPurged.count > 0 ? { integrationEventsPurged: done.eventsPurged.count } : {}),
       ...(done.tokensPurged.count > 0 ? { apiTokensPurged: done.tokensPurged.count } : {}),
       ...(done.recurringPurged.count > 0 ? { recurringRunsPurged: done.recurringPurged.count } : {}),
+      ...(done.opsPurged.count > 0 ? { opsRunsPurged: done.opsPurged.count } : {}),
     });
   }
   return stats;
