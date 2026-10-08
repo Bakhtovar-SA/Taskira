@@ -83,4 +83,10 @@ test("documented HMAC verifier accepts rotation and rejects malformed or expired
     expect(verify(header, secret, body), header).toBe(false);
   }
   expect(verify(`t=${now},v1=${signature(now)}`, secret, Buffer.from('{"version":2}'))).toBe(false);
+  for (const bytes of [Buffer.from('{"name":"Привет 🌍"}'), Buffer.from([0x7b, 0xff, 0xc3, 0x28, 0x7d])]) {
+    const signed = createHmac("sha256", secret).update(`${now}.`).update(bytes).digest("hex");
+    expect(verify(`t=${now},v1=${signed}`, secret, bytes)).toBe(true);
+    const changed = Buffer.from(bytes); changed[0] ^= 1;
+    expect(verify(`t=${now},v1=${signed}`, secret, changed)).toBe(false);
+  }
 });
