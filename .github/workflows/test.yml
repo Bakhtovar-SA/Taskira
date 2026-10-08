@@ -228,6 +228,8 @@ jobs:
             'server/migrations/**' 'scripts/**' 'Dockerfile*' '**/Dockerfile*' \
             'docker-compose*.yml' '**/docker-compose*.yml' 'compose*.yml' 'nginx.conf' \
             'fixtures/db-snapshots/**' '.github/workflows/test.yml' \
+            'server/src/app.ts' 'server/src/config.ts' 'server/package*.json' 'package*.json' \
+            '.github/actions/prepare-test-runner/**' '.github/scripts/**' \
             '.github/workflows/upgrade-nightly.yml' | grep -q .; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else

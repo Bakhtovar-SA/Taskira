@@ -97,6 +97,9 @@ if ! grep -Fq 'version: cfg.version' "$OLD_SOURCE_DIR/server/src/app.ts"; then
   grep -Fq 'send({ ok: db, db, ts:' "$OLD_SOURCE_DIR/server/src/app.ts"
   sed -i "s/send({ ok: db, db, ts:/send({ ok: db, db, version: \"$OLD_VERSION\", ts:/" \
     "$OLD_SOURCE_DIR/server/src/app.ts"
+elif ! grep -Eq '^[[:space:]]*ARG[[:space:]]+TASKIRA_VERSION([=[:space:]]|$)' "$OLD_SOURCE_DIR/server/Dockerfile"; then
+  echo "ERROR: OLD_REF '$OLD_REF' reports cfg.version but its server Dockerfile has no ARG TASKIRA_VERSION; choose a versioned release." >&2
+  exit 1
 fi
 cp "$ROOT_DIR/nginx.conf" "$OLD_SOURCE_DIR/nginx.conf"
 

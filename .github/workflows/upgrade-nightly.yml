@@ -17,6 +17,10 @@ jobs:
   upgrade-from-latest-release:
     name: offline upgrade and rollback (from latest release)
     runs-on: [self-hosted, Linux, docker]
+    concurrency:
+      group: taskira-image-integration
+      queue: max
+      cancel-in-progress: false
     steps:
       - name: Prepare checkout ownership
         shell: bash

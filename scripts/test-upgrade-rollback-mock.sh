@@ -44,6 +44,10 @@ case "$action" in
   down) rm -f "$FAKE_STATE/up" ;;
   up) case "$all" in *postgres*) ;; *) : > "$FAKE_STATE/up" ;; esac ;;
   run)
+    if [ -n "${FAKE_UPGRADE_SIGNAL:-}" ] && [ "$(tr -d '\r\n' < "$FAKE_INSTALL/VERSION")" != "1.0.0" ]; then
+      kill -s "$FAKE_UPGRADE_SIGNAL" "$(cat "$FAKE_STATE/upgrade.pid")"
+      exit 0
+    fi
     if [ "${FAKE_BREAK_MIGRATION:-0}" = "1" ] && [ "$(tr -d '\r\n' < "$FAKE_INSTALL/VERSION")" != "1.0.0" ]; then
       echo "migration 99999999T9999_broken.sql failed: syntax error" >&2
       exit 1
@@ -89,7 +93,8 @@ run_scenario() {
   (cd "$release" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS)
   chmod +x "$release/upgrade.sh"
   set +e
-  PATH="$TMP_DIR/bin:$PATH" "$release/upgrade.sh" --install-dir "$FAKE_INSTALL" --engine docker "${@:2}" \
+  PATH="$TMP_DIR/bin:$PATH" bash -c 'printf "%s\n" "$$" > "$FAKE_STATE/upgrade.pid"; exec "$@"' _ \
+    "$release/upgrade.sh" --install-dir "$FAKE_INSTALL" --engine docker "${@:2}" \
     > "$TMP_DIR/$name/out.log" 2>&1
   EXIT_CODE=$?
   set -e
@@ -116,6 +121,17 @@ expect "broken migration: old VERSION restored" [ "$(tr -d '\r\n' < "$FAKE_INSTA
 expect "broken migration: old compose metadata restored" grep -Fq 'img:1.0.0' "$FAKE_INSTALL/IMAGES.txt"
 expect "broken migration: database restored from the dump (after the test restore)" [ "$(restores)" -eq 2 ]
 expect "broken migration: previous version is up again" [ -f "$FAKE_STATE/up" ]
+
+# Interruptions after the verified backup have the same recovery behavior.
+for signal in INT TERM HUP; do
+  FAKE_UPGRADE_SIGNAL="$signal" run_scenario "signal-$signal"
+  case "$signal" in INT) expected=130 ;; TERM) expected=143 ;; HUP) expected=129 ;; esac
+  expect "$signal: original signal exit code" [ "$EXIT_CODE" -eq "$expected" ]
+  expect "$signal: automatic rollback complete" grep -Fq 'Automatic rollback complete' "$OUT"
+  expect "$signal: old VERSION restored" [ "$(tr -d '\r\n' < "$FAKE_INSTALL/VERSION")" = "1.0.0" ]
+  expect "$signal: database restored" [ "$(restores)" -eq 2 ]
+  expect "$signal: previous version running" [ -f "$FAKE_STATE/up" ]
+done
 
 # (b) health check fails after start -> automatic rollback.
 FAKE_HEALTH_BROKEN_VERSION=1.1.0 run_scenario unhealthy
