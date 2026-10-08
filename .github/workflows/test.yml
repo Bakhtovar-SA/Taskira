@@ -244,6 +244,82 @@ jobs:
       - name: Back up data, remove volumes, restore, and verify login/task/attachment
         run: bash scripts/test-backup-restore-integration.sh
 
+  podman-rootless:
+    name: rootless Podman install, health and upgrade
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CONTAINER_ENGINE: podman
+      PODMAN_COMPOSE_PROVIDER: podman-compose
+      PODMAN_COMPOSE_WARNING_LOGS: "false"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/prepare-test-runner
+      - name: Install the podman-compose provider and confirm rootless mode
+        run: |
+          command -v podman >/dev/null || { echo '::error::Podman is missing on this runner'; exit 1; }
+          provider="$RUNNER_TEMP/taskira-podman-provider"
+          python3 -m venv "$provider" || { echo '::error::python3-venv is missing on this runner'; exit 1; }
+          "$provider/bin/python" -m pip install 'podman-compose>=1.3,<2'
+          echo "$provider/bin" >> "$GITHUB_PATH"
+          export PATH="$provider/bin:$PATH"
+          podman --version
+          podman-compose --version
+          test "$(id -u)" != 0
+          test "$(podman info --format '{{.Host.Security.Rootless}}')" = true
+
+      - name: Build two offline releases with Podman
+        run: |
+          scripts/build-release.sh 0.0.1-ci.1 --output "$RUNNER_TEMP/releases"
+          scripts/build-release.sh 0.0.2-ci.1 --output "$RUNNER_TEMP/releases"
+
+      - name: install.sh --start (rootless) and health
+        run: |
+          mkdir -p "$RUNNER_TEMP/old"
+          tar -xzf "$RUNNER_TEMP/releases/taskira-0.0.1-ci.1.tar.gz" -C "$RUNNER_TEMP/old"
+          cd "$RUNNER_TEMP/old/taskira-0.0.1-ci.1"
+          cat > .env <<'EOF'
+          POSTGRES_PASSWORD=podman-ci-db-password
+          JWT_SECRET=podman-ci-jwt-secret-0000000000000000
+          ADMIN_PASSWORD=Podman-Install-42!Secure
+          CORS_ORIGIN=http://127.0.0.1:18081
+          CLIENT_PORT=18081
+          SESSION_COOKIE_SECURE=false
+          EOF
+          ./install.sh --engine podman --start
+          curl --fail --silent http://127.0.0.1:18081/api/health | grep -F '"version":"0.0.1-ci.1"'
+
+      - name: upgrade.sh to the next release (rootless)
+        run: |
+          mkdir -p "$RUNNER_TEMP/new"
+          tar -xzf "$RUNNER_TEMP/releases/taskira-0.0.2-ci.1.tar.gz" -C "$RUNNER_TEMP/new"
+          cd "$RUNNER_TEMP/new/taskira-0.0.2-ci.1"
+          ./upgrade.sh --install-dir "$RUNNER_TEMP/old/taskira-0.0.1-ci.1" --engine podman
+          curl --fail --silent http://127.0.0.1:18081/api/health | grep -F '"version":"0.0.2-ci.1"'
+
+      - name: backup.sh (bind mount of the storage directory under rootless)
+        run: |
+          cd "$RUNNER_TEMP/new/taskira-0.0.2-ci.1"
+          ./backup.sh --install-dir "$RUNNER_TEMP/old/taskira-0.0.1-ci.1" --engine podman \
+            --output "$RUNNER_TEMP/podman-backup.tar.gz"
+          tar -tzf "$RUNNER_TEMP/podman-backup.tar.gz" | grep -F database.dump
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          podman ps -a || true
+          cd "$RUNNER_TEMP/old/taskira-0.0.1-ci.1" 2>/dev/null && \
+            podman compose --env-file .env -f docker-compose.yml logs --tail=100 || true
+
+      - name: Remove the stack and its volumes
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/old/taskira-0.0.1-ci.1" 2>/dev/null && \
+            podman compose --env-file .env -f docker-compose.yml down -v || true
+
   migration-policy:
     runs-on: ubuntu-24.04
     steps:
@@ -264,11 +340,16 @@ jobs:
         run: bash scripts/check-migrations.sh "$BASE_SHA" "$HEAD_SHA"
 
   server:
+    name: server (postgres ${{ matrix.pg }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: ["14", "15", "16", "17"] # все заявленные: 14 = PG_MIN_MAJOR, 17 = PG_MAX_TESTED_MAJOR (server/src/services/pgVersion.ts); 16 — версия поставки (compose)
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:${{ matrix.pg }}
         env:
           POSTGRES_USER: taskira
           POSTGRES_PASSWORD: taskira
@@ -310,6 +391,18 @@ jobs:
       - run: npm run typecheck
 
       - run: npm test
+
+  server-summary:
+    # Keep the stable check name even when PostgreSQL matrix members change.
+    name: server
+    needs: server
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every PostgreSQL suite to pass
+        env:
+          MATRIX_RESULT: ${{ needs.server.result }}
+        run: test "$MATRIX_RESULT" = success
 
   # Контракт клиент↔сервер (ТЗ 2.1): клиентские типы выводятся из server/src/contract.ts, поэтому правка серверных
   # типов может сломать клиент и наоборот. Оба typecheck в ОДНОЙ джобе — один статус проверки на PR, а не два,

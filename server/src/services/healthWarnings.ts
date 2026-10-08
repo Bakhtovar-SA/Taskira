@@ -6,7 +6,7 @@ import { q } from "../db.js";
  * иначе она обнаруживается постфактум по жалобам («поиск стал медленным»).
  */
 export interface HealthWarning {
-  code: "search_index_missing";
+  code: "search_index_missing" | "postgres_version_untested";
   reason: string;
 }
 

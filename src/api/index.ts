@@ -549,7 +549,7 @@ export type MaintenanceStatusDto = {
   jobs: MaintenanceJob[];
   settings: { intervalMs: number; startDelayMs: number; batchSize: number; batchPauseMs: number; maxPerRun: number; archiveAfterDays: number; auditRetentionDays: number };
 };
-export type HealthDto = { ok: boolean; db: boolean; checks: Record<string, boolean>; pendingMigrations?: string[]; warnings?: { code: string; reason: string }[]; version: string; ts: string };
+export type HealthDto = { ok: boolean; db: boolean; checks: Record<string, boolean>; pendingMigrations?: string[]; warnings?: { code: string; reason: string }[]; postgres?: { major: number; status: "supported" | "newer_than_tested"; minMajor: number; maxTestedMajor: number }; version: string; ts: string };
 export const adminApi = {
   license: () => api<LicenseStatusDto>("/api/admin/license"),
   maintenance: () => api<MaintenanceStatusDto>("/api/maintenance"),

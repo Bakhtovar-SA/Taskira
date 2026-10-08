@@ -1,6 +1,7 @@
 /** Точка входа: конфиг → миграции → seed → старт HTTP/WS. */
 import { initConfig } from "./config.js";
 import { closePool, initPool, migrate } from "./db.js";
+import { assertSupportedPostgres } from "./services/pgVersion.js";
 import { runStartupSeeds } from "./seedStartup.js";
 import { buildApp } from "./app.js";
 import { startNotifier, stopNotifier } from "./services/notifier.js";
@@ -20,6 +21,7 @@ async function main(): Promise<void> {
     else process.exit(1); // Startup has no serving HTTP requests to drain yet.
   });
   initPool(cfg.databaseUrl, cfg.pgPoolMax, cfg.pgPoolIdleTimeoutMs);
+  await assertSupportedPostgres(); // OPS-PG-01: ниже минимальной версии — отказ до миграций
   await migrate();
   await runStartupSeeds(); // первый админ + проект CORP с workflow + instance (ТЗ 4.1); под блокировкой (см. seedStartup.ts)
 
