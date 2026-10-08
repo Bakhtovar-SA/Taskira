@@ -1,4 +1,4 @@
-export type HelpSection = { id: string; label: string; paragraphs: string[]; table?: { headers: string[]; rows: string[][] } };
+export type HelpSection = { id: string; label: string; paragraphs: string[]; code?: string; links?: { label: string; href: string }[]; table?: { headers: string[]; rows: string[][] } };
 export type HelpCopy = { title: string; subtitle: string; permission: string; sections: HelpSection[] };
 
 export const helpCopy: Record<"ru" | "en", HelpCopy> = {
@@ -258,6 +258,49 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
           "Создатель выбирает общее оформление проекта. Личная тема интерфейса выбирается в ваших настройках. На доске кнопка «Фото моей доски» добавляет изображение только за колонками, только для вашего пользователя и проекта в этом браузере.",
           "Личный фон можно заменить или удалить; поддерживаются PNG, JPG/JPEG, GIF и WebP до 20 МБ. Если обработка или сохранение не удалось, показывается ошибка, а прежнее фото сохраняется.",
           "Для аватара разрешены только исходные файлы PNG, JPG/JPEG и GIF. Выбор другого расширения отклоняется до обработки. Фото обрезается до квадрата и отправляется как JPEG; сервер повторно проверяет тип и размер, по умолчанию до 3 МБ."
+        ]
+      },
+      {
+        "id": "recurring",
+        "label": "Повторяющиеся задачи",
+        "paragraphs": [
+          "В настройках проекта раздел «Повторяющиеся» создаёт задачи из шаблона по расписанию. Все участники видят правила; manager и глобальный администратор управляют ими. Владелец должен сохранять право создания задачи.",
+          "Выберите ежедневный, недельный или месячный интервал. Для месячного доступны ежемесячно, ежеквартально, каждые 6 месяцев, ежегодно и свой интервал от 1 до 12 месяцев. Укажите число или последний день месяца, время, часовой пояс и дату начала.",
+          "Расписание считается по календарю выбранного пояса. Несуществующий час при смене времени сдвигается вперёд, повторяющийся час берётся один раз. После простоя создаётся одна догоняющая задача, остальные пропущенные моменты отражаются в истории. Потеря доступа владельца ставит правило на паузу; администратор подтверждает возобновление."
+        ]
+      },
+      {
+        "id": "tokens",
+        "label": "API-токены",
+        "paragraphs": [
+          "В личных настройках создайте API-токен со scope read или write и сроком от 1 до 365 дней. Секрет tsk_ показывается один раз: сохраните его в менеджере секретов. Read разрешает чтение, write — действия в пределах роли участника проекта.",
+          "Токен не открывает административные и сессионные маршруты. Он не даёт глобальные права администратора. Выход из браузера сохраняет токен; отзыв закрывает доступ сразу. Сервисные записи создаёт администратор, затем включает в нужные проекты; они не входят в браузер и не получают уведомлений."
+        ],
+        "code": "curl --fail-with-body \\\n  -H \"Authorization: Bearer $TASKIRA_TOKEN\" \\\n  \"https://taskira.example/api/projects\""
+      },
+      {
+        "id": "webhooks",
+        "label": "Интеграции и вебхуки",
+        "paragraphs": [
+          "Глобальный администратор управляет подписками и журналом в настройках проекта → «Интеграции». Оператор включает WEBHOOKS_ENABLED, задаёт список разрешённых целей и ключ шифрования. Секрет подписи показывается один раз, смена сохраняет предыдущий секрет на 24 часа.",
+          "Тело версии 1 содержит id, sequence, type, occurredAt, instance, project, issue, actor, changes и data. Тексты названия, описания и комментария не передаются. Изменение указывает поле; для комментария передаётся commentId, для срока — dueDate. Получатель может прочитать разрешённые данные через API.",
+          "Заголовки: X-Taskira-Event, X-Taskira-Event-Id, X-Taskira-Delivery, X-Taskira-Webhook-Version: 1 и X-Taskira-Signature: t=<unix>,v1=<hex>. Подпись HMAC-SHA256 считается по времени, точке и исходным байтам тела. Проверяйте подпись до разбора JSON, отклоняйте время старше 5 минут и дедуплицируйте по ID события. При смене секрета заголовок может содержать две подписи."
+        ],
+        "code": "import { createHmac, timingSafeEqual } from \"node:crypto\";\n\nfunction verifySignature(header, secret, rawBody) {\n  const parts = header.split(\",\");\n  const timestamp = /^t=(\\d+)$/.exec(parts.shift() ?? \"\");\n  if (!timestamp) return false;\n  const unix = Number(timestamp[1]);\n  if (!Number.isSafeInteger(unix) || Math.abs(Date.now() / 1000 - unix) > 300) return false;\n  const expected = createHmac(\"sha256\", secret).update(timestamp[1] + \".\").update(rawBody).digest();\n  return parts.some(part => /^v1=[0-9a-f]{64}$/i.test(part) &&\n    timingSafeEqual(Buffer.from(part.slice(3), \"hex\"), expected));\n}"
+      },
+      {
+        "id": "backup",
+        "label": "Резервные копии",
+        "paragraphs": [
+          "Бэкап PostgreSQL и вложений запускается скриптом backup.sh на хосте. Restore-drill восстанавливает архив в изолированный стенд, проверяет вход, число задач и вложение, затем удаляет стенд. Таймер репетиции по умолчанию работает в воскресенье в 03:30 по времени хоста. Пароли и ключ WEBHOOK_SECRET_KEY хранятся отдельно от архива.",
+          "В «Организация → Состояние системы» администратор видит 11 проверок. Сначала идут сбои и предупреждения; unknown означает, что проверка не удалась, off — функция выключена. Обновление вручную, история последних пяти бэкапов и репетиций открывается по нажатию.",
+          "Бэкап требует внимания через 26 часов без успеха и считается сбоем после 50 часов; репетиция — через 8 и 15 суток. Последняя ошибка или запуск дольше 6 часов дают сбой. Пустая история даёт unknown. Экспорт JSONL служит для рабочих данных, полный аварийный архив содержит БД и бинарные вложения."
+        ],
+        "links": [
+          {
+            "label": "Эксплуатация: бэкап, восстановление и таймер репетиции",
+            "href": "https://github.com/Bakhtovar-SA/Taskira/blob/main/docs/OPERATIONS.md"
+          }
         ]
       }
     ],
@@ -519,6 +562,49 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
           "The creator chooses the project’s shared appearance. Choose your personal interface theme in your settings. My board photo adds an image behind board columns only, for your account and this project in this browser.",
           "Replace or remove your board photo; PNG, JPG/JPEG, GIF and WebP up to 20 MB are supported. If processing or saving fails, an error is shown and the previous photo is retained.",
           "Profile photos accept original PNG, JPG/JPEG and GIF files only. Other extensions are rejected before processing. Photos are cropped square and sent as JPEG; the server checks type and size again, defaulting to 3 MB."
+        ]
+      },
+      {
+        "id": "recurring",
+        "label": "Recurring issues",
+        "paragraphs": [
+          "In project settings, Recurring creates issues from a template on a schedule. All members can view rules; managers and global administrators can manage them. The owner must retain permission to create issues.",
+          "Choose a daily, weekly or monthly interval. Monthly presets include every month, every quarter, every 6 months and every year, with a custom interval from 1 to 12 months. Set a day or the last day of the month, time, time zone and start date.",
+          "Schedules use the calendar of the selected zone. A nonexistent daylight-saving time moves forward; a repeated time runs once. After downtime, one catch-up issue is created and other missed occurrences appear in history. Loss of owner access pauses the rule; an administrator confirms resuming it."
+        ]
+      },
+      {
+        "id": "tokens",
+        "label": "API tokens",
+        "paragraphs": [
+          "Create an API token in personal settings with read or write scope and a lifetime of 1 to 365 days. The tsk_ secret appears once: save it in a secrets manager. Read permits reading; write permits actions within the owner’s project membership role.",
+          "Tokens cannot access administrative or session routes and confer no global administrator privileges. Browser logout preserves tokens; revocation stops access immediately. Administrators create service accounts and add them to the required projects; they cannot sign in through the browser or receive notifications."
+        ],
+        "code": "curl --fail-with-body \\\n  -H \"Authorization: Bearer $TASKIRA_TOKEN\" \\\n  \"https://taskira.example/api/projects\""
+      },
+      {
+        "id": "webhooks",
+        "label": "Integrations and webhooks",
+        "paragraphs": [
+          "Global administrators manage subscriptions and delivery history in project settings → Integrations. Operators enable WEBHOOKS_ENABLED and configure allowed targets and an encryption key. Signing secrets appear once; rotation retains the previous secret for 24 hours.",
+          "Version 1 bodies contain id, sequence, type, occurredAt, instance, project, issue, actor, changes and data. Title, description and comment text are omitted. Changes identify the field; comments supply commentId and due events supply dueDate. Receivers can retrieve authorized data through the API.",
+          "Headers: X-Taskira-Event, X-Taskira-Event-Id, X-Taskira-Delivery, X-Taskira-Webhook-Version: 1 and X-Taskira-Signature: t=<unix>,v1=<hex>. The HMAC-SHA256 input is the timestamp, a dot and the original body bytes. Verify before parsing JSON, reject timestamps beyond 5 minutes and deduplicate by event ID. Rotation can produce two signatures."
+        ],
+        "code": "import { createHmac, timingSafeEqual } from \"node:crypto\";\n\nfunction verifySignature(header, secret, rawBody) {\n  const parts = header.split(\",\");\n  const timestamp = /^t=(\\d+)$/.exec(parts.shift() ?? \"\");\n  if (!timestamp) return false;\n  const unix = Number(timestamp[1]);\n  if (!Number.isSafeInteger(unix) || Math.abs(Date.now() / 1000 - unix) > 300) return false;\n  const expected = createHmac(\"sha256\", secret).update(timestamp[1] + \".\").update(rawBody).digest();\n  return parts.some(part => /^v1=[0-9a-f]{64}$/i.test(part) &&\n    timingSafeEqual(Buffer.from(part.slice(3), \"hex\"), expected));\n}"
+      },
+      {
+        "id": "backup",
+        "label": "Backups",
+        "paragraphs": [
+          "The host backup.sh script backs up PostgreSQL and attachments. Restore-drill restores an archive into an isolated stack, checks login, issue counts and an attachment, then removes the stack. The default drill timer runs on Sunday at 03:30 in host time. Passwords and WEBHOOK_SECRET_KEY are stored separately from the archive.",
+          "Organization → System status shows administrators 11 checks. Failures and warnings come first; unknown means a check could not complete, and off means a feature is disabled. Refresh is manual; the last five backup and drill runs load when expanded.",
+          "Backup requires attention after 26 hours without success and fails after 50 hours; drill thresholds are 8 and 15 days. The latest error or a run longer than 6 hours is a failure. Empty history is unknown. JSONL exports cover working data; the full disaster-recovery archive contains the database and binary attachments."
+        ],
+        "links": [
+          {
+            "label": "Operations: backup, restore and drill timer",
+            "href": "https://github.com/Bakhtovar-SA/Taskira/blob/main/docs/OPERATIONS.md"
+          }
         ]
       }
     ],

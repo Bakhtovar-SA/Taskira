@@ -451,6 +451,17 @@ describe("useRouterSync — URL → состояние, полный путь (�
     expect(get().ui.selectedIssueId).toBe(I1);
   });
 
+  test("canonicalizing an issue query on the same view preserves the section fragment", async () => {
+    history.pushState(null, "", "/p/BB/board?issue=missing#details");
+    install();
+    vi.spyOn(issuesApi, "resolve").mockRejectedValue(new ApiError(404, "NOT_FOUND", "нет"));
+    mount();
+    await settle();
+    expect(location.pathname).toBe("/p/BB/board");
+    expect(location.search).toBe("");
+    expect(location.hash).toBe("#details");
+  });
+
   test("прямая ссылка на вид внутри проекта (без задачи) открывает именно этот вид", async () => {
     history.pushState(null, "", pathForView("BB", "backlog"));
     install();

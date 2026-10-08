@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocationProperty } from "wouter/use-browser-location";
 import { Button } from "../ds/Button";
 import { RoleTag } from "./settings/parts";
 import { IcBook, PriorityIcon, TypeIcon } from "../icons";
@@ -10,15 +11,40 @@ import PlanningGuide from "./PlanningGuide";
 
 export const SECTIONS = helpCopy.ru.sections.map(({ id, label }) => ({ id, label }));
 export const EN_SECTIONS = helpCopy.en.sections.map(({ id, label }) => [id, label] as const);
+const currentHash = () => window.location.hash;
 
 function useDocsNavigation(prefix: string, enabled = true) {
+  const hash = useLocationProperty(currentHash, () => "");
   const rootRef = useRef<HTMLDivElement>(null);
+  const requested = useRef<{ top: number; arrived: boolean } | null>(null);
   const [active, setActive] = useState("overview");
+  const go = useCallback((id: string) => {
+    const section = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("section[id]") ?? [])
+      .find(value => value.id === `${prefix}${id}`);
+    if (!section) return;
+    const root = rootRef.current!;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const margin = parseFloat(getComputedStyle(section).scrollMarginTop) || 0;
+    const target = Math.max(0, Math.min(root.scrollHeight - root.clientHeight,
+      root.scrollTop + section.getBoundingClientRect().top - root.getBoundingClientRect().top - root.clientTop - margin));
+    requested.current = { top: target, arrived: false };
+    setActive(id);
+    section.scrollIntoView({
+      behavior: reduced ? "auto" : "smooth", block: "start",
+    });
+    if (reduced) requested.current = { top: root.scrollTop, arrived: true };
+  }, [prefix]);
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !enabled) return;
     const sections = Array.from(root.querySelectorAll<HTMLElement>(`section[id^="${prefix}"]`));
     const update = () => {
+      const pin = requested.current;
+      if (pin) {
+        if (Math.abs(root.scrollTop - pin.top) <= 2) { pin.arrived = true; return; }
+        if (!pin.arrived) return; // Smooth navigation has not reached its clamped target yet.
+        requested.current = null; // Subsequent scrolling leaves the requested section.
+      }
       const threshold = root.getBoundingClientRect().top + 24;
       let current: HTMLElement | undefined = sections[0];
       for (const section of sections) {
@@ -27,19 +53,31 @@ function useDocsNavigation(prefix: string, enabled = true) {
       if (root.scrollTop > 0 && root.scrollTop + root.clientHeight >= root.scrollHeight - 2) current = sections.at(-1);
       if (current) setActive(current.id.slice(prefix.length));
     };
+    const resume = () => { requested.current = null; update(); };
+    const resumeKey = (event: KeyboardEvent) => {
+      if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) resume();
+    };
+    requested.current = null;
     update();
     root.addEventListener("scroll", update, { passive: true });
+    root.addEventListener("wheel", resume, { passive: true });
+    root.addEventListener("touchmove", resume, { passive: true });
+    root.addEventListener("pointerdown", resume);
+    root.addEventListener("keydown", resumeKey);
     window.addEventListener("resize", update);
     return () => {
       root.removeEventListener("scroll", update);
+      root.removeEventListener("wheel", resume);
+      root.removeEventListener("touchmove", resume);
+      root.removeEventListener("pointerdown", resume);
+      root.removeEventListener("keydown", resumeKey);
       window.removeEventListener("resize", update);
     };
   }, [prefix, enabled]);
-  const go = (id: string) => {
-    rootRef.current?.querySelector<HTMLElement>(`#${prefix}${id}`)?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start",
-    });
-  };
+  useEffect(() => {
+    if (!enabled) return;
+    try { go(decodeURIComponent(hash.slice(1))); } catch { /* Malformed URL fragment. */ }
+  }, [hash, go, enabled]);
   return { rootRef, active, go };
 }
 
@@ -64,6 +102,8 @@ export default function DocsView() {
           {copy.sections.map((section, index) => <section key={section.id} id={`${prefix}${section.id}`} className="scroll-mt-5 rounded-xl surface-raised p-5 ring-1 ring-inset ring-line/70">
             <h2 className="font-disp text-[15px] font-semibold tracking-tight text-ink">{index + 1} · {section.label}</h2>
             {section.paragraphs.map(paragraph => <p key={paragraph} className="mt-2 text-[13px] leading-relaxed text-sub">{paragraph}</p>)}
+            {section.code && <pre tabIndex={0} className="ds-focus mt-3 overflow-x-auto rounded-lg bg-sunken p-3 font-code text-[12px] leading-relaxed text-ink"><code className="font-code">{section.code}</code></pre>}
+            {section.links && <ul className="mt-3 space-y-1">{section.links.map(link => <li key={link.href}><a href={link.href} className="ds-focus rounded text-[12px] text-accent underline underline-offset-4">{link.label}</a></li>)}</ul>}
             {section.id === "roles" && <>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">{ROLE_ORDER.map(role => <div key={role} className="rounded-lg border border-linesoft bg-sunken p-3"><RoleTag role={role} size="sm" /><p className="mt-2 text-[12px] leading-relaxed text-sub">{t(`role.${role}.desc`)}</p></div>)}</div>
               <div className="mt-4 overflow-x-auto"><table className="w-full border-collapse text-[12px]"><thead><tr className="border-b border-line text-left"><th className="px-2 py-2 text-faint">{copy.permission}</th>{ROLE_ORDER.map(role => <th key={role} className="px-2 py-2"><RoleTag role={role} size="sm" /></th>)}</tr></thead><tbody>{PERMISSIONS.map(permission => <tr key={permission.id} className="border-b border-linesoft"><td className="px-2 py-2 text-ink">{t(`permission.${permission.id}.name`)}</td>{ROLE_ORDER.map(role => <td key={role} className="px-2 py-2 text-center">{roleHas(role, permission.id) ? <span className="text-ok">✓</span> : <span className="text-faint">—</span>}</td>)}</tr>)}</tbody></table></div>

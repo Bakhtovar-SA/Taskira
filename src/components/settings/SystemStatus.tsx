@@ -114,8 +114,8 @@ function CheckAction({ id }: { id: SystemCheck["id"] }) {
   const { t } = useT();
   const [href, text] = id === "jobs" || id === "mail" ? ["/admin/maintenance", t("status.action.maintenance")]
     : id === "license" ? ["/admin/license", t("status.action.license")] : id === "ldap" ? ["/admin/ldap", t("status.action.ldap")]
-    : id === "webhooks" ? ["/help", t("status.action.webhooks")] : id === "recurring" ? ["/help", t("status.action.recurring")]
-    : id === "backup" || id === "restoreDrill" ? ["/help", t("status.action.backup")] : ["/help", t("status.action.help")];
+    : id === "webhooks" ? ["/help#webhooks", t("status.action.webhooks")] : id === "recurring" ? ["/help#recurring", t("status.action.recurring")]
+    : id === "backup" || id === "restoreDrill" ? ["/help#backup", t("status.action.backup")] : ["/help", t("status.action.help")];
   return <Link href={href} className={linkClass}>{text}</Link>;
 }
 

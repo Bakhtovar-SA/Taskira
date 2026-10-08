@@ -68,9 +68,10 @@ NOTIFY_WORKER_ENABLED=false
 MAINTENANCE_ENABLED=false
 RECURRING_ENABLED=false
 EOF
-# Keep the working fixture quiet throughout the lengthy rehearsal, including
-# when a host has slow image pulls. Drill overrides must still enforce flags.
-sed -i '/      DATABASE_URL:/a\      MAINTENANCE_ENABLED: "false"\n      NOTIFY_WORKER_ENABLED: "false"\n      RECURRING_ENABLED: "false"' "$INSTALL_DIR/docker-compose.yml"
+# Maintenance and recurring flags are forwarded from .env by the generated
+# Compose. The fixture additionally disables the notifier, which is not forwarded.
+# Drill overrides must still enforce every flag independently of this fixture.
+sed -i '/      DATABASE_URL:/a\      NOTIFY_WORKER_ENABLED: "false"' "$INSTALL_DIR/docker-compose.yml"
 
 (cd "$INSTALL_DIR" && docker compose --env-file .env -f docker-compose.yml up -d)
 for _ in $(seq 1 60); do

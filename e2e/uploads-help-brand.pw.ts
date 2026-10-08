@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { mockApi } from "./fixtures";
+import { helpCopy } from "../src/i18n/help";
 
 test("unsupported original avatar formats are rejected before any upload", async ({ page }) => {
   await mockApi(page);
@@ -32,14 +33,17 @@ test("unreadable board replacement preserves the actual displayed photo", async 
   await expect.poll(() => board.evaluate(el => getComputedStyle(el).backgroundImage)).toBe(previous);
 });
 
-for (const lang of ["ru", "en"]) test(`help structure, left alignment and narrow layout (${lang})`, async ({ page }) => {
+for (const lang of ["ru", "en"] as const) test(`help structure, left alignment and narrow layout (${lang})`, async ({ page }) => {
   await page.addInitScript(lang => localStorage.setItem("taskira.lang", lang), lang);
   await mockApi(page);
   await page.goto("/help");
   const nav = page.locator("main nav");
-  await expect(nav.getByRole("button")).toHaveCount(19);
+  await expect(nav.getByRole("button")).toHaveCount(helpCopy[lang].sections.length);
   await expect(nav.getByRole("button").first()).toHaveCSS("text-align", "left");
   const prefix = lang === "ru" ? "doc-" : "doc-en-";
+  for (const id of ["webhooks", "tokens", "recurring", "backup"]) {
+    await expect(page.locator(`#${prefix}${id}`)).toHaveCount(1);
+  }
   await expect(page.locator(`#${prefix}roles table`)).toBeVisible();
   await expect(page.locator(`#${prefix}appearance`)).toContainText("PNG");
   await page.setViewportSize({ width: 390, height: 844 });

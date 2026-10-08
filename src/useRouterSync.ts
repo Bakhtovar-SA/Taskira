@@ -213,6 +213,7 @@ export function useRouterSync(): void {
     // Our own navigation already represents state. Reapplying an intermediate
     // board URL would close a pending issue opened after switchProject().
     seenUrlRef.current = { path: want.path, issue: want.issue };
-    navigate(`${want.path}${q}`, { replace });
+    const hash = want.path === path ? location.hash : "";
+    navigate(`${want.path}${q}${hash}`, { replace });
   }, [data, ui, bootStatus, path, urlIssue, navigate, urlRevision]);
 }
