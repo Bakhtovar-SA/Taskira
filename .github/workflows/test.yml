@@ -8,32 +8,24 @@ on:
 jobs:
   security:
     name: dependency and image security
-    runs-on: [self-hosted, Linux, docker]
-    # Image tests share tags, ports and subnets on a Desktop daemon.
+    runs-on: ubuntu-24.04
+    # Image tests use fixed container names and ports; keep them serialized.
     concurrency:
-      group: taskira-image-integration
+      group: taskira-image-security
       queue: max
       cancel-in-progress: false
     permissions:
       contents: read
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
       - name: Fail on high or critical npm advisories (client)
         run: npm audit --audit-level=high
       - name: Fail on high or critical npm advisories (server)
@@ -87,9 +79,6 @@ jobs:
       - name: Trivy client image (HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          # The self-hosted runner retains this cache; avoid slow tar uploads from WSL/NTFS.
-          cache: "false"
-          cache-dir: ${{ runner.tool_cache }}/taskira-trivy
           image-ref: taskira-client:security
           format: table
           exit-code: "1"
@@ -99,9 +88,6 @@ jobs:
       - name: Trivy server image (HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          cache: "false"
-          cache-dir: ${{ runner.tool_cache }}/taskira-trivy
-          skip-setup-trivy: "true"
           image-ref: taskira-server:security
           format: table
           exit-code: "1"
@@ -111,7 +97,7 @@ jobs:
 
   secrets-scan:
     name: secret scan (full git history)
-    runs-on: [self-hosted, Linux, light]
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     env:
@@ -134,7 +120,7 @@ jobs:
         run: ./gitleaks git --redact --no-banner --config .gitleaks.toml --verbose .
 
   snapshot-list:
-    runs-on: [self-hosted, Linux, light]
+    runs-on: ubuntu-24.04
     outputs:
       snapshots: ${{ steps.snapshots.outputs.json }}
     steps:
@@ -152,7 +138,7 @@ jobs:
   upgrade-from-snapshot:
     name: upgrade from snapshot (${{ matrix.snapshot }})
     needs: snapshot-list
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -181,17 +167,6 @@ jobs:
       NOTIFY_WORKER_ENABLED: "false"
       MAINTENANCE_ENABLED: "false"
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
@@ -200,7 +175,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: server/package-lock.json
       - run: npm ci
         working-directory: server
       - run: npm run build
@@ -214,23 +190,8 @@ jobs:
 
   upgrade-procedure:
     name: offline upgrade and rollback
-    runs-on: [self-hosted, Linux, docker]
-    concurrency:
-      group: taskira-image-integration
-      queue: max
-      cancel-in-progress: false
+    runs-on: ubuntu-24.04
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -240,30 +201,15 @@ jobs:
 
   backup-restore-rehearsal:
     name: backup, destroy volumes, and restore
-    runs-on: [self-hosted, Linux, docker]
-    concurrency:
-      group: taskira-image-integration
-      queue: max
-      cancel-in-progress: false
+    runs-on: ubuntu-24.04
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
       - name: Back up data, remove volumes, restore, and verify login/task/attachment
         run: bash scripts/test-backup-restore-integration.sh
 
   migration-policy:
-    runs-on: [self-hosted, Linux, light]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -282,7 +228,7 @@ jobs:
         run: bash scripts/check-migrations.sh "$BASE_SHA" "$HEAD_SHA"
 
   server:
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -307,17 +253,6 @@ jobs:
       DATABASE_URL_TEST: postgresql://taskira:taskira@localhost:5432/taskira_test
 
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
@@ -327,7 +262,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: server/package-lock.json
 
       - run: npm ci
 
@@ -344,7 +280,7 @@ jobs:
   # которые можно смёржить по отдельности. Чтобы он реально блокировал мерж, джоба должна быть required check в
   # настройках ветки (на бесплатном приватном репозитории GitHub эту настройку не даёт — см. docs/tickets/UI-02).
   types:
-    runs-on: [self-hosted, Linux, light]
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
@@ -355,7 +291,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
       - run: npm ci
       - run: npm ci
@@ -393,7 +332,7 @@ jobs:
   # В CI клиент раньше не проверялся вообще — единственный барьер против
   # красной сборки перед тяжёлой работой над UI.
   client:
-    runs-on: [self-hosted, Linux, light]
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v7
@@ -408,7 +347,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
 
@@ -439,7 +379,7 @@ jobs:
   # Отдельный job: LDAP-путь против НАСТОЯЩЕГО OpenLDAP (не мока).
   # AUTH_MODE=ldap здесь только для этого job — основной `server` job идёт в local.
   ldap:
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -482,17 +422,6 @@ jobs:
       ADMIN_PASSWORD: Emergency-Access-42!
 
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
@@ -502,7 +431,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: server/package-lock.json
 
       - run: npm ci
       - run: npm rebuild esbuild
@@ -560,7 +490,7 @@ jobs:
   # (SeaweedFS, не заглушки; образы MinIO с 28.09.2026 недоступны без авторизации —
   # см. server/docker-compose.storage.yml). Основной `server` job идёт в STORAGE_DRIVER=local.
   storage-s3:
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -597,17 +527,6 @@ jobs:
       STORAGE_S3_FORCE_PATH_STYLE: "true"
 
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
@@ -617,7 +536,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: server/package-lock.json
 
       - run: npm ci
       - run: npm rebuild esbuild
@@ -647,7 +567,7 @@ jobs:
   # Отдельный job: email-воркер уведомлений против НАСТОЯЩЕГО SMTP (Mailpit).
   # Основной `server` job идёт с NOTIFY_EMAIL_ENABLED unset — воркер не стартует.
   mail:
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -684,17 +604,6 @@ jobs:
       MAIL_API: http://localhost:8025
 
     steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-test-runner
         with:
@@ -704,7 +613,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: server/package-lock.json
 
       - run: npm ci
       - run: npm rebuild esbuild
