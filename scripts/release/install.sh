@@ -6,14 +6,18 @@ cd "$ROOT_DIR"
 
 ENGINE="${CONTAINER_ENGINE:-}"
 MODE="load"
+ADOPT_VOLUMES=0
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--engine docker|podman] [--verify-only] [--start]
+Usage: ./install.sh [--engine docker|podman] [--verify-only] [--start] [--adopt-existing-volumes]
 
   (default)      verify the release, load all images, and create .env
   --verify-only  verify checksums without changing the host
   --start        verify, load images, validate .env, and start Taskira
+  --adopt-existing-volumes
+                 with --start: use existing volumes of this directory's project even
+                 though this directory has never started them (e.g. re-extracted release)
 EOF
 }
 
@@ -24,6 +28,7 @@ while [ "$#" -gt 0 ]; do
       ENGINE="$2"; shift 2 ;;
     --verify-only) MODE="verify"; shift ;;
     --start) MODE="start"; shift ;;
+    --adopt-existing-volumes) ADOPT_VOLUMES=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -74,6 +79,11 @@ verify_release
 echo "[2/4] Detecting container engine"
 detect_engine
 echo "Using $ENGINE"
+if [ "$MODE" = "start" ] && [ -f .env ]; then
+  preflight_rootless "$(env_value CLIENT_PORT)"
+else
+  preflight_rootless
+fi
 
 echo "[3/4] Loading offline images"
 while IFS= read -r archive; do
@@ -94,7 +104,11 @@ fi
 if [ "$MODE" = "start" ]; then
   echo "[4/4] Starting Taskira"
   validate_env
+  preflight_project_volumes "$ROOT_DIR" "$ADOPT_VOLUMES"
+  preflight_network "$ROOT_DIR"
   compose_run --env-file .env -f docker-compose.yml config >/dev/null
+  # Claim only after ownership/preflight/config validation, before partial creation.
+  : > "$INSTALL_MARKER"
   compose_run --env-file .env -f docker-compose.yml up -d
   wait_for_install_health
   compose_run --env-file .env -f docker-compose.yml ps

@@ -4,9 +4,9 @@
  *   - ldap:  LDAP/AD; при недоступности LDAP или для локальной учётки —
  *            break-glass вход по паролю ТОЛЬКО для config.admin.username. */
 import type { FastifyInstance } from "fastify";
-import bcrypt from "bcryptjs";
 import { LoginBody } from "../contract.js";
-import type { MeDto } from "../contract.js";
+import type { LoginResultDto, MeDto } from "../contract.js";
+import { hashPassword, verifyPassword } from "../services/passwordHash.js";
 import { audit, auditFromRequest } from "../audit.js";
 import { one, q } from "../db.js";
 import { loadConfig } from "../config.js";
@@ -62,7 +62,17 @@ async function localPasswordCheck(username: string, password: string, onlyBreakG
   if (onlyBreakGlass && username !== loadConfig().admin?.username) return null;
   const row = await one<UserRow>(`SELECT * FROM users WHERE username = $1 AND auth_source = 'local'`, [username]);
   if (!row || !row.password_hash) return null;
-  return (await bcrypt.compare(password, row.password_hash)) ? row : null;
+  const check = await verifyPassword(password, row.password_hash);
+  if (!check.ok) return null;
+  // SEC-PWD-01: истёкший временный пароль — такой же неверный пароль (то же сообщение, тот же счётчик блокировки).
+  if (row.must_change_password && row.password_expires_at && row.password_expires_at.getTime() <= Date.now()) return null;
+  // SEC-PWD-02: прежний bcrypt от сырого пароля (усечение до 72 байт) переписываем в новый формат при входе.
+  // Условие на прежний хэш — не затереть пароль, сменённый параллельно.
+  if (check.needsRehash) {
+    const hash = await hashPassword(password);
+    await q(`UPDATE users SET password_hash = $2 WHERE id = $1 AND password_hash = $3`, [row.id, hash, row.password_hash]);
+  }
+  return row;
 }
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
@@ -140,12 +150,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       // (см. миграцию 20260922T1600_users_last_login.sql и services/license.ts) — обновляется
       // здесь же, единственном месте успешного входа, тем же приёмом, что failed_login_attempts.
       await q(`UPDATE users SET last_login_at = now() WHERE id = $1`, [row.id]);
-      await audit(row.id, "auth.login", "user", row.id, { via: row.auth_source });
+      const mustChangePassword = row.auth_source === "local" && row.must_change_password;
+      await audit(row.id, "auth.login", "user", row.id, mustChangePassword ? { via: row.auth_source, mustChangePassword } : { via: row.auth_source });
       const token = signToken(app, row);
       reply.header("Set-Cookie", sessionCookie(token));
       // token остаётся в JSON для CLI/старых клиентов; браузер Taskira его не
       // сохраняет и работает только с недоступной JavaScript HttpOnly-cookie.
-      reply.send({ token, user: safeUser(row) });
+      // mustChangePassword (SEC-PWD-01): сессия годится только для смены пароля (middleware.ts).
+      const result: LoginResultDto = { token, user: safeUser(row), mustChangePassword };
+      reply.send(result);
     },
   );
 
@@ -160,7 +173,13 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       // сам /me, поэтому переключатель проектов может показать звёзды сразу
       // при входе, ещё до захода в конкретный проект (главный экран/home).
       const favoriteProjectIds = await listFavoriteProjectIds(row.id);
-      const me: MeDto = { ...safeUser(row), notifyPrefs: row.notify_prefs ?? {}, favoriteProjectIds, lang: row.lang ?? "ru" };
+      const me: MeDto = {
+        ...safeUser(row),
+        notifyPrefs: row.notify_prefs ?? {},
+        favoriteProjectIds,
+        lang: row.lang ?? "ru",
+        mustChangePassword: row.auth_source === "local" && row.must_change_password,
+      };
       reply.send(me);
     },
   );

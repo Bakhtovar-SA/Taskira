@@ -115,6 +115,9 @@ describe("модель прав: поведение клиента и серве
 
 describe("лимиты валидации: клиент ↔ сервер", () => {
   const clientLimits = extractObject(read("src/validation.ts"), "export const LIMITS") as Record<string, unknown>;
+  test("длина пароля присутствует на обеих сторонах", () => {
+    expect(clientLimits.password).toEqual(SERVER_LIMITS.password);
+  });
 
   test("совпадают поля, которые есть на обеих сторонах", () => {
     // Клиент не знает про серверные лимиты вложений и наоборот — сверяем

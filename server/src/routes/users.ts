@@ -3,8 +3,9 @@
  *  Проектная роль (project_members) назначается отдельно — см. routes/project.ts. */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
-import bcrypt from "bcryptjs";
-import { one, q, withTransaction } from "../db.js";
+import { q, withTransaction } from "../db.js";
+import { hashPassword } from "../services/passwordHash.js";
+import { assertPasswordAllowed } from "../services/passwords.js";
 import { loadConfig } from "../config.js";
 import { forbidden, invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, revokeUserSessions, zbody, zquery, type JwtPayload } from "../middleware.js";
 import { invalidateUserTokens } from "../services/apiTokens.js";
@@ -58,15 +59,17 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       if (loadConfig().authMode === "ldap")
         throw conflict("В режиме LDAP пользователи заводятся автоматически при первом входе");
 
-      const hash = await bcrypt.hash(body.password, 10);
+      // Статические правила политики проверил zod (CreateUserBody); здесь — контекстные слова организации из БД.
+      await assertPasswordAllowed(body.password, { username: body.username, name: body.name });
+      const hash = await hashPassword(body.password);
       let row: UserRow;
       try {
         row = (
           await q<UserRow>(
-            `INSERT INTO users (username, password_hash, name, initials, color, job_role, phone, global_role, is_active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            `INSERT INTO users (username, password_hash, name, initials, color, job_role, phone, global_role, is_active, must_change_password)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
              RETURNING *`,
-            [body.username, hash, body.name, body.initials, body.color, body.jobRole, body.phone ?? "", body.globalRole, body.isActive ?? true],
+            [body.username, hash, body.name, body.initials, body.color, body.jobRole, body.phone ?? "", body.globalRole, body.isActive ?? true, body.mustChangePassword ?? false],
           )
         )[0];
       } catch (e) {
@@ -74,7 +77,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         throw e;
       }
 
-      await auditFromRequest(req, "user.create", "user", row.id, { username: row.username, globalRole: row.global_role });
+      await auditFromRequest(req, "user.create", "user", row.id, { username: row.username, globalRole: row.global_role, mustChangePassword: row.must_change_password });
       reply.code(201).send(safeUser(row));
     },
   );

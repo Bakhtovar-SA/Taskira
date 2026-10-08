@@ -10,6 +10,7 @@
  */
 
 export const LIMITS = {
+  password: { min: 14, max: 128 },
   title: { min: 1, max: 250 },
   description: { max: 5000 },
   comment: { min: 1, max: 2000 },

@@ -168,6 +168,9 @@ export interface Config {
   trustProxy: boolean | string;
   corsOrigin: string[] | "*";
   admin: { username: string; password: string; name: string } | null;
+  /** SEC-PWD-01/02: пароли локальных учёток. contextWords — PASSWORD_CONTEXT_WORDS (через запятую: название
+   *  организации, кодовые имена) в дополнение к встроенным и бренду из БД; resetTtlHours — срок временного пароля. */
+  passwords: { contextWords: string[]; resetTtlHours: number };
   /** local — только пароль (как раньше); ldap — LDAP + break-glass локальный admin. */
   authMode: "local" | "ldap";
   ldap: LdapConfig | null;
@@ -496,8 +499,13 @@ function buildConfig(): Config {
 
   if (!adminUser || !adminPass)
     fail("ADMIN_USERNAME и ADMIN_PASSWORD обязательны для первого администратора / break-glass входа");
-  const adminPasswordError = passwordPolicyError(adminPass, adminUser);
+  // Только базовые правила (длина, известные дефолты, логин): после первого запуска ADMIN_PASSWORD уже не
+  // используется (хэш в БД), и новый список частых паролей не должен ронять обновлённую установку. Полная политика
+  // применяется, когда seedAdmin действительно создаёт администратора (seed.ts).
+  const adminPasswordError = passwordPolicyError(adminPass, adminUser, { lists: false });
   if (adminPasswordError) fail(`ADMIN_PASSWORD: ${adminPasswordError}`);
+  const passwordResetTtlHours = envPosInt("PASSWORD_RESET_TTL_HOURS", 24);
+  if (passwordResetTtlHours > 168) fail("PASSWORD_RESET_TTL_HOURS: не больше 168 (7 суток) — временный пароль живёт недолго");
 
   const sessionTtlSeconds = envPosInt("SESSION_TTL_SECONDS", 8 * 60 * 60);
   const sessionRotateAfterSeconds = envPosInt("SESSION_ROTATE_AFTER_SECONDS", 60 * 60);
@@ -524,6 +532,10 @@ function buildConfig(): Config {
       username: adminUser,
       password: adminPass,
       name: process.env.ADMIN_NAME?.trim() || "Администратор",
+    },
+    passwords: {
+      contextWords: (process.env.PASSWORD_CONTEXT_WORDS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+      resetTtlHours: passwordResetTtlHours,
     },
     authMode,
     ldap: authMode === "ldap" ? buildLdapConfig() : null,

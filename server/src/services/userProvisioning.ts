@@ -96,6 +96,7 @@ export async function provisionFromLdap(principal: LdapPrincipal, _retry = false
     const { previous, row } = await updateLdapUser(
         `UPDATE users
             SET auth_source = 'ldap', password_hash = NULL,
+                must_change_password = false, password_expires_at = NULL,
                 ldap_dn = $2, email = $3, name = $4, initials = $5,
                 job_role = $7, phone = $8, given_name = $9,
                 global_role = ${KEEP_LAST_ADMIN("$6", "$1")},

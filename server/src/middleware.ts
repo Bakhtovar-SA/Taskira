@@ -123,7 +123,7 @@ export function zparams<T extends ZodType>(schema: T): preValidationHookHandler 
 const FRESH_TTL_MS = AUTH_CACHE_TTL_MS;
 const freshUsers = new Map<
   string,
-  { globalRole: GlobalRole; active: boolean; sessionVersion: number; name: string; at: number }
+  { globalRole: GlobalRole; active: boolean; sessionVersion: number; name: string; mustChangePassword: boolean; at: number }
 >();
 let freshGeneration = 0;
 
@@ -164,8 +164,8 @@ async function freshActiveUser(userId: string) {
   let fresh = freshUsers.get(userId);
   if (!fresh || Date.now() - fresh.at > FRESH_TTL_MS) {
     const generation = freshGeneration;
-    const row = await one<{ global_role: GlobalRole; is_active: boolean; session_version: string | number; name: string }>(
-      `SELECT global_role, is_active, session_version, name FROM users WHERE id = $1`,
+    const row = await one<{ global_role: GlobalRole; is_active: boolean; session_version: string | number; name: string; must_change_password: boolean }>(
+      `SELECT global_role, is_active, session_version, name, must_change_password FROM users WHERE id = $1`,
       [userId],
     );
     // A lookup started before deactivation must not restore stale active state after invalidation.
@@ -176,6 +176,7 @@ async function freshActiveUser(userId: string) {
       active: row.is_active,
       sessionVersion: Number(row.session_version),
       name: row.name,
+      mustChangePassword: row.must_change_password,
       at: Date.now(),
     };
     boundedSet(freshUsers, userId, fresh);
@@ -188,15 +189,23 @@ export async function assertFreshUserNoSession(userId: string): Promise<{ name: 
   const fresh = await freshActiveUser(userId); return { name: fresh.name };
 }
 
-export async function assertFreshUser(userId: string, sessionVersion: number | undefined): Promise<GlobalRole> {
+async function freshSession(userId: string, sessionVersion: number | undefined) {
   const fresh = await freshActiveUser(userId);
 
   if (sessionVersion === undefined || sessionVersion !== fresh.sessionVersion) {
     throw unauthorized("Сессия завершена — войдите заново");
   }
 
-  return fresh.globalRole;
+  return fresh;
 }
+
+export async function assertFreshUser(userId: string, sessionVersion: number | undefined): Promise<GlobalRole> {
+  return (await freshSession(userId, sessionVersion)).globalRole;
+}
+
+/** SEC-PWD-01: пока не сменён временный (или начальный, заданный администратором) пароль, сессия годится только
+ *  на эти маршруты — профиль (клиент по нему показывает форму смены), смену пароля, выход и режим входа. */
+const PASSWORD_CHANGE_ROUTES = new Set(["/api/auth/me", "/api/auth/logout", "/api/auth/config", "/api/me/password", "/api/me/lang"]);
 
 async function authenticate(req: FastifyRequest, reply: FastifyReply, enforceScope: boolean): Promise<void> {
   const authorization = req.headers.authorization;
@@ -222,8 +231,11 @@ async function authenticate(req: FastifyRequest, reply: FastifyReply, enforceSco
 
   // Глобальная роль из БД новее токена — перезаписываем для всех последующих проверок.
   // Payload токена (может быть без globalRole у старых токенов) для авторизации не используется.
-  const globalRole = await assertFreshUser(req.user.sub, req.user.sessionVersion);
+  const fresh = await freshSession(req.user.sub, req.user.sessionVersion);
+  const globalRole = fresh.globalRole;
   req.user = { ...req.user, globalRole };
+  if (fresh.mustChangePassword && !PASSWORD_CHANGE_ROUTES.has(req.routeOptions.url ?? ""))
+    throw new ApiHttpError(403, "PASSWORD_CHANGE_REQUIRED", "Сначала смените временный пароль");
 
   // Ротация обновляет подпись cookie, но не продлевает абсолютный срок сессии.
   // session_version остаётся прежней, поэтому logout/deactivation отзывает
