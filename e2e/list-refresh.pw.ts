@@ -78,14 +78,15 @@ test("list refresh: status and assignee edits stay in the table under CSP", asyn
 test("list refresh: create within a status group and restore focus", async ({ page }) => {
   await boardFixture(page);
   await page.goto("/p/CORP/list");
-  const add = page.getByRole("button", { name: "Добавить в «В работе»", exact: true });
+  await expect(page.getByRole("button", { name: "Добавить в «В работе»", exact: true })).toHaveCount(0);
+  const add = page.getByRole("button", { name: "Добавить в «К выполнению»", exact: true });
   await add.click();
   const field = page.locator(".list-group-create textarea");
   await expect(field).toBeFocused();
   await field.fill("Новая задача в группе");
   const posted = page.waitForRequest(r => r.url().endsWith("/projects/p1/issues") && r.method() === "POST");
   await page.keyboard.press("Enter");
-  expect((await posted).postDataJSON()).toMatchObject({ statusId: "s2", title: "Новая задача в группе" });
+  expect((await posted).postDataJSON()).toMatchObject({ statusId: "s1", title: "Новая задача в группе" });
   await expect(page.getByRole("link", { name: "Новая задача в группе" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(add).toBeFocused();

@@ -19,7 +19,7 @@ test("shell refresh: navigation, favorites, shortcuts and profile", async ({ pag
   const header = page.locator(".project-topbar"), sidebar = page.locator("aside");
   await expect(header).toBeVisible();
   expect((await header.boundingBox())!.height).toBe(64);
-  expect((await sidebar.boundingBox())!.width).toBe(280);
+  expect((await sidebar.boundingBox())!.width).toBe(304);
   await expect(header.locator("input")).toHaveCount(0);
   await expect(header.getByRole("button", { name: "Меню пользователя" })).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("heading", { name: "Доска", exact: true })).toHaveCount(0);
@@ -38,13 +38,14 @@ test("shell refresh: navigation, favorites, shortcuts and profile", async ({ pag
   await expect(page).toHaveURL(url => url.pathname === "/p/CORP/list");
   await expect(header.getByRole("link", { name: "Список", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("main").getByRole("heading", { name: "Список задач", exact: true })).toHaveCount(0);
-  await sidebar.getByRole("button", { name: "Меню пользователя" }).click();
+  await page.locator(".global-topbar").getByRole("button", { name: "Меню пользователя" }).click();
   await expect(page.getByRole("button", { name: "Выйти", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
-  await sidebar.getByRole("button", { name: "Настройки", exact: true }).click();
-  await expect(sidebar.getByRole("button", { name: "Личные", exact: true })).toBeVisible();
+  await page.locator(".global-topbar").getByRole("button", { name: "Настройки", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Личные", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.keyboard.press("[");
-  await sidebar.getByRole("button", { name: "Меню пользователя" }).click();
+  await page.locator(".global-topbar").getByRole("button", { name: "Меню пользователя" }).click();
   await expect(page.getByRole("button", { name: "Выйти", exact: true })).toBeVisible();
 });
 
@@ -60,11 +61,13 @@ test("shell refresh: mobile tabs stay in the header and drawer actions remain re
   await calendar.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/calendar$/);
-  await header.getByRole("button", { name: "Меню", exact: true }).click();
+  await page.locator(".global-topbar").getByRole("button", { name: "Меню", exact: true }).click();
   const sidebar = page.locator("aside");
-  await expect(sidebar.getByRole("button", { name: "Поиск и команды", exact: true })).toBeVisible();
-  expect((await sidebar.getByRole("button", { name: "Новая задача", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await sidebar.getByRole("button", { name: "Меню пользователя" }).click();
+  await expect(sidebar.getByRole("button", { name: /^Справка/ })).toBeVisible();
+  await sidebar.getByRole("button", { name: "Закрыть", exact: true }).click();
+  await expect(page.locator(".global-topbar").getByRole("button", { name: "Поиск и команды", exact: true })).toBeVisible();
+  expect((await page.locator(".global-topbar .project-create").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.locator(".global-topbar").getByRole("button", { name: "Меню пользователя" }).click();
   await expect(page.getByRole("button", { name: "Выйти", exact: true })).toBeVisible();
 });
 
@@ -160,8 +163,8 @@ for (const theme of ["light", "dark"]) {
         expect(await page.locator(".list-table").evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
         expect((await link.boundingBox())!.height).toBeGreaterThan(30);
         expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        // Readable controls must still leave the first task in the upper half of the viewport.
-        expect((await row.boundingBox())!.y).toBeLessThan(page.viewportSize()!.height / 2);
+        // Account for the separate global header above the project header.
+        expect((await row.boundingBox())!.y).toBeLessThan(page.viewportSize()!.height / 2 + (await page.locator(".global-topbar").boundingBox())!.height);
       }
     }
     const link = row.getByRole("link", { name: issues[0].title });

@@ -18,6 +18,7 @@ import { Dialog, SidePanel } from "../ds/Dialog";
 import { Menu, Popover } from "../ds/LazyOverlay";
 import { Tag } from "../ds/Display";
 import { Tabs } from "../ds/Tabs";
+import { DeleteIssueDialog } from "./DeleteIssueDialog";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { useT } from "../i18n";
 import AssigneePicker from "./AssigneePicker";
@@ -499,7 +500,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   const [held, setHeld] = useState(live);
   if (live && live !== held) setHeld(live);
   const issue = live ?? (open ? undefined : held);
-  const [feed, setFeed] = useState<"all" | "comments" | "history">("all");
+  const [feed, setFeed] = useState<"all" | "comments" | "history">("comments");
   const [comment, setComment] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState("");
@@ -507,7 +508,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   const [confirmDel, setConfirmDel] = useState(false);
 
   useEffect(() => {
-    setFeed("all");
+    setFeed("comments");
     setEditingDesc(false);
     setComment("");
     setConfirmDel(false);
@@ -684,9 +685,6 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           <button onClick={() => openIssue(null)} className={iconBtn} aria-label={t("common.close")}><IcX size={17} /></button>
         </div>
       </div>
-      {confirmDel && <div className="issue-delete-confirm flex flex-wrap items-center gap-3 bg-dangersoft px-4 py-2 text-[14px]" role="alert">
-        <span>{t("issue.deleteConfirm")}</span><Button variant="danger" onClick={() => deleteIssue(issue.id)}>{t("common.yes")}</Button><Button variant="ghost" onClick={() => setConfirmDel(false)}>{t("common.no")}</Button>
-      </div>}
 
       {/* Ниже ~720px карточка складывается в одну колонку: именно её открывают
           по ссылке из письма, в том числе с телефона (аудит UX-03). */}
@@ -1178,12 +1176,16 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
     return (
       <div className="h-full overflow-y-auto">
         <div className="mx-auto max-w-[1180px]">{content}</div>
+        <DeleteIssueDialog open={confirmDel} issue={issue} onClose={() => setConfirmDel(false)} onConfirm={() => { setConfirmDel(false); deleteIssue(issue.id); }} />
       </div>
     );
   return (
+    <>
     <SidePanel open={open} onClose={() => openIssue(null)} size="xl" headless title={t("issueModal.title", { key: issue.key, title: issue.title })}>
       {content}
     </SidePanel>
+    <DeleteIssueDialog open={open && confirmDel} issue={issue} onClose={() => setConfirmDel(false)} onConfirm={() => { setConfirmDel(false); deleteIssue(issue.id); }} />
+    </>
   );
 }
 

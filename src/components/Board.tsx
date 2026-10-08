@@ -8,6 +8,7 @@ import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilte
 import { Hint } from "./Hint";
 import { IssueFilterSummary } from "./IssueFilterSummary";
 import { WorkspaceControls, WorkspaceSearch, WorkspaceQuickFilters } from "./WorkspaceControls";
+import { ProjectMembers } from "./ProjectMembers";
 import { useStore } from "../store";
 import { usePersonalBoardPhoto } from "../personalBoardPhoto";
 import BoardBackgroundControl from "./BoardBackgroundControl";
@@ -517,17 +518,19 @@ const BoardColumn = memo(function BoardColumn({
     [usersById, epicsById, statusById, posById, targetsByStatus, onOpen, onMove, lastEvent, onCardDragStart, onCardDragEnd, onDropOn, onOver, can, selecting, selectedIds, onToggleSelect],
   );
   return (
-    <section
-      aria-label={workflowStatusName(st, t)}
-      className={`board-col relative snap-start rounded-xl ${BOARD_COLUMN_SHELL}`}
+    <div
+      className="board-lane min-h-0 min-w-0 snap-start"
       onDragOver={(e) => {
+        if (!dragRef.current) return;
         e.preventDefault();
+        e.dataTransfer.dropEffect = ok ? "move" : "none";
         setOverCol(st.id);
       }}
       onDragLeave={(e) => {
         if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setOverCol(null);
       }}
       onDrop={(e) => {
+        if (!dragRef.current) return;
         e.preventDefault();
         const id = e.dataTransfer.getData("text/plain");
         setOverCol(null);
@@ -539,13 +542,14 @@ const BoardColumn = memo(function BoardColumn({
         }
       }}
     >
+    <section aria-label={workflowStatusName(st, t)} className={`board-col relative rounded-xl ${BOARD_COLUMN_SHELL}`}>
       {/* Заголовок внутри поверхности колонки и не прокручивается с карточками: глиф статуса, имя, число с сервера. */}
       <header className="board-col-header group/col flex shrink-0 items-center gap-2 px-1.5">
         <StatusGlyph category={st.category} position={statusPos} size={16} />
         <h2 className="min-w-0 truncate text-[15px] font-bold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h2>
         <span className="tabular text-[13.5px] text-faint">{total ?? "…"}</span>
         {isDone && !showAllDone && <span className="board-done-window text-[13px] text-faint">{t("board.doneWindow", { days: DONE_WINDOW_DAYS })}</span>}
-        {canCreate && (
+        {canCreate && isFirstTodo && (
           <button
             onClick={() => setQuickFor(st.id)}
             className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink"
@@ -559,10 +563,11 @@ const BoardColumn = memo(function BoardColumn({
       {/* Highlight a separate leaf: changing the scroll container invalidates styles for every card. */}
       <div
         aria-hidden="true"
-        className={`pointer-events-none board-col-highlight absolute inset-x-0 bottom-0 rounded-b-xl ${isOver ? (ok ? "bg-accentsoft/60 shadow-[inset_0_0_0_1px_var(--accent-muted)]" : "bg-dangersoft/60 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--status-danger)_40%,transparent)]") : ""}`}
+        data-drop-state={isOver ? (ok ? "allowed" : "forbidden") : undefined}
+        className="pointer-events-none board-col-highlight absolute inset-0 rounded-xl"
       />
       <div className={`${BOARD_COLUMN_BODY} relative`}>
-        {quickOpen && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
+        {canCreate && isFirstTodo && quickOpen && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
         {projectId && (
           <ColumnCards
             projectId={projectId}
@@ -617,6 +622,7 @@ const BoardColumn = memo(function BoardColumn({
       )}
 
     </section>
+    </div>
   );
 });
 
@@ -866,6 +872,7 @@ export default function Board() {
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
         <WorkspaceControls selectionMode={selectMode}
+          members={<ProjectMembers />}
           compact
           summary={t("board.filteredOf", { visible: data.workflow.statuses.reduce<number | null>((sum, st) => { const n = totalOf(st.id); return sum === null || n === null ? null : sum + n; }, 0) ?? "…", total: poolTotal ?? "…" })}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? chips.has(id) : baseFilters.assignee === (id === "mine" ? data.currentUserId : "none")} onToggle={toggleChip} overdue={overdueCounts.counts?.total} />}

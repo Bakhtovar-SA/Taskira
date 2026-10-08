@@ -26,8 +26,8 @@ export function WorkspaceQuickFilters({ active, onToggle, overdue }: { active: (
 }
 
 /** Stable toolbar buttons with one shared, inline disclosure panel. */
-export function WorkspaceControls({ search, filters, options, summary, quickFilters, grouping, compact = false, count = 0, selectionMode = false }: {
-  search: ReactNode; filters: ReactNode; options: ReactNode; summary?: ReactNode; quickFilters?: ReactNode; grouping?: ReactNode; compact?: boolean; count?: number; selectionMode?: boolean;
+export function WorkspaceControls({ search, filters, options, summary, quickFilters, members, grouping, compact = false, count = 0, selectionMode = false }: {
+  search: ReactNode; filters: ReactNode; options: ReactNode; summary?: ReactNode; quickFilters?: ReactNode; members?: ReactNode; grouping?: ReactNode; compact?: boolean; count?: number; selectionMode?: boolean;
 }) {
   const { t } = useT();
   const [open, setOpen] = useState<"filters" | "options" | null>(null);
@@ -54,6 +54,7 @@ export function WorkspaceControls({ search, filters, options, summary, quickFilt
     <div className="workspace-controls mt-3" data-layout={compact ? "compact" : undefined}>
       {search}
       {quickFilters}
+      {members}
       {compact && summary && <span className="workspace-count text-[13px] tabular text-faint">{summary}</span>}
       {grouping}
       <button ref={filtersButton} type="button" className="workspace-toggle ds-focus" aria-expanded={open === "filters"} aria-controls={id}

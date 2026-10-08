@@ -582,7 +582,7 @@ describe("Список задач — характеризующие тесты 
     fireEvent.click(within(panel).getByRole("button", { name: "Удалить" }));
     await settle();
 
-    const dialog = screen.getByRole("dialog", { name: "Удалить задачи?" });
+    const dialog = screen.getByRole("dialog", { name: "Вы действительно хотите удалить выбранные задачи?" });
     expect(within(dialog).getByText("Будет удалено задач: 2. Действие необратимо.")).toBeTruthy();
     expect(h.bulkCalls).toHaveLength(0); // подтверждение прежде вызова API
 

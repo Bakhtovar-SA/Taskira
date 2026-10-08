@@ -36,17 +36,17 @@ test("home refresh: real issue links open the full issue page", async ({ page })
   await row.click(); await expect(page).toHaveURL(/\/p\/CORP\/issue\/CORP-1$/);
   await expect(page.locator(".issue-title").first()).toContainText("Единая авторизация для корпоративных сервисов");
 });
-test("home refresh: sidebar creation chooses a project and records successful creation", async ({ page }) => {
+test("home refresh: global creation chooses a project and records successful creation", async ({ page }) => {
   await homeFixture(page);
   await page.addInitScript(() => localStorage.setItem("taskira.home.steps.u1", JSON.stringify({ profile: true })));
-  // The sidebar can receive the click before the lazy Home view has installed its listener.
+  // The global header can receive the click before the lazy Home view has installed its listener.
   let releaseHome!: () => void;
   const homeReady = new Promise<void>(resolve => { releaseHome = resolve; });
   await page.route(/\/(?:src\/components\/HomeView\.tsx|assets\/HomeView-[^/]+\.js)(?:\?.*)?$/, async route => { await homeReady; await route.continue(); });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".sidebar-compose")).toBeVisible();
+  await expect(page.locator(".global-topbar .project-create")).toBeVisible();
   await expect(page.locator(".home-view")).toHaveCount(0);
-  await page.locator(".sidebar-compose").click(); releaseHome();
+  await page.locator(".global-topbar .project-create").click(); releaseHome();
   const choose = page.getByRole("dialog", { name: "В каком проекте создать задачу?" });
   await expect(choose).toBeVisible();
   await choose.getByRole("button", { name: "Корпоративные задачи", exact: true }).click();
@@ -101,7 +101,7 @@ for (const width of [320, 390]) test("home refresh: mobile " + width + " navigat
   const axe = await new AxeBuilder({ page }).include(".home-view").analyze();
   expect(axe.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
   await page.screenshot({ path: "shots/home-mobile-" + width + ".png" });
-  await page.getByRole("button", { name: "Меню", exact: true }).click();
+  await page.locator(".global-topbar").getByRole("button", { name: "Меню", exact: true }).click();
   await page.getByRole("button", { name: /^Мои задачи/ }).click(); await expect(page).toHaveURL(/\/my-issues$/);
 });
 test("home refresh: production CSP allows progress without violations", async ({ page }) => {

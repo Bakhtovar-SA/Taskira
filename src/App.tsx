@@ -6,6 +6,7 @@ import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
+import GlobalTopbar from "./components/GlobalTopbar";
 import Board from "./components/Board";
 import LoginForm from "./components/LoginForm";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -296,6 +297,7 @@ function Shell() {
           своя поверхность, скругление и мягкая тень поверх атмосферы. */}
       <div className="flex min-w-0 flex-1 flex-col md:p-2">
        <div className="glass-sheet glass-edge flex min-h-0 flex-1 flex-col overflow-hidden shadow-e2 md:rounded-xl">
+        <GlobalTopbar />
         {bootStatus !== "home" && (issuePage || ui.missing || !["reports", "dashboards"].includes(ui.view)) && <Topbar />}
         <OfflineBanner />
         <main className="min-h-0 flex-1">

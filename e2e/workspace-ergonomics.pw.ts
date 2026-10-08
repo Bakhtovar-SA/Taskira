@@ -37,23 +37,24 @@ for (const theme of ["light", "dark"]) {
 
 test("a long board lane scrolls to its last card while the header stays reachable", async ({ page }) => {
   const { issues } = await boardFixture(page);
-  const many = Array.from({ length: 40 }, (_, n) => ({ ...issues[0], id: `long-${n}`, key: `CORP-${n + 10}`, title: `Задача ${n + 1}`, rank: n }));
+  const many = Array.from({ length: 100 }, (_, n) => ({ ...issues[0], id: `long-${n}`, key: `CORP-${n + 10}`, title: `Задача ${n + 1}`, rank: n }));
   await page.route("**/api/projects/p1/issues**", route => {
     const url = new URL(route.request().url());
-    if (url.pathname.endsWith("/counts")) return route.fulfill({ json: { total: 40, byStatus: { s1: 40, s2: 0, s3: 0, s4: 0 } } });
+    if (url.pathname.endsWith("/counts")) return route.fulfill({ json: { total: 100, byStatus: { s1: 100, s2: 0, s3: 0, s4: 0 } } });
     if (url.pathname === "/api/projects/p1/issues") return route.fulfill({ json: { items: url.searchParams.get("status") && url.searchParams.get("status") !== "s1" ? [] : many, hasMore: false, nextCursor: null } });
     return route.fallback();
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/p/CORP/board");
   const lane = page.locator(".board-col").first();
-  await expect(lane.locator(".board-card")).toHaveCount(40);
+  await expect(lane.locator(".board-card")).toHaveCount(100);
   const header = await lane.locator("header").boundingBox();
   const body = lane.locator(".board-col-body");
   expect(await body.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
   await body.evaluate(el => { el.scrollTop = el.scrollHeight; });
   await expect(lane.locator(".board-card").last()).toBeInViewport();
   expect(await lane.locator("header").boundingBox()).toEqual(header);
-  await page.getByRole("button", { name: "Добавить в «Готово»", exact: true }).click();
-  await expect(page.locator(".board-col").last().getByRole("textbox")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Добавить в «Готово»", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Добавить в «К выполнению»", exact: true }).click();
+  await expect(lane.getByRole("textbox")).toBeVisible();
 });

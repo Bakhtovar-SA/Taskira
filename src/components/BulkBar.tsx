@@ -67,12 +67,12 @@ export default function BulkBar({ selectedIds, onDone, className = "" }: { selec
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        size="sm"
+        size="md"
         title={t("backlog.confirmBulkDeleteTitle")}
         description={t("backlog.confirmBulkDeleteBody", { n: selectedIds.size })}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+            <Button variant="ghost" data-autofocus onClick={() => setConfirmDelete(false)}>
               {t("common.cancel")}
             </Button>
             <Button variant="danger" loading={busy} onClick={() => void run({ action: "delete", issueIds: ids })}>

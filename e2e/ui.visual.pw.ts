@@ -96,12 +96,13 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) {
     await expect(page.locator(".project-topbar")).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     expect((await page.locator(".project-topbar").boundingBox())!.height).toBe(64);
-    expect((await page.locator("aside").boundingBox())!.width).toBe(280);
+    expect((await page.locator("aside").boundingBox())!.width).toBe(304);
     if (process.platform === "win32") {
+      await expect(page.locator(".global-topbar")).toHaveScreenshot(`shell-global-${theme}-win32.png`);
       await expect(page.locator(".project-topbar")).toHaveScreenshot(`shell-topbar-${theme}-win32.png`);
       await expect(page.locator("aside")).toHaveScreenshot(`shell-sidebar-${theme}-win32.png`);
     }
-    const axe = await new AxeBuilder({ page }).include(".project-topbar").include("aside").analyze();
+    const axe = await new AxeBuilder({ page }).include(".global-topbar").include(".project-topbar").include("aside").analyze();
     expect(axe.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
   });
 }
