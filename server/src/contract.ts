@@ -23,10 +23,11 @@
  * Лимиты зеркалят src/validation.ts фронтенда — меняются в двух местах синхронно.
  */
 import { z } from "zod";
-import { passwordPolicyError } from "./passwordPolicy.js";
+import { passwordPolicyError, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "./passwordPolicy.js";
 
 /* ---------------- лимиты (зеркало клиента) ---------------- */
 export const LIMITS = {
+  password: { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH },
   title: { min: 1, max: 250 },
   description: { max: 5000 },
   comment: { min: 1, max: 2000 },

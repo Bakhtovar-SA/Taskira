@@ -58,4 +58,14 @@ describe("ChangePasswordForm", () => {
     expect(screen.getByRole("alert").textContent).toBe("The current password is incorrect");
     expect(onDone).not.toHaveBeenCalled();
   });
+  test.each(["ru", "en"] as const)("oversized Unicode passwords are rejected locally (%s)", async lang => {
+    await loadLang(lang); localStorage.setItem("taskira.lang", lang);
+    const change = vi.spyOn(authApi, "changePassword");
+    show();
+    const labels = lang === "ru" ? ["Текущий пароль", "Новый пароль", "Повторите новый пароль"] : ["Current password", "New password", "Repeat the new password"];
+    type(labels[0], "old secret value");
+    type(labels[1], "😀".repeat(129)); type(labels[2], "😀".repeat(129));
+    expect(document.body.textContent).toContain(lang === "ru" ? "Не длиннее 128 символов" : "At most 128 characters");
+    await submit(); expect(change).not.toHaveBeenCalled();
+  });
 });

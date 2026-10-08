@@ -212,6 +212,21 @@ describe("POST /api/admin/users/:id/password-reset", () => {
     const [state] = await q<{ failed_login_attempts: number }>(`SELECT failed_login_attempts FROM users WHERE id = $1`, [fx.users.emp1]);
     expect(state.failed_login_attempts).toBe(1);
   });
+  test("a temporary password expiring mid-session is denied and a new reset recovers access", async () => {
+    const admin = await login(app, "admin");
+    const first = (await reset(admin, fx.users.emp1)).json();
+    const temporary = (await tryLogin("emp1", first.temporaryPassword)).json().token;
+    await q(`UPDATE users SET password_expires_at = now() - interval '1 second' WHERE id = $1`, [fx.users.emp1]);
+    const expired = await change(app, temporary, first.temporaryPassword, NEW_PASS);
+    expect(expired.statusCode).toBe(403);
+    expect(expired.json().error.code).toBe("TEMP_PASSWORD_EXPIRED");
+    expect((await me(temporary)).json().mustChangePassword).toBe(true);
+    expect((await app.inject({ method: "GET", url: "/api/projects", headers: auth(temporary) })).json().error.code).toBe("PASSWORD_CHANGE_REQUIRED");
+    const second = (await reset(admin, fx.users.emp1)).json();
+    expect((await me(temporary)).statusCode).toBe(401);
+    const renewed = (await tryLogin("emp1", second.temporaryPassword)).json().token;
+    expect((await change(app, renewed, second.temporaryPassword, NEW_PASS)).statusCode).toBe(200);
+  });
 
   test("reset clears an account lockout", async () => {
     await q(`UPDATE users SET failed_login_attempts = 5, locked_until = now() + interval '1 hour' WHERE id = $1`, [fx.users.emp1]);
@@ -292,7 +307,7 @@ describe("POST /api/admin/users/:id/password-reset", () => {
 
   test("console recovery (src/resetPassword.ts) resets an admin's password; unknown and LDAP users are refused", async () => {
     const run = (username: string) =>
-      spawnSync("npx", ["tsx", "src/resetPassword.ts", username], { cwd: SERVER_DIR, env: process.env, encoding: "utf8", timeout: 60_000 });
+      spawnSync(process.execPath, ["--import", "tsx", "src/resetPassword.ts", username], { cwd: SERVER_DIR, env: process.env, encoding: "utf8", timeout: 60_000 });
     const ok = run("admin");
     expect(ok.status).toBe(0);
     const temp = /: (\S+)$/m.exec(ok.stdout)?.[1];

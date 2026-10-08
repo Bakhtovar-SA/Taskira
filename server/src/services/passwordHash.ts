@@ -18,6 +18,7 @@ export const BCRYPT_COST = 10;
 const PREFIX = "sha256b64$";
 
 function prehash(password: string): string {
+  // Intermediate encoding only: never persisted. Storage and comparison use bcrypt below.
   return createHash("sha256").update(password, "utf8").digest("base64");
 }
 

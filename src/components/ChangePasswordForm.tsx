@@ -6,9 +6,10 @@ import { authApi } from "../api";
 import { useT } from "../i18n";
 import { Button } from "../ds/Button";
 import { Input } from "../ds/Field";
+import { LIMITS } from "../validation";
 
 /** Зеркало PASSWORD_MIN_LENGTH из server/src/passwordPolicy.ts (символы, не байты). */
-export const PASSWORD_MIN_LENGTH = 14;
+export const PASSWORD_MIN_LENGTH = LIMITS.password.min;
 
 type Props = {
   /** Текущий пароль уже известен (только что введён на форме входа) — поле не показывается. */
@@ -29,8 +30,9 @@ export function ChangePasswordForm({ currentPassword, onDone, submitLabel }: Pro
   const cur = currentPassword ?? current;
   const length = [...next].length;
   const tooShort = next.length > 0 && length < PASSWORD_MIN_LENGTH;
+  const tooLong = length > LIMITS.password.max;
   const mismatch = confirm.length > 0 && confirm !== next;
-  const ready = !!cur && length >= PASSWORD_MIN_LENGTH && next === confirm;
+  const ready = !!cur && length >= PASSWORD_MIN_LENGTH && !tooLong && next === confirm;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +67,7 @@ export function ChangePasswordForm({ currentPassword, onDone, submitLabel }: Pro
         onChange={(e) => setNext(e.target.value)}
         required
         hint={t("password.hint", { n: PASSWORD_MIN_LENGTH })}
-        error={tooShort ? t("password.tooShort", { n: PASSWORD_MIN_LENGTH }) : undefined}
+        error={tooShort ? t("password.tooShort", { n: PASSWORD_MIN_LENGTH }) : tooLong ? t("password.tooLong", { n: LIMITS.password.max }) : undefined}
       />
       <Input
         label={t("password.confirm")}

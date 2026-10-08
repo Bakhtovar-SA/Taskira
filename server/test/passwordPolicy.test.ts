@@ -51,6 +51,8 @@ describe("password hashing without bcrypt truncation (V6.2.8, V6.2.9)", () => {
     expect((await verifyPassword("я".repeat(40), stored)).ok).toBe(true);
     expect((await verifyPassword("я".repeat(36) + "x", stored)).ok).toBe(false);
     expect(stored.startsWith("sha256b64$")).toBe(true);
+    expect(bcrypt.getRounds(stored.slice("sha256b64$".length))).toBe(10);
+    expect(await hashPassword("я".repeat(40))).not.toBe(stored);
   });
 
   test("legacy bcrypt hashes still verify and ask for a rehash", async () => {

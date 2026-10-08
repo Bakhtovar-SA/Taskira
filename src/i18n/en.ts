@@ -235,6 +235,7 @@ const en: Record<keyof Dict, string> = {
   "password.confirm": "Repeat the new password",
   "password.hint": "At least {n} characters. A phrase of several words works well. Not allowed: common passwords, your username, the product, organization or team name.",
   "password.tooShort": "At least {n} characters",
+  "password.tooLong": "At most {n} characters",
   "password.mismatch": "The passwords don't match",
   "password.fillAll": "Fill in all fields",
   "password.submit": "Change password",
