@@ -10,12 +10,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: linux
-            label: taskira-a
-          - name: linux-2
-            label: taskira-b
-          - name: linux-3
-            label: taskira-c
+          - name: linux-4
+            label: taskira-repair-light
     runs-on: [self-hosted, Linux, docker, "${{ matrix.label }}"]
     timeout-minutes: 10
     permissions:
