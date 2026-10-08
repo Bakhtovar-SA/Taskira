@@ -1152,7 +1152,9 @@ function verifyWebhook(rawBody: Buffer, header: string, secret: string): boolean
 `error` — безопасный код `operation_failed` при наличии ошибки; подробности остаются в локальном журнале скрипта.
 API не возвращает произвольный текст `ops_runs.error`. Записи не изменяются при вычислении `interrupted`.
 Отчёты `ops_runs` создают доверенные скрипты INT-13: они гарантируют безопасные `details`, hostname
-в `host` и версию приложения в `appVersion`. API возвращает hostname и версию как записаны.
+в `host` и версию приложения в `appVersion`. API принимает метки только из символов
+`A–Z`, `a–z`, `0–9`, `.`, `_`, `:`, `+`, `-`: до 253 символов для хоста и до 64 для версии;
+некорректные и слишком длинные значения возвращаются как `null`.
 Из `details` возвращаются только несекретные числовые счётчики `bytes`, `durationSec`, `projects`, `issues`,
 булевы `countsSkipped`/`attachmentSkipped`, `storageDriver` (`local`/`s3`) и известные имена `checks`.
 Сторонний writer обязан соблюдать тот же контракт: не писать секреты, абсолютные пути или произвольные

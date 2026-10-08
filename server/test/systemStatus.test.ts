@@ -100,16 +100,25 @@ test("история: только нужный вид, последние пя�
   const interrupted = await app.inject({ method: "GET", url: "/api/admin/ops-runs?kind=restore_drill", headers: auth(adm) });
   expect(interrupted.json()[0].result).toBe("interrupted");
 });
-test("история операций не возвращает произвольные details и текст исключения", async () => {
-  await q(`INSERT INTO ops_runs(kind,result,details,error) VALUES('backup','failure',$1::jsonb,$2)`,
+test("история операций не возвращает произвольные details, текст исключения и некорректные метки", async () => {
+  await q(`INSERT INTO ops_runs(kind,result,details,error,host,app_version) VALUES('backup','failure',$1::jsonb,$2,'/private/host secret','command --secret')`,
     [JSON.stringify({ bytes: 42, durationSec: 3, projects: 2, storageDriver: "local", countsSkipped: false,
       checks: ["ready", "/private/secret"], path: "/private/secret", token: "secret", issues: "secret" }),
       "postgresql://private:secret@host/db /private/backup"]);
   const response = await app.inject({ method: "GET", url: "/api/admin/ops-runs?kind=backup", headers: auth(adm) });
   expect(response.statusCode).toBe(200);
-  expect(response.json()[0]).toMatchObject({ error: "operation_failed", details: { bytes: 42, durationSec: 3,
+  expect(response.json()[0]).toMatchObject({ error: "operation_failed", host: null, appVersion: null, details: { bytes: 42, durationSec: 3,
     projects: 2, storageDriver: "local", countsSkipped: false, checks: ["ready"] } });
   expect(response.body).not.toMatch(/private|secret|postgresql/);
+});
+
+test("история: метки имеют ограниченную длину, корректные hostname и semver сохраняются", async () => {
+  await record("backup", "success", 1);
+  await q(`UPDATE ops_runs SET host=$1,app_version=$2`, ["h".repeat(254), "v".repeat(65)]);
+  const history = async () => (await app.inject({ method: "GET", url: "/api/admin/ops-runs?kind=backup", headers: auth(adm) })).json()[0];
+  expect(await history()).toMatchObject({ host: null, appVersion: null });
+  await q(`UPDATE ops_runs SET host='backup-01.example',app_version='1.2.3+build.4'`);
+  expect(await history()).toMatchObject({ host: "backup-01.example", appVersion: "1.2.3+build.4" });
 });
 
 test("почта: off, нет SMTP, старое ожидание и реальное время окончательного отказа", async () => {
