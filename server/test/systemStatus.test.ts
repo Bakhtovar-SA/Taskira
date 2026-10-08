@@ -100,16 +100,25 @@ test("история: только нужный вид, последние пя�
   const interrupted = await app.inject({ method: "GET", url: "/api/admin/ops-runs?kind=restore_drill", headers: auth(adm) });
   expect(interrupted.json()[0].result).toBe("interrupted");
 });
-test("история операций не возвращает произвольные details и текст исключения", async () => {
-  await q(`INSERT INTO ops_runs(kind,result,details,error) VALUES('backup','failure',$1::jsonb,$2)`,
+test("история операций не возвращает произвольные details, текст исключения и некорректные метки", async () => {
+  await q(`INSERT INTO ops_runs(kind,result,details,error,host,app_version) VALUES('backup','failure',$1::jsonb,$2,'/private/host secret','command --secret')`,
     [JSON.stringify({ bytes: 42, durationSec: 3, projects: 2, storageDriver: "local", countsSkipped: false,
       checks: ["ready", "/private/secret"], path: "/private/secret", token: "secret", issues: "secret" }),
       "postgresql://private:secret@host/db /private/backup"]);
   const response = await app.inject({ method: "GET", url: "/api/admin/ops-runs?kind=backup", headers: auth(adm) });
   expect(response.statusCode).toBe(200);
-  expect(response.json()[0]).toMatchObject({ error: "operation_failed", details: { bytes: 42, durationSec: 3,
+  expect(response.json()[0]).toMatchObject({ error: "operation_failed", host: null, appVersion: null, details: { bytes: 42, durationSec: 3,
     projects: 2, storageDriver: "local", countsSkipped: false, checks: ["ready"] } });
   expect(response.body).not.toMatch(/private|secret|postgresql/);
+});
+
+test("история: метки имеют ограниченную длину, корректные hostname и semver сохраняются", async () => {
+  await record("backup", "success", 1);
+  await q(`UPDATE ops_runs SET host=$1,app_version=$2`, ["h".repeat(254), "v".repeat(65)]);
+  const history = async () => (await app.inject({ method: "GET", url: "/api/admin/ops-runs?kind=backup", headers: auth(adm) })).json()[0];
+  expect(await history()).toMatchObject({ host: null, appVersion: null });
+  await q(`UPDATE ops_runs SET host='backup-01.example',app_version='1.2.3+build.4'`);
+  expect(await history()).toMatchObject({ host: "backup-01.example", appVersion: "1.2.3+build.4" });
 });
 
 test("почта: off, нет SMTP, старое ожидание и реальное время окончательного отказа", async () => {
@@ -135,11 +144,14 @@ test("вебхуки: выключенная пустая функция off; di
   await q(`UPDATE webhooks SET state='active',disabled_reason=NULL WHERE id=$1`, [hook.id]); cfg.webhooks.enabled = true;
   const [event] = await q<{ id: string }>(`INSERT INTO integration_events(type,project_id,dedupe_key)
     VALUES('issue.created',$1,'status-fixture') RETURNING id`, [fx.projects.p1]);
-  await q(`INSERT INTO webhook_deliveries(webhook_id,event_id,manual,state,created_at,updated_at)
-    VALUES($1,$2,true,'pending',now()-interval '20 minutes',now()),
+  await q(`INSERT INTO webhook_deliveries(webhook_id,event_id,manual,state,created_at,failed_at)
+    VALUES($1,$2,true,'pending',now()-interval '20 minutes',NULL),
       ($1,$2,true,'failed',now()-interval '2 days',now()),
-      ($1,$2,true,'failed',now(),now()-interval '2 days')`, [hook.id, event.id]);
+      ($1,$2,true,'failed',now(),now()-interval '2 days'),
+      ($1,$2,true,'failed',now(),NULL)`, [hook.id, event.id]);
   expect(await systemChecks.webhooks()).toMatchObject({ state: "warn", facts: { active: 1, pending: 1, failed24h: 1 } });
+  await q(`UPDATE webhook_deliveries SET updated_at=now() WHERE state='failed'`);
+  expect((await systemChecks.webhooks()).facts.failed24h).toBe(1);
 });
 test("время почтового отказа записывается только при исчерпании ретраев", async () => {
   cfg.notify.emailEnabled = true; cfg.notify.emailMaxTries = 2;
@@ -270,7 +282,7 @@ test("кэш и одновременные запросы используют �
   expect(await getSystemStatus()).toBe(first); expect(spy).toHaveBeenCalledTimes(count);
 });
 
-test("истёкший кэш не запускает повторную проверку, пока предыдущая ещё зависла", async () => {
+test("таймаут не кэшируется: зависшая проверка общая, восстановление видно сразу", async () => {
   const initial = await getSystemStatus(); clearSystemStatusCache();
   for (const check of initial.checks) vi.spyOn(systemChecks, check.id).mockResolvedValue(check as never);
   let release!: (check: Extract<SystemCheck, { id: "mail" }>) => void;
@@ -280,12 +292,12 @@ test("истёкший кэш не запускает повторную про�
   vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
   const first = getSystemStatus(); await vi.advanceTimersByTimeAsync(5000);
   expect((await first).checks.find(check => check.id === "mail")?.state).toBe("unknown");
-  await vi.advanceTimersByTimeAsync(15001);
   const second = getSystemStatus(); await vi.advanceTimersByTimeAsync(5000);
   expect((await second).checks.find(check => check.id === "mail")?.state).toBe("unknown");
   expect(systemChecks.mail).toHaveBeenCalledTimes(1);
   release(initial.checks.find(check => check.id === "mail") as Extract<SystemCheck, { id: "mail" }>);
   await waiting;
+  expect((await getSystemStatus()).checks.find(check => check.id === "mail")).toEqual(initial.checks.find(check => check.id === "mail"));
 });
 test("scrape читает операции напрямую, текущий запуск сохраняет завершённый результат, зависший даёт 0", async () => {
   await record("backup", "success", 8);

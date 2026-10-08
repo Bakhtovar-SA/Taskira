@@ -148,6 +148,8 @@ for mode in success restart health; do
     [ "$status" != 0 ]
     grep -Fxq 'finish:failure' "$TEST_DIR/events"
     ! grep -Fxq 'finish:success' "$TEST_DIR/events"
+    # Recovery must precede reporting, which can wait on an unavailable DB.
+    [ "$(tail -n 2 "$TEST_DIR/events")" = $'restart\nfinish:failure' ]
   fi
 done
 

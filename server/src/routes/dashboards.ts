@@ -41,6 +41,7 @@ import {
   saveProjectOverview,
 } from "../services/dashboards.js";
 import { widgetData } from "../services/dashboardData.js";
+import { routeLimit } from "../routeLimits.js";
 
 const isAdmin = (u: JwtPayload) => u.globalRole === "admin";
 /** Сколько виджетов одного запроса считаются одновременно (пул по умолчанию — 10 соединений). */
@@ -76,7 +77,7 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Регистрируется раньше /dashboards/:dashboardId, чтобы «data» не принялся за id (к тому же это POST).
-  app.post("/dashboards/data", { preHandler: requireAuth, preValidation: zbody(DashboardDataBody) }, async (req): Promise<DashboardDataDto> => {
+  app.post("/dashboards/data", { ...routeLimit("dashboardData"), preHandler: requireAuth, preValidation: zbody(DashboardDataBody) }, async (req): Promise<DashboardDataDto> => {
     const u: JwtPayload = req.user;
     const body = req.body as z.infer<typeof DashboardDataBody>;
     if (!acquireDataSlot(u.sub)) throw new ApiHttpError(429, "RATE_LIMITED", "Данные дашборда уже считаются — подождите немного");

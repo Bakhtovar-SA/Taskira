@@ -10,6 +10,7 @@ import { escLike, one, q } from "../db.js";
 import { notFound, requireAuth, zquery, type JwtPayload } from "../middleware.js";
 import { IssueResolveQuery, SearchQuery } from "../contract.js";
 import type { IssueResolveDto, SearchResultDto, SearchResultItemDto } from "../contract.js";
+import { routeLimit } from "../routeLimits.js";
 
 interface Row {
   id: string;
@@ -30,7 +31,7 @@ interface Row {
 const SEARCH_LIMIT = 30;
 
 export async function searchRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/issues/search", { preHandler: [requireAuth, zquery(SearchQuery)] }, async (req): Promise<SearchResultDto> => {
+  app.get("/issues/search", { ...routeLimit("search"), preHandler: [requireAuth, zquery(SearchQuery)] }, async (req): Promise<SearchResultDto> => {
     const user: JwtPayload = req.user;
     const { q: query } = req.query as z.infer<typeof SearchQuery>;
     const isGlobalAdmin = user.globalRole === "admin";

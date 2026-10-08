@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auditFromRequest } from "../audit.js";
 import { q } from "../db.js";
 import { requireGlobalAdmin, zquery } from "../middleware.js";
+import { routeLimit } from "../routeLimits.js";
 
 const ExportQuery = z.object({
   format: z.enum(["jsonl", "csv"]).default("jsonl"),
@@ -27,7 +28,7 @@ function csvCell(value: unknown): string {
 export async function auditExportRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/admin/audit-log/export",
-    { preHandler: requireGlobalAdmin, preValidation: zquery(ExportQuery) },
+    { ...routeLimit("export"), preHandler: requireGlobalAdmin, preValidation: zquery(ExportQuery) },
     async (req, reply) => {
       const query = ExportQuery.parse(req.query);
       const result = await q<AuditExportRow>(
