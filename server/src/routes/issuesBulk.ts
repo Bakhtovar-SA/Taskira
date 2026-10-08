@@ -8,12 +8,12 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { z } from "zod";
 import { q } from "../db.js";
-import { badRequest, requirePerm, zbody, type JwtPayload } from "../middleware.js";
+import { badRequest, forbidden, requirePerm, zbody, type JwtPayload } from "../middleware.js";
 import { ApiHttpError } from "../errors.js";
 import { auditFromRequest } from "../audit.js";
 import { roleCan, type IssueRef } from "../permissions.js";
 import { transitionIssue } from "../services/issueTransition.js";
-import { listAssigneeIdsBatch, logActivity, setAssignees, validateAssigneesInProject } from "../services/issues.js";
+import { assertSelfAssignment, listAssigneeIdsBatch, logActivity, setAssignees, validateAssigneesInProject } from "../services/issues.js";
 import { deleteStorageObjects, storageKeysForIssue } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
 import { BulkIssueAction, BulkIssueResultDto, type PriorityId } from "../contract.js";
@@ -59,8 +59,10 @@ async function applyAssignee(projectId: string, row: Row, assigneeId: string, re
   const before = await listAssigneeIdsBatch([row.id]);
   const beforeIds = before.get(row.id) ?? [];
   const afterIds = assigneeId === "none" ? [] : [assigneeId];
+  if (req.projectRole === "employee" && assigneeId !== "none" && assigneeId !== actorId) throw forbidden("Сотрудник может назначать только себя");
+  if (req.projectRole === "employee") assertSelfAssignment(actorId, beforeIds, afterIds);
   if (JSON.stringify([...beforeIds].sort()) === JSON.stringify([...afterIds].sort())) return; // no-op
-  await setAssignees(row.id, afterIds, actorId);
+  await setAssignees(row.id, afterIds, actorId, undefined, req.projectRole === "employee");
   const added = afterIds.filter((x) => !beforeIds.includes(x));
   if (added.length > 0) {
     await emit({ type: "issue.assigned", actorId, projectId, issueId: row.id, recipientIds: added, payload: { key: row.key, title: row.title } });

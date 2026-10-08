@@ -11,7 +11,7 @@ import { Button, Dialog, Menu, type MenuEntry } from "../ds";
 
 export default function BulkBar({ selectedIds, onDone, className = "" }: { selectedIds: ReadonlySet<string>; onDone: () => void; className?: string }) {
   const { t } = useT();
-  const { data, can, bulkApplyIssueAction } = useStore();
+  const { data, me, can, bulkApplyIssueAction } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const ids = [...selectedIds];
@@ -48,7 +48,7 @@ export default function BulkBar({ selectedIds, onDone, className = "" }: { selec
         )}
         {menu(t("field.assignee"), [
           { id: "none", label: t("createIssue.unassigned"), onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: "none" }) },
-          ...data.users.map((u) => ({ id: u.id, label: u.name, text: u.name, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
+          ...data.users.filter(u => me.accessRole !== "employee" || u.id === me.id).map((u) => ({ id: u.id, label: u.name, text: u.name, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
         ])}
         {menu(
           t("field.priority"),

@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { boardFixture } from "./board-fixture";
+import { mockApi } from "./fixtures";
 
 test("global controls use the current UI, with bounded responsive search", async ({ page }) => {
   await boardFixture(page, "dark");
@@ -61,6 +62,41 @@ test("quick creation is limited to the first todo stage in board and list", asyn
   await input.press("Enter");
   expect((await posted).postDataJSON().statusId).toBe("s1");
   await page.screenshot({ path: test.info().outputPath("implemented-list.png") });
+});
+
+test("workflows without a todo stage keep only global creation", async ({ page }) => {
+  const { statuses } = await boardFixture(page);
+  statuses[0].category = "inprogress";
+  await page.goto("/p/CORP/board");
+  await expect(page.locator(".board-card")).toHaveCount(8);
+  await expect(page.locator(".board-col header button")).toHaveCount(0);
+  await expect(page.locator(".board-col .quick-create")).toHaveCount(0);
+  await expect(page.locator(".global-topbar .project-create")).toBeEnabled();
+  await page.goto("/p/CORP/list?group=status&done=1");
+  await expect(page.locator(".list-row")).toHaveCount(9);
+  await expect(page.locator("[data-create-status]")).toHaveCount(0);
+});
+
+test("users without projects cannot open project creation from the header", async ({ page }) => {
+  await mockApi(page);
+  await page.route("**/api/projects", route => route.fulfill({ json: [] }));
+  await page.goto("/");
+  const create = page.locator(".global-topbar .project-create");
+  await expect(create).toBeVisible();
+  await expect(create).toBeDisabled();
+  await expect(page.getByRole("dialog", { name: "Новая задача", exact: true })).toHaveCount(0);
+});
+
+test("solo guests keep their separate shell without project creation", async ({ page }) => {
+  await mockApi(page, { globalRole: "member" });
+  await page.route("**/api/projects", route => route.fulfill({ json: [] }));
+  await page.route("**/api/issues/collaborating", route => route.fulfill({ json: [1, 2].map(n => ({
+    issueId: `i${n}`, key: `TEST-${n}`, title: `Приглашённая задача ${n}`, projectId: "p1", projectName: "Test project", statusName: "Todo", statusCategory: "todo", typeId: "task", priorityId: "medium",
+  })) }));
+  await page.goto("/");
+  await expect(page.getByText("Вы — гость", { exact: true })).toBeVisible();
+  await expect(page.locator(".global-topbar")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Создать задачу", exact: true })).toHaveCount(0);
 });
 
 test("global controls fit small screens and a collapsed sidebar", async ({ page }) => {

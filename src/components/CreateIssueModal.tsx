@@ -19,7 +19,8 @@ const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[
 /** `open` — от `Presence` в App.tsx: после закрытия окно ещё доигрывает анимацию ухода. */
 export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   const { t, lang } = useT();
-  const { data, ui, setCreateOpen, createIssue } = useStore();
+  const { data, ui, me, setCreateOpen, createIssue } = useStore();
+  const selfOnlyId = me.accessRole === "employee" ? me.id : undefined;
   const [submitting, setSubmitting] = useState(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -40,7 +41,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   const [description, setDescription] = useState(draft?.description ?? "");
   const [priorityId, setPriorityId] = useState<PriorityId>(draft?.priorityId ?? "medium");
   const [complexity, setComplexity] = useState<ComplexityId | null>(draft?.complexity ?? null);
-  const [assigneeIds, setAssigneeIds] = useState<string[]>(draft?.assigneeIds ?? []);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>((draft?.assigneeIds ?? []).filter(id => !selfOnlyId || id === selfOnlyId));
   const [epicId, setEpicId] = useState<string | null>(draft?.epicId ?? null);
   // Выбранное направление держим объектом: заголовок для кнопки берётся из него, а не
   // из списка всех задач проекта.
@@ -284,7 +285,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                 </button>
               )}
             >
-              <AssigneePicker data={data} selected={assigneeIds} onChange={setAssigneeIds} />
+              <AssigneePicker data={data} selected={assigneeIds} onChange={setAssigneeIds} selfOnlyId={selfOnlyId} />
             </Popover>
           </div>
           <div>

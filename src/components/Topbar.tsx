@@ -527,7 +527,7 @@ export default function Topbar() {
   const isFavorite = data.favoriteProjectIds.includes(data.currentProjectId);
 
   return (
-    <div className="project-topbar shrink-0 border-b border-linesoft">
+    <div role="region" aria-label={t(isProjectView ? "topbar.viewsAria" : VIEW_LABEL[ui.view])} className="project-topbar shrink-0 border-b border-linesoft">
       <div className="project-topbar-row">
         {isProjectView ? <>
           <div className="project-identity">

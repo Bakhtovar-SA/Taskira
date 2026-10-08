@@ -2,7 +2,7 @@
 import { activityEventOf } from "./activity.js";
 import type { PoolClient } from "pg";
 import { one, q, withTransaction } from "../db.js";
-import { badRequest, notFound } from "../middleware.js";
+import { badRequest, forbidden, notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
 import { listAttachments, type AttachmentDto } from "./attachments.js";
 import { listIssueLinks, type IssueLinkDto } from "./issueLinks.js";
@@ -132,18 +132,30 @@ export async function validateAssigneesInProject(projectId: string, userIds: str
   if (rows.length !== new Set(userIds).size) throw badRequest("Все исполнители должны быть участниками проекта");
 }
 
-/** Полная замена списка исполнителей задачи (как labels — не diff, а замена
- *  целиком). Дедуп на всякий случай — контракт уже отсекает дубли, но это не
- *  единственный источник вызова. */
+/** Сотрудник меняет только своё присутствие в списке, сохраняя всех остальных. */
+export function assertSelfAssignment(actorId: string, before: string[], after: string[]): void {
+  const previousOthers = new Set(before.filter(id => id !== actorId));
+  const nextOthers = new Set(after.filter(id => id !== actorId));
+  if (previousOthers.size !== nextOthers.size || [...previousOthers].some(id => !nextOthers.has(id))) {
+    throw forbidden("Сотрудник может назначать только себя; других исполнителей меняет менеджер или администратор");
+  }
+}
+
+/** Полная замена списка исполнителей под блокировкой строки задачи. */
 export async function setAssignees(
   issueId: string,
   userIds: string[],
   addedBy: string,
   existingClient?: PoolClient,
+  selfOnly = false,
 ): Promise<void> {
   const replace = async (client: PoolClient) => {
     // Лок строки задачи сериализует две конкурентные полные замены списка.
     await client.query(`SELECT id FROM issues WHERE id = $1 FOR UPDATE`, [issueId]);
+    if (selfOnly) {
+      const before = (await client.query<{ user_id: string }>(`SELECT user_id FROM issue_assignees WHERE issue_id = $1`, [issueId])).rows;
+      assertSelfAssignment(addedBy, before.map(row => row.user_id), userIds);
+    }
     await client.query(`DELETE FROM issue_assignees WHERE issue_id = $1`, [issueId]);
     const unique = [...new Set(userIds)];
     if (unique.length > 0) {

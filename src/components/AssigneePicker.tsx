@@ -11,12 +11,12 @@ export function projectAssignees(data: Pick<Data, "users" | "members">, selected
 }
 
 /** Only project members can be added; former assignees remain visible for removal. */
-export default function AssigneePicker({ data, selected, onChange }: {
-  data: Pick<Data, "users" | "members">; selected: string[]; onChange: (ids: string[]) => void;
+export default function AssigneePicker({ data, selected, onChange, selfOnlyId }: {
+  data: Pick<Data, "users" | "members">; selected: string[]; onChange: (ids: string[]) => void; selfOnlyId?: string;
 }) {
   const { t } = useT();
   const [query, setQuery] = useState("");
-  const candidates = projectAssignees(data, selected, query);
+  const candidates = projectAssignees(data, selected, query).filter(user => !selfOnlyId || user.id === selfOnlyId);
   return <div className="flex flex-col">
     <div className="sticky top-0 z-10 bg-panel p-2">
       <input autoFocus type="search" value={query} onChange={event => setQuery(event.target.value)}

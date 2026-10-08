@@ -430,7 +430,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     h.ui.unmount();
   });
 
-  test("комментарии и история — одна лента (ТЗ 5.12 d): «Всё» по умолчанию, переключатель сужает до комментариев или истории", async () => {
+  test("по умолчанию комментарии; вкладки «Всё» и «История» показывают события", async () => {
     const comment: ServerComment = {
       id: "c1",
       issueId: "i1",
@@ -454,7 +454,11 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     });
     await settle();
 
-    // Намеренное изменение ТЗ 5.12 d: по умолчанию «Всё» — и комментарий, и событие в одной ленте.
+    expect(screen.getByText("Видимый комментарий")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Комментарии/ }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.queryByText("переименовал(а) задачу", { exact: false })).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Всё/ }));
     expect(screen.getByText("Видимый комментарий")).toBeTruthy();
     expect(screen.getByText(/переименовал\(а\) задачу/)).toBeTruthy();
 

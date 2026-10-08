@@ -7,7 +7,7 @@ import { I18nProvider } from "../i18n";
 const createIssue = vi.fn();
 const setCreateOpen = vi.fn();
 const data = { issueTemplates: [], users: [], members: [], project: { key: "CORP" } };
-vi.mock("../store", () => ({ useStore: () => ({ data, ui: { createParentId: null }, setCreateOpen, createIssue }) }));
+vi.mock("../store", () => ({ useStore: () => ({ data, me: { id: "u1", accessRole: "manager" }, ui: { createParentId: null }, setCreateOpen, createIssue }) }));
 vi.mock("../issuePages", () => ({ useIssue: () => null }));
 vi.mock("./IssueSearchBox", () => ({ default: () => <input aria-label="Direction search" /> }));
 import CreateIssueModal from "./CreateIssueModal";

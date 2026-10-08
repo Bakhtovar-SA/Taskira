@@ -81,7 +81,7 @@ function Row({
   onDelete: (issue: Issue) => void;
 }) {
   const { t, lang } = useT();
-  const { data, idx, openIssue, updateIssue, moveStatus, can } = useStore();
+  const { data, idx, me, openIssue, updateIssue, moveStatus, can } = useStore();
   // Ассоциированные сущности ищем по индексам из контекста, а не линейным
   // проходом по массивам в каждой строке списка (аудит PERF-02).
   const assignees = issue.assigneeIds.map((id) => idx.users.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
@@ -133,7 +133,7 @@ function Row({
       case "assignee":
         return can("edit", issue) ? <Popover label={t("field.assignee")} placement="bottom-end" className="w-[260px]"
           trigger={p => <button {...p} type="button" className="list-assignee-action ds-focus" aria-label={t("backlog.changeAssignees", { key: issue.key })}><UserAvatarGroup users={assignees} size={22} /></button>}>
-          <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} />
+          <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} selfOnlyId={me.accessRole === "employee" ? me.id : undefined} />
         </Popover> : <UserAvatarGroup users={assignees} size={22} interactive />;
       case "updated":
         return <span className="text-[13px] tabular text-faint">{relTime(issue.updatedAt, lang)}</span>;
@@ -216,6 +216,7 @@ export default function Backlog() {
   const { t, errText, lang } = useT();
   const { data, idx, can, epicsRevision, setCreateOpen, toast, deleteIssue } = useStore();
   const [issueToDelete, setIssueToDelete] = useState<Issue | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const firstTodoId = data.workflow.statuses.find(st => st.category === "todo")?.id;
   const [path, navigate] = useLocation();
   const initialSearch = projectIssueSearch(data.project.key, location.pathname, location.search);
@@ -781,7 +782,7 @@ export default function Backlog() {
                     {section.items.map(i => (
                   <Row
                     key={i.id}
-                    onDelete={setIssueToDelete}
+                    onDelete={issue => { setIssueToDelete(issue); setDeleteOpen(true); }}
                     issue={i}
                     epic={i.epicId ? epics.byId.get(i.epicId) : undefined}
                     cols={cols}
@@ -835,7 +836,7 @@ export default function Backlog() {
       </div>
 
       <Presence show={importOpen}>{(open) => <Suspense fallback={null}><ImportModal open={open} onClose={() => setImportOpen(false)} /></Suspense>}</Presence>
-      {issueToDelete && <DeleteIssueDialog open issue={issueToDelete} onClose={() => setIssueToDelete(null)} onConfirm={() => { setIssueToDelete(null); deleteIssue(issueToDelete.id); }} />}
+      <Presence show={deleteOpen}>{open => issueToDelete && <DeleteIssueDialog open={open} issue={issueToDelete} onClose={() => setDeleteOpen(false)} onConfirm={() => { setDeleteOpen(false); deleteIssue(issueToDelete.id); }} />}</Presence>
     </div>
   );
 }

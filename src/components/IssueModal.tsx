@@ -727,7 +727,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 </button>
               )}
             >
-              <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} />
+              <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} selfOnlyId={me.accessRole === "employee" ? me.id : undefined} />
             </Popover>
             ) : (
               <Locked reason={denyMsg}>

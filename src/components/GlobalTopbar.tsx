@@ -12,9 +12,9 @@ import { UserMenu } from "./UserMenu";
 
 export default function GlobalTopbar() {
   const { t } = useT();
-  const { bootStatus, can, setCreateOpen, logout, me } = useStore();
+  const { bootStatus, data, can, setCreateOpen, logout, me } = useStore();
   const openSettings = useOpenSettings();
-  const canCreate = bootStatus === "home" || can("create");
+  const canCreate = bootStatus === "home" || (bootStatus === "ready" && !!data.currentProjectId && can("create"));
   return <header className="global-topbar shrink-0 border-b border-linesoft">
     <div className="global-topbar-row">
       <IconButton variant="ghost" size="sm" label={t("sidebar.menu")} onClick={openSidebarDrawer} className="global-menu-button lg:hidden">

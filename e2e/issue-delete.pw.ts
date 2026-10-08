@@ -67,3 +67,27 @@ test("viewer cannot open deletion confirmation", async ({ page }) => {
   await page.locator('[role=row][data-issue-id="i1"]').getByRole("button", { name: "Действия", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Удалить", exact: true })).toHaveCount(0);
 });
+
+test("list deletion confirmation animates out and restores focus", async ({ page }) => {
+  await issueFixture(page, "dark");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/p/CORP/list");
+  const actions = page.locator('[role=row][data-issue-id="i1"]').getByRole("button", { name: "Действия", exact: true });
+  await actions.click();
+  await page.getByRole("menuitem", { name: "Удалить", exact: true }).click();
+  const confirm = page.getByRole("dialog", { name: "Вы действительно хотите удалить задачу?", exact: true });
+  await expect(confirm).toBeVisible();
+  const closing = await page.evaluateHandle(() => ({ seen: false }));
+  await confirm.evaluate((el, result) => {
+    const observer = new MutationObserver(() => {
+      if (el.getAttribute("data-closing") === "true") { result.seen = true; observer.disconnect(); }
+    });
+    observer.observe(el, { attributes: true, attributeFilter: ["data-closing"] });
+  }, closing);
+  await confirm.getByRole("button", { name: "Отмена", exact: true }).click();
+  await expect(confirm).toHaveCount(0);
+  expect(await closing.evaluate(result => result.seen)).toBe(true);
+  await closing.dispose();
+  await expect(actions).toBeFocused();
+  await expect(page.locator('[role=row][data-issue-id="i1"]')).toBeVisible();
+});
