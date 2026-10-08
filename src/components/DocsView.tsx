@@ -13,11 +13,13 @@ export const EN_SECTIONS = helpCopy.en.sections.map(({ id, label }) => [id, labe
 
 function useDocsNavigation(prefix: string, enabled = true) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const requested = useRef<string | null>(null);
   const [active, setActive] = useState("overview");
   const go = useCallback((id: string) => {
     const section = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("section[id]") ?? [])
       .find(value => value.id === `${prefix}${id}`);
     if (!section) return;
+    requested.current = id;
     setActive(id);
     section.scrollIntoView({
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start",
@@ -28,6 +30,7 @@ function useDocsNavigation(prefix: string, enabled = true) {
     if (!root || !enabled) return;
     const sections = Array.from(root.querySelectorAll<HTMLElement>(`section[id^="${prefix}"]`));
     const update = () => {
+      if (requested.current !== null) return;
       const threshold = root.getBoundingClientRect().top + 24;
       let current: HTMLElement | undefined = sections[0];
       for (const section of sections) {
@@ -36,11 +39,24 @@ function useDocsNavigation(prefix: string, enabled = true) {
       if (root.scrollTop > 0 && root.scrollTop + root.clientHeight >= root.scrollHeight - 2) current = sections.at(-1);
       if (current) setActive(current.id.slice(prefix.length));
     };
+    const resume = () => { requested.current = null; update(); };
+    const resumeKey = (event: KeyboardEvent) => {
+      if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) resume();
+    };
+    requested.current = null;
     update();
     root.addEventListener("scroll", update, { passive: true });
+    root.addEventListener("wheel", resume, { passive: true });
+    root.addEventListener("touchmove", resume, { passive: true });
+    root.addEventListener("pointerdown", resume);
+    root.addEventListener("keydown", resumeKey);
     window.addEventListener("resize", update);
     return () => {
       root.removeEventListener("scroll", update);
+      root.removeEventListener("wheel", resume);
+      root.removeEventListener("touchmove", resume);
+      root.removeEventListener("pointerdown", resume);
+      root.removeEventListener("keydown", resumeKey);
       window.removeEventListener("resize", update);
     };
   }, [prefix, enabled]);
@@ -76,7 +92,7 @@ export default function DocsView() {
           {copy.sections.map((section, index) => <section key={section.id} id={`${prefix}${section.id}`} className="scroll-mt-5 rounded-xl surface-raised p-5 ring-1 ring-inset ring-line/70">
             <h2 className="font-disp text-[15px] font-semibold tracking-tight text-ink">{index + 1} · {section.label}</h2>
             {section.paragraphs.map(paragraph => <p key={paragraph} className="mt-2 text-[13px] leading-relaxed text-sub">{paragraph}</p>)}
-            {section.code && <pre className="mt-3 overflow-x-auto rounded-lg bg-sunken p-3 font-code text-[12px] leading-relaxed text-ink"><code className="font-code">{section.code}</code></pre>}
+            {section.code && <pre tabIndex={0} className="ds-focus mt-3 overflow-x-auto rounded-lg bg-sunken p-3 font-code text-[12px] leading-relaxed text-ink"><code className="font-code">{section.code}</code></pre>}
             {section.links && <ul className="mt-3 space-y-1">{section.links.map(link => <li key={link.href}><a href={link.href} className="ds-focus rounded text-[12px] text-accent underline underline-offset-4">{link.label}</a></li>)}</ul>}
             {section.id === "roles" && <>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">{ROLE_ORDER.map(role => <div key={role} className="rounded-lg border border-linesoft bg-sunken p-3"><RoleTag role={role} size="sm" /><p className="mt-2 text-[12px] leading-relaxed text-sub">{t(`role.${role}.desc`)}</p></div>)}</div>

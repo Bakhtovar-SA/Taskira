@@ -2,7 +2,7 @@
  *  есть свой раздел на странице. Тексты разделов пишутся руками на двух языках; тест не даёт им разойтись по составу. */
 import { afterEach, expect, test, vi } from "vitest";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { I18nProvider, loadLang } from "../i18n";
 import DocsView, { EN_SECTIONS, SECTIONS } from "./DocsView";
 import { helpCopy } from "../i18n/help";
@@ -89,4 +89,17 @@ test("documented HMAC verifier accepts rotation and rejects malformed or expired
     const changed = Buffer.from(bytes); changed[0] ^= 1;
     expect(verify(`t=${now},v1=${signed}`, secret, changed)).toBe(false);
   }
+});
+
+test("help keeps the requested section highlighted at the scroll limit until manual scrolling", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
+  const view = render(<I18nProvider><DocsView /></I18nProvider>);
+  const root = view.container.firstElementChild as HTMLElement;
+  Object.defineProperties(root, { scrollTop: { value: 200 }, clientHeight: { value: 800 }, scrollHeight: { value: 1000 } });
+  fireEvent.click(view.getByRole("button", { name: "Интеграции и вебхуки" }));
+  fireEvent.scroll(root);
+  expect(view.getByRole("button", { name: "Интеграции и вебхуки" }).getAttribute("aria-current")).toBe("location");
+  fireEvent.wheel(root);
+  expect(view.getByRole("button", { name: "Резервные копии" }).getAttribute("aria-current")).toBe("location");
 });

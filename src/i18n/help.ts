@@ -286,13 +286,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
           "Тело версии 1 содержит id, sequence, type, occurredAt, instance, project, issue, actor, changes и data. Тексты названия, описания и комментария не передаются. Изменение указывает поле; для комментария передаётся commentId, для срока — dueDate. Получатель может прочитать разрешённые данные через API.",
           "Заголовки: X-Taskira-Event, X-Taskira-Event-Id, X-Taskira-Delivery, X-Taskira-Webhook-Version: 1 и X-Taskira-Signature: t=<unix>,v1=<hex>. Подпись HMAC-SHA256 считается по времени, точке и исходным байтам тела. Проверяйте подпись до разбора JSON, отклоняйте время старше 5 минут и дедуплицируйте по ID события. При смене секрета заголовок может содержать две подписи."
         ],
-        "code": "import { createHmac, timingSafeEqual } from \"node:crypto\";\n\nfunction verifySignature(header, secret, rawBody) {\n  const parts = header.split(\",\");\n  const timestamp = /^t=(\\d+)$/.exec(parts.shift() ?? \"\");\n  if (!timestamp) return false;\n  const unix = Number(timestamp[1]);\n  if (!Number.isSafeInteger(unix) || Math.abs(Date.now() / 1000 - unix) > 300) return false;\n  const expected = createHmac(\"sha256\", secret).update(timestamp[1] + \".\").update(rawBody).digest();\n  return parts.some(part => /^v1=[0-9a-f]{64}$/i.test(part) &&\n    timingSafeEqual(Buffer.from(part.slice(3), \"hex\"), expected));\n}",
-        "links": [
-          {
-            "label": "Контракт вебхуков и журнал доставки",
-            "href": "https://github.com/Bakhtovar-SA/Taskira/blob/main/server/README.md#%D0%BD%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B8-%D0%B2%D0%B5%D0%B1%D1%85%D1%83%D0%BA%D0%BE%D0%B2-%D1%82%D1%80%D0%B5%D0%BA-l"
-          }
-        ]
+        "code": "import { createHmac, timingSafeEqual } from \"node:crypto\";\n\nfunction verifySignature(header, secret, rawBody) {\n  const parts = header.split(\",\");\n  const timestamp = /^t=(\\d+)$/.exec(parts.shift() ?? \"\");\n  if (!timestamp) return false;\n  const unix = Number(timestamp[1]);\n  if (!Number.isSafeInteger(unix) || Math.abs(Date.now() / 1000 - unix) > 300) return false;\n  const expected = createHmac(\"sha256\", secret).update(timestamp[1] + \".\").update(rawBody).digest();\n  return parts.some(part => /^v1=[0-9a-f]{64}$/i.test(part) &&\n    timingSafeEqual(Buffer.from(part.slice(3), \"hex\"), expected));\n}"
       },
       {
         "id": "backup",
@@ -596,13 +590,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
           "Version 1 bodies contain id, sequence, type, occurredAt, instance, project, issue, actor, changes and data. Title, description and comment text are omitted. Changes identify the field; comments supply commentId and due events supply dueDate. Receivers can retrieve authorized data through the API.",
           "Headers: X-Taskira-Event, X-Taskira-Event-Id, X-Taskira-Delivery, X-Taskira-Webhook-Version: 1 and X-Taskira-Signature: t=<unix>,v1=<hex>. The HMAC-SHA256 input is the timestamp, a dot and the original body bytes. Verify before parsing JSON, reject timestamps beyond 5 minutes and deduplicate by event ID. Rotation can produce two signatures."
         ],
-        "code": "import { createHmac, timingSafeEqual } from \"node:crypto\";\n\nfunction verifySignature(header, secret, rawBody) {\n  const parts = header.split(\",\");\n  const timestamp = /^t=(\\d+)$/.exec(parts.shift() ?? \"\");\n  if (!timestamp) return false;\n  const unix = Number(timestamp[1]);\n  if (!Number.isSafeInteger(unix) || Math.abs(Date.now() / 1000 - unix) > 300) return false;\n  const expected = createHmac(\"sha256\", secret).update(timestamp[1] + \".\").update(rawBody).digest();\n  return parts.some(part => /^v1=[0-9a-f]{64}$/i.test(part) &&\n    timingSafeEqual(Buffer.from(part.slice(3), \"hex\"), expected));\n}",
-        "links": [
-          {
-            "label": "Webhook contract and delivery history",
-            "href": "https://github.com/Bakhtovar-SA/Taskira/blob/main/server/README.md#%D0%BD%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B8-%D0%B2%D0%B5%D0%B1%D1%85%D1%83%D0%BA%D0%BE%D0%B2-%D1%82%D1%80%D0%B5%D0%BA-l"
-          }
-        ]
+        "code": "import { createHmac, timingSafeEqual } from \"node:crypto\";\n\nfunction verifySignature(header, secret, rawBody) {\n  const parts = header.split(\",\");\n  const timestamp = /^t=(\\d+)$/.exec(parts.shift() ?? \"\");\n  if (!timestamp) return false;\n  const unix = Number(timestamp[1]);\n  if (!Number.isSafeInteger(unix) || Math.abs(Date.now() / 1000 - unix) > 300) return false;\n  const expected = createHmac(\"sha256\", secret).update(timestamp[1] + \".\").update(rawBody).digest();\n  return parts.some(part => /^v1=[0-9a-f]{64}$/i.test(part) &&\n    timingSafeEqual(Buffer.from(part.slice(3), \"hex\"), expected));\n}"
       },
       {
         "id": "backup",
