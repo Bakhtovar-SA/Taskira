@@ -539,13 +539,13 @@ export default function Topbar() {
             <IconButton variant="ghost" size="sm" label={t(isFavorite ? "topbar.removeFavorite" : "topbar.addFavorite")}
               aria-pressed={isFavorite} onClick={() => toggleFavoriteProject(data.currentProjectId)}
               className={`project-favorite ${isFavorite ? "text-[var(--amber-solid)]" : "text-faint"}`}>
-              <IcStar size={16} filled={isFavorite} />
+              <IcStar size={18} filled={isFavorite} />
             </IconButton>
           </div>
           <span className="project-topbar-divider" aria-hidden="true" />
           <nav aria-label={t("topbar.viewsAria")} className="project-view-tabs">
             <Tabs<ViewId> mode="navigation" label={t("topbar.viewsAria")} value={ui.view} onChange={setView}
-              items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 15 }), label: t(v.labelKey) }))} />
+              items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 17 }), label: t(v.labelKey) }))} />
           </nav>
         </> : <h1 className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
         <div className="project-topbar-actions">
@@ -556,7 +556,7 @@ export default function Topbar() {
           <Button variant={can("create") ? "primary" : "ghost"} size="sm"
             disabled={can("create") ? false : t("topbar.createDeniedTip")}
             onClick={() => setCreateOpen(true)} className="project-create"
-            aria-label={t("topbar.createAria")} iconLeft={can("create") ? <IcPlus size={16} /> : <IcLock size={16} />} kbd="C">
+            aria-label={t("topbar.createAria")} iconLeft={can("create") ? <IcPlus size={18} /> : <IcLock size={18} />} kbd="C">
             <span className="hidden sm:inline">{t("topbar.task")}</span>
           </Button>
         </div>

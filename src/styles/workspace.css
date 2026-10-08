@@ -23,8 +23,8 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  height: 51px;
-  padding: 0 14px 0 18px;
+  height: 63px;
+  padding: 4px 14px 0 18px;
   gap: 14px;
 }
 .project-identity,
@@ -43,8 +43,8 @@
   font-weight: 700;
   letter-spacing: -0.01em;
 }
-.project-switcher.ds-btn { height: 36px; padding: 0; }
-.project-favorite.ds-btn { width: 28px; height: 36px; padding: 0; }
+.project-switcher.ds-btn { height: 40px; padding: 0; }
+.project-favorite.ds-btn { width: 32px; height: 40px; padding: 0; }
 .project-topbar-divider {
   width: 1px;
   height: 20px;
@@ -64,14 +64,14 @@
   background: var(--project-tabs-bg);
 }
 .project-view-tabs [data-tab] {
-  height: 34px;
-  min-height: 34px;
+  height: 38px;
+  min-height: 38px;
   flex-shrink: 0;
   white-space: nowrap;
   padding: 0 11px;
   gap: 7px;
   border-radius: 8px;
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 500;
 }
 .project-view-tabs [data-tab] > span:first-child { color: var(--text-3); }
@@ -85,7 +85,8 @@
 .project-members .ds-av[data-ring] {
   box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 30%, transparent), 0 0 0 2px var(--bg-canvas);
 }
-.project-create.ds-btn { height: 36px; }
+.project-topbar-actions .ds-btn[data-icon] { width: 40px; height: 40px; }
+.project-create.ds-btn { height: 40px; padding-inline: 14px; font-size: 15px; }
 .project-create .ds-btn-kbd { background: color-mix(in oklch, var(--text-on-accent) 20%, transparent); font-weight: 700; }
 .sidebar-search.ds-btn,
 .sidebar-compose.ds-btn { height: 38px; border-radius: 9px; }
@@ -106,7 +107,7 @@
   .project-view-tabs [data-tab] { padding: 0 8px; }
 }
 @media (max-width: 767px) {
-  .project-topbar-row { padding: 0 4px; gap: 4px; }
+  .project-topbar-row { padding: 4px 4px 0; gap: 4px; }
   .project-identity { flex-shrink: 1; }
   .project-switcher-name { max-width: 72px; font-size: 14px; }
   .project-favorite.ds-btn,
@@ -425,7 +426,7 @@
   .workspace-controls[data-layout="compact"] .workspace-search input { font-size: 17px; }
   .workspace-controls[data-layout="compact"] .workspace-toggle,
   .workspace-controls[data-layout="compact"] .ds-btn { height: 44px; min-height: 44px; }
-  .workspace-controls[data-layout="compact"] .workspace-count { flex: 1 1 100%; text-align: left; }
+  .workspace-controls[data-layout="compact"] .workspace-count { order: 1; flex: 1; text-align: right; }
 }
 
 /* Issue panel refresh. DOM keeps heading, properties and content in mobile order. */

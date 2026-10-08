@@ -95,7 +95,7 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) {
     await page.goto("/p/CORP/board");
     await expect(page.locator(".project-topbar")).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
-    expect((await page.locator(".project-topbar").boundingBox())!.height).toBe(52);
+    expect((await page.locator(".project-topbar").boundingBox())!.height).toBe(64);
     expect((await page.locator("aside").boundingBox())!.width).toBe(280);
     if (process.platform === "win32") {
       await expect(page.locator(".project-topbar")).toHaveScreenshot(`shell-topbar-${theme}-win32.png`);

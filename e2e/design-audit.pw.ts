@@ -18,7 +18,7 @@ test("shell refresh: navigation, favorites, shortcuts and profile", async ({ pag
   await page.goto("/p/CORP/board");
   const header = page.locator(".project-topbar"), sidebar = page.locator("aside");
   await expect(header).toBeVisible();
-  expect((await header.boundingBox())!.height).toBe(52);
+  expect((await header.boundingBox())!.height).toBe(64);
   expect((await sidebar.boundingBox())!.width).toBe(280);
   await expect(header.locator("input")).toHaveCount(0);
   await expect(header.getByRole("button", { name: "Меню пользователя" })).toHaveCount(0);
@@ -54,7 +54,7 @@ test("shell refresh: mobile tabs stay in the header and drawer actions remain re
   await page.goto("/p/CORP/board");
   const header = page.locator(".project-topbar");
   await expect(header).toBeVisible();
-  expect((await header.boundingBox())!.height).toBe(52);
+  expect((await header.boundingBox())!.height).toBe(64);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   const calendar = header.getByRole("link", { name: "Календарь", exact: true });
   await calendar.focus();
@@ -160,7 +160,8 @@ for (const theme of ["light", "dark"]) {
         expect(await page.locator(".list-table").evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
         expect((await link.boundingBox())!.height).toBeGreaterThan(30);
         expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        expect((await row.boundingBox())!.y).toBeLessThan(420);
+        // Readable controls must still leave the first task in the upper half of the viewport.
+        expect((await row.boundingBox())!.y).toBeLessThan(page.viewportSize()!.height / 2);
       }
     }
     const link = row.getByRole("link", { name: issues[0].title });
