@@ -5,6 +5,7 @@ import { ApiTokenCreateBody, ServiceAccountCreateBody, ServiceAccountPatchBody,
 import { requireGlobalAdmin, zbody, zparams } from "../middleware.js";
 import { listServiceAccounts, createServiceAccount, patchServiceAccount } from "../services/serviceAccounts.js";
 import { assertServiceAccount, listTokens, createApiToken, revokeApiToken } from "../services/apiTokenManagement.js";
+import { routeLimit } from "../routeLimits.js";
 
 export async function serviceAccountRoutes(app: FastifyInstance): Promise<void> {
   const base = "/admin/service-accounts";
@@ -18,7 +19,7 @@ export async function serviceAccountRoutes(app: FastifyInstance): Promise<void> 
     await assertServiceAccount(id);
     return reply.header("Cache-Control","no-store").send(await listTokens(id));
   });
-  app.post(base+"/:id/tokens",{ preHandler: requireGlobalAdmin, preValidation: [zparams(ServiceAccountParams),zbody(ApiTokenCreateBody)] },async (req,reply) => {
+  app.post(base+"/:id/tokens",{ ...routeLimit("sensitive"), preHandler: requireGlobalAdmin, preValidation: [zparams(ServiceAccountParams),zbody(ApiTokenCreateBody)] },async (req,reply) => {
     const result = await createApiToken((req.params as z.infer<typeof ServiceAccountParams>).id,req.user.sub,true,
       req.body as z.infer<typeof ApiTokenCreateBody>);
     return reply.header("Cache-Control","no-store").code(201).send(result);

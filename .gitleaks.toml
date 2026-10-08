@@ -1,0 +1,19 @@
+# gitleaks configuration (SEC-DEPS-01). Extends the default ruleset; only verified
+# false positives are listed. Every entry says why it is not a real secret.
+# Never allowlist a whole directory or rule: scope by exact path (and value when possible).
+[extend]
+useDefault = true
+
+# Self-signed loopback TLS key for the webhook receiver test. Public, disposable,
+# documented in server/test/fixtures/webhook-tls/README.md; not an application credential.
+[[allowlists]]
+description = "webhook test TLS fixture private key (disposable, loopback test only)"
+paths = ['''^server/test/fixtures/webhook-tls/key\.pem$''']
+
+# Placeholder JWT secret in a unit test's fake environment; the test never talks to a real
+# service, and the value is only long enough to pass config validation (>= 32 chars).
+[[allowlists]]
+description = "fake JWT_SECRET placeholder in config.smtpTls.test.ts"
+condition = "AND"
+paths = ['''^server/test/config\.smtpTls\.test\.ts$''']
+regexes = ['''test-jwt-secret-at-least-32-characters-long''']
