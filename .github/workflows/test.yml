@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   security:
     name: dependency and image security
@@ -182,16 +185,21 @@ jobs:
           EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
+          set -euo pipefail
           if [ "$EVENT" != "pull_request" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          if git diff --name-only "$BASE_SHA"...HEAD -- \
+          if ! changed="$(git diff --name-only "$BASE_SHA"...HEAD -- \
             'server/migrations/**' 'scripts/**' 'Dockerfile*' '**/Dockerfile*' \
             'docker-compose*.yml' '**/docker-compose*.yml' 'compose*.yml' 'nginx.conf' \
             'fixtures/db-snapshots/**' '.github/workflows/test.yml' \
-            'server/src/app.ts' 'server/src/config.ts' 'server/package*.json' 'package*.json' \
+            'server/src/**' 'src/**' 'deploy/**' '.dockerignore' 'vite.config.*' \
+            'server/package*.json' 'package*.json' \
             '.github/actions/prepare-test-runner/**' '.github/scripts/**' \
-            '.github/workflows/upgrade-nightly.yml' | grep -q .; then
+            '.github/workflows/upgrade-nightly.yml')"; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Could not determine changed paths; running the upgrade test."
+          elif [ -n "$changed" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"

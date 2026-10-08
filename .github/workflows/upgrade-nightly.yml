@@ -13,6 +13,9 @@ on:
         required: false
         default: ""
 
+permissions:
+  contents: read
+
 jobs:
   upgrade-from-latest-release:
     name: offline upgrade and rollback (from latest release)
