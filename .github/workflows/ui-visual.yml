@@ -22,42 +22,15 @@ on:
       - "nginx.conf"
 
 jobs:
-  prepare-runner-trust:
-    runs-on: [self-hosted, Linux, docker]
-    permissions:
-      contents: read
-    steps:
-      - name: Prepare checkout ownership
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
-          # Container actions can leave root-owned Git files on a persistent runner.
-          # Repair only this checkout; never follow symlinks outside its bind mount.
-          owner="$(id -u):$(id -g)"
-          docker run --rm --network none --read-only --cap-drop ALL \
-            --cap-add CHOWN --cap-add DAC_OVERRIDE --security-opt no-new-privileges \
-            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
-            node:22-bookworm chown -hRP --from=0 -- "$owner" /workspace
-      - uses: actions/checkout@v7
-      - name: Prepare local Linux and WSL CA bundle
-        run: bash .github/scripts/prepare-runner-trust.sh
   ui-visual:
-    needs: prepare-runner-trust
-    runs-on: [self-hosted, Linux, docker]
+    runs-on: ubuntu-24.04
     # Match the pinned Playwright version and the Linux screenshot environment.
     container:
       image: mcr.microsoft.com/playwright:v1.56.1-noble
-    env:
-      NODE_EXTRA_CA_CERTS: /__w/_tool/taskira-trust/ca-certificates.crt
-      NODE_USE_SYSTEM_CA: '1'
-      SSL_CERT_FILE: /__w/_tool/taskira-trust/ca-certificates.crt
-      CURL_CA_BUNDLE: /__w/_tool/taskira-trust/ca-certificates.crt
-      GIT_SSL_CAINFO: /__w/_tool/taskira-trust/ca-certificates.crt
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v7
-      - run: node .github/scripts/check-runner-tls.mjs
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -71,13 +44,3 @@ jobs:
           name: ui-visual-diff
           path: test-results/
           retention-days: 7
-      - name: Return workspace and cached actions to the runner owner
-        if: always()
-        shell: bash
-        working-directory: /tmp
-        run: |
-          # Composite actions install dependencies into the shared action cache.
-          # Restore root-owned files before the next host job cleans this cache.
-          owner="$(stat -c '%u:%g' /__w/_actions)"
-          [[ "$owner" =~ ^[1-9][0-9]*:[0-9]+$ ]] || { echo '::error::Cannot determine the host action-cache owner'; exit 1; }
-          chown -hRP --from=0 -- "$owner" "$GITHUB_WORKSPACE" /__w/_actions
