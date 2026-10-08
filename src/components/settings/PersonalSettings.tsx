@@ -49,7 +49,7 @@ function Profile() {
     }
   };
 
-  const ro = (v: string | undefined) => (v ? <span className="text-[13px] font-medium text-ink">{v}</span> : <span className="text-[13px] text-faint">{t("userCard.notSet")}</span>);
+  const ro = (v: string | undefined) => (v ? <span className="text-[14px] font-medium text-ink">{v}</span> : <span className="text-[14px] text-faint">{t("userCard.notSet")}</span>);
 
   return (
     <SettingsPage title={t("settings.personal.profile")} desc={t("settings.desc.profile")}>
@@ -59,18 +59,18 @@ function Profile() {
           <div className="min-w-0 flex-1">
             <p className="truncate font-disp text-[17px] font-bold tracking-[-0.01em] text-ink">{me.name}</p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {me.username && <span className="text-[12.5px] text-faint">@{me.username}</span>}
+              {me.username && <span className="text-[13.5px] text-faint">@{me.username}</span>}
               <Tag tone={me.globalRole === "admin" ? "red" : "gray"} size="sm" strong>
                 {t(me.globalRole === "admin" ? "settings.profile.roleAdmin" : "settings.profile.roleUser")}
               </Tag>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" loading={busy} iconLeft={<IcCamera size={14} />} onClick={() => file.current?.click()}>
+            <Button variant="secondary" size="sm" loading={busy} iconLeft={<IcCamera size={16} />} onClick={() => file.current?.click()}>
               {me.avatarUpdatedAt ? t("userCard.changeAvatar") : t("userCard.uploadAvatar")}
             </Button>
             {me.avatarUpdatedAt && (
-              <Button variant="ghost" size="sm" disabled={busy} iconLeft={<IcTrash size={14} />} onClick={remove}>
+              <Button variant="ghost" size="sm" disabled={busy} iconLeft={<IcTrash size={16} />} onClick={remove}>
                 {t("userCard.removeAvatar")}
               </Button>
             )}
@@ -96,7 +96,7 @@ export function PasswordCard() {
   if (me.authSource === "ldap")
     return (
       <SettingsCard title={t("password.title")}>
-        <p className="px-5 py-4 text-[13px] text-faint">{t("password.ldap")}</p>
+        <p className="px-5 py-4 text-[14px] text-faint">{t("password.ldap")}</p>
       </SettingsCard>
     );
   if (me.authSource !== "local") return null;
@@ -195,7 +195,7 @@ function Appearance() {
             />
           ))}
         </div>
-        {projectBackground() && <p className="-mt-1 px-5 pb-4 text-[12px] text-faint">{t("settings.appearance.projectBgNote")}</p>}
+        {projectBackground() && <p className="-mt-1 px-5 pb-4 text-[13px] text-faint">{t("settings.appearance.projectBgNote")}</p>}
       </SettingsCard>
       <SettingsCard title={t("transparency.label")}>
         <div className="px-5 py-4">
@@ -204,7 +204,7 @@ function Appearance() {
             { value: "on", label: t("transparency.on") },
             { value: "off", label: t("transparency.off") },
           ]} />
-          {((transparency === "on" && (system & 2)) || (transparency === "auto" && (system !== 0 || brand.transparencyDefault === "on"))) && <p className="mt-2 text-[12px] text-faint">{t(transparency === "on" ? "transparency.contrast" : !(system & 2) && brand.transparencyDefault === "on" ? "transparency.organization" : "transparency.system")}</p>}
+          {((transparency === "on" && (system & 2)) || (transparency === "auto" && (system !== 0 || brand.transparencyDefault === "on"))) && <p className="mt-2 text-[13px] text-faint">{t(transparency === "on" ? "transparency.contrast" : !(system & 2) && brand.transparencyDefault === "on" ? "transparency.organization" : "transparency.system")}</p>}
         </div>
       </SettingsCard>
       <SettingsCard title={t("settings.appearance.density")}>

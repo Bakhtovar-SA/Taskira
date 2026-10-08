@@ -52,7 +52,7 @@ function EpicChildren({ projectId, epicId, total }: { projectId: string; epicId:
   }
   if (set.error && rows.length === 0) {
     return (
-      <div className="px-10 py-2.5 text-[12px] text-danger">
+      <div className="px-10 py-2.5 text-[13px] text-danger">
         <p>{t("timeline.childrenError")}</p>
         <Button variant="ghost" size="sm" onClick={set.reload} className="mt-1 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
           {t("common.retry")}
@@ -62,20 +62,20 @@ function EpicChildren({ projectId, epicId, total }: { projectId: string; epicId:
   }
   return (
     <>
-      {rows.length === 0 && <p className="px-10 py-2.5 text-[12px] text-faint">{t("timeline.noIssues")}</p>}
+      {rows.length === 0 && <p className="px-10 py-2.5 text-[13px] text-faint">{t("timeline.noIssues")}</p>}
       {rows.map((k) => {
         const st = idx.statuses.get(k.statusId);
         if (!st) return null;
         return (
             <Button variant="ghost" size="sm" key={k.id} onClick={() => openIssue(k.id)} className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
-              <TypeIcon type={k.typeId} size={13} />
-              <span className="font-mono text-[10.5px] font-semibold text-faint">{k.key}</span>
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{k.title}</span>
+              <TypeIcon type={k.typeId} size={15} />
+              <span className="font-mono text-[11.5px] font-semibold text-faint">{k.key}</span>
+              <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">{k.title}</span>
               <StatusTag status={st} size="sm" />
             </Button>
         );
       })}
-      <div ref={sentinelRef} className="px-10 py-1.5 text-[11px] text-faint">
+      <div ref={sentinelRef} className="px-10 py-1.5 text-[12px] text-faint">
         {set.error ? (
           <Button variant="ghost" size="sm" onClick={loadMore} className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
             {t("board.loadMoreFailed")}
@@ -162,7 +162,7 @@ export default function TimelineView() {
       <div className="flex flex-wrap items-end justify-between gap-3 px-4 pb-3 pt-5 sm:px-6">
         <div className="min-w-0">
           <h1 className="font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{t("timeline.title")}</h1>
-          <p className="mt-0.5 text-[12.5px] text-faint">{t("timeline.subtitle")}</p>
+          <p className="mt-0.5 text-[13.5px] text-faint">{t("timeline.subtitle")}</p>
         </div>
         {epics.length > 0 && (
           <div className="mb-0.5 flex shrink-0 items-center gap-2">
@@ -246,10 +246,10 @@ export default function TimelineView() {
                       aria-expanded={expanded}
                       className="timeline-name absolute left-0 top-3 flex max-w-[520px] items-center gap-2 rounded-md py-0.5 pl-1 pr-2 text-left transition-colors hover:bg-hover/70"
                     >
-                      <IcChevR size={11} className={`shrink-0 text-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
+                      <IcChevR size={13} className={`shrink-0 text-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--bar)] shadow-[0_0_0_3px_color-mix(in_oklch,var(--bar)_20%,transparent)]" />
-                      <span className="truncate text-[13px] font-bold tracking-[-0.01em] text-ink">{epic.title}</span>
-                      <span className="shrink-0 rounded-md bg-sunken px-1.5 text-[11px] font-semibold tabular text-sub ring-1 ring-inset ring-linesoft">
+                      <span className="truncate text-[14px] font-bold tracking-[-0.01em] text-ink">{epic.title}</span>
+                      <span className="shrink-0 rounded-md bg-sunken px-1.5 text-[12px] font-semibold tabular text-sub ring-1 ring-inset ring-linesoft">
                         {t("timeline.issueCount", { done, total, key: epic.key })}
                       </span>
                     </button>
@@ -261,9 +261,9 @@ export default function TimelineView() {
                       {/* Заливка — мягкий градиент тона направления; прогресс — насыщенная часть того же тона. */}
                       <span aria-hidden className="timeline-bar-bg absolute inset-0" />
                       <span className="timeline-bar-fill absolute inset-y-0 left-0 w-[var(--pct)]" />
-                      {barW >= 64 && <span className="relative z-10 truncate px-2.5 font-mono text-[11px]">{epic.key}</span>}
+                      {barW >= 64 && <span className="relative z-10 truncate px-2.5 font-mono text-[12px]">{epic.key}</span>}
                       {barW * (pct / 100) >= 104 && (
-                        <span className="absolute left-[var(--pct)] top-1/2 z-10 -translate-x-[calc(100%+7px)] -translate-y-1/2 text-[11px] font-bold tabular">{pct}%</span>
+                        <span className="absolute left-[var(--pct)] top-1/2 z-10 -translate-x-[calc(100%+7px)] -translate-y-1/2 text-[12px] font-bold tabular">{pct}%</span>
                       )}
                     </button>
                   </div>
@@ -283,7 +283,7 @@ export default function TimelineView() {
       )}
 
       {(epicsState.truncated || epics.length > 0) && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-linesoft px-4 py-2 text-[12px] text-faint sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-linesoft px-4 py-2 text-[13px] text-faint sm:px-6">
           <span className="flex items-center gap-2">
             <span className="inline-block h-3 w-px bg-accent" /> {t("timeline.legend")}
           </span>

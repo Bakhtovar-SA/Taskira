@@ -38,7 +38,7 @@ function Appearance() {
   const editable = can("editAppearance");
   return (
     <SettingsPage title={t("settings.project.appearance")} desc={t("settings.project.lookHint")}>
-      {!editable && <p className="-mt-2 mb-4 text-[12.5px] text-faint">{t("settings.project.lookReadOnly")}</p>}
+      {!editable && <p className="-mt-2 mb-4 text-[13.5px] text-faint">{t("settings.project.lookReadOnly")}</p>}
       <SettingsCard>
         <fieldset disabled={!editable} className="flex flex-col gap-5 px-5 py-5 disabled:opacity-70">
           <div className="flex flex-col gap-2">
@@ -56,7 +56,7 @@ function Appearance() {
           </div>
         </fieldset>
       </SettingsCard>
-      <p className="text-[12px] text-faint">{t("board.personalPhotoHint")}</p>
+      <p className="text-[13px] text-faint">{t("board.personalPhotoHint")}</p>
     </SettingsPage>
   );
 }
@@ -119,7 +119,7 @@ function General() {
             value={p.departmentId}
             onChange={(e) => e.target.value && e.target.value !== p.departmentId && patchProject(p.id, { departmentId: e.target.value })}
             aria-label={t("settings.project.department")}
-            className="ds-input ds-focus min-w-[220px] cursor-pointer text-[13px] font-medium"
+            className="ds-input ds-focus min-w-[220px] cursor-pointer text-[14px] font-medium"
           >
             {data.departments.map((d) => (
               <option key={d.id} value={d.id}>
@@ -182,7 +182,7 @@ function Archive() {
     <SettingsPage title={t("settings.project.archive")} desc={t("settings.desc.archive")}>
       <SettingsCard title={t("settings.project.archivedIssues")}>
         {failed ? (
-          <p className="px-5 py-6 text-[12.5px] text-[var(--status-danger-fg)]">{t("settings.project.archiveFailed")}</p>
+          <p className="px-5 py-6 text-[13.5px] text-[var(--status-danger-fg)]">{t("settings.project.archiveFailed")}</p>
         ) : rows === null ? (
           <div className="flex flex-col gap-2 px-5 py-5" aria-hidden="true">
             <div className="ds-sk h-4 w-2/3" />
@@ -194,9 +194,9 @@ function Archive() {
           <>
             {rows.map((r) => (
               <Button variant="ghost" size="sm" key={r.id} type="button" onClick={() => openIssue(r.id, "page")} className="h-11 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
-                <span className="w-[76px] shrink-0 font-mono text-[12px] text-faint">{r.key}</span>
-                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{r.title}</span>
-                {r.archivedAt && <span className="shrink-0 text-[12px] tabular text-faint">{fmtDate(r.archivedAt.slice(0, 10), lang)}</span>}
+                <span className="w-[76px] shrink-0 font-mono text-[13px] text-faint">{r.key}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{r.title}</span>
+                {r.archivedAt && <span className="shrink-0 text-[13px] tabular text-faint">{fmtDate(r.archivedAt.slice(0, 10), lang)}</span>}
               </Button>
             ))}
             {cursor && (
@@ -211,10 +211,10 @@ function Archive() {
       </SettingsCard>
 
       <section className="rounded-xl p-5 ring-1 ring-inset ring-[color-mix(in_oklch,var(--status-danger)_35%,transparent)]">
-        <h2 className="text-[13px] font-semibold text-[var(--status-danger-fg)]">{t("settings.project.dangerZone")}</h2>
+        <h2 className="text-[14px] font-semibold text-[var(--status-danger-fg)]">{t("settings.project.dangerZone")}</h2>
         <div className="mt-3 flex flex-wrap items-center gap-4">
-          <p className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-sub">{t("settings.project.deleteHint")}</p>
-          <Button variant="danger" iconLeft={<IcTrash size={14} />} onClick={() => setConfirm(true)}>
+          <p className="min-w-0 flex-1 text-[13.5px] leading-relaxed text-sub">{t("settings.project.deleteHint")}</p>
+          <Button variant="danger" iconLeft={<IcTrash size={16} />} onClick={() => setConfirm(true)}>
             {t("settings.project.delete")}
           </Button>
         </div>

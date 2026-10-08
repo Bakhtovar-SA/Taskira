@@ -90,7 +90,7 @@ export function FocusChips({ focus, onFocus, counts, className = "" }: { focus: 
               onFocus(order[next]);
               list.current?.querySelectorAll<HTMLButtonElement>("[role=tab]")[next]?.focus();
             }}
-            className={`ds-focus focus-chip tk-tone-${tone} ${on ? "is-on" : ""} flex h-10 items-center gap-2.5 rounded-xl pl-3 pr-3.5 text-[13px] font-medium transition-[background-color,box-shadow,color] duration-150`}
+            className={`ds-focus focus-chip tk-tone-${tone} ${on ? "is-on" : ""} flex h-10 items-center gap-2.5 rounded-xl pl-3 pr-3.5 text-[14px] font-medium transition-[background-color,box-shadow,color] duration-150`}
           >
             <span className={`font-disp text-[18px] font-semibold tabular leading-none ${id === "overdue" && n > 0 ? "text-[var(--status-danger-fg)]" : on ? "text-current" : "text-ink"}`}>{n}</span>
             <span className={on ? "text-ink" : "text-sub"}>{t(key)}</span>
@@ -110,20 +110,20 @@ export function TaskRow({ issue, onOpen, showProject = true, look }: { issue: As
       className="group flex h-11 w-full items-center gap-3 border-b border-linesoft px-3.5 text-left transition-colors last:border-0 hover:bg-hover/60"
     >
       <span className="shrink-0" title={t(`priority.${issue.priorityId}`)}>
-        <PriorityIcon p={issue.priorityId} size={14} />
+        <PriorityIcon p={issue.priorityId} size={16} />
       </span>
-      <span className="w-[68px] shrink-0 font-mono text-[12px] text-faint">{issue.key}</span>
+      <span className="w-[68px] shrink-0 font-mono text-[13px] text-faint">{issue.key}</span>
       <span className="shrink-0" title={workflowStatusName({ name: issue.statusName }, t)}>
-        <StatusGlyph category={cat} size={14} />
+        <StatusGlyph category={cat} size={16} />
       </span>
       {issue.typeId !== "task" && (
         <span className="shrink-0" title={t(`issueType.${issue.typeId}`)}>
-          <TypeIcon type={issue.typeId} size={14} />
+          <TypeIcon type={issue.typeId} size={16} />
         </span>
       )}
-      <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">{issue.title}</span>
+      <span className="min-w-0 flex-1 truncate text-[14.5px] font-medium text-ink">{issue.title}</span>
       {issue.dueDate && (
-        <span className={`hidden shrink-0 items-center gap-1 text-[12px] tabular md:inline-flex ${isOverdue(issue) ? "font-medium text-[var(--status-danger-fg)]" : "text-faint"}`}>
+        <span className={`hidden shrink-0 items-center gap-1 text-[13px] tabular md:inline-flex ${isOverdue(issue) ? "font-medium text-[var(--status-danger-fg)]" : "text-faint"}`}>
           <DueRing due={issue.dueDate} today={today()} done={cat === "done"} />
           {fmtDate(issue.dueDate, lang)}
         </span>

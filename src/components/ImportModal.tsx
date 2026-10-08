@@ -95,20 +95,20 @@ export default function ImportModal({ open = true, onClose }: { open?: boolean; 
   >
     <div className="space-y-4">
       <div>
-        <label htmlFor="import-source" className="mb-1.5 block text-[12px] font-medium text-faint">{t("import.source")}</label>
-        <select id="import-source" value={source} disabled={running} onChange={(e) => selectSource(e.target.value as Source)} className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[12.5px] text-ink">
+        <label htmlFor="import-source" className="mb-1.5 block text-[13px] font-medium text-faint">{t("import.source")}</label>
+        <select id="import-source" value={source} disabled={running} onChange={(e) => selectSource(e.target.value as Source)} className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13.5px] text-ink">
           <option value="trello">Trello (JSON)</option><option value="jira">Jira (CSV)</option><option value="asana">Asana (CSV)</option>
         </select>
       </div>
       <div>
-        <label htmlFor="import-file" className="mb-1.5 block text-[12px] font-medium text-faint">{t("import.file")}</label>
-        <p className="mb-2 text-[11.5px] leading-relaxed text-faint">{t(source === "trello" ? "import.trelloInstructions" : source === "jira" ? "import.jiraInstructions" : "import.asanaInstructions")}</p>
+        <label htmlFor="import-file" className="mb-1.5 block text-[13px] font-medium text-faint">{t("import.file")}</label>
+        <p className="mb-2 text-[12.5px] leading-relaxed text-faint">{t(source === "trello" ? "import.trelloInstructions" : source === "jira" ? "import.jiraInstructions" : "import.asanaInstructions")}</p>
         <input key={source} id="import-file" type="file" accept={source === "trello" ? ".json,application/json" : ".csv,text/csv"} disabled={running}
           onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
-          className="w-full text-[12.5px] text-ink file:mr-3 file:rounded-md file:border file:border-line file:bg-panel file:px-3 file:py-1.5 file:text-[12px] file:font-semibold file:text-ink hover:file:border-accent" />
-        {fileError && <p role="alert" className="mt-1.5 text-[11.5px] font-semibold text-danger">{fileError}</p>}
+          className="w-full text-[13.5px] text-ink file:mr-3 file:rounded-md file:border file:border-line file:bg-panel file:px-3 file:py-1.5 file:text-[13px] file:font-semibold file:text-ink hover:file:border-accent" />
+        {fileError && <p role="alert" className="mt-1.5 text-[12.5px] font-semibold text-danger">{fileError}</p>}
       </div>
-      {parsed && <div className="rounded-md border border-line bg-sunken px-3 py-2.5 text-[12.5px]">
+      {parsed && <div className="rounded-md border border-line bg-sunken px-3 py-2.5 text-[13.5px]">
         {parsed.boardName && <p className="font-semibold text-ink">«{parsed.boardName}»</p>}
         <p className="mt-0.5 text-faint">{t("import.found", { count: parsed.items.length })} {parsed.skipped > 0 && t("import.skipped", { count: parsed.skipped })}</p>
         {!!parsed.unrecognizedDates && <p className="mt-1 text-faint">{t("import.badDates", { count: parsed.unrecognizedDates })}</p>}
@@ -120,9 +120,9 @@ export default function ImportModal({ open = true, onClose }: { open?: boolean; 
       </div>}
       {progress && <div className="rounded-md bg-linesoft px-3 py-2">
         <progress value={progress.done} max={progress.total} aria-label={t("import.progress")} className="w-full accent-accent" />
-        <p className="mt-1.5 text-[11.5px] text-sub">{progress.done} / {progress.total}</p>
+        <p className="mt-1.5 text-[12.5px] text-sub">{progress.done} / {progress.total}</p>
       </div>}
-      {result && <p className="text-[12.5px] font-semibold text-ink">{result.cancelled
+      {result && <p className="text-[13.5px] font-semibold text-ink">{result.cancelled
         ? t("import.stopped", { ok: result.ok, total: importable.length })
         : t("import.imported", { ok: result.ok, total: result.ok + result.failed })} {result.failed > 0 && t("import.failed", { count: result.failed })}</p>}
     </div>

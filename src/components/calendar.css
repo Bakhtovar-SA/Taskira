@@ -2,18 +2,18 @@
 .calendar-scroll { overflow: auto; min-height: 0; flex: 1; padding: 0 16px 16px; }
 .calendar-grid { min-width: 700px; border: 1px solid var(--border-subtle); border-radius: var(--radius-m); overflow: hidden; }
 .calendar-weekdays, .calendar-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.calendar-weekdays { background: var(--bg-raised); color: var(--text-2); text-align: center; padding: 8px 0; font-size: 12px; }
+.calendar-weekdays { background: var(--bg-raised); color: var(--text-2); text-align: center; padding: 8px 0; font-size: 13px; }
 .calendar-day { height: max(128px, calc((100vh - 200px) / 6)); min-width: 0; padding: 5px; border-top: 1px solid var(--border-subtle); border-right: 1px solid var(--border-subtle); background: var(--bg-panel); }
 .calendar-day:last-child { border-right: 0; }
 .calendar-day[data-weekend] { background: var(--bg-sunken); }
 .calendar-day[data-outside] .calendar-day-number { color: var(--text-3); }
 .calendar-day-head { display: flex; align-items: center; justify-content: space-between; height: 28px; margin-bottom: 4px; }
-.calendar-day-number { display: grid; place-items: center; width: 24px; height: 24px; font-size: 12px; border-radius: 50%; color: var(--text-2); }
+.calendar-day-number { display: grid; place-items: center; width: 24px; height: 24px; font-size: 13px; border-radius: 50%; color: var(--text-2); }
 .calendar-day[data-today] .calendar-day-number { background: var(--accent-solid); color: var(--text-on-accent); }
 .calendar-add { opacity: 0; }
 .calendar-day:hover .calendar-add, .calendar-day:focus-within .calendar-add { opacity: 1; }
 .calendar-day-issues { display: flex; flex-direction: column; gap: 3px; }
-.calendar-plate { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; padding: 4px; border-radius: var(--radius-s); font-size: 11px; background: var(--status-todo-bg); color: var(--status-todo-fg); text-align: left; }
+.calendar-plate { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; padding: 4px; border-radius: var(--radius-s); font-size: 12px; background: var(--status-todo-bg); color: var(--status-todo-fg); text-align: left; }
 .calendar-plate[data-category="inprogress"] { background: var(--status-progress-bg); color: var(--status-progress-fg); }
 .calendar-plate[data-category="done"] { background: var(--status-done-bg); color: var(--status-done-fg); }
 .calendar-plate[data-category="done"] .calendar-plate-title { text-decoration: line-through; }

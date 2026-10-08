@@ -21,10 +21,10 @@ export function UserMenu({ onLogout, onSettings, sidebar = false, compact = fals
               её показывает сам заголовок открытого меню ниже. */}
           <PersonAvatar user={me} size={sidebar ? 30 : 26} interactive={false} />
           <span className={sidebar ? "min-w-0 flex-1 truncate text-left" : "hidden max-w-[120px] truncate text-left md:block"}>
-            <span className="block truncate text-[13.5px] font-semibold leading-tight text-ink">{sidebar ? me.name : me.name.split(" ")[0]}</span>
-            <span className="block mt-0.5 text-[12px] leading-tight text-sub">{me.role}</span>
+            <span className="block truncate text-[14.5px] font-semibold leading-tight text-ink">{sidebar ? me.name : me.name.split(" ")[0]}</span>
+            <span className="block mt-0.5 text-[13px] leading-tight text-sub">{me.role}</span>
           </span>
-          {!sidebar && <IcChevD size={11} className="text-faint" />}
+          {!sidebar && <IcChevD size={13} className="text-faint" />}
         </Button>
       )}
     >
@@ -34,7 +34,7 @@ export function UserMenu({ onLogout, onSettings, sidebar = false, compact = fals
           <div className="border-b border-linesoft">
             <UserCardBody userId={me.id} />
             {!onSettings && <div className="-mt-2 px-4 pb-3">
-              <p className="text-[11px] text-faint">{data.project.name}</p>
+              <p className="text-[12px] text-faint">{data.project.name}</p>
               <div className="mt-2">
                 <RoleTag role={me.accessRole} size="sm" />
               </div>
@@ -48,10 +48,10 @@ export function UserMenu({ onLogout, onSettings, sidebar = false, compact = fals
             }}
           >
             <span className="flex items-center gap-2">
-              <IcSettings size={14} tone="gray" /> {t("settings.menu")}
+              <IcSettings size={16} tone="gray" /> {t("settings.menu")}
             </span>
           </Button>
-          <p className="border-t border-linesoft px-4 py-2 tabular text-[11px] text-faint">
+          <p className="border-t border-linesoft px-4 py-2 tabular text-[12px] text-faint">
             Taskira {import.meta.env.VITE_APP_VERSION || "dev"}
           </p>
           <Button variant="ghost" size="sm" className="ds-menu-item w-full justify-start"

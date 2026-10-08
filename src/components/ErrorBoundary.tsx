@@ -51,7 +51,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             <IcBolt size={24} tone="red" />
           </div>
           <h2 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{this.props.copy.title}</h2>
-          <p className="mx-auto mt-2 max-w-[380px] text-[13.5px] leading-relaxed text-sub">{this.props.copy.body}</p>
+          <p className="mx-auto mt-2 max-w-[380px] text-[14.5px] leading-relaxed text-sub">{this.props.copy.body}</p>
           <div className="mt-6 flex justify-center gap-2">
             <Button variant="primary" onClick={() => this.setState({ error: null })}>
               {this.props.copy.retry}
@@ -62,8 +62,8 @@ export default class ErrorBoundary extends Component<Props, State> {
           </div>
           {/* Текст ошибки — для администратора, не для человека: свёрнут. */}
           <details className="mx-auto mt-6 max-w-[380px] text-left">
-            <summary className="ds-focus cursor-pointer rounded text-center text-[12px] text-faint hover:text-sub">{this.props.copy.details}</summary>
-            <p className="mt-2 break-words rounded-lg bg-sunken px-3 py-2 font-mono text-[11.5px] text-faint ring-1 ring-inset ring-linesoft">{error.message || String(error)}</p>
+            <summary className="ds-focus cursor-pointer rounded text-center text-[13px] text-faint hover:text-sub">{this.props.copy.details}</summary>
+            <p className="mt-2 break-words rounded-lg bg-sunken px-3 py-2 font-mono text-[12.5px] text-faint ring-1 ring-inset ring-linesoft">{error.message || String(error)}</p>
           </details>
         </div>
       </div>

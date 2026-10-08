@@ -185,18 +185,18 @@ export function UserCardBody({ userId }: { userId: string }) {
       <div className="flex items-center gap-3">
         <UserAvatar user={user} size={56} />
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[14px] font-semibold text-ink"><span className="truncate">{user.name}</span>{user.authSource === "service" && <Tag size="sm">{t("tokens.serviceTag")}</Tag>}</p>
-          {user.username && <p className="truncate text-[11.5px] text-faint">@{user.username}</p>}
+          <p className="flex items-center gap-2 text-[15px] font-semibold text-ink"><span className="truncate">{user.name}</span>{user.authSource === "service" && <Tag size="sm">{t("tokens.serviceTag")}</Tag>}</p>
+          {user.username && <p className="truncate text-[12.5px] text-faint">@{user.username}</p>}
         </div>
       </div>
 
-      <div className="mt-3 space-y-1.5 border-t border-linesoft pt-3 text-[12.5px] text-sub">
+      <div className="mt-3 space-y-1.5 border-t border-linesoft pt-3 text-[13.5px] text-sub">
         <div className="flex items-center gap-2">
-          <IcBriefcase size={13} />
+          <IcBriefcase size={15} />
           <span className="truncate">{user.role || t("userCard.notSet")}</span>
         </div>
         <div className="flex items-center gap-2">
-          <IcPhone size={13} />
+          <IcPhone size={15} />
           <span className="truncate">{user.phone || t("userCard.notSet")}</span>
         </div>
       </div>
@@ -208,9 +208,9 @@ export function UserCardBody({ userId }: { userId: string }) {
             onClick={() => fileRef.current?.click()}
             disabled={busy}
             title={t("userCard.avatarHint")}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-sub shadow-e1 transition-colors hover:bg-hover hover:text-ink disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line bg-panel px-2 py-1.5 text-[13px] font-medium text-sub shadow-e1 transition-colors hover:bg-hover hover:text-ink disabled:opacity-50"
           >
-            <IcCamera size={13} />
+            <IcCamera size={15} />
             {user.avatarUpdatedAt ? t("userCard.changeAvatar") : t("userCard.uploadAvatar")}
           </button>
           {user.avatarUpdatedAt && (
@@ -221,10 +221,10 @@ export function UserCardBody({ userId }: { userId: string }) {
               title={t("userCard.removeAvatar")}
               className="flex items-center justify-center rounded-lg border border-line bg-panel px-2 text-danger shadow-e1 transition-colors hover:bg-dangersoft disabled:opacity-50"
             >
-              <IcTrash size={13} />
+              <IcTrash size={15} />
             </button>
           )}
-          {avatarError && <p role="alert" className="w-full text-[12px] text-danger">{avatarError}</p>}
+          {avatarError && <p role="alert" className="w-full text-[13px] text-danger">{avatarError}</p>}
           <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,.gif" className="hidden" onChange={onPick} />
         </div>
       )}

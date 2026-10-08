@@ -21,7 +21,7 @@ export function IssueFilterSummary({ filters: f, children }: { filters: Partial<
     ["sprint", f.sprintId && (data.sprints.find(s => s.id === f.sprintId)?.name ?? f.sprintId)],
     ["custom", custom && `${data.customFields.find(field => field.id === f.cf)?.name ?? f.cf}: ${f.cfEmpty ? t("backlog.cf.empty") : f.cfValue || [f.cfFrom, f.cfTo].filter(Boolean).join(" — ")}` || undefined],
   ];
-  return <div className="active-filter-summary mt-2 flex flex-wrap items-center gap-2 text-[12px] text-sub" role="status">
+  return <div className="active-filter-summary mt-2 flex flex-wrap items-center gap-2 text-[13px] text-sub" role="status">
     {items.filter(([, text]) => !!text).map(([id, text]) => <span key={id}>{text}</span>)}
     {children}
   </div>;

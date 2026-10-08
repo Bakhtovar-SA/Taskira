@@ -28,8 +28,8 @@ const Plate = memo(function Plate({ issue, category, person, editable, reason, a
         onClick={() => actions.open(issue.id)} onKeyDown={e => {
           if ((e.key.toLowerCase() === "m" || e.key.toLowerCase() === "ь") && editable) { e.preventDefault(); e.stopPropagation(); setMoving(true); }
         }}>
-        <TypeIcon type={issue.typeId} size={13} />
-        <span className="shrink-0 text-[10px]">{issue.key}</span>
+        <TypeIcon type={issue.typeId} size={15} />
+        <span className="shrink-0 text-[11px]">{issue.key}</span>
         <span className="calendar-plate-title">{issue.title}</span>
         {person && <Avatar person={person} size={20} />}
       </button>
@@ -53,7 +53,7 @@ const Day = memo(function Day({ day, date, mode, today, items, focused, categori
     onDragOver={e => { if (e.dataTransfer.types.includes("application/x-taskira-issue")) e.preventDefault(); }}
     onDrop={e => { e.preventDefault(); actions.move(e.dataTransfer.getData("application/x-taskira-issue"), day); }}>
     <div className="calendar-day-head"><span className="calendar-day-number">{Number(day.slice(-2))}</span>
-      <span className="calendar-add"><IconButton label={t("calendar.add")} size="sm" onClick={() => actions.create(day)}><IcPlus size={13} /></IconButton></span>
+      <span className="calendar-add"><IconButton label={t("calendar.add")} size="sm" onClick={() => actions.create(day)}><IcPlus size={15} /></IconButton></span>
     </div>
     <div className="calendar-day-issues">
       {items.map((i, index) => <div key={i.id} hidden={mode === "month" && index >= 3}>{plate(i)}</div>)}

@@ -90,30 +90,30 @@ export default function DocsView() {
   return <div ref={rootRef} className="h-full overflow-y-auto">
     <div className="mx-auto max-w-[1060px] px-6 py-5">
       <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-onaccent"><IcBook size={18} /></span>
-        <div><h1 className="font-disp text-[17px] font-semibold text-ink">{copy.title}</h1><p className="mt-0.5 text-[11.5px] text-faint">{copy.subtitle}</p></div>
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar text-onaccent"><IcBook size={20} /></span>
+        <div><h1 className="font-disp text-[17px] font-semibold text-ink">{copy.title}</h1><p className="mt-0.5 text-[12.5px] text-faint">{copy.subtitle}</p></div>
       </div>
       <div className="mt-4 grid gap-5 lg:grid-cols-[220px_1fr]">
         <nav className="top-5 h-fit rounded-xl surface-raised p-2 ring-1 ring-inset ring-line/70 lg:sticky lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto">
           {copy.sections.map(section => <Button key={section.id} variant="ghost" size="sm" aria-current={active === section.id ? "location" : undefined}
-            onClick={() => go(section.id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[12.5px] ${active === section.id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{section.label}</Button>)}
+            onClick={() => go(section.id)} className={`flex w-full rounded-md px-3 py-2 text-left text-[13.5px] ${active === section.id ? "bg-accentsoft font-semibold text-accent" : "text-sub hover:bg-hover"}`}>{section.label}</Button>)}
         </nav>
         <div className="min-w-0 space-y-4">
           {copy.sections.map((section, index) => <section key={section.id} id={`${prefix}${section.id}`} className="scroll-mt-5 rounded-xl surface-raised p-5 ring-1 ring-inset ring-line/70">
-            <h2 className="font-disp text-[15px] font-semibold tracking-tight text-ink">{index + 1} · {section.label}</h2>
-            {section.paragraphs.map(paragraph => <p key={paragraph} className="mt-2 text-[13px] leading-relaxed text-sub">{paragraph}</p>)}
-            {section.code && <pre tabIndex={0} className="ds-focus mt-3 overflow-x-auto rounded-lg bg-sunken p-3 font-code text-[12px] leading-relaxed text-ink"><code className="font-code">{section.code}</code></pre>}
-            {section.links && <ul className="mt-3 space-y-1">{section.links.map(link => <li key={link.href}><a href={link.href} className="ds-focus rounded text-[12px] text-accent underline underline-offset-4">{link.label}</a></li>)}</ul>}
+            <h2 className="font-disp text-[16px] font-semibold tracking-tight text-ink">{index + 1} · {section.label}</h2>
+            {section.paragraphs.map(paragraph => <p key={paragraph} className="mt-2 text-[14px] leading-relaxed text-sub">{paragraph}</p>)}
+            {section.code && <pre tabIndex={0} className="ds-focus mt-3 overflow-x-auto rounded-lg bg-sunken p-3 font-code text-[13px] leading-relaxed text-ink"><code className="font-code">{section.code}</code></pre>}
+            {section.links && <ul className="mt-3 space-y-1">{section.links.map(link => <li key={link.href}><a href={link.href} className="ds-focus rounded text-[13px] text-accent underline underline-offset-4">{link.label}</a></li>)}</ul>}
             {section.id === "roles" && <>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">{ROLE_ORDER.map(role => <div key={role} className="rounded-lg border border-linesoft bg-sunken p-3"><RoleTag role={role} size="sm" /><p className="mt-2 text-[12px] leading-relaxed text-sub">{t(`role.${role}.desc`)}</p></div>)}</div>
-              <div className="mt-4 overflow-x-auto"><table className="w-full border-collapse text-[12px]"><thead><tr className="border-b border-line text-left"><th className="px-2 py-2 text-faint">{copy.permission}</th>{ROLE_ORDER.map(role => <th key={role} className="px-2 py-2"><RoleTag role={role} size="sm" /></th>)}</tr></thead><tbody>{PERMISSIONS.map(permission => <tr key={permission.id} className="border-b border-linesoft"><td className="px-2 py-2 text-ink">{t(`permission.${permission.id}.name`)}</td>{ROLE_ORDER.map(role => <td key={role} className="px-2 py-2 text-center">{roleHas(role, permission.id) ? <span className="text-ok">✓</span> : <span className="text-faint">—</span>}</td>)}</tr>)}</tbody></table></div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">{ROLE_ORDER.map(role => <div key={role} className="rounded-lg border border-linesoft bg-sunken p-3"><RoleTag role={role} size="sm" /><p className="mt-2 text-[13px] leading-relaxed text-sub">{t(`role.${role}.desc`)}</p></div>)}</div>
+              <div className="mt-4 overflow-x-auto"><table className="w-full border-collapse text-[13px]"><thead><tr className="border-b border-line text-left"><th className="px-2 py-2 text-faint">{copy.permission}</th>{ROLE_ORDER.map(role => <th key={role} className="px-2 py-2"><RoleTag role={role} size="sm" /></th>)}</tr></thead><tbody>{PERMISSIONS.map(permission => <tr key={permission.id} className="border-b border-linesoft"><td className="px-2 py-2 text-ink">{t(`permission.${permission.id}.name`)}</td>{ROLE_ORDER.map(role => <td key={role} className="px-2 py-2 text-center">{roleHas(role, permission.id) ? <span className="text-ok">✓</span> : <span className="text-faint">—</span>}</td>)}</tr>)}</tbody></table></div>
             </>}
             {section.id === "issues" && <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-wrap gap-2">{TYPE_ORDER.map(type => <span key={type} className="flex items-center gap-2 rounded-lg border border-linesoft bg-sunken px-3 py-2 text-[12px]"><TypeIcon type={type} size={14} />{t(`issueType.${type}`)}</span>)}</div>
-              <div className="flex flex-wrap gap-2">{PRIORITY_ORDER.map(priority => <span key={priority} className="flex items-center gap-2 rounded-lg border border-linesoft bg-sunken px-3 py-2 text-[12px]"><PriorityIcon p={priority} size={14} />{t(`priority.${priority}`)}</span>)}</div>
+              <div className="flex flex-wrap gap-2">{TYPE_ORDER.map(type => <span key={type} className="flex items-center gap-2 rounded-lg border border-linesoft bg-sunken px-3 py-2 text-[13px]"><TypeIcon type={type} size={16} />{t(`issueType.${type}`)}</span>)}</div>
+              <div className="flex flex-wrap gap-2">{PRIORITY_ORDER.map(priority => <span key={priority} className="flex items-center gap-2 rounded-lg border border-linesoft bg-sunken px-3 py-2 text-[13px]"><PriorityIcon p={priority} size={16} />{t(`priority.${priority}`)}</span>)}</div>
             </div>}
             {section.id === "planning" && <div className="mt-2"><PlanningGuide lang={lang} /></div>}
-            {section.table && <div className="mt-3 overflow-x-auto"><table className="w-full border-collapse text-[12px]"><thead><tr className="border-b border-line text-left">{section.table.headers.map(header => <th key={header} className="px-2 py-2 text-faint">{header}</th>)}</tr></thead><tbody>{section.table.rows.map(row => <tr key={row[0]} className="border-b border-linesoft last:border-0">{row.map((cell, i) => <td key={i} className={`px-2 py-2 ${i === 0 ? "font-medium text-ink" : "text-sub"}`}>{cell}</td>)}</tr>)}</tbody></table></div>}
+            {section.table && <div className="mt-3 overflow-x-auto"><table className="w-full border-collapse text-[13px]"><thead><tr className="border-b border-line text-left">{section.table.headers.map(header => <th key={header} className="px-2 py-2 text-faint">{header}</th>)}</tr></thead><tbody>{section.table.rows.map(row => <tr key={row[0]} className="border-b border-linesoft last:border-0">{row.map((cell, i) => <td key={i} className={`px-2 py-2 ${i === 0 ? "font-medium text-ink" : "text-sub"}`}>{cell}</td>)}</tr>)}</tbody></table></div>}
           </section>)}
         </div>
       </div>

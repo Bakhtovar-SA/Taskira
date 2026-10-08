@@ -78,7 +78,7 @@ export default function HomeView() {
 
   return <div className="home-view h-full overflow-y-auto">
     <div className="home-content">
-      <IconButton variant="ghost" size="lg" className="home-menu lg:hidden" label={t("sidebar.menu")} onClick={openSidebarDrawer}><IcPanel size={18} /></IconButton>
+      <IconButton variant="ghost" size="lg" className="home-menu lg:hidden" label={t("sidebar.menu")} onClick={openSidebarDrawer}><IcPanel size={20} /></IconButton>
       <p className="home-date first-letter:uppercase">{dateLine}</p>
       <h1>{t(greetingKey(), { name: greetingName(me) })}</h1>
       <p className="home-summary">
@@ -99,7 +99,7 @@ export default function HomeView() {
                   if (e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
                   e.preventDefault(); openTask(item);
                 }}>
-                  <span title={workflowStatusName({ name: item.statusName }, t)}><StatusGlyph category={item.statusCategory} size={14} /></span>
+                  <span title={workflowStatusName({ name: item.statusName }, t)}><StatusGlyph category={item.statusCategory} size={16} /></span>
                   <span className="home-task-title truncate" title={item.title}>{item.title}</span>
                   <span className="home-task-key font-mono text-faint">{item.key}</span>
                   <span className={'home-task-due tabular ' + (overdue ? "text-[var(--status-danger-fg)]" : "text-faint")}>{item.dueDate ? overdue ? t("issue.overdueDays", { n: days, days: tn(days, "noun.day.one", "noun.day.few", "noun.day.many") }) : fmtDate(item.dueDate, lang) : t("home.urgency.nodate")}</span>
@@ -107,19 +107,19 @@ export default function HomeView() {
                 </a>;
               })}
             </div>)}
-            {!groups.length && <EmptyState icon={<IcMyIssues size={22} tone="violet" />} title={t("home.noAssignedTitle")} sub={t("home.noAssignedSub")} action={target && <Button variant="primary" size="lg" iconLeft={<IcPlus size={16} />} onClick={startCreate}>{t("home.createIssue")}</Button>} />}
-            {data.assignedTruncated && <p className="border-t border-line px-4 py-3 text-[12px] text-warn">{t("home.assignedTruncated", { n: data.assignedToMe.length, noun: tn(data.assignedToMe.length, "noun.issue.one", "noun.issue.few", "noun.issue.many") })}</p>}
+            {!groups.length && <EmptyState icon={<IcMyIssues size={22} tone="violet" />} title={t("home.noAssignedTitle")} sub={t("home.noAssignedSub")} action={target && <Button variant="primary" size="lg" iconLeft={<IcPlus size={18} />} onClick={startCreate}>{t("home.createIssue")}</Button>} />}
+            {data.assignedTruncated && <p className="border-t border-line px-4 py-3 text-[13px] text-warn">{t("home.assignedTruncated", { n: data.assignedToMe.length, noun: tn(data.assignedToMe.length, "noun.issue.one", "noun.issue.few", "noun.issue.many") })}</p>}
           </section>
           <RecentActivity notifications={notifications} onOpen={openTask} />
           <Mentions notifications={notifications} onOpen={openTask} />
         </div>
         <div className="min-w-0 space-y-6">
           {!steps.hidden && completed < 4 && <section className="home-steps home-card" aria-label={t("home.firstSteps")}>
-            <div className="home-card-head"><h2>{t("home.firstSteps")}</h2><span className="tabular text-sub">{t("home.stepsCount", { n: completed })}</span><IconButton variant="ghost" size="sm" label={t("home.hideSteps")} onClick={() => markHomeStep(me.id, "hidden")}><IcX size={14} /></IconButton></div>
+            <div className="home-card-head"><h2>{t("home.firstSteps")}</h2><span className="tabular text-sub">{t("home.stepsCount", { n: completed })}</span><IconButton variant="ghost" size="sm" label={t("home.hideSteps")} onClick={() => markHomeStep(me.id, "hidden")}><IcX size={16} /></IconButton></div>
             <Progress value={completed * 25} label={t("home.firstSteps")} />
             <div className="home-step-list">{STEPS.map(step => {
               const done = steps[step] || (step === "profile" && !!me.avatarUpdatedAt);
-              return <Button key={step} variant="ghost" size="md" className="home-step" title={step === "invite" && !inviter ? t("home.inviteAdmin") : undefined} disabled={!!done || (step === "invite" && !inviter) || (step === "create" && !target)} onClick={actions[step]} iconLeft={done ? <IcCheck size={16} /> : <span className="home-step-circle" />}>{t(`home.step.${step}`)}</Button>;
+              return <Button key={step} variant="ghost" size="md" className="home-step" title={step === "invite" && !inviter ? t("home.inviteAdmin") : undefined} disabled={!!done || (step === "invite" && !inviter) || (step === "create" && !target)} onClick={actions[step]} iconLeft={done ? <IcCheck size={18} /> : <span className="home-step-circle" />}>{t(`home.step.${step}`)}</Button>;
             })}</div>
           </section>}
           <section className="home-card" aria-label={t("home.projects")}>
@@ -133,7 +133,7 @@ export default function HomeView() {
                 <span className="home-project-count text-faint">{t("home.projectMine", { n: String(mine) + (data.assignedTruncated ? "+" : "") })}<span className="block">{t("home.projectOpen", { n: stats ? Math.max(0, stats.total - stats.done) : "—" })}</span></span>
               </button>;
             })}
-            {countsFailed && <p role="status" className="px-4 pb-3 text-[12px] text-sub">{t("home.countsFailed")}</p>}
+            {countsFailed && <p role="status" className="px-4 pb-3 text-[13px] text-sub">{t("home.countsFailed")}</p>}
           </section>
           <RecentlyOpened onOpen={openTask} />
         </div>
@@ -149,7 +149,7 @@ type ActivityProps = { notifications: NotificationT[]; onOpen: (item: Pick<Assig
 function RecentActivity({ notifications, onOpen }: ActivityProps) {
   const { t, lang } = useT();
   if (!notifications.length) return null;
-  return <section className="home-card"><div className="home-card-head"><h2 className="flex items-center gap-2"><IcBell size={14} />{t("home.recentActivity")}</h2></div>
+  return <section className="home-card"><div className="home-card-head"><h2 className="flex items-center gap-2"><IcBell size={16} />{t("home.recentActivity")}</h2></div>
     {notifications.slice(0, 5).map(n => <button type="button" key={n.id} disabled={!n.projectId || !n.issueId} onClick={() => onOpen({ projectId: n.projectId!, issueId: n.issueId! })} className="home-activity ds-focus">
       <PersonAvatar user={n.actor} size={22} />
       <span className="min-w-0 truncate"><b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b>{" "}{t(NOTIF_VERB[n.type])}{" "}<span className="font-mono">{n.payload.key}</span> · <span className="text-faint">{relTime(n.createdAt, lang)}</span></span>
@@ -160,7 +160,7 @@ function Mentions({ notifications, onOpen }: ActivityProps) {
   const { t } = useT();
   const items = notifications.filter(n => n.type === "issue.mention" && !n.read && n.issueId && n.projectId).slice(0, 5);
   if (!items.length) return null;
-  return <section className="home-card"><div className="home-card-head"><h2 className="flex items-center gap-2"><IcComment size={14} />{t("home.mentions")}</h2></div>
+  return <section className="home-card"><div className="home-card-head"><h2 className="flex items-center gap-2"><IcComment size={16} />{t("home.mentions")}</h2></div>
     {items.map(n => <button key={n.id} type="button" className="home-activity ds-focus" onClick={() => onOpen({ projectId: n.projectId!, issueId: n.issueId! })}><span className="font-mono text-faint">{n.payload.key}</span><span className="min-w-0 truncate">{n.payload.title ?? t("home.mentionedYou")}</span></button>)}
   </section>;
 }
@@ -169,6 +169,6 @@ function RecentlyOpened({ onOpen }: Pick<ActivityProps, "onOpen">) {
   const [items] = useState(() => readRecent().slice(0, 5));
   if (!items.length) return null;
   return <section className="home-card"><div className="home-card-head"><h2>{t("home.recentlyOpened")}</h2></div>
-    {items.map(r => <button key={r.id} type="button" className="home-activity ds-focus" onClick={() => onOpen({ projectId: r.projectId, issueId: r.id })}><StatusGlyph category={r.category} size={14} /><span className="font-mono text-faint">{r.key}</span><span className="min-w-0 truncate">{r.title}</span></button>)}
+    {items.map(r => <button key={r.id} type="button" className="home-activity ds-focus" onClick={() => onOpen({ projectId: r.projectId, issueId: r.id })}><StatusGlyph category={r.category} size={16} /><span className="font-mono text-faint">{r.key}</span><span className="min-w-0 truncate">{r.title}</span></button>)}
   </section>;
 }

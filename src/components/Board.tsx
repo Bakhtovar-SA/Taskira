@@ -161,7 +161,7 @@ const Card = memo(function Card({
             aria-label={t("board.moveAria", { key: issue.key })}
             className={`flex h-5 w-5 items-center justify-center rounded-md text-faint transition-opacity hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100 ${open ? "opacity-100" : "opacity-0"}`}
           >
-            <IcMove size={12} />
+            <IcMove size={14} />
           </button>
         )}
         items={
@@ -170,7 +170,7 @@ const Card = memo(function Card({
             : moveTargets.map((target) => ({
                 id: target.id,
                 label: target.name,
-                icon: <StatusGlyph category={target.category} size={13} />,
+                icon: <StatusGlyph category={target.category} size={15} />,
                 onSelect: () => onMove(issue.id, target.id),
               }))
         }
@@ -236,13 +236,13 @@ const Card = memo(function Card({
         <span>{epic.title}</span>
       </div>}
       <div className="board-card-meta">
-        <PriorityIcon p={issue.priorityId} size={15} />
+        <PriorityIcon p={issue.priorityId} size={17} />
         <span className="board-card-key tabular">{issue.key}</span>
         {issue.dueDate && <span className="board-card-due tabular"
           data-urgency={doneCat ? "done" : overdue ? "late" : dueDays !== null && dueDays <= 3 ? "soon" : "later"}
           title={overdue ? t("board.quickChip.overdue") : undefined}
           aria-label={overdue ? t("board.overdueDate", { date: fmtDate(issue.dueDate, lang) }) : undefined}>
-          <DueRing due={issue.dueDate} today={today} done={doneCat} size={12} />
+          <DueRing due={issue.dueDate} today={today} done={doneCat} size={14} />
           <span>{fmtDate(issue.dueDate, lang)}</span>
         </span>}
         <span className="board-card-assignees ml-auto flex items-center gap-2">
@@ -251,7 +251,7 @@ const Card = memo(function Card({
             data-complete={issue.subtasksSummary.done === issue.subtasksSummary.total || undefined}
             title={t("board.subtasksTip", { done: issue.subtasksSummary.done, total: issue.subtasksSummary.total })}
             aria-label={t("board.subtasksTip", { done: issue.subtasksSummary.done, total: issue.subtasksSummary.total })}>
-            <IcSubtasks size={12} />{issue.subtasksSummary.done}/{issue.subtasksSummary.total}
+            <IcSubtasks size={14} />{issue.subtasksSummary.done}/{issue.subtasksSummary.total}
           </span>}
           {assignees.length > 0 && <UserAvatarGroup users={assignees} size={22} interactive />}
         </span>
@@ -357,7 +357,7 @@ const ColumnCards = memo(function ColumnCards({
         </div>
       )}
       {set.error && rows.length === 0 && !loading && (
-        <button onClick={set.reload} className="w-full rounded-lg border border-dashed border-danger px-3 py-3 text-[12px] font-medium text-danger hover:bg-dangersoft">
+        <button onClick={set.reload} className="w-full rounded-lg border border-dashed border-danger px-3 py-3 text-[13px] font-medium text-danger hover:bg-dangersoft">
           {t("board.columnLoadError")}
         </button>
       )}
@@ -365,18 +365,18 @@ const ColumnCards = memo(function ColumnCards({
       {loadingMore && <BoardSkeletonCard />}
       <div ref={sentinelRef}>
         {set.error && rows.length > 0 ? (
-          <button onClick={loadMore} className="w-full px-3 py-1.5 text-[12px] font-medium text-accent hover:underline">
+          <button onClick={loadMore} className="w-full px-3 py-1.5 text-[13px] font-medium text-accent hover:underline">
             {t("board.loadMoreFailed")}
           </button>
         ) : hasMore && !loadingMore ? (
           <button
             onClick={loadMore}
-            className="w-full rounded-lg px-3 py-1.5 text-[12px] font-medium text-faint transition-colors hover:text-accent"
+            className="w-full rounded-lg px-3 py-1.5 text-[13px] font-medium text-faint transition-colors hover:text-accent"
           >
             {t("board.loadMore")}
           </button>
         ) : !hasMore && rows.length > ISSUE_PAGE_SIZE ? (
-          <p className="px-3 py-1.5 text-center text-[11px] text-faint">{t("board.allLoaded", { n: rows.length })}</p>
+          <p className="px-3 py-1.5 text-center text-[12px] text-faint">{t("board.allLoaded", { n: rows.length })}</p>
         ) : null}
       </div>
     </>
@@ -541,17 +541,17 @@ const BoardColumn = memo(function BoardColumn({
     >
       {/* Заголовок внутри поверхности колонки и не прокручивается с карточками: глиф статуса, имя, число с сервера. */}
       <header className="board-col-header group/col flex shrink-0 items-center gap-2 px-1.5">
-        <StatusGlyph category={st.category} position={statusPos} size={14} />
-        <h2 className="min-w-0 truncate text-[14px] font-bold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h2>
-        <span className="tabular text-[12.5px] text-faint">{total ?? "…"}</span>
-        {isDone && !showAllDone && <span className="board-done-window text-[12px] text-faint">{t("board.doneWindow", { days: DONE_WINDOW_DAYS })}</span>}
+        <StatusGlyph category={st.category} position={statusPos} size={16} />
+        <h2 className="min-w-0 truncate text-[15px] font-bold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h2>
+        <span className="tabular text-[13.5px] text-faint">{total ?? "…"}</span>
+        {isDone && !showAllDone && <span className="board-done-window text-[13px] text-faint">{t("board.doneWindow", { days: DONE_WINDOW_DAYS })}</span>}
         {canCreate && (
           <button
             onClick={() => setQuickFor(st.id)}
             className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink"
             aria-label={t("board.addToStatusAria", { name: workflowStatusName(st, t) })}
           >
-            <IcPlus size={14} />
+            <IcPlus size={16} />
           </button>
         )}
       </header>
@@ -577,9 +577,9 @@ const BoardColumn = memo(function BoardColumn({
         {canCreate && isFirstTodo && !quickOpen && total !== 0 && (
           <button
             onClick={() => setQuickFor(st.id)}
-            className="flex h-[30px] shrink-0 items-center gap-[7px] rounded-lg px-2 text-[12.5px] text-faint transition-colors hover:bg-hover hover:text-ink"
+            className="flex h-[30px] shrink-0 items-center gap-[7px] rounded-lg px-2 text-[13.5px] text-faint transition-colors hover:bg-hover hover:text-ink"
           >
-            <IcPlus size={13} />
+            <IcPlus size={15} />
             {t("board.addCard")}
           </button>
         )}
@@ -587,28 +587,28 @@ const BoardColumn = memo(function BoardColumn({
         {hiddenDone > 0 && (
           <button
             onClick={() => setShowAllDone(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] text-faint transition-colors hover:bg-hover hover:text-ink"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] text-faint transition-colors hover:bg-hover hover:text-ink"
           >
-            <IcArchive size={12} />
+            <IcArchive size={14} />
             {t("board.hiddenDone", { n: hiddenDone })}
           </button>
         )}
         {showAllDone && isDone && (
           <button
             onClick={() => setShowAllDone(false)}
-            className="w-full rounded-lg px-3 py-1.5 text-[12px] text-faint transition-colors hover:bg-hover hover:text-ink"
+            className="w-full rounded-lg px-3 py-1.5 text-[13px] text-faint transition-colors hover:bg-hover hover:text-ink"
           >
             {t("board.collapseDone", { days: DONE_WINDOW_DAYS })}
           </button>
         )}
         {total === 0 && !quickOpen && hiddenDone === 0 && (
-          <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[12px] transition-colors ${isOver ? (ok ? "border-accent text-accenttext" : "border-danger/60 text-danger") : "border-line text-faint"}`}>
+          <div className={`rounded-lg border border-dashed px-3 py-6 text-center text-[13px] transition-colors ${isOver ? (ok ? "border-accent text-accenttext" : "border-danger/60 text-danger") : "border-line text-faint"}`}>
             {isOver ? (ok ? t("board.dropReleaseOk") : t("board.dropForbidden")) : t("board.dropHere")}
           </div>
         )}
       </div>
       {isOver && !ok && (
-        <p className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 rounded-md bg-dangersoft px-2 py-1 text-center text-[12px] font-medium text-[var(--status-danger-fg)]">
+        <p className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 rounded-md bg-dangersoft px-2 py-1 text-center text-[13px] font-medium text-[var(--status-danger-fg)]">
           {t("board.transitionOutOfSchema", {
             from: draggedStatusId ? workflowStatusName(statusById.get(draggedStatusId) ?? { name: "" }, t) : "",
             to: workflowStatusName(st, t),
@@ -870,8 +870,8 @@ export default function Board() {
           summary={t("board.filteredOf", { visible: data.workflow.statuses.reduce<number | null>((sum, st) => { const n = totalOf(st.id); return sum === null || n === null ? null : sum + n; }, 0) ?? "…", total: poolTotal ?? "…" })}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? chips.has(id) : baseFilters.assignee === (id === "mine" ? data.currentUserId : "none")} onToggle={toggleChip} overdue={overdueCounts.counts?.total} />}
           grouping={<Menu label={t("workspace.groupingNone")} placement="bottom-end"
-            trigger={p => <Button {...p} size="sm" className="workspace-grouping" iconRight={<IcChevD size={12} />}>{t("workspace.groupingNone")}</Button>}
-            items={[{ id: "none", label: t("workspace.noGrouping"), icon: <IcCheck size={13} />, onSelect: () => {
+            trigger={p => <Button {...p} size="sm" className="workspace-grouping" iconRight={<IcChevD size={14} />}>{t("workspace.groupingNone")}</Button>}
+            items={[{ id: "none", label: t("workspace.noGrouping"), icon: <IcCheck size={15} />, onSelect: () => {
               const params = new URLSearchParams(location.search); params.set("group", "none"); navigate(path + "?" + params, { replace: true });
             } }]} />}
           count={Object.values(baseFilters).filter(Boolean).length}
@@ -908,7 +908,7 @@ export default function Board() {
           <button
             onClick={() => setSelectMode((v) => !v)}
             aria-pressed={selectMode}
-            className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-medium transition-colors ${selectMode ? "border-accent text-accenttext" : "border-line text-sub hover:border-accent hover:text-accenttext"}`}
+            className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[13.5px] font-medium transition-colors ${selectMode ? "border-accent text-accenttext" : "border-line text-sub hover:border-accent hover:text-accenttext"}`}
           >
             {t("backlog.selectMode")}
           </button>
@@ -916,10 +916,10 @@ export default function Board() {
         />
         {filtersOn && <IssueFilterSummary filters={baseFilters}>
           {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
-          {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={12} className="inline" /> {t("common.reset")}</button>}
+          {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>}
         </IssueFilterSummary>}
        {selectMode && selectedIds.size === 0 && (
-         <p className="mt-2.5 text-[12px] text-faint" role="status">
+         <p className="mt-2.5 text-[13px] text-faint" role="status">
            {t("board.selectHint")}
          </p>
        )}
@@ -931,18 +931,18 @@ export default function Board() {
       </div>
 
       {!canMove && (
-        <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg bg-warnsoft px-3 py-1.5 text-[12.5px] text-[var(--status-progress-fg)] sm:mx-6">
-          <IcEye size={14} className="shrink-0" />
+        <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg bg-warnsoft px-3 py-1.5 text-[13.5px] text-[var(--status-progress-fg)] sm:mx-6">
+          <IcEye size={16} className="shrink-0" />
           <span className="truncate">{t("board.readOnlyBanner")}</span>
         </div>
       )}
 
       {allClear && (
         <div className="mx-4 mb-2 rounded-lg bg-oksoft px-4 py-3 sm:mx-6">
-          <p className="flex items-center gap-2 text-[13.5px] font-medium text-[var(--status-done-fg)]">
-            <IcCheck size={15} /> {t("board.allClearTitle")}
+          <p className="flex items-center gap-2 text-[14.5px] font-medium text-[var(--status-done-fg)]">
+            <IcCheck size={17} /> {t("board.allClearTitle")}
           </p>
-          <p className="mt-0.5 text-[12px] text-sub">
+          <p className="mt-0.5 text-[13px] text-sub">
             {closedRecently > 0
               ? t("board.closedRecently", { n: closedRecently, noun: tn(closedRecently, "noun.issueAcc.one", "noun.issueAcc.few", "noun.issueAcc.many") })
               : t("board.noOpenIssues")}
@@ -966,17 +966,17 @@ export default function Board() {
 
 
 
-      {/* колонки. Ширина гибкая (BOARD_COLUMN_SHELL). Группа начинается от левого края, под заголовком и фильтрами:
+      {/* колонки. Сетка ограничивает ширину карточек. Группа начинается от левого края, под заголовком и фильтрами:
           раньше она стояла по центру, и на широком мониторе доска висела островом посреди пустоты, оторванная от
           своей же шапки (часть F, скриншот владельца на 3440 px). Лишнее место остаётся справа. */}
-      {boardPhotoError && <p role="alert" className="px-4 text-[12px] text-danger">{t("board.personalStorageFailed")}</p>}
+      {boardPhotoError && <p role="alert" className="px-4 text-[13px] text-danger">{t("board.personalStorageFailed")}</p>}
       <div data-personal-board-photo={personalPhoto ? "true" : undefined}
         ref={node => {
           // Trusted object URL from IndexedDB: set via CSSOM, preserving the generic style URL guard.
           if (node) node.style.backgroundImage = personalPhoto ? `linear-gradient(color-mix(in oklch, var(--bg-canvas) 65%, transparent), color-mix(in oklch, var(--bg-canvas) 65%, transparent)), url("${personalPhoto.url}")` : "";
         }}
         className="board-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="board-columns" ref={cssVars({ "--board-columns": String(Math.max(1, data.workflow.statuses.length)) })} data-overflow={data.workflow.statuses.length >= 6 || undefined}>
+        <div className="board-columns" ref={cssVars({ "--board-columns": String(Math.max(1, data.workflow.statuses.length)) })}>
           {data.workflow.statuses.map((st) => {
             return (
               <BoardColumn

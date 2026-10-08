@@ -103,10 +103,10 @@ function CollaboratorField({ issue }: { issue: Issue }) {
         {collabs.map((c) => (
           <span
             key={c.userId}
-            className="flex items-center gap-1.5 rounded-full bg-linesoft py-0.5 pl-1 pr-2 text-[12px] text-ink"
+            className="flex items-center gap-1.5 rounded-full bg-linesoft py-0.5 pl-1 pr-2 text-[13px] text-ink"
           >
             <span
-              className="issue-color-fill inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[9.5px] font-semibold text-onaccent"
+              className="issue-color-fill inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold text-onaccent"
               ref={cssVars({ "--issue-color": c.color })}
             >
               {c.initials}
@@ -118,13 +118,13 @@ function CollaboratorField({ issue }: { issue: Issue }) {
                 className="ml-0.5 text-faint transition-colors hover:text-danger"
                 title={t("issue.removeCollaborator")}
               >
-                <IcX size={10} />
+                <IcX size={12} />
               </button>
             )}
           </span>
         ))}
         {/* достижимо при canManage && expand (пустой развёрнутый инвайт) */}
-        {collabs.length === 0 && <span className="text-[12px] text-faint">{t("issue.noCollaboratorsLower")}</span>}
+        {collabs.length === 0 && <span className="text-[13px] text-faint">{t("issue.noCollaboratorsLower")}</span>}
       </div>
       {canManage && (
         <>
@@ -141,7 +141,7 @@ function CollaboratorField({ issue }: { issue: Issue }) {
               onSelect={(o) => addCollaborator(issue.id, o.id)}
             />
           </div>
-          <p className="mt-1 text-[12px] leading-snug text-faint">
+          <p className="mt-1 text-[13px] leading-snug text-faint">
             {t("issue.collaboratorHint")}
           </p>
         </>
@@ -169,14 +169,14 @@ function AttachmentField({ issue }: { issue: Issue }) {
       e.target.value = "";
     }} />}
     <div className="space-y-1">
-      {issue.attachments.map(a => <div key={a.id} className="flex min-w-0 items-center gap-1.5 text-[12px]">
-        <IcLink size={12} className="shrink-0 text-faint" />
+      {issue.attachments.map(a => <div key={a.id} className="flex min-w-0 items-center gap-1.5 text-[13px]">
+        <IcLink size={14} className="shrink-0 text-faint" />
         <button onClick={() => downloadAttachment(issue.id, a)} className="ds-focus min-w-0 flex-1 truncate text-left text-ink hover:text-accenttext" title={t("issue.downloadFile", { filename: a.filename })}>{a.filename}</button>
         <span className="shrink-0 text-faint">{fmtBytes(a.byteSize, lang)}</span>
-        {(canDeleteAny || a.uploadedById === data.currentUserId) && <button onClick={() => removeAttachment(issue.id, a.id)} className="ds-focus issue-small-action text-faint hover:text-danger" aria-label={t("issue.deleteAttachment")}><IcX size={12} /></button>}
+        {(canDeleteAny || a.uploadedById === data.currentUserId) && <button onClick={() => removeAttachment(issue.id, a.id)} className="ds-focus issue-small-action text-faint hover:text-danger" aria-label={t("issue.deleteAttachment")}><IcX size={14} /></button>}
       </div>)}
     </div>
-    {issue.attachments.length === 0 && <p className="text-[12px] text-faint">{canUpload ? t("issue.dropFiles") : t("issue.noFiles")}</p>}
+    {issue.attachments.length === 0 && <p className="text-[13px] text-faint">{canUpload ? t("issue.dropFiles") : t("issue.noFiles")}</p>}
   </Field>;
 }
 
@@ -223,9 +223,9 @@ function SubtasksField({ issue }: { issue: Issue }) {
                 onClick={() => openIssue(c.id)}
                 className="flex w-full items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5 text-left hover:bg-hover"
               >
-                <TypeIcon type={c.typeId} size={13} />
-                <span className="font-mono text-[12px] font-semibold text-faint">{c.key}</span>
-                <span className={`min-w-0 flex-1 truncate text-[12px] ${isDone ? "text-faint line-through" : "text-ink"}`}>
+                <TypeIcon type={c.typeId} size={15} />
+                <span className="font-mono text-[13px] font-semibold text-faint">{c.key}</span>
+                <span className={`min-w-0 flex-1 truncate text-[13px] ${isDone ? "text-faint line-through" : "text-ink"}`}>
                   {c.title}
                 </span>
               </button>
@@ -234,11 +234,11 @@ function SubtasksField({ issue }: { issue: Issue }) {
         </div>
       )}
       {archivedCount > 0 && (
-        <p className={`text-[12px] text-faint ${children.length > 0 ? "mt-1.5" : ""}`}>
+        <p className={`text-[13px] text-faint ${children.length > 0 ? "mt-1.5" : ""}`}>
           {t("issue.archivedSubtasks", { count: archivedCount })}
         </p>
       )}
-      {summary.total === 0 && <p className="text-[12px] text-faint">{t("issue.noSubtasks")}</p>}
+      {summary.total === 0 && <p className="text-[13px] text-faint">{t("issue.noSubtasks")}</p>}
     </Field>
   );
 }
@@ -273,7 +273,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
               className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
             >
               <Checkbox checked={item.done} disabled={!canEdit} onChange={(on) => toggleChecklistItem(issue.id, item.id, on)} label={item.text} labelHidden />
-              <span className={`min-w-0 flex-1 text-[12.5px] ${item.done ? "text-faint line-through" : "text-ink"}`}>
+              <span className={`min-w-0 flex-1 text-[13.5px] ${item.done ? "text-faint line-through" : "text-ink"}`}>
                 {item.text}
               </span>
               {canEdit && (
@@ -282,7 +282,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
                   className="issue-small-action ds-focus text-faint hover:text-danger"
                   title={t("issue.deleteChecklistItem")}
                 >
-                  <IcX size={11} />
+                  <IcX size={13} />
                 </button>
               )}
             </div>
@@ -290,7 +290,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
         </div>
       )}
 
-      {items.length === 0 && !adding && <p className="text-[12px] text-faint">{t("issue.noChecklist")}</p>}
+      {items.length === 0 && !adding && <p className="text-[13px] text-faint">{t("issue.noChecklist")}</p>}
       {canEdit && adding && (
         <input
           autoFocus
@@ -306,7 +306,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
           onBlur={submit}
           placeholder={t("issue.addChecklistItem")}
           maxLength={LIMITS.checklistItem.text.max}
-          className={`w-full rounded-md border border-dashed border-line2 bg-transparent px-2 py-1.5 text-[12.5px] outline-none placeholder:text-faint focus:border-accent focus:shadow-focus ${items.length > 0 ? "mt-1.5" : ""}`}
+          className={`w-full rounded-md border border-dashed border-line2 bg-transparent px-2 py-1.5 text-[13.5px] outline-none placeholder:text-faint focus:border-accent focus:shadow-focus ${items.length > 0 ? "mt-1.5" : ""}`}
         />
       )}
     </Field>
@@ -354,7 +354,7 @@ function CustomFieldRow({
   if (!canEdit) {
     return (
       <Field label={field.name}>
-        <span className="text-[12.5px] text-ink">
+        <span className="text-[13.5px] text-ink">
           {field.fieldType === "checkbox" ? t(current === "true" ? "common.yes" : "common.no") : current || "—"}
         </span>
       </Field>
@@ -368,7 +368,7 @@ function CustomFieldRow({
           aria-label={field.name}
           value={current}
           onChange={(e) => setValue(issue.id, field.id, e.target.value === "" ? null : e.target.value)}
-          className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent focus:shadow-focus"
+          className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-1.5 text-[14px] outline-none focus:border-accent focus:shadow-focus"
         >
           <option value="">—</option>
           {field.options.map((o) => (
@@ -387,7 +387,7 @@ function CustomFieldRow({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => e.key === "Enter" && commit()}
-          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] outline-none focus:border-accent focus:shadow-focus"
+          className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[14px] outline-none focus:border-accent focus:shadow-focus"
         />
       )}
     </Field>
@@ -436,24 +436,24 @@ function LinksField({ issue }: { issue: Issue }) {
               key={l.id}
               className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
             >
-              <span className="w-[76px] shrink-0 text-[12px] font-medium text-faint">
+              <span className="w-[76px] shrink-0 text-[13px] font-medium text-faint">
                 {t(`issue.link.${l.dir}`)}
               </span>
               <span className="issue-color-fill h-2 w-2 shrink-0 rounded-sm" ref={cssVars({ "--issue-color": c.dot })} title={l.issue.statusCategory} />
               <button
                 onClick={() => openIssue(l.issue.id)}
-                className="shrink-0 font-mono text-[12px] font-semibold text-accenttext hover:underline"
+                className="shrink-0 font-mono text-[13px] font-semibold text-accenttext hover:underline"
               >
                 {l.issue.key}
               </button>
-              <span className="min-w-0 flex-1 truncate text-[12px] text-ink">{l.issue.title}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{l.issue.title}</span>
               {canEdit && (
                 <button
                   onClick={() => removeIssueLink(issue.id, l.id)}
                   className="shrink-0 text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
                   title={t("issue.removeLink")}
                 >
-                  <IcX size={11} />
+                  <IcX size={13} />
                 </button>
               )}
             </div>
@@ -468,7 +468,7 @@ function LinksField({ issue }: { issue: Issue }) {
               aria-label={t("issue.links")}
               value={type}
               onChange={(e) => setType(e.target.value as typeof type)}
-              className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-1 text-[12px] text-sub focus:border-accent focus:shadow-focus focus:outline-none"
+              className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-1 text-[13px] text-sub focus:border-accent focus:shadow-focus focus:outline-none"
             >
               <option value="relates">{t("issue.link.relates")}</option>
               <option value="blocks">{t("issue.link.blocks")}</option>
@@ -476,7 +476,7 @@ function LinksField({ issue }: { issue: Issue }) {
             </select>
             <button
               onClick={() => setPicking((v) => !v)}
-              className="rounded-md border border-line bg-panel px-2.5 py-1 text-[12px] font-semibold text-accenttext transition-colors hover:border-accent"
+              className="rounded-md border border-line bg-panel px-2.5 py-1 text-[13px] font-semibold text-accenttext transition-colors hover:border-accent"
             >
               {picking ? t("common.cancel") : t("issue.linkPlus")}
             </button>
@@ -547,9 +547,9 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
     const loading = (
       <div className="space-y-4 p-5" aria-busy="true">
         <div className="flex items-center justify-between gap-3">
-          <p role="status" className="text-[13px] text-sub">{t("solo.loadingIssue")}</p>
+          <p role="status" className="text-[14px] text-sub">{t("solo.loadingIssue")}</p>
           <button onClick={() => openIssue(null)} aria-label={t("common.close")} className="rounded-md p-2 text-faint hover:bg-hover">
-            <IcX size={14} />
+            <IcX size={16} />
           </button>
         </div>
         <div className="skeleton h-6 w-3/4 rounded-md" />
@@ -643,10 +643,10 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   const iconBtn = "flex h-7 w-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-35";
 
   const statusControl = transitionOk ? <Menu label={t("issue.status")}
-    trigger={p => <Button {...p} variant="secondary" size="sm" className="issue-status-button" iconLeft={<StatusGlyph category={status.category} size={14} />} iconRight={<IcChevD size={12} />}>{workflowStatusName(status, t)}</Button>}
-    items={data.workflow.statuses.map(target => ({ id: target.id, label: workflowStatusName(target, t), icon: <StatusGlyph category={target.category} size={14} />,
-      disabled: !canTransition(data.workflow, issue.statusId, target.id), hint: target.id === issue.statusId ? <IcCheck size={12} /> : undefined,
-      onSelect: () => moveStatus(issue.id, target.id, null) }))} /> : <Locked reason={denialText(me, "transition", issue, t)}><StatusGlyph category={status.category} size={14} />{workflowStatusName(status, t)}</Locked>;
+    trigger={p => <Button {...p} variant="secondary" size="sm" className="issue-status-button" iconLeft={<StatusGlyph category={status.category} size={16} />} iconRight={<IcChevD size={14} />}>{workflowStatusName(status, t)}</Button>}
+    items={data.workflow.statuses.map(target => ({ id: target.id, label: workflowStatusName(target, t), icon: <StatusGlyph category={target.category} size={16} />,
+      disabled: !canTransition(data.workflow, issue.statusId, target.id), hint: target.id === issue.statusId ? <IcCheck size={14} /> : undefined,
+      onSelect: () => moveStatus(issue.id, target.id, null) }))} /> : <Locked reason={denialText(me, "transition", issue, t)}><StatusGlyph category={status.category} size={16} />{workflowStatusName(status, t)}</Locked>;
   const nextCategory = status.category === "todo" ? "inprogress" : status.category === "inprogress" ? "done" : null;
   const nextStatus = data.workflow.transitions.filter(tr => tr.from === status.id).map(tr => data.workflow.statuses.find(target => target.id === tr.to)).find(target => target?.category === nextCategory);
   const overdueText = t("issue.overdueDays", { n: overdueDays, days: tn(overdueDays, "noun.day.one", "noun.day.few", "noun.day.many") });
@@ -659,7 +659,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
       {/* шапка */}
       <div data-issue-details={issue.id} className={page ? "issue-toolbar issue-toolbar-page" : "issue-toolbar"}>
         {page && <Button size="sm" variant="ghost" onClick={() => openIssue(null)}>{t(VIEW_LABEL[ui.view])}</Button>}
-        <TypeIcon type={issue.typeId} size={16} />
+        <TypeIcon type={issue.typeId} size={18} />
         <div className="issue-breadcrumb"><span>{data.project.name}</span><span aria-hidden="true">/</span><b className="tabular">{issue.key}</b></div>
         <div className="issue-toolbar-actions">
           {!editOk && <span className="issue-readonly" title={denyMsg}>{t("issue.readOnly")}</span>}
@@ -667,11 +667,11 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
             <Button variant="secondary" size="sm" className="issue-nav-button" disabled={!hasPrev} aria-label={t("issue.prev")} onClick={() => go(-1)} kbd="K">{t("issue.prevShort")}</Button>
             <Button variant="secondary" size="sm" className="issue-nav-button" disabled={!hasNext} aria-label={t("issue.next")} onClick={() => go(1)} kbd="J">{t("issue.nextShort")}</Button>
             <span className="issue-toolbar-divider" />
-            <button onClick={() => openIssue(issue.id, "page")} className={iconBtn} aria-label={t("issue.openFull")}><IcExpand size={15} /></button>
+            <button onClick={() => openIssue(issue.id, "page")} className={iconBtn} aria-label={t("issue.openFull")}><IcExpand size={17} /></button>
           </div>}
-          <button onClick={copyLink} className={iconBtn + " issue-copy-button"} aria-label={t("issue.copyLink")}><IcLink size={15} /></button>
+          <button onClick={copyLink} className={iconBtn + " issue-copy-button"} aria-label={t("issue.copyLink")}><IcLink size={17} /></button>
           <Menu label={t("common.actions")} placement="bottom-end"
-            trigger={p => <button {...p} type="button" className={iconBtn + " ds-focus"} aria-label={t("common.actions")}><IcDots size={16} /></button>}
+            trigger={p => <button {...p} type="button" className={iconBtn + " ds-focus"} aria-label={t("common.actions")}><IcDots size={18} /></button>}
             items={[
               ...(!page ? [
                 { id: "prev", label: t("issue.prev"), disabled: !hasPrev, onSelect: () => go(-1) },
@@ -681,10 +681,10 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               { id: "copy", label: t("issue.copyLink"), onSelect: copyLink },
               ...(canDelete ? [{ id: "delete", label: t("common.delete"), danger: true, onSelect: () => setConfirmDel(true) }] : []),
             ]} />
-          <button onClick={() => openIssue(null)} className={iconBtn} aria-label={t("common.close")}><IcX size={15} /></button>
+          <button onClick={() => openIssue(null)} className={iconBtn} aria-label={t("common.close")}><IcX size={17} /></button>
         </div>
       </div>
-      {confirmDel && <div className="issue-delete-confirm flex flex-wrap items-center gap-3 bg-dangersoft px-4 py-2 text-[13px]" role="alert">
+      {confirmDel && <div className="issue-delete-confirm flex flex-wrap items-center gap-3 bg-dangersoft px-4 py-2 text-[14px]" role="alert">
         <span>{t("issue.deleteConfirm")}</span><Button variant="danger" onClick={() => deleteIssue(issue.id)}>{t("common.yes")}</Button><Button variant="ghost" onClick={() => setConfirmDel(false)}>{t("common.no")}</Button>
       </div>}
 
@@ -698,13 +698,13 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
             {transitionOk && nextStatus && <Button variant="primary" size="sm" onClick={() => moveStatus(issue.id, nextStatus.id, null)}>{status.category === "todo" && nextStatus.sid === "inprogress" ? t("issue.startWork") : workflowStatusName(nextStatus, t)}</Button>}
             <span className="issue-creator">{t("issue.createdBy", { name: reporter?.name ?? t("issue.system"), date: fmtDate(new Date(issue.createdAt).toISOString().slice(0, 10), lang) })}{reporter?.authSource === "service" && <span className="ml-1 inline-flex"><Tag size="sm">{t("tokens.serviceTag")}</Tag></span>}</span>
           </div>
-          {issue.parentId && parentIssue && <button className="ds-focus text-[12px] text-accenttext" onClick={() => openIssue(issue.parentId)}>{t("issue.subtaskOf", { key: parentIssue.key })}</button>}
+          {issue.parentId && parentIssue && <button className="ds-focus text-[13px] text-accenttext" onClick={() => openIssue(issue.parentId)}>{t("issue.subtaskOf", { key: parentIssue.key })}</button>}
         </section>
         {/* правая панель */}
         <aside className="issue-properties">
           {!editOk && (
-            <div className="flex items-start gap-2 rounded-md border border-line bg-warnsoft/50 px-2.5 py-2 text-[12px] leading-snug text-warn">
-              <IcLock size={13} className="mt-0.5 shrink-0" />
+            <div className="flex items-start gap-2 rounded-md border border-line bg-warnsoft/50 px-2.5 py-2 text-[13px] leading-snug text-warn">
+              <IcLock size={15} className="mt-0.5 shrink-0" />
               <span>{denyMsg}</span>
             </div>
           )}
@@ -725,7 +725,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                         ? assignees[0].name
                         : t("issue.assigneeCount", { count: assignees.length })}
                   </span>
-                  <IcChevD size={12} className="ml-auto text-faint" />
+                  <IcChevD size={14} className="ml-auto text-faint" />
                 </button>
               )}
             >
@@ -747,22 +747,22 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                   label={t("field.priority")}
                   trigger={(p, open) => (
                     <button {...p} type="button" className={selectCls}>
-                      <PriorityIcon p={issue.priorityId} size={13} />
+                      <PriorityIcon p={issue.priorityId} size={15} />
                       <span className="min-w-0 flex-1 truncate text-left">{t(`priority.${issue.priorityId}`)}</span>
                     </button>
                   )}
                   items={PRIORITY_ORDER.map((p: PriorityId) => ({
                     id: p,
                     text: t(`priority.${p}`),
-                    icon: <PriorityIcon p={p} size={14} />,
+                    icon: <PriorityIcon p={p} size={16} />,
                     label: t(`priority.${p}`),
-                    hint: issue.priorityId === p ? <IcCheck size={12} className="text-accenttext" /> : undefined,
+                    hint: issue.priorityId === p ? <IcCheck size={14} className="text-accenttext" /> : undefined,
                     onSelect: () => updateIssue(issue.id, { priorityId: p }),
                   }))}
                 />
                 ) : (
                   <Locked reason={denyMsg}>
-                    <PriorityIcon p={issue.priorityId} size={14} /> {t(`priority.${issue.priorityId}`)}
+                    <PriorityIcon p={issue.priorityId} size={16} /> {t(`priority.${issue.priorityId}`)}
                   </Locked>
                 )}
               </Field>
@@ -774,7 +774,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 ) : (
                   <><Locked reason={denyMsg}>
                     <span className={`flex items-center gap-1.5 ${overdue ? "font-semibold text-danger" : ""}`}>
-                      <IcCalendar size={12} />
+                      <IcCalendar size={14} />
                       {issue.dueDate ? fmtDate(issue.dueDate, lang) : "—"}
                     </span>
                   </Locked>{overdue && <span className="issue-overdue">{overdueText}</span>}</>
@@ -794,14 +794,14 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                       <span className="min-w-0 flex-1 truncate text-left">
                         {issue.complexity ? t(`complexity.${issue.complexity}`) : t("complexity.none")}
                       </span>
-                      <IcChevD size={12} className="shrink-0 text-faint" />
+                      <IcChevD size={14} className="shrink-0 text-faint" />
                     </button>
                   )}
                   items={[null, ...COMPLEXITY_ORDER].map((c: ComplexityId | null) => ({
                     id: c ?? "none",
                     text: c ? t(`complexity.${c}`) : t("complexity.none"),
                     label: c ? t(`complexity.${c}`) : t("complexity.none"),
-                    hint: issue.complexity === c ? <IcCheck size={12} className="text-accenttext" /> : undefined,
+                    hint: issue.complexity === c ? <IcCheck size={14} className="text-accenttext" /> : undefined,
                     onSelect: () => updateIssue(issue.id, { complexity: c }),
                   }))}
                 />
@@ -828,7 +828,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     ) : (
                       <span className="text-faint">{t("createIssue.noDirection")}</span>
                     )}
-                    <IcChevD size={12} className="ml-auto shrink-0 text-faint" />
+                    <IcChevD size={14} className="ml-auto shrink-0 text-faint" />
                   </button>
                 )}
               >
@@ -876,13 +876,13 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     <button {...p} type="button" className={selectCls} aria-label={t("issue.parent")}>
                       {issue.parentId && parentIssue ? (
                         <>
-                          <span className="shrink-0 font-mono text-[12px] font-semibold text-faint">{parentIssue.key}</span>
+                          <span className="shrink-0 font-mono text-[13px] font-semibold text-faint">{parentIssue.key}</span>
                           <span className="truncate">{parentIssue.title}</span>
                         </>
                       ) : (
                         <span className="text-faint">{t("issue.noParent")}</span>
                       )}
-                      <IcChevD size={12} className="ml-auto shrink-0 text-faint" />
+                      <IcChevD size={14} className="ml-auto shrink-0 text-faint" />
                     </button>
                   )}
                 >
@@ -948,7 +948,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                         max={52}
                         value={issue.tStart ?? 0}
                         onChange={(e) => updateIssue(issue.id, { tStart: Math.max(0, Math.min(52, Number(e.target.value))) })}
-                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-ink outline-none transition-colors focus:border-accent focus:shadow-focus"
+                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[13px] font-medium text-ink outline-none transition-colors focus:border-accent focus:shadow-focus"
                       />
                     ) : (
                       <span>{issue.tStart ?? 0}</span>
@@ -965,7 +965,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                         max={52}
                         value={issue.tSpan ?? 3}
                         onChange={(e) => updateIssue(issue.id, { tSpan: Math.max(1, Math.min(52, Number(e.target.value))) })}
-                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] font-medium text-ink outline-none transition-colors focus:border-accent focus:shadow-focus"
+                        className="w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[13px] font-medium text-ink outline-none transition-colors focus:border-accent focus:shadow-focus"
                       />
                     ) : (
                       <span>{issue.tSpan ?? 3}</span>
@@ -973,7 +973,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                   </Field>
                 </div>
               </div>
-              <p className="text-[12px] leading-snug text-faint">{t("issue.timelinePositionHint")}</p>
+              <p className="text-[13px] leading-snug text-faint">{t("issue.timelinePositionHint")}</p>
             </div>
           )}
 
@@ -1002,7 +1002,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                       }
                     }}
                     placeholder={t("issue.labelPlaceholder")}
-                    className="w-20 rounded border border-dashed border-line2 bg-transparent px-1.5 py-0.5 text-[12px] outline-none focus:border-accent focus:shadow-focus"
+                    className="w-20 rounded border border-dashed border-line2 bg-transparent px-1.5 py-0.5 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                   />
                 )}
                 {/* Предложенные метки проекта (шаблон проекта, ТЗ 5.10) — подсказка в один клик, не ограничение. */}
@@ -1016,12 +1016,12 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                         type="button"
                         onClick={() => updateIssue(issue.id, { labels: [...issue.labels, l] })}
                         title={t("issue.suggestedLabel")}
-                        className="rounded px-1.5 py-0.5 text-[12px] text-faint transition-colors hover:bg-hover hover:text-ink"
+                        className="rounded px-1.5 py-0.5 text-[13px] text-faint transition-colors hover:bg-hover hover:text-ink"
                       >
                         + {l}
                       </button>
                     ))}
-                {issue.labels.length === 0 && !editOk && <span className="text-[12px] text-faint">{t("issue.noLabels")}</span>}
+                {issue.labels.length === 0 && !editOk && <span className="text-[13px] text-faint">{t("issue.noLabels")}</span>}
               </div>
             </Field>
 
@@ -1060,9 +1060,9 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                   }}
                   rows={5}
                   placeholder={t("issue.descriptionPlaceholder")}
-                  className="w-full resize-y rounded-md border border-accent bg-panel p-2.5 text-[13px] leading-relaxed outline-none ring-2 ring-accent/15"
+                  className="w-full resize-y rounded-md border border-accent bg-panel p-2.5 text-[14px] leading-relaxed outline-none ring-2 ring-accent/15"
                 />
-                <p className="mt-1 text-[12px] text-faint">{t("issue.descSaveHint")}</p>
+                <p className="mt-1 text-[13px] text-faint">{t("issue.descSaveHint")}</p>
               </div>
             ) : issue.description ? (
               editOk ? (
@@ -1084,20 +1084,20 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     }
                   }}
                   title={t("issue.clickToEdit")}
-                  className="group cursor-text whitespace-pre-wrap text-[14.5px] leading-[1.6] text-sub transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  className="group cursor-text whitespace-pre-wrap text-[15.5px] leading-[1.6] text-sub transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   <MentionText text={issue.description} />
-                  <IcPencil size={12} className="ml-1.5 inline align-text-bottom text-faint opacity-0 transition-opacity group-hover:opacity-100" />
+                  <IcPencil size={14} className="ml-1.5 inline align-text-bottom text-faint opacity-0 transition-opacity group-hover:opacity-100" />
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap text-[14.5px] leading-[1.6] text-sub"><MentionText text={issue.description} /></p>
+                <p className="whitespace-pre-wrap text-[15.5px] leading-[1.6] text-sub"><MentionText text={issue.description} /></p>
               )
             ) : editOk ? (
-              <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[12.5px] text-faint transition-colors hover:border-accent hover:text-accenttext">
+              <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[13.5px] text-faint transition-colors hover:border-accent hover:text-accenttext">
                 {t("issue.addDescription")}
               </button>
             ) : (
-              <p className="rounded-md border border-dashed border-line2 px-3 py-3 text-[12.5px] text-faint">{t("issue.noDescription")}</p>
+              <p className="rounded-md border border-dashed border-line2 px-3 py-3 text-[13.5px] text-faint">{t("issue.noDescription")}</p>
             )}
           </div>
 
@@ -1120,7 +1120,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               ].sort((x, y) => y.ts - x.ts);
               if (!items.length)
                 return (
-                  <p className="py-3 text-center text-[12px] text-faint">
+                  <p className="py-3 text-center text-[13px] text-faint">
                     {feed === "comments" ? t("issue.noComments") : feed === "history" ? t("issue.noActivity") : t("issue.feedEmpty")}
                   </p>
                 );
@@ -1131,10 +1131,10 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     <div key={`c-${it.c.id}`} className="anim-fadeup flex gap-2.5">
                       <UserAvatar user={u ?? null} size={28} interactive />
                       <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
-                        <p className="text-[12px]">
+                        <p className="text-[13px]">
                           <b className="font-semibold text-ink">{u?.name}</b>{u?.authSource === "service" && <span className="ml-1 inline-flex"><Tag size="sm">{t("tokens.serviceTag")}</Tag></span>} <span className="text-faint">· {relTime(it.c.ts, lang)}</span>
                         </p>
-                        <p className="mt-0.5 whitespace-pre-wrap text-[14px] leading-[1.5] text-sub">
+                        <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-[1.5] text-sub">
                           <MentionText text={it.c.body} />
                         </p>
                       </div>
@@ -1148,9 +1148,9 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center">
                       <UserAvatar user={who} size={22} interactive />
                     </span>
-                    <p className="text-[13.5px] leading-snug text-sub">
+                    <p className="text-[14.5px] leading-snug text-sub">
                       <b className="font-semibold text-ink">{who ? who.name.split(" ")[0] : t("issue.system")}</b>{who?.authSource === "service" && <span className="ml-1 inline-flex"><Tag size="sm">{t("tokens.serviceTag")}</Tag></span>} {activityLine(it.a.event, it.a.text, t, lang)}
-                      <span className="ml-1.5 text-[12px] text-faint">{relTime(it.a.ts, lang)}</span>
+                      <span className="ml-1.5 text-[13px] text-faint">{relTime(it.a.ts, lang)}</span>
                     </p>
                   </div>
                 );
@@ -1164,9 +1164,9 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               <textarea aria-label={t("issue.feed.comments")} value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitComment(); }
               }} rows={1} maxLength={LIMITS.comment.max} placeholder={t("issue.commentPlaceholder")} />
-              <div className="issue-comment-actions"><kbd className="ds-kbd">Ctrl+Enter</kbd><Button size="sm" variant="ghost" className="issue-comment-send" disabled={!comment.trim()} onClick={submitComment} iconLeft={<IcSend size={12} />}>{t("issue.send")}</Button></div>
+              <div className="issue-comment-actions"><kbd className="ds-kbd">Ctrl+Enter</kbd><Button size="sm" variant="ghost" className="issue-comment-send" disabled={!comment.trim()} onClick={submitComment} iconLeft={<IcSend size={14} />}>{t("issue.send")}</Button></div>
             </div>
-          </div> : <p className="text-[12px] text-faint">{t("issue.commentDenied")}</p>}
+          </div> : <p className="text-[13px] text-faint">{t("issue.commentDenied")}</p>}
         </section>
 
       </div>
@@ -1191,9 +1191,9 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
  *  по лишней остановке Tab на каждое поле (была LockedField из ui.tsx). */
 function Locked({ reason, children }: { reason: string; children: React.ReactNode }) {
   return (
-    <div title={reason} className="flex w-full cursor-not-allowed items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 py-1.5 text-[13px] text-faint">
+    <div title={reason} className="flex w-full cursor-not-allowed items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 py-1.5 text-[14px] text-faint">
       <span className="flex min-w-0 flex-1 items-center gap-2 truncate text-left">{children}</span>
-      <IcLock size={12} className="shrink-0" />
+      <IcLock size={14} className="shrink-0" />
     </div>
   );
 }
@@ -1249,7 +1249,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
         className="group block cursor-text rounded-md px-2 py-1 issue-title font-bold leading-snug text-ink transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         {issue.title}
-        <IcPencil size={13} className="ml-2 inline text-faint opacity-0 transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100" />
+        <IcPencil size={15} className="ml-2 inline text-faint opacity-0 transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100" />
       </span>
     </h2>
   );

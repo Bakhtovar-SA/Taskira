@@ -103,7 +103,7 @@ function Canvas({
         {editing ? (
           <>
             {editExtra?.(() => setDraft(null))}
-            <Button size="sm" iconLeft={<IcPlus size={13} />} onClick={() => setAdding(true)} disabled={widgets.length >= LIMITS.widgetsPerDashboard ? t("dash.tooMany", { n: LIMITS.widgetsPerDashboard }) : false}>
+            <Button size="sm" iconLeft={<IcPlus size={15} />} onClick={() => setAdding(true)} disabled={widgets.length >= LIMITS.widgetsPerDashboard ? t("dash.tooMany", { n: LIMITS.widgetsPerDashboard }) : false}>
               {t("dash.addWidget")}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setDraft(null)} disabled={saving}>
@@ -117,19 +117,19 @@ function Canvas({
           <>
             {actions}
             <IconButton size="sm" label={t("dash.refresh")} onClick={d.refresh}>
-              <IcUndo size={14} className="-scale-x-100" />
+              <IcUndo size={16} className="-scale-x-100" />
             </IconButton>
             {canEdit && (
-              <Button size="sm" iconLeft={<IcPencil size={13} />} onClick={() => setDraft(saved)}>
+              <Button size="sm" iconLeft={<IcPencil size={15} />} onClick={() => setDraft(saved)}>
                 {t("dash.edit")}
               </Button>
             )}
           </>
         )}
       </div>
-      {editing && <p className="px-4 pb-3 text-[12px] text-faint sm:px-6">{t("dash.editHint")}</p>}
+      {editing && <p className="px-4 pb-3 text-[13px] text-faint sm:px-6">{t("dash.editHint")}</p>}
       {d.failed && !editing && (
-        <p className="mx-4 mb-3 rounded-lg bg-dangersoft px-3 py-2 text-[12.5px] text-danger sm:mx-6" role="alert">
+        <p className="mx-4 mb-3 rounded-lg bg-dangersoft px-3 py-2 text-[13.5px] text-danger sm:mx-6" role="alert">
           {t("dash.loadFailed")}{" "}
           <button type="button" onClick={d.refresh} className="font-semibold underline">
             {t("common.retry")}
@@ -144,11 +144,11 @@ function Canvas({
             sub={emptyHint}
             action={
               editing ? (
-                <Button size="sm" variant="primary" iconLeft={<IcPlus size={13} />} onClick={() => setAdding(true)}>
+                <Button size="sm" variant="primary" iconLeft={<IcPlus size={15} />} onClick={() => setAdding(true)}>
                   {t("dash.addWidget")}
                 </Button>
               ) : canEdit ? (
-                <Button size="sm" variant="primary" iconLeft={<IcPencil size={13} />} onClick={() => setDraft(saved)}>
+                <Button size="sm" variant="primary" iconLeft={<IcPencil size={15} />} onClick={() => setDraft(saved)}>
                   {t("dash.edit")}
                 </Button>
               ) : undefined
@@ -273,7 +273,7 @@ function ProjectOverview() {
       head={
         <>
           <h1 className="font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{t("dash.overview")}</h1>
-          <p className="mt-0.5 text-[12.5px] text-faint">{state.dashboard ? t("dash.overviewSub") : t("dash.overviewBuiltin")}</p>
+          <p className="mt-0.5 text-[13.5px] text-faint">{state.dashboard ? t("dash.overviewSub") : t("dash.overviewBuiltin")}</p>
         </>
       }
       editExtra={(stop) =>
@@ -329,23 +329,23 @@ function NewDashboardDialog({ onClose, onCreated }: { onClose: () => void; onCre
       <div className="space-y-4">
         <Input label={t("dash.name")} value={name} autoFocus maxLength={LIMITS.dashboard.name.max} placeholder={t(DASHBOARD_TEMPLATES.find((x) => x.id === tpl)!.nameKey)} onChange={(e) => setName(e.target.value)} />
         <fieldset>
-          <legend className="mb-1.5 text-[12px] font-medium text-sub">{t("dash.startFrom")}</legend>
+          <legend className="mb-1.5 text-[13px] font-medium text-sub">{t("dash.startFrom")}</legend>
           <div className="grid gap-1.5 sm:grid-cols-3">
             {DASHBOARD_TEMPLATES.map((x) => (
               <label key={x.id} className={`cursor-pointer rounded-lg px-3 py-2 ring-1 ring-inset transition-colors ${tpl === x.id ? "bg-accentsoft ring-accent/60" : "ring-line/70 hover:bg-hover"}`}>
                 <input type="radio" name="dash-tpl" value={x.id} checked={tpl === x.id} onChange={() => setTpl(x.id)} className="sr-only" />
-                <span className="block text-[13px] font-semibold text-ink">{t(x.nameKey)}</span>
-                <span className="mt-0.5 block text-[11.5px] leading-snug text-faint">{t(x.descKey)}</span>
+                <span className="block text-[14px] font-semibold text-ink">{t(x.nameKey)}</span>
+                <span className="mt-0.5 block text-[12.5px] leading-snug text-faint">{t(x.descKey)}</span>
               </label>
             ))}
           </div>
         </fieldset>
         {isAdmin && (
-          <label className="flex items-start gap-2 text-[12.5px] text-sub">
+          <label className="flex items-start gap-2 text-[13.5px] text-sub">
             <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="mt-0.5" />
             <span>
               <span className="font-medium text-ink">{t("dash.shareLabel")}</span>
-              <span className="block text-[11.5px] text-faint">{t("dash.shareHint")}</span>
+              <span className="block text-[12.5px] text-faint">{t("dash.shareHint")}</span>
             </span>
           </label>
         )}
@@ -493,7 +493,7 @@ function OrgDashboards() {
             </>
           }
         >
-          <p className="text-[13px] text-sub">{t(current.kind === "org" ? "dash.deleteSharedHint" : "dash.deleteHint")}</p>
+          <p className="text-[14px] text-sub">{t(current.kind === "org" ? "dash.deleteSharedHint" : "dash.deleteHint")}</p>
         </Dialog>
       )}
     </>
@@ -513,11 +513,11 @@ function OrgDashboards() {
             head={
               <>
                 <h2 className="font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{t("dash.orgOverview")}</h2>
-                <p className="mt-0.5 text-[12.5px] text-faint">{t("dash.orgOverviewSub")}</p>
+                <p className="mt-0.5 text-[13.5px] text-faint">{t("dash.orgOverviewSub")}</p>
               </>
             }
             actions={
-              <Button size="sm" iconLeft={<IcPlus size={13} />} onClick={() => void copyOverview()} loading={copying}>
+              <Button size="sm" iconLeft={<IcPlus size={15} />} onClick={() => void copyOverview()} loading={copying}>
                 {t("dash.copyToMine")}
               </Button>
             }
@@ -537,7 +537,7 @@ function OrgDashboards() {
             title={t("dash.notFound")}
             sub={t("dash.notFoundSub")}
             action={
-              <Button size="sm" variant="primary" iconLeft={<IcPlus size={13} />} onClick={() => setCreating(true)}>
+              <Button size="sm" variant="primary" iconLeft={<IcPlus size={15} />} onClick={() => setCreating(true)}>
                 {t("dash.new")}
               </Button>
             }
@@ -563,7 +563,7 @@ function OrgDashboards() {
           head={
             <>
               <h2 className="truncate font-disp text-[20px] font-bold tracking-[-0.025em] text-ink">{current.name}</h2>
-              <p className="mt-0.5 text-[12.5px] text-faint">{t(kindLabel)}</p>
+              <p className="mt-0.5 text-[13.5px] text-faint">{t(kindLabel)}</p>
             </>
           }
           actions={
@@ -573,7 +573,7 @@ function OrgDashboards() {
                 placement="bottom-end"
                 trigger={(p) => (
                   <IconButton {...p} size="sm" label={t("dash.more")}>
-                    <IcDots size={14} />
+                    <IcDots size={16} />
                   </IconButton>
                 )}
                 items={[

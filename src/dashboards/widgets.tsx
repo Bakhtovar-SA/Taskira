@@ -23,7 +23,7 @@ function ProjectsBody({ data, nav }: { data: Data<"projects">; nav: WidgetNav })
   const { t } = useT();
   const { data: store } = useStore();
   if (!data.items.length) return <Empty text={t("portfolio.empty")} />;
-  return <div className="h-full overflow-auto"><table className="w-full text-left text-[12px]">
+  return <div className="h-full overflow-auto"><table className="w-full text-left text-[13px]">
     <thead className="text-faint"><tr>{["dash.w.projects", "portfolio.team", "portfolio.progress", "portfolio.open", "portfolio.overdue", "portfolio.target", "portfolio.health"].map(k => <th key={k} className="px-2 pb-2 font-medium">{t(k as TKey)}</th>)}</tr></thead>
     <tbody>{data.items.map(p => <tr key={p.projectId} className="border-t border-linesoft">
       <td className="px-2 py-2"><Button size="sm" variant="ghost" onClick={() => nav.openProject(p.projectId)}><span className="flex items-center gap-2"><ProjectMark projectKey={p.key} {...lookOf(store.projects, p.projectId)} size={16} />{p.name}</span></Button></td>
@@ -99,7 +99,7 @@ function CountBody({ w, data, projectId, nav }: { w: Extract<Widget, { type: "co
       ) : (
         value
       )}
-      {period && <span className="text-[11.5px] text-faint">{period}</span>}
+      {period && <span className="text-[12.5px] text-faint">{period}</span>}
     </div>
   );
 }
@@ -137,7 +137,7 @@ function BreakdownBody({ w, data }: { w: Extract<Widget, { type: "breakdown" }>;
   // Кольцо — только для немногих частей; иначе сравнивать доли по дугам нельзя, рисуем полосы.
   if (w.chart === "donut" && parts.length <= 6) return <Donut parts={parts} total={data.total} centerLabel={t("dash.openShort")} />;
   const lead = (key: string) =>
-    w.groupBy === "priority" ? <PriorityIcon p={key as never} size={13} /> : w.groupBy === "type" ? <TypeIcon type={key} size={13} /> : null;
+    w.groupBy === "priority" ? <PriorityIcon p={key as never} size={15} /> : w.groupBy === "type" ? <TypeIcon type={key} size={15} /> : null;
   // Одна серия — один цвет на все полосы.
   return <BarList rows={parts.map((p) => ({ ...p, color: p.key === "_other" || p.key === "none" ? OTHER_COLOR : chartColor(0), lead: lead(p.key) }))} />;
 }
@@ -174,16 +174,16 @@ function IssuesBody({ data, nav, showProject }: { data: Data<"issues">; nav: Wid
         {data.items.map((i) => (
           <li key={i.issueId}>
             <Button variant="ghost" size="sm" type="button" onClick={() => nav.openIssue(i.projectId, i.issueId)} className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
-              <StatusGlyph category={i.statusCategory} size={13} />
+              <StatusGlyph category={i.statusCategory} size={15} />
               {showProject && <ProjectMark projectKey={i.projectKey} {...lookOf(store.projects, i.projectId)} size={16} />}
-              <span className="w-[64px] shrink-0 truncate font-mono text-[11px] text-faint">{i.key}</span>
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink" title={i.title}>
+              <span className="w-[64px] shrink-0 truncate font-mono text-[12px] text-faint">{i.key}</span>
+              <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink" title={i.title}>
                 {i.title}
               </span>
-              <PriorityIcon p={i.priorityId} size={13} />
+              <PriorityIcon p={i.priorityId} size={15} />
               {i.dueDate && (
-                <span className="flex shrink-0 items-center gap-1 text-[11px] tabular text-faint">
-                  <DueRing due={i.dueDate} today={now} size={12} done={i.statusCategory === "done"} />
+                <span className="flex shrink-0 items-center gap-1 text-[12px] tabular text-faint">
+                  <DueRing due={i.dueDate} today={now} size={14} done={i.statusCategory === "done"} />
                   {new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "short" }).format(new Date(i.dueDate))}
                 </span>
               )}
@@ -191,7 +191,7 @@ function IssuesBody({ data, nav, showProject }: { data: Data<"issues">; nav: Wid
           </li>
         ))}
       </ul>
-      {data.truncated && <p className="pt-1 text-[11px] text-faint">{t("dash.truncated", { n: data.items.length })}</p>}
+      {data.truncated && <p className="pt-1 text-[12px] text-faint">{t("dash.truncated", { n: data.items.length })}</p>}
     </div>
   );
 }
@@ -214,7 +214,7 @@ function WorkloadBody({ data }: { data: Data<"workload"> }) {
         {data.items.map((u) => (
           <li key={u.userId} className="flex items-center gap-2">
             <PersonAvatar user={{ id: u.userId, name: u.name, initials: u.initials, color: u.color }} size={20} />
-            <span className="w-[30%] min-w-0 truncate text-[12px] text-sub" title={u.name}>
+            <span className="w-[30%] min-w-0 truncate text-[13px] text-sub" title={u.name}>
               {u.name}
             </span>
             <StackedRow label={u.name} max={max} segments={keys.map((k) => ({ key: k.key, label: k.label, color: k.color, value: u[k.key] }))} />
@@ -238,14 +238,14 @@ function ProgressBody({ data, nav }: { data: Data<"progress">; nav: WidgetNav })
         return (
           <li key={p.projectId}>
             <Button variant="ghost" size="sm" type="button" onClick={() => nav.openProject(p.projectId)} className="block w-[calc(100%+0.5rem)] text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
-              <span className="flex items-center gap-2 text-[12.5px]">
+              <span className="flex items-center gap-2 text-[13.5px]">
                 <ProjectMark projectKey={p.key} {...lookOf(store.projects, p.projectId)} size={16} />
                 <span className="min-w-0 flex-1 truncate text-ink">{p.name}</span>
-                {p.overdue > 0 && <span className="text-[11px] tabular text-[var(--status-danger-fg)]">{t("dash.overdueN", { n: p.overdue })}</span>}
-                <span className="text-[11.5px] tabular text-faint">
+                {p.overdue > 0 && <span className="text-[12px] tabular text-[var(--status-danger-fg)]">{t("dash.overdueN", { n: p.overdue })}</span>}
+                <span className="text-[12.5px] tabular text-faint">
                   {p.done}/{p.total}
                 </span>
-                <span className="w-9 text-right text-[12px] font-semibold tabular text-ink">{p.total > 0 ? `${share}%` : "—"}</span>
+                <span className="w-9 text-right text-[13px] font-semibold tabular text-ink">{p.total > 0 ? `${share}%` : "—"}</span>
               </span>
               <span className="mt-1 block">
                 <Meter value={p.done} total={p.total} label={t("dash.progressOf", { name: p.name })} />
@@ -268,11 +268,11 @@ function ActivityBody({ data, nav }: { data: Data<"activity">; nav: WidgetNav })
       {data.items.map((a) => (
         <li key={a.id}>
           <Button variant="ghost" size="sm" type="button" onClick={() => nav.openIssue(a.projectId, a.issueId)} className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
-            <span className="min-w-0 flex-1 text-[12px] leading-snug text-sub">
+            <span className="min-w-0 flex-1 text-[13px] leading-snug text-sub">
               <span className="font-semibold text-ink">{a.actorName}</span> {activityLine(a.event ?? null, a.text, t, lang)}{" "}
-              <span className="font-mono text-[11px] text-faint">{a.issueKey}</span>
+              <span className="font-mono text-[12px] text-faint">{a.issueKey}</span>
             </span>
-            <span className="shrink-0 text-[10.5px] tabular text-faint">{relTime(Date.parse(a.createdAt), lang)}</span>
+            <span className="shrink-0 text-[11.5px] tabular text-faint">{relTime(Date.parse(a.createdAt), lang)}</span>
           </Button>
         </li>
       ))}
@@ -282,8 +282,8 @@ function ActivityBody({ data, nav }: { data: Data<"activity">; nav: WidgetNav })
 
 function Empty({ text, ok = false }: { text: string; ok?: boolean }) {
   return (
-      <div className="flex h-full items-center justify-center [&_.ds-empty]:py-3 [&_.ds-empty-art]:hidden [&_.ds-empty-title]:text-[12px]">
-        <EmptyState icon={null} title={<span className="flex items-center gap-1.5">{ok && <IcCheck size={13} className="text-[var(--status-done-fg)]" />}{text}</span>} />
+      <div className="flex h-full items-center justify-center [&_.ds-empty]:py-3 [&_.ds-empty-art]:hidden [&_.ds-empty-title]:text-[13px]">
+        <EmptyState icon={null} title={<span className="flex items-center gap-1.5">{ok && <IcCheck size={15} className="text-[var(--status-done-fg)]" />}{text}</span>} />
     </div>
   );
 }

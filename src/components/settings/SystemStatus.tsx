@@ -10,7 +10,7 @@ import { SettingsPage } from "./parts";
 
 const priority: Record<StatusState, number> = { fail: 0, warn: 1, unknown: 2, ok: 3, off: 4 };
 const tone = { fail: "red", warn: "amber", ok: "green", unknown: "gray", off: "gray" } as const;
-const linkClass = "ds-focus inline-flex rounded text-[12px] font-medium text-accent underline underline-offset-4";
+const linkClass = "ds-focus inline-flex rounded text-[13px] font-medium text-accent underline underline-offset-4";
 const jobLabels = { maintenance: "status.job.maintenance", "storage-sweep": "status.job.storage-sweep", "ldap-resync": "status.job.ldap-resync",
   "webhook-dispatch": "status.job.webhook-dispatch", "due-events": "status.job.due-events", recurring: "status.job.recurring" } as const;
 const licenseLabels = { unset: "status.fact.license.unset", invalid: "status.fact.license.invalid", active: "status.fact.license.active",
@@ -19,7 +19,7 @@ const licenseLabels = { unset: "status.fact.license.unset", invalid: "status.fac
 function Failed({ error, retry }: { error: unknown; retry: () => void }) {
   const { t, errText } = useT();
   return <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl surface-raised px-5 py-4 ring-1 ring-inset ring-linesoft">
-    <p className="min-w-0 flex-1 text-[12.5px] text-danger">{errText(error, t("settings.org.loadFailed"))}</p>
+    <p className="min-w-0 flex-1 text-[13.5px] text-danger">{errText(error, t("settings.org.loadFailed"))}</p>
     <Button variant="secondary" size="sm" onClick={retry}>{t("common.retry")}</Button>
   </div>;
 }
@@ -45,7 +45,7 @@ function useFormats(checkedAt: string) {
 
 function CheckFacts({ check, checkedAt }: { check: SystemCheck; checkedAt: string }) {
   const { t } = useT(); const { number, relative, bytes } = useFormats(checkedAt);
-  if (check.state === "unknown") return <p className="mt-3 text-[12px] text-sub">{t("status.fact.unknown")}</p>;
+  if (check.state === "unknown") return <p className="mt-3 text-[13px] text-sub">{t("status.fact.unknown")}</p>;
   let facts: string[];
   switch (check.id) {
     case "database": facts = [check.facts.latencyMs === null ? t("status.fact.databaseUnavailable") : t("status.fact.latency", { value: number(check.facts.latencyMs) }),
@@ -80,7 +80,7 @@ function CheckFacts({ check, checkedAt }: { check: SystemCheck; checkedAt: strin
     case "recurring": facts = [t("status.fact.rules", { active: number(check.facts.active), paused: number(check.facts.paused) }),
       t("status.fact.ownerLost", { count: number(check.facts.ownerLostAccess) }), t("status.fact.failed24h", { count: number(check.facts.failed24h) })]; break;
   }
-  return <ul className="mt-3 flex flex-col gap-1.5 text-[12px] leading-relaxed text-sub">{facts.map((fact, index) => <li key={index} className="break-words">{fact}</li>)}</ul>;
+  return <ul className="mt-3 flex flex-col gap-1.5 text-[13px] leading-relaxed text-sub">{facts.map((fact, index) => <li key={index} className="break-words">{fact}</li>)}</ul>;
 }
 
 function OpsHistory({ kind, checkedAt }: { kind: OpsKind; checkedAt: string }) {
@@ -96,11 +96,11 @@ function OpsHistory({ kind, checkedAt }: { kind: OpsKind; checkedAt: string }) {
     });
   };
   return <details className="mt-3 border-t border-linesoft pt-3" onToggle={event => { if (event.currentTarget.open) load(); }}>
-    <summary className="ds-focus cursor-pointer rounded text-[12px] font-medium text-ink">{t("status.ops.history")}</summary>
+    <summary className="ds-focus cursor-pointer rounded text-[13px] font-medium text-ink">{t("status.ops.history")}</summary>
     <div className="mt-3">
-      {error ? <Failed error={error} retry={load} /> : runs === null ? <p role="status" className="text-[12px] text-sub">{t("common.loading")}</p>
-        : runs.length === 0 ? <p className="text-[12px] text-sub">{t("status.ops.empty")}</p>
-        : <ol className="flex flex-col gap-3">{runs.map(run => <li key={run.id} className="text-[12px] leading-relaxed">
+      {error ? <Failed error={error} retry={load} /> : runs === null ? <p role="status" className="text-[13px] text-sub">{t("common.loading")}</p>
+        : runs.length === 0 ? <p className="text-[13px] text-sub">{t("status.ops.empty")}</p>
+        : <ol className="flex flex-col gap-3">{runs.map(run => <li key={run.id} className="text-[13px] leading-relaxed">
           <div className="flex flex-wrap items-center justify-between gap-2"><time dateTime={run.startedAt} className="text-sub">{date(run.startedAt)}</time>
             <Tag size="sm" tone={run.result === "success" ? "green" : run.result === "failure" || run.result === "interrupted" ? "red" : "gray"}>{t(`status.ops.result.${run.result}`)}</Tag></div>
           {run.archive && <p className="mt-1 break-words text-ink">{run.archive}</p>}
@@ -137,14 +137,14 @@ export default function SystemStatus() {
     warning: tn(warns, "status.summary.warning.one", "status.summary.warning.few", "status.summary.warning.many") });
   return <SettingsPage title={t("settings.org.health")} desc={t("settings.desc.health")}>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      {!loading && !error && status && <p role="status" className="text-[13px] font-medium text-ink">{summary}</p>}
+      {!loading && !error && status && <p role="status" className="text-[14px] font-medium text-ink">{summary}</p>}
       <Button variant="secondary" size="sm" loading={loading} onClick={load}>{t("settings.org.refresh")}</Button>
     </div>
     {loading ? <div role="status" aria-label={t("common.loading")} aria-busy="true" className="grid gap-4 sm:grid-cols-2">{[0, 1, 2, 3].map(key => <SkeletonCard key={key} />)}</div>
       : error ? <Failed error={error} retry={load} /> : status && <>
-        <p className="text-[11.5px] text-sub">{t("status.checkedAt")} <time dateTime={status.checkedAt}>{date(status.checkedAt)}</time> · {t("status.version", { version: status.version })}</p>
+        <p className="text-[12.5px] text-sub">{t("status.checkedAt")} <time dateTime={status.checkedAt}>{date(status.checkedAt)}</time> · {t("status.version", { version: status.version })}</p>
         <ul aria-label={t("status.checks")} className="grid items-start gap-4 sm:grid-cols-2">{[...status.checks].sort((a, b) => priority[a.state] - priority[b.state]).map(check => <li key={check.id} className="surface-raised min-w-0 rounded-xl px-5 py-4 ring-1 ring-inset ring-linesoft">
-          <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-[13px] font-semibold text-ink">{t(`status.check.${check.id}`)}</h2><Tag tone={tone[check.state]} size="sm" strong dot>{t(`status.state.${check.state}`)}</Tag></div>
+          <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-[14px] font-semibold text-ink">{t(`status.check.${check.id}`)}</h2><Tag tone={tone[check.state]} size="sm" strong dot>{t(`status.state.${check.state}`)}</Tag></div>
           <CheckFacts check={check} checkedAt={status.checkedAt} />
           <p className="mt-3"><CheckAction id={check.id} /></p>
           {(check.id === "backup" || check.id === "restoreDrill") && <OpsHistory key={`${check.id}:${status.checkedAt}`} kind={check.id === "backup" ? "backup" : "restore_drill"} checkedAt={status.checkedAt} />}

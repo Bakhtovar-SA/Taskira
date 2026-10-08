@@ -122,7 +122,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
   const commands = useMemo<Row[]>(() => {
     const rows: Row[] = [];
     if (data.projects.length > 0)
-      rows.push({ id: "home", group: "nav", label: t("sidebar.nav.home"), keywords: ["home"], icon: <IcHome size={16} tone="violet" />, run: goHome });
+      rows.push({ id: "home", group: "nav", label: t("sidebar.nav.home"), keywords: ["home"], icon: <IcHome size={18} tone="violet" />, run: goHome });
     for (const g of NAV_GROUPS)
       for (const item of g.items) {
         if (item.adminOnly && me.globalRole !== "admin") continue;
@@ -143,16 +143,16 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
         });
       }
     if (me.globalRole === "admin")
-      rows.push({ id: "newProject", group: "actions", label: t("wizard.title"), keywords: ["new project", "создать проект", "шаблон"], icon: <IcPlus size={16} tone="violet" />, run: () => openProjectWizard() });
+      rows.push({ id: "newProject", group: "actions", label: t("wizard.title"), keywords: ["new project", "создать проект", "шаблон"], icon: <IcPlus size={18} tone="violet" />, run: () => openProjectWizard() });
     if (bootStatus === "home" || can("create"))
-      rows.push({ id: "create", group: "actions", label: t("palette.newIssue"), keywords: ["new issue", "create"], icon: <IcCompose size={16} tone="violet" />, hint: <Kbd>C</Kbd>, run: () => bootStatus === "home" ? openHomeCreate() : setCreateOpen(true) });
+      rows.push({ id: "create", group: "actions", label: t("palette.newIssue"), keywords: ["new issue", "create"], icon: <IcCompose size={18} tone="violet" />, hint: <Kbd>C</Kbd>, run: () => bootStatus === "home" ? openHomeCreate() : setCreateOpen(true) });
     rows.push(
-      { id: "theme:light", group: "actions", label: t("palette.themeLight"), keywords: ["light theme"], icon: <IcSun size={16} tone="amber" />, run: () => setThemeMode("light") },
-      { id: "theme:dark", group: "actions", label: t("palette.themeDark"), keywords: ["dark theme"], icon: <IcMoon size={16} tone="indigo" />, run: () => setThemeMode("dark") },
-      { id: "theme:system", group: "actions", label: t("palette.themeSystem"), keywords: ["system theme"], icon: <IcDisplay size={16} tone="gray" />, run: () => setThemeMode("system") },
-      { id: "lang", group: "actions", label: t("palette.switchLang"), keywords: ["language", "язык"], icon: <IcGlobe size={16} tone="sky" />, run: () => setLang(lang === "ru" ? "en" : "ru") },
-      { id: "shortcuts", group: "actions", label: t("palette.shortcuts"), keywords: ["shortcuts", "keys"], icon: <IcKeyboard size={16} tone="gray" />, hint: <Kbd>?</Kbd>, run: onShortcuts },
-      { id: "logout", group: "actions", label: t("palette.logout"), keywords: ["logout", "sign out"], icon: <IcX size={16} tone="red" />, run: logout },
+      { id: "theme:light", group: "actions", label: t("palette.themeLight"), keywords: ["light theme"], icon: <IcSun size={18} tone="amber" />, run: () => setThemeMode("light") },
+      { id: "theme:dark", group: "actions", label: t("palette.themeDark"), keywords: ["dark theme"], icon: <IcMoon size={18} tone="indigo" />, run: () => setThemeMode("dark") },
+      { id: "theme:system", group: "actions", label: t("palette.themeSystem"), keywords: ["system theme"], icon: <IcDisplay size={18} tone="gray" />, run: () => setThemeMode("system") },
+      { id: "lang", group: "actions", label: t("palette.switchLang"), keywords: ["language", "язык"], icon: <IcGlobe size={18} tone="sky" />, run: () => setLang(lang === "ru" ? "en" : "ru") },
+      { id: "shortcuts", group: "actions", label: t("palette.shortcuts"), keywords: ["shortcuts", "keys"], icon: <IcKeyboard size={18} tone="gray" />, hint: <Kbd>?</Kbd>, run: onShortcuts },
+      { id: "logout", group: "actions", label: t("palette.logout"), keywords: ["logout", "sign out"], icon: <IcX size={18} tone="red" />, run: logout },
     );
     for (const p of data.projects) {
       if (p.id === data.currentProjectId && bootStatus !== "home") continue;
@@ -162,7 +162,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
         label: p.name,
         keywords: [p.key],
         icon: <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />,
-        hint: <span className="font-mono text-[11px] text-faint">{p.key}</span>,
+        hint: <span className="font-mono text-[12px] text-faint">{p.key}</span>,
         run: () => enterProject(p.id),
       });
     }
@@ -176,9 +176,9 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
     group,
     label: i.title,
     keywords: [i.key],
-    icon: <StatusGlyph category={i.category} size={15} />,
+    icon: <StatusGlyph category={i.category} size={17} />,
     hint: (
-      <span className="font-mono text-[11px] text-faint">
+      <span className="font-mono text-[12px] text-faint">
         {i.key}
       </span>
     ),
@@ -237,7 +237,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
   return (
     <PaletteDialog open={open} onClose={onClose} title={t("palette.aria")}>
       <div className="flex h-[54px] items-center gap-3 border-b border-linesoft px-4">
-        <IcSearch size={16} className="shrink-0 text-faint" />
+        <IcSearch size={18} className="shrink-0 text-faint" />
         <input
           data-autofocus
           value={q}
@@ -249,10 +249,10 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
           aria-controls={listId}
           aria-activedescendant={rows.length ? `${listId}-${safeActive}` : undefined}
           aria-label={t("palette.aria")}
-          className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint"
+          className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
         />
         {viaLayout && (
-          <span className="shrink-0 rounded-md bg-accentsoft px-1.5 py-0.5 text-[11.5px] font-medium text-accenttext">
+          <span className="shrink-0 rounded-md bg-accentsoft px-1.5 py-0.5 text-[12.5px] font-medium text-accenttext">
             {t("palette.layoutHint", { q: swapLayout(term) })}
           </span>
         )}
@@ -262,18 +262,18 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
       <div ref={listRef} id={listId} role="listbox" aria-label={t("palette.aria")} className="max-h-[min(440px,60vh)] overflow-y-auto p-1.5 [scrollbar-width:thin]">
         {rows.length === 0 && !busy && (
           <div className="px-4 py-9 text-center">
-            <p className="text-[13.5px] font-medium text-ink">{t("palette.empty", { q: term })}</p>
-            <p className="mt-1 text-[12.5px] text-faint">{t("palette.emptyHint", { key: data.project.key || "CORP" })}</p>
+            <p className="text-[14.5px] font-medium text-ink">{t("palette.empty", { q: term })}</p>
+            <p className="mt-1 text-[13.5px] text-faint">{t("palette.emptyHint", { key: data.project.key || "CORP" })}</p>
           </div>
         )}
-        {rows.length === 0 && busy && <p className="px-4 py-9 text-center text-[12.5px] text-faint">{t("palette.searching")}</p>}
+        {rows.length === 0 && busy && <p className="px-4 py-9 text-center text-[13.5px] text-faint">{t("palette.searching")}</p>}
         {rows.map((r, i) => {
           const header = r.group !== lastGroup ? t(GROUP_LABEL[r.group]) : null;
           lastGroup = r.group;
           const on = i === safeActive;
           return (
             <div key={r.id}>
-              {header && <p className="px-2.5 pb-1 pt-2.5 text-[11.5px] font-semibold text-faint first:pt-1">{header}</p>}
+              {header && <p className="px-2.5 pb-1 pt-2.5 text-[12.5px] font-semibold text-faint first:pt-1">{header}</p>}
               <div
                 id={`${listId}-${i}`}
                 data-row={i}
@@ -282,7 +282,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
                 onMouseMove={() => !on && setActive(i)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={done(r.run)}
-                className={`palette-row relative flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-[13.5px] ${on ? "is-active text-ink" : "text-sub"}`}
+                className={`palette-row relative flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-[14.5px] ${on ? "is-active text-ink" : "text-sub"}`}
               >
                 <span className="flex w-[18px] shrink-0 justify-center">{r.icon}</span>
                 <span className="min-w-0 flex-1 truncate">{r.label}</span>
@@ -293,7 +293,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
         })}
       </div>
 
-      <footer className="flex h-9 items-center gap-4 border-t border-linesoft px-4 text-[11.5px] text-faint">
+      <footer className="flex h-9 items-center gap-4 border-t border-linesoft px-4 text-[12.5px] text-faint">
         <span className="flex items-center gap-1.5">
           <Kbd>↑</Kbd>
           <Kbd>↓</Kbd>
@@ -395,10 +395,10 @@ export function ShortcutsDialog({ onClose, open = true }: { onClose: () => void;
       <div className="space-y-4">
         {groups.map((g) => (
           <section key={g.title}>
-            <p className="mb-1.5 text-[12px] font-semibold text-faint">{t(g.title)}</p>
+            <p className="mb-1.5 text-[13px] font-semibold text-faint">{t(g.title)}</p>
             <ul className="divide-y divide-linesoft/70">
               {g.items.map(([keys, label]) => (
-                <li key={label} className="flex h-9 items-center justify-between text-[13.5px] text-ink">
+                <li key={label} className="flex h-9 items-center justify-between text-[14.5px] text-ink">
                   {t(label)}
                   {keys}
                 </li>

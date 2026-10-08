@@ -160,7 +160,7 @@ export function SearchBox() {
         }}
         className={`cursor-text ${focus ? "w-[min(320px,calc(100vw-32px))]" : "w-10 lg:w-[220px]"}`}
       >
-        <Input iconLeft={<IcSearch size={16} className="shrink-0 text-faint" />}
+        <Input iconLeft={<IcSearch size={18} className="shrink-0 text-faint" />}
           right={!focus ? <span className="hidden lg:block"><Kbd>/</Kbd></span> : undefined}
           id="global-search"
           aria-label={t("topbar.searchPlaceholder")}
@@ -182,17 +182,17 @@ export function SearchBox() {
             }}
             className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
-            <span className="text-[11.5px] font-medium text-faint">
+            <span className="text-[12.5px] font-medium text-faint">
               {headerLabel}
             </span>
-            <span className="shrink-0 text-[11.5px] font-medium text-accenttext">
+            <span className="shrink-0 text-[12.5px] font-medium text-accenttext">
               {allProjects ? t("topbar.thisProjectOnly") : t("topbar.allProjectsToggle")}
             </span>
           </Button>
           {allProjects ? (
             <>
               {!searching && (remote?.items.length ?? 0) === 0 && (
-                <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q })}</p>
+                <p className="px-3 py-5 text-center text-[13.5px] text-faint">{t("topbar.noResultsFor", { q })}</p>
               )}
               {(remote?.items ?? []).map((i) => (
                 <Button variant="ghost" size="sm"
@@ -203,14 +203,14 @@ export function SearchBox() {
                   }}
                   className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                 >
-                  <TypeIcon type={i.typeId} size={14} />
-                  <span className="font-mono text-[11px] text-faint">{i.key}</span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{i.title}</span>
-                  <span className="shrink-0 truncate text-[10.5px] text-faint">{i.projectKey}</span>
+                  <TypeIcon type={i.typeId} size={16} />
+                  <span className="font-mono text-[12px] text-faint">{i.key}</span>
+                  <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{i.title}</span>
+                  <span className="shrink-0 truncate text-[11.5px] text-faint">{i.projectKey}</span>
                 </Button>
               ))}
               {remote?.truncated && (
-                <p className="border-t border-linesoft px-3 py-1.5 text-center text-[11px] text-faint">
+                <p className="border-t border-linesoft px-3 py-1.5 text-center text-[12px] text-faint">
                   {t("topbar.truncatedResults")}
                 </p>
               )}
@@ -225,7 +225,7 @@ export function SearchBox() {
                 </div>
               )}
               {local.status === "error" && (
-                <div className="px-3 py-4 text-center text-[12.5px] text-danger">
+                <div className="px-3 py-4 text-center text-[13.5px] text-danger">
                   <p>{t("picker.error")}</p>
                   <Button variant="ghost" size="sm"
                     onMouseDown={(e) => {
@@ -239,7 +239,7 @@ export function SearchBox() {
                 </div>
               )}
               {local.status === "ready" && localResults.length === 0 && (
-                <p className="px-3 py-5 text-center text-[12.5px] text-faint">{t("topbar.noResultsFor", { q: local.term })}</p>
+                <p className="px-3 py-5 text-center text-[13.5px] text-faint">{t("topbar.noResultsFor", { q: local.term })}</p>
               )}
               {localResults.map((i) => (
                 <Button variant="ghost" size="sm"
@@ -251,10 +251,10 @@ export function SearchBox() {
                   }}
                   className="w-full text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                 >
-                  <TypeIcon type={i.typeId} size={14} />
-                  <span className="font-mono text-[11px] text-faint">{i.key}</span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{i.title}</span>
-                  <PriorityIcon p={i.priorityId} size={13} />
+                  <TypeIcon type={i.typeId} size={16} />
+                  <span className="font-mono text-[12px] text-faint">{i.key}</span>
+                  <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{i.title}</span>
+                  <PriorityIcon p={i.priorityId} size={15} />
                 </Button>
               ))}
             </>
@@ -300,7 +300,7 @@ function BellPanel({ close }: { close: () => void }) {
   return (
     <div className="flex max-h-[70vh] flex-col">
       <div className="flex items-center justify-between border-b border-linesoft px-3.5 py-2.5">
-        <p className="text-[13px] font-semibold text-ink">{t("topbar.notifications")}</p>
+        <p className="text-[14px] font-semibold text-ink">{t("topbar.notifications")}</p>
         <div className="flex items-center gap-3">
           {anyUnread && (
             <Button variant="ghost" size="sm" onClick={() => markNotificationsRead()} className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
@@ -320,7 +320,7 @@ function BellPanel({ close }: { close: () => void }) {
       </div>
       <div className="overflow-y-auto">
         {list.length === 0 && (
-          <p className="px-3.5 py-8 text-center text-[12.5px] text-faint">{t("topbar.noNotifications")}</p>
+          <p className="px-3.5 py-8 text-center text-[13.5px] text-faint">{t("topbar.noNotifications")}</p>
         )}
         {list.map((n) => (
           <div
@@ -336,11 +336,11 @@ function BellPanel({ close }: { close: () => void }) {
                   <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent ring-2 ring-panel" />
                 )}
               </span>
-              <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">
+              <span className="min-w-0 flex-1 text-[13.5px] leading-snug text-ink">
                 {n.type !== "issue.dueSoon" && <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b>} {t(NOTIF_VERB[n.type])}{" "}
                 {n.type === "issue.dueSoon" && <span className="text-sub">{n.payload.dueDate} · </span>}
                 {n.payload.key && (
-                  <span className="font-mono text-[11px] font-medium text-accenttext">{n.payload.key}</span>
+                  <span className="font-mono text-[12px] font-medium text-accenttext">{n.payload.key}</span>
                 )}
                 {n.type === "issue.status" && n.payload.from && (
                   <span className="text-faint">
@@ -351,7 +351,7 @@ function BellPanel({ close }: { close: () => void }) {
                 {n.type === "project.member" && n.payload.projectName && (
                   <span className="text-faint"> «{n.payload.projectName}»</span>
                 )}
-                <span className="mt-0.5 block text-[11px] text-faint">{relTime(n.createdAt)}</span>
+                <span className="mt-0.5 block text-[12px] text-faint">{relTime(n.createdAt)}</span>
               </span>
             </Button>
             <IconButton variant="ghost" size="sm" label={t("topbar.dismissOneTitle")}
@@ -362,7 +362,7 @@ function BellPanel({ close }: { close: () => void }) {
 
               className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             >
-              <IcX size={11} />
+              <IcX size={13} />
             </IconButton>
           </div>
         ))}
@@ -384,7 +384,7 @@ export function Bell() {
           className={(`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150 ${open ? "bg-active text-ink" : "text-sub hover:bg-hover hover:text-ink"}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
           aria-label={t("topbar.notifications")}
         >
-          <IcBell size={16} />
+          <IcBell size={18} />
           {unread > 0 && (
             <span aria-hidden="true" className="absolute right-1 top-1 h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-canvas" />
           )}
@@ -411,10 +411,10 @@ function ProjectRow({ p, active, onOpen }: { p: ProjectSummary; active: boolean;
         onClick={onOpen}
         className="min-w-0 flex-1 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
       >
-        <span className="w-12 shrink-0 rounded bg-sunken px-1 text-center font-mono text-[10.5px] font-medium text-sub ring-1 ring-inset ring-linesoft">{p.key}</span>
+        <span className="w-12 shrink-0 rounded bg-sunken px-1 text-center font-mono text-[11.5px] font-medium text-sub ring-1 ring-inset ring-linesoft">{p.key}</span>
         <span className="min-w-0 flex-1 truncate">{p.name}</span>
-        {p.isShared && <span className="shrink-0 text-[11px] text-faint">{t("topbar.sharedBadge")}</span>}
-        {active && <IcCheck size={13} className="shrink-0 text-accenttext" />}
+        {p.isShared && <span className="shrink-0 text-[12px] text-faint">{t("topbar.sharedBadge")}</span>}
+        {active && <IcCheck size={15} className="shrink-0 text-accenttext" />}
       </Button>
       <IconButton variant="ghost" size="sm" label={isFav ? t("topbar.removeFavorite") : t("topbar.addFavorite")}
         onClick={(e) => {
@@ -427,7 +427,7 @@ function ProjectRow({ p, active, onOpen }: { p: ProjectSummary; active: boolean;
           isFav ? "text-warndot" : "text-faint opacity-0 hover:text-warndot group-hover:opacity-100 focus-visible:opacity-100"
         }`}
       >
-        <IcStar size={13} filled={isFav} />
+        <IcStar size={15} filled={isFav} />
       </IconButton>
     </div>
   );
@@ -470,7 +470,7 @@ function ProjectSwitcher() {
           }`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
         >
           {projectLabel}
-          <IcChevD size={12} className="shrink-0 text-faint" />
+          <IcChevD size={14} className="shrink-0 text-faint" />
         </Button>
       )}
     >
@@ -494,7 +494,7 @@ function ProjectSwitcher() {
             <div className="overflow-y-auto px-1 py-1">
               {favorites.length > 0 && (
                 <div className="mb-1 border-b border-linesoft pb-1">
-                  <p className="px-3 pb-1 pt-1.5 text-[11.5px] font-medium text-faint">{t("topbar.favoritesSection")}</p>
+                  <p className="px-3 pb-1 pt-1.5 text-[12.5px] font-medium text-faint">{t("topbar.favoritesSection")}</p>
                   {favorites.map((p) => (
                     <ProjectRow key={p.id} p={p} active={p.id === data.currentProjectId} onOpen={() => open(p.id)} />
                   ))}
@@ -502,14 +502,14 @@ function ProjectSwitcher() {
               )}
               {deptGroups.map(([name, projs]) => (
                 <div key={name}>
-                  <p className="px-3 pb-1 pt-2 text-[11.5px] font-medium text-faint">{name}</p>
+                  <p className="px-3 pb-1 pt-2 text-[12.5px] font-medium text-faint">{name}</p>
                   {projs.map((p) => (
                     <ProjectRow key={p.id} p={p} active={p.id === data.currentProjectId} onOpen={() => open(p.id)} />
                   ))}
                 </div>
               ))}
               {favorites.length === 0 && deptGroups.length === 0 && (
-                <p className="px-3 py-6 text-center text-[12.5px] text-faint">{t("topbar.nothingFound")}</p>
+                <p className="px-3 py-6 text-center text-[13.5px] text-faint">{t("topbar.nothingFound")}</p>
               )}
             </div>
           </div>
@@ -531,7 +531,7 @@ export default function Topbar() {
     <header className="project-topbar shrink-0 border-b border-linesoft">
       <div className="project-topbar-row">
         <IconButton variant="ghost" size="sm" label={t("sidebar.menu")} onClick={openSidebarDrawer} className="project-menu-button shrink-0 lg:hidden">
-          <IcPanel size={16} />
+          <IcPanel size={18} />
         </IconButton>
         {isProjectView ? <>
           <div className="project-identity">
@@ -539,7 +539,7 @@ export default function Topbar() {
             <IconButton variant="ghost" size="sm" label={t(isFavorite ? "topbar.removeFavorite" : "topbar.addFavorite")}
               aria-pressed={isFavorite} onClick={() => toggleFavoriteProject(data.currentProjectId)}
               className={`project-favorite ${isFavorite ? "text-[var(--amber-solid)]" : "text-faint"}`}>
-              <IcStar size={14} filled={isFavorite} />
+              <IcStar size={16} filled={isFavorite} />
             </IconButton>
           </div>
           <span className="project-topbar-divider" aria-hidden="true" />
@@ -547,7 +547,7 @@ export default function Topbar() {
             <Tabs<ViewId> mode="navigation" label={t("topbar.viewsAria")} value={ui.view} onChange={setView}
               items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 15 }), label: t(v.labelKey) }))} />
           </nav>
-        </> : <h1 className="min-w-0 flex-1 truncate text-[15px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
+        </> : <h1 className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
         <div className="project-topbar-actions">
           {isProjectView && members.length > 0 && <span className="project-members" role="group" aria-label={t("topbar.membersAria")}>
             <UserAvatarGroup users={members} size={26} max={4} interactive />
@@ -556,7 +556,7 @@ export default function Topbar() {
           <Button variant={can("create") ? "primary" : "ghost"} size="sm"
             disabled={can("create") ? false : t("topbar.createDeniedTip")}
             onClick={() => setCreateOpen(true)} className="project-create"
-            aria-label={t("topbar.createAria")} iconLeft={can("create") ? <IcPlus size={14} /> : <IcLock size={14} />} kbd="C">
+            aria-label={t("topbar.createAria")} iconLeft={can("create") ? <IcPlus size={16} /> : <IcLock size={16} />} kbd="C">
             <span className="hidden sm:inline">{t("topbar.task")}</span>
           </Button>
         </div>

@@ -70,7 +70,7 @@ export function Donut({ parts, total, centerLabel }: { parts: Part[]; total: num
         <text x="50" y="49" textAnchor="middle" className="fill-[var(--text-1)] text-[20px] font-semibold">
           {total}
         </text>
-        <text x="50" y="63" textAnchor="middle" className="fill-[var(--text-3)] text-[8.5px]">
+        <text x="50" y="63" textAnchor="middle" className="fill-[var(--text-3)] text-[9.5px]">
           {centerLabel}
         </text>
       </svg>
@@ -80,7 +80,7 @@ export function Donut({ parts, total, centerLabel }: { parts: Part[]; total: num
             key={p.key}
             onPointerEnter={() => setHi(p.key)}
             onPointerLeave={() => setHi(null)}
-            className={`flex items-center gap-2 rounded px-1 text-[12px] transition-opacity ${hi && hi !== p.key ? "opacity-50" : ""}`}
+            className={`flex items-center gap-2 rounded px-1 text-[13px] transition-opacity ${hi && hi !== p.key ? "opacity-50" : ""}`}
           >
             <Swatch color={p.color} />
             <span className="min-w-0 flex-1 truncate text-sub" title={p.label}>
@@ -104,7 +104,7 @@ export function BarList({ rows, onPick }: { rows: (Part & { hint?: string; lead?
       {rows.map((r) => {
         const body = (
           <>
-            <span className="flex w-[38%] min-w-0 items-center gap-1.5 text-[12px] text-sub">
+            <span className="flex w-[38%] min-w-0 items-center gap-1.5 text-[13px] text-sub">
               {r.lead}
               <span className="truncate" title={r.label}>
                 {r.label}
@@ -113,7 +113,7 @@ export function BarList({ rows, onPick }: { rows: (Part & { hint?: string; lead?
             <span className="relative h-2.5 min-w-0 flex-1">
               <span ref={cssVars({ "--p": `${(r.value / max) * 100}%`, "--c": r.color })} className="absolute inset-y-0 left-0 w-[max(var(--p),2px)] rounded-r-[4px] bg-[var(--c)]" />
             </span>
-            <span className="w-8 shrink-0 text-right text-[12px] font-semibold tabular text-ink">{r.value}</span>
+            <span className="w-8 shrink-0 text-right text-[13px] font-semibold tabular text-ink">{r.value}</span>
           </>
         );
         return (
@@ -223,7 +223,7 @@ export function Lines({ xs, series, fmtX, height, label }: { xs: string[]; serie
           {ticks.map((tk) => (
             <g key={tk}>
               <line x1={LEFT} x2={LEFT + plotW} y1={y(tk)} y2={y(tk)} stroke={tk === 0 ? "var(--border-default)" : "var(--border-subtle)"} strokeWidth="1" />
-              <text x={LEFT - 6} y={y(tk) + 3.5} textAnchor="end" className="fill-[var(--text-3)] text-[10px] tabular">
+              <text x={LEFT - 6} y={y(tk) + 3.5} textAnchor="end" className="fill-[var(--text-3)] text-[11px] tabular">
                 {Math.round(tk)}
               </text>
             </g>
@@ -231,7 +231,7 @@ export function Lines({ xs, series, fmtX, height, label }: { xs: string[]; serie
           {[0, Math.floor(last / 2), last]
             .filter((v, i, a) => a.indexOf(v) === i)
             .map((i) => (
-              <text key={i} x={x(i)} y={H - 5} textAnchor={i === 0 ? "start" : i === last ? "end" : "middle"} className="fill-[var(--text-3)] text-[10px]">
+              <text key={i} x={x(i)} y={H - 5} textAnchor={i === 0 ? "start" : i === last ? "end" : "middle"} className="fill-[var(--text-3)] text-[11px]">
                 {fmtX(xs[i])}
               </text>
             ))}
@@ -240,7 +240,7 @@ export function Lines({ xs, series, fmtX, height, label }: { xs: string[]; serie
               <path d={path(s.values)} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
               <circle cx={x(idx)} cy={y(s.values[idx] ?? 0)} r="4" fill={s.color} stroke="var(--bg-panel)" strokeWidth="2" />
               {endLabels && hover === null && (
-                <text x={x(last) + 8} y={y(s.values[last] ?? 0) + 3.5} className="fill-[var(--text-2)] text-[10.5px] font-semibold tabular">
+                <text x={x(last) + 8} y={y(s.values[last] ?? 0) + 3.5} className="fill-[var(--text-2)] text-[11.5px] font-semibold tabular">
                   {s.values[last] ?? 0}
                 </text>
               )}
@@ -250,7 +250,7 @@ export function Lines({ xs, series, fmtX, height, label }: { xs: string[]; serie
         </svg>
       )}
       {hover !== null && width > 0 && (
-        <div ref={cssVars({ "--tx": tipLeft })} className="glass pointer-events-none absolute left-[var(--tx)] top-0 z-10 w-[150px] rounded-lg px-2.5 py-2 text-[11.5px] shadow-lg">
+        <div ref={cssVars({ "--tx": tipLeft })} className="glass pointer-events-none absolute left-[var(--tx)] top-0 z-10 w-[150px] rounded-lg px-2.5 py-2 text-[12.5px] shadow-lg">
           <p className="mb-1 text-faint">{fmtX(xs[idx])}</p>
           {series.map((s) => (
             <p key={s.key} className="flex items-center gap-1.5">
@@ -290,7 +290,7 @@ export function Lines({ xs, series, fmtX, height, label }: { xs: string[]; serie
 /** Легенда над графиком: ключ повторяет метку (линия — для линий, квадрат — для заливок) и подпись цветом текста. */
 export function Legend({ items, line = false }: { items: { key: string; label: string; color: string; value?: ReactNode }[]; line?: boolean }) {
   return (
-    <ul className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[11.5px] text-sub">
+    <ul className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[12.5px] text-sub">
       {items.map((i) => (
         <li key={i.key} className="flex items-center gap-1.5">
           <Swatch color={i.color} line={line} />
@@ -322,7 +322,7 @@ export function StackedRow({ segments, max, label }: { segments: { key: string; 
             ))}
         </span>
       </span>
-      <span className="w-8 shrink-0 text-right text-[12px] font-semibold tabular text-ink">{total}</span>
+      <span className="w-8 shrink-0 text-right text-[13px] font-semibold tabular text-ink">{total}</span>
     </span>
   );
 }

@@ -125,17 +125,17 @@ const readOpen = (): Record<string, boolean> => {
 };
 
 // Классы пунктов — общие для всех уровней дерева.
-const navItem = "tk-nav group relative flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] font-medium transition-colors duration-150";
+const navItem = "tk-nav group relative flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[15px] font-medium transition-colors duration-150";
 const navOn = "tk-nav-active bg-[var(--sidebar-item-active)] font-semibold text-accenttext";
 const navOff = "text-ink/90 hover:bg-hover/70 hover:text-ink";
-const sectionLabel = "flex w-full items-center gap-1 px-2.5 pb-1 pt-3 text-[12px] font-semibold tracking-[0.01em] text-faint";
+const sectionLabel = "flex w-full items-center gap-1 px-2.5 pb-1 pt-3 text-[13px] font-semibold tracking-[0.01em] text-faint";
 /** Ветка дерева: отступ + направляющая линия слева — вложенность видна без подписей (ADR-0013 §1). */
 const branch = "relative ml-[17px] flex flex-col gap-px border-l border-linesoft pl-2";
 
 function Chevron({ open }: { open: boolean }) {
   return (
     <span className={`flex text-faint transition-transform duration-200 ${open ? "" : "-rotate-90"}`}>
-      <IcChevD size={12} />
+      <IcChevD size={14} />
     </span>
   );
 }
@@ -255,7 +255,7 @@ export default function Sidebar() {
       >
         <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />
         <span className="flex-1 truncate">{p.name}</span>
-        {data.favoriteProjectIds.includes(p.id) && <span className="flex shrink-0 text-[var(--amber-solid)]"><IcStar size={12} filled /></span>}
+        {data.favoriteProjectIds.includes(p.id) && <span className="flex shrink-0 text-[var(--amber-solid)]"><IcStar size={14} filled /></span>}
         {p.isDemo && <Tag tone="amber" size="sm">{t("setup.demoTag")}</Tag>}
         {cur && !active && <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />}
       </Button>
@@ -264,7 +264,7 @@ export default function Sidebar() {
 
   const shell = `glass-side glass-edge flex shrink-0 flex-col overflow-hidden rounded-[16px] text-ink shadow-[0_1px_2px_oklch(0.2_0.05_288/0.06),0_12px_40px_-16px_oklch(0.2_0.08_288/0.3)]
     lg:relative lg:my-2 lg:ml-2 lg:transition-[width] lg:duration-200 lg:ease-out
-    side-drawer max-lg:fixed max-lg:inset-y-2 max-lg:left-2 max-lg:z-50 max-lg:w-[256px] max-lg:max-w-[calc(100vw-48px)] max-lg:transition-[transform,visibility] max-lg:duration-300 max-lg:ease-out
+    side-drawer max-lg:fixed max-lg:inset-y-2 max-lg:left-2 max-lg:z-50 max-lg:w-[280px] max-lg:max-w-[calc(100vw-48px)] max-lg:transition-[transform,visibility] max-lg:duration-300 max-lg:ease-out
     ${drawer ? "" : "max-lg:invisible max-lg:-translate-x-[calc(100%+16px)]"}`;
 
   if (rail)
@@ -282,7 +282,7 @@ export default function Sidebar() {
   return (
     <>
     {drawer && <div className="anim-scrim fixed inset-0 z-40 bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] lg:hidden" onClick={() => setDrawer(false)} />}
-    <aside ref={asideRef} aria-label={t("sidebar.menu")} className={`${shell} lg:w-[256px]`}>
+    <aside ref={asideRef} aria-label={t("sidebar.menu")} className={`${shell} lg:w-[280px]`}>
       {/* Знак + название инсталляции. Стеклянная панель над атмосферой (ADR-0016). */}
       <div className="mx-2 mt-2.5 flex items-center">
         {homeAvailable ? (
@@ -293,12 +293,12 @@ export default function Sidebar() {
             className="min-w-0 flex-1 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
             <BrandMark size={22} />
-            <BrandName className="truncate font-disp text-[16px] font-bold tracking-[-0.03em] text-ink" />
+            <BrandName className="truncate font-disp text-[17px] font-bold tracking-[-0.03em] text-ink" />
           </Button>
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2">
             <BrandMark size={22} />
-            <BrandName className="truncate font-disp text-[16px] font-bold tracking-[-0.03em] text-ink" />
+            <BrandName className="truncate font-disp text-[17px] font-bold tracking-[-0.03em] text-ink" />
           </div>
         )}
         <IconButton variant="ghost" size="sm" label={t(wide ? "sidebar.collapse" : "common.close")}
@@ -308,19 +308,19 @@ export default function Sidebar() {
 
           className="h-7 w-7 shrink-0"
         >
-          <IcPanel size={15} />
+          <IcPanel size={17} />
         </IconButton>
       </div>
 
       {/* Command palette and creation share one compact row. */}
       <div className="sidebar-quick-actions mx-2 mb-1 mt-1 flex min-w-0 gap-1.5">
         <Button variant="secondary" size="sm" onClick={openPalette} aria-label={t("sidebar.search")} className="sidebar-search min-w-0 flex-1"
-          iconLeft={<IcSearch size={14} />} iconRight={<Kbd>{paletteShortcut()}</Kbd>}>
+          iconLeft={<IcSearch size={16} />} iconRight={<Kbd>{paletteShortcut()}</Kbd>}>
           {t("sidebar.search")}
         </Button>
         {(home || can("create")) && <IconButton variant="secondary" size="sm" label={t("sidebar.newIssue")} kbd="C"
           onClick={() => home ? openHomeCreate() : setCreateOpen(true)} className="sidebar-compose shrink-0 text-accenttext">
-          <IcCompose size={16} />
+          <IcCompose size={18} />
         </IconButton>}
       </div>
 
@@ -329,7 +329,7 @@ export default function Sidebar() {
         <nav aria-label={t("calendar.personalNav")} className="flex flex-col gap-px pt-1">
             {homeAvailable && (
               <Button variant="ghost" size="sm" type="button" onClick={goHome} aria-current={home ? "page" : undefined} className={(`${navItem} ${home ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
-                <IcHome size={16} tone="violet" />
+                <IcHome size={18} tone="violet" />
                 <span className="flex-1 truncate">{t("sidebar.nav.home")}</span>
               </Button>
             )}
@@ -345,9 +345,9 @@ export default function Sidebar() {
                 >
                   {v.icon({ size: 16, tone: v.tone })}
                   <span className="flex-1 truncate">{t(v.labelKey)}</span>
-                  {v.id === "my" && <span className="text-[12px] font-semibold tabular text-faint">{data.assignedToMe.length}{data.assignedTruncated ? "+" : ""}</span>}
+                  {v.id === "my" && <span className="text-[13px] font-semibold tabular text-faint">{data.assignedToMe.length}{data.assignedTruncated ? "+" : ""}</span>}
                   {v.id === "inbox" && unread > 0 && (
-                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[12px] font-bold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
+                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[13px] font-bold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
                       {unread > 99 ? "99+" : unread}
                     </span>
                   )}
@@ -361,9 +361,9 @@ export default function Sidebar() {
                 aria-current={ui.view === "collaborating" ? "page" : undefined}
                 className={(`${navItem} ${ui.view === "collaborating" ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
               >
-                <IcLink size={16} tone="violet" />
+                <IcLink size={18} tone="violet" />
                 <span className="flex-1 truncate">{t("sidebar.nav.collaborating")}</span>
-                <span className="rounded-full bg-accent px-1.5 py-px text-[10.5px] font-semibold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
+                <span className="rounded-full bg-accent px-1.5 py-px text-[11.5px] font-semibold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
                   {data.collaborations.length}
                 </span>
               </Button>
@@ -385,7 +385,7 @@ export default function Sidebar() {
 
                 className="mr-1 mt-2 h-6 w-6 shrink-0 "
               >
-                <IcPlus size={13} />
+                <IcPlus size={15} />
               </IconButton>
             )}
           </div>
@@ -397,10 +397,10 @@ export default function Sidebar() {
                   const expanded = isOpen(`d:${g.id}`, hasCur);
                   return (
                     <div key={g.id}>
-                      <Button variant="ghost" size="sm" type="button" onClick={() => toggle(`d:${g.id}`, hasCur)} aria-expanded={expanded} className={(`${navItem} h-7 text-[12.5px] text-sub hover:bg-hover/70 hover:text-ink`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
+                      <Button variant="ghost" size="sm" type="button" onClick={() => toggle(`d:${g.id}`, hasCur)} aria-expanded={expanded} className={(`${navItem} h-7 text-[13.5px] text-sub hover:bg-hover/70 hover:text-ink`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
                         <Chevron open={expanded} />
                         <span className="flex-1 truncate">{g.name}</span>
-                        <span className="text-[11px] tabular text-faint">{g.projects.length}</span>
+                        <span className="text-[12px] tabular text-faint">{g.projects.length}</span>
                       </Button>
                       {expanded && <div className={branch}>{g.projects.map(projectNode)}</div>}
                     </div>
@@ -421,7 +421,7 @@ export default function Sidebar() {
             aria-current={ui.view === "roadmap" ? "page" : undefined}
             className={(`${navItem} ${ui.view === "roadmap" ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
           >
-            <IcFlag size={16} tone="teal" />
+            <IcFlag size={18} tone="teal" />
             <span className="flex-1 truncate">{t("sidebar.nav.roadmap")}</span>
           </Button>
           {/* «Дашборды» — раздел, в котором «Отчёты» — первый встроенный дашборд (ADR-0022). */}
@@ -431,7 +431,7 @@ export default function Sidebar() {
             aria-current={ui.view === "dashboards" || ui.view === "reports" ? "page" : undefined}
             className={(`${navItem} ${ui.view === "dashboards" || ui.view === "reports" ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
           >
-            <IcDashboard size={16} tone="violet" />
+            <IcDashboard size={18} tone="violet" />
             <span className="flex-1 truncate">{t("sidebar.nav.dashboards")}</span>
           </Button>
         </div>
@@ -448,7 +448,7 @@ export default function Sidebar() {
           aria-current={ui.view === "docs" ? "page" : undefined}
           className={(`${navItem} ${ui.view === "docs" ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
         >
-          <IcBook size={16} tone="orange" />
+          <IcBook size={18} tone="orange" />
           <span className="flex-1 truncate">{t("sidebar.nav.docs")}</span>
           <span className="text-faint">
             <Kbd>?</Kbd>
@@ -463,7 +463,7 @@ export default function Sidebar() {
                   type="button"
                   onClick={() => openSettings(v.id as "settings" | "projectSettings" | "orgSettings")}
                   aria-current={active ? "page" : undefined}
-                  className={(`${navItem} h-[30px] text-[13px] ${active ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
+                  className={(`${navItem} h-[30px] text-[14px] ${active ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
                 >
                   {v.icon({ size: 15, tone: v.tone })}
                   <span className="flex-1 truncate">{t(v.labelKey)}</span>
@@ -477,7 +477,7 @@ export default function Sidebar() {
         <UserMenu onLogout={logout} sidebar />
         <IconButton variant="ghost" size="sm" label={t("sidebar.settings")} aria-expanded={isOpen("s:settings", inSettings)}
           aria-controls="sidebar-settings" onClick={() => toggle("s:settings", inSettings)} className="shrink-0">
-          <IcSettings size={16} />
+          <IcSettings size={18} />
         </IconButton>
       </div>
     </aside>
@@ -534,19 +534,19 @@ function Rail({
     <aside aria-label={t("sidebar.menu")} className={`${className} items-center py-2.5`}>
       {btn("logo", homeAvailable ? t("sidebar.homeAria") : brandName, <BrandMark size={22} />, () => homeAvailable && goHome())}
       <div className="mt-1.5 flex flex-col items-center gap-1">
-        {btn("search", `${t("sidebar.search")} · ${paletteShortcut()}`, <IcSearch size={16} />, openPalette)}
-        {(home || can("create")) && btn("new", `${t("sidebar.newIssue")} · C`, <IcCompose size={16} tone="violet" />, () => home ? openHomeCreate() : setCreateOpen(true))}
+        {btn("search", `${t("sidebar.search")} · ${paletteShortcut()}`, <IcSearch size={18} />, openPalette)}
+        {(home || can("create")) && btn("new", `${t("sidebar.newIssue")} · C`, <IcCompose size={18} tone="violet" />, () => home ? openHomeCreate() : setCreateOpen(true))}
       </div>
       {sep}
       <div className="flex flex-col items-center gap-1">
-        {homeAvailable && btn("home", t("sidebar.nav.home"), <IcHome size={16} tone="violet" />, goHome, home)}
+        {homeAvailable && btn("home", t("sidebar.nav.home"), <IcHome size={18} tone="violet" />, goHome, home)}
         {PERSONAL_VIEWS.map((v) =>
           btn(v.id, t(v.labelKey), v.icon({ size: 16, tone: v.tone }), () => setView(v.id), !home && ui.view === v.id,
             v.id === "inbox" && unread > 0 ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] ring-2 ring-[var(--bg-frame)]" /> : undefined,
           ),
         )}
         {data.collaborations.length > 0 &&
-          btn("collab", t("sidebar.nav.collaborating"), <IcLink size={16} tone="violet" />, () => setView("collaborating"), ui.view === "collaborating")}
+          btn("collab", t("sidebar.nav.collaborating"), <IcLink size={18} tone="violet" />, () => setView("collaborating"), ui.view === "collaborating")}
       </div>
       {sep}
       <div className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none]">
@@ -564,13 +564,13 @@ function Rail({
           );
         })}
         {sep}
-        {btn("roadmap", t("sidebar.nav.roadmap"), <IcFlag size={16} tone="teal" />, () => setView("roadmap"), ui.view === "roadmap")}
-        {btn("dashboards", t("sidebar.nav.dashboards"), <IcDashboard size={16} tone="violet" />, () => setView("dashboards"), ui.view === "dashboards" || ui.view === "reports")}
+        {btn("roadmap", t("sidebar.nav.roadmap"), <IcFlag size={18} tone="teal" />, () => setView("roadmap"), ui.view === "roadmap")}
+        {btn("dashboards", t("sidebar.nav.dashboards"), <IcDashboard size={18} tone="violet" />, () => setView("dashboards"), ui.view === "dashboards" || ui.view === "reports")}
       </div>
       <div className="mt-1 flex flex-col items-center gap-1 border-t border-linesoft/70 pt-2">
-        {btn("docs", t("sidebar.nav.docs"), <IcBook size={16} tone="orange" />, () => setView("docs"), ui.view === "docs")}
-        {btn("settings", t("sidebar.settings"), <IcSettings size={16} tone="gray" />, () => openSettings("projectSettings"), SETTINGS_VIEWS.some((s) => s.id === ui.view))}
-        {btn("expand", `${t("sidebar.expand")} · [`, <IcPanel size={16} />, onExpand)}
+        {btn("docs", t("sidebar.nav.docs"), <IcBook size={18} tone="orange" />, () => setView("docs"), ui.view === "docs")}
+        {btn("settings", t("sidebar.settings"), <IcSettings size={18} tone="gray" />, () => openSettings("projectSettings"), SETTINGS_VIEWS.some((s) => s.id === ui.view))}
+        {btn("expand", `${t("sidebar.expand")} · [`, <IcPanel size={18} />, onExpand)}
         <span className="mt-1">
           <UserMenu onLogout={logout} sidebar compact />
         </span>

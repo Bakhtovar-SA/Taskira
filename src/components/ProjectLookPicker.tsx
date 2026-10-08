@@ -33,7 +33,7 @@ export function ColorPicker({ projectKey, value, onChange }: { projectKey: strin
   const auto = projectTone(projectKey || "?");
   return (
     <div role="radiogroup" aria-label={t("look.color")} className="flex flex-wrap items-center gap-1.5">
-      <button type="button" role="radio" aria-checked={value === null} onClick={() => onChange(null)} className="look-choice ds-focus flex h-8 items-center gap-1.5 rounded-full py-1 pl-1.5 pr-2.5 text-[12px] font-medium text-sub" title={t("look.autoHint")}>
+      <button type="button" role="radio" aria-checked={value === null} onClick={() => onChange(null)} className="look-choice ds-focus flex h-8 items-center gap-1.5 rounded-full py-1 pl-1.5 pr-2.5 text-[13px] font-medium text-sub" title={t("look.autoHint")}>
         <span className={`tk-tone-${auto} h-5 w-5 rounded-full bg-current`} aria-hidden="true" />
         {t("look.auto")}
       </button>
@@ -52,7 +52,7 @@ export function BgSwatch({ id, checked, onPick }: { id: BgId; checked: boolean; 
   return (
     <button type="button" role="radio" aria-checked={checked} onClick={onPick} className="theme-choice ds-focus flex flex-col gap-1.5 rounded-xl p-1.5 text-left">
       <span data-atmo={id} className="atmo-swatch h-12 rounded-lg ring-1 ring-inset ring-line/60" />
-      <span className="truncate px-1 text-[12px] font-semibold text-ink">{t(`bg.${id}`)}</span>
+      <span className="truncate px-1 text-[13px] font-semibold text-ink">{t(`bg.${id}`)}</span>
     </button>
   );
 }
@@ -62,8 +62,8 @@ export function BackgroundPicker({ value, onChange }: { value: ProjectBackground
   return (
     <div role="radiogroup" aria-label={t("look.background")} className="grid grid-cols-3 gap-2 sm:grid-cols-5">
       <button type="button" role="radio" aria-checked={value === null} onClick={() => onChange(null)} className="theme-choice ds-focus flex flex-col gap-1.5 rounded-xl p-1.5 text-left">
-        <span className="look-bg-personal flex h-12 items-center justify-center rounded-lg text-[11px] font-medium text-faint ring-1 ring-inset ring-line/60">{t("look.bgPersonalShort")}</span>
-        <span className="px-1 text-[12px] font-semibold text-ink">{t("look.bgPersonal")}</span>
+        <span className="look-bg-personal flex h-12 items-center justify-center rounded-lg text-[12px] font-medium text-faint ring-1 ring-inset ring-line/60">{t("look.bgPersonalShort")}</span>
+        <span className="px-1 text-[13px] font-semibold text-ink">{t("look.bgPersonal")}</span>
       </button>
       {PROJECT_BG_IDS.map((id) => (
         <BgSwatch key={id} id={id} checked={value === id} onPick={() => onChange(id)} />

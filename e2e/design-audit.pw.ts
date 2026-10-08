@@ -19,7 +19,7 @@ test("shell refresh: navigation, favorites, shortcuts and profile", async ({ pag
   const header = page.locator(".project-topbar"), sidebar = page.locator("aside");
   await expect(header).toBeVisible();
   expect((await header.boundingBox())!.height).toBe(52);
-  expect((await sidebar.boundingBox())!.width).toBe(256);
+  expect((await sidebar.boundingBox())!.width).toBe(280);
   await expect(header.locator("input")).toHaveCount(0);
   await expect(header.getByRole("button", { name: "Меню пользователя" })).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("heading", { name: "Доска", exact: true })).toHaveCount(0);

@@ -58,7 +58,7 @@ export const catColor = (cat: Status["category"]) =>
  *  (`Board.tsx`) и для скелета (`SkeletonColumn`), чтобы во время bootstrap
  *  заглушка выглядела как готовая колонка, а не «прыгала» в неё после загрузки
  *  (ticket-board-columns-theme-fix). */
-/** Ширину задаёт сетка доски: до пяти статусов помещаются в рабочую область. */
+/** Ширину ограничивает сетка доски; лишние колонки прокручиваются по горизонтали. */
 export const BOARD_COLUMN_SHELL =
   "flex h-full max-h-full min-w-0 flex-col";
 /** Жёлоб с карточками под заголовком колонки (ADR-0016: заголовок — над ним, не внутри). */
@@ -79,7 +79,7 @@ export function Toasts() {
         return (
           <div key={item.id} className="glass anim-toast pointer-events-auto flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3">
             <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
-            <p className="min-w-0 text-[13px] leading-snug text-ink">
+            <p className="min-w-0 text-[14px] leading-snug text-ink">
               <span className="sr-only">{m.label}: </span>
               {item.text}
             </p>

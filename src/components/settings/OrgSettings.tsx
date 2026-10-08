@@ -70,7 +70,7 @@ function Failed({ err, retry }: { err: Error; retry: () => void }) {
   const { t, errText } = useT();
   return (
     <div className="flex items-center gap-3 px-5 py-5">
-      <p className="flex-1 text-[12.5px] text-[var(--status-danger-fg)]">{errText(err, t("settings.org.loadFailed"))}</p>
+      <p className="flex-1 text-[13.5px] text-[var(--status-danger-fg)]">{errText(err, t("settings.org.loadFailed"))}</p>
       <Button size="sm" variant="secondary" onClick={retry}>
         {t("common.retry")}
       </Button>
@@ -120,9 +120,9 @@ function Users() {
     <SettingsPage title={t("settings.org.users")} desc={t(ldap ? "settings.desc.usersLdap" : "settings.desc.users")}>
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[220px] flex-1">
-          <Input aria-label={t("settings.org.searchUsers")} iconLeft={<IcSearch size={14} />} placeholder={t("settings.org.searchUsers")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input aria-label={t("settings.org.searchUsers")} iconLeft={<IcSearch size={16} />} placeholder={t("settings.org.searchUsers")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <Button variant="primary" iconLeft={<IcPlus size={14} />} disabled={ldap ? t("settings.org.createLdap") : false} onClick={() => setCreate(true)}>
+        <Button variant="primary" iconLeft={<IcPlus size={16} />} disabled={ldap ? t("settings.org.createLdap") : false} onClick={() => setCreate(true)}>
           {t("settings.org.addUser")}
         </Button>
       </div>
@@ -138,11 +138,11 @@ function Users() {
               <div key={u.id} className={`flex flex-wrap items-center gap-3 px-5 py-3 ${u.isActive ? "" : "opacity-60"}`}>
                 <Avatar person={{ name: u.name }} size={32} />
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 truncate text-[13px] font-medium text-ink">
+                  <p className="flex items-center gap-2 truncate text-[14px] font-medium text-ink">
                     {u.name}
-                    {u.id === me.id && <span className="text-[11.5px] font-normal text-faint">{t("settings.org.you")}</span>}
+                    {u.id === me.id && <span className="text-[12.5px] font-normal text-faint">{t("settings.org.you")}</span>}
                   </p>
-                  <p className="truncate text-[12px] text-faint">
+                  <p className="truncate text-[13px] text-faint">
                     @{u.username}
                     {u.jobRole && ` · ${u.jobRole}`}
                   </p>
@@ -158,7 +158,7 @@ function Users() {
                   disabled={ldapUser}
                   title={ldapUser ? t("settings.org.roleFromLdap") : undefined}
                   onChange={(e) => void patch(u, { globalRole: e.target.value as SafeUser["globalRole"] })}
-                  className="ds-input ds-focus h-8 min-w-[150px] cursor-pointer text-[12.5px] font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                  className="ds-input ds-focus h-8 min-w-[150px] cursor-pointer text-[13.5px] font-medium disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="member">{t("settings.org.roleMember")}</option>
                   <option value="admin">{t("settings.profile.roleAdmin")}</option>
@@ -237,7 +237,7 @@ export function ResetPassword({ user, onClose }: { user: SafeUser; onClose: () =
         </>
       }
     >
-      {err && <p role="alert" className="text-[12.5px] text-[var(--status-danger-fg)]">{err}</p>}
+      {err && <p role="alert" className="text-[13.5px] text-[var(--status-danger-fg)]">{err}</p>}
     </Dialog>
   );
 }
@@ -397,7 +397,7 @@ function Ldap() {
       <SettingsCard title={t("settings.org.ldapGroups")} footer={t("settings.org.ldapGroupsHint")}>
         {data.departments.map((d) => (
           <div key={d.id} className="grid items-center gap-2 px-5 py-3 sm:grid-cols-[200px_1fr]">
-            <span className="truncate text-[13px] font-medium text-ink">{d.name}</span>
+            <span className="truncate text-[14px] font-medium text-ink">{d.name}</span>
             <Input
               key={d.ldapGroupDn ?? ""}
               aria-label={t("settings.org.ldapGroupFor", { name: d.name })}
@@ -456,12 +456,12 @@ function LicenseBody({ st, lang }: { st: LicenseStatusDto; lang: string }) {
         </Tag>
       </SettingRow>
       <SettingRow label={t("settings.org.licensePlan")}>
-        <span className="text-[13px] font-semibold text-ink">{c.plan}</span>
-        {c.issuedTo && <span className="ml-2 text-[12px] text-faint">{c.issuedTo}</span>}
+        <span className="text-[14px] font-semibold text-ink">{c.plan}</span>
+        {c.issuedTo && <span className="ml-2 text-[13px] text-faint">{c.issuedTo}</span>}
       </SettingRow>
       <SettingRow label={t("settings.org.licenseSeats")} hint={t("settings.org.licenseSeatsHint", { days: c.activeWindowDays })}>
         <div className="flex w-[220px] flex-col gap-1.5">
-          <span className={`text-right text-[13px] font-semibold tabular ${st.seatsOverLimit ? "text-[var(--status-danger-fg)]" : "text-ink"}`}>
+          <span className={`text-right text-[14px] font-semibold tabular ${st.seatsOverLimit ? "text-[var(--status-danger-fg)]" : "text-ink"}`}>
             {st.seatsUsed} / {c.maxSeats}
           </span>
           <Progress value={pct} label={t("settings.org.licenseSeats")} />
@@ -491,7 +491,7 @@ function Export() {
       <SettingsCard>
         <SettingRow label={t("admin.export")} hint={t("admin.exportHint")}>
           <a href={adminApi.exportUrl()} className="ds-btn ds-focus" data-variant="secondary" data-size="md">
-            <IcDownload size={14} /> NDJSON
+            <IcDownload size={16} /> NDJSON
           </a>
         </SettingRow>
       </SettingsCard>
@@ -529,14 +529,14 @@ function Audit() {
           />
           <div className="flex items-end justify-end">
             <a href={adminApi.auditExportUrl(format, iso(from), iso(to, true))} className="ds-btn ds-focus" data-variant="primary" data-size="md">
-              <IcDownload size={14} /> {t("settings.org.download")}
+              <IcDownload size={16} /> {t("settings.org.download")}
             </a>
           </div>
         </div>
       </SettingsCard>
       <SettingsCard>
         <SettingRow label={t("settings.org.auditRetention")} hint={t("settings.org.auditRetentionHint")}>
-          <span className="flex items-center gap-2 text-[13px] font-semibold tabular text-ink">
+          <span className="flex items-center gap-2 text-[14px] font-semibold tabular text-ink">
             {m && !(m instanceof Error) ? t("settings.org.days", { n: m.settings.auditRetentionDays }) : "…"} <EnvTag />
           </span>
         </SettingRow>
@@ -608,17 +608,17 @@ function Maintenance() {
         ) : st instanceof Error ? (
           <Failed err={st} retry={reload} />
         ) : st.jobs.length === 0 ? (
-          <p className="px-5 py-5 text-[12.5px] text-faint">{t(st.enabled ? "settings.org.jobsNone" : "settings.org.jobsDisabled")}</p>
+          <p className="px-5 py-5 text-[13.5px] text-faint">{t(st.enabled ? "settings.org.jobsNone" : "settings.org.jobsDisabled")}</p>
         ) : (
           st.jobs.map((j) => (
             <div key={j.name} className="flex flex-wrap items-center gap-3 px-5 py-3">
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-ink">{JOB_KEY[j.name] ? t(JOB_KEY[j.name] as "settings.org.jobMaintenance") : j.name}</p>
-                <p className="text-[12px] text-faint">
+                <p className="text-[14px] font-medium text-ink">{JOB_KEY[j.name] ? t(JOB_KEY[j.name] as "settings.org.jobMaintenance") : j.name}</p>
+                <p className="text-[13px] text-faint">
                   {t("settings.org.jobEvery", { every: dur(j.intervalMs, lang) })} · {t("settings.org.jobLast", { at: dt(j.lastRunAt, lang) })}
                   {j.lastDurationMs !== null && ` · ${j.lastDurationMs} ms`}
                 </p>
-                {j.lastError && <p className="mt-0.5 text-[12px] text-[var(--status-danger-fg)]">{j.lastError}</p>}
+                {j.lastError && <p className="mt-0.5 text-[13px] text-[var(--status-danger-fg)]">{j.lastError}</p>}
               </div>
               <Tag tone={j.running ? "sky" : j.lastResult === "error" ? "red" : j.lastResult === "success" ? "green" : "gray"} size="sm" strong dot>
                 {t(j.running ? "settings.org.jobRunning" : j.lastResult === "error" ? "settings.org.jobError" : j.lastResult === "success" ? "settings.org.jobOk" : j.lastResult === "skipped" ? "settings.org.jobSkipped" : "settings.org.jobNever")}
@@ -639,7 +639,7 @@ function Maintenance() {
             ] as const
           ).map(([k, v]) => (
             <SettingRow key={k} label={t(k)}>
-              <span className="flex items-center gap-2 text-[13px] font-semibold tabular text-ink">
+              <span className="flex items-center gap-2 text-[14px] font-semibold tabular text-ink">
                 {v} <EnvTag />
               </span>
             </SettingRow>
@@ -690,11 +690,11 @@ function Templates() {
   const row = (x: (typeof all)[number], deletable: boolean) => (
     <div key={x.id} className="flex items-center gap-3 px-5 py-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-ink">{x.name}</p>
-        <p className="truncate text-[12px] text-faint">{x.spec.statuses.map((s) => s.name).join(" → ")}</p>
+        <p className="truncate text-[14px] font-medium text-ink">{x.name}</p>
+        <p className="truncate text-[13px] text-faint">{x.spec.statuses.map((s) => s.name).join(" → ")}</p>
       </div>
       {deletable && (
-        <Button size="sm" variant="ghost" iconLeft={<IcTrash size={13} />} onClick={() => setConfirm({ id: x.id, name: x.name })}>
+        <Button size="sm" variant="ghost" iconLeft={<IcTrash size={15} />} onClick={() => setConfirm({ id: x.id, name: x.name })}>
           {t("common.delete")}
         </Button>
       )}
@@ -703,7 +703,7 @@ function Templates() {
   return (
     <SettingsPage title={t("settings.org.project-templates")} desc={t("settings.desc.projectTemplates")}>
       <div className="flex justify-end">
-        <Button variant="primary" iconLeft={<IcPlus size={14} />} onClick={() => openProjectWizard()}>
+        <Button variant="primary" iconLeft={<IcPlus size={16} />} onClick={() => openProjectWizard()}>
           {t("wizard.title")}
         </Button>
       </div>
@@ -789,7 +789,7 @@ function Brand() {
         </div>
         <div className="flex flex-col gap-3 px-5 py-4">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[13px] font-medium text-ink">{t("brand.hue")}</p>
+            <p className="text-[14px] font-medium text-ink">{t("brand.hue")}</p>
             <Button variant="ghost" size="sm" type="button" className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0" disabled={hue === BRAND_HUE.default} onClick={() => pick(BRAND_HUE.default)}>
               {t("brand.default")}
             </Button>
@@ -810,7 +810,7 @@ function Brand() {
             onChange={(e) => pick(Number(e.target.value))}
             className="w-full accent-[var(--accent-solid)]"
           />}
-          <p className="text-[12px] leading-relaxed text-faint">{t("brand.hueHint")}</p>
+          <p className="text-[13px] leading-relaxed text-faint">{t("brand.hueHint")}</p>
         </div>
         <div className="px-5 py-4">
           <RadioGroup label={t("transparency.orgLabel")} value={transparencyDefault} onChange={setTransDefault} disabled={busy} options={[
@@ -819,19 +819,19 @@ function Brand() {
           ]} />
         </div>
         <div className="flex flex-col gap-3 px-5 py-4">
-          <p className="text-[12px] font-medium text-faint">{t("brand.preview")}</p>
+          <p className="text-[13px] font-medium text-faint">{t("brand.preview")}</p>
           <div className="flex flex-wrap items-center gap-4 rounded-lg bg-sunken/70 px-4 py-3 ring-1 ring-inset ring-linesoft">
             <span className="flex min-w-0 items-center gap-2.5">
               <BrandMark size={22} />
-              <span className="truncate font-disp text-[16px] font-bold tracking-[-0.03em] text-ink">{nextName ?? DEFAULT_BRAND_NAME}</span>
+              <span className="truncate font-disp text-[17px] font-bold tracking-[-0.03em] text-ink">{nextName ?? DEFAULT_BRAND_NAME}</span>
             </span>
             <span className="flex-1" />
-            <span className="text-[13px] font-medium text-accent">{t("brand.previewLink")}</span>
+            <span className="text-[14px] font-medium text-accent">{t("brand.previewLink")}</span>
             <Button size="sm" variant="primary" tabIndex={-1} aria-hidden>
               {t("brand.previewButton")}
             </Button>
           </div>
-          {hue !== savedHue && <p className="text-[12px] text-faint">{t("brand.unsaved")}</p>}
+          {hue !== savedHue && <p className="text-[13px] text-faint">{t("brand.unsaved")}</p>}
           <div className="flex justify-end">
             <Button variant="primary" disabled={!dirty} loading={busy} onClick={save}>
               {t("common.save")}
@@ -847,7 +847,7 @@ function Brand() {
             <BrandMark size={22} />
           </div>
           <div className="flex min-w-0 flex-col gap-3">
-            <p className="text-[12.5px] leading-relaxed text-faint">{t("brand.logoHint")}</p>
+            <p className="text-[13.5px] leading-relaxed text-faint">{t("brand.logoHint")}</p>
             <div className="flex flex-wrap gap-2">
               <input ref={input} type="file" accept="image/png,image/webp" className="sr-only" tabIndex={-1} aria-label={t("brand.logoUpload")} onChange={(e) => onFile(e.target.files?.[0])} />
               <Button size="sm" variant="secondary" loading={busy} onClick={() => input.current?.click()}>

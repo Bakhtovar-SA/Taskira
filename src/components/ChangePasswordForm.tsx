@@ -79,7 +79,7 @@ export function ChangePasswordForm({ currentPassword, onDone, submitLabel }: Pro
         error={mismatch ? t("password.mismatch") : undefined}
       />
       {error && (
-        <div role="alert" className="rounded-lg bg-dangersoft px-3 py-2 text-[13px] leading-relaxed text-[var(--status-danger-fg)] ring-1 ring-inset ring-danger/25">
+        <div role="alert" className="rounded-lg bg-dangersoft px-3 py-2 text-[14px] leading-relaxed text-[var(--status-danger-fg)] ring-1 ring-inset ring-danger/25">
           {error}
         </div>
       )}

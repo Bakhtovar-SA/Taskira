@@ -55,7 +55,7 @@ export const TimeHeader = memo(function TimeHeader({ ticks, today, compact = fal
             <span
               key={t.x}
               ref={cssVars({ "--x": TIME_PAD + t.x, "--w": t.w, "--in": firstMajorAt(t) })}
-              className="absolute left-[var(--x)] top-[7px] w-[var(--w)] truncate pl-[var(--in)] pr-1 text-[11.5px] font-bold text-sub first-letter:uppercase"
+              className="absolute left-[var(--x)] top-[7px] w-[var(--w)] truncate pl-[var(--in)] pr-1 text-[12.5px] font-bold text-sub first-letter:uppercase"
             >
               {t.w >= 28 && t.label}
             </span>
@@ -66,7 +66,7 @@ export const TimeHeader = memo(function TimeHeader({ ticks, today, compact = fal
             <span
               key={t.x}
               ref={cssVars({ "--x": TIME_PAD + t.x, "--w": t.w })}
-              className="absolute left-[var(--x)] top-0.5 w-[var(--w)] truncate px-1.5 text-[11.5px] tabular text-faint"
+              className="absolute left-[var(--x)] top-0.5 w-[var(--w)] truncate px-1.5 text-[12.5px] tabular text-faint"
             >
               {/* Хвост единицы у левого края уже подписи — обрубок «с» вместо «сент» хуже, чем ничего. */}
               {t.w >= 28 && t.label}
@@ -75,7 +75,7 @@ export const TimeHeader = memo(function TimeHeader({ ticks, today, compact = fal
           {today && (
             <em
               ref={cssVars({ "--x": todayAt })}
-              className="absolute -top-5 left-[var(--x)] z-30 -translate-x-1/2 whitespace-nowrap rounded-md bg-accent px-1.5 text-[10.5px] font-bold not-italic leading-4 text-onaccent shadow-[0_2px_10px_-2px_var(--accent-glow)]"
+              className="absolute -top-5 left-[var(--x)] z-30 -translate-x-1/2 whitespace-nowrap rounded-md bg-accent px-1.5 text-[11.5px] font-bold not-italic leading-4 text-onaccent shadow-[0_2px_10px_-2px_var(--accent-glow)]"
             >
               {today.label}
             </em>

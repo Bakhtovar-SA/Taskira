@@ -15,7 +15,7 @@ export function DashboardTabs({ current, dashboards, onNew, actions }: { current
   const { setView } = useStore();
   return (
     <header className="reports-header">
-      <IconButton size="sm" className="lg:hidden" label={t("sidebar.menu")} onClick={openSidebarDrawer}><IcPanel size={18} /></IconButton>
+      <IconButton size="sm" className="lg:hidden" label={t("sidebar.menu")} onClick={openSidebarDrawer}><IcPanel size={20} /></IconButton>
       <h1>{t("sidebar.nav.dashboards")}</h1>
       <nav aria-label={t("sidebar.nav.dashboards")}>
         <Tabs mode="navigation" variant="line" label={t("dash.title")} value={current}
@@ -23,9 +23,9 @@ export function DashboardTabs({ current, dashboards, onNew, actions }: { current
           items={[
             { id: ORG_OVERVIEW_ID, label: t("dash.orgOverview"), href: "/dashboards/overview" },
             { id: "reports", label: t("reports.tasksPeriod"), href: "/reports" },
-            ...(dashboards ?? []).map(d => ({ id: d.id, label: d.name, href: `/dashboards/${encodeURIComponent(d.id)}`, icon: d.kind === "org" ? <IcUsers size={13} /> : <IcLock size={12} /> })),
+            ...(dashboards ?? []).map(d => ({ id: d.id, label: d.name, href: `/dashboards/${encodeURIComponent(d.id)}`, icon: d.kind === "org" ? <IcUsers size={15} /> : <IcLock size={14} /> })),
           ]} />
-        <Button size="sm" variant="ghost" iconLeft={<IcPlus size={13} />} onClick={onNew ?? (() => setView("dashboards", "new"))}>{t("dash.new")}</Button>
+        <Button size="sm" variant="ghost" iconLeft={<IcPlus size={15} />} onClick={onNew ?? (() => setView("dashboards", "new"))}>{t("dash.new")}</Button>
       </nav>
       {actions && <div className="reports-header-actions">{actions}</div>}
     </header>

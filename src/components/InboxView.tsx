@@ -107,7 +107,7 @@ export default function InboxView() {
         <div className="flex flex-wrap items-end gap-3">
           <div className="mr-auto">
             <h1 className="font-disp text-[22px] font-semibold tracking-[-0.02em] text-ink">{t("sidebar.nav.inbox")}</h1>
-            <p className="mt-0.5 text-[12.5px] text-faint">{t("inbox.subtitle")}</p>
+            <p className="mt-0.5 text-[13.5px] text-faint">{t("inbox.subtitle")}</p>
           </div>
           <div role="tablist" aria-label={t("sidebar.nav.inbox")} className="flex items-center gap-0.5 rounded-lg bg-sunken/70 p-0.5 ring-1 ring-inset ring-linesoft">
             {(["all", "unread"] as const).map((f) => (
@@ -119,7 +119,7 @@ export default function InboxView() {
                   setFilter(f);
                   setCursor(0);
                 }}
-                className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-semibold transition-[background-color,color,box-shadow] duration-150 ${
+                className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13.5px] font-semibold transition-[background-color,color,box-shadow] duration-150 ${
                   filter === f ? "bg-panel text-ink shadow-[var(--highlight-top),0_1px_2px_oklch(0.2_0.05_288/0.1)]" : "text-sub hover:text-ink"
                 }`}
               >
@@ -130,7 +130,7 @@ export default function InboxView() {
           </div>
           {unreadCount > 0 && (
             <Button variant="ghost" size="sm" onClick={() => markNotificationsRead()} className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
-              <IcCheck size={13} /> {t("topbar.markAllRead")}
+              <IcCheck size={15} /> {t("topbar.markAllRead")}
             </Button>
           )}
           {notifications.length > 0 && (
@@ -157,7 +157,7 @@ export default function InboxView() {
           <div ref={listRef} className="mt-6 space-y-6">
             {groups.map((g) => (
               <section key={g.id}>
-                <h2 className="mb-2 px-1 text-[11.5px] font-semibold tracking-[0.01em] text-faint">{t(`inbox.${g.id}`)}</h2>
+                <h2 className="mb-2 px-1 text-[12.5px] font-semibold tracking-[0.01em] text-faint">{t(`inbox.${g.id}`)}</h2>
                 <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
                   {g.items.map((th) => {
                     const n = th.head;
@@ -179,19 +179,19 @@ export default function InboxView() {
                             {!read && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] ring-2 ring-panel" />}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-[13.5px] leading-snug text-ink">
+                            <span className="block text-[14.5px] leading-snug text-ink">
                               {n.type !== "issue.dueSoon" && <b className="font-semibold">{n.actor?.name ?? t("topbar.someone")}</b>} {t(NOTIF_VERB[n.type])}{" "}
                               {n.type === "issue.dueSoon" && <span className="text-sub">{n.payload.dueDate} · </span>}
-                              {n.payload.key && <span className="font-mono text-[12px] font-medium text-accenttext">{n.payload.key}</span>}
+                              {n.payload.key && <span className="font-mono text-[13px] font-medium text-accenttext">{n.payload.key}</span>}
                               {n.type === "project.member" && n.payload.projectName && <span className="text-faint"> «{n.payload.projectName}»</span>}
                               {th.rest.length > 0 && (
-                                <span className="ml-1.5 rounded-full bg-sunken px-1.5 py-px align-[1px] text-[11px] font-medium tabular text-faint ring-1 ring-inset ring-linesoft">
+                                <span className="ml-1.5 rounded-full bg-sunken px-1.5 py-px align-[1px] text-[12px] font-medium tabular text-faint ring-1 ring-inset ring-linesoft">
                                   {t("inbox.moreEvents", { n: th.rest.length })}
                                 </span>
                               )}
                             </span>
                             {(n.payload.title || (n.type === "issue.status" && n.payload.from)) && (
-                              <span className="mt-0.5 block truncate text-[12.5px] text-sub">
+                              <span className="mt-0.5 block truncate text-[13.5px] text-sub">
                                 {n.payload.title}
                                 {n.type === "issue.status" && n.payload.from && (
                                   <span className="text-faint">
@@ -204,7 +204,7 @@ export default function InboxView() {
                           </span>
                           <span className="flex shrink-0 items-center gap-2 pt-0.5">
                             {pk && <ProjectMark projectKey={pk} {...lookOf(data.projects, pk)} size={18} />}
-                            <span className="w-[72px] text-right text-[11.5px] tabular text-faint">{relTime(n.createdAt)}</span>
+                            <span className="w-[72px] text-right text-[12.5px] tabular text-faint">{relTime(n.createdAt)}</span>
                           </span>
                         </Button>
                         <IconButton variant="ghost" size="sm" label={t("topbar.dismissOneTitle")}
@@ -213,7 +213,7 @@ export default function InboxView() {
 
                           className="mt-1 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                         >
-                          <IcX size={12} />
+                          <IcX size={14} />
                         </IconButton>
                       </div>
                     );
@@ -221,7 +221,7 @@ export default function InboxView() {
                 </div>
               </section>
             ))}
-            <p className="hidden text-center text-[11.5px] text-faint md:block">{t("inbox.hint")}</p>
+            <p className="hidden text-center text-[12.5px] text-faint md:block">{t("inbox.hint")}</p>
           </div>
         )}
       </div>

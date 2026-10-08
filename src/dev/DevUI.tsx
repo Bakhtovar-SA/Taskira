@@ -62,7 +62,7 @@ function Section({ id, title, note, children }: { id: string; title: string; not
   return (
     <section id={id} data-section={id} className="scroll-mt-20 rounded-2xl bg-panel/70 p-6 shadow-e1 ring-1 ring-inset ring-linesoft">
       <h2 className="font-disp text-[17px] font-bold tracking-[-0.01em] text-ink">{title}</h2>
-      {note && <p className="mt-1 max-w-[72ch] text-[12.5px] leading-relaxed text-sub">{note}</p>}
+      {note && <p className="mt-1 max-w-[72ch] text-[13.5px] leading-relaxed text-sub">{note}</p>}
       <div className="mt-5">{children}</div>
     </section>
   );
@@ -107,7 +107,7 @@ export default function DevUI() {
     <div className="min-h-full">
       <header className="glass sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-linesoft px-6 py-3">
         <h1 className="font-disp text-[18px] font-bold tracking-[-0.02em] text-ink">Taskira · компоненты</h1>
-        <span className="text-[12px] text-faint">ТЗ 5.7 · ADR-0014 · только dev</span>
+        <span className="text-[13px] text-faint">ТЗ 5.7 · ADR-0014 · только dev</span>
         <div className="ml-auto flex flex-wrap items-center gap-3">
           <Tabs label="Тема" value={theme} onChange={setTheme} items={[{ id: "light", label: "Светлая" }, { id: "dark", label: "Тёмная" }]} />
           <Tabs label="Плотность" value={density} onChange={setDensity} items={[{ id: "comfortable", label: "Обычная" }, { id: "compact", label: "Плотная" }]} />
@@ -120,10 +120,10 @@ export default function DevUI() {
           <div className="grid gap-5 md:grid-cols-2">
             <Concept n={1} title="Клавиша прямо в кнопке" text="Главные действия показывают свою клавишу — горячие клавиши учатся сами собой, без справки.">
               <div className="flex flex-wrap gap-2">
-                <Button variant="primary" iconLeft={<IcPlus size={14} />} kbd="C">
+                <Button variant="primary" iconLeft={<IcPlus size={16} />} kbd="C">
                   Создать
                 </Button>
-                <Button variant="secondary" iconLeft={<IcSearch size={14} />} kbd="Ctrl K">
+                <Button variant="secondary" iconLeft={<IcSearch size={16} />} kbd="Ctrl K">
                   Поиск
                 </Button>
               </div>
@@ -131,7 +131,7 @@ export default function DevUI() {
             <Concept n={2} title="Недоступно — с причиной" text="Серая кнопка без объяснения раздражает. Недоступная кнопка остаётся в фокусе и говорит, почему нельзя.">
               <div className="flex items-center gap-2">
                 <Tooltip label="Только менеджер проекта может удалять задачи" open placement="right">
-                  <Button variant="danger" disabled iconLeft={<IcTrash size={14} />}>
+                  <Button variant="danger" disabled iconLeft={<IcTrash size={16} />}>
                     Удалить
                   </Button>
                 </Tooltip>
@@ -165,7 +165,7 @@ export default function DevUI() {
         <Section id="button" title="Button" note="primary / secondary / ghost / danger × состояния. Недоступная — aria-disabled: остаётся в Tab и показывает причину.">
           <div className="grid grid-cols-6 items-center justify-items-start gap-x-4 gap-y-3">
             {STATE_COLS.map((c) => (
-              <p key={c} className="text-[11px] font-semibold text-faint">
+              <p key={c} className="text-[12px] font-semibold text-faint">
                 {c}
               </p>
             ))}
@@ -198,7 +198,7 @@ export default function DevUI() {
             <Button variant="primary" size="lg">
               Большая
             </Button>
-            <Button variant="secondary" iconLeft={<IcCompose size={14} />} iconRight={<Kbd>C</Kbd>}>
+            <Button variant="secondary" iconLeft={<IcCompose size={16} />} iconRight={<Kbd>C</Kbd>}>
               С иконкой
             </Button>
           </div>
@@ -207,29 +207,29 @@ export default function DevUI() {
         <Section id="iconbutton" title="IconButton" note="Подпись обязательна: это и доступное имя, и подсказка (с клавишей, если есть).">
           <div className="grid grid-cols-6 items-center justify-items-start gap-x-4 gap-y-3">
             {STATE_COLS.map((c) => (
-              <p key={c} className="text-[11px] font-semibold text-faint">
+              <p key={c} className="text-[12px] font-semibold text-faint">
                 {c}
               </p>
             ))}
             {(["ghost", "secondary", "primary"] as ButtonVariant[]).map((v) => (
               <Row key={v}>
                 <IconButton label="Редактировать" kbd="E" variant={v}>
-                  <IcPencil size={15} />
+                  <IcPencil size={17} />
                 </IconButton>
                 <IconButton label="Редактировать" variant={v} force="hover">
-                  <IcPencil size={15} />
+                  <IcPencil size={17} />
                 </IconButton>
                 <IconButton label="Редактировать" variant={v} force="focus">
-                  <IcPencil size={15} />
+                  <IcPencil size={17} />
                 </IconButton>
                 <IconButton label="Редактировать" variant={v} force="active">
-                  <IcPencil size={15} />
+                  <IcPencil size={17} />
                 </IconButton>
                 <IconButton label="Редактировать" variant={v} disabled="Задача в архиве">
-                  <IcPencil size={15} />
+                  <IcPencil size={17} />
                 </IconButton>
                 <IconButton label="Редактировать" variant={v} loading>
-                  <IcPencil size={15} />
+                  <IcPencil size={17} />
                 </IconButton>
               </Row>
             ))}
@@ -241,7 +241,7 @@ export default function DevUI() {
             <Input label={L("Название", "Название задачи для отдела продаж")} placeholder="Например, «Согласовать договор»" hint="До 200 символов" />
             <Input label="Hover" placeholder="Наведение" force="hover" />
             <Input label="Фокус" placeholder="В фокусе" force="focus" />
-            <Input label="Поиск" iconLeft={<IcSearch size={14} />} placeholder="Поиск задач…" right={<Kbd>/</Kbd>} />
+            <Input label="Поиск" iconLeft={<IcSearch size={16} />} placeholder="Поиск задач…" right={<Kbd>/</Kbd>} />
             <Input label="Ключ проекта" defaultValue="corp 1" error="Только латиница и цифры, без пробелов" />
             <Input label="Отдел" defaultValue="Синхронизирован из LDAP" disabled="Меняется в Active Directory" />
           </div>
@@ -289,12 +289,12 @@ export default function DevUI() {
               onChange={setTab}
               force={{ id: "timeline", state: "hover" }}
               items={[
-                { id: "board", tabId: "demo-board-tab", panelId: "demo-board-panel", label: "Доска", icon: <IcBoard size={14} tone="violet" /> },
-                { id: "list", tabId: "demo-list-tab", panelId: "demo-list-panel", label: "Список", icon: <IcBacklog size={14} /> },
-                { id: "timeline", tabId: "demo-timeline-tab", panelId: "demo-timeline-panel", label: "Таймлайн", icon: <IcTimeline size={14} /> },
+                { id: "board", tabId: "demo-board-tab", panelId: "demo-board-panel", label: "Доска", icon: <IcBoard size={16} tone="violet" /> },
+                { id: "list", tabId: "demo-list-tab", panelId: "demo-list-panel", label: "Список", icon: <IcBacklog size={16} /> },
+                { id: "timeline", tabId: "demo-timeline-tab", panelId: "demo-timeline-panel", label: "Таймлайн", icon: <IcTimeline size={16} /> },
               ]}
             />
-            {["board", "list", "timeline"].map(id => <div key={id} id={`demo-${id}-panel`} role="tabpanel" aria-labelledby={`demo-${id}-tab`} hidden={tab !== id} className="text-[13px] text-sub">{L("Содержимое выбранного вида", "Selected view content")}</div>)}
+            {["board", "list", "timeline"].map(id => <div key={id} id={`demo-${id}-panel`} role="tabpanel" aria-labelledby={`demo-${id}-tab`} hidden={tab !== id} className="text-[14px] text-sub">{L("Содержимое выбранного вида", "Selected view content")}</div>)}
             <Tabs
               label="Раздел"
               variant="line"
@@ -314,17 +314,17 @@ export default function DevUI() {
             <Menu
               label="Действия с задачей"
               trigger={(p) => (
-                <Button {...p} variant="secondary" iconLeft={<IcDots size={14} />}>
+                <Button {...p} variant="secondary" iconLeft={<IcDots size={16} />}>
                   Действия
                 </Button>
               )}
               items={[
                 { kind: "label", id: "l", label: "Задача CORP-12" },
-                { id: "e", label: "Редактировать", icon: <IcPencil size={14} />, hint: <Kbd>E</Kbd>, onSelect: () => {} },
-                { id: "l2", label: "Копировать ссылку", icon: <IcLink size={14} />, onSelect: () => {} },
-                { id: "a", label: "В архив", icon: <IcArchive size={14} />, disabled: true, onSelect: () => {} },
+                { id: "e", label: "Редактировать", icon: <IcPencil size={16} />, hint: <Kbd>E</Kbd>, onSelect: () => {} },
+                { id: "l2", label: "Копировать ссылку", icon: <IcLink size={16} />, onSelect: () => {} },
+                { id: "a", label: "В архив", icon: <IcArchive size={16} />, disabled: true, onSelect: () => {} },
                 { kind: "sep", id: "s" },
-                { id: "d", label: "Удалить", icon: <IcTrash size={14} />, danger: true, onSelect: () => {} },
+                { id: "d", label: "Удалить", icon: <IcTrash size={16} />, danger: true, onSelect: () => {} },
               ]}
             />
             <Popover
@@ -469,10 +469,10 @@ function Concept({ n, title, text, children }: { n: number; title: string; text:
   return (
     <div className="flex flex-col gap-3 rounded-xl bg-canvas/60 p-4 ring-1 ring-inset ring-linesoft">
       <div className="flex items-baseline gap-2">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-accentsoft text-[11px] font-bold text-accenttext">{n}</span>
-        <p className="text-[13.5px] font-bold text-ink">{title}</p>
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-accentsoft text-[12px] font-bold text-accenttext">{n}</span>
+        <p className="text-[14.5px] font-bold text-ink">{title}</p>
       </div>
-      <p className="-mt-1 text-[12.5px] leading-relaxed text-sub">{text}</p>
+      <p className="-mt-1 text-[13.5px] leading-relaxed text-sub">{text}</p>
       <div className="min-h-[44px]">{children}</div>
     </div>
   );

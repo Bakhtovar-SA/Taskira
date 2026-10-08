@@ -126,13 +126,13 @@ export default function SettingsView() {
   return (
     <div className="flex h-full min-h-0 max-md:flex-col">
       <nav aria-label={t("settings.title")} className="shrink-0 border-linesoft md:w-[236px] md:overflow-y-auto md:border-r md:px-3 md:py-5 max-md:flex max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:px-3 max-md:py-2">
-        <p className="px-2.5 pb-2 font-disp text-[15px] font-bold tracking-[-0.01em] text-ink max-md:hidden">{t("settings.title")}</p>
+        <p className="px-2.5 pb-2 font-disp text-[16px] font-bold tracking-[-0.01em] text-ink max-md:hidden">{t("settings.title")}</p>
         {HOMES.map((h) => {
           const items = nav(h);
           if (!items.length) return null;
           return (
             <div key={h} className="md:mb-3 max-md:contents">
-              <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-2 text-[11.5px] font-semibold text-faint max-md:hidden">
+              <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-2 text-[12.5px] font-semibold text-faint max-md:hidden">
                 {h === "projectSettings" && <ProjectMark projectKey={data.project.key} {...lookOf(data.projects, data.currentProjectId)} size={14} />}
                 {t(HOME_KEY[h])}
                 {h === "projectSettings" && <span className="truncate font-medium">· {data.project.name}</span>}
@@ -146,7 +146,7 @@ export default function SettingsView() {
                     type="button"
                     onClick={() => setView(h, s)}
                     aria-current={on ? "page" : undefined}
-                    className={(`ds-focus flex h-8 w-full shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 text-left text-[13px] font-medium transition-colors max-md:w-auto ${
+                    className={(`ds-focus flex h-8 w-full shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 text-left text-[14px] font-medium transition-colors max-md:w-auto ${
                       on ? "bg-panel font-semibold text-ink shadow-[var(--highlight-top),0_1px_2px_oklch(0.2_0.05_288/0.08),0_0_0_1px_var(--border-subtle)]" : "text-sub hover:bg-hover/70 hover:text-ink"
                     }`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
                   >
