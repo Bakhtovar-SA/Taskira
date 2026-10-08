@@ -320,6 +320,18 @@ jobs:
 
       - run: npm test
 
+  server-summary:
+    # Keep the stable check name even when PostgreSQL matrix members change.
+    name: server
+    needs: server
+    if: always()
+    runs-on: [self-hosted, Linux, light]
+    steps:
+      - name: Require every PostgreSQL suite to pass
+        env:
+          MATRIX_RESULT: ${{ needs.server.result }}
+        run: test "$MATRIX_RESULT" = success
+
   # Контракт клиент↔сервер (ТЗ 2.1): клиентские типы выводятся из server/src/contract.ts, поэтому правка серверных
   # типов может сломать клиент и наоборот. Оба typecheck в ОДНОЙ джобе — один статус проверки на PR, а не два,
   # которые можно смёржить по отдельности. Чтобы он реально блокировал мерж, джоба должна быть required check в

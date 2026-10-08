@@ -47,24 +47,27 @@ describe("версия PostgreSQL: реальная БД", () => {
     }
   });
 
-  it("GET /ready содержит postgres с версией реальной БД", async () => {
+  it.each(["/ready", "/api/health"])("GET %s сообщает major реальной БД без точной версии", async url => {
     const app = await getApp();
     const major = await realMajor();
-    const [{ v }] = await q<{ v: string }>(`SELECT current_setting('server_version_num')::int AS v`);
-    const minor = Number(v) % 10000;
-    const res = await app.inject({ method: "GET", url: "/ready" });
+    const res = await app.inject({ method: "GET", url });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.ok).toBe(true);
     expect(body.postgres).toMatchObject({
-      version: `${major}.${minor}`,
       major,
       minMajor: PG_MIN_MAJOR,
       maxTestedMajor: PG_MAX_TESTED_MAJOR,
     });
+    expect(body.postgres).not.toHaveProperty("version");
+    expect(body.postgres).not.toHaveProperty("minor");
+    expect(body.postgres).not.toHaveProperty("versionNum");
     if (major > PG_MAX_TESTED_MAJOR) {
       expect(body.postgres.status).toBe("newer_than_tested");
       expect(body.warnings).toEqual(expect.arrayContaining([expect.objectContaining({ code: "postgres_version_untested" })]));
+      const warning = body.warnings.find((w: { code: string }) => w.code === "postgres_version_untested");
+      expect(warning.reason).toContain(`PostgreSQL ${major} `);
+      expect(warning.reason).not.toContain(`PostgreSQL ${major}.`);
     } else {
       expect(body.postgres.status).toBe("supported");
       expect(body.warnings?.some((w: { code: string }) => w.code === "postgres_version_untested") ?? false).toBe(false);

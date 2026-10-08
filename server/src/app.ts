@@ -53,7 +53,7 @@ import { onboardingRoutes } from "./routes/onboarding.js";
 import { brandRoutes } from "./routes/brand.js";
 import { roadmapRoutes } from "./routes/roadmap.js";
 import { dashboardRoutes } from "./routes/dashboards.js";
-import { getPgVersionInfo, unsupportedVersionMessage } from "./services/pgVersion.js";
+import { getPgVersionInfo } from "./services/pgVersion.js";
 import { searchIndexWarnings, type HealthWarning } from "./services/healthWarnings.js";
 import { createTtlCache } from "./services/ttlCache.js";
 import { observeHttpRequest, refreshBackgroundQueueMetrics, renderMetrics } from "./metrics.js";
@@ -210,20 +210,17 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       }
     }
     // OPS-PG-01: версия PostgreSQL для экрана состояния; предупреждение, если она новее проверенных.
-    let postgres: { version: string; major: number; status: string; minMajor: number; maxTestedMajor: number } | undefined;
+    let postgres: { major: number; status: string; minMajor: number; maxTestedMajor: number } | undefined;
     if (checks.db) {
       try {
         const pv = await getPgVersionInfo();
-        postgres = { version: `${pv.major}.${pv.minor}`, major: pv.major, status: pv.status, minMajor: pv.minMajor, maxTestedMajor: pv.maxTestedMajor };
-        if (pv.status !== "supported") {
+        postgres = { major: pv.major, status: pv.status, minMajor: pv.minMajor, maxTestedMajor: pv.maxTestedMajor };
+        if (pv.status === "newer_than_tested") {
           warnings = [
             ...warnings,
             {
               code: "postgres_version_untested",
-              reason:
-                pv.status === "unsupported"
-                  ? unsupportedVersionMessage(pv)
-                  : `PostgreSQL ${pv.major}.${pv.minor} новее проверенных версий (${pv.minMajor}–${pv.maxTestedMajor}): работа не гарантирована.`,
+              reason: `PostgreSQL ${pv.major} новее проверенных версий (${pv.minMajor}–${pv.maxTestedMajor}): работа не гарантирована.`,
             },
           ];
         }

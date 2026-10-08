@@ -180,8 +180,11 @@ JSON-логах Fastify в поле `reqId`, поэтому его следуе�
 «Проверена» значит «серверный набор тестов (включая интеграционные тесты определения версии) проходит в CI на этой версии: матрица job `server` = 14, 15, 16, 17»; интеграционные сценарии
 upgrade/backup/restore идут только на 16. Числа заданы в `server/src/services/pgVersion.ts`
 (`PG_MIN_MAJOR`, `PG_MAX_TESTED_MAJOR`) и в матрице job `server` (`.github/workflows/test.yml`) — меняйте вместе.
-`GET /ready` (и `/api/health`) содержит `postgres: {version, major, status, minMajor, maxTestedMajor}`;
+`GET /ready` (и `/api/health`) содержит `postgres: {major, status, minMajor, maxTestedMajor}`;
 `status` — `supported` / `newer_than_tested` / `unsupported`. Экран состояния может читать это поле.
+Публичный ответ и предупреждение не содержат minor-версию PostgreSQL; полная версия остаётся
+в диагностике стартовой проверки. Версия кешируется до перезапуска API, который обязателен при upgrade.
+CI сохраняет общий check `server`: он успешен только после успешного завершения всех четырёх версий.
 
 ### Обновление PostgreSQL
 

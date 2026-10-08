@@ -33,8 +33,8 @@ export function parseServerVersionNum(raw: string | number): { major: number; mi
 }
 
 export function assessPgVersion(raw: string | number): PgVersionInfo {
-  const versionNum = Number(raw);
   const { major, minor } = parseServerVersionNum(raw);
+  const versionNum = Number(raw);
   const status: PgVersionStatus =
     major < PG_MIN_MAJOR ? "unsupported" : major > PG_MAX_TESTED_MAJOR ? "newer_than_tested" : "supported";
   return { versionNum, major, minor, status, minMajor: PG_MIN_MAJOR, maxTestedMajor: PG_MAX_TESTED_MAJOR };
@@ -47,6 +47,7 @@ export function unsupportedVersionMessage(info: PgVersionInfo): string {
   );
 }
 
+// Upgrade stops the API: the startup version remains valid until that process restarts.
 let cached: PgVersionInfo | null = null;
 
 export async function getPgVersionInfo(): Promise<PgVersionInfo> {
