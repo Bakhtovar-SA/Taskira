@@ -12,10 +12,8 @@ jobs:
         include:
           - name: linux
             label: taskira-a
-          - name: linux-2
+          - name: ubuntu
             label: taskira-b
-          - name: linux-3
-            label: taskira-c
     runs-on: [self-hosted, Linux, docker, "${{ matrix.label }}"]
     timeout-minutes: 10
     permissions:
