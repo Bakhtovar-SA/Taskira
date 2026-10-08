@@ -14,6 +14,10 @@ bash -n scripts/support-bundle.sh
 bash -n scripts/operations-common.sh
 bash -n scripts/test-upgrade-rollback-mock.sh
 bash scripts/test-upgrade-rollback-mock.sh
+bash -n scripts/ops-report.sh
+bash -n scripts/restore-drill.sh
+node --check scripts/restore-drill-probe.cjs
+bash scripts/test-ops-report.sh
 bash scripts/test-container-storage-space.sh
 bash -n scripts/release/install.sh
 
@@ -85,6 +89,11 @@ RELEASE_DIR="$TMP_DIR/output/taskira-9.8.7-test"
 [ -x "$RELEASE_DIR/restore.sh" ]
 [ -x "$RELEASE_DIR/support-bundle.sh" ]
 [ -x "$RELEASE_DIR/operations-common.sh" ]
+[ -x "$RELEASE_DIR/ops-report.sh" ]
+[ -x "$RELEASE_DIR/restore-drill.sh" ]
+[ -f "$RELEASE_DIR/restore-drill-probe.cjs" ]
+[ -f "$RELEASE_DIR/deploy/systemd/taskira-restore-drill.service" ]
+[ -f "$RELEASE_DIR/deploy/systemd/taskira-restore-drill.timer" ]
 [ -f "$RELEASE_DIR/MIGRATIONS.txt" ]
 [ "$(cat "$RELEASE_DIR/VERSION")" = "9.8.7-test" ]
 [ "$(find "$RELEASE_DIR/images" -type f -name '*.tar' | wc -l | tr -d ' ')" = "3" ]

@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly Taskira restore rehearsal
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00
+Persistent=true
+Unit=taskira-restore-drill.service
+
+[Install]
+WantedBy=timers.target
