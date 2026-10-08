@@ -23,10 +23,11 @@
  * Лимиты зеркалят src/validation.ts фронтенда — меняются в двух местах синхронно.
  */
 import { z } from "zod";
-import { passwordPolicyError } from "./passwordPolicy.js";
+import { passwordPolicyError, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "./passwordPolicy.js";
 
 /* ---------------- лимиты (зеркало клиента) ---------------- */
 export const LIMITS = {
+  password: { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH },
   title: { min: 1, max: 250 },
   description: { max: 5000 },
   comment: { min: 1, max: 2000 },
@@ -130,9 +131,13 @@ const label = () =>
     .refine((s) => s.length > 0, "Метка не может быть пустой"); // пробельная строка → пусто после trim
 
 /* ---------------- Auth ---------------- */
+/** Потолок длины пароля во входящем теле, в UTF-16 code units. Политика (passwordPolicy.ts) считает символы и
+ *  допускает 128; эмодзи занимают по две единицы, поэтому здесь запас — иначе допустимый пароль не прошёл бы zod. */
+export const PASSWORD_INPUT_MAX = 512;
+
 export const LoginBody = z.object({
   username: z.string().min(1).max(64),
-  password: z.string().min(1).max(128),
+  password: z.string().min(1).max(PASSWORD_INPUT_MAX),
 });
 
 /** POST /api/admin/users [global admin] — создать пользователя.
@@ -140,7 +145,7 @@ export const LoginBody = z.object({
  *  отдельно через PUT /api/project/members/:userId. */
 export const CreateUserBody = z.object({
   username: z.string().min(LIMITS.username.min).max(LIMITS.username.max).regex(/^[a-z0-9._-]+$/i, "Латиница, цифры, точки и дефисы"),
-  password: z.string().max(128),
+  password: z.string().max(PASSWORD_INPUT_MAX),
   name: oneLine(80),
   initials: oneLine(4),
   color: z.string().regex(/^#[0-9a-f]{6}$/i),
@@ -148,6 +153,9 @@ export const CreateUserBody = z.object({
   phone: oneLine(LIMITS.phone.max).optional(),
   globalRole: z.enum(GLOBAL_ROLES).default("member"),
   isActive: z.boolean().optional(),
+  /** SEC-PWD-01: начальный пароль знает администратор — потребовать смену при первом входе. По умолчанию false
+   *  (совместимость API); интерфейс администратора отправляет true. */
+  mustChangePassword: z.boolean().optional(),
 }).superRefine((body, ctx) => {
   const message = passwordPolicyError(body.password, body.username);
   if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["password"], message });
@@ -158,6 +166,16 @@ export const ChangeRoleBody = z.object({
   globalRole: z.enum(GLOBAL_ROLES),
   isActive: z.boolean().optional(),
 });
+
+/** POST /api/me/password [сессия, не API-токен] — смена своего пароля локальной учёткой (SEC-PWD-01).
+ *  Текущий пароль обязателен (ASVS V6.2.3); политика к новому — services/passwords.ts. */
+export const ChangePasswordBody = z.object({
+  currentPassword: z.string().min(1).max(PASSWORD_INPUT_MAX),
+  newPassword: z.string().min(1).max(PASSWORD_INPUT_MAX),
+});
+
+/** POST /api/admin/users/:id/password-reset [global admin] — :id пользователя. */
+export const UserIdParams = z.object({ id: uuid });
 
 /** PUT /api/projects/:projectId/members/:userId [global admin] — добавить участника / сменить роль */
 export const SetMemberBody = z.object({
@@ -1042,8 +1060,26 @@ export type Lang = (typeof LANGS)[number];
 /** PUT /api/me/lang — язык, на котором человеку уходят письма и сводки. */
 export const MeLangBody = z.object({ lang: z.enum(LANGS) });
 /** GET /api/auth/me: профиль + то, что видно только себе (настройки уведомлений, избранные проекты, язык писем). */
-export const MeDto = SafeUser.extend({ notifyPrefs: NotifyPrefs, favoriteProjectIds: z.array(z.string()), lang: z.enum(LANGS) });
+export const MeDto = SafeUser.extend({
+  notifyPrefs: NotifyPrefs,
+  favoriteProjectIds: z.array(z.string()),
+  lang: z.enum(LANGS),
+  /** SEC-PWD-01: сессия годится только для смены пароля (временный/начальный пароль). Только в /me — не в SafeUser,
+   *  который уходит всем участникам проекта. */
+  mustChangePassword: z.boolean(),
+});
 export type MeDto = z.infer<typeof MeDto>;
+
+/** POST /api/auth/login и POST /api/me/password: токен (для CLI; браузер работает с HttpOnly-cookie) и профиль.
+ *  mustChangePassword — после входа доступна только смена пароля. */
+export const LoginResultDto = z.object({ token: z.string(), user: SafeUser, mustChangePassword: z.boolean() });
+export type LoginResultDto = z.infer<typeof LoginResultDto>;
+
+/** POST /api/admin/users/:id/password-reset: временный пароль показывается ОДИН раз (Cache-Control: no-store),
+ *  хранится только его хэш. Действует до смены пароля пользователем или до expiresAt (ISO), и вход с ним разрешает
+ *  только смену пароля. revokedTokens — сколько API-токенов пользователя отозвано вместе со сбросом. */
+export const PasswordResetResultDto = z.object({ temporaryPassword: z.string(), expiresAt: z.string(), revokedTokens: z.number() });
+export type PasswordResetResultDto = z.infer<typeof PasswordResetResultDto>;
 
 export const ProjectDto = z.object({
   id: z.string(),

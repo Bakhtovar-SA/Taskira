@@ -37,6 +37,13 @@
 | `name` | string | необязательное, может быть null; длина 1…60 |
 | `hue` | integer | необязательное, может быть null |
 
+### ChangePasswordBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `currentPassword` | string | длина 1…512 |
+| `newPassword` | string | длина 1…512 |
+
 ### ChangeRoleBody
 
 | Поле | Тип | Замечания |
@@ -80,7 +87,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `username` | string | длина 3…32 |
-| `password` | string | длина 0…128 |
+| `password` | string | длина 0…512 |
 | `name` | string | длина 0…80 |
 | `initials` | string | длина 0…4 |
 | `color` | string |  |
@@ -88,6 +95,7 @@
 | `phone` | string | необязательное; длина 0…30 |
 | `globalRole` | enum: `admin` \| `member` | необязательное; по умолчанию "member" |
 | `isActive` | boolean | необязательное |
+| `mustChangePassword` | boolean | необязательное |
 
 ### CustomFieldCreateBody
 
@@ -367,7 +375,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `username` | string | длина 1…64 |
-| `password` | string | длина 1…128 |
+| `password` | string | длина 1…512 |
 
 ### MarkReadBody
 
@@ -672,6 +680,12 @@
 |---|---|---|
 | `from` | string (uuid) |  |
 | `to` | string (uuid) |  |
+
+### UserIdParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
 
 ### WebhookCreateBody
 
@@ -1090,6 +1104,14 @@
 | `statusId` | string | может быть null |
 | `position` | number |  |
 
+### LoginResultDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `token` | string |  |
+| `user` | object |  |
+| `mustChangePassword` | boolean |  |
+
 ### MeDto
 
 | Поле | Тип | Замечания |
@@ -1109,6 +1131,7 @@
 | `notifyPrefs` | object |  |
 | `favoriteProjectIds` | array&lt;string&gt; |  |
 | `lang` | enum: `ru` \| `en` |  |
+| `mustChangePassword` | boolean |  |
 
 ### MilestoneDto
 
@@ -1170,6 +1193,14 @@
 | `initials` | string |  |
 | `color` | string |  |
 | `jobRole` | string |  |
+
+### PasswordResetResultDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `temporaryPassword` | string |  |
+| `expiresAt` | string |  |
+| `revokedTokens` | number |  |
 
 ### PickableUserDto
 

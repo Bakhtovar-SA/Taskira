@@ -30,6 +30,9 @@ export interface UserRow {
   session_version: string | number; // bigint, миграция 029
   failed_login_attempts: number;
   locked_until: Date | null;
+  must_change_password: boolean; // SEC-PWD-01, миграция 20261006T2000
+  password_expires_at: Date | null;
+  password_changed_at: Date | null;
 }
 
 export function safeUser(row: UserRow): SafeUser {

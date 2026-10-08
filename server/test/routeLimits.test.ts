@@ -150,10 +150,13 @@ describe("SEC-RATE-01", () => {
     for (let i = 0; i < 5; i++) expect((await hit(a, employee, "GET", "/api/issues/search?q=test")).statusCode).not.toBe(429);
   });
 
-  test("пароль: маршрутов смены/сброса нет (нечего ограничивать)", async () => {
-    const a = await limited();
-    for (const [m, u] of [["POST", "/api/auth/password"], ["POST", "/api/auth/reset-password"], ["POST", "/api/me/password"]] as const)
-      expect((await hit(a, employee, m, u, {})).statusCode).toBe(404);
-    void fx;
+  test("смена и сброс пароля используют порог login, а не sensitive", async () => {
+    const a = await limited({ loginMax: 3, sensitiveMax: 2 });
+    const change = { currentPassword: fx.pass, newPassword: "short" };
+    for (let i = 0; i < 3; i++) expect((await hit(a, employee, "POST", "/api/me/password", change)).statusCode).toBe(400);
+    const blocked = await hit(a, employee, "POST", "/api/me/password", change);
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.json().error.code).toBe("RATE_LIMITED");
+    await expectLimit(a, admin, 3, "POST", `/api/admin/users/${nobody}/password-reset`);
   });
 });
