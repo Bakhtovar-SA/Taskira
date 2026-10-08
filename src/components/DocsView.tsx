@@ -16,24 +16,35 @@ const currentHash = () => window.location.hash;
 function useDocsNavigation(prefix: string, enabled = true) {
   const hash = useLocationProperty(currentHash, () => "");
   const rootRef = useRef<HTMLDivElement>(null);
-  const requested = useRef<string | null>(null);
+  const requested = useRef<{ top: number; arrived: boolean } | null>(null);
   const [active, setActive] = useState("overview");
   const go = useCallback((id: string) => {
     const section = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("section[id]") ?? [])
       .find(value => value.id === `${prefix}${id}`);
     if (!section) return;
-    requested.current = id;
+    const root = rootRef.current!;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const margin = parseFloat(getComputedStyle(section).scrollMarginTop) || 0;
+    const target = Math.max(0, Math.min(root.scrollHeight - root.clientHeight,
+      root.scrollTop + section.getBoundingClientRect().top - root.getBoundingClientRect().top - root.clientTop - margin));
+    requested.current = { top: target, arrived: false };
     setActive(id);
     section.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start",
+      behavior: reduced ? "auto" : "smooth", block: "start",
     });
+    if (reduced) requested.current = { top: root.scrollTop, arrived: true };
   }, [prefix]);
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !enabled) return;
     const sections = Array.from(root.querySelectorAll<HTMLElement>(`section[id^="${prefix}"]`));
     const update = () => {
-      if (requested.current !== null) return;
+      const pin = requested.current;
+      if (pin) {
+        if (Math.abs(root.scrollTop - pin.top) <= 2) { pin.arrived = true; return; }
+        if (!pin.arrived) return; // Smooth navigation has not reached its clamped target yet.
+        requested.current = null; // Subsequent scrolling leaves the requested section.
+      }
       const threshold = root.getBoundingClientRect().top + 24;
       let current: HTMLElement | undefined = sections[0];
       for (const section of sections) {
