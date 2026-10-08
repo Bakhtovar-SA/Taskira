@@ -84,4 +84,69 @@ grep -Fq 'fixture DockerRootDir failure' "$TEST_DIR/drill-arguments"
 grep -Fq 'REDACTED' "$TEST_DIR/drill-arguments"
 [ -z "$(find "$TEST_DIR" -maxdepth 1 -name 'taskira-drill-error.*' -print)" ]
 
+# Run the real backup orchestration with a simulated host, including a valid
+# archive, to check that restart/health failures never follow a success report.
+mkdir "$TEST_DIR/backup-scripts"
+cp "$ROOT_DIR/scripts/backup.sh" "$TEST_DIR/backup-scripts/backup.sh"
+cat > "$TEST_DIR/backup-scripts/operations-common.sh" <<'SH'
+ops_init() { POSTGRES_USER=taskira; POSTGRES_DB=taskira; }
+fail() { echo "ERROR: $*" >&2; exit 1; }
+wait_for_database() { :; }
+current_version() { echo 9.8.7-test; }
+latest_schema() { echo fixture.sql; }
+schema_migrations() { echo fixture.sql; }
+verify_database_dump() { test -s "$1"; }
+storage_command() { echo '{}' > "$2/objects.json"; }
+write_public_env() { echo 'STORAGE_DRIVER=local' > "$2"; }
+env_file_value() { echo local; }
+compose() {
+  case "$1:$2" in
+    stop:*) : ;;
+    up:-d)
+      echo restart >> "$OPS_REPORT_TEST_DIR/events"
+      [ "$BACKUP_TEST_MODE" != restart ] ;;
+    exec:-T)
+      case "$4" in
+        psql) echo '{"projects":1,"issues":2}' ;;
+        pg_dump) echo fixture-dump ;;
+        *) return 2 ;;
+      esac ;;
+    *) return 2 ;;
+  esac
+}
+ops_wait_for_application() {
+  echo health >> "$OPS_REPORT_TEST_DIR/events"
+  [ "$BACKUP_TEST_MODE" != health ]
+}
+SH
+cat > "$TEST_DIR/backup-scripts/ops-report.sh" <<'SH'
+ops_run_start() { echo fixture-id; }
+ops_run_finish() { echo "finish:$2" >> "$OPS_REPORT_TEST_DIR/events"; }
+SH
+for mode in success restart health; do
+  : > "$TEST_DIR/events"
+  status=0
+  OPS_REPORT_TEST_DIR="$TEST_DIR" BACKUP_TEST_MODE="$mode" \
+    bash "$TEST_DIR/backup-scripts/backup.sh" --install-dir "$INSTALL_DIR" \
+      --output "$TEST_DIR/backup-$mode.tar.gz" > "$TEST_DIR/backup-output" 2>&1 || status=$?
+  mkdir "$TEST_DIR/verify-$mode"
+  tar -xzf "$TEST_DIR/backup-$mode.tar.gz" -C "$TEST_DIR/verify-$mode"
+  (cd "$TEST_DIR/verify-$mode" && sha256sum --check --strict SHA256SUMS >/dev/null)
+  [ "$(grep -c '^finish:' "$TEST_DIR/events")" = 1 ]
+  if [ "$mode" = success ]; then
+    [ "$status" = 0 ]
+    [ "$(cat "$TEST_DIR/events")" = $'restart\nhealth\nfinish:success' ]
+  else
+    [ "$status" != 0 ]
+    grep -Fxq 'finish:failure' "$TEST_DIR/events"
+    ! grep -Fxq 'finish:success' "$TEST_DIR/events"
+  fi
+done
+
+status=0
+bash "$ROOT_DIR/scripts/restore.sh" --storage-driver > "$TEST_DIR/restore-output" 2>&1 || status=$?
+[ "$status" = 2 ]
+grep -Fq 'Usage:' "$TEST_DIR/restore-output"
+! grep -Fq 'unbound variable' "$TEST_DIR/restore-output"
+
 echo 'host operation reporting and redaction checks passed'
