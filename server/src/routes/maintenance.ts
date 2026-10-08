@@ -27,7 +27,7 @@ export async function maintenanceRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
-  /** `?dryRun=true` — сколько задач будет архивировано и записей аудита удалено, без изменений. `?dryRun=false` —
+  /** `?dryRun=true` — сколько задач будет архивировано, записей аудита и старых отчётов хоста удалено, без изменений. `?dryRun=false` —
    *  выполнить проход сейчас (тот же лок, что у расписания; 409, если проход уже идёт). */
   app.post("/run", { preHandler: requireGlobalAdmin, preValidation: zquery(RunQuery) }, async (req) => {
     const { dryRun } = RunQuery.parse(req.query);
