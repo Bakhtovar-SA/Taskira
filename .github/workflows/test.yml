@@ -9,9 +9,9 @@ jobs:
   security:
     name: dependency and image security
     runs-on: [self-hosted, Linux, docker]
-    # Image tests use fixed container names and ports, including on a shared Desktop daemon.
+    # Image tests share tags, ports and subnets on a Desktop daemon.
     concurrency:
-      group: taskira-image-security
+      group: taskira-image-integration
       queue: max
       cancel-in-progress: false
     permissions:
@@ -191,6 +191,10 @@ jobs:
   upgrade-procedure:
     name: offline upgrade and rollback
     runs-on: [self-hosted, Linux, docker]
+    concurrency:
+      group: taskira-image-integration
+      queue: max
+      cancel-in-progress: false
     steps:
       - name: Prepare checkout ownership
         shell: bash
@@ -213,6 +217,10 @@ jobs:
   backup-restore-rehearsal:
     name: backup, destroy volumes, and restore
     runs-on: [self-hosted, Linux, docker]
+    concurrency:
+      group: taskira-image-integration
+      queue: max
+      cancel-in-progress: false
     steps:
       - name: Prepare checkout ownership
         shell: bash
