@@ -191,6 +191,22 @@ fake_start() {
 }
 [ -f "$RELEASE_DIR/.taskira-installed" ]   # written by the successful starts above
 rm -f "$RELEASE_DIR/.taskira-installed"
+printf '\nCOMPOSE_PROJECT_NAME=pinned-project\n' >> "$RELEASE_DIR/.env"
+if out="$(FAKE_VOLUMES=pinned-project_pgdata FAKE_CONTAINERS='' fake_start)"; then
+  echo "install.sh ignored the project pinned in .env" >&2
+  exit 1
+fi
+printf '%s' "$out" | grep -q 'pinned-project_pgdata'
+sed -i '/^COMPOSE_PROJECT_NAME=/d' "$RELEASE_DIR/.env"
+(
+  . "$ROOT_DIR/scripts/release/container-engine.sh"
+  mkdir "$TMP_DIR/project-env"
+  printf 'COMPOSE_PROJECT_NAME="quoted-project"\n' > "$TMP_DIR/project-env/.env"
+  unset COMPOSE_PROJECT_NAME
+  [ "$(compose_project_name "$TMP_DIR/project-env")" = quoted-project ]
+  COMPOSE_PROJECT_NAME=process-project
+  [ "$(compose_project_name "$TMP_DIR/project-env")" = process-project ]
+)
 export FAKE_VOLUMES="taskira-987-test_pgdata" FAKE_CONTAINERS="c1" FAKE_WORKDIR="/srv/other/taskira-9.8.7-test"
 if out="$(fake_start)"; then
   echo "install.sh started on volumes of another installation" >&2

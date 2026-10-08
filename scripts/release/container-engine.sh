@@ -67,9 +67,14 @@ preflight_rootless() {
 
 # Compose names the project (and so its volumes and network) after the install
 # directory, lower-cased, keeping only [a-z0-9_-] — docker compose and
-# podman-compose agree on this. COMPOSE_PROJECT_NAME from the environment wins.
+# podman-compose agree on this. Process environment wins over the install .env.
 compose_project_name() {
-  name="${COMPOSE_PROJECT_NAME:-$(basename -- "$1")}"
+  local name="${COMPOSE_PROJECT_NAME:-}"
+  if [ -z "$name" ] && [ -f "$1/.env" ]; then
+    name="$(env_file_value "$1/.env" COMPOSE_PROJECT_NAME)"
+    case "$name" in \"*\") name="${name#\"}"; name="${name%\"}" ;; \'*\') name="${name#\'}"; name="${name%\'}" ;; esac
+  fi
+  [ -n "$name" ] || name="$(basename -- "$1")"
   printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-'
 }
 

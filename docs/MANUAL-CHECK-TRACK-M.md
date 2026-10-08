@@ -3,9 +3,11 @@
 ## OPS-PODMAN-01. Rootless Podman на целевой ОС
 
 Эту проверку нельзя выполнить в разработческой среде и в CI: нужна чистая машина
-с реальной ОС клиента. Поля «Вывод» намеренно пустые — заполняются фактическим
-выводом команд при прогоне, ничего не дописывается «по ожиданию». Если шаг не
-выполнялся, оставьте пункт неотмеченным и напишите причину.
+с реальной ОС клиента. Ниже сохранены выводы и отмеченные шаги ручного прогона,
+предоставленного автором OPS-PODMAN-01; текущий разбор PR не воспроизводит его
+на целевой машине. Выводы не дополняются ожидаемыми результатами. Для нового
+прогона заполняйте поля фактическим выводом, а пропущенные шаги оставляйте
+неотмеченными с причиной. LAN-адрес стенда заменён на `<VM_IP>`.
 
 Что уже проверено автоматически (не заменяет этот список):
 `scripts/test-release-scripts.sh` (предпроверки rootless на подставных `podman` и
@@ -91,7 +93,7 @@ taskira-101-check1_postgres_1
 taskira-101-check1_server_1
 taskira-101-check1_client_1
 Taskira 1.0.1-check.1 is healthy: {"ok":true,"db":true,"checks":{"db":true,"migrations":true,"storage":true},"version":"1.0.1-check.1","ts":"2026-10-06T09:33:41.249Z"}
-Taskira was started. Open http://192.168.141.132:8081
+Taskira was started. Open http://<VM_IP>:8081
 
 # через ~5 минут:
 taskira-101-check1_postgres_1 Up 6 minutes (healthy)
@@ -345,7 +347,7 @@ $ ./install.sh --engine podman --start
 [4/4] Starting Taskira
 Taskira 1.0.1-check.1 is healthy: {...}
 46c91dc9ad84  localhost/taskira-client:1.0.1-check.1  ...  0.0.0.0:80->80/tcp  taskira-101-check1_client_1
-Taskira was started. Open http://192.168.141.132:8081
+Taskira was started. Open http://<VM_IP>:8081
 exit=0
 $ curl http://127.0.0.1:80/api/health
 {"ok":true,"db":true,...,"version":"1.0.1-check.1",...}
@@ -382,7 +384,7 @@ podman ps
 - [x] `systemctl --user enable podman-restart.service` — поведение зафиксировано (поднимает ли `unless-stopped`) — **поднимает** на Podman 5.8.2
 
 Health после каждой перезагрузки проверялся с другой машины (Windows-хост,
-`http://192.168.141.132:8081/api/health`) до входа по ssh. Перед этим пришлось открыть порт
+`http://<VM_IP>:8081/api/health`) до входа по ssh. Перед этим пришлось открыть порт
 в firewalld — без этого с другой машины таймаут (добавлено в README_INSTALL, раздел 6).
 
 Вывод:
@@ -488,7 +490,7 @@ Backup complete / Restore complete (прогон 15:33–15:35)        exit=0 / 
 
 === provider podman-compose-1.0.6: /home/test/pc106/bin/podman-compose
 podman-compose version 1.0.6
-Taskira was started. Open http://192.168.141.132:8081      exit=0
+Taskira was started. Open http://<VM_IP>:8081      exit=0
 taskira-101-check2_postgres_1 Up 26 seconds (healthy)
 taskira-101-check2_server_1 Up 24 seconds (starting)
 taskira-101-check2_client_1 Up 23 seconds (healthy)
