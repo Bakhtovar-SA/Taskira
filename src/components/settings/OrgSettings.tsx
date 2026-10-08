@@ -3,14 +3,14 @@
  *  пользователи, проверка LDAP, лицензия, аудит, обслуживание, состояние системы. Значения, которые
  *  задаются только переменными окружения, показаны справочно (ТЗ 5.9: новых настроек не добавлять). */
 import { Setup } from "./Setup";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
 import type { BrandDto } from "../../../server/src/contract";
 import { BRAND_EXTRA_HUES, BRAND_HUE, DEFAULT_BRAND_NAME, previewHue, setBrand, useBrand } from "../../brand";
 import { cssVars } from "../../cssVars";
 import { BrandMark } from "../BrandMark";
-import { adminApi, brandApi, ldapApi, projectTemplatesApi, usersApi, type HealthDto, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
+import { adminApi, brandApi, ldapApi, projectTemplatesApi, usersApi, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
 import { Avatar, Button, Checkbox, DatePicker, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
 import { SecretOnceDialog } from "./SecretOnceDialog";
 import { IcCompose, IcDiamond, IcDownload, IcLink, IcPlus, IcSearch, IcTrash } from "../../icons";
@@ -18,6 +18,7 @@ import { openProjectWizard } from "../../palette/events";
 import { LIMITS } from "../../validation";
 import { dataColorFor } from "../../dataColors";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
+const SystemStatus = lazy(() => import("./SystemStatus"));
 
 export function OrgSection({ section }: { section: string }) {
   switch (section) {
@@ -40,7 +41,7 @@ export function OrgSection({ section }: { section: string }) {
     case "maintenance":
       return <Maintenance />;
     default:
-      return <Health />;
+      return <Suspense fallback={<Loading />}><SystemStatus /></Suspense>;
   }
 }
 
@@ -662,59 +663,6 @@ function Maintenance() {
           </>
         }
       />
-    </SettingsPage>
-  );
-}
-
-/* ---------------- Состояние системы ---------------- */
-
-function Health() {
-  const { t, lang } = useT();
-  const [h, reload] = useLoad<HealthDto>(() => adminApi.health());
-  return (
-    <SettingsPage title={t("settings.org.health")} desc={t("settings.desc.health")}>
-      <div className="flex justify-end">
-        <Button size="sm" variant="ghost" onClick={reload}>
-          {t("settings.org.refresh")}
-        </Button>
-      </div>
-      <SettingsCard footer={h && !(h instanceof Error) ? t("settings.org.healthAt", { at: dt(h.ts, lang), version: h.version }) : undefined}>
-        {h === null ? (
-          <Loading />
-        ) : h instanceof Error ? (
-          <Failed err={h} retry={reload} />
-        ) : (
-          Object.entries(h.checks).map(([k, ok]) => (
-            <SettingRow key={k} label={t(`settings.org.check.${k}` as "settings.org.check.db")}>
-              <Tag tone={ok ? "green" : "red"} strong dot>
-                {t(ok ? "settings.org.checkOk" : "settings.org.checkFail")}
-              </Tag>
-            </SettingRow>
-          ))
-        )}
-      </SettingsCard>
-      {h && !(h instanceof Error) && (h.warnings?.length || h.pendingMigrations?.length) ? (
-        <SettingsCard title={t("settings.org.warnings")}>
-          {h.warnings?.map((w) => (
-            <div key={w.code} className="flex items-start gap-3 px-5 py-3">
-              <Tag tone="amber" size="sm" strong dot>
-                {w.code}
-              </Tag>
-              <p className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-sub">{w.reason}</p>
-            </div>
-          ))}
-          {h.pendingMigrations?.map((m) => (
-            <div key={m} className="flex items-start gap-3 px-5 py-3">
-              <Tag tone="red" size="sm" strong dot>
-                {t("settings.org.pendingMigration")}
-              </Tag>
-              <p className="font-[family-name:var(--font-code)] text-[12px] text-sub">{m}</p>
-            </div>
-          ))}
-        </SettingsCard>
-      ) : h && !(h instanceof Error) ? (
-        <p className="px-1 text-[12.5px] text-faint">{t("settings.org.noWarnings")}</p>
-      ) : null}
     </SettingsPage>
   );
 }

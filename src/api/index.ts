@@ -1,6 +1,7 @@
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
 import type {
+  SystemStatusDto, OpsRunDto, OpsKind,
   RecurringConfigDto, RecurringRuleBody, RecurringRulePatchBody, RecurringRuleDto, RecurringRunDto, RecurringPreviewBody,
   ApiTokenCreateBody, ApiTokenDto, ApiTokenCreatedDto, ApiTokenAdminDto, ApiTokenAdminQuery,
   ServiceAccountCreateBody, ServiceAccountPatchBody, ServiceAccountDto,
@@ -549,12 +550,12 @@ export type MaintenanceStatusDto = {
   jobs: MaintenanceJob[];
   settings: { intervalMs: number; startDelayMs: number; batchSize: number; batchPauseMs: number; maxPerRun: number; archiveAfterDays: number; auditRetentionDays: number };
 };
-export type HealthDto = { ok: boolean; db: boolean; checks: Record<string, boolean>; pendingMigrations?: string[]; warnings?: { code: string; reason: string }[]; postgres?: { major: number; status: "supported" | "newer_than_tested"; minMajor: number; maxTestedMajor: number }; version: string; ts: string };
 export const adminApi = {
   license: () => api<LicenseStatusDto>("/api/admin/license"),
   maintenance: () => api<MaintenanceStatusDto>("/api/maintenance"),
   runMaintenance: (dryRun: boolean) => api<{ archived: number; auditPurged: number; opsRunsPurged: number; capped: boolean; dryRun: boolean }>("/api/maintenance/run", { method: "POST", query: { dryRun: String(dryRun) } }),
-  health: () => api<HealthDto>("/api/health"),
+  status: () => api<SystemStatusDto>("/api/admin/status"),
+  opsRuns: (kind: OpsKind) => api<OpsRunDto[]>("/api/admin/ops-runs", { query: { kind, limit: "5" } }),
   /** Прямые ссылки для скачивания (сессия — HttpOnly-cookie, браузер приложит её сам; см. AdminView). */
   exportUrl: () => `${API_BASE}/api/admin/export`,
   auditExportUrl: (format: "csv" | "jsonl", from?: string, to?: string) => {
