@@ -61,7 +61,9 @@ on_error() {
   # `set -E` makes subshells (e.g. compose()'s `cd && ...`) inherit this trap.
   # Only the main shell handles the failure; otherwise the rollback would run twice.
   [ "$BASHPID" = "$MAIN_PID" ] || exit "$code"
-  trap - ERR INT TERM HUP
+  trap - ERR
+  # Let the rollback finish even if the caller sends another termination signal.
+  trap '' INT TERM HUP
   echo >&2
   echo "ERROR: upgrade failed during: $STAGE" >&2
   if [ "$ROLLBACK_READY" = "1" ]; then
