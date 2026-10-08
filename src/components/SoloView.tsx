@@ -71,10 +71,10 @@ export function SoloIssueCard({
     return m;
   }, [issue]);
 
-  if (state === "loading") return <div className="flex h-full items-center justify-center text-[13px] text-faint">{t("solo.loadingIssue")}</div>;
+  if (state === "loading") return <div className="flex h-full items-center justify-center text-[14px] text-faint">{t("solo.loadingIssue")}</div>;
   if (state === "error" || !issue)
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-[13px] text-faint">
+      <div className="flex h-full items-center justify-center px-6 text-center text-[14px] text-faint">
         {t("solo.openFailed")}
       </div>
     );
@@ -110,15 +110,15 @@ export function SoloIssueCard({
 
   return (
     <div className="mx-auto max-w-[760px] min-[1536px]:max-w-[920px] min-[1920px]:max-w-[1080px] px-6 py-6">
-      <div className="flex items-center gap-2 font-mono text-[12px] font-semibold text-sub">
-        <TypeIcon type={issue.typeId as IssueTypeId} size={15} /> {issue.key}
-        {statusHint && <span className="rounded bg-linesoft px-1.5 py-0.5 font-sans text-[10.5px] font-semibold text-sub">{statusHint}</span>}
+      <div className="flex items-center gap-2 font-mono text-[13px] font-semibold text-sub">
+        <TypeIcon type={issue.typeId as IssueTypeId} size={17} /> {issue.key}
+        {statusHint && <span className="rounded bg-linesoft px-1.5 py-0.5 font-sans text-[11.5px] font-semibold text-sub">{statusHint}</span>}
       </div>
       <h1 className="mt-1.5 text-[19px] font-semibold leading-snug text-ink">{issue.title}</h1>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] text-sub">
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] text-sub">
         <span className="flex items-center gap-1.5">
-          <PriorityIcon p={issue.priorityId as PriorityId} size={13} />
+          <PriorityIcon p={issue.priorityId as PriorityId} size={15} />
           {PRIORITY_ORDER.includes(issue.priorityId as PriorityId) ? t(`priority.${issue.priorityId as PriorityId}`) : issue.priorityId}
         </span>
         <span className="flex flex-wrap items-center gap-1.5">
@@ -139,7 +139,7 @@ export function SoloIssueCard({
       {issue.labels.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {issue.labels.map((l) => (
-            <span key={l} className="rounded-full bg-linesoft px-2 py-0.5 text-[11px] text-sub">
+            <span key={l} className="rounded-full bg-linesoft px-2 py-0.5 text-[12px] text-sub">
               {l}
             </span>
           ))}
@@ -147,22 +147,22 @@ export function SoloIssueCard({
       )}
 
       {issue.description && (
-        <div className="mt-4 whitespace-pre-wrap rounded-lg border border-line bg-panel p-3.5 text-[13px] leading-relaxed text-ink">
+        <div className="mt-4 whitespace-pre-wrap rounded-lg border border-line bg-panel p-3.5 text-[14px] leading-relaxed text-ink">
           {issue.description}
         </div>
       )}
 
       {(issue.collaborators?.length ?? 0) > 0 && (
-        <p className="mt-3 text-[11.5px] text-faint">{t("solo.invited")}: {issue.collaborators!.map((c) => c.name).join(", ")}</p>
+        <p className="mt-3 text-[12.5px] text-faint">{t("solo.invited")}: {issue.collaborators!.map((c) => c.name).join(", ")}</p>
       )}
 
       <div className="mt-5">
-        <p className="mb-2 text-[12px] font-medium text-faint">
+        <p className="mb-2 text-[13px] font-medium text-faint">
           {t("solo.attachmentsCount", { count: issue.attachments?.length ?? 0 })}
         </p>
         <div className="space-y-1">
           {(issue.attachments ?? []).map((a) => (
-            <div key={a.id} className="flex items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1 text-[11.5px]">
+            <div key={a.id} className="flex items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1 text-[12.5px]">
               <Button variant="ghost" size="sm"
                 onClick={() =>
                   attachmentsApi
@@ -177,7 +177,7 @@ export function SoloIssueCard({
               <span className="shrink-0 text-faint">{fmtBytes(a.byteSize)}</span>
             </div>
           ))}
-          {(issue.attachments?.length ?? 0) === 0 && <span className="text-[12px] text-faint">{t("issue.noFiles")}</span>}
+          {(issue.attachments?.length ?? 0) === 0 && <span className="text-[13px] text-faint">{t("issue.noFiles")}</span>}
         </div>
         <input
           ref={attRef}
@@ -198,7 +198,7 @@ export function SoloIssueCard({
       </div>
 
       <div className="mt-6">
-        <p className="mb-2 text-[12px] font-medium text-faint">{t("issue.commentsCount", { count: comments.length })}</p>
+        <p className="mb-2 text-[13px] font-medium text-faint">{t("issue.commentsCount", { count: comments.length })}</p>
         <div className="space-y-3">
           {comments.map((c) => {
             const a = authorOf(c.authorId);
@@ -206,15 +206,15 @@ export function SoloIssueCard({
               <div key={c.id} className="flex gap-2.5">
                 <Ava p={a} size={26} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11.5px] text-faint">
+                  <p className="text-[12.5px] text-faint">
                     <span className="font-semibold text-sub">{a?.name ?? "—"}</span> · {relTime(Date.parse(c.createdAt) || Date.now(), lang)}
                   </p>
-                  <p className="mt-0.5 whitespace-pre-wrap text-[13px] text-ink"><MentionText text={c.body} /></p>
+                  <p className="mt-0.5 whitespace-pre-wrap text-[14px] text-ink"><MentionText text={c.body} /></p>
                 </div>
               </div>
             );
           })}
-          {comments.length === 0 && <p className="text-[12px] text-faint">{t("solo.noComments")}</p>}
+          {comments.length === 0 && <p className="text-[13px] text-faint">{t("solo.noComments")}</p>}
         </div>
 
         <div className="mt-3 flex gap-2">
@@ -237,7 +237,7 @@ export function SoloIssueCard({
             disabled={sending || !draft.trim()}
             className="shrink-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
-            <IcSend size={14} />
+            <IcSend size={16} />
           </IconButton>
         </div>
       </div>
@@ -263,15 +263,15 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
       <aside className="flex w-[280px] shrink-0 flex-col text-sub">
         <div className="flex items-center gap-2.5 px-4 pb-4 pt-5">
           <BrandMark size={26} />
-          <BrandName className="truncate font-disp text-[16px] font-semibold tracking-[-0.02em] text-ink" />
+          <BrandName className="truncate font-disp text-[17px] font-semibold tracking-[-0.02em] text-ink" />
         </div>
         {/* ТЗ 5.11: гостю сразу ясно, где он и что может. */}
         <div className="mx-3 mb-3 rounded-lg bg-accentsoft/60 px-3 py-2.5 ring-1 ring-inset ring-accent/15">
-          <p className="text-[12.5px] font-semibold text-ink">{t("solo.guestTitle")}</p>
-          <p className="mt-0.5 text-[12px] leading-relaxed text-sub">{t("solo.guestCan")}</p>
-          <p className="mt-1 text-[12px] leading-relaxed text-faint">{t("solo.guestCannot")}</p>
+          <p className="text-[13.5px] font-semibold text-ink">{t("solo.guestTitle")}</p>
+          <p className="mt-0.5 text-[13px] leading-relaxed text-sub">{t("solo.guestCan")}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-faint">{t("solo.guestCannot")}</p>
         </div>
-        <p className="px-4 pb-1.5 text-[11.5px] font-medium text-faint">
+        <p className="px-4 pb-1.5 text-[12.5px] font-medium text-faint">
           {t("solo.connectionsCount", { count: solo.items.length })}
         </p>
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -284,16 +284,16 @@ export default function SoloView({ onLogout }: { onLogout: () => void }) {
                 it.issueId === selected ? "bg-[var(--sidebar-item-active)] text-ink shadow-e1" : "text-sub hover:bg-hover/70 hover:text-ink"
               }`}
             >
-              <span className="w-full truncate text-[11px] text-faint">
+              <span className="w-full truncate text-[12px] text-faint">
                 <span className="font-mono">{it.key}</span> · {it.projectName}
               </span>
-              <span className="w-full truncate text-[13px] font-medium">{it.title}</span>
-              <span className="text-[11px] text-faint">{workflowStatusName({ name: it.statusName }, t)}</span>
+              <span className="w-full truncate text-[14px] font-medium">{it.title}</span>
+              <span className="text-[12px] text-faint">{workflowStatusName({ name: it.statusName }, t)}</span>
             </Button>
           ))}
-          {solo.items.length === 0 && <p className="px-2.5 text-[12px] text-faint">{t("solo.none")}</p>}
+          {solo.items.length === 0 && <p className="px-2.5 text-[13px] text-faint">{t("solo.none")}</p>}
         </div>
-        <div className="mx-2 mb-3 border-t border-linesoft/70 px-2.5 pt-3 text-[12px]">
+        <div className="mx-2 mb-3 border-t border-linesoft/70 px-2.5 pt-3 text-[13px]">
           <p className="truncate font-medium text-ink">{solo.userName}</p>
           <Button variant="ghost" size="sm" onClick={onLogout} className="mt-1 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
             {t("topbar.logout")}

@@ -53,14 +53,14 @@ export function TokenControls({ api,limit = LIMITS.apiToken.perUser,inactive = f
   const date = (value: string | null) => value ? <time dateTime={value}>{new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ru-RU",{ dateStyle: "short",timeStyle: "short" }).format(new Date(value))}</time> : t("tokens.never");
   return <div className="flex flex-col gap-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <Heading ref={titleRef} tabIndex={-1} className="ds-focus text-[14px] font-semibold text-ink">{t("tokens.list")}</Heading>
-      {api.create && <Button ref={addRef} variant="primary" iconLeft={<IcPlus size={16} />} onClick={() => setForm(true)}
+      <Heading ref={titleRef} tabIndex={-1} className="ds-focus text-[15px] font-semibold text-ink">{t("tokens.list")}</Heading>
+      {api.create && <Button ref={addRef} variant="primary" iconLeft={<IcPlus size={18} />} onClick={() => setForm(true)}
         disabled={loading || busy || (inactive ? t("tokens.inactiveOwner") : active >= limit ? t("tokens.limitHint",{ limit }) : false)}>{t("tokens.add")}</Button>}
     </div>
     {loading && <p role="status">{t("tokens.loading")}</p>}
     {error && <div role="alert"><p>{error}</p><Button disabled={busy} onClick={load}>{t("tokens.retry")}</Button></div>}
-    {!loading && !error && rows.length === 0 && <p className="text-[13px] text-sub">{t("tokens.empty")}</p>}
-    {rows.length > 0 && <div className="overflow-x-auto"><table className="w-full text-left text-[12px]">
+    {!loading && !error && rows.length === 0 && <p className="text-[14px] text-sub">{t("tokens.empty")}</p>}
+    {rows.length > 0 && <div className="overflow-x-auto"><table className="w-full text-left text-[13px]">
       <thead><tr>{[...(owners ? ["owner"] : []),"name","prefix","scope","created","expires","lastUsed","actions"].map(column =>
         <th key={column} scope="col" className="border-b border-line px-2 py-2 font-medium text-sub">{t(`tokens.column.${column}` as Parameters<typeof t>[0])}</th>)}</tr></thead>
       <tbody>{rows.map(row => {
@@ -109,11 +109,11 @@ function TokenForm({ create,onClose,onCreated }: {
       <Input label={t("tokens.name")} value={name} onChange={event => setName(event.target.value)} maxLength={LIMITS.apiToken.name} data-autofocus />
       <RadioGroup label={t("tokens.scope")} value={scope} onChange={setScope} options={[{ value: "read",label: t("tokens.read") },{ value: "write",label: t("tokens.write") }]} />
       <div className="flex flex-col gap-1.5"><label htmlFor={selectId} className="ds-label">{t("tokens.lifetime")}</label>
-        <select id={selectId} value={days} onChange={event => setDays(Number(event.target.value))} className="ds-focus rounded-md border border-line bg-panel px-3 py-2 text-[13px] text-ink">
+        <select id={selectId} value={days} onChange={event => setDays(Number(event.target.value))} className="ds-focus rounded-md border border-line bg-panel px-3 py-2 text-[14px] text-ink">
           {[30,90,180,365].map(value => <option key={value} value={value}>{t("tokens.days",{ count: value })}</option>)}
         </select>
       </div>
-      {error && <p role="alert" className="text-[13px] text-danger">{error}</p>}
+      {error && <p role="alert" className="text-[14px] text-danger">{error}</p>}
     </div>
   </Dialog>;
 }

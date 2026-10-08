@@ -36,6 +36,10 @@
    Старые имена классов (bg-canvas, text-ink, …) — алиасы.
    ============================================================ */
 @theme {
+  /* Shared small/body type: explicit sizes keep spacing independent of the font increase. */
+  --text-xs: 13px;
+  --text-sm: 15px;
+  --text-base: 17px;
   --font-disp: "Manrope", "Segoe UI", system-ui, sans-serif;
   --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
   --font-sans: "Manrope", "Segoe UI", system-ui, sans-serif;
@@ -105,7 +109,7 @@ body,
 
 body {
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.45;
   letter-spacing: -0.006em;
   color: var(--text-1);
@@ -315,6 +319,7 @@ body {
 }
 .board-card {
   --board-priority-inset: inset 0 0 0 transparent;
+  flex-shrink: 0;
   content-visibility: auto;
   contain-intrinsic-size: auto 110px;
   background: var(--bg-panel);
@@ -373,7 +378,7 @@ body {
   height: 22px;
   padding: 0 2px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
   color: var(--text-2);
 }
@@ -860,13 +865,13 @@ html.vt-theme::view-transition-new(root) {
   pointer-events: none;
 }
 .wf-node-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
   fill: var(--text-1);
 }
 .wf-node-count {
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   fill: var(--text-3);
 }

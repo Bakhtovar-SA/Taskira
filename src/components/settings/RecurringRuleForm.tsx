@@ -125,11 +125,11 @@ export default function RecurringRuleForm({ projectId, rule, defaultTimeZone, on
         <p className="ds-hint">{t("recurring.ownerHint")}</p>
       </fieldset>
     </form>
-    <div className="mt-5 flex flex-col gap-2" aria-live="polite"><h3 className="text-[13px] font-semibold">{t("recurring.preview")}</h3>
+    <div className="mt-5 flex flex-col gap-2" aria-live="polite"><h3 className="text-[14px] font-semibold">{t("recurring.preview")}</h3>
       {previewLoading && <p role="status" className="ds-hint">{t("recurring.previewLoading")}</p>}
-      {!!previewError && <p role="alert" className="text-[13px] text-danger">{errText(previewError, t("recurring.previewFailed"))}</p>}
-      {preview.map(value => <time key={value} dateTime={value} className="text-[13px] text-sub">{recurringDate(value, zone, lang)} · {zone}</time>)}
+      {!!previewError && <p role="alert" className="text-[14px] text-danger">{errText(previewError, t("recurring.previewFailed"))}</p>}
+      {preview.map(value => <time key={value} dateTime={value} className="text-[14px] text-sub">{recurringDate(value, zone, lang)} · {zone}</time>)}
     </div>
-    {!!error && <p role="alert" className="mt-3 text-[13px] text-danger">{errText(error, t("recurring.actionFailed"))}</p>}
+    {!!error && <p role="alert" className="mt-3 text-[14px] text-danger">{errText(error, t("recurring.actionFailed"))}</p>}
   </Dialog>;
 }

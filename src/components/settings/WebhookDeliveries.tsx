@@ -68,11 +68,11 @@ export default function WebhookDeliveries({ projectId,hook,enabled,onClose }: {
         { id: "all",label: t("integrations.all") },{ id: "failed",label: t("integrations.failed") },{ id: "pending",label: t("integrations.queued") },
       ]} />
       {enabled && <Button disabled={busy || hook.state !== "active"} onClick={() => { setCount(null); setConfirm(true); }}>{t("integrations.redeliver24h")}</Button>}
-      {count !== null && <p role="status" className="text-[13px] text-sub">{t("integrations.redeliverCount",{ count })}</p>}
+      {count !== null && <p role="status" className="text-[14px] text-sub">{t("integrations.redeliverCount",{ count })}</p>}
       {error && <div role="alert"><p>{error}</p><Button onClick={() => load()}>{t("integrations.retry")}</Button></div>}
       {loading && <p role="status">{t("integrations.loading")}</p>}
-      {!loading && !error && rows.length === 0 && <p className="text-[13px] text-sub">{t("integrations.noDeliveries")}</p>}
-      {rows.length > 0 && <div className="overflow-x-auto"><table className="w-full text-left text-[12px]">
+      {!loading && !error && rows.length === 0 && <p className="text-[14px] text-sub">{t("integrations.noDeliveries")}</p>}
+      {rows.length > 0 && <div className="overflow-x-auto"><table className="w-full text-left text-[13px]">
         <thead><tr>{["time","event","issue","state","attempts","response"].map(column => <th key={column} scope="col" className="border-b border-line px-2 py-2 font-medium text-sub">{t(`integrations.column.${column}` as Parameters<typeof t>[0])}</th>)}</tr></thead>
         <tbody>{rows.map(row => <Fragment key={row.id}><tr className="border-b border-linesoft">
           <td className="px-2 py-2"><Button size="sm" variant="ghost" onClick={() => details(row.id)} aria-expanded={expanded === row.id}>{new Date(row.createdAt).toLocaleString(lang)}</Button></td>
@@ -83,8 +83,8 @@ export default function WebhookDeliveries({ projectId,hook,enabled,onClose }: {
           <td className="px-2 py-2">{row.attempts}</td><td className="px-2 py-2">{row.lastStatus ?? "—"}{row.lastError && <span className="block text-danger">{webhookErrorName(t,row.lastError)}</span>}</td>
         </tr>{expanded === row.id && <tr><td colSpan={6} className="bg-sunken px-3 py-3">
           {detailError ? <p role="alert">{detailError}</p> : !detail ? <p role="status">{t("integrations.loading")}</p> : <div className="flex flex-col gap-3">
-            <h3 className="font-semibold">{t("integrations.payload")}</h3><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all text-[12px] font-[family-name:var(--font-code)]">{JSON.stringify(detail.payload,null,2)}</pre>
-            <h3 className="font-semibold">{t("integrations.responseExcerpt")}</h3><pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-[12px] font-[family-name:var(--font-code)]">{detail.responseExcerpt ?? "—"}</pre>
+            <h3 className="font-semibold">{t("integrations.payload")}</h3><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all text-[13px] font-[family-name:var(--font-code)]">{JSON.stringify(detail.payload,null,2)}</pre>
+            <h3 className="font-semibold">{t("integrations.responseExcerpt")}</h3><pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-[13px] font-[family-name:var(--font-code)]">{detail.responseExcerpt ?? "—"}</pre>
           </div>}
           {enabled && <Button className="mt-3" size="sm" disabled={busy || hook.state !== "active"} onClick={() => void resend(row.id)}>{t("integrations.redeliver")}</Button>}
         </td></tr>}</Fragment>)}</tbody>

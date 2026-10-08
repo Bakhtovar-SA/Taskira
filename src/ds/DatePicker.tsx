@@ -142,7 +142,7 @@ export function DatePicker({
               <path d="M2.5 6.75h11M5.5 1.75v3M10.5 1.75v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </span>
-          <span className={`flex-1 truncate text-[13px] font-medium ${value ? "" : "text-faint"}`}>{value ? fmt(value, { day: "numeric", month: "short", year: value.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric" }) : placeholder}</span>
+          <span className={`flex-1 truncate text-[14px] font-medium ${value ? "" : "text-faint"}`}>{value ? fmt(value, { day: "numeric", month: "short", year: value.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric" }) : placeholder}</span>
         </button>
       )}
     >
@@ -169,12 +169,12 @@ export function DatePicker({
                 aria-describedby={previewId}
               />
             </div>
-            <p id={previewId} className="-mt-1 min-h-[16px] px-1 text-[11.5px] text-faint" aria-live="polite">
+            <p id={previewId} className="-mt-1 min-h-[16px] px-1 text-[12.5px] text-faint" aria-live="polite">
               {text ? (parsed ? <span className="font-semibold text-accenttext">{fmt(parsed, { weekday: "long", day: "numeric", month: "long" })} · Enter</span> : typed ? (lang === "en" ? "Outside the allowed dates" : "Вне допустимых дат") : lang === "en" ? "Not a date" : "Не похоже на дату") : ""}
             </p>
             <div className="flex flex-wrap gap-1">
               {presets.map(([l, v]) => (
-                <button key={l} type="button" disabled={!inRange(v)} onClick={() => commit(v)} className="ds-focus rounded-md px-2 py-1 text-[12px] font-semibold text-sub ring-1 ring-inset ring-linesoft hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-sub">
+                <button key={l} type="button" disabled={!inRange(v)} onClick={() => commit(v)} className="ds-focus rounded-md px-2 py-1 text-[13px] font-semibold text-sub ring-1 ring-inset ring-linesoft hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-sub">
                   {l}
                 </button>
               ))}
@@ -183,7 +183,7 @@ export function DatePicker({
               <button type="button" className="ds-focus grid h-7 w-7 place-items-center rounded-md text-sub hover:bg-hover" aria-label={lang === "en" ? "Previous month" : "Предыдущий месяц"} onClick={() => setCursor(monthShift(-1))}>
                 ‹
               </button>
-              <span className="text-[13px] font-bold text-ink first-letter:uppercase" aria-live="polite">
+              <span className="text-[14px] font-bold text-ink first-letter:uppercase" aria-live="polite">
                 {fmt(isoOf(cy, cm - 1, 1), { month: "long", year: "numeric" })}
               </span>
               <button type="button" className="ds-focus grid h-7 w-7 place-items-center rounded-md text-sub hover:bg-hover" aria-label={lang === "en" ? "Next month" : "Следующий месяц"} onClick={() => setCursor(monthShift(1))}>
@@ -241,7 +241,7 @@ export function DatePicker({
               ))}
             </div>
             {value && (
-              <button type="button" onClick={() => commit(null)} className="ds-focus mt-1 rounded-md py-1.5 text-[12px] font-semibold text-faint hover:bg-hover hover:text-[var(--status-danger-fg)]">
+              <button type="button" onClick={() => commit(null)} className="ds-focus mt-1 rounded-md py-1.5 text-[13px] font-semibold text-faint hover:bg-hover hover:text-[var(--status-danger-fg)]">
                 {clearLabel}
               </button>
             )}

@@ -158,7 +158,7 @@ const ProjectRow = memo(function ProjectRow({ y, p, now, locale, onOpen, onEdit 
       <span className="roadmap-progress">{p.done} / {p.total}</span>
     </button>
     {p.canEdit && <div className="roadmap-row-menu"><Menu placement="bottom-end" label={t("roadmap.edit", { name: p.name })}
-      trigger={props => <IconButton {...props} size="sm" label={t("roadmap.rowMenu", { name: p.name })}><IcDots size={16} /></IconButton>}
+      trigger={props => <IconButton {...props} size="sm" label={t("roadmap.rowMenu", { name: p.name })}><IcDots size={18} /></IconButton>}
       items={[{ id: "dates", label: t("roadmap.edit", { name: p.name }), onSelect: () => onEdit(p.id) }]} /></div>}
   </div>;
 });

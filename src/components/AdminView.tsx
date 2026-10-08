@@ -93,10 +93,10 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
   };
 
   if (state.status === "loading")
-    return <p className="border-t border-linesoft bg-sunken px-3 py-2 text-[11px] text-faint">{t("admin.loadingMembers")}</p>;
+    return <p className="border-t border-linesoft bg-sunken px-3 py-2 text-[12px] text-faint">{t("admin.loadingMembers")}</p>;
   if (state.status === "error")
     return (
-      <p className="border-t border-linesoft bg-sunken px-3 py-2 text-[11px] text-danger">
+      <p className="border-t border-linesoft bg-sunken px-3 py-2 text-[12px] text-danger">
         {t("admin.loadMembersFailed")}{" "}
         <Button variant="ghost" size="sm" className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0" onClick={load}>
           {t("reports.retry")}
@@ -108,16 +108,16 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
 
   return (
     <div className="border-t border-linesoft bg-sunken px-3 py-2.5">
-      <p className="mb-1.5 text-[11.5px] font-medium text-faint">{t("admin.departmentMembers", { count: rows.length })}</p>
+      <p className="mb-1.5 text-[12.5px] font-medium text-faint">{t("admin.departmentMembers", { count: rows.length })}</p>
 
       <div className="space-y-1">
         {rows.map((m) => (
           <div key={m.userId} className="flex items-center gap-2">
             <MiniAvatar user={m} />
-            <span className="min-w-0 flex-1 truncate text-[12px] text-ink">{m.name}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{m.name}</span>
             <span
               title={t(m.source === "ldap" ? "admin.fromLdap" : "admin.addedManually")}
-              className="shrink-0 rounded bg-linesoft px-1.5 py-0.5 text-[11.5px] font-semibold text-faint"
+              className="shrink-0 rounded bg-linesoft px-1.5 py-0.5 text-[12.5px] font-semibold text-faint"
             >
               {m.source === "ldap" ? "LDAP" : t("admin.manually")}
             </span>
@@ -130,7 +130,7 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
             </Button>
           </div>
         ))}
-        {rows.length === 0 && <p className="text-[11px] text-faint">{t("admin.noMembers")}</p>}
+        {rows.length === 0 && <p className="text-[12px] text-faint">{t("admin.noMembers")}</p>}
       </div>
 
       <div className="mt-2">
@@ -140,7 +140,7 @@ function DepartmentMembers({ departmentId }: { departmentId: string }) {
           onPick={(userId) => run(departmentsApi.addMember(departmentId, userId))}
         />
       </div>
-      <p className="mt-1.5 text-[10px] leading-relaxed text-faint">
+      <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
         {t("admin.departmentMembersHint")}
       </p>
     </div>
@@ -177,8 +177,8 @@ export default function AdminView() {
   if (!canManage) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="flex items-center gap-2 text-[13px] text-faint">
-          <IcLock size={15} /> {t("admin.denied")}
+        <p className="flex items-center gap-2 text-[14px] text-faint">
+          <IcLock size={17} /> {t("admin.denied")}
         </p>
       </div>
     );
@@ -190,7 +190,7 @@ export default function AdminView() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("admin.title")}</h1>
-            <p className="mt-0.5 text-[11.5px] text-faint">
+            <p className="mt-0.5 text-[12.5px] text-faint">
               {t("admin.subtitle")}{ldap && ` ${t("admin.ldapSubtitle")}`}
             </p>
           </div>
@@ -215,7 +215,7 @@ export default function AdminView() {
             disabled={!newDept.trim()}
             className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
-            <IcPlus size={13} /> {t("admin.department")}
+            <IcPlus size={15} /> {t("admin.department")}
           </Button>
         </div>
 
@@ -226,15 +226,15 @@ export default function AdminView() {
             return (
               <section key={d.id} className="surface-raised rounded-xl ring-1 ring-inset ring-line/70">
                 <header className="flex items-center gap-2 border-b border-linesoft bg-sunken px-3 py-2">
-                  <IcInbox size={15} className="shrink-0 text-accent" />
+                  <IcInbox size={17} className="shrink-0 text-accent" />
                   <EditableName value={d.name} onSave={(v) => renameDepartment(d.id, v)} maxLength={LIMITS.department.name.max} />
-                  <span className="shrink-0 text-[11px] text-faint">{t("admin.projectCount", { count: projs.length })}</span>
+                  <span className="shrink-0 text-[12px] text-faint">{t("admin.projectCount", { count: projs.length })}</span>
                   <Button variant="secondary" size="sm"
                     onClick={() => setOpenDeptMembers((s) => ({ ...s, [d.id]: !s[d.id] }))}
                     className="shrink-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                   >
-                    {openDeptMembers[d.id] ? <IcChevD size={12} /> : <IcChevR size={12} />}
-                    <IcUsers size={12} /> {t("admin.members")}
+                    {openDeptMembers[d.id] ? <IcChevD size={14} /> : <IcChevR size={14} />}
+                    <IcUsers size={14} /> {t("admin.members")}
                   </Button>
                   <IconButton variant="secondary" size="sm" label={t(projs.length > 0 ? "admin.deleteDepartmentBlocked" : "admin.deleteDepartment")}
                     onClick={() =>
@@ -246,7 +246,7 @@ export default function AdminView() {
 
                     className="shrink-0"
                   >
-                    <IcTrash size={13} />
+                    <IcTrash size={15} />
                   </IconButton>
                 </header>
 
@@ -257,9 +257,9 @@ export default function AdminView() {
                     <div key={p.id}>
                       <div className="flex items-center gap-2 px-3 py-2">
                         <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={22} />
-                        <span className="w-12 shrink-0 font-mono text-[11.5px] font-medium text-faint">{p.key}</span>
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{p.name}</span>
-                        {p.isShared && <span className="shrink-0 text-[11px] text-faint">{t("admin.shared")}</span>}
+                        <span className="w-12 shrink-0 font-mono text-[12.5px] font-medium text-faint">{p.key}</span>
+                        <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{p.name}</span>
+                        {p.isShared && <span className="shrink-0 text-[12px] text-faint">{t("admin.shared")}</span>}
                         {/* Название, «общий», модули, состав и удаление — один дом: настройки проекта (ТЗ 5.9). */}
                         <Button variant="secondary" size="sm"
                           onClick={() => {
@@ -277,7 +277,7 @@ export default function AdminView() {
                           }}
                           className="shrink-0 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                         >
-                          <IcUsers size={12} /> {t("admin.members")}
+                          <IcUsers size={14} /> {t("admin.members")}
                         </Button>
                       </div>
 
@@ -290,7 +290,7 @@ export default function AdminView() {
                       onClick={() => openProjectWizard(d.id)}
                       className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
                     >
-                      <IcPlus size={12} /> {t("wizard.newProjectIn", { name: d.name })}
+                      <IcPlus size={14} /> {t("wizard.newProjectIn", { name: d.name })}
                     </Button>
                   </div>
                 </div>
@@ -298,7 +298,7 @@ export default function AdminView() {
             );
           })}
           {data.departments.length === 0 && (
-            <p className="rounded-xl border border-dashed border-line bg-panel px-4 py-6 text-center text-[12px] text-faint">
+            <p className="rounded-xl border border-dashed border-line bg-panel px-4 py-6 text-center text-[13px] text-faint">
               {t("admin.noDepartments")}
             </p>
           )}

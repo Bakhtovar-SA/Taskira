@@ -6,10 +6,10 @@ import { Button } from "../ds/Button";
 export function WorkspaceSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const { t } = useT();
   return <div className="workspace-search flex min-w-0 items-center gap-2 rounded-md border border-line bg-panel px-3">
-    <IcSearch size={14} className="text-faint" />
-    <input aria-label={t("board.searchPlaceholder")} value={value} onChange={e => onChange(e.target.value)} placeholder={t("board.searchPlaceholder")} className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint" />
+    <IcSearch size={16} className="text-faint" />
+    <input aria-label={t("board.searchPlaceholder")} value={value} onChange={e => onChange(e.target.value)} placeholder={t("board.searchPlaceholder")} className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint" />
     {!value && <kbd className="ds-kbd">/</kbd>}
-    {value && <button onClick={() => onChange("")} className="text-faint hover:text-ink" aria-label={t("common.clear")}><IcX size={12} /></button>}
+    {value && <button onClick={() => onChange("")} className="text-faint hover:text-ink" aria-label={t("common.clear")}><IcX size={14} /></button>}
   </div>;
 }
 
@@ -18,7 +18,7 @@ export function WorkspaceQuickFilters({ active, onToggle, overdue }: { active: (
   return <div className="board-quick-filters flex flex-wrap items-center gap-2">
     {(["mine", "overdue", "unassigned"] as const).map(id => {
       const on = active(id), label = t(id === "mine" ? "workspace.mine" : id === "overdue" ? "board.quickChip.overdue" : "board.quickChip.unassigned");
-      return <Button key={id} size="sm" className="workspace-quick-filter" aria-label={t(id === "mine" ? "board.quickChip.mine" : id === "overdue" ? "board.quickChip.overdue" : "board.quickChip.unassigned")} aria-pressed={on} iconLeft={on ? <IcCheck size={13} /> : undefined} onClick={() => onToggle(id)}>
+      return <Button key={id} size="sm" className="workspace-quick-filter" aria-label={t(id === "mine" ? "board.quickChip.mine" : id === "overdue" ? "board.quickChip.overdue" : "board.quickChip.unassigned")} aria-pressed={on} iconLeft={on ? <IcCheck size={15} /> : undefined} onClick={() => onToggle(id)}>
         {label}{id === "overdue" && <span className="workspace-overdue-count tabular" aria-hidden="true">{overdue ?? "…"}</span>}
       </Button>;
     })}
@@ -54,26 +54,26 @@ export function WorkspaceControls({ search, filters, options, summary, quickFilt
     <div className="workspace-controls mt-3" data-layout={compact ? "compact" : undefined}>
       {search}
       {quickFilters}
-      {compact && summary && <span className="workspace-count text-[12px] tabular text-faint">{summary}</span>}
+      {compact && summary && <span className="workspace-count text-[13px] tabular text-faint">{summary}</span>}
       {grouping}
       <button ref={filtersButton} type="button" className="workspace-toggle ds-focus" aria-expanded={open === "filters"} aria-controls={id}
         aria-label={compact ? t("workspace.filters") : undefined}
         onClick={() => setOpen(open === "filters" ? null : "filters")}>
-        <IcFilter size={14} /> {!compact && t("workspace.filters")}
+        <IcFilter size={16} /> {!compact && t("workspace.filters")}
         {count > 0 && <span className="ds-count">{count}</span>}
-        {!compact && <IcChevD size={12} />}
+        {!compact && <IcChevD size={14} />}
       </button>
       <button ref={optionsButton} type="button" className="workspace-toggle ds-focus" aria-expanded={open === "options"} aria-controls={id}
         aria-label={compact ? t("workspace.settings") : undefined}
         onClick={() => setOpen(open === "options" ? null : "options")}>
-        {!compact && <IcDisplay size={14} />} {t(compact ? "workspace.view" : "workspace.settings")} <IcChevD size={12} />
+        {!compact && <IcDisplay size={16} />} {t(compact ? "workspace.view" : "workspace.settings")} <IcChevD size={14} />
       </button>
-      {!compact && summary && <span className="workspace-count text-[12px] tabular text-faint">{summary}</span>}
+      {!compact && summary && <span className="workspace-count text-[13px] tabular text-faint">{summary}</span>}
     </div>
     <section id={id} hidden={!open} className="workspace-panel" data-panel={open} aria-label={label}>
       <div className="workspace-panel-head">
         <h2 className="workspace-panel-title">{label}</h2>
-        <button type="button" className="workspace-panel-close ds-focus" aria-label={t("common.close")} onClick={close}><IcX size={14} /></button>
+        <button type="button" className="workspace-panel-close ds-focus" aria-label={t("common.close")} onClick={close}><IcX size={16} /></button>
       </div>
       {open === "filters" ? filters : open === "options" ? options : null}
     </section>

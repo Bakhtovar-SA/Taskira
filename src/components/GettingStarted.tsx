@@ -33,7 +33,7 @@ export function GettingStarted({ compact = false, navigate, className = "" }: { 
   return (
     <section aria-labelledby="gs-title" className={`surface-raised relative rounded-xl ring-1 ring-inset ring-line/70 ${compact ? "p-3.5" : "p-5"} ${className}`}>
       <button type="button" onClick={hideOnboarding} aria-label={t("onboarding.hide")} title={t("onboarding.hide")} className="ds-focus absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-md text-faint hover:bg-hover hover:text-ink">
-        <IcX size={12} />
+        <IcX size={14} />
       </button>
       <div
         className={`flex items-center gap-3 pr-8 ${compact ? "ds-focus -m-1 cursor-pointer rounded-lg p-1" : ""}`}
@@ -41,10 +41,10 @@ export function GettingStarted({ compact = false, navigate, className = "" }: { 
       >
         <ProgressRing value={(n / STEPS.length) * 100} size={compact ? 30 : 36} label={t("onboarding.progress", { n, total: STEPS.length })} />
         <div className="min-w-0">
-          <h2 id="gs-title" className={`${compact ? "text-[13px]" : "text-[14px]"} font-semibold text-ink`}>
+          <h2 id="gs-title" className={`${compact ? "text-[14px]" : "text-[15px]"} font-semibold text-ink`}>
             {finished ? t("onboarding.doneTitle") : t("onboarding.title")}
           </h2>
-          <p className="text-[12px] text-faint">{finished ? t("onboarding.doneSub") : t("onboarding.progress", { n, total: STEPS.length })}</p>
+          <p className="text-[13px] text-faint">{finished ? t("onboarding.doneSub") : t("onboarding.progress", { n, total: STEPS.length })}</p>
         </div>
       </div>
       {!finished && open && (
@@ -55,14 +55,14 @@ export function GettingStarted({ compact = false, navigate, className = "" }: { 
             return (
               <li key={s} className="flex items-start gap-2.5 rounded-lg px-1.5 py-1.5" data-done={ok || undefined}>
                 <span className={`mt-px grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full ${ok ? "bg-[var(--status-done)] text-onaccent" : "ring-[1.5px] ring-inset ring-line2"}`} aria-hidden="true">
-                  {ok && <IcCheck size={11} />}
+                  {ok && <IcCheck size={13} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={`block text-[13px] ${ok ? "text-faint line-through decoration-line2" : "font-medium text-ink"}`}>{t(`onboarding.step.${s}`)}</span>
-                  {!ok && !compact && <span className="block text-[12px] text-faint">{t(`onboarding.step.${s}.hint`)}</span>}
+                  <span className={`block text-[14px] ${ok ? "text-faint line-through decoration-line2" : "font-medium text-ink"}`}>{t(`onboarding.step.${s}`)}</span>
+                  {!ok && !compact && <span className="block text-[13px] text-faint">{t(`onboarding.step.${s}.hint`)}</span>}
                 </span>
                 {!ok && action && (
-                  <button type="button" onClick={action} className="ds-focus shrink-0 rounded-md px-2 py-0.5 text-[12px] font-semibold text-accenttext hover:bg-accentsoft">
+                  <button type="button" onClick={action} className="ds-focus shrink-0 rounded-md px-2 py-0.5 text-[13px] font-semibold text-accenttext hover:bg-accentsoft">
                     {t(`onboarding.step.${s}.go`)}
                   </button>
                 )}

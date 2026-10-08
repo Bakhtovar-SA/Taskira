@@ -223,7 +223,7 @@ export function Switch({
   if (!label) return sw;
   const text = (
     <span id={`${id}-l`} className="min-w-0 flex-1">
-      <span className="block text-[13px] font-medium text-ink">{label}</span>
+      <span className="block text-[14px] font-medium text-ink">{label}</span>
       {description && <span className="ds-check-desc">{description}</span>}
     </span>
   );

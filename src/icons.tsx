@@ -13,7 +13,7 @@ import { useT } from "./i18n";
 export type IconTone = "violet" | "indigo" | "blue" | "sky" | "teal" | "green" | "amber" | "orange" | "red" | "pink" | "gray";
 type P = { size?: number; className?: string; tone?: IconTone };
 
-const D = ({ size = 16, className = "", tone, children }: P & { children: React.ReactNode }) => (
+const D = ({ size = 18, className = "", tone, children }: P & { children: React.ReactNode }) => (
   <svg width={size} height={size} viewBox="0 0 16 16" className={`tk-ic ${tone ? `tk-tone-${tone}` : ""} ${className}`} aria-hidden="true">
     {children}
   </svg>
@@ -77,7 +77,7 @@ export const Logo = ({ size = 24, variant = "mark", className }: P & { variant?:
   );
 };
 
-export const TypeIcon = ({ type, size = 15 }: { type: IssueTypeId | string; size?: number }) => {
+export const TypeIcon = ({ type, size = 17 }: { type: IssueTypeId | string; size?: number }) => {
   const { t } = useT();
   if (type === "bug")
     return (
@@ -115,7 +115,7 @@ export const PRIORITY_COLOR: Record<PriorityId, string> = {
 /** Приоритет — ступени сигнала (1–3), «Критичный» — отдельная форма
  *  (плашка с «!»), а не четвёртая ступень: срочное читается формой, не
  *  подсчётом столбиков. Цвет — только у критичного; остальное — чернила. */
-export const PriorityIcon = ({ p, size = 15 }: { p: PriorityId; size?: number }) => {
+export const PriorityIcon = ({ p, size = 17 }: { p: PriorityId; size?: number }) => {
   const { t } = useT();
   if (p === "critical")
     return (
@@ -147,7 +147,7 @@ export const PriorityIcon = ({ p, size = 15 }: { p: PriorityId; size?: number })
 /** Глиф статуса: доля заполненного круга = доля пути по процессу.
  *  `position` — место статуса в своём workflow (0…1); todo — пустой круг,
  *  done — закрытый круг с галочкой. */
-export const StatusGlyph = ({ category, position = 0.5, size = 14 }: { category: "todo" | "inprogress" | "done"; position?: number; size?: number }) => {
+export const StatusGlyph = ({ category, position = 0.5, size = 16 }: { category: "todo" | "inprogress" | "done"; position?: number; size?: number }) => {
   const color = category === "done" ? "var(--status-done)" : category === "inprogress" ? "var(--status-progress)" : "var(--status-todo)";
   if (category === "done")
     return (
@@ -171,7 +171,7 @@ export const StatusGlyph = ({ category, position = 0.5, size = 14 }: { category:
 
 /** Кольцо срока: дуга заполняется по мере приближения даты (окно 14 дней),
  *  тёплая — за 3 дня, красная — просрочено. Срочность видна без чтения цифр. */
-export const DueRing = ({ due, today, size = 13, done = false }: { due: string; today: string; size?: number; done?: boolean }) => {
+export const DueRing = ({ due, today, size = 15, done = false }: { due: string; today: string; size?: number; done?: boolean }) => {
   const days = Math.round((Date.parse(due) - Date.parse(today)) / 864e5);
   const late = !done && days < 0;
   const f = done ? 1 : late ? 1 : Math.max(0.08, Math.min(1, 1 - days / 14));

@@ -6,7 +6,7 @@ test("roadmap refresh: geometry, months, independent scroll and strict dependenc
   await page.setViewportSize({ width: 1440, height: 900 });
   await roadmapFixture(page); await page.goto("/roadmap");
   await expect(page.locator(".roadmap-project-row")).toHaveCount(5);
-  expect((await page.locator(".roadmap-toolbar").boundingBox())!.height).toBeCloseTo(52, 2);
+  expect((await page.locator(".roadmap-toolbar").boundingBox())!.height).toBeCloseTo(55, 2);
   expect((await page.locator(".roadmap-projects").boundingBox())!.width).toBeCloseTo(300, 2);
   expect((await page.locator(".roadmap-project-row").first().boundingBox())!.height).toBeCloseTo(56, 2);
   expect((await page.locator(".roadmap-headings").boundingBox())!.height).toBeCloseTo(44, 2);

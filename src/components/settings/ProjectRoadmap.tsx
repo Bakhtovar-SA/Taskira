@@ -73,7 +73,7 @@ export function ProjectRoadmap() {
   return (
     <SettingsPage title={title} desc={t("settings.desc.roadmap")}>
       <div className="flex justify-end">
-        <Button size="sm" variant="ghost" iconLeft={<IcFlag size={14} tone="teal" />} onClick={() => setView("roadmap")}>
+        <Button size="sm" variant="ghost" iconLeft={<IcFlag size={16} tone="teal" />} onClick={() => setView("roadmap")}>
           {t("roadmap.open")}
         </Button>
       </div>
@@ -82,28 +82,28 @@ export function ProjectRoadmap() {
           {editable ? (
             <DatePicker markOverdue={false} label={t("roadmap.start")} lang={lang} value={p.startDate} placeholder={t("roadmap.notSet")} clearLabel={t("roadmap.clearDate")} onChange={(v) => setDates({ startDate: v })} />
           ) : (
-            <span className="text-[13px] text-sub">{p.startDate ? fmt(p.startDate) : t("roadmap.notSet")}</span>
+            <span className="text-[14px] text-sub">{p.startDate ? fmt(p.startDate) : t("roadmap.notSet")}</span>
           )}
         </SettingRow>
         <SettingRow label={t("roadmap.target")}>
           {editable ? (
             <DatePicker markOverdue={p.done < p.total} label={t("roadmap.target")} lang={lang} value={p.targetDate} placeholder={t("roadmap.notSet")} clearLabel={t("roadmap.clearDate")} onChange={(v) => setDates({ targetDate: v })} />
           ) : (
-            <span className="text-[13px] text-sub">{p.targetDate ? fmt(p.targetDate) : t("roadmap.notSet")}</span>
+            <span className="text-[14px] text-sub">{p.targetDate ? fmt(p.targetDate) : t("roadmap.notSet")}</span>
           )}
         </SettingRow>
       </SettingsCard>
 
       <SettingsCard title={t("roadmap.milestones")}>
-        {p.milestones.length === 0 && <p className="px-5 py-4 text-[12.5px] text-faint">{t("roadmap.noMilestones")}</p>}
+        {p.milestones.length === 0 && <p className="px-5 py-4 text-[13.5px] text-faint">{t("roadmap.noMilestones")}</p>}
         {p.milestones.map((m) => (
           <div key={m.id} className="flex items-center gap-3 px-5 py-2.5">
             <span aria-hidden className="h-2 w-2 shrink-0 rotate-45 rounded-[1px] bg-accent" />
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{m.name}</span>
-            <span className="shrink-0 text-[12.5px] tabular text-sub">{fmt(m.date)}</span>
+            <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{m.name}</span>
+            <span className="shrink-0 text-[13.5px] tabular text-sub">{fmt(m.date)}</span>
             {editable && (
               <Button size="sm" variant="ghost" aria-label={t("roadmap.removeMilestone", { name: m.name })} disabled={busy} onClick={() => void run(() => roadmapApi.removeMilestone(p.id, m.id))}>
-                <IcTrash size={13} />
+                <IcTrash size={15} />
               </Button>
             )}
           </div>
@@ -120,7 +120,7 @@ export function ProjectRoadmap() {
               <Input label={t("roadmap.milestoneName")} value={name} maxLength={LIMITS.milestone.name.max} onChange={(e) => setName(e.target.value)} />
             </div>
             <DatePicker markOverdue={false} label={t("roadmap.milestoneDate")} lang={lang} value={date} placeholder={t("roadmap.pickDate")} clearLabel={t("roadmap.clearDate")} onChange={setDate} />
-            <Button type="submit" variant="secondary" iconLeft={<IcPlus size={13} />} disabled={!name.trim() || !date} loading={busy}>
+            <Button type="submit" variant="secondary" iconLeft={<IcPlus size={15} />} disabled={!name.trim() || !date} loading={busy}>
               {t("roadmap.addMilestone")}
             </Button>
           </form>
@@ -128,15 +128,15 @@ export function ProjectRoadmap() {
       </SettingsCard>
 
       <SettingsCard title={t("roadmap.deps")} footer={t("roadmap.depsHint")}>
-        {waits.length === 0 && <p className="px-5 py-4 text-[12.5px] text-faint">{t("roadmap.noDeps")}</p>}
+        {waits.length === 0 && <p className="px-5 py-4 text-[13.5px] text-faint">{t("roadmap.noDeps")}</p>}
         {waits.map((w) => (
           <div key={w.id} className="flex items-center gap-3 px-5 py-2.5">
             <ProjectMark projectKey={w.key} icon={w.icon} color={w.color} size={18} />
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{w.name}</span>
-            <span className="shrink-0 text-[12px] tabular text-faint">{w.targetDate ? fmt(w.targetDate) : t("roadmap.notSet")}</span>
+            <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{w.name}</span>
+            <span className="shrink-0 text-[13px] tabular text-faint">{w.targetDate ? fmt(w.targetDate) : t("roadmap.notSet")}</span>
             {editable && (
               <Button size="sm" variant="ghost" aria-label={t("roadmap.removeDep", { name: w.name })} disabled={busy} onClick={() => void run(() => roadmapApi.removeDependency(p.id, w.id))}>
-                <IcTrash size={13} />
+                <IcTrash size={15} />
               </Button>
             )}
           </div>

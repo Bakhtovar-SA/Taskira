@@ -42,7 +42,7 @@ export default function MyIssuesView() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[960px] px-4 pb-12 pt-6 sm:px-8">
         <h1 className="font-disp text-[22px] font-semibold tracking-[-0.02em] text-ink">{t("sidebar.nav.my")}</h1>
-        <p className="mt-0.5 text-[12.5px] text-faint">{t("my.subtitle")}</p>
+        <p className="mt-0.5 text-[13.5px] text-faint">{t("my.subtitle")}</p>
         <Hint id="palette" className="mt-3">
           {t("hint.palette")}
         </Hint>
@@ -63,10 +63,10 @@ export default function MyIssuesView() {
           <div className="mt-6 space-y-6">
             {groups.map((items) => (
               <section key={items[0].projectId}>
-                <h2 className="mb-2 flex items-center gap-2 px-1 text-[13px] font-semibold text-ink">
+                <h2 className="mb-2 flex items-center gap-2 px-1 text-[14px] font-semibold text-ink">
                   <ProjectMark projectKey={items[0].projectKey} {...lookOf(data.projects, items[0].projectKey)} size={18} />
                   {items[0].projectName}
-                  <span className="tabular text-[12px] font-medium text-faint">{items.length}</span>
+                  <span className="tabular text-[13px] font-medium text-faint">{items.length}</span>
                 </h2>
                 <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
                   {items.map((i) => (
@@ -76,7 +76,7 @@ export default function MyIssuesView() {
               </section>
             ))}
             {data.assignedTruncated && (
-              <p className="px-1 text-[11.5px] font-medium text-warn">
+              <p className="px-1 text-[12.5px] font-medium text-warn">
                 {t("home.assignedTruncated", {
                   n: data.assignedToMe.length,
                   noun: tn(data.assignedToMe.length, "noun.issue.one", "noun.issue.few", "noun.issue.many"),

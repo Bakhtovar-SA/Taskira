@@ -116,7 +116,7 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
         <span className="flex items-center gap-2">
           {STEPS.map((s, i) => (
             <span key={s} className={`flex items-center gap-1.5 ${i === step ? "font-semibold text-ink" : i < step ? "text-accenttext" : "text-faint"}`}>
-              <span className={`grid h-5 w-5 place-items-center rounded-full text-[11px] font-bold ${i === step ? "bg-accent text-onaccent" : i < step ? "bg-accentsoft text-accenttext" : "bg-active text-faint"}`}>{i + 1}</span>
+              <span className={`grid h-5 w-5 place-items-center rounded-full text-[12px] font-bold ${i === step ? "bg-accent text-onaccent" : i < step ? "bg-accentsoft text-accenttext" : "bg-active text-faint"}`}>{i + 1}</span>
               <span className={i === step ? "" : "max-sm:hidden"}>{t(`wizard.step.${s}`)}</span>
               {i < STEPS.length - 1 && <span className="text-line2">—</span>}
             </span>
@@ -125,7 +125,7 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
       }
       footer={
         <>
-          <span className="mr-auto self-center text-[12px] text-faint">{t("wizard.stepOf", { n: step + 1, total: STEPS.length, title: stepTitle })}</span>
+          <span className="mr-auto self-center text-[13px] text-faint">{t("wizard.stepOf", { n: step + 1, total: STEPS.length, title: stepTitle })}</span>
           {step > 0 ? (
             <Button variant="ghost" onClick={() => setStep(step - 1)}>
               {t("wizard.back")}
@@ -157,7 +157,7 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
                   label: <span className="flex min-w-0 items-center gap-2">
                     <ProjectMark projectKey={x.name} icon={x.spec.icon ?? null} color={x.id === tplId ? color : null} size={28} />
                     <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+                      <span className="flex items-center gap-2 text-[14px] font-semibold text-ink">
                         <span className="truncate">{x.name}</span>
                         {!x.builtin && (
                           <Tag tone="violet" size="sm">
@@ -165,7 +165,7 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
                           </Tag>
                         )}
                       </span>
-                      <span className="text-[11.5px] text-faint">{t("wizard.statusCount", { n: x.spec.statuses.length, fields: x.spec.customFields.length })}</span>
+                      <span className="text-[12.5px] text-faint">{t("wizard.statusCount", { n: x.spec.statuses.length, fields: x.spec.customFields.length })}</span>
                     </span>
                   </span>,
                 }))} />}
@@ -218,7 +218,7 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
             <ProjectMark projectKey={key} icon={icon} color={color} size={40} />
             <div className="min-w-0 flex-1">
               <p className="truncate font-disp text-[17px] font-bold text-ink">{name.trim()}</p>
-              <p className="text-[12.5px] text-faint">
+              <p className="text-[13.5px] text-faint">
                 {key} · {data.departments.find((d) => d.id === dept)?.name}
                 {shared && ` · ${t("settings.project.shared").toLowerCase()}`}
               </p>
@@ -232,7 +232,7 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
             <span className="ds-hint">{t("look.bgHint")}</span>
           </div>
           <TemplatePreview tpl={tpl} compact />
-          <p className="text-[12.5px] text-sub">{members.length ? t("wizard.membersSummary", { n: members.length, names: members.map((m) => m.name).join(", ") }) : t("wizard.noMembers")}</p>
+          <p className="text-[13.5px] text-sub">{members.length ? t("wizard.membersSummary", { n: members.length, names: members.map((m) => m.name).join(", ") }) : t("wizard.noMembers")}</p>
         </div>
       )}
     </Dialog>
@@ -247,15 +247,15 @@ function TemplatePreview({ tpl, compact }: { tpl: ProjectTemplateDto; compact?: 
     <div className="flex min-w-0 flex-col gap-4 rounded-xl bg-sunken/50 p-4 ring-1 ring-inset ring-linesoft">
       {!compact && (
         <div>
-          <p className="font-disp text-[16px] font-bold text-ink">{tpl.name}</p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-sub">{tpl.description}</p>
+          <p className="font-disp text-[17px] font-bold text-ink">{tpl.name}</p>
+          <p className="mt-1 text-[13.5px] leading-relaxed text-sub">{tpl.description}</p>
         </div>
       )}
       <div>
         <p className="ds-label mb-2">{t("wizard.statuses")}</p>
         <div className="flex flex-wrap items-center gap-1.5">
           {s.statuses.map((st, i) => (
-            <span key={st.sid} className="flex items-center gap-1.5 rounded-full bg-panel px-2.5 py-1 text-[12px] font-medium text-ink ring-1 ring-inset ring-linesoft">
+            <span key={st.sid} className="flex items-center gap-1.5 rounded-full bg-panel px-2.5 py-1 text-[13px] font-medium text-ink ring-1 ring-inset ring-linesoft">
               <StatusGlyph category={st.category} position={s.statuses.length > 1 ? i / (s.statuses.length - 1) : 0.5} size={12} />
               {st.name}
             </span>
@@ -277,10 +277,10 @@ function TemplatePreview({ tpl, compact }: { tpl: ProjectTemplateDto; compact?: 
       {s.issueTemplates.length > 0 && (
         <div>
           <p className="ds-label mb-2">{t("wizard.issueTemplates")}</p>
-          <p className="text-[12.5px] text-sub">{s.issueTemplates.map((x) => x.name).join(" · ")}</p>
+          <p className="text-[13.5px] text-sub">{s.issueTemplates.map((x) => x.name).join(" · ")}</p>
         </div>
       )}
-      <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12.5px] text-sub">
+      <div className="flex flex-wrap gap-x-6 gap-y-2 text-[13.5px] text-sub">
         <span>
           {t("wizard.opensOn")} <b className="font-semibold text-ink">{t(`sidebar.nav.${s.defaultView}` as "sidebar.nav.board")}</b>
         </span>
@@ -329,7 +329,7 @@ function Access({
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="ds-field">
           <span className="ds-label">{t("settings.project.department")}</span>
-          <select value={dept} onChange={(e) => setDept(e.target.value)} className="ds-input ds-focus cursor-pointer text-[13px] font-medium">
+          <select value={dept} onChange={(e) => setDept(e.target.value)} className="ds-input ds-focus cursor-pointer text-[14px] font-medium">
             {data.departments.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
@@ -349,12 +349,12 @@ function Access({
             {members.map((m) => (
               <div key={m.userId} className="flex items-center gap-3 px-3 py-2">
                 <Avatar person={{ name: m.name }} size={24} />
-                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{m.name}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{m.name}</span>
                 <select
                   aria-label={t("wizard.roleFor", { name: m.name })}
                   value={m.role}
                   onChange={(e) => setMembers(members.map((x) => (x.userId === m.userId ? { ...x, role: e.target.value as ProjectRole } : x)))}
-                  className="ds-input ds-focus h-8 cursor-pointer text-[12.5px] font-medium"
+                  className="ds-input ds-focus h-8 cursor-pointer text-[13.5px] font-medium"
                 >
                   {(["manager", "employee", "viewer"] as const).map((r) => (
                     <option key={r} value={r}>
@@ -363,7 +363,7 @@ function Access({
                   ))}
                 </select>
                 <IconButton variant="ghost" size="sm" label={t("wizard.removeMember", { name: m.name })} type="button"  onClick={() => setMembers(members.filter((x) => x.userId !== m.userId))} className="h-7 w-7">
-                  <IcX size={12} />
+                  <IcX size={14} />
                 </IconButton>
               </div>
             ))}

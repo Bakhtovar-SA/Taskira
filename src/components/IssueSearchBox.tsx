@@ -64,7 +64,7 @@ export default function IssueSearchBox({
   return (
     <div className="w-full">
       <div className="flex items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1 focus-within:border-accent">
-        <IcSearch size={12} className="shrink-0 text-faint" />
+        <IcSearch size={14} className="shrink-0 text-faint" />
         <input
           autoFocus={autoFocus}
           value={text}
@@ -76,18 +76,18 @@ export default function IssueSearchBox({
           aria-expanded="true"
           aria-controls={listId}
           aria-autocomplete="list"
-          className="min-w-0 flex-1 bg-transparent text-[12px] text-ink outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint"
         />
         {text && (
           <button onClick={() => setText("")} className="text-faint hover:text-ink" aria-label={t("common.clear")}>
-            <IcX size={11} />
+            <IcX size={13} />
           </button>
         )}
       </div>
 
       <div id={listId} role="listbox" aria-busy={status === "loading"} className="mt-1 max-h-[220px] overflow-y-auto">
         {status === "ready" && results.length > 0 && isRecent && (
-          <p className="px-2 pb-0.5 pt-1 text-[11.5px] font-medium text-faint">{t("picker.recent")}</p>
+          <p className="px-2 pb-0.5 pt-1 text-[12.5px] font-medium text-faint">{t("picker.recent")}</p>
         )}
 
         {showSkeleton && (
@@ -99,7 +99,7 @@ export default function IssueSearchBox({
         )}
 
         {status === "error" && (
-          <div className="px-2 py-2 text-[11.5px] text-danger">
+          <div className="px-2 py-2 text-[12.5px] text-danger">
             <p>{t("picker.error")}</p>
             <button onClick={search.retry} className="mt-1 font-semibold text-accent hover:underline">
               {t("common.retry")}
@@ -119,13 +119,13 @@ export default function IssueSearchBox({
                 i === active ? "bg-accentsoft" : "hover:bg-hover"
               }`}
             >
-              <span className="w-[62px] shrink-0 font-mono text-[10.5px] font-semibold text-faint">{issue.key}</span>
-              <span className="min-w-0 flex-1 truncate text-[12px] text-ink">{issue.title}</span>
+              <span className="w-[62px] shrink-0 font-mono text-[11.5px] font-semibold text-faint">{issue.key}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{issue.title}</span>
             </button>
           ))}
 
         {status === "ready" && results.length === 0 && (
-          <div className="px-2 py-2.5 text-[11.5px] leading-snug text-faint">
+          <div className="px-2 py-2.5 text-[12.5px] leading-snug text-faint">
             {isRecent ? (
               <p>{t("picker.noIssues")}</p>
             ) : (

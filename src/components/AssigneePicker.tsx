@@ -27,8 +27,8 @@ export default function AssigneePicker({ data, selected, onChange }: {
       className="ds-menu-item" onClick={() => onChange(selected.includes(user.id) ? selected.filter(id => id !== user.id) : [...selected, user.id])}>
       <UserAvatar user={user} size={18} interactive={false} />
       <span className="min-w-0 flex-1 truncate">{user.name}</span>
-      {selected.includes(user.id) && <IcCheck size={12} className="text-accent" />}
+      {selected.includes(user.id) && <IcCheck size={14} className="text-accent" />}
     </button>)}
-    {!candidates.length && <p className="px-3 py-2 text-[12px] text-faint">{t("assignee.empty")}</p>}
+    {!candidates.length && <p className="px-3 py-2 text-[13px] text-faint">{t("assignee.empty")}</p>}
   </div>;
 }

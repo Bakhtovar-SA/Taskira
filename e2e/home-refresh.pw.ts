@@ -8,11 +8,11 @@ test("home refresh: shared shell, dimensions, summary and real project totals", 
   await expect(page.locator(".project-topbar")).toHaveCount(0);
   await expect(page.locator("aside [aria-current=page]")).toHaveText("Главная");
   await expect(page.locator(".home-summary")).toHaveText("1 задача просрочена, 1 со сроком на этой неделе, 2 ждут вашего ревью.");
-  expect((await page.locator(".home-task").first().boundingBox())!.height).toBe(42);
-  expect((await page.locator(".home-activity").first().boundingBox())!.height).toBe(36);
+  expect((await page.locator(".home-task").first().boundingBox())!.height).toBe(44);
+  expect((await page.locator(".home-activity").first().boundingBox())!.height).toBe(38);
   expect((await page.locator(".home-card-head").first().boundingBox())!.height).toBe(48);
   const style = await page.locator(".home-content").evaluate(e => ({ padding: getComputedStyle(e).padding, font: getComputedStyle(e.querySelector("h1")!).fontSize }));
-  expect(style).toEqual({ padding: "44px 56px", font: "30px" });
+  expect(style).toEqual({ padding: "28px 32px", font: "30px" });
   await expect(page.locator(".home-project-count").first()).toContainText("моих 5");
   await expect(page.getByText("открыто 5", { exact: true })).toBeVisible();
   await expect(page.getByRole("progressbar", { name: "Готовность проекта «Корпоративные задачи»" })).toHaveAttribute("aria-valuenow", String(7 / 12 * 100));

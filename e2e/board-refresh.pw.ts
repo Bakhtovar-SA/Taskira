@@ -34,7 +34,7 @@ for (const columns of [4, 5, 6]) test(`board refresh: ${columns} statuses at 144
   await boardFixture(page, "light", columns);
   await page.goto("/p/CORP/board");
   await expect(page.locator(".board-col")).toHaveCount(columns);
-  expect(await page.locator(".board-scroll").evaluate(el => el.scrollWidth > el.clientWidth + 1)).toBe(columns >= 6);
+  expect(await page.locator(".board-scroll").evaluate(el => el.scrollWidth > el.clientWidth + 1)).toBe(columns >= 5);
   const col = page.locator(".board-col").nth(1);
   await col.getByRole("button", { name: "Добавить в «В работе»", exact: true }).click();
   await expect(col.getByRole("textbox")).toBeFocused();

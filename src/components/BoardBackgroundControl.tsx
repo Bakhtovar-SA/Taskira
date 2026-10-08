@@ -29,13 +29,13 @@ export default function BoardBackgroundControl({ userId, projectId, hasPhoto }: 
       onChange={event => { const file = event.target.files?.[0]; if (file) void run(file); }} />
     <Popover label={t("board.view")} className="w-[300px] p-3"
     trigger={(props) => <button {...props} type="button" className="ds-btn ds-focus border border-line text-sub" disabled={busy}>{t("board.view")}</button>}>
-    <p className="mb-1 text-[14px] font-semibold text-ink">{t("board.personalPhoto")}</p>
-    <p className="mb-3 text-[12px] leading-relaxed text-sub">{t("board.personalPhotoHint")}</p>
+    <p className="mb-1 text-[15px] font-semibold text-ink">{t("board.personalPhoto")}</p>
+    <p className="mb-3 text-[13px] leading-relaxed text-sub">{t("board.personalPhotoHint")}</p>
     <div className="flex gap-2">
       <Button size="sm" loading={busy} onClick={() => input.current?.click()}>{t(hasPhoto ? "look.photo.replace" : "look.photo.upload")}</Button>
       {hasPhoto && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void run()}>{t("look.photo.remove")}</Button>}
     </div>
   </Popover>
-    {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
+    {error && <p role="alert" className="text-[13px] text-danger">{error}</p>}
   </>;
 }

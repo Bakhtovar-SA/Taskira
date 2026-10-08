@@ -30,7 +30,7 @@ export function BootErrorScreen({ onRetry, onLogout }: { onRetry: () => void; on
           {online ? <Logo size={30} /> : <IcGlobe size={26} tone="gray" />}
         </div>
         <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{online ? t("status.bootFailed.title") : t("status.offline.title")}</h1>
-        <p className="mx-auto mt-2 max-w-[340px] text-[13.5px] leading-relaxed text-sub">{online ? t("status.bootFailed.body") : t("status.offline.body")}</p>
+        <p className="mx-auto mt-2 max-w-[340px] text-[14.5px] leading-relaxed text-sub">{online ? t("status.bootFailed.body") : t("status.offline.body")}</p>
         <div className="mt-6 flex justify-center gap-2">
           <Button variant="primary" onClick={onRetry}>
             {t("common.retry")}
@@ -55,9 +55,9 @@ export function NotFoundPage({ path, onHome, onBack }: { path: string; onHome: (
           <IcSearch size={24} tone="violet" />
         </div>
         <h1 className="font-disp text-[20px] font-semibold tracking-[-0.02em] text-ink">{t("status.notFound.title")}</h1>
-        <p className="mx-auto mt-2 max-w-[380px] text-[13.5px] leading-relaxed text-sub">{t("status.notFound.body")}</p>
-        <p className="mx-auto mt-4 flex max-w-full items-center justify-center gap-1.5 truncate rounded-lg bg-sunken px-3 py-1.5 font-mono text-[12px] text-faint ring-1 ring-inset ring-linesoft">
-          <IcLink size={12} />
+        <p className="mx-auto mt-2 max-w-[380px] text-[14.5px] leading-relaxed text-sub">{t("status.notFound.body")}</p>
+        <p className="mx-auto mt-4 flex max-w-full items-center justify-center gap-1.5 truncate rounded-lg bg-sunken px-3 py-1.5 font-mono text-[13px] text-faint ring-1 ring-inset ring-linesoft">
+          <IcLink size={14} />
           <span className="truncate">{decodeURI(path)}</span>
         </p>
         <div className="mt-6 flex justify-center gap-2">
@@ -79,8 +79,8 @@ export function OfflineBanner() {
   const online = useOnline();
   if (online) return null;
   return (
-    <div role="status" className="flex items-center justify-center gap-2 border-b border-linesoft bg-warnsoft px-4 py-1.5 text-[12.5px] font-medium text-[var(--status-progress-fg)]">
-      <IcGlobe size={13} />
+    <div role="status" className="flex items-center justify-center gap-2 border-b border-linesoft bg-warnsoft px-4 py-1.5 text-[13.5px] font-medium text-[var(--status-progress-fg)]">
+      <IcGlobe size={15} />
       {t("status.offline.banner")}
     </div>
   );

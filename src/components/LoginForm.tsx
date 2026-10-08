@@ -69,15 +69,15 @@ export default function LoginForm({ onSuccess }: Props) {
           <BrandMark size={48} variant="app" />
           <div>
             <h1 className="font-disp text-[22px] font-semibold tracking-[-0.025em] text-ink">{brandName}</h1>
-            <p className="mt-1 text-[13.5px] text-faint">{t("login.tagline")}</p>
+            <p className="mt-1 text-[14.5px] text-faint">{t("login.tagline")}</p>
           </div>
         </div>
 
         {mustChange !== null ? (
           <div className="flex flex-col gap-4">
             <div>
-              <h2 className="text-[15px] font-semibold text-ink">{t("login.mustChangeTitle")}</h2>
-              <p className="mt-1 text-[13px] leading-relaxed text-faint">{t("login.mustChangeSub")}</p>
+              <h2 className="text-[16px] font-semibold text-ink">{t("login.mustChangeTitle")}</h2>
+              <p className="mt-1 text-[14px] leading-relaxed text-faint">{t("login.mustChangeSub")}</p>
             </div>
             <ChangePasswordForm currentPassword={mustChange} submitLabel={t("login.mustChangeSubmit")} onDone={onSuccess} />
             <Button
@@ -123,13 +123,13 @@ export default function LoginForm({ onSuccess }: Props) {
                 title={show ? t("login.hidePassword") : t("login.showPassword")}
                 className={`ds-focus grid h-7 w-7 place-items-center rounded-md hover:bg-hover ${show ? "text-accent" : "text-faint"}`}
               >
-                <IcEye size={15} />
+                <IcEye size={17} />
               </button>
             }
           />
 
           {error && (
-            <div role="alert" className="rounded-lg bg-dangersoft px-3 py-2 text-[13px] leading-relaxed text-[var(--status-danger-fg)] ring-1 ring-inset ring-danger/25">
+            <div role="alert" className="rounded-lg bg-dangersoft px-3 py-2 text-[14px] leading-relaxed text-[var(--status-danger-fg)] ring-1 ring-inset ring-danger/25">
               {error}
             </div>
           )}
@@ -140,7 +140,7 @@ export default function LoginForm({ onSuccess }: Props) {
         </form>
         )}
       </main>
-      <p className="relative mt-6 text-center text-[12px] text-faint">{t("login.forgot")}</p>
+      <p className="relative mt-6 text-center text-[13px] text-faint">{t("login.forgot")}</p>
     </div>
   );
 }

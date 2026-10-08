@@ -154,7 +154,7 @@ export function Combobox({
                 {o.icon && <span className="flex shrink-0">{o.icon}</span>}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{o.label}</span>
-                  {o.description && <span className="block truncate text-[11.5px] text-faint">{o.description}</span>}
+                  {o.description && <span className="block truncate text-[12.5px] text-faint">{o.description}</span>}
                 </span>
                 {value?.id === o.id && (
                   <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
@@ -163,8 +163,8 @@ export function Combobox({
                 )}
               </div>
             ))}
-            {state.status === "ok" && items.length === 0 && <p className="px-2 py-3 text-center text-[12.5px] text-faint">{emptyText}</p>}
-            {state.status === "error" && <p role="status" className="px-2 py-3 text-center text-[12.5px] text-[var(--status-danger-fg)]">{errorText}</p>}
+            {state.status === "ok" && items.length === 0 && <p className="px-2 py-3 text-center text-[13.5px] text-faint">{emptyText}</p>}
+            {state.status === "error" && <p role="status" className="px-2 py-3 text-center text-[13.5px] text-[var(--status-danger-fg)]">{errorText}</p>}
             {state.status === "loading" && <span role="status" className="sr-only">{t ? t("common.loading") : "Загрузка"}</span>}
             {state.status === "loading" && items.length === 0 && (
               <div className="flex flex-col gap-2 p-2" aria-hidden="true">

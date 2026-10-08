@@ -25,7 +25,7 @@ export function SecretOnceDialog({ secret,onClose,previousValidUntil,example,tex
       <Input label={text?.label ?? t("secretOnce.secret")} value={secret} readOnly spellCheck={false} autoComplete="off" className="font-[family-name:var(--font-code)]" />
       <Button onClick={copy}>{t("secretOnce.copy")}</Button>
       {previousValidUntil && <p className="ds-hint">{t("secretOnce.previous",{ time: new Date(previousValidUntil).toLocaleString(lang) })}</p>}
-      {example && <pre tabIndex={0} role="region" aria-label={t("secretOnce.example")} className="ds-focus overflow-x-auto rounded-lg bg-sunken p-3 text-[12px] font-[family-name:var(--font-code)]">{example}</pre>}
+      {example && <pre tabIndex={0} role="region" aria-label={t("secretOnce.example")} className="ds-focus overflow-x-auto rounded-lg bg-sunken p-3 text-[13px] font-[family-name:var(--font-code)]">{example}</pre>}
       <Checkbox checked={saved} onChange={checked => setSavedSecret(checked ? secret : null)} label={text?.saved ?? t("secretOnce.saved")} />
     </div>
   </Dialog>;

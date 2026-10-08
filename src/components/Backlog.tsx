@@ -38,7 +38,7 @@ const SEARCH_MAX = 120; // = LIMITS сервера для q
 const isEmptyText = (v: string) => v === "";
 
 const selectCls =
-  "h-8 rounded-lg border border-linesoft bg-sunken px-2 text-[12.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
+  "h-8 rounded-lg border border-linesoft bg-sunken px-2 text-[13.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
 
 function HeadCell({ id, sortKey, sortDir, onSort, compact }: { id: ColumnId | "key"; sortKey: SortKey; sortDir: "asc" | "desc"; onSort: (k: SortKey) => void; compact?: boolean }) {
   const { t, lang } = useT();
@@ -50,9 +50,9 @@ function HeadCell({ id, sortKey, sortDir, onSort, compact }: { id: ColumnId | "k
     <span role="columnheader" data-col={id} aria-sort={on ? (sortDir === "asc" ? "ascending" : "descending") : undefined} className="flex min-w-0 items-center">
       {def.sort ? (
         <button type="button" onClick={() => onSort(def.sort!)} title={label} className={`ds-focus -mx-1 flex min-w-0 items-center gap-1 rounded px-1 hover:text-ink ${on ? "text-ink" : ""}`}>
-          {compact && !on ? <IcFilter size={11} className="shrink-0 opacity-60" /> : null}
+          {compact && !on ? <IcFilter size={13} className="shrink-0 opacity-60" /> : null}
           {text}
-          {on && <IcChevD size={10} className={`shrink-0 ${sortDir === "asc" ? "rotate-180" : ""}`} />}
+          {on && <IcChevD size={12} className={`shrink-0 ${sortDir === "asc" ? "rotate-180" : ""}`} />}
         </button>
       ) : (
         text
@@ -89,16 +89,16 @@ function Row({
   const statusAction = (iconOnly = false) => status && (can("transition", issue) ? <Menu
     label={t("field.status")} placement="bottom-end"
     trigger={p => <Button {...p} variant="ghost" size="sm" className="list-status-action" aria-label={t("backlog.changeStatus", { key: issue.key })}
-      iconLeft={<StatusGlyph category={status.category} size={14} />}>{iconOnly ? <IcChevD size={10} /> : workflowStatusName(status, t)}</Button>}
-    items={data.workflow.statuses.map(target => ({ id: target.id, label: workflowStatusName(target, t), icon: <StatusGlyph category={target.category} size={14} />,
+      iconLeft={<StatusGlyph category={status.category} size={16} />}>{iconOnly ? <IcChevD size={12} /> : workflowStatusName(status, t)}</Button>}
+    items={data.workflow.statuses.map(target => ({ id: target.id, label: workflowStatusName(target, t), icon: <StatusGlyph category={target.category} size={16} />,
       disabled: !canTransition(data.workflow, issue.statusId, target.id), onSelect: () => moveStatus(issue.id, target.id, null) }))} /> : <Tag size="sm" tone={statusTone(status.category)} dot strong>{workflowStatusName(status, t)}</Tag>);
 
   const cell = (id: ColumnId) => {
     switch (id) {
       case "priority":
-        return <PriorityIcon p={issue.priorityId} size={14} />;
+        return <PriorityIcon p={issue.priorityId} size={16} />;
       case "type":
-        return <TypeIcon type={issue.typeId} size={14} />;
+        return <TypeIcon type={issue.typeId} size={16} />;
       case "direction":
         return epic ? (
           <span className="list-direction">
@@ -114,7 +114,7 @@ function Row({
                 {l}
               </Tag>
             ))}
-            {issue.labels.length > 2 && <span className="text-[11.5px] tabular text-faint">+{issue.labels.length - 2}</span>}
+            {issue.labels.length > 2 && <span className="text-[12.5px] tabular text-faint">+{issue.labels.length - 2}</span>}
           </span>
         );
       case "due":
@@ -132,7 +132,7 @@ function Row({
           <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} />
         </Popover> : <UserAvatarGroup users={assignees} size={22} interactive />;
       case "updated":
-        return <span className="text-[12px] tabular text-faint">{relTime(issue.updatedAt, lang)}</span>;
+        return <span className="text-[13px] tabular text-faint">{relTime(issue.updatedAt, lang)}</span>;
     }
   };
 
@@ -157,12 +157,12 @@ function Row({
           {cell(id)}
         </span>
       ))}
-      <span role="cell" data-col="key" className="truncate font-mono text-[12px] tabular text-faint">
+      <span role="cell" data-col="key" className="truncate font-mono text-[13px] tabular text-faint">
         {issue.key}
       </span>
-      <span role="cell" data-col="title" className="list-title min-w-0 text-[14px] font-semibold text-ink">
+      <span role="cell" data-col="title" className="list-title min-w-0 text-[15px] font-semibold text-ink">
         {/* На телефоне колонки ключа нет — ключ мелко над названием. */}
-        <span aria-hidden className="block truncate font-mono text-[11px] font-normal leading-tight tabular text-faint sm:hidden">
+        <span aria-hidden className="block truncate font-mono text-[12px] font-normal leading-tight tabular text-faint sm:hidden">
           {issue.key}
         </span>
         <a href={pathForIssue(data.project.key, issue.key)} className="ds-focus block rounded hover:text-accenttext" title={issue.title}
@@ -190,7 +190,7 @@ function Row({
               className="list-actions ds-focus flex h-8 w-8 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-todosoft hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 aria-expanded:opacity-100"
               aria-label={t("common.actions")}
             >
-              <IcDots size={14} />
+              <IcDots size={16} />
             </button>
           )}
           items={[
@@ -198,7 +198,7 @@ function Row({
             ...(can("delete", issue)
               ? [
                   { kind: "sep" as const, id: "sep" },
-                  { id: "delete", label: t("common.delete"), icon: <IcTrash size={13} />, danger: true, onSelect: () => deleteIssue(issue.id) },
+                  { id: "delete", label: t("common.delete"), icon: <IcTrash size={15} />, danger: true, onSelect: () => deleteIssue(issue.id) },
                 ]
               : []),
           ]}
@@ -433,7 +433,7 @@ export default function Backlog() {
       writeColumns(next);
       return next;
     });
-  const tableRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
   // Клик по заголовку колонки: та же колонка — сменить направление; другая — как выбор в меню сортировки.
   const toggleSortBy = (k: SortKey) => (k === sortKey ? setSortDir((d) => (d === "asc" ? "desc" : "asc")) : pickSort(k));
   const [selectMode, setSelectMode] = useState(false);
@@ -456,7 +456,7 @@ export default function Backlog() {
   }, [data.currentProjectId]);
 
   useLayoutEffect(() => {
-    const el = tableRef.current;
+    const el = layoutRef.current;
     if (!el) return;
     el.style.setProperty("--list-cols", gridTemplate(cols, selectMode));
     el.style.setProperty("--list-min", `${tableMinWidth(cols, selectMode)}px`);
@@ -467,14 +467,14 @@ export default function Backlog() {
   });
 
   return (
-    <div className="list-view flex h-full min-w-0 flex-col">
+    <div className="list-view flex h-full min-w-0 flex-col" ref={layoutRef}>
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
         <WorkspaceControls selectionMode={selectMode} compact
           summary={t("board.filteredOf", { visible: rows.length, total: pool.counts?.total ?? "…" })}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? fOverdue : fAssignee === (id === "mine" ? data.currentUserId : "none")} onToggle={id => id === "overdue" ? setFOverdue(!fOverdue) : setField("assignee")(fAssignee === (id === "mine" ? data.currentUserId : "none") ? "" : id === "mine" ? data.currentUserId : "none")} overdue={overdueCounts.counts?.total} />}
-          grouping={<Menu label={groupLabel} placement="bottom-end" trigger={p => <Button {...p} size="sm" className="workspace-grouping" iconRight={<IcChevD size={12} />}>{groupLabel}</Button>}
-            items={GROUP_MODES.map(id => ({ id, label: t(groupKeys[id]), icon: group === id ? <IcCheck size={13} /> : undefined, onSelect: () => { setGroup(id); setCreateGroup(null); } }))} />}
+          grouping={<Menu label={groupLabel} placement="bottom-end" trigger={p => <Button {...p} size="sm" className="workspace-grouping" iconRight={<IcChevD size={14} />}>{groupLabel}</Button>}
+            items={GROUP_MODES.map(id => ({ id, label: t(groupKeys[id]), icon: group === id ? <IcCheck size={15} /> : undefined, onSelect: () => { setGroup(id); setCreateGroup(null); } }))} />}
           count={Object.values(filters).filter(Boolean).length + Number(fOverdue) + Number(showDone) + Number(!!q)}
           search={<WorkspaceSearch value={q} onChange={setQ} />}
           filters={<div className="workspace-filters-body flex flex-wrap items-center gap-2">
@@ -545,17 +545,17 @@ export default function Backlog() {
             className="w-[240px]"
             trigger={(p, open) => (
               <Button size="sm" {...p} type="button" className={open ? "border-accent" : undefined}>
-                <IcStar size={12} className="text-faint" />
+                <IcStar size={14} className="text-faint" />
                 {t("backlog.savedViews")}
-                {views.length > 0 && <span className="text-[10.5px] text-faint">({views.length})</span>}
-                <IcChevD size={11} className="text-faint" />
+                {views.length > 0 && <span className="text-[11.5px] text-faint">({views.length})</span>}
+                <IcChevD size={13} className="text-faint" />
               </Button>
             )}
           >
             {(close) => (
               <>
                 {views.length === 0 && (
-                  <div className="px-2.5 py-1.5 text-[12px] text-faint">{t("backlog.noSavedViews")}</div>
+                  <div className="px-2.5 py-1.5 text-[13px] text-faint">{t("backlog.noSavedViews")}</div>
                 )}
                 {views.map((v) =>
                   renaming?.id === v.id ? (
@@ -576,7 +576,7 @@ export default function Backlog() {
                             setRenaming(null);
                           }
                         }}
-                        className="h-7 min-w-0 flex-1 rounded border border-accent bg-panel px-2 text-[12px] outline-none shadow-focus"
+                        className="h-7 min-w-0 flex-1 rounded border border-accent bg-panel px-2 text-[13px] outline-none shadow-focus"
                       />
                     </div>
                   ) : (
@@ -591,21 +591,21 @@ export default function Backlog() {
                       title={t(v.isDefault ? "backlog.unsetDefaultView" : "backlog.setDefaultView", { name: v.name })}
                       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded transition-opacity hover:bg-hover ${v.isDefault ? "text-accenttext" : "text-faint opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
                     >
-                      <IcStar size={12} filled={v.isDefault} />
+                      <IcStar size={14} filled={v.isDefault} />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setRenaming({ id: v.id, name: v.name }); }}
                       aria-label={t("backlog.renameView", { name: v.name })}
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-hover hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
                     >
-                      <IcPencil size={12} />
+                      <IcPencil size={14} />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); void removeView(v); }}
                       aria-label={t("backlog.deleteView")}
                       className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-todosoft hover:text-danger group-hover:opacity-100"
                     >
-                      <IcTrash size={12} />
+                      <IcTrash size={14} />
                     </button>
                   </div>
                   ),
@@ -619,9 +619,9 @@ export default function Backlog() {
                       onChange={(e) => setNewViewName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") void saveCurrentAsView(); if (e.key === "Escape") setSavingView(false); }}
                       placeholder={t("backlog.viewNamePlaceholder")}
-                      className="h-7 min-w-0 flex-1 rounded border border-line bg-panel px-2 text-[12px] outline-none focus:border-accent focus:shadow-focus"
+                      className="h-7 min-w-0 flex-1 rounded border border-line bg-panel px-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
                     />
-                    <button onClick={() => void saveCurrentAsView()} className="text-[11px] font-semibold text-accenttext hover:underline">
+                    <button onClick={() => void saveCurrentAsView()} className="text-[12px] font-semibold text-accenttext hover:underline">
                       {t("common.save")}
                     </button>
                   </div>
@@ -645,7 +645,7 @@ export default function Backlog() {
               <Button size="sm"
                 onClick={() => setImportOpen(true)}
               >
-                <IcInbox size={13} /> {t("import.title")}
+                <IcInbox size={15} /> {t("import.title")}
               </Button>
             )}
 
@@ -657,9 +657,9 @@ export default function Backlog() {
               className="w-[230px]"
               trigger={(p, open) => (
                 <Button size="sm" {...p} type="button" className={open ? "border-accent" : undefined}>
-                  <IcDisplay size={12} className="text-faint" />
+                  <IcDisplay size={14} className="text-faint" />
                   {t("backlog.columns")}
-                  <IcChevD size={11} className="text-faint" />
+                  <IcChevD size={13} className="text-faint" />
                 </Button>
               )}
             >
@@ -667,7 +667,7 @@ export default function Backlog() {
                 {COLUMNS.map((c) => (
                   <Checkbox key={c.id} checked={cols.includes(c.id)} onChange={() => toggleCol(c.id)} label={t(c.label)} />
                 ))}
-                <p className="mt-1 border-t border-linesoft px-1 pb-0.5 pt-1.5 text-[11px] leading-snug text-faint">{t("backlog.columnsHint")}</p>
+                <p className="mt-1 border-t border-linesoft px-1 pb-0.5 pt-1.5 text-[12px] leading-snug text-faint">{t("backlog.columnsHint")}</p>
               </div>
             </Popover>
 
@@ -677,15 +677,15 @@ export default function Backlog() {
               placement="bottom-end"
               trigger={(p, open) => (
                 <Button size="sm" {...p} type="button" className={open ? "border-accent" : undefined}>
-                  <IcFilter size={12} className="text-faint" />
+                  <IcFilter size={14} className="text-faint" />
                   {sortLabels[sortKey]}
-                  <IcChevD size={11} className="text-faint" />
+                  <IcChevD size={13} className="text-faint" />
                 </Button>
               )}
               items={(Object.keys(sortLabels) as SortKey[]).map((k) => ({
                 id: k,
                 label: sortLabels[k],
-                hint: k === sortKey ? <IcCheck size={12} className="text-accenttext" /> : undefined,
+                hint: k === sortKey ? <IcCheck size={14} className="text-accenttext" /> : undefined,
                 onSelect: () => pickSort(k),
               }))}
             />
@@ -695,14 +695,14 @@ export default function Backlog() {
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-panel shadow-e1 text-sub hover:text-ink"
               aria-label={t("backlog.sort.direction")}
             >
-              <IcChevD size={13} className={sortDir === "asc" ? "rotate-180" : ""} />
+              <IcChevD size={15} className={sortDir === "asc" ? "rotate-180" : ""} />
             </button>
             </div>}
         />
         {filterActive && (<IssueFilterSummary filters={filters}>
             {fOverdue && <span>{t("backlog.overdue")}</span>}
             {showDone && <span>{t("backlog.showClosed")}</span>}
-            <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={12} className="inline" /> {t("common.reset")}</button>
+            <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>
           </IssueFilterSummary>
         )}
 
@@ -710,7 +710,7 @@ export default function Backlog() {
         {selectMode && selectedIds.size > 0 && <BulkBar selectedIds={selectedIds} onDone={clearSelection} className="mt-2.5" />}
       </div>
 
-      {/* Full-width table; intermediate desktop widths scroll within the list. */}
+      {/* Bounded table; intermediate desktop widths scroll within the list. */}
       <div className="list-scroll min-h-0 flex-1 overflow-auto">
         <div className="list-table-wrap">
           {set.loading ? (
@@ -733,8 +733,8 @@ export default function Backlog() {
           ) : rows.length > 0 ? (
             <>
               {/* One grid for the header and rows; the list-scroll container owns both scroll axes. */}
-              <div role="table" ref={tableRef} aria-label={t("backlog.title")} className="list-table rounded-lg border border-line bg-panel">
-                <div role="row" className="list-grid list-head sticky top-0 z-10 items-center gap-x-3 border-b border-linesoft px-4 text-[12px] font-semibold text-faint">
+              <div role="table" aria-label={t("backlog.title")} className="list-table rounded-lg border border-line bg-panel">
+                <div role="row" className="list-grid list-head sticky top-0 z-10 items-center gap-x-3 border-b border-linesoft px-4 text-[13px] font-semibold text-faint">
                   {selectMode && (
                     <span role="columnheader" data-col="select" className="flex">
                       <Checkbox
@@ -764,13 +764,13 @@ export default function Backlog() {
                   return <div key={section.id} role="rowgroup" aria-label={group === "none" ? undefined : name}>
                     {group !== "none" && <div role="row" className="list-group-head">
                       <div role="cell" aria-colspan={cols.length + 3 + Number(selectMode)} className="list-group-label">
-                        {st && <StatusGlyph category={st.category} size={14} />}
+                        {st && <StatusGlyph category={st.category} size={16} />}
                         <span className="truncate" title={name}>{name}</span>
                         <span className="list-group-count tabular" title={t("backlog.groupLoaded", { n: section.items.length })}>{section.items.length < total ? `${section.items.length}/${total}` : total}</span>
-                        {st && can("create") && <button type="button" className="ds-focus list-group-add" data-create-status={st.id} aria-label={t("board.addToStatusAria", { name })} onClick={() => setCreateGroup(createGroup === st.id ? null : st.id)}><IcPlus size={14} /></button>}
+                        {st && can("create") && <button type="button" className="ds-focus list-group-add" data-create-status={st.id} aria-label={t("board.addToStatusAria", { name })} onClick={() => setCreateGroup(createGroup === st.id ? null : st.id)}><IcPlus size={16} /></button>}
                       </div>
                     </div>}
-                    {st && createGroup === st.id && <div role="row" className="list-group-create"><div role="cell" aria-colspan={cols.length + 3 + Number(selectMode)}><QuickCreate status={st} onDone={() => { setCreateGroup(null); tableRef.current?.querySelector<HTMLButtonElement>(`[data-create-status="${CSS.escape(st.id)}"]`)?.focus(); }} /></div></div>}
+                    {st && createGroup === st.id && <div role="row" className="list-group-create"><div role="cell" aria-colspan={cols.length + 3 + Number(selectMode)}><QuickCreate status={st} onDone={() => { setCreateGroup(null); layoutRef.current?.querySelector<HTMLButtonElement>(`[data-create-status="${CSS.escape(st.id)}"]`)?.focus(); }} /></div></div>}
                     {section.items.map(i => (
                   <Row
                     key={i.id}
@@ -790,7 +790,7 @@ export default function Backlog() {
                   </div>
                 )}
               </div>
-              <div ref={sentinelRef} className="mt-3 flex min-h-8 items-center justify-center text-[12px] text-faint">
+              <div ref={sentinelRef} className="mt-3 flex min-h-8 items-center justify-center text-[13px] text-faint">
                 {set.error ? (
                   <button onClick={loadMore} className="font-medium text-accenttext hover:underline">
                     {t("backlog.loadMoreFailed")}
@@ -860,9 +860,9 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
           aria-label={`${t("field.dueDate")}: ${label}`}
           className={(open || active) ? "border-accent" : undefined}
         >
-          <IcCalendar size={12} className="text-faint" />
+          <IcCalendar size={14} className="text-faint" />
           <span className="tabular">{active ? label : t("field.dueDate")}</span>
-          <IcChevD size={11} className="text-faint" />
+          <IcChevD size={13} className="text-faint" />
         </Button>
       )}
     >
@@ -871,16 +871,16 @@ function DueRangeFilter({ from, to, onChange }: { from: string; to: string; onCh
           {presets.map((p) => (
             <MenuButton key={p.key} onClick={() => { onChange(p.from, p.to); close(); }}>
               {t(p.key as never)}
-              {from === p.from && to === p.to && <IcCheck size={12} className="ml-auto text-accenttext" />}
+              {from === p.from && to === p.to && <IcCheck size={14} className="ml-auto text-accenttext" />}
             </MenuButton>
           ))}
           <div role="separator" className="ds-menu-sep" />
           <div className="grid grid-cols-2 gap-1.5 px-2.5 py-1.5">
-            <div className="text-[11px] font-medium text-faint">
+            <div className="text-[12px] font-medium text-faint">
               {t("backlog.due.from")}
               <DatePicker block label={t("backlog.due.from")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={from || null} max={to || undefined} onChange={(v) => onChange(v ?? "", to)} />
             </div>
-            <div className="text-[11px] font-medium text-faint">
+            <div className="text-[12px] font-medium text-faint">
               {t("backlog.due.to")}
               <DatePicker block label={t("backlog.due.to")} placeholder={t("date.empty")} lang={lang} markOverdue={false} value={to || null} min={from || undefined} onChange={(v) => onChange(from, v ?? "")} />
             </div>
@@ -946,8 +946,8 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
             : `${value.cfFrom ? fmt(value.cfFrom) : "…"} – ${value.cfTo ? fmt(value.cfTo) : "…"}`
           : value.cfValue;
   const active = !!(field && summary);
-  const inputCls = "mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[12px] text-ink outline-none focus:border-accent";
-  const check = (on: boolean) => (on ? <IcCheck size={12} className="ml-auto text-accenttext" /> : null);
+  const inputCls = "mt-0.5 h-7 w-full rounded border border-line bg-panel px-1.5 text-[13px] text-ink outline-none focus:border-accent";
+  const check = (on: boolean) => (on ? <IcCheck size={14} className="ml-auto text-accenttext" /> : null);
   return (
     <Popover
       label={t("backlog.cf.button")}
@@ -959,16 +959,16 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
           aria-label={active ? `${field!.name}: ${summary}` : t("backlog.cf.button")}
           className={(open || active) ? "border-accent" : undefined}
         >
-          <IcFilter size={12} className="shrink-0 text-faint" />
+          <IcFilter size={14} className="shrink-0 text-faint" />
           <span className="truncate">{active ? `${field!.name}: ${summary}` : t("backlog.cf.button")}</span>
-          <IcChevD size={11} className="shrink-0 text-faint" />
+          <IcChevD size={13} className="shrink-0 text-faint" />
         </Button>
       )}
     >
       {(close) =>
         !field ? (
           <>
-            <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-medium text-faint">{t("backlog.cf.pick")}</div>
+            <div className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-faint">{t("backlog.cf.pick")}</div>
             {fields.map((f) => (
               <MenuButton key={f.id} onClick={() => onChange({ ...CF_CLEAR, cf: f.id })}>
                 <span className="truncate">{f.name}</span>
@@ -978,8 +978,8 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
         ) : (
           <>
             <div className="flex items-center gap-2 px-2.5 pb-1 pt-1.5">
-              <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">{field.name}</span>
-              <button type="button" onClick={() => onChange(CF_CLEAR)} className="shrink-0 text-[11.5px] font-medium text-accenttext hover:underline">
+              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{field.name}</span>
+              <button type="button" onClick={() => onChange(CF_CLEAR)} className="shrink-0 text-[12.5px] font-medium text-accenttext hover:underline">
                 {t("backlog.cf.other")}
               </button>
             </div>
@@ -1003,7 +1003,7 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
               </>
             )}
             {field.fieldType === "text" && (
-              <label className="block px-2.5 py-1.5 text-[11px] font-medium text-faint">
+              <label className="block px-2.5 py-1.5 text-[12px] font-medium text-faint">
                 {t("backlog.cf.contains")}
                 <input
                   autoFocus
@@ -1017,7 +1017,7 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
             )}
             {(field.fieldType === "number" || field.fieldType === "date") && (
               <div className="grid grid-cols-2 gap-1.5 px-2.5 py-1.5">
-                <label className="text-[11px] font-medium text-faint">
+                <label className="text-[12px] font-medium text-faint">
                   {t("backlog.cf.from")}
                   <input
                     type={field.fieldType === "date" ? "date" : "number"}
@@ -1027,7 +1027,7 @@ function CustomFieldFilter({ fields, value, onChange }: { fields: CustomFieldDef
                     className={`${inputCls} tabular`}
                   />
                 </label>
-                <label className="text-[11px] font-medium text-faint">
+                <label className="text-[12px] font-medium text-faint">
                   {t("backlog.cf.to")}
                   <input
                     type={field.fieldType === "date" ? "date" : "number"}

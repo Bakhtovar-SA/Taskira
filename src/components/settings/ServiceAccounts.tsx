@@ -38,11 +38,11 @@ export default function ServiceAccounts() {
     ]} />
     <div role="tabpanel" id={tabsId+"-"+tab+"-panel"} aria-labelledby={tabsId+"-"+tab} className="flex flex-col gap-5">
     {tab === "tokens" ? <TokenControls api={allTokens} owners /> : <>
-      <Button className="self-start" variant="primary" iconLeft={<IcPlus size={16} />} onClick={() => setForm(true)}>{t("serviceAccounts.add")}</Button>
+      <Button className="self-start" variant="primary" iconLeft={<IcPlus size={18} />} onClick={() => setForm(true)}>{t("serviceAccounts.add")}</Button>
       {loading && <p role="status">{t("tokens.loading")}</p>}
       {error && <div role="alert"><p>{error}</p><Button onClick={load}>{t("tokens.retry")}</Button></div>}
-      {!loading && !error && accounts.length === 0 && <p className="text-[13px] text-sub">{t("serviceAccounts.empty")}</p>}
-      {accounts.length > 0 && <SettingsCard title={t("serviceAccounts.list")}><div className="overflow-x-auto p-4"><table className="w-full text-left text-[12px]">
+      {!loading && !error && accounts.length === 0 && <p className="text-[14px] text-sub">{t("serviceAccounts.empty")}</p>}
+      {accounts.length > 0 && <SettingsCard title={t("serviceAccounts.list")}><div className="overflow-x-auto p-4"><table className="w-full text-left text-[13px]">
         <thead><tr>{["name","username","state","projects","tokens"].map(column => <th key={column} scope="col" className="border-b border-line px-2 py-2 font-medium text-sub">
           {t(`serviceAccounts.column.${column}` as Parameters<typeof t>[0])}</th>)}</tr></thead>
         <tbody>{accounts.map(row => <tr key={row.id} className="border-b border-linesoft">
@@ -80,11 +80,11 @@ function AccountPanel({ account,onClose,onChanged,onTokensChanged }: {
   return <SidePanel open size="lg" title={account.name} description={account.username} onClose={() => { if (!busy) onClose(); }}>
     <div className="flex flex-col gap-5">
       <Switch checked={account.isActive} disabled={busy} label={t("serviceAccounts.activeSwitch")} onChange={value => { if (value) void active(true); else setConfirm(true); }} />
-      <section><h3 className="mb-2 text-[14px] font-semibold text-ink">{t("serviceAccounts.projects")}</h3>
-        {account.projects.length === 0 ? <p className="text-[13px] text-sub">{t("serviceAccounts.noProjectsHint")}</p> : <ul className="flex flex-col gap-2">
+      <section><h3 className="mb-2 text-[15px] font-semibold text-ink">{t("serviceAccounts.projects")}</h3>
+        {account.projects.length === 0 ? <p className="text-[14px] text-sub">{t("serviceAccounts.noProjectsHint")}</p> : <ul className="flex flex-col gap-2">
           {account.projects.map(membership => {
             const project = data.projects.find(value => value.id === membership.projectId);
-            return <li key={membership.projectId} className="flex flex-wrap items-center gap-2 text-[13px]">
+            return <li key={membership.projectId} className="flex flex-wrap items-center gap-2 text-[14px]">
               <span className="font-medium text-ink">{project?.key ?? t("serviceAccounts.unknownProject")}</span><Tag size="sm">{t(`role.${membership.role}.name`)}</Tag>
               {project && <a className="ds-focus text-accenttext underline" href={pathForView(project.key,"projectSettings","access")}>{t("serviceAccounts.manageAccess")}</a>}
             </li>;
@@ -112,7 +112,7 @@ function AccountForm({ onClose,onCreated }: { onClose: () => void; onCreated: (v
     <div className="flex flex-col gap-4">
       <Input label={t("serviceAccounts.username")} value={username} onChange={event => setUsername(event.target.value)} maxLength={LIMITS.username.max} autoComplete="off" spellCheck={false} data-autofocus />
       <Input label={t("serviceAccounts.name")} value={name} onChange={event => setName(event.target.value)} maxLength={LIMITS.serviceAccount.name} />
-      {error && <p role="alert" className="text-[13px] text-danger">{error}</p>}
+      {error && <p role="alert" className="text-[14px] text-danger">{error}</p>}
     </div>
   </Dialog>;
 }

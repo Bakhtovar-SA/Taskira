@@ -134,7 +134,7 @@ export function Setup() {
                 {t("settings.org.ldapCheckBtn")}
               </Button>
               {ping !== null && (
-                <span role="status" className={`text-[12.5px] ${!(ping instanceof Error) && ping.ok ? "text-[var(--status-done-fg)]" : "text-[var(--status-danger-fg)]"}`}>
+                <span role="status" className={`text-[13.5px] ${!(ping instanceof Error) && ping.ok ? "text-[var(--status-done-fg)]" : "text-[var(--status-danger-fg)]"}`}>
                   {ping instanceof Error ? errText(ping, t("settings.org.ldapCheckFailed")) : ping.ok ? t("settings.org.ldapOk", { url: ping.url ?? "", base: ping.baseDn ?? "" }) : ping.error}
                 </span>
               )}
@@ -144,7 +144,7 @@ export function Setup() {
 
         <Step n={3} done={done.users} title={t("setup.users.title")} sub={ldap ? t("setup.users.ldapSub") : t("setup.users.localSub")}>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-[12.5px] text-sub">{t("setup.users.count", { n: st.users })}</span>
+            <span className="text-[13.5px] text-sub">{t("setup.users.count", { n: st.users })}</span>
             <Button variant="secondary" onClick={() => setView("orgSettings", "users")}>
               {t("setup.users.open")}
             </Button>
@@ -191,7 +191,7 @@ export function Setup() {
       </ol>
 
       <div className="mt-5 flex items-center justify-between gap-3">
-        <span className="text-[12.5px] text-faint">{t("setup.progress", { n: doneCount, total: 4 })}</span>
+        <span className="text-[13.5px] text-faint">{t("setup.progress", { n: doneCount, total: 4 })}</span>
         {st.completed ? (
           <Tag tone="green" dot>
             {t("setup.completedTag")}
@@ -211,19 +211,19 @@ function Step({ n, title, sub, done, optional, children }: { n: number; title: s
   return (
     <li className="surface-raised flex gap-4 rounded-xl p-5 ring-1 ring-inset ring-line/70" data-done={done || undefined}>
       <span
-        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[12.5px] font-bold ${done ? "bg-[var(--status-done)] text-onaccent" : "bg-accentsoft text-accenttext"}`}
+        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[13.5px] font-bold ${done ? "bg-[var(--status-done)] text-onaccent" : "bg-accentsoft text-accenttext"}`}
         aria-hidden="true"
       >
-        {done ? <IcCheck size={14} /> : n}
+        {done ? <IcCheck size={16} /> : n}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div>
-          <h2 className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-ink">
+          <h2 className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-ink">
             {title}
-            {optional && <span className="text-[12px] font-normal text-faint">· {t("wizard.optional")}</span>}
+            {optional && <span className="text-[13px] font-normal text-faint">· {t("wizard.optional")}</span>}
             <span className="sr-only">{done ? t("onboarding.stepDone") : t("onboarding.stepTodo")}</span>
           </h2>
-          <p className="mt-0.5 text-[12.5px] leading-relaxed text-faint">{sub}</p>
+          <p className="mt-0.5 text-[13.5px] leading-relaxed text-faint">{sub}</p>
         </div>
         {children}
       </div>

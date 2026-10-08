@@ -31,7 +31,7 @@ export default function BulkBar({ selectedIds, onDone, className = "" }: { selec
       label={label}
       items={items}
       trigger={(p) => (
-        <Button {...p} size="sm" disabled={busy} iconRight={<IcChevD size={10} />}>
+        <Button {...p} size="sm" disabled={busy} iconRight={<IcChevD size={12} />}>
           {label}
         </Button>
       )}
@@ -41,7 +41,7 @@ export default function BulkBar({ selectedIds, onDone, className = "" }: { selec
   return (
     <>
       <div role="toolbar" aria-label={t("backlog.selectedCount", { n: selectedIds.size })} className={`flex flex-wrap items-center gap-2 rounded-md border border-accent/30 bg-accentsoft/40 px-2.5 py-2 ${className}`}>
-        <span className="text-[12.5px] font-semibold text-ink">{t("backlog.selectedCount", { n: selectedIds.size })}</span>
+        <span className="text-[13.5px] font-semibold text-ink">{t("backlog.selectedCount", { n: selectedIds.size })}</span>
         {menu(
           t("field.status"),
           data.workflow.statuses.map((s) => ({ id: s.id, label: workflowStatusName(s, t), onSelect: () => void run({ action: "status", issueIds: ids, statusId: s.id }) })),
@@ -55,7 +55,7 @@ export default function BulkBar({ selectedIds, onDone, className = "" }: { selec
           PRIORITY_ORDER.map((p) => ({ id: p, label: t(`priority.${p}`), onSelect: () => void run({ action: "priority", issueIds: ids, priorityId: p }) })),
         )}
         {can("delete") && (
-          <Button size="sm" variant="danger" disabled={busy} iconLeft={<IcTrash size={12} />} onClick={() => setConfirmDelete(true)}>
+          <Button size="sm" variant="danger" disabled={busy} iconLeft={<IcTrash size={14} />} onClick={() => setConfirmDelete(true)}>
             {t("common.delete")}
           </Button>
         )}

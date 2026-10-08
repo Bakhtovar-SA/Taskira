@@ -14,7 +14,7 @@ import IssueSearchBox from "./IssueSearchBox";
 import { useIssue } from "../issuePages";
 import { createDraftKey, readCreateDraft, saveCreateDraft, deleteCreateDraft } from "../createDrafts";
 
-const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
+const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[14px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 /** `open` — от `Presence` в App.tsx: после закрытия окно ещё доигрывает анимацию ухода. */
 export default function CreateIssueModal({ open = true }: { open?: boolean }) {
@@ -145,9 +145,9 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
       title={
         <span className="flex flex-wrap items-center gap-2.5">
           {parent ? t("createIssue.newSubtask") : t("createIssue.newIssue")}
-          <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-sub">{data.project.key}</span>
+          <span className="rounded bg-linesoft px-1.5 py-0.5 font-mono text-[11.5px] font-semibold text-sub">{data.project.key}</span>
           {parent && (
-            <span className="rounded bg-accentsoft px-1.5 py-0.5 text-[10.5px] font-semibold text-accenttext">
+            <span className="rounded bg-accentsoft px-1.5 py-0.5 text-[11.5px] font-semibold text-accenttext">
               {t("createIssue.subtaskOf", { key: parent.key })}
             </span>
           )}
@@ -176,7 +176,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
               id="create-issue-template"
               value={templateId}
               onChange={(e) => applyTemplate(e.target.value)}
-              className="w-full cursor-pointer rounded-md border border-line bg-panel px-3 py-2 text-[13px] outline-none focus:border-accent focus:shadow-focus"
+              className="w-full cursor-pointer rounded-md border border-line bg-panel px-3 py-2 text-[14px] outline-none focus:border-accent focus:shadow-focus"
             >
               <option value="">{t("createIssue.noTemplate")}</option>
               {data.issueTemplates.map((t) => (
@@ -188,7 +188,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
 
         {/* тип */}
         <div>
-          <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.type")}</p>
+          <p className="mb-1.5 text-[13px] font-medium text-faint">{t("field.type")}</p>
           <div className="flex gap-1.5">
             {TYPE_ORDER.map((ty) => (
               <button
@@ -196,11 +196,11 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                 type="button"
                 aria-pressed={typeId === ty}
                 onClick={() => setTypeId(ty)}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-2 py-2 text-[12.5px] font-semibold transition-all ${
+                className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-2 py-2 text-[13.5px] font-semibold transition-all ${
                   typeId === ty ? "border-accent bg-accentsoft text-accenttext" : "border-line bg-panel text-sub hover:border-line2"
                 }`}
               >
-                <TypeIcon type={ty} size={14} /> {t(`issueType.${ty}`)}
+                <TypeIcon type={ty} size={16} /> {t(`issueType.${ty}`)}
               </button>
             ))}
           </div>
@@ -224,7 +224,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
             maxLength={LIMITS.title.max}
             className={`${inputCls} ${error ? "border-danger ring-2 ring-danger/15" : ""}`}
           />
-          {error && <p id="create-issue-error" role="alert" className="mt-1 text-[11.5px] font-semibold text-danger">{error}</p>}
+          {error && <p id="create-issue-error" role="alert" className="mt-1 text-[12.5px] font-semibold text-danger">{error}</p>}
         </div>
 
         <div>
@@ -239,39 +239,39 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
             className={`${inputCls} resize-y`}
           />
           {description.length > LIMITS.description.max * 0.8 && (
-            <p className="mt-1 text-right tabular text-[10.5px] text-faint">{description.length} / {LIMITS.description.max}</p>
+            <p className="mt-1 text-right tabular text-[11.5px] text-faint">{description.length} / {LIMITS.description.max}</p>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.priority")}</p>
+            <p className="mb-1.5 text-[13px] font-medium text-faint">{t("field.priority")}</p>
             <Menu
               label={t("field.priority")}
               trigger={(p, open) => (
-                <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
-                  <PriorityIcon p={priorityId} size={14} /> {t(`priority.${priorityId}`)}
-                  <IcChevD size={12} className="ml-auto text-faint" />
+                <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[14px] font-medium ${open ? "border-accent" : "border-line"}`}>
+                  <PriorityIcon p={priorityId} size={16} /> {t(`priority.${priorityId}`)}
+                  <IcChevD size={14} className="ml-auto text-faint" />
                 </button>
               )}
               items={PRIORITY_ORDER.map((p) => ({
                 id: p,
                 text: t(`priority.${p}`),
-                icon: <PriorityIcon p={p} size={14} />,
+                icon: <PriorityIcon p={p} size={16} />,
                 label: t(`priority.${p}`),
-                hint: p === priorityId ? <IcCheck size={12} className="text-accenttext" /> : undefined,
+                hint: p === priorityId ? <IcCheck size={14} className="text-accenttext" /> : undefined,
                 onSelect: () => setPriorityId(p),
               }))}
             />
           </div>
           <div>
-            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.assignee")}</p>
+            <p className="mb-1.5 text-[13px] font-medium text-faint">{t("field.assignee")}</p>
             {/* Несколько исполнителей — выбор не закрывает список, поэтому это Popover с переключателями, а не Menu. */}
             <Popover
               label={t("field.assignee")}
               className="max-h-[320px] w-[240px] overflow-y-auto"
               trigger={(p, open) => (
-                <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
+                <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[14px] font-medium ${open ? "border-accent" : "border-line"}`}>
                   <UserAvatarGroup users={assignees} size={18} max={2} interactive={false} />
                   <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
                     {assignees.length === 0
@@ -280,7 +280,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                         ? assignees[0].name
                         : `${assignees[0].name} ${t("createIssue.assigneesMore", { n: assignees.length - 1 })}`}
                   </span>
-                  <IcChevD size={12} className="ml-auto text-faint" />
+                  <IcChevD size={14} className="ml-auto text-faint" />
                 </button>
               )}
             >
@@ -288,7 +288,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
             </Popover>
           </div>
           <div>
-            <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.dueDate")}</p>
+            <p className="mb-1.5 text-[13px] font-medium text-faint">{t("field.dueDate")}</p>
             <DatePicker block label={t("field.dueDate")} lang={lang} value={dueDate || null} onChange={(v) => setDueDate(v ?? "")} />
           </div>
         </div>
@@ -296,10 +296,10 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
           <summary className="ds-focus">{t("createIssue.moreFields")}</summary>
           <div className="space-y-4 pt-4">
             <div>
-              <p className="mb-1.5 text-[12px] font-medium text-faint">{t("createIssue.checklist")}</p>
+              <p className="mb-1.5 text-[13px] font-medium text-faint">{t("createIssue.checklist")}</p>
               <div className="space-y-1.5">
                 {checklistItems.map((item, index) => (
-                  <div key={`${item}-${index}`} className="flex items-center gap-2 rounded-md border border-linesoft bg-sunken px-2.5 py-1.5 text-[12.5px] text-sub">
+                  <div key={`${item}-${index}`} className="flex items-center gap-2 rounded-md border border-linesoft bg-sunken px-2.5 py-1.5 text-[13.5px] text-sub">
                     <span className="h-3.5 w-3.5 shrink-0 rounded border border-line2 bg-panel" />
                     <span className="min-w-0 flex-1 break-words">{item}</span>
                     <button
@@ -308,7 +308,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                       className="rounded p-0.5 text-faint hover:bg-dangersoft hover:text-danger"
                       aria-label={t("createIssue.removeChecklistItem")}
                     >
-                      <IcX size={12} />
+                      <IcX size={14} />
                     </button>
                   </div>
                 ))}
@@ -344,7 +344,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                       className="flex h-[34px] w-[38px] shrink-0 items-center justify-center rounded-md border border-line text-sub hover:border-accent hover:text-accenttext disabled:opacity-40"
                       aria-label={t("createIssue.addChecklistItem")}
                     >
-                      <IcPlus size={14} />
+                      <IcPlus size={16} />
                     </button>
                   </div>
                 )}
@@ -360,7 +360,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                   dirRootRef.current?.querySelector("button")?.focus();
                 }
               }}>
-                <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.direction")}</p>
+                <p className="mb-1.5 text-[13px] font-medium text-faint">{t("field.direction")}</p>
                 {/* Панель раскрывается в потоке формы, а не всплывающим слоем: тело модалки
                     прокручивается, и выпадашка обрезалась бы нижней панелью с кнопкой. */}
                 <button
@@ -372,14 +372,14 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                   <span className={`min-w-0 flex-1 truncate ${epicPicked ? "" : "text-faint"}`}>
                     {epicPicked ? epicPicked.title : t("createIssue.noDirection")}
                   </span>
-                  <IcChevD size={12} className={`shrink-0 text-faint transition-transform ${dirOpen ? "rotate-180" : ""}`} />
+                  <IcChevD size={14} className={`shrink-0 text-faint transition-transform ${dirOpen ? "rotate-180" : ""}`} />
                 </button>
                 {dirOpen && (
                   <div ref={dirPanelRef} className="mt-1.5 rounded-md border border-line bg-panel p-1.5">
                     <button
                       type="button"
                       onClick={() => { setEpicId(null); setEpicPicked(null); setDirOpen(false); }}
-                      className="mb-1 w-full rounded px-2 py-1.5 text-left text-[12px] text-sub transition-colors hover:bg-hover"
+                      className="mb-1 w-full rounded px-2 py-1.5 text-left text-[13px] text-sub transition-colors hover:bg-hover"
                     >
                       {t("createIssue.noDirection")}
                     </button>
@@ -390,29 +390,29 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                     />
                   </div>
                 )}
-                <p className="mt-1 text-[10.5px] leading-snug text-faint">{t("createIssue.directionHint")}</p>
+                <p className="mt-1 text-[11.5px] leading-snug text-faint">{t("createIssue.directionHint")}</p>
               </div>
               <div>
-                <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.complexity")}</p>
+                <p className="mb-1.5 text-[13px] font-medium text-faint">{t("field.complexity")}</p>
                 <Menu
                   label={t("field.complexity")}
                   trigger={(p, open) => (
-                    <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[13px] font-medium ${open ? "border-accent" : "border-line"}`}>
+                    <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[14px] font-medium ${open ? "border-accent" : "border-line"}`}>
                       <span className="min-w-0 flex-1 truncate text-left">{complexity ? t(`complexity.${complexity}`) : t("complexity.none")}</span>
-                      <IcChevD size={12} className="ml-auto text-faint" />
+                      <IcChevD size={14} className="ml-auto text-faint" />
                     </button>
                   )}
                   items={[null, ...COMPLEXITY_ORDER].map((c) => ({
                     id: c ?? "none",
                     text: c ? t(`complexity.${c}`) : t("complexity.none"),
                     label: c ? t(`complexity.${c}`) : t("complexity.none"),
-                    hint: c === complexity ? <IcCheck size={12} className="text-accenttext" /> : undefined,
+                    hint: c === complexity ? <IcCheck size={14} className="text-accenttext" /> : undefined,
                     onSelect: () => setComplexity(c),
                   }))}
                 />
               </div>
               <div>
-                <p className="mb-1.5 text-[12px] font-medium text-faint">{t("field.labels")}</p>
+                <p className="mb-1.5 text-[13px] font-medium text-faint">{t("field.labels")}</p>
                 <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-line bg-panel px-2 py-1.5">
                   {labels.map((l) => (
                     <Tag key={l} size="sm" tone={labelTone(l)} dot onRemove={() => setLabels((p) => p.filter((x) => x !== l))}>
@@ -431,15 +431,15 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                     }}
                     onBlur={addLabel}
                     placeholder={t("createIssue.labelPlaceholder")}
-                    className="min-w-[70px] flex-1 bg-transparent text-[12.5px] outline-none placeholder:text-faint"
+                    className="min-w-[70px] flex-1 bg-transparent text-[13.5px] outline-none placeholder:text-faint"
                   />
                 </div>
               </div>
             </div>
           </div>
         </details>
-        {submitError && <p role="alert" className="text-[13px] text-danger">{submitError}</p>}
-        <div className="draft-note flex flex-wrap items-center justify-between gap-2 text-[12px] text-faint">
+        {submitError && <p role="alert" className="text-[14px] text-danger">{submitError}</p>}
+        <div className="draft-note flex flex-wrap items-center justify-between gap-2 text-[13px] text-faint">
           <span>{t("createIssue.draftSaved")}</span>
           <button type="button" onClick={clearDraft} className="ds-focus rounded px-1 py-2 font-medium text-sub hover:text-ink">{t("createIssue.discardDraft")}</button>
         </div>

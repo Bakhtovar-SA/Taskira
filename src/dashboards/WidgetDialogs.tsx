@@ -9,13 +9,13 @@ import { COUNT_METRICS, BREAKDOWN_GROUPS, ISSUE_PRESETS, WIDGET_PERIODS, PROJECT
 import { catalogFor, CATALOG_GROUPS, defaultTitleKey, type CatalogItem, type Widget } from "./catalog";
 
 const selectCls =
-  "h-8 w-full rounded-lg border border-linesoft bg-sunken px-2 text-[12.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
+  "h-8 w-full rounded-lg border border-linesoft bg-sunken px-2 text-[13.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
 
 function Row({ label, children }: { label: string; children: (id: string) => React.ReactNode }) {
   const id = useId();
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-[12px] font-medium text-sub">
+      <label htmlFor={id} className="text-[13px] font-medium text-sub">
         {label}
       </label>
       {children(id)}
@@ -30,14 +30,14 @@ export function AddWidgetDialog({ open, onClose, onPick, project = false }: { op
       <div className="space-y-4">
         {CATALOG_GROUPS.filter(g => catalogFor(project).some(c => c.group === g.id)).map((g) => (
           <section key={g.id}>
-            <h3 className="mb-1.5 text-[12px] font-semibold text-faint">{t(g.labelKey)}</h3>
+            <h3 className="mb-1.5 text-[13px] font-semibold text-faint">{t(g.labelKey)}</h3>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {catalogFor(project).filter((c) => c.group === g.id).map((c) => (
                 <button
                   key={c.key}
                   type="button"
                   onClick={() => onPick(c)}
-                  className="rounded-lg px-3 py-2 text-left text-[13px] text-ink ring-1 ring-inset ring-line/70 transition-colors hover:bg-hover hover:ring-accent/50"
+                  className="rounded-lg px-3 py-2 text-left text-[14px] text-ink ring-1 ring-inset ring-line/70 transition-colors hover:bg-hover hover:ring-accent/50"
                 >
                   {t(c.titleKey)}
                 </button>

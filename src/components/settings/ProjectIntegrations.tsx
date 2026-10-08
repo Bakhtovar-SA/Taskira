@@ -89,24 +89,24 @@ export default function ProjectIntegrations() {
   return <SettingsPage title={t("settings.project.integrations")} desc={t("settings.desc.integrations")}>
     {loading ? <p role="status">{t("integrations.loading")}</p> : error ? <div role="alert"><p>{error}</p><Button onClick={reload}>{t("integrations.retry")}</Button></div> : <>
       {!enabled && <SettingsCard title={t("integrations.disabled")}><div className="flex flex-col gap-3 px-5 py-4">
-        <Tag>env</Tag><p className="text-[13px] text-sub">{t("integrations.disabledHint")}</p>
-        <code className="break-words text-[12px] font-[family-name:var(--font-code)]">WEBHOOKS_ENABLED · WEBHOOK_ALLOWED_TARGETS · WEBHOOK_SECRET_KEY</code>
-        <a href="/help" className="text-[13px] text-accenttext underline">{t("integrations.help")}</a>
+        <Tag>env</Tag><p className="text-[14px] text-sub">{t("integrations.disabledHint")}</p>
+        <code className="break-words text-[13px] font-[family-name:var(--font-code)]">WEBHOOKS_ENABLED · WEBHOOK_ALLOWED_TARGETS · WEBHOOK_SECRET_KEY</code>
+        <a href="/help" className="text-[14px] text-accenttext underline">{t("integrations.help")}</a>
       </div></SettingsCard>}
-      {enabled && <Button variant="primary" className="self-start" iconLeft={<IcPlus size={16} />} onClick={() => setForm("new")} disabled={!!busy || hooks.length >= LIMITS.webhook.perProject}>
+      {enabled && <Button variant="primary" className="self-start" iconLeft={<IcPlus size={18} />} onClick={() => setForm("new")} disabled={!!busy || hooks.length >= LIMITS.webhook.perProject}>
         {t("integrations.add")}</Button>}
       <SettingsCard title={t("integrations.subscriptions")}>
-        {hooks.length === 0 ? <p className="px-5 py-6 text-[13px] text-sub">{t("integrations.empty")}</p> : hooks.map(hook => <div key={hook.id} className="flex items-start gap-3 px-5 py-4">
-          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="text-[14px] font-semibold text-ink">{hook.name}</h3>
+        {hooks.length === 0 ? <p className="px-5 py-6 text-[14px] text-sub">{t("integrations.empty")}</p> : hooks.map(hook => <div key={hook.id} className="flex items-start gap-3 px-5 py-4">
+          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="text-[15px] font-semibold text-ink">{hook.name}</h3>
             <Tag tone={hook.state === "active" ? "green" : hook.state === "disabled" ? "red" : "gray"}>{t(`webhook.state.${hook.state}`)}</Tag></div>
-            <code className="mt-1 block break-all text-[12px] text-sub font-[family-name:var(--font-code)]">{hook.urlDisplay}</code>
+            <code className="mt-1 block break-all text-[13px] text-sub font-[family-name:var(--font-code)]">{hook.urlDisplay}</code>
             <div className="my-2 flex flex-wrap gap-1">{hook.events.map(event => <Tag key={event} size="sm">{t(`webhook.event.${event}`)}</Tag>)}</div>
-            {hook.disabledReason && <p className="text-[12px] text-danger">{t(`webhook.disabledReason.${hook.disabledReason}`)}</p>}
-            <p className="text-[12px] text-faint">{t("integrations.lastSuccess")}: <WebhookTime value={hook.lastSuccessAt} /></p>
-            {messages[hook.id] && <p className="mt-2 text-[12px] text-sub" role="status">{messages[hook.id]}</p>}
+            {hook.disabledReason && <p className="text-[13px] text-danger">{t(`webhook.disabledReason.${hook.disabledReason}`)}</p>}
+            <p className="text-[13px] text-faint">{t("integrations.lastSuccess")}: <WebhookTime value={hook.lastSuccessAt} /></p>
+            {messages[hook.id] && <p className="mt-2 text-[13px] text-sub" role="status">{messages[hook.id]}</p>}
             {enabled && hook.state === "disabled" && <Button size="sm" disabled={!!busy} onClick={() => void run(hook.id,() => webhooksApi.update(projectId,hook.id,{ state: "active" }),replace)}>{t("integrations.enable")}</Button>}
           </div>
-          <Menu label={t("integrations.actions")} trigger={(props) => <IconButton {...props} label={t("integrations.actionsFor",{ name: hook.name })} disabled={!!busy}><IcDots size={16} /></IconButton>}
+          <Menu label={t("integrations.actions")} trigger={(props) => <IconButton {...props} label={t("integrations.actionsFor",{ name: hook.name })} disabled={!!busy}><IcDots size={18} /></IconButton>}
             items={[
               { id: "journal",label: t("integrations.journal"),onSelect: () => setJournal(hook) },
               ...(enabled ? [
@@ -158,7 +158,7 @@ function WebhookForm({ projectId,hook,config,onClose,onSaved }: {
       <fieldset className="flex flex-col gap-2"><legend className="ds-label mb-2">{t("integrations.events")}</legend>
         {WEBHOOK_EVENTS.map(event => <Checkbox key={event} checked={events.includes(event)} label={t(`webhook.event.${event}`)} description={t(`webhook.eventDesc.${event}`)}
           onChange={checked => setEvents(rows => checked ? rows.includes(event) ? rows : [...rows,event] : rows.filter(row => row !== event))} />)}
-      </fieldset>{error && <p role="alert" className="text-[13px] text-danger">{error}</p>}
+      </fieldset>{error && <p role="alert" className="text-[14px] text-danger">{error}</p>}
     </div>
   </Dialog>;
 }
