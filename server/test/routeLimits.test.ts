@@ -86,6 +86,29 @@ describe("SEC-RATE-01", () => {
     expect((await hit(a, admin, "POST", `${wh}/rotate-secret`)).statusCode).not.toBe(429);
   });
 
+  test("выдача личных и служебных токенов имеет независимые sensitive-корзины для одного админа", async () => {
+    const a = await limited();
+    const created = await hit(a, admin, "POST", "/api/admin/service-accounts", { username: "rate.bot", name: "Rate test" });
+    expect(created.statusCode).toBe(201);
+    const paths = ["/api/me/tokens", `/api/admin/service-accounts/${created.json().id}/tokens`];
+    const body = { name: "Independent bucket", scope: "read", expiresInDays: 30 };
+    for (const path of paths) {
+      for (let i = 0; i < 2; i++) expect((await hit(a, admin, "POST", path, body)).statusCode).toBe(201);
+      expect((await hit(a, admin, "POST", path, body)).statusCode).toBe(429);
+    }
+  });
+
+  test.each([false, true])("search и recurring preview не расходуют квоту друг друга (preview первым: %s)", async previewFirst => {
+    const a = await limited();
+    const previewBody = { schedule: { kind: "daily", every: 1 }, timeOfDay: "09:00", timeZone: "UTC", startDate: "2024-01-01" };
+    const search = () => hit(a, admin, "GET", "/api/issues/search?q=test");
+    const preview = () => hit(a, admin, "POST", `/api/projects/${fx.projects.p1}/recurring/preview`, previewBody);
+    for (const request of previewFirst ? [preview, search] : [search, preview]) {
+      for (let i = 0; i < 2; i++) expect((await request()).statusCode).toBe(200);
+      expect((await request()).statusCode).toBe(429);
+    }
+  });
+
   test.each([
     ["полный экспорт", "/api/admin/export"],
     ["экспорт аудита", "/api/admin/audit-log/export?format=csv"],
