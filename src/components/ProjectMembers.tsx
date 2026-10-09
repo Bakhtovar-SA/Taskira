@@ -28,7 +28,7 @@ export function ProjectMembers({ selectedUserId, onSelectUser, extraUsers = [] }
     return <span className="project-members" role="group" aria-label={t("field.assignee")}>
       <span className="ds-av-group">
         {visible.map(user => <button key={user.id} type="button"
-          className={`board-member-filter ds-focus flex rounded-full ${selectedUserId && selectedUserId !== user.id ? "opacity-50" : ""}`}
+          className={`board-member-filter ds-focus flex rounded-full ${selected && selected.id !== user.id ? "opacity-50" : ""}`}
           aria-label={t("board.filterUserAria", { name: user.name })}
           aria-pressed={selectedUserId === user.id}
           title={t("board.filterUserAria", { name: user.name })}

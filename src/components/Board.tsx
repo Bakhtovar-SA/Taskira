@@ -889,9 +889,9 @@ export default function Board() {
               className={selectMode ? "border-accent text-accenttext" : undefined} iconLeft={<IcCheck size={14} />}>
               {t("backlog.selectMode")}
             </Button>
-            {canMove && <Hint id="board-move">{t("hint.boardMove")}</Hint>}
           </>}
         />
+        {canMove && <Hint id="board-move" className="mt-2">{t("hint.boardMove")}</Hint>}
         {filtersOn && <IssueFilterSummary filters={baseFilters}>
           {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
           {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>}

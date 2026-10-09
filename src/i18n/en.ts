@@ -168,7 +168,6 @@ const en: Record<keyof Dict, string> = {
   "board.title": "Board",
   "board.filterUserAria": "Filter: {name}",
   "board.moreAssignees": "More assignees",
-  "board.unassignedFilter": "Unassigned",
   "board.searchPlaceholder": "Filter issues",
   "board.quickChip.mine": "Mine",
   "board.quickChip.overdue": "Overdue",

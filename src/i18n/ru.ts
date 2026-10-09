@@ -169,7 +169,6 @@ const ru = {
   "board.title": "Доска",
   "board.filterUserAria": "Фильтр: {name}",
   "board.moreAssignees": "Другие исполнители",
-  "board.unassignedFilter": "Без исполнителя",
   "board.searchPlaceholder": "Фильтр задач",
   "board.quickChip.mine": "Мои задачи",
   "board.quickChip.overdue": "Просрочено",

@@ -344,11 +344,30 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     await settle();
     expect(avatar.getAttribute("aria-pressed")).toBe("true");
     expect(h.pageCalls.some(call => call.assignee === "u1")).toBe(true);
+    // Без панели «Фильтры» активное условие видно только в сводке под тулбаром.
+    expect(screen.getByRole("status", { name: "" }).textContent).toContain("Исполнитель: Анна Иванова");
     h.pageCalls.length = 0;
     fireEvent.click(avatar);
     await settle();
     expect(avatar.getAttribute("aria-pressed")).toBe("false");
     expect(h.pageCalls.some(call => !call.assignee)).toBe(true);
+    h.ui.unmount();
+  });
+
+  test("4a-3. «Без исполнителя» не гасит аватары: условие видно по чипу и сводке, снимается тем же чипом", async () => {
+    const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
+    const chip = screen.getByRole("button", { name: "Без исполнителя" });
+    const avatar = screen.getByRole("button", { name: "Фильтр: Анна Иванова" });
+    fireEvent.click(chip);
+    await settle();
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+    expect(avatar.className).not.toContain("opacity-50");
+    expect(avatar.getAttribute("aria-pressed")).toBe("false");
+    expect(h.pageCalls.some(call => call.assignee === "none")).toBe(true);
+    expect(screen.getByRole("status", { name: "" }).textContent).toContain("Исполнитель: Не назначен");
+    fireEvent.click(chip);
+    await settle();
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
     h.ui.unmount();
   });
 
