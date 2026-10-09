@@ -325,8 +325,9 @@ body {
   background: var(--bg-panel);
   border: 1px solid var(--board-card-line);
   border-radius: 10px;
-  padding: 10px 12px 10px 13px;
-  gap: 7px;
+  padding: 14px 12px 14px 13px;
+  gap: 11px;
+  min-height: 88px;
   box-shadow: var(--board-priority-inset), var(--elev-1);
   transition: box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
 }

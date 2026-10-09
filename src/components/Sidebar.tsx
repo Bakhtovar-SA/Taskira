@@ -1,6 +1,5 @@
 import { Kbd } from "../ds/Display";
 import { Button, IconButton } from "../ds/Button";
-import { UserMenu } from "./UserMenu";
 import { useStore, useUnreadCount } from "../store";
 import { GettingStarted } from "./GettingStarted";
 import { Tag } from "../ds/Display";
@@ -11,7 +10,6 @@ import {
   IcBook,
   IcBriefcase,
   IcChevD,
-  IcCompose,
   IcFlag,
   IcFlow,
   IcHome,
@@ -22,8 +20,6 @@ import {
   IcPlus,
   IcReport,
   IcDashboard,
-  IcSearch,
-  IcSettings,
   IcStar,
   IcTimeline,
   IcCalendar,
@@ -35,8 +31,7 @@ import { useBrandName } from "../brand";
 import { ProjectMark } from "../ui";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useT, type TKey } from "../i18n";
-import { openPalette, openProjectWizard, paletteShortcut, openHomeCreate } from "../palette/events";
-import { useOpenSettings } from "../settings/useOpenSettings";
+import { openProjectWizard } from "../palette/events";
 
 const RailTooltip = lazy(() => import("../ds/Overlay").then((m) => ({ default: m.Tooltip })));
 
@@ -142,14 +137,13 @@ function Chevron({ open }: { open: boolean }) {
 
 export default function Sidebar() {
   const { t } = useT();
-  const { data, ui: storedUi, setView: storeSetView, me, goHome, switchProject, enterProject, bootStatus, setCreateOpen, can, logout, refreshAssignedToMe } = useStore();
+  const { data, ui: storedUi, setView: storeSetView, me, goHome, switchProject, enterProject, bootStatus, refreshAssignedToMe } = useStore();
   const home = bootStatus === "home";
   const ui = home ? { ...storedUi, view: undefined } : storedUi;
   const setView: typeof storeSetView = (view, section) => {
     storeSetView(view, section);
     if (home) enterProject(data.currentProjectId || data.projects[0]?.id);
   };
-  const openSettings = useOpenSettings();
   const homeAvailable = data.projects.length > 0;
   useEffect(() => { void refreshAssignedToMe(); }, [refreshAssignedToMe, data.currentProjectId]);
 
@@ -229,8 +223,6 @@ export default function Sidebar() {
     .map(([id, ps]) => ({ id, name: deptName(id), projects: [...ps].sort((a, b) => a.name.localeCompare(b.name)) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const inSettings = SETTINGS_VIEWS.some((s) => s.id === ui.view);
-  const settingsItems = SETTINGS_VIEWS.filter((s) => !s.adminOnly || me.globalRole === "admin");
 
   /** Открыть другой проект. Если сейчас открыто представление (Доска, Список…) —
    *  то же представление в новом проекте; иначе — Доска. switchProject сохраняет ui.view. */
@@ -264,7 +256,7 @@ export default function Sidebar() {
 
   const shell = `glass-side glass-edge flex shrink-0 flex-col overflow-hidden rounded-[16px] text-ink shadow-[0_1px_2px_oklch(0.2_0.05_288/0.06),0_12px_40px_-16px_oklch(0.2_0.08_288/0.3)]
     lg:relative lg:my-2 lg:ml-2 lg:transition-[width] lg:duration-200 lg:ease-out
-    side-drawer max-lg:fixed max-lg:inset-y-2 max-lg:left-2 max-lg:z-50 max-lg:w-[280px] max-lg:max-w-[calc(100vw-48px)] max-lg:transition-[transform,visibility] max-lg:duration-300 max-lg:ease-out
+    side-drawer max-lg:fixed max-lg:inset-y-2 max-lg:left-2 max-lg:z-50 max-lg:w-[304px] max-lg:max-w-[calc(100vw-48px)] max-lg:transition-[transform,visibility] max-lg:duration-300 max-lg:ease-out
     ${drawer ? "" : "max-lg:invisible max-lg:-translate-x-[calc(100%+16px)]"}`;
 
   if (rail)
@@ -282,7 +274,7 @@ export default function Sidebar() {
   return (
     <>
     {drawer && <div className="anim-scrim fixed inset-0 z-40 bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] lg:hidden" onClick={() => setDrawer(false)} />}
-    <aside ref={asideRef} aria-label={t("sidebar.menu")} className={`${shell} lg:w-[280px]`}>
+    <aside ref={asideRef} aria-label={t("sidebar.menu")} className={`${shell} lg:w-[304px]`}>
       {/* Знак + название инсталляции. Стеклянная панель над атмосферой (ADR-0016). */}
       <div className="mx-2 mt-2.5 flex items-center">
         {homeAvailable ? (
@@ -312,17 +304,6 @@ export default function Sidebar() {
         </IconButton>
       </div>
 
-      {/* Command palette and creation share one compact row. */}
-      <div className="sidebar-quick-actions mx-2 mb-1 mt-1 flex min-w-0 gap-1.5">
-        <Button variant="secondary" size="sm" onClick={openPalette} aria-label={t("sidebar.search")} className="sidebar-search min-w-0 flex-1"
-          iconLeft={<IcSearch size={16} />} iconRight={<Kbd>{paletteShortcut()}</Kbd>}>
-          {t("sidebar.search")}
-        </Button>
-        {(home || can("create")) && <IconButton variant="secondary" size="sm" label={t("sidebar.newIssue")} kbd="C"
-          onClick={() => home ? openHomeCreate() : setCreateOpen(true)} className="sidebar-compose shrink-0 text-accenttext">
-          <IcCompose size={18} />
-        </IconButton>}
-      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 [scrollbar-width:none]">
         {/* Личный слой */}
@@ -440,8 +421,8 @@ export default function Sidebar() {
       {/* «Начало работы» (ТЗ 5.11) — тем, у кого нет главной (один проект): свёрнутая строка с прогрессом. */}
       {!home && data.projects.length < 2 && !collapsed && <GettingStarted compact className="mx-3 mb-2" />}
 
-      {/* Низ: Справка и Настройки (до 5.9 — прежние экраны под одним узлом), профиль. */}
-      <div className="mx-2 flex flex-col gap-px border-t border-linesoft/70 pt-2">
+      {/* Справка остаётся внизу панели; профиль и настройки — в общей шапке. */}
+      <div className="mx-2 mb-2 flex flex-col gap-px border-t border-linesoft/70 pt-2">
         <Button variant="ghost" size="sm"
           type="button"
           onClick={() => setView("docs")}
@@ -454,31 +435,6 @@ export default function Sidebar() {
             <Kbd>?</Kbd>
           </span>
         </Button>
-          <div id="sidebar-settings" hidden={!isOpen("s:settings", inSettings)} className={`${branch} mb-1`}>
-            {settingsItems.map((v) => {
-              const active = ui.view === v.id;
-              return (
-                <Button variant="ghost" size="sm"
-                  key={v.id}
-                  type="button"
-                  onClick={() => openSettings(v.id as "settings" | "projectSettings" | "orgSettings")}
-                  aria-current={active ? "page" : undefined}
-                  className={(`${navItem} h-[30px] text-[14px] ${active ? navOn : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
-                >
-                  {v.icon({ size: 15, tone: v.tone })}
-                  <span className="flex-1 truncate">{t(v.labelKey)}</span>
-                </Button>
-              );
-            })}
-          </div>
-      </div>
-
-      <div className="mx-2 mb-2 mt-1 flex min-w-0 items-center gap-1 border-t border-linesoft pt-2">
-        <UserMenu onLogout={logout} sidebar />
-        <IconButton variant="ghost" size="sm" label={t("sidebar.settings")} aria-expanded={isOpen("s:settings", inSettings)}
-          aria-controls="sidebar-settings" onClick={() => toggle("s:settings", inSettings)} className="shrink-0">
-          <IcSettings size={18} />
-        </IconButton>
       </div>
     </aside>
     </>
@@ -503,14 +459,13 @@ function Rail({
   onExpand: () => void;
 }) {
   const { t } = useT();
-  const { data, ui: storedUi, me, setView: storeSetView, goHome, enterProject, bootStatus, setCreateOpen, can, logout } = useStore();
+  const { data, ui: storedUi, setView: storeSetView, goHome, enterProject, bootStatus } = useStore();
   const home = bootStatus === "home";
   const ui = home ? { ...storedUi, view: undefined } : storedUi;
   const setView: typeof storeSetView = (view, section) => {
     storeSetView(view, section);
     if (home) enterProject(data.currentProjectId || data.projects[0]?.id);
   };
-  const openSettings = useOpenSettings();
   const brandName = useBrandName();
   const btn = (key: string, label: string, icon: React.ReactNode, onClick: () => void, on = false, extra?: React.ReactNode) => {
     const button = (
@@ -533,10 +488,6 @@ function Rail({
   return (
     <aside aria-label={t("sidebar.menu")} className={`${className} items-center py-2.5`}>
       {btn("logo", homeAvailable ? t("sidebar.homeAria") : brandName, <BrandMark size={22} />, () => homeAvailable && goHome())}
-      <div className="mt-1.5 flex flex-col items-center gap-1">
-        {btn("search", `${t("sidebar.search")} · ${paletteShortcut()}`, <IcSearch size={18} />, openPalette)}
-        {(home || can("create")) && btn("new", `${t("sidebar.newIssue")} · C`, <IcCompose size={18} tone="violet" />, () => home ? openHomeCreate() : setCreateOpen(true))}
-      </div>
       {sep}
       <div className="flex flex-col items-center gap-1">
         {homeAvailable && btn("home", t("sidebar.nav.home"), <IcHome size={18} tone="violet" />, goHome, home)}
@@ -569,11 +520,7 @@ function Rail({
       </div>
       <div className="mt-1 flex flex-col items-center gap-1 border-t border-linesoft/70 pt-2">
         {btn("docs", t("sidebar.nav.docs"), <IcBook size={18} tone="orange" />, () => setView("docs"), ui.view === "docs")}
-        {btn("settings", t("sidebar.settings"), <IcSettings size={18} tone="gray" />, () => openSettings("projectSettings"), SETTINGS_VIEWS.some((s) => s.id === ui.view))}
         {btn("expand", `${t("sidebar.expand")} · [`, <IcPanel size={18} />, onExpand)}
-        <span className="mt-1">
-          <UserMenu onLogout={logout} sidebar compact />
-        </span>
       </div>
     </aside>
   );

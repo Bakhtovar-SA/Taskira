@@ -105,7 +105,7 @@ test("reports refresh: mobile overflow, touch targets, sidebar and English", asy
   const quarter = page.getByRole("button", { name: "Quarter", exact: true }); expect((await quarter.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await quarter.click(); await expect(quarter).toHaveAttribute("aria-pressed", "true");
   const menu = page.locator(".reports-header").getByRole("button", { name: "Menu", exact: true }); await menu.click();
-  await expect(page.locator("aside").getByRole("button", { name: "Search and commands", exact: true })).toBeVisible();
+  await expect(page.locator("aside").getByRole("button", { name: "Home", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
 });
 

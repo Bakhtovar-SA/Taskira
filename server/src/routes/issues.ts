@@ -23,6 +23,7 @@ import { createIssueInTx, prepareIssueCreate } from "../services/issueCreate.js"
 import { transitionIssue } from "../services/issueTransition.js";
 import {
   assignParentLocked,
+  assertSelfAssignment,
   getIssueDto,
   listActivity,
   listAssigneeIds,
@@ -376,6 +377,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as z.infer<typeof IssueCreateBody>;
       const user = me(req);
 
+      if (req.projectRole === "employee") assertSelfAssignment(user.sub, [], body.assigneeIds);
       const prepared = await prepareIssueCreate(project, body);
       const assigneeIds = prepared.assigneeIds;
       // Как и epicId в prepareIssueCreate — проверяем ДО nextIssueNum(), чтобы неверный
@@ -437,6 +439,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       // Дедуп сразу — и для валидации, и для diff/записи ниже используем одно
       // и то же нормализованное значение (см. аналогичный комментарий в POST /issues).
       const newAssigneeIds = body.assigneeIds !== undefined ? [...new Set(body.assigneeIds)] : undefined;
+      if (newAssigneeIds !== undefined && req.projectRole === "employee") assertSelfAssignment(user.sub, beforeAssigneeIds, newAssigneeIds);
       if (newAssigneeIds !== undefined) await validateAssigneesInProject(project.id, newAssigneeIds);
       if (body.epicId !== undefined && body.epicId !== null) {
         const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
@@ -527,7 +530,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const mutate = async (client: PoolClient): Promise<IssueRow> => {
         const row = updateSql ? (await client.query<IssueRow>(updateSql, vals)).rows[0] : iss;
         if (newAssigneeIds !== undefined && (addedAssigneeIds.length > 0 || removedAssigneeIds.length > 0)) {
-          await setAssignees(iss.id, newAssigneeIds, user.sub, client);
+          await setAssignees(iss.id, newAssigneeIds, user.sub, client, req.projectRole === "employee");
         }
         for (const event of log) await logActivity(iss.id, user.sub, event, client);
         return row;

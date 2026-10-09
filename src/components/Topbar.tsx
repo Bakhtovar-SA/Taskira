@@ -10,13 +10,13 @@ import { lookOf } from "../projectLook";
 import { useNotifications, useStore, useUnreadCount } from "../store";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcLock, IcPanel, IcPlus, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcCheck, IcChevD, IcChevR, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { ProjectMark } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
-import { PROJECT_VIEWS, openSidebarDrawer } from "./Sidebar";
-import { UserAvatarGroup } from "./UserAvatar";
+import { PROJECT_VIEWS } from "./Sidebar";
+import { ProjectMembers } from "./ProjectMembers";
 
 export const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
@@ -521,18 +521,14 @@ function ProjectSwitcher() {
 
 export default function Topbar() {
   const { t } = useT();
-  const { data, ui, idx, setCreateOpen, can, setView, toggleFavoriteProject } = useStore();
+  const { data, ui, setView, toggleFavoriteProject } = useStore();
   const views = PROJECT_VIEWS.filter((v) => !v.sprintsOnly || data.project.sprintsEnabled);
   const isProjectView = views.some((v) => v.id === ui.view);
   const isFavorite = data.favoriteProjectIds.includes(data.currentProjectId);
-  const members = Object.keys(data.members).flatMap(id => { const user = idx.users.get(id); return user ? [user] : []; });
 
   return (
-    <header className="project-topbar shrink-0 border-b border-linesoft">
+    <div role="region" aria-label={t(isProjectView ? "topbar.viewsAria" : VIEW_LABEL[ui.view])} className="project-topbar shrink-0 border-b border-linesoft">
       <div className="project-topbar-row">
-        <IconButton variant="ghost" size="sm" label={t("sidebar.menu")} onClick={openSidebarDrawer} className="project-menu-button shrink-0 lg:hidden">
-          <IcPanel size={18} />
-        </IconButton>
         {isProjectView ? <>
           <div className="project-identity">
             <ProjectSwitcher />
@@ -549,18 +545,9 @@ export default function Topbar() {
           </nav>
         </> : <h1 className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
         <div className="project-topbar-actions">
-          {isProjectView && members.length > 0 && <span className="project-members" role="group" aria-label={t("topbar.membersAria")}>
-            <UserAvatarGroup users={members} size={26} max={4} interactive />
-          </span>}
-          <Bell />
-          <Button variant={can("create") ? "primary" : "ghost"} size="sm"
-            disabled={can("create") ? false : t("topbar.createDeniedTip")}
-            onClick={() => setCreateOpen(true)} className="project-create"
-            aria-label={t("topbar.createAria")} iconLeft={can("create") ? <IcPlus size={18} /> : <IcLock size={18} />} kbd="C">
-            <span className="hidden sm:inline">{t("topbar.task")}</span>
-          </Button>
+          {isProjectView && ui.view !== "board" && ui.view !== "backlog" && <ProjectMembers />}
         </div>
       </div>
-    </header>
+    </div>
   );
 }

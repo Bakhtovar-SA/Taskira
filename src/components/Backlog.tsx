@@ -24,6 +24,8 @@ import { Presence } from "../ds/Presence";
 import BulkBar from "./BulkBar";
 import { IssueFilterSummary } from "./IssueFilterSummary";
 import { WorkspaceControls, WorkspaceSearch, WorkspaceQuickFilters } from "./WorkspaceControls";
+import { ProjectMembers } from "./ProjectMembers";
+import { DeleteIssueDialog } from "./DeleteIssueDialog";
 import { useT, type TKey } from "../i18n";
 import { statusTone, workflowStatusName } from "../workflowStatus";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, type FilterState, pathForIssue, pathForView } from "../router";
@@ -68,6 +70,7 @@ function Row({
   selectMode,
   selected,
   onToggleSelect,
+  onDelete,
 }: {
   issue: Issue;
   epic: Pick<IssueEpic, "id" | "title" | "color"> | undefined;
@@ -75,9 +78,10 @@ function Row({
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
+  onDelete: (issue: Issue) => void;
 }) {
   const { t, lang } = useT();
-  const { data, idx, openIssue, deleteIssue, updateIssue, moveStatus, can } = useStore();
+  const { data, idx, me, openIssue, updateIssue, moveStatus, can } = useStore();
   // Ассоциированные сущности ищем по индексам из контекста, а не линейным
   // проходом по массивам в каждой строке списка (аудит PERF-02).
   const assignees = issue.assigneeIds.map((id) => idx.users.get(id)).filter((u): u is NonNullable<typeof u> => !!u);
@@ -129,7 +133,7 @@ function Row({
       case "assignee":
         return can("edit", issue) ? <Popover label={t("field.assignee")} placement="bottom-end" className="w-[260px]"
           trigger={p => <button {...p} type="button" className="list-assignee-action ds-focus" aria-label={t("backlog.changeAssignees", { key: issue.key })}><UserAvatarGroup users={assignees} size={22} /></button>}>
-          <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} />
+          <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} selfOnlyId={me.accessRole === "employee" ? me.id : undefined} />
         </Popover> : <UserAvatarGroup users={assignees} size={22} interactive />;
       case "updated":
         return <span className="text-[13px] tabular text-faint">{relTime(issue.updatedAt, lang)}</span>;
@@ -198,7 +202,7 @@ function Row({
             ...(can("delete", issue)
               ? [
                   { kind: "sep" as const, id: "sep" },
-                  { id: "delete", label: t("common.delete"), icon: <IcTrash size={15} />, danger: true, onSelect: () => deleteIssue(issue.id) },
+                  { id: "delete", label: t("common.delete"), icon: <IcTrash size={15} />, danger: true, onSelect: () => onDelete(issue) },
                 ]
               : []),
           ]}
@@ -210,7 +214,10 @@ function Row({
 
 export default function Backlog() {
   const { t, errText, lang } = useT();
-  const { data, idx, can, epicsRevision, setCreateOpen, toast } = useStore();
+  const { data, idx, can, epicsRevision, setCreateOpen, toast, deleteIssue } = useStore();
+  const [issueToDelete, setIssueToDelete] = useState<Issue | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const firstTodoId = data.workflow.statuses.find(st => st.category === "todo")?.id;
   const [path, navigate] = useLocation();
   const initialSearch = projectIssueSearch(data.project.key, location.pathname, location.search);
   const [importOpen, setImportOpen] = useState(false);
@@ -471,6 +478,7 @@ export default function Backlog() {
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
         <WorkspaceControls selectionMode={selectMode} compact
+          members={<ProjectMembers />}
           summary={t("board.filteredOf", { visible: rows.length, total: pool.counts?.total ?? "…" })}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? fOverdue : fAssignee === (id === "mine" ? data.currentUserId : "none")} onToggle={id => id === "overdue" ? setFOverdue(!fOverdue) : setField("assignee")(fAssignee === (id === "mine" ? data.currentUserId : "none") ? "" : id === "mine" ? data.currentUserId : "none")} overdue={overdueCounts.counts?.total} />}
           grouping={<Menu label={groupLabel} placement="bottom-end" trigger={p => <Button {...p} size="sm" className="workspace-grouping" iconRight={<IcChevD size={14} />}>{groupLabel}</Button>}
@@ -767,13 +775,14 @@ export default function Backlog() {
                         {st && <StatusGlyph category={st.category} size={16} />}
                         <span className="truncate" title={name}>{name}</span>
                         <span className="list-group-count tabular" title={t("backlog.groupLoaded", { n: section.items.length })}>{section.items.length < total ? `${section.items.length}/${total}` : total}</span>
-                        {st && can("create") && <button type="button" className="ds-focus list-group-add" data-create-status={st.id} aria-label={t("board.addToStatusAria", { name })} onClick={() => setCreateGroup(createGroup === st.id ? null : st.id)}><IcPlus size={16} /></button>}
+                        {st && st.id === firstTodoId && can("create") && <button type="button" className="ds-focus list-group-add" data-create-status={st.id} aria-label={t("board.addToStatusAria", { name })} onClick={() => setCreateGroup(createGroup === st.id ? null : st.id)}><IcPlus size={16} /></button>}
                       </div>
                     </div>}
-                    {st && createGroup === st.id && <div role="row" className="list-group-create"><div role="cell" aria-colspan={cols.length + 3 + Number(selectMode)}><QuickCreate status={st} onDone={() => { setCreateGroup(null); layoutRef.current?.querySelector<HTMLButtonElement>(`[data-create-status="${CSS.escape(st.id)}"]`)?.focus(); }} /></div></div>}
+                    {st && st.id === firstTodoId && can("create") && createGroup === st.id && <div role="row" className="list-group-create"><div role="cell" aria-colspan={cols.length + 3 + Number(selectMode)}><QuickCreate status={st} onDone={() => { setCreateGroup(null); layoutRef.current?.querySelector<HTMLButtonElement>(`[data-create-status="${CSS.escape(st.id)}"]`)?.focus(); }} /></div></div>}
                     {section.items.map(i => (
                   <Row
                     key={i.id}
+                    onDelete={issue => { setIssueToDelete(issue); setDeleteOpen(true); }}
                     issue={i}
                     epic={i.epicId ? epics.byId.get(i.epicId) : undefined}
                     cols={cols}
@@ -827,6 +836,7 @@ export default function Backlog() {
       </div>
 
       <Presence show={importOpen}>{(open) => <Suspense fallback={null}><ImportModal open={open} onClose={() => setImportOpen(false)} /></Suspense>}</Presence>
+      <Presence show={deleteOpen}>{open => issueToDelete && <DeleteIssueDialog open={open} issue={issueToDelete} onClose={() => setDeleteOpen(false)} onConfirm={() => { setDeleteOpen(false); deleteIssue(issueToDelete.id); }} />}</Presence>
     </div>
   );
 }

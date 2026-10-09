@@ -11,7 +11,7 @@ import { Button, Dialog, Menu, type MenuEntry } from "../ds";
 
 export default function BulkBar({ selectedIds, onDone, className = "" }: { selectedIds: ReadonlySet<string>; onDone: () => void; className?: string }) {
   const { t } = useT();
-  const { data, can, bulkApplyIssueAction } = useStore();
+  const { data, me, can, bulkApplyIssueAction } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const ids = [...selectedIds];
@@ -47,8 +47,8 @@ export default function BulkBar({ selectedIds, onDone, className = "" }: { selec
           data.workflow.statuses.map((s) => ({ id: s.id, label: workflowStatusName(s, t), onSelect: () => void run({ action: "status", issueIds: ids, statusId: s.id }) })),
         )}
         {menu(t("field.assignee"), [
-          { id: "none", label: t("createIssue.unassigned"), onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: "none" }) },
-          ...data.users.map((u) => ({ id: u.id, label: u.name, text: u.name, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
+          { id: "none", label: t(me.accessRole === "employee" ? "assignee.unassignSelf" : "createIssue.unassigned"), onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: "none" }) },
+          ...data.users.filter(u => me.accessRole !== "employee" || u.id === me.id).map((u) => ({ id: u.id, label: u.name, text: u.name, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
         ])}
         {menu(
           t("field.priority"),
@@ -67,12 +67,12 @@ export default function BulkBar({ selectedIds, onDone, className = "" }: { selec
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        size="sm"
+        size="md"
         title={t("backlog.confirmBulkDeleteTitle")}
         description={t("backlog.confirmBulkDeleteBody", { n: selectedIds.size })}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+            <Button variant="ghost" data-autofocus onClick={() => setConfirmDelete(false)}>
               {t("common.cancel")}
             </Button>
             <Button variant="danger" loading={busy} onClick={() => void run({ action: "delete", issueIds: ids })}>

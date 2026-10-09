@@ -35,13 +35,14 @@ for (const columns of [4, 5, 6]) test(`board refresh: ${columns} statuses at 144
   await page.goto("/p/CORP/board");
   await expect(page.locator(".board-col")).toHaveCount(columns);
   expect(await page.locator(".board-scroll").evaluate(el => el.scrollWidth > el.clientWidth + 1)).toBe(columns >= 5);
-  const col = page.locator(".board-col").nth(1);
-  await col.getByRole("button", { name: "Добавить в «В работе»", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Добавить в «В работе»", exact: true })).toHaveCount(0);
+  const col = page.locator(".board-col").first();
+  await col.getByRole("button", { name: "Добавить в «К выполнению»", exact: true }).click();
   await expect(col.getByRole("textbox")).toBeFocused();
   const posted = page.waitForRequest(r => r.url().endsWith("/projects/p1/issues") && r.method() === "POST");
-  await col.getByRole("textbox").fill("Создано в работе"); await page.keyboard.press("Enter");
-  expect((await posted).postDataJSON().statusId).toBe("s2");
-  await expect(col.getByRole("heading", { name: "Создано в работе" })).toBeVisible();
+  await col.getByRole("textbox").fill("Создано к выполнению"); await page.keyboard.press("Enter");
+  expect((await posted).postDataJSON().statusId).toBe("s1");
+  await expect(col.getByRole("heading", { name: "Создано к выполнению" })).toBeVisible();
 });
 
 test("board refresh: English toolbar", async ({ page }) => {

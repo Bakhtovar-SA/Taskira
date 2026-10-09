@@ -22,7 +22,6 @@ for (const path of ["reports", "dashboards/overview", "dashboards/personal"]) fo
     await page.goto(`/${path}`);
     await expect(page.getByRole("heading", { name: "Отчёты и дашборды", exact: true })).toBeVisible();
     await expect(page.locator(".project-topbar")).toHaveCount(0);
-    if (width < 768) await page.getByRole("button", { name: "Меню", exact: true }).click();
     await page.getByRole("button", { name: "Меню пользователя", exact: true }).click();
     await page.getByRole("button", { name: "Выйти", exact: true }).click();
     await expect.poll(() => loggedOut).toBe(true);
@@ -104,7 +103,7 @@ for (const theme of ["light", "dark"]) {
     await page.getByRole("heading", { level: 1 }).click();
     await expect(page.getByText("Теперь при входе — список ваших проектов и задач.", { exact: false })).toBeHidden({ timeout: 10000 });
     await page.screenshot({ path: `shots/workspace-home-mobile-${theme}.png` });
-    await page.getByRole("button", { name: "Создать задачу", exact: true }).click();
+    await page.locator(".global-topbar").getByRole("button", { name: "Создать задачу", exact: true }).click();
     const chooser = page.getByRole("dialog");
     await expect(chooser).toBeVisible();
     await chooser.getByRole("button", { name: "Sales", exact: true }).click();

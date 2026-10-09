@@ -1,0 +1,50 @@
+import { expect, test } from "@playwright/test";
+import { issueFixture } from "./issue-fixture";
+test.setTimeout(60_000);
+
+test("employee can select only self when creating/editing/bulk assigning", async ({ page }) => {
+  const writes = await issueFixture(page, "dark", "employee");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/p/CORP/board");
+  await page.locator(".global-topbar .project-create").click();
+  const create = page.getByRole("dialog", { name: /Новая задача/ });
+  await create.getByRole("button", { name: /Не назначен/ }).click();
+  const picker = page.getByRole("dialog", { name: "Исполнитель", exact: true });
+  await expect(picker.getByRole("button", { name: /Анна Смирнова/ })).toBeVisible();
+  await expect(picker.getByRole("button", { name: /Игорь Петров/ })).toHaveCount(0);
+  await picker.getByRole("button", { name: /Анна Смирнова/ }).click();
+  await page.keyboard.press("Escape");
+  await create.getByRole("textbox", { name: "Название *", exact: true }).fill("Задача сотрудника");
+  const posted = page.waitForRequest(r => r.url().endsWith("/projects/p1/issues") && r.method() === "POST");
+  await create.getByRole("button", { name: "Создать задачу", exact: true }).click();
+  expect((await posted).postDataJSON().assigneeIds).toEqual(["u1"]);
+  await expect(create).toHaveCount(0);
+  await page.locator('[data-issue-id="i1"]').click();
+  const field = page.locator(".issue-field").filter({ has: page.locator(".issue-field-label").getByText("Исполнители", { exact: true }) });
+  await field.locator('button[aria-haspopup="dialog"]').click();
+  const editPicker = page.getByRole("dialog", { name: "Исполнители", exact: true });
+  await expect(editPicker.getByRole("button", { name: /Игорь Петров/ })).toHaveCount(0);
+  await editPicker.getByRole("button", { name: /Анна Смирнова/ }).click();
+  await expect.poll(() => writes.filter(w => w.method === "PATCH").at(-1)?.body?.assigneeIds).toEqual(["u2"]);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.goto("/p/CORP/list");
+  await page.locator('[role=row][data-issue-id="i1"]').getByRole("button", { name: "Изменить исполнителей CORP-1", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Исполнитель", exact: true }).getByRole("button", { name: /Игорь Петров/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.locator(".workspace-controls").getByRole("button", { name: "Настройки вида", exact: true }).click();
+  await page.getByRole("button", { name: "Выделить", exact: true }).click();
+  await page.locator('[role=row][data-issue-id="i1"]').getByRole("checkbox").check();
+  await page.getByRole("toolbar").getByRole("button", { name: "Исполнитель", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Снять себя", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Анна Смирнова", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Игорь Петров", exact: true })).toHaveCount(0);
+});
+
+test("manager keeps access to other project assignees", async ({ page }) => {
+  await issueFixture(page, "light", "manager");
+  await page.goto("/p/CORP/board");
+  await page.locator(".global-topbar .project-create").click();
+  await page.getByRole("dialog", { name: /Новая задача/ }).getByRole("button", { name: /Не назначен/ }).click();
+  await expect(page.getByRole("dialog", { name: "Исполнитель", exact: true }).getByRole("button", { name: /Игорь Петров/ })).toBeVisible();
+});

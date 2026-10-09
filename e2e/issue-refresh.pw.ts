@@ -10,6 +10,24 @@ async function openIssue(page: import("@playwright/test").Page) {
   return page.getByRole("dialog");
 }
 
+test("opening an issue defaults to comments, while the combined feed remains available", async ({ page }) => {
+  await issueFixture(page);
+  const panel = await openIssue(page);
+  const comments = panel.getByRole("tab", { name: "Комментарии · 1" });
+  await expect(comments).toHaveAttribute("aria-selected", "true");
+  await expect(panel.getByRole("tabpanel")).toContainText("Проверил требования. Можно брать в работу.");
+  await expect(panel.getByRole("tabpanel")).not.toContainText("создал(а) задачу");
+  await panel.getByRole("tab", { name: "Всё", exact: true }).click();
+  await expect(panel.getByRole("tabpanel")).toContainText("создал(а) задачу");
+  await expect(panel.getByRole("tabpanel")).toContainText("Проверил требования. Можно брать в работу.");
+  await page.keyboard.press("Escape");
+  await page.locator('[data-issue-id="i1"]').click();
+  await expect(comments).toHaveAttribute("aria-selected", "true");
+  await page.route("**/api/issues/resolve**", route => route.fulfill({ json: { projectId: "p1", id: "i1", projectKey: "CORP" } }));
+  await page.goto("/p/CORP/issue/CORP-1");
+  await expect(page.getByRole("tab", { name: "Комментарии · 1" })).toHaveAttribute("aria-selected", "true");
+});
+
 test("issue refresh: workflow action, overdue text, visible properties and subscription", async ({ page }) => {
   const writes = await issueFixture(page);
   const panel = await openIssue(page);
