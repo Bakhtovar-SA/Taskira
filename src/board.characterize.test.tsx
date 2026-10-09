@@ -163,7 +163,7 @@ async function setup({ role = "manager", transitions = [], pageImpl, countsImpl 
   vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
-  vi.spyOn(issuesApi, "assignees").mockResolvedValue({ items: [] });
+  vi.spyOn(issuesApi, "assignees").mockResolvedValue({ items: [{ userId: "u1", count: 1 }] });
   vi.spyOn(issuesApi, "epics").mockResolvedValue({ items: [], truncated: false });
   vi.spyOn(issuesApi, "get").mockImplementation(async (_p, id) => dto(id));
   vi.spyOn(commentsApi, "list").mockResolvedValue([]);
@@ -200,14 +200,7 @@ async function setup({ role = "manager", transitions = [], pageImpl, countsImpl 
     await store.bootstrap();
   });
   await settle();
-  fireEvent.click(screen.getByRole("button", { name: /^Фильтры/ }));
-  await settle();
   return { ui, store: () => store, pageCalls, countsCalls, pageSpy, countsSpy };
-}
-
-function showOptions() {
-  const button = screen.getByRole("button", { name: "Настройки вида" });
-  if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
 }
 
 afterEach(() => {
@@ -337,6 +330,44 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     await settle();
     expect(h.pageCalls.length).toBeGreaterThan(0);
     for (const c of h.pageCalls) expect(c.assignee).toBe("u1");
+    h.ui.unmount();
+  });
+
+  test("4a-2. аватар в доске фильтрует по исполнителю и повторный клик снимает фильтр", async () => {
+    const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
+    expect(screen.queryByRole("button", { name: "Фильтры" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Настройки вида" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Фото доски" })).toBeTruthy();
+    const avatar = screen.getByRole("button", { name: "Фильтр: Анна Иванова" });
+    h.pageCalls.length = 0;
+    fireEvent.click(avatar);
+    await settle();
+    expect(avatar.getAttribute("aria-pressed")).toBe("true");
+    expect(h.pageCalls.some(call => call.assignee === "u1")).toBe(true);
+    // Без панели «Фильтры» активное условие видно только в сводке под тулбаром.
+    expect(h.ui.container.querySelector(".active-filter-summary")?.textContent).toContain("Исполнитель: Анна Иванова");
+    h.pageCalls.length = 0;
+    fireEvent.click(avatar);
+    await settle();
+    expect(avatar.getAttribute("aria-pressed")).toBe("false");
+    expect(h.pageCalls.some(call => !call.assignee)).toBe(true);
+    h.ui.unmount();
+  });
+
+  test("4a-3. «Без исполнителя» не гасит аватары: условие видно по чипу и сводке, снимается тем же чипом", async () => {
+    const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
+    const chip = screen.getByRole("button", { name: "Без исполнителя" });
+    const avatar = screen.getByRole("button", { name: "Фильтр: Анна Иванова" });
+    fireEvent.click(chip);
+    await settle();
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+    expect(avatar.className).not.toContain("opacity-50");
+    expect(avatar.getAttribute("aria-pressed")).toBe("false");
+    expect(h.pageCalls.some(call => call.assignee === "none")).toBe(true);
+    expect(h.ui.container.querySelector(".active-filter-summary")?.textContent).toContain("Исполнитель: Не назначен");
+    fireEvent.click(chip);
+    await settle();
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
     h.ui.unmount();
   });
 
@@ -510,10 +541,9 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const b = screen.getByRole("article", { name: /A21-b1/ });
     expect(a.getAttribute("draggable")).toBe("true");
 
-    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
     await settle();
-    expect(screen.getByRole("button", { name: "Настройки вида" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: "Выделить" }).getAttribute("aria-pressed")).toBe("true");
     expect(a.getAttribute("draggable")).toBe("false");
     fireEvent.click(a);
     fireEvent.keyDown(b, { key: "Enter" });

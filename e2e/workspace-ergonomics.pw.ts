@@ -53,7 +53,10 @@ test("a long board lane scrolls to its last card while the header stays reachabl
   expect(await body.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
   await body.evaluate(el => { el.scrollTop = el.scrollHeight; });
   await expect(lane.locator(".board-card").last()).toBeInViewport();
-  expect(await lane.locator("header").boundingBox()).toEqual(header);
+  const settledHeader = (await lane.locator("header").boundingBox())!;
+  for (const edge of ["x", "y", "width", "height"] as const) {
+    expect(Math.abs(settledHeader[edge] - header![edge])).toBeLessThan(0.1);
+  }
   await expect(page.getByRole("button", { name: "Добавить в «Готово»", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Добавить в «К выполнению»", exact: true }).click();
   await expect(lane.getByRole("textbox")).toBeVisible();

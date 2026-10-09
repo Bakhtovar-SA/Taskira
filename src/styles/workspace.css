@@ -331,14 +331,21 @@
 .workspace-toggle[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
 .workspace-panel { max-width: 960px; margin-top: 12px; padding: 16px; border: 1px solid var(--border-default); border-radius: var(--radius-l); background: var(--bg-panel); }
 .workspace-panel[hidden] { display: none; }
-.workspace-panel:has(.board-assignees) { max-width: 640px; }
 .workspace-panel[data-panel="options"] { width: fit-content; min-width: min(320px, 100%); max-width: 100%; }
 .workspace-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .workspace-panel-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
 .workspace-panel-close { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -4px -4px -4px 0; border-radius: var(--radius-m); color: var(--text-3); }
 .workspace-panel-close:hover { background: var(--bg-hover); color: var(--text-1); }
 .workspace-panel .workspace-filters-body > :is(select, input) { flex: 1 1 160px; min-width: 0; max-width: 100%; }
-.workspace-panel .board-assignees { padding: 4px; }
+.board-member-filter { position: relative; transition: transform var(--dur-2) var(--ease-out); }
+.board-member-filter:hover { z-index: 1; transform: translateY(-2px); }
+.board-member-filter[aria-pressed="true"] { z-index: 2; outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+.board-member-more[data-active="true"] { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+.board-move-touch-hint { display: none; }
+@media (hover: none) {
+  .board-move-touch-hint { display: flex; }
+  .board-card button[aria-keyshortcuts="M"] { opacity: 1; min-width: 44px; min-height: 44px; }
+}
 .workspace-filters-body :is(select, input:not([type="checkbox"])),
 .workspace-options-body > button,
 .workspace-options-body > span,
@@ -370,13 +377,17 @@
 .create-issue-form .draft-note button { min-height: 36px; }
 .issue-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 400px;
   grid-template-areas: "heading properties" "content properties";
   grid-template-rows: auto 1fr;
 }
 .issue-heading { grid-area: heading; }
 .issue-properties { grid-area: properties; border-left: 1px solid var(--border-subtle); border-block: 0; }
 .issue-content { grid-area: content; }
+@media (min-width: 768px) and (max-width: 900px) {
+  .issue-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "heading" "properties" "content"; }
+  .issue-properties { border-left: 0; border-block: 1px solid var(--border-subtle); }
+}
 @media (max-width: 767px) {
   .workspace-search { flex-basis: 100%; height: 44px; }
   .workspace-search input { font-size: 17px; }
@@ -465,7 +476,7 @@
 }
 
 /* Issue panel refresh. DOM keeps heading, properties and content in mobile order. */
-.ds-dialog[data-kind="panel"]:has(.issue-detail) { border-radius: 16px; background: var(--bg-panel); box-shadow: var(--elev-4); }
+.ds-dialog[data-kind="panel"]:has(.issue-detail) { --dlg-w: 1120px; border-radius: 16px; background: var(--bg-panel); box-shadow: var(--elev-4); }
 .ds-dialog:has(.issue-detail)::backdrop { background: var(--bg-scrim); }
 .ds-dialog[data-kind="panel"] .issue-layout { min-height: calc(100dvh - 68px); }
 .issue-detail { min-width: 0; }
@@ -550,6 +561,14 @@
 
 /* List refresh: default columns and grouped, server-backed pages. */
 .list-view .workspace-view-header, .list-table-wrap { width: 100%; max-width: calc(var(--list-min) + 196px); margin-inline: auto; }
+.list-view .workspace-view-header { max-width: max(calc(var(--list-min) + 196px), 1280px); }
+.list-view .workspace-panel[data-panel="filters"] { width: 100%; max-width: none; }
+.list-view .workspace-panel[data-panel="options"] { width: min(680px, 100%); }
+.list-view .workspace-panel .workspace-filters-body > :is(select, input) { flex: 1 0 180px; min-width: min(180px, 100%); }
+.list-view .workspace-panel .ds-btn { flex: 0 0 auto; width: max-content; max-width: 100%; }
+.list-view .workspace-panel .ds-btn > .truncate { display: inline-flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-view .workspace-panel .workspace-filters-body > :is(button, span) { flex-shrink: 0; white-space: nowrap; }
+.list-view .workspace-panel .workspace-options-body > :is(button, span) { flex-shrink: 0; white-space: nowrap; }
 .list-table-wrap { padding: 0 18px 18px; }
 .list-table { border-radius: 12px; }
 .list-row[data-done] { background: var(--bg-group); }

@@ -57,9 +57,9 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) {
     await expect(panel.getByRole("tab", { name: "Комментарии · 1" })).toBeVisible();
     await expect(panel.getByText("Корпоративная платформа", { exact: true })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
-    expect((await panel.boundingBox())!.width).toBe(980);
+    expect((await panel.boundingBox())!.width).toBe(1120);
     expect((await panel.locator(".issue-toolbar").boundingBox())!.height).toBe(52);
-    expect((await panel.locator(".issue-properties").boundingBox())!.width).toBe(320);
+    expect((await panel.locator(".issue-properties").boundingBox())!.width).toBe(400);
     await expect(panel.locator(".issue-nav-button").last()).toHaveCSS("border-top-style", "solid");
     await expect(panel.locator(".issue-action-row .issue-status-button")).toHaveCSS("border-top-width", "1px");
     if (process.platform === "win32") await expect(panel).toHaveScreenshot(`issue-${theme}-win32.png`);

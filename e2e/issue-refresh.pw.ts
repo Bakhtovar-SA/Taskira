@@ -108,3 +108,21 @@ for (const width of [390, 320]) test(`issue refresh: mobile order and targets at
   const axe = await new AxeBuilder({ page }).include("dialog").exclude("[aria-disabled=true]").analyze();
   expect(axe.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
 });
+
+for (const width of [768, 1024]) test(`issue properties remain readable at ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await issueFixture(page, "dark");
+  const panel = await openIssue(page);
+  const properties = (await panel.locator(".issue-properties").boundingBox())!;
+  const content = (await panel.locator(".issue-content").boundingBox())!;
+  expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  if (width <= 900) {
+    expect(properties.y).toBeLessThan(content.y);
+    expect(properties.width).toBeGreaterThan(600);
+  } else {
+    expect(properties.x).toBeGreaterThan(content.x);
+    expect(properties.width).toBe(400);
+    expect(content.width).toBeGreaterThan(500);
+  }
+});
