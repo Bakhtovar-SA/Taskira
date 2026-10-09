@@ -3,6 +3,7 @@ import { Button, Popover } from "../ds";
 import { useT } from "../i18n";
 import { preparePhoto } from "../bgPhoto";
 import { saveBoardPhoto } from "../personalBoardPhoto";
+import { IcCamera } from "../icons";
 
 export default function BoardBackgroundControl({ userId, projectId, hasPhoto }: { userId: string; projectId: string; hasPhoto: boolean }) {
   const { t } = useT();
@@ -28,7 +29,7 @@ export default function BoardBackgroundControl({ userId, projectId, hasPhoto }: 
     <input ref={input} type="file" accept=".png,.jpg,.jpeg,.gif,.webp" className="hidden" tabIndex={-1} aria-label={t("look.photo.upload")}
       onChange={event => { const file = event.target.files?.[0]; if (file) void run(file); }} />
     <Popover label={t("board.view")} className="w-[300px] p-3"
-    trigger={(props) => <button {...props} type="button" className="ds-btn ds-focus border border-line text-sub" disabled={busy}>{t("board.view")}</button>}>
+    trigger={(props) => <Button {...props} type="button" size="sm" disabled={busy} iconLeft={<IcCamera size={14} />}>{t("board.photoAction")}</Button>}>
     <p className="mb-1 text-[15px] font-semibold text-ink">{t("board.personalPhoto")}</p>
     <p className="mb-3 text-[13px] leading-relaxed text-sub">{t("board.personalPhotoHint")}</p>
     <div className="flex gap-2">

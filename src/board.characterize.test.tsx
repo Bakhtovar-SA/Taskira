@@ -200,14 +200,7 @@ async function setup({ role = "manager", transitions = [], pageImpl, countsImpl 
     await store.bootstrap();
   });
   await settle();
-  fireEvent.click(screen.getByRole("button", { name: /^Фильтры/ }));
-  await settle();
   return { ui, store: () => store, pageCalls, countsCalls, pageSpy, countsSpy };
-}
-
-function showOptions() {
-  const button = screen.getByRole("button", { name: "Настройки вида" });
-  if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
 }
 
 afterEach(() => {
@@ -337,6 +330,25 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     await settle();
     expect(h.pageCalls.length).toBeGreaterThan(0);
     for (const c of h.pageCalls) expect(c.assignee).toBe("u1");
+    h.ui.unmount();
+  });
+
+  test("4a-2. аватар в доске фильтрует по исполнителю и повторный клик снимает фильтр", async () => {
+    const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
+    expect(screen.queryByRole("button", { name: "Фильтры" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Настройки вида" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Фото доски" })).toBeTruthy();
+    const avatar = screen.getByRole("button", { name: "Фильтр: Анна Иванова" });
+    h.pageCalls.length = 0;
+    fireEvent.click(avatar);
+    await settle();
+    expect(avatar.getAttribute("aria-pressed")).toBe("true");
+    expect(h.pageCalls.some(call => call.assignee === "u1")).toBe(true);
+    h.pageCalls.length = 0;
+    fireEvent.click(avatar);
+    await settle();
+    expect(avatar.getAttribute("aria-pressed")).toBe("false");
+    expect(h.pageCalls.some(call => !call.assignee)).toBe(true);
     h.ui.unmount();
   });
 
@@ -510,10 +522,9 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const b = screen.getByRole("article", { name: /A21-b1/ });
     expect(a.getAttribute("draggable")).toBe("true");
 
-    showOptions();
     fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
     await settle();
-    expect(screen.getByRole("button", { name: "Настройки вида" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: "Выделить" }).getAttribute("aria-pressed")).toBe("true");
     expect(a.getAttribute("draggable")).toBe("false");
     fireEvent.click(a);
     fireEvent.keyDown(b, { key: "Enter" });

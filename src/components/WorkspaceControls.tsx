@@ -26,8 +26,8 @@ export function WorkspaceQuickFilters({ active, onToggle, overdue }: { active: (
 }
 
 /** Stable toolbar buttons with one shared, inline disclosure panel. */
-export function WorkspaceControls({ search, filters, options, summary, quickFilters, members, grouping, compact = false, count = 0, selectionMode = false }: {
-  search: ReactNode; filters: ReactNode; options: ReactNode; summary?: ReactNode; quickFilters?: ReactNode; members?: ReactNode; grouping?: ReactNode; compact?: boolean; count?: number; selectionMode?: boolean;
+export function WorkspaceControls({ search, filters, options, actions, summary, quickFilters, members, grouping, compact = false, count = 0, selectionMode = false }: {
+  search: ReactNode; filters?: ReactNode; options?: ReactNode; actions?: ReactNode; summary?: ReactNode; quickFilters?: ReactNode; members?: ReactNode; grouping?: ReactNode; compact?: boolean; count?: number; selectionMode?: boolean;
 }) {
   const { t } = useT();
   const [open, setOpen] = useState<"filters" | "options" | null>(null);
@@ -57,26 +57,27 @@ export function WorkspaceControls({ search, filters, options, summary, quickFilt
       {members}
       {compact && summary && <span className="workspace-count text-[13px] tabular text-faint">{summary}</span>}
       {grouping}
-      <button ref={filtersButton} type="button" className="workspace-toggle ds-focus" aria-expanded={open === "filters"} aria-controls={id}
+      {filters != null && <button ref={filtersButton} type="button" className="workspace-toggle ds-focus" aria-expanded={open === "filters"} aria-controls={id}
         aria-label={compact ? t("workspace.filters") : undefined}
         onClick={() => setOpen(open === "filters" ? null : "filters")}>
         <IcFilter size={16} /> {!compact && t("workspace.filters")}
         {count > 0 && <span className="ds-count">{count}</span>}
         {!compact && <IcChevD size={14} />}
-      </button>
-      <button ref={optionsButton} type="button" className="workspace-toggle ds-focus" aria-expanded={open === "options"} aria-controls={id}
+      </button>}
+      {options != null && <button ref={optionsButton} type="button" className="workspace-toggle ds-focus" aria-expanded={open === "options"} aria-controls={id}
         aria-label={compact ? t("workspace.settings") : undefined}
         onClick={() => setOpen(open === "options" ? null : "options")}>
         {!compact && <IcDisplay size={16} />} {t(compact ? "workspace.view" : "workspace.settings")} <IcChevD size={14} />
-      </button>
+      </button>}
+      {actions}
       {!compact && summary && <span className="workspace-count text-[13px] tabular text-faint">{summary}</span>}
     </div>
-    <section id={id} hidden={!open} className="workspace-panel" data-panel={open} aria-label={label}>
+    {(filters != null || options != null) && <section id={id} hidden={!open} className="workspace-panel" data-panel={open} aria-label={label}>
       <div className="workspace-panel-head">
         <h2 className="workspace-panel-title">{label}</h2>
         <button type="button" className="workspace-panel-close ds-focus" aria-label={t("common.close")} onClick={close}><IcX size={16} /></button>
       </div>
       {open === "filters" ? filters : open === "options" ? options : null}
-    </section>
+    </section>}
   </>;
 }

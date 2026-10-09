@@ -18,7 +18,7 @@ import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
 import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcChevD, IcPlus, IcSubtasks, IcX, PriorityIcon, StatusGlyph } from "../icons";
 import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor } from "../ui";
-import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
+import { UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
 import { Menu } from "../ds/LazyOverlay";
 import { Button } from "../ds/Button";
@@ -872,7 +872,8 @@ export default function Board() {
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
         <WorkspaceControls selectionMode={selectMode}
-          members={<ProjectMembers />}
+          members={<ProjectMembers selectedUserId={filterUser} extraUsers={assignees}
+            onSelectUser={userId => setFilterUser(current => current === userId ? null : userId)} />}
           compact
           summary={t("board.filteredOf", { visible: data.workflow.statuses.reduce<number | null>((sum, st) => { const n = totalOf(st.id); return sum === null || n === null ? null : sum + n; }, 0) ?? "…", total: poolTotal ?? "…" })}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? chips.has(id) : baseFilters.assignee === (id === "mine" ? data.currentUserId : "none")} onToggle={toggleChip} overdue={overdueCounts.counts?.total} />}
@@ -881,45 +882,15 @@ export default function Board() {
             items={[{ id: "none", label: t("workspace.noGrouping"), icon: <IcCheck size={15} />, onSelect: () => {
               const params = new URLSearchParams(location.search); params.set("group", "none"); navigate(path + "?" + params, { replace: true });
             } }]} />}
-          count={Object.values(baseFilters).filter(Boolean).length}
           search={<WorkspaceSearch value={q} onChange={setQ} />}
-          filters={<div className="workspace-filters-body space-y-3">
-          <p className="ds-label">{t("field.assignee")}</p>
-          <div className="board-assignees flex min-w-0 max-w-full items-center -space-x-1.5 overflow-x-auto py-1">
-            {assignees.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => setFilterUser(filterUser === u.id ? null : u.id)}
-                aria-label={t("board.filterUserAria", { name: u.name })}
-                aria-pressed={filterUser === u.id}
-                title={t("board.filterUserAria", { name: u.name })}
-                className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === u.id ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== u.id ? "opacity-40" : ""}`}
-              >
-                <UserAvatar user={u} size={26} ring />
-              </button>
-            ))}
-            <button
-              onClick={() => setFilterUser(filterUser === "none" ? null : "none")}
-              aria-label={t("board.unassignedFilter")}
-              aria-pressed={filterUser === "none"}
-              title={t("board.unassignedFilter")}
-              className={`rounded-full transition-[transform,opacity] duration-150 ${filterUser === "none" ? "z-10 ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-canvas)]" : "hover:z-10 hover:-translate-y-0.5"} ${filterUser && filterUser !== "none" ? "opacity-40" : ""}`}
-            >
-              <UserAvatar user={null} size={26} ring />
-            </button>
-          </div>
-              {canMove && <Hint id="board-move">{t("hint.boardMove")}</Hint>}
-            </div>}
-          options={<div className="workspace-options-body flex flex-wrap items-center gap-2">
-              <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />
-          <button
-            onClick={() => setSelectMode((v) => !v)}
-            aria-pressed={selectMode}
-            className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[13.5px] font-medium transition-colors ${selectMode ? "border-accent text-accenttext" : "border-line text-sub hover:border-accent hover:text-accenttext"}`}
-          >
-            {t("backlog.selectMode")}
-          </button>
-            </div>}
+          actions={<>
+            <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />
+            <Button size="sm" aria-pressed={selectMode} onClick={() => setSelectMode(v => !v)}
+              className={selectMode ? "border-accent text-accenttext" : undefined} iconLeft={<IcCheck size={14} />}>
+              {t("backlog.selectMode")}
+            </Button>
+            {canMove && <Hint id="board-move">{t("hint.boardMove")}</Hint>}
+          </>}
         />
         {filtersOn && <IssueFilterSummary filters={baseFilters}>
           {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
