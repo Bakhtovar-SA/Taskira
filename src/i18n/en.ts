@@ -775,6 +775,7 @@ const en: Record<keyof Dict, string> = {
   "issue.next": "Next issue",
   "issue.openFull": "Open full page",
   "issue.copyLink": "Copy link",
+  "assignee.unassignSelf": "Unassign me",
   "issue.deleteConfirm": "Are you sure you want to delete this issue?",
   "issue.deleteConfirmBody": "The issue will be deleted. This cannot be undone.",
   "issue.description": "Description",

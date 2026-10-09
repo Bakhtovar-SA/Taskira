@@ -36,6 +36,7 @@ test("employee can select only self when creating/editing/bulk assigning", async
   await page.getByRole("button", { name: "Выделить", exact: true }).click();
   await page.locator('[role=row][data-issue-id="i1"]').getByRole("checkbox").check();
   await page.getByRole("toolbar").getByRole("button", { name: "Исполнитель", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Снять себя", exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Анна Смирнова", exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Игорь Петров", exact: true })).toHaveCount(0);
 });

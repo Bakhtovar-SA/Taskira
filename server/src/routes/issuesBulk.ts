@@ -13,7 +13,7 @@ import { ApiHttpError } from "../errors.js";
 import { auditFromRequest } from "../audit.js";
 import { roleCan, type IssueRef } from "../permissions.js";
 import { transitionIssue } from "../services/issueTransition.js";
-import { assertSelfAssignment, listAssigneeIdsBatch, logActivity, setAssignees, validateAssigneesInProject } from "../services/issues.js";
+import { listAssigneeIdsBatch, logActivity, setAssignees, validateAssigneesInProject } from "../services/issues.js";
 import { deleteStorageObjects, storageKeysForIssue } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
 import { BulkIssueAction, BulkIssueResultDto, type PriorityId } from "../contract.js";
@@ -51,18 +51,19 @@ async function applyStatus(projectId: string, row: Row, toStatusId: string, req:
   await auditFromRequest(req, "issue.transition", "issue", row.id, { key: row.key, from: previous.status_id, to: toStatusId, bulk: true });
 }
 
-/** Зеркалит PATCH /:id assigneeIds-ветку — но всегда ЗАМЕНА списка одним значением
- *  (или пустым при "none"), не слияние: кнопка "назначить X" — предсказуемое действие
- *  для выборки из N задач с разными текущими исполнителями. */
+/** Менеджер/администратор заменяет список одним значением (или очищает при "none").
+ *  Сотрудник добавляет/снимает только себя, сохраняя остальных исполнителей. */
 async function applyAssignee(projectId: string, row: Row, assigneeId: string, req: FastifyRequest): Promise<void> {
   const actorId = req.user.sub;
   const before = await listAssigneeIdsBatch([row.id]);
   const beforeIds = before.get(row.id) ?? [];
-  const afterIds = assigneeId === "none" ? [] : [assigneeId];
-  if (req.projectRole === "employee" && assigneeId !== "none" && assigneeId !== actorId) throw forbidden("Сотрудник может назначать только себя");
-  if (req.projectRole === "employee") assertSelfAssignment(actorId, beforeIds, afterIds);
+  const selfOnly = req.projectRole === "employee";
+  if (selfOnly && assigneeId !== "none" && assigneeId !== actorId) throw forbidden("Сотрудник может назначать только себя");
+  const afterIds = selfOnly
+    ? assigneeId === "none" ? beforeIds.filter(id => id !== actorId) : [...new Set([...beforeIds, actorId])]
+    : assigneeId === "none" ? [] : [assigneeId];
   if (JSON.stringify([...beforeIds].sort()) === JSON.stringify([...afterIds].sort())) return; // no-op
-  await setAssignees(row.id, afterIds, actorId, undefined, req.projectRole === "employee");
+  await setAssignees(row.id, afterIds, actorId, undefined, selfOnly);
   const added = afterIds.filter((x) => !beforeIds.includes(x));
   if (added.length > 0) {
     await emit({ type: "issue.assigned", actorId, projectId, issueId: row.id, recipientIds: added, payload: { key: row.key, title: row.title } });

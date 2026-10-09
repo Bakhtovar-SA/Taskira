@@ -11,6 +11,8 @@ export default defineConfig({
         // their repeated JSX better; screen and overlay imports remain lazy.
         codeSplitting: { groups: [
           { name: "ui-core", test: /[\\/]src[\\/](?:icons\.tsx|ui\.tsx|cssVars\.ts|workflowStatus\.ts|components[\\/](?:BrandMark|settings[\\/]parts)\.tsx|ds[\\/](?:Button|Display|Field|Overlay|floating|DatePicker|dateParse)\.tsx?)$/ },
+          // Shared issue controls stay lazy; one chunk avoids duplicate import overhead.
+          { name: "issue-controls", includeDependenciesRecursively: false, test: /[\\/]src[\\/]components[\\/](?:AssigneePicker|DeleteIssueDialog|BulkBar)\.tsx$/ },
           // Both time views share the scale and canvas. Keep this family lazy,
           // but compress their similar markup together instead of tiny chunks.
           { name: "time-views", includeDependenciesRecursively: false, test: /[\\/]src[\\/]components[\\/](?:RoadmapView|TimelineView|TimeCanvas)\.tsx$/ },

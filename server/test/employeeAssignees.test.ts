@@ -21,6 +21,9 @@ async function assignees(id: string) {
 test("employee creates unassigned/self-assigned tasks, but cannot assign others or consume a task number on refusal", async () => {
   const employee = await login(app, "emp1");
   await create(employee);
+  const omitted = await request("POST", url(), employee, newIssue({ assigneeIds: undefined }));
+  expect(omitted.statusCode).toBe(201);
+  expect(omitted.json().assigneeIds).toEqual([]);
   const own = await create(employee, [fx.users.emp1]);
   expect(own.assigneeIds).toEqual([fx.users.emp1]);
   const before = await q(`SELECT next_num FROM project_counters WHERE project_id = $1`, [fx.projects.p1]);
@@ -62,9 +65,16 @@ test("bulk assignment cannot bypass self-only policy or remove other assignees",
   expect(denied.json().succeeded).toEqual([]);
   expect(denied.json().failed).toHaveLength(1);
   expect(await assignees(own.id)).toEqual([]);
+  expect((await request("PATCH", `${url()}/${own.id}`, admin, { assigneeIds: [fx.users.mgr1] })).statusCode).toBe(200);
   const mixed = await bulk([own.id, shared.id], fx.users.emp1);
-  expect(mixed.json().succeeded).toEqual([own.id]);
-  expect(mixed.json().failed).toHaveLength(1);
+  expect(mixed.json().succeeded).toEqual([own.id, shared.id]);
+  expect(mixed.json().failed).toEqual([]);
+  expect(await assignees(own.id)).toEqual([fx.users.emp1, fx.users.mgr1].sort());
   expect(await assignees(shared.id)).toEqual([fx.users.emp1, fx.users.mgr1].sort());
-  expect((await bulk([shared.id], "none")).json().succeeded).toEqual([]);
+  expect((await bulk([own.id, shared.id], "none")).json().succeeded).toEqual([own.id, shared.id]);
+  expect(await assignees(own.id)).toEqual([fx.users.mgr1]);
+  expect(await assignees(shared.id)).toEqual([fx.users.mgr1]);
+  const foreign = await create(admin, [fx.users.mgr1]);
+  expect((await bulk([foreign.id], fx.users.emp1)).json().succeeded).toEqual([]);
+  expect(await assignees(foreign.id)).toEqual([fx.users.mgr1]);
 });

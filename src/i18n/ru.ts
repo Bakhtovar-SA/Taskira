@@ -776,6 +776,7 @@ const ru = {
   "issue.next": "Следующая задача",
   "issue.openFull": "Открыть полностью",
   "issue.copyLink": "Скопировать ссылку",
+  "assignee.unassignSelf": "Снять себя",
   "issue.deleteConfirm": "Вы действительно хотите удалить задачу?",
   "issue.deleteConfirmBody": "Задача будет удалена. Это действие нельзя отменить.",
   "issue.description": "Описание",

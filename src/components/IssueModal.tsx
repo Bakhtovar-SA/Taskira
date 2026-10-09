@@ -1172,21 +1172,18 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   );
 
   // Полная страница (ADR-0013 §3): та же карточка внутри листа, вместо представления.
-  if (page)
-    return (
+  return <>
+    {page ? (
       <div className="h-full overflow-y-auto">
         <div className="mx-auto max-w-[1180px]">{content}</div>
-        <DeleteIssueDialog open={confirmDel} issue={issue} onClose={() => setConfirmDel(false)} onConfirm={() => { setConfirmDel(false); deleteIssue(issue.id); }} />
       </div>
-    );
-  return (
-    <>
+    ) : (
     <SidePanel open={open} onClose={() => openIssue(null)} size="xl" headless title={t("issueModal.title", { key: issue.key, title: issue.title })}>
       {content}
     </SidePanel>
-    <DeleteIssueDialog open={open && confirmDel} issue={issue} onClose={() => setConfirmDel(false)} onConfirm={() => { setConfirmDel(false); deleteIssue(issue.id); }} />
-    </>
-  );
+    )}
+    <DeleteIssueDialog open={confirmDel && (page || open)} issue={issue} onClose={() => setConfirmDel(false)} onConfirm={() => { setConfirmDel(false); deleteIssue(issue.id); }} />
+  </>;
 }
 
 /** Поле, которое человек не может менять: значение текстом, причина — в подсказке. Не кнопка: у читателя иначе было бы

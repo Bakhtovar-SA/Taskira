@@ -39,7 +39,7 @@ export default function GlobalTopbar() {
             id: v.id, label: t(v.labelKey), icon: v.icon({ size: 16, tone: v.tone }),
             onSelect: () => openSettings(v.id as "settings" | "projectSettings" | "orgSettings"),
           }))} />
-        <UserMenu onLogout={logout} sidebar />
+        <UserMenu onLogout={logout} />
       </div>
     </div>
   </header>;
