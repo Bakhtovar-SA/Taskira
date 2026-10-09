@@ -7,7 +7,8 @@ import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { IssueFilterSummary } from "./IssueFilterSummary";
 import { WorkspaceControls, WorkspaceSearch, WorkspaceQuickFilters } from "./WorkspaceControls";
-import { ProjectMembers } from "./ProjectMembers";
+import { BoardAssigneeFilter } from "./ProjectMembers";
+import { Hint } from "./Hint";
 import { useStore } from "../store";
 import { usePersonalBoardPhoto } from "../personalBoardPhoto";
 import BoardBackgroundControl from "./BoardBackgroundControl";
@@ -873,7 +874,7 @@ export default function Board() {
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
         <WorkspaceControls selectionMode={selectMode}
-          members={<ProjectMembers selectedUserId={filterUser} extraUsers={assignees}
+          members={<BoardAssigneeFilter selectedUserId={filterUser} extraUsers={assignees}
             onSelectUser={userId => setFilterUser(current => current === userId ? null : userId)} />}
           compact
           summary={t("board.filteredOf", { visible: data.workflow.statuses.reduce<number | null>((sum, st) => { const n = totalOf(st.id); return sum === null || n === null ? null : sum + n; }, 0) ?? "…", total: poolTotal ?? "…" })}
@@ -892,6 +893,7 @@ export default function Board() {
             </Button>
           </>}
         />
+        {canMove && <Hint id="board-move" className="board-move-touch-hint mt-2">{t("hint.boardMoveTouch")}</Hint>}
         {filtersOn && <IssueFilterSummary filters={baseFilters}>
           {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
           {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>}

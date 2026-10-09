@@ -167,9 +167,11 @@ const ru = {
 
   "board.selectHint": "Отмечайте карточки кликом — можно из разных колонок. Перетаскивание в этом режиме выключено; Esc — выйти.",
   "hint.boardMove": "Перетащите карточку в другую колонку — или наведите на неё и нажмите M.",
+  "hint.boardMoveTouch": "Перенесите карточку в другую колонку через кнопку перемещения на ней.",
   "board.title": "Доска",
   "board.filterUserAria": "Фильтр: {name}",
   "board.moreAssignees": "Другие исполнители",
+  "board.moreAssigneesActive": "Другие исполнители, выбран {name}",
   "board.searchPlaceholder": "Фильтр задач",
   "board.quickChip.mine": "Мои задачи",
   "board.quickChip.overdue": "Просрочено",

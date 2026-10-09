@@ -166,9 +166,11 @@ const en: Record<keyof Dict, string> = {
 
   "board.selectHint": "Click cards to select them — across columns too. Dragging is off in this mode; Esc to exit.",
   "hint.boardMove": "Drag a card to another column — or hover it and press M.",
+  "hint.boardMoveTouch": "Use the move button on a card to send it to another column.",
   "board.title": "Board",
   "board.filterUserAria": "Filter: {name}",
   "board.moreAssignees": "More assignees",
+  "board.moreAssigneesActive": "More assignees, selected: {name}",
   "board.searchPlaceholder": "Filter issues",
   "board.quickChip.mine": "Mine",
   "board.quickChip.overdue": "Overdue",

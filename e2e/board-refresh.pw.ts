@@ -72,6 +72,17 @@ test("board refresh: quick filters restore from URL and compose with overdue", a
   await page.keyboard.press("/"); await expect(page.getByRole("textbox", { name: "Фильтр задач" })).toBeFocused();
 });
 
+test("board can clear URL-only conditions through its filter summary", async ({ page }) => {
+  await boardFixture(page);
+  await page.goto("/p/CORP/board?priority=high&label=internal-label");
+  const summary = page.locator(".active-filter-summary");
+  await expect(summary).toContainText("Приоритет: Высокий");
+  await expect(summary).toContainText("internal-label");
+  await summary.getByRole("button", { name: /Сбросить/ }).click();
+  await expect(page).not.toHaveURL(/priority=|label=/);
+  await expect(summary).toHaveCount(0);
+});
+
 test("assignee overflow preserves avatar order and marks the active filter", async ({ page }) => {
   const { project, users, statuses } = await boardFixture(page);
   const allUsers = [...users, ...[3, 4, 5, 6].map(n => ({ ...users[1], id: `u${n}`, username: `user${n}`, name: `Исполнитель ${n}`, initials: `И${n}` })),
@@ -87,19 +98,20 @@ test("assignee overflow preserves avatar order and marks the active filter", asy
   const avatars = page.locator(".board-member-filter");
   await expect(avatars).toHaveCount(4);
   const before = await avatars.evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label")));
-  const more = page.getByRole("button", { name: "Другие исполнители" });
-  await expect(more).toHaveAttribute("aria-pressed", "false");
+  const more = page.locator(".board-member-more");
+  await expect(more).not.toHaveAttribute("data-active", "true");
   await more.click();
   await expect(page.getByRole("menuitem", { name: "Сервисный бот" })).toHaveCount(0);
   await page.getByRole("menuitem", { name: "Исполнитель 5" }).click();
   await expect(page).toHaveURL(/assignee=u5/);
-  await expect(more).toHaveAttribute("aria-pressed", "true");
+  await expect(more).toHaveAttribute("data-active", "true");
+  await expect(more).toHaveAttribute("aria-label", /Исполнитель 5/);
   expect(await avatars.evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label")))).toEqual(before);
   await more.click();
   await expect(page.getByRole("menuitem", { name: "Исполнитель 5" }).locator("svg")).toHaveCount(1);
   await page.getByRole("menuitem", { name: "Исполнитель 5" }).click();
   await expect(page).not.toHaveURL(/assignee=/);
-  await expect(more).toHaveAttribute("aria-pressed", "false");
+  await expect(more).not.toHaveAttribute("data-active", "true");
 });
 
 for (const width of [390, 320]) test(`board refresh: mobile targets and no overflow at ${width}`, async ({ page }) => {
@@ -110,4 +122,21 @@ for (const width of [390, 320]) test(`board refresh: mobile targets and no overf
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   for (const button of await page.locator(".workspace-controls button").all()) expect(Number((await button.boundingBox())!.height.toFixed(2))).toBeGreaterThanOrEqual(44);
   await expect(page.locator(".board-col").last()).toBeVisible();
+});
+
+test.describe("touch board guidance", () => {
+  test.use({ hasTouch: true });
+  test("move guidance and card action remain visible without hover", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await boardFixture(page);
+    await page.goto("/p/CORP/board");
+    await expect(page.locator(".board-move-touch-hint")).toBeVisible();
+    const move = page.locator('[data-issue-id="i1"] button[aria-keyshortcuts="M"]');
+    await expect(move).toBeVisible();
+    const box = (await move.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await move.click();
+    await expect(page.getByRole("menuitem", { name: "В работе", exact: true })).toBeVisible();
+  });
 });
