@@ -210,15 +210,16 @@ for (const theme of ["light", "dark"]) {
     await expect(title).toHaveValue("");
   });
 
-  test(`board and list retain filters and readable density (${theme})`, async ({ page }) => {
+  test(`board quick filters and list panels retain readable density (${theme})`, async ({ page }) => {
     await fixture(page, theme);
     await page.goto("/p/TEST/board");
-    await page.getByRole("button", { name: /^Фильтры/ }).click();
+    await expect(page.locator(".board-view").getByRole("button", { name: /^Фильтры/ })).toHaveCount(0);
     await page.getByRole("main").getByRole("button", { name: "Мои задачи", exact: true }).click();
     await expect(page).toHaveURL(/assignee=u1/);
     await expect(page.locator("article[data-issue-id]")).toHaveCount(2);
     await page.getByRole("link", { name: "Список", exact: true }).click();
     await expect(page).toHaveURL(/\/list\?assignee=u1/);
+    await expect(page.getByRole("button", { name: /^Фильтры/ })).toBeVisible();
     await expect(page.locator("[role=row][data-issue-id]")).toHaveCount(2);
     const row = page.locator("[role=row][data-issue-id]").first();
     const comfortable = (await row.boundingBox())!.height;

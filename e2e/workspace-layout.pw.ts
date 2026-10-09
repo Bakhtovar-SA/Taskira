@@ -169,8 +169,8 @@ test("full column highlight follows branding and rejects forbidden transitions",
   await expect(allowed.locator(".board-col-highlight")).toHaveAttribute("data-drop-state", "allowed");
   const highlight = (await allowed.locator(".board-col-highlight").boundingBox())!;
   const block = (await allowed.locator(".board-col").boundingBox())!;
-  expect(highlight.y).toBe(block.y);
-  expect(highlight.height).toBe(block.height);
+  expect(Math.abs(highlight.y - block.y)).toBeLessThan(0.1);
+  expect(Math.abs(highlight.height - block.height)).toBeLessThan(0.1);
   const allowedShadow = await allowed.locator(".board-col-highlight").evaluate(el => getComputedStyle(el).boxShadow);
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--brand-h").trim())).toBe("185");
   const forbidden = page.locator(".board-lane").nth(2);

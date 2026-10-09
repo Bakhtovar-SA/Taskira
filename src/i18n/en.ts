@@ -856,7 +856,6 @@ const en: Record<keyof Dict, string> = {
   "onboarding.step.theme.go": "Pick",
   "hint.dismiss": "Got it, don't show again",
   "hint.savedViews": "Set up filters? Save them as a view with the Views button on the right.",
-  "hint.boardMove": "Drag a card to another column — or hover it and press M.",
   "hint.issueNav": "J and K move to the next and previous issue without closing the panel.",
   "hint.palette": "Ctrl K finds an issue or runs a command from anywhere.",
   "settings.org.setup": "Initial setup",

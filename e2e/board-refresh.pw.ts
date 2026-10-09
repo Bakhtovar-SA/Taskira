@@ -51,7 +51,8 @@ test("board refresh: English toolbar", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Filter issues" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Mine", exact: true })).toHaveText("Mine");
   await expect(page.getByRole("button", { name: "Grouping: none" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "View settings", exact: true })).toHaveText("View");
+  await expect(page.getByRole("button", { name: "Board photo", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Select", exact: true })).toBeVisible();
 });
 
 test("board refresh: quick filters restore from URL and compose with overdue", async ({ page }) => {
@@ -69,6 +70,34 @@ test("board refresh: quick filters restore from URL and compose with overdue", a
   await expect(page.getByRole("button", { name: "Без исполнителя", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Просрочено", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("/"); await expect(page.getByRole("textbox", { name: "Фильтр задач" })).toBeFocused();
+});
+
+test("assignee overflow preserves avatar order and marks the active filter", async ({ page }) => {
+  const { project, users, statuses } = await boardFixture(page);
+  const allUsers = [...users, ...[3, 4, 5, 6].map(n => ({ ...users[1], id: `u${n}`, username: `user${n}`, name: `Исполнитель ${n}`, initials: `И${n}` }))];
+  await page.route("**/api/projects/p1", route => route.fulfill({ json: {
+    project, users: allUsers, members: allUsers.map(user => ({ userId: user.id, role: "employee" })),
+    workflow: { statuses, transitions: [] }, issueTemplates: [], customFields: [], sprints: [],
+  } }));
+  await page.route("**/api/projects/p1/issues/assignees", route => route.fulfill({ json: {
+    items: allUsers.map(user => ({ userId: user.id, count: 1 })), truncated: false, limit: 24,
+  } }));
+  await page.goto("/p/CORP/board");
+  const avatars = page.locator(".board-member-filter");
+  await expect(avatars).toHaveCount(4);
+  const before = await avatars.evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label")));
+  const more = page.getByRole("button", { name: "Другие исполнители" });
+  await expect(more).toHaveAttribute("aria-pressed", "false");
+  await more.click();
+  await page.getByRole("menuitem", { name: "Исполнитель 5" }).click();
+  await expect(page).toHaveURL(/assignee=u5/);
+  await expect(more).toHaveAttribute("aria-pressed", "true");
+  expect(await avatars.evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label")))).toEqual(before);
+  await more.click();
+  await expect(page.getByRole("menuitem", { name: "Исполнитель 5" }).locator("svg")).toHaveCount(1);
+  await page.getByRole("menuitem", { name: "Исполнитель 5" }).click();
+  await expect(page).not.toHaveURL(/assignee=/);
+  await expect(more).toHaveAttribute("aria-pressed", "false");
 });
 
 for (const width of [390, 320]) test(`board refresh: mobile targets and no overflow at ${width}`, async ({ page }) => {

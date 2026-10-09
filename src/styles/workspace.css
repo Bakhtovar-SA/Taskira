@@ -340,6 +340,7 @@
 .board-member-filter { position: relative; transition: transform var(--dur-2) var(--ease-out); }
 .board-member-filter:hover { z-index: 1; transform: translateY(-2px); }
 .board-member-filter[aria-pressed="true"] { z-index: 2; outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+.board-member-more[aria-pressed="true"] { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 .workspace-filters-body :is(select, input:not([type="checkbox"])),
 .workspace-options-body > button,
 .workspace-options-body > span,
@@ -378,6 +379,10 @@
 .issue-heading { grid-area: heading; }
 .issue-properties { grid-area: properties; border-left: 1px solid var(--border-subtle); border-block: 0; }
 .issue-content { grid-area: content; }
+@media (min-width: 768px) and (max-width: 900px) {
+  .issue-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "heading" "properties" "content"; }
+  .issue-properties { border-left: 0; border-block: 1px solid var(--border-subtle); }
+}
 @media (max-width: 767px) {
   .workspace-search { flex-basis: 100%; height: 44px; }
   .workspace-search input { font-size: 17px; }

@@ -5,7 +5,6 @@ import { localToday } from "../calendarLayout";
 import { flipFrom } from "../motion";
 import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
-import { Hint } from "./Hint";
 import { IssueFilterSummary } from "./IssueFilterSummary";
 import { WorkspaceControls, WorkspaceSearch, WorkspaceQuickFilters } from "./WorkspaceControls";
 import { ProjectMembers } from "./ProjectMembers";
@@ -891,7 +890,6 @@ export default function Board() {
             </Button>
           </>}
         />
-        {canMove && <Hint id="board-move" className="mt-2">{t("hint.boardMove")}</Hint>}
         {filtersOn && <IssueFilterSummary filters={baseFilters}>
           {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
           {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>}

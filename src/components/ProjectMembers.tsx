@@ -3,6 +3,7 @@ import { useStore } from "../store";
 import type { User } from "../types";
 import { Menu } from "../ds/LazyOverlay";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
+import { IcCheck } from "../icons";
 
 export function ProjectMembers({ selectedUserId, onSelectUser, extraUsers = [] }: {
   selectedUserId?: string | null;
@@ -18,13 +19,14 @@ export function ProjectMembers({ selectedUserId, onSelectUser, extraUsers = [] }
   if (onSelectUser) {
     // The board used to list active assignees inside its Filters panel. Keep
     // those candidates available when the visible project avatars become the filter.
-    const candidates = [...new Map([...members, ...extraUsers].map(user => [user.id, user])).values()];
+    const selectedUser = selectedUserId ? idx.users.get(selectedUserId) : undefined;
+    const candidates = [...new Map([...members, ...extraUsers, ...(selectedUser ? [selectedUser] : [])].map(user => [user.id, user])).values()];
     if (candidates.length === 0) return null;
     const selected = candidates.find(user => user.id === selectedUserId);
     const visible = candidates.slice(0, 4);
-    if (selected && !visible.some(user => user.id === selected.id)) visible[3] = selected;
     const visibleIds = new Set(visible.map(user => user.id));
     const overflow = candidates.filter(user => !visibleIds.has(user.id));
+    const overflowSelected = overflow.some(user => user.id === selectedUserId);
     return <span className="project-members" role="group" aria-label={t("field.assignee")}>
       <span className="ds-av-group">
         {visible.map(user => <button key={user.id} type="button"
@@ -37,10 +39,13 @@ export function ProjectMembers({ selectedUserId, onSelectUser, extraUsers = [] }
         </button>)}
         {overflow.length > 0 && <Menu label={t("board.moreAssignees")} placement="bottom-end"
           trigger={props => <button {...props} type="button" className="board-member-more ds-focus flex rounded-full"
+            aria-pressed={overflowSelected}
             aria-label={t("board.moreAssignees")} title={t("board.moreAssignees")}>
             <span className="ds-av ds-av-more" data-size="28">+{overflow.length}</span>
           </button>}
-          items={overflow.map(user => ({ id: user.id, label: user.name, icon: <UserAvatar user={user} size={20} />, onSelect: () => onSelectUser(user.id) }))} />}
+          items={overflow.map(user => ({ id: user.id, label: user.name, icon: <UserAvatar user={user} size={20} />,
+            hint: selectedUserId === user.id ? <IcCheck size={14} /> : undefined,
+            onSelect: () => onSelectUser(user.id) }))} />}
       </span>
     </span>;
   }
