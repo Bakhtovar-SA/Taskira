@@ -20,7 +20,8 @@ test("board refresh: card hierarchy, due states and closed critical priority", a
     await expect(page.locator(`[data-issue-id="${id}"] .board-card-due`)).toHaveAttribute("data-urgency", urgency);
   }
   await expect(page.locator('[data-issue-id="i8"]')).not.toHaveAttribute("data-priority", "critical");
-  expect((await card.locator(".ds-av").first().boundingBox())!.width).toBe(22);
+  // boundingBox() neither waits nor retries, and lazy overlays swap their trigger element: poll the size.
+  await expect.poll(async () => (await card.locator(".ds-av").first().boundingBox())?.width).toBe(22);
   await card.focus(); await page.keyboard.press("m");
   await expect(page.getByRole("menuitem", { name: "В работе", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
@@ -133,9 +134,8 @@ test.describe("touch board guidance", () => {
     await expect(page.locator(".board-move-touch-hint")).toBeVisible();
     const move = page.locator('[data-issue-id="i1"] button[aria-keyshortcuts="M"]');
     await expect(move).toBeVisible();
-    const box = (await move.boundingBox())!;
-    expect(box.width).toBeGreaterThanOrEqual(44);
-    expect(box.height).toBeGreaterThanOrEqual(44);
+    await expect.poll(async () => (await move.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(44);
+    await expect.poll(async () => (await move.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
     await move.click();
     await expect(page.getByRole("menuitem", { name: "В работе", exact: true })).toBeVisible();
   });

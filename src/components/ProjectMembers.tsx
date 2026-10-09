@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
 import type { User } from "../types";
@@ -12,6 +13,8 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
 }) {
   const { t } = useT();
   const { idx } = useStore();
+  // Controlled: the lazy Menu drops a click made before its chunk arrives, unless the open state lives here.
+  const [moreOpen, setMoreOpen] = useState(false);
   // Match the old board filter: active human assignees, not the full directory.
   const selectedUser = selectedUserId ? idx.users.get(selectedUserId) : undefined;
   const candidates = [...new Map([...extraUsers, ...(selectedUser ? [selectedUser] : [])]
@@ -33,7 +36,7 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
         onClick={() => onSelectUser(user.id)}>
         <UserAvatar user={user} size={26} ring />
       </button>)}
-      {overflow.length > 0 && <Menu label={t("board.moreAssignees")} placement="bottom-end"
+      {overflow.length > 0 && <Menu label={t("board.moreAssignees")} placement="bottom-end" open={moreOpen} onOpenChange={setMoreOpen}
         trigger={props => <button {...props} type="button" className="board-member-more ds-focus flex rounded-full"
           data-active={overflowSelected ? "true" : undefined}
           aria-label={moreLabel} title={moreLabel}>
