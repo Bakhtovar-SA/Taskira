@@ -402,6 +402,22 @@ function LinksField({ issue }: { issue: Issue }) {
   const [expand, setExpand] = useState(false);
   const [type, setType] = useState<"relates" | "blocks" | "blocked_by">("relates");
   const [picking, setPicking] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
+  const open = expand || picking;
+
+  // Открытая форма связи закрывается кликом мимо неё, как попап. Поиск задач рисуется внутри формы, поэтому клик по
+  // результату — не «мимо».
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (formRef.current && !formRef.current.contains(e.target as Node)) {
+        setPicking(false);
+        setExpand(false);
+      }
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [open]);
 
   const links = issue.links;
   if (!canEdit && links.length === 0) return null;
@@ -463,13 +479,24 @@ function LinksField({ issue }: { issue: Issue }) {
       </div>
 
       {canEdit && (
-        <div className="mt-1.5 space-y-1.5">
+        <div
+          ref={formRef}
+          className={`${links.length > 0 ? "mt-1.5 " : ""}space-y-1.5`}
+          onKeyDown={(e) => {
+            // Escape закрывает только форму, не карточку задачи (SidePanel/App пропускают defaultPrevented).
+            if (e.key === "Escape" && open) {
+              e.preventDefault();
+              setPicking(false);
+              setExpand(false);
+            }
+          }}
+        >
           <div className="flex items-center gap-1.5">
             <select
               aria-label={t("issue.links")}
               value={type}
               onChange={(e) => setType(e.target.value as typeof type)}
-              className="shrink-0 rounded-md border border-line bg-panel px-1.5 py-1 text-[13px] text-sub focus:border-accent focus:shadow-focus focus:outline-none"
+              className="min-w-0 flex-1 rounded-md border border-line bg-panel px-1.5 py-1 text-[13px] text-sub focus:border-accent focus:shadow-focus focus:outline-none"
             >
               <option value="relates">{t("issue.link.relates")}</option>
               <option value="blocks">{t("issue.link.blocks")}</option>
@@ -477,7 +504,7 @@ function LinksField({ issue }: { issue: Issue }) {
             </select>
             <button
               onClick={() => setPicking((v) => !v)}
-              className="rounded-md border border-line bg-panel px-2.5 py-1 text-[13px] font-semibold text-accenttext transition-colors hover:border-accent"
+              className="shrink-0 whitespace-nowrap rounded-md border border-line bg-panel px-2.5 py-1 text-[13px] font-semibold text-accenttext transition-colors hover:border-accent"
             >
               {picking ? t("common.cancel") : t("issue.linkPlus")}
             </button>
