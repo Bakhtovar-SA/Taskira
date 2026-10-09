@@ -554,6 +554,9 @@
 .list-view .workspace-view-header { max-width: max(calc(var(--list-min) + 196px), 1280px); }
 .list-view .workspace-panel[data-panel="filters"] { width: 100%; max-width: none; }
 .list-view .workspace-panel[data-panel="options"] { width: min(680px, 100%); }
+.list-view .workspace-panel .workspace-filters-body > :is(select, input) { flex: 1 0 180px; min-width: min(180px, 100%); }
+.list-view .workspace-panel .ds-btn { flex: 0 0 auto; width: max-content; max-width: 100%; }
+.list-view .workspace-panel .ds-btn > .truncate { display: inline-flex; flex: none; align-items: center; gap: 6px; min-width: max-content; overflow: visible; }
 .list-view .workspace-panel .workspace-filters-body > :is(button, span) { flex-shrink: 0; white-space: nowrap; }
 .list-view .workspace-panel .workspace-options-body > :is(button, span) { flex-shrink: 0; white-space: nowrap; }
 .list-table-wrap { padding: 0 18px 18px; }
