@@ -12,15 +12,12 @@ export function ProjectMembers({ selectedUserId, onSelectUser, extraUsers = [] }
 } = {}) {
   const { t } = useT();
   const { data, idx } = useStore();
-  const members = Object.keys(data.members).flatMap(id => {
-    const user = idx.users.get(id);
-    return user ? [user] : [];
-  });
   if (onSelectUser) {
-    // The board used to list active assignees inside its Filters panel. Keep
-    // those candidates available when the visible project avatars become the filter.
+    // Match the old board filter: only active human assignees, not the full
+    // project directory (which can include service accounts and many idle users).
     const selectedUser = selectedUserId ? idx.users.get(selectedUserId) : undefined;
-    const candidates = [...new Map([...members, ...extraUsers, ...(selectedUser ? [selectedUser] : [])].map(user => [user.id, user])).values()];
+    const candidates = [...new Map([...extraUsers, ...(selectedUser ? [selectedUser] : [])]
+      .filter(user => user.authSource !== "service").map(user => [user.id, user])).values()];
     if (candidates.length === 0) return null;
     const selected = candidates.find(user => user.id === selectedUserId);
     const visible = candidates.slice(0, 4);
@@ -49,6 +46,10 @@ export function ProjectMembers({ selectedUserId, onSelectUser, extraUsers = [] }
       </span>
     </span>;
   }
+  const members = Object.keys(data.members).flatMap(id => {
+    const user = idx.users.get(id);
+    return user ? [user] : [];
+  });
   return members.length > 0 ? <span className="project-members" role="group" aria-label={t("topbar.membersAria")}>
     <UserAvatarGroup users={members} size={26} max={4} interactive />
   </span> : null;

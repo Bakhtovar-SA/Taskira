@@ -165,6 +165,7 @@ const en: Record<keyof Dict, string> = {
   "noun.issueAcc.many": "issues",
 
   "board.selectHint": "Click cards to select them — across columns too. Dragging is off in this mode; Esc to exit.",
+  "hint.boardMove": "Drag a card to another column — or hover it and press M.",
   "board.title": "Board",
   "board.filterUserAria": "Filter: {name}",
   "board.moreAssignees": "More assignees",

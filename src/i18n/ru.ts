@@ -166,6 +166,7 @@ const ru = {
   "noun.issueAcc.many": "задач",
 
   "board.selectHint": "Отмечайте карточки кликом — можно из разных колонок. Перетаскивание в этом режиме выключено; Esc — выйти.",
+  "hint.boardMove": "Перетащите карточку в другую колонку — или наведите на неё и нажмите M.",
   "board.title": "Доска",
   "board.filterUserAria": "Фильтр: {name}",
   "board.moreAssignees": "Другие исполнители",

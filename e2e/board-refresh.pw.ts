@@ -74,12 +74,13 @@ test("board refresh: quick filters restore from URL and compose with overdue", a
 
 test("assignee overflow preserves avatar order and marks the active filter", async ({ page }) => {
   const { project, users, statuses } = await boardFixture(page);
-  const allUsers = [...users, ...[3, 4, 5, 6].map(n => ({ ...users[1], id: `u${n}`, username: `user${n}`, name: `Исполнитель ${n}`, initials: `И${n}` }))];
+  const allUsers = [...users, ...[3, 4, 5, 6].map(n => ({ ...users[1], id: `u${n}`, username: `user${n}`, name: `Исполнитель ${n}`, initials: `И${n}` })),
+    { ...users[1], id: "svc", username: "service", name: "Сервисный бот", authSource: "service" }];
   await page.route("**/api/projects/p1", route => route.fulfill({ json: {
     project, users: allUsers, members: allUsers.map(user => ({ userId: user.id, role: "employee" })),
     workflow: { statuses, transitions: [] }, issueTemplates: [], customFields: [], sprints: [],
   } }));
-  await page.route("**/api/projects/p1/issues/assignees", route => route.fulfill({ json: {
+  await page.route("**/api/projects/p1/issues/assignees*", route => route.fulfill({ json: {
     items: allUsers.map(user => ({ userId: user.id, count: 1 })), truncated: false, limit: 24,
   } }));
   await page.goto("/p/CORP/board");
@@ -89,6 +90,7 @@ test("assignee overflow preserves avatar order and marks the active filter", asy
   const more = page.getByRole("button", { name: "Другие исполнители" });
   await expect(more).toHaveAttribute("aria-pressed", "false");
   await more.click();
+  await expect(page.getByRole("menuitem", { name: "Сервисный бот" })).toHaveCount(0);
   await page.getByRole("menuitem", { name: "Исполнитель 5" }).click();
   await expect(page).toHaveURL(/assignee=u5/);
   await expect(more).toHaveAttribute("aria-pressed", "true");

@@ -159,6 +159,8 @@ const Card = memo(function Card({
             {...p}
             type="button"
             aria-label={t("board.moveAria", { key: issue.key })}
+            aria-keyshortcuts="M"
+            title={t("hint.boardMove")}
             className={`flex h-5 w-5 items-center justify-center rounded-md text-faint transition-opacity hover:bg-hover hover:text-ink focus:opacity-100 group-hover:opacity-100 ${open ? "opacity-100" : "opacity-0"}`}
           >
             <IcMove size={14} />

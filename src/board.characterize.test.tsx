@@ -163,7 +163,7 @@ async function setup({ role = "manager", transitions = [], pageImpl, countsImpl 
   vi.spyOn(issuesApi, "list").mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
-  vi.spyOn(issuesApi, "assignees").mockResolvedValue({ items: [] });
+  vi.spyOn(issuesApi, "assignees").mockResolvedValue({ items: [{ userId: "u1", count: 1 }] });
   vi.spyOn(issuesApi, "epics").mockResolvedValue({ items: [], truncated: false });
   vi.spyOn(issuesApi, "get").mockImplementation(async (_p, id) => dto(id));
   vi.spyOn(commentsApi, "list").mockResolvedValue([]);
@@ -345,7 +345,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(avatar.getAttribute("aria-pressed")).toBe("true");
     expect(h.pageCalls.some(call => call.assignee === "u1")).toBe(true);
     // Без панели «Фильтры» активное условие видно только в сводке под тулбаром.
-    expect(screen.getByRole("status", { name: "" }).textContent).toContain("Исполнитель: Анна Иванова");
+    expect(h.ui.container.querySelector(".active-filter-summary")?.textContent).toContain("Исполнитель: Анна Иванова");
     h.pageCalls.length = 0;
     fireEvent.click(avatar);
     await settle();
@@ -364,7 +364,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(avatar.className).not.toContain("opacity-50");
     expect(avatar.getAttribute("aria-pressed")).toBe("false");
     expect(h.pageCalls.some(call => call.assignee === "none")).toBe(true);
-    expect(screen.getByRole("status", { name: "" }).textContent).toContain("Исполнитель: Не назначен");
+    expect(h.ui.container.querySelector(".active-filter-summary")?.textContent).toContain("Исполнитель: Не назначен");
     fireEvent.click(chip);
     await settle();
     expect(chip.getAttribute("aria-pressed")).toBe("false");
