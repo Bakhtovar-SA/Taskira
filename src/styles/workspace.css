@@ -19,7 +19,9 @@
 .global-topbar { background: var(--bg-canvas); container-type: inline-size; }
 .global-topbar-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* The right track never shrinks below its controls: with a narrow sidebar the full user menu still fits, and the
+     centre column cannot slide under it (the search stays centred whenever there is room). */
+  grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
   min-height: 63px;
   padding: 8px 18px;
@@ -37,13 +39,15 @@
 .global-topbar-right { display: flex; align-items: center; gap: 4px; justify-self: end; grid-column: 3; }
 .global-topbar-right .ds-btn[data-icon] { width: 40px; height: 40px; }
 .global-topbar-right .sidebar-user-menu { flex: none; width: 200px; }
+/* Only shown below lg (the drawer opener), i.e. on touch widths: keep a 44px target there. */
+.global-topbar .global-menu-button.ds-btn { width: 44px; height: 44px; min-height: 44px; }
 .workspace-controls .project-members { display: flex; align-self: center; padding-inline: 4px; }
 @container (max-width: 1000px) {
   .global-topbar-right .sidebar-user-menu { width: 40px; }
   .global-topbar-right .sidebar-user-menu > span.truncate > span:last-child { display: none; }
 }
 @container (max-width: 600px) {
-  .global-topbar-row { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 4px; padding-inline: 4px; }
+  .global-topbar-row { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px; padding-inline: 4px; }
   .global-topbar-center { width: 100%; gap: 4px; }
   .global-menu-button { grid-column: 1; }
   .global-search .ds-kbd { display: none; }
