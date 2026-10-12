@@ -12,7 +12,9 @@ for (const theme of ["light", "dark"]) {
     expect(lanes).toHaveLength(4);
     for (const lane of lanes) {
       expect(lane.width).toBeGreaterThanOrEqual(260);
-      expect(lane.width).toBeLessThanOrEqual(340);
+      // Pins the current ultrawide profile (>=2560px, zoom 1.1, --lane-max 376px => ~317-414px, see refinement-2026-10-10/report.md).
+      // The 1920px profile is the reference; this one has not been reviewed on a real 3440 screen yet.
+      expect(lane.width).toBeLessThanOrEqual(420);
       expect(lane.height).toBeLessThan(600);
     }
     await page.screenshot({ path: test.info().outputPath(`board-wide-${theme}.png`) });
@@ -29,7 +31,7 @@ for (const theme of ["light", "dark"]) {
     await expect(page.locator(".home-task")).toHaveCount(5);
     const content = (await page.locator(".home-content").boundingBox())!;
     const home = (await page.locator(".home-view").boundingBox())!;
-    expect(content.width).toBeLessThanOrEqual(1440);
+    expect(content.width).toBeLessThanOrEqual(1440 * 1.1 + 1); // max-width 1440 CSS px, measured under the 1.1 ultrawide zoom
     expect(Math.abs(content.x + content.width / 2 - home.x - home.width / 2)).toBeLessThan(1);
     await page.screenshot({ path: test.info().outputPath(`home-wide-${theme}.png`) });
   });
