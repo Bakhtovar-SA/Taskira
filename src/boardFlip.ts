@@ -18,7 +18,7 @@ const SELECTOR = "article[data-issue-id]";
 type Pos = { left: number; top: number };
 /** `landing` — точка, откуда прилетает брошенная карточка; применяется, только когда карточка действительно сменила
  *  место (до ответа сервера она стоит на старом, и коммиты в это время не должны её никуда «возвращать»). */
-let snap: { root: HTMLElement; at: number; pos: Map<string, Pos>; lifted: string | null; landing: Pos | null } | null = null;
+let snap: { root: HTMLElement; at: number; pos: Map<string, Pos>; lifted: string | null; landing: Pos | null; dead?: boolean } | null = null;
 let landing: { id: string; left: number; top: number } | null = null;
 let scrollWatch = false;
 
@@ -54,8 +54,15 @@ export function snapshotBoard(root: HTMLElement | null, movedId: string | null):
   snap = { root, at: performance.now(), pos, lifted: movedId, landing: l && movedId && l.id === movedId ? { left: l.left, top: l.top } : null };
   if (!scrollWatch) {
     scrollWatch = true;
-    document.addEventListener("scroll", () => (snap = null), { capture: true, passive: true });
+    // Прокрутка делает положения во viewport неверными, но снимок не стираем: `flipPending` по-прежнему отличает
+    // перенос от новой задачи (иначе перенесённая карточка проиграла бы `enter`), а проигрыш просто пропускается.
+    document.addEventListener("scroll", () => snap && (snap.dead = true), { capture: true, passive: true });
   }
+}
+
+/** Перенос или создание отклонены сервером: снимок больше не нужен, иначе чужой коммит анимировался бы от него. */
+export function cancelBoardFlip(): void {
+  snap = null;
 }
 
 /** Есть ли для карточки снимок (тогда её появление — перенос, а не новая задача). */
@@ -67,7 +74,7 @@ export function flipPending(id: string): boolean {
 export function playBoardFlip(): void {
   const s = snap;
   if (!s) return;
-  if (performance.now() - s.at > TTL_MS || !s.root.isConnected) {
+  if (s.dead || performance.now() - s.at > TTL_MS || !s.root.isConnected) {
     snap = null;
     return;
   }
@@ -127,17 +134,20 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean): void {
   clone.style.width = `${el.offsetWidth}px`; // ширина раскладки: rect включал бы scale «приземления»
   wrap.style.left = `${to.left / z}px`;
   wrap.style.top = `${to.top / z}px`;
+  const visibility = el.style.visibility;
   el.style.visibility = "hidden";
   let landed = false;
+  let guard = 0;
   const land = () => {
     if (landed) return;
     landed = true;
+    window.clearTimeout(guard);
     wrap.remove();
-    el.style.visibility = "";
+    el.style.visibility = visibility;
     flights.delete(el);
   };
   flights.set(el, land);
   void flipFrom(clone, from.left, from.top, { lift }).then(land);
   // Страховка: что бы ни случилось с анимацией, карточка не останется скрытой.
-  window.setTimeout(land, 1000);
+  guard = window.setTimeout(land, 1000);
 }

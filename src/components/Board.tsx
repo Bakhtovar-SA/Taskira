@@ -3,7 +3,7 @@ import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, u
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
 import { enter, preloadMotion } from "../motion";
-import { flipPending, noteLanding as noteFlipLanding, playBoardFlip, snapshotBoard } from "../boardFlip";
+import { cancelBoardFlip, flipPending, noteLanding as noteFlipLanding, playBoardFlip, snapshotBoard } from "../boardFlip";
 import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { IssueFilterSummary } from "./IssueFilterSummary";
@@ -801,7 +801,7 @@ export default function Board() {
       if (moveRequests.current.get(id) !== request) return;
       moveRequests.current.delete(id);
       if (moveQueryRef.current !== moveQueryKey) return;
-      if (!confirmed) { onMovesApplied([id]); return; }
+      if (!confirmed) { cancelBoardFlip(); onMovesApplied([id]); return; }
       setLocalMoves(prev => {
         const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
         next.delete(id);
