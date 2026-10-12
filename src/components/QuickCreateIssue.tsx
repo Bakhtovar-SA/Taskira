@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { IcCheck, IcX } from "../icons";
+import { cancelBoardFlip } from "../boardFlip";
 
 /** `onBeforeSubmit` — доска снимает положения карточек перед созданием (FLIP соседей, ADR-0035 прототип). */
 export default function QuickCreate({ status, onDone, onBeforeSubmit }: { status: Status; onDone: () => void; onBeforeSubmit?: () => void }) {
@@ -23,7 +24,7 @@ export default function QuickCreate({ status, onDone, onBeforeSubmit }: { status
       labels: [],
       complexity: null,
       statusId: status.id,
-    });
+    }).then(created => { if (!created) cancelBoardFlip(); });
     setText("");
   };
   return (

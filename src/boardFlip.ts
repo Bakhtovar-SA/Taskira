@@ -132,6 +132,7 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean): void {
   Object.assign(wrap.style, { position: "fixed", zIndex: "40", pointerEvents: "none" });
   wrap.setAttribute("aria-hidden", "true");
   const clone = el.cloneNode(true) as HTMLElement;
+  clone.className = clone.className.replace(/\banim-\S+/g, ""); // dropLand / вспышка копии не нужны: летит flipFrom
   clone.removeAttribute("id");
   clone.removeAttribute("data-issue-id"); // J/K и FLIP ищут карточки по этому атрибуту — копия им не карточка
   clone.inert = true;
