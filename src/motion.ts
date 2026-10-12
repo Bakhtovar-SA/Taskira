@@ -149,14 +149,14 @@ export const cssZoom = (el: Element): number => (el as Element & { currentCSSZoo
 const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finished).then(() => undefined, () => undefined) : Promise.resolve());
 
 /** Появление на пружине. `kind`: `rise` — карточка/строка (подъём 8 px, как было у доски); `dialog` — окно
- *  (подъём + лёгкий масштаб, как прежний CSS `dsDialogIn`); `panel` — боковая панель (выезд справа, как `dsPanelIn`);
+ *  (подъём без масштаба: scale в хвосте пружины меняет getBoundingClientRect содержимого, а e2e меряет размеры сразу после показа); `panel` — боковая панель (выезд справа, как `dsPanelIn`);
  *  `toast` — тост (выезд справа, как `toastIn`). У всех видов последний кадр — `transform: none`: motion по концу
  *  пишет его в inline-стиль (CSSOM), а не-`none` transform сделал бы окно контейнером для fixed-потомков.
  *  Чанк не загружен или движение уменьшено — мгновенно. */
 type EnterKind = "rise" | "dialog" | "panel" | "toast";
 const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [string, string] }> = {
   rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "none"] },
-  dialog: { opacity: [0, 1], transform: ["translateY(10px) scale(0.98)", "none"] },
+  dialog: { opacity: [0, 1], transform: ["translateY(10px)", "none"] },
   panel: { opacity: [0.4, 1], transform: ["translateX(32px)", "none"] },
   toast: { opacity: [0, 1], transform: ["translateX(28px)", "none"] },
 };

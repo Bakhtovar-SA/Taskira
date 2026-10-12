@@ -195,7 +195,7 @@ describe("тосты, окна, вкладки, строки списка (ADR-0
     await preloadMotion();
     const el = card();
     enter(el, "dialog");
-    expect(animate.mock.calls[0][1]).toEqual({ opacity: [0, 1], transform: ["translateY(10px) scale(0.98)", "none"] });
+    expect(animate.mock.calls[0][1]).toEqual({ opacity: [0, 1], transform: ["translateY(10px)", "none"] });
     expect(animate.mock.calls[0][2]).toEqual({ type: spring, ...SPRING_ENTER });
     enter(el, "panel");
     expect(animate.mock.calls[1][1]).toEqual({ opacity: [0.4, 1], transform: ["translateX(32px)", "none"] });
