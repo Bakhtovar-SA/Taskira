@@ -20,11 +20,21 @@ export function useAnchored(
     const cleanup = autoUpdate(a, f, () => {
       // The top layer uses viewport coordinates; the ultrawide root scales CSS pixels.
       const scale = Number(getComputedStyle(document.documentElement).zoom) || 1;
+      // A popover inside a zoomed subtree (`.list-view { zoom: .9 }` on desktop) inherits that zoom too: its left/top and
+      // sizes are multiplied by it. `k` converts root-zoom CSS px (what floating-ui returns below) into the popover's own
+      // px. currentCSSZoom: Chrome 128 / Firefox 126 / Safari 18.2; without it k = 1 (root zoom only, as before).
+      const own = (f as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom;
+      const k = own ? own / scale : 1;
       // A loading placeholder must not permanently constrain the loaded panel to its original side.
-      if (fitContent) f.style.maxHeight = `${innerHeight / scale - 16}px`;
+      if (fitContent) f.style.maxHeight = `${(innerHeight / scale - 16) / k}px`;
       void computePosition(a, f, {
         strategy: "fixed",
-        platform: scale !== 1 ? { ...platform, getOffsetParent: () => document.documentElement } : undefined,
+        platform: scale !== 1 || k !== 1 ? {
+          ...platform,
+          getOffsetParent: () => document.documentElement,
+          // flip/shift compare the popover's size with the viewport in root px.
+          getDimensions: async (el) => { const d = await platform.getDimensions(el); return el === f ? { width: d.width * k, height: d.height * k } : d; },
+        } : undefined,
         placement,
         middleware: [
           offset(gap),
@@ -33,15 +43,15 @@ export function useAnchored(
           size({
             padding: 8,
             apply({ rects, availableHeight, elements }) {
-              if (matchWidth) elements.floating.style.minWidth = `${rects.reference.width}px`;
-              elements.floating.style.maxHeight = `${Math.max(120, Math.min(availableHeight, innerHeight / scale - 16))}px`;
+              if (matchWidth) elements.floating.style.minWidth = `${rects.reference.width / k}px`;
+              elements.floating.style.maxHeight = `${Math.max(120, Math.min(availableHeight, innerHeight / scale - 16)) / k}px`;
             },
           }),
         ],
       }).then(({ x, y, placement: p }) => {
         if (!active) return;
-        f.style.left = `${Math.min(x, innerWidth / scale - f.offsetWidth - 8)}px`;
-        f.style.top = `${Math.min(y, innerHeight / scale - f.offsetHeight - 8)}px`;
+        f.style.left = `${Math.min(x, innerWidth / scale - f.offsetWidth * k - 8) / k}px`;
+        f.style.top = `${Math.min(y, innerHeight / scale - f.offsetHeight * k - 8) / k}px`;
         f.dataset.side = p.split("-")[0];
       });
     });
