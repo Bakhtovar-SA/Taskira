@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Status, Toast } from "./types";
 import { useToasts } from "./store";
-import { enter, exit, flipFrom, motionReduced, preloadMotionIdle } from "./motion";
+import { exit, flipFrom, motionReduced, preloadMotionIdle } from "./motion";
 import { useT } from "./i18n";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
 import { hidePop, showPop } from "./ds/floating";
@@ -69,7 +69,8 @@ export const BOARD_COLUMN_SHELL =
 /** Жёлоб с карточками под заголовком колонки (ADR-0016: заголовок — над ним, не внутри). */
 export const BOARD_COLUMN_BODY = "board-col-body flex min-h-0 flex-col gap-1.5 overflow-y-auto";
 
-/** Тосты (ADR-0035, прототип): появление — пружина `enter`, уход — `exit`, соседи доезжают FLIP'ом. Стор и таймеры
+/** Тосты (ADR-0035, прототип): появление — прежняя CSS-анимация `anim-toast` (её объект Animation проверяет
+ *  e2e/toast-over-panel: очередь не должна его перезапускать), уход — пружина `exit`, соседи доезжают FLIP'ом. Стор и таймеры
  *  не меняются: снятый стором тост остаётся здесь в `gone`, пока не доиграет уход (по образцу `ds/Presence`); под
  *  reduced-motion — снимается сразу, как раньше. Перерисовывается только `Toasts` — он и так подписчик стора тостов. */
 export function Toasts() {
@@ -89,21 +90,22 @@ export function Toasts() {
   const tops = useRef(new Map<number, number>());
   const exiting = useRef(new WeakSet<HTMLElement>());
   useEffect(() => preloadMotionIdle(), []);
-  // После каждого коммита: новые тосты въезжают, сдвинутые соседи едут со старого места. Положение — раскладочное
+  // После каждого коммита: новые тосты въезжают, сдвинутые соседи едут со старого места. Сдвиг делает обёртка-слот
+  // (`data-toast-slot`), а въезд и уход — сам тост (`data-toast-id`): так сдвиг соседа не отменяет его анимацию входа
+  // (его animation остаётся тем же объектом — это проверяет e2e/toast-over-panel). Положение — раскладочное
   // (offsetTop от неподвижного контейнера), а не rect: rect включал бы идущую анимацию.
   useLayoutEffect(() => {
     const root = host.current;
     if (!root) return;
     const base = root.getBoundingClientRect().top;
     const next = new Map<number, number>();
-    for (const el of root.querySelectorAll<HTMLElement>("[data-toast-id]")) {
-      const id = Number(el.dataset.toastId);
-      const top = base + el.offsetTop;
+    for (const slot of root.querySelectorAll<HTMLElement>("[data-toast-slot]")) {
+      const id = Number(slot.dataset.toastSlot);
+      const el = slot.firstElementChild as HTMLElement;
+      const top = base + slot.offsetTop;
       next.set(id, top);
       const was = tops.current.get(id);
-      if (was === undefined) {
-        if (!leaving.has(id)) enter(el, "toast");
-      } else if (Math.abs(was - top) >= 1 && !exiting.current.has(el)) void flipFrom(el, el.getBoundingClientRect().left, was, { lift: false });
+      if (was !== undefined && Math.abs(was - top) >= 1 && !exiting.current.has(el)) void flipFrom(slot, slot.getBoundingClientRect().left, was, { lift: false });
       if (leaving.has(id) && !exiting.current.has(el)) {
         exiting.current.add(el);
         void exit(el, "toast").then(() => setGone((g) => g.filter((x) => x.id !== id)));
@@ -181,12 +183,14 @@ export function Toasts() {
         {shown.map((item) => {
           const m = meta[item.kind];
           return (
-            <div key={item.id} data-toast-id={item.id} className={`glass flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3 ${leaving.has(item.id) ? "" : "pointer-events-auto"}`}>
-              <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
-              <p className="min-w-0 text-[14px] leading-snug text-ink">
-                <span className="sr-only">{m.label}: </span>
-                {item.text}
-              </p>
+            <div key={item.id} data-toast-slot={item.id}>
+              <div data-toast-id={item.id} className={`glass anim-toast flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3 ${leaving.has(item.id) ? "" : "pointer-events-auto"}`}>
+                <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
+                <p className="min-w-0 text-[14px] leading-snug text-ink">
+                  <span className="sr-only">{m.label}: </span>
+                  {item.text}
+                </p>
+              </div>
             </div>
           );
         })}
