@@ -24,9 +24,9 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   };
 
   await page.getByRole("button", { name: "Выделить", exact: true }).click();
-  const hint = page.locator('.board-view > [role="status"]');
+  const hint = page.locator('.board-select-hint');
   await expect(hint).toBeVisible();
-  await expect(hint).toContainText("Отмечайте карточки кликом");
+  await expect(hint).toContainText("Выбирайте карточки кликом");
   expect((await hint.boundingBox())!.y).toBeGreaterThan(height - 160);
   await expectStableTop();
   await expectStableSize();
@@ -137,5 +137,40 @@ for (const width of [1460, 390]) {
     }).toBe(true);
     await last.click();
     await expect(last).toHaveAttribute("data-selected", "");
+  });
+}
+
+for (const [width, lang] of [[1460, "ru"], [390, "en"]] as const) {
+  test(`selection hint is compact and stays dismissed after reload (${lang}, ${width})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await boardFixture(page, "dark", 4, lang);
+    const hints: string[] = [];
+    await page.route("**/api/me/onboarding", route => route.fulfill({ json: { done: [], hidden: true, hints } }));
+    await page.route("**/api/me/hints/board-select/dismiss", route => {
+      expect(route.request().method()).toBe("POST");
+      hints.push("board-select");
+      return route.fulfill({ json: { ok: true } });
+    });
+    await page.goto("/p/CORP/board");
+    const select = page.getByRole("button", { name: lang === "ru" ? "Выделить" : "Select", exact: true });
+    const hint = page.locator(".board-select-hint");
+    await select.click();
+    await expect(hint).toBeVisible();
+    expect(parseFloat(await hint.evaluate(element => getComputedStyle(element).fontSize))).toBeLessThanOrEqual(13.5);
+    const box = (await hint.boundingBox())!;
+    expect(box.width).toBeLessThan(440);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: test.info().outputPath("compact-selection-hint.png") });
+    await hint.getByRole("button").click();
+    await expect(hint).toHaveCount(0);
+    await expect(page.locator(".board-view")).toHaveAttribute("data-selecting", "true");
+    await expect.poll(() => hints).toEqual(["board-select"]);
+    await select.click();
+    await select.click();
+    await expect(hint).toHaveCount(0);
+    await page.reload();
+    await select.click();
+    await expect(hint).toHaveCount(0);
   });
 }

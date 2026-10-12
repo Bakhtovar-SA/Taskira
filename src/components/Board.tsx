@@ -999,7 +999,7 @@ export default function Board() {
           })}
         </div>
       </div>
-      {selectMode && !selectedIds.size && <p role="status" className="hint-line pointer-events-none absolute inset-x-4 bottom-4 z-20 mx-auto w-fit rounded-lg p-2 text-sub">{t("board.selectHint")}</p>}
+      {selectMode && !selectedIds.size && <Hint id="board-select" className="board-select-hint absolute inset-x-4 bottom-4 z-20 mx-auto w-fit">{t("board.selectHint")}</Hint>}
       {selectMode && selectedIds.size > 0 && (
         <Suspense fallback={null}>
           <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} />

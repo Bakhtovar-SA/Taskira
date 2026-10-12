@@ -63,10 +63,22 @@ for (const [theme, width] of [["light", 1280], ["dark", 390]] as const) {
     )).toBe(true);
     await page.keyboard.press("Escape");
     await expect(page.locator(".issue-detail")).toHaveCount(0);
+    // Re-stack while the entrance is midway through, not just after it finishes.
+    const animationTime = await toasts.first().evaluate(element => {
+      const animation = element.getAnimations()[0];
+      animation.pause();
+      animation.currentTime = 100;
+      (window as Window & { toastAnimation?: Animation }).toastAnimation = animation;
+      return Number(animation.currentTime);
+    });
     await page.keyboard.press("Control+k");
     const dialog = page.locator("dialog[open]");
     await expect(dialog).toBeVisible();
     await expectAboveDialog(host);
+    expect(await toasts.first().evaluate(element => Number(element.getAnimations()[0]?.currentTime ?? 0))).toBeGreaterThanOrEqual(animationTime);
+    expect(await toasts.first().evaluate(element =>
+      element.getAnimations()[0] === (window as Window & { toastAnimation?: Animation }).toastAnimation,
+    )).toBe(true);
     await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
     await expect(host).toHaveAttribute("data-toggle-count", "2");
     // Changing the active dialog must not announce an already visible toast again.

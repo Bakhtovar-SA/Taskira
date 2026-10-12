@@ -129,3 +129,22 @@ test("a toast arriving with a new dialog is announced once inside that dialog", 
   ui.rerender(view(true));
   expect(region.children).toHaveLength(1);
 });
+
+test("unsupported popover selectors do not break dialog announcements or cleanup", () => {
+  const nativeMatches = HTMLElement.prototype.matches;
+  vi.spyOn(HTMLElement.prototype, "matches").mockImplementation(function (this: HTMLElement, selector) {
+    if (selector === ":popover-open") throw new DOMException("Unsupported selector", "SyntaxError");
+    return nativeMatches.call(this, selector);
+  });
+  const view = (open: boolean) => <I18nProvider>
+    <Toasts />
+    {open && <Dialog open title="Fallback" onClose={() => {}}><input aria-label="Title" /></Dialog>}
+  </I18nProvider>;
+  const ui = render(view(false));
+  state.toasts = [{ id: 1, kind: "success", text: "Saved" }];
+  ui.rerender(view(true));
+  state.toasts = [...state.toasts, { id: 2, kind: "info", text: "New message" }];
+  ui.rerender(view(true));
+  expect(screen.getByRole("status", { name: "Уведомления" }).textContent).toContain("New message");
+  expect(() => ui.unmount()).not.toThrow();
+});

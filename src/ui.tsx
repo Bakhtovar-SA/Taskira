@@ -4,6 +4,7 @@ import type { Status } from "./types";
 import { useToasts } from "./store";
 import { useT } from "./i18n";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
+import { hidePop, showPop } from "./ds/floating";
 import { NATIVE_DIALOG_CLOSE_EVENT, NATIVE_DIALOG_OPEN_EVENT } from "./ds/topLayer";
 
 /** Аватары — в components/UserAvatar.tsx (трек G). Карточку человека и загрузку фото берут и экраны трека H. */
@@ -97,23 +98,21 @@ export function Toasts() {
       const dialog = (event as CustomEvent<HTMLDialogElement>).detail;
       dialogs = [...dialogs.filter(item => item !== dialog), dialog];
       announceInsideActiveDialog();
-      if (el.showPopover) {
-        if (el.matches(":popover-open")) el.hidePopover();
-        el.showPopover();
-      }
+      hidePop(el);
+      showPop(el);
     };
     const onClose = (event: Event) => {
       dialogs = dialogs.filter(item => item !== (event as CustomEvent<HTMLDialogElement>).detail);
       announceInsideActiveDialog();
     };
     announceInsideActiveDialog();
-    el.showPopover?.();
+    showPop(el);
     document.addEventListener(NATIVE_DIALOG_OPEN_EVENT, onOpen);
     document.addEventListener(NATIVE_DIALOG_CLOSE_EVENT, onClose);
     return () => {
       document.removeEventListener(NATIVE_DIALOG_OPEN_EVENT, onOpen);
       document.removeEventListener(NATIVE_DIALOG_CLOSE_EVENT, onClose);
-      if (el.hidePopover && el.matches(":popover-open")) el.hidePopover();
+      hidePop(el);
     };
   }, []);
   useEffect(() => {
