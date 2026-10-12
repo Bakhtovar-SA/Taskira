@@ -25,7 +25,10 @@ for (const width of [1920, 390]) {
     await page.locator('[data-issue-id="i1"]').click();
     const panel = page.getByRole("dialog");
     const channel = panel.getByRole("combobox", { name: "Канал обращения" });
-    if (!(await channel.isVisible())) await panel.locator(".issue-details-toggle").click();
+    // Below 768 px the remaining properties fold behind «Остальные свойства»; wait for the card before deciding.
+    const more = panel.locator(".issue-details-toggle");
+    await expect(channel.or(more).filter({ visible: true }).first()).toBeVisible();
+    if (await more.isVisible()) await more.click();
     await channel.scrollIntoViewIfNeeded();
     await expect(channel).toHaveText("—");
     expect(await channel.evaluate((el) => el.tagName)).toBe("BUTTON");
