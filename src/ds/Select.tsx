@@ -5,7 +5,7 @@
  *  подстраивался под тему. Список — поверхность Popover API (`popover="manual"`, как у Combobox): клик мимо и
  *  потеря фокуса закрывают его, строки рисуются только пока он открыт. Значение может быть строкой или числом —
  *  `onChange` возвращает тот же тип, что в `options`. */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { dsId, hidePop, showPop, useAnchored } from "./floating";
 import { swapLayout } from "../palette/fuzzy";
 
@@ -99,12 +99,15 @@ export function Select<T extends SelectValue>({
   const listId = `${id}-list`;
   const optId = (i: number) => `${id}-o${i}`;
   // Плоский список вариантов (для клавиатуры) и номер каждого в нём — группы только для отрисовки.
-  const flat = useMemo(() => options.flatMap((it) => (isGroup(it) ? it.options : [it])), [options]);
+  // Без useMemo: вызывающие передают массив литералом, так что мемо пересчитывалось бы на каждый рендер; flatMap дешёвый.
+  const flat = options.flatMap((it) => (isGroup(it) ? it.options : [it]));
   const selectedIndex = flat.findIndex((o) => o.value === value);
   const selected = selectedIndex >= 0 ? flat[selectedIndex] : undefined;
 
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
+  const [activeRaw, setActive] = useState(-1);
+  // Если список вариантов сократился при открытом списке, активная строка не указывает за его конец.
+  const active = Math.min(activeRaw, flat.length - 1);
   const trigger = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -139,6 +142,8 @@ export function Select<T extends SelectValue>({
     return () => document.removeEventListener("pointerdown", onDown, true);
   }, [open]);
   useEffect(() => { if (off) setOpen(false); }, [off]);
+  // `disabled` у кнопки может прийти и от <fieldset disabled>, а не от пропса: закрываем по нативному состоянию.
+  useEffect(() => { if (open && trigger.current?.matches(":disabled")) setOpen(false); });
 
   const enabled = (i: number) => i >= 0 && i < flat.length && !flat[i].disabled;
   const firstEnabled = (from: number, step: 1 | -1) => {
@@ -152,6 +157,7 @@ export function Select<T extends SelectValue>({
   const choose = (i: number) => {
     if (!enabled(i)) return;
     setOpen(false);
+    if (trigger.current?.matches(":disabled")) return; // fieldset disabled: выбирать нельзя
     if (flat[i].value !== value) onChange(flat[i].value);
   };
   const move = (to: number, step: 1 | -1) => {

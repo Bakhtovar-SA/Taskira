@@ -164,6 +164,48 @@ describe("Select", () => {
     expect((screen.getByRole("combobox", { name: "In fieldset" }) as HTMLButtonElement).matches(":disabled")).toBe(true);
   });
 
+  test("an open list closes and cannot choose when a surrounding fieldset becomes disabled", () => {
+    const onChange = vi.fn();
+    function Form() {
+      const [off, setOff] = useState(false);
+      return (
+        <fieldset disabled={off}>
+          <Select aria-label="Fruit" value="apple" options={FRUITS} onChange={onChange} />
+          <button type="button" onClick={() => setOff(true)}>lock</button>
+        </fieldset>
+      );
+    }
+    render(<Form />);
+    const cb = screen.getByRole("combobox", { name: "Fruit" });
+    fireEvent.click(cb);
+    expect(cb.getAttribute("aria-expanded")).toBe("true");
+    const list = listOf(cb)!;
+    fireEvent.click(screen.getByText("lock"));
+    expect(cb.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(within(list).getByRole("option", { name: "Banana", hidden: true }));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  test("when the options shrink while the list is open, aria-activedescendant never points past the end", () => {
+    function Shrinking() {
+      const [n, setN] = useState(4);
+      return (
+        <>
+          <Select aria-label="Fruit" value="date" options={FRUITS.slice(0, n)} onChange={() => {}} />
+          <button type="button" onClick={() => setN(2)}>shrink</button>
+        </>
+      );
+    }
+    render(<Shrinking />);
+    const cb = screen.getByRole("combobox", { name: "Fruit" });
+    fireEvent.click(cb);
+    expect(activeText(cb)).toBe("Date");
+    fireEvent.click(screen.getByText("shrink"));
+    const id = cb.getAttribute("aria-activedescendant");
+    expect(id === null || document.getElementById(id) !== null).toBe(true);
+    expect(activeText(cb)).toBe("Banana");
+  });
+
   test("label association: external <label htmlFor>, own label prop, error and the listbox name", () => {
     render(
       <>
