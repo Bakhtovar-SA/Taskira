@@ -984,6 +984,56 @@
 .ds-option[aria-selected="true"] {
   color: var(--accent-text);
 }
+
+/* ---------- Select: кнопка в облике .ds-input + список ---------- */
+.ds-select {
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+  font: 500 var(--ctl-fs) / 1.4 var(--font-body);
+  outline: none;
+}
+.ds-select[data-size="sm"] {
+  min-height: var(--ctl-h-sm);
+  padding: 0 var(--ctl-px-sm);
+  font-size: var(--ctl-fs-sm);
+  border-radius: var(--radius-s);
+}
+.ds-select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ds-select-chevron {
+  flex-shrink: 0;
+  margin-right: -2px;
+  color: var(--text-3);
+}
+.ds-select[aria-expanded="true"] .ds-select-chevron {
+  transform: rotate(180deg);
+}
+.ds-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ds-select:disabled:hover {
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.ds-select-pop {
+  max-width: min(480px, calc(100vw - 16px));
+}
+.ds-select-option[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+@media (max-width: 1023.98px), (pointer: coarse) {
+  .ds-select,
+  .ds-select[data-size="sm"],
+  .ds-select-option {
+    min-height: 44px;
+  }
+}
 .ds-cal {
   display: grid;
   grid-template-columns: repeat(7, 32px);
