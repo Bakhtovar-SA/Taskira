@@ -553,8 +553,11 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(b.hasAttribute("data-selected")).toBe(true);
 
     const bar = await screen.findByRole("toolbar", { name: /2/ });
-    fireEvent.click(within(bar).getByRole("button", { name: /Приоритет/ }));
-    fireEvent.click(await screen.findByText("Высокий"));
+    fireEvent.click(within(bar).getByRole("button", { name: "Действия" }));
+    await settle();
+    fireEvent.click(within(bar).getByRole("button", { name: "Приоритет", hidden: true }));
+    await settle();
+    fireEvent.click(within(bar).getByRole("menuitem", { name: "Высокий", hidden: true }));
     await settle();
     expect(bulk).toHaveBeenCalledWith("p1", { action: "priority", issueIds: expect.arrayContaining(["a1", "b1"]), priorityId: "high" });
     expect(a.hasAttribute("data-selected")).toBe(false); // после действия выделение снято, режим остаётся
