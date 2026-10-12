@@ -107,7 +107,8 @@ for (const theme of ["light", "dark"]) for (const [width, height] of [[1460, 720
   });
 }
 
-for (const width of [1460, 390]) {
+// Cover the old dock breakpoint (640) and the actual stacked-board breakpoint (768).
+for (const width of [1460, 768, 767, 640, 639, 390]) {
   test(`long columns scroll their last card clear of the selection dock (${width})`, async ({ page }) => {
     await page.setViewportSize({ width, height: 720 });
     const fixture = await boardFixture(page, "dark");
