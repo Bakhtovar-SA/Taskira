@@ -50,6 +50,10 @@ for (const theme of ["light", "dark"]) {
     expect(await page.evaluate(() => Number(getComputedStyle(document.documentElement).zoom))).toBeCloseTo(0.99, 3);
     expect((await page.locator("aside").boundingBox())!.width).toBeCloseTo(304 * 0.99, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    // The shell fills the window height under 0.99 too (no raw 100vh underfill): 8 CSS px inset top and bottom.
+    const shell = (await page.locator("aside").boundingBox())!;
+    expect(shell.y).toBeCloseTo(8 * 0.99, 0); expect(shell.y + shell.height).toBeCloseTo(1440 - 8 * 0.99, 0);
+    expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
     const lanes = await page.locator(".board-col").evaluateAll(els => els.map(el => el.getBoundingClientRect().width));
     expect(lanes).toHaveLength(4);
     // 2560 profile: 288–376 CSS px × 1.1; here × 0.99, i.e. 0.9 of it.
