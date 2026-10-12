@@ -42,5 +42,17 @@
     "unicodeCustomFieldsPassed": 20
   },
   "contrastCheck": "passed",
-  "antiListCheck": "passed"
+  "antiListCheck": "passed",
+  "postRebaseApiTests": {
+    "passed": 45,
+    "failed": 0,
+    "database": "PostgreSQL 18 with ICU Unicode locale",
+    "baseCommit": "63716355f769a3f419258b1c0e3f7513a6da6d38",
+    "coverage": [
+      "issueAutomation",
+      "customFields",
+      "searchIndex",
+      "issueTemplates"
+    ]
+  }
 }
