@@ -26,16 +26,15 @@ function withFallback<P extends { trigger: PopoverProps["trigger"]; onOpenChange
     const stub = {
       ref: null,
       onClick: () => props.onOpenChange?.(true),
-      onFocus: () => (had.current = true),
-      // Снятие самой заглушки тоже может дать blur, но без relatedTarget; уход фокуса на другой элемент — с ним.
-      onBlur: (e: { relatedTarget: EventTarget | null }) => {
-        if (e.relatedTarget) had.current = false;
-      },
       "aria-expanded": false,
       "aria-haspopup": haspopup,
     } as TriggerProps;
+    // Focus is tracked on the wrapper, not on the stub's handlers: a trigger may compose several overlays (the issue
+    // card's «Действия» is a lazy Menu inside a lazy Popover) and spread only one set of props onto the button.
+    // Removing the stub also blurs, but without relatedTarget; focus moving to another element comes with it.
     return (
-      <span ref={box} className="contents">
+      <span ref={box} className="contents" onFocus={() => (had.current = true)}
+        onBlur={(e) => { if (e.relatedTarget && !box.current?.contains(e.relatedTarget as Node)) had.current = false; }}>
         <Suspense fallback={props.trigger(stub, false)}>
           <Real {...props} />
           <KeepFocus box={box} had={had} />

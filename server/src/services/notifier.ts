@@ -16,6 +16,7 @@ import { q, withAdvisoryLock } from "../db.js";
 import { loadConfig } from "../config.js";
 import { renderDigest, renderOne, type MailItem } from "./emailTemplates.js";
 import type { NotifyType, NotifyPrefs } from "../contract.js";
+import { validPersonalReminderIds } from "./issueReminders.js";
 import { validDueReminderIds } from "./dueReminders.js";
 import { getBrand } from "./brand.js";
 import { mailAccent } from "./mailBrand.js";
@@ -87,7 +88,9 @@ export async function runNotifierOnce(): Promise<NotifierStats> {
   if (rows.length === 0) return stats;
   const dueIds = rows.filter(row => row.type === "issue.dueSoon").map(row => row.id);
   const validIds = dueIds.length ? await validDueReminderIds(dueIds) : new Set<string>();
-  const staleIds = dueIds.filter(id => !validIds.has(id));
+  const personalIds = rows.filter(row => row.type === "issue.reminder").map(row => row.id);
+  const validPersonal = personalIds.length ? await validPersonalReminderIds(personalIds) : new Set<string>();
+  const staleIds = [...dueIds.filter(id => !validIds.has(id)), ...personalIds.filter(id => !validPersonal.has(id))];
   if (staleIds.length) {
     await q(`UPDATE notifications SET email_state = 'skipped' WHERE id = ANY($1::uuid[])`, [staleIds]);
     stats.skipped += staleIds.length;
@@ -97,7 +100,7 @@ export async function runNotifierOnce(): Promise<NotifierStats> {
 
   const byUser = new Map<string, PendingRow[]>();
   for (const r of rows) {
-    if (r.type === "issue.dueSoon" && !validIds.has(r.id)) continue;
+    if (r.type === "issue.dueSoon" && !validIds.has(r.id) || r.type === "issue.reminder" && !validPersonal.has(r.id)) continue;
     const arr = byUser.get(r.user_id) ?? [];
     arr.push(r);
     byUser.set(r.user_id, arr);
@@ -140,6 +143,8 @@ export async function runNotifierOnce(): Promise<NotifierStats> {
       }
     }
 
+    const personal = group.filter(r=>r.type==='issue.reminder').map(r=>r.id);
+    if(personal.length){const valid=await validPersonalReminderIds(personal);const stale=personal.filter(id=>!valid.has(id));if(stale.length){await q("UPDATE notifications SET email_state='skipped' WHERE id=ANY($1::uuid[])",[stale]);stats.skipped+=stale.length;group=group.filter(r=>r.type!=='issue.reminder'||valid.has(r.id));ids=group.map(r=>r.id);if(!ids.length)continue;}}
     const items: MailItem[] = group.map((r) => ({
       type: r.type,
       issueKey: r.issue_key,

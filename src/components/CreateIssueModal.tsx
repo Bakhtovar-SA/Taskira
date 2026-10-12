@@ -1,8 +1,11 @@
+import { AutomationPopover, type AutomationKind } from "./IssueAutomationControls";
+import {addDateDays,zonedDay,type IssueRecurrenceBody} from "../issueAutomation";
+import {RepeatIcon} from "./IssueAutomationControls";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import type { ComplexityId, Issue, IssueTypeId, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER, TYPE_ORDER } from "../types";
-import { IcChevD, IcPlus, IcX, TypeIcon } from "../icons";
+import { IcCalendar, IcChevD, IcPlus, IcX, TypeIcon } from "../icons";
 import { labelTone } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Button, Checkbox, DatePicker, Dialog, Menu, Popover, Tag } from "../ds";
@@ -19,7 +22,7 @@ const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[
 /** `open` — от `Presence` в App.tsx: после закрытия окно ещё доигрывает анимацию ухода. */
 export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   const { t, lang } = useT();
-  const { data, ui, me, setCreateOpen, createIssue } = useStore();
+  const { data, ui, me, setCreateOpen, createIssue, can } = useStore();
   const selfOnlyId = me.accessRole === "employee" ? me.id : undefined;
   const [submitting, setSubmitting] = useState(false);
   const mounted = useRef(true);
@@ -71,6 +74,16 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   const [labelDraft, setLabelDraft] = useState(draft?.labelDraft ?? "");
   const [checklistItems, setChecklistItems] = useState<string[]>(draft?.checklistItems ?? []);
   const [checklistDraft, setChecklistDraft] = useState(draft?.checklistDraft ?? "");
+  const [recurrence,setRecurrence]=useState<IssueRecurrenceBody|null>(draft?.recurrence??null);
+  const [automationKind,setAutomationKind]=useState<AutomationKind|null>(null);
+  const [automationAnchor,setAutomationAnchor]=useState<HTMLElement|null>(null);
+  const [dueOpen,setDueOpen]=useState(false);
+  const canRepeat=can?.("manageRecurring")??me.accessRole==="manager";
+  const openAutomation=(kind:AutomationKind,anchor:HTMLElement)=>{setAutomationKind(kind);setAutomationAnchor(anchor)};
+  const today=zonedDay(new Date(),Intl.DateTimeFormat().resolvedOptions().timeZone),monthDate=new Date(today+"T12:00:00Z"),monthDay=monthDate.getUTCDate();
+  monthDate.setUTCDate(1);monthDate.setUTCMonth(monthDate.getUTCMonth()+1);monthDate.setUTCDate(Math.min(monthDay,new Date(Date.UTC(monthDate.getUTCFullYear(),monthDate.getUTCMonth()+1,0)).getUTCDate()));
+  const dateText=(date:string)=>new Intl.DateTimeFormat(lang,{day:"numeric",month:"short"}).format(new Date(date+"T12:00:00Z"));
+  const datePresets=[{id:"tomorrow",label:t("automation.dateTomorrow"),date:addDateDays(today,1)},{id:"week",label:t("automation.dateWeekEnd"),date:addDateDays(today,(7-new Date(today+"T12:00:00Z").getUTCDay())%7)},{id:"month",label:t("automation.dateMonth"),date:monthDate.toISOString().slice(0,10)}];
   const [again, setAgain] = useState(draft?.again ?? false);
   // Шаблон (issue_templates, миграция 022) — чистый prefill формы: applyTemplate
   // копирует его поля в локальный стейт один раз при выборе, дальше форма живёт
@@ -81,16 +94,16 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   useEffect(() => {
     if (!open || submitting) return;
     saveCreateDraft(draftKey, { typeId, title, description, priorityId, complexity, assigneeIds, epicId, epicPicked,
-      dueDate, labels, labelDraft, checklistItems, checklistDraft, templateId, templateStatusId, again });
+      dueDate, labels, labelDraft, checklistItems, checklistDraft, templateId, templateStatusId, again, recurrence });
   }, [draftKey, open, submitting, typeId, title, description, priorityId, complexity, assigneeIds, epicId, epicPicked,
-      dueDate, labels, labelDraft, checklistItems, checklistDraft, templateId, templateStatusId, again]);
+      dueDate, labels, labelDraft, checklistItems, checklistDraft, templateId, templateStatusId, again, recurrence]);
 
   const clearDraft = () => {
     deleteCreateDraft(draftKey);
     setTypeId("task"); setTitle(""); setDescription(""); setError(""); setSubmitError(""); setPriorityId("medium");
     setComplexity(null); setAssigneeIds([]); setEpicId(null); setEpicPicked(null); setDirOpen(false);
     setDueDate(""); setLabels([]); setLabelDraft(""); setChecklistItems([]); setChecklistDraft("");
-    setTemplateId(""); setTemplateStatusId(null);
+    setTemplateId(""); setTemplateStatusId(null); setRecurrence(null);
   };
 
   const applyTemplate = (id: string) => {
@@ -125,6 +138,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
     setSubmitError("");
     const issue = await createIssue({
       title, description, typeId, priorityId, assigneeIds, epicId,
+      recurrence:recurrence??undefined,
       parentId: ui.createParentId ?? null,
       labels: pendingLabel && !labels.includes(pendingLabel) ? [...labels, pendingLabel] : labels,
       complexity, dueDate: dueDate || null, statusId: templateStatusId ?? undefined,
@@ -155,8 +169,8 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
         </span>
       }
       footer={
-        <>
-          <span className="mr-auto flex items-center">
+        <div className="create-issue-footer">
+          <span className="create-issue-another">
             <Checkbox checked={again} onChange={setAgain} label={t("createIssue.createAnother")} />
           </span>
           <Button variant="ghost" onClick={close} disabled={submitting}>
@@ -165,7 +179,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
           <Button variant="primary" onClick={() => void submit()} loading={submitting} disabled={!open}>
             {t("createIssue.submit")}
           </Button>
-        </>
+        </div>
       }
     >
       <fieldset disabled={submitting} className="create-issue-form space-y-4">
@@ -244,7 +258,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="create-primary-fields">
           <div>
             <p className="mb-1.5 text-[13px] font-medium text-faint">{t("field.priority")}</p>
             <Menu
@@ -274,7 +288,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
               trigger={(p, open) => (
                 <button {...p} type="button" className={`flex w-full items-center gap-2 rounded-md border bg-panel px-3 py-2 text-[14px] font-medium ${open ? "border-accent" : "border-line"}`}>
                   <UserAvatarGroup users={assignees} size={18} max={2} interactive={false} />
-                  <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
+                  <span className={assignees.length ? "min-w-0 truncate" : "min-w-0 truncate text-faint"}>
                     {assignees.length === 0
                       ? t("createIssue.unassigned")
                       : assignees.length === 1
@@ -288,11 +302,20 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
               <AssigneePicker data={data} selected={assigneeIds} onChange={setAssigneeIds} selfOnlyId={selfOnlyId} />
             </Popover>
           </div>
-          <div>
-            <p className="mb-1.5 text-[13px] font-medium text-faint">{t("field.dueDate")}</p>
-            <DatePicker block label={t("field.dueDate")} lang={lang} value={dueDate || null} onChange={(v) => setDueDate(v ?? "")} />
+          <div className="create-primary-date">
+            <p className="mb-1.5 text-[13px] font-medium text-faint">{t("automation.dateLabel")}</p>
+            <Menu label={t("automation.setDate")} className="create-date-menu" trigger={(p,open)=><button {...p} type="button" onClick={e=>{setAutomationAnchor(e.currentTarget);p.onClick()}} className="create-date-control ds-focus" aria-label={t("automation.setDate")}>
+              {recurrence?<RepeatIcon/>:<IcCalendar size={16}/>}<span>{dueDate?dateText(dueDate):recurrence?t("automation.repeat"):t("automation.setDate")}</span><IcChevD size={14}/>
+            </button>} items={[
+              ...datePresets.map(item=>({id:item.id,label:item.label,icon:<IcCalendar size={16}/>,hint:dateText(item.date),onSelect:()=>setDueDate(item.date)})),
+              {id:"custom",label:t("automation.dateCustom"),icon:<IcCalendar size={16}/>,onSelect:()=>setDueOpen(true)},
+              ...(canRepeat?[{kind:"sep" as const,id:"repeat-separator"},{id:"repeat",label:t("automation.repeat"),icon:<RepeatIcon/>,onSelect:()=>openAutomation("repeat",automationAnchor??document.activeElement as HTMLElement)}]:[]),
+            ]}/>
           </div>
         </div>
+        <DatePicker hideTrigger anchorElement={automationAnchor} label={t("automation.setDate")} lang={lang} value={dueDate||null} onChange={v=>setDueDate(v??"")} open={dueOpen} onOpenChange={setDueOpen}/>
+        <AutomationPopover kind={automationKind} anchor={automationAnchor} onClose={()=>setAutomationKind(null)} value={{recurrence,remindAt:null}} projectId={data.currentProjectId} dueDate={dueDate||null}
+          onSave={async(kind,next)=>{if(kind==="repeat")setRecurrence(next as IssueRecurrenceBody|null)}}/>
         <details className="form-disclosure" open={draft?.checklistItems.length || draft?.checklistDraft || draft?.labels.length || draft?.labelDraft || draft?.epicId || draft?.complexity ? true : undefined}>
           <summary className="ds-focus">{t("createIssue.moreFields")}</summary>
           <div className="space-y-4 pt-4">

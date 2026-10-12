@@ -19,43 +19,47 @@ import type { Issue } from "../types";
 import type { StoreCtx } from "./ctx";
 
 export function useIssueSubActions(
-  { setData, dataRef, pid, toast, handleApiError, requirePerm, local }: StoreCtx,
+  { setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef }: StoreCtx,
   { withIssue, langRef }: { withIssue: (id: string, fn: (issue: Issue) => void) => void; langRef: MutableRefObject<"ru" | "en"> },
 ) {
   const addComment = useCallback(
-    (issueId: string, body: string) => {
-      if (!requirePerm("comment")) return;
+    async (issueId: string, body: string): Promise<boolean> => {
+      if (!requirePerm("comment")) return false;
       const r = validateComment(body);
-      if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
-      void (async () => {
-        try {
-          const c = await commentsApi.create(pid(), issueId, r.value);
-          refreshOnboardingSoon();
-          setData((prev) => ({
-            ...prev,
-            issues: prev.issues.map((i) =>
-              i.id === issueId
-                ? {
-                    ...i,
-                    comments: [
-                      ...i.comments,
-                      {
-                        id: c.id,
-                        authorId: c.authorId,
-                        author: c.author,
-                        body: c.body,
-                        ts: Date.parse(c.createdAt) || Date.now(),
-                      },
-                    ],
-                  }
-                : i,
-            ),
-          }));
-          toast("success", local("Комментарий добавлен", "Comment added"));
-        } catch (err) {
-          handleApiError(err);
-        }
-      })();
+      if (!r.ok) { toast("error", localizeValidationError(r.error, langRef.current)); return false; }
+      const requestProjectId = pid();
+      const epoch = sessionEpochRef.current;
+      try {
+        const c = await commentsApi.create(requestProjectId, issueId, r.value);
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        refreshOnboardingSoon();
+        setData((prev) => ({
+          ...prev,
+          issues: prev.issues.map((i) =>
+            i.id === issueId
+              ? {
+                  ...i,
+                  comments: [
+                    ...i.comments,
+                    {
+                      id: c.id,
+                      authorId: c.authorId,
+                      author: c.author,
+                      body: c.body,
+                      ts: Date.parse(c.createdAt) || Date.now(),
+                    },
+                  ],
+                }
+              : i,
+          ),
+        }));
+        toast("success", local("Комментарий добавлен", "Comment added"));
+        return true;
+      } catch (err) {
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        handleApiError(err);
+        return false;
+      }
     },
     [requirePerm, toast, handleApiError],
   );

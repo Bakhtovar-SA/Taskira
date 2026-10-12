@@ -16,7 +16,6 @@ import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
 import { PROJECT_VIEWS } from "./Sidebar";
-import { ProjectMembers } from "./ProjectMembers";
 
 export const VIEW_LABEL: Record<ViewId, TKey> = {
   board: "sidebar.nav.board",
@@ -267,6 +266,7 @@ export function SearchBox() {
 
 export const NOTIF_VERB: Record<NotificationT["type"], TKey> = {
   "issue.dueSoon": "notifVerb.issueDueSoon",
+  "issue.reminder": "notifVerb.issueReminder",
   "issue.assigned": "notifVerb.issueAssigned",
   "issue.comment": "notifVerb.issueComment",
   "issue.mention": "notifVerb.issueMention",
@@ -337,7 +337,7 @@ function BellPanel({ close }: { close: () => void }) {
                 )}
               </span>
               <span className="min-w-0 flex-1 text-[13.5px] leading-snug text-ink">
-                {n.type !== "issue.dueSoon" && <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b>} {t(NOTIF_VERB[n.type])}{" "}
+                {n.type !== "issue.dueSoon" && n.type !== "issue.reminder" && <b className="font-semibold">{n.actor?.name.split(" ")[0] ?? t("topbar.someone")}</b>} {t(NOTIF_VERB[n.type])}{" "}
                 {n.type === "issue.dueSoon" && <span className="text-sub">{n.payload.dueDate} · </span>}
                 {n.payload.key && (
                   <span className="font-mono text-[12px] font-medium text-accenttext">{n.payload.key}</span>
@@ -544,9 +544,7 @@ export default function Topbar() {
               items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 17 }), label: t(v.labelKey) }))} />
           </nav>
         </> : <h1 className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
-        <div className="project-topbar-actions">
-          {isProjectView && ui.view !== "board" && ui.view !== "backlog" && <ProjectMembers />}
-        </div>
+
       </div>
     </div>
   );

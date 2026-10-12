@@ -16,7 +16,7 @@ import { createExternalStore, useExternalStore, type ExternalStore } from "../st
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
-import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcChevD, IcPlus, IcSubtasks, IcX, PriorityIcon, StatusGlyph } from "../icons";
+import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcPlus, IcSubtasks, IcX, PriorityIcon, StatusGlyph } from "../icons";
 import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
@@ -185,15 +185,9 @@ const Card = memo(function Card({
     <article
       ref={cardRef}
       draggable={draggable && !selecting}
-      tabIndex={0}
       aria-label={`${issue.key}: ${issue.title}`}
       data-selected={selecting && selected ? "" : undefined}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          if (selecting) onToggleSelect(issue.id);
-          else openIssue(issue.id);
-        }
         // «m» / «ь» — открыть список переходов с клавиатуры: перетаскивание
         // мышью было единственным способом сменить статус на доске (UX-02).
         if (draggable && !selecting && (e.key.toLowerCase() === "m" || e.key === "ь")) {
@@ -231,7 +225,7 @@ const Card = memo(function Card({
             <Checkbox checked={selected} onChange={() => onToggleSelect(issue.id)} label={t("backlog.selectRow", { key: issue.key })} labelHidden tabIndex={-1} />
           </span>
         )}
-        <h3 className="min-w-0 flex-1">{issue.title}</h3>
+        <h3 className="min-w-0 flex-1"><button type="button" className="board-card-open" aria-label={selecting ? t("backlog.selectRow", { key: issue.key }) : issue.key + ": " + issue.title} aria-pressed={selecting ? selected : undefined} onClick={e => { e.stopPropagation(); if (selecting) onToggleSelect(issue.id); else openIssue(issue.id); }}>{issue.title}</button></h3>
         {moveButton}
       </div>
       {epic && <div className="board-card-direction" title={epic.title}>
@@ -256,7 +250,7 @@ const Card = memo(function Card({
             aria-label={t("board.subtasksTip", { done: issue.subtasksSummary.done, total: issue.subtasksSummary.total })}>
             <IcSubtasks size={14} />{issue.subtasksSummary.done}/{issue.subtasksSummary.total}
           </span>}
-          {assignees.length > 0 && <UserAvatarGroup users={assignees} size={22} interactive />}
+          <UserAvatarGroup users={assignees} size={22} interactive />
         </span>
       </div>
     </article>
@@ -631,6 +625,15 @@ const BoardColumn = memo(function BoardColumn({
 export default function Board() {
   const { t, tn } = useT();
   const { data, ui, moveStatus, openIssue, can, epicsRevision, setCreateOpen } = useStore();
+  const boardRoot = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const setInput = (value: "keyboard" | "pointer") => boardRoot.current?.setAttribute("data-board-input", value);
+    const keyboard = (event: KeyboardEvent) => { if (!event.metaKey && !event.ctrlKey && !event.altKey) setInput("keyboard"); };
+    const pointer = () => setInput("pointer");
+    document.addEventListener("keydown", keyboard, true);
+    document.addEventListener("pointerdown", pointer, true);
+    return () => { document.removeEventListener("keydown", keyboard, true); document.removeEventListener("pointerdown", pointer, true); };
+  }, []);
   const { photo: personalPhoto, error: boardPhotoError } = usePersonalBoardPhoto(data.currentUserId, data.currentProjectId);
   const canMove = can("transition");
   const canCreate = can("create");
@@ -870,7 +873,8 @@ export default function Board() {
   }, [setOverCol]);
 
   return (
-    <div className="board-view flex h-full min-w-0 flex-col">
+    <div ref={boardRoot} className="board-view flex h-full min-w-0 flex-col">
+      <h1 className="sr-only">{t("board.title")} · {data.project.name}</h1>
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
         <WorkspaceControls selectionMode={selectMode}
@@ -879,11 +883,6 @@ export default function Board() {
           compact
           summary={t("board.filteredOf", { visible: data.workflow.statuses.reduce<number | null>((sum, st) => { const n = totalOf(st.id); return sum === null || n === null ? null : sum + n; }, 0) ?? "…", total: poolTotal ?? "…" })}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? chips.has(id) : baseFilters.assignee === (id === "mine" ? data.currentUserId : "none")} onToggle={toggleChip} overdue={overdueCounts.counts?.total} />}
-          grouping={<Menu label={t("workspace.groupingNone")} placement="bottom-end"
-            trigger={p => <Button {...p} size="sm" className="workspace-grouping" iconRight={<IcChevD size={14} />}>{t("workspace.groupingNone")}</Button>}
-            items={[{ id: "none", label: t("workspace.noGrouping"), icon: <IcCheck size={15} />, onSelect: () => {
-              const params = new URLSearchParams(location.search); params.set("group", "none"); navigate(path + "?" + params, { replace: true });
-            } }]} />}
           search={<WorkspaceSearch value={q} onChange={setQ} />}
           actions={<>
             <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />

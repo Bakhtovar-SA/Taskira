@@ -37,18 +37,20 @@ for (const theme of ["light", "dark"]) for (const width of [1280, 390]) test(`30
   }
   const last = cards.last();
   await last.scrollIntoViewIfNeeded();
-  await last.focus();
-  await expect(last).toBeFocused();
+  // The card itself is not focusable; its title button is the keyboard target.
+  const opener = last.locator(".board-card-open");
+  await opener.focus();
+  await expect(opener).toBeFocused();
   await page.keyboard.press("m");
   await expect(page.getByRole("menu")).toBeVisible();
   await page.keyboard.press("Escape");
-  await last.focus();
+  await opener.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-issue-details="i299"]')).toBeVisible();
   const dialog = page.locator("dialog[open]");
   await expect.poll(() => dialog.evaluate(el => ({ modal: el.matches(":modal"), focusInside: el.contains(document.activeElement), active: el.contains(document.activeElement) ? "inside" : document.activeElement?.tagName }))).toEqual({ modal: true, focusInside: true, active: "inside" });
   // Native modality prevents background focus; Tab stays in the panel.
-  await last.focus();
+  await opener.focus();
   await expect.poll(() => dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
   await page.keyboard.press("Tab");
   await expect.poll(() => dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
@@ -61,7 +63,7 @@ for (const theme of ["light", "dark"]) for (const width of [1280, 390]) test(`30
   await expect(page.locator('[data-issue-details="i299"]')).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator("dialog[open]")).toHaveCount(0);
-  await expect(last).toBeFocused();
+  await expect(opener).toBeFocused();
   await expect(cards).toHaveCount(300);
   const axe = await new AxeBuilder({ page }).include("main").analyze();
   expect(axe.violations).toEqual([]);

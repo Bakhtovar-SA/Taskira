@@ -39,12 +39,12 @@ const Frame = memo(function Frame({ ticks, today, header, compact }: Omit<FrameP
 });
 
 /** Шапка может прокручиваться отдельно от фиксированных подписей проектов. */
-export const TimeHeader = memo(function TimeHeader({ ticks, today, compact = false, monthYears = false }: Omit<FrameProps, "scale"> & { compact?: boolean; monthYears?: boolean }) {
+export const TimeHeader = memo(function TimeHeader({ ticks, today, compact = false }: Omit<FrameProps, "scale"> & { compact?: boolean }) {
   const todayAt = today ? TIME_PAD + today.x : -1;
   // Подпись первого крупного деления не прячется под плашкой «сегодня».
   const firstMajorAt = (t: Tick) => (t.x === 0 && today && today.x < 80 ? Math.max(6, today.x + 34) : 6);
   if (compact) return <div className="rm-time-header">
-    {(monthYears ? ticks.minor : ticks.major).map(t => <span key={`y${t.x}`} ref={cssVars({ "--x": TIME_PAD + t.x, "--w": t.w, "--in": today && Math.abs(t.x + 6 - today.x) < 50 ? today.x - t.x + 38 : 6 })} className="rm-year">{t.w >= 28 && (monthYears ? t.date.getFullYear() : t.label)}</span>)}
+    {ticks.major.map(t => <span key={`y${t.x}`} ref={cssVars({ "--x": TIME_PAD + t.x, "--w": t.w, "--in": today && Math.abs(t.x + 6 - today.x) < 50 ? today.x - t.x + 38 : 6 })} className="rm-year">{t.w >= 28 && t.label}</span>)}
     {ticks.minor.map(t => <span key={t.x} ref={cssVars({ "--x": TIME_PAD + t.x, "--w": t.w })} className="rm-month">{t.w >= 28 && t.label}</span>)}
     {today && <em ref={cssVars({ "--x": todayAt })} className="rm-today-chip">{today.label}</em>}
   </div>;

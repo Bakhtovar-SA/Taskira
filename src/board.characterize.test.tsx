@@ -409,7 +409,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(within(card).getByText("Починить биллинг")).toBeTruthy();
     expect(within(card).queryByText("billing")).toBeNull();
     // исполнитель — доступное имя через title на аватаре (initials видимый текст "БП")
-    expect(within(card).getByTitle("Борис Петров")).toBeTruthy();
+    expect(within(card).getByRole("img", { name: "Борис Петров" })).toBeTruthy();
     expect(within(card).getByText("БП")).toBeTruthy();
 
     expect(h.store().ui.selectedIssueId).toBeNull();
@@ -546,7 +546,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(screen.getByRole("button", { name: "Выделить" }).getAttribute("aria-pressed")).toBe("true");
     expect(a.getAttribute("draggable")).toBe("false");
     fireEvent.click(a);
-    fireEvent.keyDown(b, { key: "Enter" });
+    fireEvent.click(within(b).getByRole("button", { name: /Выделить A21-b1/ }));
     await settle();
     expect(h.store().ui.selectedIssueId).toBeNull(); // клик в режиме выделения задачу не открывает
     expect(a.hasAttribute("data-selected")).toBe(true);

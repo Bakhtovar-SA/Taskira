@@ -6,10 +6,11 @@ import { useStore } from "../store";
 import { useT } from "../i18n";
 import { PRIORITY_ORDER } from "../types";
 import { workflowStatusName } from "../workflowStatus";
-import { IcChevD, IcTrash } from "../icons";
-import { Button, Dialog, Menu, type MenuEntry } from "../ds";
+import { IcChevD, IcChevR, IcTrash, IcX, IcFlag, IcUsers, PriorityIcon, StatusGlyph } from "../icons";
+import { Button, Dialog, IconButton, Menu, Popover, type MenuEntry } from "../ds";
+import { UserAvatar } from "./UserAvatar";
 
-export default function BulkBar({ selectedIds, onDone, className = "" }: { selectedIds: ReadonlySet<string>; onDone: () => void; className?: string }) {
+export default function BulkBar({ selectedIds, onDone, className = "", floating = false }: { selectedIds: ReadonlySet<string>; onDone: () => void; className?: string; floating?: boolean }) {
   const { t } = useT();
   const { data, me, can, bulkApplyIssueAction } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -31,37 +32,44 @@ export default function BulkBar({ selectedIds, onDone, className = "" }: { selec
       label={label}
       items={items}
       trigger={(p) => (
-        <Button {...p} size="sm" disabled={busy} iconRight={<IcChevD size={12} />}>
+        <Button {...p} size="sm" variant={floating ? "ghost" : "secondary"} disabled={busy} iconLeft={floating ? (label === t("field.status") ? <StatusGlyph category="todo" size={16} /> : label === t("field.assignee") ? <IcUsers size={16} /> : <IcFlag size={16} />) : undefined} iconRight={floating ? <IcChevR size={14} /> : <IcChevD size={12} />}>
           {label}
         </Button>
       )}
     />
   );
 
-  return (
-    <>
-      <div role="toolbar" aria-label={t("backlog.selectedCount", { n: selectedIds.size })} className={`flex flex-wrap items-center gap-2 rounded-md border border-accent/30 bg-accentsoft/40 px-2.5 py-2 ${className}`}>
-        <span className="text-[13.5px] font-semibold text-ink">{t("backlog.selectedCount", { n: selectedIds.size })}</span>
-        {menu(
+  const controls = <>
+        {(!floating || can("transition")) && menu(
           t("field.status"),
-          data.workflow.statuses.map((s) => ({ id: s.id, label: workflowStatusName(s, t), onSelect: () => void run({ action: "status", issueIds: ids, statusId: s.id }) })),
+          data.workflow.statuses.map((s) => ({ id: s.id, label: workflowStatusName(s, t), icon: <StatusGlyph category={s.category} size={16} />, onSelect: () => void run({ action: "status", issueIds: ids, statusId: s.id }) })),
         )}
-        {menu(t("field.assignee"), [
-          { id: "none", label: t(me.accessRole === "employee" ? "assignee.unassignSelf" : "createIssue.unassigned"), onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: "none" }) },
-          ...data.users.filter(u => me.accessRole !== "employee" || u.id === me.id).map((u) => ({ id: u.id, label: u.name, text: u.name, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
+        {(!floating || can("edit")) && menu(t("field.assignee"), [
+          { id: "none", label: t(me.accessRole === "employee" ? "assignee.unassignSelf" : "createIssue.unassigned"), icon: <span aria-hidden="true"><UserAvatar user={null} size={18} /></span>, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: "none" }) },
+          ...data.users.filter(u => me.accessRole !== "employee" || u.id === me.id).map((u) => ({ id: u.id, label: u.name, text: u.name, icon: <span aria-hidden="true"><UserAvatar user={u} size={18} /></span>, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
         ])}
-        {menu(
+        {(!floating || can("edit")) && menu(
           t("field.priority"),
-          PRIORITY_ORDER.map((p) => ({ id: p, label: t(`priority.${p}`), onSelect: () => void run({ action: "priority", issueIds: ids, priorityId: p }) })),
+          PRIORITY_ORDER.map((p) => ({ id: p, label: t(`priority.${p}`), icon: <span aria-hidden="true"><PriorityIcon p={p} size={16} /></span>, onSelect: () => void run({ action: "priority", issueIds: ids, priorityId: p }) })),
         )}
         {can("delete") && (
-          <Button size="sm" variant="danger" disabled={busy} iconLeft={<IcTrash size={14} />} onClick={() => setConfirmDelete(true)}>
+          <Button size="sm" variant="danger" className={floating ? "bulk-delete" : undefined} disabled={busy} iconLeft={<IcTrash size={14} />} onClick={() => setConfirmDelete(true)}>
             {t("common.delete")}
           </Button>
         )}
-        <Button size="sm" variant="ghost" className="ml-auto" onClick={onDone}>
+      </>;
+
+  return (
+    <>
+      <div role="toolbar" aria-label={t("backlog.selectedCount", { n: selectedIds.size })} className={floating ? "list-bulk-bar pointer-events-auto flex items-center gap-2 whitespace-nowrap rounded-full bg-panel px-3 py-2 shadow-e3" : `flex flex-wrap items-center gap-2 rounded-md border border-accent/30 bg-accentsoft/40 px-2.5 py-2 ${className}`}>
+        <span role="status" aria-live="polite" aria-atomic="true" className="text-[13.5px] font-semibold text-ink">{t("backlog.selectedCount", { n: selectedIds.size })}</span>
+        {floating ? <Popover label={t("common.actions")} placement="top-start" className="bulk-action-menu"
+          trigger={p => <Button {...p} size="sm" disabled={busy} iconRight={<IcChevD size={12} />}>{t("common.actions")}</Button>}>
+          <div className="ds-menu-label">{t("common.actions")}</div><div className="bulk-actions">{controls}</div>
+        </Popover> : controls}
+        {floating ? <IconButton label={t("common.clear")} size="sm" disabled={busy} onClick={onDone}><IcX size={16} /></IconButton> : <Button size="sm" variant="ghost" className="ml-auto" onClick={onDone}>
           {t("common.clear")}
-        </Button>
+        </Button>}
       </div>
 
       <Dialog

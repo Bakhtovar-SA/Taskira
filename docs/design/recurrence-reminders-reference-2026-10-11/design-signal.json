@@ -1,0 +1,29 @@
+{
+  "taste_state": {
+    "status": "applied",
+    "source": "taste-profile.json",
+    "world": "Existing Taskira design system, user appearance and density",
+    "references": [
+      {
+        "source": "User screenshots 1 and 3",
+        "job": "Contextual reminder action and exact date/time confirmation"
+      },
+      {
+        "source": "User screenshots 2 and 4",
+        "job": "Recurring task discovery at creation and in task actions"
+      }
+    ],
+    "locked": [
+      "Taskira components and semantic tokens",
+      "Project recurrence creates new issues",
+      "Reminder is personal to the current user",
+      "Reference only; no product/API writes"
+    ],
+    "adaptations": [
+      "Explicit controls at creation",
+      "Configured chips in task header",
+      "Daily/weekly/monthly panel with next three dates",
+      "Personal reminder presets plus calendar and time"
+    ]
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "date": "2026-10-11T13:02:11.460Z",
+  "baseSha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+  "workingTree": true,
+  "implementation": "stand localhost:3000",
+  "unitTests": {
+    "passed": 24,
+    "files": [
+      "src/roadmapLayout.test.ts",
+      "src/components/RoadmapView.test.tsx",
+      "src/timeline.lookups.test.tsx"
+    ]
+  },
+  "production": {
+    "passed": 17,
+    "result": "17 passed (40.2s)",
+    "command": "npx playwright test --config docs/design/timeline-roadmap-2026-10-11/production.config.ts"
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "realApi": {
+    "checks": [
+      "UI adds real dependency to correct dependent project",
+      "dependency persists after reload",
+      "actual server rejects cycle",
+      "UI removes real dependency",
+      "timeline name remains visible after horizontal scroll",
+      "direction inputs have readable width"
+    ],
+    "pageErrors": [],
+    "axe": [
+      {
+        "view": "roadmap",
+        "width": 1920,
+        "violations": 0
+      },
+      {
+        "view": "roadmap",
+        "width": 3440,
+        "violations": 0
+      }
+    ],
+    "temporaryProjectsCleaned": true
+  },
+  "mechanical": {
+    "contrast": "passed",
+    "rawColors": "passed",
+    "motion": "passed",
+    "antiList": "passed",
+    "diffCheck": "passed"
+  },
+  "bundle": {
+    "current": {
+      "js": 368847,
+      "css": 35442,
+      "entry": 96148,
+      "total": 404289
+    },
+    "checks": [
+      {
+        "key": "total",
+        "current": 404289,
+        "limit": 404980,
+        "ok": true
+      },
+      {
+        "key": "js",
+        "current": 368847,
+        "limit": 369761,
+        "ok": true
+      },
+      {
+        "key": "css",
+        "current": 35442,
+        "limit": 36243,
+        "ok": true
+      },
+      {
+        "key": "entry",
+        "current": 96148,
+        "limit": 121995,
+        "ok": true
+      }
+    ],
+    "allowanceChange": "approved by owner on 2026-10-11: total +3 KiB, JS +2 KiB, CSS +1 KiB",
+    "passed": true
+  },
+  "screenshots": [
+    "implemented-roadmap-1920.png",
+    "implemented-roadmap-3440.png",
+    "implemented-timeline.png",
+    "implemented-direction-fields.png",
+    "direction-fields-detail.png",
+    "dependency-drag-1920.png",
+    "return-to-project.png"
+  ],
+  "dottedLineFix": {
+    "checks": [
+      {
+        "width": 1920,
+        "svgCoversEmptyArea": true,
+        "endpointAtPointer": true,
+        "cursor": "default"
+      },
+      {
+        "width": 3440,
+        "svgCoversEmptyArea": true,
+        "endpointAtPointer": true,
+        "cursor": "default"
+      }
+    ],
+    "pageErrors": [],
+    "apiWrites": false,
+    "production": "14 unchanged scenarios passed; 3 pointer scenarios passed after correcting the test expectation for the pre-existing default cursor",
+    "typecheck": "passed",
+    "build": "passed"
+  }
+}

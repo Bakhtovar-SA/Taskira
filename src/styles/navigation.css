@@ -1,0 +1,54 @@
+/* Scoped navigation and keyboard affordances; the Taskira token system remains authoritative. */
+.sidebar-project-row { position: relative; min-width: 0; }
+.sidebar-project-row .sidebar-project-link { padding-right: 40px; }
+.sidebar-project-row .sidebar-project-settings { position: absolute; right: 4px; top: 2px; width: 32px; height: 32px; opacity: 0; }
+.sidebar-project-row:is(:hover, :focus-within) .sidebar-project-settings { opacity: 1; }
+.sidebar-rail { padding-bottom: 8px; }
+.settings-nav-home + .settings-nav-home { border-top: 1px solid var(--border-default); margin-top: 20px; padding-top: 12px; }
+.settings-home-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; padding: 0 10px; font-size: 14px; font-weight: 700; color: var(--text-1); }
+.settings-home-project { display: block; flex-basis: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 20px; font-size: 13px; font-weight: 500; color: var(--text-2); }
+.settings-home-items { display: flex; flex-direction: column; gap: 2px; }
+.settings-home-switch { display: none; }
+.board-card-open { display: block; width: 100%; border-radius: 4px; text-align: left; font: inherit; color: inherit; }
+.board-card:has(.board-card-open:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.board-view[data-board-input="pointer"] .board-card:has(.board-card-open:focus-visible) { outline: none; }
+.board-view[data-board-input="pointer"] .board-card-open:focus-visible { outline: none; box-shadow: none; }
+@media (hover: none) { .sidebar-project-row .sidebar-project-settings { opacity: 1; min-width: 44px; min-height: 44px; top: 0; right: 0; } .sidebar-project-row .sidebar-project-link { min-height: 44px; padding-right: 48px; } }
+@media (max-width: 767px) {
+  .settings-home-switch { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); }
+  .settings-home-switch .ds-btn { flex: 1; min-height: 44px; }
+  .settings-home-switch [aria-pressed="true"] { color: var(--accent-text); background: var(--accent-subtle); font-weight: 600; }
+  .settings-nav-home { margin: 0; padding: 8px 12px; border: 0; }
+  .settings-nav-home[data-active="false"] { display: none; }
+  .settings-nav-home + .settings-nav-home { margin: 0; padding-top: 8px; border: 0; }
+  .settings-home-heading { display: none; }
+  .settings-home-items { flex-direction: row; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
+  .settings-home-items .ds-btn { min-height: 44px; }
+}
+
+.sidebar-teams { padding: 4px 0 12px; }
+.sidebar-team + .sidebar-team { margin-top: 20px; }
+.sidebar-team-heading { margin: 12px 10px 8px; font-size: 12px; font-weight: 600; color: var(--text-3); line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-projects-header { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 8px; }
+.sidebar-projects-toggle.ds-btn { flex: 1; min-width: 0; padding: 0; color: var(--text-1); }
+.sidebar-projects-toggle.ds-btn:not(:hover):not(:active) { background: transparent; }
+.sidebar-projects-title { flex: 1; text-align: left; font-size: 13px; font-weight: 700; }
+.sidebar-projects-count { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.sidebar-projects-add.ds-btn { flex: none; width: 24px; min-height: 24px; height: 24px; padding: 0; }
+.sidebar-projects-list { margin: 6px 0 0 14px; padding-left: 6px; border-left: 1px solid var(--border-subtle); }
+.sidebar-projects-list .sidebar-project-link { font-weight: 600; }
+.sidebar-resize-handle { position: absolute; z-index: 2; right: 0; top: 16px; bottom: 16px; width: 8px; cursor: col-resize; touch-action: none; }
+.sidebar-resize-handle::after { content: ""; position: absolute; inset: 0 0 0 auto; width: 2px; background: transparent; }
+.sidebar-resize-handle:hover:not([data-released])::after, .sidebar-resize-handle:focus-visible:not([data-pointer])::after, .sidebar-expanded[data-resizing] .sidebar-resize-handle::after { background: var(--accent-solid); }
+.sidebar-resize-handle:focus-visible { outline: none; box-shadow: none; }
+.sidebar-resize-handle:focus-visible:not([data-pointer])::after { width: 3px; background: var(--focus-ring); }
+.sidebar-resizing, .sidebar-resizing * { cursor: col-resize !important; user-select: none !important; }
+@media (min-width: 1024px) {
+  .sidebar-expanded { width: var(--sidebar-width, var(--sidebar-default-width, 248px)); transition: none; }
+}
+@media (hover: none) {
+  .sidebar-projects-header { min-height: 44px; }
+  .sidebar-projects-toggle.ds-btn, .sidebar-projects-add.ds-btn { min-height: 44px; }
+  .sidebar-projects-add.ds-btn { width: 44px; }
+  .sidebar-resize-handle { display: none; }
+}

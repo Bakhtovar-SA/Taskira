@@ -1,0 +1,29 @@
+{
+  "geometry": [
+    {
+      "x": 620,
+      "y": 609.09375,
+      "width": 218.65625,
+      "height": 38.296875,
+      "background": "oklch(0.215 0.004 260)"
+    },
+    {
+      "x": 850.65625,
+      "y": 609.09375,
+      "width": 218.671875,
+      "height": 38.296875,
+      "background": "oklch(0.215 0.004 260)"
+    },
+    {
+      "x": 1081.328125,
+      "y": 609.09375,
+      "width": 218.671875,
+      "height": 38.296875,
+      "background": "oklch(0.215 0.004 260)"
+    }
+  ],
+  "pageErrors": [],
+  "noIssueCreated": true,
+  "reminderAbsentFromCreation": true,
+  "customCalendarAnchored": true
+}

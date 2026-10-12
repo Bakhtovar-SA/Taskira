@@ -1,6 +1,7 @@
 /* Чистые функции, мапперы и типы стора (ТЗ 2.3, шаг 1): без React-состояния и хуков, ничего не читает из контекста.
  * Вынесено из store.tsx без изменений поведения; store.tsx реэкспортирует публичные имена (фасад), поэтому импорты
  * в компонентах не менялись. */
+import type { IssueRecurrenceBody } from "../../server/src/contract";
 import type { Attachment, ChecklistItem, ComplexityId, Data, Issue, IssueLink, IssueTemplate, NotificationT, IssueTypeId, PriorityId, ProjectRole, Sprint, Status, User, ViewId, Workflow } from "../types";
 import { resolveRole } from "../permissions";
 import { validateDescription, validateLabels, validateTitle } from "../validation";
@@ -112,6 +113,8 @@ export interface CreateInput {
   statusId?: string;
   dueDate?: string | null;
   checklistItems?: string[];
+  recurrence?: IssueRecurrenceBody;
+  remindAt?: string;
 }
 
 export type CreateIssuePayload = {
@@ -127,6 +130,8 @@ export type CreateIssuePayload = {
   statusId?: string;
   dueDate: string | null;
   checklistItems: string[];
+  recurrence?: IssueRecurrenceBody;
+  remindAt?: string;
 };
 
 /** Общие для createIssue() и importIssues() валидация + сборка тела
@@ -159,6 +164,8 @@ export function buildCreatePayload(input: CreateInput): { ok: true; body: Create
       statusId: input.statusId,
       dueDate: input.dueDate ?? null,
       checklistItems: input.checklistItems ?? [],
+      ...(input.recurrence ? {recurrence:input.recurrence} : {}),
+      ...(input.remindAt ? {remindAt:input.remindAt} : {}),
     },
   };
 }

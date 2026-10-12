@@ -1,0 +1,27 @@
+{
+  "uiLogin": {
+    "username": "audit_admin",
+    "status": 200,
+    "formClosed": true
+  },
+  "roleLogins": [
+    {
+      "username": "audit_admin",
+      "status": 200
+    },
+    {
+      "username": "audit_manager",
+      "status": 200
+    },
+    {
+      "username": "audit_employee",
+      "status": 200
+    },
+    {
+      "username": "audit_viewer",
+      "status": 200
+    }
+  ],
+  "capturedAt": "2026-10-09T16:16:37.755Z",
+  "note": "Only isolated local audit credentials changed; no product code changed."
+}

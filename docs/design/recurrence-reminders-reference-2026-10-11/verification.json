@@ -1,0 +1,32 @@
+{
+  "referenceOnly": true,
+  "errors": [],
+  "apiRequests": [],
+  "axe": [
+    {
+      "width": 1920,
+      "violations": []
+    },
+    {
+      "width": 3440,
+      "violations": []
+    },
+    {
+      "width": 390,
+      "violations": []
+    },
+    {
+      "width": 320,
+      "violations": []
+    }
+  ],
+  "checks": [
+    "creation recurrence frequency and weekdays",
+    "quick reminder",
+    "custom personal reminder",
+    "task action menu",
+    "selected chips",
+    "popover bounds at 1920/3440/390/320"
+  ],
+  "clock": "2026-10-11 16:30 Asia/Tashkent"
+}

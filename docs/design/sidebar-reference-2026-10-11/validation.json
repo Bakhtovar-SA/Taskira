@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-11T10:29:25.663Z",
+  "baseSha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+  "workingTree": true,
+  "stand": "http://localhost:3000",
+  "productionSidebarChanged": true,
+  "tests": {
+    "sidebar": 8,
+    "shell": 2,
+    "settingsConfirmation": 7
+  },
+  "typecheck": true,
+  "layoutDetectorFindings": 0,
+  "contrast": true,
+  "colors": true,
+  "motion": true,
+  "antilist": true,
+  "bundle": {
+    "js": 366446,
+    "css": 34852,
+    "entry": 96145,
+    "total": 401298
+  },
+  "bundlePass": true,
+  "limitsChanged": false,
+  "apiContractsChanged": false
+}

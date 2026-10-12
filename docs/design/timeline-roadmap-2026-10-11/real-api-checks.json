@@ -1,0 +1,24 @@
+{
+  "checks": [
+    "UI adds real dependency to correct dependent project",
+    "dependency persists after reload",
+    "actual server rejects cycle",
+    "UI removes real dependency",
+    "timeline name remains visible after horizontal scroll",
+    "direction inputs have readable width"
+  ],
+  "pageErrors": [],
+  "axe": [
+    {
+      "view": "roadmap",
+      "width": 1920,
+      "violations": 0
+    },
+    {
+      "view": "roadmap",
+      "width": 3440,
+      "violations": 0
+    }
+  ],
+  "temporaryProjectsCleaned": true
+}

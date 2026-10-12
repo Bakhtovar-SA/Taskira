@@ -19,6 +19,8 @@ export interface CreateIssueInput {
   complexity: ComplexityId | null;
   dueDate?: string | null;
   checklistItems: string[];
+  /** Checked by the caller under the parent advisory lock. */
+  parentId?: string | null;
   activity?: ActivityEvent;
 }
 
@@ -79,7 +81,7 @@ export async function createIssueInTx(
        reporter_id, epic_id, parent_id, labels, complexity, due_date, rank)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
     [project.id, num, `${project.key}-${num}`, input.title, input.description, input.typeId, statusId,
-      input.priorityId, actorId, input.epicId ?? null, reserved?.parentId ?? null,
+      input.priorityId, actorId, input.epicId ?? null, reserved?.parentId ?? input.parentId ?? null,
       input.labels, input.complexity, input.dueDate ?? null, rank],
   )).rows[0];
   await setAssignees(created.id, assigneeIds, actorId, client);

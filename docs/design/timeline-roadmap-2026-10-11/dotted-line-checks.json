@@ -1,0 +1,18 @@
+{
+  "checks": [
+    {
+      "width": 1920,
+      "svgCoversEmptyArea": true,
+      "endpointAtPointer": true,
+      "cursor": "default"
+    },
+    {
+      "width": 3440,
+      "svgCoversEmptyArea": true,
+      "endpointAtPointer": true,
+      "cursor": "default"
+    }
+  ],
+  "pageErrors": [],
+  "apiWrites": false
+}

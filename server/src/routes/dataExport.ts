@@ -90,7 +90,7 @@ const KEYED_TABLES: KeyedTable[] = [
   { type: "dashboard", table: "dashboards", columns: ["id", "name", "owner_id", "project_id", "shared", "widgets", "created_at", "updated_at"], where: "shared" },
   // ТЗ 5.10: шаблоны проектов организации (встроенные — в репозитории, в экспорт не входят).
   { type: "projectTemplate", table: "project_templates", columns: ["id", "name", "description", "spec", "created_by", "created_at"] },
-  { type: "issueTemplate", table: "issue_templates", columns: ["id", "project_id", "name", "type_id", "priority_id", "title", "description", "status_id", "position", "created_at"] },
+  { type: "issueTemplate", table: "issue_templates", columns: ["id", "project_id", "name", "type_id", "priority_id", "title", "description", "status_id", "position", "created_at"], where: "NOT hidden" }, // hidden = private repeat snapshots; rules are not exported
   { type: "workflowStatus", table: "workflow_statuses", columns: ["id", "project_id", "sid", "name", "category", "position"] },
   { type: "workflowTransition", table: "workflow_transitions", columns: ["id", "project_id", "from_status_id", "to_status_id"] },
   { type: "customField", table: "custom_fields", columns: ["id", "project_id", "name", "field_type", "options", "position", "created_at"] },

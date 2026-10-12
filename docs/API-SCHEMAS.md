@@ -240,6 +240,8 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `recurrence` | object | необязательное |
+| `remindAt` | string (datetime) | необязательное |
 | `title` | string | длина 1…250 |
 | `description` | string | необязательное; по умолчанию ""; длина 0…5000 |
 | `typeId` | enum: `task` \| `bug` \| `request` |  |
@@ -346,6 +348,22 @@
 | `cursor` | string | необязательное; длина 0…128 |
 | `limit` | integer | необязательное; по умолчанию 100; 1…200 |
 | `offset` | integer | необязательное; по умолчанию 0; 0…∞ |
+
+### IssueRecurrenceBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `schedule` | discriminatedunion |  |
+| `timeOfDay` | string |  |
+| `timeZone` | string | длина 1…100 |
+| `startDate` | string |  |
+| `skipIfOpen` | boolean | необязательное; по умолчанию false |
+
+### IssueReminderBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `remindAt` | string (datetime) |  |
 
 ### IssueResolveQuery
 
@@ -976,6 +994,13 @@
 |---|---|---|
 | `items` | array&lt;object&gt; |  |
 
+### IssueAutomationDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `recurrence` | object | может быть null |
+| `remindAt` | string | может быть null |
+
 ### IssueCountsDto
 
 | Поле | Тип | Замечания |
@@ -1153,7 +1178,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `id` | string |  |
-| `type` | enum: `issue.dueSoon` \| `issue.assigned` \| `issue.comment` \| `issue.mention` \| `issue.status` \| `issue.collaborator` \| `project.member` |  |
+| `type` | enum: `issue.dueSoon` \| `issue.reminder` \| `issue.assigned` \| `issue.comment` \| `issue.mention` \| `issue.status` \| `issue.collaborator` \| `project.member` |  |
 | `actorId` | string | может быть null |
 | `actor` | object | может быть null |
 | `projectId` | string | может быть null |
@@ -1344,6 +1369,7 @@
 | `id` | string (uuid) |  |
 | `projectId` | string (uuid) |  |
 | `ownerId` | string (uuid) | может быть null |
+| `sourceIssueId` | string (uuid) | необязательное, может быть null |
 | `state` | enum: `active` \| `paused` |  |
 | `pausedReason` | enum: `manual` \| `owner_lost_access` \| `invalid_timing` \| `run_failed` | может быть null |
 | `nextRunAt` | string | может быть null |

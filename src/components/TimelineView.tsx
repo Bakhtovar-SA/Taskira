@@ -121,8 +121,8 @@ export default function TimelineView() {
     resizeObsRef.current?.disconnect();
     resizeObsRef.current = null;
     if (node) {
-      setViewportW(node.getBoundingClientRect().width);
-      const ro = new ResizeObserver(() => setViewportW(node.getBoundingClientRect().width));
+      setViewportW(node.clientWidth);
+      const ro = new ResizeObserver(() => setViewportW(node.clientWidth));
       ro.observe(node);
       resizeObsRef.current = ro;
     }
@@ -235,6 +235,7 @@ export default function TimelineView() {
                   ref={cssVars({
                     "--bar-x": TIME_PAD + scale.x(addDays(origin, start * 7)),
                     "--bar-w": barW,
+                    "--viewport-w": viewportW || 600,
                     "--bar": directionColor(epic.id, epic.color),
                     "--pct": `${pct}%`,
                   })}
@@ -244,11 +245,11 @@ export default function TimelineView() {
                     <button type="button"
                       onClick={() => setOpen((o) => ({ ...o, [epic.id]: !expanded }))}
                       aria-expanded={expanded}
-                      className="timeline-name absolute left-0 top-3 flex max-w-[520px] items-center gap-2 rounded-md py-0.5 pl-1 pr-2 text-left transition-colors hover:bg-hover/70"
+                      className="timeline-name sticky left-6 top-3 flex items-center gap-2 rounded-md py-0.5 pl-1 pr-2 text-left transition-colors hover:bg-hover/70"
                     >
                       <IcChevR size={13} className={`shrink-0 text-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--bar)] shadow-[0_0_0_3px_color-mix(in_oklch,var(--bar)_20%,transparent)]" />
-                      <span className="truncate text-[14px] font-bold tracking-[-0.01em] text-ink">{epic.title}</span>
+                      <span className="min-w-0 truncate text-[14px] font-bold tracking-[-0.01em] text-ink">{epic.title}</span>
                       <span className="shrink-0 rounded-md bg-sunken px-1.5 text-[12px] font-semibold tabular text-sub ring-1 ring-inset ring-linesoft">
                         {t("timeline.issueCount", { done, total, key: epic.key })}
                       </span>

@@ -12,7 +12,7 @@ import { LIMITS } from "../../validation";
 import { recurrenceText, recurringDate } from "../../recurrenceText";
 import { pathForIssue } from "../../router";
 import { SettingsCard, SettingsPage } from "./parts";
-const RecurringRuleForm = lazy(() => import("./RecurringRuleForm"));
+import RecurringRuleForm from "./RecurringRuleForm";
 
 function RunTag({ result }: { result: RecurringRunDto["result"] | null }) {
   const { t } = useT();

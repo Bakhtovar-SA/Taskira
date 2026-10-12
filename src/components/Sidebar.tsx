@@ -10,6 +10,7 @@ import {
   IcBook,
   IcBriefcase,
   IcChevD,
+  IcDots,
   IcFlag,
   IcFlow,
   IcHome,
@@ -32,6 +33,9 @@ import { ProjectMark } from "../ui";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useT, type TKey } from "../i18n";
 import { openProjectWizard } from "../palette/events";
+import "../styles/navigation.css";
+import { SidebarResizeHandle } from "./SidebarResizeHandle";
+import { firstSection } from "../settings/access";
 
 const RailTooltip = lazy(() => import("../ds/Overlay").then((m) => ({ default: m.Tooltip })));
 
@@ -124,8 +128,6 @@ const navItem = "tk-nav group relative flex h-9 w-full items-center gap-2.5 roun
 const navOn = "tk-nav-active bg-[var(--sidebar-item-active)] font-semibold text-accenttext";
 const navOff = "text-ink/90 hover:bg-hover/70 hover:text-ink";
 const sectionLabel = "flex w-full items-center gap-1 px-2.5 pb-1 pt-3 text-[13px] font-semibold tracking-[0.01em] text-faint";
-/** Ветка дерева: отступ + направляющая линия слева — вложенность видна без подписей (ADR-0013 §1). */
-const branch = "relative ml-[17px] flex flex-col gap-px border-l border-linesoft pl-2";
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -179,16 +181,48 @@ export default function Sidebar() {
   // Выезжающая панель на узком экране: открывает кнопка «Меню» в шапке, закрывает
   // переход, Esc или клик мимо.
   const [drawer, setDrawer] = useState(false);
+  const drawerOpener = useRef<HTMLElement | null>(null);
+  const changeCollapsed = (next: boolean) => {
+    setCollapsed(next);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-sidebar-toggle]")?.focus());
+  };
   useEffect(() => {
-    const on = () => setDrawer(true);
+    const on = () => { drawerOpener.current = document.activeElement as HTMLElement | null; setDrawer(true); };
     window.addEventListener(SIDEBAR_DRAWER_EVT, on);
     return () => window.removeEventListener(SIDEBAR_DRAWER_EVT, on);
   }, []);
   useEffect(() => setDrawer(false), [ui.view, data.currentProjectId, wide, home]);
   const asideRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (drawer) asideRef.current?.querySelector<HTMLElement>("button")?.focus();
-  }, [drawer]);
+    const aside = asideRef.current;
+    if (!drawer || wide || !aside) return;
+    const opener = drawerOpener.current;
+    const background = [...(aside.parentElement?.children ?? [])]
+      .filter((el): el is HTMLElement => el instanceof HTMLElement && el !== aside && !el.hasAttribute("data-sidebar-scrim"))
+      .map(el => ({ el, inert: el.inert }));
+    background.forEach(({ el }) => { el.inert = true; });
+    const controls = () => [...aside.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea, [tabindex]")]
+      .filter(el => el.tabIndex >= 0 && !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true" && el.getClientRects().length > 0);
+    const first = () => controls()[0] ?? aside;
+    first().focus();
+    const trap = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setDrawer(false); return; }
+      if (event.key !== "Tab") return;
+      const items = controls(), start = items[0], end = items.at(-1);
+      if (!start || !end) { event.preventDefault(); aside.focus(); return; }
+      if (!aside.contains(document.activeElement) || (event.shiftKey && document.activeElement === start) || (!event.shiftKey && document.activeElement === end)) {
+        event.preventDefault(); (event.shiftKey ? end : start).focus();
+      }
+    };
+    document.addEventListener("keydown", trap, true);
+
+    return () => {
+      document.removeEventListener("keydown", trap, true);
+
+      background.forEach(({ el, inert }) => { el.inert = inert; });
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [drawer, wide]);
 
   // «[» — свернуть/развернуть (на узком экране — открыть/закрыть), Esc закрывает выезжающую.
   useEffect(() => {
@@ -201,12 +235,12 @@ export default function Sidebar() {
       }
       if (e.code !== "BracketLeft" || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("[role=dialog]")) return;
       e.preventDefault();
-      if (isWide()) setCollapsed((c) => !c);
-      else setDrawer((d) => !d);
+      if (isWide()) changeCollapsed(!collapsed);
+      else { if (!drawer) drawerOpener.current = document.activeElement as HTMLElement | null; setDrawer((d) => !d); }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [drawer]);
+  }, [drawer, collapsed]);
 
   const isOpen = (id: string, dflt = true) => open[id] ?? dflt;
   const toggle = (id: string, dflt = true) => setOpen((o) => ({ ...o, [id]: !(o[id] ?? dflt) }));
@@ -229,7 +263,12 @@ export default function Sidebar() {
   const openProject = (p: ProjectSummary) => {
     const keep = PROJECT_VIEWS.some((v) => v.id === ui.view) && (ui.view !== "sprints" || p.sprintsEnabled);
     if (!keep || home) storeSetView(p.defaultView ?? "board");
-    switchProject(p.id);
+    if (home) enterProject(p.id);
+    else switchProject(p.id);
+  };
+  const openProjectSettings = (p: ProjectSummary) => {
+    storeSetView("projectSettings", firstSection("projectSettings", { isAdmin: me.globalRole === "admin", hasProject: true }) ?? "");
+    enterProject(p.id);
   };
 
   // Проект в дереве — одна строка: представления (Доска, Список, Таймлайн, Спринты) живут
@@ -238,12 +277,12 @@ export default function Sidebar() {
     const cur = !home && p.id === data.currentProjectId;
     const active = cur && PROJECT_VIEWS.some((v) => v.id === ui.view);
     return (
+      <div key={p.id} className="sidebar-project-row">
       <Button variant="ghost" size="sm"
-        key={p.id}
         type="button"
         onClick={() => !cur ? openProject(p) : !active && setView("board")}
         aria-current={cur ? "true" : undefined}
-        className={(`${navItem} ${active ? navOn : cur ? "font-semibold text-ink" : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
+        className={(`sidebar-project-link ${navItem} ${active ? navOn : cur ? "font-semibold text-ink" : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
       >
         <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={18} />
         <span className="flex-1 truncate">{p.name}</span>
@@ -251,6 +290,10 @@ export default function Sidebar() {
         {p.isDemo && <Tag tone="amber" size="sm">{t("setup.demoTag")}</Tag>}
         {cur && !active && <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />}
       </Button>
+      <IconButton variant="ghost" size="sm" label={t("settings.title") + " · " + p.name} className="sidebar-project-settings" onClick={() => openProjectSettings(p)}>
+        <IcDots size={16} />
+      </IconButton>
+      </div>
     );
   };
 
@@ -267,14 +310,14 @@ export default function Sidebar() {
         unread={unread}
         projects={deptGroups.flatMap((g) => g.projects)}
         openProject={openProject}
-        onExpand={() => setCollapsed(false)}
+        onExpand={() => changeCollapsed(false)}
       />
     );
 
   return (
     <>
-    {drawer && <div className="anim-scrim fixed inset-0 z-40 bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] lg:hidden" onClick={() => setDrawer(false)} />}
-    <aside ref={asideRef} aria-label={t("sidebar.menu")} className={`${shell} lg:w-[304px]`}>
+    {drawer && <div data-sidebar-scrim className="anim-scrim fixed inset-0 z-40 bg-[color-mix(in_oklch,var(--bg-scrim)_60%,transparent)] lg:hidden" onClick={() => setDrawer(false)} />}
+    <aside ref={asideRef} role={drawer && !wide ? "dialog" : undefined} aria-modal={drawer && !wide ? true : undefined} tabIndex={-1} aria-label={t("sidebar.menu")} id="taskira-sidebar" className={`${shell} sidebar-expanded`}>
       {/* Знак + название инсталляции. Стеклянная панель над атмосферой (ADR-0016). */}
       <div className="mx-2 mt-2.5 flex items-center">
         {homeAvailable ? (
@@ -293,15 +336,7 @@ export default function Sidebar() {
             <BrandName className="truncate font-disp text-[17px] font-bold tracking-[-0.03em] text-ink" />
           </div>
         )}
-        <IconButton variant="ghost" size="sm" label={t(wide ? "sidebar.collapse" : "common.close")}
-          type="button"
-          onClick={() => (wide ? setCollapsed(true) : setDrawer(false))}
-
-
-          className="h-7 w-7 shrink-0"
-        >
-          <IcPanel size={17} />
-        </IconButton>
+        {!wide && <IconButton variant="ghost" size="sm" label={t("common.close")} onClick={() => setDrawer(false)} className="h-9 w-9 shrink-0"><IcPanel size={17} /></IconButton>}
       </div>
 
 
@@ -351,46 +386,34 @@ export default function Sidebar() {
             )}
         </nav>
 
-        {/* Проекты: отдел → проект → представления */}
-        <div>
-          <div className="group/proj flex items-center">
-            <Button variant="ghost" size="sm" type="button" onClick={() => toggle("s:projects")} aria-expanded={isOpen("s:projects")} className={(`${sectionLabel} hover:text-sub`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
-              <Chevron open={isOpen("s:projects")} />
-              {t("sidebar.group.projects")}
-            </Button>
-            {me.globalRole === "admin" && (
-              <IconButton variant="ghost" size="sm" label={t("wizard.title")}
-                type="button"
-                onClick={() => openProjectWizard()}
-
-
-                className="mr-1 mt-2 h-6 w-6 shrink-0 "
-              >
-                <IcPlus size={15} />
-              </IconButton>
-            )}
-          </div>
-          {isOpen("s:projects") &&
-            (deptGroups.length > 1 ? (
-              <div className="flex flex-col gap-px">
-                {deptGroups.map((g) => {
-                  const hasCur = g.projects.some((p) => p.id === data.currentProjectId);
-                  const expanded = isOpen(`d:${g.id}`, hasCur);
-                  return (
-                    <div key={g.id}>
-                      <Button variant="ghost" size="sm" type="button" onClick={() => toggle(`d:${g.id}`, hasCur)} aria-expanded={expanded} className={(`${navItem} h-7 text-[13.5px] text-sub hover:bg-hover/70 hover:text-ink`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}>
-                        <Chevron open={expanded} />
-                        <span className="flex-1 truncate">{g.name}</span>
-                        <span className="text-[12px] tabular text-faint">{g.projects.length}</span>
-                      </Button>
-                      {expanded && <div className={branch}>{g.projects.map(projectNode)}</div>}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-px">{deptGroups[0]?.projects.map(projectNode)}</div>
-            ))}
+        {/* Команда — статичный заголовок; проекты раскрыты по умолчанию. */}
+        <div className="sidebar-teams">
+          {(deptGroups.length ? deptGroups : [{ id: "", name: t("home.noDepartment"), projects: [] }]).map((g, index) => {
+            const expanded = isOpen(`projects:${g.id}`);
+            const listId = `sidebar-projects-${index}`;
+            return (
+              <section key={g.id} className="sidebar-team">
+                <h2 className="sidebar-team-heading" title={g.name}>{g.name}</h2>
+                <div className="sidebar-projects-header">
+                  <Button variant="ghost" size="sm" type="button"
+                    onClick={() => toggle(`projects:${g.id}`)}
+                    aria-expanded={expanded} aria-controls={listId}
+                    className="sidebar-projects-toggle [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:items-center [&>span.truncate]:gap-2">
+                    <Chevron open={expanded} />
+                    <span className="sidebar-projects-title">{t("sidebar.group.projects")}</span>
+                    <span className="sidebar-projects-count">{g.projects.length}</span>
+                  </Button>
+                  {me.globalRole === "admin" && (
+                    <IconButton variant="ghost" size="sm" label={t("wizard.title") + " · " + g.name}
+                      onClick={() => openProjectWizard(g.id || undefined)} className="sidebar-projects-add">
+                      <IcPlus size={15} />
+                    </IconButton>
+                  )}
+                </div>
+                <div id={listId} hidden={!expanded} className="sidebar-projects-list">{g.projects.map(projectNode)}</div>
+              </section>
+            );
+          })}
         </div>
 
         {/* Организация */}
@@ -422,7 +445,7 @@ export default function Sidebar() {
       {!home && data.projects.length < 2 && !collapsed && <GettingStarted compact className="mx-3 mb-2" />}
 
       {/* Справка остаётся внизу панели; профиль и настройки — в общей шапке. */}
-      <div className="mx-2 mb-2 flex flex-col gap-px border-t border-linesoft/70 pt-2">
+      <div className="sidebar-dock mx-2 mb-2 flex flex-col gap-1 border-t border-linesoft/70 pt-2">
         <Button variant="ghost" size="sm"
           type="button"
           onClick={() => setView("docs")}
@@ -435,7 +458,9 @@ export default function Sidebar() {
             <Kbd>?</Kbd>
           </span>
         </Button>
+        {wide && <Button variant="ghost" size="sm" data-sidebar-toggle className={navItem} onClick={() => changeCollapsed(true)} iconLeft={<IcPanel size={18} />} kbd="[">{t("sidebar.collapse")}</Button>}
       </div>
+      {wide && <SidebarResizeHandle onCollapse={() => changeCollapsed(true)} />}
     </aside>
     </>
   );
@@ -486,7 +511,7 @@ function Rail({
   const sep = <span className="my-1.5 h-px w-6 shrink-0 bg-linesoft" />;
 
   return (
-    <aside aria-label={t("sidebar.menu")} className={`${className} items-center py-2.5`}>
+    <aside aria-label={t("sidebar.menu")} className={`${className} sidebar-rail items-center py-2.5`}>
       {btn("logo", homeAvailable ? t("sidebar.homeAria") : brandName, <BrandMark size={22} />, () => homeAvailable && goHome())}
       {sep}
       <div className="flex flex-col items-center gap-1">
@@ -518,9 +543,9 @@ function Rail({
         {btn("roadmap", t("sidebar.nav.roadmap"), <IcFlag size={18} tone="teal" />, () => setView("roadmap"), ui.view === "roadmap")}
         {btn("dashboards", t("sidebar.nav.dashboards"), <IcDashboard size={18} tone="violet" />, () => setView("dashboards"), ui.view === "dashboards" || ui.view === "reports")}
       </div>
-      <div className="mt-1 flex flex-col items-center gap-1 border-t border-linesoft/70 pt-2">
+      <div className="sidebar-dock mt-1 flex flex-col items-center gap-1 border-t border-linesoft/70 pt-2">
         {btn("docs", t("sidebar.nav.docs"), <IcBook size={18} tone="orange" />, () => setView("docs"), ui.view === "docs")}
-        {btn("expand", `${t("sidebar.expand")} · [`, <IcPanel size={18} />, onExpand)}
+        <IconButton variant="ghost" size="sm" data-sidebar-toggle label={t("sidebar.expand")} kbd="[" className="h-9 w-9 shrink-0" onClick={onExpand}><IcPanel size={18} /></IconButton>
       </div>
     </aside>
   );

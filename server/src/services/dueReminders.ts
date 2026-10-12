@@ -1,6 +1,7 @@
 import { q, withTransaction } from "../db.js";
 import { loadConfig } from "../config.js";
 import { pushToUser } from "./wsHub.js";
+import { runPersonalRemindersOnce } from "./issueReminders.js";
 
 /** Shared by enqueue and mail revalidation. Read access is checked from current DB rows. */
 const ELIGIBLE = `u.is_active AND u.auth_source <> 'service' AND i.archived_at IS NULL AND s.category <> 'done'
@@ -68,13 +69,14 @@ export async function validDueReminderIds(ids: string[], now = new Date()): Prom
 }
 
 export async function runDueRemindersTick(now = new Date()): Promise<number> {
-  return runDueRemindersOnce(now);
+  const personal = await runPersonalRemindersOnce(now);
+  return personal + await runDueRemindersOnce(now);
 }
 
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 export function startDueReminders(): void {
-  if (timer || !loadConfig().reminders.enabled) return;
+  if (timer) return;
   const tick = async () => {
     if (running) return;
     running = true;

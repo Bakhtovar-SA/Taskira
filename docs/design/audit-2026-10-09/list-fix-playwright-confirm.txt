@@ -1,0 +1,72 @@
+[WebServer] (node:9560) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 24 tests using 2 workers
+
+(node:19228) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:24092) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:24092) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:19228) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [chromium] › e2e\design-audit.pw.ts:100:1 › shell refresh: mobile tabs stay in the header and drawer actions remain reachable (8.9s)
+  ok  2 [chromium] › e2e\design-audit.pw.ts:20:1 › shell refresh: navigation, favorites, shortcuts and profile (8.9s)
+  ok  4 [chromium] › e2e\design-audit.pw.ts:461:3 › board quick filters and list panels retain readable density (light) (5.6s)
+  ok  3 [chromium] › e2e\design-audit.pw.ts:461:3 › board quick filters and list panels retain readable density (dark) (6.5s)
+  ok  5 [chromium] › e2e\list-refresh.pw.ts:5:1 › list refresh: default grouping, dimensions, density and header (6.3s)
+  ok  7 [chromium] › e2e\list-refresh.pw.ts:70:1 › list refresh: status and assignee edits stay in the table under CSP (6.3s)
+  ok  6 [chromium] › e2e\list-refresh.pw.ts:32:1 › list refresh: quick filters, grouping modes and reload (11.6s)
+  ok  8 [chromium] › e2e\list-refresh.pw.ts:134:1 › list refresh: create within a status group and restore focus (5.0s)
+  ok  9 [chromium] › e2e\list-refresh.pw.ts:163:33 › list refresh: mobile reflow and targets at 390 (8.4s)
+  ok 10 [chromium] › e2e\list-refresh.pw.ts:163:33 › list refresh: mobile reflow and targets at 320 (6.8s)
+  x  11 [chromium] › e2e\list-refresh.pw.ts:198:1 › list refresh: English labels and closed rows (4.0s)
+  ok 12 [chromium] › e2e\list-refresh.pw.ts:213:1 › list refresh: viewer sees data without mutation controls (3.6s)
+(node:26772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:26772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 13 [chromium] › e2e\list-refresh.pw.ts:318:1 › list annotations: avatar filters toggle and survive reload (7.4s)
+  ok 14 [chromium] › e2e\list-refresh.pw.ts:340:1 › list annotations: direct import, labeled sort direction and separated headers (7.3s)
+  ok 15 [chromium] › e2e\list-refresh.pw.ts:267:1 › list refresh: paginated groups show loaded totals and preserve all task IDs (4.8s)
+  ok 16 [chromium] › e2e\list-refresh.pw.ts:397:33 › list annotations: mobile urgency stays visible at 320 (3.8s)
+  ok 17 [chromium] › e2e\list-refresh.pw.ts:397:33 › list annotations: mobile urgency stays visible at 390 (3.7s)
+  ok 19 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (light, 1440) (6.3s)
+  ok 18 [chromium] › e2e\list-refresh.pw.ts:412:1 › list annotations: empty direction saves space and populated direction remains readable (6.9s)
+  ok 20 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (light, 390) (5.5s)
+  ok 21 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (light, 320) (7.4s)
+  ok 22 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (dark, 1440) (7.1s)
+  ok 23 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (dark, 390) (6.6s)
+  ok 24 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (dark, 320) (6.8s)
+
+
+  1) [chromium] › e2e\list-refresh.pw.ts:198:1 › list refresh: English labels and closed rows ──────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('[data-issue-id="i8"] .list-due')
+    Expected: [32m"done"[39m
+    Error: strict mode violation: locator('[data-issue-id="i8"] .list-due') resolved to 2 elements:
+        1) <span data-urgency="done" class="list-due tabular">…</span> aka getByText('Oct 1').nth(2)
+        2) <span data-urgency="done" class="list-due tabular">…</span> aka getByText('Oct 1').nth(3)
+
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 10000ms[22m
+    [2m  - waiting for locator('[data-issue-id="i8"] .list-due')[22m
+
+
+      122 |   await expect(page.locator(".list-row")).toHaveCount(9);
+      123 |   await expect(page.locator(".list-row[data-done]")).toHaveCount(2);
+    > 124 |   await expect(page.locator('[data-issue-id="i8"] .list-due')).toHaveAttribute("data-urgency", "done");
+          |                                                                ^
+      125 | });
+      126 |
+      127 | test("list refresh: viewer sees data without mutation controls", async ({ page }) => {
+        at D:\CodexScratch\Taskira-UI-Audit-20261009\e2e\list-refresh.pw.ts:124:64
+
+    Error Context: docs\design\audit-2026-10-09\list-fix-results\list-refresh.pw.ts-list-re-553e3-lish-labels-and-closed-rows-chromium\error-context.md
+
+  1 failed
+    [chromium] › e2e\list-refresh.pw.ts:198:1 › list refresh: English labels and closed rows ───────
+  23 passed (1.7m)

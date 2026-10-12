@@ -95,7 +95,8 @@ for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] 
     await day.focus(); await day.press("ArrowRight"); await expect(page.locator('[data-day="2026-10-02"]')).toBeFocused();
     await page.keyboard.press("Enter");
     const create = page.getByRole("dialog", { name: lang === "en" ? "New issue" : "Новая задача" });
-    await expect(create).toBeVisible(); await expect(create.getByRole("button", { name: lang === "en" ? /^Due date:.*2/ : /^Срок:.*2/ })).toBeVisible();
+    await expect(create).toBeVisible(); const dateControl = create.getByRole("button", { name: lang === "en" ? "Set date" : "Задать дату", exact: true });
+    await expect(dateControl).toBeVisible(); await expect(dateControl).toContainText(lang === "en" ? /Oct 2\b/ : /^2 окт/);
     await page.keyboard.press("Escape");
     await expect(create).not.toBeVisible();
     await page.keyboard.press("1"); await expect(page).toHaveURL(/\/board/);

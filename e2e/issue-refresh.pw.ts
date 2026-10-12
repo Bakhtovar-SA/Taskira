@@ -34,8 +34,9 @@ test("issue refresh: workflow action, overdue text, visible properties and subsc
   await expect(panel.getByText("Дополнительные свойства")).toHaveCount(0);
   await expect(panel.getByText("просрочено 2 дня", { exact: true })).toBeVisible();
   await expect(panel.getByRole("button", { name: "Октябрьский запуск" })).toBeVisible();
-  await panel.getByRole("button", { name: "Взять в работу" }).click();
-  await expect(panel.locator(".issue-action-row").getByRole("button", { name: "Готово", exact: true })).toBeVisible();
+  await panel.locator(".issue-action-row").getByRole("button", { name: "К выполнению", exact: true }).click();
+  await page.getByRole("menuitem", { name: "В работе", exact: true }).click();
+  await expect(panel.locator(".issue-action-row").getByRole("button", { name: "В работе", exact: true })).toBeVisible();
   expect(writes.find(w => w.path.endsWith("/transition"))?.body).toEqual({ to: "s2", beforeId: null });
   await panel.getByRole("button", { name: "Отписаться", exact: true }).click();
   await expect(panel.getByText("Вы не подписаны на задачу")).toBeVisible();
@@ -99,6 +100,7 @@ for (const width of [390, 320]) test(`issue refresh: mobile order and targets at
     expect(box.width).toBeGreaterThanOrEqual(44);
     expect(box.height).toBeGreaterThanOrEqual(44);
   }
+  await panel.getByRole("button", { name: "Остальные свойства", exact: true }).click();
   expect((await panel.getByRole("textbox", { name: "Метки", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect((await panel.locator(".issue-properties").boundingBox())!.y).toBeLessThan((await panel.locator(".issue-content").boundingBox())!.y);
   await panel.getByRole("button", { name: "Действия", exact: true }).click();
@@ -122,7 +124,7 @@ for (const width of [768, 1024]) test(`issue properties remain readable at ${wid
     expect(properties.width).toBeGreaterThan(600);
   } else {
     expect(properties.x).toBeGreaterThan(content.x);
-    expect(properties.width).toBe(400);
+    expect(properties.width).toBe(320);
     expect(content.width).toBeGreaterThan(500);
   }
 });

@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-11T10:10:47.474Z",
+  "route": "/roadmap",
+  "role": "admin",
+  "checks": [
+    {
+      "viewport": 1920,
+      "gap": 18,
+      "stable": true
+    },
+    {
+      "viewport": 3440,
+      "gap": 13.203125,
+      "stable": true
+    },
+    {
+      "viewport": 390,
+      "gap": 10,
+      "stable": true
+    }
+  ]
+}

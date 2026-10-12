@@ -1,0 +1,67 @@
+{
+  "cardAriaSnapshot": "- 'article \"CORP-1: Единая авторизация для корпоративных сервисов\"':\n  - heading \"Единая авторизация для корпоративных сервисов\" [level=3]\n  - button \"Переместить CORP-1\"\n  - text: Корпоративная платформа\n  - img \"Критичный\"\n  - text: CORP-1 2 окт.\n  - button \"Анна Смирнова\":\n    - img \"Анна Смирнова\"\n  - button \"Игорь Петров\":\n    - img \"Игорь Петров\"",
+  "cardMarkup": {
+    "tag": "ARTICLE",
+    "role": null,
+    "tabIndex": "0",
+    "label": "CORP-1: Единая авторизация для корпоративных сервисов"
+  },
+  "cardButtons": [
+    {
+      "label": "Переместить CORP-1",
+      "width": 44,
+      "height": 44,
+      "x": 311,
+      "y": 486.125,
+      "ariaHasPopup": "menu"
+    },
+    {
+      "label": "Анна Смирнова",
+      "width": 44,
+      "height": 44,
+      "x": 272,
+      "y": 570.96875,
+      "ariaHasPopup": "dialog"
+    },
+    {
+      "label": "Игорь Петров",
+      "width": 44,
+      "height": 44,
+      "x": 311,
+      "y": 570.96875,
+      "ariaHasPopup": "dialog"
+    }
+  ],
+  "keyboardOpenDialog": 1,
+  "drawer": {
+    "role": null,
+    "ariaModal": null,
+    "activeInside": false,
+    "firstEscapeTab": 1,
+    "focusOutside": {
+      "tag": "BUTTON",
+      "label": "Поиск и команды",
+      "text": "Поиск и командыCtrl K"
+    },
+    "escapeFocus": {
+      "tag": "BUTTON",
+      "label": "Поиск и команды",
+      "text": "Поиск и командыCtrl K"
+    }
+  },
+  "fullPageAxe": [
+    {
+      "id": "page-has-heading-one",
+      "impact": "moderate",
+      "description": "Ensure that the page, or at least one of its frames contains a level-one heading",
+      "nodes": [
+        {
+          "target": [
+            "html"
+          ],
+          "summary": "Fix all of the following:\n  Page must have a level-one heading"
+        }
+      ]
+    }
+  ]
+}

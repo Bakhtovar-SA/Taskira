@@ -1,0 +1,58 @@
+{
+  "clientTypecheck": "passed",
+  "serverTypecheck": "passed",
+  "clientBuild": "passed",
+  "serverBuild": "passed",
+  "frontendTests": 73,
+  "issueAutomationServerTests": 10,
+  "accessMatrixManifestCrossProjectTests": 1155,
+  "recurringDueReminderTests": 50,
+  "smtpTestsSkipped": 6,
+  "productionNewScenarios": 12,
+  "productionListRegressionScenarios": 22,
+  "axe320Violations": 0,
+  "docsCheck": "passed",
+  "permissionsCheck": "passed",
+  "colorsCheck": "passed",
+  "motionCheck": "passed",
+  "diffCheck": "passed",
+  "actualStandWorkerProof": "stand-validation.json",
+  "budgetApproval": "approved",
+  "finalCalendarCreateUnitTests": 6,
+  "bundleCheck": "passed",
+  "compactRepeat": "single row on desktop; icon apply and one remove button; no heading, subtitle or footer",
+  "impeccableLayoutFindings": 0,
+  "clientRegression": {
+    "total": 873,
+    "passedInBroadRun": 872,
+    "oneTimingFailure": "PermissionsView.service.test.tsx; passed in isolated retry",
+    "retryPassed": 7,
+    "retryFailed": 0
+  },
+  "serverRegression": {
+    "total": 2321,
+    "passed": 2295,
+    "skipped": 21,
+    "environmentFailures": 5,
+    "environment": "Windows PostgreSQL 18, C locale",
+    "details": [
+      "customFields/searchIndex/issueTemplates: C locale does not case-fold Cyrillic",
+      "healthWarnings/observability: PostgreSQL 18 is outside the supported 14–17 range"
+    ],
+    "unicodeCustomFieldsPassed": 20
+  },
+  "contrastCheck": "passed",
+  "antiListCheck": "passed",
+  "postRebaseApiTests": {
+    "passed": 45,
+    "failed": 0,
+    "database": "PostgreSQL 18 with ICU Unicode locale",
+    "baseCommit": "63716355f769a3f419258b1c0e3f7513a6da6d38",
+    "coverage": [
+      "issueAutomation",
+      "customFields",
+      "searchIndex",
+      "issueTemplates"
+    ]
+  }
+}

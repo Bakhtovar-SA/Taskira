@@ -289,6 +289,7 @@ export interface NotificationT {
   id: string;
   type:
     | "issue.dueSoon"
+    | "issue.reminder"
     | "issue.assigned"
     | "issue.comment"
     | "issue.mention"

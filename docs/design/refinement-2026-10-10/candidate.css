@@ -1,0 +1,11 @@
+/* Candidate: refine the incumbent hierarchy, without replacing Taskira's design language. */
+.board-col { padding: 6px 8px 8px; gap: 8px; }
+.board-col-header { height: 40px; }
+.board-card { padding: 16px 14px; gap: 12px; box-shadow: var(--board-priority-inset); }
+.board-card h3 { line-height: 1.5; font-weight: 500; }
+.board-card:hover { box-shadow: var(--board-priority-inset), 0 0 0 1px var(--border-strong); }
+.issue-title { font-size: 24px; font-weight: 600; line-height: 1.4; text-wrap: pretty; }
+.issue-content { gap: 24px; }
+.issue-description { padding: 18px; }
+.issue-tile .issue-field-label { font-weight: 600; }
+@media (max-width: 767px) { .board-col-header { height: 48px; } .issue-title { font-size: 22px; } .issue-description { padding: 14px; } }

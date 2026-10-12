@@ -1,9 +1,11 @@
+import type { IssueRecurrenceBody } from "../server/src/contract";
 import type { ComplexityId, Issue, IssueTypeId, PriorityId } from "./types";
 
 export type CreateDraft = {
   typeId: IssueTypeId; title: string; description: string; priorityId: PriorityId;
   complexity: ComplexityId | null; assigneeIds: string[]; epicId: string | null; epicPicked: Issue | null;
   dueDate: string; labels: string[]; labelDraft: string; checklistItems: string[]; checklistDraft: string;
+  recurrence?: IssueRecurrenceBody | null; remindAt?: string | null;
   templateId: string; templateStatusId: string | null; again: boolean;
 };
 

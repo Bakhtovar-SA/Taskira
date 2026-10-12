@@ -1,0 +1,27 @@
+{
+  "previewOnly": true,
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "baseSha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+  "date": "2026-10-11T10:10:41.096Z",
+  "hierarchy": [
+    {
+      "team": "Продуктовая команда",
+      "projects": [
+        "Рабочие процессы"
+      ]
+    },
+    {
+      "team": "Разработка",
+      "projects": [
+        "Разработка продукта"
+      ]
+    }
+  ],
+  "teamHeadingsInteractive": false,
+  "projectsExpanded": true,
+  "productionSidebarChanged": false,
+  "projectsHeaderSurface": "plain-text"
+}

@@ -1,0 +1,60 @@
+{
+  "manifest": 36,
+  "checks": [
+    {
+      "name": "all-screenshot-files-and-images",
+      "passed": true,
+      "count": 36
+    },
+    {
+      "name": "album-filters-layout-axe",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "passed": true,
+      "count": 1,
+      "violations": 0
+    },
+    {
+      "name": "album-filters-layout-axe",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "passed": true,
+      "count": 1,
+      "violations": 0
+    },
+    {
+      "name": "stand-after-stop-start",
+      "passed": true,
+      "login": 200,
+      "cards": 12
+    }
+  ],
+  "readiness": {
+    "ok": true,
+    "postgres": {
+      "major": 18,
+      "status": "newer_than_tested",
+      "minMajor": 14,
+      "maxTestedMajor": 17
+    },
+    "db": true,
+    "checks": {
+      "db": true,
+      "migrations": true,
+      "storage": true
+    },
+    "warnings": [
+      {
+        "code": "postgres_version_untested",
+        "reason": "PostgreSQL 18 новее проверенных версий (14–17): работа не гарантирована."
+      }
+    ],
+    "version": "dev",
+    "ts": "2026-10-09T16:11:36.174Z"
+  },
+  "errors": []
+}

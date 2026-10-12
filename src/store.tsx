@@ -81,7 +81,7 @@ interface Api {
     onProgress?: (done: number, total: number) => void,
     isCancelled?: () => boolean,
   ) => Promise<{ ok: number; failed: number; cancelled: boolean }>;
-  updateIssue: (id: string, patch: Partial<Issue>) => void;
+  updateIssue: (id: string, patch: Partial<Issue>) => Promise<boolean>;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null, onSettled?: (confirmed: boolean) => void) => void;
   /** Растёт при изменениях, способных поменять состав или порядок наборов задач
    *  (создание, импорт, удаление, правка полей, смена статуса): по ней Список и
@@ -93,7 +93,7 @@ interface Api {
   epicsRevision: number;
   /** Задача по id: из известных стору, иначе точечный `GET …/issues/:id` (без тостов при ошибке). */
   lookupIssue: (id: string) => Promise<Issue | null>;
-  addComment: (issueId: string, body: string) => void;
+  addComment: (issueId: string, body: string) => Promise<boolean>;
   addCollaborator: (issueId: string, userId: string) => void;
   removeCollaborator: (issueId: string, userId: string) => void;
   addIssueLink: (issueId: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") => void;

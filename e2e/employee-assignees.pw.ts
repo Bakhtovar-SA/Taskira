@@ -32,10 +32,16 @@ test("employee can select only self when creating/editing/bulk assigning", async
   await page.locator('[role=row][data-issue-id="i1"]').getByRole("button", { name: "Изменить исполнителей CORP-1", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Исполнитель", exact: true }).getByRole("button", { name: /Игорь Петров/ })).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await page.locator(".workspace-controls").getByRole("button", { name: "Настройки вида", exact: true }).click();
-  await page.getByRole("button", { name: "Выделить", exact: true }).click();
-  await page.locator('[role=row][data-issue-id="i1"]').getByRole("checkbox").check();
-  await page.getByRole("toolbar").getByRole("button", { name: "Исполнитель", exact: true }).click();
+  // Row selection is contextual: the checkbox appears on hover/focus, no "Выделить" mode switch.
+  const row = page.locator('[role=row][data-issue-id="i1"]');
+  await row.hover();
+  await expect(row.locator(".list-select")).toHaveCSS("opacity", "1");
+  const select = row.getByRole("checkbox");
+  await select.locator("..").click();
+  await expect(select).toBeChecked();
+  // The floating selection bar keeps field actions behind its "Действия" popover.
+  await page.getByRole("toolbar").getByRole("button", { name: "Действия", exact: true }).click();
+  await page.locator(".bulk-action-menu").getByRole("button", { name: "Исполнитель", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Снять себя", exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Анна Смирнова", exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Игорь Петров", exact: true })).toHaveCount(0);

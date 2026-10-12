@@ -1,0 +1,17 @@
+{
+  "checks": [
+    {
+      "width": 1920,
+      "listZoom": "0.9"
+    },
+    {
+      "width": 3440,
+      "listZoom": "1"
+    }
+  ],
+  "persistence": true,
+  "personalReminderDeliveredOnce": true,
+  "recurringWorkerCreatedIssue": true,
+  "temporaryDataRemoved": true,
+  "pageErrors": []
+}

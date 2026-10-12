@@ -1,0 +1,9 @@
+{
+  "typecheck": 0,
+  "colors:check": 0,
+  "motion:check": 0,
+  "antilist:check": 0,
+  "contrast:check": 0,
+  "permissions:check": 0,
+  "perf:rerenders": 0
+}

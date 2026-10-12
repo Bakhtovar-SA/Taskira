@@ -1,0 +1,237 @@
+{
+  "checks": [
+    {
+      "name": "selection axe dark 1920",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "filters axe dark 1920",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "value menu axe dark 1920",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "calendar overflow dark 1920",
+      "pass": true,
+      "details": [
+        {
+          "bottom": 587.21875,
+          "cellBottom": 597.21875
+        },
+        {
+          "bottom": 756.609375,
+          "cellBottom": 769.21875
+        }
+      ]
+    },
+    {
+      "name": "single unassigned contour dark 1920",
+      "pass": true
+    },
+    {
+      "name": "profile axe dark 1920",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "selection axe dark 3440",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "filters axe dark 3440",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "value menu axe dark 3440",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "calendar overflow dark 3440",
+      "pass": true,
+      "details": [
+        {
+          "bottom": 699.796875,
+          "cellBottom": 718.515625
+        },
+        {
+          "bottom": 900.265625,
+          "cellBottom": 921.84375
+        }
+      ]
+    },
+    {
+      "name": "single unassigned contour dark 3440",
+      "pass": true
+    },
+    {
+      "name": "profile axe dark 3440",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "selection axe dark 390",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "filters axe dark 390",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "value menu axe dark 390",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "single unassigned contour dark 390",
+      "pass": true
+    },
+    {
+      "name": "profile axe dark 390",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "selection axe light 1920",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "filters axe light 1920",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "value menu axe light 1920",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "calendar overflow light 1920",
+      "pass": true,
+      "details": [
+        {
+          "bottom": 587.21875,
+          "cellBottom": 597.21875
+        },
+        {
+          "bottom": 756.609375,
+          "cellBottom": 769.21875
+        }
+      ]
+    },
+    {
+      "name": "single unassigned contour light 1920",
+      "pass": true
+    },
+    {
+      "name": "profile axe light 1920",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "selection axe light 3440",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "filters axe light 3440",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "value menu axe light 3440",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "calendar overflow light 3440",
+      "pass": true,
+      "details": [
+        {
+          "bottom": 699.796875,
+          "cellBottom": 718.515625
+        },
+        {
+          "bottom": 900.265625,
+          "cellBottom": 921.84375
+        }
+      ]
+    },
+    {
+      "name": "single unassigned contour light 3440",
+      "pass": true
+    },
+    {
+      "name": "profile axe light 3440",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "selection axe light 390",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "filters axe light 390",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "value menu axe light 390",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "single unassigned contour light 390",
+      "pass": true
+    },
+    {
+      "name": "profile axe light 390",
+      "pass": true,
+      "details": []
+    },
+    {
+      "name": "real API bulk priority and reload persistence",
+      "pass": true,
+      "details": {
+        "tasks": 2,
+        "status": 200,
+        "reload": true
+      }
+    },
+    {
+      "name": "viewer controls hidden and server denies forged bulk request",
+      "pass": true,
+      "details": {
+        "denied": 2
+      }
+    },
+    {
+      "name": "cleanup disposable task",
+      "pass": true,
+      "details": {
+        "key": "UX-20",
+        "status": 204
+      }
+    },
+    {
+      "name": "cleanup disposable task",
+      "pass": true,
+      "details": {
+        "key": "UX-21",
+        "status": 204
+      }
+    }
+  ],
+  "errors": []
+}

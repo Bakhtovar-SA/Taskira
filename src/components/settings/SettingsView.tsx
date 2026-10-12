@@ -124,19 +124,23 @@ export default function SettingsView() {
   } else page = section === "service-accounts" ? <ServiceAccounts key={me.id} /> : section === "departments" ? <AdminView /> : <OrgSection section={section} />;
 
   return (
-    <div className="flex h-full min-h-0 max-md:flex-col">
-      <nav aria-label={t("settings.title")} className="shrink-0 border-linesoft md:w-[236px] md:overflow-y-auto md:border-r md:px-3 md:py-5 max-md:flex max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:px-3 max-md:py-2">
+    <div className="settings-layout flex h-full min-h-0 max-md:flex-col">
+      <nav aria-label={t("settings.title")} className="settings-nav shrink-0 border-linesoft md:w-[236px] md:overflow-y-auto md:border-r md:px-3 md:py-5 max-md:border-b">
         <p className="px-2.5 pb-2 font-disp text-[16px] font-bold tracking-[-0.01em] text-ink max-md:hidden">{t("settings.title")}</p>
+        <div className="settings-home-switch" aria-label={t("settings.title")}>
+          {HOMES.filter(h => nav(h).length > 0).map(h => <Button key={h} variant="ghost" size="sm" aria-pressed={home === h} onClick={() => { const items = nav(h); setView(h, items.includes(DEFAULT_SECTION[h]) ? DEFAULT_SECTION[h] : items[0]); }}>{t(HOME_KEY[h])}</Button>)}
+        </div>
         {HOMES.map((h) => {
           const items = nav(h);
           if (!items.length) return null;
           return (
-            <div key={h} className="md:mb-3 max-md:contents">
-              <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-2 text-[12.5px] font-semibold text-faint max-md:hidden">
+            <section key={h} className="settings-nav-home" data-active={h === home} aria-labelledby={`settings-home-${h}`}>
+              <h2 id={`settings-home-${h}`} className="settings-home-heading">
                 {h === "projectSettings" && <ProjectMark projectKey={data.project.key} {...lookOf(data.projects, data.currentProjectId)} size={14} />}
                 {t(HOME_KEY[h])}
-                {h === "projectSettings" && <span className="truncate font-medium">· {data.project.name}</span>}
-              </p>
+                {h === "projectSettings" && <span className="settings-home-project">{data.project.name}</span>}
+              </h2>
+              <div className="settings-home-items">
               {items.map((s) => {
                 const on = h === home && s === section;
                 const m = META[s];
@@ -155,7 +159,8 @@ export default function SettingsView() {
                   </Button>
                 );
               })}
-            </div>
+              </div>
+            </section>
           );
         })}
       </nav>

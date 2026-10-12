@@ -1,0 +1,24 @@
+{
+  "gzipBytes": {
+    "js": 377202,
+    "css": 36929,
+    "entry": 97165,
+    "total": 414131
+  },
+  "limits": {
+    "total": 414196,
+    "js": 377953,
+    "css": 37267,
+    "entry": 121995
+  },
+  "exceeded": {
+    "total": 0,
+    "js": 0,
+    "css": 0,
+    "entry": 0
+  },
+  "budgetApproval": "approved 2026-10-11: +9 KiB total, +8 KiB JS, +1 KiB CSS",
+  "baseUnchanged": true,
+  "entryLimitUnchanged": true,
+  "ok": true
+}

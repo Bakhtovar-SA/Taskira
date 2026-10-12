@@ -1,0 +1,416 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary "Menu" [ref=e4]:
+    - button "Go to home screen" [ref=e6] [cursor=pointer]:
+      - generic [ref=e7]:
+        - img [ref=e8]
+        - generic [ref=e10]: Taskira
+    - generic [ref=e11]:
+      - navigation "Personal sections" [ref=e12]:
+        - button "Home" [ref=e13] [cursor=pointer]:
+          - generic [ref=e14]:
+            - img [ref=e15]
+            - generic [ref=e19]: Home
+        - button "Inbox 3" [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]:
+            - img [ref=e22]
+            - generic [ref=e25]: Inbox
+            - generic [ref=e26]: "3"
+        - button "My issues 0" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]:
+            - img [ref=e29]
+            - generic [ref=e32]: My issues
+            - generic [ref=e33]: "0"
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - button "Projects" [expanded] [ref=e36] [cursor=pointer]:
+            - generic [ref=e37]:
+              - img [ref=e39]
+              - text: Projects
+          - button "New project" [ref=e41] [cursor=pointer]:
+            - img [ref=e43]
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - button "Общий отдел 1" [expanded] [ref=e48] [cursor=pointer]:
+              - generic [ref=e49]:
+                - img [ref=e51]
+                - generic [ref=e53]: Общий отдел
+                - generic [ref=e54]: "1"
+            - generic [ref=e56]:
+              - button "Корпоративные задачи" [ref=e57] [cursor=pointer]:
+                - generic [ref=e58]:
+                  - generic [ref=e59]: C
+                  - generic [ref=e60]: Корпоративные задачи
+                  - img [ref=e62]
+              - button "Settings · Корпоративные задачи" [ref=e64] [cursor=pointer]:
+                - img [ref=e66]
+          - button "Юридический отдел с длинным названием 1" [ref=e71] [cursor=pointer]:
+            - generic [ref=e72]:
+              - img [ref=e74]
+              - generic [ref=e76]: Юридический отдел с длинным названием
+              - generic [ref=e77]: "1"
+      - generic [ref=e78]:
+        - paragraph [ref=e79]: Organization
+        - button "Roadmap" [ref=e80] [cursor=pointer]:
+          - generic [ref=e81]:
+            - img [ref=e82]
+            - generic [ref=e85]: Roadmap
+        - button "Reports and dashboards" [ref=e86] [cursor=pointer]:
+          - generic [ref=e87]:
+            - img [ref=e88]
+            - generic [ref=e94]: Reports and dashboards
+    - generic [ref=e95]:
+      - button "Help ?" [ref=e96] [cursor=pointer]:
+        - generic [ref=e97]:
+          - img [ref=e98]
+          - generic [ref=e101]: Help
+          - generic [ref=e103]: "?"
+      - button "Collapse sidebar [" [ref=e104] [cursor=pointer]:
+        - img [ref=e106]
+        - generic [ref=e109]: Collapse sidebar
+        - generic [ref=e110]: "["
+  - generic [ref=e112]:
+    - banner [ref=e113]:
+      - generic [ref=e114]:
+        - generic [ref=e115]:
+          - button "Search and commands" [ref=e116] [cursor=pointer]:
+            - img [ref=e118]
+            - generic [ref=e122]: Search and commands
+            - generic [ref=e124]: Ctrl K
+          - button "Create issue" [ref=e125] [cursor=pointer]:
+            - img [ref=e127]
+            - generic [ref=e130]: Issue
+            - generic [ref=e131]: C
+        - generic [ref=e132]:
+          - button "Notifications" [ref=e133] [cursor=pointer]:
+            - img [ref=e135]
+          - button "Settings" [ref=e141] [cursor=pointer]:
+            - img [ref=e143]
+          - button "User menu" [ref=e153] [cursor=pointer]:
+            - img "Анна Смирнова" [ref=e155]:
+              - generic [ref=e156]: АС
+    - region "Project views" [ref=e157]:
+      - generic [ref=e158]:
+        - generic [ref=e159]:
+          - button "Корпоративные задачи" [ref=e160] [cursor=pointer]:
+            - generic [ref=e161]:
+              - generic [ref=e162]: C
+              - generic [ref=e163]: Корпоративные задачи
+              - img [ref=e164]
+          - button "Remove from favorites" [pressed] [ref=e166] [cursor=pointer]:
+            - img [ref=e168]
+        - navigation "Project views" [ref=e171]:
+          - group "Project views" [ref=e172]:
+            - link "Overview" [ref=e173] [cursor=pointer]:
+              - /url: /p/CORP/overview?done=1&group=status
+              - img [ref=e175]
+              - text: Overview
+            - link "Board" [ref=e181] [cursor=pointer]:
+              - /url: /p/CORP/board?done=1&group=status
+              - img [ref=e183]
+              - text: Board
+            - link "List" [ref=e188] [cursor=pointer]:
+              - /url: /p/CORP/list?done=1&group=status
+              - img [ref=e190]
+              - text: List
+            - link "Timeline" [ref=e198] [cursor=pointer]:
+              - /url: /p/CORP/timeline?done=1&group=status
+              - img [ref=e200]
+              - text: Timeline
+            - link "Calendar" [ref=e205] [cursor=pointer]:
+              - /url: /p/CORP/calendar?done=1&group=status
+              - img [ref=e207]
+              - text: Calendar
+    - main [ref=e215]:
+      - generic [ref=e217]:
+        - generic [ref=e218]:
+          - generic [ref=e219]:
+            - generic [ref=e220]:
+              - img [ref=e221]
+              - textbox "Filter issues" [ref=e225]
+              - generic [ref=e226]: /
+            - generic [ref=e227]:
+              - button "Mine" [ref=e228] [cursor=pointer]:
+                - generic [ref=e229]: Mine
+              - button "Overdue" [ref=e230] [cursor=pointer]:
+                - generic [ref=e231]: Overdue3
+              - button "Unassigned" [ref=e232] [cursor=pointer]:
+                - generic [ref=e233]: Unassigned
+            - group "Assignee" [ref=e234]:
+              - generic [ref=e235]:
+                - 'button "Filter: Анна Смирнова" [ref=e236]':
+                  - img "Анна Смирнова" [ref=e237]:
+                    - generic [ref=e238]: АС
+                - 'button "Filter: Игорь Петров" [ref=e239]':
+                  - img "Игорь Петров" [ref=e240]:
+                    - generic [ref=e241]: ИП
+            - generic [ref=e242]:
+              - generic [ref=e243]: 9 of 9
+              - 'button "Grouping: status" [ref=e244] [cursor=pointer]':
+                - generic [ref=e245]: "Grouping: status"
+                - img [ref=e247]
+              - button "Filters" [ref=e249] [cursor=pointer]:
+                - img [ref=e250]
+                - generic [ref=e254]: "1"
+              - button "View settings" [ref=e255] [cursor=pointer]:
+                - text: View
+                - img [ref=e256]
+              - button "Import" [ref=e258] [cursor=pointer]:
+                - img [ref=e260]
+                - generic [ref=e263]: Import
+          - status [ref=e264]:
+            - generic [ref=e265]: Show closed
+            - button "Reset" [ref=e266]:
+              - img [ref=e267]
+              - text: Reset
+        - generic [ref=e272]:
+          - table "Backlog" [ref=e273]:
+            - row "Priority Key Title Direction Due date Assignee Actions" [ref=e274]:
+              - columnheader "Priority" [ref=e275]:
+                - button "Priority" [ref=e276]:
+                  - generic [ref=e277]: Priority
+                  - img [ref=e278]
+              - columnheader "Key" [ref=e280]:
+                - button "Key" [ref=e281]:
+                  - generic "Key" [ref=e282]
+              - columnheader "Title" [ref=e283]
+              - columnheader "Direction" [ref=e284]:
+                - generic "Direction" [ref=e285]
+              - columnheader "Due date" [ref=e286]:
+                - button "Due date" [ref=e287]:
+                  - generic "Due date" [ref=e288]
+              - columnheader "Assignee" [ref=e289]:
+                - generic "Assignee" [ref=e290]
+              - columnheader "Actions":
+                - generic [ref=e291]: Actions
+            - rowgroup "To do" [ref=e292]:
+              - row "To do 3 Add to “To do”" [ref=e293]:
+                - cell "To do 3 Add to “To do”" [ref=e294]:
+                  - img [ref=e295]
+                  - generic "To do" [ref=e297]
+                  - 'generic "Loaded tasks: 3" [ref=e298]': "3"
+                  - button "Add to “To do”" [ref=e299]:
+                    - img [ref=e300]
+              - row "Critical CORP-1 Единая авторизация для корпоративных сервисов Change status for CORP-1 Корпоративная платформа Oct 2 Change assignees for CORP-1 Actions" [ref=e303] [cursor=pointer]:
+                - cell "Critical" [ref=e304]:
+                  - img "Critical" [ref=e305]
+                - cell "CORP-1" [ref=e309]
+                - cell "Единая авторизация для корпоративных сервисов Change status for CORP-1" [ref=e310]:
+                  - link "Единая авторизация для корпоративных сервисов" [ref=e311]:
+                    - /url: /p/CORP/issue/CORP-1
+                  - button "Change status for CORP-1" [ref=e313]:
+                    - img [ref=e315]
+                    - img [ref=e318]
+                - cell "Корпоративная платформа" [ref=e320]:
+                  - generic [ref=e323]: Корпоративная платформа
+                - cell "Oct 2" [ref=e324]:
+                  - generic "Overdue" [ref=e325]:
+                    - img [ref=e326]
+                    - text: Oct 2
+                - cell "Change assignees for CORP-1" [ref=e329]:
+                  - button "Change assignees for CORP-1" [ref=e330]:
+                    - generic [ref=e331]:
+                      - img "Анна Смирнова" [ref=e332]:
+                        - generic [ref=e333]: АС
+                      - img "Игорь Петров" [ref=e334]:
+                        - generic [ref=e335]: ИП
+                - cell "Actions" [ref=e336]:
+                  - button "Actions" [ref=e337]:
+                    - img [ref=e338]
+              - row "High CORP-2 Подготовить план запуска Change status for CORP-2 Oct 7 Change assignees for CORP-2 Actions" [ref=e342] [cursor=pointer]:
+                - cell "High" [ref=e343]:
+                  - img "High" [ref=e344]
+                - cell "CORP-2" [ref=e348]
+                - cell "Подготовить план запуска Change status for CORP-2" [ref=e349]:
+                  - link "Подготовить план запуска" [ref=e350]:
+                    - /url: /p/CORP/issue/CORP-2
+                  - button "Change status for CORP-2" [ref=e352]:
+                    - img [ref=e354]
+                    - img [ref=e357]
+                - cell
+                - cell "Oct 7" [ref=e359]:
+                  - generic [ref=e360]:
+                    - img [ref=e361]
+                    - text: Oct 7
+                - cell "Change assignees for CORP-2" [ref=e364]:
+                  - button "Change assignees for CORP-2" [ref=e365]:
+                    - img "Анна Смирнова" [ref=e367]:
+                      - generic [ref=e368]: АС
+                - cell "Actions" [ref=e369]:
+                  - button "Actions" [ref=e370]:
+                    - img [ref=e371]
+              - row "Medium CORP-3 Согласовать правила доступа Change status for CORP-3 Юридические вопросы и согласование договоров Oct 8 Change assignees for CORP-3 Actions" [ref=e375] [cursor=pointer]:
+                - cell "Medium" [ref=e376]:
+                  - img "Medium" [ref=e377]
+                - cell "CORP-3" [ref=e381]
+                - cell "Согласовать правила доступа Change status for CORP-3" [ref=e382]:
+                  - link "Согласовать правила доступа" [ref=e383]:
+                    - /url: /p/CORP/issue/CORP-3
+                  - button "Change status for CORP-3" [ref=e385]:
+                    - img [ref=e387]
+                    - img [ref=e390]
+                - cell "Юридические вопросы и согласование договоров" [ref=e392]:
+                  - generic [ref=e395]: Юридические вопросы и согласование договоров
+                - cell "Oct 8" [ref=e396]:
+                  - generic [ref=e397]:
+                    - img [ref=e398]
+                    - text: Oct 8
+                - cell "Change assignees for CORP-3" [ref=e401]:
+                  - button "Change assignees for CORP-3" [ref=e402]:
+                    - img "Unassigned" [ref=e403]:
+                      - generic [ref=e404]: –
+                - cell "Actions" [ref=e405]:
+                  - button "Actions" [ref=e406]:
+                    - img [ref=e407]
+            - rowgroup "In progress" [ref=e411]:
+              - row "In progress 2" [ref=e412]:
+                - cell "In progress 2" [ref=e413]:
+                  - img [ref=e414]
+                  - generic "In progress" [ref=e417]
+                  - 'generic "Loaded tasks: 2" [ref=e418]': "2"
+              - row "Medium CORP-4 Настроить уведомления о новых задачах Change status for CORP-4 Корпоративная платформа Oct 4 Change assignees for CORP-4 Actions" [ref=e419] [cursor=pointer]:
+                - cell "Medium" [ref=e420]:
+                  - img "Medium" [ref=e421]
+                - cell "CORP-4" [ref=e425]
+                - cell "Настроить уведомления о новых задачах Change status for CORP-4" [ref=e426]:
+                  - link "Настроить уведомления о новых задачах" [ref=e427]:
+                    - /url: /p/CORP/issue/CORP-4
+                  - button "Change status for CORP-4" [ref=e429]:
+                    - img [ref=e431]
+                    - img [ref=e435]
+                - cell "Корпоративная платформа" [ref=e437]:
+                  - generic [ref=e440]: Корпоративная платформа
+                - cell "Oct 4" [ref=e441]:
+                  - generic [ref=e442]:
+                    - img [ref=e443]
+                    - text: Oct 4
+                - cell "Change assignees for CORP-4" [ref=e446]:
+                  - button "Change assignees for CORP-4" [ref=e447]:
+                    - img "Игорь Петров" [ref=e449]:
+                      - generic [ref=e450]: ИП
+                - cell "Actions" [ref=e451]:
+                  - button "Actions" [ref=e452]:
+                    - img [ref=e453]
+              - row "High CORP-5 Уточнить роли и права участников Change status for CORP-5 Oct 1 Change assignees for CORP-5 Actions" [ref=e457] [cursor=pointer]:
+                - cell "High" [ref=e458]:
+                  - img "High" [ref=e459]
+                - cell "CORP-5" [ref=e463]
+                - cell "Уточнить роли и права участников Change status for CORP-5" [ref=e464]:
+                  - link "Уточнить роли и права участников" [ref=e465]:
+                    - /url: /p/CORP/issue/CORP-5
+                  - button "Change status for CORP-5" [ref=e467]:
+                    - img [ref=e469]
+                    - img [ref=e473]
+                - cell
+                - cell "Oct 1" [ref=e475]:
+                  - generic "Overdue" [ref=e476]:
+                    - img [ref=e477]
+                    - text: Oct 1
+                - cell "Change assignees for CORP-5" [ref=e480]:
+                  - button "Change assignees for CORP-5" [ref=e481]:
+                    - img "Анна Смирнова" [ref=e483]:
+                      - generic [ref=e484]: АС
+                - cell "Actions" [ref=e485]:
+                  - button "Actions" [ref=e486]:
+                    - img [ref=e487]
+            - rowgroup "Review" [ref=e491]:
+              - row "Review 2" [ref=e492]:
+                - cell "Review 2" [ref=e493]:
+                  - img [ref=e494]
+                  - generic "Review" [ref=e497]
+                  - 'generic "Loaded tasks: 2" [ref=e498]': "2"
+              - row "Low CORP-6 Проверить документы перед запуском Change status for CORP-6 Юридические вопросы и согласование договоров Change assignees for CORP-6 Actions" [ref=e499] [cursor=pointer]:
+                - cell "Low" [ref=e500]:
+                  - img "Low" [ref=e501]
+                - cell "CORP-6" [ref=e505]
+                - cell "Проверить документы перед запуском Change status for CORP-6" [ref=e506]:
+                  - link "Проверить документы перед запуском" [ref=e507]:
+                    - /url: /p/CORP/issue/CORP-6
+                  - button "Change status for CORP-6" [ref=e509]:
+                    - img [ref=e511]
+                    - img [ref=e515]
+                - cell "Юридические вопросы и согласование договоров" [ref=e517]:
+                  - generic [ref=e520]: Юридические вопросы и согласование договоров
+                - cell
+                - cell "Change assignees for CORP-6" [ref=e521]:
+                  - button "Change assignees for CORP-6" [ref=e522]:
+                    - img "Игорь Петров" [ref=e524]:
+                      - generic [ref=e525]: ИП
+                - cell "Actions" [ref=e526]:
+                  - button "Actions" [ref=e527]:
+                    - img [ref=e528]
+              - row "Medium CORP-7 Добавить журнал изменений Change status for CORP-7 Oct 3 Change assignees for CORP-7 Actions" [ref=e532] [cursor=pointer]:
+                - cell "Medium" [ref=e533]:
+                  - img "Medium" [ref=e534]
+                - cell "CORP-7" [ref=e538]
+                - cell "Добавить журнал изменений Change status for CORP-7" [ref=e539]:
+                  - link "Добавить журнал изменений" [ref=e540]:
+                    - /url: /p/CORP/issue/CORP-7
+                  - button "Change status for CORP-7" [ref=e542]:
+                    - img [ref=e544]
+                    - img [ref=e548]
+                - cell
+                - cell "Oct 3" [ref=e550]:
+                  - generic "Overdue" [ref=e551]:
+                    - img [ref=e552]
+                    - text: Oct 3
+                - cell "Change assignees for CORP-7" [ref=e555]:
+                  - button "Change assignees for CORP-7" [ref=e556]:
+                    - img "Unassigned" [ref=e557]:
+                      - generic [ref=e558]: –
+                - cell "Actions" [ref=e559]:
+                  - button "Actions" [ref=e560]:
+                    - img [ref=e561]
+            - rowgroup "Done" [ref=e565]:
+              - row "Done 2" [ref=e566]:
+                - cell "Done 2" [ref=e567]:
+                  - img [ref=e568]
+                  - generic "Done" [ref=e571]
+                  - 'generic "Loaded tasks: 2" [ref=e572]': "2"
+              - row "Critical CORP-8 Обновить страницу проекта Change status for CORP-8 Корпоративная платформа Oct 1 Change assignees for CORP-8 Actions" [ref=e573] [cursor=pointer]:
+                - cell "Critical" [ref=e574]:
+                  - img "Critical" [ref=e575]
+                - cell "CORP-8" [ref=e579]
+                - cell "Обновить страницу проекта Change status for CORP-8" [ref=e580]:
+                  - link "Обновить страницу проекта" [ref=e581]:
+                    - /url: /p/CORP/issue/CORP-8
+                  - button "Change status for CORP-8" [ref=e583]:
+                    - img [ref=e585]
+                    - img [ref=e589]
+                - cell "Корпоративная платформа" [ref=e591]:
+                  - generic [ref=e594]: Корпоративная платформа
+                - cell "Oct 1" [ref=e595]:
+                  - generic [ref=e596]:
+                    - img [ref=e597]
+                    - text: Oct 1
+                - cell "Change assignees for CORP-8" [ref=e600]:
+                  - button "Change assignees for CORP-8" [ref=e601]:
+                    - img "Анна Смирнова" [ref=e603]:
+                      - generic [ref=e604]: АС
+                - cell "Actions" [ref=e605]:
+                  - button "Actions" [ref=e606]:
+                    - img [ref=e607]
+              - row "Low CORP-9 Согласовать прошлый релиз Change status for CORP-9 Change assignees for CORP-9 Actions" [ref=e611] [cursor=pointer]:
+                - cell "Low" [ref=e612]:
+                  - img "Low" [ref=e613]
+                - cell "CORP-9" [ref=e617]
+                - cell "Согласовать прошлый релиз Change status for CORP-9" [ref=e618]:
+                  - link "Согласовать прошлый релиз" [ref=e619]:
+                    - /url: /p/CORP/issue/CORP-9
+                  - button "Change status for CORP-9" [ref=e621]:
+                    - img [ref=e623]
+                    - img [ref=e627]
+                - cell
+                - cell
+                - cell "Change assignees for CORP-9" [ref=e629]:
+                  - button "Change assignees for CORP-9" [ref=e630]:
+                    - img "Unassigned" [ref=e631]:
+                      - generic [ref=e632]: –
+                - cell "Actions" [ref=e633]:
+                  - button "Actions" [ref=e634]:
+                    - img [ref=e635]
+          - generic [ref=e640]: All 9 issues shown
+  - status
+```

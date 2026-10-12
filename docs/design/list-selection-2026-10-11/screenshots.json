@@ -1,0 +1,730 @@
+[
+  {
+    "file": "screenshots/dark-1920-calm.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:31.236Z",
+    "state": "calm"
+  },
+  {
+    "file": "screenshots/dark-1920-hover.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:31.666Z",
+    "state": "hover"
+  },
+  {
+    "file": "screenshots/dark-1920-selected.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:32.447Z",
+    "state": "selected"
+  },
+  {
+    "file": "screenshots/dark-1920-actions.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:33.001Z",
+    "state": "actions"
+  },
+  {
+    "file": "screenshots/dark-1920-filters.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:37.059Z",
+    "state": "filters"
+  },
+  {
+    "file": "screenshots/dark-1920-status-menu.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:38.457Z",
+    "state": "status-menu"
+  },
+  {
+    "file": "screenshots/dark-1920-view.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:39.898Z",
+    "state": "view"
+  },
+  {
+    "file": "screenshots/dark-1920-calendar.png",
+    "route": "/p/UX/calendar",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:43.009Z",
+    "state": "calendar"
+  },
+  {
+    "file": "screenshots/dark-1920-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:45.833Z",
+    "state": "board"
+  },
+  {
+    "file": "screenshots/dark-1920-user-preview.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:46.684Z",
+    "state": "profile-hover"
+  },
+  {
+    "file": "screenshots/dark-3440-calm.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:52.800Z",
+    "state": "calm"
+  },
+  {
+    "file": "screenshots/dark-3440-hover.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:53.363Z",
+    "state": "hover"
+  },
+  {
+    "file": "screenshots/dark-3440-selected.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:54.380Z",
+    "state": "selected"
+  },
+  {
+    "file": "screenshots/dark-3440-actions.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:55.422Z",
+    "state": "actions"
+  },
+  {
+    "file": "screenshots/dark-3440-filters.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:09:59.397Z",
+    "state": "filters"
+  },
+  {
+    "file": "screenshots/dark-3440-status-menu.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:01.064Z",
+    "state": "status-menu"
+  },
+  {
+    "file": "screenshots/dark-3440-view.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:03.020Z",
+    "state": "view"
+  },
+  {
+    "file": "screenshots/dark-3440-calendar.png",
+    "route": "/p/UX/calendar",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:07.713Z",
+    "state": "calendar"
+  },
+  {
+    "file": "screenshots/dark-3440-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:12.119Z",
+    "state": "board"
+  },
+  {
+    "file": "screenshots/dark-3440-user-preview.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:13.429Z",
+    "state": "profile-hover"
+  },
+  {
+    "file": "screenshots/dark-390-calm.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:17.993Z",
+    "state": "calm"
+  },
+  {
+    "file": "screenshots/dark-390-selected.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:18.433Z",
+    "state": "selected"
+  },
+  {
+    "file": "screenshots/dark-390-actions.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:18.646Z",
+    "state": "actions"
+  },
+  {
+    "file": "screenshots/dark-390-filters.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:21.562Z",
+    "state": "filters"
+  },
+  {
+    "file": "screenshots/dark-390-status-menu.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:22.569Z",
+    "state": "status-menu"
+  },
+  {
+    "file": "screenshots/dark-390-view.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:23.498Z",
+    "state": "view"
+  },
+  {
+    "file": "screenshots/dark-390-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:26.396Z",
+    "state": "board"
+  },
+  {
+    "file": "screenshots/dark-390-user-preview.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:26.662Z",
+    "state": "profile-click"
+  },
+  {
+    "file": "screenshots/light-1920-calm.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:31.529Z",
+    "state": "calm"
+  },
+  {
+    "file": "screenshots/light-1920-hover.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:31.863Z",
+    "state": "hover"
+  },
+  {
+    "file": "screenshots/light-1920-selected.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:32.511Z",
+    "state": "selected"
+  },
+  {
+    "file": "screenshots/light-1920-actions.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:33.042Z",
+    "state": "actions"
+  },
+  {
+    "file": "screenshots/light-1920-filters.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:36.225Z",
+    "state": "filters"
+  },
+  {
+    "file": "screenshots/light-1920-status-menu.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:37.486Z",
+    "state": "status-menu"
+  },
+  {
+    "file": "screenshots/light-1920-view.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:38.730Z",
+    "state": "view"
+  },
+  {
+    "file": "screenshots/light-1920-calendar.png",
+    "route": "/p/UX/calendar",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:41.751Z",
+    "state": "calendar"
+  },
+  {
+    "file": "screenshots/light-1920-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:44.903Z",
+    "state": "board"
+  },
+  {
+    "file": "screenshots/light-1920-user-preview.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:45.694Z",
+    "state": "profile-hover"
+  },
+  {
+    "file": "screenshots/light-3440-calm.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:58.777Z",
+    "state": "calm"
+  },
+  {
+    "file": "screenshots/light-3440-hover.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:10:59.315Z",
+    "state": "hover"
+  },
+  {
+    "file": "screenshots/light-3440-selected.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:00.312Z",
+    "state": "selected"
+  },
+  {
+    "file": "screenshots/light-3440-actions.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:01.271Z",
+    "state": "actions"
+  },
+  {
+    "file": "screenshots/light-3440-filters.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:07.513Z",
+    "state": "filters"
+  },
+  {
+    "file": "screenshots/light-3440-status-menu.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:09.513Z",
+    "state": "status-menu"
+  },
+  {
+    "file": "screenshots/light-3440-view.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:11.885Z",
+    "state": "view"
+  },
+  {
+    "file": "screenshots/light-3440-calendar.png",
+    "route": "/p/UX/calendar",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:16.914Z",
+    "state": "calendar"
+  },
+  {
+    "file": "screenshots/light-3440-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:21.462Z",
+    "state": "board"
+  },
+  {
+    "file": "screenshots/light-3440-user-preview.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:22.823Z",
+    "state": "profile-hover"
+  },
+  {
+    "file": "screenshots/light-390-calm.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:27.503Z",
+    "state": "calm"
+  },
+  {
+    "file": "screenshots/light-390-selected.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:27.964Z",
+    "state": "selected"
+  },
+  {
+    "file": "screenshots/light-390-actions.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:28.214Z",
+    "state": "actions"
+  },
+  {
+    "file": "screenshots/light-390-filters.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:31.441Z",
+    "state": "filters"
+  },
+  {
+    "file": "screenshots/light-390-status-menu.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:32.402Z",
+    "state": "status-menu"
+  },
+  {
+    "file": "screenshots/light-390-view.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:33.349Z",
+    "state": "view"
+  },
+  {
+    "file": "screenshots/light-390-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:36.277Z",
+    "state": "board"
+  },
+  {
+    "file": "screenshots/light-390-user-preview.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-11T09:11:36.503Z",
+    "state": "profile-click"
+  }
+]

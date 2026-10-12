@@ -6,6 +6,8 @@ import { applyTheme, watchSystemTheme } from "./theme";
 import { I18nProvider, loadLang, storedLang } from "./i18n";
 import { dismissSplash } from "./splash";
 import { loadBrand } from "./brand";
+import { installTitleHints } from "./titleHints";
+installTitleHints();
 
 // Внешний theme-init.js ставит data-theme до загрузки CSS без нарушения CSP;
 // здесь применяем ещё и пресет фона --c-canvas, затем следим за системой.

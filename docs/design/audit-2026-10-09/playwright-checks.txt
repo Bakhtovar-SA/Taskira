@@ -1,0 +1,215 @@
+[WebServer] (node:28160) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 61 tests using 2 workers
+
+(node:14016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:17468) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:17468) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [chromium] › e2e\board-refresh.pw.ts:4:1 › board refresh: card hierarchy, due states and closed critical priority (7.0s)
+  ok  2 [chromium] › e2e\board-refresh.pw.ts:42:34 › board refresh: 4 statuses at 1440 (7.3s)
+  ok  4 [chromium] › e2e\board-refresh.pw.ts:42:34 › board refresh: 6 statuses at 1440 (4.6s)
+  ok  3 [chromium] › e2e\board-refresh.pw.ts:42:34 › board refresh: 5 statuses at 1440 (4.9s)
+  ok  5 [chromium] › e2e\board-refresh.pw.ts:71:1 › board refresh: English toolbar (3.9s)
+  ok  6 [chromium] › e2e\board-refresh.pw.ts:95:1 › board refresh: quick filters restore from URL and compose with overdue (8.9s)
+  ok  7 [chromium] › e2e\board-refresh.pw.ts:132:1 › board can clear URL-only conditions through its filter summary (5.9s)
+  ok  9 [chromium] › e2e\board-refresh.pw.ts:221:33 › board refresh: mobile targets and no overflow at 390 (4.2s)
+  ok  8 [chromium] › e2e\board-refresh.pw.ts:146:1 › assignee overflow preserves avatar order and marks the active filter (5.8s)
+  ok 10 [chromium] › e2e\board-refresh.pw.ts:221:33 › board refresh: mobile targets and no overflow at 320 (4.3s)
+  ok 11 [chromium] › e2e\board-refresh.pw.ts:239:3 › touch board guidance › move guidance and card action remain visible without hover (4.3s)
+  ok 13 [chromium] › e2e\design-audit.pw.ts:100:1 › shell refresh: mobile tabs stay in the header and drawer actions remain reachable (5.6s)
+  ok 12 [chromium] › e2e\design-audit.pw.ts:20:1 › shell refresh: navigation, favorites, shortcuts and profile (7.1s)
+  ok 14 [chromium] › e2e\design-audit.pw.ts:302:1 › composed task screens work without CSP violations (6.4s)
+  ok 15 [chromium] › e2e\design-audit.pw.ts:340:3 › task links, actions and table reflow (light) (8.3s)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+  ok 16 [chromium] › e2e\design-audit.pw.ts:390:3 › draft survives Esc and failed creation, successful creation clears it (light) (7.1s)
+  ok 17 [chromium] › e2e\design-audit.pw.ts:461:3 › board quick filters and list panels retain readable density (light) (6.2s)
+  ok 19 [chromium] › e2e\design-audit.pw.ts:340:3 › task links, actions and table reflow (dark) (8.1s)
+  ok 18 [chromium] › e2e\design-audit.pw.ts:498:3 › mobile properties precede activity and actual forms pass axe (light) (14.2s)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+  ok 20 [chromium] › e2e\design-audit.pw.ts:390:3 › draft survives Esc and failed creation, successful creation clears it (dark) (6.3s)
+  ok 21 [chromium] › e2e\design-audit.pw.ts:461:3 › board quick filters and list panels retain readable density (dark) (5.8s)
+  ok 23 [chromium] › e2e\home-refresh.pw.ts:5:1 › home refresh: shared shell, dimensions, summary and real project totals (3.5s)
+  ok 24 [chromium] › e2e\home-refresh.pw.ts:40:1 › home refresh: all my issues, return home and personal navigation (6.4s)
+  ok 22 [chromium] › e2e\design-audit.pw.ts:498:3 › mobile properties precede activity and actual forms pass axe (dark) (14.8s)
+  ok 25 [chromium] › e2e\home-refresh.pw.ts:69:1 › home refresh: real issue links open the full issue page (5.0s)
+  ok 26 [chromium] › e2e\home-refresh.pw.ts:80:1 › home refresh: global creation chooses a project and records successful creation (6.3s)
+  ok 28 [chromium] › e2e\home-refresh.pw.ts:151:1 › home refresh: employee rework and read-only invitation (3.9s)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+  ok 29 [chromium] › e2e\home-refresh.pw.ts:163:1 › home refresh: empty activity, truncated counts and failed totals remain honest (5.8s)
+  ok 27 [chromium] › e2e\home-refresh.pw.ts:123:1 › home refresh: shortcuts, dismissal and completed steps persist (17.0s)
+  ok 30 [chromium] › e2e\home-refresh.pw.ts:215:1 › home refresh: English summary and labels (5.9s)
+  ok 31 [chromium] › e2e\home-refresh.pw.ts:256:1 › home refresh: production CSP allows progress without violations (7.5s)
+  ok 32 [chromium] › e2e\home-refresh.pw.ts:269:1 › home refresh: C and palette navigation are available before choosing a project (11.3s)
+browser: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+  ok 33 [chromium] › e2e\home-refresh.pw.ts:294:1 › home refresh: invitations complete only after confirmed membership (18.4s)
+  ok 35 [chromium] › e2e\issue-refresh.pw.ts:45:1 › issue refresh: workflow action, overdue text, visible properties and subscription (6.9s)
+  ok 34 [chromium] › e2e\issue-refresh.pw.ts:13:1 › opening an issue defaults to comments, while the combined feed remains available (22.1s)
+  ok 36 [chromium] › e2e\issue-refresh.pw.ts:76:1 › issue refresh: tabs with keyboard and comment after the feed (6.0s)
+  ok 37 [chromium] › e2e\issue-refresh.pw.ts:111:1 › issue refresh: permissions hide workflow and editing for viewer (4.7s)
+  ok 38 [chromium] › e2e\issue-refresh.pw.ts:136:1 › issue refresh: files dropped anywhere in panel use the upload endpoint under CSP (4.4s)
+  ok 39 [chromium] › e2e\issue-refresh.pw.ts:164:33 › issue refresh: mobile order and targets at 390 (8.0s)
+  ok 40 [chromium] › e2e\issue-refresh.pw.ts:164:33 › issue refresh: mobile order and targets at 320 (6.5s)
+  ok 41 [chromium] › e2e\issue-refresh.pw.ts:201:34 › issue properties remain readable at 768 (3.7s)
+  ok 42 [chromium] › e2e\issue-refresh.pw.ts:201:34 › issue properties remain readable at 1024 (4.5s)
+  ok 43 [chromium] › e2e\list-refresh.pw.ts:5:1 › list refresh: default grouping, dimensions, density and header (3.9s)
+  ok 45 [chromium] › e2e\list-refresh.pw.ts:70:1 › list refresh: status and assignee edits stay in the table under CSP (6.2s)
+  ok 44 [chromium] › e2e\list-refresh.pw.ts:32:1 › list refresh: quick filters, grouping modes and reload (8.5s)
+  ok 46 [chromium] › e2e\list-refresh.pw.ts:134:1 › list refresh: create within a status group and restore focus (4.8s)
+  ok 47 [chromium] › e2e\list-refresh.pw.ts:198:1 › list refresh: English labels and closed rows (4.8s)
+  ok 48 [chromium] › e2e\list-refresh.pw.ts:213:1 › list refresh: viewer sees data without mutation controls (5.2s)
+  ok 49 [chromium] › e2e\list-refresh.pw.ts:267:1 › list refresh: paginated groups show loaded totals and preserve all task IDs (4.6s)
+[WebServer] 20:44:50 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:44:50 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:44:51 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:44:52 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:44:54 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:44:54 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+  ok 51 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (light, 390) (6.1s)
+  ok 50 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (light, 1440) (7.5s)
+[WebServer] 20:44:57 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:44:57 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:44:58 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:44:58 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:45:00 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:45:00 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+  ok 52 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (light, 320) (6.5s)
+  ok 53 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (dark, 1440) (6.8s)
+[WebServer] 20:45:04 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+[WebServer] 20:45:04 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:45:05 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+[WebServer] 20:45:05 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:45:07 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+[WebServer] 20:45:07 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+  ok 54 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (dark, 390) (7.4s)
+  ok 55 [chromium] › e2e\workspace-controls.pw.ts:5:3 › list panels stay below stable controls (dark, 320) (7.8s)
+[WebServer] 20:45:11 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+  ok 56 [chromium] › e2e\workspace-controls.pw.ts:74:3 › board has direct actions and no hidden filter panel (light, 1440) (4.1s)
+[WebServer] 20:45:12 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+  ok 57 [chromium] › e2e\workspace-controls.pw.ts:74:3 › board has direct actions and no hidden filter panel (light, 390) (4.1s)
+[WebServer] 20:45:16 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:45:17 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+[WebServer] 20:45:17 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+  ok 58 [chromium] › e2e\workspace-controls.pw.ts:74:3 › board has direct actions and no hidden filter panel (light, 320) (5.4s)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:45:18 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+  ok 59 [chromium] › e2e\workspace-controls.pw.ts:74:3 › board has direct actions and no hidden filter panel (dark, 1440) (5.1s)
+[WebServer] 20:45:21 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+[WebServer] 20:45:22 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+  ok 60 [chromium] › e2e\workspace-controls.pw.ts:74:3 › board has direct actions and no hidden filter panel (dark, 390) (4.9s)
+[WebServer] 20:45:23 [vite] ws proxy error:
+[WebServer] AggregateError [ECONNREFUSED]:
+[WebServer]     at internalConnectMultiple (node:net:1426:18)
+[WebServer]     at afterConnectMultiple (node:net:2095:7)
+browser: WebSocket connection to 'ws://127.0.0.1:3111/api/ws' failed: Connection closed before receiving a handshake response
+  ok 61 [chromium] › e2e\workspace-controls.pw.ts:74:3 › board has direct actions and no hidden filter panel (dark, 320) (5.2s)
+
+  61 passed (4.1m)

@@ -12,7 +12,7 @@ test("home refresh: shared shell, dimensions, summary and real project totals", 
   expect((await page.locator(".home-activity").first().boundingBox())!.height).toBe(38);
   expect((await page.locator(".home-card-head").first().boundingBox())!.height).toBe(48);
   const style = await page.locator(".home-content").evaluate(e => ({ padding: getComputedStyle(e).padding, font: getComputedStyle(e.querySelector("h1")!).fontSize }));
-  expect(style).toEqual({ padding: "28px 32px", font: "30px" });
+  expect(style).toEqual({ padding: "28px 32px", font: "26px" });
   await expect(page.locator(".home-project-count").first()).toContainText("моих 5");
   await expect(page.getByText("открыто 5", { exact: true })).toBeVisible();
   await expect(page.getByRole("progressbar", { name: "Готовность проекта «Корпоративные задачи»" })).toHaveAttribute("aria-valuenow", String(7 / 12 * 100));
@@ -97,7 +97,7 @@ for (const width of [320, 390]) test("home refresh: mobile " + width + " navigat
   await expect(page.locator(".home-task")).toHaveCount(5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
   expect((await page.locator(".home-task").first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  expect((await page.locator(".home-menu").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect((await page.locator(".global-topbar").getByRole("button", { name: "Меню", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   const axe = await new AxeBuilder({ page }).include(".home-view").analyze();
   expect(axe.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
   await page.screenshot({ path: "shots/home-mobile-" + width + ".png" });

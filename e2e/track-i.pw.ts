@@ -89,10 +89,26 @@ for (const theme of ["light", "dark"] as const) {
     await page.keyboard.press("c");
     await expect(page.getByRole("dialog", { name: "Новая задача" })).toBeVisible();
     const createDialog = page.getByRole("dialog", { name: /Новая задача/ });
-    await exerciseDate(page, "Срок", "Убрать срок", createDialog);
-    await createDialog.getByRole("button", { name: /^Срок:/ }).click();
-    await page.getByRole("textbox", { name: "Срок", exact: true }).fill("15 окт 2026");
-    await page.getByRole("textbox", { name: "Срок", exact: true }).press("Enter");
+    // The create dialog has no "Срок:" button any more: a "Задать дату" menu opens the same date picker via "Другая дата…".
+    const dateControl = createDialog.getByRole("button", { name: "Задать дату", exact: true });
+    const openCustomDate = async () => {
+      await dateControl.click();
+      await page.getByRole("menuitem", { name: /Другая дата/ }).click();
+    };
+    const dateInput = page.getByRole("textbox", { name: "Задать дату", exact: true });
+    await expect(dateControl).toHaveText("Задать дату");
+    await openCustomDate();
+    await expect(dateInput).toBeFocused();
+    await dateInput.fill("15 окт 2026");
+    await dateInput.press("Enter");
+    await expect(dateControl).toContainText("15 окт");
+    await openCustomDate();
+    await page.getByRole("button", { name: "Убрать срок", exact: true }).click();
+    await expect(dateControl).toHaveText("Задать дату");
+    await openCustomDate();
+    await dateInput.fill("15 окт 2026");
+    await dateInput.press("Enter");
+    await expect(dateControl).toContainText("15 окт");
     await createDialog.getByPlaceholder("Например: Экран восстановления пароля").fill("Date payload check");
     await createDialog.getByRole("button", { name: "Создать задачу", exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);

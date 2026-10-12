@@ -7,15 +7,16 @@ import { resolveRole, roleCan, type GlobalRole, type ProjectRole } from "../perm
 import { q, withAdvisoryLock, withTransaction } from "../db.js";
 import { ApiHttpError } from "../errors.js";
 import { badRequest, notFound } from "../middleware.js";
-import { LIMITS, type RecurrenceSchedule, type RecurringRuleBody, type RecurringRuleDto,
+import { LIMITS, type ComplexityId, type RecurrenceSchedule, type RecurringRuleBody, type RecurringRuleDto,
   type RecurringRulePatchBody, type RecurringRunDto } from "../contract.js";
-import { validateAssigneesInProject, type IssueRow } from "./issues.js";
+import { validateAssigneesInProject, validateParentAssignmentTx, type IssueRow } from "./issues.js";
 import { createIssueInTx } from "./issueCreate.js";
 import { assertValidTiming, localDateOf, nextOccurrence, occurrencesBetween } from "./recurrence.js";
 import { projectById, type ProjectRow } from "./project.js";
 
 interface RuleRow {
   id: string; project_id: string; template_id: string; name: string; title: string | null;
+  source_issue_id: string | null; source_snapshot: { epicId: string | null; labels: string[]; complexity: ComplexityId | null; checklistItems: string[] } | null;
   schedule: RecurrenceSchedule; time_of_day: string; time_zone: string; start_date: string;
   due_in_days: number | null; skip_if_open: boolean; owner_id: string | null;
   state: "active" | "paused"; paused_reason: "manual" | "owner_lost_access" | "invalid_timing" | "run_failed" | null;
@@ -29,7 +30,7 @@ const RULE_SELECT = `SELECT r.*, to_char(r.time_of_day, 'HH24:MI') AS time_of_da
   FROM recurring_rules r`;
 
 const toDto = (r: RuleRow): RecurringRuleDto => ({
-  id: r.id, projectId: r.project_id, templateId: r.template_id, name: r.name, title: r.title,
+  id: r.id, projectId: r.project_id, templateId: r.template_id, name: r.name, title: r.title, sourceIssueId: r.source_issue_id,
   schedule: r.schedule, timeOfDay: r.time_of_day, timeZone: r.time_zone, startDate: r.start_date,
   dueInDays: r.due_in_days, skipIfOpen: r.skip_if_open, assigneeIds: r.assignee_ids, ownerId: r.owner_id,
   state: r.state, pausedReason: r.paused_reason, nextRunAt: r.next_run_at?.toISOString() ?? null,
@@ -85,10 +86,17 @@ export async function listRecurringRules(projectId: string): Promise<RecurringRu
   return (await q<RuleRow>(`${RULE_SELECT} WHERE r.project_id = $1 ORDER BY r.created_at, r.id`, [projectId])).map(toDto);
 }
 
+/** Serialises the per-project rule limit check. An advisory lock, not `projects FOR UPDATE`: that row lock queues behind
+ *  the KEY SHARE every issue insert holds on the project, so taking it after an issue INSERT could deadlock. */
+export async function lockRecurringRules(client: PoolClient, projectId: string): Promise<void> {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`taskira:recurring-rules:${projectId}`]);
+}
+
 export async function createRecurringRule(project: ProjectRow, body: RecurringRuleBody, actorId: string): Promise<RecurringRuleDto> {
   try {
     return await withTransaction(async client => {
-      const exists = (await client.query(`SELECT id FROM projects WHERE id = $1 FOR UPDATE`, [project.id])).rows[0];
+      await lockRecurringRules(client, project.id);
+      const exists = (await client.query(`SELECT id FROM projects WHERE id = $1`, [project.id])).rows[0];
       if (!exists) throw notFound("Проект не найден");
       const count = (await client.query<{ count: number }>(
         `SELECT count(*)::int AS count FROM recurring_rules WHERE project_id = $1`, [project.id],
@@ -130,8 +138,9 @@ export async function updateRecurringRule(project: ProjectRow, id: string, patch
 
 export async function deleteRecurringRule(projectId: string, id: string): Promise<void> {
   await withTransaction(async client => {
-    await loadRule(client, projectId, id, true);
+    const old = await loadRule(client, projectId, id, true);
     await client.query(`DELETE FROM recurring_rules WHERE id = $1 AND project_id = $2`, [id, projectId]);
+    if (old.source_issue_id) await client.query(`DELETE FROM issue_templates t WHERE id = $1 AND hidden AND NOT EXISTS (SELECT 1 FROM recurring_rules r WHERE r.template_id = t.id)`, [old.template_id]);
   });
 }
 
@@ -213,8 +222,8 @@ export async function runRule(client: PoolClient, project: ProjectRow, rule: Rul
   if (rule.skip_if_open) {
     const open = (await client.query<{ open: boolean }>(`SELECT EXISTS (
       SELECT 1 FROM issues i JOIN workflow_statuses ws ON ws.id = i.status_id
-      WHERE i.id = (SELECT issue_id FROM recurring_runs WHERE rule_id = $1 AND result = 'created'
-        ORDER BY scheduled_for DESC, ran_at DESC, id DESC LIMIT 1)
+      WHERE i.id = COALESCE((SELECT issue_id FROM recurring_runs WHERE rule_id = $1 AND result = 'created'
+        ORDER BY scheduled_for DESC, ran_at DESC, id DESC LIMIT 1), (SELECT source_issue_id FROM recurring_rules WHERE id = $1))
         AND i.archived_at IS NULL AND ws.category <> 'done') AS open`, [rule.id])).rows[0].open;
     if (open) {
       const run = (await client.query<{ id: string }>(`INSERT INTO recurring_runs (rule_id, scheduled_for, result, manual, missed_count)
@@ -254,10 +263,13 @@ export async function runRule(client: PoolClient, project: ProjectRow, rule: Rul
     const title = (rule.title ?? template.title) || rule.name;
     const dueDate = rule.due_in_days === null ? null
       : new Date(Date.parse(`${date}T00:00:00Z`) + rule.due_in_days * 86_400_000).toISOString().slice(0, 10);
+    const parentId = rule.source_issue_id ? (await client.query<{parent_id:string|null}>('SELECT parent_id FROM issues WHERE id=$1',[rule.source_issue_id])).rows[0]?.parent_id ?? null : null;
+    if(parentId){await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[parentId]);await validateParentAssignmentTx(client,project.id,parentId,null);}
     const issue = await createIssueInTx(client, project, {
+      parentId,
       title: expandedTitle(title, date), description: template.description, typeId: template.type_id,
       priorityId: template.priority_id, statusId: template.status_id, assigneeIds,
-      epicId: null, labels: [], complexity: null, dueDate, checklistItems: [],
+      epicId: rule.source_snapshot?.epicId ?? null, labels: rule.source_snapshot?.labels ?? [], complexity: rule.source_snapshot?.complexity ?? null, dueDate, checklistItems: rule.source_snapshot?.checklistItems ?? [],
       activity: { kind: "created", ruleId: rule.id, ruleName: rule.name },
     }, owner.id);
     await client.query(`UPDATE recurring_runs SET issue_id = $2, details = $3::jsonb WHERE id = $1`,
@@ -402,4 +414,9 @@ export async function runRecurringOnce(now = new Date()): Promise<RecurringStats
   const stats = locked.acquired ? locked.value : emptyStats(true);
   recordBackgroundJob("recurring", stats.skipped ? "skipped" : "success", stats.skipped ? undefined : (performance.now() - started) / 1000);
   return stats;
+}
+
+export async function issueRecurringRule(projectId: string, issueId: string): Promise<RecurringRuleDto | null> {
+ const row = (await q<RuleRow>(`${RULE_SELECT} WHERE r.project_id = $1 AND (r.source_issue_id = $2 OR EXISTS (SELECT 1 FROM recurring_runs run WHERE run.rule_id = r.id AND run.issue_id = $2)) LIMIT 1`, [projectId, issueId]))[0];
+ return row ? toDto(row) : null;
 }

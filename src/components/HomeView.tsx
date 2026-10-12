@@ -7,7 +7,7 @@ import { roadmapApi } from "../api";
 import { useNotifications, useStore } from "../store";
 import { fmtDate, relTime, readLastProject } from "../store/mappers";
 import type { AssignedIssue, NotificationT, ViewId } from "../types";
-import { IcBell, IcCheck, IcComment, IcMyIssues, IcPanel, IcPlus, IcX, StatusGlyph } from "../icons";
+import { IcBell, IcCheck, IcComment, IcMyIssues, IcPlus, IcX, StatusGlyph } from "../icons";
 import { ProjectMark, projectTone } from "../ui";
 import { NOTIF_VERB } from "./Topbar";
 import { useT } from "../i18n";
@@ -17,7 +17,6 @@ import { homeGroup, type HomeGroup } from "../homeGroups";
 import { localToday, dateOf } from "../calendarLayout";
 import { markHomeStep, useHomeSteps, type HomeStep } from "../homeSteps";
 import { OPEN_HOME_CREATE_EVT, takeHomeCreate, openShortcuts } from "../palette/events";
-import { openSidebarDrawer } from "./Sidebar";
 import { pathForIssue } from "../router";
 import { readRecent } from "../palette/recent";
 
@@ -78,13 +77,12 @@ export default function HomeView() {
 
   return <div className="home-view h-full overflow-y-auto">
     <div className="home-content">
-      <IconButton variant="ghost" size="lg" className="home-menu lg:hidden" label={t("sidebar.menu")} onClick={openSidebarDrawer}><IcPanel size={20} /></IconButton>
       <p className="home-date first-letter:uppercase">{dateLine}</p>
       <h1>{t(greetingKey(), { name: greetingName(me) })}</h1>
       <p className="home-summary">
         <span className={count("overdue") ? "text-[var(--status-danger-fg)]" : undefined}>{count("overdue")} {tn(count("overdue"), "home.summaryOverdue.one", "home.summaryOverdue.few", "home.summaryOverdue.many")}</span>
         {t("home.summaryWeek", { n: count("week") })}
-        {t(rework && !review ? "home.summaryRework" : "home.summaryReview", { n: rework && !review ? rework : review })}
+        {rework && !review ? t("home.summaryRework", { n: rework }) : t("home.summaryReview", { n: review, verb: tn(review, "home.reviewVerb.one", "home.reviewVerb.few", "home.reviewVerb.many") })}
       </p>
       <div className="home-grid">
         <div className="min-w-0 space-y-6">

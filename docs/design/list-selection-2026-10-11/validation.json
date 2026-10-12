@@ -1,0 +1,26 @@
+{
+  "baseSha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+  "workingTree": true,
+  "unitFullBeforeLatestMenuChanges": 868,
+  "unitFocused": 64,
+  "productionScenarios": 54,
+  "finalProductionSmoke": 3,
+  "realApiCaptureChecks": 38,
+  "pageErrors": 0,
+  "screenshots": 56,
+  "bundle": {
+    "js": 366629,
+    "css": 34501,
+    "entry": 95239,
+    "total": 401130
+  },
+  "bundlePass": true,
+  "ownerApprovedKiB": {
+    "total": 1,
+    "css": 1
+  },
+  "iconForegroundMixPercent": 85,
+  "profileMenuClean": true,
+  "bulkMenuIcons": true,
+  "roadmapCounterGapFixed": true
+}

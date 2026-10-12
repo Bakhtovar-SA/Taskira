@@ -11,8 +11,8 @@ import type { CustomFieldDef, Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { NO_ISSUE_FILTERS, freshRows, useDebounced, useEpics, useIssueCounts, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { LIMITS } from "../validation";
-import { savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcPencil, IcPlus, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { issuesApi, savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
+import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcUsers, IcFlag, IcDiamond, IcPencil, IcPlus, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { directionColor, labelTone } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Button } from "../ds/Button";
@@ -23,8 +23,8 @@ import { Menu, Popover } from "../ds/Overlay";
 import { Presence } from "../ds/Presence";
 import BulkBar from "./BulkBar";
 import { IssueFilterSummary } from "./IssueFilterSummary";
-import { WorkspaceControls, WorkspaceSearch, WorkspaceQuickFilters } from "./WorkspaceControls";
-import { ProjectMembers } from "./ProjectMembers";
+import { WorkspaceControls, WorkspaceSearch, WorkspaceQuickFilters, WorkspaceFilterRow, WorkspaceSelect } from "./WorkspaceControls";
+import { BoardAssigneeFilter } from "./ProjectMembers";
 import { DeleteIssueDialog } from "./DeleteIssueDialog";
 import { useT, type TKey } from "../i18n";
 import { statusTone, workflowStatusName } from "../workflowStatus";
@@ -47,7 +47,7 @@ function HeadCell({ id, sortKey, sortDir, onSort, compact }: { id: ColumnId | "k
   const def = id === "key" ? { label: "backlog.sort.key" as const, sort: "key" as SortKey } : COLUMNS.find((c) => c.id === id)!;
   const label = t(def.label);
   const on = def.sort && def.sort === sortKey;
-  const text = compact ? <span className="sr-only">{label}</span> : <span>{label}</span>;
+  const text = compact ? <span className="sr-only">{label}</span> : <span className="truncate" title={label}>{label}</span>;
   return (
     <span role="columnheader" data-col={id} aria-sort={on ? (sortDir === "asc" ? "ascending" : "descending") : undefined} className="flex min-w-0 items-center">
       {def.sort ? (
@@ -67,7 +67,7 @@ function Row({
   issue,
   epic,
   cols,
-  selectMode,
+  selectable,
   selected,
   onToggleSelect,
   onDelete,
@@ -75,7 +75,7 @@ function Row({
   issue: Issue;
   epic: Pick<IssueEpic, "id" | "title" | "color"> | undefined;
   cols: ColumnId[];
-  selectMode: boolean;
+  selectable: boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onDelete: (issue: Issue) => void;
@@ -146,13 +146,12 @@ function Row({
       onClick={() => openIssue(issue.id)}
       data-issue-id={issue.id}
       data-done={status?.category === "done" || undefined}
-      aria-selected={selectMode ? selected : undefined}
+      aria-selected={selectable ? selected : undefined}
       className={`list-grid group list-row cursor-pointer items-center gap-x-3 border-b border-linesoft/80 px-4 transition-colors last:border-0 hover:bg-hover/60 ${selected ? "bg-accentsoft/50" : "bg-panel"}`}
     >
-      {/* ТЗ 3.3: чекбоксы появляются только в режиме выделения — не занимают
-          места в обычном режиме просмотра списка. */}
-      {selectMode && (
-        <span role="cell" data-col="select" className="flex" onClick={(e) => e.stopPropagation()}>
+      {/* A reserved checkbox slot avoids row reflow on hover, focus and selection. */}
+      {selectable && (
+        <span role="cell" data-col="select" className="list-select flex" onClick={(e) => e.stopPropagation()}>
           <Checkbox checked={selected} onChange={() => onToggleSelect(issue.id)} label={t("backlog.selectRow", { key: issue.key })} labelHidden />
         </span>
       )}
@@ -175,7 +174,11 @@ function Row({
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
             e.preventDefault(); openIssue(issue.id);
           }}>{issue.title}</a>
-        {!cols.includes("status") && can("transition", issue) && <span className="list-inline-status" onClick={e => e.stopPropagation()}>{statusAction(true)}</span>}
+        <span className="list-mobile-meta">
+        {cols.includes("priority") && <span className="list-mobile-priority">{cell("priority")}</span>}
+        {cols.includes("due") && issue.dueDate && cell("due")}
+      </span>
+      {!cols.includes("status") && can("transition", issue) && <span className="list-inline-status" onClick={e => e.stopPropagation()}>{statusAction(true)}</span>}
       </span>
       {COLUMNS.filter((c) => !LEFT.includes(c.id) && cols.includes(c.id)).map((c) => (
         <span key={c.id} role="cell" data-col={c.id} className="flex min-w-0 items-center" onClick={c.id === "status" || c.id === "assignee" ? e => e.stopPropagation() : undefined}>
@@ -306,6 +309,21 @@ export default function Backlog() {
     };
     return { projectId: data.currentProjectId, filters: apiFilters, sort: sortKey, dir: sortDir };
   }, [data.currentProjectId, fStatus, fAssignee, fType, fPriority, fLabel, fSprint, fDueFrom, fDueTo, cfCond, sprintsOn, qDebounced, fOverdue, showDone, sortKey, sortDir]);
+
+  const [topAssignees, setTopAssignees] = useState<string[]>([]);
+  useEffect(() => {
+    setTopAssignees([]);
+    if (!data.currentProjectId) return;
+    let live = true;
+    issuesApi.assignees(data.currentProjectId, 24).then(result => {
+      if (live) setTopAssignees(result.items.map(item => item.userId));
+    }, () => undefined);
+    return () => { live = false; };
+  }, [data.currentProjectId]);
+  const assignees = useMemo(() => topAssignees.flatMap(id => {
+    const user = idx.users.get(id);
+    return user ? [user] : [];
+  }), [topAssignees, idx.users]);
 
   const set = useIssueSet(query);
   // Направления строк — справочник (один запрос на экран), а не поиск в списке всех задач.
@@ -443,7 +461,7 @@ export default function Backlog() {
   const layoutRef = useRef<HTMLDivElement>(null);
   // Клик по заголовку колонки: та же колонка — сменить направление; другая — как выбор в меню сортировки.
   const toggleSortBy = (k: SortKey) => (k === sortKey ? setSortDir((d) => (d === "asc" ? "desc" : "asc")) : pickSort(k));
-  const [selectMode, setSelectMode] = useState(false);
+  const selectable = can("edit") || can("transition") || can("delete");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
   const toggleSelect = (id: string) =>
@@ -453,79 +471,76 @@ export default function Backlog() {
       else next.add(id);
       return next;
     });
-  const clearSelection = () => setSelectedIds(new Set());
+  const clearSelection = () => {
+    layoutRef.current?.querySelector<HTMLInputElement>('.list-row[aria-selected="true"] input[type="checkbox"]')?.focus();
+    setSelectedIds(new Set());
+  };
   useEffect(() => {
-    if (!selectMode) clearSelection();
-  }, [selectMode]);
+    if (!selectedIds.size) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); clearSelection(); }
+    };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, [selectedIds.size]);
   // Смена проекта/перезагрузка набора — старые id не должны молча пережить переход.
   useEffect(() => {
-    clearSelection();
-  }, [data.currentProjectId]);
+    setSelectedIds(new Set());
+  }, [data.currentProjectId, filters, q, fOverdue, showDone]);
 
+  const directionWidth = rows.some(issue => issue.epicId) ? 230 : 140;
   useLayoutEffect(() => {
     const el = layoutRef.current;
     if (!el) return;
-    el.style.setProperty("--list-cols", gridTemplate(cols, selectMode));
-    el.style.setProperty("--list-min", `${tableMinWidth(cols, selectMode)}px`);
-    el.style.setProperty("--list-title-start", selectMode ? "2" : "1");
+    el.style.setProperty("--list-cols", gridTemplate(cols, selectable, false, directionWidth));
+    el.style.setProperty("--list-min", `${tableMinWidth(cols, selectable, directionWidth)}px`);
+    el.style.setProperty("--list-title-start", selectable ? "2" : "1");
     el.style.setProperty("--list-status-end", cols.includes("assignee") ? "-3" : "-2");
-    // Телефон: только название с ключом, статус и исполнитель (остальные ячейки скрывает index.css).
-    el.style.setProperty("--list-cols-sm", gridTemplate(cols.filter((c) => c === "status" || c === "assignee"), selectMode, true));
+    // Телефон: название с ключом, сроком и приоритетом; статус и исполнитель — ниже.
+    el.style.setProperty("--list-cols-sm", gridTemplate(cols.filter((c) => c === "status" || c === "assignee"), selectable, true));
   });
 
   return (
-    <div className="list-view flex h-full min-w-0 flex-col" ref={layoutRef}>
+    <div className="list-view relative flex h-full min-w-0 flex-col" ref={layoutRef} data-selecting={selectedIds.size > 0 || undefined}>
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
-        <WorkspaceControls selectionMode={selectMode} compact
-          members={<ProjectMembers />}
+        <WorkspaceControls compact
+          members={<BoardAssigneeFilter selectedUserId={fAssignee || null} extraUsers={assignees}
+            onSelectUser={userId => setField("assignee")(fAssignee === userId ? "" : userId)} />}
+          actions={can("create") ? <Button variant="ghost" size="sm" className="workspace-import" iconLeft={<IcInbox size={15} />} onClick={() => setImportOpen(true)}>{t("import.title")}</Button> : undefined}
           summary={t("board.filteredOf", { visible: rows.length, total: pool.counts?.total ?? "…" })}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? fOverdue : fAssignee === (id === "mine" ? data.currentUserId : "none")} onToggle={id => id === "overdue" ? setFOverdue(!fOverdue) : setField("assignee")(fAssignee === (id === "mine" ? data.currentUserId : "none") ? "" : id === "mine" ? data.currentUserId : "none")} overdue={overdueCounts.counts?.total} />}
-          grouping={<Menu label={groupLabel} placement="bottom-end" trigger={p => <Button {...p} size="sm" className="workspace-grouping" iconRight={<IcChevD size={14} />}>{groupLabel}</Button>}
+          grouping={<Menu label={groupLabel} placement="bottom-end" trigger={p => <Button {...p} size="sm" variant="ghost" className="workspace-grouping" iconRight={<IcChevD size={14} />}>{groupLabel}</Button>}
             items={GROUP_MODES.map(id => ({ id, label: t(groupKeys[id]), icon: group === id ? <IcCheck size={15} /> : undefined, onSelect: () => { setGroup(id); setCreateGroup(null); } }))} />}
           count={Object.values(filters).filter(Boolean).length + Number(fOverdue) + Number(showDone) + Number(!!q)}
           search={<WorkspaceSearch value={q} onChange={setQ} />}
           filters={<div className="workspace-filters-body flex flex-wrap items-center gap-2">
-          <select aria-label={t("field.status")} value={fStatus} onChange={(e) => setField("status")(e.target.value)} className={`${selectCls} cursor-pointer`}>
-            <option value="">{t("backlog.allStatuses")}</option>
-            {data.workflow.statuses.map((s) => (
-              <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
-            ))}
-          </select>
-          <select aria-label={t("field.assignee")} value={fAssignee} onChange={(e) => setField("assignee")(e.target.value)} className={`${selectCls} cursor-pointer`}>
-            <option value="">{t("backlog.anyAssignee")}</option>
-            <option value="none">{t("createIssue.unassigned")}</option>
-            {data.users.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-          <select aria-label={t("field.type")} value={fType} onChange={(e) => setField("type")(e.target.value)} className={`${selectCls} cursor-pointer`}>
-            <option value="">{t("issueType.allShort")}</option>
-            {TYPE_ORDER.map((ty) => (
-              <option key={ty} value={ty}>{t(`issueType.${ty}`)}</option>
-            ))}
-          </select>
-          {/* ТЗ 3.2: приоритет и метка — та же серверная пара условий, что status/assignee/type. */}
-          <select aria-label={t("field.priority")} value={fPriority} onChange={(e) => setField("priority")(e.target.value)} className={`${selectCls} cursor-pointer`}>
-            <option value="">{t("backlog.anyPriority")}</option>
-            {PRIORITY_ORDER.map((p) => (
-              <option key={p} value={p}>{t(`priority.${p}`)}</option>
-            ))}
-          </select>
-          <input
+          <WorkspaceFilterRow label={t("field.status")} icon={<StatusGlyph category="todo" size={16} />}>
+            <WorkspaceSelect label={t("field.status")} value={fStatus} onChange={setField("status")}
+              options={[{ value: "", label: t("backlog.allStatuses") }, ...data.workflow.statuses.map(s => ({ value: s.id, label: workflowStatusName(s, t), icon: <StatusGlyph category={s.category} size={16} /> }))]} />
+          </WorkspaceFilterRow>
+          <WorkspaceFilterRow label={t("field.assignee")} icon={<IcUsers size={16} />}>
+            <WorkspaceSelect label={t("field.assignee")} value={fAssignee} onChange={setField("assignee")}
+              options={[{ value: "", label: t("workspace.any") }, { value: "none", label: t("createIssue.unassigned") }, ...data.users.map(u => ({ value: u.id, label: u.name }))]} />
+          </WorkspaceFilterRow>
+          <WorkspaceFilterRow label={t("field.type")} icon={<TypeIcon type="task" size={16} />}>
+            <WorkspaceSelect label={t("field.type")} value={fType} onChange={setField("type")}
+              options={[{ value: "", label: t("issueType.allShort") }, ...TYPE_ORDER.map(ty => ({ value: ty, label: t(`issueType.${ty}`), icon: <TypeIcon type={ty} size={16} /> }))]} />
+          </WorkspaceFilterRow>
+          <WorkspaceFilterRow label={t("field.priority")} icon={<IcFlag size={16} />}>
+            <WorkspaceSelect label={t("field.priority")} value={fPriority} onChange={setField("priority")}
+              options={[{ value: "", label: t("workspace.any") }, ...PRIORITY_ORDER.map(p => ({ value: p, label: t(`priority.${p}`), icon: <PriorityIcon p={p} size={16} /> }))]} />
+          </WorkspaceFilterRow>
+          <WorkspaceFilterRow label={t("field.labels")} icon={<IcDiamond size={16} />}><input
             aria-label={t("field.labels")}
             value={fLabel}
             onChange={(e) => setField("label")(e.target.value)}
             placeholder={t("backlog.labelPlaceholder")}
             className={`${selectCls} w-28`}
-          />
+          /></WorkspaceFilterRow>
           {sprintsOn && data.sprints.length > 0 && (
-            <select aria-label={t("backlog.sprintFilter")} value={fSprint} onChange={(e) => setField("sprintId")(e.target.value)} className={`${selectCls} cursor-pointer`}>
-              <option value="">{t("backlog.anySprint")}</option>
-              {data.sprints.map((sp) => (
-                <option key={sp.id} value={sp.id}>{sp.name}</option>
-              ))}
-            </select>
+            <WorkspaceSelect label={t("backlog.sprintFilter")} value={fSprint} onChange={setField("sprintId")}
+              options={[{ value: "", label: t("backlog.anySprint") }, ...data.sprints.map(sp => ({ value: sp.id, label: sp.name }))]} />
           )}
           <DueRangeFilter
             from={fDueFrom}
@@ -641,43 +656,10 @@ export default function Backlog() {
           </Popover>
           </div>}
           options={<div className="workspace-options-body flex flex-wrap items-center gap-2">
-            {/* ТЗ 3.3: режим выделения — чекбоксы появляются в строках только пока он включён. */}
-            <Button size="sm"
-              aria-pressed={selectMode}
-              onClick={() => setSelectMode((v) => !v)}
-              className={selectMode ? "border-accent text-accenttext" : undefined}
-            >
-              {t("backlog.selectMode")}
-            </Button>
-            {can("create") && (
-              <Button size="sm"
-                onClick={() => setImportOpen(true)}
-              >
-                <IcInbox size={15} /> {t("import.title")}
-              </Button>
-            )}
-
-
             {/* колонки таблицы (ТЗ 5.12 e) */}
-            <Popover
-              label={t("backlog.columns")}
-              placement="bottom-end"
-              className="w-[230px]"
-              trigger={(p, open) => (
-                <Button size="sm" {...p} type="button" className={open ? "border-accent" : undefined}>
-                  <IcDisplay size={14} className="text-faint" />
-                  {t("backlog.columns")}
-                  <IcChevD size={13} className="text-faint" />
-                </Button>
-              )}
-            >
-              <div className="flex flex-col gap-0.5 p-1">
-                {COLUMNS.map((c) => (
-                  <Checkbox key={c.id} checked={cols.includes(c.id)} onChange={() => toggleCol(c.id)} label={t(c.label)} />
-                ))}
-                <p className="mt-1 border-t border-linesoft px-1 pb-0.5 pt-1.5 text-[12px] leading-snug text-faint">{t("backlog.columnsHint")}</p>
-              </div>
-            </Popover>
+            <div className="workspace-properties"><h3>{t("backlog.columns")}</h3><div className="workspace-property-chips">
+              {COLUMNS.map(c => <button key={c.id} type="button" role="checkbox" aria-checked={cols.includes(c.id)} className="ds-focus" onClick={() => toggleCol(c.id)}>{t(c.label)}</button>)}
+            </div><p>{t("backlog.columnsHint")}</p></div>
 
             {/* сортировка */}
             <Menu
@@ -686,7 +668,7 @@ export default function Backlog() {
               trigger={(p, open) => (
                 <Button size="sm" {...p} type="button" className={open ? "border-accent" : undefined}>
                   <IcFilter size={14} className="text-faint" />
-                  {sortLabels[sortKey]}
+                  {t("backlog.sort.label")}: {sortLabels[sortKey]}
                   <IcChevD size={13} className="text-faint" />
                 </Button>
               )}
@@ -697,14 +679,11 @@ export default function Backlog() {
                 onSelect: () => pickSort(k),
               }))}
             />
-            <button
-              onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-              title={t(sortDir === "asc" ? "backlog.sort.asc" : "backlog.sort.desc")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-panel shadow-e1 text-sub hover:text-ink"
-              aria-label={t("backlog.sort.direction")}
-            >
-              <IcChevD size={15} className={sortDir === "asc" ? "rotate-180" : ""} />
-            </button>
+            <Button size="sm" onClick={() => setSortDir(d => d === "asc" ? "desc" : "asc")}
+              aria-label={t("backlog.sort.direction") + ": " + sortLabels[sortKey] + ", " + t(sortDir === "asc" ? "backlog.sort.asc" : "backlog.sort.desc")}
+              iconLeft={<IcChevD size={15} className={sortDir === "asc" ? "rotate-180" : ""} />}>
+              {t(sortDir === "asc" ? "backlog.sort.asc" : "backlog.sort.desc")}
+            </Button>
             </div>}
         />
         {filterActive && (<IssueFilterSummary filters={filters}>
@@ -715,11 +694,11 @@ export default function Backlog() {
         )}
 
         {/* ТЗ 3.3: панель массовых действий — видна только при непустом выделении (общая с доской, ROUTE-03). */}
-        {selectMode && selectedIds.size > 0 && <BulkBar selectedIds={selectedIds} onDone={clearSelection} className="mt-2.5" />}
+
       </div>
 
       {/* Bounded table; intermediate desktop widths scroll within the list. */}
-      <div className="list-scroll min-h-0 flex-1 overflow-auto">
+      <div className={`list-scroll min-h-0 flex-1 overflow-auto ${selectedIds.size ? "pb-20" : ""}`}>
         <div className="list-table-wrap">
           {set.loading ? (
             <div
@@ -743,8 +722,8 @@ export default function Backlog() {
               {/* One grid for the header and rows; the list-scroll container owns both scroll axes. */}
               <div role="table" aria-label={t("backlog.title")} className="list-table rounded-lg border border-line bg-panel">
                 <div role="row" className="list-grid list-head sticky top-0 z-10 items-center gap-x-3 border-b border-linesoft px-4 text-[13px] font-semibold text-faint">
-                  {selectMode && (
-                    <span role="columnheader" data-col="select" className="flex">
+                  {selectable && (
+                    <span role="columnheader" data-col="select" className="list-select flex">
                       <Checkbox
                         label={t("backlog.selectAll")}
                         labelHidden
@@ -771,14 +750,14 @@ export default function Backlog() {
                   const total = st ? set.counts?.byStatus[st.id] ?? section.items.length : section.items.length;
                   return <div key={section.id} role="rowgroup" aria-label={group === "none" ? undefined : name}>
                     {group !== "none" && <div role="row" className="list-group-head">
-                      <div role="cell" aria-colspan={cols.length + 3 + Number(selectMode)} className="list-group-label">
+                      <div role="cell" aria-colspan={cols.length + 3 + Number(selectable)} className="list-group-label">
                         {st && <StatusGlyph category={st.category} size={16} />}
                         <span className="truncate" title={name}>{name}</span>
                         <span className="list-group-count tabular" title={t("backlog.groupLoaded", { n: section.items.length })}>{section.items.length < total ? `${section.items.length}/${total}` : total}</span>
                         {st && st.id === firstTodoId && can("create") && <button type="button" className="ds-focus list-group-add" data-create-status={st.id} aria-label={t("board.addToStatusAria", { name })} onClick={() => setCreateGroup(createGroup === st.id ? null : st.id)}><IcPlus size={16} /></button>}
                       </div>
                     </div>}
-                    {st && st.id === firstTodoId && can("create") && createGroup === st.id && <div role="row" className="list-group-create"><div role="cell" aria-colspan={cols.length + 3 + Number(selectMode)}><QuickCreate status={st} onDone={() => { setCreateGroup(null); layoutRef.current?.querySelector<HTMLButtonElement>(`[data-create-status="${CSS.escape(st.id)}"]`)?.focus(); }} /></div></div>}
+                    {st && st.id === firstTodoId && can("create") && createGroup === st.id && <div role="row" className="list-group-create"><div role="cell" aria-colspan={cols.length + 3 + Number(selectable)}><QuickCreate status={st} onDone={() => { setCreateGroup(null); layoutRef.current?.querySelector<HTMLButtonElement>(`[data-create-status="${CSS.escape(st.id)}"]`)?.focus(); }} /></div></div>}
                     {section.items.map(i => (
                   <Row
                     key={i.id}
@@ -786,7 +765,7 @@ export default function Backlog() {
                     issue={i}
                     epic={i.epicId ? epics.byId.get(i.epicId) : undefined}
                     cols={cols}
-                    selectMode={selectMode}
+                    selectable={selectable}
                     selected={selectedIds.has(i.id)}
                     onToggleSelect={toggleSelect}
                   />
@@ -834,6 +813,8 @@ export default function Backlog() {
           )}
         </div>
       </div>
+
+      {selectedIds.size > 0 && <div className="list-selection-dock pointer-events-none absolute inset-x-4 bottom-4 z-20 flex justify-center"><BulkBar floating selectedIds={selectedIds} onDone={clearSelection} /></div>}
 
       <Presence show={importOpen}>{(open) => <Suspense fallback={null}><ImportModal open={open} onClose={() => setImportOpen(false)} /></Suspense>}</Presence>
       <Presence show={deleteOpen}>{open => issueToDelete && <DeleteIssueDialog open={open} issue={issueToDelete} onClose={() => setDeleteOpen(false)} onConfirm={() => { setDeleteOpen(false); deleteIssue(issueToDelete.id); }} />}</Presence>

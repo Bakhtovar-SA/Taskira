@@ -1,0 +1,291 @@
+{
+  "results": [
+    {
+      "name": "real API login",
+      "pass": true,
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "name": "board h1",
+      "pass": true,
+      "details": {
+        "text": "Доска · Рабочие процессы"
+      }
+    },
+    {
+      "name": "card has native action",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "no redundant article tab stop",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "no no-op grouping",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "same project reopens from home",
+      "pass": true,
+      "details": {
+        "url": "http://localhost:3000/p/UX/board"
+      }
+    },
+    {
+      "name": "project settings revealed on hover",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "direct project settings",
+      "pass": true,
+      "details": {
+        "url": "http://localhost:3000/p/UX/settings/general"
+      }
+    },
+    {
+      "name": "three distinct settings scopes",
+      "pass": true,
+      "details": {
+        "scopeCount": 3
+      }
+    },
+    {
+      "name": "toggle stays in bottom dock",
+      "pass": true,
+      "details": {
+        "initialY": 848,
+        "railY": 848
+      }
+    },
+    {
+      "name": "mouse close has no card focus glow",
+      "pass": true,
+      "details": {
+        "outline": "0px",
+        "input": "pointer"
+      }
+    },
+    {
+      "name": "keyboard focus remains visible",
+      "pass": true,
+      "details": {
+        "outline": "2px",
+        "input": "keyboard"
+      }
+    },
+    {
+      "name": "keyboard close returns focus",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer modal semantics",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 0",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 1",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 2",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 3",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 4",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 5",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 6",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 7",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 8",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 9",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 10",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 11",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 12",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 13",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 14",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 15",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 16",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 17",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 18",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 19",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 20",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 21",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 22",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 23",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 24",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 25",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 26",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 27",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 28",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 29",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 30",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 31",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 32",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 33",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer contains tab 34",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "drawer returns opener focus",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "main no longer inert",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "mobile settings has scope switches",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "name": "no runtime page errors",
+      "pass": true,
+      "details": {
+        "errors": []
+      }
+    }
+  ],
+  "errors": []
+}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, screen, within } from "@testing-library/react";
 import { StoreProvider, useStore, useToasts } from "./store";
 import {
   authApi,
@@ -36,7 +36,7 @@ import Backlog from "./components/Backlog";
  *     ещё», «Показаны все задачи (N)», когда доступа больше нет;
  *  4. строка показывает ключ и заголовок, клик открывает задачу
  *     (ui.selectedIssueId стора);
- *  5. режим выделения и массовые операции — «Выделить» → две строки →
+ *  5. выделение прямо в строках и нижняя панель «Действия» →
  *     статус/исполнитель/приоритет зовут bulk API с этими id и значением;
  *     удаление требует подтверждения; результат — тост с текстом из
  *     store/issueCrud.ts (полный/частичный успех);
@@ -59,6 +59,18 @@ import Backlog from "./components/Backlog";
  *    точки входа, вызывающей `savedViewsApi.update`.
  *  - drag & drop (в «Списке задач» его и не было — своя колонка для доски).
  */
+
+// jsdom does not implement the native top layer; browser tests verify visibility.
+configure({ defaultHidden: true });
+
+async function pickFilter(label: string, option: string) {
+  fireEvent.click(screen.getByRole("button", { name: label }));
+  await settle();
+  fireEvent.click(screen.getByRole("menuitem", { name: option }));
+  await settle();
+}
+
+
 
 const user1 = {
   id: "u1",
@@ -288,15 +300,10 @@ describe("Список задач — характеризующие тесты 
   test("1b. статус/исполнитель/тип/приоритет/метка уходят как параметры запроса и в URL; выбранный статус снимает closed=hide", async () => {
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
-    const [statusSel, assigneeSel, typeSel, prioritySel] = screen.getAllByRole("combobox");
-    fireEvent.change(statusSel, { target: { value: "s1" } });
-    await settle();
-    fireEvent.change(assigneeSel, { target: { value: "u2" } });
-    await settle();
-    fireEvent.change(typeSel, { target: { value: "bug" } });
-    await settle();
-    fireEvent.change(prioritySel, { target: { value: "high" } });
-    await settle();
+    await pickFilter("Статус", "К выполнению");
+    await pickFilter("Исполнитель", "Борис Петров");
+    await pickFilter("Тип задачи", "Баг");
+    await pickFilter("Приоритет", "Высокий");
     fireEvent.change(screen.getByPlaceholderText("Метка"), { target: { value: "billing" } });
     await settle();
 
@@ -334,7 +341,7 @@ describe("Список задач — характеризующие тесты 
   test("1f. срок «с … по …» и спринт уходят как dueFrom/dueTo/sprintId и в URL", async () => {
     const h = await setup({ sprintsOn: true, pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
-    fireEvent.change(screen.getByLabelText("Спринт"), { target: { value: "sp1" } });
+    await pickFilter("Спринт", "Спринт 7");
     await settle();
     fireEvent.click(screen.getByRole("button", { name: /^Срок/ }));
     await settle();
@@ -387,13 +394,11 @@ describe("Список задач — характеризующие тесты 
     // единственной с таким именем.
     const h = await setup({ pageImpl: async () => ({ items: [dto("z1")], hasMore: false, nextCursor: null }) });
     expect(screen.queryByRole("button", { name: "Сбросить" })).toBeNull();
-    const [statusSel] = screen.getAllByRole("combobox");
-    fireEvent.change(statusSel, { target: { value: "s1" } });
-    await settle();
+    await pickFilter("Статус", "К выполнению");
     expect(screen.getByRole("button", { name: "Сбросить" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Сбросить" }));
     await settle();
-    expect((screen.getAllByRole("combobox")[0] as HTMLSelectElement).value).toBe("");
+    expect(screen.getByRole("button", { name: "Статус" }).textContent).toBe("Все статусы");
     expect(screen.queryByRole("button", { name: "Сбросить" })).toBeNull();
     const qs = new URLSearchParams(location.search);
     expect(qs.get("status")).toBeNull();
@@ -405,7 +410,7 @@ describe("Список задач — характеризующие тесты 
     h.pageCalls.length = 0;
     // по умолчанию отсортировано по приоритету — заголовок кнопки сортировки = «Приоритет»
     showOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Приоритет" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сортировка: Приоритет" }));
     await settle();
     fireEvent.click(screen.getByRole("menuitem", { name: "Ключ", hidden: true }));
     await settle();
@@ -427,7 +432,6 @@ describe("Список задач — характеризующие тесты 
     expect(h.pageCalls[h.pageCalls.length - 1]).toMatchObject({ sort: "due", dir: "desc" });
 
     showOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Колонки" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Метки", hidden: true }));
     expect(head().some((c) => c.textContent === "Метки")).toBe(true);
     fireEvent.click(screen.getByRole("checkbox", { name: "Метки", hidden: true }));
@@ -441,12 +445,12 @@ describe("Список задач — характеризующие тесты 
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
     showOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Направление сортировки" }));
+    fireEvent.click(screen.getByRole("button", { name: "Направление сортировки: Приоритет, По возрастанию" }));
     await settle();
     expect(h.pageCalls[h.pageCalls.length - 1]).toMatchObject({ sort: "priority", dir: "desc" });
 
     showOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Приоритет" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сортировка: Приоритет" }));
     await settle();
     fireEvent.click(screen.getByRole("menuitem", { name: "Обновление", hidden: true }));
     await settle();
@@ -495,21 +499,20 @@ describe("Список задач — характеризующие тесты 
     h.ui.unmount();
   });
 
-  test("5a. режим выделения: «Выделить» показывает чекбоксы; выбор двух строк + массовая смена статуса зовёт bulk API", async () => {
+  test("5a. выбор двух строк без отдельного режима + массовая смена статуса зовёт bulk API", async () => {
     const h = await setup({
       pageImpl: async (_p, params) =>
         !params.cursor ? { items: [dto("b1"), dto("b2")], hasMore: false, nextCursor: null } : { items: [], hasMore: false, nextCursor: null },
     });
-    showOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
-    await settle();
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-b1" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-b2" }));
     await settle();
     expect(screen.getByText("Выбрано: 2")).toBeTruthy();
 
     const panel = screen.getByText("Выбрано: 2").parentElement as HTMLElement;
-    fireEvent.click(within(panel).getByRole("button", { name: "Статус" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Действия" }));
+    await settle();
+    fireEvent.click(within(panel).getByRole("button", { name: "Статус", hidden: true }));
     await settle();
     fireEvent.click(within(panel).getByRole("menuitem", { name: "В работе", hidden: true }));
     await settle();
@@ -528,14 +531,13 @@ describe("Список задач — характеризующие тесты 
       pageImpl: async (_p, params) =>
         !params.cursor ? { items: [dto("a1"), dto("a2")], hasMore: false, nextCursor: null } : { items: [], hasMore: false, nextCursor: null },
     });
-    showOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
-    await settle();
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-a1" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-a2" }));
     await settle();
     const panel = screen.getByText("Выбрано: 2").parentElement as HTMLElement;
-    fireEvent.click(within(panel).getByRole("button", { name: "Исполнитель" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Действия" }));
+    await settle();
+    fireEvent.click(within(panel).getByRole("button", { name: "Исполнитель", hidden: true }));
     await settle();
     fireEvent.click(within(panel).getByRole("menuitem", { name: user2.name, hidden: true }));
     await settle();
@@ -550,14 +552,13 @@ describe("Список задач — характеризующие тесты 
       pageImpl: async (_p, params) =>
         !params.cursor ? { items: [dto("p1"), dto("p2")], hasMore: false, nextCursor: null } : { items: [], hasMore: false, nextCursor: null },
     });
-    showOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
-    await settle();
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-p1" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-p2" }));
     await settle();
     const panel = screen.getByText("Выбрано: 2").parentElement as HTMLElement;
-    fireEvent.click(within(panel).getByRole("button", { name: "Приоритет" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Действия" }));
+    await settle();
+    fireEvent.click(within(panel).getByRole("button", { name: "Приоритет", hidden: true }));
     await settle();
     fireEvent.click(within(panel).getByRole("menuitem", { name: "Критичный", hidden: true }));
     await settle();
@@ -572,14 +573,13 @@ describe("Список задач — характеризующие тесты 
         !params.cursor ? { items: [dto("d1"), dto("d2")], hasMore: false, nextCursor: null } : { items: [], hasMore: false, nextCursor: null },
       bulkImpl: async () => ({ succeeded: ["d1"], failed: [{ issueId: "d2", reason: "нет прав" }] }),
     });
-    showOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
-    await settle();
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-d1" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-d2" }));
     await settle();
     const panel = screen.getByText("Выбрано: 2").parentElement as HTMLElement;
-    fireEvent.click(within(panel).getByRole("button", { name: "Удалить" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Действия" }));
+    await settle();
+    fireEvent.click(within(panel).getByRole("button", { name: "Удалить", hidden: true }));
     await settle();
 
     const dialog = screen.getByRole("dialog", { name: "Вы действительно хотите удалить выбранные задачи?" });
@@ -621,9 +621,7 @@ describe("Список задач — характеризующие тесты 
 
   test("6c. «Сохранить как вьюху» с именем зовёт savedViewsApi.create с текущими фильтрами", async () => {
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
-    const [, , typeSel] = screen.getAllByRole("combobox");
-    fireEvent.change(typeSel, { target: { value: "bug" } });
-    await settle();
+    await pickFilter("Тип задачи", "Баг");
     fireEvent.click(screen.getByRole("button", { name: /Сохранённые фильтры/ }));
     await settle();
     fireEvent.click(screen.getByRole("button", { name: "Сохранить фильтр", hidden: true }));
@@ -674,7 +672,7 @@ describe("Список задач — характеризующие тесты 
     h.ui.unmount();
   });
 
-  test("7a. роль viewer: нет кнопки импорта; массовое удаление недоступно даже с выделением", async () => {
+  test("7a. роль viewer: нет импорта и выделения для массовых изменений", async () => {
     const h = await setup({
       role: "viewer",
       pageImpl: async (_p, params) =>
@@ -682,17 +680,8 @@ describe("Список задач — характеризующие тесты 
     });
     expect(screen.queryByRole("button", { name: /Импорт из Trello/ })).toBeNull();
 
-    showOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Выделить" }));
-    await settle();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Выделить A21-v1" }));
-    await settle();
-    const panel = screen.getByText("Выбрано: 1").parentElement as HTMLElement;
-    // смена статуса/исполнителя/приоритета — не гейтится requirePerm() на клиенте
-    // (см. комментарий над bulkApplyIssueAction: сервер проверяет права на
-    // каждую задачу индивидуально), но удаление явно скрыто по can("delete").
-    expect(within(panel).getByRole("button", { name: "Статус" })).toBeTruthy();
-    expect(within(panel).queryByRole("button", { name: "Удалить" })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "Выделить A21-v1" })).toBeNull();
+    expect(screen.queryByRole("toolbar", { name: /Выбрано:/ })).toBeNull();
     h.ui.unmount();
   });
 

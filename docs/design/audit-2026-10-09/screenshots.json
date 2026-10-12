@@ -1,0 +1,470 @@
+[
+  {
+    "file": "screenshots/light-desktop-home.png",
+    "route": "/",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:53:57.418Z"
+  },
+  {
+    "file": "screenshots/light-desktop-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:00.244Z"
+  },
+  {
+    "file": "screenshots/light-desktop-board-overdue.png",
+    "route": "/p/UX/board?overdue=1",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "light",
+    "state": "overdue filter",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:00.595Z"
+  },
+  {
+    "file": "screenshots/light-desktop-issue-panel.png",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "light",
+    "state": "long title and multiple assignees",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:03.856Z"
+  },
+  {
+    "file": "screenshots/light-desktop-create.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "light",
+    "state": "create issue form",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:04.413Z"
+  },
+  {
+    "file": "screenshots/light-desktop-list.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:06.967Z"
+  },
+  {
+    "file": "screenshots/light-desktop-list-view-menu.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "light",
+    "state": "view menu",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:07.152Z"
+  },
+  {
+    "file": "screenshots/light-desktop-issue-page.png",
+    "route": "/p/UX/issue/UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "light",
+    "state": "long title and multiple assignees",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:10.516Z"
+  },
+  {
+    "file": "screenshots/light-mobile-home.png",
+    "route": "/",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:14.362Z"
+  },
+  {
+    "file": "screenshots/light-mobile-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:16.802Z"
+  },
+  {
+    "file": "screenshots/light-mobile-issue-panel.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "light",
+    "state": "loaded long title and multiple assignees",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:58:40.338Z"
+  },
+  {
+    "file": "screenshots/light-mobile-create.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "light",
+    "state": "create issue form",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:17.154Z"
+  },
+  {
+    "file": "screenshots/light-mobile-list.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:19.610Z"
+  },
+  {
+    "file": "screenshots/light-mobile-issue-page.png",
+    "route": "/p/UX/issue/UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "light",
+    "state": "long title and multiple assignees",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:22.911Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-home.png",
+    "route": "/",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "dark",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:26.883Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "dark",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:29.770Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-board-overdue.png",
+    "route": "/p/UX/board?overdue=1",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "dark",
+    "state": "overdue filter",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:30.063Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-issue-panel.png",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "dark",
+    "state": "long title and multiple assignees",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:33.212Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-create.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "dark",
+    "state": "create issue form",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:33.779Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-list.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "dark",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:36.330Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-list-view-menu.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "dark",
+    "state": "view menu",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:36.543Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-issue-page.png",
+    "route": "/p/UX/issue/UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "dark",
+    "state": "long title and multiple assignees",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:39.938Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-home.png",
+    "route": "/",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "dark",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:43.874Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "dark",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:46.347Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-issue-panel.png",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "dark",
+    "state": "long title and multiple assignees",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:46.671Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-create.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "dark",
+    "state": "create issue form",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:47.136Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-list.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "dark",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:49.996Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-issue-page.png",
+    "route": "/p/UX/issue/UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "theme": "dark",
+    "state": "long title and multiple assignees",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:54:53.286Z"
+  },
+  {
+    "file": "screenshots/light-narrow-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 320,
+      "height": 844
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:55:00.335Z"
+  },
+  {
+    "file": "screenshots/light-narrow-list.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 320,
+      "height": 844
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:55:02.516Z"
+  },
+  {
+    "file": "screenshots/light-tablet-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:55:05.342Z"
+  },
+  {
+    "file": "screenshots/light-tablet-list.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 768,
+      "height": 1024
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:55:07.623Z"
+  },
+  {
+    "file": "screenshots/light-4k-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 3840,
+      "height": 2160
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:55:12.471Z"
+  },
+  {
+    "file": "screenshots/light-4k-list.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3840,
+      "height": 2160
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:55:17.280Z"
+  },
+  {
+    "file": "screenshots/light-zoom200-css-equivalent-board.png",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 720,
+      "height": 450
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:55:20.103Z"
+  },
+  {
+    "file": "screenshots/light-zoom200-css-equivalent-list.png",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 720,
+      "height": 450
+    },
+    "theme": "light",
+    "state": "default",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "capturedAt": "2026-10-09T15:55:22.370Z"
+  }
+]

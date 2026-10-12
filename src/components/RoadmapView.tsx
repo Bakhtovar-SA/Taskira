@@ -8,14 +8,16 @@ import { useT } from "../i18n";
 import { cssVars } from "../cssVars";
 import { PX_PER_DAY, addDays, scaleTicks, timeScale, ZOOMS, type TimeScale, type Zoom } from "../timeScale";
 import { TimeCanvas, TimeHeader, TIME_PAD } from "./TimeCanvas";
-import { ROW_H, barSpan, isLate, parseDay, roadmapRange, rowPositions, visibleItems, type BarSpan, type Group } from "../roadmapLayout";
+import { ROW_H, dayKey, barSpan, isLate, parseDay, roadmapRange, rowPositions, visibleItems, type BarSpan, type Group } from "../roadmapLayout";
 import { Tabs } from "../ds/Tabs";
 import { Button, IconButton } from "../ds/Button";
 import { Menu } from "../ds/Overlay";
 import { EmptyState } from "../ds/Display";
-import { IcFlag, IcDots } from "../icons";
+import { IcFlag, IcDots, IcChevR, IcLink, IcCheck } from "../icons";
 import { ProjectMark, projectTone } from "../ui";
 import "../styles/roadmap.css";
+
+import { barWidth, connectionPath, useRoadmapConnections } from "./useRoadmapConnections";
 
 const ZOOM_KEY = "taskira.roadmap.zoom";
 const readZoom = (): Zoom => {
@@ -65,10 +67,10 @@ export default function RoadmapView() {
   const right = useRef<HTMLDivElement | null>(null);
   const header = useRef<HTMLDivElement>(null);
   const observer = useRef<ResizeObserver | null>(null);
-  const [win, setWin] = useState({ top: 0, h: 0, w: 0 });
+  const [win, setWin] = useState({ top: 0, h: 0, w: 0, x: 0 });
   const measure = useCallback((node: HTMLDivElement) => {
     const top = Math.floor(node.scrollTop / (ROW_H / 2)) * (ROW_H / 2);
-    setWin(w => w.top === top && w.h === node.clientHeight && w.w === node.clientWidth ? w : { top, h: node.clientHeight, w: node.clientWidth });
+    setWin(w => w.top === top && w.h === node.clientHeight && w.w === node.clientWidth && w.x === node.scrollLeft ? w : { top, h: node.clientHeight, w: node.clientWidth, x: node.scrollLeft });
     left.current?.style.setProperty("--scrollbar-h", `${node.offsetHeight - node.clientHeight}px`);
     if (left.current && left.current.scrollTop !== node.scrollTop) left.current.scrollTop = node.scrollTop;
     header.current?.style.setProperty("--scroll-x", `${node.scrollLeft}px`);
@@ -85,8 +87,11 @@ export default function RoadmapView() {
   const today = useMemo(() => ({ x: (scale.x(now) + scale.x(addDays(now, 1))) / 2, label: now.toLocaleDateString(locale, { day: "numeric", month: "short" }).replace(".", "") }), [scale, now, locale]);
   const shown = useMemo(() => visibleItems(filtered, win.top, win.h || 800, ROW_H * 3), [filtered, win.top, win.h]);
   const scrollToToday = useCallback((smooth: boolean) => right.current?.scrollTo({ left: Math.max(0, TIME_PAD + today.x - Math.min(240, win.w / 4)), behavior: smooth ? "smooth" : "auto" }), [today, win.w]);
-  useEffect(() => { if (win.w) scrollToToday(false); }, [scrollToToday, win.w]);
+  const positioned = useRef("");
+  useEffect(() => { const key = `${zoom}:${range.origin.getTime()}:${win.w}`; if (win.w && positioned.current !== key) { positioned.current = key; scrollToToday(false); } }, [scrollToToday, win.w, zoom, range]);
   useEffect(() => { if (right.current) { right.current.scrollTop = 0; measure(right.current); } }, [department, measure]);
+  const connection = useRoadmapConnections(projects, deps, scale, spans, rowY, right, load);
+  const returnToProject = (id: string) => { const span = spans.get(id); if (!span) return; right.current?.querySelector<HTMLButtonElement>(`.roadmap-timeline-row[data-project-id="${id}"] .roadmap-bar`)?.focus({ preventScroll: true }); right.current?.scrollTo({ left: Math.max(0, TIME_PAD + scale.x(span.from) - 24), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
   const store = useRef({ data, setView, switchProject }); store.current = { data, setView, switchProject };
   const open = useCallback((id: string) => {
     const { data: d, setView: sv, switchProject: sp } = store.current;
@@ -103,7 +108,7 @@ export default function RoadmapView() {
       <h1>{t("roadmap.title")}</h1>
       <span className="roadmap-count">{projects.length} {tn(projects.length, "roadmap.projects.one", "roadmap.projects.few", "roadmap.projects.many")} · {groups.length} {tn(groups.length, "roadmap.departments.one", "roadmap.departments.few", "roadmap.departments.many")}</span>
       <div className="roadmap-tools">
-        <Menu label={t("roadmap.allDepartments")} trigger={props => <Button {...props} size="sm" variant="ghost" className="roadmap-filter" iconRight={<span aria-hidden>▾</span>}>{departmentName}</Button>}
+        <Menu label={t("roadmap.allDepartments")} trigger={props => <Button {...props} size="sm" variant="ghost" className="roadmap-filter" iconRight={<IcChevR size={12} className="rotate-90" />}>{departmentName}</Button>}
           items={[{ id: "all", label: t("roadmap.allDepartments"), onSelect: () => setDepartment("") }, ...groups.map(g => ({ id: g.id, label: g.name, onSelect: () => setDepartment(g.id) }))]} />
         <Tabs mode="filter" label={t("timeline.zoom")} value={zoom} onChange={changeZoom} items={ZOOMS.map(z => ({ id: z, label: t(`timeline.zoom.${z}`) }))} />
         <Button size="sm" variant="secondary" onClick={() => scrollToToday(true)}>{t("timeline.today")}</Button>
@@ -114,7 +119,7 @@ export default function RoadmapView() {
       <EmptyState icon={<IcFlag size={22} />} title={t("roadmap.emptyTitle")} sub={t("roadmap.emptySub")} /> : <>
       <div className="roadmap-columns roadmap-headings">
         <div className="roadmap-project-heading">{t("roadmap.projectHeading")}</div>
-        <div className="roadmap-scale-clip"><div ref={node => { header.current = node; cssVars({ "--canvas-w": TIME_PAD + scale.width + 48, "--scroll-x": right.current?.scrollLeft ?? 0 })(node); }} className="roadmap-scale-shift"><TimeHeader ticks={ticks} today={today} compact monthYears={zoom === "month"} /></div></div>
+        <div className="roadmap-scale-clip"><div ref={node => { header.current = node; cssVars({ "--canvas-w": TIME_PAD + scale.width + 48, "--scroll-x": right.current?.scrollLeft ?? 0 })(node); }} className="roadmap-scale-shift"><TimeHeader ticks={ticks} today={today} compact /></div></div>
       </div>
       <div className="roadmap-columns roadmap-body">
         <div ref={left} className="roadmap-projects" onScroll={e => { if (right.current && right.current.scrollTop !== e.currentTarget.scrollTop) right.current.scrollTop = e.currentTarget.scrollTop; }}>
@@ -123,20 +128,21 @@ export default function RoadmapView() {
               <ProjectRow key={it.item.id} y={it.y} p={it.item} now={now} locale={locale} onOpen={open} onEdit={edit} />)}
           </div>
         </div>
-        <div ref={scrollRef} onScroll={e => measure(e.currentTarget)} tabIndex={0} role="group" aria-label={t("roadmap.aria")} className="roadmap-timeline focusable">
+        <div ref={scrollRef} onScroll={e => measure(e.currentTarget)} tabIndex={0} role="group" aria-label={t("roadmap.aria")} className="roadmap-timeline focusable" data-connecting={connection.drag ? true : undefined}>
           <TimeCanvas scale={scale} ticks={ticks} today={today} header={false} compact>
             <div className="roadmap-rows" ref={cssVars({ "--rows-h": height })}>
-              <svg aria-hidden className="roadmap-dependencies" width={TIME_PAD + scale.width + 48} height={height}>
+              <svg aria-hidden className="roadmap-dependencies" width={TIME_PAD + scale.width + 48} height={Math.max(height, win.h)}>
                 <defs>{[false, true].map(late => <marker key={String(late)} id={late ? "rm-arrow-late" : "rm-arrow"} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 8 4 0 8z" className={late ? "fill-[var(--status-danger)]" : "fill-[var(--text-3)]"} /></marker>)}</defs>
                 {deps.map(d => {
                   const s = spans.get(d.sourceId), dest = spans.get(d.dependentId), y1 = rowY.get(d.sourceId), y2 = rowY.get(d.dependentId);
                   if (!s || !dest || y1 === undefined || y2 === undefined) return null;
-                  const x1 = x(addDays(s.to, 1)), x2 = x(dest.from), bend = Math.max(24, Math.abs(x2 - x1) / 2), late = isLate(d, spans);
-                  return <path key={`${d.sourceId}>${d.dependentId}`} d={`M${x1} ${y1} C${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2 - 2} ${y2}`} fill="none" strokeWidth={1.5} markerEnd={`url(#${late ? "rm-arrow-late" : "rm-arrow"})`} className={late ? "stroke-[var(--status-danger)]" : "stroke-[var(--text-3)] opacity-70"} />;
+                  const x1 = x(s.from) + barWidth(s, scale), x2 = x(dest.from), late = isLate(d, spans);
+                  return <path key={`${d.sourceId}>${d.dependentId}`} d={connectionPath(x1, y1, x2 - 2, y2)} fill="none" strokeWidth={1.5} markerEnd={`url(#${late ? "rm-arrow-late" : "rm-arrow"})`} className={late ? "stroke-[var(--status-danger)]" : "stroke-[var(--text-3)] opacity-70"} />;
                 })}
+                {connection.drag && (() => { const d = connection.drag, span = spans.get(d.sourceId); if (!span) return null; return <><path className="roadmap-connection-preview" fill="none" strokeWidth={1.5} d={connectionPath(x(span.from) + barWidth(span, scale), rowY.get(d.sourceId)!, d.x, d.y)} /><circle cx={d.x} cy={d.y} r={3.5} className="fill-[var(--accent-text)]" />{d.targetId && <rect x={d.x} y={d.y - 13} width={barWidth(spans.get(d.targetId)!, scale)} height={26} rx={7} fill="none" className="stroke-[var(--accent-text)]" strokeWidth={2} />}</>; })()}
               </svg>
               {shown.map(it => it.kind === "group" ? <div key={it.group.id} ref={cssVars({ "--row-y": it.y })} className="roadmap-department-band" /> :
-                <TimelineRow key={it.item.id} y={it.y} p={it.item} span={spans.get(it.item.id) ?? null} scale={scale} todayX={today.x} waits={waits.get(it.item.id) ?? ""} locale={locale} onOpen={open} onEdit={edit} />)}
+                <TimelineRow key={it.item.id} y={it.y} p={it.item} span={spans.get(it.item.id) ?? null} scale={scale} todayX={today.x} waits={waits.get(it.item.id) ?? ""} locale={locale} onOpen={open} onEdit={edit} viewport={win} onReturn={returnToProject} projects={projects} dependencies={deps} connection={connection} />)}
             </div>
           </TimeCanvas>
         </div>
@@ -162,18 +168,24 @@ const ProjectRow = memo(function ProjectRow({ y, p, now, locale, onOpen, onEdit 
       items={[{ id: "dates", label: t("roadmap.edit", { name: p.name }), onSelect: () => onEdit(p.id) }]} /></div>}
   </div>;
 });
-const TimelineRow = memo(function TimelineRow({ y, p, span, scale, todayX, waits, locale, onOpen, onEdit }: RowProps & { span: BarSpan | null; scale: TimeScale; todayX: number; waits: string }) {
+const TimelineRow = memo(function TimelineRow({ y, p, span, scale, todayX, waits, locale, onOpen, onEdit, viewport, onReturn, projects, dependencies, connection }: RowProps & { span: BarSpan | null; scale: TimeScale; todayX: number; waits: string; viewport: { x: number; w: number }; onReturn: (id: string) => void; projects: RoadmapProjectDto[]; dependencies: RoadmapDto["dependencies"]; connection: ReturnType<typeof useRoadmapConnections> }) {
   const { t } = useT();
   const x = (d: Date) => TIME_PAD + scale.x(d);
-  const width = span ? Math.max(68, scale.x(addDays(span.to, 1)) - scale.x(span.from)) : 0;
+  const width = span ? barWidth(span, scale) : 0;
   const progress = Math.min(1, Math.max(0, p.total ? p.done / p.total : 0));
   const confirmed = span?.solidFrom && span.solidTo ? scale.x(addDays(span.solidTo, 1)) - scale.x(span.solidFrom) : 0;
   const title = [p.name, `${p.startDate ? format(p.startDate, locale) : "…"} — ${p.targetDate ? format(p.targetDate, locale) : "…"}`, t("roadmap.progress", { done: p.done, total: p.total }), waits ? t("roadmap.waits", { names: waits }) : ""].filter(Boolean).join(" · ");
+  const before = !!span && x(span.from) + width < viewport.x + 16, after = !!span && x(span.from) > viewport.x + viewport.w - 16;
+  const candidates = projects.filter(target => target.canEdit && (connection.canTarget(p.id, target) || dependencies.some(d => d.sourceId === p.id && d.dependentId === target.id)));
   return <div className="rm-row roadmap-timeline-row" data-project-id={p.id} data-tone={p.color ?? projectTone(p.key)} ref={cssVars({ "--row-y": y })}>
-    {span ? <button className="roadmap-bar ds-focus" onClick={() => onOpen(p.id)} aria-label={title} title={title}
+    {span ? <button data-complete={progress === 1 || undefined} className="roadmap-bar ds-focus" onClick={() => onOpen(p.id)} aria-label={title} title={title}
       ref={cssVars({ "--bar-x": x(span.from), "--bar-w": width, "--done-w": Math.min(width, Math.max(68, progress * width)), "--confirmed-w": confirmed })}>
       <span aria-hidden className="roadmap-bar-track"><span className="roadmap-bar-remaining" /><span className="roadmap-bar-done" /><span className="rm-hatch roadmap-bar-tentative" /><b className="roadmap-bar-key">{p.key}</b></span>
     </button> : <Button size="sm" variant="ghost" className="roadmap-set-dates" ref={cssVars({ "--bar-x": TIME_PAD + todayX })} disabled={!p.canEdit && t("roadmap.readOnly")} onClick={() => onEdit(p.id)}>{t("roadmap.setDates")}</Button>}
+    {span && !(before || after) && candidates.length > 0 && <Menu label={t("roadmap.connectAfter", { name: p.name })} placement="bottom-end"
+      trigger={props => <button {...props} type="button" disabled={connection.busy} className="roadmap-connect ds-focus" aria-label={t("roadmap.connectHandle", { name: p.name })} title={t("roadmap.connectHint")} ref={node => { if (typeof props.ref === "function") props.ref(node); else if (props.ref) props.ref.current = node; cssVars({ "--connect-x": x(span.from) + width })(node); }} onPointerDown={e => connection.begin(p.id, e)} onClick={() => { if (connection.suppressClick.current) { connection.suppressClick.current = false; return; } props.onClick(); }} />}
+      items={[{ kind: "label", id: "hint", label: t("roadmap.connectAfter", { name: p.key }) }, ...candidates.map(target => { const exists = dependencies.some(d => d.sourceId === p.id && d.dependentId === target.id); return { id: target.id, label: target.name, icon: exists ? <IcCheck size={16} /> : <ProjectMark projectKey={target.key} icon={target.icon} color={target.color} size={16} />, hint: exists ? <IcLink size={14} /> : undefined, disabled: connection.busy, onSelect: () => void connection.save(p.id, target.id, exists) }; })]} />}
+    {span && (before || after) && <button type="button" className="roadmap-return ds-focus" aria-label={t("roadmap.returnTo", { name: p.name })} title={title} onClick={() => onReturn(p.id)} ref={cssVars({ "--return-x": viewport.x + (before ? 12 : Math.max(12, viewport.w - 188)), "--return-w": Math.max(44, viewport.w - 24) })}><IcChevR size={14} className={before ? "rotate-180 shrink-0" : "shrink-0"} /><span>{format(dayKey(span.from), locale)} — {format(dayKey(span.to), locale)}</span></button>}
     {p.milestones.map(m => <span key={m.id} data-raised={span && scale.x(parseDay(m.date)) - scale.x(span.from) < 68 || undefined} title={`${m.name} · ${format(m.date, locale)}`} ref={cssVars({ "--mx": (x(parseDay(m.date)) + x(addDays(parseDay(m.date), 1))) / 2 })} className="roadmap-milestone"><i aria-hidden className="rm-milestone" /><span>{m.name}</span></span>)}
   </div>;
 });

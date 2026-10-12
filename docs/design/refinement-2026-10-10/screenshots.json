@@ -1,0 +1,986 @@
+[
+  {
+    "file": "screenshots/light-desktop-board-fixed.png",
+    "theme": "light",
+    "size": "desktop",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:55:49.866Z"
+  },
+  {
+    "file": "screenshots/light-desktop-issue-panel-fixed.png",
+    "theme": "light",
+    "size": "desktop",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:55:52.823Z"
+  },
+  {
+    "file": "screenshots/light-desktop-list-fixed.png",
+    "theme": "light",
+    "size": "desktop",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:55:55.288Z"
+  },
+  {
+    "file": "screenshots/light-mobile-board-fixed.png",
+    "theme": "light",
+    "size": "mobile",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:55:59.257Z"
+  },
+  {
+    "file": "screenshots/light-mobile-issue-panel-fixed.png",
+    "theme": "light",
+    "size": "mobile",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:56:02.158Z"
+  },
+  {
+    "file": "screenshots/light-mobile-list-fixed.png",
+    "theme": "light",
+    "size": "mobile",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:56:04.471Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-board-fixed.png",
+    "theme": "dark",
+    "size": "desktop",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:56:07.94Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-issue-panel-fixed.png",
+    "theme": "dark",
+    "size": "desktop",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:56:11.203Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-list-fixed.png",
+    "theme": "dark",
+    "size": "desktop",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:56:13.44Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-board-fixed.png",
+    "theme": "dark",
+    "size": "mobile",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:56:17.145Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-issue-panel-fixed.png",
+    "theme": "dark",
+    "size": "mobile",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:56:19.965Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-list-fixed.png",
+    "theme": "dark",
+    "size": "mobile",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "fixed",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:56:22.129Z"
+  },
+  {
+    "file": "screenshots/light-desktop-board-candidate.png",
+    "theme": "light",
+    "size": "desktop",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:24.52Z"
+  },
+  {
+    "file": "screenshots/light-desktop-issue-panel-candidate.png",
+    "theme": "light",
+    "size": "desktop",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:27.818Z"
+  },
+  {
+    "file": "screenshots/light-desktop-list-candidate.png",
+    "theme": "light",
+    "size": "desktop",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:30.088Z"
+  },
+  {
+    "file": "screenshots/light-mobile-board-candidate.png",
+    "theme": "light",
+    "size": "mobile",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:33.757Z"
+  },
+  {
+    "file": "screenshots/light-mobile-issue-panel-candidate.png",
+    "theme": "light",
+    "size": "mobile",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:36.447Z"
+  },
+  {
+    "file": "screenshots/light-mobile-list-candidate.png",
+    "theme": "light",
+    "size": "mobile",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:38.659Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-board-candidate.png",
+    "theme": "dark",
+    "size": "desktop",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:42.407Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-issue-panel-candidate.png",
+    "theme": "dark",
+    "size": "desktop",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:45.608Z"
+  },
+  {
+    "file": "screenshots/dark-desktop-list-candidate.png",
+    "theme": "dark",
+    "size": "desktop",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:47.954Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-board-candidate.png",
+    "theme": "dark",
+    "size": "mobile",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:51.596Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-issue-panel-candidate.png",
+    "theme": "dark",
+    "size": "mobile",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:54.493Z"
+  },
+  {
+    "file": "screenshots/dark-mobile-list-candidate.png",
+    "theme": "dark",
+    "size": "mobile",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "candidate",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T21:58:56.987Z"
+  },
+  {
+    "file": "screenshots/light-wide-board-original.png",
+    "theme": "light",
+    "size": "wide",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:13.407Z"
+  },
+  {
+    "file": "screenshots/light-wide-issue-panel-original.png",
+    "theme": "light",
+    "size": "wide",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:16.326Z"
+  },
+  {
+    "file": "screenshots/light-wide-list-original.png",
+    "theme": "light",
+    "size": "wide",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:18.572Z"
+  },
+  {
+    "file": "screenshots/light-ultrawide-board-original.png",
+    "theme": "light",
+    "size": "ultrawide",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:22.724Z"
+  },
+  {
+    "file": "screenshots/light-ultrawide-issue-panel-original.png",
+    "theme": "light",
+    "size": "ultrawide",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:26.005Z"
+  },
+  {
+    "file": "screenshots/light-ultrawide-list-original.png",
+    "theme": "light",
+    "size": "ultrawide",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:28.538Z"
+  },
+  {
+    "file": "screenshots/dark-wide-board-original.png",
+    "theme": "dark",
+    "size": "wide",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:32.042Z"
+  },
+  {
+    "file": "screenshots/dark-wide-issue-panel-original.png",
+    "theme": "dark",
+    "size": "wide",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:34.913Z"
+  },
+  {
+    "file": "screenshots/dark-wide-list-original.png",
+    "theme": "dark",
+    "size": "wide",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:37.152Z"
+  },
+  {
+    "file": "screenshots/dark-ultrawide-board-original.png",
+    "theme": "dark",
+    "size": "ultrawide",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:41.021Z"
+  },
+  {
+    "file": "screenshots/dark-ultrawide-issue-panel-original.png",
+    "theme": "dark",
+    "size": "ultrawide",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:44.232Z"
+  },
+  {
+    "file": "screenshots/dark-ultrawide-list-original.png",
+    "theme": "dark",
+    "size": "ultrawide",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "original",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": false,
+    "capturedAt": "2026-10-09T22:18:46.756Z"
+  },
+  {
+    "file": "screenshots/light-desktop-board-polish.png",
+    "theme": "light",
+    "size": "desktop",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:03:47.305Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/light-desktop-issue-panel-polish.png",
+    "theme": "light",
+    "size": "desktop",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:03:50.195Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/light-desktop-list-polish.png",
+    "theme": "light",
+    "size": "desktop",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:03:52.483Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/light-mobile-board-polish.png",
+    "theme": "light",
+    "size": "mobile",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:03:55.933Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/light-mobile-issue-panel-polish.png",
+    "theme": "light",
+    "size": "mobile",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:03:58.537Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/light-mobile-list-polish.png",
+    "theme": "light",
+    "size": "mobile",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:00.699Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/dark-desktop-board-polish.png",
+    "theme": "dark",
+    "size": "desktop",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:04.24Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/dark-desktop-issue-panel-polish.png",
+    "theme": "dark",
+    "size": "desktop",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:07.095Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/dark-desktop-list-polish.png",
+    "theme": "dark",
+    "size": "desktop",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:09.635Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/dark-mobile-board-polish.png",
+    "theme": "dark",
+    "size": "mobile",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:12.85Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/dark-mobile-issue-panel-polish.png",
+    "theme": "dark",
+    "size": "mobile",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:15.354Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/dark-mobile-list-polish.png",
+    "theme": "dark",
+    "size": "mobile",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:17.432Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/light-wide-board-polish.png",
+    "theme": "light",
+    "size": "wide",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:22.143Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/light-wide-issue-panel-polish.png",
+    "theme": "light",
+    "size": "wide",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:24.874Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/light-wide-list-polish.png",
+    "theme": "light",
+    "size": "wide",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:27.111Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/light-ultrawide-board-polish.png",
+    "theme": "light",
+    "size": "ultrawide",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:31.395Z",
+    "uiScale": 1.1
+  },
+  {
+    "file": "screenshots/light-ultrawide-issue-panel-polish.png",
+    "theme": "light",
+    "size": "ultrawide",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:34.736Z",
+    "uiScale": 1.1
+  },
+  {
+    "file": "screenshots/light-ultrawide-list-polish.png",
+    "theme": "light",
+    "size": "ultrawide",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:38.756Z",
+    "uiScale": 1.1
+  },
+  {
+    "file": "screenshots/dark-wide-board-polish.png",
+    "theme": "dark",
+    "size": "wide",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:44.221Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/dark-wide-issue-panel-polish.png",
+    "theme": "dark",
+    "size": "wide",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:50.336Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/dark-wide-list-polish.png",
+    "theme": "dark",
+    "size": "wide",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:04:54.067Z",
+    "uiScale": 1
+  },
+  {
+    "file": "screenshots/dark-ultrawide-board-polish.png",
+    "theme": "dark",
+    "size": "ultrawide",
+    "screen": "board",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:05:02.022Z",
+    "uiScale": 1.1
+  },
+  {
+    "file": "screenshots/dark-ultrawide-issue-panel-polish.png",
+    "theme": "dark",
+    "size": "ultrawide",
+    "screen": "issue-panel",
+    "route": "/p/UX/board?issue=UX-7",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:05:07.122Z",
+    "uiScale": 1.1
+  },
+  {
+    "file": "screenshots/dark-ultrawide-list-polish.png",
+    "theme": "dark",
+    "size": "ultrawide",
+    "screen": "list",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "viewport": {
+      "width": 3440,
+      "height": 1440
+    },
+    "stage": "polish",
+    "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+    "workingTree": true,
+    "capturedAt": "2026-10-09T23:05:12.283Z",
+    "uiScale": 1.1
+  }
+]

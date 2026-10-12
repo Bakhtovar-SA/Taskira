@@ -1,0 +1,12 @@
+{
+  "taste_state": "reference_ready",
+  "mode": "Operate",
+  "scope": "sidebar team and project hierarchy",
+  "implementation": "preview_only",
+  "realFix": "roadmap counter and menu spacing",
+  "evidence": [
+    "reference-sidebar.png",
+    "project-hierarchy.png",
+    "roadmap-spacing-check.json"
+  ]
+}

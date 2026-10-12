@@ -69,7 +69,7 @@ export default function RecurringRuleForm({ projectId, rule, defaultTimeZone, on
     ? !sameSchedule : !rule || JSON.stringify(value) !== JSON.stringify(rule[key as keyof RecurringRuleDto])));
   const template = data.issueTemplates.find(value => value.id === templateId);
   const expanded = (body.title ?? template?.title ?? body.name).replace(/\{date\}/g, "2000-01-01");
-  const valid = !!body.name && !!template && integer(every, 1, kind === "daily" ? 30 : 12)
+  const valid = !!body.name && (!!template || !!rule?.sourceIssueId) && integer(every, 1, kind === "daily" ? 30 : 12)
     && (kind !== "weekly" || weekdays.length > 0) && (kind !== "monthly" || lastDay || integer(monthDay, 1, 31))
     && /^([01]\d|2[0-3]):[0-5]\d$/.test(time) && !!zone && /^\d{4}-\d{2}-\d{2}$/.test(start)
     && (due === "" || integer(due, 0, 365)) && (rule && patch.title === undefined && patch.templateId === undefined || expanded.length <= LIMITS.title.max);
@@ -90,11 +90,12 @@ export default function RecurringRuleForm({ projectId, rule, defaultTimeZone, on
         <Input label={t("recurring.name")} value={name} onChange={event => setName(event.target.value)} maxLength={LIMITS.recurring.name} data-autofocus />
         <label className="ds-field"><span className="ds-label">{t("recurring.template")}</span>
           <select className="ds-input ds-focus" value={templateId} onChange={event => setTemplateId(event.target.value)}>
-            {!data.issueTemplates.length && <option value="">{t("recurring.noTemplates")}</option>}
+            {rule?.sourceIssueId && !template && <option value={rule.templateId}>{t("automation.issueSnapshot")}</option>}
+            {!rule?.sourceIssueId && !data.issueTemplates.length && <option value="">{t("recurring.noTemplates")}</option>}
             {data.issueTemplates.map(value => <option key={value.id} value={value.id}>{value.name}</option>)}
           </select>
         </label>
-        {!data.issueTemplates.length && <Button onClick={() => { onClose(); setView("projectSettings", "templates"); }}>{t("recurring.createTemplate")}</Button>}
+        {!rule?.sourceIssueId && !data.issueTemplates.length && <Button onClick={() => { onClose(); setView("projectSettings", "templates"); }}>{t("recurring.createTemplate")}</Button>}
         <Tabs label={t("recurring.schedule")} value={kind} onChange={value => { setKind(value); setEvery("1"); }} items={[
           { id: "daily", label: t("recurring.daily") }, { id: "weekly", label: t("recurring.weekly") }, { id: "monthly", label: t("recurring.monthly") },
         ]} />
