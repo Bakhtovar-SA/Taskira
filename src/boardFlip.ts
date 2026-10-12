@@ -56,7 +56,16 @@ export function snapshotBoard(root: HTMLElement | null, movedId: string | null):
     scrollWatch = true;
     // Прокрутка делает положения во viewport неверными, но снимок не стираем: `flipPending` по-прежнему отличает
     // перенос от новой задачи (иначе перенесённая карточка проиграла бы `enter`), а проигрыш просто пропускается.
-    document.addEventListener("scroll", () => snap && (snap.dead = true), { capture: true, passive: true });
+    // Только прокрутка доски или страницы (цель — внутри корня снимка или содержит его): модалка и боковые панели
+    // положений карточек не меняют.
+    document.addEventListener(
+      "scroll",
+      (e) => {
+        const t = e.target;
+        if (snap && (t === document || (t instanceof Node && (snap.root.contains(t) || t.contains(snap.root))))) snap.dead = true;
+      },
+      { capture: true, passive: true },
+    );
   }
 }
 
