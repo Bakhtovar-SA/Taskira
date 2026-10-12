@@ -538,14 +538,15 @@
   position: fixed;
   inset: auto;
   margin: 0;
-  padding: 5px 9px;
+  padding: 7px 10px;
   border: 0;
-  border-radius: var(--radius-s);
-  background: var(--gray-12);
-  color: var(--gray-1);
-  font: 500 13px / 1.35 var(--font-body);
-  max-width: 280px;
-  box-shadow: var(--elev-2);
+  border-radius: 6px;
+  background: var(--bg-overlay);
+  color: var(--text-1);
+  font: 500 12px / 1.4 var(--font-body);
+  max-width: min(280px, calc(100vw - 16px));
+  overflow-wrap: anywhere;
+  box-shadow: inset 0 0 0 1px var(--border-subtle), var(--elev-2);
   pointer-events: none;
 }
 .ds-tip:popover-open {
@@ -573,7 +574,7 @@
   background: var(--bg-overlay);
   color: var(--text-1);
   width: min(var(--dlg-w, 480px), calc(100vw - 32px));
-  max-height: calc(100dvh - 64px);
+  max-height: calc(var(--viewport-h, 100dvh) - 64px);
   box-shadow: var(--highlight-top), inset 0 0 0 1px var(--border-subtle), var(--elev-4);
   overflow: hidden;
 }
@@ -639,7 +640,7 @@
 }
 .ds-dialog[data-kind="panel"] {
   margin: 8px 8px 8px auto;
-  height: calc(100dvh - 16px);
+  height: calc(var(--viewport-h, 100dvh) - 16px);
   max-height: none;
   width: min(var(--dlg-w, 560px), calc(100vw - 16px));
   border-radius: var(--radius-l);
@@ -804,10 +805,10 @@
 }
 /* «Не назначен»: пустой кружок пунктиром, без тона. */
 .ds-av-empty {
-  background: var(--bg-sunken);
+  background: transparent;
   box-shadow: none;
-  border: 1px dashed var(--border-strong);
-  color: var(--text-3);
+  border: 0;
+  color: color-mix(in oklch, var(--text-3) 85%, var(--bg-canvas));
 }
 .ds-av-status {
   position: absolute;

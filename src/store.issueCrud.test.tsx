@@ -157,7 +157,7 @@ describe("updateIssue", () => {
     const { get } = await boot({ issues: [dto("i1")] });
     const patch = vi.spyOn(issuesApi, "patch").mockResolvedValue(dto("i1", { title: "Новый", priorityId: "high" }));
     const [r0, e0] = [get().issuesRevision, get().epicsRevision];
-    act(() => get().updateIssue("i1", { title: "  Новый  ", priorityId: "high" }));
+    await act(async () => { await get().updateIssue("i1", { title: "  Новый  ", priorityId: "high" }); });
     await settle();
     expect(patch).toHaveBeenCalledWith("p1", "i1", { title: "Новый", priorityId: "high" });
     expect(find(get, "i1")!.title).toBe("Новый");
@@ -170,7 +170,7 @@ describe("updateIssue", () => {
     const { get } = await boot({ issues: [dto("i1")] });
     vi.spyOn(issuesApi, "patch").mockResolvedValue(dto("i1", { priorityId: "low" }));
     const e0 = get().epicsRevision;
-    act(() => get().updateIssue("i1", { priorityId: "low" }));
+    await act(async () => { await get().updateIssue("i1", { priorityId: "low" }); });
     await settle();
     expect(get().epicsRevision).toBe(e0);
   });
@@ -178,11 +178,11 @@ describe("updateIssue", () => {
   test("пустой патч и невалидный заголовок в API не идут; ошибка API оставляет задачу как есть", async () => {
     const { get } = await boot({ issues: [dto("i1")] });
     const patch = vi.spyOn(issuesApi, "patch").mockRejectedValue(new ApiError(500, "INTERNAL", "boom"));
-    act(() => get().updateIssue("i1", {}));
-    act(() => get().updateIssue("i1", { title: "   " }));
+    await act(async () => { await get().updateIssue("i1", {}); });
+    await act(async () => { await get().updateIssue("i1", { title: "   " }); });
     await settle();
     expect(patch).not.toHaveBeenCalled();
-    act(() => get().updateIssue("i1", { priorityId: "high" }));
+    await act(async () => { await get().updateIssue("i1", { priorityId: "high" }); });
     await settle();
     expect(patch).toHaveBeenCalledTimes(1);
     expect(find(get, "i1")!.priorityId).toBe("medium");

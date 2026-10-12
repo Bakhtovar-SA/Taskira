@@ -1,0 +1,117 @@
+{
+  "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+  "database": "taskira_ui_audit",
+  "checks": [
+    {
+      "name": "ui-login-and-home",
+      "status": "passed",
+      "expectedPreloginConsole401": 2
+    },
+    {
+      "name": "board-search-and-reset",
+      "status": "passed",
+      "before": 12,
+      "filtered": 1
+    },
+    {
+      "name": "create-cancel-draft-validation-and-persist",
+      "status": "passed",
+      "key": "UX-13",
+      "draftRestored": true,
+      "httpStatus": 201
+    },
+    {
+      "name": "description-save-and-reload",
+      "status": "passed",
+      "httpStatus": 200
+    },
+    {
+      "name": "description-escape-cancels",
+      "status": "passed",
+      "persisted": false
+    },
+    {
+      "name": "comment-post-and-reload",
+      "status": "passed",
+      "httpStatus": 201
+    },
+    {
+      "name": "status-action-and-reload",
+      "status": "passed",
+      "statusId": "340b4813-109e-4c09-8977-cd910a072053",
+      "httpStatus": 200
+    },
+    {
+      "name": "drag-and-drop-and-reload",
+      "status": "passed",
+      "key": "UX-1",
+      "httpStatus": 200
+    },
+    {
+      "name": "description-error-feedback",
+      "status": "observed-defect",
+      "injectedFailure": 503,
+      "prematureSuccess": false,
+      "screenAfterError": "Taskira\nГлавная\nВходящие\nМои задачи\n3\nПроекты\nПродуктовая команда\n1\nU\nРабочие процессы\nРазработка\n1\n\nОрганизация\n\nРоадмап\nОтчёты и дашборды\nСправка\n?\nПоиск и команды\nCtrl K\nЗадача\nC\nАС\nАнна Сафина\nадминистратор\nU\nРабочие процессы\nОбзор\nДоска\nСписок\nТаймлайн\nКалендарь\nДоска\nРабочие процессы\n/\nUX-13\nАудит: сохранение 1791561468809\nВ работе\nГотово\nСоздал(а) Анна Сафина · 9 окт.\nСтатус\nВ работе\nИсполнители\n–\nНе назначен\nПриоритет\nСредний\nСрок\nБез срока\nСложность\nБез оценки\nНаправление\nБез направления\nРодительская задача\nНет, самостоятельная задача\nМетки\nСвязи\n+ Связать\nГости\n+ Пригласить\nВы подписаны на задачу\nОтписаться\n\nОписание\n\nОписание после реального сохранения\nПодзадачи\n+ Добавить\n\nНет подзадач\n\nЧек-лист 0 из 0\n+ Пункт\n\nНет пунктов\n\nВложения\n+ Файл\n\nПеретащите файлы в панель\n\nВсё\nКомментарии · 1\nИстория · 3\nАС\n\nАнна Сафина · только что\n\nКомментарий реального аудита\n\nАС\nCtrl+Enter\nОтправить\n\nГотово:\nОписание сохранено\n\nОшибка:\nОшибка сервера (503)",
+      "persisted": "Описание\n\nОписание после реального сохранения",
+      "contradictorySuccessAndError": true
+    },
+    {
+      "name": "comment-error-draft-recovery",
+      "status": "observed-defect",
+      "injectedFailure": 503,
+      "draft": "",
+      "draftPreserved": false,
+      "posted": 0
+    },
+    {
+      "name": "role-manager-guards",
+      "status": "passed",
+      "writeStatus": 200,
+      "createButton": 1
+    },
+    {
+      "name": "role-employee-guards",
+      "status": "passed",
+      "ownReporterIssue": "UX-2",
+      "ownWriteStatus": 200,
+      "otherIssue": "UX-6",
+      "otherWriteStatus": 403,
+      "initialScenarioCorrection": "UX-2 was reported by employee, so its successful edit was expected. Retested foreign UX-6."
+    },
+    {
+      "name": "role-viewer-guards",
+      "status": "passed",
+      "writeStatus": 403,
+      "createButton": 0
+    }
+  ],
+  "errors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ],
+  "consoleClassification": {
+    "expectedPrelogin401": 2,
+    "injected503": 2,
+    "uncaughtPageErrors": 0
+  },
+  "cleanup": [
+    {
+      "action": "remove-only-audit-created-issue",
+      "key": "UX-13",
+      "status": 204
+    },
+    {
+      "action": "restore-fixture-status",
+      "key": "UX-1",
+      "status": 200
+    },
+    {
+      "action": "restore-fixture-description",
+      "key": "UX-2",
+      "status": 200
+    }
+  ]
+}

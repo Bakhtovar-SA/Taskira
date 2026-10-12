@@ -1,0 +1,12 @@
+[
+  {
+    "Name": "server-typecheck",
+    "ExitCode": 0,
+    "Log": "logs/server-typecheck.log"
+  },
+  {
+    "Name": "server-build",
+    "ExitCode": 0,
+    "Log": "logs/server-build.log"
+  }
+]

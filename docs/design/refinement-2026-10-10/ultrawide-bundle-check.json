@@ -1,0 +1,294 @@
+{
+  "current": {
+    "js": 366498,
+    "css": 34192,
+    "entry": 95807,
+    "total": 400690
+  },
+  "initialJs": 186978,
+  "files": [
+    {
+      "name": "AdminView-ChI8EBta.js",
+      "kind": "js",
+      "gzip": 2680
+    },
+    {
+      "name": "Backlog-htjhRMJY.js",
+      "kind": "js",
+      "gzip": 10133
+    },
+    {
+      "name": "CalendarView-CUkqJL0C.js",
+      "kind": "js",
+      "gzip": 3511
+    },
+    {
+      "name": "CalendarView-DWeWSuWQ.css",
+      "kind": "css",
+      "gzip": 760
+    },
+    {
+      "name": "CollaboratingView-TZowQSav.js",
+      "kind": "js",
+      "gzip": 998
+    },
+    {
+      "name": "CommandPalette-DRweCQb0.js",
+      "kind": "js",
+      "gzip": 4417
+    },
+    {
+      "name": "DashboardTabs-B_YQqPyp.js",
+      "kind": "js",
+      "gzip": 2966
+    },
+    {
+      "name": "DashboardTabs-BfT9yWI9.css",
+      "kind": "css",
+      "gzip": 1250
+    },
+    {
+      "name": "DashboardView-DD4796X9.js",
+      "kind": "js",
+      "gzip": 12261
+    },
+    {
+      "name": "DocsView-BzK6PcaM.js",
+      "kind": "js",
+      "gzip": 18181
+    },
+    {
+      "name": "HomeView-LEdra3ZA.js",
+      "kind": "js",
+      "gzip": 3392
+    },
+    {
+      "name": "ImportModal-DCoDieNR.js",
+      "kind": "js",
+      "gzip": 4131
+    },
+    {
+      "name": "InboxView-DNZn8dkY.js",
+      "kind": "js",
+      "gzip": 2821
+    },
+    {
+      "name": "IssueSearchBox-QBGlVJ9a.js",
+      "kind": "js",
+      "gzip": 1367
+    },
+    {
+      "name": "MyIssuesView-BRHd0izY.js",
+      "kind": "js",
+      "gzip": 2262
+    },
+    {
+      "name": "PermissionsView-CCk-TSc7.js",
+      "kind": "js",
+      "gzip": 2651
+    },
+    {
+      "name": "PersonalTokens-B7AdFrk6.js",
+      "kind": "js",
+      "gzip": 218
+    },
+    {
+      "name": "ProjectIntegrations-C9vNLiie.js",
+      "kind": "js",
+      "gzip": 3550
+    },
+    {
+      "name": "ProjectLookPicker-Bfw7gzXa.js",
+      "kind": "js",
+      "gzip": 883
+    },
+    {
+      "name": "ProjectRecurring-CSqLEqcS.js",
+      "kind": "js",
+      "gzip": 3465
+    },
+    {
+      "name": "ProjectWizard-Dc6gBZOE.js",
+      "kind": "js",
+      "gzip": 3728
+    },
+    {
+      "name": "RecurringRuleForm-Civu5o3E.js",
+      "kind": "js",
+      "gzip": 3177
+    },
+    {
+      "name": "ReportsView-CPmwyyAG.js",
+      "kind": "js",
+      "gzip": 3443
+    },
+    {
+      "name": "RoadmapView-DVnwQQgz.js",
+      "kind": "js",
+      "gzip": 81
+    },
+    {
+      "name": "RoadmapView-ilMWA5VB.css",
+      "kind": "css",
+      "gzip": 1879
+    },
+    {
+      "name": "ServiceAccounts-DBnv5eBX.js",
+      "kind": "js",
+      "gzip": 2359
+    },
+    {
+      "name": "SettingsView-DDJITZQ8.js",
+      "kind": "js",
+      "gzip": 14901
+    },
+    {
+      "name": "SoloView-ylnspm5I.js",
+      "kind": "js",
+      "gzip": 3216
+    },
+    {
+      "name": "SprintsView-D_7CSwfC.js",
+      "kind": "js",
+      "gzip": 2770
+    },
+    {
+      "name": "SystemStatus-CKvwJFXI.js",
+      "kind": "js",
+      "gzip": 3318
+    },
+    {
+      "name": "TokenControls-DCHMHl5n.js",
+      "kind": "js",
+      "gzip": 2444
+    },
+    {
+      "name": "WebhookDeliveries-DJihazA0.js",
+      "kind": "js",
+      "gzip": 2094
+    },
+    {
+      "name": "WorkflowView-FudhzvDI.js",
+      "kind": "js",
+      "gzip": 6759
+    },
+    {
+      "name": "access-kALghoi5.js",
+      "kind": "js",
+      "gzip": 417
+    },
+    {
+      "name": "activityText-DhaF-bsm.js",
+      "kind": "js",
+      "gzip": 1399
+    },
+    {
+      "name": "dataColors-LUJKCIj8.js",
+      "kind": "js",
+      "gzip": 176
+    },
+    {
+      "name": "en-PgF2oCJB.js",
+      "kind": "js",
+      "gzip": 27434
+    },
+    {
+      "name": "index-BoSZBb4e.css",
+      "kind": "css",
+      "gzip": 30303
+    },
+    {
+      "name": "index-DqEuPbcM.js",
+      "kind": "js",
+      "gzip": 95807
+    },
+    {
+      "name": "issue-forms-BNpVpx-s.js",
+      "kind": "js",
+      "gzip": 13660
+    },
+    {
+      "name": "issueNav-DAYFuNt7.js",
+      "kind": "js",
+      "gzip": 224
+    },
+    {
+      "name": "issuePages-BRf103bS.js",
+      "kind": "js",
+      "gzip": 2192
+    },
+    {
+      "name": "roadmapLayout-DxlAJPh2.js",
+      "kind": "js",
+      "gzip": 617
+    },
+    {
+      "name": "rolldown-runtime-hePW80VL.js",
+      "kind": "js",
+      "gzip": 428
+    },
+    {
+      "name": "time-views-Z9IYXK2F.js",
+      "kind": "js",
+      "gzip": 7027
+    },
+    {
+      "name": "timeScale-CNGCh8hY.js",
+      "kind": "js",
+      "gzip": 688
+    },
+    {
+      "name": "types-DDPmts3O.js",
+      "kind": "js",
+      "gzip": 118
+    },
+    {
+      "name": "ui-core-Cvy1Vlpo.js",
+      "kind": "js",
+      "gzip": 88134
+    }
+  ],
+  "results": [
+    {
+      "key": "total",
+      "label": "JS + CSS",
+      "base": 201204,
+      "allowed": 199680,
+      "limit": 400884,
+      "current": 400690,
+      "growth": 199486,
+      "ok": true
+    },
+    {
+      "key": "js",
+      "label": "JS, все чанки",
+      "base": 187489,
+      "allowed": 180224,
+      "limit": 367713,
+      "current": 366498,
+      "growth": 179009,
+      "ok": true
+    },
+    {
+      "key": "css",
+      "label": "CSS",
+      "base": 13715,
+      "allowed": 20480,
+      "limit": 34195,
+      "current": 34192,
+      "growth": 20477,
+      "ok": true
+    },
+    {
+      "key": "entry",
+      "label": "входной чанк (index.js)",
+      "base": 81035,
+      "allowed": 40960,
+      "limit": 121995,
+      "current": 95807,
+      "growth": 14772,
+      "ok": true
+    }
+  ],
+  "ok": true
+}

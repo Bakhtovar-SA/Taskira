@@ -109,3 +109,11 @@ export function visibleItems<T>(groups: Group<T>[], top: number, h: number, over
   }
   return out;
 }
+
+/** A source → dependent edge must not duplicate an edge or close a directed cycle. */
+export function canConnect(dependencies: RoadmapDto["dependencies"], sourceId: string, dependentId: string): boolean {
+  if (sourceId === dependentId || dependencies.some(d => d.sourceId === sourceId && d.dependentId === dependentId)) return false;
+  const pending = [dependentId], seen = new Set<string>();
+  while (pending.length) { const id = pending.pop()!; if (id === sourceId) return false; if (seen.has(id)) continue; seen.add(id); pending.push(...dependencies.filter(d => d.sourceId === id).map(d => d.dependentId)); }
+  return true;
+}

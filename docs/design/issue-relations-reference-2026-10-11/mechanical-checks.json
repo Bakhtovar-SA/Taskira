@@ -1,0 +1,22 @@
+[
+  {
+    "name": "check-contrast",
+    "exitCode": 0
+  },
+  {
+    "name": "check-raw-colors",
+    "exitCode": 0
+  },
+  {
+    "name": "check-motion",
+    "exitCode": 0
+  },
+  {
+    "name": "check-antilist",
+    "exitCode": 0
+  },
+  {
+    "name": "git diff --check",
+    "exitCode": 0
+  }
+]

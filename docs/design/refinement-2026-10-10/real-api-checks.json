@@ -1,0 +1,139 @@
+{
+  "base": "http://localhost:3000",
+  "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+  "checks": [
+    {
+      "name": "create through UI and persist after reload",
+      "pass": true,
+      "details": {
+        "key": "UX-15",
+        "http": 201
+      }
+    },
+    {
+      "name": "description 503 retains draft; retry saves on real API",
+      "pass": true,
+      "details": {
+        "draftPreserved": true,
+        "retry": 200,
+        "reloadPersisted": true
+      }
+    },
+    {
+      "name": "comment 503 retains draft; retry creates once and persists",
+      "pass": true,
+      "details": {
+        "draftPreserved": true,
+        "reloadCount": 1
+      }
+    },
+    {
+      "name": "single status control transitions and persists",
+      "pass": true,
+      "details": {
+        "http": 200,
+        "reloadPersisted": true
+      }
+    },
+    {
+      "name": "invitation closes outside and by Escape",
+      "pass": true,
+      "details": {
+        "outside": true,
+        "escape": "first closes nested lookup, second closes invitation"
+      }
+    },
+    {
+      "name": "list avatars filter real API and restore without filter",
+      "pass": true,
+      "details": {
+        "before": 10,
+        "filtered": 0
+      }
+    },
+    {
+      "name": "real API rights manager",
+      "pass": true,
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "name": "real API rights employee",
+      "pass": true,
+      "details": {
+        "status": 403
+      }
+    },
+    {
+      "name": "real API rights viewer",
+      "pass": true,
+      "details": {
+        "status": 403
+      }
+    },
+    {
+      "name": "no redundant avatars overview",
+      "pass": true,
+      "details": {
+        "route": "http://localhost:3000/p/UX/overview"
+      }
+    },
+    {
+      "name": "no redundant avatars timeline",
+      "pass": true,
+      "details": {
+        "route": "http://localhost:3000/p/UX/timeline"
+      }
+    },
+    {
+      "name": "no redundant avatars calendar",
+      "pass": true,
+      "details": {
+        "route": "http://localhost:3000/p/UX/calendar"
+      }
+    },
+    {
+      "name": "axe issue light 1440",
+      "pass": true,
+      "details": {
+        "violations": []
+      }
+    },
+    {
+      "name": "axe issue light 390",
+      "pass": true,
+      "details": {
+        "violations": []
+      }
+    },
+    {
+      "name": "axe issue dark 1440",
+      "pass": true,
+      "details": {
+        "violations": []
+      }
+    },
+    {
+      "name": "axe issue dark 390",
+      "pass": true,
+      "details": {
+        "violations": []
+      }
+    },
+    {
+      "name": "cleanup disposable task",
+      "pass": true,
+      "details": {
+        "status": 204,
+        "key": "UX-15"
+      }
+    },
+    {
+      "name": "no runtime page errors",
+      "pass": true,
+      "details": []
+    }
+  ],
+  "errors": []
+}

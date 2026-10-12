@@ -571,3 +571,5 @@ export const IcCart = (p: P) => (
     <circle className="s" cx="12" cy="14" r="1.25" />
   </D>
 );
+
+export const IcUnassigned = (p: P) => <D {...p}><g fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"><circle cx="8" cy="8" r="6.6" strokeDasharray="1 2.45" /><circle cx="8" cy="6" r="1.65" /><path d="M4.9 11.6v-.4a3.1 3.1 0 0 1 6.2 0v.4" /></g></D>;

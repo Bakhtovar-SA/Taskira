@@ -19,6 +19,11 @@ import {
   type JwtPayload,
 } from "../middleware.js";
 import { auditFromRequest } from "../audit.js";
+import { createIssueRecurrenceInTx } from "../services/issueAutomation.js";
+import { setIssueReminder, validateReminder } from "../services/issueReminders.js";
+import { roleCan } from "../permissions.js";
+import { forbidden } from "../middleware.js";
+import { assertValidTiming } from "../services/recurrence.js";
 import { createIssueInTx, prepareIssueCreate } from "../services/issueCreate.js";
 import { transitionIssue } from "../services/issueTransition.js";
 import {
@@ -377,6 +382,11 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as z.infer<typeof IssueCreateBody>;
       const user = me(req);
 
+      if (body.recurrence) {
+        if (!roleCan(req.projectRole ?? null, "manageRecurring")) throw forbidden("Нет права управлять повторениями");
+        assertValidTiming(body.recurrence);
+      }
+      if (body.remindAt) validateReminder(body.remindAt);
       if (req.projectRole === "employee") assertSelfAssignment(user.sub, [], body.assigneeIds);
       const prepared = await prepareIssueCreate(project, body);
       const assigneeIds = prepared.assigneeIds;
@@ -395,8 +405,12 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const num = await nextIssueNum(project.id);
       const key = `${project.key}-${num}`;
       // Проверка родителя остаётся в assignParentLocked; INSERT сразу содержит связь.
-      const createInTransaction = (client: PoolClient) =>
-        createIssueInTx(client, project, body, user.sub, { num, prepared, parentId: body.parentId });
+      const createInTransaction = async (client: PoolClient) => {
+        const row = await createIssueInTx(client, project, body, user.sub, { num, prepared, parentId: body.parentId });
+        if (body.recurrence) await createIssueRecurrenceInTx(client, project, row, body.recurrence, user.sub);
+        if (body.remindAt) await setIssueReminder(client, row.id, user.sub, body.remindAt);
+        return row;
+      };
       const row = body.parentId
         ? await assignParentLocked(project.id, body.parentId, null, createInTransaction)
         : await withTransaction(createInTransaction);

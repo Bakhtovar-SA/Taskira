@@ -31,7 +31,7 @@ const toDto = (r: Row): IssueTemplateDto => ({
 export async function listIssueTemplates(projectId: string): Promise<IssueTemplateDto[]> {
   const rows = await q<Row>(
     `SELECT id, name, type_id, priority_id, title, description, status_id, position
-       FROM issue_templates WHERE project_id = $1 ORDER BY position, created_at`,
+       FROM issue_templates WHERE project_id = $1 AND NOT hidden ORDER BY position, created_at`,
     [projectId],
   );
   return rows.map(toDto);
@@ -58,7 +58,7 @@ export async function createIssueTemplate(projectId: string, args: IssueTemplate
 
 export async function getIssueTemplateInProject(projectId: string, templateId: string): Promise<{ id: string; name: string } | null> {
   return one<{ id: string; name: string }>(
-    `SELECT id, name FROM issue_templates WHERE id = $1 AND project_id = $2`,
+    `SELECT id, name FROM issue_templates WHERE id = $1 AND project_id = $2 AND NOT hidden`,
     [templateId, projectId],
   );
 }

@@ -12,7 +12,7 @@ test("home refresh: shared shell, dimensions, summary and real project totals", 
   expect((await page.locator(".home-activity").first().boundingBox())!.height).toBe(38);
   expect((await page.locator(".home-card-head").first().boundingBox())!.height).toBe(48);
   const style = await page.locator(".home-content").evaluate(e => ({ padding: getComputedStyle(e).padding, font: getComputedStyle(e.querySelector("h1")!).fontSize }));
-  expect(style).toEqual({ padding: "28px 32px", font: "30px" });
+  expect(style).toEqual({ padding: "28px 32px", font: "26px" });
   await expect(page.locator(".home-project-count").first()).toContainText("моих 5");
   await expect(page.getByText("открыто 5", { exact: true })).toBeVisible();
   await expect(page.getByRole("progressbar", { name: "Готовность проекта «Корпоративные задачи»" })).toHaveAttribute("aria-valuenow", String(7 / 12 * 100));

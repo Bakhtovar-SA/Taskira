@@ -285,9 +285,17 @@ export type ServerCustomFieldValue = CustomFieldValueDto;
  *  в списочной задаче их нет. Это клиентская вьюмодель поверх двух серверных типов, а не третье описание. */
 export type ServerIssue = IssueDto & Partial<Omit<IssueDetailDto, keyof IssueDto>>;
 
+import type { IssueAutomationDto, IssueRecurrenceBody } from "../../server/src/contract";
 /** Префикс ресурсов проекта. */
 const P = (projectId: string) => `/api/projects/${projectId}`;
 
+export const issueAutomationApi = {
+ get: (pid: string, id: string) => api<IssueAutomationDto>(`${P(pid)}/issues/${id}/automation`),
+ repeat: (pid: string, id: string, body: IssueRecurrenceBody) => api<IssueAutomationDto>(`${P(pid)}/issues/${id}/recurrence`, {method:"PUT",body}),
+ stopRepeat: (pid: string, id: string) => api<void>(`${P(pid)}/issues/${id}/recurrence`, {method:"DELETE"}),
+ remind: (pid: string, id: string, remindAt: string) => api<IssueAutomationDto>(`${P(pid)}/issues/${id}/reminder`, {method:"PUT",body:{remindAt}}),
+ clearReminder: (pid: string, id: string) => api<void>(`${P(pid)}/issues/${id}/reminder`, {method:"DELETE"}),
+};
 export const recurringApi = {
   config: () => api<RecurringConfigDto>("/api/recurring/config"),
   list: (pid: string) => api<RecurringRuleDto[]>(`${P(pid)}/recurring`),

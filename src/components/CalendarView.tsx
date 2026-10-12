@@ -58,7 +58,7 @@ const Day = memo(function Day({ day, date, mode, today, items, focused, categori
     <div className="calendar-day-issues">
       {items.map((i, index) => <div key={i.id} hidden={mode === "month" && index >= 3}>{plate(i)}</div>)}
     </div>
-    {hiddenCount(items.length, mode) > 0 && <Popover label={t("calendar.dayIssues")} trigger={p => <Button {...p} variant="ghost" size="sm">{t("calendar.more", { n: hiddenCount(items.length, mode) })}</Button>}>
+    {hiddenCount(items.length, mode) > 0 && <Popover label={t("calendar.dayIssues")} trigger={p => <Button {...p} className="calendar-more" variant="ghost" size="sm">{t("calendar.more", { n: hiddenCount(items.length, mode) })}</Button>}>
       <div className="max-h-80 space-y-1 overflow-y-auto p-1">{items.map(i => plate(i, false))}</div>
     </Popover>}
   </div>;

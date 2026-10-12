@@ -1,0 +1,170 @@
+[
+  {
+    "view": "create",
+    "prefix": "light-desktop",
+    "text": "Новая задача\nUX\n\nТип задачи\n\nЗадача\nБаг\nЗапрос\nНазвание *\nОписание\n\nПриоритет\n\nСредний\n\nИсполнитель\n\n–\nНе назначен\n\nСрок\n\nБез срока\nДополнительные поля\nЧерновик сохраняется при закрытии формы\nОчистить черновик\nсоздать ещё одну следом\nОтмена\nСоздать задачу",
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "placeholder": "Фильтр задач",
+        "aria": "Фильтр задач"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": null,
+        "aria": "Загрузить фото"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "Например: Экран восстановления пароля",
+        "aria": null
+      },
+      {
+        "tag": "TEXTAREA",
+        "placeholder": "Что нужно сделать и критерии готовности…",
+        "aria": null
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "Добавить пункт и нажать Enter",
+        "aria": "Чек-лист"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "+ Enter",
+        "aria": "Метки"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": null,
+        "aria": null
+      }
+    ]
+  },
+  {
+    "view": "create",
+    "prefix": "light-mobile",
+    "text": "Новая задача\nUX\n\nТип задачи\n\nЗадача\nБаг\nЗапрос\nНазвание *\nОписание\n\nПриоритет\n\nСредний\n\nИсполнитель\n\n–\nНе назначен\n\nСрок\n\nБез срока\nДополнительные поля\nЧерновик сохраняется при закрытии формы\nОчистить черновик\nсоздать ещё одну следом\nОтмена\nСоздать задачу",
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "placeholder": "Фильтр задач",
+        "aria": "Фильтр задач"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": null,
+        "aria": "Загрузить фото"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "Например: Экран восстановления пароля",
+        "aria": null
+      },
+      {
+        "tag": "TEXTAREA",
+        "placeholder": "Что нужно сделать и критерии готовности…",
+        "aria": null
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "Добавить пункт и нажать Enter",
+        "aria": "Чек-лист"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "+ Enter",
+        "aria": "Метки"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": null,
+        "aria": null
+      }
+    ]
+  },
+  {
+    "view": "create",
+    "prefix": "dark-desktop",
+    "text": "Новая задача\nUX\n\nТип задачи\n\nЗадача\nБаг\nЗапрос\nНазвание *\nОписание\n\nПриоритет\n\nСредний\n\nИсполнитель\n\n–\nНе назначен\n\nСрок\n\nБез срока\nДополнительные поля\nЧерновик сохраняется при закрытии формы\nОчистить черновик\nсоздать ещё одну следом\nОтмена\nСоздать задачу",
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "placeholder": "Фильтр задач",
+        "aria": "Фильтр задач"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": null,
+        "aria": "Загрузить фото"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "Например: Экран восстановления пароля",
+        "aria": null
+      },
+      {
+        "tag": "TEXTAREA",
+        "placeholder": "Что нужно сделать и критерии готовности…",
+        "aria": null
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "Добавить пункт и нажать Enter",
+        "aria": "Чек-лист"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "+ Enter",
+        "aria": "Метки"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": null,
+        "aria": null
+      }
+    ]
+  },
+  {
+    "view": "create",
+    "prefix": "dark-mobile",
+    "text": "Новая задача\nUX\n\nТип задачи\n\nЗадача\nБаг\nЗапрос\nНазвание *\nОписание\n\nПриоритет\n\nСредний\n\nИсполнитель\n\n–\nНе назначен\n\nСрок\n\nБез срока\nДополнительные поля\nЧерновик сохраняется при закрытии формы\nОчистить черновик\nсоздать ещё одну следом\nОтмена\nСоздать задачу",
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "placeholder": "Фильтр задач",
+        "aria": "Фильтр задач"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": null,
+        "aria": "Загрузить фото"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "Например: Экран восстановления пароля",
+        "aria": null
+      },
+      {
+        "tag": "TEXTAREA",
+        "placeholder": "Что нужно сделать и критерии готовности…",
+        "aria": null
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "Добавить пункт и нажать Enter",
+        "aria": "Чек-лист"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": "+ Enter",
+        "aria": "Метки"
+      },
+      {
+        "tag": "INPUT",
+        "placeholder": null,
+        "aria": null
+      }
+    ]
+  }
+]

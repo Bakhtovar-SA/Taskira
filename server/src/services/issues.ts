@@ -212,7 +212,7 @@ export async function precheckParentAssignment(projectId: string, parentId: stri
 /** Подзадачи (миграция 021) — строго два уровня, без вложенности.
  *  issueId=null — вызов из POST /issues (создаваемая задача ещё не имеет id,
  *  поэтому проверка «у неё уже есть подзадачи» не нужна). */
-async function validateParentAssignmentTx(
+export async function validateParentAssignmentTx(
   client: PoolClient,
   projectId: string,
   parentId: string,

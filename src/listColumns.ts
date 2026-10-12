@@ -12,8 +12,8 @@ export const COLUMNS: { id: ColumnId; label: TKey; width: string; sort?: SortKey
   { id: "labels", label: "field.labels", width: "160px" },
   { id: "due", label: "field.dueDate", width: "110px", sort: "due" },
   { id: "status", label: "field.status", width: "136px" },
-  { id: "assignee", label: "field.assignee", width: "74px" },
-  { id: "updated", label: "backlog.sort.updated", width: "96px", sort: "updated" },
+  { id: "assignee", label: "field.assignee", width: "112px" },
+  { id: "updated", label: "backlog.sort.updated", width: "120px", sort: "updated" },
 ];
 /** Порядок в строке: приоритет и тип — слева от ключа, остальное — справа от названия. */
 export const LEFT: ColumnId[] = ["priority", "type"];
@@ -39,18 +39,18 @@ export function writeColumns(cols: ColumnId[]): void {
 }
 
 /** Desktop minimum keeps the title and actions usable; intermediate widths scroll inside the list. */
-export function tableMinWidth(visible: ColumnId[], selectMode: boolean): number {
-  const widths = visible.map(id => Number.parseInt(COLUMNS.find(c => c.id === id)!.width));
+export function tableMinWidth(visible: ColumnId[], selectMode: boolean, directionWidth = 230): number {
+  const widths = visible.map(id => id === "direction" ? directionWidth : Number.parseInt(COLUMNS.find(c => c.id === id)!.width));
   const count = visible.length + 3 + Number(selectMode);
   return 32 + 12 * (count - 1) + 76 + 320 + 44 + widths.reduce((a, b) => a + b, 0) + (selectMode ? 28 : 0);
 }
 
 /** [Selection] [left fields] key title [right fields] menu. Mobile places key with the title,
  *  status on the second line, and always retains the action menu. */
-export function gridTemplate(visible: ColumnId[], selectMode: boolean, compact = false): string {
+export function gridTemplate(visible: ColumnId[], selectMode: boolean, compact = false, directionWidth = 230): string {
   const on = new Set(visible);
-  if (compact) return [selectMode ? "28px" : null, "minmax(0,1fr)", on.has("assignee") ? "72px" : null, "44px"].filter(Boolean).join(" ");
-  const w = (id: ColumnId) => COLUMNS.find((c) => c.id === id)!.width;
+  if (compact) return [selectMode ? "44px" : null, "minmax(0,1fr)", on.has("assignee") ? "72px" : null, "44px"].filter(Boolean).join(" ");
+  const w = (id: ColumnId) => id === "direction" ? `${directionWidth}px` : COLUMNS.find((c) => c.id === id)!.width;
   return [
     selectMode ? "28px" : null,
     ...LEFT.filter((id) => on.has(id)).map(w),

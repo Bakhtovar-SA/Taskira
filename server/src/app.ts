@@ -47,6 +47,7 @@ import { activeSocketCount } from "./services/wsHub.js";
 import { licenseRoutes } from "./routes/license.js";
 import { projectTemplateRoutes } from "./routes/projectTemplates.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { issueAutomationRoutes } from "./routes/issueAutomation.js";
 import { recurringConfigRoutes, recurringRoutes } from "./routes/recurring.js";
 import { apiTokenRoutes } from "./routes/apiTokens.js";
 import { serviceAccountRoutes } from "./routes/serviceAccounts.js";
@@ -273,7 +274,8 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       await api.register(
         async (proj) => {
           await proj.register(memberRoutes, { prefix: "/members" }); // /:userId
-          await proj.register(issuesRoutes, { prefix: "/issues" }); // CRUD + transition + watchers
+          await proj.register(issuesRoutes, { prefix: "/issues" });
+          await proj.register(issueAutomationRoutes, { prefix: "/issues" }); // CRUD + transition + watchers
           await proj.register(issuesBulkRoutes, { prefix: "/issues" }); // PATCH /bulk — ТЗ 3.3
           await proj.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
           await proj.register(attachmentRoutes, { prefix: "/issues" }); // /:id/attachments[/:attId]

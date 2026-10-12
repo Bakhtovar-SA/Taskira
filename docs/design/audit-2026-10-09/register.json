@@ -1,0 +1,238 @@
+{
+  "sha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+  "annotationStatus": "14 аннотаций и дополнительное замечание о группировке обработаны; см. ../refinement-2026-10-10/annotations.json",
+  "issues": [
+    {
+      "id": "UX-01",
+      "category": "работа",
+      "priority": "P1",
+      "title": "При ошибке отправки комментария теряется текст",
+      "reproduction": "Открыть задачу, ввести комментарий, вернуть POST комментария 503, нажать Отправить.",
+      "expected": "Сохранить текст для повторной отправки и показать ошибку.",
+      "actual": "Комментарий не создан, поле очищено; draftPreserved=false.",
+      "evidence": [
+        "evidence/comment-error-draft.png",
+        "real-api-checks.json"
+      ],
+      "recommendation": "Очищать поле после успешного ответа; при ошибке сохранять черновик.",
+      "confidence": "browser/live API + injected 503",
+      "status": "исправлено; проверено",
+      "userAnnotations": [],
+      "resolutionEvidence": "../refinement-2026-10-10/real-api-checks.json"
+    },
+    {
+      "id": "UX-02",
+      "category": "работа",
+      "priority": "P1",
+      "title": "Описание одновременно показывает успех и ошибку",
+      "reproduction": "Изменить описание, вернуть запросу сохранения 503, сохранить.",
+      "expected": "Сообщить об ошибке, оставить возможность повторить сохранение.",
+      "actual": "Одновременно «Описание сохранено» и «Ошибка сервера (503)»; изменение не сохранилось.",
+      "evidence": [
+        "evidence/description-error.png",
+        "real-api-checks.json"
+      ],
+      "recommendation": "Дождаться результата сохранения перед успешным уведомлением; согласовать состояние редактора с ответом.",
+      "confidence": "browser/live API + injected 503",
+      "status": "исправлено; проверено",
+      "userAnnotations": [],
+      "resolutionEvidence": "../refinement-2026-10-10/real-api-checks.json"
+    },
+    {
+      "id": "UX-03",
+      "category": "работа",
+      "priority": "P1",
+      "title": "Фокус уходит за мобильное меню",
+      "reproduction": "390×844: открыть меню, нажать Tab, затем Escape.",
+      "expected": "Фокус внутри открытого меню; после закрытия возвращается к кнопке открытия.",
+      "actual": "Первый Tab на фоне «Поиск и команды»; aside без modal semantics, фон доступен.",
+      "evidence": [
+        "targeted-browser.json",
+        "assessment-b.md"
+      ],
+      "recommendation": "Использовать модальное управление фокусом, блокировать фон, восстанавливать фокус.",
+      "confidence": "browser/mocked fixture + source",
+      "status": "исправлено; проверено",
+      "userAnnotations": [
+        "AN-14"
+      ],
+      "resolutionEvidence": "../refinement-2026-10-10/../audit-2026-10-09/verification-navigation/checks.json"
+    },
+    {
+      "id": "UX-04",
+      "category": "работа",
+      "priority": "P1",
+      "title": "Открытие карточки доски не объявлено действием",
+      "reproduction": "Перейти к карточке доски клавиатурой/через дерево доступности.",
+      "expected": "Открытие задачи доступно как ссылка или кнопка.",
+      "actual": "ARTICLE tabindex=0 без actionable role; Enter работает, но действие не представлено в списке ссылок/кнопок.",
+      "evidence": [
+        "targeted-browser.json",
+        "assessment-b.md"
+      ],
+      "recommendation": "Сделать заголовок настоящей ссылкой на задачу, отдельно сохранить кнопки исполнителей и перемещения.",
+      "confidence": "accessibility tree + source",
+      "status": "исправлено; проверено",
+      "userAnnotations": [
+        "AN-12"
+      ],
+      "resolutionEvidence": "../refinement-2026-10-10/../audit-2026-10-09/verification-navigation/checks.json"
+    },
+    {
+      "id": "UX-05",
+      "category": "работа",
+      "priority": "P1",
+      "title": "На мобильном списке исчезают срок и приоритет",
+      "reproduction": "390×844: открыть список с просроченными задачами и разными приоритетами.",
+      "expected": "Срочность видна без открытия каждой задачи.",
+      "actual": "Колонки срока и приоритета скрываются; мобильная строка не содержит эквивалента.",
+      "evidence": [
+        "screenshots/light-mobile-list.png",
+        "screenshots/dark-mobile-list.png",
+        "assessment-a.md"
+      ],
+      "recommendation": "Добавить компактные срок/индикатор просрочки и приоритет в мобильную строку.",
+      "confidence": "screenshots + CSS",
+      "status": "исправлено; проверено",
+      "userAnnotations": [],
+      "resolutionEvidence": "../refinement-2026-10-10/../audit-2026-10-09/logs/refinement-production-final.log"
+    },
+    {
+      "id": "UX-06",
+      "category": "расположение",
+      "priority": "P2",
+      "title": "Свойства вытесняют содержание мобильной задачи",
+      "reproduction": "390×844: открыть длинную UX-7 в панели/отдельной странице.",
+      "expected": "Описание и ключевые действия достигаются с разумной прокруткой.",
+      "actual": "Полный блок свойств, связей и гостей расположен перед описанием.",
+      "evidence": [
+        "screenshots/light-mobile-issue-panel.png",
+        "screenshots/dark-mobile-issue-page.png",
+        "assessment-a.md"
+      ],
+      "recommendation": "Согласовать основной набор свойств; второстепенные свернуть или разместить после содержания.",
+      "confidence": "visual inspection",
+      "status": "исправлено; проверено",
+      "userAnnotations": [
+        "AN-11"
+      ],
+      "resolutionEvidence": "../refinement-2026-10-10/screenshots/dark-mobile-issue-panel-polish.png"
+    },
+    {
+      "id": "UX-07",
+      "category": "расположение",
+      "priority": "P2",
+      "title": "Панель доски перегружена вторичными действиями",
+      "reproduction": "Открыть доску на desktop и 320px.",
+      "expected": "Основные фильтры и действие создания читаются первыми.",
+      "actual": "Много постоянно видимых действий; переносы и лишние уровни занимают высоту.",
+      "evidence": [
+        "screenshots/light-desktop-board.png",
+        "screenshots/light-narrow-board.png",
+        "assessment-a.md"
+      ],
+      "recommendation": "Сгруппировать вторичные действия; контекстные показывать при выборе; проверить пользу группировки с одним вариантом.",
+      "confidence": "visual inspection + source",
+      "status": "частично исправлено; прямые вторичные действия сохранены по решению пользователя",
+      "userAnnotations": [
+        "AN-15"
+      ],
+      "resolutionEvidence": "../refinement-2026-10-10/board-actions-check.json; logs/refinement-scale-playwright.log",
+      "resolution": "Нерабочая группировка удалена. Перенос фото и выделения под Вид отменён по указанию пользователя; оба действия остаются на панели."
+    },
+    {
+      "id": "UX-08",
+      "category": "расположение",
+      "priority": "P2",
+      "title": "Пустое направление отнимает ширину названия",
+      "reproduction": "1440×900: список текущих фикстур, направление пусто, длинные UX-6/7/11.",
+      "expected": "Полезная ширина прежде всего у названия.",
+      "actual": "Направлению выделено 230px, при этом названия сокращены.",
+      "evidence": [
+        "screenshots/light-desktop-list.png",
+        "assessment-a.md"
+      ],
+      "recommendation": "Проверить реальные данные: гибкая ширина или настройка видимости направления; сохранить пользовательские настройки.",
+      "confidence": "visual inspection; data-dependent",
+      "status": "исправлено; проверено",
+      "userAnnotations": [
+        "AN-07"
+      ],
+      "resolutionEvidence": "../refinement-2026-10-10/../audit-2026-10-09/logs/refinement-production-final.log"
+    },
+    {
+      "id": "UX-09",
+      "category": "расположение",
+      "priority": "P2",
+      "title": "Нижняя часть мобильной формы тесная",
+      "reproduction": "390×844: открыть создание задачи.",
+      "expected": "Кнопки и «Создать ещё одну» читаются без чрезмерных переносов.",
+      "actual": "Checkbox «Создать ещё одну следом» переносится в четыре строки. Основная кнопка доступна.",
+      "evidence": [
+        "screenshots/light-mobile-create.png",
+        "screenshots/dark-mobile-create.png",
+        "assessment-a.md"
+      ],
+      "recommendation": "Вынести checkbox на отдельную строку; оставить создание и отмену рядом.",
+      "confidence": "visual inspection",
+      "status": "исправлено; проверено",
+      "userAnnotations": [],
+      "resolutionEvidence": "../refinement-2026-10-10/../audit-2026-10-09/logs/refinement-production-final.log"
+    },
+    {
+      "id": "UX-10",
+      "category": "работа",
+      "priority": "P2",
+      "title": "У доски отсутствует заголовок первого уровня",
+      "reproduction": "Открыть доску и проверить структуру заголовков/axe.",
+      "expected": "Структура объявляет название текущего экрана.",
+      "actual": "axe page-has-heading-one; карточки начинаются с h3. Это best-practice, не самостоятельный вывод о нарушении WCAG.",
+      "evidence": [
+        "targeted-browser.json",
+        "assessment-b.md"
+      ],
+      "recommendation": "Добавить подходящий h1, при необходимости визуально скрытый; согласовать уровни заголовков.",
+      "confidence": "axe + source",
+      "status": "исправлено; проверено",
+      "userAnnotations": [],
+      "resolutionEvidence": "../refinement-2026-10-10/../audit-2026-10-09/verification-navigation/checks.json"
+    },
+    {
+      "id": "UX-11",
+      "category": "расположение",
+      "priority": "P3",
+      "title": "Две кнопки мобильного меню на главной",
+      "reproduction": "390×844: открыть главную.",
+      "expected": "Одно понятное место для открытия глобального меню.",
+      "actual": "Кнопка в глобальной панели и ещё одна над датой.",
+      "evidence": [
+        "screenshots/light-mobile-home.png",
+        "assessment-a.md"
+      ],
+      "recommendation": "После аннотаций выбрать одно место открытия, убрать повтор.",
+      "confidence": "visual inspection + source",
+      "status": "исправлено; проверено",
+      "userAnnotations": [],
+      "resolutionEvidence": "../refinement-2026-10-10/../audit-2026-10-09/logs/refinement-production-final.log"
+    },
+    {
+      "id": "UX-12",
+      "category": "визуал",
+      "priority": "P3",
+      "title": "Несогласованное число в сводке главной",
+      "reproduction": "Открыть главную с одной задачей на ревью.",
+      "expected": "«1 ждёт вашего ревью».",
+      "actual": "«1 ждут вашего ревью».",
+      "evidence": [
+        "screenshots/light-desktop-home.png",
+        "assessment-a.md"
+      ],
+      "recommendation": "Использовать русские формы множественного числа.",
+      "confidence": "rendered copy + source",
+      "status": "исправлено; проверено",
+      "userAnnotations": [],
+      "resolutionEvidence": "../refinement-2026-10-10/../audit-2026-10-09/logs/refinement-unit-final.log"
+    }
+  ],
+  "updatedAt": "2026-10-09T23:06:06.0842910Z"
+}

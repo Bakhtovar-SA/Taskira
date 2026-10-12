@@ -36,6 +36,10 @@ export type PopoverProps = {
   label?: string;
   className?: string;
   matchWidth?: boolean;
+  /** Re-measure natural height when lazy or dynamic contents grow before choosing a side. */
+  fitContent?: boolean;
+  /** External trigger for a panel opened from another menu. */
+  anchorElement?: HTMLElement | null;
   /** Управляемый режим (для Menu/Combobox/DatePicker). */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -51,6 +55,8 @@ export function Popover({
   label,
   className = "",
   matchWidth,
+  fitContent,
+  anchorElement: externalAnchor,
   open: openProp,
   onOpenChange,
   onKeyDown,
@@ -91,7 +97,8 @@ export function Popover({
       hidePop(el);
     };
   }, [open, initialFocus, setOpen]);
-  useAnchored(anchor, pop, open, { placement, matchWidth, anchorElement });
+  useLayoutEffect(() => { if (externalAnchor) anchor.current = externalAnchor as HTMLButtonElement; }, [externalAnchor]);
+  useAnchored(anchor, pop, open, { placement, matchWidth, fitContent, anchorElement: externalAnchor ?? anchorElement });
 
   const close = useCallback(() => {
     setOpen(false);
@@ -141,12 +148,13 @@ export type MenuProps = {
   items: MenuEntry[];
   placement?: Placement;
   label?: string;
+  className?: string;
   /** Управляемый режим: меню открывают и снаружи (клавиша M на карточке доски). */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
 
-export function Menu({ trigger, items, placement = "bottom-start", label, open: openProp, onOpenChange }: MenuProps) {
+export function Menu({ trigger, items, placement = "bottom-start", label, className, open: openProp, onOpenChange }: MenuProps) {
   const [openState, setOpenState] = useState(false);
   const open = openProp ?? openState;
   const setOpen = useCallback(
@@ -181,7 +189,7 @@ export function Menu({ trigger, items, placement = "bottom-start", label, open: 
   };
 
   return (
-    <Popover trigger={trigger} role="menu" label={label} placement={placement} open={open} onOpenChange={setOpen} onKeyDown={onKeyDown}>
+    <Popover trigger={trigger} role="menu" label={label} className={className} placement={placement} open={open} onOpenChange={setOpen} onKeyDown={onKeyDown}>
       {(close) => (
         <div ref={listRef} className="flex flex-col">
           {items.map((it) =>

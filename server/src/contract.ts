@@ -346,8 +346,79 @@ const assigneeIds = () =>
     .max(LIMITS.assigneesPerIssue, `Не больше ${LIMITS.assigneesPerIssue} исполнителей`)
     .refine((arr) => new Set(arr).size === arr.length, "Исполнители не должны повторяться");
 
+/* ---------------- Повторяющиеся задачи ---------------- */
+export const RecurrenceSchedule = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("daily"), every: z.number().int().min(1).max(30) }),
+  z.object({
+    kind: z.literal("weekly"), every: z.number().int().min(1).max(12),
+    weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7)
+      .refine(days => new Set(days).size === days.length, "Дни недели должны быть уникальны"),
+  }),
+  z.object({
+    kind: z.literal("monthly"), every: z.number().int().min(1).max(12),
+    day: z.union([z.number().int().min(1).max(31), z.literal("last")]),
+  }),
+]);
+export type RecurrenceSchedule = z.infer<typeof RecurrenceSchedule>;
+
+const recurringTiming = {
+  schedule: RecurrenceSchedule,
+  timeOfDay: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  timeZone: oneLine(100, 1),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+};
+const recurringFields = {
+  ...recurringTiming,
+  name: oneLine(LIMITS.recurring.name, 1),
+  templateId: uuid,
+  title: oneLine(LIMITS.title.max).nullable(),
+  assigneeIds: z.array(uuid).max(LIMITS.recurring.assignees)
+    .refine(ids => new Set(ids).size === ids.length, "Исполнители не должны повторяться"),
+  dueInDays: z.number().int().min(0).max(365).nullable(),
+  skipIfOpen: z.boolean(),
+};
+export const RecurringPreviewBody = z.object(recurringTiming);
+export type RecurringPreviewBody = z.infer<typeof RecurringPreviewBody>;
+export const RecurringRuleBody = z.object({
+  ...recurringFields,
+  title: recurringFields.title.default(null),
+  assigneeIds: recurringFields.assigneeIds.default([]),
+  dueInDays: recurringFields.dueInDays.default(null),
+  skipIfOpen: recurringFields.skipIfOpen.default(false),
+});
+export type RecurringRuleBody = z.infer<typeof RecurringRuleBody>;
+export const RecurringRulePatchBody = z.object(recurringFields).partial()
+  .refine(body => Object.keys(body).length > 0, "Пустой патч");
+export type RecurringRulePatchBody = z.infer<typeof RecurringRulePatchBody>;
+export const RecurringRuleParams = z.object({ id: uuid });
+export const RecurringRunsQuery = z.object({ limit: z.coerce.number().int().min(1).max(100).default(20) });
+const recurringResult = z.enum(["created", "skipped_open", "failed"]);
+export const RecurringRuleDto = RecurringRuleBody.extend({
+  id: uuid, projectId: uuid, ownerId: uuid.nullable(), sourceIssueId: uuid.nullable().optional(),
+  state: z.enum(["active", "paused"]), pausedReason: z.enum(["manual", "owner_lost_access", "invalid_timing", "run_failed"]).nullable(),
+  nextRunAt: z.string().nullable(), lastRunAt: z.string().nullable(), lastResult: recurringResult.nullable(),
+  createdAt: z.string(), updatedAt: z.string(),
+});
+export type RecurringRuleDto = z.infer<typeof RecurringRuleDto>;
+export const RecurringRunDto = z.object({
+  id: uuid, scheduledFor: z.string(), ranAt: z.string(), result: recurringResult, manual: z.boolean(),
+  missedCount: z.number().int().min(0), issueId: uuid.nullable(), issueKey: z.string().nullable(), errorCode: z.string().nullable(),
+  details: z.object({ droppedAssignees: z.array(uuid) }),
+});
+export type RecurringRunDto = z.infer<typeof RecurringRunDto>;
+export const RecurringConfigDto = z.object({ enabled: z.boolean(), defaultTimeZone: z.string() });
+export type RecurringConfigDto = z.infer<typeof RecurringConfigDto>;
+
+export const IssueRecurrenceBody = RecurringPreviewBody.extend({ skipIfOpen: z.boolean().default(false) });
+export type IssueRecurrenceBody = z.infer<typeof IssueRecurrenceBody>;
+export const IssueReminderBody = z.object({ remindAt: z.string().datetime({ offset: true }) });
+export const IssueAutomationDto = z.object({ recurrence: RecurringRuleDto.nullable(), remindAt: z.string().nullable() });
+export type IssueAutomationDto = z.infer<typeof IssueAutomationDto>;
+
 /* ---------------- Issues ---------------- */
 export const IssueCreateBody = z.object({
+  recurrence: IssueRecurrenceBody.optional(),
+  remindAt: IssueReminderBody.shape.remindAt.optional(),
   title: oneLine(LIMITS.title.max, LIMITS.title.min, "Название не может быть пустым"),
   description: multiLine(LIMITS.description.max).default(""),
   typeId: z.enum(ISSUE_TYPES),
@@ -463,69 +534,6 @@ export const ChecklistItemPatchBody = z
 
 export const ChecklistItemParams = z.object({ itemId: uuid });
 
-/* ---------------- Повторяющиеся задачи ---------------- */
-export const RecurrenceSchedule = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("daily"), every: z.number().int().min(1).max(30) }),
-  z.object({
-    kind: z.literal("weekly"), every: z.number().int().min(1).max(12),
-    weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7)
-      .refine(days => new Set(days).size === days.length, "Дни недели должны быть уникальны"),
-  }),
-  z.object({
-    kind: z.literal("monthly"), every: z.number().int().min(1).max(12),
-    day: z.union([z.number().int().min(1).max(31), z.literal("last")]),
-  }),
-]);
-export type RecurrenceSchedule = z.infer<typeof RecurrenceSchedule>;
-
-const recurringTiming = {
-  schedule: RecurrenceSchedule,
-  timeOfDay: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-  timeZone: oneLine(100, 1),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-};
-const recurringFields = {
-  ...recurringTiming,
-  name: oneLine(LIMITS.recurring.name, 1),
-  templateId: uuid,
-  title: oneLine(LIMITS.title.max).nullable(),
-  assigneeIds: z.array(uuid).max(LIMITS.recurring.assignees)
-    .refine(ids => new Set(ids).size === ids.length, "Исполнители не должны повторяться"),
-  dueInDays: z.number().int().min(0).max(365).nullable(),
-  skipIfOpen: z.boolean(),
-};
-export const RecurringPreviewBody = z.object(recurringTiming);
-export type RecurringPreviewBody = z.infer<typeof RecurringPreviewBody>;
-export const RecurringRuleBody = z.object({
-  ...recurringFields,
-  title: recurringFields.title.default(null),
-  assigneeIds: recurringFields.assigneeIds.default([]),
-  dueInDays: recurringFields.dueInDays.default(null),
-  skipIfOpen: recurringFields.skipIfOpen.default(false),
-});
-export type RecurringRuleBody = z.infer<typeof RecurringRuleBody>;
-export const RecurringRulePatchBody = z.object(recurringFields).partial()
-  .refine(body => Object.keys(body).length > 0, "Пустой патч");
-export type RecurringRulePatchBody = z.infer<typeof RecurringRulePatchBody>;
-export const RecurringRuleParams = z.object({ id: uuid });
-export const RecurringRunsQuery = z.object({ limit: z.coerce.number().int().min(1).max(100).default(20) });
-const recurringResult = z.enum(["created", "skipped_open", "failed"]);
-export const RecurringRuleDto = RecurringRuleBody.extend({
-  id: uuid, projectId: uuid, ownerId: uuid.nullable(),
-  state: z.enum(["active", "paused"]), pausedReason: z.enum(["manual", "owner_lost_access", "invalid_timing", "run_failed"]).nullable(),
-  nextRunAt: z.string().nullable(), lastRunAt: z.string().nullable(), lastResult: recurringResult.nullable(),
-  createdAt: z.string(), updatedAt: z.string(),
-});
-export type RecurringRuleDto = z.infer<typeof RecurringRuleDto>;
-export const RecurringRunDto = z.object({
-  id: uuid, scheduledFor: z.string(), ranAt: z.string(), result: recurringResult, manual: z.boolean(),
-  missedCount: z.number().int().min(0), issueId: uuid.nullable(), issueKey: z.string().nullable(), errorCode: z.string().nullable(),
-  details: z.object({ droppedAssignees: z.array(uuid) }),
-});
-export type RecurringRunDto = z.infer<typeof RecurringRunDto>;
-export const RecurringConfigDto = z.object({ enabled: z.boolean(), defaultTimeZone: z.string() });
-export type RecurringConfigDto = z.infer<typeof RecurringConfigDto>;
-
 /* ---------------- Issue templates (миграция 022) ---------------- */
 /** statusId — необязательная подсказка стартового статуса; отсутствует/null —
  *  «как обычно» (сервер сам выбирает первый статус категории todo). */
@@ -589,6 +597,7 @@ export const CustomFieldValueBody = z.object({
 /* ---------------- Notifications (миграция 011) ---------------- */
 export const NOTIFY_TYPES = [
   "issue.dueSoon",
+  "issue.reminder",
   "issue.assigned",
   "issue.comment",
   "issue.mention",

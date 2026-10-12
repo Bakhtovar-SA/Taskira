@@ -99,3 +99,14 @@ test("в DOM — только строки в окне прокрутки с з�
   expect(mid.some((x) => x.kind === "group")).toBe(false);
   expect(mid[0]).toMatchObject({ kind: "row", item: { id: "b20" }, y: 2 * GROUP_H + 70 * ROW_H });
 });
+
+
+test("dependency creation rejects self, duplicate and transitive cycles but allows a shared source", async () => {
+ const { canConnect } = await import("./roadmapLayout");
+ const edges = [{ sourceId: "a", dependentId: "b" }, { sourceId: "b", dependentId: "c" }];
+ expect(canConnect(edges, "a", "a")).toBe(false);
+ expect(canConnect(edges, "a", "b")).toBe(false);
+ expect(canConnect(edges, "c", "a")).toBe(false);
+ expect(canConnect(edges, "a", "c")).toBe(true);
+ expect(canConnect(edges, "a", "d")).toBe(true);
+});

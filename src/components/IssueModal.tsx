@@ -1,3 +1,5 @@
+import { AutomationFields, AutomationPopover, RepeatIcon, type AutomationKind } from "./IssueAutomationControls";
+import { useIssueAutomation } from "../issueAutomation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
@@ -8,14 +10,15 @@ import { denialText } from "../permissions";
 import { LIMITS } from "../validation";
 import type { ComplexityId, CustomFieldDef, Issue, PriorityId } from "../types";
 import { COMPLEXITY_ORDER, PRIORITY_ORDER } from "../types";
-import { IcCalendar, IcCheck, IcChevD, IcExpand, IcDots, IcLink, IcLock, IcPencil, IcSend, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { IcBell, IcCalendar, IcCheck, IcChevD, IcExpand, IcDots, IcLink, IcLock, IcPencil, IcSend, IcSubtasks, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { catColor, directionColor } from "../ui";
 import { Button } from "../ds/Button";
 import { Checkbox } from "../ds/Field";
 import { Combobox } from "../ds/Combobox";
 import { DatePicker } from "../ds/DatePicker";
 import { Dialog, SidePanel } from "../ds/Dialog";
-import { Menu, Popover } from "../ds/LazyOverlay";
+import { Menu, Popover, type MenuEntry } from "../ds/LazyOverlay";
+import type { TriggerProps } from "../ds/Overlay";
 import { Tag } from "../ds/Display";
 import { Tabs } from "../ds/Tabs";
 import { DeleteIssueDialog } from "./DeleteIssueDialog";
@@ -79,16 +82,6 @@ function CollaboratorField({ issue }: { issue: Issue }) {
   const collabs = issue.collaborators;
   if (!canManage && collabs.length === 0) return <Field label={t("issue.collaborators")}><span className="text-faint">{t("issue.noCollaborators")}</span></Field>;
 
-  // Пустое состояние при праве управлять — одна компактная строка, без секции
-  // во всю высоту (ticket-issuemodal-density §4).
-  if (collabs.length === 0 && canManage && !expand) {
-    return (
-      <Field label={t("issue.collaborators")}>
-        <Button size="sm" variant="ghost" onClick={() => setExpand(true)}>{t("issue.invitePlus")}</Button>
-      </Field>
-    );
-  }
-
   const isResourceAdmin = (id: string) => data.users.some((u) => u.id === id && u.globalRole === "admin");
   // Исключаем из кандидатов: уже приглашённых, участников проекта (и так
   // видят), админов ресурса и себя самого. Кросс-департаментное приглашение
@@ -129,22 +122,16 @@ function CollaboratorField({ issue }: { issue: Issue }) {
       </div>
       {canManage && (
         <>
-          <div className="mt-1.5">
-            {/* key: после приглашения поле очищается (Combobox держит введённое у себя) */}
-            <Combobox
-              key={collabs.length}
-              label={t("issue.invite")}
-              placeholder={t("ui.findEmployee")}
-              minChars={2}
-              load={async (q) =>
-                (await usersApi.pickable(q)).filter((u) => !exclude.has(u.id)).map((u) => ({ id: u.id, label: u.name }))
-              }
-              onSelect={(o) => addCollaborator(issue.id, o.id)}
-            />
-          </div>
-          <p className="mt-1 text-[13px] leading-snug text-faint">
-            {t("issue.collaboratorHint")}
-          </p>
+          <Popover label={t("issue.invite")} open={expand} onOpenChange={setExpand}
+            className="issue-invite-popover"
+            trigger={p => <Button {...p} size="sm" variant="ghost">{t("issue.invitePlus")}</Button>}>
+            {close => <>
+              <Combobox key={collabs.length} label={t("issue.invite")} placeholder={t("ui.findEmployee")} minChars={2}
+                load={async q => (await usersApi.pickable(q)).filter(u => !exclude.has(u.id)).map(u => ({ id: u.id, label: u.name }))}
+                onSelect={o => { addCollaborator(issue.id, o.id); close(); }} />
+              <p className="mt-2 text-[13px] leading-snug text-sub">{t("issue.collaboratorHint")}</p>
+            </>}
+          </Popover>
         </>
       )}
     </Field>
@@ -395,125 +382,78 @@ function CustomFieldRow({
   );
 }
 
+/** Both surfaces use the same visible anchor: dismissal returns focus to Actions. */
+function IssueActionTrigger({ panel, menu, className, label, onAnchor }: { panel: TriggerProps; menu: TriggerProps; className: string; label: string; onAnchor?: (el:HTMLButtonElement|null)=>void }) {
+  const ref = useMemo(() => (el: HTMLButtonElement | null) => {
+    onAnchor?.(el);
+    for (const r of [panel.ref, menu.ref]) {
+      if (typeof r === "function") r(el);
+      else if (r) r.current = el;
+    }
+  }, [panel.ref, menu.ref, onAnchor]);
+  return <button {...(panel["aria-expanded"] ? panel : menu)} ref={ref} type="button" className={className} aria-label={label}><IcDots size={18} /></button>;
+}
+
+function IssueActions({ issue, items, className, onAutomation }: { issue: Issue; items: MenuEntry[]; className: string; onAutomation:(kind:AutomationKind,anchor:HTMLElement)=>void }) {
+  const { t } = useT();
+  const { can, updateIssue, addIssueLink } = useStore();
+  const [panel, setPanel] = useState<"parent" | "link" | null>(null);
+  const [type, setType] = useState<"relates" | "blocks" | "blocked_by">("relates");
+  const editable = can("edit", issue);
+  const automationAnchor=useRef<HTMLButtonElement|null>(null);
+  const setAutomationAnchor=useMemo(()=>(el:HTMLButtonElement|null)=>{automationAnchor.current=el},[]);
+  const parentAction = issue.parentId ? t("issue.changeParent") : t("issue.makeSubtask");
+  return <Popover open={panel !== null} onOpenChange={open => { if (!open) setPanel(null); }}
+    placement="bottom-end" label={panel === "parent" ? parentAction : t("issue.addLink")}
+    className="issue-relation-picker"
+    trigger={p => <Menu label={t("common.actions")} placement="bottom-end"
+      trigger={m => <IssueActionTrigger panel={p} menu={m} className={className} label={t("common.actions")} onAnchor={setAutomationAnchor} />}
+      items={[
+        ...(can("manageRecurring")?[{id:"repeat",label:t("automation.repeatTask"),icon:<RepeatIcon/>,onSelect:()=>{if(automationAnchor.current)onAutomation("repeat",automationAnchor.current)}}]:[]),
+        {id:"reminder",label:t("automation.remind"),icon:<IcBell size={16}/>,onSelect:()=>{if(automationAnchor.current)onAutomation("reminder",automationAnchor.current)}},
+        {id:"automation-sep",kind:"sep" as const},
+        ...(editable ? [
+          ...(issue.parentId || (issue.subtasksSummary?.total ?? 0) === 0 ? [{ id: "parent", label: parentAction, icon: <IcSubtasks size={16} />, onSelect: () => setPanel("parent") }] : []),
+          { id: "link", label: t("issue.addLink"), icon: <IcLink size={16} />, onSelect: () => setPanel("link") },
+          { id: "relations-sep", kind: "sep" as const },
+        ] : []),
+        ...items,
+      ]} />}>
+    {close => <>
+      <div className="ds-menu-label">{panel === "parent" ? parentAction : t("issue.addLink")}</div>
+      {panel === "parent" ? <>
+        {issue.parentId && <><button type="button" className="ds-menu-item" onClick={() => { updateIssue(issue.id, { parentId: null }); close(); }}><IcSubtasks size={16} />{t("issue.removeParent")}</button><div role="separator" className="ds-menu-sep" /></>}
+        <IssueSearchBox autoFocus ariaLabel={t("issue.searchParent")} excludeIds={[issue.id, ...(issue.parentId ? [issue.parentId] : [])]} accept={canBeParent}
+          onPick={target => { updateIssue(issue.id, { parentId: target.id }); close(); }} />
+      </> : <>
+        <div className="mb-2" role="group" aria-label={t("issue.links")}>
+          {(["relates", "blocks", "blocked_by"] as const).map(value => <button key={value} type="button" aria-pressed={type === value}
+            className="ds-menu-item" onClick={() => setType(value)}><IcLink size={16} /><span className="flex-1 text-left">{t(`issue.link.${value}`)}</span>{type === value && <IcCheck size={14} className="text-accenttext" />}</button>)}
+        </div>
+        <IssueSearchBox autoFocus ariaLabel={t("issue.addLink")} excludeIds={[issue.id, ...issue.links.map(l => l.issue.id)]}
+          onPick={target => { addIssueLink(issue.id, target.id, type); close(); }} />
+      </>}
+    </>}
+  </Popover>;
+}
+
 function LinksField({ issue }: { issue: Issue }) {
   const { t } = useT();
-  const { can, addIssueLink, removeIssueLink, openIssue } = useStore();
-  const canEdit = can("edit", issue);
-  const [expand, setExpand] = useState(false);
-  const [type, setType] = useState<"relates" | "blocks" | "blocked_by">("relates");
-  const [picking, setPicking] = useState(false);
-  const formRef = useRef<HTMLDivElement>(null);
-  const open = expand || picking;
-
-  // Открытая форма связи закрывается кликом мимо неё, как попап. Поиск задач рисуется внутри формы, поэтому клик по
-  // результату — не «мимо».
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (formRef.current && !formRef.current.contains(e.target as Node)) {
-        setPicking(false);
-        setExpand(false);
-      }
-    };
-    document.addEventListener("pointerdown", onDown);
-    return () => document.removeEventListener("pointerdown", onDown);
-  }, [open]);
-
-  const links = issue.links;
-  if (!canEdit && links.length === 0) return null;
-
-  // Кандидаты ищутся на сервере (поиск по ключу/названию), а не берутся из
-  // списка всех задач проекта; уже связанные и сама задача исключаются.
-  const excludeIds = [issue.id, ...links.map((l) => l.issue.id)];
-
-  const pick = (target: Issue) => {
-    // Всегда линкуем «от открытой задачи»: сервер сам разворачивает 'blocked_by'
-    // в строку 'blocks' наоборот и возвращает связи именно этой задачи, так что
-    // модалка обновляется независимо от направления.
-    addIssueLink(issue.id, target.id, type);
-    setPicking(false);
-    setExpand(false);
-  };
-
-  if (links.length === 0 && canEdit && !expand) {
-    return (
-      <Field label={t("issue.links")}>
-        <Button size="sm" variant="ghost" onClick={() => setExpand(true)}>{t("issue.linkPlus")}</Button>
-      </Field>
-    );
-  }
-
-  return (
-    <Field label={t("issue.links")}>
-      <div className="space-y-1">
-        {links.map((l) => {
-          const c = catColor(l.issue.statusCategory);
-          return (
-            <div
-              key={l.id}
-              className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
-            >
-              <span className="w-[76px] shrink-0 text-[13px] font-medium text-faint">
-                {t(`issue.link.${l.dir}`)}
-              </span>
-              <span className="issue-color-fill h-2 w-2 shrink-0 rounded-sm" ref={cssVars({ "--issue-color": c.dot })} title={l.issue.statusCategory} />
-              <button
-                onClick={() => openIssue(l.issue.id)}
-                className="shrink-0 font-mono text-[13px] font-semibold text-accenttext hover:underline"
-              >
-                {l.issue.key}
-              </button>
-              <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{l.issue.title}</span>
-              {canEdit && (
-                <button
-                  onClick={() => removeIssueLink(issue.id, l.id)}
-                  className="shrink-0 text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                  title={t("issue.removeLink")}
-                >
-                  <IcX size={13} />
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {canEdit && (
-        <div
-          ref={formRef}
-          className={`${links.length > 0 ? "mt-1.5 " : ""}space-y-1.5`}
-          onKeyDown={(e) => {
-            // Escape закрывает только форму, не карточку задачи (SidePanel/App пропускают defaultPrevented).
-            if (e.key === "Escape" && open) {
-              e.preventDefault();
-              setPicking(false);
-              setExpand(false);
-            }
-          }}
-        >
-          <div className="flex items-center gap-1.5">
-            <select
-              aria-label={t("issue.links")}
-              value={type}
-              onChange={(e) => setType(e.target.value as typeof type)}
-              className="min-w-0 flex-1 rounded-md border border-line bg-panel px-1.5 py-1 text-[13px] text-sub focus:border-accent focus:shadow-focus focus:outline-none"
-            >
-              <option value="relates">{t("issue.link.relates")}</option>
-              <option value="blocks">{t("issue.link.blocks")}</option>
-              <option value="blocked_by">{t("issue.link.blocked_by")}</option>
-            </select>
-            <button
-              onClick={() => setPicking((v) => !v)}
-              className="shrink-0 whitespace-nowrap rounded-md border border-line bg-panel px-2.5 py-1 text-[13px] font-semibold text-accenttext transition-colors hover:border-accent"
-            >
-              {picking ? t("common.cancel") : t("issue.linkPlus")}
-            </button>
-          </div>
-          {picking && <IssueSearchBox autoFocus ariaLabel={t("issue.links")} excludeIds={excludeIds} onPick={pick} />}
+  const { can, removeIssueLink, openIssue } = useStore();
+  if (!issue.links.length) return null;
+  return <Field label={t("issue.links")}>
+    <div className="space-y-1.5">
+      {issue.links.map(l => <div key={l.id} className="issue-linked-task">
+        <span className="text-faint text-[12px]">{t(`issue.link.${l.dir}`)}</span>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <button type="button" onClick={() => openIssue(l.issue.id)} className="ds-focus flex min-w-0 flex-1 items-center gap-1.5 text-left" title={l.issue.title}>
+            <b className="shrink-0 text-accenttext">{l.issue.key}</b><span className="truncate">{l.issue.title}</span>
+          </button>
+          {can("edit", issue) && <button type="button" onClick={() => removeIssueLink(issue.id, l.id)} className="ds-focus shrink-0 text-faint hover:text-danger" aria-label={t("issue.removeLink") + ": " + l.issue.key}><IcX size={14} /></button>}
         </div>
-      )}
-    </Field>
-  );
+      </div>)}
+    </div>
+  </Field>;
 }
 
 /** `open` — от Presence в App.tsx (режим панели): после закрытия панель ещё доигрывает уход. */
@@ -527,12 +467,24 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   const [held, setHeld] = useState(live);
   if (live && live !== held) setHeld(live);
   const issue = live ?? (open ? undefined : held);
+  const automation=useIssueAutomation(data.currentProjectId,issue?.id);
+  const [automationKind,setAutomationKind]=useState<AutomationKind|null>(null);
+  const [automationAnchor,setAutomationAnchor]=useState<HTMLElement|null>(null);
+  const openAutomation=(kind:AutomationKind,anchor:HTMLElement)=>{if(automation.error)automation.load();setAutomationKind(kind);setAutomationAnchor(anchor)};
+  useEffect(()=>{setAutomationKind(null);setAutomationAnchor(null)},[issue?.id]);
   const [feed, setFeed] = useState<"all" | "comments" | "history">("comments");
   const [comment, setComment] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState("");
   const [labelInput, setLabelInput] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [descBusy, setDescBusy] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const activeIssueRef = useRef(ui.selectedIssueId);
+  activeIssueRef.current = ui.selectedIssueId;
+  const commentPending = useRef(false);
+  const descPending = useRef(false);
 
   useEffect(() => {
     setFeed("comments");
@@ -540,6 +492,11 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
     setComment("");
     setConfirmDel(false);
     setLabelInput("");
+    setCommentBusy(false);
+    setDescBusy(false);
+    setDetailsExpanded(false);
+    commentPending.current = false;
+    descPending.current = false;
   }, [ui.selectedIssueId]);
 
   // J / K — соседняя задача текущего представления, панель не закрывается (ADR-0013 §3).
@@ -632,18 +589,35 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   const transitionOk = can("transition", issue);
   const denyMsg = denialText(me, "edit", issue, t);
 
-  const submitComment = () => {
-    if (!comment.trim()) return;
-    addComment(issue.id, comment);
-    setComment("");
+  const submitComment = async () => {
+    if (!comment.trim() || commentPending.current) return;
+    const issueId = issue.id;
+    const draft = comment;
+    commentPending.current = true;
+    setCommentBusy(true);
+    const saved = await addComment(issueId, draft);
+    if (activeIssueRef.current !== issueId) return;
+    commentPending.current = false;
+    setCommentBusy(false);
+    if (saved) setComment(current => current === draft ? "" : current);
   };
 
-  // Мгновенное сохранение (ТЗ 5.12 d): при выходе из поля, без кнопки «Сохранить»; Esc — отменить.
-  const saveDesc = () => {
-    setEditingDesc(false);
-    if (descDraft.trim() === issue.description) return;
-    updateIssue(issue.id, { description: descDraft.trim() });
-    toast("success", t("issue.descriptionSaved"));
+  // Blur saves, Escape cancels. Keep the editor and draft on failure.
+  const saveDesc = async () => {
+    if (descPending.current) return;
+    const next = descDraft.trim();
+    if (next === issue.description) { setEditingDesc(false); return; }
+    const issueId = issue.id;
+    descPending.current = true;
+    setDescBusy(true);
+    const saved = await updateIssue(issueId, { description: next });
+    if (activeIssueRef.current !== issueId) return;
+    descPending.current = false;
+    setDescBusy(false);
+    if (saved) {
+      setEditingDesc(false);
+      toast("success", t("issue.descriptionSaved"));
+    }
   };
 
   const addLabel = () => {
@@ -675,8 +649,6 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
     items={data.workflow.statuses.map(target => ({ id: target.id, label: workflowStatusName(target, t), icon: <StatusGlyph category={target.category} size={16} />,
       disabled: !canTransition(data.workflow, issue.statusId, target.id), hint: target.id === issue.statusId ? <IcCheck size={14} /> : undefined,
       onSelect: () => moveStatus(issue.id, target.id, null) }))} /> : <Locked reason={denialText(me, "transition", issue, t)}><StatusGlyph category={status.category} size={16} />{workflowStatusName(status, t)}</Locked>;
-  const nextCategory = status.category === "todo" ? "inprogress" : status.category === "inprogress" ? "done" : null;
-  const nextStatus = data.workflow.transitions.filter(tr => tr.from === status.id).map(tr => data.workflow.statuses.find(target => target.id === tr.to)).find(target => target?.category === nextCategory);
   const overdueText = t("issue.overdueDays", { n: overdueDays, days: tn(overdueDays, "noun.day.one", "noun.day.few", "noun.day.many") });
 
   const content = (
@@ -698,32 +670,33 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
             <button onClick={() => openIssue(issue.id, "page")} className={iconBtn} aria-label={t("issue.openFull")}><IcExpand size={17} /></button>
           </div>}
           <button onClick={copyLink} className={iconBtn + " issue-copy-button"} aria-label={t("issue.copyLink")}><IcLink size={17} /></button>
-          <Menu label={t("common.actions")} placement="bottom-end"
-            trigger={p => <button {...p} type="button" className={iconBtn + " ds-focus"} aria-label={t("common.actions")}><IcDots size={18} /></button>}
+          <IssueActions key={issue.id} issue={issue} className={iconBtn + " ds-focus"} onAutomation={openAutomation}
             items={[
               ...(!page ? [
                 { id: "prev", label: t("issue.prev"), disabled: !hasPrev, onSelect: () => go(-1) },
                 { id: "next", label: t("issue.next"), disabled: !hasNext, onSelect: () => go(1) },
-                { id: "full", label: t("issue.openFull"), onSelect: () => openIssue(issue.id, "page") },
+                { id: "full", label: t("issue.openFull"), icon: <IcExpand size={16} />, onSelect: () => openIssue(issue.id, "page") },
               ] : []),
-              { id: "copy", label: t("issue.copyLink"), onSelect: copyLink },
-              ...(canDelete ? [{ id: "delete", label: t("common.delete"), danger: true, onSelect: () => setConfirmDel(true) }] : []),
+              { id: "copy", label: t("issue.copyLink"), icon: <IcLink size={16} />, onSelect: copyLink },
+              ...(canDelete ? [{ id: "delete", label: t("common.delete"), icon: <IcTrash size={16} />, danger: true, onSelect: () => setConfirmDel(true) }] : []),
             ]} />
           <button onClick={() => openIssue(null)} className={iconBtn} aria-label={t("common.close")}><IcX size={17} /></button>
         </div>
       </div>
+      <AutomationPopover kind={automationKind} anchor={automationAnchor} onClose={()=>setAutomationKind(null)} value={automation.value??{recurrence:null,remindAt:null}} projectId={data.currentProjectId} dueDate={issue.dueDate}
+        error={automation.error} readOnly={automation.loading} onSave={automation.save}/>
 
       {/* Ниже ~720px карточка складывается в одну колонку: именно её открывают
           по ссылке из письма, в том числе с телефона (аудит UX-03). */}
       <div className="issue-layout">
         <section className="issue-heading min-w-0">
+          {issue.parentId && <button type="button" className="issue-parent-link ds-focus" onClick={() => openIssue(issue.parentId)} aria-label={parentIssue ? t("issue.subtaskOf", { key: parentIssue.key }) + ": " + parentIssue.title : t("issue.parent")}><IcSubtasks size={16} /><span>{t("issue.subtask")}</span>{parentIssue ? <><b>{parentIssue.key}</b><span className="issue-parent-title">{parentIssue.title}</span></> : <span>{t("solo.loadingIssue")}</span>}</button>}
           <EditableTitle issue={issue} readOnly={!editOk} />
           <div className="issue-action-row">
             {statusControl}
-            {transitionOk && nextStatus && <Button variant="primary" size="sm" onClick={() => moveStatus(issue.id, nextStatus.id, null)}>{status.category === "todo" && nextStatus.sid === "inprogress" ? t("issue.startWork") : workflowStatusName(nextStatus, t)}</Button>}
+            <AutomationFields compact value={automation.value??{recurrence:null,remindAt:null}} canRepeat={can("manageRecurring")} onOpen={openAutomation}/>
             <span className="issue-creator">{t("issue.createdBy", { name: reporter?.name ?? t("issue.system"), date: fmtDate(new Date(issue.createdAt).toISOString().slice(0, 10), lang) })}{reporter?.authSource === "service" && <span className="ml-1 inline-flex"><Tag size="sm">{t("tokens.serviceTag")}</Tag></span>}</span>
           </div>
-          {issue.parentId && parentIssue && <button className="ds-focus text-[13px] text-accenttext" onClick={() => openIssue(issue.parentId)}>{t("issue.subtaskOf", { key: parentIssue.key })}</button>}
         </section>
         {/* правая панель */}
         <aside className="issue-properties">
@@ -733,7 +706,6 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               <span>{denyMsg}</span>
             </div>
           )}
-          <Field label={t("issue.status")}>{statusControl}</Field>
 
           <Field label={t("issue.assignees")}>
             {editOk ? (
@@ -807,7 +779,9 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               </Field>
             </div>
           </div>
-          <div>
+          <div className="issue-secondary-properties" data-expanded={detailsExpanded || undefined}>
+            <button type="button" className="issue-details-toggle ds-focus" aria-expanded={detailsExpanded} aria-controls={feedId + "-details"} onClick={() => setDetailsExpanded(v => !v)}>{t("issue.details")}<IcChevD size={16} /></button>
+            <div id={feedId + "-details"} className="issue-secondary-content">
               <div>
             <div className="min-w-[104px] flex-1">
               <Field label={t("field.complexity")}>
@@ -889,56 +863,6 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
             </Field>
           )}
 
-          {/* Родитель (миграция 021, два уровня): сменить, снять или сделать задачу подзадачей.
-              Задача со своими подзадачами сама подзадачей стать не может — поле тогда не показываем. */}
-          {(issue.parentId || (editOk && (issue.subtasksSummary?.total ?? 0) === 0)) && (
-            <Field label={t("issue.parent")}>
-              {editOk ? (
-                <Popover
-                  label={t("issue.parent")}
-                  className="w-[300px]"
-                  trigger={(p, open) => (
-                    <button {...p} type="button" className={selectCls} aria-label={t("issue.parent")}>
-                      {issue.parentId && parentIssue ? (
-                        <>
-                          <span className="shrink-0 font-mono text-[13px] font-semibold text-faint">{parentIssue.key}</span>
-                          <span className="truncate">{parentIssue.title}</span>
-                        </>
-                      ) : (
-                        <span className="text-faint">{t("issue.noParent")}</span>
-                      )}
-                      <IcChevD size={14} className="ml-auto shrink-0 text-faint" />
-                    </button>
-                  )}
-                >
-                  {(close) => (
-                    <>
-                      {issue.parentId && (
-                        <>
-                          <button type="button" className="ds-menu-item" onClick={() => { updateIssue(issue.id, { parentId: null }); close(); }}>
-                            {t("issue.removeParent")}
-                          </button>
-                          <div role="separator" className="ds-menu-sep" />
-                        </>
-                      )}
-                      <IssueSearchBox
-                        autoFocus
-                        ariaLabel={t("issue.searchParent")}
-                        excludeIds={issue.parentId ? [issue.id, issue.parentId] : [issue.id]}
-                        accept={canBeParent}
-                        onPick={(p) => { updateIssue(issue.id, { parentId: p.id }); close(); }}
-                      />
-                    </>
-                  )}
-                </Popover>
-              ) : (
-                <Locked reason={denyMsg}>
-                  {parentIssue ? <span className="min-w-0 truncate">{`${parentIssue.key} · ${parentIssue.title}`}</span> : <span className="text-faint">{t("issue.noParent")}</span>}
-                </Locked>
-              )}
-            </Field>
-          )}
-
           {isDirection && (
             <div className="space-y-2.5 rounded-md border border-dashed border-line p-2.5">
               <Field label={t("issue.directionColor")}>
@@ -962,8 +886,8 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                   </span>
                 )}
               </Field>
-              <div className="flex gap-2.5">
-                <div className="flex-1">
+              <div className="issue-timeline-fields">
+                <div>
                   <Field label={t("issue.startWeeks")}>
                     {editOk ? (
                       <input
@@ -980,7 +904,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     )}
                   </Field>
                 </div>
-                <div className="flex-1">
+                <div>
                   <Field label={t("issue.durationWeeks")}>
                     {editOk ? (
                       <input
@@ -1059,6 +983,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           </div>
 
           <WatchButton projectId={data.currentProjectId} issueId={issue.id} watch={issue.watch ?? null} />
+            </div>
           </div>
         </aside>
         <section className="issue-content min-w-0">
@@ -1066,15 +991,17 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           {/* описание — сам блок кликабелен для входа в редактирование (отдельной
               кнопки «Редактировать» нет, как у EditableTitle) */}
           <div className="issue-description">
-            <p className="issue-section-label">{t("issue.description")}</p>
+            <div className="issue-description-head"><h3 className="issue-section-label">{t("issue.description")}</h3>{editOk && !editingDesc && <Button variant="ghost" size="sm" iconLeft={<IcPencil size={14} />} onClick={() => { setDescDraft(issue.description); setEditingDesc(true); }}>{t("issue.descriptionEdit")}</Button>}</div>
             {editingDesc ? (
               <div className="anim-fadeup">
                 <textarea
                   autoFocus
                   aria-label={t("issue.description")}
                   value={descDraft}
+                  readOnly={descBusy}
+                  aria-busy={descBusy || undefined}
                   onChange={(e) => setDescDraft(e.target.value)}
-                  onBlur={saveDesc}
+                  onBlur={() => void saveDesc()}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
                       e.preventDefault();
@@ -1109,7 +1036,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     }
                   }}
                   title={t("issue.clickToEdit")}
-                  className="group cursor-text whitespace-pre-wrap text-[15.5px] leading-[1.6] text-sub transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  className="issue-description-text group cursor-text whitespace-pre-wrap text-[15.5px] leading-[1.6] text-sub transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   <MentionText text={issue.description} />
                   <IcPencil size={14} className="ml-1.5 inline align-text-bottom text-faint opacity-0 transition-opacity group-hover:opacity-100" />
@@ -1186,10 +1113,10 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           {canComment ? <div className="issue-comment-composer">
             <UserAvatar user={me} size={28} />
             <div className="min-w-0 flex-1">
-              <textarea aria-label={t("issue.feed.comments")} value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitComment(); }
+              <textarea aria-label={t("issue.feed.comments")} readOnly={commentBusy} aria-busy={commentBusy || undefined} value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submitComment(); }
               }} rows={1} maxLength={LIMITS.comment.max} placeholder={t("issue.commentPlaceholder")} />
-              <div className="issue-comment-actions"><kbd className="ds-kbd">Ctrl+Enter</kbd><Button size="sm" variant="ghost" className="issue-comment-send" disabled={!comment.trim()} onClick={submitComment} iconLeft={<IcSend size={14} />}>{t("issue.send")}</Button></div>
+              <div className="issue-comment-actions"><kbd className="ds-kbd">Ctrl+Enter</kbd><Button size="sm" variant="ghost" className="issue-comment-send" disabled={!comment.trim() || commentBusy} loading={commentBusy} onClick={() => void submitComment()} iconLeft={<IcSend size={14} />}>{t("issue.send")}</Button></div>
             </div>
           </div> : <p className="text-[13px] text-faint">{t("issue.commentDenied")}</p>}
         </section>

@@ -1,0 +1,12 @@
+file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/@axe-core/playwright/dist/index.mjs:218
+      throw new Error(
+            ^
+
+Error: Please use browser.newContext()
+ Please check out https://github.com/dequelabs/axe-core-npm/blob/develop/packages/playwright/error-handling.md
+    at AxeBuilder.analyze (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/@axe-core/playwright/dist/index.mjs:218:13)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:541:9)
+    at async <anonymous> (D:\CodexScratch\Taskira-UI-Audit-20261009\docs\design\audit-2026-10-09\targeted-browser.mts:34:25)
+
+Node.js v24.20.0

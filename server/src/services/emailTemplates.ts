@@ -23,6 +23,7 @@ export const MAIL_STRINGS: Record<Lang, MailStrings> = {
   ru: {
     events: {
       "issue.dueSoon": "напоминание о сроке задачи",
+      "issue.reminder": "ваше личное напоминание о задаче",
       "issue.assigned": "вас назначили исполнителем задачи",
       "issue.comment": "новый комментарий к задаче",
       "issue.mention": "вас упомянули в задаче",
@@ -41,6 +42,7 @@ export const MAIL_STRINGS: Record<Lang, MailStrings> = {
   en: {
     events: {
       "issue.dueSoon": "issue due-date reminder",
+      "issue.reminder": "your personal issue reminder",
       "issue.assigned": "you were assigned to an issue",
       "issue.comment": "new comment on an issue",
       "issue.mention": "you were mentioned in an issue",

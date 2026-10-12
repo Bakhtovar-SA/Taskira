@@ -1,0 +1,20 @@
+[
+  {
+    "Name": "client-typecheck",
+    "ExitCode": 0,
+    "Seconds": 147.98,
+    "Log": "logs/client-typecheck.log"
+  },
+  {
+    "Name": "client-unit",
+    "ExitCode": 1,
+    "Seconds": 227.81,
+    "Log": "logs/client-unit.log"
+  },
+  {
+    "Name": "client-build",
+    "ExitCode": 0,
+    "Seconds": 4.04,
+    "Log": "logs/client-build.log"
+  }
+]

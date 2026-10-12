@@ -18,11 +18,11 @@ test("shell refresh: navigation, favorites, shortcuts and profile", async ({ pag
   await page.goto("/p/CORP/board");
   const header = page.locator(".project-topbar"), sidebar = page.locator("aside");
   await expect(header).toBeVisible();
-  expect((await header.boundingBox())!.height).toBe(64);
-  expect((await sidebar.boundingBox())!.width).toBe(304);
+  expect((await header.boundingBox())!.height).toBe(52);
+  expect((await sidebar.boundingBox())!.width).toBe(248);
   await expect(header.locator("input")).toHaveCount(0);
   await expect(header.getByRole("button", { name: "Меню пользователя" })).toHaveCount(0);
-  await expect(page.getByRole("main").getByRole("heading", { name: "Доска", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: /^Доска/ })).toHaveCount(1);
   const favorite = header.getByRole("button", { name: "Убрать из избранного" });
   await favorite.click();
   await expect(header.getByRole("button", { name: "Добавить в избранное" })).toHaveAttribute("aria-pressed", "false");
@@ -227,7 +227,7 @@ for (const theme of ["light", "dark"]) {
     expect((await row.boundingBox())!.height).toBeLessThan(comfortable);
     // CDP coordinates can differ by a few millionths of a pixel after subtraction.
     const compactHeight = (await row.boundingBox())!.height;
-    expect(Math.round(compactHeight * 1000) / 1000).toBeGreaterThanOrEqual(36);
+    expect(Math.round(compactHeight * 1000) / 1000).toBeGreaterThanOrEqual(32);
     await page.getByRole("link", { name: "Доска", exact: true }).click();
     await expect(page).toHaveURL(/\/board\?assignee=u1/);
     await expect(page.locator("article[data-issue-id]")).toHaveCount(2);

@@ -1,0 +1,577 @@
+[WebServer] (node:16956) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 23 tests using 2 workers
+
+(node:21748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:20008) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:21748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:20008) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  2 [chromium] › e2e\design-audit.pw.ts:100:1 › shell refresh: mobile tabs stay in the header and drawer actions remain reachable (7.6s)
+  ok  1 [chromium] › e2e\design-audit.pw.ts:20:1 › shell refresh: navigation, favorites, shortcuts and profile (8.4s)
+  ok  3 [chromium] › e2e\design-audit.pw.ts:461:3 › board quick filters and list panels retain readable density (light) (4.8s)
+  ok  4 [chromium] › e2e\design-audit.pw.ts:461:3 › board quick filters and list panels retain readable density (dark) (5.1s)
+  ok  5 [chromium] › e2e\list-refresh.pw.ts:5:1 › list refresh: default grouping, dimensions, density and header (4.5s)
+  ok  7 [chromium] › e2e\list-refresh.pw.ts:70:1 › list refresh: status and assignee edits stay in the table under CSP (5.7s)
+[WebServer] 21:57:23 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:23 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:23 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:23 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:23 [vite] Internal server error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer]       at TransformPluginContext._formatLog (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8393:39)
+[WebServer]       at TransformPluginContext.error (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8390:14)
+[WebServer]       at normalizeUrl (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26058:18)
+[WebServer]       at async file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26128:30
+[WebServer]       at async Promise.all (index 12)
+[WebServer]       at async TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26094:4)
+[WebServer]       at async EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:14)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+  ok  6 [chromium] › e2e\list-refresh.pw.ts:32:1 › list refresh: quick filters, grouping modes and reload (10.9s)
+[WebServer] 21:57:24 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:24 [vite] Internal server error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer]       at TransformPluginContext._formatLog (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8393:39)
+[WebServer]       at TransformPluginContext.error (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8390:14)
+[WebServer]       at normalizeUrl (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26058:18)
+[WebServer]       at async file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26128:30
+[WebServer]       at async Promise.all (index 12)
+[WebServer]       at async TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26094:4)
+[WebServer]       at async EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:14)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[WebServer] 21:57:25 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:25 [vite] Internal server error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer]       at TransformPluginContext._formatLog (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8393:39)
+[WebServer]       at TransformPluginContext.error (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8390:14)
+[WebServer]       at normalizeUrl (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26058:18)
+[WebServer]       at async file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26128:30
+[WebServer]       at async Promise.all (index 12)
+[WebServer]       at async TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26094:4)
+[WebServer]       at async EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:14)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[WebServer] 21:57:35 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:35 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:35 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:35 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:36 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:36 [vite] Internal server error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer]       at TransformPluginContext._formatLog (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8393:39)
+[WebServer]       at TransformPluginContext.error (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8390:14)
+[WebServer]       at normalizeUrl (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26058:18)
+[WebServer]       at async file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26128:30
+[WebServer]       at async Promise.all (index 12)
+[WebServer]       at async TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26094:4)
+[WebServer]       at async EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:14)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+  x   9 [chromium] › e2e\list-refresh.pw.ts:163:33 › list refresh: mobile reflow and targets at 390 (11.7s)
+(node:25768) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:25768) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 21:57:40 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:40 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:40 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:40 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:40 [vite] (client) Pre-transform error: Transform failed with 1 error:
+[WebServer]
+[WebServer] [PARSE_ERROR] Unexpected token
+[WebServer]     ╭─[ src/store/issueSub.ts:62:6 ]
+[WebServer]     │
+[WebServer]  62 │     },
+[WebServer]     │      ┬
+[WebServer]     │      ╰──
+[WebServer] ────╯
+[WebServer]
+[WebServer]   Plugin: vite:oxc
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/store/issueSub.ts
+[WebServer] 21:57:41 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:41 [vite] Internal server error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer]       at TransformPluginContext._formatLog (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8393:39)
+[WebServer]       at TransformPluginContext.error (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8390:14)
+[WebServer]       at normalizeUrl (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26058:18)
+[WebServer]       at async file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26128:30
+[WebServer]       at async Promise.all (index 12)
+[WebServer]       at async TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26094:4)
+[WebServer]       at async EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:14)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer] 21:57:41 [vite] Internal server error: Transform failed with 1 error:
+[WebServer]
+[WebServer] [PARSE_ERROR] Unexpected token
+[WebServer]     ╭─[ src/store/issueSub.ts:62:6 ]
+[WebServer]     │
+[WebServer]  62 │     },
+[WebServer]     │      ┬
+[WebServer]     │      ╰──
+[WebServer] ────╯
+[WebServer]
+[WebServer]   Plugin: vite:oxc
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/store/issueSub.ts
+[WebServer]       at transformWithOxc (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7208:19)
+[WebServer]       at TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7280:26)
+[WebServer]       at EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:51)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer]       at async viteTransformMiddleware (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19853:20)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[WebServer] 21:57:45 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:45 [vite] Internal server error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer]       at TransformPluginContext._formatLog (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8393:39)
+[WebServer]       at TransformPluginContext.error (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8390:14)
+[WebServer]       at normalizeUrl (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26058:18)
+[WebServer]       at async file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26128:30
+[WebServer]       at async Promise.all (index 12)
+[WebServer]       at async TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26094:4)
+[WebServer]       at async EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:14)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer] 21:57:45 [vite] Internal server error: Transform failed with 1 error:
+[WebServer]
+[WebServer] [PARSE_ERROR] Unexpected token
+[WebServer]     ╭─[ src/store/issueSub.ts:62:6 ]
+[WebServer]     │
+[WebServer]  62 │     },
+[WebServer]     │      ┬
+[WebServer]     │      ╰──
+[WebServer] ────╯
+[WebServer]
+[WebServer]   Plugin: vite:oxc
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/store/issueSub.ts
+[WebServer]       at transformWithOxc (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7208:19)
+[WebServer]       at TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7280:26)
+[WebServer]       at EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:51)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer]       at async viteTransformMiddleware (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19853:20)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[WebServer] 21:57:55 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:55 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:55 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:55 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:56 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:57:56 [vite] Internal server error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer]       at TransformPluginContext._formatLog (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8393:39)
+[WebServer]       at TransformPluginContext.error (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8390:14)
+[WebServer]       at normalizeUrl (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26058:18)
+[WebServer]       at async file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26128:30
+[WebServer]       at async Promise.all (index 12)
+[WebServer]       at async TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26094:4)
+[WebServer]       at async EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:14)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[WebServer] 21:57:56 [vite] Internal server error: Transform failed with 1 error:
+[WebServer]
+[WebServer] [PARSE_ERROR] Unexpected token
+[WebServer]     ╭─[ src/store/issueSub.ts:62:6 ]
+[WebServer]     │
+[WebServer]  62 │     },
+[WebServer]     │      ┬
+[WebServer]     │      ╰──
+[WebServer] ────╯
+[WebServer]
+[WebServer]   Plugin: vite:oxc
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/store/issueSub.ts
+[WebServer]       at transformWithOxc (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7208:19)
+[WebServer]       at TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7280:26)
+[WebServer]       at EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:51)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer]       at async viteTransformMiddleware (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19853:20)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+  x  10 [chromium] › e2e\list-refresh.pw.ts:163:33 › list refresh: mobile reflow and targets at 320 (12.3s)
+(node:13576) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:13576) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 21:58:01 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:58:01 [vite] Internal server error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer]       at TransformPluginContext._formatLog (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8393:39)
+[WebServer]       at TransformPluginContext.error (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8390:14)
+[WebServer]       at normalizeUrl (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26058:18)
+[WebServer]       at async file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26128:30
+[WebServer]       at async Promise.all (index 12)
+[WebServer]       at async TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26094:4)
+[WebServer]       at async EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:14)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[WebServer] 21:58:02 [vite] Internal server error: Transform failed with 1 error:
+[WebServer]
+[WebServer] [PARSE_ERROR] Unexpected token
+[WebServer]     ╭─[ src/store/issueSub.ts:62:6 ]
+[WebServer]     │
+[WebServer]  62 │     },
+[WebServer]     │      ┬
+[WebServer]     │      ╰──
+[WebServer] ────╯
+[WebServer]
+[WebServer]   Plugin: vite:oxc
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/store/issueSub.ts
+[WebServer]       at transformWithOxc (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7208:19)
+[WebServer]       at TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7280:26)
+[WebServer]       at EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:51)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer]       at async viteTransformMiddleware (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19853:20)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[WebServer] 21:58:12 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:58:12 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:58:12 [vite] Internal server error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer]       at TransformPluginContext._formatLog (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8393:39)
+[WebServer]       at TransformPluginContext.error (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8390:14)
+[WebServer]       at normalizeUrl (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26058:18)
+[WebServer]       at async file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26128:30
+[WebServer]       at async Promise.all (index 12)
+[WebServer]       at async TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:26094:4)
+[WebServer]       at async EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:14)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer] 21:58:12 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+[WebServer] 21:58:12 [vite] (client) Pre-transform error: Failed to resolve import "../styles/navigation.css" from "src/components/Sidebar.tsx". Does the file exist?
+[WebServer]   Plugin: vite:import-analysis
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx:36:7
+[WebServer]   11 |  import { useT } from "../i18n";
+[WebServer]   12 |  import { openProjectWizard } from "../palette/events";
+[WebServer]   13 |  import "../styles/navigation.css";
+[WebServer]      |          ^
+[WebServer]   14 |  var _jsxFileName = "D:/CodexScratch/Taskira-UI-Audit-20261009/src/components/Sidebar.tsx";
+[WebServer]   15 |  import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "#secure-jsx/jsx-dev-runtime";
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[WebServer] 21:58:12 [vite] Internal server error: Transform failed with 1 error:
+[WebServer]
+[WebServer] [PARSE_ERROR] Unexpected token
+[WebServer]     ╭─[ src/store/issueSub.ts:62:6 ]
+[WebServer]     │
+[WebServer]  62 │     },
+[WebServer]     │      ┬
+[WebServer]     │      ╰──
+[WebServer] ────╯
+[WebServer]
+[WebServer]   Plugin: vite:oxc
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/store/issueSub.ts
+[WebServer]       at transformWithOxc (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7208:19)
+[WebServer]       at TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7280:26)
+[WebServer]       at EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:51)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer]       at async viteTransformMiddleware (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19853:20)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+  x  11 [chromium] › e2e\list-refresh.pw.ts:198:1 › list refresh: English labels and closed rows (12.0s)
+(node:14164) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14164) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 21:58:15 [vite] Internal server error: Transform failed with 1 error:
+[WebServer]
+[WebServer] [PARSE_ERROR] Unexpected token
+[WebServer]     ╭─[ src/store/issueSub.ts:62:6 ]
+[WebServer]     │
+[WebServer]  62 │     },
+[WebServer]     │      ┬
+[WebServer]     │      ╰──
+[WebServer] ────╯
+[WebServer]
+[WebServer]   Plugin: vite:oxc
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/store/issueSub.ts
+[WebServer]       at transformWithOxc (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7208:19)
+[WebServer]       at TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7280:26)
+[WebServer]       at EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:51)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer]       at async viteTransformMiddleware (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19853:20)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[WebServer] 21:58:18 [vite] Internal server error: Transform failed with 1 error:
+[WebServer]
+[WebServer] [PARSE_ERROR] Unexpected token
+[WebServer]     ╭─[ src/store/issueSub.ts:62:6 ]
+[WebServer]     │
+[WebServer]  62 │     },
+[WebServer]     │      ┬
+[WebServer]     │      ╰──
+[WebServer] ────╯
+[WebServer]
+[WebServer]   Plugin: vite:oxc
+[WebServer]   File: D:/CodexScratch/Taskira-UI-Audit-20261009/src/store/issueSub.ts
+[WebServer]       at transformWithOxc (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7208:19)
+[WebServer]       at TransformPluginContext.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:7280:26)
+[WebServer]       at EnvironmentPluginContainer.transform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:8172:51)
+[WebServer]       at async loadAndTransform (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19634:26)
+[WebServer]       at async viteTransformMiddleware (file:///D:/CodexScratch/Taskira-UI-Audit-20261009/node_modules/vite/dist/node/chunks/node.js:19853:20)
+browser: Failed to load resource: the server responded with a status of 500 (Internal Server Error)

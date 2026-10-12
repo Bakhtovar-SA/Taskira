@@ -1,0 +1,362 @@
+[
+  {
+    "id": "AN-01",
+    "marker": 1,
+    "category": "расположение",
+    "priority": "P2",
+    "route": "/settings/profile",
+    "role": "admin",
+    "originalViewport": {
+      "width": 1928,
+      "height": 1105
+    },
+    "comment": "Надо как то настроить разделение списка настроек а то личные сливаются с проектом и так же организации",
+    "actual": "Настройки смешивают три области",
+    "expected": "Личные, проектные и организационные настройки должны иметь отдельные заголовки и интервалы",
+    "reproduction": "Открыть /settings/profile; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Разделители областей; имя проекта отдельной строкой; на мобильном переключатели областей",
+    "source": "src/components/settings/SettingsView.tsx",
+    "evidence": [
+      "conversation:user-comment-1",
+      "../audit-2026-10-09/verification-navigation/checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.486Z"
+  },
+  {
+    "id": "AN-02",
+    "marker": 2,
+    "category": "работа",
+    "priority": "P2",
+    "route": "/roadmap",
+    "role": "admin",
+    "originalViewport": {
+      "width": 1928,
+      "height": 1105
+    },
+    "comment": "нАДО СДЕЛАТЬ ТАК ЧТО ПРИ НАВОДКЕ ТАК ЖЕ ПОЯВЛЯЕТ ТРОТОЧЬЕ которая ведет напрямую к настройка проекта",
+    "actual": "У проекта нет прямого входа в настройки",
+    "expected": "Настройки проекта доступны при наведении, фокусе и на touch",
+    "reproduction": "Открыть /roadmap; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Кнопка троеточия с учётом доступных пользователю настроек",
+    "source": "src/components/Sidebar.tsx",
+    "evidence": [
+      "conversation:user-comment-2",
+      "../audit-2026-10-09/verification-navigation/checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-03",
+    "marker": 3,
+    "category": "работа",
+    "priority": "P2",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "в доске эти икончки работают в качестве фильра а тут нет. надо исправить",
+    "actual": "Аватары списка не фильтруют задачи",
+    "expected": "Выбор участника меняет фильтр; повторный выбор снимает его",
+    "reproduction": "Открыть /p/UX/list?group=status; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Список использует тот же фильтр исполнителей, что доска, с серверными запросами",
+    "source": "src/components/Backlog.tsx",
+    "evidence": [
+      "conversation:user-comment-3",
+      "real-api-checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-04",
+    "marker": 4,
+    "category": "работа",
+    "priority": "P2",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "кнопка не понятно для чего",
+    "actual": "Направление сортировки обозначено только иконкой",
+    "expected": "Назначение и текущее направление понятны до нажатия",
+    "reproduction": "Открыть /p/UX/list?group=status; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Подписи Сортировка: поле и По возрастанию / По убыванию",
+    "source": "src/components/Backlog.tsx",
+    "evidence": [
+      "conversation:user-comment-4",
+      "../audit-2026-10-09/logs/refinement-production-final.log"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-05",
+    "marker": 5,
+    "category": "расположение",
+    "priority": "P2",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "Импорт нужно вывести отсюда в рабочий интерфейс",
+    "actual": "Импорт спрятан в настройках вида",
+    "expected": "Импорт доступен на рабочей панели",
+    "reproduction": "Открыть /p/UX/list?group=status; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Импорт вынесен в основную группу действий",
+    "source": "src/components/Backlog.tsx",
+    "evidence": [
+      "conversation:user-comment-5",
+      "screenshots/light-desktop-list-polish.png"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-06",
+    "marker": 6,
+    "category": "расположение",
+    "priority": "P2",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "можно эту часть прикрепить к правой стороне",
+    "actual": "Группа управления не привязана к правому краю",
+    "expected": "Счётчик, группировка, фильтры и вид сгруппированы справа",
+    "reproduction": "Открыть /p/UX/list?group=status; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Группа с margin-left:auto и адаптивным переносом",
+    "source": "src/components/WorkspaceControls.tsx",
+    "evidence": [
+      "conversation:user-comment-6",
+      "screenshots/light-desktop-list-polish.png"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-07",
+    "marker": 7,
+    "category": "расположение",
+    "priority": "P2",
+    "route": "/p/UX/list?group=status",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "надписи Исполнители и Обновления сливаются",
+    "actual": "Заголовки исполнителя и обновления сталкиваются",
+    "expected": "Заголовки остаются разделёнными",
+    "reproduction": "Открыть /p/UX/list?group=status; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Увеличены минимальные размеры этих столбцов; адаптивная таблица сохранена",
+    "source": "src/listColumns.ts",
+    "evidence": [
+      "conversation:user-comment-7",
+      "../audit-2026-10-09/logs/refinement-production-final.log"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-08",
+    "marker": 8,
+    "category": "работа",
+    "priority": "P3",
+    "route": "/p/UX/timeline",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "можно удалить они тут ни к чему так же в календаре и в обзоре",
+    "actual": "Неактивные аватары в общем заголовке",
+    "expected": "Участники отображаются там, где ими можно фильтровать",
+    "reproduction": "Открыть /p/UX/timeline; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Убраны из общего заголовка; фильтры доски и списка сохранены",
+    "source": "src/components/Topbar.tsx",
+    "evidence": [
+      "conversation:user-comment-8",
+      "real-api-checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-09",
+    "marker": 9,
+    "category": "работа",
+    "priority": "P2",
+    "route": "/p/UX/board?issue=UX-3",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "кнопка готово тут ни к чему если есть уже возможность смены статуса",
+    "actual": "Быстрое действие дублирует смену статуса",
+    "expected": "Один понятный способ выбора разрешённого статуса",
+    "reproduction": "Открыть /p/UX/board?issue=UX-3; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Удалена дублирующая кнопка; переходы и права сохраняются в меню статуса",
+    "source": "src/components/IssueModal.tsx",
+    "evidence": [
+      "conversation:user-comment-9",
+      "real-api-checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-10",
+    "marker": 10,
+    "category": "работа",
+    "priority": "P2",
+    "route": "/p/UX/board?issue=UX-3",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "надо что бы закрывалось автоматически при нажатии на пустое место",
+    "actual": "Приглашение гостей остаётся открытым",
+    "expected": "Нажатие вне приглашения закрывает форму",
+    "reproduction": "Открыть /p/UX/board?issue=UX-3; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Нативный Popover с закрытием снаружи и Escape; вложенный поиск закрывается первым Escape",
+    "source": "src/components/IssueModal.tsx",
+    "evidence": [
+      "conversation:user-comment-10",
+      "real-api-checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-11",
+    "marker": 11,
+    "category": "визуал",
+    "priority": "P2",
+    "route": "/p/UX/board?issue=UX-3",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "поля вывода и блоки с функциями сливаются с фоном",
+    "actual": "Описание и действия плохо отделены от фона",
+    "expected": "Содержание и элементы управления имеют читаемые границы",
+    "reproduction": "Открыть /p/UX/board?issue=UX-3; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Семантические поверхности и границы описания, блоков и полей; улучшена типографика",
+    "source": "src/styles/issue-refinements.css",
+    "evidence": [
+      "conversation:user-comment-11",
+      "screenshots/dark-desktop-issue-panel-polish.png"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-12",
+    "marker": 12,
+    "category": "работа",
+    "priority": "P2",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "после нажатия на карточку и его закрытия фиолетовое свечени вокруг остается и не убирается",
+    "actual": "После мыши остаётся фокусное свечение карточки",
+    "expected": "Мышь не оставляет кольцо; клавиатурный фокус виден",
+    "reproduction": "Открыть /p/UX/board; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Нативная кнопка открытия и отдельное состояние мыши/клавиатуры",
+    "source": "src/components/Board.tsx",
+    "evidence": [
+      "conversation:user-comment-12",
+      "../audit-2026-10-09/verification-navigation/checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-13",
+    "marker": 13,
+    "category": "работа",
+    "priority": "P1",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "если ты из проекта нажал на главную и перешел то если нажимать на проект что бы обратно перейти то не получится",
+    "actual": "Проект не открывается повторно с главной",
+    "expected": "Нажатие на текущий проект возвращает в него",
+    "reproduction": "Открыть /p/UX/board; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Явный вход в проект вместо no-op переключения",
+    "source": "src/components/Sidebar.tsx",
+    "evidence": [
+      "conversation:user-comment-13",
+      "../audit-2026-10-09/verification-navigation/checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-14",
+    "marker": 14,
+    "category": "расположение",
+    "priority": "P2",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "кнопка при скрывании сверху а при раскрывании снизу надо что бы где то в одно месте постоянно было",
+    "actual": "Кнопка панели меняет положение",
+    "expected": "Сворачивание и раскрытие доступны в одной зоне",
+    "reproduction": "Открыть /p/UX/board; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Оба состояния закреплены снизу; координаты проверены в браузере",
+    "source": "src/components/Sidebar.tsx",
+    "evidence": [
+      "conversation:user-comment-14",
+      "../audit-2026-10-09/verification-navigation/checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  },
+  {
+    "id": "AN-15",
+    "marker": null,
+    "category": "работа",
+    "priority": "P2",
+    "route": "/p/UX/board",
+    "role": "admin",
+    "originalViewport": {
+      "width": 2330,
+      "height": 1105
+    },
+    "comment": "И вот фильтр группировки Нет ты заметил? хз для чего она ведь не рабочая",
+    "actual": "На доске группировка предлагает единственный пункт Нет",
+    "expected": "Не показывать действие без результата",
+    "reproduction": "Открыть /p/UX/board; выполнить действие, описанное в пользовательской аннотации.",
+    "recommendation": "Удалено с доски; рабочие варианты группировки списка сохранены",
+    "source": "src/components/Board.tsx",
+    "evidence": [
+      "conversation:user-comment-15",
+      "../audit-2026-10-09/verification-navigation/checks.json"
+    ],
+    "status": "исправлено; проверено",
+    "verifiedAt": "2026-10-09T22:04:50.487Z"
+  }
+]

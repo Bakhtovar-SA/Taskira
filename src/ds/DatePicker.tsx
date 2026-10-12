@@ -27,8 +27,12 @@ export function DatePicker({
   lang = "ru",
   today: todayProp,
   clearLabel,
+  clearable = true,
+  numeric = false,
   markOverdue = true,
   block = false,
+  anchorElement,
+  hideTrigger = false,
   min,
   max,
   open: openProp,
@@ -42,10 +46,14 @@ export function DatePicker({
   /** Для тестов и /dev/ui — фиксированное «сегодня». */
   today?: string;
   clearLabel?: string;
+  clearable?: boolean;
+  numeric?: boolean;
   /** Прошедшая дата красным — для срока задачи; для даты начала или вехи прошлое — не ошибка. */
   markOverdue?: boolean;
   /** Во всю ширину поля, без минимальной ширины (узкая колонка: срок в карточке задачи). */
   block?: boolean;
+  anchorElement?: HTMLElement | null;
+  hideTrigger?: boolean;
   /** Границы диапазона (ISO, включительно): дни вне них выключены, быстрые кнопки вне них неактивны, ввод вне них
    *  не принимается. Например, «с» и «по» в отчёте ограничивают друг друга. */
   min?: string;
@@ -126,10 +134,11 @@ export function DatePicker({
   return (
     <Popover
       open={open}
+      anchorElement={anchorElement}
       onOpenChange={setOpen}
       label={label}
       initialFocus="first"
-      trigger={(p) => (
+      trigger={(p) => hideTrigger ? null : (
         <button
           {...p}
           type="button"
@@ -142,7 +151,7 @@ export function DatePicker({
               <path d="M2.5 6.75h11M5.5 1.75v3M10.5 1.75v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </span>
-          <span className={`flex-1 truncate text-[14px] font-medium ${value ? "" : "text-faint"}`}>{value ? fmt(value, { day: "numeric", month: "short", year: value.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric" }) : placeholder}</span>
+          <span className={`flex-1 truncate text-[14px] font-medium ${value ? "" : "text-faint"}`}>{value ? fmt(value, numeric ? { day: "2-digit", month: "2-digit", year: "numeric" } : { day: "numeric", month: "short", year: value.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric" }) : placeholder}</span>
         </button>
       )}
     >
@@ -240,7 +249,7 @@ export function DatePicker({
                 </div>
               ))}
             </div>
-            {value && (
+            {value && clearable && (
               <button type="button" onClick={() => commit(null)} className="ds-focus mt-1 rounded-md py-1.5 text-[13px] font-semibold text-faint hover:bg-hover hover:text-[var(--status-danger-fg)]">
                 {clearLabel}
               </button>

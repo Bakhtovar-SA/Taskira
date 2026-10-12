@@ -1,12 +1,12 @@
 /** Аватар человека в приложении (трек G, шаг G3; карта COMPONENTS.md: Avatar/AvatarStack → Avatar/AvatarGroup).
  *  Вид — ds-аватар (классы ds-av, тон по имени, концепция 6); сверх того, что умеет чистый ds-компонент: загруженное
  *  фото (useAvatarSrc), пустой кружок «не назначен», любые размеры экранов (через --av, ADR-0010) и карточка
- *  пользователя по клику — Popover вокруг (ленивый: доска и боковая панель во входном чанке). */
+ *  пользователя при наведении/фокусе и по клику — Popover вокруг (ленивый: доска и боковая панель во входном чанке). */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import type { User } from "../types";
 import { useStore } from "../store";
 import { getAvatarBlobUrl } from "../api";
-import { IcBriefcase, IcCamera, IcPhone, IcTrash } from "../icons";
+import { IcBriefcase, IcCamera, IcPhone, IcTrash, IcUnassigned } from "../icons";
 import { useT } from "../i18n";
 import { cropAndResizeAvatar } from "../avatarCrop";
 import { cssVars } from "../cssVars";
@@ -75,12 +75,18 @@ export function UserAvatar({
   const { t } = useT();
   const src = useAvatarSrc(user?.id, user?.avatarUpdatedAt);
   const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelHover = () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); };
+  const preview = () => { cancelHover(); if (!pinned) hoverTimer.current = setTimeout(() => setOpen(true), 300); };
+  const leave = () => { cancelHover(); if (!pinned) hoverTimer.current = setTimeout(() => setOpen(false), 180); };
+  useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
   const sizeRef = useMemo(() => cssVars({ "--av": size }), [size]);
 
   if (!user)
     return (
       <span ref={sizeRef} className="ds-av ds-av-empty" role="img" aria-label={t("createIssue.unassigned")} title={t("createIssue.unassigned")}>
-        <span aria-hidden="true">–</span>
+        <IcUnassigned size={size} />
       </span>
     );
 
@@ -92,19 +98,23 @@ export function UserAvatar({
   if (!interactive || !user.id) return circle;
   const userId = user.id;
   return (
-    <span className="inline-flex" onClick={stopClick} onKeyDown={stopKeys}>
+    <span className="inline-flex" onClick={stopClick} onKeyDown={stopKeys}
+      onPointerEnter={e => { if (e.pointerType !== "touch") preview(); }} onPointerLeave={leave}>
       <Popover
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={next => { cancelHover(); setOpen(next); if (!next) setPinned(false); }}
+        initialFocus={pinned ? "first" : "none"}
         label={user.name}
-        className="w-[260px] !p-0"
+        className="user-preview !p-0"
         trigger={(p) => (
-          <button {...p} type="button" className="ds-focus flex rounded-full" aria-label={user.name} title={user.name}>
+          <button {...p} type="button" className="ds-focus flex rounded-full" aria-label={user.name}
+            onFocus={preview} onBlur={e => { if (!e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) leave(); }}
+            onClick={() => { cancelHover(); const next = !pinned; setPinned(next); setOpen(next); }}>
             {circle}
           </button>
         )}
       >
-        <UserCardBody userId={userId} />
+        <div onPointerEnter={cancelHover} onPointerLeave={leave}><UserCardBody userId={userId} compact={!pinned} /></div>
       </Popover>
     </span>
   );
@@ -141,7 +151,7 @@ export function UserAvatarGroup({ users, size = 22, max = 3, interactive = false
  *  дополнительно показывает загрузку/удаление аватарки (самообслуживание —
  *  см. план миграции 027, без admin-загрузки за другого). Должность/телефон
  *  читаются из уже загруженного data.users — отдельный запрос не нужен. */
-export function UserCardBody({ userId }: { userId: string }) {
+export function UserCardBody({ userId, compact = false }: { userId: string; compact?: boolean }) {
   const { t } = useT();
   const { data, idx, uploadAvatar, removeAvatar } = useStore();
   const user = idx.users.get(userId);
@@ -181,9 +191,9 @@ export function UserCardBody({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="p-4">
+    <div className="user-card-body p-4" data-compact={compact || undefined}>
       <div className="flex items-center gap-3">
-        <UserAvatar user={user} size={56} />
+        <UserAvatar user={user} size={compact ? 36 : 56} />
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-[15px] font-semibold text-ink"><span className="truncate">{user.name}</span>{user.authSource === "service" && <Tag size="sm">{t("tokens.serviceTag")}</Tag>}</p>
           {user.username && <p className="truncate text-[12.5px] text-faint">@{user.username}</p>}
@@ -191,17 +201,18 @@ export function UserCardBody({ userId }: { userId: string }) {
       </div>
 
       <div className="mt-3 space-y-1.5 border-t border-linesoft pt-3 text-[13.5px] text-sub">
-        <div className="flex items-center gap-2">
+        {compact && <div className="flex items-center gap-2"><IcBriefcase size={15} /><span>{t(`role.${user.accessRole}.name`)}</span></div>}
+        {(!compact || user.role) && <div className="flex items-center gap-2">
           <IcBriefcase size={15} />
           <span className="truncate">{user.role || t("userCard.notSet")}</span>
-        </div>
-        <div className="flex items-center gap-2">
+        </div>}
+        {(!compact || user.phone) && <div className="flex items-center gap-2">
           <IcPhone size={15} />
           <span className="truncate">{user.phone || t("userCard.notSet")}</span>
-        </div>
+        </div>}
       </div>
 
-      {isMe && (
+      {isMe && !compact && (
         <div className="mt-3 flex flex-wrap gap-1.5 border-t border-linesoft pt-3">
           <button
             type="button"

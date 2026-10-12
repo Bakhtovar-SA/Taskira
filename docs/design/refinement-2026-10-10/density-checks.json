@@ -1,0 +1,154 @@
+{
+  "results": [
+    {
+      "name": "density 1920",
+      "pass": true,
+      "metrics": {
+        "width": 1920,
+        "height": 1080,
+        "scale": 1,
+        "sidebar": 248,
+        "projectHeader": 52,
+        "cardFont": "13px",
+        "controlsHeight": 32,
+        "overflow": false,
+        "columnsWidth": 1176
+      },
+      "axe": []
+    },
+    {
+      "name": "density 3440",
+      "pass": true,
+      "metrics": {
+        "width": 3440,
+        "height": 1440,
+        "scale": 1,
+        "sidebar": 334.390625,
+        "projectHeader": 70.296875,
+        "cardFont": "16px",
+        "controlsHeight": 41.796875,
+        "overflow": false,
+        "columnsWidth": 1680.796875
+      },
+      "axe": []
+    },
+    {
+      "name": "density 390",
+      "pass": true,
+      "metrics": {
+        "width": 390,
+        "height": 844,
+        "scale": 1,
+        "sidebar": 304,
+        "projectHeader": 64,
+        "cardFont": "15px",
+        "controlsHeight": 44,
+        "overflow": false,
+        "columnsWidth": 390
+      },
+      "axe": []
+    },
+    {
+      "name": "comparison wide dark board",
+      "pass": true
+    },
+    {
+      "name": "comparison wide dark issue-panel",
+      "pass": true
+    },
+    {
+      "name": "comparison wide dark list",
+      "pass": true
+    },
+    {
+      "name": "comparison wide light board",
+      "pass": true
+    },
+    {
+      "name": "comparison wide light issue-panel",
+      "pass": true
+    },
+    {
+      "name": "comparison wide light list",
+      "pass": true
+    },
+    {
+      "name": "comparison ultrawide dark board",
+      "pass": true
+    },
+    {
+      "name": "comparison ultrawide dark issue-panel",
+      "pass": true
+    },
+    {
+      "name": "comparison ultrawide dark list",
+      "pass": true
+    },
+    {
+      "name": "comparison ultrawide light board",
+      "pass": true
+    },
+    {
+      "name": "comparison ultrawide light issue-panel",
+      "pass": true
+    },
+    {
+      "name": "comparison ultrawide light list",
+      "pass": true
+    },
+    {
+      "name": "comparison desktop dark board",
+      "pass": true
+    },
+    {
+      "name": "comparison desktop dark issue-panel",
+      "pass": true
+    },
+    {
+      "name": "comparison desktop dark list",
+      "pass": true
+    },
+    {
+      "name": "comparison desktop light board",
+      "pass": true
+    },
+    {
+      "name": "comparison desktop light issue-panel",
+      "pass": true
+    },
+    {
+      "name": "comparison desktop light list",
+      "pass": true
+    },
+    {
+      "name": "comparison mobile dark board",
+      "pass": true
+    },
+    {
+      "name": "comparison mobile dark issue-panel",
+      "pass": true
+    },
+    {
+      "name": "comparison mobile dark list",
+      "pass": true
+    },
+    {
+      "name": "comparison mobile light board",
+      "pass": true
+    },
+    {
+      "name": "comparison mobile light issue-panel",
+      "pass": true
+    },
+    {
+      "name": "comparison mobile light list",
+      "pass": true
+    },
+    {
+      "name": "comparison axe",
+      "pass": true,
+      "violations": []
+    }
+  ],
+  "errors": []
+}

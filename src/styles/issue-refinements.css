@@ -1,0 +1,37 @@
+/* Refinements of Taskira's incumbent issue surfaces; use semantic tokens. */
+.issue-description { padding: 18px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--bg-canvas); }
+.issue-description-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.issue-description-head .issue-section-label { margin: 0; font-size: 15px; color: var(--text-1); }
+.issue-invite-popover { width: min(320px, calc(100vw - 32px)); padding: 14px; }
+.issue-details-toggle { display: none; }
+.create-issue-footer { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; width: 100%; }
+.create-issue-another { min-width: 0; }
+@media (max-width: 900px) {
+  .issue-details-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; gap: 12px; padding: 8px 0; margin-top: 8px; border-top: 1px solid var(--border-default); font-size: 14px; font-weight: 600; color: var(--text-2); }
+  .issue-secondary-properties:not([data-expanded]) .issue-secondary-content { display: none; }
+  .issue-secondary-properties[data-expanded] .issue-details-toggle svg { transform: rotate(180deg); }
+}
+@media (max-width: 767px) {
+  .issue-description { padding: 14px; }
+  .create-issue-footer { gap: 12px 8px; }
+  .create-issue-another { grid-column: 1 / -1; }
+  .create-issue-footer > .ds-btn:first-of-type { grid-column: 2; }
+}
+
+.issue-parent-link { display: flex; align-items: center; gap: 8px; max-width: 100%; margin-bottom: 12px; font-size: 13px; line-height: 20px; color: var(--text-2); text-align: left; }
+.issue-parent-link > svg, .issue-parent-link > b { flex-shrink: 0; }
+.issue-parent-link > b { color: var(--accent-text); }
+.issue-parent-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.issue-linked-task { padding: 10px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-s); background: var(--bg-panel); font-size: 13px; }
+.issue-linked-task > div { margin-top: 4px; }
+.issue-relation-picker { width: min(360px, calc(100vw - 32px)); }
+@media (max-width: 767px) {
+  .issue-parent-link { flex-wrap: wrap; font-size: 12px; }
+  .issue-parent-title { flex-basis: 100%; padding-left: 24px; }
+  .issue-linked-task > div > button:last-child { min-width: 32px; min-height: 32px; }
+}
+
+/* Two fields inside the narrow properties rail need vertical labels. */
+.issue-timeline-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.issue-timeline-fields .issue-field { grid-template-columns:minmax(0,1fr); gap:4px; }
+.issue-timeline-fields .issue-field-label { min-height:24px; font-size:13px; }

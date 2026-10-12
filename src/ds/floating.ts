@@ -2,7 +2,7 @@
  *  top layer — его не обрезает ни `overflow`, ни стеклянный предок; координаты считает
  *  `@floating-ui/dom` и пишет присваиваниями CSSOM (ADR-0010 п. 2). */
 import { useLayoutEffect, type RefObject } from "react";
-import { autoUpdate, computePosition, flip, offset, shift, size, type Placement } from "@floating-ui/dom";
+import { autoUpdate, computePosition, flip, offset, shift, size, platform, type Placement } from "@floating-ui/dom";
 
 export type { Placement };
 
@@ -10,7 +10,7 @@ export function useAnchored(
   anchor: RefObject<HTMLElement | null>,
   floating: RefObject<HTMLElement | null>,
   open: boolean,
-  { placement = "bottom-start", gap = 6, matchWidth = false, anchorElement }: { placement?: Placement; gap?: number; matchWidth?: boolean; anchorElement?: HTMLElement | null } = {},
+  { placement = "bottom-start", gap = 6, matchWidth = false, fitContent = false, anchorElement }: { placement?: Placement; gap?: number; matchWidth?: boolean; fitContent?: boolean; anchorElement?: HTMLElement | null } = {},
 ): void {
   useLayoutEffect(() => {
     const a = anchor.current;
@@ -18,8 +18,13 @@ export function useAnchored(
     if (!open || !a || !f) return;
     let active = true;
     const cleanup = autoUpdate(a, f, () => {
+      // The top layer uses viewport coordinates; the ultrawide root scales CSS pixels.
+      const scale = Number(getComputedStyle(document.documentElement).zoom) || 1;
+      // A loading placeholder must not permanently constrain the loaded panel to its original side.
+      if (fitContent) f.style.maxHeight = `${innerHeight / scale - 16}px`;
       void computePosition(a, f, {
         strategy: "fixed",
+        platform: scale > 1 ? { ...platform, getOffsetParent: () => document.documentElement } : undefined,
         placement,
         middleware: [
           offset(gap),
@@ -29,19 +34,19 @@ export function useAnchored(
             padding: 8,
             apply({ rects, availableHeight, elements }) {
               if (matchWidth) elements.floating.style.minWidth = `${rects.reference.width}px`;
-              elements.floating.style.maxHeight = `${Math.max(120, availableHeight)}px`;
+              elements.floating.style.maxHeight = `${Math.max(120, Math.min(availableHeight, innerHeight / scale - 16))}px`;
             },
           }),
         ],
       }).then(({ x, y, placement: p }) => {
         if (!active) return;
-        f.style.left = `${x}px`;
-        f.style.top = `${y}px`;
+        f.style.left = `${Math.min(x, innerWidth / scale - f.offsetWidth - 8)}px`;
+        f.style.top = `${Math.min(y, innerHeight / scale - f.offsetHeight - 8)}px`;
         f.dataset.side = p.split("-")[0];
       });
     });
     return () => { active = false; cleanup(); };
-  }, [anchor, floating, open, placement, gap, matchWidth, anchorElement]);
+  }, [anchor, floating, open, placement, gap, matchWidth, fitContent, anchorElement]);
 }
 
 /** showPopover/hidePopover бросают, если состояние уже такое; в jsdom их нет вовсе. */

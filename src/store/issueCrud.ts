@@ -196,55 +196,50 @@ export function useIssueCrudActions(
   );
 
   const updateIssue = useCallback(
-    (id: string, patch: Partial<Issue>) => {
+    async (id: string, patch: Partial<Issue>): Promise<boolean> => {
       const epoch = sessionEpochRef.current;
       const requestProjectId = pid();
-      withIssue(id, (iss) => {
-        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
-        if (!requirePerm("edit", iss)) return;
+      const iss = dataRef.current.issues.find(i => i.id === id) ?? await resolveIssue(id);
+      if (!iss || epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+      if (!requirePerm("edit", iss)) return false;
+      const body: Record<string, unknown> = {};
+      if (patch.title !== undefined) {
+        const r = validateTitle(patch.title);
+        if (!r.ok) { toast("error", localizeValidationError(r.error, langRef.current)); return false; }
+        body.title = r.value;
+      }
+      if (patch.description !== undefined) body.description = sanitizeText(patch.description, LIMITS.description.max);
+      if (patch.labels !== undefined) {
+        const r = validateLabels(patch.labels);
+        if (!r.ok) { toast("error", localizeValidationError(r.error, langRef.current)); return false; }
+        body.labels = r.value;
+      }
+      if (patch.complexity !== undefined) body.complexity = patch.complexity;
+      if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
+      if (patch.assigneeIds !== undefined) body.assigneeIds = patch.assigneeIds;
+      if (patch.epicId !== undefined) body.epicId = patch.epicId;
+      if (patch.parentId !== undefined) body.parentId = patch.parentId;
+      if (patch.dueDate !== undefined) body.dueDate = patch.dueDate;
+      if (patch.tStart !== undefined) body.tStart = patch.tStart;
+      if (patch.tSpan !== undefined) body.tSpan = patch.tSpan;
+      if (patch.color !== undefined) body.color = patch.color;
 
-        const body: Record<string, unknown> = {};
-        if (patch.title !== undefined) {
-          const r = validateTitle(patch.title);
-          if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
-          body.title = r.value;
-        }
-        if (patch.description !== undefined) body.description = sanitizeText(patch.description, LIMITS.description.max);
-        if (patch.labels !== undefined) {
-          const r = validateLabels(patch.labels);
-          if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
-          body.labels = r.value;
-        }
-        if (patch.complexity !== undefined) body.complexity = patch.complexity;
-        if (patch.priorityId !== undefined) body.priorityId = patch.priorityId;
-        if (patch.assigneeIds !== undefined) body.assigneeIds = patch.assigneeIds;
-        if (patch.epicId !== undefined) body.epicId = patch.epicId;
-        if (patch.parentId !== undefined) body.parentId = patch.parentId;
-        if (patch.dueDate !== undefined) body.dueDate = patch.dueDate;
-        if (patch.tStart !== undefined) body.tStart = patch.tStart;
-        if (patch.tSpan !== undefined) body.tSpan = patch.tSpan;
-        if (patch.color !== undefined) body.color = patch.color;
 
-        if (Object.keys(body).length === 0) return;
-
-        void (async () => {
-          try {
-            const dto = await issuesApi.patch(requestProjectId, id, body);
-            if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
-            setData((prev) => ({
-              ...prev,
-              issues: prev.issues.map((i) => (i.id === id ? mapIssue(dto, i) : i)),
-            }));
-            bumpIssues();
-            if (body.epicId !== undefined || body.title !== undefined || body.color !== undefined) bumpEpics();
-          } catch (err) {
-            if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
-            handleApiError(err, local("Не удалось сохранить задачу", "Couldn't save the issue"));
-          }
-        })();
-      });
+      if (Object.keys(body).length === 0) return true;
+      try {
+        const dto = await issuesApi.patch(requestProjectId, id, body);
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        setData(prev => ({ ...prev, issues: prev.issues.map(i => i.id === id ? mapIssue(dto, i) : i) }));
+        bumpIssues();
+        if (body.epicId !== undefined || body.title !== undefined || body.color !== undefined) bumpEpics();
+        return true;
+      } catch (err) {
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        handleApiError(err, local("Не удалось сохранить задачу", "Couldn't save the issue"));
+        return false;
+      }
     },
-    [requirePerm, toast, handleApiError, withIssue, bumpIssues],
+    [requirePerm, toast, handleApiError, resolveIssue, bumpIssues, bumpEpics],
   );
 
   const moveStatus = useCallback(

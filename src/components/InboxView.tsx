@@ -180,7 +180,7 @@ export default function InboxView() {
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-[14.5px] leading-snug text-ink">
-                              {n.type !== "issue.dueSoon" && <b className="font-semibold">{n.actor?.name ?? t("topbar.someone")}</b>} {t(NOTIF_VERB[n.type])}{" "}
+                              {n.type !== "issue.dueSoon" && n.type !== "issue.reminder" && <b className="font-semibold">{n.actor?.name ?? t("topbar.someone")}</b>} {t(NOTIF_VERB[n.type])}{" "}
                               {n.type === "issue.dueSoon" && <span className="text-sub">{n.payload.dueDate} · </span>}
                               {n.payload.key && <span className="font-mono text-[13px] font-medium text-accenttext">{n.payload.key}</span>}
                               {n.type === "project.member" && n.payload.projectName && <span className="text-faint"> «{n.payload.projectName}»</span>}

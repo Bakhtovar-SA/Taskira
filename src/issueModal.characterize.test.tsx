@@ -312,7 +312,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     });
     await settle();
 
-    fireEvent.click(within(document.querySelector(".issue-properties") as HTMLElement).getByRole("button", { name: /К выполнению/ }));
+    fireEvent.click(screen.getByRole("button", { name: /К выполнению/ }));
     // «Готово» — переход s1→s3 не в списке transitions, пункт задизейблен.
     // Пункты меню в всплывающем слое: jsdom скрывает любой [popover] (показать не умеет) — ищем с hidden: true.
     const forbidden = screen.getByRole("menuitem", { name: /Готово/, hidden: true });
@@ -362,7 +362,8 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     });
     await settle();
 
-    fireEvent.click(screen.getByRole("button", { name: "Родительская задача" }));
+    fireEvent.click(screen.getByRole("button", { name: "Действия" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Изменить родителя", hidden: true }));
     await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
     await settle();
     expect(screen.queryByRole("option", { name: /Чужая подзадача/, hidden: true })).toBeNull();
@@ -370,7 +371,8 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     await settle();
     expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: "i3" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Родительская задача" }));
+    fireEvent.click(screen.getByRole("button", { name: "Действия" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Изменить родителя", hidden: true }));
     fireEvent.click(screen.getByRole("button", { name: "Сделать самостоятельной", hidden: true }));
     await settle();
     expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: null });
@@ -572,6 +574,59 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     expect(screen.getByText("Первая")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Предыдущая задача" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Следующая задача" })).toBeNull();
+    h.ui.unmount();
+  });
+
+  test("description failure keeps its draft and reports success only after a confirmed retry", async () => {
+    const base = dto("i1", { description: "Сохранённое описание" });
+    const h = await setup({ listed: [base], get: () => base });
+    let rejectPatch!: (reason: unknown) => void;
+    const patch = vi.spyOn(issuesApi, "patch").mockImplementation(() => new Promise((_resolve, reject) => { rejectPatch = reject; }));
+    await act(async () => { h.store().openIssue("i1"); });
+    await settle();
+    fireEvent.click(screen.getByText("Сохранённое описание"));
+    const area = screen.getByRole("textbox", { name: "Описание" }) as HTMLTextAreaElement;
+    fireEvent.change(area, { target: { value: "Черновик для повторной отправки" } });
+    fireEvent.blur(area);
+    await settle();
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(area.value).toBe("Черновик для повторной отправки");
+    expect(h.store().toasts.some(t => t.kind === "success" && t.text.includes("Описание"))).toBe(false);
+    await act(async () => { rejectPatch(new Error("unavailable")); });
+    await settle();
+    expect(screen.getByRole("textbox", { name: "Описание" }).getAttribute("aria-busy")).toBeNull();
+    expect(area.value).toBe("Черновик для повторной отправки");
+    expect(h.store().toasts.some(t => t.kind === "success" && t.text.includes("Описание"))).toBe(false);
+    patch.mockResolvedValue({ ...base, description: "Черновик для повторной отправки" });
+    fireEvent.blur(area);
+    await settle();
+    expect(screen.queryByRole("textbox", { name: "Описание" })).toBeNull();
+    expect(h.store().toasts.some(t => t.kind === "success" && t.text.includes("Описание"))).toBe(true);
+    h.ui.unmount();
+  });
+
+  test("failed comment preserves text, prevents duplicate submission, and clears only after retry", async () => {
+    const h = await setup({ listed: [dto("i1")], get: id => dto(id) });
+    let rejectComment!: (reason: unknown) => void;
+    const create = vi.spyOn(commentsApi, "create").mockImplementation(() => new Promise((_resolve, reject) => { rejectComment = reject; }));
+    await act(async () => { h.store().openIssue("i1"); });
+    await settle();
+    const area = screen.getByPlaceholderText("Комментарий, @ — упомянуть") as HTMLTextAreaElement;
+    fireEvent.change(area, { target: { value: "Этот текст сохраняется при ошибке" } });
+    fireEvent.click(screen.getByRole("button", { name: /Отправить/ }));
+    fireEvent.keyDown(area, { key: "Enter", ctrlKey: true });
+    await settle();
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(area.value).toBe("Этот текст сохраняется при ошибке");
+    await act(async () => { rejectComment(new Error("unavailable")); });
+    await settle();
+    expect(area.value).toBe("Этот текст сохраняется при ошибке");
+    expect(screen.getByRole("button", { name: /Отправить/ }).getAttribute("aria-disabled")).toBeNull();
+    create.mockResolvedValue({ id: "retry", issueId: "i1", authorId: "u1", author: { id: "u1", name: user.name, initials: user.initials, color: user.color }, body: area.value, createdAt: new Date().toISOString() });
+    fireEvent.click(screen.getByRole("button", { name: /Отправить/ }));
+    await settle();
+    expect(area.value).toBe("");
+    expect(screen.getByText("Этот текст сохраняется при ошибке")).toBeTruthy();
     h.ui.unmount();
   });
 });

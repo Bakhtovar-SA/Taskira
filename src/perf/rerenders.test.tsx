@@ -347,7 +347,7 @@ describe("ADR-0011: перерисовки настоящей доски (300 к
         await h.store().lookupIssue(id); // задача попадает в кэш стора заранее — это не часть замера
       });
       const release = h.closeGate();
-      patchS.push(await sample(() => h.store().updateIssue(id, { priorityId: i % 2 ? "low" : "critical" }), settle));
+      patchS.push(await sample(() => { void h.store().updateIssue(id, { priorityId: i % 2 ? "low" : "critical" }); }, settle));
       revalS.push(await sample(release, settle));
     }
     rows.push(row("(c1) правка приоритета одной задачи: ответ PATCH", patchS, "Card"));

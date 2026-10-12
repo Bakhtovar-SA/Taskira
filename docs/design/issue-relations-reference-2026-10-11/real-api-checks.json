@@ -1,0 +1,107 @@
+{
+  "date": "2026-10-11T11:21:18.148Z",
+  "baseSha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+  "workingTree": true,
+  "checks": [
+    "parent assignment via UI and actual API",
+    "parent persisted after reload",
+    "relates UI, API and reload",
+    "relates linked task navigation",
+    "relates removal hides empty field",
+    "blocks UI, API and reload",
+    "blocks linked task navigation",
+    "blocks removal hides empty field",
+    "blocked_by UI, API and reload",
+    "inverse blocked_by/blocks",
+    "link does not change workflow status",
+    "Escape preserves card and returns focus",
+    "blocked_by linked task navigation",
+    "blocked_by removal hides empty field",
+    "actual API rejects invalid parent nesting",
+    "change parent",
+    "detach parent and reload"
+  ],
+  "screenshots": [
+    {
+      "file": "implemented-relations-desktop.png",
+      "route": "/p/UX/board?issue=UX-29",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "role": "admin",
+      "temporaryTestData": true
+    },
+    {
+      "file": "implemented-relations-ultrawide.png",
+      "route": "/p/UX/board?issue=UX-29",
+      "viewport": {
+        "width": 3440,
+        "height": 1440
+      },
+      "theme": "dark",
+      "role": "admin",
+      "temporaryTestData": true
+    },
+    {
+      "file": "implemented-relations-mobile.png",
+      "route": "/p/UX/board?issue=UX-29",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "role": "admin",
+      "temporaryTestData": true
+    },
+    {
+      "file": "implemented-relations-mobile-light.png",
+      "route": "/p/UX/board?issue=UX-29",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "role": "admin",
+      "temporaryTestData": true
+    }
+  ],
+  "axe": [
+    {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "violations": 0
+    },
+    {
+      "viewport": {
+        "width": 3440,
+        "height": 1440
+      },
+      "theme": "dark",
+      "violations": 0
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "violations": 0
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "violations": 0
+    }
+  ],
+  "pageErrors": [],
+  "temporaryTasksCreated": 3,
+  "temporaryTasksDeleted": 3
+}

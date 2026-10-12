@@ -12,6 +12,10 @@ test("board refresh: card hierarchy, due states and closed critical priority", a
   await page.goto("/p/CORP/board");
   await expect(page.locator(".board-card")).toHaveCount(8);
   const card = page.locator('[data-issue-id="i1"]');
+  const unassigned = page.locator('[data-issue-id="i3"]').getByRole("img", { name: "Не назначен", exact: true });
+  await expect(unassigned).toBeVisible();
+  await expect(unassigned).toHaveCSS("border-width", "0px");
+  await expect(unassigned.locator("svg > g > circle[stroke-dasharray]")).toHaveCount(1);
   await expect(card.locator(":scope > :first-child h3")).toHaveText("Единая авторизация для корпоративных сервисов");
   await expect(card.locator(".board-card-direction")).toHaveText("Корпоративная платформа");
   await expect(page.locator(".board-card").getByText("internal-label")).toHaveCount(0);
@@ -22,7 +26,7 @@ test("board refresh: card hierarchy, due states and closed critical priority", a
   await expect(page.locator('[data-issue-id="i8"]')).not.toHaveAttribute("data-priority", "critical");
   // boundingBox() neither waits nor retries, and lazy overlays swap their trigger element: poll the size.
   await expect.poll(async () => (await card.locator(".ds-av").first().boundingBox())?.width).toBe(22);
-  await card.focus(); await page.keyboard.press("m");
+  await card.locator(".board-card-open").focus(); await page.keyboard.press("m");
   await expect(page.getByRole("menuitem", { name: "В работе", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(card.getByRole("button", { name: "Переместить CORP-1" })).toBeFocused();
@@ -51,7 +55,7 @@ test("board refresh: English toolbar", async ({ page }) => {
   await page.goto("/p/CORP/board");
   await expect(page.getByRole("textbox", { name: "Filter issues" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Mine", exact: true })).toHaveText("Mine");
-  await expect(page.getByRole("button", { name: "Grouping: none" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Grouping: none" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Board photo", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Select", exact: true })).toBeVisible();
 });
@@ -139,4 +143,38 @@ test.describe("touch board guidance", () => {
     await move.click();
     await expect(page.getByRole("menuitem", { name: "В работе", exact: true })).toBeVisible();
   });
+});
+
+test("avatar preview uses Taskira data, preserves focus and closes without opening issue", async ({ page }) => {
+  await boardFixture(page);
+  await page.goto("/p/CORP/board");
+  const card = page.locator('[data-issue-id="i1"]');
+  const avatar = card.locator('.board-card-assignees button').last();
+  await card.locator('.board-card-open').focus();
+  await avatar.hover();
+  const preview = page.locator('.user-preview');
+  await expect(preview).toBeVisible();
+  await expect(preview.locator('[data-compact]')).toBeVisible();
+  await expect(preview).toContainText("Игорь Петров");
+  await expect(preview).toContainText("Администратор");
+  await expect(preview).toContainText("Разработчик");
+  await expect(card.locator('.board-card-open')).toBeFocused();
+  await expect(page).not.toHaveURL(/issue=/);
+  await preview.hover();
+  await expect(preview).toBeVisible();
+  expect((await new (await import('@axe-core/playwright')).default({ page }).include('.user-preview').analyze()).violations).toEqual([]);
+  await page.mouse.move(0, 0);
+  await expect(preview).toHaveCount(0);
+  await avatar.focus();
+  await expect(preview).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(preview).toHaveCount(0);
+  await expect(avatar).toBeFocused();
+  await avatar.click();
+  await expect(preview).toBeVisible();
+  await expect(preview.locator('[data-compact]')).toHaveCount(0);
+  await page.mouse.move(0, 0);
+  await expect(preview).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(preview).toHaveCount(0);
 });

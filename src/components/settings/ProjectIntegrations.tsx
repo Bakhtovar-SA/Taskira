@@ -14,7 +14,7 @@ import { SettingsCard, SettingsPage } from "./parts";
 import { SecretOnceDialog } from "./SecretOnceDialog";
 import { webhookErrorName } from "./webhookUi";
 
-const WebhookDeliveries = lazy(() => import("./WebhookDeliveries"));
+import WebhookDeliveries from "./WebhookDeliveries";
 export const WEBHOOK_EVENTS: WebhookEventType[] = ["issue.created","issue.updated","issue.statusChanged","issue.assigned","issue.commented","issue.due"];
 export function WebhookTime({ value }: { value: string | null }) {
   const { t,lang } = useT();

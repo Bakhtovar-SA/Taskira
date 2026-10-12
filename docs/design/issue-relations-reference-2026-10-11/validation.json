@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-11T11:22:46.570Z",
+  "baseSha": "da85515e04f6f5e07baa39cee4bbbdb3a9f95140",
+  "workingTree": true,
+  "stand": "http://localhost:3000",
+  "implemented": true,
+  "skills": [
+    "Impeccable refinement/craft floor",
+    "Taste Frontend UI Engineering"
+  ],
+  "tests": {
+    "unit": 26,
+    "production": 19,
+    "realApiChecks": 17
+  },
+  "build": true,
+  "typecheck": true,
+  "mechanicalChecks": [
+    {
+      "name": "check-contrast",
+      "exitCode": 0
+    },
+    {
+      "name": "check-raw-colors",
+      "exitCode": 0
+    },
+    {
+      "name": "check-motion",
+      "exitCode": 0
+    },
+    {
+      "name": "check-antilist",
+      "exitCode": 0
+    },
+    {
+      "name": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "bundle": {
+    "js": 366539,
+    "css": 34965,
+    "entry": 96153,
+    "total": 401504
+  },
+  "bundlePass": true,
+  "axe": [
+    {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "violations": 0
+    },
+    {
+      "viewport": {
+        "width": 3440,
+        "height": 1440
+      },
+      "theme": "dark",
+      "violations": 0
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "violations": 0
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "violations": 0
+    }
+  ],
+  "originalReferencePreserved": true,
+  "domainRulesChanged": false,
+  "temporaryTasksRemoved": 3,
+  "browserAutomation": "Playwright Chromium (CUA unavailable: setup refresh had errors)"
+}
