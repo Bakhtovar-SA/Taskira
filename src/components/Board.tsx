@@ -859,10 +859,10 @@ export default function Board() {
   const recentDone = useIssueCounts(projectId, allClear ? { closed: "recent", closedDays: 30 } : null, revision);
   const closedRecently = recentDone.counts?.total ?? 0;
   const canDropTo = (sid: string) => !dragged || dragged.statusId === sid || canTransition(data.workflow, dragged.statusId, sid);
-  const visibleTotal = filtered.counts && (!hasDoneColumn || showAllDone || older.counts)
-    ? filtered.counts.total - (hasDoneColumn && !showAllDone ? older.counts!.total : 0) : null;
-  const filteredSummary = t("board.filteredOf", { visible: visibleTotal ?? "…", total: poolTotal ?? "…" });
-  const filterLabel = t("workspace.filters"), selectionHint = t("board.selectHint");
+  // Сводка должна совпадать с бейджами колонок; NaN сохраняет состояние загрузки любого счётчика.
+  const visibleTotal = data.workflow.statuses.reduce((sum, status) => sum + (totalOf(status.id) ?? NaN), 0);
+  const filteredSummary = t("board.filteredOf", { visible: Number.isNaN(visibleTotal) ? "…" : visibleTotal, total: poolTotal ?? "…" });
+  const filterLabel = t("workspace.filters");
 
   // Колбэки карточек стабильны: задачу они получают аргументом (ADR-0011, шаг 0).
   const onMove = useCallback((id: string, to: string) => moveOnBoard(id, to, null), [moveOnBoard]);
@@ -878,7 +878,7 @@ export default function Board() {
   }, [setOverCol]);
 
   return (
-    <div ref={boardRoot} className="board-view relative flex h-full min-w-0 flex-col" data-selecting={selectedIds.size > 0 || undefined}>
+    <div ref={boardRoot} className="board-view relative flex h-full min-w-0 flex-col" data-selecting={selectMode || undefined}>
       <h1 className="sr-only">{t("board.title")} · {data.project.name}</h1>
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
@@ -890,21 +890,20 @@ export default function Board() {
             trigger={props => <button {...props} type="button" className="ds-focus cursor-pointer rounded text-accenttext hover:underline" aria-label={`${filterLabel}: ${filteredSummary}`}>{filteredSummary}</button>}>
             <IssueFilterSummary filters={baseFilters}>
               {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
-              <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>
+              <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink">{t("common.reset")}</button>
             </IssueFilterSummary>
           </Popover> : filteredSummary}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? chips.has(id) : baseFilters.assignee === (id === "mine" ? data.currentUserId : "none")} onToggle={toggleChip} overdue={overdueCounts.counts?.total} />}
           search={<WorkspaceSearch value={q} onChange={setQ} />}
           actions={<>
             <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />
-            <Button size="sm" aria-pressed={selectMode} title={selectionHint} onClick={() => setSelectMode(v => !v)}
+            <Button size="sm" aria-pressed={selectMode} onClick={() => setSelectMode(v => !v)}
               className={selectMode ? "border-accent text-accenttext" : undefined} iconLeft={<IcCheck size={14} />}>
               {t("backlog.selectMode")}
             </Button>
           </>}
         />
         {canMove && <Hint id="board-move" className="board-move-touch-hint mt-2">{t("hint.boardMoveTouch")}</Hint>}
-        {selectMode && selectedIds.size === 0 && <span className="sr-only" role="status">{selectionHint}</span>}
       </div>
 
       {!canMove && (
@@ -999,6 +998,7 @@ export default function Board() {
           })}
         </div>
       </div>
+      {selectMode && !selectedIds.size && <p role="status" className="hint-line absolute inset-x-4 bottom-4 z-20 mx-auto w-fit rounded-lg p-2 text-sub">{t("board.selectHint")}</p>}
       {selectMode && selectedIds.size > 0 && (
         <Suspense fallback={null}>
           <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} />

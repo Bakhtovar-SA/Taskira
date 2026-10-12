@@ -17,9 +17,11 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   const countFont = await page.locator(".workspace-count").evaluate(element => getComputedStyle(element).fontSize);
   const expectStableTop = async () => expect(Math.abs((await top()) - initialTop)).toBeLessThan(1);
 
-  await expect(page.getByRole("button", { name: "Выделить", exact: true })).toHaveAttribute("title", /Отмечайте карточки кликом/);
   await page.getByRole("button", { name: "Выделить", exact: true }).click();
-  await expect(page.locator('.workspace-view-header [role="status"]')).toContainText("Отмечайте карточки кликом");
+  const hint = page.locator('.board-view > [role="status"]');
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText("Отмечайте карточки кликом");
+  expect((await hint.boundingBox())!.y).toBeGreaterThan(height - 160);
   await expectStableTop();
   expect(await size()).toEqual(initialSize);
   await card.click();
