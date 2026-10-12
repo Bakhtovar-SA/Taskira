@@ -97,7 +97,7 @@ for (const width of [320, 390]) test("home refresh: mobile " + width + " navigat
   await expect(page.locator(".home-task")).toHaveCount(5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
   expect((await page.locator(".home-task").first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  expect((await page.locator(".home-menu").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect((await page.locator(".global-topbar").getByRole("button", { name: "Меню", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   const axe = await new AxeBuilder({ page }).include(".home-view").analyze();
   expect(axe.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
   await page.screenshot({ path: "shots/home-mobile-" + width + ".png" });

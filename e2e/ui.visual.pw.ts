@@ -59,7 +59,7 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) {
     await page.evaluate(() => document.fonts.ready);
     expect((await panel.boundingBox())!.width).toBe(1120);
     expect((await panel.locator(".issue-toolbar").boundingBox())!.height).toBe(52);
-    expect((await panel.locator(".issue-properties").boundingBox())!.width).toBe(400);
+    expect((await panel.locator(".issue-properties").boundingBox())!.width).toBe(320);
     await expect(panel.locator(".issue-nav-button").last()).toHaveCSS("border-top-style", "solid");
     await expect(panel.locator(".issue-action-row .issue-status-button")).toHaveCSS("border-top-width", "1px");
     if (process.platform === "win32") await expect(panel).toHaveScreenshot(`issue-${theme}-win32.png`);
@@ -95,8 +95,8 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) {
     await page.goto("/p/CORP/board");
     await expect(page.locator(".project-topbar")).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
-    expect((await page.locator(".project-topbar").boundingBox())!.height).toBe(64);
-    expect((await page.locator("aside").boundingBox())!.width).toBe(304);
+    expect((await page.locator(".project-topbar").boundingBox())!.height).toBe(52);
+    expect((await page.locator("aside").boundingBox())!.width).toBe(248);
     if (process.platform === "win32") {
       await expect(page.locator(".global-topbar")).toHaveScreenshot(`shell-global-${theme}-win32.png`);
       await expect(page.locator(".project-topbar")).toHaveScreenshot(`shell-topbar-${theme}-win32.png`);

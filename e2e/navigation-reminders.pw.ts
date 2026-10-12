@@ -30,7 +30,7 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) for 
   await inbox.click(); await expect(inbox).toHaveAttribute("aria-current", "page");
   await expect(inbox.locator("svg").first()).toHaveCSS("color", accent);
   await page.screenshot({ path: `shots/nav-${theme}-${hue}.png` });
-  await side.getByRole("button", { name: "Свернуть панель", exact: true }).click();
+  await side.locator("[data-sidebar-toggle]").click();
   await expect(side.getByRole("button", { name: "Входящие", exact: true }).locator("svg").first()).toHaveCSS("color", accent);
   const railInbox = side.getByRole("button", { name: "Входящие", exact: true });
   // Wait for the collapsed tree and measure both boxes in one render.
@@ -43,8 +43,10 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) for 
   await page.screenshot({ path: `shots/rail-${theme}-${hue}.png` });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Меню", exact: true }).click();
-  await expect(side).toBeVisible();
-  await expect(side.getByRole("button", { name: "Входящие", exact: true }).locator("svg").first()).toHaveCSS("color", accent);
+  // Below 1024px the open drawer is a modal dialog, not a complementary landmark.
+  const drawer = page.getByRole("dialog", { name: "Меню", exact: true });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "Входящие", exact: true }).locator("svg").first()).toHaveCSS("color", accent);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(await page.evaluate(() => (window as unknown as {navigationCspViolations: string[]}).navigationCspViolations)).toEqual([]);
 });

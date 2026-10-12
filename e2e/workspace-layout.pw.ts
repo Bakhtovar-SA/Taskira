@@ -10,7 +10,7 @@ test("global controls use the current UI, with bounded responsive search", async
   await expect(page.locator(".board-card")).toHaveCount(8);
   await page.evaluate(() => document.fonts.ready);
   const sidebar = (await page.locator("aside").boundingBox())!;
-  expect(sidebar.width).toBe(304);
+  expect(sidebar.width).toBe(248);
   expect(sidebar.y).toBe(8);
   await expect(page.locator("aside .sidebar-user-menu")).toHaveCount(0);
   await expect(page.locator(".global-topbar .sidebar-user-menu")).toBeVisible();
