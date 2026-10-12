@@ -219,7 +219,7 @@ const Card = memo(function Card({
       data-done={doneCat || undefined}
       className={`board-card group relative flex cursor-pointer flex-col ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
-      <div className="board-card-title-row flex items-start gap-2">
+      <div className="board-card-title-row flex min-h-5 items-start gap-2">
         {selecting && (
           <span className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
             <Checkbox checked={selected} onChange={() => onToggleSelect(issue.id)} label={t("backlog.selectRow", { key: issue.key })} labelHidden tabIndex={-1} />
@@ -999,7 +999,7 @@ export default function Board() {
           })}
         </div>
       </div>
-      {selectMode && !selectedIds.size && <p role="status" className="hint-line pointer-events-none absolute inset-x-4 bottom-4 z-20 mx-auto w-fit rounded-lg p-2 text-sub">{t("board.selectHint")}</p>}
+      {selectMode && !selectedIds.size && <Hint id="board-select" className="board-select-hint absolute inset-x-4 bottom-4 z-20 mx-auto w-fit">{t("board.selectHint")}</Hint>}
       {selectMode && selectedIds.size > 0 && (
         <Suspense fallback={null}>
           <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} />

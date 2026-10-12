@@ -262,7 +262,7 @@
 .board-move-touch-hint { display: none; }
 @media (hover: none) {
   .board-move-touch-hint { display: flex; }
-  .board-card button[aria-keyshortcuts="M"] { opacity: 1; min-width: 44px; min-height: 44px; }
+  .board-card button[aria-keyshortcuts="M"], .board-select-hint button { opacity: 1; min-width: 44px; min-height: 44px; }
 }
 .workspace-filters-body :is(select, input:not([type="checkbox"])),
 .workspace-options-body > button,

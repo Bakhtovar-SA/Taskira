@@ -101,7 +101,7 @@ for (const theme of ["light", "dark"]) {
     await expect(palette.getByRole("option", { name: /Корпоративные задачи/ })).toBeVisible();
     await page.keyboard.press("Escape");
     await page.getByRole("heading", { level: 1 }).click();
-    await expect(page.getByText("Теперь при входе — список ваших проектов и задач.", { exact: false })).toBeHidden({ timeout: 10000 });
+    await expect(page.locator(".anim-toast").filter({ hasText: "Теперь при входе — список ваших проектов и задач." })).toBeHidden({ timeout: 10000 });
     await page.screenshot({ path: `shots/workspace-home-mobile-${theme}.png` });
     await page.locator(".global-topbar").getByRole("button", { name: "Создать задачу", exact: true }).click();
     const chooser = page.getByRole("dialog");

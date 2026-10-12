@@ -81,7 +81,7 @@ for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] 
     api.reject();
     await day.locator('[data-issue-id="i3"]').dragTo(page.locator('[data-day="2026-10-02"]'));
     await expect(day.locator('[data-issue-id="i3"]')).toBeVisible();
-    await expect(page.getByText(lang === "en" ? /Only own issues|Couldn't save|Forbidden|Access denied/ : /Only own issues|Недостаточно|Не удалось|Нет прав|Запрещено/)).toBeVisible();
+    await expect(page.locator(".anim-toast").filter({ hasText: lang === "en" ? /Only own issues|Couldn't save|Forbidden|Access denied/ : /Only own issues|Недостаточно|Не удалось|Нет прав|Запрещено/ })).toBeVisible();
     await page.locator(".anim-toast").evaluateAll(async toasts => {
       await Promise.all(toasts.flatMap(toast => toast.getAnimations().map(animation => animation.finished)));
     });
