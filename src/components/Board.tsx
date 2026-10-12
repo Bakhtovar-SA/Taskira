@@ -755,6 +755,7 @@ export default function Board() {
     ...customFieldCondition(sharedFilters), ...boardFilterParams(fState),
   }), [fState, sharedFilters, data.project.sprintsEnabled]);
   const filtersOn = hasBoardFilters(fState) || Object.entries(sharedFilters).some(([k, v]) => k !== "assignee" && !!v);
+  useEffect(() => { if (!filtersOn) setFilterSummaryOpen(false); }, [filtersOn]);
   const resetFilters = () => { setSharedFilters(EMPTY_FILTERS); setFilterUser(null); setChips(new Set()); setQ(""); setFilterSummaryOpen(false); };
   useEffect(() => {
     if (path !== pathForView(data.project.key, "board")) return;
@@ -998,7 +999,7 @@ export default function Board() {
           })}
         </div>
       </div>
-      {selectMode && !selectedIds.size && <p role="status" className="hint-line absolute inset-x-4 bottom-4 z-20 mx-auto w-fit rounded-lg p-2 text-sub">{t("board.selectHint")}</p>}
+      {selectMode && !selectedIds.size && <p role="status" className="hint-line pointer-events-none absolute inset-x-4 bottom-4 z-20 mx-auto w-fit rounded-lg p-2 text-sub">{t("board.selectHint")}</p>}
       {selectMode && selectedIds.size > 0 && (
         <Suspense fallback={null}>
           <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} />
