@@ -16,11 +16,11 @@ import { createExternalStore, useExternalStore, type ExternalStore } from "../st
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
-import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcPlus, IcSubtasks, IcX, PriorityIcon, StatusGlyph } from "../icons";
+import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcPlus, IcSubtasks, PriorityIcon, StatusGlyph } from "../icons";
 import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
-import { Menu } from "../ds/LazyOverlay";
+import { Menu, Popover } from "../ds/LazyOverlay";
 import { Button } from "../ds/Button";
 import { EmptyState, Skeleton } from "../ds/Display";
 import { useT } from "../i18n";
@@ -655,6 +655,7 @@ export default function Board() {
   // Выделение для массовых действий (ROUTE-03): те же действия и тот же серверный маршрут, что в «Списке задач».
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(NO_SELECTION);
+  const [filterSummaryOpen, setFilterSummaryOpen] = useState(false);
   const onToggleSelect = useCallback(
     (id: string) =>
       setSelectedIds((prev) => {
@@ -754,6 +755,7 @@ export default function Board() {
     ...customFieldCondition(sharedFilters), ...boardFilterParams(fState),
   }), [fState, sharedFilters, data.project.sprintsEnabled]);
   const filtersOn = hasBoardFilters(fState) || Object.entries(sharedFilters).some(([k, v]) => k !== "assignee" && !!v);
+  useEffect(() => { if (!filtersOn) setFilterSummaryOpen(false); }, [filtersOn]);
   const resetFilters = () => { setSharedFilters(EMPTY_FILTERS); setFilterUser(null); setChips(new Set()); setQ(""); };
   useEffect(() => {
     if (path !== pathForView(data.project.key, "board")) return;
@@ -858,6 +860,10 @@ export default function Board() {
   const recentDone = useIssueCounts(projectId, allClear ? { closed: "recent", closedDays: 30 } : null, revision);
   const closedRecently = recentDone.counts?.total ?? 0;
   const canDropTo = (sid: string) => !dragged || dragged.statusId === sid || canTransition(data.workflow, dragged.statusId, sid);
+  // Сводка должна совпадать с бейджами колонок; NaN сохраняет состояние загрузки любого счётчика.
+  const visibleTotal = data.workflow.statuses.reduce((sum, status) => sum + (totalOf(status.id) ?? NaN), 0);
+  const filteredSummary = t("board.filteredOf", { visible: Number.isNaN(visibleTotal) ? "…" : visibleTotal, total: poolTotal ?? "…" });
+  const filterLabel = t("workspace.filters");
 
   // Колбэки карточек стабильны: задачу они получают аргументом (ADR-0011, шаг 0).
   const onMove = useCallback((id: string, to: string) => moveOnBoard(id, to, null), [moveOnBoard]);
@@ -873,7 +879,7 @@ export default function Board() {
   }, [setOverCol]);
 
   return (
-    <div ref={boardRoot} className="board-view relative flex h-full min-w-0 flex-col" data-selecting={selectedIds.size > 0 || undefined}>
+    <div ref={boardRoot} className="board-view relative flex h-full min-w-0 flex-col" data-selecting={selectMode || undefined}>
       <h1 className="sr-only">{t("board.title")} · {data.project.name}</h1>
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
@@ -881,7 +887,13 @@ export default function Board() {
           members={<BoardAssigneeFilter selectedUserId={filterUser} extraUsers={assignees}
             onSelectUser={userId => setFilterUser(current => current === userId ? null : userId)} />}
           compact
-          summary={t("board.filteredOf", { visible: data.workflow.statuses.reduce<number | null>((sum, st) => { const n = totalOf(st.id); return sum === null || n === null ? null : sum + n; }, 0) ?? "…", total: poolTotal ?? "…" })}
+          summary={filtersOn ? <Popover label={filterLabel} placement="bottom-end" open={filterSummaryOpen} onOpenChange={setFilterSummaryOpen}
+            trigger={props => <button {...props} type="button" className="ds-focus cursor-pointer rounded text-accenttext hover:underline" aria-label={`${filterLabel}: ${filteredSummary}`}>{filteredSummary}</button>}>
+            <IssueFilterSummary filters={baseFilters}>
+              {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
+              <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink">{t("common.reset")}</button>
+            </IssueFilterSummary>
+          </Popover> : filteredSummary}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? chips.has(id) : baseFilters.assignee === (id === "mine" ? data.currentUserId : "none")} onToggle={toggleChip} overdue={overdueCounts.counts?.total} />}
           search={<WorkspaceSearch value={q} onChange={setQ} />}
           actions={<>
@@ -893,15 +905,6 @@ export default function Board() {
           </>}
         />
         {canMove && <Hint id="board-move" className="board-move-touch-hint mt-2">{t("hint.boardMoveTouch")}</Hint>}
-        {filtersOn && <IssueFilterSummary filters={baseFilters}>
-          {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
-          {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>}
-        </IssueFilterSummary>}
-       {selectMode && selectedIds.size === 0 && (
-         <p className="mt-2.5 text-[13px] text-faint" role="status">
-           {t("board.selectHint")}
-         </p>
-       )}
       </div>
 
       {!canMove && (
@@ -996,6 +999,7 @@ export default function Board() {
           })}
         </div>
       </div>
+      {selectMode && !selectedIds.size && <p role="status" className="hint-line pointer-events-none absolute inset-x-4 bottom-4 z-20 mx-auto w-fit rounded-lg p-2 text-sub">{t("board.selectHint")}</p>}
       {selectMode && selectedIds.size > 0 && (
         <Suspense fallback={null}>
           <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} />
