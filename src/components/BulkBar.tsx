@@ -59,18 +59,22 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
         )}
       </>;
 
+  const toolbar = (
+    <div role="toolbar" aria-label={t("backlog.selectedCount", { n: selectedIds.size })} className={floating ? "list-bulk-bar pointer-events-auto flex items-center whitespace-nowrap rounded-full bg-panel shadow-e3" : `flex flex-wrap items-center gap-2 rounded-md border border-accent/30 bg-accentsoft/40 px-2.5 py-2 ${className}`}>
+      <span role="status" aria-live="polite" aria-atomic="true" className="text-[13.5px] font-semibold text-ink">{t("backlog.selectedCount", { n: selectedIds.size })}</span>
+      {floating ? <Popover label={t("common.actions")} placement="top-start" className="bulk-action-menu"
+        trigger={p => <Button {...p} size="sm" disabled={busy} iconRight={<IcChevD size={12} />}>{t("common.actions")}</Button>}>
+        <div className="ds-menu-label">{t("common.actions")}</div><div className="bulk-actions">{controls}</div>
+      </Popover> : controls}
+      {floating ? <IconButton label={t("common.clear")} size="sm" disabled={busy} onClick={onDone}><IcX size={16} /></IconButton> : <Button size="sm" variant="ghost" className="ml-auto" onClick={onDone}>
+        {t("common.clear")}
+      </Button>}
+    </div>
+  );
+
   return (
     <>
-      <div role="toolbar" aria-label={t("backlog.selectedCount", { n: selectedIds.size })} className={floating ? "list-bulk-bar pointer-events-auto flex items-center gap-2 whitespace-nowrap rounded-full bg-panel px-3 py-2 shadow-e3" : `flex flex-wrap items-center gap-2 rounded-md border border-accent/30 bg-accentsoft/40 px-2.5 py-2 ${className}`}>
-        <span role="status" aria-live="polite" aria-atomic="true" className="text-[13.5px] font-semibold text-ink">{t("backlog.selectedCount", { n: selectedIds.size })}</span>
-        {floating ? <Popover label={t("common.actions")} placement="top-start" className="bulk-action-menu"
-          trigger={p => <Button {...p} size="sm" disabled={busy} iconRight={<IcChevD size={12} />}>{t("common.actions")}</Button>}>
-          <div className="ds-menu-label">{t("common.actions")}</div><div className="bulk-actions">{controls}</div>
-        </Popover> : controls}
-        {floating ? <IconButton label={t("common.clear")} size="sm" disabled={busy} onClick={onDone}><IcX size={16} /></IconButton> : <Button size="sm" variant="ghost" className="ml-auto" onClick={onDone}>
-          {t("common.clear")}
-        </Button>}
-      </div>
+      {floating ? <div className="list-selection-dock pointer-events-none absolute inset-x-4 bottom-4 z-20 flex justify-center">{toolbar}</div> : toolbar}
 
       <Dialog
         open={confirmDelete}

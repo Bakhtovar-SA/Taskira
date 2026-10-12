@@ -14,7 +14,12 @@ test('roadmap connections: keyboard add/remove and server failure',async({page})
 });
 for(const width of [1280,1920,3440])test(`roadmap connections: pointer preview, cancellation and persisted add at ${width}`,async({page})=>{
  await page.setViewportSize({width,height:width===3440?1440:1080});
- const f=await setup(page),source=page.locator('.roadmap-timeline-row[data-project-id=p1]'),target=page.locator('.roadmap-timeline-row[data-project-id=p3]');await source.hover();let a=(await source.locator('.roadmap-connect').boundingBox())!,b=(await target.locator('.roadmap-bar').boundingBox())!;
+ const f=await setup(page),source=page.locator('.roadmap-timeline-row[data-project-id=p1]'),target=page.locator('.roadmap-timeline-row[data-project-id=p3]');
+ // The initial horizontal scroll can place the source outside the viewport on CI.
+ await source.locator('.roadmap-connect, .roadmap-return').first().waitFor({state:'attached'});
+ if(await source.locator('.roadmap-return').count()) await source.locator('.roadmap-return').click();
+ await expect(source.locator('.roadmap-connect')).toBeVisible();
+ await source.hover();let a=(await source.locator('.roadmap-connect').boundingBox())!,b=(await target.locator('.roadmap-bar').boundingBox())!;
  await expect(source.locator('.roadmap-connect')).toHaveCSS('cursor','default');
  const pane=(await page.locator('.roadmap-timeline').boundingBox())!,rows=(await page.locator('.roadmap-timeline > div > .roadmap-rows').boundingBox())!,emptyY=Math.min(pane.y+pane.height-24,rows.y+rows.height+96),emptyX=a.x+a.width/2+120;
  expect(emptyY).toBeGreaterThan(rows.y+rows.height+12);

@@ -873,7 +873,7 @@ export default function Board() {
   }, [setOverCol]);
 
   return (
-    <div ref={boardRoot} className="board-view flex h-full min-w-0 flex-col">
+    <div ref={boardRoot} className="board-view relative flex h-full min-w-0 flex-col" data-selecting={selectedIds.size > 0 || undefined}>
       <h1 className="sr-only">{t("board.title")} · {data.project.name}</h1>
       {/* шапка */}
       <div className="workspace-view-header px-4 pb-3 pt-3.5 sm:px-[18px]">
@@ -901,11 +901,6 @@ export default function Board() {
          <p className="mt-2.5 text-[13px] text-faint" role="status">
            {t("board.selectHint")}
          </p>
-       )}
-       {selectMode && selectedIds.size > 0 && (
-         <Suspense fallback={null}>
-           <BulkBar selectedIds={selectedIds} onDone={clearSelection} className="mt-1" />
-         </Suspense>
        )}
       </div>
 
@@ -1001,6 +996,11 @@ export default function Board() {
           })}
         </div>
       </div>
+      {selectMode && selectedIds.size > 0 && (
+        <Suspense fallback={null}>
+          <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} />
+        </Suspense>
+      )}
     </div>
   );
 }

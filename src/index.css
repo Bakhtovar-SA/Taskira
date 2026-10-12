@@ -6,6 +6,7 @@
 @import "./styles/tokens.css";
 @import "./ds/ds.css" layer(components);
 @import "./styles/workspace.css";
+@import "./styles/selection-dock.css";
 @import "./styles/issue-refinements.css";
 
 /* ============================================================

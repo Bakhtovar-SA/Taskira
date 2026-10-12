@@ -814,7 +814,7 @@ export default function Backlog() {
         </div>
       </div>
 
-      {selectedIds.size > 0 && <div className="list-selection-dock pointer-events-none absolute inset-x-4 bottom-4 z-20 flex justify-center"><BulkBar floating selectedIds={selectedIds} onDone={clearSelection} /></div>}
+      {selectedIds.size > 0 && <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} />}
 
       <Presence show={importOpen}>{(open) => <Suspense fallback={null}><ImportModal open={open} onClose={() => setImportOpen(false)} /></Suspense>}</Presence>
       <Presence show={deleteOpen}>{open => issueToDelete && <DeleteIssueDialog open={open} issue={issueToDelete} onClose={() => setDeleteOpen(false)} onConfirm={() => { setDeleteOpen(false); deleteIssue(issueToDelete.id); }} />}</Presence>
