@@ -562,7 +562,9 @@
   .home-card-head .ds-btn { min-height: 44px; }
   .home-project { padding: 12px; }
 }
-@media(min-width:1600px) and (max-width:2559px) and (pointer:fine) { .list-view { zoom:.9; } }
+/* The list keeps one apparent size across the whole desktop profile (1024–2559 CSS px, mouse): the 1920 reference.
+   Popovers opened inside it inherit the zoom; useAnchored (ds/floating.ts) corrects their position for it. */
+@media(min-width:1024px) and (max-width:2559px) and (pointer:fine) { .list-view { zoom:.9; } }
 
 /* Desktop density follows the user's preferred 80% reference at browser zoom 100%. */
 @media (min-width: 1024px) and (pointer: fine) {
