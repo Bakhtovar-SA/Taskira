@@ -172,3 +172,22 @@
 - `scripts/motion-spike/` (`run.mjs`, `size.mjs`, `page/`, `probes/`), `scripts/csp-spike/server.mjs` (параметр `root`).
 - ADR-0007, ADR-0010, ADR-0015; `src/motion.ts`, `src/ds/Presence.tsx`, `scripts/check-motion.mjs`,
   `scripts/bundle-budget.json`, `docs/design/BROWSERS.md`, `docs/design/PERF-BUDGET.md`.
+
+## Состояние прототипа
+
+Тестовый стенд (ветка `claude/sharp-einstein-zj2cqs`, в `main` не идёт), 12.10.2026. Всё — через `src/motion.ts`
+(`motion/mini` `animate` + `spring`, WAAPI/CSSOM); reduced-motion и незагруженный чанк — мгновенно; чанк грузится на
+простое (`preloadMotionIdle` из `Toasts`, на доске — как раньше).
+
+- **Доска** — FLIP переноса/перестановки, перелёт между колонками, появление новой карточки (`src/boardFlip.ts`).
+- **Тосты** (`ui.tsx` `Toasts`) — `enter(el, "toast")`; уход — `exit(el, "toast")`, снятый стором тост остаётся в
+  DOM до конца ухода, соседи доезжают `flipFrom`. Стор и таймеры не менялись; CSS `toastIn`/`.anim-toast` удалены.
+- **Dialog / SidePanel / палитра** (`ds/Dialog.tsx`) — появление `enter(el, "dialog" | "panel")` вместо CSS
+  `dsDialogIn`/`dsPanelIn` (удалены); уход — прежний CSS `data-closing` + `Presence`. Попутно: правило `[open]` с
+  `dsDialogIn` стояло в файле позже `[data-closing]` и перекрывало уход — закрытие анимировано не было (Chromium,
+  замер `getAnimations()` до/после).
+- **Вкладки** (`ds/Tabs.tsx`, все варианты, в т. ч. вкладки видов проекта) — один индикатор `glideTo()`: место по
+  `getBoundingClientRect`, пружина `translate` + `scaleX`; `ResizeObserver` переставляет без движения.
+- **Список задач и Входящие** (`src/listEnter.ts`) — `enter` только для строк, которых не было: первый показ, смена
+  запроса/фильтра и догрузка страницы — без движения, больше 8 новых строк разом — мгновенно. Уход строк не сделан.
+- Не сделано: счётчики `countTo`, уход строк списка, расширение `motion:check` (п. 5).
