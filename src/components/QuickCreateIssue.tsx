@@ -5,12 +5,14 @@ import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { IcCheck, IcX } from "../icons";
 
-export default function QuickCreate({ status, onDone }: { status: Status; onDone: () => void }) {
+/** `onBeforeSubmit` — доска снимает положения карточек перед созданием (FLIP соседей, ADR-0035 прототип). */
+export default function QuickCreate({ status, onDone, onBeforeSubmit }: { status: Status; onDone: () => void; onBeforeSubmit?: () => void }) {
   const { t } = useT();
   const { createIssue } = useStore();
   const [text, setText] = useState("");
   const submit = () => {
     if (!text.trim()) return onDone();
+    onBeforeSubmit?.();
     createIssue({
       title: text,
       description: "",
