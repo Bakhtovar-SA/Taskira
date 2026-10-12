@@ -128,9 +128,11 @@ const Card = memo(function Card({
   // Здесь — только появление (ADR-0035, прототип): карточка смонтировалась с отметкой свежего события и не
   // переносом (у переноса есть снимок) — значит, это новая задача; въезжает пружиной. Один раз, при монтировании.
   const cardRef = useRef<HTMLElement>(null);
+  // Новая карточка (не перенос): въезжает пружиной `enter()`, а CSS-приземление `dropLand` ей не нужно — иначе два
+  // движения по transform спорят. Цветовая вспышка остаётся (`anim-flash*`, без transform).
+  const [fresh] = useState(() => flash && !flipPending(issue.id));
   useLayoutEffect(() => {
-    if (flash && cardRef.current && !flipPending(issue.id)) enter(cardRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- только монтирование
+    if (fresh && cardRef.current) enter(cardRef.current);
   }, []);
   const doneCat = status?.category === "done";
   const today = localToday();
@@ -217,7 +219,7 @@ const Card = memo(function Card({
       data-issue-id={issue.id}
       data-priority={!doneCat && issue.priorityId === "critical" ? "critical" : undefined}
       data-done={doneCat || undefined}
-      className={`board-card group relative flex cursor-pointer flex-col ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
+      className={`board-card group relative flex cursor-pointer flex-col ${flash ? `anim-${fresh ? "flash" : "drop"}${doneCat ? "-done" : ""}` : ""}`}
     >
       <div className="board-card-title-row flex items-start gap-2">
         {selecting && (
