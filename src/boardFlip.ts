@@ -44,14 +44,15 @@ const layoutOf = (el: Element, v: DOMRect): Pos => {
 /** Снимок положений всех карточек доски — до того, как стор применит перенос.
  *  `movedId` — переносимая карточка (летит с «подъёмом» и, если её бросили, из точки броска); `null` — снимок перед
  *  созданием задачи: соседи расступаются, новая карточка появляется сама (`enter`). */
-export function snapshotBoard(root: HTMLElement | null, movedId: string | null): void {
+export function snapshotBoard(root: HTMLElement | null, movedId: string | null): object | null {
   const l = landing;
   landing = null;
-  if (!root || motionReduced()) return;
+  if (!root || motionReduced()) return null;
   void preloadMotion();
   const pos = new Map<string, Pos>();
   for (const el of root.querySelectorAll<HTMLElement>(SELECTOR)) pos.set(el.dataset.issueId!, layoutOf(el, visible(el)));
-  snap = { root, at: performance.now(), pos, lifted: movedId, landing: l && movedId && l.id === movedId ? { left: l.left, top: l.top } : null };
+  const own = { root, at: performance.now(), pos, lifted: movedId, landing: l && movedId && l.id === movedId ? { left: l.left, top: l.top } : null };
+  snap = own;
   if (!scrollWatch) {
     scrollWatch = true;
     // Прокрутка делает положения во viewport неверными, но снимок не стираем: `flipPending` по-прежнему отличает
@@ -67,11 +68,13 @@ export function snapshotBoard(root: HTMLElement | null, movedId: string | null):
       { capture: true, passive: true },
     );
   }
+  return own;
 }
 
-/** Перенос или создание отклонены сервером: снимок больше не нужен, иначе чужой коммит анимировался бы от него. */
-export function cancelBoardFlip(): void {
-  snap = null;
+/** Перенос или создание отклонены сервером: его снимок (`owner` — результат `snapshotBoard`) больше не нужен, иначе чужой
+ *  коммит анимировался бы от него. Снимок другого, более позднего переноса остаётся. */
+export function cancelBoardFlip(owner: object | null): void {
+  if (snap === owner) snap = null; // чужой (более поздний) снимок не трогаем
 }
 
 /** Есть ли для карточки снимок (тогда её появление — перенос, а не новая задача). */

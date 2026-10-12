@@ -627,16 +627,11 @@
     transform: translateX(16px);
   }
 }
+/* Появление окна — пружина WAAPI из Dialog.tsx (`enter`, ADR-0035, прототип), не CSS: две анимации одного transform
+   наложились бы. Раньше здесь был dsDialogIn — и он же (то же правило [open], позже в файле) перекрывал dsDialogOut. */
 .ds-dialog[open] {
   display: flex;
   flex-direction: column;
-  animation: dsDialogIn var(--dur-3) var(--ease-out);
-}
-@keyframes dsDialogIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.985);
-  }
 }
 .ds-dialog[data-kind="panel"] {
   margin: 8px 8px 8px auto;
@@ -644,15 +639,6 @@
   max-height: none;
   width: min(var(--dlg-w, 560px), calc(100vw - 16px));
   border-radius: var(--radius-l);
-}
-.ds-dialog[data-kind="panel"][open] {
-  animation: dsPanelIn var(--dur-4) var(--ease-out);
-}
-@keyframes dsPanelIn {
-  from {
-    opacity: 0.4;
-    transform: translateX(24px);
-  }
 }
 /* Командная палитра: у верхней трети экрана, а не по центру — список под строкой поиска растёт вниз и не двигает её.
    Стекло с размытием допустимо: малая плавающая поверхность (ADR-0023), как меню и поповеры. */

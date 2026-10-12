@@ -148,18 +148,75 @@ export const cssZoom = (el: Element): number => (el as Element & { currentCSSZoo
 /** Конец анимации (и отмена — тоже конец): обещание никогда не отклоняется. */
 const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finished).then(() => undefined, () => undefined) : Promise.resolve());
 
-/** Появление: прозрачность + небольшой подъём на пружине. Чанк не загружен или движение уменьшено — мгновенно. */
-export function enter(el: HTMLElement): void {
-  if (motionReduced()) return;
+/** Появление на пружине. `kind`: `rise` — карточка/строка (подъём 8 px, как было у доски); `dialog` — окно
+ *  (подъём + лёгкий масштаб, как прежний CSS `dsDialogIn`); `panel` — боковая панель (выезд справа, как `dsPanelIn`);
+ *  `toast` — тост (выезд справа, как `toastIn`). У новых видов последний кадр — `transform: none`: motion по концу
+ *  пишет его в inline-стиль (CSSOM), а не-`none` transform сделал бы окно контейнером для fixed-потомков.
+ *  Чанк не загружен или движение уменьшено — мгновенно. */
+type EnterKind = "rise" | "dialog" | "panel" | "toast";
+const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [string, string] }> = {
+  rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "translateY(0px) scale(1)"] },
+  dialog: { opacity: [0, 1], transform: ["translateY(10px) scale(0.98)", "none"] },
+  panel: { opacity: [0.4, 1], transform: ["translateX(32px)", "none"] },
+  toast: { opacity: [0, 1], transform: ["translateX(28px)", "none"] },
+};
+export function enter(el: HTMLElement, kind: EnterKind = "rise"): void {
+  if (motionReduced() || typeof el.animate !== "function") return;
   const e = ready();
   if (!e) return;
-  safe(() => track(el, e.animate(el, { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "translateY(0px) scale(1)"] }, { type: e.spring, ...SPRING_ENTER })));
+  safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...SPRING_ENTER })));
 }
 
-/** Уход: обещание, после которого вызывающий снимает элемент. Движение уменьшено, чанка нет или ошибка — сразу. */
-export function exit(el: HTMLElement): Promise<void> {
-  if (motionReduced()) return Promise.resolve();
+/** Уход: обещание, после которого вызывающий снимает элемент. Движение уменьшено, чанка нет или ошибка — сразу.
+ *  `toast` уходит вправо (откуда пришёл), остальное — вниз на 4 px. */
+export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<void> {
+  if (motionReduced() || typeof el.animate !== "function") return Promise.resolve();
   const e = ready();
   if (!e) return Promise.resolve();
-  return done(safe(() => track(el, e.animate(el, { opacity: [1, 0], transform: ["translateY(0px)", "translateY(4px)"] }, EXIT))));
+  const transform = kind === "toast" ? ["none", "translateX(24px)"] : ["translateY(0px)", "translateY(4px)"];
+  return done(safe(() => track(el, e.animate(el, { opacity: [1, 0], transform }, EXIT))));
+}
+
+/** Снять текущую анимацию элемента (например, пружину появления окна, когда оно уже закрывается: WAAPI из скрипта
+ *  перекрывал бы CSS-анимацию ухода). */
+export function stopMotion(el: Element): void {
+  track(el, null);
+}
+
+/** Чанк — на простое после первого экрана (для мест вне доски: тосты, окна, вкладки, строки списка). Возвращает отмену. */
+export function preloadMotionIdle(): () => void {
+  if (motionReduced()) return () => undefined;
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+  if (w.requestIdleCallback) {
+    const id = w.requestIdleCallback(() => void preloadMotion(), { timeout: 2000 });
+    return () => w.cancelIdleCallback?.(id);
+  }
+  const id = window.setTimeout(() => void preloadMotion(), 500);
+  return () => window.clearTimeout(id);
+}
+
+/** «Перелетающий» индикатор вкладок: один элемент, место и ширина — CSSOM (`style.width`, `style.transform`,
+ *  ADR-0010), движение от прежнего места — пружина по transform (`translateX` + `scaleX`, transform-origin слева
+ *  задаёт CSS). Первое размещение, `animate: false`, reduced-motion или чанк не загружен — мгновенно. */
+const glided = new WeakMap<HTMLElement, { x: number; w: number }>();
+export function glideTo(el: HTMLElement, x: number, w: number, { animate = true }: { animate?: boolean } = {}): void {
+  let prev = glided.get(el);
+  // Прерывание: стартуем с видимого места (текущий transform идущей пружины), а не с прошлой цели — без скачка.
+  if (prev && running.has(el)) {
+    const m = /matrix\(([^)]+)\)/.exec(safe(() => getComputedStyle(el).transform) || "");
+    if (m) {
+      const [a, , , , tx] = m[1].split(",").map(Number);
+      if (Number.isFinite(a) && Number.isFinite(tx)) prev = { x: tx, w: prev.w * a };
+    }
+  }
+  glided.set(el, { x, w });
+  track(el, null);
+  el.style.width = `${w}px`;
+  el.style.transform = `translateX(${x}px)`;
+  if (!animate || !prev || !w || motionReduced() || typeof el.animate !== "function") return;
+  if (Math.abs(prev.x - x) < 0.5 && Math.abs(prev.w - w) < 0.5) return;
+  const e = ready();
+  if (!e) return;
+  const from = `translateX(${prev.x}px) scaleX(${prev.w / w})`;
+  safe(() => track(el, e.animate(el, { transform: [from, `translateX(${x}px) scaleX(1)`] }, { type: e.spring, ...SPRING })));
 }

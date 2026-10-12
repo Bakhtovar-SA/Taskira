@@ -1,5 +1,7 @@
-import type { Status } from "./types";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { Status, Toast } from "./types";
 import { useToasts } from "./store";
+import { enter, exit, flipFrom, motionReduced, preloadMotionIdle } from "./motion";
 import { useT } from "./i18n";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
 
@@ -64,20 +66,61 @@ export const BOARD_COLUMN_SHELL =
 /** Жёлоб с карточками под заголовком колонки (ADR-0016: заголовок — над ним, не внутри). */
 export const BOARD_COLUMN_BODY = "board-col-body flex min-h-0 flex-col gap-1.5 overflow-y-auto";
 
+/** Тосты (ADR-0035, прототип): появление — пружина `enter`, уход — `exit`, соседи доезжают FLIP'ом. Стор и таймеры
+ *  не меняются: снятый стором тост остаётся здесь в `gone`, пока не доиграет уход (по образцу `ds/Presence`); под
+ *  reduced-motion — снимается сразу, как раньше. Перерисовывается только `Toasts` — он и так подписчик стора тостов. */
 export function Toasts() {
   const toasts = useToasts();
   const { t } = useT();
+  const [prev, setPrev] = useState(toasts);
+  const [gone, setGone] = useState<Toast[]>([]);
+  if (prev !== toasts) {
+    setPrev(toasts);
+    const ids = new Set(toasts.map((x) => x.id));
+    const removed = prev.filter((x) => !ids.has(x.id));
+    if (removed.length && !motionReduced()) setGone((g) => [...g.filter((x) => !ids.has(x.id)), ...removed.filter((r) => !g.some((x) => x.id === r.id))]);
+  }
+  // Порядок — по id (он растёт): уходящий тост остаётся на своём месте среди оставшихся.
+  const shown = gone.length ? [...gone.filter((x) => !toasts.some((y) => y.id === x.id)), ...toasts].sort((x, y) => x.id - y.id) : toasts;
+  const leaving = new Set(gone.map((x) => x.id));
+  const box = useRef<HTMLDivElement>(null);
+  const tops = useRef(new Map<number, number>());
+  const exiting = useRef(new WeakSet<HTMLElement>());
+  useEffect(() => preloadMotionIdle(), []);
+  // После каждого коммита: новые тосты въезжают, сдвинутые соседи едут со старого места. Положение — раскладочное
+  // (offsetTop от неподвижного контейнера), а не rect: rect включал бы идущую анимацию.
+  useLayoutEffect(() => {
+    const root = box.current;
+    if (!root) return;
+    const base = root.getBoundingClientRect().top;
+    const next = new Map<number, number>();
+    for (const el of root.querySelectorAll<HTMLElement>("[data-toast-id]")) {
+      const id = Number(el.dataset.toastId);
+      const top = base + el.offsetTop;
+      next.set(id, top);
+      const was = tops.current.get(id);
+      if (was === undefined) {
+        if (!leaving.has(id)) enter(el, "toast");
+      } else if (Math.abs(was - top) >= 1 && !exiting.current.has(el)) void flipFrom(el, el.getBoundingClientRect().left, was, { lift: false });
+      if (leaving.has(id) && !exiting.current.has(el)) {
+        exiting.current.add(el);
+        void exit(el, "toast").then(() => setGone((g) => g.filter((x) => x.id !== id)));
+      }
+    }
+    tops.current = next;
+  });
   const meta = {
     success: { dot: "var(--status-done)", label: t("toast.success") },
     error: { dot: "var(--status-danger)", label: t("toast.error") },
     info: { dot: "var(--accent-solid)", label: t("toast.info") },
   };
   return (
-    <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2" role="status" aria-live="polite">
-      {toasts.map((item) => {
+    <div ref={box} className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2" role="status" aria-live="polite">
+      {shown.map((item) => {
         const m = meta[item.kind];
+        const out = leaving.has(item.id);
         return (
-          <div key={item.id} className="glass anim-toast pointer-events-auto flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3">
+          <div key={item.id} data-toast-id={item.id} aria-hidden={out || undefined} className={`glass flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3 ${out ? "" : "pointer-events-auto"}`}>
             <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
             <p className="min-w-0 text-[14px] leading-snug text-ink">
               <span className="sr-only">{m.label}: </span>

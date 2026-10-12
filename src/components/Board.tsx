@@ -450,7 +450,7 @@ const BoardColumn = memo(function BoardColumn({
   isFirstTodo: boolean;
   quickOpen: boolean;
   setQuickFor: (id: string | null) => void;
-  onBeforeCreate: () => void;
+  onBeforeCreate: () => object | null;
   projectId: string | null;
   revision: string;
   usersById: ReadonlyMap<string, User>;
@@ -794,14 +794,14 @@ export default function Board() {
   }, [moveQueryKey]);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
     if (!canMove) return;
-    snapshotBoard(boardRoot.current, id);
+    const flip = snapshotBoard(boardRoot.current, id);
     const request = Symbol();
     moveRequests.current.set(id, request);
     moveStatus(id, to, before, confirmed => {
       if (moveRequests.current.get(id) !== request) return;
       moveRequests.current.delete(id);
       if (moveQueryRef.current !== moveQueryKey) return;
-      if (!confirmed) { cancelBoardFlip(); onMovesApplied([id]); return; }
+      if (!confirmed) { cancelBoardFlip(flip); onMovesApplied([id]); return; }
       setLocalMoves(prev => {
         const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
         next.delete(id);

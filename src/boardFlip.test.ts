@@ -1,7 +1,7 @@
 // ADR-0035 (прототип): FLIP доски — снимок до переноса, проигрыш после коммита, повторный проигрыш идемпотентен.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { flipFrom, motionReduced } from "./motion";
-import { noteLanding, playBoardFlip, snapshotBoard } from "./boardFlip";
+import { cancelBoardFlip, flipPending, noteLanding, playBoardFlip, snapshotBoard } from "./boardFlip";
 
 vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
 
@@ -78,4 +78,15 @@ test("прокрутка сбрасывает снимок; reduced-motion — �
   tops.set("a", 200);
   playBoardFlip();
   expect(flipFrom).not.toHaveBeenCalled();
+});
+
+test("отказ первого переноса не стирает снимок второго, а свой снимок отменяет", () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  const first = snapshotBoard(root, "a");
+  const second = snapshotBoard(root, "b");
+  cancelBoardFlip(first);
+  expect(flipPending("b")).toBe(true);
+  cancelBoardFlip(second);
+  expect(flipPending("b")).toBe(false);
 });

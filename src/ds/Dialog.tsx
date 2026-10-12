@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { IconButton } from "./Button";
 import { dsId } from "./ids";
 import { DIALOG_EXIT_MS } from "./Presence";
+import { enter, stopMotion } from "../motion";
 
 type DialogProps = {
   open: boolean;
@@ -38,7 +39,7 @@ function focusDialogBody(el: HTMLDialogElement) {
   el.focus();
 }
 
-function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean) {
+function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean, kind: "dialog" | "panel" | "palette") {
   const ref = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -50,6 +51,8 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
     openerRef.current = back;
     if (el.showModal && !el.open) el.showModal();
     else el.setAttribute("open", ""); // jsdom
+    // Появление — пружина WAAPI (ADR-0035, прототип) вместо CSS dsDialogIn/dsPanelIn; уход — CSS data-closing.
+    enter(el, kind === "panel" ? "panel" : "dialog");
     focusDialogBody(el);
     const onCancel = (e: Event) => {
       e.preventDefault();
@@ -57,6 +60,7 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
     };
     el.addEventListener("cancel", onCancel);
     return () => {
+      stopMotion(el);
       el.removeEventListener("cancel", onCancel);
       if (el.open) el.close?.();
       back?.focus?.();
@@ -79,11 +83,13 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
   const [shown, setShown] = useState(open);
   if (open && !shown) setShown(true);
   const closing = shown && !open;
-  const ref = useNativeDialog(shown, onClose, focusReady);
+  const ref = useNativeDialog(shown, onClose, focusReady, kind);
   useEffect(() => {
     if (!closing) return;
     const el = ref.current;
     const done = () => setShown(false);
+    // Пружина появления ещё идёт (быстрое закрытие): WAAPI из скрипта перекрыл бы CSS-анимацию ухода — снимаем её.
+    if (el) stopMotion(el);
     const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!el || reduce || typeof el.getAnimations !== "function") return done();
     const timer = setTimeout(done, DIALOG_EXIT_MS); // страховка, если animationend не придёт
