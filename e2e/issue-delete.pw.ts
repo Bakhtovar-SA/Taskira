@@ -34,7 +34,9 @@ for (const mode of ["panel", "page", "list"] as const) for (const width of [1440
     await expect(confirm).toContainText("CORP-1");
     await expect(confirm).toContainText("Единая авторизация для корпоративных сервисов");
     const box = (await confirm.boundingBox())!;
-    expect(box.width).toBeGreaterThanOrEqual(Math.min(480, width - 40));
+    // 480 CSS px; opened from a list row the dialog inherits the desktop list zoom (0.9 at 1024–2559 CSS px).
+    const zoom = await confirm.evaluate(el => (el as unknown as { currentCSSZoom: number }).currentCSSZoom);
+    expect(box.width / zoom).toBeGreaterThanOrEqual(Math.min(480, width - 40));
     expect(Math.abs(box.x + box.width / 2 - width / 2)).toBeLessThan(1);
     await expect(confirm.getByRole("button", { name: "Отмена", exact: true })).toBeFocused();
     expect(deleted).toBe(0);

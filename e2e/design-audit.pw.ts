@@ -227,7 +227,10 @@ for (const theme of ["light", "dark"]) {
     expect((await row.boundingBox())!.height).toBeLessThan(comfortable);
     // CDP coordinates can differ by a few millionths of a pixel after subtraction.
     const compactHeight = (await row.boundingBox())!.height;
-    expect(Math.round(compactHeight * 1000) / 1000).toBeGreaterThanOrEqual(32);
+    // 32 CSS px; the desktop list (1024–2559 CSS px) is zoomed to 0.9, so compare in the row's own CSS px
+    // (28.8 visual px snap to 28.797 = 31.997 CSS px on the 1/64 px layout grid, hence 0.01 rounding).
+    const listZoom = await row.evaluate(el => (el as unknown as { currentCSSZoom: number }).currentCSSZoom);
+    expect(Math.round(compactHeight / listZoom * 100) / 100).toBeGreaterThanOrEqual(32);
     await page.getByRole("link", { name: "Доска", exact: true }).click();
     await expect(page).toHaveURL(/\/board\?assignee=u1/);
     await expect(page.locator("article[data-issue-id]")).toHaveCount(2);
