@@ -101,7 +101,7 @@ export async function snapshotProject(projectId: string) {
       projectId,
     ]),
     q<{ name: string; type_id: string; priority_id: string; title: string; description: string; status_id: string | null }>(
-      `SELECT name, type_id, priority_id, title, description, status_id FROM issue_templates WHERE project_id = $1 ORDER BY position, created_at`,
+      `SELECT name, type_id, priority_id, title, description, status_id FROM issue_templates WHERE project_id = $1 AND NOT hidden ORDER BY position, created_at`,
       [projectId],
     ),
     one<{ default_view: string | null; suggested_labels: string[]; sprints_enabled: boolean; icon: string | null }>(

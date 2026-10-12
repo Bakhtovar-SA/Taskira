@@ -5,7 +5,7 @@ import { badRequest, notFound } from "../middleware.js";
 import { ApiHttpError } from "../errors.js";
 import { LIMITS, type IssueAutomationDto, type IssueRecurrenceBody } from "../contract.js";
 import type { ProjectRow } from "./project.js";
-import { issueRecurringRule, deleteRecurringRule } from "./recurring.js";
+import { issueRecurringRule, deleteRecurringRule, lockRecurringRules } from "./recurring.js";
 import { assertValidTiming, localDateOf, nextOccurrence } from "./recurrence.js";
 import type { IssueRow } from "./issues.js";
 
@@ -16,7 +16,7 @@ export async function getIssueAutomation(projectId: string, issueId: string, use
 }
 export async function createIssueRecurrenceInTx(client: PoolClient, project: ProjectRow, issue: IssueRow, body: IssueRecurrenceBody, actorId: string): Promise<void> {
  assertValidTiming(body);
- await client.query(`SELECT id FROM projects WHERE id=$1 FOR UPDATE`,[project.id]);
+ await lockRecurringRules(client,project.id);
  const count=(await client.query<{count:number}>(`SELECT count(*)::int AS count FROM recurring_rules WHERE project_id=$1`,[project.id])).rows[0].count;
  if(count>=LIMITS.recurring.perProject)throw new ApiHttpError(409,"RECURRING_LIMIT","В проекте достигнут лимит правил");
  const initial=(await client.query<{id:string}>(`SELECT id FROM workflow_statuses WHERE project_id=$1 AND category='todo' ORDER BY position LIMIT 1`,[project.id])).rows[0];
@@ -47,7 +47,7 @@ export async function configureIssueRecurrence(project: ProjectRow, issueId: str
   return;
  }
  await withTransaction(async client=>{
-  await client.query('SELECT id FROM projects WHERE id=$1 FOR UPDATE',[project.id]);
+  await lockRecurringRules(client,project.id);
   const issue=(await client.query<IssueRow>('SELECT * FROM issues WHERE id=$1 AND project_id=$2 FOR UPDATE',[issueId,project.id])).rows[0];
   if(!issue)throw notFound('Задача не найдена');
   const rule=(await client.query<{id:string;start_date:string}>(   'SELECT id,start_date FROM recurring_rules WHERE project_id=$1 AND source_issue_id=$2 FOR UPDATE',[project.id,issueId])).rows[0];

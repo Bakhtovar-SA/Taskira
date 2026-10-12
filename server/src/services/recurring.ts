@@ -86,10 +86,17 @@ export async function listRecurringRules(projectId: string): Promise<RecurringRu
   return (await q<RuleRow>(`${RULE_SELECT} WHERE r.project_id = $1 ORDER BY r.created_at, r.id`, [projectId])).map(toDto);
 }
 
+/** Serialises the per-project rule limit check. An advisory lock, not `projects FOR UPDATE`: that row lock queues behind
+ *  the KEY SHARE every issue insert holds on the project, so taking it after an issue INSERT could deadlock. */
+export async function lockRecurringRules(client: PoolClient, projectId: string): Promise<void> {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`taskira:recurring-rules:${projectId}`]);
+}
+
 export async function createRecurringRule(project: ProjectRow, body: RecurringRuleBody, actorId: string): Promise<RecurringRuleDto> {
   try {
     return await withTransaction(async client => {
-      const exists = (await client.query(`SELECT id FROM projects WHERE id = $1 FOR UPDATE`, [project.id])).rows[0];
+      await lockRecurringRules(client, project.id);
+      const exists = (await client.query(`SELECT id FROM projects WHERE id = $1`, [project.id])).rows[0];
       if (!exists) throw notFound("Проект не найден");
       const count = (await client.query<{ count: number }>(
         `SELECT count(*)::int AS count FROM recurring_rules WHERE project_id = $1`, [project.id],

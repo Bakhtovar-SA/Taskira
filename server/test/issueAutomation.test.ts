@@ -2,7 +2,9 @@ import type {FastifyInstance} from 'fastify';
 import {beforeAll,beforeEach,afterAll,expect,test} from 'vitest';
 import {auth,getApp,login,q,resetDb,seedFixture,stopApp,type Fixture} from './helpers.js';
 import {loadConfig} from '../src/config.js';
-import {runRecurringOnce} from '../src/services/recurring.js';
+import {LIMITS} from '../src/contract.js';
+import {runRecurringOnce,lockRecurringRules} from '../src/services/recurring.js';
+import {withClient} from '../src/db.js';
 import {runPersonalRemindersOnce,validPersonalReminderIds} from '../src/services/issueReminders.js';
 let app:FastifyInstance,fx:Fixture,manager:string,employee:string,viewer:string;
 const timing=()=>({schedule:{kind:'daily',every:1},timeOfDay:'09:00',timeZone:'Asia/Tashkent',startDate:new Date(Date.now()-86400000).toISOString().slice(0,10),skipIfOpen:false});
@@ -85,4 +87,41 @@ test('cancel and lost access suppress future delivery, lost access suppresses pe
 });
 test('deleting the original issue cascades rule and reminder without later occurrences',async()=>{
  await configure();await call('PUT',url()+'/reminder',manager,{remindAt:future()});expect((await call('DELETE',url())).statusCode).toBe(204);expect(await q('SELECT id FROM recurring_rules')).toHaveLength(0);expect(await q('SELECT issue_id FROM issue_reminders')).toHaveLength(0);expect(await q('SELECT id FROM issue_templates WHERE hidden')).toHaveLength(0);
+});
+test('hidden repeat snapshots stay out of saved organisation templates and the admin export, normal templates stay in',async()=>{
+ const admin=await login(app,'admin');await configure();
+ await q(`INSERT INTO issue_templates(project_id,name,type_id,priority_id,title,description,position) VALUES($1,'Visible','task','high','Visible title','',5)`,[fx.projects.p1]);
+ expect(await q('SELECT id FROM issue_templates WHERE hidden AND project_id=$1',[fx.projects.p1])).toHaveLength(1);
+ const saved=await call('POST',`/api/projects/${fx.projects.p1}/save-as-template`,admin,{name:'Org tpl',description:''});expect(saved.statusCode,saved.body).toBe(201);
+ expect(saved.json().spec.issueTemplates.map((t:{name:string})=>t.name)).toEqual(['Visible']);
+ const exported=await call('GET','/api/admin/export',admin);expect(exported.statusCode).toBe(200);
+ const rows=exported.body.split('\n').filter(l=>l.trim()).map(l=>JSON.parse(l) as {type:string;name?:string});
+ expect(rows.filter(r=>r.type==='issueTemplate').map(r=>r.name)).toEqual(['Visible']);
+ const hidden=(await q<{name:string}>('SELECT name FROM issue_templates WHERE hidden'))[0].name;expect(exported.body).not.toContain(hidden);
+});
+test('parallel create-with-repeat, apply-repeat and standalone rules never deadlock and respect the limit',async()=>{
+ const p=fx.projects.p1,base={epicId:null,complexity:null,typeId:'task',priorityId:'medium'};
+ const ids:string[]=[];for(let i=0;i<4;i++){const r=await call('POST',`/api/projects/${p}/issues`,manager,{...base,title:`Existing ${i}`});expect(r.statusCode,r.body).toBe(201);ids.push(r.json().id)}
+ const tpls=[];for(let i=0;i<3;i++)tpls.push((await q<{id:string}>(`INSERT INTO issue_templates(project_id,name,type_id,priority_id,title,description,position) VALUES($1,$2,'task','high','T','',$3) RETURNING id`,[p,`Tpl ${i}`,i]))[0].id);
+ const before=(await q<{count:number}>('SELECT count(*)::int AS count FROM recurring_rules'))[0].count;
+ const responses=await Promise.all([
+  ...Array.from({length:8},(_,i)=>call('POST',`/api/projects/${p}/issues`,manager,{...base,title:`New ${i}`,recurrence:timing()})),
+  ...ids.map(id=>call('PUT',url(id)+'/recurrence',manager,timing())),
+  ...tpls.map((templateId,i)=>call('POST',`/api/projects/${p}/recurring`,manager,{name:`Rule ${i}`,templateId,...timing()})),
+ ]);
+ responses.forEach(r=>{expect(r.statusCode,r.body).toBeLessThan(300);expect(r.body).not.toContain('40P01')});
+ const created=responses.filter(r=>[200,201].includes(r.statusCode)).length;
+ const after=(await q<{count:number}>('SELECT count(*)::int AS count FROM recurring_rules'))[0].count;
+ expect(after-before).toBe(created);expect(after).toBeLessThanOrEqual(LIMITS.recurring.perProject);
+});
+test('rule-limit lock does not deadlock with transactions that already hold the project KEY SHARE (as every issue INSERT does)',async()=>{
+ const p=fx.projects.p1;
+ await withClient(A=>withClient(async B=>{
+  try{
+   await A.query('BEGIN');await B.query('BEGIN');
+   for(const c of [A,B])await c.query('SELECT 1 FROM projects WHERE id=$1 FOR KEY SHARE',[p]);
+   const run=(c:typeof A)=>lockRecurringRules(c,p).then(async()=>{await c.query('COMMIT');return null},(e:{code?:string})=>e.code??'error');
+   expect(await Promise.all([run(A),run(B)])).toEqual([null,null]);
+  }finally{await A.query('ROLLBACK').catch(()=>{});await B.query('ROLLBACK').catch(()=>{})}
+ }));
 });
