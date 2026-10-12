@@ -651,3 +651,6 @@
 
 .user-preview.ds-pop { width: 280px; }
 .user-card-body[data-compact] { padding: 12px; }
+/* ds Select in the properties column: the flat field look above hides a trigger's trailing icon, but a list needs its
+   chevron (like «Сложность»). */
+.issue-properties .issue-field-value > .ds-select > .ds-select-chevron { display: block; }

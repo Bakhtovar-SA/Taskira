@@ -4,6 +4,7 @@ import type { ApiTokenCreateBody, ApiTokenDto, ApiTokenCreatedDto, ApiTokenAdmin
 import { Button } from "../../ds/Button";
 import { Dialog } from "../../ds/Dialog";
 import { Input, RadioGroup } from "../../ds/Field";
+import { Select } from "../../ds/Select";
 import { Tag } from "../../ds/Display";
 import { IcPlus } from "../../icons";
 import { useT } from "../../i18n";
@@ -109,9 +110,7 @@ function TokenForm({ create,onClose,onCreated }: {
       <Input label={t("tokens.name")} value={name} onChange={event => setName(event.target.value)} maxLength={LIMITS.apiToken.name} data-autofocus />
       <RadioGroup label={t("tokens.scope")} value={scope} onChange={setScope} options={[{ value: "read",label: t("tokens.read") },{ value: "write",label: t("tokens.write") }]} />
       <div className="flex flex-col gap-1.5"><label htmlFor={selectId} className="ds-label">{t("tokens.lifetime")}</label>
-        <select id={selectId} value={days} onChange={event => setDays(Number(event.target.value))} className="ds-focus rounded-md border border-line bg-panel px-3 py-2 text-[14px] text-ink">
-          {[30,90,180,365].map(value => <option key={value} value={value}>{t("tokens.days",{ count: value })}</option>)}
-        </select>
+        <Select id={selectId} value={days} onChange={setDays} options={[30,90,180,365].map(value => ({ value, label: t("tokens.days",{ count: value }) }))} />
       </div>
       {error && <p role="alert" className="text-[14px] text-danger">{error}</p>}
     </div>

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { chooseOption, selectedText } from "../../ds/Select.testing";
 import { I18nProvider, loadLang, useT } from "../../i18n";
 import { ApiError, adminTokensApi, serviceAccountsApi, tokensApi } from "../../api";
 import { allowedSections } from "../../settings/access";
@@ -39,7 +40,7 @@ const pending = <T,>() => { let resolve!: (value: T) => void; const promise = ne
 test("creation shows the token once, default lifetime and returns focus after acknowledgement",async () => {
   show(); await screen.findByText("CRM"); const add = await screen.findByRole("button",{ name: "Новый токен" }); add.focus(); fireEvent.click(add);
   fireEvent.change(screen.getByRole("textbox",{ name: "Название" }),{ target: { value: "New" } });
-  expect((screen.getByRole("combobox",{ name: "Срок действия" }) as HTMLSelectElement).value).toBe("90");
+  expect(selectedText(screen.getByRole("combobox",{ name: "Срок действия" }))).toBe("90 дней");
   fireEvent.click(screen.getByRole("button",{ name: "Создать" }));
   expect((await screen.findByRole("textbox",{ name: "Секрет" }) as HTMLInputElement).value).toBe(secret);
   expect(screen.getByText(`curl -H "Authorization: Bearer ${secret}" "${window.location.origin}/api/projects"`)).toBeTruthy();
@@ -52,7 +53,7 @@ test("scope and selected lifetime reach the API",async () => {
   show(); await screen.findByText("CRM"); fireEvent.click(await screen.findByRole("button",{ name: "Новый токен" }));
   fireEvent.change(screen.getByRole("textbox",{ name: "Название" }),{ target: { value: "Writer" } });
   fireEvent.click(screen.getByRole("radio",{ name: "Чтение и запись" }));
-  fireEvent.change(screen.getByRole("combobox",{ name: "Срок действия" }),{ target: { value: "30" } });
+  chooseOption(screen.getByRole("combobox",{ name: "Срок действия" }),"30 дней");
   fireEvent.click(screen.getByRole("button",{ name: "Создать" }));
   await waitFor(() => expect(tokensApi.create).toHaveBeenCalledWith({ name: "Writer",scope: "write",expiresInDays: 30 }));
 });

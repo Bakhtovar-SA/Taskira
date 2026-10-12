@@ -10,7 +10,7 @@ import { issueFixture } from "./issue-fixture";
 import { roadmapFixture } from "./roadmap-fixture";
 import { reportsFixture } from "./reports-fixture";
 
-const SECTIONS = ["concepts", "button", "iconbutton", "inputs", "choice", "tabs", "overlays", "combobox", "dialogs", "display", "empty"];
+const SECTIONS = ["concepts", "button", "iconbutton", "inputs", "choice", "tabs", "overlays", "combobox", "select", "dialogs", "display", "empty"];
 const THEMES = ["light", "dark"] as const;
 
 for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) {
@@ -171,6 +171,25 @@ test("клавиатура: меню, вкладки, диалог", async ({ pa
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("tab", { name: "Список" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("tab", { name: "Список" })).toBeFocused();
+
+  await page.goto("/dev/ui?section=select");
+  const select = page.getByRole("combobox", { name: "Канал обращения" });
+  await select.focus();
+  await page.keyboard.press("ArrowDown");
+  const list = page.getByRole("listbox", { name: "Канал обращения" });
+  await expect(list).toBeVisible();
+  await expect(list.getByRole("option", { name: "Телефон" })).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("End"); // «Чат» недоступен — активным становится «Портал»
+  await expect(select).toHaveAttribute("aria-activedescendant", (await list.getByRole("option", { name: "Портал" }).getAttribute("id"))!);
+  await page.keyboard.press("Enter");
+  await expect(list).toHaveCount(0);
+  await expect(select).toHaveText("Портал");
+  await expect(select).toBeFocused();
+  await select.dispatchEvent("keydown", { key: "п", bubbles: true, cancelable: true }); // набор букв (в Playwright нет кириллических клавиш)
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(select).toHaveText("Портал");
 
   await page.goto("/dev/ui?section=dialogs");
   const open = page.getByRole("button", { name: "Открыть диалог" });

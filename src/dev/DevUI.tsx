@@ -33,6 +33,7 @@ import {
   type ComboOption,
   type Tone,
 } from "../ds";
+import { Select } from "../ds/Select";
 import { IcArchive, IcBoard, IcCompose, IcDots, IcInbox, IcLink, IcPencil, IcPlus, IcSearch, IcTimeline, IcTrash, IcBacklog } from "../icons";
 import { applyTheme } from "../theme";
 
@@ -91,6 +92,9 @@ export default function DevUI() {
   const [date, setDate] = useState<string | null>("2026-10-02");
   const [date2, setDate2] = useState<string | null>(null);
   const [person, setPerson] = useState<ComboOption | null>(null);
+  const [channel, setChannel] = useState("phone");
+  const [period, setPeriod] = useState(90);
+  const [scope, setScope] = useState("p:1");
   const [dlg, setDlg] = useState(false);
   const [panel, setPanel] = useState(false);
   const [tags, setTags] = useState(["дизайн", "портал", "срочно"]);
@@ -355,6 +359,19 @@ export default function DevUI() {
           <div className="grid gap-5 md:grid-cols-2">
             <Combobox label="Исполнитель" placeholder="Начните вводить имя…" load={loadPeople} value={person} onSelect={setPerson} />
             <DatePicker label="Срок без значения" value={date2} onChange={setDate2} today={TODAY} />
+          </div>
+        </Section>
+
+        <Section id="select" title="Select" note="Вместо нативного <select>: тот же облик, что у полей, список в верхнем слое. ↑/↓, Home/End, первые буквы (и в другой раскладке), Enter/Space, Esc закрывает только список. Группы, недоступные варианты, плейсхолдер; числа остаются числами.">
+          <div className="grid gap-5 md:grid-cols-3">
+            <Select label={L("Канал обращения", "Канал, по которому клиент обратился в поддержку")} value={channel} onChange={setChannel} options={[{ value: "", label: "—" }, { value: "phone", label: "Телефон" }, { value: "mail", label: "Почта" }, { value: "portal", label: "Портал" }, { value: "chat", label: "Чат", disabled: true }]} />
+            <Select label="Hover" value="phone" onChange={() => {}} options={[{ value: "phone", label: "Телефон" }]} force="hover" />
+            <Select label="Фокус" value="phone" onChange={() => {}} options={[{ value: "phone", label: "Телефон" }]} force="focus" />
+            <Select label="Срок действия" value={period} onChange={setPeriod} options={[30, 90, 180, 365].map((d) => ({ value: d, label: `${d} дней` }))} hint="Число остаётся числом" />
+            <Select label="Область" placeholder="Выберите проект" value={scope} onChange={setScope} options={[{ value: "", label: "Все проекты" }, { group: "Команды", options: [{ value: "d:1", label: "Отдел продаж" }, { value: "d:2", label: "Поддержка" }] }, { group: "Проекты", options: [{ value: "p:1", label: "CORP · Корпоративный портал" }, { value: "p:2", label: "HR · Найм и адаптация" }] }]} />
+            <Select label="Уровень поддержки" value="" onChange={() => {}} options={[{ value: "l1", label: "Первая линия" }]} placeholder="Не выбран" error="Выберите уровень" />
+            <Select label="Роль" size="sm" value="manager" onChange={() => {}} options={[{ value: "manager", label: "Менеджер" }]} />
+            <Select label="Недоступно" value="manager" onChange={() => {}} options={[{ value: "manager", label: "Менеджер" }]} disabled="Роль меняет администратор" />
           </div>
         </Section>
 

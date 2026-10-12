@@ -8,5 +8,8 @@ export { Dialog, PaletteDialog, SidePanel } from "./Dialog";
 export { Presence } from "./Presence";
 export { Combobox, type ComboOption } from "./Combobox";
 export { DatePicker } from "./DatePicker";
+// Select — только типы: сам компонент импортируют из файла (`../ds/Select`). Реэкспорт значения отсюда держит его чанк
+// в modulepreload входного (barrel попадает во входной чанк), +2,9 KB до первого экрана; см. COMPONENTS.md.
+export type { SelectGroup, SelectItem, SelectOption, SelectProps, SelectValue } from "./Select";
 export { parseDateInput } from "./dateParse";
 export { Avatar, AvatarGroup, EmptyState, Kbd, Progress, ProgressRing, Skeleton, SkeletonCard, Tag, Toast, toneOf, type AvatarPerson, type Tone } from "./Display";

@@ -14,6 +14,7 @@ import { IcBell, IcCalendar, IcCheck, IcChevD, IcExpand, IcDots, IcLink, IcLock,
 import { catColor, directionColor } from "../ui";
 import { Button } from "../ds/Button";
 import { Checkbox } from "../ds/Field";
+import { Select } from "../ds/Select";
 import { Combobox } from "../ds/Combobox";
 import { DatePicker } from "../ds/DatePicker";
 import { Dialog, SidePanel } from "../ds/Dialog";
@@ -352,17 +353,13 @@ function CustomFieldRow({
   return (
     <Field label={field.name}>
       {field.fieldType === "select" ? (
-        <select
+        <Select
           aria-label={field.name}
           value={current}
-          onChange={(e) => setValue(issue.id, field.id, e.target.value === "" ? null : e.target.value)}
-          className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-1.5 text-[14px] outline-none focus:border-accent focus:shadow-focus"
-        >
-          <option value="">—</option>
-          {field.options.map((o) => (
-            <option key={o} value={o}>{o}</option>
-          ))}
-        </select>
+          onChange={(v) => setValue(issue.id, field.id, v === "" ? null : v)}
+          placeholder="—"
+          options={[{ value: "", label: "—" }, ...field.options.map((o) => ({ value: o, label: o }))]}
+        />
       ) : field.fieldType === "checkbox" ? (
         <Checkbox checked={current === "true"} onChange={(on) => setValue(issue.id, field.id, on ? "true" : null)} label={field.name} labelHidden />
       ) : field.fieldType === "date" ? (

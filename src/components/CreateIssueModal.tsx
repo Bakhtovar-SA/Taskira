@@ -9,6 +9,7 @@ import { IcCalendar, IcChevD, IcPlus, IcX, TypeIcon } from "../icons";
 import { labelTone } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Button, Checkbox, DatePicker, Dialog, Menu, Popover, Tag } from "../ds";
+import { Select } from "../ds/Select";
 import { IcCheck, PriorityIcon } from "../icons";
 import { LIMITS } from "../validation";
 import { useT } from "../i18n";
@@ -187,17 +188,13 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
         {data.issueTemplates.length > 0 && (
           <div>
             <label htmlFor="create-issue-template" className="ds-label mb-1.5">{t("createIssue.templateLabel")}</label>
-            <select
+            <Select
               id="create-issue-template"
               value={templateId}
-              onChange={(e) => applyTemplate(e.target.value)}
-              className="w-full cursor-pointer rounded-md border border-line bg-panel px-3 py-2 text-[14px] outline-none focus:border-accent focus:shadow-focus"
-            >
-              <option value="">{t("createIssue.noTemplate")}</option>
-              {data.issueTemplates.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
+              onChange={applyTemplate}
+              placeholder={t("createIssue.noTemplate")}
+              options={[{ value: "", label: t("createIssue.noTemplate") }, ...data.issueTemplates.map((tpl) => ({ value: tpl.id, label: tpl.name }))]}
+            />
           </div>
         )}
 

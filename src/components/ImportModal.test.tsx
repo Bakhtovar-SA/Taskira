@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { I18nProvider } from "../i18n";
+import { chooseOption } from "../ds/Select.testing";
 import type { CreateInput } from "../store/mappers";
 
 const importIssues = vi.fn(async (..._args: unknown[]) => ({ ok: 1, failed: 0, cancelled: false }));
@@ -16,7 +17,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); localStorage.clear(); });
 test("source selection, counts, closed toggle and CreateInput mapping", async () => {
   render(<I18nProvider><ImportModal onClose={() => {}} /></I18nProvider>);
   const source = screen.getByLabelText("Источник");
-  fireEvent.change(source, { target: { value: "jira" } });
+  chooseOption(source, "Jira (CSV)");
   const file = screen.getByLabelText(/Файл экспорта/);
   expect(file.getAttribute("accept")).toContain(".csv");
   fireEvent.change(file, { target: { files: [new File([jira], "jira.csv", { type: "text/csv" })] } });
@@ -40,11 +41,11 @@ test("source selection, counts, closed toggle and CreateInput mapping", async ()
 test("switching source clears prior preview and parses Asana", async () => {
   render(<I18nProvider><ImportModal onClose={() => {}} /></I18nProvider>);
   const source = screen.getByLabelText("Источник");
-  fireEvent.change(source, { target: { value: "asana" } });
+  chooseOption(source, "Asana (CSV)");
   fireEvent.change(screen.getByLabelText(/Файл экспорта/), { target: { files: [new File([asana], "asana.csv", { type: "text/csv" })] } });
   await waitFor(() => expect(screen.getByText(/Найдено задач: 7/)).toBeTruthy());
   expect(screen.getByText(/Будет создано: 5/)).toBeTruthy();
-  fireEvent.change(source, { target: { value: "trello" } });
+  chooseOption(source, "Trello (JSON)");
   expect(screen.queryByText(/Найдено задач/)).toBeNull();
   expect(screen.getByLabelText(/Файл экспорта/).getAttribute("accept")).toContain(".json");
 });
@@ -68,7 +69,7 @@ test("cancelled result shows partial creation instead of a completed import", as
 
 test("preview warns when a long Jira description was shortened", async () => {
   render(<I18nProvider><ImportModal onClose={() => {}} /></I18nProvider>);
-  fireEvent.change(screen.getByLabelText("Источник"), { target: { value: "jira" } });
+  chooseOption(screen.getByLabelText("Источник"), "Jira (CSV)");
   const csv = `Summary,Description,Issue key\nIssue,${"x".repeat(5100)},APP-99`;
   fireEvent.change(screen.getByLabelText(/Файл экспорта/), { target: { files: [new File([csv], "jira.csv", { type: "text/csv" })] } });
   await waitFor(() => expect(screen.getByText(/Длинные описания сокращены: 1/)).toBeTruthy());

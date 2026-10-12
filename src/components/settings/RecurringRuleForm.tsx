@@ -4,6 +4,7 @@ import { recurringApi, usersApi } from "../../api";
 import { Button } from "../../ds/Button";
 import { Dialog } from "../../ds/Dialog";
 import { Checkbox, Input } from "../../ds/Field";
+import { Select } from "../../ds/Select";
 import { Combobox, type ComboOption } from "../../ds/Combobox";
 import { DatePicker } from "../../ds/DatePicker";
 import { Tabs } from "../../ds/Tabs";
@@ -88,13 +89,11 @@ export default function RecurringRuleForm({ projectId, rule, defaultTimeZone, on
     <form id={formId} onSubmit={event => { event.preventDefault(); void save(); }}>
       <fieldset disabled={busy} className="flex min-w-0 flex-col gap-4">
         <Input label={t("recurring.name")} value={name} onChange={event => setName(event.target.value)} maxLength={LIMITS.recurring.name} data-autofocus />
-        <label className="ds-field"><span className="ds-label">{t("recurring.template")}</span>
-          <select className="ds-input ds-focus" value={templateId} onChange={event => setTemplateId(event.target.value)}>
-            {rule?.sourceIssueId && !template && <option value={rule.templateId}>{t("automation.issueSnapshot")}</option>}
-            {!rule?.sourceIssueId && !data.issueTemplates.length && <option value="">{t("recurring.noTemplates")}</option>}
-            {data.issueTemplates.map(value => <option key={value.id} value={value.id}>{value.name}</option>)}
-          </select>
-        </label>
+        <Select label={t("recurring.template")} value={templateId} onChange={setTemplateId} options={[
+          ...(rule?.sourceIssueId && !template ? [{ value: rule.templateId, label: t("automation.issueSnapshot") }] : []),
+          ...(!rule?.sourceIssueId && !data.issueTemplates.length ? [{ value: "", label: t("recurring.noTemplates") }] : []),
+          ...data.issueTemplates.map(value => ({ value: value.id, label: value.name })),
+        ]} />
         {!rule?.sourceIssueId && !data.issueTemplates.length && <Button onClick={() => { onClose(); setView("projectSettings", "templates"); }}>{t("recurring.createTemplate")}</Button>}
         <Tabs label={t("recurring.schedule")} value={kind} onChange={value => { setKind(value); setEvery("1"); }} items={[
           { id: "daily", label: t("recurring.daily") }, { id: "weekly", label: t("recurring.weekly") }, { id: "monthly", label: t("recurring.monthly") },

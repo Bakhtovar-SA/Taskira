@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { boardFixture } from "./board-fixture";
+import { chooseOption } from "./select-helpers";
 const secret = "tsk_abcdefgh_" + "X".repeat(43);
 async function tokenFixture(page: Page,theme: "light" | "dark") {
   await boardFixture(page,theme);
@@ -35,7 +36,12 @@ for(const theme of ["light","dark"] as const) test(`personal tokens and service 
   const add=page.getByRole('button',{ name: 'Новый токен',exact: true }); await add.click();
   await page.getByRole('textbox',{ name: 'Название',exact: true }).fill('Daily export');
   await page.getByRole('radio',{ name: 'Чтение и запись',exact: true }).check();
-  await page.getByRole('combobox',{ name: 'Срок действия' }).selectOption('30');
+  const lifetime=page.getByRole('combobox',{ name: 'Срок действия' }); await expect(lifetime).toHaveText('90 дней');
+  // Escape inside the dialog closes only the list (real Chromium: native <dialog> cancel must not fire).
+  await lifetime.click(); await expect(page.getByRole('listbox',{ name: 'Срок действия' })).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(page.getByRole('listbox')).toHaveCount(0);
+  await expect(page.getByRole('dialog',{ name: 'Новый токен' })).toBeVisible(); await expect(lifetime).toBeFocused();
+  await chooseOption(lifetime,'30 дней'); await expect(lifetime).toHaveText('30 дней');
   const posted=page.waitForRequest(req => req.url().endsWith('/api/me/tokens') && req.method()==='POST');
   await page.getByRole('button',{ name: 'Создать',exact: true }).click();
   expect((await posted).postDataJSON()).toEqual({ name: 'Daily export',scope: 'write',expiresInDays: 30 });

@@ -4,12 +4,10 @@ import { useId } from "react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
 import { Dialog, Button, Input } from "../ds";
+import { Select } from "../ds/Select";
 import { LIMITS } from "../validation";
 import { COUNT_METRICS, BREAKDOWN_GROUPS, ISSUE_PRESETS, WIDGET_PERIODS, PROJECT_WIDGET_LIMITS, MILESTONE_PERIOD_LIMITS } from "./spec";
 import { catalogFor, CATALOG_GROUPS, defaultTitleKey, type CatalogItem, type Widget } from "./catalog";
-
-const selectCls =
-  "h-8 w-full rounded-lg border border-linesoft bg-sunken px-2 text-[13.5px] font-medium text-ink outline-none transition-[border-color,box-shadow] hover:border-line focus:border-accent focus:shadow-focus";
 
 function Row({ label, children }: { label: string; children: (id: string) => React.ReactNode }) {
   const id = useId();
@@ -73,109 +71,49 @@ export function WidgetSettingsDialog({ w, orgScope, onChange, onClose }: { w: Wi
         {orgScope && (
           <Row label={t("dash.scope")}>
             {(id) => (
-              <select
+              <Select
                 id={id}
-                className={selectCls}
                 value={scope}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  set({ projectId: v.startsWith("p:") ? v.slice(2) : undefined, departmentId: v.startsWith("d:") ? v.slice(2) : undefined });
-                }}
-              >
-                <option value="">{t("dash.scopeAll")}</option>
-                {departments.length > 1 && (
-                  <optgroup label={t("dash.scopeDepartments")}>
-                    {departments.map((d) => (
-                      <option key={d.id} value={`d:${d.id}`}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                <optgroup label={t("dash.scopeProjects")}>
-                  {data.projects.map((p) => (
-                    <option key={p.id} value={`p:${p.id}`}>
-                      {p.key} · {p.name}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+                onChange={(v) => set({ projectId: v.startsWith("p:") ? v.slice(2) : undefined, departmentId: v.startsWith("d:") ? v.slice(2) : undefined })}
+                options={[
+                  { value: "", label: t("dash.scopeAll") },
+                  ...(departments.length > 1 ? [{ group: t("dash.scopeDepartments"), options: departments.map((d) => ({ value: `d:${d.id}`, label: d.name })) }] : []),
+                  { group: t("dash.scopeProjects"), options: data.projects.map((p) => ({ value: `p:${p.id}`, label: `${p.key} · ${p.name}` })) },
+                ]}
+              />
             )}
           </Row>
         )}
         {w.type === "count" && (
           <Row label={t("dash.metric")}>
-            {(id) => (
-              <select id={id} className={selectCls} value={w.metric} onChange={(e) => set({ metric: e.target.value as typeof w.metric })}>
-                {COUNT_METRICS.map((m) => (
-                  <option key={m} value={m}>
-                    {t(`dash.w.count.${m}`)}
-                  </option>
-                ))}
-              </select>
-            )}
+            {(id) => <Select id={id} value={w.metric} onChange={(metric) => set({ metric })} options={COUNT_METRICS.map((m) => ({ value: m, label: t(`dash.w.count.${m}`) }))} />}
           </Row>
         )}
         {((w.type === "count" && (w.metric === "closed" || w.metric === "created")) || w.type === "trend") && (
           <Row label={t("dash.period")}>
-            {(id) => (
-              <select id={id} className={selectCls} value={w.periodDays} onChange={(e) => set({ periodDays: Number(e.target.value) as typeof w.periodDays })}>
-                {WIDGET_PERIODS.map((d) => (
-                  <option key={d} value={d}>
-                    {days(d)}
-                  </option>
-                ))}
-              </select>
-            )}
+            {(id) => <Select id={id} value={w.periodDays} onChange={(periodDays) => set({ periodDays })} options={WIDGET_PERIODS.map((d) => ({ value: d, label: days(d) }))} />}
           </Row>
         )}
         {w.type === "breakdown" && (
           <>
             <Row label={t("dash.groupBy")}>
-              {(id) => (
-                <select id={id} className={selectCls} value={w.groupBy} onChange={(e) => set({ groupBy: e.target.value as typeof w.groupBy })}>
-                  {BREAKDOWN_GROUPS.map((g) => (
-                    <option key={g} value={g}>
-                      {t(`dash.w.breakdown.${g}`)}
-                    </option>
-                  ))}
-                </select>
-              )}
+              {(id) => <Select id={id} value={w.groupBy} onChange={(groupBy) => set({ groupBy })} options={BREAKDOWN_GROUPS.map((g) => ({ value: g, label: t(`dash.w.breakdown.${g}`) }))} />}
             </Row>
             <Row label={t("dash.chart")}>
-              {(id) => (
-                <select id={id} className={selectCls} value={w.chart} onChange={(e) => set({ chart: e.target.value as typeof w.chart })}>
-                  <option value="donut">{t("dash.chart.donut")}</option>
-                  <option value="bars">{t("dash.chart.bars")}</option>
-                </select>
-              )}
+              {(id) => <Select id={id} value={w.chart} onChange={(chart) => set({ chart })} options={[{ value: "donut" as const, label: t("dash.chart.donut") }, { value: "bars" as const, label: t("dash.chart.bars") }]} />}
             </Row>
           </>
         )}
         {w.type === "issues" && (
           <Row label={t("dash.preset")}>
-            {(id) => (
-              <select id={id} className={selectCls} value={w.preset} onChange={(e) => set({ preset: e.target.value as typeof w.preset })}>
-                {ISSUE_PRESETS.map((p) => (
-                  <option key={p} value={p}>
-                    {t(`dash.w.issues.${p}`)}
-                  </option>
-                ))}
-              </select>
-            )}
+            {(id) => <Select id={id} value={w.preset} onChange={(preset) => set({ preset })} options={ISSUE_PRESETS.map((p) => ({ value: p, label: t(`dash.w.issues.${p}`) }))} />}
           </Row>
         )}
         {w.type === "milestones" && <Input label={t("dash.period")} type="number" min={MILESTONE_PERIOD_LIMITS.min} max={MILESTONE_PERIOD_LIMITS.max} value={w.periodDays} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= MILESTONE_PERIOD_LIMITS.min && n <= MILESTONE_PERIOD_LIMITS.max) set({ periodDays: n }); }} />}
         {(w.type === "issues" || w.type === "workload" || w.type === "progress" || w.type === "activity" || w.type === "projects") && (
           <Row label={t("dash.limit")}>
             {(id) => (
-              <select id={id} className={selectCls} value={w.limit} onChange={(e) => set({ limit: Number(e.target.value) })}>
-                {[...new Set([...limits, w.limit])].sort((a, b) => a - b).map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
+              <Select id={id} value={w.limit} onChange={(limit) => set({ limit })} options={[...new Set([...limits, w.limit])].sort((a, b) => a - b).map((n) => ({ value: n, label: String(n) }))} />
             )}
           </Row>
         )}
