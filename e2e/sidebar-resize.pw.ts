@@ -9,7 +9,7 @@ async function ready(page: Page, width = 1920, theme = "dark") {
     // Old collapsed teams must not hide the newly approved project hierarchy.
     if (!localStorage.getItem("taskira.sidebar.open")) localStorage.setItem("taskira.sidebar.open", JSON.stringify({"s:projects": false, "d:d1": false, "d:d2": false}));
   });
-  await page.setViewportSize({ width, height: width === 3440 ? 1440 : 1080 });
+  await page.setViewportSize({ width, height: width >= 2560 ? 1440 : 1080 });
   await page.goto("/p/CORP/board");
   await expect(page.locator(".sidebar-team")).toHaveCount(2);
 }
@@ -19,11 +19,13 @@ async function dragBy(page: Page, delta: number) {
   await page.mouse.move(box.x + box.width / 2, box.y + 80);
   await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + delta, box.y + 80, {steps: 8}); await page.mouse.up();
 }
-for (const theme of ["dark", "light"]) for (const width of [1920, 3440]) {
+// Root zoom per profile: 1920 reference, 2560–3199 ultrawide (1.1), >=3200 very wide (0.99 = 1.1 × 0.9).
+const ZOOM: Record<number, number> = { 1920: 1, 2560: 1.1, 3440: 0.99 };
+for (const theme of ["dark", "light"]) for (const width of [1920, 2560, 3440]) {
   test(`sidebar drag, persistence, collapse and accessibility (${theme}, ${width})`, async ({ page }) => {
     const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
     await ready(page, width, theme);
-    const zoom = width === 3440 ? 1.1 : 1, initial = (width === 3440 ? 304 : 248) * zoom;
+    const zoom = ZOOM[width], initial = (width >= 2560 ? 304 : 248) * zoom;
     expect(await widthOf(page)).toBeCloseTo(initial, 0);
     await expect(page.locator(".sidebar-projects-toggle").first()).toHaveAttribute("aria-expanded", "true");
     await expect(page.locator(".sidebar-projects-list").last()).toBeVisible();

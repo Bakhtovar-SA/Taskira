@@ -1,0 +1,88 @@
+/** Width sweep (audit, not part of the regular run): the same screens at common desktop sizes and at every profile
+ *  seam, measuring apparent sizes in visual px (after the root zoom). Run:
+ *    WIDTH_SWEEP=1 npx playwright test e2e/width-sweep.pw.ts --workers=1
+ *  It writes docs/design/refinement-2026-10-10/width-sweep.json and screenshots to test-results. */
+import { mkdirSync, writeFileSync } from "node:fs";
+import { expect, test, type Page } from "@playwright/test";
+import { boardFixture } from "./board-fixture";
+import { homeFixture } from "./home-fixture";
+import { issueFixture } from "./issue-fixture";
+
+test.skip(!process.env.WIDTH_SWEEP, "audit only: set WIDTH_SWEEP=1");
+
+const SIZES: [number, number][] = [
+  [1023, 800], [1024, 800], [1280, 800], [1440, 900], [1599, 900], [1600, 900], [1919, 1080], [1920, 1080],
+  [2559, 1440], [2560, 1440], [3199, 1440], [3200, 1440], [3440, 1440], [3840, 2160],
+];
+const SHOT = new Set(["1280x800", "1440x900", "1600x900", "1920x1080", "2560x1440", "3440x1440", "3840x2160"]);
+
+/** Visual px: getBoundingClientRect already includes the root zoom; font sizes are multiplied by currentCSSZoom. */
+const measure = (page: Page, selectors: Record<string, string>, fonts: Record<string, string>) =>
+  page.evaluate(({ selectors, fonts }) => {
+    const out: Record<string, number | null> = {};
+    for (const [k, s] of Object.entries(selectors)) {
+      const el = document.querySelector(s);
+      out[k] = el ? Math.round(el.getBoundingClientRect()[k.endsWith("H") ? "height" : "width"] * 10) / 10 : null;
+    }
+    for (const [k, s] of Object.entries(fonts)) {
+      const el = document.querySelector<HTMLElement>(s);
+      const z = (el as unknown as { currentCSSZoom?: number })?.currentCSSZoom ?? 1;
+      out[k] = el ? Math.round(parseFloat(getComputedStyle(el).fontSize) * z * 10) / 10 : null;
+    }
+    out.rootZoom = Number(getComputedStyle(document.documentElement).zoom) || 1;
+    out.overflowX = document.documentElement.scrollWidth > innerWidth + 1 ? 1 : 0;
+    return out;
+  }, { selectors, fonts });
+
+const rows: Record<string, Record<string, number | null>> = {};
+
+for (const [width, height] of SIZES) {
+  const id = `${width}x${height}`;
+  test(`sweep ${id}`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width, height });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const shot = async (name: string) => { if (SHOT.has(id)) await page.screenshot({ path: test.info().outputPath(`${name}-${id}.png`) }); };
+
+    await boardFixture(page, "light");
+    await page.goto("/p/CORP/board");
+    await expect(page.locator(".board-card").first()).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const board = await measure(page,
+      { sidebarW: "aside", globalBarH: ".global-topbar", projectBarH: ".project-topbar", tabH: ".project-view-tabs [data-tab]", controlH: ".workspace-controls .ds-btn", laneW: ".board-col", cardH: ".board-card" },
+      { bodyFs: "body", cardFs: ".board-card h3", navFs: ".tk-nav" });
+    await shot("board");
+
+    await page.goto("/p/CORP/list?done=1");
+    await expect(page.locator(".list-row").first()).toBeVisible();
+    const list = await measure(page, { rowH: ".list-row", listW: ".list-table" }, { listTitleFs: ".list-row [data-col=title]" });
+    const listZoom = await page.locator(".list-view").evaluate((el) => (el as unknown as { currentCSSZoom?: number }).currentCSSZoom ?? 1);
+    await shot("list");
+
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await issueFixture(page, "light");
+    await page.goto("/p/CORP/board");
+    await page.locator('[data-issue-id="i1"]').click();
+    const panel = page.getByRole("dialog");
+    await expect(panel.locator(".issue-title")).toBeVisible();
+    const issue = await measure(page, { panelW: "dialog[open]", propsW: ".issue-properties" }, { issueTitleFs: ".issue-title", propFs: ".issue-field-value" });
+    await shot("issue");
+
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await homeFixture(page, "light");
+    await page.goto("/");
+    await expect(page.locator(".home-task").first()).toBeVisible();
+    const home = await measure(page, { homeW: ".home-content", taskH: ".home-task" }, { h1Fs: ".home-content h1", taskFs: ".home-task-title" });
+    await shot("home");
+
+    rows[id] = { width, height, ...board, ...list, listZoom, ...issue, ...home };
+  });
+}
+
+test.afterAll(() => {
+  if (!process.env.WIDTH_SWEEP || !Object.keys(rows).length) return;
+  const out = "docs/design/refinement-2026-10-10";
+  mkdirSync(out, { recursive: true });
+  const ordered = Object.fromEntries(SIZES.map(([w, h]) => `${w}x${h}`).filter((k) => rows[k]).map((k) => [k, rows[k]]));
+  writeFileSync(process.env.WIDTH_SWEEP_OUT ?? `${out}/width-sweep.json`, JSON.stringify({ note: "Visual px at browser zoom 100%, deviceScaleFactor 1, pointer: fine (Chromium, Playwright fixtures). Generated by e2e/width-sweep.pw.ts.", rows: ordered }, null, 2) + "\n");
+});

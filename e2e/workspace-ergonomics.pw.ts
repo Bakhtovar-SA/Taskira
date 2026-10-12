@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { boardFixture } from "./board-fixture";
 import { homeFixture } from "./home-fixture";
+import { issueFixture } from "./issue-fixture";
 
 for (const theme of ["light", "dark"]) {
   test(`workspace stays readable without stretching on a 4K screen (${theme})`, async ({ page }) => {
@@ -12,8 +13,8 @@ for (const theme of ["light", "dark"]) {
     expect(lanes).toHaveLength(4);
     for (const lane of lanes) {
       expect(lane.width).toBeGreaterThanOrEqual(260);
-      // Pins the current ultrawide profile (>=2560px, zoom 1.1, --lane-max 376px => ~317-414px, see refinement-2026-10-10/report.md).
-      // The 1920px profile is the reference; this one has not been reviewed on a real 3440 screen yet.
+      // Pins the ultrawide profile (2560–3199 CSS px, zoom 1.1, --lane-max 376px => ~317-414px, see refinement-2026-10-10/report.md);
+      // >=3200 px is the very wide profile at 90% of it, tested below.
       expect(lane.width).toBeLessThanOrEqual(420);
       expect(lane.height).toBeLessThan(600);
     }
@@ -34,6 +35,61 @@ for (const theme of ["light", "dark"]) {
     expect(content.width).toBeLessThanOrEqual(1440 * 1.1 + 1); // max-width 1440 CSS px, measured under the 1.1 ultrawide zoom
     expect(Math.abs(content.x + content.width / 2 - home.x - home.width / 2)).toBeLessThan(1);
     await page.screenshot({ path: test.info().outputPath(`home-wide-${theme}.png`) });
+  });
+}
+
+/** >=3200 CSS px (3440×1440 at browser zoom 100%): the 2560 profile at ~90% — root zoom 0.99 instead of 1.1, same
+ *  tokens. Measured values: docs/design/refinement-2026-10-10/width-sweep.json. */
+for (const theme of ["light", "dark"]) {
+  test(`very wide 3440 profile is the ultrawide one at 90% (${theme})`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await issueFixture(page, theme);
+    await page.setViewportSize({ width: 3440, height: 1440 });
+    await page.goto("/p/CORP/board");
+    await expect(page.locator(".board-card")).toHaveCount(8);
+    expect(await page.evaluate(() => Number(getComputedStyle(document.documentElement).zoom))).toBeCloseTo(0.99, 3);
+    expect((await page.locator("aside").boundingBox())!.width).toBeCloseTo(304 * 0.99, 0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const lanes = await page.locator(".board-col").evaluateAll(els => els.map(el => el.getBoundingClientRect().width));
+    expect(lanes).toHaveLength(4);
+    // 2560 profile: 288–376 CSS px × 1.1; here × 0.99, i.e. 0.9 of it.
+    for (const w of lanes) { expect(w).toBeGreaterThanOrEqual(288 * 0.99 - 1); expect(w).toBeLessThanOrEqual(376 * 0.99 + 1); }
+    expect(await page.locator(".board-card h3").first().evaluate(el => parseFloat(getComputedStyle(el).fontSize) * ((el as unknown as { currentCSSZoom: number }).currentCSSZoom))).toBeCloseTo(16 * 0.99, 1);
+
+    // Menus are positioned in visual px under the root zoom: next to their trigger and inside the window.
+    const card = page.locator('[data-issue-id="i8"]');
+    await card.hover();
+    const trigger = card.getByRole("button", { name: "Переместить CORP-8" });
+    await trigger.click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    const [t, m] = [(await trigger.boundingBox())!, (await menu.boundingBox())!];
+    expect(Math.abs(m.y - (t.y + t.height))).toBeLessThan(12);
+    expect(Math.abs(m.x + m.width - (t.x + t.width))).toBeLessThan(12);
+    expect(m.x + m.width).toBeLessThanOrEqual(3440); expect(m.y + m.height).toBeLessThanOrEqual(1440);
+    await page.keyboard.press("Escape");
+    await page.screenshot({ path: test.info().outputPath(`board-3440-${theme}.png`) });
+
+    // The issue side panel fits the window height under the zoom (--viewport-h divides by the same 0.99).
+    await page.locator('[data-issue-id="i1"]').click();
+    const panel = page.getByRole("dialog");
+    await expect(panel.locator(".issue-title")).toBeVisible();
+    const p = (await panel.boundingBox())!;
+    expect(p.y).toBeGreaterThanOrEqual(0); expect(p.y + p.height).toBeLessThanOrEqual(1440 + 1);
+    expect(p.height).toBeGreaterThan(1440 - 40);
+    expect((await panel.locator(".issue-properties").boundingBox())!.width).toBeCloseTo(384 * 0.99, 0);
+    await page.screenshot({ path: test.info().outputPath(`issue-3440-${theme}.png`) });
+    await page.keyboard.press("Escape");
+
+    await page.goto("/p/CORP/list?done=1");
+    await expect(page.locator(".list-row")).toHaveCount(9);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`list-3440-${theme}.png`) });
+    await homeFixture(page, theme);
+    await page.goto("/");
+    await expect(page.locator(".home-task")).toHaveCount(5);
+    expect((await page.locator(".home-content").boundingBox())!.width).toBeLessThanOrEqual(1440 * 0.99 + 1);
+    await page.screenshot({ path: test.info().outputPath(`home-3440-${theme}.png`) });
   });
 }
 

@@ -24,7 +24,7 @@ export function useAnchored(
       if (fitContent) f.style.maxHeight = `${innerHeight / scale - 16}px`;
       void computePosition(a, f, {
         strategy: "fixed",
-        platform: scale > 1 ? { ...platform, getOffsetParent: () => document.documentElement } : undefined,
+        platform: scale !== 1 ? { ...platform, getOffsetParent: () => document.documentElement } : undefined,
         placement,
         middleware: [
           offset(gap),

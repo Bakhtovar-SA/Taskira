@@ -597,6 +597,12 @@
   .board-card { padding: 15px; }
 }
 
+/* Very wide screens (3440×1440 at browser zoom 100%): the owner wants the 2560 profile at ~90% — the same tokens under a
+   smaller root zoom (1.1 × 0.9 = 0.99), so one mechanism scales everything. 2560–3199 CSS px keep the 1.1 profile above. */
+@media (min-width: 3200px) and (pointer: fine) {
+  :root { zoom: 0.99; --viewport-h: calc(100dvh / 0.99); }
+}
+
 /* Contextual list selection: no layout shift; touch keeps the control discoverable. */
 .list-select { opacity: 0; }
 .list-select .ds-check { min-width: 28px; min-height: 28px; align-items: center; justify-content: center; }

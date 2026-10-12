@@ -24,10 +24,14 @@ test("global controls use the current UI, with bounded responsive search", async
   let priorWidth = 0;
   for (const width of [1440, 2000, 3160, 4000]) {
     await page.setViewportSize({ width, height: 1000 });
-    const search = (await page.locator(".global-search").boundingBox())!;
+    const box = (await page.locator(".global-search").boundingBox())!;
+    // In CSS px: the ultrawide profiles scale the whole UI (zoom 1.1 at 2560–3199, 0.99 from 3200), so the visual width
+    // drops from 3160 to 4000 by design; the search itself keeps growing up to its bound.
+    const zoom = await page.evaluate(() => Number(getComputedStyle(document.documentElement).zoom) || 1);
+    const search = { width: box.width / zoom };
     const center = (await page.locator(".global-topbar-center").boundingBox())!;
     const header = (await page.locator(".global-topbar").boundingBox())!;
-    expect(search.width).toBeGreaterThanOrEqual(priorWidth);
+    expect(search.width).toBeGreaterThanOrEqual(priorWidth - 0.5); // subpixel rounding under zoom
     expect(search.width).toBeLessThan(920);
     expect(Math.abs(center.x + center.width / 2 - header.x - header.width / 2)).toBeLessThan(1);
     priorWidth = search.width;
