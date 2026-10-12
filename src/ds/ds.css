@@ -402,9 +402,36 @@
 
 /* ---------- Tabs ---------- */
 .ds-tabs {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 2px;
+}
+/* Перелетающий индикатор (ADR-0035, прототип): место и размер пишет Tabs.tsx через CSSOM, движение — WAAPI. Пока
+   его не разместили (data-glide нет) — прежний индикатор на самой вкладке. */
+.ds-tab-glider {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  pointer-events: none;
+  transform-origin: 0 50%;
+}
+.ds-tabs[data-glide] > .ds-tab-glider {
+  display: block;
+}
+.ds-tabs[data-glide] > .ds-tab {
+  position: relative;
+}
+.ds-tabs[data-variant="segmented"] > .ds-tab-glider {
+  border-radius: calc(var(--radius-m) - 2px);
+  background: var(--bg-panel);
+  box-shadow: var(--highlight-top), 0 1px 2px var(--shadow-tint);
+}
+.ds-tabs[data-variant="line"] > .ds-tab-glider {
+  border-radius: 2px;
+  background: var(--accent-solid);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 .ds-tabs[data-variant="segmented"] {
   padding: 2px;
@@ -456,6 +483,13 @@
   border-radius: 2px;
   background: var(--accent-solid);
   box-shadow: 0 0 8px var(--accent-glow);
+}
+.ds-tabs[data-glide][data-variant="segmented"] .ds-tab:is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"]) {
+  background: transparent;
+  box-shadow: none;
+}
+.ds-tabs[data-glide][data-variant="line"] .ds-tab:is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"])::after {
+  content: none;
 }
 .ds-tab[aria-disabled="true"] {
   opacity: 0.4;

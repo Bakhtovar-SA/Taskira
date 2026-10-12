@@ -195,28 +195,31 @@ export function preloadMotionIdle(): () => void {
   return () => window.clearTimeout(id);
 }
 
-/** «Перелетающий» индикатор вкладок: один элемент, место и ширина — CSSOM (`style.width`, `style.transform`,
- *  ADR-0010), движение от прежнего места — пружина по transform (`translateX` + `scaleX`, transform-origin слева
- *  задаёт CSS). Первое размещение, `animate: false`, reduced-motion или чанк не загружен — мгновенно. */
-const glided = new WeakMap<HTMLElement, { x: number; w: number }>();
-export function glideTo(el: HTMLElement, x: number, w: number, { animate = true }: { animate?: boolean } = {}): void {
+/** «Перелетающий» индикатор вкладок: один элемент, место и размер — CSSOM (`style.width/height/transform`,
+ *  ADR-0010), движение от прежнего места — пружина по transform (`translate` + `scaleX`, transform-origin слева задаёт
+ *  CSS). Первое размещение, `animate: false`, reduced-motion или чанк не загружен — мгновенно. Прерывание стартует с
+ *  видимого места идущей пружины, а не с прошлой цели. */
+export type GlideBox = { x: number; y: number; w: number; h: number };
+const glided = new WeakMap<HTMLElement, GlideBox>();
+export function glideTo(el: HTMLElement, to: GlideBox, { animate = true }: { animate?: boolean } = {}): void {
   let prev = glided.get(el);
-  // Прерывание: стартуем с видимого места (текущий transform идущей пружины), а не с прошлой цели — без скачка.
   if (prev && running.has(el)) {
     const m = /matrix\(([^)]+)\)/.exec(safe(() => getComputedStyle(el).transform) || "");
     if (m) {
-      const [a, , , , tx] = m[1].split(",").map(Number);
-      if (Number.isFinite(a) && Number.isFinite(tx)) prev = { x: tx, w: prev.w * a };
+      const [a, , , , tx, ty] = m[1].split(",").map(Number);
+      if ([a, tx, ty].every(Number.isFinite)) prev = { x: tx, y: ty, w: prev.w * a, h: prev.h };
     }
   }
-  glided.set(el, { x, w });
+  glided.set(el, to);
   track(el, null);
-  el.style.width = `${w}px`;
-  el.style.transform = `translateX(${x}px)`;
-  if (!animate || !prev || !w || motionReduced() || typeof el.animate !== "function") return;
-  if (Math.abs(prev.x - x) < 0.5 && Math.abs(prev.w - w) < 0.5) return;
+  const at = `translate(${to.x}px, ${to.y}px)`;
+  el.style.width = `${to.w}px`;
+  el.style.height = `${to.h}px`;
+  el.style.transform = at;
+  if (!animate || !prev || !to.w || motionReduced() || typeof el.animate !== "function") return;
+  if (Math.abs(prev.x - to.x) < 0.5 && Math.abs(prev.y - to.y) < 0.5 && Math.abs(prev.w - to.w) < 0.5) return;
   const e = ready();
   if (!e) return;
-  const from = `translateX(${prev.x}px) scaleX(${prev.w / w})`;
-  safe(() => track(el, e.animate(el, { transform: [from, `translateX(${x}px) scaleX(1)`] }, { type: e.spring, ...SPRING })));
+  const from = `translate(${prev.x}px, ${prev.y}px) scaleX(${prev.w / to.w})`;
+  safe(() => track(el, e.animate(el, { transform: [from, `${at} scaleX(1)`] }, { type: e.spring, ...SPRING })));
 }
