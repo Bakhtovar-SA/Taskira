@@ -9,6 +9,7 @@ import { useT } from "../i18n";
 import { projectTemplatesApi, usersApi, type ProjectRole } from "../api";
 import type { ProjectTemplateDto } from "../../server/src/contract";
 import { Avatar, Button, Combobox, Dialog, Input, RadioGroup, Switch, Tag, Textarea, type ComboOption } from "../ds";
+import { Select } from "../ds/Select";
 import { StatusGlyph, IcX } from "../icons";
 import { ProjectMark } from "../ui";
 import { LIMITS } from "../validation";
@@ -327,17 +328,13 @@ function Access({
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="ds-field">
-          <span className="ds-label">{t("settings.project.department")}</span>
-          <select value={dept} onChange={(e) => setDept(e.target.value)} className="ds-input ds-focus cursor-pointer text-[14px] font-medium">
-            {data.departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-          <span className="ds-hint">{t("settings.project.departmentHint")}</span>
-        </label>
+        <Select
+          label={t("settings.project.department")}
+          hint={t("settings.project.departmentHint")}
+          value={dept}
+          onChange={setDept}
+          options={data.departments.map((d) => ({ value: d.id, label: d.name }))}
+        />
         <div className="pt-6">
           <Switch checked={shared} onChange={setShared} label={t("settings.project.shared")} description={t("settings.project.sharedHint")} />
         </div>
@@ -350,18 +347,15 @@ function Access({
               <div key={m.userId} className="flex items-center gap-3 px-3 py-2">
                 <Avatar person={{ name: m.name }} size={24} />
                 <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{m.name}</span>
-                <select
+                <Select<ProjectRole>
                   aria-label={t("wizard.roleFor", { name: m.name })}
+                  size="sm"
+                  block={false}
+                  className="w-[168px] shrink-0"
                   value={m.role}
-                  onChange={(e) => setMembers(members.map((x) => (x.userId === m.userId ? { ...x, role: e.target.value as ProjectRole } : x)))}
-                  className="ds-input ds-focus h-8 cursor-pointer text-[13.5px] font-medium"
-                >
-                  {(["manager", "employee", "viewer"] as const).map((r) => (
-                    <option key={r} value={r}>
-                      {t(`role.${r}.name`)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(role) => setMembers(members.map((x) => (x.userId === m.userId ? { ...x, role } : x)))}
+                  options={(["manager", "employee", "viewer"] as const).map((r) => ({ value: r, label: t(`role.${r}.name`) }))}
+                />
                 <IconButton variant="ghost" size="sm" label={t("wizard.removeMember", { name: m.name })} type="button"  onClick={() => setMembers(members.filter((x) => x.userId !== m.userId))} className="h-7 w-7">
                   <IcX size={14} />
                 </IconButton>

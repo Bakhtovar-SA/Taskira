@@ -12,6 +12,7 @@ import { cssVars } from "../../cssVars";
 import { BrandMark } from "../BrandMark";
 import { adminApi, brandApi, ldapApi, projectTemplatesApi, usersApi, type LicenseStatusDto, type MaintenanceStatusDto, type SafeUser } from "../../api";
 import { Avatar, Button, Checkbox, DatePicker, Dialog, EmptyState, Input, Progress, RadioGroup, Switch, Tag } from "../../ds";
+import { Select } from "../../ds/Select";
 import { SecretOnceDialog } from "./SecretOnceDialog";
 import { IcCompose, IcDiamond, IcDownload, IcLink, IcPlus, IcSearch, IcTrash } from "../../icons";
 import { openProjectWizard } from "../../palette/events";
@@ -152,17 +153,16 @@ function Users() {
                     LDAP
                   </Tag>
                 )}
-                <select
+                <Select<SafeUser["globalRole"]>
                   aria-label={t("settings.org.globalRole", { name: u.name })}
+                  size="sm"
+                  block={false}
+                  className="w-[168px] shrink-0"
                   value={u.globalRole}
-                  disabled={ldapUser}
-                  title={ldapUser ? t("settings.org.roleFromLdap") : undefined}
-                  onChange={(e) => void patch(u, { globalRole: e.target.value as SafeUser["globalRole"] })}
-                  className="ds-input ds-focus h-8 min-w-[150px] cursor-pointer text-[13.5px] font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <option value="member">{t("settings.org.roleMember")}</option>
-                  <option value="admin">{t("settings.profile.roleAdmin")}</option>
-                </select>
+                  disabled={ldapUser ? t("settings.org.roleFromLdap") : false}
+                  onChange={(globalRole) => void patch(u, { globalRole })}
+                  options={[{ value: "member", label: t("settings.org.roleMember") }, { value: "admin", label: t("settings.profile.roleAdmin") }]}
+                />
                 <Switch checked={u.isActive} onChange={(v) => void patch(u, { globalRole: u.globalRole, isActive: v })} label={t("settings.org.active")} labelFirst />
                 {/* Администратора (и break-glass — он тоже администратор) сервер не сбрасывает: 409 PASSWORD_RESET_ADMIN,
                     восстановление консольное (ADR-0034). Кнопку не показываем. */}

@@ -10,6 +10,7 @@ import { IcCheck, IcEye, IcShield, IcX } from "../icons";
 import { useT } from "../i18n";
 
 import { Combobox, type ComboOption } from "../ds/Combobox";
+import { Select } from "../ds/Select";
 
 const PROJECT_ROLES: ProjectRole[] = ["manager", "employee", "viewer"];
 
@@ -51,6 +52,7 @@ export default function PermissionsView() {
   useEffect(() => { setAddUser(null); },[data.currentProjectId,me.id]);
   const [addRole, setAddRole] = useState<ProjectRole>("employee");
   const roleName = (role: AccessRole) => t(`role.${role}.name`);
+  const roleOptions = PROJECT_ROLES.map((r) => ({ value: r, label: roleName(r) }));
   const doAdd = () => {
     if (!addUser) return;
     setMemberRole(addUser.id, addRole);
@@ -110,16 +112,15 @@ export default function PermissionsView() {
                       {u?.role && <p className="text-[12px] text-faint">{u.role}</p>}
                     </div>
                     {canManage ? (
-                      <select
+                      <Select<ProjectRole>
                         aria-label={t("access.roleOf", { name: u?.name ?? "" })}
+                        size="sm"
+                        block={false}
+                        className="w-[168px] shrink-0"
                         value={role}
-                        onChange={(e) => setMemberRole(id, e.target.value as ProjectRole)}
-                        className="rounded-md border border-line bg-panel px-2 py-1 text-[12.5px] font-semibold text-sub focus:border-accent focus:shadow-focus focus:outline-none"
-                      >
-                        {PROJECT_ROLES.map((r) => (
-                          <option key={r} value={r}>{roleName(r)}</option>
-                        ))}
-                      </select>
+                        onChange={(r) => setMemberRole(id, r)}
+                        options={roleOptions}
+                      />
                     ) : (
                       <RoleTag role={role} size="sm" />
                     )}
@@ -145,16 +146,15 @@ export default function PermissionsView() {
                   <Combobox key={me.id+":"+data.currentProjectId+":"+adderReset} label={t("access.addMember")} placeholder={t("access.select")}
                     minChars={2} load={loadPeople} value={addUser} onSelect={setAddUser} />
                 </div>
-                <select
+                <Select<ProjectRole>
                   aria-label={t("access.newRole")}
+                  size="sm"
+                  block={false}
+                  className="w-[168px] shrink-0"
                   value={addRole}
-                  onChange={(e) => setAddRole(e.target.value as ProjectRole)}
-                  className="rounded-md border border-line bg-panel px-2 py-1 text-[12.5px] font-semibold text-sub focus:border-accent focus:shadow-focus focus:outline-none"
-                >
-                  {PROJECT_ROLES.map((r) => (
-                    <option key={r} value={r}>{roleName(r)}</option>
-                  ))}
-                </select>
+                  onChange={setAddRole}
+                  options={roleOptions}
+                />
                 <Button variant="primary" size="sm"
                   onClick={doAdd}
                   disabled={!addUser}

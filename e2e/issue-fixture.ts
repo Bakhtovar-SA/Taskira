@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { boardFixture } from "./board-fixture";
 
-export async function issueFixture(page: Page, theme = "light", role = "admin", lang = "ru", sprints = true) {
+export async function issueFixture(page: Page, theme = "light", role = "admin", lang = "ru", sprints = true, customFields: { id: string; name: string; fieldType: string; options: string[]; position?: number }[] = []) {
   const { issues, users, statuses, project } = await boardFixture(page, theme, 4, lang);
   users[0].globalRole = "member";
   const comments = [{ id: "comment1", issueId: "i1", authorId: "u2", author: users[1], body: "Проверил требования. Можно брать в работу.", createdAt: "2026-10-03T11:00:00Z" }];
@@ -16,7 +16,7 @@ export async function issueFixture(page: Page, theme = "light", role = "admin", 
     if (path === "/api/auth/me") return route.fulfill({ json: { ...users[0], favoriteProjectIds: ["p1"], onboarding: { hidden: true } } });
     if (path === "/api/projects/p1") return route.fulfill({ json: {
       project: { ...project, sprintsEnabled: sprints }, users, members: users.map(user => ({ userId: user.id, role })),
-      workflow: { statuses, transitions: [{ from: "s1", to: "s2" }, { from: "s2", to: "s4" }] }, issueTemplates: [], customFields: [],
+      workflow: { statuses, transitions: [{ from: "s1", to: "s2" }, { from: "s2", to: "s4" }] }, issueTemplates: [], customFields,
       sprints: sprints ? [{ id: "sp1", projectId: "p1", name: "Октябрьский запуск", goal: "", status: "active", startDate: "2026-10-01", endDate: "2026-10-14" }] : [],
     } });
     if (path === "/api/projects/p1/issues" && url.searchParams.get("parentId")) return route.fulfill({ json: { items: url.searchParams.get("parentId") === "i1" ? [child] : [], hasMore: false, nextCursor: null } });
@@ -28,6 +28,11 @@ export async function issueFixture(page: Page, theme = "light", role = "admin", 
     if (path.startsWith("/api/projects/p1/issues/i1/") && method !== "GET" || path === "/api/projects/p1/issues/i1" && method === "PATCH") {
       const body = method === "DELETE" || path.endsWith("/watchers/me") || path.endsWith("/attachments") ? null : route.request().postDataJSON();
       writes.push({ path, method, body });
+      if (path.includes("/custom-fields/") && method === "PUT") {
+        const fieldId = path.split("/").pop()!;
+        detail.customFieldValues = [...(detail.customFieldValues as { fieldId: string; value: string }[]).filter(v => v.fieldId !== fieldId), ...(body.value === null ? [] : [{ fieldId, value: body.value }])] as never;
+        return route.fulfill({ json: { values: detail.customFieldValues } });
+      }
       if (path.endsWith("/transition")) { detail.statusId = body.to; return route.fulfill({ json: detail }); }
       if (method === "PATCH") { Object.assign(detail, body); return route.fulfill({ json: detail }); }
       if (path.endsWith("/comments")) {

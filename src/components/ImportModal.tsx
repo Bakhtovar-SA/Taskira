@@ -6,6 +6,7 @@ import { parseAsanaExport } from "../import/asana";
 import type { ImportParseResult } from "../import/types";
 import type { CreateInput } from "../store/mappers";
 import { Button, Checkbox, Dialog } from "../ds";
+import { Select } from "../ds/Select";
 import { useT } from "../i18n";
 
 type Source = "trello" | "jira" | "asana";
@@ -96,9 +97,8 @@ export default function ImportModal({ open = true, onClose }: { open?: boolean; 
     <div className="space-y-4">
       <div>
         <label htmlFor="import-source" className="mb-1.5 block text-[13px] font-medium text-faint">{t("import.source")}</label>
-        <select id="import-source" value={source} disabled={running} onChange={(e) => selectSource(e.target.value as Source)} className="w-full rounded-md border border-line bg-panel px-3 py-2 text-[13.5px] text-ink">
-          <option value="trello">Trello (JSON)</option><option value="jira">Jira (CSV)</option><option value="asana">Asana (CSV)</option>
-        </select>
+        <Select<Source> id="import-source" value={source} disabled={running} onChange={selectSource}
+          options={[{ value: "trello", label: "Trello (JSON)" }, { value: "jira", label: "Jira (CSV)" }, { value: "asana", label: "Asana (CSV)" }]} />
       </div>
       <div>
         <label htmlFor="import-file" className="mb-1.5 block text-[13px] font-medium text-faint">{t("import.file")}</label>

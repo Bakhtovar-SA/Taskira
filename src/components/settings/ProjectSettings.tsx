@@ -10,6 +10,7 @@ import { LIMITS } from "../../validation";
 import { issuesApi, projectTemplatesApi } from "../../api";
 import { fmtDate } from "../../store/mappers";
 import { Button, Dialog, EmptyState, Input, Switch, Textarea } from "../../ds";
+import { Select } from "../../ds/Select";
 import { IcArchive, IcTrash } from "../../icons";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 import { BackgroundPicker, ColorPicker, IconPicker } from "../ProjectLookPicker";
@@ -115,18 +116,14 @@ function General() {
       {can("saveProjectTemplate") && <SaveAsTemplate projectId={p.id} projectName={p.name} />}
       <SettingsCard>
         <SettingRow label={t("settings.project.department")} hint={t("settings.project.departmentHint")}>
-          <select
+          <Select
             value={p.departmentId}
-            onChange={(e) => e.target.value && e.target.value !== p.departmentId && patchProject(p.id, { departmentId: e.target.value })}
+            onChange={(v) => v && v !== p.departmentId && patchProject(p.id, { departmentId: v })}
             aria-label={t("settings.project.department")}
-            className="ds-input ds-focus min-w-[220px] cursor-pointer text-[14px] font-medium"
-          >
-            {data.departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+            block={false}
+            className="w-[240px] max-w-full"
+            options={data.departments.map((d) => ({ value: d.id, label: d.name }))}
+          />
         </SettingRow>
         <SettingRow label={t("settings.project.shared")} hint={t("settings.project.sharedHint")}>
           <Switch checked={p.isShared} onChange={(v) => patchProject(p.id, { isShared: v })} aria-label={t("settings.project.shared")} />

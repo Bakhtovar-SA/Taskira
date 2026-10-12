@@ -1,5 +1,6 @@
 import { Button, IconButton } from "../ds/Button";
 import { Input, Textarea } from "../ds/Field";
+import { Select } from "../ds/Select";
 import { StatusTag } from "./settings/parts";
 import { useState } from "react";
 import { useStore } from "../store";
@@ -89,6 +90,7 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
   const [tplTitle, setTplTitle] = useState("");
   const [tplDescription, setTplDescription] = useState("");
   const [tplStatusId, setTplStatusId] = useState("");
+  const statusOptions = data.workflow.statuses.map((s) => ({ value: s.id, label: workflowStatusName(s, t) }));
   /** Шаблон, открытый на правку в той же форме (INVENTORY 1.2 №12); null — форма создаёт новый. */
   const [tplEditId, setTplEditId] = useState<string | null>(null);
   /** Поле, переименовываемое прямо в строке списка (INVENTORY 1.2 №13). */
@@ -301,19 +303,11 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
             <div className="mt-3 space-y-2.5">
               <label className="block">
                 <span className="mb-1 block text-[13px] font-medium text-faint">{t("workflow.fromStatus")}</span>
-                <select value={from} onChange={(e) => setFrom(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[14px] outline-none focus:border-accent focus:shadow-focus">
-                  {data.workflow.statuses.map((s) => (
-                    <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
-                  ))}
-                </select>
+                <Select value={from} onChange={setFrom} options={statusOptions} />
               </label>
               <label className="block">
                 <span className="mb-1 block text-[13px] font-medium text-faint">{t("workflow.toStatus")}</span>
-                <select value={to} onChange={(e) => setTo(e.target.value)} className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[14px] outline-none focus:border-accent focus:shadow-focus">
-                  {data.workflow.statuses.map((s) => (
-                    <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
-                  ))}
-                </select>
+                <Select value={to} onChange={setTo} options={statusOptions} />
               </label>
               {formErr && <p className="rounded bg-dangersoft px-2.5 py-1.5 text-[12.5px] font-semibold text-danger">{formErr}</p>}
               <Button variant="primary" size="sm"
@@ -397,27 +391,19 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block">
                     <span className="mb-1 block text-[13px] font-medium text-faint">{t("field.type")}</span>
-                    <select
+                    <Select<IssueTypeId>
                       value={tplType}
-                      onChange={(e) => setTplType(e.target.value as IssueTypeId)}
-                      className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[14px] outline-none focus:border-accent focus:shadow-focus"
-                    >
-                      {(["task", "bug", "request"] as IssueTypeId[]).map((v) => (
-                        <option key={v} value={v}>{t(`issueType.${v}`)}</option>
-                      ))}
-                    </select>
+                      onChange={setTplType}
+                      options={(["task", "bug", "request"] as IssueTypeId[]).map((v) => ({ value: v, label: t(`issueType.${v}`) }))}
+                    />
                   </label>
                   <label className="block">
                     <span className="mb-1 block text-[13px] font-medium text-faint">{t("field.priority")}</span>
-                    <select
+                    <Select<PriorityId>
                       value={tplPriority}
-                      onChange={(e) => setTplPriority(e.target.value as PriorityId)}
-                      className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[14px] outline-none focus:border-accent focus:shadow-focus"
-                    >
-                      {(["critical", "high", "medium", "low"] as PriorityId[]).map((v) => (
-                        <option key={v} value={v}>{t(`priority.${v}`)}</option>
-                      ))}
-                    </select>
+                      onChange={setTplPriority}
+                      options={(["critical", "high", "medium", "low"] as PriorityId[]).map((v) => ({ value: v, label: t(`priority.${v}`) }))}
+                    />
                   </label>
                 </div>
                 <label className="block">
@@ -440,16 +426,11 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[13px] font-medium text-faint">{t("workflow.startStatus")}</span>
-                  <select
+                  <Select
                     value={tplStatusId}
-                    onChange={(e) => setTplStatusId(e.target.value)}
-                    className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[14px] outline-none focus:border-accent focus:shadow-focus"
-                  >
-                    <option value="">{t("workflow.asUsual")}</option>
-                    {data.workflow.statuses.map((s) => (
-                      <option key={s.id} value={s.id}>{workflowStatusName(s, t)}</option>
-                    ))}
-                  </select>
+                    onChange={setTplStatusId}
+                    options={[{ value: "", label: t("workflow.asUsual") }, ...statusOptions]}
+                  />
                 </label>
                 <Button variant="primary" size="sm"
                   onClick={submitTemplate}
@@ -545,15 +526,11 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[13px] font-medium text-faint">{t("field.type")}</span>
-                  <select
+                  <Select<CustomFieldType>
                     value={fieldType}
-                    onChange={(e) => setFieldType(e.target.value as CustomFieldType)}
-                    className="w-full cursor-pointer rounded-md border border-line bg-panel px-2.5 py-2 text-[14px] outline-none focus:border-accent focus:shadow-focus"
-                  >
-                    {(["text", "number", "select", "checkbox", "date"] as CustomFieldType[]).map((fieldTypeOption) => (
-                      <option key={fieldTypeOption} value={fieldTypeOption}>{t(`fieldType.${fieldTypeOption}`)}</option>
-                    ))}
-                  </select>
+                    onChange={setFieldType}
+                    options={(["text", "number", "select", "checkbox", "date"] as CustomFieldType[]).map((fieldTypeOption) => ({ value: fieldTypeOption, label: t(`fieldType.${fieldTypeOption}`) }))}
+                  />
                 </label>
                 {fieldType === "select" && (
                   <label className="block">

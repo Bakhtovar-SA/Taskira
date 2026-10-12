@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { chooseOption } from "./select-helpers";
 
 const jira = resolve("src/import/__fixtures__/jira.csv");
 const asana = resolve("src/import/__fixtures__/asana.csv");
@@ -11,7 +12,7 @@ for (const theme of ["light", "dark"] as const) {
     await page.goto("/dev/import");
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    await page.getByLabel("Источник").selectOption("jira");
+    await chooseOption(page.getByLabel("Источник"), "Jira (CSV)");
     await page.getByLabel(/Файл экспорта/).setInputFiles(jira);
     await expect(dialog.getByText(/Найдено задач: 9/)).toBeVisible();
     await expect(dialog.getByText(/Сроков не распознано: 1/)).toBeVisible();
@@ -19,11 +20,11 @@ for (const theme of ["light", "dark"] as const) {
     await page.getByRole("checkbox").check();
     await expect(dialog.getByText(/Будет создано: 9/)).toBeVisible();
 
-    await page.getByLabel("Источник").selectOption("asana");
+    await chooseOption(page.getByLabel("Источник"), "Asana (CSV)");
     await page.getByLabel(/Файл экспорта/).setInputFiles(asana);
     await expect(dialog.getByText(/Найдено задач: 7/)).toBeVisible();
 
-    await page.getByLabel("Источник").selectOption("trello");
+    await chooseOption(page.getByLabel("Источник"), "Trello (JSON)");
     await page.getByLabel(/Файл экспорта/).setInputFiles({ name: "trello.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ name: "Board", lists: [], cards: [{ id: "1", name: "Task" }] })) });
     await expect(dialog.getByText(/Найдено задач: 1/)).toBeVisible();
 

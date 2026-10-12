@@ -3,6 +3,7 @@
  *  `patchProject(id, { name })`, `{ isShared }`, `{ sprintsEnabled }`, `{ departmentId }`, `deleteProject(id)`. */
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { chooseOption } from "../../ds/Select.testing";
 import { I18nProvider } from "../../i18n";
 
 const patchProject = vi.fn();
@@ -58,7 +59,7 @@ describe("Настройки проекта — те же действия, чт
     renderSection("general");
     fireEvent.click(screen.getByRole("switch"));
     expect(patchProject).toHaveBeenCalledWith("p1", { isShared: true });
-    fireEvent.change(screen.getByRole("combobox", { name: "Команда" }), { target: { value: "d2" } });
+    chooseOption(screen.getByRole("combobox", { name: "Команда" }), "Отдел персонала");
     expect(patchProject).toHaveBeenCalledWith("p1", { departmentId: "d2" });
   });
 
