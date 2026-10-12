@@ -22,6 +22,7 @@ const el = (root: HTMLElement, id: string) => root.querySelector<HTMLElement>(`[
 beforeEach(() => {
   tops.clear();
   vi.mocked(flipFrom).mockClear();
+  vi.mocked(motionReduced).mockReturnValue(false);
 });
 afterEach(() => {
   document.body.innerHTML = "";
