@@ -756,7 +756,7 @@ export default function Board() {
   }), [fState, sharedFilters, data.project.sprintsEnabled]);
   const filtersOn = hasBoardFilters(fState) || Object.entries(sharedFilters).some(([k, v]) => k !== "assignee" && !!v);
   useEffect(() => { if (!filtersOn) setFilterSummaryOpen(false); }, [filtersOn]);
-  const resetFilters = () => { setSharedFilters(EMPTY_FILTERS); setFilterUser(null); setChips(new Set()); setQ(""); setFilterSummaryOpen(false); };
+  const resetFilters = () => { setSharedFilters(EMPTY_FILTERS); setFilterUser(null); setChips(new Set()); setQ(""); };
   useEffect(() => {
     if (path !== pathForView(data.project.key, "board")) return;
     const next = searchFromFilters(location.search, { ...sharedFilters, assignee: baseFilters.assignee ?? "" },
