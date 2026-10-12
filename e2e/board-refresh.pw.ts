@@ -80,12 +80,14 @@ test("board refresh: quick filters restore from URL and compose with overdue", a
 test("board can clear URL-only conditions through its filter summary", async ({ page }) => {
   await boardFixture(page);
   await page.goto("/p/CORP/board?priority=high&label=internal-label");
-  const summary = page.locator(".active-filter-summary");
+  await page.locator(".board-filter-summary-trigger").click();
+  const summary = page.locator(".board-filter-summary-popover .active-filter-summary");
   await expect(summary).toContainText("Приоритет: Высокий");
   await expect(summary).toContainText("internal-label");
   await summary.getByRole("button", { name: /Сбросить/ }).click();
   await expect(page).not.toHaveURL(/priority=|label=/);
   await expect(summary).toHaveCount(0);
+  await expect(page.locator(".board-filter-summary-trigger")).toHaveCount(0);
 });
 
 test("assignee overflow preserves avatar order and marks the active filter", async ({ page }) => {

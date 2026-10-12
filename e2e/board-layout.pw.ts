@@ -14,9 +14,11 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   const initialTop = await top();
   const initialSize = await size();
   const initialShadow = await shadow();
+  const countFont = await page.locator(".workspace-count").evaluate(element => getComputedStyle(element).fontSize);
   const expectStableTop = async () => expect(Math.abs((await top()) - initialTop)).toBeLessThan(1);
 
   await page.getByRole("button", { name: "Выделить", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Выделить", exact: true })).toHaveAttribute("title", /Отмечайте карточки кликом/);
   await expectStableTop();
   expect(await size()).toEqual(initialSize);
   await card.click();
@@ -28,6 +30,7 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   await page.getByRole("button", { name: "Выделить", exact: true }).click();
   await page.getByRole("button", { name: "Фильтр: Анна Смирнова" }).click();
   await expect(page.locator(".board-filter-summary-trigger")).toBeVisible();
+  expect(await page.locator(".board-filter-summary-trigger").evaluate(element => getComputedStyle(element).fontSize)).toBe(countFont);
   await expectStableTop();
   await page.locator(".board-filter-summary-trigger").click();
   await expect(page.locator(".board-filter-summary-popover")).toContainText("Исполнитель: Анна Смирнова");

@@ -884,7 +884,7 @@ export default function Board() {
             onSelectUser={userId => setFilterUser(current => current === userId ? null : userId)} />}
           compact
           summary={filtersOn ? <Popover label={t("workspace.filters")} placement="bottom-end" className="board-filter-summary-popover w-[300px] p-3"
-            trigger={props => <button {...props} type="button" className="board-filter-summary-trigger ds-focus cursor-pointer rounded text-accenttext hover:underline" style={{ font: "inherit" }} aria-label={`${t("workspace.filters")}: ${filteredSummary}`} title={t("workspace.filters")}>{filteredSummary}</button>}>
+            trigger={props => <button {...props} type="button" className="board-filter-summary-trigger ds-focus cursor-pointer rounded text-accenttext hover:underline" aria-label={`${t("workspace.filters")}: ${filteredSummary}`} title={t("workspace.filters")}>{filteredSummary}</button>}>
             {close => <IssueFilterSummary filters={baseFilters}>
               {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
               <button onClick={() => { resetFilters(); close(); }} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>
@@ -894,18 +894,13 @@ export default function Board() {
           search={<WorkspaceSearch value={q} onChange={setQ} />}
           actions={<>
             <BoardBackgroundControl key={`${data.currentUserId}:${data.currentProjectId}`} userId={data.currentUserId} projectId={data.currentProjectId} hasPhoto={!!personalPhoto} />
-            <Button size="sm" aria-pressed={selectMode} onClick={() => setSelectMode(v => !v)}
+            <Button size="sm" aria-pressed={selectMode} title={selectMode ? t("board.selectHint") : undefined} onClick={() => setSelectMode(v => !v)}
               className={selectMode ? "border-accent text-accenttext" : undefined} iconLeft={<IcCheck size={14} />}>
               {t("backlog.selectMode")}
             </Button>
           </>}
         />
         {canMove && <Hint id="board-move" className="board-move-touch-hint mt-2">{t("hint.boardMoveTouch")}</Hint>}
-       {selectMode && selectedIds.size === 0 && (
-         <p className="sr-only" role="status">
-           {t("board.selectHint")}
-         </p>
-       )}
       </div>
 
       {!canMove && (
