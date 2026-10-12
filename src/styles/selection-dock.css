@@ -1,0 +1,14 @@
+/* Shared bottom selection dock for the list and board. Keep its visual spacing independent of view controls. */
+.list-bulk-bar { gap: 8px; padding: 8px 4px 8px 12px; }
+.list-bulk-bar > [role="status"], .list-bulk-bar > .ds-btn { font-size: 13.5px; font-weight: 600; line-height: 1; }
+.list-bulk-bar > .ds-btn[aria-haspopup] { padding-inline: 8px; }
+.list-bulk-bar > .ds-btn[data-icon] { width: 32px; height: 32px; }
+
+@media (hover: none) {
+  .list-bulk-bar { padding-inline: 14px 0; }
+  .list-bulk-bar > .ds-btn[data-icon] { min-width: 44px; }
+}
+@media (min-width: 640px) { .board-view[data-selecting] .board-col-body { padding-bottom: 80px; } }
+@media (max-width: 639px) { .board-view[data-selecting] .board-scroll { padding-bottom: 80px; } }
+/* The list view uses 90% density at these widths; match its dock without scaling the board. */
+@media (min-width: 1600px) and (max-width: 2559px) and (pointer: fine) { .board-view .list-selection-dock { zoom: .9; } }
