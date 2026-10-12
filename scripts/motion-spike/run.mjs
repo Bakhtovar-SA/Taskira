@@ -2,7 +2,8 @@
 // csp-spike/server.mjs читает строку CSP из nginx.conf и отдаёт страницу этого каталога с тем же заголовком;
 // Chromium открывает её через Playwright, проверки пишут результат и нарушения (securitypolicyviolation).
 //
-// motion НЕ зависимость репозитория (пока ADR-0035 Proposed) — его ставят во временный каталог вне репо:
+// Сам спайк ставит motion во временный каталог вне репо (в package.json он есть только как прототип на тестовом стенде,
+// ADR-0035 Proposed; можно и SPIKE_NODE_MODULES=$PWD/node_modules):
 //
 //   mkdir -p /tmp/motion-spike && (cd /tmp/motion-spike && npm i --ignore-scripts motion@13.4.4)
 //   SPIKE_NODE_MODULES=/tmp/motion-spike/node_modules npm run motion:spike   # или node scripts/motion-spike/run.mjs [--json]
