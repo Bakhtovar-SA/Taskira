@@ -1,8 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Status } from "./types";
 import { useToasts } from "./store";
 import { useT } from "./i18n";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
+import { NATIVE_DIALOG_CLOSE_EVENT, NATIVE_DIALOG_OPEN_EVENT } from "./ds/topLayer";
 
 /** Аватары — в components/UserAvatar.tsx (трек G). Карточку человека и загрузку фото берут и экраны трека H. */
 export { useAvatarSrc, UserCardBody } from "./components/UserAvatar";
@@ -74,29 +76,59 @@ export function Toasts() {
     info: { dot: "var(--accent-solid)", label: t("toast.info") },
   };
   const host = useRef<HTMLDivElement>(null);
-  // Карточка задачи и диалоги — нативный <dialog> в верхнем слое браузера: z-index их не перебивает, и уведомление
-  // («Ссылка скопирована») оказывалось под ними. Контейнер — manual popover; при каждом новом уведомлении
-  // он заново открывается и встаёт над всеми открытыми окнами. В jsdom Popover API нет.
-  useEffect(() => {
+  const announcer = useRef<HTMLDivElement>(null);
+  const [announcementHost, setAnnouncementHost] = useState<HTMLDivElement | null>(null);
+  // Permanent live regions live outside the visual popover and inside each dialog:
+  // a modal makes all outside nodes inert, even other top-layer popovers.
+  // Queue updates never re-open the visual host or restart existing animations.
+  useLayoutEffect(() => {
     const el = host.current;
-    if (!el?.showPopover) return;
-    if (el.matches(":popover-open")) el.hidePopover();
-    if (toasts.length) el.showPopover();
-  }, [toasts]);
+    if (!el) return;
+    let dialogs = Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]"));
+    const announceInsideActiveDialog = () => {
+      setAnnouncementHost(dialogs.at(-1)?.querySelector<HTMLDivElement>(":scope > [data-toast-announcer]") ?? announcer.current);
+    };
+    const onOpen = (event: Event) => {
+      const dialog = (event as CustomEvent<HTMLDialogElement>).detail;
+      dialogs = [...dialogs.filter(item => item !== dialog), dialog];
+      announceInsideActiveDialog();
+      if (el.showPopover) {
+        if (el.matches(":popover-open")) el.hidePopover();
+        el.showPopover();
+      }
+    };
+    const onClose = (event: Event) => {
+      dialogs = dialogs.filter(item => item !== (event as CustomEvent<HTMLDialogElement>).detail);
+      announceInsideActiveDialog();
+    };
+    announceInsideActiveDialog();
+    el.showPopover?.();
+    document.addEventListener(NATIVE_DIALOG_OPEN_EVENT, onOpen);
+    document.addEventListener(NATIVE_DIALOG_CLOSE_EVENT, onClose);
+    return () => {
+      document.removeEventListener(NATIVE_DIALOG_OPEN_EVENT, onOpen);
+      document.removeEventListener(NATIVE_DIALOG_CLOSE_EVENT, onClose);
+      if (el.hidePopover && el.matches(":popover-open")) el.hidePopover();
+    };
+  }, []);
   return (
-    <div ref={host} popover="manual" className="pointer-events-none fixed bottom-5 right-5 left-auto top-auto z-[70] m-0 flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2 overflow-visible border-0 bg-transparent p-0" role="status" aria-live="polite">
-      {toasts.map((item) => {
-        const m = meta[item.kind];
-        return (
-          <div key={item.id} className="glass anim-toast pointer-events-auto flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3">
-            <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
-            <p className="min-w-0 text-[14px] leading-snug text-ink">
-              <span className="sr-only">{m.label}: </span>
-              {item.text}
-            </p>
-          </div>
-        );
-      })}
-    </div>
+    <>
+      <div ref={announcer} className="sr-only" role="status" aria-live="polite" aria-atomic="false" aria-relevant="additions text" />
+      {announcementHost && createPortal(toasts.map(item => <div key={item.id}>{meta[item.kind].label}: {item.text}</div>), announcementHost)}
+      <div ref={host} popover="manual" aria-hidden="true" className="pointer-events-none fixed bottom-5 right-5 left-auto top-auto z-[70] m-0 flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2 overflow-visible border-0 bg-transparent p-0">
+        {toasts.map((item) => {
+          const m = meta[item.kind];
+          return (
+            <div key={item.id} className="glass anim-toast pointer-events-auto flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3">
+              <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
+              <p className="min-w-0 text-[14px] leading-snug text-ink">
+                <span className="sr-only">{m.label}: </span>
+                {item.text}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

@@ -1,27 +1,79 @@
-import {test,expect} from '@playwright/test';
-import {boardFixture} from './board-fixture';
+import { expect, test, type Locator } from "@playwright/test";
+import { issueFixture } from "./issue-fixture";
 
-test.use({permissions:['clipboard-read','clipboard-write']});
+test.use({ permissions: ["clipboard-read", "clipboard-write"] });
 
-test('toast «Ссылка скопирована» is visible above the open issue panel',async({page})=>{
- const {issues,project,users,statuses}=await boardFixture(page,'light');
- users[0].globalRole='member';
- const detail:any={...issues[0],attachments:[],links:[],checklist:[],customFieldValues:[],collaboratorIds:[],watch:{watching:false,watchers:0},subtasksSummary:{total:0,done:0},parentId:null,epicId:null};
- await page.route('**/api/**',async route=>{
-  const url=new URL(route.request().url()),path=url.pathname,method=route.request().method();
-  if(path==='/api/projects/p1')return route.fulfill({json:{project,users,members:users.map(u=>({userId:u.id,role:'admin'})),workflow:{statuses,transitions:[]},issueTemplates:[],customFields:[],sprints:[]}});
-  if(path==='/api/auth/me')return route.fulfill({json:{...users[0],globalRole:'member',onboarding:{hidden:true}}});
-  if(path==='/api/projects/p1/issues'&&url.searchParams.has('parentId'))return route.fulfill({json:{items:[],hasMore:false,nextCursor:null}});
-  if(path==='/api/issues/resolve')return route.fulfill({json:{projectId:'p1',id:'i1',projectKey:'CORP'}});
-  if(path.match(/\/issues\/[^/]+\/(comments|activity|collaborators)$/)&&method==='GET')return route.fulfill({json:[]});
-  if(path==='/api/projects/p1/issues/i1'&&method==='GET')return route.fulfill({json:detail});
-  return route.fallback();
- });
- await page.goto('/p/CORP/board?issue=CORP-1');
- await expect(page.locator('.issue-detail')).toBeVisible();
- await page.getByRole('button',{name:'Скопировать ссылку'}).first().click();
- const toast=page.getByText(/Ссылка на CORP-1 скопирована/);
- await expect(toast).toBeVisible();
- // z-index не перебивает верхний слой <dialog>: контейнер уведомлений должен быть открытым popover (он поверх окон)
- expect(await toast.evaluate(el=>!!el.closest("[popover]")?.matches(":popover-open"))).toBe(true);
-});
+async function expectAboveDialog(host: Locator) {
+  const page = host.page();
+  const session = await page.context().newCDPSession(page);
+  try {
+    const { root } = await session.send("DOM.getDocument");
+    const { nodeId: toastHost } = await session.send("DOM.querySelector", { nodeId: root.nodeId, selector: '[popover="manual"][aria-hidden="true"]' });
+    const { nodeIds } = await session.send("DOM.getTopLayerElements");
+    expect(nodeIds.at(-1)).toBe(toastHost);
+  } finally {
+    await session.detach();
+  }
+}
+
+for (const [theme, width] of [["light", 1280], ["dark", 390]] as const) {
+  test(`toasts stay above dialogs without reopening on queue updates (${theme}, ${width})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await issueFixture(page, theme);
+    await page.goto("/p/CORP/board");
+    await page.locator('.board-card[data-issue-id="i1"]').click();
+    await expect(page.locator(".issue-detail")).toBeVisible();
+    const host = page.locator('[popover="manual"][aria-hidden="true"]');
+    const toasts = host.locator(".anim-toast");
+    const announcer = page.locator('dialog[open] > [data-toast-announcer]');
+    await expect(announcer).toBeEmpty();
+    expect(await host.evaluate(element => element.matches(":popover-open"))).toBe(true);
+    await host.evaluate(element => {
+      element.setAttribute("data-toggle-count", "0");
+      element.addEventListener("beforetoggle", () => {
+        element.setAttribute("data-toggle-count", String(Number(element.getAttribute("data-toggle-count")) + 1));
+      });
+    });
+    const copy = async () => {
+      if (width < 600) {
+        await page.getByRole("button", { name: "Действия", exact: true }).click();
+        await page.getByRole("menuitem", { name: "Скопировать ссылку" }).click();
+      } else {
+        await page.getByRole("button", { name: "Скопировать ссылку" }).first().click();
+      }
+    };
+    await copy();
+    await expect(toasts).toHaveCount(1);
+    await expect(toasts.first()).toBeVisible();
+    await expectAboveDialog(host);
+    await expect(announcer).toContainText("Ссылка на CORP-1 скопирована");
+    const session = await page.context().newCDPSession(page);
+    const { nodes } = await session.send("Accessibility.getFullAXTree");
+    expect(nodes.some(node => !node.ignored && node.role?.value === "status")).toBe(true);
+    expect(nodes.some(node => !node.ignored && node.name?.value?.includes("Ссылка на CORP-1 скопирована"))).toBe(true);
+    await session.detach();
+    await toasts.first().evaluate(element => {
+      (window as Window & { toastAnimation?: Animation }).toastAnimation = element.getAnimations()[0];
+    });
+    await copy();
+    await expect(toasts).toHaveCount(2);
+    await expect(host).toHaveAttribute("data-toggle-count", "0");
+    expect(await toasts.first().evaluate(element =>
+      element.getAnimations()[0] === (window as Window & { toastAnimation?: Animation }).toastAnimation,
+    )).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".issue-detail")).toHaveCount(0);
+    await page.keyboard.press("Control+k");
+    const dialog = page.locator("dialog[open]");
+    await expect(dialog).toBeVisible();
+    await expectAboveDialog(host);
+    await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    await expect(host).toHaveAttribute("data-toggle-count", "2");
+    await expect(announcer).toContainText("Ссылка на CORP-1 скопирована");
+    await page.screenshot({ path: test.info().outputPath("toast-above-dialog.png") });
+    await expect(toasts).toHaveCount(0, { timeout: 6000 });
+    expect(await host.evaluate(element => element.matches(":popover-open"))).toBe(true);
+    await expect(announcer).toBeEmpty();
+    await expect(host).toHaveAttribute("data-toggle-count", "2");
+  });
+}

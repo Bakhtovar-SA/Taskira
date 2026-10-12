@@ -16,6 +16,12 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   const initialShadow = await shadow();
   const countFont = await page.locator(".workspace-count").evaluate(element => getComputedStyle(element).fontSize);
   const expectStableTop = async () => expect(Math.abs((await top()) - initialTop)).toBeLessThan(1);
+  const expectStableSize = async () => {
+    const current = await size();
+    // DOMRect values can differ by floating-point rounding after a transform.
+    expect(current.width).toBeCloseTo(initialSize.width, 2);
+    expect(current.height).toBeCloseTo(initialSize.height, 2);
+  };
 
   await page.getByRole("button", { name: "Выделить", exact: true }).click();
   const hint = page.locator('.board-view > [role="status"]');
@@ -23,11 +29,11 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   await expect(hint).toContainText("Отмечайте карточки кликом");
   expect((await hint.boundingBox())!.y).toBeGreaterThan(height - 160);
   await expectStableTop();
-  expect(await size()).toEqual(initialSize);
+  await expectStableSize();
   await card.click();
   await expect(card).toHaveAttribute("data-selected", "");
   await expectStableTop();
-  expect(await size()).toEqual(initialSize);
+  await expectStableSize();
   expect(await shadow()).toBe(initialShadow);
 
   await page.getByRole("button", { name: "Выделить", exact: true }).click();

@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { IconButton } from "./Button";
 import { dsId } from "./ids";
 import { DIALOG_EXIT_MS } from "./Presence";
+import { NATIVE_DIALOG_CLOSE_EVENT, NATIVE_DIALOG_OPEN_EVENT } from "./topLayer";
 
 type DialogProps = {
   open: boolean;
@@ -51,6 +52,7 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
     if (el.showModal && !el.open) el.showModal();
     else el.setAttribute("open", ""); // jsdom
     focusDialogBody(el);
+    document.dispatchEvent(new CustomEvent(NATIVE_DIALOG_OPEN_EVENT, { detail: el }));
     const onCancel = (e: Event) => {
       e.preventDefault();
       onCloseRef.current();
@@ -59,6 +61,7 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
     return () => {
       el.removeEventListener("cancel", onCancel);
       if (el.open) el.close?.();
+      document.dispatchEvent(new CustomEvent(NATIVE_DIALOG_CLOSE_EVENT, { detail: el }));
       back?.focus?.();
     };
   }, [open]);
@@ -126,6 +129,8 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
         onClose();
       }}
     >
+      {/* A modal makes outside live regions inert. Toasts announce inside the active dialog. */}
+      <div data-toast-announcer className="sr-only" role="status" aria-live="polite" aria-atomic="false" aria-relevant="additions text" />
       {headless ? (
         <h2 id={`${id}-t`} className="sr-only">
           {title}
