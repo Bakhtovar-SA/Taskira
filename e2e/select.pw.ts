@@ -108,3 +108,18 @@ for (const width of [1920, 390]) {
     await expect(dialog).toBeVisible();
   });
 }
+
+// WorkflowView wraps its selects in <label>: the list renders inside that label, and a click on an option must not be
+// turned into a second «click» on the trigger by label activation (the list re-opened right after the choice).
+test("a select inside a wrapping label closes after a mouse pick and names its list by the label text", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/p/TEST/settings/templates");
+  const type = page.getByRole("combobox", { name: /^Тип задачи/ });
+  await type.click();
+  const list = page.getByRole("listbox", { name: "Тип задачи", exact: true });
+  await expect(list).toBeVisible();
+  await list.getByRole("option", { name: "Баг" }).click();
+  await expect(type).toHaveText("Баг");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(type).toHaveAttribute("aria-expanded", "false");
+});

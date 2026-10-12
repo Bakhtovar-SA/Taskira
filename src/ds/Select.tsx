@@ -56,6 +56,14 @@ function textOf(o: SelectOption<SelectValue>): string {
   return String(o.value);
 }
 
+/** Текст внешнего <label> без самой кнопки и списка (label может оборачивать поле целиком). */
+function labelText(button: HTMLButtonElement | null): string | undefined {
+  const lab = button?.labels?.[0];
+  if (!lab) return undefined;
+  const text = [...lab.childNodes].filter((n) => !n.contains(button) && !(n instanceof Element && n.matches("[popover]"))).map((n) => n.textContent ?? "").join("").trim();
+  return text || undefined;
+}
+
 const Chevron = () => (
   <svg className="ds-select-chevron" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
     <path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -268,7 +276,7 @@ export function Select<T extends SelectValue>({
     </button>
   );
   // Имя списка: явная подпись, иначе текст внешнего <label for> (у кнопки он есть в .labels).
-  const listName = ariaLabel ?? (typeof label === "string" ? label : undefined) ?? (open && !ariaLabelledby ? trigger.current?.labels?.[0]?.textContent?.trim() || undefined : undefined);
+  const listName = ariaLabel ?? (typeof label === "string" ? label : undefined) ?? (open && !ariaLabelledby ? labelText(trigger.current) : undefined);
 
   return (
     <>
@@ -291,8 +299,9 @@ export function Select<T extends SelectValue>({
       )}
       {name !== undefined && <input type="hidden" name={name} value={String(value)} />}
       {open && (
-        // Нажатие в списке (строка, полоса прокрутки) не уводит фокус с кнопки.
-        <div ref={pop} popover="manual" className="ds-pop ds-select-pop" onMouseDown={(e) => e.preventDefault()}>
+        // Нажатие в списке (строка, полоса прокрутки) не уводит фокус с кнопки; отменённый click не даёт обёртке-<label>
+        // «нажать» кнопку снова и заново открыть список после выбора.
+        <div ref={pop} popover="manual" className="ds-pop ds-select-pop" onMouseDown={(e) => e.preventDefault()} onClick={(e) => e.preventDefault()}>
           <div ref={list} id={listId} role="listbox" aria-labelledby={ariaLabelledby} aria-label={listName} className="ds-select-list">
             {options.map((it, gi) =>
               isGroup(it) ? (
