@@ -346,7 +346,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(h.pageCalls.some(call => call.assignee === "u1")).toBe(true);
     // Активное условие доступно в сводке счётчика, не меняющей высоту доски.
     fireEvent.click(screen.getByRole("button", { name: /Фильтры:/ }));
-    expect(h.ui.container.querySelector(".board-filter-summary-popover")?.textContent).toContain("Исполнитель: Анна Иванова");
+    expect(h.ui.container.querySelector('[role="dialog"][aria-label="Фильтры"]')?.textContent).toContain("Исполнитель: Анна Иванова");
     h.pageCalls.length = 0;
     fireEvent.click(avatar);
     await settle();
@@ -366,7 +366,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(avatar.getAttribute("aria-pressed")).toBe("false");
     expect(h.pageCalls.some(call => call.assignee === "none")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /Фильтры:/ }));
-    expect(h.ui.container.querySelector(".board-filter-summary-popover")?.textContent).toContain("Исполнитель: Не назначен");
+    expect(h.ui.container.querySelector('[role="dialog"][aria-label="Фильтры"]')?.textContent).toContain("Исполнитель: Не назначен");
     fireEvent.click(chip);
     await settle();
     expect(chip.getAttribute("aria-pressed")).toBe("false");
