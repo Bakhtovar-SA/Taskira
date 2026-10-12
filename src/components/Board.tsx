@@ -16,7 +16,7 @@ import { createExternalStore, useExternalStore, type ExternalStore } from "../st
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
-import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcPlus, IcSubtasks, IcX, PriorityIcon, StatusGlyph } from "../icons";
+import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcPlus, IcSubtasks, PriorityIcon, StatusGlyph } from "../icons";
 import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";

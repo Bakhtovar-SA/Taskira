@@ -8,6 +8,7 @@
   .list-bulk-bar { padding-inline: 14px 0; }
   .list-bulk-bar > .ds-btn[data-icon] { min-width: 44px; }
 }
+/* data-selecting is set for the whole select mode (not only with a selection): the bottom space also keeps the hint clear of the last cards. */
 @media (min-width: 640px) { .board-view[data-selecting] .board-col-body { padding-bottom: 80px; } }
 @media (max-width: 639px) { .board-view[data-selecting] .board-scroll { padding-bottom: 80px; } }
 /* The list view uses 90% density at these widths; match its dock without scaling the board. */
