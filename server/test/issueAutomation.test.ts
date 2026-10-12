@@ -34,10 +34,34 @@ test('recurrence is manager-only and issue endpoints enforce project ownership',
  expect((await call('PUT',url()+'/recurrence',employee,timing())).statusCode).toBe(403);
  const admin=await login(app,'admin');for(const [method,suffix,payload]of [['GET','automation',undefined],['PUT','reminder',{remindAt:future()}],['PUT','recurrence',timing()]] as const)expect((await call(method,url(fx.issues.p2issue) + '/'+suffix,admin,payload)).statusCode).toBe(404);
 });
-test('concurrent apply creates one rule and one hidden snapshot, paused apply resumes',async()=>{
+const standaloneOccurrence=async()=>{
+ const templateId=(await q<{id:string}>(`INSERT INTO issue_templates(project_id,name,type_id,priority_id,title,description,position) VALUES($1,'Weekly','task','high','Report','',0) RETURNING id`,[fx.projects.p1]))[0].id;
+ const created=await call('POST',`/api/projects/${fx.projects.p1}/recurring`,manager,{name:'Weekly',templateId,...timing(),assigneeIds:[fx.users.emp1],dueInDays:2});expect(created.statusCode,created.body).toBe(201);
+ const rule=created.json();await q('UPDATE recurring_rules SET next_run_at=$2 WHERE id=$1',[rule.id,new Date(new Date(Date.now()-86400000).toISOString().slice(0,10)+'T04:00:00Z')]);expect((await runRecurringOnce()).created).toBe(1);
+ const run=(await q<{issue_id:string}>('SELECT issue_id FROM recurring_runs WHERE rule_id=$1',[rule.id]))[0];return {rule,issue:run.issue_id,templateId};
+};
+test('an occurrence of a standalone rule cannot edit or delete that rule',async()=>{
+ const {rule,issue,templateId}=await standaloneOccurrence();const before=(await q('SELECT schedule,owner_id,state,time_zone FROM recurring_rules WHERE id=$1',[rule.id]))[0];
+ expect((await call('GET',url(issue)+'/automation')).json().recurrence.id).toBe(rule.id);
+ expect((await call('PUT',url(issue)+'/recurrence',manager,{...timing(),schedule:{kind:'daily',every:3},timeZone:'UTC'})).statusCode).toBe(409);
+ expect((await call('DELETE',url(issue)+'/recurrence')).statusCode).toBe(409);
+ expect((await q('SELECT schedule,owner_id,state,time_zone FROM recurring_rules WHERE id=$1',[rule.id]))[0]).toEqual(before);expect(await q('SELECT id FROM issue_templates WHERE id=$1',[templateId])).toHaveLength(1);
+});
+test('applying a repeat never resumes a rule paused by the system',async()=>{
+ await configure();const rule=(await q<{id:string}>('SELECT id FROM recurring_rules'))[0];
+ await q("UPDATE recurring_rules SET state='paused',paused_reason='owner_lost_access',next_run_at=NULL WHERE id=$1",[rule.id]);
+ expect((await configure({schedule:{kind:'daily',every:2}})).state).toBe('paused');
+ expect((await q<{state:string;paused_reason:string;next_run_at:Date|null}>('SELECT state,paused_reason,next_run_at FROM recurring_rules WHERE id=$1',[rule.id]))[0]).toMatchObject({state:'paused',paused_reason:'owner_lost_access',next_run_at:null});
+});
+test('reminders are refused on archived issues and set/delete are audited',async()=>{
+ expect((await call('PUT',url()+'/reminder',employee,{remindAt:future()})).statusCode).toBe(200);expect((await call('DELETE',url()+'/reminder',employee)).statusCode).toBe(204);
+ await q('UPDATE issues SET archived_at=now() WHERE id=$1',[fx.issues.p1issue]);expect((await call('PUT',url()+'/reminder',employee,{remindAt:future()})).statusCode).toBe(409);
+ await new Promise(r=>setTimeout(r,100));expect((await q<{action:string}>("SELECT action FROM audit_log WHERE action LIKE 'issue.reminder.%' ORDER BY action")).map(r=>r.action)).toEqual(['issue.reminder.delete','issue.reminder.set']);
+});
+test('concurrent apply creates one rule and one hidden snapshot, a manual pause stays paused',async()=>{
  const responses=await Promise.all([call('PUT',url()+'/recurrence',manager,timing()),call('PUT',url()+'/recurrence',manager,timing())]);responses.forEach(r=>expect(r.statusCode,r.body).toBe(200));
  expect(await q('SELECT id FROM recurring_rules')).toHaveLength(1);expect(await q('SELECT id FROM issue_templates WHERE hidden')).toHaveLength(1);
- const rule=responses[0].json().recurrence;await q("UPDATE recurring_rules SET state='paused',paused_reason='manual',next_run_at=NULL WHERE id=$1",[rule.id]);expect((await configure()).state).toBe('active');
+ const rule=responses[0].json().recurrence;await q("UPDATE recurring_rules SET state='paused',paused_reason='manual',next_run_at=NULL WHERE id=$1",[rule.id]);expect((await configure()).state).toBe('paused');
 });
 test('next occurrence copies issue properties and checklist, retaining a valid parent',async()=>{
  const response=await call('POST',`/api/projects/${fx.projects.p1}/issues`,manager,{title:'Parent',epicId:null,complexity:null,typeId:'task',priorityId:'medium'});expect(response.statusCode,response.body).toBe(201);const parent=response.json();

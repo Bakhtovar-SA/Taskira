@@ -10,9 +10,10 @@ import {recurringApi} from '../api';
 import {zonedDay,fromZoned,reminderPresets,type AutomationValue,type IssueRecurrenceBody} from '../issueAutomation';
 import type {AutomationKind} from './IssueAutomationControls';
 
-type Props={kind:AutomationKind;value:AutomationValue;projectId:string;dueDate?:string|null;onClose:()=>void;onSave:(kind:AutomationKind,next:IssueRecurrenceBody|string|null)=>Promise<void>;error?:unknown;readOnly?:boolean};
+type Props={kind:AutomationKind;value:AutomationValue;projectId:string;issueId?:string;dueDate?:string|null;onClose:()=>void;onSave:(kind:AutomationKind,next:IssueRecurrenceBody|string|null)=>Promise<void>;error?:unknown;readOnly?:boolean};
 export default function IssueAutomationPanel(props:Props){
  const {t,errText}=useT(),[zone,setZone]=useState(props.value.recurrence?.timeZone??Intl.DateTimeFormat().resolvedOptions().timeZone),[enabled,setEnabled]=useState(true),[cfgError,setCfgError]=useState<unknown>(null);
+ const src=props.value.recurrence?.sourceIssueId,inherited=props.kind==='repeat'&&!!src&&!!props.issueId&&src!==props.issueId;
  const head=useRef<HTMLFieldSetElement>(null);useLayoutEffect(()=>{const frame=requestAnimationFrame(()=>head.current?.closest('.issue-automation-pop')?.querySelector<HTMLElement>('[data-autofocus],button')?.focus());return()=>cancelAnimationFrame(frame)},[]);
  const [busy,setBusy]=useState(false),[error,setError]=useState<unknown>(null),live=useRef(true);
  useEffect(()=>{live.current=true;recurringApi.config().then(c=>{if(live.current){if(!props.value.recurrence)setZone(c.defaultTimeZone);setEnabled(c.enabled)}},e=>{if(live.current)setCfgError(e)});return()=>{live.current=false}},[]);
@@ -20,7 +21,8 @@ export default function IssueAutomationPanel(props:Props){
  return <>{props.kind==='reminder'&&<><div className="automation-pop-head"><h3>{t('automation.remind')}</h3><IconButton size="sm" label={t('common.close')} onClick={props.onClose}><IcX size={16}/></IconButton></div>
  <p className="automation-pop-sub">{t('automation.reminderHint')} · {zone.replace(/^.*\//,'').replace(/_/g,' ')}</p></>}
  {!!(error||props.error||cfgError)&&<p role="alert" className="automation-error">{errText(error||props.error||cfgError,t('automation.saveFailed'))}</p>}
- <fieldset ref={head} disabled={busy||props.readOnly}>
+ {inherited&&<p role="status" className="ds-hint">{t('automation.occurrenceHint')}</p>}
+ <fieldset ref={head} disabled={busy||props.readOnly||inherited}>
  {props.kind==='repeat'?<RepeatEditor value={props.value.recurrence} projectId={props.projectId} zone={zone} enabled={enabled} blocked={!!props.error||!!cfgError} onSave={save}/>:<ReminderEditor value={props.value.remindAt} dueDate={props.dueDate} zone={zone} onSave={save}/>}
  </fieldset></>
 }

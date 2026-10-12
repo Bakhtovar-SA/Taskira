@@ -27,6 +27,7 @@ const ru = {
   "automation.custom": "Выбрать дату и время…",
   "automation.reminderDate": "Дата напоминания",
   "automation.futureHint": "Выберите время в будущем.",
+  "automation.occurrenceHint": "Задача создана правилом повторения. Расписание меняется в правиле, а не в отдельной задаче.",
   "automation.noDue": "Нет срока",
   "automation.saveFailed": "Не удалось сохранить настройку",
   "automation.chooseSchedule": "Выберите расписание",

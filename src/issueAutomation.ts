@@ -2,7 +2,7 @@ import type { IssueRecurrenceBody, IssueAutomationDto } from '../server/src/cont
 import { useEffect, useRef, useState } from 'react';
 import { issueAutomationApi } from './api';
 export type { IssueRecurrenceBody, IssueAutomationDto };
-export type AutomationValue = { recurrence: IssueRecurrenceBody | null; remindAt: string | null };
+export type AutomationValue = { recurrence: (IssueRecurrenceBody & { sourceIssueId?: string | null }) | null; remindAt: string | null };
 export function useIssueAutomation(projectId: string, issueId?: string) {
  const [value,setValue]=useState<IssueAutomationDto|null>(null),[error,setError]=useState<unknown>(null),[loading,setLoading]=useState(false);
  const epoch=useRef(0);

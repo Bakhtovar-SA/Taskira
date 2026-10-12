@@ -683,7 +683,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           <button onClick={() => openIssue(null)} className={iconBtn} aria-label={t("common.close")}><IcX size={17} /></button>
         </div>
       </div>
-      <AutomationPopover kind={automationKind} anchor={automationAnchor} onClose={()=>setAutomationKind(null)} value={automation.value??{recurrence:null,remindAt:null}} projectId={data.currentProjectId} dueDate={issue.dueDate}
+      <AutomationPopover kind={automationKind} anchor={automationAnchor} onClose={()=>setAutomationKind(null)} value={automation.value??{recurrence:null,remindAt:null}} projectId={data.currentProjectId} issueId={issue.id} dueDate={issue.dueDate}
         error={automation.error} readOnly={automation.loading} onSave={automation.save}/>
 
       {/* Ниже ~720px карточка складывается в одну колонку: именно её открывают

@@ -18,9 +18,10 @@ export async function issueAutomationRoutes(app:FastifyInstance):Promise<void>{
  });
  app.put("/:id/reminder",{preHandler:requireIssuePerm("browse"),preValidation:zbody(IssueReminderBody)},async req=>{
   await withTransaction(client=>setIssueReminder(client,req.issueRef!.id,req.user.sub,(req.body as z.infer<typeof IssueReminderBody>).remindAt));
+  await auditFromRequest(req,"issue.reminder.set","issue",req.issueRef!.id);
   return getIssueAutomation(req.project!.id,req.issueRef!.id,req.user.sub);
  });
  app.delete("/:id/reminder",{preHandler:requireIssuePerm("browse")},async(req,reply)=>{
-  await q(`DELETE FROM issue_reminders WHERE issue_id=$1 AND user_id=$2`,[req.issueRef!.id,req.user.sub]);return reply.code(204).send();
+  await q(`DELETE FROM issue_reminders WHERE issue_id=$1 AND user_id=$2`,[req.issueRef!.id,req.user.sub]);await auditFromRequest(req,"issue.reminder.delete","issue",req.issueRef!.id);return reply.code(204).send();
  });
 }

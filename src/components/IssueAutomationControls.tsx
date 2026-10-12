@@ -20,7 +20,7 @@ export function AutomationFields({value,canRepeat,compact=false,onOpen}:{value:A
   </button></div>;
  })}</div>
 }
-export function AutomationPopover({kind,anchor,onClose,...props}:{kind:AutomationKind|null;anchor:HTMLElement|null;onClose:()=>void;value:AutomationValue;projectId:string;dueDate?:string|null;onSave:(kind:AutomationKind,next:IssueRecurrenceBody|string|null)=>Promise<void>;error?:unknown;readOnly?:boolean}){
+export function AutomationPopover({kind,anchor,onClose,...props}:{kind:AutomationKind|null;anchor:HTMLElement|null;onClose:()=>void;value:AutomationValue;projectId:string;issueId?:string;dueDate?:string|null;onSave:(kind:AutomationKind,next:IssueRecurrenceBody|string|null)=>Promise<void>;error?:unknown;readOnly?:boolean}){
  const {t}=useT();
  useEffect(()=>{if(!kind)return;const escape=(event:KeyboardEvent)=>{if(event.key!=='Escape'||document.querySelector('.issue-automation-pop [popover=auto]:popover-open'))return;event.preventDefault();event.stopPropagation();onClose();anchor?.focus()};document.addEventListener('keydown',escape,true);return()=>document.removeEventListener('keydown',escape,true)},[kind,onClose,anchor]);
  return <Popover open={!!kind} onOpenChange={open=>{if(!open)onClose()}} anchorElement={anchor} trigger={()=>null} placement="bottom-end" fitContent label={t(kind==='repeat'?'automation.repeat':'automation.remind')} className={'issue-automation-pop'+(kind==='repeat'?' issue-repeat-pop':'')} initialFocus="first">

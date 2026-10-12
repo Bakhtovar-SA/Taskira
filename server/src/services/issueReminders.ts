@@ -2,6 +2,7 @@
 import type { PoolClient } from "pg";
 import { q, withTransaction } from "../db.js";
 import { badRequest } from "../middleware.js";
+import { ApiHttpError } from "../errors.js";
 import { loadConfig } from "../config.js";
 import { pushToUser } from "./wsHub.js";
 
@@ -12,6 +13,9 @@ export function validateReminder(at: string, now = new Date()): void {
 }
 export async function setIssueReminder(client: PoolClient, issueId: string, userId: string, at: string): Promise<void> {
  validateReminder(at);
+ // The worker never delivers for archived issues, so refuse instead of storing a reminder that silently never fires.
+ const archived=(await client.query(`SELECT 1 FROM issues WHERE id=$1 AND archived_at IS NOT NULL`,[issueId])).rows.length>0;
+ if(archived)throw new ApiHttpError(409,"CONFLICT","Задача в архиве — напоминание не будет доставлено");
  await client.query(`INSERT INTO issue_reminders(issue_id,user_id,remind_at) VALUES($1,$2,$3)
   ON CONFLICT(issue_id,user_id) DO UPDATE SET remind_at=EXCLUDED.remind_at,delivered_at=NULL`,[issueId,userId,at]);
 }

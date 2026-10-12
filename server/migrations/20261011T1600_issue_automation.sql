@@ -11,7 +11,9 @@ CREATE TABLE issue_reminders (
 );
 CREATE INDEX issue_reminders_due ON issue_reminders(remind_at) WHERE delivered_at IS NULL;
 ALTER TABLE notifications DROP CONSTRAINT notifications_type_check;
-ALTER TABLE notifications ADD CONSTRAINT notifications_type_check CHECK(type IN ('issue.assigned','issue.comment','issue.mention','issue.status','issue.collaborator','project.member','issue.dueSoon','issue.reminder'));
+ALTER TABLE notifications ADD CONSTRAINT notifications_type_check CHECK(type IN ('issue.assigned','issue.comment','issue.mention','issue.status','issue.collaborator','project.member','issue.dueSoon','issue.reminder')) NOT VALID;
+-- The new list only widens the old one, so existing rows already satisfy it; validating afterwards takes only a SHARE UPDATE EXCLUSIVE lock.
+ALTER TABLE notifications VALIDATE CONSTRAINT notifications_type_check;
 
 -- The private snapshot is owned by the contextual rule, including cascaded issue deletion.
 CREATE FUNCTION cleanup_issue_repeat_snapshot() RETURNS trigger LANGUAGE plpgsql AS $$
