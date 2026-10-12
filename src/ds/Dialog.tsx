@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { IconButton } from "./Button";
 import { dsId } from "./ids";
 import { DIALOG_EXIT_MS } from "./Presence";
-import { enter, stopMotion } from "../motion";
+import { enter, motionReduced, stopMotion } from "../motion";
 import { NATIVE_DIALOG_CLOSE_EVENT, NATIVE_DIALOG_OPEN_EVENT } from "./topLayer";
 
 type DialogProps = {
@@ -93,7 +93,7 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
     const done = () => setShown(false);
     // Пружина появления ещё идёт (быстрое закрытие): WAAPI из скрипта перекрыл бы CSS-анимацию ухода — снимаем её.
     if (el) stopMotion(el);
-    const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = typeof matchMedia === "function" && motionReduced(); // системный reduce и личный выключатель — как у enter()
     if (!el || reduce || typeof el.getAnimations !== "function") return done();
     const timer = setTimeout(done, DIALOG_EXIT_MS); // страховка, если animationend не придёт
     el.addEventListener("animationend", done, { once: true });
