@@ -21,6 +21,7 @@ import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
 import { Menu } from "../ds/LazyOverlay";
+import { Popover } from "../ds/Overlay";
 import { Button } from "../ds/Button";
 import { EmptyState, Skeleton } from "../ds/Display";
 import { useT } from "../i18n";
@@ -858,6 +859,7 @@ export default function Board() {
   const recentDone = useIssueCounts(projectId, allClear ? { closed: "recent", closedDays: 30 } : null, revision);
   const closedRecently = recentDone.counts?.total ?? 0;
   const canDropTo = (sid: string) => !dragged || dragged.statusId === sid || canTransition(data.workflow, dragged.statusId, sid);
+  const filteredSummary = t("board.filteredOf", { visible: data.workflow.statuses.reduce<number | null>((sum, st) => { const n = totalOf(st.id); return sum === null || n === null ? null : sum + n; }, 0) ?? "…", total: poolTotal ?? "…" });
 
   // Колбэки карточек стабильны: задачу они получают аргументом (ADR-0011, шаг 0).
   const onMove = useCallback((id: string, to: string) => moveOnBoard(id, to, null), [moveOnBoard]);
@@ -881,7 +883,13 @@ export default function Board() {
           members={<BoardAssigneeFilter selectedUserId={filterUser} extraUsers={assignees}
             onSelectUser={userId => setFilterUser(current => current === userId ? null : userId)} />}
           compact
-          summary={t("board.filteredOf", { visible: data.workflow.statuses.reduce<number | null>((sum, st) => { const n = totalOf(st.id); return sum === null || n === null ? null : sum + n; }, 0) ?? "…", total: poolTotal ?? "…" })}
+          summary={filtersOn ? <Popover label={t("workspace.filters")} placement="bottom-end" className="board-filter-summary-popover w-[300px] p-3"
+            trigger={props => <button {...props} type="button" className="board-filter-summary-trigger ds-focus cursor-pointer rounded text-accenttext hover:underline" style={{ font: "inherit" }} aria-label={`${t("workspace.filters")}: ${filteredSummary}`} title={t("workspace.filters")}>{filteredSummary}</button>}>
+            {close => <IssueFilterSummary filters={baseFilters}>
+              {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
+              <button onClick={() => { resetFilters(); close(); }} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>
+            </IssueFilterSummary>}
+          </Popover> : filteredSummary}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? chips.has(id) : baseFilters.assignee === (id === "mine" ? data.currentUserId : "none")} onToggle={toggleChip} overdue={overdueCounts.counts?.total} />}
           search={<WorkspaceSearch value={q} onChange={setQ} />}
           actions={<>
@@ -893,12 +901,8 @@ export default function Board() {
           </>}
         />
         {canMove && <Hint id="board-move" className="board-move-touch-hint mt-2">{t("hint.boardMoveTouch")}</Hint>}
-        {filtersOn && <IssueFilterSummary filters={baseFilters}>
-          {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
-          {filtersOn && <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink"><IcX size={14} className="inline" /> {t("common.reset")}</button>}
-        </IssueFilterSummary>}
        {selectMode && selectedIds.size === 0 && (
-         <p className="mt-2.5 text-[13px] text-faint" role="status">
+         <p className="sr-only" role="status">
            {t("board.selectHint")}
          </p>
        )}
