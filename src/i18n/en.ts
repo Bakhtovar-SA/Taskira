@@ -28,7 +28,7 @@ const en: Record<keyof Dict, string> = {
   "automation.custom": "Choose date and time…",
   "automation.reminderDate": "Reminder date",
   "automation.futureHint": "Choose a future time.",
-  "automation.occurrenceHint": "This task was created by a repeat rule. Change the schedule on the rule, not on this task.",
+  "automation.occurrenceHint": "The schedule is set by the repeat rule.",
   "automation.noDue": "No due date",
   "automation.saveFailed": "Could not save the setting",
   "automation.chooseSchedule": "Choose a schedule",
