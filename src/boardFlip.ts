@@ -134,6 +134,7 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean): void {
   const clone = el.cloneNode(true) as HTMLElement;
   clone.className = clone.className.replace(/\banim-\S+/g, ""); // dropLand / вспышка копии не нужны: летит flipFrom
   clone.removeAttribute("id");
+  for (const n of clone.querySelectorAll("[id]")) n.removeAttribute("id"); // дубли id (useId) на время полёта
   clone.removeAttribute("data-issue-id"); // J/K и FLIP ищут карточки по этому атрибуту — копия им не карточка
   clone.inert = true;
   clone.style.boxShadow = "var(--highlight-top), var(--elev-3)";
