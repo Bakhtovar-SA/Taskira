@@ -1,4 +1,4 @@
-browser: WebSocket connection to 'ws://127.0.0.1:3000/?token=zcrkNZ4QtmGW' failed: Error during WebSocket handshake: Unexpected response code: 400
+browser: WebSocket connection to 'ws://127.0.0.1:3000/?token=[redacted-dev-websocket-token]' failed: Error during WebSocket handshake: Unexpected response code: 400
 browser: [vite] failed to connect to websocket (Error: WebSocket closed without opened.).
 browser: Failed to send error to Vite server: Error: WebSocket closed without opened.
     at WebSocket.<anonymous> (http://127.0.0.1:3111/@vite/client:225:30)

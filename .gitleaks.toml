@@ -17,3 +17,14 @@ description = "fake JWT_SECRET placeholder in config.smtpTls.test.ts"
 condition = "AND"
 paths = ['''^server/test/config\.smtpTls\.test\.ts$''']
 regexes = ['''test-jwt-secret-at-least-32-characters-long''']
+
+# A historical browser error captured the local Vite dev WebSocket nonce. It is
+# not an application/API credential; the current log is redacted. Match only
+# this exact loopback connection error in this one file, for this one rule.
+[[allowlists]]
+description = "historical loopback Vite WebSocket nonce in browser audit log"
+condition = "AND"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+paths = ['''^docs/design/audit-2026-10-09/targeted-browser-log-confirm\.txt$''']
+regexes = ['''^browser: WebSocket connection to 'ws://127\.0\.0\.1:3000/\?token=[A-Za-z0-9_-]+' failed: Error during WebSocket handshake: Unexpected response code: 400$''']
