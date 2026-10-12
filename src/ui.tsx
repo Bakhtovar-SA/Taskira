@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { Status } from "./types";
 import { useToasts } from "./store";
 import { useT } from "./i18n";
@@ -72,8 +73,18 @@ export function Toasts() {
     error: { dot: "var(--status-danger)", label: t("toast.error") },
     info: { dot: "var(--accent-solid)", label: t("toast.info") },
   };
+  const host = useRef<HTMLDivElement>(null);
+  // Карточка задачи и диалоги — нативный <dialog> в верхнем слое браузера: z-index их не перебивает, и уведомление
+  // («Ссылка скопирована») оказывалось под ними. Контейнер — manual popover; при каждом новом уведомлении
+  // он заново открывается и встаёт над всеми открытыми окнами. В jsdom Popover API нет.
+  useEffect(() => {
+    const el = host.current;
+    if (!el?.showPopover) return;
+    if (el.matches(":popover-open")) el.hidePopover();
+    if (toasts.length) el.showPopover();
+  }, [toasts]);
   return (
-    <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2" role="status" aria-live="polite">
+    <div ref={host} popover="manual" className="pointer-events-none fixed bottom-5 right-5 left-auto top-auto z-[70] m-0 flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2 overflow-visible border-0 bg-transparent p-0" role="status" aria-live="polite">
       {toasts.map((item) => {
         const m = meta[item.kind];
         return (
