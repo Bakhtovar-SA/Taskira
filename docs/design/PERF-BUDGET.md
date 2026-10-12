@@ -305,6 +305,7 @@ production CSS одноимённую утилиту (+16 байт gzip; зде�
 | перерисовки (jsdom, число компонентов) | `npm run perf:rerenders` | таблицы в выводе, ADR-0011 |
 | кадры, открытие задачи, шрифты, CSP (браузер) | `npm run build`, затем `SPIKE_NODE_MODULES=… CHROMIUM_PATH=… node scripts/perf-board/run.mjs` (шапка файла) | JSON в выводе |
 | CSP-механизмы стилей | `SPIKE_NODE_MODULES=… npm run csp:spike` | таблица в выводе, ADR-0010 |
+| библиотека `motion` под CSP, размеры | `SPIKE_NODE_MODULES=… npm run motion:spike`, `SPIKE_NODE_MODULES=… node scripts/motion-spike/size.mjs` | таблицы в выводе, ADR-0035 |
 
 `perf:rerenders` идёт и в обычном `npm test` — без порогов, только «замер состоялся»: цифры видны, но улучшение или
 ухудшение CI не роняет. Порог на число перерисовок имеет смысл ввести после шагов 0–2 ADR-0011, когда цифра станет
