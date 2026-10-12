@@ -6,6 +6,7 @@ import { IconButton } from "./Button";
 import { dsId } from "./ids";
 import { DIALOG_EXIT_MS } from "./Presence";
 import { enter, stopMotion } from "../motion";
+import { NATIVE_DIALOG_CLOSE_EVENT, NATIVE_DIALOG_OPEN_EVENT } from "./topLayer";
 
 type DialogProps = {
   open: boolean;
@@ -54,6 +55,7 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
     // Появление — пружина WAAPI (ADR-0035, прототип) вместо CSS dsDialogIn/dsPanelIn; уход — CSS data-closing.
     enter(el, kind === "panel" ? "panel" : "dialog");
     focusDialogBody(el);
+    document.dispatchEvent(new CustomEvent(NATIVE_DIALOG_OPEN_EVENT, { detail: el }));
     const onCancel = (e: Event) => {
       e.preventDefault();
       onCloseRef.current();
@@ -63,6 +65,7 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
       stopMotion(el);
       el.removeEventListener("cancel", onCancel);
       if (el.open) el.close?.();
+      document.dispatchEvent(new CustomEvent(NATIVE_DIALOG_CLOSE_EVENT, { detail: el }));
       back?.focus?.();
     };
   }, [open]);
@@ -132,6 +135,8 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
         onClose();
       }}
     >
+      {/* Toasts mount their live region here only while this modal is active. */}
+      <div data-toast-announcer className="sr-only" />
       {headless ? (
         <h2 id={`${id}-t`} className="sr-only">
           {title}

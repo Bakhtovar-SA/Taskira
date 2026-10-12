@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Status, Toast } from "./types";
 import { useToasts } from "./store";
 import { enter, exit, flipFrom, motionReduced, preloadMotionIdle } from "./motion";
 import { useT } from "./i18n";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
+import { hidePop, showPop } from "./ds/floating";
+import { NATIVE_DIALOG_CLOSE_EVENT, NATIVE_DIALOG_OPEN_EVENT } from "./ds/topLayer";
 
 /** Аватары — в components/UserAvatar.tsx (трек G). Карточку человека и загрузку фото берут и экраны трека H. */
 export { useAvatarSrc, UserCardBody } from "./components/UserAvatar";
@@ -83,14 +86,13 @@ export function Toasts() {
   // Порядок — по id (он растёт): уходящий тост остаётся на своём месте среди оставшихся.
   const shown = gone.length ? [...gone.filter((x) => !toasts.some((y) => y.id === x.id)), ...toasts].sort((x, y) => x.id - y.id) : toasts;
   const leaving = new Set(gone.map((x) => x.id));
-  const box = useRef<HTMLDivElement>(null);
   const tops = useRef(new Map<number, number>());
   const exiting = useRef(new WeakSet<HTMLElement>());
   useEffect(() => preloadMotionIdle(), []);
   // После каждого коммита: новые тосты въезжают, сдвинутые соседи едут со старого места. Положение — раскладочное
   // (offsetTop от неподвижного контейнера), а не rect: rect включал бы идущую анимацию.
   useLayoutEffect(() => {
-    const root = box.current;
+    const root = host.current;
     if (!root) return;
     const base = root.getBoundingClientRect().top;
     const next = new Map<number, number>();
@@ -114,21 +116,81 @@ export function Toasts() {
     error: { dot: "var(--status-danger)", label: t("toast.error") },
     info: { dot: "var(--accent-solid)", label: t("toast.info") },
   };
+  const host = useRef<HTMLDivElement>(null);
+  const announcer = useRef<HTMLDivElement>(null);
+  const [announcementHost, setAnnouncementHost] = useState<HTMLDivElement | null>(null);
+  const activeAnnouncementHost = useRef<HTMLDivElement | null>(null);
+  const announcedIds = useRef(new Set<number>());
+  const [announcement, setAnnouncement] = useState<{ host: HTMLDivElement | null; toasts: ReturnType<typeof useToasts> }>({ host: null, toasts: [] });
+  // A modal makes outside live regions inert. Mount one empty announcer in the
+  // active dialog's slot (or the root slot), then append only new messages.
+  // Queue updates never re-open the visual host or restart existing animations.
+  useLayoutEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    let dialogs = Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]"));
+    const announceInsideActiveDialog = () => {
+      const target = dialogs.at(-1)?.querySelector<HTMLDivElement>(":scope > [data-toast-announcer]") ?? announcer.current;
+      activeAnnouncementHost.current = target;
+      setAnnouncementHost(target);
+    };
+    const onOpen = (event: Event) => {
+      const dialog = (event as CustomEvent<HTMLDialogElement>).detail;
+      dialogs = [...dialogs.filter(item => item !== dialog), dialog];
+      announceInsideActiveDialog();
+      hidePop(el);
+      showPop(el);
+    };
+    const onClose = (event: Event) => {
+      dialogs = dialogs.filter(item => item !== (event as CustomEvent<HTMLDialogElement>).detail);
+      announceInsideActiveDialog();
+    };
+    announceInsideActiveDialog();
+    showPop(el);
+    document.addEventListener(NATIVE_DIALOG_OPEN_EVENT, onOpen);
+    document.addEventListener(NATIVE_DIALOG_CLOSE_EVENT, onClose);
+    return () => {
+      document.removeEventListener(NATIVE_DIALOG_OPEN_EVENT, onOpen);
+      document.removeEventListener(NATIVE_DIALOG_CLOSE_EVENT, onClose);
+      hidePop(el);
+    };
+  }, []);
+  useEffect(() => {
+    // Dialog layout effects may have changed the target before this effect runs.
+    if (!announcementHost || announcementHost !== activeAnnouncementHost.current) return;
+    const visibleIds = new Set(toasts.map(item => item.id));
+    for (const id of announcedIds.current) if (!visibleIds.has(id)) announcedIds.current.delete(id);
+    const additions = toasts.filter(item => !announcedIds.current.has(item.id));
+    for (const item of additions) announcedIds.current.add(item.id);
+    setAnnouncement(previous => {
+      const retained = previous.host === announcementHost ? previous.toasts.filter(item => visibleIds.has(item.id)) : [];
+      if (previous.host === announcementHost && retained.length === previous.toasts.length && !additions.length) return previous;
+      return { host: announcementHost, toasts: [...retained, ...additions] };
+    });
+  }, [toasts, announcementHost]);
   return (
-    <div ref={box} className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2" role="status" aria-live="polite">
-      {shown.map((item) => {
-        const m = meta[item.kind];
-        const out = leaving.has(item.id);
-        return (
-          <div key={item.id} data-toast-id={item.id} aria-hidden={out || undefined} className={`glass flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3 ${out ? "" : "pointer-events-auto"}`}>
-            <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
-            <p className="min-w-0 text-[14px] leading-snug text-ink">
-              <span className="sr-only">{m.label}: </span>
-              {item.text}
-            </p>
-          </div>
-        );
-      })}
-    </div>
+    <>
+      <div ref={announcer} className="sr-only" />
+      {announcementHost && createPortal(
+        <div role="status" aria-label={t("topbar.notifications")} aria-live="polite" aria-atomic="false" aria-relevant="additions text">
+          {announcement.host === announcementHost && announcement.toasts.map(item => <div key={item.id}>{meta[item.kind].label}: {item.text}</div>)}
+        </div>,
+        announcementHost,
+      )}
+      <div ref={host} popover="manual" aria-hidden="true" className="pointer-events-none fixed bottom-5 right-5 left-auto top-auto z-[70] m-0 flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2 overflow-visible border-0 bg-transparent p-0">
+        {shown.map((item) => {
+          const m = meta[item.kind];
+          return (
+            <div key={item.id} data-toast-id={item.id} className={`glass flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3 ${leaving.has(item.id) ? "" : "pointer-events-auto"}`}>
+              <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
+              <p className="min-w-0 text-[14px] leading-snug text-ink">
+                <span className="sr-only">{m.label}: </span>
+                {item.text}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

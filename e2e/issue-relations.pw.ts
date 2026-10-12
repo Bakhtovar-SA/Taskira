@@ -79,6 +79,6 @@ for(const theme of ['dark','light'])test(`mobile ${theme}: parent title and link
 });
 test('failed relationship mutation keeps existing issue state and reports error',async({page})=>{
  const {card}=await fixture(page,{error:true});await action(page,'Добавить связь');await page.getByRole('option',{name:/CORP-3/}).click();
- await expect(page.getByText('Связь не сохранена',{exact:false})).toBeVisible();await expect(card.locator('.issue-linked-task')).toHaveCount(0);
- await action(page,'Сделать подзадачей');await page.getByRole('option',{name:/CORP-2/}).click();await expect(page.getByText('Родитель недоступен',{exact:false})).toBeVisible();await expect(card.locator('.issue-parent-link')).toHaveCount(0);
+ await expect(page.locator('[data-toast-id]').filter({hasText:'Связь не сохранена'})).toBeVisible();await expect(card.locator('.issue-linked-task')).toHaveCount(0);
+ await action(page,'Сделать подзадачей');await page.getByRole('option',{name:/CORP-2/}).click();await expect(page.locator('[data-toast-id]').filter({hasText:'Родитель недоступен'})).toBeVisible();await expect(card.locator('.issue-parent-link')).toHaveCount(0);
 });
