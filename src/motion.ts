@@ -108,7 +108,7 @@ function safe<T>(f: () => T): T | null {
 type VTDoc = Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
 export function viewTransition(update: () => void): void {
   const doc = document as VTDoc;
-  if (!doc.startViewTransition || reducedMotion() || document.visibilityState !== "visible") {
+  if (!doc.startViewTransition || motionReduced() || document.visibilityState !== "visible") {
     update();
     return;
   }
@@ -150,12 +150,12 @@ const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finis
 
 /** Появление на пружине. `kind`: `rise` — карточка/строка (подъём 8 px, как было у доски); `dialog` — окно
  *  (подъём + лёгкий масштаб, как прежний CSS `dsDialogIn`); `panel` — боковая панель (выезд справа, как `dsPanelIn`);
- *  `toast` — тост (выезд справа, как `toastIn`). У новых видов последний кадр — `transform: none`: motion по концу
+ *  `toast` — тост (выезд справа, как `toastIn`). У всех видов последний кадр — `transform: none`: motion по концу
  *  пишет его в inline-стиль (CSSOM), а не-`none` transform сделал бы окно контейнером для fixed-потомков.
  *  Чанк не загружен или движение уменьшено — мгновенно. */
 type EnterKind = "rise" | "dialog" | "panel" | "toast";
 const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [string, string] }> = {
-  rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "translateY(0px) scale(1)"] },
+  rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "none"] },
   dialog: { opacity: [0, 1], transform: ["translateY(10px) scale(0.98)", "none"] },
   panel: { opacity: [0.4, 1], transform: ["translateX(32px)", "none"] },
   toast: { opacity: [0, 1], transform: ["translateX(28px)", "none"] },

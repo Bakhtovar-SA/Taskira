@@ -32,9 +32,11 @@ const visible = (el: Element): DOMRect => el.getBoundingClientRect();
 /** Положение в раскладке — видимое без текущего transform (translate пружины, scale «приземления» `dropLand`;
  *  transform-origin — центр), без отмены анимаций и лишних пересчётов. translate — в CSS px, под zoom умножается. */
 const layoutOf = (el: Element, v: DOMRect): Pos => {
-  const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(el).transform || "");
+  const m = /matrix(3d)?\(([^)]+)\)/.exec(getComputedStyle(el).transform || "");
   if (!m) return { left: v.left, top: v.top };
-  const [a, , , d, e, f] = m[1].split(",").map(Number);
+  // 2D: matrix(a, b, c, d, e, f); 3D: matrix3d(a, b, 0, 0, c, d, 0, 0, 0, 0, 1, 0, e, f, 0, 1) — нужны a, d и сдвиг e, f.
+  const n = m[2].split(",").map(Number);
+  const [a, d, e, f] = m[1] ? [n[0], n[5], n[12], n[13]] : [n[0], n[3], n[4], n[5]];
   const z = cssZoom(el);
   const w = v.width / (a || 1);
   const h = v.height / (d || 1);
