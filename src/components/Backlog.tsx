@@ -1,3 +1,4 @@
+import { createEnterTracker, type EnterTracker } from "../listEnter";
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
@@ -487,6 +488,19 @@ export default function Backlog() {
   useEffect(() => {
     setSelectedIds(new Set());
   }, [data.currentProjectId, filters, q, fOverdue, showDone]);
+
+  // Новая строка (создали задачу, пришла по ревизии) въезжает пружиной; первый показ, смена запроса и догрузка
+  // страницы — без движения (ADR-0035, прототип; `src/listEnter.ts`).
+  const enterRows = useRef<EnterTracker | null>(null);
+  const enterPrev = useRef<{ query: typeof query; loading: boolean; more: boolean } | null>(null);
+  useLayoutEffect(() => {
+    enterRows.current ??= createEnterTracker();
+    const p = enterPrev.current;
+    const baseline = !p || p.query !== query || p.loading || p.more || set.loading || set.loadingMore;
+    enterPrev.current = { query, loading: set.loading, more: set.loadingMore };
+    const root = layoutRef.current;
+    enterRows.current(rows.map((r) => r.id), (id) => root?.querySelector<HTMLElement>(`[role="row"][data-issue-id="${CSS.escape(id)}"]`), baseline);
+  }, [rows, query, set.loading, set.loadingMore]);
 
   const directionWidth = rows.some(issue => issue.epicId) ? 230 : 140;
   useLayoutEffect(() => {

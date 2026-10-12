@@ -2,7 +2,8 @@
 // пресеты пружин укладываются в 500 мс успокоения.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { spring } from "motion";
-import { EXIT, SPRING, SPRING_ENTER, __resetMotionForTests, enter, exit, flipFrom, motionReduced, preloadMotion, setReducedMotion } from "./motion";
+import { EXIT, SPRING, SPRING_ENTER, __resetMotionForTests, enter, exit, flipFrom, glideTo, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion } from "./motion";
+import { createEnterTracker } from "./listEnter";
 
 const systemReduce = (on: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: on && q.includes("reduce") }));
 
@@ -136,5 +137,104 @@ describe("пресеты", () => {
     const o = spring.applyToOptions!({ ...preset }) as { duration: number };
     expect(o.duration).toBeGreaterThan(0);
     expect(o.duration).toBeLessThanOrEqual(500);
+  });
+});
+
+describe("тосты, окна, вкладки, строки списка (ADR-0035, расширение прототипа)", () => {
+  const box = { x: 10, y: 2, w: 80, h: 30 };
+
+  test.each([
+    ["системный prefers-reduced-motion", () => systemReduce(true)],
+    ["личный выключатель", () => setReducedMotion(true)],
+  ])("%s: enter любого вида и glideTo — мгновенно, exit(toast) резолвится сразу, preloadMotionIdle ничего не планирует", async (_n, reduce) => {
+    const { engine, animate } = fakeEngine();
+    const load = vi.fn(async () => engine);
+    __resetMotionForTests(load);
+    reduce();
+    const el = card();
+    for (const kind of ["rise", "dialog", "panel", "toast"] as const) enter(el, kind);
+    await expect(exit(el, "toast")).resolves.toBeUndefined();
+    glideTo(el, box);
+    glideTo(el, { ...box, x: 200 });
+    expect(el.style.transform).toBe("translate(200px, 2px)"); // место — сразу, без движения
+    expect(el.style.width).toBe("80px");
+    const cancelIdle = preloadMotionIdle();
+    expect(() => cancelIdle()).not.toThrow();
+    expect(animate).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  test("чанк не загрузился: enter/exit/glideTo/stopMotion не бросают, glideTo ставит индикатор на место", async () => {
+    __resetMotionForTests(() => Promise.reject(new Error("chunk failed")));
+    await preloadMotion();
+    const el = card();
+    expect(() => enter(el, "dialog")).not.toThrow();
+    expect(() => enter(el, "panel")).not.toThrow();
+    await expect(exit(el, "toast")).resolves.toBeUndefined();
+    expect(() => glideTo(el, box)).not.toThrow();
+    expect(() => glideTo(el, { ...box, x: 120, w: 40 })).not.toThrow();
+    expect(el.style.transform).toBe("translate(120px, 2px)");
+    expect(el.style.width).toBe("40px");
+    expect(() => stopMotion(el)).not.toThrow();
+    expect(el.animate).not.toHaveBeenCalled();
+  });
+
+  test("элемент без WAAPI (jsdom, старый браузер): enter и exit мгновенны", async () => {
+    const { engine, animate } = fakeEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = document.createElement("dialog");
+    enter(el, "dialog");
+    await expect(exit(el)).resolves.toBeUndefined();
+    expect(animate).not.toHaveBeenCalled();
+  });
+
+  test("с чанком: окно и панель въезжают пружиной к transform: none, тост уходит вправо за EXIT", async () => {
+    const { engine, animate } = fakeEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    enter(el, "dialog");
+    expect(animate.mock.calls[0][1]).toEqual({ opacity: [0, 1], transform: ["translateY(10px) scale(0.98)", "none"] });
+    expect(animate.mock.calls[0][2]).toEqual({ type: spring, ...SPRING_ENTER });
+    enter(el, "panel");
+    expect(animate.mock.calls[1][1]).toEqual({ opacity: [0.4, 1], transform: ["translateX(32px)", "none"] });
+    await exit(el, "toast");
+    expect(animate.mock.calls[2][1]).toEqual({ opacity: [1, 0], transform: ["none", "translateX(24px)"] });
+    expect(animate.mock.calls[2][2]).toEqual(EXIT);
+  });
+
+  test("glideTo: первое размещение мгновенно, дальше пружина от прежнего места с поправкой ширины scaleX", async () => {
+    const { engine, animate } = fakeEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    glideTo(el, box);
+    expect(animate).not.toHaveBeenCalled();
+    glideTo(el, { x: 100, y: 2, w: 40, h: 30 });
+    expect(animate).toHaveBeenCalledWith(el, { transform: ["translate(10px, 2px) scaleX(2)", "translate(100px, 2px) scaleX(1)"] }, { type: spring, ...SPRING });
+    glideTo(el, { x: 0, y: 2, w: 40, h: 30 }, { animate: false });
+    expect(animate).toHaveBeenCalledTimes(1);
+  });
+
+  test("строки списка: базовая линия без движения, новые — enter, больше порога — мгновенно", async () => {
+    const { engine, animate } = fakeEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const els = new Map<string, HTMLElement>();
+    const find = (id: string) => {
+      if (!els.has(id)) els.set(id, card());
+      return els.get(id);
+    };
+    const track = createEnterTracker(3);
+    expect(track(["a", "b"], find, false)).toBe(0); // первый вызов — всегда базовая линия
+    expect(track(["a", "b", "c"], find, false)).toBe(1);
+    expect(animate).toHaveBeenCalledTimes(1);
+    expect(track(["x", "y"], find, true)).toBe(0); // смена запроса
+    expect(track(["x", "y", "1", "2", "3", "4"], find, false)).toBe(0); // догрузили много — без движения
+    expect(track(["x", "y", "1", "2", "3", "4", "z"], find, false)).toBe(1);
+    setReducedMotion(true);
+    expect(track(["x", "q"], find, false)).toBe(0);
+    expect(animate).toHaveBeenCalledTimes(2);
   });
 });
