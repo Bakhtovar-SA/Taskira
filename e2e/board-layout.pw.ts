@@ -69,3 +69,73 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   await expect(summaryDialog).toContainText("Статус: К выполнению");
   await expect(summaryDialog).toContainText("Приоритет: Высокий");
 });
+
+for (const theme of ["light", "dark"]) for (const [width, height] of [[1460, 720], [390, 844]]) {
+  test(`selection preserves short and empty column backgrounds (${theme}, ${width})`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const fixture = await boardFixture(page, theme);
+    fixture.issues.splice(0, fixture.issues.length, ...fixture.issues.filter(issue => issue.statusId !== "s4"));
+    for (const issue of fixture.issues) issue.title = `Задача ${issue.key}`;
+    await page.goto("/p/CORP/board");
+    const card = page.locator('.board-card[data-issue-id="i2"]');
+    await expect(card).toBeVisible();
+    const columns = page.locator(".board-col");
+    const geometry = () => columns.evaluateAll(elements => elements.map(element => {
+      const rect = element.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, background: getComputedStyle(element).backgroundColor };
+    }));
+    const before = await geometry();
+    const expectUnchanged = async () => {
+      const after = await geometry();
+      expect(after).toHaveLength(before.length);
+      after.forEach((column, index) => {
+        for (const dimension of ["x", "y", "width", "height"] as const) expect(column[dimension], `column ${index}: ${dimension}`).toBeCloseTo(before[index][dimension], 2);
+        expect(column.background).toBe(before[index].background);
+      });
+    };
+    await page.screenshot({ path: test.info().outputPath("columns-before-selection.png") });
+    const select = page.getByRole("button", { name: "Выделить", exact: true });
+    await select.click();
+    await expect(page.locator(".board-view")).toHaveAttribute("data-selecting", "true");
+    await expectUnchanged();
+    await card.click();
+    await expect(page.locator(".list-selection-dock")).toBeVisible();
+    await expectUnchanged();
+    await page.screenshot({ path: test.info().outputPath("columns-during-selection.png") });
+    await select.click();
+    await expectUnchanged();
+  });
+}
+
+for (const width of [1460, 390]) {
+  test(`long columns scroll their last card clear of the selection dock (${width})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 720 });
+    const fixture = await boardFixture(page, "dark");
+    fixture.issues.splice(0, fixture.issues.length, ...fixture.issues.filter(issue => issue.statusId !== "s4"));
+    for (const issue of fixture.issues) issue.title = `Задача ${issue.key}`;
+    for (let index = 0; index < 24; index++) fixture.issues.push({
+      ...fixture.issues[1], id: `extra${index}`, key: `CORP-${index + 20}`, title: `Дополнение ${index + 1}`, rank: index + 20,
+    });
+    await page.goto("/p/CORP/board");
+    const first = page.locator('.board-card[data-issue-id="i2"]');
+    await expect(first).toBeVisible();
+    const lane = page.locator(".board-col").first();
+    const before = (await lane.boundingBox())!;
+    await page.getByRole("button", { name: "Выделить", exact: true }).click();
+    await first.click();
+    const dock = page.locator(".list-selection-dock");
+    await expect(dock).toBeVisible();
+    expect((await lane.boundingBox())!.height).toBeCloseTo(before.height, 2);
+    const scrolling = width >= 768 ? lane.locator(".board-col-body") : page.locator(".board-scroll");
+    expect(await scrolling.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    await scrolling.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    const last = width >= 768 ? lane.locator(".board-card").last() : page.locator(".board-card").last();
+    await expect(last).toBeVisible();
+    await expect.poll(async () => {
+      const card = (await last.boundingBox())!, panel = (await dock.boundingBox())!;
+      return card.y + card.height <= panel.y;
+    }).toBe(true);
+    await last.click();
+    await expect(last).toHaveAttribute("data-selected", "");
+  });
+}

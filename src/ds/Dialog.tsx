@@ -129,8 +129,8 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
         onClose();
       }}
     >
-      {/* A modal makes outside live regions inert. Toasts announce inside the active dialog. */}
-      <div data-toast-announcer className="sr-only" role="status" aria-live="polite" aria-atomic="false" aria-relevant="additions text" />
+      {/* Toasts mount their live region here only while this modal is active. */}
+      <div data-toast-announcer className="sr-only" />
       {headless ? (
         <h2 id={`${id}-t`} className="sr-only">
           {title}

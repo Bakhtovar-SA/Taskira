@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Status } from "./types";
 import { useToasts } from "./store";
@@ -78,15 +78,20 @@ export function Toasts() {
   const host = useRef<HTMLDivElement>(null);
   const announcer = useRef<HTMLDivElement>(null);
   const [announcementHost, setAnnouncementHost] = useState<HTMLDivElement | null>(null);
-  // Permanent live regions live outside the visual popover and inside each dialog:
-  // a modal makes all outside nodes inert, even other top-layer popovers.
+  const activeAnnouncementHost = useRef<HTMLDivElement | null>(null);
+  const announcedIds = useRef(new Set<number>());
+  const [announcement, setAnnouncement] = useState<{ host: HTMLDivElement | null; toasts: ReturnType<typeof useToasts> }>({ host: null, toasts: [] });
+  // A modal makes outside live regions inert. Mount one empty announcer in the
+  // active dialog's slot (or the root slot), then append only new messages.
   // Queue updates never re-open the visual host or restart existing animations.
   useLayoutEffect(() => {
     const el = host.current;
     if (!el) return;
     let dialogs = Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]"));
     const announceInsideActiveDialog = () => {
-      setAnnouncementHost(dialogs.at(-1)?.querySelector<HTMLDivElement>(":scope > [data-toast-announcer]") ?? announcer.current);
+      const target = dialogs.at(-1)?.querySelector<HTMLDivElement>(":scope > [data-toast-announcer]") ?? announcer.current;
+      activeAnnouncementHost.current = target;
+      setAnnouncementHost(target);
     };
     const onOpen = (event: Event) => {
       const dialog = (event as CustomEvent<HTMLDialogElement>).detail;
@@ -111,10 +116,28 @@ export function Toasts() {
       if (el.hidePopover && el.matches(":popover-open")) el.hidePopover();
     };
   }, []);
+  useEffect(() => {
+    // Dialog layout effects may have changed the target before this effect runs.
+    if (!announcementHost || announcementHost !== activeAnnouncementHost.current) return;
+    const visibleIds = new Set(toasts.map(item => item.id));
+    for (const id of announcedIds.current) if (!visibleIds.has(id)) announcedIds.current.delete(id);
+    const additions = toasts.filter(item => !announcedIds.current.has(item.id));
+    for (const item of additions) announcedIds.current.add(item.id);
+    setAnnouncement(previous => {
+      const retained = previous.host === announcementHost ? previous.toasts.filter(item => visibleIds.has(item.id)) : [];
+      if (previous.host === announcementHost && retained.length === previous.toasts.length && !additions.length) return previous;
+      return { host: announcementHost, toasts: [...retained, ...additions] };
+    });
+  }, [toasts, announcementHost]);
   return (
     <>
-      <div ref={announcer} className="sr-only" role="status" aria-live="polite" aria-atomic="false" aria-relevant="additions text" />
-      {announcementHost && createPortal(toasts.map(item => <div key={item.id}>{meta[item.kind].label}: {item.text}</div>), announcementHost)}
+      <div ref={announcer} className="sr-only" />
+      {announcementHost && createPortal(
+        <div role="status" aria-label={t("topbar.notifications")} aria-live="polite" aria-atomic="false" aria-relevant="additions text">
+          {announcement.host === announcementHost && announcement.toasts.map(item => <div key={item.id}>{meta[item.kind].label}: {item.text}</div>)}
+        </div>,
+        announcementHost,
+      )}
       <div ref={host} popover="manual" aria-hidden="true" className="pointer-events-none fixed bottom-5 right-5 left-auto top-auto z-[70] m-0 flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2 overflow-visible border-0 bg-transparent p-0">
         {toasts.map((item) => {
           const m = meta[item.kind];

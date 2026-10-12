@@ -219,7 +219,7 @@ const Card = memo(function Card({
       data-done={doneCat || undefined}
       className={`board-card group relative flex cursor-pointer flex-col ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
     >
-      <div className="board-card-title-row flex items-start gap-2">
+      <div className="board-card-title-row flex min-h-5 items-start gap-2">
         {selecting && (
           <span className="flex shrink-0" onClick={(e) => e.stopPropagation()}>
             <Checkbox checked={selected} onChange={() => onToggleSelect(issue.id)} label={t("backlog.selectRow", { key: issue.key })} labelHidden tabIndex={-1} />

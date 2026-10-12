@@ -193,13 +193,11 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     const h = await setup({ listed: [], get: () => pending });
     act(() => h.store().openIssue("i1"));
     const dialog = screen.getByRole("dialog");
-    const loading = screen.getAllByRole("status").find(node => node.textContent?.includes("Загрузка"));
-    expect(loading).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Загрузка");
     expect(dialog.contains(document.activeElement)).toBe(true);
     await act(async () => { resolve(dto("i1", { title: "Loaded issue" })); });
     await settle();
-    // The dialog keeps a separate, permanent status region for toast announcements.
-    expect(loading!.isConnected).toBe(false);
+    expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByText("Loaded issue")).toBeTruthy();
     expect(screen.getByRole("dialog")).toBe(dialog);
     expect(dialog.contains(document.activeElement)).toBe(true);

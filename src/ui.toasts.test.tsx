@@ -56,28 +56,76 @@ test("permanent announcer and visual host survive queue updates; dialogs raise t
   }
 });
 
-test("announces inside the innermost modal, then returns to its parent and the permanent root region", () => {
+test("host changes announce only new toast IDs, without replaying visible messages", () => {
   const view = (outer: boolean, inner: boolean) => <I18nProvider>
     <Toasts />
     {outer && <Dialog open title="Outer" onClose={() => {}}><input aria-label="Outer input" /></Dialog>}
     {inner && <Dialog open title="Inner" onClose={() => {}}><input aria-label="Inner input" /></Dialog>}
   </I18nProvider>;
   const ui = render(view(false, false));
-  const root = screen.getByRole("status");
+  const rootSlot = screen.getByRole("status", { name: "Уведомления" }).parentElement;
   ui.rerender(view(true, false));
   const outer = screen.getByRole("dialog", { name: "Outer" }).querySelector("[data-toast-announcer]")!;
   expect(outer.textContent).toBe("");
   state.toasts = [{ id: 1, kind: "success", text: "Copied" }];
   ui.rerender(view(true, false));
   expect(outer.textContent).toContain("Copied");
-  expect(root.textContent).toBe("");
   ui.rerender(view(true, true));
   const inner = screen.getByRole("dialog", { name: "Inner" }).querySelector("[data-toast-announcer]")!;
-  expect(inner.textContent).toContain("Copied");
-  expect(outer.textContent).toBe("");
+  expect(inner.textContent).toBe("");
+  expect(outer.childElementCount).toBe(0);
+  state.toasts = [...state.toasts, { id: 2, kind: "info", text: "Saved" }];
+  ui.rerender(view(true, true));
+  expect(inner.textContent).toContain("Saved");
+  expect(inner.textContent).not.toContain("Copied");
   ui.rerender(view(true, false));
-  expect(outer.textContent).toContain("Copied");
+  expect(outer.textContent).toBe("");
+  state.toasts = [...state.toasts, { id: 3, kind: "success", text: "Updated" }];
+  ui.rerender(view(true, false));
+  expect(outer.textContent).toContain("Updated");
+  expect(outer.textContent).not.toMatch(/Copied|Saved/);
   ui.rerender(view(false, false));
-  expect(screen.getByRole("status")).toBe(root);
-  expect(root.textContent).toContain("Copied");
+  const root = screen.getByRole("status", { name: "Уведомления" });
+  expect(root.parentElement).toBe(rootSlot);
+  expect(root.textContent).toBe("");
+  state.toasts = [...state.toasts, { id: 4, kind: "error", text: "Failed" }];
+  ui.rerender(view(false, false));
+  expect(root.textContent).toContain("Failed");
+  expect(root.textContent).not.toMatch(/Copied|Saved|Updated/);
+  state.toasts = [];
+  ui.rerender(view(false, false));
+  expect(root.textContent).toBe("");
+});
+
+test("a dialog without Toasts has no empty status region, and unmounting Toasts removes its live region", () => {
+  const view = (toasts: boolean) => <I18nProvider>
+    <Dialog open title="Standalone" onClose={() => {}}><input aria-label="Title" /></Dialog>
+    {toasts && <Toasts />}
+  </I18nProvider>;
+  const ui = render(view(false));
+  const slot = screen.getByRole("dialog").querySelector("[data-toast-announcer]")!;
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(slot.childElementCount).toBe(0);
+  expect(slot.getAttribute("aria-live")).toBeNull();
+  ui.rerender(view(true));
+  expect(screen.getAllByRole("status")).toHaveLength(1);
+  expect(screen.getByRole("status").parentElement).toBe(slot);
+  ui.rerender(view(false));
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(slot.childElementCount).toBe(0);
+});
+
+test("a toast arriving with a new dialog is announced once inside that dialog", () => {
+  const view = (open: boolean) => <I18nProvider>
+    <Toasts />
+    {open && <Dialog open title="New modal" onClose={() => {}}><input aria-label="Title" /></Dialog>}
+  </I18nProvider>;
+  const ui = render(view(false));
+  state.toasts = [{ id: 1, kind: "success", text: "Saved with dialog" }];
+  ui.rerender(view(true));
+  const region = screen.getByRole("status", { name: "Уведомления" });
+  expect(screen.getByRole("dialog").contains(region)).toBe(true);
+  expect(region.textContent).toContain("Saved with dialog");
+  ui.rerender(view(true));
+  expect(region.children).toHaveLength(1);
 });

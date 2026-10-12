@@ -8,8 +8,8 @@
   .list-bulk-bar { padding-inline: 14px 0; }
   .list-bulk-bar > .ds-btn[data-icon] { min-width: 44px; }
 }
-/* data-selecting is set for the whole select mode (not only with a selection): the bottom space also keeps the hint clear of the last cards. */
-@media (min-width: 640px) { .board-view[data-selecting] .board-col-body { padding-bottom: 80px; } }
-@media (max-width: 639px) { .board-view[data-selecting] .board-scroll { padding-bottom: 80px; } }
+/* Reserve dock clearance outside the lane surfaces in both modes. Selection must
+   not add padding to each card list or change the height of its background. */
+.board-view .board-scroll { padding-bottom: 80px; }
 /* The list view uses 90% density at these widths; match its dock without scaling the board. */
 @media (min-width: 1600px) and (max-width: 2559px) and (pointer: fine) { .board-view .list-selection-dock { zoom: .9; } }

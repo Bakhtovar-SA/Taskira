@@ -25,7 +25,7 @@ for (const [theme, width] of [["light", 1280], ["dark", 390]] as const) {
     await expect(page.locator(".issue-detail")).toBeVisible();
     const host = page.locator('[popover="manual"][aria-hidden="true"]');
     const toasts = host.locator(".anim-toast");
-    const announcer = page.locator('dialog[open] > [data-toast-announcer]');
+    const announcer = page.locator('dialog[open]').getByRole("status", { name: "Уведомления" });
     await expect(announcer).toBeEmpty();
     expect(await host.evaluate(element => element.matches(":popover-open"))).toBe(true);
     await host.evaluate(element => {
@@ -69,7 +69,8 @@ for (const [theme, width] of [["light", 1280], ["dark", 390]] as const) {
     await expectAboveDialog(host);
     await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
     await expect(host).toHaveAttribute("data-toggle-count", "2");
-    await expect(announcer).toContainText("Ссылка на CORP-1 скопирована");
+    // Changing the active dialog must not announce an already visible toast again.
+    await expect(announcer).toBeEmpty();
     await page.screenshot({ path: test.info().outputPath("toast-above-dialog.png") });
     await expect(toasts).toHaveCount(0, { timeout: 6000 });
     expect(await host.evaluate(element => element.matches(":popover-open"))).toBe(true);
