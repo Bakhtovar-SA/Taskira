@@ -12,17 +12,52 @@ test("list refresh: default grouping, dimensions, density and header", async ({ 
   await expect(page.locator(".list-group-head")).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Группировка: статус" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Исполнитель" })).toHaveText("Исполнитель");
-  // DOMRect coordinates can contain floating-point rounding from the sheet transform.
-  expect((await page.locator(".list-head").boundingBox())!.height).toBeCloseTo(36, 2);
-  expect((await page.locator(".list-group-head").first().boundingBox())!.height).toBeCloseTo(36, 2);
-  expect((await page.locator(".list-row").first().boundingBox())!.height).toBeCloseTo(36, 2);
+  // The desktop list (1024–2559 CSS px, mouse) is zoomed to 0.9 so it keeps the 1920 apparent size at every width:
+  // 36 CSS px rows measure 32.4 visual px (32.39 after layout-unit snapping), hence precision 1, not 2.
+  await expect(page.locator(".list-view")).toHaveCSS("zoom", "0.9");
+  const Z = 0.9;
+  expect((await page.locator(".list-head").boundingBox())!.height).toBeCloseTo(36 * Z, 1);
+  expect((await page.locator(".list-group-head").first().boundingBox())!.height).toBeCloseTo(36 * Z, 1);
+  expect((await page.locator(".list-row").first().boundingBox())!.height).toBeCloseTo(36 * Z, 1);
   await page.evaluate(() => document.documentElement.dataset.density = "compact");
   const compactHeight = (await page.locator(".list-row").first().boundingBox())!.height;
-  expect(compactHeight).toBeGreaterThanOrEqual(32);
-  expect(compactHeight).toBeLessThan(36);
+  expect(compactHeight).toBeGreaterThanOrEqual(32 * Z - 0.05);
+  expect(compactHeight).toBeLessThan(36 * Z - 0.05);
   for (const [col, width] of [["priority", 28], ["key", 76], ["direction", 230], ["due", 110], ["assignee", 112]] as const) {
-    expect((await page.locator(`.list-row [data-col=${col}]`).first().boundingBox())!.width).toBeCloseTo(width, 2);
+    expect((await page.locator(`.list-row [data-col=${col}]`).first().boundingBox())!.width).toBeCloseTo(width * Z, 1);
   }
+});
+
+// Popovers opened inside the list inherit its 0.9 zoom; useAnchored must still put them next to their trigger
+// (before the fix they drifted 20–90 px down and 100–300 px left at 1600+ CSS px).
+for (const width of [1280, 1920]) test(`list popovers stay anchored under the list zoom (${width})`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await boardFixture(page);
+  await page.goto("/p/CORP/list");
+  await expect(page.locator(".list-row")).toHaveCount(7);
+  await expect(page.locator(".list-view")).toHaveCSS("zoom", "0.9");
+  const anchored = async (trigger: import("@playwright/test").Locator, popup: import("@playwright/test").Locator, edge: "start" | "end") => {
+    const a = (await trigger.boundingBox())!;
+    await trigger.click();
+    await expect(popup).toBeVisible();
+    await expect.poll(async () => {
+      const m = (await popup.boundingBox())!;
+      const dx = edge === "start" ? m.x - a.x : m.x + m.width - (a.x + a.width);
+      // 6 px gap below the trigger, or above it when the menu flips (the bulk dock sits at the bottom).
+      const gap = Math.min(Math.abs(m.y - (a.y + a.height) - 6), Math.abs(a.y - (m.y + m.height) - 6));
+      return gap < 1.5 && Math.abs(dx) < 1.5;
+    }).toBe(true);
+    await page.keyboard.press("Escape");
+  };
+  const row = page.locator('[data-issue-id="i1"]');
+  await row.hover();
+  await anchored(row.getByRole("button", { name: "Действия", exact: true }), page.getByRole("menu", { name: "Действия" }), "end");
+  await anchored(page.getByRole("button", { name: /^Группировка:/ }), page.getByRole("menu").last(), "end");
+  await row.hover();
+  await row.getByRole("checkbox").locator("..").click();
+  const dock = page.locator(".list-selection-dock");
+  await anchored(dock.getByRole("button", { name: "Действия", exact: true }), page.locator(".ds-pop:popover-open, [role=menu]").last(), "start");
 });
 
 test("list refresh: quick filters, grouping modes and reload", async ({ page }) => {
@@ -198,7 +233,9 @@ test("list annotations: direct import, labeled sort direction and separated head
   const assignee = page.getByRole("columnheader", { name: "Исполнитель", exact: true });
   const updated = page.getByRole("columnheader", { name: "Обновление", exact: true });
   const a = (await assignee.boundingBox())!, b = (await updated.boundingBox())!;
-  expect(b.x - a.x - a.width).toBeGreaterThanOrEqual(11.9);
+  // A 12 CSS px column gap, measured in visual px under the list zoom.
+  const zoom = await page.locator(".list-view").evaluate(el => (el as unknown as { currentCSSZoom: number }).currentCSSZoom);
+  expect((b.x - a.x - a.width) / zoom).toBeGreaterThanOrEqual(11.9);
   expect(await assignee.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await toolbar.getByRole("button", { name: "Импорт", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -235,11 +272,12 @@ test("list annotations: empty direction saves space and populated direction rema
   await page.goto("/p/CORP/list");
   const direction = page.locator('.list-row [data-col="direction"]').first();
   await expect(page.locator(".list-row")).toHaveCount(7);
-  expect((await direction.boundingBox())!.width).toBeCloseTo(140, 2);
+  // 140 / 230 CSS px under the 0.9 desktop list zoom.
+  expect((await direction.boundingBox())!.width).toBeCloseTo(140 * 0.9, 1);
   issues[0].epicId = "epic1";
   await page.reload();
   await expect(direction.locator(".list-direction")).toContainText("Корпоративная платформа");
-  expect((await direction.boundingBox())!.width).toBeCloseTo(230, 2);
+  expect((await direction.boundingBox())!.width).toBeCloseTo(230 * 0.9, 1);
 });
 
 for (const theme of ["light", "dark"]) for (const width of [1920, 3440, 390, 320]) {

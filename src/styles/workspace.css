@@ -562,7 +562,9 @@
   .home-card-head .ds-btn { min-height: 44px; }
   .home-project { padding: 12px; }
 }
-@media(min-width:1600px) and (max-width:2559px) and (pointer:fine) { .list-view { zoom:.9; } }
+/* The list keeps one apparent size across the whole desktop profile (1024–2559 CSS px, mouse): the 1920 reference.
+   Popovers opened inside it inherit the zoom; useAnchored (ds/floating.ts) corrects their position for it. */
+@media(min-width:1024px) and (max-width:2559px) and (pointer:fine) { .list-view { zoom:.9; } }
 
 /* Desktop density follows the user's preferred 80% reference at browser zoom 100%. */
 @media (min-width: 1024px) and (pointer: fine) {
@@ -595,6 +597,12 @@
   :root[data-density="compact"] { --row-h: 38px; }
   :root { --sidebar-default-width: 304px; }
   .board-card { padding: 15px; }
+}
+
+/* Very wide screens (3440×1440 at browser zoom 100%): the owner wants the 2560 profile at ~90% — the same tokens under a
+   smaller root zoom (1.1 × 0.9 = 0.99), so one mechanism scales everything. 2560–3199 CSS px keep the 1.1 profile above. */
+@media (min-width: 3200px) and (pointer: fine) {
+  :root { zoom: 0.99; --viewport-h: calc(100dvh / 0.99); }
 }
 
 /* Contextual list selection: no layout shift; touch keeps the control discoverable. */

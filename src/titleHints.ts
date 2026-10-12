@@ -16,7 +16,7 @@ export function installTitleHints(): () => void {
   const tip = popup;
   stop = autoUpdate(node, tip, () => {
    const scale = Number(getComputedStyle(document.documentElement).zoom) || 1;
-   void computePosition(node, tip, {strategy:'fixed', placement:'top', platform:scale > 1 ? {...platform, getOffsetParent:()=>document.documentElement} : undefined, middleware:[offset(7),flip({padding:8}),shift({padding:8})]}).then(({x,y}) => { if (current !== epoch) return; tip.style.left = Math.min(x, innerWidth / scale - tip.offsetWidth - 8) + 'px'; tip.style.top = Math.min(y, innerHeight / scale - tip.offsetHeight - 8) + 'px'; });
+   void computePosition(node, tip, {strategy:'fixed', placement:'top', platform:scale !== 1 ? {...platform, getOffsetParent:()=>document.documentElement} : undefined, middleware:[offset(7),flip({padding:8}),shift({padding:8})]}).then(({x,y}) => { if (current !== epoch) return; tip.style.left = Math.min(x, innerWidth / scale - tip.offsetWidth - 8) + 'px'; tip.style.top = Math.min(y, innerHeight / scale - tip.offsetHeight - 8) + 'px'; });
   });
  };
  const enter = (event: Event) => {
