@@ -36,6 +36,7 @@ import type { IssueMode } from "../store/mappers";
 import { VIEW_LABEL } from "./Topbar";
 import { issuesApi, usersApi } from "../api";
 import { EnterScope } from "../EnterScope";
+import { Flash } from "../Flash";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -692,7 +693,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           {issue.parentId && <button type="button" className="issue-parent-link ds-focus" onClick={() => openIssue(issue.parentId)} aria-label={parentIssue ? t("issue.subtaskOf", { key: parentIssue.key }) + ": " + parentIssue.title : t("issue.parent")}><IcSubtasks size={16} /><span>{t("issue.subtask")}</span>{parentIssue ? <><b>{parentIssue.key}</b><span className="issue-parent-title">{parentIssue.title}</span></> : <span>{t("solo.loadingIssue")}</span>}</button>}
           <EditableTitle issue={issue} readOnly={!editOk} />
           <div className="issue-action-row">
-            {statusControl}
+            <Flash value={issue.statusId} className="inline-flex">{statusControl}</Flash>
             <AutomationFields compact value={automation.value??{recurrence:null,remindAt:null}} canRepeat={can("manageRecurring")} onOpen={openAutomation}/>
             <span className="issue-creator">{t("issue.createdBy", { name: reporter?.name ?? t("issue.system"), date: fmtDate(new Date(issue.createdAt).toISOString().slice(0, 10), lang) })}{reporter?.authSource === "service" && <span className="ml-1 inline-flex"><Tag size="sm">{t("tokens.serviceTag")}</Tag></span>}</span>
           </div>
@@ -738,6 +739,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           <div>
             <div>
               <Field label={t("field.priority")}>
+                <Flash value={issue.priorityId} className="block">
                 {editOk ? (
                 <Menu
                   label={t("field.priority")}
@@ -761,6 +763,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     <PriorityIcon p={issue.priorityId} size={16} /> {t(`priority.${issue.priorityId}`)}
                   </Locked>
                 )}
+                </Flash>
               </Field>
             </div>
             <div>

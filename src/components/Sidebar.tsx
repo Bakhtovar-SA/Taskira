@@ -161,6 +161,7 @@ export default function Sidebar() {
   }, [open]);
   const unread = useUnreadCount();
   const badgeRef = usePulse<HTMLSpanElement>(unread);
+  const myCountRef = usePulse<HTMLSpanElement>(data.assignedToMe.length, "any");
   const wide = useWide();
 
   // Свёрнута в полосу иконок (≥ 1024 px) — помним локально, как тему.
@@ -363,7 +364,7 @@ export default function Sidebar() {
                 >
                   {v.icon({ size: 16, tone: v.tone })}
                   <span className="flex-1 truncate">{t(v.labelKey)}</span>
-                  {v.id === "my" && <span className="text-[13px] font-semibold tabular text-faint">{data.assignedToMe.length}{data.assignedTruncated ? "+" : ""}</span>}
+                  {v.id === "my" && <span ref={myCountRef} className="text-[13px] font-semibold tabular text-faint">{data.assignedToMe.length}{data.assignedTruncated ? "+" : ""}</span>}
                   {v.id === "inbox" && unread > 0 && (
                     <span ref={badgeRef} className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[13px] font-bold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
                       {unread > 99 ? "99+" : unread}

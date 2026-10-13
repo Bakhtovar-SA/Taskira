@@ -517,9 +517,31 @@
   color: var(--text-1);
   overflow: auto;
 }
-.ds-pop:popover-open {
-  animation: dsPopIn var(--dur-4) var(--ease-spring);
+/* Появление — пружина, уход — быстрое затухание (display/overlay держат окно в верхнем слое на время ухода). */
+.ds-pop {
+  opacity: 0;
+  transform: scale(0.96);
   transform-origin: top left;
+  transition:
+    opacity var(--dur-2) var(--ease-standard),
+    transform var(--dur-2) var(--ease-standard),
+    overlay var(--dur-2) allow-discrete,
+    display var(--dur-2) allow-discrete;
+}
+.ds-pop:popover-open {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-3) var(--ease-out),
+    transform var(--dur-4) var(--ease-spring),
+    overlay var(--dur-4) allow-discrete,
+    display var(--dur-4) allow-discrete;
+}
+@starting-style {
+  .ds-pop:popover-open {
+    opacity: 0;
+    transform: scale(0.94);
+  }
 }
 .ds-pop[data-side="top"] {
   transform-origin: bottom left;
@@ -529,12 +551,6 @@
 }
 .ds-pop[data-side="right"] {
   transform-origin: left center;
-}
-@keyframes dsPopIn {
-  from {
-    opacity: 0;
-    transform: scale(0.94);
-  }
 }
 .ds-menu-item {
   display: flex;
@@ -1116,6 +1132,11 @@
   .ds-box svg,
   .ds-check[data-kind="radio"] .ds-dot {
     transition: opacity var(--dur-2) linear;
+    transform: none;
+  }
+  .ds-pop,
+  .ds-pop:popover-open {
+    transition: none;
     transform: none;
   }
   .ds-pop:popover-open,
