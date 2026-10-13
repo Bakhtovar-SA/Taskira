@@ -3,7 +3,8 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { flash } from "./motion";
 
-export function Flash({ value, className = "", children }: { value: unknown; className?: string; children: ReactNode }) {
+/** `value` — примитив (id статуса, приоритета, строка срока): объект или массив сравнивался бы по ссылке и мигал на каждый рендер. */
+export function Flash({ value, className = "", children }: { value: string | number | boolean | null | undefined; className?: string; children: ReactNode }) {
   const ref = useRef<HTMLSpanElement>(null);
   const prev = useRef(value);
   useLayoutEffect(() => {
