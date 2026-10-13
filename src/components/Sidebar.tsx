@@ -1,6 +1,7 @@
 import { Kbd } from "../ds/Display";
 import { Button, IconButton } from "../ds/Button";
 import { useStore, useUnreadCount } from "../store";
+import { usePulse } from "../usePulse";
 import { GettingStarted } from "./GettingStarted";
 import { Tag } from "../ds/Display";
 import type { ProjectSummary, ViewId } from "../types";
@@ -159,6 +160,7 @@ export default function Sidebar() {
     }
   }, [open]);
   const unread = useUnreadCount();
+  const badgeRef = usePulse<HTMLSpanElement>(unread);
   const wide = useWide();
 
   // Свёрнута в полосу иконок (≥ 1024 px) — помним локально, как тему.
@@ -363,7 +365,7 @@ export default function Sidebar() {
                   <span className="flex-1 truncate">{t(v.labelKey)}</span>
                   {v.id === "my" && <span className="text-[13px] font-semibold tabular text-faint">{data.assignedToMe.length}{data.assignedTruncated ? "+" : ""}</span>}
                   {v.id === "inbox" && unread > 0 && (
-                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[13px] font-bold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
+                    <span ref={badgeRef} className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[13px] font-bold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
                       {unread > 99 ? "99+" : unread}
                     </span>
                   )}

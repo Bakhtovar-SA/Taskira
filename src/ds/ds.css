@@ -309,7 +309,7 @@
 .ds-box svg {
   opacity: 0;
   transform: scale(0.6);
-  transition: opacity var(--dur-2) var(--ease-standard), transform var(--dur-2) var(--ease-out);
+  transition: opacity var(--dur-2) var(--ease-standard), transform var(--dur-4) var(--ease-spring);
 }
 .ds-check:hover .ds-box,
 .ds-check[data-force~="hover"] .ds-box {
@@ -336,7 +336,7 @@
   background: currentColor;
   opacity: 0;
   transform: scale(0.4);
-  transition: opacity var(--dur-2), transform var(--dur-2) var(--ease-out);
+  transition: opacity var(--dur-2), transform var(--dur-4) var(--ease-spring);
 }
 .ds-check[data-kind="radio"] input:checked + .ds-box .ds-dot {
   opacity: 1;
@@ -518,12 +518,22 @@
   overflow: auto;
 }
 .ds-pop:popover-open {
-  animation: dsPopIn var(--dur-2) var(--ease-out);
+  animation: dsPopIn var(--dur-4) var(--ease-spring);
+  transform-origin: top left;
+}
+.ds-pop[data-side="top"] {
+  transform-origin: bottom left;
+}
+.ds-pop[data-side="left"] {
+  transform-origin: right center;
+}
+.ds-pop[data-side="right"] {
+  transform-origin: left center;
 }
 @keyframes dsPopIn {
   from {
     opacity: 0;
-    transform: translateY(-3px) scale(0.98);
+    transform: scale(0.94);
   }
 }
 .ds-menu-item {
@@ -1103,6 +1113,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ds-box svg,
+  .ds-check[data-kind="radio"] .ds-dot {
+    transition: opacity var(--dur-2) linear;
+    transform: none;
+  }
   .ds-pop:popover-open,
   .ds-tip:popover-open,
   .ds-dialog[open],

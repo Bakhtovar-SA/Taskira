@@ -788,6 +788,15 @@ html.vt-theme::view-transition-new(root) {
   }
 }
 
+/* Чек-лист: строка текста зачёркивается плавно (линия растёт слева), а не появляется разом. */
+.cl-text {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 58% / 0% 1px;
+  transition: background-size var(--dur-4) var(--ease-out), color var(--dur-3) var(--ease-standard);
+}
+.cl-text[data-done] {
+  background-size: 100% 1px;
+  color: var(--text-3);
+}
 .anim-fadeup {
   animation: fadeUp var(--dur-3) var(--ease-out) both;
 }
@@ -968,6 +977,9 @@ html.vt-theme::view-transition-new(root) {
   .anim-drop,
   .anim-drop-done {
     animation: none;
+  }
+  .cl-text {
+    transition: color var(--dur-2) linear;
   }
   .timeline-bar,
   .timeline-bar-fill {
