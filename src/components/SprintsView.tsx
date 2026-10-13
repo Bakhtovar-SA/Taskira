@@ -289,7 +289,7 @@ export default function SprintsView() {
             action={can("manageSprints") ? <Button size="sm" onClick={() => setShowCreate(true)}>{t("sprints.new")}</Button> : undefined}
           />
         ) : (
-          <div className="space-y-3 pb-4">
+          <div className="anim-stagger space-y-3 pb-4">
             {sortedSprints.map((s) => (
               <SprintSection key={s.id} sprint={s} issues={issuesBySprintId.get(s.id) ?? []} hasActiveSprint={hasActiveSprint} />
             ))}

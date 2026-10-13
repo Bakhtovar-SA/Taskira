@@ -92,6 +92,7 @@
   background: var(--border-default);
 }
 .project-view-tabs {
+  --project-tab-active-bg: color-mix(in oklch, var(--accent-solid) 16%, var(--bg-panel));
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: thin;
@@ -115,12 +116,14 @@
   font-weight: 500;
 }
 .project-view-tabs [data-tab] > span:first-child { color: var(--text-3); }
+/* Выбранная вкладка: лёгкая акцентная заливка и контур — в тёмных темах серая плашка на сером фоне была почти незаметна. */
 .project-view-tabs [data-tab][aria-current="page"] {
   font-weight: 700;
-  box-shadow: var(--elev-1), inset 0 0 0 1px var(--border-subtle);
+  background: var(--project-tab-active-bg);
+  box-shadow: var(--elev-1), inset 0 0 0 1px var(--accent-muted);
 }
-.project-view-tabs [data-glide] [data-tab][aria-current="page"] { box-shadow: none; }
-.project-view-tabs .ds-tab-glider { border-radius: 8px; box-shadow: var(--elev-1), inset 0 0 0 1px var(--border-subtle); }
+.project-view-tabs [data-glide] [data-tab][aria-current="page"] { background: transparent; box-shadow: none; }
+.project-view-tabs .ds-tab-glider { border-radius: 8px; background: var(--project-tab-active-bg); box-shadow: var(--elev-1), inset 0 0 0 1px var(--accent-muted); }
 .project-view-tabs [data-tab][aria-current="page"] > span:first-child { color: var(--accent-solid); }
 .project-members .ds-av[data-ring] {
   box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 30%, transparent), 0 0 0 2px var(--bg-canvas);
