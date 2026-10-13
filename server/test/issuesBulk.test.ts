@@ -65,7 +65,7 @@ describe("PATCH /issues/bulk — status", () => {
     expect(r.statusCode).toBe(200);
     const body = JSON.parse(r.body);
     expect(body.succeeded).toEqual([own.id]);
-    expect(body.failed).toEqual([{ issueId: foreign.id, reason: "Нет прав на эту задачу" }]);
+    expect(body.failed).toEqual([{ issueId: foreign.id, reason: "Нет прав на эту задачу", code: "FORBIDDEN" }]);
 
     const rows = await q<{ id: string; status_id: string }>(`SELECT id, status_id FROM issues WHERE id = ANY($1)`, [[own.id, foreign.id]]);
     expect(rows.find((row) => row.id === own.id)?.status_id).toBe(fx.p1status.inprogress);
@@ -87,6 +87,7 @@ describe("PATCH /issues/bulk — status", () => {
     expect(body.failed).toHaveLength(1);
     expect(body.failed[0].issueId).toBe(blocked.id);
     expect(body.failed[0].reason).toContain("запрещён схемой");
+    expect(body.failed[0].code).toBe("CONFLICT");
   });
 
   test("несуществующая/чужого проекта задача — в отказах, не 404 на весь запрос", async () => {
@@ -97,7 +98,7 @@ describe("PATCH /issues/bulk — status", () => {
     expect(r.statusCode).toBe(200);
     const body = JSON.parse(r.body);
     expect(body.succeeded).toEqual([ok.id]);
-    expect(body.failed).toEqual([{ issueId: fake, reason: "Задача не найдена в проекте" }]);
+    expect(body.failed).toEqual([{ issueId: fake, reason: "Задача не найдена в проекте", code: "NOT_FOUND" }]);
   });
 });
 

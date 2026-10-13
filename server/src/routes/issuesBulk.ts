@@ -111,7 +111,7 @@ export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
 
       const perm = PERM_FOR_ACTION[body.action];
       const succeeded: string[] = [];
-      const failed: { issueId: string; reason: string }[] = [];
+      const failed: { issueId: string; reason: string; code: string }[] = [];
 
       // action=assignee: назначаемый пользователь один на весь батч — валидируем
       // членство ОДИН раз, а не на каждую задачу выборки.
@@ -128,12 +128,12 @@ export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
       for (const issueId of dedupIds) {
         const row = byId.get(issueId);
         if (!row) {
-          failed.push({ issueId, reason: "Задача не найдена в проекте" });
+          failed.push({ issueId, reason: "Задача не найдена в проекте", code: "NOT_FOUND" });
           continue;
         }
         const issueRef: IssueRef = { id: row.id, assigneeIds: assigneesByIssue.get(row.id) ?? [], reporterId: row.reporter_id };
         if (!roleCan(role, perm, { userId: user.sub, issue: issueRef })) {
-          failed.push({ issueId, reason: "Нет прав на эту задачу" });
+          failed.push({ issueId, reason: "Нет прав на эту задачу", code: "FORBIDDEN" });
           continue;
         }
         try {
@@ -147,7 +147,13 @@ export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
           // отказ здесь: у разных задач в выборке разные текущие статусы, и не для
           // всех цель могла быть достижима по схеме. Остальные ошибки — тоже не
           // роняем весь батч, репортим как отказ по этой конкретной задаче.
-          failed.push({ issueId, reason: e instanceof ApiHttpError ? e.message : "Не удалось применить изменение" });
+          if (e instanceof ApiHttpError) {
+            failed.push({ issueId, reason: e.message, code: e.code });
+          } else {
+            // Не ApiHttpError — сбой БД или нарушенный инвариант: пользователю общий отказ, оператору — строка в логе.
+            req.log.error({ err: e, issueId, action: body.action }, "bulk: не удалось применить действие к задаче");
+            failed.push({ issueId, reason: "Не удалось применить изменение", code: "ERROR" });
+          }
         }
       }
 
