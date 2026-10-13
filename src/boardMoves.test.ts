@@ -26,3 +26,18 @@ test("failed/unconfirmed transitions cannot introduce a card into the destinatio
   const row = issue("moved", 1);
   expect(boardMoveRows([], new Map([[row.id, row]]), "s2", new Map([[row.id, "s2"]]), options)).toEqual([]);
 });
+
+test("пакетная смена статуса: серверная строка новее устаревшей копии в сторе — карточка остаётся в новой колонке", () => {
+  const stale = issue("bulk", 1, { statusId: "s1", updatedAt: 100 });
+  const server = issue("bulk", 1, { statusId: "s2", updatedAt: 200 });
+  const result = boardMoveRows([server], new Map([[stale.id, stale]]), "s2", new Map(), { overdueOnly: false, doneStatus: false });
+  expect(result.map(i => i.id)).toEqual(["bulk"]);
+  expect(result[0].statusId).toBe("s2");
+});
+
+test("правка из стора, которая новее серверной строки, по-прежнему побеждает (оптимистичное обновление)", () => {
+  const server = issue("a", 1, { statusId: "s1", updatedAt: 100 });
+  const local = issue("a", 1, { statusId: "s1", updatedAt: 300, title: "правка" } as Partial<Issue>);
+  const result = boardMoveRows([server], new Map([[local.id, local]]), "s1", new Map(), { overdueOnly: false, doneStatus: false });
+  expect(result[0]).toBe(local);
+});
