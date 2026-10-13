@@ -1021,7 +1021,7 @@ export default function Board() {
       {selectMode && !selectedIds.size && <Hint id="board-select" className="board-select-hint absolute inset-x-4 bottom-4 z-20 mx-auto w-fit">{t("board.selectHint")}</Hint>}
       {selectMode && selectedIds.size > 0 && (
         <Suspense fallback={null}>
-          <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} />
+          <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} onBeforeStatus={onBeforeCreate} />
         </Suspense>
       )}
     </div>

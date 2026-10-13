@@ -1,7 +1,7 @@
 // ADR-0035 (прототип): FLIP доски — снимок до переноса, проигрыш после коммита, повторный проигрыш идемпотентен.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { flipFrom, motionReduced } from "./motion";
-import { cancelBoardFlip, flipPending, noteLanding, playBoardFlip, snapshotBoard } from "./boardFlip";
+import { cancelBoardFlip, flipPending, noteLanding, playBoardFlip, renewBoardFlip, snapshotBoard } from "./boardFlip";
 
 vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
 
@@ -90,4 +90,41 @@ test("отказ первого переноса не стирает снимо�
   expect(flipPending("b")).toBe(true);
   cancelBoardFlip(second);
   expect(flipPending("b")).toBe(false);
+});
+
+test("продление снимка после ответа сервера: перелёт играет, даже если перечитывание списка дольше TTL", () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(0);
+    tops.set("a", 0).set("b", 100);
+    const root = board(["a", "b"]);
+    const owner = snapshotBoard(root, null);
+    // Ответ сервера принят: возраст снимка — от него, плюс запас на второй запрос.
+    vi.setSystemTime(2000);
+    renewBoardFlip(owner);
+    // Перечитывание списка закончилось через 6 с после клика (> 3 с TTL от клика, но в пределах продления).
+    vi.setSystemTime(6000);
+    tops.set("a", 100).set("b", 0);
+    expect(flipPending("a")).toBe(true);
+    playBoardFlip();
+    expect(flipFrom).toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("продлённый снимок закрывается после первого коммита с переездом", () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  const owner = snapshotBoard(root, null);
+  renewBoardFlip(owner);
+  tops.set("a", 100).set("b", 0);
+  playBoardFlip();
+  expect(flipFrom).toHaveBeenCalled();
+  vi.mocked(flipFrom).mockClear();
+  // Чужое изменение позже: снимка уже нет, ничего не анимируется от устаревших положений.
+  expect(flipPending("a")).toBe(false);
+  tops.set("a", 0).set("b", 100);
+  playBoardFlip();
+  expect(flipFrom).not.toHaveBeenCalled();
 });
