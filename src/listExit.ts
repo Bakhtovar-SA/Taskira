@@ -31,6 +31,14 @@ export function createRowMotion(): RowMotion {
     for (const id of ids) {
       const el = find(id);
       if (!el) continue;
+      // Строка ещё едет (сдвиг/въезд): getBoundingClientRect вернёт середину пути, и повторный commit (ревалидация сразу
+      // после PATCH/transition) сравнил бы её с итоговой позицией, отменил бы пружину и не запустил новую. Пока строка
+      // анимируется, остаёмся при последней итоговой позиции.
+      const known = prev?.get(id);
+      if (known && known.el === el && el.getAnimations?.().length) {
+        now.set(id, known);
+        continue;
+      }
       const r = el.getBoundingClientRect();
       now.set(id, { el, box: { left: (r.left - h.left) / z, top: (r.top - h.top) / z, width: r.width / z, height: r.height / z } });
     }

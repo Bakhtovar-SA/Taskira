@@ -67,3 +67,22 @@ test("базовая линия и список без перемен — без
   motion(host, ["a"], find, true); // смена запроса: уход без движения
   expect(host.querySelector(".list-row-ghost")).toBeNull();
 });
+
+test("строка в полёте: повторный commit не сравнивает середину пути с итогом и не отменяет пружину", () => {
+  const motion = createRowMotion();
+  const els: Record<string, HTMLElement> = { a: row("a", 0), b: row("b", 40) };
+  const find = (id: string) => els[id];
+  motion(host, ["a", "b"], find, true);
+  tops.set("b", 0); // b переехала наверх: первый commit запускает сдвиг
+  tops.set("a", 40);
+  motion(host, ["b", "a"], find, false);
+  expect(flipFrom).toHaveBeenCalledTimes(2);
+  flipFrom.mockClear();
+
+  // Второй commit (ревалидация): строки ещё анимируются, rect показывает середину пути.
+  for (const id of ["a", "b"]) els[id].getAnimations = () => [{}] as unknown as Animation[];
+  tops.set("b", 25);
+  tops.set("a", 15);
+  motion(host, ["b", "a"], find, false);
+  expect(flipFrom).not.toHaveBeenCalled();
+});
