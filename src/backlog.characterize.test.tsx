@@ -120,7 +120,8 @@ const STATUSES = [
 const bootWith = (role: ProjectRole): ProjectBootstrap => ({
   project,
   users: [user1, user2] as never,
-  members: [{ userId: "u1", role }],
+  // u2 — тоже участник: в массовом назначении предлагаются только участники проекта (иначе сервер отказывает целиком).
+  members: [{ userId: "u1", role }, { userId: "u2", role: "employee" as ProjectRole }],
   workflow: { statuses: STATUSES, transitions: [] },
   issueTemplates: [],
   customFields: [],
