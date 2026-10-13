@@ -23,7 +23,7 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
 
   const run = async (body: Parameters<typeof bulkApplyIssueAction>[0]) => {
     setBusy(true);
-    const flip = body.action === "status" ? (onBeforeStatus?.() ?? null) : null;
+    const flip = body.action === "status" && can("transition") ? (onBeforeStatus?.() ?? null) : null;
     try {
       const res = await bulkApplyIssueAction(body);
       // Ничего не изменилось (отказ или все пропущены) — снимок не нужен, иначе чужой коммит анимировался бы от него.
