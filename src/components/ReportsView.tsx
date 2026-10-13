@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { downloadReportCsv, reportsApi, type ReportGroup, type ReportScope, type ReportSummary } from "../api";
 import { useStore } from "../store";
 import { useT, type TKey } from "../i18n";
@@ -32,12 +32,14 @@ function Trend({ report }: { report: ReportSummary }) {
   const W = Math.max(520, points.length * 68), H = 256, base = 218;
   const slot = (W - 36) / Math.max(1, points.length);
   const fmt = (s: string) => date(s).toLocaleDateString(lang, { day: "numeric", month: "short", timeZone: "UTC" });
+  // Идентификаторы градиентов уникальны для каждого экземпляра графика (два графика на странице не делят <defs>).
+  const gid = useId().replace(/:/g, "");
   return <section className="reports-panel reports-chart">
     <div className="reports-panel-head"><h2>{t("reports.trend.title")}</h2><span className="reports-legend"><i data-series="created" />{t("reports.table.created")}<i data-series="closed" />{t("reports.table.closed")}</span></div>
     <div className="reports-chart-scroll ds-focus" tabIndex={0} role="region" aria-label={t("reports.trend.title")} ref={cssVars({ "--report-chart-width": `${W}px` })}>
       <svg role="img" aria-label={t("reports.trend.title")} viewBox={`0 0 ${W} ${H}`} width={W} height={H}>
         <title>{t("reports.trend.title")}</title>
-        <defs>{(["created", "closed"] as const).map(series => <linearGradient key={series} id={`reports-g-${series}`} data-series={series} x1="0" y1="0" x2="0" y2="1"><stop offset="0" /><stop offset="1" /></linearGradient>)}</defs>
+        <defs>{(["created", "closed"] as const).map(series => <linearGradient key={series} id={`${gid}-${series}`} data-series={series} x1="0" y1="0" x2="0" y2="1"><stop offset="0" /><stop offset="1" /></linearGradient>)}</defs>
         {[0, 1, 2, 3].map(i => <line key={i} x1={18} x2={W - 18} y1={base - i * 60} y2={base - i * 60} className="reports-gridline" />)}
         {points.map((p, i) => {
           const x = 18 + slot * (i + .5), bw = Math.min(22, Math.round(slot * .28));
@@ -45,7 +47,7 @@ function Trend({ report }: { report: ReportSummary }) {
             <title>{`${fmt(p.week)}: ${t("reports.table.created")} ${p.created ?? "—"}, ${t("reports.table.closed")} ${p.closed}`}</title>
             {(["created", "closed"] as const).map((series, j) => {
               const value = p[series], h = Math.round(((value ?? 0) / max) * 174), bx = Math.round(x + (j ? 3 : -bw - 3));
-              return <g key={series}><rect data-series={series} x={bx} y={base - h} width={bw} height={h} rx={3} /><text x={bx + bw / 2} y={base - h - 8} textAnchor="middle">{value ?? "—"}</text></g>;
+              return <g key={series}><rect data-series={series} fill={`url(#${gid}-${series})`} x={bx} y={base - h} width={bw} height={h} rx={3} /><text x={bx + bw / 2} y={base - h - 8} textAnchor="middle">{value ?? "—"}</text></g>;
             })}
             <text x={x} y={base + 25} textAnchor="middle">{fmt(p.week)}</text>
           </g>;

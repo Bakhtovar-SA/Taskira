@@ -32,8 +32,7 @@
 .reports-chart svg {display:block;width:var(--report-chart-width);margin:0 auto}
 .reports-chart [data-series=created] {--c:var(--chart-1)}
 .reports-chart [data-series=closed] {--c:var(--chart-3)}
-.reports-chart rect[data-series] {fill:url(#reports-g-closed);stroke:color-mix(in oklch,white 24%,transparent);stroke-width:1}
-.reports-chart rect[data-series=created] {fill:url(#reports-g-created)}
+.reports-chart rect[data-series] {stroke:color-mix(in oklch,white 24%,transparent);stroke-width:1}
 .reports-chart stop:first-child {stop-color:color-mix(in oklch,var(--c),white 32%)}
 .reports-chart stop:last-child {stop-color:color-mix(in oklch,var(--c),black 18%)}
 .reports-chart text {fill:var(--text-2);font-size:13px;font-variant-numeric:tabular-nums}
