@@ -2,7 +2,8 @@ import QuickCreate from "./QuickCreateIssue";
 import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
-import { flipFrom } from "../motion";
+import { enter, preloadMotion } from "../motion";
+import { cancelBoardFlip, flipPending, noteLanding as noteFlipLanding, playBoardFlip, snapshotBoard } from "../boardFlip";
 import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { IssueFilterSummary } from "./IssueFilterSummary";
@@ -27,6 +28,7 @@ import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { preloadIssueModal } from "../lazyModals";
 import { boardMoveRows } from "../boardMoves";
+import { usePulse } from "../usePulse";
 import { issuesApi, type IssueEpic, type IssueFilterParams } from "../api";
 import {
   ISSUE_PAGE_SIZE,
@@ -123,15 +125,16 @@ const Card = memo(function Card({
     [issue.assigneeIds, usersById],
   );
   const [menu, setMenu] = useState(false);
-  // Приземление после переноса (ТЗ 5.13 п.3): карточка появилась на новом месте (ответ сервера) — доезжает туда
-  // из точки, где отпустили «призрак». Только для только что брошенной карточки, не для чужих перемещений.
+  // Приземление после переноса (ТЗ 5.13 п.3) и сдвиг соседей — FLIP в `boardFlip.ts` по снимку из `moveOnBoard`.
+  // Здесь — только появление (ADR-0035, прототип): карточка смонтировалась с отметкой свежего события и не
+  // переносом (у переноса есть снимок) — значит, это новая задача; въезжает пружиной. Один раз, при монтировании.
   const cardRef = useRef<HTMLElement>(null);
+  // Новая карточка (не перенос): въезжает пружиной `enter()`, а CSS-приземление `dropLand` ей не нужно — иначе два
+  // движения по transform спорят. Цветовая вспышка остаётся (`anim-flash*`, без transform).
+  const [fresh] = useState(() => flash && !flipPending(issue.id));
   useLayoutEffect(() => {
-    const l = landing;
-    if (!l || l.id !== issue.id || l.statusId !== issue.statusId || performance.now() - l.at > 1500 || !cardRef.current) return;
-    landing = null;
-    flipFrom(cardRef.current, l.left, l.top);
-  }, [issue.id, issue.statusId, issue.rank]);
+    if (fresh && cardRef.current) enter(cardRef.current);
+  }, []);
   const doneCat = status?.category === "done";
   const today = localToday();
   const dueDays = issue.dueDate ? Math.round((Date.parse(issue.dueDate) - Date.parse(today)) / 864e5) : null;
@@ -217,7 +220,7 @@ const Card = memo(function Card({
       data-issue-id={issue.id}
       data-priority={!doneCat && issue.priorityId === "critical" ? "critical" : undefined}
       data-done={doneCat || undefined}
-      className={`board-card group relative flex cursor-pointer flex-col ${flash ? (doneCat ? "anim-drop-done" : "anim-drop") : ""}`}
+      className={`board-card group relative flex cursor-pointer flex-col ${flash ? `anim-${fresh ? "flash" : "drop"}${doneCat ? "-done" : ""}` : ""}`}
     >
       <div className="board-card-title-row flex min-h-5 items-start gap-2">
         {selecting && (
@@ -279,10 +282,7 @@ function BoardSkeletonCard() {
 /** Где курсор взял карточку и куда её отпустили — для FLIP-приземления в Card (модульное состояние: перетаскивание
  *  одно на страницу, а через React оно перерисовало бы доску). */
 let grab = { x: 0, y: 0 };
-let landing: { id: string; statusId: string; left: number; top: number; at: number } | null = null;
-const noteLanding = (id: string, statusId: string, e: React.DragEvent) => {
-  landing = { id, statusId, left: e.clientX - grab.x, top: e.clientY - grab.y, at: performance.now() };
-};
+const noteLanding = (id: string, e: React.DragEvent) => noteFlipLanding(id, e.clientX - grab.x, e.clientY - grab.y);
 
 function setDragGhost(e: React.DragEvent<HTMLElement>) {
   const card = e.currentTarget;
@@ -341,6 +341,9 @@ const ColumnCards = memo(function ColumnCards({
     }
     if (applied.length) onMovesApplied(applied);
   }, [moves, idx.issues, filters.status, set.items, onMovesApplied]);
+
+  // FLIP после коммита строк (ADR-0035, прототип): колонка и так перерисовывается при их смене — без нового состояния.
+  useLayoutEffect(playBoardFlip, [rows]);
 
   const { hasMore, loading, loadingMore, loadMore } = set;
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length, "200px");
@@ -409,6 +412,7 @@ const BoardColumn = memo(function BoardColumn({
   isFirstTodo,
   quickOpen,
   setQuickFor,
+  onBeforeCreate,
   projectId,
   revision,
   usersById,
@@ -447,6 +451,7 @@ const BoardColumn = memo(function BoardColumn({
   isFirstTodo: boolean;
   quickOpen: boolean;
   setQuickFor: (id: string | null) => void;
+  onBeforeCreate: () => object | null;
   projectId: string | null;
   revision: string;
   usersById: ReadonlyMap<string, User>;
@@ -472,6 +477,7 @@ const BoardColumn = memo(function BoardColumn({
 }) {
   const { t } = useT();
   const isOver = useExternalStore(hoverStore, (id) => id === st.id);
+  const countRef = usePulse<HTMLSpanElement>(total, "any");
   const statusPos = posById.get(st.id) ?? 0.5;
   const onOver = useCallback(() => setOverCol(st.id), [setOverCol, st.id]);
   const onDropOn = useCallback(
@@ -482,7 +488,7 @@ const BoardColumn = memo(function BoardColumn({
       setOverCol(null);
       setDragId(null);
       if (id && id !== target.id) {
-        noteLanding(id, st.id, e);
+        noteLanding(id, e);
         moveStatus(id, st.id, target.id);
       }
     },
@@ -533,7 +539,7 @@ const BoardColumn = memo(function BoardColumn({
         setDragId(null);
         dragRef.current = null;
         if (id) {
-          noteLanding(id, st.id, e);
+          noteLanding(id, e);
           moveStatus(id, st.id, null);
         }
       }}
@@ -543,7 +549,7 @@ const BoardColumn = memo(function BoardColumn({
       <header className="board-col-header group/col flex shrink-0 items-center gap-2 px-1.5">
         <StatusGlyph category={st.category} position={statusPos} size={16} />
         <h2 className="min-w-0 truncate text-[15px] font-bold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h2>
-        <span className="tabular text-[13.5px] text-faint">{total ?? "…"}</span>
+        <span ref={countRef} className="tabular text-[13.5px] text-faint">{total ?? "…"}</span>
         {isDone && !showAllDone && <span className="board-done-window text-[13px] text-faint">{t("board.doneWindow", { days: DONE_WINDOW_DAYS })}</span>}
         {canCreate && isFirstTodo && (
           <button
@@ -563,7 +569,7 @@ const BoardColumn = memo(function BoardColumn({
         className="pointer-events-none board-col-highlight absolute inset-0 rounded-xl"
       />
       <div className={`${BOARD_COLUMN_BODY} relative`}>
-        {canCreate && isFirstTodo && quickOpen && <QuickCreate status={st} onDone={() => setQuickFor(null)} />}
+        {canCreate && isFirstTodo && quickOpen && <QuickCreate status={st} onDone={() => setQuickFor(null)} onBeforeSubmit={onBeforeCreate} />}
         {projectId && (
           <ColumnCards
             projectId={projectId}
@@ -609,7 +615,7 @@ const BoardColumn = memo(function BoardColumn({
         )}
       </div>
       {isOver && !ok && (
-        <p className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 rounded-md bg-dangersoft px-2 py-1 text-center text-[13px] font-medium text-[var(--status-danger-fg)]">
+        <p className="anim-pop pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 rounded-md bg-dangersoft px-2 py-1 text-center text-[13px] font-medium text-[var(--status-danger-fg)]">
           {t("board.transitionOutOfSchema", {
             from: draggedStatusId ? workflowStatusName(statusById.get(draggedStatusId) ?? { name: "" }, t) : "",
             to: workflowStatusName(st, t),
@@ -633,6 +639,16 @@ export default function Board() {
     document.addEventListener("keydown", keyboard, true);
     document.addEventListener("pointerdown", pointer, true);
     return () => { document.removeEventListener("keydown", keyboard, true); document.removeEventListener("pointerdown", pointer, true); };
+  }, []);
+  // Чанк пружин (ADR-0035) — на простое после первого экрана доски, чтобы первый перенос уже был пружиной.
+  useEffect(() => {
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => void preloadMotion(), { timeout: 2000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(() => void preloadMotion(), 500);
+    return () => window.clearTimeout(id);
   }, []);
   const { photo: personalPhoto, error: boardPhotoError } = usePersonalBoardPhoto(data.currentUserId, data.currentProjectId);
   const canMove = can("transition");
@@ -780,13 +796,14 @@ export default function Board() {
   }, [moveQueryKey]);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
     if (!canMove) return;
+    const flip = snapshotBoard(boardRoot.current, id);
     const request = Symbol();
     moveRequests.current.set(id, request);
     moveStatus(id, to, before, confirmed => {
       if (moveRequests.current.get(id) !== request) return;
       moveRequests.current.delete(id);
       if (moveQueryRef.current !== moveQueryKey) return;
-      if (!confirmed) { onMovesApplied([id]); return; }
+      if (!confirmed) { cancelBoardFlip(flip); onMovesApplied([id]); return; }
       setLocalMoves(prev => {
         const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
         next.delete(id);
@@ -867,6 +884,7 @@ export default function Board() {
 
   // Колбэки карточек стабильны: задачу они получают аргументом (ADR-0011, шаг 0).
   const onMove = useCallback((id: string, to: string) => moveOnBoard(id, to, null), [moveOnBoard]);
+  const onBeforeCreate = useCallback(() => snapshotBoard(boardRoot.current, null), []);
   const onCardDragStart = useCallback((i: Issue) => {
     setDragId(i.id);
     setDragIssue(i);
@@ -972,6 +990,7 @@ export default function Board() {
                 isFirstTodo={st.id === firstTodoId}
                 quickOpen={quickFor === st.id}
                 setQuickFor={setQuickFor}
+                onBeforeCreate={onBeforeCreate}
                 projectId={projectId}
                 revision={revision}
                 usersById={usersById}

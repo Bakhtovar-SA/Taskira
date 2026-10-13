@@ -21,6 +21,7 @@
     "bundle:check": "node scripts/check-bundle-size.mjs",
     "perf:rerenders": "vitest run --config vitest.perf.config.ts",
     "csp:spike": "node scripts/csp-spike/run.mjs",
+    "motion:spike": "node scripts/motion-spike/run.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "playwright test",
@@ -28,6 +29,7 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
+    "motion": "13.4.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "wouter": "^3.11.0"

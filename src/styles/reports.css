@@ -30,8 +30,11 @@
 .reports-legend [data-series=closed] {background:var(--chart-3)}
 .reports-chart-scroll,.reports-table-scroll {overflow-x:auto}
 .reports-chart svg {display:block;width:var(--report-chart-width);margin:0 auto}
-.reports-chart rect[data-series=created] {fill:var(--chart-1)}
-.reports-chart rect[data-series=closed] {fill:var(--chart-3)}
+.reports-chart [data-series=created] {--c:var(--chart-1)}
+.reports-chart [data-series=closed] {--c:var(--chart-3)}
+.reports-chart rect[data-series] {stroke:color-mix(in oklch,white 24%,transparent);stroke-width:1}
+.reports-chart stop:first-child {stop-color:color-mix(in oklch,var(--c),white 32%)}
+.reports-chart stop:last-child {stop-color:color-mix(in oklch,var(--c),black 18%)}
 .reports-chart text {fill:var(--text-2);font-size:13px;font-variant-numeric:tabular-nums}
 .reports-gridline {stroke:var(--border-subtle);stroke-width:1}
 .reports-chart-data {margin-top:12px;font-size:13px;color:var(--text-2)}
@@ -47,3 +50,15 @@
 .reports-error {display:flex;align-items:center;gap:12px;padding:16px;border-radius:12px;background:var(--status-danger-bg);color:var(--status-danger-fg)}
 @media(max-width:1100px) {.reports-header {flex-wrap:wrap;padding-top:12px;gap:8px}.reports-header nav {order:3;width:100%;height:44px}.reports-header-actions {margin-left:auto}.reports-metrics {gap:8px}.reports-metric {padding:12px}}
 @media(max-width:800px) {.reports-metrics {grid-template-columns:repeat(2,minmax(0,1fr))}.reports-panels {grid-template-columns:minmax(0,1fr)}.reports-header,.reports-filters {padding-left:16px;padding-right:16px}.reports-content {padding:16px}.reports-filters .ds-tab,.reports-filters .ds-btn,.reports-header .ds-tab,.reports-header .ds-btn,.reports-chart-data summary {min-height:44px}.reports-panel-head {flex-wrap:wrap}}
+
+/* Карточки отчёта появляются по очереди (как на «Главной» и в дашбордах): только прозрачность, без сдвига раскладки. */
+.reports-content > .reports-metrics,.reports-content > .reports-panels {animation:none}
+.reports-metrics > *,.reports-panels > * {animation:viewIn var(--dur-4) var(--ease-out) backwards}
+.reports-metrics > :nth-child(2) {animation-delay:40ms}
+.reports-metrics > :nth-child(3) {animation-delay:80ms}
+.reports-metrics > :nth-child(4) {animation-delay:120ms}
+.reports-metrics > :nth-child(5) {animation-delay:160ms}
+.reports-panels > :nth-child(1) {animation-delay:200ms}
+.reports-panels > :nth-child(2) {animation-delay:260ms}
+.reports-content > .reports-footnote {animation:viewIn var(--dur-4) var(--ease-out) backwards;animation-delay:320ms}
+@media (prefers-reduced-motion: reduce) {.reports-metrics > *,.reports-panels > *,.reports-content > .reports-footnote {animation:none}}

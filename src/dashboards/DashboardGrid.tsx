@@ -120,7 +120,7 @@ export function DashboardGrid({
           e.preventDefault();
           endDrag();
         }}
-        className={`dash-grid ${editing ? "dash-grid-editing" : ""}`}
+        className={`dash-grid anim-stagger ${editing ? "dash-grid-editing" : ""}`}
         data-dragging={dragging ? "true" : undefined}
       >
         {ordered.map((w) => (

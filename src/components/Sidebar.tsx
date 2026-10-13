@@ -1,6 +1,8 @@
 import { Kbd } from "../ds/Display";
 import { Button, IconButton } from "../ds/Button";
 import { useStore, useUnreadCount } from "../store";
+import { usePulse } from "../usePulse";
+import { cssZoom, glideWidth, preloadMotionIdle } from "../motion";
 import { GettingStarted } from "./GettingStarted";
 import { Tag } from "../ds/Display";
 import type { ProjectSummary, ViewId } from "../types";
@@ -30,7 +32,7 @@ import {
 import { BrandMark, BrandName } from "./BrandMark";
 import { useBrandName } from "../brand";
 import { ProjectMark } from "../ui";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useT, type TKey } from "../i18n";
 import { openProjectWizard } from "../palette/events";
 import "../styles/navigation.css";
@@ -159,6 +161,8 @@ export default function Sidebar() {
     }
   }, [open]);
   const unread = useUnreadCount();
+  const badgeRef = usePulse<HTMLSpanElement>(unread);
+  const myCountRef = usePulse<HTMLSpanElement>(data.assignedToMe.length, "any");
   const wide = useWide();
 
   // Свёрнута в полосу иконок (≥ 1024 px) — помним локально, как тему.
@@ -177,12 +181,27 @@ export default function Sidebar() {
     }
   }, [collapsed]);
   const rail = collapsed && wide;
+  const firstShell = useRef(true);
+  useLayoutEffect(() => {
+    if (firstShell.current) { firstShell.current = false; return; }
+    const from = widthBefore.current;
+    widthBefore.current = null;
+    const shell = document.querySelector<HTMLElement>("aside.glass-side");
+    if (from === null || !shell) return;
+    glideWidth(shell, from, shell.getBoundingClientRect().width / cssZoom(shell));
+  }, [rail]);
+  useEffect(() => preloadMotionIdle(), []);
 
   // Выезжающая панель на узком экране: открывает кнопка «Меню» в шапке, закрывает
   // переход, Esc или клик мимо.
   const [drawer, setDrawer] = useState(false);
   const drawerOpener = useRef<HTMLElement | null>(null);
+  // Свёртка/развёртка: «корпус» (aside.glass-side) пересоздаётся с другой разметкой — запоминаем ширину прежнего и
+  // после коммита плавно ведём новый от неё (ADR-0035, прототип). Содержимое рядом едет вместе с шириной панели.
+  const widthBefore = useRef<number | null>(null);
   const changeCollapsed = (next: boolean) => {
+    const shell = document.querySelector<HTMLElement>("aside.glass-side");
+    widthBefore.current = wide && shell ? shell.getBoundingClientRect().width / cssZoom(shell) : null; // в режиме выезжающей панели `rail` не меняется — устаревшая ширина не нужна
     setCollapsed(next);
     requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-sidebar-toggle]")?.focus());
   };
@@ -361,9 +380,9 @@ export default function Sidebar() {
                 >
                   {v.icon({ size: 16, tone: v.tone })}
                   <span className="flex-1 truncate">{t(v.labelKey)}</span>
-                  {v.id === "my" && <span className="text-[13px] font-semibold tabular text-faint">{data.assignedToMe.length}{data.assignedTruncated ? "+" : ""}</span>}
+                  {v.id === "my" && <span ref={myCountRef} className="text-[13px] font-semibold tabular text-faint">{data.assignedToMe.length}{data.assignedTruncated ? "+" : ""}</span>}
                   {v.id === "inbox" && unread > 0 && (
-                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[13px] font-bold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
+                    <span ref={badgeRef} className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[13px] font-bold tabular text-onaccent shadow-[0_2px_8px_-2px_var(--accent-glow)]">
                       {unread > 99 ? "99+" : unread}
                     </span>
                   )}

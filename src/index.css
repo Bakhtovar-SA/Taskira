@@ -788,6 +788,15 @@ html.vt-theme::view-transition-new(root) {
   }
 }
 
+/* Чек-лист: зачёркивание проявляется плавно (цвет линии), на каждой строке при переносе; не пропадает в forced-colors. */
+.cl-text {
+  text-decoration: line-through transparent;
+  transition: text-decoration-color var(--dur-4) var(--ease-out), color var(--dur-3) var(--ease-standard);
+}
+.cl-text[data-done] {
+  text-decoration-color: currentColor;
+  color: var(--text-3);
+}
 .anim-fadeup {
   animation: fadeUp var(--dur-3) var(--ease-out) both;
 }
@@ -868,6 +877,13 @@ html.vt-theme::view-transition-new(root) {
 }
 .anim-drop-done {
   animation: dropLand var(--dur-3) var(--ease-out) both, doneFlash var(--dur-5) ease-out both;
+}
+/* Новая карточка: только вспышка — въезд делает `enter()` (ADR-0035), приземление `dropLand` ей не нужно. */
+.anim-flash {
+  animation: cardFlash var(--dur-5) ease-out both;
+}
+.anim-flash-done {
+  animation: doneFlash var(--dur-5) ease-out both;
 }
 
 /* Сетка шкалы времени (TimeCanvas.tsx): тонкая линия на каждом мелком делении. */
@@ -962,6 +978,9 @@ html.vt-theme::view-transition-new(root) {
   .anim-drop-done {
     animation: none;
   }
+  .cl-text {
+    transition: none;
+  }
   .timeline-bar,
   .timeline-bar-fill {
     transition: none;
@@ -1007,3 +1026,47 @@ button {
 }
 
 .tk-nav-rail > span { justify-content: center; }
+
+/* Вход экранов и их содержимого (ADR-0035, второй/третий заход): только прозрачность и штрих линии — без transform и
+   размеров, чтобы замеры раскладки (e2e, getBoundingClientRect) не плыли во время появления. */
+@keyframes viewIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.anim-view {
+  animation: viewIn var(--dur-3) var(--ease-out) both;
+}
+.anim-stagger > * {
+  animation: viewIn var(--dur-4) var(--ease-out) backwards;
+}
+.anim-stagger > :nth-child(2) { animation-delay: 40ms; }
+.anim-stagger > :nth-child(3) { animation-delay: 80ms; }
+.anim-stagger > :nth-child(4) { animation-delay: 120ms; }
+.anim-stagger > :nth-child(5) { animation-delay: 160ms; }
+.anim-stagger > :nth-child(6) { animation-delay: 200ms; }
+.anim-stagger > :nth-child(n + 7) { animation-delay: 240ms; }
+.chart-line {
+  stroke-dasharray: 1;
+  animation: drawLine var(--dur-5) var(--ease-out) backwards;
+}
+.reports-chart rect[data-series] {
+  animation: viewIn var(--dur-4) var(--ease-out) backwards;
+}
+.ds-empty {
+  animation: viewIn var(--dur-4) var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-view,
+  .anim-stagger > *,
+  .chart-line,
+  .reports-chart rect[data-series],
+  .ds-empty {
+    animation: none;
+  }
+}

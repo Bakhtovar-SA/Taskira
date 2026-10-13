@@ -2,7 +2,8 @@ import { IconButton } from "../ds/Button";
 import { PersonAvatar } from "./settings/parts";
 /** «Входящие» (ADR-0013 §1, `/inbox`) — полная страница ленты уведомлений; колокол в шапке
  *  остаётся быстрым просмотром той же ленты. Данные — внешний стор уведомлений (ADR-0011). */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createEnterTracker, type EnterTracker } from "../listEnter";
 import { lookOf } from "../projectLook";
 import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
@@ -57,6 +58,16 @@ export default function InboxView() {
   const list = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const projectKey = useMemo(() => new Map(data.projects.map((p) => [p.id, p.key])), [data.projects]);
   const cur = Math.min(cursor, Math.max(0, list.length - 1));
+  // Новое событие во время просмотра въезжает пружиной; первый показ, смена фильтра и первая загрузка в пустой
+  // список (у стора уведомлений нет признака загрузки) — без движения (ADR-0035).
+  const enterRows = useRef<EnterTracker | null>(null);
+  const enterPrev = useRef<{ filter: Filter; n: number } | null>(null);
+  useLayoutEffect(() => {
+    enterRows.current ??= createEnterTracker();
+    const baseline = !enterPrev.current || enterPrev.current.filter !== filter || enterPrev.current.n === 0;
+    enterPrev.current = { filter, n: list.length };
+    enterRows.current(list.map((th) => th.head.id), (id) => listRef.current?.querySelector<HTMLElement>(`[data-enter-id="${CSS.escape(id)}"]`), baseline);
+  }, [list, filter]);
 
   const go = (th: Thread) => {
     const n = th.head;
@@ -154,7 +165,7 @@ export default function InboxView() {
             />
           </div>
         ) : (
-          <div ref={listRef} className="mt-6 space-y-6">
+          <div ref={listRef} className="anim-stagger mt-6 space-y-6">
             {groups.map((g) => (
               <section key={g.id}>
                 <h2 className="mb-2 px-1 text-[12.5px] font-semibold tracking-[0.01em] text-faint">{t(`inbox.${g.id}`)}</h2>
@@ -168,6 +179,7 @@ export default function InboxView() {
                     return (
                       <div
                         key={n.id}
+                        data-enter-id={n.id}
                         data-row={i}
                         data-active={i === cur ? "" : undefined}
                         className={`inbox-row group relative flex items-start gap-3 border-b border-linesoft px-4 py-3 transition-colors last:border-0 hover:bg-hover/60 ${read ? "" : "is-unread"}`}

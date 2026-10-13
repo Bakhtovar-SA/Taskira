@@ -92,6 +92,7 @@
   background: var(--border-default);
 }
 .project-view-tabs {
+  --project-tab-active-bg: color-mix(in oklch, var(--accent-solid) 16%, var(--bg-panel));
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: thin;
@@ -115,10 +116,14 @@
   font-weight: 500;
 }
 .project-view-tabs [data-tab] > span:first-child { color: var(--text-3); }
+/* Выбранная вкладка: лёгкая акцентная заливка и контур — в тёмных темах серая плашка на сером фоне была почти незаметна. */
 .project-view-tabs [data-tab][aria-current="page"] {
   font-weight: 700;
-  box-shadow: var(--elev-1), inset 0 0 0 1px var(--border-subtle);
+  background: var(--project-tab-active-bg);
+  box-shadow: var(--elev-1), inset 0 0 0 1px var(--accent-muted);
 }
+.project-view-tabs [data-glide] [data-tab][aria-current="page"] { background: transparent; box-shadow: none; }
+.project-view-tabs .ds-tab-glider { border-radius: 8px; background: var(--project-tab-active-bg); box-shadow: var(--elev-1), inset 0 0 0 1px var(--accent-muted); }
 .project-view-tabs [data-tab][aria-current="page"] > span:first-child { color: var(--accent-solid); }
 .project-members .ds-av[data-ring] {
   box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 30%, transparent), 0 0 0 2px var(--bg-canvas);
@@ -349,9 +354,21 @@
 .board-lane > .board-col { height: auto; min-height: 0; }
 .board-lane { height: 100%; max-height: 100%; }
 .board-col-header { height: 32px; }
-.board-col-highlight { z-index: 2; border-radius: inherit; }
-.board-col-highlight[data-drop-state="allowed"] { box-shadow: inset 0 0 0 2px var(--accent-solid); }
-.board-col-highlight[data-drop-state="forbidden"] { box-shadow: inset 0 0 0 2px var(--status-danger); }
+.board-col-highlight {
+  z-index: 2;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px transparent;
+  background-color: transparent;
+  transition: box-shadow var(--dur-3) var(--ease-standard), background-color var(--dur-3) var(--ease-standard);
+}
+.board-col-highlight[data-drop-state="allowed"] {
+  box-shadow: inset 0 0 0 2px var(--accent-solid);
+  background-color: color-mix(in oklch, var(--accent-solid) 7%, transparent);
+}
+.board-col-highlight[data-drop-state="forbidden"] {
+  box-shadow: inset 0 0 0 2px var(--status-danger);
+  background-color: color-mix(in oklch, var(--status-danger) 6%, transparent);
+}
 .board-done-window { white-space: nowrap; }
 .board-scroll[data-personal-board-photo] { background-size: cover; background-position: center; }
 .board-card h3 { font-weight: 500; color: var(--text-1); text-wrap: pretty; overflow-wrap: anywhere; }
@@ -662,3 +679,32 @@
 /* ds Select in the properties column: the flat field look above hides a trigger's trailing icon, but a list needs its
    chevron (like «Сложность»). */
 .issue-properties .issue-field-value > .ds-select > .ds-select-chevron { display: block; }
+
+/* Раскрытие <details> по высоте (Chromium 131+, Safari/Firefox — мгновенно): блок «Дополнительно» в форме создания и данные графика. */
+.form-disclosure,
+.reports-chart-data { interpolate-size: allow-keywords; } /* не на :root — `transition-all` у остальных элементов начал бы анимировать height:auto */
+.form-disclosure::details-content,
+.reports-chart-data::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition: block-size var(--dur-4) var(--ease-out), content-visibility var(--dur-4) allow-discrete;
+}
+.form-disclosure[open]::details-content,
+.reports-chart-data[open]::details-content { block-size: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .form-disclosure::details-content,
+  .reports-chart-data::details-content { transition: none; }
+}
+
+/* «Главная»: карточки появляются друг за другом (по порядку в колонке), один раз при показе экрана. */
+.home-grid > div > .home-card { animation: fadeOnly var(--dur-4) var(--ease-out) both; } /* только прозрачность: transform сдвигал бы замеры раскладки на долю пикселя */
+.home-grid > div > .home-card:nth-child(2) { animation-delay: 60ms; }
+.home-grid > div > .home-card:nth-child(3) { animation-delay: 120ms; }
+.home-grid > div:nth-child(2) > .home-card:first-child { animation-delay: 40ms; }
+@media (prefers-reduced-motion: reduce) {
+  .home-grid > div > .home-card { animation: none; }
+}
+
+/* Уход строки списка: копия-призрак на прежнем месте (listExit.ts). */
+.list-table { position: relative; }
+.list-table > .list-row-ghost { position: absolute; z-index: 1; margin: 0; pointer-events: none; }

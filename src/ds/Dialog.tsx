@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { IconButton } from "./Button";
 import { dsId } from "./ids";
 import { DIALOG_EXIT_MS } from "./Presence";
+import { enter, motionReduced, stopMotion } from "../motion";
 import { NATIVE_DIALOG_CLOSE_EVENT, NATIVE_DIALOG_OPEN_EVENT } from "./topLayer";
 
 type DialogProps = {
@@ -39,7 +40,7 @@ function focusDialogBody(el: HTMLDialogElement) {
   el.focus();
 }
 
-function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean) {
+function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean, kind: "dialog" | "panel" | "palette") {
   const ref = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -51,6 +52,8 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
     openerRef.current = back;
     if (el.showModal && !el.open) el.showModal();
     else el.setAttribute("open", ""); // jsdom
+    // Появление — пружина WAAPI (ADR-0035, прототип) вместо CSS dsDialogIn/dsPanelIn; уход — CSS data-closing.
+    enter(el, kind === "panel" ? "panel" : "dialog");
     focusDialogBody(el);
     document.dispatchEvent(new CustomEvent(NATIVE_DIALOG_OPEN_EVENT, { detail: el }));
     const onCancel = (e: Event) => {
@@ -59,6 +62,7 @@ function useNativeDialog(open: boolean, onClose: () => void, focusReady: boolean
     };
     el.addEventListener("cancel", onCancel);
     return () => {
+      stopMotion(el);
       el.removeEventListener("cancel", onCancel);
       if (el.open) el.close?.();
       document.dispatchEvent(new CustomEvent(NATIVE_DIALOG_CLOSE_EVENT, { detail: el }));
@@ -82,18 +86,22 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
   const [shown, setShown] = useState(open);
   if (open && !shown) setShown(true);
   const closing = shown && !open;
-  const ref = useNativeDialog(shown, onClose, focusReady);
+  const ref = useNativeDialog(shown, onClose, focusReady, kind);
   useEffect(() => {
     if (!closing) return;
     const el = ref.current;
     const done = () => setShown(false);
-    const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Пружина появления ещё идёт (быстрое закрытие): WAAPI из скрипта перекрыл бы CSS-анимацию ухода — снимаем её.
+    if (el) stopMotion(el);
+    const reduce = typeof matchMedia === "function" && motionReduced(); // системный reduce и личный выключатель — как у enter()
     if (!el || reduce || typeof el.getAnimations !== "function") return done();
     const timer = setTimeout(done, DIALOG_EXIT_MS); // страховка, если animationend не придёт
-    el.addEventListener("animationend", done, { once: true });
+    // animationend всплывает: анимация потомка (спиннер, скелетон) не должна снять диалог до его собственного ухода.
+    const onEnd = (e: Event) => { if (e.target === el) done(); };
+    el.addEventListener("animationend", onEnd);
     return () => {
       clearTimeout(timer);
-      el.removeEventListener("animationend", done);
+      el.removeEventListener("animationend", onEnd);
     };
   }, [closing, ref]);
   const [id] = useState(() => dsId("dlg"));
