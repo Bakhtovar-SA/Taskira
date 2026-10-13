@@ -11,6 +11,6 @@ export function usePulse<T extends HTMLElement>(value: number | null, when: "up"
   useLayoutEffect(() => {
     if (value !== null && prev.current !== null && (when === "any" ? value !== prev.current : value > prev.current) && ref.current) enter(ref.current, "pop");
     prev.current = value;
-  }, [value]);
+  }, [value, when]);
   return ref;
 }

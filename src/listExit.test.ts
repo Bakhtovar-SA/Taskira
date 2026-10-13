@@ -100,3 +100,16 @@ test("призрак не несёт id/name/for/form живых элемент�
   expect(ghost.querySelector("[id], [name], [for], [form]")).toBeNull();
   expect(ghost.hasAttribute("id")).toBe(false);
 });
+
+test("призрак сохраняет отметку чекбокса", () => {
+  const motion = createRowMotion();
+  const a = row("a", 0);
+  a.innerHTML = '<input type="checkbox">';
+  (a.querySelector("input") as HTMLInputElement).checked = true;
+  const els: Record<string, HTMLElement> = { a, b: row("b", 40) };
+  const find = (id: string) => els[id];
+  motion(host, ["a", "b"], find, true);
+  a.remove();
+  motion(host, ["b"], find, false);
+  expect((host.querySelector(".list-row-ghost input") as HTMLInputElement).checked).toBe(true);
+});

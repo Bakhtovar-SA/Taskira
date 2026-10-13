@@ -56,6 +56,9 @@ export function createRowMotion(): RowMotion {
       ghost.removeAttribute("tabindex");
       // Копия не должна пересекаться с живыми элементами: id, а также связи с формами и подписями (name/for/form).
       for (const n of [ghost, ...ghost.querySelectorAll("[id], [name], [for], [form]")]) for (const a of ["id", "name", "for", "form"]) n.removeAttribute(a);
+      // cloneNode не переносит свойство `checked` управляемых полей: строка с отмеченным чекбоксом мигнула бы пустой.
+      const src = old.el.querySelectorAll<HTMLInputElement>("input");
+      ghost.querySelectorAll<HTMLInputElement>("input").forEach((n, i) => { if (src[i]) n.checked = src[i].checked; });
       ghost.setAttribute("aria-hidden", "true");
       ghost.setAttribute("inert", "");
       ghost.classList.add("list-row-ghost");
