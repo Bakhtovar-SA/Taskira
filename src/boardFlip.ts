@@ -80,11 +80,13 @@ export function cancelBoardFlip(owner: object | null): void {
 }
 
 /** Массовая операция принята сервером: карточки сменят колонку только после перечитывания списка (второй запрос), а он
- *  может идти дольше `TTL_MS`. Поэтому возраст снимка отсчитываем от ответа и даём ещё `RENEW_EXTRA_MS` на перечитывание.
+ *  может идти дольше `TTL_MS`. Возраст снимка сдвигается вперёд на `RENEW_AHEAD_MS` от ответа, поэтому полное окно
+ *  после ответа — `TTL_MS + RENEW_AHEAD_MS` (≈ 10 с). Цена окна: посторонняя перезагрузка списка в эти секунды (например,
+ *  по WebSocket) может сыграть перелёт от этого снимка, если положения карточек изменились — для прототипа допустимо.
  *  Положения не менялись (прокрутка и так гасит снимок). */
-const RENEW_EXTRA_MS = 7000;
+const RENEW_AHEAD_MS = 7000;
 export function renewBoardFlip(owner: object | null): void {
-  if (owner && snap === owner) snap.at = performance.now() + RENEW_EXTRA_MS;
+  if (owner && snap === owner) snap.at = performance.now() + RENEW_AHEAD_MS;
 }
 
 /** Есть ли для карточки снимок (тогда её появление — перенос, а не новая задача). */
