@@ -53,16 +53,22 @@ export const EXIT = { duration: 0.2, ease: [0.4, 0, 1, 1] as [number, number, nu
 
 let engine: Engine | null = null;
 let loading: Promise<Engine | null> | null = null;
+let failedAt = -Infinity;
+/** После сбоя загрузки чанка (сеть, устаревший хеш после деплоя) новую попытку не раньше чем через столько мс: иначе
+ *  каждая анимация доски слала бы по запросу. */
+const RETRY_MS = 30_000;
 let loader: () => Promise<Engine> = () => import("./motionEngine");
 
 /** Грузит чанк заранее (на простое после первого экрана доски), чтобы первая анимация уже была пружиной.
- *  Ошибка загрузки не бросается: движение остаётся мгновенным (повторная попытка — при следующем вызове). */
+ *  Ошибка загрузки не бросается: движение остаётся мгновенным, повторная попытка — не раньше `RETRY_MS`. */
 export function preloadMotion(): Promise<Engine | null> {
   if (motionReduced()) return Promise.resolve(engine);
+  if (!loading && Date.now() - failedAt < RETRY_MS) return Promise.resolve(engine);
   loading ??= loader().then(
     (m) => (engine = m),
     () => {
       loading = null;
+      failedAt = Date.now();
       return null;
     },
   );
@@ -72,6 +78,7 @@ export function preloadMotion(): Promise<Engine | null> {
 export function __resetMotionForTests(load?: () => Promise<Engine>): void {
   engine = null;
   loading = null;
+  failedAt = -Infinity;
   userReduced = null;
   loader = load ?? (() => import("./motionEngine"));
 }

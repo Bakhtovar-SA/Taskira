@@ -74,6 +74,15 @@ describe("сбой загрузки чанка — фолбэк, не блоки
     expect(vi.mocked(el.animate).mock.calls[0][1]).toMatchObject({ duration: 300 });
   });
 
+  test("после сбоя чанк не запрашивается заново на каждый вызов (пауза RETRY_MS)", async () => {
+    const load = vi.fn(() => Promise.reject(new Error("chunk failed")));
+    __resetMotionForTests(load);
+    await preloadMotion();
+    await preloadMotion();
+    enter(card());
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
   test("исключение внутри движка глотается", async () => {
     const { engine, animate } = fakeEngine();
     animate.mockImplementation(() => {
