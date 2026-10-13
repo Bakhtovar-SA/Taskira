@@ -10,7 +10,7 @@ import { workflowStatusName } from "../workflowStatus";
 import { IcChevD, IcChevR, IcTrash, IcX, IcFlag, IcUsers, PriorityIcon, StatusGlyph } from "../icons";
 import { Button, Dialog, IconButton, Menu, Popover, type MenuEntry } from "../ds";
 import { UserAvatar } from "./UserAvatar";
-import { cancelBoardFlip } from "../boardFlip";
+import { cancelBoardFlip, renewBoardFlip } from "../boardFlip";
 
 /** `onBeforeStatus` — доска делает снимок положений карточек перед массовой сменой статуса (`snapshotBoard`): после ответа
  *  карточки перелетают в новые колонки (ADR-0035, `boardFlip.ts`), а не просто появляются. */
@@ -28,6 +28,7 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
       const res = await bulkApplyIssueAction(body);
       // Ничего не изменилось (отказ или все пропущены) — снимок не нужен, иначе чужой коммит анимировался бы от него.
       if (flip && (!res || res.succeeded.length === 0)) cancelBoardFlip(flip);
+      else renewBoardFlip(flip);
     } finally {
       setBusy(false);
       setConfirmDelete(false);

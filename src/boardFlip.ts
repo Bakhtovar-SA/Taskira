@@ -79,6 +79,12 @@ export function cancelBoardFlip(owner: object | null): void {
   if (snap === owner) snap = null; // чужой (более поздний) снимок не трогаем
 }
 
+/** Ответ сервера пришёл: возраст снимка отсчитываем от ответа, а не от клика — иначе на медленном сервере (> `TTL_MS`)
+ *  перелёт молча не сыграл бы. Положения не менялись (прокрутка и так гасит снимок). */
+export function renewBoardFlip(owner: object | null): void {
+  if (owner && snap === owner) snap.at = performance.now();
+}
+
 /** Есть ли для карточки снимок (тогда её появление — перенос, а не новая задача). */
 export function flipPending(id: string): boolean {
   return !!snap && snap.pos.has(id) && performance.now() - snap.at < TTL_MS;

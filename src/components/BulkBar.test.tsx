@@ -2,8 +2,8 @@ import { afterEach, expect, test, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { I18nProvider } from "../i18n";
 
-const { cancel } = vi.hoisted(() => ({ cancel: vi.fn() }));
-vi.mock("../boardFlip", () => ({ cancelBoardFlip: (o: unknown) => cancel(o) }));
+const { cancel, renew } = vi.hoisted(() => ({ cancel: vi.fn(), renew: vi.fn() }));
+vi.mock("../boardFlip", () => ({ cancelBoardFlip: (o: unknown) => cancel(o), renewBoardFlip: (o: unknown) => renew(o) }));
 
 const store = {
   me: { id: "u1", name: "Анна", accessRole: "admin" },
@@ -64,4 +64,5 @@ test("массовая смена статуса на доске: снимок �
   await act(async () => {}); // run() дошёл до конца: после успешного ответа снимок остаётся
   expect(before).toHaveBeenCalledTimes(2);
   expect(cancel).not.toHaveBeenCalled();
+  expect(renew).toHaveBeenCalledWith(snap); // возраст снимка — от ответа сервера
 });
