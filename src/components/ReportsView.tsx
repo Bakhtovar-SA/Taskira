@@ -128,7 +128,7 @@ export default function ReportsView() {
       </Popover>
       <span className="reports-comparison">{t("reports.comparison", { from: formatDate(comparison.from), to: formatDate(comparison.to) })}</span>
     </div>
-    <div className="reports-content" aria-busy={loading}>
+    <div className="reports-content anim-stagger" aria-busy={loading}>
       {error && <div role="alert" className="reports-error"><span>{error}</span><Button size="sm" variant="secondary" onClick={() => setTick(n => n + 1)}>{t("reports.retry")}</Button></div>}
       {loading && <div className="skeleton reports-loading" aria-label={t("common.loading")} />}
       {empty && <EmptyState icon={<IcReport size={24} />} title={t("reports.emptyTitle")} sub={t("reports.emptySub")} action={<Button size="sm" variant="secondary" onClick={reset}>{t("common.reset")}</Button>} />}

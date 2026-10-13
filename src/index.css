@@ -1026,3 +1026,47 @@ button {
 }
 
 .tk-nav-rail > span { justify-content: center; }
+
+/* Вход экранов и их содержимого (ADR-0035, второй/третий заход): только прозрачность и штрих линии — без transform и
+   размеров, чтобы замеры раскладки (e2e, getBoundingClientRect) не плыли во время появления. */
+@keyframes viewIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.anim-view {
+  animation: viewIn var(--dur-3) var(--ease-out) both;
+}
+.anim-stagger > * {
+  animation: viewIn var(--dur-4) var(--ease-out) backwards;
+}
+.anim-stagger > :nth-child(2) { animation-delay: 40ms; }
+.anim-stagger > :nth-child(3) { animation-delay: 80ms; }
+.anim-stagger > :nth-child(4) { animation-delay: 120ms; }
+.anim-stagger > :nth-child(5) { animation-delay: 160ms; }
+.anim-stagger > :nth-child(6) { animation-delay: 200ms; }
+.anim-stagger > :nth-child(n + 7) { animation-delay: 240ms; }
+.chart-line {
+  stroke-dasharray: 1;
+  animation: drawLine var(--dur-5) var(--ease-out) backwards;
+}
+.reports-chart rect[data-series] {
+  animation: viewIn var(--dur-4) var(--ease-out) backwards;
+}
+.ds-empty {
+  animation: viewIn var(--dur-4) var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-view,
+  .anim-stagger > *,
+  .chart-line,
+  .reports-chart rect[data-series],
+  .ds-empty {
+    animation: none;
+  }
+}
