@@ -54,7 +54,8 @@ export function createRowMotion(): RowMotion {
       ghost.removeAttribute("role");
       ghost.removeAttribute("data-issue-id");
       ghost.removeAttribute("tabindex");
-      ghost.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
+      // Копия не должна пересекаться с живыми элементами: id, а также связи с формами и подписями (name/for/form).
+      for (const n of [ghost, ...ghost.querySelectorAll("[id], [name], [for], [form]")]) for (const a of ["id", "name", "for", "form"]) n.removeAttribute(a);
       ghost.setAttribute("aria-hidden", "true");
       ghost.setAttribute("inert", "");
       ghost.classList.add("list-row-ghost");

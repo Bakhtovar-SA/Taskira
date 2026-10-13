@@ -86,3 +86,17 @@ test("строка в полёте: повторный commit не сравни�
   motion(host, ["b", "a"], find, false);
   expect(flipFrom).not.toHaveBeenCalled();
 });
+
+test("призрак не несёт id/name/for/form живых элементов", () => {
+  const motion = createRowMotion();
+  const a = row("a", 0);
+  a.innerHTML = '<label for="x">L</label><input id="x" name="n" form="f">';
+  const els: Record<string, HTMLElement> = { a, b: row("b", 40) };
+  const find = (id: string) => els[id];
+  motion(host, ["a", "b"], find, true);
+  a.remove();
+  motion(host, ["b"], find, false);
+  const ghost = host.querySelector<HTMLElement>(".list-row-ghost")!;
+  expect(ghost.querySelector("[id], [name], [for], [form]")).toBeNull();
+  expect(ghost.hasAttribute("id")).toBe(false);
+});
