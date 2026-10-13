@@ -29,7 +29,7 @@
 .reports-legend [data-series=created] {background:var(--chart-1)}
 .reports-legend [data-series=closed] {background:var(--chart-3)}
 .reports-chart-scroll,.reports-table-scroll {overflow-x:auto}
-.reports-chart svg {display:block;width:max(100%,var(--report-chart-width));height:auto}
+.reports-chart svg {display:block;width:var(--report-chart-width);margin:0 auto}
 .reports-chart rect[data-series=created] {fill:var(--chart-1)}
 .reports-chart rect[data-series=closed] {fill:var(--chart-3)}
 .reports-chart text {fill:var(--text-2);font-size:13px;font-variant-numeric:tabular-nums}
