@@ -149,7 +149,7 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
       }
     >
       {step === 0 && (
-        <div className="grid gap-4 md:grid-cols-[260px_1fr]">
+        <div className="anim-view grid gap-4 md:grid-cols-[260px_1fr]">
           <div className="flex flex-col gap-1.5">
             {templates === null
               ? Array.from({ length: 5 }).map((_, i) => <div key={i} className="ds-sk h-14" />)
@@ -176,7 +176,7 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
       )}
 
       {step === 1 && (
-        <div className="grid gap-4 sm:grid-cols-[1fr_170px]">
+        <div className="anim-view grid gap-4 sm:grid-cols-[1fr_170px]">
           <Input label={t("settings.project.name")} value={name} onChange={(e) => setName(e.target.value)} maxLength={LIMITS.project.name.max} placeholder={tpl?.builtin && tpl.id !== "builtin:blank" ? tpl.name : t("wizard.namePlaceholder")} data-autofocus />
           <Input
             label={t("settings.project.key")}
@@ -211,10 +211,10 @@ export default function ProjectWizard({ departmentId: initialDept, onClose }: { 
         </div>
       )}
 
-      {step === 2 && <Access dept={dept} setDept={setDept} shared={shared} setShared={setShared} members={members} setMembers={setMembers} />}
+      {step === 2 && <div className="anim-view"><Access dept={dept} setDept={setDept} shared={shared} setShared={setShared} members={members} setMembers={setMembers} /></div>}
 
       {step === 3 && tpl && (
-        <div className="flex flex-col gap-4">
+        <div className="anim-view flex flex-col gap-4">
           <div className="flex items-center gap-3 rounded-xl bg-sunken/60 p-4 ring-1 ring-inset ring-linesoft">
             <ProjectMark projectKey={key} icon={icon} color={color} size={40} />
             <div className="min-w-0 flex-1">

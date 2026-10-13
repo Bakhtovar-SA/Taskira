@@ -2,7 +2,7 @@
 // пресеты пружин укладываются в 500 мс успокоения.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { spring } from "motion";
-import { EXIT, SPRING, SPRING_ENTER, __resetMotionForTests, enter, exit, flipFrom, glideTo, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion } from "./motion";
+import { EXIT, SPRING, SPRING_ENTER, __resetMotionForTests, enter, exit, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion } from "./motion";
 import { createEnterTracker } from "./listEnter";
 
 const systemReduce = (on: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: on && q.includes("reduce") }));
@@ -245,5 +245,23 @@ describe("тосты, окна, вкладки, строки списка (ADR-0
     setReducedMotion(true);
     expect(track(["x", "q"], find, false)).toBe(0);
     expect(animate).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("glideWidth — ширина панели (сайдбар)", () => {
+  test("reduced-motion и одинаковая ширина — без анимации; иначе WAAPI по width", () => {
+    const { engine } = fakeEngine();
+    __resetMotionForTests(async () => engine);
+    systemReduce(false);
+    const el = card();
+    glideWidth(el, 248, 248);
+    expect(el.animate).not.toHaveBeenCalled();
+    glideWidth(el, 60, 248);
+    expect(el.animate).toHaveBeenCalledTimes(1);
+    expect((el.animate as ReturnType<typeof vi.fn>).mock.calls[0][0]).toEqual({ width: ["60px", "248px"] });
+    systemReduce(true);
+    const other = card();
+    glideWidth(other, 60, 248);
+    expect(other.animate).not.toHaveBeenCalled();
   });
 });

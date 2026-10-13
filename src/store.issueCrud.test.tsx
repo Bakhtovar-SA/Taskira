@@ -322,6 +322,47 @@ describe("bulkApplyIssueAction — ТЗ 3.3 (план v2 Трек 3)", () => {
     expect(last?.text).toBe("Изменено 1 из 2, 1 пропущено — нет прав");
   });
 
+  test("запрещённый переход (CONFLICT) — тост называет причину, а не «нет прав»", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockResolvedValue({
+      succeeded: [],
+      failed: [{ issueId: "a", reason: "Переход «К выполнению → На ревью» запрещён схемой рабочего процесса", code: "CONFLICT" }],
+    });
+    await act(async () => {
+      await get().bulkApplyIssueAction({ action: "status", issueIds: ["a"], statusId: "s3" });
+    });
+    const last = get().toasts.at(-1);
+    expect(last?.kind).toBe("error");
+    expect(last?.text).toBe("Не применено ни к одной задаче — переход запрещён схемой рабочего процесса или задача уже изменилась");
+  });
+
+  test("VALIDATION (статус/исполнитель не из проекта) — тост называет причину, а не «не удалось применить»", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockResolvedValue({
+      succeeded: [],
+      failed: [{ issueId: "a", reason: "Целевой статус не принадлежит проекту", code: "VALIDATION" }],
+    });
+    await act(async () => {
+      await get().bulkApplyIssueAction({ action: "status", issueIds: ["a"], statusId: "foreign" });
+    });
+    expect(get().toasts.at(-1)?.text).toBe("Не применено ни к одной задаче — недопустимое значение (статус или исполнитель не из этого проекта)");
+  });
+
+  test("смешанные причины пропуска перечисляются через запятую", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockResolvedValue({
+      succeeded: ["a"],
+      failed: [
+        { issueId: "b", reason: "x", code: "CONFLICT" },
+        { issueId: "c", reason: "y", code: "FORBIDDEN" },
+      ],
+    });
+    await act(async () => {
+      await get().bulkApplyIssueAction({ action: "status", issueIds: ["a", "b", "c"], statusId: "s2" });
+    });
+    expect(get().toasts.at(-1)?.text).toBe("Изменено 1 из 3, 2 пропущено — переход запрещён схемой рабочего процесса или задача уже изменилась, нет прав");
+  });
+
   test("succeeded=0 (полный отказ) — issuesRevision не растёт, тост error, список не перечитывается зря", async () => {
     const { get } = await boot();
     const bulk = vi.spyOn(issuesApi, "bulk").mockResolvedValue({

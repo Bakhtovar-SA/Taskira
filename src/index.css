@@ -562,24 +562,24 @@ html.vt-theme::view-transition-new(root) {
   background-repeat: no-repeat;
 }
 .theme-thumb[data-kind="dark"] {
-  --tt-bg: oklch(0.17 0.015 288);
-  --tt-side: oklch(0.23 0.03 288);
-  --tt-sheet: oklch(0.21 0.015 288);
-  --tt-line: oklch(0.34 0.015 288);
+  --tt-bg: oklch(0.17 0.014 288);
+  --tt-side: oklch(0.22 0.02 288);
+  --tt-sheet: oklch(0.21 0.013 288);
+  --tt-line: oklch(0.36 0.015 288);
   --tt-accent: oklch(0.68 0.17 288);
 }
 .theme-thumb[data-kind="dusk"] {
-  --tt-bg: oklch(0.14 0.035 294);
-  --tt-side: oklch(0.24 0.07 294);
-  --tt-sheet: oklch(0.2 0.036 294);
-  --tt-line: oklch(0.34 0.04 294);
+  --tt-bg: oklch(0.16 0.03 292);
+  --tt-side: oklch(0.21 0.045 292);
+  --tt-sheet: oklch(0.2 0.032 292);
+  --tt-line: oklch(0.36 0.04 292);
   --tt-accent: oklch(0.68 0.19 294);
 }
 .theme-thumb[data-kind="graphite"] {
-  --tt-bg: oklch(0.17 0.003 260);
-  --tt-side: oklch(0.24 0.004 260);
-  --tt-sheet: oklch(0.215 0.004 260);
-  --tt-line: oklch(0.35 0.004 260);
+  --tt-bg: oklch(0.18 0.003 260);
+  --tt-side: oklch(0.22 0.004 260);
+  --tt-sheet: oklch(0.21 0.003 260);
+  --tt-line: oklch(0.37 0.004 260);
   --tt-accent: oklch(0.66 0.16 288);
 }
 .theme-thumb[data-kind="dawn"] {
@@ -596,10 +596,10 @@ html.vt-theme::view-transition-new(root) {
   box-shadow: inset 0 0 0 1px oklch(0.4 0.01 288 / 0.3);
 }
 .theme-thumb[data-kind="system"] {
-  background: linear-gradient(135deg, oklch(0.975 0.006 288) 50%, oklch(0.17 0.015 288) 50%);
+  background: linear-gradient(135deg, oklch(0.975 0.006 288) 50%, oklch(0.17 0.014 288) 50%);
 }
 .theme-thumb[data-kind="system"] > span:first-child {
-  background: linear-gradient(135deg, oklch(0.93 0.02 288) 50%, oklch(0.23 0.03 288) 50%);
+  background: linear-gradient(135deg, oklch(0.93 0.02 288) 50%, oklch(0.22 0.02 288) 50%);
 }
 
 /* Входящие: непрочитанное — лёгкий акцентный фон; строка под курсором J/K —
@@ -1026,3 +1026,47 @@ button {
 }
 
 .tk-nav-rail > span { justify-content: center; }
+
+/* Вход экранов и их содержимого (ADR-0035, второй/третий заход): только прозрачность и штрих линии — без transform и
+   размеров, чтобы замеры раскладки (e2e, getBoundingClientRect) не плыли во время появления. */
+@keyframes viewIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.anim-view {
+  animation: viewIn var(--dur-3) var(--ease-out) both;
+}
+.anim-stagger > * {
+  animation: viewIn var(--dur-4) var(--ease-out) backwards;
+}
+.anim-stagger > :nth-child(2) { animation-delay: 40ms; }
+.anim-stagger > :nth-child(3) { animation-delay: 80ms; }
+.anim-stagger > :nth-child(4) { animation-delay: 120ms; }
+.anim-stagger > :nth-child(5) { animation-delay: 160ms; }
+.anim-stagger > :nth-child(6) { animation-delay: 200ms; }
+.anim-stagger > :nth-child(n + 7) { animation-delay: 240ms; }
+.chart-line {
+  stroke-dasharray: 1;
+  animation: drawLine var(--dur-5) var(--ease-out) backwards;
+}
+.reports-chart rect[data-series] {
+  animation: viewIn var(--dur-4) var(--ease-out) backwards;
+}
+.ds-empty {
+  animation: viewIn var(--dur-4) var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-view,
+  .anim-stagger > *,
+  .chart-line,
+  .reports-chart rect[data-series],
+  .ds-empty {
+    animation: none;
+  }
+}

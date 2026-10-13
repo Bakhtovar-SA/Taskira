@@ -6,7 +6,7 @@
  *  «Базовая линия» (первый показ, смена запроса, догрузка страницы) — только запоминаем положение строк. Вызывается из
  *  layout-эффекта после коммита; состояния React нет. Больше `MAX_TRACKED` строк — не отслеживаем (VDI: не сотни
  *  getBoundingClientRect за коммит). */
-import { exit, flipFrom, motionReduced } from "./motion";
+import { cssZoom, exit, flipFrom, motionReduced } from "./motion";
 
 export const MAX_TRACKED = 200;
 const MAX_GHOSTS = 6;
@@ -24,12 +24,23 @@ export function createRowMotion(): RowMotion {
       return;
     }
     const h = host.getBoundingClientRect();
+    // Список может стоять под CSS zoom (0.9 на 1024–2559 px): координаты хранятся в CSS px хозяина (для призрака и
+    // стилей), во viewport (для flipFrom) переводятся обратно умножением на zoom.
+    const z = cssZoom(host);
     const now = new Map<string, Seen>();
     for (const id of ids) {
       const el = find(id);
       if (!el) continue;
+      // Строка ещё едет (сдвиг/въезд): getBoundingClientRect вернёт середину пути, и повторный commit (ревалидация сразу
+      // после PATCH/transition) сравнил бы её с итоговой позицией, отменил бы пружину и не запустил новую. Пока строка
+      // анимируется, остаёмся при последней итоговой позиции.
+      const known = prev?.get(id);
+      if (known && known.el === el && el.getAnimations?.().length) {
+        now.set(id, known);
+        continue;
+      }
       const r = el.getBoundingClientRect();
-      now.set(id, { el, box: { left: r.left - h.left, top: r.top - h.top, width: r.width, height: r.height } });
+      now.set(id, { el, box: { left: (r.left - h.left) / z, top: (r.top - h.top) / z, width: r.width / z, height: r.height / z } });
     }
     const before = prev;
     prev = now;
@@ -58,7 +69,7 @@ export function createRowMotion(): RowMotion {
       const old = before.get(id);
       if (!old) continue;
       if (Math.abs(old.box.top - cur.box.top) < 1 && Math.abs(old.box.left - cur.box.left) < 1) continue;
-      void flipFrom(cur.el, h.left + old.box.left, h.top + old.box.top, { lift: false });
+      void flipFrom(cur.el, h.left + old.box.left * z, h.top + old.box.top * z, { lift: false });
     }
   };
 }

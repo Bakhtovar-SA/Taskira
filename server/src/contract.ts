@@ -489,7 +489,9 @@ export type BulkIssueAction = z.infer<typeof BulkIssueAction>;
  *  (permissions.ts), не общий "forbidden". */
 export const BulkIssueResultDto = z.object({
   succeeded: z.array(z.string()),
-  failed: z.array(z.object({ issueId: z.string(), reason: z.string() })),
+  /** `code` — машинный код причины (FORBIDDEN, NOT_FOUND, CONFLICT — переход запрещён схемой…): клиент по нему
+   *  объясняет пропуск на языке интерфейса; `reason` — русский текст сервера. */
+  failed: z.array(z.object({ issueId: z.string(), reason: z.string(), code: z.string().optional() })),
 });
 export type BulkIssueResultDto = z.infer<typeof BulkIssueResultDto>;
 

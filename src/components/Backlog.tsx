@@ -1,5 +1,6 @@
 import { createEnterTracker, type EnterTracker } from "../listEnter";
 import { createRowMotion, type RowMotion } from "../listExit";
+import { Flash } from "../Flash";
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
@@ -131,7 +132,7 @@ function Row({
           </span>
         ) : null;
       case "status":
-        return statusAction();
+        return <Flash value={issue.statusId} className="inline-flex">{statusAction()}</Flash>;
       case "assignee":
         return can("edit", issue) ? <Popover label={t("field.assignee")} placement="bottom-end" className="w-[260px]"
           trigger={p => <button {...p} type="button" className="list-assignee-action ds-focus" aria-label={t("backlog.changeAssignees", { key: issue.key })}><UserAvatarGroup users={assignees} size={22} /></button>}>

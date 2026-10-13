@@ -94,6 +94,11 @@ for (const width of [390, 320]) test(`issue refresh: mobile order and targets at
   await page.setViewportSize({ width, height: 900 });
   await issueFixture(page, "dark");
   const panel = await openIssue(page);
+  // Окно въезжает пружиной (ADR-0035): пока идёт хвост, transform предка даёт шум float32 в getBoundingClientRect
+  // (43.99998 против 44), — ждём конца конечных анимаций страницы.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter(a => a.effect?.getComputedTiming().iterations !== Infinity)
+    .map(a => a.finished.catch(() => undefined))));
   expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   for (const name of ["Действия", "Закрыть"]) {
     const box = (await panel.getByRole("button", { name, exact: true }).boundingBox())!;

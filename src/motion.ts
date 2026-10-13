@@ -194,6 +194,16 @@ export function flash(el: HTMLElement): void {
   safe(() => el.animate([{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }], { duration: 400, easing: "ease-out" }));
 }
 
+/** Плавное изменение ширины панели (сворачивание/разворачивание сайдбара: другая разметка, тот же «корпус»). Ширина —
+ *  WAAPI по `width` (не transform: панель — часть раскладки, содержимое рядом едет вместе с ней); пружина `SPRING` при
+ *  загруженном чанке, иначе кривая 250 мс. Ничего не делает при reduced-motion или одинаковых значениях. */
+export function glideWidth(el: HTMLElement, from: number, to: number): void {
+  if (motionReduced() || typeof el.animate !== "function" || Math.abs(from - to) < 1) return;
+  const e = ready();
+  const frames = { width: [`${from}px`, `${to}px`] };
+  safe(() => track(el, e ? e.animate(el, frames, { type: e.spring, ...SPRING }) : el.animate(frames, { duration: 250, easing: "cubic-bezier(0.16, 1, 0.3, 1)" })));
+}
+
 /** Снять текущую анимацию элемента (например, пружину появления окна, когда оно уже закрывается: WAAPI из скрипта
  *  перекрывал бы CSS-анимацию ухода). */
 export function stopMotion(el: Element): void {
