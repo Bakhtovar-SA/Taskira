@@ -3,7 +3,7 @@ import { createRowMotion } from "./listExit";
 
 const exit = vi.fn(() => Promise.resolve());
 const flipFrom = vi.fn(() => Promise.resolve());
-vi.mock("./motion", () => ({ exit: (...a: unknown[]) => exit(...(a as [])), flipFrom: (...a: unknown[]) => flipFrom(...(a as [])), motionReduced: () => false }));
+vi.mock("./motion", () => ({ cssZoom: () => 1, exit: (...a: unknown[]) => exit(...(a as [])), flipFrom: (...a: unknown[]) => flipFrom(...(a as [])), motionReduced: () => false }));
 
 let host: HTMLDivElement;
 const tops = new Map<string, number>();
