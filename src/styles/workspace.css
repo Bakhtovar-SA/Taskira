@@ -678,7 +678,8 @@
 .issue-properties .issue-field-value > .ds-select > .ds-select-chevron { display: block; }
 
 /* Раскрытие <details> по высоте (Chromium 131+, Safari/Firefox — мгновенно): блок «Дополнительно» в форме создания и данные графика. */
-:root { interpolate-size: allow-keywords; }
+.form-disclosure,
+.reports-chart-data { interpolate-size: allow-keywords; } /* не на :root — `transition-all` у остальных элементов начал бы анимировать height:auto */
 .form-disclosure::details-content,
 .reports-chart-data::details-content {
   block-size: 0;
@@ -693,7 +694,7 @@
 }
 
 /* «Главная»: карточки появляются друг за другом (по порядку в колонке), один раз при показе экрана. */
-.home-grid > div > .home-card { animation: fadeUp var(--dur-4) var(--ease-out) both; }
+.home-grid > div > .home-card { animation: fadeOnly var(--dur-4) var(--ease-out) both; } /* только прозрачность: transform сдвигал бы замеры раскладки на долю пикселя */
 .home-grid > div > .home-card:nth-child(2) { animation-delay: 60ms; }
 .home-grid > div > .home-card:nth-child(3) { animation-delay: 120ms; }
 .home-grid > div:nth-child(2) > .home-card:first-child { animation-delay: 40ms; }
