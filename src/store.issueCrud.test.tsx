@@ -333,7 +333,7 @@ describe("bulkApplyIssueAction — ТЗ 3.3 (план v2 Трек 3)", () => {
     });
     const last = get().toasts.at(-1);
     expect(last?.kind).toBe("error");
-    expect(last?.text).toBe("Не применено ни к одной задаче — переход запрещён схемой рабочего процесса");
+    expect(last?.text).toBe("Не применено ни к одной задаче — переход запрещён схемой рабочего процесса или задача уже изменилась");
   });
 
   test("VALIDATION (статус/исполнитель не из проекта) — тост называет причину, а не «не удалось применить»", async () => {
@@ -360,7 +360,7 @@ describe("bulkApplyIssueAction — ТЗ 3.3 (план v2 Трек 3)", () => {
     await act(async () => {
       await get().bulkApplyIssueAction({ action: "status", issueIds: ["a", "b", "c"], statusId: "s2" });
     });
-    expect(get().toasts.at(-1)?.text).toBe("Изменено 1 из 3, 2 пропущено — переход запрещён схемой рабочего процесса, нет прав");
+    expect(get().toasts.at(-1)?.text).toBe("Изменено 1 из 3, 2 пропущено — переход запрещён схемой рабочего процесса или задача уже изменилась, нет прав");
   });
 
   test("succeeded=0 (полный отказ) — issuesRevision не растёт, тост error, список не перечитывается зря", async () => {

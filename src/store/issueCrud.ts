@@ -36,7 +36,7 @@ type Localize = StoreCtx["local"];
 function skipLabel(code: string, local: Localize): string {
   switch (code) {
     case "FORBIDDEN": return local("нет прав", "no permission");
-    case "CONFLICT": return local("переход запрещён схемой рабочего процесса", "transition not allowed by the workflow");
+    case "CONFLICT": return local("переход запрещён схемой рабочего процесса или задача уже изменилась", "transition not allowed by the workflow or the issue has changed");
     case "NOT_FOUND": return local("задача не найдена", "issue not found");
     case "VALIDATION": return local("недопустимое значение (статус или исполнитель не из этого проекта)", "invalid value (status or assignee not in this project)");
     default: return local("не удалось применить", "couldn't be applied");
