@@ -38,3 +38,18 @@ test("смена resetKey (другая задача, другая вкладк�
   rerender(list(["x", "y"], "b"));
   expect(enter).not.toHaveBeenCalled();
 });
+
+test("пустой набор до ответа сервера, затем N элементов — не анимируются (деталь задачи приходит позже списка)", () => {
+  const view = (ids: string[]) => (
+    <EnterScope ids={ids} resetKey="a">
+      {ids.map((id) => (
+        <p key={id} data-enter-id={id}>
+          {id}
+        </p>
+      ))}
+    </EnterScope>
+  );
+  const { rerender } = render(view([]));
+  rerender(view(["1", "2", "3"]));
+  expect(enter).not.toHaveBeenCalled();
+});
