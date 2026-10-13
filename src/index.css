@@ -562,24 +562,24 @@ html.vt-theme::view-transition-new(root) {
   background-repeat: no-repeat;
 }
 .theme-thumb[data-kind="dark"] {
-  --tt-bg: oklch(0.17 0.015 288);
-  --tt-side: oklch(0.23 0.03 288);
-  --tt-sheet: oklch(0.21 0.015 288);
-  --tt-line: oklch(0.34 0.015 288);
+  --tt-bg: oklch(0.172 0.014 288);
+  --tt-side: oklch(0.22 0.02 288);
+  --tt-sheet: oklch(0.205 0.013 288);
+  --tt-line: oklch(0.36 0.015 288);
   --tt-accent: oklch(0.68 0.17 288);
 }
 .theme-thumb[data-kind="dusk"] {
-  --tt-bg: oklch(0.14 0.035 294);
-  --tt-side: oklch(0.24 0.07 294);
-  --tt-sheet: oklch(0.2 0.036 294);
-  --tt-line: oklch(0.34 0.04 294);
+  --tt-bg: oklch(0.158 0.03 292);
+  --tt-side: oklch(0.21 0.045 292);
+  --tt-sheet: oklch(0.193 0.032 292);
+  --tt-line: oklch(0.362 0.04 292);
   --tt-accent: oklch(0.68 0.19 294);
 }
 .theme-thumb[data-kind="graphite"] {
-  --tt-bg: oklch(0.17 0.003 260);
-  --tt-side: oklch(0.24 0.004 260);
-  --tt-sheet: oklch(0.215 0.004 260);
-  --tt-line: oklch(0.35 0.004 260);
+  --tt-bg: oklch(0.177 0.003 260);
+  --tt-side: oklch(0.22 0.004 260);
+  --tt-sheet: oklch(0.208 0.003 260);
+  --tt-line: oklch(0.372 0.004 260);
   --tt-accent: oklch(0.66 0.16 288);
 }
 .theme-thumb[data-kind="dawn"] {
@@ -596,10 +596,10 @@ html.vt-theme::view-transition-new(root) {
   box-shadow: inset 0 0 0 1px oklch(0.4 0.01 288 / 0.3);
 }
 .theme-thumb[data-kind="system"] {
-  background: linear-gradient(135deg, oklch(0.975 0.006 288) 50%, oklch(0.17 0.015 288) 50%);
+  background: linear-gradient(135deg, oklch(0.975 0.006 288) 50%, oklch(0.172 0.014 288) 50%);
 }
 .theme-thumb[data-kind="system"] > span:first-child {
-  background: linear-gradient(135deg, oklch(0.93 0.02 288) 50%, oklch(0.23 0.03 288) 50%);
+  background: linear-gradient(135deg, oklch(0.93 0.02 288) 50%, oklch(0.22 0.02 288) 50%);
 }
 
 /* Входящие: непрочитанное — лёгкий акцентный фон; строка под курсором J/K —
