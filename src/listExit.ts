@@ -16,6 +16,11 @@ type Seen = { el: HTMLElement; box: Box };
 
 export type RowMotion = (host: HTMLElement | null, ids: readonly string[], find: (id: string) => HTMLElement | null | undefined, baseline: boolean) => void;
 
+/** Строка едет прямо сейчас: идёт анимация transform (пружина сдвига/въезда). Переход цвета при наведении и подсветка
+ *  не в счёт — они не двигают строку, и её положение надо мерить заново. */
+const isMoving = (el: HTMLElement): boolean =>
+  !!el.getAnimations?.().some((a) => (a.effect as KeyframeEffect | null)?.getKeyframes?.().some((k) => "transform" in k));
+
 export function createRowMotion(): RowMotion {
   let prev: Map<string, Seen> | null = null;
   return (host, ids, find, baseline) => {
@@ -35,7 +40,7 @@ export function createRowMotion(): RowMotion {
       // после PATCH/transition) сравнил бы её с итоговой позицией, отменил бы пружину и не запустил новую. Пока строка
       // анимируется, остаёмся при последней итоговой позиции.
       const known = prev?.get(id);
-      if (known && known.el === el && el.getAnimations?.().length) {
+      if (known && known.el === el && isMoving(el)) {
         now.set(id, known);
         continue;
       }
