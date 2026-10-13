@@ -869,6 +869,13 @@ html.vt-theme::view-transition-new(root) {
 .anim-drop-done {
   animation: dropLand var(--dur-3) var(--ease-out) both, doneFlash var(--dur-5) ease-out both;
 }
+/* Новая карточка: только вспышка — въезд делает `enter()` (ADR-0035), приземление `dropLand` ей не нужно. */
+.anim-flash {
+  animation: cardFlash var(--dur-5) ease-out both;
+}
+.anim-flash-done {
+  animation: doneFlash var(--dur-5) ease-out both;
+}
 
 /* Сетка шкалы времени (TimeCanvas.tsx): тонкая линия на каждом мелком делении. */
 .time-line {

@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Status } from "./types";
+import type { Status, Toast } from "./types";
 import { useToasts } from "./store";
+import { exit, flipFrom, motionReduced, preloadMotionIdle } from "./motion";
 import { useT } from "./i18n";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
 import { hidePop, showPop } from "./ds/floating";
@@ -68,9 +69,50 @@ export const BOARD_COLUMN_SHELL =
 /** Жёлоб с карточками под заголовком колонки (ADR-0016: заголовок — над ним, не внутри). */
 export const BOARD_COLUMN_BODY = "board-col-body flex min-h-0 flex-col gap-1.5 overflow-y-auto";
 
+/** Тосты (ADR-0035, прототип): появление — прежняя CSS-анимация `anim-toast` (её объект Animation проверяет
+ *  e2e/toast-over-panel: очередь не должна его перезапускать), уход — пружина `exit`, соседи доезжают FLIP'ом. Стор и таймеры
+ *  не меняются: снятый стором тост остаётся здесь в `gone`, пока не доиграет уход (по образцу `ds/Presence`); под
+ *  reduced-motion — снимается сразу, как раньше. Перерисовывается только `Toasts` — он и так подписчик стора тостов. */
 export function Toasts() {
   const toasts = useToasts();
   const { t } = useT();
+  const [prev, setPrev] = useState(toasts);
+  const [gone, setGone] = useState<Toast[]>([]);
+  if (prev !== toasts) {
+    setPrev(toasts);
+    const ids = new Set(toasts.map((x) => x.id));
+    const removed = prev.filter((x) => !ids.has(x.id));
+    if (removed.length && !motionReduced()) setGone((g) => [...g.filter((x) => !ids.has(x.id)), ...removed.filter((r) => !g.some((x) => x.id === r.id))]);
+  }
+  // Порядок — по id (он растёт): уходящий тост остаётся на своём месте среди оставшихся.
+  const shown = gone.length ? [...gone.filter((x) => !toasts.some((y) => y.id === x.id)), ...toasts].sort((x, y) => x.id - y.id) : toasts;
+  const leaving = new Set(gone.map((x) => x.id));
+  const tops = useRef(new Map<number, number>());
+  const exiting = useRef(new WeakSet<HTMLElement>());
+  useEffect(() => preloadMotionIdle(), []);
+  // После каждого коммита: новые тосты въезжают, сдвинутые соседи едут со старого места. Сдвиг делает обёртка-слот
+  // (`data-toast-slot`), а въезд и уход — сам тост (`data-toast-id`): так сдвиг соседа не отменяет его анимацию входа
+  // (его animation остаётся тем же объектом — это проверяет e2e/toast-over-panel). Положение — раскладочное
+  // (offsetTop от неподвижного контейнера), а не rect: rect включал бы идущую анимацию.
+  useLayoutEffect(() => {
+    const root = host.current;
+    if (!root) return;
+    const base = root.getBoundingClientRect().top;
+    const next = new Map<number, number>();
+    for (const slot of root.querySelectorAll<HTMLElement>("[data-toast-slot]")) {
+      const id = Number(slot.dataset.toastSlot);
+      const el = slot.firstElementChild as HTMLElement;
+      const top = base + slot.offsetTop;
+      next.set(id, top);
+      const was = tops.current.get(id);
+      if (was !== undefined && Math.abs(was - top) >= 1 && !exiting.current.has(el)) void flipFrom(slot, slot.getBoundingClientRect().left, was, { lift: false });
+      if (leaving.has(id) && !exiting.current.has(el)) {
+        exiting.current.add(el);
+        void exit(el, "toast").then(() => setGone((g) => g.filter((x) => x.id !== id)));
+      }
+    }
+    tops.current = next;
+  });
   const meta = {
     success: { dot: "var(--status-done)", label: t("toast.success") },
     error: { dot: "var(--status-danger)", label: t("toast.error") },
@@ -138,15 +180,17 @@ export function Toasts() {
         announcementHost,
       )}
       <div ref={host} popover="manual" aria-hidden="true" className="pointer-events-none fixed bottom-5 right-5 left-auto top-auto z-[70] m-0 flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2 overflow-visible border-0 bg-transparent p-0">
-        {toasts.map((item) => {
+        {shown.map((item) => {
           const m = meta[item.kind];
           return (
-            <div key={item.id} className="glass anim-toast pointer-events-auto flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3">
-              <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
-              <p className="min-w-0 text-[14px] leading-snug text-ink">
-                <span className="sr-only">{m.label}: </span>
-                {item.text}
-              </p>
+            <div key={item.id} data-toast-slot={item.id}>
+              <div data-toast-id={item.id} className={`glass anim-toast flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3 ${leaving.has(item.id) ? "" : "pointer-events-auto"}`}>
+                <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
+                <p className="min-w-0 text-[14px] leading-snug text-ink">
+                  <span className="sr-only">{m.label}: </span>
+                  {item.text}
+                </p>
+              </div>
             </div>
           );
         })}

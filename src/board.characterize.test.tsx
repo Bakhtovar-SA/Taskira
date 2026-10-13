@@ -18,7 +18,7 @@ import { I18nProvider } from "./i18n";
 import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
 import { flipFrom } from "./motion";
-vi.mock("./motion", () => ({ flipFrom: vi.fn() }));
+vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: () => false }));
 // Меню карточки грузится лениво (ds/LazyOverlay): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
 import "./ds/Overlay";
 
@@ -241,6 +241,12 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const card = screen.getByRole("article", { name: /A21-a1/ });
     const [source, target] = [...h.ui.container.querySelectorAll<HTMLElement>("section.board-col")];
     const transfer = { getData: () => "a1", setData: vi.fn(), effectAllowed: "move" };
+    // jsdom has no layout: place each card by its column so the FLIP (src/boardFlip.ts) sees the cross-column move.
+    const columns = [...h.ui.container.querySelectorAll("section.board-col")];
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const left = 300 * Math.max(0, columns.indexOf(this.closest("section.board-col")!));
+      return { left, top: 100, right: left + 280, bottom: 180, width: 280, height: 80, x: left, y: 100, toJSON: () => ({}) } as DOMRect;
+    });
     fireEvent.dragStart(card, { dataTransfer: transfer, clientX: 10, clientY: 10 });
     fireEvent.drop(target, { dataTransfer: transfer, clientX: 400, clientY: 100 });
     await settle();
@@ -252,7 +258,11 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const moved = screen.getByRole("article", { name: /A21-a1/ });
     expect(target.contains(moved)).toBe(true);
     expect(within(source).queryByRole("article", { name: /A21-a1/ })).toBeNull();
-    expect(vi.mocked(flipFrom).mock.calls.filter(([el]) => el === moved)).toHaveLength(1);
+    // Spring FLIP (ADR-0035 prototype): the landed card flies in from its old place, once, and nothing in the source moves.
+    // It crosses columns, so a copy flies in a fixed layer above the board (the column body would clip the card).
+    const flights = vi.mocked(flipFrom).mock.calls.filter(([el]) => el.parentElement?.classList.contains("flip-flight"));
+    expect(flights.map(([el, ...rest]) => [el.textContent?.includes("A21-a1"), ...rest])).toEqual([[true, 0, 100, { lift: true }]]);
+    expect(vi.mocked(flipFrom).mock.calls.some(([el]) => el === moved)).toBe(false);
     expect(vi.mocked(flipFrom).mock.calls.some(([el]) => source.contains(el))).toBe(false);
     // Finish the page refresh: it must not duplicate or remount the landed card.
     pendingPages.forEach(resolve => resolve({ items: [dto("x", { statusId: "s2", rank: 99 }), dto("a1", { statusId: "s2", rank: 2 }), dto("y", { statusId: "s2", rank: 1 })], hasMore: false, nextCursor: null }));

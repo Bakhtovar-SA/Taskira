@@ -24,7 +24,7 @@ for (const [theme, width] of [["light", 1280], ["dark", 390]] as const) {
     await page.locator('.board-card[data-issue-id="i1"]').click();
     await expect(page.locator(".issue-detail")).toBeVisible();
     const host = page.locator('[popover="manual"][aria-hidden="true"]');
-    const toasts = host.locator(".anim-toast");
+    const toasts = host.locator("[data-toast-id]");
     const announcer = page.locator('dialog[open]').getByRole("status", { name: "Уведомления" });
     await expect(announcer).toBeEmpty();
     expect(await host.evaluate(element => element.matches(":popover-open"))).toBe(true);

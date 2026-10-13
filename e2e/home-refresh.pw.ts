@@ -142,7 +142,7 @@ test("home refresh: invitations complete only after confirmed membership", async
   await pick.fill("Оль");
   await page.getByRole("option", { name: /Ольга Иванова/ }).click();
   await page.getByRole("button", { name: "Создать", exact: true }).click();
-  await expect(page.locator(".anim-toast")).toBeVisible();
+  await expect(page.locator("[data-toast-id]")).toBeVisible();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("taskira.home.steps.u1")!).invite)).toBeUndefined();
   fail = false; await pick.fill("Оль");
   await page.getByRole("option", { name: /Ольга Иванова/ }).click();
