@@ -160,18 +160,21 @@ const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finis
  *  `toast` — тост (выезд справа, как `toastIn`). У всех видов последний кадр — `transform: none`: motion по концу
  *  пишет его в inline-стиль (CSSOM), а не-`none` transform сделал бы окно контейнером для fixed-потомков.
  *  Чанк не загружен или движение уменьшено — мгновенно. */
-type EnterKind = "rise" | "dialog" | "panel" | "toast";
+type EnterKind = "rise" | "dialog" | "panel" | "toast" | "pop";
 const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [string, string] }> = {
   rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "none"] },
   dialog: { opacity: [0, 1], transform: ["translateY(10px)", "none"] },
   panel: { opacity: [0.4, 1], transform: ["translateX(32px)", "none"] },
   toast: { opacity: [0, 1], transform: ["translateX(28px)", "none"] },
+  pop: { opacity: [0.5, 1], transform: ["scale(0.55)", "none"] },
 };
+/** Бейдж «подпрыгивает» заметнее остального: больше перелёт. */
+export const SPRING_POP = { visualDuration: 0.3, bounce: 0.4 } as const;
 export function enter(el: HTMLElement, kind: EnterKind = "rise"): void {
   if (motionReduced() || typeof el.animate !== "function") return;
   const e = ready();
   if (!e) return;
-  safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...SPRING_ENTER })));
+  safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) })));
 }
 
 /** Уход: обещание, после которого вызывающий снимает элемент. Движение уменьшено, чанка нет или ошибка — сразу.

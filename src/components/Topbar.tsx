@@ -8,6 +8,7 @@ import { PersonAvatar } from "./settings/parts";
 import { useEffect, useRef, useState } from "react";
 import { lookOf } from "../projectLook";
 import { useNotifications, useStore, useUnreadCount } from "../store";
+import { usePulse } from "../usePulse";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
@@ -375,6 +376,7 @@ export function Bell() {
   const { t } = useT();
   // Только счётчик (ADR-0011, шаг 2): Bell не подписан на общий контекст стора.
   const unread = useUnreadCount();
+  const dotRef = usePulse<HTMLSpanElement>(unread);
   return (
     <ScreenPopover
       className="w-[360px]" label={t("topbar.notifications")}
@@ -386,7 +388,7 @@ export function Bell() {
         >
           <IcBell size={18} />
           {unread > 0 && (
-            <span aria-hidden="true" className="absolute right-1 top-1 h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-canvas" />
+            <span ref={dotRef} aria-hidden="true" className="absolute right-1 top-1 h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-canvas" />
           )}
         </IconButton>
       )}

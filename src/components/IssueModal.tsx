@@ -35,6 +35,7 @@ import { neighborIssue, revealIssue } from "../issueNav";
 import type { IssueMode } from "../store/mappers";
 import { VIEW_LABEL } from "./Topbar";
 import { issuesApi, usersApi } from "../api";
+import { EnterScope } from "../EnterScope";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -255,14 +256,15 @@ function ChecklistField({ issue }: { issue: Issue }) {
   return (
     <Field tile label={t("issue.checklistCount", { done, total: items.length })} action={canEdit && <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>{t("issue.checklistAdd")}</Button>}>
       {items.length > 0 && (
-        <div className="space-y-1">
+        <EnterScope className="space-y-1" ids={items.map((i) => i.id)} resetKey={issue.id}>
           {items.map((item) => (
             <div
               key={item.id}
+              data-enter-id={item.id}
               className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
             >
               <Checkbox checked={item.done} disabled={!canEdit} onChange={(on) => toggleChecklistItem(issue.id, item.id, on)} label={item.text} labelHidden />
-              <span className={`min-w-0 flex-1 text-[13.5px] ${item.done ? "text-faint line-through" : "text-ink"}`}>
+              <span data-done={item.done || undefined} className="cl-text min-w-0 flex-1 text-[13.5px] text-ink">
                 {item.text}
               </span>
               {canEdit && (
@@ -276,7 +278,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
               )}
             </div>
           ))}
-        </div>
+        </EnterScope>
       )}
 
       {items.length === 0 && !adding && <p className="text-[13px] text-faint">{t("issue.noChecklist")}</p>}
@@ -1059,7 +1061,8 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
 
           <Tabs mode="tabs" variant="line" label={t("issue.feed.label")} value={feed} onChange={setFeed}
             items={(["all", "comments", "history"] as const).map(id => ({ id, label: t(id === "all" ? "issue.feed.all" : id === "comments" ? "issue.commentsCount" : "issue.activityCount", { count: id === "comments" ? issue.comments.length : issue.activity.length }), panelId: feedId + "-" + id, tabId: feedId + "-tab-" + id }))} />
-          <div className="issue-feed space-y-4" role="tabpanel" id={feedId + "-" + feed} aria-labelledby={feedId + "-tab-" + feed} tabIndex={0}>
+          <EnterScope className="issue-feed space-y-4" role="tabpanel" id={feedId + "-" + feed} aria-labelledby={feedId + "-tab-" + feed} tabIndex={0}
+            ids={[...(feed !== "history" ? issue.comments.map((c) => `c-${c.id}`) : []), ...(feed !== "comments" ? issue.activity.map((a) => `a-${a.id}`) : [])]} resetKey={issue.id + feed}>
 
             {(() => {
               // Новые сверху. Комментарий — пузырь с текстом; событие истории — тихая строка с аватаром.
@@ -1077,7 +1080,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 if (it.kind === "comment") {
                   const u = it.c.author ?? data.users.find((x) => x.id === it.c.authorId);
                   return (
-                    <div key={`c-${it.c.id}`} className="anim-fadeup flex gap-2.5">
+                    <div key={`c-${it.c.id}`} data-enter-id={`c-${it.c.id}`} className="flex gap-2.5">
                       <UserAvatar user={u ?? null} size={28} interactive />
                       <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
                         <p className="text-[13px]">
@@ -1093,7 +1096,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 // Профиль автора приходит вместе с записью: история переживает вывод человека из проекта.
                 const who = it.a.author;
                 return (
-                  <div key={`a-${it.a.id}`} className="flex items-start gap-2.5 pl-1">
+                  <div key={`a-${it.a.id}`} data-enter-id={`a-${it.a.id}`} className="flex items-start gap-2.5 pl-1">
                     <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center">
                       <UserAvatar user={who} size={22} interactive />
                     </span>
@@ -1105,7 +1108,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 );
               });
             })()}
-          </div>
+          </EnterScope>
           {(["all", "comments", "history"] as const).filter(id => id !== feed).map(id => <div key={id} role="tabpanel" id={feedId + "-" + id} aria-labelledby={feedId + "-tab-" + id} hidden />)}
           {canComment ? <div className="issue-comment-composer">
             <UserAvatar user={me} size={28} />

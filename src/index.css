@@ -788,6 +788,15 @@ html.vt-theme::view-transition-new(root) {
   }
 }
 
+/* Чек-лист: зачёркивание проявляется плавно (цвет линии), на каждой строке при переносе; не пропадает в forced-colors. */
+.cl-text {
+  text-decoration: line-through transparent;
+  transition: text-decoration-color var(--dur-4) var(--ease-out), color var(--dur-3) var(--ease-standard);
+}
+.cl-text[data-done] {
+  text-decoration-color: currentColor;
+  color: var(--text-3);
+}
 .anim-fadeup {
   animation: fadeUp var(--dur-3) var(--ease-out) both;
 }
@@ -968,6 +977,9 @@ html.vt-theme::view-transition-new(root) {
   .anim-drop,
   .anim-drop-done {
     animation: none;
+  }
+  .cl-text {
+    transition: none;
   }
   .timeline-bar,
   .timeline-bar-fill {
