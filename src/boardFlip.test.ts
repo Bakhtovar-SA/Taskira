@@ -112,3 +112,19 @@ test("продление снимка после ответа сервера: п
     vi.useRealTimers();
   }
 });
+
+test("продлённый снимок закрывается после первого коммита с переездом", () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  const owner = snapshotBoard(root, null);
+  renewBoardFlip(owner);
+  tops.set("a", 100).set("b", 0);
+  playBoardFlip();
+  expect(flipFrom).toHaveBeenCalled();
+  vi.mocked(flipFrom).mockClear();
+  // Чужое изменение позже: снимка уже нет, ничего не анимируется от устаревших положений.
+  expect(flipPending("a")).toBe(false);
+  tops.set("a", 0).set("b", 100);
+  playBoardFlip();
+  expect(flipFrom).not.toHaveBeenCalled();
+});

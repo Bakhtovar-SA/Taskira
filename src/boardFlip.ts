@@ -18,7 +18,7 @@ const SELECTOR = "article[data-issue-id]";
 type Pos = { left: number; top: number };
 /** `landing` — точка, откуда прилетает брошенная карточка; применяется, только когда карточка действительно сменила
  *  место (до ответа сервера она стоит на старом, и коммиты в это время не должны её никуда «возвращать»). */
-let snap: { root: HTMLElement; at: number; pos: Map<string, Pos>; lifted: string | null; landing: Pos | null; dead?: boolean } | null = null;
+let snap: { root: HTMLElement; at: number; pos: Map<string, Pos>; lifted: string | null; landing: Pos | null; dead?: boolean; renewed?: boolean } | null = null;
 let landing: { id: string; left: number; top: number } | null = null;
 let scrollWatch = false;
 
@@ -82,11 +82,16 @@ export function cancelBoardFlip(owner: object | null): void {
 /** Массовая операция принята сервером: карточки сменят колонку только после перечитывания списка (второй запрос), а он
  *  может идти дольше `TTL_MS`. Возраст снимка сдвигается вперёд на `RENEW_AHEAD_MS` от ответа, поэтому полное окно
  *  после ответа — `TTL_MS + RENEW_AHEAD_MS` (≈ 10 с). Цена окна: посторонняя перезагрузка списка в эти секунды (например,
- *  по WebSocket) может сыграть перелёт от этого снимка, если положения карточек изменились — для прототипа допустимо.
+ *  по WebSocket) может сыграть перелёт от этого снимка, если положения карточек изменились; поэтому после первого
+ *  коммита с переездом такой снимок закрывается (`playBoardFlip`). Карточка, которой не было в снимке (создана другим
+ *  пользователем), к переезду не относится: `flipPending` для неё ложен, и она появляется обычным `enter`.
  *  Положения не менялись (прокрутка и так гасит снимок). */
 const RENEW_AHEAD_MS = 7000;
 export function renewBoardFlip(owner: object | null): void {
-  if (owner && snap === owner) snap.at = performance.now() + RENEW_AHEAD_MS;
+  if (owner && snap === owner) {
+    snap.at = performance.now() + RENEW_AHEAD_MS;
+    snap.renewed = true;
+  }
 }
 
 /** Есть ли для карточки снимок (тогда её появление — перенос, а не новая задача). */
@@ -133,6 +138,9 @@ export function playBoardFlip(): void {
     }
     s.pos.set(m.id, m.to);
   }
+  // Продлённый снимок (массовая операция) нужен ровно для первого коммита с переездом: после него окно закрываем,
+  // чтобы чужие изменения доски в оставшиеся секунды не анимировались от устаревших положений.
+  if (s.renewed) snap = null;
 }
 
 /** Перелёт в другую колонку: тело колонки прокручивается (overflow) и обрезало бы карточку, пока она снаружи.
