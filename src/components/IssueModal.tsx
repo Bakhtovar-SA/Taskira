@@ -255,7 +255,8 @@ function ChecklistField({ issue }: { issue: Issue }) {
 
   return (
     <Field tile label={t("issue.checklistCount", { done, total: items.length })} action={canEdit && <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>{t("issue.checklistAdd")}</Button>}>
-      <EnterScope className="space-y-1" ids={items.map((i) => i.id)} resetKey={issue.id} loaded>
+      {items.length > 0 && (
+        <EnterScope className="space-y-1" ids={items.map((i) => i.id)} resetKey={issue.id}>
           {items.map((item) => (
             <div
               key={item.id}
@@ -277,7 +278,8 @@ function ChecklistField({ issue }: { issue: Issue }) {
               )}
             </div>
           ))}
-      </EnterScope>
+        </EnterScope>
+      )}
 
       {items.length === 0 && !adding && <p className="text-[13px] text-faint">{t("issue.noChecklist")}</p>}
       {canEdit && adding && (
