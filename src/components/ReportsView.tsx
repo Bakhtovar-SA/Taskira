@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadReportCsv, reportsApi, type ReportGroup, type ReportScope, type ReportSummary } from "../api";
 import { useStore } from "../store";
 import { useT, type TKey } from "../i18n";
@@ -29,20 +29,33 @@ function Trend({ report }: { report: ReportSummary }) {
   const { t, lang } = useT();
   const points = report.trend;
   const max = Math.max(1, ...points.flatMap(p => [p.created ?? 0, p.closed]));
-  const W = Math.max(520, points.length * 68), H = 256, base = 218;
+  // Рисуем в натуральную ширину блока (viewBox = пиксели): столбцы распределяются по всей панели, а подписи не масштабируются.
+  const box = useRef<HTMLDivElement | null>(null);
+  const [avail, setAvail] = useState(0);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => setAvail(Math.floor(el.clientWidth));
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const W = Math.max(520, points.length * 68, avail), H = 256, base = 218;
   const slot = (W - 36) / Math.max(1, points.length);
   const fmt = (s: string) => date(s).toLocaleDateString(lang, { day: "numeric", month: "short", timeZone: "UTC" });
   // Идентификаторы градиентов уникальны для каждого экземпляра графика (два графика на странице не делят <defs>).
   const gid = useId().replace(/:/g, "");
   return <section className="reports-panel reports-chart">
     <div className="reports-panel-head"><h2>{t("reports.trend.title")}</h2><span className="reports-legend"><i data-series="created" />{t("reports.table.created")}<i data-series="closed" />{t("reports.table.closed")}</span></div>
-    <div className="reports-chart-scroll ds-focus" tabIndex={0} role="region" aria-label={t("reports.trend.title")} ref={cssVars({ "--report-chart-width": `${W}px` })}>
+    <div className="reports-chart-scroll ds-focus" tabIndex={0} role="region" aria-label={t("reports.trend.title")} ref={el => { box.current = el; cssVars({ "--report-chart-width": `${W}px` })(el); }}>
       <svg role="img" aria-label={t("reports.trend.title")} viewBox={`0 0 ${W} ${H}`} width={W} height={H}>
         <title>{t("reports.trend.title")}</title>
         <defs>{(["created", "closed"] as const).map(series => <linearGradient key={series} id={`${gid}-${series}`} data-series={series} x1="0" y1="0" x2="0" y2="1"><stop offset="0" /><stop offset="1" /></linearGradient>)}</defs>
         {[0, 1, 2, 3].map(i => <line key={i} x1={18} x2={W - 18} y1={base - i * 60} y2={base - i * 60} className="reports-gridline" />)}
         {points.map((p, i) => {
-          const x = 18 + slot * (i + .5), bw = Math.min(22, Math.round(slot * .28));
+          const x = 18 + slot * (i + .5), bw = Math.min(30, Math.round(slot * .26));
           return <g key={p.week}>
             <title>{`${fmt(p.week)}: ${t("reports.table.created")} ${p.created ?? "—"}, ${t("reports.table.closed")} ${p.closed}`}</title>
             {(["created", "closed"] as const).map((series, j) => {

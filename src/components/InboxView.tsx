@@ -165,7 +165,7 @@ export default function InboxView() {
             />
           </div>
         ) : (
-          <div ref={listRef} className="mt-6 space-y-6">
+          <div ref={listRef} className="anim-stagger mt-6 space-y-6">
             {groups.map((g) => (
               <section key={g.id}>
                 <h2 className="mb-2 px-1 text-[12.5px] font-semibold tracking-[0.01em] text-faint">{t(`inbox.${g.id}`)}</h2>

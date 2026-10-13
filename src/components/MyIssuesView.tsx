@@ -60,7 +60,7 @@ export default function MyIssuesView() {
             </div>
           )
         ) : (
-          <div className="mt-6 space-y-6">
+          <div className="anim-stagger mt-6 space-y-6">
             {groups.map((items) => (
               <section key={items[0].projectId}>
                 <h2 className="mb-2 flex items-center gap-2 px-1 text-[14px] font-semibold text-ink">
