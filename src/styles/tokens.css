@@ -14,7 +14,7 @@
    9–10 сплошная заливка, 11–12 текст.
 
    Правило: никаких #000/#fff. Самый светлый цвет — gray-1 с подтоном,
-   самый тёмный — холст тёмной темы oklch(0.16 …), не чёрный.
+   самый тёмный базовый фон — рамка тёмной темы oklch(0.17 …), не чёрный.
    ========================================================================== */
 
 :root {
@@ -262,30 +262,30 @@
   --project-7: oklch(0.7 0.13 190);
   --project-8: oklch(0.7 0.13 230);
 
-  /* Холст ≈ oklch(0.16 …) — не чёрный, с фиолетовым подтоном; каждый
-     следующий слой светлее на 0.02–0.03 L. */
-  --bg-frame: oklch(0.155 0.014 288);
-  --bg-canvas: oklch(0.182 0.013 288);
-  --bg-sunken: oklch(0.165 0.012 288);
-  --bg-panel: oklch(0.212 0.014 288);
-  --bg-raised: oklch(0.238 0.015 288);
-  --bg-overlay: oklch(0.228 0.015 288);
-  --bg-hover: oklch(0.255 0.016 288);
-  --bg-active: oklch(0.285 0.02 288);
+  /* Тёмный холст с фиолетовым подтоном; соседние поверхности сохраняют
+     разницу светлоты около 0.02–0.03 L. */
+  --bg-frame: oklch(0.17 0.014 288);
+  --bg-canvas: oklch(0.21 0.013 288);
+  --bg-sunken: oklch(0.19 0.012 288);
+  --bg-panel: oklch(0.24 0.014 288);
+  --bg-raised: oklch(0.26 0.015 288);
+  --bg-overlay: oklch(0.25 0.015 288);
+  --bg-hover: oklch(0.3 0.016 288);
+  --bg-active: oklch(0.33 0.02 288);
   --bg-scrim: oklch(0.08 0.02 288 / 0.62);
-  --bg-glass: oklch(0.235 0.016 288 / 0.8);
-  --bg-sidebar: oklch(0.15 0.014 288 / 0.5);
+  --bg-glass: oklch(0.26 0.016 288 / 0.8);
+  --bg-sidebar: oklch(0.17 0.014 288 / 0.5);
   --sidebar-item-active: oklch(0.3 0.03 288 / 0.55);
 
   --text-1: oklch(0.945 0.006 288);
   --text-2: oklch(0.78 0.012 288);
-  --text-3: oklch(0.66 0.014 288);
+  --text-3: oklch(0.68 0.014 288);
   --text-on-accent: oklch(0.99 0.006 288);
   --status-danger-strong: oklch(0.52 0.19 25);
 
-  --border-subtle: oklch(0.255 0.014 288);
-  --border-default: oklch(0.29 0.016 288);
-  --border-strong: oklch(0.37 0.018 288);
+  --border-subtle: oklch(0.28 0.014 288);
+  --border-default: oklch(0.31 0.016 288);
+  --border-strong: oklch(0.39 0.018 288);
 
   /* Чуть глубже ступени 9 тёмной шкалы: светлый текст на кнопке держит 4.5:1. */
   --accent-solid: oklch(0.555 0.2 var(--brand-h));
@@ -297,7 +297,7 @@
   --focus-ring: oklch(0.7 0.16 var(--brand-h) / 0.55);
 
   --status-todo: oklch(0.62 0.02 288);
-  --status-todo-bg: oklch(0.265 0.014 288);
+  --status-todo-bg: oklch(0.29 0.014 288);
   --status-todo-fg: oklch(0.78 0.014 288);
   --status-warn: oklch(0.78 0.12 70);
 
@@ -327,8 +327,8 @@
   --glow-b: oklch(0.4 0.17 330 / 0.45);
   --glow-c: oklch(0.42 0.14 250 / 0.45);
 
-  --glass-side: oklch(0.2 0.02 288 / 0.45);
-  --glass-sheet: oklch(0.17 0.014 288 / 0.74);
+  --glass-side: oklch(0.22 0.02 288 / 0.45);
+  --glass-sheet: oklch(0.19 0.014 288 / 0.74);
   --glass-edge: oklch(1 0 0 / 0.16);
   --glass-edge-2: oklch(1 0 0 / 0.03);
   --board-col-bg: color-mix(in oklch, var(--bg-sunken) 55%, transparent);
@@ -359,25 +359,25 @@
 /* «Сумерки» — тёмная, глубже и фиолетовее базовой. */
 :root[data-skin="dusk"] {
   --bg-group: var(--bg-sunken);
-  --bg-frame: oklch(0.14 0.03 292);
-  --bg-canvas: oklch(0.17 0.032 292);
-  --bg-sunken: oklch(0.15 0.03 292);
-  --bg-panel: oklch(0.2 0.034 292);
-  --bg-raised: oklch(0.226 0.036 292);
-  --bg-overlay: oklch(0.216 0.035 292);
-  --bg-hover: oklch(0.246 0.04 292);
-  --bg-active: oklch(0.28 0.05 292);
-  --bg-glass: oklch(0.22 0.036 292 / 0.8);
-  --bg-sidebar: oklch(0.14 0.03 292 / 0.5);
+  --bg-frame: oklch(0.16 0.03 292);
+  --bg-canvas: oklch(0.2 0.032 292);
+  --bg-sunken: oklch(0.18 0.03 292);
+  --bg-panel: oklch(0.23 0.034 292);
+  --bg-raised: oklch(0.25 0.036 292);
+  --bg-overlay: oklch(0.24 0.035 292);
+  --bg-hover: oklch(0.29 0.04 292);
+  --bg-active: oklch(0.32 0.05 292);
+  --bg-glass: oklch(0.25 0.036 292 / 0.8);
+  --bg-sidebar: oklch(0.16 0.03 292 / 0.5);
   --sidebar-item-active: oklch(0.3 0.06 292 / 0.55);
   --text-2: oklch(0.79 0.02 292);
-  --text-3: oklch(0.69 0.026 292);
-  --border-subtle: oklch(0.25 0.032 292);
-  --border-default: oklch(0.29 0.036 292);
-  --border-strong: oklch(0.37 0.04 292);
-  --status-todo-bg: oklch(0.255 0.03 292);
-  --glass-side: oklch(0.19 0.045 292 / 0.45);
-  --glass-sheet: oklch(0.16 0.032 292 / 0.82);
+  --text-3: oklch(0.68 0.026 292);
+  --border-subtle: oklch(0.27 0.032 292);
+  --border-default: oklch(0.31 0.036 292);
+  --border-strong: oklch(0.39 0.04 292);
+  --status-todo-bg: oklch(0.28 0.03 292);
+  --glass-side: oklch(0.21 0.045 292 / 0.45);
+  --glass-sheet: oklch(0.18 0.032 292 / 0.82);
 }
 :root[data-skin="dusk"],
 :root[data-skin="dusk"] [data-atmo="default"] {
@@ -389,28 +389,28 @@
 /* «Графит» — тёмная нейтральная: серые без фиолетового подтона, свечение почти погашено. */
 :root[data-skin="graphite"] {
   --bg-group: var(--bg-sunken);
-  --bg-frame: oklch(0.16 0.003 260);
-  --bg-canvas: oklch(0.185 0.003 260);
-  --bg-sunken: oklch(0.168 0.003 260);
-  --bg-panel: oklch(0.215 0.004 260);
-  --bg-raised: oklch(0.24 0.004 260);
-  --bg-overlay: oklch(0.23 0.004 260);
-  --bg-hover: oklch(0.258 0.004 260);
-  --bg-active: oklch(0.29 0.005 260);
-  --bg-glass: oklch(0.235 0.004 260 / 0.82);
-  --bg-sidebar: oklch(0.155 0.003 260 / 0.55);
+  --bg-frame: oklch(0.18 0.003 260);
+  --bg-canvas: oklch(0.21 0.003 260);
+  --bg-sunken: oklch(0.19 0.003 260);
+  --bg-panel: oklch(0.24 0.004 260);
+  --bg-raised: oklch(0.27 0.004 260);
+  --bg-overlay: oklch(0.25 0.004 260);
+  --bg-hover: oklch(0.3 0.004 260);
+  --bg-active: oklch(0.33 0.005 260);
+  --bg-glass: oklch(0.26 0.004 260 / 0.82);
+  --bg-sidebar: oklch(0.18 0.003 260 / 0.55);
   --sidebar-item-active: oklch(0.3 0.006 260 / 0.6);
   --text-1: oklch(0.95 0.002 260);
   --text-2: oklch(0.79 0.004 260);
-  --text-3: oklch(0.67 0.004 260);
-  --border-subtle: oklch(0.26 0.004 260);
-  --border-default: oklch(0.3 0.004 260);
-  --border-strong: oklch(0.38 0.005 260);
+  --text-3: oklch(0.68 0.004 260);
+  --border-subtle: oklch(0.28 0.004 260);
+  --border-default: oklch(0.32 0.004 260);
+  --border-strong: oklch(0.4 0.005 260);
   --status-todo: oklch(0.62 0.004 260);
-  --status-todo-bg: oklch(0.27 0.004 260);
+  --status-todo-bg: oklch(0.29 0.004 260);
   --status-todo-fg: oklch(0.79 0.004 260);
-  --glass-side: oklch(0.2 0.004 260 / 0.55);
-  --glass-sheet: oklch(0.175 0.003 260 / 0.86);
+  --glass-side: oklch(0.22 0.004 260 / 0.55);
+  --glass-sheet: oklch(0.2 0.003 260 / 0.86);
 }
 :root[data-skin="graphite"],
 :root[data-skin="graphite"] [data-atmo="default"] {
