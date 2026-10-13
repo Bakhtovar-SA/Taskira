@@ -187,6 +187,13 @@ export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<
   return done(safe(() => track(el, e.animate(el, { opacity: [1, 0], transform }, EXIT))));
 }
 
+/** Короткая подсветка элемента, у которого сменилось значение (статус, приоритет, срок): акцентная заливка гаснет за
+ *  400 мс. Только цвет фона (WAAPI, ADR-0010) — без transform, раскладку не трогает. Движение уменьшено — ничего. */
+export function flash(el: HTMLElement): void {
+  if (motionReduced() || typeof el.animate !== "function") return;
+  safe(() => el.animate([{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }], { duration: 400, easing: "ease-out" }));
+}
+
 /** Снять текущую анимацию элемента (например, пружину появления окна, когда оно уже закрывается: WAAPI из скрипта
  *  перекрывал бы CSS-анимацию ухода). */
 export function stopMotion(el: Element): void {

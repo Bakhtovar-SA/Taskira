@@ -28,6 +28,7 @@ import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { preloadIssueModal } from "../lazyModals";
 import { boardMoveRows } from "../boardMoves";
+import { usePulse } from "../usePulse";
 import { issuesApi, type IssueEpic, type IssueFilterParams } from "../api";
 import {
   ISSUE_PAGE_SIZE,
@@ -476,6 +477,7 @@ const BoardColumn = memo(function BoardColumn({
 }) {
   const { t } = useT();
   const isOver = useExternalStore(hoverStore, (id) => id === st.id);
+  const countRef = usePulse<HTMLSpanElement>(total, "any");
   const statusPos = posById.get(st.id) ?? 0.5;
   const onOver = useCallback(() => setOverCol(st.id), [setOverCol, st.id]);
   const onDropOn = useCallback(
@@ -547,7 +549,7 @@ const BoardColumn = memo(function BoardColumn({
       <header className="board-col-header group/col flex shrink-0 items-center gap-2 px-1.5">
         <StatusGlyph category={st.category} position={statusPos} size={16} />
         <h2 className="min-w-0 truncate text-[15px] font-bold tracking-[-0.005em] text-ink">{workflowStatusName(st, t)}</h2>
-        <span className="tabular text-[13.5px] text-faint">{total ?? "…"}</span>
+        <span ref={countRef} className="tabular text-[13.5px] text-faint">{total ?? "…"}</span>
         {isDone && !showAllDone && <span className="board-done-window text-[13px] text-faint">{t("board.doneWindow", { days: DONE_WINDOW_DAYS })}</span>}
         {canCreate && isFirstTodo && (
           <button
@@ -613,7 +615,7 @@ const BoardColumn = memo(function BoardColumn({
         )}
       </div>
       {isOver && !ok && (
-        <p className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 rounded-md bg-dangersoft px-2 py-1 text-center text-[13px] font-medium text-[var(--status-danger-fg)]">
+        <p className="anim-pop pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 rounded-md bg-dangersoft px-2 py-1 text-center text-[13px] font-medium text-[var(--status-danger-fg)]">
           {t("board.transitionOutOfSchema", {
             from: draggedStatusId ? workflowStatusName(statusById.get(draggedStatusId) ?? { name: "" }, t) : "",
             to: workflowStatusName(st, t),
