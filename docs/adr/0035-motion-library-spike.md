@@ -177,7 +177,7 @@
 
 ## Состояние прототипа
 
-Тестовый стенд (ветка `claude/sharp-einstein-zj2cqs`, в `main` не идёт), 12.10.2026. Всё — через `src/motion.ts`
+Тестовый стенд (`stand/motion`), 12.10.2026; 13.10.2026 владелец проверил стенд и разрешил перенос в `main` (допуски — в `scripts/bundle-budget.json`). Всё — через `src/motion.ts`
 (`motion/mini` `animate` + `spring`, WAAPI/CSSOM); reduced-motion и незагруженный чанк — мгновенно; чанк грузится на
 простое (`preloadMotionIdle` из `Toasts`, на доске — как раньше).
 

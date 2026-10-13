@@ -2,7 +2,7 @@
 // пресеты пружин укладываются в 500 мс успокоения.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { spring } from "motion";
-import { EXIT, SPRING, SPRING_ENTER, __resetMotionForTests, enter, exit, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion } from "./motion";
+import { EXIT, SPRING, SPRING_ENTER, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion } from "./motion";
 import { createEnterTracker } from "./listEnter";
 
 const systemReduce = (on: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: on && q.includes("reduce") }));
@@ -263,5 +263,22 @@ describe("glideWidth — ширина панели (сайдбар)", () => {
     const other = card();
     glideWidth(other, 60, 248);
     expect(other.animate).not.toHaveBeenCalled();
+  });
+});
+
+describe("flash", () => {
+  test("повторная подсветка отменяет предыдущую, а не накладывается", () => {
+    const el = document.createElement("span");
+    const cancels: ReturnType<typeof vi.fn>[] = [];
+    el.animate = vi.fn(() => {
+      const cancel = vi.fn();
+      cancels.push(cancel);
+      return { cancel, addEventListener: vi.fn() };
+    }) as unknown as HTMLElement["animate"];
+    flash(el);
+    flash(el);
+    expect(el.animate).toHaveBeenCalledTimes(2);
+    expect(cancels[0]).toHaveBeenCalledTimes(1);
+    expect(cancels[1]).not.toHaveBeenCalled();
   });
 });

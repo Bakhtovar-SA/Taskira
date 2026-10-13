@@ -80,9 +80,50 @@ test("строка в полёте: повторный commit не сравни�
   flipFrom.mockClear();
 
   // Второй commit (ревалидация): строки ещё анимируются, rect показывает середину пути.
-  for (const id of ["a", "b"]) els[id].getAnimations = () => [{}] as unknown as Animation[];
+  const spring = { effect: { getKeyframes: () => [{ transform: "translate(0px, 20px)" }, { transform: "none" }] } };
+  for (const id of ["a", "b"]) els[id].getAnimations = () => [spring] as unknown as Animation[];
   tops.set("b", 25);
   tops.set("a", 15);
   motion(host, ["b", "a"], find, false);
   expect(flipFrom).not.toHaveBeenCalled();
+});
+
+test("призрак не несёт id/name/for/form живых элементов", () => {
+  const motion = createRowMotion();
+  const a = row("a", 0);
+  a.innerHTML = '<label for="x">L</label><input id="x" name="n" form="f">';
+  const els: Record<string, HTMLElement> = { a, b: row("b", 40) };
+  const find = (id: string) => els[id];
+  motion(host, ["a", "b"], find, true);
+  a.remove();
+  motion(host, ["b"], find, false);
+  const ghost = host.querySelector<HTMLElement>(".list-row-ghost")!;
+  expect(ghost.querySelector("[id], [name], [for], [form]")).toBeNull();
+  expect(ghost.hasAttribute("id")).toBe(false);
+});
+
+test("призрак сохраняет отметку чекбокса", () => {
+  const motion = createRowMotion();
+  const a = row("a", 0);
+  a.innerHTML = '<input type="checkbox">';
+  (a.querySelector("input") as HTMLInputElement).checked = true;
+  const els: Record<string, HTMLElement> = { a, b: row("b", 40) };
+  const find = (id: string) => els[id];
+  motion(host, ["a", "b"], find, true);
+  a.remove();
+  motion(host, ["b"], find, false);
+  expect((host.querySelector(".list-row-ghost input") as HTMLInputElement).checked).toBe(true);
+});
+
+test("переход цвета (не transform) не считается движением строки: положение мерится заново", () => {
+  const motion = createRowMotion();
+  const els: Record<string, HTMLElement> = { a: row("a", 0), b: row("b", 40) };
+  const find = (id: string) => els[id];
+  motion(host, ["a", "b"], find, true);
+  const hover = { effect: { getKeyframes: () => [{ backgroundColor: "red" }, { backgroundColor: "blue" }] } };
+  for (const id of ["a", "b"]) els[id].getAnimations = () => [hover] as unknown as Animation[];
+  tops.set("b", 0);
+  tops.set("a", 40);
+  motion(host, ["b", "a"], find, false);
+  expect(flipFrom).toHaveBeenCalledTimes(2);
 });

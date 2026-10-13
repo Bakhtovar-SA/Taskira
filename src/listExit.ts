@@ -16,6 +16,11 @@ type Seen = { el: HTMLElement; box: Box };
 
 export type RowMotion = (host: HTMLElement | null, ids: readonly string[], find: (id: string) => HTMLElement | null | undefined, baseline: boolean) => void;
 
+/** Строка едет прямо сейчас: идёт анимация transform (пружина сдвига/въезда). Переход цвета при наведении и подсветка
+ *  не в счёт — они не двигают строку, и её положение надо мерить заново. */
+const isMoving = (el: HTMLElement): boolean =>
+  !!el.getAnimations?.().some((a) => (a.effect as KeyframeEffect | null)?.getKeyframes?.().some((k) => "transform" in k));
+
 export function createRowMotion(): RowMotion {
   let prev: Map<string, Seen> | null = null;
   return (host, ids, find, baseline) => {
@@ -35,7 +40,7 @@ export function createRowMotion(): RowMotion {
       // после PATCH/transition) сравнил бы её с итоговой позицией, отменил бы пружину и не запустил новую. Пока строка
       // анимируется, остаёмся при последней итоговой позиции.
       const known = prev?.get(id);
-      if (known && known.el === el && el.getAnimations?.().length) {
+      if (known && known.el === el && isMoving(el)) {
         now.set(id, known);
         continue;
       }
@@ -54,7 +59,11 @@ export function createRowMotion(): RowMotion {
       ghost.removeAttribute("role");
       ghost.removeAttribute("data-issue-id");
       ghost.removeAttribute("tabindex");
-      ghost.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
+      // Копия не должна пересекаться с живыми элементами: id, а также связи с формами и подписями (name/for/form).
+      for (const n of [ghost, ...ghost.querySelectorAll("[id], [name], [for], [form]")]) for (const a of ["id", "name", "for", "form"]) n.removeAttribute(a);
+      // cloneNode не переносит свойство `checked` управляемых полей: строка с отмеченным чекбоксом мигнула бы пустой.
+      const src = old.el.querySelectorAll<HTMLInputElement>("input");
+      ghost.querySelectorAll<HTMLInputElement>("input").forEach((n, i) => { if (src[i]) n.checked = src[i].checked; });
       ghost.setAttribute("aria-hidden", "true");
       ghost.setAttribute("inert", "");
       ghost.classList.add("list-row-ghost");
