@@ -122,8 +122,10 @@ const dto = (id: string, over: Partial<ServerIssue> = {}): ServerIssue =>
     complexity: null,
     dueDate: null,
     rank: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    // Как у настоящего сервера: время правки задачи не меняется между запросами списка (иначе «серверная» строка
+    // каждый раз казалась бы новее копии в сторе — см. freshRows).
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
     doneAt: null,
     archivedAt: null,
     ...over,
