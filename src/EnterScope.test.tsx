@@ -38,3 +38,18 @@ test("смена resetKey (другая задача, другая вкладк�
   rerender(list(["x", "y"], "b"));
   expect(enter).not.toHaveBeenCalled();
 });
+
+test("loaded: данные уже на руках — первый добавленный в пустой список анимируется", () => {
+  const view = (ids: string[]) => (
+    <EnterScope ids={ids} resetKey="a" loaded>
+      {ids.map((id) => (
+        <p key={id} data-enter-id={id}>
+          {id}
+        </p>
+      ))}
+    </EnterScope>
+  );
+  const { rerender } = render(view([]));
+  rerender(view(["1"]));
+  expect(enter).toHaveBeenCalledTimes(1);
+});
