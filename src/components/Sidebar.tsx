@@ -201,7 +201,7 @@ export default function Sidebar() {
   const widthBefore = useRef<number | null>(null);
   const changeCollapsed = (next: boolean) => {
     const shell = document.querySelector<HTMLElement>("aside.glass-side");
-    widthBefore.current = shell ? shell.getBoundingClientRect().width / cssZoom(shell) : null;
+    widthBefore.current = wide && shell ? shell.getBoundingClientRect().width / cssZoom(shell) : null; // в режиме выезжающей панели `rail` не меняется — устаревшая ширина не нужна
     setCollapsed(next);
     requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-sidebar-toggle]")?.focus());
   };

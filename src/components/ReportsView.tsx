@@ -46,7 +46,7 @@ function Trend({ report }: { report: ReportSummary }) {
           return <g key={p.week}>
             <title>{`${fmt(p.week)}: ${t("reports.table.created")} ${p.created ?? "—"}, ${t("reports.table.closed")} ${p.closed}`}</title>
             {(["created", "closed"] as const).map((series, j) => {
-              const value = p[series], h = Math.round(((value ?? 0) / max) * 174), bx = Math.round(x + (j ? 3 : -bw - 3));
+              const value = p[series], h = value ? Math.max(1, Math.round((value / max) * 174)) : 0, bx = Math.round(x + (j ? 3 : -bw - 3));
               return <g key={series}><rect data-series={series} fill={`url(#${gid}-${series})`} x={bx} y={base - h} width={bw} height={h} rx={3} /><text x={bx + bw / 2} y={base - h - 8} textAnchor="middle">{value ?? "—"}</text></g>;
             })}
             <text x={x} y={base + 25} textAnchor="middle">{fmt(p.week)}</text>
