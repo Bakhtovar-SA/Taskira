@@ -147,7 +147,13 @@ export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
           // отказ здесь: у разных задач в выборке разные текущие статусы, и не для
           // всех цель могла быть достижима по схеме. Остальные ошибки — тоже не
           // роняем весь батч, репортим как отказ по этой конкретной задаче.
-          failed.push({ issueId, reason: e instanceof ApiHttpError ? e.message : "Не удалось применить изменение", code: e instanceof ApiHttpError ? e.code : "ERROR" });
+          if (e instanceof ApiHttpError) {
+            failed.push({ issueId, reason: e.message, code: e.code });
+          } else {
+            // Не ApiHttpError — сбой БД или нарушенный инвариант: пользователю общий отказ, оператору — строка в логе.
+            req.log.error({ err: e, issueId, action: body.action }, "bulk: не удалось применить действие к задаче");
+            failed.push({ issueId, reason: "Не удалось применить изменение", code: "ERROR" });
+          }
         }
       }
 

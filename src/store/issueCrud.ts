@@ -38,6 +38,7 @@ function skipLabel(code: string, local: Localize): string {
     case "FORBIDDEN": return local("нет прав", "no permission");
     case "CONFLICT": return local("переход запрещён схемой рабочего процесса", "transition not allowed by the workflow");
     case "NOT_FOUND": return local("задача не найдена", "issue not found");
+    case "VALIDATION": return local("недопустимое значение (статус или исполнитель не из этого проекта)", "invalid value (status or assignee not in this project)");
     default: return local("не удалось применить", "couldn't be applied");
   }
 }

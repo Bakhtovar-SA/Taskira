@@ -336,6 +336,18 @@ describe("bulkApplyIssueAction — ТЗ 3.3 (план v2 Трек 3)", () => {
     expect(last?.text).toBe("Не применено ни к одной задаче — переход запрещён схемой рабочего процесса");
   });
 
+  test("VALIDATION (статус/исполнитель не из проекта) — тост называет причину, а не «не удалось применить»", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockResolvedValue({
+      succeeded: [],
+      failed: [{ issueId: "a", reason: "Целевой статус не принадлежит проекту", code: "VALIDATION" }],
+    });
+    await act(async () => {
+      await get().bulkApplyIssueAction({ action: "status", issueIds: ["a"], statusId: "foreign" });
+    });
+    expect(get().toasts.at(-1)?.text).toBe("Не применено ни к одной задаче — недопустимое значение (статус или исполнитель не из этого проекта)");
+  });
+
   test("смешанные причины пропуска перечисляются через запятую", async () => {
     const { get } = await boot();
     vi.spyOn(issuesApi, "bulk").mockResolvedValue({
