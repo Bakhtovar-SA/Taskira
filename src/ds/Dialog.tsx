@@ -96,10 +96,12 @@ function Frame({ kind, open, onClose, title, description, children, footer, size
     const reduce = typeof matchMedia === "function" && motionReduced(); // системный reduce и личный выключатель — как у enter()
     if (!el || reduce || typeof el.getAnimations !== "function") return done();
     const timer = setTimeout(done, DIALOG_EXIT_MS); // страховка, если animationend не придёт
-    el.addEventListener("animationend", done, { once: true });
+    // animationend всплывает: анимация потомка (спиннер, скелетон) не должна снять диалог до его собственного ухода.
+    const onEnd = (e: Event) => { if (e.target === el) done(); };
+    el.addEventListener("animationend", onEnd);
     return () => {
       clearTimeout(timer);
-      el.removeEventListener("animationend", done);
+      el.removeEventListener("animationend", onEnd);
     };
   }, [closing, ref]);
   const [id] = useState(() => dsId("dlg"));
