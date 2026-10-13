@@ -885,7 +885,6 @@ export default function Board() {
   // Колбэки карточек стабильны: задачу они получают аргументом (ADR-0011, шаг 0).
   const onMove = useCallback((id: string, to: string) => moveOnBoard(id, to, null), [moveOnBoard]);
   const onBeforeCreate = useCallback(() => snapshotBoard(boardRoot.current, null), []);
-  const onBeforeBulkStatus = onBeforeCreate;
   const onCardDragStart = useCallback((i: Issue) => {
     setDragId(i.id);
     setDragIssue(i);
@@ -1022,7 +1021,7 @@ export default function Board() {
       {selectMode && !selectedIds.size && <Hint id="board-select" className="board-select-hint absolute inset-x-4 bottom-4 z-20 mx-auto w-fit">{t("board.selectHint")}</Hint>}
       {selectMode && selectedIds.size > 0 && (
         <Suspense fallback={null}>
-          <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} onBeforeStatus={onBeforeBulkStatus} />
+          <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} onBeforeStatus={onBeforeCreate} />
         </Suspense>
       )}
     </div>

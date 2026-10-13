@@ -29,6 +29,9 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
       // Ничего не изменилось (отказ или все пропущены) — снимок не нужен, иначе чужой коммит анимировался бы от него.
       if (flip && (!res || res.succeeded.length === 0)) cancelBoardFlip(flip);
       else renewBoardFlip(flip);
+    } catch (e) {
+      cancelBoardFlip(flip); // контракт стора — не бросать, но снимок не должен пережить исключение
+      throw e;
     } finally {
       setBusy(false);
       setConfirmDelete(false);
