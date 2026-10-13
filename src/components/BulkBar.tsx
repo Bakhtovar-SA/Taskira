@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { PRIORITY_ORDER } from "../types";
+import { assignableUsers } from "../store/mappers";
 import { workflowStatusName } from "../workflowStatus";
 import { IcChevD, IcChevR, IcTrash, IcX, IcFlag, IcUsers, PriorityIcon, StatusGlyph } from "../icons";
 import { Button, Dialog, IconButton, Menu, Popover, type MenuEntry } from "../ds";
@@ -46,7 +47,7 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
         )}
         {(!floating || can("edit")) && menu(t("field.assignee"), [
           { id: "none", label: t(me.accessRole === "employee" ? "assignee.unassignSelf" : "createIssue.unassigned"), icon: <span aria-hidden="true"><UserAvatar user={null} size={18} /></span>, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: "none" }) },
-          ...data.users.filter(u => me.accessRole !== "employee" || u.id === me.id).map((u) => ({ id: u.id, label: u.name, text: u.name, icon: <span aria-hidden="true"><UserAvatar user={u} size={18} /></span>, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
+          ...assignableUsers(data).filter(u => me.accessRole !== "employee" || u.id === me.id).map((u) => ({ id: u.id, label: u.name, text: u.name, icon: <span aria-hidden="true"><UserAvatar user={u} size={18} /></span>, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
         ])}
         {(!floating || can("edit")) && menu(
           t("field.priority"),
