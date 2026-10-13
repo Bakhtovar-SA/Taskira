@@ -29,6 +29,24 @@ export interface IssueCrudDeps {
   langRef: MutableRefObject<"ru" | "en">;
 }
 
+/** Почему массовая операция пропустила задачи — по машинному `code` каждой неудачи (сервер: FORBIDDEN, CONFLICT — переход
+ *  запрещён схемой рабочего процесса, NOT_FOUND…). Раньше тост на любой отказ говорил «нет прав», хотя частый отказ —
+ *  запрещённый переход («К выполнению» → «На ревью»). Нет `code` (старый сервер) — прежнее «нет прав». */
+type Localize = StoreCtx["local"];
+function skipLabel(code: string, local: Localize): string {
+  switch (code) {
+    case "FORBIDDEN": return local("нет прав", "no permission");
+    case "CONFLICT": return local("переход запрещён схемой рабочего процесса или задача уже изменилась", "transition not allowed by the workflow or the issue has changed");
+    case "NOT_FOUND": return local("задача не найдена", "issue not found");
+    case "VALIDATION": return local("недопустимое значение (статус или исполнитель не из этого проекта)", "invalid value (status or assignee not in this project)");
+    default: return local("не удалось применить", "couldn't be applied");
+  }
+}
+/** Причины на языке интерфейса, через запятую; без `code` (старый сервер) — прежнее «нет прав». */
+export function skipReason(failed: readonly { code?: string }[], local: Localize): string {
+  return [...new Set(failed.map((f) => skipLabel(f.code ?? "FORBIDDEN", local)))].join(", ");
+}
+
 export function useIssueCrudActions(
   { setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef }: StoreCtx,
   { withIssue, resolveIssue, refreshIssues, setUi, bumpIssues, bumpEpics, langRef }: IssueCrudDeps,
@@ -358,17 +376,20 @@ export function useIssueCrudActions(
         }
         if (res.failed.length === 0) {
           toast("success", local(`Применено к ${res.succeeded.length} из ${res.succeeded.length}`, `Applied to ${res.succeeded.length} of ${res.succeeded.length}`));
-        } else if (res.succeeded.length === 0) {
-          toast("error", local("Не применено ни к одной задаче — нет прав", "Not applied to any issue — no permission"));
         } else {
-          const total = res.succeeded.length + res.failed.length;
-          toast(
-            "info",
-            local(
-              `Изменено ${res.succeeded.length} из ${total}, ${res.failed.length} пропущено — нет прав`,
-              `Changed ${res.succeeded.length} of ${total}, ${res.failed.length} skipped — no permission`,
-            ),
-          );
+          const why = skipReason(res.failed, local);
+          if (res.succeeded.length === 0) {
+            toast("error", local(`Не применено ни к одной задаче — ${why}`, `Not applied to any issue — ${why}`));
+          } else {
+            const total = res.succeeded.length + res.failed.length;
+            toast(
+              "info",
+              local(
+                `Изменено ${res.succeeded.length} из ${total}, ${res.failed.length} пропущено — ${why}`,
+                `Changed ${res.succeeded.length} of ${total}, ${res.failed.length} skipped — ${why}`,
+              ),
+            );
+          }
         }
         return res;
       } catch (err) {
