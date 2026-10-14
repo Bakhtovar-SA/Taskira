@@ -186,6 +186,27 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+/* COV-01: счётчик. Итог — в тексте (`.count-up-text`, он же в дереве доступности и в `textContent`); пока идёт рост,
+   текст невидим (opacity держит ширину), а промежуточное число рисует ::after из `data-shown`. Псевдоэлемент — единственное
+   место, где число не попадает в `textContent` (на нём держатся одноразовые чтения e2e). Вторая строка `content` — с
+   пустым альтернативным текстом, чтобы читатель с экрана его не озвучивал; она есть в Chrome 77+, Firefox 128+, Safari 17.4+.
+   В Safari 17.0–17.3 (пол по BROWSERS.md) работает только первая строка, и промежуточное число теоретически может быть
+   озвучено, если читатель попал на элемент в эти 300 мс; для движения вслепую это не критично, а узел с `aria-hidden`
+   вместо псевдоэлемента сломал бы `textContent` (проверено). */
+.count-up {
+  position: relative;
+  display: inline-block;
+}
+.count-up[data-counting] > .count-up-text {
+  opacity: 0;
+}
+.count-up[data-counting]::after {
+  content: attr(data-shown);
+  content: attr(data-shown) / "";
+  position: absolute;
+  inset: 0;
+  text-align: inherit; /* число внутри блока выравнивается как итог (вправо/по центру), а не прыгает к левому краю */
+}
 .font-mono {
   font-weight: 500;
   letter-spacing: 0.01em;
