@@ -56,7 +56,7 @@ for (const file of walk(SRC, /\.css$/)) {
       if (head.startsWith("@keyframes")) keyframes.set(head.split(/\s+/)[1], MOVING.test(body));
       else if (head.startsWith("@media") || head.startsWith("@layer") || head.startsWith("@supports"))
         walkBlock(body, reduced || /prefers-reduced-motion:\s*reduce/.test(head));
-      else if (!head.startsWith("@")) rules.push({ file: rel, selector: head.split("\n").pop().trim(), selectors: head, body, reduced });
+      else if (!head.startsWith("@")) rules.push({ file: rel, selector: head.split("\n").pop().trim(), selectors: head, body, reduced: reduced || /\[data-motion=["']?reduce["']?\]/.test(head) }); // личный выключатель «Уменьшить движение» — тоже reduce-ветка
       i = j;
     }
   };

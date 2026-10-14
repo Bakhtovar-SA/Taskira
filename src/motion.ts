@@ -19,12 +19,23 @@ export const reducedMotion = (): boolean => {
   }
 };
 
-/** Личный выключатель «Уменьшить движение» поверх системного (localStorage, как тема). Интерфейса пока нет —
- *  прототип; включается `setReducedMotion(true)` или `localStorage["taskira.reduceMotion"] = "1"`. */
+/** Личный выключатель «Уменьшить движение» поверх системного (localStorage, как тема; интерфейс — «Профиль → Внешний
+ *  вид»). Единая точка истины для JS (`motionReduced()`) и для CSS: атрибут `data-motion="reduce"` на <html> — его ставит
+ *  `public/theme-init.js` до первой отрисовки и `setReducedMotion()` при переключении; правило под ним в `index.css`
+ *  гасит CSS-анимации и переходы. */
 const REDUCE_KEY = "taskira.reduceMotion";
 let userReduced: boolean | null = null;
+const applyMotionAttr = (on: boolean): void => {
+  try {
+    if (on) document.documentElement.setAttribute("data-motion", "reduce");
+    else document.documentElement.removeAttribute("data-motion");
+  } catch {
+    /* нет document (тесты без DOM) */
+  }
+};
 export function setReducedMotion(on: boolean): void {
   userReduced = on;
+  applyMotionAttr(on);
   try {
     if (on) localStorage.setItem(REDUCE_KEY, "1");
     else localStorage.removeItem(REDUCE_KEY);
@@ -32,7 +43,8 @@ export function setReducedMotion(on: boolean): void {
     /* приватное окно — выключатель живёт до перезагрузки */
   }
 }
-export function motionReduced(): boolean {
+/** Личный выключатель включён (без учёта системной настройки) — для переключателя в настройках. */
+export function userReducedMotion(): boolean {
   if (userReduced === null) {
     try {
       userReduced = localStorage.getItem(REDUCE_KEY) === "1";
@@ -40,7 +52,11 @@ export function motionReduced(): boolean {
       userReduced = false;
     }
   }
-  return userReduced || reducedMotion();
+  return userReduced;
+}
+/** Движение надо отключить: личный выключатель или системный prefers-reduced-motion. Всё движение проверяет только её. */
+export function motionReduced(): boolean {
+  return userReducedMotion() || reducedMotion();
 }
 
 /** Пресеты пружин (visualDuration — токены: --dur-4 = 300 мс, между --dur-3 и --dur-4 = 250 мс). Полное время
@@ -80,6 +96,7 @@ export function __resetMotionForTests(load?: () => Promise<Engine>): void {
   loading = null;
   failedAt = -Infinity;
   userReduced = null;
+  applyMotionAttr(false);
   loader = load ?? (() => import("./motionEngine"));
 }
 

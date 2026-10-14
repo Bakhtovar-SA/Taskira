@@ -42,3 +42,35 @@ test("пружины не оставляют inline-стили; фокус во�
   const inline = await card.evaluate(el => ({ transform: (el as HTMLElement).style.transform, opacity: (el as HTMLElement).style.opacity }));
   expect(inline).toEqual({ transform: "", opacity: "" });
 });
+
+
+// Трек N, FIX-02: личный выключатель «Уменьшить движение» в «Внешний вид» — атрибут на <html>, переживает перезагрузку
+// (public/theme-init.js ставит его до первой отрисовки), CSS-анимации гасятся общим правилом.
+test("выключатель «Уменьшить движение»: атрибут, перезагрузка, анимации гасятся", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await boardFixture(page);
+  await page.goto("/settings/appearance");
+  const toggle = page.getByRole("switch", { name: "Уменьшить движение" });
+  await expect(toggle).toBeVisible();
+  await expect(toggle).not.toBeChecked();
+  expect(await page.evaluate(() => document.documentElement.getAttribute("data-motion"))).toBeNull();
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  expect(await page.evaluate(() => document.documentElement.getAttribute("data-motion"))).toBe("reduce");
+  await page.reload();
+  await expect(page.getByRole("switch", { name: "Уменьшить движение" })).toBeChecked();
+  expect(await page.evaluate(() => document.documentElement.getAttribute("data-motion"))).toBe("reduce");
+  // Общее правило: у экрана с анимацией входа (anim-view) нулевая длительность.
+  const duration = await page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.className = "anim-view";
+    document.body.appendChild(probe);
+    const d = getComputedStyle(probe).animationDuration;
+    probe.remove();
+    return d;
+  });
+  expect(duration).toBe("0s");
+  // Выключить обратно.
+  await page.getByRole("switch", { name: "Уменьшить движение" }).click();
+  expect(await page.evaluate(() => document.documentElement.getAttribute("data-motion"))).toBeNull();
+});

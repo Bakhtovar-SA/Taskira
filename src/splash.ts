@@ -7,7 +7,7 @@ const DRAWN_MS = 320;
 export function dismissSplash(): void {
   const el = document.getElementById("splash");
   if (!el) return;
-  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.motion === "reduce") {
     el.remove();
     return;
   }

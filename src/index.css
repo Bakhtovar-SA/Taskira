@@ -1070,3 +1070,20 @@ button {
     animation: none;
   }
 }
+
+/* Личный выключатель «Уменьшить движение» (ADR-0035, FIX-02/IMP-05): `data-motion="reduce"` на <html> ставит
+   `public/theme-init.js` до первой отрисовки и `setReducedMotion()` при переключении. Одно общее правило вместо копии
+   каждого переопределения под prefers-reduced-motion: все CSS-анимации и переходы мгновенны (конечный кадр
+   остаётся), прокрутка без плавности. Исключение — индикаторы загрузки (спиннер, неопределённый прогресс): их
+   неподвижность выглядела бы как зависание. Системная настройка по-прежнему обслуживается блоками выше. */
+html[data-motion="reduce"],
+html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-progress *),
+html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-progress *)::before,
+html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-progress *)::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}

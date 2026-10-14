@@ -2,7 +2,7 @@
 // пресеты пружин укладываются в 500 мс успокоения.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { spring } from "motion";
-import { EXIT, SPRING, SPRING_ENTER, SPRING_POP, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion } from "./motion";
+import { EXIT, SPRING, SPRING_ENTER, SPRING_POP, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion, userReducedMotion } from "./motion";
 import { createEnterTracker } from "./listEnter";
 
 const systemReduce = (on: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: on && q.includes("reduce") }));
@@ -343,5 +343,25 @@ describe("FIX-01: inline-стиль последнего кадра снимае
     await Promise.resolve();
     await Promise.resolve();
     expect(el.style.opacity).toBe("");
+  });
+});
+
+describe("FIX-02: личный выключатель — одна точка истины для JS и CSS", () => {
+  test("setReducedMotion ставит и снимает data-motion на <html>; userReducedMotion не учитывает систему", () => {
+    systemReduce(false);
+    __resetMotionForTests();
+    expect(document.documentElement.getAttribute("data-motion")).toBeNull();
+    setReducedMotion(true);
+    expect(document.documentElement.getAttribute("data-motion")).toBe("reduce");
+    expect(userReducedMotion()).toBe(true);
+    expect(motionReduced()).toBe(true);
+    setReducedMotion(false);
+    expect(document.documentElement.getAttribute("data-motion")).toBeNull();
+    expect(userReducedMotion()).toBe(false);
+    expect(motionReduced()).toBe(false);
+    // Системная настройка включает motionReduced, но не «личный» выключатель (переключатель в настройках не врёт).
+    systemReduce(true);
+    expect(motionReduced()).toBe(true);
+    expect(userReducedMotion()).toBe(false);
   });
 });
