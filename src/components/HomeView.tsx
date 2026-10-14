@@ -81,7 +81,7 @@ export default function HomeView() {
       <p className="home-date first-letter:uppercase">{dateLine}</p>
       <h1>{t(greetingKey(), { name: greetingName(me) })}</h1>
       <p className="home-summary">
-        <span className={count("overdue") ? "text-[var(--status-danger-fg)]" : undefined}><CountUp value={count("overdue")} /> {tn(count("overdue"), "home.summaryOverdue.one", "home.summaryOverdue.few", "home.summaryOverdue.many")}</span>
+        <span className={count("overdue") ? "text-[var(--status-danger-fg)]" : undefined}>{count("overdue")} {tn(count("overdue"), "home.summaryOverdue.one", "home.summaryOverdue.few", "home.summaryOverdue.many")}</span>
         {t("home.summaryWeek", { n: count("week") })}
         {rework && !review ? t("home.summaryRework", { n: rework }) : t("home.summaryReview", { n: review, verb: tn(review, "home.reviewVerb.one", "home.reviewVerb.few", "home.reviewVerb.many") })}
       </p>
