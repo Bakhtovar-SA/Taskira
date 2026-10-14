@@ -54,11 +54,11 @@
 /* Карточки отчёта появляются по очереди (как на «Главной» и в дашбордах): только прозрачность, без сдвига раскладки. */
 .reports-content > .reports-metrics,.reports-content > .reports-panels {animation:none}
 .reports-metrics > *,.reports-panels > * {animation:viewIn var(--dur-4) var(--ease-out) backwards}
-.reports-metrics > :nth-child(2) {animation-delay:40ms}
-.reports-metrics > :nth-child(3) {animation-delay:80ms}
-.reports-metrics > :nth-child(4) {animation-delay:120ms}
-.reports-metrics > :nth-child(5) {animation-delay:160ms}
-.reports-panels > :nth-child(1) {animation-delay:200ms}
-.reports-panels > :nth-child(2) {animation-delay:260ms}
-.reports-content > .reports-footnote {animation:viewIn var(--dur-4) var(--ease-out) backwards;animation-delay:320ms}
+.reports-metrics > :nth-child(2) {animation-delay:30ms}
+.reports-metrics > :nth-child(3) {animation-delay:60ms}
+.reports-metrics > :nth-child(4) {animation-delay:90ms}
+.reports-metrics > :nth-child(5) {animation-delay:120ms}
+.reports-panels > :nth-child(1) {animation-delay:120ms}
+.reports-panels > :nth-child(2) {animation-delay:150ms}
+.reports-content > .reports-footnote {animation:viewIn var(--dur-4) var(--ease-out) backwards;animation-delay:150ms}
 @media (prefers-reduced-motion: reduce) {.reports-metrics > *,.reports-panels > *,.reports-content > .reports-footnote {animation:none}}

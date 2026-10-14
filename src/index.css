@@ -349,6 +349,12 @@ body {
   box-shadow: var(--board-priority-inset);
 }
 
+/* NEW-02: перенос отправлен, ответа сервера ещё нет (boardFlip.markPending). Без анимации: смена, а не движение. */
+.board-card[data-pending] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
 /* Перетаскивание (Board.tsx setDragGhost): силуэт на месте и «карточка в руке». */
 .board-card[data-dragging] {
   opacity: 0.45;
@@ -1045,12 +1051,12 @@ button {
 .anim-stagger > * {
   animation: viewIn var(--dur-4) var(--ease-out) backwards;
 }
-.anim-stagger > :nth-child(2) { animation-delay: 40ms; }
-.anim-stagger > :nth-child(3) { animation-delay: 80ms; }
-.anim-stagger > :nth-child(4) { animation-delay: 120ms; }
-.anim-stagger > :nth-child(5) { animation-delay: 160ms; }
-.anim-stagger > :nth-child(6) { animation-delay: 200ms; }
-.anim-stagger > :nth-child(n + 7) { animation-delay: 240ms; }
+/* Задержка + длительность (--dur-4 = 300 мс) не дольше 450 мс: потолок задержки 150 мс (ТЗ 5.13, ADR-0035). */
+.anim-stagger > :nth-child(2) { animation-delay: 30ms; }
+.anim-stagger > :nth-child(3) { animation-delay: 60ms; }
+.anim-stagger > :nth-child(4) { animation-delay: 90ms; }
+.anim-stagger > :nth-child(5) { animation-delay: 120ms; }
+.anim-stagger > :nth-child(n + 6) { animation-delay: 150ms; }
 .chart-line {
   stroke-dasharray: 1;
   animation: drawLine var(--dur-5) var(--ease-out) backwards;
@@ -1069,4 +1075,23 @@ button {
   .ds-empty {
     animation: none;
   }
+}
+
+/* Личный выключатель «Уменьшить движение» (ADR-0035, FIX-02/IMP-05): `data-motion="reduce"` на <html> ставит
+   `public/theme-init.js` до первой отрисовки и `setReducedMotion()` при переключении. Одно общее правило вместо копии
+   каждого переопределения под prefers-reduced-motion: все CSS-анимации и переходы мгновенны (конечный кадр
+   остаётся), прокрутка без плавности. Исключение — индикаторы, чья неподвижность выглядела бы как зависание:
+   спиннер и неопределённый прогресс. Остальные бесконечные анимации декоративны (блик скелетона `shimmer`/`dsShimmer`,
+   бегущий пунктир `wfFlow` и `roadmap-dash`): под выключателем скелетон — статичная заглушка, пунктир — неподвижный.
+   Стартовую заставку `splash.ts` под выключателем снимает сразу. Системная настройка по-прежнему обслуживается блоками выше. */
+html[data-motion="reduce"],
+html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-progress *),
+html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-progress *)::before,
+html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-progress *)::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
 }
