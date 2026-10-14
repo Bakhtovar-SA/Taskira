@@ -31,6 +31,31 @@ function* walk(dir, re) {
     else if (re.test(name) && !/\.test\.tsx?$/.test(name)) yield p;
   }
 }
+
+/** Правило личного выключателя «Уменьшить движение» (`html[data-motion=reduce] …`) считается reduce-веткой, только если
+ *  КАЖДЫЙ селектор начинается с `html[data-motion="reduce"]`, а тело лишь гасит движение: длительности и задержки 0,
+ *  `animation`/`transition` none, число повторов 1, `scroll-behavior: auto`. Правило, которое под этим атрибутом ЗАДАЁТ
+ *  движение (или лишь упоминает атрибут в `:not(...)`), обычным проверкам подлежит как любое другое. */
+const PERSONAL_REDUCE = /^html\[data-motion=["']?reduce["']?\]/;
+const NEUTRAL = {
+  "animation-duration": /^0(ms|s)?$/,
+  "animation-delay": /^0(ms|s)?$/,
+  "animation-iteration-count": /^1$/,
+  "transition-duration": /^0(ms|s)?$/,
+  "transition-delay": /^0(ms|s)?$/,
+  animation: /^none$/,
+  transition: /^none$/,
+  "scroll-behavior": /^auto$/,
+};
+function isPersonalReduce(head, body) {
+  if (!head.split(/,(?![^(]*\))/).every((sel) => PERSONAL_REDUCE.test(sel.trim()))) return false; // запятые внутри :not(…) не разделяют селекторы
+  const decls = body.split(";").map((d) => d.trim()).filter(Boolean);
+  return decls.length > 0 && decls.every((d) => {
+    const m = /^([\w-]+)\s*:\s*([^!]+?)\s*(!important)?$/.exec(d);
+    return !!m && NEUTRAL[m[1]]?.test(m[2]) === true;
+  });
+}
+
 const errors = [];
 const ms = (v, unit) => (unit === "s" ? parseFloat(v) * 1000 : parseFloat(v));
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -56,7 +81,7 @@ for (const file of walk(SRC, /\.css$/)) {
       if (head.startsWith("@keyframes")) keyframes.set(head.split(/\s+/)[1], MOVING.test(body));
       else if (head.startsWith("@media") || head.startsWith("@layer") || head.startsWith("@supports"))
         walkBlock(body, reduced || /prefers-reduced-motion:\s*reduce/.test(head));
-      else if (!head.startsWith("@")) rules.push({ file: rel, selector: head.split("\n").pop().trim(), selectors: head, body, reduced: reduced || /\[data-motion=["']?reduce["']?\]/.test(head) }); // личный выключатель «Уменьшить движение» — тоже reduce-ветка
+      else if (!head.startsWith("@")) rules.push({ file: rel, selector: head.split("\n").pop().trim(), selectors: head, body, reduced: reduced || isPersonalReduce(head, body) }); // личный выключатель «Уменьшить движение» — тоже reduce-ветка
       i = j;
     }
   };
