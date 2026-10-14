@@ -9,6 +9,25 @@ permissions:
   contents: read
 
 jobs:
+  # Keep the workflow present for every PR; scope expensive jobs internally.
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      server: ${{ steps.paths.outputs.server }}
+      client: ${{ steps.paths.outputs.client }}
+      ops: ${{ steps.paths.outputs.ops }}
+      upgrade: ${{ steps.paths.outputs.upgrade }}
+      docs_only: ${{ steps.paths.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - name: Select suites from the actual merge parent
+        id: paths
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: bash scripts/ci-changes.sh
+
   security:
     name: dependency and image security
     runs-on: ubuntu-24.04
@@ -139,8 +158,9 @@ jobs:
           echo "json=$json" >> "$GITHUB_OUTPUT"
 
   upgrade-from-snapshot:
+    needs: [changes, snapshot-list]
+    if: needs.changes.outputs.server == 'true'
     name: upgrade from snapshot (${{ matrix.snapshot }})
-    needs: snapshot-list
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -192,7 +212,9 @@ jobs:
         working-directory: server
 
   upgrade-procedure:
-    name: offline upgrade and rollback
+    needs: [changes]
+    if: needs.changes.outputs.upgrade == 'true'
+    name: offline upgrade and rollback (selected)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -200,43 +222,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - uses: ./.github/actions/prepare-test-runner
-      # OPS-UPG-01: the job always runs (stable check name), but on a PR the heavy
-      # step runs only when upgrade-relevant paths changed. Pushes to main always
-      # run it; the nightly run is .github/workflows/upgrade-nightly.yml.
-      - name: Decide whether upgrade-relevant paths changed
-        id: scope
-        env:
-          EVENT: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT" != "pull_request" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
-          fi
-          if ! changed="$(git diff --name-only "$BASE_SHA"...HEAD -- \
-            'server/migrations/**' 'scripts/**' 'Dockerfile*' '**/Dockerfile*' \
-            'docker-compose*.yml' '**/docker-compose*.yml' 'compose*.yml' 'nginx.conf' \
-            'fixtures/db-snapshots/**' '.github/workflows/test.yml' \
-            'server/src/**' 'src/**' 'deploy/**' '.dockerignore' 'vite.config.*' \
-            'shared/**' 'public/**' 'index.html' 'tsconfig*.json' 'server/tsconfig*.json' \
-            'tailwind.config.*' 'postcss.config.*' \
-            'server/package*.json' 'package*.json' \
-            '.github/actions/prepare-test-runner/**' '.github/scripts/**' \
-            '.github/workflows/upgrade-nightly.yml')"; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            echo "Could not determine changed paths; running the upgrade test."
-          elif [ -n "$changed" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "No upgrade-relevant paths changed; skipping (nightly run covers main)."
-          fi
       - name: Build versioned images, upgrade from the latest release tag, and roll back
-        if: steps.scope.outputs.run == 'true'
         run: bash scripts/test-upgrade-integration.sh
 
   backup-restore-rehearsal:
-    name: backup, destroy volumes, and restore
+    needs: [changes]
+    if: needs.changes.outputs.ops == 'true'
+    name: backup, destroy volumes, and restore (selected)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -245,7 +237,9 @@ jobs:
         run: bash scripts/test-backup-restore-integration.sh
 
   podman-rootless:
-    name: rootless Podman install, health and upgrade
+    needs: [changes]
+    if: needs.changes.outputs.ops == 'true'
+    name: rootless Podman install, health and upgrade (selected)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -330,6 +324,9 @@ jobs:
         with:
           docker: 'false'
 
+      - name: Self-test CI path selection
+        run: bash scripts/test-ci-changes.sh
+
       - name: Self-test migration policy guard
         run: bash scripts/test-migration-policy.sh
 
@@ -340,6 +337,8 @@ jobs:
         run: bash scripts/check-migrations.sh "$BASE_SHA" "$HEAD_SHA"
 
   server:
+    needs: [changes]
+    if: needs.changes.outputs.server == 'true'
     name: server (postgres ${{ matrix.pg }})
     runs-on: ubuntu-24.04
     strategy:
@@ -393,16 +392,25 @@ jobs:
       - run: npm test
 
   server-summary:
-    # Keep the stable check name even when PostgreSQL matrix members change.
+    # Stable check: selected suites must pass; only intentionally omitted suites may skip.
     name: server
-    needs: server
+    needs: [changes, server]
     if: always()
     runs-on: ubuntu-24.04
     steps:
-      - name: Require every PostgreSQL suite to pass
+      - name: Require the selected suite to pass
         env:
-          MATRIX_RESULT: ${{ needs.server.result }}
-        run: test "$MATRIX_RESULT" = success
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SELECTED: ${{ needs.changes.outputs.server }}
+          SUITE_RESULT: ${{ needs.server.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$SELECTED" = true ]; then
+            test "$SUITE_RESULT" = success
+          else
+            test "$SELECTED" = false
+            test "$SUITE_RESULT" = skipped
+          fi
 
   # Контракт клиент↔сервер (ТЗ 2.1): клиентские типы выводятся из server/src/contract.ts, поэтому правка серверных
   # типов может сломать клиент и наоборот. Оба typecheck в ОДНОЙ джобе — один статус проверки на PR, а не два,
@@ -461,6 +469,9 @@ jobs:
   # В CI клиент раньше не проверялся вообще — единственный барьер против
   # красной сборки перед тяжёлой работой над UI.
   client:
+    name: client (selected)
+    needs: [changes]
+    if: needs.changes.outputs.client == 'true'
     runs-on: ubuntu-24.04
 
     steps:
@@ -508,6 +519,9 @@ jobs:
   # Отдельный job: LDAP-путь против НАСТОЯЩЕГО OpenLDAP (не мока).
   # AUTH_MODE=ldap здесь только для этого job — основной `server` job идёт в local.
   ldap:
+    name: ldap (selected)
+    needs: [changes]
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-24.04
 
     services:
@@ -619,6 +633,9 @@ jobs:
   # (SeaweedFS, не заглушки; образы MinIO с 28.09.2026 недоступны без авторизации —
   # см. server/docker-compose.storage.yml). Основной `server` job идёт в STORAGE_DRIVER=local.
   storage-s3:
+    name: storage-s3 (selected)
+    needs: [changes]
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-24.04
 
     services:
@@ -696,6 +713,9 @@ jobs:
   # Отдельный job: email-воркер уведомлений против НАСТОЯЩЕГО SMTP (Mailpit).
   # Основной `server` job идёт с NOTIFY_EMAIL_ENABLED unset — воркер не стартует.
   mail:
+    name: mail (selected)
+    needs: [changes]
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-24.04
 
     services:
@@ -776,3 +796,171 @@ jobs:
       - name: Remove this Mailpit fixture
         if: always()
         run: docker compose -f docker-compose.mail.yml down -v
+
+  upgrade-from-snapshot-summary:
+    # Stable check: selected suites must pass; only intentionally omitted suites may skip.
+    name: upgrade from snapshot
+    needs: [changes, upgrade-from-snapshot]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected suite to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SELECTED: ${{ needs.changes.outputs.server }}
+          SUITE_RESULT: ${{ needs.upgrade-from-snapshot.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$SELECTED" = true ]; then
+            test "$SUITE_RESULT" = success
+          else
+            test "$SELECTED" = false
+            test "$SUITE_RESULT" = skipped
+          fi
+
+  upgrade-procedure-summary:
+    # Stable check: selected suites must pass; only intentionally omitted suites may skip.
+    name: offline upgrade and rollback
+    needs: [changes, upgrade-procedure]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected suite to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SELECTED: ${{ needs.changes.outputs.upgrade }}
+          SUITE_RESULT: ${{ needs.upgrade-procedure.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$SELECTED" = true ]; then
+            test "$SUITE_RESULT" = success
+          else
+            test "$SELECTED" = false
+            test "$SUITE_RESULT" = skipped
+          fi
+
+  backup-restore-rehearsal-summary:
+    # Stable check: selected suites must pass; only intentionally omitted suites may skip.
+    name: backup, destroy volumes, and restore
+    needs: [changes, backup-restore-rehearsal]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected suite to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SELECTED: ${{ needs.changes.outputs.ops }}
+          SUITE_RESULT: ${{ needs.backup-restore-rehearsal.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$SELECTED" = true ]; then
+            test "$SUITE_RESULT" = success
+          else
+            test "$SELECTED" = false
+            test "$SUITE_RESULT" = skipped
+          fi
+
+  podman-rootless-summary:
+    # Stable check: selected suites must pass; only intentionally omitted suites may skip.
+    name: rootless Podman install, health and upgrade
+    needs: [changes, podman-rootless]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected suite to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SELECTED: ${{ needs.changes.outputs.ops }}
+          SUITE_RESULT: ${{ needs.podman-rootless.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$SELECTED" = true ]; then
+            test "$SUITE_RESULT" = success
+          else
+            test "$SELECTED" = false
+            test "$SUITE_RESULT" = skipped
+          fi
+
+  client-summary:
+    # Stable check: selected suites must pass; only intentionally omitted suites may skip.
+    name: client
+    needs: [changes, client]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected suite to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SELECTED: ${{ needs.changes.outputs.client }}
+          SUITE_RESULT: ${{ needs.client.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$SELECTED" = true ]; then
+            test "$SUITE_RESULT" = success
+          else
+            test "$SELECTED" = false
+            test "$SUITE_RESULT" = skipped
+          fi
+
+  ldap-summary:
+    # Stable check: selected suites must pass; only intentionally omitted suites may skip.
+    name: ldap
+    needs: [changes, ldap]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected suite to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SELECTED: ${{ needs.changes.outputs.server }}
+          SUITE_RESULT: ${{ needs.ldap.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$SELECTED" = true ]; then
+            test "$SUITE_RESULT" = success
+          else
+            test "$SELECTED" = false
+            test "$SUITE_RESULT" = skipped
+          fi
+
+  storage-s3-summary:
+    # Stable check: selected suites must pass; only intentionally omitted suites may skip.
+    name: storage-s3
+    needs: [changes, storage-s3]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected suite to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SELECTED: ${{ needs.changes.outputs.server }}
+          SUITE_RESULT: ${{ needs.storage-s3.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$SELECTED" = true ]; then
+            test "$SUITE_RESULT" = success
+          else
+            test "$SELECTED" = false
+            test "$SUITE_RESULT" = skipped
+          fi
+
+  mail-summary:
+    # Stable check: selected suites must pass; only intentionally omitted suites may skip.
+    name: mail
+    needs: [changes, mail]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected suite to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SELECTED: ${{ needs.changes.outputs.server }}
+          SUITE_RESULT: ${{ needs.mail.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$SELECTED" = true ]; then
+            test "$SUITE_RESULT" = success
+          else
+            test "$SELECTED" = false
+            test "$SUITE_RESULT" = skipped
+          fi
