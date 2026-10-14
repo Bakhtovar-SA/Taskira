@@ -187,6 +187,36 @@ export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<
   return done(safe(() => track(el, e.animate(el, { opacity: [1, 0], transform }, EXIT))));
 }
 
+/** Счётчик (COV-01): число на `el` «дорастает» от `from` до `to` за --dur-4 (300 мс, ease-out, без перелёта: цифры не
+ *  должны уходить выше итога). Текст элемента — итоговое число — не трогается вообще: кадры пишутся только в атрибут
+ *  `data-shown`, а видимой его делает CSS (`.count-up[data-counting]::after { content: attr(data-shown) }`). Поэтому
+ *  `textContent` и дерево доступности всё время содержат итог, а читатель с экрана и одноразовые чтения e2e не видят
+ *  промежуточных значений. Кадры — `requestAnimationFrame`, без React-состояния. Движение уменьшено или нечего расти —
+ *  ничего не делает (итог уже на экране). Возвращает отмену (снимает атрибуты и кадр; безопасно вызывать повторно). */
+export const COUNT_MS = 300;
+export function countTo(el: HTMLElement, from: number, to: number, format: (n: number) => string = String): () => void {
+  if (motionReduced() || typeof requestAnimationFrame !== "function" || !(to > from) || !Number.isFinite(to - from)) return () => undefined;
+  let raf = 0;
+  let t0: number | null = null;
+  const stop = () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    el.removeAttribute("data-counting");
+    el.removeAttribute("data-shown");
+  };
+  const frame = (now: number) => {
+    t0 ??= now;
+    const p = Math.min(1, (now - t0) / COUNT_MS);
+    if (p >= 1) return stop();
+    el.setAttribute("data-shown", format(Math.round(from + (to - from) * (1 - (1 - p) ** 3))));
+    raf = requestAnimationFrame(frame);
+  };
+  el.setAttribute("data-shown", format(from));
+  el.setAttribute("data-counting", "");
+  raf = requestAnimationFrame(frame);
+  return stop;
+}
+
 /** Короткая подсветка элемента, у которого сменилось значение (статус, приоритет, срок): акцентная заливка гаснет за
  *  400 мс. Только цвет фона (WAAPI, ADR-0010) — без transform, раскладку не трогает. Движение уменьшено — ничего. */
 const flashing = new WeakMap<HTMLElement, Animation>();

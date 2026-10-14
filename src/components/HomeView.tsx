@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CountUp } from "../CountUp";
 import { PersonAvatar } from "./settings/parts";
 import { Button, IconButton } from "../ds/Button";
 import { EmptyState, Progress } from "../ds/Display";
@@ -80,7 +81,7 @@ export default function HomeView() {
       <p className="home-date first-letter:uppercase">{dateLine}</p>
       <h1>{t(greetingKey(), { name: greetingName(me) })}</h1>
       <p className="home-summary">
-        <span className={count("overdue") ? "text-[var(--status-danger-fg)]" : undefined}>{count("overdue")} {tn(count("overdue"), "home.summaryOverdue.one", "home.summaryOverdue.few", "home.summaryOverdue.many")}</span>
+        <span className={count("overdue") ? "text-[var(--status-danger-fg)]" : undefined}><CountUp value={count("overdue")} /> {tn(count("overdue"), "home.summaryOverdue.one", "home.summaryOverdue.few", "home.summaryOverdue.many")}</span>
         {t("home.summaryWeek", { n: count("week") })}
         {rework && !review ? t("home.summaryRework", { n: rework }) : t("home.summaryReview", { n: review, verb: tn(review, "home.reviewVerb.one", "home.reviewVerb.few", "home.reviewVerb.many") })}
       </p>
@@ -89,7 +90,7 @@ export default function HomeView() {
           <section className="home-card" aria-label={t("home.myTasks")}>
             <div className="home-card-head"><h2>{t("home.myTasks")}</h2><Button variant="ghost" size="sm" onClick={() => navigate("my")}>{t("home.allMyTasks")}</Button></div>
             {groups.map(g => <div key={g.id} className="home-task-group" data-urgency={g.id}>
-              <h3>{t(`home.group.${g.id}`)} <span className="tabular text-faint">{g.items.length}</span></h3>
+              <h3>{t(`home.group.${g.id}`)} <CountUp value={g.items.length} resetKey={g.id} className="text-faint" /></h3>
               {g.items.map(item => {
                 const overdue = !!item.dueDate && item.dueDate < now;
                 const days = item.dueDate ? Math.round((dateOf(now).getTime() - dateOf(item.dueDate).getTime()) / 864e5) : 0;

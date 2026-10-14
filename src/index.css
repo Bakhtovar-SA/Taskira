@@ -186,6 +186,23 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+/* COV-01: счётчик. Итог — в тексте (`.count-up-text`, он же в дереве доступности); пока идёт рост, текст невидим
+   (opacity держит ширину), а промежуточное число рисует ::after из `data-shown` — для читателя с экрана оно пустое
+   (вторая строка `content` с альтернативным текстом; первая — запасная для браузеров без него). */
+.count-up {
+  position: relative;
+  display: inline-block;
+}
+.count-up[data-counting] > .count-up-text {
+  opacity: 0;
+}
+.count-up[data-counting]::after {
+  content: attr(data-shown);
+  content: attr(data-shown) / "";
+  position: absolute;
+  left: 0;
+  top: 0;
+}
 .font-mono {
   font-weight: 500;
   letter-spacing: 0.01em;
