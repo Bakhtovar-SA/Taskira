@@ -128,3 +128,31 @@ test("продлённый снимок закрывается после пер
   playBoardFlip();
   expect(flipFrom).not.toHaveBeenCalled();
 });
+
+test("массовая смена статуса: карточки сменили колонку — волна: лидер без задержки, остальные следом, все с «подъёмом»", () => {
+  tops.set("a", 0).set("b", 100).set("c", 200);
+  const root = board(["a", "b", "c"]);
+  // Разные колонки: левая позиция карточек меняется при переезде.
+  const lefts = new Map<string, number>([["a", 10], ["b", 10], ["c", 10]]);
+  for (const id of ["a", "b", "c"]) el(root, id).getBoundingClientRect = () => ({ left: lefts.get(id)!, top: tops.get(id) ?? 0 }) as DOMRect;
+  const owner = snapshotBoard(root, null);
+  renewBoardFlip(owner);
+  lefts.set("a", 400).set("b", 400).set("c", 400);
+  tops.set("a", 0).set("b", 80).set("c", 160);
+  playBoardFlip();
+  const flights = [...document.querySelectorAll<HTMLElement>(".flip-flight")];
+  expect(flights).toHaveLength(3);
+  const calls = vi.mocked(flipFrom).mock.calls;
+  expect(calls).toHaveLength(3);
+  // Порядок: сверху вниз; первая — без задержки, дальше растёт; все с lift; общий разброс ≤ потолка волны.
+  const delays = calls.map((c) => (c[3] as { delay?: number } | undefined)?.delay ?? 0);
+  expect(delays[0]).toBe(0);
+  expect(delays[1]).toBeGreaterThan(0);
+  expect(delays[2]).toBeGreaterThan(delays[1]);
+  expect(Math.max(...delays)).toBeLessThanOrEqual(220);
+  expect(calls.every((c) => (c[3] as { lift?: boolean }).lift === true)).toBe(true);
+  // Лидер поверх остальных.
+  const zs = flights.map((f) => Number(f.style.zIndex));
+  expect(zs[0]).toBeGreaterThan(zs[1]);
+  expect(zs[1]).toBeGreaterThan(zs[2]);
+});

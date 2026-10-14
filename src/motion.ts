@@ -131,8 +131,9 @@ export function viewTransition(update: () => void): void {
  *  чанк загружен, иначе прежняя кривая (--dur-4, ease-out). `lift` — лёгкое «опускание» (scale) брошенной карточки;
  *  соседям, которые просто сдвинулись, — без него. Прерывает текущую анимацию элемента: `left/top` вызывающий берёт
  *  из видимого положения (с учётом transform), поэтому движение продолжается с того места, где элемент виден.
+ *  `delay` (мс) — старт позже (волна карточек при массовой смене статуса): до старта элемент стоит в начальной точке.
  *  Обещание — конец движения (сразу, если двигать нечего). */
-export function flipFrom(el: HTMLElement, left: number, top: number, { lift = true }: { lift?: boolean } = {}): Promise<void> {
+export function flipFrom(el: HTMLElement, left: number, top: number, { lift = true, delay = 0 }: { lift?: boolean; delay?: number } = {}): Promise<void> {
   if (motionReduced() || typeof el.animate !== "function") return Promise.resolve();
   const e = ready();
   track(el, null);
@@ -143,10 +144,12 @@ export function flipFrom(el: HTMLElement, left: number, top: number, { lift = tr
   const dy = (top - last.top) / z;
   if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return Promise.resolve();
   const from = `translate(${dx}px, ${dy}px)${lift ? " scale(1.035)" : ""}`;
+  // До отложенного старта элемент уже должен стоять в начальной точке, а не на новом месте.
+  if (delay > 0) el.style.transform = from;
   const c = safe(() =>
     e
-      ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...SPRING }))
-      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" })),
+      ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...SPRING, ...(delay > 0 ? { delay: delay / 1000 } : {}) }))
+      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: 300, delay, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" })),
   );
   return done(c);
 }
