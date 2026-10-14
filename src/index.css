@@ -204,8 +204,8 @@ body {
   content: attr(data-shown);
   content: attr(data-shown) / "";
   position: absolute;
-  left: 0;
-  top: 0;
+  inset: 0;
+  text-align: inherit; /* число внутри блока выравнивается как итог (вправо/по центру), а не прыгает к левому краю */
 }
 .font-mono {
   font-weight: 500;
