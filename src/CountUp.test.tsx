@@ -152,6 +152,18 @@ test("обновление во время счёта продолжает с в
   expect(root(container).getAttribute("data-shown")).toBe("25");
 });
 
+test("второе обновление до первого кадра: старт с показанного значения (начальное data-shown тоже засевает «на экране»)", () => {
+  const { container, rerender } = render(<CountUp value={10} />);
+  rerender(<CountUp value={20} />);
+  expect(root(container).getAttribute("data-shown")).toBe("10"); // кадров ещё не было
+  rerender(<CountUp value={25} />);
+  expect(root(container).getAttribute("data-shown")).toBe("10"); // не 20
+  tick(0);
+  tick(COUNT_MS * 2);
+  expect(text(container)).toBe("25");
+  expect(root(container).hasAttribute("data-counting")).toBe(false);
+});
+
 test("format применяется и к тексту, и к кадрам", () => {
   const f = (n: number) => `${n} шт.`;
   const { container, rerender } = render(<CountUp value={1} format={f} />);
