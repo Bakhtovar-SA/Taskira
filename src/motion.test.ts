@@ -2,7 +2,7 @@
 // пресеты пружин укладываются в 500 мс успокоения.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { spring } from "motion";
-import { EXIT, SPRING, SPRING_ENTER, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion } from "./motion";
+import { EXIT, SPRING, SPRING_ENTER, SPRING_POP, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion } from "./motion";
 import { createEnterTracker } from "./listEnter";
 
 const systemReduce = (on: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: on && q.includes("reduce") }));
@@ -142,6 +142,7 @@ describe("пресеты", () => {
   test.each([
     ["SPRING", SPRING],
     ["SPRING_ENTER", SPRING_ENTER],
+    ["SPRING_POP", SPRING_POP],
   ])("%s: полное время успокоения в WAAPI ≤ 500 мс", (_name, preset) => {
     const o = spring.applyToOptions!({ ...preset }) as { duration: number };
     expect(o.duration).toBeGreaterThan(0);
@@ -280,5 +281,67 @@ describe("flash", () => {
     expect(el.animate).toHaveBeenCalledTimes(2);
     expect(cancels[0]).toHaveBeenCalledTimes(1);
     expect(cancels[1]).not.toHaveBeenCalled();
+  });
+});
+
+describe("FIX-01: inline-стиль последнего кадра снимается", () => {
+  /** Движок, который, как motion/mini, пишет последний кадр в inline-стиль и по завершении резолвит `finished`. */
+  function engineWritingFinalFrame() {
+    const animate = vi.fn((el: HTMLElement, keyframes: Record<string, unknown[]>) => {
+      let resolve!: () => void;
+      const finished = new Promise<void>((r) => (resolve = r));
+      return {
+        cancel: vi.fn(),
+        finished,
+        finish() {
+          for (const [k, v] of Object.entries(keyframes)) el.style.setProperty(k, String(v[v.length - 1]));
+          resolve();
+        },
+      };
+    });
+    return { engine: { animate, spring } as unknown as Engine, animate };
+  }
+
+  test("enter, flipFrom и glideWidth оставляют классам последнее слово; exit — нет (элемент ещё должен быть скрыт)", async () => {
+    const { engine, animate } = engineWritingFinalFrame();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const finishAll = () => animate.mock.results.forEach((r) => (r.value as { finish: () => void }).finish());
+
+    const a = card();
+    enter(a);
+    const b = card();
+    flipFrom(b, 0, 0, { lift: false });
+    const c = card();
+    glideWidth(c, 100, 200);
+    const d = card();
+    void exit(d);
+    finishAll();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(a.style.opacity).toBe("");
+    expect(a.style.transform).toBe("");
+    expect(b.style.transform).toBe("");
+    expect(c.style.width).toBe("");
+    expect(d.style.opacity).toBe("0");
+  });
+
+  test("перехваченная новой анимацией: старая не стирает чужие стили", async () => {
+    const { engine, animate } = engineWritingFinalFrame();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    enter(el);
+    const first = animate.mock.results[0].value as { finish: () => void };
+    enter(el); // новая анимация отменяет первую
+    first.finish();
+    await Promise.resolve();
+    await Promise.resolve();
+    // вторая ещё идёт: inline-стиль первой не снимался «за неё» и не мешает второй дойти до конца
+    expect(animate).toHaveBeenCalledTimes(2);
+    (animate.mock.results[1].value as { finish: () => void }).finish();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(el.style.opacity).toBe("");
   });
 });

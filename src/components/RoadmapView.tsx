@@ -18,6 +18,7 @@ import { ProjectMark, projectTone } from "../ui";
 import "../styles/roadmap.css";
 
 import { barWidth, connectionPath, useRoadmapConnections } from "./useRoadmapConnections";
+import { motionReduced } from "../motion";
 
 const ZOOM_KEY = "taskira.roadmap.zoom";
 const readZoom = (): Zoom => {
@@ -86,7 +87,7 @@ export default function RoadmapView() {
   }), [scale, zoom, locale, t]);
   const today = useMemo(() => ({ x: (scale.x(now) + scale.x(addDays(now, 1))) / 2, label: now.toLocaleDateString(locale, { day: "numeric", month: "short" }).replace(".", "") }), [scale, now, locale]);
   const shown = useMemo(() => visibleItems(filtered, win.top, win.h || 800, ROW_H * 3), [filtered, win.top, win.h]);
-  const scrollToToday = useCallback((smooth: boolean) => right.current?.scrollTo({ left: Math.max(0, TIME_PAD + today.x - Math.min(240, win.w / 4)), behavior: smooth ? "smooth" : "auto" }), [today, win.w]);
+  const scrollToToday = useCallback((smooth: boolean) => right.current?.scrollTo({ left: Math.max(0, TIME_PAD + today.x - Math.min(240, win.w / 4)), behavior: smooth && !motionReduced() ? "smooth" : "auto" }), [today, win.w]);
   const positioned = useRef("");
   useEffect(() => { const key = `${zoom}:${range.origin.getTime()}:${win.w}`; if (win.w && positioned.current !== key) { positioned.current = key; scrollToToday(false); } }, [scrollToToday, win.w, zoom, range]);
   useEffect(() => { if (right.current) { right.current.scrollTop = 0; measure(right.current); } }, [department, measure]);

@@ -3,7 +3,7 @@ import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, u
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
 import { enter, preloadMotion } from "../motion";
-import { cancelBoardFlip, flipPending, noteLanding as noteFlipLanding, playBoardFlip, snapshotBoard } from "../boardFlip";
+import { cancelBoardFlip, flipPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
 import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { IssueFilterSummary } from "./IssueFilterSummary";
@@ -797,6 +797,9 @@ export default function Board() {
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
     if (!canMove) return;
     const flip = snapshotBoard(boardRoot.current, id);
+    // Перенос с клавиатуры или из меню карточки: фокус стоял внутри неё — вернём на новую после переезда (FIX-12).
+    const focused = document.activeElement;
+    const keepFocus = !!focused && !!focused.closest(`article[data-issue-id="${CSS.escape(id)}"], [popover]`);
     const request = Symbol();
     moveRequests.current.set(id, request);
     moveStatus(id, to, before, confirmed => {
@@ -804,6 +807,7 @@ export default function Board() {
       moveRequests.current.delete(id);
       if (moveQueryRef.current !== moveQueryKey) return;
       if (!confirmed) { cancelBoardFlip(flip); onMovesApplied([id]); return; }
+      if (keepFocus) restoreCardFocus(boardRoot.current, id, focused);
       setLocalMoves(prev => {
         const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
         next.delete(id);

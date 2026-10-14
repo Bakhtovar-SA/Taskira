@@ -1,7 +1,7 @@
 // ADR-0035 (прототип): FLIP доски — снимок до переноса, проигрыш после коммита, повторный проигрыш идемпотентен.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { flipFrom, motionReduced } from "./motion";
-import { cancelBoardFlip, flipPending, noteLanding, playBoardFlip, renewBoardFlip, snapshotBoard } from "./boardFlip";
+import { cancelBoardFlip, flipPending, noteLanding, playBoardFlip, renewBoardFlip, restoreCardFocus, snapshotBoard } from "./boardFlip";
 
 vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
 
@@ -127,4 +127,42 @@ test("продлённый снимок закрывается после пер
   tops.set("a", 0).set("b", 100);
   playBoardFlip();
   expect(flipFrom).not.toHaveBeenCalled();
+});
+
+test("FIX-12: после переезда карточки фокус возвращается на новую кнопку; чужой фокус не перехватывается", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    const card = (id: string) => {
+      const a = document.createElement("article");
+      a.dataset.issueId = id;
+      const b = document.createElement("button");
+      b.className = "board-card-open";
+      a.appendChild(b);
+      root.appendChild(a);
+      return { a, b };
+    };
+    document.body.appendChild(root);
+    const old = card("x");
+    old.b.focus();
+    const before = document.activeElement;
+    expect(before).toBe(old.b);
+    restoreCardFocus(root, "x", before);
+    // Перенос отрисован позже: старая карточка исчезла (фокус на body), новая — в другой колонке.
+    old.a.remove();
+    const fresh = card("x");
+    vi.advanceTimersByTime(60);
+    expect(document.activeElement).toBe(fresh.b);
+
+    // Фокус осознанно ушёл на другое поле: не трогаем.
+    const other = document.createElement("input");
+    document.body.appendChild(other);
+    fresh.b.blur();
+    other.focus();
+    restoreCardFocus(root, "x", fresh.b);
+    vi.advanceTimersByTime(2000);
+    expect(document.activeElement).toBe(other);
+  } finally {
+    vi.useRealTimers();
+  }
 });
