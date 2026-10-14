@@ -84,6 +84,7 @@ function handle(method, url) {
   if (p === "/api/me/onboarding") return { done: [], hidden: true, hints: [] };
   if (p === "/api/admin/setup") return { completed: true, instanceName: "Taskira", authMode: "local", users: USERS.length, projects: 1, demoProjectId: null };
   if (p === "/api/projects") return [project];
+  if (p === "/api/issues/assigned-to-me") return { items: [], truncated: false, limit: 200 };
   if (p === "/api/departments" || p === "/api/issues/collaborating") return [];
   if (p === "/api/notifications") return { items: [], nextCursor: null };
   if (p === "/api/notifications/unread-count") return { count: unread };
@@ -104,7 +105,16 @@ function handle(method, url) {
   }
   if (/^\/api\/projects\/p1\/issues\/[^/]+\/\w+/.test(p)) return []; // comments, activity, …
   unknown.add(`${method} ${p}`);
-  return {};
+  throw new Error("Unmocked benchmark API: " + [...unknown].join(", "));
+}
+
+if (process.argv.includes("--self-test")) {
+  const { deepStrictEqual, throws } = await import("node:assert/strict");
+  deepStrictEqual(handle("GET", new URL("/api/issues/assigned-to-me", origin)), { items: [], truncated: false, limit: 200 });
+  throws(() => handle("GET", new URL("/api/unexpected", origin)), /Unmocked benchmark API: GET \/api\/unexpected/);
+  await new Promise(r => server.close(r));
+  console.log("perf-board API self-test: assigned-to-me envelope and unknown-path failure passed");
+  process.exit(0);
 }
 
 const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
@@ -125,6 +135,9 @@ try {
   await info.detach();
 } catch { out.gpu = null; }
 
+let rejectApi;
+const missingApi = new Promise((_, reject) => { rejectApi = reject; });
+const measure = async () => {
 for (let repeat = 1; repeat <= repeats; repeat++) for (const rate of throttles) {
   console.error(`Board benchmark: run ${repeat}/${repeats}, CPU ${rate}x`);
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
@@ -209,7 +222,10 @@ for (let repeat = 1; repeat <= repeats; repeat++) for (const rate of throttles) 
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/api/ws") return route.abort();
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(handle(route.request().method(), url)) });
+    let body;
+    try { body = handle(route.request().method(), url); }
+    catch (error) { rejectApi(error); await route.abort(); return; }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   });
 
   // 1. Загрузка доски до 300 карточек в DOM (от начала навигации)
@@ -373,8 +389,13 @@ for (let repeat = 1; repeat <= repeats; repeat++) for (const rate of throttles) 
   await page.close();
   console.error(`Completed: load ${Math.round(loadMs)}ms, drag ${Math.round(dragWorst.fps)}fps, first details ${r1(opens[0].detailsMs)}ms`);
 }
-await browser.close();
-server.close();
+};
+try {
+  await Promise.race([measure(), missingApi]);
+} finally {
+  await browser.close();
+  await new Promise(r => server.close(r));
+}
 out.summary = {};
 for (const rate of throttles) {
   const runs = Object.entries(out.runs).filter(([key]) => key.endsWith(`cpu ${rate}×`)).map(([, run]) => run);
