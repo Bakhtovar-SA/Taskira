@@ -161,6 +161,9 @@ export function viewTransition(update: () => void): void {
     .catch(() => undefined);
 }
 
+const MAX_FLIP_DELAY_MS = 150; // 300 ms fallback + delay <= 450 ms.
+const MAX_SPRING_DELAY_MS = 100; // SPRING_ENTER settles in 350 ms: total <= 450 ms.
+
 /** FLIP: элемент уже на новом месте; анимируем его из старой точки (left/top во viewport). Пружина `SPRING`, если
  *  чанк загружен, иначе прежняя кривая (--dur-4, ease-out). `lift` — лёгкое «опускание» (scale) брошенной карточки;
  *  соседям, которые просто сдвинулись, — без него. Прерывает текущую анимацию элемента: `left/top` вызывающий берёт
@@ -170,6 +173,7 @@ export function viewTransition(update: () => void): void {
 export function flipFrom(el: HTMLElement, left: number, top: number, { lift = true, delay = 0 }: { lift?: boolean; delay?: number } = {}): Promise<void> {
   if (motionReduced() || typeof el.animate !== "function") return Promise.resolve();
   const e = ready();
+  const delayMs = Math.min(e ? MAX_SPRING_DELAY_MS : MAX_FLIP_DELAY_MS, Math.max(0, Number.isFinite(delay) ? delay : 0));
   track(el, null);
   const last = el.getBoundingClientRect();
   // Координаты viewport → CSS px элемента: под zoom (корневой 1.1 на ≥ 2560 px) translate умножается на него.
@@ -179,11 +183,11 @@ export function flipFrom(el: HTMLElement, left: number, top: number, { lift = tr
   if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return Promise.resolve();
   const from = `translate(${dx}px, ${dy}px)${lift ? " scale(1.035)" : ""}`;
   // До отложенного старта элемент уже должен стоять в начальной точке, а не на новом месте.
-  if (delay > 0) el.style.transform = from;
+  if (delayMs > 0) el.style.transform = from;
   const c = safe(() =>
     e
-      ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...SPRING, ...(delay > 0 ? { delay: delay / 1000 } : {}) }), ["transform"])
-      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: 300, delay, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["transform"]),
+      ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...(delayMs > 0 ? SPRING_ENTER : SPRING), ...(delayMs > 0 ? { delay: delayMs / 1000 } : {}) }), ["transform"])
+      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: 300, delay: delayMs, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["transform"]),
   );
   return done(c);
 }
