@@ -796,7 +796,14 @@ export default function Board() {
   }, [moveQueryKey]);
   // Отмена цепочки возврата фокуса (FIX-12): при размонтировании доски и перед следующим переносом.
   const restoreFocusCancel = useRef<(() => void) | null>(null);
-  useEffect(() => () => restoreFocusCancel.current?.(), []);
+  const boardMounted = useRef(true); // ответ на перенос может прийти уже после ухода с доски — новую цепочку не запускаем
+  useEffect(() => {
+    boardMounted.current = true;
+    return () => {
+      boardMounted.current = false;
+      restoreFocusCancel.current?.();
+    };
+  }, []);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
     if (!canMove) return;
     const flip = snapshotBoard(boardRoot.current, id);
@@ -815,7 +822,7 @@ export default function Board() {
       moveRequests.current.delete(id);
       if (moveQueryRef.current !== moveQueryKey) return;
       if (!confirmed) { cancelBoardFlip(flip); onMovesApplied([id]); return; }
-      if (keepFocus) restoreFocusCancel.current = restoreCardFocus(boardRoot.current, id, focused);
+      if (keepFocus && boardMounted.current) restoreFocusCancel.current = restoreCardFocus(boardRoot.current, id, focused);
       setLocalMoves(prev => {
         const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
         next.delete(id);
