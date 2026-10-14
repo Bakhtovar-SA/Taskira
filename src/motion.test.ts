@@ -344,6 +344,31 @@ describe("FIX-01: inline-стиль последнего кадра снимае
     await Promise.resolve();
     expect(el.style.opacity).toBe("");
   });
+
+  test("отмена (stopMotion / flipFrom поверх glideWidth) не оставляет inline-кадр, даже если анимация успела дойти до конца", async () => {
+    const { engine, animate } = engineWritingFinalFrame();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    glideWidth(el, 100, 200);
+    const w = animate.mock.results[0].value as { finish: () => void; cancel: ReturnType<typeof vi.fn> };
+    w.finish(); // onfinish успел записать width, а finished.then ещё не выполнился…
+    expect(el.style.width).toBe("200px");
+    stopMotion(el); // …и анимацию перехватили
+    expect(w.cancel).toHaveBeenCalled();
+    expect(el.style.width).toBe("");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(el.style.width).toBe("");
+
+    // Прерванная до конца: движок inline не писал — снимать нечего, чужие свойства не трогаем.
+    const other = card();
+    other.style.opacity = "0.5";
+    glideWidth(other, 100, 200);
+    stopMotion(other);
+    expect(other.style.width).toBe("");
+    expect(other.style.opacity).toBe("0.5");
+  });
 });
 
 describe("FIX-02: личный выключатель — одна точка истины для JS и CSS", () => {

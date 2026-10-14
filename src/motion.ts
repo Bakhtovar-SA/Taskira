@@ -110,17 +110,26 @@ function ready(): Engine | null {
  *  `clear` — inline-свойства, которые движок (motion/mini) по концу анимации оставляет на элементе последним кадром
  *  (`NativeAnimation.onfinish` → `setStyle`): без снятия inline-стиль навсегда перебивает классы (ширина сайдбара,
  *  `opacity` силуэта при перетаскивании, `transform` призрака). Снимаем только если анимацию не перехватила новая. */
-const running = new WeakMap<Element, Controls>();
+const running = new WeakMap<Element, { c: Controls; clear: readonly string[] }>();
+function unstyle(el: Element, clear: readonly string[]): void {
+  const st = (el as HTMLElement).style;
+  if (st) for (const p of clear) st.removeProperty(p);
+}
 function track(el: Element, c: Controls | null, clear: readonly string[] = []): Controls | null {
-  running.get(el)?.cancel();
+  const prev = running.get(el);
+  if (prev) {
+    prev.c.cancel();
+    // Отмена WAAPI сама ничего не пишет, но анимация могла успеть дойти до конца (`onfinish` оставил последний кадр
+    // inline), а её `finished.then` ещё не выполнился: после перехвата он уже не снимет стиль — снимаем здесь.
+    unstyle(el, prev.clear);
+  }
   if (c) {
-    running.set(el, c);
+    running.set(el, { c, clear });
     c.finished.then(
       () => {
-        if (running.get(el) !== c) return;
+        if (running.get(el)?.c !== c) return;
         running.delete(el);
-        const st = (el as HTMLElement).style;
-        if (st) for (const p of clear) st.removeProperty(p);
+        unstyle(el, clear);
       },
       () => undefined,
     );
