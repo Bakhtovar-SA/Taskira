@@ -22,7 +22,7 @@ export function Presence({ show, children }: { show: boolean; children: (open: b
   }
   useEffect(() => {
     if (show || !mounted) return;
-    const reduce = typeof matchMedia === "function" && motionReduced(); // системный reduce и личный выключатель
+    const reduce = motionReduced(); // системный reduce и личный выключатель (нет matchMedia — тоже «уменьшено»)
     if (reduce || typeof Element.prototype.getAnimations !== "function") {
       setMounted(false);
       return;
