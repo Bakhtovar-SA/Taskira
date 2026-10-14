@@ -13,6 +13,9 @@ import { cssZoom, flipFrom, motionReduced, preloadMotion } from "./motion";
 const TTL_MS = 3000;
 /** Больше — мгновенно: не гоняем сотни WAAPI-анимаций разом (VDI, ADR-0035 «Последствия»). */
 const MAX_ANIMATED = 40;
+/** Волна карточек при массовой смене статуса: шаг между соседями и потолок на всю волну (быстро, не очередь). */
+const WAVE_STEP_MS = 45;
+const WAVE_TOTAL_MS = 220;
 const SELECTOR = "article[data-issue-id]";
 
 type Pos = { left: number; top: number };
@@ -128,12 +131,19 @@ export function playBoardFlip(): void {
   }
   if (!moved.length) return;
   const animate = moved.length <= MAX_ANIMATED;
+  // Массовая смена статуса: все сменившие колонку карточки «поднимаются», первая (по прежнему месту: выше и левее)
+  // летит впереди и поверх остальных, остальные — следом короткой волной, а не длинной очередью.
+  const wave = s.renewed
+    ? moved.filter((m) => Math.abs(m.to.left - m.from.left) > 4).sort((a, b) => a.from.top - b.from.top || a.from.left - b.from.left)
+    : [];
+  const step = wave.length > 1 ? Math.min(WAVE_STEP_MS, WAVE_TOTAL_MS / (wave.length - 1)) : 0;
   for (const m of moved) {
     if (animate && m.seen) {
-      const lift = m.id === s.lifted;
+      const rank = wave.indexOf(m);
+      const lift = m.id === s.lifted || rank >= 0;
       // Перенесённая карточка (с «подъёмом» — scale) и всё, что меняет колонку, летит над доской: тело колонки
       // прокручивается и обрезало бы её по краям; соседи едут только по вертикали внутри своей колонки.
-      if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(m.el, m.from, m.to, lift);
+      if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(m.el, m.from, m.to, lift, rank >= 0 ? { delay: rank * step, z: wave.length - rank } : undefined);
       else void flipFrom(m.el, m.from.left, m.from.top, { lift });
     }
     s.pos.set(m.id, m.to);
@@ -147,12 +157,12 @@ export function playBoardFlip(): void {
  *  Поэтому летит копия в фиксированном слое поверх доски (как «призрак» перетаскивания — `.drag-ghost`), а сама
  *  карточка на новом месте скрыта до посадки. Место, размеры и стили копии — CSSOM, движение — WAAPI (ADR-0010). */
 const flights = new WeakMap<HTMLElement, () => void>();
-function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean): void {
+function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean, wave?: { delay: number; z: number }): void {
   flights.get(el)?.();
   // Стили слоя и скрытие карточки — CSSOM (разрешён CSP, ADR-0010), без нового CSS: бюджет CSS исчерпан.
   const wrap = document.createElement("div");
   wrap.className = "flip-flight";
-  Object.assign(wrap.style, { position: "fixed", zIndex: "40", pointerEvents: "none" });
+  Object.assign(wrap.style, { position: "fixed", zIndex: String(40 + (wave?.z ?? 0)), pointerEvents: "none" });
   wrap.setAttribute("aria-hidden", "true");
   const clone = el.cloneNode(true) as HTMLElement;
   clone.className = clone.className.replace(/\banim-\S+/g, ""); // dropLand / вспышка копии не нужны: летит flipFrom
@@ -181,9 +191,9 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean): void {
     flights.delete(el);
   };
   flights.set(el, land);
-  void flipFrom(clone, from.left, from.top, { lift }).then(land);
+  void flipFrom(clone, from.left, from.top, wave && wave.delay > 0 ? { lift, delay: wave.delay } : { lift }).then(land);
   // Страховка: что бы ни случилось с анимацией, карточка не останется скрытой.
-  guard = window.setTimeout(land, 1000);
+  guard = window.setTimeout(land, 1000 + (wave?.delay ?? 0));
 }
 
 /** FIX-12 (трек N): после переноса клавишей (`M`) или из меню карточка — новый элемент в другой колонке, и фокус уходит
