@@ -813,6 +813,8 @@ export default function Board() {
     const menu = focused?.closest("[popover]");
     // Фокус внутри самой карточки или в её собственном меню переноса (кнопка карточки управляет этим всплывающим окном).
     const keepFocus = !!focused && (!!focused.closest(cardSel) || (!!menu?.id && !!boardRoot.current?.querySelector(`${cardSel} [aria-controls="${CSS.escape(menu.id)}"]`)));
+    // Кнопка карточки ДО переноса: после ответа сервера карточка может быть уже отрисована в новой колонке.
+    const staleBtn = keepFocus ? boardRoot.current?.querySelector<HTMLElement>(`${cardSel} .board-card-open`) ?? null : null;
     restoreFocusCancel.current?.();
     restoreFocusCancel.current = null;
     const request = Symbol();
@@ -822,7 +824,7 @@ export default function Board() {
       moveRequests.current.delete(id);
       if (moveQueryRef.current !== moveQueryKey) return;
       if (!confirmed) { cancelBoardFlip(flip); onMovesApplied([id]); return; }
-      if (keepFocus && boardMounted.current) restoreFocusCancel.current = restoreCardFocus(boardRoot.current, id, focused);
+      if (keepFocus && boardMounted.current) restoreFocusCancel.current = restoreCardFocus(boardRoot.current, id, focused, staleBtn);
       setLocalMoves(prev => {
         const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
         next.delete(id);

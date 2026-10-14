@@ -147,7 +147,7 @@ test("FIX-12: после переезда карточки фокус возвр
     old.b.focus();
     const before = document.activeElement;
     expect(before).toBe(old.b);
-    restoreCardFocus(root, "x", before);
+    restoreCardFocus(root, "x", before, old.b);
     // Перенос отрисован позже: старая карточка исчезла (фокус на body), новая — в другой колонке.
     old.a.remove();
     const fresh = card("x");
@@ -159,9 +159,38 @@ test("FIX-12: после переезда карточки фокус возвр
     document.body.appendChild(other);
     fresh.b.blur();
     other.focus();
-    restoreCardFocus(root, "x", fresh.b);
+    restoreCardFocus(root, "x", fresh.b, fresh.b);
     vi.advanceTimersByTime(2000);
     expect(document.activeElement).toBe(other);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("FIX-12: новая карточка уже отрисована к моменту вызова (ответ сервера пришёл после коммита) — фокус всё равно возвращается", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    const card = (id: string) => {
+      const a = document.createElement("article");
+      a.dataset.issueId = id;
+      const b = document.createElement("button");
+      b.className = "board-card-open";
+      a.appendChild(b);
+      root.appendChild(a);
+      return { a, b };
+    };
+    document.body.appendChild(root);
+    const old = card("y");
+    old.b.focus();
+    const before = document.activeElement;
+    // Старую кнопку запомнил вызывающий до переноса; к моменту вызова она уже заменена новой, фокус потерян.
+    old.a.remove();
+    const fresh = card("y");
+    expect(document.activeElement).toBe(document.body);
+    restoreCardFocus(root, "y", before, old.b);
+    vi.advanceTimersByTime(60);
+    expect(document.activeElement).toBe(fresh.b);
   } finally {
     vi.useRealTimers();
   }

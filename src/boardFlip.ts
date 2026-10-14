@@ -188,13 +188,13 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean): void {
 
 /** FIX-12 (трек N): после переноса клавишей (`M`) или из меню карточка — новый элемент в другой колонке, и фокус уходит
  *  на `body`. Возвращаем его на кнопку открытия карточки, как только новая карточка видна (при перелёте `fly` она скрыта
- *  до посадки: фокус на скрытый элемент не ставится). «Новая» — кнопка, отличная от той, что была на момент вызова
- *  (старая карточка и пункт меню, державший фокус, — `before`): пока кнопка прежняя, перенос ещё не отрисован. Если фокус
+ *  до посадки: фокус на скрытый элемент не ставится). «Новая» — кнопка, отличная от старой (`stale`: кнопка карточки
+ *  ДО начала переноса — её запоминает вызывающий до запроса, ответ сервера может прийти уже после отрисовки) и от
+ *  `before` (элемент, державший фокус, например пункт меню): пока кнопка прежняя, перенос ещё не отрисован. Если фокус
  *  осознанно ушёл на что-то другое, не трогаем. Попытки — до ~1.2 с, без состояния React. Возвращает отмену. */
 const FOCUS_RETRY_MS = [30, 90, 180, 320, 520, 800, 1200];
-export function restoreCardFocus(root: HTMLElement | null, id: string, before: Element | null): () => void {
+export function restoreCardFocus(root: HTMLElement | null, id: string, before: Element | null, stale: Element | null): () => void {
   const sel = `article[data-issue-id="${CSS.escape(id)}"] .board-card-open`;
-  const stale = root?.querySelector<HTMLElement>(sel) ?? null;
   let timer = 0;
   let i = 0;
   const attempt = () => {
