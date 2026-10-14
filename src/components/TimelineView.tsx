@@ -12,6 +12,7 @@ import { Button } from "../ds/Button";
 import { EmptyState, Skeleton } from "../ds/Display";
 import { TypeIcon } from "../icons";
 import { useT } from "../i18n";
+import { motionReduced } from "../motion";
 
 // Направления лежат на сетке недель от текущего понедельника (issues.t_start / t_span — номера недель),
 // горизонт — год. Масштаб (недели / месяцы / кварталы) меняет только px на день, не данные.
@@ -155,7 +156,7 @@ export default function TimelineView() {
   const today = { x: scale.x(now) + scale.pxPerDay / 2, label: now.toLocaleDateString(locale, { day: "numeric", month: "short" }).replace(".", "") };
   const weekPx = 7 * scale.pxPerDay;
 
-  const scrollToToday = () => scrollElRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+  const scrollToToday = () => scrollElRef.current?.scrollTo({ left: 0, behavior: motionReduced() ? "auto" : "smooth" });
 
   return (
     <div className="flex h-full flex-col">

@@ -1,7 +1,7 @@
 // ADR-0035 (прототип): FLIP доски — снимок до переноса, проигрыш после коммита, повторный проигрыш идемпотентен.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { flipFrom, motionReduced } from "./motion";
-import { cancelBoardFlip, flipPending, noteLanding, playBoardFlip, renewBoardFlip, snapshotBoard } from "./boardFlip";
+import { PENDING_DELAY_MS, cancelBoardFlip, createPendingMarks, flipPending, markPending, noteLanding, playBoardFlip, renewBoardFlip, restoreCardFocus, snapshotBoard } from "./boardFlip";
 
 vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
 
@@ -155,4 +155,155 @@ test("массовая смена статуса: карточки сменил�
   const zs = flights.map((f) => Number(f.style.zIndex));
   expect(zs[0]).toBeGreaterThan(zs[1]);
   expect(zs[1]).toBeGreaterThan(zs[2]);
+});
+
+test("FIX-12: после переезда карточки фокус возвращается на новую кнопку; чужой фокус не перехватывается", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    const card = (id: string) => {
+      const a = document.createElement("article");
+      a.dataset.issueId = id;
+      const b = document.createElement("button");
+      b.className = "board-card-open";
+      a.appendChild(b);
+      root.appendChild(a);
+      return { a, b };
+    };
+    document.body.appendChild(root);
+    const old = card("x");
+    old.b.focus();
+    const before = document.activeElement;
+    expect(before).toBe(old.b);
+    restoreCardFocus(root, "x", before, old.b);
+    // Перенос отрисован позже: старая карточка исчезла (фокус на body), новая — в другой колонке.
+    old.a.remove();
+    const fresh = card("x");
+    vi.advanceTimersByTime(60);
+    expect(document.activeElement).toBe(fresh.b);
+
+    // Фокус осознанно ушёл на другое поле: не трогаем.
+    const other = document.createElement("input");
+    document.body.appendChild(other);
+    fresh.b.blur();
+    other.focus();
+    restoreCardFocus(root, "x", fresh.b, fresh.b);
+    vi.advanceTimersByTime(2000);
+    expect(document.activeElement).toBe(other);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("FIX-12: новая карточка уже отрисована к моменту вызова (ответ сервера пришёл после коммита) — фокус всё равно возвращается", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    const card = (id: string) => {
+      const a = document.createElement("article");
+      a.dataset.issueId = id;
+      const b = document.createElement("button");
+      b.className = "board-card-open";
+      a.appendChild(b);
+      root.appendChild(a);
+      return { a, b };
+    };
+    document.body.appendChild(root);
+    const old = card("y");
+    old.b.focus();
+    const before = document.activeElement;
+    // Старую кнопку запомнил вызывающий до переноса; к моменту вызова она уже заменена новой, фокус потерян.
+    old.a.remove();
+    const fresh = card("y");
+    expect(document.activeElement).toBe(document.body);
+    restoreCardFocus(root, "y", before, old.b);
+    vi.advanceTimersByTime(60);
+    expect(document.activeElement).toBe(fresh.b);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("FIX-12: onDone вызывается по завершении цепочки (успех) и после исчерпания попыток", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const a = document.createElement("article");
+    a.dataset.issueId = "z";
+    const b = document.createElement("button");
+    b.className = "board-card-open";
+    a.appendChild(b);
+    root.appendChild(a);
+    // Успех: новая кнопка видна, фокус потерян.
+    const done = vi.fn();
+    restoreCardFocus(root, "z", null, document.createElement("button"), done);
+    vi.advanceTimersByTime(10);
+    expect(document.activeElement).toBe(b);
+    expect(done).toHaveBeenCalledTimes(1);
+    // Исчерпание: кнопки нет совсем.
+    const none = vi.fn();
+    restoreCardFocus(root, "nope", null, null, none);
+    vi.advanceTimersByTime(3000);
+    expect(none).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("markPending: отметка появляется только после паузы, снимается идемпотентно; быстрый ответ карточку не трогает", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    root.innerHTML = `<article data-issue-id="a"></article>`;
+    document.body.append(root);
+    const card = root.firstElementChild as HTMLElement;
+
+    const fast = markPending(root, "a");
+    vi.advanceTimersByTime(PENDING_DELAY_MS - 1);
+    fast();
+    vi.advanceTimersByTime(PENDING_DELAY_MS * 2);
+    expect(card.hasAttribute("data-pending")).toBe(false);
+
+    const slow = markPending(root, "a");
+    vi.advanceTimersByTime(PENDING_DELAY_MS);
+    expect(card.hasAttribute("data-pending")).toBe(true);
+    expect(card.getAttribute("aria-busy")).toBe("true");
+    slow();
+    slow();
+    expect(card.hasAttribute("data-pending")).toBe(false);
+    expect(card.hasAttribute("aria-busy")).toBe(false);
+    root.remove();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("createPendingMarks: ответ на устаревший перенос не снимает отметку текущего", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    root.innerHTML = `<article data-issue-id="a"></article>`;
+    document.body.append(root);
+    const card = root.firstElementChild as HTMLElement;
+    const marks = createPendingMarks(() => root);
+
+    const end1 = marks.start("a");
+    vi.advanceTimersByTime(PENDING_DELAY_MS);
+    expect(card.hasAttribute("data-pending")).toBe(true);
+    const end2 = marks.start("a"); // второй перенос, пока первый в пути
+    vi.advanceTimersByTime(PENDING_DELAY_MS);
+    end1(); // ответ на первый
+    expect(card.hasAttribute("data-pending")).toBe(true);
+    end2();
+    expect(card.hasAttribute("data-pending")).toBe(false);
+
+    marks.start("a");
+    vi.advanceTimersByTime(PENDING_DELAY_MS);
+    marks.clearAll(); // уход с доски
+    expect(card.hasAttribute("data-pending")).toBe(false);
+    root.remove();
+  } finally {
+    vi.useRealTimers();
+  }
 });
