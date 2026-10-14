@@ -92,7 +92,7 @@ export default function RoadmapView() {
   useEffect(() => { const key = `${zoom}:${range.origin.getTime()}:${win.w}`; if (win.w && positioned.current !== key) { positioned.current = key; scrollToToday(false); } }, [scrollToToday, win.w, zoom, range]);
   useEffect(() => { if (right.current) { right.current.scrollTop = 0; measure(right.current); } }, [department, measure]);
   const connection = useRoadmapConnections(projects, deps, scale, spans, rowY, right, load);
-  const returnToProject = (id: string) => { const span = spans.get(id); if (!span) return; right.current?.querySelector<HTMLButtonElement>(`.roadmap-timeline-row[data-project-id="${id}"] .roadmap-bar`)?.focus({ preventScroll: true }); right.current?.scrollTo({ left: Math.max(0, TIME_PAD + scale.x(span.from) - 24), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
+  const returnToProject = (id: string) => { const span = spans.get(id); if (!span) return; right.current?.querySelector<HTMLButtonElement>(`.roadmap-timeline-row[data-project-id="${id}"] .roadmap-bar`)?.focus({ preventScroll: true }); right.current?.scrollTo({ left: Math.max(0, TIME_PAD + scale.x(span.from) - 24), behavior: motionReduced() ? "auto" : "smooth" }); };
   const store = useRef({ data, setView, switchProject }); store.current = { data, setView, switchProject };
   const open = useCallback((id: string) => {
     const { data: d, setView: sv, switchProject: sp } = store.current;
