@@ -708,3 +708,12 @@
 /* Уход строки списка: копия-призрак на прежнем месте (listExit.ts). */
 .list-table { position: relative; }
 .list-table > .list-row-ghost { position: absolute; z-index: 1; margin: 0; pointer-events: none; }
+
+/* FIX-03 (трек N): сдвиги и масштабы, которых не было под reduce: выезд панели меню на узком экране, «подъём» фильтра
+   участников и увеличение образца цвета (Tailwind v4 ставит `scale`, не `transform`). */
+@media (prefers-reduced-motion: reduce) {
+  .side-drawer { transition: none; }
+  .board-member-filter, .issue-color-swatch { transition: none; }
+  .board-member-filter:hover { transform: none; }
+  .issue-color-swatch:hover { scale: none; transform: none; }
+}
