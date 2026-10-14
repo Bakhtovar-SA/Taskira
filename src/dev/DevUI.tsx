@@ -36,6 +36,7 @@ import {
 import { Select } from "../ds/Select";
 import { IcArchive, IcBoard, IcCompose, IcDots, IcInbox, IcLink, IcPencil, IcPlus, IcSearch, IcTimeline, IcTrash, IcBacklog } from "../icons";
 import { applyTheme } from "../theme";
+import { CountUp } from "../CountUp";
 
 const qs = new URLSearchParams(location.search);
 const TODAY = "2026-09-26";
@@ -475,7 +476,24 @@ export default function DevUI() {
             </div>
           </div>
         </Section>
+        <Section id="countup" title="CountUp" note="COV-01: число дорастает при росте по обновлению данных; первый показ, убывание и смена resetKey — без движения. Проверка в настоящем браузере: e2e/count-up.pw.ts.">
+          <CountUpDemo />
+        </Section>
       </main>
+    </div>
+  );
+}
+
+function CountUpDemo() {
+  const [n, setN] = useState(7);
+  const [key, setKey] = useState("a");
+  return (
+    <div className="flex items-center gap-3">
+      <span data-testid="countup-value" className="text-[28px] font-bold"><CountUp value={n} resetKey={key} /></span>
+      <span data-testid="countup-line" className="text-[13px]">задач: <CountUp value={n} resetKey={key} format={(v) => `${v} шт.`} /></span>
+      <Button onClick={() => setN((v) => v + 120)}>+120</Button>
+      <Button onClick={() => setN((v) => Math.max(0, v - 5))}>−5</Button>
+      <Button onClick={() => { setKey((k) => k + "x"); setN((v) => v + 50); }}>+50 (другой фильтр)</Button>
     </div>
   );
 }
