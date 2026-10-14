@@ -14,6 +14,7 @@
  *  базовая (data-theme) + переопределение семантического слоя (data-skin) в tokens.css. */
 import { resolveTransparency, systemTransparency, watchSystemTransparency, type Transparency, type TransparencyDefault } from "./transparency";
 import { scrimFor } from "./bgPhoto";
+import { motionReduced } from "./motion";
 
 export const THEMES = ["system", "light", "dark", "dusk", "graphite", "dawn", "paper"] as const;
 export type ThemeMode = (typeof THEMES)[number];
@@ -121,13 +122,6 @@ const watchPointer = () => {
   document.addEventListener("pointerdown", (e) => (lastPointer = { x: e.clientX, y: e.clientY, at: Date.now() }), true);
 };
 
-const reducedMotion = (): boolean => {
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return true;
-  }
-};
 
 type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> } };
 
@@ -140,7 +134,7 @@ function applyThemeAnimated(mode: ThemeMode): void {
   const doc = document as ViewTransitionDoc;
   const root0 = document.documentElement;
   const same = root0.getAttribute("data-theme") === effectiveTheme(mode) && (root0.getAttribute("data-skin") ?? "") === (isSkin(mode) ? mode : "");
-  if (!doc.startViewTransition || reducedMotion() || same) {
+  if (!doc.startViewTransition || motionReduced() || same) {
     applyTheme(mode);
     return;
   }

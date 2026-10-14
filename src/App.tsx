@@ -314,7 +314,7 @@ function Shell() {
             <NotFoundPage path={ui.missing} onHome={() => (data.projects.length >= 2 ? goHome() : setView("board"))} onBack={() => history.back()} />
           ) : issuePage ? (
             <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>
-          ) : (<div key={ui.view} className="anim-fadeup h-full">
+          ) : (<div key={ui.view} className="anim-view h-full">
             {ui.view === "overview" && <DashboardView mode="project" />}
             {ui.view === "board" && <Board key={data.currentProjectId} />}
             {ui.view === "backlog" && <Backlog key={data.currentProjectId} />}

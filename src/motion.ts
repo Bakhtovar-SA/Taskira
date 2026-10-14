@@ -19,12 +19,23 @@ export const reducedMotion = (): boolean => {
   }
 };
 
-/** Личный выключатель «Уменьшить движение» поверх системного (localStorage, как тема). Интерфейса пока нет —
- *  прототип; включается `setReducedMotion(true)` или `localStorage["taskira.reduceMotion"] = "1"`. */
+/** Личный выключатель «Уменьшить движение» поверх системного (localStorage, как тема; интерфейс — «Профиль → Внешний
+ *  вид»). Единая точка истины для JS (`motionReduced()`) и для CSS: атрибут `data-motion="reduce"` на <html> — его ставит
+ *  `public/theme-init.js` до первой отрисовки и `setReducedMotion()` при переключении; правило под ним в `index.css`
+ *  гасит CSS-анимации и переходы. */
 const REDUCE_KEY = "taskira.reduceMotion";
 let userReduced: boolean | null = null;
+const applyMotionAttr = (on: boolean): void => {
+  try {
+    if (on) document.documentElement.setAttribute("data-motion", "reduce");
+    else document.documentElement.removeAttribute("data-motion");
+  } catch {
+    /* нет document (тесты без DOM) */
+  }
+};
 export function setReducedMotion(on: boolean): void {
   userReduced = on;
+  applyMotionAttr(on);
   try {
     if (on) localStorage.setItem(REDUCE_KEY, "1");
     else localStorage.removeItem(REDUCE_KEY);
@@ -32,7 +43,8 @@ export function setReducedMotion(on: boolean): void {
     /* приватное окно — выключатель живёт до перезагрузки */
   }
 }
-export function motionReduced(): boolean {
+/** Личный выключатель включён (без учёта системной настройки) — для переключателя в настройках. */
+export function userReducedMotion(): boolean {
   if (userReduced === null) {
     try {
       userReduced = localStorage.getItem(REDUCE_KEY) === "1";
@@ -40,7 +52,11 @@ export function motionReduced(): boolean {
       userReduced = false;
     }
   }
-  return userReduced || reducedMotion();
+  return userReduced;
+}
+/** Движение надо отключить: личный выключатель или системный prefers-reduced-motion. Всё движение проверяет только её. */
+export function motionReduced(): boolean {
+  return userReducedMotion() || reducedMotion();
 }
 
 /** Пресеты пружин (visualDuration — токены: --dur-4 = 300 мс, между --dur-3 и --dur-4 = 250 мс). Полное время
@@ -80,6 +96,7 @@ export function __resetMotionForTests(load?: () => Promise<Engine>): void {
   loading = null;
   failedAt = -Infinity;
   userReduced = null;
+  applyMotionAttr(false);
   loader = load ?? (() => import("./motionEngine"));
 }
 
@@ -89,14 +106,31 @@ function ready(): Engine | null {
   return engine;
 }
 
-/** Текущая анимация элемента — новая её отменяет (прерывание без наложения двух WAAPI на один transform). */
-const running = new WeakMap<Element, Controls>();
-function track(el: Element, c: Controls | null): Controls | null {
-  running.get(el)?.cancel();
+/** Текущая анимация элемента — новая её отменяет (прерывание без наложения двух WAAPI на один transform).
+ *  `clear` — inline-свойства, которые движок (motion/mini) по концу анимации оставляет на элементе последним кадром
+ *  (`NativeAnimation.onfinish` → `setStyle`): без снятия inline-стиль навсегда перебивает классы (ширина сайдбара,
+ *  `opacity` силуэта при перетаскивании, `transform` призрака). Снимаем только если анимацию не перехватила новая. */
+const running = new WeakMap<Element, { c: Controls; clear: readonly string[] }>();
+function unstyle(el: Element, clear: readonly string[]): void {
+  const st = (el as HTMLElement).style;
+  if (st) for (const p of clear) st.removeProperty(p);
+}
+function track(el: Element, c: Controls | null, clear: readonly string[] = []): Controls | null {
+  const prev = running.get(el);
+  if (prev) {
+    prev.c.cancel();
+    // Отмена WAAPI сама ничего не пишет, но анимация могла успеть дойти до конца (`onfinish` оставил последний кадр
+    // inline), а её `finished.then` ещё не выполнился: после перехвата он уже не снимет стиль — снимаем здесь.
+    unstyle(el, prev.clear);
+  }
   if (c) {
-    running.set(el, c);
+    running.set(el, { c, clear });
     c.finished.then(
-      () => running.get(el) === c && running.delete(el),
+      () => {
+        if (running.get(el)?.c !== c) return;
+        running.delete(el);
+        unstyle(el, clear);
+      },
       () => undefined,
     );
   } else running.delete(el);
@@ -131,8 +165,9 @@ export function viewTransition(update: () => void): void {
  *  чанк загружен, иначе прежняя кривая (--dur-4, ease-out). `lift` — лёгкое «опускание» (scale) брошенной карточки;
  *  соседям, которые просто сдвинулись, — без него. Прерывает текущую анимацию элемента: `left/top` вызывающий берёт
  *  из видимого положения (с учётом transform), поэтому движение продолжается с того места, где элемент виден.
+ *  `delay` (мс) — старт позже (волна карточек при массовой смене статуса): до старта элемент стоит в начальной точке.
  *  Обещание — конец движения (сразу, если двигать нечего). */
-export function flipFrom(el: HTMLElement, left: number, top: number, { lift = true }: { lift?: boolean } = {}): Promise<void> {
+export function flipFrom(el: HTMLElement, left: number, top: number, { lift = true, delay = 0 }: { lift?: boolean; delay?: number } = {}): Promise<void> {
   if (motionReduced() || typeof el.animate !== "function") return Promise.resolve();
   const e = ready();
   track(el, null);
@@ -143,10 +178,12 @@ export function flipFrom(el: HTMLElement, left: number, top: number, { lift = tr
   const dy = (top - last.top) / z;
   if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return Promise.resolve();
   const from = `translate(${dx}px, ${dy}px)${lift ? " scale(1.035)" : ""}`;
+  // До отложенного старта элемент уже должен стоять в начальной точке, а не на новом месте.
+  if (delay > 0) el.style.transform = from;
   const c = safe(() =>
     e
-      ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...SPRING }))
-      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" })),
+      ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...SPRING, ...(delay > 0 ? { delay: delay / 1000 } : {}) }), ["transform"])
+      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: 300, delay, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["transform"]),
   );
   return done(c);
 }
@@ -169,12 +206,12 @@ const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [s
   pop: { opacity: [0.5, 1], transform: ["scale(0.55)", "none"] },
 };
 /** Бейдж «подпрыгивает» заметнее остального: больше перелёт. */
-export const SPRING_POP = { visualDuration: 0.3, bounce: 0.4 } as const;
+export const SPRING_POP = { visualDuration: 0.25, bounce: 0.3 } as const; // ≤ 500 мс успокоения (проверяет motion.test.ts)
 export function enter(el: HTMLElement, kind: EnterKind = "rise"): void {
   if (motionReduced() || typeof el.animate !== "function") return;
   const e = ready();
   if (!e) return;
-  safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) })));
+  safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) }), ["opacity", "transform"]));
 }
 
 /** Уход: обещание, после которого вызывающий снимает элемент. Движение уменьшено, чанка нет или ошибка — сразу.
@@ -188,13 +225,13 @@ export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<
 }
 
 /** Короткая подсветка элемента, у которого сменилось значение (статус, приоритет, срок): акцентная заливка гаснет за
- *  400 мс. Только цвет фона (WAAPI, ADR-0010) — без transform, раскладку не трогает. Движение уменьшено — ничего. */
+ *  300 мс (--dur-4). Только цвет фона (WAAPI, ADR-0010) — без transform, раскладку не трогает. Движение уменьшено — ничего. */
 const flashing = new WeakMap<HTMLElement, Animation>();
 export function flash(el: HTMLElement): void {
   if (motionReduced() || typeof el.animate !== "function") return;
   // Повторная смена значения заменяет подсветку, а не накладывает ещё одну (отдельно от `track`: тот ведёт transform).
   flashing.get(el)?.cancel();
-  const a = safe(() => el.animate([{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }], { duration: 400, easing: "ease-out" }));
+  const a = safe(() => el.animate([{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }], { duration: 300, easing: "ease-out" }));
   if (a) {
     flashing.set(el, a);
     const forget = () => { if (flashing.get(el) === a) flashing.delete(el); };
@@ -205,12 +242,12 @@ export function flash(el: HTMLElement): void {
 
 /** Плавное изменение ширины панели (сворачивание/разворачивание сайдбара: другая разметка, тот же «корпус»). Ширина —
  *  WAAPI по `width` (не transform: панель — часть раскладки, содержимое рядом едет вместе с ней); пружина `SPRING` при
- *  загруженном чанке, иначе кривая 250 мс. Ничего не делает при reduced-motion или одинаковых значениях. */
+ *  загруженном чанке, иначе кривая 300 мс (--dur-4). Ничего не делает при reduced-motion или одинаковых значениях. */
 export function glideWidth(el: HTMLElement, from: number, to: number): void {
   if (motionReduced() || typeof el.animate !== "function" || Math.abs(from - to) < 1) return;
   const e = ready();
   const frames = { width: [`${from}px`, `${to}px`] };
-  safe(() => track(el, e ? e.animate(el, frames, { type: e.spring, ...SPRING }) : el.animate(frames, { duration: 250, easing: "cubic-bezier(0.16, 1, 0.3, 1)" })));
+  safe(() => track(el, e ? e.animate(el, frames, { type: e.spring, ...SPRING }) : el.animate(frames, { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["width"]));
 }
 
 /** Снять текущую анимацию элемента (например, пружину появления окна, когда оно уже закрывается: WAAPI из скрипта
