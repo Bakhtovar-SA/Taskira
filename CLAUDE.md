@@ -757,6 +757,10 @@ since any edit touches it. The board shows the last 14 days in its done column
   Font is Manrope only (vendored in `src/assets/fonts/`); `font-mono` in the UI means issue keys = Manrope with tabular
   numerals, real code uses `--font-code`. Icons are the in-house duotone set in `src/icons.tsx` (`tone` prop for nav
   colours); logo is `<Logo variant="mark|mono|app">`, app-icon files come from `scripts/generate-brand-assets.mjs`.
+- **Motion** ([ADR-0035](docs/adr/0035-motion-library-spike.md), working doc [docs/design/MOTION.md](docs/design/MOTION.md)): the only
+  entry to `motion/mini` is `src/motion.ts` (lazy chunk, WAAPI/CSSOM only because of the CSP); every function there
+  honours `motionReduced()` (system `prefers-reduced-motion`; the personal switch once PR #187 lands); durations are `--dur-*` tokens,
+  checked by `npm run motion:check`. Add or change motion → update MOTION.md; the ADR itself is never edited.
 - **Component library** (ТЗ 5.7, [ADR-0014](docs/adr/0014-component-library-native-primitives.md),
   [docs/design/COMPONENTS.md](docs/design/COMPONENTS.md)): `src/ds/` — own components on native `<dialog>` and the
   Popover API, positioned by `@floating-ui/dom` (Radix was rejected: its scroll lock injects `<style>`, which our CSP
