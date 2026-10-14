@@ -133,6 +133,25 @@ test("новое обновление во время счёта отменяе�
   expect(text(container)).toBe("20");
 });
 
+test("обновление во время счёта продолжает с видимого числа, а не с прежней цели", () => {
+  const { container, rerender } = render(<CountUp value={10} />);
+  rerender(<CountUp value={20} />);
+  tick(0);
+  tick(COUNT_MS / 3);
+  const shown = Number(root(container).getAttribute("data-shown"));
+  expect(shown).toBeGreaterThan(10);
+  expect(shown).toBeLessThan(20);
+  rerender(<CountUp value={25} />); // пока считали 10 → 20
+  expect(root(container).getAttribute("data-shown")).toBe(String(shown)); // старт с видимого, не с 20
+  tick(0);
+  tick(COUNT_MS * 2);
+  expect(root(container).hasAttribute("data-counting")).toBe(false);
+  expect(text(container)).toBe("25");
+  // после завершения новая отправная точка — прежняя цель, а не «застрявший» кадр
+  rerender(<CountUp value={30} />);
+  expect(root(container).getAttribute("data-shown")).toBe("25");
+});
+
 test("format применяется и к тексту, и к кадрам", () => {
   const f = (n: number) => `${n} шт.`;
   const { container, rerender } = render(<CountUp value={1} format={f} />);

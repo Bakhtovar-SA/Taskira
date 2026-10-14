@@ -10,11 +10,24 @@ export function CountUp({ value, resetKey, format = String, className }: { value
   const prev = useRef({ value, key: resetKey });
   const fmt = useRef(format);
   fmt.current = format;
+  // Число, которое сейчас на экране во время счёта: новое обновление продолжает с него, а не с прежней цели (иначе 14 → 20 → 25).
+  const onScreen = useRef<number | null>(null);
   useLayoutEffect(() => {
     const p = prev.current;
     prev.current = { value, key: resetKey };
-    if (!ref.current || p.key !== resetKey || !(value > p.value)) return;
-    return countTo(ref.current, p.value, value, (n) => fmt.current(n));
+    const from = onScreen.current ?? p.value;
+    onScreen.current = null;
+    if (!ref.current || p.key !== resetKey || !(value > from)) return;
+    const el = ref.current;
+    const stop = countTo(el, from, value, (n) => {
+      onScreen.current = n;
+      return fmt.current(n);
+    });
+    return () => {
+      // Счёт ещё шёл (атрибут снимает `stop`) — следующий запуск продолжит с видимого числа; закончился — нет.
+      if (!el.hasAttribute("data-counting")) onScreen.current = null;
+      stop();
+    };
   }, [value, resetKey]);
   return (
     <span ref={ref} className={`count-up tabular${className ? ` ${className}` : ""}`}>
