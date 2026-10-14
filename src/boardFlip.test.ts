@@ -1,7 +1,7 @@
 // ADR-0035 (прототип): FLIP доски — снимок до переноса, проигрыш после коммита, повторный проигрыш идемпотентен.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { flipFrom, motionReduced } from "./motion";
-import { PENDING_DELAY_MS, cancelBoardFlip, flipPending, markPending, noteLanding, playBoardFlip, renewBoardFlip, restoreCardFocus, snapshotBoard } from "./boardFlip";
+import { PENDING_DELAY_MS, cancelBoardFlip, createPendingMarks, flipPending, markPending, noteLanding, playBoardFlip, renewBoardFlip, restoreCardFocus, snapshotBoard } from "./boardFlip";
 
 vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
 
@@ -245,6 +245,35 @@ test("markPending: отметка появляется только после �
     slow();
     expect(card.hasAttribute("data-pending")).toBe(false);
     expect(card.hasAttribute("aria-busy")).toBe(false);
+    root.remove();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("createPendingMarks: ответ на устаревший перенос не снимает отметку текущего", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    root.innerHTML = `<article data-issue-id="a"></article>`;
+    document.body.append(root);
+    const card = root.firstElementChild as HTMLElement;
+    const marks = createPendingMarks(() => root);
+
+    const end1 = marks.start("a");
+    vi.advanceTimersByTime(PENDING_DELAY_MS);
+    expect(card.hasAttribute("data-pending")).toBe(true);
+    const end2 = marks.start("a"); // второй перенос, пока первый в пути
+    vi.advanceTimersByTime(PENDING_DELAY_MS);
+    end1(); // ответ на первый
+    expect(card.hasAttribute("data-pending")).toBe(true);
+    end2();
+    expect(card.hasAttribute("data-pending")).toBe(false);
+
+    marks.start("a");
+    vi.advanceTimersByTime(PENDING_DELAY_MS);
+    marks.clearAll(); // уход с доски
+    expect(card.hasAttribute("data-pending")).toBe(false);
     root.remove();
   } finally {
     vi.useRealTimers();

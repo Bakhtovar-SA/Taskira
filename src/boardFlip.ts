@@ -238,3 +238,25 @@ export function markPending(root: HTMLElement | null, id: string): () => void {
     el?.removeAttribute("aria-busy");
   };
 }
+
+/** Отметки «отправлено» доски: по одной на задачу. Повторный перенос той же карточки снимает прежнюю отметку и ставит
+ *  свою; завершение устаревшего запроса чужую (текущую) отметку не трогает. `start` возвращает завершение запроса. */
+export function createPendingMarks(getRoot: () => HTMLElement | null) {
+  const marks = new Map<string, () => void>();
+  return {
+    start(id: string): () => void {
+      marks.get(id)?.();
+      const clear = markPending(getRoot(), id);
+      marks.set(id, clear);
+      return () => {
+        if (marks.get(id) !== clear) return;
+        marks.delete(id);
+        clear();
+      };
+    },
+    clearAll(): void {
+      marks.forEach((clear) => clear());
+      marks.clear();
+    },
+  };
+}

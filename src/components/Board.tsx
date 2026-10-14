@@ -3,7 +3,7 @@ import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, u
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
 import { enter, preloadMotion } from "../motion";
-import { cancelBoardFlip, flipPending, markPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
+import { cancelBoardFlip, createPendingMarks, flipPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
 import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { IssueFilterSummary } from "./IssueFilterSummary";
@@ -798,15 +798,14 @@ export default function Board() {
   const restoreFocusCancel = useRef<(() => void) | null>(null);
   const boardMounted = useRef(true); // ответ на перенос может прийти уже после ухода с доски — новую цепочку не запускаем
   // NEW-02: отметка «перенос отправлен» на карточке до ответа сервера; по одной на задачу.
-  const pendingMarks = useRef(new Map<string, () => void>());
+  const pendingMarks = useRef(createPendingMarks(() => boardRoot.current));
   useEffect(() => {
     boardMounted.current = true;
     const marks = pendingMarks.current;
     return () => {
       boardMounted.current = false;
       restoreFocusCancel.current?.();
-      marks.forEach((clear) => clear());
-      marks.clear();
+      marks.clearAll();
     };
   }, []);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
@@ -824,12 +823,9 @@ export default function Board() {
     restoreFocusCancel.current = null;
     const request = Symbol();
     moveRequests.current.set(id, request);
-    pendingMarks.current.get(id)?.();
-    const clearPending = markPending(boardRoot.current, id);
-    pendingMarks.current.set(id, clearPending);
+    const endPending = pendingMarks.current.start(id);
     moveStatus(id, to, before, confirmed => {
-      if (pendingMarks.current.get(id) === clearPending) pendingMarks.current.delete(id);
-      clearPending();
+      endPending();
       if (moveRequests.current.get(id) !== request) return;
       moveRequests.current.delete(id);
       if (moveQueryRef.current !== moveQueryKey) return;
