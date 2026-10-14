@@ -349,6 +349,12 @@ body {
   box-shadow: var(--board-priority-inset);
 }
 
+/* NEW-02: перенос отправлен, ответа сервера ещё нет (boardFlip.markPending). Без анимации: смена, а не движение. */
+.board-card[data-pending] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
 /* Перетаскивание (Board.tsx setDragGhost): силуэт на месте и «карточка в руке». */
 .board-card[data-dragging] {
   opacity: 0.45;
