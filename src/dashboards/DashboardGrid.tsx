@@ -2,11 +2,12 @@
  *  (ADR-0010). Правка — нативный drag-and-drop за шапку виджета, растягивание за угол указателем и клавиатура:
  *  на рамке виджета стрелки двигают, Shift+стрелки меняют размер, Delete убирает. Уже ниже 768 px сетка
  *  становится одной колонкой, виджеты идут в порядке чтения. */
-import { useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent as RPointerEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { useT } from "../i18n";
 import { cssVars } from "../cssVars";
 import { IcMove, IcSettings, IcTrash } from "../icons";
 import { byReadingOrder, cellAt, moveTo, nudge, resizeTo, spanFor } from "./grid";
+import { createGridFlip, type GridFlip } from "./gridFlip";
 import type { Widget } from "./catalog";
 
 export const ROW_H = 56;
@@ -32,6 +33,14 @@ export function DashboardGrid({
   // Где внутри виджета его «взяли» — в клетках, чтобы виджет не прыгал левым верхним углом под указатель.
   const grab = useRef({ dx: 0, dy: 0 });
   const [announce, setAnnounce] = useState("");
+  // NEW-05: соседи доезжают на новые клетки (gridFlip.ts); тот, кого сейчас ведёт указатель, — без анимации.
+  const flip = useRef<GridFlip | null>(null);
+  const pointerId = useRef<string | null>(null);
+  const releasePointer = () => requestAnimationFrame(() => (pointerId.current = null)); // после коммита последнего сдвига
+  useLayoutEffect(() => {
+    flip.current ??= createGridFlip();
+    flip.current(editing ? gridRef.current : null, widgets, pointerId.current);
+  }, [widgets, editing]);
   const ordered = [...widgets].sort(byReadingOrder);
   const maxRow = widgets.reduce((m, w) => Math.max(m, w.y + w.h), 0);
 
@@ -43,6 +52,7 @@ export function DashboardGrid({
     const r = grid.getBoundingClientRect();
     const c = cellAt(e.clientX - r.left, e.clientY - r.top, r.width, ROW_H, GAP);
     grab.current = { dx: c.col - w.x, dy: c.row - w.y };
+    pointerId.current = w.id;
     setDragging(w.id);
   };
   const onDragOver = (e: DragEvent) => {
@@ -60,7 +70,10 @@ export function DashboardGrid({
       if (next.some((n, i) => n.x !== widgets[i].x || n.y !== widgets[i].y)) onChange(next);
     }
   };
-  const endDrag = () => setDragging(null);
+  const endDrag = () => {
+    setDragging(null);
+    releasePointer();
+  };
 
   // Растягивание за угол: указатель захватывается, размер — в клетках от левого верхнего угла виджета.
   const startResize = (w: Widget) => (e: RPointerEvent<HTMLButtonElement>) => {
@@ -72,6 +85,7 @@ export function DashboardGrid({
     handle.setPointerCapture(e.pointerId);
     const g = grid.getBoundingClientRect();
     const f = frame.getBoundingClientRect();
+    pointerId.current = w.id;
     let last = { w: w.w, h: w.h };
     let current = widgets;
     const move = (ev: PointerEvent) => {
@@ -85,6 +99,7 @@ export function DashboardGrid({
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", up);
       handle.removeEventListener("pointercancel", up);
+      releasePointer();
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", up);
