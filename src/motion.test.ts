@@ -390,3 +390,29 @@ describe("FIX-02: личный выключатель — одна точка и
     expect(userReducedMotion()).toBe(false);
   });
 });
+
+
+describe("delayed FLIP budget (Track O A-04)", () => {
+  test.each([220, 1000, Number.POSITIVE_INFINITY, Number.NaN, -20])("fallback delay %s stays finite within 450 ms total", async (delay) => {
+    __resetMotionForTests(() => Promise.reject(new Error("offline")));
+    await preloadMotion();
+    const el = card();
+    await flipFrom(el, 0, 0, { delay });
+    const options = vi.mocked(el.animate).mock.calls[0][1] as KeyframeAnimationOptions;
+    expect(Number.isFinite(options.delay)).toBe(true);
+    expect(options.delay).toBeGreaterThanOrEqual(0);
+    expect(Number(options.duration) + Number(options.delay)).toBeLessThanOrEqual(450);
+  });
+
+  test("delayed spring uses a shorter preset and includes its delay in the 450 ms ceiling", async () => {
+    const { engine, animate } = fakeEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    await flipFrom(el, 0, 0, { delay: 220 });
+    const options = animate.mock.calls[0][2] as typeof SPRING_ENTER & { delay: number };
+    expect(options).toMatchObject({ ...SPRING_ENTER, delay: 0.1 });
+    const settled = spring.applyToOptions!({ ...SPRING_ENTER }) as { duration: number };
+    expect(settled.duration + options.delay * 1000).toBeLessThanOrEqual(450);
+  });
+});

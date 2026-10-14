@@ -1129,6 +1129,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ds-progress > span { transition: none; }
   .ds-box svg,
   .ds-check[data-kind="radio"] .ds-dot {
     transition: opacity var(--dur-2) linear;

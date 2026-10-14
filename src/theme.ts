@@ -149,7 +149,7 @@ function applyThemeAnimated(mode: ThemeMode): void {
     .then(() =>
       root.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${Math.ceil(r)}px at ${x}px ${y}px)`] },
-        { duration: 420, easing: "cubic-bezier(0.2, 0, 0, 1)", pseudoElement: "::view-transition-new(root)" },
+        { duration: 450, easing: "cubic-bezier(0.2, 0, 0, 1)", pseudoElement: "::view-transition-new(root)" },
       ),
     )
     .catch(() => undefined);
