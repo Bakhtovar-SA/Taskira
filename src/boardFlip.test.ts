@@ -195,3 +195,30 @@ test("FIX-12: новая карточка уже отрисована к мом�
     vi.useRealTimers();
   }
 });
+
+test("FIX-12: onDone вызывается по завершении цепочки (успех) и после исчерпания попыток", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const a = document.createElement("article");
+    a.dataset.issueId = "z";
+    const b = document.createElement("button");
+    b.className = "board-card-open";
+    a.appendChild(b);
+    root.appendChild(a);
+    // Успех: новая кнопка видна, фокус потерян.
+    const done = vi.fn();
+    restoreCardFocus(root, "z", null, document.createElement("button"), done);
+    vi.advanceTimersByTime(10);
+    expect(document.activeElement).toBe(b);
+    expect(done).toHaveBeenCalledTimes(1);
+    // Исчерпание: кнопки нет совсем.
+    const none = vi.fn();
+    restoreCardFocus(root, "nope", null, null, none);
+    vi.advanceTimersByTime(3000);
+    expect(none).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});

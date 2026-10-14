@@ -823,8 +823,14 @@ export default function Board() {
       if (moveRequests.current.get(id) !== request) return;
       moveRequests.current.delete(id);
       if (moveQueryRef.current !== moveQueryKey) return;
-      if (!confirmed) { cancelBoardFlip(flip); onMovesApplied([id]); return; }
-      if (keepFocus && boardMounted.current) restoreFocusCancel.current = restoreCardFocus(boardRoot.current, id, focused, staleBtn);
+      // Возврат фокуса и при отказе сервера: карточка могла быть заменена (откат), а пункт меню, державший фокус, исчез.
+      const startFocus = () => {
+        if (!keepFocus || !boardMounted.current) return;
+        const cancel = restoreCardFocus(boardRoot.current, id, focused, staleBtn, () => { if (restoreFocusCancel.current === cancel) restoreFocusCancel.current = null; });
+        restoreFocusCancel.current = cancel;
+      };
+      if (!confirmed) { cancelBoardFlip(flip); onMovesApplied([id]); startFocus(); return; }
+      startFocus();
       setLocalMoves(prev => {
         const next = new Map(prev.key === moveQueryKey ? prev.moves : NO_MOVES);
         next.delete(id);
