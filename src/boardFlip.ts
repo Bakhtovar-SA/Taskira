@@ -185,3 +185,33 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean): void {
   // Страховка: что бы ни случилось с анимацией, карточка не останется скрытой.
   guard = window.setTimeout(land, 1000);
 }
+
+/** FIX-12 (трек N): после переноса клавишей (`M`) или из меню карточка — новый элемент в другой колонке, и фокус уходит
+ *  на `body`. Возвращаем его на кнопку открытия карточки, как только новая карточка видна (при перелёте `fly` она скрыта
+ *  до посадки: фокус на скрытый элемент не ставится). «Новая» — кнопка, отличная от старой (`stale`: кнопка карточки
+ *  ДО начала переноса — её запоминает вызывающий до запроса, ответ сервера может прийти уже после отрисовки) и от
+ *  `before` (элемент, державший фокус, например пункт меню): пока кнопка прежняя, перенос ещё не отрисован. Если фокус
+ *  осознанно ушёл на что-то другое, не трогаем. Попытки — всего до ~1.2 с (сумма пауз), без состояния React. Возвращает отмену. */
+const FOCUS_RETRY_MS = [30, 60, 120, 200, 300, 500]; // сумма пауз ≈ 1.2 с
+export function restoreCardFocus(root: HTMLElement | null, id: string, before: Element | null, stale: Element | null, onDone?: () => void): () => void {
+  const sel = `article[data-issue-id="${CSS.escape(id)}"] .board-card-open`;
+  let timer = 0;
+  let i = 0;
+  const attempt = () => {
+    const found = root?.isConnected ? root.querySelector<HTMLElement>(sel) : null;
+    const btn = found && found !== stale && found !== before ? found : null;
+    const active = document.activeElement;
+    const lost = !active || active === document.body || active === before || active === stale;
+    if (btn && active === btn) return onDone?.();
+    if (btn && lost && getComputedStyle(btn).visibility !== "hidden") {
+      btn.focus({ preventScroll: true });
+      if (document.activeElement === btn) return onDone?.();
+    } else if (!lost && !(active instanceof Element && active.closest(`article[data-issue-id="${CSS.escape(id)}"], [popover]`))) {
+      return onDone?.(); // фокус осознанно ушёл в другое место
+    }
+    if (i < FOCUS_RETRY_MS.length) timer = window.setTimeout(attempt, FOCUS_RETRY_MS[i++]);
+    else onDone?.();
+  };
+  timer = window.setTimeout(attempt, 0);
+  return () => window.clearTimeout(timer);
+}
