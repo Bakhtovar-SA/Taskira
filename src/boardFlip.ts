@@ -185,3 +185,78 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean): void {
   // Страховка: что бы ни случилось с анимацией, карточка не останется скрытой.
   guard = window.setTimeout(land, 1000);
 }
+
+/** FIX-12 (трек N): после переноса клавишей (`M`) или из меню карточка — новый элемент в другой колонке, и фокус уходит
+ *  на `body`. Возвращаем его на кнопку открытия карточки, как только новая карточка видна (при перелёте `fly` она скрыта
+ *  до посадки: фокус на скрытый элемент не ставится). «Новая» — кнопка, отличная от старой (`stale`: кнопка карточки
+ *  ДО начала переноса — её запоминает вызывающий до запроса, ответ сервера может прийти уже после отрисовки) и от
+ *  `before` (элемент, державший фокус, например пункт меню): пока кнопка прежняя, перенос ещё не отрисован. Если фокус
+ *  осознанно ушёл на что-то другое, не трогаем. Попытки — всего до ~1.2 с (сумма пауз), без состояния React. Возвращает отмену. */
+const FOCUS_RETRY_MS = [30, 60, 120, 200, 300, 500]; // сумма пауз ≈ 1.2 с
+export function restoreCardFocus(root: HTMLElement | null, id: string, before: Element | null, stale: Element | null, onDone?: () => void): () => void {
+  const sel = `article[data-issue-id="${CSS.escape(id)}"] .board-card-open`;
+  let timer = 0;
+  let i = 0;
+  const attempt = () => {
+    const found = root?.isConnected ? root.querySelector<HTMLElement>(sel) : null;
+    const btn = found && found !== stale && found !== before ? found : null;
+    const active = document.activeElement;
+    const lost = !active || active === document.body || active === before || active === stale;
+    if (btn && active === btn) return onDone?.();
+    if (btn && lost && getComputedStyle(btn).visibility !== "hidden") {
+      btn.focus({ preventScroll: true });
+      if (document.activeElement === btn) return onDone?.();
+    } else if (!lost && !(active instanceof Element && active.closest(`article[data-issue-id="${CSS.escape(id)}"], [popover]`))) {
+      return onDone?.(); // фокус осознанно ушёл в другое место
+    }
+    if (i < FOCUS_RETRY_MS.length) timer = window.setTimeout(attempt, FOCUS_RETRY_MS[i++]);
+    else onDone?.();
+  };
+  timer = window.setTimeout(attempt, 0);
+  return () => window.clearTimeout(timer);
+}
+
+/** NEW-02: «перенос отправлен». Доска ждёт ответа сервера до переноса (см. шапку файла); на медленном канале (VDI,
+ *  300+ мс) карточка выглядела бы «не реагирующей». Через `PENDING_DELAY_MS` ставим на неё `data-pending` +
+ *  `aria-busy` (стиль — приглушение и курсор `progress` в index.css, без анимации); быстрый ответ успевает раньше,
+ *  и карточка не мигает. Без состояния React: отметка на DOM, поэтому остальные карточки не перерисовываются.
+ *  Возвращает снятие отметки (идемпотентно). */
+export const PENDING_DELAY_MS = 150;
+export function markPending(root: HTMLElement | null, id: string): () => void {
+  const sel = `article[data-issue-id="${CSS.escape(id)}"]`;
+  const card = () => (root?.isConnected ? root.querySelector<HTMLElement>(sel) : null);
+  const timer = window.setTimeout(() => {
+    const el = card();
+    if (!el) return;
+    el.setAttribute("data-pending", "");
+    el.setAttribute("aria-busy", "true");
+  }, PENDING_DELAY_MS);
+  return () => {
+    window.clearTimeout(timer);
+    const el = card();
+    el?.removeAttribute("data-pending");
+    el?.removeAttribute("aria-busy");
+  };
+}
+
+/** Отметки «отправлено» доски: по одной на задачу. Повторный перенос той же карточки снимает прежнюю отметку и ставит
+ *  свою; завершение устаревшего запроса чужую (текущую) отметку не трогает. `start` возвращает завершение запроса. */
+export function createPendingMarks(getRoot: () => HTMLElement | null) {
+  const marks = new Map<string, () => void>();
+  return {
+    start(id: string): () => void {
+      marks.get(id)?.();
+      const clear = markPending(getRoot(), id);
+      marks.set(id, clear);
+      return () => {
+        if (marks.get(id) !== clear) return;
+        marks.delete(id);
+        clear();
+      };
+    },
+    clearAll(): void {
+      marks.forEach((clear) => clear());
+      marks.clear();
+    },
+  };
+}
