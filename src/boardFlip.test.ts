@@ -1,7 +1,7 @@
 // ADR-0035 (прототип): FLIP доски — снимок до переноса, проигрыш после коммита, повторный проигрыш идемпотентен.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { flipFrom, motionReduced } from "./motion";
-import { cancelBoardFlip, flipPending, noteLanding, playBoardFlip, renewBoardFlip, restoreCardFocus, snapshotBoard } from "./boardFlip";
+import { PENDING_DELAY_MS, cancelBoardFlip, flipPending, markPending, noteLanding, playBoardFlip, renewBoardFlip, restoreCardFocus, snapshotBoard } from "./boardFlip";
 
 vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
 
@@ -218,6 +218,34 @@ test("FIX-12: onDone вызывается по завершении цепочк
     restoreCardFocus(root, "nope", null, null, none);
     vi.advanceTimersByTime(3000);
     expect(none).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("markPending: отметка появляется только после паузы, снимается идемпотентно; быстрый ответ карточку не трогает", () => {
+  vi.useFakeTimers();
+  try {
+    const root = document.createElement("div");
+    root.innerHTML = `<article data-issue-id="a"></article>`;
+    document.body.append(root);
+    const card = root.firstElementChild as HTMLElement;
+
+    const fast = markPending(root, "a");
+    vi.advanceTimersByTime(PENDING_DELAY_MS - 1);
+    fast();
+    vi.advanceTimersByTime(PENDING_DELAY_MS * 2);
+    expect(card.hasAttribute("data-pending")).toBe(false);
+
+    const slow = markPending(root, "a");
+    vi.advanceTimersByTime(PENDING_DELAY_MS);
+    expect(card.hasAttribute("data-pending")).toBe(true);
+    expect(card.getAttribute("aria-busy")).toBe("true");
+    slow();
+    slow();
+    expect(card.hasAttribute("data-pending")).toBe(false);
+    expect(card.hasAttribute("aria-busy")).toBe(false);
+    root.remove();
   } finally {
     vi.useRealTimers();
   }

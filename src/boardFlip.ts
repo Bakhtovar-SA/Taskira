@@ -215,3 +215,26 @@ export function restoreCardFocus(root: HTMLElement | null, id: string, before: E
   timer = window.setTimeout(attempt, 0);
   return () => window.clearTimeout(timer);
 }
+
+/** NEW-02: «перенос отправлен». Доска ждёт ответа сервера до переноса (см. шапку файла); на медленном канале (VDI,
+ *  300+ мс) карточка выглядела бы «не реагирующей». Через `PENDING_DELAY_MS` ставим на неё `data-pending` +
+ *  `aria-busy` (стиль — приглушение и курсор `progress` в index.css, без анимации); быстрый ответ успевает раньше,
+ *  и карточка не мигает. Без состояния React: отметка на DOM, поэтому остальные карточки не перерисовываются.
+ *  Возвращает снятие отметки (идемпотентно). */
+export const PENDING_DELAY_MS = 150;
+export function markPending(root: HTMLElement | null, id: string): () => void {
+  const sel = `article[data-issue-id="${CSS.escape(id)}"]`;
+  const card = () => (root?.isConnected ? root.querySelector<HTMLElement>(sel) : null);
+  const timer = window.setTimeout(() => {
+    const el = card();
+    if (!el) return;
+    el.setAttribute("data-pending", "");
+    el.setAttribute("aria-busy", "true");
+  }, PENDING_DELAY_MS);
+  return () => {
+    window.clearTimeout(timer);
+    const el = card();
+    el?.removeAttribute("data-pending");
+    el?.removeAttribute("aria-busy");
+  };
+}
