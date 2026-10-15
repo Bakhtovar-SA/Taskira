@@ -207,7 +207,7 @@ describe("тосты, окна, вкладки, строки списка (ADR-0
     enter(el, "dialog");
     expect(animate.mock.calls[0][1]).toEqual({ opacity: [0, 1], transform: ["translateY(10px)", "none"] });
     expect(animate.mock.calls[0][2]).toEqual({ type: spring, ...SPRING_ENTER });
-    enter(el, "panel");
+    enter(card(), "panel");
     expect(animate.mock.calls[1][1]).toEqual({ opacity: [0.4, 1], transform: ["translateX(32px)", "none"] });
     await exit(el, "toast");
     expect(animate.mock.calls[2][1]).toEqual({ opacity: [1, 0], transform: ["none", "translateX(24px)"] });
@@ -326,23 +326,20 @@ describe("FIX-01: inline-стиль последнего кадра снимае
     expect(d.style.opacity).toBe("0");
   });
 
-  test("перехваченная новой анимацией: старая не стирает чужие стили", async () => {
+  test("cleanup входа не стирает последний кадр перехватившего его ухода", async () => {
     const { engine, animate } = engineWritingFinalFrame();
     __resetMotionForTests(async () => engine);
     await preloadMotion();
     const el = card();
     enter(el);
     const first = animate.mock.results[0].value as { finish: () => void };
-    enter(el); // новая анимация отменяет первую
-    first.finish();
-    await Promise.resolve();
-    await Promise.resolve();
-    // вторая ещё идёт: inline-стиль первой не снимался «за неё» и не мешает второй дойти до конца
-    expect(animate).toHaveBeenCalledTimes(2);
+    first.finish(); // кадр входа закончен, его finished.then ещё не выполнился
+    void exit(el); // уход перехватывает вход до очистки
     (animate.mock.results[1].value as { finish: () => void }).finish();
     await Promise.resolve();
     await Promise.resolve();
-    expect(el.style.opacity).toBe("");
+    expect(animate).toHaveBeenCalledTimes(2);
+    expect(el.style.opacity).toBe("0"); // старый cleanup не стёр кадр ухода
   });
 
   test("отмена (stopMotion / flipFrom поверх glideWidth) не оставляет inline-кадр, даже если анимация успела дойти до конца", async () => {
@@ -388,5 +385,107 @@ describe("FIX-02: личный выключатель — одна точка и
     systemReduce(true);
     expect(motionReduced()).toBe(true);
     expect(userReducedMotion()).toBe(false);
+  });
+});
+
+
+describe("C-05/C-11: interruption and restart policy", () => {
+  function pendingEngine() {
+    const animate = vi.fn((_el: HTMLElement, _frames: unknown, _options: unknown) => {
+      let finish!: () => void;
+      const finished = new Promise<void>(resolve => { finish = resolve; });
+      return { cancel: vi.fn(), finished, finish };
+    });
+    return { engine: { animate, spring } as unknown as Engine, animate };
+  }
+
+  test.each([1, 1.25])("glideWidth samples visible width before cancelling, zoom %s", async zoom => {
+    const { engine, animate } = pendingEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    Object.defineProperty(el, "currentCSSZoom", { value: zoom });
+    let visibleWidth = 180 * zoom;
+    el.getBoundingClientRect = () => ({ width: visibleWidth }) as DOMRect;
+    glideWidth(el, 304, 72);
+    const first = animate.mock.results[0].value;
+    first.cancel.mockImplementation(() => { visibleWidth = 72 * zoom; });
+    glideWidth(el, 72, 304);
+    expect(first.cancel).toHaveBeenCalledOnce();
+    expect(animate.mock.calls[1][1]).toEqual({ width: ["180px", "304px"] });
+  });
+
+  test("glideWidth measures before comparing caller endpoints", async () => {
+    const { engine, animate } = pendingEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    glideWidth(el, 304, 72);
+    el.getBoundingClientRect = () => ({ width: 180 }) as DOMRect;
+    glideWidth(el, 304, 304); // endpoints match, but visible width is still between them
+    expect(animate.mock.calls[1][1]).toEqual({ width: ["180px", "304px"] });
+  });
+
+  test("glideWidth cancels the old target even when the new target matches the visible width", async () => {
+    const { engine, animate } = pendingEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    glideWidth(el, 304, 72);
+    const first = animate.mock.results[0].value;
+    el.getBoundingClientRect = () => ({ width: 180 }) as DOMRect;
+    glideWidth(el, 304, 180);
+    expect(first.cancel).toHaveBeenCalledOnce();
+    expect(animate).toHaveBeenCalledOnce();
+  });
+
+  test("repeated enter preserves pending animation; a finished entry can start again", async () => {
+    const { engine, animate } = pendingEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    enter(el, "dialog");
+    const first = animate.mock.results[0].value;
+    enter(el, "dialog");
+    enter(el, "panel");
+    expect(animate).toHaveBeenCalledOnce();
+    expect(first.cancel).not.toHaveBeenCalled();
+    first.finish();
+    await first.finished;
+    enter(el, "dialog");
+    expect(animate).toHaveBeenCalledTimes(2);
+  });
+
+  test("stopMotion cancels entry, removes its inline frame, and permits another entry", async () => {
+    const { engine, animate } = pendingEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    enter(el);
+    const first = animate.mock.results[0].value;
+    el.style.opacity = "0.5";
+    el.style.transform = "translateY(4px)";
+    stopMotion(el);
+    expect(first.cancel).toHaveBeenCalledOnce();
+    expect(el.style.opacity).toBe("");
+    expect(el.style.transform).toBe("");
+    enter(el);
+    expect(animate).toHaveBeenCalledTimes(2);
+  });
+
+  test("exit takes precedence over a pending entry", async () => {
+    const { engine, animate } = pendingEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    enter(el, "dialog");
+    const first = animate.mock.results[0].value;
+    const exiting = exit(el);
+    expect(first.cancel).toHaveBeenCalledOnce();
+    expect(animate.mock.calls[1][2]).toEqual(EXIT);
+    enter(el);
+    expect(animate).toHaveBeenCalledTimes(2);
+    animate.mock.results[1].value.finish();
+    await exiting;
   });
 });

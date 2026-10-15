@@ -196,7 +196,7 @@ const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finis
  *  (подъём без масштаба: scale в хвосте пружины меняет getBoundingClientRect содержимого, а e2e меряет размеры сразу после показа); `panel` — боковая панель (выезд справа, как `dsPanelIn`);
  *  `toast` — тост (выезд справа, как `toastIn`). У всех видов последний кадр — `transform: none`: motion по концу
  *  пишет его в inline-стиль (CSSOM), а не-`none` transform сделал бы окно контейнером для fixed-потомков.
- *  Чанк не загружен или движение уменьшено — мгновенно. */
+ *  Чанк не загружен или движение уменьшено — мгновенно. Повторный вход во время движения не перезапускает его. */
 type EnterKind = "rise" | "dialog" | "panel" | "toast" | "pop";
 const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [string, string] }> = {
   rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "none"] },
@@ -208,7 +208,7 @@ const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [s
 /** Бейдж «подпрыгивает» заметнее остального: больше перелёт. */
 export const SPRING_POP = { visualDuration: 0.25, bounce: 0.3 } as const; // ≤ 500 мс успокоения (проверяет motion.test.ts)
 export function enter(el: HTMLElement, kind: EnterKind = "rise"): void {
-  if (motionReduced() || typeof el.animate !== "function") return;
+  if (motionReduced() || typeof el.animate !== "function" || running.has(el)) return;
   const e = ready();
   if (!e) return;
   safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) }), ["opacity", "transform"]));
@@ -272,9 +272,16 @@ export function flash(el: HTMLElement): void {
 
 /** Плавное изменение ширины панели (сворачивание/разворачивание сайдбара: другая разметка, тот же «корпус»). Ширина —
  *  WAAPI по `width` (не transform: панель — часть раскладки, содержимое рядом едет вместе с ней); пружина `SPRING` при
- *  загруженном чанке, иначе кривая 300 мс (--dur-4). Ничего не делает при reduced-motion или одинаковых значениях. */
+ *  загруженном чанке, иначе кривая 300 мс (--dur-4). При прерывании начало — видимая ширина с поправкой zoom.
+ *  Ничего не делает при reduced-motion или одинаковых значениях. */
 export function glideWidth(el: HTMLElement, from: number, to: number): void {
-  if (motionReduced() || typeof el.animate !== "function" || Math.abs(from - to) < 1) return;
+  if (motionReduced() || typeof el.animate !== "function") return;
+  // Measure before track() cancels the previous animation and clears its final inline width.
+  if (running.has(el)) {
+    from = safe(() => el.getBoundingClientRect().width / cssZoom(el)) ?? from;
+    track(el, null);
+  }
+  if (Math.abs(from - to) < 1) return;
   const e = ready();
   const frames = { width: [`${from}px`, `${to}px`] };
   safe(() => track(el, e ? e.animate(el, frames, { type: e.spring, ...SPRING }) : el.animate(frames, { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["width"]));
