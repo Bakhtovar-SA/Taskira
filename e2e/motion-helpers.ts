@@ -15,15 +15,16 @@ export async function settle(page: Page, timeout = 5_000): Promise<void> {
 }
 
 type ScrollPosition = { left?: number; top?: number };
-type ScrollSettleOptions = { timeout?: number; expected?: ScrollPosition };
+type ScrollSettleOptions = { timeout?: number; expected?: ScrollPosition; trigger?: () => Promise<unknown> };
 
 /** Native scrollend marks compositor completion. Under page.clock, fake RAF callbacks can run in one
  * JS turn before the compositor starts, so stability samples use Playwright's real Node timer instead.
  * A known destination also prevents accepting an unchanged starting position. An already idle/no-op
- * scroller falls back after 500ms without movement; after movement Chromium must emit scrollend. */
+ * scroller and scroll anchoring (which may emit scroll without scrollend) use a bounded 500ms
+ * real-time stability fallback. trigger subscribes before an action that can complete instantly. */
 export async function settleScroll(el: Locator, options: number | ScrollSettleOptions = {}): Promise<void> {
   const normalized: ScrollSettleOptions = typeof options === "number" ? { timeout: options } : options;
-  const { timeout = 5_000, expected } = normalized;
+  const { timeout = 5_000, expected, trigger } = normalized;
   const watch = await el.evaluateHandle(node => {
     let moved = false, ended = false;
     const onScroll = () => { moved = true; ended = false; };
@@ -36,15 +37,18 @@ export async function settleScroll(el: Locator, options: number | ScrollSettleOp
     };
   });
   const start = Date.now();
-  let last: ScrollPosition | undefined, still = 0;
+  let last: ScrollPosition | undefined, still = 0, stableSince = start;
   try {
+    await trigger?.();
     await expect.poll(async () => {
       const state = await watch.evaluate(observer => observer.sample());
-      still = last?.left === state.left && last?.top === state.top ? still + 1 : 0;
+      const unchanged = last?.left === state.left && last?.top === state.top;
+      still = unchanged ? still + 1 : 0;
+      if (!unchanged) stableSince = Date.now();
       last = state;
       const atTarget = !expected || (expected.left === undefined || expected.left === state.left) &&
         (expected.top === undefined || expected.top === state.top);
-      const complete = state.ended || !!expected || !state.nativeEnd || (!state.moved && Date.now() - start >= 500);
+      const complete = state.ended || !!expected || !state.nativeEnd || (Date.now() - stableSince >= 500);
       return still >= 4 && atTarget && complete;
     }, { timeout, intervals: [50], message: "Прокрутка завершилась и обе координаты стабильны" }).toBe(true);
   } finally {
