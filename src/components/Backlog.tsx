@@ -495,6 +495,7 @@ export default function Backlog() {
   // страницы — без движения (ADR-0035, прототип; `src/listEnter.ts`).
   const enterRows = useRef<EnterTracker | null>(null);
   const rowMotion = useRef<RowMotion | null>(null);
+  useEffect(() => () => rowMotion.current?.dispose(), []);
   const enterPrev = useRef<{ query: typeof query; loading: boolean; more: boolean } | null>(null);
   useLayoutEffect(() => {
     enterRows.current ??= createEnterTracker();

@@ -6,10 +6,10 @@
  *  Положения хранятся от угла сетки в CSS px (прокрутка страницы и zoom их не портят). Виджет, чья клетка не менялась,
  *  не измеряется вовсе: лишний коммит не трогает идущую анимацию. Сетка сменила ширину (окно, сайдбар) или виджетов
  *  больше `MAX_TRACKED` — только запоминаем, не анимируем (VDI: не десятки getBoundingClientRect за коммит). */
-import { cssZoom, flipFrom, motionReduced, stopMotion } from "../motion";
+import { cssZoom, flipFrom, motionReduced, stopMotion, MOTION_CAPS } from "../motion";
 import type { Box } from "./grid";
 
-export const MAX_TRACKED = 40;
+export const MAX_TRACKED = MOTION_CAPS.flip;
 
 type Seen = { x: number; y: number; w: number; h: number; left: number; top: number };
 

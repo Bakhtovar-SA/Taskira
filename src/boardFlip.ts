@@ -8,11 +8,11 @@
  *
  *  Снимок живёт до `TTL_MS` и сбрасывается прокруткой (положения во viewport при прокрутке врут). Повторный проигрыш
  *  идемпотентен: после анимации карточка запоминает новое место, и следующий коммит без сдвига её не трогает. */
-import { cssZoom, flipFrom, motionReduced, preloadMotion } from "./motion";
+import { cssZoom, flipFrom, motionReduced, preloadMotion, MOTION_CAPS } from "./motion";
 
 const TTL_MS = 3000;
 /** Больше — мгновенно: не гоняем сотни WAAPI-анимаций разом (VDI, ADR-0035 «Последствия»). */
-const MAX_ANIMATED = 40;
+const MAX_ANIMATED = MOTION_CAPS.flip;
 /** Волна карточек при массовой смене статуса: шаг между соседями и потолок на всю волну (быстро, не очередь). */
 const WAVE_STEP_MS = 45;
 const WAVE_TOTAL_MS = 220;
