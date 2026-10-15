@@ -22,7 +22,8 @@ type ScrollSettleOptions = { timeout?: number; expected?: ScrollPosition };
  * A known destination also prevents accepting an unchanged starting position. An already idle/no-op
  * scroller falls back after 500ms without movement; after movement Chromium must emit scrollend. */
 export async function settleScroll(el: Locator, options: number | ScrollSettleOptions = {}): Promise<void> {
-  const { timeout = 5_000, expected } = typeof options === "number" ? { timeout: options } : options;
+  const normalized: ScrollSettleOptions = typeof options === "number" ? { timeout: options } : options;
+  const { timeout = 5_000, expected } = normalized;
   const watch = await el.evaluateHandle(node => {
     let moved = false, ended = false;
     const onScroll = () => { moved = true; ended = false; };
