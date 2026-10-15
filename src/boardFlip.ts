@@ -8,7 +8,7 @@
  *
  *  Снимок живёт до `TTL_MS` и сбрасывается прокруткой (положения во viewport при прокрутке врут). Повторный проигрыш
  *  идемпотентен: после анимации карточка запоминает новое место, и следующий коммит без сдвига её не трогает. */
-import { cssZoom, flipFrom, motionReduced, preloadMotion } from "./motion";
+import { cssZoom, flash, flipFrom, motionReduced, preloadMotion, stopMotion } from "./motion";
 
 const TTL_MS = 3000;
 /** Больше — мгновенно: не гоняем сотни WAAPI-анимаций разом (VDI, ADR-0035 «Последствия»). */
@@ -21,9 +21,31 @@ const SELECTOR = "article[data-issue-id]";
 type Pos = { left: number; top: number };
 /** `landing` — точка, откуда прилетает брошенная карточка; применяется, только когда карточка действительно сменила
  *  место (до ответа сервера она стоит на старом, и коммиты в это время не должны её никуда «возвращать»). */
-let snap: { root: HTMLElement; at: number; pos: Map<string, Pos>; lifted: string | null; landing: Pos | null; dead?: boolean; renewed?: boolean } | null = null;
+type Snap = { root: HTMLElement; at: number; pos: Map<string, Pos>; lifted: string | null; landing: Pos | null; dead?: boolean; renewed?: boolean };
+const snaps = new Set<Snap>();
+const MAX_SNAPSHOTS = 4;
 let landing: { id: string; left: number; top: number } | null = null;
 let scrollWatch = false;
+
+function stopScrollWatch(): void {
+  if (snaps.size || !scrollWatch) return;
+  document.removeEventListener("scroll", onScroll, true);
+  scrollWatch = false;
+}
+function pruneSnapshots(): void {
+  const now = performance.now();
+  for (const s of snaps) if (s.dead || now - s.at >= TTL_MS || !s.root.isConnected) snaps.delete(s);
+  for (const flight of flights.values()) if (!flight.root.isConnected) flight.cancel();
+  stopScrollWatch();
+}
+function onScroll(event: Event): void {
+  const target = event.target;
+  for (const s of snaps) {
+    if (target === document || target instanceof Node && (s.root.contains(target) || target.contains(s.root))) s.dead = true;
+  }
+  pruneSnapshots();
+}
+
 
 /** Куда отпустили «призрак» при перетаскивании: брошенная карточка прилетает отсюда, а не со старого места. */
 export function noteLanding(id: string, left: number, top: number): void {
@@ -52,113 +74,112 @@ const layoutOf = (el: Element, v: DOMRect): Pos => {
 export function snapshotBoard(root: HTMLElement | null, movedId: string | null): object | null {
   const l = landing;
   landing = null;
-  if (!root || motionReduced()) return null;
+  pruneSnapshots();
+  if (!root?.isConnected || motionReduced()) return null;
   void preloadMotion();
   const pos = new Map<string, Pos>();
   for (const el of root.querySelectorAll<HTMLElement>(SELECTOR)) pos.set(el.dataset.issueId!, layoutOf(el, visible(el)));
-  const own = { root, at: performance.now(), pos, lifted: movedId, landing: l && movedId && l.id === movedId ? { left: l.left, top: l.top } : null };
-  snap = own;
+  const own: Snap = { root, at: performance.now(), pos, lifted: movedId, landing: l && movedId && l.id === movedId ? { left: l.left, top: l.top } : null };
+  snaps.add(own);
+  if (snaps.size > MAX_SNAPSHOTS) snaps.delete(snaps.values().next().value!);
   if (!scrollWatch) {
     scrollWatch = true;
-    // Прокрутка делает положения во viewport неверными, но снимок не стираем: `flipPending` по-прежнему отличает
-    // перенос от новой задачи (иначе перенесённая карточка проиграла бы `enter`), а проигрыш просто пропускается.
-    // Только прокрутка доски или страницы (цель — внутри корня снимка или содержит его): модалка и боковые панели
-    // положений карточек не меняют.
-    document.addEventListener(
-      "scroll",
-      (e) => {
-        const t = e.target;
-        if (snap && (t === document || (t instanceof Node && (snap.root.contains(t) || t.contains(snap.root))))) snap.dead = true;
-      },
-      { capture: true, passive: true },
-    );
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
   }
   return own;
 }
 
-/** Перенос или создание отклонены сервером: его снимок (`owner` — результат `snapshotBoard`) больше не нужен, иначе чужой
- *  коммит анимировался бы от него. Снимок другого, более позднего переноса остаётся. */
+/** Отказ удаляет только снимок и перелёты данного запроса. Чужие переносы продолжаются. */
 export function cancelBoardFlip(owner: object | null): void {
-  if (snap === owner) snap = null; // чужой (более поздний) снимок не трогаем
+  if (owner) snaps.delete(owner as Snap);
+  for (const flight of flights.values()) if (flight.owner === owner) flight.cancel();
+  pruneSnapshots();
 }
 
-/** Массовая операция принята сервером: карточки сменят колонку только после перечитывания списка (второй запрос), а он
- *  может идти дольше `TTL_MS`. Возраст снимка сдвигается вперёд на `RENEW_AHEAD_MS` от ответа, поэтому полное окно
- *  после ответа — `TTL_MS + RENEW_AHEAD_MS` (≈ 10 с). Цена окна: посторонняя перезагрузка списка в эти секунды (например,
- *  по WebSocket) может сыграть перелёт от этого снимка, если положения карточек изменились; поэтому после первого
- *  коммита с переездом такой снимок закрывается (`playBoardFlip`). Карточка, которой не было в снимке (создана другим
- *  пользователем), к переезду не относится: `flipPending` для неё ложен, и она появляется обычным `enter`.
- *  Положения не менялись (прокрутка и так гасит снимок). */
+/** Уход с конкретной доски: снимаем все её снимки, копии, страховочные таймеры и слушатель без живых снимков. */
+export function clearBoardFlip(root: HTMLElement | null): void {
+  for (const s of snaps) if (s.root === root) snaps.delete(s);
+  for (const flight of flights.values()) if (flight.root === root) flight.cancel();
+  pruneSnapshots();
+}
+
+/** Массовый перенос продлевает только свой снимок на время перечитывания списка.
+ * После первого относящегося к нему коммита с переездом продлённый снимок закрывается. */
 const RENEW_AHEAD_MS = 7000;
 export function renewBoardFlip(owner: object | null): void {
-  if (owner && snap === owner) {
-    snap.at = performance.now() + RENEW_AHEAD_MS;
-    snap.renewed = true;
+  pruneSnapshots();
+  if (owner && snaps.has(owner as Snap)) {
+    const s = owner as Snap;
+    s.at = performance.now() + RENEW_AHEAD_MS;
+    s.renewed = true;
   }
 }
 
-/** Есть ли для карточки снимок (тогда её появление — перенос, а не новая задача). */
+/** Появление карточки из любого живого снимка — перенос, а не новая задача. */
 export function flipPending(id: string): boolean {
-  return !!snap && snap.pos.has(id) && performance.now() - snap.at < TTL_MS;
+  pruneSnapshots();
+  return [...snaps].some(s => s.pos.has(id));
 }
 
-/** После коммита колонки: всё, что сдвинулось относительно снимка, едет пружиной со старого места. */
+/** Один обход карточек каждого корня. Место — из самого раннего снимка; подъём/точка броска — своего запроса. */
 export function playBoardFlip(): void {
-  const s = snap;
-  if (!s) return;
-  if (s.dead || performance.now() - s.at > TTL_MS || !s.root.isConnected) {
-    snap = null;
-    return;
-  }
-  const moved: { el: HTMLElement; from: Pos; to: Pos; id: string; seen: boolean }[] = [];
-  const vh = window.innerHeight;
-  const seen = (p: Pos) => p.top > -200 && p.top < vh + 200;
-  for (const el of s.root.querySelectorAll<HTMLElement>(SELECTOR)) {
-    const id = el.dataset.issueId!;
-    const prev = s.pos.get(id);
-    if (!prev) continue;
-    const v = visible(el);
-    const to = layoutOf(el, v);
-    if (Math.abs(to.left - prev.left) < 0.5 && Math.abs(to.top - prev.top) < 0.5) continue;
-    // Видимое место до смены DOM = прежнее место в раскладке + текущий сдвиг анимации (0, если карточка стояла):
-    // так прерванная пружина продолжается с того места, где карточку видно, без скачка.
-    let from = { left: prev.left + (v.left - to.left), top: prev.top + (v.top - to.top) };
-    if (id === s.lifted && s.landing) {
-      from = s.landing;
-      s.landing = null;
+  pruneSnapshots();
+  const roots = new Set([...snaps].map(s => s.root));
+  for (const root of roots) {
+    const live = [...snaps].filter(s => s.root === root);
+    const moved: { el: HTMLElement; from: Pos; to: Pos; id: string; seen: boolean; owner: Snap }[] = [];
+    const vh = window.innerHeight;
+    const seen = (p: Pos) => p.top > -200 && p.top < vh + 200;
+    for (const el of root.querySelectorAll<HTMLElement>(SELECTOR)) {
+      const id = el.dataset.issueId!;
+      const first = live.find(s => s.pos.has(id));
+      const prev = first?.pos.get(id);
+      if (!prev || !first) continue;
+      let owner = first;
+      // Личный перенос имеет свою точку броска; массовый — свой продлённый снимок.
+      for (const s of live) if (s.renewed && s.pos.has(id)) owner = s;
+      for (const s of live) if (s.lifted === id) owner = s;
+      const v = visible(el);
+      const to = layoutOf(el, v);
+      if (Math.abs(to.left - prev.left) < 0.5 && Math.abs(to.top - prev.top) < 0.5) continue;
+      let from = { left: prev.left + (v.left - to.left), top: prev.top + (v.top - to.top) };
+      if (id === owner.lifted && owner.landing) {
+        from = owner.landing;
+        owner.landing = null;
+      }
+      moved.push({ el, from, to, id, seen: seen(prev) || seen(to), owner });
     }
-    moved.push({ el, from, to, id, seen: seen(prev) || seen(to) });
-  }
-  if (!moved.length) return;
-  const animate = moved.length <= MAX_ANIMATED;
-  // Массовая смена статуса: все сменившие колонку карточки «поднимаются», первая (по прежнему месту: выше и левее)
-  // летит впереди и поверх остальных, остальные — следом короткой волной, а не длинной очередью.
-  const wave = s.renewed
-    ? moved.filter((m) => Math.abs(m.to.left - m.from.left) > 4).sort((a, b) => a.from.top - b.from.top || a.from.left - b.from.left)
-    : [];
-  const step = wave.length > 1 ? Math.min(WAVE_STEP_MS, WAVE_TOTAL_MS / (wave.length - 1)) : 0;
-  for (const m of moved) {
-    if (animate && m.seen) {
-      const rank = wave.indexOf(m);
-      const lift = m.id === s.lifted || rank >= 0;
-      // Перенесённая карточка (с «подъёмом» — scale) и всё, что меняет колонку, летит над доской: тело колонки
-      // прокручивается и обрезало бы её по краям; соседи едут только по вертикали внутри своей колонки.
-      if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(m.el, m.from, m.to, lift, rank >= 0 ? { delay: rank * step, z: wave.length - rank } : undefined);
-      else void flipFrom(m.el, m.from.left, m.from.top, { lift });
+    if (!moved.length) continue;
+    const animate = moved.length <= MAX_ANIMATED;
+    const waves = new Map(live.filter(s => s.renewed).map(s => [s,
+      moved.filter(m => m.owner === s && Math.abs(m.to.left - m.from.left) > 4)
+        .sort((a, b) => a.from.top - b.from.top || a.from.left - b.from.left),
+    ]));
+    const committed = new Set<Snap>();
+    for (const m of moved) {
+      if (animate && m.seen) {
+        const wave = waves.get(m.owner) ?? [];
+        const rank = wave.indexOf(m);
+        const step = wave.length > 1 ? Math.min(WAVE_STEP_MS, WAVE_TOTAL_MS / (wave.length - 1)) : 0;
+        const lift = m.id === m.owner.lifted || rank >= 0;
+        if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(root, m.owner, m.el, m.from, m.to, lift, rank >= 0 ? { delay: rank * step, z: wave.length - rank } : undefined);
+        else void flipFrom(m.el, m.from.left, m.from.top, { lift });
+      }
+      // Ответы могут прийти в обратном порядке: ни один оставшийся снимок не должен повторить уже сыгранный сдвиг.
+      for (const s of live) if (s.pos.has(m.id)) s.pos.set(m.id, m.to);
+      committed.add(m.owner);
     }
-    s.pos.set(m.id, m.to);
+    for (const s of committed) if (s.renewed) snaps.delete(s);
   }
-  // Продлённый снимок (массовая операция) нужен ровно для первого коммита с переездом: после него окно закрываем,
-  // чтобы чужие изменения доски в оставшиеся секунды не анимировались от устаревших положений.
-  if (s.renewed) snap = null;
+  stopScrollWatch();
 }
 
 /** Перелёт в другую колонку: тело колонки прокручивается (overflow) и обрезало бы карточку, пока она снаружи.
  *  Поэтому летит копия в фиксированном слое поверх доски (как «призрак» перетаскивания — `.drag-ghost`), а сама
  *  карточка на новом месте скрыта до посадки. Место, размеры и стили копии — CSSOM, движение — WAAPI (ADR-0010). */
-const flights = new WeakMap<HTMLElement, () => void>();
-function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean, wave?: { delay: number; z: number }): void {
-  flights.get(el)?.();
+const flights = new Map<HTMLElement, { root: HTMLElement; owner: Snap; cancel: () => void }>();
+function fly(root: HTMLElement, owner: Snap, el: HTMLElement, from: Pos, to: Pos, lift: boolean, wave?: { delay: number; z: number }): void {
+  flights.get(el)?.cancel();
   // Стили слоя и скрытие карточки — CSSOM (разрешён CSP, ADR-0010), без нового CSS: бюджет CSS исчерпан.
   const wrap = document.createElement("div");
   wrap.className = "flip-flight";
@@ -182,18 +203,20 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean, wave?: { delay:
   el.style.visibility = "hidden";
   let landed = false;
   let guard = 0;
-  const land = () => {
+  const land = (completed = false) => {
     if (landed) return;
     landed = true;
     window.clearTimeout(guard);
+    if (!completed) stopMotion(clone);
     wrap.remove();
     el.style.visibility = visibility;
     flights.delete(el);
+    if (completed && root.isConnected && el.isConnected && root.contains(el) && getComputedStyle(el).visibility === "visible" && getComputedStyle(el).display !== "none" && !motionReduced()) flash(el);
   };
-  flights.set(el, land);
-  void flipFrom(clone, from.left, from.top, wave && wave.delay > 0 ? { lift, delay: wave.delay } : { lift }).then(land);
+  flights.set(el, { root, owner, cancel: () => land() });
+  void flipFrom(clone, from.left, from.top, wave && wave.delay > 0 ? { lift, delay: wave.delay } : { lift }).then(() => land(true), () => land());
   // Страховка: что бы ни случилось с анимацией, карточка не останется скрытой.
-  guard = window.setTimeout(land, 1000 + (wave?.delay ?? 0));
+  guard = window.setTimeout(() => land(), 1000 + (wave?.delay ?? 0));
 }
 
 /** FIX-12 (трек N): после переноса клавишей (`M`) или из меню карточка — новый элемент в другой колонке, и фокус уходит

@@ -3,7 +3,7 @@ import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, u
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
 import { enter, preloadMotion } from "../motion";
-import { cancelBoardFlip, createPendingMarks, flipPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
+import { cancelBoardFlip, clearBoardFlip, createPendingMarks, flipPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
 import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { IssueFilterSummary } from "./IssueFilterSummary";
@@ -802,10 +802,12 @@ export default function Board() {
   useEffect(() => {
     boardMounted.current = true;
     const marks = pendingMarks.current;
+    const root = boardRoot.current;
     return () => {
       boardMounted.current = false;
       restoreFocusCancel.current?.();
       marks.clearAll();
+      clearBoardFlip(root);
     };
   }, []);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
