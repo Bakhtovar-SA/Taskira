@@ -4,6 +4,8 @@ import { PersonAvatar } from "./settings/parts";
  *  остаётся быстрым просмотром той же ленты. Данные — внешний стор уведомлений (ADR-0011). */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createEnterTracker, type EnterTracker } from "../listEnter";
+import { createRowMotion, type RowMotion } from "../listExit";
+import { CountUp } from "../CountUp";
 import { lookOf } from "../projectLook";
 import { useNotifications, useStore } from "../store";
 import { relTime } from "../store/mappers";
@@ -36,6 +38,8 @@ export default function InboxView() {
   const [filter, setFilter] = useState<Filter>("all");
   const [cursor, setCursor] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     void refreshNotifications();
@@ -61,13 +65,31 @@ export default function InboxView() {
   // Новое событие во время просмотра въезжает пружиной; первый показ, смена фильтра и первая загрузка в пустой
   // список (у стора уведомлений нет признака загрузки) — без движения (ADR-0035).
   const enterRows = useRef<EnterTracker | null>(null);
+  const rowMotion = useRef<RowMotion | null>(null);
+  useEffect(() => () => rowMotion.current?.dispose(), []);
   const enterPrev = useRef<{ filter: Filter; n: number } | null>(null);
   useLayoutEffect(() => {
     enterRows.current ??= createEnterTracker();
     const baseline = !enterPrev.current || enterPrev.current.filter !== filter || enterPrev.current.n === 0;
     enterPrev.current = { filter, n: list.length };
-    enterRows.current(list.map((th) => th.head.id), (id) => listRef.current?.querySelector<HTMLElement>(`[data-enter-id="${CSS.escape(id)}"]`), baseline);
+    const rowIds = list.map(th => th.head.id);
+    const find = (id: string) => listRef.current?.querySelector<HTMLElement>(`[data-enter-id="${CSS.escape(id)}"]`);
+    rowMotion.current ??= createRowMotion();
+    rowMotion.current(listRef.current, rowIds, find, baseline);
+    enterRows.current(rowIds, find, baseline);
   }, [list, filter]);
+  useLayoutEffect(() => {
+    // Count-only refreshes do not need another geometry pass.
+    // After the final row or a disappearing toolbar action, keep a live keyboard target.
+    if (pendingFocus.current && !pendingFocus.current.isConnected) {
+      if (document.activeElement === document.body) {
+        const target = listRef.current?.querySelector<HTMLElement>("[data-enter-id] button") ??
+          tabsRef.current?.querySelector<HTMLElement>('button[aria-selected="true"]');
+        target?.focus({ preventScroll: true });
+      }
+      pendingFocus.current = null;
+    }
+  }, [list, filter, unreadCount]);
 
   const go = (th: Thread) => {
     const n = th.head;
@@ -87,14 +109,18 @@ export default function InboxView() {
       const el = e.target as HTMLElement;
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable) return;
       if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector("[role=dialog]")) return;
-      const { list: l, cur: c, go: open } = stateRef.current;
+      const { list: l, cur: selected, go: open } = stateRef.current;
+      const focusedRow = el.closest<HTMLElement>("[data-row]");
+      const c = focusedRow ? Number(focusedRow.dataset.row) : selected;
       if (!l.length) return;
       const k = e.key.toLowerCase();
       const move = (d: number) => {
         e.preventDefault();
         const next = Math.max(0, Math.min(l.length - 1, c + d));
         setCursor(next);
-        listRef.current?.querySelector<HTMLElement>(`[data-row="${next}"]`)?.scrollIntoView?.({ block: "nearest" });
+        const row = listRef.current?.querySelector<HTMLElement>(`[data-row="${next}"]`);
+        row?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+        row?.scrollIntoView?.({ block: "nearest" });
       };
       if (k === "j" || k === "о" || e.key === "ArrowDown") move(1);
       else if (k === "k" || k === "л" || e.key === "ArrowUp") move(-1);
@@ -104,7 +130,12 @@ export default function InboxView() {
       } else if (k === "e" || k === "у") {
         e.preventDefault();
         const unread = unreadIds(l[c]);
-        if (unread.length) markNotificationsRead(unread);
+        if (unread.length) {
+          setCursor(c);
+          listRef.current?.querySelector<HTMLElement>(`[data-row="${c}"] button`)?.focus({ preventScroll: true });
+          pendingFocus.current = document.activeElement as HTMLElement;
+          markNotificationsRead(unread);
+        }
       }
     };
     document.addEventListener("keydown", onKey);
@@ -120,7 +151,7 @@ export default function InboxView() {
             <h1 className="font-disp text-[22px] font-semibold tracking-[-0.02em] text-ink">{t("sidebar.nav.inbox")}</h1>
             <p className="mt-0.5 text-[13.5px] text-faint">{t("inbox.subtitle")}</p>
           </div>
-          <div role="tablist" aria-label={t("sidebar.nav.inbox")} className="flex items-center gap-0.5 rounded-lg bg-sunken/70 p-0.5 ring-1 ring-inset ring-linesoft">
+          <div ref={tabsRef} role="tablist" aria-label={t("sidebar.nav.inbox")} className="flex items-center gap-0.5 rounded-lg bg-sunken/70 p-0.5 ring-1 ring-inset ring-linesoft">
             {(["all", "unread"] as const).map((f) => (
               <Button variant="ghost" size="sm"
                 key={f}
@@ -135,22 +166,23 @@ export default function InboxView() {
                 }`}
               >
                 {t(f === "all" ? "inbox.filterAll" : "inbox.filterUnread")}
-                {f === "unread" && unreadCount > 0 && <span className="tabular text-accenttext">{unreadCount}</span>}
+                {f === "unread" && unreadCount > 0 && <CountUp value={unreadCount} resetKey={filter} className="tabular text-accenttext" />}
               </Button>
             ))}
           </div>
           {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => markNotificationsRead()} className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
+            <Button variant="ghost" size="sm" onClick={event => { pendingFocus.current = event.currentTarget; markNotificationsRead(); }} className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               <IcCheck size={15} /> {t("topbar.markAllRead")}
             </Button>
           )}
           {notifications.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => dismissNotifications()} title={t("topbar.clearListTitle")} className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
+            <Button variant="ghost" size="sm" onClick={event => { pendingFocus.current = event.currentTarget; dismissNotifications(); }} title={t("topbar.clearListTitle")} className="h-8 [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
               {t("topbar.clear")}
             </Button>
           )}
         </div>
 
+        <div ref={listRef} className="inbox-list">
         {list.length === 0 ? (
           <div className="mt-10">
             <EmptyState
@@ -165,7 +197,7 @@ export default function InboxView() {
             />
           </div>
         ) : (
-          <div ref={listRef} className="anim-stagger mt-6 space-y-6">
+          <div className="anim-stagger mt-6 space-y-6">
             {groups.map((g) => (
               <section key={g.id}>
                 <h2 className="mb-2 px-1 text-[12.5px] font-semibold tracking-[0.01em] text-faint">{t(`inbox.${g.id}`)}</h2>
@@ -184,6 +216,7 @@ export default function InboxView() {
                         data-active={i === cur ? "" : undefined}
                         className={`inbox-row group relative flex items-start gap-3 border-b border-linesoft px-4 py-3 transition-colors last:border-0 hover:bg-hover/60 ${read ? "" : "is-unread"}`}
                         onMouseEnter={() => setCursor(i)}
+                        onFocus={() => setCursor(i)}
                       >
                         <Button variant="ghost" size="sm" onClick={() => go(th)} className="min-w-0 flex-1 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0">
                           <span className="relative mt-0.5 shrink-0">
@@ -220,9 +253,7 @@ export default function InboxView() {
                           </span>
                         </Button>
                         <IconButton variant="ghost" size="sm" label={t("topbar.dismissOneTitle")}
-                          onClick={() => dismissNotifications(ids(th))}
-
-
+                          onClick={event => { pendingFocus.current = event.currentTarget; dismissNotifications(ids(th)); }}
                           className="mt-1 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                         >
                           <IcX size={14} />
@@ -236,6 +267,7 @@ export default function InboxView() {
             <p className="hidden text-center text-[12.5px] text-faint md:block">{t("inbox.hint")}</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
