@@ -24,6 +24,7 @@ type Pos = { left: number; top: number };
 let snap: { root: HTMLElement; at: number; pos: Map<string, Pos>; lifted: string | null; landing: Pos | null; dead?: boolean; renewed?: boolean } | null = null;
 let landing: { id: string; left: number; top: number } | null = null;
 let scrollWatch = false;
+let played = false;
 
 /** Куда отпустили «призрак» при перетаскивании: брошенная карточка прилетает отсюда, а не со старого места. */
 export function noteLanding(id: string, left: number, top: number): void {
@@ -58,6 +59,7 @@ export function snapshotBoard(root: HTMLElement | null, movedId: string | null):
   for (const el of root.querySelectorAll<HTMLElement>(SELECTOR)) pos.set(el.dataset.issueId!, layoutOf(el, visible(el)));
   const own = { root, at: performance.now(), pos, lifted: movedId, landing: l && movedId && l.id === movedId ? { left: l.left, top: l.top } : null };
   snap = own;
+  played = false;
   if (!scrollWatch) {
     scrollWatch = true;
     // Прокрутка делает положения во viewport неверными, но снимок не стираем: `flipPending` по-прежнему отличает
@@ -105,12 +107,15 @@ export function flipPending(id: string): boolean {
 /** После коммита колонки: всё, что сдвинулось относительно снимка, едет пружиной со старого места. */
 export function playBoardFlip(): void {
   const s = snap;
-  if (!s) return;
+  if (!s || played) return;
   if (s.dead || performance.now() - s.at > TTL_MS || !s.root.isConnected) {
     snap = null;
     return;
   }
-  const moved: { el: HTMLElement; from: Pos; to: Pos; id: string; seen: boolean }[] = [];
+  // Column layout effects share a mutation phase: one geometry read pass.
+  played = true;
+  queueMicrotask(() => { played = false; });
+  const moved: { el: HTMLElement; from: Pos; to: Pos; id: string; seen: boolean; width: number }[] = [];
   const vh = window.innerHeight;
   const seen = (p: Pos) => p.top > -200 && p.top < vh + 200;
   for (const el of s.root.querySelectorAll<HTMLElement>(SELECTOR)) {
@@ -127,9 +132,10 @@ export function playBoardFlip(): void {
       from = s.landing;
       s.landing = null;
     }
-    moved.push({ el, from, to, id, seen: seen(prev) || seen(to) });
+    moved.push({ el, from, to, id, seen: seen(prev) || seen(to), width: el.offsetWidth });
   }
   if (!moved.length) return;
+  const layerZoom = cssZoom(document.body);
   const animate = moved.length <= MAX_ANIMATED;
   // Массовая смена статуса: все сменившие колонку карточки «поднимаются», первая (по прежнему месту: выше и левее)
   // летит впереди и поверх остальных, остальные — следом короткой волной, а не длинной очередью.
@@ -143,8 +149,8 @@ export function playBoardFlip(): void {
       const lift = m.id === s.lifted || rank >= 0;
       // Перенесённая карточка (с «подъёмом» — scale) и всё, что меняет колонку, летит над доской: тело колонки
       // прокручивается и обрезало бы её по краям; соседи едут только по вертикали внутри своей колонки.
-      if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(m.el, m.from, m.to, lift, rank >= 0 ? { delay: rank * step, z: wave.length - rank } : undefined);
-      else void flipFrom(m.el, m.from.left, m.from.top, { lift });
+      if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(m.el, m.from, m.to, lift, { width: m.width, zoom: layerZoom }, rank >= 0 ? { delay: rank * step, z: wave.length - rank } : undefined);
+      else void flipFrom(m.el, m.from.left, m.from.top, { lift, last: m.to });
     }
     s.pos.set(m.id, m.to);
   }
@@ -157,7 +163,7 @@ export function playBoardFlip(): void {
  *  Поэтому летит копия в фиксированном слое поверх доски (как «призрак» перетаскивания — `.drag-ghost`), а сама
  *  карточка на новом месте скрыта до посадки. Место, размеры и стили копии — CSSOM, движение — WAAPI (ADR-0010). */
 const flights = new WeakMap<HTMLElement, () => void>();
-function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean, wave?: { delay: number; z: number }): void {
+function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean, measured: { width: number; zoom: number }, wave?: { delay: number; z: number }): void {
   flights.get(el)?.();
   // Стили слоя и скрытие карточки — CSSOM (разрешён CSP, ADR-0010), без нового CSS: бюджет CSS исчерпан.
   const wrap = document.createElement("div");
@@ -174,8 +180,8 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean, wave?: { delay:
   wrap.appendChild(clone);
   document.body.appendChild(wrap);
   // Координаты viewport → CSS px слоя (корневой zoom на широких экранах умножает left/top/width).
-  const z = cssZoom(wrap);
-  clone.style.width = `${el.offsetWidth}px`; // ширина раскладки: rect включал бы scale «приземления»
+  const z = measured.zoom;
+  clone.style.width = `${measured.width}px`; // ширина раскладки: rect включал бы scale «приземления»
   wrap.style.left = `${to.left / z}px`;
   wrap.style.top = `${to.top / z}px`;
   const visibility = el.style.visibility;
@@ -191,7 +197,7 @@ function fly(el: HTMLElement, from: Pos, to: Pos, lift: boolean, wave?: { delay:
     flights.delete(el);
   };
   flights.set(el, land);
-  void flipFrom(clone, from.left, from.top, wave && wave.delay > 0 ? { lift, delay: wave.delay } : { lift }).then(land);
+  void flipFrom(clone, from.left, from.top, { lift, last: to, ...(wave && wave.delay > 0 ? { delay: wave.delay } : {}) }).then(land);
   // Страховка: что бы ни случилось с анимацией, карточка не останется скрытой.
   guard = window.setTimeout(land, 1000 + (wave?.delay ?? 0));
 }

@@ -167,15 +167,15 @@ export function viewTransition(update: () => void): void {
  *  из видимого положения (с учётом transform), поэтому движение продолжается с того места, где элемент виден.
  *  `delay` (мс) — старт позже (волна карточек при массовой смене статуса): до старта элемент стоит в начальной точке.
  *  Обещание — конец движения (сразу, если двигать нечего). */
-export function flipFrom(el: HTMLElement, left: number, top: number, { lift = true, delay = 0 }: { lift?: boolean; delay?: number } = {}): Promise<void> {
+export function flipFrom(el: HTMLElement, left: number, top: number, { lift = true, delay = 0, last }: { lift?: boolean; delay?: number; last?: Pick<DOMRect, "left" | "top"> } = {}): Promise<void> {
   if (motionReduced() || typeof el.animate !== "function") return Promise.resolve();
   const e = ready();
   track(el, null);
-  const last = el.getBoundingClientRect();
+  const target = last ?? el.getBoundingClientRect();
   // Координаты viewport → CSS px элемента: под zoom (корневой 1.1 на ≥ 2560 px) translate умножается на него.
   const z = cssZoom(el);
-  const dx = (left - last.left) / z;
-  const dy = (top - last.top) / z;
+  const dx = (left - target.left) / z;
+  const dy = (top - target.top) / z;
   if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return Promise.resolve();
   const from = `translate(${dx}px, ${dy}px)${lift ? " scale(1.035)" : ""}`;
   // До отложенного старта элемент уже должен стоять в начальной точке, а не на новом месте.
