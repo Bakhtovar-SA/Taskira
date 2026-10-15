@@ -143,8 +143,9 @@ for (const width of [1460, 768, 767, 640, 639, 390]) {
     expect((await lane.boundingBox())!.height).toBeCloseTo(before.height, 2);
     const scrolling = width >= 768 ? lane.locator(".board-col-body") : page.locator(".board-scroll");
     expect(await scrolling.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
-    await scrolling.evaluate(element => { element.scrollTop = element.scrollHeight; });
-    await settleScroll(scrolling);
+    // Subscribe before the instant setter: it may emit scrollend in the same rendering turn.
+    // content-visibility can replace estimated card heights while scrolling, so the bottom is dynamic.
+    await settleScroll(scrolling, { trigger: () => scrolling.evaluate(element => { element.scrollTop = element.scrollHeight; }) });
     const last = width >= 768 ? lane.locator(".board-card").last() : page.locator(".board-card").last();
     await expect(last).toBeVisible();
     await expect.poll(async () => {

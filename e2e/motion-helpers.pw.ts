@@ -65,3 +65,28 @@ test("settleScroll returns for an already idle scroller", async ({ page }) => {
   await settleScroll(page.locator('#pane'));
   expect(await page.locator('#pane').evaluate(el => el.scrollLeft + el.scrollTop)).toBe(0);
 });
+
+// The known destination remains usable when scrollend preceded helper subscription.
+test("settleScroll accepts an exact instant destination without an observable scrollend", async ({ page }) => {
+  await page.setContent('<div id="pane" style="width:200px;height:200px;overflow:auto"><div style="width:1000px;height:1000px"></div></div>');
+  const pane = page.locator('#pane');
+  await pane.evaluate(el => el.addEventListener('scrollend', event => event.stopImmediatePropagation(), true));
+  await pane.evaluate(el => { el.scrollLeft = 600; el.scrollTop = 800; });
+  await settleScroll(pane, { expected: { left: 600, top: 800 } });
+  expect(await pane.evaluate(el => ({ left: el.scrollLeft, top: el.scrollTop }))).toEqual({ left: 600, top: 800 });
+});
+
+test("settleScroll subscribes before an instant scroll action", async ({ page }) => {
+  await page.setContent('<div id="pane" style="width:200px;height:200px;overflow:auto"><div style="height:1000px"></div></div>');
+  const pane = page.locator('#pane');
+  await settleScroll(pane, { trigger: () => pane.evaluate(el => { el.scrollTop = el.scrollHeight; }) });
+  expect(await pane.evaluate(el => el.scrollTop)).toBe(800);
+});
+
+test("settleScroll tolerates scroll anchoring without scrollend", async ({ page }) => {
+  await page.setContent('<div id="pane" style="width:200px;height:200px;overflow:auto"><div style="height:1000px"></div></div>');
+  const pane = page.locator('#pane');
+  await pane.evaluate(el => el.addEventListener('scrollend', event => event.stopImmediatePropagation(), true));
+  await settleScroll(pane, { trigger: () => pane.evaluate(el => { el.scrollTop = el.scrollHeight; }) });
+  expect(await pane.evaluate(el => el.scrollTop)).toBe(800);
+});
