@@ -205,12 +205,13 @@ function SubtasksField({ issue }: { issue: Issue }) {
     <Field tile label={summary.total > 0 ? t("issue.subtasksCount", { done: summary.done, total: summary.total }) : t("issue.subtasks")}
       action={canCreate && <Button variant="ghost" size="sm" onClick={() => openCreateSubtask(issue.id)}>{t("issue.addSubtask")}</Button>}>
       {children.length > 0 && (
-        <div className="space-y-1">
+        <EnterScope className="space-y-1" ids={children.map(c => c.id)} resetKey={issue.id}>
           {children.map((c) => {
             const isDone = idx.doneStatusIds.has(c.statusId);
             return (
               <button
                 key={c.id}
+                data-enter-id={c.id}
                 onClick={() => openIssue(c.id)}
                 className="flex w-full items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5 text-left hover:bg-hover"
               >
@@ -222,7 +223,7 @@ function SubtasksField({ issue }: { issue: Issue }) {
               </button>
             );
           })}
-        </div>
+        </EnterScope>
       )}
       {archivedCount > 0 && (
         <p className={`text-[13px] text-faint ${children.length > 0 ? "mt-1.5" : ""}`}>
@@ -442,8 +443,8 @@ function LinksField({ issue }: { issue: Issue }) {
   const { can, removeIssueLink, openIssue } = useStore();
   if (!issue.links.length) return null;
   return <Field label={t("issue.links")}>
-    <div className="space-y-1.5">
-      {issue.links.map(l => <div key={l.id} className="issue-linked-task">
+    <EnterScope className="space-y-1.5" ids={issue.links.map(l => l.id)} resetKey={issue.id}>
+      {issue.links.map(l => <div key={l.id} data-enter-id={l.id} className="issue-linked-task">
         <span className="text-faint text-[12px]">{t(`issue.link.${l.dir}`)}</span>
         <div className="flex min-w-0 items-center gap-1.5">
           <button type="button" onClick={() => openIssue(l.issue.id)} className="ds-focus flex min-w-0 flex-1 items-center gap-1.5 text-left" title={l.issue.title}>
@@ -452,7 +453,7 @@ function LinksField({ issue }: { issue: Issue }) {
           {can("edit", issue) && <button type="button" onClick={() => removeIssueLink(issue.id, l.id)} className="ds-focus shrink-0 text-faint hover:text-danger" aria-label={t("issue.removeLink") + ": " + l.issue.key}><IcX size={14} /></button>}
         </div>
       </div>)}
-    </div>
+    </EnterScope>
   </Field>;
 }
 
