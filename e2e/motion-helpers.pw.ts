@@ -29,7 +29,7 @@ test("settleScroll waits for both axes of a smooth scroll under fixed clock", as
     Object.assign((el.firstElementChild as HTMLElement).style, { width: '1000px', height: '1000px' });
     el.scrollTo({ left: 600, top: 500, behavior: 'smooth' });
   });
-  await settleScroll(pane);
+  await settleScroll(pane, { expected: { left: 600, top: 500 } });
   expect(await pane.evaluate(el => ({ left: el.scrollLeft, top: el.scrollTop }))).toEqual({ left: 600, top: 500 });
 });
 
@@ -44,4 +44,24 @@ test("loadMotion waits for the actual module and its dependency under fixed cloc
   await loadMotion(page, () => page.goto('/motion-helper-host'));
   await expect(page.locator('html')).toHaveAttribute('data-motion-loaded', 'yes');
   await expect(page.locator('html')).toHaveAttribute('data-motion-dependency', 'yes');
+});
+
+// Fake RAF stability at the initial offset must not hide a delayed compositor scroll.
+test("settleScroll waits for a delayed smooth start when its target is unknown", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-14T07:00:00Z"));
+  await page.setContent('<div id="pane"><div></div></div>');
+  const pane = page.locator('#pane');
+  await pane.evaluate(el => {
+    Object.assign((el as HTMLElement).style, { width: '200px', height: '200px', overflow: 'auto' });
+    Object.assign((el.firstElementChild as HTMLElement).style, { width: '1000px', height: '1000px' });
+    setTimeout(() => el.scrollTo({ left: 600, top: 500, behavior: 'smooth' }), 150);
+  });
+  await settleScroll(pane);
+  expect(await pane.evaluate(el => ({ left: el.scrollLeft, top: el.scrollTop }))).toEqual({ left: 600, top: 500 });
+});
+
+test("settleScroll returns for an already idle scroller", async ({ page }) => {
+  await page.setContent('<div id="pane"></div>');
+  await settleScroll(page.locator('#pane'));
+  expect(await page.locator('#pane').evaluate(el => el.scrollLeft + el.scrollTop)).toBe(0);
 });

@@ -14,26 +14,43 @@ export async function settle(page: Page, timeout = 5_000): Promise<void> {
   await expect.poll(pending, { timeout }).toBe(0);
 }
 
-/** scrollLeft и scrollTop не меняются четыре кадра подряд, включая плавный возврат к проекту. */
-export async function settleScroll(el: Locator, timeout = 5_000): Promise<void> {
-  await el.evaluate((node, ms) => new Promise<void>((resolve, reject) => {
-    let left = node.scrollLeft, top = node.scrollTop, still = 0, raf = 0;
-    const timer = setTimeout(() => {
-      cancelAnimationFrame(raf);
-      reject(new Error("Прокрутка не остановилась за " + ms + " мс"));
-    }, ms);
-    const tick = () => {
-      if (node.scrollLeft === left && node.scrollTop === top) still++;
-      else still = 0;
-      left = node.scrollLeft;
-      top = node.scrollTop;
-      if (still >= 4) {
-        clearTimeout(timer);
-        resolve();
-      } else raf = requestAnimationFrame(tick);
+type ScrollPosition = { left?: number; top?: number };
+type ScrollSettleOptions = { timeout?: number; expected?: ScrollPosition };
+
+/** Native scrollend marks compositor completion. Under page.clock, fake RAF callbacks can run in one
+ * JS turn before the compositor starts, so stability samples use Playwright's real Node timer instead.
+ * A known destination also prevents accepting an unchanged starting position. An already idle/no-op
+ * scroller falls back after 500ms without movement; after movement Chromium must emit scrollend. */
+export async function settleScroll(el: Locator, options: number | ScrollSettleOptions = {}): Promise<void> {
+  const normalized: ScrollSettleOptions = typeof options === "number" ? { timeout: options } : options;
+  const { timeout = 5_000, expected } = normalized;
+  const watch = await el.evaluateHandle(node => {
+    let moved = false, ended = false;
+    const onScroll = () => { moved = true; ended = false; };
+    const onEnd = () => { moved = true; ended = true; };
+    node.addEventListener("scroll", onScroll);
+    node.addEventListener("scrollend", onEnd);
+    return {
+      sample: () => ({ left: node.scrollLeft, top: node.scrollTop, moved, ended, nativeEnd: "onscrollend" in node }),
+      dispose: () => { node.removeEventListener("scroll", onScroll); node.removeEventListener("scrollend", onEnd); },
     };
-    raf = requestAnimationFrame(tick);
-  }), timeout);
+  });
+  const start = Date.now();
+  let last: ScrollPosition | undefined, still = 0;
+  try {
+    await expect.poll(async () => {
+      const state = await watch.evaluate(observer => observer.sample());
+      still = last?.left === state.left && last?.top === state.top ? still + 1 : 0;
+      last = state;
+      const atTarget = !expected || (expected.left === undefined || expected.left === state.left) &&
+        (expected.top === undefined || expected.top === state.top);
+      const complete = state.ended || !!expected || !state.nativeEnd || (!state.moved && Date.now() - start >= 500);
+      return still >= 4 && atTarget && complete;
+    }, { timeout, intervals: [50], message: "Прокрутка завершилась и обе координаты стабильны" }).toBe(true);
+  } finally {
+    await watch.evaluate(observer => observer.dispose()).catch(() => undefined);
+    await watch.dispose();
+  }
 }
 
 /** Вызвать до первого действия, загружающего motionEngine (или до goto).
