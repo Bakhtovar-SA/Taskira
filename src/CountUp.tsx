@@ -17,7 +17,7 @@ export function CountUp({ value, resetKey, format = String, className }: { value
     prev.current = { value, key: resetKey };
     const from = onScreen.current ?? p.value;
     onScreen.current = null;
-    if (!ref.current || p.key !== resetKey || !(value > from)) return;
+    if (!ref.current || p.key !== resetKey || !(value > p.value) || !(value > from)) return;
     const el = ref.current;
     const stop = countTo(el, from, value, (n) => {
       onScreen.current = n;
