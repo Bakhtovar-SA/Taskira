@@ -335,8 +335,10 @@ export function useSessionActions(
   /** Вернуться на главный экран из проекта (UI_RESTRUCTURE.md D4). Проект не
    *  выгружаем — `<HomeView>` показывается поверх; данные «Моих задач» освежаем. */
   const goHome = useCallback(() => {
-    setUi((u) => ({ ...u, selectedIssueId: null, createOpen: false, missing: null }));
-    setBootStatus("home");
+    viewTransition(() => {
+      setUi((u) => ({ ...u, selectedIssueId: null, createOpen: false, missing: null }));
+      setBootStatus("home");
+    });
     void refreshAssignedToMe();
     void refreshNotifications();
   }, [refreshAssignedToMe, refreshNotifications]);
