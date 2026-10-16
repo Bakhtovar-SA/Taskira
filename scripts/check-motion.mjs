@@ -10,7 +10,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const ts = require("typescript");
 const { spring } = require("motion");
-import { walk, splitCss, propertyName, exported, unwrap, animateCall, readMotionCss, motionConstants } from "./motion-lib.mjs";
+import { walk, splitCss, propertyName, exported, unwrap, animateCall, readMotionCss, motionConstants, motionRegistry } from "./motion-lib.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const TOKENS_MS = [100, 150, 200, 300, 450];
@@ -176,18 +176,37 @@ export function checkMotion(root) {
       }
       if (values.duration !== undefined && values.duration + (values.delay ?? 0) > MAX_MS) fail("js-total", where(options), "delay + duration > 450 мс");
     };
-    const checkSpring = (declaration) => {
-      if (!ts.isIdentifier(declaration.name) || !/^SPRING/.test(declaration.name.text)) return;
-      const options = object(declaration.initializer);
-      if (!options) { fail("spring-options", where(declaration), "SPRING* должен иметь разрешимый литерал настроек"); return; }
+    const checkSpring = (node, options, name) => {
+      if (!options) { fail("spring-options", where(node), "MOTION." + name + " требует литерал настроек"); return; }
       const resolved = {};
       for (const prop of options.properties) if (ts.isPropertyAssignment(prop)) resolved[propertyName(prop.name)] = numeric(prop.initializer);
-      if (!SPRING_VISUAL_MS.some((ms) => Math.abs(ms - resolved.visualDuration * 1000) < 1e-6)) fail("spring-visual", where(declaration), "visualDuration должен быть 100/150/200/250/300 мс");
-      if (!Number.isFinite(resolved.visualDuration) || !Number.isFinite(resolved.bounce)) { fail("spring-options", where(declaration), "пружина требует числовые visualDuration и bounce"); return; }
+      if (!SPRING_VISUAL_MS.some(ms => Math.abs(ms - resolved.visualDuration * 1000) < 1e-6)) fail("spring-visual", where(node), "visualDuration должен быть 100/150/200/250/300 мс");
+      if (!Number.isFinite(resolved.visualDuration) || !Number.isFinite(resolved.bounce) || options.properties.some(prop => !ts.isPropertyAssignment(prop))) { fail("spring-options", where(node), "пружина требует числовые visualDuration и bounce без spread"); return; }
       const duration = spring.applyToOptions(resolved).duration;
-      if (declaration.name.text === "SPRING_ENTER" && numeric(ts.factory.createIdentifier("MAX_SPRING_DELAY_MS")) !== undefined && duration + numeric(ts.factory.createIdentifier("MAX_SPRING_DELAY_MS")) > MAX_MS) fail("spring-delay-total", where(declaration), "delayed SPRING_ENTER + MAX_SPRING_DELAY_MS > 450 мс");
-      if (!Number.isFinite(duration) || duration > 500) fail("spring-duration", where(declaration), `пружина успокаивается за ${duration} мс (> 500)`);
+      const delay = numeric(ts.factory.createIdentifier("MAX_SPRING_DELAY_MS"));
+      if (name === "enter" && delay !== undefined && duration + delay > MAX_MS) fail("spring-delay-total", where(node), "delayed MOTION.enter + MAX_SPRING_DELAY_MS > 450 мс");
+      if (!Number.isFinite(duration) || duration > 500) fail("spring-duration", where(node), "пружина успокаивается за " + duration + " мс (> 500)");
     };
+    if (rel === "src/motion.ts") {
+      const registry = motionRegistry(source);
+      if (!registry.root) fail("motion-registry", rel + ":1", "нужен единый литерал MOTION");
+      else {
+        if (registry.root.properties.some(prop => !ts.isPropertyAssignment(prop))) fail("motion-registry", where(registry.root), "MOTION должен содержать явные поля без spread");
+        for (const name of ["spring", "enter", "pop"]) {
+          const prop = registry.fields.get(name);
+          if (!prop) fail("motion-registry", where(registry.root), "в MOTION отсутствует " + name);
+          else checkSpring(prop, object(prop.initializer), name);
+        }
+        const exit = registry.fields.get("exit");
+        if (!exit || !object(exit.initializer)) fail("motion-registry", where(registry.root), "в MOTION нужен exit");
+        else checkOptions(object(exit.initializer));
+        for (const name of ["flash", "count"]) {
+          const prop = registry.fields.get(name);
+          if (!prop || !TOKENS_MS.includes(numeric(prop.initializer))) fail("registry-duration", prop ? where(prop) : where(registry.root), "MOTION." + name + " — только токен 100/150/200/300/450 мс");
+        }
+      }
+    }
+    const registryAliases = { SPRING: "spring", SPRING_ENTER: "enter", SPRING_POP: "pop", EXIT: "exit", COUNT_MS: "count" };
     const checkReduced = (fn) => {
       if (!fn.body || !fn.name || NON_ANIMATING[fn.name.text]) return;
       let firstMotion = Infinity, firstReduce = Infinity;
@@ -226,7 +245,9 @@ export function checkMotion(root) {
         if (ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) checkTailwind(node);
       }
       if (rel === "src/motion.ts") {
-        if (ts.isVariableStatement(node) && exported(node)) for (const declaration of node.declarationList.declarations) checkSpring(declaration);
+        if (ts.isVariableStatement(node) && exported(node)) for (const declaration of node.declarationList.declarations) {
+          if (ts.isIdentifier(declaration.name) && registryAliases[declaration.name.text] && declaration.initializer?.getText(source).replace(/\s/g, "") !== "MOTION." + registryAliases[declaration.name.text]) fail("registry-alias", where(declaration), declaration.name.text + " должен ссылаться на MOTION." + registryAliases[declaration.name.text]);
+        }
         if (ts.isFunctionDeclaration(node) && exported(node)) checkReduced(node);
       }
       ts.forEachChild(node, visit);
@@ -240,7 +261,7 @@ function selfTest() {
   // Real files in a disposable source tree; every mutant must hit its own diagnostic.
   const root = mkdtempSync(join(tmpdir(), "taskira-motion-check-"));
   const baseline = {
-    "src/motion.ts": `const COUNT_MS = 200;\nexport const SPRING = { visualDuration: 0.3, bounce: 0.15 };\nexport const SPRING_ENTER = { visualDuration: 0.25, bounce: 0.1 };\nexport const SPRING_POP = { visualDuration: 0.25, bounce: 0.2 };\nexport function motionReduced() { return false; }\nexport function enter(el: HTMLElement) { if (motionReduced()) return; el.animate([], { duration: COUNT_MS, delay: 0.1 }); }\nconst EXIT = { duration: 0.2 };`,
+    "src/motion.ts": `export const MOTION = { spring: { visualDuration: 0.3, bounce: 0.15 }, enter: { visualDuration: 0.25, bounce: 0.1 }, pop: { visualDuration: 0.25, bounce: 0.2 }, exit: { duration: 0.2 }, flash: 300, count: 200 } as const;\nexport const COUNT_MS = MOTION.count;\nexport const SPRING = MOTION.spring;\nexport const SPRING_ENTER = MOTION.enter;\nexport const SPRING_POP = MOTION.pop;\nexport function motionReduced() { return false; }\nexport function enter(el: HTMLElement) { if (motionReduced()) return; el.animate([], { duration: COUNT_MS, delay: 0.1 }); }\nconst EXIT = MOTION.exit;`,
     "src/motionEngine.ts": `export { animate } from "motion/mini"; import { spring } from "motion";`,
     "src/theme.ts": `const THEME_MS = 450; root.animate([], { duration: THEME_MS });`,
     "src/component.tsx": `const classes = "transition-transform motion-reduce:transition-none duration-150";`,
@@ -256,7 +277,7 @@ function selfTest() {
     ["raw animate", "src/component.tsx", (text) => `${text}\nel.animate([], {duration: 300});`, "raw-animate"],
     ["computed raw animate", "src/component.tsx", (text) => `${text}\nel["animate"]([], {duration: 300});`, "raw-animate"],
     ["seconds duration", "src/motion.ts", (text) => text.replace("duration: 0.2", "duration: 0.5"), "js-duration"],
-    ["constant duration", "src/motion.ts", (text) => text.replace("COUNT_MS = 200", "COUNT_MS = 420"), "js-duration"],
+    ["constant duration", "src/motion.ts", (text) => text.replace("count: 200", "count: 420"), "js-duration"],
     ["theme duration", "src/theme.ts", (text) => text.replace("450", "420"), "js-duration"],
     ["delay and duration", "src/motion.ts", (text) => text.replace("delay: 0.1", "delay: 0.3"), "js-total"],
     ["spring visual duration", "src/motion.ts", (text) => text.replace("visualDuration: 0.3, bounce: 0.15", "visualDuration: 0.45, bounce: 0.4"), "spring-visual"],
@@ -273,6 +294,9 @@ function selfTest() {
     ["wave spring delay ceiling", "src/motion.ts", (text) => text.replace("MAX_SPRING_DELAY_MS = 100", "MAX_SPRING_DELAY_MS = 150"), "js-unresolved"],
     ["wave clamp removed", "src/motion.ts", (text) => text.replace("Math.min(e ? MAX_SPRING_DELAY_MS : MAX_FLIP_DELAY_MS, Math.max(0, Number.isFinite(delay) ? delay : 0))", "delay"), "js-unresolved"],
     ["wave wrong spring", "src/motion.ts", (text) => text.replace("delayMs > 0 ? SPRING_ENTER : SPRING", "delayMs > 0 ? SPRING : SPRING"), "js-unresolved"],
+    ["registry flash token", "src/motion.ts", text => text.replace("flash: 300", "flash: 420"), "registry-duration"],
+    ["duplicate spring alias", "src/motion.ts", text => text.replace("SPRING = MOTION.spring", "SPRING = { visualDuration: 0.3, bounce: 0.15 }"), "registry-alias"],
+    ["property duration", "src/motion.ts", text => text.replace("duration: COUNT_MS", "duration: MOTION.flash").replace("flash: 300", "flash: 420"), "js-duration"],
     ["Tailwind non-token", "src/component.tsx", (text) => text.replace("duration-150", "duration-500"), "tailwind-duration"],
   ];
   const save = (file, contents) => { const path = join(root, file); mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, contents); };

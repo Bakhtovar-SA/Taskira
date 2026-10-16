@@ -12,7 +12,7 @@
     "permissions:generate": "node scripts/generate-permissions.mjs",
     "permissions:check": "node scripts/generate-permissions.mjs --check",
     "docs:generate": "tsx scripts/generate-docs.ts",
-    "docs:check": "tsx scripts/generate-docs.ts --check",
+    "docs:check": "node scripts/generate-motion-tokens.mjs --check && tsx scripts/generate-docs.ts --check",
     "typecheck:scripts": "tsc -p scripts/tsconfig.json --noEmit",
     "contrast:check": "node scripts/check-contrast.mjs",
     "colors:check": "node scripts/check-raw-colors.mjs",
@@ -25,7 +25,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "playwright test",
-    "test:ui:production": "npm run build && playwright test --config playwright.production.config.ts"
+    "test:ui:production": "npm run build && playwright test --config playwright.production.config.ts",
+    "motion:tokens": "node scripts/generate-motion-tokens.mjs"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",

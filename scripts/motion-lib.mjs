@@ -85,6 +85,11 @@ export function motionConstants(source) {
     if (!node) return;
     if (ts.isNumericLiteral(node)) return Number(node.text);
     if (ts.isIdentifier(node) && constants.has(node.text) && !seen.has(node.text)) return numeric(constants.get(node.text), new Set([...seen, node.text]));
+    if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+      const key = node.getText(source);
+      if (seen.has(key)) return;
+      return numeric(propertyValue(node, seen), new Set([...seen, key]));
+    }
     if (ts.isPrefixUnaryExpression(node)) {
       const value = numeric(node.operand, seen);
       if (value !== undefined && node.operator === ts.SyntaxKind.MinusToken) return -value;
@@ -104,9 +109,30 @@ export function motionConstants(source) {
   const object = (node, seen = new Set()) => {
     node = unwrap(node);
     if (node && ts.isIdentifier(node) && constants.has(node.text) && !seen.has(node.text)) return object(constants.get(node.text), new Set([...seen, node.text]));
+    if (node && (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))) {
+      const key = node.getText(source);
+      if (seen.has(key)) return;
+      return object(propertyValue(node, seen), new Set([...seen, key]));
+    }
     return node && ts.isObjectLiteralExpression(node) ? node : undefined;
   };
-  return { numeric, object };
+  const propertyValue = (node, seen) => {
+    const parent = object(node.expression, seen);
+    const name = ts.isPropertyAccessExpression(node) ? node.name.text : propertyName(node.argumentExpression);
+    const prop = parent?.properties.find(item => ts.isPropertyAssignment(item) && propertyName(item.name) === name);
+    return prop?.initializer;
+  };
+  return { numeric, object, constant: (name) => constants.get(name) };
 }
 
 export { walk, splitCss, propertyName, exported, unwrap, animateCall };
+
+
+/** Parse the one runtime registry without importing or evaluating the application module. */
+export function motionRegistry(source) {
+  const constants = motionConstants(source);
+  const root = constants.object(constants.constant("MOTION"));
+  const fields = new Map();
+  if (root) for (const prop of root.properties) if (ts.isPropertyAssignment(prop)) fields.set(propertyName(prop.name), prop);
+  return { ...constants, root, fields };
+}
