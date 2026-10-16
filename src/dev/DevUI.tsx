@@ -157,7 +157,7 @@ export default function DevUI() {
                 ))}
               </div>
             </Concept>
-            <Concept n={6} title="Аватар без «сырых» цветов" text="Мягкий аватар: фон — тон из общей палитры по имени (одно имя — всегда один цвет), инициалы тем же тоном. Без «сырых» цветов из базы, в тёмной теме не кричит.">
+            <Concept n={6} title="Аватар без «сырых» цветов" text="У человека без фото — иллюстрированный портрет: стабильный по ID, с тоном из общей палитры. Фото пользователя имеет приоритет.">
               <div className="flex items-center gap-3">
                 <AvatarGroup people={PEOPLE} max={5} size={28} />
                 <Avatar person={PEOPLE[0]} size={32} status="online" />

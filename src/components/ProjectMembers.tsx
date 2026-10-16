@@ -27,14 +27,14 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
   const overflowSelected = overflow.find(user => user.id === selectedUserId);
   const moreLabel = overflowSelected ? t("board.moreAssigneesActive", { name: overflowSelected.name }) : t("board.moreAssignees");
   return <span className="project-members" role="group" aria-label={t("field.assignee")}>
-    <span className="ds-av-group">
+    <span className="ds-av-group board-member-list">
       {visible.map(user => <button key={user.id} type="button"
         className={`board-member-filter ds-focus flex rounded-full ${selected && selected.id !== user.id ? "opacity-50" : ""}`}
         aria-label={t("board.filterUserAria", { name: user.name })}
         aria-pressed={selectedUserId === user.id}
-        title={t("board.filterUserAria", { name: user.name })}
         onClick={() => onSelectUser(user.id)}>
-        <UserAvatar user={user} size={26} ring />
+        <UserAvatar user={user} size={26} ring showTitle={false} />
+        <span className="board-member-name" aria-hidden="true"><span>{user.name}</span></span>
       </button>)}
       {overflow.length > 0 && <Menu label={t("board.moreAssignees")} placement="bottom-end" open={moreOpen} onOpenChange={setMoreOpen}
         trigger={props => <button {...props} type="button" className="board-member-more ds-focus flex rounded-full"

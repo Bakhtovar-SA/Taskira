@@ -104,6 +104,18 @@ test("assignee overflow preserves avatar order and marks the active filter", asy
   await page.goto("/p/CORP/board");
   const avatars = page.locator(".board-member-filter");
   await expect(avatars).toHaveCount(4);
+  await expect(avatars.first().locator(".ds-av-portrait")).toHaveCount(1);
+  const colours = await avatars.evaluateAll(buttons => buttons.map(button =>
+    getComputedStyle(button.querySelector<HTMLElement>(".ds-av-colleague")!).color));
+  expect(new Set(colours).size).toBeGreaterThan(2);
+  const accents = await avatars.evaluateAll(buttons => buttons.map(button =>
+    getComputedStyle(button.querySelector<SVGElement>(".portrait-shoulders")!).fill));
+  expect(new Set(accents).size).toBeGreaterThan(2);
+  const revealedName = avatars.first().locator(".board-member-name");
+  await expect(revealedName).toHaveText(users[0].name);
+  await expect(revealedName).toHaveCSS("opacity", "0");
+  await avatars.first().hover();
+  await expect(revealedName).toHaveCSS("opacity", "1");
   const before = await avatars.evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label")));
   const more = page.locator(".board-member-more");
   await expect(more).not.toHaveAttribute("data-active", "true");
@@ -115,7 +127,7 @@ test("assignee overflow preserves avatar order and marks the active filter", asy
   await expect(more).toHaveAttribute("aria-label", /Исполнитель 5/);
   expect(await avatars.evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label")))).toEqual(before);
   await more.click();
-  await expect(page.getByRole("menuitem", { name: "Исполнитель 5" }).locator("svg")).toHaveCount(1);
+  await expect(page.getByRole("menuitem", { name: "Исполнитель 5" }).locator("svg.tk-ic")).toHaveCount(1);
   await page.getByRole("menuitem", { name: "Исполнитель 5" }).click();
   await expect(page).not.toHaveURL(/assignee=/);
   await expect(more).not.toHaveAttribute("data-active", "true");

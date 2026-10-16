@@ -1,5 +1,5 @@
 /** Аватар человека в приложении (трек G, шаг G3; карта COMPONENTS.md: Avatar/AvatarStack → Avatar/AvatarGroup).
- *  Вид — ds-аватар (классы ds-av, тон по имени, концепция 6); сверх того, что умеет чистый ds-компонент: загруженное
+ *  Вид — ds-аватар (классы ds-av, портрет по ID); сверх того, что умеет чистый ds-компонент: загруженное
  *  фото (useAvatarSrc), пустой кружок «не назначен», любые размеры экранов (через --av, ADR-0010) и карточка
  *  пользователя при наведении/фокусе и по клику — Popover вокруг (ленивый: доска и боковая панель во входном чанке). */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
@@ -12,12 +12,13 @@ import { cropAndResizeAvatar } from "../avatarCrop";
 import { cssVars } from "../cssVars";
 import { Tag, toneOf } from "../ds/Display";
 import { Popover } from "../ds/LazyOverlay";
+import { ColleaguePortrait, colleagueColorVars } from "../ds/ColleaguePortrait";
 
 /** Аватару достаточно имени — любой объект с ним (не только полный User: напр. `actor` в уведомлениях). С id аватар
  *  может быть кликабельным (карточка пользователя), с avatarUpdatedAt — показать загруженное фото. */
 export type AvatarUser = Pick<User, "name"> &
   Partial<Pick<User, "id" | "avatarUpdatedAt" | "initials">> & {
-    /** Не используется: тон — по имени (концепция 6), цвета из данных в интерфейс не попадают. Поле допущено, чтобы
+    /** Не используется: тон и портрет — по ID, цвета из данных в интерфейс не попадают. Поле допущено, чтобы
      *  старые вызовы с {name, initials, color} продолжали собираться. */
     color?: string;
   };
@@ -42,16 +43,6 @@ export function useAvatarSrc(userId?: string, avatarUpdatedAt?: number | null): 
   return src;
 }
 
-const initialsOf = (u: AvatarUser) =>
-  u.initials ||
-  u.name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-
 /** Клик и Enter/Пробел по аватару внутри кликабельной строки или карточки (доска, список) не должны открывать ещё и
  *  задачу; клавиши изнутри открытой карточки — тоже. Остальные клавиши идут дальше (общие сочетания). */
 const stopClick = (e: MouseEvent) => e.stopPropagation();
@@ -64,6 +55,7 @@ export function UserAvatar({
   size = 26,
   ring = false,
   interactive = false,
+  showTitle = true,
 }: {
   user: AvatarUser | null | undefined;
   size?: number;
@@ -71,6 +63,8 @@ export function UserAvatar({
   /** true — открывать карточку пользователя по клику. По умолчанию нет: аватар часто сидит внутри чужого
    *  управляющего элемента (фильтр по исполнителю, пункт меню, триггер) — там клик должен управлять им. */
   interactive?: boolean;
+  /** У фильтра имя уже раскрывается рядом, поэтому системная подсказка ему не нужна. */
+  showTitle?: boolean;
 }) {
   const { t } = useT();
   const src = useAvatarSrc(user?.id, user?.avatarUpdatedAt);
@@ -81,7 +75,8 @@ export function UserAvatar({
   const preview = () => { cancelHover(); if (!pinned) hoverTimer.current = setTimeout(() => setOpen(true), 300); };
   const leave = () => { cancelHover(); if (!pinned) hoverTimer.current = setTimeout(() => setOpen(false), 180); };
   useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
-  const sizeRef = useMemo(() => cssVars({ "--av": size }), [size]);
+  const seed = user?.id ?? user?.name ?? "";
+  const sizeRef = useMemo(() => cssVars({ "--av": size, ...colleagueColorVars(seed) }), [size, seed]);
 
   if (!user)
     return (
@@ -91,8 +86,8 @@ export function UserAvatar({
     );
 
   const circle = (
-    <span ref={sizeRef} className={`ds-av tk-tone-${toneOf(user.name)}`} data-ring={ring || undefined} role="img" aria-label={user.name} title={interactive ? undefined : user.name}>
-      {src ? <img src={src} alt="" /> : <span aria-hidden="true">{initialsOf(user)}</span>}
+    <span ref={sizeRef} className={`ds-av ${src ? `tk-tone-${toneOf(seed)}` : "ds-av-colleague"}`} data-ring={ring || undefined} role="img" aria-label={user.name} title={interactive || !showTitle ? undefined : user.name}>
+      {src ? <img src={src} alt="" /> : <ColleaguePortrait seed={seed} />}
     </span>
   );
   if (!interactive || !user.id) return circle;

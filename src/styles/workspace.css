@@ -260,10 +260,47 @@
 .workspace-toggle { flex: 0 0 auto; white-space: nowrap; }
 .workspace-toggle[aria-expanded="true"] { background: var(--accent-subtle); border-color: var(--accent-muted); color: var(--accent-text); }
 .workspace-toggle[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
-.board-member-filter { position: relative; transition: transform var(--dur-2) var(--ease-out); }
-.board-member-filter:hover { z-index: 1; transform: translateY(-2px); }
+.board-member-filter { position: relative; isolation: isolate; flex: none; transition: transform var(--dur-2) var(--ease-out); }
+.board-member-filter .ds-av { z-index: 1; }
+.board-member-filter:is(:hover, :focus-visible) { z-index: 3; opacity: 1; transform: translateY(-2px); }
+.board-member-name {
+  position: absolute;
+  z-index: 0;
+  left: calc(100% - 4px);
+  top: 0;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  border-radius: 0 999px 999px 0;
+  background: var(--bg-panel);
+  color: var(--text-1);
+  box-shadow: var(--elev-1);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-width var(--dur-3) var(--ease-out), opacity var(--dur-2) var(--ease-out), padding var(--dur-3) var(--ease-out);
+}
+.board-member-name > span { overflow: hidden; text-overflow: ellipsis; }
+.board-member-filter:is(:hover, :focus-visible) .board-member-name {
+  max-width: 168px;
+  padding: 0 10px 0 8px;
+  opacity: 1;
+}
+.board-member-filter:nth-child(n+3) .board-member-name {
+  left: auto;
+  right: calc(100% - 4px);
+  border-radius: 999px 0 0 999px;
+}
 .board-member-filter[aria-pressed="true"] { z-index: 2; outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+.board-member-filter[aria-pressed="true"]:is(:hover, :focus-visible) { z-index: 3; }
 .board-member-more[data-active="true"] { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .board-member-filter, .board-member-name { transition: none; }
+}
 .board-move-touch-hint { display: none; }
 @media (hover: none) {
   .board-move-touch-hint { display: flex; }

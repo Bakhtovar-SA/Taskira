@@ -44,7 +44,7 @@
 | `UserSearchPicker`, `IssueSearchBox` | `Combobox` (`load(q)`) | направление и родитель в карточке — `Popover` вокруг прежнего `IssueSearchBox` (поиск на сервере) |
 | нативный `<select>` (трек G оставлял его в классе `ds-input`) | `Select` (12.10.2026) | облик поля (`--ctl-h-*`, плотность, кольцо фокуса, ошибка, `disabled`), шеврон, список в верхнем слое по APG «select-only combobox»: кнопка `role="combobox"` держит фокус, `aria-activedescendant`, ↑/↓/Home/End/PageUp/PageDown, набор первых букв (и в чужой раскладке), Enter/Space, Esc закрывает только список (`preventDefault` — окно вокруг остаётся), Tab закрывает без выбора. `value`/`onChange` типизированы (`string` или `number`), группы `{ group, options }`, недоступные варианты, `placeholder`, `size="sm"`, `name` — скрытое поле формы. `id` на кнопке — внешний `<label htmlFor>` работает. Строки рисуются только при открытом списке; ниже 1024 px и при `pointer: coarse` — 44 px. Нативного `<select>` в экранах больше нет; поиск по длинному справочнику — по-прежнему `Combobox`. В тестах — `chooseOption()`/`selectedText()` из `ds/Select.testing.ts`, в e2e — `chooseOption()` из `e2e/select-helpers.ts`. **Импорт — из файла `../ds/Select`**, не из `../ds`: barrel реэкспортирует только типы, иначе чанк Select попадает в modulepreload входного (+2,9 KB до первого экрана) |
 | `<input type="date">` | `DatePicker` | ввод словами; `min`/`max` (G6); `block` — во всю ширину узкой колонки |
-| `Avatar`, `AvatarStack` | `UserAvatar` / `UserAvatarGroup` (`src/components/UserAvatar.tsx`) | ds-аватар, тон по имени, фото, карточка человека в `Popover`, «не назначен» (G3) |
+| `Avatar`, `AvatarStack` | `UserAvatar` / `UserAvatarGroup` (`src/components/UserAvatar.tsx`) | ds-аватар, портрет по ID вместо инициалов, фото, карточка человека в `Popover`, «не назначен» (G3) |
 | `Chip`, `.meta-pill`, `Lozenge`, `RoleBadge` | `Tag` (`tone`, `dot`, `strong`) | тоны `tk-tone-*`; тон статуса — `statusTone()` (`workflowStatus.ts`) |
 | `Kbd` (`ui.tsx`) | `Kbd` (`ds`) | |
 | `Empty` | `EmptyState` | |
@@ -73,4 +73,4 @@
 3. **Срок словами** — «завтра», «пт», «+3», «через 2 недели», «15 окт» + пресеты (`src/ds/dateParse.ts`).
 4. **Тост с таймером и «Отменить»** — полоса оставшегося времени, пауза при наведении.
 5. **Метка: тон + точка** — цвет только у фона, кольца и точки; текст основным цветом.
-6. **Мягкий аватар** — тонированный фон и инициалы тоном по имени, без цвета из базы.
+6. **Аватар человека** — иллюстрированный портрет по ID без фото; фото пользователя имеет приоритет. Основной и дополнительный тона вычисляются из ID по всему цветовому кругу, остаются стабильными при смене имени и подстраиваются под светлую/тёмную тему.
