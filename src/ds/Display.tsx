@@ -1,8 +1,10 @@
 /** Отображение (ТЗ 5.7): Avatar и группа, Tag, Kbd, EmptyState, Progress, ProgressRing, Skeleton, Toast.
- *  Цвета — только токены и тоны `tk-tone-*` (currentColor), без значений из данных в разметке. */
+ *  Цвета — токены, тоны `tk-tone-*` и вычисляемые по ID тона портретов; без значений из базы. */
 import { useOptionalT } from "../i18n";
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { Tooltip } from "./LazyTooltip";
+import { ColleaguePortrait, colleagueColorVars } from "./ColleaguePortrait";
+import { cssVars } from "../cssVars";
 
 export type Tone = "violet" | "indigo" | "blue" | "sky" | "teal" | "green" | "amber" | "orange" | "red" | "pink" | "gray";
 const TONES: Tone[] = ["violet", "indigo", "blue", "sky", "teal", "green", "amber", "orange", "red", "pink"];
@@ -13,23 +15,16 @@ export const toneOf = (s: string): Tone => {
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0;
   return TONES[Math.abs(h) % TONES.length];
 };
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("");
-
 /* ---------- Avatar ---------- */
 
-export type AvatarPerson = { name: string; src?: string | null };
+export type AvatarPerson = { name: string; id?: string; src?: string | null };
 
 export function Avatar({ person, size = 24, ring, status }: { person: AvatarPerson; size?: 20 | 24 | 28 | 32 | 40 | 64; ring?: boolean; status?: "online" | "away" }) {
-  const tone = toneOf(person.name);
+  const seed = person.id ?? person.name;
+  const colorRef = useMemo(() => cssVars(colleagueColorVars(seed)), [seed]);
   return (
-    <span className={`ds-av tk-tone-${tone}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name}>
-      {person.src ? <img src={person.src} alt="" /> : <span aria-hidden="true">{initials(person.name)}</span>}
+    <span ref={colorRef} className={`ds-av ${person.src ? `tk-tone-${toneOf(seed)}` : "ds-av-colleague"}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name}>
+      {person.src ? <img src={person.src} alt="" /> : <ColleaguePortrait seed={seed} />}
       {status && <span className="ds-av-status" data-status={status} />}
     </span>
   );
