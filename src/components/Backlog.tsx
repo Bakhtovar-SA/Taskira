@@ -1,5 +1,6 @@
 import { createEnterTracker, type EnterTracker } from "../listEnter";
 import { createRowMotion, type RowMotion } from "../listExit";
+import { useSkeletonReveal } from "../useSkeletonReveal";
 import { Flash } from "../Flash";
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cssVars } from "../cssVars";
@@ -12,7 +13,7 @@ import { useStore } from "../store";
 import { canTransition, fmtDate, relTime } from "../store/mappers";
 import type { CustomFieldDef, Issue } from "../types";
 import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
-import { NO_ISSUE_FILTERS, freshRows, useDebounced, useEpics, useIssueCounts, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
+import { NO_ISSUE_FILTERS, issueSetKey, freshRows, useDebounced, useEpics, useIssueCounts, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { LIMITS } from "../validation";
 import { issuesApi, savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcUsers, IcFlag, IcDiamond, IcPencil, IcPlus, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
@@ -345,6 +346,8 @@ export default function Backlog() {
 
   // Подгрузка при прокрутке к концу списка; кнопка «Показать ещё» — запасной путь.
   const { hasMore, loading, loadingMore, loadMore } = set;
+  const scope = query ? issueSetKey(query) : "";
+  const reveal = useSkeletonReveal(scope, loading, rows.length > 0);
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length);
 
   const filterActive = !!(q || fStatus || fAssignee || fType || fPriority || fLabel || fSprint || fDueFrom || fDueTo || cfCond || fOverdue || showDone);
@@ -721,10 +724,12 @@ export default function Backlog() {
 
       {/* Bounded table; intermediate desktop widths scroll within the list. */}
       <div className={`list-scroll min-h-0 flex-1 overflow-auto ${selectedIds.size ? "pb-20" : ""}`}>
-        <div className="list-table-wrap">
+        <div key={scope} ref={reveal.contentRef} data-skeleton-content="backlog" className="list-table-wrap">
           {set.loading ? (
             <div
-              className="overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70"
+              key={scope}
+              onAnimationStart={reveal.onSkeletonAnimationStart}
+              className="skeleton-late overflow-hidden surface-raised rounded-xl ring-1 ring-inset ring-line/70"
               aria-busy="true"
               aria-label={t("common.loading")}
             >
