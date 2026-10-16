@@ -147,18 +147,53 @@ function safe<T>(f: () => T): T | null {
 /** Смена представления или открытие задачи полной страницей: короткое перекрёстное затухание (--dur-2,
  *  правила — `html.vt-nav` в index.css). Нет API, reduced-motion или вкладка скрыта — мгновенно. */
 type VTDoc = Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+let viewSequence = 0;
+let activeTransitions = 0;
+let cancelViewFocus = () => {};
+
+/** Lazy route content may mount after the transition. Observe only until its heading arrives;
+ * a later navigation or deliberate focus always wins. */
+function focusViewHeading(sequence: number, outgoingFocus: Element | null): void {
+  const focus = () => {
+    if (sequence !== viewSequence) return true;
+    if (document.activeElement !== document.body) {
+      // Concurrent React may not have committed yet. Wait for the outgoing route to detach.
+      if (document.activeElement === outgoingFocus && outgoingFocus?.closest("main")) return false;
+      return true;
+    }
+    const heading = [...document.querySelectorAll<HTMLElement>('main [data-view-heading], main h1')]
+      .find(el => el.getClientRects().length > 0);
+    if (!heading) return false;
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+    return true;
+  };
+  if (focus()) return;
+  const root = document.querySelector('main');
+  if (!root) return;
+  const observer = new MutationObserver(() => { if (focus()) cancel(); });
+  const cancel = () => { observer.disconnect(); window.clearTimeout(timer); if (cancelViewFocus === cancel) cancelViewFocus = () => {}; };
+  const timer = window.setTimeout(cancel, 2000);
+  cancelViewFocus = cancel;
+  observer.observe(root, { childList: true, subtree: true });
+}
 export function viewTransition(update: () => void): void {
+  const sequence = ++viewSequence;
+  const outgoingFocus = document.activeElement;
+  cancelViewFocus();
   const doc = document as VTDoc;
-  if (!doc.startViewTransition || motionReduced() || document.visibilityState !== "visible") {
+  if (!doc.startViewTransition || motionReduced() || document.visibilityState !== 'visible') {
     update();
+    requestAnimationFrame(() => focusViewHeading(sequence, outgoingFocus));
     return;
   }
   const root = document.documentElement;
-  root.classList.add("vt-nav");
-  doc
-    .startViewTransition(() => flushSync(update))
-    .finished.finally(() => root.classList.remove("vt-nav"))
-    .catch(() => undefined);
+  activeTransitions++;
+  root.classList.add('vt-nav');
+  doc.startViewTransition(() => flushSync(update)).finished.catch(() => undefined).finally(() => {
+    if (--activeTransitions === 0) root.classList.remove('vt-nav');
+    focusViewHeading(sequence, outgoingFocus);
+  });
 }
 
 /** FLIP: элемент уже на новом месте; анимируем его из старой точки (left/top во viewport). Пружина `SPRING`, если
