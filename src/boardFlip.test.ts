@@ -38,9 +38,9 @@ test("сдвинутые карточки едут со старого мест�
   // Перенесённая карточка летит копией над доской (scale «подъёма» обрезался бы телом колонки), соседи — сами.
   const clone = document.querySelector<HTMLElement>(".flip-flight > article")!;
   expect(vi.mocked(flipFrom).mock.calls).toEqual([
-    [clone, 10, 0, { lift: true }],
-    [el(root, "b"), 10, 100, { lift: false }],
-    [el(root, "c"), 10, 200, { lift: false }],
+    [clone, 10, 0, { lift: true, last: { left: 10, top: 200 } }],
+    [el(root, "b"), 10, 100, { lift: false, last: { left: 10, top: 0 } }],
+    [el(root, "c"), 10, 200, { lift: false, last: { left: 10, top: 100 } }],
   ]);
   playBoardFlip();
   expect(flipFrom).toHaveBeenCalledTimes(3);
@@ -54,12 +54,13 @@ test("перетаскивание: брошенная карточка прил
   // До ответа сервера карточка на старом месте: коммит в это время её никуда не «возвращает».
   playBoardFlip();
   expect(flipFrom).not.toHaveBeenCalled();
+  await Promise.resolve(); // The server response applies in a later commit, after the no-op commit.
   tops.set("a", 50);
   playBoardFlip();
   // Другая колонка: летит копия в фиксированном слое (тело колонки обрезало бы карточку), сама карточка скрыта.
   const clone = document.querySelector<HTMLElement>(".flip-flight > article")!;
   expect(clone.hasAttribute("data-issue-id")).toBe(false);
-  expect(vi.mocked(flipFrom).mock.calls).toEqual([[clone, 500, 300, { lift: true }]]);
+  expect(vi.mocked(flipFrom).mock.calls).toEqual([[clone, 500, 300, { lift: true, last: { left: 10, top: 50 } }]]);
   expect(el(root, "a").style.visibility).toBe("hidden");
   await Promise.resolve();
   await Promise.resolve();
@@ -306,4 +307,23 @@ test("createPendingMarks: ответ на устаревший перенос н
   } finally {
     vi.useRealTimers();
   }
+});
+
+test("C-02: repeated column effects read once; next commit reads again", async () => {
+  tops.set("a",0).set("b",100); const root=board(["a","b"]); snapshotBoard(root,"a");
+  const query=vi.spyOn(root,"querySelectorAll"); tops.set("a",100).set("b",0);
+  playBoardFlip(); playBoardFlip(); playBoardFlip(); expect(query).toHaveBeenCalledTimes(1);
+  await Promise.resolve(); tops.set("b",30); playBoardFlip(); expect(query).toHaveBeenCalledTimes(2);
+});
+test("C-02: geometry reads precede flight insertion", () => {
+  tops.set("a",0).set("b",100); const root=board(["a","b"]); snapshotBoard(root,"a"); let writing=false;
+  for(const id of ["a","b"]) { const card=el(root,id);
+    card.getBoundingClientRect=()=>{expect(writing).toBe(false);return {left:400,top:tops.get(id)} as DOMRect;};
+    Object.defineProperty(card,"offsetWidth",{get:()=>{expect(writing).toBe(false);return 280;}});
+  }
+  const append=document.body.appendChild.bind(document.body);
+  const spy=vi.spyOn(document.body,"appendChild").mockImplementation(node=>{writing=true;return append(node);});
+  playBoardFlip(); expect(document.querySelectorAll(".flip-flight")).toHaveLength(2);
+  expect([...document.querySelectorAll<HTMLElement>(".flip-flight > article")].every(card=>card.style.width==="280px")).toBe(true);
+  spy.mockRestore();
 });

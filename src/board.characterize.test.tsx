@@ -263,7 +263,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     // Spring FLIP (ADR-0035 prototype): the landed card flies in from its old place, once, and nothing in the source moves.
     // It crosses columns, so a copy flies in a fixed layer above the board (the column body would clip the card).
     const flights = vi.mocked(flipFrom).mock.calls.filter(([el]) => el.parentElement?.classList.contains("flip-flight"));
-    expect(flights.map(([el, ...rest]) => [el.textContent?.includes("A21-a1"), ...rest])).toEqual([[true, 0, 100, { lift: true }]]);
+    expect(flights.map(([el, ...rest]) => [el.textContent?.includes("A21-a1"), ...rest])).toEqual([[true, 0, 100, { lift: true, last: { left: 300, top: 100 } }]]);
     expect(vi.mocked(flipFrom).mock.calls.some(([el]) => el === moved)).toBe(false);
     expect(vi.mocked(flipFrom).mock.calls.some(([el]) => source.contains(el))).toBe(false);
     // Finish the page refresh: it must not duplicate or remount the landed card.
