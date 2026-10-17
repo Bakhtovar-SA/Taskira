@@ -300,7 +300,7 @@ export const IcDots = (p: P) => (
     <circle className="s" cx="13" cy="8" r="1.5" />
   </D>
 );
-export const IcCheck = (p: P) => <D {...p}><path className="k" d="m3 8.5 3.25 3.25L13 4.5" /></D>;
+export const IcCheck = (p: P) => <D {...p}><path className="k" pathLength={1} d="m3 8.5 3.25 3.25L13 4.5" /></D>;
 export const IcCalendar = (p: P) => (
   <D {...p}>
     <R x={1} y={3} w={14} h={12} r={2.5} c="t" />

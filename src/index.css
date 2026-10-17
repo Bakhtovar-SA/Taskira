@@ -1078,6 +1078,10 @@ button {
 .anim-stagger > :nth-child(4) { animation-delay: 90ms; }
 .anim-stagger > :nth-child(5) { animation-delay: 120ms; }
 .anim-stagger > :nth-child(n + 6) { animation-delay: 150ms; }
+.success-check path {
+  stroke-dasharray: 1;
+  animation: drawLine var(--dur-4) var(--ease-out) backwards;
+}
 .chart-line {
   stroke-dasharray: 1;
   animation: drawLine var(--dur-5) var(--ease-out) backwards;
@@ -1090,6 +1094,7 @@ button {
 }
 @media (prefers-reduced-motion: reduce) {
   .anim-view,
+  .success-check path,
   .anim-stagger > *,
   .chart-line,
   .reports-chart rect[data-series],

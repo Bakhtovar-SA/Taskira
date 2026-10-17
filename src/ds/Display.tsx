@@ -205,11 +205,11 @@ export function Toast({
   return (
     <div ref={ref} className="ds-toast" data-kind={kind} role={kind === "error" ? "alert" : "status"}>
       <span className="ds-toast-icon" aria-hidden="true">
-        <svg width="12" height="12" viewBox="0 0 12 12">
+        <svg width="12" height="12" viewBox="0 0 12 12" className={kind === "success" ? "success-check" : undefined}>
           {kind === "error" ? (
             <path d="M6 3v3.5M6 8.75v.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           ) : kind === "success" ? (
-            <path d="m2.75 6.25 2.25 2.25 4.25-4.75" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path pathLength={1} d="m2.75 6.25 2.25 2.25 4.25-4.75" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           ) : (
             <path d="M6 5.5V9M6 3.25v.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           )}
