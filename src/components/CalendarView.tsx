@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { Avatar, Button, Checkbox, DatePicker, IconButton, Input, Menu, Popover, Tabs, Tooltip } from "../ds";
@@ -8,6 +8,7 @@ import { TYPE_ORDER } from "../types";
 import { useDebounced, useIssueSet, useIssuesRevision, useOnRevision } from "../issuePages";
 import { dateOf, hiddenCount, issuesByDay, localToday, movePeriod, periodDays, shiftDay, type CalendarMode } from "../calendarLayout";
 import { denialText } from "../permissions";
+import { slide, stopMotion } from "../motion";
 import "./calendar.css";
 
 const EMPTY: Issue[] = [];
@@ -80,6 +81,17 @@ export default function CalendarView() {
   const [closed, setClosed] = useState(false);
   const [unscheduled, setUnscheduled] = useState(false);
   const days = useMemo(() => periodDays(date, mode), [date, mode]);
+  // D-04 SPIKE: keep the grid node stable; do not alter the existing RAF focus/keyboard path.
+  const grid = useRef<HTMLDivElement>(null);
+  const previousPeriod = useRef({ mode, first: days[0] });
+  useLayoutEffect(() => {
+    const previous = previousPeriod.current;
+    previousPeriod.current = { mode, first: days[0] };
+    if (!grid.current) return;
+    if (previous.mode !== mode) stopMotion(grid.current);
+    else if (previous.first !== days[0]) slide(grid.current, days[0] > previous.first ? 1 : -1);
+  }, [mode, days]);
+  useLayoutEffect(() => { const node = grid.current; return () => { if (node) stopMotion(node); }; }, []);
   const filters = useMemo(() => ({ q: q || undefined, assignee: assignee || undefined, type: type || undefined, closed: closed ? "hide" as const : undefined }), [q, assignee, type, closed]);
   const range = useIssueSet({ projectId: data.currentProjectId, filters: { ...filters, dueFrom: days[0], dueTo: days[days.length - 1] }, sort: "due", dir: "asc" }, { withCounts: false });
   const without = useIssueSet(unscheduled ? { projectId: data.currentProjectId, filters: { ...filters, dueEmpty: "1" }, sort: "priority", dir: "asc" } : null, { withCounts: false });
@@ -143,7 +155,7 @@ export default function CalendarView() {
     {items.length >= 500 && range.hasMore && <p className="px-4 text-sub">{t("calendar.limit")}</p>}
     <div className="flex min-h-0 flex-1">
     <div className="calendar-scroll" aria-busy={range.loading || range.loadingMore}>
-      <div role="grid" aria-label={t("calendar.title")} className="calendar-grid">
+      <div ref={grid} role="grid" aria-label={t("calendar.title")} className="calendar-grid">
         <div role="row" className="calendar-weekdays">{days.slice(0, 7).map(d => <div role="columnheader" key={d}>{dateOf(d).toLocaleDateString(lang === "en" ? "en-GB" : "ru-RU", { weekday: "short" })}</div>)}</div>
         {Array.from({ length: days.length / 7 }, (_, row) => <div role="row" className="calendar-row" key={row}>
           {days.slice(row * 7, row * 7 + 7).map(day => <Day key={day} day={day} date={date} mode={mode} today={today} items={grouped.get(day) ?? EMPTY} focused={activeDay === day}
