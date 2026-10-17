@@ -98,8 +98,8 @@ interface Api {
   removeCollaborator: (issueId: string, userId: string) => void;
   addIssueLink: (issueId: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") => void;
   removeIssueLink: (issueId: string, linkId: string) => void;
-  addChecklistItem: (issueId: string, text: string) => void;
-  toggleChecklistItem: (issueId: string, itemId: string, done: boolean) => void;
+  addChecklistItem: (issueId: string, text: string) => Promise<boolean>;
+  toggleChecklistItem: (issueId: string, itemId: string, done: boolean) => Promise<boolean>;
   removeChecklistItem: (issueId: string, itemId: string) => void;
   setCustomFieldValue: (issueId: string, fieldId: string, value: string | null) => void;
   uploadAttachment: (issueId: string, file: File) => void;
@@ -408,7 +408,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const {
     addComment, addCollaborator, removeCollaborator, addIssueLink, removeIssueLink, addChecklistItem, toggleChecklistItem,
     removeChecklistItem, setCustomFieldValue, uploadAttachment, removeAttachment, downloadAttachment,
-  } = useIssueSubActions(storeCtx, { withIssue, langRef });
+  } = useIssueSubActions(storeCtx, { withIssue, resolveIssue, langRef });
 
   // Домены, вынесенные из провайдера (ТЗ 2.3): общий контекст — в ./store/ctx.
   const { addSprint, startSprint, completeSprint, setIssueSprint } = useSprintActions(storeCtx);

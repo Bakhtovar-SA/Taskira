@@ -850,6 +850,7 @@ const ru = {
   "issue.commentsCount": "Комментарии · {count}",
   "issue.activityCount": "История · {count}",
   "issue.commentPlaceholder": "Комментарий, @ — упомянуть",
+  "issue.commentSending": "Отправляется…",
   "issue.send": "Отправить",
   "issue.commentDenied": "Ваша роль не позволяет оставлять комментарии",
   "issue.noComments": "Комментариев пока нет — начните обсуждение.",

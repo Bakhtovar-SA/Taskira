@@ -11,8 +11,8 @@ export function projectAssignees(data: Pick<Data, "users" | "members">, selected
 }
 
 /** Only project members can be added; former assignees remain visible for removal. */
-export default function AssigneePicker({ data, selected, onChange, selfOnlyId }: {
-  data: Pick<Data, "users" | "members">; selected: string[]; onChange: (ids: string[]) => void; selfOnlyId?: string;
+export default function AssigneePicker({ data, selected, onChange, selfOnlyId, disabled = false }: {
+  data: Pick<Data, "users" | "members">; selected: string[]; onChange: (ids: string[]) => void; selfOnlyId?: string; disabled?: boolean;
 }) {
   const { t } = useT();
   const [query, setQuery] = useState("");
@@ -23,7 +23,7 @@ export default function AssigneePicker({ data, selected, onChange, selfOnlyId }:
         aria-label={t("assignee.search")} placeholder={t("assignee.search")}
         className="ds-input ds-focus w-full" />
     </div>
-    {candidates.map(user => <button key={user.id} type="button" aria-pressed={selected.includes(user.id)}
+    {candidates.map(user => <button key={user.id} type="button" disabled={disabled} aria-pressed={selected.includes(user.id)}
       className="ds-menu-item" onClick={() => onChange(selected.includes(user.id) ? selected.filter(id => id !== user.id) : [...selected, user.id])}>
       <UserAvatar user={user} size={18} interactive={false} />
       <span className="min-w-0 flex-1 truncate">{user.name}</span>

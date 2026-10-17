@@ -143,15 +143,30 @@ describe("подсущности задачи (src/store/issueSub.ts)", () => {
     vi.spyOn(issuesApi, "addChecklistItem").mockResolvedValue({ item: item(false), checklist: [item(false)] } as never);
     vi.spyOn(issuesApi, "patchChecklistItem").mockResolvedValue({ item: item(true), checklist: [item(true)] } as never);
     vi.spyOn(issuesApi, "removeChecklistItem").mockResolvedValue({ checklist: [] } as never);
-    act(() => get().addChecklistItem("i1", "пункт"));
+    await act(async () => { expect(await get().addChecklistItem("i1", "пункт")).toBe(true); });
     await settle();
     expect(theIssue(get).checklist.map((c) => c.done)).toEqual([false]);
-    act(() => get().toggleChecklistItem("i1", "c1", true));
+    await act(async () => { expect(await get().toggleChecklistItem("i1", "c1", true)).toBe(true); });
     await settle();
     expect(theIssue(get).checklist.map((c) => c.done)).toEqual([true]);
     act(() => get().removeChecklistItem("i1", "c1"));
     await settle();
     expect(theIssue(get).checklist).toEqual([]);
+  });
+
+  test("checklist acknowledgement waits for API, returns success, and failure preserves server state", async () => {
+    const get = await boot();
+    const item = { id: "c1", text: "пункт", done: false, position: 0, createdAt: new Date().toISOString() };
+    let finish!: (value: never) => void;
+    vi.spyOn(issuesApi, "addChecklistItem").mockImplementation(() => new Promise(resolve => { finish = resolve as typeof finish; }));
+    let pending!: Promise<boolean>;
+    act(() => { pending = get().addChecklistItem("i1", "пункт"); });
+    await settle(); expect(theIssue(get).checklist).toEqual([]);
+    await act(async () => { finish({ item, checklist: [item] } as never); expect(await pending).toBe(true); });
+    expect(theIssue(get).checklist.map(x => x.done)).toEqual([false]);
+    vi.spyOn(issuesApi, "patchChecklistItem").mockRejectedValue(new Error("server"));
+    await act(async () => { expect(await get().toggleChecklistItem("i1", "c1", true)).toBe(false); });
+    expect(theIssue(get).checklist.map(x => x.done)).toEqual([false]);
   });
 
   test("setCustomFieldValue кладёт values из ответа", async () => {
