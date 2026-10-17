@@ -224,6 +224,17 @@ export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<
   return done(safe(() => track(el, e.animate(el, { opacity: [1, 0], transform }, EXIT))));
 }
 
+/** D-04: one stable calendar grid; keyboard/focus/native-DnD acceptance verified separately. */
+const SLIDE_MS = 300;
+export function slide(el: HTMLElement, dir: -1 | 1): void {
+  track(el, null);
+  if (motionReduced() || typeof el.animate !== "function") return;
+  safe(() => track(el, el.animate([
+    { opacity: 0.4, transform: `translateX(${dir * 12}px)` },
+    { opacity: 1, transform: "none" },
+  ], { duration: SLIDE_MS, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "backwards" }), ["opacity", "transform"]));
+}
+
 /** Счётчик (COV-01): число на `el` «дорастает» от `from` до `to` за --dur-4 (300 мс, ease-out, без перелёта: цифры не
  *  должны уходить выше итога). Текст элемента — итоговое число — не трогается вообще: кадры пишутся только в атрибут
  *  `data-shown`, а видимой его делает CSS (`.count-up[data-counting]::after { content: attr(data-shown) }`). Поэтому
