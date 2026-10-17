@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { viewTransition } from "./motion";
+import { clearRoadmapDateFlash } from "./roadmapDateFlash";
 import { clearCreateDrafts } from "./createDrafts";
 import type {
   AccessRole,
@@ -234,6 +235,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
           sessionEpochRef.current++;
+          clearRoadmapDateFlash();
           clearCreateDrafts();
           clearToken();
           setBootStatus("unauthenticated");

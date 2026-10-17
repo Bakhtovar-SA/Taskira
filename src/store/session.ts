@@ -3,6 +3,7 @@
  * вынесено из store.tsx без изменений поведения (ТЗ 2.3, шаг 6). Поведение и гонки зафиксированы
  * store.bootNav.test.tsx, ДО выноса. SEC-01 исправлена: sessionEpochRef отсекает ответы после logout/401. */
 import { refreshOnboardingSoon } from "../onboarding";
+import { clearRoadmapDateFlash } from "../roadmapDateFlash";
 import { clearCreateDrafts } from "../createDrafts";
 import { viewTransition } from "../motion";
 import { useCallback, useRef } from "react";
@@ -105,6 +106,7 @@ export function useSessionActions(
   );
 
   const bootstrap = useCallback(async () => {
+    clearRoadmapDateFlash();
     setBootStatus("loading");
     // SEC-01: если за время загрузки был logout (или сессия сброшена по 401), результат применять нельзя — иначе данные
     // предыдущего пользователя «воскресают» в UI уже после выхода.
@@ -285,6 +287,7 @@ export function useSessionActions(
       pendingOpenIssueRef.current = openIssueId ? { projectId, issueId: openIssueId, mode } : null;
       const cur = dataRef.current;
       if (projectId === cur.currentProjectId || !cur.projects.some((p) => p.id === projectId)) return;
+      clearRoadmapDateFlash();
       const seq = ++switchSeqRef.current;
       const epoch = sessionEpochRef.current; // SEC-01: ответ после logout/401 не применяем
       setBootStatus("loading");
@@ -362,6 +365,7 @@ export function useSessionActions(
     // Ответа не ждём: локальный выход должен произойти в любом случае, даже
     // если сеть отвалилась. Ошибку глушим — токен всё равно уже стёрт.
     sessionEpochRef.current++; // SEC-01: отсекаем все запросы, начатые до выхода
+    clearRoadmapDateFlash();
     clearCreateDrafts();
     void authApi.logout().catch(() => undefined);
     clearToken();
