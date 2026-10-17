@@ -37,6 +37,7 @@ import { VIEW_LABEL } from "./Topbar";
 import { issuesApi, usersApi } from "../api";
 import { EnterScope } from "../EnterScope";
 import { Flash } from "../Flash";
+import { ChecklistCount } from "../ChecklistCount";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -65,7 +66,7 @@ export function MentionText({ text }: { text: string }) {
 /** Родителем может быть только задача без своего родителя — не больше двух уровней. */
 const canBeParent = (i: Issue) => !i.parentId;
 
-function Field({ label, children, tile = false, action }: { label: string; children: React.ReactNode; tile?: boolean; action?: React.ReactNode }) {
+function Field({ label, children, tile = false, action }: { label: React.ReactNode; children: React.ReactNode; tile?: boolean; action?: React.ReactNode }) {
   return <div className={tile ? "issue-tile" : "issue-field"}>
     <div className="issue-field-label"><span>{label}</span>{action}</div>
     <div className="issue-field-value">{children}</div>
@@ -255,7 +256,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
   };
 
   return (
-    <Field tile label={t("issue.checklistCount", { done, total: items.length })} action={canEdit && <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>{t("issue.checklistAdd")}</Button>}>
+    <Field tile label={<ChecklistCount issueId={issue.id} done={done} total={items.length}>{t("issue.checklistCount", { done, total: items.length })}</ChecklistCount>} action={canEdit && <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>{t("issue.checklistAdd")}</Button>}>
       {items.length > 0 && (
         <EnterScope className="space-y-1" ids={items.map((i) => i.id)} resetKey={issue.id}>
           {items.map((item) => (

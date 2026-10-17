@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { Status, Toast } from "./types";
 import { useToasts } from "./store";
 import { exit, flipFrom, motionReduced, preloadMotionIdle } from "./motion";
+import { IcCheck } from "./icons";
 import { useT } from "./i18n";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
 import { hidePop, showPop } from "./ds/floating";
@@ -185,7 +186,8 @@ export function Toasts() {
           return (
             <div key={item.id} data-toast-slot={item.id}>
               <div data-toast-id={item.id} className={`glass anim-toast flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3 ${leaving.has(item.id) ? "" : "pointer-events-auto"}`}>
-                <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
+                {item.kind === "success" ? <IcCheck size={14} className="success-check mt-0.5 shrink-0 text-[var(--status-done)]" /> :
+                  <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />}
                 <p className="min-w-0 text-[14px] leading-snug text-ink">
                   <span className="sr-only">{m.label}: </span>
                   {item.text}
