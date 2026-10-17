@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { boardFixture } from "./board-fixture";
 import { homeFixture } from "./home-fixture";
 import { issueFixture } from "./issue-fixture";
+import { settle, settleScroll } from "./motion-helpers";
 
 for (const theme of ["light", "dark"]) {
   test(`workspace stays readable without stretching on a 4K screen (${theme})`, async ({ page }) => {
@@ -110,10 +111,12 @@ test("a long board lane scrolls to its last card while the header stays reachabl
   await page.goto("/p/CORP/board");
   const lane = page.locator(".board-col").first();
   await expect(lane.locator(".board-card")).toHaveCount(100);
+  await settle(page);
   const header = await lane.locator("header").boundingBox();
   const body = lane.locator(".board-col-body");
   expect(await body.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
-  await body.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await settleScroll(body, { trigger: () => body.evaluate(el => { el.scrollTop = el.scrollHeight; }) });
+  await settle(page);
   await expect(lane.locator(".board-card").last()).toBeInViewport();
   const settledHeader = (await lane.locator("header").boundingBox())!;
   for (const edge of ["x", "y", "width", "height"] as const) {
