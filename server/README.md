@@ -287,7 +287,7 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 | `GET …/issues/:id` | — | browse | задача + `comments`/`participants`/`collaborators`/`attachments`/`links`/`checklist`/`customFieldValues`/`subtasksSummary` (`{total, done}` по всем детям, включая архив) |
 | `PATCH …/issues/:id` | `IssuePatchBody` | edit (employee — **только свои**) | правка полей + activity |
 | `DELETE …/issues/:id` | — | delete | каскады: комментарии/activity/watchers/attachments/links; `epic_id`/`parent_id` дочерних обнуляется FK (`ON DELETE SET NULL`) |
-| `POST …/issues/:id/transition` | `{to, beforeId?}` | transition + **схема workflow** (нарушение — `409 CONFLICT`) | смена статуса + rank |
+| `POST …/issues/:id/transition` | `{to, beforeId?, expectedUpdatedAt?}` | transition + **схема workflow** (нарушение — `409 CONFLICT`) | смена статуса + rank |
 | `POST`/`DELETE …/issues/:id/links[/:linkId]` | `{linkedIssueId, type}` (`relates`\|`blocks`\|`blocked_by`) | edit (на исходной) | связать/разорвать связь; обе задачи в проекте иначе `404`; ответ — обновлённый список связей |
 | `POST`/`PATCH`/`DELETE …/issues/:id/checklist[/:itemId]` | `{text}` · `{text?, done?}` | edit | добавить/обновить/удалить пункт чек-листа; ответ — `{item?, checklist}` (обновлённый список) |
 | `POST/DELETE …/issues/:id/watchers/me` | — | browse | подписка/отписка; ответ `{watching, watchers}` |
@@ -352,6 +352,14 @@ WebSocket-пуш уведомлений (`services/wsHub.ts`, §3c ниже) и 
 (категории `todo | inprogress | inprogress | done`) и 8 переходов дефолтного графа
 (`todo→inprogress, todo→done, inprogress→{todo,review,done}, review→{inprogress,done}, done→inprogress`).
 Повторный запуск ничего не дублирует.
+
+### Отмена подтверждённой правки (трек O D-07)
+
+В `PATCH …/issues/:id` и `POST …/issues/:id/transition` необязательный `expectedUpdatedAt` — ISO timestamp из последнего ответа сервера. Версия проверяется под блокировкой строки, включая пути без изменения значений. Несовпадение или архивированная задача с этим предусловием дают `409 CONFLICT`; запросы без него сохраняют прежнее поведение. Права и схема переходов проверяются при каждом запросе.
+
+Подтверждённая смена статуса и чистое снятие меток/исполнителей возвращают обычный DTO задачи с необязательным `undo: {issueId, updatedAt, statusId?, labels?, assigneeIds?}`. Прежние значения берутся из заблокированной строки; версия относится к окончательному состоянию после записи. Смешанная правка, добавление значений и no-op не создают отмену. Bulk-статус возвращает `undo[]` только для успешно изменённых задач. Удалённую задачу восстановить нельзя.
+
+Версия меняется при правке основной строки, исполнителей и спринта; одинаковый состав исполнителей/спринт её не меняет. Комментарии, чек-лист и пользовательские поля хранятся отдельно и не входят в этот токен; отмена их не переписывает. Восстановление передаёт прежние значения через обычные защищённые API с `expectedUpdatedAt`, поэтому текущие права, workflow и допустимые исполнители остаются обязательными.
 
 ### Жизненный цикл задачи (миграция 016)
 

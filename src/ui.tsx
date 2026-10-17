@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Status, Toast } from "./types";
 import { useToasts } from "./store";
-import { exit, flipFrom, motionReduced, preloadMotionIdle } from "./motion";
+import { exit, flipFrom, motionReduced, preloadMotionIdle, stopMotion } from "./motion";
 import { useT } from "./i18n";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
 import { hidePop, showPop } from "./ds/floating";
@@ -69,11 +69,29 @@ export const BOARD_COLUMN_SHELL =
 /** Жёлоб с карточками под заголовком колонки (ADR-0016: заголовок — над ним, не внутри). */
 export const BOARD_COLUMN_BODY = "board-col-body flex min-h-0 flex-col gap-1.5 overflow-y-auto";
 
+function ToastAction({ item, leaving, descriptionId }: { item: Toast; leaving: boolean; descriptionId: string }) {
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
+  if (!item.action) return null;
+  return <button type="button" className="ds-btn ds-focus shrink-0" data-variant="ghost" data-size="sm"
+    aria-describedby={descriptionId} disabled={leaving} aria-disabled={busy || undefined} aria-busy={busy || undefined}
+    onClick={async event => {
+      const button = event.currentTarget;
+      if (running.current || leaving) return;
+      running.current = true; setBusy(true); item.pause?.();
+      try { if (await item.action!.run()) item.dismiss?.(); }
+      finally {
+        running.current = false; setBusy(false);
+        if (!button.closest("[data-toast-id]")?.contains(document.activeElement)) item.resume?.();
+      }
+    }}>{item.action.label}</button>;
+}
+
 /** Тосты (ADR-0035, прототип): появление — прежняя CSS-анимация `anim-toast` (её объект Animation проверяет
- *  e2e/toast-over-panel: очередь не должна его перезапускать), уход — пружина `exit`, соседи доезжают FLIP'ом. Стор и таймеры
- *  не меняются: снятый стором тост остаётся здесь в `gone`, пока не доиграет уход (по образцу `ds/Presence`); под
+ *  e2e/toast-over-panel: очередь не должна его перезапускать), уход — пружина `exit`, соседи доезжают FLIP'ом. Таймер действия приостанавливается, пока фокус в тосте; снятый стором тост остаётся здесь в `gone`, пока не доиграет уход (по образцу `ds/Presence`); под
  *  reduced-motion — снимается сразу, как раньше. Перерисовывается только `Toasts` — он и так подписчик стора тостов. */
 export function Toasts() {
+  const descriptionPrefix = useId();
   const toasts = useToasts();
   const { t } = useT();
   const [prev, setPrev] = useState(toasts);
@@ -96,7 +114,7 @@ export function Toasts() {
   // (offsetTop от неподвижного контейнера), а не rect: rect включал бы идущую анимацию.
   useLayoutEffect(() => {
     const root = host.current;
-    if (!root) return;
+    if (!root?.isConnected) return;
     const base = root.getBoundingClientRect().top;
     const next = new Map<number, number>();
     for (const slot of root.querySelectorAll<HTMLElement>("[data-toast-slot]")) {
@@ -118,7 +136,22 @@ export function Toasts() {
     error: { dot: "var(--status-danger)", label: t("toast.error") },
     info: { dot: "var(--accent-solid)", label: t("toast.info") },
   };
-  const host = useRef<HTMLDivElement>(null);
+  const [visualHost] = useState(() => {
+    const el = document.createElement("div");
+    el.setAttribute("popover", "manual");
+    el.setAttribute("data-toast-host", "");
+    el.setAttribute("role", "region");
+    el.setAttribute("aria-label", t("topbar.notifications"));
+    el.className = "pointer-events-none fixed bottom-5 right-5 left-auto top-auto z-[70] m-0 flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2 overflow-visible border-0 bg-transparent p-0";
+    return el;
+  });
+  const host = useRef(visualHost);
+  const toastLabel = t("topbar.notifications");
+  useLayoutEffect(() => { visualHost.setAttribute("aria-label", toastLabel); }, [visualHost, toastLabel]);
+  const hasActions = shown.some(item => !!item.action);
+  const actionHost = useRef(hasActions);
+  actionHost.current = hasActions;
+  const syncVisualHost = useRef<(() => void) | null>(null);
   const announcer = useRef<HTMLDivElement>(null);
   const [announcementHost, setAnnouncementHost] = useState<HTMLDivElement | null>(null);
   const activeAnnouncementHost = useRef<HTMLDivElement | null>(null);
@@ -132,6 +165,26 @@ export function Toasts() {
     if (!el) return;
     let dialogs = Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]"));
     const announceInsideActiveDialog = () => {
+      dialogs = dialogs.filter(dialog => dialog.isConnected && dialog.open);
+      // Interactive toast actions must be descendants of the active modal, otherwise they are inert.
+      // Keep the portal target and its children stable when moving between modal roots.
+      const parent = actionHost.current && dialogs.at(-1)?.isConnected ? dialogs.at(-1)! : document.body;
+      if (el.parentElement !== parent) {
+        const active = document.activeElement;
+        const focused = active instanceof HTMLElement && el.contains(active) ? active : null;
+        const mover = parent as HTMLElement & { moveBefore?: (node: Node, before: Node | null) => void };
+        if (el.isConnected && typeof mover.moveBefore === "function") mover.moveBefore(el, null);
+        else {
+          // Older browsers cannot move a live subtree without cancelling CSS animations.
+          // Complete the entrance once instead of replaying it after relocation.
+          if (el.parentElement) for (const toast of el.querySelectorAll<HTMLElement>("[data-toast-id]")) {
+            toast.setAttribute("data-toast-relocated", "");
+            stopMotion(toast);
+          }
+          parent.appendChild(el);
+        }
+        if (focused?.isConnected && document.activeElement === document.body) focused.focus({ preventScroll: true });
+      }
       const target = dialogs.at(-1)?.querySelector<HTMLDivElement>(":scope > [data-toast-announcer]") ?? announcer.current;
       activeAnnouncementHost.current = target;
       setAnnouncementHost(target);
@@ -146,17 +199,23 @@ export function Toasts() {
     const onClose = (event: Event) => {
       dialogs = dialogs.filter(item => item !== (event as CustomEvent<HTMLDialogElement>).detail);
       announceInsideActiveDialog();
+      showPop(el);
     };
+    syncVisualHost.current = () => { announceInsideActiveDialog(); showPop(el); };
     announceInsideActiveDialog();
     showPop(el);
     document.addEventListener(NATIVE_DIALOG_OPEN_EVENT, onOpen);
     document.addEventListener(NATIVE_DIALOG_CLOSE_EVENT, onClose);
     return () => {
+      syncVisualHost.current = null;
       document.removeEventListener(NATIVE_DIALOG_OPEN_EVENT, onOpen);
       document.removeEventListener(NATIVE_DIALOG_CLOSE_EVENT, onClose);
+      for (const item of el.querySelectorAll<HTMLElement>("[data-toast-id], [data-toast-slot]")) stopMotion(item);
       hidePop(el);
+      el.remove();
     };
   }, []);
+  useLayoutEffect(() => { syncVisualHost.current?.(); }, [hasActions]);
   useEffect(() => {
     // Dialog layout effects may have changed the target before this effect runs.
     if (!announcementHost || announcementHost !== activeAnnouncementHost.current) return;
@@ -179,22 +238,23 @@ export function Toasts() {
         </div>,
         announcementHost,
       )}
-      <div ref={host} popover="manual" aria-hidden="true" className="pointer-events-none fixed bottom-5 right-5 left-auto top-auto z-[70] m-0 flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2 overflow-visible border-0 bg-transparent p-0">
+      {createPortal(<>
         {shown.map((item) => {
           const m = meta[item.kind];
           return (
             <div key={item.id} data-toast-slot={item.id}>
-              <div data-toast-id={item.id} className={`glass anim-toast flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3 ${leaving.has(item.id) ? "" : "pointer-events-auto"}`}>
+              <div data-toast-id={item.id} onFocusCapture={() => item.pause?.()} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null) && !event.currentTarget.querySelector('[aria-busy="true"]')) item.resume?.(); }} className={`glass anim-toast flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 shadow-e3 ${leaving.has(item.id) ? "" : "pointer-events-auto"}`}>
                 <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full" style={{ background: m.dot, boxShadow: `0 0 0 3px color-mix(in oklch, ${m.dot} 22%, transparent)` }} />
-                <p className="min-w-0 text-[14px] leading-snug text-ink">
+                <p id={`${descriptionPrefix}-${item.id}`} className="min-w-0 text-[14px] leading-snug text-ink">
                   <span className="sr-only">{m.label}: </span>
                   {item.text}
                 </p>
+                <ToastAction item={item} leaving={leaving.has(item.id)} descriptionId={`${descriptionPrefix}-${item.id}`} />
               </div>
             </div>
           );
         })}
-      </div>
+      </>, visualHost)}
     </>
   );
 }

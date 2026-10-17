@@ -1,4 +1,5 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
+import { conflict } from "./workflow.js";
 import { activityEventOf } from "./activity.js";
 import type { PoolClient } from "pg";
 import { one, q, withTransaction } from "../db.js";
@@ -141,6 +142,22 @@ export function assertSelfAssignment(actorId: string, before: string[], after: s
   }
 }
 
+/** Millisecond DTO tokens must change even for multiple writes in one PostgreSQL transaction. */
+export const ISSUE_VERSION_SQL = "GREATEST(clock_timestamp(), date_trunc('milliseconds', updated_at) + interval '1 millisecond')";
+export function assertIssueVersion(row: Pick<IssueRow, "updated_at" | "archived_at">, expectedUpdatedAt?: string): void {
+  // Archive maintenance does not bump updated_at; conditional Undo must never revive an archived row.
+  if (expectedUpdatedAt !== undefined && row.archived_at !== null) throw conflict("Задача в архиве. Отмена недоступна");
+  if (expectedUpdatedAt !== undefined && new Date(row.updated_at).getTime() !== new Date(expectedUpdatedAt).getTime()) {
+    throw conflict("Задача уже изменена. Обновите её перед отменой");
+  }
+}
+export async function loadIssueForUpdate(client: PoolClient, projectId: string, issueId: string, expectedUpdatedAt?: string): Promise<IssueRow> {
+  const row = (await client.query<IssueRow>("SELECT * FROM issues WHERE id = $1 AND project_id = $2 FOR UPDATE", [issueId, projectId])).rows[0];
+  if (!row) throw notFound("Задача не найдена или удалена");
+  assertIssueVersion(row, expectedUpdatedAt);
+  return row;
+}
+
 /** Полная замена списка исполнителей под блокировкой строки задачи. */
 export async function setAssignees(
   issueId: string,
@@ -148,16 +165,15 @@ export async function setAssignees(
   addedBy: string,
   existingClient?: PoolClient,
   selfOnly = false,
-): Promise<void> {
+): Promise<Date | undefined> {
   const replace = async (client: PoolClient) => {
     // Лок строки задачи сериализует две конкурентные полные замены списка.
     await client.query(`SELECT id FROM issues WHERE id = $1 FOR UPDATE`, [issueId]);
-    if (selfOnly) {
-      const before = (await client.query<{ user_id: string }>(`SELECT user_id FROM issue_assignees WHERE issue_id = $1`, [issueId])).rows;
-      assertSelfAssignment(addedBy, before.map(row => row.user_id), userIds);
-    }
-    await client.query(`DELETE FROM issue_assignees WHERE issue_id = $1`, [issueId]);
+    const before = (await client.query<{ user_id: string }>("SELECT user_id FROM issue_assignees WHERE issue_id = $1", [issueId])).rows.map(row => row.user_id);
     const unique = [...new Set(userIds)];
+    if (selfOnly) assertSelfAssignment(addedBy, before, unique);
+    if (before.length === unique.length && before.every(id => unique.includes(id))) return;
+    await client.query(`DELETE FROM issue_assignees WHERE issue_id = $1`, [issueId]);
     if (unique.length > 0) {
       await client.query(
         `INSERT INTO issue_assignees (issue_id, user_id, added_by)
@@ -166,9 +182,10 @@ export async function setAssignees(
         [issueId, unique, addedBy],
       );
     }
+    return (await client.query<{ updated_at: Date }>(`UPDATE issues SET updated_at = ${ISSUE_VERSION_SQL} WHERE id = $1 RETURNING updated_at`, [issueId])).rows[0].updated_at;
   };
   if (existingClient) return replace(existingClient);
-  await withTransaction(replace);
+  return withTransaction(replace);
 }
 
 /** Скрывает sprintId в ответе, если у проекта выключен модуль спринтов —

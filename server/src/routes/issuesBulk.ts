@@ -13,10 +13,10 @@ import { ApiHttpError } from "../errors.js";
 import { auditFromRequest } from "../audit.js";
 import { roleCan, type IssueRef } from "../permissions.js";
 import { transitionIssue } from "../services/issueTransition.js";
-import { listAssigneeIdsBatch, logActivity, setAssignees, validateAssigneesInProject } from "../services/issues.js";
+import { ISSUE_VERSION_SQL, listAssigneeIdsBatch, logActivity, setAssignees, validateAssigneesInProject } from "../services/issues.js";
 import { deleteStorageObjects, storageKeysForIssue } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
-import { BulkIssueAction, BulkIssueResultDto, type PriorityId } from "../contract.js";
+import { BulkIssueAction, BulkIssueResultDto, type PriorityId, type IssueUndoDto } from "../contract.js";
 
 /** Перм, которым проверяется КАЖДАЯ задача выборки — зеркалит то, чем защищены
  *  одиночные пути: PATCH /:id (priority/assigneeIds) — "edit", POST /:id/transition —
@@ -40,15 +40,16 @@ interface Row {
 /** Зеркалит POST /:id/transition (routes/issues.ts) — та же схема-проверка, тот же
  *  done_at/archived_at, тот же rank (в конец колонки — у массового переноса нет
  *  единой позиции "перед X", в отличие от drag&drop одной карточки). */
-async function applyStatus(projectId: string, row: Row, toStatusId: string, req: FastifyRequest): Promise<void> {
+async function applyStatus(projectId: string, row: Row, toStatusId: string, req: FastifyRequest): Promise<IssueUndoDto | undefined> {
   const actorId = req.user.sub;
-  const { previous, changed, from, to } = await transitionIssue(projectId, row.id, toStatusId, null, actorId, false);
+  const { previous, row: final, changed, from, to } = await transitionIssue(projectId, row.id, toStatusId, null, actorId, false);
   if (!changed) return;
   await autoWatch(row.id, actorId);
   await emit({ type: "issue.status", actorId, projectId, issueId: row.id, payload: { key: row.key, title: row.title, from, to } });
   // Тот же тип события, что у одиночного POST /:id/transition — обзор audit_log
   // не должен зависеть от того, каким путём задача сменила статус.
   await auditFromRequest(req, "issue.transition", "issue", row.id, { key: row.key, from: previous.status_id, to: toStatusId, bulk: true });
+  return { issueId: row.id, statusId: previous.status_id, updatedAt: new Date(final.updated_at).toISOString() };
 }
 
 /** Менеджер/администратор заменяет список одним значением (или очищает при "none").
@@ -75,7 +76,7 @@ async function applyAssignee(projectId: string, row: Row, assigneeId: string, re
 async function applyPriority(row: Row, priorityId: string, req: FastifyRequest): Promise<void> {
   const actorId = req.user.sub;
   if (row.priority_id === priorityId) return; // no-op
-  await q(`UPDATE issues SET priority_id = $1, updated_at = now() WHERE id = $2`, [priorityId, row.id]);
+  await q(`UPDATE issues SET priority_id = $1, updated_at = ${ISSUE_VERSION_SQL} WHERE id = $2`, [priorityId, row.id]);
   await logActivity(row.id, actorId, { kind: "priority", from: row.priority_id as PriorityId, to: priorityId as PriorityId, bulk: true });
   await auditFromRequest(req, "issue.update", "issue", row.id, { key: row.key, fields: ["priorityId"], bulk: true });
 }
@@ -111,6 +112,7 @@ export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
 
       const perm = PERM_FOR_ACTION[body.action];
       const succeeded: string[] = [];
+      const undo: IssueUndoDto[] = [];
       const failed: { issueId: string; reason: string; code: string }[] = [];
 
       // action=assignee: назначаемый пользователь один на весь батч — валидируем
@@ -137,7 +139,10 @@ export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
           continue;
         }
         try {
-          if (body.action === "status") await applyStatus(project.id, row, body.statusId, req);
+          if (body.action === "status") {
+            const entry = await applyStatus(project.id, row, body.statusId, req);
+            if (entry) undo.push(entry);
+          }
           else if (body.action === "assignee") await applyAssignee(project.id, row, body.assigneeId, req);
           else if (body.action === "priority") await applyPriority(row, body.priorityId, req);
           else await applyDelete(row, req);
@@ -163,7 +168,7 @@ export async function issuesBulkRoutes(app: FastifyInstance): Promise<void> {
         succeeded: succeeded.length,
         failed: failed.length,
       });
-      return { succeeded, failed };
+      return { succeeded, failed, ...(body.action === "status" ? { undo } : {}) };
     },
   );
 }

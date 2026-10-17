@@ -1116,3 +1116,6 @@ html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-pr
   transition-delay: 0s !important;
   scroll-behavior: auto !important;
 }
+
+/* Without atomic DOM moves, relocated toast entrances finish once instead of replaying. */
+.anim-toast[data-toast-relocated] { animation: none; }
