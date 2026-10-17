@@ -24,6 +24,7 @@ export function Tabs<T extends string>({
   const ref = useRef<HTMLDivElement>(null);
   const prefix = useId();
   const selected = items.findIndex(it => it.id === value && !it.disabled);
+  const itemIds = items.map(it => it.id).join("\0");
   const firstEnabled = items.findIndex(it => !it.disabled);
   // Индикатор выбранной вкладки — один элемент, который пружиной переезжает между вкладками (ADR-0035, прототип).
   // Место — по getBoundingClientRect выбранной вкладки, запись — CSSOM/WAAPI в glideTo; ни одного состояния React.
@@ -62,7 +63,7 @@ export function Tabs<T extends string>({
     ro.observe(box);
     if (tab) ro.observe(tab);
     return () => ro.disconnect();
-  }, [selected, variant]);
+  }, [selected, variant, itemIds]);
   const move = (from: number, dir: 1 | -1 | "home" | "end") => {
     const enabled = items.map((it, i) => (it.disabled ? -1 : i)).filter((i) => i >= 0);
     if (!enabled.length) return;

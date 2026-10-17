@@ -266,7 +266,7 @@
 .board-member-more[data-active="true"] { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 .board-move-touch-hint { display: none; }
 @media (hover: none) {
-  .board-move-touch-hint { display: flex; }
+  .board-move-touch-hint { display: grid; }
   .board-card button[aria-keyshortcuts="M"], .board-select-hint button { opacity: 1; min-width: 44px; min-height: 44px; }
 }
 .workspace-filters-body :is(select, input:not([type="checkbox"])),
