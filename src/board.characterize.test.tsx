@@ -18,7 +18,7 @@ import { I18nProvider } from "./i18n";
 import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
 import { flipFrom } from "./motion";
-vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: () => false }));
+vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), preloadMotionIdle: vi.fn(() => () => undefined), motionReduced: () => false }));
 // Меню карточки грузится лениво (ds/LazyOverlay): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
 import "./ds/Overlay";
 

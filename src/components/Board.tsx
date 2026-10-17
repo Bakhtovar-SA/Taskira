@@ -2,7 +2,7 @@ import QuickCreate from "./QuickCreateIssue";
 import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
-import { enter, preloadMotion } from "../motion";
+import { enter, preloadMotionIdle } from "../motion";
 import { cancelBoardFlip, createPendingMarks, flipPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
 import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
@@ -641,15 +641,7 @@ export default function Board() {
     return () => { document.removeEventListener("keydown", keyboard, true); document.removeEventListener("pointerdown", pointer, true); };
   }, []);
   // Чанк пружин (ADR-0035) — на простое после первого экрана доски, чтобы первый перенос уже был пружиной.
-  useEffect(() => {
-    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
-    if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(() => void preloadMotion(), { timeout: 2000 });
-      return () => w.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(() => void preloadMotion(), 500);
-    return () => window.clearTimeout(id);
-  }, []);
+  useEffect(() => preloadMotionIdle(), []);
   const { photo: personalPhoto, error: boardPhotoError } = usePersonalBoardPhoto(data.currentUserId, data.currentProjectId);
   const canMove = can("transition");
   const canCreate = can("create");

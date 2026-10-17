@@ -194,15 +194,14 @@ const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finis
 
 /** Появление на пружине. `kind`: `rise` — карточка/строка (подъём 8 px, как было у доски); `dialog` — окно
  *  (подъём без масштаба: scale в хвосте пружины меняет getBoundingClientRect содержимого, а e2e меряет размеры сразу после показа); `panel` — боковая панель (выезд справа, как `dsPanelIn`);
- *  `toast` — тост (выезд справа, как `toastIn`). У всех видов последний кадр — `transform: none`: motion по концу
+ *  Вход тоста остаётся CSS `anim-toast`; здесь у всех видов последний кадр — `transform: none`: motion по концу
  *  пишет его в inline-стиль (CSSOM), а не-`none` transform сделал бы окно контейнером для fixed-потомков.
  *  Чанк не загружен или движение уменьшено — мгновенно. */
-type EnterKind = "rise" | "dialog" | "panel" | "toast" | "pop";
+type EnterKind = "rise" | "dialog" | "panel" | "pop";
 const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [string, string] }> = {
   rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "none"] },
   dialog: { opacity: [0, 1], transform: ["translateY(10px)", "none"] },
   panel: { opacity: [0.4, 1], transform: ["translateX(32px)", "none"] },
-  toast: { opacity: [0, 1], transform: ["translateX(28px)", "none"] },
   pop: { opacity: [0.5, 1], transform: ["scale(0.55)", "none"] },
 };
 /** Бейдж «подпрыгивает» заметнее остального: больше перелёт. */
