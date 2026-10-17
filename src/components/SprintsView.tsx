@@ -1,11 +1,13 @@
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import type { Issue, Sprint } from "../types";
 import { LIMITS } from "../validation";
 import { IcCheck, IcFlag, IcPlus, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Button, DatePicker, IconButton, Dialog, Input, Textarea, EmptyState, Tag } from "../ds";
+import { createRowMotion, type RowMotion } from "../listExit";
+import { createEnterTracker, type EnterTracker } from "../listEnter";
 import { ScreenSkeletonRow } from "./settings/parts";
 import { useT } from "../i18n";
 
@@ -27,6 +29,7 @@ function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) 
 
   return (
     <div
+      data-issue-id={issue.id}
       draggable={canDrag}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", issue.id);
@@ -37,7 +40,7 @@ function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) 
     >
       <TypeIcon type={issue.typeId} size={15} />
       <span className="w-14 shrink-0 truncate font-mono text-[11.5px] font-semibold text-faint">{issue.key}</span>
-      <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">{issue.title}</span>
+      <button type="button" className="ds-focus min-w-0 flex-1 truncate rounded-sm text-left text-[13.5px] font-medium text-ink" onClick={event => { event.stopPropagation(); openIssue(issue.id); }}>{issue.title}</button>
       <PriorityIcon p={issue.priorityId} size={15} />
       <UserAvatarGroup users={assignees} size={19} interactive />
       {onRemove && (
@@ -46,8 +49,6 @@ function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) 
             e.stopPropagation();
             onRemove();
           }}
-
-
           className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
         >
           <IcX size={13} />
@@ -55,6 +56,36 @@ function IssueRow({ issue, onRemove }: { issue: Issue; onRemove?: () => void }) 
       )}
     </div>
   );
+}
+
+/** Each independently scrolling list owns its geometry and entry history; there is no cross-list flight. */
+function SprintIssueList({ issues, scope, ready, label, onRemove, children }: {
+  issues: Issue[]; scope: string; ready: boolean; label: string; onRemove?: (id: string) => void; children: ReactNode;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const rows = useRef<RowMotion | null>(null);
+  const enter = useRef<EnterTracker | null>(null);
+  const previous = useRef<{ scope: string; ready: boolean; ids: string[] } | null>(null);
+  const focused = useRef<HTMLElement | null>(null);
+  useEffect(() => () => rows.current?.dispose(), []);
+  useLayoutEffect(() => {
+    const before = previous.current;
+    const baseline = !before || before.scope !== scope || !ready || !before.ready;
+    const ids = issues.map(issue => issue.id);
+    previous.current = { scope, ready, ids };
+    const find = (id: string) => host.current?.querySelector<HTMLElement>(`[data-issue-id="${CSS.escape(id)}"]`);
+    rows.current ??= createRowMotion(); enter.current ??= createEnterTracker();
+    rows.current(host.current, ids, find, baseline);
+    enter.current(ids, find, baseline);
+    // A departed task is a fresh local arrival when moved back into this list.
+    const live = new Set(ids);
+    if (before?.ids.some(id => !live.has(id))) { enter.current = createEnterTracker(); enter.current(ids, find, true); }
+    // The last row has no neighbor; keep focus on its live list, including under reduced motion.
+    if (!baseline && focused.current && !focused.current.isConnected && document.activeElement === document.body) host.current?.focus({ preventScroll: true });
+  }, [issues, scope, ready]);
+  return <div ref={host} role="group" aria-label={label} tabIndex={-1} className="sprint-issue-list ds-focus" onFocus={event => { focused.current = event.target as HTMLElement; }}>
+    {!ready || !issues.length ? children : issues.map(issue => <IssueRow key={issue.id} issue={issue} onRemove={onRemove ? () => onRemove(issue.id) : undefined} />)}
+  </div>;
 }
 
 function DropZone({
@@ -150,7 +181,7 @@ function CreateSprintModal({ open, onClose }: { open: boolean; onClose: () => vo
 
 function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; issues: Issue[]; hasActiveSprint: boolean }) {
   const { t } = useT();
-  const { can, startSprint, completeSprint, setIssueSprint, toast } = useStore();
+  const { data, can, startSprint, completeSprint, setIssueSprint, toast } = useStore();
   const manage = can("manageSprints");
   const doneCount = issues.filter((i) => i.doneAt != null).length;
 
@@ -198,13 +229,10 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
         blocked={sprint.status === "completed" ? { reason: t("sprints.completedNoDrop"), onBlockedDrop: (r) => toast("info", r) } : undefined}
         className="min-h-[44px] transition-colors"
       >
-        {issues.length === 0 ? (
+        <SprintIssueList issues={issues} scope={`${data.currentProjectId}:${sprint.id}`} ready={data.issuesComplete} label={sprint.name}
+          onRemove={manage ? id => setIssueSprint(id, null) : undefined}>
           <p className="px-3.5 py-3 text-[13px] text-faint">{t(sprint.status === "completed" ? "sprints.completedEmpty" : "sprints.dropHere")}</p>
-        ) : (
-          issues.map((i) => (
-            <IssueRow key={i.id} issue={i} onRemove={manage ? () => setIssueSprint(i.id, null) : undefined} />
-          ))
-        )}
+        </SprintIssueList>
       </DropZone>
     </div>
   );
@@ -254,17 +282,13 @@ export default function SprintsView() {
           <span className="ml-1.5 text-[12px] text-faint">{data.issuesComplete ? backlogIssues.length : "…"}</span>
         </div>
         <DropZone onDropIssue={(id) => setIssueSprint(id, null)} className="min-h-0 flex-1 overflow-y-auto transition-colors">
-          {!data.issuesComplete ? (
-            <div aria-busy="true" aria-label={t("sprints.loadingIssues")}>
-              <ScreenSkeletonRow />
-              <ScreenSkeletonRow />
-              <ScreenSkeletonRow />
-            </div>
-          ) : backlogIssues.length === 0 ? (
-            <p className="px-3.5 py-3 text-[13px] text-faint">{t("sprints.backlogEmpty")}</p>
-          ) : (
-            backlogIssues.map((i) => <IssueRow key={i.id} issue={i} />)
-          )}
+          <SprintIssueList issues={backlogIssues} scope={`${data.currentProjectId}:backlog`} ready={data.issuesComplete} label={t("sprints.backlogTitle")}>
+            {!data.issuesComplete ? (
+              <div aria-busy="true" aria-label={t("sprints.loadingIssues")}>
+                <ScreenSkeletonRow /><ScreenSkeletonRow /><ScreenSkeletonRow />
+              </div>
+            ) : <p className="px-3.5 py-3 text-[13px] text-faint">{t("sprints.backlogEmpty")}</p>}
+          </SprintIssueList>
         </DropZone>
       </div>
 
