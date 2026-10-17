@@ -140,10 +140,14 @@ export function Toasts() {
     const el = document.createElement("div");
     el.setAttribute("popover", "manual");
     el.setAttribute("data-toast-host", "");
+    el.setAttribute("role", "region");
+    el.setAttribute("aria-label", t("topbar.notifications"));
     el.className = "pointer-events-none fixed bottom-5 right-5 left-auto top-auto z-[70] m-0 flex w-[360px] max-w-[calc(100vw-2.5rem)] flex-col gap-2 overflow-visible border-0 bg-transparent p-0";
     return el;
   });
   const host = useRef(visualHost);
+  const toastLabel = t("topbar.notifications");
+  useLayoutEffect(() => { visualHost.setAttribute("aria-label", toastLabel); }, [visualHost, toastLabel]);
   const hasActions = shown.some(item => !!item.action);
   const actionHost = useRef(hasActions);
   actionHost.current = hasActions;
