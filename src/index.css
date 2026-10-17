@@ -371,7 +371,7 @@ body {
 }
 
 /* NEW-02: перенос отправлен, ответа сервера ещё нет (boardFlip.markPending). Без анимации: смена, а не движение. */
-.board-card[data-pending] {
+[data-pending] {
   opacity: 0.7;
   cursor: progress;
 }
@@ -1116,3 +1116,7 @@ html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-pr
   transition-delay: 0s !important;
   scroll-behavior: auto !important;
 }
+
+/* Local comment acknowledgement appears only when the shared 150ms mark is applied. */
+.issue-pending-comment { display: none; }
+.issue-pending-comment[data-pending] { display: flex; }

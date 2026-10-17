@@ -1,4 +1,5 @@
 import { AutomationFields, AutomationPopover, RepeatIcon, type AutomationKind } from "./IssueAutomationControls";
+import { usePendingMarks } from "../usePendingMarks";
 import { useIssueAutomation } from "../issueAutomation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { cssVars } from "../cssVars";
@@ -244,14 +245,33 @@ function ChecklistField({ issue }: { issue: Issue }) {
   const [draft, setDraft] = useState("");
 
   const [adding, setAdding] = useState(false);
+  const [addBusy, setAddBusy] = useState(false);
+  const [busyItems, setBusyItems] = useState<ReadonlySet<string>>(new Set());
+  const addingRef = useRef(false);
+  const toggling = useRef(new Set<string>());
+  const inputRef = useRef<HTMLInputElement>(null);
+  const rows = useRef(new Map<string, HTMLDivElement>());
+  const mark = usePendingMarks(issue.id);
   const items = issue.checklist;
 
   const done = items.filter((i) => i.done).length;
 
-  const submit = () => {
-    if (!draft.trim()) return;
-    addChecklistItem(issue.id, draft);
-    setDraft("");
+  const submit = async () => {
+    if (!draft.trim() || addingRef.current) return;
+    const value = draft;
+    addingRef.current = true;
+    setAddBusy(true);
+    try {
+      const saved = await mark([inputRef.current], () => addChecklistItem(issue.id, value));
+      if (saved) setDraft(current => current === value ? "" : current);
+    } finally { addingRef.current = false; setAddBusy(false); }
+  };
+  const toggle = async (id: string, on: boolean) => {
+    if (toggling.current.has(id)) return;
+    toggling.current.add(id);
+    setBusyItems(new Set(toggling.current));
+    try { await mark([rows.current.get(id) ?? null], () => toggleChecklistItem(issue.id, id, on)); }
+    finally { toggling.current.delete(id); setBusyItems(new Set(toggling.current)); }
   };
 
   return (
@@ -262,14 +282,16 @@ function ChecklistField({ issue }: { issue: Issue }) {
             <div
               key={item.id}
               data-enter-id={item.id}
+              ref={node => { if (node) rows.current.set(item.id, node); else rows.current.delete(item.id); }}
               className="group flex items-center gap-2 rounded-md border border-line bg-panel px-2 py-1.5"
             >
-              <Checkbox checked={item.done} disabled={!canEdit} onChange={(on) => toggleChecklistItem(issue.id, item.id, on)} label={item.text} labelHidden />
+              <Checkbox checked={item.done} disabled={!canEdit || busyItems.has(item.id)} onChange={(on) => void toggle(item.id, on)} label={item.text} labelHidden />
               <span data-done={item.done || undefined} className="cl-text min-w-0 flex-1 text-[13.5px] text-ink">
                 {item.text}
               </span>
               {canEdit && (
                 <button
+                  disabled={busyItems.has(item.id)}
                   onClick={() => removeChecklistItem(issue.id, item.id)}
                   className="issue-small-action ds-focus text-faint hover:text-danger"
                   title={t("issue.deleteChecklistItem")}
@@ -287,6 +309,8 @@ function ChecklistField({ issue }: { issue: Issue }) {
         <input
           autoFocus
           aria-label={t("issue.addChecklistItem")}
+          ref={inputRef}
+          readOnly={addBusy}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -485,14 +509,32 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   activeIssueRef.current = ui.selectedIssueId;
   const commentPending = useRef(false);
   const descPending = useRef(false);
+  const mark = usePendingMarks(`${data.currentProjectId}:${ui.selectedIssueId ?? ""}`);
+  const [pendingComment, setPendingComment] = useState<string | null>(null);
+  const pendingCommentRef = useRef<HTMLDivElement>(null);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const commentSendRef = useRef<HTMLButtonElement>(null);
+  const assigneeRef = useRef<HTMLSpanElement>(null);
+  const assigneePending = useRef(false);
+  const [assigneeBusy, setAssigneeBusy] = useState(false);
+  const labelsRef = useRef<HTMLDivElement>(null);
+  const labelsPending = useRef(false);
+  const [labelsBusy, setLabelsBusy] = useState(false);
+  const pendingEpoch = useRef(0);
 
   useEffect(() => {
+    pendingEpoch.current++;
     setFeed("comments");
     setEditingDesc(false);
     setComment("");
     setConfirmDel(false);
     setLabelInput("");
     setCommentBusy(false);
+    setPendingComment(null);
+    setAssigneeBusy(false);
+    setLabelsBusy(false);
+    assigneePending.current = false;
+    labelsPending.current = false;
     setDescBusy(false);
     setDetailsExpanded(false);
     commentPending.current = false;
@@ -591,15 +633,21 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
 
   const submitComment = async () => {
     if (!comment.trim() || commentPending.current) return;
-    const issueId = issue.id;
+    const issueId = issue.id, epoch = pendingEpoch.current;
     const draft = comment;
     commentPending.current = true;
     setCommentBusy(true);
-    const saved = await addComment(issueId, draft);
-    if (activeIssueRef.current !== issueId) return;
-    commentPending.current = false;
-    setCommentBusy(false);
-    if (saved) setComment(current => current === draft ? "" : current);
+    setPendingComment(draft);
+    let saved = false;
+    try { saved = await mark([commentInputRef.current, commentSendRef.current, () => pendingCommentRef.current], () => addComment(issueId, draft)); }
+    finally {
+      if (activeIssueRef.current === issueId && pendingEpoch.current === epoch) {
+        commentPending.current = false;
+        setCommentBusy(false);
+        setPendingComment(null);
+        if (saved) setComment(current => current === draft ? "" : current);
+      }
+    }
   };
 
   // Blur saves, Escape cancels. Keep the editor and draft on failure.
@@ -620,11 +668,28 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
     }
   };
 
-  const addLabel = () => {
-    const l = labelInput.trim().toLowerCase();
-    if (!l) return;
-    if (!issue.labels.includes(l)) updateIssue(issue.id, { labels: [...issue.labels, l] });
-    setLabelInput("");
+  const changeAssignees = async (ids: string[]) => {
+    if (assigneePending.current) return;
+    const issueId = issue.id, epoch = pendingEpoch.current;
+    assigneePending.current = true;
+    setAssigneeBusy(true);
+    try { await mark([assigneeRef.current], () => updateIssue(issueId, { assigneeIds: ids })); }
+    finally { if (activeIssueRef.current === issueId && pendingEpoch.current === epoch) { assigneePending.current = false; setAssigneeBusy(false); } }
+  };
+  const changeLabels = async (labels: string[], target: HTMLElement | null): Promise<boolean> => {
+    if (labelsPending.current) return false;
+    const issueId = issue.id, epoch = pendingEpoch.current;
+    labelsPending.current = true;
+    setLabelsBusy(true);
+    try { return await mark([target], () => updateIssue(issueId, { labels })); }
+    finally { if (activeIssueRef.current === issueId && pendingEpoch.current === epoch) { labelsPending.current = false; setLabelsBusy(false); } }
+  };
+  const addLabel = async (target: HTMLInputElement) => {
+    const value = labelInput, epoch = pendingEpoch.current;
+    const l = value.trim().toLowerCase();
+    if (!l || labelsPending.current) return;
+    if (issue.labels.includes(l)) { setLabelInput(""); return; }
+    if (await changeLabels([...issue.labels, l], target) && activeIssueRef.current === issue.id && pendingEpoch.current === epoch) setLabelInput(current => current === value ? "" : current);
   };
 
   const copyLink = async () => {
@@ -714,7 +779,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               className="max-h-[320px] w-[240px] overflow-y-auto"
               trigger={(p, open) => (
                 <button {...p} type="button" className={selectCls}>
-                  <UserAvatarGroup users={assignees} size={22} max={3} />
+                  <span ref={assigneeRef} className="inline-flex shrink-0"><UserAvatarGroup users={assignees} size={22} max={3} /></span>
                   <span className={assignees.length ? "min-w-0 truncate" : "text-faint"}>
                     {assignees.length === 0
                       ? t("createIssue.unassigned")
@@ -726,7 +791,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 </button>
               )}
             >
-              <AssigneePicker data={data} selected={issue.assigneeIds} onChange={ids => updateIssue(issue.id, { assigneeIds: ids })} selfOnlyId={me.accessRole === "employee" ? me.id : undefined} />
+              <AssigneePicker data={data} selected={issue.assigneeIds} disabled={assigneeBusy} onChange={ids => void changeAssignees(ids)} selfOnlyId={me.accessRole === "employee" ? me.id : undefined} />
             </Popover>
             ) : (
               <Locked reason={denyMsg}>
@@ -935,21 +1000,24 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           </Field>}
           <div className="space-y-3 border-t border-linesoft pt-3.5">
             <Field label={t("field.labels")}>
-              <div className="issue-labels flex flex-wrap gap-1.5">
+              <div ref={labelsRef} className="issue-labels flex flex-wrap gap-1.5">
                 {issue.labels.map((l) => (
-                  <Tag key={l} size="sm" tone="gray" onRemove={editOk ? () => updateIssue(issue.id, { labels: issue.labels.filter((x) => x !== l) }) : undefined}>
-                    {l}
-                  </Tag>
+                  <span key={l} data-label={l} className="inline-flex">
+                    <Tag size="sm" tone="gray" onRemove={editOk ? () => void changeLabels(issue.labels.filter(x => x !== l), labelsRef.current?.querySelector<HTMLElement>(`[data-label="${CSS.escape(l)}"]`) ?? null) : undefined}>
+                      {l}
+                    </Tag>
+                  </span>
                 ))}
                 {editOk && (
                   <input
                     value={labelInput}
                     aria-label={t("field.labels")}
+                    readOnly={labelsBusy}
                     onChange={(e) => setLabelInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        addLabel();
+                        void addLabel(e.currentTarget);
                       }
                     }}
                     placeholder={t("issue.labelPlaceholder")}
@@ -965,7 +1033,8 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                       <button
                         key={`s:${l}`}
                         type="button"
-                        onClick={() => updateIssue(issue.id, { labels: [...issue.labels, l] })}
+                        disabled={labelsBusy}
+                        onClick={event => void changeLabels([...issue.labels, l], event.currentTarget)}
                         title={t("issue.suggestedLabel")}
                         className="rounded px-1.5 py-0.5 text-[13px] text-faint transition-colors hover:bg-hover hover:text-ink"
                       >
@@ -1058,7 +1127,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           {/* Лента (ТЗ 5.12 d): комментарии и история — одна лента по времени, переключатель сужает её. */}
           <div className="issue-related">
             <SubtasksField issue={issue} />
-            <ChecklistField issue={issue} />
+            <ChecklistField key={issue.id} issue={issue} />
             <AttachmentField issue={issue} />
           </div>
 
@@ -1113,13 +1182,20 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
             })()}
           </EnterScope>
           {(["all", "comments", "history"] as const).filter(id => id !== feed).map(id => <div key={id} role="tabpanel" id={feedId + "-" + id} aria-labelledby={feedId + "-tab-" + id} hidden />)}
+          {pendingComment !== null && <div ref={pendingCommentRef} className="issue-pending-comment gap-2.5" aria-label={t("issue.commentSending")}>
+            <UserAvatar user={me} size={28} />
+            <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
+              <p className="text-[13px] text-faint">{t("issue.commentSending")}</p>
+              <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-[1.5] text-sub">{pendingComment}</p>
+            </div>
+          </div>}
           {canComment ? <div className="issue-comment-composer">
             <UserAvatar user={me} size={28} />
             <div className="min-w-0 flex-1">
-              <textarea aria-label={t("issue.feed.comments")} readOnly={commentBusy} aria-busy={commentBusy || undefined} value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => {
+              <textarea ref={commentInputRef} aria-label={t("issue.feed.comments")} readOnly={commentBusy} aria-busy={commentBusy || undefined} value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submitComment(); }
               }} rows={1} maxLength={LIMITS.comment.max} placeholder={t("issue.commentPlaceholder")} />
-              <div className="issue-comment-actions"><kbd className="ds-kbd">Ctrl+Enter</kbd><Button size="sm" variant="ghost" className="issue-comment-send" disabled={!comment.trim() || commentBusy} loading={commentBusy} onClick={() => void submitComment()} iconLeft={<IcSend size={14} />}>{t("issue.send")}</Button></div>
+              <div className="issue-comment-actions"><kbd className="ds-kbd">Ctrl+Enter</kbd><Button ref={commentSendRef} size="sm" variant="ghost" className="issue-comment-send" disabled={!comment.trim() || commentBusy} loading={commentBusy} onClick={() => void submitComment()} iconLeft={<IcSend size={14} />}>{t("issue.send")}</Button></div>
             </div>
           </div> : <p className="text-[13px] text-faint">{t("issue.commentDenied")}</p>}
         </section>

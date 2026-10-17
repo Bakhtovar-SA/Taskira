@@ -1,3 +1,5 @@
+import { markPendingEl } from "./pending";
+export { PENDING_DELAY_MS } from "./pending";
 /** ADR-0035 (Accepted, прототип): FLIP карточек доски после переноса или перестановки.
  *
  *  Доска переносит карточку только после ответа сервера, а карточка при смене колонки — новый элемент в другой
@@ -231,22 +233,9 @@ export function restoreCardFocus(root: HTMLElement | null, id: string, before: E
  *  `aria-busy` (стиль — приглушение и курсор `progress` в index.css, без анимации); быстрый ответ успевает раньше,
  *  и карточка не мигает. Без состояния React: отметка на DOM, поэтому остальные карточки не перерисовываются.
  *  Возвращает снятие отметки (идемпотентно). */
-export const PENDING_DELAY_MS = 150;
 export function markPending(root: HTMLElement | null, id: string): () => void {
   const sel = `article[data-issue-id="${CSS.escape(id)}"]`;
-  const card = () => (root?.isConnected ? root.querySelector<HTMLElement>(sel) : null);
-  const timer = window.setTimeout(() => {
-    const el = card();
-    if (!el) return;
-    el.setAttribute("data-pending", "");
-    el.setAttribute("aria-busy", "true");
-  }, PENDING_DELAY_MS);
-  return () => {
-    window.clearTimeout(timer);
-    const el = card();
-    el?.removeAttribute("data-pending");
-    el?.removeAttribute("aria-busy");
-  };
+  return markPendingEl(() => root?.isConnected ? root.querySelector<HTMLElement>(sel) : null);
 }
 
 /** Отметки «отправлено» доски: по одной на задачу. Повторный перенос той же карточки снимает прежнюю отметку и ставит
