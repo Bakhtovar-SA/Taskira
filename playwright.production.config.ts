@@ -3,7 +3,7 @@ import base from "./playwright.config";
 const port = process.env.PLAYWRIGHT_PORT || "3199";
 export default defineConfig({
   ...base,
-  testMatch: ["hint-growth.pw.ts", "issue-automation.pw.ts", "list-refresh.pw.ts", "pr118-feedback.pw.ts", "uploads-help-brand.pw.ts", "navigation-reminders.pw.ts", "workspace-ux.pw.ts", "workspace-controls.pw.ts", "workspace-ergonomics.pw.ts", "appearance-layout.pw.ts", "tokens.pw.ts", "recurring.pw.ts", "system-status.pw.ts", "integrations-help.pw.ts"],
+  testMatch: ["hint-growth.pw.ts", "motion-cleanup.pw.ts", "dashboard-flip.pw.ts", "count-up-home.pw.ts", "board-layout.pw.ts", "roadmap-connections.pw.ts", "issue-automation.pw.ts", "list-refresh.pw.ts", "pr118-feedback.pw.ts", "uploads-help-brand.pw.ts", "navigation-reminders.pw.ts", "workspace-ux.pw.ts", "workspace-controls.pw.ts", "workspace-ergonomics.pw.ts", "appearance-layout.pw.ts", "tokens.pw.ts", "recurring.pw.ts", "system-status.pw.ts", "integrations-help.pw.ts"],
   use: { ...base.use, baseURL: `http://127.0.0.1:${port}` },
   webServer: { command: "node scripts/preview-production.mjs", url: `http://127.0.0.1:${port}`, reuseExistingServer: false },
 });
