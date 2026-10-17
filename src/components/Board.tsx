@@ -1,6 +1,7 @@
 import QuickCreate from "./QuickCreateIssue";
 import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cssVars } from "../cssVars";
+import { BoardDoneTail } from "./BoardDoneTail";
 import { localToday } from "../calendarLayout";
 import { enter, preloadMotion } from "../motion";
 import { cancelBoardFlip, createPendingMarks, flipPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
@@ -32,6 +33,7 @@ import { usePulse } from "../usePulse";
 import { issuesApi, type IssueEpic, type IssueFilterParams } from "../api";
 import {
   ISSUE_PAGE_SIZE,
+  issueSetKey,
   NO_ISSUE_FILTERS,
   useDebounced,
   useEpics,
@@ -318,6 +320,7 @@ const ColumnCards = memo(function ColumnCards({
   moves,
   doneStatus,
   onMovesApplied,
+  onRowsReady,
 }: {
   projectId: string;
   filters: IssueFilterParams;
@@ -326,13 +329,14 @@ const ColumnCards = memo(function ColumnCards({
   moves: ReadonlyMap<string, string>;
   doneStatus: boolean;
   onMovesApplied: (ids: readonly string[]) => void;
+  onRowsReady?: (ids: readonly string[], loading: boolean) => void;
 }) {
   const { t } = useT();
   const { data, idx } = useStore();
   const query = useMemo<IssueSetQuery>(() => ({ projectId, filters, sort: "rank", dir: "asc" }), [projectId, filters]);
   const set = useIssueSet(query, { withCounts: false });
   useOnRevision(revision, set.revalidate);
-  const rows = useMemo(() => boardMoveRows(set.items, idx.issues, filters.status!, moves, { overdueOnly: filters.overdue === "1", doneStatus }), [set.items, idx.issues, filters.status, filters.overdue, moves, doneStatus]);
+  const rows = useMemo(() => boardMoveRows(set.items, idx.issues, filters.status!, moves, { overdueOnly: filters.overdue === "1", doneStatus, closed: filters.closed, closedDays: filters.closedDays }), [set.items, idx.issues, filters.status, filters.overdue, filters.closed, filters.closedDays, moves, doneStatus]);
   useEffect(() => {
     const applied: string[] = [];
     for (const [id, target] of moves) {
@@ -341,6 +345,8 @@ const ColumnCards = memo(function ColumnCards({
     }
     if (applied.length) onMovesApplied(applied);
   }, [moves, idx.issues, filters.status, set.items, onMovesApplied]);
+
+  useLayoutEffect(() => { onRowsReady?.(rows.map(row => row.id), set.loading); }, [rows, set.loading, onRowsReady]);
 
   // FLIP после коммита строк (ADR-0035, прототип): колонка и так перерисовывается при их смене — без нового состояния.
   useLayoutEffect(playBoardFlip, [rows]);
@@ -476,6 +482,10 @@ const BoardColumn = memo(function BoardColumn({
   onToggleSelect: (id: string) => void;
 }) {
   const { t } = useT();
+  const previousExpanded = useRef(showAllDone);
+  const doneTailId = useId();
+  const oldFilters = useMemo(() => ({ ...colFilters, closed: "older" as const }), [colFilters]);
+  useLayoutEffect(() => { previousExpanded.current = showAllDone; }, [showAllDone]);
   const isOver = useExternalStore(hoverStore, (id) => id === st.id);
   const countRef = usePulse<HTMLSpanElement>(total, "any");
   const statusPos = posById.get(st.id) ?? 0.5;
@@ -581,6 +591,12 @@ const BoardColumn = memo(function BoardColumn({
             onMovesApplied={onMovesApplied}
           />
         )}
+        {projectId && isDone && showAllDone && (
+          <BoardDoneTail key={issueSetKey({ projectId, filters: oldFilters, sort: "rank", dir: "asc" })} id={doneTailId} animate={!previousExpanded.current}>
+            {ready => <ColumnCards projectId={projectId} filters={oldFilters} revision={revision} renderCard={renderCard}
+              moves={moves} doneStatus onMovesApplied={onMovesApplied} onRowsReady={ready} />}
+          </BoardDoneTail>
+        )}
         {canCreate && isFirstTodo && !quickOpen && total !== 0 && (
           <button
             onClick={() => setQuickFor(st.id)}
@@ -590,22 +606,12 @@ const BoardColumn = memo(function BoardColumn({
             {t("board.addCard")}
           </button>
         )}
-        {/* Свёрнутый «хвост» закрытого: данные на месте, в один клик. */}
-        {hiddenDone > 0 && (
-          <button
-            onClick={() => setShowAllDone(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] text-faint transition-colors hover:bg-hover hover:text-ink"
-          >
-            <IcArchive size={14} />
-            {t("board.hiddenDone", { n: hiddenDone })}
-          </button>
-        )}
-        {showAllDone && isDone && (
-          <button
-            onClick={() => setShowAllDone(false)}
-            className="w-full rounded-lg px-3 py-1.5 text-[13px] text-faint transition-colors hover:bg-hover hover:text-ink"
-          >
-            {t("board.collapseDone", { days: DONE_WINDOW_DAYS })}
+        {/* The same control survives expansion so keyboard focus stays on the disclosure. */}
+        {isDone && (hiddenDone > 0 || showAllDone) && (
+          <button type="button" id={doneTailId + "-toggle"} data-done-disclosure aria-expanded={showAllDone} aria-controls={showAllDone ? doneTailId : undefined}
+            onClick={() => setShowAllDone(!showAllDone)}
+            className="ds-focus flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] text-faint transition-colors hover:bg-hover hover:text-ink">
+            {showAllDone ? t("board.collapseDone", { days: DONE_WINDOW_DAYS }) : <><IcArchive size={14} />{t("board.hiddenDone", { n: hiddenDone })}</>}
           </button>
         )}
         {total === 0 && !quickOpen && hiddenDone === 0 && (
@@ -856,8 +862,8 @@ export default function Board() {
   const overdueCounts = useIssueCounts(projectId, overdueFilters, revision);
   const unfiltered = useIssueCounts(projectId, filtersOn ? NO_ISSUE_FILTERS : null, revision);
   const olderFilters = useMemo(
-    () => (hasDoneColumn && !showAllDone ? { ...baseFilters, closed: "older" as const, closedDays: DONE_WINDOW_DAYS } : null),
-    [hasDoneColumn, showAllDone, baseFilters],
+    () => (hasDoneColumn ? { ...baseFilters, closed: "older" as const, closedDays: DONE_WINDOW_DAYS } : null),
+    [hasDoneColumn, baseFilters],
   );
   const older = useIssueCounts(projectId, olderFilters, revision);
   const projectCounts = filtersOn ? unfiltered.counts : filtered.counts;
@@ -867,15 +873,16 @@ export default function Board() {
    *  строке «Ранее закрыто». Задачи без doneAt (закрытые до миграции 016)
    *  считаются свежими, чтобы они не пропали из виду молча. */
   const totalOf = (sid: string) => columnTotal(filtered.counts, older.counts, sid, { isDone: doneIds.has(sid), showAllDone });
-  const hiddenDone = (sid: string) => hiddenDoneCount(older.counts, sid, { isDone: doneIds.has(sid), showAllDone });
+  // Keep the older count alive while open; the disclosure must not disappear during a counts refetch.
+  const hiddenDone = (sid: string) => hiddenDoneCount(older.counts, sid, { isDone: doneIds.has(sid), showAllDone: false });
   // Фильтры колонок — по объекту на статус, стабильные между рендерами доски (иначе каждая
   // колонка получала бы новый объект и перерисовывалась вместе с любым состоянием доски).
   const colFiltersById = useMemo(
     () =>
       new Map(
-        data.workflow.statuses.map((st) => [st.id, columnFilterParams(baseFilters, st.id, { isDone: doneIds.has(st.id), showAllDone })]),
+        data.workflow.statuses.map((st) => [st.id, columnFilterParams(baseFilters, st.id, { isDone: doneIds.has(st.id), showAllDone: false })]),
       ),
-    [data.workflow.statuses, baseFilters, doneIds, showAllDone],
+    [data.workflow.statuses, baseFilters, doneIds],
   );
 
   // Полоска аватаров-фильтров: самые загруженные исполнители проекта (сервер), а

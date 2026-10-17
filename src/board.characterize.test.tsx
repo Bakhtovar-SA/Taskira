@@ -525,21 +525,25 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
-  test("8b. «Ранее закрыто» снимает окно и перечитывает колонку «Готово» без closed-фильтра", async () => {
+  test("8b. «Ранее закрыто» загружает отдельное older-окно, сохраняя недавние карточки и кнопку фокуса", async () => {
     const h = await setup({
-      pageImpl: async (_p, params) => ({ items: params.status === "s3" ? [dto("done1", { statusId: "s3" })] : [], hasMore: false, nextCursor: null }),
+      pageImpl: async (_p, params) => ({ items: params.status !== "s3" ? [] : params.closed === "older"
+        ? Array.from({length:5},(_,i)=>dto("doneOld"+i,{statusId:"s3",doneAt:"2026-09-01T12:00:00Z"}))
+        : [dto("done1", { statusId: "s3" })], hasMore: false, nextCursor: null }),
       countsImpl: async (_p, params) => (params.closed === "older" ? { total: 5, byStatus: { s3: 5 } as Record<string, number> } : { total: 10, byStatus: { s1: 0, s2: 0, s3: 6 } as Record<string, number> }),
     });
-    h.pageCalls.length = 0;
-    fireEvent.click(screen.getByText("Ранее закрыто: 5"));
-    await settle();
-    const s3Calls = h.pageCalls.filter((c) => c.status === "s3");
-    expect(s3Calls.length).toBeGreaterThan(0);
-    expect(s3Calls[s3Calls.length - 1].closed).toBeUndefined();
-    expect(s3Calls[s3Calls.length - 1].closedDays).toBeUndefined();
-    // теперь предложено свернуть обратно к окну в 14 дней
-    expect(screen.getByText("Свернуть до последних 14 дней")).toBeTruthy();
-    h.ui.unmount();
+    const recent = screen.getByRole("article",{name:/A21-done1/});
+    const toggle = screen.getByRole("button",{name:"Ранее закрыто: 5"}); toggle.focus();
+    h.pageCalls.length = 0; fireEvent.click(toggle); await settle();
+    const calls = h.pageCalls.filter(c=>c.status==="s3");
+    expect(calls).toHaveLength(1); expect(calls[0]).toMatchObject({closed:"older",closedDays:14});
+    expect(screen.getByRole("article",{name:/A21-done1/})).toBe(recent);
+    expect(screen.getAllByRole("article",{name:/A21-doneOld/})).toHaveLength(5);
+    expect(screen.getByRole("button",{name:"Свернуть до последних 14 дней"})).toBe(toggle);
+    expect(document.activeElement).toBe(toggle);
+    fireEvent.click(toggle);await settle();expect(screen.queryAllByRole("article",{name:/A21-doneOld/})).toHaveLength(0);
+    expect(screen.getByRole("article",{name:/A21-done1/})).toBe(recent);expect(document.activeElement).toBe(toggle);
+    expect(h.pageCalls.filter(c=>c.status==="s3")).toHaveLength(1);h.ui.unmount();
   });
 
   test("9. режим выделения (ROUTE-03): карточки из разных колонок отмечаются, а не открываются; перетаскивание выключено; действие уходит одним bulk-запросом", async () => {
