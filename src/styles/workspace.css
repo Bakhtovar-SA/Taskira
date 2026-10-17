@@ -721,3 +721,7 @@
 /* Inbox ghosts remain anchored after the final live row disappears. */
 .inbox-list { position: relative; display: flow-root; }
 .inbox-list > .list-row-ghost { background: var(--bg-panel); }
+
+/* Sprint/backlog lists keep outgoing rows inside their own scroll clipping ancestor. */
+.sprint-issue-list { position: relative; display: flow-root; }
+.sprint-issue-list > .list-row-ghost { position: absolute; z-index: 1; margin: 0; pointer-events: none; }

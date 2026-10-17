@@ -14,6 +14,10 @@ import {
 import { I18nProvider } from "./i18n";
 import SprintsView from "./components/SprintsView";
 
+import { enter, exit, flipFrom } from "./motion";
+vi.mock("./motion", async importOriginal => ({ ...(await importOriginal<typeof import("./motion")>()),
+  motionReduced: () => false, cssZoom: () => 1, enter: vi.fn(), exit: vi.fn(() => Promise.resolve()), flipFrom: vi.fn(() => Promise.resolve()) }));
+
 /**
  * PERF-06 A15: Sprints — осознанное исключение «обернуть, не оптимизировать». Его единственная
  * особенность — полный набор задач проекта, поэтому экран сам запрашивает его при входе
@@ -121,6 +125,7 @@ async function setup(listed: ServerIssue[], showSprints: boolean, listImpl?: () 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.clearAllMocks();
   vi.unstubAllGlobals();
   localStorage.clear();
 });
@@ -244,4 +249,114 @@ describe("Создание спринта через ds", () => {
     expect((screen.getByLabelText("Название") as HTMLInputElement).value).toBe("");
     h.ui.unmount();
   });
+});
+
+
+test("confirmed sprint removals retain the old row until API response and focus the live neighbor or list", async () => {
+  const sprint = { id: "sp1", name: "Sprint 1", goal: "", status: "future" as const, startDate: null, endDate: null };
+  const h = await setup([dto("i1", { sprintId: "sp1" }), dto("i2", { sprintId: "sp1" }), dto("i3")], true, undefined, [sprint]);
+  let release!: (issue: ServerIssue) => void;
+  const patch = vi.spyOn(issuesApi, "setSprint").mockImplementation(() => new Promise(resolve => { release = resolve; }));
+  const list = screen.getByRole("group", { name: "Sprint 1" });
+  const remove = within(list).getAllByRole("button", { name: "Убрать из спринта" })[0];
+  remove.focus(); fireEvent.click(remove);
+  expect(patch).toHaveBeenCalledWith("p1", "i1", null);
+  expect(list.querySelectorAll('[data-issue-id]')).toHaveLength(2);
+  expect(document.activeElement).toBe(remove);
+  await act(async () => { release(dto("i1", { sprintId: null })); await flush(); await flush(); });
+  expect(list.querySelectorAll('[data-issue-id]')).toHaveLength(1);
+  expect(document.activeElement?.closest('[data-issue-id]')?.getAttribute('data-issue-id')).toBe('i2');
+  expect(screen.getByRole('group', { name: 'Список задач' }).querySelectorAll('[data-issue-id]')).toHaveLength(2);
+  const last = within(list).getByRole("button", { name: "Убрать из спринта" });
+  last.focus(); fireEvent.click(last);
+  await act(async () => { release(dto("i2", { sprintId: null })); await flush(); await flush(); });
+  expect(list.querySelectorAll('[data-issue-id]')).toHaveLength(0);
+  expect(document.activeElement).toBe(list);
+  h.ui.unmount();
+});
+
+test("failed sprint move retains its focused row and leaves destination unchanged", async () => {
+  const sprint = { id: "sp1", name: "Sprint 1", goal: "", status: "future" as const, startDate: null, endDate: null };
+  const h = await setup([dto("i1", { sprintId: "sp1" }), dto("i2")], true, undefined, [sprint]);
+  vi.spyOn(issuesApi, "setSprint").mockRejectedValue(new Error('offline'));
+  const list = screen.getByRole('group', { name: 'Sprint 1' });
+  const remove = within(list).getByRole('button', { name: 'Убрать из спринта' }); remove.focus(); fireEvent.click(remove);
+  await settle();
+  expect(list.querySelectorAll('[data-issue-id]')).toHaveLength(1);
+  expect(screen.getByRole('group', { name: 'Список задач' }).querySelectorAll('[data-issue-id]')).toHaveLength(1);
+  expect(document.activeElement).toBe(remove);
+  h.ui.unmount();
+});
+
+
+test("confirmed round-trip animates each local arrival and never flies a task between list viewports", async () => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    const list = this.closest('.sprint-issue-list');
+    const left = list?.getAttribute('aria-label') === 'Sprint 1' ? 500 : 0;
+    const top = this.dataset.issueId ? Math.max(0, [...(list?.querySelectorAll('[data-issue-id]') ?? [])].indexOf(this)) * 40 : 0;
+    return { left, top, x: left, y: top, width: 300, height: 40, right: left + 300, bottom: top + 40, toJSON: () => ({}) } as DOMRect;
+  });
+  const sprint = { id: 'sp1', name: 'Sprint 1', goal: '', status: 'future' as const, startDate: null, endDate: null };
+  const h = await setup([dto('i1', { sprintId: 'sp1' }), dto('i2', { sprintId: 'sp1' }), dto('i3')], true, undefined, [sprint]);
+  expect(enter).not.toHaveBeenCalled(); expect(exit).not.toHaveBeenCalled();
+  let release!: (issue: ServerIssue) => void;
+  vi.spyOn(issuesApi, 'setSprint').mockImplementation(() => new Promise(resolve => { release = resolve; }));
+  const sprintList = screen.getByRole('group', { name: 'Sprint 1' });
+  fireEvent.click(within(sprintList).getAllByRole('button', { name: 'Убрать из спринта' })[0]);
+  expect(exit).not.toHaveBeenCalled();
+  await act(async () => { release(dto('i1')); await flush(); await flush(); });
+  expect(exit).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(enter).mock.calls.map(call => call[0].closest('[role="group"]')?.getAttribute('aria-label'))).toEqual(['Список задач']);
+  expect(vi.mocked(flipFrom).mock.calls.every(call => call[0].dataset.issueId !== 'i1')).toBe(true);
+  vi.mocked(enter).mockClear(); vi.mocked(exit).mockClear(); vi.mocked(flipFrom).mockClear();
+  fireEvent.drop(sprintList.parentElement!, { dataTransfer: { getData: () => 'i1' } });
+  await act(async () => { release(dto('i1', { sprintId: 'sp1' })); await flush(); await flush(); });
+  expect(exit).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(enter).mock.calls.map(call => call[0].closest('[role="group"]')?.getAttribute('aria-label'))).toEqual(['Sprint 1']);
+  expect(vi.mocked(flipFrom).mock.calls.every(call => call[0].dataset.issueId !== 'i1')).toBe(true);
+  h.ui.unmount();
+});
+
+test("same-size deferred batch departures become fresh arrivals on the next confirmed round-trip", async () => {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const list = this.closest(".sprint-issue-list");
+    const left = list?.getAttribute("aria-label") === "Sprint 1" ? 500 : 0;
+    return { left, top: 0, x: left, y: 0, width: 300, height: 40, right: left + 300, bottom: 40, toJSON: () => ({}) } as DOMRect;
+  });
+  const sprint = { id: "sp1", name: "Sprint 1", goal: "", status: "future" as const, startDate: null, endDate: null };
+  const h = await setup([dto("i1", { sprintId: "sp1" }), dto("i2")], true, undefined, [sprint]);
+  const pending = new Map<string, (issue: ServerIssue) => void>();
+  const patch = vi.spyOn(issuesApi, "setSprint").mockImplementation((_projectId, id) => new Promise(resolve => pending.set(id, resolve)));
+  const sprintList = screen.getByRole("group", { name: "Sprint 1" });
+  const backlog = screen.getByRole("group", { name: "Список задач" });
+  const ids = (list: HTMLElement) => [...list.querySelectorAll<HTMLElement>("[data-issue-id]")].map(row => row.dataset.issueId);
+  const arrivals = () => vi.mocked(enter).mock.calls.map(([row]) => [row.dataset.issueId, row.closest('[role="group"]')?.getAttribute("aria-label")]);
+  expect(enter).not.toHaveBeenCalled();
+
+  fireEvent.click(within(sprintList).getByRole("button", { name: "Убрать из спринта" }));
+  fireEvent.drop(sprintList.parentElement!, { dataTransfer: { getData: () => "i2" } });
+  expect(patch.mock.calls).toEqual([["p1", "i1", null], ["p1", "i2", "sp1"]]);
+  expect(ids(sprintList)).toEqual(["i1"]); expect(ids(backlog)).toEqual(["i2"]);
+  expect(enter).not.toHaveBeenCalled();
+  await act(async () => {
+    pending.get("i1")!(dto("i1")); pending.get("i2")!(dto("i2", { sprintId: "sp1" }));
+    await flush(); await flush();
+  });
+  expect(ids(sprintList)).toEqual(["i2"]); expect(ids(backlog)).toEqual(["i1"]);
+  expect(arrivals()).toEqual(expect.arrayContaining([["i2", "Sprint 1"], ["i1", "Список задач"]]));
+  expect(enter).toHaveBeenCalledTimes(2);
+  vi.mocked(enter).mockClear();
+
+  fireEvent.click(within(sprintList).getByRole("button", { name: "Убрать из спринта" }));
+  fireEvent.drop(sprintList.parentElement!, { dataTransfer: { getData: () => "i1" } });
+  expect(ids(sprintList)).toEqual(["i2"]); expect(ids(backlog)).toEqual(["i1"]);
+  await act(async () => {
+    pending.get("i2")!(dto("i2")); pending.get("i1")!(dto("i1", { sprintId: "sp1" }));
+    await flush(); await flush();
+  });
+  expect(patch.mock.calls.slice(2)).toEqual([["p1", "i2", null], ["p1", "i1", "sp1"]]);
+  expect(ids(sprintList)).toEqual(["i1"]); expect(ids(backlog)).toEqual(["i2"]);
+  expect(arrivals()).toEqual(expect.arrayContaining([["i1", "Sprint 1"], ["i2", "Список задач"]]));
+  expect(enter).toHaveBeenCalledTimes(2);
+  h.ui.unmount();
 });
