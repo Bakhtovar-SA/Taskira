@@ -1,5 +1,7 @@
 import { freshRows } from "./issuePages";
 import type { Issue } from "./types";
+import type { IssueFilterParams } from "./api";
+import { DONE_WINDOW_DAYS } from "./boardFilters";
 
 /** Bridge confirmed local moves while the paginated columns revalidate.
  * Only moves made in the current board query can introduce a row; unrelated
@@ -7,15 +9,23 @@ import type { Issue } from "./types";
 export function boardMoveRows(
   items: Issue[], byId: ReadonlyMap<string, Issue>, statusId: string,
   moves: ReadonlyMap<string, string>,
-  { overdueOnly, doneStatus, today = new Date().toISOString().slice(0, 10) }: { overdueOnly: boolean; doneStatus: boolean; today?: string },
+  { overdueOnly, doneStatus, today = new Date().toISOString().slice(0, 10), closed, closedDays = DONE_WINDOW_DAYS, now = Date.now() }: { overdueOnly: boolean; doneStatus: boolean; today?: string; closed?: IssueFilterParams["closed"]; closedDays?: number; now?: number },
 ): Issue[] {
   const visible = (i: Issue) => i.statusId === statusId && i.archivedAt == null &&
     (!overdueOnly || (!doneStatus && !!i.dueDate && i.dueDate < today));
+  // Server rows stay authoritative. Only locally introduced rows need a window decision
+  // while recent/older pages revalidate independently (a rank move must not duplicate an old card).
+  const acceptsIncoming = (issue: Issue) => {
+    if (!doneStatus || !closed) return true;
+    if (closed === "hide") return false;
+    const older = issue.doneAt != null && issue.doneAt < now - closedDays * 86_400_000;
+    return closed === "older" ? older : !older;
+  };
   const rows = freshRows(items, byId).filter(visible);
   const ids = new Set(rows.map(i => i.id));
   for (const [id, target] of moves) {
     const issue = byId.get(id);
-    if (target === statusId && issue && visible(issue) && !ids.has(id)) {
+    if (target === statusId && issue && visible(issue) && acceptsIncoming(issue) && !ids.has(id)) {
       rows.push(issue);
       ids.add(id);
     }

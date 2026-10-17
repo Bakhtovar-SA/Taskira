@@ -41,3 +41,20 @@ test("правка из стора, которая новее серверной
   const result = boardMoveRows([server], new Map([[local.id, local]]), "s1", new Map(), { overdueOnly: false, doneStatus: false });
   expect(result[0]).toBe(local);
 });
+
+test("an old same-column rank move belongs to exactly one of recent/older pages",()=>{
+  const now=Date.parse("2026-10-04T12:00:00Z"),old=issue("old",10,{doneAt:Date.parse("2026-09-01T12:00:00Z"),updatedAt:now});
+  const cache=new Map([[old.id,old]]),moves=new Map([[old.id,"s1"]]),opts={overdueOnly:false,doneStatus:true,closedDays:14,now};
+  expect(boardMoveRows([],cache,"s1",moves,{...opts,closed:"recent"})).toEqual([]);
+  expect(boardMoveRows([old],cache,"s1",moves,{...opts,closed:"older"}).map(i=>i.id)).toEqual(["old"]);
+});
+test("a newly completed or migrated task enters recent but not the old tail",()=>{
+  const now=Date.parse("2026-10-04T12:00:00Z"),rows=[issue("new",1,{doneAt:now}),issue("migrated",2,{doneAt:null})];
+  const cache=new Map(rows.map(i=>[i.id,i])),moves=new Map(rows.map(i=>[i.id,"s1"])),opts={overdueOnly:false,doneStatus:true,closedDays:14,now};
+  expect(boardMoveRows([],cache,"s1",moves,{...opts,closed:"recent"}).map(i=>i.id)).toEqual(["new","migrated"]);
+  expect(boardMoveRows([],cache,"s1",moves,{...opts,closed:"older"})).toEqual([]);
+});
+test("server window membership stays authoritative despite a skewed local clock",()=>{
+  const row=issue("server",1,{doneAt:1});
+  expect(boardMoveRows([row],new Map(),"s1",new Map(),{overdueOnly:false,doneStatus:true,closed:"recent",now:Date.parse("2030-01-01T00:00:00Z")})).toEqual([row]);
+});

@@ -1088,8 +1088,18 @@ button {
 .ds-empty {
   animation: viewIn var(--dur-4) var(--ease-out) both;
 }
+/* Old closed cards disclose independently; recent cards never leave their scroll body. */
+.board-done-tail { display: grid; grid-template-rows: 1fr; }
+.board-done-tail-body { min-height: 0; }
+.anim-done-tail .board-done-tail-body { overflow: hidden; }
+.board-done-tail-body > :not(:last-child) { margin-block-end: calc(var(--spacing) * 1.5); }
+[data-done-disclosure]:focus-visible { outline-offset: -2px; }
+.anim-done-tail { animation: doneTailIn var(--dur-3) var(--ease-out); }
+@keyframes doneTailIn { from { grid-template-rows: 0fr; opacity: 0; } to { grid-template-rows: 1fr; opacity: 1; } }
+
 @media (prefers-reduced-motion: reduce) {
   .anim-view,
+  .anim-done-tail,
   .anim-stagger > *,
   .chart-line,
   .reports-chart rect[data-series],
