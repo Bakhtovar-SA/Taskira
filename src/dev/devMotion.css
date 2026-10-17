@@ -22,7 +22,7 @@
 .ms-card { background: var(--c-canvas); border: 1px solid var(--c-line); border-radius: 8px; padding: 8px 12px; min-height: 40px; }
 .ms-card button { display: block; width: 100%; text-align: left; }
 .ms-result { color: var(--c-sub); font-variant-numeric: tabular-nums; margin-top: 12px; }
-.ms-scroll { max-height: 260px; overflow: auto; }
+.ms-scroll { max-height: 340px; overflow: auto; }
 .ms-list { position: relative; }
 .ms-row { display: flex; justify-content: space-between; gap: 16px; min-height: 40px; align-items: center; border-bottom: 1px solid var(--c-line); background: var(--c-panel); padding: 8px 12px; }
 .ms-samples { display: flex; gap: 16px; flex-wrap: wrap; }

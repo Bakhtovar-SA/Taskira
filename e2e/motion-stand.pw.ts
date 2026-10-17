@@ -77,6 +77,9 @@ for (const mode of ["normal", "system", "personal"] as const) {
     await play(page, "list-add", reduced);
     await expect(page.locator("[data-list-count]")).toHaveText("13 строк");
     await play(page, "list-remove", reduced);
+    // All seven removal candidates must be visible before asserting the six-ghost cap.
+    await page.locator("#list .ms-scroll").scrollIntoViewIfNeeded();
+    await settle(page);
     await page.locator('[data-action="list-remove-7"]').click();
     expect(await page.locator(".list-row-ghost").count()).toBe(reduced ? 0 : 6);
     await residue(page);
@@ -173,6 +176,10 @@ test("motion stand: pause, slow playback and reduce changed during motion", asyn
 test("motion stand: frozen background resumes without residue", async ({ page, context }) => {
   await openStand(page);
   const session = await context.newCDPSession(page);
+  // C08 intentionally skips offscreen counters. Freeze a real visible CountUp.
+  await page.locator(".ms-counts").scrollIntoViewIfNeeded();
+  for (const counter of await page.locator(".ms-counts .count-up").all()) await expect(counter).toBeInViewport();
+  await settle(page);
   // Freeze the actual Chromium page, rather than replacing document.visibilityState.
   await page.evaluate(() => {
     for (const action of ["board-move", "list-remove", "count-up"]) document.querySelector<HTMLElement>(`[data-action="${action}"]`)!.click();
