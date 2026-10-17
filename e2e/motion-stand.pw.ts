@@ -77,13 +77,17 @@ for (const mode of ["normal", "system", "personal"] as const) {
     await play(page, "list-add", reduced);
     await expect(page.locator("[data-list-count]")).toHaveText("13 строк");
     await play(page, "list-remove", reduced);
+    // Keep seven survivors: shrinking the scroll clip to five rows would cull exits before the six-ghost cap.
+    await play(page, "list-add", reduced);
+    await play(page, "list-add", reduced);
     // All seven removal candidates must be visible before asserting the six-ghost cap.
     await page.locator("#list .ms-scroll").scrollIntoViewIfNeeded();
     await settle(page);
+    for (const row of (await page.locator("#list [data-row-id]").all()).slice(0, 7)) await expect(row).toBeInViewport({ ratio: 1 });
     await page.locator('[data-action="list-remove-7"]').click();
     expect(await page.locator(".list-row-ghost").count()).toBe(reduced ? 0 : 6);
     await residue(page);
-    await expect(page.locator("[data-list-count]")).toHaveText("5 строк");
+    await expect(page.locator("[data-list-count]")).toHaveText("7 строк");
     await play(page, "list-201", reduced);
     await expect(page.locator("[data-row-id]")).toHaveCount(201);
     await play(page, "list-remove", reduced);
