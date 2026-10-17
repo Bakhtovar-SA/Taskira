@@ -441,6 +441,7 @@ export const IssueCreateBody = z.object({
 
 export const IssuePatchBody = z
   .object({
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
     title: oneLine(LIMITS.title.max, LIMITS.title.min),
     description: multiLine(LIMITS.description.max),
     priorityId: z.enum(PRIORITIES),
@@ -455,10 +456,11 @@ export const IssuePatchBody = z
     color: z.string().regex(/^#[0-9a-f]{6}$/i).nullable(),
   })
   .partial()
-  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+  .refine((v) => Object.keys(v).some(key => key !== "expectedUpdatedAt"), "Пустой патч");
 
 /** Смена статуса: сервер сверяет переход с workflow_transitions и право transition. */
 export const TransitionBody = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
   to: uuid,
   beforeId: uuid.nullable().optional(),
 });
@@ -487,7 +489,18 @@ export type BulkIssueAction = z.infer<typeof BulkIssueAction>;
  *  человекочитаемая причина отказа по КОНКРЕТНОЙ задаче (нет прав, не найдена,
  *  недопустимый переход по workflow) — тот же принцип, что denialReason()
  *  (permissions.ts), не общий "forbidden". */
+/** Previous values captured under the issue lock; updatedAt is the version produced by the mutation. */
+export const IssueUndoDto = z.object({
+  issueId: z.string(),
+  statusId: z.string().optional(),
+  labels: z.array(z.string()).optional(),
+  assigneeIds: z.array(z.string()).optional(),
+  updatedAt: z.string().datetime({ offset: true }),
+});
+export type IssueUndoDto = z.infer<typeof IssueUndoDto>;
+
 export const BulkIssueResultDto = z.object({
+  undo: z.array(IssueUndoDto).optional(),
   succeeded: z.array(z.string()),
   /** `code` — машинный код причины (FORBIDDEN, NOT_FOUND, CONFLICT — переход запрещён схемой…): клиент по нему
    *  объясняет пропуск на языке интерфейса; `reason` — русский текст сервера. */
@@ -1026,6 +1039,8 @@ export const IssueDto = z.object({
   subtasksSummary: SubtasksSummaryDto.optional(),
 });
 export type IssueDto = z.infer<typeof IssueDto>;
+export const IssueMutationResultDto = IssueDto.extend({ undo: IssueUndoDto.optional() });
+export type IssueMutationResultDto = z.infer<typeof IssueMutationResultDto>;
 
 /** Карточка задачи: DTO + участники/вложения/связи/чеклист — только в детальном ответе GET /:id, не в списке. */
 export const IssueDetailDto = IssueDto.extend({

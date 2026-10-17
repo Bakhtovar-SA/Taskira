@@ -1,3 +1,4 @@
+import type { IssueMutationResultDto } from "../../server/src/contract";
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
 import type {
@@ -284,6 +285,7 @@ export type ServerCustomFieldValue = CustomFieldValueDto;
  *  (те же поля + участники/вложения/связи/чеклист/подзадачи). Поля детального ответа у клиента необязательны —
  *  в списочной задаче их нет. Это клиентская вьюмодель поверх двух серверных типов, а не третье описание. */
 export type ServerIssue = IssueDto & Partial<Omit<IssueDetailDto, keyof IssueDto>>;
+export type IssueMutationResult = ServerIssue & Pick<IssueMutationResultDto,"undo">;
 
 import type { IssueAutomationDto, IssueRecurrenceBody } from "../../server/src/contract";
 /** Префикс ресурсов проекта. */
@@ -719,7 +721,7 @@ export const issuesApi = {
   create: (projectId: string, body: Record<string, unknown>) =>
     api<ServerIssue>(`${P(projectId)}/issues`, { method: "POST", body }),
   patch: (projectId: string, id: string, body: Record<string, unknown>) =>
-    api<ServerIssue>(`${P(projectId)}/issues/${id}`, { method: "PATCH", body }),
+    api<IssueMutationResult>(`${P(projectId)}/issues/${id}`, { method: "PATCH", body }),
   remove: (projectId: string, id: string) => api<void>(`${P(projectId)}/issues/${id}`, { method: "DELETE" }),
   /** Массовые операции (ТЗ 3.3, план v2 Трек 3) — ровно одно действие на весь
    *  выделенный набор; частичный успех (see BulkResult) — не общий success/fail. */
@@ -728,10 +730,10 @@ export const issuesApi = {
    *  manageSprints, не edit. sprintId=null возвращает задачу в бэклог. */
   setSprint: (projectId: string, id: string, sprintId: string | null) =>
     api<ServerIssue>(`${P(projectId)}/issues/${id}/sprint`, { method: "PATCH", body: { sprintId } }),
-  transition: (projectId: string, id: string, to: string, beforeId?: string | null) =>
-    api<ServerIssue>(`${P(projectId)}/issues/${id}/transition`, {
+  transition: (projectId: string, id: string, to: string, beforeId?: string | null, expectedUpdatedAt?: string) =>
+    api<IssueMutationResult>(`${P(projectId)}/issues/${id}/transition`, {
       method: "POST",
-      body: { to, beforeId: beforeId ?? null },
+      body: { to, beforeId: beforeId ?? null, ...(expectedUpdatedAt ? {expectedUpdatedAt} : {}) },
     }),
   addLink: (projectId: string, id: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") =>
     api<{ id: string; links: ServerIssueLink[] }>(`${P(projectId)}/issues/${id}/links`, {

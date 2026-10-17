@@ -35,6 +35,8 @@ import {
   listAssigneeIdsBatch,
   subtasksSummaryBatch,
   loadIssue,
+  loadIssueForUpdate,
+  ISSUE_VERSION_SQL,
   logActivity,
   mapIssue,
   maskSprintId,
@@ -97,6 +99,7 @@ import {
   type ActivityEvent,
   type ComplexityId,
   type PriorityId,
+  type IssueUndoDto,
 } from "../contract.js";
 
 const me = (req: { user: JwtPayload }) => req.user;
@@ -533,31 +536,46 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       // Исполнители — отдельная таблица (миграция 025), не участвуют в sets
       // (issues-колонках), поэтому "пустой патч" проверяем по обоим сразу.
       if (sets.length === 0 && newAssigneeIds === undefined) {
-        return maskSprintId(mapIssue(iss, beforeAssigneeIds), project.sprintsEnabled);
+        const current = await withTransaction(client => loadIssueForUpdate(client, project.id, id, body.expectedUpdatedAt));
+        return maskSprintId(mapIssue(current, beforeAssigneeIds), project.sprintsEnabled);
       }
 
       let updateSql: string | null = null;
       if (sets.length > 0) {
         vals.push(iss.id);
-        updateSql = `UPDATE issues SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length} RETURNING *`;
+        updateSql = `UPDATE issues SET ${sets.join(", ")}, updated_at = ${ISSUE_VERSION_SQL} WHERE id = $${vals.length} RETURNING *`;
       }
-      const mutate = async (client: PoolClient): Promise<IssueRow> => {
-        const row = updateSql ? (await client.query<IssueRow>(updateSql, vals)).rows[0] : iss;
-        if (newAssigneeIds !== undefined && (addedAssigneeIds.length > 0 || removedAssigneeIds.length > 0)) {
-          await setAssignees(iss.id, newAssigneeIds, user.sub, client, req.projectRole === "employee");
+      const mutate = async (client: PoolClient): Promise<{ row: IssueRow; undo?: IssueUndoDto }> => {
+        const previous = await loadIssueForUpdate(client, project.id, id, body.expectedUpdatedAt);
+        const previousAssignees = newAssigneeIds !== undefined
+          ? (await client.query<{ user_id: string }>("SELECT user_id FROM issue_assignees WHERE issue_id = $1 ORDER BY added_at, user_id", [id])).rows.map(item => item.user_id)
+          : [];
+        const row = updateSql ? (await client.query<IssueRow>(updateSql, vals)).rows[0] : previous;
+        if (newAssigneeIds !== undefined) {
+          const assignedAt = await setAssignees(iss.id, newAssigneeIds, user.sub, client, req.projectRole === "employee");
+          if (assignedAt) row.updated_at = assignedAt;
         }
         for (const event of log) await logActivity(iss.id, user.sub, event, client);
-        return row;
+        // Offer undo only for removal-only writes, using the actual locked values, never the outer read/UI snapshot.
+        const onlyRemovalFields = Object.keys(body).every(key => ["labels", "assigneeIds", "expectedUpdatedAt"].includes(key));
+        const noAdditions = (next: string[] | undefined, before: string[]) => !next || next.every(value => before.includes(value));
+        const removed = (next: string[] | undefined, before: string[]) => next !== undefined && before.some(value => !next.includes(value));
+        const labelsRemoved = removed(body.labels, previous.labels) && JSON.stringify(row.labels) === JSON.stringify(body.labels);
+        const assigneesRemoved = removed(newAssigneeIds, previousAssignees);
+        const undo = onlyRemovalFields && noAdditions(body.labels, previous.labels) && noAdditions(newAssigneeIds, previousAssignees) && (labelsRemoved || assigneesRemoved)
+          ? { issueId: id, ...(labelsRemoved ? { labels: previous.labels } : {}), ...(assigneesRemoved ? { assigneeIds: previousAssignees } : {}), updatedAt: new Date(row.updated_at).toISOString() }
+          : undefined;
+        return { row, ...(undo ? { undo } : {}) };
       };
       // Поля задачи, полный список исполнителей и activity фиксируются одним
       // коммитом; parent-ветки дополнительно используют прежние advisory locks.
-      const row = newParentId
+      const { row, undo } = newParentId
         ? await assignParentLocked(project.id, newParentId, iss.id, mutate)
         : isUnsettingParent
           ? await withIssueParentLock(iss.id, mutate)
           : await withTransaction(mutate);
 
-      await auditFromRequest(req, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body) });
+      await auditFromRequest(req, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body).filter(key => key !== "expectedUpdatedAt") });
 
       // Уведомления (NOTIFICATIONS_MIGRATION.md D2) — только новым исполнителям,
       // не всему списку: снятие или уже назначенных повторно пинговать не за что.
@@ -588,7 +606,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           });
         }
       }
-      return maskSprintId(mapIssue(row, newAssigneeIds ?? beforeAssigneeIds), project.sprintsEnabled);
+      return { ...maskSprintId(mapIssue(row, newAssigneeIds ?? beforeAssigneeIds), project.sprintsEnabled), ...(undo ? { undo } : {}) };
     },
   );
 
@@ -621,7 +639,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const user = me(req);
       const body = req.body as z.infer<typeof TransitionBody>;
       const { previous: iss, row, changed, from, to } = await transitionIssue(
-        project.id, id, body.to, body.beforeId ?? null, user.sub,
+        project.id, id, body.to, body.beforeId ?? null, user.sub, true, body.expectedUpdatedAt,
       );
 
       if (changed) {
@@ -636,7 +654,8 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         await markStep(user.sub, "change_status");
       }
       await auditFromRequest(req, "issue.transition", "issue", iss.id, { key: iss.key, from: iss.status_id, to: body.to });
-      return maskSprintId(mapIssue(row, await listAssigneeIds(iss.id)), project.sprintsEnabled);
+      return { ...maskSprintId(mapIssue(row, await listAssigneeIds(iss.id)), project.sprintsEnabled),
+        ...(changed ? { undo: { issueId: iss.id, statusId: iss.status_id, updatedAt: new Date(row.updated_at).toISOString() } } : {}) };
     },
   );
 
@@ -840,7 +859,8 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         // обоих через одну и ту же транзакцию, а не гонку снимков.
         const rows = await withAdvisoryLocks([sprintId], async (client) => {
           const res = await client.query<IssueRow>(
-            `UPDATE issues SET sprint_id = $2
+            `UPDATE issues SET sprint_id = $2,
+                  updated_at = CASE WHEN sprint_id IS DISTINCT FROM $2::uuid THEN ${ISSUE_VERSION_SQL} ELSE updated_at END
                 WHERE id = $1
                   AND EXISTS (SELECT 1 FROM sprints WHERE id = $2 AND project_id = $3 AND status <> 'completed')
               RETURNING *`,
@@ -857,7 +877,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       } else {
         // Снятие со спринта не завязано на его состояние — лок не нужен,
         // как и withIssueParentLock не нужен для снятия parentId.
-        row = (await q<IssueRow>(`UPDATE issues SET sprint_id = NULL WHERE id = $1 RETURNING *`, [iss.id]))[0];
+        row = (await q<IssueRow>(`UPDATE issues SET sprint_id = NULL, updated_at = CASE WHEN sprint_id IS NOT NULL THEN ${ISSUE_VERSION_SQL} ELSE updated_at END WHERE id = $1 RETURNING *`, [iss.id]))[0];
       }
       await auditFromRequest(req, "issue.sprint.move", "issue", iss.id, { key: iss.key, sprintId: body.sprintId });
       return mapIssue(row, await listAssigneeIds(iss.id));
