@@ -2,7 +2,7 @@
 // пресеты пружин укладываются в 500 мс успокоения.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { spring } from "motion";
-import { EXIT, SPRING, SPRING_ENTER, SPRING_POP, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion, userReducedMotion } from "./motion";
+import { COUNT_MS, EXIT, MOTION, SPRING, SPRING_ENTER, SPRING_POP, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion, userReducedMotion } from "./motion";
 import { createEnterTracker } from "./listEnter";
 
 const systemReduce = (on: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: on && q.includes("reduce") }));
@@ -415,4 +415,17 @@ describe("delayed FLIP budget (Track O A-04)", () => {
     const settled = spring.applyToOptions!({ ...SPRING_ENTER }) as { duration: number };
     expect(settled.duration + options.delay * 1000).toBeLessThanOrEqual(450);
   });
+});
+
+
+test("C-06: public presets are aliases of the one MOTION registry", () => {
+  expect(SPRING).toBe(MOTION.spring);
+  expect(SPRING_ENTER).toBe(MOTION.enter);
+  expect(SPRING_POP).toBe(MOTION.pop);
+  expect(EXIT).toBe(MOTION.exit);
+  expect(COUNT_MS).toBe(MOTION.count);
+  const el = card();
+  vi.mocked(el.animate).mockReturnValue({ cancel: vi.fn(), addEventListener: vi.fn() } as unknown as Animation);
+  flash(el);
+  expect(vi.mocked(el.animate).mock.calls[0][1]).toMatchObject({ duration: MOTION.flash });
 });

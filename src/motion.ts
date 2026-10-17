@@ -62,10 +62,19 @@ export function motionReduced(): boolean {
 /** Пресеты пружин (visualDuration — токены: --dur-4 = 300 мс, между --dur-3 и --dur-4 = 250 мс). Полное время
  *  успокоения, которое motion закладывает в WAAPI `duration` + `linear()`, — не дольше 500 мс (проверяет
  *  motion.test.ts тем же `spring.applyToOptions`). */
-export const SPRING = { visualDuration: 0.3, bounce: 0.15 } as const; // ≈ 500 мс, перелёт ≈ 2 %
-export const SPRING_ENTER = { visualDuration: 0.25, bounce: 0.1 } as const; // ≈ 330 мс
-/** Уход быстрее появления: --dur-3, без пружины. `duration` у motion — в секундах. */
-export const EXIT = { duration: 0.2, ease: [0.4, 0, 1, 1] as [number, number, number, number] };
+export const MOTION = {
+  spring: { visualDuration: 0.3, bounce: 0.15 },
+  enter: { visualDuration: 0.25, bounce: 0.1 },
+  pop: { visualDuration: 0.25, bounce: 0.3 },
+  exit: { duration: 0.2, ease: [0.4, 0, 1, 1] as [number, number, number, number] },
+  flash: 300,
+  count: 300,
+} as const;
+// Public aliases retain existing callers; each preset has one runtime object in MOTION.
+export const SPRING = MOTION.spring;
+export const SPRING_ENTER = MOTION.enter;
+/** Уход быстрее появления: --dur-3, без пружины. У motion duration — в секундах. */
+export const EXIT = MOTION.exit;
 
 let engine: Engine | null = null;
 let loading: Promise<Engine | null> | null = null;
@@ -210,7 +219,7 @@ const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [s
   pop: { opacity: [0.5, 1], transform: ["scale(0.55)", "none"] },
 };
 /** Бейдж «подпрыгивает» заметнее остального: больше перелёт. */
-export const SPRING_POP = { visualDuration: 0.25, bounce: 0.3 } as const; // ≤ 500 мс успокоения (проверяет motion.test.ts)
+export const SPRING_POP = MOTION.pop; // ≤ 500 мс успокоения (проверяет motion.test.ts)
 export function enter(el: HTMLElement, kind: EnterKind = "rise"): void {
   if (motionReduced() || typeof el.animate !== "function") return;
   const e = ready();
@@ -234,7 +243,7 @@ export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<
  *  `textContent` и дерево доступности всё время содержат итог, а читатель с экрана и одноразовые чтения e2e не видят
  *  промежуточных значений. Кадры — `requestAnimationFrame`, без React-состояния. Движение уменьшено или нечего расти —
  *  ничего не делает (итог уже на экране). Возвращает отмену (снимает атрибуты и кадр; безопасно вызывать повторно). */
-export const COUNT_MS = 300;
+export const COUNT_MS = MOTION.count;
 export function countTo(el: HTMLElement, from: number, to: number, format: (n: number) => string = String): () => void {
   if (motionReduced() || typeof requestAnimationFrame !== "function" || !(to > from) || !Number.isFinite(to - from)) return () => undefined;
   let raf = 0;
@@ -265,7 +274,7 @@ export function flash(el: HTMLElement): void {
   if (motionReduced() || typeof el.animate !== "function") return;
   // Повторная смена значения заменяет подсветку, а не накладывает ещё одну (отдельно от `track`: тот ведёт transform).
   flashing.get(el)?.cancel();
-  const a = safe(() => el.animate([{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }], { duration: 300, easing: "ease-out" }));
+  const a = safe(() => el.animate([{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }], { duration: MOTION.flash, easing: "ease-out" }));
   if (a) {
     flashing.set(el, a);
     const forget = () => { if (flashing.get(el) === a) flashing.delete(el); };
