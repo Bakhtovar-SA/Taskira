@@ -1098,21 +1098,57 @@ button {
   }
 }
 
-/* Личный выключатель «Уменьшить движение» (ADR-0035, FIX-02/IMP-05): `data-motion="reduce"` на <html> ставит
-   `public/theme-init.js` до первой отрисовки и `setReducedMotion()` при переключении. Одно общее правило вместо копии
-   каждого переопределения под prefers-reduced-motion: все CSS-анимации и переходы мгновенны (конечный кадр
-   остаётся), прокрутка без плавности. Исключение — индикаторы, чья неподвижность выглядела бы как зависание:
-   спиннер и неопределённый прогресс. Остальные бесконечные анимации декоративны (блик скелетона `shimmer`/`dsShimmer`,
-   бегущий пунктир `wfFlow` и `roadmap-dash`): под выключателем скелетон — статичная заглушка, пунктир — неподвижный.
-   Стартовую заставку `splash.ts` под выключателем снимает сразу. Системная настройка по-прежнему обслуживается блоками выше. */
+/* Track O, regression found by A-08: both reduce modes stop finite CSS, including
+   paint transitions, determinate progress and native-dialog ::backdrop. Process
+   spinner/indeterminate-progress loops remain running; decorative loops stop. */
+@media (prefers-reduced-motion: reduce) {
+  html,
+  html *,
+  html::before,
+  html::after,
+  html *::before,
+  html *::after,
+  html *::backdrop {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+
+  html,
+  html :not(.ds-spinner, .ds-spinner *, .ds-progress[data-indeterminate] > span),
+  html :not(.ds-spinner, .ds-spinner *, .ds-progress[data-indeterminate] > span)::before,
+  html :not(.ds-spinner, .ds-spinner *, .ds-progress[data-indeterminate] > span)::after,
+  html *::backdrop {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  /* ds.css disabled dsIndet under the system setting. Preserve the process signal
+     just as under the personal setting, with its original timing. */
+  html .ds-progress[data-indeterminate] > span {
+    animation: dsIndet 1.2s var(--ease-in-out) infinite;
+  }
+}
+
 html[data-motion="reduce"],
-html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-progress *),
-html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-progress *)::before,
-html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress, .ds-progress *)::after {
-  animation-duration: 0s !important;
-  animation-delay: 0s !important;
-  animation-iteration-count: 1 !important;
+html[data-motion="reduce"] *,
+html[data-motion="reduce"]::before,
+html[data-motion="reduce"]::after,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after,
+html[data-motion="reduce"] *::backdrop {
   transition-duration: 0s !important;
   transition-delay: 0s !important;
   scroll-behavior: auto !important;
+}
+
+html[data-motion="reduce"],
+html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress[data-indeterminate] > span),
+html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress[data-indeterminate] > span)::before,
+html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress[data-indeterminate] > span)::after,
+html[data-motion="reduce"] *::backdrop {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
 }

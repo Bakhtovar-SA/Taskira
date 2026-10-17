@@ -23,6 +23,11 @@ if (import.meta.env.DEV && location.pathname.replace(/\/$/, "") === "/dev/ui") {
     root.render(<DevUI />);
     dismissSplash();
   });
+} else if (import.meta.env.DEV && location.pathname.replace(/\/$/, "") === "/dev/motion") {
+  void import("./dev/DevMotion").then(({ default: DevMotion }) => {
+    root.render(<I18nProvider><DevMotion /></I18nProvider>);
+    dismissSplash();
+  });
 } else if (import.meta.env.DEV && location.pathname.replace(/\/$/, "") === "/dev/import") {
   void import("./dev/ImportPreview").then(({ default: ImportPreview }) => {
     root.render(<ImportPreview />);
