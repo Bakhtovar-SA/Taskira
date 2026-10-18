@@ -36,3 +36,5 @@ Gzip продукта против ff9c8ff, байты:
 17.10, итоговая интеграция: полный axe календаря обнаружил region-нарушение нового body portal. Visual host получает именованный region с текущей локализованной подписью уведомлений; live announcements сохраняют отдельный status и не дублируются. Затронутые browser/axe и keyboard проверки повторяются после исправления.
 
 После landmark-исправления: production20/20 PASS (6calendar,7Undo,3success,4toast), включая полный axe четырёх тем/языков; прежние assertions и CSP сохранены. 17.10.2026.
+
+18.10: CI полной серверной матрицы обнаружил три строгих legacy assertions bulk-ответа. Они теперь явно проверяют additive undo (previous status + ISO stamp; пустой массив при отказе), прежние succeeded/failed, события и IDOR остаются строгими. Локально PostgreSQL17.11: activity, integrationOutbox, access/crossProject, issuesUndo —4 файла /160 тестов PASS. Кластер остановлен. Runtime не менялся.
