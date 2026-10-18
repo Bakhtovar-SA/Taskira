@@ -5,11 +5,15 @@ import { loadMotion, settle } from "./motion-helpers";
 
 test.setTimeout(90_000);
 type Mode = "normal" | "system" | "personal";
+declare global { interface Window { __b04NativeTimers?: { setTimeout: typeof window.setTimeout; clearTimeout: typeof window.clearTimeout }; } }
+const installedClocks = new WeakSet<Page>();
 const ALLOW_LOOPS = new Set(["dsSpin", "dsIndet", "shimmer", "dsShimmer"]);
 async function mode(page: Page, value: Mode) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: value === "system" ? "reduce" : "no-preference" });
   await page.addInitScript(personal => {
+    // Capture before page.clock patches timers. Only axe borrows these while product guards stay frozen.
+    window.__b04NativeTimers = { setTimeout: window.setTimeout.bind(window), clearTimeout: window.clearTimeout.bind(window) };
     if (personal) localStorage.setItem("taskira.reduceMotion", "1");
     else localStorage.removeItem("taskira.reduceMotion");
   }, value === "personal");
@@ -25,10 +29,15 @@ async function noMotion(page: Page) {
   await expect(page.locator(".flip-flight, .list-row-ghost, .count-up[data-counting]")).toHaveCount(0);
 }
 async function copies(page: Page, selector: string) {
-  const rows = await page.locator(selector).evaluateAll(nodes => nodes.map(node => ({
-    hidden: node.getAttribute("aria-hidden"), inert: node.hasAttribute("inert"),
-    ids: [node, ...node.querySelectorAll("[id]")].filter(el => el.hasAttribute("id")).map(el => el.id),
-  })));
+  await expect(page.locator(selector).first()).toBeAttached();
+  const rows = await page.locator(selector).evaluateAll(nodes => nodes.map(node => {
+    // boardFlip hides its wrapper from AX, and makes the actual cloned article inert.
+    // listExit places both attributes directly on its cloned row. Check effective semantics.
+    const clone = node.matches(".flip-flight") ? node.firstElementChild : node;
+    return { hidden: clone?.closest("[aria-hidden='true']")?.getAttribute("aria-hidden") ?? null,
+      inert: !!clone?.closest("[inert]"),
+      ids: [node, ...node.querySelectorAll("[id]")].filter(el => el.hasAttribute("id")).map(el => el.id) };
+  }));
   expect(rows.length).toBeGreaterThan(0);
   for (const row of rows) expect(row).toEqual({ hidden: "true", inert: true, ids: [] });
   expect(await page.locator("[id]").evaluateAll(nodes => {
@@ -40,8 +49,8 @@ async function copies(page: Page, selector: string) {
  *  The actual click remains trusted; force bypasses RAF stability only because its clock is paused. */
 async function midpoint(page: Page, scope: string, action: () => Promise<unknown>, inspect: () => Promise<void>) {
   await settle(page);
-  await page.clock.install();
-  await page.clock.pauseAt(new Date());
+  if (!installedClocks.has(page)) { await page.clock.install(); installedClocks.add(page); }
+  await page.clock.pauseAt(new Date(Date.now() + 60_000));
   const hook = await page.evaluateHandle(selector => {
     type Held = { animation: Animation; target: Element; delay: number; activeDuration: number; midpoint: number;
       finished: "pending" | "resolved" | "rejected"; finishEvents: number; cancelEvents: number;
@@ -72,7 +81,7 @@ async function midpoint(page: Page, scope: string, action: () => Promise<unknown
       animation.ready.then(() => { if (animation.playState === "paused") animation.currentTime = midpoint; },
         () => { errors.push("Native midpoint pause did not become ready"); });
     };
-    const patched: typeof Element.prototype.animate = function (frames, options) {
+    const patched: typeof Element.prototype.animate = function (this: Element, frames, options) {
       const animation = original.call(this, frames, options); hold(animation); return animation;
     };
     Element.prototype.animate = patched;
@@ -98,6 +107,7 @@ async function midpoint(page: Page, scope: string, action: () => Promise<unknown
       },
     };
   }, scope);
+  let failed = false;
   try {
     await action();
     await page.clock.runFor(32);
@@ -113,15 +123,34 @@ async function midpoint(page: Page, scope: string, action: () => Promise<unknown
     }
     await test.info().attach("Native midpoint proof", { body: JSON.stringify({ scope, ...proof }), contentType: "application/json" });
     await inspect();
-  } finally {
-    await hook.evaluate(h => h.cleanup()); await hook.dispose(); await page.clock.resume();
+  } catch (error) { failed = true; throw error; } finally {
+    // Preserve the original diagnostic if the runner closes a timed-out page.
+    try {
+      if (!page.isClosed()) await hook.evaluate(h => h.cleanup());
+      await hook.dispose();
+      if (!page.isClosed()) await page.clock.resume();
+    } catch (error) { if (!failed) throw error; }
   }
   await settle(page);
 }
 async function axe(page: Page, include?: string) {
   const builder = new AxeBuilder({ page });
   if (include) builder.include(include);
-  expect((await builder.analyze()).violations).toEqual([]);
+  const scheduler = await page.evaluateHandle(() => {
+    const native = window.__b04NativeTimers;
+    if (!native) throw new Error("B04 native axe scheduler was not captured before clock installation");
+    const mocked = { setTimeout: window.setTimeout, clearTimeout: window.clearTimeout };
+    // axe yields through setTimeout; its own work must run while existing product timer IDs stay frozen.
+    window.setTimeout = native.setTimeout; window.clearTimeout = native.clearTimeout;
+    return { restore: () => { window.setTimeout = mocked.setTimeout; window.clearTimeout = mocked.clearTimeout; } };
+  });
+  let failed = false;
+  try { expect((await builder.analyze()).violations).toEqual([]); }
+  catch (error) { failed = true; throw error; }
+  finally {
+    try { if (!page.isClosed()) await scheduler.evaluate(s => s.restore()); await scheduler.dispose(); }
+    catch (error) { if (!failed) throw error; }
+  }
 }
 async function inbox(page: Page, reduced = false) {
   const base = await boardFixture(page);
@@ -166,6 +195,12 @@ test("B04 live inbox: axe and inert ghosts at midpoint, middle/last focus", asyn
 async function board(page: Page, reduced = false) {
   const fixture = await boardFixture(page);
   const writes = { single: 0, bulk: 0 };
+  // Board list responses do not populate the store's single-issue cache: M resolves GET first.
+  await page.route("**/api/projects/p1/issues/*", route => {
+    const id = new URL(route.request().url()).pathname.split("/").at(-1);
+    const issue = fixture.issues.find(item => item.id === id);
+    return route.request().method() === "GET" && issue ? route.fulfill({ json: issue }) : route.fallback();
+  });
   await page.route("**/api/projects/p1/issues/*/transition", async route => {
     writes.single++;
     const id = new URL(route.request().url()).pathname.split("/").at(-2);
@@ -189,7 +224,7 @@ for (const value of ["normal", "system", "personal"] as const) test(`B04 live bo
   const card = page.locator('article[data-issue-id="i1"] .board-card-open');
   await card.focus(); await page.keyboard.press("m");
   if (value === "normal") {
-    await midpoint(page, ".flip-flight, .board-view", () => page.getByRole("menuitem", { name: "В работе", exact: true }).click({ force: true }), async () => {
+    await midpoint(page, ".flip-flight", () => page.getByRole("menuitem", { name: "В работе", exact: true }).click({ force: true }), async () => {
       await copies(page, ".flip-flight"); await axe(page);
     });
   } else {
