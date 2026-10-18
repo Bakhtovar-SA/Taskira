@@ -131,8 +131,12 @@ async function measure(browser, profileName, profile, spec, run, dependencies, o
   await page.addInitScript(() => { window.__motionCspViolations = []; document.addEventListener('securitypolicyviolation', event => window.__motionCspViolations.push({ directive: event.violatedDirective, blockedURI: event.blockedURI })); });
   try {
     session = await context.newCDPSession(page);
-    await session.send('Emulation.setCPUThrottlingRate', { rate: profile.rate });
+    await session.send('Emulation.setCPUThrottlingRate', { rate: 1 });
     prepared = await prepare(page, spec, dependencies);
+    await session.send('Emulation.setCPUThrottlingRate', { rate: profile.rate });
+    await dependencies.settle(page, 60000);
+    row.setupCpuRate = 1;
+    row.actionCpuRate = profile.rate;
     row.setup = prepared.info;
     row.nativeClocks = await page.evaluate(() => ({ performance: performance.now.toString().includes('[native code]'), mark: performance.mark.toString().includes('[native code]'), raf: requestAnimationFrame.toString().includes('[native code]') }));
     if (Object.values(row.nativeClocks).some(native => !native)) throw new Error('Benchmark requires native performance/mark/RAF; a fixture installed a fake clock');
