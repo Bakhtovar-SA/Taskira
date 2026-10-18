@@ -35,7 +35,7 @@ Production build после landmark исправления: total440678, JS4016
 | [219](https://github.com/Bakhtovar-SA/Taskira/pull/219) | D04 календарь после native/focus spike |
 | [220](https://github.com/Bakhtovar-SA/Taskira/pull/220) | D08а старые закрытые; C07 #205 и W0 #193 |
 
-На18.10 CI десяти новых PR зелёный. #213 обновлён после contract assertions и повторяет CI; #219 обновлён после20/20 production повторов старого performance drag setup и повторяет CI. Не заменять фактический CI статус этим снимком.
+На18.10 CI #209–220 зелёный, включая полный PostgreSQL14–17 matrix Undo и календарный ui-visual. Не заменять фактический CI статус этим снимком.
 
 ## Открыто
 
