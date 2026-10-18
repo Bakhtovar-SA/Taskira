@@ -203,7 +203,10 @@ export async function saveMidpoint(page: Page, testInfo: TestInfo, name: string,
 }
 export async function saveProof(testInfo: TestInfo, capture: string | null, name: string, proof: unknown): Promise<void> {
   const body = JSON.stringify(proof, null, 2);
-  await testInfo.attach("midpoint proof", { body, contentType: "application/json" });
+  const proofPath = testInfo.outputPath(name.replace(/\.png$/, ".proof.json"));
+  await mkdir(dirname(proofPath), { recursive: true });
+  await writeFile(proofPath, body + "\n");
+  await testInfo.attach("midpoint proof", { path: proofPath, contentType: "application/json" });
   if (capture) {
     await mkdir(capture, { recursive: true });
     await writeFile(join(capture, name.replace(/\.png$/, ".proof.json")), body + "\n");

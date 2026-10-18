@@ -46,6 +46,7 @@ for (const theme of ["light", "dark"] as const) for (const scene of scenes) {
           await expect(page.locator(".flip-flight")).toHaveCount(1);
         } else if (scene.name === "list-ghost") {
           await expect(page.locator(".list-row-ghost")).toHaveCount(1);
+          await expect(page.locator(".list-row-ghost")).toBeInViewport({ ratio: 1 });
           await expect(page.locator(".list-row-ghost")).toHaveAttribute("aria-hidden", "true");
           await expect(page.locator(".list-row-ghost")).toHaveAttribute("inert", "");
         }
