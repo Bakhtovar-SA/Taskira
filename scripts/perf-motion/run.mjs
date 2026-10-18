@@ -2,6 +2,7 @@
 /** Manual-only production benchmark. No app runtime switches, dependencies, or CI integration. */
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, stat, mkdtemp } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -122,7 +123,7 @@ async function measure(browser, profileName, profile, spec, run, dependencies, o
   const reason = unavailable(spec, dependencies.facts);
   if (reason) return { ...row, reason };
   const context = await browser.newContext({ baseURL: server.baseURL, viewport: profile.viewport, deviceScaleFactor: profile.deviceScaleFactor, reducedMotion: 'no-preference', locale: 'ru-RU', serviceWorkers: 'block' });
-  const page = await context.newPage(); page.setDefaultTimeout(20_000);
+  const page = await context.newPage(); page.setDefaultTimeout(60_000); page.setDefaultNavigationTimeout(60_000);
   let prepared, session, tracing = false;
   const errors = [], violations = [];
   page.on('pageerror', error => errors.push(String(error)));
@@ -214,10 +215,16 @@ async function main() {
     tsImport(pathToFileURL(join(opts.repo, 'server/src/contract.ts')).href, import.meta.url),
   ]);
   const facts = await sourceFacts(opts.repo, contract.LIMITS.widgetsPerDashboard);
-  const dependencies = { boardFixture, ...helpers, maxWidgets: facts.maxWidgets, facts };
+  const loadMotion = async page => {
+    const response = await page.waitForResponse(r => /motionEngine/.test(r.url()) && r.request().resourceType() === 'script', { timeout: 60_000 });
+    if (!response.ok()) throw new Error('Motion engine failed to load');
+    await response.finished(); await page.evaluate(async url => { await import(url); }, response.url());
+    await helpers.settle(page, 60_000);
+  };
+  const dependencies = { boardFixture, ...helpers, loadMotion, maxWidgets: facts.maxWidgets, facts };
   await mkdir(dirname(opts.output), { recursive: true });
   const server = await startServer(opts);
-  const report = { schemaVersion: 1, startedAt: new Date().toISOString(), finishedAt: null,
+  const report = { schemaVersion: 1, plannedAttempts: opts.profiles.length * opts.scenarios.length * opts.runs, startedAt: new Date().toISOString(), finishedAt: null,
     repo: opts.repo, dist: opts.dist, sourceCommit: git(opts.repo, ['rev-parse', 'HEAD']), sourceDirty: git(opts.repo, ['status', '--porcelain']),
     toolCommit: git(toolRoot, ['rev-parse', 'HEAD']), toolDirty: git(toolRoot, ['status', '--porcelain']),
     build: { indexSha256: server.indexSha256, indexModifiedAt: server.indexModifiedAt, provenance: 'Checkout commit is recorded separately; a dist supplied by the operator is not assumed to have been built from that commit.' },
@@ -237,7 +244,7 @@ async function main() {
   process.once('SIGINT', onSignal); process.once('SIGTERM', onSignal);
   try {
     for (const profileName of opts.profiles) {
-      if (stopping) break;
+      if (stopping || existsSync(opts.output + '.stop')) { stopping = true; process.exitCode = 130; break; }
       const profile = PROFILES[profileName];
       const browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), args: profile.args });
       activeBrowser = browser;

@@ -24,16 +24,22 @@ export function unavailable(spec, facts) {
 async function loadAll(page, selector, expected) {
   await page.locator(selector).first().waitFor();
   for (let attempt = 0; attempt < 20; attempt++) {
-    if (await page.locator(selector).count() === expected) return;
-    const more = page.getByRole('button', { name: /Показать ещё/ });
-    if (await more.count()) await more.first().click();
-    else {
-      // Sentinel pagination may still be in flight. Never inflate the API's page size.
-      await page.locator(selector).last().scrollIntoViewIfNeeded();
-      await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length === expected || [...document.querySelectorAll('button')].some(b => b.textContent?.includes('Показать ещё')), { selector, expected }, { timeout: 20_000 });
-    }
+    const before = await page.locator(selector).count();
+    if (before === expected) return;
+    requireThat(before < expected, 'Pagination returned too many nodes');
+    // Scroll reaches the real sentinel. A pending observer can detach its More button;
+    // focusing a live visible button and sending native Enter avoids a stale click retry.
+    await page.locator(selector).last().scrollIntoViewIfNeeded();
+    const focused = await page.evaluate(({ selector, expected }) => {
+      if (document.querySelectorAll(selector).length >= expected) return false;
+      const button = [...document.querySelectorAll('button')].find(b => b.textContent?.includes('Показать ещё') && !b.disabled && b.getClientRects().length);
+      if (!button) return false;
+      button.focus(); return document.activeElement === button;
+    }, { selector, expected });
+    if (focused) await page.keyboard.press('Enter');
+    await page.waitForFunction(({ selector, before }) => document.querySelectorAll(selector).length > before, { selector, before }, { timeout: 60_000 });
   }
-  requireThat(await page.locator(selector).count() === expected, 'Real pagination did not render the requested ' + expected + ' nodes');
+  requireThat(await page.locator(selector).count() === expected, 'Real pagination did not render requested nodes');
 }
 async function top(page) {
   // Setup only. Real scenario scrolling uses mouse.wheel, never a synthetic scroll event.
@@ -129,6 +135,8 @@ export async function prepare(page, spec, { boardFixture, loadMotion, settle, se
     const lane = page.locator('[data-issue-id="i2"]').locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " board-col-body ")][1]');
     const rect = await lane.boundingBox();
     const startScroll = await lane.evaluate(el => el.scrollTop);
+    await page.getByRole('menuitem', { name: 'В работе', exact: true }).focus();
+    await page.mouse.move(rect.x + rect.width / 2, rect.y + Math.min(140, rect.height / 2));
     info.variant = '40 cards across four columns keeps affected rows below cap40; M move, trusted native wheel during an actual .flip-flight child animation, then next M commit';
     await page.evaluate(() => {
       window.__motionScenario = { wheel: null };
@@ -141,9 +149,8 @@ export async function prepare(page, spec, { boardFixture, loadMotion, settle, se
       }, { once: true, capture: true, passive: true });
     });
     action = async () => {
-      await page.getByRole('menuitem', { name: 'В работе', exact: true }).click();
+      await page.keyboard.press('Enter');
       await page.waitForFunction(() => [...document.querySelectorAll('.flip-flight')].some(node => node.getAnimations({ subtree: true }).some(a => a.playState === 'running')), null, { timeout: 3000 });
-      await page.mouse.move(rect.x + rect.width / 2, rect.y + Math.min(140, rect.height / 2));
       await settleScroll(lane, { trigger: () => page.mouse.wheel(0, 260), timeout: 20_000 });
       const overlap = await page.evaluate(() => window.__motionScenario.wheel);
       requireThat(overlap?.trusted && overlap.running > 0, 'No real card spring overlapped the trusted wheel event');

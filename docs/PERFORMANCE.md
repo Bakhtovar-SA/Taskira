@@ -705,3 +705,5 @@ CDP trace содержит devtools.timeline и стеки. В JSON остают
 плохо>150, event weak≤200, weak кадров>50≤1 / плохо≥3, peak≤40, forced layout≤2/commit)
 остаются предложением для владельца: они не утверждены, не стали CI/runtime ограничениями
 и не применяются автоматически к прокси Layout за всё окно.
+
+18.10: в первом полном диагностическом прогоне slow setup обнаружил гонку More-button с автоматическим sentinel и10s ожидание motion chunk. Этот незавершённый raw сохраняется отдельно; его setup failures не объявляются latency продукта. Pagination использует настоящий sentinel и native Enter на живой кнопке; ответы API по-прежнему ограничены реальным limit. Control/setup timeout60s не меняет900ms измеряемое окно или runtime durations. Для мягкой остановки создать <output>.stop: инструмент завершит текущую попытку и закроет свои browser/preview. S9 pointer ставится над колонкой до native Enter подтверждения статуса; running-overlap требование не ослабляется.
