@@ -5,7 +5,7 @@ import { onThemeChosen, setProjectBackground } from "./theme";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
 import Sidebar from "./components/Sidebar";
-import Topbar from "./components/Topbar";
+import Topbar, { VIEW_LABEL } from "./components/Topbar";
 import GlobalTopbar from "./components/GlobalTopbar";
 import Board from "./components/Board";
 import LoginForm from "./components/LoginForm";
@@ -315,6 +315,7 @@ function Shell() {
           ) : issuePage ? (
             <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>
           ) : (<div key={ui.view} className="anim-view h-full">
+            {["backlog", "sprints", "reports", "dashboards", "collaborating"].includes(ui.view) && <h1 data-view-heading tabIndex={-1} className="sr-only">{t(VIEW_LABEL[ui.view])}</h1>}
             {ui.view === "overview" && <DashboardView mode="project" />}
             {ui.view === "board" && <Board key={data.currentProjectId} />}
             {ui.view === "backlog" && <Backlog key={data.currentProjectId} />}

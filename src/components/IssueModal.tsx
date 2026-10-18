@@ -1161,7 +1161,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
   const [editing, setEditing] = useState(false);
   useEffect(() => setDraft(issue.title), [issue.title, issue.id]);
 
-  if (readOnly) return <h2 className="px-0 py-1 issue-title font-bold leading-snug text-ink">{issue.title}</h2>;
+  if (readOnly) return <h2 data-view-heading className="px-0 py-1 issue-title font-bold leading-snug text-ink">{issue.title}</h2>;
 
   if (editing)
     return (
@@ -1189,7 +1189,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
   // Заголовок редактируется по клику, но должен открываться и с клавиатуры:
   // без tabIndex/роли переименовать задачу без мыши было нельзя (аудит UX-04).
   return (
-    <h2 className="-mx-2">
+    <h2 data-view-heading className="-mx-2">
       <span
         role="button"
         tabIndex={0}
