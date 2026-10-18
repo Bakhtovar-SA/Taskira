@@ -43,29 +43,75 @@ async function midpoint(page: Page, scope: string, action: () => Promise<unknown
   await page.clock.install();
   await page.clock.pauseAt(new Date());
   const hook = await page.evaluateHandle(selector => {
-    const held = new Set<Animation>();
+    type Held = { animation: Animation; target: Element; delay: number; activeDuration: number; midpoint: number;
+      finished: "pending" | "resolved" | "rejected"; finishEvents: number; cancelEvents: number;
+      onFinish: () => void; onCancel: () => void };
+    const held = new Map<Animation, Held>();
+    const errors: string[] = [];
     const original = Element.prototype.animate;
     const belongs = (element: Element) => element.matches(selector) || !!element.closest(selector);
     const hold = (animation: Animation) => {
+      if (held.has(animation)) return;
       const target = (animation.effect as KeyframeEffect | null)?.target;
-      const end = Number(animation.effect?.getComputedTiming().endTime);
-      if (!(target instanceof Element) || !belongs(target) || !Number.isFinite(end) || end <= 0) return;
-      animation.pause(); animation.currentTime = end / 2; held.add(animation);
+      if (!(target instanceof Element) || !belongs(target)) return;
+      const timing = animation.effect?.getComputedTiming();
+      if (!timing || timing.iterations === Infinity) return;
+      const delay = Number(timing.delay), activeDuration = Number(timing.activeDuration);
+      const midpoint = delay + activeDuration / 2;
+      if (!Number.isFinite(delay) || !Number.isFinite(activeDuration) || activeDuration <= 0 ||
+        !Number.isFinite(Number(timing.endTime)) || !Number.isFinite(midpoint) || midpoint < 0) {
+        errors.push("Scoped effect has no finite reachable active midpoint"); return;
+      }
+      const record: Held = { animation, target, delay, activeDuration, midpoint, finished: "pending", finishEvents: 0, cancelEvents: 0,
+        onFinish: () => { record.finishEvents++; }, onCancel: () => { record.cancelEvents++; } };
+      held.set(animation, record);
+      // Observe the ORIGINAL native promise/events: no fabricated Animation or replacement onfinish.
+      animation.finished.then(() => { record.finished = "resolved"; }, () => { record.finished = "rejected"; });
+      animation.addEventListener("finish", record.onFinish); animation.addEventListener("cancel", record.onCancel);
+      animation.pause(); animation.currentTime = midpoint;
+      animation.ready.then(() => { if (animation.playState === "paused") animation.currentTime = midpoint; },
+        () => { errors.push("Native midpoint pause did not become ready"); });
     };
-    Element.prototype.animate = function (...args: Parameters<Element["animate"]>) {
-      const animation = original.apply(this, args); hold(animation); return animation;
+    const patched: typeof Element.prototype.animate = function (frames, options) {
+      const animation = original.call(this, frames, options); hold(animation); return animation;
     };
+    Element.prototype.animate = patched;
     const observer = new MutationObserver(() => document.getAnimations().forEach(hold));
     observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
     return {
-      count: () => [...held].filter(a => a.playState === "paused").length,
-      cleanup: () => { observer.disconnect(); Element.prototype.animate = original; for (const a of held) if (a.playState === "paused") a.play(); },
+      count: () => held.size,
+      proof: async () => {
+        await Promise.all([...held.keys()].map(animation => animation.ready));
+        return { errors, records: [...held.values()].map(record => ({
+          nativeAnimation: record.animation instanceof Animation, nativeEffect: record.animation.effect instanceof KeyframeEffect,
+          connected: record.target.isConnected, delay: record.delay, activeDuration: record.activeDuration, midpoint: record.midpoint,
+          currentTime: record.animation.currentTime, state: record.animation.playState, finished: record.finished,
+          finishEvents: record.finishEvents, cancelEvents: record.cancelEvents,
+        })) };
+      },
+      cleanup: () => {
+        observer.disconnect(); if (Element.prototype.animate === patched) Element.prototype.animate = original;
+        for (const record of held.values()) {
+          record.animation.removeEventListener("finish", record.onFinish); record.animation.removeEventListener("cancel", record.onCancel);
+          if (record.animation.playState === "paused") record.animation.play();
+        }
+      },
     };
   }, scope);
   try {
     await action();
     await page.clock.runFor(32);
     await expect.poll(() => hook.evaluate(h => h.count()), { message: "The scoped animation is held halfway" }).toBeGreaterThan(0);
+    const proof = await hook.evaluate(h => h.proof());
+    expect(proof.errors).toEqual([]);
+    for (const record of proof.records) {
+      expect(record.nativeAnimation).toBe(true); expect(record.nativeEffect).toBe(true);
+      expect(record.connected).toBe(true); expect(record.state).toBe("paused");
+      expect(record.finished).toBe("pending"); expect(record.finishEvents).toBe(0); expect(record.cancelEvents).toBe(0);
+      expect(typeof record.currentTime).toBe("number");
+      expect(Number(record.currentTime)).toBeCloseTo(record.delay + record.activeDuration / 2, 5);
+    }
+    await test.info().attach("Native midpoint proof", { body: JSON.stringify({ scope, ...proof }), contentType: "application/json" });
     await inspect();
   } finally {
     await hook.evaluate(h => h.cleanup()); await hook.dispose(); await page.clock.resume();

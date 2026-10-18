@@ -28,8 +28,8 @@ Runtime API, stores, animation timing, accessibility semantics and axe rules are
 
 Midpoint instrumentation freezes the test clock so the safety timer cannot remove a
 clone during axe on a slow computer. It intercepts native animate only within the
-selected scope; MutationObserver captures scoped CSS animations. It seeks to 50%,
-asserts a held effect, and always restores native animate, observer, animation playback
+selected scope; MutationObserver captures scoped CSS animations. It seeks to delay + activeDuration / 2 (50% of the active interval),
+asserts a real native Animation/KeyframeEffect, connected target, exact paused timestamp, unresolved original finished promise and zero finish/cancel events, attaches that proof, and always restores native animate, observer, animation playback
 and the clock in finally. Forced clicks bypass only RAF stability under the paused
 clock; they are browser pointer events, not dispatchEvent or mocked product handlers.
 No global CSS animation disabling, new longer product duration or axe exclusion is used.
