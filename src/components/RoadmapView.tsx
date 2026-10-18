@@ -176,7 +176,8 @@ const TimelineRow = memo(function TimelineRow({ y, p, span, scale, todayX, waits
   const progress = Math.min(1, Math.max(0, p.total ? p.done / p.total : 0));
   const confirmed = span?.solidFrom && span.solidTo ? scale.x(addDays(span.solidTo, 1)) - scale.x(span.solidFrom) : 0;
   const title = [p.name, `${p.startDate ? format(p.startDate, locale) : "…"} — ${p.targetDate ? format(p.targetDate, locale) : "…"}`, t("roadmap.progress", { done: p.done, total: p.total }), waits ? t("roadmap.waits", { names: waits }) : ""].filter(Boolean).join(" · ");
-  const before = !!span && x(span.from) + width < viewport.x + 16, after = !!span && x(span.from) > viewport.x + viewport.w - 16;
+  // Keep the connect handle until its entire 28px hit area leaves the viewport.
+  const before = !!span && x(span.from) + width + 28 < viewport.x, after = !!span && x(span.from) > viewport.x + viewport.w - 16;
   const candidates = projects.filter(target => target.canEdit && (connection.canTarget(p.id, target) || dependencies.some(d => d.sourceId === p.id && d.dependentId === target.id)));
   return <div className="rm-row roadmap-timeline-row" data-project-id={p.id} data-tone={p.color ?? projectTone(p.key)} ref={cssVars({ "--row-y": y })}>
     {span ? <button data-complete={progress === 1 || undefined} className="roadmap-bar ds-focus" onClick={() => onOpen(p.id)} aria-label={title} title={title}
