@@ -233,6 +233,7 @@ async function main() {
       longtask: 'Observer entries overlapping nominal 900ms action window', event: 'Event Timing durationThreshold16; max is an input latency candidate, not field INP. No entries means 0 above API resolution.',
       frames: 'The RAF crossing 900ms is retained, including a long stall; actualWindowMs reports overshoot.',
       layouts: 'Stack-bearing Layout enclosed by EventDispatch is a forced-layout proxy. Counts cover the action window, not identified React commits; do not apply per-commit threshold automatically.',
+      setup: 'Fixture pagination, module warmup and scenario preparation run at CPU1 outside measurement; requested profile rate is applied before final settle, tracing and input. This is an interaction benchmark, not an initial-load benchmark.',
       overhead: 'RAF probe samples document.getAnimations and CountUp attributes; CDP stack tracing adds overhead. S9 additionally observes the wheel-time clone rect.', thresholds: 'Track O suggestions remain unapproved; no runtime budgets or pass/fail thresholds changed.' },
     browsers: {}, rows: [], summary: [] };
   const save = async () => { report.summary = summarize(report.rows); await writeFile(opts.output, JSON.stringify(report, null, 2) + '\n'); };
