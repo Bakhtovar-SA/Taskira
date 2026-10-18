@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { boardFixture } from "./board-fixture";
 import { loadMotion, settle } from "./motion-helpers";
 
@@ -7,6 +9,12 @@ test.setTimeout(90_000);
 type Mode = "normal" | "system" | "personal";
 const installedClocks = new WeakSet<Page>();
 const ALLOW_LOOPS = new Set(["dsSpin", "dsIndet", "shimmer", "dsShimmer"]);
+async function attachJson(name: string, value: unknown) {
+  const path = test.info().outputPath(`${name}-${test.info().attachments.length}.json`);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, JSON.stringify(value, null, 2) + "\n");
+  await test.info().attach(name, { path, contentType: "application/json" });
+}
 async function mode(page: Page, value: Mode) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: value === "system" ? "reduce" : "no-preference" });
@@ -118,7 +126,7 @@ async function midpoint(page: Page, scope: string, action: () => Promise<unknown
       expect(typeof record.currentTime).toBe("number");
       expect(Number(record.currentTime)).toBeCloseTo(record.delay + record.activeDuration / 2, 5);
     }
-    await test.info().attach("Native midpoint proof", { body: JSON.stringify({ scope, ...proof }), contentType: "application/json" });
+    await attachJson("native-midpoint-proof", { scope, ...proof });
     await inspect();
   } catch (error) { failed = true; throw error; } finally {
     // Preserve the original diagnostic if the runner closes a timed-out page.
@@ -295,7 +303,7 @@ for (const value of ["normal", "system", "personal"] as const) test(`B04 Chromiu
     visit(owner!.nodeId);
     const text = descendants.filter(n => !n.ignored && n.role?.value === "StaticText").map(n => String(n.name?.value ?? "")).filter(Boolean);
     expect(text).toEqual(["127"]);
-    await test.info().attach(`countup-AX-${value}`, { body: JSON.stringify(descendants), contentType: "application/json" });
+    await attachJson(`countup-AX-${value}`, descendants);
   } finally { await session.detach(); await page.clock.resume(); }
   await settle(page);
 });
