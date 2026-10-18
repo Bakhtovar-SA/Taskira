@@ -12,7 +12,7 @@ export const SCENARIOS = [
   { id: 'S7/views-1-2-3-4-5', kind: 'views', count: 200, sprints: true },
   { id: 'S8/poll-6', kind: 'poll', widgets: 6 },
   { id: 'S8/manual-refresh-6', kind: 'refresh', widgets: 6, supplemental: true },
-  { id: 'S9/card-spring-scroll', kind: 'flightScroll', count: 200 },
+  { id: 'S9/card-spring-scroll', kind: 'flightScroll', count: 40 },
   { id: 'S9/pending-move-sidebar-scroll', kind: 'scroll', count: 200, supplemental: true },
 ];
 const requireThat = (condition, message) => { if (!condition) throw new Error(message); };
@@ -129,7 +129,7 @@ export async function prepare(page, spec, { boardFixture, loadMotion, settle, se
     const lane = page.locator('[data-issue-id="i2"]').locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " board-col-body ")][1]');
     const rect = await lane.boundingBox();
     const startScroll = await lane.evaluate(el => el.scrollTop);
-    info.variant = 'M move, trusted native wheel during an actual .flip-flight child animation, then next M commit';
+    info.variant = '40 cards across four columns keeps affected rows below cap40; M move, trusted native wheel during an actual .flip-flight child animation, then next M commit';
     await page.evaluate(() => {
       window.__motionScenario = { wheel: null };
       document.addEventListener('wheel', event => {
