@@ -260,7 +260,7 @@ async function main() {
         report.browsers[profileName] = { version: browser.version(), gpu: gpu.gpu, launchArgs: profile.args };
         await browserSession.detach();
         for (let run = 1; run <= opts.runs; run++) for (const spec of opts.scenarios) {
-          if (stopping) break;
+          if (stopping || existsSync(opts.output + '.stop')) { stopping = true; process.exitCode = 130; break; }
           console.log(profileName + ' ' + spec.id + ' run ' + run + '/' + opts.runs);
           const row = await measure(browser, profileName, profile, spec, run, dependencies, opts, server);
           report.rows.push(row); await save();
