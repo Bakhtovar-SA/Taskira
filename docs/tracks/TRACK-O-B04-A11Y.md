@@ -27,8 +27,8 @@ Runtime API, stores, animation timing, accessibility semantics and axe rules are
   existing textContent tests and does not replace manual screen-reader verification.
 - Closing a dialog/panel during its held entrance restores the opening trigger.
 
-Midpoint instrumentation freezes the test clock so the safety timer cannot remove a
-clone during axe on a slow computer. It intercepts native animate only within the
+Midpoint instrumentation controls the test clock so the safety timer cannot remove a
+clone during axe on a slow computer (axe advances at most 400ms, below the 1000ms guard). It intercepts native animate only within the
 selected scope; MutationObserver captures scoped CSS animations. It seeks to delay + activeDuration / 2 (50% of the active interval),
 For boardFlip this means aria-hidden on the wrapper and inert on its cloned article (the actual runtime contract). It asserts a real native Animation/KeyframeEffect, connected target, exact paused timestamp, unresolved original finished promise and zero finish/cancel events, attaches that proof, and always restores native animate, observer, animation playback
 and the clock in finally. Forced clicks bypass only RAF stability under the paused
@@ -71,10 +71,11 @@ The 6 failures are not six proven runtime defects:
 
 - Inbox/dialog cases reached 90 seconds because axe itself schedules asynchronous work
   through setTimeout while the test had frozen that scheduler. Cleanup then obscured
-  the initial timeout with a closed-page error. The revised QA captures the original
-  browser timeout functions at document initialization and lends them to axe only for
-  its analysis; all previously scheduled product safety-guard timers remain in the
-  frozen test clock. The scheduler is restored in finally. No axe rule/options change.
+  the initial timeout with a closed-page error. The revised QA pumps at most 400 virtual milliseconds (1ms steps, with real Node
+  scheduling between them) while native motion stays paused. This permits axe async
+  work while staying below the unchanged 1000ms flight safety guard. Incomplete axe
+  work at that explicit budget fails with a diagnostic, rather than timing out at 90s.
+  No native timer function is guessed from init-script order, and no axe rule/options change.
   Cleanup preserves an original failure when the runner already closed the page.
 - Both reduced Board cases recorded zero transitions: single-issue GET was missing.
   Board page query results are not the store cache; moveStatus calls resolveIssue first.

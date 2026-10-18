@@ -5,15 +5,12 @@ import { loadMotion, settle } from "./motion-helpers";
 
 test.setTimeout(90_000);
 type Mode = "normal" | "system" | "personal";
-declare global { interface Window { __b04NativeTimers?: { setTimeout: typeof window.setTimeout; clearTimeout: typeof window.clearTimeout }; } }
 const installedClocks = new WeakSet<Page>();
 const ALLOW_LOOPS = new Set(["dsSpin", "dsIndet", "shimmer", "dsShimmer"]);
 async function mode(page: Page, value: Mode) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: value === "system" ? "reduce" : "no-preference" });
   await page.addInitScript(personal => {
-    // Capture before page.clock patches timers. Only axe borrows these while product guards stay frozen.
-    window.__b04NativeTimers = { setTimeout: window.setTimeout.bind(window), clearTimeout: window.clearTimeout.bind(window) };
     if (personal) localStorage.setItem("taskira.reduceMotion", "1");
     else localStorage.removeItem("taskira.reduceMotion");
   }, value === "personal");
@@ -136,21 +133,27 @@ async function midpoint(page: Page, scope: string, action: () => Promise<unknown
 async function axe(page: Page, include?: string) {
   const builder = new AxeBuilder({ page });
   if (include) builder.include(include);
-  const scheduler = await page.evaluateHandle(() => {
-    const native = window.__b04NativeTimers;
-    if (!native) throw new Error("B04 native axe scheduler was not captured before clock installation");
-    const mocked = { setTimeout: window.setTimeout, clearTimeout: window.clearTimeout };
-    // axe yields through setTimeout; its own work must run while existing product timer IDs stay frozen.
-    window.setTimeout = native.setTimeout; window.clearTimeout = native.clearTimeout;
-    return { restore: () => { window.setTimeout = mocked.setTimeout; window.clearTimeout = mocked.clearTimeout; } };
-  });
-  let failed = false;
-  try { expect((await builder.analyze()).violations).toEqual([]); }
-  catch (error) { failed = true; throw error; }
-  finally {
-    try { if (!page.isClosed()) await scheduler.evaluate(s => s.restore()); await scheduler.dispose(); }
-    catch (error) { if (!failed) throw error; }
+  // axe's async queue uses setTimeout. Move at most 400 virtual ms while the native
+  // effect stays paused: this is below boardFlip's unchanged 1000ms safety guard.
+  // Do not borrow "native" functions from init scripts: boardFixture.setFixedTime may
+  // already have installed Playwright's clock before document scripts execute.
+  if (!installedClocks.has(page)) { expect((await builder.analyze()).violations).toEqual([]); return; }
+  let completed = false;
+  let result: Awaited<ReturnType<AxeBuilder["analyze"]>> | undefined;
+  let failure: unknown;
+  const analysis = builder.analyze().then(value => { result = value; completed = true; }, error => { failure = error; completed = true; });
+  let advanced = 0;
+  while (!completed && advanced < 400) {
+    await page.clock.runFor(1); advanced++;
+    // Node-side scheduler remains real and permits CDP/network/axe work to complete.
+    await new Promise<void>(resolve => setTimeout(resolve, 25));
   }
+  expect(completed, "axe must finish before the 400ms virtual budget; product clone guard must never fire").toBe(true);
+  await analysis;
+  if (failure) throw failure;
+  expect(result).toBeDefined();
+  expect(result!.violations).toEqual([]);
+  await test.info().attach("Axe clock budget", { body: JSON.stringify({ advancedVirtualMs: advanced, flightGuardMs: 1000 }), contentType: "application/json" });
 }
 async function inbox(page: Page, reduced = false) {
   const base = await boardFixture(page);
