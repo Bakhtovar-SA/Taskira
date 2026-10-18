@@ -31,3 +31,7 @@ ISSUE_HERO_OUTPUT задаёт путь raw JSON и PNG. Зонд собирае
 - [ ] Приёмка внешнего вида владельцем; полная страница Inbox/My tasks/search, navigation screenshots и реальные cold routes после возможного подключения.
 
 До завершения gate результат не даёт разрешения подключать shared element в продукте. Cold target здесь намеренно fallback; нет искусственного продления native animation для успешного теста.
+
+## Независимая review-ветка18.10
+
+Выделена codex/track-o-shared-key-probe от A08 #202 с D17 #208, без остальных интеграционных тем. Повторены client typecheck,35 unit (26 baseline motion +9 D05), production build/budget,10 native CSP проб и весь DEV Stand9/9 PASS. Разница с50 unit выше — отсутствие15 тестов независимых C05/C06/C08 тем в этой минимальной базе. Normal production JS/CSS не содержат issue-hero/issueHeroSpike. Новых зависимостей нет. Продуктовые bindings, Safari/Firefox и приёмка владельца остаются открытыми; в продуктовую интеграцию прототип не добавлен.
