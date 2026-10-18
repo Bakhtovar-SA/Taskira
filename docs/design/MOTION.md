@@ -83,3 +83,16 @@ DEV-стенд `/dev/motion` (трек O A-08) вызывает настоящи
 анимируется последний. У одиночного переноса снимок живёт `TTL_MS` (3 с) от броска: если сервер подтверждает дольше,
 карточка проиграет вход вместо посадки. У массовой операции после ответа сервера окно продлевается на `RENEW_AHEAD_MS`
 (итого ≈ 10 с, `renewBoardFlip` в `boardFlip.ts`), и снимок закрывается после первого коммита с переездом.
+
+### 18.10.2026 · B-03: подготовлены midpoint-тесты; Linux эталоны ещё не получены
+
+`e2e/motion-stand.visual.pw.ts` содержит пять сцен × две темы с animations allow и допуском
+0.002. Test-only helper замораживает JS guard, scoped native WAAPI получает delay +
+activeDuration/2, CountUp выполняет настоящие RAF callbacks на 0 и COUNT_MS/2. Проверки
+удерживают finished pending и сравнивают состояние до/после PNG; затем снимают перехваты
+и возобновляют движение. DEV pause использует корректную формулу активной середины.
+
+Методика, D-temp capture-only и получение просмотренных Linux actual через существующий
+ui-visual описаны в [MOTION-MIDPOINTS.md](MOTION-MIDPOINTS.md). На момент этой записи тесты,
+typecheck/build/browser **не запускались**, baseline PNG отсутствуют; B-03/B-04 и manual QA
+не закрыты. Новый workflow и ADR не создавались, production motion API/таймауты не менялись.

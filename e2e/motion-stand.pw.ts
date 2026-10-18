@@ -156,7 +156,7 @@ test("motion stand: pause, slow playback and reduce changed during motion", asyn
   await page.locator('[data-action="pause"]').click();
   await page.locator('[data-action="enter-rise"]').click();
   await expect.poll(() => page.evaluate(() => document.getAnimations().filter(animation => animation.playState === "paused").length)).toBeGreaterThan(0);
-  const halfway = await page.evaluate(() => document.getAnimations().filter(animation => animation.playState === "paused").every(animation => Math.abs(Number(animation.currentTime) - Number(animation.effect?.getComputedTiming().endTime) / 2) < 1));
+  const halfway = await page.evaluate(() => document.getAnimations().filter(animation => animation.playState === "paused").every(animation => (() => { const timing = animation.effect!.getComputedTiming(); return Math.abs(Number(animation.currentTime) - (timing.delay + Number(timing.activeDuration) / 2)) < 1; })()));
   expect(halfway).toBe(true);
   await page.locator('[data-action="pause"]').click();
   await residue(page);
