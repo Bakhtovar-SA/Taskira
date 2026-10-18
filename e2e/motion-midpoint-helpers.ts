@@ -75,8 +75,8 @@ export async function pauseScope(page: Page, selector: string): Promise<void> {
         errors.push("Expected a finite scoped effect"); return animation;
       }
       const activeDuration = Number(timing.activeDuration);
-      const midpoint = timing.delay + activeDuration / 2;
-      const record: PausedRecord = { animation, target: this, midpoint, delay: timing.delay, activeDuration, finished: "pending", finishEvents: 0, cancelEvents: 0 };
+      const delay = timing.delay ?? 0; const midpoint = delay + activeDuration / 2;
+      const record: PausedRecord = { animation, target: this, midpoint, delay, activeDuration, finished: "pending", finishEvents: 0, cancelEvents: 0 };
       records.push(record);
       // Keep the native Animation, finished promise and Motion's onfinish handler intact.
       animation.finished.then(() => { record.finished = "resolved"; }, () => { record.finished = "rejected"; });
