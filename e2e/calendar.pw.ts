@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { calendarApi } from "./calendar-fixture";
+import { settle } from "./motion-helpers";
 for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] as const) {
   test(`calendar month/week, keyboard, dates, drag and axe · ${theme} · ${lang}`, async ({ page }) => {
     test.setTimeout(60_000);
@@ -89,6 +90,8 @@ for (const theme of ["light", "dark"] as const) test(`calendar 300 issues month 
   const switching = Date.now() - start;
   await page.getByRole("button", { name: "Предыдущий период" }).click();
   await expect(page.locator('main [data-issue-id]')).toHaveCount(300, { timeout: 15_000 });
+  // This measures a settled drag; running-slide hit testing has its own native D04 gate.
+  await settle(page);
   const dragStart = Date.now();
   await page.locator('[data-issue-id="i1"]').dragTo(page.locator('[data-day="2026-10-03"]'));
   await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03" });

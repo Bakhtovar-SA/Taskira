@@ -50,3 +50,5 @@ Safari/Firefox, Windows DnD под VDI/RDP и touch требуют отдель�
 Gzip против ff9c8ff: total432419(+152), JS393885(+152), CSS38534(0), entry99863(+11), initial JS196195(+44) байт. Budget PASS.
 
 Ручной Safari/Firefox/VDI/RDP/touch остаётся открытым; автоматический Chromium не заменяет эту матрицу. В fixture нет WS-сервера, поэтому console websocket handshake200 ожидаем и не является проверкой realtime. Предусмотренный API403 в старых тестах проверяет отказ операции.
+
+18.10: Linux CI выявил гонку старого 300-issue performance drag после возврата периода (131 прочий сценарий PASS). Перед его settled drag добавлен A06 settle, исходные PATCH/assertions сохранены. Независимый production повтор light/dark по10 раз:20/20 PASS. Это не замена и не ослабление native-running-slide gate: его300ms и trusted pointer проверки остаются прежними.
