@@ -7,6 +7,10 @@
  *  загружен или не загрузился вовсе, всё мгновенно (FLIP — старой кривой), ничего не ждёт и не бросает. Каждая
  *  функция сама проверяет `motionReduced()`: библиотека prefers-reduced-motion не учитывает (спайк ADR-0035). */
 import { flushSync } from "react-dom";
+import { clearIssueHeroSpike, prepareIssueHeroSpike, type IssueHeroSource } from "./issueHeroSpike";
+
+// Experimental helper only: normal production builds never opt into shared issue keys.
+const ISSUE_HERO_SPIKE = import.meta.env.DEV || import.meta.env.VITE_ISSUE_HERO_SPIKE === "track-o-release1";
 
 type Engine = typeof import("./motionEngine");
 type Controls = { cancel: () => void; finished: Promise<unknown> };
@@ -146,7 +150,8 @@ function safe<T>(f: () => T): T | null {
 
 /** Смена представления или открытие задачи полной страницей: короткое перекрёстное затухание (--dur-2,
  *  правила — `html.vt-nav` в index.css). Нет API, reduced-motion или вкладка скрыта — мгновенно. */
-type VTDoc = Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+type NativeVT = { finished: Promise<void>; ready?: Promise<void>; skipTransition?: () => void };
+type VTDoc = Document & { startViewTransition?: (cb: () => void) => NativeVT };
 let viewSequence = 0;
 let activeTransitions = 0;
 let cancelViewFocus = () => {};
@@ -177,23 +182,43 @@ function focusViewHeading(sequence: number, outgoingFocus: Element | null): void
   cancelViewFocus = cancel;
   observer.observe(root, { childList: true, subtree: true });
 }
-export function viewTransition(update: () => void): void {
+export function viewTransition(update: () => void, issueHero?: IssueHeroSource): void {
   const sequence = ++viewSequence;
   const outgoingFocus = document.activeElement;
   cancelViewFocus();
+  if (ISSUE_HERO_SPIKE) clearIssueHeroSpike();
   const doc = document as VTDoc;
   if (!doc.startViewTransition || motionReduced() || document.visibilityState !== 'visible') {
     update();
     requestAnimationFrame(() => focusViewHeading(sequence, outgoingFocus));
     return;
   }
+  const hero = ISSUE_HERO_SPIKE && issueHero ? prepareIssueHeroSpike(issueHero) : null;
   const root = document.documentElement;
   activeTransitions++;
   root.classList.add('vt-nav');
-  doc.startViewTransition(() => flushSync(update)).finished.catch(() => undefined).finally(() => {
+  let transition: NativeVT | undefined, skip = false, performed = false;
+  const apply = () => {
+    if (hero && sequence !== viewSequence) { skip = true; return; }
+    performed = true; flushSync(update);
+    // Warm target only. Cold/lazy content falls back immediately; the D17 observer still owns focus.
+    if (hero && !hero.swap()) { skip = true; transition?.skipTransition?.(); }
+  };
+  try {
+    transition = doc.startViewTransition(apply);
+    if (skip) transition.skipTransition?.();
+    transition.ready?.catch(() => hero?.cleanup());
+    transition.finished.catch(() => undefined).finally(() => {
+      hero?.cleanup();
+      if (--activeTransitions === 0) root.classList.remove('vt-nav');
+      focusViewHeading(sequence, outgoingFocus);
+    });
+  } catch {
+    hero?.cleanup();
     if (--activeTransitions === 0) root.classList.remove('vt-nav');
-    focusViewHeading(sequence, outgoingFocus);
-  });
+    if (!performed) update();
+    requestAnimationFrame(() => focusViewHeading(sequence, outgoingFocus));
+  }
 }
 
 /** FLIP: элемент уже на новом месте; анимируем его из старой точки (left/top во viewport). Пружина `SPRING`, если

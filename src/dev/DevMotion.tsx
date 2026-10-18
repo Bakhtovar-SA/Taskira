@@ -14,6 +14,7 @@ import { createSlices, SlicesCtx } from "../store/slices";
 import { Toasts } from "../ui";
 import { cssVars } from "../cssVars";
 import "./devMotion.css";
+import { IssueHeroSpikeScene } from "./IssueHeroSpikeScene";
 
 function Section({ id, title, note, children }: { id: string; title: string; note: string; children: ReactNode }) {
   return <section id={id} data-scenario={id} aria-labelledby={`${id}-title`} className="ms-section">
@@ -232,6 +233,6 @@ export default function DevMotion() {
       <span className="ms-note">Системный reduce задаётся в DevTools. Замедление и пауза управляют конечными WAAPI/CSS-анимациями; счётчик RAF остаётся в реальном времени.</span>
     </div>
     <nav className="ms-nav" aria-label="Сценарии движения">{[["board", "Доска"], ["list", "Список"], ["primitives", "Элементы"], ["overlays", "Окна"], ["toasts", "Уведомления"], ["grid", "Дашборд"]].map(([id, name]) => <a key={id} href={`#${id}`}>{name}</a>)}</nav>
-    <div key={revision}><BoardScene /><ListScene /><PrimitivesScene /><OverlaysScene /><ToastScene /><GridScene /></div>
+    <div key={revision}><BoardScene /><ListScene /><PrimitivesScene /><OverlaysScene /><ToastScene /><GridScene /><IssueHeroSpikeScene /></div>
   </main>;
 }
