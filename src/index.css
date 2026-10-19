@@ -1123,12 +1123,6 @@ button {
     animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
   }
-
-  /* ds.css disabled dsIndet under the system setting. Preserve the process signal
-     just as under the personal setting, with its original timing. */
-  html .ds-progress[data-indeterminate] > span {
-    animation: dsIndet 1.2s var(--ease-in-out) infinite;
-  }
 }
 
 html[data-motion="reduce"],
