@@ -134,7 +134,11 @@ function track(el: Element, c: Controls | null, clear: readonly string[] = [], k
         running.delete(el);
         unstyle(el, clear);
       },
-      () => undefined,
+      // Отмена извне (`el.getAnimations()[i].cancel()`) отклоняет `finished`: забываем запись, иначе следующий
+      // `enter()` на этом узле считал бы вход идущим и пропускался.
+      () => {
+        if (running.get(el)?.c === c) running.delete(el);
+      },
     );
   } else running.delete(el);
   return c;
@@ -286,11 +290,12 @@ export function glideWidth(el: HTMLElement, from: number, to: number): void {
   if (prev) {
     // Видимую ширину берём только у идущего glide по width; у других анимаций (вход, подсветка) ширина не анимируется —
     // остаётся значение вызывающего. Скрытый элемент (display:none) измеряется как 0 — тоже не подходит.
+    // Чужую анимацию (вход, перенос) не трогаем: при новом glide её перехватит track(), а no-op вызов её не отменяет.
     if (prev.clear.includes("width")) {
       const w = safe(() => el.getBoundingClientRect().width / cssZoom(el));
       if (w) from = w;
+      track(el, null);
     }
-    track(el, null);
   }
   if (Math.abs(from - to) < 1) return;
   const e = ready();

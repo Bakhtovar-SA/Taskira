@@ -486,6 +486,33 @@ describe("C-05/C-11: interruption and restart policy", () => {
     expect(animate).toHaveBeenCalledTimes(2);
   });
 
+  test("a no-op glideWidth leaves a running entry alone", async () => {
+    const { engine, animate } = pendingEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    enter(el);
+    const first = animate.mock.results[0].value;
+    glideWidth(el, 248, 248);
+    expect(first.cancel).not.toHaveBeenCalled();
+    expect(animate).toHaveBeenCalledOnce();
+  });
+
+  test("an entry cancelled from outside (finished rejects) does not block the next enter", async () => {
+    let fail!: (e: unknown) => void;
+    const finished = new Promise<void>((_, reject) => { fail = reject; });
+    const animate = vi.fn(() => ({ cancel: vi.fn(), finished }));
+    __resetMotionForTests(async () => ({ animate, spring }) as unknown as Engine);
+    await preloadMotion();
+    const el = card();
+    enter(el);
+    fail(new DOMException("aborted", "AbortError"));
+    await finished.catch(() => undefined);
+    await Promise.resolve();
+    enter(el);
+    expect(animate).toHaveBeenCalledTimes(2);
+  });
+
   test("exit cancels a pending entry; a later enter takes over the exit", async () => {
     const { engine, animate } = pendingEngine();
     __resetMotionForTests(async () => engine);
