@@ -18,6 +18,7 @@ import { ProjectMark, projectTone } from "../ui";
 import "../styles/roadmap.css";
 
 import { barWidth, connectionPath, useRoadmapConnections } from "./useRoadmapConnections";
+import { clearRoadmapDateFlash, flashConfirmedRoadmapDates } from "../roadmapDateFlash";
 import { motionReduced } from "../motion";
 
 const ZOOM_KEY = "taskira.roadmap.zoom";
@@ -91,6 +92,11 @@ export default function RoadmapView() {
   const positioned = useRef("");
   useEffect(() => { const key = `${zoom}:${range.origin.getTime()}:${win.w}`; if (win.w && positioned.current !== key) { positioned.current = key; scrollToToday(false); } }, [scrollToToday, win.w, zoom, range]);
   useEffect(() => { if (right.current) { right.current.scrollTop = 0; measure(right.current); } }, [department, measure]);
+  useEffect(() => {
+    if (state.error) { clearRoadmapDateFlash(); return; }
+    if (state.loading || !state.data || !win.w || !right.current) return;
+    flashConfirmedRoadmapDates(data.currentUserId, data.currentProjectId, state.data.projects, right.current);
+  }, [state.data, state.loading, state.error, win.w, data.currentUserId, data.currentProjectId]);
   const connection = useRoadmapConnections(projects, deps, scale, spans, rowY, right, load);
   const returnToProject = (id: string) => { const span = spans.get(id); if (!span) return; right.current?.querySelector<HTMLButtonElement>(`.roadmap-timeline-row[data-project-id="${id}"] .roadmap-bar`)?.focus({ preventScroll: true }); right.current?.scrollTo({ left: Math.max(0, TIME_PAD + scale.x(span.from) - 24), behavior: motionReduced() ? "auto" : "smooth" }); };
   const store = useRef({ data, setView, switchProject }); store.current = { data, setView, switchProject };
