@@ -21,7 +21,7 @@ expect_paths client 'false true false true false' src/components/Board.tsx
 expect_paths permissions 'true true false true false' src/permissions.ts
 expect_paths validation 'true true false true false' src/validation.ts
 expect_paths server-tests 'true false false false false' server/test/permissions-sync.test.ts
-expect_paths server-source 'true true false true false' server/src/templates/builtin.json
+expect_paths server-source 'true true true true false' server/src/templates/builtin.json
 expect_paths snapshots 'true false false true false' fixtures/db-snapshots/v1.sql
 expect_paths migrations 'true false true true false' server/migrations/20261014_example.sql
 expect_paths nested-compose 'true false true true false' server/docker-compose.storage.yml
@@ -36,6 +36,8 @@ expect_paths workflow 'true true true true false' .github/workflows/test.yml
 expect_paths action 'true true true true false' .github/actions/prepare-test-runner/action.yml
 expect_paths unknown 'true true true true false' new-build-input.toml
 expect_paths newline 'false true false true false' $'src/a file\nwith newline.ts'
+expect_paths server-markdown 'true true true true false' server/src/templates/welcome.md
+expect_paths docs-json 'true true true true false' docs/schema.json
 expect_paths mixed 'true true false true false' docs/guide.md src/permissions.matrix.ts
 
 TMP_ROOT="$(CDPATH= cd -- "${TMPDIR:-${TMP:-${TEMP:-/tmp}}}" && pwd -P)"
@@ -95,4 +97,4 @@ actual="$(cd "$TMP_DIR" && bash "$SCRIPT_DIR/ci-changes.sh" pull_request 2>/dev/
 output="$TMP_DIR/outputs"
 actual="$(cd "$TMP_DIR" && GITHUB_OUTPUT="$output" bash "$SCRIPT_DIR/ci-changes.sh" push)"
 [ "$(cat "$output")" = "$actual" ] || { echo 'Actions outputs differ from stdout' >&2; exit 1; }
-echo 'CI path selection checks passed (22 path cases, merge parent, rename, push, missing parent, outputs)'
+echo 'CI path selection checks passed (24 path cases, merge parent, rename, push, missing parent, outputs)'

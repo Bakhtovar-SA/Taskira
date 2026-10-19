@@ -13,9 +13,13 @@ ci_changes_paths() {
         ci_changes_all
         continue
         ;;
-      docs/*|*.md)
-        # Markdown inside src can be imported by the application.
-        case "$path" in src/*) ;; *) continue ;; esac
+      docs/*.md|server/README.md)
+        continue
+        ;;
+      */*) ;;
+      *.md)
+        # Root Markdown files never reach a build; nested ones may be read at runtime.
+        continue
         ;;
     esac
     known=false
@@ -28,7 +32,7 @@ ci_changes_paths() {
         client=true; known=true ;;
     esac
     case "$path" in
-      Dockerfile*|*/Dockerfile*|.dockerignore|*/.dockerignore|docker-compose*.yml|*/docker-compose*.yml|compose*.yml|*/compose*.yml|deploy/*|nginx.conf|server/migrations/*|server/package*.json)
+      Dockerfile*|*/Dockerfile*|.dockerignore|*/.dockerignore|docker-compose*.yml|*/docker-compose*.yml|compose*.yml|*/compose*.yml|deploy/*|nginx.conf|server/migrations/*|server/package*.json|server/src/*)
         ops=true; known=true ;;
     esac
     # Preserve the previous offline-upgrade scope, including client-only changes.
