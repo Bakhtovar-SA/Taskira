@@ -243,8 +243,10 @@ export function countTo(el: HTMLElement, from: number, to: number, format: (n: n
   counting.get(el)?.();
   if (motionReduced() || typeof requestAnimationFrame !== "function" || !(to > from) || !Number.isFinite(to - from)) return () => undefined;
   // First three visible starts win; overflow keeps its final text, without a delayed queue.
-  for (const [active, stop] of counting) if (!countVisible(active)) stop();
-  if (!countVisible(el) || counting.size >= MAX_COUNTING) return () => undefined;
+  // Проверка видимости — принудительное чтение layout: ушедших за viewport освобождаем, только когда места нет,
+  // а видимость нового проверяем последней.
+  if (counting.size >= MAX_COUNTING) for (const [active, stop] of counting) if (!countVisible(active)) stop();
+  if (counting.size >= MAX_COUNTING || !countVisible(el)) return () => undefined;
   let raf = 0;
   let t0: number | null = null;
   const stop = () => {
