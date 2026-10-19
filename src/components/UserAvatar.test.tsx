@@ -52,10 +52,12 @@ test("ds-аватар без человека тоже показывает зн
 });
 
 test("ds-аватар с именем, но без ID, показывает общий силуэт человека", () => {
-  wrap(<Avatar person={{ id: null, name: "Коллега" }} />);
+  wrap(<Avatar person={{ id: null, name: "Коллега" }} ring status="away" />);
   const avatar = screen.getByRole("img", { name: "Коллега" });
   expect(avatar.className).toContain("ds-av-unknown");
   expect(avatar.querySelector(".portrait-unknown-head")).toBeTruthy();
+  expect(avatar.hasAttribute("data-ring")).toBe(true);
+  expect(avatar.querySelector(".ds-av-status")?.getAttribute("data-status")).toBe("away");
 });
 
 test("палитра коллег использует широкий диапазон устойчивых сочетаний", () => {

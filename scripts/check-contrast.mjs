@@ -197,6 +197,23 @@ for (const h of [...Array.from({ length: hueMax - hueMin + 1 }, (_, i) => hueMin
 }
 console.log(`\nоттенок бренда ${hueMin}…${hueMax}: все пары во всех темах, худший текст ${hueWorst.toFixed(2)}`);
 
+// Портреты без фото используют любой угол цветового круга. Проверяем оба
+// идентифицирующих тона на фоне панели, а не только семантические токены.
+for (const [name, vars] of variants) {
+  const panel = oklch(resolve(vars, vars["--bg-panel"])).rgb;
+  const l = resolve(vars, vars["--ic-l"]);
+  const c = resolve(vars, vars["--ic-c"]);
+  let worst = Infinity;
+  let worstHue = 0;
+  for (let hue = 0; hue < 360; hue++) {
+    const color = oklch(`oklch(${l} ${c} ${hue})`).rgb;
+    const r = ratio(color, panel);
+    if (r < worst) { worst = r; worstHue = hue; }
+  }
+  if (worst < UI) failed++;
+  console.log(`  ${worst >= UI ? "ok  " : "FAIL"} ${worst.toFixed(2)} ≥ ${UI}  ${name}: портрет на --bg-panel (худший оттенок ${worstHue}°)`);
+}
+
 // ── Текст хрома поверх фона (ТЗ 5.14, проверка «≥ 4.5:1 с подложкой»). Боковая панель — стекло (--glass-side)
 // прямо над атмосферой; под ней — либо свечения фона галереи, либо своё фото под подложкой цвета рамки.
 // Тестовый набор фото — ровные серые от чёрного до белого (худшие случаи для любой светлоты); плотность подложки —

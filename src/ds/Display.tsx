@@ -28,12 +28,10 @@ export function Avatar({ person, size = 24, ring, status }: { person: AvatarPers
     const label = t ? t("createIssue.unassigned") : "Unassigned";
     return <span className="ds-av ds-av-empty" data-size={size} role="img" aria-label={label} title={label}><IcUnassigned size={size} /></span>;
   }
-  if (person.id === null) {
-    return <span className="ds-av ds-av-colleague ds-av-unknown" data-size={size} role="img" aria-label={person.name} title={person.name}><ColleagueUnknown /></span>;
-  }
+  const unknown = person.id === null;
   return (
-    <span ref={colorRef} className={`ds-av ${person.src ? `tk-tone-${toneOf(seed)}` : "ds-av-colleague"}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name}>
-      {person.src ? <img src={person.src} alt="" /> : <ColleaguePortrait seed={seed} />}
+    <span ref={colorRef} className={`ds-av ${person.src ? `tk-tone-${toneOf(seed)}` : `ds-av-colleague${unknown ? " ds-av-unknown" : ""}`}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name} title={person.name}>
+      {person.src ? <img src={person.src} alt="" /> : unknown ? <ColleagueUnknown /> : <ColleaguePortrait seed={seed} />}
       {status && <span className="ds-av-status" data-status={status} />}
     </span>
   );
