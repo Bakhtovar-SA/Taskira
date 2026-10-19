@@ -343,7 +343,7 @@ git status --short           # снимки в docs/ не должны появ�
 | флаг | пути | джобы |
 |---|---|---|
 | `server` | `server/**`, `shared/**`, `src/permissions*.ts`, `src/validation.ts` (их читает `server/test/permissions-sync.test.ts`), `fixtures/**`, `.github/workflows/test.yml`, `.github/actions/**` | `server ×4`, `ldap`, `storage-s3`, `mail`, `upgrade-from-snapshot` |
-| `ops` | `Dockerfile*`, `**/Dockerfile*`, `docker-compose*.yml`, `compose*.yml`, `deploy/**`, `scripts/*.sh`, `nginx.conf`, `server/migrations/**`, `package*.json`, `server/package*.json`, `.github/**` | `backup-restore`, `podman-rootless`, `upgrade-procedure` (её шаг уже отбирает сам — заменить его `BASE_SHA` на `HEAD^1`) |
+| `ops` | `Dockerfile*`, `**/Dockerfile*`, `docker-compose*.yml`, `compose*.yml`, `deploy/**`, `scripts/*.sh`, `nginx.conf`, `server/migrations/**`, `server/src/**`, `package*.json`, `server/package*.json`, `.github/**` | `backup-restore`, `podman-rootless`, `upgrade-procedure` (её шаг уже отбирает сам — заменить его `BASE_SHA` на `HEAD^1`) |
 | `client` | `src/**`, `public/**`, `index.html`, `vite.config.*`, `tsconfig*.json`, `scripts/**`, `e2e/**`, `package*.json`, `server/src/contract.ts` (клиентские типы из него) | `client` |
 | всегда | — | `security` (сканирует образы и `npm audit`; дешёвая), `secrets-scan`, `migration-policy`, `types` (включает `docs:check` и `permissions:check`), `snapshot-list` |
 
@@ -953,7 +953,7 @@ B-03.
 | `@starting-style` | Safari 17.5, Firefox 129 (нет в ESR 128 — если заказчик на нём) |
 | `transition-behavior: allow-discrete` | — |
 | `::details-content` | Chromium 131+ |
-| `Element.currentCSSZoom` | Chrome 128 / Firefox 126 / Safari 18.2, фолбэк 1 в `motion.ts:191` |
+| `Element.currentCSSZoom` | Chrome 128 / Firefox 126 / Safari 26.4 (MDN BCD, см. BROWSERS.md), фолбэк 1 в `motion.ts:191` |
 | `content: … / ""` | Safari 17.4+ |
 | `requestIdleCallback` | нет в Safari, фолбэк `setTimeout` в `motion.ts:297` |
 | View Transitions | Firefox 144+, Safari 18 |

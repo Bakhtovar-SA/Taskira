@@ -63,6 +63,9 @@ export function motionReduced(): boolean {
   return userReducedMotion() || reducedMotion();
 }
 
+/** VDI: общие потолки одновременного движения и отслеживания элементов. */
+export const MOTION_CAPS = { flip: 40, ghosts: 6, enter: 8, track: 200 } as const;
+
 /** Пресеты пружин (visualDuration — токены: --dur-4 = 300 мс, между --dur-3 и --dur-4 = 250 мс). Полное время
  *  успокоения, которое motion закладывает в WAAPI `duration` + `linear()`, — не дольше 500 мс (проверяет
  *  motion.test.ts тем же `spring.applyToOptions`). */
@@ -96,6 +99,7 @@ export function preloadMotion(): Promise<Engine | null> {
 }
 /** Только для тестов: подменить загрузчик чанка и сбросить состояние. */
 export function __resetMotionForTests(load?: () => Promise<Engine>): void {
+  for (const stop of counting.values()) stop();
   engine = null;
   loading = null;
   failedAt = -Infinity;
@@ -114,12 +118,12 @@ function ready(): Engine | null {
  *  `clear` — inline-свойства, которые движок (motion/mini) по концу анимации оставляет на элементе последним кадром
  *  (`NativeAnimation.onfinish` → `setStyle`): без снятия inline-стиль навсегда перебивает классы (ширина сайдбара,
  *  `opacity` силуэта при перетаскивании, `transform` призрака). Снимаем только если анимацию не перехватила новая. */
-const running = new WeakMap<Element, { c: Controls; clear: readonly string[] }>();
+const running = new WeakMap<Element, { c: Controls; clear: readonly string[]; kind: "enter" | "other" }>();
 function unstyle(el: Element, clear: readonly string[]): void {
   const st = (el as HTMLElement).style;
   if (st) for (const p of clear) st.removeProperty(p);
 }
-function track(el: Element, c: Controls | null, clear: readonly string[] = []): Controls | null {
+function track(el: Element, c: Controls | null, clear: readonly string[] = [], kind: "enter" | "other" = "other"): Controls | null {
   const prev = running.get(el);
   if (prev) {
     prev.c.cancel();
@@ -128,14 +132,18 @@ function track(el: Element, c: Controls | null, clear: readonly string[] = []): 
     unstyle(el, prev.clear);
   }
   if (c) {
-    running.set(el, { c, clear });
+    running.set(el, { c, clear, kind });
     c.finished.then(
       () => {
         if (running.get(el)?.c !== c) return;
         running.delete(el);
         unstyle(el, clear);
       },
-      () => undefined,
+      // Отмена извне (`el.getAnimations()[i].cancel()`) отклоняет `finished`: забываем запись, иначе следующий
+      // `enter()` на этом узле считал бы вход идущим и пропускался.
+      () => {
+        if (running.get(el)?.c === c) running.delete(el);
+      },
     );
   } else running.delete(el);
   return c;
@@ -252,7 +260,7 @@ export function flipFrom(el: HTMLElement, left: number, top: number, { lift = tr
   );
   return done(c);
 }
-/** Итоговый CSS zoom элемента (currentCSSZoom: Chrome 128 / Firefox 126 / Safari 18.2; без него — 1, как ds/floating). */
+/** Итоговый CSS zoom элемента (currentCSSZoom: Chrome 128 / Firefox 126 / Safari 26.4 по MDN BCD, см. docs/design/BROWSERS.md; без него — 1, как ds/floating). */
 export const cssZoom = (el: Element): number => (el as Element & { currentCSSZoom?: number }).currentCSSZoom || 1;
 /** Конец анимации (и отмена — тоже конец): обещание никогда не отклоняется. */
 const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finished).then(() => undefined, () => undefined) : Promise.resolve());
@@ -261,7 +269,7 @@ const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finis
  *  (подъём без масштаба: scale в хвосте пружины меняет getBoundingClientRect содержимого, а e2e меряет размеры сразу после показа); `panel` — боковая панель (выезд справа, как `dsPanelIn`);
  *  `toast` — тост (выезд справа, как `toastIn`). У всех видов последний кадр — `transform: none`: motion по концу
  *  пишет его в inline-стиль (CSSOM), а не-`none` transform сделал бы окно контейнером для fixed-потомков.
- *  Чанк не загружен или движение уменьшено — мгновенно. */
+ *  Чанк не загружен или движение уменьшено — мгновенно. Повторный вход во время движения не перезапускает его. */
 type EnterKind = "rise" | "dialog" | "panel" | "toast" | "pop";
 const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [string, string] }> = {
   rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "none"] },
@@ -274,9 +282,11 @@ const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [s
 export const SPRING_POP = { visualDuration: 0.25, bounce: 0.3 } as const; // ≤ 500 мс успокоения (проверяет motion.test.ts)
 export function enter(el: HTMLElement, kind: EnterKind = "rise"): void {
   if (motionReduced() || typeof el.animate !== "function") return;
+  // Пропускаем только повторный вход; уход, перенос и т.п. вход перехватывает (track отменяет их и снимает inline-кадр).
+  if (running.get(el)?.kind === "enter") return;
   const e = ready();
   if (!e) return;
-  safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) }), ["opacity", "transform"]));
+  safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) }), ["opacity", "transform"], "enter"));
 }
 
 /** Уход: обещание, после которого вызывающий снимает элемент. Движение уменьшено, чанка нет или ошибка — сразу.
@@ -296,23 +306,41 @@ export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<
  *  промежуточных значений. Кадры — `requestAnimationFrame`, без React-состояния. Движение уменьшено или нечего расти —
  *  ничего не делает (итог уже на экране). Возвращает отмену (снимает атрибуты и кадр; безопасно вызывать повторно). */
 export const COUNT_MS = 300;
+const MAX_COUNTING = 3;
+const counting = new Map<HTMLElement, () => void>();
+function countVisible(el: HTMLElement): boolean {
+  if (!el.isConnected || getComputedStyle(el).visibility !== "visible") return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
+}
 export function countTo(el: HTMLElement, from: number, to: number, format: (n: number) => string = String): () => void {
+  counting.get(el)?.();
   if (motionReduced() || typeof requestAnimationFrame !== "function" || !(to > from) || !Number.isFinite(to - from)) return () => undefined;
+  // First three visible starts win; overflow keeps its final text, without a delayed queue.
+  // Проверка видимости — принудительное чтение layout: ушедших за viewport освобождаем, только когда места нет,
+  // а видимость нового проверяем последней.
+  if (counting.size >= MAX_COUNTING) for (const [active, stop] of counting) if (!countVisible(active)) stop();
+  if (counting.size >= MAX_COUNTING || !countVisible(el)) return () => undefined;
   let raf = 0;
   let t0: number | null = null;
   const stop = () => {
+    if (counting.get(el) !== stop) return;
+    counting.delete(el);
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
     el.removeAttribute("data-counting");
     el.removeAttribute("data-shown");
   };
   const frame = (now: number) => {
+    if (counting.get(el) !== stop) return;
+    if (motionReduced() || !el.isConnected) return stop();
     t0 ??= now;
-    const p = Math.min(1, (now - t0) / COUNT_MS);
+    const p = Math.max(0, Math.min(1, (now - t0) / COUNT_MS));
     if (p >= 1) return stop();
-    el.setAttribute("data-shown", format(Math.round(from + (to - from) * (1 - (1 - p) ** 3))));
+    el.setAttribute("data-shown", format(Math.min(to, Math.max(from, Math.round(from + (to - from) * (1 - (1 - p) ** 3))))));
     raf = requestAnimationFrame(frame);
   };
+  counting.set(el, stop);
   el.setAttribute("data-shown", format(from));
   el.setAttribute("data-counting", "");
   raf = requestAnimationFrame(frame);
@@ -337,9 +365,23 @@ export function flash(el: HTMLElement): void {
 
 /** Плавное изменение ширины панели (сворачивание/разворачивание сайдбара: другая разметка, тот же «корпус»). Ширина —
  *  WAAPI по `width` (не transform: панель — часть раскладки, содержимое рядом едет вместе с ней); пружина `SPRING` при
- *  загруженном чанке, иначе кривая 300 мс (--dur-4). Ничего не делает при reduced-motion или одинаковых значениях. */
+ *  загруженном чанке, иначе кривая 300 мс (--dur-4). При прерывании начало — видимая ширина с поправкой zoom.
+ *  Ничего не делает при reduced-motion или одинаковых значениях. */
 export function glideWidth(el: HTMLElement, from: number, to: number): void {
-  if (motionReduced() || typeof el.animate !== "function" || Math.abs(from - to) < 1) return;
+  if (motionReduced() || typeof el.animate !== "function") return;
+  // Measure before track() cancels the previous animation and clears its final inline width.
+  const prev = running.get(el);
+  if (prev) {
+    // Видимую ширину берём только у идущего glide по width; у других анимаций (вход, подсветка) ширина не анимируется —
+    // остаётся значение вызывающего. Скрытый элемент (display:none) измеряется как 0 — тоже не подходит.
+    // Чужую анимацию (вход, перенос) не трогаем: при новом glide её перехватит track(), а no-op вызов её не отменяет.
+    if (prev.clear.includes("width")) {
+      const w = safe(() => el.getBoundingClientRect().width / cssZoom(el));
+      if (w) from = w;
+      track(el, null);
+    }
+  }
+  if (Math.abs(from - to) < 1) return;
   const e = ready();
   const frames = { width: [`${from}px`, `${to}px`] };
   safe(() => track(el, e ? e.animate(el, frames, { type: e.spring, ...SPRING }) : el.animate(frames, { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["width"]));

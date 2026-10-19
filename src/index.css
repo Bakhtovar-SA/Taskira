@@ -631,7 +631,7 @@ html.vt-theme::view-transition-new(root) {
 
 /* Входящие: непрочитанное — лёгкий акцентный фон; строка под курсором J/K —
    светящаяся метка слева (тот же язык, что у активного пункта панели и палитры). */
-.inbox-row.is-unread {
+.inbox-row.is-unread, .inbox-row-ghost.is-unread {
   background: color-mix(in oklch, var(--accent-solid) 5%, transparent);
 }
 .inbox-row[data-active]::before {
@@ -1078,6 +1078,10 @@ button {
 .anim-stagger > :nth-child(4) { animation-delay: 90ms; }
 .anim-stagger > :nth-child(5) { animation-delay: 120ms; }
 .anim-stagger > :nth-child(n + 6) { animation-delay: 150ms; }
+.success-check path {
+  stroke-dasharray: 1;
+  animation: drawLine var(--dur-4) var(--ease-out) backwards;
+}
 .chart-line {
   stroke-dasharray: 1;
   animation: drawLine var(--dur-5) var(--ease-out) backwards;
@@ -1090,6 +1094,7 @@ button {
 }
 @media (prefers-reduced-motion: reduce) {
   .anim-view,
+  .success-check path,
   .anim-stagger > *,
   .chart-line,
   .reports-chart rect[data-series],
@@ -1101,6 +1106,8 @@ button {
 /* Track O, regression found by A-08: both reduce modes stop finite CSS, including
    paint transitions, determinate progress and native-dialog ::backdrop. Process
    spinner/indeterminate-progress loops remain running; decorative loops stop. */
+/* Keep in sync with the html[data-motion="reduce"] copy below (same selectors and
+   :not() exclusions); plain CSS cannot share one list between @media and an attribute. */
 @media (prefers-reduced-motion: reduce) {
   html,
   html *,
@@ -1123,14 +1130,9 @@ button {
     animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
   }
-
-  /* ds.css disabled dsIndet under the system setting. Preserve the process signal
-     just as under the personal setting, with its original timing. */
-  html .ds-progress[data-indeterminate] > span {
-    animation: dsIndet 1.2s var(--ease-in-out) infinite;
-  }
 }
 
+/* Personal reduce: mirror of the prefers-reduced-motion block above — edit both. */
 html[data-motion="reduce"],
 html[data-motion="reduce"] *,
 html[data-motion="reduce"]::before,
