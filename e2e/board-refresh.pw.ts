@@ -157,13 +157,25 @@ test.describe("touch assignee filter", () => {
   test("shows names in a picker without hover", async ({ page }) => {
     const { users } = await boardFixture(page);
     await page.goto("/p/CORP/board");
-    await expect(page.locator(".board-member-list")).toBeHidden();
+    await expect(page.locator(".board-member-list")).toHaveCount(0);
     const picker = page.locator(".board-member-touch-trigger");
     await expect(picker).toBeVisible();
     await picker.click();
     await page.getByRole("menuitem", { name: users[0].name }).click();
     await expect(page).toHaveURL(/assignee=u1/);
     await expect(picker).toContainText(users[0].name);
+  });
+});
+
+test.describe("hybrid assignee filter", () => {
+  test.use({ hasTouch: true, viewport: { width: 1200, height: 900 } });
+
+  test("uses one named picker on a touch laptop", async ({ page }) => {
+    await boardFixture(page);
+    await page.goto("/p/CORP/board");
+    await expect(page.locator(".board-member-list")).toHaveCount(0);
+    await expect(page.locator(".board-member-touch-trigger")).toBeVisible();
+    await expect(page.getByRole("group", { name: "Исполнитель" })).toHaveCount(1);
   });
 });
 

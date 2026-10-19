@@ -298,7 +298,7 @@
 .board-member-filter[aria-pressed="true"] { z-index: 2; outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 .board-member-filter[aria-pressed="true"]:is(:hover, :focus-visible) { z-index: 3; }
 .board-member-more[data-active="true"] { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
-.board-member-touch-picker { display: none; }
+.board-member-touch-picker { display: inline-flex; min-width: 0; max-width: 100%; }
 .board-member-touch-trigger {
   display: inline-flex;
   align-items: center;
@@ -319,8 +319,6 @@
 }
 .board-move-touch-hint { display: none; }
 @media (hover: none) {
-  .board-member-list { display: none; }
-  .board-member-touch-picker { display: inline-flex; min-width: 0; max-width: 100%; }
   .board-move-touch-hint { display: flex; }
   .board-card button[aria-keyshortcuts="M"], .board-select-hint button { opacity: 1; min-width: 44px; min-height: 44px; }
 }

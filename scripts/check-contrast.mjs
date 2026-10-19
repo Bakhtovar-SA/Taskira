@@ -197,21 +197,31 @@ for (const h of [...Array.from({ length: hueMax - hueMin + 1 }, (_, i) => hueMin
 }
 console.log(`\nоттенок бренда ${hueMin}…${hueMax}: все пары во всех темах, худший текст ${hueWorst.toFixed(2)}`);
 
-// Портреты без фото используют любой угол цветового круга. Проверяем оба
-// идентифицирующих тона на фоне панели, а не только семантические токены.
+// Портреты без фото используют любой угол цветового круга. Контур/волосы
+// лежат на панели, плечи — на поле, смешанном на 14% с акцентом в OKLCH.
+// Нейтральный силуэт: --text-2 на --bg-hover уже проверяется в PAIRS выше.
 for (const [name, vars] of variants) {
-  const panel = oklch(resolve(vars, vars["--bg-panel"])).rgb;
+  const panelCss = resolve(vars, vars["--bg-panel"]);
+  const panel = oklch(panelCss).rgb;
+  const [, panelL, panelC, panelHue] = /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(panelCss);
   const l = resolve(vars, vars["--ic-l"]);
   const c = resolve(vars, vars["--ic-c"]);
-  let worst = Infinity;
-  let worstHue = 0;
+  let outlineWorst = Infinity;
+  let accentWorst = Infinity;
   for (let hue = 0; hue < 360; hue++) {
     const color = oklch(`oklch(${l} ${c} ${hue})`).rgb;
-    const r = ratio(color, panel);
-    if (r < worst) { worst = r; worstHue = hue; }
+    outlineWorst = Math.min(outlineWorst, ratio(color, panel));
+    for (let offset = 48; offset <= 143; offset++) {
+      const accentHue = (hue + offset) % 360;
+      const accent = oklch(`oklch(${l} ${c} ${accentHue})`).rgb;
+      const turn = ((accentHue - Number(panelHue) + 540) % 360) - 180;
+      const fieldHue = (Number(panelHue) + 0.14 * turn + 360) % 360;
+      const field = oklch(`oklch(${0.14 * Number(l) + 0.86 * Number(panelL)} ${0.14 * Number(c) + 0.86 * Number(panelC)} ${fieldHue})`).rgb;
+      accentWorst = Math.min(accentWorst, ratio(accent, field));
+    }
   }
-  if (worst < UI) failed++;
-  console.log(`  ${worst >= UI ? "ok  " : "FAIL"} ${worst.toFixed(2)} ≥ ${UI}  ${name}: портрет на --bg-panel (худший оттенок ${worstHue}°)`);
+  if (outlineWorst < UI || accentWorst < UI) failed++;
+  console.log(`  ${outlineWorst >= UI && accentWorst >= UI ? "ok  " : "FAIL"} ≥ ${UI}  ${name}: контур ${outlineWorst.toFixed(2)}, плечи на поле ${accentWorst.toFixed(2)}`);
 }
 
 // ── Текст хрома поверх фона (ТЗ 5.14, проверка «≥ 4.5:1 с подложкой»). Боковая панель — стекло (--glass-side)

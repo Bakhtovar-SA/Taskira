@@ -16,6 +16,9 @@ const placeMemberName = (button: HTMLButtonElement) => {
   cssVars({ "--member-name-max": `${Math.max(24, Math.min(150, (side === "right" ? roomRight : roomLeft) - 18))}px` })(button);
 };
 
+const touchPickerQuery = "(hover: none), (any-pointer: coarse)";
+const isTouchPicker = () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(touchPickerQuery).matches;
+
 export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }: {
   selectedUserId: string | null;
   onSelectUser: (userId: string) => void;
@@ -26,11 +29,18 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
   // Controlled: the lazy Menu drops a click made before its chunk arrives, unless the open state lives here.
   const [moreOpen, setMoreOpen] = useState(false);
   const [touchOpen, setTouchOpen] = useState(false);
+  const [touchPicker, setTouchPicker] = useState(isTouchPicker);
   const listRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
+    const query = window.matchMedia?.(touchPickerQuery);
+    const updatePicker = () => setTouchPicker(query?.matches ?? false);
+    query?.addEventListener("change", updatePicker);
     const updateNamePosition = () => listRef.current?.querySelectorAll<HTMLButtonElement>(".board-member-filter:is(:hover, :focus-visible)").forEach(placeMemberName);
     window.addEventListener("resize", updateNamePosition);
-    return () => window.removeEventListener("resize", updateNamePosition);
+    return () => {
+      query?.removeEventListener("change", updatePicker);
+      window.removeEventListener("resize", updateNamePosition);
+    };
   }, []);
   // Match the old board filter: active human assignees, not the full directory.
   const selectedUser = selectedUserId ? idx.users.get(selectedUserId) : undefined;
@@ -43,8 +53,19 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
   const overflow = candidates.filter(user => !visibleIds.has(user.id));
   const overflowSelected = overflow.find(user => user.id === selectedUserId);
   const moreLabel = overflowSelected ? t("board.moreAssigneesActive", { name: overflowSelected.name }) : t("board.moreAssignees");
+  const itemForUser = (user: User) => ({ id: user.id, label: user.name, icon: <UserAvatar user={user} size={20} />,
+    hint: selectedUserId === user.id ? <IcCheck size={14} /> : undefined,
+    onSelect: () => onSelectUser(user.id) });
   return <span className="project-members" role="group" aria-label={t("field.assignee")}>
-    <span ref={listRef} className="ds-av-group board-member-list">
+    {touchPicker ? <span className="board-member-touch-picker">
+      <Menu label={t("field.assignee")} placement="bottom-end" open={touchOpen} onOpenChange={setTouchOpen}
+        trigger={props => <button {...props} type="button" className="board-member-touch-trigger ds-focus"
+          aria-label={selected ? `${t("field.assignee")}: ${selected.name}` : t("field.assignee")}>
+          {selected && <UserAvatar user={selected} size={24} showTitle={false} />}
+          <span>{selected?.name ?? t("field.assignee")}</span>
+        </button>}
+        items={candidates.map(itemForUser)} />
+    </span> : <span ref={listRef} className="ds-av-group board-member-list">
       {visible.map(user => <button key={user.id} type="button"
         className={`board-member-filter ds-focus flex rounded-full ${selected && selected.id !== user.id ? "opacity-50" : ""}`}
         aria-label={t("board.filterUserAria", { name: user.name })}
@@ -61,21 +82,8 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
           aria-label={moreLabel} title={moreLabel}>
           <span className="ds-av ds-av-more" data-size="28">+{overflow.length}</span>
         </button>}
-        items={overflow.map(user => ({ id: user.id, label: user.name, icon: <UserAvatar user={user} size={20} />,
-          hint: selectedUserId === user.id ? <IcCheck size={14} /> : undefined,
-          onSelect: () => onSelectUser(user.id) }))} />}
-    </span>
-    <span className="board-member-touch-picker">
-      <Menu label={t("field.assignee")} placement="bottom-end" open={touchOpen} onOpenChange={setTouchOpen}
-        trigger={props => <button {...props} type="button" className="board-member-touch-trigger ds-focus"
-          aria-label={selected ? `${t("field.assignee")}: ${selected.name}` : t("field.assignee")}>
-          {selected && <UserAvatar user={selected} size={24} showTitle={false} />}
-          <span>{selected?.name ?? t("field.assignee")}</span>
-        </button>}
-        items={candidates.map(user => ({ id: user.id, label: user.name, icon: <UserAvatar user={user} size={20} />,
-          hint: selectedUserId === user.id ? <IcCheck size={14} /> : undefined,
-          onSelect: () => onSelectUser(user.id) }))} />
-    </span>
+        items={overflow.map(itemForUser)} />}
+    </span>}
   </span>;
 }
 

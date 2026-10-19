@@ -20,7 +20,7 @@ export const toneOf = (s: string): Tone => {
 
 export type AvatarPerson = { id: string; name: string; src?: string | null } | { id: null; name: string; src?: never };
 
-export function Avatar({ person, size = 24, ring, status }: { person: AvatarPerson | null; size?: 20 | 24 | 28 | 32 | 40 | 64; ring?: boolean; status?: "online" | "away" }) {
+export function Avatar({ person, size = 24, ring, status, showTitle = true }: { person: AvatarPerson | null; size?: 20 | 24 | 28 | 32 | 40 | 64; ring?: boolean; status?: "online" | "away"; showTitle?: boolean }) {
   const t = useOptionalT()?.t;
   const seed = person?.id ?? "";
   const colorRef = useMemo(() => cssVars(colleagueColorVars(seed)), [seed]);
@@ -30,7 +30,7 @@ export function Avatar({ person, size = 24, ring, status }: { person: AvatarPers
   }
   const unknown = person.id === null;
   return (
-    <span ref={colorRef} className={`ds-av ${person.src ? `tk-tone-${toneOf(seed)}` : `ds-av-colleague${unknown ? " ds-av-unknown" : ""}`}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name} title={person.name}>
+    <span ref={colorRef} className={`ds-av ${person.src ? `tk-tone-${toneOf(seed)}` : `ds-av-colleague${unknown ? " ds-av-unknown" : ""}`}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name} title={showTitle ? person.name : undefined}>
       {person.src ? <img src={person.src} alt="" /> : unknown ? <ColleagueUnknown /> : <ColleaguePortrait seed={seed} />}
       {status && <span className="ds-av-status" data-status={status} />}
     </span>
@@ -45,7 +45,7 @@ export function AvatarGroup({ people, max = 4, size = 24 }: { people: AvatarPers
       {shown.map((p) => (
         <Tooltip key={p.name} label={p.name}>
           <span className="flex" tabIndex={-1}>
-            <Avatar person={p} size={size} ring />
+            <Avatar person={p} size={size} ring showTitle={false} />
           </span>
         </Tooltip>
       ))}
