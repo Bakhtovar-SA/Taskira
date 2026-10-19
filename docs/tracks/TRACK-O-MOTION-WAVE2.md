@@ -953,7 +953,7 @@ B-03.
 | `@starting-style` | Safari 17.5, Firefox 129 (нет в ESR 128 — если заказчик на нём) |
 | `transition-behavior: allow-discrete` | — |
 | `::details-content` | Chromium 131+ |
-| `Element.currentCSSZoom` | Chrome 128 / Firefox 126 / Safari 18.2, фолбэк 1 в `motion.ts:191` |
+| `Element.currentCSSZoom` | Chrome 128 / Firefox 126 / Safari 26.4 (MDN BCD, см. BROWSERS.md), фолбэк 1 в `motion.ts:191` |
 | `content: … / ""` | Safari 17.4+ |
 | `requestIdleCallback` | нет в Safari, фолбэк `setTimeout` в `motion.ts:297` |
 | View Transitions | Firefox 144+, Safari 18 |

@@ -95,6 +95,7 @@ export function preloadMotion(): Promise<Engine | null> {
 }
 /** Только для тестов: подменить загрузчик чанка и сбросить состояние. */
 export function __resetMotionForTests(load?: () => Promise<Engine>): void {
+  for (const stop of counting.values()) stop();
   engine = null;
   loading = null;
   failedAt = -Infinity;
@@ -194,7 +195,7 @@ export function flipFrom(el: HTMLElement, left: number, top: number, { lift = tr
   );
   return done(c);
 }
-/** Итоговый CSS zoom элемента (currentCSSZoom: Chrome 128 / Firefox 126 / Safari 18.2; без него — 1, как ds/floating). */
+/** Итоговый CSS zoom элемента (currentCSSZoom: Chrome 128 / Firefox 126 / Safari 26.4 по MDN BCD, см. docs/design/BROWSERS.md; без него — 1, как ds/floating). */
 export const cssZoom = (el: Element): number => (el as Element & { currentCSSZoom?: number }).currentCSSZoom || 1;
 /** Конец анимации (и отмена — тоже конец): обещание никогда не отклоняется. */
 const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finished).then(() => undefined, () => undefined) : Promise.resolve());
@@ -240,23 +241,41 @@ export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<
  *  промежуточных значений. Кадры — `requestAnimationFrame`, без React-состояния. Движение уменьшено или нечего расти —
  *  ничего не делает (итог уже на экране). Возвращает отмену (снимает атрибуты и кадр; безопасно вызывать повторно). */
 export const COUNT_MS = 300;
+const MAX_COUNTING = 3;
+const counting = new Map<HTMLElement, () => void>();
+function countVisible(el: HTMLElement): boolean {
+  if (!el.isConnected || getComputedStyle(el).visibility !== "visible") return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
+}
 export function countTo(el: HTMLElement, from: number, to: number, format: (n: number) => string = String): () => void {
+  counting.get(el)?.();
   if (motionReduced() || typeof requestAnimationFrame !== "function" || !(to > from) || !Number.isFinite(to - from)) return () => undefined;
+  // First three visible starts win; overflow keeps its final text, without a delayed queue.
+  // Проверка видимости — принудительное чтение layout: ушедших за viewport освобождаем, только когда места нет,
+  // а видимость нового проверяем последней.
+  if (counting.size >= MAX_COUNTING) for (const [active, stop] of counting) if (!countVisible(active)) stop();
+  if (counting.size >= MAX_COUNTING || !countVisible(el)) return () => undefined;
   let raf = 0;
   let t0: number | null = null;
   const stop = () => {
+    if (counting.get(el) !== stop) return;
+    counting.delete(el);
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
     el.removeAttribute("data-counting");
     el.removeAttribute("data-shown");
   };
   const frame = (now: number) => {
+    if (counting.get(el) !== stop) return;
+    if (motionReduced() || !el.isConnected) return stop();
     t0 ??= now;
-    const p = Math.min(1, (now - t0) / COUNT_MS);
+    const p = Math.max(0, Math.min(1, (now - t0) / COUNT_MS));
     if (p >= 1) return stop();
-    el.setAttribute("data-shown", format(Math.round(from + (to - from) * (1 - (1 - p) ** 3))));
+    el.setAttribute("data-shown", format(Math.min(to, Math.max(from, Math.round(from + (to - from) * (1 - (1 - p) ** 3))))));
     raf = requestAnimationFrame(frame);
   };
+  counting.set(el, stop);
   el.setAttribute("data-shown", format(from));
   el.setAttribute("data-counting", "");
   raf = requestAnimationFrame(frame);
