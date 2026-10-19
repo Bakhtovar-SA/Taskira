@@ -485,11 +485,7 @@ export const BulkIssueAction = z.discriminatedUnion("action", [
 ]);
 export type BulkIssueAction = z.infer<typeof BulkIssueAction>;
 
-/** Частичный успех — «Изменено 8 из 10, 2 пропущено» (ТЗ 3.3). `reason` —
- *  человекочитаемая причина отказа по КОНКРЕТНОЙ задаче (нет прав, не найдена,
- *  недопустимый переход по workflow) — тот же принцип, что denialReason()
- *  (permissions.ts), не общий "forbidden". */
-/** Previous values captured under the issue lock; updatedAt is the version produced by the mutation. */
+/** Отмена (трек O D-07): прежние значения, прочитанные под блокировкой строки; updatedAt — версия, созданная самой правкой. */
 export const IssueUndoDto = z.object({
   issueId: z.string(),
   statusId: z.string().optional(),
@@ -499,6 +495,10 @@ export const IssueUndoDto = z.object({
 });
 export type IssueUndoDto = z.infer<typeof IssueUndoDto>;
 
+/** Частичный успех — «Изменено 8 из 10, 2 пропущено» (ТЗ 3.3). `reason` —
+ *  человекочитаемая причина отказа по КОНКРЕТНОЙ задаче (нет прав, не найдена,
+ *  недопустимый переход по workflow) — тот же принцип, что denialReason()
+ *  (permissions.ts), не общий "forbidden". */
 export const BulkIssueResultDto = z.object({
   undo: z.array(IssueUndoDto).optional(),
   succeeded: z.array(z.string()),

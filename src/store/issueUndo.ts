@@ -34,6 +34,7 @@ export function createIssueUndo(ctx: Context, deps: Deps, changes: readonly (Iss
           if (!active()) return true;
           if (!issue || issue.updatedAt > Date.parse(change.updatedAt) || !requirePerm(change.statusId ? "transition" : "edit",issue)
             || change.statusId && !canTransition(dataRef.current.workflow,issue.statusId,change.statusId)) { skipped++; continue; }
+          // beforeId = null намеренно: позиция (rank) в токен отмены не входит, карточка встаёт в конец прежней колонки.
           const dto = change.statusId
             ? await issuesApi.transition(project,change.issueId,change.statusId,null,change.updatedAt)
             : await issuesApi.patch(project,change.issueId,{ expectedUpdatedAt:change.updatedAt,

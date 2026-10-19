@@ -69,9 +69,17 @@ test("labels and assignees pure removals return actual previous arrays and final
   expect(body.undo?.assigneeIds?.sort()).toEqual([fx.users.emp1, fx.users.mgr1].sort());
   expect(body.undo?.updatedAt).toBe(body.updatedAt);
   expect(body.undo?.issueId).toBe(before.id);
+  const pinged = () => q("SELECT id FROM notifications WHERE type = 'issue.assigned' AND user_id = $1", [fx.users.mgr1]);
+  const pingsBefore = (await pinged()).length;
+  expect(pingsBefore).toBeGreaterThan(0);
+  const added = () => q("SELECT id FROM activity WHERE issue_id = $1 AND kind = 'assigneeAdded'", [before.id]);
+  const addedBefore = (await added()).length;
   const restored = await patch({ labels: body.undo!.labels, assigneeIds: body.undo!.assigneeIds, expectedUpdatedAt: body.undo!.updatedAt });
   expect(restored.statusCode).toBe(200);
   expect(restored.json().undo).toBeUndefined(); // restoration adds values, never creates another removal undo
+  // Восстановление отменой не шлёт повторное «назначена на вас», но история возврата исполнителя остаётся.
+  expect(await pinged()).toHaveLength(pingsBefore);
+  expect(await added()).toHaveLength(addedBefore + 1);
 });
 
 test("assignment-only changes bump version; equal membership does not, and creation returns the final version", async () => {

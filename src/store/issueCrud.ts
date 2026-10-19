@@ -380,12 +380,14 @@ export function useIssueCrudActions(
       const epoch = sessionEpochRef.current;
       try {
         const res = await issuesApi.bulk(requestProjectId, body);
-        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return null;
-        const undo = undoFor(res.undo?.map(change => ({...change,currentStatusId:body.action === "status" ? body.statusId : undefined})));
+        const stale = epoch !== sessionEpochRef.current || pid() !== requestProjectId;
         if (res.succeeded.length > 0) {
           bumpIssues();
           void refreshIssues();
         }
+        // Сервер уже применил изменение — результат возвращаем всегда; после смены проекта/сессии нет только тоста и отмены.
+        if (stale) return res;
+        const undo = undoFor(res.undo?.map(change => ({...change,currentStatusId:body.action === "status" ? body.statusId : undefined})));
         if (res.failed.length === 0) {
           toast("success", local(`Применено к ${res.succeeded.length} из ${res.succeeded.length}`, `Applied to ${res.succeeded.length} of ${res.succeeded.length}`),undo);
         } else {

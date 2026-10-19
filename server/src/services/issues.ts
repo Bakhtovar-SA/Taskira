@@ -142,7 +142,12 @@ export function assertSelfAssignment(actorId: string, before: string[], after: s
   }
 }
 
-/** Millisecond DTO tokens must change even for multiple writes in one PostgreSQL transaction. */
+/** Millisecond DTO tokens must change even for multiple writes in one PostgreSQL transaction.
+ *  Все записи issues.updated_at идут через этот хелпер (PATCH, transition, bulk priority, setAssignees, смена спринта).
+ *  Комментарии, связи, чек-лист и пользовательские поля issues.updated_at не трогают (у них свои таблицы).
+ *  Версию НЕ меняют: архивирование (maintenance.ts — отмену отсекает проверка archived_at в assertIssueVersion),
+ *  перебалансировка rank (rank.ts) и возврат в бэклог при завершении спринта (sprints.ts) — отмена не
+ *  восстанавливает ни rank, ни спринт, поэтому эти записи с ней не конфликтуют. */
 export const ISSUE_VERSION_SQL = "GREATEST(clock_timestamp(), date_trunc('milliseconds', updated_at) + interval '1 millisecond')";
 export function assertIssueVersion(row: Pick<IssueRow, "updated_at" | "archived_at">, expectedUpdatedAt?: string): void {
   // Archive maintenance does not bump updated_at; conditional Undo must never revive an archived row.

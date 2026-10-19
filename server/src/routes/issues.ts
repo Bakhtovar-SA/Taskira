@@ -579,7 +579,9 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
       // Уведомления (NOTIFICATIONS_MIGRATION.md D2) — только новым исполнителям,
       // не всему списку: снятие или уже назначенных повторно пинговать не за что.
-      if (addedAssigneeIds.length > 0) {
+      // Запрос с expectedUpdatedAt — восстановление отменой (трек O D-07): вернувшиеся исполнители были сняты
+      // секунды назад, повторное «назначена на вас» — шум. История (assigneeAdded) при этом остаётся.
+      if (addedAssigneeIds.length > 0 && body.expectedUpdatedAt === undefined) {
         await emit({
           type: "issue.assigned",
           actorId: user.sub,
