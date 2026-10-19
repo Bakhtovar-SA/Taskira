@@ -724,7 +724,7 @@ export default function Backlog() {
 
       {/* Bounded table; intermediate desktop widths scroll within the list. */}
       <div className={`list-scroll min-h-0 flex-1 overflow-auto ${selectedIds.size ? "pb-20" : ""}`}>
-        <div key={scope} ref={reveal.contentRef} data-skeleton-content="backlog" className="list-table-wrap">
+        <div ref={reveal.contentRef} data-skeleton-content="backlog" className="list-table-wrap">
           {set.loading ? (
             <div
               key={scope}

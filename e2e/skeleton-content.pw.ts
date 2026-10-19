@@ -99,3 +99,20 @@ for (const surface of ["board", "backlog"] as const) {
     expect((await records(page, surface)).filter(item => item.name === "viewIn")).toEqual([]);
   });
 }
+
+test("backlog: смена фильтра не пересоздаёт обёртку таблицы — фокус строки сохраняется", async ({ page }) => {
+  await boardFixture(page);
+  await page.goto("/p/CORP/list");
+  const rows = page.locator(".list-table [data-issue-id]");
+  await expect(rows.first()).toBeVisible();
+  const wrap = page.locator('[data-skeleton-content="backlog"]');
+  await wrap.evaluate(node => { (node as HTMLElement & { __kept?: boolean }).__kept = true; });
+  const target = rows.filter({ hasText: "Единая" }).first();
+  await target.locator("a, button, [tabindex]").first().focus();
+  const focused = await page.evaluate(() => document.activeElement?.closest("[data-issue-id]")?.getAttribute("data-issue-id") ?? null);
+  expect(focused).not.toBeNull();
+  await page.getByRole("textbox", { name: "Фильтр задач" }).fill("Единая");
+  await expect(rows).toHaveCount(1);
+  await settle(page);
+  expect(await wrap.evaluate(node => (node as HTMLElement & { __kept?: boolean }).__kept === true)).toBe(true);
+});

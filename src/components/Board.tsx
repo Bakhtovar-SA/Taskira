@@ -354,7 +354,8 @@ const ColumnCards = memo(function ColumnCards({
   // Reuse the existing scroll body: an extra flex wrapper changes content-visibility sizing.
   const mountSentinel = useCallback((node: HTMLDivElement | null) => {
     sentinelRef.current = node;
-    reveal.contentRef.current = node ? node.parentElement as HTMLDivElement : null;
+    // Контейнер ищем по разметке BoardColumn (data-skeleton-content="board"), а не по parentElement: обёртка вокруг sentinel его не собьёт.
+    reveal.contentRef.current = node ? node.closest<HTMLDivElement>('[data-skeleton-content="board"]') : null;
   }, [sentinelRef, reveal.contentRef]);
 
   return (
