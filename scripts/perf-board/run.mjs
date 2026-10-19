@@ -73,7 +73,6 @@ const boot = {
 };
 let unread = 0;
 const detailMarker = process.env.BENCH_DETAIL_MARKER ?? "";
-const unknown = new Set();
 function handle(method, url) {
   const p = url.pathname;
   const q = url.searchParams;
@@ -104,8 +103,7 @@ function handle(method, url) {
     return { ...dto(st, Number(n)), ...(detailMarker ? { description: detailMarker } : {}) };
   }
   if (/^\/api\/projects\/p1\/issues\/[^/]+\/\w+/.test(p)) return []; // comments, activity, …
-  unknown.add(`${method} ${p}`);
-  throw new Error("Unmocked benchmark API: " + [...unknown].join(", "));
+  throw new Error(`Unmocked benchmark API: ${method} ${p}`);
 }
 
 if (process.argv.includes("--self-test")) {
