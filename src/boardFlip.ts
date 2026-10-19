@@ -52,10 +52,8 @@ const layoutOf = (el: Element, v: DOMRect): Pos => {
 export function snapshotBoard(root: HTMLElement | null, movedId: string | null): object | null {
   const l = landing;
   landing = null;
-  if (!root || motionReduced()) {
-    snap = null; // снимок от переноса до включения reduce не должен сыграть следующий (уже «мгновенный») перенос
-    return null;
-  }
+  // Устаревший снимок при включённом reduce сбрасывает единственный владелец — `playBoardFlip` (B-06).
+  if (!root || motionReduced()) return null;
   void preloadMotion();
   const pos = new Map<string, Pos>();
   for (const el of root.querySelectorAll<HTMLElement>(SELECTOR)) pos.set(el.dataset.issueId!, layoutOf(el, visible(el)));
@@ -110,7 +108,7 @@ export function playBoardFlip(): void {
   const s = snap;
   if (!s) return;
   // reduce включили между снимком и коммитом: полёт не играем и копию карточки не создаём (B-06).
-  if (motionReduced() || s.dead ||performance.now() - s.at > TTL_MS || !s.root.isConnected) {
+  if (motionReduced() || s.dead || performance.now() - s.at > TTL_MS || !s.root.isConnected) {
     snap = null;
     return;
   }
