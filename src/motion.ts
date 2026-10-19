@@ -189,6 +189,7 @@ export function flipFrom(el: HTMLElement, left: number, top: number, { lift = tr
       ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...(delayMs > 0 ? SPRING_ENTER : SPRING), ...(delayMs > 0 ? { delay: delayMs / 1000 } : {}) }), ["transform"])
       : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: 300, delay: delayMs, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["transform"]),
   );
+  if (!c && delayMs > 0) el.style.transform = ""; // анимация не стартовала: не оставляем элемент смещённым
   return done(c);
 }
 /** Итоговый CSS zoom элемента (currentCSSZoom: Chrome 128 / Firefox 126 / Safari 18.2; без него — 1, как ds/floating). */

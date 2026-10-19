@@ -13,9 +13,9 @@ import { cssZoom, flipFrom, motionReduced, preloadMotion } from "./motion";
 const TTL_MS = 3000;
 /** Больше — мгновенно: не гоняем сотни WAAPI-анимаций разом (VDI, ADR-0035 «Последствия»). */
 const MAX_ANIMATED = 40;
-/** Волна карточек при массовой смене статуса: шаг между соседями и потолок на всю волну (быстро, не очередь). */
+/** Волна карточек при массовой смене статуса: шаг между соседями и потолок на всю волну (быстро, не очередь); шаг сжимается пропорционально числу карточек. */
 const WAVE_STEP_MS = 45;
-const WAVE_TOTAL_MS = 220;
+const WAVE_TOTAL_MS = 100; // = потолок delay пружины во flipFrom (MAX_SPRING_DELAY_MS): шаг волны остаётся различимым, а не слипается на потолке
 const SELECTOR = "article[data-issue-id]";
 
 type Pos = { left: number; top: number };
@@ -143,7 +143,7 @@ export function playBoardFlip(): void {
       const lift = m.id === s.lifted || rank >= 0;
       // Перенесённая карточка (с «подъёмом» — scale) и всё, что меняет колонку, летит над доской: тело колонки
       // прокручивается и обрезало бы её по краям; соседи едут только по вертикали внутри своей колонки.
-      if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(m.el, m.from, m.to, lift, rank >= 0 ? { delay: rank * step, z: wave.length - rank } : undefined);
+      if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(m.el, m.from, m.to, lift, rank >= 0 ? { delay: Math.min(WAVE_TOTAL_MS, rank * step), z: wave.length - rank } : undefined);
       else void flipFrom(m.el, m.from.left, m.from.top, { lift });
     }
     s.pos.set(m.id, m.to);
